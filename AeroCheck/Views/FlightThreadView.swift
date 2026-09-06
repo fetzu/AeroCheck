@@ -16,7 +16,7 @@ struct ThreadTaskPresentation {
         case .routePlanned:
             return .init(title: L10n.Thread.taskRoute, hint: nil, icon: "point.topleft.down.curvedto.point.bottomright.up")
         case .fuelPlanned:
-            return .init(title: L10n.Thread.taskFuel, hint: nil, icon: "fuelpump")
+            return .init(title: L10n.Thread.taskFuel, hint: L10n.Thread.hintFuel, icon: "fuelpump")
         case .massAndBalance:
             return .init(title: L10n.Thread.taskMassBalance, hint: L10n.Thread.hintMassBalance, icon: "scalemass")
         case .aircraftReserved:
@@ -71,7 +71,12 @@ struct ThreadTaskPresentation {
     /// beats an integration that can be switched off upstream.
     /// `tariffURL` is resolved by the caller (which is on the main actor) rather than looked up
     /// here, so this stays a pure presentation helper with no service reach-through.
-    static func links(for task: ThreadTask, tariffURL: URL? = nil) -> [(label: String, url: URL)] {
+    /// `touchesSwitzerland` gates the Swiss half of a customs task. It is passed in rather than
+    /// assumed: offering "Swiss side" on a Slovakia → Germany flight is the app claiming a country is
+    /// involved that is 300 km away.
+    static func links(for task: ThreadTask,
+                      tariffURL: URL? = nil,
+                      touchesSwitzerland: Bool = false) -> [(label: String, url: URL)] {
         switch task.key {
         case .flightPlanFiled:
             return [(L10n.Thread.openSkybriefing,
@@ -96,12 +101,14 @@ struct ThreadTaskPresentation {
             return [(L10n.Cost.openTariff, tariffURL)]
         case .customsNotified:
             // The authority's own page, in its own language, is the source — the app only points at
-            // it. The Swiss side applies whichever country is at the other end.
-            var links: [(label: String, url: URL)] = [
-                (L10n.Border.swissSide, BorderCrossingGuide.switzerland.officialURL)
-            ]
+            // it. The Swiss side applies whichever country is at the other end, but only when the
+            // flight actually touches Switzerland.
+            var links: [(label: String, url: URL)] = []
             if let country = task.subject, let rule = BorderCrossingGuide.rule(for: country) {
-                links.insert((L10n.Border.openOfficial, rule.officialURL), at: 0)
+                links.append((L10n.Border.openOfficial, rule.officialURL))
+            }
+            if touchesSwitzerland {
+                links.append((L10n.Border.swissSide, BorderCrossingGuide.switzerland.officialURL))
             }
             return links
         default:
@@ -362,6 +369,7 @@ struct FlightThreadView: View {
                         onDismissTask: { setState(.notApplicable, task, in: thread) },
                         onOpen: { url in openURL(url) },
                         tariffURL: tariffURL(for: task),
+                        touchesSwitzerland: thread.countries?.contains("CH") ?? false,
                         // v5.0.0: three tasks now open a calculator instead of only taking a tick.
                         // The tick still works on its own — the tool is an aid, not a gate.
                         toolLabel: toolLabel(for: task, in: thread),
@@ -553,13 +561,17 @@ struct ThreadTaskRow: View {
     let onOpen: (URL) -> Void
     /// Operator tariff page for a fee task, resolved by the parent view. (v5.0.0)
     var tariffURL: URL?
+    /// Whether this flight actually touches Switzerland, which gates the Swiss customs link.
+    var touchesSwitzerland: Bool = false
     /// Label for an in-app tool this task can open (mass & balance, cost & logbook). Nil for a task
     /// that is only ever a tick.
     var toolLabel: String?
     var onOpenTool: (() -> Void)?
 
     private var presentation: ThreadTaskPresentation { .make(for: task) }
-    private var links: [(label: String, url: URL)] { ThreadTaskPresentation.links(for: task, tariffURL: tariffURL) }
+    private var links: [(label: String, url: URL)] {
+        ThreadTaskPresentation.links(for: task, tariffURL: tariffURL, touchesSwitzerland: touchesSwitzerland)
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {

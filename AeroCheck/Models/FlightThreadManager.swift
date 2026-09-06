@@ -92,6 +92,8 @@ class FlightThreadManager: ObservableObject {
         var context = Self.context(for: plan, profile: profile)
         context.pprIdents = pprIdents
         context.destinationFuels = destinationFuels
+        thread.countries = context.countries
+        thread.homeCountry = context.homeCountry
         thread.tasks = ThreadTaskEngine.generate(context: context)
 
         threads.insert(thread, at: 0)
@@ -120,6 +122,8 @@ class FlightThreadManager: ObservableObject {
         context.weatherSummary = weatherSummary
         context.pprIdents = pprIdents
         context.flightPlanFiled = threads[index].flightPlanFiledAt != nil
+        threads[index].countries = context.countries
+        threads[index].homeCountry = context.homeCountry
         threads[index].tasks = ThreadTaskEngine.generate(context: context, existing: threads[index].tasks)
         threads[index].touch()
         saveThreads()
@@ -164,20 +168,28 @@ class FlightThreadManager: ObservableObject {
         // decide it, and `generate` carries every other task's state across unchanged.
         let existing = threads[index].tasks
         context.hasRoute = existing.contains { $0.key == .routePlanned && $0.state == .done }
-        threads[index].tasks = ThreadTaskEngine.generate(context: enrich(context, from: existing),
-                                                         existing: existing)
+        let enriched = enrich(context, from: threads[index])
+        threads[index].tasks = ThreadTaskEngine.generate(context: enriched, existing: existing)
         threads[index].touch()
     }
 
     /// Rebuild the subject-bearing parts of a context (PPR aerodromes, fee aerodromes, countries)
     /// from tasks that already exist, so a regeneration triggered by something other than a plan edit
     /// does not drop them.
-    private func enrich(_ context: ThreadTaskEngine.Context, from tasks: [ThreadTask]) -> ThreadTaskEngine.Context {
+    private func enrich(_ context: ThreadTaskEngine.Context,
+                        from thread: FlightThread) -> ThreadTaskEngine.Context {
         var result = context
+        let tasks = thread.tasks
+        // Both route-derived facts come from the thread's own record. Re-deriving either one here
+        // would mean guessing, and the guess that used to live here was "Switzerland".
+        if let home = thread.homeCountry, !home.isEmpty { result.homeCountry = home }
         result.pprIdents = tasks.filter { $0.key == .pprObtained }.compactMap(\.subject)
         result.feeIdents = tasks.filter { $0.key == .feesPaid }.compactMap(\.subject)
-        let foreign = tasks.filter { $0.key == .customsNotified }.compactMap(\.subject)
-        result.countries = ([result.homeCountry] + foreign).uniqued()
+        // The thread's own record, never a reconstruction. The customs tasks name only FOREIGN
+        // countries, so rebuilding the list from them required adding the home country back — and
+        // with home hard-coded to CH that put Switzerland on every route in the world, which is
+        // exactly how a Slovakia → Germany flight grew a DABS task and a "Swiss side" link.
+        result.countries = thread.countries ?? []
         // Keep the computed auto-task details rather than recomputing them from a context that no
         // longer has the plan.
         if let fuel = tasks.first(where: { $0.key == .fuelPlanned }), fuel.state == .done {
@@ -305,13 +317,32 @@ class FlightThreadManager: ObservableObject {
     @MainActor
     static func context(for plan: FlightPlan?,
                         profile: ThreadProfile,
-                        homeCountry: String = "CH") -> ThreadTaskEngine.Context {
+                        homeCountry: String? = nil) -> ThreadTaskEngine.Context {
         let crossed: [String] = plan.map { plan in
             RouteDataCalculator.countries(crossing: plan.waypoints.map {
                 CLLocationCoordinate2D(latitude: $0.latitude, longitude: $0.longitude)
             })
         } ?? []
-        return context(for: plan, profile: profile, homeCountry: homeCountry, countries: crossed)
+        return context(for: plan,
+                       profile: profile,
+                       homeCountry: homeCountry ?? departureCountry(of: plan) ?? deviceCountry(),
+                       countries: crossed)
+    }
+
+    /// The country you are departing FROM, which is what decides which of the crossed countries are
+    /// foreign. Hard-coding this to CH meant a Slovak pilot leaving Slovakia was told to clear
+    /// customs into their own country, and that Switzerland was somehow involved.
+    static func departureCountry(of plan: FlightPlan?) -> String? {
+        guard let first = plan?.waypoints.first else { return nil }
+        let at = CLLocationCoordinate2D(latitude: first.latitude, longitude: first.longitude)
+        return RouteDataCalculator.countries(crossing: [at]).first
+    }
+
+    /// Last resort for a thread with no route at all — circuits with no plan, typically flown at
+    /// home. The device's own region is a far better guess than a constant, and it is the same
+    /// signal onboarding already uses to propose which data to download.
+    nonisolated static func deviceCountry() -> String {
+        Locale.current.region?.identifier ?? ""
     }
 
     /// Pure context builder. `countries` is supplied by the caller because deciding which countries a
@@ -322,9 +353,10 @@ class FlightThreadManager: ObservableObject {
                                     countries: [String]) -> ThreadTaskEngine.Context {
         var context = ThreadTaskEngine.Context(profile: profile, homeCountry: homeCountry)
         guard let plan, !plan.waypoints.isEmpty else {
-            // No plan: a local session still gets its short thread, and the countries default to home
-            // so the Swiss products (DABS) still appear.
-            context.countries = countries.isEmpty ? [homeCountry] : countries
+            // No route at all — a circuit session, flown at home by definition. Assuming the home
+            // country here is reasonable; assuming it for a route we simply failed to measure is not,
+            // which is why the two cases are separated.
+            context.countries = countries.isEmpty ? [homeCountry].filter({ !$0.isEmpty }) : countries
             return context
         }
 
@@ -341,7 +373,10 @@ class FlightThreadManager: ObservableObject {
             context.feeIdents = [arrival]
         }
 
-        context.countries = countries.isEmpty ? [homeCountry] : countries
+        // A route we could not resolve to any country is UNKNOWN, not "at home". Substituting the
+        // home country here is what put Swiss products on flights that never approach Switzerland;
+        // an empty list simply produces no country-specific tasks, which is the honest outcome.
+        context.countries = countries
 
         // A plan with no fuel figures entered leaves the fuel task pending rather than claiming a
         // zero-litre flight is adequately fuelled.

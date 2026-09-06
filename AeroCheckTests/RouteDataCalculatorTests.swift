@@ -21,6 +21,19 @@ final class RouteDataCalculatorTests: XCTestCase {
         XCTAssertTrue(countries.contains("CH"))
     }
 
+    /// Prievidza (LZPE) → Eggenfelden (EDME): Slovakia to Germany across Austria, ~300 km from the
+    /// nearest Swiss border. Reported from a device pass as showing DABS, GAFOR and a "Swiss side"
+    /// customs link — so this pins that the geometry itself is innocent, and the fault is downstream.
+    func testARouteNowhereNearSwitzerlandDoesNotReportSwitzerland() {
+        let countries = RouteDataCalculator.countries(crossing: [
+            CLLocationCoordinate2D(latitude: 48.7742, longitude: 18.5942),
+            CLLocationCoordinate2D(latitude: 48.3961, longitude: 12.7236),
+        ])
+        XCTAssertFalse(countries.contains("CH"), "got \(countries)")
+        XCTAssertTrue(countries.contains("SK"), "departure country missing: \(countries)")
+        XCTAssertTrue(countries.contains("DE"), "destination country missing: \(countries)")
+    }
+
     func testRouteCrossingTwoCountriesReturnsBoth() {
         // Bern (CH) → Lyon (FR)
         let countries = RouteDataCalculator.countries(crossing: [

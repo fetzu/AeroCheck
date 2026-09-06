@@ -178,7 +178,11 @@ enum ThreadTaskEngine {
         if c.fuelRequiredLitres > 0 {
             let required = Int(c.fuelRequiredLitres.rounded())
             let onBoard = Int(c.fuelOnBoardLitres.rounded())
-            parts.append("\(required) L / \(onBoard) L")
+            // "45 L / 60 L" said nothing about which number was which — and got it backwards from
+            // the reading most pilots expect, since the smaller figure came first. REQ and FOB are
+            // the shorthand already used on the plan editor, and like every aviation abbreviation in
+            // this app they stay untranslated, which also keeps this persisted detail language-neutral.
+            parts.append("REQ \(required) L · FOB \(onBoard) L")
         }
         // What the destination can actually put in the tanks. This is the "refuelling options on
         // route" the fuel row is the natural home for — a pilot reading a fuel line is already

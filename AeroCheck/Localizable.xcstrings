@@ -1081,6 +1081,16 @@
         }
       }
     },
+    "REQ = trip + alternate + 45-min final reserve + extra. FOB = what you plan to carry." : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "REQ = navigation + dégagement + réserve finale 45 min + supplément. FOB = ce que vous prévoyez d'emporter."
+          }
+        }
+      }
+    },
     "Check the load sheet against the envelope in the POH" : {
       "localizations" : {
         "fr" : {

@@ -284,6 +284,7 @@ enum L10n {
         static func taskFees(_ ident: String) -> String { String(localized: "Fees — \(ident)") }
 
         // Task subtitles
+        static let hintFuel = String(localized: "REQ = trip + alternate + 45-min final reserve + extra. FOB = what you plan to carry.")
         static let hintMassBalance = String(localized: "Check the load sheet against the envelope in the POH")
         static let hintDabs = String(localized: "Daily Airspace Bulletin Switzerland")
         static let hintGafor = String(localized: "Route forecast — opens MeteoSwiss")

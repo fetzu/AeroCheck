@@ -147,6 +147,23 @@ struct FlightThread: Codable, Identifiable, Equatable, Sendable {
     var aircraftRegistration: String?
     var scheduledDeparture: Date?
 
+    /// ISO-2 countries the route actually touches, recorded when the tasks are generated.
+    ///
+    /// Stored rather than recomputed because a regeneration triggered by something other than a plan
+    /// edit has no plan to measure. Reconstructing it from the customs tasks — which only name
+    /// FOREIGN countries — meant adding the home country back by hand, and that is what silently put
+    /// Switzerland on a Slovakia → Germany flight and conjured DABS and GAFOR onto it.
+    ///
+    /// `nil` on threads written before v5.0.0: not recorded, which is treated as "unknown" and
+    /// therefore as no country-specific products at all. It refills on the next regeneration.
+    var countries: [String]?
+
+    /// The country this flight departs FROM — what decides which of `countries` are foreign.
+    /// Recorded for the same reason as `countries`: a regeneration with no plan cannot measure it,
+    /// and falling back to the device's region would tell a Slovak pilot to clear customs into
+    /// Slovakia.
+    var homeCountry: String?
+
     var tasks: [ThreadTask] = []
 
     /// Set when the pilot ticks "flight plan filed". This is what arms the close reminder — a thread

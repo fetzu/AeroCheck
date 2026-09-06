@@ -123,6 +123,7 @@ enum L10n {
         static let end = String(localized: "button.end")
         static let done = String(localized: "button.done")
         static let close = String(localized: "button.close")
+        static let clear = String(localized: "button.clear")
         static let retry = String(localized: "button.retry")
         static let cancel = String(localized: "button.cancel")
         static let delete = String(localized: "button.delete")
@@ -228,6 +229,9 @@ enum L10n {
             String(localized: "\(count) go-around")
         }
         static let copyLine = String(localized: "Copy line")
+        static let lineCopied = String(localized: "Logbook line copied")
+        static let showRow = String(localized: "Logbook row")
+        static let showRowHint = String(localized: "The same values, in the order your logbook prints them. Scroll sideways for the remaining columns; corrections go in Edit.")
         static let exportCSV = String(localized: "Export CSV")
         static let picName = String(localized: "PIC name")
         static let function = String(localized: "Function")
@@ -681,6 +685,8 @@ enum L10n {
 
         // Flight Planning
         static let flightPlanning = String(localized: "settings.flightPlanning")
+        static let sunlightBoost = String(localized: "High contrast in sunlight")
+        static let sunlightBoostFooter = String(localized: "Switches to the high-contrast palette while the screen is near full brightness — the app cannot read ambient light, so brightness is the signal.")
         static let pilot = String(localized: "Pilot")
         static let pilotName = String(localized: "Your name")
         static let pilotNamePlaceholder = String(localized: "Name as it appears in your logbook")

@@ -141,6 +141,18 @@ struct FlightPlanEditorView: View {
         .background(RoundedRectangle(cornerRadius: 12).fill(Color.panelBackground))
     }
 
+    /// Runway designators at the DEPARTURE aerodrome, both ends of each strip, in a stable order.
+    /// Empty when the airport layer is not downloaded — which is why the field stays free text.
+    private var departureRunwayIdents: [String] {
+        guard let ident = flightPlan.waypoints.first?.name, ident.count == 4 else { return [] }
+        let ends = airportDataService.getRunways(for: ident.uppercased())
+            .filter { !$0.closed }
+            .flatMap { [$0.leIdent, $0.heIdent] }
+            .compactMap { $0?.trimmingCharacters(in: .whitespaces) }
+            .filter { !$0.isEmpty }
+        return Array(Set(ends)).sorted()
+    }
+
     private var routeEndpoints: String {
         let names = flightPlan.waypoints.map { $0.name.isEmpty ? L10n.Nav.wpt : $0.name }
         if names.count >= 2, let f = names.first, let l = names.last { return "\(f) → \(l)" }
@@ -221,7 +233,31 @@ struct FlightPlanEditorView: View {
                     get: { flightPlan.plannedDepartureTime ?? Date() },
                     set: { flightPlan.plannedDepartureTime = $0 }
                 ))
-                OptionalFormField(label: L10n.Nav.runway, text: $flightPlan.runwayInUse, keyboardType: .numberPad)
+                // Typed by hand until now, which invited "24" for a field whose runway is 06/24 and
+                // gave no hint of what exists. The idents come from the departure aerodrome's own
+                // runway data; free text stays available because a grass strip the database does not
+                // know about is still a runway you can take off from. (device pass)
+                HStack(spacing: 6) {
+                    OptionalFormField(label: L10n.Nav.runway, text: $flightPlan.runwayInUse)
+                    if !departureRunwayIdents.isEmpty {
+                        Menu {
+                            ForEach(departureRunwayIdents, id: \.self) { ident in
+                                Button(ident) { flightPlan.runwayInUse = ident }
+                            }
+                            if flightPlan.runwayInUse?.isEmpty == false {
+                                Divider()
+                                Button(L10n.Button.clear, role: .destructive) { flightPlan.runwayInUse = nil }
+                            }
+                        } label: {
+                            Image(systemName: "chevron.up.chevron.down")
+                                .scaledFont(size: 12, weight: .semibold, relativeTo: .caption)
+                                .foregroundColor(.aviationGold)
+                                .frame(width: 30, height: 30)
+                                .contentShape(Rectangle())
+                        }
+                        .accessibilityLabel(L10n.Nav.runway)
+                    }
+                }
                 OptionalFormField(label: L10n.Nav.instructor, text: $flightPlan.instructor)
                 FormField(label: L10n.Nav.totalEET, text: .constant(flightPlan.formattedTotalEET), isReadOnly: true)
                 FormField(label: L10n.Nav.distance, text: .constant(String(format: "%.1f NM", flightPlan.totalDistance)), isReadOnly: true)

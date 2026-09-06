@@ -316,11 +316,19 @@ final class FlightMergeValidationTests: XCTestCase {
         let prefSystem = try JSONDecoder().decode(AppSettings.self, from: Data(#"{"nightModePreference":"system"}"#.utf8))
         XCTAssertEqual(prefSystem.themePreference, .auto)
 
-        // The new preference round-trips (sunlight survives encode/decode).
+        // The preference round-trips.
         var s = AppSettings()
-        s.themePreference = .sunlight
+        s.themePreference = .night
         let roundTripped = try JSONDecoder().decode(AppSettings.self, from: JSONEncoder().encode(s))
-        XCTAssertEqual(roundTripped.themePreference, .sunlight)
+        XCTAssertEqual(roundTripped.themePreference, .night)
+
+        // `.sunlight` deliberately does NOT round-trip any more: it stopped being a picker choice in
+        // v5.x and became the `sunlightBoost` toggle, so a save still holding it is migrated rather
+        // than preserved. Covered in full by InstrumentAccessibilityTests.
+        let legacySunlight = try JSONDecoder().decode(
+            AppSettings.self, from: Data(#"{"themePreference":"sunlight"}"#.utf8))
+        XCTAssertEqual(legacySunlight.themePreference, .day)
+        XCTAssertTrue(legacySunlight.sunlightBoost)
     }
 }
 

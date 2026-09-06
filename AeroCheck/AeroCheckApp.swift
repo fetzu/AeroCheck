@@ -534,6 +534,9 @@ struct AppRootView<Content: View>: View {
     @ObservedObject private var ambient = AmbientController.shared
     @Environment(\.colorScheme) private var systemColorScheme
     private let content: Content
+    /// Live screen brightness, for the sunlight boost. iOS exposes no ambient-light reading, so this
+    /// is the proxy — see `AppSettings.sunlightBoost`. (v5.x)
+    @State private var screenBrightness: Double = 0
 
     init(appState: AppState, @ViewBuilder content: () -> Content) {
         self.appState = appState
@@ -543,6 +546,14 @@ struct AppRootView<Content: View>: View {
     var body: some View {
         let systemIsDark = systemColorScheme == .dark
         content
+            // Screen brightness drives the optional sunlight boost. Observed rather than polled: the
+            // notification fires on every change, including the ones auto-brightness makes when the
+            // aircraft turns into the sun. (v5.x)
+            .onReceive(NotificationCenter.default.publisher(
+                for: UIScreen.brightnessDidChangeNotification)) { _ in
+                screenBrightness = Double(UIScreen.main.brightness)
+            }
+            .onAppear { screenBrightness = Double(UIScreen.main.brightness) }
             // A fresh identity when the runtime accent revision changes forces the view tree to
             // re-read the (computed) design tokens so an installed override takes effect everywhere.
             .id(ambient.revision)
@@ -551,7 +562,7 @@ struct AppRootView<Content: View>: View {
             .environment(\.isNightMode, appState.settings.effectiveNightMode(systemIsDark: systemIsDark))
             // Cockpit theme: app-wide semantic palette the revamped screens read (v4 UI/UX Revamp).
             // An installed runtime accent takes precedence over the user's resolved mode.
-            .environment(\.cockpitTheme, CockpitTheme.ambientOverride ?? CockpitTheme.resolve(appState.settings.cockpitThemeMode(systemIsDark: systemIsDark)))
+            .environment(\.cockpitTheme, CockpitTheme.ambientOverride ?? CockpitTheme.resolve(appState.settings.cockpitThemeMode(systemIsDark: systemIsDark, screenBrightness: screenBrightness)))
             // Force the app's appearance dark WITHOUT a window override, so the read above stays valid.
             // The runtime light treatment flips this to `.light` so system controls (toggles, pickers),
             // materials and any default/semantic text render correctly on the light surfaces.

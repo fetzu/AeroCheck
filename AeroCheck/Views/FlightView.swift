@@ -2449,12 +2449,14 @@ struct FlightInfoSheet: View {
                             )) {
                                 Text(L10n.Settings.themeAuto).tag(ThemePreference.auto)
                                 Text(L10n.Settings.themeDay).tag(ThemePreference.day)
-                                Text(L10n.Settings.themeSunlight).tag(ThemePreference.sunlight)
                                 Text(L10n.Settings.themeNight).tag(ThemePreference.night)
                             }
                             .pickerStyle(.segmented)
                             .labelsHidden()
                         }
+                        rowDivider
+                        // The one place this switch is reached with the sun actually on the screen.
+                        toggleRow(L10n.Settings.sunlightBoost, optionBinding(\.sunlightBoost))
                         rowDivider
                         toggleRow(L10n.Settings.learningMode, optionBinding(\.learningMode))
                         rowDivider

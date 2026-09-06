@@ -1134,13 +1134,24 @@ struct SettingsMenuRow<T: Hashable, Options: View>: View {
     @Binding var selection: T
     @ViewBuilder var options: Options
     var body: some View {
-        Picker(selection: $selection) {
-            options
-        } label: {
+        // The label is laid out HERE rather than handed to the Picker. A `.menu` picker style
+        // DISCARDS a custom label and renders only the selected value, so every menu row in Settings
+        // was losing its title and subtitle and appearing as a lone centred value — the checklist
+        // language read as a bare "Auto (System Language)" with nothing saying what it set.
+        // (device pass)
+        HStack(spacing: 12) {
             SettingsRowLabel(icon: icon, title: title, subtitle: subtitle, tint: tint)
+            Spacer(minLength: 8)
+            Picker(selection: $selection) {
+                options
+            } label: {
+                EmptyView()
+            }
+            .pickerStyle(.menu)
+            .labelsHidden()
+            .tint(.secondaryText)
+            .fixedSize()
         }
-        .pickerStyle(.menu)
-        .tint(.secondaryText)
         .padding(.horizontal, 14)
         .padding(.vertical, 5)
     }

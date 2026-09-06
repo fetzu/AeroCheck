@@ -62,6 +62,50 @@ final class FlightNumbersTests: XCTestCase {
         XCTAssertEqual(line.landingsDay, 1)
     }
 
+    // MARK: - The line laid out as the form (v5.x)
+
+    func testFormRowPutsEachValueUnderTheFormsOwnHeading() {
+        let row = LogbookFormRow.build(from: LogbookLineBuilder.build(flight: flight()))
+
+        func cells(_ title: String) -> [LogbookFormRow.Cell] {
+            row.groups.first { $0.title == title }?.cells ?? []
+        }
+
+        XCTAssertEqual(row.groups.count, 12, "AMC1 FCL.050 has twelve column groups")
+        XCTAssertEqual(cells("DATE").first?.value, "06.09.2026")
+        XCTAssertEqual(cells("DEPARTURE").map(\.value), ["LSZQ", "13:02"])
+        XCTAssertEqual(cells("ARRIVAL").map(\.value), ["LSGY", "14:31"])
+        XCTAssertEqual(cells("AIRCRAFT").map(\.value), ["DR400/140B", "HB-KFD"])
+        XCTAssertEqual(cells("TOTAL TIME").first?.value, "1:29")
+        XCTAssertEqual(cells("LANDINGS").map(\.label), ["DAY", "NIGHT"])
+    }
+
+    /// The form has one column per pilot role and the time belongs under exactly one. The rest stay
+    /// BLANK, not "0:00" — a zero claims the pilot logged nothing in that role, which is a different
+    /// statement from not having flown in it.
+    func testFormRowPutsFunctionTimeUnderOneRoleAndLeavesTheOthersBlank() {
+        let solo = LogbookFormRow.build(from: LogbookLineBuilder.build(flight: flight()))
+        let soloFunction = solo.groups.first { $0.title == "PILOT FUNCTION TIME" }
+        XCTAssertEqual(soloFunction?.cells.map(\.label), ["PIC", "CO-PILOT", "DUAL", "INSTR"])
+        XCTAssertEqual(soloFunction?.cells.map(\.value), ["1:29", "", "", ""])
+
+        let dual = LogbookFormRow.build(
+            from: LogbookLineBuilder.build(flight: flight(instructor: "M. Dupont")))
+        let dualFunction = dual.groups.first { $0.title == "PILOT FUNCTION TIME" }
+        XCTAssertEqual(dualFunction?.cells.map(\.value), ["", "", "1:29", ""])
+    }
+
+    /// Single-engine time is known; the ME column is not the app's to fill.
+    func testFormRowLeavesColumnsTheAppCannotKnowEmpty() {
+        let row = LogbookFormRow.build(from: LogbookLineBuilder.build(flight: flight()))
+
+        XCTAssertEqual(row.groups.first { $0.title == "SINGLE-PILOT TIME" }?.cells.map(\.value),
+                       ["1:29", ""])
+        XCTAssertEqual(row.groups.first { $0.title == "MULTI-PILOT" }?.cells.map(\.value), [""])
+        XCTAssertEqual(row.groups.first { $0.title == "OPERATIONAL CONDITION TIME" }?.cells.map(\.value),
+                       ["", ""], "night and IFR are the pilot's to enter")
+    }
+
     func testTimesAreUTCNotLocal() {
         // AMC1 FCL.050 is explicit that logbook times are UTC. A local time silently written into
         // that column is the error nobody catches until an audit.

@@ -123,6 +123,7 @@ enum L10n {
         static let end = String(localized: "button.end")
         static let done = String(localized: "button.done")
         static let close = String(localized: "button.close")
+        static let clear = String(localized: "button.clear")
         static let retry = String(localized: "button.retry")
         static let cancel = String(localized: "button.cancel")
         static let delete = String(localized: "button.delete")
@@ -175,6 +176,25 @@ enum L10n {
         static let from = String(localized: "From")
         static let to = String(localized: "To")
         static let identPlaceholder = String(localized: "ICAO or name")
+        static let addStop = String(localized: "Add stop")
+        static func legCount(_ count: Int) -> String {
+            String(localized: "\(count) legs")
+        }
+        static func createFlights(_ count: Int) -> String {
+            String(localized: "Create \(count) flights")
+        }
+        static func legsExplainer(_ stops: Int, _ legs: Int) -> String {
+            String(localized: "\(stops) aerodromes · \(legs) legs, sharing one preparation")
+        }
+        static func legOf(_ index: Int, _ total: Int) -> String {
+            String(localized: "Leg \(index) of \(total)")
+        }
+        static func tripProgress(_ done: Int, _ total: Int) -> String {
+            String(localized: "TRIP · \(done) of \(total)")
+        }
+        static func recheckForThisLeg(_ when: String) -> String {
+            String(localized: "Checked \(when) — re-check for this leg")
+        }
         static let routeOptional = String(localized: "The route is optional — draw it on the map whenever you are ready")
         static let circuitsHint = String(localized: "Circuits start and finish at the same field")
 
@@ -209,6 +229,9 @@ enum L10n {
             String(localized: "\(count) go-around")
         }
         static let copyLine = String(localized: "Copy line")
+        static let lineCopied = String(localized: "Logbook line copied")
+        static let showRow = String(localized: "Logbook row")
+        static let showRowHint = String(localized: "The same values, in the order your logbook prints them. Scroll sideways for the remaining columns; corrections go in Edit.")
         static let exportCSV = String(localized: "Export CSV")
         static let picName = String(localized: "PIC name")
         static let function = String(localized: "Function")
@@ -293,6 +316,8 @@ enum L10n {
         static let followFlight = String(localized: "Follow this flight")
         static let untitledFlight = String(localized: "Untitled flight")
         static let noThread = String(localized: "Not followed")
+        static let circuitCloseOutOffer = String(localized: "Log the session and write a debrief?")
+        static let circuitCloseOutAccept = String(localized: "Close out")
 
         // Chapters
         static let chapterPlan = String(localized: "Plan")
@@ -662,6 +687,8 @@ enum L10n {
 
         // Flight Planning
         static let flightPlanning = String(localized: "settings.flightPlanning")
+        static let sunlightBoost = String(localized: "High contrast in sunlight")
+        static let sunlightBoostFooter = String(localized: "Switches to the high-contrast palette while the screen is near full brightness — the app cannot read ambient light, so brightness is the signal.")
         static let pilot = String(localized: "Pilot")
         static let pilotName = String(localized: "Your name")
         static let pilotNamePlaceholder = String(localized: "Name as it appears in your logbook")
@@ -1425,6 +1452,7 @@ enum L10n {
         static let additionalFuel = String(localized: "nav.additionalFuel")
         static let extraFuel = String(localized: "nav.extraFuel")
         static let requiredFuel = String(localized: "nav.requiredFuel")
+        static let fuelOnBoard = String(localized: "Fuel on board (L)")
 
         // Timing
         static let timing = String(localized: "nav.timing")
@@ -1498,7 +1526,15 @@ enum L10n {
         static let airspace = String(localized: "nav.airspace")
         static let airspaceNoData = String(localized: "nav.airspaceNoData")
         static let downloadAirspaceData = String(localized: "nav.downloadAirspaceData")
-        static let tripDataMissing = String(localized: "Missing data for this trip")   // v4.1.0 prefetch banner (literal-keyed)
+        /// Deliberately "near your route", not "for this trip". The country list includes anything
+        /// within the inclusion buffer — a route along the Jura reports France, and one to Samedan
+        /// reports Italy — because that is the airspace you can see and enter. Saying "for this trip"
+        /// read as "you are flying to these countries", which is why it looked wrong on a Swiss
+        /// domestic flight. (device pass)
+        static let tripDataMissing = String(localized: "Airspace data missing near your route")
+        static func tripDataProgress(_ done: Int, _ total: Int) -> String {
+            String(localized: "\(done)/\(total) layers")
+        }
         /// Shown in the same banner when the download ran but some layers came back empty — so the
         /// banner stops silently re-offering a button that cannot succeed. (v4.4.0)
         static let tripDataFailed = String(localized: "Some data could not be downloaded")

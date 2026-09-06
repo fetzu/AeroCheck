@@ -36,6 +36,10 @@ enum ThreadTaskEngine {
         /// layer is not downloaded or the aerodrome reports none — absent is "not stated", never
         /// "none available". (v5.0.0)
         var destinationFuels: [String] = []
+        /// True when this thread is one leg of a trip. Trip-scoped tasks then live on the trip and
+        /// are NOT emitted here — otherwise the pilot would see "aircraft reserved" on every leg and
+        /// have to tick it on each, which is the busywork trips exist to remove. (v5.x)
+        var isLeg: Bool = false
         /// Whether the pilot tracks what a flight costs. Off hides the fee tasks; the logbook line
         /// stands on its own without them. (v5.0.0)
         var tracksCost: Bool = true
@@ -60,7 +64,11 @@ enum ThreadTaskEngine {
             ? localSpecs(context)
             : fullSpecs(context)
 
-        return specs.map { spec in
+        // A leg's own tasks only. The shared ones are the trip's, and the leg screen shows them in
+        // its own band rather than duplicating them into every leg's chapters.
+        let scoped = context.isLeg ? specs.filter { $0.key.scope == .leg } : specs
+
+        return scoped.map { spec in
             var task = ThreadTask(key: spec.key, subject: spec.subject, kind: spec.kind)
             task.detail = spec.detail
             task.isUrgent = spec.isUrgent

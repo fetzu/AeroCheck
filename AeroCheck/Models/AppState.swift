@@ -61,14 +61,39 @@ struct AppSettings: Codable, Equatable {
         }
     }
 
-    /// The active cockpit theme mode (v4 UI/UX Revamp) resolved against the live device appearance.
-    func cockpitThemeMode(systemIsDark: Bool) -> CockpitThemeMode {
-        switch themePreference {
-        case .day: return .day
-        case .sunlight: return .sunlight
-        case .night: return .night
-        case .auto: return systemIsDark ? .night : .day
-        }
+    /// Whether the high-contrast sunlight palette engages by itself in a bright cockpit. (v5.x)
+    ///
+    /// Sunlight used to be a fourth manual choice sitting in the same picker as auto/day/night, and
+    /// `auto` never selected it — so it could only ever be turned on by hand and then stayed on
+    /// indoors, where the high-contrast palette is simply harsher for no gain. As a toggle it can
+    /// mean what a pilot expects it to mean: engage when the screen is bright enough that direct sun
+    /// is the likely reason.
+    var sunlightBoost: Bool = false
+
+    /// Screen brightness above which the sunlight palette takes over, when the boost is enabled.
+    ///
+    /// iOS exposes no ambient-light reading, so screen brightness is the proxy — either the pilot has
+    /// wound it up because of the sun, or auto-brightness already has. Not perfect, and it is exactly
+    /// why this is opt-in rather than the default.
+    static let sunlightBrightnessThreshold: Double = 0.85
+
+    /// The active cockpit theme mode, resolved against the live device appearance and screen
+    /// brightness.
+    func cockpitThemeMode(systemIsDark: Bool, screenBrightness: Double = 0) -> CockpitThemeMode {
+        let base: CockpitThemeMode = {
+            switch themePreference {
+            case .day: return .day
+            case .sunlight: return .sunlight
+            case .night: return .night
+            case .auto: return systemIsDark ? .night : .day
+            }
+        }()
+        // Only ever escalates a DAY palette. Night exists to protect dark adaptation, and blasting a
+        // high-contrast bright palette over it because the screen happens to be turned up would undo
+        // the one thing that mode is for.
+        guard sunlightBoost, base == .day,
+              screenBrightness >= Self.sunlightBrightnessThreshold else { return base }
+        return .sunlight
     }
     var gpsRecordingInterval: Double = 5.0 // seconds
     var showSpeedReference: Bool = true
@@ -224,7 +249,7 @@ struct AppSettings: Codable, Equatable {
         case enableAirspaceStreaming
         case enableCompanionMode
         case companionRole
-        case pilotName, aircraftRates, weightBalanceProfiles
+        case pilotName, aircraftRates, weightBalanceProfiles, sunlightBoost
         // marketingMode and developerMode are intentionally excluded (non-persisted, reset each launch)
     }
 
@@ -299,6 +324,13 @@ struct AppSettings: Codable, Equatable {
         // v5.0.0 numbers. Absent on every existing save; empty dictionaries mean "not set up yet",
         // which is exactly how the calculators treat them.
         pilotName = try container.decodeIfPresent(String.self, forKey: .pilotName) ?? ""
+        // A pilot who had picked the old `sunlight` mode wanted the bright palette, so the boost
+        // starts on for them and their preference falls back to day.
+        sunlightBoost = try container.decodeIfPresent(Bool.self, forKey: .sunlightBoost)
+            ?? (themePreference == .sunlight)
+        // `.sunlight` is no longer offered by any picker, so a save still holding it would show an
+        // empty selection and pin the palette on regardless of the boost.
+        if themePreference == .sunlight { themePreference = .day }
         aircraftRates = try container.decodeIfPresent([String: AircraftRateProfile].self, forKey: .aircraftRates) ?? [:]
         weightBalanceProfiles = try container.decodeIfPresent([String: WeightBalanceProfile].self, forKey: .weightBalanceProfiles) ?? [:]
 

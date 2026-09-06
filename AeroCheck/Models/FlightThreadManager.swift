@@ -19,6 +19,10 @@ class FlightThreadManager: ObservableObject {
     /// Set when a landing closes a thread that still has an open flight plan; drives the urgent
     /// banner. Cleared when the pilot acts on it.
     @Published var openFlightPlanNotice: OpenFlightPlanNotice?
+    /// Set when a circuit session ends with no thread to close out; drives the offer banner. (v5.x)
+    @Published var circuitCloseOutOffer: CircuitCloseOutOffer?
+    /// Multi-leg trips. Few and small, so they load and save as one file. (v5.x)
+    @Published var trips: [Trip] = []
 
     // MARK: - Private Properties
 
@@ -42,6 +46,7 @@ class FlightThreadManager: ObservableObject {
         loadCurrentThreadPointer()
         Task { [weak self] in
             await self?.loadThreadsAsync()
+            await self?.loadTrips()
         }
     }
 
@@ -125,6 +130,7 @@ class FlightThreadManager: ObservableObject {
         guard let index = threads.firstIndex(where: { $0.id == threadId }) else { return }
         var context = Self.context(for: plan, profile: threads[index].profile)
         context.tracksCost = tracksCost
+        context.isLeg = threads[index].tripId != nil
         context.weatherSummary = weatherSummary
         context.pprIdents = pprIdents
         context.flightPlanFiled = threads[index].flightPlanFiledAt != nil
@@ -133,6 +139,100 @@ class FlightThreadManager: ObservableObject {
         threads[index].tasks = ThreadTaskEngine.generate(context: context, existing: threads[index].tasks)
         threads[index].touch()
         saveThreads()
+    }
+
+    // MARK: - Trips (v5.x)
+
+    func trip(withId id: UUID) -> Trip? { trips.first { $0.id == id } }
+
+    func trip(forThreadId id: UUID) -> Trip? {
+        guard let tripId = thread(withId: id)?.tripId else { return nil }
+        return trip(withId: tripId)
+    }
+
+    /// Legs of a trip, in flying order. Reads the order off the trip, which owns it.
+    func legs(of trip: Trip) -> [FlightThread] {
+        trip.legIds.compactMap { id in threads.first { $0.id == id } }
+    }
+
+    /// Threads that are not a leg of anything — what the Flights list shows alongside trip rows.
+    var standaloneUnfinishedThreads: [FlightThread] {
+        unfinishedThreads.filter { $0.tripId == nil }
+    }
+
+    /// Make `threads` into one trip, moving their trip-scoped tasks up to it.
+    ///
+    /// The shared tasks are taken from the FIRST leg and stripped from every leg, so a tick made
+    /// before the trip existed is carried up rather than lost — this is the path a standalone flight
+    /// takes when a second leg is added to it, and its preparation should survive that.
+    @discardableResult
+    func formTrip(from threadIds: [UUID]) -> Trip? {
+        guard threadIds.count >= 2 else { return nil }
+        var trip = Trip(legIds: threadIds)
+
+        if let firstIndex = threads.firstIndex(where: { $0.id == threadIds[0] }) {
+            trip.sharedTasks = threads[firstIndex].tasks.filter { $0.key.scope == .trip }
+        }
+        for id in threadIds {
+            guard let index = threads.firstIndex(where: { $0.id == id }) else { continue }
+            threads[index].tripId = trip.id
+            threads[index].tasks.removeAll { $0.key.scope == .trip }
+            threads[index].touch()
+        }
+        trips.append(trip)
+        saveThreads()
+        saveTrips()
+        return trip
+    }
+
+    /// Tick a shared task. Reached from whichever leg the pilot happens to be looking at — the state
+    /// lives on the trip, so all of them see it at once.
+    func setSharedTaskState(_ state: ThreadTaskState, taskId: UUID, tripId: UUID) {
+        guard let index = trips.firstIndex(where: { $0.id == tripId }),
+              let taskIndex = trips[index].sharedTasks.firstIndex(where: { $0.id == taskId })
+        else { return }
+        trips[index].sharedTasks[taskIndex].state = state
+        // Refreshing a stale briefing re-stamps it, which is what makes it cover the later legs.
+        trips[index].sharedTasks[taskIndex].completedAt = (state == .done) ? Date() : nil
+        trips[index].touch()
+        saveTrips()
+    }
+
+    /// Remove a leg, and dissolve the trip when it stops being one.
+    ///
+    /// A trip of one leg is just a flight, so the survivor gets its shared tasks back and becomes
+    /// standalone again — otherwise its preparation would vanish with the container.
+    func removeLeg(threadId: UUID) {
+        guard let tripIndex = trips.firstIndex(where: { $0.legIds.contains(threadId) }) else {
+            deleteThread(threadId: threadId)
+            return
+        }
+        trips[tripIndex].legIds.removeAll { $0 == threadId }
+        deleteThread(threadId: threadId)
+
+        if trips[tripIndex].isDegenerate {
+            let shared = trips[tripIndex].sharedTasks
+            if let survivor = trips[tripIndex].legIds.first,
+               let index = threads.firstIndex(where: { $0.id == survivor }) {
+                threads[index].tripId = nil
+                threads[index].tasks.append(contentsOf: shared)
+                threads[index].touch()
+            }
+            trips.remove(at: tripIndex)
+            saveThreads()
+        } else {
+            trips[tripIndex].touch()
+        }
+        saveTrips()
+    }
+
+    private func saveTrips() {
+        let snapshot = trips
+        Task { await persistence.saveTripsOffMain(snapshot) }
+    }
+
+    private func loadTrips() async {
+        trips = await persistence.loadTripsOffMain()
     }
 
     // MARK: - Task mutation
@@ -243,13 +343,61 @@ class FlightThreadManager: ObservableObject {
     ///
     /// Resolved from the flight and its plan rather than from a link made at flight start, so a flight
     /// launched from the widget or a deep link closes out its thread just like one started from Home.
-    func threadToCloseOut(flightId: UUID?, planId: UUID?) -> UUID? {
+    ///
+    /// That last fallback is the loose one, and it has to be: a widget launch carries neither a thread
+    /// nor a plan, so "the thread the pilot is currently following" is the only signal left. What it
+    /// cannot see on its own is that the flight just flown was a DIFFERENT flight from the one in the
+    /// list — and a circuit session is exactly that case, every time. Circuits are flown with no plan
+    /// (`FlightLauncher` drops it), so without this guard a session of touch-and-gos would push a
+    /// cross-country thread planned for Saturday into close-out, complete with its close-your-flight-
+    /// plan banner for a flight that has not happened.
+    ///
+    /// A `.local` thread is still adopted: a planned circuit session IS this flight.
+    func threadToCloseOut(flightId: UUID?, planId: UUID?, isCircuitMode: Bool = false) -> UUID? {
         if let flightId, let byFlight = threads.first(where: { $0.flightId == flightId && !$0.isFinished }) {
             return byFlight.id
         }
         if let planId, let byPlan = thread(forPlanId: planId) { return byPlan.id }
-        if let current = currentThread, !current.isFinished, current.state != .closeOut { return current.id }
+        if let current = currentThread, !current.isFinished, current.state != .closeOut,
+           !(isCircuitMode && current.profile == .full) {
+            return current.id
+        }
         return nil
+    }
+
+    // MARK: - Circuits (v5.x)
+
+    /// Offer to close out a circuit session that ran without a thread.
+    ///
+    /// Circuits are start-now-only by design — there is no way to plan one, so a session of
+    /// touch-and-gos reaches END FLIGHT with nothing to resolve and used to get no close-out at all:
+    /// no logbook line, no debrief. That is exactly the `.local` profile's job.
+    ///
+    /// An OFFER rather than a thread created behind the pilot's back. A thread is optional
+    /// throughout, and putting unearned admin in front of a student who just flew six circuits is
+    /// what that rule exists to prevent. Silence is dismissible; a spawned thread is a chore.
+    func offerCircuitCloseOut(flightId: UUID, departureIdent: String?, aircraftRegistration: String?) {
+        let ident = departureIdent?.trimmingCharacters(in: .whitespaces).uppercased()
+        circuitCloseOutOffer = CircuitCloseOutOffer(
+            flightId: flightId,
+            routeLabel: (ident?.isEmpty == false)
+                ? L10n.Flights.circuitsAt(ident!)
+                : L10n.Button.circuits,
+            aircraftRegistration: aircraftRegistration
+        )
+    }
+
+    /// Accept the offer: a `.local` thread already in close-out, holding the session's own tasks.
+    @discardableResult
+    func acceptCircuitCloseOut(_ offer: CircuitCloseOutOffer) -> FlightThread {
+        let thread = createThread(from: nil,
+                                  profile: .local,
+                                  routeLabel: offer.routeLabel,
+                                  aircraftRegistration: offer.aircraftRegistration)
+        circuitCloseOutOffer = nil
+        // Straight to CLOSE: the flying already happened, so PLAN and PREPARE have nothing to ask.
+        beginCloseOut(threadId: thread.id, flightId: offer.flightId)
+        return thread
     }
 
     /// Called by the flight-event detector when a full-stop landing is confirmed: arms the one
@@ -312,6 +460,13 @@ class FlightThreadManager: ObservableObject {
     struct OpenFlightPlanNotice: Equatable {
         let threadId: UUID
         let routeLabel: String
+    }
+
+    /// A circuit session that ended without a thread, and the offer to close it out. (v5.x)
+    struct CircuitCloseOutOffer: Equatable {
+        let flightId: UUID
+        let routeLabel: String
+        let aircraftRegistration: String?
     }
 
     // MARK: - Context building

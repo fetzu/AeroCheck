@@ -80,8 +80,10 @@ final class AirfieldTariffService: ObservableObject {
 
         do {
             let (data, response) = try await ExternalRequest.data(for: request)
-            guard let http = response as? HTTPURLResponse, http.statusCode == 200 else {
-                AppLog.general.debugLine("Tariff registry fetch failed: \((response as? HTTPURLResponse)?.statusCode ?? -1)")
+            // `ExternalRequest.data(for:)` already returns an `HTTPURLResponse`, so the casts this
+            // used to do could never fail and the compiler said so.
+            guard response.statusCode == 200 else {
+                AppLog.general.debugLine("Tariff registry fetch failed: \(response.statusCode)")
                 return
             }
             let decoded = try JSONDecoder().decode(TariffResponse.self, from: data)

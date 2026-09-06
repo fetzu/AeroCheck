@@ -87,22 +87,19 @@ enum LogbookPDFExportService {
         let weight: CGFloat
     }
 
-    private static let columns: [Column] = [
-        // DATE carries dd.mm.yyyy, which needs more room than the heading suggests — at 46 it
-        // truncated to "01.09.20…", and a logbook date missing its year is worse than useless.
-        Column(title: "DATE", subtitles: ["dd/mm/yy"], weight: 58),
-        Column(title: "DEPARTURE", subtitles: ["PLACE", "TIME"], weight: 68),
-        Column(title: "ARRIVAL", subtitles: ["PLACE", "TIME"], weight: 68),
-        Column(title: "AIRCRAFT", subtitles: ["MAKE, MODEL", "REGISTRATION"], weight: 108),
-        Column(title: "SINGLE-PILOT TIME", subtitles: ["SE", "ME"], weight: 60),
-        Column(title: "MULTI-PILOT", subtitles: ["TIME"], weight: 34),
-        Column(title: "TOTAL TIME", subtitles: ["OF FLIGHT"], weight: 40),
-        Column(title: "NAME(S) PIC", subtitles: [""], weight: 74),
-        Column(title: "LANDINGS", subtitles: ["DAY", "NIGHT"], weight: 50),
-        Column(title: "OPERATIONAL CONDITION TIME", subtitles: ["NIGHT", "IFR"], weight: 62),
-        Column(title: "PILOT FUNCTION TIME", subtitles: ["PIC", "CO-PILOT", "DUAL", "INSTR"], weight: 124),
-        Column(title: "REMARKS AND ENDORSEMENTS", subtitles: [""], weight: 92),
-    ]
+    /// Relative widths, in `LogbookFormRow.layout` order.
+    ///
+    /// DATE carries dd.mm.yyyy, which needs more room than the heading suggests — at 46 it truncated
+    /// to "01.09.20…", and a logbook date missing its year is worse than useless.
+    private static let columnWeights: [CGFloat] = [58, 68, 68, 108, 60, 34, 40, 74, 50, 62, 124, 92]
+
+    /// Headings come from `LogbookFormRow.layout`, which the on-screen row also renders — the printout
+    /// and the screen describe the same form, so they cannot drift apart. Only the widths live here.
+    private static let columns: [Column] = LogbookFormRow.layout.enumerated().map { index, entry in
+        Column(title: entry.title,
+               subtitles: entry.subtitles,
+               weight: index < columnWeights.count ? columnWeights[index] : 60)
+    }
 
     // MARK: - Drawing
 

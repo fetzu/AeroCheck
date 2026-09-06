@@ -56,6 +56,9 @@ struct LogbookLine: Equatable, Sendable {
     var landingsNight: Int
     var nightTime: String
     var ifrTime: String
+    /// The role itself, not just its label. The form has one column per role and the time goes under
+    /// exactly one of them, so the row layout needs to compare roles rather than localized words.
+    var function: LogbookFunction
     var functionLabel: String
     var functionTime: String
     var remarks: String
@@ -74,6 +77,79 @@ struct LogbookLine: Equatable, Sendable {
             String(landingsDay), String(landingsNight), nightTime, ifrTime,
             functionLabel, functionTime, remarks,
         ]
+    }
+}
+
+// MARK: - The form's own layout (v5.x)
+
+/// The AMC1 FCL.050 form's twelve column groups, with this flight's values already in the cells.
+///
+/// The label:value list elsewhere answers "what did the app derive?". A pilot sitting in front of a
+/// paper logbook is asking a different question — "which box does this go in?" — and answering it
+/// from a vertical list means translating as well as copying, which is where transcription errors
+/// come from. Same numbers, laid out the way the form lays them out.
+///
+/// Column titles and sub-headings are deliberately NOT localized: they are the headings printed on
+/// the form the pilot is copying into, and a translated heading would stop matching the paper.
+struct LogbookFormRow: Equatable, Sendable {
+    struct Cell: Equatable, Sendable {
+        /// The sub-column heading; empty when the group is a single unlabelled column.
+        let label: String
+        let value: String
+    }
+
+    struct Group: Equatable, Sendable {
+        let title: String
+        let cells: [Cell]
+    }
+
+    var groups: [Group]
+
+    /// Group titles and sub-headings, in the form's own order. Locked against the PDF export's
+    /// column list by `LogbookFormRowTests` — the screen and the printout must describe the same form.
+    static let layout: [(title: String, subtitles: [String])] = [
+        ("DATE", ["dd/mm/yy"]),
+        ("DEPARTURE", ["PLACE", "TIME"]),
+        ("ARRIVAL", ["PLACE", "TIME"]),
+        ("AIRCRAFT", ["MAKE, MODEL", "REGISTRATION"]),
+        ("SINGLE-PILOT TIME", ["SE", "ME"]),
+        ("MULTI-PILOT", ["TIME"]),
+        ("TOTAL TIME", ["OF FLIGHT"]),
+        ("NAME(S) PIC", [""]),
+        ("LANDINGS", ["DAY", "NIGHT"]),
+        ("OPERATIONAL CONDITION TIME", ["NIGHT", "IFR"]),
+        ("PILOT FUNCTION TIME", ["PIC", "CO-PILOT", "DUAL", "INSTR"]),
+        ("REMARKS AND ENDORSEMENTS", [""]),
+    ]
+
+    static func build(from line: LogbookLine) -> LogbookFormRow {
+        // Function time goes under exactly one role. The other three stay blank rather than zero:
+        // a logbook column reading "0:00" claims the pilot logged nothing in that role, which is a
+        // different statement from not having flown in it.
+        func functionTime(_ role: LogbookFunction) -> String {
+            line.function == role ? line.functionTime : ""
+        }
+
+        let values: [[String]] = [
+            [line.date],
+            [line.departurePlace, line.departureTimeUTC],
+            [line.arrivalPlace, line.arrivalTimeUTC],
+            [line.aircraftModel, line.aircraftRegistration],
+            // ME is blank on purpose: every aircraft this app knows is single-engine.
+            [line.singlePilotTime, ""],
+            [""],
+            [line.totalTime],
+            [line.picName],
+            [String(line.landingsDay), line.landingsNight > 0 ? String(line.landingsNight) : ""],
+            [line.nightTime, line.ifrTime],
+            [functionTime(.pic), functionTime(.coPilot), functionTime(.dual), functionTime(.instructor)],
+            [line.remarks],
+        ]
+
+        return LogbookFormRow(groups: zip(layout, values).map { entry, cellValues in
+            Group(title: entry.title,
+                  cells: zip(entry.subtitles, cellValues).map(Cell.init))
+        })
     }
 }
 
@@ -194,6 +270,7 @@ enum LogbookLineBuilder {
             landingsNight: 0,
             nightTime: formatMinutes(nightMinutes),
             ifrTime: formatMinutes(ifrMinutes),
+            function: inferredFunction,
             functionLabel: label(for: inferredFunction),
             functionTime: totalText,
             remarks: overrides?.remarks ?? defaultRemarks(for: flight)

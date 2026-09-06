@@ -21,6 +21,9 @@ struct FlightNumbersView: View {
     @State private var newFeeLabel = ""
     @State private var newFeeAmount = ""
     @State private var showLogbookEditor = false
+    /// The line laid out as the paper form's twelve column groups, for transcription. (v5.x)
+    @State private var showLogbookRow = false
+    @State private var copiedLine = false
     @State private var exportedCSV: Data?
     @State private var csvFilename = "logbook.csv"
     /// Registration whose mass & balance is open. (v5.0.0)
@@ -95,8 +98,9 @@ struct FlightNumbersView: View {
                     Text(L10n.Cost.noRateSet)
                         .scaledFont(size: 13, relativeTo: .footnote)
                         .foregroundColor(.secondaryText)
-                    Button(L10n.Cost.setRate) { beginRateEdit(flight) }
-                        .buttonStyle(SecondaryButtonStyle())
+                    // Was a full SecondaryButtonStyle, which filled half the card it sits in for a
+                    // one-off setup action. Same weight as the logbook actions below it. (device pass)
+                    cardAction(L10n.Cost.setRate, icon: "plus.circle") { beginRateEdit(flight) }
                 }
             } else {
                 VStack(spacing: 10) {
@@ -249,17 +253,19 @@ struct FlightNumbersView: View {
                     .foregroundColor(.dimText)
                     .fixedSize(horizontal: false, vertical: true)
 
-                HStack(spacing: 8) {
-                    Button(L10n.Logbook.copyLine) {
+                // Four full-size SecondaryButtonStyle buttons (24pt of horizontal padding each) ran
+                // off the edge of a phone and dwarfed the numbers they act on. These are secondary
+                // actions on a reference card, so they read as links and wrap. (device pass)
+                FlowLayout(spacing: 18) {
+                    cardAction(L10n.Logbook.showRow, icon: "tablecells") { showLogbookRow = true }
+                    cardAction(L10n.Logbook.copyLine, icon: "doc.on.doc") {
                         UIPasteboard.general.string = LogbookLineBuilder.plainText(for: line)
+                        copiedLine = true
                     }
-                    .buttonStyle(SecondaryButtonStyle())
-
-                    Button(L10n.Logbook.exportCSV) { exportCSV(line, flight: flight) }
-                        .buttonStyle(SecondaryButtonStyle())
-
-                    Button(L10n.Nav.edit) { showLogbookEditor = true }
-                        .buttonStyle(SecondaryButtonStyle())
+                    cardAction(L10n.Logbook.exportCSV, icon: "square.and.arrow.up") {
+                        exportCSV(line, flight: flight)
+                    }
+                    cardAction(L10n.Nav.edit, icon: "pencil") { showLogbookEditor = true }
                 }
 
                 Text(L10n.Logbook.notALogbook)
@@ -268,7 +274,141 @@ struct FlightNumbersView: View {
                     .fixedSize(horizontal: false, vertical: true)
             }
         }
+        .copiedConfirmation(L10n.Logbook.lineCopied, isPresented: $copiedLine)
         .sheet(isPresented: $showLogbookEditor) { logbookEditor(flight) }
+        .sheet(isPresented: $showLogbookRow) { logbookRowSheet(line) }
+    }
+
+    private func cardAction(_ title: String, icon: String, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Label(title, systemImage: icon)
+                .scaledFont(size: 13, weight: .semibold, relativeTo: .footnote)
+                .foregroundColor(.altimeterBlue)
+        }
+        .buttonStyle(.plain)
+        .frame(minHeight: 44)
+    }
+
+    // MARK: - The line as the form wants it
+
+    /// The same numbers, laid out as the twelve column groups of the paper logbook.
+    ///
+    /// The card above answers "what did the app derive?"; a pilot with the logbook open in front of
+    /// them is asking "which box does this go in?", and reading that off a vertical label:value list
+    /// means translating as well as copying. Read-only on purpose — corrections belong in Edit, where
+    /// they persist, not in a view whose whole job is to be transcribed from. (device pass)
+    private func logbookRowSheet(_ line: LogbookLine) -> some View {
+        let row = LogbookFormRow.build(from: line)
+
+        return NavigationStack {
+            ZStack {
+                Color.cockpitBackground.ignoresSafeArea()
+                VStack(alignment: .leading, spacing: 12) {
+                    Text(L10n.Logbook.showRowHint)
+                        .scaledFont(size: 13, relativeTo: .footnote)
+                        .foregroundColor(.secondaryText)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .padding(.horizontal, 20)
+
+                    // Horizontal only: the row is one row tall, and a vertical scroll view with
+                    // nothing to scroll parks its content in the middle of an empty sheet.
+                    ScrollView(.horizontal, showsIndicators: true) {
+                        HStack(alignment: .top, spacing: 0) {
+                            ForEach(Array(row.groups.enumerated()), id: \.offset) { _, group in
+                                logbookFormGroup(group)
+                            }
+                        }
+                        .padding(.horizontal, 20)
+                    }
+
+                    VStack(alignment: .leading, spacing: 6) {
+                        Text(L10n.Logbook.timesAreUTC)
+                        Text(L10n.Logbook.nightNotComputed)
+                    }
+                    .scaledFont(size: 11, relativeTo: .caption2)
+                    .foregroundColor(.dimText)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .padding(.horizontal, 20)
+
+                    Text(L10n.Logbook.notALogbook)
+                        .scaledFont(size: 11, relativeTo: .caption2)
+                        .foregroundColor(.aviationAmber.opacity(0.9))
+                        .fixedSize(horizontal: false, vertical: true)
+                        .padding(.horizontal, 20)
+
+                    Spacer(minLength: 0)
+                }
+                .padding(.top, 20)
+                .frame(maxWidth: .infinity, alignment: .leading)
+            }
+            .navigationTitle(L10n.Logbook.showRow)
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .topBarLeading) {
+                    Button(L10n.Button.close) { showLogbookRow = false }
+                }
+            }
+        }
+    }
+
+    private func logbookFormGroup(_ group: LogbookFormRow.Group) -> some View {
+        // Fixed cell widths rather than intrinsic sizing: the groups have to line up as a table, and
+        // "OPERATIONAL CONDITION TIME" laid out at its natural width would stretch a two-cell group
+        // wider than the aircraft one.
+        let cellWidth = Self.formCellWidth(for: group.title)
+
+        return VStack(spacing: 0) {
+            Text(group.title)
+                .scaledFont(size: 9, weight: .semibold, relativeTo: .caption2)
+                .foregroundColor(.dimText)
+                .multilineTextAlignment(.center)
+                .lineLimit(2)
+                .minimumScaleFactor(0.7)
+                .padding(.horizontal, 4)
+                .frame(width: cellWidth * CGFloat(group.cells.count), height: 34)
+                .background(Color.white.opacity(0.06))
+
+            HStack(spacing: 0) {
+                ForEach(Array(group.cells.enumerated()), id: \.offset) { index, cell in
+                    VStack(spacing: 4) {
+                        if !cell.label.isEmpty {
+                            Text(cell.label)
+                                .scaledFont(size: 8, relativeTo: .caption2)
+                                .foregroundColor(.dimText)
+                                .lineLimit(1)
+                                .minimumScaleFactor(0.7)
+                        }
+                        Text(cell.value)
+                            .scaledFont(size: 13, weight: .semibold, design: .monospaced, relativeTo: .footnote)
+                            .foregroundColor(.primaryText)
+                            .lineLimit(2)
+                            .minimumScaleFactor(0.6)
+                            .multilineTextAlignment(.center)
+                            .textSelection(.enabled)
+                        Spacer(minLength: 0)
+                    }
+                    .padding(.horizontal, 6)
+                    .padding(.vertical, 8)
+                    .frame(width: cellWidth, height: 62, alignment: .top)
+                    .overlay(alignment: .leading) {
+                        if index > 0 { formDivider }
+                    }
+                }
+            }
+        }
+        .overlay(Rectangle().stroke(Color.white.opacity(0.12), lineWidth: 0.5))
+    }
+
+    /// The wide groups hold names and free text; the rest hold a time, a place or a count.
+    private static func formCellWidth(for groupTitle: String) -> CGFloat {
+        switch groupTitle {
+        case "AIRCRAFT", "NAME(S) PIC", "REMARKS AND ENDORSEMENTS": return 112
+        default: return 76
+        }
+    }
+
+    private var formDivider: some View {
+        Rectangle().fill(Color.white.opacity(0.12)).frame(width: 0.5)
     }
 
     private func logbookEditor(_ flight: Flight) -> some View {

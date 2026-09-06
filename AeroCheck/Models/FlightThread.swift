@@ -158,6 +158,16 @@ struct FlightThread: Codable, Identifiable, Equatable, Sendable {
     /// therefore as no country-specific products at all. It refills on the next regeneration.
     var countries: [String]?
 
+    /// The trip this flight is a leg of, when it is not alone. Nil for a standalone flight, which
+    /// is the overwhelmingly common case and keeps the pre-trip code path exactly.
+    ///
+    /// Optional, and the ONLY trip field on a thread. Leg ORDER lives in `Trip.legIds` and is not
+    /// mirrored here: a duplicated index is a second source of truth that drifts the first time a leg
+    /// is inserted or removed. It is also why this is the only field — a non-optional `legIndex` with
+    /// a default would make the synthesised decoder reject every thread persisted before this
+    /// release, which does not fail loudly; it silently loses them. (v5.x)
+    var tripId: UUID?
+
     /// The country this flight departs FROM — what decides which of `countries` are foreign.
     /// Recorded for the same reason as `countries`: a regeneration with no plan cannot measure it,
     /// and falling back to the device's region would tell a Slovak pilot to clear customs into

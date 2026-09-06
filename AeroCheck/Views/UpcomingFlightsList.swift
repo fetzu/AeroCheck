@@ -11,11 +11,26 @@ import SwiftUI
 
 struct UpcomingFlightsList: View {
     let threads: [FlightThread]
+    /// Trips whose legs appear in `threads`, so a multi-leg flight reads as one entry rather than
+    /// as several unexplained ones. (v5.x)
+    var trips: [Trip] = []
     let onOpen: (UUID) -> Void
     let onPlanNew: () -> Void
 
     private var needsAttention: [FlightThread] { threads.filter { $0.state == .closeOut } }
-    private var ahead: [FlightThread] { threads.filter { $0.state != .closeOut } }
+
+    /// Upcoming legs that are NOT part of a trip. A trip's legs are shown under their trip instead
+    /// of loose in the list, where three rows for one journey would read as three journeys.
+    private var ahead: [FlightThread] {
+        threads.filter { $0.state != .closeOut && $0.tripId == nil }
+    }
+
+    /// Trips with at least one leg still owing something.
+    private var upcomingTrips: [Trip] {
+        trips.filter { trip in
+            trip.legIds.contains { id in threads.contains { $0.id == id && $0.state != .closeOut } }
+        }
+    }
 
     var body: some View {
         ScrollView {
@@ -28,8 +43,15 @@ struct UpcomingFlightsList: View {
                     if !needsAttention.isEmpty {
                         section(L10n.Flights.needsAttention, tint: .aviationRed, threads: needsAttention)
                     }
-                    if !ahead.isEmpty {
-                        section(L10n.Flights.upcoming, tint: .secondaryText, threads: ahead)
+                    if !upcomingTrips.isEmpty || !ahead.isEmpty {
+                        VStack(alignment: .leading, spacing: 8) {
+                            Text(L10n.Flights.upcoming.uppercased())
+                                .scaledFont(size: 11, weight: .bold, design: .monospaced, relativeTo: .caption2)
+                                .foregroundColor(.secondaryText)
+                                .tracking(0.8)
+                            ForEach(upcomingTrips) { trip in tripRow(trip) }
+                            ForEach(ahead) { thread in row(thread) }
+                        }
                     }
                 }
             }
@@ -123,6 +145,66 @@ struct UpcomingFlightsList: View {
             .accessibilityValue(Text(verbatim: "\(progress.done)/\(progress.total)"))
         }
         .buttonStyle(.plain)
+    }
+
+    /// A trip: one card, its legs nested inside it. A journey is one thing to a pilot even when it
+    /// is three flights to the app, and three loose rows would read as three journeys.
+    private func tripRow(_ trip: Trip) -> some View {
+        let legs = trip.legIds.compactMap { id in threads.first { $0.id == id } }
+        return VStack(alignment: .leading, spacing: 8) {
+            HStack(spacing: 8) {
+                Text(tripLabel(legs))
+                    .scaledFont(size: 15, weight: .semibold, relativeTo: .subheadline)
+                    .foregroundColor(.primaryText)
+                    .lineLimit(1)
+                Spacer(minLength: 8)
+                Text(L10n.Flights.legCount(legs.count))
+                    .scaledFont(size: 10, weight: .bold, design: .monospaced, relativeTo: .caption2)
+                    .tracking(0.6)
+                    .foregroundColor(.aviationGold)
+                    .padding(.horizontal, 7)
+                    .padding(.vertical, 3)
+                    .overlay(RoundedRectangle(cornerRadius: 4).stroke(Color.aviationGold, lineWidth: 1))
+            }
+            ForEach(Array(legs.enumerated()), id: \.element.id) { index, leg in
+                Button { onOpen(leg.id) } label: {
+                    HStack(spacing: 8) {
+                        Text("\(index + 1)")
+                            .font(.system(size: 10, weight: .bold, design: .monospaced))
+                            .foregroundColor(.aviationGold)
+                            .frame(width: 12, alignment: .leading)
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(leg.routeLabel)
+                                .scaledFont(size: 13, relativeTo: .footnote)
+                                .foregroundColor(.primaryText)
+                                .lineLimit(1)
+                            Text(detail(leg))
+                                .scaledFont(size: 11, design: .monospaced, relativeTo: .caption2)
+                                .foregroundColor(.dimText)
+                                .lineLimit(1)
+                        }
+                        Spacer(minLength: 0)
+                    }
+                    .padding(.horizontal, 9)
+                    .padding(.vertical, 8)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .background(RoundedRectangle(cornerRadius: 8).fill(Color.cockpitBackground))
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+            }
+        }
+        .padding(12)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(RoundedRectangle(cornerRadius: 10).fill(Color.cardBackground))
+    }
+
+    /// Built from the legs rather than stored, so it stays right when one is added or removed.
+    private func tripLabel(_ legs: [FlightThread]) -> String {
+        guard let first = legs.first else { return "" }
+        var idents = [first.routeLabel.components(separatedBy: " → ").first ?? ""]
+        idents += legs.compactMap { $0.routeLabel.components(separatedBy: " → ").last }
+        return idents.filter { !$0.isEmpty }.joined(separator: " → ")
     }
 
     private func badge(_ thread: FlightThread) -> String {

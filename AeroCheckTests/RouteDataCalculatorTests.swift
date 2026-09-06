@@ -34,6 +34,25 @@ final class RouteDataCalculatorTests: XCTestCase {
         XCTAssertTrue(countries.contains("DE"), "destination country missing: \(countries)")
     }
 
+    /// LSZQ (Bressaucourt) → LSZS (Samedan): a route entirely inside Switzerland that legitimately
+    /// reports France and Italy.
+    ///
+    /// Reported from a device pass as a bug — "France and Italy are bordering but never actually
+    /// flown into" — and it is not one. Bressaucourt sits on the French border in the Jura, and
+    /// Samedan is about 10 nm from the Italian border in the Engadin, so both fall inside the
+    /// deliberate inclusion buffer. The buffer is what makes the neighbouring airspace and its CTR
+    /// frequencies available, which is data a pilot at Samedan genuinely wants.
+    ///
+    /// This test exists so nobody "fixes" the geometry to make the banner read better. The banner's
+    /// WORDING was the defect; the countries were right.
+    func testARouteAlongABorderReportsTheNeighbourOnPurpose() {
+        let countries = RouteDataCalculator.countries(crossing: [
+            CLLocationCoordinate2D(latitude: 47.4247, longitude: 7.1869),   // LSZQ, on the FR border
+            CLLocationCoordinate2D(latitude: 46.5341, longitude: 9.8842),   // LSZS, ~10 nm from IT
+        ])
+        XCTAssertEqual(countries, ["CH", "FR", "IT"])
+    }
+
     func testRouteCrossingTwoCountriesReturnsBoth() {
         // Bern (CH) → Lyon (FR)
         let countries = RouteDataCalculator.countries(crossing: [

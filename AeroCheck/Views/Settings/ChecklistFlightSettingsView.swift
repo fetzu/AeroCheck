@@ -8,6 +8,7 @@ struct ChecklistFlightSettingsView: View {
     @State private var learningMode: Bool = false
     @State private var enableCircuitMode: Bool = false
     @State private var checklistLanguage: ChecklistLanguage = .auto
+    @State private var sunlightBoost: Bool = false
     @State private var logEngineHours: Bool = false
     @State private var keepScreenOn: Bool = true
     @State private var alwaysUseUTC: Bool = false
@@ -58,6 +59,7 @@ struct ChecklistFlightSettingsView: View {
         .onChange(of: keepScreenOn) { _, _ in if !isLoadingSettings { saveSettings() } }
         .onChange(of: alwaysUseUTC) { _, _ in if !isLoadingSettings { saveSettings() } }
         .onChange(of: themePreference) { _, _ in if !isLoadingSettings { saveSettings() } }
+        .onChange(of: sunlightBoost) { _, _ in if !isLoadingSettings { saveSettings() } }
     }
 
     // MARK: - Theme (segmented, label above)
@@ -65,14 +67,30 @@ struct ChecklistFlightSettingsView: View {
     private var themeRow: some View {
         VStack(alignment: .leading, spacing: 9) {
             SettingsRowLabel(icon: "circle.lefthalf.filled", title: L10n.Settings.theme, subtitle: L10n.Settings.themeFooter, tint: tint)
+            // Three states, not four. Sunlight was a fourth manual choice that `auto` never picked,
+            // so it could only be switched on by hand and then stayed on indoors — where the
+            // high-contrast palette is just harsher. It is a toggle below instead. (device pass)
             Picker(L10n.Settings.theme, selection: $themePreference) {
                 Text(L10n.Settings.themeAuto).tag(ThemePreference.auto)
                 Text(L10n.Settings.themeDay).tag(ThemePreference.day)
-                Text(L10n.Settings.themeSunlight).tag(ThemePreference.sunlight)
                 Text(L10n.Settings.themeNight).tag(ThemePreference.night)
             }
             .pickerStyle(.segmented)
             .labelsHidden()
+
+            Toggle(isOn: $sunlightBoost) {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(L10n.Settings.sunlightBoost)
+                        .scaledFont(size: 15, relativeTo: .body)
+                        .foregroundColor(.primaryText)
+                    Text(L10n.Settings.sunlightBoostFooter)
+                        .scaledFont(size: 12, relativeTo: .caption)
+                        .foregroundColor(.secondaryText)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+            }
+            .tint(.aviationGold)
+            .padding(.top, 4)
         }
         .padding(.horizontal, 14)
         .padding(.vertical, 11)
@@ -86,6 +104,7 @@ struct ChecklistFlightSettingsView: View {
         learningMode = appState.settings.learningMode
         enableCircuitMode = appState.settings.enableCircuitMode
         checklistLanguage = appState.settings.checklistLanguage
+        sunlightBoost = appState.settings.sunlightBoost
         logEngineHours = appState.settings.logEngineHours
         keepScreenOn = appState.settings.keepScreenOn
         alwaysUseUTC = appState.settings.alwaysUseUTC
@@ -100,6 +119,7 @@ struct ChecklistFlightSettingsView: View {
         appState.settings.learningMode = learningMode
         appState.settings.enableCircuitMode = enableCircuitMode
         appState.settings.checklistLanguage = checklistLanguage
+        appState.settings.sunlightBoost = sunlightBoost
         appState.settings.logEngineHours = logEngineHours
         appState.settings.keepScreenOn = keepScreenOn
         appState.settings.alwaysUseUTC = alwaysUseUTC

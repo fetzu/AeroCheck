@@ -134,6 +134,24 @@ struct ContentView: View {
                     .transition(.move(edge: .top).combined(with: .opacity))
                 }
 
+                // v5.x: a circuit session that ended with nothing following it. An offer, not a
+                // thread created behind the pilot's back — dismissing it is a complete answer.
+                if let offer = threadManager.circuitCloseOutOffer, !appState.isFlightActive,
+                   !appState.needsDisclaimerAcceptance {
+                    VStack {
+                        CircuitCloseOutBanner(
+                            routeLabel: offer.routeLabel,
+                            onAccept: {
+                                let thread = threadManager.acceptCircuitCloseOut(offer)
+                                appState.pendingThreadToOpen = thread.id
+                            },
+                            onDismiss: { threadManager.circuitCloseOutOffer = nil }
+                        )
+                        Spacer()
+                    }
+                    .transition(.move(edge: .top).combined(with: .opacity))
+                }
+
                 // v4.1.0 Data Freshness: snoozable nudge when a dataset is stale (Home only, not in flight).
                 if dataStatusManager.showStaleNudge && !appState.isFlightActive
                     && appState.settings.hasCompletedOnboarding && !appState.needsDisclaimerAcceptance {
@@ -156,6 +174,7 @@ struct ContentView: View {
             .animation(.easeInOut(duration: 0.3), value: appState.languageFallbackNotice)
             .animation(.easeInOut(duration: 0.3), value: dataStatusManager.showStaleNudge)
             .animation(.easeInOut(duration: 0.3), value: threadManager.openFlightPlanNotice)
+            .animation(.easeInOut(duration: 0.3), value: threadManager.circuitCloseOutOffer)
         }
         .onAppear {
             // Only ask for location at launch for users who've already been through onboarding — a fresh
@@ -535,6 +554,58 @@ struct ActivationExpiredBanner: View {
 
 /// Snoozable "your data is out of date" nudge (v4.1.0 Data Freshness). Mirrors LanguageFallbackBanner
 /// but persists until tapped — currency is a deliberate action, so there's no auto-dismiss.
+/// Offers the light close-out for a circuit session. Deliberately quieter than the open-flight-plan
+/// banner: nothing here has a search-and-rescue consequence, and declining is a complete answer.
+struct CircuitCloseOutBanner: View {
+    let routeLabel: String
+    let onAccept: () -> Void
+    let onDismiss: () -> Void
+
+    var body: some View {
+        HStack(spacing: 10) {
+            Image(systemName: "arrow.triangle.2.circlepath")
+                .font(.system(size: 15, weight: .semibold))
+                .foregroundColor(.aviationGold)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(routeLabel)
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundColor(.primaryText)
+                Text(L10n.Thread.circuitCloseOutOffer)
+                    .font(.system(size: 12))
+                    .foregroundColor(.secondaryText)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            Spacer(minLength: 8)
+            Button(L10n.Thread.circuitCloseOutAccept, action: onAccept)
+                .font(.system(size: 13, weight: .semibold))
+                .foregroundColor(.aviationGold)
+                .buttonStyle(.plain)
+                .frame(minHeight: 44)
+            Button {
+                onDismiss()
+            } label: {
+                Image(systemName: "xmark")
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundColor(.dimText)
+                    .frame(width: 44, height: 44)
+                    .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel(L10n.Button.close)
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 10)
+        .background(Color.panelBackground, in: RoundedRectangle(cornerRadius: 12))
+        .overlay(
+            RoundedRectangle(cornerRadius: 12).stroke(Color.aviationGold.opacity(0.5), lineWidth: 1)
+        )
+        .appBannerWidth()
+        .padding(.horizontal, 16)
+        .padding(.top, 8)
+        .shadow(color: .black.opacity(0.3), radius: 6, y: 3)
+    }
+}
+
 struct DataFreshnessNudgeBanner: View {
     let message: String
     let onDismiss: () -> Void

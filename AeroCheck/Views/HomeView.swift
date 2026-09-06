@@ -274,9 +274,9 @@ struct HomeView: View {
                 PlanNewFlightView(
                     intent: seed,
                     aircraft: availableAircraft,
-                    onCreate: { intent in
+                    onCreate: { stops, intent in
                         planningNewFlight = nil
-                        createFlight(from: intent)
+                        createFlight(stops: stops, from: intent)
                     },
                     onCancel: { planningNewFlight = nil }
                 )
@@ -536,14 +536,20 @@ struct HomeView: View {
     @ViewBuilder
     private func activityStrips(sideBySide: Bool) -> some View {
         if sideBySide {
-            // Both strips stretch to the taller of the two. They size independently otherwise, and
-            // the plan-a-flight card carries an explanatory line the last-flight strip does not — so
-            // side by side one card simply ended shorter than its neighbour.
-            HStack(spacing: 12) {
-                lastFlightStrip.frame(maxHeight: .infinity)
-                flightPlanStrip.frame(maxHeight: .infinity)
+            // A one-row Grid, not an HStack. The strips carry different numbers of lines — the
+            // followed-flight card has a "next task" line the last-flight strip does not — so side
+            // by side one card ended shorter than its neighbour.
+            //
+            // `maxHeight: .infinity` on HStack children was the obvious fix and did not work: it
+            // makes each child accept the PARENT's proposal rather than match its sibling, so the
+            // two still sized independently. A Grid row equalises its cells by construction, which
+            // is the property actually wanted here.
+            Grid(horizontalSpacing: 12, verticalSpacing: 0) {
+                GridRow {
+                    lastFlightStrip
+                    flightPlanStrip
+                }
             }
-            .fixedSize(horizontal: false, vertical: true)
         } else {
             VStack(spacing: 12) {
                 lastFlightStrip
@@ -1405,8 +1411,18 @@ struct HomeView: View {
     /// The airport layer is loaded on demand rather than at launch, so this awaits it before
     /// resolving idents — otherwise a flight created on a cold start would silently get no waypoints,
     /// and with no coordinates there is no country detection and therefore no customs, DABS or GAFOR.
-    private func createFlight(from intent: NewFlightIntent) {
+    /// Three or more stops is a trip; two is the single flight this has always made.
+    private func createFlight(stops: [String], from intent: NewFlightIntent) {
         Task { @MainActor in
+            if stops.count > 2,
+               let trip = await FlightCreator.createTrip(idents: stops,
+                                                         template: intent,
+                                                         plans: flightPlanManager,
+                                                         threads: threadManager,
+                                                         airports: airportDataService) {
+                threadToOpen = trip.legIds.first
+                return
+            }
             let thread = await FlightCreator.create(from: intent,
                                                     plans: flightPlanManager,
                                                     threads: threadManager,

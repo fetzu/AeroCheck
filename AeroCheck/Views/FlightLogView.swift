@@ -61,7 +61,9 @@ struct FlightLogView: View {
     @State private var threadToOpen: UUID?
 
     enum FlightsSegment: String, CaseIterable {
-        case upcoming, past
+        // Past first: it is the half with data in it, it is what this screen has always opened on,
+        // and left-to-right reading puts what happened before what has not happened yet.
+        case past, upcoming
         var label: String { self == .upcoming ? L10n.Flights.upcoming : L10n.Flights.past }
     }
 
@@ -130,6 +132,7 @@ struct FlightLogView: View {
                     segmentPicker
                     if segment == .upcoming {
                         UpcomingFlightsList(threads: threadManager.unfinishedThreads,
+                                            trips: threadManager.trips,
                                             onOpen: { threadToOpen = $0 },
                                             onPlanNew: { planningNewFlight = seedIntent() })
                     } else {
@@ -182,14 +185,23 @@ struct FlightLogView: View {
                 PlanNewFlightView(
                     intent: seed,
                     aircraft: [],
-                    onCreate: { intent in
+                    onCreate: { stops, intent in
                         planningNewFlight = nil
                         Task { @MainActor in
+                            segment = .upcoming
+                            if stops.count > 2,
+                               let trip = await FlightCreator.createTrip(idents: stops,
+                                                                         template: intent,
+                                                                         plans: flightPlanManager,
+                                                                         threads: threadManager,
+                                                                         airports: airportDataService) {
+                                threadToOpen = trip.legIds.first
+                                return
+                            }
                             let thread = await FlightCreator.create(from: intent,
                                                                     plans: flightPlanManager,
                                                                     threads: threadManager,
                                                                     airports: airportDataService)
-                            segment = .upcoming
                             threadToOpen = thread.id
                         }
                     },

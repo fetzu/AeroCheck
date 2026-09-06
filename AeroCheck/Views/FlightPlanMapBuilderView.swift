@@ -78,6 +78,9 @@ struct FlightPlanMapBuilderView: View {
     @State private var tripBannerDismissed = false   // v4.1.0 trip-aware prefetch banner
     @State private var showDeactivateConfirm = false   // v4.4.0 — arm/disarm from the builder
     @State private var tripPrefetchFailed = false    // v4.4.0 — coverage still incomplete after a download
+    /// Which of the four per-country layers is being fetched, so the banner can count instead of spin.
+    @State private var prefetchStep = 0
+    @State private var prefetchTotal = 4
     @State private var tripSizeEstimate: TripDataSizeEstimator.Estimate?   // v4.4.0 — what the offer costs
     @State private var tripSizeEstimateKey = ""      // the missing-set the estimate above belongs to
     @State private var isPrefetchingTrip = false
@@ -144,10 +147,20 @@ struct FlightPlanMapBuilderView: View {
         isPrefetchingTrip = true
         tripPrefetchFailed = false
         func union(_ existing: [String]) -> [String] { Array(Set(existing).union(needed)) }
+
+        // Counted rather than spun. Four per-country layers, each a separate download that can take
+        // tens of seconds on a clubhouse hotspot — an indeterminate spinner for all four tells the
+        // pilot nothing about whether to keep waiting. (device pass)
+        prefetchStep = 0
+        prefetchTotal = 4
         await openAIPDataService.downloadData(for: union(openAIPDataService.downloadedCountries))
+        prefetchStep = 1
         await navaidService.downloadData(for: union(navaidService.downloadedCountries))
+        prefetchStep = 2
         await obstacleService.downloadData(for: union(obstacleService.downloadedCountries))
+        prefetchStep = 3
         await reportingPointService.downloadData(for: union(reportingPointService.downloadedCountries))
+        prefetchStep = 4
         isPrefetchingTrip = false
         tripPrefetchFailed = !tripNeededCountries.isEmpty
     }
@@ -206,7 +219,12 @@ struct FlightPlanMapBuilderView: View {
                 }
                 Spacer(minLength: 8)
                 if isPrefetchingTrip {
-                    ProgressView().controlSize(.small)
+                    HStack(spacing: 6) {
+                        ProgressView().controlSize(.small)
+                        Text(L10n.Nav.tripDataProgress(prefetchStep, prefetchTotal))
+                            .font(.system(size: 11, design: .monospaced))
+                            .foregroundColor(.secondaryText)
+                    }
                 } else {
                     Button(tripPrefetchFailed ? L10n.Button.retry : L10n.Settings.downloadData) {
                         Task { await prefetchTripData() }

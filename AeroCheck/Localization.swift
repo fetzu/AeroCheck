@@ -175,6 +175,25 @@ enum L10n {
         static let from = String(localized: "From")
         static let to = String(localized: "To")
         static let identPlaceholder = String(localized: "ICAO or name")
+        static let addStop = String(localized: "Add stop")
+        static func legCount(_ count: Int) -> String {
+            String(localized: "\(count) legs")
+        }
+        static func createFlights(_ count: Int) -> String {
+            String(localized: "Create \(count) flights")
+        }
+        static func legsExplainer(_ stops: Int, _ legs: Int) -> String {
+            String(localized: "\(stops) aerodromes · \(legs) legs, sharing one preparation")
+        }
+        static func legOf(_ index: Int, _ total: Int) -> String {
+            String(localized: "Leg \(index) of \(total)")
+        }
+        static func tripProgress(_ done: Int, _ total: Int) -> String {
+            String(localized: "TRIP · \(done) of \(total)")
+        }
+        static func recheckForThisLeg(_ when: String) -> String {
+            String(localized: "Checked \(when) — re-check for this leg")
+        }
         static let routeOptional = String(localized: "The route is optional — draw it on the map whenever you are ready")
         static let circuitsHint = String(localized: "Circuits start and finish at the same field")
 

@@ -160,6 +160,9 @@ struct FlightThreadView: View {
                     Divider().overlay(Color.white.opacity(0.06))
                     ScrollView {
                         VStack(spacing: 16) {
+                            if let trip = threadManager.trip(forThreadId: thread.id) {
+                                tripBand(trip, leg: thread)
+                            }
                             if thread.hasOpenFlightPlan && thread.state == .closeOut {
                                 openFlightPlanCard(thread)
                             }
@@ -288,6 +291,12 @@ struct FlightThreadView: View {
 
     private func subtitle(_ thread: FlightThread) -> String {
         var parts: [String] = []
+        // Where this leg sits comes first: on a trip it is the thing that tells one leg from another,
+        // since two legs of the same trip share their aircraft and often their date.
+        if let trip = threadManager.trip(forThreadId: thread.id),
+           let leg = trip.legNumber(of: thread.id) {
+            parts.append(L10n.Flights.legOf(leg, trip.legCount))
+        }
         if let departure = thread.scheduledDeparture {
             parts.append(departure.formatted(date: .abbreviated, time: .shortened))
         }
@@ -334,6 +343,90 @@ struct FlightThreadView: View {
         }
         .frame(width: 46, height: 46)
         .accessibilityLabel(L10n.Thread.readiness(progress.done, progress.total))
+    }
+
+    // MARK: - Trip band (v5.x)
+
+    /// The preparation this leg shares with the rest of the trip.
+    ///
+    /// Shown on EVERY leg rather than only the first, because a pilot opening leg two should be able
+    /// to see that the weather is briefed without going to find leg one — and should be able to tick
+    /// what is not. The state lives on the trip, so a tick here is a tick everywhere.
+    private func tripBand(_ trip: Trip, leg: FlightThread) -> some View {
+        // What THIS leg sees: a briefing that no longer covers its departure reads as pending again.
+        let tasks = trip.tasks(forLegDeparting: leg.scheduledDeparture)
+        let done = tasks.filter { $0.state == .done }.count
+
+        return VStack(alignment: .leading, spacing: 0) {
+            HStack {
+                Text(L10n.Flights.tripProgress(done, tasks.count))
+                    .scaledFont(size: 11, weight: .bold, design: .monospaced, relativeTo: .caption2)
+                    .foregroundColor(.aviationGold)
+                    .tracking(0.8)
+                Spacer()
+                Text(tripLabel(trip))
+                    .scaledFont(size: 11, relativeTo: .caption2)
+                    .foregroundColor(.dimText)
+                    .lineLimit(1)
+            }
+            .padding(.horizontal, 14)
+            .padding(.vertical, 9)
+            .background(Color.panelBackground)
+
+            ForEach(tasks) { task in
+                let presentation = ThreadTaskPresentation.make(for: task)
+                Button {
+                    threadManager.setSharedTaskState(task.state == .done ? .pending : .done,
+                                                     taskId: task.id,
+                                                     tripId: trip.id)
+                } label: {
+                    HStack(alignment: .top, spacing: 12) {
+                        Image(systemName: task.state == .done ? "checkmark.circle.fill" : "circle")
+                            .scaledFont(size: 18, relativeTo: .body)
+                            .foregroundColor(task.state == .done ? .aviationGreen : .dimText)
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(presentation.title)
+                                .scaledFont(size: 14, weight: .semibold, relativeTo: .subheadline)
+                                .foregroundColor(.primaryText)
+                            // A refreshed-briefing prompt says WHEN it was last done, so it reads as
+                            // a re-check rather than something the pilot forgot entirely.
+                            if task.state == .pending, let last = task.completedAt {
+                                Text(L10n.Flights.recheckForThisLeg(shortTime(last)))
+                                    .scaledFont(size: 12, design: .monospaced, relativeTo: .caption)
+                                    .foregroundColor(.aviationGold)
+                            }
+                        }
+                        Spacer(minLength: 0)
+                    }
+                    .padding(.horizontal, 14)
+                    .padding(.vertical, 11)
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                if task.id != tasks.last?.id {
+                    Divider().overlay(Color.white.opacity(0.06)).padding(.leading, 46)
+                }
+            }
+        }
+        .background(Color.cardBackground)
+        .clipShape(RoundedRectangle(cornerRadius: 14))
+        .overlay(
+            RoundedRectangle(cornerRadius: 14)
+                .strokeBorder(Color.aviationGold.opacity(0.3), lineWidth: 1)
+        )
+    }
+
+    /// "LSZQ → LFSB → LSGY" from the legs themselves, so it stays right when one is added or removed.
+    private func tripLabel(_ trip: Trip) -> String {
+        let legs = threadManager.legs(of: trip)
+        guard let first = legs.first else { return "" }
+        var idents = [first.routeLabel.components(separatedBy: " → ").first ?? ""]
+        idents += legs.compactMap { $0.routeLabel.components(separatedBy: " → ").last }
+        return idents.filter { !$0.isEmpty }.joined(separator: " → ")
+    }
+
+    private func shortTime(_ date: Date) -> String {
+        date.formatted(date: .omitted, time: .shortened)
     }
 
     // MARK: - Chapter bar

@@ -17,7 +17,7 @@ struct PlanNewFlightView: View {
     @State private var hasDepartureTime: Bool
 
     private let aircraft: [AircraftOption]
-    private let onCreate: (NewFlightIntent) -> Void
+    private let onCreate: ([String], NewFlightIntent) -> Void
     private let onCancel: () -> Void
 
     /// The airport layer, for completing what the pilot types. Injected so this view stays testable
@@ -26,14 +26,17 @@ struct PlanNewFlightView: View {
     @State private var suggestions: [Airport] = []
     @State private var isLoadingAirports = false
 
-    @FocusState private var focused: Field?
-    private enum Field { case from, to }
+    /// Aerodromes in order. Two is a flight; three or more is a trip, and the button says so.
+    @State private var stops: [String]
+
+    @FocusState private var focused: Int?
 
     init(intent: NewFlightIntent,
          aircraft: [AircraftOption],
-         onCreate: @escaping (NewFlightIntent) -> Void,
+         onCreate: @escaping ([String], NewFlightIntent) -> Void,
          onCancel: @escaping () -> Void) {
         _intent = State(initialValue: intent)
+        _stops = State(initialValue: [intent.departureIdent, intent.arrivalIdent])
         _hasDepartureTime = State(initialValue: intent.departureTime != nil)
         self.aircraft = aircraft
         self.onCreate = onCreate
@@ -138,13 +141,48 @@ struct PlanNewFlightView: View {
 
     private var routeSection: some View {
         card(L10n.Flights.fromTo) {
-            HStack(spacing: 10) {
-                identField(L10n.Flights.from, text: $intent.departureIdent, field: .from)
-                Image(systemName: "arrow.right")
-                    .font(.system(size: 12, weight: .semibold))
-                    .foregroundColor(.dimText)
-                identField(L10n.Flights.to, text: $intent.arrivalIdent, field: .to)
+            ForEach(Array(stops.enumerated()), id: \.offset) { index, _ in
+                HStack(spacing: 10) {
+                    Text("\(index + 1)")
+                        .font(.system(size: 11, weight: .bold, design: .monospaced))
+                        .foregroundColor(.aviationGold)
+                        .frame(width: 14, alignment: .leading)
+                    TextField(L10n.Flights.identPlaceholder, text: binding(for: index))
+                        .textInputAutocapitalization(.characters)
+                        .autocorrectionDisabled()
+                        .font(.system(size: 17, weight: .semibold, design: .monospaced))
+                        .foregroundColor(.primaryText)
+                        .focused($focused, equals: index)
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 8)
+                        .background(RoundedRectangle(cornerRadius: 8).fill(Color.cardBackground))
+                    // The first two stops are the flight itself and cannot be removed; anything
+                    // beyond them is a stop the pilot added and can take away again.
+                    if stops.count > 2 {
+                        Button {
+                            stops.remove(at: index)
+                            focused = nil
+                        } label: {
+                            Image(systemName: "minus.circle.fill")
+                                .foregroundColor(.dimText)
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
             }
+
+            Button {
+                stops.append("")
+                focused = stops.count - 1
+            } label: {
+                HStack(spacing: 6) {
+                    Image(systemName: "plus.circle")
+                    Text(L10n.Flights.addStop)
+                }
+                .scaledFont(size: 13, weight: .semibold, relativeTo: .footnote)
+                .foregroundColor(.aviationGold)
+            }
+            .buttonStyle(.plain)
 
             if focused != nil, !suggestions.isEmpty {
                 VStack(spacing: 0) {
@@ -174,9 +212,8 @@ struct PlanNewFlightView: View {
                 .background(RoundedRectangle(cornerRadius: 8).fill(Color.cardBackground))
             }
 
-            // The route is genuinely optional — this is the whole point of planning a flight before
-            // you have drawn one.
-            Text(L10n.Flights.routeOptional)
+            Text(legCount > 1 ? L10n.Flights.legsExplainer(stops.count, legCount)
+                              : L10n.Flights.routeOptional)
                 .scaledFont(size: 12, relativeTo: .caption)
                 .foregroundColor(.dimText)
                 .fixedSize(horizontal: false, vertical: true)
@@ -189,18 +226,28 @@ struct PlanNewFlightView: View {
             isLoadingAirports = false
             search()
         }
-        .onChange(of: intent.departureIdent) { _, _ in if focused == .from { search() } }
-        .onChange(of: intent.arrivalIdent) { _, _ in if focused == .to { search() } }
+        .onChange(of: stops) { _, _ in search() }
         .onChange(of: focused) { _, _ in search() }
+    }
+
+    /// Two aerodromes make one leg, three make two. A trip needs at least two legs.
+    private var legCount: Int {
+        max(0, stops.filter { !$0.trimmingCharacters(in: .whitespaces).isEmpty }.count - 1)
+    }
+
+    private func binding(for index: Int) -> Binding<String> {
+        Binding(
+            get: { index < stops.count ? stops[index] : "" },
+            set: { if index < stops.count { stops[index] = $0 } }
+        )
     }
 
     /// Completion is by ICAO **or name**, because a pilot heading somewhere new knows "Grenchen"
     /// long before they know "LSZG". `searchAirports` already matches ident, IATA, name and
     /// municipality, and ranks exact-ident matches first, so typing a code still wins.
     private func search() {
-        guard let focused else { suggestions = []; return }
-        let typed = (focused == .from ? intent.departureIdent : intent.arrivalIdent)
-            .trimmingCharacters(in: .whitespaces)
+        guard let focused, focused < stops.count else { suggestions = []; return }
+        let typed = stops[focused].trimmingCharacters(in: .whitespaces)
         // One or two characters match half of Europe; the list is noise until the third.
         guard typed.count >= 2 else { suggestions = []; return }
         // An exact code the pilot has already finished typing needs no menu under it.
@@ -209,43 +256,24 @@ struct PlanNewFlightView: View {
     }
 
     private func accept(_ airport: Airport) {
-        if focused == .from { intent.departureIdent = airport.ident }
-        else { intent.arrivalIdent = airport.ident }
+        if let focused, focused < stops.count { stops[focused] = airport.ident }
         suggestions = []
         focused = nil
     }
 
     private var createButton: some View {
         Button {
-            onCreate(normalised())
+            onCreate(normalisedStops(), normalised())
         } label: {
-            Text(L10n.Flights.createFlight)
+            Text(legCount > 1 ? L10n.Flights.createFlights(legCount) : L10n.Flights.createFlight)
                 .frame(maxWidth: .infinity)
         }
         .buttonStyle(PrimaryButtonStyle())
-        .disabled(!intent.isCreatable)
+        .disabled(legCount < 1)
         .padding(.top, 4)
     }
 
     // MARK: - Pieces
-
-    private func identField(_ label: String, text: Binding<String>, field: Field) -> some View {
-        VStack(alignment: .leading, spacing: 4) {
-            Text(label)
-                .scaledFont(size: 11, relativeTo: .caption2)
-                .foregroundColor(.dimText)
-            TextField(L10n.Flights.identPlaceholder, text: text)
-                .textInputAutocapitalization(.characters)
-                .autocorrectionDisabled()
-                .font(.system(size: 17, weight: .semibold, design: .monospaced))
-                .foregroundColor(.primaryText)
-                .focused($focused, equals: field)
-                .padding(.horizontal, 10)
-                .padding(.vertical, 8)
-                .background(RoundedRectangle(cornerRadius: 8).fill(Color.cardBackground))
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
-    }
 
     private func card<Content: View>(_ title: String,
                                      @ViewBuilder content: () -> Content) -> some View {
@@ -266,11 +294,19 @@ struct PlanNewFlightView: View {
     /// Idents are typed by hand, so they are trimmed and upper-cased once here rather than at every
     /// place that later compares them to an aerodrome.
     private func normalised() -> NewFlightIntent {
+        let clean = normalisedStops()
         var result = intent
-        result.departureIdent = intent.departureIdent.trimmingCharacters(in: .whitespaces).uppercased()
-        result.arrivalIdent = intent.arrivalIdent.trimmingCharacters(in: .whitespaces).uppercased()
+        result.departureIdent = clean.first ?? ""
+        result.arrivalIdent = clean.count > 1 ? clean[1] : ""
         if !hasDepartureTime { result.departureTime = nil }
         return result
+    }
+
+    /// Idents are typed by hand, so they are trimmed and upper-cased once here rather than at every
+    /// place that later compares them to an aerodrome. Blank rows are dropped: an empty stop the
+    /// pilot added and did not fill in should not become a leg to nowhere.
+    private func normalisedStops() -> [String] {
+        stops.map { $0.trimmingCharacters(in: .whitespaces).uppercased() }.filter { !$0.isEmpty }
     }
 
     /// Tomorrow morning: far enough out that the T−24h reminder still has somewhere to land, and a

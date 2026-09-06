@@ -274,9 +274,9 @@ struct HomeView: View {
                 PlanNewFlightView(
                     intent: seed,
                     aircraft: availableAircraft,
-                    onCreate: { intent in
+                    onCreate: { stops, intent in
                         planningNewFlight = nil
-                        createFlight(from: intent)
+                        createFlight(stops: stops, from: intent)
                     },
                     onCancel: { planningNewFlight = nil }
                 )
@@ -1405,8 +1405,18 @@ struct HomeView: View {
     /// The airport layer is loaded on demand rather than at launch, so this awaits it before
     /// resolving idents — otherwise a flight created on a cold start would silently get no waypoints,
     /// and with no coordinates there is no country detection and therefore no customs, DABS or GAFOR.
-    private func createFlight(from intent: NewFlightIntent) {
+    /// Three or more stops is a trip; two is the single flight this has always made.
+    private func createFlight(stops: [String], from intent: NewFlightIntent) {
         Task { @MainActor in
+            if stops.count > 2,
+               let trip = await FlightCreator.createTrip(idents: stops,
+                                                         template: intent,
+                                                         plans: flightPlanManager,
+                                                         threads: threadManager,
+                                                         airports: airportDataService) {
+                threadToOpen = trip.legIds.first
+                return
+            }
             let thread = await FlightCreator.create(from: intent,
                                                     plans: flightPlanManager,
                                                     threads: threadManager,

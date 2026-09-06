@@ -130,6 +130,7 @@ struct FlightLogView: View {
                     segmentPicker
                     if segment == .upcoming {
                         UpcomingFlightsList(threads: threadManager.unfinishedThreads,
+                                            trips: threadManager.trips,
                                             onOpen: { threadToOpen = $0 },
                                             onPlanNew: { planningNewFlight = seedIntent() })
                     } else {
@@ -182,14 +183,23 @@ struct FlightLogView: View {
                 PlanNewFlightView(
                     intent: seed,
                     aircraft: [],
-                    onCreate: { intent in
+                    onCreate: { stops, intent in
                         planningNewFlight = nil
                         Task { @MainActor in
+                            segment = .upcoming
+                            if stops.count > 2,
+                               let trip = await FlightCreator.createTrip(idents: stops,
+                                                                         template: intent,
+                                                                         plans: flightPlanManager,
+                                                                         threads: threadManager,
+                                                                         airports: airportDataService) {
+                                threadToOpen = trip.legIds.first
+                                return
+                            }
                             let thread = await FlightCreator.create(from: intent,
                                                                     plans: flightPlanManager,
                                                                     threads: threadManager,
                                                                     airports: airportDataService)
-                            segment = .upcoming
                             threadToOpen = thread.id
                         }
                     },

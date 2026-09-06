@@ -1381,6 +1381,76 @@
         }
       }
     },
+    "%lld legs" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld étapes"
+          }
+        }
+      }
+    },
+    "Add stop" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ajouter une escale"
+          }
+        }
+      }
+    },
+    "Create %lld flights" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Créer %lld vols"
+          }
+        }
+      }
+    },
+    "%1$lld aerodromes · %2$lld legs, sharing one preparation" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$lld aérodromes · %2$lld étapes, une seule préparation"
+          }
+        }
+      }
+    },
+    "Leg %1$lld of %2$lld" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Étape %1$lld sur %2$lld"
+          }
+        }
+      }
+    },
+    "TRIP · %1$lld of %2$lld" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "VOYAGE · %1$lld sur %2$lld"
+          }
+        }
+      }
+    },
+    "Checked %@ — re-check for this leg" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Vérifié à %@ — à revérifier pour cette étape"
+          }
+        }
+      }
+    },
     "Circuits — %@" : {
       "localizations" : {
         "fr" : {

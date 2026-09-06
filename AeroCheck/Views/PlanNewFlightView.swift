@@ -24,6 +24,8 @@ struct PlanNewFlightView: View {
     /// and so the caller decides whether the data is loaded.
     @EnvironmentObject private var airports: AirportDataService
     @State private var suggestions: [Airport] = []
+    /// Scroll target for the completion list, so the keyboard never covers it.
+    private static let suggestionsAnchor = "aerocheck.plan.suggestions"
     @State private var isLoadingAirports = false
 
     /// Aerodromes in order. Two is a flight; three or more is a trip, and the button says so.
@@ -46,13 +48,25 @@ struct PlanNewFlightView: View {
     var body: some View {
         NavigationStack {
             ScrollView {
-                VStack(spacing: 16) {
-                    whenSection
-                    aircraftSection
-                    routeSection
-                    createButton
+                ScrollViewReader { proxy in
+                    VStack(spacing: 16) {
+                        whenSection
+                        aircraftSection
+                        routeSection
+                        createButton
+                    }
+                    .padding()
+                    // The suggestions render under the field they belong to, which is right — a
+                    // floating overlay over a form is worse to aim at. But the keyboard takes the
+                    // bottom half of the sheet, and that is exactly where the list appeared. Scroll
+                    // it into view whenever it changes, so it is never behind the keys.
+                    .onChange(of: suggestions.map(\.ident)) { _, idents in
+                        guard !idents.isEmpty else { return }
+                        withAnimation(.easeOut(duration: 0.2)) {
+                            proxy.scrollTo(Self.suggestionsAnchor, anchor: .bottom)
+                        }
+                    }
                 }
-                .padding()
             }
             .scrollDismissesKeyboard(.interactively)
             .background(Color.cockpitBackground)
@@ -210,6 +224,7 @@ struct PlanNewFlightView: View {
                 }
                 .padding(.horizontal, 10)
                 .background(RoundedRectangle(cornerRadius: 8).fill(Color.cardBackground))
+                .id(Self.suggestionsAnchor)
             }
 
             Text(legCount > 1 ? L10n.Flights.legsExplainer(stops.count, legCount)

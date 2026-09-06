@@ -868,20 +868,26 @@ struct DatePickerSheet: View {
     @Binding var isPresented: Bool
 
     var body: some View {
-        VStack(spacing: 16) {
+        // A graphical DatePicker wants ~420 pt and the medium detent gives it less, so the calendar
+        // was clipped mid-month with the confirm out of reach — and on iPad, where a form sheet
+        // ignores detents entirely, the clip landed in a different place again. Scrolls now, and the
+        // header stays pinned above it, so the date is always confirmable. (device pass)
+        VStack(spacing: 0) {
             SheetHeader(title: L10n.Nav.selectDate, isPresented: $isPresented)
+                .padding(.bottom, 8)
 
-            // Date picker
-            DatePicker("", selection: $selectedDate, displayedComponents: [.date])
-                .labelsHidden()
-                .datePickerStyle(.graphical)
-                .tint(.aviationGold)
-
-            Spacer()
+            ScrollView {
+                DatePicker("", selection: $selectedDate, displayedComponents: [.date])
+                    .labelsHidden()
+                    .datePickerStyle(.graphical)
+                    .tint(.aviationGold)
+                    .padding(.horizontal, 8)
+                    .padding(.bottom, 16)
+            }
+            .scrollBounceBehavior(.basedOnSize)
         }
         .background(Color.panelBackground)
-        .clipShape(RoundedRectangle(cornerRadius: 16))
-        .presentationDetents([.medium])
+        .presentationDetents([.large])
         .presentationDragIndicator(.visible)
         .preferredColorScheme(.dark)
     }

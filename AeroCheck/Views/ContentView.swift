@@ -200,6 +200,13 @@ struct ContentView: View {
         .onChange(of: appState.settings.enableCostTracking) { _, tracks in
             threadManager.tracksCost = tracks
         }
+        // Re-derive the AUTO rows whenever a plan changes anywhere. The flight screen refreshes
+        // itself on appear, but Home's strip advertises the next task and the readiness ring off the
+        // same tasks — so without this, entering the fuel on the plan editor left Home still saying
+        // "Next: Fuel plan" until the flight was opened. (device pass)
+        .onChange(of: flightPlanManager.flightPlans) { _, plans in
+            threadManager.refreshTasks(from: plans)
+        }
         #if DEBUG
         .task {
             // DEV-ONLY: auto-inject a marketing scene at launch for deterministic screenshot capture,

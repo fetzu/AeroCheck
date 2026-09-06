@@ -620,6 +620,12 @@ struct HomeView: View {
                     flightPlanStrip(fillsHeight: true)
                 }
             }
+            // Without this the strips are enormous. The cards fill their cell so the shorter one's
+            // background reaches the row height — but the parent VStack has `maxHeight: .infinity`
+            // and hands out every spare point, which the filling cards then swallow. Sizing the Grid
+            // to its own content caps the row at the TALLER CARD, which is all "equal heights" ever
+            // meant. (device pass)
+            .fixedSize(horizontal: false, vertical: true)
         } else {
             VStack(spacing: 12) {
                 lastFlightStrip(fillsHeight: false)

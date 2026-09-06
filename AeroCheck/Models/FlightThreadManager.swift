@@ -159,6 +159,18 @@ class FlightThreadManager: ObservableObject {
         saveThreads()
     }
 
+    /// Re-derive every unfinished flight's AUTO rows from the plans as they now stand.
+    ///
+    /// Cheap: the engine is pure, the thread count is small, and `saveThreads` is dirty-diffed, so a
+    /// regeneration that changes nothing writes nothing.
+    func refreshTasks(from plans: [FlightPlan]) {
+        let byId = Dictionary(plans.map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
+        for thread in threads where !thread.isFinished {
+            guard let planId = thread.flightPlanId, let plan = byId[planId] else { continue }
+            regenerateTasks(threadId: thread.id, plan: plan)
+        }
+    }
+
     private func reschedulePreparationReminder(at index: Int, from previous: Date?) {
         let thread = threads[index]
         notifications.cancelPreparationReminder(threadId: thread.id)

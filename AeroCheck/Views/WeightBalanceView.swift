@@ -195,7 +195,11 @@ struct WeightBalanceView: View {
             }
             Spacer(minLength: 8)
             if editable {
-                NumberField(placeholder: "0", value: weight, alignment: .trailing)
+                // "—", not "0". A blank box showing a grey 0 reads as a station loaded to zero,
+                // which is exactly the claim `weightKg: Double?` exists to stop the app making —
+                // the verdict line says the sheet is incomplete while the row still said "0".
+                // (device pass on review F22)
+                NumberField(placeholder: "—", value: weight, alignment: .trailing)
                     .scaledFont(size: 15, design: .monospaced, relativeTo: .subheadline)
                     .frame(width: 78)
                     .padding(7)
@@ -346,7 +350,7 @@ private struct WeightBalanceSetupSheet: View {
                 .pickerStyle(.menu)
                 .frame(maxWidth: .infinity, alignment: .leading)
 
-                NumberField(placeholder: "0", value: $profile.fuelBurnKg, alignment: .trailing)
+                NumberField(placeholder: "—", value: $profile.fuelBurnKg, alignment: .trailing)
                     .scaledFont(size: 14, design: .monospaced, relativeTo: .subheadline)
                     .frame(width: 80)
                     .padding(8)

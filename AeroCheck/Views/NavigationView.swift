@@ -555,8 +555,7 @@ struct NavigationMapView: View {
             }
 
             // Auto-advance waypoint when within proximity threshold
-            if appState.settings.enableFlightPlanning,
-               let location = newLocation {
+            if let location = newLocation {
                 let clLocation = CLLocation(latitude: location.coordinate.latitude, longitude: location.coordinate.longitude)
                 let prevIndex = flightPlanManager.activeFlightPlan?.currentWaypointIndex
                 flightPlanManager.autoAdvanceWaypointIfNeeded(
@@ -707,7 +706,7 @@ struct NavigationMapView: View {
                 Spacer()
                 compactMapControls
                     .padding(.horizontal, 12)
-                    .padding(.bottom, (appState.settings.enableFlightPlanning ? compactSheetHeight : geometry.safeAreaInsets.bottom) + 8)
+                    .padding(.bottom, compactSheetHeight + 8)
                     // No animated resize under Reduce Motion (UX-18)
                     .animation(reduceMotion ? nil : .easeInOut(duration: 0.3), value: compactSheetHeight)
             }

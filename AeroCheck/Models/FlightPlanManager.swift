@@ -77,6 +77,14 @@ class FlightPlanManager: ObservableObject {
         return plan
     }
 
+    /// Insert a plan built elsewhere — currently by `FlightPlan.from(intent:)`, which turns what a
+    /// pilot knows before they have a route into a plan. `createFlightPlan` cannot be reused for that
+    /// because it builds its own empty plan; this takes one already assembled. (v5.0.0)
+    func add(_ plan: FlightPlan) {
+        flightPlans.insert(plan, at: 0)
+        saveFlightPlans()
+    }
+
     /// Update an existing flight plan
     func updateFlightPlan(_ plan: FlightPlan) {
         var updatedPlan = plan

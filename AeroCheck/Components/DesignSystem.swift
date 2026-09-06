@@ -520,6 +520,89 @@ extension View {
             self.background(.regularMaterial, in: Capsule())
         }
     }
+
+    /// A brief "copied" confirmation over the bottom of the view. (v5.0.0)
+    ///
+    /// A copy to the pasteboard is invisible — nothing on screen moves — so without this the pilot
+    /// taps again, unsure it worked. It clears itself after `duration`; the caller owns the flag only
+    /// so the confirmation can be dismissed early by a navigation change.
+    func copiedConfirmation(_ message: String,
+                            isPresented: Binding<Bool>,
+                            duration: TimeInterval = 2) -> some View {
+        overlay(alignment: .bottom) {
+            if isPresented.wrappedValue {
+                Label(message, systemImage: "checkmark.circle.fill")
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundColor(.aviationGreen)
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 10)
+                    .floatingChromeCapsule()
+                    .padding(.bottom, 32)
+                    .transition(.opacity.combined(with: .move(edge: .bottom)))
+                    .task {
+                        // A transient overlay is never focused, so VoiceOver would otherwise get the
+                        // same silence a sighted user gets from an unannotated copy.
+                        AccessibilityNotification.Announcement(message).post()
+                        try? await Task.sleep(for: .seconds(duration))
+                        isPresented.wrappedValue = false
+                    }
+            }
+        }
+        .animation(.easeInOut(duration: 0.2), value: isPresented.wrappedValue)
+    }
+}
+
+// MARK: - Flow layout (v5.0.0)
+
+/// Lays subviews out left to right, wrapping to a new line when the next one will not fit.
+///
+/// Written because a thread task can carry a tool button and two links — "Copy ICAO flight plan",
+/// "Open skybriefing" — which does not fit on one line on an iPhone. An `HStack` would either
+/// compress the chips until their labels truncate or push them off the edge; neither is acceptable
+/// for a control whose whole job is to be readable and tappable.
+struct FlowLayout: Layout {
+    var spacing: CGFloat = 8
+
+    func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
+        let maxWidth = proposal.width ?? .infinity
+        var rowWidth: CGFloat = 0
+        var rowHeight: CGFloat = 0
+        var total = CGSize(width: 0, height: 0)
+
+        for subview in subviews {
+            let size = subview.sizeThatFits(.unspecified)
+            if rowWidth > 0, rowWidth + spacing + size.width > maxWidth {
+                total.width = max(total.width, rowWidth)
+                total.height += rowHeight + spacing
+                rowWidth = size.width
+                rowHeight = size.height
+            } else {
+                rowWidth += (rowWidth > 0 ? spacing : 0) + size.width
+                rowHeight = max(rowHeight, size.height)
+            }
+        }
+        total.width = max(total.width, rowWidth)
+        total.height += rowHeight
+        return total
+    }
+
+    func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) {
+        var x = bounds.minX
+        var y = bounds.minY
+        var rowHeight: CGFloat = 0
+
+        for subview in subviews {
+            let size = subview.sizeThatFits(.unspecified)
+            if x > bounds.minX, x + size.width > bounds.maxX {
+                x = bounds.minX
+                y += rowHeight + spacing
+                rowHeight = 0
+            }
+            subview.place(at: CGPoint(x: x, y: y), anchor: .topLeading, proposal: ProposedViewSize(size))
+            x += size.width + spacing
+            rowHeight = max(rowHeight, size.height)
+        }
+    }
 }
 
 private struct NightModeKey: EnvironmentKey {

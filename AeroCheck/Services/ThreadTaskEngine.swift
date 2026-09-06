@@ -36,6 +36,9 @@ enum ThreadTaskEngine {
         /// layer is not downloaded or the aerodrome reports none — absent is "not stated", never
         /// "none available". (v5.0.0)
         var destinationFuels: [String] = []
+        /// Whether the pilot tracks what a flight costs. Off hides the fee tasks; the logbook line
+        /// stands on its own without them. (v5.0.0)
+        var tracksCost: Bool = true
         /// Whether a flight plan has been filed for this thread — the close-out reminder only exists
         /// once there is something to close.
         var flightPlanFiled: Bool = false
@@ -136,7 +139,7 @@ enum ThreadTaskEngine {
             // after the ETA on an unclosed plan.
             specs.append(Spec(key: .flightPlanClosed, kind: .reminder, isUrgent: true))
         }
-        for ident in c.feeIdents.sorted() {
+        for ident in c.tracksCost ? c.feeIdents.sorted() : [] {
             specs.append(Spec(key: .feesPaid, subject: ident, kind: .check))
         }
         specs.append(Spec(key: .logbookEntry, kind: .check))
@@ -178,7 +181,11 @@ enum ThreadTaskEngine {
         if c.fuelRequiredLitres > 0 {
             let required = Int(c.fuelRequiredLitres.rounded())
             let onBoard = Int(c.fuelOnBoardLitres.rounded())
-            parts.append("\(required) L / \(onBoard) L")
+            // "45 L / 60 L" said nothing about which number was which — and got it backwards from
+            // the reading most pilots expect, since the smaller figure came first. REQ and FOB are
+            // the shorthand already used on the plan editor, and like every aviation abbreviation in
+            // this app they stay untranslated, which also keeps this persisted detail language-neutral.
+            parts.append("REQ \(required) L · FOB \(onBoard) L")
         }
         // What the destination can actually put in the tanks. This is the "refuelling options on
         // route" the fuel row is the natural home for — a pilot reading a fuel line is already

@@ -80,7 +80,17 @@ struct AppSettings: Codable, Equatable {
     var distanceInNauticalMiles: Bool = true // Flight Log distances: true = NM, false = km (toggle on the NM card)
 
     // Flight Planning
-    var enableFlightPlanning: Bool = true // ON by default
+    /// Flight planning is no longer optional: it is the spine of the app, and Home offers to plan a
+    /// flight on every launch. This stays as a property because ~9 sites in NavigationView still
+    /// branch on it, but it is deliberately ABSENT from `CodingKeys` — so it is always true, a stored
+    /// `false` from the beta cannot resurrect it, and nothing can turn the primary feature off.
+    /// Unwrapping those always-true branches is a follow-up; NavigationView is the in-flight screen
+    /// and does not deserve a drive-by refactor. (v5.0.0)
+    let enableFlightPlanning: Bool = true
+
+    /// Whether the fee task and the cost half of the numbers sheet appear. Not every pilot tracks
+    /// what a flight cost, and the logbook line stands on its own without it. (v5.0.0)
+    var enableCostTracking: Bool = true
     var waypointProximityThreshold: Double = 500 // meters, for auto-advancing waypoints
     var terrainAltitudeUnit: TerrainAltitudeUnit = .feet // feet, meters, or dual
 
@@ -190,7 +200,7 @@ struct AppSettings: Codable, Equatable {
         case offlineMode
         case alwaysUseUTC
         case distanceInNauticalMiles
-        case enableFlightPlanning
+        case enableCostTracking
         case waypointProximityThreshold
         case terrainAltitudeUnit
         case enableCircuitMode
@@ -261,7 +271,7 @@ struct AppSettings: Codable, Equatable {
         offlineMode = try container.decodeIfPresent(Bool.self, forKey: .offlineMode) ?? false
         alwaysUseUTC = try container.decodeIfPresent(Bool.self, forKey: .alwaysUseUTC) ?? false
         distanceInNauticalMiles = try container.decodeIfPresent(Bool.self, forKey: .distanceInNauticalMiles) ?? true
-        enableFlightPlanning = try container.decodeIfPresent(Bool.self, forKey: .enableFlightPlanning) ?? false
+        enableCostTracking = try container.decodeIfPresent(Bool.self, forKey: .enableCostTracking) ?? true
         waypointProximityThreshold = try container.decodeIfPresent(Double.self, forKey: .waypointProximityThreshold) ?? 500
         terrainAltitudeUnit = try container.decodeIfPresent(TerrainAltitudeUnit.self, forKey: .terrainAltitudeUnit) ?? .feet
         enableCircuitMode = try container.decodeIfPresent(Bool.self, forKey: .enableCircuitMode) ?? false

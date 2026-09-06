@@ -16,7 +16,7 @@ struct ThreadTaskPresentation {
         case .routePlanned:
             return .init(title: L10n.Thread.taskRoute, hint: nil, icon: "point.topleft.down.curvedto.point.bottomright.up")
         case .fuelPlanned:
-            return .init(title: L10n.Thread.taskFuel, hint: nil, icon: "fuelpump")
+            return .init(title: L10n.Thread.taskFuel, hint: L10n.Thread.hintFuel, icon: "fuelpump")
         case .massAndBalance:
             return .init(title: L10n.Thread.taskMassBalance, hint: L10n.Thread.hintMassBalance, icon: "scalemass")
         case .aircraftReserved:
@@ -36,7 +36,25 @@ struct ThreadTaskPresentation {
         case .pprObtained:
             return .init(title: L10n.Thread.taskPPR(task.subject ?? ""), hint: L10n.Thread.hintPPR, icon: "phone")
         case .customsNotified:
-            return .init(title: L10n.Thread.taskCustoms(task.subject ?? ""), hint: L10n.Thread.hintCustoms, icon: "globe.europe.africa")
+            // The hint carries the two facts that decide the pilot's afternoon: whether they must
+            // land at a customs field, and whether anyone has to be told first. A country nobody has
+            // curated says so rather than implying there is nothing to do.
+            let hint: String = {
+                guard let country = task.subject, let rule = BorderCrossingGuide.rule(for: country) else {
+                    return L10n.Border.notCurated
+                }
+                var parts = ["\(L10n.Border.customsAerodrome): \(rule.customsAerodrome.label)",
+                             "\(L10n.Border.priorNotification): \(rule.priorNotification.label)"]
+                if let lead = rule.noticeLeadTime {
+                    parts.append("\(L10n.Border.noticeLeadTime): \(lead)")
+                }
+                // The review date is part of the answer, not a footnote. Nothing here refreshes
+                // itself, so how recently a human read the source is what tells the pilot whether to
+                // trust these four words or go and look.
+                parts.append(L10n.Border.reviewed(rule.lastReviewed))
+                return parts.joined(separator: " · ")
+            }()
+            return .init(title: L10n.Thread.taskCustoms(task.subject ?? ""), hint: hint, icon: "globe.europe.africa")
         case .flightPlanClosed:
             return .init(title: L10n.Thread.taskFlightPlanClose, hint: L10n.Thread.hintFlightPlanClose, icon: "checkmark.shield")
         case .feesPaid:
@@ -53,10 +71,21 @@ struct ThreadTaskPresentation {
     /// beats an integration that can be switched off upstream.
     /// `tariffURL` is resolved by the caller (which is on the main actor) rather than looked up
     /// here, so this stays a pure presentation helper with no service reach-through.
-    static func links(for task: ThreadTask, tariffURL: URL? = nil) -> [(label: String, url: URL)] {
+    /// `touchesSwitzerland` gates the Swiss half of a customs task. It is passed in rather than
+    /// assumed: offering "Swiss side" on a Slovakia → Germany flight is the app claiming a country is
+    /// involved that is 300 km away.
+    static func links(for task: ThreadTask,
+                      tariffURL: URL? = nil,
+                      touchesSwitzerland: Bool = false) -> [(label: String, url: URL)] {
         switch task.key {
         case .flightPlanFiled:
-            return [(L10n.Thread.openSkybriefing, URL(string: "https://www.skybriefing.com/flightplan")!)]
+            return [(L10n.Thread.openSkybriefing,
+                     URL(string: "https://www.skybriefing.com/services/flightplan-services")!)]
+        case .notamChecked:
+            // Was a bare tick with nowhere to go, which is the one task state that teaches a pilot to
+            // tick without doing. skybriefing is the Swiss briefing channel, same as for filing.
+            return [(L10n.Thread.openNotamBriefing,
+                     URL(string: "https://www.skybriefing.com/services/notam-briefing")!)]
         case .dabsChecked:
             return [(L10n.Thread.openDabs, URL(string: "https://www.skybriefing.com/dabs")!)]
         case .gaforChecked:
@@ -70,6 +99,18 @@ struct ThreadTaskPresentation {
             // nobody has verified yet, which is the honest state rather than a guessed link.
             guard let tariffURL else { return [] }
             return [(L10n.Cost.openTariff, tariffURL)]
+        case .customsNotified:
+            // The authority's own page, in its own language, is the source — the app only points at
+            // it. The Swiss side applies whichever country is at the other end, but only when the
+            // flight actually touches Switzerland.
+            var links: [(label: String, url: URL)] = []
+            if let country = task.subject, let rule = BorderCrossingGuide.rule(for: country) {
+                links.append((L10n.Border.openOfficial, rule.officialURL))
+            }
+            if touchesSwitzerland {
+                links.append((L10n.Border.swissSide, BorderCrossingGuide.switzerland.officialURL))
+            }
+            return links
         default:
             return []
         }
@@ -83,6 +124,9 @@ struct ThreadTaskPresentation {
 struct FlightThreadView: View {
     let threadId: UUID
     var onClose: (() -> Void)?
+    /// Supplied by whoever presents this screen, because starting a flight runs `FlightLauncher`'s
+    /// whole guard sequence and that belongs to the presenter, not here. `Bool` is circuit mode.
+    var onStartFlight: ((Bool) -> Void)?
 
     @EnvironmentObject var threadManager: FlightThreadManager
     @EnvironmentObject var flightPlanManager: FlightPlanManager
@@ -94,6 +138,14 @@ struct FlightThreadView: View {
     @State private var weightBalanceRegistration: String?
     /// Flight whose cost and logbook line are open, from the CLOSE tasks. (v5.0.0)
     @State private var numbersFlightId: UUID?
+    /// Confirmation for the ICAO flight-plan copy, which is otherwise invisible. (v5.0.0)
+    @State private var copiedFPL = false
+    /// The nav log rendered for sharing, held until its share sheet is up. (v5.0.0)
+    @State private var navLogExport: Data?
+    /// Plan open in the map builder, from the route task. (v5.0.0)
+    @State private var routeBuilderPlanId: UUID?
+    /// Plan open in the details editor, from the fuel task. (v5.0.0)
+    @State private var planEditorPlan: FlightPlan?
 
     private var thread: FlightThread? { threadManager.thread(withId: threadId) }
 
@@ -155,6 +207,30 @@ struct FlightThreadView: View {
                 FlightNumbersView(flightId: id, onClose: { numbersFlightId = nil })
             }
         }
+        .sheet(isPresented: Binding(
+            get: { navLogExport != nil },
+            set: { if !$0 { navLogExport = nil } }
+        )) {
+            if let data = navLogExport, let thread {
+                ShareSheet(activityItems: [
+                    ShareFile(data: data,
+                              filename: "\(thread.routeLabel.replacingOccurrences(of: " ", with: ""))_NavLog.pdf",
+                              dataTypeIdentifier: "com.adobe.pdf")
+                ])
+            }
+        }
+        .fullScreenCover(isPresented: Binding(
+            get: { routeBuilderPlanId != nil },
+            set: { if !$0 { routeBuilderPlanId = nil } }
+        )) {
+            if let id = routeBuilderPlanId {
+                FlightPlanMapBuilderView(planId: id)
+            }
+        }
+        .sheet(item: $planEditorPlan) { plan in
+            FlightPlanEditorView(flightPlan: plan)
+        }
+        .copiedConfirmation(L10n.Nav.icaoFlightPlanCopied, isPresented: $copiedFPL)
         // Warm the tariff registry so the fee task can offer the operator's page. Cached for a week
         // and silent on failure — a missing link is a missing convenience, never an error.
         .task { await AirfieldTariffService.shared.refreshIfNeeded() }
@@ -265,7 +341,14 @@ struct FlightThreadView: View {
         let done = tasks.filter { $0.state == .done }.count
         let relevant = tasks.filter { $0.state != .notApplicable }.count
         let isComplete = relevant > 0 && done >= relevant
-        let color: Color = chapter == .fly ? .altimeterBlue : (isComplete ? .aviationGreen : .aviationGold)
+        // FLY used to be blue, which read as "different kind of thing" when what a pilot wants to
+        // know is the same question as every other chapter: is it done? Gold until the flight has
+        // been recorded, green once it has — and it is the flight that feeds CLOSE, so its state is
+        // exactly what says whether the logbook line and the cost can be filled in yet.
+        let flown = thread.flightId != nil
+        let color: Color = chapter == .fly
+            ? (flown ? .aviationGreen : .aviationGold)
+            : (isComplete ? .aviationGreen : .aviationGold)
 
         return Button {
             withAnimation(.easeInOut(duration: 0.2)) {
@@ -304,7 +387,7 @@ struct FlightThreadView: View {
     private func chapterSection(_ thread: FlightThread, chapter: ThreadChapter) -> some View {
         let tasks = thread.tasks(in: chapter)
         if chapter == .fly {
-            flyChapterCard()
+            flyChapterCard(thread)
         } else if !tasks.isEmpty {
             VStack(alignment: .leading, spacing: 0) {
                 HStack {
@@ -325,6 +408,7 @@ struct FlightThreadView: View {
                         onDismissTask: { setState(.notApplicable, task, in: thread) },
                         onOpen: { url in openURL(url) },
                         tariffURL: tariffURL(for: task),
+                        touchesSwitzerland: thread.countries?.contains("CH") ?? false,
                         // v5.0.0: three tasks now open a calculator instead of only taking a tick.
                         // The tick still works on its own — the tool is an aid, not a gate.
                         toolLabel: toolLabel(for: task, in: thread),
@@ -346,7 +430,8 @@ struct FlightThreadView: View {
 
     /// The flight itself. Not a task list — the 16 phases are the app's core and stay exactly where
     /// they are; this card only marks their place in the thread.
-    private func flyChapterCard() -> some View {
+    private func flyChapterCard(_ thread: FlightThread) -> some View {
+        VStack(alignment: .leading, spacing: 12) {
         HStack(spacing: 12) {
             Image(systemName: "airplane")
                 .scaledFont(size: 18, relativeTo: .title3)
@@ -362,6 +447,26 @@ struct FlightThreadView: View {
                     .foregroundColor(.dimText)
             }
             Spacer()
+        }
+
+        // The chapter said what happens next without offering to do it, which made FLY the one
+        // chapter you had to leave the flight to act on. The 16 phases still live where they always
+        // did — this only starts them.
+        if let onStartFlight, thread.flightId == nil {
+            Button {
+                onStartFlight(thread.profile == .local)
+            } label: {
+                HStack(spacing: 8) {
+                    Image(systemName: thread.profile == .local
+                          ? "arrow.triangle.2.circlepath" : "play.fill")
+                        .scaledFont(size: 14, weight: .semibold, relativeTo: .subheadline)
+                    Text(thread.profile == .local ? L10n.Button.circuits : L10n.Button.startFlight)
+                        .scaledFont(size: 14, weight: .bold, relativeTo: .subheadline)
+                }
+                .frame(maxWidth: .infinity)
+            }
+            .buttonStyle(PrimaryButtonStyle(color: thread.profile == .local ? .aviationAmber : .aviationGreen))
+        }
         }
         .padding(14)
         .background(Color.cardBackground)
@@ -451,21 +556,62 @@ struct FlightThreadView: View {
     /// The in-app tool a task can open, when there is one. Nil leaves the row as a plain check.
     private func toolLabel(for task: ThreadTask, in thread: FlightThread) -> String? {
         switch task.key {
+        case .flightPlanFiled:
+            // Only with a real route behind it. skybriefing's form is filled in by hand, so what this
+            // saves is retyping the route and identification — not the filing itself.
+            guard let plan = plan(for: thread), plan.waypoints.count >= 2 else { return nil }
+            return L10n.Nav.copyICAOFlightPlan
         case .massAndBalance:
             return thread.aircraftRegistration?.isEmpty == false ? L10n.WeightBalance.title : nil
-        case .feesPaid, .logbookEntry:
-            // Only once there is a flight to compute from — before that there are no hours to bill
-            // and no times to log.
+        case .routePlanned:
+            // The route is the one thing this screen could describe but not open, which left the
+            // app's most-used editor unreachable from the flight it belongs to.
+            return plan(for: thread) != nil ? L10n.Thread.editRoute : nil
+        case .fuelPlanned:
+            // Fuel on board is entered on the plan's own sheet. Without this, the row could tell you
+            // the numbers disagreed and give you nowhere to fix them.
+            return plan(for: thread) != nil ? L10n.Thread.editFuel : nil
+        case .navLogReady:
+            // The nav log is the one artefact this task is about, so the task should hand it over
+            // rather than send the pilot to the plan editor to find the same export.
+            guard let plan = plan(for: thread), plan.waypoints.count >= 2 else { return nil }
+            return L10n.Thread.exportNavLog
+        case .feesPaid:
+            // Only once there is a flight to compute from — before that there are no hours to bill.
             return thread.flightId != nil ? L10n.Cost.title : nil
+        case .logbookEntry:
+            // Same sheet as the fee task, but labelled for what this row is about: a pilot ticking
+            // "logbook entry" is looking for the line, not the cost.
+            return thread.flightId != nil ? L10n.Logbook.title : nil
         default:
             return nil
         }
     }
 
+    /// The plan this thread follows, if it still exists. A thread outlives the plan it came from, so
+    /// this is deliberately optional rather than force-unwrapped anywhere.
+    private func plan(for thread: FlightThread) -> FlightPlan? {
+        guard let planId = thread.flightPlanId else { return nil }
+        return flightPlanManager.flightPlans.first { $0.id == planId }
+    }
+
     private func openTool(for task: ThreadTask, in thread: FlightThread) {
         switch task.key {
+        case .flightPlanFiled:
+            guard let plan = plan(for: thread) else { return }
+            UIPasteboard.general.string = plan.toICAOFlightPlan()
+            copiedFPL = true
         case .massAndBalance:
             weightBalanceRegistration = thread.aircraftRegistration
+        case .routePlanned:
+            guard let plan = plan(for: thread) else { return }
+            routeBuilderPlanId = plan.id
+        case .fuelPlanned:
+            guard let plan = plan(for: thread) else { return }
+            planEditorPlan = plan
+        case .navLogReady:
+            guard let plan = plan(for: thread) else { return }
+            navLogExport = FlightPlanExportService.exportToPDF(plan)
         case .feesPaid, .logbookEntry:
             numbersFlightId = thread.flightId
         default:
@@ -500,13 +646,17 @@ struct ThreadTaskRow: View {
     let onOpen: (URL) -> Void
     /// Operator tariff page for a fee task, resolved by the parent view. (v5.0.0)
     var tariffURL: URL?
+    /// Whether this flight actually touches Switzerland, which gates the Swiss customs link.
+    var touchesSwitzerland: Bool = false
     /// Label for an in-app tool this task can open (mass & balance, cost & logbook). Nil for a task
     /// that is only ever a tick.
     var toolLabel: String?
     var onOpenTool: (() -> Void)?
 
     private var presentation: ThreadTaskPresentation { .make(for: task) }
-    private var links: [(label: String, url: URL)] { ThreadTaskPresentation.links(for: task, tariffURL: tariffURL) }
+    private var links: [(label: String, url: URL)] {
+        ThreadTaskPresentation.links(for: task, tariffURL: tariffURL, touchesSwitzerland: touchesSwitzerland)
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
@@ -542,6 +692,13 @@ struct ThreadTaskRow: View {
                             .scaledFont(size: 12, relativeTo: .caption)
                             .foregroundColor(.aviationGold)
                     }
+                    // Inside the text column, not a sibling of it. These used to hang off the outer
+                    // stack with a hand-tuned `.leading` padding that did not match the tick button's
+                    // real width, so every chip sat a few points LEFT of the title it belonged to.
+                    // Nesting them makes the alignment structural instead of a guess.
+                    if (!links.isEmpty || toolLabel != nil) && task.state != .notApplicable {
+                        actionChips.padding(.top, 4)
+                    }
                 }
                 Spacer(minLength: 0)
                 Image(systemName: presentation.icon)
@@ -549,8 +706,25 @@ struct ThreadTaskRow: View {
                     .foregroundColor(.dimText.opacity(0.6))
             }
 
-            if (!links.isEmpty || toolLabel != nil) && task.state != .notApplicable {
-                HStack(spacing: 8) {
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 11)
+        .contentShape(Rectangle())
+        .contextMenu {
+            if task.kind != .auto {
+                Button(L10n.Thread.markNotApplicable, systemImage: "minus.circle") { onDismissTask() }
+            }
+        }
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel(presentation.title)
+        .accessibilityValue(task.state == .done ? L10n.Thread.markDone : "")
+        .accessibilityAddTraits(task.kind == .auto ? [] : .isButton)
+    }
+
+    /// The row's actions. Wraps rather than overflowing: a task can carry a tool button and two
+    /// links, which does not fit on one line on an iPhone.
+    private var actionChips: some View {
+        FlowLayout(spacing: 8) {
                     if let toolLabel, let onOpenTool {
                         // Gold rather than blue: this one stays inside the app, where the blue chips
                         // all leave it.
@@ -571,22 +745,7 @@ struct ThreadTaskRow: View {
                             .overlay(Capsule().strokeBorder(Color.altimeterBlue.opacity(0.45), lineWidth: 1))
                             .buttonStyle(.plain)
                     }
-                }
-                .padding(.leading, 34)
-            }
         }
-        .padding(.horizontal, 14)
-        .padding(.vertical, 11)
-        .contentShape(Rectangle())
-        .contextMenu {
-            if task.kind != .auto {
-                Button(L10n.Thread.markNotApplicable, systemImage: "minus.circle") { onDismissTask() }
-            }
-        }
-        .accessibilityElement(children: .combine)
-        .accessibilityLabel(presentation.title)
-        .accessibilityValue(task.state == .done ? L10n.Thread.markDone : "")
-        .accessibilityAddTraits(task.kind == .auto ? [] : .isButton)
     }
 
     private var tickButton: some View {

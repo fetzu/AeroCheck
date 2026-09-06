@@ -72,7 +72,7 @@ struct OnboardingView: View {
     /// Countries selected for the OpenAIP download — seeded with the home country, neighbours opt-in.
     @State private var selectedCountries: Set<String> = []
 
-    private let totalPages = 8
+    private let totalPages = 9
 
     /// Effective home country: the GPS-detected one if available, else the device region. (onboarding revamp)
     private var effectiveHome: String { detectedCountry ?? (Locale.current.region?.identifier ?? "US") }
@@ -120,10 +120,13 @@ struct OnboardingView: View {
                     locationPage.tag(1)
                     mapsDataPage.tag(2)
                     checklistsPage.tag(3)
-                    yourMapPage.tag(4)
-                    inFlightFeaturesPage.tag(5)
-                    premiumPage.tag(6)
-                    readyPage.tag(7)
+                    // The four chapters, introduced right after the checklist that is chapter three.
+                    // Without this page the app's spine is something a pilot has to discover. (v5.0.0)
+                    flightsPage.tag(4)
+                    yourMapPage.tag(5)
+                    inFlightFeaturesPage.tag(6)
+                    premiumPage.tag(7)
+                    readyPage.tag(8)
                 }
                 .tabViewStyle(.page(indexDisplayMode: .never))
             }
@@ -150,7 +153,7 @@ struct OnboardingView: View {
         .onChange(of: subscriptionManager.subscriptionStatus) { _, status in
             if showSubscription && status.isSubscribed {
                 showSubscription = false
-                withAnimation { currentPage = 7 }
+                withAnimation { currentPage = 8 }
             }
         }
         // Advance off the Location step only AFTER the user answers the system prompt. (device-test feedback)
@@ -511,14 +514,69 @@ struct OnboardingView: View {
         }
     }
 
-    // MARK: - 5: Your map
+    // MARK: - 5: Flights (v5.0.0)
+
+    /// The one page that explains the app's shape. Everything else in onboarding configures a
+    /// setting; this names what AeroCheck is for.
+    private var flightsPage: some View {
+        configContainer(
+            icon: "airplane.departure", tint: .aviationGold,
+            title: String(localized: "Flights"),
+            subtitle: String(localized: "AeroCheck follows a flight end to end — plan it, prepare it, fly it, close it out."),
+            page: 4
+        ) {
+            VStack(spacing: 11) {
+                chapterRow("map", String(localized: "Plan"),
+                           String(localized: "Route, fuel, mass & balance, the aircraft booked"))
+                chapterRow("cloud.sun", String(localized: "Prepare"),
+                           String(localized: "Weather, NOTAM, customs, the flight plan filed"))
+                chapterRow("airplane", String(localized: "Fly"),
+                           String(localized: "The 16-phase checklist you already know"))
+                chapterRow("checkmark.shield", String(localized: "Close"),
+                           String(localized: "Close the flight plan, fees, the logbook line"))
+                Text(String(localized: "Plan a flight from the Home screen. You can always start flying without one."))
+                    .scaledFont(size: 12, relativeTo: .caption)
+                    .foregroundColor(.dimText)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            }
+        }
+    }
+
+    /// One chapter. Numbered, because the four genuinely are a sequence — a flight passes through
+    /// them in order, and that order is the thing being taught.
+    private func chapterRow(_ icon: String, _ title: String, _ detail: String) -> some View {
+        HStack(spacing: 11) {
+            Image(systemName: icon)
+                .scaledFont(size: 15, relativeTo: .subheadline)
+                .foregroundColor(.aviationGold)
+                .frame(width: 30)
+                .accessibilityHidden(true)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(title)
+                    .scaledFont(size: 14, weight: .semibold, relativeTo: .subheadline)
+                    .foregroundColor(.primaryText)
+                Text(detail)
+                    .scaledFont(size: 12, relativeTo: .caption)
+                    .foregroundColor(.secondaryText)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            Spacer(minLength: 0)
+        }
+        .padding(11)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(RoundedRectangle(cornerRadius: 11).fill(Color.cardBackground))
+        .accessibilityElement(children: .combine)
+    }
+
+    // MARK: - 6: Your map
 
     private var yourMapPage: some View {
         configContainer(
             icon: "map.fill", tint: .aviationGreen,
             title: String(localized: "Your map"),
             subtitle: String(localized: "Swiss & worldwide layers on the moving map — pick what's drawn."),
-            page: 4
+            page: 5
         ) {
             LazyVGrid(columns: toggleColumns, spacing: 11) {
                 toggleRow("shield.lefthalf.filled", .aviationGreen,
@@ -548,13 +606,12 @@ struct OnboardingView: View {
             icon: "airplane", tint: .aviationGold,
             title: String(localized: "In flight & features"),
             subtitle: String(localized: "How the app behaves in the air, plus the bigger features and your data."),
-            page: 5
+            page: 6
         ) {
+            // Flight planning is no longer a toggle: it is the app's spine, introduced two pages
+            // earlier as the first chapter of a flight. Offering to switch it off here would have
+            // contradicted the page that just explained it. (v5.0.0)
             LazyVGrid(columns: toggleColumns, spacing: 11) {
-                toggleRow("point.3.connected.trianglepath.dotted", .aviationGreen,
-                          String(localized: "Flight planning"),
-                          String(localized: "Map-first route builder"),
-                          Bindable(appState).settings.enableFlightPlanning)
                 toggleRow("gauge.with.needle", .aviationGold,
                           String(localized: "Log engine hours"),
                           String(localized: "Prompt for the hour meter"),
@@ -579,7 +636,7 @@ struct OnboardingView: View {
             pageDots
             VStack(spacing: 10) {
                 primaryButton(String(localized: "See AéroCheck Pro"), icon: "sparkles") { showSubscription = true }
-                secondaryButton(String(localized: "Continue"), icon: "arrow.right") { withAnimation { currentPage = 7 } }
+                secondaryButton(String(localized: "Continue"), icon: "arrow.right") { withAnimation { currentPage = 8 } }
             }
             .padding(.bottom, 40)
         }

@@ -1,33 +1,74 @@
 import SwiftUI
 
-/// Settings sub-page for flight planning and experimental airspeed
+/// Settings for flights: who is flying, what a flight costs, and how the route builder behaves.
+///
+/// The master "enable flight planning" toggle is gone. It was a BETA gate, complete with a warning
+/// sheet, and planning is now the spine of the app — Home offers to plan a flight on every launch.
+/// A switch that turns the primary feature off, behind a dialog implying it is risky, is a footgun
+/// whatever it was in v4. (v5.0.0)
 struct FlightPlanningSettingsView: View {
     @Environment(AppState.self) private var appState
 
-    @State private var enableFlightPlanning: Bool = false
+    @State private var pilotName: String = ""
+    @State private var enableCostTracking: Bool = true
     @State private var waypointProximityThreshold: Double = 500
     @State private var terrainAltitudeUnit: TerrainAltitudeUnit = .feet
-    @State private var showFlightPlanningWarning: Bool = false
     @State private var isLoadingSettings: Bool = false
 
     private let tint: Color = .orange
 
     var body: some View {
         SettingsPage {
+            pilotSection
+            costSection
             flightPlanningSection
         }
-        .navigationTitle(L10n.Settings.flightPlanning)
+        .navigationTitle(L10n.Flights.title)
         .navigationBarTitleDisplayMode(.inline)
         .onAppear { loadSettings() }
         .onChange(of: appState.settings) { _, _ in loadSettings() }
-        .onChange(of: enableFlightPlanning) { _, _ in if !isLoadingSettings { saveSettings() } }
+        .onChange(of: pilotName) { _, _ in if !isLoadingSettings { saveSettings() } }
+        .onChange(of: enableCostTracking) { _, _ in if !isLoadingSettings { saveSettings() } }
         .onChange(of: waypointProximityThreshold) { _, _ in if !isLoadingSettings { saveSettings() } }
         .onChange(of: terrainAltitudeUnit) { _, _ in if !isLoadingSettings { saveSettings() } }
-        .sheet(isPresented: $showFlightPlanningWarning) {
-            FlightPlanningWarningSheet(
-                isPresented: $showFlightPlanningWarning,
-                enableFlightPlanning: $enableFlightPlanning
-            )
+    }
+
+    // MARK: - Pilot
+
+    /// The pilot's own name. It was added with the logbook work and never given an editor, so the
+    /// PDF extract's "Holder" line and the PIC column had no way of being filled in. (v5.0.0)
+    private var pilotSection: some View {
+        SettingsGroup(title: L10n.Settings.pilot,
+                      tint: tint,
+                      footer: L10n.Settings.pilotNameFooter) {
+            VStack(alignment: .leading, spacing: 9) {
+                SettingsRowLabel(icon: "person.text.rectangle",
+                                 title: L10n.Settings.pilotName,
+                                 subtitle: nil,
+                                 tint: tint)
+                TextField(L10n.Settings.pilotNamePlaceholder, text: $pilotName)
+                    .textInputAutocapitalization(.words)
+                    .scaledFont(size: 16, relativeTo: .body)
+                    .foregroundColor(.primaryText)
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 8)
+                    .background(RoundedRectangle(cornerRadius: 8).fill(Color.cardBackground))
+            }
+            .padding(.horizontal, 14)
+            .padding(.vertical, 11)
+        }
+    }
+
+    // MARK: - Cost
+
+    private var costSection: some View {
+        SettingsGroup(title: L10n.Cost.title,
+                      tint: tint,
+                      footer: L10n.Settings.costTrackingFooter) {
+            SettingsToggleRow(icon: "banknote",
+                              title: L10n.Settings.costTracking,
+                              tint: tint,
+                              isOn: $enableCostTracking)
         }
     }
 
@@ -37,24 +78,7 @@ struct FlightPlanningSettingsView: View {
         SettingsGroup(title: L10n.Settings.flightPlanning,
                       tint: tint,
                       footer: L10n.Settings.flightPlanningFooter) {
-            SettingsToggleRow(
-                icon: "map.fill",
-                title: L10n.Settings.enableFlightPlanning,
-                tint: tint,
-                isOn: Binding(
-                    get: { enableFlightPlanning },
-                    set: { newValue in
-                        if newValue {
-                            showFlightPlanningWarning = true
-                        } else {
-                            enableFlightPlanning = false
-                        }
-                    }
-                )
-            )
-
-            if enableFlightPlanning {
-                VStack(alignment: .leading, spacing: 9) {
+            VStack(alignment: .leading, spacing: 9) {
                     SettingsRowLabel(
                         icon: "scope",
                         title: L10n.Settings.waypointProximity,
@@ -81,7 +105,6 @@ struct FlightPlanningSettingsView: View {
                     ForEach(TerrainAltitudeUnit.allCases) { unit in
                         Text(unit.rawValue).tag(unit)
                     }
-                }
             }
         }
     }
@@ -90,7 +113,8 @@ struct FlightPlanningSettingsView: View {
 
     private func loadSettings() {
         isLoadingSettings = true
-        enableFlightPlanning = appState.settings.enableFlightPlanning
+        pilotName = appState.settings.pilotName
+        enableCostTracking = appState.settings.enableCostTracking
         waypointProximityThreshold = appState.settings.waypointProximityThreshold
         terrainAltitudeUnit = appState.settings.terrainAltitudeUnit
         DispatchQueue.main.async {
@@ -99,7 +123,8 @@ struct FlightPlanningSettingsView: View {
     }
 
     private func saveSettings() {
-        appState.settings.enableFlightPlanning = enableFlightPlanning
+        appState.settings.pilotName = pilotName.trimmingCharacters(in: .whitespaces)
+        appState.settings.enableCostTracking = enableCostTracking
         appState.settings.waypointProximityThreshold = waypointProximityThreshold
         appState.settings.terrainAltitudeUnit = terrainAltitudeUnit
         appState.saveSettings()

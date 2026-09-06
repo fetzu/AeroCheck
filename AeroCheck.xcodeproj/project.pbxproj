@@ -25,6 +25,9 @@
 		A500002A111111110000002 /* OpenAIPAirportMergeTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A500002A111111110000001 /* OpenAIPAirportMergeTests.swift */; };
 		A500002F111111110000002 /* FlightThreadTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A500002F111111110000001 /* FlightThreadTests.swift */; };
 		A5000030111111110000002 /* FlightNumbersTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A5000030111111110000001 /* FlightNumbersTests.swift */; };
+		A5000032111111110000002 /* BorderCrossingTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A5000032111111110000001 /* BorderCrossingTests.swift */; };
+		A5000033111111110000002 /* LogbookPDFTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A5000033111111110000001 /* LogbookPDFTests.swift */; };
+		A5000034111111110000002 /* NewFlightIntentTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A5000034111111110000001 /* NewFlightIntentTests.swift */; };
 		A500002B111111110000002 /* OnboardingRegionTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A500002B111111110000001 /* OnboardingRegionTests.swift */; };
 		A500002E111111110000002 /* DisclaimerGateTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A500002E111111110000001 /* DisclaimerGateTests.swift */; };
 		A500002D111111110000002 /* AviationWeatherServiceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A500002D111111110000001 /* AviationWeatherServiceTests.swift */; };
@@ -97,6 +100,8 @@
 		A1000001211111110000070 /* AirportDataMergeEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000001111111110000070 /* AirportDataMergeEngine.swift */; };
 		A1000001211111110000074 /* NotificationService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000001111111110000074 /* NotificationService.swift */; };
 		A1000001211111110000076 /* AirfieldTariffService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000001111111110000076 /* AirfieldTariffService.swift */; };
+		A1000001211111110000077 /* LogbookPDFExportService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000001111111110000077 /* LogbookPDFExportService.swift */; };
+		A1000001211111110000078 /* FlightCreator.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000001111111110000078 /* FlightCreator.swift */; };
 		A1000001211111110000073 /* ThreadTaskEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000001111111110000073 /* ThreadTaskEngine.swift */; };
 		A1000001211111110000064 /* DataStatusManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000001111111110000064 /* DataStatusManager.swift */; };
 		A1000001211111110000063 /* NetworkMonitor.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000001111111110000063 /* NetworkMonitor.swift */; };
@@ -162,6 +167,8 @@
 		E1000001211111110000025 /* FlightThreadManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = E1000001111111110000025 /* FlightThreadManager.swift */; };
 		E1000001211111110000024 /* FlightThread.swift in Sources */ = {isa = PBXBuildFile; fileRef = E1000001111111110000024 /* FlightThread.swift */; };
 		E1000001211111110000028 /* WeightBalance.swift in Sources */ = {isa = PBXBuildFile; fileRef = E1000001111111110000028 /* WeightBalance.swift */; };
+		E1000001211111110000029 /* BorderCrossing.swift in Sources */ = {isa = PBXBuildFile; fileRef = E1000001111111110000029 /* BorderCrossing.swift */; };
+		E1000001211111110000030 /* NewFlightIntent.swift in Sources */ = {isa = PBXBuildFile; fileRef = E1000001111111110000030 /* NewFlightIntent.swift */; };
 		E1000001211111110000027 /* FlightCost.swift in Sources */ = {isa = PBXBuildFile; fileRef = E1000001111111110000027 /* FlightCost.swift */; };
 		E1000001211111110000026 /* LogbookEntry.swift in Sources */ = {isa = PBXBuildFile; fileRef = E1000001111111110000026 /* LogbookEntry.swift */; };
 		E1000001211111110000002 /* AirportDataService.swift in Sources */ = {isa = PBXBuildFile; fileRef = E1000001111111110000002 /* AirportDataService.swift */; };
@@ -172,6 +179,8 @@
 		REC00001211111110000003 /* FlightReconciliationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = REC00001111111110000003 /* FlightReconciliationTests.swift */; };
 		F1000001211111110000002 /* EventConfirmationView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1000001111111110000002 /* EventConfirmationView.swift */; };
 		F1000001211111110000003 /* FlightThreadView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1000001111111110000003 /* FlightThreadView.swift */; };
+		F1000001211111110000033 /* PlanNewFlightView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1000001111111110000033 /* PlanNewFlightView.swift */; };
+		F1000001211111110000034 /* UpcomingFlightsList.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1000001111111110000034 /* UpcomingFlightsList.swift */; };
 		F1000001211111110000005 /* WeightBalanceView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1000001111111110000005 /* WeightBalanceView.swift */; };
 		F1000001211111110000004 /* FlightNumbersView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1000001111111110000004 /* FlightNumbersView.swift */; };
 		G1000001211111110000001 /* HourMeterInputView.swift in Sources */ = {isa = PBXBuildFile; fileRef = G1000001111111110000001 /* HourMeterInputView.swift */; };
@@ -269,6 +278,9 @@
 		A500002A111111110000001 /* OpenAIPAirportMergeTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OpenAIPAirportMergeTests.swift; sourceTree = "<group>"; };
 		A500002F111111110000001 /* FlightThreadTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FlightThreadTests.swift; sourceTree = "<group>"; };
 		A5000030111111110000001 /* FlightNumbersTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FlightNumbersTests.swift; sourceTree = "<group>"; };
+		A5000032111111110000001 /* BorderCrossingTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BorderCrossingTests.swift; sourceTree = "<group>"; };
+		A5000033111111110000001 /* LogbookPDFTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LogbookPDFTests.swift; sourceTree = "<group>"; };
+		A5000034111111110000001 /* NewFlightIntentTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NewFlightIntentTests.swift; sourceTree = "<group>"; };
 		A500002B111111110000001 /* OnboardingRegionTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingRegionTests.swift; sourceTree = "<group>"; };
 		A500002E111111110000001 /* DisclaimerGateTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DisclaimerGateTests.swift; sourceTree = "<group>"; };
 		A500002D111111110000001 /* AviationWeatherServiceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AviationWeatherServiceTests.swift; sourceTree = "<group>"; };
@@ -345,6 +357,8 @@
 		A1000001111111110000070 /* AirportDataMergeEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AirportDataMergeEngine.swift; sourceTree = "<group>"; };
 		A1000001111111110000074 /* NotificationService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationService.swift; sourceTree = "<group>"; };
 		A1000001111111110000076 /* AirfieldTariffService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AirfieldTariffService.swift; sourceTree = "<group>"; };
+		A1000001111111110000077 /* LogbookPDFExportService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LogbookPDFExportService.swift; sourceTree = "<group>"; };
+		A1000001111111110000078 /* FlightCreator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FlightCreator.swift; sourceTree = "<group>"; };
 		A1000001111111110000073 /* ThreadTaskEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ThreadTaskEngine.swift; sourceTree = "<group>"; };
 		A1000001111111110000064 /* DataStatusManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DataStatusManager.swift; sourceTree = "<group>"; };
 		A1000001111111110000063 /* NetworkMonitor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NetworkMonitor.swift; sourceTree = "<group>"; };
@@ -400,6 +414,8 @@
 		E1000001111111110000025 /* FlightThreadManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FlightThreadManager.swift; sourceTree = "<group>"; };
 		E1000001111111110000024 /* FlightThread.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FlightThread.swift; sourceTree = "<group>"; };
 		E1000001111111110000028 /* WeightBalance.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WeightBalance.swift; sourceTree = "<group>"; };
+		E1000001111111110000029 /* BorderCrossing.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BorderCrossing.swift; sourceTree = "<group>"; };
+		E1000001111111110000030 /* NewFlightIntent.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NewFlightIntent.swift; sourceTree = "<group>"; };
 		E1000001111111110000027 /* FlightCost.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FlightCost.swift; sourceTree = "<group>"; };
 		E1000001111111110000026 /* LogbookEntry.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LogbookEntry.swift; sourceTree = "<group>"; };
 		E1000001111111110000002 /* AirportDataService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AirportDataService.swift; sourceTree = "<group>"; };
@@ -410,6 +426,8 @@
 		REC00001111111110000003 /* FlightReconciliationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FlightReconciliationTests.swift; sourceTree = "<group>"; };
 		F1000001111111110000002 /* EventConfirmationView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EventConfirmationView.swift; sourceTree = "<group>"; };
 		F1000001111111110000003 /* FlightThreadView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FlightThreadView.swift; sourceTree = "<group>"; };
+		F1000001111111110000033 /* PlanNewFlightView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlanNewFlightView.swift; sourceTree = "<group>"; };
+		F1000001111111110000034 /* UpcomingFlightsList.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UpcomingFlightsList.swift; sourceTree = "<group>"; };
 		F1000001111111110000005 /* WeightBalanceView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WeightBalanceView.swift; sourceTree = "<group>"; };
 		F1000001111111110000004 /* FlightNumbersView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FlightNumbersView.swift; sourceTree = "<group>"; };
 		G1000001111111110000001 /* HourMeterInputView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HourMeterInputView.swift; sourceTree = "<group>"; };
@@ -497,6 +515,9 @@
 				A500002A111111110000001 /* OpenAIPAirportMergeTests.swift */,
 				A500002F111111110000001 /* FlightThreadTests.swift */,
 				A5000030111111110000001 /* FlightNumbersTests.swift */,
+				A5000032111111110000001 /* BorderCrossingTests.swift */,
+				A5000033111111110000001 /* LogbookPDFTests.swift */,
+				A5000034111111110000001 /* NewFlightIntentTests.swift */,
 				A500002B111111110000001 /* OnboardingRegionTests.swift */,
 				A500002E111111110000001 /* DisclaimerGateTests.swift */,
 				A500002D111111110000001 /* AviationWeatherServiceTests.swift */,
@@ -610,6 +631,8 @@
 				B3000001111111110000004 /* SubscriptionView.swift */,
 				F1000001111111110000002 /* EventConfirmationView.swift */,
 				F1000001111111110000003 /* FlightThreadView.swift */,
+				F1000001111111110000033 /* PlanNewFlightView.swift */,
+				F1000001111111110000034 /* UpcomingFlightsList.swift */,
 				F1000001111111110000005 /* WeightBalanceView.swift */,
 				F1000001111111110000004 /* FlightNumbersView.swift */,
 				REC00001111111110000002 /* FlightReconciliationView.swift */,
@@ -645,6 +668,8 @@
 				E1000001111111110000025 /* FlightThreadManager.swift */,
 				E1000001111111110000024 /* FlightThread.swift */,
 				E1000001111111110000028 /* WeightBalance.swift */,
+				E1000001111111110000029 /* BorderCrossing.swift */,
+				E1000001111111110000030 /* NewFlightIntent.swift */,
 				E1000001111111110000027 /* FlightCost.swift */,
 				E1000001111111110000026 /* LogbookEntry.swift */,
 				H1000001111111110000001 /* BriefingData.swift */,
@@ -685,6 +710,8 @@
 				A1000001111111110000070 /* AirportDataMergeEngine.swift */,
 				A1000001111111110000074 /* NotificationService.swift */,
 				A1000001111111110000076 /* AirfieldTariffService.swift */,
+				A1000001111111110000077 /* LogbookPDFExportService.swift */,
+				A1000001111111110000078 /* FlightCreator.swift */,
 				A1000001111111110000073 /* ThreadTaskEngine.swift */,
 				A1000001111111110000064 /* DataStatusManager.swift */,
 				A1000001111111110000063 /* NetworkMonitor.swift */,
@@ -957,6 +984,9 @@
 				A500002A111111110000002 /* OpenAIPAirportMergeTests.swift in Sources */,
 				A500002F111111110000002 /* FlightThreadTests.swift in Sources */,
 				A5000030111111110000002 /* FlightNumbersTests.swift in Sources */,
+				A5000032111111110000002 /* BorderCrossingTests.swift in Sources */,
+				A5000033111111110000002 /* LogbookPDFTests.swift in Sources */,
+				A5000034111111110000002 /* NewFlightIntentTests.swift in Sources */,
 				A500002B111111110000002 /* OnboardingRegionTests.swift in Sources */,
 				A500002E111111110000002 /* DisclaimerGateTests.swift in Sources */,
 				A500002D111111110000002 /* AviationWeatherServiceTests.swift in Sources */,
@@ -1031,6 +1061,8 @@
 				A1000001211111110000070 /* AirportDataMergeEngine.swift in Sources */,
 				A1000001211111110000074 /* NotificationService.swift in Sources */,
 				A1000001211111110000076 /* AirfieldTariffService.swift in Sources */,
+				A1000001211111110000077 /* LogbookPDFExportService.swift in Sources */,
+				A1000001211111110000078 /* FlightCreator.swift in Sources */,
 				A1000001211111110000073 /* ThreadTaskEngine.swift in Sources */,
 				A1000001211111110000064 /* DataStatusManager.swift in Sources */,
 				A1000001211111110000063 /* NetworkMonitor.swift in Sources */,
@@ -1076,6 +1108,8 @@
 				E1000001211111110000025 /* FlightThreadManager.swift in Sources */,
 				E1000001211111110000024 /* FlightThread.swift in Sources */,
 				E1000001211111110000028 /* WeightBalance.swift in Sources */,
+				E1000001211111110000029 /* BorderCrossing.swift in Sources */,
+				E1000001211111110000030 /* NewFlightIntent.swift in Sources */,
 				E1000001211111110000027 /* FlightCost.swift in Sources */,
 				E1000001211111110000026 /* LogbookEntry.swift in Sources */,
 				E1000001211111110000002 /* AirportDataService.swift in Sources */,
@@ -1088,6 +1122,8 @@
 				A1000001211111110000910 /* SigmetRelevance.swift in Sources */,
 				F1000001211111110000002 /* EventConfirmationView.swift in Sources */,
 				F1000001211111110000003 /* FlightThreadView.swift in Sources */,
+				F1000001211111110000033 /* PlanNewFlightView.swift in Sources */,
+				F1000001211111110000034 /* UpcomingFlightsList.swift in Sources */,
 				F1000001211111110000005 /* WeightBalanceView.swift in Sources */,
 				F1000001211111110000004 /* FlightNumbersView.swift in Sources */,
 				G1000001211111110000001 /* HourMeterInputView.swift in Sources */,

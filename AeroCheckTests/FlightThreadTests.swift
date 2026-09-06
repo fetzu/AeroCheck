@@ -140,7 +140,7 @@ final class FlightThreadTests: XCTestCase {
         enough.fuelOnBoardLitres = 80
         let enoughTask = ThreadTaskEngine.generate(context: enough).first { $0.key == .fuelPlanned }
         XCTAssertEqual(enoughTask?.state, .done)
-        XCTAssertEqual(enoughTask?.detail, "54 L / 80 L")
+        XCTAssertEqual(enoughTask?.detail, "REQ 54 L · FOB 80 L")
     }
 
     func testRouteTaskFollowsWhetherARouteExists() {
@@ -400,7 +400,7 @@ final class FlightThreadTests: XCTestCase {
         c.destinationFuels = ["AVGAS", "UL91"]
 
         let fuel = ThreadTaskEngine.generate(context: c).first { $0.key == .fuelPlanned }
-        XCTAssertEqual(fuel?.detail, "54 L / 80 L · LSGY: AVGAS, UL91")
+        XCTAssertEqual(fuel?.detail, "REQ 54 L · FOB 80 L · LSGY: AVGAS, UL91")
     }
 
     func testFuelTaskOmitsTheDestinationWhenNothingIsKnown() {
@@ -409,7 +409,7 @@ final class FlightThreadTests: XCTestCase {
         c.fuelOnBoardLitres = 80
 
         let fuel = ThreadTaskEngine.generate(context: c).first { $0.key == .fuelPlanned }
-        XCTAssertEqual(fuel?.detail, "54 L / 80 L", "absent data is not 'no fuel available'")
+        XCTAssertEqual(fuel?.detail, "REQ 54 L · FOB 80 L", "absent data is not 'no fuel available'")
     }
 
     // MARK: - OpenAIP operational flags (v5.0.0)
@@ -455,6 +455,79 @@ final class FlightThreadTests: XCTestCase {
 
     /// The test host shares the app's bundle id, so a manager built against `.standard` would write
     /// its pointer into the real app's slot on that simulator. (Same trap as FlightPlanManager.)
+    // MARK: - The route decides the country, not the app's origin (device-pass regression)
+
+    /// Prievidza (LZPE) → Eggenfelden (EDME): Slovakia to Germany across Austria, ~300 km from the
+    /// nearest Swiss border.
+    private func slovakToGermanPlan() -> FlightPlan {
+        var plan = FlightPlan(name: "LZPE → EDME")
+        plan.waypoints = [
+            waypoint("LZPE", lat: 48.7742, lon: 18.5942),
+            waypoint("EDME", lat: 48.3961, lon: 12.7236)
+        ]
+        plan.fuelFlow = 25
+        plan.fuelOnBoard = 80
+        plan.tripFuel = 20
+        return plan
+    }
+
+    @MainActor
+    func testAForeignRouteNeverAcquiresSwissProducts() {
+        let manager = FlightThreadManager(defaults: throwawayDefaults())
+        let thread = manager.createThread(from: slovakToGermanPlan(), profile: .full)
+        defer { manager.deleteThread(threadId: thread.id) }
+
+        XCTAssertFalse(thread.countries?.contains("CH") ?? true, "got \(thread.countries ?? [])")
+        XCTAssertNil(thread.tasks.first { $0.key == .dabsChecked }, "DABS is a Swiss product")
+        XCTAssertNil(thread.tasks.first { $0.key == .gaforChecked }, "GAFOR is a Swiss product")
+    }
+
+    @MainActor
+    func testFilingAFlightPlanDoesNotConjureSwitzerlandOntoAForeignRoute() {
+        // The reported defect, exactly: the tasks were right until the pilot ticked "flight plan
+        // filed", at which point the regeneration rebuilt the country list as home + foreign — with
+        // home hard-coded to CH — and DABS, GAFOR and a "Swiss side" link appeared.
+        let manager = FlightThreadManager(defaults: throwawayDefaults())
+        let thread = manager.createThread(from: slovakToGermanPlan(), profile: .full)
+        defer { manager.deleteThread(threadId: thread.id) }
+
+        guard let filed = thread.tasks.first(where: { $0.key == .flightPlanFiled }) else {
+            return XCTFail("no filing task")
+        }
+        manager.setTaskState(.done, taskId: filed.id, threadId: thread.id)
+
+        let after = manager.thread(withId: thread.id)
+        XCTAssertNotNil(after?.tasks.first { $0.key == .flightPlanClosed },
+                        "filing should still add the close-out reminder")
+        XCTAssertNil(after?.tasks.first { $0.key == .dabsChecked }, "DABS appeared after filing")
+        XCTAssertNil(after?.tasks.first { $0.key == .gaforChecked }, "GAFOR appeared after filing")
+        XCTAssertFalse(after?.countries?.contains("CH") ?? true, "got \(after?.countries ?? [])")
+    }
+
+    @MainActor
+    func testTheDepartureCountryIsNotTreatedAsForeign() {
+        // Departing Slovakia, you do not clear customs INTO Slovakia. With home hard-coded to CH it
+        // raised a Slovak customs task on a Slovak departure.
+        let manager = FlightThreadManager(defaults: throwawayDefaults())
+        let thread = manager.createThread(from: slovakToGermanPlan(), profile: .full)
+        defer { manager.deleteThread(threadId: thread.id) }
+
+        XCTAssertEqual(thread.homeCountry, "SK", "home should follow the departure aerodrome")
+        let customs = thread.tasks.filter { $0.key == .customsNotified }.compactMap(\.subject)
+        XCTAssertFalse(customs.contains("SK"), "got \(customs)")
+        XCTAssertTrue(customs.contains("DE"), "got \(customs)")
+    }
+
+    func testTheSwissLinkIsOnlyOfferedWhenSwitzerlandIsInvolved() {
+        let task = ThreadTask(key: .customsNotified, subject: "DE", kind: .check)
+        let away = ThreadTaskPresentation.links(for: task, touchesSwitzerland: false)
+        XCTAssertFalse(away.contains { $0.label == L10n.Border.swissSide })
+        XCTAssertTrue(away.contains { $0.label == L10n.Border.openOfficial })
+
+        let swiss = ThreadTaskPresentation.links(for: task, touchesSwitzerland: true)
+        XCTAssertTrue(swiss.contains { $0.label == L10n.Border.swissSide })
+    }
+
     private func throwawayDefaults() -> UserDefaults {
         let suite = "FlightThreadTests.\(UUID().uuidString)"
         let defaults = UserDefaults(suiteName: suite)!

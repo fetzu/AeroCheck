@@ -1222,13 +1222,9 @@ struct HomeView: View {
                         // Longest detail that fits. See `armedDetail` — the iPad's side-by-side strip
                         // is narrower than the iPhone's full-width one.
                         ViewThatFits(in: .horizontal) {
-                            ForEach(detail, id: \.self) { candidate in
-                                Text("· \(candidate)")
-                                    .scaledFont(size: 12, relativeTo: .caption)
-                                    .foregroundColor(.dimText)
-                                    .lineLimit(1)
-                                    .fixedSize()
-                            }
+                            detailCandidate(detail, 0, prefix: "· ")
+                            detailCandidate(detail, 1, prefix: "· ")
+                            detailCandidate(detail, 2, prefix: "· ")
                         }
                     }
                 }
@@ -1315,13 +1311,9 @@ struct HomeView: View {
                     // Same longest-first ladder as the plan strip: this card is narrower on iPad than
                     // on iPhone, so the next-task line has to be able to shrink.
                     ViewThatFits(in: .horizontal) {
-                        ForEach(threadDetail(thread), id: \.self) { candidate in
-                            Text(candidate)
-                                .scaledFont(size: 12, relativeTo: .caption)
-                                .foregroundColor(.dimText)
-                                .lineLimit(1)
-                                .fixedSize()
-                        }
+                        detailCandidate(threadDetail(thread), 0)
+                        detailCandidate(threadDetail(thread), 1)
+                        detailCandidate(threadDetail(thread), 2)
                     }
                 }
                 Spacer(minLength: 6)
@@ -1383,13 +1375,29 @@ struct HomeView: View {
         }
     }
 
+    /// One rung of a longest-first detail ladder, for `ViewThatFits`.
+    ///
+    /// `ViewThatFits` needs a STATIC child list. A `ForEach` inside it makes SwiftUI's size-fitting
+    /// pass trap in `SizeFittingState.applyChildren` — and `ForEach(…, id: \.self)` over a ladder
+    /// whose rungs can repeat (two identical "all done" lines; a plan with no distance or time yet,
+    /// where all three rungs collapse to the waypoint count) hands it duplicate ids, which is the
+    /// reliable way to hit that trap. Three fixed slots, each clamped to what the ladder actually
+    /// has, keep the longest-first behaviour with no dynamic list and no duplicate identity.
+    @ViewBuilder
+    private func detailCandidate(_ candidates: [String], _ index: Int, prefix: String = "") -> some View {
+        let text = candidates.isEmpty ? "" : candidates[min(index, candidates.count - 1)]
+        Text(prefix + text)
+            .scaledFont(size: 12, relativeTo: .caption)
+            .foregroundColor(.dimText)
+            .lineLimit(1)
+            .fixedSize()
+    }
+
     /// Longest-first detail candidates: the next task if there is one, else the readiness count.
     private func threadDetail(_ thread: FlightThread) -> [String] {
         let progress = thread.state == .closeOut ? thread.closeOutProgress : thread.preFlightProgress
         let count = L10n.Thread.readiness(progress.done, progress.total)
-        guard let next = thread.nextTask else {
-            return [L10n.Thread.allDone, L10n.Thread.allDone]
-        }
+        guard let next = thread.nextTask else { return [L10n.Thread.allDone] }
         let title = ThreadTaskPresentation.make(for: next).title
         return ["\(L10n.Thread.nextUp): \(title)", title, count]
     }

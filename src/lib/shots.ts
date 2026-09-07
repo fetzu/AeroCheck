@@ -17,16 +17,14 @@ export const SHOTS: Record<string, Shot> = {
   home:     { ipad: '/assets/screenshot/v5/ipad/home.jpg',     iphone: '/assets/screenshot/v5/iphone/home.jpg',     label: 'Home' },
 };
 
-// 5.0.0 scenes. NOT CAPTURED YET — these point at the nearest existing image so the layout can be
-// judged in preview, and `shot()` warns at build time whenever one is used. Capture them via the
-// DEBUG scene injector (four new scenes: flight, prepare, closeout, homeflight — see the proposal),
-// drop the files under v5/, and delete the entries from PLACEHOLDERS. Do not ship the site with a
-// placeholder still in use.
-const PLACEHOLDERS = new Set(['flight', 'prepare', 'closeout', 'homeflight']);
-SHOTS.flight     = { ipad: SHOTS.hudhero.ipad, iphone: SHOTS.hudhero.iphone, label: 'A followed flight' };
-SHOTS.prepare    = { ipad: SHOTS.hudhero.ipad, iphone: SHOTS.hudhero.iphone, label: 'Preparing a flight' };
-SHOTS.closeout   = { ipad: SHOTS.log.ipad,     iphone: SHOTS.log.iphone,     label: 'Logbook & costs' };
-SHOTS.homeflight = { ipad: SHOTS.home.ipad,    iphone: SHOTS.home.iphone,    label: "Today's flight on Home" };
+// 5.0.0 flight-thread scenes, captured 2026-09-07 from the DEBUG scene injector — see SCREENSHOTS.md.
+// PLACEHOLDERS stays as the guard rail: put a key back in it if its image ever goes stand-in again,
+// and `shot()` will warn on every build until it is recaptured.
+const PLACEHOLDERS = new Set<string>();
+SHOTS.flight     = { ipad: '/assets/screenshot/v5/ipad/flight.jpg',     iphone: '/assets/screenshot/v5/iphone/flight.jpg',     label: 'A followed flight' };
+SHOTS.prepare    = { ipad: '/assets/screenshot/v5/ipad/prepare.jpg',    iphone: '/assets/screenshot/v5/iphone/prepare.jpg',    label: 'Preparing a flight' };
+SHOTS.closeout   = { ipad: '/assets/screenshot/v5/ipad/closeout.jpg',   iphone: '/assets/screenshot/v5/iphone/closeout.jpg',   label: 'Closing out a flight' };
+SHOTS.homeflight = { ipad: '/assets/screenshot/v5/ipad/homeflight.jpg', iphone: '/assets/screenshot/v5/iphone/homeflight.jpg', label: "Today's flight on Home" };
 
 const warned = new Set<string>();
 export function shot(key: string): Shot {

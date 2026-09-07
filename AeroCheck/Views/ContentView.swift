@@ -246,6 +246,13 @@ struct ContentView: View {
             if !appState.hasSeenOnboarding { appState.completeOnboarding() }
             // Let services initialize (airport data lazy-loads; the aircraft list fetch may be in flight).
             try? await Task.sleep(nanoseconds: 1_500_000_000)
+            // WAIT for the stores to finish loading before injecting. Threads and routes arrive off
+            // the main actor, so a fixed sleep raced them: the injector read an EMPTY thread list,
+            // cleared nothing, and the threads then appeared on Home — which is how a leftover thread
+            // kept hijacking Home's hero in captured screenshots even though the scene resets them.
+            for _ in 0..<40 where !(threadManager.hasLoadedThreads && flightPlanManager.hasLoadedPlans) {
+                try? await Task.sleep(nanoseconds: 100_000_000)
+            }
             MarketingSceneInjector.inject(
                 scene,
                 appState: appState,

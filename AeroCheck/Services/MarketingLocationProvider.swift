@@ -607,7 +607,7 @@ enum MarketingScene: String, CaseIterable, Identifiable {
         case .flightLogDetail: return "Imports the bundled marketing flights"
         case .flightFollowed: return "LSZQ→LFSB on 1 Aug, 10/12 prepared, opened"
         case .flightPrepare: return "Same flight — swipe to PREPARE after inject"
-        case .flightCloseOut: return "Vol d'Alpes in CLOSE, rate set — tap Logbook & costs"
+        case .flightCloseOut: return "Vol d'Alpes in CLOSE with its route and rate — no gesture"
         case .homeFlightToday: return "LSZQ→LFSB scheduled today 14:00 → Home hero"
         }
     }
@@ -624,6 +624,12 @@ private struct MarketingAirport {
 
 @MainActor
 enum MarketingSceneInjector {
+
+    /// Every route name a scene creates. Deleted before each injection so repeated capture runs do
+    /// not leave a pile of identical routes behind. Nothing outside this list is ever touched.
+    private static let demoRouteNames: Set<String> = [
+        "LSZQ → LSZB Tour", "Geneva → Samedan", "Jura → Engadin", "LSZQ → LFSB", "LSGS → LSZQ"
+    ]
 
     // ICAO airports referenced by the route scenes (Swiss fields).
     private static let knownAirports: [String: MarketingAirport] = [
@@ -661,6 +667,25 @@ enum MarketingSceneInjector {
         airportDataService: AirportDataService,
         threadManager: FlightThreadManager? = nil
     ) {
+        // Circuit mode on for every scene: CIRCUITS is a headline feature and it is gated behind a
+        // setting, so a shot taken with it off simply does not show it. Home is where it reads, but
+        // setting it once here keeps every scene consistent rather than only the two Home ones.
+        appState.settings.enableCircuitMode = true
+        appState.saveSettings()
+
+        // Every scene starts from NO threads. A single leftover thread scheduled today takes over
+        // Home's hero, which silently ruined the `home` and `conflicts` shots — they came back
+        // showing a flight card instead of the aircraft carousel. A scene has to determine what is
+        // on screen; inheriting whatever a previous run or an old build left behind is not a scene.
+        if let threadManager {
+            for old in threadManager.threads { threadManager.deleteThread(threadId: old.id) }
+        }
+        // …and from no demo ROUTES. Every scene that builds one used to leave it behind, so Saved
+        // routes filled up with copies of the same route, one per capture run.
+        for old in flightPlanManager.flightPlans where demoRouteNames.contains(old.name) {
+            flightPlanManager.deleteFlightPlan(old)
+        }
+
         switch scene {
         case .flightFollowed, .flightPrepare, .flightCloseOut, .homeFlightToday:
             guard let threadManager else {
@@ -955,13 +980,6 @@ enum MarketingSceneInjector {
 
         // Built fresh on every inject so the capture is deterministic; a previous run's copies are
         // retired first so the Upcoming list does not fill with duplicates across sessions.
-        let demoLabels: Set<String> = ["LSZQ → LFSB", "LSGS → LSZQ"]
-        for old in threadManager.threads where demoLabels.contains(old.routeLabel) {
-            threadManager.deleteThread(threadId: old.id)
-        }
-        for old in flightPlanManager.flightPlans where demoLabels.contains(old.name) {
-            flightPlanManager.deleteFlightPlan(old)
-        }
 
         switch scene {
         case .flightFollowed, .flightPrepare:

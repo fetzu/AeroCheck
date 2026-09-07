@@ -135,6 +135,8 @@ struct ThreadTaskPresentation {
 /// One followed flight, chapter by chapter. The FLY chapter is shown but not interactive — it is the
 /// existing 16-phase flight, and this screen deliberately does not try to own it.
 struct FlightThreadView: View {
+    /// iPhone gets a different header layout — see `header(_:)`. (device pass)
+    @Environment(\.horizontalSizeClass) private var horizontalSizeClass
     let threadId: UUID
     var onClose: (() -> Void)?
     /// Supplied by whoever presents this screen, because starting a flight runs `FlightLauncher`'s
@@ -274,8 +276,18 @@ struct FlightThreadView: View {
 
     // MARK: - Header
 
+    /// The header, which on iPhone could not fit what it was asked to show.
+    ///
+    /// Back button, route thumbnail, title, subtitle, state chip and readiness ring is roughly 334pt
+    /// of fixed furniture on a 390pt screen — so the route label, the one thing the screen is about,
+    /// got the ~56pt left over and rendered as "LSGS →…". Shrinking it to fit would have put it near
+    /// 6pt. So on compact width the STATE CHIP moves down to the chapter bar, where it sits happily
+    /// beside the per-chapter progress and where there is spare room; the title gets that width
+    /// back and shows in full. iPad, which has the room, is unchanged. (device pass)
+    private var usesCompactHeader: Bool { horizontalSizeClass == .compact }
+
     private func header(_ thread: FlightThread) -> some View {
-        HStack(spacing: 14) {
+        HStack(spacing: usesCompactHeader ? 10 : 14) {
             Button { close() } label: {
                 Image(systemName: "chevron.left")
                     .scaledFont(size: 17, weight: .semibold, relativeTo: .body)
@@ -294,7 +306,8 @@ struct FlightThreadView: View {
             if let plan = plan(for: thread), !plan.waypoints.isEmpty {
                 Button { routeBuilderPlanId = plan.id } label: {
                     RouteThumbnail(waypoints: plan.waypoints)
-                        .frame(width: 68, height: 46)
+                        .frame(width: usesCompactHeader ? 54 : 68,
+                               height: usesCompactHeader ? 38 : 46)
                 }
                 .buttonStyle(.plain)
                 .accessibilityLabel(L10n.Thread.editRoute)
@@ -310,10 +323,14 @@ struct FlightThreadView: View {
                         .scaledFont(size: 19, weight: .semibold, design: .monospaced, relativeTo: .title3)
                         .foregroundColor(.primaryText)
                         .lineLimit(1)
+                        // A safety net for a long label, not the mechanism — the space comes from
+                        // the layout above, so this only ever nudges.
+                        .minimumScaleFactor(0.7)
                     Text(subtitle(thread))
                         .scaledFont(size: 12, relativeTo: .caption)
                         .foregroundColor(.dimText)
                         .lineLimit(1)
+                        .minimumScaleFactor(0.7)
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .contentShape(Rectangle())
@@ -322,7 +339,7 @@ struct FlightThreadView: View {
             .disabled(plan(for: thread) == nil)
             .accessibilityHint(L10n.Nav.flightPlanDetails)
 
-            stateChip(thread)
+            if !usesCompactHeader { stateChip(thread) }
             readinessRing(thread)
         }
         .padding(.horizontal, 16)
@@ -476,6 +493,11 @@ struct FlightThreadView: View {
     private func chapterBar(_ thread: FlightThread) -> some View {
         ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: 8) {
+                // Displaced from the header on iPhone, where it was costing the route label the
+                // width it needed. It belongs with the per-chapter progress anyway: same question,
+                // one level up — and it leads, so it is on screen without scrolling the bar.
+                // (device pass)
+                if usesCompactHeader { stateChip(thread) }
                 ForEach(ThreadChapter.allCases) { chapter in
                     chapterChip(thread, chapter: chapter)
                 }
@@ -651,15 +673,32 @@ struct FlightThreadView: View {
                 }
                 Spacer()
             }
+            // Equal width, deliberately. These two are peers — calling the FIC and marking the
+            // plan closed are both complete answers to the same urgent question — so neither should
+            // be typographically louder than the other. The sizes used to be driven entirely by
+            // label length ("Call 0800 437 837" against "Mark closed") plus two styles that
+            // disagreed on padding. (device pass)
             HStack(spacing: 8) {
                 if let url = URL(string: "tel://0800437837") {
-                    Button(L10n.Thread.callFIC) { openURL(url) }
-                        .buttonStyle(PrimaryButtonStyle(color: .aviationRed))
+                    Button {
+                        openURL(url)
+                    } label: {
+                        Text(L10n.Thread.callFIC)
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.5)
+                            .frame(maxWidth: .infinity)
+                    }
+                    .buttonStyle(PrimaryButtonStyle(color: .aviationRed, isLarge: false))
                 }
-                Button(L10n.Thread.markFlightPlanClosed) {
+                Button {
                     threadManager.markFlightPlanClosed(threadId: thread.id)
+                } label: {
+                    Text(L10n.Thread.markFlightPlanClosed)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.5)
+                        .frame(maxWidth: .infinity)
                 }
-                .buttonStyle(SecondaryButtonStyle())
+                .buttonStyle(SecondaryButtonStyle(isLarge: false))
             }
         }
         .padding(14)

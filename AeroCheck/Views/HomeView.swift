@@ -789,15 +789,24 @@ struct HomeView: View {
     /// The shortcut, kept but demoted: a flight with no plan behind it, and circuits.
     private func unplannedShortcutButtons(isLandscape: Bool, isCompact: Bool) -> some View {
         HStack(spacing: isCompact ? 8 : 12) {
+            // Green with the play icon, like the hero's own button: this still STARTS A FLIGHT, and
+            // a grey button with no icon read as a settings row rather than a departure. It stays
+            // demoted by being an outline rather than a fill, and by the opacity below — the
+            // hierarchy comes from weight, not from pretending it does something else. (device pass)
             Button(action: startUnplannedFlight) {
-                Text(L10n.Home.flyWithoutAPlan)
-                    .scaledFont(size: isCompact ? 14 : 15, weight: .semibold, relativeTo: .subheadline)
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.7)
-                    .frame(maxWidth: .infinity)
-                    .frame(height: 44)
+                HStack(spacing: 8) {
+                    Image(systemName: "play.fill")
+                        .scaledFont(size: isCompact ? 13 : 14, relativeTo: .subheadline)
+                    Text(L10n.Home.flyWithoutAPlan)
+                        .scaledFont(size: isCompact ? 14 : 15, weight: .semibold, relativeTo: .subheadline)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.7)
+                }
+                .frame(maxWidth: .infinity)
+                .frame(height: 44)
             }
-            .buttonStyle(SecondaryButtonStyle(color: .secondaryText))
+            .buttonStyle(SecondaryButtonStyle(color: .aviationGreen))
+            .opacity(0.75)
 
             if appState.settings.enableCircuitMode {
                 Button(action: startCircuits) {

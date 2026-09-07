@@ -48,6 +48,19 @@ extension View {
 
 // MARK: - Button Styles
 
+/// Geometry shared by the primary and secondary button styles.
+///
+/// They MUST match. A primary and a secondary button sitting side by side is the app's commonest
+/// pairing — start/review, call/mark-closed — and the two styles used to disagree on both paddings
+/// (32/18 against 24/14) and on the corner radius. Setting the same `.frame(height:)` on both labels
+/// therefore still produced buttons 8pt different in height and visibly different in shape, because
+/// the mismatch lives in the style, below anything a call site can see. (device pass)
+enum ButtonMetrics {
+    static func horizontalPadding(isLarge: Bool) -> CGFloat { isLarge ? 32 : 20 }
+    static func verticalPadding(isLarge: Bool) -> CGFloat { isLarge ? 18 : 12 }
+    static let cornerRadius: CGFloat = 12
+}
+
 struct PrimaryButtonStyle: ButtonStyle {
     var color: Color = .aviationGold
     var isLarge: Bool = true
@@ -58,10 +71,10 @@ struct PrimaryButtonStyle: ButtonStyle {
         configuration.label
             .font(.buttonText)
             .foregroundColor(.onAccent)
-            .padding(.horizontal, isLarge ? 32 : 20)
-            .padding(.vertical, isLarge ? 18 : 12)
+            .padding(.horizontal, ButtonMetrics.horizontalPadding(isLarge: isLarge))
+            .padding(.vertical, ButtonMetrics.verticalPadding(isLarge: isLarge))
             .background(
-                RoundedRectangle(cornerRadius: 12)
+                RoundedRectangle(cornerRadius: ButtonMetrics.cornerRadius)
                     .fill(color)
                     .shadow(color: color.opacity(0.3), radius: 4, x: 0, y: 2)
             )
@@ -73,19 +86,21 @@ struct PrimaryButtonStyle: ButtonStyle {
 
 struct SecondaryButtonStyle: ButtonStyle {
     var color: Color = .aviationBlue
+    /// Matches `PrimaryButtonStyle`'s, so the two can sit side by side and agree. (device pass)
+    var isLarge: Bool = true
     @Environment(\.isEnabled) private var isEnabled
 
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
             .font(.buttonText)
             .foregroundColor(.primaryText)
-            .padding(.horizontal, 24)
-            .padding(.vertical, 14)
+            .padding(.horizontal, ButtonMetrics.horizontalPadding(isLarge: isLarge))
+            .padding(.vertical, ButtonMetrics.verticalPadding(isLarge: isLarge))
             .background(
-                RoundedRectangle(cornerRadius: 10)
+                RoundedRectangle(cornerRadius: ButtonMetrics.cornerRadius)
                     .stroke(color, lineWidth: 2)
                     .background(
-                        RoundedRectangle(cornerRadius: 10)
+                        RoundedRectangle(cornerRadius: ButtonMetrics.cornerRadius)
                             .fill(color.opacity(0.2))
                     )
             )

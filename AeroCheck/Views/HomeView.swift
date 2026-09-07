@@ -721,7 +721,8 @@ struct HomeView: View {
                 .foregroundColor(.secondaryText)
                 .fixedSize(horizontal: false, vertical: true)
 
-            HStack(spacing: 10) {
+            ratioRow(spacing: 10,
+                     height: ButtonMetrics.totalHeight(labelHeight: isCompact ? 46 : 52, isLarge: true)) {
                 Button { startHeroFlight(thread) } label: {
                     HStack(spacing: 10) {
                         Image(systemName: "play.fill")
@@ -729,18 +730,20 @@ struct HomeView: View {
                         Text(inFlight ? L10n.Home.resumeThisFlight : L10n.Home.startThisFlight)
                             .scaledFont(size: isCompact ? 15 : 17, weight: .bold, relativeTo: .title3)
                             .lineLimit(1)
-                            .minimumScaleFactor(0.7)
+                            .minimumScaleFactor(0.6)
                     }
                     .frame(maxWidth: .infinity)
                     .frame(height: isCompact ? 46 : 52)
                 }
                 .buttonStyle(PrimaryButtonStyle(color: .aviationGreen))
-
+            } trailing: {
                 Button { threadToOpen = thread.id } label: {
                     Text(L10n.Home.reviewFlight)
                         .scaledFont(size: isCompact ? 13 : 15, weight: .bold, relativeTo: .subheadline)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.6)
+                        .frame(maxWidth: .infinity)
                         .frame(height: isCompact ? 46 : 52)
-                        .frame(minWidth: 92)
                 }
                 .buttonStyle(SecondaryButtonStyle(color: .aviationGold))
             }
@@ -786,44 +789,92 @@ struct HomeView: View {
         launch(thread)
     }
 
-    /// The shortcut, kept but demoted: a flight with no plan behind it, and circuits.
-    private func unplannedShortcutButtons(isLandscape: Bool, isCompact: Bool) -> some View {
-        HStack(spacing: isCompact ? 8 : 12) {
-            // Green with the play icon, like the hero's own button: this still STARTS A FLIGHT, and
-            // a grey button with no icon read as a settings row rather than a departure. It stays
-            // demoted by being an outline rather than a fill, and by the opacity below — the
-            // hierarchy comes from weight, not from pretending it does something else. (device pass)
-            Button(action: startUnplannedFlight) {
-                HStack(spacing: 8) {
-                    Image(systemName: "play.fill")
-                        .scaledFont(size: isCompact ? 13 : 14, relativeTo: .subheadline)
-                    Text(L10n.Home.flyWithoutAPlan)
-                        .scaledFont(size: isCompact ? 14 : 15, weight: .semibold, relativeTo: .subheadline)
-                        .lineLimit(1)
-                        .minimumScaleFactor(0.7)
-                }
-                .frame(maxWidth: .infinity)
-                .frame(height: 44)
-            }
-            .buttonStyle(SecondaryButtonStyle(color: .aviationGreen))
-            .opacity(0.75)
+    /// Two buttons in one row at a fixed ratio.
+    ///
+    /// An `HStack` of two `maxWidth: .infinity` buttons is 50/50, which gives a secondary action the
+    /// same visual weight as the primary one. 65/35 keeps the hierarchy legible while still letting
+    /// the smaller button hold a real label. The row needs an explicit height because a
+    /// `GeometryReader` takes all the vertical space it is offered — `ButtonMetrics.totalHeight`
+    /// works it out from the same numbers the style uses, so the two cannot drift apart.
+    private static let primaryShare: CGFloat = 0.65
 
-            if appState.settings.enableCircuitMode {
-                Button(action: startCircuits) {
-                    HStack(spacing: 6) {
-                        Image(systemName: "arrow.triangle.2.circlepath")
-                            .scaledFont(size: 14, relativeTo: .subheadline)
-                        Text(L10n.Button.circuits)
-                            .scaledFont(size: isCompact ? 13 : 14, weight: .semibold, relativeTo: .subheadline)
-                            .lineLimit(1)
-                            .minimumScaleFactor(0.7)
-                    }
-                    .frame(height: 44)
-                    .frame(minWidth: isCompact ? 110 : 130)
-                }
-                .buttonStyle(SecondaryButtonStyle(color: .aviationAmber))
+    private func ratioRow<Leading: View, Trailing: View>(
+        spacing: CGFloat,
+        height: CGFloat,
+        @ViewBuilder leading: () -> Leading,
+        @ViewBuilder trailing: () -> Trailing
+    ) -> some View {
+        let leadingView = leading()
+        let trailingView = trailing()
+        return GeometryReader { geo in
+            let usable = max(0, geo.size.width - spacing)
+            HStack(spacing: spacing) {
+                leadingView.frame(width: usable * Self.primaryShare)
+                trailingView.frame(width: usable * (1 - Self.primaryShare))
             }
         }
+        .frame(height: height)
+    }
+
+    /// The shortcut, kept but demoted: a flight with no plan behind it, and circuits.
+    ///
+    /// Deliberately SHORTER than the hero's buttons — `isLarge: false` halves the style's vertical
+    /// padding — so the row reads as the quieter option at a glance rather than as a second pair of
+    /// equals stacked under the first. (device pass)
+    @ViewBuilder
+    private func unplannedShortcutButtons(isLandscape: Bool, isCompact: Bool) -> some View {
+        let height = ButtonMetrics.totalHeight(labelHeight: Self.shortcutLabelHeight, isLarge: false)
+        if appState.settings.enableCircuitMode {
+            // The same 65/35 split as the hero: flying without a plan is much the likelier of the
+            // two, and an even split read as a choice between equals.
+            ratioRow(spacing: isCompact ? 8 : 12, height: height) {
+                unplannedButton(isCompact: isCompact)
+            } trailing: {
+                circuitsButton(isCompact: isCompact)
+            }
+        } else {
+            unplannedButton(isCompact: isCompact)
+        }
+    }
+
+    /// Label height for the shortcut row. Shorter than the hero's 46/52, and paired with the
+    /// compact style metrics, so the whole row sits visibly lower than the hero's.
+    private static let shortcutLabelHeight: CGFloat = 40
+
+    /// Green with the play icon, like the hero's own button: this still STARTS A FLIGHT, and a grey
+    /// button with no icon read as a settings row rather than a departure. It stays demoted by being
+    /// an outline rather than a fill, by the opacity, and by the shorter row. (device pass)
+    private func unplannedButton(isCompact: Bool) -> some View {
+        Button(action: startUnplannedFlight) {
+            HStack(spacing: 8) {
+                Image(systemName: "play.fill")
+                    .scaledFont(size: isCompact ? 12 : 13, relativeTo: .subheadline)
+                Text(L10n.Home.flyWithoutAPlan)
+                    .scaledFont(size: isCompact ? 13 : 14, weight: .semibold, relativeTo: .subheadline)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.6)
+            }
+            .frame(maxWidth: .infinity)
+            .frame(height: Self.shortcutLabelHeight)
+        }
+        .buttonStyle(SecondaryButtonStyle(color: .aviationGreen, isLarge: false))
+        .opacity(0.75)
+    }
+
+    private func circuitsButton(isCompact: Bool) -> some View {
+        Button(action: startCircuits) {
+            HStack(spacing: 6) {
+                Image(systemName: "arrow.triangle.2.circlepath")
+                    .scaledFont(size: 13, relativeTo: .subheadline)
+                Text(L10n.Button.circuits)
+                    .scaledFont(size: isCompact ? 12 : 13, weight: .semibold, relativeTo: .subheadline)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.6)
+            }
+            .frame(maxWidth: .infinity)
+            .frame(height: Self.shortcutLabelHeight)
+        }
+        .buttonStyle(SecondaryButtonStyle(color: .aviationAmber, isLarge: false))
     }
 
     /// The aircraft, in the strip the flight vacated. Taps into the carousel's own screen.

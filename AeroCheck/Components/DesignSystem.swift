@@ -59,6 +59,14 @@ enum ButtonMetrics {
     static func horizontalPadding(isLarge: Bool) -> CGFloat { isLarge ? 32 : 20 }
     static func verticalPadding(isLarge: Bool) -> CGFloat { isLarge ? 18 : 12 }
     static let cornerRadius: CGFloat = 12
+
+    /// A button's finished height, given the height its label was framed to.
+    ///
+    /// Call sites that lay two buttons out at a fixed ratio need the row height up front, and it is
+    /// the style — not the label — that decides it.
+    static func totalHeight(labelHeight: CGFloat, isLarge: Bool) -> CGFloat {
+        labelHeight + 2 * verticalPadding(isLarge: isLarge)
+    }
 }
 
 struct PrimaryButtonStyle: ButtonStyle {
@@ -70,6 +78,7 @@ struct PrimaryButtonStyle: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
             .font(.buttonText)
+            .textCase(.uppercase)
             .foregroundColor(.onAccent)
             .padding(.horizontal, ButtonMetrics.horizontalPadding(isLarge: isLarge))
             .padding(.vertical, ButtonMetrics.verticalPadding(isLarge: isLarge))
@@ -93,6 +102,7 @@ struct SecondaryButtonStyle: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
             .font(.buttonText)
+            .textCase(.uppercase)
             .foregroundColor(.primaryText)
             .padding(.horizontal, ButtonMetrics.horizontalPadding(isLarge: isLarge))
             .padding(.vertical, ButtonMetrics.verticalPadding(isLarge: isLarge))

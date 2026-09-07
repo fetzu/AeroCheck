@@ -232,10 +232,18 @@ struct ContentView: View {
             case "conflicts", "planconflicts":  scene = .planConflicts
             case "plan", "planbuilder":         scene = .planBuilder
             case "flightlog", "flightlogdetail": scene = .flightLogDetail
+            case "flight", "flightfollowed":    scene = .flightFollowed
+            case "prepare", "flightprepare":    scene = .flightPrepare
+            case "closeout", "flightcloseout":  scene = .flightCloseOut
+            case "homeflight", "homeflighttoday": scene = .homeFlightToday
             default:                            scene = nil
             }
             guard let scene else { return }
             appState.settings.marketingMode = true
+            // A fresh simulator install would otherwise park the scene behind the safety gate and
+            // onboarding; a scene launch means "show me the app", so both are treated as seen.
+            if appState.needsDisclaimerAcceptance { appState.acceptDisclaimer() }
+            if !appState.hasSeenOnboarding { appState.completeOnboarding() }
             // Let services initialize (airport data lazy-loads; the aircraft list fetch may be in flight).
             try? await Task.sleep(nanoseconds: 1_500_000_000)
             MarketingSceneInjector.inject(
@@ -245,7 +253,8 @@ struct ContentView: View {
                 subscriptionManager: subscriptionManager,
                 aircraftDataService: aircraftDataService,
                 flightPlanManager: flightPlanManager,
-                airportDataService: airportDataService
+                airportDataService: airportDataService,
+                threadManager: threadManager
             )
         }
         #endif

@@ -21,14 +21,23 @@ the injector's; the script names files after the shot key, which for the 5.0 sce
 | `prepare` | `prepare` | The same flight, scrolled to PREPARE (customs / border pack row visible) | swipe up once |
 | `closeout` | `closeout` | Vol d'Alpes (a real flight) in CLOSE, the red close-your-flight-plan card at the top | none |
 | `homeflight` | `homeflight` | Home with today's flight as the hero, aircraft in the strip | none |
-| `hudhero` / `hud` | `cruise` | Cruise, fuel-quantity step, instrument strip lit | none (`hud` is a region crop of `hudhero`) |
+| `hudhero` / `hud` | `cruise` | Cruise, fuel-quantity step, instrument strip lit | none (both names, same full screen) |
 | `nav` | `nav` | LSZQ→LSGC→LSGN→LSZB armed, bottom bar expanded | tap the bar's centre handle to expand; Track Vector + Flight Planning must be ON in Settings |
+| `airspace` | `conflicts` | Geneva → Samedan, the full airspace-conflict list | open the route, then the conflicts list |
 | `planning` | `plan` | Map-first builder, Jura → Engadin, route profile | expand the profile (chevron) |
 | `log` | `flightlog` | Flight detail of Vol d'Alpes, track + altitude profile | set the year filter to All time, tap Vol d'Alpes |
 
 Two rules that are not negotiable:
 
 - **iPad is captured in LANDSCAPE, iPhone in PORTRAIT.** The site's device frames depend on it.
+- **Scene keys and shot keys are not always the same word.** They match for the 5.0 scenes and differ
+  for the older ones (`cruise`→`hud`, `conflicts`→`airspace`, `plan`→`planning`, `flightlog`→`log`).
+  The script maps them, so pass the SCENE key and it writes the SHOT filename; `hud-hero.jpg` is
+  copied from the same iPad capture.
+- **Every scene clears all flight threads first, and turns circuit mode ON.** Both are deliberate: a
+  single leftover thread scheduled today takes over Home's hero, which silently turns the `home` and
+  `conflicts` shots into a flight card instead of what they are meant to show; and CIRCUITS is gated
+  behind a setting, so with it off the button simply is not in the picture.
 - **The scene launch bypasses the safety gate and onboarding.** A scene key means "show me the app",
   so the injector accepts both on launch. A fresh simulator container therefore needs no tapping.
 - **The demo flight is dated 1 August** (computed as the *next* 1 August at inject time, so it is

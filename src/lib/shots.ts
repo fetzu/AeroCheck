@@ -1,10 +1,10 @@
 export interface Shot { ipad: string; iphone: string; label: string; }
 
-// v5 purpose-captured shots (2026-06-18). Flagship feature rows use focused REGION crops
-// (planning / hud / nav / airspace); the hero carousel + 'log'/'home' use full-device hero shots.
-// All captured deterministically via the DEBUG marketing scene injector — see the capture playbook.
-// iPad regions are mixed aspect (1.44–1.58) shown at native ratio in feature rows; iPhone are full
-// portrait (~0.46). The hero carousel cover-crops to a fixed aspect, so any of these fit there too.
+// Recaptured 2026-09-07 against review/v5-cumulative-fixes, after the button-label and Home layout
+// pass — every image below is a FULL-DEVICE screen, iPad landscape (1600×1112) and iPhone portrait
+// (800×1739). (An older comment here described some of them as region crops; they were already full
+// screens by then.) All captured deterministically via the DEBUG scene injector — see SCREENSHOTS.md.
+// The hero carousel cover-crops to a fixed aspect, so any of these fit there too.
 export const SHOTS: Record<string, Shot> = {
   hud:      { ipad: '/assets/screenshot/v5/ipad/hud.jpg',      iphone: '/assets/screenshot/v5/iphone/hud.jpg',      label: 'In-flight HUD' },
   // Hero carousel uses the FULL iPad HUD screen; the cropped `hud` region is reserved for the Fly
@@ -17,7 +17,7 @@ export const SHOTS: Record<string, Shot> = {
   home:     { ipad: '/assets/screenshot/v5/ipad/home.jpg',     iphone: '/assets/screenshot/v5/iphone/home.jpg',     label: 'Home' },
 };
 
-// 5.0.0 flight-thread scenes, captured 2026-09-07 from the DEBUG scene injector — see SCREENSHOTS.md.
+// The 5.0.0 flight-thread scenes, captured the same way and at the same time as the rest.
 // PLACEHOLDERS stays as the guard rail: put a key back in it if its image ever goes stand-in again,
 // and `shot()` will warn on every build until it is recaptured.
 const PLACEHOLDERS = new Set<string>();

@@ -57,8 +57,23 @@ xcrun simctl location "$DEVICE" set 47.3497,7.0278   # LSZQ Bressaucourt
 xcrun simctl status_bar "$DEVICE" override --time "9:41" --batteryState charged --batteryLevel 100 \
   --wifiBars 3 --cellularMode active --cellularBars 4 --dataNetwork lte --operatorName " "
 
+# The website names images by SHOT key; the injector names states by SCENE key. They match for the
+# 5.0 scenes and differ for the older ones, so map the difference here rather than renaming by hand
+# after every run. A scene missing from the map keeps its own name.
+shot_key() {
+  case "$1" in
+    cruise|cruisehud)        echo "hud" ;;
+    conflicts|planconflicts) echo "airspace" ;;
+    plan|planbuilder)        echo "planning" ;;
+    flightlog|flightlogdetail) echo "log" ;;
+    home2aircraft)           echo "home" ;;
+    *)                       echo "$1" ;;
+  esac
+}
+
 IFS=',' read -ra LIST <<< "$SCENES"
 for SCENE in "${LIST[@]}"; do
+  KEY="$(shot_key "$SCENE")"
   echo "▶ scene: $SCENE"
   xcrun simctl terminate "$DEVICE" "$BUNDLE" 2>/dev/null || true
   sleep 1
@@ -67,18 +82,20 @@ for SCENE in "${LIST[@]}"; do
   if [ "$PAUSE" = "1" ]; then
     read -r -p "   perform the gesture for '$SCENE' (see SCREENSHOTS.md), then press Return… " _
   fi
-  RAW="/tmp/ac_shots/${KIND}_${SCENE}.png"
+  RAW="/tmp/ac_shots/${KIND}_${KEY}.png"
   xcrun simctl io "$DEVICE" screenshot "$RAW" >/dev/null
   if [ "$KIND" = "ipad" ] && [ -n "$ROTATE" ]; then
     sips -r "$ROTATE" "$RAW" >/dev/null
   fi
-  DEST="$OUT/$KIND/$SCENE.jpg"
+  DEST="$OUT/$KIND/$KEY.jpg"
   # iPad: cap the long side; iPhone: cap the WIDTH only (a -Z on portrait shrinks the height, not the width).
   if [ "$KIND" = "ipad" ]; then
     sips -Z "$MAXW" -s format jpeg -s formatOptions 90 "$RAW" --out "$DEST" >/dev/null
   else
     sips --resampleWidth "$MAXW" -s format jpeg -s formatOptions 90 "$RAW" --out "$DEST" >/dev/null
   fi
+  # The hero carousel reads `hudhero`, which is the same full HUD screen under another name.
+  if [ "$KEY" = "hud" ] && [ "$KIND" = "ipad" ]; then cp "$DEST" "$OUT/$KIND/hud-hero.jpg"; fi
   echo "   → $DEST ($(sips -g pixelWidth -g pixelHeight "$DEST" | awk '/pixel/ {printf "%s ", $2}'))"
 done
 echo "✓ done. Now: remove the captured keys from PLACEHOLDERS in src/lib/shots.ts, run 'npm run build' and check no [shots] warning remains."

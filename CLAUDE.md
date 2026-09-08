@@ -508,6 +508,44 @@ Secrets are **not** hard-coded in tracked source. They flow:
   matter are: (a) keep it out of *tracked* (esp. *public*) source, and (b) rotate if it leaks.
   Do **not** reintroduce a literal key in source.
 
+### Versioning and build numbers
+
+Two fields, two different jobs. Conflating them is what `CURRENT_PROJECT_VERSION = 0.1` was.
+
+| Build setting | Info.plist key | What it is | Who sets it |
+|---|---|---|---|
+| `MARKETING_VERSION` | `CFBundleShortVersionString` | SemVer, human-facing (`5.0.0`) | **You**, by hand, once per release |
+| `CURRENT_PROJECT_VERSION` | `CFBundleVersion` | Not a version: an opaque token whose only contract is that it increases | **CI**, never by hand |
+
+- **The build number comes from Xcode Cloud.** `ci_scripts/ci_pre_xcodebuild.sh` writes
+  `CI_BUILD_NUMBER` into every `CURRENT_PROJECT_VERSION` occurrence in `project.pbxproj`. Outside
+  Xcode Cloud the script is a no-op, so local builds keep the checked-in default and still build.
+- **It is never reset between releases.** Resetting is allowed by App Store Connect but buys
+  nothing and sets a trap: upload 5.0.0 build 3, ship 5.0.1 as build 1, then need another 5.0.0
+  build and you have to remember where that train was. Monotonic forever means the question never
+  comes up. (The counter was at 307 when this was wired up, in Sept 2026.)
+- **The checked-in default is `1`**, deliberately not a plausible upload number: only CI uploads, so
+  a local archive that reached App Store Connect should look obviously wrong.
+
+> **Only ONE Xcode Cloud workflow may upload.** `CI_BUILD_NUMBER` is per-workflow and each new
+> workflow starts its own count at 1, which regresses the build number and gets the upload refused.
+
+**Why the script rewrites `project.pbxproj` instead of using an xcconfig:** `Config.xcconfig` is the
+base configuration of the **app target only**. Injecting the number there would bump the app and
+leave `AéroCheckWidgetExtension` and `AéroCheckWatch` behind, and an embedded bundle whose
+`CFBundleVersion` does not match its host app is refused at upload. Rewriting every occurrence
+covers all three shipping targets, and covers a target added later without anyone remembering the
+script exists. (`agvtool new-version -all` is the usual answer and does **not** apply here:
+`VERSIONING_SYSTEM` is not `apple-generic`.)
+
+**Cutting a release:**
+1. Bump `MARKETING_VERSION` in all 8 build configurations (`sed -i '' -E 's/MARKETING_VERSION = [^;]*;/MARKETING_VERSION = X.Y.Z;/g' AeroCheck.xcodeproj/project.pbxproj`). Leave `CURRENT_PROJECT_VERSION` alone.
+2. Tag `X.Y.Z` on `main` and publish the GitHub release. That fires the website rebuild dispatcher, so
+   aerocheck.app/changelog picks it up on its own.
+3. In the Xcode Cloud log, check the line `ci_pre_xcodebuild: build number N written to 8 build
+   configurations`. **If that count is not 8, a target has stopped being covered** and the upload
+   will be refused for a version mismatch.
+
 ### Re-enabling heliports (rotorcraft support)
 The flight-plan builder (search + map) is filtered to fixed-wing sites only — heliports, seaplane
 bases, balloonports and closed fields are hidden so airplane route building stays uncluttered. The

@@ -135,9 +135,23 @@ struct Flight: Identifiable, Codable {
     /// so it rides the CloudKit conflict tiebreaker like any other scalar edit. (v4 UI/UX Revamp favorites)
     var isFavorite: Bool
 
+    /// What this flight cost: the aircraft's billed hours at the rate the pilot recorded, plus what
+    /// they paid on the ground. Optional and additive — a flight with nothing recorded decodes to
+    /// nil and is counted as "no cost recorded" rather than as a free flight. (v5.0.0)
+    var costEntry: FlightCostEntry?
+
+    /// The pilot's edits to the derived EASA logbook line (function time, night, remarks). Absent
+    /// means "use what the flight says", so the line stays correct after a reconciliation. (v5.0.0)
+    var logbook: LogbookOverrides?
+
     /// Current flight record schema version. Records claiming a higher version come from a newer
     /// app build and are rejected on ingest rather than mis-applied.
-    static let currentSchemaVersion = 1
+    /// Bumped to 2 in v5.0.0 for `costEntry` and `logbook`. Left at 1, a v5 flight was
+    /// indistinguishable from a v4.4 one: an older device accepted it (`schemaVersion <= 1`),
+    /// dropped the two unknown keys on decode, and the first `touch()` there made its stripped copy
+    /// win `merge` — erasing the cost entry and logbook overrides on every device, permanently and
+    /// with no visible cue. That rejection is exactly what this constant is for. (review F7)
+    static let currentSchemaVersion = 2
 
     // MARK: - Coding Keys
 
@@ -155,6 +169,7 @@ struct Flight: Identifiable, Codable {
         case modifiedAt, schemaVersion
         case cachedDistanceKm, cachedMaxAltitudeMeters, cachedDurationSeconds
         case isFavorite
+        case costEntry, logbook
     }
 
     // MARK: - Custom Decodable for backward compatibility
@@ -222,6 +237,10 @@ struct Flight: Identifiable, Codable {
 
         // New in 3.3 — legacy records (and imports) default to not-favorited.
         isFavorite = try container.decodeIfPresent(Bool.self, forKey: .isFavorite) ?? false
+
+        // New in v5.0.0 — nil on every existing record, which reads as "nothing recorded".
+        costEntry = try container.decodeIfPresent(FlightCostEntry.self, forKey: .costEntry)
+        logbook = try container.decodeIfPresent(LogbookOverrides.self, forKey: .logbook)
     }
 
     init(
@@ -424,7 +443,12 @@ struct Flight: Identifiable, Codable {
     /// Block time duration (from first movement to last stop)
     var blockTime: TimeInterval? {
         guard let off = blockOffTime, let on = blockOnTime else { return nil }
-        return on.timeIntervalSince(off)
+        let interval = on.timeIntervalSince(off)
+        // Same guard as `flightTime` below, and for the same reason: block-on recorded before
+        // block-off (clock skew / out-of-order events) reads negative. The logbook consumes this
+        // raw, so an unguarded negative was SUBTRACTED from TOTAL THIS PAGE while the row itself
+        // rendered blank — a page that silently disagreed with its own rows. (review F25)
+        return interval >= 0 ? interval : nil
     }
 
     /// Flight time duration (from lineup/takeoff to landing)

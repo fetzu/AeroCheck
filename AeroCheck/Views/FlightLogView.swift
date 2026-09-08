@@ -8,6 +8,8 @@ import Compression
 struct FlightLogView: View {
     @Environment(AppState.self) private var appState
     @EnvironmentObject var flightPlanManager: FlightPlanManager
+    @EnvironmentObject var threadManager: FlightThreadManager
+    @EnvironmentObject var airportDataService: AirportDataService
     @Environment(\.dismiss) var dismiss
 
     /// When presented as a custom overlay (HomeView's leading-edge slide-in), the host supplies a
@@ -29,11 +31,23 @@ struct FlightLogView: View {
     /// The export bundle is built off the main actor (PERF-12); the share sheet presents only once
     /// `exportAllZipData` is ready. `isPreparingExportAll` drives a progress indicator meanwhile.
     @State private var exportAllZipData: Data?
+    /// The AMC1 FCL.050 logbook extract, held until its share sheet is up. (v5.0.0)
+    @State private var logbookPDFData: Data?
+    @State private var showLogbookPDFSheet = false
     @State private var isPreparingExportAll = false
     
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
     /// Year scope for the dashboard + list (nil = all time). Defaults to the current year, like a logbook.
-    @State private var selectedYear: Int? = Calendar.current.component(.year, from: Date())
+    /// UTC, to match `filteredFlights` — see the note there. (review F-logbook-7)
+    static let logbookCalendar: Calendar = {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = TimeZone(identifier: "UTC") ?? TimeZone(secondsFromGMT: 0)!
+        return calendar
+    }()
+
+    @State private var selectedYear: Int? = FlightLogView.logbookCalendar.component(.year, from: Date())
+    /// True while a flight is being created, so a double-tap cannot make two. (review, concurrency)
+    @State private var isCreatingFlight = false
     /// Optional aircraft filter (registration); nil = all aircraft.
     @State private var selectedAircraft: String? = nil
     /// Selected flight id — drives the iPad-landscape 2-column detail pane and the compact
@@ -47,21 +61,36 @@ struct FlightLogView: View {
     /// guard it exactly as the detail screen already does — a mis-swipe in turbulence must not be
     /// able to destroy an entry on its own.
     @State private var pendingDeletion: [Flight] = []
+    /// Which half of a flight's life this screen shows. Upcoming and flown flights are the same
+    /// object at different points in its life, so they share one destination rather than two rail
+    /// items a pilot has to disambiguate. (v5.0.0)
+    @State private var segment: FlightsSegment = .past
+    /// The flight being planned — from the Upcoming empty state or "Plan this again". (v5.0.0)
+    @State private var planningNewFlight: NewFlightIntent?
+    /// The saved-routes list, reachable from Upcoming. (v5.x)
+    @State private var showFlightPlanning = false
+    @State private var threadToOpen: UUID?
 
-    enum ExportAllType: Sendable {
-        case gpx
-        case json
+    enum FlightsSegment: String, CaseIterable {
+        // Past first: it is the half with data in it, it is what this screen has always opened on,
+        // and left-to-right reading puts what happened before what has not happened yet.
+        case past, upcoming
+        var label: String { self == .upcoming ? L10n.Flights.upcoming : L10n.Flights.past }
     }
 
-    /// Per-aircraft accent palette for the hours-by-aircraft bars.
-    private static let aircraftPalette: [Color] = [.aviationGold, .altimeterBlue, .aviationGreen, .aviationAmber, .orange]
-    
-    var body: some View {
-        NavigationStack {
-            ZStack {
-                Color.cockpitBackground
-                    .ignoresSafeArea()
-                
+    /// The two halves, side by side, so a pilot never has to know which one their flight is in.
+    private var segmentPicker: some View {
+        Picker("", selection: $segment.animation(.easeInOut(duration: 0.18))) {
+            ForEach(FlightsSegment.allCases, id: \.self) { Text($0.label).tag($0) }
+        }
+        .pickerStyle(.segmented)
+        .padding(.horizontal, 16)
+        .padding(.bottom, 8)
+    }
+
+    /// Everything this screen was before the merge: flown flights, their stats and their export.
+    @ViewBuilder
+    private var pastContent: some View {
                 if appState.isLoadingFlights {
                     VStack(spacing: 16) {
                         ProgressView()
@@ -93,6 +122,35 @@ struct FlightLogView: View {
                         }
                     }
                 }
+    }
+
+
+    enum ExportAllType: Sendable {
+        case gpx
+        case json
+    }
+
+    /// Per-aircraft accent palette for the hours-by-aircraft bars.
+    private static let aircraftPalette: [Color] = [.aviationGold, .altimeterBlue, .aviationGreen, .aviationAmber, .orange]
+    
+    var body: some View {
+        NavigationStack {
+            ZStack {
+                Color.cockpitBackground
+                    .ignoresSafeArea()
+                
+                VStack(spacing: 0) {
+                    segmentPicker
+                    if segment == .upcoming {
+                        UpcomingFlightsList(threads: threadManager.unfinishedThreads,
+                                            trips: threadManager.trips,
+                                            onOpen: { threadToOpen = $0 },
+                                            onPlanNew: { planningNewFlight = seedIntent() },
+                                            onOpenRoutes: { showFlightPlanning = true })
+                    } else {
+                        pastContent
+                    }
+                }
             }
             .navigationTitle("")
             .navigationBarTitleDisplayMode(.inline)
@@ -110,6 +168,9 @@ struct FlightLogView: View {
             }
         }
         .preferredColorScheme(.dark)
+        .fullScreenCover(isPresented: $showFlightPlanning) {
+            FlightPlanningView()
+        }
         .sheet(isPresented: $showExportAllSheet) {
             if let zipData = exportAllZipData {
                 let filename = "AeroCheck_\(formattedExportDate)_ExportBundle.zip"
@@ -120,6 +181,72 @@ struct FlightLogView: View {
         }
         .sheet(item: $statsShareData) { data in
             StatsShareCardCustomizationView(data: data, appState: appState)
+        }
+        .fullScreenCover(isPresented: Binding(
+            get: { threadToOpen != nil },
+            set: { if !$0 { threadToOpen = nil } }
+        )) {
+            if let id = threadToOpen {
+                FlightThreadView(threadId: id, onClose: { threadToOpen = nil })
+                    .environmentObject(threadManager)
+                    .environmentObject(flightPlanManager)
+            }
+        }
+        .sheet(isPresented: Binding(
+            get: { planningNewFlight != nil },
+            set: { if !$0 { planningNewFlight = nil } }
+        )) {
+            if let seed = planningNewFlight {
+                PlanNewFlightView(
+                    intent: seed,
+                    aircraft: [],
+                    savedRoutes: flightPlanManager.flightPlans,
+                    onCreate: { stops, intent, route in
+                        planningNewFlight = nil
+                        // See HomeView.createFlight: the sheet stays hit-testable through its
+                        // dismissal, and the creation suspends — so a double-tap made two flights.
+                        // (review, concurrency)
+                        guard !isCreatingFlight else { return }
+                        isCreatingFlight = true
+                        Task { @MainActor in
+                            defer { isCreatingFlight = false }
+                            segment = .upcoming
+                            if let route {
+                                let thread = await FlightCreator.create(fromRoute: route,
+                                                                        intent: intent,
+                                                                        plans: flightPlanManager,
+                                                                        threads: threadManager)
+                                threadToOpen = thread.id
+                                return
+                            }
+                            if stops.count > 2,
+                               let trip = await FlightCreator.createTrip(idents: stops,
+                                                                         template: intent,
+                                                                         plans: flightPlanManager,
+                                                                         threads: threadManager,
+                                                                         airports: airportDataService) {
+                                threadToOpen = trip.legIds.first
+                                return
+                            }
+                            let thread = await FlightCreator.create(from: intent,
+                                                                    plans: flightPlanManager,
+                                                                    threads: threadManager,
+                                                                    airports: airportDataService)
+                            threadToOpen = thread.id
+                        }
+                    },
+                    onCancel: { planningNewFlight = nil }
+                )
+            }
+        }
+        .sheet(isPresented: $showLogbookPDFSheet) {
+            if let pdf = logbookPDFData {
+                ShareSheet(activityItems: [
+                    ShareFile(data: pdf,
+                              filename: "AeroCheck_\(formattedExportDate)_Logbook.pdf",
+                              dataTypeIdentifier: "com.adobe.pdf")
+                ])
+            }
         }
         .overlay {
             if isPreparingExportAll {
@@ -169,6 +296,46 @@ struct FlightLogView: View {
             isPreparingExportAll = false
             showExportAllSheet = (data != nil)
         }
+    }
+
+    /// Render the logbook extract off the main actor and present its share sheet. Same shape as
+    /// `prepareExportAll` and for the same reason: a hundred flights is a lot of PDF drawing, and
+    /// none of it belongs in a `.sheet` content builder. (v5.0.0)
+    private func prepareLogbookPDF(_ flights: [Flight]) {
+        let pilotName = appState.settings.pilotName
+        let pilotContext = appState.settings.logbookPilotContext
+        isPreparingExportAll = true
+        Task { @MainActor in
+            let data = await Task.detached(priority: .userInitiated) {
+                LogbookPDFExportService.export(flights: flights,
+                                               options: .init(pilotName: pilotName, pilot: pilotContext))
+            }.value
+            logbookPDFData = data
+            isPreparingExportAll = false
+            showLogbookPDFSheet = (data != nil)
+        }
+    }
+
+    /// A blank intent carrying the aircraft the pilot last flew, which is a better guess than an
+    /// empty field and costs nothing to change. (v5.0.0)
+    private func seedIntent() -> NewFlightIntent {
+        let recent = appState.flights.first
+        return NewFlightIntent(
+            departureIdent: "",
+            arrivalIdent: "",
+            departureTime: nil,
+            aircraftTypeId: recent?.flightPlan?.aircraftTypeId ?? appState.settings.selectedAircraft.rawValue,
+            aircraftRegistration: recent?.aircraftRegistration ?? appState.settings.selectedAircraft.registration,
+            aircraftModelName: recent?.aircraftType ?? appState.settings.selectedAircraft.modelName,
+            kind: .crossCountry
+        )
+    }
+
+    /// "Plan this again" — opens the SAME creation sheet, pre-filled. Deliberately not a second,
+    /// quieter way to create a flight: `NewFlightIntent` carries the route, the aircraft and the kind
+    /// and has nowhere to put a ticked task, so last week's preparation cannot come with it. (v5.0.0)
+    private func planAgain(_ flight: Flight) {
+        planningNewFlight = NewFlightIntent(duplicating: flight)
     }
 
     /// Builds the export bundle (serialize each flight → zip). `nonisolated static` so it runs off
@@ -346,7 +513,11 @@ struct FlightLogView: View {
         // is the remaining cost either way. Revisit if the logbook screen ever shows up in a trace.
         guard selectedYear != nil || selectedAircraft != nil else { return sortedFlights }
 
-        let calendar = Calendar.current
+        // UTC, matching every date the logbook PRINTS. Scoping by the local calendar year while the
+        // pages are dated in UTC put a flight blocking off 1 Jan 00:30 CET (31 Dec 23:30 UTC) in the
+        // 2027 extract, printed as "31.12.2026" — a page contradicting its own scope, and both
+        // years' totals out by one flight. (review F-logbook-7)
+        let calendar = FlightLogView.logbookCalendar
         return sortedFlights.filter { flight in
             let yearOK: Bool = {
                 guard let year = selectedYear else { return true }
@@ -360,7 +531,9 @@ struct FlightLogView: View {
 
     /// Distinct years present in the log, most recent first.
     private var availableYears: [Int] {
-        Set(appState.flights.compactMap { $0.startTime.map { Calendar.current.component(.year, from: $0) } }).sorted(by: >)
+        Set(appState.flights.compactMap {
+            $0.startTime.map { FlightLogView.logbookCalendar.component(.year, from: $0) }
+        }).sorted(by: >)
     }
 
     /// Distinct aircraft (registration) present in the log, in recency order.
@@ -481,7 +654,10 @@ struct FlightLogView: View {
             }
             .buttonStyle(.plain)
             .listRowBackground(effectiveSelectionID == flight.id ? Color.aviationGold.opacity(0.12) : Color.cardBackground)
-            .swipeActions(edge: .leading, allowsFullSwipe: true) { favoriteSwipeButton(flight) }
+            .swipeActions(edge: .leading, allowsFullSwipe: true) {
+                favoriteSwipeButton(flight)
+                planAgainSwipeButton(flight)
+            }
         } else {
             // Compact: same selection state drives a push via navigationDestination(item:), so the
             // Home last-flight strip can open straight onto a flight's detail. (v4 UI/UX Revamp)
@@ -491,8 +667,21 @@ struct FlightLogView: View {
             }
             .buttonStyle(.plain)
             .listRowBackground(Color.cardBackground)
-            .swipeActions(edge: .leading, allowsFullSwipe: true) { favoriteSwipeButton(flight) }
+            .swipeActions(edge: .leading, allowsFullSwipe: true) {
+                favoriteSwipeButton(flight)
+                planAgainSwipeButton(flight)
+            }
         }
+    }
+
+    /// "Plan this again" — the cheapest route to next Saturday's flight when it is last Saturday's
+    /// flight again. Second in the leading swipe so the full-swipe gesture still favourites, which is
+    /// what it has always done. (v5.0.0)
+    private func planAgainSwipeButton(_ flight: Flight) -> some View {
+        Button { planAgain(flight) } label: {
+            Label(L10n.Flights.planThisAgain, systemImage: "arrow.trianglehead.2.clockwise.rotate.90")
+        }
+        .tint(.altimeterBlue)
     }
 
     /// Leading (swipe-right) favorite toggle. Trailing swipe stays the iOS-conventional delete. (v4 UI/UX Revamp)
@@ -623,6 +812,8 @@ struct FlightLogView: View {
                 hoursByAircraft(stats.byAircraft)
             }
 
+            spendRow
+
             // List header: count + aircraft filter.
             HStack {
                 Text("\(stats.flights) FLIGHTS")
@@ -633,6 +824,42 @@ struct FlightLogView: View {
                 filterMenu
             }
             .padding(.top, 2)
+        }
+    }
+
+    /// Spend for the selected period, shown only once at least one flight has a cost recorded.
+    ///
+    /// It always says how many flights have NOTHING recorded, because a total built from three of
+    /// forty flights is not a period total and a bare sum invites reading it as one. (v5.0.0)
+    @ViewBuilder
+    private var spendRow: some View {
+        let summary = CostLedger.summarize(flights: filteredFlights, rates: appState.settings.aircraftRates)
+        if summary.flightsWithCost > 0 {
+            HStack(spacing: 10) {
+                Text(L10n.Cost.ledgerTitle.uppercased())
+                    .scaledFont(size: 11, weight: .semibold, relativeTo: .caption2)
+                    .tracking(0.5)
+                    .foregroundColor(.dimText)
+                Text(FlightCostCalculator.formatAmount(summary.total, currency: summary.currency))
+                    .scaledFont(size: 16, weight: .bold, design: .monospaced, relativeTo: .subheadline)
+                    .foregroundColor(.aviationGold)
+                Spacer(minLength: 6)
+                if summary.flightsMissingCost > 0 {
+                    Text(L10n.Cost.missingCost(summary.flightsMissingCost))
+                        .scaledFont(size: 11, relativeTo: .caption2)
+                        .foregroundColor(.aviationAmber.opacity(0.9))
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.7)
+                }
+            }
+            .padding(.horizontal, 14)
+            .padding(.vertical, 10)
+            .background(
+                RoundedRectangle(cornerRadius: 12)
+                    .fill(Color.cardBackground)
+                    .overlay(RoundedRectangle(cornerRadius: 12)
+                        .strokeBorder(Color.aviationGold.opacity(0.22), lineWidth: 1))
+            )
         }
     }
 
@@ -717,6 +944,11 @@ struct FlightLogView: View {
                 Button("GPX") { exportAllType = .gpx; prepareExportAll(appState.flights) }
                 Button("JSON") { exportAllType = .json; prepareExportAll(appState.flights) }
             }
+            // The logbook extract is a single PDF rather than a bundle of tracks, so it gets its own
+            // section instead of a third format alongside GPX and JSON.
+            Section(L10n.Logbook.subtitle) {
+                Button(L10n.Logbook.exportPDF) { prepareLogbookPDF(filteredFlights) }
+            }
         } label: {
             HStack(spacing: 5) {
                 Image(systemName: "square.and.arrow.up").scaledFont(size: 14, weight: .semibold, relativeTo: .subheadline)
@@ -746,7 +978,7 @@ struct FlightLogView: View {
 
     private var filterMenu: some View {
         Menu {
-            Picker("Aircraft", selection: $selectedAircraft) {
+            Picker(L10n.Settings.aircraft, selection: $selectedAircraft) {
                 Text("All aircraft").tag(String?.none)
                 ForEach(availableAircraft, id: \.self) { aircraft in
                     Text(aircraft).tag(String?.some(aircraft))
@@ -1534,6 +1766,8 @@ struct FlightDetailView: View {
     @State private var notes: String = ""
     @State private var showExportSheet = false
     @State private var showDeleteAlert = false
+    /// Cost + logbook line for this flight. (v5.0.0)
+    @State private var showNumbers = false
     @State private var showExportOptions = false
     @State private var exportType: ExportType = .gpx
     @State private var selectedTime: Date?
@@ -1611,6 +1845,10 @@ struct FlightDetailView: View {
                 flight: flight,
                 appState: appState
             )
+        }
+        .sheet(isPresented: $showNumbers) {
+            FlightNumbersView(flightId: flight.id, onClose: { showNumbers = false })
+                .environment(appState)
         }
         .confirmationDialog(L10n.FlightDetail.exportFormatTitle, isPresented: $showExportOptions, titleVisibility: .visible) {
             Button(L10n.FlightDetail.exportFormatGPX) {
@@ -1888,6 +2126,9 @@ struct FlightDetailView: View {
             if flight.flightPlan != nil {
                 detailActionButton(title: L10n.Nav.navLog, icon: "point.topleft.down.to.point.bottomright.curvepath", tint: .secondaryText) { showFlightPlan = true }
             }
+            // v5.0.0: cost + logbook line. Here as well as on the thread, because a flight flown
+            // without a thread still has a cost and still produces a logbook line.
+            detailActionButton(title: L10n.Cost.afterTheFlight, icon: "book.closed", tint: .secondaryText) { showNumbers = true }
             detailActionButton(title: L10n.FlightDetail.export, icon: "square.and.arrow.up", tint: .secondaryText) { showExportOptions = true }
             Button { showShareCustomization = true } label: {
                 HStack(spacing: 5) {

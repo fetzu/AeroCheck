@@ -13,6 +13,7 @@ struct FlightView: View {
     @EnvironmentObject var aviationWeatherService: AviationWeatherService
     @EnvironmentObject var windsAloftService: WindsAloftService
     @EnvironmentObject var flightPlanManager: FlightPlanManager
+    @EnvironmentObject var threadManager: FlightThreadManager
     @EnvironmentObject var flightEventDetector: FlightEventDetector
     @EnvironmentObject var airportDataService: AirportDataService
     @EnvironmentObject var companionConnectivityManager: CompanionConnectivityManager
@@ -381,8 +382,33 @@ struct FlightView: View {
                    let flight = appState.currentFlight {
                     flightPlanManager.populateTimingFromFlight(activePlan.id, flight: flight)
                 }
+                // v5.0.0: resolve the followed thread BEFORE the plan is deactivated — afterwards
+                // there is no plan left to resolve it from. A flight with no thread resolves to nil
+                // and nothing below changes, which is what "start a flight without a thread" means.
+                let wasCircuits = appState.isCircuitMode
+                let closingThreadId = threadManager.threadToCloseOut(
+                    flightId: endedFlightId,
+                    planId: flightPlanManager.activeFlightPlan?.id,
+                    isCircuitMode: wasCircuits,
+                    isUnplanned: appState.flightIsUnplanned
+                )
                 appState.endFlight(withFlightPlan: flightPlanManager.activeFlightPlan)
                 flightPlanManager.deactivateFlightPlan()
+
+                // Move the thread into close-out. This is what raises the open-flight-plan banner and
+                // arms the reminder, so it must run after the flight is actually over.
+                if let closingThreadId {
+                    threadManager.beginCloseOut(threadId: closingThreadId, flightId: endedFlightId)
+                } else if wasCircuits, let endedFlightId,
+                          let flown = appState.flights.first(where: { $0.id == endedFlightId }) {
+                    // Circuits resolve to no thread by design — they cannot be planned. Offer the
+                    // light close-out rather than leaving the session with no logbook line. (v5.x)
+                    threadManager.offerCircuitCloseOut(
+                        flightId: endedFlightId,
+                        departureIdent: flown.departureAirportIdent,
+                        aircraftRegistration: flown.aircraftRegistration
+                    )
+                }
 
                 // Post-flight reconciliation (D2): re-segment the saved track offline and
                 // build the review diff. Shown only when it would change EVENTS; a pure
@@ -413,6 +439,13 @@ struct FlightView: View {
         .alert(L10n.Alert.abandonFlightTitle, isPresented: $showAbandonFlightAlert) {
             Button(L10n.Button.cancel, role: .cancel) { }
             Button(L10n.Alert.abandonFlightButton, role: .destructive) {
+                // Release the followed flight FIRST, while the flight id still exists to match on.
+                // An abandoned flight did not happen: leaving it attached left the thread reading
+                // IN FLIGHT forever, its FLY chapter green, and its START FLIGHT button hidden —
+                // with no flight running. (device pass)
+                if let abandonedId = appState.currentFlight?.id {
+                    threadManager.detachAbandonedFlight(abandonedId)
+                }
                 locationManager.stopTracking()
                 appState.cancelFlight()
                 flightPlanManager.deactivateFlightPlan()
@@ -2435,12 +2468,14 @@ struct FlightInfoSheet: View {
                             )) {
                                 Text(L10n.Settings.themeAuto).tag(ThemePreference.auto)
                                 Text(L10n.Settings.themeDay).tag(ThemePreference.day)
-                                Text(L10n.Settings.themeSunlight).tag(ThemePreference.sunlight)
                                 Text(L10n.Settings.themeNight).tag(ThemePreference.night)
                             }
                             .pickerStyle(.segmented)
                             .labelsHidden()
                         }
+                        rowDivider
+                        // The one place this switch is reached with the sun actually on the screen.
+                        toggleRow(L10n.Settings.sunlightBoost, optionBinding(\.sunlightBoost))
                         rowDivider
                         toggleRow(L10n.Settings.learningMode, optionBinding(\.learningMode))
                         rowDivider

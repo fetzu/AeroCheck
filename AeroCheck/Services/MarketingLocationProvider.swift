@@ -589,6 +589,11 @@ enum MarketingScene: String, CaseIterable, Identifiable {
     case planConflicts = "Plan — Conflicts"
     case planBuilder = "Plan — Builder"
     case flightLogDetail = "Flight Log"
+    // 5.0.0 — the Flight Thread scenes (website rows 01/02/04 and the Home hero). (v5 screenshots)
+    case flightFollowed = "Flight — Followed"
+    case flightPrepare = "Flight — Prepare"
+    case flightCloseOut = "Flight — Close-out"
+    case homeFlightToday = "Home — Today's flight"
 
     var id: String { rawValue }
 
@@ -600,6 +605,10 @@ enum MarketingScene: String, CaseIterable, Identifiable {
         case .planConflicts: return "Geneva→Samedan, full conflict list"
         case .planBuilder: return "LSZQ→LSGN→LSZP→LSZB→LSZS builder"
         case .flightLogDetail: return "Imports the bundled marketing flights"
+        case .flightFollowed: return "LSZQ→LFSB on 1 Aug, 10/12 prepared, opened"
+        case .flightPrepare: return "Same flight — swipe to PREPARE after inject"
+        case .flightCloseOut: return "Vol d'Alpes in CLOSE with its route and rate — no gesture"
+        case .homeFlightToday: return "LSZQ→LFSB scheduled today 14:00 → Home hero"
         }
     }
 }
@@ -616,6 +625,12 @@ private struct MarketingAirport {
 @MainActor
 enum MarketingSceneInjector {
 
+    /// Every route name a scene creates. Deleted before each injection so repeated capture runs do
+    /// not leave a pile of identical routes behind. Nothing outside this list is ever touched.
+    private static let demoRouteNames: Set<String> = [
+        "LSZQ → LSZB Tour", "Geneva → Samedan", "Jura → Engadin", "LSZQ → LFSB", "LSGS → LSZQ"
+    ]
+
     // ICAO airports referenced by the route scenes (Swiss fields).
     private static let knownAirports: [String: MarketingAirport] = [
         "LSZQ": MarketingAirport(ident: "LSZQ", latitude: 47.3497, longitude: 7.0278, elevationFt: 1860),  // Bressaucourt
@@ -626,6 +641,8 @@ enum MarketingSceneInjector {
         "LSZP": MarketingAirport(ident: "LSZP", latitude: 47.1392, longitude: 7.2997, elevationFt: 1404),  // Biel/Bienne
         "LSZS": MarketingAirport(ident: "LSZS", latitude: 46.5341, longitude: 9.8841, elevationFt: 5600),  // Samedan
         "LSGG": MarketingAirport(ident: "LSGG", latitude: 46.2381, longitude: 6.1089, elevationFt: 1411),  // Geneva
+        "LSGS": MarketingAirport(ident: "LSGS", latitude: 46.2196, longitude: 7.3268, elevationFt: 1585),  // Sion
+        "LFSB": MarketingAirport(ident: "LFSB", latitude: 47.5896, longitude: 7.5299, elevationFt: 885),   // Basel-Mulhouse (FR)
     ]
 
     /// Resolve an ICAO to a coordinate, preferring loaded airport data, then the hardcoded fallback.
@@ -647,8 +664,40 @@ enum MarketingSceneInjector {
         subscriptionManager: SubscriptionManager,
         aircraftDataService: AircraftDataService,
         flightPlanManager: FlightPlanManager,
-        airportDataService: AirportDataService
+        airportDataService: AirportDataService,
+        threadManager: FlightThreadManager? = nil
     ) {
+        // Circuit mode on for every scene: CIRCUITS is a headline feature and it is gated behind a
+        // setting, so a shot taken with it off simply does not show it. Home is where it reads, but
+        // setting it once here keeps every scene consistent rather than only the two Home ones.
+        appState.settings.enableCircuitMode = true
+        appState.saveSettings()
+
+        // Every scene starts from NO threads. A single leftover thread scheduled today takes over
+        // Home's hero, which silently ruined the `home` and `conflicts` shots — they came back
+        // showing a flight card instead of the aircraft carousel. A scene has to determine what is
+        // on screen; inheriting whatever a previous run or an old build left behind is not a scene.
+        if let threadManager {
+            for old in threadManager.threads { threadManager.deleteThread(threadId: old.id) }
+        }
+        // …and from no demo ROUTES. Every scene that builds one used to leave it behind, so Saved
+        // routes filled up with copies of the same route, one per capture run.
+        for old in flightPlanManager.flightPlans where demoRouteNames.contains(old.name) {
+            flightPlanManager.deleteFlightPlan(old)
+        }
+
+        switch scene {
+        case .flightFollowed, .flightPrepare, .flightCloseOut, .homeFlightToday:
+            guard let threadManager else {
+                AppLog.marketing.debugLine("Scene \(scene.rawValue) needs the FlightThreadManager — not injected")
+                return
+            }
+            injectFlightThreadScene(scene, appState: appState, flightPlanManager: flightPlanManager,
+                                    airportDataService: airportDataService, threadManager: threadManager)
+            return
+        default:
+            break
+        }
         switch scene {
         case .home2Aircraft:
             injectHome2Aircraft(appState: appState, subscriptionManager: subscriptionManager, aircraftDataService: aircraftDataService)
@@ -662,6 +711,8 @@ enum MarketingSceneInjector {
             injectPlanBuilder(flightPlanManager: flightPlanManager, airportDataService: airportDataService)
         case .flightLogDetail:
             injectFlightLog(appState: appState)
+        case .flightFollowed, .flightPrepare, .flightCloseOut, .homeFlightToday:
+            break // dispatched above — they need the thread manager
         }
     }
 
@@ -849,6 +900,137 @@ enum MarketingSceneInjector {
         flightPlanManager.activateFlightPlan(plan)
     }
 
+    // MARK: - Scenes 7–10: the Flight Thread (v5.0.0)
+    //
+    // One demo flight serves three of them: LSZQ → LFSB (Bressaucourt → Basel-Mulhouse), chosen because
+    // it crosses a border — that is what puts a customs row and the border pack on screen — and lands
+    // at a field every Swiss pilot knows. Dated the NEXT 1 August (Swiss National Day), computed at
+    // inject time so the scene stays repeatable in any year, and prepared to 10 of 11 so the readiness
+    // ring can never be misread as a date. (The user caught "9/11" on a hero shot.)
+
+    /// The next 1 August at 10:00 local, strictly after now — so a planned flight is never in the past.
+    private static func nextFirstOfAugust() -> Date {
+        let cal = Calendar.current
+        let now = Date()
+        var comps = cal.dateComponents([.year], from: now)
+        comps.month = 8; comps.day = 1; comps.hour = 10; comps.minute = 0
+        let thisYear = cal.date(from: comps) ?? now
+        if thisYear > now { return thisYear }
+        comps.year = (comps.year ?? 2026) + 1
+        return cal.date(from: comps) ?? now
+    }
+
+    /// Today at 14:00 local — what makes the flight "today's" for the Home hero.
+    private static func todayAtTwo() -> Date {
+        let cal = Calendar.current
+        var comps = cal.dateComponents([.year, .month, .day], from: Date())
+        comps.hour = 14; comps.minute = 0
+        return cal.date(from: comps) ?? Date()
+    }
+
+    /// The demo route with fuel figures that let the AUTO fuel row settle itself.
+    private static func makeDemoPlan(from origin: String = "LSZQ", to destination: String = "LFSB",
+                                     departure: Date, flightPlanManager: FlightPlanManager,
+                                     airportDataService: AirportDataService) -> FlightPlan? {
+        var plan = flightPlanManager.createFlightPlan(name: "\(origin) → \(destination)")
+        for ident in [origin, destination] {
+            guard let coord = coordinate(ident, airportDataService: airportDataService) else { continue }
+            var wp = FlightPlanWaypoint(name: ident, coordinate: coord)
+            wp.altitude = knownAirports[ident].map { $0.elevationFt }
+            plan.waypoints.append(wp)
+        }
+        guard plan.waypoints.count == 2 else { return nil }
+        plan.aircraftTypeId = AircraftType.wt9Dynamic.rawValue
+        plan.aircraftRegistration = AircraftType.wt9Dynamic.registration
+        plan.aircraftModelName = AircraftType.wt9Dynamic.modelName
+        plan.plannedDepartureTime = departure
+        plan.fuelFlow = 18
+        plan.tripFuel = 22
+        plan.reserveFuel = 8
+        plan.additionalFuel = 13.5
+        plan.extraFuel = 0
+        plan.fuelOnBoard = 80
+        plan.runwayInUse = "24"
+        plan.calculateRouteData()
+        flightPlanManager.updateFlightPlan(plan)
+        return plan
+    }
+
+    /// Tick every check task except the ones named, so the ring reads done/total the way we want it.
+    /// Close tasks stay open unless asked: a PLANNED flight with "Debrief written" ticked reads wrong.
+    private static func tick(_ threadId: UUID, leaving open: Set<ThreadTaskKey>, includingClose: Bool = false,
+                             threadManager: FlightThreadManager) {
+        guard let thread = threadManager.thread(withId: threadId) else { return }
+        for task in thread.tasks where task.kind != .auto && !open.contains(task.key)
+            && (includingClose || task.chapter != .close) {
+            threadManager.setTaskState(.done, taskId: task.id, threadId: threadId)
+        }
+    }
+
+    private static func injectFlightThreadScene(_ scene: MarketingScene, appState: AppState,
+                                                flightPlanManager: FlightPlanManager,
+                                                airportDataService: AirportDataService,
+                                                threadManager: FlightThreadManager) {
+        if appState.isFlightActive { appState.cancelFlight() }
+        appState.settings.selectedRemoteAircraftId = nil
+        appState.settings.selectedAircraft = .wt9Dynamic
+        // Home's "last flight" strip and the close-out scene both want the real Vol d'Alpes flight.
+        importMarketingFlights(into: appState)
+        importFlight(named: realHighlightFlightFile, into: appState)
+
+        // Built fresh on every inject so the capture is deterministic; a previous run's copies are
+        // retired first so the Upcoming list does not fill with duplicates across sessions.
+
+        switch scene {
+        case .flightFollowed, .flightPrepare:
+            guard let plan = makeDemoPlan(departure: nextFirstOfAugust(),
+                                          flightPlanManager: flightPlanManager,
+                                          airportDataService: airportDataService) else { return }
+            let thread = threadManager.createThread(from: plan)
+            // 10 of 12. The count is deliberate: a ring is read at a glance, and a numerator over a
+            // denominator of 12 reads as a date. 10/12 is the count the user signed off; 9/11 was
+            // caught on a hero shot. Re-check this whenever a task is added to Plan or Prepare.
+            tick(thread.id, leaving: [.navLogReady, .notamChecked], threadManager: threadManager)
+            appState.pendingThreadToOpen = thread.id
+
+        case .homeFlightToday:
+            guard let plan = makeDemoPlan(departure: todayAtTwo(),
+                                          flightPlanManager: flightPlanManager,
+                                          airportDataService: airportDataService) else { return }
+            let thread = threadManager.createThread(from: plan)
+            // Two left open so the hero has something to say ("Next: …  · 2 open").
+            tick(thread.id, leaving: [.navLogReady, .notamChecked], threadManager: threadManager)
+            appState.pendingThreadToOpen = nil   // the point is Home itself
+
+        case .flightCloseOut:
+            // A flown flight: the real Vol d'Alpes, followed and now in CLOSE, with a club rate so the
+            // cost card has something to show. The logbook line derives from the flight itself.
+            let alpineId = UUID(uuidString: "E3293374-6672-4484-A00F-92FC7BC2347E")
+            guard let flight = appState.flights.first(where: { $0.id == alpineId }) else {
+                AppLog.marketing.debugLine("Close-out scene: Vol d'Alpes not found after import")
+                return
+            }
+            appState.settings.aircraftRates[AircraftType.wt9Dynamic.registration] =
+                AircraftRateProfile(hourlyRate: 260, currency: "CHF", basis: .block)
+            appState.saveSettings()
+            // With no plan the AUTO rows (route, fuel) can never settle, and the close-out reads as a
+            // flight nobody planned. Give it the route it actually flew.
+            let plan = makeDemoPlan(from: "LSGS", to: "LSZQ",
+                                    departure: flight.startTime ?? Date(),
+                                    flightPlanManager: flightPlanManager,
+                                    airportDataService: airportDataService)
+            let thread = threadManager.createThread(from: plan, profile: .full,
+                                                    routeLabel: "LSGS → LSZQ",
+                                                    aircraftRegistration: flight.aircraftRegistration)
+            tick(thread.id, leaving: [], includingClose: true, threadManager: threadManager)
+            threadManager.beginCloseOut(threadId: thread.id, flightId: flight.id)
+            appState.pendingThreadToOpen = thread.id
+
+        default:
+            break
+        }
+    }
+
     // MARK: - Scene 5: Flight Log — import the bundled marketing flights
 
     /// Filenames (without extension) of the bundled marketing flights, in display order. These are
@@ -925,6 +1107,7 @@ struct MarketingControlsView: View {
     @EnvironmentObject var aircraftDataService: AircraftDataService
     @EnvironmentObject var flightPlanManager: FlightPlanManager
     @EnvironmentObject var airportDataService: AirportDataService
+    @EnvironmentObject var threadManager: FlightThreadManager
     @State private var selectedScene: MarketingScene = .home2Aircraft
     @State private var lastInjected: String?
 
@@ -1152,7 +1335,8 @@ struct MarketingControlsView: View {
             aircraftDataService: aircraftDataService,
             flightPlanManager: flightPlanManager,
             airportDataService: airportDataService
-        )
+        ,
+            threadManager: threadManager)
         let formatter = DateFormatter()
         formatter.dateFormat = "HH:mm:ss"
         lastInjected = "Injected: \(selectedScene.rawValue) @ \(formatter.string(from: Date()))"

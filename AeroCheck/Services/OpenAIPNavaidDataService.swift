@@ -84,14 +84,14 @@ final class OpenAIPNavaidDataService: ObservableObject {
 
     /// Download + cache navaids for the given countries from the public, keyless GeoJSON exports. A
     /// per-country failure keeps that country's existing cache rather than dropping it.
-    func downloadData(for countries: [String]) async {
+    func downloadData(for countries: [String], skippingCached: Bool = false) async {
         guard !isDownloading, !countries.isEmpty else { return }
         isDownloading = true
         downloadProgress = 0
         downloadError = nil
         defer { isDownloading = false }
 
-        let result = await cache.downloadData(for: countries) { downloadProgress = $0 }
+        let result = await cache.downloadData(for: countries, skippingCached: skippingCached) { downloadProgress = $0 }
         navaids = result.features
         navaidCount = result.features.count
         downloadedCountries = result.summary.downloadedCountries

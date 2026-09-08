@@ -16,6 +16,11 @@ struct FlightLauncher {
     let airportDataService: AirportDataService
     let flightEventDetector: FlightEventDetector
     let flightPlanManager: FlightPlanManager
+    /// Optional so the guard sequence above stays independent of the Flight Thread feature: a launch
+    /// with no manager behaves exactly as it always did. Used only AFTER a successful start, never
+    /// as a condition of one — linking a followed flight is a consequence of departing, not a
+    /// permission to depart. (v5.x)
+    var threadManager: FlightThreadManager?
 
     /// The outcome of a launch attempt, so a caller can present the right follow-up.
     enum Outcome: Equatable {
@@ -63,8 +68,10 @@ struct FlightLauncher {
 
     /// Resolve the checklist, run the guards, start the flight, and begin GPS tracking.
     /// Returns the outcome; side effects (paywall request / error alert) are set on `appState`.
+    /// `followedFlightId` is set when the pilot pressed START FLIGHT inside a followed flight, which
+    /// names it exactly. Every other entry point leaves it nil and relies on the armed plan.
     @discardableResult
-    func begin(circuitMode: Bool) async -> Outcome {
+    func begin(circuitMode: Bool, followedFlightId: UUID? = nil, unplanned: Bool = false) async -> Outcome {
         // UX-06: never overwrite a running flight. Checked first so we don't reload the active
         // checklist out from under a flight already in progress.
         guard !appState.isFlightActive else { return .blockedActiveFlight }
@@ -101,8 +108,15 @@ struct FlightLauncher {
         // window — a stationary aircraft on the ramp stops producing fresh fixes but its position is valid.
         let hasOwnFix = locationManager.hasRecentUsableFix
         let hasPeerFix = CompanionConnectivityManager.shared.hasUsablePeerFix
-        switch FlightLauncher.evaluate(isFlightActive: false, isOwned: true, isChecklistResolved: true,
+        // Re-read rather than passing `false`: the entry guard ran BEFORE two suspension points
+        // (the checklist fetch and `ensureLoaded`), so a second launch that started during either
+        // one is already running by now. Hardcoding false here let both callers through, and the
+        // second `startFlight` would replace `currentFlight` and orphan the first. (review F5)
+        switch FlightLauncher.evaluate(isFlightActive: appState.isFlightActive, isOwned: true,
+                                       isChecklistResolved: true,
                                        authorization: authorization, hasOwnFix: hasOwnFix, hasPeerFix: hasPeerFix) {
+        case .blockedActiveFlight:
+            return .blockedActiveFlight
         case .blockedLocationDenied:
             appState.flightStartError = L10n.Alert.locationRequired
             return .blockedLocationDenied
@@ -122,20 +136,35 @@ struct FlightLauncher {
             break   // .started — proceed (a `.notDetermined` defer also lands here; startTracking prompts)
         }
 
-        // A flight plan applies to a normal flight only, not to circuit training.
-        let flightPlanId = circuitMode ? nil : flightPlanManager.activeFlightPlan?.id
+        // A flight plan applies to a normal flight only, not to circuit training — and not to a
+        // flight the pilot deliberately started WITHOUT their plan. `unplanned` has to be here and
+        // not only on `AppState.flightIsUnplanned`: leaving the plan attached lets `threadToAttach`
+        // resolve the followed thread BY PLAN, and `threadToCloseOut`'s first branch then matches it
+        // by `flightId` — closing out the very flight the pilot stepped around, which is the guard
+        // on the third branch being bypassed rather than applied. (cumulative review F1)
+        let flightPlanId = (circuitMode || unplanned) ? nil : flightPlanManager.activeFlightPlan?.id
         appState.startFlight(
             withAircraft: appState.settings.defaultAirplane,
             aircraftRegistration: selectedRegistration,
             aircraftType: selectedAircraftType,
             checklistVersion: selectedVersion,
             flightPlanId: flightPlanId,
-            circuitMode: circuitMode
+            circuitMode: circuitMode,
+            unplanned: unplanned
         )
 
         // startFlight() is the authoritative guard and may still have refused the start (e.g. a
         // race on the unresolved-checklist state). Only begin tracking if it actually started.
         guard appState.isFlightActive else { return .blockedChecklistUnresolved }
+
+        // The flight is real: tell the followed flight it is under way, so it shows FLY rather than
+        // sitting in PREPARE until landing, and stops offering to start a flight already running.
+        // Only ever on an exact signal — see `threadToAttach`. (v5.x)
+        if let threadManager, let startedFlightId = appState.currentFlight?.id,
+           let threadId = threadManager.threadToAttach(explicitThreadId: followedFlightId,
+                                                       planId: flightPlanId) {
+            threadManager.attachFlight(startedFlightId, toThreadId: threadId)
+        }
 
         locationManager.startTracking(
             appState: appState,

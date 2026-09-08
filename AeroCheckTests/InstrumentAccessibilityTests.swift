@@ -91,6 +91,57 @@ final class InstrumentAccessibilityTests: XCTestCase {
         XCTAssertEqual(s.cockpitThemeMode(systemIsDark: false), .day)
     }
 
+    // MARK: - Sunlight boost (v5.x)
+
+    /// The boost is what makes the sunlight palette automatic. It reads screen brightness because iOS
+    /// exposes no ambient light, and it may only ever brighten a DAY palette.
+    func testSunlightBoostEscalatesOnlyABrightDayScreen() {
+        var s = AppSettings()
+        s.themePreference = .day
+
+        // Off by default: brightness alone changes nothing.
+        XCTAssertEqual(s.cockpitThemeMode(systemIsDark: false, screenBrightness: 1.0), .day)
+
+        s.sunlightBoost = true
+        XCTAssertEqual(s.cockpitThemeMode(systemIsDark: false, screenBrightness: 1.0), .sunlight)
+        XCTAssertEqual(s.cockpitThemeMode(systemIsDark: false, screenBrightness: 0.5), .day)
+        // Exactly at the threshold counts as bright.
+        XCTAssertEqual(
+            s.cockpitThemeMode(systemIsDark: false,
+                               screenBrightness: AppSettings.sunlightBrightnessThreshold),
+            .sunlight)
+
+        // Night protects dark adaptation: a screen turned up must never blow it away.
+        s.themePreference = .night
+        XCTAssertEqual(s.cockpitThemeMode(systemIsDark: false, screenBrightness: 1.0), .night)
+
+        // `.auto` on a dark device resolves to night first, so it is protected for the same reason.
+        s.themePreference = .auto
+        XCTAssertEqual(s.cockpitThemeMode(systemIsDark: true, screenBrightness: 1.0), .night)
+        XCTAssertEqual(s.cockpitThemeMode(systemIsDark: false, screenBrightness: 1.0), .sunlight)
+    }
+
+    /// A save from before the split still holds `.sunlight`, which no picker offers any more. It has
+    /// to become "day + boost on", or the picker shows nothing selected and the palette stays pinned.
+    func testLegacySunlightPreferenceMigratesToDayPlusBoost() throws {
+        let json = Data(#"{"themePreference":"sunlight"}"#.utf8)
+        let migrated = try JSONDecoder().decode(AppSettings.self, from: json)
+
+        XCTAssertEqual(migrated.themePreference, .day)
+        XCTAssertTrue(migrated.sunlightBoost)
+        XCTAssertEqual(migrated.cockpitThemeMode(systemIsDark: false, screenBrightness: 1.0), .sunlight)
+        XCTAssertEqual(migrated.cockpitThemeMode(systemIsDark: false, screenBrightness: 0.3), .day)
+    }
+
+    /// Everyone else keeps the palette they had, with the boost off.
+    func testNonSunlightSavesDoNotGainTheBoost() throws {
+        let json = Data(#"{"themePreference":"night"}"#.utf8)
+        let decoded = try JSONDecoder().decode(AppSettings.self, from: json)
+
+        XCTAssertEqual(decoded.themePreference, .night)
+        XCTAssertFalse(decoded.sunlightBoost)
+    }
+
     func testInstrumentTargetStateBarColorMapsToTheme() {
         let day = CockpitTheme.day
         XCTAssertEqual(InstrumentTargetState.onTarget.barColor(in: day), day.onTarget)

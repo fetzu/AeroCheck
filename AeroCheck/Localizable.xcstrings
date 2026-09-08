@@ -1,6 +1,2263 @@
 {
   "sourceLanguage": "en",
   "strings": {
+    "Required" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Requis"
+          }
+        }
+      }
+    },
+    "Under conditions" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sous conditions"
+          }
+        }
+      }
+    },
+    "Not required" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Non requis"
+          }
+        }
+      }
+    },
+    "Not established" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Non établi"
+          }
+        }
+      }
+    },
+    "Official sources disagree" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sources officielles divergentes"
+          }
+        }
+      }
+    },
+    "Customs aerodrome" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Aérodrome douanier"
+          }
+        }
+      }
+    },
+    "Prior notification" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Annonce préalable"
+          }
+        }
+      }
+    },
+    "Lead time" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Délai"
+          }
+        }
+      }
+    },
+    "Swiss side" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Côté suisse"
+          }
+        }
+      }
+    },
+    "Official rules" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Règles officielles"
+          }
+        }
+      }
+    },
+    "Fuel burn" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Carburant consommé"
+          }
+        }
+      }
+    },
+    "Fuel station" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Poste carburant"
+          }
+        }
+      }
+    },
+    "Night landings" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Atterrissages de nuit"
+          }
+        }
+      }
+    },
+    "TAKE-OFF" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "DÉCOLLAGE"
+          }
+        }
+      }
+    },
+    "LANDING" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ATTERRISSAGE"
+          }
+        }
+      }
+    },
+    "OUTSIDE the envelope at landing" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "HORS enveloppe à l'atterrissage"
+          }
+        }
+      }
+    },
+    "Not every station has a mass — this is not a check" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Toutes les stations n'ont pas de masse — ce n'est pas une vérification"
+          }
+        }
+      }
+    },
+    "No mass entered for: %@" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Aucune masse saisie pour : %@"
+          }
+        }
+      }
+    },
+    "logbook.pic.self" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "SELF"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "MOI-MÊME"
+          }
+        }
+      }
+    },
+    "Checked %@" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Vérifié le %@"
+          }
+        }
+      }
+    },
+    "Not checked for this country yet — open the AIP and the national customs authority" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pas encore vérifié pour ce pays — consultez l'AIP et la douane nationale"
+          }
+        }
+      }
+    },
+    "A reminder, not a clearance — the authority's own page is the source" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Un rappel, pas une autorisation — la page de l'autorité fait foi"
+          }
+        }
+      }
+    },
+    "Treat an unestablished requirement as one that applies until you have checked" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Considérez une exigence non établie comme applicable jusqu'à vérification"
+          }
+        }
+      }
+    },
+    "Logbook line" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ligne de carnet de vol"
+          }
+        }
+      }
+    },
+    "EASA AMC1 FCL.050" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "EASA AMC1 FCL.050"
+          }
+        }
+      }
+    },
+    "PIC" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "PIC"
+          }
+        }
+      }
+    },
+    "Dual" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Double commande"
+          }
+        }
+      }
+    },
+    "Co-pilot" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Copilote"
+          }
+        }
+      }
+    },
+    "Instructor" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Instructeur"
+          }
+        }
+      }
+    },
+    "%lld touch-and-go" : {
+      "localizations" : {
+        "en" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld touch-and-go"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld touch-and-goes"
+                }
+              }
+            }
+          }
+        },
+        "fr" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld touch-and-go"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld touch-and-go"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "%lld go-around" : {
+      "localizations" : {
+        "en" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld go-around"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld go-arounds"
+                }
+              }
+            }
+          }
+        },
+        "fr" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld remise de gaz"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld remises de gaz"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "Copy line" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Copier la ligne"
+          }
+        }
+      }
+    },
+    "Logbook line copied" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ligne de carnet copiée"
+          }
+        }
+      }
+    },
+    "Log the session and write a debrief?" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Enregistrer la séance et rédiger un débriefing ?"
+          }
+        }
+      }
+    },
+    "Close out" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Clôturer"
+          }
+        }
+      }
+    },
+    "Not everything is ticked" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tout n'est pas coché"
+          }
+        }
+      }
+    },
+    "%1$@ still has %2$lld item(s) open in Plan and Prepare." : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Il reste %2$lld élément(s) ouvert(s) dans Planifier et Préparer pour %1$@."
+          }
+        }
+      }
+    },
+    "Review the flight" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Revoir le vol"
+          }
+        }
+      }
+    },
+    "Start anyway" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Démarrer quand même"
+          }
+        }
+      }
+    },
+    "Start from a saved route" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Partir d'une route enregistrée"
+          }
+        }
+      }
+    },
+    "Choose a route" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Choisir une route"
+          }
+        }
+      }
+    },
+    "Copied with its %lld waypoint(s), altitudes and fuel" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Copiée avec ses %lld point(s) tournant(s), altitudes et carburant"
+          }
+        }
+      }
+    },
+    "Start this flight" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Démarrer ce vol"
+          }
+        }
+      }
+    },
+    "Resume this flight" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Reprendre ce vol"
+          }
+        }
+      }
+    },
+    "Review" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Revoir"
+          }
+        }
+      }
+    },
+    "Fly without a plan" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Voler sans plan"
+          }
+        }
+      }
+    },
+    "Today" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Aujourd'hui"
+          }
+        }
+      }
+    },
+    "Everything ticked — ready to fly" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tout est coché — prêt à voler"
+          }
+        }
+      }
+    },
+    "Next: %@" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Suivant : %@"
+          }
+        }
+      }
+    },
+    "Next: %1$@ · %2$lld open in Plan and Prepare" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Suivant : %1$@ · %2$lld ouvert(s) dans Planifier et Préparer"
+          }
+        }
+      }
+    },
+    "Show on map" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Afficher sur la carte"
+          }
+        }
+      }
+    },
+    "Clear from map" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Retirer de la carte"
+          }
+        }
+      }
+    },
+    "Show this route on the map" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Afficher cette route sur la carte"
+          }
+        }
+      }
+    },
+    "Clear this route from the map" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Retirer cette route de la carte"
+          }
+        }
+      }
+    },
+    "Logbook & costs" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Carnet et coûts"
+          }
+        }
+      }
+    },
+    "Student pilot" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Élève pilote"
+          }
+        }
+      }
+    },
+    "Log flights as dual, with your instructor as PIC" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Enregistrer les vols en double commande, avec votre instructeur comme PIC"
+          }
+        }
+      }
+    },
+    "Instructor's name" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nom de l'instructeur"
+          }
+        }
+      }
+    },
+    "Saved routes" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Routes enregistrées"
+          }
+        }
+      }
+    },
+    "Flight details" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Détails du vol"
+          }
+        }
+      }
+    },
+    "Logbook row" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ligne du carnet"
+          }
+        }
+      }
+    },
+    "The same values, in the order your logbook prints them. Scroll sideways for the remaining columns; corrections go in Edit." : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Les mêmes valeurs, dans l'ordre des colonnes de votre carnet. Faites défiler latéralement pour les colonnes suivantes ; les corrections se font dans Modifier."
+          }
+        }
+      }
+    },
+    "Export CSV" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Exporter en CSV"
+          }
+        }
+      }
+    },
+    "PIC name" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nom du PIC"
+          }
+        }
+      }
+    },
+    "Function" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Fonction"
+          }
+        }
+      }
+    },
+    "Night" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nuit"
+          }
+        }
+      }
+    },
+    "IFR" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "IFR"
+          }
+        }
+      }
+    },
+    "Remarks" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Remarques"
+          }
+        }
+      }
+    },
+    "A draft for your logbook — AeroCheck is not a logbook of record" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Un brouillon pour votre carnet — AéroCheck n'est pas un carnet de vol officiel"
+          }
+        }
+      }
+    },
+    "Times are UTC, from block off and block on" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Heures en UTC, depuis block off et block on"
+          }
+        }
+      }
+    },
+    "Export logbook PDF" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Exporter le carnet en PDF"
+          }
+        }
+      }
+    },
+    "Page %1$lld of %2$lld" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Page %1$lld sur %2$lld"
+          }
+        }
+      }
+    },
+    "Holder: %@" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Titulaire : %@"
+          }
+        }
+      }
+    },
+    "Layout per EASA AMC1 FCL.050 · flights only, no FSTD sessions · times UTC" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Présentation selon EASA AMC1 FCL.050 · vols uniquement, sans séances FSTD · heures UTC"
+          }
+        }
+      }
+    },
+    "Extract generated by AeroCheck from recorded flights. AeroCheck is not a logbook of record and is not a FOCA-accepted digital logbook: check every entry against your own records before signing or submitting it." : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Extrait généré par AeroCheck à partir des vols enregistrés. AeroCheck n'est pas un carnet de vol officiel ni un carnet numérique accepté par l'OFAC : vérifiez chaque entrée avec vos propres relevés avant de signer ou de soumettre ce document."
+          }
+        }
+      }
+    },
+    "Night and IFR time are yours to enter — the app does not compute twilight" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Le temps de nuit et IFR est à saisir — l'app ne calcule pas le crépuscule"
+          }
+        }
+      }
+    },
+    "Flight cost" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Coût du vol"
+          }
+        }
+      }
+    },
+    "Block time" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Temps block"
+          }
+        }
+      }
+    },
+    "Flight time" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Temps de vol"
+          }
+        }
+      }
+    },
+    "Engine hours" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Heures moteur"
+          }
+        }
+      }
+    },
+    "Hourly rate" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tarif horaire"
+          }
+        }
+      }
+    },
+    "Billed on" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Facturé sur"
+          }
+        }
+      }
+    },
+    "Currency" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Monnaie"
+          }
+        }
+      }
+    },
+    "Add fee" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ajouter une taxe"
+          }
+        }
+      }
+    },
+    "What for" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Motif"
+          }
+        }
+      }
+    },
+    "Amount" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Montant"
+          }
+        }
+      }
+    },
+    "Total" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Total"
+          }
+        }
+      }
+    },
+    "No hourly rate set for this aircraft" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Aucun tarif horaire défini pour cet avion"
+          }
+        }
+      }
+    },
+    "Set a rate" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Définir un tarif"
+          }
+        }
+      }
+    },
+    "No cost recorded" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Aucun coût enregistré"
+          }
+        }
+      }
+    },
+    "%lld flights without a recorded cost" : {
+      "localizations" : {
+        "en" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld flight without a recorded cost"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld flights without a recorded cost"
+                }
+              }
+            }
+          }
+        },
+        "fr" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld vol sans coût enregistré"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld vols sans coût enregistré"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "Spend" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Dépenses"
+          }
+        }
+      }
+    },
+    "Operator's tariff" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tarif de l'exploitant"
+          }
+        }
+      }
+    },
+    "Aircraft rates" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tarifs avion"
+          }
+        }
+      }
+    },
+    "Your club's hourly rate per aircraft, and the time it bills on" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Le tarif horaire de votre club par avion, et le temps facturé"
+          }
+        }
+      }
+    },
+    "Empty mass" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Masse à vide"
+          }
+        }
+      }
+    },
+    "Empty arm" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Bras à vide"
+          }
+        }
+      }
+    },
+    "MTOW" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "MTOW"
+          }
+        }
+      }
+    },
+    "Stations" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Postes"
+          }
+        }
+      }
+    },
+    "Add station" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ajouter un poste"
+          }
+        }
+      }
+    },
+    "Station" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Poste"
+          }
+        }
+      }
+    },
+    "Arm" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Bras"
+          }
+        }
+      }
+    },
+    "Total mass" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Masse totale"
+          }
+        }
+      }
+    },
+    "CG" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Centrage"
+          }
+        }
+      }
+    },
+    "Inside the envelope" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Dans le domaine"
+          }
+        }
+      }
+    },
+    "OUTSIDE the envelope" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "HORS du domaine"
+          }
+        }
+      }
+    },
+    "No envelope entered — mass and CG only" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Aucun domaine saisi — masse et centrage seulement"
+          }
+        }
+      }
+    },
+    "OVER MTOW" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "AU-DESSUS DE LA MTOW"
+          }
+        }
+      }
+    },
+    "Remaining payload" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Charge utile restante"
+          }
+        }
+      }
+    },
+    "Enter this aircraft's figures to use the calculator" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Saisissez les données de cet avion pour utiliser le calculateur"
+          }
+        }
+      }
+    },
+    "Set up this aircraft" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Configurer cet avion"
+          }
+        }
+      }
+    },
+    "Advisory only — check against the load sheet and the AFM" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "À titre indicatif — à vérifier avec la fiche de charge et le manuel de vol"
+          }
+        }
+      }
+    },
+    "From the aircraft's weighing report and AFM — nothing here is shipped with the app" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Depuis la fiche de pesée et le manuel de vol — rien n'est fourni par l'app"
+          }
+        }
+      }
+    },
+    "Envelope" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Domaine de centrage"
+          }
+        }
+      }
+    },
+    "Add envelope point" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ajouter un point"
+          }
+        }
+      }
+    },
+    "Corners of the AFM envelope, in order around it" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sommets du domaine du manuel de vol, dans l'ordre"
+          }
+        }
+      }
+    },
+    "Follow this flight" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Suivre ce vol"
+          }
+        }
+      }
+    },
+    "Untitled flight" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Vol sans titre"
+          }
+        }
+      }
+    },
+    "Not followed" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Non suivi"
+          }
+        }
+      }
+    },
+    "Plan" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Planifier"
+          }
+        }
+      }
+    },
+    "Prepare" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Préparer"
+          }
+        }
+      }
+    },
+    "Fly" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Voler"
+          }
+        }
+      }
+    },
+    "Close" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Clôturer"
+          }
+        }
+      }
+    },
+    "16 phases · checklist, nav and briefings" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "16 phases · checklist, navigation et briefings"
+          }
+        }
+      }
+    },
+    "PLANNED" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "PLANIFIÉ"
+          }
+        }
+      }
+    },
+    "READY" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "PRÊT"
+          }
+        }
+      }
+    },
+    "IN FLIGHT" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "EN VOL"
+          }
+        }
+      }
+    },
+    "CLOSE-OUT" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "CLÔTURE"
+          }
+        }
+      }
+    },
+    "DONE" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "TERMINÉ"
+          }
+        }
+      }
+    },
+    "Route planned" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Route planifiée"
+          }
+        }
+      }
+    },
+    "Fuel plan" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Plan carburant"
+          }
+        }
+      }
+    },
+    "Mass & balance" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Masse et centrage"
+          }
+        }
+      }
+    },
+    "Aircraft reserved" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Avion réservé"
+          }
+        }
+      }
+    },
+    "Weather briefed" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Météo consultée"
+          }
+        }
+      }
+    },
+    "DABS checked" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "DABS consulté"
+          }
+        }
+      }
+    },
+    "GAFOR checked" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "GAFOR consulté"
+          }
+        }
+      }
+    },
+    "NOTAMs checked" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "NOTAM consultés"
+          }
+        }
+      }
+    },
+    "Flight plan filed" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Plan de vol déposé"
+          }
+        }
+      }
+    },
+    "Nav log ready" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Log de nav prêt"
+          }
+        }
+      }
+    },
+    "Close the flight plan" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Clôturer le plan de vol"
+          }
+        }
+      }
+    },
+    "Logbook entry" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Écriture carnet de vol"
+          }
+        }
+      }
+    },
+    "Debrief" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Débriefing"
+          }
+        }
+      }
+    },
+    "PPR — %@" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "PPR — %@"
+          }
+        }
+      }
+    },
+    "Border crossing — %@" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Passage de frontière — %@"
+          }
+        }
+      }
+    },
+    "Fees — %@" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Taxes — %@"
+          }
+        }
+      }
+    },
+    "REQ = trip + alternate + 45-min final reserve + extra. FOB = what you plan to carry." : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "REQ = navigation + dégagement + réserve finale 45 min + supplément. FOB = ce que vous prévoyez d'emporter."
+          }
+        }
+      }
+    },
+    "Plan new flight" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Planifier un vol"
+          }
+        }
+      }
+    },
+    "Create flight" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Créer le vol"
+          }
+        }
+      }
+    },
+    "Circuits" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tours de piste"
+          }
+        }
+      }
+    },
+    "When" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Quand"
+          }
+        }
+      }
+    },
+    "I know when I am flying" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Je sais quand je vole"
+          }
+        }
+      }
+    },
+    "Used for the reminder the day before" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Utilisé pour le rappel de la veille"
+          }
+        }
+      }
+    },
+    "From → To" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "De → Vers"
+          }
+        }
+      }
+    },
+    "From" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "De"
+          }
+        }
+      }
+    },
+    "To" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Vers"
+          }
+        }
+      }
+    },
+    "The route is optional — draw it on the map whenever you are ready" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "La route est optionnelle — tracez-la sur la carte quand vous le souhaitez"
+          }
+        }
+      }
+    },
+    "Follow a flight from planning to logbook — fuel, weather, customs, then the numbers" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Suivez un vol de la planification au carnet — carburant, météo, douane, puis les chiffres"
+          }
+        }
+      }
+    },
+    "%lld saved plans" : {
+      "localizations" : {
+        "en" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld saved plan"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld saved plans"
+                }
+              }
+            }
+          }
+        },
+        "fr" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld itinéraire enregistré"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld itinéraires enregistrés"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "Upcoming" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "À venir"
+          }
+        }
+      }
+    },
+    "Past" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Passés"
+          }
+        }
+      }
+    },
+    "Needs attention" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "À traiter"
+          }
+        }
+      }
+    },
+    "Nothing planned" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Rien de planifié"
+          }
+        }
+      }
+    },
+    "Plan this again" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Planifier à nouveau"
+          }
+        }
+      }
+    },
+    "%lld to do" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld à faire"
+          }
+        }
+      }
+    },
+    "ICAO or name" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "OACI ou nom"
+          }
+        }
+      }
+    },
+    "Pilot" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pilote"
+          }
+        }
+      }
+    },
+    "Your name" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Votre nom"
+          }
+        }
+      }
+    },
+    "Name as it appears in your logbook" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nom tel qu'il figure dans votre carnet"
+          }
+        }
+      }
+    },
+    "Used for the PIC column and the logbook PDF's holder line." : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Utilisé pour la colonne PIC et la ligne « titulaire » du PDF du carnet."
+          }
+        }
+      }
+    },
+    "Track flight costs" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Suivre les coûts de vol"
+          }
+        }
+      }
+    },
+    "Off hides the landing-fee tasks and the cost sheet. Your logbook line is unaffected." : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Désactivé, masque les tâches de taxes d'atterrissage et la fiche de coûts. Votre ligne de carnet n'est pas affectée."
+          }
+        }
+      }
+    },
+    "%lld legs" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld étapes"
+          }
+        }
+      }
+    },
+    "%1$lld/%2$lld layers" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$lld/%2$lld couches"
+          }
+        }
+      }
+    },
+    "Fuel on board (L)" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Carburant à bord (L)"
+          }
+        }
+      }
+    },
+    "High contrast in sunlight" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Contraste élevé au soleil"
+          }
+        }
+      }
+    },
+    "Switches to the high-contrast palette while the screen is near full brightness — the app cannot read ambient light, so brightness is the signal." : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Passe à la palette à contraste élevé lorsque l'écran est proche de la luminosité maximale — l'app ne peut pas mesurer la lumière ambiante, la luminosité sert donc de signal."
+          }
+        }
+      }
+    },
+    "Add stop" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ajouter une escale"
+          }
+        }
+      }
+    },
+    "Create %lld flights" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Créer %lld vols"
+          }
+        }
+      }
+    },
+    "%1$lld aerodromes · %2$lld legs, sharing one preparation" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$lld aérodromes · %2$lld étapes, une seule préparation"
+          }
+        }
+      }
+    },
+    "Leg %1$lld of %2$lld" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Étape %1$lld sur %2$lld"
+          }
+        }
+      }
+    },
+    "TRIP · %1$lld of %2$lld" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "VOYAGE · %1$lld sur %2$lld"
+          }
+        }
+      }
+    },
+    "Checked %@ — re-check for this leg" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Vérifié à %@ — à revérifier pour cette étape"
+          }
+        }
+      }
+    },
+    "Circuits — %@" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tours de piste — %@"
+          }
+        }
+      }
+    },
+    "Flights" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Vols"
+          }
+        }
+      }
+    },
+    "Check the load sheet against the envelope in the POH" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Vérifier la fiche de charge avec le domaine de centrage du manuel de vol"
+          }
+        }
+      }
+    },
+    "Daily Airspace Bulletin Switzerland" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Daily Airspace Bulletin Switzerland"
+          }
+        }
+      }
+    },
+    "Route forecast — opens MeteoSwiss" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Prévision de route — ouvre MeteoSwiss"
+          }
+        }
+      }
+    },
+    "Copy the ICAO plan, then file it on skybriefing" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Copier le plan OACI, puis le déposer sur skybriefing"
+          }
+        }
+      }
+    },
+    "If it was not closed on arrival, Zurich RCC is alerted 30 min after your ETA" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "S'il n'a pas été clôturé à l'arrivée, le RCC de Zurich est alerté 30 min après votre ETA"
+          }
+        }
+      }
+    },
+    "Booked with your club" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Réservé auprès de votre club"
+          }
+        }
+      }
+    },
+    "Exported or printed for the cockpit" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Exporté ou imprimé pour le cockpit"
+          }
+        }
+      }
+    },
+    "Prior permission required — call ahead" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Autorisation préalable requise — appeler avant"
+          }
+        }
+      }
+    },
+    "Mark done" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Marquer comme fait"
+          }
+        }
+      }
+    },
+    "Not applicable" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Non applicable"
+          }
+        }
+      }
+    },
+    "View route" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Voir la route"
+          }
+        }
+      }
+    },
+    "Fuel & times" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Carburant et heures"
+          }
+        }
+      }
+    },
+    "Export nav log" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Exporter le log de nav"
+          }
+        }
+      }
+    },
+    "Open NOTAM briefing" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ouvrir le briefing NOTAM"
+          }
+        }
+      }
+    },
+    "Open skybriefing" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ouvrir skybriefing"
+          }
+        }
+      }
+    },
+    "Open DABS" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ouvrir le DABS"
+          }
+        }
+      }
+    },
+    "Open MeteoSwiss" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ouvrir MeteoSwiss"
+          }
+        }
+      }
+    },
+    "Mark closed" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Marquer clôturé"
+          }
+        }
+      }
+    },
+    "Call 0800 437 837" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Appeler 0800 437 837"
+          }
+        }
+      }
+    },
+    "Finish" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Terminer"
+          }
+        }
+      }
+    },
+    "Cancel flight" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Annuler le vol"
+          }
+        }
+      }
+    },
+    "%lld of %lld done" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld sur %lld faits"
+          }
+        }
+      }
+    },
+    "Next" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Suivant"
+          }
+        }
+      }
+    },
+    "Everything done" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tout est fait"
+          }
+        }
+      }
+    },
+    "Close your flight plan" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Clôturez votre plan de vol"
+          }
+        }
+      }
+    },
+    "%@ — not marked closed. If the tower did not close it for you, Zurich RCC is alerted 30 min after your ETA." : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ — non marqué comme clôturé. Si la tour ne l'a pas clôturé pour vous, le RCC de Zurich est alerté 30 min après votre ETA."
+          }
+        }
+      }
+    },
+    "Flight tomorrow" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Vol demain"
+          }
+        }
+      }
+    },
+    "%@ — time to check the weather, DABS and any PPR." : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ — il est temps de vérifier la météo, le DABS et les éventuels PPR."
+          }
+        }
+      }
+    },
+    "Flight plan not marked closed" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Plan de vol non marqué comme clôturé"
+          }
+        }
+      }
+    },
     "disclaimer.title": {
       "extractionState": "manual",
       "localizations": {
@@ -896,6 +3153,66 @@
         }
       }
     },
+    "AeroCheck follows a flight end to end — plan it, prepare it, fly it, close it out.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "AéroCheck suit un vol de bout en bout — planifiez-le, préparez-le, volez, clôturez-le."
+          }
+        }
+      }
+    },
+    "Route, fuel, mass & balance, the aircraft booked": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Route, carburant, masse et centrage, avion réservé"
+          }
+        }
+      }
+    },
+    "Weather, NOTAM, customs, the flight plan filed": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Météo, NOTAM, douane, plan de vol déposé"
+          }
+        }
+      }
+    },
+    "The 16-phase checklist you already know": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "La checklist en 16 phases que vous connaissez déjà"
+          }
+        }
+      }
+    },
+    "Close the flight plan, fees, the logbook line": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Clôture du plan de vol, taxes, ligne de carnet"
+          }
+        }
+      }
+    },
+    "Plan a flight from the Home screen. You can always start flying without one.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Planifiez un vol depuis l'écran d'accueil. Vous pouvez toujours voler sans en créer un."
+          }
+        }
+      }
+    },
     "Checklists": {
       "localizations": {
         "fr": {
@@ -1735,12 +4052,12 @@
         }
       }
     },
-    "Missing data for this trip": {
+    "Airspace data missing near your route": {
       "localizations": {
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Données manquantes pour ce vol"
+            "value": "Données d'espace aérien manquantes près de votre route"
           }
         }
       }
@@ -4336,6 +6653,23 @@
           "stringUnit": {
             "state": "translated",
             "value": "TOURS DE PISTE"
+          }
+        }
+      }
+    },
+    "button.clear": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Clear"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Effacer"
           }
         }
       }
@@ -8137,13 +10471,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "FLIGHT PLAN"
+            "value": "ROUTE"
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "PLAN DE VOL"
+            "value": "ROUTE"
           }
         }
       }
@@ -8856,13 +11190,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "All Flight Plans"
+            "value": "All Routes"
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Tous les plans de vol"
+            "value": "Toutes les routes"
           }
         }
       }
@@ -9732,13 +12066,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Flight Plan"
+            "value": "Route"
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Plan de vol"
+            "value": "Route"
           }
         }
       }
@@ -9749,13 +12083,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Flight Plans"
+            "value": "Routes"
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Plans de vol"
+            "value": "Routes"
           }
         }
       }
@@ -10074,6 +12408,23 @@
           "stringUnit": {
             "state": "translated",
             "value": "Détails plan de vol OACI"
+          }
+        }
+      }
+    },
+    "nav.icaoFlightPlanCopied" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Flight plan copied"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Plan de vol copié"
           }
         }
       }
@@ -10522,13 +12873,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "New Flight Plan"
+            "value": "New Route"
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Nouveau plan de vol"
+            "value": "Nouvelle route"
           }
         }
       }
@@ -16971,23 +19322,6 @@
       "comment": "A label for the heading when the value is unknown.",
       "isCommentAutoGenerated": true
     },
-    "warning.betaFeature": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Beta Feature"
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Fonctionnalité bêta"
-          }
-        }
-      }
-    },
     "warning.cancel": {
       "extractionState": "manual",
       "localizations": {
@@ -17018,74 +19352,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Fonctionnalité expérimentale"
-          }
-        }
-      }
-    },
-    "warning.flightPlanning.autoAdvance": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "During flight, the app can automatically advance waypoints based on your GPS position."
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Pendant le vol, l'application peut faire avancer automatiquement les waypoints en fonction de votre position GPS."
-          }
-        }
-      }
-    },
-    "warning.flightPlanning.betaDesc": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Flight Planning is a beta feature. It is provided for planning purposes only and should not replace proper flight preparation."
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "La planification de vol est une fonctionnalité bêta. Elle est fournie à des fins de planification uniquement et ne doit pas remplacer une préparation de vol appropriée."
-          }
-        }
-      }
-    },
-    "warning.flightPlanning.planRoutes": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Plan routes with waypoints, calculate times and distances, and visualize terrain along your route."
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Planifiez des routes avec waypoints, calculez les temps et distances, et visualisez le terrain le long de votre route."
-          }
-        }
-      }
-    },
-    "warning.flightPlanning.terrainViz": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Terrain visualization is only available within Switzerland using swisstopo data."
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "La visualisation du terrain n'est disponible qu'en Suisse en utilisant les données swisstopo."
           }
         }
       }

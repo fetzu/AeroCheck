@@ -83,6 +83,59 @@ enum OpenAIPRunwaySurface {
     }
 }
 
+/// OpenAIP's `services.fuelTypes` integer enum.
+///
+/// OpenAIP does not publish this ordering anywhere citable, so it was established twice, from
+/// independent directions, and the two agree:
+///
+///  1. **Label pairing.** LSGY and LSZB return `[0,1,3]` and their OpenAIP page lists AVGAS,
+///     Super PLUS and Jet A1; LSZQ and LSGL return `[1,3,6]` and list AVGAS, AVGAS UL91 and Jet A1.
+///     The sets differ in exactly one code and one label, which pins `0 = Super PLUS` and
+///     `6 = AVGAS UL91`, leaving `{1,3} = {AVGAS, Jet A1}`.
+///  2. **Airline hubs settle the rest.** Frankfurt (EDDF) and Paris CDG (LFPG) both return `[3]`
+///     alone. A major hub sells jet fuel and no piston fuel, so `3 = Jet A1`, and therefore
+///     `1 = AVGAS`.
+///
+/// Both results match the documented value set (Super PLUS, AVGAS, Jet A, Jet A1, Jet B, Diesel,
+/// AVGAS UL91) read in order, which is the third agreement.
+///
+/// Note this settles the CODES, not the per-aerodrome DATA: OpenAIP is community-maintained and
+/// claims Jet A1 at several grass fields that certainly do not sell it. Treat a chip as "OpenAIP
+/// says so", the same community provenance `DataStatusManager` already assigns this source.
+enum OpenAIPFuelType: Int, CaseIterable, Sendable {
+    case superPlus = 0
+    case avgas = 1
+    case jetA = 2
+    case jetA1 = 3
+    case jetB = 4
+    case diesel = 5
+    case avgasUL91 = 6
+
+    /// Fuel grades are trade names and deliberately NOT localized, like the aviation abbreviations
+    /// elsewhere in the app.
+    var label: String {
+        switch self {
+        case .superPlus:  return "Super PLUS"
+        case .avgas:      return "AVGAS"
+        case .jetA:       return "Jet A"
+        case .jetA1:      return "Jet A1"
+        case .jetB:       return "Jet B"
+        case .diesel:     return "Diesel"
+        case .avgasUL91:  return "UL91"
+        }
+    }
+
+    /// True for the grades an aircraft in this app's roster can actually burn. Used for ordering,
+    /// not filtering — a pilot scanning chips wants "can I get AVGAS here" answered first, but
+    /// hiding the rest would be the app deciding what they may see.
+    var isPistonGrade: Bool {
+        switch self {
+        case .avgas, .avgasUL91, .superPlus: return true
+        case .jetA, .jetA1, .jetB, .diesel:  return false
+        }
+    }
+}
+
 /// An airport from OpenAIP's keyless per-country GeoJSON export (`{cc}_apt.geojson`). Distinct from the
 /// OurAirports-shaped `Airport` struct — this is the raw OpenAIP record that the
 /// `AirportDataMergeEngine` folds into the `Airport` backbone. (v4.1.0, increment 9)
@@ -98,6 +151,37 @@ struct OpenAIPAirport: Codable, Identifiable, Equatable {
     let runways: [OpenAIPRunway]
     let latitude: Double
     let longitude: Double
+
+    // MARK: - Operational flags (v5.0.0)
+    //
+    // These four are plain booleans carried at the top level of the OpenAIP record and were being
+    // dropped on the floor: a Codable struct silently ignores unknown keys, so they arrived with
+    // every download and never reached the app. `ppr` is the one the flight thread needs — a
+    // destination that requires prior permission gets its own task instead of the pilot having to
+    // remember which fields are PPR.
+
+    /// Prior permission required before landing.
+    let isPPR: Bool
+    /// Private field: permission needed even to be there, not merely to land.
+    let isPrivate: Bool
+    let hasSkydiveActivity: Bool
+    let isWinchOnly: Bool
+
+    /// Raw `services.fuelTypes` codes. Kept alongside the mapped values so an unrecognised future
+    /// code is preserved rather than silently dropped.
+    let fuelTypeCodes: [Int]
+
+    /// Fuel grades this aerodrome reports, piston grades first — see `OpenAIPFuelType` for how the
+    /// enum was established. Unknown codes are skipped rather than guessed at.
+    var fuelTypes: [OpenAIPFuelType] {
+        fuelTypeCodes
+            .compactMap(OpenAIPFuelType.init(rawValue:))
+            .sorted { lhs, rhs in
+                lhs.isPistonGrade == rhs.isPistonGrade
+                    ? lhs.rawValue < rhs.rawValue
+                    : lhs.isPistonGrade && !rhs.isPistonGrade
+            }
+    }
 
     var coordinate: CLLocationCoordinate2D { CLLocationCoordinate2D(latitude: latitude, longitude: longitude) }
 
@@ -151,6 +235,13 @@ struct OpenAIPAirport: Codable, Identifiable, Equatable {
                 lighted: rwy.pilotCtrlLighting ?? false
             )
         }
+        // Absent flags mean "not stated", which for an advisory prompt is the same as false: a
+        // missing `ppr` must not manufacture a PPR task the field does not require.
+        self.isPPR = p.ppr ?? false
+        self.isPrivate = p.private ?? false
+        self.hasSkydiveActivity = p.skydiveActivity ?? false
+        self.isWinchOnly = p.winchOnly ?? false
+        self.fuelTypeCodes = p.services?.fuelTypes ?? []
         self.longitude = feature.geometry.coordinates[0]   // GeoJSON is [lon, lat]
         self.latitude = feature.geometry.coordinates[1]
     }
@@ -193,10 +284,21 @@ private struct AirportFeatureCollection: Decodable {
         let country: String?
         let frequencies: [FrequencyJSON]?
         let runways: [RunwayJSON]?
+        // v5.0.0: operational flags + services. All optional — the keyless GeoJSON export and the
+        // core REST API carry slightly different subsets, and an older cached file has none of them.
+        let ppr: Bool?
+        let `private`: Bool?
+        let skydiveActivity: Bool?
+        let winchOnly: Bool?
+        let services: ServicesJSON?
         enum CodingKeys: String, CodingKey {
             case oaipId = "_id"
             case name, icaoCode, type, elevation, magneticDeclination, country, frequencies, runways
+            case ppr, `private`, skydiveActivity, winchOnly, services
         }
+    }
+    struct ServicesJSON: Decodable {
+        let fuelTypes: [Int]?
     }
     struct FrequencyJSON: Decodable {
         let name: String?

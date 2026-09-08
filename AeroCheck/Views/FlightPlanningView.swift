@@ -13,6 +13,7 @@ extension FlightPlan: Hashable {
 struct FlightPlanningView: View {
     @Environment(AppState.self) private var appState
     @EnvironmentObject var flightPlanManager: FlightPlanManager
+    @EnvironmentObject var threadManager: FlightThreadManager
     @EnvironmentObject var airportDataService: AirportDataService
     @EnvironmentObject var aircraftDataService: AircraftDataService
     @EnvironmentObject var openAIPDataService: OpenAIPDataService
@@ -283,6 +284,16 @@ struct FlightPlanningView: View {
                             }
                             .tint(.orange)
                         }
+                        // v5.0.0: also here, not only in the context menu — a long-press is a poor
+                        // way to discover the feature that follows the whole flight.
+                        if threadManager.thread(forPlanId: plan.id) == nil {
+                            Button {
+                                followFlight(plan)
+                            } label: {
+                                Label(L10n.Thread.followFlight, systemImage: "checklist")
+                            }
+                            .tint(.aviationGold)
+                        }
                     }
                     .contextMenu {
                         Button {
@@ -302,6 +313,17 @@ struct FlightPlanningView: View {
                                 flightPlanManager.deactivateFlightPlan()
                             } label: {
                                 Label(L10n.Nav.deactivate, systemImage: "airplane.arrival")
+                            }
+                        }
+
+                        // v5.0.0: start following this flight — the admin bracket around it. Opt-in,
+                        // and one per plan: a second thread for the same plan would split the pilot's
+                        // ticks across two lists.
+                        if threadManager.thread(forPlanId: plan.id) == nil {
+                            Button {
+                                followFlight(plan)
+                            } label: {
+                                Label(L10n.Thread.followFlight, systemImage: "checklist")
                             }
                         }
 
@@ -396,6 +418,24 @@ struct FlightPlanningView: View {
             flightPlanManager.activateFlightPlan(plan)
         }
     }
+
+    /// Start following a plan: create its thread and ask for notification permission, since the whole
+    /// point of following a flight is the two reminders it can send. The prompt arrives here — with
+    /// the pilot having just asked for it — rather than at cold launch. (v5.0.0)
+    private func followFlight(_ plan: FlightPlan) {
+        // Ask FIRST, then create: `createThread` schedules the T-24h reminder behind a
+        // `hasPermission()` guard, and on a fresh install the status is still `.notDetermined`
+        // while the prompt is up — so scheduling first dropped the reminder, permanently, on the
+        // very first flight a pilot follows. (review F16)
+        Task {
+            await NotificationService.shared.requestAuthorization()
+            // PPR and destination fuel are derived by the manager now, so creation and
+            // regeneration can never disagree about them.
+            threadManager.createThread(from: plan)
+        }
+    }
+
+
 
     /// Cockpit-style section header: tracked uppercase label with an optional status dot. (v4 UI/UX Revamp)
     private func cockpitSectionHeader(_ title: String, tint: Color, showDot: Bool) -> some View {

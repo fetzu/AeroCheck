@@ -1,0 +1,871 @@
+import XCTest
+import CoreLocation
+@testable import AeroCheck
+
+/// Flight Thread (v5.0.0): the task engine's rules, the thread model's own bookkeeping, and the
+/// manager's lifecycle. The engine and the model are pure, so most of this runs without touching a
+/// service, the network or the filesystem.
+final class FlightThreadTests: XCTestCase {
+
+    // MARK: - Helpers
+
+    private func waypoint(_ name: String, lat: Double, lon: Double) -> FlightPlanWaypoint {
+        FlightPlanWaypoint(name: name,
+                           coordinate: CLLocationCoordinate2D(latitude: lat, longitude: lon),
+                           altitude: 3000)
+    }
+
+    /// LSZQ (Bressaucourt) → LSGY (Yverdon): a real, entirely Swiss leg.
+    private func swissPlan() -> FlightPlan {
+        var plan = FlightPlan(name: "Test")
+        plan.waypoints = [
+            waypoint("LSZQ", lat: 47.4247, lon: 7.1869),
+            waypoint("LSGY", lat: 46.7619, lon: 6.6141)
+        ]
+        plan.fuelFlow = 25
+        plan.fuelOnBoard = 80
+        plan.tripFuel = 20
+        return plan
+    }
+
+    private func context(profile: ThreadProfile = .full,
+                         countries: [String] = ["CH"],
+                         hasRoute: Bool = true) -> ThreadTaskEngine.Context {
+        var c = ThreadTaskEngine.Context(profile: profile)
+        c.hasRoute = hasRoute
+        c.departureIdent = "LSZQ"
+        c.arrivalIdent = "LSGY"
+        c.countries = countries
+        return c
+    }
+
+    private func keys(_ tasks: [ThreadTask]) -> [ThreadTaskKey] { tasks.map(\.key) }
+
+    // MARK: - Engine: profiles
+
+    func testFullProfileCoversTheWholeAdminBracket() {
+        let tasks = ThreadTaskEngine.generate(context: context())
+        let produced = Set(keys(tasks))
+
+        XCTAssertTrue(produced.contains(.routePlanned))
+        XCTAssertTrue(produced.contains(.fuelPlanned))
+        XCTAssertTrue(produced.contains(.massAndBalance))
+        XCTAssertTrue(produced.contains(.aircraftReserved))
+        XCTAssertTrue(produced.contains(.weatherBriefed))
+        XCTAssertTrue(produced.contains(.flightPlanFiled))
+        XCTAssertTrue(produced.contains(.logbookEntry))
+    }
+
+    func testLocalProfileStaysMinimal() {
+        let tasks = ThreadTaskEngine.generate(context: context(profile: .local))
+        let produced = Set(keys(tasks))
+
+        // The point of the local profile: a circuit session should not be asked about flight plans,
+        // customs or nav logs.
+        XCTAssertFalse(produced.contains(.flightPlanFiled))
+        XCTAssertFalse(produced.contains(.customsNotified))
+        XCTAssertFalse(produced.contains(.navLogReady))
+        XCTAssertFalse(produced.contains(.massAndBalance))
+
+        // But the parts that still pay off are there.
+        XCTAssertTrue(produced.contains(.weatherBriefed))
+        XCTAssertTrue(produced.contains(.logbookEntry))
+        XCTAssertTrue(produced.contains(.debriefWritten))
+        XCTAssertTrue(produced.contains(.aircraftReserved))
+    }
+
+    // MARK: - Engine: conditional rules
+
+    func testSwissProductsOnlyAppearOnASwissRoute() {
+        let swiss = ThreadTaskEngine.generate(context: context(countries: ["CH"]))
+        XCTAssertTrue(Set(keys(swiss)).contains(.dabsChecked))
+        XCTAssertTrue(Set(keys(swiss)).contains(.gaforChecked))
+
+        let french = ThreadTaskEngine.generate(context: context(countries: ["FR"]))
+        XCTAssertFalse(Set(keys(french)).contains(.dabsChecked), "DABS is a Swiss product")
+        XCTAssertFalse(Set(keys(french)).contains(.gaforChecked), "GAFOR is a Swiss product")
+    }
+
+    func testCustomsTaskAppearsOncePerForeignCountry() {
+        var c = context(countries: ["CH", "FR", "DE"])
+        c.homeCountry = "CH"
+        let tasks = ThreadTaskEngine.generate(context: c)
+        let customs = tasks.filter { $0.key == .customsNotified }
+
+        XCTAssertEqual(customs.count, 2)
+        XCTAssertEqual(Set(customs.compactMap(\.subject)), ["FR", "DE"])
+    }
+
+    func testNoCustomsTaskWhenTheRouteStaysHome() {
+        let tasks = ThreadTaskEngine.generate(context: context(countries: ["CH"]))
+        XCTAssertTrue(tasks.filter { $0.key == .customsNotified }.isEmpty)
+    }
+
+    func testPPRTaskIsPerAerodrome() {
+        var c = context()
+        c.pprIdents = ["LSGY", "LSTB"]
+        let tasks = ThreadTaskEngine.generate(context: c)
+        let ppr = tasks.filter { $0.key == .pprObtained }
+
+        XCTAssertEqual(ppr.count, 2)
+        XCTAssertEqual(ppr.compactMap(\.subject).sorted(), ["LSGY", "LSTB"])
+    }
+
+    func testCloseTaskForTheFlightPlanExistsOnlyOnceFiled() {
+        var notFiled = context()
+        notFiled.flightPlanFiled = false
+        XCTAssertFalse(Set(keys(ThreadTaskEngine.generate(context: notFiled))).contains(.flightPlanClosed),
+                       "Nothing to close until a plan has been filed — this is what keeps circuits quiet")
+
+        var filed = context()
+        filed.flightPlanFiled = true
+        let tasks = ThreadTaskEngine.generate(context: filed)
+        let closeTask = tasks.first { $0.key == .flightPlanClosed }
+        XCTAssertNotNil(closeTask)
+        XCTAssertEqual(closeTask?.kind, .reminder)
+        XCTAssertTrue(closeTask?.isUrgent == true)
+    }
+
+    // MARK: - Engine: auto tasks
+
+    func testFuelTaskIsSatisfiedOnlyWhenOnBoardCoversRequired() {
+        var short = context()
+        short.fuelRequiredLitres = 60
+        short.fuelOnBoardLitres = 50
+        let shortTask = ThreadTaskEngine.generate(context: short).first { $0.key == .fuelPlanned }
+        XCTAssertEqual(shortTask?.state, .pending)
+
+        var enough = context()
+        enough.fuelRequiredLitres = 54
+        enough.fuelOnBoardLitres = 80
+        let enoughTask = ThreadTaskEngine.generate(context: enough).first { $0.key == .fuelPlanned }
+        XCTAssertEqual(enoughTask?.state, .done)
+        XCTAssertEqual(enoughTask?.detail, "REQ 54 L · FOB 80 L")
+    }
+
+    func testRouteTaskFollowsWhetherARouteExists() {
+        let without = ThreadTaskEngine.generate(context: context(hasRoute: false)).first { $0.key == .routePlanned }
+        XCTAssertEqual(without?.state, .pending)
+
+        let with = ThreadTaskEngine.generate(context: context(hasRoute: true)).first { $0.key == .routePlanned }
+        XCTAssertEqual(with?.state, .done)
+        XCTAssertEqual(with?.detail, "LSZQ → LSGY")
+    }
+
+    // MARK: - Engine: regeneration
+
+    func testRegenerationKeepsWorkThePilotAlreadyDid() {
+        var tasks = ThreadTaskEngine.generate(context: context())
+        guard let index = tasks.firstIndex(where: { $0.key == .aircraftReserved }) else {
+            return XCTFail("expected a reservation task")
+        }
+        let originalId = tasks[index].id
+        tasks[index].state = .done
+        tasks[index].note = "Booked 13:00-17:30"
+
+        // The route grew a waypoint; everything regenerates.
+        var changed = context()
+        changed.arrivalIdent = "LSGL"
+        let regenerated = ThreadTaskEngine.generate(context: changed, existing: tasks)
+
+        let reservation = regenerated.first { $0.key == .aircraftReserved }
+        XCTAssertEqual(reservation?.state, .done, "a tick must survive a route edit")
+        XCTAssertEqual(reservation?.note, "Booked 13:00-17:30")
+        XCTAssertEqual(reservation?.id, originalId, "identity is stable so SwiftUI doesn't re-animate the row")
+    }
+
+    func testRegenerationRecomputesAutoTasksEvenWhenCarriedOver() {
+        var enough = context()
+        enough.fuelRequiredLitres = 40
+        enough.fuelOnBoardLitres = 80
+        let first = ThreadTaskEngine.generate(context: enough)
+        XCTAssertEqual(first.first { $0.key == .fuelPlanned }?.state, .done)
+
+        // The route got longer and now needs more fuel than is on board.
+        var short = context()
+        short.fuelRequiredLitres = 95
+        short.fuelOnBoardLitres = 80
+        let second = ThreadTaskEngine.generate(context: short, existing: first)
+
+        XCTAssertEqual(second.first { $0.key == .fuelPlanned }?.state, .pending,
+                       "an auto task must never keep claiming a stale computation")
+    }
+
+    func testRegenerationDropsTasksThatNoLongerApply() {
+        var withPPR = context()
+        withPPR.pprIdents = ["LSGY"]
+        let first = ThreadTaskEngine.generate(context: withPPR)
+        XCTAssertEqual(first.filter { $0.key == .pprObtained }.count, 1)
+
+        // Destination changed to a field with no PPR requirement.
+        let second = ThreadTaskEngine.generate(context: context(), existing: first)
+        XCTAssertTrue(second.filter { $0.key == .pprObtained }.isEmpty)
+    }
+
+    // MARK: - Thread model
+
+    func testFilingAndClosingKeepTheThreadMarkersInSync() {
+        var thread = FlightThread(routeLabel: "LSZQ → LSGY")
+        thread.tasks = ThreadTaskEngine.generate(context: context())
+        guard let filed = thread.tasks.first(where: { $0.key == .flightPlanFiled }) else {
+            return XCTFail("expected a filing task")
+        }
+
+        XCTAssertFalse(thread.hasOpenFlightPlan)
+        thread.setState(.done, forTaskWithId: filed.id)
+        XCTAssertNotNil(thread.flightPlanFiledAt)
+        XCTAssertTrue(thread.hasOpenFlightPlan, "a filed plan with no close is exactly the risky state")
+
+        // Un-ticking the filing must not leave a close timestamp behind.
+        thread.setState(.pending, forTaskWithId: filed.id)
+        XCTAssertNil(thread.flightPlanFiledAt)
+        XCTAssertNil(thread.flightPlanClosedAt)
+        XCTAssertFalse(thread.hasOpenFlightPlan)
+    }
+
+    func testNotApplicableTasksLeaveTheReadinessDenominator() {
+        var thread = FlightThread(routeLabel: "LSZQ → LSGY")
+        thread.tasks = ThreadTaskEngine.generate(context: context())
+        let before = thread.preFlightProgress
+
+        guard let ppr = thread.tasks.first(where: { $0.key == .massAndBalance }) else {
+            return XCTFail("expected a mass & balance task")
+        }
+        thread.setState(.notApplicable, forTaskWithId: ppr.id)
+
+        XCTAssertEqual(thread.preFlightProgress.total, before.total - 1,
+                       "dismissing a task must move the ring, not strand it")
+    }
+
+    func testNextTaskIgnoresCloseOutUntilTheFlightIsOver() {
+        var thread = FlightThread(routeLabel: "LSZQ → LSGY")
+        var c = context()
+        c.flightPlanFiled = true
+        thread.tasks = ThreadTaskEngine.generate(context: c)
+
+        // Settle everything before the flight.
+        for task in thread.tasks where task.chapter != .close {
+            thread.setState(.done, forTaskWithId: task.id)
+        }
+        XCTAssertNil(thread.nextTask, "close-out work is not the pilot's problem before the flight")
+
+        thread.state = .closeOut
+        XCTAssertEqual(thread.nextTask?.chapter, .close)
+    }
+
+    // MARK: - Context building
+
+    func testContextFromPlanDerivesRouteFuelAndFees() {
+        let plan = swissPlan()
+        let c = FlightThreadManager.context(for: plan, profile: .full, countries: ["CH"])
+
+        XCTAssertTrue(c.hasRoute)
+        XCTAssertEqual(c.departureIdent, "LSZQ")
+        XCTAssertEqual(c.arrivalIdent, "LSGY")
+        XCTAssertEqual(c.feeIdents, ["LSGY"], "a landing away from home can attract a fee")
+        XCTAssertEqual(c.fuelOnBoardLitres, 80)
+        XCTAssertGreaterThan(c.fuelRequiredLitres, 0)
+    }
+
+    func testNoFeeTaskWhenTheFlightReturnsToItsDepartureField() {
+        var plan = swissPlan()
+        plan.waypoints.append(waypoint("LSZQ", lat: 47.4247, lon: 7.1869))
+        let c = FlightThreadManager.context(for: plan, profile: .full, countries: ["CH"])
+
+        XCTAssertTrue(c.feeIdents.isEmpty, "landing back home is not an away fee")
+    }
+
+    func testFreeTextWaypointsAreNotTreatedAsAerodromes() {
+        XCTAssertTrue(FlightThreadManager.looksLikeICAO("LSGY"))
+        XCTAssertFalse(FlightThreadManager.looksLikeICAO("JORAT VOR"))
+        XCTAssertFalse(FlightThreadManager.looksLikeICAO("lsgy"), "an ident is uppercase")
+        XCTAssertFalse(FlightThreadManager.looksLikeICAO("LSG"))
+    }
+
+    func testContextWithoutAPlanStillOffersTheHomeCountryProducts() {
+        let c = FlightThreadManager.context(for: nil, profile: .local, countries: [])
+        XCTAssertEqual(c.countries, ["CH"])
+        XCTAssertFalse(c.hasRoute)
+        XCTAssertTrue(c.touchesSwitzerland)
+    }
+
+    // MARK: - Manager lifecycle
+
+    @MainActor
+    func testCreatingAThreadMakesItCurrentAndGeneratesTasks() {
+        let manager = FlightThreadManager(defaults: throwawayDefaults())
+        let thread = manager.createThread(from: swissPlan(), profile: .full)
+        defer { manager.deleteThread(threadId: thread.id) }
+
+        XCTAssertEqual(manager.currentThreadId, thread.id)
+        XCTAssertFalse(thread.tasks.isEmpty)
+        XCTAssertEqual(thread.routeLabel, "LSZQ → LSGY")
+    }
+
+    @MainActor
+    func testCloseOutRaisesTheOpenFlightPlanNoticeOnlyWhenOneWasFiled() {
+        let manager = FlightThreadManager(defaults: throwawayDefaults())
+        let thread = manager.createThread(from: swissPlan(), profile: .full)
+        defer { manager.deleteThread(threadId: thread.id) }
+
+        // Landing with no filed plan: nothing to nag about.
+        manager.beginCloseOut(threadId: thread.id, flightId: UUID())
+        XCTAssertNil(manager.openFlightPlanNotice)
+
+        // File it, land again: now the notice is exactly the point.
+        guard let filed = manager.thread(withId: thread.id)?.tasks.first(where: { $0.key == .flightPlanFiled }) else {
+            return XCTFail("expected a filing task")
+        }
+        manager.setTaskState(.done, taskId: filed.id, threadId: thread.id)
+        manager.beginCloseOut(threadId: thread.id, flightId: UUID())
+        XCTAssertEqual(manager.openFlightPlanNotice?.threadId, thread.id)
+
+        manager.markFlightPlanClosed(threadId: thread.id)
+        XCTAssertNil(manager.openFlightPlanNotice)
+        XCTAssertFalse(manager.thread(withId: thread.id)?.hasOpenFlightPlan ?? true)
+    }
+
+    // MARK: - Regeneration from the plan (v5.x)
+
+    /// The defect this guards: `regenerateTasks` had NO callers, so the AUTO rows kept the values
+    /// they were generated with. A flight created before the tanks were entered showed REQ 0 / FOB 0
+    /// for ever and never ticked its own fuel row.
+    @MainActor
+    func testFuelRowFollowsThePlanAfterTheTanksAreEntered() {
+        let manager = FlightThreadManager(defaults: throwawayDefaults())
+        // A flight created before any fuel figures exist — which is the normal case, since the
+        // creation sheet asks for a route and a time, not for tanks.
+        var plan = swissPlan()
+        plan.tripFuel = nil
+        plan.fuelOnBoard = nil
+        let thread = manager.createThread(from: plan, profile: .full)
+        defer { manager.deleteThread(threadId: thread.id) }
+
+        let before = manager.thread(withId: thread.id)?.tasks.first { $0.key == .fuelPlanned }
+        XCTAssertEqual(before?.state, .pending, "no figures yet, so nothing to claim")
+        XCTAssertNil(before?.detail, "and nothing to state either")
+
+        // fuelRequired is computed: trip + reserve + additional + extra.
+        plan.tripFuel = 40
+        plan.reserveFuel = 10
+        plan.additionalFuel = 10
+        plan.extraFuel = 0
+        plan.fuelOnBoard = 80
+        manager.regenerateTasks(threadId: thread.id, plan: plan)
+
+        let after = manager.thread(withId: thread.id)?.tasks.first { $0.key == .fuelPlanned }
+        XCTAssertEqual(after?.state, .done, "enough on board — the AUTO row settles itself")
+        XCTAssertEqual(after?.detail, "REQ 60 L · FOB 80 L")
+    }
+
+    @MainActor
+    func testNotEnoughFuelLeavesTheRowPendingRatherThanTicked() {
+        let manager = FlightThreadManager(defaults: throwawayDefaults())
+        var plan = swissPlan()
+        let thread = manager.createThread(from: plan, profile: .full)
+        defer { manager.deleteThread(threadId: thread.id) }
+
+        plan.tripFuel = 60
+        plan.reserveFuel = 15
+        plan.additionalFuel = 15
+        plan.extraFuel = 0
+        plan.fuelOnBoard = 40
+        manager.regenerateTasks(threadId: thread.id, plan: plan)
+
+        let row = manager.thread(withId: thread.id)?.tasks.first { $0.key == .fuelPlanned }
+        XCTAssertEqual(row?.state, .pending)
+        XCTAssertEqual(row?.detail, "REQ 90 L · FOB 40 L")
+    }
+
+    /// `weatherSummary` and `pprIdents` used to default to nil/empty, so a caller that did not know
+    /// to pass them erased the pilot's own briefing text. Regeneration must never lose work.
+    @MainActor
+    func testRegenerationKeepsTicksAndTheBriefingItWasGiven() {
+        let manager = FlightThreadManager(defaults: throwawayDefaults())
+        let plan = swissPlan()
+        let thread = manager.createThread(from: plan, profile: .full)
+        defer { manager.deleteThread(threadId: thread.id) }
+
+        guard let weather = manager.thread(withId: thread.id)?.tasks.first(where: { $0.key == .weatherBriefed })
+        else { return XCTFail("expected a weather task") }
+        manager.setTaskState(.done, taskId: weather.id, threadId: thread.id)
+        manager.regenerateTasks(threadId: thread.id, plan: plan, weatherSummary: "SW 8 kt, CAVOK")
+        manager.regenerateTasks(threadId: thread.id, plan: plan)   // the caller that knows nothing
+
+        let after = manager.thread(withId: thread.id)?.tasks.first { $0.key == .weatherBriefed }
+        XCTAssertEqual(after?.state, .done, "a tick survives regeneration")
+        XCTAssertEqual(after?.detail, "SW 8 kt, CAVOK", "and so does the briefing it was given")
+    }
+
+    /// The stale cached date is what made a flight moved to tomorrow keep being offered as today's.
+    @MainActor
+    func testTheCachedDepartureFollowsThePlan() {
+        let manager = FlightThreadManager(defaults: throwawayDefaults())
+        var plan = swissPlan()
+        plan.plannedDepartureTime = Date(timeIntervalSince1970: 1_790_000_000)
+        let thread = manager.createThread(from: plan, profile: .full)
+        defer { manager.deleteThread(threadId: thread.id) }
+
+        let moved = Date(timeIntervalSince1970: 1_790_500_000)
+        plan.plannedDepartureTime = moved
+        manager.regenerateTasks(threadId: thread.id, plan: plan)
+
+        XCTAssertEqual(manager.thread(withId: thread.id)?.scheduledDeparture, moved)
+    }
+
+    // MARK: - Attaching at flight start (v5.x)
+
+    @MainActor
+    func testAttachingResolvesFromTheArmedPlanOrAnExplicitChoice() {
+        let manager = FlightThreadManager(defaults: throwawayDefaults())
+        let plan = swissPlan()
+        let followed = manager.createThread(from: plan, profile: .full)
+        defer { manager.deleteThread(threadId: followed.id) }
+
+        // The armed plan names it — this is the Home / widget / deep-link path.
+        XCTAssertEqual(manager.threadToAttach(explicitThreadId: nil, planId: plan.id), followed.id)
+        // Pressing START FLIGHT inside it names it directly.
+        XCTAssertEqual(manager.threadToAttach(explicitThreadId: followed.id, planId: nil), followed.id)
+    }
+
+    /// The critical asymmetry with `threadToCloseOut`: attaching states a fact, and once stated the
+    /// close-out lookup trusts it absolutely. A guess made here would be cemented, not re-examined.
+    @MainActor
+    func testAttachingNeverGuessesFromTheCurrentFollowedFlight() {
+        let manager = FlightThreadManager(defaults: throwawayDefaults())
+        let followed = manager.createThread(from: swissPlan(), profile: .full)
+        defer { manager.deleteThread(threadId: followed.id) }
+
+        XCTAssertEqual(manager.currentThreadId, followed.id, "it is current…")
+        XCTAssertNil(manager.threadToAttach(explicitThreadId: nil, planId: nil),
+                     "…but a flight with no plan and no explicit choice must not claim it")
+    }
+
+    @MainActor
+    func testAttachingMovesItIntoFlyAndMakesCloseOutExact() {
+        let manager = FlightThreadManager(defaults: throwawayDefaults())
+        let plan = swissPlan()
+        let followed = manager.createThread(from: plan, profile: .full)
+        defer { manager.deleteThread(threadId: followed.id) }
+        let flightId = UUID()
+
+        manager.attachFlight(flightId, toThreadId: followed.id)
+
+        XCTAssertEqual(manager.thread(withId: followed.id)?.state, .flying)
+        XCTAssertEqual(manager.thread(withId: followed.id)?.flightId, flightId)
+        // Close-out now resolves on the exact flight, without needing the plan or the fallback.
+        XCTAssertEqual(manager.threadToCloseOut(flightId: flightId, planId: nil), followed.id)
+    }
+
+    /// A finished flight is not a candidate to fly again.
+    @MainActor
+    func testAttachingIgnoresAFinishedFollowedFlight() {
+        let manager = FlightThreadManager(defaults: throwawayDefaults())
+        let followed = manager.createThread(from: swissPlan(), profile: .full)
+        defer { manager.deleteThread(threadId: followed.id) }
+        manager.finishThread(threadId: followed.id)
+
+        XCTAssertNil(manager.threadToAttach(explicitThreadId: followed.id, planId: nil))
+    }
+
+    // MARK: - Circuits and close-out resolution (v5.x)
+
+    /// The regression this guards: circuits are flown with no plan, so END FLIGHT falls through to
+    /// "the thread the pilot is currently following" — which, with a cross-country planned for
+    /// Saturday, was that thread. A session of touch-and-gos would push it into close-out and raise
+    /// its close-your-flight-plan banner for a flight that had not happened.
+    @MainActor
+    func testCircuitsNeverCloseOutACrossCountryThread() {
+        let manager = FlightThreadManager(defaults: throwawayDefaults())
+        let planned = manager.createThread(from: swissPlan(), profile: .full)
+        defer { manager.deleteThread(threadId: planned.id) }
+
+        XCTAssertNil(manager.threadToCloseOut(flightId: UUID(), planId: nil, isCircuitMode: true))
+
+        // The same flight, NOT flown as circuits, still adopts it — that is the widget/deep-link path.
+        XCTAssertEqual(manager.threadToCloseOut(flightId: UUID(), planId: nil, isCircuitMode: false),
+                       planned.id)
+    }
+
+    /// A planned circuit session IS the flight being flown, so it is still adopted.
+    @MainActor
+    func testCircuitsDoCloseOutALocalThread() {
+        let manager = FlightThreadManager(defaults: throwawayDefaults())
+        let local = manager.createThread(from: nil, profile: .local, routeLabel: "Circuits LSZQ")
+        defer { manager.deleteThread(threadId: local.id) }
+
+        XCTAssertEqual(manager.threadToCloseOut(flightId: UUID(), planId: nil, isCircuitMode: true),
+                       local.id)
+    }
+
+    @MainActor
+    func testCircuitCloseOutIsOfferedNotCreated() {
+        let manager = FlightThreadManager(defaults: throwawayDefaults())
+        let flightId = UUID()
+
+        manager.offerCircuitCloseOut(flightId: flightId,
+                                     departureIdent: "lszq",
+                                     aircraftRegistration: "HB-KFD")
+
+        // An offer changes nothing until it is taken: no thread, nothing current.
+        XCTAssertEqual(manager.circuitCloseOutOffer?.flightId, flightId)
+        XCTAssertTrue(manager.threads.isEmpty)
+        XCTAssertNil(manager.currentThreadId)
+
+        guard let offer = manager.circuitCloseOutOffer else { return XCTFail("expected an offer") }
+        let thread = manager.acceptCircuitCloseOut(offer)
+        defer { manager.deleteThread(threadId: thread.id) }
+
+        XCTAssertNil(manager.circuitCloseOutOffer)
+        XCTAssertEqual(manager.thread(withId: thread.id)?.profile, .local)
+        // Straight to CLOSE — the flying already happened.
+        XCTAssertEqual(manager.thread(withId: thread.id)?.state, .closeOut)
+        XCTAssertEqual(manager.thread(withId: thread.id)?.flightId, flightId)
+        XCTAssertTrue(thread.routeLabel.contains("LSZQ"), "ident should be normalised for display")
+
+        // The light profile: a logbook line and a debrief, and nothing about flight plans or customs.
+        let keys = Set(manager.thread(withId: thread.id)?.tasks.map(\.key) ?? [])
+        XCTAssertTrue(keys.contains(.logbookEntry))
+        XCTAssertTrue(keys.contains(.debriefWritten))
+        XCTAssertFalse(keys.contains(.flightPlanFiled))
+    }
+
+    /// A circuit session has no filed plan, so accepting the offer must stay silent — the red banner
+    /// and the RCC reminder belong to an open flight plan and nothing else.
+    @MainActor
+    func testAcceptingACircuitCloseOutRaisesNoOpenPlanNotice() {
+        let manager = FlightThreadManager(defaults: throwawayDefaults())
+        manager.offerCircuitCloseOut(flightId: UUID(), departureIdent: "LSZQ", aircraftRegistration: nil)
+
+        guard let offer = manager.circuitCloseOutOffer else { return XCTFail("expected an offer") }
+        let thread = manager.acceptCircuitCloseOut(offer)
+        defer { manager.deleteThread(threadId: thread.id) }
+
+        XCTAssertNil(manager.openFlightPlanNotice)
+    }
+
+    @MainActor
+    func testFilingATaskAddsTheCloseOutTask() {
+        let manager = FlightThreadManager(defaults: throwawayDefaults())
+        let thread = manager.createThread(from: swissPlan(), profile: .full)
+        defer { manager.deleteThread(threadId: thread.id) }
+
+        XCTAssertNil(manager.thread(withId: thread.id)?.tasks.first { $0.key == .flightPlanClosed })
+
+        guard let filed = thread.tasks.first(where: { $0.key == .flightPlanFiled }) else {
+            return XCTFail("expected a filing task")
+        }
+        manager.setTaskState(.done, taskId: filed.id, threadId: thread.id)
+
+        XCTAssertNotNil(manager.thread(withId: thread.id)?.tasks.first { $0.key == .flightPlanClosed },
+                        "filing a plan is what creates the obligation to close it")
+    }
+
+    // MARK: - Fuel type enum (v5.0.0)
+
+    /// The mapping was established twice from independent directions; these pin it so a future edit
+    /// cannot quietly renumber it. See `OpenAIPFuelType` for the derivation.
+    func testFuelTypeCodesMapToTheGradesTheyWereProvenToBe() {
+        XCTAssertEqual(OpenAIPFuelType(rawValue: 0)?.label, "Super PLUS")
+        XCTAssertEqual(OpenAIPFuelType(rawValue: 1)?.label, "AVGAS")
+        XCTAssertEqual(OpenAIPFuelType(rawValue: 3)?.label, "Jet A1")
+        XCTAssertEqual(OpenAIPFuelType(rawValue: 6)?.label, "UL91")
+        XCTAssertNil(OpenAIPFuelType(rawValue: 7), "an unknown code must not resolve to a grade")
+    }
+
+    func testAirlineHubReportsJetFuelAlone() throws {
+        // EDDF and LFPG both return [3] and nothing else — the observation that pinned 3 = Jet A1.
+        let json = """
+        {"features":[{"type":"Feature","properties":{
+          "_id":"eddf","name":"FRANKFURT MAIN","icaoCode":"EDDF","type":3,"country":"DE",
+          "services":{"fuelTypes":[3]},"frequencies":[],"runways":[]
+        },"geometry":{"type":"Point","coordinates":[8.57,50.03]}}]}
+        """.data(using: .utf8)!
+
+        let airport = try XCTUnwrap(try OpenAIPAirport.parse(geoJSON: json).first)
+        XCTAssertEqual(airport.fuelTypes.map(\.label), ["Jet A1"])
+    }
+
+    func testPistonGradesAreListedFirst() throws {
+        // A pilot scanning chips is asking "can I get AVGAS here", so the answer leads.
+        let json = """
+        {"features":[{"type":"Feature","properties":{
+          "_id":"lsgy","name":"YVERDON","icaoCode":"LSGY","type":2,"country":"CH",
+          "services":{"fuelTypes":[3,0,1]},"frequencies":[],"runways":[]
+        },"geometry":{"type":"Point","coordinates":[6.61,46.76]}}]}
+        """.data(using: .utf8)!
+
+        let airport = try XCTUnwrap(try OpenAIPAirport.parse(geoJSON: json).first)
+        XCTAssertEqual(airport.fuelTypes.map(\.label), ["Super PLUS", "AVGAS", "Jet A1"])
+    }
+
+    func testUnknownFuelCodeIsSkippedButKeptRaw() throws {
+        let json = """
+        {"features":[{"type":"Feature","properties":{
+          "_id":"x","name":"SOMEWHERE","icaoCode":"LSZZ","type":2,"country":"CH",
+          "services":{"fuelTypes":[1,99]},"frequencies":[],"runways":[]
+        },"geometry":{"type":"Point","coordinates":[7.0,47.0]}}]}
+        """.data(using: .utf8)!
+
+        let airport = try XCTUnwrap(try OpenAIPAirport.parse(geoJSON: json).first)
+        XCTAssertEqual(airport.fuelTypes.map(\.label), ["AVGAS"])
+        XCTAssertEqual(airport.fuelTypeCodes, [1, 99], "an unrecognised code is preserved, not dropped")
+    }
+
+    func testFuelTaskDetailNamesWhatTheDestinationSells() {
+        var c = context()
+        c.fuelRequiredLitres = 54
+        c.fuelOnBoardLitres = 80
+        c.destinationFuels = ["AVGAS", "UL91"]
+
+        let fuel = ThreadTaskEngine.generate(context: c).first { $0.key == .fuelPlanned }
+        XCTAssertEqual(fuel?.detail, "REQ 54 L · FOB 80 L · LSGY: AVGAS, UL91")
+    }
+
+    func testFuelTaskOmitsTheDestinationWhenNothingIsKnown() {
+        var c = context()
+        c.fuelRequiredLitres = 54
+        c.fuelOnBoardLitres = 80
+
+        let fuel = ThreadTaskEngine.generate(context: c).first { $0.key == .fuelPlanned }
+        XCTAssertEqual(fuel?.detail, "REQ 54 L · FOB 80 L", "absent data is not 'no fuel available'")
+    }
+
+    // MARK: - OpenAIP operational flags (v5.0.0)
+
+    /// Shaped from a real `api.core.openaip.net` response for LSGY (Yverdon), which genuinely is
+    /// flagged PPR — these keys were arriving with every download and being dropped at the parser.
+    func testOperationalFlagsAreParsedFromTheAirportRecord() throws {
+        let json = """
+        {"features":[{"type":"Feature","properties":{
+          "_id":"abc123","name":"YVERDON-LES-BAINS","icaoCode":"LSGY","type":2,
+          "elevation":{"value":433,"unit":0},"country":"CH",
+          "ppr":true,"private":true,"skydiveActivity":true,"winchOnly":false,
+          "services":{"fuelTypes":[0,1,3]},
+          "frequencies":[],"runways":[]
+        },"geometry":{"type":"Point","coordinates":[6.6141,46.7619]}}]}
+        """.data(using: .utf8)!
+
+        let airports = try OpenAIPAirport.parse(geoJSON: json)
+        let lsgy = try XCTUnwrap(airports.first)
+
+        XCTAssertEqual(lsgy.icaoCode, "LSGY")
+        XCTAssertTrue(lsgy.isPPR)
+        XCTAssertTrue(lsgy.isPrivate)
+        XCTAssertTrue(lsgy.hasSkydiveActivity)
+        XCTAssertFalse(lsgy.isWinchOnly)
+        XCTAssertEqual(lsgy.fuelTypeCodes, [0, 1, 3])
+    }
+
+    /// An older cached file, or a source that omits the flags, must not manufacture requirements.
+    func testMissingFlagsDefaultToNotRequired() throws {
+        let json = """
+        {"features":[{"type":"Feature","properties":{
+          "_id":"x","name":"SOMEWHERE","icaoCode":"LSZZ","type":2,"country":"CH",
+          "frequencies":[],"runways":[]
+        },"geometry":{"type":"Point","coordinates":[7.0,47.0]}}]}
+        """.data(using: .utf8)!
+
+        let airport = try XCTUnwrap(try OpenAIPAirport.parse(geoJSON: json).first)
+        XCTAssertFalse(airport.isPPR, "an absent flag is 'not stated', never a manufactured PPR task")
+        XCTAssertFalse(airport.isPrivate)
+        XCTAssertTrue(airport.fuelTypeCodes.isEmpty)
+    }
+
+    /// The test host shares the app's bundle id, so a manager built against `.standard` would write
+    /// its pointer into the real app's slot on that simulator. (Same trap as FlightPlanManager.)
+    // MARK: - The route decides the country, not the app's origin (device-pass regression)
+
+    /// Prievidza (LZPE) → Eggenfelden (EDME): Slovakia to Germany across Austria, ~300 km from the
+    /// nearest Swiss border.
+    private func slovakToGermanPlan() -> FlightPlan {
+        var plan = FlightPlan(name: "LZPE → EDME")
+        plan.waypoints = [
+            waypoint("LZPE", lat: 48.7742, lon: 18.5942),
+            waypoint("EDME", lat: 48.3961, lon: 12.7236)
+        ]
+        plan.fuelFlow = 25
+        plan.fuelOnBoard = 80
+        plan.tripFuel = 20
+        return plan
+    }
+
+    @MainActor
+    func testAForeignRouteNeverAcquiresSwissProducts() {
+        let manager = FlightThreadManager(defaults: throwawayDefaults())
+        let thread = manager.createThread(from: slovakToGermanPlan(), profile: .full)
+        defer { manager.deleteThread(threadId: thread.id) }
+
+        XCTAssertFalse(thread.countries?.contains("CH") ?? true, "got \(thread.countries ?? [])")
+        XCTAssertNil(thread.tasks.first { $0.key == .dabsChecked }, "DABS is a Swiss product")
+        XCTAssertNil(thread.tasks.first { $0.key == .gaforChecked }, "GAFOR is a Swiss product")
+    }
+
+    @MainActor
+    func testFilingAFlightPlanDoesNotConjureSwitzerlandOntoAForeignRoute() {
+        // The reported defect, exactly: the tasks were right until the pilot ticked "flight plan
+        // filed", at which point the regeneration rebuilt the country list as home + foreign — with
+        // home hard-coded to CH — and DABS, GAFOR and a "Swiss side" link appeared.
+        let manager = FlightThreadManager(defaults: throwawayDefaults())
+        let thread = manager.createThread(from: slovakToGermanPlan(), profile: .full)
+        defer { manager.deleteThread(threadId: thread.id) }
+
+        guard let filed = thread.tasks.first(where: { $0.key == .flightPlanFiled }) else {
+            return XCTFail("no filing task")
+        }
+        manager.setTaskState(.done, taskId: filed.id, threadId: thread.id)
+
+        let after = manager.thread(withId: thread.id)
+        XCTAssertNotNil(after?.tasks.first { $0.key == .flightPlanClosed },
+                        "filing should still add the close-out reminder")
+        XCTAssertNil(after?.tasks.first { $0.key == .dabsChecked }, "DABS appeared after filing")
+        XCTAssertNil(after?.tasks.first { $0.key == .gaforChecked }, "GAFOR appeared after filing")
+        XCTAssertFalse(after?.countries?.contains("CH") ?? true, "got \(after?.countries ?? [])")
+    }
+
+    @MainActor
+    func testTheDepartureCountryIsNotTreatedAsForeign() {
+        // Departing Slovakia, you do not clear customs INTO Slovakia. With home hard-coded to CH it
+        // raised a Slovak customs task on a Slovak departure.
+        let manager = FlightThreadManager(defaults: throwawayDefaults())
+        let thread = manager.createThread(from: slovakToGermanPlan(), profile: .full)
+        defer { manager.deleteThread(threadId: thread.id) }
+
+        XCTAssertEqual(thread.homeCountry, "SK", "home should follow the departure aerodrome")
+        let customs = thread.tasks.filter { $0.key == .customsNotified }.compactMap(\.subject)
+        XCTAssertFalse(customs.contains("SK"), "got \(customs)")
+        XCTAssertTrue(customs.contains("DE"), "got \(customs)")
+    }
+
+    func testTheSwissLinkIsOnlyOfferedWhenSwitzerlandIsInvolved() {
+        let task = ThreadTask(key: .customsNotified, subject: "DE", kind: .check)
+        let away = ThreadTaskPresentation.links(for: task, touchesSwitzerland: false)
+        XCTAssertFalse(away.contains { $0.label == L10n.Border.swissSide })
+        XCTAssertTrue(away.contains { $0.label == L10n.Border.openOfficial })
+
+        let swiss = ThreadTaskPresentation.links(for: task, touchesSwitzerland: true)
+        XCTAssertTrue(swiss.contains { $0.label == L10n.Border.swissSide })
+    }
+
+    private func throwawayDefaults() -> UserDefaults {
+        let suite = "FlightThreadTests.\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suite)!
+        addTeardownBlock { UserDefaults.standard.removePersistentDomain(forName: suite) }
+        return defaults
+    }
+}
+
+
+// MARK: - Cumulative review regressions (v5.0.1)
+
+extension FlightThreadTests {
+
+    @MainActor
+    private func datedPlan(_ departure: Date?) -> FlightPlan {
+        var plan = FlightPlan(name: "Test")
+        plan.waypoints = [
+            FlightPlanWaypoint(name: "LSZQ",
+                               coordinate: CLLocationCoordinate2D(latitude: 47.4247, longitude: 7.1869),
+                               altitude: 3000),
+            FlightPlanWaypoint(name: "LSGY",
+                               coordinate: CLLocationCoordinate2D(latitude: 46.7619, longitude: 6.6141),
+                               altitude: 3000),
+        ]
+        plan.plannedDepartureTime = departure
+        return plan
+    }
+
+    /// F2. The `currentThread` fallback cannot see WHICH flight was flown, and had no date check — so
+    /// a Thursday evening hop pushed Saturday's cross-country into close-out, complete with its
+    /// close-your-flight-plan banner for a flight that had not happened. Guarding only the circuits
+    /// case was not enough: Home offers no "not this one" button on a day with no hero flight.
+    @MainActor
+    func testTheCloseOutFallbackRefusesAThreadScheduledForAnotherDay() {
+        let manager = FlightThreadManager(defaults: throwawayDefaults())
+        let saturday = manager.createThread(from: datedPlan(Date().addingTimeInterval(2 * 24 * 3600)))
+        defer { manager.deleteThread(threadId: saturday.id) }
+        manager.setCurrentThread(saturday.id)
+
+        XCTAssertNil(manager.threadToCloseOut(flightId: UUID(), planId: nil,
+                                              isCircuitMode: false, isUnplanned: false),
+                     "a flight two days out is not the flight that was just flown")
+    }
+
+    @MainActor
+    func testTheCloseOutFallbackStillAdoptsTodaysFlight() {
+        let manager = FlightThreadManager(defaults: throwawayDefaults())
+        let today = manager.createThread(from: datedPlan(Date()))
+        defer { manager.deleteThread(threadId: today.id) }
+        manager.setCurrentThread(today.id)
+
+        XCTAssertEqual(manager.threadToCloseOut(flightId: UUID(), planId: nil), today.id)
+    }
+
+    @MainActor
+    func testTheCloseOutFallbackStillAdoptsAnUndatedFlight() {
+        // No date at all is the widget/deep-link case the fallback exists for; it carries nothing to
+        // contradict, so it must stay eligible.
+        let manager = FlightThreadManager(defaults: throwawayDefaults())
+        let undated = manager.createThread(from: datedPlan(nil))
+        defer { manager.deleteThread(threadId: undated.id) }
+        manager.setCurrentThread(undated.id)
+
+        XCTAssertEqual(manager.threadToCloseOut(flightId: UUID(), planId: nil), undated.id)
+    }
+
+    /// F4. Finishing a thread is optional, so one that already flew and closed out is still
+    /// `!isFinished` and `thread(forPlanId:)` hands it back when the pilot re-arms the same saved
+    /// route. Carrying the first flight's filing latches into the second made `hasOpenFlightPlan`
+    /// false for a plan that was genuinely open — no banner and no reminder on the second flight.
+    @MainActor
+    func testReFlyingAThreadStartsAFreshCloseChapter() {
+        let manager = FlightThreadManager(defaults: throwawayDefaults())
+        let thread = manager.createThread(from: swissPlan(), profile: .full)
+        defer { manager.deleteThread(threadId: thread.id) }
+
+        guard let filed = manager.thread(withId: thread.id)?.tasks
+            .first(where: { $0.key == .flightPlanFiled }) else {
+            return XCTFail("no flight-plan-filed task")
+        }
+        manager.setTaskState(.done, taskId: filed.id, threadId: thread.id)
+        let firstFlight = UUID()
+        manager.attachFlight(firstFlight, toThreadId: thread.id)
+        manager.beginCloseOut(threadId: thread.id, flightId: firstFlight)
+        manager.markFlightPlanClosed(threadId: thread.id)
+        XCTAssertFalse(manager.thread(withId: thread.id)?.hasOpenFlightPlan ?? true)
+
+        // Same thread, next weekend, same saved route.
+        manager.attachFlight(UUID(), toThreadId: thread.id)
+
+        let after = manager.thread(withId: thread.id)
+        XCTAssertNil(after?.flightPlanFiledAt, "the new flight has filed nothing yet")
+        XCTAssertNil(after?.flightPlanClosedAt, "and must not inherit the last one's close stamp")
+        XCTAssertEqual(after?.tasks.first { $0.key == .flightPlanFiled }?.state, .pending,
+                       "the task and the latch must never disagree")
+    }
+
+    /// F5. `regenerateAfterFilingChange` never set `isLeg`, so ticking "flight plan filed" on a trip
+    /// leg re-created the trip's own rows on it as pending duplicates — dropping a 6/6 leg to 6/11
+    /// and diverting START to the outstanding-tasks prompt.
+    @MainActor
+    func testFilingAPlanOnATripLegDoesNotResurrectTheTripsTasks() {
+        let manager = FlightThreadManager(defaults: throwawayDefaults())
+        let a = manager.createThread(from: swissPlan(), profile: .full)
+        let b = manager.createThread(from: swissPlan(), profile: .full)
+        defer { manager.deleteThread(threadId: a.id); manager.deleteThread(threadId: b.id) }
+        _ = manager.formTrip(from: [a.id, b.id])
+
+        let before = manager.thread(withId: a.id)?.tasks.count ?? 0
+        guard let filed = manager.thread(withId: a.id)?.tasks
+            .first(where: { $0.key == .flightPlanFiled }) else {
+            return XCTFail("no flight-plan-filed task on the leg")
+        }
+        manager.setTaskState(.done, taskId: filed.id, threadId: a.id)
+
+        let after = manager.thread(withId: a.id)?.tasks ?? []
+        XCTAssertTrue(after.allSatisfy { $0.key.scope == .leg },
+                      "a leg must never carry a trip-scoped row — those live on the trip")
+        XCTAssertEqual(after.count, before + 1,
+                       "filing adds the close-out task and nothing else")
+    }
+}

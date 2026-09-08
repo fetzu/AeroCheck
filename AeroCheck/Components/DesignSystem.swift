@@ -48,6 +48,27 @@ extension View {
 
 // MARK: - Button Styles
 
+/// Geometry shared by the primary and secondary button styles.
+///
+/// They MUST match. A primary and a secondary button sitting side by side is the app's commonest
+/// pairing — start/review, call/mark-closed — and the two styles used to disagree on both paddings
+/// (32/18 against 24/14) and on the corner radius. Setting the same `.frame(height:)` on both labels
+/// therefore still produced buttons 8pt different in height and visibly different in shape, because
+/// the mismatch lives in the style, below anything a call site can see. (device pass)
+enum ButtonMetrics {
+    static func horizontalPadding(isLarge: Bool) -> CGFloat { isLarge ? 32 : 20 }
+    static func verticalPadding(isLarge: Bool) -> CGFloat { isLarge ? 18 : 12 }
+    static let cornerRadius: CGFloat = 12
+
+    /// A button's finished height, given the height its label was framed to.
+    ///
+    /// Call sites that lay two buttons out at a fixed ratio need the row height up front, and it is
+    /// the style — not the label — that decides it.
+    static func totalHeight(labelHeight: CGFloat, isLarge: Bool) -> CGFloat {
+        labelHeight + 2 * verticalPadding(isLarge: isLarge)
+    }
+}
+
 struct PrimaryButtonStyle: ButtonStyle {
     var color: Color = .aviationGold
     var isLarge: Bool = true
@@ -57,11 +78,12 @@ struct PrimaryButtonStyle: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
             .font(.buttonText)
+            .textCase(.uppercase)
             .foregroundColor(.onAccent)
-            .padding(.horizontal, isLarge ? 32 : 20)
-            .padding(.vertical, isLarge ? 18 : 12)
+            .padding(.horizontal, ButtonMetrics.horizontalPadding(isLarge: isLarge))
+            .padding(.vertical, ButtonMetrics.verticalPadding(isLarge: isLarge))
             .background(
-                RoundedRectangle(cornerRadius: 12)
+                RoundedRectangle(cornerRadius: ButtonMetrics.cornerRadius)
                     .fill(color)
                     .shadow(color: color.opacity(0.3), radius: 4, x: 0, y: 2)
             )
@@ -73,19 +95,22 @@ struct PrimaryButtonStyle: ButtonStyle {
 
 struct SecondaryButtonStyle: ButtonStyle {
     var color: Color = .aviationBlue
+    /// Matches `PrimaryButtonStyle`'s, so the two can sit side by side and agree. (device pass)
+    var isLarge: Bool = true
     @Environment(\.isEnabled) private var isEnabled
 
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
             .font(.buttonText)
+            .textCase(.uppercase)
             .foregroundColor(.primaryText)
-            .padding(.horizontal, 24)
-            .padding(.vertical, 14)
+            .padding(.horizontal, ButtonMetrics.horizontalPadding(isLarge: isLarge))
+            .padding(.vertical, ButtonMetrics.verticalPadding(isLarge: isLarge))
             .background(
-                RoundedRectangle(cornerRadius: 10)
+                RoundedRectangle(cornerRadius: ButtonMetrics.cornerRadius)
                     .stroke(color, lineWidth: 2)
                     .background(
-                        RoundedRectangle(cornerRadius: 10)
+                        RoundedRectangle(cornerRadius: ButtonMetrics.cornerRadius)
                             .fill(color.opacity(0.2))
                     )
             )
@@ -518,6 +543,89 @@ extension View {
             self.glassEffect(.regular, in: .capsule)
         } else {
             self.background(.regularMaterial, in: Capsule())
+        }
+    }
+
+    /// A brief "copied" confirmation over the bottom of the view. (v5.0.0)
+    ///
+    /// A copy to the pasteboard is invisible — nothing on screen moves — so without this the pilot
+    /// taps again, unsure it worked. It clears itself after `duration`; the caller owns the flag only
+    /// so the confirmation can be dismissed early by a navigation change.
+    func copiedConfirmation(_ message: String,
+                            isPresented: Binding<Bool>,
+                            duration: TimeInterval = 2) -> some View {
+        overlay(alignment: .bottom) {
+            if isPresented.wrappedValue {
+                Label(message, systemImage: "checkmark.circle.fill")
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundColor(.aviationGreen)
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 10)
+                    .floatingChromeCapsule()
+                    .padding(.bottom, 32)
+                    .transition(.opacity.combined(with: .move(edge: .bottom)))
+                    .task {
+                        // A transient overlay is never focused, so VoiceOver would otherwise get the
+                        // same silence a sighted user gets from an unannotated copy.
+                        AccessibilityNotification.Announcement(message).post()
+                        try? await Task.sleep(for: .seconds(duration))
+                        isPresented.wrappedValue = false
+                    }
+            }
+        }
+        .animation(.easeInOut(duration: 0.2), value: isPresented.wrappedValue)
+    }
+}
+
+// MARK: - Flow layout (v5.0.0)
+
+/// Lays subviews out left to right, wrapping to a new line when the next one will not fit.
+///
+/// Written because a thread task can carry a tool button and two links — "Copy ICAO flight plan",
+/// "Open skybriefing" — which does not fit on one line on an iPhone. An `HStack` would either
+/// compress the chips until their labels truncate or push them off the edge; neither is acceptable
+/// for a control whose whole job is to be readable and tappable.
+struct FlowLayout: Layout {
+    var spacing: CGFloat = 8
+
+    func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
+        let maxWidth = proposal.width ?? .infinity
+        var rowWidth: CGFloat = 0
+        var rowHeight: CGFloat = 0
+        var total = CGSize(width: 0, height: 0)
+
+        for subview in subviews {
+            let size = subview.sizeThatFits(.unspecified)
+            if rowWidth > 0, rowWidth + spacing + size.width > maxWidth {
+                total.width = max(total.width, rowWidth)
+                total.height += rowHeight + spacing
+                rowWidth = size.width
+                rowHeight = size.height
+            } else {
+                rowWidth += (rowWidth > 0 ? spacing : 0) + size.width
+                rowHeight = max(rowHeight, size.height)
+            }
+        }
+        total.width = max(total.width, rowWidth)
+        total.height += rowHeight
+        return total
+    }
+
+    func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) {
+        var x = bounds.minX
+        var y = bounds.minY
+        var rowHeight: CGFloat = 0
+
+        for subview in subviews {
+            let size = subview.sizeThatFits(.unspecified)
+            if x > bounds.minX, x + size.width > bounds.maxX {
+                x = bounds.minX
+                y += rowHeight + spacing
+                rowHeight = 0
+            }
+            subview.place(at: CGPoint(x: x, y: y), anchor: .topLeading, proposal: ProposedViewSize(size))
+            x += size.width + spacing
+            rowHeight = max(rowHeight, size.height)
         }
     }
 }
@@ -1051,13 +1159,24 @@ struct SettingsMenuRow<T: Hashable, Options: View>: View {
     @Binding var selection: T
     @ViewBuilder var options: Options
     var body: some View {
-        Picker(selection: $selection) {
-            options
-        } label: {
+        // The label is laid out HERE rather than handed to the Picker. A `.menu` picker style
+        // DISCARDS a custom label and renders only the selected value, so every menu row in Settings
+        // was losing its title and subtitle and appearing as a lone centred value — the checklist
+        // language read as a bare "Auto (System Language)" with nothing saying what it set.
+        // (device pass)
+        HStack(spacing: 12) {
             SettingsRowLabel(icon: icon, title: title, subtitle: subtitle, tint: tint)
+            Spacer(minLength: 8)
+            Picker(selection: $selection) {
+                options
+            } label: {
+                EmptyView()
+            }
+            .pickerStyle(.menu)
+            .labelsHidden()
+            .tint(.secondaryText)
+            .fixedSize()
         }
-        .pickerStyle(.menu)
-        .tint(.secondaryText)
         .padding(.horizontal, 14)
         .padding(.vertical, 5)
     }

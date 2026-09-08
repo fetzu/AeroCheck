@@ -61,14 +61,39 @@ struct AppSettings: Codable, Equatable {
         }
     }
 
-    /// The active cockpit theme mode (v4 UI/UX Revamp) resolved against the live device appearance.
-    func cockpitThemeMode(systemIsDark: Bool) -> CockpitThemeMode {
-        switch themePreference {
-        case .day: return .day
-        case .sunlight: return .sunlight
-        case .night: return .night
-        case .auto: return systemIsDark ? .night : .day
-        }
+    /// Whether the high-contrast sunlight palette engages by itself in a bright cockpit. (v5.x)
+    ///
+    /// Sunlight used to be a fourth manual choice sitting in the same picker as auto/day/night, and
+    /// `auto` never selected it — so it could only ever be turned on by hand and then stayed on
+    /// indoors, where the high-contrast palette is simply harsher for no gain. As a toggle it can
+    /// mean what a pilot expects it to mean: engage when the screen is bright enough that direct sun
+    /// is the likely reason.
+    var sunlightBoost: Bool = false
+
+    /// Screen brightness above which the sunlight palette takes over, when the boost is enabled.
+    ///
+    /// iOS exposes no ambient-light reading, so screen brightness is the proxy — either the pilot has
+    /// wound it up because of the sun, or auto-brightness already has. Not perfect, and it is exactly
+    /// why this is opt-in rather than the default.
+    static let sunlightBrightnessThreshold: Double = 0.85
+
+    /// The active cockpit theme mode, resolved against the live device appearance and screen
+    /// brightness.
+    func cockpitThemeMode(systemIsDark: Bool, screenBrightness: Double = 0) -> CockpitThemeMode {
+        let base: CockpitThemeMode = {
+            switch themePreference {
+            case .day: return .day
+            case .sunlight: return .sunlight
+            case .night: return .night
+            case .auto: return systemIsDark ? .night : .day
+            }
+        }()
+        // Only ever escalates a DAY palette. Night exists to protect dark adaptation, and blasting a
+        // high-contrast bright palette over it because the screen happens to be turned up would undo
+        // the one thing that mode is for.
+        guard sunlightBoost, base == .day,
+              screenBrightness >= Self.sunlightBrightnessThreshold else { return base }
+        return .sunlight
     }
     var gpsRecordingInterval: Double = 5.0 // seconds
     var showSpeedReference: Bool = true
@@ -80,7 +105,28 @@ struct AppSettings: Codable, Equatable {
     var distanceInNauticalMiles: Bool = true // Flight Log distances: true = NM, false = km (toggle on the NM card)
 
     // Flight Planning
-    var enableFlightPlanning: Bool = true // ON by default
+    /// Training mode: this pilot flies dual, with an instructor.
+    ///
+    /// A licensed pilot logs their own flights as PIC, and defaulting to that is right for them. A
+    /// student is the opposite case and just as common — every flight is dual, and AMC1 FCL.050
+    /// wants the INSTRUCTOR named in the PIC column, not the student writing the logbook. Without
+    /// this the app quietly filled the student's own name into a column that is a statement about
+    /// who commanded the aircraft. (v5.x)
+    var isStudentPilot: Bool = false
+    /// The usual instructor, so a dual flight does not need the name typed onto every plan.
+    var instructorName: String = ""
+
+    /// The logbook's view of who is writing it. Built here so the card, the PDF extract and the
+    /// page totals all read the same settings.
+    var logbookPilotContext: LogbookLineBuilder.PilotContext {
+        LogbookLineBuilder.PilotContext(name: pilotName.isEmpty ? nil : pilotName,
+                                        isStudent: isStudentPilot,
+                                        instructorName: instructorName.isEmpty ? nil : instructorName)
+    }
+
+    /// Whether the fee task and the cost half of the numbers sheet appear. Not every pilot tracks
+    /// what a flight cost, and the logbook line stands on its own without it. (v5.0.0)
+    var enableCostTracking: Bool = true
     var waypointProximityThreshold: Double = 500 // meters, for auto-advancing waypoints
     var terrainAltitudeUnit: TerrainAltitudeUnit = .feet // feet, meters, or dual
 
@@ -109,6 +155,46 @@ struct AppSettings: Codable, Equatable {
     var showOpenAIPTiles: Bool = false // When true, overlays the OpenAIP raster chart tiles (data-first: tiles are an opt-in, separate from the airspace vector) — OFF by default (v4.1.0)
     var openAIPOfflineCountries: [String] = [] // ISO alpha-2 country codes for cached airspace data
     var enableAirspaceStreaming: Bool = false // When true, fetches nearby CTRs from OpenAIP API when no downloaded data
+
+    // Numbers (v5.0.0) — all user-entered. Rates and mass & balance data are not published as
+    // data anywhere, differ per member category and per registration, and are the pilot's to own.
+    /// Name written into the logbook line's PIC column; empty falls back to the "SELF" convention.
+    var pilotName: String = ""
+    /// Hourly rate + billing basis per aircraft, keyed by registration (falling back to type).
+    var aircraftRates: [String: AircraftRateProfile] = [:]
+    /// Mass & balance setup per registration. Empty until the pilot enters their aircraft's figures.
+    var weightBalanceProfiles: [String: WeightBalanceProfile] = [:]
+
+    /// Which generation of the settings schema wrote this blob.
+    ///
+    /// Settings sync as ONE unversioned record with last-writer-wins semantics, so a device running
+    /// an older build re-encodes the whole struct without the keys it does not know and pushes it
+    /// back. Ingest then assigned it wholesale and saved — silently erasing every mass & balance
+    /// envelope and hourly rate the pilot had entered, from the only place they live. Stamping the
+    /// writer's generation lets ingest tell "the user cleared this" apart from "the writer could
+    /// not express it". (review F8)
+    var schemaVersion: Int = AppSettings.currentSchemaVersion
+
+    /// Bump whenever a stored property is added that an older build cannot round-trip, and add it
+    /// to `preservingFieldsUnknownTo(_:)` below.
+    static let currentSchemaVersion = 2
+
+    /// Merge an incoming settings record over `self`, keeping local values the writer could not have
+    /// carried. Same-or-newer writers are taken at their word, including deliberate clearings.
+    func preservingFieldsUnknownTo(_ incoming: AppSettings) -> AppSettings {
+        guard incoming.schemaVersion < AppSettings.currentSchemaVersion else { return incoming }
+        var merged = incoming
+        // Schema 2 (v5.0.0): none of these round-trip through a v4.x writer.
+        merged.pilotName = pilotName
+        merged.isStudentPilot = isStudentPilot
+        merged.instructorName = instructorName
+        merged.sunlightBoost = sunlightBoost
+        merged.aircraftRates = aircraftRates
+        merged.weightBalanceProfiles = weightBalanceProfiles
+        merged.enableCostTracking = enableCostTracking
+        merged.schemaVersion = AppSettings.currentSchemaVersion
+        return merged
+    }
 
     // Flight logging
     var logEngineHours: Bool = true // When true, prompts for hour meter reading at engine start and stop (ON by default)
@@ -181,7 +267,7 @@ struct AppSettings: Codable, Equatable {
         case offlineMode
         case alwaysUseUTC
         case distanceInNauticalMiles
-        case enableFlightPlanning
+        case enableCostTracking
         case waypointProximityThreshold
         case terrainAltitudeUnit
         case enableCircuitMode
@@ -205,6 +291,9 @@ struct AppSettings: Codable, Equatable {
         case enableAirspaceStreaming
         case enableCompanionMode
         case companionRole
+        case pilotName, aircraftRates, weightBalanceProfiles, sunlightBoost
+        case schemaVersion
+        case isStudentPilot, instructorName
         // marketingMode and developerMode are intentionally excluded (non-persisted, reset each launch)
     }
 
@@ -251,7 +340,7 @@ struct AppSettings: Codable, Equatable {
         offlineMode = try container.decodeIfPresent(Bool.self, forKey: .offlineMode) ?? false
         alwaysUseUTC = try container.decodeIfPresent(Bool.self, forKey: .alwaysUseUTC) ?? false
         distanceInNauticalMiles = try container.decodeIfPresent(Bool.self, forKey: .distanceInNauticalMiles) ?? true
-        enableFlightPlanning = try container.decodeIfPresent(Bool.self, forKey: .enableFlightPlanning) ?? false
+        enableCostTracking = try container.decodeIfPresent(Bool.self, forKey: .enableCostTracking) ?? true
         waypointProximityThreshold = try container.decodeIfPresent(Double.self, forKey: .waypointProximityThreshold) ?? 500
         terrainAltitudeUnit = try container.decodeIfPresent(TerrainAltitudeUnit.self, forKey: .terrainAltitudeUnit) ?? .feet
         enableCircuitMode = try container.decodeIfPresent(Bool.self, forKey: .enableCircuitMode) ?? false
@@ -276,6 +365,28 @@ struct AppSettings: Codable, Equatable {
         enableCompanionMode = try container.decodeIfPresent(Bool.self, forKey: .enableCompanionMode) ?? false
         companionRole = try container.decodeIfPresent(CompanionRoleSetting.self, forKey: .companionRole) ?? .auto
         // marketingMode and developerMode intentionally excluded - always default to false each launch
+        // v5.0.0 numbers. Absent on every existing save; empty dictionaries mean "not set up yet",
+        // which is exactly how the calculators treat them.
+        pilotName = try container.decodeIfPresent(String.self, forKey: .pilotName) ?? ""
+        isStudentPilot = try container.decodeIfPresent(Bool.self, forKey: .isStudentPilot) ?? false
+        instructorName = try container.decodeIfPresent(String.self, forKey: .instructorName) ?? ""
+        // A pilot who had picked the old `sunlight` mode wanted the bright palette, so the boost
+        // starts on for them and their preference falls back to day.
+        sunlightBoost = try container.decodeIfPresent(Bool.self, forKey: .sunlightBoost)
+            ?? (themePreference == .sunlight)
+        // `.sunlight` is no longer offered by any picker, so a save still holding it would show an
+        // empty selection and pin the palette on regardless of the boost.
+        if themePreference == .sunlight { themePreference = .day }
+        // `try?`, not `try`: these are the first nested custom structs in AppSettings, and
+        // `decodeIfPresent` only tolerates an ABSENT key — a present-but-unparseable value throws,
+        // and the throw escapes all the way out to a caller that swallows it into a default
+        // AppSettings, losing every OTHER setting too and then persisting the defaults. Degrading
+        // to "profiles not set up" is bad; silently resetting the whole store is worse.
+        aircraftRates = (try? container.decodeIfPresent([String: AircraftRateProfile].self, forKey: .aircraftRates)) ?? [:]
+        weightBalanceProfiles = (try? container.decodeIfPresent([String: WeightBalanceProfile].self, forKey: .weightBalanceProfiles)) ?? [:]
+        // Absent means a writer from before the version existed, which is exactly schema 1.
+        schemaVersion = try container.decodeIfPresent(Int.self, forKey: .schemaVersion) ?? 1
+
     }
 
     /// Returns a copy with flight-relevant numeric settings clamped to sane ranges, for applying
@@ -352,6 +463,12 @@ struct ActiveFlightState: Codable {
     /// restore — a restored premium flight reloads its own checklist, never the WT9 residue. (ARCH-08)
     let selectedAircraft: AircraftType
     let selectedRemoteAircraftId: String?
+    /// Captured alongside `isCircuitMode`, and for the same reason: it decides which thread END
+    /// FLIGHT closes out. Left out of the snapshot, a jetsam mid-flight — routine on a two-hour
+    /// flight with background GPS and map tiles — restored the flight with the pilot's explicit
+    /// "not this one" silently cleared, and close-out then adopted the flight they avoided.
+    /// Optional so an older checkpoint still decodes. (review F3)
+    let flightIsUnplanned: Bool?
     let savedAt: Date
 
     /// Builds a snapshot from a **non-optional** flight, so a nil `currentFlight` can never
@@ -369,6 +486,7 @@ struct ActiveFlightState: Codable {
         self.currentHighlightedItem = appState.currentHighlightedItem
         self.hasLandingBeenDetected = appState.hasLandingBeenDetected
         self.isCircuitMode = appState.isCircuitMode
+        self.flightIsUnplanned = appState.flightIsUnplanned
         self.selectedAircraft = appState.settings.selectedAircraft
         self.selectedRemoteAircraftId = appState.settings.selectedRemoteAircraftId
         self.savedAt = Date()
@@ -389,6 +507,7 @@ struct ActiveFlightState: Codable {
         appState.currentHighlightedItem = currentHighlightedItem
         appState.hasLandingBeenDetected = hasLandingBeenDetected
         appState.isCircuitMode = isCircuitMode
+        appState.flightIsUnplanned = flightIsUnplanned ?? false
         // Re-apply the captured aircraft selection so the active checklist resolves to the
         // restored flight's aircraft. The premium checklist body is re-fetched at launch (see
         // AeroCheckApp's `.task`); until it resolves, `activeChecklist` reports `.unresolved`
@@ -552,6 +671,10 @@ class AppState {
     /// silently shown a foreign-language checklist. Surfaced as a non-blocking banner. (PR-41 / UX-08)
     var languageFallbackNotice: String?
 
+    /// A flight thread the app should open — set when the pilot taps a thread notification. Consumed
+    /// and cleared by the root router, same one-shot contract as the notices above. (v5.0.0)
+    var pendingThreadToOpen: UUID?
+
     // Navigation view session state (not persisted to disk — resets on app restart).
     // One cohesive value (selected layer + orientation) instead of two loose @Published properties.
     var navigationMapState = NavigationMapState()
@@ -613,6 +736,10 @@ class AppState {
 
     // Circuit mode - skips CRUISE and DESCENT phases
     var isCircuitMode: Bool = false
+    /// Set when the pilot chose "Fly without a plan" over a flight they had planned. Transient, like
+    /// `isCircuitMode`: it exists so END FLIGHT does not adopt the followed flight they deliberately
+    /// stepped around. (v5.x)
+    var flightIsUnplanned: Bool = false
 
     // MARK: - Private Properties
 
@@ -717,7 +844,11 @@ class AppState {
                 // Preserve device-local, non-persisted fields. They aren't encoded (so the incoming record
                 // always has them at their defaults); a wholesale assign would reset them on every sync —
                 // which is why developer mode kept switching itself off when the paired device synced. (v4.1)
-                var merged = settings
+                // Keep the device-local, non-persisted fields (they aren't encoded, so the incoming
+                // record always has them at their defaults) AND anything the writer's schema could
+                // not express — otherwise a device on an older build erases the pilot's mass &
+                // balance profiles and hourly rates for every device. (v4.1 + review F8)
+                var merged = self.settings.preservingFieldsUnknownTo(settings)
                 merged.developerMode = self.settings.developerMode
                 merged.marketingMode = self.settings.marketingMode
                 self.settings = merged
@@ -888,7 +1019,7 @@ class AppState {
         )
     }
 
-    func startFlight(withAircraft aircraft: String, aircraftRegistration: String? = nil, aircraftType: String? = nil, checklistVersion: String? = nil, flightPlanId: UUID? = nil, circuitMode: Bool = false) {
+    func startFlight(withAircraft aircraft: String, aircraftRegistration: String? = nil, aircraftType: String? = nil, checklistVersion: String? = nil, flightPlanId: UUID? = nil, circuitMode: Bool = false, unplanned: Bool = false) {
         // ARCH-01: never begin a flight for a premium aircraft without its resolved checklist —
         // this is the single choke point, so deep-link/widget entry points are covered too. A
         // blocked start surfaces an explicit error instead of silently showing WT9 content.
@@ -913,6 +1044,7 @@ class AppState {
         currentPhase = .preflight
         isFlightActive = true
         isCircuitMode = circuitMode
+        flightIsUnplanned = unplanned
         engineStartTime = nil
         lineUpTime = nil
         landingTime = nil
@@ -973,6 +1105,7 @@ class AppState {
         currentFlight = nil
         isFlightActive = false
         isCircuitMode = false
+        flightIsUnplanned = false
         engineStartTime = nil
         lineUpTime = nil
         landingTime = nil
@@ -1000,6 +1133,7 @@ class AppState {
         currentFlight = nil
         isFlightActive = false
         isCircuitMode = false
+        flightIsUnplanned = false
         engineStartTime = nil
         lineUpTime = nil
         landingTime = nil
@@ -1578,6 +1712,24 @@ class AppState {
             flights[index].touch() // stamp local edit for CloudKit conflict resolution (ARCH-02)
             // PR-09: persist + sync ONLY this flight. Editing one note previously rewrote every
             // flight file on the main actor and re-queued the whole logbook to CloudKit.
+            saveFlight(flights[index])
+        }
+    }
+
+    /// Record what a flight cost. Same single-flight persist as the other per-field edits. (v5.0.0)
+    func updateFlightCost(_ flight: Flight, cost: FlightCostEntry?) {
+        if let index = flights.firstIndex(where: { $0.id == flight.id }) {
+            flights[index].costEntry = (cost?.isEmpty ?? true) ? nil : cost
+            flights[index].touch()
+            saveFlight(flights[index])
+        }
+    }
+
+    /// Record the pilot's edits to the derived logbook line. (v5.0.0)
+    func updateFlightLogbook(_ flight: Flight, overrides: LogbookOverrides?) {
+        if let index = flights.firstIndex(where: { $0.id == flight.id }) {
+            flights[index].logbook = (overrides?.isEmpty ?? true) ? nil : overrides
+            flights[index].touch()
             saveFlight(flights[index])
         }
     }

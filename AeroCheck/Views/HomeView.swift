@@ -93,6 +93,7 @@ struct HomeView: View {
     @EnvironmentObject var locationManager: LocationManager
     @EnvironmentObject var offlineMapManager: OfflineMapManager
     @EnvironmentObject var flightPlanManager: FlightPlanManager
+    @EnvironmentObject var threadManager: FlightThreadManager
     @EnvironmentObject var aircraftDataService: AircraftDataService
     @EnvironmentObject var subscriptionManager: SubscriptionManager
     @EnvironmentObject var airportDataService: AirportDataService
@@ -120,7 +121,37 @@ struct HomeView: View {
     /// frozen while this holds. (orientation reliability)
     private var anyDestinationOpen: Bool {
         showSettings || showFlightLog || showSpeedReference || showNavigation
-            || showFlightPlanning || lastFlightForDetail != nil
+            || showFlightPlanning || lastFlightForDetail != nil || threadToOpen != nil
+    }
+
+    /// The thread being viewed. Presented as a cover in BOTH layouts (the `showFlightPlanning`
+    /// precedent) rather than a rail overlay: the admin chapters are read sitting down, often on the
+    /// phone, and they do not need the rail beside them. (v5.0.0)
+    @State private var threadToOpen: UUID?
+    /// True while a flight is being created, so a double-tap cannot make two. (review, concurrency)
+    @State private var isCreatingFlight = false
+    /// The flight being planned. Non-nil presents the one creation sheet. (v5.0.0)
+    @State private var planningNewFlight: NewFlightIntent?
+    /// What START FLIGHT needs to ask before it departs. (v5.x)
+    /// The aircraft screen, reachable from the strip once the flight owns the hero — the carousel
+    /// it replaced is gone then, and the tail still has to be changeable on the day. (v5.x)
+    @State private var showAircraftSheet = false
+    @State private var startPrompt: StartPrompt?
+
+    /// The one question START FLIGHT may need answered first.
+    ///
+    /// There used to be a second case — "arm today's flight plan" — for a saved route that carried a
+    /// date. Routes are timeless now, and a flight for today is the hero and arms its own route, so
+    /// nothing is left to ask about. (device pass)
+    private enum StartPrompt: Identifiable {
+        /// A followed flight for today with pre-flight work still open.
+        case outstanding(thread: FlightThread, remaining: Int)
+
+        var id: String {
+            switch self {
+            case .outstanding(let thread, _): return "outstanding-\(thread.id)"
+            }
+        }
     }
     /// When the Flight Log is opened from the last-flight strip, preselect that flight so its details
     /// show immediately; the Flight Log nav button clears it to open the plain list. (v4 UI/UX Revamp — feedback)
@@ -228,14 +259,111 @@ struct HomeView: View {
             SpeedReferenceSheet()
                 .environment(appState)
         }
+        .sheet(isPresented: $showAircraftSheet) {
+            NavigationStack {
+                AircraftSettingsView()
+                    .toolbar {
+                        ToolbarItem(placement: .topBarLeading) {
+                            Button(L10n.Button.close) { showAircraftSheet = false }
+                        }
+                    }
+            }
+            .environment(appState)
+            .environmentObject(subscriptionManager)
+            .environmentObject(aircraftDataService)
+        }
         .fullScreenCover(isPresented: $showFlightPlanning) {
             FlightPlanningView()
                 .environment(appState)
                 .environmentObject(flightPlanManager)
+                .environmentObject(threadManager)
                 .environmentObject(airportDataService)
                 .environmentObject(aircraftDataService)
                 .environmentObject(openAIPDataService)
                 .environmentObject(locationManager)
+        }
+        // Derived binding rather than `item:` — UUID is not Identifiable, and a retroactive
+        // conformance on a stdlib type is not worth it for one presentation. (Same shape as
+        // ContentView's reconciliation sheet.)
+        .fullScreenCover(isPresented: Binding(
+            get: { threadToOpen != nil },
+            set: { if !$0 { threadToOpen = nil } }
+        )) {
+            if let id = threadToOpen {
+                FlightThreadView(threadId: id,
+                                 onClose: { threadToOpen = nil },
+                                 onStartFlight: { circuits in
+                                     threadToOpen = nil
+                                     // Through `launch`, not `beginFlight`. The hero's button armed
+                                     // the flight's route and this one did not, so a flight started
+                                     // from its own screen flew with an empty map — the one place a
+                                     // pilot has most reason to expect the route to be there.
+                                     // Circuits still bypass it: they drop the plan by design.
+                                     // (device pass)
+                                     if circuits {
+                                         beginFlight(circuitMode: true, followedFlightId: id)
+                                     } else if let thread = threadManager.thread(withId: id) {
+                                         launch(thread)
+                                     } else {
+                                         beginFlight(circuitMode: false, followedFlightId: id)
+                                     }
+                                 })
+                    .environmentObject(threadManager)
+                    .environmentObject(flightPlanManager)
+            }
+        }
+        .confirmationDialog(
+            startPromptTitle,
+            isPresented: Binding(
+                get: { startPrompt != nil },
+                set: { if !$0 { startPrompt = nil } }
+            ),
+            titleVisibility: .visible
+        ) {
+            switch startPrompt {
+            case .outstanding(let thread, _):
+                // "Start anyway" is not a warning to be dismissed — an outstanding item may be a
+                // briefing nobody did, so the pilot gets a way to go and look before departing.
+                Button(L10n.Home.reviewFlightFirst) {
+                    let id = thread.id
+                    startPrompt = nil
+                    threadToOpen = id
+                }
+                Button(L10n.Home.startAnyway) {
+                    startPrompt = nil
+                    launch(thread)
+                }
+                Button(L10n.Button.cancel, role: .cancel) { startPrompt = nil }
+
+            case nil:
+                EmptyView()
+            }
+        } message: {
+            switch startPrompt {
+            case .outstanding(let thread, let remaining):
+                Text(L10n.Home.outstandingBeforeFlight(thread.routeLabel, remaining))
+            case nil:
+                EmptyView()
+            }
+        }
+        // Derived binding rather than `item:` — NewFlightIntent is a value the sheet edits, and
+        // presenting on `item:` would rebuild the sheet on every keystroke it reports back.
+        .sheet(isPresented: Binding(
+            get: { planningNewFlight != nil },
+            set: { if !$0 { planningNewFlight = nil } }
+        )) {
+            if let seed = planningNewFlight {
+                PlanNewFlightView(
+                    intent: seed,
+                    aircraft: availableAircraft,
+                    savedRoutes: flightPlanManager.flightPlans,
+                    onCreate: { stops, intent, route in
+                        planningNewFlight = nil
+                        createFlight(stops: stops, from: intent, route: route)
+                    },
+                    onCancel: { planningNewFlight = nil }
+                )
+            }
         }
         // Last-flight detail opened straight from the Home strip (non-rail layouts) — its back button
         // returns to Home, not the Flight Log list. (v4 UI/UX Revamp — feedback round 2)
@@ -475,10 +603,22 @@ struct HomeView: View {
         // The hero, Start/Circuits, and last-flight all share one width so the column reads as a unit.
         // GPS lives in the rail foot (landscape) / brand header (portrait), not wedged in here. (v4 UI/UX Revamp)
         VStack(spacing: landscape ? 18 : (isCompact ? 16 : 24)) {
-            aircraftCard(isLandscape: false, isCompact: isCompact)   // the fuller, taller card
-                .frame(maxWidth: heroWidth)
-            startCircuitsButtons(isLandscape: landscape, isCompact: isCompact)
-                .frame(maxWidth: heroWidth)
+            // On the day you have planned a flight, that flight IS the screen. START FLIGHT opens
+            // the PREFLIGHT checklist — fifteen phases before the engine turns — so there is no
+            // hurry at this moment and nothing about it needs to be the largest thing here. On every
+            // other day the aircraft keeps the slot, because a Home that always led with a flight
+            // would show an empty promise on the ninety days there isn't one. (v5.x)
+            if let flight = heroFlight {
+                flightHeroCard(flight, isCompact: isCompact)
+                    .frame(maxWidth: heroWidth)
+                unplannedShortcutButtons(isLandscape: landscape, isCompact: isCompact)
+                    .frame(maxWidth: heroWidth)
+            } else {
+                aircraftCard(isLandscape: false, isCompact: isCompact)   // the fuller, taller card
+                    .frame(maxWidth: heroWidth)
+                startCircuitsButtons(isLandscape: landscape, isCompact: isCompact)
+                    .frame(maxWidth: heroWidth)
+            }
             activityStrips(sideBySide: landscape && !isCompact)
                 .frame(maxWidth: heroWidth)
         }
@@ -491,16 +631,288 @@ struct HomeView: View {
     @ViewBuilder
     private func activityStrips(sideBySide: Bool) -> some View {
         if sideBySide {
-            HStack(spacing: 12) {
-                lastFlightStrip
-                flightPlanStrip
+            // A one-row Grid, not an HStack. The strips carry different numbers of lines — the
+            // followed-flight card has a "next task" line the last-flight strip does not — so side
+            // by side one card ended shorter than its neighbour.
+            //
+            // `maxHeight: .infinity` on HStack children was the obvious fix and did not work: it
+            // makes each child accept the PARENT's proposal rather than match its sibling, so the
+            // two still sized independently. A Grid row equalises its cells by construction, which
+            // is the property actually wanted here.
+            Grid(horizontalSpacing: 12, verticalSpacing: 0) {
+                GridRow {
+                    lastFlightStrip(fillsHeight: true)
+                    secondStrip(fillsHeight: true)
+                }
             }
+            // Without this the strips are enormous. The cards fill their cell so the shorter one's
+            // background reaches the row height — but the parent VStack has `maxHeight: .infinity`
+            // and hands out every spare point, which the filling cards then swallow. Sizing the Grid
+            // to its own content caps the row at the TALLER CARD, which is all "equal heights" ever
+            // meant. (device pass)
+            .fixedSize(horizontal: false, vertical: true)
         } else {
             VStack(spacing: 12) {
-                lastFlightStrip
-                flightPlanStrip
+                lastFlightStrip(fillsHeight: false)
+                secondStrip(fillsHeight: false)
             }
         }
+    }
+
+    private var startPromptTitle: String {
+        startPrompt == nil ? "" : L10n.Home.outstandingTitle
+    }
+
+    // MARK: - Flight-first hero (v5.x)
+
+    /// The flight that owns the hero slot: one you can start today, including one already in FLY.
+    ///
+    /// Today ONLY. A flight on Saturday is not what this screen is about on Tuesday, and it stays a
+    /// strip. A flight awaiting close-out stays a strip too — the red banner above already carries
+    /// the one piece of close-out that is urgent.
+    private var heroFlight: FlightThread? { threadManager.startableFlightToday }
+
+    /// The second activity strip. The flight vacated it to become the hero, so the aircraft — which
+    /// vacated the hero — takes its place. Neither disappears; they swap.
+    @ViewBuilder
+    private func secondStrip(fillsHeight: Bool) -> some View {
+        if heroFlight != nil {
+            aircraftStrip(fillsHeight: fillsHeight)
+        } else {
+            flightPlanStrip(fillsHeight: fillsHeight)
+        }
+    }
+
+    /// Today's flight, as the thing the screen is about: how ready it is, what is left, and one green
+    /// button that starts THIS flight and arms its own route.
+    private func flightHeroCard(_ thread: FlightThread, isCompact: Bool) -> some View {
+        let progress = thread.preFlightProgress
+        let remaining = progress.total - progress.done
+        let inFlight = thread.state == .flying
+        let accent: Color = inFlight ? .altimeterBlue : .aviationGold
+
+        return VStack(alignment: .leading, spacing: 12) {
+            HStack(spacing: 12) {
+                threadReadinessRing(progress: progress, accent: accent)
+                VStack(alignment: .leading, spacing: 4) {
+                    HStack(spacing: 8) {
+                        Text(inFlight ? L10n.Thread.stateFlying.uppercased() : heroWhen(thread))
+                            .scaledFont(size: 10, weight: .bold, design: .monospaced, relativeTo: .caption2)
+                            .foregroundColor(accent)
+                            .padding(.horizontal, 6).padding(.vertical, 2)
+                            .overlay(RoundedRectangle(cornerRadius: 4).strokeBorder(accent.opacity(0.55), lineWidth: 1))
+                        if let registration = thread.aircraftRegistration, !registration.isEmpty {
+                            Text(registration)
+                                .scaledFont(size: 12, design: .monospaced, relativeTo: .caption)
+                                .foregroundColor(.secondaryText)
+                        }
+                    }
+                    Text(thread.routeLabel)
+                        .scaledFont(size: isCompact ? 22 : 26, weight: .bold, design: .monospaced, relativeTo: .title2)
+                        .foregroundColor(.primaryText)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.6)
+                }
+                Spacer(minLength: 0)
+            }
+
+            Text(heroDetail(thread, remaining: remaining))
+                .scaledFont(size: 13, relativeTo: .footnote)
+                .foregroundColor(.secondaryText)
+                .fixedSize(horizontal: false, vertical: true)
+
+            ratioRow(spacing: 10,
+                     height: ButtonMetrics.totalHeight(labelHeight: isCompact ? 46 : 52, isLarge: true)) {
+                Button { startHeroFlight(thread) } label: {
+                    HStack(spacing: 10) {
+                        Image(systemName: "play.fill")
+                            .scaledFont(size: isCompact ? 15 : 17, relativeTo: .title3)
+                        Text(inFlight ? L10n.Home.resumeThisFlight : L10n.Home.startThisFlight)
+                            .scaledFont(size: isCompact ? 15 : 17, weight: .bold, relativeTo: .title3)
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.6)
+                    }
+                    .frame(maxWidth: .infinity)
+                    .frame(height: isCompact ? 46 : 52)
+                }
+                .buttonStyle(PrimaryButtonStyle(color: .aviationGreen))
+            } trailing: {
+                Button { threadToOpen = thread.id } label: {
+                    Text(L10n.Home.reviewFlight)
+                        .scaledFont(size: isCompact ? 13 : 15, weight: .bold, relativeTo: .subheadline)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.6)
+                        .frame(maxWidth: .infinity)
+                        .frame(height: isCompact ? 46 : 52)
+                }
+                .buttonStyle(SecondaryButtonStyle(color: .aviationGold))
+            }
+        }
+        .padding(isCompact ? 14 : 18)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(
+            RoundedRectangle(cornerRadius: 16)
+                .fill(Color.cardBackground)
+                .overlay(RoundedRectangle(cornerRadius: 16).strokeBorder(accent.opacity(0.45), lineWidth: 1))
+                .overlay(alignment: .leading) {
+                    UnevenRoundedRectangle(topLeadingRadius: 16, bottomLeadingRadius: 16)
+                        .fill(accent)
+                        .frame(width: 4)
+                }
+        )
+    }
+
+    private func heroWhen(_ thread: FlightThread) -> String {
+        guard let departure = thread.scheduledDeparture else { return L10n.Home.today.uppercased() }
+        return "\(L10n.Home.today.uppercased()) \(departure.formatted(date: .omitted, time: .shortened))"
+    }
+
+    private func heroDetail(_ thread: FlightThread, remaining: Int) -> String {
+        if let next = thread.nextTask {
+            let title = ThreadTaskPresentation.make(for: next).title
+            return remaining > 1
+                ? L10n.Home.nextAndRemaining(title, remaining)
+                : L10n.Home.nextOnly(title)
+        }
+        return L10n.Home.readyToFly
+    }
+
+    /// Starting from the hero is the same launch as anywhere else — including the outstanding-items
+    /// question, which a bigger button is no reason to skip.
+    private func startHeroFlight(_ thread: FlightThread) {
+        let progress = thread.preFlightProgress
+        let remaining = progress.total - progress.done
+        if remaining > 0 {
+            startPrompt = .outstanding(thread: thread, remaining: remaining)
+            return
+        }
+        launch(thread)
+    }
+
+    /// Two buttons in one row at a fixed ratio.
+    ///
+    /// An `HStack` of two `maxWidth: .infinity` buttons is 50/50, which gives a secondary action the
+    /// same visual weight as the primary one. 65/35 keeps the hierarchy legible while still letting
+    /// the smaller button hold a real label. The row needs an explicit height because a
+    /// `GeometryReader` takes all the vertical space it is offered — `ButtonMetrics.totalHeight`
+    /// works it out from the same numbers the style uses, so the two cannot drift apart.
+    private static let primaryShare: CGFloat = 0.65
+
+    private func ratioRow<Leading: View, Trailing: View>(
+        spacing: CGFloat,
+        height: CGFloat,
+        @ViewBuilder leading: () -> Leading,
+        @ViewBuilder trailing: () -> Trailing
+    ) -> some View {
+        let leadingView = leading()
+        let trailingView = trailing()
+        return GeometryReader { geo in
+            let usable = max(0, geo.size.width - spacing)
+            HStack(spacing: spacing) {
+                leadingView.frame(width: usable * Self.primaryShare)
+                trailingView.frame(width: usable * (1 - Self.primaryShare))
+            }
+        }
+        .frame(height: height)
+    }
+
+    /// The shortcut, kept but demoted: a flight with no plan behind it, and circuits.
+    ///
+    /// Deliberately SHORTER than the hero's buttons — `isLarge: false` halves the style's vertical
+    /// padding — so the row reads as the quieter option at a glance rather than as a second pair of
+    /// equals stacked under the first. (device pass)
+    @ViewBuilder
+    private func unplannedShortcutButtons(isLandscape: Bool, isCompact: Bool) -> some View {
+        let height = ButtonMetrics.totalHeight(labelHeight: Self.shortcutLabelHeight, isLarge: false)
+        if appState.settings.enableCircuitMode {
+            // The same 65/35 split as the hero: flying without a plan is much the likelier of the
+            // two, and an even split read as a choice between equals.
+            ratioRow(spacing: isCompact ? 8 : 12, height: height) {
+                unplannedButton(isCompact: isCompact)
+            } trailing: {
+                circuitsButton(isCompact: isCompact)
+            }
+        } else {
+            unplannedButton(isCompact: isCompact)
+        }
+    }
+
+    /// Label height for the shortcut row. Shorter than the hero's 46/52, and paired with the
+    /// compact style metrics, so the whole row sits visibly lower than the hero's.
+    private static let shortcutLabelHeight: CGFloat = 40
+
+    /// Green with the play icon, like the hero's own button: this still STARTS A FLIGHT, and a grey
+    /// button with no icon read as a settings row rather than a departure. It stays demoted by being
+    /// an outline rather than a fill, by the opacity, and by the shorter row. (device pass)
+    private func unplannedButton(isCompact: Bool) -> some View {
+        Button(action: startUnplannedFlight) {
+            HStack(spacing: 8) {
+                Image(systemName: "play.fill")
+                    .scaledFont(size: isCompact ? 12 : 13, relativeTo: .subheadline)
+                Text(L10n.Home.flyWithoutAPlan)
+                    .scaledFont(size: isCompact ? 13 : 14, weight: .semibold, relativeTo: .subheadline)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.6)
+            }
+            .frame(maxWidth: .infinity)
+            .frame(height: Self.shortcutLabelHeight)
+        }
+        .buttonStyle(SecondaryButtonStyle(color: .aviationGreen, isLarge: false))
+        .opacity(0.75)
+    }
+
+    private func circuitsButton(isCompact: Bool) -> some View {
+        Button(action: startCircuits) {
+            HStack(spacing: 6) {
+                Image(systemName: "arrow.triangle.2.circlepath")
+                    .scaledFont(size: 13, relativeTo: .subheadline)
+                Text(L10n.Button.circuits)
+                    .scaledFont(size: isCompact ? 12 : 13, weight: .semibold, relativeTo: .subheadline)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.6)
+            }
+            .frame(maxWidth: .infinity)
+            .frame(height: Self.shortcutLabelHeight)
+        }
+        .buttonStyle(SecondaryButtonStyle(color: .aviationAmber, isLarge: false))
+    }
+
+    /// The aircraft, in the strip the flight vacated. Taps into the carousel's own screen.
+    private func aircraftStrip(fillsHeight: Bool) -> some View {
+        let option = selectedAircraft
+        return Button { showAircraftSheet = true } label: {
+            HStack(spacing: 10) {
+                Image(systemName: "airplane")
+                    .scaledFont(size: 15, weight: .semibold, relativeTo: .subheadline)
+                    .foregroundColor(.aviationGold)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(L10n.Nav.aircraft)
+                        .scaledFont(size: 10, weight: .semibold, relativeTo: .caption2).tracking(0.5)
+                        .foregroundColor(.dimText)
+                    Text(option?.registration ?? appState.settings.selectedAircraft.registration)
+                        .scaledFont(size: 15, weight: .semibold, design: .monospaced, relativeTo: .subheadline)
+                        .foregroundColor(.primaryText)
+                        .lineLimit(1)
+                }
+                Spacer(minLength: 6)
+                Text(option?.modelName ?? appState.settings.selectedAircraft.modelName)
+                    .scaledFont(size: 11, relativeTo: .caption2)
+                    .foregroundColor(.dimText)
+                    .lineLimit(1)
+                Image(systemName: "chevron.right")
+                    .scaledFont(size: 13, weight: .semibold, relativeTo: .caption)
+                    .foregroundColor(.dimText.opacity(0.7))
+            }
+            .padding(.horizontal, 14)
+            .padding(.vertical, 12)
+            .homeStripHeight(fills: fillsHeight)
+            .background(
+                RoundedRectangle(cornerRadius: 12)
+                    .fill(Color.cardBackground)
+                    .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder((AmbientPalette.hairline ?? Color.white.opacity(0.06)), lineWidth: 1))
+            )
+        }
+        .buttonStyle(.plain)
     }
 
     /// Shared width for the hero card, the Start/Circuits line, and the last-flight strip. (v4 UI/UX Revamp)
@@ -585,7 +997,7 @@ struct HomeView: View {
     private var navButtons: some View {
         // Title Case for the menu labels, per Apple HIG (matches "Settings"). The compact all-caps
         // "NAV"/"SPEEDS" forms stay on the in-flight FlightView chrome. (v4 UI/UX Revamp — device feedback)
-        navButton("clock.arrow.circlepath", L10n.FlightLog.title, tint: .aviationGold, badge: appState.flights.count) { flightLogSelectionID = nil; showFlightLog = true }
+        navButton("airplane.departure", L10n.Flights.title, tint: .aviationGold, badge: appState.flights.count) { flightLogSelectionID = nil; showFlightLog = true }
         navButton("map.fill", L10n.Nav.navigation, tint: .altimeterBlue) { showNavigation = true }
         navButton("speedometer", L10n.Nav.speeds, tint: .aviationGreen) { showSpeedReference = true }
         navButton("gearshape.fill", L10n.Settings.title, tint: .secondaryText) { pendingSettingsSection = nil; showSettings = true }
@@ -624,7 +1036,7 @@ struct HomeView: View {
 
     /// Compact "last flight" strip surfaced on the console — taps into the Flight Log. (v4 UI/UX Revamp)
     @ViewBuilder
-    private var lastFlightStrip: some View {
+    private func lastFlightStrip(fillsHeight: Bool) -> some View {
         if let last = appState.flights.max(by: { ($0.startTime ?? .distantPast) < ($1.startTime ?? .distantPast) }) {
             // iPad rail (landscape): open the 2-column Flight Log with this flight in the right pane.
             // Otherwise (portrait / iPhone): open its detail directly so back returns to Home, not the
@@ -662,7 +1074,7 @@ struct HomeView: View {
                 }
                 .padding(.horizontal, 14)
                 .padding(.vertical, 12)
-                .frame(maxWidth: .infinity)
+                .homeStripHeight(fills: fillsHeight)
                 .background(
                     RoundedRectangle(cornerRadius: 12)
                         .fill(Color.cardBackground)
@@ -678,29 +1090,74 @@ struct HomeView: View {
     /// scheduled for today (route + departure time, gold), else the saved-count link, else nothing.
     /// Taps into the flight-plan list. (v4 UI/UX Revamp — device feedback)
     @ViewBuilder
-    private var flightPlanStrip: some View {
-        if let active = flightPlanManager.activeFlightPlan {
+    private func flightPlanStrip(fillsHeight: Bool) -> some View {
+        if let thread = homeThread {
+            // A followed flight takes this slot: while a thread is live it IS the flight-plan status,
+            // and a third strip would not survive the ~300 pt the iPad gives each one.
+            flightThreadStripCard(thread, fillsHeight: fillsHeight)
+        } else if let active = flightPlanManager.activeFlightPlan {
             // ARMED. This state used to differ from the others only by an icon tint and a 22 %-opacity
             // border — and in altimeter blue, which reads as "flight plan", not as "ready to fly". Home
             // is the screen you look at before pressing START FLIGHT, so the answer to "am I armed?"
             // has to be free here rather than two taps away in the plan list. Green rail + chip, the
             // same device the plan list already uses for its active section. (v4.4.0)
+            // Was an ARMED badge with a green rail. Arming is no longer a state the pilot manages —
+            // a flight loads its own route at start — so this now reads as what it actually is: a
+            // route someone put on the map to look at. (v5.x)
             flightPlanStripCard(title: planRoute(active),
                                 detail: armedDetail(active),
-                                accent: .aviationGreen,
-                                badge: L10n.Home.flightPlanArmed,
-                                showsRail: true)
-        } else if let today = todaysFlightPlan, let departure = today.plannedDepartureTime {
-            // Departing today but not armed — kept gold and distinct, so P1 doesn't collapse three
-            // states into two.
-            flightPlanStripCard(title: planRoute(today),
-                                detail: departure.formatted(date: .omitted, time: .shortened),
-                                accent: .aviationGold)
-        } else if !flightPlanManager.flightPlans.isEmpty {
-            flightPlanStripCard(title: L10n.Nav.flightPlans,
-                                detail: "\(flightPlanManager.flightPlans.count)",
-                                accent: .secondaryText)
+                                accent: .altimeterBlue,
+                                badge: L10n.Nav.activate.uppercased(),
+                                showsRail: false,
+                                fillsHeight: fillsHeight)
+        } else {
+            // Nothing more specific to say. This slot used to render the saved-plan count — and
+            // NOTHING AT ALL for a pilot with no plans yet, which is precisely why the feature that
+            // defines this release was unreachable: Home never once mentioned that a flight can be
+            // followed. It now always offers to plan one.
+            planNewFlightStripCard(fillsHeight: fillsHeight)
         }
+    }
+
+    /// The teaching state, and the only door to following a flight that does not require already
+    /// having a flight plan.
+    private func planNewFlightStripCard(fillsHeight: Bool) -> some View {
+        Button { beginPlanningNewFlight() } label: {
+            VStack(alignment: .leading, spacing: 6) {
+                HStack(spacing: 8) {
+                    Image(systemName: "calendar.badge.plus")
+                        .scaledFont(size: 14, weight: .semibold, relativeTo: .subheadline)
+                        .foregroundColor(.aviationGold)
+                    Text(L10n.Flights.planNewFlight)
+                        .scaledFont(size: 15, weight: .semibold, relativeTo: .subheadline)
+                        .foregroundColor(.primaryText)
+                    Spacer(minLength: 0)
+                }
+                Text(L10n.Flights.homeExplainer)
+                    .scaledFont(size: 12, relativeTo: .caption)
+                    .foregroundColor(.dimText)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .multilineTextAlignment(.leading)
+                if !flightPlanManager.flightPlans.isEmpty {
+                    Text(L10n.Flights.savedPlans(flightPlanManager.flightPlans.count))
+                        .scaledFont(size: 11, relativeTo: .caption2)
+                        .foregroundColor(.secondaryText)
+                }
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+            .padding(.horizontal, 14)
+            .padding(.vertical, 12)
+            .background(
+                RoundedRectangle(cornerRadius: 12)
+                    .fill(Color.cardBackground)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 12)
+                            .strokeBorder(Color.aviationGold.opacity(0.35), lineWidth: 1)
+                    )
+            )
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel("\(L10n.Flights.planNewFlight). \(L10n.Flights.homeExplainer)")
     }
 
     /// Detail line for an armed plan, longest-first. `ViewThatFits` in the card picks one.
@@ -727,20 +1184,12 @@ struct HomeView: View {
 
     /// The soonest flight plan whose planned departure falls today — surfaced on the strip so an
     /// imminent flight is one tap away instead of buried behind the generic list. (v4 UI/UX Revamp)
-    private var todaysFlightPlan: FlightPlan? {
-        let calendar = Calendar.current
-        return flightPlanManager.flightPlans
-            .filter { plan in
-                guard let departure = plan.plannedDepartureTime else { return false }
-                return calendar.isDateInToday(departure)
-            }
-            .min { ($0.plannedDepartureTime ?? .distantFuture) < ($1.plannedDepartureTime ?? .distantFuture) }
-    }
 
     /// `detail` is a longest-first list of candidate strings; the widest that fits is used. A single
     /// string is just a one-element list. `badge` and `showsRail` mark the armed state.
     private func flightPlanStripCard(title: String, detail: [String], accent: Color,
-                                     badge: String? = nil, showsRail: Bool = false) -> some View {
+                                     badge: String? = nil, showsRail: Bool = false,
+                                     fillsHeight: Bool = false) -> some View {
         Button { showFlightPlanning = true } label: {
             HStack(spacing: 10) {
                 Image(systemName: "point.topleft.down.to.point.bottomright.curvepath")
@@ -773,13 +1222,9 @@ struct HomeView: View {
                         // Longest detail that fits. See `armedDetail` — the iPad's side-by-side strip
                         // is narrower than the iPhone's full-width one.
                         ViewThatFits(in: .horizontal) {
-                            ForEach(detail, id: \.self) { candidate in
-                                Text("· \(candidate)")
-                                    .scaledFont(size: 12, relativeTo: .caption)
-                                    .foregroundColor(.dimText)
-                                    .lineLimit(1)
-                                    .fixedSize()
-                            }
+                            detailCandidate(detail, 0, prefix: "· ")
+                            detailCandidate(detail, 1, prefix: "· ")
+                            detailCandidate(detail, 2, prefix: "· ")
                         }
                     }
                 }
@@ -791,7 +1236,7 @@ struct HomeView: View {
             .padding(.leading, showsRail ? 11 : 14)
             .padding(.trailing, 14)
             .padding(.vertical, 12)
-            .frame(maxWidth: .infinity)
+            .homeStripHeight(fills: fillsHeight)
             .background(
                 RoundedRectangle(cornerRadius: 12)
                     .fill(Color.cardBackground)
@@ -813,8 +1258,148 @@ struct HomeView: View {
     }
 
     /// Overload keeping the single-detail call sites unchanged.
-    private func flightPlanStripCard(title: String, detail: String?, accent: Color) -> some View {
-        flightPlanStripCard(title: title, detail: [detail].compactMap { $0 }, accent: accent)
+    private func flightPlanStripCard(title: String, detail: String?, accent: Color,
+                                     fillsHeight: Bool = false) -> some View {
+        flightPlanStripCard(title: title, detail: [detail].compactMap { $0 }, accent: accent,
+                            fillsHeight: fillsHeight)
+    }
+
+    // MARK: - Flight thread strip (v5.0.0)
+
+    /// The thread Home advertises: close-out work first because it is already overdue (a filed flight
+    /// plan may still be open), otherwise the flight currently being followed.
+    private var homeThread: FlightThread? {
+        if let closing = threadManager.threadAwaitingCloseOut { return closing }
+        if let current = threadManager.currentThread, !current.isFinished { return current }
+        return nil
+    }
+
+    /// Replaces the flight-plan strip while a flight is being followed: route, readiness, and the one
+    /// thing to do next. Taps into the thread.
+    private func flightThreadStripCard(_ thread: FlightThread, fillsHeight: Bool) -> some View {
+        let isCloseOut = thread.state == .closeOut
+        // Urgency belongs to an OPEN plan AFTER the flight, not before it. A filed plan sitting
+        // there the day before departure is the normal state of a well-prepared flight; painting
+        // Home red for it teaches the pilot to ignore the colour that matters after landing.
+        let urgent = thread.hasOpenFlightPlan && isCloseOut
+        let accent: Color = urgent ? .aviationRed : (isCloseOut ? .aviationAmber : .aviationGold)
+        let progress = isCloseOut ? thread.closeOutProgress : thread.preFlightProgress
+
+        return Button { threadToOpen = thread.id } label: {
+            HStack(spacing: 10) {
+                threadReadinessRing(progress: progress, accent: accent)
+                VStack(alignment: .leading, spacing: 2) {
+                    HStack(spacing: 6) {
+                        Text(L10n.Thread.title)
+                            .scaledFont(size: 10, weight: .semibold, relativeTo: .caption2).tracking(0.5)
+                            .foregroundColor(accent)
+                        Text(threadBadge(thread))
+                            .scaledFont(size: 8.5, weight: .bold, relativeTo: .caption2).tracking(0.8)
+                            .foregroundColor(accent)
+                            .padding(.horizontal, 5).padding(.vertical, 2)
+                            .background(
+                                RoundedRectangle(cornerRadius: 3)
+                                    .fill(accent.opacity(0.18))
+                                    .overlay(RoundedRectangle(cornerRadius: 3)
+                                        .strokeBorder(accent.opacity(0.55), lineWidth: 0.5))
+                            )
+                    }
+                    Text(thread.routeLabel)
+                        .scaledFont(size: 14, weight: .semibold, design: .monospaced, relativeTo: .subheadline)
+                        .foregroundColor(.primaryText)
+                        .lineLimit(1)
+                    // Same longest-first ladder as the plan strip: this card is narrower on iPad than
+                    // on iPhone, so the next-task line has to be able to shrink.
+                    ViewThatFits(in: .horizontal) {
+                        detailCandidate(threadDetail(thread), 0)
+                        detailCandidate(threadDetail(thread), 1)
+                        detailCandidate(threadDetail(thread), 2)
+                    }
+                }
+                Spacer(minLength: 6)
+                Image(systemName: "chevron.right")
+                    .scaledFont(size: 13, weight: .semibold, relativeTo: .caption)
+                    .foregroundColor(.dimText.opacity(0.7))
+            }
+            .padding(.leading, 11)
+            .padding(.trailing, 14)
+            .padding(.vertical, 12)
+            .homeStripHeight(fills: fillsHeight)
+            .background(
+                RoundedRectangle(cornerRadius: 12)
+                    .fill(Color.cardBackground)
+                    .overlay(RoundedRectangle(cornerRadius: 12)
+                        .strokeBorder(accent.opacity(0.4), lineWidth: 1))
+                    .overlay(alignment: .leading) {
+                        UnevenRoundedRectangle(topLeadingRadius: 12, bottomLeadingRadius: 12)
+                            .fill(accent)
+                            .frame(width: 3)
+                    }
+            )
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(
+            [L10n.Thread.title, threadBadge(thread), thread.routeLabel, threadDetail(thread).first]
+                .compactMap { $0 }.joined(separator: ", ")
+        )
+    }
+
+    private func threadReadinessRing(progress: (done: Int, total: Int), accent: Color) -> some View {
+        let fraction = progress.total > 0 ? Double(progress.done) / Double(progress.total) : 0
+        return ZStack {
+            Circle().stroke(Color.white.opacity(0.12), lineWidth: 3)
+            Circle()
+                .trim(from: 0, to: fraction)
+                .stroke(fraction >= 1 ? Color.aviationGreen : accent,
+                        style: StrokeStyle(lineWidth: 3, lineCap: .round))
+                .rotationEffect(.degrees(-90))
+            Text("\(progress.done)/\(progress.total)")
+                .scaledFont(size: 8.5, weight: .semibold, design: .monospaced, relativeTo: .caption2)
+                .foregroundColor(.primaryText)
+        }
+        .frame(width: 32, height: 32)
+        .accessibilityHidden(true)
+    }
+
+    private func threadBadge(_ thread: FlightThread) -> String {
+        // Same rule as the accent: only shout about an open plan once the flight is over.
+        if thread.hasOpenFlightPlan && thread.state == .closeOut {
+            return L10n.Thread.openFlightPlanBanner
+        }
+        switch thread.state {
+        case .planned:  return L10n.Thread.statePlanned
+        case .ready:    return L10n.Thread.stateReady
+        case .flying:   return L10n.Thread.stateFlying
+        case .closeOut: return L10n.Thread.stateCloseOut
+        case .done:     return L10n.Thread.stateDone
+        }
+    }
+
+    /// One rung of a longest-first detail ladder, for `ViewThatFits`.
+    ///
+    /// `ViewThatFits` needs a STATIC child list. A `ForEach` inside it makes SwiftUI's size-fitting
+    /// pass trap in `SizeFittingState.applyChildren` — and `ForEach(…, id: \.self)` over a ladder
+    /// whose rungs can repeat (two identical "all done" lines; a plan with no distance or time yet,
+    /// where all three rungs collapse to the waypoint count) hands it duplicate ids, which is the
+    /// reliable way to hit that trap. Three fixed slots, each clamped to what the ladder actually
+    /// has, keep the longest-first behaviour with no dynamic list and no duplicate identity.
+    @ViewBuilder
+    private func detailCandidate(_ candidates: [String], _ index: Int, prefix: String = "") -> some View {
+        let text = candidates.isEmpty ? "" : candidates[min(index, candidates.count - 1)]
+        Text(prefix + text)
+            .scaledFont(size: 12, relativeTo: .caption)
+            .foregroundColor(.dimText)
+            .lineLimit(1)
+            .fixedSize()
+    }
+
+    /// Longest-first detail candidates: the next task if there is one, else the readiness count.
+    private func threadDetail(_ thread: FlightThread) -> [String] {
+        let progress = thread.state == .closeOut ? thread.closeOutProgress : thread.preFlightProgress
+        let count = L10n.Thread.readiness(progress.done, progress.total)
+        guard let next = thread.nextTask else { return [L10n.Thread.allDone] }
+        let title = ThreadTaskPresentation.make(for: next).title
+        return ["\(L10n.Thread.nextUp): \(title)", title, count]
     }
 
     /// Departure → destination from a plan's first/last waypoint, else the plan name.
@@ -1157,7 +1742,116 @@ struct HomeView: View {
         }
     }
     
-    private func startFlight() { beginFlight(circuitMode: false) }
+    // MARK: - Planning a flight (v5.0.0)
+
+    /// Open the one creation sheet, seeded from the aircraft already selected on this screen.
+    /// `seed` is supplied by "Plan this again"; nil starts from scratch.
+    private func beginPlanningNewFlight(_ seed: NewFlightIntent? = nil) {
+        if let seed {
+            planningNewFlight = seed
+            return
+        }
+        let aircraft = selectedAircraft
+        planningNewFlight = NewFlightIntent(
+            departureIdent: "",
+            arrivalIdent: "",
+            departureTime: nil,
+            aircraftTypeId: aircraft?.aircraftType ?? appState.settings.selectedAircraft.rawValue,
+            aircraftRegistration: aircraft?.registration ?? appState.settings.selectedAircraft.registration,
+            aircraftModelName: aircraft?.modelName ?? appState.settings.selectedAircraft.modelName,
+            kind: .crossCountry
+        )
+    }
+
+    /// Turn an intent into a plan and the flight that follows it.
+    ///
+    /// The airport layer is loaded on demand rather than at launch, so this awaits it before
+    /// resolving idents — otherwise a flight created on a cold start would silently get no waypoints,
+    /// and with no coordinates there is no country detection and therefore no customs, DABS or GAFOR.
+    /// Three or more stops is a trip; two is the single flight this has always made.
+    private func createFlight(stops: [String], from intent: NewFlightIntent, route: FlightPlan? = nil) {
+        // The creation awaits `ensureLoaded()` and the notification prompt, and the sheet stays
+        // hit-testable through its dismissal animation — so a double-tap ran this body twice and
+        // produced two plans and two threads, breaking the one-thread-per-plan invariant that
+        // `thread(forPlanId:)` and close-out both depend on. (review, concurrency)
+        guard !isCreatingFlight else { return }
+        isCreatingFlight = true
+        Task { @MainActor in
+            defer { isCreatingFlight = false }
+            // A saved route is copied whole — its waypoints, altitudes and fuel are the reason it
+            // was worth saving, and rebuilding from two idents would discard all of it.
+            if let route {
+                let thread = await FlightCreator.create(fromRoute: route,
+                                                        intent: intent,
+                                                        plans: flightPlanManager,
+                                                        threads: threadManager)
+                threadToOpen = thread.id
+                return
+            }
+            if stops.count > 2,
+               let trip = await FlightCreator.createTrip(idents: stops,
+                                                         template: intent,
+                                                         plans: flightPlanManager,
+                                                         threads: threadManager,
+                                                         airports: airportDataService) {
+                threadToOpen = trip.legIds.first
+                return
+            }
+            let thread = await FlightCreator.create(from: intent,
+                                                    plans: flightPlanManager,
+                                                    threads: threadManager,
+                                                    airports: airportDataService)
+            threadToOpen = thread.id
+        }
+    }
+
+    /// START FLIGHT.
+    ///
+    /// A followed flight for today is what this press is ABOUT, so it answers first — including one
+    /// left in FLY, which is a session the pilot abandoned and is coming back to. Everything else
+    /// departs straight away: there is no route to offer, because a route without a flight has no
+    /// date and is not "today's".
+    private func startFlight() {
+        // A followed flight for today is what this press is ABOUT, so it answers first — including
+        // one left in FLY, which is a session the pilot abandoned and is coming back to. Asking
+        // about tomorrow's plan while today's flight sits half-flown was the confusing case.
+        if let followed = threadManager.startableFlightToday {
+            let remaining = followed.preFlightProgress.total - followed.preFlightProgress.done
+            if remaining > 0 {
+                startPrompt = .outstanding(thread: followed, remaining: remaining)
+                return
+            }
+            launch(followed)
+            return
+        }
+        beginFlight(circuitMode: false)
+    }
+
+    /// Depart on a followed flight: arm its route if it has one and nothing is armed yet, then start.
+    ///
+    /// Arming here is what the pilot means by pressing START FLIGHT on a flight they planned — the
+    /// route, the leg timing and the waypoint sequencing are the reason they built it.
+    private func launch(_ thread: FlightThread) {
+        // The aircraft the flight was PLANNED with, not whatever the carousel was left on. Without
+        // this the hero card names HB-PFA while the flight starts on the WT9's checklist, with the
+        // WT9's speeds in the event detector, logged under the wrong registration — and the thread,
+        // its mass & balance and its cost ledger all disagree with the flight. `selectAircraft`
+        // resolves a registration and leaves the selection untouched if it cannot. (review F19)
+        if let registration = thread.aircraftRegistration, !registration.isEmpty {
+            _ = appState.selectAircraft(id: registration,
+                                        available: aircraftDataService.availableAircraft)
+        }
+        if let planId = thread.flightPlanId,
+           flightPlanManager.activeFlightPlan?.id != planId,
+           let plan = flightPlanManager.flightPlans.first(where: { $0.id == planId }),
+           !plan.waypoints.isEmpty {
+            flightPlanManager.activateFlightPlan(plan)
+        }
+        // A planned circuits session is still circuits. Hardcoding false here started it as a
+        // 16-phase cross-country from the hero while its own screen started it correctly, so one
+        // thread produced two different flights depending on which button was pressed. (review F20)
+        beginFlight(circuitMode: thread.profile == .local, followedFlightId: thread.id)
+    }
 
     private func startCircuits() { beginFlight(circuitMode: true) }
 
@@ -1165,16 +1859,20 @@ struct HomeView: View {
     /// goes through the shared `FlightLauncher`, which resolves the checklist, runs the ARCH-01 /
     /// entitlement / permission / active-flight guards, configures the event detector, starts the
     /// flight and begins GPS tracking in one place. (Task 2/3)
-    private func beginFlight(circuitMode: Bool) {
+    /// The demoted shortcut: a flight that is deliberately not the one on the hero.
+    private func startUnplannedFlight() { beginFlight(circuitMode: false, unplanned: true) }
+
+    private func beginFlight(circuitMode: Bool, followedFlightId: UUID? = nil, unplanned: Bool = false) {
         let launcher = FlightLauncher(
             appState: appState,
             locationManager: locationManager,
             aircraftDataService: aircraftDataService,
             airportDataService: airportDataService,
             flightEventDetector: flightEventDetector,
-            flightPlanManager: flightPlanManager
+            flightPlanManager: flightPlanManager,
+            threadManager: threadManager
         )
-        Task { await launcher.begin(circuitMode: circuitMode) }
+        Task { await launcher.begin(circuitMode: circuitMode, followedFlightId: followedFlightId, unplanned: unplanned) }
     }
 }
 
@@ -1207,3 +1905,20 @@ private extension View {
         .environmentObject(DataStatusManager(providers: [], networkMonitor: NetworkMonitor(stub: .disconnected)))
 }
 
+
+
+// MARK: - Home strip sizing
+
+private extension View {
+    /// Make a Home activity strip fill the height its row was given.
+    ///
+    /// A `Grid` equalises the CELL, not the card drawn inside it: without this the shorter card's
+    /// rounded rectangle keeps its own intrinsic height and floats, centred, in a taller cell — which
+    /// looks exactly like the mismatch a Grid was supposed to remove. The frame has to sit BEFORE the
+    /// `.background`, so the background paints behind the stretched bounds rather than the content's.
+    ///
+    /// Off in the stacked layout, where the strips are in a scroll view with no height to fill.
+    func homeStripHeight(fills: Bool) -> some View {
+        frame(maxWidth: .infinity, maxHeight: fills ? .infinity : nil)
+    }
+}

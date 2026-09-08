@@ -5,6 +5,7 @@ struct ContentView: View {
     @Environment(AppState.self) private var appState
     @EnvironmentObject var locationManager: LocationManager
     @EnvironmentObject var flightPlanManager: FlightPlanManager
+    @EnvironmentObject var threadManager: FlightThreadManager
     @EnvironmentObject var windDataService: WindDataService
     @EnvironmentObject var airportDataService: AirportDataService
     @EnvironmentObject var openAIPDataService: OpenAIPDataService
@@ -12,9 +13,14 @@ struct ContentView: View {
     @EnvironmentObject var subscriptionManager: SubscriptionManager
     @EnvironmentObject var aircraftDataService: AircraftDataService
     @EnvironmentObject var dataStatusManager: DataStatusManager
+    /// Needed to build a `FlightLauncher`, so a thread opened from its own notification can start
+    /// its flight from there. (review F21)
+    @EnvironmentObject var flightEventDetector: FlightEventDetector
     @Environment(\.horizontalSizeClass) var horizontalSizeClass
     @Environment(\.scenePhase) var scenePhase
     @State private var showMarketingControls: Bool = false
+    /// Guards the one-shot route-date sweep, so a later load cannot run it twice.
+    @State private var hasSweptRouteDates = false
     @ObservedObject private var marketingProvider = MarketingLocationProvider.shared
 
     var body: some View {
@@ -115,6 +121,42 @@ struct ContentView: View {
                     .transition(.move(edge: .top).combined(with: .opacity))
                 }
 
+                // v5.0.0: a filed VFR flight plan that is still open after landing. Deliberately the
+                // most insistent banner in the app and the only one in red — Zurich RCC is alerted 30
+                // minutes after the ETA, so this is the one piece of admin with a search-and-rescue
+                // consequence for forgetting it.
+                if let notice = threadManager.openFlightPlanNotice, !appState.isFlightActive,
+                   !appState.needsDisclaimerAcceptance {
+                    VStack {
+                        OpenFlightPlanBanner(
+                            routeLabel: notice.routeLabel,
+                            onMarkClosed: { threadManager.markFlightPlanClosed(threadId: notice.threadId) },
+                            onOpen: { appState.pendingThreadToOpen = notice.threadId },
+                            onDismiss: { threadManager.openFlightPlanNotice = nil }
+                        )
+                        Spacer()
+                    }
+                    .transition(.move(edge: .top).combined(with: .opacity))
+                }
+
+                // v5.x: a circuit session that ended with nothing following it. An offer, not a
+                // thread created behind the pilot's back — dismissing it is a complete answer.
+                if let offer = threadManager.circuitCloseOutOffer, !appState.isFlightActive,
+                   !appState.needsDisclaimerAcceptance {
+                    VStack {
+                        CircuitCloseOutBanner(
+                            routeLabel: offer.routeLabel,
+                            onAccept: {
+                                let thread = threadManager.acceptCircuitCloseOut(offer)
+                                appState.pendingThreadToOpen = thread.id
+                            },
+                            onDismiss: { threadManager.circuitCloseOutOffer = nil }
+                        )
+                        Spacer()
+                    }
+                    .transition(.move(edge: .top).combined(with: .opacity))
+                }
+
                 // v4.1.0 Data Freshness: snoozable nudge when a dataset is stale (Home only, not in flight).
                 if dataStatusManager.showStaleNudge && !appState.isFlightActive
                     && appState.settings.hasCompletedOnboarding && !appState.needsDisclaimerAcceptance {
@@ -136,6 +178,8 @@ struct ContentView: View {
             .animation(.easeInOut(duration: 0.3), value: showMarketingControls)
             .animation(.easeInOut(duration: 0.3), value: appState.languageFallbackNotice)
             .animation(.easeInOut(duration: 0.3), value: dataStatusManager.showStaleNudge)
+            .animation(.easeInOut(duration: 0.3), value: threadManager.openFlightPlanNotice)
+            .animation(.easeInOut(duration: 0.3), value: threadManager.circuitCloseOutOffer)
         }
         .onAppear {
             // Only ask for location at launch for users who've already been through onboarding — a fresh
@@ -153,6 +197,26 @@ struct ContentView: View {
             if !appState.isFlightActive {
                 flightPlanManager.expireStaleActivation()
             }
+
+            threadManager.tracksCost = appState.settings.enableCostTracking
+        }
+        // Keep the task engine's view of the cost setting in step. The engine is pure and the
+        // manager owns the settings-aware side, so the root is where the two are joined. (v5.0.0)
+        .onChange(of: appState.settings.enableCostTracking) { _, tracks in
+            threadManager.tracksCost = tracks
+        }
+        // Once — and only once BOTH sides have loaded. Deliberately not hung off a plan change:
+        // `FlightCreator` adds the plan before it creates the flight, so a sweep triggered by the
+        // insertion would strip the date it had just set, a beat before anything followed it. (v5.x)
+        .onChange(of: routeDateSweepReady) { _, ready in
+            if ready { sweepRouteDates() }
+        }
+        // Re-derive the AUTO rows whenever a plan changes anywhere. The flight screen refreshes
+        // itself on appear, but Home's strip advertises the next task and the readiness ring off the
+        // same tasks — so without this, entering the fuel on the plan editor left Home still saying
+        // "Next: Fuel plan" until the flight was opened. (device pass)
+        .onChange(of: flightPlanManager.flightPlans) { _, plans in
+            threadManager.refreshTasks(from: plans)
         }
         #if DEBUG
         .task {
@@ -168,12 +232,27 @@ struct ContentView: View {
             case "conflicts", "planconflicts":  scene = .planConflicts
             case "plan", "planbuilder":         scene = .planBuilder
             case "flightlog", "flightlogdetail": scene = .flightLogDetail
+            case "flight", "flightfollowed":    scene = .flightFollowed
+            case "prepare", "flightprepare":    scene = .flightPrepare
+            case "closeout", "flightcloseout":  scene = .flightCloseOut
+            case "homeflight", "homeflighttoday": scene = .homeFlightToday
             default:                            scene = nil
             }
             guard let scene else { return }
             appState.settings.marketingMode = true
+            // A fresh simulator install would otherwise park the scene behind the safety gate and
+            // onboarding; a scene launch means "show me the app", so both are treated as seen.
+            if appState.needsDisclaimerAcceptance { appState.acceptDisclaimer() }
+            if !appState.hasSeenOnboarding { appState.completeOnboarding() }
             // Let services initialize (airport data lazy-loads; the aircraft list fetch may be in flight).
             try? await Task.sleep(nanoseconds: 1_500_000_000)
+            // WAIT for the stores to finish loading before injecting. Threads and routes arrive off
+            // the main actor, so a fixed sleep raced them: the injector read an EMPTY thread list,
+            // cleared nothing, and the threads then appeared on Home — which is how a leftover thread
+            // kept hijacking Home's hero in captured screenshots even though the scene resets them.
+            for _ in 0..<40 where !(threadManager.hasLoadedThreads && flightPlanManager.hasLoadedPlans) {
+                try? await Task.sleep(nanoseconds: 100_000_000)
+            }
             MarketingSceneInjector.inject(
                 scene,
                 appState: appState,
@@ -181,7 +260,8 @@ struct ContentView: View {
                 subscriptionManager: subscriptionManager,
                 aircraftDataService: aircraftDataService,
                 flightPlanManager: flightPlanManager,
-                airportDataService: airportDataService
+                airportDataService: airportDataService,
+                threadManager: threadManager
             )
         }
         #endif
@@ -232,8 +312,30 @@ struct ContentView: View {
             FlightLogView()
                 .environment(appState)
                 .environmentObject(flightPlanManager)
+                .environmentObject(threadManager)
                 .environmentObject(airportDataService)
                 .environmentObject(openAIPDataService)
+        }
+        // A thread opened from its notification, or from the open-flight-plan banner. Lives at the
+        // root so it works over Home and over the close-out banner alike. (v5.0.0)
+        .fullScreenCover(isPresented: Binding(
+            get: { appState.pendingThreadToOpen != nil },
+            set: { if !$0 { appState.pendingThreadToOpen = nil } }
+        )) {
+            if let id = appState.pendingThreadToOpen {
+                // `onStartFlight` is what gates the START FLIGHT button. Omitting it here meant the
+                // cover reached from the T-24h reminder and the open-flight-plan banner — the "time
+                // to go fly" moment — showed the whole thread with no way to depart from it.
+                // (review F21)
+                FlightThreadView(threadId: id,
+                                 onClose: { appState.pendingThreadToOpen = nil },
+                                 onStartFlight: { circuits in
+                                     appState.pendingThreadToOpen = nil
+                                     startFollowedFlight(threadId: id, circuits: circuits)
+                                 })
+                    .environmentObject(threadManager)
+                    .environmentObject(flightPlanManager)
+            }
         }
         // SEC-C40 follow-up: a paired peer asking to drive checklist/waypoint state must be
         // authorised by whoever holds the master. That prompt was mounted ONLY on the Companion
@@ -295,6 +397,36 @@ struct ContentView: View {
             }
         }
     }
+
+    /// Depart on a followed flight opened from its notification or from the close-out banner.
+    ///
+    /// Mirrors HomeView's `launch(_:)`: arm the thread's route, select the aircraft it was planned
+    /// with, and go through the shared `FlightLauncher` rather than starting a flight some other
+    /// way. Circuits skip the plan by design. (review F21)
+    private func startFollowedFlight(threadId: UUID, circuits: Bool) {
+        guard let thread = threadManager.thread(withId: threadId) else { return }
+        if let registration = thread.aircraftRegistration, !registration.isEmpty {
+            _ = appState.selectAircraft(id: registration,
+                                        available: aircraftDataService.availableAircraft)
+        }
+        if !circuits,
+           let planId = thread.flightPlanId,
+           flightPlanManager.activeFlightPlan?.id != planId,
+           let plan = flightPlanManager.flightPlans.first(where: { $0.id == planId }),
+           !plan.waypoints.isEmpty {
+            flightPlanManager.activateFlightPlan(plan)
+        }
+        let launcher = FlightLauncher(
+            appState: appState,
+            locationManager: locationManager,
+            aircraftDataService: aircraftDataService,
+            airportDataService: airportDataService,
+            flightEventDetector: flightEventDetector,
+            flightPlanManager: flightPlanManager,
+            threadManager: threadManager
+        )
+        Task { await launcher.begin(circuitMode: circuits, followedFlightId: threadId) }
+    }
 }
 
 // MARK: - Language Fallback Banner
@@ -348,6 +480,85 @@ struct LanguageFallbackBanner: View {
             try? await Task.sleep(for: .seconds(6))
             onDismiss()
         }
+    }
+}
+
+/// Shown after landing when a filed VFR flight plan has not been closed. (v5.0.0)
+///
+/// The one banner in the app that is red, and the one with no auto-dismiss: Skyguide's RCC is alerted
+/// 30 minutes after the ETA on an open plan, so a notice the pilot might have missed is worth nothing
+/// here. Carries the phone number as the primary action because that is how a plan actually gets
+/// closed — the app's job is to remember, not to file.
+struct OpenFlightPlanBanner: View {
+    let routeLabel: String
+    let onMarkClosed: () -> Void
+    let onOpen: () -> Void
+    let onDismiss: () -> Void
+
+    @Environment(\.openURL) private var openURL
+
+    var body: some View {
+        HStack(alignment: .top, spacing: 10) {
+            Image(systemName: "exclamationmark.triangle.fill")
+                .font(.system(size: 15, weight: .semibold))
+                .foregroundColor(.aviationRed)
+            VStack(alignment: .leading, spacing: 3) {
+                Text(L10n.Thread.closeFlightPlanTitle)
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundColor(.primaryText)
+                Text(L10n.Thread.closeFlightPlanBody(routeLabel))
+                    .font(.system(size: 12))
+                    .foregroundColor(.secondaryText)
+                    .fixedSize(horizontal: false, vertical: true)
+                HStack(spacing: 8) {
+                    Button {
+                        if let url = URL(string: "tel://0800437837") { openURL(url) }
+                    } label: {
+                        Text(L10n.Thread.callFIC)
+                            .font(.system(size: 12, weight: .semibold))
+                            .foregroundColor(.aviationRed)
+                            .padding(.horizontal, 12).frame(minHeight: 34)
+                            .background(RoundedRectangle(cornerRadius: 8).fill(Color.aviationRed.opacity(0.16))
+                                .overlay(RoundedRectangle(cornerRadius: 8).stroke(Color.aviationRed.opacity(0.5), lineWidth: 1)))
+                            .contentShape(Rectangle())
+                    }
+                    Button(action: onMarkClosed) {
+                        Text(L10n.Thread.markFlightPlanClosed)
+                            .font(.system(size: 12, weight: .semibold))
+                            .foregroundColor(.aviationGreen)
+                            .padding(.horizontal, 12).frame(minHeight: 34)
+                            .background(RoundedRectangle(cornerRadius: 8).fill(Color.aviationGreen.opacity(0.16))
+                                .overlay(RoundedRectangle(cornerRadius: 8).stroke(Color.aviationGreen.opacity(0.45), lineWidth: 1)))
+                            .contentShape(Rectangle())
+                    }
+                    Button(action: onDismiss) {
+                        Text(L10n.Button.close)
+                            .font(.system(size: 12, weight: .semibold))
+                            .foregroundColor(.secondaryText)
+                            .padding(.horizontal, 12).frame(minHeight: 34)
+                            .background(RoundedRectangle(cornerRadius: 8).fill(Color.white.opacity(0.06)))
+                            .contentShape(Rectangle())
+                    }
+                }
+                .padding(.top, 3)
+            }
+            .buttonStyle(.plain)
+            Spacer(minLength: 0)
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 12)
+        .background(
+            RoundedRectangle(cornerRadius: 12)
+                .fill(Color.panelBackground)
+                .overlay(RoundedRectangle(cornerRadius: 12)
+                    .strokeBorder(Color.aviationRed.opacity(0.6), lineWidth: 1.5))
+        )
+        .appBannerWidth()
+        .padding(.horizontal, 16)
+        .padding(.top, 8)
+        .shadow(color: .black.opacity(0.3), radius: 6, y: 3)
+        .contentShape(Rectangle())
+        .onTapGesture { onOpen() }
     }
 }
 
@@ -416,6 +627,58 @@ struct ActivationExpiredBanner: View {
 
 /// Snoozable "your data is out of date" nudge (v4.1.0 Data Freshness). Mirrors LanguageFallbackBanner
 /// but persists until tapped — currency is a deliberate action, so there's no auto-dismiss.
+/// Offers the light close-out for a circuit session. Deliberately quieter than the open-flight-plan
+/// banner: nothing here has a search-and-rescue consequence, and declining is a complete answer.
+struct CircuitCloseOutBanner: View {
+    let routeLabel: String
+    let onAccept: () -> Void
+    let onDismiss: () -> Void
+
+    var body: some View {
+        HStack(spacing: 10) {
+            Image(systemName: "arrow.triangle.2.circlepath")
+                .font(.system(size: 15, weight: .semibold))
+                .foregroundColor(.aviationGold)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(routeLabel)
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundColor(.primaryText)
+                Text(L10n.Thread.circuitCloseOutOffer)
+                    .font(.system(size: 12))
+                    .foregroundColor(.secondaryText)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            Spacer(minLength: 8)
+            Button(L10n.Thread.circuitCloseOutAccept, action: onAccept)
+                .font(.system(size: 13, weight: .semibold))
+                .foregroundColor(.aviationGold)
+                .buttonStyle(.plain)
+                .frame(minHeight: 44)
+            Button {
+                onDismiss()
+            } label: {
+                Image(systemName: "xmark")
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundColor(.dimText)
+                    .frame(width: 44, height: 44)
+                    .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel(L10n.Button.close)
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 10)
+        .background(Color.panelBackground, in: RoundedRectangle(cornerRadius: 12))
+        .overlay(
+            RoundedRectangle(cornerRadius: 12).stroke(Color.aviationGold.opacity(0.5), lineWidth: 1)
+        )
+        .appBannerWidth()
+        .padding(.horizontal, 16)
+        .padding(.top, 8)
+        .shadow(color: .black.opacity(0.3), radius: 6, y: 3)
+    }
+}
+
 struct DataFreshnessNudgeBanner: View {
     let message: String
     let onDismiss: () -> Void
@@ -442,6 +705,22 @@ struct DataFreshnessNudgeBanner: View {
         .accessibilityAddTraits(.isButton)
         .accessibilityLabel(message)
         .accessibilityHint(Text(L10n.Button.close))
+    }
+}
+
+private extension ContentView {
+
+    /// Both managers load off-main; the sweep needs the answer to "does a flight follow this plan?",
+    /// which is only trustworthy once the threads are actually here.
+    var routeDateSweepReady: Bool {
+        flightPlanManager.hasLoadedPlans && threadManager.hasLoadedThreads
+    }
+
+    func sweepRouteDates() {
+        guard !hasSweptRouteDates else { return }
+        hasSweptRouteDates = true
+        let followed = Set(threadManager.threads.compactMap(\.flightPlanId))
+        flightPlanManager.clearDatesFromUnflownRoutes(followedPlanIds: followed)
     }
 }
 

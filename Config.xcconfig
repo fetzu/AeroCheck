@@ -16,6 +16,12 @@ OPENAIP_API_KEY =
 // endpoint stays usable either way.
 WEATHER_CLIENT_SECRET =
 
+// Shared secret sent as `X-AeroCheck-Client` to api.aerocheck.app's /airfields routes. Same kind of
+// speed bump as the weather one, and a SEPARATE value on purpose: the two workers keep separate
+// lists, so rotating one must not force rotating the other. Empty is fine — the worker fails open
+// when its own list is unset, so a fresh checkout still gets airfield links.
+APP_CLIENT_SECRET =
+
 // Pull in untracked local secrets if the file exists (the "?" makes it optional,
 // so a fresh checkout without Secrets.xcconfig still builds). Later assignments
 // win, so a value here overrides the empty default above.

@@ -163,7 +163,10 @@ class OpenAIPDataService: ObservableObject {
     }
 
     /// Download airspace data for selected countries from OpenAIP Core API
-    func downloadData(for countries: [String]) async {
+    /// `skippingCached` reuses a country already on disk rather than fetching it again — see the
+    /// note on `OpenAIPLayerCache.downloadData`. Additive callers must still pass the union or the
+    /// prune below would drop what they left out; this stops that union costing a full re-download.
+    func downloadData(for countries: [String], skippingCached: Bool = false) async {
         // Mirror the navaid/obstacle/RP/airport services: an empty set is a no-op, NOT a signal to prune
         // (the removal loop below would otherwise treat subtracting([]) as "remove everything" and wipe all
         // cached airspace). Callers that prune a country pass the full remaining set.
@@ -196,6 +199,14 @@ class OpenAIPDataService: ObservableObject {
 
         for (index, country) in countries.enumerated() {
             downloadProgress = Double(index) / totalCountries
+
+            if skippingCached, metadata.airspaceCounts[country] != nil,
+               let data = try? Data(contentsOf: airspaceFileURL(for: country)),
+               let cached = try? JSONDecoder().decode([Airspace].self, from: data) {
+                allAirspaces.append(contentsOf: cached)
+                byCountry[country] = cached
+                continue
+            }
 
             do {
                 let countryAirspaces = try await fetchAirspaces(for: country)

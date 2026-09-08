@@ -1,9 +1,26 @@
 import SwiftUI
 import UIKit
 
+/// Registers the notification delegate before launch finishes.
+///
+/// It used to be set from the root view's `.task`, i.e. after first render. The close-flight-plan
+/// action is non-foreground (`options: []`), so tapping it from the lock screen wakes the app in the
+/// background with no scene — the `.task` never ran, the delegate was never assigned, and the
+/// pilot's "Mark flight plan closed" was silently discarded on the one reminder with a
+/// search-and-rescue consequence. Apple's contract is that the delegate exists before launch
+/// finishes, and only an app delegate can promise that. (review F17)
+final class AeroCheckAppDelegate: NSObject, UIApplicationDelegate {
+    func application(_ application: UIApplication,
+                     didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]? = nil) -> Bool {
+        NotificationService.shared.configure()
+        return true
+    }
+}
+
 /// Main application entry point
 @main
 struct AeroCheckApp: App {
+    @UIApplicationDelegateAdaptor(AeroCheckAppDelegate.self) private var appDelegate
     @State private var appState = AppState()
     @StateObject private var locationManager = LocationManager()
     @StateObject private var offlineMapManager: OfflineMapManager
@@ -11,6 +28,8 @@ struct AeroCheckApp: App {
     @StateObject private var aviationWeatherService = AviationWeatherService()
     @StateObject private var windsAloftService: WindsAloftService
     @StateObject private var flightPlanManager = FlightPlanManager()
+    /// The admin bracket around a flight — planning, preparation and close-out. (v5.0.0)
+    @StateObject private var flightThreadManager = FlightThreadManager()
     @StateObject private var watchConnectivityManager = WatchConnectivityManager.shared
     @StateObject private var companionConnectivityManager = CompanionConnectivityManager.shared
     @StateObject private var subscriptionManager: SubscriptionManager
@@ -88,6 +107,7 @@ struct AeroCheckApp: App {
                 .environmentObject(aviationWeatherService)
                 .environmentObject(windsAloftService)
                 .environmentObject(flightPlanManager)
+                .environmentObject(flightThreadManager)
                 .environmentObject(watchConnectivityManager)
                 .environmentObject(companionConnectivityManager)
                 .environmentObject(subscriptionManager)
@@ -124,6 +144,31 @@ struct AeroCheckApp: App {
                     // reference, so the controller pulls the name through this closure at sync time.
                     FlightActivityController.shared.nextWaypointProvider = {
                         flightPlanManager.activeNextWaypointName
+                    }
+
+                    // The delegate and its category are registered in `AeroCheckAppDelegate` before
+                    // launch finishes; only the handlers are wired here, because they need the
+                    // managers. No permission is requested here either — that happens when the pilot
+                    // first follows a flight, so the prompt arrives with context. (review F17)
+                    NotificationService.shared.markFlightPlanClosedHandler = { threadId in
+                        flightThreadManager.markFlightPlanClosed(threadId: threadId)
+                    }
+                    NotificationService.shared.openThreadHandler = { threadId in
+                        flightThreadManager.setCurrentThread(threadId)
+                        appState.pendingThreadToOpen = threadId
+                    }
+                    // Anything that arrived before the handlers existed — the cold-launch case the
+                    // delegate move exists for — is replayed now.
+                    NotificationService.shared.drainPendingActions()
+
+                    // A confirmed full-stop landing arms the close-your-flight-plan reminder without
+                    // waiting for END FLIGHT, which is the pilot who lands and walks away. (review F6)
+                    flightEventDetector.onEvent = { [weak flightThreadManager] kind, _ in
+                        guard kind == .fullStop else { return }
+                        Task { @MainActor in
+                            guard let flightId = appState.currentFlight?.id else { return }
+                            flightThreadManager?.noteFullStopLanding(flightId: flightId)
+                        }
                     }
                     // Auto-connect if companion mode is on and a device is paired — the user shouldn't
                     // have to start it on both devices. (v4.1 companion UX)
@@ -235,6 +280,7 @@ struct AeroCheckApp: App {
                 .environmentObject(aviationWeatherService)
                 .environmentObject(windsAloftService)
                 .environmentObject(flightPlanManager)
+                .environmentObject(flightThreadManager)
                 .environmentObject(subscriptionManager)
                 .environmentObject(aircraftDataService)
                 .environmentObject(airportDataService)
@@ -290,7 +336,8 @@ struct AeroCheckApp: App {
                 aircraftDataService: aircraftDataService,
                 airportDataService: airportDataService,
                 flightEventDetector: flightEventDetector,
-                flightPlanManager: flightPlanManager
+                flightPlanManager: flightPlanManager,
+                threadManager: flightThreadManager
             )
             Task { await launcher.begin(circuitMode: false) }
         case "flight-log":
@@ -518,6 +565,9 @@ struct AppRootView<Content: View>: View {
     @ObservedObject private var ambient = AmbientController.shared
     @Environment(\.colorScheme) private var systemColorScheme
     private let content: Content
+    /// Live screen brightness, for the sunlight boost. iOS exposes no ambient-light reading, so this
+    /// is the proxy — see `AppSettings.sunlightBoost`. (v5.x)
+    @State private var screenBrightness: Double = 0
 
     init(appState: AppState, @ViewBuilder content: () -> Content) {
         self.appState = appState
@@ -527,6 +577,14 @@ struct AppRootView<Content: View>: View {
     var body: some View {
         let systemIsDark = systemColorScheme == .dark
         content
+            // Screen brightness drives the optional sunlight boost. Observed rather than polled: the
+            // notification fires on every change, including the ones auto-brightness makes when the
+            // aircraft turns into the sun. (v5.x)
+            .onReceive(NotificationCenter.default.publisher(
+                for: UIScreen.brightnessDidChangeNotification)) { _ in
+                screenBrightness = Double(UIScreen.main.brightness)
+            }
+            .onAppear { screenBrightness = Double(UIScreen.main.brightness) }
             // A fresh identity when the runtime accent revision changes forces the view tree to
             // re-read the (computed) design tokens so an installed override takes effect everywhere.
             .id(ambient.revision)
@@ -535,7 +593,7 @@ struct AppRootView<Content: View>: View {
             .environment(\.isNightMode, appState.settings.effectiveNightMode(systemIsDark: systemIsDark))
             // Cockpit theme: app-wide semantic palette the revamped screens read (v4 UI/UX Revamp).
             // An installed runtime accent takes precedence over the user's resolved mode.
-            .environment(\.cockpitTheme, CockpitTheme.ambientOverride ?? CockpitTheme.resolve(appState.settings.cockpitThemeMode(systemIsDark: systemIsDark)))
+            .environment(\.cockpitTheme, CockpitTheme.ambientOverride ?? CockpitTheme.resolve(appState.settings.cockpitThemeMode(systemIsDark: systemIsDark, screenBrightness: screenBrightness)))
             // Force the app's appearance dark WITHOUT a window override, so the read above stays valid.
             // The runtime light treatment flips this to `.light` so system controls (toggles, pickers),
             // materials and any default/semantic text render correctly on the light surfaces.

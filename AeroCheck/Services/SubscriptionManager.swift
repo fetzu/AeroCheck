@@ -724,10 +724,21 @@ class SubscriptionManager: ObservableObject {
             return cachedUserID
         }
 
-        // Last-resort, non-durable fallback. Deliberately NOT cached, so that once a real
-        // transaction is available (e.g. after a restore or first launch with entitlements)
-        // getUserID() re-derives the durable id instead of pinning to this device id. (ARCH-03)
-        return UIDevice.current.identifierForVendor?.uuidString
+        // No transaction, no identity. This used to fall back to
+        // `UIDevice.current.identifierForVendor`, which was dead weight with a privacy cost:
+        //
+        //   * The server takes only the minted session token as a Bearer credential
+        //     (LEGACY_BEARER_MODE is "off" in every environment), so a device id was refused
+        //     on arrival and unlocked nothing.
+        //   * It reached this far only when there is no verified transaction, i.e. for a free
+        //     user, who has no entitlement to fetch in the first place.
+        //   * Sending it put a Device ID on the wire to our own server, which is a
+        //     `NSPrivacyCollectedDataTypeDeviceID` we would have to declare in the privacy
+        //     manifest and the App Privacy label — for a value that did nothing.
+        //
+        // Returning nil means callers simply send no Authorization header, which is the honest
+        // description of the state: this install has no credential yet.
+        return nil
     }
 
     /// Gets all transactions for debugging

@@ -122,7 +122,17 @@ devices the website uses are not accepted sizes:
 | Website | iPad Air 11-inch (M4) | 2360 × 1640 — **not** an App Store size |
 | Website | iPhone 17 | 1206 × 2622 — **not** an App Store size |
 | App Store | iPad Pro 13-inch (M5) | 2752 × 2064 landscape (2064 × 2752 portrait) |
+| App Store | iPhone 14 Plus (6.5") | 1284 × 2778 |
 | App Store | iPhone 17 Pro Max (6.9") | 1320 × 2868 |
+
+> **Check which iPhone slot App Store Connect is actually asking for before capturing.** There are
+> two, and they take different sizes. 6.9" wants 1320 × 2868; 6.5" wants 1242 × 2688 or
+> 1284 × 2778. A 6.9" image is rejected by the 6.5" slot and vice versa, with the same unhelpful
+> "The dimensions of one or more screenshots are wrong" — the error does list the sizes it wants, so
+> read them and match. Do NOT rescale between the two: their aspect ratios differ (0.4603 vs 0.4622)
+> and resampling distorts. Capture on a simulator whose native size is the one you need. The 6.5"
+> devices are old enough that one may not exist yet:
+> `xcrun simctl create "AeroCheck 6.5in" com.apple.CoreSimulator.SimDeviceType.iPhone-14-Plus <runtime>`.
 
 Pass `--native` to write full-resolution PNGs instead of downscaled JPEGs, and `--out` somewhere
 outside `public/` so the website's own images are not overwritten:

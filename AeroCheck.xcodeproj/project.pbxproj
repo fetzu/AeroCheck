@@ -1380,8 +1380,8 @@
 				INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.reference";
 				INFOPLIST_KEY_LSSupportsOpeningDocumentsInPlace = YES;
-				INFOPLIST_KEY_NSLocationAlwaysAndWhenInUseUsageDescription = "This app records your flight track using GPS to save in your flight log, even when the app is in the background.";
-				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "This app records your flight track using GPS to save in your flight log.";
+				INFOPLIST_KEY_NSLocationAlwaysAndWhenInUseUsageDescription = "AéroCheck keeps recording your flight track when the screen locks or you switch apps in flight, so landings are not missed and the logbook times are right. Without Always, recording stops as soon as the app leaves the screen. The track stays on your device and in your own iCloud.";
+				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "AéroCheck records your flight track (position, altitude and ground speed) to draw the navigation map and fill in your logbook. The track stays on your device and in your own iCloud.";
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UIRequiredDeviceCapabilities = "arm64 gps";
 				INFOPLIST_KEY_UIStatusBarStyle = "";
@@ -1434,8 +1434,8 @@
 				INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.reference";
 				INFOPLIST_KEY_LSSupportsOpeningDocumentsInPlace = YES;
-				INFOPLIST_KEY_NSLocationAlwaysAndWhenInUseUsageDescription = "This app records your flight track using GPS to save in your flight log, even when the app is in the background.";
-				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "This app records your flight track using GPS to save in your flight log.";
+				INFOPLIST_KEY_NSLocationAlwaysAndWhenInUseUsageDescription = "AéroCheck keeps recording your flight track when the screen locks or you switch apps in flight, so landings are not missed and the logbook times are right. Without Always, recording stops as soon as the app leaves the screen. The track stays on your device and in your own iCloud.";
+				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "AéroCheck records your flight track (position, altitude and ground speed) to draw the navigation map and fill in your logbook. The track stays on your device and in your own iCloud.";
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UIRequiredDeviceCapabilities = "arm64 gps";
 				INFOPLIST_KEY_UIStatusBarStyle = "";

@@ -152,7 +152,6 @@
 		B3000001211111110000002 /* AircraftDataService.swift in Sources */ = {isa = PBXBuildFile; fileRef = B3000001111111110000002 /* AircraftDataService.swift */; };
 		B3000001211111110000003 /* RemoteAircraft.swift in Sources */ = {isa = PBXBuildFile; fileRef = B3000001111111110000003 /* RemoteAircraft.swift */; };
 		B3000001211111110000004 /* SubscriptionView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B3000001111111110000004 /* SubscriptionView.swift */; };
-		B3000001211111110000005 /* Configuration.storekit in Resources */ = {isa = PBXBuildFile; fileRef = B3000001111111110000005 /* Configuration.storekit */; };
 		B3000001211111110000904 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = B3000001111111110000904 /* PrivacyInfo.xcprivacy */; };
 		C1000001211111110000001 /* Localization.swift in Sources */ = {isa = PBXBuildFile; fileRef = C1000001111111110000001 /* Localization.swift */; };
 		C1000001211111110000002 /* Localizable.xcstrings in Resources */ = {isa = PBXBuildFile; fileRef = C1000001111111110000002 /* Localizable.xcstrings */; };
@@ -940,7 +939,6 @@
 			files = (
 				A1000001211111110000013 /* Assets.xcassets in Resources */,
 				A1000001211111110000F01 /* flights in Resources */,
-				B3000001211111110000005 /* Configuration.storekit in Resources */,
 				B3000001211111110000904 /* PrivacyInfo.xcprivacy in Resources */,
 				C1000001211111110000002 /* Localizable.xcstrings in Resources */,
 				D1000001211111110000002 /* wt9-dynamic-bundled.json in Resources */,
@@ -1428,6 +1426,7 @@
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = H2N329D9U8;
+				EXCLUDED_SOURCE_FILE_NAMES = flights;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = AeroCheck/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = "AéroCheck";

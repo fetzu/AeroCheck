@@ -9,13 +9,18 @@
 #
 #   OPENAIP_API_KEY        — OpenAIP airspace tiles / CTR REST
 #   WEATHER_CLIENT_SECRET  — X-AeroCheck-Client header for wx.aerocheck.app
+#   APP_CLIENT_SECRET      — X-AeroCheck-Client header for api.aerocheck.app's
+#                            /airfields routes (the landing-fee registry)
 #
 # No secret is committed to the repo or printed to the build log (printf writes to
 # the file, not stdout; Xcode Cloud also masks secret env vars in logs).
 #
-# Either may be absent and the build still succeeds: an empty OpenAIP key simply
-# means the airspace/CTR features don't render, and an empty weather secret is
-# fine because the worker fails open when its own list is unset.
+# Any of them may be absent and the build still succeeds, but the consequences
+# differ. An empty OpenAIP key means the airspace/CTR features don't render. An
+# empty weather secret is harmless because that worker fails open when its own
+# list is unset. An empty APP_CLIENT_SECRET is NOT harmless: production has its
+# list set, so it answers 403 and the app quietly ships without landing fees.
+# That is exactly what happened between 5.0.0 and this script being fixed.
 
 set -eu
 
@@ -37,4 +42,11 @@ if [ -n "${WEATHER_CLIENT_SECRET:-}" ]; then
     echo "ci_post_clone: WEATHER_CLIENT_SECRET is set"
 else
     echo "ci_post_clone: WEATHER_CLIENT_SECRET not set — weather requests will omit the client header"
+fi
+
+if [ -n "${APP_CLIENT_SECRET:-}" ]; then
+    printf 'APP_CLIENT_SECRET = %s\n' "$APP_CLIENT_SECRET" >> "$SECRETS_FILE"
+    echo "ci_post_clone: APP_CLIENT_SECRET is set"
+else
+    echo "ci_post_clone: APP_CLIENT_SECRET not set — the airfield routes will answer 403 and landing fees will be missing"
 fi

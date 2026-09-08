@@ -113,11 +113,40 @@ Things that bite:
 
 ## App Store
 
-The same captures serve the store, at native resolution rather than the site's downscaled JPEGs —
-keep the PNGs in `/tmp/ac_shots/` (or re-run without the sips step). Order for both devices, first
-three visible without scrolling: **flight · hud · nav · closeout · prepare · homeflight**, then
-`planning` and `log` as optional 7 and 8. Verify the required device sizes in App Store Connect when
-you open the version — they have changed before.
+**Different simulators.** App Store Connect matches screenshot dimensions EXACTLY against a device
+size class and rejects anything else with "The dimensions of one or more screenshots are wrong". The
+devices the website uses are not accepted sizes:
+
+| Purpose | Device | Output |
+|---|---|---|
+| Website | iPad Air 11-inch (M4) | 2360 × 1640 — **not** an App Store size |
+| Website | iPhone 17 | 1206 × 2622 — **not** an App Store size |
+| App Store | iPad Pro 13-inch (M5) | 2752 × 2064 landscape (2064 × 2752 portrait) |
+| App Store | iPhone 17 Pro Max (6.9") | 1320 × 2868 |
+
+Pass `--native` to write full-resolution PNGs instead of downscaled JPEGs, and `--out` somewhere
+outside `public/` so the website's own images are not overwritten:
+
+```bash
+scripts/capture-screenshots.sh --app … --device "iPhone 17 Pro Max" \
+  --scenes flight,closeout,homeflight,cruise --native --out /tmp/appstore
+scripts/capture-screenshots.sh --app … --device "iPad Pro 13-inch (M5)" \
+  --scenes homeflight,flight,closeout,cruise --rotate 270 --native --out /tmp/appstore
+```
+
+Then drive `prepare` and `nav` by hand on each device, as above. Order for both, first three visible
+without scrolling: **flight · hud · nav · closeout · prepare · homeflight**, then `planning` and
+`log` as optional 7 and 8. Re-check the accepted sizes when you open the version; Apple has changed
+them before.
+
+**A fresh simulator has no aeronautical data**, which shows as a red "No data" chip on Home and an
+empty map. Downloading it through the app takes minutes; copying it from a simulator that already
+has it takes seconds. The five folders are under
+`<container>/Library/Application Support/`: `AirportData`, `OpenAIPData`, `OpenAIPNavaidData`,
+`OpenAIPObstacleData`, `OpenAIPReportingPointData`. Resolve the container with
+`xcrun simctl get_app_container <udid> com.fetzu.aerocheck data` — **and check it is non-empty before
+using it in a path**, because it returns nothing for a shut-down device and an unguarded `rm -rf
+"$EMPTY/..."` then points at your home directory.
 
 ## Adding a scene
 

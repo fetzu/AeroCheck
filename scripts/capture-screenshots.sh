@@ -18,10 +18,13 @@
 #              software rotate — and the correct value FLIPS with which landscape the sim is in. Run one
 #              scene, look at it, then use whichever of 90/270 is upright for the rest of the session.
 #   --pause    stop before each screenshot so you can perform the scene's gesture (see SCREENSHOTS.md)
+#   --native   write full-resolution PNGs instead of downscaled JPEGs. Use this for App Store
+#              Connect, which accepts only exact device sizes and rejects anything else. The
+#              WEBSITE wants the downscaled default; the store wants this.
 #   --wait     seconds to let the injector settle (default 6; the HUD/nav scenes want 8)
 set -euo pipefail
 
-APP=""; DEVICE=""; SCENES=""; ROTATE=""; PAUSE=0; WAIT=6; OUT="public/assets/screenshot/v5"
+APP=""; DEVICE=""; SCENES=""; ROTATE=""; PAUSE=0; WAIT=6; NATIVE=0; OUT="public/assets/screenshot/v5"
 while [ $# -gt 0 ]; do
   case "$1" in
     --app) APP="$2"; shift 2 ;;
@@ -29,6 +32,7 @@ while [ $# -gt 0 ]; do
     --scenes) SCENES="$2"; shift 2 ;;
     --rotate) ROTATE="$2"; shift 2 ;;
     --pause) PAUSE=1; shift ;;
+    --native) NATIVE=1; shift ;;
     --wait) WAIT="$2"; shift 2 ;;
     --out) OUT="$2"; shift 2 ;;
     *) echo "unknown argument: $1" >&2; exit 2 ;;
@@ -87,15 +91,22 @@ for SCENE in "${LIST[@]}"; do
   if [ "$KIND" = "ipad" ] && [ -n "$ROTATE" ]; then
     sips -r "$ROTATE" "$RAW" >/dev/null
   fi
-  DEST="$OUT/$KIND/$KEY.jpg"
-  # iPad: cap the long side; iPhone: cap the WIDTH only (a -Z on portrait shrinks the height, not the width).
-  if [ "$KIND" = "ipad" ]; then
-    sips -Z "$MAXW" -s format jpeg -s formatOptions 90 "$RAW" --out "$DEST" >/dev/null
+  if [ "$NATIVE" = "1" ]; then
+    # App Store Connect matches dimensions EXACTLY against the device size class, so this path
+    # must not resample. Copy the rotated framebuffer through untouched.
+    DEST="$OUT/$KIND/$KEY.png"
+    cp "$RAW" "$DEST"
   else
-    sips --resampleWidth "$MAXW" -s format jpeg -s formatOptions 90 "$RAW" --out "$DEST" >/dev/null
+    DEST="$OUT/$KIND/$KEY.jpg"
+    # iPad: cap the long side; iPhone: cap the WIDTH only (a -Z on portrait shrinks the height, not the width).
+    if [ "$KIND" = "ipad" ]; then
+      sips -Z "$MAXW" -s format jpeg -s formatOptions 90 "$RAW" --out "$DEST" >/dev/null
+    else
+      sips --resampleWidth "$MAXW" -s format jpeg -s formatOptions 90 "$RAW" --out "$DEST" >/dev/null
+    fi
   fi
   # The hero carousel reads `hudhero`, which is the same full HUD screen under another name.
-  if [ "$KEY" = "hud" ] && [ "$KIND" = "ipad" ]; then cp "$DEST" "$OUT/$KIND/hud-hero.jpg"; fi
+  if [ "$KEY" = "hud" ] && [ "$KIND" = "ipad" ] && [ "$NATIVE" != "1" ]; then cp "$DEST" "$OUT/$KIND/hud-hero.jpg"; fi
   echo "   → $DEST ($(sips -g pixelWidth -g pixelHeight "$DEST" | awk '/pixel/ {printf "%s ", $2}'))"
 done
 echo "✓ done. Now: remove the captured keys from PLACEHOLDERS in src/lib/shots.ts, run 'npm run build' and check no [shots] warning remains."

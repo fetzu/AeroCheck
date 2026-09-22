@@ -187,14 +187,18 @@ struct FlightPlanEditorView: View {
         Menu {
             Button { exportFlightPlan(format: .gpx) } label: { Label("GPX", systemImage: "point.topleft.down.to.point.bottomright.curvepath") }
             Button { exportFlightPlan(format: .json) } label: { Label("JSON", systemImage: "doc.text") }
+            // A menu item shows a subtitle when its label is a Label followed by a Text.
             Button { exportFlightPlan(format: .xlsx) } label: {
-                Label { Text("Excel"); Text(L10n.Export.allWaypoints) } icon: { Image(systemName: "tablecells") }
+                Label("Excel", systemImage: "tablecells")
+                Text(L10n.Export.allWaypoints)
             }
             Button { exportFlightPlan(format: .pdf) } label: {
-                Label { Text("PDF · A4"); Text(navLogSubtitle) } icon: { Image(systemName: "doc.richtext") }
+                Label("PDF · A4", systemImage: "doc.richtext")
+                Text(navLogSubtitle)
             }
             Button { exportFlightPlan(format: .pdfA5) } label: {
-                Label { Text("PDF · A5"); Text(navLogSubtitle) } icon: { Image(systemName: "doc.richtext") }
+                Label("PDF · A5", systemImage: "doc.richtext")
+                Text(navLogSubtitle)
             }
             Divider()
             Button {

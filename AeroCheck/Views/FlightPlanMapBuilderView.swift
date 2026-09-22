@@ -1670,6 +1670,11 @@ private struct WaypointBuilderRow: View {
         .onChange(of: altitudeFocused) { _, focused in
             if !focused { commitAltitude() }
         }
+        // Follow altitudes set elsewhere ("Set altitudes", a profile drag): rows are reused by id, so
+        // onAppear alone left the field showing the old value.
+        .onChange(of: waypoint.altitude) { _, altitude in
+            if !altitudeFocused { altitudeText = altitude.map { String(Int($0)) } ?? "" }
+        }
     }
 
     private var legLine: String {

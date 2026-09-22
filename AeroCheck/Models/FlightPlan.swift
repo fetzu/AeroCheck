@@ -705,10 +705,9 @@ struct FlightPlan: Identifiable, Codable, Equatable {
                 waypoints[i].cumulativeEET = cumulativeEETTotal
             }
 
-            // Calculate ETO if departure time is set (based on cumulative EET)
-            if let departureTime = plannedDepartureTime {
-                waypoints[i].estimatedTimeOver = departureTime.addingTimeInterval(waypoints[i].cumulativeEET ?? 0)
-            }
+            // ETO from the departure time, and none without one: a route whose date was cleared
+            // (`clearDatesFromUnflownRoutes`) otherwise kept printing the old flight's times.
+            waypoints[i].estimatedTimeOver = plannedDepartureTime?.addingTimeInterval(waypoints[i].cumulativeEET ?? 0)
         }
 
         // Calculate trip fuel based on total time

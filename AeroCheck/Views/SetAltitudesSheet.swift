@@ -115,12 +115,11 @@ struct SetAltitudesSheet: View {
                 }
             }
             labelled(L10n.Altitudes.basis) {
-                Picker(L10n.Altitudes.basis, selection: $basis) {
-                    Text(L10n.Altitudes.basisLegs).tag(AltitudePlanner.Basis.highestOnAdjacentLegs)
-                    Text(L10n.Altitudes.basisGround).tag(AltitudePlanner.Basis.groundAtWaypoint)
+                // Two radio rows: an inline Picker inside a ScrollView renders as a wheel on iOS.
+                VStack(alignment: .leading, spacing: 0) {
+                    basisOption(.highestOnAdjacentLegs, L10n.Altitudes.basisLegs)
+                    basisOption(.groundAtWaypoint, L10n.Altitudes.basisGround)
                 }
-                .pickerStyle(.inline)
-                .labelsHidden()
             }
             switch terrainState {
             case .loading:
@@ -134,6 +133,23 @@ struct SetAltitudesSheet: View {
                 EmptyView()
             }
         }
+    }
+
+    private func basisOption(_ option: AltitudePlanner.Basis, _ title: String) -> some View {
+        Button { basis = option } label: {
+            HStack(spacing: 10) {
+                Image(systemName: basis == option ? "largecircle.fill.circle" : "circle")
+                    .foregroundColor(.aviationGold)
+                Text(title)
+                    .scaledFont(size: 14, relativeTo: .body)
+                    .foregroundColor(.primaryText)
+                Spacer()
+            }
+            .frame(minHeight: 44)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityAddTraits(basis == option ? [.isSelected] : [])
     }
 
     private var fixedControls: some View {
@@ -231,8 +247,11 @@ struct SetAltitudesSheet: View {
                     .frame(maxWidth: .infinity, alignment: .leading)
                 Text(Self.feet(waypoints[i].altitude)).foregroundColor(.secondaryText).frame(width: 56, alignment: .trailing)
                 Text(Self.feet(new)).foregroundColor(changed ? .aviationGold : .secondaryText).frame(width: 56, alignment: .trailing)
+                // The climb-out leg is a straight line from the runway, so a low figure there says more
+                // about the drawing than the plan: amber, and left out of the summary.
                 Text(clearance.map(Self.signed) ?? "—")
-                    .foregroundColor((clearance ?? .infinity) < Self.warnFt ? .aviationRed : .secondaryText)
+                    .foregroundColor((clearance ?? .infinity) >= Self.warnFt ? .secondaryText
+                                     : (i == 1 ? .aviationAmber : .aviationRed))
                     .frame(width: 70, alignment: .trailing)
             }
             .scaledFont(size: 14, design: .monospaced, relativeTo: .body)

@@ -827,15 +827,34 @@ class FlightPlanManager: ObservableObject {
 
     // MARK: - Persistence
 
-    /// Snapshot of each plan as last persisted, for dirty detection (`FlightPlan` is Equatable).
-    /// Keyed by id; entries are removed on plan deletion.
-    private var lastPersisted: [UUID: FlightPlan] = [:]
+    /// Each plan's content as last persisted (its encoding), for dirty detection. Keyed by id;
+    /// entries are removed on plan deletion.
+    ///
+    /// NOT the plan itself: `FlightPlan ==` compares ids only, so a dirty check built on it saw every
+    /// edit to an already-saved plan as "unchanged" and never wrote it again. The edit lived in memory
+    /// until the next launch, then the file on disk won: a whole "Set altitudes" pass came back undone.
+    private var lastPersisted: [UUID: Data] = [:]
+
+    /// The plan's content, for comparing against what was persisted.
+    nonisolated static func fingerprint(_ plan: FlightPlan) -> Data? {
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = .sortedKeys
+        return try? encoder.encode(plan)
+    }
+
+    /// Plans whose content differs from what was last written (or that were never written).
+    nonisolated static func plansNeedingSave(_ plans: [FlightPlan], lastPersisted: [UUID: Data]) -> [FlightPlan] {
+        plans.filter { plan in
+            guard let saved = lastPersisted[plan.id] else { return true }
+            return fingerprint(plan) != saved
+        }
+    }
 
     /// Persists only the plans that actually changed since the last save (plus the index), off the
     /// main actor. Previously this rewrote EVERY plan file synchronously on the main thread — and it
     /// is called on every waypoint edit and every ATO record/auto-advance during a flight. (PERF-25)
     private func saveFlightPlans() {
-        let changed = flightPlans.filter { lastPersisted[$0.id] != $0 }
+        let changed = Self.plansNeedingSave(flightPlans, lastPersisted: lastPersisted)
         guard !changed.isEmpty else { return }
         let all = flightPlans
         Task { [weak self] in
@@ -848,14 +867,14 @@ class FlightPlanManager: ObservableObject {
             guard let self else { return }
             let confirmed = Set(written)
             for plan in changed where confirmed.contains(plan.id) {
-                self.lastPersisted[plan.id] = plan
+                self.lastPersisted[plan.id] = Self.fingerprint(plan)
             }
         }
     }
 
     /// Save a single flight plan
     private func saveFlightPlan(_ plan: FlightPlan) {
-        lastPersisted[plan.id] = plan
+        lastPersisted[plan.id] = Self.fingerprint(plan)
         persistence.saveNavigationPlan(plan)
     }
 
@@ -868,7 +887,7 @@ class FlightPlanManager: ObservableObject {
         let merged = flightPlans + loaded.filter { !existingIds.contains($0.id) }
         flightPlans = merged.sorted { $0.createdAt > $1.createdAt }
         for plan in loaded where lastPersisted[plan.id] == nil {
-            lastPersisted[plan.id] = plan
+            lastPersisted[plan.id] = Self.fingerprint(plan)
         }
     }
 

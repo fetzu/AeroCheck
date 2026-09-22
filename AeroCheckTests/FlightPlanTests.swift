@@ -359,5 +359,38 @@ final class FlightPlanTests: XCTestCase {
             XCTAssertEqual(a ?? 0, b, accuracy: 1)
         }
     }
+
+    // MARK: - Persistence dirty check
+
+    func testEditingASavedPlanMarksItForSaving() {
+        var plan = FlightPlan(name: "Saved")
+        plan.waypoints = [
+            FlightPlanWaypoint(name: "A", coordinate: .init(latitude: 47.0, longitude: 7.0), altitude: 1500),
+            FlightPlanWaypoint(name: "B", coordinate: .init(latitude: 47.1, longitude: 7.2), altitude: 5000),
+        ]
+        let saved = [plan.id: FlightPlanManager.fingerprint(plan)!]
+        XCTAssertTrue(FlightPlanManager.plansNeedingSave([plan], lastPersisted: saved).isEmpty)
+
+        // Same id, so `==` calls it equal — which is exactly why the dirty check cannot use it.
+        var edited = plan
+        edited.waypoints[1].altitude = 5500
+        XCTAssertEqual(edited, plan)
+        XCTAssertEqual(FlightPlanManager.plansNeedingSave([edited], lastPersisted: saved).map(\.id), [plan.id])
+    }
+
+    func testRecalculatingWithoutADepartureTimeClearsTheETOs() {
+        var plan = FlightPlan(name: "ETO", plannedDepartureTime: Date(timeIntervalSince1970: 1_790_000_000))
+        plan.waypoints = [
+            FlightPlanWaypoint(name: "A", coordinate: .init(latitude: 47.0, longitude: 7.0)),
+            FlightPlanWaypoint(name: "B", coordinate: .init(latitude: 47.1, longitude: 7.2)),
+        ]
+        plan.calculateRouteData()
+        XCTAssertNotNil(plan.waypoints[1].estimatedTimeOver)
+
+        plan.plannedDepartureTime = nil
+        plan.calculateRouteData()
+        XCTAssertTrue(plan.waypoints.allSatisfy { $0.estimatedTimeOver == nil },
+                      "a route with no date must not keep printing the old flight's times")
+    }
 }
 

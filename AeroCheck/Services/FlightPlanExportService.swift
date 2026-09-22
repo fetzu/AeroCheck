@@ -747,7 +747,7 @@ class FlightPlanExportService {
         let fFoot = UIFont.systemFont(ofSize: 6.6)
 
         /// Freq · C/S · Waypoint · MC · Dist · Alt · Wind · GS · EET · ETO · ATO · Remarks (sum 547).
-        let widths: [CGFloat] = [42, 66, 70, 28, 28, 32, 34, 24, 32, 32, 34, 125]
+        let widths: [CGFloat] = [42, 66, 70, 28, 28, 32, 38, 24, 32, 32, 34, 121]
         let headers = ["Freq", "C/S", "Waypoint", "MC", "Dist.", "Alt", "Wind", "GS", "EET", "ETO", "ATO", "Remarks"]
         let radioLabelWidth: CGFloat = 62
 
@@ -988,7 +988,8 @@ class FlightPlanExportService {
                 for (offset, value) in legValues.enumerated() {
                     let c = 3 + offset
                     let na = isDep && naCols.contains(c)
-                    cell(next(c), na ? "" : value, font: fRoute, align: .center, fill: na ? shNA : rowFill)
+                    cell(next(c), na ? "" : value, font: fRoute, align: .center, fill: na ? shNA : rowFill,
+                         fitWidth: true)
                 }
                 cell(next(9), row.eto, font: isDep ? fRouteHdr : fRoute, align: .center, fill: rowFill)
                 cell(next(10), row.ato, font: fRoute, align: .center, fill: rowFill)

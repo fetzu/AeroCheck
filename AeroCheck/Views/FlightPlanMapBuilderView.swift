@@ -68,6 +68,7 @@ struct FlightPlanMapBuilderView: View {
     enum RouteEndpoint: Hashable { case from, to }
     @State private var editingWaypoint: FlightPlanWaypoint?
     @State private var showTableEditor = false
+    @State private var showSetAltitudes = false
     @State private var profileExpanded = false
     @State private var exportItem: FlightPlanExportItem?
 
@@ -377,6 +378,14 @@ struct FlightPlanMapBuilderView: View {
             .sheet(item: $exportItem) { item in
                 ShareSheet(activityItems: [item.url])
             }
+            .sheet(isPresented: $showSetAltitudes) {
+                if let plan {
+                    SetAltitudesSheet(plan: plan) { altitudes in
+                        flightPlanManager.setAltitudes(altitudes, in: planId)
+                    }
+                    .environmentObject(openAIPDataService)
+                }
+            }
         }
         .preferredColorScheme(.dark)
         .onAppear {
@@ -633,12 +642,18 @@ struct FlightPlanMapBuilderView: View {
         wp.name = airport.ident
         wp.coordinate = airport.coordinate
         wp.callSign = airport.ident
-        let freqs = airportDataService.getFrequencies(for: airport.ident)
-        wp.frequency = (freqs.first { $0.type.uppercased().contains("TWR") }
-            ?? freqs.first { $0.type.uppercased().contains("ATIS") } ?? freqs.first)?.formattedFrequency
+        // The field's CONTACT frequency (TWR › AFIS › INFO …) ahead of its listen-only ATIS, which the
+        // old pick preferred over AFIS: this value is printed as the station to call on the nav log.
+        wp.frequency = airportDataService.bestFieldFrequency(for: airport.ident)?.formattedFrequency
         // Only fill field elevation when no altitude is set, so snapping/endpoint changes don't
         // clobber a pilot's planned altitude (mirrors addAirport). (v4.0.0 review P2)
-        if wp.altitude == nil, let elevation = airport.elevation { wp.altitude = Double(elevation) }
+        if wp.altitude == nil, isRouteEndpoint(wp), let elevation = airport.elevation { wp.altitude = Double(elevation) }
+    }
+
+    /// Ground elevation is a sensible altitude only where the aircraft is ON the ground: the departure
+    /// and the destination. Mid-route, it would be a planned altitude along the terrain.
+    private func isRouteEndpoint(_ wp: FlightPlanWaypoint) -> Bool {
+        wp.id == waypoints.first?.id || wp.id == waypoints.last?.id
     }
 
     /// Apply a navaid to a waypoint — name/callSign by ident, plus frequency + elevation. Mirrors
@@ -648,14 +663,14 @@ struct FlightPlanMapBuilderView: View {
         wp.coordinate = navaid.coordinate
         wp.callSign = navaid.identifier
         if let frequency = navaid.frequencyValue { wp.frequency = frequency }
-        if wp.altitude == nil, let elevation = navaid.elevationFeet { wp.altitude = Double(elevation) }
+        if wp.altitude == nil, isRouteEndpoint(wp), let elevation = navaid.elevationFeet { wp.altitude = Double(elevation) }
     }
 
     /// Name the waypoint after a VFR reporting point + adopt its position/elevation. (v4.1.0 ③)
     private func applyReportingPoint(_ rp: ReportingPoint, to wp: inout FlightPlanWaypoint) {
         if let name = rp.name, !name.isEmpty { wp.name = name }
         wp.coordinate = rp.coordinate
-        if wp.altitude == nil, let elevation = rp.elevationFeetMSL { wp.altitude = Double(elevation) }
+        if wp.altitude == nil, isRouteEndpoint(wp), let elevation = rp.elevationFeetMSL { wp.altitude = Double(elevation) }
     }
 
     /// Nearest reporting point eligible for snap — only when the RP layer is shown, within a tighter
@@ -755,6 +770,7 @@ struct FlightPlanMapBuilderView: View {
                     emptyRouteHint
                 } else {
                     if waypoints.count >= 2 { waypointListHeader }
+                    if hasNoPlannedAltitudes { noAltitudesBanner }
                     waypointList
                 }
             }
@@ -1210,7 +1226,7 @@ struct FlightPlanMapBuilderView: View {
         terrainTask = Task {
             try? await Task.sleep(nanoseconds: 400_000_000)
             guard !Task.isCancelled else { return }
-            let terrain = await elevationService.fetchRouteElevationsOptimized(waypoints: coords, totalSamples: 60)
+            let terrain = await elevationService.fetchRouteElevationsOptimized(waypoints: coords, spacingNM: 0.1)
             guard !Task.isCancelled else { return }
             terrainData = terrain
             minTerrainClearanceFt = Self.minClearanceFt(terrain: terrain, waypoints: wpts)
@@ -1244,6 +1260,18 @@ struct FlightPlanMapBuilderView: View {
                     .lineLimit(1)
             }
             Spacer()
+            // Set many altitudes at once — fixed, or a clearance above the terrain.
+            if waypoints.count >= 3 {
+                Button { showSetAltitudes = true } label: {
+                    Image(systemName: "arrow.up.and.down.text.horizontal")
+                        .font(.system(size: 13, weight: .semibold))
+                        .foregroundColor(.aviationGold)
+                        .frame(width: 30, height: 30)
+                        .background(Circle().fill(Color.subtleOverlay(0.06)))
+                        .frame(width: 44, height: 44)
+                }
+                .accessibilityLabel(L10n.Altitudes.title)
+            }
             Button {
                 withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.18)) { // (UX-18)
                     listEditMode = (listEditMode == .active ? .inactive : .active)
@@ -1261,6 +1289,32 @@ struct FlightPlanMapBuilderView: View {
         .padding(.horizontal, 16)
         .padding(.top, 8)
         .padding(.bottom, 2)
+    }
+
+    /// True when no en-route waypoint has a planned altitude — typically a GPX from a planner whose
+    /// `<ele>` is terrain, which the importer deliberately does not read as the plan.
+    private var hasNoPlannedAltitudes: Bool {
+        waypoints.count >= 3 && waypoints.dropFirst().dropLast().allSatisfy { $0.altitude == nil }
+    }
+
+    private var noAltitudesBanner: some View {
+        Button { showSetAltitudes = true } label: {
+            HStack(spacing: 8) {
+                Image(systemName: "exclamationmark.triangle.fill").foregroundColor(.aviationAmber)
+                Text(L10n.Altitudes.banner)
+                    .font(.system(size: 12, weight: .medium))
+                    .foregroundColor(.secondaryText)
+                Spacer()
+                Text(L10n.Altitudes.bannerAction)
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundColor(.aviationGold)
+            }
+            .padding(.horizontal, 12).padding(.vertical, 8)
+            .frame(minHeight: 44)
+            .background(Color.aviationAmber.opacity(0.12))
+        }
+        .buttonStyle(.plain)
+        .accessibilityElement(children: .combine)
     }
 
     /// Compact route summary for the system nav bar (replaces the dead title). (#4 Direction B)
@@ -1333,18 +1387,14 @@ struct FlightPlanMapBuilderView: View {
 
     // MARK: - Actions
 
-    /// Add an airport as a waypoint, carrying its identifier as name + call sign and the primary
-    /// (TWR/ATIS/first) frequency. The manager appends + recalculates; we then set the radio fields
+    /// Add an airport as a waypoint, carrying its identifier as name + call sign and its contact
+    /// frequency (`bestFieldFrequency`). The manager appends + recalculates; we then set the radio fields
     /// on the just-added waypoint.
     private func addAirport(_ airport: Airport) {
         flightPlanManager.addWaypoint(to: planId, coordinate: airport.coordinate, name: airport.ident)
         guard let p = plan, var wp = p.waypoints.last else { return }
-        let freqs = airportDataService.getFrequencies(for: airport.ident)
-        let primary = freqs.first { $0.type.uppercased().contains("TWR") }
-            ?? freqs.first { $0.type.uppercased().contains("ATIS") }
-            ?? freqs.first
         wp.callSign = airport.ident
-        wp.frequency = primary?.formattedFrequency
+        wp.frequency = airportDataService.bestFieldFrequency(for: airport.ident)?.formattedFrequency
         if let elevation = airport.elevation, wp.altitude == nil {
             wp.altitude = Double(elevation)
         }

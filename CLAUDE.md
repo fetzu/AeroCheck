@@ -75,6 +75,7 @@ AeroCheck/
 │   ├── FlightPlanMapBuilderView.swift # Map-first route builder (live drag, smart cheapest-insertion, interactive route profile)
 │   ├── FlightPlanEditorView.swift  # "Flight plan details" live editor sheet
 │   ├── WaypointEditorSheet.swift   # Waypoint editing sheet
+│   ├── SetAltitudesSheet.swift     # Builder: set many planned altitudes at once (fixed / terrain + clearance)
 │   ├── CompanionPairingView.swift  # Companion mode pairing (Wi-Fi Aware, iOS 26+)
 │   ├── CompanionFlightView.swift   # Companion viewer second-screen UI
 │   ├── EventConfirmationView.swift # Flight event confirmation UI (hold-to-confirm go-around / touch-and-go / full-stop)
@@ -128,7 +129,9 @@ AeroCheck/
 │   ├── ElevationService.swift      # Terrain elevation (swisstopo CH + Open-Meteo worldwide) for route profiles
 │   ├── SwisstopoTileOverlays.swift # Consolidated swisstopo tile overlays (ICAO / Segelflug / Landeskarte / SWISSIMAGE)
 │   ├── OpenAIPCacheManager.swift   # Atomic, crash-safe OpenAIP airspace cache writes
-│   ├── FlightPlanExportService.swift # GPX route export for avionics (Dynon/Garmin)
+│   ├── FlightPlanExportService.swift # Nav log PDF (multi-page) / Excel, GPX route export for avionics (Dynon/Garmin)
+│   ├── RouteRadioPlanner.swift     # PURE: who to talk to on each leg of a planned route (nav log Freq/C/S, remarks, Radio box)
+│   ├── AltitudePlanner.swift       # PURE: bulk planned altitudes (fixed / above terrain) + per-leg clearance
 │   ├── CompanionConnectivityManager.swift # Companion mode (Wi-Fi Aware, iOS 26+); kept available on 17.0 but inert below 26
 │   ├── ExternalRequest.swift       # Centralized outbound HTTP request helper
 │   ├── MarketingLocationProvider.swift # Simulated location for marketing/screenshot capture
@@ -393,6 +396,17 @@ ecosystem `CLAUDE.md` for the full roster.
 **JSON:** Full flight data with ISO8601 dates
 **ZIP:** Batch export of multiple flights
 **GPX Routes:** Navigation plan export for MFDs (Dynon, Garmin)
+**Nav log (PDF A4/A5, Excel):** each row is the leg ENDING at that waypoint (the Nav view's
+`legArriving(at:)` convention); the route is never truncated — it flows onto further sheets with the
+column headers repeated, and fuel · times · debriefing move to the last sheet when it doesn't fit.
+Freq/C/S, airspace remarks and the Radio box come from `RouteRadioPlanner` (OpenAIP airspace at the
+planned altitude, else the Swiss FIS sector; aerodromes matched by position). Wind/GS print what the
+EET was computed with (`FlightPlan.legPlanning(from:)`).
+
+**GPX import — what `<ele>` means depends on the creator.** AeroCheck's own files: planned altitude.
+SkyDemon: terrain; the plan is `<skd:level>` (level of the leg starting at the point, stored on the
+waypoint where that leg ends; endpoint aerodromes keep field elevation), idents in `<sym>`. Any other
+source: `<ele>` is not read as a plan — the builder offers "Set altitudes" instead.
 
 ## Testing Focus
 

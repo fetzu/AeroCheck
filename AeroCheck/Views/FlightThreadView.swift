@@ -145,6 +145,8 @@ struct FlightThreadView: View {
 
     @EnvironmentObject var threadManager: FlightThreadManager
     @EnvironmentObject var flightPlanManager: FlightPlanManager
+    @EnvironmentObject var openAIPDataService: OpenAIPDataService
+    @EnvironmentObject var airportDataService: AirportDataService
     @Environment(\.dismiss) private var dismiss
     @Environment(\.openURL) private var openURL
 
@@ -810,7 +812,11 @@ struct FlightThreadView: View {
             planEditorPlan = plan
         case .navLogReady:
             guard let plan = plan(for: thread) else { return }
-            navLogExport = FlightPlanExportService.exportToPDF(plan)
+            Task {
+                let radio = await RouteRadioPlanner.plan(for: plan, openAIP: openAIPDataService,
+                                                         airports: airportDataService)
+                navLogExport = FlightPlanExportService.exportToPDF(plan, radio: radio)
+            }
         case .feesPaid, .logbookEntry:
             numbersFlightId = thread.flightId
         default:

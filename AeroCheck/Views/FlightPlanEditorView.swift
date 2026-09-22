@@ -59,6 +59,11 @@ struct FlightPlanEditorView: View {
     // changes to the non-route fields auto-commit (debounced) — no Save button, no snapshot split.
     @State private var flightPlan: FlightPlan
     @State private var exportItem: FlightPlanExportItem?
+    /// Radio plan for the nav log (frequencies, remarks, Radio box), built from the airspace and
+    /// airport data when the route changes; also gives the export menu its page count.
+    @State private var radioPlan: RouteRadioPlanner.Plan?
+    @State private var navLogPages: Int?
+    @State private var missingAirspace: [String] = []
     @State private var icaoSectionExpanded = false
     @State private var logbookExpanded = false
     @State private var showingICAOCopied = false
@@ -131,6 +136,9 @@ struct FlightPlanEditorView: View {
         // Live: non-route edits auto-commit (debounced) — no Save, no snapshot of the route. (#5)
         .onChange(of: flightPlan) { _, _ in scheduleCommit() }
         .onDisappear { flushCommit() }
+        // Frequencies depend on the route and its altitudes only; notes and fuel don't move them.
+        // (Waypoint equality is by id, so the key spells out what matters.)
+        .task(id: navLogKey) { await refreshNavLogPreview() }
     }
 
     // MARK: - Live details helpers (#5)
@@ -179,9 +187,15 @@ struct FlightPlanEditorView: View {
         Menu {
             Button { exportFlightPlan(format: .gpx) } label: { Label("GPX", systemImage: "point.topleft.down.to.point.bottomright.curvepath") }
             Button { exportFlightPlan(format: .json) } label: { Label("JSON", systemImage: "doc.text") }
-            Button { exportFlightPlan(format: .xlsx) } label: { Label("Excel", systemImage: "tablecells") }
-            Button { exportFlightPlan(format: .pdf) } label: { Label("PDF · A4", systemImage: "doc.richtext") }
-            Button { exportFlightPlan(format: .pdfA5) } label: { Label("PDF · A5", systemImage: "doc.richtext") }
+            Button { exportFlightPlan(format: .xlsx) } label: {
+                Label { Text("Excel"); Text(L10n.Export.allWaypoints) } icon: { Image(systemName: "tablecells") }
+            }
+            Button { exportFlightPlan(format: .pdf) } label: {
+                Label { Text("PDF · A4"); Text(navLogSubtitle) } icon: { Image(systemName: "doc.richtext") }
+            }
+            Button { exportFlightPlan(format: .pdfA5) } label: {
+                Label { Text("PDF · A5"); Text(navLogSubtitle) } icon: { Image(systemName: "doc.richtext") }
+            }
             Divider()
             Button {
                 UIPasteboard.general.string = flightPlan.toICAOFlightPlan()
@@ -192,6 +206,35 @@ struct FlightPlanEditorView: View {
             Image(systemName: "square.and.arrow.up")
         }
         .disabled(flightPlan.waypoints.isEmpty)
+    }
+
+    /// "2 pages · 26 waypoints", plus any country the route crosses without airspace data — shown on
+    /// the menu so a multi-page or incomplete nav log is known before it is shared.
+    private var navLogSubtitle: String {
+        var parts: [String] = []
+        if let pages = navLogPages { parts.append(L10n.Export.pages(pages)) }
+        parts.append(L10n.Export.waypointCount(flightPlan.waypoints.count))
+        if !missingAirspace.isEmpty {
+            parts.append(L10n.Export.missingAirspaceShort(missingAirspace.joined(separator: ", ")))
+        }
+        return parts.joined(separator: " · ")
+    }
+
+    private var navLogKey: String {
+        flightPlan.waypoints.map { "\($0.latitude),\($0.longitude),\($0.altitude ?? -1),\($0.frequency ?? "")" }
+            .joined(separator: ";")
+    }
+
+    /// Rebuild the radio plan and page count for the current route.
+    private func refreshNavLogPreview() async {
+        let plan = flightPlan
+        let radio = await RouteRadioPlanner.plan(for: plan, openAIP: openAIPDataService, airports: airportDataService)
+        radioPlan = radio
+        missingAirspace = plan.waypoints.count >= 2
+            ? RouteRadioPlanner.countriesInside(plan.waypoints.map(\.coordinate))
+                .filter { !openAIPDataService.downloadedCountries.contains($0) }
+            : []
+        navLogPages = FlightPlanExportService.navLogPageCount(plan, radio: radio)
     }
 
     /// Debounced auto-commit of non-route edits to the live plan (not for a logged-plan snapshot).
@@ -732,11 +775,11 @@ struct FlightPlanEditorView: View {
         case .gpx:
             generatedData = FlightPlanExportService.exportToAvionicsGPX(flightPlan)
         case .xlsx:
-            generatedData = FlightPlanExportService.exportToXLSX(flightPlan)
+            generatedData = FlightPlanExportService.exportToXLSX(flightPlan, radio: radioPlan)
         case .pdf:
-            generatedData = FlightPlanExportService.exportToPDF(flightPlan, paperSize: .a4)
+            generatedData = FlightPlanExportService.exportToPDF(flightPlan, paperSize: .a4, radio: radioPlan)
         case .pdfA5:
-            generatedData = FlightPlanExportService.exportToPDF(flightPlan, paperSize: .a5)
+            generatedData = FlightPlanExportService.exportToPDF(flightPlan, paperSize: .a5, radio: radioPlan)
         }
 
         // Only proceed if data was generated successfully

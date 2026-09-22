@@ -1,6 +1,754 @@
 {
   "sourceLanguage": "en",
   "strings": {
+    "pdf.sectionRadio": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Radio · Airspace"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Radio · Espace aérien"
+          }
+        }
+      }
+    },
+    "pdf.radioStations": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Stations"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Stations"
+          }
+        }
+      }
+    },
+    "pdf.radioSource": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Source"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Source"
+          }
+        }
+      }
+    },
+    "pdf.continued": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "continued"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "suite"
+          }
+        }
+      }
+    },
+    "pdf.routeContinues": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Route continues on the next page"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "La route continue page suivante"
+          }
+        }
+      }
+    },
+    "pdf.page": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "page %1$d / %2$d"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "page %1$d / %2$d"
+          }
+        }
+      }
+    },
+    "export.inferredFrequency": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "† %1$@ is taken from %2$@: the airspace itself publishes no frequency in OpenAIP. Verify."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "† %1$@ est repris de %2$@ : l'espace aérien lui-même n'a pas de fréquence dans OpenAIP. À vérifier."
+          }
+        }
+      }
+    },
+    "export.missingAirspace": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No airspace data for %@: frequencies there are left blank."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pas de données d'espace aérien pour %@ : les fréquences y sont laissées vides."
+          }
+        }
+      }
+    },
+    "export.missingAirspaceShort": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "no airspace data for %@"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "pas de données d'espace aérien pour %@"
+          }
+        }
+      }
+    },
+    "export.noRadioData": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Only frequencies typed on the waypoints are shown."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Seules les fréquences saisies sur les points sont indiquées."
+          }
+        }
+      }
+    },
+    "export.noAirspaceData": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No airspace data downloaded: only aerodrome frequencies are filled in."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aucune donnée d'espace aérien téléchargée : seules les fréquences d'aérodrome sont indiquées."
+          }
+        }
+      }
+    },
+    "export.radioSource": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Airspace: %@ · aerodromes: OpenAIP / OurAirports."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Espace aérien : %@ · aérodromes : OpenAIP / OurAirports."
+          }
+        }
+      }
+    },
+    "export.verifyFrequencies": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Planning aid only: check the AIP / VFR Manual."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aide à la planification uniquement : vérifier l'AIP / le VFR Manual."
+          }
+        }
+      }
+    },
+    "export.onePage": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "1 page"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "1 page"
+          }
+        }
+      }
+    },
+    "export.pages": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%d pages"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%d pages"
+          }
+        }
+      }
+    },
+    "export.waypointCount": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%d waypoints"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%d points"
+          }
+        }
+      }
+    },
+    "export.allWaypoints": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "All waypoints, no page limit"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tous les points, sans limite de page"
+          }
+        }
+      }
+    },
+    "altitudes.title": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Set altitudes"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Définir les altitudes"
+          }
+        }
+      }
+    },
+    "altitudes.mode.terrain": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Above terrain"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Au-dessus du relief"
+          }
+        }
+      }
+    },
+    "altitudes.mode.fixed": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Fixed altitude"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Altitude fixe"
+          }
+        }
+      }
+    },
+    "altitudes.clearance": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Clearance"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Marge"
+          }
+        }
+      }
+    },
+    "altitudes.roundUp": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Round up to"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Arrondir à"
+          }
+        }
+      }
+    },
+    "altitudes.basis": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Terrain measured"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Relief mesuré"
+          }
+        }
+      }
+    },
+    "altitudes.basis.legs": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Highest terrain on the legs either side"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Relief le plus haut sur les branches de part et d'autre"
+          }
+        }
+      }
+    },
+    "altitudes.basis.ground": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ground at the waypoint"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sol au point"
+          }
+        }
+      }
+    },
+    "altitudes.altitudeField": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Altitude (ft AMSL)"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Altitude (ft AMSL)"
+          }
+        }
+      }
+    },
+    "altitudes.col.waypoint": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Waypoint"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Point"
+          }
+        }
+      }
+    },
+    "altitudes.col.now": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Now"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Actuelle"
+          }
+        }
+      }
+    },
+    "altitudes.col.new": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "New"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nouvelle"
+          }
+        }
+      }
+    },
+    "altitudes.col.clearance": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Min clearance"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Marge min"
+          }
+        }
+      }
+    },
+    "altitudes.col.airspace": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Leg enters"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "La branche entre dans"
+          }
+        }
+      }
+    },
+    "altitudes.summary.lowest": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Lowest clearance %1$@ ft, %2$@ → %3$@"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Marge la plus faible %1$@ ft, %2$@ → %3$@"
+          }
+        }
+      }
+    },
+    "altitudes.summary.busts": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%d legs under 150 m"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%d branches sous 150 m"
+          }
+        }
+      }
+    },
+    "altitudes.summary.clear": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "every leg clears 150 m"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "chaque branche passe à plus de 150 m"
+          }
+        }
+      }
+    },
+    "altitudes.summary.enters": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Enters: %@"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Entre dans : %@"
+          }
+        }
+      }
+    },
+    "altitudes.apply": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Apply to %d"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Appliquer à %d"
+          }
+        }
+      }
+    },
+    "altitudes.loading": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Fetching terrain…"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chargement du relief…"
+          }
+        }
+      }
+    },
+    "altitudes.terrainUnavailable": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Terrain unavailable (offline?). Use a fixed altitude."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Relief indisponible (hors ligne ?). Utilisez une altitude fixe."
+          }
+        }
+      }
+    },
+    "altitudes.footnote": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Departure and destination keep their altitude. The first and last legs are drawn as straight climbs and descents, so their clearance depends on climb performance."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Le départ et la destination gardent leur altitude. La première et la dernière branche sont tracées en montée et descente linéaires : leur marge dépend des performances de montée."
+          }
+        }
+      }
+    },
+    "altitudes.climbOut": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "climb-out"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "montée initiale"
+          }
+        }
+      }
+    },
+    "altitudes.descent": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "descent"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "descente"
+          }
+        }
+      }
+    },
+    "altitudes.banner": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No planned altitudes"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aucune altitude prévue"
+          }
+        }
+      }
+    },
+    "altitudes.bannerAction": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Set altitudes…"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Définir les altitudes…"
+          }
+        }
+      }
+    },
+    "altitudes.selectAll": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Select all"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tout sélectionner"
+          }
+        }
+      }
+    },
     "Required" : {
       "localizations" : {
         "fr" : {
@@ -9003,23 +9751,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Ignorer"
-          }
-        }
-      }
-    },
-    "export.routeTruncated": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "⚠︎ Route truncated — %d further waypoint(s) omitted. Use the GPX export for the full route."
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "⚠︎ Route tronquée — %d point(s) de cheminement omis. Utilisez l'export GPX pour la route complète."
           }
         }
       }

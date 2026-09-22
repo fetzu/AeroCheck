@@ -1361,10 +1361,70 @@ enum L10n {
     }
 
     enum Export {
-        /// Shown in the XLSX/PDF nav log when the route exceeds the fixed table height. (SEC-C21)
-        static func routeTruncated(_ count: Int) -> String {
-            String(format: String(localized: "export.routeTruncated"), count)
+        /// Radio box footnote: a TMA with no published frequency borrows its CTR's.
+        static func inferredFrequency(_ callSign: String, _ source: String) -> String {
+            String(format: String(localized: "export.inferredFrequency"), callSign, source)
         }
+        /// Radio box: countries the route crosses with no airspace data on the device.
+        static func missingAirspace(_ countries: String) -> String {
+            String(format: String(localized: "export.missingAirspace"), countries)
+        }
+        static func missingAirspaceShort(_ countries: String) -> String {
+            String(format: String(localized: "export.missingAirspaceShort"), countries)
+        }
+        static let noRadioData = String(localized: "export.noRadioData")
+        static let noAirspaceData = String(localized: "export.noAirspaceData")
+        static func radioSource(_ source: String) -> String {
+            String(format: String(localized: "export.radioSource"), source)
+        }
+        static let verifyFrequencies = String(localized: "export.verifyFrequencies")
+        /// Export menu: "1 page" / "2 pages".
+        static func pages(_ count: Int) -> String {
+            count == 1 ? String(localized: "export.onePage") : String(format: String(localized: "export.pages"), count)
+        }
+        static func waypointCount(_ count: Int) -> String {
+            String(format: String(localized: "export.waypointCount"), count)
+        }
+        static let allWaypoints = String(localized: "export.allWaypoints")
+    }
+
+    /// The builder's "Set altitudes" sheet.
+    enum Altitudes {
+        static let title = String(localized: "altitudes.title")
+        static let modeTerrain = String(localized: "altitudes.mode.terrain")
+        static let modeFixed = String(localized: "altitudes.mode.fixed")
+        static let clearance = String(localized: "altitudes.clearance")
+        static let roundUp = String(localized: "altitudes.roundUp")
+        static let basis = String(localized: "altitudes.basis")
+        static let basisLegs = String(localized: "altitudes.basis.legs")
+        static let basisGround = String(localized: "altitudes.basis.ground")
+        static let altitudeField = String(localized: "altitudes.altitudeField")
+        static let columnWaypoint = String(localized: "altitudes.col.waypoint")
+        static let columnNow = String(localized: "altitudes.col.now")
+        static let columnNew = String(localized: "altitudes.col.new")
+        static let columnClearance = String(localized: "altitudes.col.clearance")
+        static let columnAirspace = String(localized: "altitudes.col.airspace")
+        static func lowest(_ feet: String, _ from: String, _ to: String) -> String {
+            String(format: String(localized: "altitudes.summary.lowest"), feet, from, to)
+        }
+        static func busts(_ count: Int) -> String {
+            String(format: String(localized: "altitudes.summary.busts"), count)
+        }
+        static let allClear = String(localized: "altitudes.summary.clear")
+        static func enters(_ names: String) -> String {
+            String(format: String(localized: "altitudes.summary.enters"), names)
+        }
+        static func apply(_ count: Int) -> String {
+            String(format: String(localized: "altitudes.apply"), count)
+        }
+        static let loading = String(localized: "altitudes.loading")
+        static let terrainUnavailable = String(localized: "altitudes.terrainUnavailable")
+        static let footnote = String(localized: "altitudes.footnote")
+        static let climbOut = String(localized: "altitudes.climbOut")
+        static let descent = String(localized: "altitudes.descent")
+        static let banner = String(localized: "altitudes.banner")
+        static let bannerAction = String(localized: "altitudes.bannerAction")
+        static let selectAll = String(localized: "altitudes.selectAll")
     }
 
     enum PDF {
@@ -1383,6 +1443,14 @@ enum L10n {
         static let counterStart = String(localized: "pdf.counterStart")
         static let counterStop = String(localized: "pdf.counterStop")
         static let landings = String(localized: "pdf.landings")
+        static let sectionRadio = String(localized: "pdf.sectionRadio")
+        static let radioStations = String(localized: "pdf.radioStations")
+        static let radioSource = String(localized: "pdf.radioSource")
+        static let continued = String(localized: "pdf.continued")
+        static let routeContinues = String(localized: "pdf.routeContinues")
+        static func page(_ number: Int, _ count: Int) -> String {
+            String(format: String(localized: "pdf.page"), number, count)
+        }
     }
 
     enum Nav {

@@ -269,6 +269,19 @@ class FlightPlanManager: ObservableObject {
         updateFlightPlan(plan)
     }
 
+    /// Set many planned altitudes in one write (the builder's "Set altitudes"), so the route is
+    /// recalculated and saved once rather than once per waypoint.
+    func setAltitudes(_ altitudes: [UUID: Double], in planId: UUID) {
+        guard var plan = flightPlans.first(where: { $0.id == planId }), !altitudes.isEmpty else { return }
+        for i in plan.waypoints.indices {
+            if let altitude = altitudes[plan.waypoints[i].id], altitude.isFinite {
+                plan.waypoints[i].altitude = altitude
+            }
+        }
+        plan.calculateRouteData()
+        updateFlightPlan(plan)
+    }
+
     /// Update a waypoint in a flight plan
     func updateWaypoint(_ waypoint: FlightPlanWaypoint, in planId: UUID) {
         guard var plan = flightPlans.first(where: { $0.id == planId }) else { return }

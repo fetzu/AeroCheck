@@ -103,11 +103,13 @@ struct FlightPlanWaypoint: Identifiable, Codable, Equatable {
             return nil
         }
 
-        let minutes = hasLegEET ? Int(estimatedElapsedTime! / 60) : 0
+        // Rounded, not truncated: truncating turned a 6.7-minute leg into "6", so a column of leg EETs
+        // no longer added up to the ETOs printed beside it.
+        let minutes = hasLegEET ? Int((estimatedElapsedTime! / 60).rounded()) : 0
 
         // Check if there's extra time (+5 min for first/last waypoint)
         if hasExtra {
-            let extraMinutes = Int(legEETExtra! / 60)
+            let extraMinutes = Int((legEETExtra! / 60).rounded())
             if hasLegEET {
                 return "\(minutes) + \(extraMinutes)"
             } else {
@@ -124,12 +126,12 @@ struct FlightPlanWaypoint: Identifiable, Codable, Equatable {
         return (estimatedElapsedTime ?? 0) + (legEETExtra ?? 0)
     }
 
-    /// Formatted ETO string (e.g., "14:35")
+    /// Formatted ETO string (e.g., "14:35"), rounded to the nearest minute like the EET beside it.
     var formattedETO: String? {
         guard let eto = estimatedTimeOver else { return nil }
         let formatter = DateFormatter()
         formatter.dateFormat = "HH:mm"
-        return formatter.string(from: eto)
+        return formatter.string(from: eto.addingTimeInterval(30))
     }
 
     /// Formatted ATO string (e.g., "14:37")
@@ -613,6 +615,58 @@ struct FlightPlan: Identifiable, Codable, Equatable {
         return groundSpeed
     }
 
+    /// Everything the timing of one leg is computed from. `calculateRouteData` stores the results on
+    /// the waypoints; the printed nav log reads the wind and ground speed back from here, so its Wind
+    /// and GS columns show exactly what the EET beside them was computed with.
+    struct LegPlanning: Equatable {
+        let distanceNM: Double
+        let trueCourse: Double
+        let magneticCourse: Double
+        /// The planned true airspeed (`plannedGroundSpeed`, or the aircraft's default cruise speed).
+        let airspeedKt: Int
+        /// The wind the ground speed was corrected for. Nil when no wind is known, or when the wind
+        /// made the leg unflyable at that airspeed and timing fell back to the airspeed.
+        let wind: WindAloft?
+        let groundSpeedKt: Int
+
+        var legSeconds: TimeInterval {
+            groundSpeedKt > 0 ? distanceNM / Double(groundSpeedKt) * 3600 : 0
+        }
+    }
+
+    /// Course, distance, wind and ground speed for the leg LEAVING the waypoint at `index`, or nil
+    /// for the last waypoint and out-of-range indices.
+    ///
+    /// `plannedGroundSpeed` is treated as the leg's planned AIRSPEED and corrected for wind to get the
+    /// ground speed timing actually needs. That is what the value already is:
+    /// `FlightPlanManager.addWaypoint` seeds it from `defaultCruiseSpeed`, an airspeed. Dividing
+    /// distance by it directly silently assumed zero wind on every leg, which is exactly the error a
+    /// flight plan exists to avoid. On a 100 kt aircraft a 20 kt wind moves a leg's ETA by ±20%.
+    ///
+    /// Falls back to the raw value when no wind is known, or when the wind makes the leg unflyable at
+    /// that airspeed, rather than inventing a number.
+    func legPlanning(from index: Int) -> LegPlanning? {
+        guard index >= 0, index < waypoints.count - 1 else { return nil }
+        let from = waypoints[index].coordinate
+        let to = waypoints[index + 1].coordinate
+        let distanceNM = CLLocation(latitude: from.latitude, longitude: from.longitude)
+            .distance(from: CLLocation(latitude: to.latitude, longitude: to.longitude)) / 1852.0
+        let trueCourse = from.bearing(to: to)
+        // Per-leg declination from the nearest navaid (v4.1.0), falling back to the Switzerland
+        // constant when no navaid data is near.
+        let declination = FlightPlan.magneticDeclinationProvider?(from) ?? FlightPlan.defaultMagneticDeclination
+        let magneticCourse = (trueCourse - declination + 360).truncatingRemainder(dividingBy: 360)
+
+        let airspeed = waypoints[index].plannedGroundSpeed ?? FlightPlan.defaultCruiseSpeed(for: aircraftTypeId)
+        let wind = FlightPlan.legWind(for: waypoints[index], at: from)
+        let corrected = wind.flatMap {
+            FlightPlan.windCorrectedGroundSpeed(trueAirspeedKt: Double(airspeed), trueCourseDeg: trueCourse, wind: $0)
+        }
+        return LegPlanning(distanceNM: distanceNM, trueCourse: trueCourse, magneticCourse: magneticCourse,
+                           airspeedKt: airspeed, wind: corrected == nil ? nil : wind,
+                           groundSpeedKt: corrected.map { Int($0.rounded()) } ?? airspeed)
+    }
+
     /// Calculate magnetic course and distance between consecutive waypoints
     mutating func calculateRouteData() {
         guard waypoints.count >= 2 else { return }
@@ -623,51 +677,11 @@ struct FlightPlan: Identifiable, Codable, Equatable {
         var cumulativeEETTotal: TimeInterval = 0
 
         for i in 0..<waypoints.count {
-            if i < waypoints.count - 1 {
-                let from = waypoints[i].coordinate
-                let to = waypoints[i + 1].coordinate
-
-                // Calculate distance
-                let fromLocation = CLLocation(latitude: from.latitude, longitude: from.longitude)
-                let toLocation = CLLocation(latitude: to.latitude, longitude: to.longitude)
-                let distanceMeters = fromLocation.distance(from: toLocation)
-                let distanceNM = distanceMeters / 1852.0
-                waypoints[i].distance = distanceNM
-
-                // Calculate true course
-                let trueCourse = from.bearing(to: to)
-
-                // Convert to magnetic course — per-leg declination from the nearest navaid (v4.1.0),
-                // falling back to the Switzerland constant when no navaid data is near.
-                let declination = FlightPlan.magneticDeclinationProvider?(from) ?? FlightPlan.defaultMagneticDeclination
-                let magneticCourse = (trueCourse - declination + 360).truncatingRemainder(dividingBy: 360)
-                waypoints[i].magneticCourse = magneticCourse
-
-                // Calculate EET for this leg (time to next waypoint only).
-                //
-                // `plannedGroundSpeed` is treated as the leg's planned AIRSPEED and corrected for
-                // wind to get the ground speed timing actually needs. That is what the value already
-                // is: `FlightPlanManager.addWaypoint` seeds it from `defaultCruiseSpeed`, an
-                // airspeed. Dividing distance by it directly — as this did — silently assumed zero
-                // wind on every leg, which is exactly the error a flight plan exists to avoid. On a
-                // 100 kt aircraft a 20 kt wind moves a leg's ETA by ±20%.
-                //
-                // Falls back to the raw value when no wind is known, or when the wind makes the leg
-                // unflyable at that airspeed, rather than inventing a number.
-                let plannedAirspeed = waypoints[i].plannedGroundSpeed
-                    ?? FlightPlan.defaultCruiseSpeed(for: aircraftTypeId)
-                let corrected = FlightPlan.legWind(for: waypoints[i], at: from).flatMap {
-                    FlightPlan.windCorrectedGroundSpeed(trueAirspeedKt: Double(plannedAirspeed),
-                                                        trueCourseDeg: trueCourse,
-                                                        wind: $0)
-                }
-                let groundSpeed = corrected.map { Int($0.rounded()) } ?? plannedAirspeed
-                var legEET: TimeInterval = 0
-                if groundSpeed > 0 {
-                    let legTimeHours = distanceNM / Double(groundSpeed)
-                    legEET = legTimeHours * 3600
-                }
-                waypoints[i].estimatedElapsedTime = legEET
+            if i < waypoints.count - 1, let leg = legPlanning(from: i) {
+                waypoints[i].distance = leg.distanceNM
+                waypoints[i].magneticCourse = leg.magneticCourse
+                waypoints[i].estimatedElapsedTime = leg.legSeconds
+                let legEET = leg.legSeconds
 
                 // Add +5 minutes to first waypoint (departure)
                 if i == 0 {
@@ -1158,6 +1172,18 @@ class FlightPlanGPXParser: NSObject, XMLParserDelegate {
     /// Set if the route exceeds the hard waypoint cap — rejected, not silently truncated. (SEC-13)
     private var hasTooManyWaypoints = false
 
+    /// `<gpx creator="…">` — decides what `<ele>` means (see `resolveAltitudes`).
+    private var creator = ""
+    // Per-point raw values, resolved into planned altitudes once the whole route is known.
+    private var currentSym: String?
+    private var currentEleFeet: Double?
+    private var currentLevelFeet: Double?
+    private var currentExplicitAltitude: Double?
+    private var syms: [String?] = []
+    private var eleFeet: [Double?] = []
+    private var levelsFeet: [Double?] = []
+    private var explicitAltitudes: [Double?] = []
+
     private let dateFormatter = ISO8601DateFormatter()
 
     init(data: Data) {
@@ -1183,9 +1209,15 @@ class FlightPlanGPXParser: NSObject, XMLParserDelegate {
         currentText = ""
         self.attributes = attributeDict
 
-        if elementName == "rte" {
+        if elementName == "gpx" {
+            creator = attributeDict["creator"] ?? ""
+        } else if elementName == "rte" {
             flightPlan = FlightPlan()
         } else if elementName == "rtept" {
+            currentSym = nil
+            currentEleFeet = nil
+            currentLevelFeet = nil
+            currentExplicitAltitude = nil
             if let latStr = attributeDict["lat"], let lonStr = attributeDict["lon"],
                let lat = Double(latStr), let lon = Double(lonStr),
                GeoValidation.isValidLatLon(lat, lon) {
@@ -1196,6 +1228,62 @@ class FlightPlanGPXParser: NSObject, XMLParserDelegate {
                 // A rtept with missing/unparseable/out-of-range coordinates invalidates the import.
                 hasInvalidCoordinate = true
             }
+        } else if elementName == "skd:level", currentWaypoint != nil {
+            currentLevelFeet = Self.skyDemonLevelFeet(type: attributeDict["type"], value: attributeDict["value"])
+        }
+    }
+
+    /// SkyDemon's `<skd:level type="A" value="5000"/>`: `A` is an altitude in ft AMSL, `F` a flight
+    /// level. Anything else is not a planned level we can represent.
+    static func skyDemonLevelFeet(type: String?, value: String?) -> Double? {
+        guard let raw = value.flatMap(Double.init), raw.isFinite else { return nil }
+        switch type?.uppercased() {
+        case "A": return raw
+        case "F": return raw * 100
+        default: return nil
+        }
+    }
+
+    /// A GPX `<sym>` that reads as an identifier (DEKAM, LSZQ, W) rather than a Garmin-style icon name
+    /// ("Waypoint", "Flag, Blue"). SkyDemon leaves `<name>` empty for published points and puts the
+    /// ident here, which is why six points of an imported route came through nameless.
+    static func isIdentLike(_ sym: String) -> Bool {
+        sym.range(of: "^[A-Z0-9]{1,7}$", options: .regularExpression) != nil
+    }
+
+    /// Who wrote the file decides what `<ele>` means. The GPX schema defines it as the elevation of the
+    /// point, which is terrain, and planners such as SkyDemon write exactly that, keeping the planned
+    /// level in an extension. Only AeroCheck's own files put the planned altitude in `<ele>`. Reading
+    /// terrain as the plan is what turned an imported SkyDemon route into a ground-hugging profile.
+    ///
+    /// - AeroCheck's `ac:altitudeFeet` always wins.
+    /// - AeroCheck's own GPX (the avionics export has no extension): `<ele>` is the planned altitude.
+    /// - SkyDemon: `skd:level` is the level of the leg STARTING at that point (the last point has
+    ///   none). It is stored on the waypoint where that leg ends, so the nav log's Alt column (the leg
+    ///   arriving at the row's waypoint) matches SkyDemon's PLOG row for row. A departure or
+    ///   destination that is an aerodrome keeps its field elevation, from `<ele>`.
+    /// - Anything else: `<ele>` is not trusted as a plan. The altitude stays empty and the builder
+    ///   offers "Set altitudes" instead of drawing the route along the ground.
+    private func resolveAltitudes() -> [Double?] {
+        let n = waypoints.count
+        let isAeroCheck = creator.range(of: "a[eé]rocheck", options: [.regularExpression, .caseInsensitive]) != nil
+        let hasLevels = levelsFeet.contains { $0 != nil }
+        return (0..<n).map { i in
+            var altitude = explicitAltitudes[i]
+            if altitude == nil {
+                if isAeroCheck {
+                    altitude = eleFeet[i]
+                } else if hasLevels {
+                    let isAerodrome = syms[i].map { $0.range(of: "^[A-Z]{4}$", options: .regularExpression) != nil } ?? false
+                    if (i == 0 || i == n - 1) && isAerodrome {
+                        altitude = eleFeet[i]
+                    } else {
+                        altitude = i > 0 ? levelsFeet[i - 1] : levelsFeet[0]
+                    }
+                }
+            }
+            // SEC-C17: a non-finite or absurd altitude silently disables the terrain-clearance warning.
+            return altitude.flatMap { PlausibleRange.isPlausible($0, in: PlausibleRange.altitudeFeet) ? $0 : nil }
         }
     }
 
@@ -1240,17 +1328,18 @@ class FlightPlanGPXParser: NSObject, XMLParserDelegate {
                 flightPlan?.remarks = text
             }
         case "ele":
-            // GPX elevation is in meters, convert to feet
-            if let meters = Double(text), meters.isFinite {
-                // SEC-C17: a non-finite planned altitude makes RouteAltitudeProfile.altitude(atNM:)
-                // return Infinity/NaN, and the terrain-clearance check (`alt - terrain < warnFt`)
-                // is never true against Infinity — so the leg silently stops warning instead of
-                // erroring. A suppressed clearance warning in a planning tool is worse than none.
-                let feet = meters / 0.3048
-                currentWaypoint?.altitude = PlausibleRange.isPlausible(feet, in: PlausibleRange.altitudeFeet) ? feet : nil
+            // GPX elevation is in meters. What it MEANS depends on who wrote the file, so it is only
+            // recorded here and resolved in `resolveAltitudes` once the whole route is known.
+            // SEC-C17: a non-finite planned altitude makes RouteAltitudeProfile.altitude(atNM:)
+            // return Infinity/NaN, and the terrain-clearance check (`alt - terrain < warnFt`) is
+            // never true against Infinity — so the leg silently stops warning instead of erroring.
+            if currentWaypoint != nil, let meters = Double(text), meters.isFinite {
+                currentEleFeet = meters / 0.3048
             }
+        case "sym":
+            if currentWaypoint != nil, !text.isEmpty { currentSym = text }
         case "altitudeFeet":
-            currentWaypoint?.altitude = GeoValidation.finite(Double(text))
+            currentExplicitAltitude = GeoValidation.finite(Double(text))
         case "frequency":
             currentWaypoint?.frequency = text
         case "callSign":
@@ -1264,15 +1353,25 @@ class FlightPlanGPXParser: NSObject, XMLParserDelegate {
         case "eet":
             currentWaypoint?.estimatedElapsedTime = TimeInterval(text)
         case "rtept":
-            if let waypoint = currentWaypoint {
+            if var waypoint = currentWaypoint {
                 if waypoints.count >= FlightDataLimits.maxRouteWaypoints {
                     hasTooManyWaypoints = true
                 } else {
+                    if waypoint.name.isEmpty, let sym = currentSym, Self.isIdentLike(sym) {
+                        waypoint.name = sym
+                    }
                     waypoints.append(waypoint)
+                    syms.append(currentSym)
+                    eleFeet.append(currentEleFeet)
+                    levelsFeet.append(currentLevelFeet)
+                    explicitAltitudes.append(currentExplicitAltitude)
                 }
             }
             currentWaypoint = nil
         case "rte":
+            for (i, altitude) in resolveAltitudes().enumerated() {
+                waypoints[i].altitude = altitude
+            }
             flightPlan?.waypoints = waypoints
             flightPlan?.calculateRouteData()
         case "time":

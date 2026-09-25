@@ -501,7 +501,7 @@ struct FlightThreadView: View {
                     } label: {
                         HStack(spacing: 6) {
                             Text("\(index + 1)")
-                                .font(.system(size: 11, weight: .bold, design: .monospaced))
+                                .font(.aero(size: 11, weight: .bold, design: .monospaced))
                                 .foregroundColor(.aviationGold)
                             Text(leg.routeLabel)
                                 .scaledFont(size: 12, design: .monospaced, relativeTo: .caption)
@@ -509,7 +509,7 @@ struct FlightThreadView: View {
                                 .lineLimit(1)
                             if flown {
                                 Image(systemName: "checkmark")
-                                    .font(.system(size: 10, weight: .bold))
+                                    .font(.aero(size: 10, weight: .bold))
                                     .foregroundColor(.aviationGreen)
                             }
                         }

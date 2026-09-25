@@ -52,7 +52,7 @@ struct DataStorageSettingsView: View {
                                                  subtitle: L10n.DataStorage.manageRegionsDetail,
                                                  tint: tint)
                                 Image(systemName: "chevron.right")
-                                    .font(.system(size: 14, weight: .semibold))
+                                    .font(.aero(size: 14, weight: .semibold))
                                     .foregroundColor(.dimText.opacity(0.7))
                                     .accessibilityHidden(true)
                             }
@@ -134,7 +134,7 @@ struct DataStorageSettingsView: View {
                     // "29 841 obstacles · 152 navaids" explains a big number better than the number
                     // does, and makes it obvious which layer is responsible.
                     Text(breakdown)
-                        .font(.caption2)
+                        .font(.aero(.caption2))
                         .foregroundColor(.dimText)
                         .frame(maxWidth: .infinity, alignment: .leading)
                         .fixedSize(horizontal: false, vertical: true)
@@ -177,21 +177,21 @@ struct DataStorageSettingsView: View {
             StatusIndicator(indicatorStatus, size: 11, label: dataSet.displayName)
             VStack(alignment: .leading, spacing: 3) {
                 Text(dataSet.displayName)
-                    .font(.subheadline)
+                    .font(.aero(.subheadline))
                     .foregroundColor(.primaryText)
                 Text(dataSet.detail)
-                    .font(.caption2)
+                    .font(.aero(.caption2))
                     .foregroundColor(.dimText)
                     .fixedSize(horizontal: false, vertical: true)
                 Text(subtitle(for: dataSet, statusLabel: statusLabel))
-                    .font(.caption)
+                    .font(.aero(.caption))
                     .foregroundColor(.secondaryText)
                     .fixedSize(horizontal: false, vertical: true)
             }
             Spacer(minLength: 8)
             if let size = sizeString(for: dataSet) {
                 Text(size)
-                    .font(.caption.monospacedDigit())
+                    .font(.aero(.caption).monospacedDigit())
                     .foregroundColor(.dimText)
             }
             rowMenu(dataSet)
@@ -273,7 +273,7 @@ struct DataStorageSettingsView: View {
                 Text(L10n.DataStorage.openAIPAttribution)
             }
         }
-        .font(.caption2)
+        .font(.aero(.caption2))
         .foregroundColor(.dimText)
         .tint(.aviationGold)
         .fixedSize(horizontal: false, vertical: true)
@@ -287,7 +287,7 @@ struct DataStorageSettingsView: View {
             let cached = checklists
             if cached.isEmpty {
                 Text(L10n.DataStorage.noChecklists)
-                    .font(.caption)
+                    .font(.aero(.caption))
                     .foregroundColor(.secondaryText)
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .padding(.horizontal, 14)
@@ -328,8 +328,8 @@ struct DataStorageSettingsView: View {
         VStack(alignment: .leading, spacing: 7) {
             if let aeroclub = group.aeroclub {
                 HStack(spacing: 6) {
-                    Image(systemName: "building.2").font(.caption)
-                    Text(aeroclub).font(.caption.weight(.semibold))
+                    Image(systemName: "building.2").font(.aero(.caption))
+                    Text(aeroclub).font(.aero(.caption).weight(.semibold))
                 }
                 .foregroundColor(.aviationGold)
             }
@@ -342,7 +342,7 @@ struct DataStorageSettingsView: View {
                         if aircraft.isPremium {
                             Image(systemName: "star.fill").scaledFont(size: 9, relativeTo: .caption2).foregroundColor(.aviationGold)
                         }
-                        Text(aircraft.modelName).font(.caption).foregroundColor(.secondaryText).lineLimit(1)
+                        Text(aircraft.modelName).font(.aero(.caption)).foregroundColor(.secondaryText).lineLimit(1)
                         Spacer(minLength: 6)
                         HStack(spacing: 5) {
                             ForEach(aircraft.checklistLanguages, id: \.self) { LanguageFlagView(languageCode: $0) }
@@ -352,7 +352,7 @@ struct DataStorageSettingsView: View {
                     Text(aircraft.isDownloaded
                          ? "\(L10n.Settings.version(aircraft.version)) · \(aircraft.lastUpdated)"
                          : L10n.DataStorage.statusMissing)
-                        .font(.caption2)
+                        .font(.aero(.caption2))
                         .foregroundColor(aircraft.isDownloaded ? .dimText : .aviationAmber)
                 }
                 .opacity(aircraft.isDownloaded ? 1 : 0.75)

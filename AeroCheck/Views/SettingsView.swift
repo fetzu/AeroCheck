@@ -607,7 +607,7 @@ struct TransactionDebugView: View {
                     VStack(spacing: 16) {
                         ProgressView()
                         Text("Loading transactions...")
-                            .font(.caption)
+                            .font(.aero(.caption))
                             .foregroundColor(.secondary)
                     }
                 } else if transactions.isEmpty {
@@ -616,9 +616,9 @@ struct TransactionDebugView: View {
                             .scaledFont(size: 60, relativeTo: .largeTitle)
                             .foregroundColor(.secondary)
                         Text("No Transactions Found")
-                            .font(.headline)
+                            .font(.aero(.headline))
                         Text("This could mean:\n• You're not signed into an Apple ID\n• No subscriptions have been purchased\n• Testing with StoreKit Configuration file")
-                            .font(.caption)
+                            .font(.aero(.caption))
                             .foregroundColor(.secondary)
                             .multilineTextAlignment(.center)
                             .padding(.horizontal, 32)
@@ -697,42 +697,42 @@ struct TransactionDebugRow: View {
         VStack(alignment: .leading, spacing: 8) {
             HStack {
                 Text(transaction.productID)
-                    .font(.system(.body, design: .monospaced))
+                    .font(.aero(.body, design: .monospaced))
                     .fontWeight(.semibold)
                 Spacer()
                 Text(transaction.statusText)
-                    .font(.caption)
+                    .font(.aero(.caption))
                     .fontWeight(.medium)
             }
 
             HStack {
                 Text("Environment")
-                    .font(.caption)
+                    .font(.aero(.caption))
                     .foregroundColor(.secondary)
                 Spacer()
                 Text(transaction.environmentText)
-                    .font(.caption)
+                    .font(.aero(.caption))
                     .foregroundColor(.secondary)
             }
 
             HStack {
                 Text("Purchased")
-                    .font(.caption)
+                    .font(.aero(.caption))
                     .foregroundColor(.secondary)
                 Spacer()
                 Text(transaction.purchaseDate.formatted(date: .abbreviated, time: .shortened))
-                    .font(.caption)
+                    .font(.aero(.caption))
                     .foregroundColor(.secondary)
             }
 
             if let expirationDate = transaction.expirationDate {
                 HStack {
                     Text("Expires")
-                        .font(.caption)
+                        .font(.aero(.caption))
                         .foregroundColor(.secondary)
                     Spacer()
                     Text(expirationDate.formatted(date: .abbreviated, time: .shortened))
-                        .font(.caption)
+                        .font(.aero(.caption))
                         .foregroundColor(transaction.isActive ? .green : .red)
                 }
             }
@@ -740,7 +740,7 @@ struct TransactionDebugRow: View {
             VStack(alignment: .leading, spacing: 4) {
                 HStack {
                     Text("Transaction ID")
-                        .font(.caption2)
+                        .font(.aero(.caption2))
                         .foregroundColor(.secondary)
                     Spacer()
                     Text(transaction.id)
@@ -757,7 +757,7 @@ struct TransactionDebugRow: View {
                 // suffix that is still enough to correlate with a server log line.
                 HStack {
                     Text("Original ID")
-                        .font(.caption2)
+                        .font(.aero(.caption2))
                         .foregroundColor(.secondary)
                     Spacer()
                     Text(SubscriptionManager.redactedIdentifier(transaction.originalID))
@@ -770,14 +770,14 @@ struct TransactionDebugRow: View {
 
             if let error = transaction.verificationError {
                 Text("Verification Error: \(error)")
-                    .font(.caption2)
+                    .font(.aero(.caption2))
                     .foregroundColor(.red)
                     .padding(.top, 4)
             }
 
             if let revocationDate = transaction.revocationDate {
                 Text("Revoked on \(revocationDate.formatted(date: .abbreviated, time: .shortened))")
-                    .font(.caption2)
+                    .font(.aero(.caption2))
                     .foregroundColor(.red)
                     .padding(.top, 4)
             }
@@ -802,9 +802,9 @@ struct SubscriptionDebugLogView: View {
                             .scaledFont(size: 60, relativeTo: .largeTitle)
                             .foregroundColor(.secondary)
                         Text("No Logs Yet")
-                            .font(.headline)
+                            .font(.aero(.headline))
                         Text("Logs will appear here when you sync with the server or perform subscription operations.")
-                            .font(.caption)
+                            .font(.aero(.caption))
                             .foregroundColor(.secondary)
                             .multilineTextAlignment(.center)
                             .padding(.horizontal, 32)
@@ -842,15 +842,15 @@ struct DebugLogRow: View {
         VStack(alignment: .leading, spacing: 4) {
             HStack {
                 Text(log.level.emoji)
-                    .font(.body)
+                    .font(.aero(.body))
                 Text(log.timestamp.formatted(date: .omitted, time: .standard))
-                    .font(.caption)
+                    .font(.aero(.caption))
                     .foregroundColor(.secondary)
                 Spacer()
             }
 
             Text(log.message)
-                .font(.system(.caption, design: .monospaced))
+                .font(.aero(.caption, design: .monospaced))
                 .foregroundColor(colorForLevel(log.level))
                 .fixedSize(horizontal: false, vertical: true)
         }
@@ -905,7 +905,7 @@ struct PremiumAircraftListView: View {
                     VStack(spacing: 16) {
                         ProgressView()
                         Text(L10n.Premium.loadingAircraft)
-                            .font(.caption)
+                            .font(.aero(.caption))
                             .foregroundColor(.secondary)
                     }
                     Spacer()
@@ -917,9 +917,9 @@ struct PremiumAircraftListView: View {
                         .scaledFont(size: 60, relativeTo: .largeTitle)
                         .foregroundColor(.secondary)
                     Text(L10n.Premium.noAircraftAvailable)
-                        .font(.headline)
+                        .font(.aero(.headline))
                     Text(L10n.Premium.checkBackLater)
-                        .font(.caption)
+                        .font(.aero(.caption))
                         .foregroundColor(.secondary)
                 }
                 .frame(maxWidth: .infinity)
@@ -962,7 +962,7 @@ struct PremiumAircraftListView: View {
                         if !group.aeroclub.isEmpty {
                             HStack(spacing: 6) {
                                 Image(systemName: "building.2")
-                                    .font(.caption)
+                                    .font(.aero(.caption))
                                 Text(group.aeroclub)
                             }
                         }
@@ -1013,17 +1013,17 @@ struct PremiumAircraftRow: View {
                 VStack(alignment: .leading, spacing: 6) {
                     HStack(spacing: 6) {
                         Text(aircraft.registration)
-                            .font(.system(.body, design: .monospaced))
+                            .font(.aero(.body, design: .monospaced))
                             .fontWeight(.semibold)
                             .foregroundColor(.primary)
 
                         Image(systemName: "star.fill")
-                            .font(.caption)
+                            .font(.aero(.caption))
                             .foregroundColor(.aviationGold)
                     }
 
                     Text(aircraft.shortModelName)
-                        .font(.caption)
+                        .font(.aero(.caption))
                         .foregroundColor(.secondary)
 
                     if !aircraft.hasAccess {
@@ -1047,7 +1047,7 @@ struct PremiumAircraftRow: View {
 
                 if isSelected && aircraft.hasAccess {
                     Image(systemName: "checkmark.circle.fill")
-                        .font(.title3)
+                        .font(.aero(.title3))
                         .foregroundColor(.aviationGold)
                 }
             }

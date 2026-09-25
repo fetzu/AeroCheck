@@ -200,7 +200,7 @@ struct UpcomingFlightsList: View {
                 Button { onOpen(leg.id) } label: {
                     HStack(spacing: 8) {
                         Text("\(index + 1)")
-                            .font(.system(size: 10, weight: .bold, design: .monospaced))
+                            .font(.aero(size: 10, weight: .bold, design: .monospaced))
                             .foregroundColor(.aviationGold)
                             .frame(width: 12, alignment: .leading)
                         VStack(alignment: .leading, spacing: 2) {

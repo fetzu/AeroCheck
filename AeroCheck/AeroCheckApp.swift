@@ -48,6 +48,8 @@ struct AeroCheckApp: App {
     @Environment(\.scenePhase) private var scenePhase
 
     init() {
+        // B612 in the UIKit chrome SwiftUI draws: bar titles, segmented pickers, tab labels. (v6.0)
+        AeroAppearance.apply()
         // Initialize subscription manager first, then aircraft data service
         // Use deferLoadProducts to speed up initial launch - products will be loaded after view appears
         let subManager = SubscriptionManager(deferLoadProducts: true)
@@ -391,18 +393,18 @@ struct MapUpdateReminderSheet: View {
             VStack(spacing: 24) {
                 // Header icon
                 Image(systemName: "arrow.triangle.2.circlepath")
-                    .font(.system(size: 60))
+                    .font(.aero(size: 60))
                     .foregroundColor(.aviationGold)
                     .padding(.top, 40)
 
                 // Title
                 Text("ICAO Chart Update Available")
-                    .font(.system(size: 24, weight: .bold))
+                    .font(.aero(size: 24, weight: .bold))
                     .foregroundColor(.primaryText)
 
                 // Description
                 Text("SwissTopo has released a new version of the ICAO Aeronautical Chart. The chart is updated yearly in April. Update your cached chart to ensure accurate navigation data.")
-                    .font(.system(size: 16))
+                    .font(.aero(size: 16))
                     .foregroundColor(.secondaryText)
                     .multilineTextAlignment(.center)
                     .padding(.horizontal, 32)
@@ -410,11 +412,11 @@ struct MapUpdateReminderSheet: View {
                 // Current cache info
                 VStack(spacing: 8) {
                     Text("Current cache: \(offlineMapManager.cacheVersion)")
-                        .font(.system(size: 14))
+                        .font(.aero(size: 14))
                         .foregroundColor(.secondaryText)
 
                     Text("Downloaded: \(offlineMapManager.formattedCacheDate)")
-                        .font(.system(size: 14))
+                        .font(.aero(size: 14))
                         .foregroundColor(.secondaryText)
                 }
                 .padding(.top, 8)
@@ -429,11 +431,11 @@ struct MapUpdateReminderSheet: View {
                             .padding(.horizontal, 40)
 
                         Text("Updating tiles...")
-                            .font(.system(size: 14))
+                            .font(.aero(size: 14))
                             .foregroundColor(.secondaryText)
 
                         Text("\(offlineMapManager.downloadedTileCount) / \(offlineMapManager.totalTileCount)")
-                            .font(.system(size: 14, design: .monospaced))
+                            .font(.aero(size: 14, design: .monospaced))
                             .foregroundColor(.secondaryText)
                     }
                 }
@@ -445,7 +447,7 @@ struct MapUpdateReminderSheet: View {
                     VStack(spacing: 12) {
                         Button(action: updateNow) {
                             Text("Update Now")
-                                .font(.system(size: 17, weight: .semibold))
+                                .font(.aero(size: 17, weight: .semibold))
                                 .foregroundColor(.white)
                                 .frame(maxWidth: .infinity)
                                 .padding(.vertical, 16)
@@ -458,7 +460,7 @@ struct MapUpdateReminderSheet: View {
 
                         Button(action: remindLater) {
                             Text("Remind Me Next Time")
-                                .font(.system(size: 17, weight: .medium))
+                                .font(.aero(size: 17, weight: .medium))
                                 .foregroundColor(.aviationGold)
                                 .frame(maxWidth: .infinity)
                                 .padding(.vertical, 16)
@@ -467,7 +469,7 @@ struct MapUpdateReminderSheet: View {
 
                         Button(action: ignore) {
                             Text("Ignore")
-                                .font(.system(size: 15))
+                                .font(.aero(size: 15))
                                 .foregroundColor(.secondaryText)
                         }
                         .padding(.top, 8)
@@ -605,6 +607,8 @@ struct AppRootView<Content: View>: View {
             // The runtime light treatment flips this to `.light` so system controls (toggles, pickers),
             // materials and any default/semantic text render correctly on the light surfaces.
             .environment(\.colorScheme, AmbientPalette.isActive ? .light : .dark)
+            // B612 wherever a view sets no font of its own: lists, toggles, buttons. (v6.0)
+            .font(.aero(.body))
             .ambientCelebrationOverlay()
             // Publish the DEVICE's real appearance so the companion master streams the same theme the
             // iPad actually displays (not the force-dark window trait). (companion v2 — theme default fix)

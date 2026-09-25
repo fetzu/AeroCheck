@@ -155,7 +155,7 @@ struct PlanNewFlightView: View {
                         }
                         Spacer()
                         Image(systemName: "chevron.up.chevron.down")
-                            .font(.system(size: 12))
+                            .font(.aero(size: 12))
                             .foregroundColor(.dimText)
                     }
                 }
@@ -243,13 +243,13 @@ struct PlanNewFlightView: View {
             ForEach(Array(stops.enumerated()), id: \.offset) { index, _ in
                 HStack(spacing: 10) {
                     Text("\(index + 1)")
-                        .font(.system(size: 11, weight: .bold, design: .monospaced))
+                        .font(.aero(size: 11, weight: .bold, design: .monospaced))
                         .foregroundColor(.aviationGold)
                         .frame(width: 14, alignment: .leading)
                     TextField(L10n.Flights.identPlaceholder, text: binding(for: index))
                         .textInputAutocapitalization(.characters)
                         .autocorrectionDisabled()
-                        .font(.system(size: 17, weight: .semibold, design: .monospaced))
+                        .font(.aero(size: 17, weight: .semibold, design: .monospaced))
                         .foregroundColor(.primaryText)
                         .focused($focused, equals: index)
                         .padding(.horizontal, 10)
@@ -297,7 +297,7 @@ struct PlanNewFlightView: View {
                         Button { accept(airport) } label: {
                             HStack(spacing: 8) {
                                 Text(airport.ident)
-                                    .font(.system(size: 13, weight: .semibold, design: .monospaced))
+                                    .font(.aero(size: 13, weight: .semibold, design: .monospaced))
                                     .foregroundColor(.aviationGold)
                                     .frame(width: 46, alignment: .leading)
                                 Text(airport.name)

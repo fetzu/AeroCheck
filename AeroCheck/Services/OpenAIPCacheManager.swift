@@ -24,9 +24,15 @@ class OpenAIPCacheManager: ObservableObject {
 
     private let fileManager = FileManager.default
 
+    /// Where the tiles live, and the cache metadata beside them. Injectable because the test host IS
+    /// the app: on `.shared` the prune tests deleted every real cached tile outside Switzerland, then
+    /// removed the whole OpenAIP cache in tearDown.
+    private let persistence: DataPersistenceManager
+    private let defaults: UserDefaults
+
     /// Base directory for OpenAIP tile cache
     private var cacheDirectory: URL {
-        DataPersistenceManager.shared.mapTilesDirectory
+        persistence.mapTilesDirectory
             .appendingPathComponent("OpenAIP", isDirectory: true)
     }
 
@@ -36,15 +42,17 @@ class OpenAIPCacheManager: ObservableObject {
 
     // MARK: - Initialization
 
-    init() {
+    init(defaults: UserDefaults = .standard, persistence: DataPersistenceManager? = nil) {
+        self.defaults = defaults
+        self.persistence = persistence ?? DataPersistenceManager.shared
         loadCacheStatus()
     }
 
     // MARK: - Cache Status
 
     private func loadCacheStatus() {
-        cacheDate = UserDefaults.standard.object(forKey: cacheDateKey) as? Date
-        cachedCountries = UserDefaults.standard.stringArray(forKey: cachedCountriesKey) ?? []
+        cacheDate = defaults.object(forKey: cacheDateKey) as? Date
+        cachedCountries = defaults.stringArray(forKey: cachedCountriesKey) ?? []
         isCacheAvailable = cacheDate != nil && !cachedCountries.isEmpty
         Task {
             await calculateCacheSize()
@@ -194,8 +202,8 @@ class OpenAIPCacheManager: ObservableObject {
         // Save cache metadata
         if downloaded > 0 {
             cacheDate = Date()
-            UserDefaults.standard.set(cacheDate, forKey: cacheDateKey)
-            UserDefaults.standard.set(countries, forKey: cachedCountriesKey)
+            defaults.set(cacheDate, forKey: cacheDateKey)
+            defaults.set(countries, forKey: cachedCountriesKey)
             cachedCountries = countries
             isCacheAvailable = true
         }
@@ -385,8 +393,8 @@ class OpenAIPCacheManager: ObservableObject {
             cachedCountries = []
             isCacheAvailable = false
             cacheSizeBytes = 0
-            UserDefaults.standard.removeObject(forKey: cacheDateKey)
-            UserDefaults.standard.removeObject(forKey: cachedCountriesKey)
+            defaults.removeObject(forKey: cacheDateKey)
+            defaults.removeObject(forKey: cachedCountriesKey)
         } catch {
             downloadError = "Failed to delete cache: \(error.localizedDescription)"
         }

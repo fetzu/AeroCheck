@@ -7,29 +7,17 @@ import XCTest
 @MainActor
 final class SubscriptionReconcileTests: XCTestCase {
 
-    /// These tests drive grace/verification state through UserDefaults.standard (startGracePeriod,
-    /// confirmNoActiveSubscription). Clear those keys before AND after each test so state can't leak
-    /// between tests here or into any other suite that reads the same keys.
-    private func clearSubscriptionDefaults() {
-        let d = UserDefaults.standard
-        d.removeObject(forKey: "subscriptionLastVerificationDate")
-        d.removeObject(forKey: "subscriptionGracePeriodStart")
-    }
-
-    override func setUp() {
-        super.setUp()
-        clearSubscriptionDefaults()
-    }
-
-    override func tearDown() {
-        clearSubscriptionDefaults()
-        super.tearDown()
+    /// These tests drive grace/verification state (startGracePeriod, confirmNoActiveSubscription), so
+    /// each manager gets a defaults suite of its own. They used to run on `.standard` and clear both
+    /// keys before and after every test, which reset the real app's grace window on the simulator.
+    private func manager() -> SubscriptionManager {
+        SubscriptionManager(defaults: makeTestDefaults(), deferLoadProducts: true)
     }
 
     func testConfirmNoActiveSubscriptionClosesGraceWindow() {
         // The init's async work is queued on the main actor; this fully-synchronous test body runs
         // before it can fire, so the assertions are deterministic.
-        let sm = SubscriptionManager(deferLoadProducts: true)
+        let sm = manager()
 
         // Clean slate (this also downgrades to .notSubscribed), then simulate a transient-failure
         // grace window that is currently keeping premium content available.
@@ -48,7 +36,7 @@ final class SubscriptionReconcileTests: XCTestCase {
     /// Lifetime is a one-time, permanent entitlement: it grants premium with no grace window and is
     /// never gated on the offline re-verification window or "definitively denied".
     func testLifetimeStatusGrantsPermanentPremium() {
-        let sm = SubscriptionManager(deferLoadProducts: true)
+        let sm = manager()
         sm.confirmNoActiveSubscription()                 // clean slate: notSubscribed, no grace
         XCTAssertFalse(sm.shouldAllowPremiumAccess())
 

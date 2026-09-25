@@ -89,6 +89,9 @@ class SubscriptionManager: ObservableObject {
 
     /// API base URL
     private let apiBaseURL: String
+    /// Grace-period and last-verification stamps. Injectable because the test host IS the app: on
+    /// `.standard` the reconcile tests reset the real app's grace window before and after each test.
+    private let defaults: UserDefaults
 
     /// Task for listening to transaction updates
     private var updateListenerTask: Task<Void, Error>?
@@ -159,7 +162,8 @@ class SubscriptionManager: ObservableObject {
     /// - Parameters:
     ///   - apiBaseURL: The API base URL for receipt verification
     ///   - deferLoadProducts: If true, products won't be loaded automatically (call loadProducts() manually)
-    init(apiBaseURL: String = APIConfig.baseURL, deferLoadProducts: Bool = false) {
+    init(defaults: UserDefaults = .standard, apiBaseURL: String = APIConfig.baseURL, deferLoadProducts: Bool = false) {
+        self.defaults = defaults
         self.apiBaseURL = apiBaseURL
 
         // PR-05: honor a persisted grace window synchronously from the first frame. Otherwise
@@ -440,12 +444,12 @@ class SubscriptionManager: ObservableObject {
 
     /// Gets the last time the subscription was successfully verified
     func getLastVerificationDate() -> Date? {
-        return UserDefaults.standard.object(forKey: lastVerificationDateKey) as? Date
+        return defaults.object(forKey: lastVerificationDateKey) as? Date
     }
 
     /// Records a successful subscription verification
     func recordSuccessfulVerification() {
-        UserDefaults.standard.set(Date(), forKey: lastVerificationDateKey)
+        defaults.set(Date(), forKey: lastVerificationDateKey)
         // Clear any grace period since subscription is verified
         clearGracePeriod()
         debugLogger.log("Recorded successful subscription verification", level: .success)
@@ -459,7 +463,7 @@ class SubscriptionManager: ObservableObject {
     func confirmNoActiveSubscription() {
         subscriptionStatus = .notSubscribed
         clearGracePeriod()
-        UserDefaults.standard.removeObject(forKey: lastVerificationDateKey)
+        defaults.removeObject(forKey: lastVerificationDateKey)
         debugLogger.log("Confirmed no active subscription — closed grace period, cleared verification", level: .info)
     }
 
@@ -488,12 +492,12 @@ class SubscriptionManager: ObservableObject {
     /// Starts the grace period (called when subscription lapses or cannot be verified)
     func startGracePeriod() {
         // Only start if not already in grace period
-        guard UserDefaults.standard.object(forKey: gracePeriodStartKey) == nil else {
+        guard defaults.object(forKey: gracePeriodStartKey) == nil else {
             return
         }
 
         let now = Date()
-        UserDefaults.standard.set(now, forKey: gracePeriodStartKey)
+        defaults.set(now, forKey: gracePeriodStartKey)
         isInGracePeriod = true
         gracePeriodEndsAt = now.addingTimeInterval(gracePeriodDuration)
         debugLogger.log("Grace period started, ends at \(gracePeriodEndsAt?.description ?? "unknown")", level: .warning)
@@ -501,14 +505,14 @@ class SubscriptionManager: ObservableObject {
 
     /// Clears the grace period (called when subscription is verified)
     func clearGracePeriod() {
-        UserDefaults.standard.removeObject(forKey: gracePeriodStartKey)
+        defaults.removeObject(forKey: gracePeriodStartKey)
         isInGracePeriod = false
         gracePeriodEndsAt = nil
     }
 
     /// Checks if the grace period has expired
     func hasGracePeriodExpired() -> Bool {
-        guard let gracePeriodStart = UserDefaults.standard.object(forKey: gracePeriodStartKey) as? Date else {
+        guard let gracePeriodStart = defaults.object(forKey: gracePeriodStartKey) as? Date else {
             return false // Not in grace period
         }
 
@@ -518,7 +522,7 @@ class SubscriptionManager: ObservableObject {
 
     /// Updates the grace period status from stored values
     func updateGracePeriodStatus() {
-        if let gracePeriodStart = UserDefaults.standard.object(forKey: gracePeriodStartKey) as? Date {
+        if let gracePeriodStart = defaults.object(forKey: gracePeriodStartKey) as? Date {
             let gracePeriodEnd = gracePeriodStart.addingTimeInterval(gracePeriodDuration)
             if Date() > gracePeriodEnd {
                 // Grace period expired

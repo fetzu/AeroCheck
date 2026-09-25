@@ -765,11 +765,26 @@ class AppState {
     private var deltaPointsWritten = 0
 
     // Reference to persistence manager
-    private let persistence = DataPersistenceManager.shared
+    private let persistence: DataPersistenceManager
+    /// Device-local flags (onboarding, safety notice) and the checkpoint pointer.
+    private let defaults: UserDefaults
+    /// CloudKit sync, or nil for an AppState on a datastore confined to a directory (a test's). That
+    /// one must neither push its settings and flights to the pilot's iCloud (sync is on by default)
+    /// nor take `SyncManager.shared`'s callbacks away from the app's own AppState.
+    private let syncManager: SyncManager?
 
     // MARK: - Initialization
 
-    init() {
+    /// `defaults` and `persistence` are injectable for the same reason as the plan and thread
+    /// managers': the test host IS the app, so `.standard` and `.shared` are the simulator app's own.
+    /// A test AppState restored the real in-progress flight, cleared the real crash-recovery
+    /// checkpoint, and wrote its settings and flights into the real datastore.
+    init(defaults: UserDefaults = .standard, persistence: DataPersistenceManager? = nil) {
+        let persistence = persistence ?? DataPersistenceManager.shared
+        self.persistence = persistence
+        self.defaults = defaults
+        self.syncManager = persistence.followsICloud ? SyncManager.shared : nil
+
         // Load settings synchronously (fast, needed for initial UI)
         loadSettings()
 
@@ -777,17 +792,17 @@ class AppState {
         // sync can run, so an in-place UPGRADE that already finished onboarding (local flag true) skips
         // it, while a fresh install / reinstall (no local settings → false) shows it — even though the
         // synced flag will later arrive as true on a reinstall. (bug 1)
-        if UserDefaults.standard.object(forKey: hasSeenOnboardingKey) == nil {
+        if defaults.object(forKey: hasSeenOnboardingKey) == nil {
             hasSeenOnboarding = settings.hasCompletedOnboarding
-            UserDefaults.standard.set(hasSeenOnboarding, forKey: hasSeenOnboardingKey)
+            defaults.set(hasSeenOnboarding, forKey: hasSeenOnboardingKey)
         } else {
-            hasSeenOnboarding = UserDefaults.standard.bool(forKey: hasSeenOnboardingKey)
+            hasSeenOnboarding = defaults.bool(forKey: hasSeenOnboardingKey)
         }
 
         // Safety notice. Absent key = 0 = never acknowledged, which is the right answer for a fresh
         // install AND for an in-place upgrade from a build that predates the notice: an existing user
         // has never been shown it either, so they see it once on the next launch.
-        acceptedDisclaimerVersion = UserDefaults.standard.integer(forKey: acceptedDisclaimerVersionKey)
+        acceptedDisclaimerVersion = defaults.integer(forKey: acceptedDisclaimerVersionKey)
 
         syncAircraftType()
         setupSyncCallbacks()
@@ -836,7 +851,7 @@ class AppState {
 
     /// Setup callbacks for sync updates from other devices
     private func setupSyncCallbacks() {
-        let syncManager = SyncManager.shared
+        guard let syncManager else { return }
 
         syncManager.onSettingsUpdated = { [weak self] settings in
             Task { @MainActor in
@@ -1668,7 +1683,7 @@ class AppState {
 
         // Sync deletion to iCloud (CloudKit)
         if settings.iCloudSyncEnabled {
-            SyncManager.shared.deleteFlight(flight.id)
+            syncManager?.deleteFlight(flight.id)
         }
     }
 
@@ -1686,7 +1701,7 @@ class AppState {
         // Sync deletions to iCloud (CloudKit)
         if settings.iCloudSyncEnabled {
             for flight in flightsToDelete {
-                SyncManager.shared.deleteFlight(flight.id)
+                syncManager?.deleteFlight(flight.id)
             }
         }
     }
@@ -1761,7 +1776,7 @@ class AppState {
 
         // Sync to iCloud (CloudKit) if enabled
         if settings.iCloudSyncEnabled {
-            SyncManager.shared.syncAllFlights(flights)
+            syncManager?.syncAllFlights(flights)
         }
     }
 
@@ -1773,7 +1788,7 @@ class AppState {
         let saved = persistence.saveFlight(flight)
 
         if settings.iCloudSyncEnabled {
-            SyncManager.shared.syncFlight(flight, allFlights: flights)
+            syncManager?.syncFlight(flight, allFlights: flights)
         }
         return saved
     }
@@ -1792,11 +1807,11 @@ class AppState {
         persistence.saveSettings(settings)
 
         // Update sync manager with current sync preference
-        SyncManager.shared.isSyncEnabled = settings.iCloudSyncEnabled
+        syncManager?.isSyncEnabled = settings.iCloudSyncEnabled
 
         // Sync settings to iCloud if enabled
         if settings.iCloudSyncEnabled {
-            SyncManager.shared.syncSettings(settings)
+            syncManager?.syncSettings(settings)
         }
 
         syncAircraftType()
@@ -1825,7 +1840,7 @@ class AppState {
     /// Record acknowledgement of the current safety notice on THIS device.
     func acceptDisclaimer() {
         acceptedDisclaimerVersion = AppState.currentDisclaimerVersion
-        UserDefaults.standard.set(acceptedDisclaimerVersion, forKey: acceptedDisclaimerVersionKey)
+        defaults.set(acceptedDisclaimerVersion, forKey: acceptedDisclaimerVersionKey)
         AppLog.general.info("Safety notice v\(AppState.currentDisclaimerVersion) acknowledged")
     }
 
@@ -1833,7 +1848,7 @@ class AppState {
     /// Always persists — onboarding (incl. a replay from Settings) can change the feature toggles.
     func completeOnboarding() {
         hasSeenOnboarding = true
-        UserDefaults.standard.set(true, forKey: hasSeenOnboardingKey)
+        defaults.set(true, forKey: hasSeenOnboardingKey)
         settings.hasCompletedOnboarding = true
         saveSettings()
     }
@@ -1841,7 +1856,7 @@ class AppState {
     /// Re-show onboarding from Settings. Device-local — replaying it here doesn't reset other devices.
     func replayOnboarding() {
         hasSeenOnboarding = false
-        UserDefaults.standard.set(false, forKey: hasSeenOnboardingKey)
+        defaults.set(false, forKey: hasSeenOnboardingKey)
     }
 
     private func loadSettings() {
@@ -1853,7 +1868,7 @@ class AppState {
             settings = loadedSettings.clampedForIngest()
 
             // Update sync manager with loaded preference
-            SyncManager.shared.isSyncEnabled = settings.iCloudSyncEnabled
+            syncManager?.isSyncEnabled = settings.iCloudSyncEnabled
         }
     }
 
@@ -1918,6 +1933,7 @@ class AppState {
         let deltaURL = persistence.activeFlightTrackDeltaURL
         let savedAt = state.savedAt
         let pointerKey = activeFlightPointerKey
+        let defaults = self.defaults
         let writtenThrough = alreadyWritten + newPoints.count
 
         let write: @Sendable () -> Void = { [weak self] in
@@ -1927,7 +1943,7 @@ class AppState {
                 encoder.dateEncodingStrategy = .iso8601
                 let data = try encoder.encode(state)
                 try DataPersistenceManager.writeActiveFlightStateData(data, to: url)
-                UserDefaults.standard.set(savedAt, forKey: pointerKey)
+                defaults.set(savedAt, forKey: pointerKey)
                 // Confirm the append on the main actor. If a newer checkpoint already ran (stale
                 // watermark), max() keeps the furthest confirmed position; the few re-appended
                 // points are deduped by id on restore.
@@ -2045,8 +2061,8 @@ class AppState {
         // slim (PERF-29) metadata encode + write, on flight-end paths only.
         flushPendingCheckpoint()
         persistence.clearActiveFlightStateFile()
-        UserDefaults.standard.removeObject(forKey: activeFlightPointerKey)
-        UserDefaults.standard.removeObject(forKey: legacyActiveFlightStateKey)
+        defaults.removeObject(forKey: activeFlightPointerKey)
+        defaults.removeObject(forKey: legacyActiveFlightStateKey)
         pointsSinceCheckpoint = 0
         lastCheckpointAt = nil
         deltaPointsWritten = 0

@@ -738,7 +738,7 @@ final class SchemaMigrationTests: XCTestCase {
 
     @MainActor
     private func makeCheckpoint(unplanned: Bool) -> ActiveFlightState {
-        let appState = AppState()
+        let appState = makeTestAppState()
         appState.flightIsUnplanned = unplanned
         appState.isCircuitMode = true
         return ActiveFlightState(flight: Flight(airplane: "wt9-dynamic"), from: appState)

@@ -10,7 +10,7 @@ import XCTest
 final class AppStateFlightStartTests: XCTestCase {
 
     func testStartBlockedWhenPremiumChecklistUnresolved() {
-        let appState = AppState()
+        let appState = makeTestAppState()
         // A premium aircraft is selected but its checklist failed to load (resolvedRemoteChecklist nil).
         appState.settings.selectedRemoteAircraftId = "pa28-181"
         appState.flightStartError = nil
@@ -26,7 +26,7 @@ final class AppStateFlightStartTests: XCTestCase {
     }
 
     func testStartSucceedsWhenChecklistResolved() {
-        let appState = AppState()
+        let appState = makeTestAppState()
         // Free aircraft / no premium checklist expected.
         appState.settings.selectedRemoteAircraftId = nil
         appState.settings.selectedAircraft = .wt9Dynamic
@@ -50,7 +50,7 @@ final class AppStateFlightStartTests: XCTestCase {
     /// The countdown is MANUAL: until the pilot starts it (cruiseCheckStartTime == nil) it never goes
     /// due, even long past the interval, and the button shows the full interval.
     func testCruiseCheckIdleUntilStarted() {
-        let appState = AppState()
+        let appState = makeTestAppState()
         appState.currentPhase = .cruise
         let t0 = Date(timeIntervalSinceReferenceDate: 0)
         XCTAssertEqual(appState.cruiseCheckRemaining(now: t0), AppState.cruiseCheckInterval, accuracy: 0.001)
@@ -61,7 +61,7 @@ final class AppStateFlightStartTests: XCTestCase {
 
     /// Once started, it becomes due at the interval and re-arms the Cruise checklist.
     func testCruiseCheckDueAfterIntervalOnceStarted() {
-        let appState = AppState()
+        let appState = makeTestAppState()
         appState.currentPhase = .cruise
         let start = Date(timeIntervalSinceReferenceDate: 1000)
         appState.cruiseCheckStartTime = start
@@ -76,7 +76,7 @@ final class AppStateFlightStartTests: XCTestCase {
 
     /// Arming (tap-to-start / acknowledge / hold-to-reset) clears due and restarts the countdown.
     func testArmCruiseCheckClearsDueAndResetsCountdown() {
-        let appState = AppState()
+        let appState = makeTestAppState()
         appState.currentPhase = .cruise
         appState.cruiseCheckDue = true
         appState.armCruiseCheck()
@@ -87,7 +87,7 @@ final class AppStateFlightStartTests: XCTestCase {
 
     /// Leaving cruise clears the reminder and idles the countdown.
     func testLeavingCruiseClearsTimer() {
-        let appState = AppState()
+        let appState = makeTestAppState()
         appState.currentPhase = .cruise
         appState.cruiseCheckStartTime = Date()
         appState.cruiseCheckDue = true

@@ -117,7 +117,7 @@ final class FlightLauncherTests: XCTestCase {
     // MARK: - begin() integration for the early-return guards
 
     func testBeginDoesNotOverwriteRunningFlight() async {
-        let appState = AppState()
+        let appState = makeTestAppState()
         appState.currentFlight = Flight(airplane: "SENTINEL", startTime: Date())
         appState.isFlightActive = true
         let sentinelId = appState.currentFlight?.id
@@ -130,7 +130,7 @@ final class FlightLauncherTests: XCTestCase {
     }
 
     func testBeginRefusesUnownedPremiumAndRequestsPaywall() async {
-        let appState = AppState()
+        let appState = makeTestAppState()
         appState.isFlightActive = false
         appState.currentFlight = nil
         appState.flightStartPaywallRequest = false

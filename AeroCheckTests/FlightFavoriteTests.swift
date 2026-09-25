@@ -39,7 +39,7 @@ final class FlightFavoriteTests: XCTestCase {
     // MARK: - AppState toggle
 
     func testToggleFavoriteFlipsTheFlag() {
-        let appState = AppState()
+        let appState = makeTestAppState()
         let flight = Flight(name: "Toggle me")
         appState.flights = [flight]
 
@@ -51,7 +51,7 @@ final class FlightFavoriteTests: XCTestCase {
     }
 
     func testToggleFavoriteStampsModifiedAt() {
-        let appState = AppState()
+        let appState = makeTestAppState()
         let old = Date(timeIntervalSince1970: 0)
         var flight = Flight(name: "Stamp me")
         flight.modifiedAt = old
@@ -64,7 +64,7 @@ final class FlightFavoriteTests: XCTestCase {
     }
 
     func testToggleUnknownFlightIsANoOp() {
-        let appState = AppState()
+        let appState = makeTestAppState()
         appState.flights = [Flight(name: "Present")]
 
         appState.toggleFavorite(Flight(name: "Absent")) // different id, not in the list

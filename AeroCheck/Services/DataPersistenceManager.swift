@@ -125,8 +125,9 @@ class DataPersistenceManager: ObservableObject {
     }
 
     /// False only for a datastore confined to a directory (`init(rootDirectory:)`), which must never
-    /// be re-pointed at the real iCloud container by an account change.
-    private let followsICloud: Bool
+    /// be re-pointed at the real iCloud container by an account change. `AppState` reads it too: an
+    /// AppState on a confined datastore stays off CloudKit.
+    let followsICloud: Bool
 
     // MARK: - Initialization
 

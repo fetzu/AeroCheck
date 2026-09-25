@@ -748,6 +748,44 @@ class FlightPlanManager: ObservableObject {
         saveActiveFlightPlan()
     }
 
+    /// The leg timer at one moment, so a MARK or a reset can be taken back. (v6.0 · C2)
+    struct LegTimerSnapshot: Equatable {
+        let accumulated: TimeInterval
+        let startTime: Date?
+    }
+
+    var legTimerSnapshot: LegTimerSnapshot? {
+        guard let plan = activeFlightPlan else { return nil }
+        return LegTimerSnapshot(accumulated: chronometerAccumulated, startTime: plan.chronometerStartTime)
+    }
+
+    /// Put the leg timer back as it was, running or paused. A running timer keeps counting from its
+    /// original start, so the time spent since is not lost.
+    func restoreLegTimer(_ snapshot: LegTimerSnapshot) {
+        guard var plan = activeFlightPlan else { return }
+        chronometerAccumulated = snapshot.accumulated
+        plan.chronometerStartTime = snapshot.startTime
+        activeFlightPlan = plan
+        if let index = flightPlans.firstIndex(where: { $0.id == plan.id }) {
+            flightPlans[index] = plan
+        }
+        saveActiveFlightPlan()
+        if snapshot.startTime != nil {
+            startChronometerTimer()
+        } else {
+            chronometerTimer?.invalidate()
+            chronometerTimer = nil
+        }
+        updateChronometerElapsed()
+    }
+
+    /// Take back a MARK: the waypoint is the target again, its crossing is forgotten, and the leg
+    /// timer reads what it did before. (v6.0 · C2)
+    func undoMark(ofWaypointAt index: Int, timer: LegTimerSnapshot) {
+        resumeLeg(at: index)
+        restoreLegTimer(timer)
+    }
+
     /// Mark the current waypoint as crossed (record ATO + advance, which restarts the leg timer) — the
     /// classic VFR leg-timing action. (v4 UI/UX Revamp)
     func markWaypoint() {

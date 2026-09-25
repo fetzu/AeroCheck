@@ -1779,6 +1779,13 @@ enum L10n {
         static let pauseChronometer = String(localized: "nav.pauseChronometer")
         static let startChronometer = String(localized: "nav.startChronometer")
         static let resetChronometer = String(localized: "nav.resetChronometer")
+        static let legTimerOptions = String(localized: "nav.legTimerOptions")
+        static let legTimerReset = String(localized: "nav.legTimerReset")
+        static let undo = String(localized: "nav.undo")
+        /// "LSGC passed at 13:07"
+        static func markedAt(_ waypoint: String, _ time: String) -> String {
+            String(format: String(localized: "nav.markedAt"), waypoint, time)
+        }
         static let wpt = String(localized: "nav.wpt")
 
         // Offline/Cache

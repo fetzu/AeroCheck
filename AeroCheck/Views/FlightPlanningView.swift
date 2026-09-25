@@ -19,6 +19,8 @@ struct FlightPlanningView: View {
     @EnvironmentObject var openAIPDataService: OpenAIPDataService
     @EnvironmentObject var locationManager: LocationManager
     @Environment(\.dismiss) var dismiss
+    /// Shown in the Plan tab's Routes section: no Done button. (v6.0 · P1)
+    var isEmbedded: Bool = false
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
 
     /// The plan being edited in the map builder (opened on tap, or for a new plan). (flight-plan revamp)
@@ -124,7 +126,9 @@ struct FlightPlanningView: View {
                 AppLog.general.debugLine("Export failed: \(error.localizedDescription)")
             }
         }
-        .preferredColorScheme(.dark)
+        // Only as its own cover. Embedded in a ground tab, a preferred scheme would darken the whole
+        // window, and the root could no longer read the device's light/dark for Auto. (v6.0 · P1)
+        .preferredColorScheme(isEmbedded ? nil : .dark)
     }
 
     /// Wraps the list (or empty state) in its own NavigationStack so its toolbar (Done + filter + add)
@@ -145,8 +149,10 @@ struct FlightPlanningView: View {
     /// the aircraft filter, and the add/import menu.
     @ToolbarContentBuilder
     private var listToolbar: some ToolbarContent {
-        ToolbarItem(placement: .cancellationAction) {
-            Button(L10n.Button.done) { dismiss() }
+        if !isEmbedded {
+            ToolbarItem(placement: .cancellationAction) {
+                Button(L10n.Button.done) { dismiss() }
+            }
         }
 
         if availableAircraft.count > 1 {

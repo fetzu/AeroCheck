@@ -350,7 +350,8 @@ struct AeroCheckApp: App {
             )
             Task { await launcher.begin(circuitMode: false) }
         case "flight-log":
-            appState.showFlightLog = true
+            // The Logbook is a tab now. (v6.0 · P1)
+            appState.groundTab = .logbook
         default:
             break
         }

@@ -35,6 +35,12 @@ struct ChecklistProgress {
     var deferredItems: [ChecklistPhase: [String]] = [:]
 }
 
+/// The sections of the app on the ground, one tab each. In the air the Cockpit replaces all of them.
+/// (v6.0 · P1)
+enum GroundTab: Hashable {
+    case today, plan, logbook, aircraft, settings
+}
+
 /// Night-mode preference: off, always on, or follow the device's dark-mode setting. (v4 UI/UX Revamp)
 /// The user's cockpit-theme choice. `auto` follows the device's light/dark setting (light→day,
 /// dark→night); `day`/`sunlight`/`night` force that palette. Replaces the old `NightModePreference`
@@ -676,6 +682,12 @@ class AppState {
     var acceptedDisclaimerVersion: Int = 0
     var settings: AppSettings = AppSettings()
     var showFlightLog: Bool = false
+
+    /// The ground tab on screen. Held here so any screen, deep link or notification can send the
+    /// pilot to a section. (v6.0 · P1)
+    var groundTab: GroundTab = .today
+    /// A Settings page to open the next time the Settings tab shows (the Data chip on Today). (v6.0 · P1)
+    var pendingSettingsSection: SettingsView.Section?
 
     /// Set when iCloud sync auto-merged (or couldn't merge) a conflicting flight edit, so the UI can
     /// surface it instead of the conflict being silent. (ARCH-02)

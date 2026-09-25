@@ -20,6 +20,12 @@ struct FlightLogView: View {
     /// so it can't trigger the transient-geometry push race. Compact opens the detail directly from
     /// Home instead. (v4 UI/UX Revamp — feedback)
     var initialFlightID: UUID? = nil
+    /// Which half this screen shows. The ground tabs split it: the Logbook tab is `.logbook`, the Plan
+    /// tab's flights are `.plan`, both without a Close button. Presented on its own it stays
+    /// `.combined`, with the Past / Upcoming picker. (v6.0 · P1)
+    var mode: Mode = .combined
+
+    enum Mode { case combined, logbook, plan }
 
     /// What the 2-column pane shows: a manual selection wins, otherwise the seeded initial flight.
     private var effectiveSelectionID: UUID? { selectedFlightID ?? initialFlightID }
@@ -140,13 +146,14 @@ struct FlightLogView: View {
                     .ignoresSafeArea()
                 
                 VStack(spacing: 0) {
-                    segmentPicker
-                    if segment == .upcoming {
+                    if mode == .combined { segmentPicker }
+                    if mode == .plan || (mode == .combined && segment == .upcoming) {
                         UpcomingFlightsList(threads: threadManager.unfinishedThreads,
                                             trips: threadManager.trips,
                                             onOpen: { threadToOpen = $0 },
                                             onPlanNew: { planningNewFlight = seedIntent() },
-                                            onOpenRoutes: { showFlightPlanning = true })
+                                            // The Plan tab has its own Routes segment, one tap away.
+                                            onOpenRoutes: mode == .plan ? nil : { showFlightPlanning = true })
                     } else {
                         pastContent
                     }
@@ -154,20 +161,29 @@ struct FlightLogView: View {
             }
             .navigationTitle("")
             .navigationBarTitleDisplayMode(.inline)
+            // In the Plan tab this list has no toolbar at all; an empty bar only pushed it down. (v6.0 · P1)
+            .toolbar(mode == .plan ? .hidden : .automatic, for: .navigationBar)
             .toolbar {
                 // Close + import only — the big in-content "Flight Log" title and the gold Export
                 // button live in the dashboard header now (concept). (v4 UI/UX Revamp)
-                ToolbarItem(placement: .cancellationAction) {
-                    Button(L10n.FlightLog.close) { if let onClose { onClose() } else { dismiss() } }
+                if mode == .combined {
+                    ToolbarItem(placement: .cancellationAction) {
+                        Button(L10n.FlightLog.close) { if let onClose { onClose() } else { dismiss() } }
+                    }
                 }
-                ToolbarItem(placement: .primaryAction) {
-                    Button(action: { showImportPicker = true }) {
-                        Image(systemName: "square.and.arrow.down")
+                if mode != .plan {
+                    ToolbarItem(placement: .primaryAction) {
+                        Button(action: { showImportPicker = true }) {
+                            Label(L10n.FlightLog.importFlights, systemImage: "square.and.arrow.down")
+                                .labelStyle(.titleAndIcon)
+                        }
                     }
                 }
             }
         }
-        .preferredColorScheme(.dark)
+        // Only as its own cover. Embedded in a ground tab, a preferred scheme would darken the whole
+        // window, and the root could no longer read the device's light/dark for Auto. (v6.0 · P1)
+        .preferredColorScheme(mode == .combined ? .dark : nil)
         .fullScreenCover(isPresented: $showFlightPlanning) {
             FlightPlanningView()
         }

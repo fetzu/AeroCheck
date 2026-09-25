@@ -2,7 +2,7 @@ import XCTest
 @testable import AeroCheck
 
 /// Throwaway storage for any test that builds an `AppState`, a `FlightThreadManager`, a
-/// `FlightPlanManager` or an `AircraftDataService`.
+/// `FlightPlanManager`, an `AircraftDataService` or a `SubscriptionManager`.
 ///
 /// The test host IS the app, so `DataPersistenceManager.shared` and `UserDefaults.standard` are the
 /// simulator app's own. A manager built on them loads the real threads, plans and trips, and writes
@@ -33,6 +33,21 @@ extension XCTestCase {
         let suite = "AeroCheckTests.\(UUID().uuidString)"
         addTeardownBlock { UserDefaults.standard.removePersistentDomain(forName: suite) }
         return UserDefaults(suiteName: suite)!
+    }
+
+    /// A Keychain service of its own (the host shares the app's Keychain), emptied when the test
+    /// finishes.
+    func makeTestKeychain() -> KeychainStore {
+        let keychain = KeychainStore(service: "AeroCheckTests.\(UUID().uuidString)")
+        addTeardownBlock { KeychainStore.Key.allCases.forEach(keychain.remove) }
+        return keychain
+    }
+
+    /// A SubscriptionManager on its own defaults suite and Keychain service.
+    @MainActor
+    func makeTestSubscriptionManager(deferLoadProducts: Bool = false) -> SubscriptionManager {
+        SubscriptionManager(defaults: makeTestDefaults(), keychain: makeTestKeychain(),
+                            deferLoadProducts: deferLoadProducts)
     }
 
     /// Pass the same `datastore` to both managers when a test needs them to share one, as the app's do.

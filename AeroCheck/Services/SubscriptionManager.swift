@@ -92,6 +92,9 @@ class SubscriptionManager: ObservableObject {
     /// Grace-period and last-verification stamps. Injectable because the test host IS the app: on
     /// `.standard` the reconcile tests reset the real app's grace window before and after each test.
     private let defaults: UserDefaults
+    /// Where the minted session token lives. Injectable for the same reason: the test host shares
+    /// the app's Keychain, so a test manager on `.app` could read, replace or remove the real token.
+    private let keychain: KeychainStore
 
     /// Task for listening to transaction updates
     private var updateListenerTask: Task<Void, Error>?
@@ -162,8 +165,12 @@ class SubscriptionManager: ObservableObject {
     /// - Parameters:
     ///   - apiBaseURL: The API base URL for receipt verification
     ///   - deferLoadProducts: If true, products won't be loaded automatically (call loadProducts() manually)
-    init(defaults: UserDefaults = .standard, apiBaseURL: String = APIConfig.baseURL, deferLoadProducts: Bool = false) {
+    init(defaults: UserDefaults = .standard,
+         keychain: KeychainStore = .app,
+         apiBaseURL: String = APIConfig.baseURL,
+         deferLoadProducts: Bool = false) {
         self.defaults = defaults
+        self.keychain = keychain
         self.apiBaseURL = apiBaseURL
 
         // PR-05: honor a persisted grace window synchronously from the first frame. Otherwise
@@ -273,7 +280,7 @@ class SubscriptionManager: ObservableObject {
             // The session token authenticates an entitlement that no longer exists — drop it so a
             // stale credential cannot linger in the Keychain. (SEC-C3)
             cachedSessionToken = nil
-            KeychainStore.remove(.apiSessionToken)
+            keychain.remove(.apiSessionToken)
             // Drop any cached identity (possibly a stale device-id fallback) so getUserID()
             // re-derives from the freshly synced entitlements before we re-check and sync
             // with the server. Without this, a restore rebinds to the wrong id. (ARCH-03)
@@ -663,7 +670,7 @@ class SubscriptionManager: ObservableObject {
     /// caller — one shared string unlocked premium on unlimited devices.
     func getAuthCredential() async -> String? {
         if let cached = cachedSessionToken { return cached }
-        if let stored = KeychainStore.get(.apiSessionToken) {
+        if let stored = keychain.get(.apiSessionToken) {
             cachedSessionToken = stored
             return stored
         }
@@ -979,7 +986,7 @@ class SubscriptionManager: ObservableObject {
                 // displayed — so anyone given that string got the whole catalogue. Stored in the
                 // Keychain, never in UserDefaults/the App Group.
                 if let token = decoded?.data?.sessionToken, !token.isEmpty {
-                    if KeychainStore.set(token, for: .apiSessionToken) {
+                    if keychain.set(token, for: .apiSessionToken) {
                         cachedSessionToken = token
                         debugLogger.log("Session token stored", level: .success)
                     } else {

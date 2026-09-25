@@ -22,7 +22,7 @@ final class FlightLauncherTests: XCTestCase {
     }
 
     private func makeLauncher(appState: AppState, aircraftDataService: AircraftDataService? = nil) -> FlightLauncher {
-        let acs = aircraftDataService ?? makeTestAircraftDataService(subscriptionManager: SubscriptionManager(defaults: makeTestDefaults()))
+        let acs = aircraftDataService ?? makeTestAircraftDataService(subscriptionManager: makeTestSubscriptionManager())
         return FlightLauncher(
             appState: appState,
             locationManager: LocationManager(),
@@ -136,7 +136,7 @@ final class FlightLauncherTests: XCTestCase {
         appState.flightStartPaywallRequest = false
         appState.settings.selectedRemoteAircraftId = "pa28-181"
 
-        let acs = makeTestAircraftDataService(subscriptionManager: SubscriptionManager(defaults: makeTestDefaults()))
+        let acs = makeTestAircraftDataService(subscriptionManager: makeTestSubscriptionManager())
         acs.availableAircraft = [metadata(id: "pa28-181", registration: "HB-PFA", hasAccess: false)]
 
         let outcome = await makeLauncher(appState: appState, aircraftDataService: acs).begin(circuitMode: false)

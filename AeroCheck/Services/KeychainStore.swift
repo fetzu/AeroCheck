@@ -22,19 +22,25 @@ import Security
 /// is used by background refreshes while the device is locked (so `WhenUnlocked` would break them),
 /// and `ThisDeviceOnly` keeps it out of encrypted backups and off other devices — a restored backup
 /// re-verifies with StoreKit and mints a fresh token, which is cheap and strictly safer.
-enum KeychainStore {
+struct KeychainStore {
 
     /// Keys used by the app. Namespaced by bundle id at the account level.
-    enum Key: String {
+    enum Key: String, CaseIterable {
         /// Opaque session token minted by `POST /subscription/verify`.
         case apiSessionToken = "api.session.token"
     }
 
-    private static let service = "app.aerocheck.credentials"
+    /// The app's own credentials.
+    static let app = KeychainStore(service: "app.aerocheck.credentials")
+
+    /// The Keychain service every item lives under. A value rather than a constant because the test
+    /// host IS the app and shares its Keychain: a test's store gets a service of its own, so nothing
+    /// it does can read, replace or remove the real session token.
+    let service: String
 
     /// Stores (or replaces) a secret. Returns false if the Keychain refused the write.
     @discardableResult
-    static func set(_ value: String, for key: Key) -> Bool {
+    func set(_ value: String, for key: Key) -> Bool {
         guard let data = value.data(using: .utf8) else { return false }
 
         // Delete-then-add rather than SecItemUpdate: it is one round trip fewer to reason about,
@@ -53,7 +59,7 @@ enum KeychainStore {
     }
 
     /// Reads a secret, or nil when absent (or unreadable, e.g. before first unlock).
-    static func get(_ key: Key) -> String? {
+    func get(_ key: Key) -> String? {
         let query: [String: Any] = [
             kSecClass as String: kSecClassGenericPassword,
             kSecAttrService as String: service,
@@ -74,7 +80,7 @@ enum KeychainStore {
     }
 
     /// Removes a secret. Succeeds silently when nothing is stored.
-    static func remove(_ key: Key) {
+    func remove(_ key: Key) {
         let query: [String: Any] = [
             kSecClass as String: kSecClassGenericPassword,
             kSecAttrService as String: service,

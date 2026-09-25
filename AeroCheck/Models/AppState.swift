@@ -30,6 +30,9 @@ struct ChecklistProgress {
     var phaseCompletionStatus: [ChecklistPhase: PhaseCompletionStatus] = [:]
     var highestCompletedPhase: ChecklistPhase = .preflight
     var currentHighlightedItem: [ChecklistPhase: Int] = [:]
+    /// Items the pilot left unchecked when pressing NEXT, by phase: the stable `ChecklistItem.id`s,
+    /// kept until they are checked from the deferred list. (v6.0 · B2)
+    var deferredItems: [ChecklistPhase: [String]] = [:]
 }
 
 /// Night-mode preference: off, always on, or follow the device's dark-mode setting. (v4 UI/UX Revamp)
@@ -457,6 +460,8 @@ struct ActiveFlightState: Codable {
     let phaseCompletionStatus: [ChecklistPhase: PhaseCompletionStatus]
     let highestCompletedPhase: ChecklistPhase
     let currentHighlightedItem: [ChecklistPhase: Int]
+    /// Optional so a checkpoint written before 6.0 still decodes. (v6.0 · B2)
+    let deferredItems: [ChecklistPhase: [String]]?
     let hasLandingBeenDetected: Bool
     let isCircuitMode: Bool
     /// Aircraft selection captured at save time so the correct checklist is re-resolved on
@@ -484,6 +489,7 @@ struct ActiveFlightState: Codable {
         self.phaseCompletionStatus = appState.phaseCompletionStatus
         self.highestCompletedPhase = appState.highestCompletedPhase
         self.currentHighlightedItem = appState.currentHighlightedItem
+        self.deferredItems = appState.deferredItems
         self.hasLandingBeenDetected = appState.hasLandingBeenDetected
         self.isCircuitMode = appState.isCircuitMode
         self.flightIsUnplanned = appState.flightIsUnplanned
@@ -505,6 +511,7 @@ struct ActiveFlightState: Codable {
         appState.phaseCompletionStatus = phaseCompletionStatus
         appState.highestCompletedPhase = highestCompletedPhase
         appState.currentHighlightedItem = currentHighlightedItem
+        appState.deferredItems = deferredItems ?? [:]
         appState.hasLandingBeenDetected = hasLandingBeenDetected
         appState.isCircuitMode = isCircuitMode
         appState.flightIsUnplanned = flightIsUnplanned ?? false
@@ -715,6 +722,10 @@ class AppState {
     var currentHighlightedItem: [ChecklistPhase: Int] {
         get { checklistProgress.currentHighlightedItem }
         set { checklistProgress.currentHighlightedItem = newValue }
+    }
+    var deferredItems: [ChecklistPhase: [String]] {
+        get { checklistProgress.deferredItems }
+        set { checklistProgress.deferredItems = newValue }
     }
     
     // Landing detection
@@ -1070,6 +1081,7 @@ class AppState {
         landingTime = nil
         engineShutdownTime = nil
         phaseCompletionStatus = [:]
+        deferredItems = [:]
         highestCompletedPhase = .preflight
         hasLandingBeenDetected = false
         consecutiveLowSpeedReadings = 0
@@ -1133,6 +1145,7 @@ class AppState {
         landingTime = nil
         engineShutdownTime = nil
         phaseCompletionStatus = [:]
+        deferredItems = [:]
         currentPhase = .preflight
         hasLandingBeenDetected = false
         consecutiveMovingReadings = 0
@@ -1161,6 +1174,7 @@ class AppState {
         landingTime = nil
         engineShutdownTime = nil
         phaseCompletionStatus = [:]
+        deferredItems = [:]
         currentPhase = .preflight
         hasLandingBeenDetected = false
         consecutiveMovingReadings = 0
@@ -1204,6 +1218,47 @@ class AppState {
         let visibleCount = activeChecklist.visibleItemCount(for: currentPhase, learningMode: learningMode)
         let currentIndex = currentHighlightedItem[currentPhase] ?? 0
         return ChecklistHighlighting.allItemsCompleted(current: currentIndex, visibleCount: visibleCount)
+    }
+
+    // MARK: Deferred items (v6.0 · B2)
+    //
+    // A paper checklist cannot remind anyone of an item that was put off, and those are the items
+    // that get forgotten (Degani & Wiener, 1993: the crew that deferred the fuel check and departed
+    // unfuelled). The FAA's EFB guidance asks that leaving an incomplete checklist list the open
+    // items for review first. NEXT now does that, and what is left unchecked stays listed here.
+
+    /// The items of `phase` not checked yet: everything from the step-by-step highlight on, among
+    /// the items on screen. Empty when step-by-step is off, since then nothing is tracked.
+    func openItems(in phase: ChecklistPhase) -> [ChecklistItem] {
+        guard settings.stepByStepHighlighting else { return [] }
+        let items = activeChecklist.visibleItems(for: phase, learningMode: effectiveLearningMode)
+        let checked = currentHighlightedItem[phase] ?? 0
+        return items.dropFirst(checked).filter { !$0.isHeader }
+    }
+
+    /// The deferred items still to check, phase by phase in flight order. Ids that no longer resolve
+    /// (a checklist updated mid-flight) are left out.
+    var deferredChecklist: [(phase: ChecklistPhase, items: [ChecklistItem])] {
+        ChecklistPhase.allCases.compactMap { phase in
+            guard let ids = deferredItems[phase], !ids.isEmpty else { return nil }
+            let all = activeChecklist.visibleItems(for: phase, learningMode: true)
+            let items = ids.compactMap { id in all.first { $0.id == id } }
+            return items.isEmpty ? nil : (phase, items)
+        }
+    }
+
+    var deferredItemCount: Int { deferredChecklist.reduce(0) { $0 + $1.items.count } }
+
+    /// Check a deferred item. Once a skipped phase has nothing deferred left, it was worked through
+    /// after all and turns green; a phase missing its ENGINE START / LINE UP / SHUTDOWN press stays red.
+    func checkDeferredItem(_ id: String, in phase: ChecklistPhase) {
+        guard var ids = deferredItems[phase] else { return }
+        ids.removeAll { $0 == id }
+        deferredItems[phase] = ids.isEmpty ? nil : ids
+        if ids.isEmpty, phaseCompletionStatus[phase] == .skipped {
+            phaseCompletionStatus[phase] = .completed
+        }
+        checkpointActiveFlight(force: true)
     }
 
     /// Whether the current phase has nothing to show at all. (SEC-C36)
@@ -1354,6 +1409,7 @@ class AppState {
             if phase.rawValue >= ChecklistPhase.climb.rawValue {
                 phaseCompletionStatus[phase] = nil
                 currentHighlightedItem[phase] = 0
+                deferredItems[phase] = nil
             }
         }
 
@@ -1377,6 +1433,7 @@ class AppState {
             if phase.rawValue >= ChecklistPhase.climb.rawValue {
                 phaseCompletionStatus[phase] = nil
                 currentHighlightedItem[phase] = 0
+                deferredItems[phase] = nil
             }
         }
 
@@ -1408,6 +1465,7 @@ class AppState {
             if phase.rawValue >= ChecklistPhase.taxi.rawValue && phase.rawValue <= ChecklistPhase.afterLanding.rawValue {
                 phaseCompletionStatus[phase] = nil
                 currentHighlightedItem[phase] = 0
+                deferredItems[phase] = nil
             }
         }
 
@@ -1618,8 +1676,13 @@ class AppState {
         // .completed ONLY if the checklist was actually worked through (all step-by-step items reached),
         // otherwise .skipped. Since NEXT is tappable while a phase is still incomplete, pressing past an
         // un-worked phase must read as skipped (orange), not done (green). (round 6 regression fix)
+        // Counted over the items on screen (hidden items included once revealed), like the NEXT button
+        // and the deferred list, so an orange phase always has its unchecked items listed. (v6.0 · B2)
         let checklistWorkedThrough = !settings.stepByStepHighlighting
-            || areAllItemsCompleted(learningMode: settings.learningMode)
+            || areAllItemsCompleted(learningMode: effectiveLearningMode)
+        // Whatever is left unchecked follows the pilot as deferred items until checked. (v6.0 · B2)
+        let open = openItems(in: currentPhase)
+        if !open.isEmpty { deferredItems[currentPhase] = open.map(\.id) }
         if currentPhase.hasMissingRequiredAction(
             engineStarted: engineStartTime != nil,
             linedUp: lineUpTime != nil,

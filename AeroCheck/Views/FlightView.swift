@@ -26,6 +26,9 @@ struct FlightView: View {
     @State private var showNavigationMode = false
     /// Divert, from the HUD's NEAREST strip. (v5.1)
     @State private var showDivert = false
+    /// NEXT pressed with items still open: the review sheet lists them first. (v6.0 · B2)
+    @State private var openItemsReview: OpenItemsReview?
+    @State private var showDeferredItems = false
     /// The reference popup currently shown in the HUD context slot (Pattern B of the A+B hybrid):
     /// docked into the iPad-landscape right column (over the map), or a cockpit-themed bottom drawer
     /// on iPad portrait / iPhone. nil = none. HUD Settings stays a sheet (Pattern A). (v4 UI/UX Revamp)
@@ -343,6 +346,23 @@ struct FlightView: View {
         .sheet(isPresented: $showFlightInfo) {
             FlightInfoSheet(locationManager: locationManager)
         }
+        .sheet(item: $openItemsReview) { review in
+            OpenItemsReviewSheet(
+                phase: review.phase,
+                items: review.items,
+                // The highlight is already on the first open item.
+                onBack: { openItemsReview = nil },
+                onContinue: {
+                    openItemsReview = nil
+                    advanceToNextPhase()
+                }
+            )
+            .environment(\.cockpitTheme, theme)
+        }
+        .sheet(isPresented: $showDeferredItems) {
+            DeferredItemsSheet(onClose: { showDeferredItems = false })
+                .environment(\.cockpitTheme, theme)
+        }
         // ⚠️ DO NOT CHANGE the presentation style (.fullScreenCover) unless explicitly asked
         // by the user. Using .fullScreenCover guarantees all content is visible on both iPad
         // and iPhone. iPad ignores .presentationDetents on form sheets, so .sheet cannot
@@ -551,6 +571,9 @@ struct FlightView: View {
                 .padding(.top, 12)
                 .padding(.bottom, 4)
             }
+
+            deferredItemsChip
+                .padding(.horizontal, 16)
 
             // Checklist content - entire area is tappable
             ScrollViewReader { scrollProxy in
@@ -792,10 +815,13 @@ struct FlightView: View {
             .modifier(PulseModifier(isActive: pulseNextButton && allItemsChecked))
         } else {
             Button(action: {
-                pulseNextButton = false
-                pulseActionButton = false
-                allItemsChecked = false
-                appState.nextPhase()
+                // Items still open: list them before leaving the phase. (v6.0 · B2)
+                let open = appState.openItems(in: appState.currentPhase)
+                if open.isEmpty {
+                    advanceToNextPhase()
+                } else {
+                    openItemsReview = OpenItemsReview(phase: appState.currentPhase, items: open)
+                }
             }) {
                 HStack(spacing: 8) {
                     Text(L10n.Button.next)
@@ -814,6 +840,24 @@ struct FlightView: View {
             // When the phase becomes ready, a finite gold halo pulses AROUND the button then settles
             // (no resize, no loop) — reuses the shared PulseModifier. (round 6 feedback)
             .modifier(PulseModifier(isActive: nextButtonReady))
+        }
+    }
+
+    private func advanceToNextPhase() {
+        pulseNextButton = false
+        pulseActionButton = false
+        allItemsChecked = false
+        appState.nextPhase()
+    }
+
+    /// While anything is deferred, a caution row on top of the checklist opens the deferred list.
+    @ViewBuilder
+    private var deferredItemsChip: some View {
+        let count = appState.deferredItemCount
+        if count > 0 {
+            DeferredItemsChip(count: count) { showDeferredItems = true }
+                .padding(.top, 8)
+                .padding(.bottom, 2)
         }
     }
 
@@ -1160,6 +1204,9 @@ struct FlightView: View {
                 .padding(.top, 10)
                 .padding(.bottom, 4)
             }
+
+            deferredItemsChip
+                .padding(.horizontal, 12)
 
             // Checklist content
             ScrollViewReader { scrollProxy in
@@ -3243,4 +3290,11 @@ struct FrequencyReferenceContent: View {
             return Entry(ident: airport.ident, freqs: fs.map { (type: $0.type, value: $0.formattedFrequency) })
         }
     }
+}
+
+/// One NEXT press held for review: the phase being left and its unchecked items. (v6.0 · B2)
+struct OpenItemsReview: Identifiable {
+    let id = UUID()
+    let phase: ChecklistPhase
+    let items: [ChecklistItem]
 }

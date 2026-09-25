@@ -1392,6 +1392,21 @@ enum L10n {
     }
 
     /// Trips: stops, legs, diversions and continuing after one. (v5.1)
+    /// Checklist items left unchecked by NEXT. (v6.0 · B2)
+    enum Deferred {
+        /// "2 items not checked"
+        static func notChecked(_ count: Int) -> String { String(localized: "\(count) items not checked") }
+        /// "2 deferred items"
+        static func count(_ count: Int) -> String { String(localized: "\(count) deferred items") }
+        static let backToChecklist = String(localized: "deferred.back")
+        static let continueLater = String(localized: "deferred.continue")
+        static let continueNote = String(localized: "deferred.continueNote")
+        static let title = String(localized: "deferred.title")
+        static let hint = String(localized: "deferred.hint")
+        static let check = String(localized: "deferred.check")
+        static let review = String(localized: "deferred.review")
+    }
+
     enum Trip {
         static let addStop = String(localized: "trip.addStop")
         static let addStopTitle = String(localized: "trip.addStopTitle")

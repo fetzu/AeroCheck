@@ -1260,6 +1260,15 @@ struct CockpitInstrumentStrip: View {
     let altitudeFeet: Double
     var headingDegrees: Double? = nil
     var verticalSpeedFPM: Double? = nil
+    /// The iPad Cockpit: values at `CockpitType.value`, labels at `CockpitType.label`, read from a
+    /// thigh. The iPhone keeps the compact sizes until its pass. (v6.0 · P2, P6)
+    var kneeboard: Bool = false
+    /// The next waypoint, in the route's magenta: the fourth cell of the Cockpit strip. (v6.0 · P2)
+    var nextWaypoint: String? = nil
+
+    private var valueSize: CGFloat { kneeboard ? CockpitType.value : 24 }
+    private var labelSize: CGFloat { kneeboard ? CockpitType.label : 11 }
+    private var flagSize: CGSize { kneeboard ? CGSize(width: 110, height: 54) : CGSize(width: 70, height: 34) }
 
     /// Vertical speed for the ALT cell, formatted (e.g. "↑480" / "↓300") with a colour — shown only
     /// above ±50 fpm so level flight stays clean. Hidden when GPS is lost.
@@ -1297,6 +1306,10 @@ struct CockpitInstrumentStrip: View {
             altitudeCell
             divider
             headingCell
+            if kneeboard, let nextWaypoint {
+                divider
+                nextCell(nextWaypoint)
+            }
         }
         .padding(.vertical, 10)
         .padding(.horizontal, 8)
@@ -1305,12 +1318,13 @@ struct CockpitInstrumentStrip: View {
     }
 
     private var speedCell: some View {
-        cell(label: "SPD kt") {
+        // GS, not SPD: it is ground speed, the app has no airspeed source. (v6.0 · P2)
+        cell(label: kneeboard ? "GS kt" : "SPD kt") {
             ZStack {
                 VStack(spacing: 0) {
                     if gpsSignalStatus != .lost {
                         Text("\(Int(max(0, displaySpeed)))")
-                            .font(.aero(size: 30, weight: .medium, design: .monospaced))
+                            .font(.aero(size: kneeboard ? CockpitType.value : 30, weight: .medium, design: .monospaced))
                             .foregroundColor(speedColor)
                             .minimumScaleFactor(0.6).lineLimit(1)
                         if let target = targetSpeed {
@@ -1318,12 +1332,12 @@ struct CockpitInstrumentStrip: View {
                                 fraction: SpeedIndicatorView.targetBarFraction(displaySpeed: displaySpeed, targetSpeed: target),
                                 state: SpeedIndicatorView.barState(for: speedState)
                             )
-                            .frame(maxWidth: 72).padding(.top, 3)
+                            .frame(maxWidth: kneeboard ? 110 : 72).padding(.top, 3)
                         }
                     }
                 }
                 if showFailureFlag {
-                    InstrumentFailureFlag(level: failureLevel, size: CGSize(width: 70, height: 34))
+                    InstrumentFailureFlag(level: failureLevel, size: flagSize)
                         .clipShape(RoundedRectangle(cornerRadius: 6))
                 }
             }
@@ -1342,18 +1356,18 @@ struct CockpitInstrumentStrip: View {
                 if gpsSignalStatus != .lost {
                     VStack(spacing: 1) {
                         Text("\(Int(max(0, altitudeFeet)))")
-                            .font(.aero(size: 24, weight: .medium, design: .monospaced))
+                            .font(.aero(size: valueSize, weight: .medium, design: .monospaced))
                             .foregroundColor(theme.textPrimary)
                             .minimumScaleFactor(0.5).lineLimit(1)
                         if let vs = verticalSpeedDisplay {
                             Text(vs.text)
-                                .font(.aero(size: 11, weight: .semibold, design: .monospaced))
+                                .font(.aero(size: labelSize, weight: .semibold, design: .monospaced))
                                 .foregroundColor(vs.color)
                         }
                     }
                 }
                 if showFailureFlag {
-                    InstrumentFailureFlag(level: failureLevel, size: CGSize(width: 70, height: 34))
+                    InstrumentFailureFlag(level: failureLevel, size: flagSize)
                         .clipShape(RoundedRectangle(cornerRadius: 6))
                 }
             }
@@ -1365,25 +1379,42 @@ struct CockpitInstrumentStrip: View {
     }
 
     private var headingCell: some View {
-        cell(label: "HDG") {
+        // TRK on the kneeboard: it is the GPS track, which the compact strip spells out underneath.
+        cell(label: kneeboard ? "TRK" : "HDG") {
             Text(headingDegrees.map { String(format: "%03d°", (Int($0.rounded()) % 360 + 360) % 360) } ?? "---")
-                .font(.aero(size: 24, weight: .medium, design: .monospaced))
+                .font(.aero(size: valueSize, weight: .medium, design: .monospaced))
                 .foregroundColor(theme.textPrimary)
-            Text("track").font(.aero(size: 10)).foregroundColor(theme.textSecondary)
+                .minimumScaleFactor(0.5).lineLimit(1)
+            if !kneeboard {
+                Text("track").font(.aero(size: 10)).foregroundColor(theme.textSecondary)
+            }
         }
         .accessibilityElement(children: .ignore)
         .accessibilityLabel("Heading")
         .accessibilityValue(headingDegrees.map { "\((Int($0.rounded()) % 360 + 360) % 360) degrees track" } ?? "unknown")
     }
 
+    /// The next waypoint: the active route, so magenta.
+    private func nextCell(_ ident: String) -> some View {
+        cell(label: "NEXT") {
+            Text(ident)
+                .font(.aero(size: valueSize, weight: .bold, design: .monospaced))
+                .foregroundColor(theme.route)
+                .minimumScaleFactor(0.4).lineLimit(1)
+        }
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(L10n.Nav.next)
+        .accessibilityValue(ident)
+    }
+
     private var divider: some View {
-        Rectangle().fill(theme.glassStroke).frame(width: 0.5).frame(maxHeight: 44)
+        Rectangle().fill(theme.glassStroke).frame(width: 0.5).frame(maxHeight: kneeboard ? 72 : 44)
     }
 
     @ViewBuilder
     private func cell<Content: View>(label: String, @ViewBuilder content: () -> Content) -> some View {
         VStack(spacing: 2) {
-            Text(label).font(.aero(size: 11)).foregroundColor(theme.textSecondary)
+            Text(label).font(.aero(size: labelSize)).foregroundColor(theme.textSecondary)
             content()
         }
         .frame(maxWidth: .infinity)
@@ -1458,7 +1489,8 @@ struct CockpitHeroChecklistItem: View {
             if let response, !response.isEmpty {
                 Text(response)
                     .font(.aero(size: responseSize, weight: .medium))
-                    .foregroundColor(theme.action)
+                    // Data, so not cyan: in flight cyan means "you can touch this". (v6.0 · P5)
+                    .foregroundColor(theme.textPrimary.opacity(0.85))
                     .lineLimit(2)
                     .minimumScaleFactor(0.7)
             }

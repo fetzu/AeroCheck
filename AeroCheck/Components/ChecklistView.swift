@@ -15,6 +15,8 @@ struct TimestampActionButton: View {
     /// HUD bottom-bar style: single row at NEXT's height/corner radius (no timestamp/hint stacked
     /// below), so it sits flush next to the NEXT button. (v4 UI/UX Revamp)
     var compact: Bool = false
+    /// The Cockpit's thumb bar: at least this tall, label at the row size. (v6.0 · P2)
+    var minHeight: CGFloat? = nil
     let onFirstPress: () -> Void
     let onUpdateTime: () -> Void
 
@@ -36,13 +38,14 @@ struct TimestampActionButton: View {
                     .lineLimit(1)
                     .minimumScaleFactor(0.6)
             }
-            .font(.aero(size: compact ? 20 : 18, weight: .bold))
+            .font(.aero(size: minHeight != nil ? CockpitType.row : (compact ? 20 : 18), weight: .bold))
             .foregroundColor(compact ? .black : .white)
             // Compact = HUD bottom bar: fill width + match NEXT's vertical padding so the heights are
             // identical; the title shrinks (one line) rather than wrapping when the row is tight.
             .frame(maxWidth: compact ? .infinity : nil)
-            .padding(.horizontal, compact ? 0 : 24)
-            .padding(.vertical, compact ? 18 : 14)
+            .padding(.horizontal, compact ? (minHeight != nil ? 10 : 0) : 24)
+            .padding(.vertical, minHeight != nil ? 0 : (compact ? 18 : 14))
+            .frame(minHeight: minHeight)
             .background(
                 ZStack {
                     RoundedRectangle(cornerRadius: compact ? 14 : 10)
@@ -257,6 +260,12 @@ struct ChecklistView: View {
     /// Engine hours are logged: offer the reading inline in the calm phases around start and stop,
     /// instead of a keypad popping up while the pilot starts the engine. (v6.0 · B4)
     var promptsEngineHours: Bool = false
+    /// Items of this phase deferred with DEFER: drawn as deferred, not as done, although the highlight
+    /// has passed them. (v6.0 · P2)
+    var deferredItemIds: Set<String> = []
+    /// The Cockpit: CHECK in the thumb bar advances, so the "tap to advance" hint goes, and tapping a
+    /// checked row steps back to it (`onStepBack`). (v6.0 · P2)
+    var onStepBack: ((Int) -> Void)? = nil
     /// Owned by the parent so tap-to-advance / completion include revealed items. (v4 UI/UX Revamp)
     @Binding var hiddenItemsRevealed: Bool
 
@@ -324,6 +333,8 @@ struct ChecklistView: View {
          onEditEngineHourStart: (() -> Void)? = nil,
          onEditEngineHourEnd: (() -> Void)? = nil,
          promptsEngineHours: Bool = false,
+         deferredItemIds: Set<String> = [],
+         onStepBack: ((Int) -> Void)? = nil,
          hiddenItemsRevealed: Binding<Bool> = .constant(false)) {
         self.phase = phase
         self.activeChecklist = activeChecklist
@@ -362,6 +373,8 @@ struct ChecklistView: View {
         self.engineHourEndInputFormat = engineHourEndInputFormat
         self.onEditEngineHourStart = onEditEngineHourStart
         self.onEditEngineHourEnd = onEditEngineHourEnd
+        self.deferredItemIds = deferredItemIds
+        self.onStepBack = onStepBack
         self._hiddenItemsRevealed = hiddenItemsRevealed
     }
     
@@ -377,7 +390,7 @@ struct ChecklistView: View {
 
                 Spacer()
 
-                if stepByStepEnabled && !visibleItems.isEmpty {
+                if stepByStepEnabled && !visibleItems.isEmpty && onStepBack == nil {
                     HStack(spacing: 4) {
                         Image(systemName: "hand.tap.fill")
                             .font(.aero(size: isCompact ? 9 : 10))
@@ -436,7 +449,8 @@ struct ChecklistView: View {
                 VStack(alignment: .leading, spacing: 0) {
                     ForEach(Array(visibleItems.enumerated()), id: \.element.id) { index, item in
                         let isHighlighted = stepByStepEnabled && index == highlightedItemIndex && highlightedItemIndex < visibleItems.count
-                        let isCompleted = stepByStepEnabled && index < highlightedItemIndex
+                        let isDeferred = stepByStepEnabled && index < highlightedItemIndex && deferredItemIds.contains(item.id)
+                        let isCompleted = stepByStepEnabled && index < highlightedItemIndex && !isDeferred
 
                         Group {
                             // The CURRENT item becomes the one-glance "hero" (v4 UI/UX Revamp HUD): same
@@ -454,12 +468,28 @@ struct ChecklistView: View {
                                     isCompact: isCompact
                                 )
                                 .padding(.vertical, 4)
+                            } else if let onStepBack, isCompleted || isDeferred {
+                                // The Cockpit: a checked (or deferred) row is a button back to it.
+                                Button { onStepBack(index) } label: {
+                                    ChecklistItemRow(
+                                        item: item,
+                                        showSeparator: index < visibleItems.count - 1,
+                                        isHighlighted: false,
+                                        isCompleted: isCompleted,
+                                        isDeferred: isDeferred,
+                                        isCompact: isCompact
+                                    )
+                                    .contentShape(Rectangle())
+                                }
+                                .buttonStyle(.plain)
+                                .accessibilityHint(L10n.Cockpit.stepBackHint)
                             } else {
                                 ChecklistItemRow(
                                     item: item,
                                     showSeparator: index < visibleItems.count - 1,
                                     isHighlighted: isHighlighted,
                                     isCompleted: isCompleted,
+                                    isDeferred: isDeferred,
                                     isCompact: isCompact
                                 )
                             }
@@ -810,13 +840,17 @@ struct ChecklistItemRow: View {
     let showSeparator: Bool
     var isHighlighted: Bool = false
     var isCompleted: Bool = false
+    /// Passed over with DEFER: still to do, and a caution until it is. (v6.0 · P2)
+    var isDeferred: Bool = false
     var isCompact: Bool = false
 
-    init(item: ChecklistItem, showSeparator: Bool = true, isHighlighted: Bool = false, isCompleted: Bool = false, isCompact: Bool = false) {
+    init(item: ChecklistItem, showSeparator: Bool = true, isHighlighted: Bool = false, isCompleted: Bool = false,
+         isDeferred: Bool = false, isCompact: Bool = false) {
         self.item = item
         self.showSeparator = showSeparator
         self.isHighlighted = isHighlighted
         self.isCompleted = isCompleted
+        self.isDeferred = isDeferred
         self.isCompact = isCompact
     }
     
@@ -824,7 +858,8 @@ struct ChecklistItemRow: View {
     // card) is the focus. (v4 UI/UX Revamp)
 
     private var challengeColor: Color {
-        isCompleted ? theme.textDim : theme.textSecondary
+        if isDeferred { return theme.warning }
+        return isCompleted ? theme.textDim : theme.textSecondary
     }
 
     private var responseColor: Color {
@@ -855,6 +890,10 @@ struct ChecklistItemRow: View {
                         Image(systemName: "checkmark")
                             .font(.aero(size: isCompact ? 10 : 18, weight: .bold))
                             .foregroundColor(theme.onTarget.opacity(0.7))
+                    } else if isDeferred {
+                        Image(systemName: "clock.arrow.circlepath")
+                            .font(.aero(size: isCompact ? 10 : 18, weight: .bold))
+                            .foregroundColor(theme.warning)
                     }
                 }
                 .frame(width: isCompact ? 18 : 28, alignment: .leading)
@@ -916,7 +955,7 @@ struct ChecklistItemRow: View {
         // (UX-10)
         .accessibilityElement(children: .ignore)
         .accessibilityLabel("\(item.challenge), \(item.response)")
-        .accessibilityValue(isCompleted ? L10n.Accessibility.itemCompleted : "")
+        .accessibilityValue(isCompleted ? L10n.Accessibility.itemCompleted : (isDeferred ? L10n.Deferred.deferredTag : ""))
         .accessibilityAddTraits(isHighlighted ? [.isStaticText, .isSelected] : .isStaticText)
     }
 }

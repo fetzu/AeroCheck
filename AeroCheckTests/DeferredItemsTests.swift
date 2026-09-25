@@ -142,4 +142,78 @@ final class DeferredItemsTests: XCTestCase {
         XCTAssertTrue(restored.deferredItems.isEmpty)
         restored.isFlightActive = false
     }
+
+    // MARK: DEFER inside a phase (the Cockpit, v6.0 · P2)
+
+    /// All visible items, headers included, as the highlight index counts them.
+    private func visible(_ appState: AppState, _ phase: ChecklistPhase) -> [ChecklistItem] {
+        appState.activeChecklist.visibleItems(for: phase, learningMode: appState.effectiveLearningMode)
+    }
+
+    func testDeferKeepsTheItemAndMovesOn() throws {
+        let appState = flight()
+        let list = visible(appState, .preflight)
+        try XCTSkipIf(list.count < 3 || list[0].isHeader, "needs a phase opening on an item")
+        appState.deferHighlightedItem()
+        XCTAssertEqual(appState.getHighlightedItem(for: .preflight), 1)
+        XCTAssertEqual(appState.deferredItems[.preflight], [list[0].id])
+        XCTAssertEqual(appState.currentPhaseDeferredIds, [list[0].id])
+        XCTAssertEqual(appState.deferredItemCount, 1, "listed with the other deferred items at once")
+    }
+
+    func testDeferringTheLastItemReachesTheEnd() throws {
+        let appState = flight()
+        let list = visible(appState, .preflight)
+        try XCTSkipIf(list.last?.isHeader ?? true)
+        appState.currentHighlightedItem[.preflight] = list.count - 1
+        appState.deferHighlightedItem()
+        XCTAssertTrue(appState.areAllItemsCompleted(learningMode: appState.effectiveLearningMode))
+        XCTAssertEqual(appState.deferredItems[.preflight], [list.last!.id])
+    }
+
+    func testAPhaseLeftWithADeferredItemIsNotComplete() throws {
+        let appState = flight()
+        let list = visible(appState, .preflight)
+        try XCTSkipIf(list.count < 2 || list[0].isHeader)
+        appState.deferHighlightedItem()                               // the first one, deferred
+        appState.markLastItemComplete(learningMode: appState.effectiveLearningMode)   // the rest, checked
+        XCTAssertTrue(appState.openItems(in: .preflight).isEmpty, "nothing left to review on NEXT")
+
+        appState.nextPhase()
+        XCTAssertEqual(appState.phaseCompletionStatus[.preflight], .skipped)
+        XCTAssertEqual(appState.deferredItems[.preflight], [list[0].id], "kept, not overwritten")
+
+        appState.checkDeferredItem(list[0].id, in: .preflight)
+        XCTAssertEqual(appState.phaseCompletionStatus[.preflight], .completed)
+    }
+
+    func testNextMergesDeferredAndOpenItemsInListOrder() throws {
+        let appState = flight()
+        let list = visible(appState, .preflight).filter { !$0.isHeader }
+        try XCTSkipIf(list.count < 3 || visible(appState, .preflight)[0].isHeader)
+        appState.deferHighlightedItem()                               // item 0 deferred, item 1 current
+        appState.nextPhase()                                          // items 1… still open
+
+        let ids = try XCTUnwrap(appState.deferredItems[.preflight])
+        XCTAssertEqual(ids.first, list[0].id)
+        XCTAssertEqual(Set(ids), Set(list.map(\.id)), "every item, once")
+        XCTAssertEqual(ids.count, list.count)
+    }
+
+    func testSteppingBackReopensItemsAndTakesThemOffTheDeferredList() throws {
+        let appState = flight()
+        let list = visible(appState, .preflight)
+        try XCTSkipIf(list.count < 4 || list[0].isHeader || list[1].isHeader)
+        appState.advanceHighlightedItem(learningMode: appState.effectiveLearningMode)   // 0 checked
+        appState.deferHighlightedItem()                                                 // 1 deferred
+        appState.advanceHighlightedItem(learningMode: appState.effectiveLearningMode)   // 2 checked
+        XCTAssertEqual(appState.getHighlightedItem(for: .preflight), 3)
+
+        appState.stepBack(toItemAt: 1)
+        XCTAssertEqual(appState.getHighlightedItem(for: .preflight), 1)
+        XCTAssertNil(appState.deferredItems[.preflight], "item 1 is the current one again, not deferred")
+
+        appState.stepBack(toItemAt: 2)
+        XCTAssertEqual(appState.getHighlightedItem(for: .preflight), 1, "can't step forward")
+    }
 }

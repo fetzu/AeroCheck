@@ -38,6 +38,7 @@
 		A5000044111111110000002 /* LegTimerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A5000044111111110000001 /* LegTimerTests.swift */; };
 		A5000045111111110000002 /* MemoryTestSettingsTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A5000045111111110000001 /* MemoryTestSettingsTests.swift */; };
 		A5000046111111110000002 /* TypographyTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A5000046111111110000001 /* TypographyTests.swift */; };
+		A5000047111111110000002 /* MapPresetTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A5000047111111110000001 /* MapPresetTests.swift */; };
 		A5000038111111110000002 /* NavLogExportTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A5000038111111110000001 /* NavLogExportTests.swift */; };
 		A5000037111111110000002 /* AltitudePlannerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A5000037111111110000001 /* AltitudePlannerTests.swift */; };
 		A5000036111111110000002 /* RouteRadioPlannerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A5000036111111110000001 /* RouteRadioPlannerTests.swift */; };
@@ -321,6 +322,7 @@
 		A5000044111111110000001 /* LegTimerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LegTimerTests.swift; sourceTree = "<group>"; };
 		A5000045111111110000001 /* MemoryTestSettingsTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MemoryTestSettingsTests.swift; sourceTree = "<group>"; };
 		A5000046111111110000001 /* TypographyTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TypographyTests.swift; sourceTree = "<group>"; };
+		A5000047111111110000001 /* MapPresetTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MapPresetTests.swift; sourceTree = "<group>"; };
 		A5000038111111110000001 /* NavLogExportTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NavLogExportTests.swift; sourceTree = "<group>"; };
 		A5000037111111110000001 /* AltitudePlannerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AltitudePlannerTests.swift; sourceTree = "<group>"; };
 		A5000036111111110000001 /* RouteRadioPlannerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RouteRadioPlannerTests.swift; sourceTree = "<group>"; };
@@ -589,6 +591,7 @@
 				A5000044111111110000001 /* LegTimerTests.swift */,
 				A5000045111111110000001 /* MemoryTestSettingsTests.swift */,
 				A5000046111111110000001 /* TypographyTests.swift */,
+				A5000047111111110000001 /* MapPresetTests.swift */,
 				A5000038111111110000001 /* NavLogExportTests.swift */,
 				A5000037111111110000001 /* AltitudePlannerTests.swift */,
 				A5000036111111110000001 /* RouteRadioPlannerTests.swift */,
@@ -1093,6 +1096,7 @@
 				A5000044111111110000002 /* LegTimerTests.swift in Sources */,
 				A5000045111111110000002 /* MemoryTestSettingsTests.swift in Sources */,
 				A5000046111111110000002 /* TypographyTests.swift in Sources */,
+				A5000047111111110000002 /* MapPresetTests.swift in Sources */,
 				A5000038111111110000002 /* NavLogExportTests.swift in Sources */,
 				A5000037111111110000002 /* AltitudePlannerTests.swift in Sources */,
 				A5000036111111110000002 /* RouteRadioPlannerTests.swift in Sources */,

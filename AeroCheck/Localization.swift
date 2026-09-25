@@ -1352,6 +1352,12 @@ enum L10n {
     // MARK: - Map Layer Selector
     enum MapLayer {
         static let title = String(localized: "mapLayer.title")
+        static let icao = String(localized: "mapLayer.icao")
+        static let icaoHint = String(localized: "mapLayer.icaoHint")
+        static let landeskarte = String(localized: "mapLayer.landeskarte")
+        static let swissimage = String(localized: "mapLayer.swissimage")
+        static let satellite = String(localized: "mapLayer.satellite")
+        static let standard = String(localized: "mapLayer.standard")
     }
 
     // MARK: - Flight Plan Overlay
@@ -1805,6 +1811,21 @@ enum L10n {
         static let legTimerReset = String(localized: "nav.legTimerReset")
         static let undo = String(localized: "nav.undo")
         /// "LSGC passed at 13:07"
+        // Map chrome, iPad (v6.0 · P3)
+        static let mapSheet = String(localized: "nav.mapSheet")
+        static let northUp = String(localized: "nav.northUp")
+        static let trackUp = String(localized: "nav.trackUp")
+        static let centre = String(localized: "nav.centre")
+        static let more = String(localized: "nav.more")
+        static let leg = String(localized: "nav.leg")
+        static let startLegTimer = String(localized: "nav.startLegTimer")
+        static let legsAndFrequencies = String(localized: "nav.legsAndFrequencies")
+        static let baseChart = String(localized: "nav.baseChart")
+        static let presets = String(localized: "nav.presets")
+        static let presetCruise = String(localized: "nav.presetCruise")
+        static let presetApproach = String(localized: "nav.presetApproach")
+        static let presetEverything = String(localized: "nav.presetEverything")
+        static let presetsHint = String(localized: "nav.presetsHint")
         static func markedAt(_ waypoint: String, _ time: String) -> String {
             String(format: String(localized: "nav.markedAt"), waypoint, time)
         }

@@ -18955,40 +18955,6 @@
         }
       }
     },
-    "settings.checklist.stepByStep": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Step-by-Step Highlighting"
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Mise en évidence pas à pas"
-          }
-        }
-      }
-    },
-    "settings.checklist.stepByStepFooter": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Step-by-Step: Highlights items one at a time. Tap anywhere to advance."
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Pas à pas : Met en évidence les éléments un par un. Appuyez n'importe où pour avancer."
-          }
-        }
-      }
-    },
     "settings.checklistLanguage": {
       "extractionState": "manual",
       "localizations": {

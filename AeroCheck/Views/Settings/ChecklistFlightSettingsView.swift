@@ -4,7 +4,6 @@ import SwiftUI
 struct ChecklistFlightSettingsView: View {
     @Environment(AppState.self) private var appState
 
-    @State private var stepByStepHighlighting: Bool = true
     @State private var learningMode: Bool = false
     @State private var checklistLanguage: ChecklistLanguage = .auto
     @State private var sunlightBoost: Bool = false
@@ -18,8 +17,6 @@ struct ChecklistFlightSettingsView: View {
     var body: some View {
         SettingsPage {
             SettingsGroup(title: L10n.Settings.checklist, tint: tint) {
-                SettingsToggleRow(icon: "checklist", title: L10n.Settings.stepByStep,
-                                  subtitle: L10n.Settings.stepByStepFooter, tint: tint, isOn: $stepByStepHighlighting)
                 // "Memory test" is learning mode seen from the pilot's side: on hides the memorisable
                 // checks. The stored setting keeps its meaning (on = everything shown). (v6.0 · A7)
                 SettingsToggleRow(icon: "brain.head.profile", title: L10n.Settings.memoryTest,
@@ -48,7 +45,6 @@ struct ChecklistFlightSettingsView: View {
         .navigationBarTitleDisplayMode(.inline)
         .onAppear { loadSettings() }
         .onChange(of: appState.settings) { _, _ in loadSettings() }
-        .onChange(of: stepByStepHighlighting) { _, _ in if !isLoadingSettings { saveSettings() } }
         .onChange(of: learningMode) { _, _ in if !isLoadingSettings { saveSettings() } }
         .onChange(of: checklistLanguage) { _, _ in if !isLoadingSettings { saveSettings() } }
         .onChange(of: logEngineHours) { _, _ in if !isLoadingSettings { saveSettings() } }
@@ -95,7 +91,6 @@ struct ChecklistFlightSettingsView: View {
 
     private func loadSettings() {
         isLoadingSettings = true
-        stepByStepHighlighting = appState.settings.stepByStepHighlighting
         learningMode = appState.settings.learningMode
         checklistLanguage = appState.settings.checklistLanguage
         sunlightBoost = appState.settings.sunlightBoost
@@ -108,7 +103,6 @@ struct ChecklistFlightSettingsView: View {
     }
 
     private func saveSettings() {
-        appState.settings.stepByStepHighlighting = stepByStepHighlighting
         appState.settings.learningMode = learningMode
         appState.settings.checklistLanguage = checklistLanguage
         appState.settings.sunlightBoost = sunlightBoost

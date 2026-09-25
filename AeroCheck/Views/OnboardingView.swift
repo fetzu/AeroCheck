@@ -500,10 +500,11 @@ struct OnboardingView: View {
         ) {
             VStack(spacing: 11) {
                 LazyVGrid(columns: toggleColumns, spacing: 11) {
-                    toggleRow("graduationcap", .altimeterBlue,
-                              String(localized: "Learning mode"),
-                              String(localized: "Show memorised items while you learn"),
-                              Bindable(appState).settings.learningMode)
+                    toggleRow("brain.head.profile", .altimeterBlue,
+                              L10n.Settings.memoryTest,
+                              L10n.Settings.memoryTestOnboarding,
+                              Binding(get: { !appState.settings.learningMode },
+                                      set: { appState.settings.learningMode = !$0 }))
                     toggleRow("arrow.triangle.2.circlepath", .altimeterBlue,
                               String(localized: "Circuit mode"),
                               String(localized: "Streamlined pattern-training flow"),

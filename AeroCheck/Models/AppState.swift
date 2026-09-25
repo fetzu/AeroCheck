@@ -1984,7 +1984,9 @@ class AppState {
         let deltaURL = persistence.activeFlightTrackDeltaURL
         let savedAt = state.savedAt
         let pointerKey = activeFlightPointerKey
-        let defaults = self.defaults
+        // UserDefaults is documented as thread-safe, but the SDK doesn't mark it Sendable. The
+        // injected instance (tests use their own) is written once, off the main actor, below.
+        nonisolated(unsafe) let defaults = self.defaults
         let writtenThrough = alreadyWritten + newPoints.count
 
         let write: @Sendable () -> Void = { [weak self] in

@@ -136,8 +136,10 @@ struct AeroCheckApp: App {
                     )
                     // The viewer reports its OWN entitlement to the master, which decides how much
                     // premium checklist text it may stream back. (SA-26)
-                    companionConnectivityManager.viewerEntitlementProvider = { [weak subscriptionManager] in
-                        subscriptionManager?.subscriptionStatus.isSubscribed ?? false
+                    // A strong capture, stated: the manager is a @StateObject that lives as long as the
+                    // app, and the surrounding task already holds it strongly, so `weak` bought nothing.
+                    companionConnectivityManager.viewerEntitlementProvider = { [subscriptionManager] in
+                        subscriptionManager.subscriptionStatus.isSubscribed
                     }
 
                     // Live Activity next-waypoint feed (UX-25): AppState has no FlightPlanManager
@@ -170,11 +172,12 @@ struct AeroCheckApp: App {
 
                     // A confirmed full-stop landing arms the close-your-flight-plan reminder without
                     // waiting for END FLIGHT, which is the pilot who lands and walks away. (review F6)
-                    flightEventDetector.onEvent = { [weak flightThreadManager] kind, _ in
+                    // Strong, like the entitlement provider above: an app-lifetime @StateObject.
+                    flightEventDetector.onEvent = { [flightThreadManager] kind, _ in
                         guard kind == .fullStop else { return }
                         Task { @MainActor in
                             guard let flightId = appState.currentFlight?.id else { return }
-                            flightThreadManager?.noteFullStopLanding(flightId: flightId)
+                            flightThreadManager.noteFullStopLanding(flightId: flightId)
                         }
                     }
                     // Auto-connect if companion mode is on and a device is paired — the user shouldn't

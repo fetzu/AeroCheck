@@ -178,6 +178,10 @@ enum MapOrientationMode {
 struct NavigationMapState: Equatable {
     var selectedLayer: MapLayerType = .icao
     var orientationMode: MapOrientationMode = .northUp
+    /// The zoom the map was left at, so reopening it (or switching the Cockpit back to MAP) doesn't
+    /// throw away the scale the pilot chose. nil until the map has been shown once. (v6.0 · P2)
+    var cameraDistance: Double?
+    var latitudeDelta: Double?
 }
 
 extension MapOrientationMode: Equatable {}
@@ -224,6 +228,8 @@ struct NavigationMapView: View {
     @State private var isFollowingAircraft: Bool = true
     @State private var showLayerPicker: Bool = false
     @State private var showOverlaysSheet: Bool = false   // v4.1.0 ② — the Layers sheet
+    /// iPad: base chart and overlays in one labelled sheet. (v6.0 · C1)
+    @State private var showMapSheet: Bool = false
     @State private var showCacheInfoModal: Bool = false
     @State private var showSigmets: Bool = false
     @State private var showFlightPlanning: Bool = false
@@ -434,10 +440,13 @@ struct NavigationMapView: View {
         // Attached ONCE here rather than inside each layout body: the two bodies don't share an
         // overlay stack, and the pill is identical on both — only the top inset differs, because the
         // compact bar is taller than the regular one. (v4.4.0)
+        // On iPad the pill sits in the chrome stack, under the next-waypoint card and the map controls.
         .overlay(alignment: .top) {
-            routeOffScreenPill
-                .padding(.top, shouldUseCompactLayout ? 104 : 92)
-                .animation(reduceMotion ? nil : .easeInOut(duration: 0.25), value: routeOffScreenHint) // (UX-18)
+            if shouldUseCompactLayout {
+                routeOffScreenPill
+                    .padding(.top, 104)
+                    .animation(reduceMotion ? nil : .easeInOut(duration: 0.25), value: routeOffScreenHint) // (UX-18)
+            }
         }
         // Only as its own cover. Embedded in a ground tab, a preferred scheme would darken the whole
         // window, and the root could no longer read the device's light/dark for Auto. (v6.0 · P1)
@@ -466,11 +475,8 @@ struct NavigationMapView: View {
             // Center on aircraft location immediately (synchronous, not via async dispatch)
             // so the map renders at the correct position from the first frame
             if let location = locationManager.currentLocation {
-                mapState.region = MKCoordinateRegion(
-                    center: location.coordinate,
-                    span: MKCoordinateSpan(latitudeDelta: 0.1, longitudeDelta: 0.1)
-                )
-                mapState.cameraDistance = 10000
+                mapState.region = MKCoordinateRegion(center: location.coordinate, span: initialSpan)
+                mapState.cameraDistance = initialCameraDistance
                 if mapOrientationMode == .trackUp, let course = locationManager.currentCourseDegrees {
                     mapState.cameraHeading = course
                 }
@@ -507,6 +513,9 @@ struct NavigationMapView: View {
             updateTrackVectorEMA()
         }
         .onDisappear {
+            // Keep the zoom for next time. (v6.0 · P2)
+            appState.navigationMapState.cameraDistance = mapState.cameraDistance
+            appState.navigationMapState.latitudeDelta = mapState.region.span.latitudeDelta
             // Stop GPS updates when navigation view closes (if not in a flight)
             locationManager.stopLocationUpdates()
             streamingCTRCheckTask?.cancel()
@@ -561,11 +570,8 @@ struct NavigationMapView: View {
                 if !hasInitiallyCentered {
                     // First fix after opening (no position was available at open) — snap to a tight,
                     // centered view rather than re-centering at whatever stale zoom was left. (v4 UI/UX Revamp)
-                    mapState.region = MKCoordinateRegion(
-                        center: location.coordinate,
-                        span: MKCoordinateSpan(latitudeDelta: 0.1, longitudeDelta: 0.1)
-                    )
-                    mapState.cameraDistance = 10000
+                    mapState.region = MKCoordinateRegion(center: location.coordinate, span: initialSpan)
+                    mapState.cameraDistance = initialCameraDistance
                     hasInitiallyCentered = true
                 } else {
                     updateMapStateForLocation(location)
@@ -630,6 +636,16 @@ struct NavigationMapView: View {
         }
     }
 
+    /// The zoom the map opens at: where it was left, else about 6 NM across.
+    private var initialSpan: MKCoordinateSpan {
+        let delta = appState.navigationMapState.latitudeDelta ?? 0.1
+        return MKCoordinateSpan(latitudeDelta: delta, longitudeDelta: delta)
+    }
+
+    private var initialCameraDistance: Double {
+        appState.navigationMapState.cameraDistance ?? 10000
+    }
+
     // MARK: - Hazards
 
     /// Hazards with distance recomputed against LIVE position and the planned route, ranked.
@@ -677,12 +693,21 @@ struct NavigationMapView: View {
                     .padding(.horizontal)
                     .padding(.top)
 
-                // Hazard chip. Sits UNDER the top bar rather than floating at the map's top-left,
-                // where it would collide with the layer controls, and only exists when a hazard is
-                // actually in range — a chip that is always present stops being read.
-                SigmetChip(hazards: rankedSigmets) { showSigmets = true }
-                    .padding(.horizontal)
-                    .padding(.top, 8)
+                // What a pilot reads most, big and on top: the next waypoint. Then the map's own
+                // controls, labelled. (v6.0 · P3)
+                VStack(spacing: 10) {
+                    nextWaypointCard
+                    mapControlsRow
+                        .frame(maxWidth: .infinity, alignment: .trailing)
+                    // Hazard chip. Only exists when a hazard is actually in range — a chip that is
+                    // always present stops being read.
+                    SigmetChip(hazards: rankedSigmets) { showSigmets = true }
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                    routeOffScreenPill
+                        .animation(reduceMotion ? nil : .easeInOut(duration: 0.25), value: routeOffScreenHint) // (UX-18)
+                }
+                .padding(.horizontal, 16)
+                .padding(.top, 10)
 
                 Spacer()
 
@@ -691,7 +716,7 @@ struct NavigationMapView: View {
 
             // The floating FLIGHT INFO overlay and the separate radio-frequency panel are both retired
             // (inc C / C2) — flight-plan data + the phase-aware frequencies live in the expandable
-            // bottom sheet (bottomControls / navSheetContent / freqColumn).
+            // bottom panel (bottomControls / legsAndFrequencies / freqColumn).
         }
         .sheet(isPresented: $showSigmets) {
             SigmetSheet(hazards: rankedSigmets)
@@ -793,7 +818,7 @@ struct NavigationMapView: View {
                 liveDataRow
                 progressRow(plan: plan)
             }
-            freqColumn
+            freqColumn(large: false)
         }
         .padding(.horizontal, 14)
         .padding(.top, 2)
@@ -1523,86 +1548,22 @@ struct NavigationMapView: View {
 
             Spacer()
 
-            // Layers button — opens the grouped overlays sheet (airspace/tiles · markers + show-all ·
-            // track vector). Replaces the standalone track-vector button so the on-map button count
-            // stays at two even as layers grow. (v4.1.0 ②)
-            Button(action: { showOverlaysSheet = true }) {
-                Image(systemName: "square.stack.3d.up")
-                    .font(.aero(size: 16, weight: .medium))
-                    .foregroundColor(theme.textSecondary)
-                    .frame(width: 44, height: 44)
-                    .background(theme.panel.opacity(0.92), in: Circle())
-            }
-            .accessibilityLabel(L10n.Nav.layers)
-            .sheet(isPresented: $showOverlaysSheet) {
-                OverlaysSheet()
-                    .environment(appState)
-                    .environmentObject(openAIPDataService)
-                    .environmentObject(dataStatusManager)
-            }
-
-            // OpenAIP overlay toggle
-            Button(action: {
-                appState.settings.showOpenAIPOverlay.toggle()
-                appState.saveSettings()
-            }) {
-                Image(systemName: "shield")
-                    .font(.aero(size: 16, weight: .medium))
-                    .foregroundColor(appState.settings.showOpenAIPOverlay ? theme.action : theme.textSecondary)
-                    .padding(.horizontal, 12)
-                    .padding(.vertical, 12)
-                    .background(
-                        RoundedRectangle(cornerRadius: 10)
-                            .fill(appState.settings.showOpenAIPOverlay
-                                  ? theme.panel.opacity(0.95)
-                                  : theme.panel.opacity(0.7))
-                    )
-            }
-            .overlay(alignment: .topTrailing) {
-                // On-map staleness cue (v4.1.0): an amber badge when the downloaded airspace data is
-                // aging/stale, so stale airspace drawn on the map is visible in flight.
-                if airspaceDataNeedsAttention {
-                    Image(systemName: "exclamationmark.triangle.fill")
-                        .font(.aero(size: 10, weight: .bold))
-                        .foregroundColor(theme.warning)
-                        .padding(2)
-                        .background(theme.panel, in: Circle())
-                        .offset(x: 5, y: -5)
-                        // Expose the stale-airspace cue to VoiceOver (reuses the existing translated
-                        // string) instead of hiding it — safety-relevant info. (v4.1.1 a11y pass)
-                        .accessibilityLabel(Text("Airspace data is out of date"))
+            // The map's own controls (base chart, overlays, orientation, zoom) moved to the labelled
+            // row under the next-waypoint card. The GPS status came up from the bottom bar, which is
+            // the thumb bar now. (v6.0 · P3)
+            Button(action: { showGPSStatusModal = true }) {
+                HStack(spacing: 8) {
+                    StatusIndicator(gpsStatusIndicator, size: 10)
+                    Text("GPS")
+                        .font(.aero(size: CockpitType.label, weight: .semibold))
+                        .foregroundColor(theme.textPrimary)
                 }
+                .padding(.horizontal, 14)
+                .frame(minWidth: 44, minHeight: 44)
+                .background(theme.panel, in: RoundedRectangle(cornerRadius: 10))
+                .contentShape(Rectangle())
             }
-
-            // Layer picker button (shows info modal in offline mode)
-            Button(action: {
-                if isOfflineMode {
-                    showCacheInfoModal = true
-                } else {
-                    showLayerPicker = true
-                }
-            }) {
-                HStack(spacing: 6) {
-                    Image(systemName: isOfflineMode ? MapLayerType.icao.icon : selectedLayer.icon)
-                    if !isOfflineMode {
-                        Image(systemName: "chevron.down")
-                            .font(.aero(size: 10))
-                    } else {
-                        Image(systemName: "info.circle")
-                            .font(.aero(size: 10))
-                    }
-                }
-                .font(.aero(size: 16, weight: .medium))
-                .foregroundColor(isOfflineMode ? theme.textSecondary : theme.textPrimary)
-                .padding(.horizontal, 16)
-                .padding(.vertical, 12)
-                .background(theme.panel.opacity(0.92), in: RoundedRectangle(cornerRadius: 10))
-            }
-            .accessibilityLabel(L10n.MapLayer.title)
-            .sheet(isPresented: $showLayerPicker) {
-                LayerPickerSheet(selectedLayer: $selectedLayer)
-                    .environment(appState)
-            }
+            .accessibilityLabel(L10n.GPS.status)
         }
     }
 
@@ -1648,29 +1609,20 @@ struct NavigationMapView: View {
                 .padding(.horizontal, 16)
                 .padding(.bottom, 8)
 
-            // Full-width bottom bar = the expandable flight-plan sheet, pinned to the bottom edge.
+            // Opaque, pinned to the bottom edge: the frequencies to hand, the legs and every frequency
+            // when opened, and the thumb bar. No chart ink behind the numbers. (v6.0 · P3, C6)
             VStack(spacing: 0) {
-                navSheetHandle
+                freqCard
                 if navSheetExpanded {
-                    navSheetContent
-                } else {
-                    navGlanceRow
+                    Rectangle().fill(theme.panelStroke).frame(height: 1)
+                    legsAndFrequencies
                 }
-                Rectangle().fill(Color.white.opacity(0.07)).frame(height: 0.5)
-                // Degrade the row when horizontal space runs out: MARK/START labels → icons (compact),
-                // then drop the +/− zoom buttons (minimal). ViewThatFits picks the first that fits. (v4 UI/UX Revamp)
-                ViewThatFits(in: .horizontal) {
-                    bottomControlRow(.full)
-                    bottomControlRow(.compact)
-                    bottomControlRow(.minimal)
-                }
+                Rectangle().fill(theme.panelStroke).frame(height: 1)
+                navThumbBar
             }
-            .background(
-                theme.panel.opacity(0.92)
-                    .ignoresSafeArea(edges: .bottom)
-            )
+            .background(theme.panel.ignoresSafeArea(edges: .bottom))
             .overlay(alignment: .top) {
-                Rectangle().fill(Color.white.opacity(0.09)).frame(height: 0.5)
+                Rectangle().fill(theme.panelStroke).frame(height: 1)
             }
             // Tap a crossed waypoint in the leg table → confirm resuming that leg. (v4 UI/UX Revamp)
             .confirmationDialog(
@@ -1704,50 +1656,461 @@ struct NavigationMapView: View {
         }
     }
 
-    /// Grab handle — two grabber pills flanking a state-aware chevron ("— ⌃ —" collapsed / "— ⌄ —"
-    /// expanded): keeps the iOS drag-grabber convention but adds an explicit expand cue. Tap to toggle,
-    /// or drag up/down (snaps). (v4 UI/UX Revamp inc C)
-    private var navSheetHandle: some View {
-        HStack(spacing: 6) {
-            Capsule().fill(Color.white.opacity(0.22)).frame(width: 16, height: 4)
-            Image(systemName: navSheetExpanded ? "chevron.down" : "chevron.up")
-                .font(.aero(size: 11, weight: .semibold))
-                .foregroundColor(.white.opacity(0.5))
-            Capsule().fill(Color.white.opacity(0.22)).frame(width: 16, height: 4)
-        }
-            .frame(maxWidth: .infinity)
-            .padding(.top, 7)
-            .padding(.bottom, 3)
-            .contentShape(Rectangle())
-            // No animated expand/collapse under Reduce Motion (UX-18)
-            .onTapGesture {
-                withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.28)) { navSheetExpanded.toggle() }
-            }
-            .gesture(
-                DragGesture(minimumDistance: 10)
-                    .onEnded { value in
-                        withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.28)) {
-                            if value.translation.height < -24 { navSheetExpanded = true }
-                            else if value.translation.height > 24 { navSheetExpanded = false }
+    // MARK: - Kneeboard chrome, iPad (v6.0 · P3)
+    //
+    // Sized to be read from a thigh, about 55 cm away (see `CockpitType`): the next waypoint in a big
+    // card on top, the map's controls labelled beneath it, the frequencies and the thumb bar at the
+    // bottom on an opaque panel. The iPhone layout keeps its own chrome until its pass.
+
+    /// The next waypoint: the ident in magenta (the active route), then bearing, distance, ETE and ETA.
+    /// Tap for every leg and frequency. It replaces a 13 pt line in the bottom bar. (review C3)
+    @ViewBuilder
+    private var nextWaypointCard: some View {
+        if let plan = flightPlanManager.activeFlightPlan, !flightPlanManager.isFlightPlanCompleted,
+           let next = plan.nextWaypoint {
+            let diversion = plan.diversion
+            let filed = diversion != nil && (threadManager.thread(forPlanId: plan.id)?.hasOpenFlightPlan ?? false)
+            VStack(alignment: .leading, spacing: 10) {
+                Button(action: toggleLegsAndFrequencies) {
+                    HStack(alignment: .center, spacing: 18) {
+                        HStack(spacing: 10) {
+                            if diversion != nil {
+                                Text(L10n.Trip.divertTag)
+                                    .font(.aero(size: CockpitType.label, weight: .bold))
+                                    .foregroundColor(theme.actionText)
+                                    .padding(.horizontal, 8).padding(.vertical, 3)
+                                    .background(theme.warning, in: RoundedRectangle(cornerRadius: 6))
+                            } else {
+                                Image(systemName: "arrow.right")
+                                    .font(.aero(size: CockpitType.response, weight: .bold))
+                                    .foregroundColor(theme.route)
+                            }
+                            Text(diversion?.ident ?? (next.name.isEmpty ? "WPT \(plan.currentWaypointIndex + 1)" : next.name))
+                                .font(.aero(size: CockpitType.item, weight: .bold, design: .monospaced))
+                                .foregroundColor(theme.route)
+                                .lineLimit(1)
+                                .minimumScaleFactor(0.5)
                         }
+                        Spacer(minLength: 8)
+                        navValueCell("BRG", liveBearingText ?? "—")
+                        navValueCell("DIST", nextWaypointDistanceValue ?? "—", unit: "NM")
+                        navValueCell("ETE", nextLegLive.map { eteValue($0.ete) } ?? "—",
+                                     unit: nextLegLive.map { eteUnit($0.ete) })
+                        navValueCell("ETA", nextLegLive.map { $0.eta.formatted(date: .omitted, time: .shortened) } ?? "—")
                     }
-            )
-            .accessibilityLabel(L10n.Nav.flightPlan)
-            .accessibilityAddTraits(.isButton)
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .accessibilityHint(L10n.Nav.legsAndFrequencies)
+
+                if let diversion {
+                    HStack(spacing: 12) {
+                        // Filed: the one thing to say on the radio. Nothing else until the ground.
+                        if filed {
+                            Text(L10n.Trip.tellFIS(diversion.ident))
+                                .font(.aero(size: CockpitType.label))
+                                .foregroundColor(theme.warning)
+                                .fixedSize(horizontal: false, vertical: true)
+                        }
+                        Spacer(minLength: 8)
+                        Button { flightPlanManager.resumeRoute() } label: {
+                            Text(L10n.Trip.resumeRoute)
+                                .font(.aero(size: CockpitType.label, weight: .bold))
+                                .foregroundColor(theme.action)
+                                .padding(.horizontal, 16)
+                                .frame(minHeight: 52)
+                                .overlay(Capsule().strokeBorder(theme.action, lineWidth: 1.5))
+                                .contentShape(Rectangle())
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+            }
+            .padding(.horizontal, 18)
+            .padding(.vertical, 12)
+            .background(RoundedRectangle(cornerRadius: 16).fill(theme.panel))
+            .overlay(RoundedRectangle(cornerRadius: 16).stroke(theme.panelStroke, lineWidth: 1))
+        }
     }
 
-    /// Collapsed glance: nav data (LEFT) + frequency chip (RIGHT). Paradigm: left = nav, right = freq.
-    private var navGlanceRow: some View {
+    /// A label over a value, for the next-waypoint card.
+    private func navValueCell(_ label: String, _ value: String, unit: String? = nil) -> some View {
+        VStack(alignment: .leading, spacing: 2) {
+            Text(label)
+                .font(.aero(size: CockpitType.label, weight: .semibold))
+                .foregroundColor(theme.textSecondary)
+            HStack(alignment: .firstTextBaseline, spacing: 4) {
+                Text(value)
+                    .font(.aero(size: CockpitType.response, weight: .bold, design: .monospaced))
+                    .foregroundColor(theme.textPrimary)
+                if let unit {
+                    Text(unit)
+                        .font(.aero(size: CockpitType.label))
+                        .foregroundColor(theme.textSecondary)
+                }
+            }
+        }
+        .fixedSize()
+        .accessibilityElement(children: .combine)
+    }
+
+    /// Distance to the next waypoint, without its unit.
+    private var nextWaypointDistanceValue: String? {
+        guard let loc = locationManager.currentLocation,
+              let dist = flightPlanManager.distanceToNextWaypoint(from: loc) else { return nil }
+        return String(format: "%.1f", dist)
+    }
+
+    /// Time and clock time to the next waypoint at the current ground speed. Nothing below 30 kt:
+    /// taxiing at 8 kt, the 12 NM to the first waypoint would read as an hour and a half.
+    private var nextLegLive: (ete: TimeInterval, eta: Date)? {
+        guard let loc = locationManager.currentLocation else { return nil }
+        let gs = locationManager.currentSpeedKnots
+        guard gs >= 30, let ete = flightPlanManager.etaToNextWaypoint(from: loc, groundSpeedKnots: gs) else { return nil }
+        return (ete, Date().addingTimeInterval(ete))
+    }
+
+    /// ETE in minutes, "13 min", or "1:07 h" past the hour. As "13:07" beside an ETA of "13:58" it
+    /// read as a clock time.
+    private func eteValue(_ ete: TimeInterval) -> String {
+        let minutes = Int((ete / 60).rounded())
+        return minutes < 60 ? "\(minutes)" : String(format: "%d:%02d", minutes / 60, minutes % 60)
+    }
+
+    private func eteUnit(_ ete: TimeInterval) -> String {
+        Int((ete / 60).rounded()) < 60 ? "min" : "h"
+    }
+
+    private func toggleLegsAndFrequencies() {
+        withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.28)) { navSheetExpanded.toggle() }
+    }
+
+    /// The map's own controls, each with its name: base chart and overlays behind "Map", the
+    /// orientation as two words, re-centring on its own, and zoom. They used to be three unlabelled
+    /// icons, and the airplane was the base chart. Zoom goes first when the row runs out of room;
+    /// pinching still zooms. (review C1, C5)
+    private var mapControlsRow: some View {
+        ViewThatFits(in: .horizontal) {
+            mapControls(withZoom: true)
+            mapControls(withZoom: false)
+        }
+        .sheet(isPresented: $showMapSheet) {
+            MapSheet(selectedLayer: $selectedLayer, isOfflineMode: isOfflineMode)
+                .environment(appState)
+                .environment(\.cockpitTheme, theme)
+                .environmentObject(openAIPDataService)
+                .environmentObject(dataStatusManager)
+                .environmentObject(offlineMapManager)
+        }
+    }
+
+    private func mapControls(withZoom: Bool) -> some View {
         HStack(spacing: 10) {
-            navGlanceData
-            Spacer(minLength: 8)
-            freqChip
+            chromeButton(icon: "square.stack.3d.up", title: L10n.Nav.mapSheet) { showMapSheet = true }
+                .overlay(alignment: .topTrailing) {
+                    // Airspace data aging or stale: the cue sits on the button that leads to it.
+                    if airspaceDataNeedsAttention {
+                        Image(systemName: "exclamationmark.triangle.fill")
+                            .font(.aero(size: 14, weight: .bold))
+                            .foregroundColor(theme.warning)
+                            .padding(4)
+                            .background(theme.panel, in: Circle())
+                            .offset(x: 8, y: -8)
+                            .accessibilityLabel(Text("Airspace data is out of date"))
+                    }
+                }
+            orientationToggle
+            // Filled when the map has been moved off the aircraft: the one control that matters then.
+            chromeButton(icon: isFollowingAircraft ? "location.fill" : "location",
+                         title: L10n.Nav.centre, prominent: !isFollowingAircraft) { centerOnAircraft() }
+            if withZoom {
+                HStack(spacing: 10) {
+                    zoomButton(icon: "minus", label: L10n.Nav.zoomOut) { zoom(by: 2.0) }
+                    zoomButton(icon: "plus", label: L10n.Nav.zoomIn) { zoom(by: 0.5) }
+                }
+            }
+        }
+    }
+
+    private func chromeButton(icon: String, title: String, prominent: Bool = false,
+                              action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            HStack(spacing: 8) {
+                Image(systemName: icon).font(.aero(size: CockpitType.label, weight: .semibold))
+                Text(title)
+                    .font(.aero(size: CockpitType.label, weight: .bold))
+                    .lineLimit(1)
+                    .fixedSize()
+            }
+            .foregroundColor(prominent ? theme.actionText : theme.action)
+            .padding(.horizontal, 16)
+            .frame(minHeight: CockpitTarget.control)
+            .background(RoundedRectangle(cornerRadius: 14).fill(prominent ? theme.action : theme.panel))
+            .overlay(RoundedRectangle(cornerRadius: 14).stroke(prominent ? Color.clear : theme.panelStroke, lineWidth: 1))
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+    }
+
+    /// North up / Track up, both words on screen and the current one filled. It was the middle state
+    /// of a three-state arrow button with no label. (review C5)
+    private var orientationToggle: some View {
+        HStack(spacing: 0) {
+            orientationSegment(.northUp, title: L10n.Nav.northUp)
+            orientationSegment(.trackUp, title: L10n.Nav.trackUp)
+        }
+        .padding(4)
+        .background(RoundedRectangle(cornerRadius: 14).fill(theme.panel))
+        .overlay(RoundedRectangle(cornerRadius: 14).stroke(theme.panelStroke, lineWidth: 1))
+    }
+
+    private func orientationSegment(_ mode: MapOrientationMode, title: String) -> some View {
+        let selected = mapOrientationMode == mode
+        return Button { if !selected { toggleOrientation() } } label: {
+            Text(title)
+                .font(.aero(size: CockpitType.label, weight: .bold))
+                .lineLimit(1)
+                .fixedSize()
+                .foregroundColor(selected ? theme.actionText : theme.action)
+                .padding(.horizontal, 14)
+                .frame(minHeight: CockpitTarget.control - 8)
+                .background(RoundedRectangle(cornerRadius: 10).fill(selected ? theme.action : Color.clear))
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityAddTraits(selected ? .isSelected : [])
+    }
+
+    private func zoomButton(icon: String, label: String, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Image(systemName: icon)
+                .font(.aero(size: CockpitType.response, weight: .semibold))
+                .foregroundColor(theme.action)
+                .frame(width: CockpitTarget.control, height: CockpitTarget.control)
+                .background(RoundedRectangle(cornerRadius: 14).fill(theme.panel))
+                .overlay(RoundedRectangle(cornerRadius: 14).stroke(theme.panelStroke, lineWidth: 1))
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(label)
+    }
+
+    /// The two frequencies to have set: the one to talk to now and the next. Tap for every leg and
+    /// every frequency along the way.
+    private var freqCard: some View {
+        let current = phaseFreqItems.first { $0.role == .current }
+        let next = phaseFreqItems.first { $0.role == .next }
+        return Button(action: toggleLegsAndFrequencies) {
+            HStack(spacing: 16) {
+                freqCell(tag: L10n.Nav.freqCurrent, tint: theme.onTarget, item: current)
+                Rectangle().fill(theme.panelStroke).frame(width: 1, height: 52)
+                freqCell(tag: L10n.Nav.freqNext, tint: theme.info, item: next)
+                Image(systemName: navSheetExpanded ? "chevron.down" : "chevron.up")
+                    .font(.aero(size: CockpitType.label, weight: .bold))
+                    .foregroundColor(theme.action)
+                    .frame(width: 52, height: 52)
+                    .background(Circle().fill(theme.action.opacity(0.14)))
+            }
+            .padding(.horizontal, 16)
+            .padding(.vertical, 10)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(L10n.Nav.legsAndFrequencies)
+    }
+
+    private func freqCell(tag: String, tint: Color, item: PhaseFrequency?) -> some View {
+        VStack(alignment: .leading, spacing: 2) {
+            HStack(spacing: 8) {
+                Text(tag)
+                    .font(.aero(size: CockpitType.label, weight: .bold))
+                    .foregroundColor(tint)
+                Text(item?.station ?? "—")
+                    .font(.aero(size: CockpitType.label))
+                    .foregroundColor(theme.textSecondary)
+                    .lineLimit(1)
+            }
+            Text(item?.freq ?? "—")
+                .font(.aero(size: CockpitType.response, weight: .bold, design: .monospaced))
+                .foregroundColor(theme.textPrimary)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .accessibilityElement(children: .combine)
+    }
+
+    /// Every leg (planned, flown, ahead or over) and every frequency, opened from either card.
+    /// Side by side; stacked when the width runs out.
+    private var legsAndFrequencies: some View {
+        ViewThatFits(in: .horizontal) {
+            HStack(alignment: .top, spacing: 24) {
+                legsColumn
+                freqColumn(large: true).frame(width: 300)
+            }
+            VStack(alignment: .leading, spacing: 16) {
+                legsColumn
+                freqColumn(large: true)
+            }
         }
         .padding(.horizontal, 16)
-        .padding(.vertical, 8)
+        .padding(.vertical, 12)
+    }
+
+    @ViewBuilder
+    private var legsColumn: some View {
+        if let plan = flightPlanManager.activeFlightPlan {
+            VStack(alignment: .leading, spacing: 10) {
+                waypointList(plan: plan, large: true)
+                destinationSummaryView
+                progressRow(plan: plan)
+            }
+        }
+    }
+
+    /// The thumb bar: the leg timer, MARK as the big button (named after the waypoint), Divert, and
+    /// everything else under More. Reset lives in More, with undo, not beside MARK. (review C2)
+    @ViewBuilder
+    private var navThumbBar: some View {
+        HStack(spacing: 12) {
+            if let plan = flightPlanManager.activeFlightPlan {
+                let plannedLeg = plan.legArriving(at: plan.currentWaypointIndex)?.totalLegEET
+                let canMark = plan.currentWaypointIndex < plan.waypoints.count
+                TimelineView(.periodic(from: .now, by: 1)) { _ in
+                    let running = flightPlanManager.isChronometerRunning
+                    let elapsed = flightPlanManager.chronometerElapsed
+                    let started = running || elapsed > 0.5
+                    HStack(spacing: 12) {
+                        legTimerReadout(elapsed: elapsed, planned: plannedLeg, running: running, started: started)
+                        if !started {
+                            thumbPrimaryButton(icon: "stopwatch", title: L10n.Nav.startLegTimer) {
+                                flightPlanManager.startChronometer()
+                            }
+                        } else if canMark {
+                            let index = plan.currentWaypointIndex
+                            let name = plan.waypoints[index].name
+                            thumbPrimaryButton(icon: "mappin.and.ellipse",
+                                               title: name.isEmpty ? L10n.Nav.mark : "\(L10n.Nav.mark) \(name)") {
+                                markWaypoint(at: index, in: plan)
+                            }
+                        } else {
+                            Spacer(minLength: 0)
+                        }
+                        if !flightPlanManager.isFlightPlanCompleted {
+                            let diverting = plan.diversion != nil
+                            thumbSecondaryButton(icon: "arrow.triangle.turn.up.right.diamond.fill",
+                                                 title: L10n.Trip.divert,
+                                                 tint: diverting ? theme.warning : theme.action) { openDivert(nil) }
+                        }
+                        navMoreMenu(running: running, started: started)
+                    }
+                }
+            } else {
+                // No route on the map: the way to put one there.
+                thumbSecondaryButton(icon: "point.topleft.down.to.point.bottomright.curvepath",
+                                     title: L10n.Ground.planRoutes, tint: theme.action) { showFlightPlanning = true }
+                Spacer(minLength: 0)
+            }
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 12)
+    }
+
+    /// Leg time so far against the planned leg time, and how far ahead or over.
+    private func legTimerReadout(elapsed: TimeInterval, planned: TimeInterval?, running: Bool,
+                                 started: Bool) -> some View {
+        VStack(alignment: .leading, spacing: 2) {
+            Text(L10n.Nav.leg)
+                .font(.aero(size: CockpitType.label, weight: .semibold))
+                .foregroundColor(theme.textSecondary)
+            HStack(alignment: .firstTextBaseline, spacing: 6) {
+                Text(started ? formatClock(elapsed) : "–:––")
+                    .font(.aero(size: CockpitType.response, weight: .bold, design: .monospaced))
+                    .foregroundColor(running ? theme.textPrimary : theme.textSecondary)
+                if let planned {
+                    Text("/ \(formatClock(planned))")
+                        .font(.aero(size: CockpitType.label, design: .monospaced))
+                        .foregroundColor(theme.textSecondary)
+                }
+            }
+            if started, let planned {
+                let delta = planned - elapsed
+                Text((delta >= 0 ? "▲ " : "▼ ") + formatClock(abs(delta)))
+                    .font(.aero(size: CockpitType.label, weight: .semibold, design: .monospaced))
+                    .foregroundColor(delta >= 0 ? theme.onTarget : theme.warning)
+            }
+        }
+        .fixedSize()
+        .accessibilityElement(children: .combine)
+    }
+
+    private func thumbPrimaryButton(icon: String, title: String, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            HStack(spacing: 12) {
+                Image(systemName: icon).font(.aero(size: CockpitType.button, weight: .bold))
+                Text(title)
+                    .font(.aero(size: CockpitType.button, weight: .bold))
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.6)
+            }
+            .foregroundColor(theme.actionText)
+            .padding(.horizontal, 16)
+            .frame(maxWidth: .infinity, minHeight: CockpitTarget.thumb)
+            .background(RoundedRectangle(cornerRadius: 18).fill(theme.action))
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(title)
+    }
+
+    private func thumbSecondaryButton(icon: String, title: String, tint: Color,
+                                      action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            thumbSecondaryLabel(icon: icon, title: title, tint: tint)
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(title)
+    }
+
+    private func thumbSecondaryLabel(icon: String, title: String, tint: Color) -> some View {
+        VStack(spacing: 6) {
+            Image(systemName: icon).font(.aero(size: CockpitType.response, weight: .semibold))
+            Text(title)
+                .font(.aero(size: CockpitType.label, weight: .bold))
+                .lineLimit(1)
+                .minimumScaleFactor(0.7)
+        }
+        .foregroundColor(tint)
+        .padding(.horizontal, 12)
+        .frame(minWidth: 120, minHeight: CockpitTarget.thumb)
+        .background(RoundedRectangle(cornerRadius: 18).fill(tint.opacity(0.12)))
+        .overlay(RoundedRectangle(cornerRadius: 18).stroke(tint.opacity(0.45), lineWidth: 1))
         .contentShape(Rectangle())
-        // No animated expand under Reduce Motion (UX-18)
-        .onTapGesture { withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.28)) { navSheetExpanded = true } }
+    }
+
+    /// The rarer actions: the leg timer's pause and reset (reset offers undo), the legs and
+    /// frequencies, and the routes.
+    private func navMoreMenu(running: Bool, started: Bool) -> some View {
+        Menu {
+            if started {
+                Button {
+                    running ? flightPlanManager.pauseChronometer() : flightPlanManager.startChronometer()
+                } label: {
+                    Label(running ? L10n.Nav.pauseChronometer : L10n.Nav.startChronometer,
+                          systemImage: running ? "pause.fill" : "play.fill")
+                }
+                Button(role: .destructive) { resetLegTimer() } label: {
+                    Label(L10n.Nav.resetChronometer, systemImage: "arrow.counterclockwise")
+                }
+            }
+            Button(action: toggleLegsAndFrequencies) {
+                Label(L10n.Nav.legsAndFrequencies, systemImage: "list.bullet")
+            }
+            Button { showFlightPlanning = true } label: {
+                Label(L10n.Ground.planRoutes, systemImage: "point.topleft.down.to.point.bottomright.curvepath")
+            }
+        } label: {
+            thumbSecondaryLabel(icon: "ellipsis.circle", title: L10n.Nav.more, tint: theme.action)
+        }
+        .accessibilityLabel(L10n.Nav.more)
     }
 
     @ViewBuilder
@@ -1784,27 +2147,6 @@ struct NavigationMapView: View {
             Text(L10n.Nav.flightPlan)
                 .font(.aero(size: 12)).foregroundColor(theme.textDim)
         }
-    }
-
-    /// Collapsed chip — the active (phase-relevant) frequency; tap expands the sheet to the full
-    /// phase-aware list. (v4 UI/UX Revamp C2)
-    private var freqChip: some View {
-        let active = phaseFreqItems.first(where: { $0.role == .current })
-            ?? phaseFreqItems.first(where: { !$0.isEmergency }) ?? phaseFreqItems.first
-        // No animated expand under Reduce Motion (UX-18)
-        return Button(action: { withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.28)) { navSheetExpanded = true } }) {
-            HStack(spacing: 6) {
-                Image(systemName: "antenna.radiowaves.left.and.right").font(.aero(size: 13))
-                if let active {
-                    Text(active.station).font(.aero(size: 10, weight: .semibold)).tracking(0.3).lineLimit(1)
-                    Text(active.freq).font(.aero(size: 14, weight: .semibold, design: .monospaced))
-                } else {
-                    Text("FREQ").font(.aero(size: 12, weight: .bold))
-                }
-            }
-            .foregroundColor(theme.onTarget).lineLimit(1)
-        }
-        .accessibilityLabel(L10n.Nav.radioFrequencies)
     }
 
     private var liveBearingText: String? {
@@ -2048,53 +2390,9 @@ struct NavigationMapView: View {
         return CLLocationCoordinate2D(latitude: lat2 * 180 / .pi, longitude: lon2 * 180 / .pi)
     }
 
-    /// Expanded sheet — LEFT column = flight-plan/nav (chrono, waypoint list, live data, progress);
-    /// RIGHT column = phase-aware frequencies. (v4 UI/UX Revamp inc C / C2 — paradigm: left = nav, right = freq)
-    @ViewBuilder
-    private var navSheetContent: some View {
-        if let plan = flightPlanManager.activeFlightPlan {
-            HStack(alignment: .top, spacing: 0) {
-                VStack(alignment: .leading, spacing: 10) {
-                    waypointList(plan: plan)
-                    liveDataRow
-                    progressRow(plan: plan)
-                }
-                .padding(.horizontal, 16)
-                .padding(.top, 2)
-                .padding(.bottom, 10)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                // The column divider is drawn as a trailing overlay (bounded by this column's content
-                // height) — a standalone `Rectangle().frame(width:)` has NO height and is greedy in Y,
-                // which ballooned the whole sheet. (v4 UI/UX Revamp fix — 3rd attempt)
-                .overlay(alignment: .trailing) {
-                    Rectangle().fill(Color.white.opacity(0.08)).frame(width: 0.5)
-                }
-
-                freqColumn
-                    .frame(width: 244)
-                    .padding(.horizontal, 14)
-                    .padding(.top, 2)
-                    .padding(.bottom, 10)
-            }
-            .fixedSize(horizontal: false, vertical: true)
-        } else {
-            // No flight plan — the frequency list (nearest + area + emergency) doesn't need a plan, so
-            // expanding still shows it. (v4 UI/UX Revamp fix — the chevron did nothing without a plan)
-            freqColumn
-                // Mirror the with-plan layout: same 244-pt column, pushed to the trailing edge (where
-                // it sits as the right column when a plan is active) rather than centered. (v4 UI/UX Revamp fix)
-                .frame(width: 244)
-                .frame(maxWidth: .infinity, alignment: .trailing)
-                .padding(.horizontal, 14)
-                .padding(.top, 2)
-                .padding(.bottom, 10)
-                .fixedSize(horizontal: false, vertical: true)
-        }
-    }
-
     /// The frequency column — by default just CURRENT + NEXT (what a VFR pilot needs to hand) plus
     /// EMERGENCY; "All Frequencies" reveals every station along the journey in order. (v4 UI/UX Revamp — current/next)
-    private var freqColumn: some View {
+    private func freqColumn(large: Bool) -> some View {
         let nonEmergency = phaseFreqItems.filter { !$0.isEmergency }
         let emergency = phaseFreqItems.filter { $0.isEmergency }
         let essentials = nonEmergency.filter { $0.role == .current || $0.role == .next }
@@ -2102,23 +2400,34 @@ struct NavigationMapView: View {
         let visible = showAllFreqs ? nonEmergency : essentials
         return VStack(alignment: .leading, spacing: 0) {
             Text(L10n.Nav.radioFrequencies)
-                .font(.aero(size: 9, weight: .semibold)).tracking(0.4)
+                .font(.aero(size: large ? CockpitType.label : 9, weight: .semibold)).tracking(large ? 0 : 0.4)
                 .foregroundColor(theme.info)
                 .lineLimit(1)
                 .padding(.bottom, 4)
-            ForEach(visible) { freqRow($0) }
+            if large && visible.count > 5 {
+                // "All frequencies" can list a dozen stations; keep the panel's height in check.
+                ScrollView {
+                    VStack(spacing: 0) { ForEach(visible) { freqRow($0, large: true) } }
+                }
+                .frame(height: 5 * 44)
+            } else {
+                ForEach(visible) { freqRow($0, large: large) }
+            }
             if hasMore {
                 // No animated expand/collapse under Reduce Motion (UX-18)
                 Button(action: { withAnimation(reduceMotion ? nil : .default) { showAllFreqs.toggle() } }) {
-                    HStack(spacing: 3) {
+                    HStack(spacing: large ? 6 : 3) {
                         Text(showAllFreqs ? L10n.Nav.showLess : "\(L10n.Nav.allFrequencies) (\(nonEmergency.count))")
-                        Image(systemName: showAllFreqs ? "chevron.up" : "chevron.down").font(.aero(size: 9))
+                        Image(systemName: showAllFreqs ? "chevron.up" : "chevron.down").font(.aero(size: large ? 16 : 9))
                     }
-                    .font(.aero(size: 10)).foregroundColor(theme.textDim)
+                    .font(.aero(size: large ? CockpitType.label : 10))
+                    .foregroundColor(large ? theme.action : theme.textDim)
+                    .frame(minHeight: large ? 44 : nil)
+                    .contentShape(Rectangle())
                 }
                 .padding(.vertical, 3)
             }
-            ForEach(emergency) { freqRow($0) }
+            ForEach(emergency) { freqRow($0, large: large) }
         }
     }
 
@@ -2131,44 +2440,49 @@ struct NavigationMapView: View {
         }
     }
 
-    private func freqRow(_ item: PhaseFrequency) -> some View {
-        HStack(spacing: 6) {
+    private func freqRow(_ item: PhaseFrequency, large: Bool = false) -> some View {
+        HStack(spacing: large ? 10 : 6) {
             if let tag = roleTag(item.role) {
                 Text(tag.0)
-                    .font(.aero(size: 8, weight: .bold)).tracking(0.3)
+                    .font(.aero(size: large ? 16 : 8, weight: .bold)).tracking(0.3)
                     .foregroundColor(tag.1)
                     .padding(.horizontal, 4).padding(.vertical, 1)
                     .background(tag.1.opacity(0.16), in: RoundedRectangle(cornerRadius: 3))
             }
             Text(item.station)
-                .font(.aero(size: 11, weight: item.highlighted ? .semibold : .regular))
+                .font(.aero(size: large ? CockpitType.label : 11, weight: item.highlighted ? .semibold : .regular))
                 .foregroundColor(item.isEmergency ? theme.danger : theme.textSecondary)
                 .lineLimit(1)
+                .minimumScaleFactor(large ? 0.7 : 1)
             Spacer(minLength: 6)
             Text(item.freq)
-                .font(.aero(size: 13, weight: item.highlighted ? .bold : .regular, design: .monospaced))
-                .foregroundColor(item.highlighted ? theme.onTarget : theme.textPrimary)
+                .font(.aero(size: large ? CockpitType.row : 13, weight: item.highlighted ? .bold : .regular, design: .monospaced))
+                // Frequencies are data: white in flight on the kneeboard panel. (v6.0 · P5)
+                .foregroundColor(item.highlighted && !large ? theme.onTarget : theme.textPrimary)
         }
-        .padding(.vertical, 3)
+        .padding(.vertical, large ? 8 : 3)
     }
 
-    private func waypointList(plan: FlightPlan, compact: Bool = false) -> some View {
+    /// `large`: the iPad kneeboard panel (v6.0 · P6). Rows read at 20–24 pt; heading and distance
+    /// drop out, since the next-waypoint card already shows them live for the leg being flown.
+    private func waypointList(plan: FlightPlan, compact: Bool = false, large: Bool = false) -> some View {
         // Deterministic height (content for ≤5 waypoints, scroll beyond) — a greedy ScrollView made
         // the whole sheet balloon to fill the screen. Keep the sheet as short as the content. (v4 UI/UX Revamp fix)
         ScrollView {
             VStack(spacing: 0) {
                 ForEach(Array(plan.waypoints.enumerated()), id: \.element.id) { index, wpt in
-                    waypointRow(plan: plan, index: index, wpt: wpt, compact: compact)
+                    waypointRow(plan: plan, index: index, wpt: wpt, compact: compact, large: large)
                     if index < plan.waypoints.count - 1 {
                         Rectangle().fill(Color.white.opacity(0.05)).frame(height: 0.5)
                     }
                 }
             }
         }
-        .frame(height: CGFloat(min(max(plan.waypoints.count, 1), 5)) * 36)
+        .frame(height: CGFloat(min(max(plan.waypoints.count, 1), 5)) * (large ? 52 : 36))
     }
 
-    private func waypointRow(plan: FlightPlan, index: Int, wpt: FlightPlanWaypoint, compact: Bool = false) -> some View {
+    private func waypointRow(plan: FlightPlan, index: Int, wpt: FlightPlanWaypoint, compact: Bool = false,
+                             large: Bool = false) -> some View {
         let isCurrent = index == plan.currentWaypointIndex
         let isPast = index < plan.currentWaypointIndex
         let isPreview = previewWaypointIndex == index
@@ -2178,8 +2492,8 @@ struct NavigationMapView: View {
         // and a waypoint of the route is where a diversion can rejoin it. (v5.1)
         let offersDirect = isPreview && (index > plan.currentWaypointIndex || plan.diversion != nil)
         return HStack(spacing: 6) {
-            waypointRowButton(plan: plan, index: index, wpt: wpt, compact: compact, isCurrent: isCurrent,
-                              isPast: isPast, isPreview: isPreview, leg: leg, actual: actual)
+            waypointRowButton(plan: plan, index: index, wpt: wpt, compact: compact, large: large,
+                              isCurrent: isCurrent, isPast: isPast, isPreview: isPreview, leg: leg, actual: actual)
             if offersDirect {
                 Button {
                     flightPlanManager.directTo(waypointAt: index)
@@ -2187,10 +2501,10 @@ struct NavigationMapView: View {
                     centerOnAircraft()
                 } label: {
                     Text(L10n.Trip.directToWaypoint)
-                        .font(.aero(size: 12, weight: .bold))
+                        .font(.aero(size: large ? CockpitType.label : 12, weight: .bold))
                         .foregroundColor(theme.actionText)
                         .padding(.horizontal, 10)
-                        .frame(minHeight: 36)
+                        .frame(minHeight: large ? 44 : 36)
                         .background(theme.action, in: Capsule())
                 }
                 .buttonStyle(.plain)
@@ -2199,45 +2513,49 @@ struct NavigationMapView: View {
     }
 
     private func waypointRowButton(plan: FlightPlan, index: Int, wpt: FlightPlanWaypoint, compact: Bool,
+                                   large: Bool = false,
                                    isCurrent: Bool, isPast: Bool, isPreview: Bool,
                                    leg: FlightPlanWaypoint?, actual: TimeInterval?) -> some View {
-        Button(action: { handleWaypointTap(index: index, plan: plan, isPast: isPast) }) {
+        // Column widths scale with the type: B612 Mono is about 0.6 em wide.
+        let k: CGFloat = large ? 2 : 1
+        return Button(action: { handleWaypointTap(index: index, plan: plan, isPast: isPast) }) {
             HStack(spacing: 8) {
                 // Sequence number — matches the numbered disc on the map. (v4 UI/UX Revamp)
                 Text("\(index + 1)")
-                    .font(.aero(size: 11, weight: .bold, design: .monospaced))
+                    .font(.aero(size: large ? CockpitType.label : 11, weight: .bold, design: .monospaced))
                     .foregroundColor(isCurrent ? theme.route : theme.textSecondary)
-                    .frame(width: 16, alignment: .center)
+                    .frame(width: 16 * k, alignment: .center)
                 Image(systemName: isPast ? "circle.fill" : (isCurrent ? "location.fill" : "circle"))
-                    .font(.aero(size: 9))
+                    .font(.aero(size: large ? 14 : 9))
                     .foregroundColor(isPast ? theme.onTarget : (isCurrent ? theme.route : theme.textDim))
                 Text(wpt.name.isEmpty ? "WPT \(index + 1)" : wpt.name)
-                    .font(.aero(size: 13, weight: isCurrent ? .semibold : .regular, design: .monospaced))
+                    .font(.aero(size: large ? CockpitType.row : 13, weight: isCurrent ? .semibold : .regular, design: .monospaced))
                     .foregroundColor(isCurrent ? theme.route : theme.textPrimary)
                     .lineLimit(1)
+                    .minimumScaleFactor(large ? 0.6 : 1)
                 Spacer(minLength: 6)
                 // Fixed-width columns so every row's heading / distance / PLAN / ACT / Δ line up,
                 // whether or not a leg has been flown yet. (v4 UI/UX Revamp — column alignment)
                 HStack(spacing: 6) {
                     // Heading + distance kept on iPad; dropped on the narrow iPhone table. (v4 UI/UX Revamp)
-                    if !compact {
+                    if !compact && !large {
                         Text(leg?.magneticCourse.map { String(format: "%03d°", Int($0)) } ?? "")
                             .foregroundColor(theme.textSecondary).frame(width: 38, alignment: .trailing)
                         Text(leg?.distance.map { String(format: "%.1f", $0) } ?? "")
                             .foregroundColor(theme.textSecondary).frame(width: 40, alignment: .trailing)
                     }
                     Text((leg?.totalLegEET).map { formatClock($0) } ?? "")  // PLAN (EET)
-                        .foregroundColor(theme.textDim).frame(width: 44, alignment: .trailing)
+                        .foregroundColor(large ? theme.textSecondary : theme.textDim).frame(width: 44 * k, alignment: .trailing)
                     Text(actual.map { formatClock($0) } ?? "")            // ACT / live
                         .foregroundColor(isCurrent ? theme.route : theme.onTarget)
-                        .frame(width: 44, alignment: .trailing)
+                        .frame(width: 44 * k, alignment: .trailing)
                     legDeltaText(planned: leg?.totalLegEET, actual: actual)  // Δ ahead/over
-                        .frame(width: 52, alignment: .trailing)
+                        .frame(width: 52 * k, alignment: .trailing)
                 }
-                .font(.aero(size: 10, design: .monospaced))
+                .font(.aero(size: large ? CockpitType.label : 10, design: .monospaced))
                 .lineLimit(1)
             }
-            .padding(.horizontal, 8).padding(.vertical, 7)
+            .padding(.horizontal, 8).padding(.vertical, large ? 9 : 7)
             .background(isPreview ? theme.info.opacity(0.14)
                         : (isCurrent ? theme.route.opacity(0.10) : Color.clear))
             .clipShape(RoundedRectangle(cornerRadius: 6))
@@ -2348,7 +2666,6 @@ struct NavigationMapView: View {
         }
     }
 
-    /// Row 2 — flight plan (left, when relevant) and GPS / tracking / zoom (right). (v4 UI/UX Revamp)
     /// Destination endpoint, total remaining distance (live to next + remaining planned legs), and the
     /// planned ETA at the destination. (v4 UI/UX Revamp — row 2)
     private var destinationSummary: (dest: String, remainingNM: Double, eta: Date?)? {
@@ -2382,25 +2699,26 @@ struct NavigationMapView: View {
     @ViewBuilder
     private var destinationSummaryView: some View {
         if let s = destinationSummary {
-            HStack(spacing: 6) {
+            HStack(spacing: 8) {
                 Text("DEST")
-                    .font(.aero(size: 9, weight: .semibold)).tracking(0.4)
-                    .foregroundColor(theme.textDim)
+                    .font(.aero(size: CockpitType.label, weight: .semibold))
+                    .foregroundColor(theme.textSecondary)
                 Text(s.dest)
-                    .font(.aero(size: 13, weight: .semibold, design: .monospaced))
+                    .font(.aero(size: CockpitType.label, weight: .bold, design: .monospaced))
                     .foregroundColor(theme.textPrimary)
                 Text("·").foregroundColor(theme.textDim)
                 Text(String(format: "%.0f NM", s.remainingNM))
-                    .font(.aero(size: 12, design: .monospaced))
-                    .foregroundColor(theme.textSecondary)
+                    .font(.aero(size: CockpitType.label, design: .monospaced))
+                    .foregroundColor(theme.textPrimary)
                 if let eta = s.eta {
                     Text("·").foregroundColor(theme.textDim)
                     Text("ETA \(eta.formatted(date: .omitted, time: .shortened))")
-                        .font(.aero(size: 12, design: .monospaced))
-                        .foregroundColor(theme.textDim)
+                        .font(.aero(size: CockpitType.label, design: .monospaced))
+                        .foregroundColor(theme.textSecondary)
                 }
             }
             .lineLimit(1)
+            .minimumScaleFactor(0.7)
         }
     }
 
@@ -2602,98 +2920,6 @@ struct NavigationMapView: View {
         let total = Int(t.rounded())
         let h = total / 3600, m = (total % 3600) / 60, s = total % 60
         return h > 0 ? String(format: "%d:%02d:%02d", h, m, s) : String(format: "%d:%02d", m, s)
-    }
-
-    private func bottomControlRow(_ density: BarDensity) -> some View {
-        HStack(spacing: 12) {
-            Button(action: { showFlightPlanning = true }) {
-                HStack(spacing: 6) {
-                    Image(systemName: "point.topleft.down.to.point.bottomright.curvepath")
-                        .font(.aero(size: 17, weight: .medium))
-                    if flightPlanManager.activeFlightPlan != nil {
-                        Circle().fill(theme.onTarget).frame(width: 7, height: 7)
-                    }
-                }
-                .foregroundColor(flightPlanManager.activeFlightPlan != nil ? theme.onTarget : theme.textPrimary)
-                .frame(width: 50, height: 40)
-                .frame(minWidth: 44, minHeight: 44) // 44pt touch target around the flight-planning toggle (UX-16)
-                .contentShape(Rectangle())
-            }
-            .accessibilityLabel(L10n.Nav.flightPlan)
-
-            if hasActiveFlightPlan && !flightPlanManager.isFlightPlanCompleted {
-                divertButton(iconOnly: density != .full)
-            }
-
-            // Destination summary — endpoint + total remaining + ETA, so the drawer is only needed for
-            // the mid-route outlook. (v4 UI/UX Revamp — device feedback)
-            destinationSummaryView
-
-            Spacer()
-
-            // Leg timer — centered on row 2, always visible without opening the drawer. (v4 UI/UX Revamp)
-            legTimerCluster(density)
-
-            Spacer()
-
-            // GPS status (tap for the info sheet)
-            Button(action: { showGPSStatusModal = true }) {
-                HStack(spacing: 6) {
-                    StatusIndicator(gpsStatusIndicator, size: 8)
-                    Text("GPS")
-                        .font(.aero(size: 12, weight: .semibold))
-                        .foregroundColor(theme.textPrimary)
-                }
-                .padding(.horizontal, 6)
-                .frame(height: 40)
-                .frame(minHeight: 44) // 44pt touch target around the GPS status control (UX-16)
-                .contentShape(Rectangle())
-            }
-
-            // Single tracking button: free → center & follow → track-up → free.
-            Button(action: cycleTracking) {
-                Image(systemName: trackingIcon)
-                    .font(.aero(size: 19, weight: .medium))
-                    .foregroundColor(trackingTint)
-                    .frame(width: 46, height: 40)
-                    .frame(minWidth: 44, minHeight: 44) // 44pt touch target around the tracking button (UX-16)
-                    .contentShape(Rectangle())
-            }
-            .accessibilityLabel(L10n.Nav.navigation)
-            // No animated icon transition under Reduce Motion (UX-18)
-            .animation(reduceMotion ? nil : .easeInOut(duration: 0.2), value: mapState.cameraHeading)
-
-            // Zoom out / in (kept for gloved / turbulence use, docked far-right). First thing dropped
-            // when horizontal space runs out — pinch still zooms. (v4 UI/UX Revamp)
-            if density != .minimal {
-                HStack(spacing: 0) {
-                    Button(action: { zoom(by: 2.0) }) {
-                        Image(systemName: "minus")
-                            .font(.aero(size: 16, weight: .semibold))
-                            .foregroundColor(theme.textPrimary)
-                            .frame(width: 40, height: 40)
-                            .frame(minWidth: 44, minHeight: 44) // 44pt touch target around the zoom-out button (UX-16)
-                            .contentShape(Rectangle())
-                    }
-                    .accessibilityLabel(L10n.Nav.zoomOut)
-                    Rectangle().fill(Color.white.opacity(0.12)).frame(width: 0.5, height: 22)
-                    Button(action: { zoom(by: 0.5) }) {
-                        Image(systemName: "plus")
-                            .font(.aero(size: 16, weight: .semibold))
-                            .foregroundColor(theme.textPrimary)
-                            .frame(width: 40, height: 40)
-                            .frame(minWidth: 44, minHeight: 44) // 44pt touch target around the zoom-in button (UX-16)
-                            .contentShape(Rectangle())
-                    }
-                    .accessibilityLabel(L10n.Nav.zoomIn)
-                }
-                .overlay(
-                    RoundedRectangle(cornerRadius: 8).stroke(Color.white.opacity(0.14), lineWidth: 0.5)
-                )
-            }
-        }
-        .padding(.horizontal, 16)
-        .padding(.vertical, 8)
     }
 
     // MARK: - Divert (v5.1)
@@ -4119,6 +4345,225 @@ struct LayerPickerSheet: View {
     }
 }
 
+// MARK: - Map Sheet (iPad, v6.0 · C1)
+
+/// Everything about how the map looks, behind one labelled "Map" button: the base chart, a preset for
+/// the phase of flight, then each overlay. It replaces three unlabelled buttons, one of them an
+/// airplane that opened the base-chart picker. Opened in flight, so the rows are kneeboard-sized.
+struct MapSheet: View {
+    @Environment(\.cockpitTheme) private var theme
+    @Environment(AppState.self) private var appState
+    @Environment(\.dismiss) private var dismiss
+    @EnvironmentObject var offlineMapManager: OfflineMapManager
+    @Binding var selectedLayer: MapLayerType
+    let isOfflineMode: Bool
+    @State private var showCacheInfo = false
+
+    /// Aeronautical first: the chart a VFR pilot navigates on, then the swisstopo maps, then Apple's.
+    private static let baseCharts: [MapLayerType] = [.icao, .landeskarten, .swissimage, .satellite, .standard]
+
+    var body: some View {
+        NavigationStack {
+            ScrollView {
+                VStack(spacing: 20) {
+                    baseChartSection
+                    presetsSection
+                    OverlaysSections()
+                }
+                .padding(.vertical, 16)
+            }
+            .background(theme.background)
+            .navigationTitle(L10n.Nav.mapSheet)
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .confirmationAction) {
+                    Button(L10n.Button.done) { dismiss() }
+                }
+            }
+        }
+        .sheet(isPresented: $showCacheInfo) {
+            CacheInfoSheet(isOfflineMode: isOfflineMode)
+                .environment(appState)
+                .environmentObject(offlineMapManager)
+        }
+        .preferredColorScheme(.dark)
+    }
+
+    // MARK: Base chart
+
+    private var baseChartSection: some View {
+        section(L10n.Nav.baseChart) {
+            if isOfflineMode {
+                // Offline, the cached ICAO chart is the only one there is.
+                Button { showCacheInfo = true } label: {
+                    HStack(spacing: 12) {
+                        Image(systemName: "internaldrive.fill").font(.aero(size: 20)).foregroundColor(theme.warning)
+                        Text(L10n.Nav.offlineICAOOnly)
+                            .font(.aero(size: CockpitType.label))
+                            .foregroundColor(theme.textPrimary)
+                            .fixedSize(horizontal: false, vertical: true)
+                        Spacer(minLength: 8)
+                        Image(systemName: "info.circle").font(.aero(size: 22)).foregroundColor(theme.action)
+                    }
+                    .padding(16)
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+            } else {
+                ForEach(Array(Self.baseCharts.enumerated()), id: \.element) { index, layer in
+                    if index > 0 { Divider().padding(.leading, 60) }
+                    baseChartRow(layer)
+                }
+            }
+        }
+    }
+
+    private func baseChartRow(_ layer: MapLayerType) -> some View {
+        let selected = selectedLayer == layer
+        return Button { selectedLayer = layer } label: {
+            HStack(spacing: 12) {
+                Image(systemName: layer.icon)
+                    .font(.aero(size: 20))
+                    .foregroundColor(selected ? theme.action : theme.textSecondary)
+                    .frame(width: 32)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(Self.name(of: layer))
+                        .font(.aero(size: CockpitType.label, weight: selected ? .bold : .medium))
+                        .foregroundColor(theme.textPrimary)
+                    if layer == .icao && !appState.settings.forceICAOChartLayer {
+                        Text(L10n.MapLayer.icaoHint)
+                            .font(.aero(size: 15))
+                            .foregroundColor(theme.textSecondary)
+                    }
+                }
+                Spacer()
+                Image(systemName: selected ? "checkmark.circle.fill" : "circle")
+                    .font(.aero(size: 24))
+                    .foregroundColor(selected ? theme.action : theme.textDim)
+            }
+            .padding(.horizontal, 16)
+            .frame(minHeight: 60)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityAddTraits(selected ? .isSelected : [])
+    }
+
+    static func name(of layer: MapLayerType) -> String {
+        switch layer {
+        case .icao: return L10n.MapLayer.icao
+        case .landeskarten: return L10n.MapLayer.landeskarte
+        case .swissimage: return L10n.MapLayer.swissimage
+        case .satellite: return L10n.MapLayer.satellite
+        case .standard: return L10n.MapLayer.standard
+        }
+    }
+
+    // MARK: Presets
+
+    private var presetsSection: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            sectionTitle(L10n.Nav.presets)
+            HStack(spacing: 10) {
+                ForEach(MapPreset.allCases, id: \.self) { preset in
+                    presetButton(preset)
+                }
+            }
+            .padding(.horizontal, 16)
+            Text(L10n.Nav.presetsHint)
+                .font(.aero(size: 15))
+                .foregroundColor(theme.textSecondary)
+                .fixedSize(horizontal: false, vertical: true)
+                .padding(.horizontal, 20)
+        }
+    }
+
+    private func presetButton(_ preset: MapPreset) -> some View {
+        let active = preset.matches(appState.settings)
+        return Button {
+            preset.apply(to: &appState.settings)
+            appState.saveSettings()
+        } label: {
+            Text(preset.title)
+                .font(.aero(size: CockpitType.label, weight: .bold))
+                .lineLimit(1)
+                .minimumScaleFactor(0.7)
+                .foregroundColor(active ? theme.actionText : theme.action)
+                .frame(maxWidth: .infinity, minHeight: CockpitTarget.control)
+                .background(RoundedRectangle(cornerRadius: 14).fill(active ? theme.action : theme.panel))
+                .overlay(RoundedRectangle(cornerRadius: 14).stroke(active ? Color.clear : theme.panelStroke, lineWidth: 1))
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityAddTraits(active ? .isSelected : [])
+    }
+
+    // MARK: Layout
+
+    private func sectionTitle(_ title: String) -> some View {
+        Text(title)
+            .font(.aero(size: 15, weight: .semibold))
+            .foregroundColor(theme.textSecondary)
+            .padding(.horizontal, 20)
+    }
+
+    private func section<Content: View>(_ title: String, @ViewBuilder content: () -> Content) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            sectionTitle(title)
+            VStack(spacing: 0) { content() }
+                .background(theme.panel)
+                .cornerRadius(12)
+                .padding(.horizontal, 16)
+        }
+    }
+}
+
+/// What the map shows for a phase of flight, in one tap. Airspace is on in every preset: it is the
+/// layer that keeps a VFR flight legal. (v6.0 · P3)
+enum MapPreset: CaseIterable {
+    /// Airspace and reporting points: what to avoid and where to call.
+    case cruise
+    /// Adds the airports and the obstacles around them.
+    case approach
+    /// Every marker.
+    case everything
+
+    var title: String {
+        switch self {
+        case .cruise: return L10n.Nav.presetCruise
+        case .approach: return L10n.Nav.presetApproach
+        case .everything: return L10n.Nav.presetEverything
+        }
+    }
+
+    /// airspace, airports, navaids, reporting points, obstacles
+    private var flags: (airspace: Bool, airports: Bool, navaids: Bool, reportingPoints: Bool, obstacles: Bool) {
+        switch self {
+        case .cruise: return (true, false, false, true, false)
+        case .approach: return (true, true, false, true, true)
+        case .everything: return (true, true, true, true, true)
+        }
+    }
+
+    func apply(to settings: inout AppSettings) {
+        let f = flags
+        settings.showOpenAIPOverlay = f.airspace
+        settings.showAirportsOnMap = f.airports
+        settings.showNavaidsOnMap = f.navaids
+        settings.showReportingPointsOnMap = f.reportingPoints
+        settings.showObstaclesOnMap = f.obstacles
+    }
+
+    func matches(_ settings: AppSettings) -> Bool {
+        let f = flags
+        return settings.showOpenAIPOverlay == f.airspace
+            && settings.showAirportsOnMap == f.airports
+            && settings.showNavaidsOnMap == f.navaids
+            && settings.showReportingPointsOnMap == f.reportingPoints
+            && settings.showObstaclesOnMap == f.obstacles
+    }
+}
+
 // MARK: - Swiss Map View (UIKit Wrapper)
 
 /// UIViewRepresentable wrapper for MKMapView with swisstopo tile overlays
@@ -4127,13 +4572,38 @@ struct LayerPickerSheet: View {
 /// master), and Flight (track vector). (v4.1.0 ② — entry-point consolidation + tiles/airspace split)
 struct OverlaysSheet: View {
     @Environment(\.cockpitTheme) private var theme
+    @Environment(\.dismiss) var dismiss
+
+    var body: some View {
+        NavigationStack {
+            ScrollView {
+                OverlaysSections()
+                    .padding(.vertical, 16)
+            }
+            .background(theme.background)
+            .navigationTitle(L10n.Nav.layers)
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button(L10n.Button.done) { dismiss() }
+                }
+            }
+        }
+        .presentationDetents([.height(520)])
+        .preferredColorScheme(.dark)
+    }
+}
+
+/// The overlay switches (airspace and tiles, markers, track vector), shared by the iPhone Layers
+/// sheet and the iPad Map sheet. (v6.0 · C1)
+struct OverlaysSections: View {
+    @Environment(\.cockpitTheme) private var theme
     @Environment(AppState.self) private var appState
     @EnvironmentObject var openAIPDataService: OpenAIPDataService
     @EnvironmentObject var dataStatusManager: DataStatusManager
     @ObservedObject private var navaidService = OpenAIPNavaidDataService.shared
     @ObservedObject private var obstacleService = OpenAIPObstacleDataService.shared
     @ObservedObject private var reportingPointService = OpenAIPReportingPointDataService.shared
-    @Environment(\.dismiss) var dismiss
     /// Presents Settings at Navigation & Maps for the no-data download flow. (v4.2 UX fix)
     @State private var showDataSettings = false
 
@@ -4157,100 +4627,87 @@ struct OverlaysSheet: View {
     }
 
     var body: some View {
-        NavigationStack {
-            ScrollView {
-                VStack(spacing: 16) {
-                    if airspaceNeedsUpdate || isUpdatingAeroData {
-                        staleDataBanner
-                    }
-                    groupCard(L10n.Nav.airspaceCharts) {
-                        toggleRow(icon: "shield", title: L10n.Nav.airspace, isOn: appState.settings.showOpenAIPOverlay) {
-                            appState.settings.showOpenAIPOverlay.toggle(); appState.saveSettings()
-                        }
-                        // The toggle can be ON with no data downloaded — the layer then renders
-                        // nothing. Say so where the user is looking, and route straight to the
-                        // download flow (country selection lives in Settings → Navigation & Maps;
-                        // updateAeroData can't help here, it only refreshes existing countries). (v4.2 UX fix)
-                        if appState.settings.showOpenAIPOverlay && !openAIPDataService.isDataAvailable && !openAIPDataService.isDownloading {
-                            Divider().padding(.leading, 56)
-                            VStack(alignment: .leading, spacing: 8) {
-                                HStack(alignment: .top, spacing: 8) {
-                                    Image(systemName: "exclamationmark.triangle.fill")
-                                        .font(.aero(.footnote))
-                                        .foregroundColor(.orange)
-                                        .accessibilityHidden(true)
-                                    Text(L10n.Nav.airspaceNoData)
-                                        .font(.aero(.caption))
-                                        .foregroundColor(theme.textSecondary)
-                                        .fixedSize(horizontal: false, vertical: true)
-                                }
-                                Button {
-                                    showDataSettings = true
-                                } label: {
-                                    Text(L10n.Nav.downloadAirspaceData)
-                                        .font(.aero(.caption).weight(.semibold))
-                                        .foregroundColor(theme.action)
-                                }
-                                .padding(.leading, 24)
-                            }
-                            .padding(.horizontal, 16)
-                            .padding(.vertical, 10)
-                        }
-                        Divider().padding(.leading, 56)
-                        toggleRow(icon: "square.grid.3x3", title: L10n.Nav.mapTiles, isOn: appState.settings.showOpenAIPTiles) {
-                            appState.settings.showOpenAIPTiles.toggle(); appState.saveSettings()
-                        }
-                    }
-
+        VStack(spacing: 16) {
+            if airspaceNeedsUpdate || isUpdatingAeroData {
+                staleDataBanner
+            }
+            groupCard(L10n.Nav.airspaceCharts) {
+                toggleRow(icon: "shield", title: L10n.Nav.airspace, isOn: appState.settings.showOpenAIPOverlay) {
+                    appState.settings.showOpenAIPOverlay.toggle(); appState.saveSettings()
+                }
+                // The toggle can be ON with no data downloaded — the layer then renders
+                // nothing. Say so where the user is looking, and route straight to the
+                // download flow (country selection lives in Settings → Navigation & Maps;
+                // updateAeroData can't help here, it only refreshes existing countries). (v4.2 UX fix)
+                if appState.settings.showOpenAIPOverlay && !openAIPDataService.isDataAvailable && !openAIPDataService.isDownloading {
+                    Divider().padding(.leading, 56)
                     VStack(alignment: .leading, spacing: 8) {
-                        HStack {
-                            Text(L10n.Nav.mapMarkers)
-                                .font(.aero(size: 13, weight: .semibold))
+                        HStack(alignment: .top, spacing: 8) {
+                            Image(systemName: "exclamationmark.triangle.fill")
+                                .font(.aero(.footnote))
+                                .foregroundColor(.orange)
+                                .accessibilityHidden(true)
+                            Text(L10n.Nav.airspaceNoData)
+                                .font(.aero(.caption))
                                 .foregroundColor(theme.textSecondary)
-                            Spacer()
-                            Button(anyMarkerOn ? L10n.Nav.hideAll : L10n.Nav.showAll) {
-                                setAllMarkers(!anyMarkerOn)
-                            }
-                            .font(.aero(size: 13, weight: .semibold))
-                            .foregroundColor(theme.action)
+                                .fixedSize(horizontal: false, vertical: true)
                         }
-                        .padding(.horizontal, 20)
-                        VStack(spacing: 0) {
-                            toggleRow(icon: "mappin.and.ellipse", title: L10n.DataStorage.airportsName, isOn: appState.settings.showAirportsOnMap) {
-                                appState.settings.showAirportsOnMap.toggle(); appState.saveSettings()
-                            }
-                            Divider().padding(.leading, 56)
-                            toggleRow(icon: "antenna.radiowaves.left.and.right", title: L10n.DataStorage.navaidsName, isOn: appState.settings.showNavaidsOnMap) {
-                                appState.settings.showNavaidsOnMap.toggle(); appState.saveSettings()
-                            }
-                            Divider().padding(.leading, 56)
-                            toggleRow(icon: "triangle", title: L10n.DataStorage.reportingPointsName, isOn: appState.settings.showReportingPointsOnMap) {
-                                appState.settings.showReportingPointsOnMap.toggle(); appState.saveSettings()
-                            }
-                            Divider().padding(.leading, 56)
-                            toggleRow(icon: "exclamationmark.triangle", title: L10n.DataStorage.obstaclesName, isOn: appState.settings.showObstaclesOnMap) {
-                                appState.settings.showObstaclesOnMap.toggle(); appState.saveSettings()
-                            }
+                        Button {
+                            showDataSettings = true
+                        } label: {
+                            Text(L10n.Nav.downloadAirspaceData)
+                                .font(.aero(.caption).weight(.semibold))
+                                .foregroundColor(theme.action)
                         }
-                        .background(theme.panel)
-                        .cornerRadius(12)
-                        .padding(.horizontal, 16)
+                        .padding(.leading, 24)
                     }
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 10)
+                }
+                Divider().padding(.leading, 56)
+                toggleRow(icon: "square.grid.3x3", title: L10n.Nav.mapTiles, isOn: appState.settings.showOpenAIPTiles) {
+                    appState.settings.showOpenAIPTiles.toggle(); appState.saveSettings()
+                }
+            }
 
-                    groupCard(L10n.Nav.flightSection) {
-                        toggleRow(icon: "location.north.line", title: L10n.Nav.trackVector, isOn: appState.settings.showTrackVector) {
-                            appState.settings.showTrackVector.toggle(); appState.saveSettings()
-                        }
+            VStack(alignment: .leading, spacing: 8) {
+                HStack {
+                    Text(L10n.Nav.mapMarkers)
+                        .font(.aero(size: 13, weight: .semibold))
+                        .foregroundColor(theme.textSecondary)
+                    Spacer()
+                    Button(anyMarkerOn ? L10n.Nav.hideAll : L10n.Nav.showAll) {
+                        setAllMarkers(!anyMarkerOn)
+                    }
+                    .font(.aero(size: 13, weight: .semibold))
+                    .foregroundColor(theme.action)
+                }
+                .padding(.horizontal, 20)
+                VStack(spacing: 0) {
+                    toggleRow(icon: "mappin.and.ellipse", title: L10n.DataStorage.airportsName, isOn: appState.settings.showAirportsOnMap) {
+                        appState.settings.showAirportsOnMap.toggle(); appState.saveSettings()
+                    }
+                    Divider().padding(.leading, 56)
+                    toggleRow(icon: "antenna.radiowaves.left.and.right", title: L10n.DataStorage.navaidsName, isOn: appState.settings.showNavaidsOnMap) {
+                        appState.settings.showNavaidsOnMap.toggle(); appState.saveSettings()
+                    }
+                    Divider().padding(.leading, 56)
+                    toggleRow(icon: "triangle", title: L10n.DataStorage.reportingPointsName, isOn: appState.settings.showReportingPointsOnMap) {
+                        appState.settings.showReportingPointsOnMap.toggle(); appState.saveSettings()
+                    }
+                    Divider().padding(.leading, 56)
+                    toggleRow(icon: "exclamationmark.triangle", title: L10n.DataStorage.obstaclesName, isOn: appState.settings.showObstaclesOnMap) {
+                        appState.settings.showObstaclesOnMap.toggle(); appState.saveSettings()
                     }
                 }
-                .padding(.vertical, 16)
+                .background(theme.panel)
+                .cornerRadius(12)
+                .padding(.horizontal, 16)
             }
-            .background(theme.background)
-            .navigationTitle(L10n.Nav.layers)
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button(L10n.Button.done) { dismiss() }
+
+            groupCard(L10n.Nav.flightSection) {
+                toggleRow(icon: "location.north.line", title: L10n.Nav.trackVector, isOn: appState.settings.showTrackVector) {
+                    appState.settings.showTrackVector.toggle(); appState.saveSettings()
                 }
             }
         }
@@ -4259,8 +4716,6 @@ struct OverlaysSheet: View {
             // where country selection + the download flow live. (v4.2 UX fix)
             SettingsView(initialSection: .navigation)
         }
-        .presentationDetents([.height(520)])
-        .preferredColorScheme(.dark)
     }
 
     private func setAllMarkers(_ on: Bool) {
@@ -4358,14 +4813,16 @@ struct OverlaysSheet: View {
     private func toggleRow(icon: String, title: String, isOn: Bool, action: @escaping () -> Void) -> some View {
         Button(action: action) {
             HStack {
-                Image(systemName: icon).font(.aero(size: 18))
-                    .foregroundColor(isOn ? theme.action : theme.textSecondary).frame(width: 30)
-                Text(title).font(.aero(size: 16, weight: .medium)).foregroundColor(theme.textPrimary)
+                Image(systemName: icon).font(.aero(size: 20))
+                    .foregroundColor(isOn ? theme.action : theme.textSecondary).frame(width: 32)
+                // Opened in flight as well, from the iPad Map sheet: kneeboard-size rows. (v6.0 · P6)
+                Text(title).font(.aero(size: CockpitType.label, weight: .medium)).foregroundColor(theme.textPrimary)
                 Spacer()
                 Image(systemName: isOn ? "checkmark.circle.fill" : "circle")
+                    .font(.aero(size: 24))
                     .foregroundColor(isOn ? theme.action : theme.textDim)
             }
-            .padding(.horizontal, 16).padding(.vertical, 12)
+            .padding(.horizontal, 16).frame(minHeight: 56)
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)

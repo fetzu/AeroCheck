@@ -83,6 +83,15 @@ enum CockpitType {
     static let value: CGFloat = 48
 }
 
+/// Touch targets in flight, from the same kneeboard yardsticks: an EFB control wants about 15 mm
+/// (78 pt on an iPad Air), a critical one about 20 mm (104 pt, Avsar et al.). (v6.0 · P6)
+enum CockpitTarget {
+    /// The thumb bar: CHECK, MARK and their neighbours.
+    static let thumb: CGFloat = 104
+    /// Controls over the map: Map, orientation, centre, zoom. Short enough to leave the map visible.
+    static let control: CGFloat = 64
+}
+
 extension Font {
     /// B612 at `size` at the default text size, scaling with Dynamic Type like `style` does.
     static func aero(size: CGFloat, relativeTo style: Font.TextStyle, weight: Font.Weight? = nil,

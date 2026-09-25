@@ -217,6 +217,9 @@ struct NavigationMapView: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     @Binding var isPresented: Bool
+    /// False in the Plan tab, where the map is a section of the screen rather than a cover to close.
+    /// (v6.0 · P1)
+    var showsCloseButton: Bool = true
     @State private var selectedLayer: MapLayerType = .icao
     @State private var isFollowingAircraft: Bool = true
     @State private var showLayerPicker: Bool = false
@@ -865,12 +868,14 @@ struct NavigationMapView: View {
     private var compactTopBar: some View {
         HStack(spacing: 8) {
             // Close button
-            Button(action: { isPresented = false }) {
-                Image(systemName: "chevron.down")
-                    .font(.aero(size: 14, weight: .bold))
-                    .foregroundColor(theme.textPrimary)
-                    .frame(width: 44, height: 44) // HIG minimum tap target (UX-16)
-                    .floatingChromeCircle()
+            if showsCloseButton {
+                Button(action: { isPresented = false }) {
+                    Image(systemName: "chevron.down")
+                        .font(.aero(size: 14, weight: .bold))
+                        .foregroundColor(theme.textPrimary)
+                        .frame(width: 44, height: 44) // HIG minimum tap target (UX-16)
+                        .floatingChromeCircle()
+                }
             }
 
             // Flight Plan button. (v4 UI/UX Revamp — iPhone)
@@ -1366,12 +1371,14 @@ struct NavigationMapView: View {
     private var topBar: some View {
         HStack {
             // Close button
-            Button(action: { isPresented = false }) {
-                Image(systemName: "chevron.down")
-                    .font(.aero(size: 16, weight: .bold))
-                    .foregroundColor(theme.textPrimary)
-                    .frame(width: 44, height: 44)
-                    .background(theme.panel.opacity(0.92), in: Circle())
+            if showsCloseButton {
+                Button(action: { isPresented = false }) {
+                    Image(systemName: "chevron.down")
+                        .font(.aero(size: 16, weight: .bold))
+                        .foregroundColor(theme.textPrimary)
+                        .frame(width: 44, height: 44)
+                        .background(theme.panel.opacity(0.92), in: Circle())
+                }
             }
 
             Spacer()

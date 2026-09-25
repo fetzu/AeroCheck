@@ -101,28 +101,7 @@ struct HomeView: View {
     @EnvironmentObject var openAIPCacheManager: OpenAIPCacheManager
     @EnvironmentObject var openAIPDataService: OpenAIPDataService
     @EnvironmentObject var dataStatusManager: DataStatusManager
-    @State private var showSettings = false
-    /// Section to open Settings at — the data-status dot deep-links to Data & Storage. (v4.1.0 Data Freshness)
-    @State private var pendingSettingsSection: SettingsView.Section? = nil
-    @State private var showFlightLog = false
-    @State private var showSpeedReference = false
-    @State private var showNavigation = false
-    @State private var showFlightPlanning = false
     @State private var selectedAircraftIndex: Int = 0
-    @State private var cachedItemCountText: String = "—"
-    /// Mirrors the body's rail-layout test (iPad landscape). When true, the rail destinations present
-    /// as leading-edge slide-in overlays instead of the default bottom covers. (v4 UI/UX Revamp — device feedback)
-    @State private var useRailLayout: Bool = false
-    /// Latest computed rail value; applied to `useRailLayout` only when no destination is open, so a
-    /// rotation / app-switch resize never tears down (and loses) a presented destination. (orientation)
-    @State private var railWhenIdle: Bool = false
-
-    /// True while any Home destination is presented (cover or rail overlay). The layout switch is
-    /// frozen while this holds. (orientation reliability)
-    private var anyDestinationOpen: Bool {
-        showSettings || showFlightLog || showSpeedReference || showNavigation
-            || showFlightPlanning || lastFlightForDetail != nil || threadToOpen != nil
-    }
 
     /// The thread being viewed. Presented as a cover in BOTH layouts (the `showFlightPlanning`
     /// precedent) rather than a rail overlay: the admin chapters are read sitting down, often on the
@@ -133,9 +112,6 @@ struct HomeView: View {
     /// The flight being planned. Non-nil presents the one creation sheet. (v5.0.0)
     @State private var planningNewFlight: NewFlightIntent?
     /// What START FLIGHT needs to ask before it departs. (v5.x)
-    /// The aircraft screen, reachable from the strip once the flight owns the hero — the carousel
-    /// it replaced is gone then, and the tail still has to be changeable on the day. (v5.x)
-    @State private var showAircraftSheet = false
     @State private var startPrompt: StartPrompt?
 
     /// The one question START FLIGHT may need answered first.
@@ -153,9 +129,6 @@ struct HomeView: View {
             }
         }
     }
-    /// When the Flight Log is opened from the last-flight strip, preselect that flight so its details
-    /// show immediately; the Flight Log nav button clears it to open the plain list. (v4 UI/UX Revamp — feedback)
-    @State private var flightLogSelectionID: UUID? = nil
     /// Non-rail (portrait / iPhone): the last-flight strip opens this flight's detail directly, so its
     /// back button returns to Home rather than the Flight Log list. (v4 UI/UX Revamp — feedback round 2)
     @State private var lastFlightForDetail: Flight? = nil
@@ -194,93 +167,18 @@ struct HomeView: View {
     }
 
     var body: some View {
-        ZStack {
-            GeometryReader { geometry in
-                let isLandscape = geometry.size.width > geometry.size.height
-                let isCompact = isCompactWidth(geometry)
-                let rail = isLandscape && geometry.size.width >= 900
-
-                ZStack {
-                    // Background
-                    Color.cockpitBackground
-                        .ignoresSafeArea()
-
-                    if rail {
-                        // iPad landscape: command rail (nav) + hero canvas. (v4 UI/UX Revamp — Direction 1)
-                        HStack(spacing: 0) {
-                            navRail
-                            heroCanvas(landscape: true, isCompact: false)
-                        }
-                    } else {
-                        // Portrait / iPhone: brand header, hero canvas, then the nav as a bottom tab bar.
-                        VStack(spacing: 0) {
-                            brandHeader(isCompact: isCompact)
-                                // Align with the hero content below (32 on iPad portrait) so the brand
-                                // and the Data/GPS chips aren't hugging the screen edges. (UX feedback)
-                                .padding(.horizontal, isCompact ? 16 : 32)
-                                .padding(.top, isCompact ? 12 : 20)
-                            heroCanvas(landscape: isLandscape, isCompact: isCompact)
-                            navTabBar
-                        }
-                    }
-                }
-                .onAppear { railWhenIdle = rail; if !anyDestinationOpen { useRailLayout = rail } }
-                .onChange(of: geometry.size) { _, _ in
-                    // Track the layout the size implies, but DON'T switch while a destination is open —
-                    // switching destroys the presented cover/overlay (and its whole nested stack),
-                    // bouncing you back on rotation or an app-switch resize. Freeze; re-sync on close.
-                    railWhenIdle = rail
-                    if !anyDestinationOpen, useRailLayout != rail { useRailLayout = rail }
+        GeometryReader { geometry in
+            let isCompact = isCompactWidth(geometry)
+            ZStack {
+                Color.cockpitBackground.ignoresSafeArea()
+                ScrollView {
+                    todayColumn(isCompact: isCompact)
+                        .frame(maxWidth: heroWidth)
+                        .padding(.horizontal, isCompact ? 16 : 32)
+                        .padding(.vertical, isCompact ? 12 : 24)
+                        .frame(maxWidth: .infinity)
                 }
             }
-
-            // In the rail layout, the four rail destinations slide in from the leading edge (they sit
-            // "behind" the left rail), rather than the default bottom cover. Portrait keeps the covers
-            // below. (v4 UI/UX Revamp — device feedback)
-            railDestinationOverlays
-        }
-        // When the last destination closes, apply any layout change deferred while it was open.
-        .onChange(of: anyDestinationOpen) { _, open in
-            if !open, useRailLayout != railWhenIdle { useRailLayout = railWhenIdle }
-        }
-        .fullScreenCover(isPresented: coverBinding($showSettings)) {
-            SettingsView(initialSection: pendingSettingsSection)
-                .environment(appState)
-                .environmentObject(locationManager)
-        }
-        .fullScreenCover(isPresented: coverBinding($showFlightLog)) {
-            FlightLogView(initialFlightID: flightLogSelectionID)
-                .environment(appState)
-                .environmentObject(flightPlanManager)
-                .environmentObject(airportDataService)
-                .environmentObject(openAIPDataService)
-        }
-        .sheet(isPresented: coverBinding($showSpeedReference)) {
-            SpeedReferenceSheet()
-                .environment(appState)
-        }
-        .sheet(isPresented: $showAircraftSheet) {
-            NavigationStack {
-                AircraftSettingsView()
-                    .toolbar {
-                        ToolbarItem(placement: .topBarLeading) {
-                            Button(L10n.Button.close) { showAircraftSheet = false }
-                        }
-                    }
-            }
-            .environment(appState)
-            .environmentObject(subscriptionManager)
-            .environmentObject(aircraftDataService)
-        }
-        .fullScreenCover(isPresented: $showFlightPlanning) {
-            FlightPlanningView()
-                .environment(appState)
-                .environmentObject(flightPlanManager)
-                .environmentObject(threadManager)
-                .environmentObject(airportDataService)
-                .environmentObject(aircraftDataService)
-                .environmentObject(openAIPDataService)
-                .environmentObject(locationManager)
         }
         // Derived binding rather than `item:` — UUID is not Identifiable, and a retroactive
         // conformance on a stdlib type is not worth it for one presentation. (Same shape as
@@ -388,20 +286,8 @@ struct HomeView: View {
             .environmentObject(airportDataService)
             .environmentObject(openAIPDataService)
         }
-        .fullScreenCover(isPresented: coverBinding($showNavigation)) {
-            NavigationMapView(isPresented: $showNavigation)
-                .environment(appState)
-                .environmentObject(locationManager)
-                .environmentObject(offlineMapManager)
-                .environmentObject(flightPlanManager)
-                .environmentObject(airportDataService)
-                .environmentObject(aircraftDataService)
-                .environmentObject(openAIPCacheManager)
-                .environmentObject(openAIPDataService)
-        }
         .onAppear {
             syncSelectedAircraftIndex()
-            updateCachedItemCount()
             // Refresh the data-currency status: a download made during onboarding (or in the data hub)
             // happens without a scenePhase change, so the Home indicator would otherwise stay stale. (bug)
             dataStatusManager.recompute()
@@ -458,92 +344,19 @@ struct HomeView: View {
             // A checklist was updated in the background - reload active checklist if needed
             Task {
                 await appState.loadRemoteChecklistIfNeeded(aircraftDataService: aircraftDataService)
-                updateCachedItemCount()
             }
         }
         .onChange(of: selectedAircraftIndex) { _, newIndex in
             updateAppStateAircraft(index: newIndex)
-            updateCachedItemCount()
         }
+        // The aircraft is chosen in the Aircraft tab now; follow it. (v6.0 · P1)
+        .onChange(of: appState.settings.selectedRemoteAircraftId) { _, _ in syncSelectedAircraftIndex() }
+        .onChange(of: appState.settings.selectedAircraft) { _, _ in syncSelectedAircraftIndex() }
         .onChange(of: appState.settings.hiddenAircraftIds) { _, _ in
             syncSelectedAircraftIndex()
         }
         .onChange(of: appState.settings.hiddenAeroclubs) { _, _ in
             syncSelectedAircraftIndex()
-        }
-    }
-
-    // MARK: - Rail destination presentation
-
-    /// Routes a rail destination to the default bottom cover only in the portrait/compact layout.
-    /// In the rail layout it stays unpresented here so `railDestinationOverlays` can slide it in from
-    /// the leading edge instead. (v4 UI/UX Revamp — device feedback)
-    private func coverBinding(_ flag: Binding<Bool>) -> Binding<Bool> {
-        Binding(
-            get: { flag.wrappedValue && !useRailLayout },
-            // Only honor a `false` write as a real dismissal in the portrait/compact layout. When the
-            // device rotates INTO the rail layout, `get` drops to false and SwiftUI writes `false` back
-            // here to "dismiss" the cover — if we cleared the flag then, the destination would vanish
-            // instead of being handed to `railDestinationOverlays`, bouncing the user back to Home. So
-            // ignore the write while in the rail layout; the underlying flag survives the rotation.
-            set: { newValue in
-                if !newValue && !useRailLayout { flag.wrappedValue = false }
-            }
-        )
-    }
-
-    /// The four rail destinations, presented as full-screen overlays that slide in from the leading
-    /// edge (they live "behind" the left rail). Each destination still owns its dismissal: Settings /
-    /// Flight Log / Speeds route their close button to `onClose`; NavigationMapView flips its own
-    /// `isPresented` binding. The per-flag `.animation` drives both the slide-in and the slide-out. (v4 UI/UX Revamp)
-    @ViewBuilder
-    private var railDestinationOverlays: some View {
-        if useRailLayout {
-            ZStack {
-                if showSettings {
-                    SettingsView(onClose: { showSettings = false }, initialSection: pendingSettingsSection)
-                        .environment(appState)
-                        .environmentObject(locationManager)
-                        .background(Color.cockpitBackground.ignoresSafeArea())
-                        .transition(.move(edge: .leading))
-                }
-                if showFlightLog {
-                    FlightLogView(onClose: { showFlightLog = false }, initialFlightID: flightLogSelectionID)
-                        .environment(appState)
-                        .environmentObject(flightPlanManager)
-                        .environmentObject(airportDataService)
-                        .environmentObject(openAIPDataService)
-                        .background(Color.cockpitBackground.ignoresSafeArea())
-                        .transition(.move(edge: .leading))
-                }
-                if showSpeedReference {
-                    // Full-screen leading-edge slide-in, consistent with the other rail destinations
-                    // (Settings / Flight Log / Navigation). Reverts the 3.5 constrained-popup variant
-                    // (88f4e5e) on iPad per user request; iPhone keeps its bottom sheet via coverBinding.
-                    SpeedReferenceSheet(onClose: { showSpeedReference = false })
-                        .environment(appState)
-                        .background(Color.cockpitBackground.ignoresSafeArea())
-                        .transition(.move(edge: .leading))
-                }
-                if showNavigation {
-                    NavigationMapView(isPresented: $showNavigation)
-                        .environment(appState)
-                        .environmentObject(locationManager)
-                        .environmentObject(offlineMapManager)
-                        .environmentObject(flightPlanManager)
-                        .environmentObject(airportDataService)
-                        .environmentObject(aircraftDataService)
-                        .environmentObject(openAIPCacheManager)
-                        .environmentObject(openAIPDataService)
-                        .background(Color.cockpitBackground.ignoresSafeArea())
-                        .transition(.move(edge: .leading))
-                }
-            }
-            .ignoresSafeArea()
-            .animation(.easeInOut(duration: 0.3), value: showSettings)
-            .animation(.easeInOut(duration: 0.3), value: showFlightLog)
-            .animation(.easeInOut(duration: 0.3), value: showSpeedReference)
-            .animation(.easeInOut(duration: 0.3), value: showNavigation)
         }
     }
 
@@ -598,70 +411,166 @@ struct HomeView: View {
         }
     }
     
-    /// The hero canvas: aircraft selector + Start/Circuits + GPS + last-flight, centred. Shared by the
-    /// landscape rail layout and the portrait stack. (v4 UI/UX Revamp — Direction 1)
-    private func heroCanvas(landscape: Bool, isCompact: Bool) -> some View {
-        // The hero, Start/Circuits, and last-flight all share one width so the column reads as a unit.
-        // GPS lives in the rail foot (landscape) / brand header (portrait), not wedged in here. (v4 UI/UX Revamp)
-        VStack(spacing: landscape ? 18 : (isCompact ? 16 : 24)) {
-            // On the day you have planned a flight, that flight IS the screen. START FLIGHT opens
-            // the PREFLIGHT checklist — fifteen phases before the engine turns — so there is no
-            // hurry at this moment and nothing about it needs to be the largest thing here. On every
-            // other day the aircraft keeps the slot, because a Home that always led with a flight
-            // would show an empty promise on the ninety days there isn't one. (v5.x)
-            if let flight = heroFlight {
-                flightHeroCard(flight, isCompact: isCompact)
-                    .frame(maxWidth: heroWidth)
-                unplannedShortcutButtons(isLandscape: landscape, isCompact: isCompact)
-                    .frame(maxWidth: heroWidth)
-            } else {
-                aircraftCard(isLandscape: false, isCompact: isCompact)   // the fuller, taller card
-                    .frame(maxWidth: heroWidth)
-                startCircuitsButtons(isLandscape: landscape, isCompact: isCompact)
-                    .frame(maxWidth: heroWidth)
-            }
-            activityStrips(sideBySide: landscape && !isCompact)
-                .frame(maxWidth: heroWidth)
-        }
-        .padding(landscape ? 24 : (isCompact ? 16 : 32))
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-    }
-
-    /// Last-flight + flight-plan strips: side by side on a wide canvas, stacked otherwise. Ordered
-    /// past → future (left/top = last flight, right/bottom = flight plan). (v4 UI/UX Revamp — device feedback)
-    @ViewBuilder
-    private func activityStrips(sideBySide: Bool) -> some View {
-        if sideBySide {
-            // A one-row Grid, not an HStack. The strips carry different numbers of lines — the
-            // followed-flight card has a "next task" line the last-flight strip does not — so side
-            // by side one card ended shorter than its neighbour.
-            //
-            // `maxHeight: .infinity` on HStack children was the obvious fix and did not work: it
-            // makes each child accept the PARENT's proposal rather than match its sibling, so the
-            // two still sized independently. A Grid row equalises its cells by construction, which
-            // is the property actually wanted here.
-            Grid(horizontalSpacing: 12, verticalSpacing: 0) {
-                GridRow {
-                    lastFlightStrip(fillsHeight: true)
-                    secondStrip(fillsHeight: true)
-                }
-            }
-            // Without this the strips are enormous. The cards fill their cell so the shorter one's
-            // background reaches the row height — but the parent VStack has `maxHeight: .infinity`
-            // and hands out every spare point, which the filling cards then swallow. Sizing the Grid
-            // to its own content caps the row at the TALLER CARD, which is all "equal heights" ever
-            // meant. (device pass)
-            .fixedSize(horizontal: false, vertical: true)
-        } else {
-            VStack(spacing: 12) {
-                lastFlightStrip(fillsHeight: false)
-                secondStrip(fillsHeight: false)
-            }
-        }
-    }
-
     private var startPromptTitle: String {
         startPrompt == nil ? "" : L10n.Home.outstandingTitle
+    }
+
+    // MARK: - Today (v6.0 · P1, A2)
+    //
+    // The same slots in the same places every day, filled or showing their empty state: the flight
+    // you are preparing, START, the two other ways to fly, then the aircraft and the last flight.
+    // Home used to change shape with the state of your flights: three layouts, START in three places
+    // (520, 572 and 695 pt on an iPad in portrait) under two labels, and "Plan new flight" only when
+    // nothing was planned. Muscle memory can't form around a button that moves.
+
+    private func todayColumn(isCompact: Bool) -> some View {
+        VStack(alignment: .leading, spacing: isCompact ? 14 : 20) {
+            brandHeader(isCompact: isCompact)
+                .padding(.bottom, isCompact ? 4 : 8)
+            sectionLabel(L10n.Ground.nextFlight, isCompact: isCompact)
+            nextFlightSlot(isCompact: isCompact)
+            startFlightButton(isCompact: isCompact)
+            HStack(spacing: isCompact ? 10 : 14) {
+                if appState.settings.enableCircuitMode {
+                    circuitsButton(isCompact: isCompact)
+                }
+                // A flight is planned: the other way is to fly without it. Nothing planned: plan one.
+                if heroFlight != nil {
+                    unplannedButton(isCompact: isCompact)
+                } else {
+                    planFlightButton(isCompact: isCompact)
+                }
+            }
+            sectionLabel(L10n.Ground.recent, isCompact: isCompact)
+                .padding(.top, isCompact ? 4 : 8)
+            aircraftStrip(fillsHeight: false)
+            lastFlightStrip(fillsHeight: false)
+            if heroFlight == nil, homeThread == nil, let active = flightPlanManager.activeFlightPlan {
+                flightPlanStripCard(title: planRoute(active),
+                                    detail: armedDetail(active),
+                                    accent: .altimeterBlue,
+                                    badge: L10n.Nav.activate.uppercased(),
+                                    showsRail: false,
+                                    fillsHeight: false)
+            }
+        }
+    }
+
+    private func sectionLabel(_ text: String, isCompact: Bool) -> some View {
+        Text(text.uppercased())
+            .scaledFont(size: isCompact ? 12 : 14, weight: .semibold, relativeTo: .caption)
+            .tracking(1)
+            .foregroundColor(.secondaryText)
+            .accessibilityAddTraits(.isHeader)
+    }
+
+    /// Today's flight, else the flight being followed (or closed out), else an offer to plan one.
+    @ViewBuilder
+    private func nextFlightSlot(isCompact: Bool) -> some View {
+        if let flight = heroFlight {
+            flightHeroCard(flight, isCompact: isCompact)
+        } else if let thread = homeThread {
+            flightThreadStripCard(thread, fillsHeight: false)
+        } else {
+            planNewFlightStripCard(fillsHeight: false)
+        }
+    }
+
+    /// START, always here. It starts today's flight when there is one (asking first if its preparation
+    /// isn't finished), a flight with the selected aircraft otherwise.
+    private func startFlightButton(isCompact: Bool) -> some View {
+        let inFlight = heroFlight?.state == .flying
+        let label = heroFlight == nil ? L10n.Button.startFlight
+            : (inFlight ? L10n.Home.resumeThisFlight : L10n.Home.startThisFlight)
+        return Button(action: startFlight) {
+            HStack(spacing: isCompact ? 10 : 14) {
+                Image(systemName: "play.fill")
+                    .scaledFont(size: isCompact ? 20 : 26, relativeTo: .title2)
+                Text(label)
+                    .scaledFont(size: isCompact ? 20 : 26, weight: .bold, relativeTo: .title2)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.7)
+            }
+            .frame(maxWidth: .infinity)
+            .frame(height: isCompact ? 56 : 76)
+        }
+        .buttonStyle(PrimaryButtonStyle(color: .aviationGreen))
+        .accessibilityHint(heroFlight?.routeLabel ?? "")
+    }
+
+    private func planFlightButton(isCompact: Bool) -> some View {
+        Button { beginPlanningNewFlight() } label: {
+            HStack(spacing: 8) {
+                Image(systemName: "calendar.badge.plus")
+                    .scaledFont(size: isCompact ? 13 : 15, relativeTo: .subheadline)
+                Text(L10n.Flights.planNewFlight)
+                    .scaledFont(size: isCompact ? 13 : 15, weight: .semibold, relativeTo: .subheadline)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.6)
+            }
+            .frame(maxWidth: .infinity)
+            .frame(height: Self.shortcutLabelHeight)
+        }
+        .buttonStyle(SecondaryButtonStyle(color: .aviationGold, isLarge: false))
+    }
+
+    /// Today's flight: how ready it is and what is left. The whole card opens it; START is the button
+    /// below, in the same place whether or not a flight is planned.
+    private func flightHeroCard(_ thread: FlightThread, isCompact: Bool) -> some View {
+        let progress = thread.preFlightProgress
+        let remaining = progress.total - progress.done
+        let inFlight = thread.state == .flying
+        let accent: Color = inFlight ? .altimeterBlue : .aviationGold
+
+        return Button { threadToOpen = thread.id } label: {
+            VStack(alignment: .leading, spacing: 12) {
+                HStack(spacing: 12) {
+                    threadReadinessRing(progress: progress, accent: accent)
+                    VStack(alignment: .leading, spacing: 4) {
+                        HStack(spacing: 8) {
+                            Text(inFlight ? L10n.Thread.stateFlying.uppercased() : heroWhen(thread))
+                                .scaledFont(size: isCompact ? 11 : 14, weight: .bold, design: .monospaced, relativeTo: .caption2)
+                                .foregroundColor(accent)
+                                .padding(.horizontal, 6).padding(.vertical, 2)
+                                .overlay(RoundedRectangle(cornerRadius: 4).strokeBorder(accent.opacity(0.55), lineWidth: 1))
+                            if let registration = thread.aircraftRegistration, !registration.isEmpty {
+                                Text(registration)
+                                    .scaledFont(size: isCompact ? 12 : 15, design: .monospaced, relativeTo: .caption)
+                                    .foregroundColor(.secondaryText)
+                            }
+                        }
+                        Text(thread.routeLabel)
+                            .scaledFont(size: isCompact ? 22 : 30, weight: .bold, design: .monospaced, relativeTo: .title2)
+                            .foregroundColor(.primaryText)
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.6)
+                    }
+                    Spacer(minLength: 0)
+                    Image(systemName: "chevron.right")
+                        .scaledFont(size: isCompact ? 14 : 17, weight: .semibold, relativeTo: .body)
+                        .foregroundColor(.dimText)
+                }
+                Text(heroDetail(thread, remaining: remaining))
+                    .scaledFont(size: isCompact ? 13 : 16, relativeTo: .footnote)
+                    .foregroundColor(.secondaryText)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .multilineTextAlignment(.leading)
+            }
+            .padding(isCompact ? 14 : 20)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(
+                RoundedRectangle(cornerRadius: 16)
+                    .fill(Color.cardBackground)
+                    .overlay(RoundedRectangle(cornerRadius: 16).strokeBorder(accent.opacity(0.45), lineWidth: 1))
+                    .overlay(alignment: .leading) {
+                        UnevenRoundedRectangle(topLeadingRadius: 16, bottomLeadingRadius: 16)
+                            .fill(accent)
+                            .frame(width: 4)
+                    }
+            )
+        }
+        .buttonStyle(.plain)
+        .accessibilityHint(L10n.Home.reviewFlight)
     }
 
     // MARK: - Flight-first hero (v5.x)
@@ -672,96 +581,6 @@ struct HomeView: View {
     /// strip. A flight awaiting close-out stays a strip too — the red banner above already carries
     /// the one piece of close-out that is urgent.
     private var heroFlight: FlightThread? { threadManager.startableFlightToday }
-
-    /// The second activity strip. The flight vacated it to become the hero, so the aircraft — which
-    /// vacated the hero — takes its place. Neither disappears; they swap.
-    @ViewBuilder
-    private func secondStrip(fillsHeight: Bool) -> some View {
-        if heroFlight != nil {
-            aircraftStrip(fillsHeight: fillsHeight)
-        } else {
-            flightPlanStrip(fillsHeight: fillsHeight)
-        }
-    }
-
-    /// Today's flight, as the thing the screen is about: how ready it is, what is left, and one green
-    /// button that starts THIS flight and arms its own route.
-    private func flightHeroCard(_ thread: FlightThread, isCompact: Bool) -> some View {
-        let progress = thread.preFlightProgress
-        let remaining = progress.total - progress.done
-        let inFlight = thread.state == .flying
-        let accent: Color = inFlight ? .altimeterBlue : .aviationGold
-
-        return VStack(alignment: .leading, spacing: 12) {
-            HStack(spacing: 12) {
-                threadReadinessRing(progress: progress, accent: accent)
-                VStack(alignment: .leading, spacing: 4) {
-                    HStack(spacing: 8) {
-                        Text(inFlight ? L10n.Thread.stateFlying.uppercased() : heroWhen(thread))
-                            .scaledFont(size: 10, weight: .bold, design: .monospaced, relativeTo: .caption2)
-                            .foregroundColor(accent)
-                            .padding(.horizontal, 6).padding(.vertical, 2)
-                            .overlay(RoundedRectangle(cornerRadius: 4).strokeBorder(accent.opacity(0.55), lineWidth: 1))
-                        if let registration = thread.aircraftRegistration, !registration.isEmpty {
-                            Text(registration)
-                                .scaledFont(size: 12, design: .monospaced, relativeTo: .caption)
-                                .foregroundColor(.secondaryText)
-                        }
-                    }
-                    Text(thread.routeLabel)
-                        .scaledFont(size: isCompact ? 22 : 26, weight: .bold, design: .monospaced, relativeTo: .title2)
-                        .foregroundColor(.primaryText)
-                        .lineLimit(1)
-                        .minimumScaleFactor(0.6)
-                }
-                Spacer(minLength: 0)
-            }
-
-            Text(heroDetail(thread, remaining: remaining))
-                .scaledFont(size: 13, relativeTo: .footnote)
-                .foregroundColor(.secondaryText)
-                .fixedSize(horizontal: false, vertical: true)
-
-            ratioRow(spacing: 10,
-                     height: ButtonMetrics.totalHeight(labelHeight: isCompact ? 46 : 52, isLarge: true)) {
-                Button { startHeroFlight(thread) } label: {
-                    HStack(spacing: 10) {
-                        Image(systemName: "play.fill")
-                            .scaledFont(size: isCompact ? 15 : 17, relativeTo: .title3)
-                        Text(inFlight ? L10n.Home.resumeThisFlight : L10n.Home.startThisFlight)
-                            .scaledFont(size: isCompact ? 15 : 17, weight: .bold, relativeTo: .title3)
-                            .lineLimit(1)
-                            .minimumScaleFactor(0.6)
-                    }
-                    .frame(maxWidth: .infinity)
-                    .frame(height: isCompact ? 46 : 52)
-                }
-                .buttonStyle(PrimaryButtonStyle(color: .aviationGreen))
-            } trailing: {
-                Button { threadToOpen = thread.id } label: {
-                    Text(L10n.Home.reviewFlight)
-                        .scaledFont(size: isCompact ? 13 : 15, weight: .bold, relativeTo: .subheadline)
-                        .lineLimit(1)
-                        .minimumScaleFactor(0.6)
-                        .frame(maxWidth: .infinity)
-                        .frame(height: isCompact ? 46 : 52)
-                }
-                .buttonStyle(SecondaryButtonStyle(color: .aviationGold))
-            }
-        }
-        .padding(isCompact ? 14 : 18)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(
-            RoundedRectangle(cornerRadius: 16)
-                .fill(Color.cardBackground)
-                .overlay(RoundedRectangle(cornerRadius: 16).strokeBorder(accent.opacity(0.45), lineWidth: 1))
-                .overlay(alignment: .leading) {
-                    UnevenRoundedRectangle(topLeadingRadius: 16, bottomLeadingRadius: 16)
-                        .fill(accent)
-                        .frame(width: 4)
-                }
-        )
-    }
 
     private func heroWhen(_ thread: FlightThread) -> String {
         guard let departure = thread.scheduledDeparture else { return L10n.Home.today.uppercased() }
@@ -776,66 +595,6 @@ struct HomeView: View {
                 : L10n.Home.nextOnly(title)
         }
         return L10n.Home.readyToFly
-    }
-
-    /// Starting from the hero is the same launch as anywhere else — including the outstanding-items
-    /// question, which a bigger button is no reason to skip.
-    private func startHeroFlight(_ thread: FlightThread) {
-        let progress = thread.preFlightProgress
-        let remaining = progress.total - progress.done
-        if remaining > 0 {
-            startPrompt = .outstanding(thread: thread, remaining: remaining)
-            return
-        }
-        launch(thread)
-    }
-
-    /// Two buttons in one row at a fixed ratio.
-    ///
-    /// An `HStack` of two `maxWidth: .infinity` buttons is 50/50, which gives a secondary action the
-    /// same visual weight as the primary one. 65/35 keeps the hierarchy legible while still letting
-    /// the smaller button hold a real label. The row needs an explicit height because a
-    /// `GeometryReader` takes all the vertical space it is offered — `ButtonMetrics.totalHeight`
-    /// works it out from the same numbers the style uses, so the two cannot drift apart.
-    private static let primaryShare: CGFloat = 0.65
-
-    private func ratioRow<Leading: View, Trailing: View>(
-        spacing: CGFloat,
-        height: CGFloat,
-        @ViewBuilder leading: () -> Leading,
-        @ViewBuilder trailing: () -> Trailing
-    ) -> some View {
-        let leadingView = leading()
-        let trailingView = trailing()
-        return GeometryReader { geo in
-            let usable = max(0, geo.size.width - spacing)
-            HStack(spacing: spacing) {
-                leadingView.frame(width: usable * Self.primaryShare)
-                trailingView.frame(width: usable * (1 - Self.primaryShare))
-            }
-        }
-        .frame(height: height)
-    }
-
-    /// The shortcut, kept but demoted: a flight with no plan behind it, and circuits.
-    ///
-    /// Deliberately SHORTER than the hero's buttons — `isLarge: false` halves the style's vertical
-    /// padding — so the row reads as the quieter option at a glance rather than as a second pair of
-    /// equals stacked under the first. (device pass)
-    @ViewBuilder
-    private func unplannedShortcutButtons(isLandscape: Bool, isCompact: Bool) -> some View {
-        let height = ButtonMetrics.totalHeight(labelHeight: Self.shortcutLabelHeight, isLarge: false)
-        if appState.settings.enableCircuitMode {
-            // The same 65/35 split as the hero: flying without a plan is much the likelier of the
-            // two, and an even split read as a choice between equals.
-            ratioRow(spacing: isCompact ? 8 : 12, height: height) {
-                unplannedButton(isCompact: isCompact)
-            } trailing: {
-                circuitsButton(isCompact: isCompact)
-            }
-        } else {
-            unplannedButton(isCompact: isCompact)
-        }
     }
 
     /// Label height for the shortcut row. Shorter than the hero's 46/52, and paired with the
@@ -881,7 +640,8 @@ struct HomeView: View {
     /// The aircraft, in the strip the flight vacated. Taps into the carousel's own screen.
     private func aircraftStrip(fillsHeight: Bool) -> some View {
         let option = selectedAircraft
-        return Button { showAircraftSheet = true } label: {
+        // The aircraft is chosen in its own tab now. (v6.0 · P1)
+        return Button { appState.groundTab = .aircraft } label: {
             HStack(spacing: 10) {
                 Image(systemName: "airplane")
                     .scaledFont(size: 15, weight: .semibold, relativeTo: .subheadline)
@@ -947,94 +707,6 @@ struct HomeView: View {
         }
     }
 
-    // MARK: - Nav rail / tab bar (Direction 1)
-
-    private var railSurface: Color { AmbientPalette.chrome ?? Color(red: 0.10, green: 0.10, blue: 0.13) }
-
-    /// Vertical command rail (iPad landscape): brand mark, the four destinations, GPS at the foot.
-    private var navRail: some View {
-        VStack(spacing: 0) {
-            Image(systemName: "airplane")
-                .scaledFont(size: 26, relativeTo: .title2)
-                .foregroundColor(.aviationGold)
-                .padding(.top, 18)
-                .contentShape(Rectangle())
-                .onTapGesture(count: 5) { AmbientController.shared.engage() }
-                .accessibilityHidden(true)
-            Spacer()
-            VStack(spacing: 6) {
-                navButtons
-            }
-            Spacer()
-            VStack(alignment: .leading, spacing: 10) {
-                dataStatusIndicator(isCompact: true)
-                gpsStatusIndicator(isCompact: true)
-            }
-            .padding(.bottom, 18)
-        }
-        .frame(width: 92)
-        .frame(maxHeight: .infinity)
-        .background(railSurface.ignoresSafeArea())
-        .overlay(alignment: .trailing) {
-            Rectangle().fill((AmbientPalette.hairline ?? Color.white.opacity(0.06))).frame(width: 1).ignoresSafeArea()
-        }
-    }
-
-    /// Horizontal bottom tab bar (portrait / iPhone): the same four destinations.
-    private var navTabBar: some View {
-        HStack(spacing: 0) {
-            navButtons
-        }
-        .padding(.vertical, 6)
-        .padding(.horizontal, 6)
-        .background(railSurface.ignoresSafeArea(edges: .bottom))
-        .overlay(alignment: .top) {
-            Rectangle().fill((AmbientPalette.hairline ?? Color.white.opacity(0.06))).frame(height: 1)
-        }
-    }
-
-    /// The four destination buttons — laid out vertically (rail) or horizontally (tab bar). (v4 UI/UX Revamp)
-    @ViewBuilder
-    private var navButtons: some View {
-        // Title Case for the menu labels, per Apple HIG (matches "Settings"). The compact all-caps
-        // "NAV"/"SPEEDS" forms stay on the in-flight FlightView chrome. (v4 UI/UX Revamp — device feedback)
-        navButton("airplane.departure", L10n.Flights.title, tint: .aviationGold, badge: appState.flights.count) { flightLogSelectionID = nil; showFlightLog = true }
-        navButton("map.fill", L10n.Nav.navigation, tint: .altimeterBlue) { showNavigation = true }
-        navButton("speedometer", L10n.Nav.speeds, tint: .aviationGreen) { showSpeedReference = true }
-        navButton("gearshape.fill", L10n.Settings.title, tint: .secondaryText) { pendingSettingsSection = nil; showSettings = true }
-    }
-
-    private func navButton(_ icon: String, _ label: String, tint: Color, badge: Int? = nil, action: @escaping () -> Void) -> some View {
-        Button(action: action) {
-            VStack(spacing: 4) {
-                ZStack(alignment: .topTrailing) {
-                    Image(systemName: icon)
-                        .scaledFont(size: 20, relativeTo: .title3)
-                        .foregroundColor(tint)
-                        .frame(width: 32, height: 26)
-                        .loadingRotationEffect(isActive: icon == "clock.arrow.circlepath" && appState.isLoadingFlights)
-                    if let badge, badge > 0 {
-                        Text("\(badge)")
-                            .scaledFont(size: 9, weight: .bold, relativeTo: .caption2)
-                            .foregroundColor(.black)
-                            .padding(.horizontal, 4).padding(.vertical, 1)
-                            .background(Capsule().fill(Color.aviationGold))
-                            .offset(x: 10, y: -3)
-                    }
-                }
-                Text(label)
-                    .scaledFont(size: 10, weight: .medium, relativeTo: .caption2)
-                    .foregroundColor(.secondaryText)
-                    .lineLimit(1)
-            }
-            .frame(maxWidth: .infinity)
-            .padding(.vertical, 8)
-            .contentShape(Rectangle())
-        }
-        .buttonStyle(.plain)
-        .accessibilityLabel((badge ?? 0) > 0 ? "\(label), \(badge!)" : label)
-    }
-
     /// Compact "last flight" strip surfaced on the console — taps into the Flight Log. (v4 UI/UX Revamp)
     @ViewBuilder
     private func lastFlightStrip(fillsHeight: Bool) -> some View {
@@ -1043,12 +715,7 @@ struct HomeView: View {
             // Otherwise (portrait / iPhone): open its detail directly so back returns to Home, not the
             // Flight Log list. (v4 UI/UX Revamp — feedback round 2)
             Button {
-                if useRailLayout {
-                    flightLogSelectionID = last.id
-                    showFlightLog = true
-                } else {
-                    lastFlightForDetail = last
-                }
+                lastFlightForDetail = last
             } label: {
                 HStack(spacing: 12) {
                     VStack(alignment: .leading, spacing: 2) {
@@ -1087,39 +754,6 @@ struct HomeView: View {
         }
     }
 
-    /// Smart flight-plan strip, in priority order: the active plan (route + waypoints), else a plan
-    /// scheduled for today (route + departure time, gold), else the saved-count link, else nothing.
-    /// Taps into the flight-plan list. (v4 UI/UX Revamp — device feedback)
-    @ViewBuilder
-    private func flightPlanStrip(fillsHeight: Bool) -> some View {
-        if let thread = homeThread {
-            // A followed flight takes this slot: while a thread is live it IS the flight-plan status,
-            // and a third strip would not survive the ~300 pt the iPad gives each one.
-            flightThreadStripCard(thread, fillsHeight: fillsHeight)
-        } else if let active = flightPlanManager.activeFlightPlan {
-            // ARMED. This state used to differ from the others only by an icon tint and a 22 %-opacity
-            // border — and in altimeter blue, which reads as "flight plan", not as "ready to fly". Home
-            // is the screen you look at before pressing START FLIGHT, so the answer to "am I armed?"
-            // has to be free here rather than two taps away in the plan list. Green rail + chip, the
-            // same device the plan list already uses for its active section. (v4.4.0)
-            // Was an ARMED badge with a green rail. Arming is no longer a state the pilot manages —
-            // a flight loads its own route at start — so this now reads as what it actually is: a
-            // route someone put on the map to look at. (v5.x)
-            flightPlanStripCard(title: planRoute(active),
-                                detail: armedDetail(active),
-                                accent: .altimeterBlue,
-                                badge: L10n.Nav.activate.uppercased(),
-                                showsRail: false,
-                                fillsHeight: fillsHeight)
-        } else {
-            // Nothing more specific to say. This slot used to render the saved-plan count — and
-            // NOTHING AT ALL for a pilot with no plans yet, which is precisely why the feature that
-            // defines this release was unreachable: Home never once mentioned that a flight can be
-            // followed. It now always offers to plan one.
-            planNewFlightStripCard(fillsHeight: fillsHeight)
-        }
-    }
-
     /// The teaching state, and the only door to following a flight that does not require already
     /// having a flight plan.
     private func planNewFlightStripCard(fillsHeight: Bool) -> some View {
@@ -1145,7 +779,7 @@ struct HomeView: View {
                         .foregroundColor(.secondaryText)
                 }
             }
-            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+            .frame(maxWidth: .infinity, alignment: .topLeading)
             .padding(.horizontal, 14)
             .padding(.vertical, 12)
             .background(
@@ -1191,7 +825,7 @@ struct HomeView: View {
     private func flightPlanStripCard(title: String, detail: [String], accent: Color,
                                      badge: String? = nil, showsRail: Bool = false,
                                      fillsHeight: Bool = false) -> some View {
-        Button { showFlightPlanning = true } label: {
+        Button { appState.groundTab = .plan } label: {
             HStack(spacing: 10) {
                 Image(systemName: "point.topleft.down.to.point.bottomright.curvepath")
                     .scaledFont(size: 17, relativeTo: .body)
@@ -1427,207 +1061,10 @@ struct HomeView: View {
         return formatter.localizedString(for: date, relativeTo: Date())
     }
 
-    /// START FLIGHT (green) + CIRCUITS (amber) — shared by the stacked layout and the iPad console. (v4 UI/UX Revamp)
-    private func startCircuitsButtons(isLandscape: Bool, isCompact: Bool) -> some View {
-        HStack(spacing: isCompact ? 8 : 12) {
-            Button(action: startFlight) {
-                HStack(spacing: isCompact ? 10 : 14) {
-                    Image(systemName: "play.fill")
-                        .scaledFont(size: isCompact ? 18 : 22, relativeTo: .title2)
-                    Text(L10n.Button.startFlight)
-                        .scaledFont(size: isCompact ? 18 : 22, weight: .bold, relativeTo: .title2)
-                        .lineLimit(1)
-                        .minimumScaleFactor(0.7)
-                }
-                .frame(maxWidth: .infinity)
-                .frame(height: isLandscape ? 50 : (isCompact ? 50 : 70))
-            }
-            .buttonStyle(PrimaryButtonStyle(color: .aviationGreen))
-
-            // START CIRCUITS button - only shown when circuit mode is enabled
-            if appState.settings.enableCircuitMode {
-                Button(action: startCircuits) {
-                    VStack(spacing: isCompact ? 2 : 4) {
-                        Image(systemName: "arrow.triangle.2.circlepath")
-                            .scaledFont(size: isCompact ? 18 : 20, relativeTo: .title3)
-                        Text(L10n.Button.circuits)
-                            .scaledFont(size: isCompact ? 13 : 14, weight: .bold, relativeTo: .subheadline)
-                            .lineLimit(2)
-                            .minimumScaleFactor(0.6)
-                            .multilineTextAlignment(.center)
-                    }
-                    .frame(maxWidth: .infinity)
-                    .frame(height: isLandscape ? 50 : (isCompact ? 50 : 70))
-                }
-                .buttonStyle(PrimaryButtonStyle(color: .aviationAmber))
-                .frame(minWidth: isLandscape ? 100 : (isCompact ? 120 : 140), maxWidth: isLandscape ? 120 : (isCompact ? 150 : 160))
-            }
-        }
-    }
-    
-    // MARK: - Aircraft Card Carousel
-
-    /// Current aircraft from settings
-    private var currentAircraft: AircraftType {
-        appState.settings.selectedAircraft
-    }
-
-    private func aircraftCard(isLandscape: Bool, isCompact: Bool) -> some View {
-        let aircraft = availableAircraft
-
-        return VStack(spacing: isLandscape ? 4 : (isCompact ? 6 : 12)) {
-            // Swipeable aircraft carousel
-            TabView(selection: $selectedAircraftIndex) {
-                ForEach(Array(aircraft.enumerated()), id: \.element.id) { index, option in
-                    aircraftCardContent(for: option, isLandscape: isLandscape, isCompact: isCompact)
-                        .tag(index)
-                }
-            }
-            .tabViewStyle(.page(indexDisplayMode: .never))
-            .frame(height: isLandscape ? 100 : (isCompact ? 120 : 180))
-            // Discoverability: tappable edge chevrons hint the carousel without shouting. (v4 UI/UX Revamp)
-            .overlay(alignment: .leading) { carouselChevron(.left, count: aircraft.count) }
-            .overlay(alignment: .trailing) { carouselChevron(.right, count: aircraft.count) }
-
-            // Aircraft indicator chip: dots + "N / M aircraft" (only when more than one). (v4 UI/UX Revamp)
-            if aircraft.count > 1 {
-                HStack(spacing: 7) {
-                    HStack(spacing: 5) {
-                        ForEach(0..<aircraft.count, id: \.self) { index in
-                            // Active page reads as an elongated gold pill (App Store / onboarding
-                            // convention — also matches OnboardingView's pageDots). (v4 UI/UX Revamp — feedback)
-                            let isActive = index == selectedAircraftIndex
-                            Capsule()
-                                .fill(isActive ? Color.aviationGold : Color.dimText.opacity(0.5))
-                                .frame(width: isActive ? 18 : 6, height: 6)
-                                .animation(.easeInOut(duration: 0.2), value: selectedAircraftIndex)
-                        }
-                    }
-                    Text("\(selectedAircraftIndex + 1) / \(aircraft.count)")
-                        .scaledFont(size: 10, weight: .semibold, design: .monospaced, relativeTo: .caption2).tracking(0.4)
-                        .foregroundColor(.dimText)
-                }
-                .padding(.horizontal, 10)
-                .padding(.vertical, 4)
-                .background(Capsule().fill(Color.cockpitBackground))
-                .padding(.top, isCompact ? 2 : 4)
-                .accessibilityElement()
-                .accessibilityLabel("Aircraft \(selectedAircraftIndex + 1) of \(aircraft.count)")
-            }
-
-            AviationDivider()
-                .padding(.horizontal, isCompact ? 16 : (isLandscape ? 20 : 40))
-
-            // Quick stats — cockpit stat chips (checklist version / phases / items). (v4 UI/UX Revamp)
-            HStack(spacing: isCompact ? 8 : 10) {
-                homeStatChip("CHECKLIST", selectedAircraft.map { "v\($0.version)" } ?? "—", .aviationGold, compact: isLandscape || isCompact)
-                homeStatChip("PHASES", "\(ChecklistPhase.allCases.count)", .altimeterBlue, compact: isLandscape || isCompact)
-                homeStatChip("ITEMS", cachedItemCountText, .primaryText, compact: isLandscape || isCompact)
-            }
-        }
-        .padding(isCompact ? 12 : (isLandscape ? 14 : 32))
-        .background(
-            RoundedRectangle(cornerRadius: isCompact ? 12 : 18)
-                .fill(Color.cardBackground)
-                .shadow(color: .black.opacity(0.4), radius: isCompact ? 8 : (isLandscape ? 12 : 20), x: 0, y: isCompact ? 4 : (isLandscape ? 6 : 10))
-        )
-    }
+    // MARK: - Aircraft
 
     private enum CarouselDirection { case left, right }
 
-    /// A tappable carousel chevron (prev/next aircraft), dimmed/disabled at the ends. Only shown when
-    /// there's more than one aircraft, so it hints the swipe without adding weight otherwise. (v4 UI/UX Revamp)
-    @ViewBuilder
-    private func carouselChevron(_ direction: CarouselDirection, count: Int) -> some View {
-        if count > 1 {
-            let isLeft = direction == .left
-            let atEnd = isLeft ? selectedAircraftIndex == 0 : selectedAircraftIndex == count - 1
-            Button {
-                withAnimation(.easeInOut(duration: 0.2)) {
-                    selectedAircraftIndex = isLeft ? max(0, selectedAircraftIndex - 1) : min(count - 1, selectedAircraftIndex + 1)
-                }
-            } label: {
-                Image(systemName: isLeft ? "chevron.left" : "chevron.right")
-                    .scaledFont(size: 20, weight: .semibold, relativeTo: .title3)
-                    .foregroundColor(.dimText)
-                    .padding(10)
-                    .contentShape(Rectangle())
-            }
-            .buttonStyle(.plain)
-            .disabled(atEnd)
-            .opacity(atEnd ? 0.25 : 0.8)
-            .accessibilityLabel(isLeft ? "Previous aircraft" : "Next aircraft")
-        }
-    }
-
-    /// Content for a single aircraft card in the carousel
-    private func aircraftCardContent(for option: AircraftOption, isLandscape: Bool, isCompact: Bool) -> some View {
-        VStack(spacing: isLandscape ? 4 : (isCompact ? 6 : 12)) {
-            // Aircraft silhouette
-            Image(systemName: "airplane")
-                .scaledFont(size: isCompact ? 32 : (isLandscape ? 36 : 60), relativeTo: .largeTitle)
-                .foregroundColor(.aviationGold.opacity(0.3))
-
-            // Aircraft info
-            VStack(spacing: isLandscape ? 2 : (isCompact ? 3 : 6)) {
-                Text(option.registration)
-                    .scaledFont(size: isCompact ? 22 : (isLandscape ? 26 : 32), weight: .bold, design: .monospaced, relativeTo: .largeTitle)
-                    .foregroundColor(.aviationGold)
-
-                Text(option.modelName)
-                    .scaledFont(size: isCompact ? 12 : (isLandscape ? 14 : 16), weight: .semibold, relativeTo: .body)
-                    .foregroundColor(.primaryText)
-
-                if !isLandscape {
-                    Text(L10n.Home.version(option.version))
-                        .scaledFont(size: isCompact ? 10 : 12, relativeTo: .caption)
-                        .foregroundColor(.dimText)
-                }
-            }
-        }
-        .frame(maxWidth: .infinity)
-    }
-
-    /// A cockpit stat chip for the home card: tiny tracked label over a mono value, on the darker
-    /// cockpit surface for contrast against the card. (v4 UI/UX Revamp)
-    private func homeStatChip(_ label: String, _ value: String, _ color: Color, compact: Bool) -> some View {
-        VStack(spacing: 3) {
-            Text(label)
-                .scaledFont(size: compact ? 10 : 11, weight: .semibold, relativeTo: .caption2).tracking(0.4)
-                .foregroundColor(.secondaryText)
-                .lineLimit(1)
-            Text(value)
-                .scaledFont(size: compact ? 15 : 18, weight: .bold, design: .monospaced, relativeTo: .title3)
-                .foregroundColor(color)
-                .lineLimit(1)
-                .minimumScaleFactor(0.6)
-        }
-        .frame(maxWidth: .infinity)
-        .padding(.vertical, compact ? 8 : 10)
-        .background(RoundedRectangle(cornerRadius: 10).fill(Color.cockpitBackground))
-        .accessibilityElement(children: .combine)
-        .accessibilityLabel("\(value) \(label)")
-    }
-
-    /// Update the cached item count text — avoids disk I/O on every render
-    private func updateCachedItemCount() {
-        guard let option = selectedAircraft else {
-            cachedItemCountText = "—"
-            return
-        }
-
-        switch option {
-        case .bundled(let aircraft):
-            cachedItemCountText = "\(aircraft.totalChecklistItems)"
-        case .remote(let metadata):
-            if let checklist = aircraftDataService.getChecklist(for: metadata.id) {
-                cachedItemCountText = "\(checklist.toAircraftAdapter().totalChecklistItems)"
-            } else {
-                cachedItemCountText = "—"
-            }
-        }
-    }
-    
     // MARK: - GPS Status Indicator
 
     /// Ambient data-currency dot beside GPS: quiet green when fresh, amber/red when stale; tap opens the
@@ -1651,8 +1088,8 @@ struct HomeView: View {
     private func dataStatusIndicator(isCompact: Bool) -> some View {
         let health = dataStatusManager.overallHealth
         return Button {
-            pendingSettingsSection = .dataStorage
-            showSettings = true
+            appState.pendingSettingsSection = .dataStorage
+            appState.groundTab = .settings
         } label: {
             statusChip(icon: dataStatusIcon(health), label: dataStatusLabel(health),
                        tint: dataStatusColor(health), isCompact: isCompact)
@@ -1905,8 +1342,6 @@ private extension View {
         .environmentObject(subManager)
         .environmentObject(DataStatusManager(providers: [], networkMonitor: NetworkMonitor(stub: .disconnected)))
 }
-
-
 
 // MARK: - Home strip sizing
 

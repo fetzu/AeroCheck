@@ -1017,6 +1017,7 @@ enum L10n {
             String(format: String(localized: "flightLog.exportAll.message"), count)
         }
         static let preparingExport = String(localized: "flightLog.preparingExport")
+        static let importFlights = String(localized: "flightLog.import")
         static let importErrorTitle = String(localized: "flightLog.importError.title")
         static let importErrorOK = String(localized: "flightLog.importError.ok")
         static let importErrorUnknown = String(localized: "flightLog.importError.unknown")
@@ -1399,6 +1400,20 @@ enum L10n {
     }
 
     /// Trips: stops, legs, diversions and continuing after one. (v5.1)
+    /// The ground tabs. (v6.0 · P1)
+    enum Ground {
+        static let today = String(localized: "ground.today")
+        static let plan = String(localized: "ground.plan")
+        static let logbook = String(localized: "ground.logbook")
+        static let aircraft = String(localized: "ground.aircraft")
+        static let settings = String(localized: "ground.settings")
+        static let planFlights = String(localized: "ground.plan.flights")
+        static let planRoutes = String(localized: "ground.plan.routes")
+        static let planMap = String(localized: "ground.plan.map")
+        static let nextFlight = String(localized: "ground.nextFlight")
+        static let recent = String(localized: "ground.recent")
+    }
+
     /// Checklist items left unchecked by NEXT. (v6.0 · B2)
     enum Deferred {
         /// "2 items not checked"

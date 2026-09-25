@@ -1186,21 +1186,37 @@ struct SettingsMenuRow<T: Hashable, Options: View>: View {
         // was losing its title and subtitle and appearing as a lone centred value — the checklist
         // language read as a bare "Auto (System Language)" with nothing saying what it set.
         // (device pass)
-        HStack(spacing: 12) {
-            SettingsRowLabel(icon: icon, title: title, subtitle: subtitle, tint: tint)
-            Spacer(minLength: 8)
-            Picker(selection: $selection) {
-                options
-            } label: {
-                EmptyView()
+        //
+        // Side by side when both fit on one line; otherwise the menu goes UNDER the label. A long
+        // value ("Auto (System Language)", set in B612) used to take the width and squeeze the
+        // description into a tall column of short lines. (on-device review #1, G-09)
+        ViewThatFits(in: .horizontal) {
+            HStack(spacing: 12) {
+                SettingsRowLabel(icon: icon, title: title, subtitle: subtitle, tint: tint)
+                    .fixedSize(horizontal: true, vertical: false)
+                Spacer(minLength: 8)
+                picker
             }
-            .pickerStyle(.menu)
-            .labelsHidden()
-            .tint(.secondaryText)
-            .fixedSize()
+            VStack(alignment: .leading, spacing: 4) {
+                SettingsRowLabel(icon: icon, title: title, subtitle: subtitle, tint: tint)
+                picker
+                    .padding(.leading, icon == nil ? 0 : 47)   // under the title, past the icon
+            }
         }
         .padding(.horizontal, 14)
         .padding(.vertical, 5)
+    }
+
+    private var picker: some View {
+        Picker(selection: $selection) {
+            options
+        } label: {
+            EmptyView()
+        }
+        .pickerStyle(.menu)
+        .labelsHidden()
+        .tint(.secondaryText)
+        .fixedSize()
     }
 }
 

@@ -326,9 +326,16 @@ the system appearance.
 >   SwiftUI environment, so `@Environment` is unreachable there. Theming those means threading the
 >   palette into the `Coordinator` from `updateUIView`. ~50 sites; a separate, riskier job.
 >
-> **Why the migration was safe:** `CockpitTheme.day` maps 1:1 onto the legacy tokens, so a
-> substitution is byte-identical in day mode and gains sunlight/night for free. Keep that property —
-> if you add a token to `CockpitTheme`, give `.day` the legacy value.
+> **Why the migration was safe:** `CockpitTheme.day` mapped 1:1 onto the legacy tokens, so the
+> substitution was byte-identical in day mode and gained sunlight/night for free.
+>
+> **6.0 broke that on purpose for two tokens: the in-flight colour contract.** Following FAA AC 25-11B,
+> the in-flight surfaces use red for warnings only, amber for cautions only, green for normal/done,
+> **magenta (`route`) for the active route**, **cyan (`action`) for anything the pilot can touch**
+> and white for data. Aviation gold stays the brand colour on the ground screens (legacy statics);
+> in flight it read as a caution. Every other `.day` token still equals its legacy value — keep it
+> that way for new tokens. Night keeps its red family (`route` is a dim rose). The map delegates
+> can't read the theme: they use fixed colours (`UIColor.flownTrack`, a white ownship, magenta route).
 >
 > **Do NOT "fix" this by making the legacy statics theme-aware.** They already resolve through
 > `AmbientPalette` (`DesignTokens.swift:17-33`) for the hidden accent, and that path needs

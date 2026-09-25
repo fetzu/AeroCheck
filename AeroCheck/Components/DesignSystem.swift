@@ -1309,6 +1309,9 @@ struct CockpitInstrumentStrip: View {
     private var failureLevel: InstrumentFailureFlag.FailureLevel { gpsSignalStatus == .lost ? .lost : .degraded }
 
     private var speedColor: Color {
+        // No target speed in this phase (taxi, run-up): the speed is plain data. Compared with a
+        // target of 0 it read as off target, in the caution colour. (on-device review #1, C-14)
+        guard targetSpeed != nil else { return theme.textPrimary }
         switch speedState {
         case .onTarget: return theme.onTarget
         case .offTarget: return theme.warning
@@ -1360,9 +1363,11 @@ struct CockpitInstrumentStrip: View {
         }
         .accessibilityElement(children: .ignore)
         .accessibilityLabel("Ground speed")
-        .accessibilityValue(SpeedIndicatorView.accessibilityValue(
-            displaySpeed: Int(displaySpeed), targetSpeed: targetSpeed ?? 0, state: speedState,
-            gpsLost: gpsSignalStatus == .lost))
+        .accessibilityValue(targetSpeed == nil && gpsSignalStatus != .lost
+            ? "\(Int(max(0, displaySpeed))) knots ground speed"
+            : SpeedIndicatorView.accessibilityValue(
+                displaySpeed: Int(displaySpeed), targetSpeed: targetSpeed ?? 0, state: speedState,
+                gpsLost: gpsSignalStatus == .lost))
         .accessibilityAddTraits(.updatesFrequently)
     }
 

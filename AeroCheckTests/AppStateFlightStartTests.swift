@@ -1,4 +1,7 @@
 import XCTest
+#if canImport(ActivityKit)
+import ActivityKit
+#endif
 @testable import AeroCheck
 
 /// Tests the flight-start safety guard: a flight must never begin for a premium aircraft
@@ -95,5 +98,31 @@ final class AppStateFlightStartTests: XCTestCase {
         appState.evaluateCruiseCheck()
         XCTAssertFalse(appState.cruiseCheckDue, "Leaving cruise clears the reminder")
         XCTAssertNil(appState.cruiseCheckStartTime, "Leaving cruise idles the countdown")
+    }
+
+    /// An AppState built by a test is not the app's, so it must leave the device's Live Activities
+    /// alone. On the shared controller, every test flight started a real activity on the simulator,
+    /// and because the controller adopts whatever activity is already running, a test flight could
+    /// also overwrite the real flight's with its own content, or end it.
+    func testATestFlightLeavesTheDevicesLiveActivitiesAlone() throws {
+        #if canImport(ActivityKit)
+        try XCTSkipUnless(ActivityAuthorizationInfo().areActivitiesEnabled, "Live Activities are off on this device")
+        let before = Set(Activity<FlightActivityAttributes>.activities.map(\.id))
+
+        let appState = makeTestAppState()
+        appState.startFlight(
+            withAircraft: "F-HVXA", aircraftRegistration: "F-HVXA",
+            aircraftType: "WT9", checklistVersion: nil, flightPlanId: nil, circuitMode: false
+        )
+        XCTAssertTrue(appState.isFlightActive, "precondition: the flight started")
+        appState.checkpointActiveFlight(force: true)
+        appState.cancelFlight()
+
+        // New ids only: the app's own AppState may legitimately end activities meanwhile.
+        let appeared = Set(Activity<FlightActivityAttributes>.activities.map(\.id)).subtracting(before)
+        XCTAssertTrue(appeared.isEmpty, "a test flight started \(appeared.count) Live Activit(ies) on the device")
+        #else
+        throw XCTSkip("ActivityKit is not available")
+        #endif
     }
 }

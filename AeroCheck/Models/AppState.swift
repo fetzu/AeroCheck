@@ -768,10 +768,14 @@ class AppState {
     private let persistence: DataPersistenceManager
     /// Device-local flags (onboarding, safety notice) and the checkpoint pointer.
     private let defaults: UserDefaults
-    /// CloudKit sync, or nil for an AppState on a datastore confined to a directory (a test's). That
-    /// one must neither push its settings and flights to the pilot's iCloud (sync is on by default)
-    /// nor take `SyncManager.shared`'s callbacks away from the app's own AppState.
+    /// CloudKit sync and the Live Activity: process-wide surfaces that belong to the app's own
+    /// AppState. Both are nil for an AppState on a datastore confined to a directory (a test's). That
+    /// one must not push its settings and flights to the pilot's iCloud (sync is on by default), take
+    /// `SyncManager.shared`'s callbacks away from the app's AppState, or touch the Live Activity: the
+    /// controller adopts whatever activity is running, so a test flight started extra ones on the
+    /// device, overwrote the real flight's with its own content, or ended it.
     private let syncManager: SyncManager?
+    private let liveActivity: FlightActivityController?
 
     // MARK: - Initialization
 
@@ -784,6 +788,7 @@ class AppState {
         self.persistence = persistence
         self.defaults = defaults
         self.syncManager = persistence.followsICloud ? SyncManager.shared : nil
+        self.liveActivity = persistence.followsICloud ? FlightActivityController.shared : nil
 
         // Load settings synchronously (fast, needed for initial UI)
         loadSettings()
@@ -1075,7 +1080,7 @@ class AppState {
         movingWhileParkedRun = 0
         currentHighlightedItem = [:] // Reset highlighting
         // Surface the new flight on the Lock Screen / Dynamic Island right away. (UX-25)
-        FlightActivityController.shared.sync(from: self)
+        liveActivity?.sync(from: self)
     }
 
     func endFlight(withFlightPlan flightPlan: FlightPlan? = nil) {
@@ -1899,7 +1904,7 @@ class AppState {
         // Piggyback the Live Activity refresh on the checkpoint cadence: sync() diffs the content
         // state and no-ops when nothing changed, so this is cheap per GPS tick and catches every
         // phase/timing/landing change promptly. (UX-25)
-        FlightActivityController.shared.sync(from: self)
+        liveActivity?.sync(from: self)
         if !force {
             let enoughPoints = pointsSinceCheckpoint >= Self.checkpointPointInterval
             let enoughTime = lastCheckpointAt.map {
@@ -2067,7 +2072,7 @@ class AppState {
         lastCheckpointAt = nil
         deltaPointsWritten = 0
         // Every flight-end path funnels through here — retire the Live Activity with it. (UX-25)
-        if !isFlightActive { FlightActivityController.shared.end() }
+        if !isFlightActive { liveActivity?.end() }
     }
 
     /// Check if there is a saved active flight state.

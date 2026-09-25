@@ -484,18 +484,27 @@ struct ChecklistView: View {
                 }
             }
             
-            // Completion text
+            // Completion text — the checklist's closing call ("PREFLIGHT CHECK COMPLETED"). Dim until
+            // it is true: drawn green from the start, it claimed a phase done before any item was.
+            // (v6.0 · B3)
             if !phase.completionText.isEmpty {
+                let isDone = stepByStepEnabled && highlightedItemIndex >= visibleItems.count
                 AviationDivider()
                     .padding(.vertical, 12)
                 
-                HStack {
+                HStack(spacing: 8) {
                     Spacer()
+                    if isDone {
+                        Image(systemName: "checkmark.circle.fill")
+                            .font(.system(size: 18, weight: .bold))
+                    }
                     Text(phase.completionText)
                         .font(.system(size: 18, weight: .bold, design: .monospaced))
-                        .foregroundColor(theme.onTarget)
                     Spacer()
                 }
+                .foregroundColor(isDone ? theme.onTarget : theme.textDim)
+                .accessibilityElement(children: .combine)
+                .accessibilityValue(isDone ? L10n.Accessibility.phaseCompleted : "")
             }
             
             // Engine hours display (between completion text and action button)

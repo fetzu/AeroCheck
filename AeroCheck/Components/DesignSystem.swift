@@ -667,8 +667,12 @@ struct CockpitTheme: Equatable {
     /// folded into `panel` so the background → panel → card layering survives a mode switch.
     let card: Color
     let panelStroke: Color
+    /// Anything the pilot can touch. Cyan in flight, as on a flight deck, so yellow stays the caution
+    /// colour it is there. (v6.0 · P5)
     let action: Color
     let actionText: Color
+    /// The active route: the next waypoint, its distance, the NEXT cell. Magenta, as in AC 25-11B.
+    let route: Color
     let onTarget: Color
     let warning: Color
     let danger: Color
@@ -689,11 +693,17 @@ struct CockpitTheme: Equatable {
 }
 
 extension CockpitTheme {
+    // The in-flight colour contract (v6.0 · P5), from FAA AC 25-11B tables 5-1 and 5-2: red for
+    // warnings only, amber for cautions only, green for normal / done, magenta for the active route,
+    // cyan for what can be touched, white for data. Aviation gold stays the brand colour on the
+    // ground screens; in flight it read as a caution. `.day` therefore no longer maps 1:1 onto the
+    // legacy tokens for `action` (was `.aviationGold`) and `route` (new).
     static let day = CockpitTheme(
         mode: .day,
         background: .cockpitBackground, panel: .panelBackground, card: .cardBackground,
         panelStroke: Color(white: 0.18),
-        action: .aviationGold, actionText: Color(red: 0.16, green: 0.12, blue: 0.03),
+        action: Color(red: 0.24, green: 0.78, blue: 0.93), actionText: Color(red: 0.02, green: 0.07, blue: 0.09),
+        route: Color(red: 0.89, green: 0.30, blue: 0.69),
         // `warning` was the one token that did NOT map to its legacy counterpart: it was a custom
         // orange (0.91, 0.56, 0.18) while every caution surface in the app paints `.aviationAmber`
         // (1.0, 0.75, 0.0). That broke `.day`'s contract of reproducing the legacy palette exactly,
@@ -708,7 +718,8 @@ extension CockpitTheme {
         mode: .sunlight,
         background: .black, panel: Color(white: 0.10), card: Color(white: 0.16),
         panelStroke: Color(white: 0.30),
-        action: Color(red: 1.0, green: 0.78, blue: 0.18), actionText: .black,
+        action: Color(red: 0.31, green: 0.85, blue: 1.0), actionText: .black,
+        route: Color(red: 1.0, green: 0.36, blue: 0.78),
         onTarget: Color(red: 0.30, green: 0.92, blue: 0.45),
         warning: Color(red: 1.0, green: 0.66, blue: 0.10),
         danger: Color(red: 1.0, green: 0.30, blue: 0.30),
@@ -725,6 +736,8 @@ extension CockpitTheme {
         panelStroke: Color(red: 0.20, green: 0.09, blue: 0.09),
         action: Color(red: 0.78, green: 0.28, blue: 0.16),
         actionText: Color(red: 0.95, green: 0.80, blue: 0.76),
+        // Night stays in the red family for dark adaptation; the route is a dim rose, not magenta.
+        route: Color(red: 0.70, green: 0.26, blue: 0.40),
         onTarget: .nightOnTarget, warning: Color(red: 0.55, green: 0.26, blue: 0.0),
         danger: .nightStall, info: Color(red: 0.62, green: 0.30, blue: 0.26),
         textPrimary: Color(red: 0.90, green: 0.62, blue: 0.56),
@@ -733,6 +746,13 @@ extension CockpitTheme {
         glassFill: Color(red: 0.78, green: 0.30, blue: 0.26).opacity(0.08),
         glassStroke: Color(red: 0.78, green: 0.30, blue: 0.26).opacity(0.20)
     )
+}
+
+extension UIColor {
+    /// The track already flown, on the in-flight maps. Teal: readable on the light ICAO chart and on
+    /// satellite imagery, and none of the colours the flight-deck contract reserves. The map delegates
+    /// run outside SwiftUI's environment, so they can't read `CockpitTheme`. (v6.0 · P5)
+    static let flownTrack = UIColor(red: 0.0, green: 0.56, blue: 0.70, alpha: 1.0)
 }
 
 private struct CockpitThemeKey: EnvironmentKey {
@@ -846,6 +866,8 @@ struct AltimeterView: View {
 struct PulseModifier: ViewModifier {
     let isActive: Bool
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    /// In-flight only: the halo takes the theme's action colour (cyan since 6.0, not gold). (v6.0 · P5)
+    @Environment(\.cockpitTheme) private var theme
     @State private var pulseCount = 0
     @State private var isPulsing = false
 
@@ -855,7 +877,7 @@ struct PulseModifier: ViewModifier {
                 // Inset by negative half of stroke width so inner edge of stroke is flush with button
                 RoundedRectangle(cornerRadius: 12)
                     .inset(by: -3)
-                    .stroke(Color.aviationGold, lineWidth: isPulsing ? 6 : 0)
+                    .stroke(theme.action, lineWidth: isPulsing ? 6 : 0)
                     .opacity(isPulsing ? 0.9 : 0)
                     .animation(.easeInOut(duration: 0.4), value: isPulsing)
             )

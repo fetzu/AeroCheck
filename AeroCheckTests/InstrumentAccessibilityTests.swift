@@ -60,11 +60,25 @@ final class InstrumentAccessibilityTests: XCTestCase {
         XCTAssertNotEqual(CockpitTheme.day, CockpitTheme.night)
         XCTAssertNotEqual(CockpitTheme.day, CockpitTheme.sunlight)
         XCTAssertNotEqual(CockpitTheme.night, CockpitTheme.sunlight)
-        // Day keeps the existing tokens (current look unchanged); night reuses the red-shift
-        // night-mode state colors (dim-amber/dark-red, no bright emitters).
-        XCTAssertEqual(CockpitTheme.day.action, .aviationGold)
+        // Night reuses the red-shift night-mode state colors (dim-amber/dark-red, no bright emitters).
         XCTAssertEqual(CockpitTheme.night.onTarget, .nightOnTarget)
         XCTAssertEqual(CockpitTheme.night.danger, .nightStall)
+    }
+
+    /// The in-flight colour contract (v6.0 · P5, FAA AC 25-11B): no gold in flight, where it reads as a
+    /// caution; cyan for what can be touched, magenta for the route, amber and red for alerts only.
+    func testTheInFlightPalettesKeepGoldForTheGround() {
+        for theme in [CockpitTheme.day, .sunlight] {
+            XCTAssertNotEqual(theme.action, .aviationGold)
+            XCTAssertNotEqual(theme.route, .aviationGold)
+            XCTAssertNotEqual(theme.action, theme.warning, "touchable must not look like a caution")
+            XCTAssertNotEqual(theme.route, theme.danger)
+        }
+        // Every other day token still equals its legacy value.
+        XCTAssertEqual(CockpitTheme.day.onTarget, .aviationGreen)
+        XCTAssertEqual(CockpitTheme.day.warning, .aviationAmber)
+        XCTAssertEqual(CockpitTheme.day.danger, .aviationRed)
+        XCTAssertEqual(CockpitTheme.day.textPrimary, .primaryText)
     }
 
     func testThemePreferenceResolvesEffectiveModeAndTheme() {

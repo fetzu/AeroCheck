@@ -2278,6 +2278,9 @@ struct FlightMiniMap: UIViewRepresentable {
         mapView.delegate = context.coordinator
         mapView.overrideUserInterfaceStyle = .dark
         mapView.showsUserLocation = true
+        // The location puck takes the view's tint, which was the app's gold accent. Black inside the
+        // system's white ring: neutral, and readable on the light chart and at night. (v6.0 · P5)
+        mapView.tintColor = .black
         mapView.showsCompass = false
         mapView.showsScale = false
         mapView.isPitchEnabled = false
@@ -2364,9 +2367,9 @@ struct FlightMiniMap: UIViewRepresentable {
             }
             if let polyline = overlay as? MKPolyline {
                 let renderer = MKPolylineRenderer(polyline: polyline)
-                // Outside the SwiftUI environment (MKMapViewDelegate), so the legacy token stands in
-                // for the theme accent here. See the theming note in CLAUDE.md.
-                renderer.strokeColor = UIColor(Color.aviationGold)
+                // Outside the SwiftUI environment (MKMapViewDelegate), so a fixed colour stands in for
+                // the theme here: the flown track's teal. See the theming note in CLAUDE.md.
+                renderer.strokeColor = .flownTrack
                 renderer.lineWidth = 3
                 renderer.lineCap = .round
                 renderer.lineJoin = .round
@@ -2749,7 +2752,7 @@ enum HUDReference: Identifiable, Equatable {
         switch self {
         case .vSpeeds: return .aviationGreen
         case .gps: return .primaryText
-        case .departureBriefing, .approachBriefing: return .aviationGold
+        case .departureBriefing, .approachBriefing: return .primaryText   // no gold in flight (v6.0 · P5)
         case .freq: return .altimeterBlue
         }
     }
@@ -3253,7 +3256,7 @@ struct FrequencyReferenceContent: View {
                     VStack(alignment: .leading, spacing: 8) {
                         Text(entry.ident)
                             .font(.system(size: 15, weight: .bold))
-                            .foregroundColor(.aviationGold)
+                            .foregroundColor(.primaryText)
                         ForEach(Array(entry.freqs.enumerated()), id: \.offset) { _, f in
                             HStack {
                                 Text(f.type)

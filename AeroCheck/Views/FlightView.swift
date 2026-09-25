@@ -795,16 +795,26 @@ struct FlightView: View {
     /// go-arounds done. Deliberately non-prominent — dim and small. (round 6 feedback)
     @ViewBuilder
     private var circuitCounterChip: some View {
-        if appState.isCircuitMode, let flight = appState.currentFlight {
+        if appState.isCircuitMode, appState.currentFlight != nil {
             HStack(spacing: 6) {
-                Text("[").foregroundColor(theme.textDim)
+                Text("[").foregroundColor(theme.textDim).accessibilityHidden(true)
+                circuitCounts
+                Text("]").foregroundColor(theme.textDim).accessibilityHidden(true)
+            }
+            .font(.aero(size: 12, weight: .semibold))
+        }
+    }
+
+    /// Touch-and-goes and, if any, go-arounds, in the font the caller sets.
+    @ViewBuilder
+    private var circuitCounts: some View {
+        if let flight = appState.currentFlight {
+            HStack(spacing: 6) {
                 Label("\(flight.touchAndGoCount)", systemImage: "arrow.triangle.2.circlepath")
                 if flight.goAroundCount > 0 {
                     Label("\(flight.goAroundCount)", systemImage: "arrow.up.right.circle")
                 }
-                Text("]").foregroundColor(theme.textDim)
             }
-            .font(.aero(size: 12, weight: .semibold))
             .foregroundColor(theme.textSecondary)
             .accessibilityElement(children: .combine)
             .accessibilityLabel("\(flight.touchAndGoCount) touch and go, \(flight.goAroundCount) go around")
@@ -1193,8 +1203,10 @@ struct FlightView: View {
     private static let abandonHoldDuration: TimeInterval = 1.5
 
     /// Creates an airplane identifier section with long press to abandon gesture
-    /// Both the airplane icon and the call sign are tappable
-    private func abandonableAircraftIdentifier(iconSize: CGFloat, isCompact: Bool) -> some View {
+    /// Both the airplane icon and the call sign are tappable. `stacked` (the Cockpit) puts the circuit
+    /// caption and counts under the registration instead of beside it: in portrait the header row had no
+    /// room for them, and cut "(for circuits)" short. (on-device review #2)
+    private func abandonableAircraftIdentifier(iconSize: CGFloat, isCompact: Bool, stacked: Bool = false) -> some View {
         HStack(spacing: isCompact ? 4 : 8) {
             // Progress ring behind the icon. The ring footprint is RESERVED at all times (fixed frame)
             // so it appearing on press-and-hold doesn't enlarge the icon and shift the top bar. (v4 UI/UX Revamp fix)
@@ -1214,19 +1226,39 @@ struct FlightView: View {
             }
             .frame(width: iconSize + (isCompact ? 8 : 12), height: iconSize + (isCompact ? 8 : 12))
 
-            HStack(spacing: 4) {
-                Text(appState.activeChecklist.registration)
-                    .font(isCompact ? .aero(size: 14, weight: .semibold) : .headerText)
-                    .foregroundColor(isHoldingAbandon ? theme.danger : theme.textPrimary)
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.7)   // never wrap the registration; shrink slightly if tight
-
-                // Circuit mode indicator
-                if appState.isCircuitMode {
-                    Text(L10n.Flight.forCircuits)
-                        .font(isCompact ? .aero(size: 11, weight: .medium) : .aero(size: 13, weight: .medium))
-                        .foregroundColor(theme.warning)
+            if stacked {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(appState.activeChecklist.registration)
+                        .font(.headerText)
+                        .foregroundColor(isHoldingAbandon ? theme.danger : theme.textPrimary)
                         .lineLimit(1)
+                        .fixedSize()
+                    if appState.isCircuitMode {
+                        HStack(spacing: 8) {
+                            Text(L10n.Flight.forCircuits)
+                                .foregroundColor(theme.warning)
+                            circuitCounts
+                        }
+                        .font(.aero(size: 16, weight: .medium))
+                        .lineLimit(1)
+                        .fixedSize()
+                    }
+                }
+            } else {
+                HStack(spacing: 4) {
+                    Text(appState.activeChecklist.registration)
+                        .font(isCompact ? .aero(size: 14, weight: .semibold) : .headerText)
+                        .foregroundColor(isHoldingAbandon ? theme.danger : theme.textPrimary)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.7)   // never wrap the registration; shrink slightly if tight
+
+                    // Circuit mode indicator
+                    if appState.isCircuitMode {
+                        Text(L10n.Flight.forCircuits)
+                            .font(isCompact ? .aero(size: 11, weight: .medium) : .aero(size: 13, weight: .medium))
+                            .foregroundColor(theme.warning)
+                            .lineLimit(1)
+                    }
                 }
             }
         }
@@ -1408,28 +1440,36 @@ extension FlightView {
 
     /// Aircraft, phase and its place in the flight, flight time, GPS, Menu. Everything a glance at the
     /// top needs, and nothing in the stage colours the old badge used: colour means something in flight.
+    ///
+    /// Portrait is tight (about 780 pt for all of it), so: the aircraft stacks its circuit line under the
+    /// registration, the time, GPS and Menu keep their size, and the phase takes what's left, wrapping
+    /// between words ("CHECK BEFORE / ENGINE START"), never inside one. (on-device review #2)
     private var cockpitHeader: some View {
         HStack(spacing: 14) {
-            abandonableAircraftIdentifier(iconSize: 20, isCompact: false)
+            abandonableAircraftIdentifier(iconSize: 20, isCompact: false, stacked: true)
 
             Button(action: { showPhaseSelector = true }) {
                 HStack(spacing: 8) {
                     Text(appState.currentPhase.shortTitle)
                         .font(.aero(size: CockpitType.label, weight: .bold))
                         .foregroundColor(theme.textPrimary)
+                        .lineLimit(2)
+                        .minimumScaleFactor(0.85)
+                        .fixedSize(horizontal: false, vertical: true)
                     Text("\(appState.currentPhase.rawValue + 1)/\(ChecklistPhase.allCases.count)")
                         .font(.aero(size: CockpitType.label, design: .monospaced))
                         .foregroundColor(theme.textSecondary)
+                        .fixedSize()
                 }
                 .padding(.horizontal, 14)
+                .padding(.vertical, 4)
                 .frame(minHeight: 48)
                 .background(Capsule().fill(theme.textPrimary.opacity(0.10)))
                 .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
+            .layoutPriority(1)   // one line whenever the row has room; the spacer gets what's left
             .accessibilityHint(L10n.Sheet.selectPhase)
-
-            circuitCounterChip
 
             Spacer(minLength: 8)
 
@@ -1446,6 +1486,7 @@ extension FlightView {
                 font: .aero(size: CockpitType.row, weight: .bold, design: .monospaced),
                 color: theme.textPrimary
             )
+            .fixedSize()
 
             Button(action: { openReference(.gps) }) {
                 HStack(spacing: 6) {
@@ -1457,6 +1498,7 @@ extension FlightView {
                 .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
+            .fixedSize()
             .accessibilityLabel(isBorrowingCompanionGPS ? L10n.GPS.sourceCompanion : L10n.GPS.status)
 
             // Named: the grey gear gave no hint that the display mode was inside. (review B7)
@@ -1473,6 +1515,7 @@ extension FlightView {
                 .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
+            .fixedSize()
         }
     }
 

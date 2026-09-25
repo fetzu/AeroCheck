@@ -705,6 +705,36 @@ extension TripTests {
         XCTAssertEqual(DataPersistenceManager.decodeFlightThreads(in: directory).first?.routeLabel, "LSZQ → LSPG")
     }
 
+    // MARK: - Saving before the launch load lands
+
+    /// The trip load is async and iCloud-backed. A trip formed before it landed was written as an
+    /// array holding only itself, which deleted every trip already on disk: for good when the write
+    /// beat the load's read, until the next save otherwise. The same mechanism wiped a real two-leg
+    /// trip from the simulator app on 2026-09-25, through a test manager on the real datastore.
+    @MainActor
+    func testATripFormedDuringTheLaunchLoadKeepsTheTripsOnDisk() async throws {
+        let datastore = makeTestDatastore()
+        let onDisk = Trip(legIds: [UUID(), UUID()])
+        await datastore.saveTripsOffMain([onDisk])
+
+        let m = makeTestThreadManager(datastore: datastore)
+        XCTAssertFalse(m.hasLoadedTrips, "this has to happen inside the load window")
+        let a = m.createThread(from: plan("LSZQ", "LFSB"))
+        let b = m.createThread(from: plan("LFSB", "LSGY"))
+        defer { m.deleteThread(threadId: a.id); m.deleteThread(threadId: b.id) }
+        let formed = try XCTUnwrap(m.formTrip(from: [a.id, b.id]))
+
+        let deadline = Date().addingTimeInterval(5)
+        var saved: [Trip] = []
+        while Date() < deadline {
+            saved = await datastore.loadTripsOffMain()
+            if m.hasLoadedTrips, saved.count == 2 { break }
+            try await Task.sleep(nanoseconds: 50_000_000)
+        }
+        XCTAssertEqual(Set(saved.map(\.id)), [onDisk.id, formed.id], "the file must keep the trip it already held")
+        XCTAssertEqual(Set(m.trips.map(\.id)), [onDisk.id, formed.id])
+    }
+
     // MARK: - Test isolation
 
     /// A test manager on `.shared` replaced the simulator app's own `trips.json` with the test's one

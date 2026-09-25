@@ -747,9 +747,7 @@ enum L10n {
 
         // Display
         static let display = String(localized: "settings.display")
-        static let keepScreenOn = String(localized: "settings.display.keepScreenOn")
         static let alwaysUseUTC = String(localized: "settings.display.alwaysUseUTC")
-        static let keepScreenOnFooter = String(localized: "settings.display.keepScreenOnDesc")
         static let alwaysUseUTCFooter = String(localized: "settings.display.alwaysUseUTCDesc")
         // Cockpit theme (v4 UI/UX Revamp — replaces the night-mode picker; sunlight now selectable)
         static let theme = String(localized: "settings.display.theme")

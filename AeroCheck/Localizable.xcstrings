@@ -19380,40 +19380,6 @@
         }
       }
     },
-    "settings.display.keepScreenOn": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Keep Screen On"
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Garder l'écran allumé"
-          }
-        }
-      }
-    },
-    "settings.display.keepScreenOnDesc": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Keep Screen On: Prevents the screen from dimming during flight."
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Garder l'écran allumé : Empêche l'écran de s'assombrir pendant le vol."
-          }
-        }
-      }
-    },
     "settings.display.theme": {
       "extractionState": "manual",
       "localizations": {

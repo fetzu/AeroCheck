@@ -9,7 +9,6 @@ struct ChecklistFlightSettingsView: View {
     @State private var checklistLanguage: ChecklistLanguage = .auto
     @State private var sunlightBoost: Bool = false
     @State private var logEngineHours: Bool = false
-    @State private var keepScreenOn: Bool = true
     @State private var alwaysUseUTC: Bool = false
     @State private var themePreference: ThemePreference = .day
     @State private var isLoadingSettings: Bool = false
@@ -40,8 +39,6 @@ struct ChecklistFlightSettingsView: View {
             }
 
             SettingsGroup(title: L10n.Settings.display, tint: tint) {
-                SettingsToggleRow(icon: "sun.max", title: L10n.Settings.keepScreenOn,
-                                  subtitle: L10n.Settings.keepScreenOnFooter, tint: tint, isOn: $keepScreenOn)
                 SettingsToggleRow(icon: "globe", title: L10n.Settings.alwaysUseUTC,
                                   subtitle: L10n.Settings.alwaysUseUTCFooter, tint: tint, isOn: $alwaysUseUTC)
                 themeRow
@@ -55,7 +52,6 @@ struct ChecklistFlightSettingsView: View {
         .onChange(of: learningMode) { _, _ in if !isLoadingSettings { saveSettings() } }
         .onChange(of: checklistLanguage) { _, _ in if !isLoadingSettings { saveSettings() } }
         .onChange(of: logEngineHours) { _, _ in if !isLoadingSettings { saveSettings() } }
-        .onChange(of: keepScreenOn) { _, _ in if !isLoadingSettings { saveSettings() } }
         .onChange(of: alwaysUseUTC) { _, _ in if !isLoadingSettings { saveSettings() } }
         .onChange(of: themePreference) { _, _ in if !isLoadingSettings { saveSettings() } }
         .onChange(of: sunlightBoost) { _, _ in if !isLoadingSettings { saveSettings() } }
@@ -104,7 +100,6 @@ struct ChecklistFlightSettingsView: View {
         checklistLanguage = appState.settings.checklistLanguage
         sunlightBoost = appState.settings.sunlightBoost
         logEngineHours = appState.settings.logEngineHours
-        keepScreenOn = appState.settings.keepScreenOn
         alwaysUseUTC = appState.settings.alwaysUseUTC
         themePreference = appState.settings.themePreference
         DispatchQueue.main.async {
@@ -118,10 +113,8 @@ struct ChecklistFlightSettingsView: View {
         appState.settings.checklistLanguage = checklistLanguage
         appState.settings.sunlightBoost = sunlightBoost
         appState.settings.logEngineHours = logEngineHours
-        appState.settings.keepScreenOn = keepScreenOn
         appState.settings.alwaysUseUTC = alwaysUseUTC
         appState.settings.themePreference = themePreference
         appState.saveSettings()
-        UIApplication.shared.isIdleTimerDisabled = keepScreenOn
     }
 }

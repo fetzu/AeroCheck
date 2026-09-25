@@ -54,6 +54,8 @@ enum ThemePreference: String, Codable, CaseIterable, Identifiable, Sendable {
 struct AppSettings: Codable, Equatable {
     var selectedAircraft: AircraftType = .wt9Dynamic
     var selectedRemoteAircraftId: String? = nil // ID of selected remote aircraft (e.g., "pa28-181")
+    /// Retired in 6.0: the screen stays on during a flight and only then (review P7). Still decoded
+    /// and synced for older builds.
     var keepScreenOn: Bool = true
     /// Cockpit theme choice: auto (follow device) / day / sunlight / night. Night dims instruments to
     /// a red/amber palette to protect dark adaptation (UX-09); sunlight is high-contrast for bright

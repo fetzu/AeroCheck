@@ -190,8 +190,9 @@ struct ContentView: View {
                 locationManager.requestAuthorization()
             }
 
-            // Apply screen setting
-            UIApplication.shared.isIdleTimerDisabled = appState.settings.keepScreenOn
+            // The screen stays on for as long as a flight runs, and only then: a kneeboard iPad must
+            // not lock mid-approach, and one on the desk should. It was a setting. (v6.0 · P7)
+            UIApplication.shared.isIdleTimerDisabled = appState.isFlightActive
 
             // Retire an activation that was never flown. Runs once, at launch, and only when no
             // flight is in progress — a restored flight keeps its plan whatever its age.
@@ -209,6 +210,9 @@ struct ContentView: View {
         // Once — and only once BOTH sides have loaded. Deliberately not hung off a plan change:
         // `FlightCreator` adds the plan before it creates the flight, so a sweep triggered by the
         // insertion would strip the date it had just set, a beat before anything followed it. (v5.x)
+        .onChange(of: appState.isFlightActive) { _, active in
+            UIApplication.shared.isIdleTimerDisabled = active
+        }
         .onChange(of: routeDateSweepReady) { _, ready in
             if ready { sweepRouteDates() }
         }

@@ -340,7 +340,10 @@ struct PlanNewFlightView: View {
 
     /// Two aerodromes make one leg, three make two. A trip needs at least two legs.
     private var legCount: Int {
-        max(0, stops.filter { !$0.trimmingCharacters(in: .whitespaces).isEmpty }.count - 1)
+        // A saved route is ONE flight, whatever it passes through: its waypoints are not stops.
+        // Counting them as legs is how a 17-waypoint route read "Create 17 flights". (v5.2)
+        guard selectedRoute == nil else { return 1 }
+        return max(0, stops.filter { !$0.trimmingCharacters(in: .whitespaces).isEmpty }.count - 1)
     }
 
     private func binding(for index: Int) -> Binding<String> {
@@ -373,7 +376,9 @@ struct PlanNewFlightView: View {
         Button {
             onCreate(normalisedStops(), normalised(), selectedRoute)
         } label: {
-            Text(legCount > 1 ? L10n.Flights.createFlights(legCount) : L10n.Flights.createFlight)
+            // Several stops make a trip (one flight per leg); say "trip", not "N flights", which read
+            // as N separate outings. (v5.2)
+            Text(legCount > 1 ? L10n.Trip.createTrip(legCount) : L10n.Flights.createFlight)
                 .frame(maxWidth: .infinity)
         }
         .buttonStyle(PrimaryButtonStyle())

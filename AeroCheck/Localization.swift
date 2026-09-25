@@ -189,9 +189,6 @@ enum L10n {
         static func legCount(_ count: Int) -> String {
             String(localized: "\(count) legs")
         }
-        static func createFlights(_ count: Int) -> String {
-            String(localized: "Create \(count) flights")
-        }
         static func legsExplainer(_ stops: Int, _ legs: Int) -> String {
             String(localized: "\(stops) aerodromes · \(legs) legs, sharing one preparation")
         }
@@ -1422,6 +1419,10 @@ enum L10n {
         }
         static let stops = String(localized: "trip.stops")
         static let routeStopsHint = String(localized: "trip.routeStopsHint")
+        /// "Create trip · 3 legs"
+        static func createTrip(_ legs: Int) -> String {
+            String(format: String(localized: "trip.createTrip"), legs)
+        }
 
         // Divert
         static let divert = String(localized: "trip.divert")

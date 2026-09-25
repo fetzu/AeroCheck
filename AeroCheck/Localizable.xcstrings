@@ -1,6 +1,23 @@
 {
   "sourceLanguage": "en",
   "strings": {
+    "trip.createTrip": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Create trip · %lld legs"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Créer le voyage · %lld étapes"
+          }
+        }
+      }
+    },
     "trip.routeStopsHint": {
       "extractionState": "manual",
       "localizations": {
@@ -3441,16 +3458,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Ajouter une escale"
-          }
-        }
-      }
-    },
-    "Create %lld flights" : {
-      "localizations" : {
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Créer %lld vols"
           }
         }
       }

@@ -6,9 +6,7 @@ struct AircraftSettingsView: View {
     @EnvironmentObject var subscriptionManager: SubscriptionManager
     @EnvironmentObject var aircraftDataService: AircraftDataService
 
-    @State private var selectedAircraft: AircraftType = .wt9Dynamic
     @State private var isSyncingAircraftData = false
-    @State private var isLoadingSettings = false
 
     private let tint: Color = .aviationGold
 
@@ -24,6 +22,7 @@ struct AircraftSettingsView: View {
                     // An in-flight component on a ground screen: ground screens don't switch to the
                     // night palette, so neither does the table here.
                     SpeedReferenceView(activeChecklist: appState.activeChecklist)
+                        .padding(.horizontal, 14)   // the group's rows all inset 14 pt (review #1, G-06)
                         .padding(.vertical, 8)
                         .environment(\.cockpitTheme, .day)
                 }
@@ -36,9 +35,6 @@ struct AircraftSettingsView: View {
         }
         .navigationTitle(showsSpeeds ? L10n.Ground.aircraft : L10n.Settings.aircraftAndSubscription)
         .navigationBarTitleDisplayMode(.inline)
-        .onAppear { loadSettings() }
-        .onChange(of: appState.settings) { _, _ in loadSettings() }
-        .onChange(of: selectedAircraft) { _, _ in if !isLoadingSettings { saveSettings() } }
     }
 
     // MARK: - Subscription Section
@@ -106,23 +102,39 @@ struct AircraftSettingsView: View {
 
     // MARK: - Aircraft Section
 
+    /// Every aircraft the pilot can fly, bundled and premium, as the list to pick from. Only the bundled
+    /// WT9 used to be here, with the premium ones behind "Premium aircraft", so once Today lost its
+    /// carousel there was no obvious way to switch. (on-device review #1, G-06)
+    private var flyableAircraft: [AircraftOption] {
+        AircraftOption.flyable(remote: aircraftDataService.availableAircraft, settings: appState.settings)
+    }
+
+    private func fly(_ option: AircraftOption) {
+        guard appState.selectAircraft(id: option.selectionToken, available: aircraftDataService.availableAircraft)
+        else { return }
+        // A premium aircraft's checklist loads now, so its speeds show below and it is ready to fly.
+        if option.remoteId != nil {
+            Task { await appState.loadRemoteChecklistIfNeeded(aircraftDataService: aircraftDataService) }
+        }
+    }
+
     private var aircraftSection: some View {
-        SettingsGroup(title: L10n.Settings.aircraft, tint: tint, footer: L10n.Settings.aircraftFooter) {
-            // Bundled aircraft (F-HVXA only)
-            ForEach(AircraftType.allCases) { aircraft in
-                Button(action: {
-                    selectedAircraft = aircraft
-                    appState.settings.selectedRemoteAircraftId = nil
-                    saveSettings()
-                }) {
-                    HStack {
+        SettingsGroup(title: showsSpeeds ? L10n.Ground.yourAircraft : L10n.Settings.aircraft, tint: tint,
+                      footer: L10n.Settings.aircraftFooter) {
+            ForEach(flyableAircraft) { aircraft in
+                let isSelected = aircraft.isSelected(in: appState.settings)
+                Button(action: { fly(aircraft) }) {
+                    HStack(spacing: 12) {
+                        Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")
+                            .font(.aero(size: 22))
+                            .foregroundColor(isSelected ? .aviationGold : .dimText)
                         VStack(alignment: .leading, spacing: 4) {
                             Text(aircraft.registration)
                                 .font(.aero(.body, design: .monospaced))
                                 .fontWeight(.semibold)
                                 .foregroundColor(.primary)
 
-                            Text(aircraft.shortModelName)
+                            Text(aircraft.modelName)
                                 .font(.aero(.caption))
                                 .foregroundColor(.secondary)
                         }
@@ -134,17 +146,13 @@ struct AircraftSettingsView: View {
                                 LanguageFlagView(languageCode: languageCode)
                             }
                         }
-
-                        if selectedAircraft == aircraft && appState.settings.selectedRemoteAircraftId == nil {
-                            Image(systemName: "checkmark.circle.fill")
-                                .foregroundColor(.aviationGold)
-                        }
                     }
                     .padding(.horizontal, 14)
-                    .padding(.vertical, 11)
+                    .frame(minHeight: 56)
                     .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
+                .accessibilityAddTraits(isSelected ? .isSelected : [])
             }
 
             // Premium Aircrafts navigation link
@@ -340,7 +348,7 @@ struct AircraftSettingsView: View {
                     } else {
                         appState.settings.hiddenAeroclubs.insert(aeroclub)
                     }
-                    saveSettings()
+                    appState.saveSettings()
                 }
             ))
             .labelsHidden()
@@ -376,7 +384,7 @@ struct AircraftSettingsView: View {
                     } else {
                         appState.settings.hiddenAircraftIds.insert(aircraft.id)
                     }
-                    saveSettings()
+                    appState.saveSettings()
                 }
             ))
             .labelsHidden()
@@ -398,28 +406,13 @@ struct AircraftSettingsView: View {
     private func showAllAircraft() {
         appState.settings.hiddenAircraftIds.removeAll()
         appState.settings.hiddenAeroclubs.removeAll()
-        saveSettings()
+        appState.saveSettings()
     }
 
     private func hideAllAircraft() {
         for group in availableAeroclubs {
             appState.settings.hiddenAeroclubs.insert(group.aeroclub)
         }
-        saveSettings()
-    }
-
-    // MARK: - Settings Persistence
-
-    private func loadSettings() {
-        isLoadingSettings = true
-        selectedAircraft = appState.settings.selectedAircraft
-        DispatchQueue.main.async {
-            self.isLoadingSettings = false
-        }
-    }
-
-    private func saveSettings() {
-        appState.settings.selectedAircraft = selectedAircraft
         appState.saveSettings()
     }
 }

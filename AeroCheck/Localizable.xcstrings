@@ -1,6 +1,57 @@
 {
   "sourceLanguage": "en",
   "strings": {
+    "ground.yourAircraft": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Your aircraft"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vos avions"
+          }
+        }
+      }
+    },
+    "ground.aircraftDetails": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Speeds and details"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vitesses et détails"
+          }
+        }
+      }
+    },
+    "ground.switchAircraft": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Switch aircraft"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Changer d’avion"
+          }
+        }
+      }
+    },
     "%lld done" : {
       "localizations" : {
         "en" : {

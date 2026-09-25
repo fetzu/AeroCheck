@@ -432,4 +432,152 @@ extension TripTests {
         XCTAssertNil(m.formTrip(from: [a.id, a.id]), "the same flight twice is not a trip")
         XCTAssertNil(m.formTrip(from: [a.id, UUID()]), "an id that resolves to nothing is not a leg")
     }
+
+    // MARK: - Legs decided after a landing (v5.1)
+
+    @MainActor
+    private func fly(_ m: FlightThreadManager, _ id: UUID) {
+        m.attachFlight(UUID(), toThreadId: id)
+        m.beginCloseOut(threadId: id, flightId: nil)
+    }
+
+    @MainActor
+    func testALegPlannedAfterALandingJoinsTheFlightThatLanded() {
+        // `formTrip` refuses a flight that has flown, on purpose. A continuation is exactly that:
+        // the next leg of a journey, planned at the aerodrome the weather chose.
+        let m = manager()
+        let a = m.createThread(from: plan("LSZS", "LSZE"))
+        fly(m, a.id)
+        let b = m.createThread(from: plan("LSZE", "LSZQ"))
+        defer { m.deleteThread(threadId: a.id); m.deleteThread(threadId: b.id) }
+
+        let trip = m.insertLeg(b.id, after: a.id)
+        XCTAssertEqual(trip?.legIds, [a.id, b.id])
+        XCTAssertEqual(m.thread(withId: a.id)?.state, .closeOut, "joining a trip does not reopen a flight")
+        XCTAssertEqual(m.trip(forThreadId: b.id)?.id, trip?.id)
+    }
+
+    @MainActor
+    func testAfterADiversionTheBriefingsComeBackUnticked() {
+        let m = manager()
+        let a = m.createThread(from: plan("LSZS", "LSZQ"))
+        for key in [ThreadTaskKey.weatherBriefed, .notamChecked, .aircraftReserved] {
+            if let task = m.thread(withId: a.id)?.tasks.first(where: { $0.key == key }) {
+                m.setTaskState(.done, taskId: task.id, threadId: a.id)
+            }
+        }
+        fly(m, a.id)
+        let b = m.createThread(from: plan("LSZE", "LSZQ"))
+        defer { m.deleteThread(threadId: a.id); m.deleteThread(threadId: b.id) }
+
+        let trip = m.insertLeg(b.id, after: a.id, rebrief: true)!
+        let weather = trip.sharedTasks.first { $0.key == .weatherBriefed }
+        XCTAssertEqual(weather?.state, .pending, "a diversion is evidence the weather changed")
+        XCTAssertNotNil(weather?.completedAt, "kept, so the row reads as a re-check, not as never done")
+        XCTAssertEqual(trip.sharedTasks.first { $0.key == .notamChecked }?.state, .pending)
+        XCTAssertEqual(trip.sharedTasks.first { $0.key == .aircraftReserved }?.state, .done,
+                       "the booking does not go stale")
+    }
+
+    @MainActor
+    func testANewLegGoesRightAfterTheOneItFollows() {
+        let m = manager()
+        let a = m.createThread(from: plan("LSZQ", "LSZE"))
+        let c = m.createThread(from: plan("LSPV", "LSZS"))
+        let b = m.createThread(from: plan("LSZE", "LSPV"))
+        defer { [a, b, c].forEach { m.deleteThread(threadId: $0.id) } }
+        _ = m.formTrip(from: [a.id, c.id])
+
+        let trip = m.insertLeg(b.id, after: a.id)
+        XCTAssertEqual(trip?.legIds, [a.id, b.id, c.id])
+        XCTAssertEqual(m.leg(after: a.id)?.id, b.id)
+    }
+
+    @MainActor
+    func testAfterLandingAtAStopTheNextLegIsTodaysFlight() {
+        // Only the first leg has a firm date. Without this rule, START FLIGHT after landing at the
+        // stop started an unplanned flight: the leg with a route and a nav log waiting flew without.
+        let m = manager()
+        let a = m.createThread(from: plan("LSZS", "LSZE"))
+        let b = m.createThread(from: plan("LSZE", "LSZQ"))
+        defer { m.deleteThread(threadId: a.id); m.deleteThread(threadId: b.id) }
+        _ = m.formTrip(from: [a.id, b.id])
+
+        XCTAssertNil(m.nextTripLeg(), "nothing has landed yet")
+        fly(m, a.id)
+        XCTAssertEqual(m.nextTripLeg()?.id, b.id)
+        XCTAssertEqual(m.startableFlightToday?.id, b.id)
+    }
+
+    @MainActor
+    func testAnEstimatedDepartureIsNotAFirmDate() {
+        let m = manager()
+        var later = plan("LSZE", "LSZQ")
+        later.plannedDepartureTime = Date().addingTimeInterval(3600)
+        later.departureIsEstimate = true
+        let b = m.createThread(from: later)
+        defer { m.deleteThread(threadId: b.id) }
+        XCTAssertNil(m.thread(withId: b.id)?.scheduledDeparture,
+                     "an estimate prints ETOs; it must not arm a reminder or claim a day")
+    }
+
+    // MARK: - Adding and removing a stop (v5.1)
+
+    @MainActor
+    func testAddingAStopMakesTwoLegsAndJoiningTakesItBack() {
+        let suite = "TripTests.plans.\(UUID().uuidString)"
+        addTeardownBlock { UserDefaults.standard.removePersistentDomain(forName: suite) }
+        let plans = FlightPlanManager(defaults: UserDefaults(suiteName: suite)!)
+        let m = manager()
+        plans.nextLegPlanId = { m.nextLegPlanId(after: $0) }
+
+        var route = FlightPlan(name: "Return", plannedDepartureTime: Date().addingTimeInterval(86_400),
+                               fuelFlow: 20, fuelOnBoard: 80)
+        route.waypoints = [("LSZS", 7.0), ("W1", 7.3), ("W2", 7.6), ("LSZQ", 7.9)].map {
+            FlightPlanWaypoint(name: $0.0, coordinate: .init(latitude: 47.0, longitude: $0.1),
+                               altitude: 5000, plannedGroundSpeed: 100)
+        }
+        route.calculateRouteData()
+        plans.add(route)
+        let thread = m.createThread(from: route)
+        var created: [UUID] = [route.id]
+        defer {
+            for id in created { if let p = plans.flightPlans.first(where: { $0.id == id }) { plans.deleteFlightPlan(p) } }
+            m.threads.map(\.id).forEach { m.deleteThread(threadId: $0) }
+        }
+
+        let field = TripPlanner.Aerodrome(ident: "LSZE", name: "Bad Ragaz", latitude: 47.04, longitude: 7.45,
+                                          elevationFeet: 1617, frequency: nil, isPPR: false)
+        guard let candidate = TripPlanner.stopCandidates(along: route.waypoints, aerodromes: [field]).first,
+              let leg = FlightCreator.addStop(to: thread.id, at: candidate, stopover: Stopover(),
+                                              plans: plans, threads: m)
+        else { return XCTFail("no stop added") }
+        if let id = leg.flightPlanId { created.append(id) }
+
+        XCTAssertEqual(m.trip(forThreadId: thread.id)?.legIds, [thread.id, leg.id])
+        XCTAssertEqual(m.thread(withId: thread.id)?.routeLabel, "LSZS → LSZE")
+        XCTAssertEqual(leg.routeLabel, "LSZE → LSZQ")
+        XCTAssertNil(leg.scheduledDeparture, "the second leg's departure is an estimate")
+        let second = plans.flightPlans.first { $0.id == leg.flightPlanId }
+        XCTAssertEqual(second?.departureIsEstimate, true)
+        XCTAssertNotNil(second?.plannedDepartureTime)
+        XCTAssertEqual(m.startableFlightToday?.id, nil, "tomorrow's trip is not today's flight")
+
+        // Moving leg 1 moves leg 2's estimate.
+        var first = plans.flightPlans.first { $0.id == route.id }!
+        let before = second?.plannedDepartureTime
+        first.plannedDepartureTime = first.plannedDepartureTime?.addingTimeInterval(1800)
+        first.calculateRouteData()
+        plans.updateFlightPlan(first)
+        XCTAssertEqual(plans.flightPlans.first { $0.id == leg.flightPlanId }?.plannedDepartureTime,
+                       before?.addingTimeInterval(1800))
+
+        XCTAssertTrue(FlightCreator.joinWithNextLeg(thread.id, plans: plans, threads: m))
+        XCTAssertNil(m.trip(forThreadId: thread.id), "one leg left is just a flight again")
+        XCTAssertNil(m.thread(withId: leg.id))
+        XCTAssertEqual(plans.flightPlans.first { $0.id == route.id }?.waypoints.map(\.name),
+                       ["LSZS", "W1", "LSZE", "W2", "LSZQ"],
+                       "the stop stays on the route as a waypoint; only the landing is gone")
+        XCTAssertEqual(m.thread(withId: thread.id)?.routeLabel, "LSZS → LSZQ")
+    }
 }

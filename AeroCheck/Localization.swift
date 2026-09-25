@@ -1394,6 +1394,35 @@ enum L10n {
         static let previewPrint = String(localized: "export.previewPrint")
     }
 
+    /// Trips: stops, legs, diversions and continuing after one. (v5.1)
+    enum Trip {
+        static let addStop = String(localized: "trip.addStop")
+        static let addStopTitle = String(localized: "trip.addStopTitle")
+        static let addStopHint = String(localized: "trip.addStopHint")
+        static let addStopExplainer = String(localized: "trip.addStopExplainer")
+        static let searchAerodrome = String(localized: "trip.searchAerodrome")
+        static let onRoute = String(localized: "trip.onRoute")
+        /// "3.6 NM off"
+        static func offRoute(_ nm: String) -> String {
+            String(format: String(localized: "trip.offRoute"), nm)
+        }
+        static let noFrequency = String(localized: "trip.noFrequency")
+        static let noCandidates = String(localized: "trip.noCandidates")
+        /// "On the ground: 30 min"
+        static func groundTime(_ minutes: Int) -> String {
+            String(format: String(localized: "trip.groundTime"), minutes)
+        }
+        static let refuel = String(localized: "trip.refuel")
+        static let refuelHint = String(localized: "trip.refuelHint")
+        static let split = String(localized: "trip.split")
+        static let joinNextLeg = String(localized: "trip.joinNextLeg")
+        /// "≈ 15:10 (est.)"
+        static func estimated(_ time: String) -> String {
+            String(format: String(localized: "trip.estimated"), time)
+        }
+        static let stops = String(localized: "trip.stops")
+    }
+
     /// The builder's "Set altitudes" sheet.
     enum Altitudes {
         static let title = String(localized: "altitudes.title")

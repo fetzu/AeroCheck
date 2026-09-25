@@ -759,3 +759,47 @@ private struct AirportDataMetadata: Codable {
     let lastUpdated: Date
     let airportCount: Int
 }
+
+// MARK: - Aerodromes for planning stops and diversions (v5.1)
+
+extension AirportDataService {
+
+    /// Whether a site belongs in a list of places to land a fixed-wing aircraft: the builder's
+    /// fixed-wing set, minus glacier and mountain landing sites. Those are fixed-wing in the data
+    /// (Vorab glacier is a `small_airport`) and need a specific rating and aircraft — offering one as a
+    /// stop, or worse as a diversion, would be the app suggesting something it has no business
+    /// suggesting.
+    nonisolated static func isPlanningLandingSite(_ airport: Airport) -> Bool {
+        guard AirportType.fixedWing.contains(airport.type) else { return false }
+        let name = airport.name.lowercased()
+        return !["glacier", "gletscher", "mountain landing"].contains { name.contains($0) }
+    }
+
+    /// An aerodrome as the trip and diversion planners see it: identity, position, the field's
+    /// contact frequency and whether it is PPR.
+    func planningAerodrome(_ airport: Airport) -> TripPlanner.Aerodrome {
+        let contact = bestFieldFrequency(for: airport.ident)
+        return TripPlanner.Aerodrome(
+            ident: airport.ident,
+            name: airport.name,
+            latitude: airport.latitude,
+            longitude: airport.longitude,
+            elevationFeet: airport.elevation.map(Double.init),
+            frequency: contact.map { "\($0.type) \($0.formattedFrequency)" },
+            isPPR: OpenAIPAirportDataService.shared.pprIcaoCodes.contains(airport.ident.uppercased())
+        )
+    }
+
+    /// Landing sites inside the box around `coordinates`, widened by `marginNM`.
+    func planningAerodromes(around coordinates: [CLLocationCoordinate2D], marginNM: Double) -> [TripPlanner.Aerodrome] {
+        guard !coordinates.isEmpty else { return [] }
+        let lats = coordinates.map(\.latitude), lons = coordinates.map(\.longitude)
+        let dLat = marginNM / 60
+        let dLon = marginNM / (60 * max(0.2, cos((lats.reduce(0, +) / Double(lats.count)) * .pi / 180)))
+        return getAirportsInRegion(minLat: lats.min()! - dLat, maxLat: lats.max()! + dLat,
+                                   minLon: lons.min()! - dLon, maxLon: lons.max()! + dLon,
+                                   types: AirportType.fixedWing, limit: 2000)
+            .filter(Self.isPlanningLandingSite)
+            .map(planningAerodrome)
+    }
+}

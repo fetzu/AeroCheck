@@ -187,7 +187,8 @@ struct FlightLogView: View {
             set: { if !$0 { threadToOpen = nil } }
         )) {
             if let id = threadToOpen {
-                FlightThreadView(threadId: id, onClose: { threadToOpen = nil })
+                FlightThreadView(threadId: id, onClose: { threadToOpen = nil },
+                                 onOpenLeg: { threadToOpen = $0 })
                     .environmentObject(threadManager)
                     .environmentObject(flightPlanManager)
             }

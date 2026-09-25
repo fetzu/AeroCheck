@@ -53,17 +53,16 @@ enum WaypointPassage {
         let fixes = track.sorted { $0.time < $1.time }
         guard let start = takeoff ?? fixes.first(where: { $0.speed >= airborneSpeed })?.time else { return times }
         let end = landing ?? fixes.last!.time
-        let projection = LocalProjection(around: route)
-        let points = route.map(projection.xy)
-        var cum: [Double] = [0]
-        for i in 1..<points.count { cum.append(cum[i - 1] + distance(points[i - 1], points[i])) }
+        let geometry = RouteGeometry(route: route)
+        let points = geometry.points
+        let cum = geometry.cumulative
 
         // Departure and destination: where the aircraft was at takeoff and landing.
-        if let at = fix(nearest: start, in: fixes), distance(projection.xy(at.coordinate), points[0]) <= toleranceNM {
+        if let at = fix(nearest: start, in: fixes), geometry.distanceNM(at.coordinate, route[0]) <= toleranceNM {
             times[0] = start
         }
         if let landing, let at = fix(nearest: landing, in: fixes),
-           distance(projection.xy(at.coordinate), points[points.count - 1]) <= toleranceNM {
+           geometry.distanceNM(at.coordinate, route[route.count - 1]) <= toleranceNM {
             times[route.count - 1] = landing
         }
 
@@ -71,10 +70,10 @@ enum WaypointPassage {
         var leg = 0
         var previous: (s: Double, time: Date)?
         for fix in fixes where fix.time >= start && fix.time <= end {
-            let p = projection.xy(fix.coordinate)
+            let p = geometry.xy(fix.coordinate)
             var best: (s: Double, offset: Double, leg: Int)?
             for k in leg..<min(leg + 3, points.count - 1) {
-                let (s, offset) = project(p, onto: k, points: points, cum: cum)
+                let (s, offset) = geometry.project(p, onto: k)
                 if best == nil || offset < best!.offset { best = (s, offset, k) }
             }
             guard let match = best, match.offset <= corridorNM else { continue }
@@ -90,35 +89,6 @@ enum WaypointPassage {
             previous = (s, fix.time)
         }
         return times
-    }
-
-    // MARK: Geometry (flat, in NM — legs are a few tens of miles)
-
-    private struct LocalProjection {
-        let cosLat: Double
-        init(around route: [CLLocationCoordinate2D]) {
-            let lat = route.map(\.latitude).reduce(0, +) / Double(max(1, route.count))
-            cosLat = cos(lat * .pi / 180)
-        }
-        func xy(_ c: CLLocationCoordinate2D) -> (x: Double, y: Double) {
-            (c.longitude * 60 * cosLat, c.latitude * 60)
-        }
-    }
-
-    private static func distance(_ a: (x: Double, y: Double), _ b: (x: Double, y: Double)) -> Double {
-        hypot(a.x - b.x, a.y - b.y)
-    }
-
-    /// Along-route distance of `p` projected onto leg `k` (clamped to the leg) and its offset from it.
-    private static func project(_ p: (x: Double, y: Double), onto k: Int, points: [(x: Double, y: Double)],
-                                cum: [Double]) -> (s: Double, offset: Double) {
-        let a = points[k], b = points[k + 1]
-        let vx = b.x - a.x, vy = b.y - a.y
-        let length2 = vx * vx + vy * vy
-        guard length2 > 0 else { return (cum[k], distance(p, a)) }
-        let t = min(1, max(0, ((p.x - a.x) * vx + (p.y - a.y) * vy) / length2))
-        let q = (x: a.x + t * vx, y: a.y + t * vy)
-        return (cum[k] + t * sqrt(length2), distance(p, q))
     }
 
     private static func fix(nearest time: Date, in fixes: [Fix]) -> Fix? {

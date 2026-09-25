@@ -160,6 +160,60 @@ enum FlightType: String, Codable, CaseIterable, Identifiable {
     var id: String { rawValue }
 }
 
+// MARK: - Trip legs and diversions (v5.1)
+
+/// The ground stop in front of a leg that departs from an intermediate aerodrome of a trip.
+///
+/// Stored on the leg that STARTS there, because that is the leg whose numbers it changes: its
+/// estimated departure (the previous leg's arrival plus the time on the ground) and its fuel on board
+/// (what is left, unless the pilot refuels).
+struct Stopover: Codable, Equatable, Sendable {
+    static let defaultGroundMinutes = 30
+
+    /// Minutes on the ground between landing and the next departure.
+    var groundMinutes: Int = Stopover.defaultGroundMinutes
+    /// Refuel at the stop: the leg departs with the trip's planned fuel on board again, instead of
+    /// what the previous leg left in the tanks.
+    var refuel: Bool = false
+}
+
+/// An aerodrome the flight is now going to instead of the rest of its route.
+///
+/// Set in flight by one decision ("Divert"), or after landing when the flight ended somewhere the
+/// plan did not. The route itself is never rewritten: it stays as planned so "Resume route" is one
+/// tap and the nav log can show what was planned and what was flown.
+struct Diversion: Codable, Equatable, Sendable {
+    var ident: String
+    var name: String
+    var latitude: Double
+    var longitude: Double
+    var elevationFeet: Double?
+    /// The aerodrome's contact frequency, when the app knows one ("AFIS 122.050").
+    var frequency: String?
+    /// When the pilot diverted. Nil when the diversion was only established after landing.
+    var startedAt: Date?
+    /// The route waypoint that was next when the aircraft left the route. Every waypoint from here
+    /// on without an ATO was not flown.
+    var leftRouteAt: Int
+
+    var coordinate: CLLocationCoordinate2D {
+        CLLocationCoordinate2D(latitude: latitude, longitude: longitude)
+    }
+}
+
+/// Where the aircraft is navigating to right now: the next waypoint of the route, or the diversion.
+struct NavigationTarget: Equatable {
+    let name: String
+    let latitude: Double
+    let longitude: Double
+    let frequency: String?
+    let isDiversion: Bool
+
+    var coordinate: CLLocationCoordinate2D {
+        CLLocationCoordinate2D(latitude: latitude, longitude: longitude)
+    }
+}
+
 // MARK: - Flight Plan
 
 /// A complete flight plan with route, fuel, and timing information
@@ -225,6 +279,17 @@ struct FlightPlan: Identifiable, Codable, Equatable {
     /// see `FlightPlanManager.activationLifetime`. nil on plans saved before v4.4.0, which are then
     /// never expired: an unknown age is not evidence of staleness. (v4.4.0)
     var activatedAt: Date?
+
+    // Trips and diversions (v5.1). All optional: plans written before 5.1 decode unchanged.
+
+    /// The stop in front of this leg, for a leg that departs from an intermediate aerodrome.
+    var stopover: Stopover?
+    /// True while `plannedDepartureTime` is an ESTIMATE (the previous leg's arrival plus the time on
+    /// the ground) rather than a time the pilot chose. Estimates give the nav log its ETOs; they never
+    /// drive a reminder or the "is this today" rule — see `firmDepartureTime`.
+    var departureIsEstimate: Bool?
+    /// Set when the flight is going somewhere other than the end of its route. See `Diversion`.
+    var diversion: Diversion?
 
     init(
         id: UUID = UUID(),
@@ -329,6 +394,7 @@ struct FlightPlan: Identifiable, Codable, Equatable {
         case icaoAircraftType, wakeTurbulenceCategory, equipmentCodes, surveillanceCodes
         case alternateAerodrome, personsOnBoard, aircraftColour
         case isActive, currentWaypointIndex, chronometerStartTime, activatedAt
+        case stopover, departureIsEstimate, diversion
     }
 
     init(from decoder: Decoder) throws {
@@ -395,6 +461,9 @@ struct FlightPlan: Identifiable, Codable, Equatable {
         currentWaypointIndex = try container.decodeIfPresent(Int.self, forKey: .currentWaypointIndex) ?? 0
         chronometerStartTime = try container.decodeIfPresent(Date.self, forKey: .chronometerStartTime)
         activatedAt = try container.decodeIfPresent(Date.self, forKey: .activatedAt)
+        stopover = try container.decodeIfPresent(Stopover.self, forKey: .stopover)
+        departureIsEstimate = try container.decodeIfPresent(Bool.self, forKey: .departureIsEstimate)
+        diversion = try container.decodeIfPresent(Diversion.self, forKey: .diversion)
     }
 
     func encode(to encoder: Encoder) throws {
@@ -441,6 +510,53 @@ struct FlightPlan: Identifiable, Codable, Equatable {
         try container.encode(currentWaypointIndex, forKey: .currentWaypointIndex)
         try container.encodeIfPresent(chronometerStartTime, forKey: .chronometerStartTime)
         try container.encodeIfPresent(activatedAt, forKey: .activatedAt)
+        try container.encodeIfPresent(stopover, forKey: .stopover)
+        try container.encodeIfPresent(departureIsEstimate, forKey: .departureIsEstimate)
+        try container.encodeIfPresent(diversion, forKey: .diversion)
+    }
+
+    /// The same plan under a new identity: everything the pilot planned, nothing about a flight.
+    ///
+    /// `id` is a `let`, so a copy is a new value built field by field. Keeping that list in one place
+    /// is what stops a new field from being silently dropped by one of the places that copy plans.
+    func copy(id: UUID = UUID()) -> FlightPlan {
+        var plan = FlightPlan(
+            id: id, name: name, waypoints: waypoints,
+            aircraftTypeId: aircraftTypeId, aircraftRegistration: aircraftRegistration,
+            aircraftModelName: aircraftModelName, pilot: pilot, instructor: instructor,
+            flightType: flightType, runwayInUse: runwayInUse, plannedDepartureTime: plannedDepartureTime,
+            announcementDate: announcementDate, announcementTime: announcementTime,
+            fuelFlow: fuelFlow, tripFuel: tripFuel, reserveFuel: reserveFuel,
+            additionalFuel: additionalFuel, extraFuel: extraFuel, fuelOnBoard: fuelOnBoard,
+            remarks: remarks,
+            icaoAircraftType: icaoAircraftType, wakeTurbulenceCategory: wakeTurbulenceCategory,
+            equipmentCodes: equipmentCodes, surveillanceCodes: surveillanceCodes,
+            alternateAerodrome: alternateAerodrome, personsOnBoard: personsOnBoard,
+            aircraftColour: aircraftColour
+        )
+        plan.stopover = stopover
+        plan.departureIsEstimate = departureIsEstimate
+        return plan
+    }
+
+    /// The departure time the pilot actually chose. Nil for an estimate, so an estimated departure
+    /// can print ETOs without arming a preparation reminder or making a leg "today's flight".
+    var firmDepartureTime: Date? {
+        departureIsEstimate == true ? nil : plannedDepartureTime
+    }
+
+    /// What the aircraft is navigating to: the diversion when there is one, else the next waypoint.
+    /// Everything that points somewhere in flight (map line, glance bar, HUD, Watch, Live Activity)
+    /// reads this rather than `nextWaypoint`, so a diversion moves all of them at once.
+    var navigationTarget: NavigationTarget? {
+        if let diversion {
+            return NavigationTarget(name: diversion.ident, latitude: diversion.latitude,
+                                    longitude: diversion.longitude, frequency: diversion.frequency,
+                                    isDiversion: true)
+        }
+        guard let next = nextWaypoint else { return nil }
+        return NavigationTarget(name: next.name, latitude: next.latitude, longitude: next.longitude,
+                                frequency: next.frequency, isDiversion: false)
     }
 
     // MARK: - Computed Properties

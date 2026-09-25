@@ -338,6 +338,8 @@ struct FlightPlanEditorView: View {
                         get: { flightPlan.plannedDepartureTime ?? Date() },
                         set: {
                             flightPlan.plannedDepartureTime = $0
+                            // A time the pilot picked replaces a trip leg's estimate. (v5.1)
+                            flightPlan.departureIsEstimate = nil
                             flightPlan.calculateRouteData()
                         }
                     ), components: [.date, .hourAndMinute])

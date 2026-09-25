@@ -332,7 +332,8 @@ struct ContentView: View {
                                  onStartFlight: { circuits in
                                      appState.pendingThreadToOpen = nil
                                      startFollowedFlight(threadId: id, circuits: circuits)
-                                 })
+                                 },
+                                 onOpenLeg: { appState.pendingThreadToOpen = $0 })
                     .environmentObject(threadManager)
                     .environmentObject(flightPlanManager)
             }

@@ -145,6 +145,22 @@ class FlightPlanManager: ObservableObject {
         }
 
         saveFlightPlans()
+        carryIntoNextLeg(from: updatedPlan)
+    }
+
+    /// Wired at launch to the thread manager: the plan of the leg after the one flying a plan, in its
+    /// trip. Nil outside a trip. (v5.1)
+    var nextLegPlanId: (@MainActor (UUID) -> UUID?)?
+
+    /// A later trip leg departs when the one before it lands, so moving leg 1's departure, or
+    /// changing its route, moves leg 2's estimated departure and ETOs, and its fuel when it does not
+    /// refuel. Each updated leg carries on into the next one through `updateFlightPlan`; the chain ends
+    /// where nothing changes, or at a departure the pilot chose. (v5.1)
+    private func carryIntoNextLeg(from plan: FlightPlan) {
+        guard let nextId = nextLegPlanId?(plan.id), nextId != plan.id,
+              let next = flightPlans.first(where: { $0.id == nextId }),
+              let refreshed = TripPlanner.refreshed(next, after: plan) else { return }
+        updateFlightPlan(refreshed)
     }
 
     /// Delete a flight plan
@@ -436,6 +452,8 @@ class FlightPlanManager: ObservableObject {
     func updateDepartureTimeFromLineUp(_ lineUpTime: Date) {
         guard var plan = activeFlightPlan else { return }
         plan.plannedDepartureTime = lineUpTime
+        // A real departure now: a trip leg's estimate is replaced by what happened.
+        plan.departureIsEstimate = nil
         plan.calculateRouteData()
         updateFlightPlan(plan)
     }

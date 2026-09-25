@@ -1323,7 +1323,9 @@ struct FlightView: View {
                     aglFeet: reference == .vSpeeds ? currentAGLFeet : nil,
                     onClose: closeReference
                 )
-                .frame(maxHeight: maxHeight)
+                // Bottom-aligned: a frame with a max height takes the whole cap and would centre a
+                // shorter drawer in it, floating above the thumb bar.
+                .frame(maxHeight: maxHeight, alignment: .bottom)
                 .transition(.move(edge: .bottom))
             }
         }

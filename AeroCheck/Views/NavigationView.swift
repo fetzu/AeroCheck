@@ -439,10 +439,13 @@ struct NavigationMapView: View {
                 .padding(.top, shouldUseCompactLayout ? 104 : 92)
                 .animation(reduceMotion ? nil : .easeInOut(duration: 0.25), value: routeOffScreenHint) // (UX-18)
         }
-        .preferredColorScheme(.dark)
+        // Only as its own cover. Embedded in a ground tab, a preferred scheme would darken the whole
+        // window, and the root could no longer read the device's light/dark for Auto. (v6.0 · P1)
+        .preferredColorScheme(showsCloseButton ? .dark : nil)
         // Immersive full-screen map: hide the system status bar so the top chrome (airspace / layer)
         // never collides with the time / battery / network indicators. (v4 UI/UX Revamp fix)
-        .statusBarHidden(true)
+        // Not in the Plan tab, where the tab bar sits above the map. (v6.0 · P1)
+        .statusBarHidden(showsCloseButton)
         // A detected go-around / touch-and-go / full-stop must be confirmable while the full-screen
         // map is up — FlightView's own overlay sits behind this .fullScreenCover. (PR-40)
         .flightEventConfirmationOverlay(detector: flightEventDetector, appState: appState)

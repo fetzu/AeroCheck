@@ -181,7 +181,9 @@ struct FlightLogView: View {
                 }
             }
         }
-        .preferredColorScheme(.dark)
+        // Only as its own cover. Embedded in a ground tab, a preferred scheme would darken the whole
+        // window, and the root could no longer read the device's light/dark for Auto. (v6.0 · P1)
+        .preferredColorScheme(mode == .combined ? .dark : nil)
         .fullScreenCover(isPresented: $showFlightPlanning) {
             FlightPlanningView()
         }

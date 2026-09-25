@@ -130,7 +130,9 @@ struct SettingsView: View {
                 }
             }
         }
-        .preferredColorScheme(.dark)
+        // Only as its own cover. Embedded in a ground tab, a preferred scheme would darken the whole
+        // window, and the root could no longer read the device's light/dark for Auto. (v6.0 · P1)
+        .preferredColorScheme(isEmbedded ? nil : .dark)
         .onAppear { openPendingSection() }
         .onChange(of: appState.pendingSettingsSection) { _, _ in openPendingSection() }
         .onAppear {
@@ -989,7 +991,8 @@ struct PremiumAircraftListView: View {
         .background(Color.cockpitBackground.ignoresSafeArea())
         .navigationTitle(L10n.Settings.premiumAircrafts)
         .navigationBarTitleDisplayMode(.inline)
-        .preferredColorScheme(.dark)
+        // Pushed, never presented: it inherits the app's dark environment. A preferred scheme here
+        // would darken the whole window from inside the Aircraft tab. (v6.0 · P1)
         .onAppear {
             Task { await aircraftDataService.fetchAvailableAircraft() }
         }

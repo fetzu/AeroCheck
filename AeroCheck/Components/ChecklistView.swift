@@ -769,11 +769,15 @@ struct ChecklistView: View {
         }
     }
 
-    /// Tappable engine hours display row
-    static let hourMeterStartPhases: Set<ChecklistPhase> = [.preflight, .beforeEngineStart, .engineStart]
+    /// Where the hour meter is read: at the end of Before engine start (the avionics are on by then;
+    /// on Preflight they are not), then Engine Start, which also asks for it by itself on entry. After
+    /// the stop: Shutdown and At the hangar, where ENGINE SHUTDOWN asks for it first. (on-device
+    /// review #1, C-03)
+    static let hourMeterStartPhases: Set<ChecklistPhase> = [.beforeEngineStart, .engineStart]
     static let hourMeterStopPhases: Set<ChecklistPhase> = [.shutdown, .hangar]
 
-    /// The hour meter not read yet: one tap opens the keypad. Never opens it by itself.
+    /// The hour meter not read yet: one tap opens the keypad. The keypad also comes up by itself on
+    /// entering Engine Start and after ENGINE SHUTDOWN (FlightView); this row is the way back to it.
     private func engineHoursPrompt(_ title: String, onEnter: @escaping () -> Void) -> some View {
         Button(action: onEnter) {
             HStack(spacing: 12) {

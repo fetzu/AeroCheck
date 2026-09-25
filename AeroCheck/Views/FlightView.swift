@@ -333,8 +333,14 @@ struct FlightView: View {
         }
         .onChange(of: appState.currentPhase) { oldPhase, newPhase in
             appState.evaluateCruiseCheck()
-            // The hour meter is no longer asked for on entering Engine Start: the checklist offers it
-            // inline, engine off, from Preflight on (v6.0 · B4).
+            // Entering Engine Start asks for the hour meter, unless it was entered inline at the end of
+            // Before engine start. The prompt coming up by itself is what stops it being forgotten.
+            // (on-device review #1, C-03)
+            if newPhase == .engineStart && oldPhase != .engineStart && appState.settings.logEngineHours
+                && appState.currentFlight?.engineHourStart == nil {
+                hourMeterStartInitialValue = ""
+                showHourMeterStart = true
+            }
             // Re-show hour meter stop input when navigating back to Shutdown phase
             // (e.g., after reset) if shutdown time was cleared
             if newPhase == .shutdown && oldPhase != .shutdown && appState.settings.logEngineHours {
@@ -656,7 +662,12 @@ struct FlightView: View {
     private func performEngineShutdown() {
         appState.recordEngineShutdown()
         pulseActionButton = false
-        // The reading after the stop is offered inline by the checklist (Shutdown, At the hangar). (v6.0 · B4)
+        // ENGINE SHUTDOWN asks for the hour meter straight away; the checklist still offers it inline
+        // afterwards (Shutdown, At the hangar) if this is skipped. (on-device review #1, L-03)
+        if appState.settings.logEngineHours && appState.currentFlight?.engineHourEnd == nil {
+            hourMeterStopInitialValue = ""
+            showHourMeterStop = true
+        }
         if allItemsChecked { triggerNextButtonPulse() }
     }
     private func performEngineShutdownUpdate() {

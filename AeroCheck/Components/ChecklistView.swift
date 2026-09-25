@@ -36,7 +36,7 @@ struct TimestampActionButton: View {
                     .lineLimit(1)
                     .minimumScaleFactor(0.6)
             }
-            .font(.system(size: compact ? 20 : 18, weight: .bold))
+            .font(.aero(size: compact ? 20 : 18, weight: .bold))
             .foregroundColor(compact ? .black : .white)
             // Compact = HUD bottom bar: fill width + match NEXT's vertical padding so the heights are
             // identical; the title shrinks (one line) rather than wrapping when the row is tight.
@@ -93,7 +93,7 @@ struct TimestampActionButton: View {
 
             if !compact, hasBeenPressed {
                 Text(L10n.ChecklistAction.holdToUpdate)
-                    .font(.system(size: 10))
+                    .font(.aero(size: 10))
                     .foregroundColor(theme.textDim)
             }
         }
@@ -183,7 +183,7 @@ struct CounterActionButton: View {
                     Image(systemName: icon)
                     Text(title)
                 }
-                .font(.system(size: 18, weight: .bold))
+                .font(.aero(size: 18, weight: .bold))
                 .foregroundColor(.white)
                 .padding(.horizontal, 24)
                 .padding(.vertical, 14)
@@ -366,7 +366,7 @@ struct ChecklistView: View {
             HStack {
                 if !hudMode {
                     Text(L10n.ChecklistAction.page(phase.pageNumber))
-                        .font(isCompact ? .system(size: 11) : .captionText)
+                        .font(isCompact ? .aero(size: 11) : .captionText)
                         .foregroundColor(theme.textDim)
                 }
 
@@ -375,9 +375,9 @@ struct ChecklistView: View {
                 if stepByStepEnabled && !visibleItems.isEmpty {
                     HStack(spacing: 4) {
                         Image(systemName: "hand.tap.fill")
-                            .font(.system(size: isCompact ? 9 : 10))
+                            .font(.aero(size: isCompact ? 9 : 10))
                         Text(L10n.ChecklistAction.tapToAdvance)
-                            .font(.system(size: isCompact ? 10 : 11))
+                            .font(.aero(size: isCompact ? 10 : 11))
                     }
                     .foregroundColor(theme.textDim)
                 }
@@ -389,7 +389,7 @@ struct ChecklistView: View {
                 Button(action: { onBriefingTap?(briefingType) }) {
                     HStack {
                         Text(briefingText)
-                            .font(.system(size: isCompact ? 13 : 16, weight: .medium, design: .monospaced))
+                            .font(.aero(size: isCompact ? 13 : 16, weight: .medium, design: .monospaced))
                             .foregroundColor(theme.warning)
                             .italic()
                         Spacer()
@@ -415,7 +415,7 @@ struct ChecklistView: View {
             if !hudMode {
                 HStack {
                     Text(phase.title)
-                        .font(isCompact ? .system(size: 20, weight: .bold) : .checklistTitle)
+                        .font(isCompact ? .aero(size: 20, weight: .bold) : .checklistTitle)
                         .foregroundColor(theme.action)
                         .textCase(.uppercase)
                         .tracking(isCompact ? 1 : 2)
@@ -496,10 +496,10 @@ struct ChecklistView: View {
                     Spacer()
                     if isDone {
                         Image(systemName: "checkmark.circle.fill")
-                            .font(.system(size: 18, weight: .bold))
+                            .font(.aero(size: 18, weight: .bold))
                     }
                     Text(phase.completionText)
-                        .font(.system(size: 18, weight: .bold, design: .monospaced))
+                        .font(.aero(size: 18, weight: .bold, design: .monospaced))
                     Spacer()
                 }
                 .foregroundColor(isDone ? theme.onTarget : theme.textDim)
@@ -644,16 +644,16 @@ struct ChecklistView: View {
 
             HStack {
                 Image(systemName: "eye.slash.fill")
-                    .font(.system(size: 20))
+                    .font(.aero(size: 20))
                     .foregroundColor(theme.warning)
 
                 VStack(alignment: .leading, spacing: 4) {
                     Text(L10n.ChecklistAction.hiddenItemsTitle)
-                        .font(.system(size: 14, weight: .bold))
+                        .font(.aero(size: 14, weight: .bold))
                         .foregroundColor(theme.warning)
 
                     Text(L10n.ChecklistAction.hiddenItemsCount(hiddenItemCount, hiddenItemCount == 1 ? "" : "s"))
-                        .font(.system(size: 12))
+                        .font(.aero(size: 12))
                         .foregroundColor(theme.textSecondary)
                 }
 
@@ -728,17 +728,17 @@ struct ChecklistView: View {
             HStack(spacing: 8) {
                 Image(systemName: "gauge.with.dots.needle.50percent")
                     .foregroundColor(theme.action)
-                    .font(.system(size: 14))
+                    .font(.aero(size: 14))
                 Text(L10n.FlightDetail.engineHours.uppercased())
-                    .font(.system(size: 12, weight: .medium))
+                    .font(.aero(size: 12, weight: .medium))
                     .foregroundColor(theme.textSecondary)
                 Spacer()
                 Text(format == "time" ? Flight.formatHoursTime(hours) : Flight.formatHoursDecimal(hours))
-                    .font(.system(size: 16, weight: .medium, design: .monospaced))
+                    .font(.aero(size: 16, weight: .medium, design: .monospaced))
                     .foregroundColor(theme.action)
                 Image(systemName: "pencil")
                     .foregroundColor(theme.textDim)
-                    .font(.system(size: 12))
+                    .font(.aero(size: 12))
             }
             .padding(.horizontal, 16)
             .padding(.vertical, 10)
@@ -786,11 +786,11 @@ struct ChecklistItemRow: View {
     // Smaller than the old fixed 22 pt rows (still text-style-based for Dynamic Type — challenge/response
     // wrap vertically via .fixedSize, so large sizes grow the row instead of clipping). (UX-14 / v4 UI/UX Revamp)
     private var itemFont: Font {
-        .system(isCompact ? .subheadline : .callout, design: .monospaced).weight(.medium)
+        .aero(isCompact ? .subheadline : .callout, design: .monospaced).weight(.medium)
     }
 
     private var responseFont: Font {
-        .system(isCompact ? .subheadline : .callout, design: .monospaced)
+        .aero(isCompact ? .subheadline : .callout, design: .monospaced)
     }
 
     var body: some View {
@@ -801,7 +801,7 @@ struct ChecklistItemRow: View {
                 Group {
                     if isCompleted {
                         Image(systemName: "checkmark")
-                            .font(.system(size: isCompact ? 10 : 12, weight: .bold))
+                            .font(.aero(size: isCompact ? 10 : 12, weight: .bold))
                             .foregroundColor(theme.onTarget.opacity(0.7))
                     }
                 }
@@ -936,7 +936,7 @@ struct SpeedReferenceView: View {
                     .headerStyle()
                 Spacer()
                 Text(currentRegistration)
-                    .font(.system(size: 14, weight: .semibold, design: .monospaced))
+                    .font(.aero(size: 14, weight: .semibold, design: .monospaced))
                     .foregroundColor(theme.textSecondary)
             }
             .padding(.top, 8)
@@ -973,12 +973,12 @@ struct SpeedReferenceView: View {
             // Crosswind limits
             HStack {
                 Text(L10n.ChecklistAction.maxCrosswind)
-                    .font(.system(size: 13, weight: .medium))
+                    .font(.aero(size: 13, weight: .medium))
                     .foregroundColor(theme.textSecondary)
                 Spacer()
                 let crosswind = currentCrosswindLimits
                 Text(L10n.ChecklistAction.crosswindFormat(takeoff: crosswind.takeoff, landing: crosswind.landing))
-                    .font(.system(size: 13, weight: .bold, design: .monospaced))
+                    .font(.aero(size: 13, weight: .bold, design: .monospaced))
                     .foregroundColor(theme.warning)
             }
             .padding(.top, 8)
@@ -1006,7 +1006,7 @@ struct SpeedReferenceView: View {
         HStack(alignment: .firstTextBaseline, spacing: 0) {
             // Name (e.g., "Vso")
             Text(speed.name)
-                .font(.system(size: 16, weight: .bold, design: .monospaced))
+                .font(.aero(size: 16, weight: .bold, design: .monospaced))
                 .foregroundColor(theme.action)
 
             Spacer(minLength: 4)
@@ -1014,17 +1014,17 @@ struct SpeedReferenceView: View {
             // Value + unit (e.g., "33 kt")
             HStack(alignment: .firstTextBaseline, spacing: 3) {
                 Text(speed.value)
-                    .font(.system(size: 17, weight: .bold, design: .monospaced))
+                    .font(.aero(size: 17, weight: .bold, design: .monospaced))
                     .foregroundColor(theme.textPrimary)
                 Text("kt")
-                    .font(.system(size: 12, weight: .medium))
+                    .font(.aero(size: 12, weight: .medium))
                     .foregroundColor(theme.textDim)
             }
         }
         .overlay(alignment: .bottomLeading) {
             // Description below the name
             Text(speed.description)
-                .font(.system(size: 11))
+                .font(.aero(size: 11))
                 .foregroundColor(theme.textDim)
                 .offset(y: 14)
         }
@@ -1041,14 +1041,14 @@ struct CompactSpeedRow: View {
     var body: some View {
         HStack(spacing: 4) {
             Text(name)
-                .font(.system(size: 15, weight: .bold, design: .monospaced))
+                .font(.aero(size: 15, weight: .bold, design: .monospaced))
                 .foregroundColor(theme.action)
                 .frame(width: 55, alignment: .leading)
                 .lineLimit(1)
                 .minimumScaleFactor(0.8)
 
             Text(description)
-                .font(.system(size: 12))
+                .font(.aero(size: 12))
                 .foregroundColor(theme.textDim)
                 .frame(minWidth: 75, alignment: .leading)
                 .lineLimit(1)
@@ -1057,12 +1057,12 @@ struct CompactSpeedRow: View {
 
             HStack(spacing: 2) {
                 Text(value)
-                    .font(.system(size: 15, weight: .bold, design: .monospaced))
+                    .font(.aero(size: 15, weight: .bold, design: .monospaced))
                     .foregroundColor(theme.textPrimary)
                     .lineLimit(1)
 
                 Text("kt")
-                    .font(.system(size: 11))
+                    .font(.aero(size: 11))
                     .foregroundColor(theme.textDim)
             }
             .fixedSize(horizontal: true, vertical: false)
@@ -1099,7 +1099,7 @@ struct DepartureBriefingContent: View {
                         } else {
                             BriefingItem(label: L10n.Briefing.wind, value: L10n.Briefing.notAvailable)
                             Text(L10n.Briefing.windCheckHint)
-                                .font(.system(size: 11))
+                                .font(.aero(size: 11))
                                 .foregroundColor(theme.textDim)
                                 .italic()
                         }
@@ -1187,7 +1187,7 @@ struct ApproachBriefingContent: View {
                         } else {
                             BriefingItem(label: L10n.Briefing.wind, value: L10n.Briefing.notAvailable)
                             Text(L10n.Briefing.windCheckHint)
-                                .font(.system(size: 11))
+                                .font(.aero(size: 11))
                                 .foregroundColor(theme.textDim)
                                 .italic()
                         }
@@ -1269,12 +1269,12 @@ struct SpeedGridView: View {
                     // speed, which is short and must stay whole, never gives up a character.
                     // (device-test feedback, v4.4.0)
                     Text(item.label)
-                        .font(.system(size: 12, weight: .medium))
+                        .font(.aero(size: 12, weight: .medium))
                         .foregroundColor(theme.textSecondary)
                         .fixedSize(horizontal: false, vertical: true)
                     Spacer(minLength: 0)
                     Text(item.value)
-                        .font(.system(size: 14, weight: .bold, design: .monospaced))
+                        .font(.aero(size: 14, weight: .bold, design: .monospaced))
                         .foregroundColor(item.value == L10n.Briefing.speedNA ? theme.textDim : theme.onTarget)
                         .fixedSize()
                 }
@@ -1296,12 +1296,12 @@ struct RunwayRowView: View {
             HStack(spacing: 8) {
                 if isSuggested {
                     Image(systemName: "star.fill")
-                        .font(.system(size: 12))
+                        .font(.aero(size: 12))
                         .foregroundColor(theme.action)
                 }
 
                 Text(runway.identifier)
-                    .font(.system(size: 14, weight: .bold, design: .monospaced))
+                    .font(.aero(size: 14, weight: .bold, design: .monospaced))
                     .foregroundColor(isSuggested ? theme.action : theme.textPrimary)
                     .fixedSize()
 
@@ -1312,7 +1312,7 @@ struct RunwayRowView: View {
                 // Wraps rather than truncating: a long surface/lighting string must stay readable on a
                 // narrow screen, like every other briefing line. (device-test feedback, v4.4.0)
                 Text(runway.descriptionString)
-                    .font(.system(size: 12))
+                    .font(.aero(size: 12))
                     .foregroundColor(theme.textSecondary)
                     .fixedSize(horizontal: false, vertical: true)
 
@@ -1322,7 +1322,7 @@ struct RunwayRowView: View {
             // OpenAIP extras (PCN + declared distances), only when present. Indented under the runway id.
             if let extra = runway.extraInfoLine {
                 Text(extra)
-                    .font(.system(size: 11, design: .monospaced))
+                    .font(.aero(size: 11, design: .monospaced))
                     .foregroundColor(theme.textDim)
                     .fixedSize(horizontal: false, vertical: true)
                     .padding(.leading, isSuggested ? 20 : 0)
@@ -1386,7 +1386,7 @@ struct BriefingSection<Content: View>: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             Text(title)
-                .font(.system(size: 14, weight: .bold))
+                .font(.aero(size: 14, weight: .bold))
                 .foregroundColor(isWarning ? theme.danger : theme.action)
                 .tracking(1)
             
@@ -1428,7 +1428,7 @@ struct BriefingTafRow: View {
                 value: taf.validity.isEmpty ? taf.icao : "\(taf.icao) (\(taf.validity))"
             ) {
                 Text(taf.raw)
-                    .font(.system(size: 12, design: .monospaced))
+                    .font(.aero(size: 12, design: .monospaced))
                     .foregroundColor(theme.textSecondary)
                     .lineSpacing(2)
                     .textSelection(.enabled)
@@ -1496,14 +1496,14 @@ struct BriefingItem<Detail: View>: View {
 
     private var labelText: some View {
         Text(label)
-            .font(.system(size: 14, weight: .medium))
+            .font(.aero(size: 14, weight: .medium))
             .foregroundColor(theme.textSecondary)
             .fixedSize(horizontal: false, vertical: true)
     }
 
     private var valueText: some View {
         Text(value)
-            .font(.system(size: 14, weight: .semibold, design: .monospaced))
+            .font(.aero(size: 14, weight: .semibold, design: .monospaced))
             .foregroundColor(theme.textPrimary)
             .fixedSize(horizontal: false, vertical: true)
     }
@@ -1522,11 +1522,11 @@ struct EmergencyItem: View {
     var body: some View {
         HStack(alignment: .top, spacing: 8) {
             Image(systemName: "exclamationmark.triangle.fill")
-                .font(.system(size: 12))
+                .font(.aero(size: 12))
                 .foregroundColor(theme.danger)
             
             Text(text)
-                .font(.system(size: 14, weight: .medium))
+                .font(.aero(size: 14, weight: .medium))
                 .foregroundColor(theme.textPrimary)
         }
     }

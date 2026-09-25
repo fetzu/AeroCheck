@@ -200,11 +200,11 @@ struct FlightPlanMapBuilderView: View {
             let tint: Color = tripPrefetchFailed ? .aviationAmber : .aviationGold
             HStack(spacing: 10) {
                 Image(systemName: tripPrefetchFailed ? "exclamationmark.triangle" : "square.and.arrow.down")
-                    .font(.system(size: 15, weight: .semibold))
+                    .font(.aero(size: 15, weight: .semibold))
                     .foregroundColor(tint)
                 VStack(alignment: .leading, spacing: 1) {
                     Text(tripPrefetchFailed ? L10n.Nav.tripDataFailed : L10n.Nav.tripDataMissing)
-                        .font(.system(size: 13, weight: .semibold))
+                        .font(.aero(size: 13, weight: .semibold))
                         .foregroundColor(.primaryText)
                     // Countries AND size. The offer used to name the countries and stop there, which
                     // hid the fact that adding Germany means ~30 000 obstacle records while adding
@@ -213,7 +213,7 @@ struct FlightPlanMapBuilderView: View {
                     Text(tripPrefetchFailed
                          ? L10n.Nav.tripDataFailedDetail
                          : tripDetailLine(needed))
-                        .font(.system(size: 11))
+                        .font(.aero(size: 11))
                         .foregroundColor(.secondaryText)
                         .lineLimit(2)
                         .fixedSize(horizontal: false, vertical: true)
@@ -223,20 +223,20 @@ struct FlightPlanMapBuilderView: View {
                     HStack(spacing: 6) {
                         ProgressView().controlSize(.small)
                         Text(L10n.Nav.tripDataProgress(prefetchStep, prefetchTotal))
-                            .font(.system(size: 11, design: .monospaced))
+                            .font(.aero(size: 11, design: .monospaced))
                             .foregroundColor(.secondaryText)
                     }
                 } else {
                     Button(tripPrefetchFailed ? L10n.Button.retry : L10n.Settings.downloadData) {
                         Task { await prefetchTripData() }
                     }
-                    .font(.system(size: 13, weight: .semibold))
+                    .font(.aero(size: 13, weight: .semibold))
                     .foregroundColor(tint)
                     Button {
                         tripBannerDismissed = true
                     } label: {
                         Image(systemName: "xmark")
-                            .font(.system(size: 11, weight: .semibold))
+                            .font(.aero(size: 11, weight: .semibold))
                             .foregroundColor(.secondaryText)
                             .frame(width: 44, height: 44)
                             .contentShape(Rectangle())
@@ -477,7 +477,7 @@ struct FlightPlanMapBuilderView: View {
                 endpointField(.from)
                 Button { swapEndpoints() } label: {
                     Image(systemName: "arrow.left.arrow.right")
-                        .font(.system(size: 13, weight: .semibold))
+                        .font(.aero(size: 13, weight: .semibold))
                         .foregroundColor(waypoints.count >= 2 ? .secondaryText : .dimText.opacity(0.4))
                         .frame(width: 30, height: 30)
                 }
@@ -508,12 +508,12 @@ struct FlightPlanMapBuilderView: View {
     private func endpointField(_ slot: RouteEndpoint) -> some View {
         HStack(spacing: 6) {
             Text(slot == .from ? L10n.Nav.from : L10n.Nav.to)
-                .font(.system(size: 9, weight: .semibold)).tracking(0.4).foregroundColor(.dimText)
+                .font(.aero(size: 9, weight: .semibold)).tracking(0.4).foregroundColor(.dimText)
             TextField(slot == .from ? L10n.Nav.from : L10n.Nav.to,
                       text: slot == .from ? $fromText : $toText)
                 .textInputAutocapitalization(.characters)
                 .autocorrectionDisabled()
-                .font(.system(size: 14, weight: .semibold, design: .monospaced))
+                .font(.aero(size: 14, weight: .semibold, design: .monospaced))
                 .foregroundColor(slot == .from ? .aviationGreen : .aviationGold)
                 .focused($focusedEndpoint, equals: slot)
         }
@@ -528,17 +528,17 @@ struct FlightPlanMapBuilderView: View {
                 Button { onSelect(airport) } label: {
                     HStack(spacing: 10) {
                         Text(airport.ident)
-                            .font(.system(size: 14, weight: .bold, design: .monospaced))
+                            .font(.aero(size: 14, weight: .bold, design: .monospaced))
                             .foregroundColor(.aviationGold)
                             .frame(width: 58, alignment: .leading)
                         VStack(alignment: .leading, spacing: 1) {
                             Text(airport.name)
-                                .font(.system(size: 13))
+                                .font(.aero(size: 13))
                                 .foregroundColor(.primaryText)
                                 .lineLimit(1)
                             if let muni = airport.municipality, !muni.isEmpty, muni != airport.name {
                                 Text(muni)
-                                    .font(.system(size: 10))
+                                    .font(.aero(size: 10))
                                     .foregroundColor(.dimText)
                                     .lineLimit(1)
                             }
@@ -546,7 +546,7 @@ struct FlightPlanMapBuilderView: View {
                         Spacer(minLength: 6)
                         if let dist = distanceLabel(to: airport, from: reference) {
                             Text(dist)
-                                .font(.system(size: 11, weight: .medium, design: .monospaced))
+                                .font(.aero(size: 11, weight: .medium, design: .monospaced))
                                 .foregroundColor(.secondaryText)
                         }
                     }
@@ -705,7 +705,7 @@ struct FlightPlanMapBuilderView: View {
             }
         } label: {
             Image(systemName: selectedLayer.icon)
-                .font(.system(size: 16, weight: .semibold))
+                .font(.aero(size: 16, weight: .semibold))
                 .foregroundColor(.primaryText)
                 .frame(width: 44, height: 44)
                 .background(Color.panelBackground.opacity(0.92), in: Circle())
@@ -721,7 +721,7 @@ struct FlightPlanMapBuilderView: View {
             Toggle(L10n.DataStorage.obstaclesName, isOn: dataLayerBinding(\.showObstaclesOnMap))
         } label: {
             Image(systemName: "square.stack.3d.up")
-                .font(.system(size: 16, weight: .semibold))
+                .font(.aero(size: 16, weight: .semibold))
                 .foregroundColor(.primaryText)
                 .frame(width: 44, height: 44)
                 .background(Color.panelBackground.opacity(0.92), in: Circle())
@@ -732,7 +732,7 @@ struct FlightPlanMapBuilderView: View {
     private var fitRouteButton: some View {
         Button { fitRouteToken += 1 } label: {
             Image(systemName: "scope")
-                .font(.system(size: 16, weight: .semibold))
+                .font(.aero(size: 16, weight: .semibold))
                 .foregroundColor(.primaryText)
                 .frame(width: 44, height: 44)
                 .background(Color.panelBackground.opacity(0.92), in: Circle())
@@ -794,7 +794,7 @@ struct FlightPlanMapBuilderView: View {
                 Button { toggleProfileCollapsed() } label: {
                     HStack(spacing: 0) {
                         Text(L10n.Nav.routeProfileTitle.uppercased())
-                            .font(.system(size: 10, weight: .semibold)).tracking(0.6)
+                            .font(.aero(size: 10, weight: .semibold)).tracking(0.6)
                             .foregroundColor(.secondaryText)
                         Spacer(minLength: 0)
                     }
@@ -808,7 +808,7 @@ struct FlightPlanMapBuilderView: View {
                     // Resize the profile IN PLACE (no popup) — taller = easier to read / edit precisely.
                     Button { withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.22)) { profileExpanded.toggle() } } label: { // (UX-18)
                         Image(systemName: profileExpanded ? "arrow.down.right.and.arrow.up.left" : "arrow.up.left.and.arrow.down.right")
-                            .font(.system(size: 12, weight: .semibold))
+                            .font(.aero(size: 12, weight: .semibold))
                             .foregroundColor(.secondaryText)
                             .frame(width: 44, height: 44)
                             .contentShape(Rectangle())
@@ -817,7 +817,7 @@ struct FlightPlanMapBuilderView: View {
                     .accessibilityLabel(profileExpanded ? L10n.Nav.shrinkProfile : L10n.Nav.expandProfile)
                 }
                 Button { toggleProfileCollapsed() } label: {
-                    Image(systemName: profileCollapsed ? "chevron.up" : "chevron.down").font(.system(size: 12, weight: .bold))
+                    Image(systemName: profileCollapsed ? "chevron.up" : "chevron.down").font(.aero(size: 12, weight: .bold))
                         .foregroundColor(.secondaryText)
                         .frame(width: 44, height: 44)
                         .contentShape(Rectangle())
@@ -901,10 +901,10 @@ struct FlightPlanMapBuilderView: View {
             withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.15)) { rightTab = tab } // (UX-18)
         } label: {
             HStack(spacing: 6) {
-                Text(title).font(.system(size: 13, weight: .semibold))
+                Text(title).font(.aero(size: 13, weight: .semibold))
                 if let badge = badge {
                     Text(badge)
-                        .font(.system(size: 11, weight: .bold, design: .monospaced))
+                        .font(.aero(size: 11, weight: .bold, design: .monospaced))
                         .foregroundColor(selected ? .black : tint)
                         .padding(.horizontal, 6).padding(.vertical, 1)
                         .background(Capsule().fill(selected ? Color.black.opacity(0.18) : tint.opacity(0.18)))
@@ -940,8 +940,8 @@ struct FlightPlanMapBuilderView: View {
     private var clearStateView: some View {
         VStack(spacing: 12) {
             Spacer()
-            Image(systemName: "checkmark.shield.fill").font(.system(size: 36)).foregroundColor(.aviationGreen)
-            Text(L10n.Nav.noConflicts).font(.system(size: 13)).foregroundColor(.secondaryText)
+            Image(systemName: "checkmark.shield.fill").font(.aero(size: 36)).foregroundColor(.aviationGreen)
+            Text(L10n.Nav.noConflicts).font(.aero(size: 13)).foregroundColor(.secondaryText)
                 .multilineTextAlignment(.center)
             Spacer()
         }
@@ -968,10 +968,10 @@ struct FlightPlanMapBuilderView: View {
 
     private func notCheckedBlock(title: String, detail: String) -> some View {
         VStack(spacing: 12) {
-            Image(systemName: "exclamationmark.shield.fill").font(.system(size: 36)).foregroundColor(.aviationAmber)
-            Text(title).font(.system(size: 14, weight: .semibold)).foregroundColor(.primaryText)
+            Image(systemName: "exclamationmark.shield.fill").font(.aero(size: 36)).foregroundColor(.aviationAmber)
+            Text(title).font(.aero(size: 14, weight: .semibold)).foregroundColor(.primaryText)
                 .multilineTextAlignment(.center)
-            Text(detail).font(.system(size: 12)).foregroundColor(.secondaryText)
+            Text(detail).font(.aero(size: 12)).foregroundColor(.secondaryText)
                 .multilineTextAlignment(.center)
         }
         .accessibilityElement(children: .combine)
@@ -982,7 +982,7 @@ struct FlightPlanMapBuilderView: View {
     private func notCheckedBanner(_ text: String) -> some View {
         HStack(spacing: 8) {
             Image(systemName: "exclamationmark.shield.fill").foregroundColor(.aviationAmber)
-            Text(text).font(.system(size: 12, weight: .medium))
+            Text(text).font(.aero(size: 12, weight: .medium))
                 .foregroundColor(.secondaryText)
             Spacer()
         }
@@ -1109,14 +1109,14 @@ struct FlightPlanMapBuilderView: View {
             RoundedRectangle(cornerRadius: 2).fill(Color.aviationRed).frame(width: 4, height: 32)
             VStack(alignment: .leading, spacing: 2) {
                 Text(L10n.Nav.terrainProximity)
-                    .font(.system(size: 13, weight: .semibold)).foregroundColor(.primaryText)
+                    .font(.aero(size: 13, weight: .semibold)).foregroundColor(.primaryText)
                 Text(L10n.Nav.terrainProximityDetail)
-                    .font(.system(size: 10)).foregroundColor(.secondaryText).lineLimit(1)
+                    .font(.aero(size: 10)).foregroundColor(.secondaryText).lineLimit(1)
             }
             Spacer(minLength: 6)
             if let c = minTerrainClearanceFt {
                 Text("\(Int(c.rounded())) ft")
-                    .font(.system(size: 11, weight: .semibold, design: .monospaced))
+                    .font(.aero(size: 11, weight: .semibold, design: .monospaced))
                     .foregroundColor(.aviationRed)
             }
         }
@@ -1139,27 +1139,27 @@ struct FlightPlanMapBuilderView: View {
             VStack(alignment: .leading, spacing: 2) {
                 HStack(spacing: 6) {
                     Text(a.shortName)
-                        .font(.system(size: 13, weight: .semibold))
+                        .font(.aero(size: 13, weight: .semibold))
                         .foregroundColor(.primaryText).lineLimit(1)
                     if a.isRestrictive {
                         Text(a.airspaceType.displayName.uppercased())
-                            .font(.system(size: 8, weight: .bold))
+                            .font(.aero(size: 8, weight: .bold))
                             .foregroundColor(.aviationRed)
                             .padding(.horizontal, 4).padding(.vertical, 1)
                             .background(RoundedRectangle(cornerRadius: 3).fill(Color.aviationRed.opacity(0.18)))
                     }
                 }
                 Text(a.typeDisplayString)
-                    .font(.system(size: 10)).foregroundColor(.secondaryText).lineLimit(1)
+                    .font(.aero(size: 10)).foregroundColor(.secondaryText).lineLimit(1)
             }
             Spacer(minLength: 6)
             VStack(alignment: .trailing, spacing: 2) {
                 Text(a.altitudeRangeString)
-                    .font(.system(size: 10, design: .monospaced))
+                    .font(.aero(size: 10, design: .monospaced))
                     .foregroundColor(.dimText).lineLimit(1)
                 if let freq = a.primaryFrequency {
                     Text(freq.value)
-                        .font(.system(size: 11, weight: .semibold, design: .monospaced))
+                        .font(.aero(size: 11, weight: .semibold, design: .monospaced))
                         .foregroundColor(.aviationGold)
                 }
             }
@@ -1255,7 +1255,7 @@ struct FlightPlanMapBuilderView: View {
         HStack(spacing: 8) {
             if listEditMode == .active {
                 Text(L10n.Nav.dragToReorder)
-                    .font(.system(size: 10))
+                    .font(.aero(size: 10))
                     .foregroundColor(.dimText)
                     .lineLimit(1)
             }
@@ -1264,7 +1264,7 @@ struct FlightPlanMapBuilderView: View {
             if waypoints.count >= 3 {
                 Button { showSetAltitudes = true } label: {
                     Image(systemName: "arrow.up.and.down.text.horizontal")
-                        .font(.system(size: 13, weight: .semibold))
+                        .font(.aero(size: 13, weight: .semibold))
                         .foregroundColor(.aviationGold)
                         .frame(width: 30, height: 30)
                         .background(Circle().fill(Color.subtleOverlay(0.06)))
@@ -1278,7 +1278,7 @@ struct FlightPlanMapBuilderView: View {
                 }
             } label: {
                 Image(systemName: "arrow.up.arrow.down")
-                    .font(.system(size: 13, weight: .semibold))
+                    .font(.aero(size: 13, weight: .semibold))
                     .foregroundColor(listEditMode == .active ? .black : .aviationGold)
                     .frame(width: 30, height: 30)
                     .background(Circle().fill(listEditMode == .active ? Color.aviationGold : Color.subtleOverlay(0.06)))
@@ -1302,11 +1302,11 @@ struct FlightPlanMapBuilderView: View {
             HStack(spacing: 8) {
                 Image(systemName: "exclamationmark.triangle.fill").foregroundColor(.aviationAmber)
                 Text(L10n.Altitudes.banner)
-                    .font(.system(size: 12, weight: .medium))
+                    .font(.aero(size: 12, weight: .medium))
                     .foregroundColor(.secondaryText)
                 Spacer()
                 Text(L10n.Altitudes.bannerAction)
-                    .font(.system(size: 12, weight: .semibold))
+                    .font(.aero(size: 12, weight: .semibold))
                     .foregroundColor(.aviationGold)
             }
             .padding(.horizontal, 12).padding(.vertical, 8)
@@ -1321,9 +1321,9 @@ struct FlightPlanMapBuilderView: View {
     private var toolbarSummary: some View {
         HStack(spacing: 8) {
             metricInline("\(waypoints.count)", "WPT", .primaryText)
-            Text("·").font(.system(size: 12)).foregroundColor(.dimText)
+            Text("·").font(.aero(size: 12)).foregroundColor(.dimText)
             metricInline(String(format: "%.0f", plan?.totalDistance ?? 0), "NM", .altimeterBlue)
-            Text("·").font(.system(size: 12)).foregroundColor(.dimText)
+            Text("·").font(.aero(size: 12)).foregroundColor(.dimText)
             metricInline(plan?.formattedTotalEET ?? "0:00", "", .aviationGold)
         }
         .lineLimit(1)
@@ -1331,9 +1331,9 @@ struct FlightPlanMapBuilderView: View {
 
     private func metricInline(_ value: String, _ unit: String, _ color: Color) -> some View {
         HStack(spacing: 3) {
-            Text(value).font(.system(size: 15, weight: .bold, design: .monospaced)).foregroundColor(color)
+            Text(value).font(.aero(size: 15, weight: .bold, design: .monospaced)).foregroundColor(color)
             if !unit.isEmpty {
-                Text(unit).font(.system(size: 10, weight: .semibold)).foregroundColor(.secondaryText)
+                Text(unit).font(.aero(size: 10, weight: .semibold)).foregroundColor(.secondaryText)
             }
         }
     }
@@ -1342,10 +1342,10 @@ struct FlightPlanMapBuilderView: View {
         VStack(spacing: 14) {
             Spacer()
             Image(systemName: "hand.point.up.left")
-                .font(.system(size: 40))
+                .font(.aero(size: 40))
                 .foregroundColor(.dimText)
             Text("Search an ICAO above, or press and\nhold the map to drop a waypoint")
-                .font(.system(size: 14))
+                .font(.aero(size: 14))
                 .foregroundColor(.secondaryText)
                 .multilineTextAlignment(.center)
             Spacer()
@@ -1615,25 +1615,25 @@ private struct WaypointBuilderRow: View {
             Button(action: onTap) {
                 HStack(spacing: 12) {
                     Text("\(index + 1)")
-                        .font(.system(size: 13, weight: .bold, design: .monospaced))
+                        .font(.aero(size: 13, weight: .bold, design: .monospaced))
                         .foregroundColor(.black)
                         .frame(width: 26, height: 26)
                         .background(Circle().fill(Color.aviationGold))
 
                     VStack(alignment: .leading, spacing: 3) {
                         Text(waypoint.name.isEmpty ? "WPT\(index + 1)" : waypoint.name)
-                            .font(.system(size: 16, weight: .semibold))
+                            .font(.aero(size: 16, weight: .semibold))
                             .foregroundColor(.primaryText)
                             .lineLimit(1)
                         // Inline leg data to the NEXT waypoint (nil on the last waypoint).
                         if !isLast {
                             Text(legLine)
-                                .font(.system(size: 11, design: .monospaced))
+                                .font(.aero(size: 11, design: .monospaced))
                                 .foregroundColor(.dimText)
                                 .lineLimit(1)
                         } else {
                             Text("destination")
-                                .font(.system(size: 11))
+                                .font(.aero(size: 11))
                                 .foregroundColor(.dimText)
                         }
                     }
@@ -1651,13 +1651,13 @@ private struct WaypointBuilderRow: View {
                 TextField("ALT", text: $altitudeText)
                     .keyboardType(.numberPad)
                     .multilineTextAlignment(.trailing)
-                    .font(.system(size: 14, weight: .semibold, design: .monospaced))
+                    .font(.aero(size: 14, weight: .semibold, design: .monospaced))
                     .foregroundColor(.primaryText)
                     .frame(width: 52)
                     .focused($altitudeFocused)
                     .accessibilityLabel("Planned altitude in feet")
                 Text("ft")
-                    .font(.system(size: 11))
+                    .font(.aero(size: 11))
                     .foregroundColor(.secondaryText)
                     .accessibilityHidden(true)
             }
@@ -2473,7 +2473,7 @@ private struct RouteProfileView: View {
             let gy = g.plot.minY + g.plot.height * CGFloat(1 - frac)
             var line = Path(); line.move(to: CGPoint(x: g.plot.minX, y: gy)); line.addLine(to: CGPoint(x: g.plot.maxX, y: gy))
             ctx.stroke(line, with: .color(.white.opacity(0.06)), lineWidth: 0.5)
-            ctx.draw(Text(altLabel(g.yMax * frac)).font(.system(size: 8, design: .monospaced)).foregroundColor(.dimText),
+            ctx.draw(Text(altLabel(g.yMax * frac)).font(.aero(size: 8, design: .monospaced)).foregroundColor(.dimText),
                      at: CGPoint(x: leftPad - 4, y: gy), anchor: .trailing)
         }
 
@@ -2536,7 +2536,7 @@ private struct RouteProfileView: View {
         for (i, nm) in g.prof.cumNM.enumerated() where i < waypoints.count {
             let name = waypoints[i].name.isEmpty ? "WPT\(i + 1)" : waypoints[i].name
             let color: Color = i == 0 ? .aviationGreen : (i == g.prof.cumNM.count - 1 ? .aviationGold : .secondaryText)
-            ctx.draw(Text(name).font(.system(size: 8, design: .monospaced)).foregroundColor(color),
+            ctx.draw(Text(name).font(.aero(size: 8, design: .monospaced)).foregroundColor(color),
                      at: CGPoint(x: g.px(nm), y: g.size.height - 5), anchor: .center)
         }
 
@@ -2591,7 +2591,7 @@ private struct RouteProfileView: View {
 
     private func drawReadout(_ ctx: GraphicsContext, g: Geometry, at p: CGPoint, altitude a: Double) {
         let resolved = ctx.resolve(Text(altLabel(a) + (a >= 10000 ? "" : " ft"))
-            .font(.system(size: 10, weight: .bold, design: .monospaced)).foregroundColor(.black))
+            .font(.aero(size: 10, weight: .bold, design: .monospaced)).foregroundColor(.black))
         let sz = resolved.measure(in: CGSize(width: 140, height: 30))
         let cx = min(max(p.x, g.plot.minX + sz.width / 2 + 8), g.plot.maxX - sz.width / 2 - 8)
         let cy = (p.y - 16 < g.plot.minY + 10) ? p.y + 18 : p.y - 16

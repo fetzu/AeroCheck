@@ -162,11 +162,11 @@ struct NavigationMapsSettingsView: View {
             if showOpenAIPOverlay && !openAIPDataService.isDataAvailable && !openAIPDataService.isDownloading {
                 HStack(alignment: .top, spacing: 8) {
                     Image(systemName: "exclamationmark.triangle.fill")
-                        .font(.footnote)
+                        .font(.aero(.footnote))
                         .foregroundColor(.orange)
                         .accessibilityHidden(true)
                     Text(L10n.Settings.airspaceNoDataHint)
-                        .font(.caption)
+                        .font(.aero(.caption))
                         .foregroundColor(.secondaryText)
                         .fixedSize(horizontal: false, vertical: true)
                 }
@@ -199,7 +199,7 @@ struct NavigationMapsSettingsView: View {
                         ProgressView()
                             .scaleEffect(0.8)
                         Text(L10n.Settings.downloadingAirspaceData)
-                            .font(.body)
+                            .font(.aero(.body))
                     }
                     ProgressView(value: openAIPDataService.downloadProgress)
                         .tint(.aviationGold)
@@ -211,17 +211,17 @@ struct NavigationMapsSettingsView: View {
                 HStack {
                     VStack(alignment: .leading, spacing: 4) {
                         Text(L10n.Settings.airspacesLoaded(openAIPDataService.airspaceCount))
-                            .font(.body)
+                            .font(.aero(.body))
                         if !openAIPDataService.downloadedCountries.isEmpty {
                             Text(openAIPDataService.downloadedCountries
                                 .map { OpenAIPConfig.countryName(for: $0) }
                                 .joined(separator: ", "))
-                                .font(.caption)
+                                .font(.aero(.caption))
                                 .foregroundColor(.secondary)
                         }
                         if let lastUpdate = openAIPDataService.lastUpdated {
                             Text(L10n.Settings.updatedDate(formatAirportDate(lastUpdate)))
-                                .font(.caption)
+                                .font(.aero(.caption))
                                 .foregroundColor(.secondary)
                         }
                     }
@@ -255,7 +255,7 @@ struct NavigationMapsSettingsView: View {
                     Image(systemName: "exclamationmark.triangle.fill")
                         .foregroundColor(.aviationRed)
                     Text(error)
-                        .font(.caption)
+                        .font(.aero(.caption))
                         .foregroundColor(.aviationRed)
                 }
                 .padding(.horizontal, 14)
@@ -276,7 +276,7 @@ struct NavigationMapsSettingsView: View {
                         ProgressView()
                             .scaleEffect(0.8)
                         Text(L10n.Settings.downloadingAirports)
-                            .font(.body)
+                            .font(.aero(.body))
                     }
                     ProgressView(value: airportDataService.downloadProgress)
                         .tint(.aviationGold)
@@ -288,10 +288,10 @@ struct NavigationMapsSettingsView: View {
                 HStack {
                     VStack(alignment: .leading, spacing: 4) {
                         Text(L10n.Settings.airportsLoaded(airportDataService.airportCount))
-                            .font(.body)
+                            .font(.aero(.body))
                         if let lastUpdate = airportDataService.lastUpdated {
                             Text(L10n.Settings.lastUpdatedDate(formatAirportDate(lastUpdate)))
-                                .font(.caption)
+                                .font(.aero(.caption))
                                 .foregroundColor(.secondary)
                         }
                     }
@@ -327,7 +327,7 @@ struct NavigationMapsSettingsView: View {
                     Image(systemName: "exclamationmark.triangle.fill")
                         .foregroundColor(.aviationRed)
                     Text(error)
-                        .font(.caption)
+                        .font(.aero(.caption))
                         .foregroundColor(.aviationRed)
                 }
                 .padding(.horizontal, 14)

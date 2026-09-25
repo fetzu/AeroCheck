@@ -147,6 +147,9 @@ struct AboutSettingsView: View {
             // rather than obligation — but the bundled borders decide which countries a trip prefetch
             // offers, and a pilot should be able to see where that answer comes from. (v4.4.0)
             dataSourceRow(name: "Natural Earth", detail: L10n.DataStorage.sourceBorders, url: "https://www.naturalearthdata.com")
+            // The typeface's licence (SIL OFL 1.1) asks for its copyright notice to travel with it; the
+            // full text is bundled as OFL-B612.txt. (v6.0)
+            dataSourceRow(name: "B612", detail: L10n.DataStorage.sourceTypeface, url: "https://github.com/polarsys/b612")
         }
     }
 
@@ -163,12 +166,12 @@ struct AboutSettingsView: View {
             SettingsRowLabel(icon: "info.circle", title: L10n.Settings.appVersion, tint: tint)
             HStack(spacing: 4) {
                 Text(appVersion)
-                    .font(.subheadline.weight(.medium))
+                    .font(.aero(.subheadline).weight(.medium))
                     .foregroundColor(.secondaryText)
                     .textSelection(.enabled)
                 if !showDeveloperOptions {
                     Image(systemName: "arrow.up.forward.square")
-                        .font(.caption)
+                        .font(.aero(.caption))
                         .foregroundColor(.secondaryText)
                         .onTapGesture {
                             openURL(URL(string: "https://aerocheck.app/changelog")!)
@@ -198,7 +201,7 @@ struct AboutSettingsView: View {
                 Image(systemName: "chevron.left.forwardslash.chevron.right")
                     .foregroundColor(.primary)
                 Text(L10n.Settings.openSource)
-                    .font(.headline)
+                    .font(.aero(.headline))
             }
 
             Button {
@@ -206,9 +209,9 @@ struct AboutSettingsView: View {
             } label: {
                 HStack(spacing: 2) {
                     Text(L10n.Settings.openSourceDescription)
-                        .font(.subheadline)
+                        .font(.aero(.subheadline))
                     Image(systemName: "arrow.up.forward.square")
-                        .font(.caption2)
+                        .font(.aero(.caption2))
                 }
                 .foregroundColor(.secondary)
             }
@@ -219,9 +222,9 @@ struct AboutSettingsView: View {
             } label: {
                 HStack(spacing: 2) {
                     Text(L10n.Settings.mitLicense)
-                        .font(.subheadline)
+                        .font(.aero(.subheadline))
                     Image(systemName: "arrow.up.forward.square")
-                        .font(.caption2)
+                        .font(.aero(.caption2))
                 }
                 .foregroundColor(.secondary)
             }

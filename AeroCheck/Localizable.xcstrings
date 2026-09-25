@@ -1,6 +1,23 @@
 {
   "sourceLanguage": "en",
   "strings": {
+    "dataStorage.source.typeface": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Typeface by Airbus, © The B612 Project Authors, SIL Open Font License 1.1"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Police de caractères d'Airbus, © The B612 Project Authors, licence SIL Open Font 1.1"
+          }
+        }
+      }
+    },
     "settings.checklist.memoryTest": {
       "extractionState": "manual",
       "localizations": {

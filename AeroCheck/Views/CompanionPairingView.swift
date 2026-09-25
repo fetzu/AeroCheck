@@ -61,7 +61,7 @@ struct CompanionPairingView: View {
     /// A tinted rounded-square companion icon (cockpit language).
     private func companionIcon(_ name: String) -> some View {
         Image(systemName: name)
-            .font(.system(size: 40))
+            .font(.aero(size: 40))
             .foregroundColor(.aviationGold)
             .frame(width: 88, height: 88)
             .background(RoundedRectangle(cornerRadius: 24).fill(Color.aviationGold.opacity(0.14)))
@@ -71,7 +71,7 @@ struct CompanionPairingView: View {
     /// "Wi-Fi Aware · iOS 26+" footnote shown under the pairing prompts.
     private var wifiAwareFootnote: some View {
         Label(L10n.Companion.wifiAwareRequirement, systemImage: "wifi")
-            .font(.caption)
+            .font(.aero(.caption))
             .foregroundColor(.dimText)
     }
 
@@ -83,7 +83,7 @@ struct CompanionPairingView: View {
             Image(systemName: icon)
             Text(title)
         }
-        .font(.body.weight(.semibold))
+        .font(.aero(.body).weight(.semibold))
         .foregroundColor(.black)
         .padding(.horizontal, 24)
         .padding(.vertical, 14)
@@ -103,11 +103,11 @@ struct CompanionPairingView: View {
             companionIcon("antenna.radiowaves.left.and.right")
 
             Text(L10n.Companion.pairWithiPhone)
-                .font(.title3.weight(.semibold))
+                .font(.aero(.title3).weight(.semibold))
                 .foregroundColor(.primaryText)
 
             Text(L10n.Companion.pairBothDevices)
-                .font(.subheadline)
+                .font(.aero(.subheadline))
                 .foregroundColor(.secondaryText)
                 .multilineTextAlignment(.center)
                 .padding(.horizontal, 40)
@@ -142,11 +142,11 @@ struct CompanionPairingView: View {
             companionIcon("ipad.and.iphone")
 
             Text(L10n.Companion.pairWithiPad)
-                .font(.title3.weight(.semibold))
+                .font(.aero(.title3).weight(.semibold))
                 .foregroundColor(.primaryText)
 
             Text(L10n.Companion.pairBothDevices)
-                .font(.subheadline)
+                .font(.aero(.subheadline))
                 .foregroundColor(.secondaryText)
                 .multilineTextAlignment(.center)
                 .padding(.horizontal, 40)
@@ -183,15 +183,15 @@ struct CompanionPairingView: View {
             Spacer()
 
             Image(systemName: "wifi.exclamationmark")
-                .font(.system(size: 50))
+                .font(.aero(size: 50))
                 .foregroundColor(.secondaryText)
 
             Text(L10n.Companion.wifiAwareUnavailable)
-                .font(.headline)
+                .font(.aero(.headline))
                 .foregroundColor(.primaryText)
 
             Text(L10n.Companion.wifiAwareRequirement)
-                .font(.subheadline)
+                .font(.aero(.subheadline))
                 .foregroundColor(.secondaryText)
                 .multilineTextAlignment(.center)
                 .padding(.horizontal, 40)

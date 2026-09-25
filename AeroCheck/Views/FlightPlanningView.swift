@@ -444,7 +444,7 @@ struct FlightPlanningView: View {
                 Circle().fill(tint).frame(width: 6, height: 6)
             }
             Text(title)
-                .font(.caption.weight(.semibold))
+                .font(.aero(.caption).weight(.semibold))
                 .tracking(0.6)
                 .foregroundColor(tint)
             Spacer()
@@ -561,7 +561,7 @@ struct FlightPlanRow: View {
             VStack(alignment: .leading, spacing: 5) {
                 // Custom name as a small caption — only when it differs from the route.
                 if !plan.name.isEmpty && plan.name != routeEndpoints {
-                    Text(plan.name).font(.caption2).foregroundColor(.dimText).lineLimit(1)
+                    Text(plan.name).font(.aero(.caption2)).foregroundColor(.dimText).lineLimit(1)
                 }
                 // Hero: the route endpoints.
                 HStack(spacing: 6) {
@@ -571,7 +571,7 @@ struct FlightPlanRow: View {
                         .lineLimit(1).minimumScaleFactor(0.7)
                     if isActive {
                         Text(L10n.Nav.active)
-                            .font(.caption2.weight(.bold)).foregroundColor(.black)
+                            .font(.aero(.caption2).weight(.bold)).foregroundColor(.black)
                             .padding(.horizontal, 6).padding(.vertical, 1)
                             .background(RoundedRectangle(cornerRadius: 5).fill(Color.aviationGreen))
                     }
@@ -585,7 +585,7 @@ struct FlightPlanRow: View {
                         metric("mappin.and.ellipse", "\(plan.waypoints.count)")
                     }
                 } else {
-                    Text(L10n.Nav.tapToBuild).font(.caption).foregroundColor(.aviationGold.opacity(0.85))
+                    Text(L10n.Nav.tapToBuild).font(.aero(.caption)).foregroundColor(.aviationGold.opacity(0.85))
                 }
                 // Metadata: aircraft · recency (muted).
                 HStack(spacing: 5) {
@@ -758,7 +758,7 @@ struct ActiveFlightPlanRow: View {
         VStack(alignment: .leading, spacing: 12) {
             HStack {
                 Text(plan.name.isEmpty ? L10n.Nav.unnamedPlan : plan.name)
-                    .font(.headline)
+                    .font(.aero(.headline))
                     .foregroundColor(.primaryText)
                 Spacer()
                 Text(plan.aircraftRegistration)
@@ -770,7 +770,7 @@ struct ActiveFlightPlanRow: View {
                 VStack(alignment: .leading, spacing: 6) {
                     HStack {
                         Text(L10n.Nav.progress)
-                            .font(.caption)
+                            .font(.aero(.caption))
                             .foregroundColor(.secondaryText)
                         Spacer()
                         Text("\(plan.currentWaypointIndex)/\(plan.waypoints.count)")

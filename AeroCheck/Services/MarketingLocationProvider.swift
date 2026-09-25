@@ -1124,7 +1124,7 @@ struct MarketingControlsView: View {
                 // Header
                 HStack {
                     Text("MARKETING MODE")
-                        .font(.system(size: 12, weight: .bold))
+                        .font(.aero(size: 12, weight: .bold))
                         .foregroundColor(.white)
                     Spacer()
 
@@ -1142,7 +1142,7 @@ struct MarketingControlsView: View {
                 VStack(spacing: 6) {
                     HStack {
                         Text("SCENE INJECTOR")
-                            .font(.system(size: 10, weight: .bold))
+                            .font(.aero(size: 10, weight: .bold))
                             .foregroundColor(.aviationGold)
                         Spacer()
                     }
@@ -1154,7 +1154,7 @@ struct MarketingControlsView: View {
                     .pickerStyle(MenuPickerStyle())
 
                     Text(selectedScene.detail)
-                        .font(.system(size: 9))
+                        .font(.aero(size: 9))
                         .foregroundColor(.white.opacity(0.6))
                         .frame(maxWidth: .infinity, alignment: .leading)
 
@@ -1167,7 +1167,7 @@ struct MarketingControlsView: View {
 
                     if let lastInjected {
                         Text(lastInjected)
-                            .font(.system(size: 9, design: .monospaced))
+                            .font(.aero(size: 9, design: .monospaced))
                             .foregroundColor(.green)
                             .frame(maxWidth: .infinity, alignment: .leading)
                     }
@@ -1189,7 +1189,7 @@ struct MarketingControlsView: View {
                 VStack(spacing: 4) {
                     HStack {
                         Text("Speed: \(String(format: "%.1fx", provider.playbackSpeed))")
-                            .font(.system(size: 11))
+                            .font(.aero(size: 11))
                             .foregroundColor(.white.opacity(0.8))
                         Spacer()
                     }
@@ -1212,7 +1212,7 @@ struct MarketingControlsView: View {
                         }
                     }) {
                         Image(systemName: provider.isActive && !provider.isPaused && !provider.useCustomPosition ? "pause.fill" : "play.fill")
-                            .font(.system(size: 24))
+                            .font(.aero(size: 24))
                     }
 
                     Button(action: { provider.nextWaypoint() }) {
@@ -1239,7 +1239,7 @@ struct MarketingControlsView: View {
                             Text("Mode: Custom Position")
                         }
                     }
-                    .font(.system(size: 10, design: .monospaced))
+                    .font(.aero(size: 10, design: .monospaced))
                     .foregroundColor(.white.opacity(0.8))
                     .padding(.horizontal)
                 }
@@ -1312,7 +1312,7 @@ struct MarketingControlsView: View {
                         .buttonStyle(.bordered)
                     }
                     .padding(.horizontal)
-                    .font(.system(size: 12))
+                    .font(.aero(size: 12))
                     .foregroundColor(.white)
                 }
             }

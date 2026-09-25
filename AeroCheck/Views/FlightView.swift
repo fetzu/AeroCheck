@@ -247,7 +247,7 @@ struct FlightView: View {
 
             Button(action: { showPhaseSelector = true }) {
                 Text(appState.currentPhase.shortTitle)
-                    .font(.system(size: 13, weight: .bold))
+                    .font(.aero(size: 13, weight: .bold))
                     .foregroundColor(phaseBadgeColor)
                     .padding(.horizontal, 10)
                     .padding(.vertical, 4)
@@ -266,7 +266,7 @@ struct FlightView: View {
 
             if companionConnectivityManager.connectionState == .connected {
                 HStack(spacing: 4) {
-                    Image(systemName: "iphone").font(.system(size: 12))
+                    Image(systemName: "iphone").font(.aero(size: 12))
                     StatusIndicator(.active, size: 8)
                 }
                 .foregroundColor(theme.onTarget)
@@ -275,7 +275,7 @@ struct FlightView: View {
             // Flight timer — just the elapsed clock (no status dot; GPS status is its own indicator).
             FlightDurationText(
                 startTime: appState.engineStartTime ?? appState.currentFlight?.startTime,
-                font: .system(size: 18, weight: .bold, design: .monospaced),
+                font: .aero(size: 18, weight: .bold, design: .monospaced),
                 color: theme.textPrimary
             )
 
@@ -285,9 +285,9 @@ struct FlightView: View {
             Button(action: { openReference(.gps) }) {
                 HStack(spacing: 4) {
                     Image(systemName: "location.fill")
-                        .font(.system(size: 12))
+                        .font(.aero(size: 12))
                     Text(gpsSourceLabel)
-                        .font(.system(size: 13, weight: .semibold))
+                        .font(.aero(size: 13, weight: .semibold))
                 }
                 .foregroundColor(gpsStatusColor)
             }
@@ -299,7 +299,7 @@ struct FlightView: View {
             // Flight details / options (consolidates the GPS/points/times panel)
             Button(action: { showFlightInfo = true }) {
                 Image(systemName: "gearshape")
-                    .font(.system(size: 18))
+                    .font(.aero(size: 18))
                     .foregroundColor(theme.textSecondary)
             }
             .frame(minWidth: 44, minHeight: 44)
@@ -747,7 +747,7 @@ struct FlightView: View {
                     Image(systemName: "arrow.triangle.2.circlepath")
                     Text(due ? L10n.Nav.checkNow : cruiseTimeText(remaining)).monospacedDigit()
                 }
-                .font(.system(size: 20, weight: .bold))
+                .font(.aero(size: 20, weight: .bold))
                 .foregroundColor(colors.label)
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 18)
@@ -806,7 +806,7 @@ struct FlightView: View {
                     Image(systemName: "flag.checkered")
                     Text(L10n.Button.end)
                 }
-                .font(.system(size: 20, weight: .bold))
+                .font(.aero(size: 20, weight: .bold))
                 .foregroundColor(.white)
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 18)
@@ -827,7 +827,7 @@ struct FlightView: View {
                     Text(L10n.Button.next)
                     Image(systemName: "chevron.right")
                 }
-                .font(.system(size: 20, weight: .bold))
+                .font(.aero(size: 20, weight: .bold))
                 // Greyed (but still tappable) until the checklist is complete; full gold when ready.
                 .foregroundColor(nextButtonReady ? .black : theme.textSecondary)
                 .frame(maxWidth: .infinity)
@@ -1069,9 +1069,9 @@ struct FlightView: View {
     private func quickEventButton(title: String, systemImage: String, tint: Color, action: @escaping () -> Void) -> some View {
         Button(action: action) {
             VStack(spacing: 2) {
-                Image(systemName: systemImage).font(.system(size: 18, weight: .bold))
+                Image(systemName: systemImage).font(.aero(size: 18, weight: .bold))
                 Text(title)
-                    .font(.system(size: 12, weight: .bold))
+                    .font(.aero(size: 12, weight: .bold))
                     .lineLimit(1)
                     .minimumScaleFactor(0.7)
             }
@@ -1102,7 +1102,7 @@ struct FlightView: View {
                 }
                 Text("]").foregroundColor(theme.textDim)
             }
-            .font(.system(size: 12, weight: .semibold))
+            .font(.aero(size: 12, weight: .semibold))
             .foregroundColor(theme.textSecondary)
             .accessibilityElement(children: .combine)
             .accessibilityLabel("\(flight.touchAndGoCount) touch and go, \(flight.goAroundCount) go around")
@@ -1392,7 +1392,7 @@ struct FlightView: View {
 
             Button(action: { showPhaseSelector = true }) {
                 Text(appState.currentPhase.shortTitle)
-                    .font(.system(size: 12, weight: .bold))
+                    .font(.aero(size: 12, weight: .bold))
                     .lineLimit(2)                 // hard cap: never more than 2 lines (iPhone requirement)
                     .minimumScaleFactor(0.5)      // shrink the text to fit 2 lines rather than wrap further
                     .multilineTextAlignment(.center)
@@ -1404,7 +1404,7 @@ struct FlightView: View {
             .frame(minHeight: 44)
             .contentShape(Rectangle())
             Text("\(appState.currentPhase.rawValue + 1)/\(ChecklistPhase.allCases.count)")
-                .font(.system(size: 12))
+                .font(.aero(size: 12))
                 .foregroundColor(theme.textSecondary)
 
             circuitCounterChip
@@ -1413,7 +1413,7 @@ struct FlightView: View {
 
             FlightDurationText(
                 startTime: appState.engineStartTime ?? appState.currentFlight?.startTime,
-                font: .system(size: 16, weight: .bold, design: .monospaced),
+                font: .aero(size: 16, weight: .bold, design: .monospaced),
                 color: theme.textPrimary
             )
             .lineLimit(1)
@@ -1423,7 +1423,7 @@ struct FlightView: View {
             // row; still a button that opens the GPS reference. (v4.0.0 review iPhone HUD fix)
             Button(action: { openReference(.gps) }) {
                 Image(systemName: "location.fill")
-                    .font(.system(size: 14))
+                    .font(.aero(size: 14))
                     .foregroundColor(gpsStatusColor)
             }
             .frame(minWidth: 36, minHeight: 44)
@@ -1432,7 +1432,7 @@ struct FlightView: View {
 
             Button(action: { showFlightInfo = true }) {
                 Image(systemName: "gearshape")
-                    .font(.system(size: 17))
+                    .font(.aero(size: 17))
                     .foregroundColor(theme.textSecondary)
             }
             .frame(minWidth: 44, minHeight: 44)
@@ -1474,10 +1474,10 @@ struct FlightView: View {
         Button(action: action) {
             VStack(spacing: 3) {
                 Image(systemName: icon)
-                    .font(.system(size: 18))
+                    .font(.aero(size: 18))
                     .foregroundColor(theme.info)
                 Text(title)
-                    .font(.system(size: 11, weight: .medium))
+                    .font(.aero(size: 11, weight: .medium))
                     .foregroundColor(theme.textPrimary)
             }
             .frame(maxWidth: .infinity)
@@ -1580,14 +1580,14 @@ struct FlightView: View {
                 }
 
                 Image(systemName: "airplane")
-                    .font(.system(size: iconSize))
+                    .font(.aero(size: iconSize))
                     .foregroundColor(abandonFlightProgress > 0 ? theme.danger : theme.action)
             }
             .frame(width: iconSize + (isCompact ? 8 : 12), height: iconSize + (isCompact ? 8 : 12))
 
             HStack(spacing: 4) {
                 Text(appState.activeChecklist.registration)
-                    .font(isCompact ? .system(size: 14, weight: .semibold) : .headerText)
+                    .font(isCompact ? .aero(size: 14, weight: .semibold) : .headerText)
                     .foregroundColor(abandonFlightProgress > 0 ? theme.danger : theme.textPrimary)
                     .lineLimit(1)
                     .minimumScaleFactor(0.7)   // never wrap the registration; shrink slightly if tight
@@ -1595,7 +1595,7 @@ struct FlightView: View {
                 // Circuit mode indicator
                 if appState.isCircuitMode {
                     Text(L10n.Flight.forCircuits)
-                        .font(isCompact ? .system(size: 11, weight: .medium) : .system(size: 13, weight: .medium))
+                        .font(isCompact ? .aero(size: 11, weight: .medium) : .aero(size: 13, weight: .medium))
                         .foregroundColor(theme.warning)
                         .lineLimit(1)
                 }
@@ -1721,9 +1721,9 @@ struct FlightView: View {
             .overlay(alignment: .topTrailing) {
                 // Affordance chip: signals the tile is tappable → full map.
                 HStack(spacing: 4) {
-                    Image(systemName: "map.fill").font(.system(size: 9))
-                    Text(L10n.Button.nav).font(.system(size: 11, weight: .semibold))
-                    Image(systemName: "arrow.up.left.and.arrow.down.right").font(.system(size: 9))
+                    Image(systemName: "map.fill").font(.aero(size: 9))
+                    Text(L10n.Button.nav).font(.aero(size: 11, weight: .semibold))
+                    Image(systemName: "arrow.up.left.and.arrow.down.right").font(.aero(size: 9))
                 }
                 .foregroundColor(theme.textPrimary)
                 .padding(.horizontal, 8)
@@ -1776,13 +1776,13 @@ struct FlightView: View {
     private var hudNearestStrip: some View {
         if let text = nearestFreqText {
             HStack(spacing: 6) {
-                Image(systemName: "antenna.radiowaves.left.and.right").font(.system(size: 11))
-                Text("NEAREST").font(.system(size: 11, weight: .semibold))
+                Image(systemName: "antenna.radiowaves.left.and.right").font(.aero(size: 11))
+                Text("NEAREST").font(.aero(size: 11, weight: .semibold))
                 Spacer(minLength: 8)
-                Text(text).font(.system(size: 13, weight: .bold, design: .monospaced))
+                Text(text).font(.aero(size: 13, weight: .bold, design: .monospaced))
                 if flightPlanManager.activeFlightPlan != nil {
                     Image(systemName: "arrow.triangle.turn.up.right.diamond.fill")
-                        .font(.system(size: 13))
+                        .font(.aero(size: 13))
                         .foregroundColor(theme.action)
                 }
             }
@@ -1935,7 +1935,7 @@ struct PhaseProgressBar: View {
                 .overlay {
                     if phase == loopMiddle {
                         Image(systemName: "arrow.triangle.2.circlepath")
-                            .font(.system(size: 9, weight: .bold))
+                            .font(.aero(size: 9, weight: .bold))
                             .foregroundColor(theme.info)
                             .padding(.horizontal, 3)
                             .background(theme.panel)
@@ -2143,7 +2143,7 @@ struct CompactSpeedView: View {
             // Speed type label. Always ground speed — the app has no airspeed source.
             VStack(alignment: .trailing, spacing: 2) {
                 Text(L10n.Speed.gs)
-                    .font(.system(size: 9, weight: .bold))
+                    .font(.aero(size: 9, weight: .bold))
                     .foregroundColor(theme.textDim)
             }
 
@@ -2156,12 +2156,12 @@ struct CompactSpeedView: View {
                                 // Live airspeed is primary flight data — give it the largest, heaviest type
                                 // in the in-flight bar so it's the glance focal point. (UX-15)
                                 Text("\(Int(max(0, displaySpeed)))")
-                                    .font(.system(size: 30, weight: .heavy, design: .monospaced))
+                                    .font(.aero(size: 30, weight: .heavy, design: .monospaced))
                                     .foregroundColor(textColor)
                                     .minimumScaleFactor(0.6)
                                     .lineLimit(1)
                                 Text(L10n.Unit.kt)
-                                    .font(.system(size: 13, weight: .semibold))
+                                    .font(.aero(size: 13, weight: .semibold))
                                     .foregroundColor(textColor.opacity(0.8))
                             }
                         }
@@ -2197,13 +2197,13 @@ struct CompactSpeedView: View {
             // Target indicator (always shown)
             VStack(alignment: .leading, spacing: 2) {
                 Text(L10n.Speed.tgt)
-                    .font(.system(size: 9, weight: .medium))
+                    .font(.aero(size: 9, weight: .medium))
                     .foregroundColor(theme.textDim)
                 HStack(spacing: 2) {
                     Image(systemName: targetIcon)
-                        .font(.system(size: 10))
+                        .font(.aero(size: 10))
                     Text("\(targetSpeed)")
-                        .font(.system(size: 12, weight: .medium, design: .monospaced))
+                        .font(.aero(size: 12, weight: .medium, design: .monospaced))
                 }
                 .foregroundColor(theme.textSecondary)
             }
@@ -2413,19 +2413,19 @@ struct HoldToConfirmButton: View {
             RoundedRectangle(cornerRadius: 12).strokeBorder(tint, lineWidth: 2)
 
             HStack(spacing: 8) {
-                Image(systemName: systemImage).font(.system(size: 16, weight: .bold))
+                Image(systemName: systemImage).font(.aero(size: 16, weight: .bold))
                 VStack(alignment: .leading, spacing: 0) {
                     Text(title)
-                        .font(.system(size: 14, weight: .bold))
+                        .font(.aero(size: 14, weight: .bold))
                         .lineLimit(1)
                         .minimumScaleFactor(0.7)
                     Text(L10n.ChecklistAction.holdToConfirm)
-                        .font(.system(size: 9, weight: .semibold))
+                        .font(.aero(size: 9, weight: .semibold))
                         .foregroundColor(theme.textSecondary)
                 }
                 if count > 0 {
                     Spacer(minLength: 4)
-                    Text("\(count)").font(.system(size: 17, weight: .heavy, design: .monospaced))
+                    Text("\(count)").font(.aero(size: 17, weight: .heavy, design: .monospaced))
                 }
             }
             .foregroundColor(theme.textPrimary)
@@ -2474,16 +2474,16 @@ struct PhaseContextTile: View {
         Button(action: action) {
             VStack(spacing: 4) {
                 Image(systemName: systemImage)
-                    .font(.system(size: 18))
+                    .font(.aero(size: 18))
                     .foregroundColor(resolvedTint)
                 Text(title)
-                    .font(.system(size: 12, weight: .semibold))
+                    .font(.aero(size: 12, weight: .semibold))
                     .foregroundColor(resolvedTint)
                     .lineLimit(1)
                     .minimumScaleFactor(0.7)
                 if let value {
                     Text(value)
-                        .font(.system(size: 16, weight: .bold, design: .monospaced))
+                        .font(.aero(size: 16, weight: .bold, design: .monospaced))
                         .foregroundColor(theme.textPrimary)
                 }
             }
@@ -2563,7 +2563,7 @@ struct FlightInfoSheet: View {
                     settingsCard(title: "Options") {
                         VStack(alignment: .leading, spacing: 8) {
                             Text(L10n.Settings.theme)
-                                .font(.system(size: 15))
+                                .font(.aero(size: 15))
                                 .foregroundColor(theme.textPrimary)
                             Picker(L10n.Settings.theme, selection: Binding(
                                 get: { appState.settings.themePreference },
@@ -2606,10 +2606,10 @@ struct FlightInfoSheet: View {
                         } else {
                             HStack(spacing: 8) {
                                 Image(systemName: "ipad.and.iphone")
-                                    .font(.system(size: 13))
+                                    .font(.aero(size: 13))
                                     .foregroundColor(theme.textDim)
                                 Text(L10n.Companion.pairInSettings)
-                                    .font(.system(size: 13))
+                                    .font(.aero(size: 13))
                                     .foregroundColor(theme.textSecondary)
                                 Spacer(minLength: 0)
                             }
@@ -2619,25 +2619,25 @@ struct FlightInfoSheet: View {
                     settingsCard(title: L10n.GPS.status) {
                         HStack(spacing: 10) {
                             Image(systemName: "location.fill").foregroundColor(gpsStatusColor)
-                            Text(L10n.GPS.signal).font(.system(size: 15)).foregroundColor(theme.textPrimary)
+                            Text(L10n.GPS.signal).font(.aero(size: 15)).foregroundColor(theme.textPrimary)
                             Spacer()
-                            Text(gpsStatusText).font(.system(size: 15, weight: .semibold)).foregroundColor(gpsStatusColor)
+                            Text(gpsStatusText).font(.aero(size: 15, weight: .semibold)).foregroundColor(gpsStatusColor)
                         }
                         rowDivider
                         HStack(spacing: 10) {
                             Image(systemName: "point.topleft.down.to.point.bottomright.curvepath.fill")
                                 .foregroundColor(.aviationBlue)
-                            Text(L10n.GPS.pointsRecorded).font(.system(size: 15)).foregroundColor(theme.textPrimary)
+                            Text(L10n.GPS.pointsRecorded).font(.aero(size: 15)).foregroundColor(theme.textPrimary)
                             Spacer()
                             Text("\(appState.currentFlight?.gpsTrack.count ?? 0)")
-                                .font(.system(size: 15, design: .monospaced)).foregroundColor(theme.textSecondary)
+                                .font(.aero(size: 15, design: .monospaced)).foregroundColor(theme.textSecondary)
                         }
                     }
 
                     settingsCard(title: L10n.Flight.times) {
                         if timeEntries.isEmpty {
                             HStack {
-                                Text(L10n.GPS.signalInactive).font(.system(size: 14)).foregroundColor(theme.textDim)
+                                Text(L10n.GPS.signalInactive).font(.aero(size: 14)).foregroundColor(theme.textDim)
                                 Spacer()
                             }
                         } else {
@@ -2645,9 +2645,9 @@ struct FlightInfoSheet: View {
                                 if idx > 0 { rowDivider }
                                 HStack(spacing: 10) {
                                     Image(systemName: row.icon).foregroundColor(row.color).frame(width: 22)
-                                    Text(row.label).font(.system(size: 15)).foregroundColor(theme.textPrimary)
+                                    Text(row.label).font(.aero(size: 15)).foregroundColor(theme.textPrimary)
                                     Spacer()
-                                    Text(row.value).font(.system(size: 15, design: .monospaced)).foregroundColor(theme.textPrimary)
+                                    Text(row.value).font(.aero(size: 15, design: .monospaced)).foregroundColor(theme.textPrimary)
                                 }
                             }
                         }
@@ -2675,7 +2675,7 @@ struct FlightInfoSheet: View {
     private func settingsCard<Content: View>(title: String, @ViewBuilder content: () -> Content) -> some View {
         VStack(alignment: .leading, spacing: 8) {
             Text(title.uppercased())
-                .font(.system(size: 12, weight: .semibold))
+                .font(.aero(size: 12, weight: .semibold))
                 .tracking(0.6)
                 .foregroundColor(theme.textSecondary)
             VStack(spacing: 10) { content() }
@@ -2694,7 +2694,7 @@ struct FlightInfoSheet: View {
 
     private func toggleRow(_ title: String, _ binding: Binding<Bool>) -> some View {
         HStack {
-            Text(title).font(.system(size: 15)).foregroundColor(theme.textPrimary)
+            Text(title).font(.aero(size: 15)).foregroundColor(theme.textPrimary)
             Spacer()
             Toggle("", isOn: binding).labelsHidden().tint(theme.onTarget)
         }
@@ -2818,22 +2818,22 @@ struct HUDReferencePanel: View {
             if presentation == .docked {
                 Button(action: onClose) {
                     Image(systemName: "arrow.left")
-                        .font(.system(size: 16, weight: .semibold))
+                        .font(.aero(size: 16, weight: .semibold))
                         .foregroundColor(reference.tint)
                 }
                 .accessibilityLabel(L10n.Button.close)
             }
             Image(systemName: reference.systemImage)
-                .font(.system(size: 14))
+                .font(.aero(size: 14))
                 .foregroundColor(reference.tint)
             Text(reference.title)
-                .font(.system(size: 13, weight: .bold))
+                .font(.aero(size: 13, weight: .bold))
                 .tracking(0.6)
                 .foregroundColor(theme.textPrimary)   // neutral title; the icon carries the accent (round 6)
             Spacer()
             Button(action: onClose) {
                 Image(systemName: "xmark")
-                    .font(.system(size: 14, weight: .semibold))
+                    .font(.aero(size: 14, weight: .semibold))
                     .foregroundColor(theme.textSecondary)
             }
             .accessibilityLabel(L10n.Button.close)
@@ -2966,14 +2966,14 @@ struct GPSStatusContent: View {
             VStack(spacing: 10) {
                 HStack(spacing: 12) {
                     Image(systemName: "location.fill")
-                        .font(.system(size: 24))
+                        .font(.aero(size: 24))
                         .foregroundColor(statusColor)
                     VStack(alignment: .leading, spacing: 2) {
                         Text(statusText)
-                            .font(.system(size: 16, weight: .semibold))
+                            .font(.aero(size: 16, weight: .semibold))
                             .foregroundColor(statusColor)
                         Text(statusReason ?? L10n.GPS.signal)
-                            .font(.system(size: 12))
+                            .font(.aero(size: 12))
                             .foregroundColor(statusReason == nil ? theme.textSecondary : statusColor)
                     }
                     Spacer(minLength: 0)
@@ -2986,7 +2986,7 @@ struct GPSStatusContent: View {
                             .foregroundColor(theme.warning)
                         Spacer(minLength: 0)
                     }
-                    .font(.system(size: 13))
+                    .font(.aero(size: 13))
                 }
             }
             .cardSection()
@@ -3015,7 +3015,7 @@ struct GPSStatusContent: View {
             // Status guide
             VStack(alignment: .leading, spacing: 12) {
                 Text(L10n.GPS.statusTitle.uppercased())
-                    .font(.system(size: 12, weight: .semibold))
+                    .font(.aero(size: 12, weight: .semibold))
                     .tracking(0.6)
                     .foregroundColor(theme.textSecondary)
                 guideRow(theme.onTarget, L10n.GPS.signalGood, L10n.GPS.statusGoodDesc)
@@ -3053,18 +3053,18 @@ struct GPSStatusContent: View {
         VStack(alignment: .leading, spacing: 3) {
             HStack(spacing: 4) {
                 Text(label)
-                    .font(.system(size: 11))
+                    .font(.aero(size: 11))
                     .foregroundColor(theme.textSecondary)
                     .lineLimit(1)
                 if let trailing {
                     Image(systemName: trailing)
-                        .font(.system(size: 9))
+                        .font(.aero(size: 9))
                         .foregroundColor(theme.textDim)
                 }
                 Spacer(minLength: 0)
             }
             Text(value)
-                .font(.system(size: 14, weight: .medium, design: .monospaced))
+                .font(.aero(size: 14, weight: .medium, design: .monospaced))
                 .foregroundColor(theme.textPrimary)
                 .lineLimit(1)
                 .minimumScaleFactor(0.7)
@@ -3082,8 +3082,8 @@ struct GPSStatusContent: View {
         HStack(alignment: .top, spacing: 10) {
             Circle().fill(color).frame(width: 9, height: 9).padding(.top, 5)
             VStack(alignment: .leading, spacing: 2) {
-                Text(title).font(.system(size: 14, weight: .semibold)).foregroundColor(color)
-                Text(desc).font(.system(size: 12)).foregroundColor(theme.textSecondary)
+                Text(title).font(.aero(size: 14, weight: .semibold)).foregroundColor(color)
+                Text(desc).font(.aero(size: 12)).foregroundColor(theme.textSecondary)
             }
             Spacer(minLength: 0)
         }
@@ -3121,11 +3121,11 @@ struct InFlightSpeedReference: View {
         VStack(alignment: .leading, spacing: 12) {
             HStack {
                 Text(activeChecklist.registration)
-                    .font(.system(size: 14, weight: .bold, design: .monospaced))
+                    .font(.aero(size: 14, weight: .bold, design: .monospaced))
                     .foregroundColor(theme.textSecondary)
                 Spacer()
                 Text("IAS · kt")
-                    .font(.system(size: 11, weight: .semibold))
+                    .font(.aero(size: 11, weight: .semibold))
                     .foregroundColor(theme.textDim)
             }
 
@@ -3138,11 +3138,11 @@ struct InFlightSpeedReference: View {
             let crosswind = activeChecklist.crosswindLimits
             HStack {
                 Text("Max crosswind")
-                    .font(.system(size: 12, weight: .medium))
+                    .font(.aero(size: 12, weight: .medium))
                     .foregroundColor(theme.textSecondary)
                 Spacer()
                 Text("T/O \(crosswind.takeoff) · LDG \(crosswind.landing)")
-                    .font(.system(size: 12, weight: .bold, design: .monospaced))
+                    .font(.aero(size: 12, weight: .bold, design: .monospaced))
                     .foregroundColor(theme.warning)
             }
             .padding(.top, 2)
@@ -3158,22 +3158,22 @@ struct InFlightSpeedReference: View {
                 .fill(highlighted ? (isVne ? theme.danger : theme.action) : Color.clear)
                 .frame(width: 3)
             Text(speed.name)
-                .font(.system(size: 16, weight: .bold, design: .monospaced))
+                .font(.aero(size: 16, weight: .bold, design: .monospaced))
                 .foregroundColor(isVne ? theme.danger : theme.action)
                 .frame(width: 58, alignment: .leading)
                 .lineLimit(1)
                 .minimumScaleFactor(0.8)
             Text(speed.description)
-                .font(.system(size: 12))
+                .font(.aero(size: 12))
                 .foregroundColor(theme.textDim)
                 .lineLimit(1)
             Spacer(minLength: 6)
             HStack(alignment: .firstTextBaseline, spacing: 3) {
                 Text(speed.value)
-                    .font(.system(size: 18, weight: .bold, design: .monospaced))
+                    .font(.aero(size: 18, weight: .bold, design: .monospaced))
                     .foregroundColor(isVne ? theme.danger : theme.textPrimary)
                 Text("kt")
-                    .font(.system(size: 11))
+                    .font(.aero(size: 11))
                     .foregroundColor(theme.textDim)
             }
         }
@@ -3255,16 +3255,16 @@ struct FrequencyReferenceContent: View {
                 ForEach(entries) { entry in
                     VStack(alignment: .leading, spacing: 8) {
                         Text(entry.ident)
-                            .font(.system(size: 15, weight: .bold))
+                            .font(.aero(size: 15, weight: .bold))
                             .foregroundColor(.primaryText)
                         ForEach(Array(entry.freqs.enumerated()), id: \.offset) { _, f in
                             HStack {
                                 Text(f.type)
-                                    .font(.system(size: 13))
+                                    .font(.aero(size: 13))
                                     .foregroundColor(.secondaryText)
                                 Spacer()
                                 Text(f.value)
-                                    .font(.system(size: 14, weight: .semibold, design: .monospaced))
+                                    .font(.aero(size: 14, weight: .semibold, design: .monospaced))
                                     .foregroundColor(.primaryText)
                             }
                         }
@@ -3279,7 +3279,7 @@ struct FrequencyReferenceContent: View {
 
     private func infoCard(_ text: String) -> some View {
         Text(text)
-            .font(.system(size: 13))
+            .font(.aero(size: 13))
             .foregroundColor(.secondaryText)
             .frame(maxWidth: .infinity, alignment: .leading)
             .cardSection()

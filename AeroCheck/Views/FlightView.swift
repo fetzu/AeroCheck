@@ -520,13 +520,8 @@ struct FlightView: View {
         }
         .onChange(of: appState.currentPhase) { oldPhase, newPhase in
             appState.evaluateCruiseCheck()
-            // Show hour meter input when navigating TO Engine Start phase
-            if newPhase == .engineStart && appState.settings.logEngineHours {
-                if appState.currentFlight?.engineHourStart == nil {
-                    hourMeterStartInitialValue = ""
-                    showHourMeterStart = true
-                }
-            }
+            // The hour meter is no longer asked for on entering Engine Start: the checklist offers it
+            // inline, engine off, from Preflight on (v6.0 · B4).
             // Re-show hour meter stop input when navigating back to Shutdown phase
             // (e.g., after reset) if shutdown time was cleared
             if newPhase == .shutdown && oldPhase != .shutdown && appState.settings.logEngineHours {
@@ -685,6 +680,7 @@ struct FlightView: View {
                                 }
                                 showHourMeterStop = true
                             },
+                            promptsEngineHours: appState.settings.logEngineHours,
                             hiddenItemsRevealed: hiddenItemsRevealed
                         )
                         .padding(24)
@@ -913,12 +909,8 @@ struct FlightView: View {
     private func performEngineStart() {
         appState.recordEngineStart()
         pulseActionButton = false
-        // Prompt the engine-hour (Hobbs/tach) input on first start, mirroring shutdown — otherwise the
-        // HUD action button records the time but never offers the hour entry on iPhone. (HUD feedback)
-        if appState.settings.logEngineHours && appState.currentFlight?.engineHourStart == nil {
-            hourMeterStartInitialValue = ""
-            showHourMeterStart = true
-        }
+        // No keypad here: starting the engine is the busiest moment of the ground phase. The reading
+        // is offered inline by the checklist, before the start. (v6.0 · B4)
         if allItemsChecked { triggerNextButtonPulse() }
     }
     private func performEngineStartUpdate() {
@@ -941,25 +933,11 @@ struct FlightView: View {
     private func performEngineShutdown() {
         appState.recordEngineShutdown()
         pulseActionButton = false
-        if appState.settings.logEngineHours {
-            hourMeterStopInitialValue = ""
-            showHourMeterStop = true
-        }
+        // The reading after the stop is offered inline by the checklist (Shutdown, At the hangar). (v6.0 · B4)
         if allItemsChecked { triggerNextButtonPulse() }
     }
     private func performEngineShutdownUpdate() {
         appState.recordEngineShutdown()
-        if appState.settings.logEngineHours {
-            if let prevEnd = appState.currentFlight?.engineHourEnd {
-                let prevFormat = appState.currentFlight?.engineHourEndInputFormat ?? "decimal"
-                hourMeterStopInitialValue = prevFormat == "time"
-                    ? Flight.formatHoursTime(prevEnd)
-                    : Flight.formatHoursDecimal(prevEnd)
-            } else {
-                hourMeterStopInitialValue = ""
-            }
-            showHourMeterStop = true
-        }
     }
 
     // MARK: - iPad Portrait Layout (vertical stack)
@@ -1235,29 +1213,9 @@ struct FlightView: View {
                                     flightPlanManager.updateDepartureTimeFromLineUp(lineUpTime)
                                 }
                             },
-                            onEngineShutdown: {
-                                appState.recordEngineShutdown()
-                                pulseActionButton = false
-                                if appState.settings.logEngineHours {
-                                    hourMeterStopInitialValue = ""
-                                    showHourMeterStop = true
-                                }
-                                if allItemsChecked { triggerNextButtonPulse() }
-                            },
-                            onEngineShutdownUpdate: {
-                                appState.recordEngineShutdown()
-                                if appState.settings.logEngineHours {
-                                    if let prevEnd = appState.currentFlight?.engineHourEnd {
-                                        let prevFormat = appState.currentFlight?.engineHourEndInputFormat ?? "decimal"
-                                        hourMeterStopInitialValue = prevFormat == "time"
-                                            ? Flight.formatHoursTime(prevEnd)
-                                            : Flight.formatHoursDecimal(prevEnd)
-                                    } else {
-                                        hourMeterStopInitialValue = ""
-                                    }
-                                    showHourMeterStop = true
-                                }
-                            },
+                            // Shared with the iPad HUD, so the two layouts can't diverge. (v6.0 · B4)
+                            onEngineShutdown: { performEngineShutdown() },
+                            onEngineShutdownUpdate: { performEngineShutdownUpdate() },
                             onGoAround: {
                                 appState.recordGoAround()
                                 pulseActionButton = false
@@ -1330,6 +1288,7 @@ struct FlightView: View {
                                 }
                                 showHourMeterStop = true
                             },
+                            promptsEngineHours: appState.settings.logEngineHours,
                             hiddenItemsRevealed: hiddenItemsRevealed
                         )
                         .padding(.horizontal, 12)

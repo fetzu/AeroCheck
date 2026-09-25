@@ -1,6 +1,57 @@
 {
   "sourceLanguage": "en",
   "strings": {
+    "hourMeter.prompt.beforeStart": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hour meter before start"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Compteur horaire avant démarrage"
+          }
+        }
+      }
+    },
+    "hourMeter.prompt.afterStop": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hour meter after shutdown"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Compteur horaire après l'arrêt"
+          }
+        }
+      }
+    },
+    "hourMeter.prompt.enter": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Enter"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Saisir"
+          }
+        }
+      }
+    },
     "dataStorage.source.typeface": {
       "extractionState": "manual",
       "localizations": {

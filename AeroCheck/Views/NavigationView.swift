@@ -224,6 +224,9 @@ struct NavigationMapView: View {
     /// False in the Plan tab, where the map is a section of the screen rather than a cover to close.
     /// (v6.0 · P1)
     var showsCloseButton: Bool = true
+    /// The MAP pane of the Cockpit (iPad): no top bar — the Cockpit's header and instrument strip are
+    /// right above — and no second flight-event overlay, the Cockpit has one. (v6.0 · P2)
+    var isInCockpit: Bool = false
     @State private var selectedLayer: MapLayerType = .icao
     @State private var isFollowingAircraft: Bool = true
     @State private var showLayerPicker: Bool = false
@@ -457,7 +460,9 @@ struct NavigationMapView: View {
         .statusBarHidden(showsCloseButton)
         // A detected go-around / touch-and-go / full-stop must be confirmable while the full-screen
         // map is up — FlightView's own overlay sits behind this .fullScreenCover. (PR-40)
-        .flightEventConfirmationOverlay(detector: flightEventDetector, appState: appState)
+        // In the Cockpit the map is inside FlightView, whose overlay already covers it.
+        .modifier(FlightEventOverlayUnlessEmbedded(isEmbedded: isInCockpit,
+                                                   detector: flightEventDetector, appState: appState))
         .sheet(isPresented: $showDivert) {
             DivertSheet(onClose: { showDivert = false }, preselectedIdent: divertPreselect)
                 .environment(\.cockpitTheme, theme)
@@ -689,9 +694,11 @@ struct NavigationMapView: View {
 
             // Overlay controls — top bar padded; the bottom bar runs full-width to the bottom edge.
             VStack(spacing: 0) {
-                topBar
-                    .padding(.horizontal)
-                    .padding(.top)
+                if !isInCockpit {
+                    topBar
+                        .padding(.horizontal)
+                        .padding(.top)
+                }
 
                 // What a pilot reads most, big and on top: the next waypoint. Then the map's own
                 // controls, labelled. (v6.0 · P3)
@@ -6349,6 +6356,21 @@ private struct NavClockText: View {
 }
 
 /// A MARK or a leg-timer reset that can still be taken back. (v6.0 · C2)
+/// The flight-event overlay, except where the map is embedded in a view that already has one.
+private struct FlightEventOverlayUnlessEmbedded: ViewModifier {
+    let isEmbedded: Bool
+    let detector: FlightEventDetector
+    let appState: AppState
+
+    func body(content: Content) -> some View {
+        if isEmbedded {
+            content
+        } else {
+            content.flightEventConfirmationOverlay(detector: detector, appState: appState)
+        }
+    }
+}
+
 struct NavUndoOffer: Identifiable {
     let id = UUID()
     let message: String

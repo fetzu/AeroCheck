@@ -60,12 +60,16 @@ class FlightThreadManager: ObservableObject {
         self.notifications = notifications ?? NotificationService.shared
         self.persistence = persistence ?? DataPersistenceManager.shared
         loadCurrentThreadPointer()
+        // The trip load is the first link of the trip write chain, so a trip formed while it is
+        // still reading (it is iCloud-backed and can take seconds) waits for it: see `saveTrips`.
+        let tripLoad: Task<Void, Never> = Task { [weak self] in await self?.loadTrips() }
+        tripWriteChain = tripLoad
         Task { [weak self] in
             // Trips FIRST: `hasLoadedThreads` is what the flights list waits on, and a leg whose
             // trip has not arrived yet appears in neither the standalone list nor the trip list.
             // Loading trips after it meant a window where the app said "loaded" and the legs were
             // simply absent. (review F10)
-            await self?.loadTrips()
+            await tripLoad.value
             await self?.loadThreadsAsync()
         }
     }
@@ -524,14 +528,21 @@ class FlightThreadManager: ObservableObject {
     /// and leave the file holding the older array. Threads self-heal from that via their dirty-diff;
     /// trips have no such tracking, so a lost tick simply came back unticked. Chaining each write
     /// onto the previous one gives them the FIFO order the shape assumed. (review F-trips-order)
+    ///
+    /// Its first link is the launch load (set in `init`), so no write can reach the file before the
+    /// load has read it.
     private var tripWriteChain: Task<Void, Never>?
 
     private func saveTrips() {
-        let snapshot = trips
         let previous = tripWriteChain
-        tripWriteChain = Task { [persistence] in
+        tripWriteChain = Task {
             await previous?.value
-            await persistence.saveTripsOffMain(snapshot)
+            // The array as it is NOW, not when this was called. A trip formed during the launch load
+            // snapshotted an array holding only itself, and writing that deleted every other trip:
+            // for good if it landed before the load read the file, until the next save if after.
+            // Reading here, behind the load, writes the merged array. A later link never reads less
+            // than an earlier one did, so the file still only moves forward.
+            await self.persistence.saveTripsOffMain(self.trips)
         }
     }
 

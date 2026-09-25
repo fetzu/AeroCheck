@@ -141,13 +141,13 @@ struct SubscriptionView: View {
                 .accessibilityHidden(true)
 
             Text(headerTitle)
-                .font(.title2)
+                .font(.aero(.title2))
                 .fontWeight(.bold)
                 .foregroundColor(Color.primaryText)
                 .multilineTextAlignment(.center)
 
             Text(L10n.Subscription.accessDescription)
-                .font(.subheadline)
+                .font(.aero(.subheadline))
                 .foregroundColor(Color.secondaryText)
                 .multilineTextAlignment(.center)
         }
@@ -171,10 +171,10 @@ struct SubscriptionView: View {
                 .accessibilityHidden(true)
             VStack(alignment: .leading, spacing: 2) {
                 Text(L10n.Subscription.freeTrialDays(days))
-                    .font(.subheadline).fontWeight(.semibold)
+                    .font(.aero(.subheadline)).fontWeight(.semibold)
                     .foregroundColor(Color.aviationGreen)
                 Text(L10n.Subscription.freeTrialNoteDays(days))
-                    .font(.caption)
+                    .font(.aero(.caption))
                     .foregroundColor(Color.secondaryText)
             }
             Spacer()
@@ -194,7 +194,7 @@ struct SubscriptionView: View {
             // Hide the "Choose a plan" header for subscribers, who only see the single lifetime-upgrade card.
             if !subscriptionManager.subscriptionStatus.isSubscribed {
                 Text(L10n.Subscription.choosePlan)
-                    .font(.caption)
+                    .font(.aero(.caption))
                     .fontWeight(.semibold)
                     .foregroundColor(Color.secondaryText)
             }
@@ -204,7 +204,7 @@ struct SubscriptionView: View {
                     ProgressView().frame(maxWidth: .infinity).padding()
                 } else {
                     Text(L10n.Subscription.unableToLoad)
-                        .font(.subheadline)
+                        .font(.aero(.subheadline))
                         .foregroundColor(Color.secondaryText)
                         .frame(maxWidth: .infinity)
                         .padding()
@@ -256,7 +256,7 @@ struct SubscriptionView: View {
                     .background(Circle().fill(tint.opacity(0.16)))
                     .accessibilityHidden(true)
                 Text(text)
-                    .font(.subheadline)
+                    .font(.aero(.subheadline))
                     .foregroundColor(Color.primaryText)
                 Spacer()
             }
@@ -273,7 +273,7 @@ struct SubscriptionView: View {
     private var statusSection: some View {
         VStack(alignment: .leading, spacing: 8) {
             Text(L10n.Subscription.currentStatus)
-                .font(.caption)
+                .font(.aero(.caption))
                 .fontWeight(.semibold)
                 .foregroundColor(Color.secondaryText)
 
@@ -281,7 +281,7 @@ struct SubscriptionView: View {
                 Image(systemName: subscriptionManager.subscriptionStatus.isSubscribed ? "checkmark.circle.fill" : "xmark.circle.fill")
                     .foregroundColor(subscriptionManager.subscriptionStatus.isSubscribed ? Color.aviationGreen : Color.secondaryText)
                 Text(subscriptionManager.subscriptionStatus.displayText)
-                    .font(.subheadline)
+                    .font(.aero(.subheadline))
                     .foregroundColor(Color.primaryText)
                 Spacer()
             }
@@ -301,12 +301,12 @@ struct SubscriptionView: View {
                     HStack(spacing: 8) {
                         ProgressView().tint(Color.aviationBlue)
                         Text(L10n.Subscription.restorePurchases)
-                            .font(.subheadline)
+                            .font(.aero(.subheadline))
                             .foregroundColor(Color.aviationBlue.opacity(0.5))
                     }
                 } else {
                     Text(L10n.Subscription.restorePurchases)
-                        .font(.subheadline)
+                        .font(.aero(.subheadline))
                         .foregroundColor(Color.altimeterBlue)
                 }
             }
@@ -318,7 +318,7 @@ struct SubscriptionView: View {
     private var termsSection: some View {
         VStack(spacing: 8) {
             Text(L10n.Subscription.termsDescription)
-                .font(.caption2)
+                .font(.aero(.caption2))
                 .foregroundColor(Color.dimText)
                 .multilineTextAlignment(.center)
 
@@ -345,7 +345,7 @@ struct SubscriptionView: View {
 
     private func legalLink(_ title: String, _ destination: URL) -> some View {
         Link(title, destination: destination)
-            .font(.caption2)
+            .font(.aero(.caption2))
             .foregroundColor(Color.altimeterBlue)
             .frame(minHeight: 44)
             .contentShape(Rectangle())
@@ -370,7 +370,7 @@ struct ProductCard: View {
                 VStack(alignment: .leading, spacing: 4) {
                     HStack(spacing: 6) {
                         Text(product.displayName)
-                            .font(.headline)
+                            .font(.aero(.headline))
                             .foregroundColor(Color.primaryText)
                         if isRecommended {
                             tag(L10n.Subscription.bestValue, color: .aviationGold)
@@ -379,15 +379,15 @@ struct ProductCard: View {
 
                     if let days = trialDays {
                         Text(L10n.Subscription.freeTrialDays(days))
-                            .font(.caption).fontWeight(.semibold)
+                            .font(.aero(.caption)).fontWeight(.semibold)
                             .foregroundColor(Color.aviationGreen)
                     } else if product.isLifetime {
                         Text(L10n.Subscription.lifetimeTagline)
-                            .font(.caption)
+                            .font(.aero(.caption))
                             .foregroundColor(Color.secondaryText)
                     } else {
                         Text(product.description)
-                            .font(.caption)
+                            .font(.aero(.caption))
                             .foregroundColor(Color.secondaryText)
                             .lineLimit(2)
                     }
@@ -397,13 +397,13 @@ struct ProductCard: View {
 
                 VStack(alignment: .trailing, spacing: 2) {
                     Text(product.displayPrice)
-                        .font(.system(.title3, design: .rounded).weight(.bold))
+                        .font(.aero(.title3, design: .rounded).weight(.bold))
                         .foregroundColor(Color.aviationGold)
                         // Scale the price down rather than truncate/wrap at large Dynamic Type. (v4.1.0)
                         .lineLimit(1)
                         .minimumScaleFactor(0.7)
                     Text(product.isLifetime ? L10n.Subscription.oneTime : product.subscriptionPeriodText)
-                        .font(.caption2)
+                        .font(.aero(.caption2))
                         .foregroundColor(Color.secondaryText)
                         .lineLimit(1)
                         .minimumScaleFactor(0.8)
@@ -424,7 +424,7 @@ struct ProductCard: View {
 
     private func tag(_ text: String, color: Color) -> some View {
         Text(text)
-            .font(.caption2).fontWeight(.bold)
+            .font(.aero(.caption2)).fontWeight(.bold)
             .foregroundColor(.onAccent)
             .padding(.horizontal, 8).padding(.vertical, 2)
             .background(RoundedRectangle(cornerRadius: 5).fill(color))

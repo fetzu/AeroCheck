@@ -39,7 +39,7 @@ struct DivertSheet: View {
                         ProgressView().frame(maxWidth: .infinity).padding(40)
                     }
                     Text(L10n.Trip.notListed)
-                        .font(.system(size: 12))
+                        .font(.aero(size: 12))
                         .foregroundColor(theme.textDim)
                         .fixedSize(horizontal: false, vertical: true)
                         .padding(.top, 4)
@@ -56,11 +56,11 @@ struct DivertSheet: View {
     private var header: some View {
         HStack {
             Text(L10n.Trip.divert)
-                .font(.system(size: 20, weight: .bold))
+                .font(.aero(size: 20, weight: .bold))
                 .foregroundColor(theme.textPrimary)
             Spacer()
             Button(L10n.Button.close) { onClose() }
-                .font(.system(size: 17, weight: .semibold))
+                .font(.aero(size: 17, weight: .semibold))
                 .foregroundColor(theme.action)
                 .frame(minWidth: 44, minHeight: 44)
         }
@@ -68,7 +68,7 @@ struct DivertSheet: View {
         .padding(.top, 12)
         .overlay(alignment: .bottomLeading) {
             Text(metaLine)
-                .font(.system(size: 12, design: .monospaced))
+                .font(.aero(size: 12, design: .monospaced))
                 .foregroundColor(theme.textDim)
                 .padding(.horizontal, 16)
                 .offset(y: 16)
@@ -102,7 +102,7 @@ struct DivertSheet: View {
         }
         if sections.ahead.isEmpty && sections.behind.isEmpty {
             Text(L10n.Trip.noAerodromes)
-                .font(.system(size: 14))
+                .font(.aero(size: 14))
                 .foregroundColor(theme.textSecondary)
         }
     }
@@ -110,7 +110,7 @@ struct DivertSheet: View {
     private func group(_ title: String, _ options: [DivertPlanner.Option], isDestination: Bool = false) -> some View {
         VStack(alignment: .leading, spacing: 6) {
             Text(title.uppercased())
-                .font(.system(size: 11, weight: .semibold))
+                .font(.aero(size: 11, weight: .semibold))
                 .tracking(0.8)
                 .foregroundColor(theme.textDim)
             VStack(spacing: 0) {
@@ -138,7 +138,7 @@ struct DivertSheet: View {
                         VStack(alignment: .leading, spacing: 2) {
                             HStack(spacing: 6) {
                                 Text(ident)
-                                    .font(.system(size: 18, weight: .bold, design: .monospaced))
+                                    .font(.aero(size: 18, weight: .bold, design: .monospaced))
                                     .foregroundColor(theme.textPrimary)
                                 if option.aerodrome.isPPR { chip("PPR", color: theme.warning) }
                                 if option.crossesBorder, let country = option.aerodrome.country {
@@ -146,7 +146,7 @@ struct DivertSheet: View {
                                 }
                             }
                             Text(option.aerodrome.name)
-                                .font(.system(size: 13))
+                                .font(.aero(size: 13))
                                 .foregroundColor(theme.textSecondary)
                                 .lineLimit(1)
                         }
@@ -157,11 +157,11 @@ struct DivertSheet: View {
                             Text(minutesText(option.minutes))
                                 .foregroundColor(theme.action)
                         }
-                        .font(.system(size: 16, weight: .semibold, design: .monospaced))
+                        .font(.aero(size: 16, weight: .semibold, design: .monospaced))
                         .foregroundColor(theme.textPrimary)
                     }
                     Text(option.aerodrome.frequency ?? L10n.Trip.noFrequency)
-                        .font(.system(size: 13, design: .monospaced))
+                        .font(.aero(size: 13, design: .monospaced))
                         .foregroundColor(option.aerodrome.frequency == nil ? theme.warning : theme.textDim)
                 }
                 .frame(maxWidth: .infinity, minHeight: 60, alignment: .leading)
@@ -172,19 +172,19 @@ struct DivertSheet: View {
             if isExpanded {
                 VStack(alignment: .leading, spacing: 10) {
                     Text(detailLine(option))
-                        .font(.system(size: 13, design: .monospaced))
+                        .font(.aero(size: 13, design: .monospaced))
                         .foregroundColor(theme.textSecondary)
                         .fixedSize(horizontal: false, vertical: true)
                     if option.aerodrome.frequency == nil {
                         Text(L10n.Trip.checkChart)
-                            .font(.system(size: 13))
+                            .font(.aero(size: 13))
                             .foregroundColor(theme.warning)
                     }
                     Button {
                         go(to: option, isDestination: isDestination)
                     } label: {
                         Text(isDestination ? L10n.Trip.directTo(ident) : L10n.Trip.divertTo(ident))
-                            .font(.system(size: 18, weight: .bold))
+                            .font(.aero(size: 18, weight: .bold))
                             .tracking(0.6)
                             .frame(maxWidth: .infinity, minHeight: 56)
                             .foregroundColor(theme.actionText)
@@ -203,10 +203,10 @@ struct DivertSheet: View {
         HStack(spacing: 12) {
             VStack(alignment: .leading, spacing: 2) {
                 Text(L10n.Trip.divertingTo(diversion.ident))
-                    .font(.system(size: 15, weight: .semibold))
+                    .font(.aero(size: 15, weight: .semibold))
                     .foregroundColor(theme.textPrimary)
                 Text(diversion.name)
-                    .font(.system(size: 12))
+                    .font(.aero(size: 12))
                     .foregroundColor(theme.textDim)
             }
             Spacer()
@@ -215,7 +215,7 @@ struct DivertSheet: View {
                 onClose()
             } label: {
                 Text(L10n.Trip.resumeRoute)
-                    .font(.system(size: 15, weight: .semibold))
+                    .font(.aero(size: 15, weight: .semibold))
                     .padding(.horizontal, 14)
                     .frame(minHeight: 44)
                     .foregroundColor(theme.action)
@@ -229,7 +229,7 @@ struct DivertSheet: View {
 
     private func chip(_ text: String, color: Color) -> some View {
         Text(text)
-            .font(.system(size: 10, weight: .bold))
+            .font(.aero(size: 10, weight: .bold))
             .tracking(0.4)
             .foregroundColor(color)
             .padding(.horizontal, 6)

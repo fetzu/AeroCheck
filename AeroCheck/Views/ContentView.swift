@@ -459,9 +459,9 @@ struct LanguageFallbackBanner: View {
     var body: some View {
         HStack(spacing: 10) {
             Image(systemName: "globe")
-                .font(.system(size: 15, weight: .semibold))
+                .font(.aero(size: 15, weight: .semibold))
             Text(message)
-                .font(.system(size: 14, weight: .medium))
+                .font(.aero(size: 14, weight: .medium))
                 .fixedSize(horizontal: false, vertical: true)
             Spacer(minLength: 0)
         }
@@ -501,14 +501,14 @@ struct OpenFlightPlanBanner: View {
     var body: some View {
         HStack(alignment: .top, spacing: 10) {
             Image(systemName: "exclamationmark.triangle.fill")
-                .font(.system(size: 15, weight: .semibold))
+                .font(.aero(size: 15, weight: .semibold))
                 .foregroundColor(.aviationRed)
             VStack(alignment: .leading, spacing: 3) {
                 Text(L10n.Thread.closeFlightPlanTitle)
-                    .font(.system(size: 14, weight: .semibold))
+                    .font(.aero(size: 14, weight: .semibold))
                     .foregroundColor(.primaryText)
                 Text(L10n.Thread.closeFlightPlanBody(routeLabel))
-                    .font(.system(size: 12))
+                    .font(.aero(size: 12))
                     .foregroundColor(.secondaryText)
                     .fixedSize(horizontal: false, vertical: true)
                 HStack(spacing: 8) {
@@ -516,7 +516,7 @@ struct OpenFlightPlanBanner: View {
                         if let url = URL(string: "tel://0800437837") { openURL(url) }
                     } label: {
                         Text(L10n.Thread.callFIC)
-                            .font(.system(size: 12, weight: .semibold))
+                            .font(.aero(size: 12, weight: .semibold))
                             .foregroundColor(.aviationRed)
                             .padding(.horizontal, 12).frame(minHeight: 34)
                             .background(RoundedRectangle(cornerRadius: 8).fill(Color.aviationRed.opacity(0.16))
@@ -525,7 +525,7 @@ struct OpenFlightPlanBanner: View {
                     }
                     Button(action: onMarkClosed) {
                         Text(L10n.Thread.markFlightPlanClosed)
-                            .font(.system(size: 12, weight: .semibold))
+                            .font(.aero(size: 12, weight: .semibold))
                             .foregroundColor(.aviationGreen)
                             .padding(.horizontal, 12).frame(minHeight: 34)
                             .background(RoundedRectangle(cornerRadius: 8).fill(Color.aviationGreen.opacity(0.16))
@@ -534,7 +534,7 @@ struct OpenFlightPlanBanner: View {
                     }
                     Button(action: onDismiss) {
                         Text(L10n.Button.close)
-                            .font(.system(size: 12, weight: .semibold))
+                            .font(.aero(size: 12, weight: .semibold))
                             .foregroundColor(.secondaryText)
                             .padding(.horizontal, 12).frame(minHeight: 34)
                             .background(RoundedRectangle(cornerRadius: 8).fill(Color.white.opacity(0.06)))
@@ -577,20 +577,20 @@ struct ActivationExpiredBanner: View {
     var body: some View {
         HStack(alignment: .top, spacing: 10) {
             Image(systemName: "airplane.arrival")
-                .font(.system(size: 15, weight: .semibold))
+                .font(.aero(size: 15, weight: .semibold))
                 .foregroundColor(.aviationAmber)
             VStack(alignment: .leading, spacing: 3) {
                 Text(L10n.Nav.activationExpiredTitle)
-                    .font(.system(size: 14, weight: .semibold))
+                    .font(.aero(size: 14, weight: .semibold))
                     .foregroundColor(.primaryText)
                 Text(L10n.Nav.activationExpiredMessage(routeLabel))
-                    .font(.system(size: 12))
+                    .font(.aero(size: 12))
                     .foregroundColor(.secondaryText)
                     .fixedSize(horizontal: false, vertical: true)
                 HStack(spacing: 8) {
                     Button(action: onRearm) {
                         Text(L10n.Nav.rearm)
-                            .font(.system(size: 12, weight: .semibold))
+                            .font(.aero(size: 12, weight: .semibold))
                             .foregroundColor(.aviationGreen)
                             .padding(.horizontal, 12).frame(minHeight: 34)
                             .background(RoundedRectangle(cornerRadius: 8).fill(Color.aviationGreen.opacity(0.16))
@@ -599,7 +599,7 @@ struct ActivationExpiredBanner: View {
                     }
                     Button(action: onDismiss) {
                         Text(L10n.Button.close)
-                            .font(.system(size: 12, weight: .semibold))
+                            .font(.aero(size: 12, weight: .semibold))
                             .foregroundColor(.secondaryText)
                             .padding(.horizontal, 12).frame(minHeight: 34)
                             .background(RoundedRectangle(cornerRadius: 8).fill(Color.white.opacity(0.06)))
@@ -638,20 +638,20 @@ struct CircuitCloseOutBanner: View {
     var body: some View {
         HStack(spacing: 10) {
             Image(systemName: "arrow.triangle.2.circlepath")
-                .font(.system(size: 15, weight: .semibold))
+                .font(.aero(size: 15, weight: .semibold))
                 .foregroundColor(.aviationGold)
             VStack(alignment: .leading, spacing: 2) {
                 Text(routeLabel)
-                    .font(.system(size: 14, weight: .semibold))
+                    .font(.aero(size: 14, weight: .semibold))
                     .foregroundColor(.primaryText)
                 Text(L10n.Thread.circuitCloseOutOffer)
-                    .font(.system(size: 12))
+                    .font(.aero(size: 12))
                     .foregroundColor(.secondaryText)
                     .fixedSize(horizontal: false, vertical: true)
             }
             Spacer(minLength: 8)
             Button(L10n.Thread.circuitCloseOutAccept, action: onAccept)
-                .font(.system(size: 13, weight: .semibold))
+                .font(.aero(size: 13, weight: .semibold))
                 .foregroundColor(.aviationGold)
                 .buttonStyle(.plain)
                 .frame(minHeight: 44)
@@ -659,7 +659,7 @@ struct CircuitCloseOutBanner: View {
                 onDismiss()
             } label: {
                 Image(systemName: "xmark")
-                    .font(.system(size: 13, weight: .semibold))
+                    .font(.aero(size: 13, weight: .semibold))
                     .foregroundColor(.dimText)
                     .frame(width: 44, height: 44)
                     .contentShape(Rectangle())
@@ -687,9 +687,9 @@ struct DataFreshnessNudgeBanner: View {
     var body: some View {
         HStack(spacing: 10) {
             Image(systemName: "exclamationmark.triangle.fill")
-                .font(.system(size: 15, weight: .semibold))
+                .font(.aero(size: 15, weight: .semibold))
             Text(message)
-                .font(.system(size: 14, weight: .medium))
+                .font(.aero(size: 14, weight: .medium))
                 .fixedSize(horizontal: false, vertical: true)
             Spacer(minLength: 0)
         }
@@ -774,16 +774,16 @@ struct RotateToPortraitView: View {
             VStack(spacing: 24) {
                 // Rotation icon
                 Image(systemName: "rectangle.portrait.rotate")
-                    .font(.system(size: 64))
+                    .font(.aero(size: 64))
                     .foregroundColor(.aviationGold)
 
                 VStack(spacing: 8) {
                     Text(L10n.ContentViewStrings.rotateDevice)
-                        .font(.system(size: 24, weight: .bold))
+                        .font(.aero(size: 24, weight: .bold))
                         .foregroundColor(.primaryText)
 
                     Text(L10n.ContentViewStrings.portraitMode)
-                        .font(.system(size: 16))
+                        .font(.aero(size: 16))
                         .foregroundColor(.secondaryText)
                         .multilineTextAlignment(.center)
                         .padding(.horizontal, 40)
@@ -794,20 +794,20 @@ struct RotateToPortraitView: View {
                     // Current orientation (crossed out)
                     ZStack {
                         Image(systemName: "iphone.landscape")
-                            .font(.system(size: 32))
+                            .font(.aero(size: 32))
                             .foregroundColor(.dimText)
                         Image(systemName: "xmark")
-                            .font(.system(size: 24, weight: .bold))
+                            .font(.aero(size: 24, weight: .bold))
                             .foregroundColor(.aviationRed)
                     }
 
                     Image(systemName: "arrow.right")
-                        .font(.system(size: 20))
+                        .font(.aero(size: 20))
                         .foregroundColor(.dimText)
 
                     // Desired orientation
                     Image(systemName: "iphone")
-                        .font(.system(size: 32))
+                        .font(.aero(size: 32))
                         .foregroundColor(.aviationGreen)
                 }
                 .padding(.top, 16)

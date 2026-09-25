@@ -124,7 +124,7 @@ struct AddStopSheet: View {
                 VStack(alignment: .leading, spacing: 3) {
                     HStack(spacing: 6) {
                         Text(candidate.aerodrome.ident)
-                            .font(.system(size: 15, weight: .semibold, design: .monospaced))
+                            .font(.aero(size: 15, weight: .semibold, design: .monospaced))
                             .foregroundColor(.primaryText)
                         if candidate.aerodrome.isPPR { chip("PPR") }
                     }
@@ -139,10 +139,10 @@ struct AddStopSheet: View {
                 Spacer(minLength: 8)
                 VStack(alignment: .trailing, spacing: 3) {
                     Text(String(format: "%.1f NM", candidate.alongNM))
-                        .font(.system(size: 13, weight: .medium, design: .monospaced))
+                        .font(.aero(size: 13, weight: .medium, design: .monospaced))
                         .foregroundColor(.primaryText)
                     Text(duration(candidate.alongNM))
-                        .font(.system(size: 12, design: .monospaced))
+                        .font(.aero(size: 12, design: .monospaced))
                         .foregroundColor(.dimText)
                 }
             }
@@ -207,7 +207,7 @@ struct AddStopSheet: View {
 
     private func chip(_ text: String) -> some View {
         Text(text)
-            .font(.system(size: 10, weight: .bold))
+            .font(.aero(size: 10, weight: .bold))
             .tracking(0.5)
             .foregroundColor(.aviationAmber)
             .padding(.horizontal, 6)
@@ -217,7 +217,7 @@ struct AddStopSheet: View {
 
     private func legLine(_ leg: FlightPlan) -> some View {
         Text("\(FlightThreadManager.routeLabel(for: leg)) · \(String(format: "%.1f NM", leg.totalDistance)) · \(leg.formattedTotalEET)")
-            .font(.system(size: 13, design: .monospaced))
+            .font(.aero(size: 13, design: .monospaced))
             .foregroundColor(.primaryText)
     }
 

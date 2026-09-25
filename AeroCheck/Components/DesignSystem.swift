@@ -8,17 +8,17 @@ import UIKit
 
 extension Font {
     // Custom aviation-style fonts
-    static let checklistTitle = Font.system(size: 28, weight: .bold, design: .default)
-    static let buttonText = Font.system(size: 20, weight: .semibold, design: .default)
-    static let headerText = Font.system(size: 18, weight: .bold, design: .default)
-    static let bodyText = Font.system(size: 18, weight: .regular, design: .default)
-    static let captionText = Font.system(size: 14, weight: .medium, design: .default)
+    static let checklistTitle = Font.aero(size: 28, weight: .bold, design: .default)
+    static let buttonText = Font.aero(size: 20, weight: .semibold, design: .default)
+    static let headerText = Font.aero(size: 18, weight: .bold, design: .default)
+    static let bodyText = Font.aero(size: 18, weight: .regular, design: .default)
+    static let captionText = Font.aero(size: 14, weight: .medium, design: .default)
 }
 
 /// Applies a system font whose point size follows the user's Dynamic Type setting,
 /// anchored to a reference text style's scaling curve. Ground-use screens (planning,
 /// settings, onboarding, paywall, flight log) use `.scaledFont` instead of fixed
-/// `.font(.system(size:))`; in-flight HUD instrumentation intentionally keeps
+/// `.font(.aero(size:))`; in-flight HUD instrumentation intentionally keeps
 /// fixed sizes for cockpit legibility (UX-24).
 struct ScaledFontModifier: ViewModifier {
     @ScaledMetric private var size: CGFloat
@@ -32,12 +32,12 @@ struct ScaledFontModifier: ViewModifier {
     }
 
     func body(content: Content) -> some View {
-        content.font(.system(size: size, weight: weight, design: design))
+        content.font(.aero(size: size, weight: weight, design: design))
     }
 }
 
 extension View {
-    /// Dynamic Type–aware replacement for `.font(.system(size:weight:design:))`.
+    /// Dynamic Type–aware replacement for `.font(.aero(size:weight:design:))`.
     /// `relativeTo` selects the text style whose scaling curve the size follows;
     /// small labels should anchor to `.caption`/`.footnote` so they don't
     /// over-scale at accessibility sizes.
@@ -304,7 +304,7 @@ struct StatusIndicator: View {
                 // Non-colour channel for "Differentiate Without Color" users (WCAG 1.4.1).
                 if differentiateWithoutColor, let symbol = status.differentiatingSymbol {
                     Image(systemName: symbol)
-                        .font(.system(size: size * 0.62, weight: .black))
+                        .font(.aero(size: size * 0.62, weight: .black))
                         .foregroundColor(.black.opacity(0.85))
                 }
             }
@@ -358,7 +358,7 @@ struct SpeedIndicatorView: View {
         VStack(spacing: 4) {
             // Speed label - shows type of speed being displayed
             Text("GND SPD")
-                .font(.system(size: 12, weight: .bold))
+                .font(.aero(size: 12, weight: .bold))
                 .foregroundColor(.secondaryText)
 
             // Current speed display
@@ -371,11 +371,11 @@ struct SpeedIndicatorView: View {
                 if gpsSignalStatus != .lost {
                     VStack(spacing: 0) {
                         Text("\(Int(displaySpeed))")
-                            .font(.system(size: 32, weight: .bold, design: .monospaced))
+                            .font(.aero(size: 32, weight: .bold, design: .monospaced))
                             .foregroundColor(textColor)
 
                         Text("kt")
-                            .font(.system(size: 12, weight: .medium))
+                            .font(.aero(size: 12, weight: .medium))
                             .foregroundColor(textColor.opacity(0.8))
                     }
                 }
@@ -392,9 +392,9 @@ struct SpeedIndicatorView: View {
             // Intentionally untranslated: aviation instrument labels (TGT = Target)
             HStack(spacing: 4) {
                 Image(systemName: targetIcon)
-                    .font(.system(size: 10))
+                    .font(.aero(size: 10))
                 Text("TGT: \(targetSpeed)")
-                    .font(.system(size: 12, weight: .medium, design: .monospaced))
+                    .font(.aero(size: 12, weight: .medium, design: .monospaced))
             }
             .foregroundColor(.secondaryText)
 
@@ -557,7 +557,7 @@ extension View {
         overlay(alignment: .bottom) {
             if isPresented.wrappedValue {
                 Label(message, systemImage: "checkmark.circle.fill")
-                    .font(.system(size: 14, weight: .semibold))
+                    .font(.aero(size: 14, weight: .semibold))
                     .foregroundColor(.aviationGreen)
                     .padding(.horizontal, 16)
                     .padding(.vertical, 10)
@@ -809,7 +809,7 @@ struct AltimeterView: View {
         VStack(spacing: 4) {
             // Altitude label
             Text("ALT")
-                .font(.system(size: 12, weight: .bold))
+                .font(.aero(size: 12, weight: .bold))
                 .foregroundColor(.secondaryText)
 
             // Altitude display
@@ -822,13 +822,13 @@ struct AltimeterView: View {
                 if gpsSignalStatus != .lost {
                     VStack(spacing: 2) {
                         Text("\(Int(altitudeFeet))")
-                            .font(.system(size: altitudeFontSize, weight: .bold, design: .monospaced))
+                            .font(.aero(size: altitudeFontSize, weight: .bold, design: .monospaced))
                             .foregroundColor(altimeterText)
                             .minimumScaleFactor(0.5)
                             .lineLimit(1)
 
                         Text("FT")
-                            .font(.system(size: 12, weight: .medium))
+                            .font(.aero(size: 12, weight: .medium))
                             .foregroundColor(altimeterText.opacity(0.7))
                     }
                     .padding(.horizontal, 4)
@@ -844,7 +844,7 @@ struct AltimeterView: View {
 
             // MSL indicator
             Text("MSL")
-                .font(.system(size: 12, weight: .medium, design: .monospaced))
+                .font(.aero(size: 12, weight: .medium, design: .monospaced))
                 .foregroundColor(.secondaryText)
         }
         .accessibilityElement(children: .ignore)
@@ -947,7 +947,7 @@ struct SettingsRow: View {
                     .fill(tint.opacity(0.16))
                     .frame(width: 38, height: 38)
                 Image(systemName: icon)
-                    .font(.system(size: 17, weight: .semibold))
+                    .font(.aero(size: 17, weight: .semibold))
                     .foregroundColor(tint)
             }
             .accessibilityHidden(true)
@@ -955,11 +955,11 @@ struct SettingsRow: View {
             VStack(alignment: .leading, spacing: 2) {
                 HStack(spacing: 6) {
                     Text(title)
-                        .font(.subheadline)
+                        .font(.aero(.subheadline))
                         .foregroundColor(.primaryText)
                     if let badge {
                         Text(badge)
-                            .font(.caption2.weight(.bold))
+                            .font(.aero(.caption2).weight(.bold))
                             .foregroundColor(.black)
                             .padding(.horizontal, 6)
                             .padding(.vertical, 1)
@@ -967,7 +967,7 @@ struct SettingsRow: View {
                     }
                 }
                 Text(subtitle)
-                    .font(.caption)
+                    .font(.aero(.caption))
                     .foregroundColor(.secondaryText)
                     .lineLimit(1)
             }
@@ -975,7 +975,7 @@ struct SettingsRow: View {
             Spacer(minLength: 6)
 
             Image(systemName: "chevron.right")
-                .font(.system(size: 14, weight: .semibold))
+                .font(.aero(size: 14, weight: .semibold))
                 .foregroundColor(.dimText.opacity(0.7))
                 .accessibilityHidden(true)
         }
@@ -1043,7 +1043,7 @@ struct SettingsGroup<Content: View>: View {
         VStack(alignment: .leading, spacing: 7) {
             if let title {
                 Text(title.uppercased())
-                    .font(.caption.weight(.semibold))
+                    .font(.aero(.caption).weight(.semibold))
                     .tracking(1.4)
                     .foregroundColor(tint)
                     .padding(.horizontal, 4)
@@ -1057,7 +1057,7 @@ struct SettingsGroup<Content: View>: View {
                 )
             if let footer {
                 Text(footer)
-                    .font(.caption2)
+                    .font(.aero(.caption2))
                     .foregroundColor(.dimText)
                     .fixedSize(horizontal: false, vertical: true)
                     .padding(.horizontal, 6)
@@ -1080,16 +1080,16 @@ struct SettingsRowLabel: View {
                 ZStack {
                     Circle().fill(tint.opacity(0.16)).frame(width: 34, height: 34)
                     Image(systemName: icon)
-                        .font(.system(size: 16, weight: .semibold))
+                        .font(.aero(size: 16, weight: .semibold))
                         .foregroundColor(tint)
                 }
                 .accessibilityHidden(true)
             }
             VStack(alignment: .leading, spacing: 2) {
-                Text(title).font(.subheadline).foregroundColor(titleColor)
+                Text(title).font(.aero(.subheadline)).foregroundColor(titleColor)
                 if let subtitle {
                     Text(subtitle)
-                        .font(.caption)
+                        .font(.aero(.caption))
                         .foregroundColor(.secondaryText)
                         .fixedSize(horizontal: false, vertical: true)
                 }
@@ -1134,11 +1134,11 @@ struct SettingsButtonRow: View {
                                  tint: destructive ? .aviationRed : tint,
                                  titleColor: destructive ? .aviationRed : .primaryText)
                 if let value {
-                    Text(value).font(.subheadline).foregroundColor(.secondaryText).lineLimit(1)
+                    Text(value).font(.aero(.subheadline)).foregroundColor(.secondaryText).lineLimit(1)
                 }
                 if showsChevron {
                     Image(systemName: "chevron.right")
-                        .font(.system(size: 13, weight: .semibold))
+                        .font(.aero(size: 13, weight: .semibold))
                         .foregroundColor(.dimText.opacity(0.7))
                 }
             }
@@ -1163,7 +1163,7 @@ struct SettingsValueRow: View {
         HStack(spacing: 10) {
             SettingsRowLabel(icon: icon, title: title, subtitle: subtitle, tint: tint)
             Text(value)
-                .font(.subheadline.weight(.medium))
+                .font(.aero(.subheadline).weight(.medium))
                 .foregroundColor(valueColor)
                 .textSelection(.enabled)
         }
@@ -1310,7 +1310,7 @@ struct CockpitInstrumentStrip: View {
                 VStack(spacing: 0) {
                     if gpsSignalStatus != .lost {
                         Text("\(Int(max(0, displaySpeed)))")
-                            .font(.system(size: 30, weight: .medium, design: .monospaced))
+                            .font(.aero(size: 30, weight: .medium, design: .monospaced))
                             .foregroundColor(speedColor)
                             .minimumScaleFactor(0.6).lineLimit(1)
                         if let target = targetSpeed {
@@ -1342,12 +1342,12 @@ struct CockpitInstrumentStrip: View {
                 if gpsSignalStatus != .lost {
                     VStack(spacing: 1) {
                         Text("\(Int(max(0, altitudeFeet)))")
-                            .font(.system(size: 24, weight: .medium, design: .monospaced))
+                            .font(.aero(size: 24, weight: .medium, design: .monospaced))
                             .foregroundColor(theme.textPrimary)
                             .minimumScaleFactor(0.5).lineLimit(1)
                         if let vs = verticalSpeedDisplay {
                             Text(vs.text)
-                                .font(.system(size: 11, weight: .semibold, design: .monospaced))
+                                .font(.aero(size: 11, weight: .semibold, design: .monospaced))
                                 .foregroundColor(vs.color)
                         }
                     }
@@ -1367,9 +1367,9 @@ struct CockpitInstrumentStrip: View {
     private var headingCell: some View {
         cell(label: "HDG") {
             Text(headingDegrees.map { String(format: "%03d°", (Int($0.rounded()) % 360 + 360) % 360) } ?? "---")
-                .font(.system(size: 24, weight: .medium, design: .monospaced))
+                .font(.aero(size: 24, weight: .medium, design: .monospaced))
                 .foregroundColor(theme.textPrimary)
-            Text("track").font(.system(size: 10)).foregroundColor(theme.textSecondary)
+            Text("track").font(.aero(size: 10)).foregroundColor(theme.textSecondary)
         }
         .accessibilityElement(children: .ignore)
         .accessibilityLabel("Heading")
@@ -1383,7 +1383,7 @@ struct CockpitInstrumentStrip: View {
     @ViewBuilder
     private func cell<Content: View>(label: String, @ViewBuilder content: () -> Content) -> some View {
         VStack(spacing: 2) {
-            Text(label).font(.system(size: 11)).foregroundColor(theme.textSecondary)
+            Text(label).font(.aero(size: 11)).foregroundColor(theme.textSecondary)
             content()
         }
         .frame(maxWidth: .infinity)
@@ -1436,27 +1436,27 @@ struct CockpitHeroChecklistItem: View {
                 HStack {
                     if let progressText {
                         Text(progressText.uppercased())
-                            .font(.system(size: metaSize))
+                            .font(.aero(size: metaSize))
                             .foregroundColor(theme.textSecondary)
                     }
                     Spacer(minLength: 8)
                     if showAdvanceHint {
                         Label(L10n.ChecklistAction.tapToAdvance, systemImage: "hand.point.up.left")
                             .labelStyle(.titleAndIcon)
-                            .font(.system(size: metaSize))
+                            .font(.aero(size: metaSize))
                             .foregroundColor(theme.action)
                     }
                 }
                 .padding(.bottom, 1)
             }
             Text(challenge)
-                .font(.system(size: challengeSize, weight: .medium))
+                .font(.aero(size: challengeSize, weight: .medium))
                 .foregroundColor(theme.textPrimary)
                 .lineLimit(2)                 // never run past 2 lines — long item names threw off the HUD
                 .minimumScaleFactor(0.6)
             if let response, !response.isEmpty {
                 Text(response)
-                    .font(.system(size: responseSize, weight: .medium))
+                    .font(.aero(size: responseSize, weight: .medium))
                     .foregroundColor(theme.action)
                     .lineLimit(2)
                     .minimumScaleFactor(0.7)

@@ -47,21 +47,21 @@ struct AircraftSettingsView: View {
                 HStack {
                     VStack(alignment: .leading, spacing: 4) {
                         Text(L10n.Settings.aeroCheckPro)
-                            .font(.headline)
+                            .font(.aero(.headline))
                             .foregroundColor(.primary)
 
                         Text(subscriptionManager.subscriptionStatus.displayText)
-                            .font(.caption)
+                            .font(.aero(.caption))
                             .foregroundColor(.secondary)
 
                         if subscriptionManager.isInGracePeriod,
                            let endsAt = subscriptionManager.gracePeriodEndsAt {
                             HStack(spacing: 4) {
                                 Image(systemName: "exclamationmark.triangle.fill")
-                                    .font(.caption)
+                                    .font(.aero(.caption))
                                     .foregroundColor(.aviationAmber)
                                 Text(L10n.Settings.gracePeriodEnds(endsAt.formatted(date: .abbreviated, time: .shortened)))
-                                    .font(.caption2)
+                                    .font(.aero(.caption2))
                                     .foregroundColor(.aviationAmber)
                             }
                         }
@@ -102,12 +102,12 @@ struct AircraftSettingsView: View {
                     HStack {
                         VStack(alignment: .leading, spacing: 4) {
                             Text(aircraft.registration)
-                                .font(.system(.body, design: .monospaced))
+                                .font(.aero(.body, design: .monospaced))
                                 .fontWeight(.semibold)
                                 .foregroundColor(.primary)
 
                             Text(aircraft.shortModelName)
-                                .font(.caption)
+                                .font(.aero(.caption))
                                 .foregroundColor(.secondary)
                         }
 
@@ -141,18 +141,18 @@ struct AircraftSettingsView: View {
                     VStack(alignment: .leading, spacing: 4) {
                         HStack(spacing: 6) {
                             Text(L10n.Settings.premiumAircrafts)
-                                .font(.system(.body))
+                                .font(.aero(.body))
                                 .fontWeight(.semibold)
                                 .foregroundColor(.primary)
 
                             Image(systemName: "star.fill")
-                                .font(.caption)
+                                .font(.aero(.caption))
                                 .foregroundColor(.aviationGold)
                         }
 
                         if aircraftDataService.isLoading {
                             Text(L10n.Settings.loading)
-                                .font(.caption)
+                                .font(.aero(.caption))
                                 .foregroundColor(.secondary)
                         } else {
                             let premiumCount = aircraftDataService.availableAircraft.filter { !$0.isFree }.count
@@ -160,11 +160,11 @@ struct AircraftSettingsView: View {
 
                             if premiumCount > 0 {
                                 Text(L10n.Settings.available(accessibleCount, premiumCount))
-                                    .font(.caption)
+                                    .font(.aero(.caption))
                                     .foregroundColor(.secondary)
                             } else {
                                 Text(L10n.Settings.noPremium)
-                                    .font(.caption)
+                                    .font(.aero(.caption))
                                     .foregroundColor(.secondary)
                             }
                         }
@@ -197,7 +197,7 @@ struct AircraftSettingsView: View {
                         }
                     }
                     Text(L10n.Settings.getLatest)
-                        .font(.subheadline)
+                        .font(.aero(.subheadline))
                         .foregroundColor(.primaryText)
                     Spacer(minLength: 8)
                 }
@@ -241,7 +241,7 @@ struct AircraftSettingsView: View {
         SettingsGroup(title: L10n.Settings.aircraftVisibility, tint: tint, footer: L10n.Settings.aircraftVisibilityFooter) {
             if availableAeroclubs.isEmpty {
                 Text(L10n.Settings.noAircraftToFilter)
-                    .font(.caption)
+                    .font(.aero(.caption))
                     .foregroundColor(.secondary)
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .padding(.horizontal, 14)
@@ -251,9 +251,9 @@ struct AircraftSettingsView: View {
                     Button(action: showAllAircraft) {
                         HStack(spacing: 4) {
                             Image(systemName: "eye")
-                                .font(.caption)
+                                .font(.aero(.caption))
                             Text(L10n.Settings.showAll)
-                                .font(.caption)
+                                .font(.aero(.caption))
                         }
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 8)
@@ -266,9 +266,9 @@ struct AircraftSettingsView: View {
                     Button(action: hideAllAircraft) {
                         HStack(spacing: 4) {
                             Image(systemName: "eye.slash")
-                                .font(.caption)
+                                .font(.aero(.caption))
                             Text(L10n.Settings.hideAll)
-                                .font(.caption)
+                                .font(.aero(.caption))
                         }
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 8)
@@ -302,15 +302,15 @@ struct AircraftSettingsView: View {
             VStack(alignment: .leading, spacing: 2) {
                 HStack(spacing: 6) {
                     Image(systemName: "building.2")
-                        .font(.caption)
+                        .font(.aero(.caption))
                         .foregroundColor(.secondary)
                     Text(aeroclub)
-                        .font(.body)
+                        .font(.aero(.body))
                 }
 
                 let visibleCount = visibleAircraftCount(in: aeroclub)
                 Text(L10n.Settings.aircraftVisible(visibleCount, aircraftCount))
-                    .font(.caption)
+                    .font(.aero(.caption))
                     .foregroundColor(.secondary)
             }
 
@@ -338,12 +338,12 @@ struct AircraftSettingsView: View {
         return HStack {
             VStack(alignment: .leading, spacing: 2) {
                 Text(aircraft.registration)
-                    .font(.system(.body, design: .monospaced))
+                    .font(.aero(.body, design: .monospaced))
                     .fontWeight(.medium)
                     .foregroundColor(isClubHidden ? .secondary : .primary)
 
                 Text(aircraft.shortModelName)
-                    .font(.caption)
+                    .font(.aero(.caption))
                     .foregroundColor(.secondary)
             }
 

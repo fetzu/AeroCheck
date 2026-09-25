@@ -123,7 +123,7 @@ struct SyncDataSettingsView: View {
             HStack {
                 SettingsRowLabel(icon: "timer", title: L10n.Settings.gpsInterval, tint: tint)
                 Text(L10n.Settings.seconds(Int(gpsInterval)))
-                    .font(.subheadline)
+                    .font(.aero(.subheadline))
                     .foregroundColor(.secondaryText)
             }
             Slider(value: $gpsInterval, in: 1...30, step: 1)

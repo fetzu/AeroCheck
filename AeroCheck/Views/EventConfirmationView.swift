@@ -15,14 +15,14 @@ struct EventConfirmationView: View {
             // Event icon and type
             VStack(spacing: 12) {
                 Image(systemName: iconName)
-                    .font(.system(size: 30))
+                    .font(.aero(size: 30))
                     .foregroundColor(iconColor)
                     .frame(width: 64, height: 64)
                     .background(Circle().fill(iconColor.opacity(0.16)))
                     .accessibilityHidden(true)
 
                 Text(event.type.rawValue)
-                    .font(.title2)
+                    .font(.aero(.title2))
                     .fontWeight(.bold)
                     .foregroundColor(.primaryText)
             }
@@ -30,18 +30,18 @@ struct EventConfirmationView: View {
             // Event details
             VStack(spacing: 8) {
                 Text(event.message)
-                    .font(.body)
+                    .font(.aero(.body))
                     .foregroundColor(.primaryText)
                     .multilineTextAlignment(.center)
 
                 if let airport = event.airport {
                     Text(airport.ident)
-                        .font(.caption)
+                        .font(.aero(.caption))
                         .foregroundColor(.secondaryText)
                 }
 
                 Text(formattedTime)
-                    .font(.caption)
+                    .font(.aero(.caption))
                     .foregroundColor(.dimText)
             }
 
@@ -52,7 +52,7 @@ struct EventConfirmationView: View {
                     onDismiss()
                 }) {
                     Text(L10n.EventConfirmation.dismiss)
-                        .font(.headline)
+                        .font(.aero(.headline))
                         .foregroundColor(.secondaryText)
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 14)
@@ -68,7 +68,7 @@ struct EventConfirmationView: View {
                     onConfirm()
                 }) {
                     Text(L10n.EventConfirmation.confirm)
-                        .font(.headline)
+                        .font(.aero(.headline))
                         .foregroundColor(.black)
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 14)
@@ -80,7 +80,7 @@ struct EventConfirmationView: View {
             // Auto-dismiss countdown + progress (PR-06: unattended events are dismissed, not confirmed)
             VStack(spacing: 6) {
                 Text(L10n.EventConfirmation.autoDismiss(secondsRemaining))
-                    .font(.caption2)
+                    .font(.aero(.caption2))
                     .foregroundColor(.dimText)
                 GeometryReader { geo in
                     ZStack(alignment: .leading) {

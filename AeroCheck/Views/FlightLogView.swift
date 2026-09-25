@@ -802,7 +802,8 @@ struct FlightLogView: View {
         return VStack(spacing: 14) {
             // Title + year selector + export (concept header)
             HStack(alignment: .center) {
-                Text("Flight Log")
+                // The tab's name: flown flights live in the Logbook. (v6.0 · P8)
+                Text(L10n.Ground.logbook)
                     .scaledFont(size: 28, weight: .bold, relativeTo: .title2)
                     .foregroundColor(.primaryText)
                     .lineLimit(1)

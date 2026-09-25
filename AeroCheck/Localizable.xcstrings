@@ -1249,13 +1249,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "A saved route makes one flight. Once it is created, use “Add a stop…” on the flight to land on the way."
+            "value": "A route makes one flight. Once it is created, use “Add a stop…” on the flight to land on the way."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Une route enregistrée crée un seul vol. Une fois créé, utilisez « Ajouter une escale… » sur le vol pour atterrir en chemin."
+            "value": "Une route crée un seul vol. Une fois créé, utilisez « Ajouter une escale… » sur le vol pour atterrir en chemin."
           }
         }
       }
@@ -1674,13 +1674,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Flight plan filed: tell FIS you are diverting to %@"
+            "value": "ATC flight plan filed: tell FIS you are diverting to %@"
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Plan de vol déposé : annoncez votre déroutement vers %@"
+            "value": "Plan de vol ATC déposé : annoncez votre déroutement vers %@"
           }
         }
       }
@@ -1759,13 +1759,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "A stop turns this flight into two legs of one trip, each with its own logbook line, flight plan, nav log and close-out."
+            "value": "A stop turns this flight into two legs of one trip, each with its own logbook line, ATC flight plan, nav log and close-out."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Une escale transforme ce vol en deux étapes d’un même voyage, chacune avec sa ligne de carnet de vol, son plan de vol, son log de navigation et sa clôture."
+            "value": "Une escale transforme ce vol en deux étapes d’un même voyage, chacune avec sa ligne de carnet de vol, son plan de vol ATC, son log de navigation et sa clôture."
           }
         }
       }
@@ -3249,10 +3249,16 @@
     },
     "Start from a saved route" : {
       "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Start from a route"
+          }
+        },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Partir d'une route enregistrée"
+            "value" : "Partir d’une route"
           }
         }
       }
@@ -4259,10 +4265,16 @@
     },
     "Flight plan filed" : {
       "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ATC flight plan filed"
+          }
+        },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Plan de vol déposé"
+            "value" : "Plan de vol ATC déposé"
           }
         }
       }
@@ -4279,10 +4291,16 @@
     },
     "Close the flight plan" : {
       "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Close the ATC flight plan"
+          }
+        },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Clôturer le plan de vol"
+            "value" : "Clôturer le plan de vol ATC"
           }
         }
       }
@@ -4989,10 +5007,16 @@
     },
     "Close your flight plan" : {
       "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Close your ATC flight plan"
+          }
+        },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Clôturez votre plan de vol"
+            "value" : "Clôturez votre plan de vol ATC"
           }
         }
       }
@@ -5029,10 +5053,16 @@
     },
     "Flight plan not marked closed" : {
       "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ATC flight plan not marked closed"
+          }
+        },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Plan de vol non marqué comme clôturé"
+            "value" : "Plan de vol ATC non marqué comme clôturé"
           }
         }
       }
@@ -5954,10 +5984,16 @@
     },
     "Weather, NOTAM, customs, the flight plan filed": {
       "localizations": {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Weather, NOTAM, customs, the ATC flight plan filed"
+          }
+        },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Météo, NOTAM, douane, plan de vol déposé"
+            "value": "Météo, NOTAM, douane, plan de vol ATC déposé"
           }
         }
       }
@@ -5974,10 +6010,16 @@
     },
     "Close the flight plan, fees, the logbook line": {
       "localizations": {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Close the ATC flight plan, fees, the logbook line"
+          }
+        },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Clôture du plan de vol, taxes, ligne de carnet"
+            "value": "Clôture du plan de vol ATC, taxes, ligne de carnet"
           }
         }
       }
@@ -6217,10 +6259,16 @@
     },
     "Download data for this trip": {
       "localizations": {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Download data for this route"
+          }
+        },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Télécharger les données pour ce vol"
+            "value": "Télécharger les données pour cette route"
           }
         }
       }
@@ -6380,10 +6428,6 @@
           }
         }
       }
-    },
-    "Flight Log": {
-      "comment": "The title of the flight log view.",
-      "isCommentAutoGenerated": true
     },
     "Flight planning": {
       "localizations": {
@@ -6855,10 +6899,16 @@
     },
     "National borders (trip data coverage) · Natural Earth, public domain": {
       "localizations": {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "National borders (route data coverage) · Natural Earth, public domain"
+          }
+        },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Frontières nationales (couverture des données de vol) · Natural Earth, domaine public"
+            "value": "Frontières nationales (couverture des données de route) · Natural Earth, domaine public"
           }
         }
       }
@@ -7826,10 +7876,16 @@
     },
     "Trip data": {
       "localizations": {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Route data"
+          }
+        },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Données du vol"
+            "value": "Données de la route"
           }
         }
       }
@@ -8026,10 +8082,16 @@
     },
     "Your active flight plan crosses areas without downloaded data:": {
       "localizations": {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Your route crosses areas without downloaded data:"
+          }
+        },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Votre plan de vol actif traverse des zones sans données téléchargées :"
+            "value": "Votre route traverse des zones sans données téléchargées :"
           }
         }
       }
@@ -9504,13 +9566,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "FLIGHT LOG"
+            "value": "LOGBOOK"
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "JOURNAL DE VOL"
+            "value": "CARNET DE VOL"
           }
         }
       }
@@ -10749,13 +10811,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "No active flight plan"
+            "value": "No route on the map"
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Aucun plan de vol actif"
+            "value": "Aucune route sur la carte"
           }
         }
       }
@@ -12716,13 +12778,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Flight Log"
+            "value": "Logbook"
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Journal de vol"
+            "value": "Carnet de vol"
           }
         }
       }
@@ -13509,10 +13571,16 @@
     },
     "iCloud sync, GPS recording & flight log": {
       "localizations": {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "iCloud sync, GPS recording & logbook"
+          }
+        },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Synchronisation iCloud, enregistrement GPS et journal de vol"
+            "value": "Synchronisation iCloud, enregistrement GPS et carnet de vol"
           }
         }
       }
@@ -13662,30 +13730,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Empty flight plan"
+            "value": "Empty route"
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Plan de vol vide"
-          }
-        }
-      }
-    },
-    "nav.activateFlightPlan": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Activate Flight Plan"
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Activer le plan de vol"
+            "value": "Route vide"
           }
         }
       }
@@ -13713,13 +13764,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Flight plan no longer armed"
+            "value": "Route taken off the map"
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Plan de vol désarmé"
+            "value": "Route retirée de la carte"
           }
         }
       }
@@ -13747,13 +13798,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Active Flight Plan"
+            "value": "On the map"
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Plan de vol actif"
+            "value": "Sur la carte"
           }
         }
       }
@@ -14165,13 +14216,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Copy ICAO Flight Plan"
+            "value": "Copy ATC flight plan"
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Copier plan de vol OACI"
+            "value": "Copier le plan de vol ATC"
           }
         }
       }
@@ -14283,30 +14334,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Deactivate this flight plan?"
+            "value": "Clear this route from the map?"
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Désactiver ce plan de vol ?"
-          }
-        }
-      }
-    },
-    "nav.deactivateFlightPlan": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Deactivate Flight Plan"
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Désactiver le plan de vol"
+            "value": "Retirer cette route de la carte ?"
           }
         }
       }
@@ -14351,13 +14385,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Delete Flight Plan?"
+            "value": "Delete this route?"
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Supprimer le plan de vol ?"
+            "value": "Supprimer cette route ?"
           }
         }
       }
@@ -15106,13 +15140,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "ICAO Flight Plan Details"
+            "value": "ATC flight plan details"
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Détails plan de vol OACI"
+            "value": "Détails du plan de vol ATC"
           }
         }
       }
@@ -15123,13 +15157,13 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Flight plan copied"
+            "value" : "ATC flight plan copied"
           }
         },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Plan de vol copié"
+            "value" : "Plan de vol ATC copié"
           }
         }
       }
@@ -15191,13 +15225,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Failed to import flight plan."
+            "value": "Couldn't import the route."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Échec de l'importation du plan de vol."
+            "value": "Impossible d’importer la route."
           }
         }
       }
@@ -15208,13 +15242,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Import Flight Plan"
+            "value": "Import route"
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Importer un plan de vol"
+            "value": "Importer une route"
           }
         }
       }
@@ -15544,13 +15578,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "NAVIGATION FLIGHT PLAN"
+            "value": "NAV LOG"
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "PLAN DE VOL NAVIGATION"
+            "value": "LOG DE NAVIGATION"
           }
         }
       }
@@ -15628,13 +15662,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "No Flight Plans"
+            "value": "No routes"
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Aucun plan de vol"
+            "value": "Aucune route"
           }
         }
       }
@@ -15645,13 +15679,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Create a new flight plan to get started with route planning."
+            "value": "Create a route to get started."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Créez un nouveau plan de vol pour commencer la planification de votre route."
+            "value": "Créez une route pour commencer."
           }
         }
       }
@@ -17003,13 +17037,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Smart Briefings & Flight Log"
+            "value": "Smart briefings & logbook"
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Briefings Intelligents & Journal de Vol"
+            "value": "Briefings intelligents et carnet de vol"
           }
         }
       }
@@ -17249,7 +17283,7 @@
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Suivez votre vol, du premier plan à la dernière entrée du journal :"
+            "value": "Suivez votre vol, du premier plan à la dernière ligne du carnet :"
           }
         }
       }
@@ -20056,13 +20090,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Your flight logs are stored in the AéroCheck folder in Files and can be accessed from any device."
+            "value": "Your flights are stored in the AéroCheck folder in Files and can be opened from any device."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Vos journaux de vol sont stockés dans le dossier AéroCheck dans Fichiers et peuvent être consultés depuis n'importe quel appareil."
+            "value": "Vos vols sont stockés dans le dossier AéroCheck dans Fichiers et peuvent être ouverts depuis n’importe quel appareil."
           }
         }
       }

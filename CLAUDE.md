@@ -63,11 +63,14 @@ AeroCheck/
 ├── Localizable.xcstrings      # Localization strings (English, French)
 ├── Localization.swift         # Generated localization helpers
 ├── Views/
-│   ├── ContentView.swift      # Root router (home vs flight)
-│   ├── HomeView.swift         # v4 Home: command rail + hero canvas + aircraft carousel + activity strips
-│   ├── FlightView.swift       # v4 in-flight HUD (cockpit instrument strip, tappable phase bar, hero checklist item, docked/drawer reference panels)
-│   ├── FlightLogView.swift    # Flight Log dashboard + master/detail flight history, export/import, share cards
-│   ├── NavigationView.swift   # Nav 3.5 full-screen map: 2-row bottom bar, expandable plan sheet, leg timing, FREQ panel, track vector, FREDA reminder
+│   ├── ContentView.swift      # Root router: GroundView on the ground, FlightView in flight
+│   ├── GroundView.swift       # 6.0 ground tab bar: Today · Plan (Flights | Routes | Map) · Logbook · Aircraft · Settings
+│   ├── HomeView.swift         # The Today tab: logo (5-tap), next flight, START, Circuits / second action, aircraft, last flight
+│   ├── FlightView.swift       # In flight: the Cockpit on iPad (see Cockpit.swift), the v4 HUD on iPhone; the Menu sheet
+│   ├── Cockpit.swift          # 6.0 Cockpit pieces: CockpitPaneRule (CHECKLIST | MAP by phase), thumb button, pane picker
+│   ├── DeferredItemsViews.swift # Open-items review on NEXT, deferred chip + sheet (v6.0 · B2)
+│   ├── FlightLogView.swift    # The Logbook: dashboard + master/detail flight history, export/import, share cards (modes: combined/logbook/plan)
+│   ├── NavigationView.swift   # The nav map: iPad kneeboard chrome (next-waypoint card, Map sheet, NOW/NEXT, MARK thumb bar), iPhone compact sheet; embedded in the Cockpit and Plan › Map
 │   ├── OnboardingView.swift   # v4 redesigned first-run onboarding (replayable from Settings)
 │   ├── SettingsView.swift     # Settings hub (routes into Views/Settings/* sub-pages)
 │   ├── SubscriptionView.swift # Subscription / paywall UI
@@ -146,6 +149,7 @@ AeroCheck/
 │   └── WatchConnectivityManager.swift # Apple Watch communication
 ├── Components/
 │   ├── DesignSystem.swift     # Cockpit theme engine, semantic tokens, button styles, Settings kit (SettingsPage/Group/Row), Liquid Glass chrome
+│   ├── Typography.swift       # B612 (`Font.aero`, `UIFont.aero`), `CockpitType` sizes, `CockpitTarget` touch targets (v6.0)
 │   └── ChecklistView.swift    # Checklist display component
 ├── Shared/                    # Targets shared with Watch + Widget + Companion
 │   ├── WatchConnectivityData.swift     # Watch/iOS shared data models
@@ -199,7 +203,11 @@ AeroCheckWatch/
 | Unified Flight Start | `FlightLauncher` — one start sequence shared by the buttons, widget, and deep links (checklist load → ARCH-01/entitlement/permission/active-flight guards → start → GPS) |
 | Subscription System | `SubscriptionManager` (StoreKit 2), `SubscriptionView` |
 | Step-by-step highlighting | `AppState.currentHighlightedItem` |
-| Learning Mode | Hides memorizable items |
+| Memory test (was Learning Mode) | Off by default since 6.0 (every check shown); on hides memorizable items. Stored as `learningMode` (inverted) |
+| Ground tabs (6.0) | `GroundView` — Today · Plan · Logbook · Aircraft · Settings; `appState.groundTab` switches tabs from anywhere |
+| Cockpit (6.0, iPad) | `FlightView` + `Cockpit.swift` — header, GS/ALT/TRK/NEXT strip, CHECKLIST \| MAP pane that follows the phase, 104 pt thumb bar (CHECK · DEFER · phase action; MARK on the map) |
+| Deferred items (6.0) | `ChecklistProgress.deferredItems` — DEFER in a phase, or NEXT with items open (after a review sheet); follow the pilot until checked |
+| Map presets (6.0) | `MapPreset` in the iPad Map sheet — Cruise / Approach / Everything |
 | GPS Tracking | `LocationManager` + `GPSPoint` in Flight |
 | Ground Speed Indicator | Real-time GPS ground speed in knots with color coding |
 | Briefing Wind | `WindDataService` + MeteoSwiss surface stations (Switzerland only) — feeds the departure/approach briefings. Station chosen by distance AND altitude delta, not distance alone. There is deliberately **no** estimated-airspeed readout and **no** stall annunciation: the app has no pitot or AoA source, and a surface-station wind cannot describe air at altitude. |
@@ -348,6 +356,14 @@ the system appearance.
 > (`AppState.swift:56-72`), so `isNightMode == true` exactly when the mode is `.night` — they can
 > never disagree, and a site using either is consistent with one using the other.
 
+> ⚠️ **`.preferredColorScheme(.dark)` reaches the whole WINDOW from an embedded view.** Use it only
+> on a view presented on its own (cover, sheet). A view embedded in a tab, or pushed, inherits the
+> root's subtree-local `.environment(\.colorScheme, .dark)` and must not set it: when the 6.0 tab bar
+> embedded FlightLog/Settings/Routes/the map, their modifier darkened the window, the root could no
+> longer read the device's appearance, and **Auto resolved to night in daylight**. The pattern is
+> `.preferredColorScheme(isEmbedded ? nil : .dark)` (see `FlightLogView`, `SettingsView`,
+> `FlightPlanningView`, `NavigationMapView`).
+
 Liquid Glass chrome (`DesignSystem.floatingChromeBackground/Circle`) is iOS 26+ with a
 `.regularMaterial` fallback on 17.0.
 
@@ -355,7 +371,7 @@ Liquid Glass chrome (`DesignSystem.floatingChromeBackground/Circle`) is iOS 26+ 
 
 **Settings kit:** reusable `SettingsPage` / `SettingsGroup` / `Settings*Row` components — use these for any settings UI.
 
-**Typography:** monospaced fonts for checklist items; 44pt minimum touch targets. **Dynamic Type:** ground-use screens (planning, settings, onboarding, paywall) use `.scaledFont(size:weight:design:relativeTo:)` from `DesignSystem.swift` (a `@ScaledMetric` wrapper) instead of fixed `.font(.system(size:))`; in-flight HUD instrumentation intentionally keeps fixed sizes for cockpit legibility (UX-24). Adoption is in progress — Flight Log, Home and the in-flight surfaces still use fixed sizes.
+**Typography (6.0):** B612 everywhere in the app (`Font.aero` mirrors `Font.system`; widget, Watch and the nav log PDF keep the system font). Anything read in flight uses a `CockpitType` size (label 20, row 24, response 28, button 30, item 42, value 48) and a `CockpitTarget` (thumb 104, control 64) — the kneeboard yardsticks from the 2026-09 review. Monospaced fonts for checklist items; 44pt minimum touch targets elsewhere. **Dynamic Type:** ground-use screens (planning, settings, onboarding, paywall) use `.scaledFont(size:weight:design:relativeTo:)` from `DesignSystem.swift` (a `@ScaledMetric` wrapper) instead of fixed `.font(.system(size:))`; in-flight HUD instrumentation intentionally keeps fixed sizes for cockpit legibility (UX-24). Adoption is in progress — Flight Log, Home and the in-flight surfaces still use fixed sizes.
 
 **Custom `ButtonStyle` + `.disabled()`:** a style must read `@Environment(\.isEnabled)` itself to dim when disabled (Primary/SecondaryButtonStyle do).
 
@@ -475,6 +491,10 @@ source: `<ele>` is not read as a plan — the builder offers "Set altitudes" ins
 ## Localization Patterns
 
 - Aviation abbreviations (kt, ft, NM, MSL, GPS, FREQ, etc.) are intentionally NOT translated per ICAO standards
+- **One vocabulary (6.0 · P8):** *Flight* = one take-off to landing, planned (Plan) or flown (Logbook);
+  *Trip* = several flights in a row; *Route* = a reusable path with no date; *Nav log* = the printout;
+  *ATC flight plan* = what you file and close with ATC. Never "flight plan" on its own. The printed
+  nav log keeps its form title ("AVIS DE VOL – PLAN DE VOL DE NAVIGATION"): it mirrors the paper form.
 - All user-facing strings should use `L10n.*` keys from `Localization.swift`
 - `Localizable.xcstrings` contains EN/FR translations
 
@@ -482,7 +502,11 @@ source: `<ele>` is not read as a plan — the builder offers "Set altitudes" ins
 
 `SettingsView` is a v4 hub that routes into dedicated sub-pages under `Views/Settings/`, each built with the shared Settings kit (`SettingsPage`/`SettingsGroup`/`Settings*Row`):
 1. **Aircraft** (`AircraftSettingsView`) - aircraft selection, subscription/premium management
-2. **Checklist & Flight** (`ChecklistFlightSettingsView`) - circuit mode, learning mode, highlighting, flight preferences
+2. **Checklist & Flight** (`ChecklistFlightSettingsView`) - memory test, checklist language, engine hours, UTC, theme + sunlight
+
+   Retired in 6.0 (review P7) — the values are still decoded and synced for older builds, but no longer read:
+   circuit mode (CIRCUITS is always on Today), keep screen on (on exactly while a flight runs), step-by-step
+   highlighting (always on; settings schema 4 migrates it back on once).
 3. **Navigation & Maps** (`NavigationMapsSettingsView`) - map layers, offline maps, OpenAIP airspace overlay & data, airport data, wind data, online airspace streaming, theme picker
 4. **Flight Planning** (`FlightPlanningSettingsView`) - route-builder and export preferences
 5. **Sync & Data** (`SyncDataSettingsView`) - iCloud sync, GPS recording settings, flight-count/GPS-point stats

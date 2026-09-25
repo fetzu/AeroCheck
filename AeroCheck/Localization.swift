@@ -1427,6 +1427,22 @@ enum L10n {
         static let visibilityInSettings = String(localized: "ground.visibilityInSettings")
     }
 
+    /// The Cockpit's V-SPEEDS table: its rows. (V-SPEEDS proposal, D1–D8)
+    enum VSpeeds {
+        static let stallGlide = String(localized: "vspeeds.stallGlide")
+        static let takeoffClimb = String(localized: "vspeeds.takeoffClimb")
+        static let approachLanding = String(localized: "vspeeds.approachLanding")
+        static let limits = String(localized: "vspeeds.limits")
+        static let other = String(localized: "vspeeds.other")
+        static let crosswind = String(localized: "vspeeds.crosswind")
+        static func crosswindTakeoffA11y(_ limit: String) -> String {
+            String(format: String(localized: "vspeeds.crosswindTakeoffA11y"), limit)
+        }
+        static func crosswindLandingA11y(_ limit: String) -> String {
+            String(format: String(localized: "vspeeds.crosswindLandingA11y"), limit)
+        }
+    }
+
     /// Checklist items left unchecked by NEXT. (v6.0 · B2)
     enum Deferred {
         /// "2 items not checked"

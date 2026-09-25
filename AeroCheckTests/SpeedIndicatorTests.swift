@@ -94,14 +94,4 @@ final class SpeedIndicatorTests: XCTestCase {
         XCTAssertFalse(v.lowercased().contains("airspeed"))
         XCTAssertFalse(v.lowercased().contains("ias"))
     }
-
-    // MARK: - V-SPEEDS tiles
-
-    /// The checklists write ranges with a spaced en dash ("97 – 75"); on a Cockpit tile they close up
-    /// so the value fits at reading size. (on-device review #2)
-    func testTileValueClosesUpRanges() {
-        XCTAssertEqual(InFlightSpeedReference.compactRange("97 – 75"), "97–75")
-        XCTAssertEqual(InFlightSpeedReference.compactRange("60 - 55"), "60–55")
-        XCTAssertEqual(InFlightSpeedReference.compactRange("70"), "70")
-    }
 }

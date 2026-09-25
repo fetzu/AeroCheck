@@ -230,7 +230,11 @@ struct FlightView: View {
                 // iPad, portrait and landscape: the Cockpit. (v6.0 · P2)
                 cockpit
                     // Reference popups (V-SPEEDS / GPS / BRIEFING) → themed bottom drawer.
-                    .overlay { referenceDrawerOverlay(maxHeight: geometry.size.height * 0.6, kneeboard: true) }
+                    .overlay {
+                        referenceDrawerOverlay(maxHeight: geometry.size.height * 0.6, kneeboard: true,
+                                               landscape: geometry.size.width > geometry.size.height,
+                                               vSpeedsMaxHeight: geometry.size.height * 0.75)
+                    }
             }
         }
         .background(theme.background)
@@ -1304,8 +1308,11 @@ struct FlightView: View {
     /// The bottom-drawer presentation of a reference popup: a dimming scrim
     /// (tap to dismiss) with the cockpit-themed panel rising from the bottom, leaving the instruments
     /// and current checklist item visible above. (v4 UI/UX Revamp)
+    /// `vSpeedsMaxHeight`: V-SPEEDS grows rather than scroll (V-SPEEDS proposal, D7); the densest
+    /// checklist in landscape needs about two thirds of the screen.
     @ViewBuilder
-    private func referenceDrawerOverlay(maxHeight: CGFloat, kneeboard: Bool = false) -> some View {
+    private func referenceDrawerOverlay(maxHeight: CGFloat, kneeboard: Bool = false, landscape: Bool = false,
+                                        vSpeedsMaxHeight: CGFloat? = nil) -> some View {
         if let reference = activeReference {
             ZStack(alignment: .bottom) {
                 Color.black.opacity(0.22)
@@ -1318,6 +1325,7 @@ struct FlightView: View {
                     reference: reference,
                     presentation: .drawer,
                     kneeboard: kneeboard,
+                    landscape: landscape,
                     locationManager: locationManager,
                     briefingContext: reference.isBriefing ? briefingContext : nil,
                     aglFeet: reference == .vSpeeds ? currentAGLFeet : nil,
@@ -1325,7 +1333,7 @@ struct FlightView: View {
                 )
                 // Bottom-aligned: a frame with a max height takes the whole cap and would centre a
                 // shorter drawer in it, floating above the thumb bar.
-                .frame(maxHeight: maxHeight, alignment: .bottom)
+                .frame(maxHeight: reference == .vSpeeds ? (vSpeedsMaxHeight ?? maxHeight) : maxHeight, alignment: .bottom)
                 .transition(.move(edge: .bottom))
             }
         }
@@ -2553,6 +2561,8 @@ struct HUDReferencePanel: View {
     var presentation: Presentation = .docked
     /// The Cockpit: kneeboard sizes in the header, and the drawer only as tall as its content.
     var kneeboard: Bool = false
+    /// The Cockpit in landscape (V-SPEEDS lays its rows out for it).
+    var landscape: Bool = false
     @ObservedObject var locationManager: LocationManager
     var briefingContext: BriefingContext? = nil
     var aglFeet: Double? = nil
@@ -2670,7 +2680,8 @@ struct HUDReferencePanel: View {
                 activeChecklist: appState.activeChecklist,
                 currentPhase: appState.currentPhase,
                 aglFeet: aglFeet,
-                kneeboard: kneeboard
+                kneeboard: kneeboard,
+                landscape: landscape
             )
         case .gps:
             GPSStatusContent(locationManager: locationManager)
@@ -2933,31 +2944,61 @@ private extension View {
 
 // MARK: - In-flight V-speeds (phase-aware highlight, hosted in HUDReferencePanel)
 
-/// The V-speeds reference shown in the HUD panel: a scannable list (V-name accent · description muted ·
-/// value bright white, right-aligned) with the phase-relevant speed(s) highlighted and Vne in red. The
-/// climb highlight switches Vx → Vy at 300 ft AGL; cruise = Vc (or Va); descent = Va + Vbg. (round 6)
+/// Its content at its natural width up to `maxWidth`, wrapped beyond it, reporting the height the
+/// wrapped text really takes. A `.frame(maxWidth:)` reports one line's height to a layout that
+/// measures without a width (as `FlowLayout` does), so the line below it was cut off.
+private struct CappedWidth: Layout {
+    let maxWidth: CGFloat
+
+    func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
+        guard let child = subviews.first else { return .zero }
+        let natural = child.sizeThatFits(.unspecified)
+        let cap = min(maxWidth, proposal.width ?? maxWidth)
+        return natural.width <= cap ? natural : child.sizeThatFits(ProposedViewSize(width: cap, height: nil))
+    }
+
+    func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) {
+        subviews.first?.place(at: bounds.origin, anchor: .topLeading,
+                              proposal: ProposedViewSize(width: bounds.width, height: bounds.height))
+    }
+}
+
+/// The V-speeds reference shown in the HUD panel. The Cockpit shows `VSpeedTable`: one fixed table,
+/// the phase's speeds framed where they stand. The iPhone keeps its list (V-name accent · description
+/// muted · value right-aligned) until its own pass; its highlight switches Vx → Vy at 300 ft AGL,
+/// cruise = Vc (or Va), descent = Va + Vbg. (round 6; V-SPEEDS proposal D1–D8)
 struct InFlightSpeedReference: View {
     @Environment(\.cockpitTheme) private var theme
     let activeChecklist: ActiveChecklist
     let currentPhase: ChecklistPhase
     let aglFeet: Double?
-    /// The Cockpit: a grid of tiles at kneeboard size instead of the iPhone's list.
+    /// The Cockpit: the fixed table instead of the iPhone's list.
     var kneeboard: Bool = false
+    /// The Cockpit in landscape: the same rows with smaller values, the two short rows side by side.
+    var landscape: Bool = false
 
     private var speeds: [SpeedReference] { activeChecklist.speeds }
 
     var body: some View {
-        if kneeboard { tileGrid } else { list }
+        if kneeboard { table } else { list }
     }
 
-    // MARK: Cockpit tiles
+    // MARK: Cockpit table
 
-    /// Each speed a tile: its name and value side by side, what it's for underneath. As many columns
-    /// as the width takes (five in landscape, three in portrait), so nothing sits at the far edges of
-    /// a full-width row and the whole table fits the drawer without scrolling. Values are the data, in
-    /// white; names in grey. The phase's speed(s) get a white frame, Vne stays red. (on-device review #2)
-    private var tileGrid: some View {
-        VStack(alignment: .leading, spacing: 14) {
+    /// Values at today's tile size in portrait; smaller in landscape, where the height is short.
+    private var valueSize: CGFloat { landscape ? 36 : CockpitType.item }
+    private var stallGlideValueSize: CGFloat { landscape ? 40 : 46 }
+    private var crosswindValueSize: CGFloat { landscape ? 30 : 34 }
+    private static let labelWidth: CGFloat = 160
+    private static let qualifierWidth: CGFloat = 150
+
+    private var table: some View {
+        let rows = VSpeedTable.rows(speeds: speeds, phase: currentPhase, aglFeet: aglFeet)
+        let stallGlide = rows.first { $0.group == .stallGlide }
+        let others = rows.filter { $0.group != .stallGlide }
+        let climb = others.first { $0.group == .takeoffClimb }
+        let crosswind = VSpeedTable.highlightedCrosswind(phase: currentPhase)
+        return VStack(alignment: .leading, spacing: 10) {
             HStack(alignment: .firstTextBaseline) {
                 Text(activeChecklist.registration)
                     .font(.aero(size: CockpitType.label, weight: .bold, design: .monospaced))
@@ -2968,62 +3009,161 @@ struct InFlightSpeedReference: View {
                     .foregroundColor(theme.textDim)
             }
 
-            LazyVGrid(columns: [GridItem(.adaptive(minimum: 200), spacing: 12)], spacing: 12) {
-                ForEach(speeds) { speedTile($0) }
+            // Stall & glide first, on its own panel: the numbers for the moment something goes wrong.
+            if let stallGlide {
+                rowView(stallGlide, valueSize: stallGlideValueSize)
+                    .padding(.leading, 16)
+                    .padding(.vertical, 4)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .background(RoundedRectangle(cornerRadius: 12).fill(theme.card))
             }
 
-            let crosswind = activeChecklist.crosswindLimits
-            HStack(alignment: .firstTextBaseline, spacing: 12) {
-                Text("Max crosswind")
-                    .foregroundColor(theme.textSecondary)
-                Text("T/O \(crosswind.takeoff) · LDG \(crosswind.landing)")
-                    .font(.aero(size: CockpitType.label, weight: .bold, design: .monospaced))
-                    .foregroundColor(theme.warning)
+            VStack(alignment: .leading, spacing: 0) {
+                if landscape {
+                    // The same rows, full width; take-off & climb and crosswind, both short, share one.
+                    HStack(alignment: .top, spacing: 28) {
+                        if let climb { rowView(climb, valueSize: valueSize).frame(maxWidth: .infinity, alignment: .leading) }
+                        crosswindRow(highlight: crosswind).frame(maxWidth: .infinity, alignment: .leading)
+                    }
+                    ForEach(others.filter { $0.group != .takeoffClimb }, id: \.group) { row in
+                        rule
+                        rowView(row, valueSize: valueSize)
+                    }
+                } else {
+                    ForEach(Array(others.enumerated()), id: \.element.group) { index, row in
+                        if index > 0 { rule }
+                        rowView(row, valueSize: valueSize)
+                    }
+                    if !others.isEmpty { rule }
+                    crosswindRow(highlight: crosswind)
+                }
             }
-            .font(.aero(size: CockpitType.label))
         }
     }
 
-    private func speedTile(_ speed: SpeedReference) -> some View {
-        let highlighted = isHighlighted(speed)
-        let isVne = speed.name.lowercased() == "vne"
-        let ink = isVne ? theme.danger : theme.textPrimary
-        return VStack(alignment: .leading, spacing: 2) {
-            // The unit is in the line above the grid ("IAS · kt"), not on every tile.
-            HStack(alignment: .firstTextBaseline, spacing: 10) {
-                // The name at label size: the value is what's read, and "Vfinal" beside "60–55" must
-                // leave the value room on a landscape tile.
-                Text(speed.name)
-                    .font(.aero(size: CockpitType.label, weight: .bold, design: .monospaced))
-                    .foregroundColor(isVne ? theme.danger : theme.textSecondary)
-                    .fixedSize()
-                Text(Self.compactRange(speed.value))
-                    .font(.aero(size: CockpitType.item, weight: .bold, design: .monospaced))
-                    .foregroundColor(ink)
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.5)   // a long range shrinks, never cut to "60…"
-                    .frame(maxWidth: .infinity, alignment: .trailing)
+    private var rule: some View {
+        Rectangle().fill(theme.textPrimary.opacity(0.12)).frame(height: 1)
+    }
+
+    /// A row: its label in a fixed column on the left, then a cell per speed. The cells flow onto a
+    /// second line inside the row if a checklist ever has more than fits, never truncated.
+    private func rowView(_ row: VSpeedTable.Row, valueSize: CGFloat) -> some View {
+        HStack(alignment: .top, spacing: 0) {
+            rowLabel(Self.title(of: row.group), highlighted: row.isHighlighted)
+            FlowLayout(spacing: 0) {
+                ForEach(Array(row.cells.enumerated()), id: \.element.id) { index, cell in
+                    if row.isSequence && index > 0 {
+                        // The approach, flown in this order.
+                        Text("›")
+                            .font(.aero(size: 26, design: .monospaced))
+                            .foregroundColor(theme.textDim)
+                            .padding(.top, 22)
+                            .accessibilityHidden(true)
+                    }
+                    cellView(name: cell.name, value: cell.value, qualifier: cell.qualifier,
+                             nameColor: nameColor(cell.tone, highlighted: cell.highlighted),
+                             valueColor: cell.tone == .neverExceed ? theme.danger : theme.textPrimary,
+                             valueSize: valueSize, highlighted: cell.highlighted,
+                             leadingRule: !row.isSequence && index > 0)
+                        .accessibilityLabel(Self.spokenLabel(cell))
+                }
             }
-            .frame(height: 52)   // every tile the same height, a shrunk value included
-            Text(speed.description)
-                .font(.aero(size: 18))
-                .foregroundColor(theme.textSecondary)
-                .lineLimit(1)
-                .minimumScaleFactor(0.8)
         }
-        .padding(.horizontal, 16)
-        .padding(.vertical, 8)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(RoundedRectangle(cornerRadius: 12).fill(highlighted ? ink.opacity(0.14) : theme.textPrimary.opacity(0.05)))
-        .overlay(RoundedRectangle(cornerRadius: 12).stroke(highlighted ? ink : Color.clear, lineWidth: 2))
+        .padding(.vertical, 4)
+    }
+
+    private func crosswindRow(highlight: VSpeedTable.Crosswind?) -> some View {
+        let limits = activeChecklist.crosswindLimits
+        return HStack(alignment: .top, spacing: 0) {
+            rowLabel(L10n.VSpeeds.crosswind, highlighted: highlight != nil)
+            HStack(alignment: .top, spacing: 0) {
+                cellView(name: "T/O", value: limits.takeoff, qualifier: nil, nameColor: theme.textSecondary,
+                         valueColor: theme.warning, valueSize: crosswindValueSize,
+                         highlighted: highlight == .takeoff, leadingRule: false)
+                    .accessibilityLabel(L10n.VSpeeds.crosswindTakeoffA11y(limits.takeoff))
+                cellView(name: "LDG", value: limits.landing, qualifier: nil, nameColor: theme.textSecondary,
+                         valueColor: theme.warning, valueSize: crosswindValueSize,
+                         highlighted: highlight == .landing, leadingRule: true)
+                    .accessibilityLabel(L10n.VSpeeds.crosswindLandingA11y(limits.landing))
+            }
+        }
+        .padding(.vertical, 4)
+    }
+
+    /// The row's label, with ▸ when it holds the phase's speed. The marker's room is always kept, so
+    /// the highlight never shifts the table.
+    private func rowLabel(_ title: String, highlighted: Bool) -> some View {
+        HStack(alignment: .firstTextBaseline, spacing: 6) {
+            Image(systemName: "arrowtriangle.right.fill")
+                .font(.aero(size: 12))
+                .opacity(highlighted ? 1 : 0)
+                .accessibilityHidden(true)
+            Text(title.uppercased())
+                .font(.aero(size: CockpitType.label, weight: .bold))
+                .tracking(1)
+                .lineLimit(3)
+                .minimumScaleFactor(0.75)   // "ATTERRISSAGE" shrinks a little rather than break
+        }
+        .foregroundColor(highlighted ? theme.textPrimary : theme.textSecondary)
+        .frame(width: Self.labelWidth, alignment: .leading)
+        .padding(.top, 8)
+        .accessibilityAddTraits(.isHeader)
+    }
+
+    /// One speed: its name, its value under it, what it depends on under that. The highlight is a
+    /// frame and a fill drawn around the cell, so framing a cell moves nothing.
+    private func cellView(name: String, value: String, qualifier: String?, nameColor: Color, valueColor: Color,
+                          valueSize: CGFloat, highlighted: Bool, leadingRule: Bool) -> some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text(name)
+                .font(.aero(size: CockpitType.label, weight: .bold, design: .monospaced))
+                .foregroundColor(nameColor)
+                .lineLimit(1)
+                .fixedSize()
+            Text(value)
+                .font(.aero(size: valueSize, weight: .bold, design: .monospaced))
+                .foregroundColor(valueColor)
+                .lineLimit(1)
+                .fixedSize()
+            if let qualifier {
+                CappedWidth(maxWidth: Self.qualifierWidth) {
+                    Text(qualifier)
+                        .font(.aero(size: CockpitType.label))
+                        .foregroundColor(theme.textSecondary)
+                }
+            }
+        }
+        .padding(.vertical, 6)
+        .padding(.horizontal, 12)
+        .background(RoundedRectangle(cornerRadius: 8).fill(highlighted ? theme.textPrimary.opacity(0.14) : .clear))
+        .overlay(RoundedRectangle(cornerRadius: 8).strokeBorder(highlighted ? theme.textPrimary : .clear, lineWidth: 2))
+        .overlay(alignment: .leading) {
+            if leadingRule { Rectangle().fill(theme.textPrimary.opacity(0.16)).frame(width: 1) }
+        }
         .accessibilityElement(children: .ignore)
-        .accessibilityLabel("\(speed.name), \(speed.value) knots, \(speed.description)")
         .accessibilityAddTraits(highlighted ? .isSelected : [])
     }
 
-    /// "97 – 75" (a range, by weight or by flap) as one value on a tile: "97–75".
-    static func compactRange(_ value: String) -> String {
-        value.replacingOccurrences(of: " – ", with: "–").replacingOccurrences(of: " - ", with: "–")
+    private func nameColor(_ tone: VSpeedTable.Tone, highlighted: Bool) -> Color {
+        switch tone {
+        case .stall: return theme.warning
+        case .neverExceed: return theme.danger
+        case .plain: return highlighted ? theme.textPrimary : theme.textSecondary
+        }
+    }
+
+    private static func title(of group: VSpeedTable.Group) -> String {
+        switch group {
+        case .stallGlide: return L10n.VSpeeds.stallGlide
+        case .takeoffClimb: return L10n.VSpeeds.takeoffClimb
+        case .approachLanding: return L10n.VSpeeds.approachLanding
+        case .limits: return L10n.VSpeeds.limits
+        case .other: return L10n.VSpeeds.other
+        }
+    }
+
+    private static func spokenLabel(_ cell: VSpeedTable.Cell) -> String {
+        [cell.name, "\(cell.value) knots", cell.qualifier].compactMap { $0 }.joined(separator: ", ")
     }
 
     // MARK: iPhone list

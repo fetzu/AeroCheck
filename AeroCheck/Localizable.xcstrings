@@ -1,6 +1,142 @@
 {
   "sourceLanguage": "en",
   "strings": {
+    "vspeeds.stallGlide": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Stall & glide"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Décrochage & plané"
+          }
+        }
+      }
+    },
+    "vspeeds.takeoffClimb": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Take-off & climb"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Décollage & montée"
+          }
+        }
+      }
+    },
+    "vspeeds.approachLanding": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Approach & landing"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Approche & atterrissage"
+          }
+        }
+      }
+    },
+    "vspeeds.limits": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Limits"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Limites"
+          }
+        }
+      }
+    },
+    "vspeeds.other": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Other"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Autres"
+          }
+        }
+      }
+    },
+    "vspeeds.crosswind": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Crosswind"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vent de travers"
+          }
+        }
+      }
+    },
+    "vspeeds.crosswindTakeoffA11y": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Take-off crosswind limit, %@"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vent de travers maximal au décollage, %@"
+          }
+        }
+      }
+    },
+    "vspeeds.crosswindLandingA11y": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Landing crosswind limit, %@"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vent de travers maximal à l’atterrissage, %@"
+          }
+        }
+      }
+    },
     "ground.proUnlocksAll": {
       "extractionState": "manual",
       "localizations": {

@@ -102,6 +102,9 @@ struct AeroCheckApp: App {
         WindowGroup {
             AppRootView(appState: appState) {
             ContentView()
+                #if DEBUG
+                .modifier(DebugLandscape())
+                #endif
                 .environment(appState)
                 .environmentObject(locationManager)
                 .environmentObject(offlineMapManager)
@@ -617,3 +620,27 @@ struct AppRootView<Content: View>: View {
             .onChange(of: systemColorScheme) { _, scheme in appState.deviceIsDark = (scheme == .dark) }
     }
 }
+
+#if DEBUG
+/// DEV-ONLY: `SIMCTL_CHILD_AEROCHECK_ORIENTATION=landscape` lays the app out at landscape size, turned
+/// a quarter turn inside the portrait simulator. simctl cannot rotate a simulator, and iPadOS won't
+/// let an app turn its own window, so this is how the landscape layouts get checked and captured
+/// without touching the Simulator app. Touches still work (the turn applies to hit testing).
+private struct DebugLandscape: ViewModifier {
+    private let isOn = ProcessInfo.processInfo.environment["AEROCHECK_ORIENTATION"]?.lowercased() == "landscape"
+
+    func body(content: Content) -> some View {
+        if isOn {
+            GeometryReader { geometry in
+                content
+                    .frame(width: geometry.size.height, height: geometry.size.width)
+                    .rotationEffect(.degrees(90))
+                    .frame(width: geometry.size.width, height: geometry.size.height)
+            }
+            .ignoresSafeArea()
+        } else {
+            content
+        }
+    }
+}
+#endif

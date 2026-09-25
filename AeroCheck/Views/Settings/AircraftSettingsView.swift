@@ -10,8 +10,9 @@ struct AircraftSettingsView: View {
 
     private let tint: Color = .aviationGold
 
-    /// The Aircraft tab: the aircraft first, then its speeds, then the subscription. In Settings it
-    /// keeps the subscription on top. (v6.0 · P1)
+    /// The Aircraft tab: the aircraft first, then its speeds, then two links: AéroCheck Pro and the
+    /// aircraft visibility in Settings. Settings keeps the subscription on top and the visibility
+    /// switches in full. (v6.0 · P1; on-device review #2, G-06)
     var showsSpeeds: Bool = false
 
     var body: some View {
@@ -26,12 +27,12 @@ struct AircraftSettingsView: View {
                         .padding(.vertical, 8)
                         .environment(\.cockpitTheme, .day)
                 }
-                subscriptionSection
+                tabLinks
             } else {
                 subscriptionSection
                 aircraftSection
+                aircraftVisibilitySection
             }
-            aircraftVisibilitySection
         }
         .navigationTitle(showsSpeeds ? L10n.Ground.aircraft : L10n.Settings.aircraftAndSubscription)
         .navigationBarTitleDisplayMode(.inline)
@@ -100,6 +101,47 @@ struct AircraftSettingsView: View {
         }
     }
 
+    // MARK: - Aircraft tab links
+
+    /// On the Aircraft tab, the subscription and the visibility switches were more page than the
+    /// aircraft: a line each now, one to the plans, one to the switches in Settings. (on-device review #2, G-06)
+    private var tabLinks: some View {
+        SettingsGroup {
+            NavigationLink(destination: SubscriptionView(presentedAsSheet: false)
+                .environmentObject(subscriptionManager)
+            ) {
+                HStack(spacing: 10) {
+                    SettingsRowLabel(icon: "star.fill", title: L10n.Settings.aeroCheckPro,
+                                     subtitle: proNote, tint: tint)
+                    Image(systemName: "chevron.right")
+                        .font(.aero(size: 13, weight: .semibold))
+                        .foregroundColor(.dimText.opacity(0.7))
+                }
+                .padding(.horizontal, 14)
+                .padding(.vertical, 11)
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+
+            SettingsButtonRow(icon: "eye", title: L10n.Settings.aircraftVisibility,
+                              subtitle: L10n.Ground.visibilityInSettings, tint: tint) {
+                appState.pendingSettingsSection = .aircraft
+                appState.groundTab = .settings
+            }
+        }
+    }
+
+    /// What Pro means for this pilot now: what it unlocks, or that it's already unlocked.
+    private var proNote: String {
+        if subscriptionManager.subscriptionStatus.isSubscribed {
+            return L10n.Settings.subscriptionAccessAll
+        } else if subscriptionManager.isInGracePeriod {
+            return L10n.Settings.subscriptionLapsed
+        } else {
+            return L10n.Ground.proUnlocksAll
+        }
+    }
+
     // MARK: - Aircraft Section
 
     /// Every aircraft the pilot can fly, bundled and premium, as the list to pick from. Only the bundled
@@ -119,8 +161,9 @@ struct AircraftSettingsView: View {
     }
 
     private var aircraftSection: some View {
+        // The footer's Pro and refresh advice is Settings' job; the tab has its Pro line. (review #2, G-06)
         SettingsGroup(title: showsSpeeds ? L10n.Ground.yourAircraft : L10n.Settings.aircraft, tint: tint,
-                      footer: L10n.Settings.aircraftFooter) {
+                      footer: showsSpeeds ? nil : L10n.Settings.aircraftFooter) {
             ForEach(flyableAircraft) { aircraft in
                 let isSelected = aircraft.isSelected(in: appState.settings)
                 Button(action: { fly(aircraft) }) {

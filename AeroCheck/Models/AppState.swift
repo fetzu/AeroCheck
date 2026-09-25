@@ -1084,6 +1084,8 @@ class AppState {
     }
 
     func endFlight(withFlightPlan flightPlan: FlightPlan? = nil) {
+        // Measured times first, whatever path ended the flight. (v5.2)
+        refineTimingFromTrack()
         guard var flight = currentFlight else { return }
 
         flight.stopTime = Date()
@@ -1218,6 +1220,37 @@ class AppState {
         engineStartTime = Date()
         currentFlight?.engineStartTime = engineStartTime
         checkpointActiveFlight(force: true)
+    }
+
+    /// Replace the live estimates of block off, take-off and block on with what the whole recorded
+    /// track shows (`TrackTimes`). Idempotent. Called by END FLIGHT before anything reads the times
+    /// — the plan's times over, the flight thread, the saved flight — and again by `endFlight` for
+    /// any other path that ends a flight. (v5.2)
+    ///
+    /// Take-off lands in `lineUpTime`, which has only ever been used as the take-off time (flight
+    /// time, the departure's ATO, the nav log). Until now it was the Line Up tap plus 2 minutes; on
+    /// six real flights that was 8 s to 2 min 10 s off. The checklist estimate stays when the track
+    /// shows no take-off (a track too sparse, or a flight that never flew).
+    func refineTimingFromTrack() {
+        guard var flight = currentFlight else { return }
+        let times = TrackTimes.analyze(track: flight.gpsTrack,
+                                       engineStart: engineStartTime ?? flight.engineStartTime,
+                                       engineShutdown: engineShutdownTime ?? flight.engineShutdownTime)
+        if let blockOff = times.blockOff {
+            flight.blockOffTime = blockOff
+            flight.blockOffLatitude = times.blockOffCoordinate?.latitude ?? flight.blockOffLatitude
+            flight.blockOffLongitude = times.blockOffCoordinate?.longitude ?? flight.blockOffLongitude
+        }
+        if let blockOn = times.blockOn {
+            flight.blockOnTime = blockOn
+            flight.blockOnLatitude = times.blockOnCoordinate?.latitude ?? flight.blockOnLatitude
+            flight.blockOnLongitude = times.blockOnCoordinate?.longitude ?? flight.blockOnLongitude
+        }
+        if let takeoff = times.takeoff {
+            lineUpTime = takeoff
+            flight.lineUpTime = takeoff
+        }
+        currentFlight = flight
     }
 
     func recordLineUpTime() {

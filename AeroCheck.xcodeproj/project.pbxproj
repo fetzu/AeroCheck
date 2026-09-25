@@ -33,6 +33,7 @@
 		A5000039111111110000002 /* WaypointPassageTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A5000039111111110000001 /* WaypointPassageTests.swift */; };
 		A5000040111111110000002 /* TripPlannerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A5000040111111110000001 /* TripPlannerTests.swift */; };
 		A5000041111111110000002 /* DivertPlannerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A5000041111111110000001 /* DivertPlannerTests.swift */; };
+		A5000042111111110000002 /* TrackTimesTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A5000042111111110000001 /* TrackTimesTests.swift */; };
 		A5000038111111110000002 /* NavLogExportTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A5000038111111110000001 /* NavLogExportTests.swift */; };
 		A5000037111111110000002 /* AltitudePlannerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A5000037111111110000001 /* AltitudePlannerTests.swift */; };
 		A5000036111111110000002 /* RouteRadioPlannerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A5000036111111110000001 /* RouteRadioPlannerTests.swift */; };
@@ -103,6 +104,7 @@
 		A1000001211111110000068 /* RouteDataCalculator.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000001111111110000068 /* RouteDataCalculator.swift */; };
 		A1000001211111110000918 /* WaypointPassage.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000001111111110000918 /* WaypointPassage.swift */; };
 		A1000001211111110000919 /* TripPlanner.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000001111111110000919 /* TripPlanner.swift */; };
+		A1000001211111110000923 /* TrackTimes.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000001111111110000923 /* TrackTimes.swift */; };
 		A1000001211111110000921 /* DivertPlanner.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000001111111110000921 /* DivertPlanner.swift */; };
 		A1000001211111110000917 /* SetAltitudesSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000001111111110000917 /* SetAltitudesSheet.swift */; };
 		A1000001211111110000920 /* AddStopSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000001111111110000920 /* AddStopSheet.swift */; };
@@ -302,6 +304,7 @@
 		A5000039111111110000001 /* WaypointPassageTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WaypointPassageTests.swift; sourceTree = "<group>"; };
 		A5000040111111110000001 /* TripPlannerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TripPlannerTests.swift; sourceTree = "<group>"; };
 		A5000041111111110000001 /* DivertPlannerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DivertPlannerTests.swift; sourceTree = "<group>"; };
+		A5000042111111110000001 /* TrackTimesTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TrackTimesTests.swift; sourceTree = "<group>"; };
 		A5000038111111110000001 /* NavLogExportTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NavLogExportTests.swift; sourceTree = "<group>"; };
 		A5000037111111110000001 /* AltitudePlannerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AltitudePlannerTests.swift; sourceTree = "<group>"; };
 		A5000036111111110000001 /* RouteRadioPlannerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RouteRadioPlannerTests.swift; sourceTree = "<group>"; };
@@ -376,6 +379,7 @@
 		A1000001111111110000068 /* RouteDataCalculator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RouteDataCalculator.swift; sourceTree = "<group>"; };
 		A1000001111111110000918 /* WaypointPassage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WaypointPassage.swift; sourceTree = "<group>"; };
 		A1000001111111110000919 /* TripPlanner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TripPlanner.swift; sourceTree = "<group>"; };
+		A1000001111111110000923 /* TrackTimes.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TrackTimes.swift; sourceTree = "<group>"; };
 		A1000001111111110000921 /* DivertPlanner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DivertPlanner.swift; sourceTree = "<group>"; };
 		A1000001111111110000917 /* SetAltitudesSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SetAltitudesSheet.swift; sourceTree = "<group>"; };
 		A1000001111111110000920 /* AddStopSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AddStopSheet.swift; sourceTree = "<group>"; };
@@ -556,6 +560,7 @@
 				A5000039111111110000001 /* WaypointPassageTests.swift */,
 				A5000040111111110000001 /* TripPlannerTests.swift */,
 				A5000041111111110000001 /* DivertPlannerTests.swift */,
+				A5000042111111110000001 /* TrackTimesTests.swift */,
 				A5000038111111110000001 /* NavLogExportTests.swift */,
 				A5000037111111110000001 /* AltitudePlannerTests.swift */,
 				A5000036111111110000001 /* RouteRadioPlannerTests.swift */,
@@ -750,6 +755,7 @@
 				A1000001111111110000068 /* RouteDataCalculator.swift */,
 				A1000001111111110000918 /* WaypointPassage.swift */,
 				A1000001111111110000919 /* TripPlanner.swift */,
+				A1000001111111110000923 /* TrackTimes.swift */,
 				A1000001111111110000921 /* DivertPlanner.swift */,
 				A1000001111111110000916 /* AltitudePlanner.swift */,
 				A1000001111111110000915 /* RouteRadioPlanner.swift */,
@@ -1041,6 +1047,7 @@
 				A5000039111111110000002 /* WaypointPassageTests.swift in Sources */,
 				A5000040111111110000002 /* TripPlannerTests.swift in Sources */,
 				A5000041111111110000002 /* DivertPlannerTests.swift in Sources */,
+				A5000042111111110000002 /* TrackTimesTests.swift in Sources */,
 				A5000038111111110000002 /* NavLogExportTests.swift in Sources */,
 				A5000037111111110000002 /* AltitudePlannerTests.swift in Sources */,
 				A5000036111111110000002 /* RouteRadioPlannerTests.swift in Sources */,
@@ -1113,6 +1120,7 @@
 				A1000001211111110000068 /* RouteDataCalculator.swift in Sources */,
 				A1000001211111110000918 /* WaypointPassage.swift in Sources */,
 				A1000001211111110000919 /* TripPlanner.swift in Sources */,
+				A1000001211111110000923 /* TrackTimes.swift in Sources */,
 				A1000001211111110000921 /* DivertPlanner.swift in Sources */,
 				A1000001211111110000917 /* SetAltitudesSheet.swift in Sources */,
 				A1000001211111110000920 /* AddStopSheet.swift in Sources */,

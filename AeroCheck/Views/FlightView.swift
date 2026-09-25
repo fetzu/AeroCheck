@@ -387,6 +387,9 @@ struct FlightView: View {
                 let endedFlightId = appState.currentFlight?.id
                 let checklist = appState.activeChecklist
                 locationManager.stopTracking()
+                // Block off, take-off and block on from the whole track, before the plan's times over
+                // and the thread read them. (v5.2)
+                appState.refineTimingFromTrack()
                 // Populate timing fields on the active flight plan from the current flight — and, when
                 // it landed somewhere other than planned, the diversion. (v5.1)
                 let plannedDestination = flightPlanManager.activeFlightPlan?.waypoints.last?.name

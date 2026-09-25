@@ -113,8 +113,9 @@ final class NotificationService: NSObject, ObservableObject {
     /// pressing anything. It has to be long enough not to fire during the roll-out and short enough
     /// to leave usable margin inside the 30-minute RCC window, so it sits at the halfway mark.
     /// Scheduling replaces by identifier, so a later END FLIGHT simply supersedes it.
-    static let postFlightDelay: TimeInterval = 120
-    static let landingDelay: TimeInterval = 15 * 60
+    // Plain constants, readable from any isolation: they are default arguments of nonisolated callers.
+    nonisolated static let postFlightDelay: TimeInterval = 120
+    nonisolated static let landingDelay: TimeInterval = 15 * 60
 
     func scheduleFlightPlanCloseReminder(threadId: UUID, routeLabel: String,
                                          delay: TimeInterval = NotificationService.postFlightDelay) async {

@@ -18,6 +18,14 @@ final class CockpitPaneRuleTests: XCTestCase {
         }
     }
 
+    func testTheStripShowsWhileTheAircraftMoves() {
+        let moving: [ChecklistPhase] = [.taxi, .runup, .beforeDeparture, .lineUp, .climb, .cruise, .descent,
+                                        .approach, .landing, .afterLanding]
+        for phase in ChecklistPhase.allCases {
+            XCTAssertEqual(CockpitStripRule.showsStrip(in: phase), moving.contains(phase), "\(phase)")
+        }
+    }
+
     func testOnTheGroundAndAroundTakeOffAndLandingTheChecklist() {
         let enRoute: Set<ChecklistPhase> = [.climb, .cruise, .descent]
         for phase in ChecklistPhase.allCases where !enRoute.contains(phase) {

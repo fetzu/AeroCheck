@@ -860,11 +860,9 @@ enum L10n {
 
         // Checklist
         static let checklist = String(localized: "settings.checklist")
-        static let stepByStep = String(localized: "settings.checklist.stepByStep")
         /// On = memorisable checks hidden (`AppSettings.learningMode` off). (v6.0 · A7)
         static let memoryTest = String(localized: "settings.checklist.memoryTest")
         static let memoryTestOnboarding = String(localized: "settings.checklist.memoryTestOnboarding")
-        static let stepByStepFooter = String(localized: "settings.checklist.stepByStepFooter")
         static let memoryTestFooter = String(localized: "settings.checklist.memoryTestFooter")
 
         // Flight Logging

@@ -108,7 +108,9 @@ struct AppSettings: Codable, Equatable {
     }
     var gpsRecordingInterval: Double = 5.0 // seconds
     var showSpeedReference: Bool = true
-    var stepByStepHighlighting: Bool = true // Highlight items one by one
+    /// Highlight items one by one. Always on since 6.0: CHECK is this flow, and the switch is gone
+    /// (review P7). The off path still works for a file an older build wrote.
+    var stepByStepHighlighting: Bool = true
     /// Every check shown. Off is the "Memory test": memorisable checks are hidden until revealed.
     /// On by default since 6.0: the old default hid checks from pilots who never opened Settings.
     var learningMode: Bool = true
@@ -192,7 +194,7 @@ struct AppSettings: Codable, Equatable {
 
     /// Bump whenever a stored property is added that an older build cannot round-trip, and add it
     /// to `preservingFieldsUnknownTo(_:)` below.
-    static let currentSchemaVersion = 3
+    static let currentSchemaVersion = 4
 
     /// Merge an incoming settings record over `self`, keeping local values the writer could not have
     /// carried. Same-or-newer writers are taken at their word, including deliberate clearings.
@@ -210,18 +212,23 @@ struct AppSettings: Codable, Equatable {
         // Schema 3 (v6.0): before 6.0 `learningMode` defaulted to off, hiding memorisable checks, so
         // an older writer's value says nothing about what this pilot chose.
         merged.learningMode = learningMode
+        // Schema 4 (v6.0): step-by-step is how every checklist runs now (the Cockpit's CHECK), and
+        // there is no switch left to turn it back on, so an older writer can't turn it off.
+        merged.stepByStepHighlighting = stepByStepHighlighting
         merged.schemaVersion = AppSettings.currentSchemaVersion
         return merged
     }
 
-    /// Settings a pre-6.0 build saved on this device, brought to schema 3: every check shown again,
-    /// once. The old default hid memorisable checks, and most pilots never chose it. The file then
-    /// carries schema 3, so a later "Memory test" choice sticks. Local files only; an incoming sync
-    /// record goes through `preservingFieldsUnknownTo(_:)`. (v6.0 · A7)
+    /// Settings a pre-6.0 build saved on this device, brought to the current schema. Local files
+    /// only; an incoming sync record goes through `preservingFieldsUnknownTo(_:)`.
+    /// - Schema 3: every check shown again, once. The old default hid memorisable checks, and most
+    ///   pilots never chose it. A later "Memory test" choice sticks. (v6.0 · A7)
+    /// - Schema 4: step-by-step on. The Cockpit's CHECK is that flow, and its switch is gone. (v6.0 · P7)
     func migratedLocally() -> AppSettings {
-        guard schemaVersion < 3 else { return self }
+        guard schemaVersion < AppSettings.currentSchemaVersion else { return self }
         var migrated = self
-        migrated.learningMode = true
+        if schemaVersion < 3 { migrated.learningMode = true }
+        migrated.stepByStepHighlighting = true
         migrated.schemaVersion = AppSettings.currentSchemaVersion
         return migrated
     }

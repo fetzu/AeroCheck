@@ -99,19 +99,21 @@ enum FlightCostCalculator {
     /// the counter, and inventing a number there would quietly misstate a year's spending.
     static func billableHours(for flight: Flight, basis: BillingBasis) -> Double? {
         switch basis {
+        // The logged minutes, not the exact seconds: the bill and the logbook line are read side by
+        // side, and 0:31 in one must not be 0:30 in the other. (v5.2)
         case .block:
-            return hours(from: flight.blockTime)
+            return hours(fromMinutes: flight.blockMinutes)
         case .flight:
-            return hours(from: flight.flightTime)
+            return hours(fromMinutes: flight.flightMinutes)
         case .engineHours:
             guard let engineHours = flight.engineHoursFlown, engineHours > 0 else { return nil }
             return engineHours
         }
     }
 
-    private static func hours(from interval: TimeInterval?) -> Double? {
-        guard let interval, interval > 0 else { return nil }
-        return interval / 3600.0
+    private static func hours(fromMinutes minutes: Int?) -> Double? {
+        guard let minutes, minutes > 0 else { return nil }
+        return Double(minutes) / 60.0
     }
 
     /// Build a cost entry for a flight from the aircraft's rate profile, leaving fees to the pilot.

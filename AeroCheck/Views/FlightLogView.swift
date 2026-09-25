@@ -756,7 +756,7 @@ struct FlightLogView: View {
         }
         return order.map { key in
             let flights = buckets[key] ?? []
-            let hours = flights.reduce(0.0) { $0 + (($1.blockTime ?? $1.flightTime ?? $1.duration ?? 0) / 3600) }
+            let hours = flights.reduce(0.0) { $0 + ($1.loggedSeconds / 3600) }
             let label: String
             if key == "0000-00" {
                 label = "UNDATED"
@@ -1049,7 +1049,7 @@ struct FlightLogView: View {
         var distance = 0.0
         var perAircraft: [String: Double] = [:]
         for flight in flights {
-            let seconds = flight.blockTime ?? flight.flightTime ?? flight.duration ?? 0
+            let seconds = flight.loggedSeconds
             totalSeconds += seconds
             landings += flight.totalLandings
             distance += flight.distanceKilometers
@@ -1694,31 +1694,33 @@ struct FlightRowView: View {
         return Self.weekdayFormatter.string(from: date).uppercased()
     }
 
-    /// Route line: "DEP → ARR", or "DEP ↻ [circuits]" for pattern training, or a name fallback. (v4 UI/UX Revamp)
+    /// Route line: "DEP → ARR", "DEP ↻" for a session that came back where it started, a circuits
+    /// tag on either when there were touch-and-goes, or a name fallback. (v4 UI/UX Revamp)
+    ///
+    /// Touch-and-goes alone do not make a flight "circuits": warming up with a few at home before
+    /// flying somewhere else is common, and showing only the departure hid where the flight went.
+    /// The destination decides the shape; the touch-and-goes add the tag. (v5.2)
     @ViewBuilder
     private var routeView: some View {
-        if flight.touchAndGoCount > 0 {
+        switch flight.routeShape {
+        case let .between(dep, arr, withCircuits):
+            HStack(spacing: 6) {
+                Text(dep).scaledFont(size: 18, weight: .bold, design: .monospaced, relativeTo: .title3).foregroundColor(.primaryText)
+                Image(systemName: "arrow.right").scaledFont(size: 12, weight: .semibold, relativeTo: .caption).foregroundColor(.dimText)
+                Text(arr).scaledFont(size: 18, weight: .bold, design: .monospaced, relativeTo: .title3).foregroundColor(.primaryText)
+                if withCircuits { circuitsTag }
+            }
+        case let .circuits(at):
             HStack(spacing: 7) {
-                Text(primaryIdent)
+                Text(at)
                     .scaledFont(size: 18, weight: .bold, design: .monospaced, relativeTo: .title3)
                     .foregroundColor(.primaryText)
                 Image(systemName: "arrow.triangle.2.circlepath")
                     .scaledFont(size: 13, relativeTo: .caption)
                     .foregroundColor(.altimeterBlue)
-                Text("circuits")
-                    .scaledFont(size: 11, weight: .semibold, relativeTo: .caption2)
-                    .foregroundColor(.orange)
-                    .padding(.horizontal, 7)
-                    .padding(.vertical, 2)
-                    .background(Capsule().strokeBorder(Color.orange.opacity(0.6), lineWidth: 1))
+                circuitsTag
             }
-        } else if let dep = flight.departureAirportIdent, let arr = flight.arrivalAirportIdent {
-            HStack(spacing: 6) {
-                Text(dep).scaledFont(size: 18, weight: .bold, design: .monospaced, relativeTo: .title3).foregroundColor(.primaryText)
-                Image(systemName: "arrow.right").scaledFont(size: 12, weight: .semibold, relativeTo: .caption).foregroundColor(.dimText)
-                Text(arr).scaledFont(size: 18, weight: .bold, design: .monospaced, relativeTo: .title3).foregroundColor(.primaryText)
-            }
-        } else {
+        case .unnamed:
             Text(flight.displayName)
                 .scaledFont(size: 17, weight: .bold, design: .monospaced, relativeTo: .body)
                 .foregroundColor(.primaryText)
@@ -1726,9 +1728,16 @@ struct FlightRowView: View {
         }
     }
 
-    private var primaryIdent: String {
-        flight.departureAirportIdent ?? flight.arrivalAirportIdent ?? (flight.aircraftRegistration ?? flight.airplane)
+    private var circuitsTag: some View {
+        Text(L10n.Flights.circuits.lowercased())
+            .scaledFont(size: 11, weight: .semibold, relativeTo: .caption2)
+            .foregroundColor(.orange)
+            .padding(.horizontal, 7)
+            .padding(.vertical, 2)
+            .background(Capsule().strokeBorder(Color.orange.opacity(0.6), lineWidth: 1))
+            .lineLimit(1)
     }
+
 
     private var statsLine: String {
         var parts: [String] = [flight.aircraftRegistration ?? flight.airplane]

@@ -40,6 +40,7 @@
 		A5000046111111110000002 /* TypographyTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A5000046111111110000001 /* TypographyTests.swift */; };
 		A5000047111111110000002 /* MapPresetTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A5000047111111110000001 /* MapPresetTests.swift */; };
 		A5000048111111110000002 /* CockpitPaneRuleTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A5000048111111110000001 /* CockpitPaneRuleTests.swift */; };
+		A5000050111111110000002 /* VSpeedTableTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A5000050111111110000001 /* VSpeedTableTests.swift */; };
 		A5000049111111110000002 /* StepByStepSettingsTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A5000049111111110000001 /* StepByStepSettingsTests.swift */; };
 		A5000038111111110000002 /* NavLogExportTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A5000038111111110000001 /* NavLogExportTests.swift */; };
 		A5000037111111110000002 /* AltitudePlannerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A5000037111111110000001 /* AltitudePlannerTests.swift */; };
@@ -327,6 +328,7 @@
 		A5000046111111110000001 /* TypographyTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TypographyTests.swift; sourceTree = "<group>"; };
 		A5000047111111110000001 /* MapPresetTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MapPresetTests.swift; sourceTree = "<group>"; };
 		A5000048111111110000001 /* CockpitPaneRuleTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CockpitPaneRuleTests.swift; sourceTree = "<group>"; };
+		A5000050111111110000001 /* VSpeedTableTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VSpeedTableTests.swift; sourceTree = "<group>"; };
 		A5000049111111110000001 /* StepByStepSettingsTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StepByStepSettingsTests.swift; sourceTree = "<group>"; };
 		A5000038111111110000001 /* NavLogExportTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NavLogExportTests.swift; sourceTree = "<group>"; };
 		A5000037111111110000001 /* AltitudePlannerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AltitudePlannerTests.swift; sourceTree = "<group>"; };
@@ -599,6 +601,7 @@
 				A5000046111111110000001 /* TypographyTests.swift */,
 				A5000047111111110000001 /* MapPresetTests.swift */,
 				A5000048111111110000001 /* CockpitPaneRuleTests.swift */,
+				A5000050111111110000001 /* VSpeedTableTests.swift */,
 				A5000049111111110000001 /* StepByStepSettingsTests.swift */,
 				A5000038111111110000001 /* NavLogExportTests.swift */,
 				A5000037111111110000001 /* AltitudePlannerTests.swift */,
@@ -1107,6 +1110,7 @@
 				A5000046111111110000002 /* TypographyTests.swift in Sources */,
 				A5000047111111110000002 /* MapPresetTests.swift in Sources */,
 				A5000048111111110000002 /* CockpitPaneRuleTests.swift in Sources */,
+				A5000050111111110000002 /* VSpeedTableTests.swift in Sources */,
 				A5000049111111110000002 /* StepByStepSettingsTests.swift in Sources */,
 				A5000038111111110000002 /* NavLogExportTests.swift in Sources */,
 				A5000037111111110000002 /* AltitudePlannerTests.swift in Sources */,

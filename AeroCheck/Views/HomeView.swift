@@ -431,9 +431,9 @@ struct HomeView: View {
             nextFlightSlot(isCompact: isCompact)
             startFlightButton(isCompact: isCompact)
             HStack(spacing: isCompact ? 10 : 14) {
-                if appState.settings.enableCircuitMode {
-                    circuitsButton(isCompact: isCompact)
-                }
+                // Always offered: circuits are how a student flies most. It used to hide behind a
+                // setting. (v6.0 · P7)
+                circuitsButton(isCompact: isCompact)
                 // A flight is planned: the other way is to fly without it. Nothing planned: plan one.
                 if heroFlight != nil {
                     unplannedButton(isCompact: isCompact)

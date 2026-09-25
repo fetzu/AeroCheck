@@ -6,7 +6,6 @@ struct ChecklistFlightSettingsView: View {
 
     @State private var stepByStepHighlighting: Bool = true
     @State private var learningMode: Bool = false
-    @State private var enableCircuitMode: Bool = false
     @State private var checklistLanguage: ChecklistLanguage = .auto
     @State private var sunlightBoost: Bool = false
     @State private var logEngineHours: Bool = false
@@ -27,8 +26,6 @@ struct ChecklistFlightSettingsView: View {
                 SettingsToggleRow(icon: "brain.head.profile", title: L10n.Settings.memoryTest,
                                   subtitle: L10n.Settings.memoryTestFooter, tint: tint,
                                   isOn: Binding(get: { !learningMode }, set: { learningMode = !$0 }))
-                SettingsToggleRow(icon: "arrow.triangle.2.circlepath", title: L10n.Settings.circuitMode,
-                                  subtitle: L10n.Settings.circuitModeFooter, tint: tint, isOn: $enableCircuitMode)
                 SettingsMenuRow(icon: "character.bubble", title: L10n.Settings.checklistLanguage,
                                 subtitle: L10n.Settings.checklistLanguageFooter, tint: tint, selection: $checklistLanguage) {
                     ForEach(ChecklistLanguage.availableLanguages) { language in
@@ -56,7 +53,6 @@ struct ChecklistFlightSettingsView: View {
         .onChange(of: appState.settings) { _, _ in loadSettings() }
         .onChange(of: stepByStepHighlighting) { _, _ in if !isLoadingSettings { saveSettings() } }
         .onChange(of: learningMode) { _, _ in if !isLoadingSettings { saveSettings() } }
-        .onChange(of: enableCircuitMode) { _, _ in if !isLoadingSettings { saveSettings() } }
         .onChange(of: checklistLanguage) { _, _ in if !isLoadingSettings { saveSettings() } }
         .onChange(of: logEngineHours) { _, _ in if !isLoadingSettings { saveSettings() } }
         .onChange(of: keepScreenOn) { _, _ in if !isLoadingSettings { saveSettings() } }
@@ -105,7 +101,6 @@ struct ChecklistFlightSettingsView: View {
         isLoadingSettings = true
         stepByStepHighlighting = appState.settings.stepByStepHighlighting
         learningMode = appState.settings.learningMode
-        enableCircuitMode = appState.settings.enableCircuitMode
         checklistLanguage = appState.settings.checklistLanguage
         sunlightBoost = appState.settings.sunlightBoost
         logEngineHours = appState.settings.logEngineHours
@@ -120,7 +115,6 @@ struct ChecklistFlightSettingsView: View {
     private func saveSettings() {
         appState.settings.stepByStepHighlighting = stepByStepHighlighting
         appState.settings.learningMode = learningMode
-        appState.settings.enableCircuitMode = enableCircuitMode
         appState.settings.checklistLanguage = checklistLanguage
         appState.settings.sunlightBoost = sunlightBoost
         appState.settings.logEngineHours = logEngineHours

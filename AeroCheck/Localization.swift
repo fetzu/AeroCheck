@@ -866,10 +866,8 @@ enum L10n {
         /// On = memorisable checks hidden (`AppSettings.learningMode` off). (v6.0 · A7)
         static let memoryTest = String(localized: "settings.checklist.memoryTest")
         static let memoryTestOnboarding = String(localized: "settings.checklist.memoryTestOnboarding")
-        static let circuitMode = String(localized: "settings.checklist.circuitMode")
         static let stepByStepFooter = String(localized: "settings.checklist.stepByStepFooter")
         static let memoryTestFooter = String(localized: "settings.checklist.memoryTestFooter")
-        static let circuitModeFooter = String(localized: "settings.checklist.circuitModeFooter")
 
         // Flight Logging
         static let flightLogging = String(localized: "settings.flightLogging")

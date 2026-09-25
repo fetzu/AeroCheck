@@ -667,11 +667,6 @@ enum MarketingSceneInjector {
         airportDataService: AirportDataService,
         threadManager: FlightThreadManager? = nil
     ) {
-        // Circuit mode on for every scene: CIRCUITS is a headline feature and it is gated behind a
-        // setting, so a shot taken with it off simply does not show it. Home is where it reads, but
-        // setting it once here keeps every scene consistent rather than only the two Home ones.
-        appState.settings.enableCircuitMode = true
-        appState.saveSettings()
 
         // Every scene starts from NO threads. A single leftover thread scheduled today takes over
         // Home's hero, which silently ruined the `home` and `conflicts` shots — they came back

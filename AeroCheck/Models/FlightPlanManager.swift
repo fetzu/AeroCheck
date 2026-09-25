@@ -22,7 +22,9 @@ class FlightPlanManager: ObservableObject {
 
     private let activeFlightPlanKey = "activeFlightPlan"
     private var chronometerTimer: Timer?
-    private let persistence = DataPersistenceManager.shared
+    /// Where the plan files live. Injectable for the same reason as `defaults`: in a test, `.shared`
+    /// is the simulator app's own datastore.
+    private let persistence: DataPersistenceManager
     /// Where the active-plan pointer lives. Injectable so tests get their own suite: the test host
     /// shares the app's bundle id, so a test that activated a plan against `.standard` left a
     /// synthetic route showing as ACTIVE in the real app on that simulator.
@@ -46,8 +48,9 @@ class FlightPlanManager: ObservableObject {
     /// True once the on-disk plans have arrived — see `FlightThreadManager.hasLoadedThreads`.
     @Published private(set) var hasLoadedPlans = false
 
-    init(defaults: UserDefaults = .standard) {
+    init(defaults: UserDefaults = .standard, persistence: DataPersistenceManager? = nil) {
         self.defaults = defaults
+        self.persistence = persistence ?? DataPersistenceManager.shared
         // Active plan + chronometer come from UserDefaults (local, fast) and are needed for
         // initial UI. The plans themselves live in iCloud Drive: enumerating/reading them can
         // stall on iCloud — for an evicted file, long enough on a slow network to trip the launch
@@ -145,6 +148,22 @@ class FlightPlanManager: ObservableObject {
         }
 
         saveFlightPlans()
+        carryIntoNextLeg(from: updatedPlan)
+    }
+
+    /// Wired at launch to the thread manager: the plan of the leg after the one flying a plan, in its
+    /// trip. Nil outside a trip. (v5.1)
+    var nextLegPlanId: (@MainActor (UUID) -> UUID?)?
+
+    /// A later trip leg departs when the one before it lands, so moving leg 1's departure, or
+    /// changing its route, moves leg 2's estimated departure and ETOs, and its fuel when it does not
+    /// refuel. Each updated leg carries on into the next one through `updateFlightPlan`; the chain ends
+    /// where nothing changes, or at a departure the pilot chose. (v5.1)
+    private func carryIntoNextLeg(from plan: FlightPlan) {
+        guard let nextId = nextLegPlanId?(plan.id), nextId != plan.id,
+              let next = flightPlans.first(where: { $0.id == nextId }),
+              let refreshed = TripPlanner.refreshed(next, after: plan) else { return }
+        updateFlightPlan(refreshed)
     }
 
     /// Delete a flight plan
@@ -269,6 +288,19 @@ class FlightPlanManager: ObservableObject {
         updateFlightPlan(plan)
     }
 
+    /// Set many planned altitudes in one write (the builder's "Set altitudes"), so the route is
+    /// recalculated and saved once rather than once per waypoint.
+    func setAltitudes(_ altitudes: [UUID: Double], in planId: UUID) {
+        guard var plan = flightPlans.first(where: { $0.id == planId }), !altitudes.isEmpty else { return }
+        for i in plan.waypoints.indices {
+            if let altitude = altitudes[plan.waypoints[i].id], altitude.isFinite {
+                plan.waypoints[i].altitude = altitude
+            }
+        }
+        plan.calculateRouteData()
+        updateFlightPlan(plan)
+    }
+
     /// Update a waypoint in a flight plan
     func updateWaypoint(_ waypoint: FlightPlanWaypoint, in planId: UUID) {
         guard var plan = flightPlans.first(where: { $0.id == planId }) else { return }
@@ -319,6 +351,8 @@ class FlightPlanManager: ObservableObject {
         activePlan.currentWaypointIndex = 0
         activePlan.chronometerStartTime = nil
         activePlan.activatedAt = Date()
+        // A diversion belongs to the flight that made it.
+        activePlan.diversion = nil
 
         // Reset ATO values for all waypoints (fresh start for new flight)
         for i in 0..<activePlan.waypoints.count {
@@ -423,6 +457,8 @@ class FlightPlanManager: ObservableObject {
     func updateDepartureTimeFromLineUp(_ lineUpTime: Date) {
         guard var plan = activeFlightPlan else { return }
         plan.plannedDepartureTime = lineUpTime
+        // A real departure now: a trip leg's estimate is replaced by what happened.
+        plan.departureIsEstimate = nil
         plan.calculateRouteData()
         updateFlightPlan(plan)
     }
@@ -431,17 +467,28 @@ class FlightPlanManager: ObservableObject {
     /// - Parameters:
     ///   - planId: The ID of the flight plan to update
     ///   - flight: The completed flight with timing data
-    func populateTimingFromFlight(_ planId: UUID, flight: Flight) {
+    ///   - takeoff, landing: the flight's line-up and landing times. Passed in because at END FLIGHT
+    ///     they still live on AppState: `endFlight` copies them onto the flight only afterwards.
+    func populateTimingFromFlight(_ planId: UUID, flight: Flight, takeoff: Date? = nil, landing: Date? = nil,
+                                  landedAt field: TripPlanner.Aerodrome? = nil) {
         guard var plan = flightPlans.first(where: { $0.id == planId }) else { return }
 
-        // Time ON = Engine started (engine on)
-        if plan.timeOn == nil, let engineStart = flight.engineStartTime {
-            plan.timeOn = engineStart
-        }
+        // ATO for every waypoint the in-flight trigger did not record, from the GPS track: the
+        // after-flight nav log is the one the times are written on.
+        plan = plan.withActualTimesOver(fromTrack: flight.gpsTrack,
+                                        takeoff: takeoff ?? flight.lineUpTime,
+                                        landing: landing ?? flight.landingTime)
+        // Landed somewhere else than planned: record the diversion, pressed or not. (v5.1)
+        plan = TripPlanner.settlingDiversion(plan, landedAt: field, landing: landing ?? flight.landingTime)
 
-        // Time OFF = Engine shutdown (engine off)
-        if plan.timeOff == nil, let engineShutdown = flight.engineShutdownTime {
-            plan.timeOff = engineShutdown
+        // Time OFF = take-off, Time ON = landing (wheels off, wheels on). Never the engine: engine
+        // start and shutdown are the checklist taps, kept on the flight and its hour meter. Until
+        // 5.2 these two held the engine times, which made the nav log's air time the engine's. (v5.2)
+        if plan.timeOff == nil, let takeoff = takeoff ?? flight.lineUpTime {
+            plan.timeOff = takeoff
+        }
+        if plan.timeOn == nil, let landing = landing ?? flight.landingTime {
+            plan.timeOn = landing
         }
 
         // Block OFF = Auto-detected first movement (from Flight model)
@@ -596,6 +643,29 @@ class FlightPlanManager: ObservableObject {
         if advanced { resetChronometer() }
     }
 
+    /// Catch the active plan up with the waypoints already passed, from the track recorded so far.
+    ///
+    /// The proximity trigger below only ever looks at the CURRENT waypoint, and only within its
+    /// radius. That starts at the departure aerodrome, so opening the map once airborne (outside the
+    /// radius) left the plan on waypoint 0 for the whole flight, with no ATO anywhere. This records
+    /// every passage `WaypointPassage` can establish (at the time it happened, not now) and moves the
+    /// current waypoint past the last one. Times already recorded are kept.
+    func catchUpWaypointPassages(track: [GPSPoint], takeoff: Date?) {
+        guard var plan = activeFlightPlan, plan.currentWaypointIndex < plan.waypoints.count else { return }
+        let filled = plan.withActualTimesOver(fromTrack: track, takeoff: takeoff, landing: nil)
+        guard let lastPassed = filled.waypoints.lastIndex(where: { $0.actualTimeOver != nil }),
+              lastPassed >= plan.currentWaypointIndex else { return }
+        for i in 0...lastPassed where plan.waypoints[i].actualTimeOver == nil {
+            plan.waypoints[i].actualTimeOver = filled.waypoints[i].actualTimeOver
+        }
+        plan.currentWaypointIndex = lastPassed + 1
+        activeFlightPlan = plan
+        if let index = flightPlans.firstIndex(where: { $0.id == plan.id }) { flightPlans[index] = plan }
+        saveFlightPlans()
+        saveActiveFlightPlan()
+        resetChronometer()
+    }
+
     /// Auto-advance waypoint if within proximity (records ATO based on GPS position)
     func autoAdvanceWaypointIfNeeded(currentLocation: CLLocation, threshold: Double) {
         if checkWaypointProximity(currentLocation: currentLocation, threshold: threshold) {
@@ -738,16 +808,9 @@ class FlightPlanManager: ObservableObject {
 
     /// Calculate distance from current location to next waypoint
     func distanceToNextWaypoint(from location: CLLocation) -> Double? {
-        guard let plan = activeFlightPlan,
-              plan.currentWaypointIndex < plan.waypoints.count else {
-            return nil
-        }
-
-        let nextWaypoint = plan.waypoints[plan.currentWaypointIndex]
-        let waypointLocation = CLLocation(
-            latitude: nextWaypoint.latitude,
-            longitude: nextWaypoint.longitude
-        )
+        // The navigation TARGET: the next waypoint, or the diversion field. (v5.1)
+        guard let target = activeFlightPlan?.navigationTarget else { return nil }
+        let waypointLocation = CLLocation(latitude: target.latitude, longitude: target.longitude)
 
         // Return distance in nautical miles
         return location.distance(from: waypointLocation) / 1852.0
@@ -755,15 +818,8 @@ class FlightPlanManager: ObservableObject {
 
     /// Calculate bearing from current location to next waypoint
     func bearingToNextWaypoint(from location: CLLocation) -> Double? {
-        guard let plan = activeFlightPlan,
-              plan.currentWaypointIndex < plan.waypoints.count else {
-            return nil
-        }
-
-        let nextWaypoint = plan.waypoints[plan.currentWaypointIndex]
-        return location.coordinate.bearing(
-            to: CLLocationCoordinate2D(latitude: nextWaypoint.latitude, longitude: nextWaypoint.longitude)
-        )
+        guard let target = activeFlightPlan?.navigationTarget else { return nil }
+        return location.coordinate.bearing(to: target.coordinate)
     }
 
     /// Calculate ETA to next waypoint based on current ground speed
@@ -807,22 +863,81 @@ class FlightPlanManager: ObservableObject {
     /// Name of the waypoint currently being flown to on the active plan, or nil when there is no
     /// active plan / the route is complete. Surfaces on the Live Activity. (UX-25)
     var activeNextWaypointName: String? {
-        guard let plan = activeFlightPlan,
-              plan.currentWaypointIndex < plan.waypoints.count else { return nil }
-        return plan.waypoints[plan.currentWaypointIndex].name
+        activeFlightPlan?.navigationTarget?.name
+    }
+
+    // MARK: - Divert, resume, direct to (v5.1)
+
+    /// Go to `field` instead of the rest of the route. One decision, nothing else: the route stays as
+    /// planned (so `resumeRoute` is one tap and the nav log shows what was planned), no task, reminder
+    /// or thread changes. Everything administrative waits for the ground.
+    func divert(to field: TripPlanner.Aerodrome, now: Date = Date()) {
+        guard var plan = activeFlightPlan else { return }
+        plan.diversion = Diversion(ident: field.ident, name: field.name,
+                                   latitude: field.latitude, longitude: field.longitude,
+                                   elevationFeet: field.elevationFeet, frequency: field.frequency,
+                                   startedAt: now, leftRouteAt: plan.currentWaypointIndex)
+        commitActive(plan)
+        resetChronometer()
+    }
+
+    /// Back onto the route after a diversion, at the waypoint that was next when the aircraft left it.
+    /// Passages recorded meanwhile (route waypoints overflown on the way) are kept.
+    func resumeRoute() {
+        guard var plan = activeFlightPlan, plan.diversion != nil else { return }
+        plan.diversion = nil
+        commitActive(plan)
+        resetChronometer()
+    }
+
+    /// Fly straight to a later waypoint of the route. The ones skipped keep no ATO: they were not
+    /// flown. Also ends a diversion, since the target is the route again.
+    func directTo(waypointAt index: Int) {
+        guard var plan = activeFlightPlan, plan.waypoints.indices.contains(index) else { return }
+        plan.currentWaypointIndex = index
+        plan.diversion = nil
+        commitActive(plan)
+        resetChronometer()
+    }
+
+    /// Write an edited active plan back everywhere it lives.
+    private func commitActive(_ plan: FlightPlan) {
+        activeFlightPlan = plan
+        if let index = flightPlans.firstIndex(where: { $0.id == plan.id }) { flightPlans[index] = plan }
+        saveFlightPlans()
+        saveActiveFlightPlan()
     }
 
     // MARK: - Persistence
 
-    /// Snapshot of each plan as last persisted, for dirty detection (`FlightPlan` is Equatable).
-    /// Keyed by id; entries are removed on plan deletion.
-    private var lastPersisted: [UUID: FlightPlan] = [:]
+    /// Each plan's content as last persisted (its encoding), for dirty detection. Keyed by id;
+    /// entries are removed on plan deletion.
+    ///
+    /// NOT the plan itself: `FlightPlan ==` compares ids only, so a dirty check built on it saw every
+    /// edit to an already-saved plan as "unchanged" and never wrote it again. The edit lived in memory
+    /// until the next launch, then the file on disk won: a whole "Set altitudes" pass came back undone.
+    private var lastPersisted: [UUID: Data] = [:]
+
+    /// The plan's content, for comparing against what was persisted.
+    nonisolated static func fingerprint(_ plan: FlightPlan) -> Data? {
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = .sortedKeys
+        return try? encoder.encode(plan)
+    }
+
+    /// Plans whose content differs from what was last written (or that were never written).
+    nonisolated static func plansNeedingSave(_ plans: [FlightPlan], lastPersisted: [UUID: Data]) -> [FlightPlan] {
+        plans.filter { plan in
+            guard let saved = lastPersisted[plan.id] else { return true }
+            return fingerprint(plan) != saved
+        }
+    }
 
     /// Persists only the plans that actually changed since the last save (plus the index), off the
     /// main actor. Previously this rewrote EVERY plan file synchronously on the main thread — and it
     /// is called on every waypoint edit and every ATO record/auto-advance during a flight. (PERF-25)
     private func saveFlightPlans() {
-        let changed = flightPlans.filter { lastPersisted[$0.id] != $0 }
+        let changed = Self.plansNeedingSave(flightPlans, lastPersisted: lastPersisted)
         guard !changed.isEmpty else { return }
         let all = flightPlans
         Task { [weak self] in
@@ -835,14 +950,14 @@ class FlightPlanManager: ObservableObject {
             guard let self else { return }
             let confirmed = Set(written)
             for plan in changed where confirmed.contains(plan.id) {
-                self.lastPersisted[plan.id] = plan
+                self.lastPersisted[plan.id] = Self.fingerprint(plan)
             }
         }
     }
 
     /// Save a single flight plan
     private func saveFlightPlan(_ plan: FlightPlan) {
-        lastPersisted[plan.id] = plan
+        lastPersisted[plan.id] = Self.fingerprint(plan)
         persistence.saveNavigationPlan(plan)
     }
 
@@ -855,7 +970,7 @@ class FlightPlanManager: ObservableObject {
         let merged = flightPlans + loaded.filter { !existingIds.contains($0.id) }
         flightPlans = merged.sorted { $0.createdAt > $1.createdAt }
         for plan in loaded where lastPersisted[plan.id] == nil {
-            lastPersisted[plan.id] = plan
+            lastPersisted[plan.id] = Self.fingerprint(plan)
         }
     }
 

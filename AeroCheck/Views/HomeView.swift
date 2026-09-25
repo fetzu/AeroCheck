@@ -307,7 +307,8 @@ struct HomeView: View {
                                      } else {
                                          beginFlight(circuitMode: false, followedFlightId: id)
                                      }
-                                 })
+                                 },
+                                 onOpenLeg: { threadToOpen = $0 })
                     .environmentObject(threadManager)
                     .environmentObject(flightPlanManager)
             }

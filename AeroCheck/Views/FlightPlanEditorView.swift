@@ -1,6 +1,7 @@
 import SwiftUI
 import UIKit
 import MapKit
+import QuickLook
 import UniformTypeIdentifiers
 
 /// Export format options
@@ -24,7 +25,7 @@ enum FlightPlanExportFormat {
     var contentType: UTType {
         switch self {
         case .json: return .json
-        case .gpx: return .xml  // GPX is XML-based
+        case .gpx: return .gpx ?? .xml  // GPX is XML-based
         case .xlsx: return .spreadsheet
         case .pdf, .pdfA5: return .pdf
         }
@@ -59,6 +60,15 @@ struct FlightPlanEditorView: View {
     // changes to the non-route fields auto-commit (debounced) — no Save button, no snapshot split.
     @State private var flightPlan: FlightPlan
     @State private var exportItem: FlightPlanExportItem?
+    /// A generated nav log shown in Quick Look, where it can be read, printed or passed on.
+    @State private var previewURL: URL?
+    /// A generated export waiting for the system save dialog.
+    @State private var pendingSave: PendingSave?
+    /// Radio plan for the nav log (frequencies, remarks, Radio box), built from the airspace and
+    /// airport data when the route changes; also gives the export menu its page count.
+    @State private var radioPlan: RouteRadioPlanner.Plan?
+    @State private var navLogPages: Int?
+    @State private var missingAirspace: [String] = []
     @State private var icaoSectionExpanded = false
     @State private var logbookExpanded = false
     @State private var showingICAOCopied = false
@@ -121,6 +131,11 @@ struct FlightPlanEditorView: View {
             .sheet(item: $exportItem) { item in
                 ShareSheet(activityItems: [item.url])
             }
+            .quickLookPreview($previewURL)
+            .fileExporter(isPresented: Binding(get: { pendingSave != nil }, set: { if !$0 { pendingSave = nil } }),
+                          document: pendingSave?.document,
+                          contentType: pendingSave?.contentType ?? .data,
+                          defaultFilename: pendingSave?.filename) { _ in pendingSave = nil }
             .copiedConfirmation(L10n.Nav.icaoFlightPlanCopied, isPresented: $showingICAOCopied)
         }
         .preferredColorScheme(.dark)
@@ -131,6 +146,9 @@ struct FlightPlanEditorView: View {
         // Live: non-route edits auto-commit (debounced) — no Save, no snapshot of the route. (#5)
         .onChange(of: flightPlan) { _, _ in scheduleCommit() }
         .onDisappear { flushCommit() }
+        // Frequencies depend on the route and its altitudes only; notes and fuel don't move them.
+        // (Waypoint equality is by id, so the key spells out what matters.)
+        .task(id: navLogKey) { await refreshNavLogPreview() }
     }
 
     // MARK: - Live details helpers (#5)
@@ -179,9 +197,37 @@ struct FlightPlanEditorView: View {
         Menu {
             Button { exportFlightPlan(format: .gpx) } label: { Label("GPX", systemImage: "point.topleft.down.to.point.bottomright.curvepath") }
             Button { exportFlightPlan(format: .json) } label: { Label("JSON", systemImage: "doc.text") }
-            Button { exportFlightPlan(format: .xlsx) } label: { Label("Excel", systemImage: "tablecells") }
-            Button { exportFlightPlan(format: .pdf) } label: { Label("PDF · A4", systemImage: "doc.richtext") }
-            Button { exportFlightPlan(format: .pdfA5) } label: { Label("PDF · A5", systemImage: "doc.richtext") }
+            // A menu item shows a subtitle when its label is a Label followed by a Text.
+            Button { exportFlightPlan(format: .xlsx) } label: {
+                Label("Excel", systemImage: "tablecells")
+                Text(L10n.Export.allWaypoints)
+            }
+            Button { exportFlightPlan(format: .pdf) } label: {
+                Label("PDF · A4", systemImage: "doc.richtext")
+                Text(navLogSubtitle)
+            }
+            Button { exportFlightPlan(format: .pdfA5) } label: {
+                Label("PDF · A5", systemImage: "doc.richtext")
+                Text(navLogSubtitle)
+            }
+            Divider()
+            // The nav log on screen: read it, print it, mark it up or pass it on from Quick Look.
+            Menu {
+                Button("PDF · A4") { exportFlightPlan(format: .pdf, action: .preview) }
+                Button("PDF · A5") { exportFlightPlan(format: .pdfA5, action: .preview) }
+            } label: {
+                Label(L10n.Export.previewPrint, systemImage: "printer")
+            }
+            // A real save dialog, which the share sheet is not on a Mac.
+            Menu {
+                Button("GPX") { exportFlightPlan(format: .gpx, action: .save) }
+                Button("JSON") { exportFlightPlan(format: .json, action: .save) }
+                Button("Excel") { exportFlightPlan(format: .xlsx, action: .save) }
+                Button("PDF · A4") { exportFlightPlan(format: .pdf, action: .save) }
+                Button("PDF · A5") { exportFlightPlan(format: .pdfA5, action: .save) }
+            } label: {
+                Label(L10n.Export.saveToFiles, systemImage: "folder")
+            }
             Divider()
             Button {
                 UIPasteboard.general.string = flightPlan.toICAOFlightPlan()
@@ -192,6 +238,35 @@ struct FlightPlanEditorView: View {
             Image(systemName: "square.and.arrow.up")
         }
         .disabled(flightPlan.waypoints.isEmpty)
+    }
+
+    /// "2 pages · 26 waypoints", plus any country the route crosses without airspace data — shown on
+    /// the menu so a multi-page or incomplete nav log is known before it is shared.
+    private var navLogSubtitle: String {
+        var parts: [String] = []
+        if let pages = navLogPages { parts.append(L10n.Export.pages(pages)) }
+        parts.append(L10n.Export.waypointCount(flightPlan.waypoints.count))
+        if !missingAirspace.isEmpty {
+            parts.append(L10n.Export.missingAirspaceShort(missingAirspace.joined(separator: ", ")))
+        }
+        return parts.joined(separator: " · ")
+    }
+
+    private var navLogKey: String {
+        flightPlan.waypoints.map { "\($0.latitude),\($0.longitude),\($0.altitude ?? -1),\($0.frequency ?? "")" }
+            .joined(separator: ";")
+    }
+
+    /// Rebuild the radio plan and page count for the current route.
+    private func refreshNavLogPreview() async {
+        let plan = flightPlan
+        let radio = await RouteRadioPlanner.plan(for: plan, openAIP: openAIPDataService, airports: airportDataService)
+        radioPlan = radio
+        missingAirspace = plan.waypoints.count >= 2
+            ? RouteRadioPlanner.countriesInside(plan.waypoints.map(\.coordinate))
+                .filter { !openAIPDataService.downloadedCountries.contains($0) }
+            : []
+        navLogPages = FlightPlanExportService.navLogPageCount(plan, radio: radio)
     }
 
     /// Debounced auto-commit of non-route edits to the live plan (not for a logged-plan snapshot).
@@ -256,10 +331,18 @@ struct FlightPlanEditorView: View {
                 // the FLIGHT that uses the route, so it only appears once a flight follows this
                 // plan. (device pass)
                 if isFlownByAFlight {
-                    DateFormField(label: L10n.Nav.date, date: Binding(
+                    // Date AND time: the time is what every ETO on the nav log is counted from, and a
+                    // date-only picker left a flight created without a time no way to get ETOs
+                    // before departure. Line-up still overwrites it with the real time.
+                    DateFormField(label: L10n.Nav.departureTime, date: Binding(
                         get: { flightPlan.plannedDepartureTime ?? Date() },
-                        set: { flightPlan.plannedDepartureTime = $0 }
-                    ))
+                        set: {
+                            flightPlan.plannedDepartureTime = $0
+                            // A time the pilot picked replaces a trip leg's estimate. (v5.1)
+                            flightPlan.departureIsEstimate = nil
+                            flightPlan.calculateRouteData()
+                        }
+                    ), components: [.date, .hourAndMinute])
                 }
                 // Typed by hand until now, which invited "24" for a field whose runway is 06/24 and
                 // gave no hint of what exists. The idents come from the departure aerodrome's own
@@ -416,7 +499,8 @@ struct FlightPlanEditorView: View {
             .buttonStyle(.plain)
 
             if logbookExpanded {
-            // First row: Counter Start, Block OFF, Time ON, Time OFF, Block ON, Counter Stop
+            // First row: Counter Start, Block OFF, Time OFF, Time ON, Block ON, Counter Stop — the nav
+            // log's order. Time OFF/ON are the take-off and the landing, not the engine. (v5.2)
             LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: isCompactWidth ? 2 : 6), spacing: 12) {
                 NumberFormField(
                     label: L10n.Nav.counterStart,
@@ -428,21 +512,21 @@ struct FlightPlanEditorView: View {
                 )
 
                 OptionalTimeFormField(label: L10n.Nav.blockOff, time: $flightPlan.blockOff)
-                OptionalTimeFormField(label: L10n.Nav.timeOn, time: $flightPlan.timeOn)
                 OptionalTimeFormField(label: L10n.Nav.timeOff, time: $flightPlan.timeOff)
+                OptionalTimeFormField(label: L10n.Nav.timeOn, time: $flightPlan.timeOn)
                 OptionalTimeFormField(label: L10n.Nav.blockOn, time: $flightPlan.blockOn)
 
                 NumberFormField(
                     label: L10n.Nav.counterStop,
                     value: Binding(
-                        get: { calculatedCounterStop },
+                        get: { flightPlan.counterStop ?? 0 },
                         set: { flightPlan.counterStop = $0 }
                     ),
                     format: "%.1f"
                 )
             }
 
-            // Second row: Landings and Engine Time
+            // Second row: Landings and Air Time
             LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: isCompactWidth ? 2 : 6), spacing: 12) {
                 IntFormField(
                     label: L10n.Nav.ldgsAtBase,
@@ -460,12 +544,12 @@ struct FlightPlanEditorView: View {
                     )
                 )
 
-                // Engine Time display (HH:MM format)
+                // Air Time display (HH:MM, like the Flight Log's durations)
                 VStack(alignment: .leading, spacing: 4) {
-                    Text(L10n.Nav.engineTime)
+                    Text(L10n.Nav.airTime)
                         .scaledFont(size: 11, relativeTo: .caption2)
                         .foregroundColor(.secondaryText)
-                    Text(formattedEngineTime)
+                    Text(formattedAirTime)
                         .scaledFont(size: 14, weight: .medium, design: .monospaced, relativeTo: .subheadline)
                         .foregroundColor(.primaryText)
                         .frame(maxWidth: .infinity, alignment: .leading)
@@ -669,43 +753,15 @@ struct FlightPlanEditorView: View {
 
     // MARK: - Computed Properties for Auto-Population
 
-    /// Calculate Counter Stop based on Counter Start + Engine Time
-    /// Engine Time = Time OFF (engine stop) - Time ON (engine start)
-    private var calculatedCounterStop: Double {
-        // If explicitly set, use that value
-        if let counterStop = flightPlan.counterStop, counterStop > 0 {
-            return counterStop
-        }
-
-        // Otherwise, try to calculate from counter start + engine time
-        guard let counterStart = flightPlan.counterStart,
-              let timeOn = flightPlan.timeOn,
-              let timeOff = flightPlan.timeOff else {
-            return flightPlan.counterStop ?? 0
-        }
-
-        // Engine time in hours (Hobbs meter is in decimal hours)
-        let engineTimeSeconds = timeOff.timeIntervalSince(timeOn)
-        let engineTimeHours = engineTimeSeconds / 3600.0
-
-        return counterStart + engineTimeHours
-    }
-
-    /// Format engine time as HH:MM (from Time ON = engine start to Time OFF = engine stop)
-    /// Same format as Flight Log detail view duration
-    private var formattedEngineTime: String {
-        guard let timeOn = flightPlan.timeOn,
-              let timeOff = flightPlan.timeOff else {
+    /// Take-off (Time OFF) to landing (Time ON), counted like a logbook: the difference of the two
+    /// times to the minute. Counter Stop is no longer derived from these: it was Counter Start plus
+    /// the engine time Time ON/OFF used to hold, and a meter reading is read, not computed. (v5.2)
+    private var formattedAirTime: String {
+        guard let takeoff = flightPlan.timeOff, let landing = flightPlan.timeOn, landing >= takeoff else {
             return "--:--"
         }
-
-        let engineTimeSeconds = timeOff.timeIntervalSince(timeOn)
-        if engineTimeSeconds < 0 { return "--:--" }
-
-        let hours = Int(engineTimeSeconds) / 3600
-        let minutes = (Int(engineTimeSeconds) % 3600) / 60
-
-        return String(format: "%02d:%02d", hours, minutes)
+        let minutes = Flight.loggedMinutes(from: takeoff, to: landing)
+        return String(format: "%02d:%02d", minutes / 60, minutes % 60)
     }
 
     /// Calculate Total Landings from current flight if available
@@ -723,7 +779,9 @@ struct FlightPlanEditorView: View {
         return flightPlan.totalLandings ?? 0
     }
 
-    private func exportFlightPlan(format: FlightPlanExportFormat) {
+    private enum ExportAction { case share, save, preview }
+
+    private func exportFlightPlan(format: FlightPlanExportFormat, action: ExportAction = .share) {
         // Generate the data
         let generatedData: Data?
         switch format {
@@ -732,22 +790,30 @@ struct FlightPlanEditorView: View {
         case .gpx:
             generatedData = FlightPlanExportService.exportToAvionicsGPX(flightPlan)
         case .xlsx:
-            generatedData = FlightPlanExportService.exportToXLSX(flightPlan)
+            generatedData = FlightPlanExportService.exportToXLSX(flightPlan, radio: radioPlan)
         case .pdf:
-            generatedData = FlightPlanExportService.exportToPDF(flightPlan, paperSize: .a4)
+            generatedData = FlightPlanExportService.exportToPDF(flightPlan, paperSize: .a4, radio: radioPlan)
         case .pdfA5:
-            generatedData = FlightPlanExportService.exportToPDF(flightPlan, paperSize: .a5)
+            generatedData = FlightPlanExportService.exportToPDF(flightPlan, paperSize: .a5, radio: radioPlan)
         }
 
         // Only proceed if data was generated successfully
         guard let data = generatedData else { return }
 
-        // Create export item and show sheet (using item: binding is more reliable than isPresented)
-        exportItem = FlightPlanExportItem(
-            data: data,
-            filename: flightPlan.exportFilename,
-            format: format
-        )
+        switch action {
+        case .share:
+            // Create export item and show sheet (using item: binding is more reliable than isPresented)
+            exportItem = FlightPlanExportItem(
+                data: data,
+                filename: flightPlan.exportFilename,
+                format: format
+            )
+        case .save:
+            pendingSave = PendingSave(document: ExportDocument(data: data), contentType: format.contentType,
+                                      filename: flightPlan.exportFilename)
+        case .preview:
+            previewURL = FlightPlanExportItem(data: data, filename: flightPlan.exportFilename, format: format)?.url
+        }
     }
 }
 
@@ -845,6 +911,7 @@ struct OptionalFormField: View {
 struct DateFormField: View {
     let label: String
     @Binding var date: Date
+    var components: DatePickerComponents = [.date]
 
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
@@ -859,7 +926,7 @@ struct DateFormField: View {
             // No `fieldBox` here: the compact picker draws its own chip, and a box around it would
             // nest two backgrounds. The vertical padding matches the neighbouring fields so the row
             // still lines up.
-            DatePicker("", selection: $date, displayedComponents: [.date])
+            DatePicker("", selection: $date, displayedComponents: components)
                 .labelsHidden()
                 .datePickerStyle(.compact)
                 .tint(.aviationGold)

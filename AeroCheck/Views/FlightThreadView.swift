@@ -1,4 +1,5 @@
 import SwiftUI
+import QuickLook
 
 // MARK: - Task presentation
 //
@@ -142,9 +143,14 @@ struct FlightThreadView: View {
     /// Supplied by whoever presents this screen, because starting a flight runs `FlightLauncher`'s
     /// whole guard sequence and that belongs to the presenter, not here. `Bool` is circuit mode.
     var onStartFlight: ((Bool) -> Void)?
+    /// Opens another leg of the same trip in place of this one. Optional: without it the legs are
+    /// listed but not tappable. (v5.1)
+    var onOpenLeg: ((UUID) -> Void)?
 
     @EnvironmentObject var threadManager: FlightThreadManager
     @EnvironmentObject var flightPlanManager: FlightPlanManager
+    @EnvironmentObject var openAIPDataService: OpenAIPDataService
+    @EnvironmentObject var airportDataService: AirportDataService
     @Environment(\.dismiss) private var dismiss
     @Environment(\.openURL) private var openURL
 
@@ -155,12 +161,15 @@ struct FlightThreadView: View {
     @State private var numbersFlightId: UUID?
     /// Confirmation for the ICAO flight-plan copy, which is otherwise invisible. (v5.0.0)
     @State private var copiedFPL = false
-    /// The nav log rendered for sharing, held until its share sheet is up. (v5.0.0)
-    @State private var navLogExport: Data?
+    /// The nav log rendered to a file and shown in Quick Look, where it can be read, printed,
+    /// marked up, saved or shared. (A bare share sheet offered none of the first three on iPad.)
+    @State private var navLogPreview: URL?
     /// Plan open in the map builder, from the route task. (v5.0.0)
     @State private var routeBuilderPlanId: UUID?
     /// Plan open in the details editor, from the fuel task. (v5.0.0)
     @State private var planEditorPlan: FlightPlan?
+    /// "Add a stop" sheet. (v5.1)
+    @State private var addingStop = false
 
     private var thread: FlightThread? { threadManager.thread(withId: threadId) }
 
@@ -178,9 +187,11 @@ struct FlightThreadView: View {
                             if let trip = threadManager.trip(forThreadId: thread.id) {
                                 tripBand(trip, leg: thread)
                             }
+                            stopActions(thread)
                             if thread.hasOpenFlightPlan && thread.state == .closeOut {
                                 openFlightPlanCard(thread)
                             }
+                            continuationCard(thread)
                             ForEach(ThreadChapter.allCases) { chapter in
                                 chapterSection(thread, chapter: chapter)
                             }
@@ -225,18 +236,7 @@ struct FlightThreadView: View {
                 FlightNumbersView(flightId: id, onClose: { numbersFlightId = nil })
             }
         }
-        .sheet(isPresented: Binding(
-            get: { navLogExport != nil },
-            set: { if !$0 { navLogExport = nil } }
-        )) {
-            if let data = navLogExport, let thread {
-                ShareSheet(activityItems: [
-                    ShareFile(data: data,
-                              filename: "\(thread.routeLabel.replacingOccurrences(of: " ", with: ""))_NavLog.pdf",
-                              dataTypeIdentifier: "com.adobe.pdf")
-                ])
-            }
-        }
+        .quickLookPreview($navLogPreview)
         .fullScreenCover(isPresented: Binding(
             get: { routeBuilderPlanId != nil },
             set: { if !$0 { routeBuilderPlanId = nil } }
@@ -250,6 +250,12 @@ struct FlightThreadView: View {
         // flight and come back to see the fuel row settle. (device pass)
         .sheet(item: $planEditorPlan, onDismiss: { refreshFromPlan() }) { plan in
             FlightPlanEditorView(flightPlan: plan)
+        }
+        .sheet(isPresented: $addingStop) {
+            AddStopSheet(threadId: threadId) { _ in addingStop = false }
+                .environmentObject(threadManager)
+                .environmentObject(flightPlanManager)
+                .environmentObject(airportDataService)
         }
         .copiedConfirmation(L10n.Nav.icaoFlightPlanCopied, isPresented: $copiedFPL)
         // Warm the tariff registry so the fee task can offer the operator's page. Cached for a week
@@ -357,6 +363,10 @@ struct FlightThreadView: View {
         }
         if let departure = thread.scheduledDeparture {
             parts.append(departure.formatted(date: .abbreviated, time: .shortened))
+        } else if let plan = plan(for: thread), plan.departureIsEstimate == true,
+                  let estimate = plan.plannedDepartureTime {
+            // A later leg of a trip: when it leaves depends on when the one before lands. (v5.1)
+            parts.append(L10n.Trip.estimated(estimate.formatted(date: .omitted, time: .shortened)))
         }
         if let registration = thread.aircraftRegistration, !registration.isEmpty {
             parts.append(registration)
@@ -431,6 +441,8 @@ struct FlightThreadView: View {
             .padding(.vertical, 9)
             .background(Color.panelBackground)
 
+            legStrip(trip, current: leg)
+
             ForEach(tasks) { task in
                 let presentation = ThreadTaskPresentation.make(for: task)
                 Button {
@@ -473,6 +485,81 @@ struct FlightThreadView: View {
             RoundedRectangle(cornerRadius: 14)
                 .strokeBorder(Color.aviationGold.opacity(0.3), lineWidth: 1)
         )
+    }
+
+    /// The trip's legs in order, this one highlighted, flown ones ticked. Tapping another leg opens
+    /// it here, so a pilot working through a trip does not have to go back to the list for each.
+    private func legStrip(_ trip: Trip, current: FlightThread) -> some View {
+        let legs = threadManager.legs(of: trip)
+        return ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 8) {
+                ForEach(Array(legs.enumerated()), id: \.element.id) { index, leg in
+                    let isCurrent = leg.id == current.id
+                    let flown = leg.flightId != nil && (leg.state == .closeOut || leg.state == .done)
+                    Button {
+                        if !isCurrent { onOpenLeg?(leg.id) }
+                    } label: {
+                        HStack(spacing: 6) {
+                            Text("\(index + 1)")
+                                .font(.system(size: 11, weight: .bold, design: .monospaced))
+                                .foregroundColor(.aviationGold)
+                            Text(leg.routeLabel)
+                                .scaledFont(size: 12, design: .monospaced, relativeTo: .caption)
+                                .foregroundColor(isCurrent ? .primaryText : .secondaryText)
+                                .lineLimit(1)
+                            if flown {
+                                Image(systemName: "checkmark")
+                                    .font(.system(size: 10, weight: .bold))
+                                    .foregroundColor(.aviationGreen)
+                            }
+                        }
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 6)
+                        .background(Capsule().fill(isCurrent ? Color.aviationGold.opacity(0.18) : Color.cockpitBackground))
+                        .overlay(Capsule().strokeBorder(isCurrent ? Color.aviationGold.opacity(0.6) : Color.clear, lineWidth: 1))
+                    }
+                    .buttonStyle(.plain)
+                    .disabled(isCurrent || onOpenLeg == nil)
+                    .accessibilityLabel(L10n.Flights.legOf(index + 1, legs.count) + ", " + leg.routeLabel)
+                }
+            }
+            .padding(.horizontal, 14)
+            .padding(.vertical, 8)
+        }
+    }
+
+    /// Add a stop to this flight, or join it back with the next leg — both only before either has
+    /// flown. (v5.1)
+    @ViewBuilder
+    private func stopActions(_ thread: FlightThread) -> some View {
+        let canAdd = (thread.state == .planned || thread.state == .ready)
+            && FlightCreator.canAddStop(to: thread, plans: flightPlanManager)
+        let next = threadManager.leg(after: thread.id)
+        let canJoin = thread.flightId == nil && next != nil && next?.flightId == nil
+        if canAdd || canJoin {
+            HStack(spacing: 10) {
+                if canAdd {
+                    Button { addingStop = true } label: {
+                        Label(L10n.Trip.addStop, systemImage: "mappin.and.ellipse")
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.7)
+                            .frame(maxWidth: .infinity)
+                    }
+                    .buttonStyle(SecondaryButtonStyle(isLarge: false))
+                }
+                if canJoin {
+                    Button {
+                        FlightCreator.joinWithNextLeg(thread.id, plans: flightPlanManager, threads: threadManager)
+                    } label: {
+                        Label(L10n.Trip.joinNextLeg, systemImage: "arrow.triangle.merge")
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.7)
+                            .frame(maxWidth: .infinity)
+                    }
+                    .buttonStyle(SecondaryButtonStyle(isLarge: false))
+                }
+            }
+        }
     }
 
     /// "LSZQ → LFSB → LSGY" from the legs themselves, so it stays right when one is added or removed.
@@ -670,6 +757,13 @@ struct FlightThreadView: View {
                     Text(L10n.Thread.hintFlightPlanClose)
                         .scaledFont(size: 12, relativeTo: .caption)
                         .foregroundColor(.secondaryText)
+                    // Landed elsewhere: RCC is counting towards the ETA at the PLANNED destination,
+                    // so where the aircraft actually is is the thing to say. (v5.1)
+                    if let landed = thread.landedElsewhere {
+                        Text(L10n.Trip.tellFICLanded(landed.landedIdent, landed.plannedIdent))
+                            .scaledFont(size: 13, weight: .semibold, relativeTo: .footnote)
+                            .foregroundColor(.primaryText)
+                    }
                 }
                 Spacer()
             }
@@ -708,6 +802,65 @@ struct FlightThreadView: View {
             RoundedRectangle(cornerRadius: 14)
                 .strokeBorder(Color.aviationRed.opacity(0.6), lineWidth: 1.5)
         )
+    }
+
+    // MARK: - Continue after landing elsewhere (v5.1)
+
+    /// "Landed at LSZE — planned LSZQ": offer the rest of the route as the next leg. An offer, never
+    /// automatic: the pilot may stay the night, or take the train home.
+    @ViewBuilder
+    private func continuationCard(_ thread: FlightThread) -> some View {
+        if let landed = thread.landedElsewhere, !landed.offerDismissed, !landed.continued {
+            VStack(alignment: .leading, spacing: 10) {
+                HStack(spacing: 10) {
+                    Image(systemName: "arrow.triangle.turn.up.right.diamond.fill")
+                        .scaledFont(size: 18, relativeTo: .title3)
+                        .foregroundColor(.aviationGold)
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(L10n.Trip.landedAt(landed.landedIdent))
+                            .scaledFont(size: 15, weight: .bold, relativeTo: .subheadline)
+                            .foregroundColor(.primaryText)
+                        Text("\(landed.landedName) · \(L10n.Trip.planned(landed.plannedIdent))")
+                            .scaledFont(size: 12, relativeTo: .caption)
+                            .foregroundColor(.secondaryText)
+                    }
+                    Spacer()
+                }
+                Text(L10n.Trip.continueExplainer(landed.landedIdent, landed.plannedIdent))
+                    .scaledFont(size: 12, relativeTo: .caption)
+                    .foregroundColor(.dimText)
+                    .fixedSize(horizontal: false, vertical: true)
+                HStack(spacing: 8) {
+                    Button {
+                        if let leg = FlightCreator.continueAfterDiversion(from: thread.id, plans: flightPlanManager,
+                                                                         threads: threadManager,
+                                                                         airports: airportDataService) {
+                            onOpenLeg?(leg.id)
+                        }
+                    } label: {
+                        Text(L10n.Trip.continueTo(landed.plannedIdent))
+                            .lineLimit(1).minimumScaleFactor(0.6)
+                            .frame(maxWidth: .infinity)
+                    }
+                    .buttonStyle(PrimaryButtonStyle(isLarge: false))
+                    Button {
+                        threadManager.dismissContinuation(threadId: thread.id)
+                    } label: {
+                        Text(L10n.Trip.finishHere)
+                            .lineLimit(1).minimumScaleFactor(0.6)
+                            .frame(maxWidth: .infinity)
+                    }
+                    .buttonStyle(SecondaryButtonStyle(isLarge: false))
+                }
+            }
+            .padding(14)
+            .background(Color.aviationGold.opacity(0.10))
+            .clipShape(RoundedRectangle(cornerRadius: 14))
+            .overlay(
+                RoundedRectangle(cornerRadius: 14)
+                    .strokeBorder(Color.aviationGold.opacity(0.5), lineWidth: 1)
+            )
+        }
     }
 
     // MARK: - Footer
@@ -810,7 +963,14 @@ struct FlightThreadView: View {
             planEditorPlan = plan
         case .navLogReady:
             guard let plan = plan(for: thread) else { return }
-            navLogExport = FlightPlanExportService.exportToPDF(plan)
+            Task {
+                let radio = await RouteRadioPlanner.plan(for: plan, openAIP: openAIPDataService,
+                                                         airports: airportDataService)
+                guard let data = FlightPlanExportService.exportToPDF(plan, radio: radio) else { return }
+                let name = "\(thread.routeLabel.replacingOccurrences(of: " ", with: ""))_NavLog.pdf"
+                    .replacingOccurrences(of: "/", with: "-")
+                navLogPreview = ShareFile(data: data, filename: name, dataTypeIdentifier: "com.adobe.pdf").url
+            }
         case .feesPaid, .logbookEntry:
             numbersFlightId = thread.flightId
         default:

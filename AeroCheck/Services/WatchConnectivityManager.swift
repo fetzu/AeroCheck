@@ -287,9 +287,10 @@ class WatchConnectivityManager: NSObject, ObservableObject {
             data.currentWaypointIndex = activePlan.currentWaypointIndex
             data.totalWaypoints = activePlan.waypoints.count
 
-            if let nextWaypoint = activePlan.nextWaypoint {
-                data.currentWaypointName = nextWaypoint.name
-                data.currentWaypointFrequency = nextWaypoint.frequency
+            // The navigation target: the next waypoint, or the diversion field. (v5.1)
+            if let target = activePlan.navigationTarget {
+                data.currentWaypointName = target.name
+                data.currentWaypointFrequency = target.frequency
 
                 // Calculate distance and bearing
                 if let location = locationManager.currentLocation {

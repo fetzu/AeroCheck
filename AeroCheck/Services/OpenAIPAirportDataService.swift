@@ -21,7 +21,22 @@ final class OpenAIPAirportDataService: ObservableObject {
     @Published var downloadedCountries: [String] = []
     @Published private(set) var isLoaded = false
 
-    private var airports: [OpenAIPAirport] = []
+    private var airports: [OpenAIPAirport] = [] {
+        // Kept when the array is released after the merge: the merged `Airport` store has no PPR
+        // flag, and without this set the answer to "is this field PPR?" disappeared a few seconds
+        // after launch — so the flight thread's PPR rows depended on timing. (v5.1)
+        didSet {
+            guard !airports.isEmpty else { return }
+            pprIcaoCodes = Set(airports.filter(\.isPPR).compactMap(\.icaoCode).map { $0.uppercased() })
+            hasPPRData = true
+        }
+    }
+
+    /// ICAO idents of the aerodromes OpenAIP flags as PPR. Survives `releaseLoadedAirports()`.
+    private(set) var pprIcaoCodes: Set<String> = []
+    /// Whether `pprIcaoCodes` has been filled from real data at all — an empty set is then a real
+    /// "no PPR fields", not "nothing downloaded".
+    private(set) var hasPPRData = false
 
     private let cache = OpenAIPLayerCache<OpenAIPAirport>(
         directoryName: "OpenAIPAirportData",

@@ -29,6 +29,14 @@
 		A5000033111111110000002 /* LogbookPDFTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A5000033111111110000001 /* LogbookPDFTests.swift */; };
 		A5000034111111110000002 /* NewFlightIntentTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A5000034111111110000001 /* NewFlightIntentTests.swift */; };
 		A5000035111111110000002 /* TripTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A5000035111111110000001 /* TripTests.swift */; };
+		A50000C1111111110000002 /* TestDatastore.swift in Sources */ = {isa = PBXBuildFile; fileRef = A50000C1111111110000001 /* TestDatastore.swift */; };
+		A5000039111111110000002 /* WaypointPassageTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A5000039111111110000001 /* WaypointPassageTests.swift */; };
+		A5000040111111110000002 /* TripPlannerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A5000040111111110000001 /* TripPlannerTests.swift */; };
+		A5000041111111110000002 /* DivertPlannerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A5000041111111110000001 /* DivertPlannerTests.swift */; };
+		A5000042111111110000002 /* TrackTimesTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A5000042111111110000001 /* TrackTimesTests.swift */; };
+		A5000038111111110000002 /* NavLogExportTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A5000038111111110000001 /* NavLogExportTests.swift */; };
+		A5000037111111110000002 /* AltitudePlannerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A5000037111111110000001 /* AltitudePlannerTests.swift */; };
+		A5000036111111110000002 /* RouteRadioPlannerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A5000036111111110000001 /* RouteRadioPlannerTests.swift */; };
 		A500002B111111110000002 /* OnboardingRegionTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A500002B111111110000001 /* OnboardingRegionTests.swift */; };
 		A500002E111111110000002 /* DisclaimerGateTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A500002E111111110000001 /* DisclaimerGateTests.swift */; };
 		A500002D111111110000002 /* AviationWeatherServiceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A500002D111111110000001 /* AviationWeatherServiceTests.swift */; };
@@ -94,6 +102,15 @@
 		A1000001211111110000066 /* OpenAIPObstacleDataService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000001111111110000066 /* OpenAIPObstacleDataService.swift */; };
 		A1000001211111110000067 /* OpenAIPReportingPointDataService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000001111111110000067 /* OpenAIPReportingPointDataService.swift */; };
 		A1000001211111110000068 /* RouteDataCalculator.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000001111111110000068 /* RouteDataCalculator.swift */; };
+		A1000001211111110000918 /* WaypointPassage.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000001111111110000918 /* WaypointPassage.swift */; };
+		A1000001211111110000919 /* TripPlanner.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000001111111110000919 /* TripPlanner.swift */; };
+		A1000001211111110000923 /* TrackTimes.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000001111111110000923 /* TrackTimes.swift */; };
+		A1000001211111110000921 /* DivertPlanner.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000001111111110000921 /* DivertPlanner.swift */; };
+		A1000001211111110000917 /* SetAltitudesSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000001111111110000917 /* SetAltitudesSheet.swift */; };
+		A1000001211111110000920 /* AddStopSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000001111111110000920 /* AddStopSheet.swift */; };
+		A1000001211111110000922 /* DivertSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000001111111110000922 /* DivertSheet.swift */; };
+		A1000001211111110000916 /* AltitudePlanner.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000001111111110000916 /* AltitudePlanner.swift */; };
+		A1000001211111110000915 /* RouteRadioPlanner.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000001111111110000915 /* RouteRadioPlanner.swift */; };
 		B1000001211111110000033 /* RouteVisibility.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1000001111111110000033 /* RouteVisibility.swift */; };
 		B1000001211111110000032 /* TripDataSizeEstimator.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1000001111111110000032 /* TripDataSizeEstimator.swift */; };
 		B1000001211111110000031 /* CountryBoundaries.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1000001111111110000031 /* CountryBoundaries.swift */; };
@@ -283,6 +300,14 @@
 		A5000033111111110000001 /* LogbookPDFTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LogbookPDFTests.swift; sourceTree = "<group>"; };
 		A5000034111111110000001 /* NewFlightIntentTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NewFlightIntentTests.swift; sourceTree = "<group>"; };
 		A5000035111111110000001 /* TripTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TripTests.swift; sourceTree = "<group>"; };
+		A50000C1111111110000001 /* TestDatastore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TestDatastore.swift; sourceTree = "<group>"; };
+		A5000039111111110000001 /* WaypointPassageTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WaypointPassageTests.swift; sourceTree = "<group>"; };
+		A5000040111111110000001 /* TripPlannerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TripPlannerTests.swift; sourceTree = "<group>"; };
+		A5000041111111110000001 /* DivertPlannerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DivertPlannerTests.swift; sourceTree = "<group>"; };
+		A5000042111111110000001 /* TrackTimesTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TrackTimesTests.swift; sourceTree = "<group>"; };
+		A5000038111111110000001 /* NavLogExportTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NavLogExportTests.swift; sourceTree = "<group>"; };
+		A5000037111111110000001 /* AltitudePlannerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AltitudePlannerTests.swift; sourceTree = "<group>"; };
+		A5000036111111110000001 /* RouteRadioPlannerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RouteRadioPlannerTests.swift; sourceTree = "<group>"; };
 		A500002B111111110000001 /* OnboardingRegionTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingRegionTests.swift; sourceTree = "<group>"; };
 		A500002E111111110000001 /* DisclaimerGateTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DisclaimerGateTests.swift; sourceTree = "<group>"; };
 		A500002D111111110000001 /* AviationWeatherServiceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AviationWeatherServiceTests.swift; sourceTree = "<group>"; };
@@ -352,6 +377,15 @@
 		A1000001111111110000066 /* OpenAIPObstacleDataService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OpenAIPObstacleDataService.swift; sourceTree = "<group>"; };
 		A1000001111111110000067 /* OpenAIPReportingPointDataService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OpenAIPReportingPointDataService.swift; sourceTree = "<group>"; };
 		A1000001111111110000068 /* RouteDataCalculator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RouteDataCalculator.swift; sourceTree = "<group>"; };
+		A1000001111111110000918 /* WaypointPassage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WaypointPassage.swift; sourceTree = "<group>"; };
+		A1000001111111110000919 /* TripPlanner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TripPlanner.swift; sourceTree = "<group>"; };
+		A1000001111111110000923 /* TrackTimes.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TrackTimes.swift; sourceTree = "<group>"; };
+		A1000001111111110000921 /* DivertPlanner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DivertPlanner.swift; sourceTree = "<group>"; };
+		A1000001111111110000917 /* SetAltitudesSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SetAltitudesSheet.swift; sourceTree = "<group>"; };
+		A1000001111111110000920 /* AddStopSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AddStopSheet.swift; sourceTree = "<group>"; };
+		A1000001111111110000922 /* DivertSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DivertSheet.swift; sourceTree = "<group>"; };
+		A1000001111111110000916 /* AltitudePlanner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AltitudePlanner.swift; sourceTree = "<group>"; };
+		A1000001111111110000915 /* RouteRadioPlanner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RouteRadioPlanner.swift; sourceTree = "<group>"; };
 		B1000001111111110000033 /* RouteVisibility.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RouteVisibility.swift; sourceTree = "<group>"; };
 		B1000001111111110000032 /* TripDataSizeEstimator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TripDataSizeEstimator.swift; sourceTree = "<group>"; };
 		B1000001111111110000031 /* CountryBoundaries.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CountryBoundaries.swift; sourceTree = "<group>"; };
@@ -522,6 +556,14 @@
 				A5000033111111110000001 /* LogbookPDFTests.swift */,
 				A5000034111111110000001 /* NewFlightIntentTests.swift */,
 				A5000035111111110000001 /* TripTests.swift */,
+				A50000C1111111110000001 /* TestDatastore.swift */,
+				A5000039111111110000001 /* WaypointPassageTests.swift */,
+				A5000040111111110000001 /* TripPlannerTests.swift */,
+				A5000041111111110000001 /* DivertPlannerTests.swift */,
+				A5000042111111110000001 /* TrackTimesTests.swift */,
+				A5000038111111110000001 /* NavLogExportTests.swift */,
+				A5000037111111110000001 /* AltitudePlannerTests.swift */,
+				A5000036111111110000001 /* RouteRadioPlannerTests.swift */,
 				A500002B111111110000001 /* OnboardingRegionTests.swift */,
 				A500002E111111110000001 /* DisclaimerGateTests.swift */,
 				A500002D111111110000001 /* AviationWeatherServiceTests.swift */,
@@ -632,6 +674,9 @@
 				A1000001111111110000060 /* FlightPlanMapBuilderView.swift */,
 				04F1C6F72EF9CD9D00192A14 /* FlightPlanningView.swift */,
 				04F1C6FA2EF9CD9D00192A14 /* WaypointEditorSheet.swift */,
+				A1000001111111110000917 /* SetAltitudesSheet.swift */,
+				A1000001111111110000920 /* AddStopSheet.swift */,
+				A1000001111111110000922 /* DivertSheet.swift */,
 				B3000001111111110000004 /* SubscriptionView.swift */,
 				F1000001111111110000002 /* EventConfirmationView.swift */,
 				F1000001111111110000003 /* FlightThreadView.swift */,
@@ -708,6 +753,12 @@
 				A1000001111111110000066 /* OpenAIPObstacleDataService.swift */,
 				A1000001111111110000067 /* OpenAIPReportingPointDataService.swift */,
 				A1000001111111110000068 /* RouteDataCalculator.swift */,
+				A1000001111111110000918 /* WaypointPassage.swift */,
+				A1000001111111110000919 /* TripPlanner.swift */,
+				A1000001111111110000923 /* TrackTimes.swift */,
+				A1000001111111110000921 /* DivertPlanner.swift */,
+				A1000001111111110000916 /* AltitudePlanner.swift */,
+				A1000001111111110000915 /* RouteRadioPlanner.swift */,
 				B1000001111111110000033 /* RouteVisibility.swift */,
 				B1000001111111110000032 /* TripDataSizeEstimator.swift */,
 				B1000001111111110000031 /* CountryBoundaries.swift */,
@@ -992,6 +1043,14 @@
 				A5000033111111110000002 /* LogbookPDFTests.swift in Sources */,
 				A5000034111111110000002 /* NewFlightIntentTests.swift in Sources */,
 				A5000035111111110000002 /* TripTests.swift in Sources */,
+				A50000C1111111110000002 /* TestDatastore.swift in Sources */,
+				A5000039111111110000002 /* WaypointPassageTests.swift in Sources */,
+				A5000040111111110000002 /* TripPlannerTests.swift in Sources */,
+				A5000041111111110000002 /* DivertPlannerTests.swift in Sources */,
+				A5000042111111110000002 /* TrackTimesTests.swift in Sources */,
+				A5000038111111110000002 /* NavLogExportTests.swift in Sources */,
+				A5000037111111110000002 /* AltitudePlannerTests.swift in Sources */,
+				A5000036111111110000002 /* RouteRadioPlannerTests.swift in Sources */,
 				A500002B111111110000002 /* OnboardingRegionTests.swift in Sources */,
 				A500002E111111110000002 /* DisclaimerGateTests.swift in Sources */,
 				A500002D111111110000002 /* AviationWeatherServiceTests.swift in Sources */,
@@ -1059,6 +1118,15 @@
 				A1000001211111110000066 /* OpenAIPObstacleDataService.swift in Sources */,
 				A1000001211111110000067 /* OpenAIPReportingPointDataService.swift in Sources */,
 				A1000001211111110000068 /* RouteDataCalculator.swift in Sources */,
+				A1000001211111110000918 /* WaypointPassage.swift in Sources */,
+				A1000001211111110000919 /* TripPlanner.swift in Sources */,
+				A1000001211111110000923 /* TrackTimes.swift in Sources */,
+				A1000001211111110000921 /* DivertPlanner.swift in Sources */,
+				A1000001211111110000917 /* SetAltitudesSheet.swift in Sources */,
+				A1000001211111110000920 /* AddStopSheet.swift in Sources */,
+				A1000001211111110000922 /* DivertSheet.swift in Sources */,
+				A1000001211111110000916 /* AltitudePlanner.swift in Sources */,
+				A1000001211111110000915 /* RouteRadioPlanner.swift in Sources */,
 				B1000001211111110000033 /* RouteVisibility.swift in Sources */,
 				B1000001211111110000032 /* TripDataSizeEstimator.swift in Sources */,
 				B1000001211111110000031 /* CountryBoundaries.swift in Sources */,
@@ -1209,7 +1277,7 @@
 				DEVELOPMENT_TEAM = H2N329D9U8;
 				GENERATE_INFOPLIST_FILE = YES;
 				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
-				MARKETING_VERSION = 5.0.1;
+				MARKETING_VERSION = 5.2.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.fetzu.aerocheck.tests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = iphoneos;
@@ -1229,7 +1297,7 @@
 				DEVELOPMENT_TEAM = H2N329D9U8;
 				GENERATE_INFOPLIST_FILE = YES;
 				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
-				MARKETING_VERSION = 5.0.1;
+				MARKETING_VERSION = 5.2.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.fetzu.aerocheck.tests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = iphoneos;
@@ -1391,7 +1459,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 5.0.1;
+				MARKETING_VERSION = 5.2.0;
 				OTHER_LDFLAGS = (
 					"$(inherited)",
 					"-weak_framework",
@@ -1445,7 +1513,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 5.0.1;
+				MARKETING_VERSION = 5.2.0;
 				OTHER_LDFLAGS = (
 					"$(inherited)",
 					"-weak_framework",
@@ -1487,7 +1555,7 @@
 					"@executable_path/Frameworks",
 					"@executable_path/../../Frameworks",
 				);
-				MARKETING_VERSION = 5.0.1;
+				MARKETING_VERSION = 5.2.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.fetzu.aerocheck.widget;
 				PRODUCT_NAME = AeroCheckWidgetExtension;
 				PROVISIONING_PROFILE_SPECIFIER = "";
@@ -1520,7 +1588,7 @@
 					"@executable_path/Frameworks",
 					"@executable_path/../../Frameworks",
 				);
-				MARKETING_VERSION = 5.0.1;
+				MARKETING_VERSION = 5.2.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.fetzu.aerocheck.widget;
 				PRODUCT_NAME = AeroCheckWidgetExtension;
 				PROVISIONING_PROFILE_SPECIFIER = "";
@@ -1553,7 +1621,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 5.0.1;
+				MARKETING_VERSION = 5.2.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.fetzu.aerocheck.watchkitapp;
 				PRODUCT_NAME = AeroCheckWatch;
 				PROVISIONING_PROFILE_SPECIFIER = "";
@@ -1585,7 +1653,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 5.0.1;
+				MARKETING_VERSION = 5.2.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.fetzu.aerocheck.watchkitapp;
 				PRODUCT_NAME = AeroCheckWatch;
 				PROVISIONING_PROFILE_SPECIFIER = "";

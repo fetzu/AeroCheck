@@ -220,7 +220,8 @@ struct LogbookTotals: Equatable, Sendable {
                           pilot: LogbookLineBuilder.PilotContext = .unknown) -> LogbookTotals {
         // No block times means no duration to log. The date columns fall back to engine or GPS
         // times, but a total is arithmetic and must not be invented from a weaker source.
-        let minutes = flight.blockTime.map { Int(($0 / 60).rounded()) } ?? 0
+        // The same minutes the line shows, so the page total is the sum of its lines. (v5.2)
+        let minutes = flight.blockMinutes ?? 0
         var totals = LogbookTotals(
             totalMinutes: minutes,
             singlePilotSEMinutes: minutes,
@@ -272,8 +273,8 @@ enum LogbookLineBuilder {
         let blockOff = flight.blockOffTime ?? flight.engineStartTime ?? flight.startTime
         let blockOn = flight.blockOnTime ?? flight.engineShutdownTime ?? flight.stopTime
 
-        let total = flight.blockTime
-        let totalText = formatHoursMinutes(total)
+        // To the minute, from the times printed on the same line. (v5.2)
+        let totalText = formatMinutes(flight.blockMinutes ?? 0)
 
         let inferredFunction = function(for: flight, overrides: overrides, pilot: pilot)
 
@@ -394,13 +395,6 @@ enum LogbookLineBuilder {
         let c = calendar.dateComponents([.hour, .minute], from: date)
         guard let h = c.hour, let m = c.minute else { return "" }
         return String(format: "%02d:%02d", h, m)
-    }
-
-    /// `H:MM`, the form a paper logbook column expects.
-    static func formatHoursMinutes(_ interval: TimeInterval?) -> String {
-        guard let interval, interval > 0 else { return "" }
-        let totalMinutes = Int((interval / 60).rounded())
-        return String(format: "%d:%02d", totalMinutes / 60, totalMinutes % 60)
     }
 
     static func formatMinutes(_ minutes: Int) -> String {

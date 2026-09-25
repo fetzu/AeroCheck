@@ -45,9 +45,9 @@ final class AircraftDataServiceSeamTests: XCTestCase {
     }
 
     /// An id no real aircraft uses, so the listing tests can assert on a cache entry that provably
-    /// does not exist. The service caches into the test host's real Application Support directory,
-    /// which persists between runs — asserting "not cached" on `pa28-181` would pass or fail
-    /// depending on what an earlier test or a manual run happened to leave behind.
+    /// does not exist. Each service now caches into its own empty temporary directory; it used to be
+    /// the simulator app's real one, where whether `pa28-181` was cached depended on earlier runs
+    /// (and these tests cleared the real caches they touched).
     private static let unusedAircraftId = "zz-listing-test-aircraft"
 
     // MARK: - Tests
@@ -56,7 +56,7 @@ final class AircraftDataServiceSeamTests: XCTestCase {
     /// injected transport — proven with fakes, no live StoreKit / network.
     func testUserIDFromGatingBecomesBearerHeader() async {
         let http = FakeHTTPClient()
-        let service = AircraftDataService(
+        let service = makeTestAircraftDataService(
             subscriptionManager: FakeGating(userID: "abc-123"), httpClient: http
         )
 
@@ -73,7 +73,7 @@ final class AircraftDataServiceSeamTests: XCTestCase {
     /// denies access. (ARCH-12 / SEC-05)
     func testPremiumChecklistWithheldWhenGatingDenies() async throws {
         let http = FakeHTTPClient()
-        let service = AircraftDataService(
+        let service = makeTestAircraftDataService(
             subscriptionManager: FakeGating(allowPremium: false), httpClient: http
         )
         service.availableAircraft = [try premiumMetadata()]
@@ -86,7 +86,7 @@ final class AircraftDataServiceSeamTests: XCTestCase {
 
     /// `validatePremiumCaches` returns false (and clears caches) when the gating seam denies access.
     func testValidatePremiumCachesReflectsGating() {
-        let service = AircraftDataService(
+        let service = makeTestAircraftDataService(
             subscriptionManager: FakeGating(allowPremium: true), httpClient: FakeHTTPClient()
         )
         XCTAssertTrue(service.validatePremiumCaches(subscriptionManager: FakeGating(allowPremium: true)))
@@ -95,8 +95,22 @@ final class AircraftDataServiceSeamTests: XCTestCase {
 
     /// Production wiring is preserved: the transport defaults to `URLSession.shared` when omitted.
     func testDefaultTransportConstructs() {
-        let service = AircraftDataService(subscriptionManager: FakeGating())
+        let service = makeTestAircraftDataService(subscriptionManager: FakeGating())
         XCTAssertNotNil(service)
+    }
+
+    /// The widget hears about the owned list when the service starts (from the cache) and again after
+    /// every fetch. (UX-07) The publisher is injected so a test's service stays out of the App Group
+    /// the real widget reads.
+    func testTheWidgetIsSeededAtStartAndRefreshedAfterAFetch() async {
+        var published = 0
+        let service = AircraftDataService(subscriptionManager: FakeGating(), httpClient: FakeHTTPClient(),
+                                          cacheDirectory: makeTestDirectory(),
+                                          publishToWidget: { _ in published += 1 })
+        XCTAssertEqual(published, 1, "seeded from the cache before any fetch")
+
+        await service.fetchAvailableAircraft()
+        XCTAssertEqual(published, 2, "refreshed once the fetch resolved")
     }
 
     // MARK: - PR-41: additive language-fallback fields
@@ -239,7 +253,7 @@ final class AircraftDataServiceSeamTests: XCTestCase {
          "speeds":[],"targetSpeeds":{},"learningModeVisibleCount":{},"phases":{}}}
         """#
         let http = FakeHTTPClient(responseData: Data(checklistJSON.utf8))
-        let service = AircraftDataService(
+        let service = makeTestAircraftDataService(
             subscriptionManager: FakeGating(), httpClient: http
         )
         service.availableAircraft = try multiRegMetadata().expandedPerRegistration()
@@ -272,7 +286,7 @@ final class AircraftDataServiceSeamTests: XCTestCase {
          "speeds":[],"targetSpeeds":{},"learningModeVisibleCount":{},"phases":{}}}
         """#
         let http = FakeHTTPClient(responseData: Data(checklistJSON.utf8))
-        let service = AircraftDataService(
+        let service = makeTestAircraftDataService(
             subscriptionManager: FakeGating(), httpClient: http
         )
         service.availableAircraft = try multiRegMetadata().expandedPerRegistration()
@@ -339,7 +353,7 @@ final class AircraftDataServiceSeamTests: XCTestCase {
     /// this device". Those are opposite answers to the question a pilot asks that screen before losing
     /// signal.
     func testOwnedButUndownloadedChecklistIsListedAsMissing() async throws {
-        let service = AircraftDataService(subscriptionManager: FakeGating(), httpClient: FakeHTTPClient())
+        let service = makeTestAircraftDataService(subscriptionManager: FakeGating(), httpClient: FakeHTTPClient())
         var owned = try premiumMetadata(id: Self.unusedAircraftId)
         owned.hasAccess = true
         service.availableAircraft = [owned]
@@ -358,7 +372,7 @@ final class AircraftDataServiceSeamTests: XCTestCase {
     /// list entirely. This screen inventories the user's own offline data — padding it with the rest
     /// of the catalogue would turn a storage inventory into an advert.
     func testUnownedAircraftWithNoCacheIsNotListed() async throws {
-        let service = AircraftDataService(subscriptionManager: FakeGating(), httpClient: FakeHTTPClient())
+        let service = makeTestAircraftDataService(subscriptionManager: FakeGating(), httpClient: FakeHTTPClient())
         service.availableAircraft = [try premiumMetadata(id: Self.unusedAircraftId)]   // hasAccess: false
         service.clearCache(for: Self.unusedAircraftId)
 

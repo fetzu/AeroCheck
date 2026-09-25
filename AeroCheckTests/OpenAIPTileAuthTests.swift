@@ -61,9 +61,22 @@ final class OpenAIPTileAuthTests: XCTestCase {
 @MainActor
 final class OpenAIPTilePruneTests: XCTestCase {
 
+    /// This test's own tile cache. It used to be the simulator app's real one: pruning to CH deleted
+    /// every real tile outside Switzerland, and tearDown then removed the whole OpenAIP cache.
+    private var datastore: DataPersistenceManager!
+
+    override func setUp() {
+        super.setUp()
+        datastore = makeTestDatastore()
+    }
+
     private var tileRoot: URL {
-        DataPersistenceManager.shared.mapTilesDirectory
+        datastore.mapTilesDirectory
             .appendingPathComponent("OpenAIP", isDirectory: true)
+    }
+
+    private func makeManager() -> OpenAIPCacheManager {
+        OpenAIPCacheManager(defaults: makeTestDefaults(), persistence: datastore)
     }
 
     private func writeTile(z: Int, x: Int, y: Int) throws {
@@ -81,18 +94,13 @@ final class OpenAIPTilePruneTests: XCTestCase {
             .appendingPathComponent("\(y).png").path)
     }
 
-    override func tearDown() {
-        try? FileManager.default.removeItem(at: tileRoot)
-        super.tearDown()
-    }
-
     /// A tile far outside any plausible Swiss bounding box must be reclaimed, while the cache root
     /// itself survives. Zoom 7 x=0 y=0 is the Atlantic near (0°, 85°N) — never inside CH.
     func testPruneRemovesTilesOutsideTheSelection() async throws {
         try writeTile(z: 7, x: 0, y: 0)
         XCTAssertTrue(tileExists(z: 7, x: 0, y: 0), "precondition: the stray tile is on disk")
 
-        let manager = OpenAIPCacheManager()
+        let manager = makeManager()
         let deleted = await manager.pruneTilesOutside(countries: ["CH"])
 
         XCTAssertEqual(deleted, 1)
@@ -104,7 +112,7 @@ final class OpenAIPTilePruneTests: XCTestCase {
     func testPruneRefusesToRunForAnEmptySelection() async throws {
         try writeTile(z: 7, x: 0, y: 0)
 
-        let manager = OpenAIPCacheManager()
+        let manager = makeManager()
         let deleted = await manager.pruneTilesOutside(countries: [])
 
         XCTAssertEqual(deleted, 0, "an empty selection must not wipe the cache")
@@ -113,7 +121,7 @@ final class OpenAIPTilePruneTests: XCTestCase {
 
     /// Tiles the current selection still wants must survive — the prune is a reconcile, not a purge.
     func testPruneKeepsTilesInsideTheSelection() async throws {
-        let manager = OpenAIPCacheManager()
+        let manager = makeManager()
         // Ask the manager itself which tiles CH wants, so the test cannot drift from the projection.
         let wanted = await manager.tilesForCountriesForTesting(["CH"])
         let keep = try XCTUnwrap(wanted.first, "CH must project to at least one tile")

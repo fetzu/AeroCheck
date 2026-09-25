@@ -25,21 +25,11 @@ final class FlightPlanActivationTests: XCTestCase {
         )
     }
 
-    /// A manager on its OWN defaults suite. The test host shares the app's bundle id, so building one
-    /// against `.standard` wrote a synthetic route into the real app's active-plan slot — a test
-    /// artifact that then showed up as ACTIVE in the app on that simulator.
-    private var suiteName = ""
-
+    /// A manager on its OWN defaults suite and datastore. The test host shares the app's bundle id, so
+    /// building one against `.standard` wrote a synthetic route into the real app's active-plan slot —
+    /// a test artifact that then showed up as ACTIVE in the app on that simulator.
     private func manager() -> FlightPlanManager {
-        suiteName = "FlightPlanActivationTests.\(UUID().uuidString)"
-        let defaults = UserDefaults(suiteName: suiteName)!
-        return FlightPlanManager(defaults: defaults)
-    }
-
-    override func tearDown() {
-        if !suiteName.isEmpty { UserDefaults().removePersistentDomain(forName: suiteName) }
-        suiteName = ""
-        super.tearDown()
+        makeTestPlanManager()
     }
 
     // MARK: - Routes have no date (v5.x)

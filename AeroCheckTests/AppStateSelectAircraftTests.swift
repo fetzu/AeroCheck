@@ -28,7 +28,7 @@ final class AppStateSelectAircraftTests: XCTestCase {
     }
 
     func testSelectBundledById() {
-        let appState = AppState()
+        let appState = makeTestAppState()
         appState.settings.selectedRemoteAircraftId = "pa28-181" // pretend a remote was selected
 
         XCTAssertTrue(appState.selectAircraft(id: "WT9", available: []))
@@ -38,7 +38,7 @@ final class AppStateSelectAircraftTests: XCTestCase {
     }
 
     func testSelectBundledByRegistration() {
-        let appState = AppState()
+        let appState = makeTestAppState()
         appState.settings.selectedRemoteAircraftId = "pa28-181"
 
         XCTAssertTrue(appState.selectAircraft(id: "F-HVXA", available: []))
@@ -48,7 +48,7 @@ final class AppStateSelectAircraftTests: XCTestCase {
     }
 
     func testSelectRemoteById() {
-        let appState = AppState()
+        let appState = makeTestAppState()
         let meta = metadata(id: "pa28-181", registration: "HB-PFA")
 
         XCTAssertTrue(appState.selectAircraft(id: "pa28-181", available: [meta]))
@@ -57,7 +57,7 @@ final class AppStateSelectAircraftTests: XCTestCase {
     }
 
     func testSelectRemoteByRegistration() {
-        let appState = AppState()
+        let appState = makeTestAppState()
         let meta = metadata(id: "pa28-181", registration: "HB-PFA")
 
         XCTAssertTrue(appState.selectAircraft(id: "HB-PFA", available: [meta]))
@@ -67,7 +67,7 @@ final class AppStateSelectAircraftTests: XCTestCase {
     }
 
     func testSelectUnknownReturnsFalseAndLeavesSelectionUntouched() {
-        let appState = AppState()
+        let appState = makeTestAppState()
         appState.settings.selectedRemoteAircraftId = nil
         appState.settings.selectedAircraft = .wt9Dynamic
         let meta = metadata(id: "pa28-181", registration: "HB-PFA")
@@ -82,7 +82,7 @@ final class AppStateSelectAircraftTests: XCTestCase {
     /// The server-style id for a bundled aircraft (e.g. the `wt9-dynamic` token a widget or deep
     /// link passes) must resolve to the bundled aircraft, not its remote duplicate.
     func testSelectBundledByServerId() {
-        let appState = AppState()
+        let appState = makeTestAppState()
         let bundledDuplicate = metadata(id: "wt9-dynamic", registration: "F-HVXA", isFree: true)
 
         XCTAssertTrue(appState.selectAircraft(id: "wt9-dynamic", available: [bundledDuplicate]))
@@ -94,7 +94,7 @@ final class AppStateSelectAircraftTests: XCTestCase {
     /// A bundled token must win even when remote metadata is supplied, so the free aircraft is
     /// never shadowed by a remote record that happens to share a registration.
     func testBundledMatchTakesPrecedenceOverRemote() {
-        let appState = AppState()
+        let appState = makeTestAppState()
         let collidingRemote = metadata(id: "wt9-clone", registration: "F-HVXA")
 
         XCTAssertTrue(appState.selectAircraft(id: "F-HVXA", available: [collidingRemote]))
@@ -106,7 +106,7 @@ final class AppStateSelectAircraftTests: XCTestCase {
     // MARK: - FlightTiming facade (Phase 4 — AppState decomposition: state extraction)
 
     func testTimingAccessorsForwardToFlightTimingValue() {
-        let appState = AppState()
+        let appState = makeTestAppState()
         let t = Date(timeIntervalSince1970: 1000)
 
         // Writing through the legacy accessor mutates the cohesive FlightTiming value…
@@ -125,7 +125,7 @@ final class AppStateSelectAircraftTests: XCTestCase {
     // MARK: - ChecklistProgress facade (Phase 4 — AppState decomposition: state extraction)
 
     func testChecklistProgressAccessorsForward() {
-        let appState = AppState()
+        let appState = makeTestAppState()
 
         // Scalar accessor forwards both directions.
         appState.currentPhase = .climb

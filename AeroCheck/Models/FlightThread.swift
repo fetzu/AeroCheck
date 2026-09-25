@@ -177,6 +177,11 @@ struct FlightThread: Codable, Identifiable, Equatable, Sendable {
     /// release, which does not fail loudly; it silently loses them. (v5.x)
     var tripId: UUID?
 
+    /// Where the flight actually landed, when that was not the planned destination: a diversion, in
+    /// the air or decided on the way. Drives the "Continue to …" offer and the close-out wording.
+    /// Optional, so threads written before 5.1 decode unchanged. (v5.1)
+    var landedElsewhere: LandedElsewhere?
+
     /// The country this flight departs FROM — what decides which of `countries` are foreign.
     /// Recorded for the same reason as `countries`: a regeneration with no plan cannot measure it,
     /// and falling back to the device's region would tell a Slovak pilot to clear customs into
@@ -284,5 +289,40 @@ struct FlightThread: Codable, Identifiable, Equatable, Sendable {
         guard let index = tasks.firstIndex(where: { $0.id == taskId }) else { return }
         tasks[index].note = (note?.isEmpty == true) ? nil : note
         touch()
+    }
+}
+
+// MARK: - Landing somewhere else (v5.1)
+
+/// A flight that ended at another aerodrome than the one it was planned to.
+struct LandedElsewhere: Codable, Equatable, Sendable {
+    var plannedIdent: String
+    var landedIdent: String
+    var landedName: String
+    /// "Finish here": the pilot does not want the rest of the route planned as a next leg.
+    var offerDismissed: Bool = false
+    /// The continuation leg was created: the offer has been answered.
+    var continued: Bool = false
+
+    init(plannedIdent: String, landedIdent: String, landedName: String,
+         offerDismissed: Bool = false, continued: Bool = false) {
+        self.plannedIdent = plannedIdent
+        self.landedIdent = landedIdent
+        self.landedName = landedName
+        self.offerDismissed = offerDismissed
+        self.continued = continued
+    }
+
+    /// Written by hand so a flag added later decodes as its default. The synthesised decoder demands
+    /// every non-optional key, and a thread whose file lacked one failed to decode at all — the
+    /// loader then fell back to an older file of the same thread, which is how a landed flight came
+    /// back as "in flight". (v5.1, found on the simulator)
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        plannedIdent = try c.decode(String.self, forKey: .plannedIdent)
+        landedIdent = try c.decode(String.self, forKey: .landedIdent)
+        landedName = try c.decodeIfPresent(String.self, forKey: .landedName) ?? landedIdent
+        offerDismissed = try c.decodeIfPresent(Bool.self, forKey: .offerDismissed) ?? false
+        continued = try c.decodeIfPresent(Bool.self, forKey: .continued) ?? false
     }
 }

@@ -146,6 +146,13 @@ struct AeroCheckApp: App {
                         flightPlanManager.activeNextWaypointName
                     }
 
+                    // Trip legs follow each other: a change to one leg's timing carries into the
+                    // next leg's estimated departure. The plan manager knows plans, the thread
+                    // manager knows trips; this is where the two are joined. (v5.1)
+                    flightPlanManager.nextLegPlanId = { planId in
+                        flightThreadManager.nextLegPlanId(after: planId)
+                    }
+
                     // The delegate and its category are registered in `AeroCheckAppDelegate` before
                     // launch finishes; only the handlers are wired here, because they need the
                     // managers. No permission is requested here either — that happens when the pilot

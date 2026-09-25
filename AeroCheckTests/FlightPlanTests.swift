@@ -283,4 +283,114 @@ final class FlightPlanTests: XCTestCase {
         XCTAssertEqual(FlightPlan.icaoLatLong(-33.5, -70.75), "3330S07045W")
         XCTAssertEqual(FlightPlan.icaoLatLong(0, 0), "0000N00000E")
     }
+
+    // MARK: - GPX import: what <ele> means depends on who wrote the file
+
+    /// A SkyDemon-style route: aerodromes named in <name> with their ICAO code in <sym>, published
+    /// points with an empty <name> and the ident in <sym>, terrain in <ele>, and the planned level of
+    /// the leg STARTING at each point in <skd:level>.
+    private let skyDemonGPX = """
+    <?xml version="1.0" encoding="utf-8"?>
+    <gpx xmlns:skd="http://www.skydemon.aero/gpxextensions" version="1.1" creator="SkyDemon for iPad" xmlns="http://www.topografix.com/GPX/1/1">
+      <rte>
+        <name>Field - Field</name>
+        <rtept lat="47.39" lon="7.03"><ele>565.0</ele><name>Bressaucourt</name><sym>LSZQ</sym>
+          <extensions><skd:level type="A" value="5000" /></extensions></rtept>
+        <rtept lat="47.24" lon="7.11"><ele>1095.0</ele><name /><sym>DEKAM</sym>
+          <extensions><skd:level type="A" value="5500" /></extensions></rtept>
+        <rtept lat="46.75" lon="8.04"><ele>564.0</ele><name>Brienz</name>
+          <extensions><skd:level type="F" value="95" /></extensions></rtept>
+        <rtept lat="46.49" lon="9.85"><ele>1768.0</ele><name /><sym>W</sym>
+          <extensions><skd:level type="A" value="7000" /></extensions></rtept>
+        <rtept lat="46.53" lon="9.88"><ele>1702.0</ele><name>Samedan</name><sym>LSZS</sym></rtept>
+      </rte>
+    </gpx>
+    """
+
+    func testSkyDemonLevelsBecomeThePlannedAltitudes() throws {
+        let plan = try XCTUnwrap(FlightPlan.fromGPX(Data(skyDemonGPX.utf8)))
+        let alts = plan.waypoints.map(\.altitude)
+        // Departure and destination are aerodromes: field elevation, from <ele>.
+        XCTAssertEqual(alts[0] ?? 0, 565 / 0.3048, accuracy: 1)
+        XCTAssertEqual(alts[4] ?? 0, 1702 / 0.3048, accuracy: 1)
+        // En route: the level of the leg ENDING there, so the nav log's Alt column matches the PLOG.
+        XCTAssertEqual(alts[1], 5000)
+        XCTAssertEqual(alts[2], 5500)
+        XCTAssertEqual(alts[3], 9500, "FL95")
+    }
+
+    func testSkyDemonIdentsFillEmptyNames() throws {
+        let plan = try XCTUnwrap(FlightPlan.fromGPX(Data(skyDemonGPX.utf8)))
+        XCTAssertEqual(plan.waypoints.map(\.name), ["Bressaucourt", "DEKAM", "Brienz", "W", "Samedan"])
+    }
+
+    func testGarminIconSymbolIsNotAName() {
+        XCTAssertFalse(FlightPlanGPXParser.isIdentLike("Waypoint"))
+        XCTAssertFalse(FlightPlanGPXParser.isIdentLike("Flag, Blue"))
+        XCTAssertTrue(FlightPlanGPXParser.isIdentLike("DEKAM"))
+    }
+
+    func testUnknownSourceElevationIsNotReadAsAPlan() throws {
+        let gpx = """
+        <?xml version="1.0"?>
+        <gpx version="1.1" creator="SomePlanner" xmlns="http://www.topografix.com/GPX/1/1"><rte>
+          <rtept lat="47.0" lon="7.0"><ele>500</ele><name>A</name></rtept>
+          <rtept lat="47.1" lon="7.2"><ele>900</ele><name>B</name></rtept>
+        </rte></gpx>
+        """
+        let plan = try XCTUnwrap(FlightPlan.fromGPX(Data(gpx.utf8)))
+        XCTAssertEqual(plan.waypoints.map(\.altitude), [nil, nil])
+    }
+
+    func testAeroCheckGPXRoundTripKeepsAltitudes() throws {
+        var original = FlightPlan(name: "Round trip")
+        original.waypoints = [
+            FlightPlanWaypoint(name: "LSZQ", coordinate: .init(latitude: 47.39, longitude: 7.03), altitude: 1850),
+            FlightPlanWaypoint(name: "MID", coordinate: .init(latitude: 47.2, longitude: 7.3), altitude: 5500),
+            FlightPlanWaypoint(name: "LSZG", coordinate: .init(latitude: 47.18, longitude: 7.42), altitude: 1411),
+        ]
+        let full = try XCTUnwrap(FlightPlan.fromGPX(Data(original.toGPX().utf8)))
+        XCTAssertEqual(full.waypoints.map(\.altitude), [1850, 5500, 1411])
+
+        // The avionics GPX carries the plan in <ele> only.
+        let avionics = try XCTUnwrap(FlightPlanExportService.exportToAvionicsGPX(original))
+        let reimported = try XCTUnwrap(FlightPlan.fromGPX(avionics))
+        for (a, b) in zip(reimported.waypoints.map(\.altitude), [1850.0, 5500, 1411]) {
+            XCTAssertEqual(a ?? 0, b, accuracy: 1)
+        }
+    }
+
+    // MARK: - Persistence dirty check
+
+    func testEditingASavedPlanMarksItForSaving() {
+        var plan = FlightPlan(name: "Saved")
+        plan.waypoints = [
+            FlightPlanWaypoint(name: "A", coordinate: .init(latitude: 47.0, longitude: 7.0), altitude: 1500),
+            FlightPlanWaypoint(name: "B", coordinate: .init(latitude: 47.1, longitude: 7.2), altitude: 5000),
+        ]
+        let saved = [plan.id: FlightPlanManager.fingerprint(plan)!]
+        XCTAssertTrue(FlightPlanManager.plansNeedingSave([plan], lastPersisted: saved).isEmpty)
+
+        // Same id, so `==` calls it equal — which is exactly why the dirty check cannot use it.
+        var edited = plan
+        edited.waypoints[1].altitude = 5500
+        XCTAssertEqual(edited, plan)
+        XCTAssertEqual(FlightPlanManager.plansNeedingSave([edited], lastPersisted: saved).map(\.id), [plan.id])
+    }
+
+    func testRecalculatingWithoutADepartureTimeClearsTheETOs() {
+        var plan = FlightPlan(name: "ETO", plannedDepartureTime: Date(timeIntervalSince1970: 1_790_000_000))
+        plan.waypoints = [
+            FlightPlanWaypoint(name: "A", coordinate: .init(latitude: 47.0, longitude: 7.0)),
+            FlightPlanWaypoint(name: "B", coordinate: .init(latitude: 47.1, longitude: 7.2)),
+        ]
+        plan.calculateRouteData()
+        XCTAssertNotNil(plan.waypoints[1].estimatedTimeOver)
+
+        plan.plannedDepartureTime = nil
+        plan.calculateRouteData()
+        XCTAssertTrue(plan.waypoints.allSatisfy { $0.estimatedTimeOver == nil },
+                      "a route with no date must not keep printing the old flight's times")
+    }
 }
+

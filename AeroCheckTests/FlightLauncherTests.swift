@@ -22,14 +22,14 @@ final class FlightLauncherTests: XCTestCase {
     }
 
     private func makeLauncher(appState: AppState, aircraftDataService: AircraftDataService? = nil) -> FlightLauncher {
-        let acs = aircraftDataService ?? AircraftDataService(subscriptionManager: SubscriptionManager())
+        let acs = aircraftDataService ?? makeTestAircraftDataService(subscriptionManager: makeTestSubscriptionManager())
         return FlightLauncher(
             appState: appState,
             locationManager: LocationManager(),
             aircraftDataService: acs,
             airportDataService: AirportDataService(),
             flightEventDetector: FlightEventDetector(),
-            flightPlanManager: FlightPlanManager()
+            flightPlanManager: makeTestPlanManager()
         )
     }
 
@@ -117,7 +117,7 @@ final class FlightLauncherTests: XCTestCase {
     // MARK: - begin() integration for the early-return guards
 
     func testBeginDoesNotOverwriteRunningFlight() async {
-        let appState = AppState()
+        let appState = makeTestAppState()
         appState.currentFlight = Flight(airplane: "SENTINEL", startTime: Date())
         appState.isFlightActive = true
         let sentinelId = appState.currentFlight?.id
@@ -130,13 +130,13 @@ final class FlightLauncherTests: XCTestCase {
     }
 
     func testBeginRefusesUnownedPremiumAndRequestsPaywall() async {
-        let appState = AppState()
+        let appState = makeTestAppState()
         appState.isFlightActive = false
         appState.currentFlight = nil
         appState.flightStartPaywallRequest = false
         appState.settings.selectedRemoteAircraftId = "pa28-181"
 
-        let acs = AircraftDataService(subscriptionManager: SubscriptionManager())
+        let acs = makeTestAircraftDataService(subscriptionManager: makeTestSubscriptionManager())
         acs.availableAircraft = [metadata(id: "pa28-181", registration: "HB-PFA", hasAccess: false)]
 
         let outcome = await makeLauncher(appState: appState, aircraftDataService: acs).begin(circuitMode: false)

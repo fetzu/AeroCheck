@@ -107,14 +107,16 @@ class FlightPlanExportService {
     // MARK: - Excel (XLSX) Export
 
     /// Export flight plan to XLSX format
-    /// Creates a simple XML-based Excel file matching the GVMP template
-    static func exportToXLSX(_ flightPlan: FlightPlan) -> Data? {
+    /// Creates a simple XML-based Excel file matching the GVMP template. Same rows as the PDF (the leg
+    /// ending at each waypoint), every waypoint (a sheet has no page limit), and the radio plan.
+    static func exportToXLSX(_ flightPlan: FlightPlan, radio: RouteRadioPlanner.Plan? = nil) -> Data? {
         // Create XML Spreadsheet 2003 format (simpler than full XLSX)
-        let xml = generateExcelXML(flightPlan)
+        let plan = recomputed(flightPlan)
+        let xml = generateExcelXML(plan, radio: radio ?? RouteRadioPlanner.manualOnly(plan.waypoints))
         return xml.data(using: .utf8)
     }
 
-    private static func generateExcelXML(_ plan: FlightPlan) -> String {
+    private static func generateExcelXML(_ plan: FlightPlan, radio: RouteRadioPlanner.Plan) -> String {
         let dateFormatter = DateFormatter()
         dateFormatter.dateFormat = "dd.MM.yyyy"
 
@@ -279,68 +281,46 @@ class FlightPlanExportService {
         </Row>
         """
 
-        // Route waypoints. SEC-C21: the row count is fixed by the template, so anything beyond it
-        // was silently dropped — a 16-leg cross-country printed a nav log missing its destination
-        // while the in-app route looked complete. The overflow is now stated in the document.
-        let waypointRows = 15
-        let omittedWaypoints = max(0, plan.waypoints.count - waypointRows)
-        for i in 0..<waypointRows {
-            if i < plan.waypoints.count {
-                let waypoint = plan.waypoints[i]
-                let isFirstWaypoint = i == 0
-                let mc = isFirstWaypoint ? "" : (waypoint.magneticCourse.map { String(format: "%03d°", Int($0)) } ?? "")
-                let dist = isFirstWaypoint ? "" : (waypoint.distance.map { String(format: "%.1f", $0) } ?? "")
-                let alt = waypoint.altitude.map { String(format: "%.0f", $0) } ?? ""
-                let wind = ""
-                let gs = isFirstWaypoint ? "" : (waypoint.plannedGroundSpeed.map { "\($0)" } ?? "")
-                let eet = isFirstWaypoint ? "" : (waypoint.formattedEET ?? "")
-                let eto = isFirstWaypoint ? "" : (waypoint.formattedETO ?? "")
-                let ato = waypoint.formattedATO ?? ""
-
-                xml += """
-                <Row ss:Height="16">
-                    <Cell ss:StyleID="Data"><Data ss:Type="String">\(escapeXML(waypoint.frequency ?? ""))</Data></Cell>
-                    <Cell ss:StyleID="Data"><Data ss:Type="String">\(escapeXML(waypoint.callSign ?? ""))</Data></Cell>
-                    <Cell ss:StyleID="Data"><Data ss:Type="String">\(escapeXML(waypoint.name))</Data></Cell>
-                    <Cell ss:StyleID="Data"><Data ss:Type="String">\(mc)</Data></Cell>
-                    <Cell ss:StyleID="Data"><Data ss:Type="String">\(dist)</Data></Cell>
-                    <Cell ss:StyleID="Data"><Data ss:Type="String">\(alt)</Data></Cell>
-                    <Cell ss:StyleID="Data"><Data ss:Type="String">\(wind)</Data></Cell>
-                    <Cell ss:StyleID="Data"><Data ss:Type="String">\(gs)</Data></Cell>
-                    <Cell ss:StyleID="Data"><Data ss:Type="String">\(eet)</Data></Cell>
-                    <Cell ss:StyleID="Data"><Data ss:Type="String">\(eto)</Data></Cell>
-                    <Cell ss:StyleID="Data"><Data ss:Type="String">\(ato)</Data></Cell>
-                    <Cell ss:StyleID="Data"><Data ss:Type="String">\(escapeXML(waypoint.remarks))</Data></Cell>
-                </Row>
-                """
-            } else {
-                xml += """
-                <Row ss:Height="16">
-                    <Cell ss:StyleID="Data"><Data ss:Type="String"></Data></Cell>
-                    <Cell ss:StyleID="Data"><Data ss:Type="String"></Data></Cell>
-                    <Cell ss:StyleID="Data"><Data ss:Type="String"></Data></Cell>
-                    <Cell ss:StyleID="Data"><Data ss:Type="String"></Data></Cell>
-                    <Cell ss:StyleID="Data"><Data ss:Type="String"></Data></Cell>
-                    <Cell ss:StyleID="Data"><Data ss:Type="String"></Data></Cell>
-                    <Cell ss:StyleID="Data"><Data ss:Type="String"></Data></Cell>
-                    <Cell ss:StyleID="Data"><Data ss:Type="String"></Data></Cell>
-                    <Cell ss:StyleID="Data"><Data ss:Type="String"></Data></Cell>
-                    <Cell ss:StyleID="Data"><Data ss:Type="String"></Data></Cell>
-                    <Cell ss:StyleID="Data"><Data ss:Type="String"></Data></Cell>
-                    <Cell ss:StyleID="Data"><Data ss:Type="String"></Data></Cell>
-                </Row>
-                """
+        // Route rows: every waypoint (SEC-C21: never truncated), padded with blank rows to the form's
+        // 15 so a short route still leaves room to write in.
+        let rows = navLogRows(plan, radio: radio)
+        func dataCell(_ s: String) -> String {
+            "<Cell ss:StyleID=\"Data\"><Data ss:Type=\"String\">\(escapeXML(s))</Data></Cell>"
+        }
+        for i in 0..<max(15, rows.count) {
+            guard i < rows.count else {
+                xml += "<Row ss:Height=\"16\">" + String(repeating: dataCell(""), count: 12) + "</Row>\n"
+                continue
             }
+            let row = rows[i]
+            var freq = "", callSign = ""
+            if let st = row.station {
+                freq = row.stationChanged ? st.frequency + (st.inferredFrom != nil ? "†" : "") : "〃"
+                callSign = row.stationChanged ? st.callSign : "〃"
+            }
+            let cells = [freq, callSign, row.name, row.mc, row.dist, row.alt, row.wind, row.gs, row.eet,
+                         row.eto, row.ato, row.remarks.joined(separator: " · ")]
+            xml += "<Row ss:Height=\"16\">" + cells.map(dataCell).joined() + "</Row>\n"
         }
 
-        // SEC-C21: say so, in the document, when the route did not fit the fixed template.
-        if omittedWaypoints > 0 {
+        // Radio · airspace: the same box as the PDF.
+        func radioRow(_ label: String, _ text: String) {
             xml += """
             <Row ss:Height="16">
-                <Cell ss:StyleID="Header" ss:MergeAcross="11"><Data ss:Type="String">\(escapeXML(L10n.Export.routeTruncated(omittedWaypoints)))</Data></Cell>
+                <Cell ss:StyleID="Label" ss:MergeAcross="1"><Data ss:Type="String">\(escapeXML(label))</Data></Cell>
+                <Cell ss:StyleID="Data" ss:MergeAcross="9"><Data ss:Type="String">\(escapeXML(text))</Data></Cell>
             </Row>
+
             """
         }
+        radioRow(L10n.PDF.radioStations, radio.stations
+            .map { "\($0.label) \($0.frequency)\($0.marker)" }.joined(separator: " · "))
+        if !radio.checkAreas.isEmpty {
+            radioRow(radio.checkAreaTag == "DABS" ? "DABS · NOTAM" : "NOTAM", radio.checkAreas.joined(separator: " · "))
+        }
+        let source = radio.notes + [radio.source.map { L10n.Export.radioSource($0) } ?? L10n.Export.noRadioData,
+                                    L10n.Export.verifyFrequencies]
+        radioRow(L10n.PDF.radioSource, source.joined(separator: " "))
 
         // Fuel calculation section - matching template layout exactly
         let fuelFlow = plan.fuelFlow ?? FlightPlan.defaultFuelFlow(for: plan.aircraftTypeId)
@@ -478,6 +458,110 @@ class FlightPlanExportService {
         return xml
     }
 
+    // MARK: - Nav log rows (PDF + Excel)
+
+    /// One printed nav-log row: a waypoint and the leg that ENDS there. Row 0 is the departure, whose
+    /// leg columns do not apply.
+    ///
+    /// This is the in-app Nav view's convention (`FlightPlan.legArriving(at:)`, UX-01). The paper
+    /// exports used to print each waypoint's OUTBOUND leg on its own row while greying out the
+    /// departure row, so the first leg never appeared and every other leg sat one row early.
+    struct NavLogRow: Equatable {
+        var name: String
+        var isDeparture: Bool
+        var station: RouteRadioPlanner.Station?
+        /// False when the station repeats the row above (printed as a ditto mark).
+        var stationChanged = false
+        var mc = "", dist = "", alt = "", wind = "", gs = "", eet = "", eto = "", ato = ""
+        var remarks: [String] = []
+        /// A waypoint the flight never reached: it diverted first. Printed grey. (v5.1)
+        var notFlown = false
+        /// The aerodrome the flight diverted to, printed after the route. (v5.1)
+        var isDiversion = false
+    }
+
+    /// Rows for the plan as given; the export entry points recompute the route first (see
+    /// `recomputed(_:)`), so Wind/GS/EET/ETO all come from one calculation.
+    static func navLogRows(_ plan: FlightPlan, radio: RouteRadioPlanner.Plan) -> [NavLogRow] {
+        let timeFmt = DateFormatter()
+        timeFmt.dateFormat = "HH:mm"
+        var rows = routeRows(plan, radio: radio, timeFmt: timeFmt)
+        // A trip leg's departure is an estimate until it flies: say so where the times start. (v5.1)
+        if plan.departureIsEstimate == true, !rows.isEmpty, !rows[0].eto.isEmpty {
+            rows[0].eto = "≈" + rows[0].eto
+            rows[0].remarks.insert(L10n.Trip.estimatedDepartureRemark(plan.stopover?.groundMinutes
+                                                                       ?? Stopover.defaultGroundMinutes), at: 0)
+        }
+        // A diversion: what was not flown is greyed, and where the flight went instead comes last.
+        if let diversion = plan.diversion {
+            for i in rows.indices where i > 0 && i >= diversion.leftRouteAt && plan.waypoints[i].actualTimeOver == nil {
+                rows[i].notFlown = true
+                rows[i].remarks = [L10n.Trip.notFlown]
+            }
+            var row = NavLogRow(name: "→ \(diversion.ident)", isDeparture: false, station: nil)
+            row.isDiversion = true
+            row.alt = diversion.elevationFeet.map { String(format: "%.0f", $0) } ?? ""
+            row.ato = diversion.landedAt.map { timeFmt.string(from: $0) } ?? ""
+            row.remarks = [diversion.startedAt.map { L10n.Trip.divertedAt(timeFmt.string(from: $0)) }
+                           ?? L10n.Trip.landedHereInstead]
+            if let frequency = diversion.frequency { row.remarks.append(frequency) }
+            rows.append(row)
+        }
+        return rows
+    }
+
+    private static func routeRows(_ plan: FlightPlan, radio: RouteRadioPlanner.Plan,
+                                  timeFmt: DateFormatter) -> [NavLogRow] {
+        let wps = plan.waypoints
+        let last = wps.count - 1
+        return wps.indices.map { i in
+            let wp = wps[i]
+            let radioRow = i < radio.rows.count ? radio.rows[i] : RouteRadioPlanner.Row()
+            var row = NavLogRow(name: RouteRadioPlanner.displayName(wp, index: i), isDeparture: i == 0,
+                                station: radioRow.station, stationChanged: radioRow.changed)
+            row.alt = wp.altitude.map { String(format: "%.0f", $0) } ?? ""
+            row.ato = wp.formattedATO ?? ""
+            let userRemark = wp.remarks.trimmingCharacters(in: .whitespacesAndNewlines)
+            row.remarks = (userRemark.isEmpty ? [] : [userRemark]) + radioRow.remarks
+            guard i > 0 else {
+                row.eto = plan.plannedDepartureTime.map { timeFmt.string(from: $0) } ?? ""
+                return row
+            }
+            let from = wps[i - 1]
+            row.mc = from.magneticCourse.map { String(format: "%03d°", Int($0)) } ?? ""
+            row.dist = from.distance.map { String(format: "%.1f", $0) } ?? ""
+            if let leg = plan.legPlanning(from: i - 1) {
+                row.gs = "\(leg.groundSpeedKt)"
+                row.wind = leg.wind.map(windText) ?? ""
+            }
+            // The +5 departure and +5 arrival allowances belong to the first and last legs.
+            let extra = (i == 1 ? (wps[0].legEETExtra ?? 0) : 0) + (i == last ? (wp.legEETExtra ?? 0) : 0)
+            if let t = from.estimatedElapsedTime {
+                let minutes = Int((t / 60).rounded())
+                row.eet = extra > 0 ? "\(minutes) + \(Int((extra / 60).rounded()))" : "\(minutes)"
+            }
+            row.eto = (i == last ? wp.formattedETO : from.formattedETO) ?? ""
+            return row
+        }
+    }
+
+    /// "240/15" — direction the wind blows FROM, degrees true, as forecasts give it.
+    static func windText(_ wind: FlightPlan.WindAloft) -> String {
+        guard wind.speedKt >= 0.5 else { return "calm" }
+        var dir = Int(wind.directionDegTrue.rounded()) % 360
+        if dir == 0 { dir = 360 }
+        return String(format: "%03d/%02d", dir, Int(wind.speedKt.rounded()))
+    }
+
+    /// A copy with its route data recomputed, so the printed Wind and GS (read live from
+    /// `legPlanning`) and the stored EET/ETO beside them come from the same calculation even if the
+    /// wind cache moved since the plan was last edited.
+    static func recomputed(_ plan: FlightPlan) -> FlightPlan {
+        var copy = plan
+        copy.calculateRouteData()
+        return copy
+    }
+
     // MARK: - PDF Export
 
     /// Paper the nav log is rendered onto. (v5.0.0)
@@ -503,47 +587,171 @@ class FlightPlanExportService {
 
     /// Export flight plan to PDF format matching GVMP template.
     ///
+    /// The route is never truncated: a route that does not fit one sheet continues on the next, with
+    /// the column headers repeated. `radio` fills the Freq/C/S columns, the Remarks and the Radio box;
+    /// without it only frequencies typed on the waypoints are printed.
+    ///
     /// A5 renders the SAME form scaled to fit rather than a reflowed layout, and that is deliberate.
-    /// The drawing is width-relative but its type sizes and its 16 route rows are fixed, so dropping
-    /// the A4 geometry into an A5 box would crush the columns and overflow the page. Scaling keeps
-    /// every column, every row and the proportions a pilot already knows from the A4 sheet — it is
-    /// the same form on a kneeboard-sized page, which is what asking for A5 means. The cost is
-    /// smaller type: about 71 % of A4, so the 8 pt labels land near 5.7 pt. Legible on a kneeboard,
-    /// but A4 stays the default for a reason.
-    static func exportToPDF(_ flightPlan: FlightPlan, paperSize: PaperSize = .a4) -> Data? {
-        let page = paperSize.bounds
+    /// The drawing is width-relative but its type sizes and row heights are fixed, so dropping the A4
+    /// geometry into an A5 box would crush the columns. Scaling keeps every column and the
+    /// proportions a pilot already knows from the A4 sheet. The cost is smaller type: about 71 % of A4.
+    static func exportToPDF(_ flightPlan: FlightPlan, paperSize: PaperSize = .a4,
+                            radio: RouteRadioPlanner.Plan? = nil) -> Data? {
+        let plan = recomputed(flightPlan)
+        let radioPlan = radio ?? RouteRadioPlanner.manualOnly(plan.waypoints)
+        let rows = navLogRows(plan, radio: radioPlan)
         let a4 = PaperSize.a4.bounds
+        let page = paperSize.bounds
         let pdfRenderer = UIGraphicsPDFRenderer(bounds: page)
-
-        let data = pdfRenderer.pdfData { context in
-            context.beginPage()
-            let ctx = context.cgContext
-
-            if paperSize != .a4 {
-                // Uniform scale so the aspect ratio is preserved — A4 and A5 differ slightly in
-                // ratio, and stretching a form to fill the page would skew every column.
-                let scale = min(page.width / a4.width, page.height / a4.height)
+        return pdfRenderer.pdfData { context in
+            let painter = NavLogPainter(plan: plan, rows: rows, radio: radioPlan, isFallback: radio == nil)
+            let pages = NavLogLayout.pages(rowCount: painter.printedRowCount, radioHeight: painter.radioBoxHeight)
+            for (index, layout) in pages.enumerated() {
+                context.beginPage()
+                let ctx = context.cgContext
                 ctx.saveGState()
-                ctx.scaleBy(x: scale, y: scale)
-                drawFlightPlan(flightPlan, in: a4, context: ctx)
+                if paperSize != .a4 {
+                    // Uniform scale so the aspect ratio is preserved — A4 and A5 differ slightly in
+                    // ratio, and stretching a form to fill the page would skew every column.
+                    let scale = min(page.width / a4.width, page.height / a4.height)
+                    ctx.scaleBy(x: scale, y: scale)
+                }
+                painter.draw(layout, pageNumber: index + 1, pageCount: pages.count, in: ctx)
                 ctx.restoreGState()
-            } else {
-                drawFlightPlan(flightPlan, in: context.pdfContextBounds, context: ctx)
             }
         }
-
-        return data
     }
 
-    private static func drawFlightPlan(_ plan: FlightPlan, in rect: CGRect, context ctx: CGContext) {
-        let margin: CGFloat = 24
-        let tableX = margin
-        let tableWidth = rect.width - 2 * margin
-        var y = margin
+    /// How many sheets `exportToPDF` will produce — shown on the export menu before anything is shared.
+    static func navLogPageCount(_ flightPlan: FlightPlan, radio: RouteRadioPlanner.Plan?) -> Int {
+        let plan = recomputed(flightPlan)
+        let radioPlan = radio ?? RouteRadioPlanner.manualOnly(plan.waypoints)
+        let painter = NavLogPainter(plan: plan, rows: navLogRows(plan, radio: radioPlan),
+                                    radio: radioPlan, isFallback: radio == nil)
+        return NavLogLayout.pages(rowCount: painter.printedRowCount, radioHeight: painter.radioBoxHeight).count
+    }
 
-        // Grayscale palette — print-first kneeboard form (#5 PDF redesign, Direction A)
+    // MARK: - PDF page layout
+
+    /// Where each block of the nav log goes, in A4 points. PURE — the painter draws exactly what this
+    /// decides, and the tests pin the page breaks without rendering anything.
+    ///
+    /// Blocks keep the single-sheet order (header, route, radio, fuel · times, notes, debriefing).
+    /// When the route does not fit with the rest, it flows onto further pages with its column headers
+    /// repeated, never splitting a row; the Radio box follows it; space left on that page becomes
+    /// Notes; fuel · times and the debriefing move to the next sheet. The sheet you fly from carries
+    /// the whole route and every frequency.
+    enum NavLogLayout {
+        static let margin: CGFloat = 24
+        static let pageHeight: CGFloat = 842
+        static var bottom: CGFloat { pageHeight - margin }
+        static let firstTop: CGFloat = 106        // title + rule + 3 header rows
+        static let continuationTop: CGFloat = 68  // title + rule + 1 running header row
+        static let gap: CGFloat = 4
+        static let sectionLabel: CGFloat = 13
+        static let tableHeader: CGFloat = 18
+        static let rowHeight: CGFloat = 18.5
+        static let fuelBlock: CGFloat = 5 + 13 + 128
+        static let notesMin: CGFloat = 50
+        static let debriefMin: CGFloat = 90
+        /// Short routes keep blank rows to write in, as the paper form always had.
+        static let preferredRows = 16
+
+        struct Page: Equatable {
+            var isFirst: Bool
+            var routeRows: Range<Int> = 0..<0
+            /// The route table carries on to the next page.
+            var routeContinues = false
+            var routeIsContinuation = false
+            var hasRadio = false
+            var hasFuel = false
+            var hasNotes = false
+            var hasDebrief = false
+        }
+
+        static func radioBlock(_ height: CGFloat) -> CGFloat { 5 + 13 + height }
+
+        /// Rows a single sheet holds with everything else on it, capped at the form's 16.
+        static func singlePageRows(radioHeight: CGFloat) -> Int {
+            let room = bottom - firstTop - gap - sectionLabel - tableHeader - radioBlock(radioHeight)
+                - fuelBlock - (9 + notesMin + 8 + debriefMin)
+            return max(0, min(preferredRows, Int((room / rowHeight).rounded(.down))))
+        }
+
+        /// Printed rows: the route, padded with blank rows up to what one sheet holds.
+        static func printedRows(waypointCount: Int, radioHeight: CGFloat) -> Int {
+            max(waypointCount, singlePageRows(radioHeight: radioHeight))
+        }
+
+        static func pages(rowCount: Int, radioHeight: CGFloat) -> [Page] {
+            var pages: [Page] = []
+            var page = Page(isFirst: true)
+            var y = firstTop
+            func nextPage() {
+                pages.append(page)
+                page = Page(isFirst: false)
+                y = continuationTop
+            }
+
+            // Route: as many whole rows as fit, header repeated on every page.
+            var row = 0
+            repeat {
+                let room = bottom - y - gap - sectionLabel - tableHeader
+                let capacity = max(1, Int((room / rowHeight).rounded(.down)))
+                let count = min(capacity, rowCount - row)
+                page.routeRows = row..<(row + count)
+                page.routeIsContinuation = row > 0
+                row += count
+                y += gap + sectionLabel + tableHeader + CGFloat(count) * rowHeight
+                if row < rowCount {
+                    page.routeContinues = true
+                    nextPage()
+                }
+            } while row < rowCount
+
+            // Radio box follows the route, whole.
+            if y + radioBlock(radioHeight) > bottom { nextPage() }
+            page.hasRadio = true
+            y += radioBlock(radioHeight)
+
+            // Everything else fits under it: the one-sheet form.
+            if bottom - y >= fuelBlock + 9 + notesMin + 8 + debriefMin {
+                page.hasFuel = true
+                page.hasNotes = true
+                page.hasDebrief = true
+                pages.append(page)
+                return pages
+            }
+            // Otherwise the rest of this sheet is for notes, and the admin blocks get their own.
+            if bottom - y >= 9 + notesMin { page.hasNotes = true }
+            let notesPlaced = page.hasNotes
+            nextPage()
+            page.hasFuel = true
+            page.hasNotes = !notesPlaced
+            page.hasDebrief = true
+            pages.append(page)
+            return pages
+        }
+    }
+
+    // MARK: - PDF drawing
+
+    /// Draws nav-log pages. Grayscale, print-first kneeboard form (#5 PDF redesign, Direction A).
+    private final class NavLogPainter {
+        let plan: FlightPlan
+        let rows: [NavLogRow]
+        let radio: RouteRadioPlanner.Plan
+        let isFallback: Bool
+        private var ctx: CGContext!
+
+        let margin = NavLogLayout.margin
+        let tableX: CGFloat = 24
+        let tableWidth: CGFloat = 547
+
         let ink = UIColor(white: 0.11, alpha: 1)
         let labelInk = UIColor(white: 0.32, alpha: 1)
+        let faintInk = UIColor(white: 0.45, alpha: 1)
+        let dittoInk = UIColor(white: 0.62, alpha: 1)
         let gridLight = UIColor(white: 0.82, alpha: 1)
         let gridMed = UIColor(white: 0.68, alpha: 1)
         let shHeader = UIColor(white: 0.90, alpha: 1)
@@ -553,35 +761,147 @@ class FlightPlanExportService {
         let shNA = UIColor(white: 0.80, alpha: 1)
 
         let fTitle = UIFont.boldSystemFont(ofSize: 13)
+        let fTitleNote = UIFont.systemFont(ofSize: 8.5, weight: .medium)
         let fLabel = UIFont.systemFont(ofSize: 8)
         let fValue = UIFont.systemFont(ofSize: 9.5, weight: .medium)
         let fRouteHdr = UIFont.systemFont(ofSize: 8.3, weight: .semibold)
         let fRoute = UIFont.systemFont(ofSize: 8.3)
+        let fFreq = UIFont.systemFont(ofSize: 8, weight: .bold)
+        let fCallSign = UIFont.systemFont(ofSize: 7, weight: .semibold)
+        let fRemark = UIFont.systemFont(ofSize: 6.8)
         let fSec = UIFont.systemFont(ofSize: 8, weight: .semibold)
         let fFuelHdr = UIFont.systemFont(ofSize: 7.6, weight: .medium)
         let fFuel = UIFont.systemFont(ofSize: 8.2)
         let fGroup = UIFont.systemFont(ofSize: 7.4, weight: .semibold)
+        let fRadio = UIFont.systemFont(ofSize: 7.3)
+        let fRadioBold = UIFont.systemFont(ofSize: 7.3, weight: .bold)
+        let fFoot = UIFont.systemFont(ofSize: 6.6)
 
-        let dateFmt = DateFormatter(); dateFmt.dateFormat = "dd.MM.yyyy"
-        let timeFmt = DateFormatter(); timeFmt.dateFormat = "HH:mm"
+        /// Freq · C/S · Waypoint · MC · Dist · Alt · Wind · GS · EET · ETO · ATO · Remarks (sum 547).
+        let widths: [CGFloat] = [42, 66, 70, 28, 28, 32, 38, 24, 32, 32, 34, 121]
+        let headers = ["Freq", "C/S", "Waypoint", "MC", "Dist.", "Alt", "Wind", "GS", "EET", "ETO", "ATO", "Remarks"]
+        let radioLabelWidth: CGFloat = 62
 
-        func drawText(_ r: CGRect, _ s: String, font: UIFont, align: NSTextAlignment, color: UIColor) {
+        let dateFmt: DateFormatter = { let f = DateFormatter(); f.dateFormat = "dd.MM.yyyy"; return f }()
+        let timeFmt: DateFormatter = { let f = DateFormatter(); f.dateFormat = "HH:mm"; return f }()
+
+        init(plan: FlightPlan, rows: [NavLogRow], radio: RouteRadioPlanner.Plan, isFallback: Bool) {
+            self.plan = plan
+            self.rows = rows
+            self.radio = radio
+            self.isFallback = isFallback
+        }
+
+        var printedRowCount: Int {
+            NavLogLayout.printedRows(waypointCount: rows.count, radioHeight: radioBoxHeight)
+        }
+
+        // MARK: Radio box content
+
+        private var radioLines: [(label: String, text: NSAttributedString)] {
+            var lines: [(String, NSAttributedString)] = []
+            let stations = NSMutableAttributedString()
+            for (i, s) in radio.stations.enumerated() {
+                if i > 0 { stations.append(attr(" · ", fRadio, ink)) }
+                stations.append(attr(s.label + " ", fRadio, ink))
+                stations.append(attr(s.frequency, fRadioBold, ink))
+                if !s.marker.isEmpty { stations.append(attr(s.marker, fRadio, ink)) }
+            }
+            lines.append((L10n.PDF.radioStations, stations))
+            if !radio.checkAreas.isEmpty {
+                let tag = radio.checkAreaTag == "DABS" ? "DABS · NOTAM" : "NOTAM"
+                lines.append((tag, attr(radio.checkAreas.joined(separator: " · "), fRadio, ink)))
+            }
+            var source = radio.notes
+            if isFallback {
+                source.append(L10n.Export.noRadioData)
+            } else if let src = radio.source {
+                source.append(L10n.Export.radioSource(src))
+            } else {
+                source.append(L10n.Export.noAirspaceData)
+            }
+            source.append(L10n.Export.verifyFrequencies)
+            lines.append((L10n.PDF.radioSource, attr(source.joined(separator: " "), fRadio, faintInk)))
+            return lines
+        }
+
+        private var radioTextWidth: CGFloat { tableWidth - radioLabelWidth - 10 }
+
+        var radioBoxHeight: CGFloat {
+            radioLines.reduce(0) { total, line in
+                let h = line.text.boundingRect(with: CGSize(width: radioTextWidth, height: .greatestFiniteMagnitude),
+                                               options: [.usesLineFragmentOrigin], context: nil).height
+                return total + max(ceil(h), 9) + 6
+            }
+        }
+
+        // MARK: Page
+
+        func draw(_ layout: NavLogLayout.Page, pageNumber: Int, pageCount: Int, in ctx: CGContext) {
+            self.ctx = ctx
+            var y = margin
+            drawTitle(continued: !layout.isFirst, y: &y)
+            drawHeader(full: layout.isFirst, y: &y)
+            if !layout.routeRows.isEmpty || layout.isFirst {
+                drawRoute(layout.routeRows, continuation: layout.routeIsContinuation,
+                          continues: layout.routeContinues, y: &y)
+            }
+            if layout.hasRadio { drawRadio(y: &y) }
+            if layout.hasFuel { drawFuel(y: &y) }
+            let remaining = NavLogLayout.bottom - y
+            switch (layout.hasNotes, layout.hasDebrief) {
+            case (true, true):
+                let notesH = (remaining - 9 - 8) / 3
+                y += 9
+                drawBox("Notes", text: plan.remarks, y: y, height: notesH)
+                y += notesH + 8
+                drawBox("Debriefing", text: plan.debriefing, y: y, height: NavLogLayout.bottom - y)
+            case (true, false):
+                y += 9
+                drawBox("Notes", text: plan.remarks, y: y, height: NavLogLayout.bottom - y)
+            case (false, true):
+                y += 9
+                drawBox("Debriefing", text: plan.debriefing, y: y, height: NavLogLayout.bottom - y)
+            case (false, false):
+                break
+            }
+            drawFooter(pageNumber: pageNumber, pageCount: pageCount)
+        }
+
+        // MARK: Primitives
+
+        private func attr(_ s: String, _ font: UIFont, _ color: UIColor) -> NSAttributedString {
+            NSAttributedString(string: s, attributes: [.font: font, .foregroundColor: color])
+        }
+
+        private func drawText(_ r: CGRect, _ s: String, font: UIFont, align: NSTextAlignment, color: UIColor,
+                              fitWidth: Bool = false) {
             guard !s.isEmpty else { return }
+            let inset = r.insetBy(dx: 4, dy: 1)
+            var font = font
+            if fitWidth {
+                // Long call signs shrink to fit rather than clip ("MEIRINGEN TWR").
+                while font.pointSize > 5.5,
+                      (s as NSString).size(withAttributes: [.font: font]).width > inset.width {
+                    font = font.withSize(font.pointSize - 0.25)
+                }
+            }
             let para = NSMutableParagraphStyle()
             para.alignment = align
             para.lineBreakMode = .byClipping
             let attrs: [NSAttributedString.Key: Any] = [.font: font, .foregroundColor: color, .paragraphStyle: para]
-            let inset = r.insetBy(dx: 4, dy: 1)
             let ns = s as NSString
             let bb = ns.boundingRect(with: CGSize(width: inset.width, height: .greatestFiniteMagnitude),
                                      options: [.usesLineFragmentOrigin], attributes: attrs, context: nil)
             let ty = inset.minY + max(0, (inset.height - bb.height) / 2)
-            ns.draw(in: CGRect(x: inset.minX, y: ty, width: inset.width, height: max(bb.height, inset.height)), withAttributes: attrs)
+            ns.draw(in: CGRect(x: inset.minX, y: ty, width: inset.width, height: max(bb.height, inset.height)),
+                    withAttributes: attrs)
         }
 
-        func cell(_ r: CGRect, _ s: String = "", font: UIFont? = nil, align: NSTextAlignment = .left,
-                  fill: UIColor? = nil, color: UIColor? = nil, grid: UIColor? = nil, lw: CGFloat = 0.5, stroke: Bool = true) {
-            if let fill = fill {
+        private func cell(_ r: CGRect, _ s: String = "", font: UIFont? = nil, align: NSTextAlignment = .left,
+                          fill: UIColor? = nil, color: UIColor? = nil, grid: UIColor? = nil, lw: CGFloat = 0.5,
+                          stroke: Bool = true, fitWidth: Bool = false) {
+            if let fill {
                 ctx.setFillColor(fill.cgColor)
                 ctx.fill(r)
             }
@@ -590,10 +910,10 @@ class FlightPlanExportService {
                 ctx.setLineWidth(lw)
                 ctx.stroke(r)
             }
-            drawText(r, s, font: font ?? fRoute, align: align, color: color ?? ink)
+            drawText(r, s, font: font ?? fRoute, align: align, color: color ?? ink, fitWidth: fitWidth)
         }
 
-        func dashedV(_ x: CGFloat, _ y0: CGFloat, _ y1: CGFloat) {
+        private func dashedV(_ x: CGFloat, _ y0: CGFloat, _ y1: CGFloat) {
             ctx.saveGState()
             ctx.setStrokeColor(gridMed.cgColor)
             ctx.setLineWidth(0.5)
@@ -601,212 +921,276 @@ class FlightPlanExportService {
             ctx.move(to: CGPoint(x: x, y: y0))
             ctx.addLine(to: CGPoint(x: x, y: y1))
             ctx.strokePath()
-            ctx.setLineDash(phase: 0, lengths: [])
             ctx.restoreGState()
         }
 
-        func section(_ s: String) {
+        private func section(_ s: String, y: inout CGFloat) {
             let attrs: [NSAttributedString.Key: Any] = [.font: fSec, .foregroundColor: labelInk, .kern: 1.1]
             (s.uppercased() as NSString).draw(at: CGPoint(x: tableX, y: y), withAttributes: attrs)
-            y += 13
+            y += NavLogLayout.sectionLabel
         }
 
-        // Title
-        (L10n.PDF.title as NSString).draw(at: CGPoint(x: tableX, y: y),
-            withAttributes: [.font: fTitle, .foregroundColor: ink])
-        y += 17
-        ctx.setStrokeColor(ink.cgColor)
-        ctx.setLineWidth(1.2)
-        ctx.move(to: CGPoint(x: tableX, y: y))
-        ctx.addLine(to: CGPoint(x: tableX + tableWidth, y: y))
-        ctx.strokePath()
-        y += 8
+        // MARK: Blocks
 
-        // Header — label / value pairs (each value sits in the cell to the right of its label)
-        let hRow: CGFloat = 19
-        let lw1: CGFloat = 84, vw1: CGFloat = 100, lw2: CGFloat = 92, vw2: CGFloat = 72, lw3: CGFloat = 95
-        let vw3 = tableWidth - lw1 - vw1 - lw2 - vw2 - lw3
-        func headerRow(_ l1: String, _ v1: String, _ l2: String, _ v2: String, _ l3: String, _ v3: String) {
-            var x = tableX
-            cell(CGRect(x: x, y: y, width: lw1, height: hRow), l1, font: fLabel, fill: shLabel, color: labelInk); x += lw1
-            cell(CGRect(x: x, y: y, width: vw1, height: hRow), v1, font: fValue); x += vw1
-            cell(CGRect(x: x, y: y, width: lw2, height: hRow), l2, font: fLabel, fill: shLabel, color: labelInk); x += lw2
-            cell(CGRect(x: x, y: y, width: vw2, height: hRow), v2, font: fValue); x += vw2
-            cell(CGRect(x: x, y: y, width: lw3, height: hRow), l3, font: fLabel, fill: shLabel, color: labelInk); x += lw3
-            cell(CGRect(x: x, y: y, width: vw3, height: hRow), v3, font: fValue)
-            y += hRow
-        }
-        let dateStr = plan.plannedDepartureTime.map { dateFmt.string(from: $0) } ?? ""
-        let annDate = plan.announcementDate.map { dateFmt.string(from: $0) } ?? ""
-        let annTime = plan.announcementTime.map { timeFmt.string(from: $0) } ?? ""
-        headerRow(L10n.PDF.pilot, plan.pilot, L10n.PDF.aircraft, plan.aircraftRegistration, "Date", dateStr)
-        headerRow(L10n.PDF.totalEET, plan.formattedTotalEET, L10n.PDF.endurance, plan.formattedEndurance ?? "--:--", L10n.PDF.runwayInUse, plan.runwayInUse ?? "")
-        headerRow(L10n.PDF.instructor, plan.instructor ?? "", L10n.PDF.noticeDate, annDate, L10n.PDF.noticeTime, annTime)
-
-        // Route — the centrepiece: 1 + 15 rows, uniform height whether filled or blank
-        y += 4
-        section("Route")
-        var widths: [CGFloat] = [44, 38, 71, 36, 38, 38, 38, 33, 33, 38, 38, 0]
-        widths[11] = tableWidth - widths.dropLast().reduce(0, +)
-        let headers = ["Freq", "C/S", "Waypoint", "MC", "Dist.", "Alt", "Wind", "GS", "EET", "ETO", "ATO", "Remarks"]
-        let routeHdrH: CGFloat = 18
-        var hx = tableX
-        for (i, h) in headers.enumerated() {
-            cell(CGRect(x: hx, y: y, width: widths[i], height: routeHdrH), h, font: fRouteHdr, align: .center, fill: shHeader, grid: gridMed)
-            hx += widths[i]
-        }
-        y += routeHdrH
-
-        let rowH: CGFloat = 18.5
-        let naCols: Set<Int> = [3, 4, 5, 6, 7, 8]   // MC, Dist, Alt, Wind, GS, EET — no value on the departure line
-        // SEC-C21: the printed nav log is the copy a pilot may actually fly from, so a route longer
-        // than the fixed table must not simply stop — potentially without its destination.
-        let pdfRouteRows = 16
-        let pdfOmittedWaypoints = max(0, plan.waypoints.count - pdfRouteRows)
-        for i in 0..<pdfRouteRows {
-            let isDep = i == 0
-            let rowFill: UIColor? = isDep ? shDep : (i % 2 == 1 ? shZebra : nil)
-            let rowFont = isDep ? fRouteHdr : fRoute
-            let wp = i < plan.waypoints.count ? plan.waypoints[i] : nil
-            var vals = [String](repeating: "", count: 12)
-            if let wp = wp {
-                vals[0] = wp.frequency ?? ""
-                vals[1] = wp.callSign ?? ""
-                vals[2] = wp.name
-                vals[3] = wp.magneticCourse.map { String(format: "%03d°", Int($0)) } ?? ""
-                vals[4] = wp.distance.map { String(format: "%.1f", $0) } ?? ""
-                vals[5] = wp.altitude.map { String(format: "%.0f", $0) } ?? ""
-                vals[7] = wp.plannedGroundSpeed.map { "\($0)" } ?? ""
-                vals[8] = wp.formattedEET ?? ""
-                vals[9] = wp.formattedETO ?? ""
-                vals[10] = wp.formattedATO ?? ""
-                vals[11] = wp.remarks
+        private func drawTitle(continued: Bool, y: inout CGFloat) {
+            let title = L10n.PDF.title as NSString
+            title.draw(at: CGPoint(x: tableX, y: y), withAttributes: [.font: fTitle, .foregroundColor: ink])
+            if continued {
+                let w = title.size(withAttributes: [.font: fTitle]).width
+                (L10n.PDF.continued as NSString).draw(at: CGPoint(x: tableX + w + 8, y: y + 3),
+                                                      withAttributes: [.font: fTitleNote, .foregroundColor: faintInk])
             }
-            var rx = tableX
-            for c in 0..<12 {
-                let na = isDep && naCols.contains(c)
-                let align: NSTextAlignment = (c == 2 || c == 11) ? .left : .center
-                cell(CGRect(x: rx, y: y, width: widths[c], height: rowH), na ? "" : vals[c],
-                     font: rowFont, align: align, fill: na ? shNA : rowFill)
-                rx += widths[c]
+            y += 17
+            ctx.setStrokeColor(ink.cgColor)
+            ctx.setLineWidth(1.2)
+            ctx.move(to: CGPoint(x: tableX, y: y))
+            ctx.addLine(to: CGPoint(x: tableX + tableWidth, y: y))
+            ctx.strokePath()
+            y += 8
+        }
+
+        /// Label/value header. Continuation pages repeat only the first row, so a loose sheet still
+        /// says whose flight it is.
+        private func drawHeader(full: Bool, y: inout CGFloat) {
+            let hRow: CGFloat = 19
+            let lw1: CGFloat = 84, vw1: CGFloat = 100, lw2: CGFloat = 92, vw2: CGFloat = 72, lw3: CGFloat = 95
+            let vw3 = tableWidth - lw1 - vw1 - lw2 - vw2 - lw3
+            func headerRow(_ l1: String, _ v1: String, _ l2: String, _ v2: String, _ l3: String, _ v3: String) {
+                var x = tableX
+                cell(CGRect(x: x, y: y, width: lw1, height: hRow), l1, font: fLabel, fill: shLabel, color: labelInk); x += lw1
+                cell(CGRect(x: x, y: y, width: vw1, height: hRow), v1, font: fValue); x += vw1
+                cell(CGRect(x: x, y: y, width: lw2, height: hRow), l2, font: fLabel, fill: shLabel, color: labelInk); x += lw2
+                cell(CGRect(x: x, y: y, width: vw2, height: hRow), v2, font: fValue); x += vw2
+                cell(CGRect(x: x, y: y, width: lw3, height: hRow), l3, font: fLabel, fill: shLabel, color: labelInk); x += lw3
+                cell(CGRect(x: x, y: y, width: vw3, height: hRow), v3, font: fValue)
+                y += hRow
             }
-            y += rowH
+            let dateStr = plan.plannedDepartureTime.map { dateFmt.string(from: $0) } ?? ""
+            headerRow(L10n.PDF.pilot, plan.pilot, L10n.PDF.aircraft, plan.aircraftRegistration, "Date", dateStr)
+            guard full else { return }
+            let annDate = plan.announcementDate.map { dateFmt.string(from: $0) } ?? ""
+            let annTime = plan.announcementTime.map { timeFmt.string(from: $0) } ?? ""
+            headerRow(L10n.PDF.totalEET, plan.formattedTotalEET, L10n.PDF.endurance, plan.formattedEndurance ?? "--:--",
+                      L10n.PDF.runwayInUse, plan.runwayInUse ?? "")
+            headerRow(L10n.PDF.instructor, plan.instructor ?? "", L10n.PDF.noticeDate, annDate, L10n.PDF.noticeTime, annTime)
         }
 
-        // SEC-C21: a visible, unmissable line rather than a silently short table.
-        if pdfOmittedWaypoints > 0 {
-            cell(CGRect(x: tableX, y: y, width: tableWidth, height: rowH),
-                 L10n.Export.routeTruncated(pdfOmittedWaypoints),
-                 font: fRouteHdr, align: .center, fill: shDep)
-            y += rowH
+        private func drawRoute(_ range: Range<Int>, continuation: Bool, continues: Bool, y: inout CGFloat) {
+            y += NavLogLayout.gap
+            section(continuation ? "Route · \(L10n.PDF.continued)" : "Route", y: &y)
+            var hx = tableX
+            for (i, h) in headers.enumerated() {
+                cell(CGRect(x: hx, y: y, width: widths[i], height: NavLogLayout.tableHeader), h, font: fRouteHdr,
+                     align: .center, fill: shHeader, grid: gridMed)
+                hx += widths[i]
+            }
+            y += NavLogLayout.tableHeader
+
+            let rowH = NavLogLayout.rowHeight
+            let naCols: Set<Int> = [3, 4, 5, 6, 7, 8]   // MC, Dist, Alt, Wind, GS, EET — not on the departure row
+            for i in range {
+                let row = i < rows.count ? rows[i] : nil
+                let isDep = row?.isDeparture ?? false
+                let rowFill: UIColor? = isDep ? shDep : (i % 2 == 1 ? shZebra : nil)
+                var rx = tableX
+                func next(_ c: Int) -> CGRect {
+                    defer { rx += widths[c] }
+                    return CGRect(x: rx, y: y, width: widths[c], height: rowH)
+                }
+                guard let row else {
+                    for c in 0..<widths.count { cell(next(c), fill: rowFill) }
+                    y += rowH
+                    continue
+                }
+                // Freq · C/S: printed where the station changes, ditto where it repeats.
+                if let st = row.station, row.stationChanged {
+                    let freq = st.frequency + (st.inferredFrom != nil ? "†" : "")
+                    cell(next(0), freq, font: fFreq, align: .center, fill: rowFill, fitWidth: true)
+                    cell(next(1), st.callSign, font: fCallSign, fill: rowFill, fitWidth: true)
+                } else if row.station != nil {
+                    cell(next(0), "〃", font: fRoute, align: .center, fill: rowFill, color: dittoInk)
+                    cell(next(1), "〃", font: fRoute, align: .center, fill: rowFill, color: dittoInk)
+                } else {
+                    cell(next(0), fill: rowFill)
+                    cell(next(1), fill: rowFill)
+                }
+                // Not flown (a diversion came first): grey. The diversion field: bold. (v5.1)
+                let rowInk: UIColor? = row.notFlown ? dittoInk : nil
+                cell(next(2), row.name, font: (isDep || row.isDiversion) ? fRouteHdr : fRoute, fill: rowFill,
+                     color: rowInk, fitWidth: true)
+                let legValues = [row.mc, row.dist, row.alt, row.wind, row.gs, row.eet]
+                for (offset, value) in legValues.enumerated() {
+                    let c = 3 + offset
+                    let na = isDep && naCols.contains(c)
+                    cell(next(c), na ? "" : value, font: fRoute, align: .center, fill: na ? shNA : rowFill,
+                         color: rowInk, fitWidth: true)
+                }
+                cell(next(9), row.eto, font: isDep ? fRouteHdr : fRoute, align: .center, fill: rowFill,
+                     color: rowInk, fitWidth: true)
+                cell(next(10), row.ato, font: row.isDiversion ? fRouteHdr : fRoute, align: .center, fill: rowFill)
+                let remarksRect = next(11)
+                cell(remarksRect, fill: rowFill)
+                drawRemarks(row.remarks, in: remarksRect)
+                y += rowH
+            }
+            if continues {
+                let note = "\(L10n.PDF.routeContinues) ▸" as NSString
+                let attrs: [NSAttributedString.Key: Any] = [.font: fFoot, .foregroundColor: faintInk]
+                let w = note.size(withAttributes: attrs).width
+                note.draw(at: CGPoint(x: tableX + tableWidth - w, y: y + 2), withAttributes: attrs)
+            }
         }
 
-        // Carburant · Temps · Compteur — two panels spanning the full width
-        y += 5
-        section(L10n.PDF.sectionFuel)
-        let panelTop = y
-        let panelH: CGFloat = 128
-        let panelGap: CGFloat = 9
-        let carbW = (tableWidth - panelGap) * 0.6
-        let tcW = tableWidth - panelGap - carbW
-        let tcX = tableX + carbW + panelGap
-
-        // Carburant (left): label · Fuel flow l/h · Time hh|mm · Fuel liters
-        let cLabelW = carbW * 0.34
-        let cFFW = carbW * 0.18
-        let cHHW = carbW * 0.13
-        let cMMW = carbW * 0.13
-        let cFuelW = carbW - cLabelW - cFFW - cHHW - cMMW
-        let carbHdrH: CGFloat = 22
-        let timeW = cHHW + cMMW
-
-        var chx = tableX
-        cell(CGRect(x: chx, y: panelTop, width: cLabelW, height: carbHdrH), "Fuel calculation", font: fFuelHdr, fill: shHeader, color: labelInk, grid: gridMed); chx += cLabelW
-        cell(CGRect(x: chx, y: panelTop, width: cFFW, height: carbHdrH), "Fuel flow\nl/h", font: fFuelHdr, align: .center, fill: shHeader, color: labelInk, grid: gridMed); chx += cFFW
-        cell(CGRect(x: chx, y: panelTop, width: timeW, height: carbHdrH / 2), "Time", font: fFuelHdr, align: .center, fill: shHeader, color: labelInk, grid: gridMed)
-        cell(CGRect(x: chx, y: panelTop + carbHdrH / 2, width: timeW, height: carbHdrH / 2), "", fill: shHeader, grid: gridMed)
-        dashedV(chx + cHHW, panelTop + carbHdrH / 2, panelTop + carbHdrH)
-        drawText(CGRect(x: chx, y: panelTop + carbHdrH / 2, width: cHHW, height: carbHdrH / 2), "hh", font: fFuelHdr, align: .center, color: labelInk)
-        drawText(CGRect(x: chx + cHHW, y: panelTop + carbHdrH / 2, width: cMMW, height: carbHdrH / 2), "mm", font: fFuelHdr, align: .center, color: labelInk)
-        chx += timeW
-        cell(CGRect(x: chx, y: panelTop, width: cFuelW, height: carbHdrH), "Fuel\nliters", font: fFuelHdr, align: .center, fill: shHeader, color: labelInk, grid: gridMed)
-
-        let fuelFlow = plan.fuelFlow ?? FlightPlan.defaultFuelFlow(for: plan.aircraftTypeId)
-        let tripFuel = plan.tripFuel ?? 0
-        let reserveFuel = plan.reserveFuel ?? 0
-        let additionalFuel = plan.additionalFuel ?? (fuelFlow * 0.75)
-        let extraFuel = plan.extraFuel ?? 0
-        let fuelRequired = tripFuel + reserveFuel + additionalFuel + extraFuel
-        func fmtL(_ v: Double) -> String { String(format: "%.1f", v) }
-        let carbRows: [(label: String, ff: String, hh: String, mm: String, liters: String, ffGrey: Bool)] = [
-            ("Trip fuel", String(format: "%.0f", fuelFlow), "", "", fmtL(tripFuel), false),
-            ("Reserve fuel (alt)", "", "", "", fmtL(reserveFuel), false),
-            ("Additional (45')", "", "0", "45", fmtL(additionalFuel), false),
-            ("Extra fuel", "", "", "", fmtL(extraFuel), false),
-            ("Fuel required", "", "", "", fmtL(fuelRequired), true)
-        ]
-        let carbRowH = (panelH - carbHdrH) / CGFloat(carbRows.count)
-        for (idx, row) in carbRows.enumerated() {
-            let cy = panelTop + carbHdrH + CGFloat(idx) * carbRowH
-            let isTot = idx == carbRows.count - 1
-            let rf: UIColor? = isTot ? shDep : nil
-            let lblFont = isTot ? fRouteHdr : fFuel
-            var rx = tableX
-            cell(CGRect(x: rx, y: cy, width: cLabelW, height: carbRowH), row.label, font: lblFont, fill: rf); rx += cLabelW
-            cell(CGRect(x: rx, y: cy, width: cFFW, height: carbRowH), row.ffGrey ? "" : row.ff, font: fFuel, align: .center, fill: row.ffGrey ? shNA : rf); rx += cFFW
-            cell(CGRect(x: rx, y: cy, width: timeW, height: carbRowH), "", fill: rf)
-            dashedV(rx + cHHW, cy, cy + carbRowH)
-            drawText(CGRect(x: rx, y: cy, width: cHHW, height: carbRowH), row.hh, font: fFuel, align: .center, color: ink)
-            drawText(CGRect(x: rx + cHHW, y: cy, width: cMMW, height: carbRowH), row.mm, font: fFuel, align: .center, color: ink)
-            rx += timeW
-            cell(CGRect(x: rx, y: cy, width: cFuelW, height: carbRowH), row.liters, font: lblFont, align: .center, fill: rf)
+        /// Remarks word-wrapped over at most two lines, items separated by " · "; anything that still
+        /// does not fit ends in "…" rather than being cut mid-word at the column edge.
+        private func drawRemarks(_ remarks: [String], in rect: CGRect) {
+            guard !remarks.isEmpty else { return }
+            let inset = rect.insetBy(dx: 4, dy: 1.5)
+            let para = NSMutableParagraphStyle()
+            para.lineBreakMode = .byWordWrapping
+            let text = NSAttributedString(string: remarks.joined(separator: " · "),
+                                          attributes: [.font: fRemark, .foregroundColor: ink, .paragraphStyle: para])
+            let twoLines = ceil(fRemark.lineHeight * 2)
+            let needed = ceil(text.boundingRect(with: CGSize(width: inset.width, height: .greatestFiniteMagnitude),
+                                                options: [.usesLineFragmentOrigin], context: nil).height)
+            let height = min(needed, twoLines)
+            let top = inset.minY + max(0, (inset.height - height) / 2)
+            text.draw(with: CGRect(x: inset.minX, y: top, width: inset.width, height: twoLines),
+                      options: [.usesLineFragmentOrigin, .truncatesLastVisibleLine], context: nil)
         }
 
-        // Temps · Compteur · Atterrissages (right) — one shared table
-        let tcLabelW = tcW * 0.6
-        let tcValW = tcW - tcLabelW
-        let groupH: CGFloat = 12
-        let tcRowH = (panelH - 2 * groupH) / 7
-        var ty = panelTop
-        func tcGroup(_ s: String) {
-            cell(CGRect(x: tcX, y: ty, width: tcW, height: groupH), s, font: fGroup, fill: shHeader, color: labelInk, grid: gridMed)
-            ty += groupH
+        private func drawRadio(y: inout CGFloat) {
+            y += 5
+            section(L10n.PDF.sectionRadio, y: &y)
+            let top = y
+            for (label, text) in radioLines {
+                let h = max(ceil(text.boundingRect(with: CGSize(width: radioTextWidth, height: .greatestFiniteMagnitude),
+                                                   options: [.usesLineFragmentOrigin], context: nil).height), 9) + 6
+                cell(CGRect(x: tableX, y: y, width: radioLabelWidth, height: h), fill: shLabel, grid: gridMed)
+                (label as NSString).draw(in: CGRect(x: tableX + 4, y: y + 3, width: radioLabelWidth - 8, height: h - 4),
+                                         withAttributes: [.font: fGroup, .foregroundColor: labelInk])
+                cell(CGRect(x: tableX + radioLabelWidth, y: y, width: tableWidth - radioLabelWidth, height: h), grid: gridMed)
+                text.draw(with: CGRect(x: tableX + radioLabelWidth + 5, y: y + 3, width: radioTextWidth, height: h),
+                          options: [.usesLineFragmentOrigin], context: nil)
+                y += h
+            }
+            ctx.setStrokeColor(gridMed.cgColor)
+            ctx.setLineWidth(0.5)
+            ctx.stroke(CGRect(x: tableX, y: top, width: tableWidth, height: y - top))
         }
-        func tcRow(_ k: String, _ v: String) {
-            cell(CGRect(x: tcX, y: ty, width: tcLabelW, height: tcRowH), k, font: fFuel, color: labelInk)
-            cell(CGRect(x: tcX + tcLabelW, y: ty, width: tcValW, height: tcRowH), v, font: fValue, align: .right)
-            ty += tcRowH
-        }
-        tcGroup(L10n.PDF.groupTimes)
-        tcRow("Block OFF", plan.blockOff.map { timeFmt.string(from: $0) } ?? "")
-        tcRow("Time OFF", plan.timeOff.map { timeFmt.string(from: $0) } ?? "")
-        tcRow("Time ON", plan.timeOn.map { timeFmt.string(from: $0) } ?? "")
-        tcRow("Block ON", plan.blockOn.map { timeFmt.string(from: $0) } ?? "")
-        tcGroup(L10n.PDF.groupCounter)
-        tcRow(L10n.PDF.counterStart, plan.counterStart.map { String(format: "%.1f", $0) } ?? "")
-        tcRow(L10n.PDF.counterStop, plan.counterStop.map { String(format: "%.1f", $0) } ?? "")
-        tcRow(L10n.PDF.landings, "\(plan.landingsAtBase ?? 0) / \(plan.totalLandings ?? 0)")
 
-        y = panelTop + panelH
+        /// Fuel calculation (left) and Times · Counter · Landings (right).
+        private func drawFuel(y: inout CGFloat) {
+            y += 5
+            section(L10n.PDF.sectionFuel, y: &y)
+            let panelTop = y
+            let panelH: CGFloat = 128
+            let panelGap: CGFloat = 9
+            let carbW = (tableWidth - panelGap) * 0.6
+            let tcW = tableWidth - panelGap - carbW
+            let tcX = tableX + carbW + panelGap
 
-        // Notes (1/3) + Debriefing (2/3) fill the remaining page height
-        y += 9
-        let gap: CGFloat = 8
-        let remaining = (rect.height - margin) - y
-        let notesH = (remaining - gap) / 3
-        let debriefH = remaining - gap - notesH
-        cell(CGRect(x: tableX, y: y, width: tableWidth, height: notesH), grid: gridMed)
-        ("Notes" as NSString).draw(at: CGPoint(x: tableX + 5, y: y + 4), withAttributes: [.font: fGroup, .foregroundColor: labelInk])
-        if !plan.remarks.isEmpty {
-            (plan.remarks as NSString).draw(in: CGRect(x: tableX + 5, y: y + 17, width: tableWidth - 10, height: notesH - 20),
-                withAttributes: [.font: fFuel, .foregroundColor: ink])
+            let cLabelW = carbW * 0.34
+            let cFFW = carbW * 0.18
+            let cHHW = carbW * 0.13
+            let cMMW = carbW * 0.13
+            let cFuelW = carbW - cLabelW - cFFW - cHHW - cMMW
+            let carbHdrH: CGFloat = 22
+            let timeW = cHHW + cMMW
+
+            var chx = tableX
+            cell(CGRect(x: chx, y: panelTop, width: cLabelW, height: carbHdrH), "Fuel calculation", font: fFuelHdr, fill: shHeader, color: labelInk, grid: gridMed); chx += cLabelW
+            cell(CGRect(x: chx, y: panelTop, width: cFFW, height: carbHdrH), "Fuel flow\nl/h", font: fFuelHdr, align: .center, fill: shHeader, color: labelInk, grid: gridMed); chx += cFFW
+            cell(CGRect(x: chx, y: panelTop, width: timeW, height: carbHdrH / 2), "Time", font: fFuelHdr, align: .center, fill: shHeader, color: labelInk, grid: gridMed)
+            cell(CGRect(x: chx, y: panelTop + carbHdrH / 2, width: timeW, height: carbHdrH / 2), "", fill: shHeader, grid: gridMed)
+            dashedV(chx + cHHW, panelTop + carbHdrH / 2, panelTop + carbHdrH)
+            drawText(CGRect(x: chx, y: panelTop + carbHdrH / 2, width: cHHW, height: carbHdrH / 2), "hh", font: fFuelHdr, align: .center, color: labelInk)
+            drawText(CGRect(x: chx + cHHW, y: panelTop + carbHdrH / 2, width: cMMW, height: carbHdrH / 2), "mm", font: fFuelHdr, align: .center, color: labelInk)
+            chx += timeW
+            cell(CGRect(x: chx, y: panelTop, width: cFuelW, height: carbHdrH), "Fuel\nliters", font: fFuelHdr, align: .center, fill: shHeader, color: labelInk, grid: gridMed)
+
+            let fuelFlow = plan.fuelFlow ?? FlightPlan.defaultFuelFlow(for: plan.aircraftTypeId)
+            let tripFuel = plan.tripFuel ?? 0
+            let reserveFuel = plan.reserveFuel ?? 0
+            let additionalFuel = plan.additionalFuel ?? (fuelFlow * 0.75)
+            let extraFuel = plan.extraFuel ?? 0
+            let fuelRequired = tripFuel + reserveFuel + additionalFuel + extraFuel
+            func fmtL(_ v: Double) -> String { String(format: "%.1f", v) }
+            let carbRows: [(label: String, ff: String, hh: String, mm: String, liters: String, ffGrey: Bool)] = [
+                ("Trip fuel", String(format: "%.0f", fuelFlow), "", "", fmtL(tripFuel), false),
+                ("Reserve fuel (alt)", "", "", "", fmtL(reserveFuel), false),
+                ("Additional (45')", "", "0", "45", fmtL(additionalFuel), false),
+                ("Extra fuel", "", "", "", fmtL(extraFuel), false),
+                ("Fuel required", "", "", "", fmtL(fuelRequired), true)
+            ]
+            let carbRowH = (panelH - carbHdrH) / CGFloat(carbRows.count)
+            for (idx, row) in carbRows.enumerated() {
+                let cy = panelTop + carbHdrH + CGFloat(idx) * carbRowH
+                let isTot = idx == carbRows.count - 1
+                let rf: UIColor? = isTot ? shDep : nil
+                let lblFont = isTot ? fRouteHdr : fFuel
+                var rx = tableX
+                cell(CGRect(x: rx, y: cy, width: cLabelW, height: carbRowH), row.label, font: lblFont, fill: rf); rx += cLabelW
+                cell(CGRect(x: rx, y: cy, width: cFFW, height: carbRowH), row.ffGrey ? "" : row.ff, font: fFuel, align: .center, fill: row.ffGrey ? shNA : rf); rx += cFFW
+                cell(CGRect(x: rx, y: cy, width: timeW, height: carbRowH), "", fill: rf)
+                dashedV(rx + cHHW, cy, cy + carbRowH)
+                drawText(CGRect(x: rx, y: cy, width: cHHW, height: carbRowH), row.hh, font: fFuel, align: .center, color: ink)
+                drawText(CGRect(x: rx + cHHW, y: cy, width: cMMW, height: carbRowH), row.mm, font: fFuel, align: .center, color: ink)
+                rx += timeW
+                cell(CGRect(x: rx, y: cy, width: cFuelW, height: carbRowH), row.liters, font: lblFont, align: .center, fill: rf)
+            }
+
+            let tcLabelW = tcW * 0.6
+            let tcValW = tcW - tcLabelW
+            let groupH: CGFloat = 12
+            let tcRowH = (panelH - 2 * groupH) / 7
+            var ty = panelTop
+            func tcGroup(_ s: String) {
+                cell(CGRect(x: tcX, y: ty, width: tcW, height: groupH), s, font: fGroup, fill: shHeader, color: labelInk, grid: gridMed)
+                ty += groupH
+            }
+            func tcRow(_ k: String, _ v: String) {
+                cell(CGRect(x: tcX, y: ty, width: tcLabelW, height: tcRowH), k, font: fFuel, color: labelInk)
+                cell(CGRect(x: tcX + tcLabelW, y: ty, width: tcValW, height: tcRowH), v, font: fValue, align: .right)
+                ty += tcRowH
+            }
+            tcGroup(L10n.PDF.groupTimes)
+            tcRow("Block OFF", plan.blockOff.map { timeFmt.string(from: $0) } ?? "")
+            tcRow("Time OFF", plan.timeOff.map { timeFmt.string(from: $0) } ?? "")
+            tcRow("Time ON", plan.timeOn.map { timeFmt.string(from: $0) } ?? "")
+            tcRow("Block ON", plan.blockOn.map { timeFmt.string(from: $0) } ?? "")
+            tcGroup(L10n.PDF.groupCounter)
+            tcRow(L10n.PDF.counterStart, plan.counterStart.map { String(format: "%.1f", $0) } ?? "")
+            tcRow(L10n.PDF.counterStop, plan.counterStop.map { String(format: "%.1f", $0) } ?? "")
+            tcRow(L10n.PDF.landings, "\(plan.landingsAtBase ?? 0) / \(plan.totalLandings ?? 0)")
+
+            y = panelTop + panelH
         }
-        y += notesH + gap
-        cell(CGRect(x: tableX, y: y, width: tableWidth, height: debriefH), grid: gridMed)
-        ("Debriefing" as NSString).draw(at: CGPoint(x: tableX + 5, y: y + 4), withAttributes: [.font: fGroup, .foregroundColor: labelInk])
-        if !plan.debriefing.isEmpty {
-            (plan.debriefing as NSString).draw(in: CGRect(x: tableX + 5, y: y + 17, width: tableWidth - 10, height: debriefH - 20),
-                withAttributes: [.font: fFuel, .foregroundColor: ink])
+
+        private func drawBox(_ title: String, text: String, y: CGFloat, height: CGFloat) {
+            guard height > 12 else { return }
+            cell(CGRect(x: tableX, y: y, width: tableWidth, height: height), grid: gridMed)
+            (title as NSString).draw(at: CGPoint(x: tableX + 5, y: y + 4), withAttributes: [.font: fGroup, .foregroundColor: labelInk])
+            if !text.isEmpty {
+                (text as NSString).draw(in: CGRect(x: tableX + 5, y: y + 17, width: tableWidth - 10, height: height - 20),
+                                        withAttributes: [.font: fFuel, .foregroundColor: ink])
+            }
+        }
+
+        /// Route, aircraft and date on every sheet, plus "page n / N" when there is more than one.
+        private func drawFooter(pageNumber: Int, pageCount: Int) {
+            let attrs: [NSAttributedString.Key: Any] = [.font: fFoot, .foregroundColor: faintInk]
+            var left: [String] = []
+            if let first = plan.waypoints.first, let last = plan.waypoints.last, plan.waypoints.count >= 2 {
+                left.append("\(RouteRadioPlanner.displayName(first, index: 0)) → \(RouteRadioPlanner.displayName(last, index: plan.waypoints.count - 1))")
+            }
+            if !plan.aircraftRegistration.isEmpty { left.append(plan.aircraftRegistration) }
+            if let date = plan.plannedDepartureTime { left.append(dateFmt.string(from: date)) }
+            let footY = NavLogLayout.pageHeight - margin + 8
+            (left.joined(separator: " · ") as NSString).draw(at: CGPoint(x: tableX, y: footY), withAttributes: attrs)
+            let right = pageCount > 1 ? "AeroCheck · \(L10n.PDF.page(pageNumber, pageCount))" : "AeroCheck"
+            let w = (right as NSString).size(withAttributes: attrs).width
+            (right as NSString).draw(at: CGPoint(x: tableX + tableWidth - w, y: footY), withAttributes: attrs)
         }
     }
 

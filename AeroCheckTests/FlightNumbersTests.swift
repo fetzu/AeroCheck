@@ -62,6 +62,49 @@ final class FlightNumbersTests: XCTestCase {
         XCTAssertEqual(line.landingsDay, 1)
     }
 
+    /// A real flight (LSZG → LSZQ, 22 Sept 2026): block off 16:33:48, block on 17:04:16 local. The
+    /// line printed 16:33 → 17:04 and a function time of 0:30 (30 min 28 s, rounded). A logbook
+    /// subtracts the times it writes: 0:31. (v5.2)
+    func testDurationsAreTheDifferenceOfTheTimesAsWritten() {
+        let f = flight(blockOff: "2026-09-22T14:33:48Z", blockOn: "2026-09-22T15:04:16Z")
+        let line = LogbookLineBuilder.build(flight: f)
+        XCTAssertEqual(line.departureTimeUTC, "14:33")
+        XCTAssertEqual(line.arrivalTimeUTC, "15:04")
+        XCTAssertEqual(line.totalTime, "0:31")
+        XCTAssertEqual(line.functionTime, "0:31")
+        XCTAssertEqual(LogbookTotals.forFlight(f).totalMinutes, 31, "the page total is the sum of its lines")
+        XCTAssertEqual(FlightCostCalculator.billableHours(for: f, basis: .block)!, 31.0 / 60.0, accuracy: 1e-9,
+                       "the bill agrees with the logbook")
+        XCTAssertEqual(f.formattedBlockTime, "00:31")
+    }
+
+    func testTheMinuteRuleCutsBothWays() {
+        // 59 s apart but across a minute boundary: one logged minute. 59 s within a minute: none.
+        XCTAssertEqual(Flight.loggedMinutes(from: date("2026-09-22T14:33:59Z"), to: date("2026-09-22T14:34:01Z")), 1)
+        XCTAssertEqual(Flight.loggedMinutes(from: date("2026-09-22T14:33:00Z"), to: date("2026-09-22T14:33:59Z")), 0)
+        var f = flight()
+        f.blockOnTime = f.blockOffTime!.addingTimeInterval(-60)
+        XCTAssertNil(f.blockMinutes, "out of order is unknown, never negative")
+    }
+
+    // MARK: - How a flight reads in the Flight Log (v5.2)
+
+    func testTouchAndGoesOnTheWayDoNotMakeAFlightCircuits() {
+        // 22 Sept 2026: three touch-and-goes at LSZQ, then a flight to LSZG.
+        var warmUp = flight(touchAndGo: 3)
+        warmUp.arrivalAirportIdent = "LSZG"
+        XCTAssertEqual(warmUp.routeShape, .between(departure: "LSZQ", arrival: "LSZG", withCircuits: true))
+
+        var session = flight(touchAndGo: 5)
+        session.arrivalAirportIdent = "LSZQ"
+        XCTAssertEqual(session.routeShape, .circuits(at: "LSZQ"))
+
+        XCTAssertEqual(flight().routeShape, .between(departure: "LSZQ", arrival: "LSGY", withCircuits: false))
+        var unknown = flight(touchAndGo: 2)
+        unknown.arrivalAirportIdent = nil
+        XCTAssertEqual(unknown.routeShape, .circuits(at: "LSZQ"))
+    }
+
     // MARK: - The line laid out as the form (v5.x)
 
     func testFormRowPutsEachValueUnderTheFormsOwnHeading() {
@@ -738,7 +781,7 @@ final class SchemaMigrationTests: XCTestCase {
 
     @MainActor
     private func makeCheckpoint(unplanned: Bool) -> ActiveFlightState {
-        let appState = AppState()
+        let appState = makeTestAppState()
         appState.flightIsUnplanned = unplanned
         appState.isCircuitMode = true
         return ActiveFlightState(flight: Flight(airplane: "wt9-dynamic"), from: appState)

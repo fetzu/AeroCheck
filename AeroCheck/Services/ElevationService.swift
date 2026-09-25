@@ -87,8 +87,69 @@ actor ElevationService {
         return nil
     }
 
-    /// Fetch elevations with caching and batching for better performance
-    func fetchRouteElevationsOptimized(waypoints: [CLLocationCoordinate2D], totalSamples: Int = 50) async -> [(distance: Double, elevation: Double)] {
+    /// Terrain along a route, sampled about every `spacingNM` along each leg: swisstopo when the whole
+    /// route is in Switzerland, Open-Meteo elsewhere. Distance in NM from the first waypoint, elevation
+    /// in metres. Empty on any failure, never a partial or zero-filled profile (PERF-15 / SEC-14).
+    func fetchRouteTerrain(waypoints: [CLLocationCoordinate2D], spacingNM: Double = 0.1) async -> [(distance: Double, elevation: Double)] {
+        guard waypoints.count >= 2 else { return [] }
+        if waypoints.allSatisfy(isInSwitzerland) {
+            return await fetchRouteElevationsOptimized(waypoints: waypoints, spacingNM: spacingNM)
+        }
+        return await fetchRouteTerrainViaOpenMeteo(waypoints: waypoints, spacingNM: spacingNM)
+    }
+
+    /// Open-Meteo route terrain: points along each leg in batches of 100, at most 600 points in all
+    /// (the spacing widens on a long route rather than hammering a free, rate-limited API).
+    private func fetchRouteTerrainViaOpenMeteo(waypoints: [CLLocationCoordinate2D], spacingNM: Double) async -> [(distance: Double, elevation: Double)] {
+        var legs: [Double] = []
+        for i in 0..<(waypoints.count - 1) {
+            legs.append(CLLocation(latitude: waypoints[i].latitude, longitude: waypoints[i].longitude)
+                .distance(from: CLLocation(latitude: waypoints[i + 1].latitude, longitude: waypoints[i + 1].longitude)) / 1852.0)
+        }
+        let total = legs.reduce(0, +)
+        guard total > 0 else { return [] }
+        let spacing = max(spacingNM, total / 600)
+        var points: [(distance: Double, coordinate: CLLocationCoordinate2D)] = []
+        var cumulative = 0.0
+        for i in 0..<legs.count {
+            let a = waypoints[i], b = waypoints[i + 1]
+            let steps = max(1, Int((legs[i] / spacing).rounded(.up)))
+            for s in 0..<steps {
+                let t = Double(s) / Double(steps)
+                points.append((cumulative + legs[i] * t, CLLocationCoordinate2D(
+                    latitude: a.latitude + (b.latitude - a.latitude) * t,
+                    longitude: a.longitude + (b.longitude - a.longitude) * t)))
+            }
+            cumulative += legs[i]
+        }
+        points.append((total, waypoints[waypoints.count - 1]))
+
+        var elevations: [Double] = []
+        for start in stride(from: 0, to: points.count, by: 100) {
+            let batch = points[start..<min(start + 100, points.count)]
+            let lats = batch.map { String(format: "%.4f", $0.coordinate.latitude) }.joined(separator: ",")
+            let lons = batch.map { String(format: "%.4f", $0.coordinate.longitude) }.joined(separator: ",")
+            guard let url = URL(string: "https://api.open-meteo.com/v1/elevation?latitude=\(lats)&longitude=\(lons)") else { return [] }
+            do {
+                let (data, response) = try await ExternalRequest.data(from: url)
+                guard response.statusCode == 200,
+                      let values = Self.parseOpenMeteoElevations(data, expectedCount: batch.count) else { return [] }
+                elevations.append(contentsOf: values)
+            } catch {
+                AppLog.general.debugLine("Open-Meteo route terrain error: \(error.localizedDescription)")
+                return []
+            }
+        }
+        guard elevations.count == points.count else { return [] }
+        return zip(points, elevations).map { (distance: $0.distance, elevation: $1) }
+    }
+
+    /// Swisstopo terrain per leg, about every `spacingNM` (5 to 500 points a leg).
+    ///
+    /// It used to be 60 points for the WHOLE route, shared out by leg length: one every 2–3 NM. That is
+    /// coarse enough to step over a ridge, and the 150 m clearance warning read from it missed a
+    /// planned altitude below terrain near the Oberalp.
+    func fetchRouteElevationsOptimized(waypoints: [CLLocationCoordinate2D], spacingNM: Double = 0.1) async -> [(distance: Double, elevation: Double)] {
         guard waypoints.count >= 2 else { return [] }
 
         // Calculate total route distance
@@ -114,8 +175,7 @@ actor ElevationService {
             let to = waypoints[i + 1]
             let legDistanceNM = legDistances[i]
 
-            // Determine number of samples for this leg proportional to its length
-            let legSamples = max(5, Int(Double(totalSamples) * (legDistanceNM / totalDistance)))
+            let legSamples = min(500, max(5, Int((legDistanceNM / max(0.02, spacingNM)).rounded(.up)) + 1))
 
             // The caller (the flight-plan route profile) only invokes this when every waypoint is in
             // Switzerland, so a nil leg here is always a fetch failure — not legitimately-absent

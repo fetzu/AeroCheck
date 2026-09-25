@@ -293,7 +293,7 @@ final class FlightThreadTests: XCTestCase {
 
     @MainActor
     func testCreatingAThreadMakesItCurrentAndGeneratesTasks() {
-        let manager = FlightThreadManager(defaults: throwawayDefaults())
+        let manager = makeTestThreadManager()
         let thread = manager.createThread(from: swissPlan(), profile: .full)
         defer { manager.deleteThread(threadId: thread.id) }
 
@@ -304,7 +304,7 @@ final class FlightThreadTests: XCTestCase {
 
     @MainActor
     func testCloseOutRaisesTheOpenFlightPlanNoticeOnlyWhenOneWasFiled() {
-        let manager = FlightThreadManager(defaults: throwawayDefaults())
+        let manager = makeTestThreadManager()
         let thread = manager.createThread(from: swissPlan(), profile: .full)
         defer { manager.deleteThread(threadId: thread.id) }
 
@@ -332,7 +332,7 @@ final class FlightThreadTests: XCTestCase {
     /// for ever and never ticked its own fuel row.
     @MainActor
     func testFuelRowFollowsThePlanAfterTheTanksAreEntered() {
-        let manager = FlightThreadManager(defaults: throwawayDefaults())
+        let manager = makeTestThreadManager()
         // A flight created before any fuel figures exist — which is the normal case, since the
         // creation sheet asks for a route and a time, not for tanks.
         var plan = swissPlan()
@@ -360,7 +360,7 @@ final class FlightThreadTests: XCTestCase {
 
     @MainActor
     func testNotEnoughFuelLeavesTheRowPendingRatherThanTicked() {
-        let manager = FlightThreadManager(defaults: throwawayDefaults())
+        let manager = makeTestThreadManager()
         var plan = swissPlan()
         let thread = manager.createThread(from: plan, profile: .full)
         defer { manager.deleteThread(threadId: thread.id) }
@@ -381,7 +381,7 @@ final class FlightThreadTests: XCTestCase {
     /// to pass them erased the pilot's own briefing text. Regeneration must never lose work.
     @MainActor
     func testRegenerationKeepsTicksAndTheBriefingItWasGiven() {
-        let manager = FlightThreadManager(defaults: throwawayDefaults())
+        let manager = makeTestThreadManager()
         let plan = swissPlan()
         let thread = manager.createThread(from: plan, profile: .full)
         defer { manager.deleteThread(threadId: thread.id) }
@@ -400,7 +400,7 @@ final class FlightThreadTests: XCTestCase {
     /// The stale cached date is what made a flight moved to tomorrow keep being offered as today's.
     @MainActor
     func testTheCachedDepartureFollowsThePlan() {
-        let manager = FlightThreadManager(defaults: throwawayDefaults())
+        let manager = makeTestThreadManager()
         var plan = swissPlan()
         plan.plannedDepartureTime = Date(timeIntervalSince1970: 1_790_000_000)
         let thread = manager.createThread(from: plan, profile: .full)
@@ -417,7 +417,7 @@ final class FlightThreadTests: XCTestCase {
 
     @MainActor
     func testAttachingResolvesFromTheArmedPlanOrAnExplicitChoice() {
-        let manager = FlightThreadManager(defaults: throwawayDefaults())
+        let manager = makeTestThreadManager()
         let plan = swissPlan()
         let followed = manager.createThread(from: plan, profile: .full)
         defer { manager.deleteThread(threadId: followed.id) }
@@ -432,7 +432,7 @@ final class FlightThreadTests: XCTestCase {
     /// close-out lookup trusts it absolutely. A guess made here would be cemented, not re-examined.
     @MainActor
     func testAttachingNeverGuessesFromTheCurrentFollowedFlight() {
-        let manager = FlightThreadManager(defaults: throwawayDefaults())
+        let manager = makeTestThreadManager()
         let followed = manager.createThread(from: swissPlan(), profile: .full)
         defer { manager.deleteThread(threadId: followed.id) }
 
@@ -443,7 +443,7 @@ final class FlightThreadTests: XCTestCase {
 
     @MainActor
     func testAttachingMovesItIntoFlyAndMakesCloseOutExact() {
-        let manager = FlightThreadManager(defaults: throwawayDefaults())
+        let manager = makeTestThreadManager()
         let plan = swissPlan()
         let followed = manager.createThread(from: plan, profile: .full)
         defer { manager.deleteThread(threadId: followed.id) }
@@ -460,7 +460,7 @@ final class FlightThreadTests: XCTestCase {
     /// A finished flight is not a candidate to fly again.
     @MainActor
     func testAttachingIgnoresAFinishedFollowedFlight() {
-        let manager = FlightThreadManager(defaults: throwawayDefaults())
+        let manager = makeTestThreadManager()
         let followed = manager.createThread(from: swissPlan(), profile: .full)
         defer { manager.deleteThread(threadId: followed.id) }
         manager.finishThread(threadId: followed.id)
@@ -476,7 +476,7 @@ final class FlightThreadTests: XCTestCase {
     /// its close-your-flight-plan banner for a flight that had not happened.
     @MainActor
     func testCircuitsNeverCloseOutACrossCountryThread() {
-        let manager = FlightThreadManager(defaults: throwawayDefaults())
+        let manager = makeTestThreadManager()
         let planned = manager.createThread(from: swissPlan(), profile: .full)
         defer { manager.deleteThread(threadId: planned.id) }
 
@@ -490,7 +490,7 @@ final class FlightThreadTests: XCTestCase {
     /// A planned circuit session IS the flight being flown, so it is still adopted.
     @MainActor
     func testCircuitsDoCloseOutALocalThread() {
-        let manager = FlightThreadManager(defaults: throwawayDefaults())
+        let manager = makeTestThreadManager()
         let local = manager.createThread(from: nil, profile: .local, routeLabel: "Circuits LSZQ")
         defer { manager.deleteThread(threadId: local.id) }
 
@@ -500,7 +500,7 @@ final class FlightThreadTests: XCTestCase {
 
     @MainActor
     func testCircuitCloseOutIsOfferedNotCreated() {
-        let manager = FlightThreadManager(defaults: throwawayDefaults())
+        let manager = makeTestThreadManager()
         let flightId = UUID()
 
         manager.offerCircuitCloseOut(flightId: flightId,
@@ -534,7 +534,7 @@ final class FlightThreadTests: XCTestCase {
     /// and the RCC reminder belong to an open flight plan and nothing else.
     @MainActor
     func testAcceptingACircuitCloseOutRaisesNoOpenPlanNotice() {
-        let manager = FlightThreadManager(defaults: throwawayDefaults())
+        let manager = makeTestThreadManager()
         manager.offerCircuitCloseOut(flightId: UUID(), departureIdent: "LSZQ", aircraftRegistration: nil)
 
         guard let offer = manager.circuitCloseOutOffer else { return XCTFail("expected an offer") }
@@ -546,7 +546,7 @@ final class FlightThreadTests: XCTestCase {
 
     @MainActor
     func testFilingATaskAddsTheCloseOutTask() {
-        let manager = FlightThreadManager(defaults: throwawayDefaults())
+        let manager = makeTestThreadManager()
         let thread = manager.createThread(from: swissPlan(), profile: .full)
         defer { manager.deleteThread(threadId: thread.id) }
 
@@ -692,7 +692,7 @@ final class FlightThreadTests: XCTestCase {
 
     @MainActor
     func testAForeignRouteNeverAcquiresSwissProducts() {
-        let manager = FlightThreadManager(defaults: throwawayDefaults())
+        let manager = makeTestThreadManager()
         let thread = manager.createThread(from: slovakToGermanPlan(), profile: .full)
         defer { manager.deleteThread(threadId: thread.id) }
 
@@ -706,7 +706,7 @@ final class FlightThreadTests: XCTestCase {
         // The reported defect, exactly: the tasks were right until the pilot ticked "flight plan
         // filed", at which point the regeneration rebuilt the country list as home + foreign — with
         // home hard-coded to CH — and DABS, GAFOR and a "Swiss side" link appeared.
-        let manager = FlightThreadManager(defaults: throwawayDefaults())
+        let manager = makeTestThreadManager()
         let thread = manager.createThread(from: slovakToGermanPlan(), profile: .full)
         defer { manager.deleteThread(threadId: thread.id) }
 
@@ -727,7 +727,7 @@ final class FlightThreadTests: XCTestCase {
     func testTheDepartureCountryIsNotTreatedAsForeign() {
         // Departing Slovakia, you do not clear customs INTO Slovakia. With home hard-coded to CH it
         // raised a Slovak customs task on a Slovak departure.
-        let manager = FlightThreadManager(defaults: throwawayDefaults())
+        let manager = makeTestThreadManager()
         let thread = manager.createThread(from: slovakToGermanPlan(), profile: .full)
         defer { manager.deleteThread(threadId: thread.id) }
 
@@ -745,13 +745,6 @@ final class FlightThreadTests: XCTestCase {
 
         let swiss = ThreadTaskPresentation.links(for: task, touchesSwitzerland: true)
         XCTAssertTrue(swiss.contains { $0.label == L10n.Border.swissSide })
-    }
-
-    private func throwawayDefaults() -> UserDefaults {
-        let suite = "FlightThreadTests.\(UUID().uuidString)"
-        let defaults = UserDefaults(suiteName: suite)!
-        addTeardownBlock { UserDefaults.standard.removePersistentDomain(forName: suite) }
-        return defaults
     }
 }
 
@@ -781,7 +774,7 @@ extension FlightThreadTests {
     /// case was not enough: Home offers no "not this one" button on a day with no hero flight.
     @MainActor
     func testTheCloseOutFallbackRefusesAThreadScheduledForAnotherDay() {
-        let manager = FlightThreadManager(defaults: throwawayDefaults())
+        let manager = makeTestThreadManager()
         let saturday = manager.createThread(from: datedPlan(Date().addingTimeInterval(2 * 24 * 3600)))
         defer { manager.deleteThread(threadId: saturday.id) }
         manager.setCurrentThread(saturday.id)
@@ -793,7 +786,7 @@ extension FlightThreadTests {
 
     @MainActor
     func testTheCloseOutFallbackStillAdoptsTodaysFlight() {
-        let manager = FlightThreadManager(defaults: throwawayDefaults())
+        let manager = makeTestThreadManager()
         let today = manager.createThread(from: datedPlan(Date()))
         defer { manager.deleteThread(threadId: today.id) }
         manager.setCurrentThread(today.id)
@@ -805,7 +798,7 @@ extension FlightThreadTests {
     func testTheCloseOutFallbackStillAdoptsAnUndatedFlight() {
         // No date at all is the widget/deep-link case the fallback exists for; it carries nothing to
         // contradict, so it must stay eligible.
-        let manager = FlightThreadManager(defaults: throwawayDefaults())
+        let manager = makeTestThreadManager()
         let undated = manager.createThread(from: datedPlan(nil))
         defer { manager.deleteThread(threadId: undated.id) }
         manager.setCurrentThread(undated.id)
@@ -819,7 +812,7 @@ extension FlightThreadTests {
     /// false for a plan that was genuinely open — no banner and no reminder on the second flight.
     @MainActor
     func testReFlyingAThreadStartsAFreshCloseChapter() {
-        let manager = FlightThreadManager(defaults: throwawayDefaults())
+        let manager = makeTestThreadManager()
         let thread = manager.createThread(from: swissPlan(), profile: .full)
         defer { manager.deleteThread(threadId: thread.id) }
 
@@ -849,7 +842,7 @@ extension FlightThreadTests {
     /// and diverting START to the outstanding-tasks prompt.
     @MainActor
     func testFilingAPlanOnATripLegDoesNotResurrectTheTripsTasks() {
-        let manager = FlightThreadManager(defaults: throwawayDefaults())
+        let manager = makeTestThreadManager()
         let a = manager.createThread(from: swissPlan(), profile: .full)
         let b = manager.createThread(from: swissPlan(), profile: .full)
         defer { manager.deleteThread(threadId: a.id); manager.deleteThread(threadId: b.id) }

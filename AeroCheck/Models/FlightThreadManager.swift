@@ -7,6 +7,8 @@ import CoreLocation
 /// in files via `DataPersistenceManager`, the "which one am I following" pointer in `UserDefaults`,
 /// and an injectable `defaults:` because the test host shares the app's bundle id (a test that wrote
 /// to `.standard` once left a synthetic plan showing as ACTIVE in the real app on that simulator).
+/// `persistence:` is injectable for the same reason: `.shared` is the host app's own datastore, and a
+/// test manager's `saveTrips` replaced the simulator app's `trips.json` with the test's one trip.
 @MainActor
 class FlightThreadManager: ObservableObject {
 
@@ -38,7 +40,7 @@ class FlightThreadManager: ObservableObject {
     // MARK: - Private Properties
 
     private let currentThreadKey = "currentFlightThreadId"
-    private let persistence = DataPersistenceManager.shared
+    private let persistence: DataPersistenceManager
     private let defaults: UserDefaults
     private let notifications: NotificationService
     /// Mirrors `AppSettings.enableCostTracking`. Held here rather than reached for, because the task
@@ -51,9 +53,12 @@ class FlightThreadManager: ObservableObject {
 
     // MARK: - Initialization
 
-    init(defaults: UserDefaults = .standard, notifications: NotificationService? = nil) {
+    init(defaults: UserDefaults = .standard,
+         notifications: NotificationService? = nil,
+         persistence: DataPersistenceManager? = nil) {
         self.defaults = defaults
         self.notifications = notifications ?? NotificationService.shared
+        self.persistence = persistence ?? DataPersistenceManager.shared
         loadCurrentThreadPointer()
         Task { [weak self] in
             // Trips FIRST: `hasLoadedThreads` is what the flights list waits on, and a leg whose
@@ -111,7 +116,9 @@ class FlightThreadManager: ObservableObject {
             profile: profile,
             routeLabel: routeLabel ?? Self.routeLabel(for: plan),
             aircraftRegistration: aircraftRegistration ?? plan?.aircraftRegistration,
-            scheduledDeparture: plan?.plannedDepartureTime
+            // The FIRM time only: a later trip leg's estimated departure prints ETOs on its nav log,
+            // but must not arm a preparation reminder or make the leg "today's flight" on its own.
+            scheduledDeparture: plan?.firmDepartureTime
         )
         var context = Self.context(for: plan, profile: profile)
         context.tracksCost = tracksCost
@@ -171,7 +178,7 @@ class FlightThreadManager: ObservableObject {
         guard regenerated != existing
                 || threads[index].countries != context.countries
                 || threads[index].homeCountry != context.homeCountry
-                || (plan != nil && plan?.plannedDepartureTime != threads[index].scheduledDeparture)
+                || (plan != nil && plan?.firmDepartureTime != threads[index].scheduledDeparture)
         else { return }
 
         threads[index].countries = context.countries
@@ -182,8 +189,8 @@ class FlightThreadManager: ObservableObject {
         // reads a date the plan no longer has, which is how a flight moved to tomorrow kept being
         // offered as today's. (device pass)
         let previousDeparture = threads[index].scheduledDeparture
-        if let plan, plan.plannedDepartureTime != previousDeparture {
-            threads[index].scheduledDeparture = plan.plannedDepartureTime
+        if let plan, plan.firmDepartureTime != previousDeparture {
+            threads[index].scheduledDeparture = plan.firmDepartureTime
             reschedulePreparationReminder(at: index, from: previousDeparture)
         }
         threads[index].touch()
@@ -222,9 +229,10 @@ class FlightThreadManager: ObservableObject {
         guard let plan else { return previous }
         let onRoute = Set(plan.waypoints.map(\.name).filter(looksLikeICAO))
         guard !onRoute.isEmpty else { return previous }
-        let loaded = OpenAIPAirportDataService.shared.allLoadedAirports()
-        guard !loaded.isEmpty else { return previous }
-        return loaded.filter { $0.isPPR }.compactMap(\.icaoCode).filter(onRoute.contains)
+        // The PPR set, not the raw airport array: the array is released once the merge has read it.
+        guard OpenAIPAirportDataService.shared.hasPPRData else { return previous }
+        let ppr = OpenAIPAirportDataService.shared.pprIcaoCodes
+        return onRoute.filter { ppr.contains($0.uppercased()) }.sorted()
     }
 
     /// Fuel grades the destination reports, so the fuel row can answer "can I fill up at the far
@@ -283,13 +291,72 @@ class FlightThreadManager: ObservableObject {
         // The one date in a trip the pilot actually chose: the first leg's departure. It is what an
         // undated later leg measures a shared tick against. (review F12)
         trip.scheduledStart = threads.first { $0.id == threadIds[0] }?.scheduledDeparture
+        trip.sharedTasks = liftSharedTasks(from: threadIds, into: [])
+        adopt(threadIds, into: trip.id)
+        trips.append(trip)
+        saveThreads()
+        saveTrips()
+        return trip
+    }
 
-        // Every leg's trip-scoped rows are candidates, not just leg 1's, and the most-settled
-        // version of each row wins. Taking leg 1 alone deleted whatever the other legs had recorded
-        // — and worse, a row leg 1 never needed (a France-only first leg emits no DABS) could not
-        // be produced by any later leg either, because `generate` filters trip-scoped specs off a
-        // leg. The row then existed nowhere on a trip that does enter Swiss airspace. (review F15)
-        var promoted: [String: ThreadTask] = [:]
+    /// Put a new flight into a trip straight after `anchorId`, forming the trip when the anchor is
+    /// still alone. (v5.1)
+    ///
+    /// Unlike `formTrip`, the anchor may have flown already. That is the point: the next leg of a
+    /// journey is often decided after the previous one landed (a stop the weather chose), and that
+    /// flight is exactly the one a trip should keep together with what came before.
+    ///
+    /// `rebrief` is for a leg planned after a diversion: every shared briefing that can go stale
+    /// (weather, NOTAM, DABS, GAFOR) comes back unticked for it, whatever the clock says. The
+    /// six-hour rule assumes nothing changed, and a diversion is evidence that something did.
+    @discardableResult
+    func insertLeg(_ newThreadId: UUID, after anchorId: UUID, rebrief: Bool = false) -> Trip? {
+        guard newThreadId != anchorId,
+              let newIndex = threads.firstIndex(where: { $0.id == newThreadId }),
+              threads[newIndex].tripId == nil,
+              let anchorIndex = threads.firstIndex(where: { $0.id == anchorId })
+        else { return nil }
+
+        let tripIndex: Int
+        if let tripId = threads[anchorIndex].tripId, let existing = trips.firstIndex(where: { $0.id == tripId }) {
+            tripIndex = existing
+            let position = (trips[tripIndex].legIds.firstIndex(of: anchorId) ?? trips[tripIndex].legIds.count - 1) + 1
+            trips[tripIndex].legIds.insert(newThreadId, at: position)
+            trips[tripIndex].sharedTasks = liftSharedTasks(from: [newThreadId],
+                                                           into: trips[tripIndex].sharedTasks)
+            adopt([newThreadId], into: tripId)
+        } else {
+            var trip = Trip(legIds: [anchorId, newThreadId])
+            trip.scheduledStart = threads[anchorIndex].scheduledDeparture
+            trip.sharedTasks = liftSharedTasks(from: [anchorId, newThreadId], into: [])
+            adopt([anchorId, newThreadId], into: trip.id)
+            trips.append(trip)
+            tripIndex = trips.count - 1
+        }
+
+        if rebrief {
+            for i in trips[tripIndex].sharedTasks.indices where trips[tripIndex].sharedTasks[i].key.goesStale {
+                // `completedAt` is kept, so the row reads "checked 11:40, re-check for this leg" rather
+                // than as something never done.
+                trips[tripIndex].sharedTasks[i].state = .pending
+                trips[tripIndex].sharedTasks[i].acknowledgedLegIds = []
+            }
+        }
+        trips[tripIndex].touch()
+        saveThreads()
+        saveTrips()
+        return trips[tripIndex]
+    }
+
+    /// Trip-scoped rows of `threadIds` merged into `shared`: every leg's rows are candidates, and the
+    /// most-settled version of each row wins.
+    ///
+    /// Taking leg 1 alone deleted whatever the other legs had recorded — and worse, a row leg 1 never
+    /// needed (a France-only first leg emits no DABS) could not be produced by any later leg either,
+    /// because `generate` filters trip-scoped specs off a leg. The row then existed nowhere on a trip
+    /// that does enter Swiss airspace. (review F15)
+    private func liftSharedTasks(from threadIds: [UUID], into shared: [ThreadTask]) -> [ThreadTask] {
+        var promoted = Dictionary(shared.map { ($0.matchToken, $0) }, uniquingKeysWith: { first, _ in first })
         for id in threadIds {
             guard let index = threads.firstIndex(where: { $0.id == id }) else { continue }
             for task in threads[index].tasks where task.key.scope == .trip {
@@ -299,17 +366,106 @@ class FlightThreadManager: ObservableObject {
                 promoted[task.matchToken] = task
             }
         }
-        trip.sharedTasks = promoted.values.sorted { $0.key.rawValue < $1.key.rawValue }
+        return promoted.values.sorted { $0.key.rawValue < $1.key.rawValue }
+    }
+
+    /// Mark threads as legs of `tripId`, their trip-scoped rows now living on the trip.
+    private func adopt(_ threadIds: [UUID], into tripId: UUID) {
         for id in threadIds {
             guard let index = threads.firstIndex(where: { $0.id == id }) else { continue }
-            threads[index].tripId = trip.id
+            threads[index].tripId = tripId
             threads[index].tasks.removeAll { $0.key.scope == .trip }
             threads[index].touch()
         }
-        trips.append(trip)
+    }
+
+    /// The trip leg to fly next, once the leg before it has landed today. (v5.1)
+    ///
+    /// Only a trip's FIRST leg carries a firm departure (`FlightCreator` cannot know when the others
+    /// land), so without this rule the next leg is never "today's flight": after landing at the stop,
+    /// START FLIGHT started an unplanned flight, and the leg that had a route, a nav log and a fuel
+    /// plan waiting flew without any of it.
+    func nextTripLeg(now: Date = Date(), calendar: Calendar = .current) -> FlightThread? {
+        for trip in trips {
+            let legs = legs(of: trip)
+            guard let next = legs.firstIndex(where: { $0.flightId == nil && !$0.isFinished && $0.state != .closeOut }),
+                  next > 0 else { continue }
+            let previous = legs[next - 1]
+            guard previous.flightId != nil,
+                  previous.state == .closeOut || previous.state == .done,
+                  calendar.isDate(previous.updatedAt, inSameDayAs: now) else { continue }
+            // Landed somewhere else: the next leg is only today's flight if it leaves from there (a
+            // continuation). Offering LSMM → LSZS to an aircraft standing at LSPG would be the app
+            // proposing a flight that cannot start.
+            if let landed = previous.landedElsewhere,
+               legs[next].routeLabel.components(separatedBy: " → ").first?.uppercased() != landed.landedIdent.uppercased() {
+                continue
+            }
+            return legs[next]
+        }
+        return nil
+    }
+
+    /// The plan of the leg after the one flying `planId`, in its trip — what a change to one leg's
+    /// timing or fuel has to be carried into. (v5.1)
+    func nextLegPlanId(after planId: UUID) -> UUID? {
+        guard let thread = threads.first(where: { $0.flightPlanId == planId }),
+              let trip = trip(forThreadId: thread.id),
+              let position = trip.legIds.firstIndex(of: thread.id),
+              position + 1 < trip.legIds.count
+        else { return nil }
+        return self.thread(withId: trip.legIds[position + 1])?.flightPlanId
+    }
+
+    /// The leg after `threadId` in its trip, if any.
+    func leg(after threadId: UUID) -> FlightThread? {
+        guard let trip = trip(forThreadId: threadId),
+              let position = trip.legIds.firstIndex(of: threadId),
+              position + 1 < trip.legIds.count else { return nil }
+        return thread(withId: trip.legIds[position + 1])
+    }
+
+    /// The flight ended somewhere other than planned. Call BEFORE `beginCloseOut`, so the open-flight-
+    /// plan banner and the close reminder already name where the aircraft actually is — the aerodrome
+    /// the pilot has to tell the FIC about. (v5.1)
+    func recordLanding(threadId: UUID, plannedIdent: String, landedIdent: String, landedName: String) {
+        guard let index = threads.firstIndex(where: { $0.id == threadId }),
+              plannedIdent.uppercased() != landedIdent.uppercased() else { return }
+        threads[index].landedElsewhere = LandedElsewhere(plannedIdent: plannedIdent, landedIdent: landedIdent,
+                                                         landedName: landedName)
+        // The flight as flown: "LSZS → LSZE". A trip's label is built from its legs' labels, so this is
+        // also what keeps "LSZS → LSZE → LSZQ" right once the continuation is added.
+        let origin = threads[index].routeLabel.components(separatedBy: " → ").first ?? ""
+        threads[index].routeLabel = origin.isEmpty ? landedIdent : "\(origin) → \(landedIdent)"
+        threads[index].touch()
         saveThreads()
-        saveTrips()
-        return trip
+    }
+
+    /// The continuation of a diversion was planned: the offer is answered.
+    func markContinued(threadId: UUID) {
+        guard let index = threads.firstIndex(where: { $0.id == threadId }),
+              threads[index].landedElsewhere != nil else { return }
+        threads[index].landedElsewhere?.continued = true
+        threads[index].touch()
+        saveThreads()
+    }
+
+    /// "Finish here": no continuation for this diversion.
+    func dismissContinuation(threadId: UUID) {
+        guard let index = threads.firstIndex(where: { $0.id == threadId }),
+              threads[index].landedElsewhere != nil else { return }
+        threads[index].landedElsewhere?.offerDismissed = true
+        threads[index].touch()
+        saveThreads()
+    }
+
+    /// Rename a flight after its route changed ends — a stop added, two legs joined.
+    func updateRouteLabel(_ label: String, threadId: UUID) {
+        guard let index = threads.firstIndex(where: { $0.id == threadId }),
+              threads[index].routeLabel != label else { return }
+        threads[index].routeLabel = label
+        threads[index].touch()
+        saveThreads()
     }
 
     /// Tick a shared task. Reached from whichever leg the pilot happens to be looking at — the state
@@ -600,6 +756,8 @@ class FlightThreadManager: ObservableObject {
     /// about the wrong flight entirely. Otherwise the one scheduled for today. (v5.x)
     var startableFlightToday: FlightThread? {
         if let flying = threads.first(where: { $0.state == .flying }) { return flying }
+        // Landed at a stop: the next leg is what the pilot is here for, dated or not. (v5.1)
+        if let next = nextTripLeg() { return next }
         let calendar = Calendar.current
         return threads
             .filter { !$0.isFinished && $0.state != .closeOut }

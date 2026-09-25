@@ -765,11 +765,31 @@ class AppState {
     private var deltaPointsWritten = 0
 
     // Reference to persistence manager
-    private let persistence = DataPersistenceManager.shared
+    private let persistence: DataPersistenceManager
+    /// Device-local flags (onboarding, safety notice) and the checkpoint pointer.
+    private let defaults: UserDefaults
+    /// CloudKit sync and the Live Activity: process-wide surfaces that belong to the app's own
+    /// AppState. Both are nil for an AppState on a datastore confined to a directory (a test's). That
+    /// one must not push its settings and flights to the pilot's iCloud (sync is on by default), take
+    /// `SyncManager.shared`'s callbacks away from the app's AppState, or touch the Live Activity: the
+    /// controller adopts whatever activity is running, so a test flight started extra ones on the
+    /// device, overwrote the real flight's with its own content, or ended it.
+    private let syncManager: SyncManager?
+    private let liveActivity: FlightActivityController?
 
     // MARK: - Initialization
 
-    init() {
+    /// `defaults` and `persistence` are injectable for the same reason as the plan and thread
+    /// managers': the test host IS the app, so `.standard` and `.shared` are the simulator app's own.
+    /// A test AppState restored the real in-progress flight, cleared the real crash-recovery
+    /// checkpoint, and wrote its settings and flights into the real datastore.
+    init(defaults: UserDefaults = .standard, persistence: DataPersistenceManager? = nil) {
+        let persistence = persistence ?? DataPersistenceManager.shared
+        self.persistence = persistence
+        self.defaults = defaults
+        self.syncManager = persistence.followsICloud ? SyncManager.shared : nil
+        self.liveActivity = persistence.followsICloud ? FlightActivityController.shared : nil
+
         // Load settings synchronously (fast, needed for initial UI)
         loadSettings()
 
@@ -777,17 +797,17 @@ class AppState {
         // sync can run, so an in-place UPGRADE that already finished onboarding (local flag true) skips
         // it, while a fresh install / reinstall (no local settings → false) shows it — even though the
         // synced flag will later arrive as true on a reinstall. (bug 1)
-        if UserDefaults.standard.object(forKey: hasSeenOnboardingKey) == nil {
+        if defaults.object(forKey: hasSeenOnboardingKey) == nil {
             hasSeenOnboarding = settings.hasCompletedOnboarding
-            UserDefaults.standard.set(hasSeenOnboarding, forKey: hasSeenOnboardingKey)
+            defaults.set(hasSeenOnboarding, forKey: hasSeenOnboardingKey)
         } else {
-            hasSeenOnboarding = UserDefaults.standard.bool(forKey: hasSeenOnboardingKey)
+            hasSeenOnboarding = defaults.bool(forKey: hasSeenOnboardingKey)
         }
 
         // Safety notice. Absent key = 0 = never acknowledged, which is the right answer for a fresh
         // install AND for an in-place upgrade from a build that predates the notice: an existing user
         // has never been shown it either, so they see it once on the next launch.
-        acceptedDisclaimerVersion = UserDefaults.standard.integer(forKey: acceptedDisclaimerVersionKey)
+        acceptedDisclaimerVersion = defaults.integer(forKey: acceptedDisclaimerVersionKey)
 
         syncAircraftType()
         setupSyncCallbacks()
@@ -836,7 +856,7 @@ class AppState {
 
     /// Setup callbacks for sync updates from other devices
     private func setupSyncCallbacks() {
-        let syncManager = SyncManager.shared
+        guard let syncManager else { return }
 
         syncManager.onSettingsUpdated = { [weak self] settings in
             Task { @MainActor in
@@ -1060,10 +1080,12 @@ class AppState {
         movingWhileParkedRun = 0
         currentHighlightedItem = [:] // Reset highlighting
         // Surface the new flight on the Lock Screen / Dynamic Island right away. (UX-25)
-        FlightActivityController.shared.sync(from: self)
+        liveActivity?.sync(from: self)
     }
 
     func endFlight(withFlightPlan flightPlan: FlightPlan? = nil) {
+        // Measured times first, whatever path ended the flight. (v5.2)
+        refineTimingFromTrack()
         guard var flight = currentFlight else { return }
 
         flight.stopTime = Date()
@@ -1198,6 +1220,50 @@ class AppState {
         engineStartTime = Date()
         currentFlight?.engineStartTime = engineStartTime
         checkpointActiveFlight(force: true)
+    }
+
+    /// Replace the live estimates of block off, take-off, landing and block on with what the whole
+    /// recorded track shows (`TrackTimes`). Idempotent. Called by END FLIGHT before anything reads
+    /// the times — the plan's times over, the flight thread, the saved flight — and again by
+    /// `endFlight` for any other path that ends a flight. (v5.2)
+    ///
+    /// Take-off lands in `lineUpTime`, which has only ever been used as the take-off time (flight
+    /// time, the departure's ATO, the nav log). Until now it was the Line Up tap plus 2 minutes; on
+    /// six real flights that was 8 s to 2 min 10 s off. The checklist estimate stays when the track
+    /// shows no take-off (a track too sparse, or a flight that never flew).
+    ///
+    /// Landing: the detector stamps the first fix on the runway, 0–6 s after the touchdown; the track
+    /// places it inside that interval. The recorded time stays when the track shows no landing.
+    func refineTimingFromTrack() {
+        guard var flight = currentFlight else { return }
+        let times = TrackTimes.analyze(track: flight.gpsTrack,
+                                       engineStart: engineStartTime ?? flight.engineStartTime,
+                                       engineShutdown: engineShutdownTime ?? flight.engineShutdownTime)
+        if let blockOff = times.blockOff {
+            flight.blockOffTime = blockOff
+            flight.blockOffLatitude = times.blockOffCoordinate?.latitude ?? flight.blockOffLatitude
+            flight.blockOffLongitude = times.blockOffCoordinate?.longitude ?? flight.blockOffLongitude
+        }
+        if let blockOn = times.blockOn {
+            flight.blockOnTime = blockOn
+            flight.blockOnLatitude = times.blockOnCoordinate?.latitude ?? flight.blockOnLatitude
+            flight.blockOnLongitude = times.blockOnCoordinate?.longitude ?? flight.blockOnLongitude
+        }
+        if let takeoff = times.takeoff {
+            lineUpTime = takeoff
+            flight.lineUpTime = takeoff
+        }
+        if let landing = times.landing, landing > (flight.lineUpTime ?? .distantPast) {
+            // The full stop recorded for this touchdown (by the detector, or a LANDED tap) moves with
+            // it, so the chart and the landing list show one time for one landing.
+            let gaps = flight.fullStopTimes.map { abs($0.timeIntervalSince(landing)) }
+            if let closest = gaps.indices.min(by: { gaps[$0] < gaps[$1] }), gaps[closest] < 180 {
+                flight.fullStopTimes[closest] = landing
+            }
+            landingTime = landing
+            flight.landingTime = landing
+        }
+        currentFlight = flight
     }
 
     func recordLineUpTime() {
@@ -1668,7 +1734,7 @@ class AppState {
 
         // Sync deletion to iCloud (CloudKit)
         if settings.iCloudSyncEnabled {
-            SyncManager.shared.deleteFlight(flight.id)
+            syncManager?.deleteFlight(flight.id)
         }
     }
 
@@ -1686,7 +1752,7 @@ class AppState {
         // Sync deletions to iCloud (CloudKit)
         if settings.iCloudSyncEnabled {
             for flight in flightsToDelete {
-                SyncManager.shared.deleteFlight(flight.id)
+                syncManager?.deleteFlight(flight.id)
             }
         }
     }
@@ -1761,7 +1827,7 @@ class AppState {
 
         // Sync to iCloud (CloudKit) if enabled
         if settings.iCloudSyncEnabled {
-            SyncManager.shared.syncAllFlights(flights)
+            syncManager?.syncAllFlights(flights)
         }
     }
 
@@ -1773,7 +1839,7 @@ class AppState {
         let saved = persistence.saveFlight(flight)
 
         if settings.iCloudSyncEnabled {
-            SyncManager.shared.syncFlight(flight, allFlights: flights)
+            syncManager?.syncFlight(flight, allFlights: flights)
         }
         return saved
     }
@@ -1792,11 +1858,11 @@ class AppState {
         persistence.saveSettings(settings)
 
         // Update sync manager with current sync preference
-        SyncManager.shared.isSyncEnabled = settings.iCloudSyncEnabled
+        syncManager?.isSyncEnabled = settings.iCloudSyncEnabled
 
         // Sync settings to iCloud if enabled
         if settings.iCloudSyncEnabled {
-            SyncManager.shared.syncSettings(settings)
+            syncManager?.syncSettings(settings)
         }
 
         syncAircraftType()
@@ -1825,7 +1891,7 @@ class AppState {
     /// Record acknowledgement of the current safety notice on THIS device.
     func acceptDisclaimer() {
         acceptedDisclaimerVersion = AppState.currentDisclaimerVersion
-        UserDefaults.standard.set(acceptedDisclaimerVersion, forKey: acceptedDisclaimerVersionKey)
+        defaults.set(acceptedDisclaimerVersion, forKey: acceptedDisclaimerVersionKey)
         AppLog.general.info("Safety notice v\(AppState.currentDisclaimerVersion) acknowledged")
     }
 
@@ -1833,7 +1899,7 @@ class AppState {
     /// Always persists — onboarding (incl. a replay from Settings) can change the feature toggles.
     func completeOnboarding() {
         hasSeenOnboarding = true
-        UserDefaults.standard.set(true, forKey: hasSeenOnboardingKey)
+        defaults.set(true, forKey: hasSeenOnboardingKey)
         settings.hasCompletedOnboarding = true
         saveSettings()
     }
@@ -1841,7 +1907,7 @@ class AppState {
     /// Re-show onboarding from Settings. Device-local — replaying it here doesn't reset other devices.
     func replayOnboarding() {
         hasSeenOnboarding = false
-        UserDefaults.standard.set(false, forKey: hasSeenOnboardingKey)
+        defaults.set(false, forKey: hasSeenOnboardingKey)
     }
 
     private func loadSettings() {
@@ -1853,7 +1919,7 @@ class AppState {
             settings = loadedSettings.clampedForIngest()
 
             // Update sync manager with loaded preference
-            SyncManager.shared.isSyncEnabled = settings.iCloudSyncEnabled
+            syncManager?.isSyncEnabled = settings.iCloudSyncEnabled
         }
     }
 
@@ -1884,7 +1950,7 @@ class AppState {
         // Piggyback the Live Activity refresh on the checkpoint cadence: sync() diffs the content
         // state and no-ops when nothing changed, so this is cheap per GPS tick and catches every
         // phase/timing/landing change promptly. (UX-25)
-        FlightActivityController.shared.sync(from: self)
+        liveActivity?.sync(from: self)
         if !force {
             let enoughPoints = pointsSinceCheckpoint >= Self.checkpointPointInterval
             let enoughTime = lastCheckpointAt.map {
@@ -1918,6 +1984,7 @@ class AppState {
         let deltaURL = persistence.activeFlightTrackDeltaURL
         let savedAt = state.savedAt
         let pointerKey = activeFlightPointerKey
+        let defaults = self.defaults
         let writtenThrough = alreadyWritten + newPoints.count
 
         let write: @Sendable () -> Void = { [weak self] in
@@ -1927,7 +1994,7 @@ class AppState {
                 encoder.dateEncodingStrategy = .iso8601
                 let data = try encoder.encode(state)
                 try DataPersistenceManager.writeActiveFlightStateData(data, to: url)
-                UserDefaults.standard.set(savedAt, forKey: pointerKey)
+                defaults.set(savedAt, forKey: pointerKey)
                 // Confirm the append on the main actor. If a newer checkpoint already ran (stale
                 // watermark), max() keeps the furthest confirmed position; the few re-appended
                 // points are deduped by id on restore.
@@ -2045,13 +2112,13 @@ class AppState {
         // slim (PERF-29) metadata encode + write, on flight-end paths only.
         flushPendingCheckpoint()
         persistence.clearActiveFlightStateFile()
-        UserDefaults.standard.removeObject(forKey: activeFlightPointerKey)
-        UserDefaults.standard.removeObject(forKey: legacyActiveFlightStateKey)
+        defaults.removeObject(forKey: activeFlightPointerKey)
+        defaults.removeObject(forKey: legacyActiveFlightStateKey)
         pointsSinceCheckpoint = 0
         lastCheckpointAt = nil
         deltaPointsWritten = 0
         // Every flight-end path funnels through here — retire the Live Activity with it. (UX-25)
-        if !isFlightActive { FlightActivityController.shared.end() }
+        if !isFlightActive { liveActivity?.end() }
     }
 
     /// Check if there is a saved active flight state.

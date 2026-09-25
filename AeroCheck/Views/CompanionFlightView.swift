@@ -272,6 +272,8 @@ struct CompanionFlightView: View {
     private var nextWaypoint: (index: Int, wp: CompanionWaypoint)? {
         guard let plan = flightPlan else { return nil }
         let idx = flightData?.currentWaypointIndex ?? plan.currentWaypointIndex
+        // Diverted on the master: the second screen points where the aircraft is going. (v5.1)
+        if let diversion = plan.diversion { return (idx, diversion) }
         guard plan.waypoints.indices.contains(idx) else { return nil }
         return (idx, plan.waypoints[idx])
     }

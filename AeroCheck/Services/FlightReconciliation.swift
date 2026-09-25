@@ -86,8 +86,6 @@ enum FlightReconciliation {
     /// Two landings closer than this are one physical event (same bar as AppState's
     /// entry-time guard) — reconciliation refuses the impossible pair.
     static let duplicateWindow: TimeInterval = 60
-    /// Block-time movement threshold, ~4 kt in m/s (matches the live detection).
-    private static let movementSpeedMS = 2.0
 
     // MARK: - Analysis
 
@@ -210,28 +208,15 @@ enum FlightReconciliation {
         return events
     }
 
-    /// Track-derived block times, the rules validated against the club's entries
-    /// (block off +1.5 / block on −0.1 min median vs the club's minute-rounded values):
-    /// block off = first of two consecutive moving samples; block on = the first
-    /// stationary sample after the last two consecutive moving samples (the start of the
-    /// final stillness run).
+    /// Track-derived block times: the same rules END FLIGHT now applies (`TrackTimes`) — block
+    /// off where the aircraft first leaves its parking spot, block on where the last movement
+    /// ends. They replaced "two samples at ≥ 4 kt" in 5.2, which read the walking-pace roll out of
+    /// and into a parking spot as standing still (block off 5–21 s late, block on up to 2 min
+    /// early on six real flights).
     static func trackBlockTimes(track: [GPSPoint]) -> (blockOff: Date?, blockOn: Date?) {
-        let points = track.sorted { $0.timestamp < $1.timestamp }
-        guard points.count >= 3 else { return (nil, nil) }
-        func moving(_ point: GPSPoint) -> Bool { point.speed >= movementSpeedMS }
-
-        var blockOff: Date?
-        for i in 0..<(points.count - 1) where moving(points[i]) && moving(points[i + 1]) {
-            blockOff = points[i].timestamp
-            break
-        }
-        var blockOn: Date?
-        for i in stride(from: points.count - 1, through: 1, by: -1)
-        where moving(points[i]) && moving(points[i - 1]) {
-            blockOn = i + 1 < points.count ? points[i + 1].timestamp : points[i].timestamp
-            break
-        }
-        return (blockOff, blockOn)
+        guard track.count >= 3 else { return (nil, nil) }
+        let times = TrackTimes.analyze(track: track, engineStart: nil, engineShutdown: nil)
+        return (times.blockOff, times.blockOn)
     }
 
     // MARK: - Application

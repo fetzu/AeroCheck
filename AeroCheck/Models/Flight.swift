@@ -451,6 +451,64 @@ struct Flight: Identifiable, Codable {
         return interval >= 0 ? interval : nil
     }
 
+    // MARK: Logged durations (v5.2)
+
+    /// Minutes between two times AS A LOGBOOK WRITES THEM: each time to the minute (a clock reading,
+    /// 16:33:48 is 16:33), then subtracted.
+    ///
+    /// Not the exact interval rounded. Block off 16:33:48 and block on 17:04:16 print as 16:33 and
+    /// 17:04, and 30 min 28 s rounds to 0:30 — so the line said 16:33 → 17:04 = 0:30, a sum that
+    /// does not add up, on the one page pilots copy into a legal document and auditors add up.
+    /// Every logged duration goes through here so the times and the durations beside them agree.
+    static func loggedMinutes(from start: Date, to end: Date) -> Int {
+        // Epoch minutes are UTC minutes, and every time zone is a whole number of minutes off UTC,
+        // so this truncates exactly like the local or UTC HH:mm printed beside it.
+        Int((end.timeIntervalSince1970 / 60).rounded(.down)) - Int((start.timeIntervalSince1970 / 60).rounded(.down))
+    }
+
+    /// Block time as logged: block on minus block off, to the minute. Nil when either is missing or
+    /// they are out of order.
+    var blockMinutes: Int? {
+        guard let off = blockOffTime, let on = blockOnTime, on >= off else { return nil }
+        return Self.loggedMinutes(from: off, to: on)
+    }
+
+    /// Flight time as logged: landing minus take-off, to the minute.
+    var flightMinutes: Int? {
+        guard let takeoff = lineUpTime, let landing = landingTime, landing >= takeoff else { return nil }
+        return Self.loggedMinutes(from: takeoff, to: landing)
+    }
+
+    /// How a flight reads in the Flight Log. (v5.2)
+    enum RouteShape: Equatable {
+        /// From one aerodrome to another, with a circuits tag when there were touch-and-goes on the way.
+        case between(departure: String, arrival: String, withCircuits: Bool)
+        /// Back where it started (or no arrival known), with touch-and-goes: a circuits session.
+        case circuits(at: String)
+        /// No aerodromes known.
+        case unnamed
+    }
+
+    /// Touch-and-goes do not make a flight "circuits". Warming up with a few at home and then flying
+    /// somewhere else is common, and calling that "LSZQ circuits" hid that it went to LSZG. The
+    /// arrival decides the shape; the touch-and-goes only add the tag.
+    var routeShape: RouteShape {
+        let departure = departureAirportIdent, arrival = arrivalAirportIdent
+        if let departure, let arrival, departure != arrival {
+            return .between(departure: departure, arrival: arrival, withCircuits: touchAndGoCount > 0)
+        }
+        if touchAndGoCount > 0, let at = departure ?? arrival { return .circuits(at: at) }
+        if let departure, let arrival { return .between(departure: departure, arrival: arrival, withCircuits: false) }
+        return .unnamed
+    }
+
+    /// What the Flight Log sums: the logged block minutes, else the logged flight minutes, else the
+    /// engine run. In seconds, for the totals that were already in seconds. (v5.2)
+    var loggedSeconds: TimeInterval {
+        if let minutes = blockMinutes ?? flightMinutes { return TimeInterval(minutes * 60) }
+        return duration ?? 0
+    }
+
     /// Flight time duration (from lineup/takeoff to landing)
     var flightTime: TimeInterval? {
         guard let takeoff = lineUpTime, let landing = landingTime else { return nil }
@@ -496,18 +554,15 @@ struct Flight: Identifiable, Codable {
         return "\(Flight.formatHoursDecimal(flown)) / \(Flight.formatHoursTime(flown))"
     }
 
+    /// Logged minutes, like the logbook (see `loggedMinutes`).
     var formattedBlockTime: String {
-        guard let blockTime = blockTime else { return "--:--" }
-        let hours = Int(blockTime) / 3600
-        let minutes = (Int(blockTime) % 3600) / 60
-        return String(format: "%02d:%02d", hours, minutes)
+        guard let minutes = blockMinutes else { return "--:--" }
+        return String(format: "%02d:%02d", minutes / 60, minutes % 60)
     }
 
     var formattedFlightTime: String {
-        guard let flightTime = flightTime else { return "--:--" }
-        let hours = Int(flightTime) / 3600
-        let minutes = (Int(flightTime) % 3600) / 60
-        return String(format: "%02d:%02d", hours, minutes)
+        guard let minutes = flightMinutes else { return "--:--" }
+        return String(format: "%02d:%02d", minutes / 60, minutes % 60)
     }
 
     var formattedDuration: String {

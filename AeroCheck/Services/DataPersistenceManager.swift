@@ -124,9 +124,32 @@ class DataPersistenceManager: ObservableObject {
         iCloudContainerURL != nil
     }
 
+    /// False only for a datastore confined to a directory (`init(rootDirectory:)`), which must never
+    /// be re-pointed at the real iCloud container by an account change. `AppState` reads it too: an
+    /// AppState on a confined datastore stays off CloudKit and off the Live Activity.
+    let followsICloud: Bool
+
     // MARK: - Initialization
 
+    /// A datastore confined to `rootDirectory`, for tests.
+    ///
+    /// The test host IS the app, so `shared` is the simulator app's real datastore. A
+    /// `FlightThreadManager` built in a test wrote its threads there, and its `saveTrips` writes the
+    /// whole `trips` array — which, before the async load lands, holds only the test's trip. A run
+    /// replaced the app's `trips.json` that way and a real two-leg trip disappeared.
+    ///
+    /// Everything this instance hands out stays under `rootDirectory`: it never resolves the iCloud
+    /// container, never runs the Documents → Application Support migration (whose flag lives in
+    /// `UserDefaults.standard`), and ignores iCloud account changes.
+    init(rootDirectory: URL) {
+        self.documentsDirectory = rootDirectory.appendingPathComponent("Documents", isDirectory: true)
+        self.applicationSupportDirectory = rootDirectory
+        self.followsICloud = false
+        createDirectoryStructure()
+    }
+
     private init() {
+        self.followsICloud = true
         // Cache directory URLs once to avoid repeated calls to
         // url(forUbiquityContainerIdentifier:) which blocks the main thread
         self.documentsDirectory = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first
@@ -182,6 +205,7 @@ class DataPersistenceManager: ObservableObject {
     /// the main thread from a notification, and blocking it for the multi-second worst case of
     /// `url(forUbiquityContainerIdentifier:)` is exactly what the launch path already avoids.
     func reresolveUbiquityContainer() {
+        guard followsICloud else { return }
         let container = Self.resolveUbiquityContainer(identifier: "iCloud.com.fetzu.aerocheck", timeout: 2.0)
         guard container != iCloudContainerURL else { return }
 
@@ -892,11 +916,20 @@ class DataPersistenceManager: ObservableObject {
         encoder.dateEncodingStrategy = .iso8601
         encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
         var written: [UUID] = []
+        // The file name carries the route label, so a thread renamed since its last write (a stop
+        // added, a landing elsewhere) would otherwise leave its older files behind: the loader keeps
+        // the freshest per id, but a file that fails to decode loses to a stale one. (v5.1)
+        let existing = (try? FileManager.default.contentsOfDirectory(at: directory, includingPropertiesForKeys: nil)) ?? []
         for thread in changed {
             let url = directory.appendingPathComponent(flightThreadFilename(for: thread))
             do {
                 let data = try encoder.encode(thread)
                 try data.write(to: url, options: protectedWriteOptions)
+                let idSuffix = "_\(thread.id.uuidString.prefix(8)).json"
+                for stale in existing where stale.lastPathComponent.hasSuffix(idSuffix)
+                    && stale.lastPathComponent != url.lastPathComponent {
+                    try? FileManager.default.removeItem(at: stale)
+                }
                 written.append(thread.id)
             } catch {
                 AppLog.general.debugLine(

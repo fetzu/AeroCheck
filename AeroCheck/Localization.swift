@@ -189,9 +189,6 @@ enum L10n {
         static func legCount(_ count: Int) -> String {
             String(localized: "\(count) legs")
         }
-        static func createFlights(_ count: Int) -> String {
-            String(localized: "Create \(count) flights")
-        }
         static func legsExplainer(_ stops: Int, _ legs: Int) -> String {
             String(localized: "\(stops) aerodromes · \(legs) legs, sharing one preparation")
         }
@@ -1361,10 +1358,177 @@ enum L10n {
     }
 
     enum Export {
-        /// Shown in the XLSX/PDF nav log when the route exceeds the fixed table height. (SEC-C21)
-        static func routeTruncated(_ count: Int) -> String {
-            String(format: String(localized: "export.routeTruncated"), count)
+        /// Radio box footnote: a TMA with no published frequency borrows its CTR's.
+        static func inferredFrequency(_ callSign: String, _ source: String) -> String {
+            String(format: String(localized: "export.inferredFrequency"), callSign, source)
         }
+        /// Radio box: countries the route crosses with no airspace data on the device.
+        static func missingAirspace(_ countries: String) -> String {
+            String(format: String(localized: "export.missingAirspace"), countries)
+        }
+        static func missingAirspaceShort(_ countries: String) -> String {
+            String(format: String(localized: "export.missingAirspaceShort"), countries)
+        }
+        static let noRadioData = String(localized: "export.noRadioData")
+        static let noAirspaceData = String(localized: "export.noAirspaceData")
+        static func radioSource(_ source: String) -> String {
+            String(format: String(localized: "export.radioSource"), source)
+        }
+        static let verifyFrequencies = String(localized: "export.verifyFrequencies")
+        /// Export menu: "1 page" / "2 pages".
+        static func pages(_ count: Int) -> String {
+            count == 1 ? String(localized: "export.onePage") : String(format: String(localized: "export.pages"), count)
+        }
+        static func waypointCount(_ count: Int) -> String {
+            String(format: String(localized: "export.waypointCount"), count)
+        }
+        static let allWaypoints = String(localized: "export.allWaypoints")
+        static let saveToFiles = String(localized: "export.saveToFiles")
+        /// "Save GPX to Files…"
+        static func saveFormat(_ format: String) -> String {
+            String(format: String(localized: "export.saveFormat"), format)
+        }
+        static let previewPrint = String(localized: "export.previewPrint")
+    }
+
+    /// Trips: stops, legs, diversions and continuing after one. (v5.1)
+    enum Trip {
+        static let addStop = String(localized: "trip.addStop")
+        static let addStopTitle = String(localized: "trip.addStopTitle")
+        static let addStopHint = String(localized: "trip.addStopHint")
+        static let addStopExplainer = String(localized: "trip.addStopExplainer")
+        static let searchAerodrome = String(localized: "trip.searchAerodrome")
+        static let onRoute = String(localized: "trip.onRoute")
+        /// "3.6 NM off"
+        static func offRoute(_ nm: String) -> String {
+            String(format: String(localized: "trip.offRoute"), nm)
+        }
+        static let noFrequency = String(localized: "trip.noFrequency")
+        static let noCandidates = String(localized: "trip.noCandidates")
+        /// "On the ground: 30 min"
+        static func groundTime(_ minutes: Int) -> String {
+            String(format: String(localized: "trip.groundTime"), minutes)
+        }
+        static let refuel = String(localized: "trip.refuel")
+        static let refuelHint = String(localized: "trip.refuelHint")
+        static let split = String(localized: "trip.split")
+        static let joinNextLeg = String(localized: "trip.joinNextLeg")
+        /// "≈ 15:10 (est.)"
+        static func estimated(_ time: String) -> String {
+            String(format: String(localized: "trip.estimated"), time)
+        }
+        static let stops = String(localized: "trip.stops")
+        static let routeStopsHint = String(localized: "trip.routeStopsHint")
+        /// "Create trip · 3 legs"
+        static func createTrip(_ legs: Int) -> String {
+            String(format: String(localized: "trip.createTrip"), legs)
+        }
+
+        // Divert
+        static let divert = String(localized: "trip.divert")
+        /// "DIVERT TO LSZE"
+        static func divertTo(_ ident: String) -> String {
+            String(format: String(localized: "trip.divertTo"), ident)
+        }
+        /// "DIRECT TO LSZQ"
+        static func directTo(_ ident: String) -> String {
+            String(format: String(localized: "trip.directTo"), ident)
+        }
+        /// "Diverting to LSZE"
+        static func divertingTo(_ ident: String) -> String {
+            String(format: String(localized: "trip.divertingTo"), ident)
+        }
+        static let resumeRoute = String(localized: "trip.resumeRoute")
+        static let destination = String(localized: "trip.destination")
+        static let alternate = String(localized: "trip.alternate")
+        static let ahead = String(localized: "trip.ahead")
+        static let behind = String(localized: "trip.behind")
+        static let notListed = String(localized: "trip.notListed")
+        /// "AT · border"
+        static func border(_ country: String) -> String {
+            String(format: String(localized: "trip.border"), country)
+        }
+        static let noAerodromes = String(localized: "trip.noAerodromes")
+        static let checkChart = String(localized: "trip.checkChart")
+        static let divertTag = String(localized: "trip.divertTag")
+        /// "Flight plan filed: tell FIS you are diverting to LSZE"
+        static func tellFIS(_ ident: String) -> String {
+            String(format: String(localized: "trip.tellFIS"), ident)
+        }
+        static let directToWaypoint = String(localized: "trip.directToWaypoint")
+
+        // Continue after landing elsewhere
+        /// "Landed at LSZE"
+        static func landedAt(_ ident: String) -> String {
+            String(format: String(localized: "trip.landedAt"), ident)
+        }
+        /// "planned LSZQ"
+        static func planned(_ ident: String) -> String {
+            String(format: String(localized: "trip.planned"), ident)
+        }
+        /// "Continue to LSZQ"
+        static func continueTo(_ ident: String) -> String {
+            String(format: String(localized: "trip.continueTo"), ident)
+        }
+        static func continueExplainer(_ from: String, _ to: String) -> String {
+            String(format: String(localized: "trip.continueExplainer"), from, to)
+        }
+        static let finishHere = String(localized: "trip.finishHere")
+        /// "Tell Zurich FIC you landed at LSZE, not LSZQ."
+        static func tellFICLanded(_ landed: String, _ planned: String) -> String {
+            String(format: String(localized: "trip.tellFICLanded"), landed, planned)
+        }
+
+        // Nav log
+        static let notFlown = String(localized: "trip.notFlown")
+        /// "diverted at 14:36"
+        static func divertedAt(_ time: String) -> String {
+            String(format: String(localized: "trip.divertedAt"), time)
+        }
+        static let landedHereInstead = String(localized: "trip.landedHereInstead")
+        /// "est.: previous leg + 30 min on the ground"
+        static func estimatedDepartureRemark(_ minutes: Int) -> String {
+            String(format: String(localized: "trip.estimatedDepartureRemark"), minutes)
+        }
+    }
+
+    /// The builder's "Set altitudes" sheet.
+    enum Altitudes {
+        static let title = String(localized: "altitudes.title")
+        static let modeTerrain = String(localized: "altitudes.mode.terrain")
+        static let modeFixed = String(localized: "altitudes.mode.fixed")
+        static let clearance = String(localized: "altitudes.clearance")
+        static let roundUp = String(localized: "altitudes.roundUp")
+        static let basis = String(localized: "altitudes.basis")
+        static let basisLegs = String(localized: "altitudes.basis.legs")
+        static let basisGround = String(localized: "altitudes.basis.ground")
+        static let altitudeField = String(localized: "altitudes.altitudeField")
+        static let columnWaypoint = String(localized: "altitudes.col.waypoint")
+        static let columnNow = String(localized: "altitudes.col.now")
+        static let columnNew = String(localized: "altitudes.col.new")
+        static let columnClearance = String(localized: "altitudes.col.clearance")
+        static let columnAirspace = String(localized: "altitudes.col.airspace")
+        static func lowest(_ feet: String, _ from: String, _ to: String) -> String {
+            String(format: String(localized: "altitudes.summary.lowest"), feet, from, to)
+        }
+        static func busts(_ count: Int) -> String {
+            String(format: String(localized: "altitudes.summary.busts"), count)
+        }
+        static let allClear = String(localized: "altitudes.summary.clear")
+        static func enters(_ names: String) -> String {
+            String(format: String(localized: "altitudes.summary.enters"), names)
+        }
+        static func apply(_ count: Int) -> String {
+            String(format: String(localized: "altitudes.apply"), count)
+        }
+        static let loading = String(localized: "altitudes.loading")
+        static let terrainUnavailable = String(localized: "altitudes.terrainUnavailable")
+        static let footnote = String(localized: "altitudes.footnote")
+        static let climbOut = String(localized: "altitudes.climbOut")
+        static let descent = String(localized: "altitudes.descent")
+        static let banner = String(localized: "altitudes.banner")
+        static let bannerAction = String(localized: "altitudes.bannerAction")
+        static let selectAll = String(localized: "altitudes.selectAll")
     }
 
     enum PDF {
@@ -1383,6 +1547,14 @@ enum L10n {
         static let counterStart = String(localized: "pdf.counterStart")
         static let counterStop = String(localized: "pdf.counterStop")
         static let landings = String(localized: "pdf.landings")
+        static let sectionRadio = String(localized: "pdf.sectionRadio")
+        static let radioStations = String(localized: "pdf.radioStations")
+        static let radioSource = String(localized: "pdf.radioSource")
+        static let continued = String(localized: "pdf.continued")
+        static let routeContinues = String(localized: "pdf.routeContinues")
+        static func page(_ number: Int, _ count: Int) -> String {
+            String(format: String(localized: "pdf.page"), number, count)
+        }
     }
 
     enum Nav {
@@ -1466,6 +1638,7 @@ enum L10n {
         static let flightType = String(localized: "nav.flightType")
         static let pilot = String(localized: "nav.pilot")
         static let date = String(localized: "nav.date")
+        static let departureTime = String(localized: "nav.departureTime")
         static let runway = String(localized: "nav.runway")
         static let instructor = String(localized: "nav.instructor")
         static let totalEET = String(localized: "nav.totalEET")
@@ -1499,7 +1672,8 @@ enum L10n {
         static let timeOn = String(localized: "nav.timeOn")
         static let ldgsAtBase = String(localized: "nav.ldgsAtBase")
         static let totalLdgs = String(localized: "nav.totalLdgs")
-        static let engineTime = String(localized: "nav.engineTime")
+        /// Take-off to landing: Time OFF to Time ON on the nav log.
+        static let airTime = String(localized: "nav.airTime")
 
         // Notes
         static let notes = String(localized: "nav.notes")

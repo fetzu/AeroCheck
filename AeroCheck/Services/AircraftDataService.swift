@@ -85,28 +85,41 @@ class AircraftDataService: ObservableObject {
     private let gating: SubscriptionGating
     private let httpClient: HTTPClient
     private let cacheDirectory: URL
+    /// Hands the owned-aircraft list to the home-screen widget (the App Group).
+    private let publishToWidget: ([RemoteAircraftMetadata]) -> Void
     private let fileManager = FileManager.default
 
     // MARK: - Initialization
 
     /// `subscriptionManager` and `httpClient` are injected as protocols (defaulting to the real
     /// implementations) so production wiring is unchanged but tests can supply fakes. (ARCH-12)
+    ///
+    /// `cacheDirectory` and `publishToWidget` are injectable for the same reason, and because the
+    /// test host IS the app: on the defaults, a test cached an empty aircraft list over the real one,
+    /// cleared the real premium checklists, and republished the real widget with only the WT9.
     init(
         apiBaseURL: String = APIConfig.baseURL,
         subscriptionManager: SubscriptionGating,
-        httpClient: HTTPClient = SizeLimitedHTTPClient()
+        httpClient: HTTPClient = SizeLimitedHTTPClient(),
+        cacheDirectory: URL? = nil,
+        publishToWidget: @escaping ([RemoteAircraftMetadata]) -> Void = WidgetBridge.publish(available:)
     ) {
         self.apiBaseURL = apiBaseURL
         self.gating = subscriptionManager
         self.httpClient = httpClient
+        self.publishToWidget = publishToWidget
 
         // Set up cache directory
-        let appSupport = fileManager.urls(for: .applicationSupportDirectory, in: .userDomainMask).first
-            ?? URL(fileURLWithPath: NSHomeDirectory()).appendingPathComponent("Library/Application Support")
-        self.cacheDirectory = appSupport.appendingPathComponent("AeroCheck/Checklists", isDirectory: true)
+        if let cacheDirectory {
+            self.cacheDirectory = cacheDirectory
+        } else {
+            let appSupport = fileManager.urls(for: .applicationSupportDirectory, in: .userDomainMask).first
+                ?? URL(fileURLWithPath: NSHomeDirectory()).appendingPathComponent("Library/Application Support")
+            self.cacheDirectory = appSupport.appendingPathComponent("AeroCheck/Checklists", isDirectory: true)
+        }
 
         // Create cache directory if needed
-        try? fileManager.createDirectory(at: cacheDirectory, withIntermediateDirectories: true)
+        try? fileManager.createDirectory(at: self.cacheDirectory, withIntermediateDirectories: true)
 
         // SA-22: keep the paywalled checklist cache OUT of device backups. Application Support is
         // included in backups (only Library/Caches and tmp are excluded), so without this an
@@ -115,7 +128,7 @@ class AircraftDataService: ObservableObject {
         // excluding it: the cache is fully re-downloadable.
         var excludeFromBackup = URLResourceValues()
         excludeFromBackup.isExcludedFromBackup = true
-        var cacheDirectoryURL = cacheDirectory
+        var cacheDirectoryURL = self.cacheDirectory
         try? cacheDirectoryURL.setResourceValues(excludeFromBackup)
 
         // Load cached data first
@@ -123,7 +136,7 @@ class AircraftDataService: ObservableObject {
 
         // Seed the home-screen widget with the owned-aircraft list from cache so it's correct
         // even before the first network fetch completes.
-        WidgetBridge.publish(available: availableAircraft)
+        publishToWidget(availableAircraft)
     }
 
     // MARK: - Marketing Owned-Aircraft Override (DEBUG-ONLY)
@@ -160,7 +173,7 @@ class AircraftDataService: ObservableObject {
             if meta.isBundled { continue } // bundled WT9 is always shown by HomeView regardless
             availableAircraft[index].hasAccess = ownedIds.contains(meta.id)
         }
-        WidgetBridge.publish(available: availableAircraft)
+        publishToWidget(availableAircraft)
     }
     #endif
 
@@ -196,7 +209,7 @@ class AircraftDataService: ObservableObject {
         #endif
 
         // Refresh the widget's owned-aircraft list to reflect the latest access state. (UX-07)
-        WidgetBridge.publish(available: availableAircraft)
+        publishToWidget(availableAircraft)
     }
 
     /// After a purchase, the server's entitlement write can lag the client's StoreKit confirmation, so

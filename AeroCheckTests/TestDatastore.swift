@@ -1,8 +1,8 @@
 import XCTest
 @testable import AeroCheck
 
-/// Throwaway storage for any test that builds an `AppState`, a `FlightThreadManager` or a
-/// `FlightPlanManager`.
+/// Throwaway storage for any test that builds an `AppState`, a `FlightThreadManager`, a
+/// `FlightPlanManager` or an `AircraftDataService`.
 ///
 /// The test host IS the app, so `DataPersistenceManager.shared` and `UserDefaults.standard` are the
 /// simulator app's own. A manager built on them loads the real threads, plans and trips, and writes
@@ -14,13 +14,18 @@ import XCTest
 /// create is removed when the test finishes, and nothing else is touched.
 extension XCTestCase {
 
-    /// A datastore in a fresh temporary directory, removed when the test finishes.
-    @MainActor
-    func makeTestDatastore() -> DataPersistenceManager {
+    /// A fresh temporary directory, removed when the test finishes.
+    func makeTestDirectory() -> URL {
         let root = FileManager.default.temporaryDirectory
             .appendingPathComponent("AeroCheckTests-\(UUID().uuidString)", isDirectory: true)
         addTeardownBlock { try? FileManager.default.removeItem(at: root) }
-        return DataPersistenceManager(rootDirectory: root)
+        return root
+    }
+
+    /// A datastore in a fresh temporary directory, removed when the test finishes.
+    @MainActor
+    func makeTestDatastore() -> DataPersistenceManager {
+        DataPersistenceManager(rootDirectory: makeTestDirectory())
     }
 
     /// A defaults suite of its own, removed when the test finishes.
@@ -55,5 +60,22 @@ extension XCTestCase {
         // checkpoint still queued would otherwise land afterwards and re-create the suite's plist.
         addTeardownBlock { @MainActor in appState.flushPendingCheckpoint() }
         return appState
+    }
+
+    /// An AircraftDataService caching checklists in its own temporary directory, and telling the
+    /// home-screen widget nothing. Omit `httpClient` to keep the production transport.
+    ///
+    /// On the defaults a test cached an empty aircraft list over the simulator app's real one,
+    /// cleared its downloaded premium checklists, and republished its widget with only the WT9.
+    @MainActor
+    func makeTestAircraftDataService(subscriptionManager: SubscriptionGating,
+                                     httpClient: HTTPClient? = nil) -> AircraftDataService {
+        let cacheDirectory = makeTestDirectory().appendingPathComponent("Checklists", isDirectory: true)
+        guard let httpClient else {
+            return AircraftDataService(subscriptionManager: subscriptionManager,
+                                       cacheDirectory: cacheDirectory, publishToWidget: { _ in })
+        }
+        return AircraftDataService(subscriptionManager: subscriptionManager, httpClient: httpClient,
+                                   cacheDirectory: cacheDirectory, publishToWidget: { _ in })
     }
 }

@@ -170,6 +170,9 @@ struct FlightThreadView: View {
     @State private var planEditorPlan: FlightPlan?
     /// "Add a stop" sheet. (v5.1)
     @State private var addingStop = false
+    /// Chapters whose ticked tasks are unfolded. Folded by default: the page leads with what is left.
+    /// (v6.0 · D3)
+    @State private var unfoldedDone: Set<ThreadChapter> = []
 
     private var thread: FlightThread? { threadManager.thread(withId: threadId) }
 
@@ -184,6 +187,7 @@ struct FlightThreadView: View {
                     Divider().overlay(Color.white.opacity(0.06))
                     ScrollView {
                         VStack(spacing: 16) {
+                            nextTaskCard(thread)
                             if let trip = threadManager.trip(forThreadId: thread.id) {
                                 tripBand(trip, leg: thread)
                             }
@@ -346,7 +350,17 @@ struct FlightThreadView: View {
             .accessibilityHint(L10n.Nav.flightPlanDetails)
 
             if !usesCompactHeader { stateChip(thread) }
-            readinessRing(thread)
+            VStack(spacing: 3) {
+                readinessRing(thread)
+                // The ring in words, where there is room for them: "3 of 4 done". (v6.0 · D3)
+                if !usesCompactHeader {
+                    Text(readinessCaption(thread))
+                        .scaledFont(size: 11, relativeTo: .caption2)
+                        .foregroundColor(.secondaryText)
+                        .lineLimit(1)
+                        .fixedSize()
+                }
+            }
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 12)
@@ -390,6 +404,76 @@ struct FlightThreadView: View {
             .padding(.horizontal, 8)
             .padding(.vertical, 4)
             .overlay(Capsule().strokeBorder(color.opacity(0.55), lineWidth: 1))
+    }
+
+    private func readinessCaption(_ thread: FlightThread) -> String {
+        if thread.state == .closeOut || thread.state == .done {
+            let p = thread.closeOutProgress
+            return L10n.Thread.closedProgress(p.done, p.total)
+        }
+        let p = thread.preFlightProgress
+        return L10n.Thread.readiness(p.done, p.total)
+    }
+
+    // MARK: - Next task (v6.0 · D3)
+
+    /// The one thing to do next, big and on top, so the page opens on it: the same task Today
+    /// advertises as "Next". Fifteen rows of equal weight left the pilot to find it. The list below
+    /// still has it, in its chapter.
+    @ViewBuilder
+    private func nextTaskCard(_ thread: FlightThread) -> some View {
+        if thread.state != .flying {
+            if let task = thread.nextTask {
+                VStack(alignment: .leading, spacing: 0) {
+                    Text(L10n.Thread.nextUp.uppercased())
+                        .scaledFont(size: 12, weight: .bold, design: .monospaced, relativeTo: .caption)
+                        .foregroundColor(.aviationGold)
+                        .tracking(0.8)
+                        .padding(.horizontal, 14)
+                        .padding(.top, 12)
+                    taskRow(task, in: thread, prominent: true)
+                }
+                .background(Color.cardBackground)
+                .clipShape(RoundedRectangle(cornerRadius: 14))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 14)
+                        .strokeBorder(Color.aviationGold.opacity(0.6), lineWidth: 1.5)
+                )
+            } else if thread.state == .planned || thread.state == .ready {
+                HStack(spacing: 10) {
+                    Image(systemName: "checkmark.seal.fill")
+                        .scaledFont(size: 20, relativeTo: .title3)
+                        .foregroundColor(.aviationGreen)
+                    Text(L10n.Thread.allDone)
+                        .scaledFont(size: 17, weight: .semibold, relativeTo: .headline)
+                        .foregroundColor(.primaryText)
+                    Spacer(minLength: 0)
+                }
+                .padding(14)
+                .background(Color.cardBackground)
+                .clipShape(RoundedRectangle(cornerRadius: 14))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 14)
+                        .strokeBorder(Color.aviationGreen.opacity(0.5), lineWidth: 1)
+                )
+            }
+        }
+    }
+
+    private func taskRow(_ task: ThreadTask, in thread: FlightThread, prominent: Bool = false) -> some View {
+        ThreadTaskRow(
+            task: task,
+            onToggle: { toggle(task, in: thread) },
+            onDismissTask: { setState(.notApplicable, task, in: thread) },
+            onOpen: { url in openURL(url) },
+            tariffURL: tariffURL(for: task),
+            touchesSwitzerland: thread.countries?.contains("CH") ?? false,
+            // v5.0.0: three tasks now open a calculator instead of only taking a tick.
+            // The tick still works on its own — the tool is an aid, not a gate.
+            toolLabel: toolLabel(for: task, in: thread),
+            onOpenTool: { openTool(for: task, in: thread) },
+            prominent: prominent
+        )
     }
 
     /// The readiness ring: pre-flight progress before the flight, close-out progress after it.
@@ -664,21 +748,45 @@ struct FlightThreadView: View {
                 .padding(.vertical, 9)
                 .background(Color.panelBackground)
 
-                ForEach(tasks) { task in
-                    ThreadTaskRow(
-                        task: task,
-                        onToggle: { toggle(task, in: thread) },
-                        onDismissTask: { setState(.notApplicable, task, in: thread) },
-                        onOpen: { url in openURL(url) },
-                        tariffURL: tariffURL(for: task),
-                        touchesSwitzerland: thread.countries?.contains("CH") ?? false,
-                        // v5.0.0: three tasks now open a calculator instead of only taking a tick.
-                        // The tick still works on its own — the tool is an aid, not a gate.
-                        toolLabel: toolLabel(for: task, in: thread),
-                        onOpenTool: { openTool(for: task, in: thread) }
-                    )
-                    if task.id != tasks.last?.id {
+                // What is left first; the ticked (and not-applicable) ones fold into one row, so a
+                // chapter reads as its open work. (v6.0 · D3)
+                let open = tasks.filter { $0.state == .pending }
+                let closed = tasks.filter { $0.state != .pending }
+                ForEach(open) { task in
+                    taskRow(task, in: thread)
+                    if task.id != open.last?.id || !closed.isEmpty {
                         Divider().overlay(Color.white.opacity(0.06)).padding(.leading, 46)
+                    }
+                }
+                if !closed.isEmpty {
+                    let unfolded = unfoldedDone.contains(chapter)
+                    Button {
+                        withAnimation(.easeInOut(duration: 0.2)) {
+                            if unfolded { unfoldedDone.remove(chapter) } else { unfoldedDone.insert(chapter) }
+                        }
+                    } label: {
+                        HStack(spacing: 12) {
+                            Image(systemName: "checkmark.circle.fill")
+                                .scaledFont(size: 18, relativeTo: .body)
+                                .foregroundColor(.aviationGreen)
+                            Text(L10n.Thread.doneCount(closed.count))
+                                .scaledFont(size: 14, weight: .semibold, relativeTo: .subheadline)
+                                .foregroundColor(.secondaryText)
+                            Spacer(minLength: 0)
+                            Image(systemName: unfolded ? "chevron.up" : "chevron.down")
+                                .scaledFont(size: 13, weight: .semibold, relativeTo: .footnote)
+                                .foregroundColor(.dimText)
+                        }
+                        .padding(.horizontal, 14)
+                        .frame(minHeight: 44)
+                        .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+                    if unfolded {
+                        ForEach(closed) { task in
+                            Divider().overlay(Color.white.opacity(0.06)).padding(.leading, 46)
+                            taskRow(task, in: thread)
+                        }
                     }
                 }
             }
@@ -1011,6 +1119,8 @@ struct ThreadTaskRow: View {
     /// that is only ever a tick.
     var toolLabel: String?
     var onOpenTool: (() -> Void)?
+    /// The flight page's "Next" card: the title and hint read larger. (v6.0 · D3)
+    var prominent: Bool = false
 
     private var presentation: ThreadTaskPresentation { .make(for: task) }
     private var links: [(label: String, url: URL)] {
@@ -1024,7 +1134,8 @@ struct ThreadTaskRow: View {
                 VStack(alignment: .leading, spacing: 2) {
                     HStack(spacing: 6) {
                         Text(presentation.title)
-                            .scaledFont(size: 14, weight: .semibold, relativeTo: .subheadline)
+                            .scaledFont(size: prominent ? 20 : 14, weight: .semibold,
+                                        relativeTo: prominent ? .title3 : .subheadline)
                             .foregroundColor(task.state == .notApplicable ? .dimText : .primaryText)
                             .strikethrough(task.state == .notApplicable)
                         if task.kind == .auto {
@@ -1042,7 +1153,7 @@ struct ThreadTaskRow: View {
                             .foregroundColor(.secondaryText)
                     } else if let hint = presentation.hint {
                         Text(hint)
-                            .scaledFont(size: 12, relativeTo: .caption)
+                            .scaledFont(size: prominent ? 15 : 12, relativeTo: prominent ? .subheadline : .caption)
                             .foregroundColor(.dimText)
                             .fixedSize(horizontal: false, vertical: true)
                     }

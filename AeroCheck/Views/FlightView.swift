@@ -1352,8 +1352,8 @@ extension FlightView {
                 .padding(.bottom, 8)
                 .background(theme.panel)
 
-            // GS · ALT · TRK · NEXT, in the flight phases.
-            if appState.activeChecklist.showsSpeedIndicator(for: appState.currentPhase) {
+            // GS · ALT · TRK · NEXT, whenever the aircraft moves (Taxi to After landing).
+            if CockpitStripRule.showsStrip(in: appState.currentPhase) {
                 CockpitInstrumentStrip(
                     speedKnots: locationManager.displaySpeedKnots,
                     targetSpeed: appState.activeChecklist.targetSpeed(for: appState.currentPhase),

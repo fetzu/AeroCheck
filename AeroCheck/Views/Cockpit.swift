@@ -36,6 +36,14 @@ enum CockpitPaneRule {
     }
 }
 
+/// Where the Cockpit shows its instrument strip: every phase in which the aircraft moves, Taxi to
+/// After landing. Before the taxi and after it, GS would only read zero. (on-device review #1, C-14)
+enum CockpitStripRule {
+    static func showsStrip(in phase: ChecklistPhase) -> Bool {
+        (ChecklistPhase.taxi.rawValue...ChecklistPhase.afterLanding.rawValue).contains(phase.rawValue)
+    }
+}
+
 /// A thumb-bar button: what it does, in `CockpitType.button`, and what it does it to, underneath.
 /// Always `CockpitTarget.thumb` tall.
 struct CockpitThumbButton: View {

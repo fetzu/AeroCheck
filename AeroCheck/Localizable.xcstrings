@@ -1,6 +1,40 @@
 {
   "sourceLanguage": "en",
   "strings": {
+    "ground.proUnlocksAll": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Unlocks every aircraft: see the plans"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Débloque tous les avions : voir les formules"
+          }
+        }
+      }
+    },
+    "ground.visibilityInSettings": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Choose which aircraft show here, in Settings"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Choisir les avions affichés ici, dans les Réglages"
+          }
+        }
+      }
+    },
     "ground.yourAircraft": {
       "extractionState": "manual",
       "localizations": {

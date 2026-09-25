@@ -1422,6 +1422,9 @@ enum L10n {
         static let yourAircraft = String(localized: "ground.yourAircraft")
         static let aircraftDetails = String(localized: "ground.aircraftDetails")
         static let switchAircraft = String(localized: "ground.switchAircraft")
+        // The Aircraft tab's two links (on-device review #2, G-06)
+        static let proUnlocksAll = String(localized: "ground.proUnlocksAll")
+        static let visibilityInSettings = String(localized: "ground.visibilityInSettings")
     }
 
     /// Checklist items left unchecked by NEXT. (v6.0 · B2)

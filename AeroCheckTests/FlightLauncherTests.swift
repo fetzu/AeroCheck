@@ -29,7 +29,7 @@ final class FlightLauncherTests: XCTestCase {
             aircraftDataService: acs,
             airportDataService: AirportDataService(),
             flightEventDetector: FlightEventDetector(),
-            flightPlanManager: FlightPlanManager()
+            flightPlanManager: makeTestPlanManager()
         )
     }
 

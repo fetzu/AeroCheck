@@ -29,6 +29,7 @@
 		A5000033111111110000002 /* LogbookPDFTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A5000033111111110000001 /* LogbookPDFTests.swift */; };
 		A5000034111111110000002 /* NewFlightIntentTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A5000034111111110000001 /* NewFlightIntentTests.swift */; };
 		A5000035111111110000002 /* TripTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A5000035111111110000001 /* TripTests.swift */; };
+		A50000C1111111110000002 /* TestDatastore.swift in Sources */ = {isa = PBXBuildFile; fileRef = A50000C1111111110000001 /* TestDatastore.swift */; };
 		A5000039111111110000002 /* WaypointPassageTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A5000039111111110000001 /* WaypointPassageTests.swift */; };
 		A5000040111111110000002 /* TripPlannerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A5000040111111110000001 /* TripPlannerTests.swift */; };
 		A5000041111111110000002 /* DivertPlannerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A5000041111111110000001 /* DivertPlannerTests.swift */; };
@@ -297,6 +298,7 @@
 		A5000033111111110000001 /* LogbookPDFTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LogbookPDFTests.swift; sourceTree = "<group>"; };
 		A5000034111111110000001 /* NewFlightIntentTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NewFlightIntentTests.swift; sourceTree = "<group>"; };
 		A5000035111111110000001 /* TripTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TripTests.swift; sourceTree = "<group>"; };
+		A50000C1111111110000001 /* TestDatastore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TestDatastore.swift; sourceTree = "<group>"; };
 		A5000039111111110000001 /* WaypointPassageTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WaypointPassageTests.swift; sourceTree = "<group>"; };
 		A5000040111111110000001 /* TripPlannerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TripPlannerTests.swift; sourceTree = "<group>"; };
 		A5000041111111110000001 /* DivertPlannerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DivertPlannerTests.swift; sourceTree = "<group>"; };
@@ -550,6 +552,7 @@
 				A5000033111111110000001 /* LogbookPDFTests.swift */,
 				A5000034111111110000001 /* NewFlightIntentTests.swift */,
 				A5000035111111110000001 /* TripTests.swift */,
+				A50000C1111111110000001 /* TestDatastore.swift */,
 				A5000039111111110000001 /* WaypointPassageTests.swift */,
 				A5000040111111110000001 /* TripPlannerTests.swift */,
 				A5000041111111110000001 /* DivertPlannerTests.swift */,
@@ -1034,6 +1037,7 @@
 				A5000033111111110000002 /* LogbookPDFTests.swift in Sources */,
 				A5000034111111110000002 /* NewFlightIntentTests.swift in Sources */,
 				A5000035111111110000002 /* TripTests.swift in Sources */,
+				A50000C1111111110000002 /* TestDatastore.swift in Sources */,
 				A5000039111111110000002 /* WaypointPassageTests.swift in Sources */,
 				A5000040111111110000002 /* TripPlannerTests.swift in Sources */,
 				A5000041111111110000002 /* DivertPlannerTests.swift in Sources */,

@@ -124,9 +124,31 @@ class DataPersistenceManager: ObservableObject {
         iCloudContainerURL != nil
     }
 
+    /// False only for a datastore confined to a directory (`init(rootDirectory:)`), which must never
+    /// be re-pointed at the real iCloud container by an account change.
+    private let followsICloud: Bool
+
     // MARK: - Initialization
 
+    /// A datastore confined to `rootDirectory`, for tests.
+    ///
+    /// The test host IS the app, so `shared` is the simulator app's real datastore. A
+    /// `FlightThreadManager` built in a test wrote its threads there, and its `saveTrips` writes the
+    /// whole `trips` array — which, before the async load lands, holds only the test's trip. A run
+    /// replaced the app's `trips.json` that way and a real two-leg trip disappeared.
+    ///
+    /// Everything this instance hands out stays under `rootDirectory`: it never resolves the iCloud
+    /// container, never runs the Documents → Application Support migration (whose flag lives in
+    /// `UserDefaults.standard`), and ignores iCloud account changes.
+    init(rootDirectory: URL) {
+        self.documentsDirectory = rootDirectory.appendingPathComponent("Documents", isDirectory: true)
+        self.applicationSupportDirectory = rootDirectory
+        self.followsICloud = false
+        createDirectoryStructure()
+    }
+
     private init() {
+        self.followsICloud = true
         // Cache directory URLs once to avoid repeated calls to
         // url(forUbiquityContainerIdentifier:) which blocks the main thread
         self.documentsDirectory = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first
@@ -182,6 +204,7 @@ class DataPersistenceManager: ObservableObject {
     /// the main thread from a notification, and blocking it for the multi-second worst case of
     /// `url(forUbiquityContainerIdentifier:)` is exactly what the launch path already avoids.
     func reresolveUbiquityContainer() {
+        guard followsICloud else { return }
         let container = Self.resolveUbiquityContainer(identifier: "iCloud.com.fetzu.aerocheck", timeout: 2.0)
         guard container != iCloudContainerURL else { return }
 

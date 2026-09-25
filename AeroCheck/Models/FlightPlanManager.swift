@@ -22,7 +22,9 @@ class FlightPlanManager: ObservableObject {
 
     private let activeFlightPlanKey = "activeFlightPlan"
     private var chronometerTimer: Timer?
-    private let persistence = DataPersistenceManager.shared
+    /// Where the plan files live. Injectable for the same reason as `defaults`: in a test, `.shared`
+    /// is the simulator app's own datastore.
+    private let persistence: DataPersistenceManager
     /// Where the active-plan pointer lives. Injectable so tests get their own suite: the test host
     /// shares the app's bundle id, so a test that activated a plan against `.standard` left a
     /// synthetic route showing as ACTIVE in the real app on that simulator.
@@ -46,8 +48,9 @@ class FlightPlanManager: ObservableObject {
     /// True once the on-disk plans have arrived — see `FlightThreadManager.hasLoadedThreads`.
     @Published private(set) var hasLoadedPlans = false
 
-    init(defaults: UserDefaults = .standard) {
+    init(defaults: UserDefaults = .standard, persistence: DataPersistenceManager? = nil) {
         self.defaults = defaults
+        self.persistence = persistence ?? DataPersistenceManager.shared
         // Active plan + chronometer come from UserDefaults (local, fast) and are needed for
         // initial UI. The plans themselves live in iCloud Drive: enumerating/reading them can
         // stall on iCloud — for an evicted file, long enough on a slow network to trip the launch

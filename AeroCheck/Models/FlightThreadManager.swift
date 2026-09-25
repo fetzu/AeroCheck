@@ -7,6 +7,8 @@ import CoreLocation
 /// in files via `DataPersistenceManager`, the "which one am I following" pointer in `UserDefaults`,
 /// and an injectable `defaults:` because the test host shares the app's bundle id (a test that wrote
 /// to `.standard` once left a synthetic plan showing as ACTIVE in the real app on that simulator).
+/// `persistence:` is injectable for the same reason: `.shared` is the host app's own datastore, and a
+/// test manager's `saveTrips` replaced the simulator app's `trips.json` with the test's one trip.
 @MainActor
 class FlightThreadManager: ObservableObject {
 
@@ -38,7 +40,7 @@ class FlightThreadManager: ObservableObject {
     // MARK: - Private Properties
 
     private let currentThreadKey = "currentFlightThreadId"
-    private let persistence = DataPersistenceManager.shared
+    private let persistence: DataPersistenceManager
     private let defaults: UserDefaults
     private let notifications: NotificationService
     /// Mirrors `AppSettings.enableCostTracking`. Held here rather than reached for, because the task
@@ -51,9 +53,12 @@ class FlightThreadManager: ObservableObject {
 
     // MARK: - Initialization
 
-    init(defaults: UserDefaults = .standard, notifications: NotificationService? = nil) {
+    init(defaults: UserDefaults = .standard,
+         notifications: NotificationService? = nil,
+         persistence: DataPersistenceManager? = nil) {
         self.defaults = defaults
         self.notifications = notifications ?? NotificationService.shared
+        self.persistence = persistence ?? DataPersistenceManager.shared
         loadCurrentThreadPointer()
         Task { [weak self] in
             // Trips FIRST: `hasLoadedThreads` is what the flights list waits on, and a leg whose

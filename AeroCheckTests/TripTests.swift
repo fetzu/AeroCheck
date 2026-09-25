@@ -150,14 +150,6 @@ final class TripTests: XCTestCase {
     // MARK: - Forming and dissolving
 
     @MainActor
-    private func manager() -> FlightThreadManager {
-        let suite = "TripTests.\(UUID().uuidString)"
-        let defaults = UserDefaults(suiteName: suite)!
-        addTeardownBlock { UserDefaults.standard.removePersistentDomain(forName: suite) }
-        return FlightThreadManager(defaults: defaults)
-    }
-
-    @MainActor
     private func plan(_ from: String, _ to: String) -> FlightPlan {
         var plan = FlightPlan(name: "\(from) → \(to)")
         plan.waypoints = [
@@ -171,7 +163,7 @@ final class TripTests: XCTestCase {
     func testFormingATripLiftsSharedPreparationOffTheFirstLeg() {
         // This is the "add a leg later" path: a standalone flight already has its booking and its
         // weather ticked, and promoting it to a trip must carry that up rather than re-ask.
-        let m = manager()
+        let m = makeTestThreadManager()
         let a = m.createThread(from: plan("LSZQ", "LFSB"))
         let b = m.createThread(from: plan("LFSB", "LSGY"))
         defer { m.deleteThread(threadId: a.id); m.deleteThread(threadId: b.id) }
@@ -198,7 +190,7 @@ final class TripTests: XCTestCase {
 
     @MainActor
     func testATripNeedsTwoLegs() {
-        let m = manager()
+        let m = makeTestThreadManager()
         let a = m.createThread(from: plan("LSZQ", "LSGY"))
         defer { m.deleteThread(threadId: a.id) }
         XCTAssertNil(m.formTrip(from: [a.id]), "one leg is a flight, not a trip")
@@ -209,7 +201,7 @@ final class TripTests: XCTestCase {
     func testRemovingALegDissolvesTheTripAndGivesThePreparationBack() {
         // A trip of one leg is just a flight. Without handing the shared tasks back, deleting one leg
         // would take the survivor's whole preparation with it.
-        let m = manager()
+        let m = makeTestThreadManager()
         let a = m.createThread(from: plan("LSZQ", "LFSB"))
         let b = m.createThread(from: plan("LFSB", "LSGY"))
         defer { m.deleteThread(threadId: b.id) }
@@ -226,7 +218,7 @@ final class TripTests: XCTestCase {
 
     @MainActor
     func testTickingASharedTaskIsSeenFromEveryLeg() {
-        let m = manager()
+        let m = makeTestThreadManager()
         let a = m.createThread(from: plan("LSZQ", "LFSB"))
         let b = m.createThread(from: plan("LFSB", "LSGY"))
         defer { m.deleteThread(threadId: a.id); m.deleteThread(threadId: b.id) }
@@ -350,7 +342,7 @@ extension TripTests {
     /// The manager is what records the acknowledgement, from whichever leg the pilot ticked.
     @MainActor
     func testTickingFromALegRecordsThatLeg() {
-        let m = manager()
+        let m = makeTestThreadManager()
         let a = m.createThread(from: plan("LSZQ", "LFSB"))
         let b = m.createThread(from: plan("LFSB", "LSGY"))
         defer { m.deleteThread(threadId: a.id); m.deleteThread(threadId: b.id) }
@@ -366,7 +358,7 @@ extension TripTests {
 
     @MainActor
     func testUntickingRetractsTheAcknowledgementEverywhere() {
-        let m = manager()
+        let m = makeTestThreadManager()
         let a = m.createThread(from: plan("LSZQ", "LFSB"))
         let b = m.createThread(from: plan("LFSB", "LSGY"))
         defer { m.deleteThread(threadId: a.id); m.deleteThread(threadId: b.id) }
@@ -386,7 +378,7 @@ extension TripTests {
     /// F14. The app's only delete affordance called `deleteThread`, which knows nothing about trips.
     @MainActor
     func testDeletingALegNeverLeavesADanglingIdInTheTrip() {
-        let m = manager()
+        let m = makeTestThreadManager()
         let a = m.createThread(from: plan("LSZQ", "LFSB"))
         let b = m.createThread(from: plan("LFSB", "LSGY"))
         let c = m.createThread(from: plan("LSGY", "LSZQ"))
@@ -406,7 +398,7 @@ extension TripTests {
     /// produced by any later leg either — it existed nowhere.
     @MainActor
     func testFormingATripCarriesUpEveryLegsTicksNotJustTheFirsts() {
-        let m = manager()
+        let m = makeTestThreadManager()
         let a = m.createThread(from: plan("LSZQ", "LFSB"))
         let b = m.createThread(from: plan("LFSB", "LSGY"))
         defer { m.deleteThread(threadId: a.id); m.deleteThread(threadId: b.id) }
@@ -425,7 +417,7 @@ extension TripTests {
     /// F-formTrip. The guard was a bare count, so a repeated or unknown id still landed in legIds.
     @MainActor
     func testFormTripRefusesDuplicateAndUnknownIds() {
-        let m = manager()
+        let m = makeTestThreadManager()
         let a = m.createThread(from: plan("LSZQ", "LFSB"))
         defer { m.deleteThread(threadId: a.id) }
 
@@ -445,7 +437,7 @@ extension TripTests {
     func testALegPlannedAfterALandingJoinsTheFlightThatLanded() {
         // `formTrip` refuses a flight that has flown, on purpose. A continuation is exactly that:
         // the next leg of a journey, planned at the aerodrome the weather chose.
-        let m = manager()
+        let m = makeTestThreadManager()
         let a = m.createThread(from: plan("LSZS", "LSZE"))
         fly(m, a.id)
         let b = m.createThread(from: plan("LSZE", "LSZQ"))
@@ -459,7 +451,7 @@ extension TripTests {
 
     @MainActor
     func testAfterADiversionTheBriefingsComeBackUnticked() {
-        let m = manager()
+        let m = makeTestThreadManager()
         let a = m.createThread(from: plan("LSZS", "LSZQ"))
         for key in [ThreadTaskKey.weatherBriefed, .notamChecked, .aircraftReserved] {
             if let task = m.thread(withId: a.id)?.tasks.first(where: { $0.key == key }) {
@@ -481,7 +473,7 @@ extension TripTests {
 
     @MainActor
     func testANewLegGoesRightAfterTheOneItFollows() {
-        let m = manager()
+        let m = makeTestThreadManager()
         let a = m.createThread(from: plan("LSZQ", "LSZE"))
         let c = m.createThread(from: plan("LSPV", "LSZS"))
         let b = m.createThread(from: plan("LSZE", "LSPV"))
@@ -497,7 +489,7 @@ extension TripTests {
     func testAfterLandingAtAStopTheNextLegIsTodaysFlight() {
         // Only the first leg has a firm date. Without this rule, START FLIGHT after landing at the
         // stop started an unplanned flight: the leg with a route and a nav log waiting flew without.
-        let m = manager()
+        let m = makeTestThreadManager()
         let a = m.createThread(from: plan("LSZS", "LSZE"))
         let b = m.createThread(from: plan("LSZE", "LSZQ"))
         defer { m.deleteThread(threadId: a.id); m.deleteThread(threadId: b.id) }
@@ -511,7 +503,7 @@ extension TripTests {
 
     @MainActor
     func testAnEstimatedDepartureIsNotAFirmDate() {
-        let m = manager()
+        let m = makeTestThreadManager()
         var later = plan("LSZE", "LSZQ")
         later.plannedDepartureTime = Date().addingTimeInterval(3600)
         later.departureIsEstimate = true
@@ -525,10 +517,9 @@ extension TripTests {
 
     @MainActor
     func testAddingAStopMakesTwoLegsAndJoiningTakesItBack() {
-        let suite = "TripTests.plans.\(UUID().uuidString)"
-        addTeardownBlock { UserDefaults.standard.removePersistentDomain(forName: suite) }
-        let plans = FlightPlanManager(defaults: UserDefaults(suiteName: suite)!)
-        let m = manager()
+        let datastore = makeTestDatastore()
+        let plans = makeTestPlanManager(datastore: datastore)
+        let m = makeTestThreadManager(datastore: datastore)
         plans.nextLegPlanId = { m.nextLegPlanId(after: $0) }
 
         var route = FlightPlan(name: "Return", plannedDepartureTime: Date().addingTimeInterval(86_400),
@@ -542,7 +533,8 @@ extension TripTests {
         let thread = m.createThread(from: route)
         var created: [UUID] = [route.id]
         var createdThreads: [UUID] = [thread.id]
-        // Only what this test made: the manager also loads the host app's own threads from disk.
+        // Only what this test made, never everything the managers hold. The datastore goes with the
+        // test; deleting the threads also cancels any reminder `createThread` armed in the host app.
         defer {
             for id in created { if let p = plans.flightPlans.first(where: { $0.id == id }) { plans.deleteFlightPlan(p) } }
             createdThreads.forEach { m.deleteThread(threadId: $0) }
@@ -588,7 +580,7 @@ extension TripTests {
 
     @MainActor
     func testLandingElsewhereRenamesTheFlightAndOffersTheRest() {
-        let m = manager()
+        let m = makeTestThreadManager()
         let a = m.createThread(from: plan("LSZS", "LSZQ"))
         defer { m.deleteThread(threadId: a.id) }
         m.recordLanding(threadId: a.id, plannedIdent: "LSZQ", landedIdent: "LSZE", landedName: "Bad Ragaz")
@@ -601,10 +593,9 @@ extension TripTests {
 
     @MainActor
     func testContinuingMakesTheNextLegFromTheDiversionField() {
-        let suite = "TripTests.continue.\(UUID().uuidString)"
-        addTeardownBlock { UserDefaults.standard.removePersistentDomain(forName: suite) }
-        let plans = FlightPlanManager(defaults: UserDefaults(suiteName: suite)!)
-        let m = manager()
+        let datastore = makeTestDatastore()
+        let plans = makeTestPlanManager(datastore: datastore)
+        let m = makeTestThreadManager(datastore: datastore)
         let airports = AirportDataService()
 
         var flown = FlightPlan(name: "Return")
@@ -646,10 +637,9 @@ extension TripTests {
         // Found on the simulator: leg 1 of LSZQ → LSMM → LSZS landed at LSPG. Home then offered
         // LSMM → LSZS as today's flight to an aircraft standing at LSPG, and the continuation was
         // hidden because a next leg existed.
-        let suite = "TripTests.midTrip.\(UUID().uuidString)"
-        addTeardownBlock { UserDefaults.standard.removePersistentDomain(forName: suite) }
-        let plans = FlightPlanManager(defaults: UserDefaults(suiteName: suite)!)
-        let m = manager()
+        let datastore = makeTestDatastore()
+        let plans = makeTestPlanManager(datastore: datastore)
+        let m = makeTestThreadManager(datastore: datastore)
 
         var first = FlightPlan(name: "Trip")
         first.waypoints = [("LSZQ", 7.0), ("W1", 7.3), ("W2", 7.6), ("LSMM", 7.9)].map {
@@ -713,5 +703,42 @@ extension TripTests {
         let files = try FileManager.default.contentsOfDirectory(atPath: directory.path)
         XCTAssertEqual(files.count, 1, "the file named after the old label must go: \(files)")
         XCTAssertEqual(DataPersistenceManager.decodeFlightThreads(in: directory).first?.routeLabel, "LSZQ → LSPG")
+    }
+
+    // MARK: - Test isolation
+
+    /// A test manager on `.shared` replaced the simulator app's own `trips.json` with the test's one
+    /// trip (2026-09-25). A directory-scoped datastore must keep every path under its root, even
+    /// after an iCloud account change, and a manager built on it must write there.
+    @MainActor
+    func testADirectoryScopedDatastoreKeepsThreadsAndTripsInsideIt() async throws {
+        let datastore = makeTestDatastore()
+        datastore.reresolveUbiquityContainer()
+        XCTAssertFalse(datastore.isICloudAvailable)
+        let root = datastore.localAppDirectory.standardizedFileURL.path + "/"
+        for url in [datastore.flightThreadsDirectory, datastore.tripsFileURL, datastore.legacyLocalTripsFileURL,
+                    datastore.navigationPlansDirectory, datastore.flightsDirectory, datastore.mapTilesDirectory,
+                    datastore.activeFlightStateURL, datastore.activeFlightTrackDeltaURL] {
+            XCTAssertTrue(url.standardizedFileURL.path.hasPrefix(root), "\(url.path) is outside \(root)")
+        }
+
+        let m = makeTestThreadManager(datastore: datastore)
+        let a = m.createThread(from: plan("LSZQ", "LFSB"))
+        let b = m.createThread(from: plan("LFSB", "LSGY"))
+        defer { m.deleteThread(threadId: a.id); m.deleteThread(threadId: b.id) }
+        let trip = try XCTUnwrap(m.formTrip(from: [a.id, b.id]))
+
+        // Both writes are off-main; wait for them to land.
+        let deadline = Date().addingTimeInterval(5)
+        var savedTrips: [Trip] = []
+        var savedThreads: [FlightThread] = []
+        while Date() < deadline {
+            savedTrips = await datastore.loadTripsOffMain()
+            savedThreads = DataPersistenceManager.decodeFlightThreads(in: datastore.flightThreadsDirectory)
+            if savedTrips.count == 1, savedThreads.count == 2 { break }
+            try await Task.sleep(nanoseconds: 50_000_000)
+        }
+        XCTAssertEqual(savedTrips.map(\.id), [trip.id])
+        XCTAssertEqual(Set(savedThreads.map(\.id)), [a.id, b.id])
     }
 }

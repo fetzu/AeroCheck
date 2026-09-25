@@ -139,48 +139,60 @@ struct FlightLogView: View {
     /// Per-aircraft accent palette for the hours-by-aircraft bars.
     private static let aircraftPalette: [Color] = [.aviationGold, .altimeterBlue, .aviationGreen, .aviationAmber, .orange]
     
-    var body: some View {
-        NavigationStack {
-            ZStack {
-                Color.cockpitBackground
-                    .ignoresSafeArea()
-                
-                VStack(spacing: 0) {
-                    if mode == .combined { segmentPicker }
-                    if mode == .plan || (mode == .combined && segment == .upcoming) {
-                        UpcomingFlightsList(threads: threadManager.unfinishedThreads,
-                                            trips: threadManager.trips,
-                                            onOpen: { threadToOpen = $0 },
-                                            onPlanNew: { planningNewFlight = seedIntent() },
-                                            // The Plan tab has its own Routes segment, one tap away.
-                                            onOpenRoutes: mode == .plan ? nil : { showFlightPlanning = true })
-                    } else {
-                        pastContent
-                    }
+    /// In the Plan tab, the tab's own navigation stack holds this list. A second stack inside it put
+    /// its bar in the tab bar's row and dragged the Plan picker up under the tabs. (on-device review
+    /// #1, G-07)
+    @ViewBuilder
+    private var navigationContainer: some View {
+        if mode == .plan {
+            listContent
+        } else {
+            NavigationStack { listContent }
+        }
+    }
+
+    private var listContent: some View {
+        ZStack {
+            Color.cockpitBackground
+                .ignoresSafeArea()
+            
+            VStack(spacing: 0) {
+                if mode == .combined { segmentPicker }
+                if mode == .plan || (mode == .combined && segment == .upcoming) {
+                    UpcomingFlightsList(threads: threadManager.unfinishedThreads,
+                                        trips: threadManager.trips,
+                                        onOpen: { threadToOpen = $0 },
+                                        onPlanNew: { planningNewFlight = seedIntent() },
+                                        // The Plan tab has its own Routes segment, one tap away.
+                                        onOpenRoutes: mode == .plan ? nil : { showFlightPlanning = true })
+                } else {
+                    pastContent
                 }
             }
-            .navigationTitle("")
-            .navigationBarTitleDisplayMode(.inline)
-            // In the Plan tab this list has no toolbar at all; an empty bar only pushed it down. (v6.0 · P1)
-            .toolbar(mode == .plan ? .hidden : .automatic, for: .navigationBar)
-            .toolbar {
-                // Close + import only — the big in-content "Flight Log" title and the gold Export
-                // button live in the dashboard header now (concept). (v4 UI/UX Revamp)
-                if mode == .combined {
-                    ToolbarItem(placement: .cancellationAction) {
-                        Button(L10n.FlightLog.close) { if let onClose { onClose() } else { dismiss() } }
-                    }
+        }
+        .navigationTitle("")
+        .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            // Close + import only — the big in-content "Flight Log" title and the gold Export
+            // button live in the dashboard header now (concept). (v4 UI/UX Revamp)
+            if mode == .combined {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button(L10n.FlightLog.close) { if let onClose { onClose() } else { dismiss() } }
                 }
-                if mode != .plan {
-                    ToolbarItem(placement: .primaryAction) {
-                        Button(action: { showImportPicker = true }) {
-                            Label(L10n.FlightLog.importFlights, systemImage: "square.and.arrow.down")
-                                .labelStyle(.titleAndIcon)
-                        }
+            }
+            if mode != .plan {
+                ToolbarItem(placement: .primaryAction) {
+                    Button(action: { showImportPicker = true }) {
+                        Label(L10n.FlightLog.importFlights, systemImage: "square.and.arrow.down")
+                            .labelStyle(.titleAndIcon)
                     }
                 }
             }
         }
+    }
+
+    var body: some View {
+        navigationContainer
         // Only as its own cover. Embedded in a ground tab, a preferred scheme would darken the whole
         // window, and the root could no longer read the device's light/dark for Auto. (v6.0 · P1)
         .preferredColorScheme(mode == .combined ? .dark : nil)

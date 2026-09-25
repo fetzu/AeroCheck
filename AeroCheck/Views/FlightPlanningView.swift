@@ -133,16 +133,26 @@ struct FlightPlanningView: View {
 
     /// Wraps the list (or empty state) in its own NavigationStack so its toolbar (Done + filter + add)
     /// lives in the LEFT panel's nav bar, not spanning both columns. (v4 UI/UX Revamp — user feedback)
+    /// Embedded in the Plan tab it has no stack of its own: the tab's holds it, and the filter and +
+    /// join the tab bar's row. A second stack there dragged the Plan picker up under the tabs.
+    /// (on-device review #1, G-07)
+    @ViewBuilder
     private func listNavStack<Content: View>(@ViewBuilder content: () -> Content) -> some View {
-        NavigationStack {
-            ZStack {
-                Color.cockpitBackground.ignoresSafeArea()
-                content()
-            }
-            .navigationTitle(L10n.Nav.flightPlans)
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar { listToolbar }
+        if isEmbedded {
+            listPanel(content())
+        } else {
+            NavigationStack { listPanel(content()) }
         }
+    }
+
+    private func listPanel<Content: View>(_ content: Content) -> some View {
+        ZStack {
+            Color.cockpitBackground.ignoresSafeArea()
+            content
+        }
+        .navigationTitle(isEmbedded ? "" : L10n.Nav.flightPlans)
+        .navigationBarTitleDisplayMode(.inline)
+        .toolbar { listToolbar }
     }
 
     /// The list actions — they scope the list, so they belong to its panel: Done (top-left),

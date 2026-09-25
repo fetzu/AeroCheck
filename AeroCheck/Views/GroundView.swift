@@ -62,23 +62,32 @@ struct PlanTabView: View {
     @State private var mapPresented = true
 
     var body: some View {
-        VStack(spacing: 0) {
-            Picker(L10n.Ground.plan, selection: $section) {
-                ForEach(Section.allCases, id: \.self) { Text($0.title).tag($0) }
-            }
-            .pickerStyle(.segmented)
-            .padding(.horizontal, 16)
-            .padding(.vertical, 8)
+        // One navigation stack, at the tab's root, as the other tabs have. The sections bring none of
+        // their own: on iPadOS a nested stack's bar shares the tab bar's row and pulled this picker up
+        // under the tabs. A section's actions (Routes' filter and +) join that row. (on-device review
+        // #1, G-07)
+        NavigationStack {
+            VStack(spacing: 0) {
+                Picker(L10n.Ground.plan, selection: $section) {
+                    ForEach(Section.allCases, id: \.self) { Text($0.title).tag($0) }
+                }
+                .pickerStyle(.segmented)
+                .padding(.horizontal, 16)
+                .padding(.vertical, 8)
 
-            switch section {
-            case .flights:
-                FlightLogView(mode: .plan)
-            case .routes:
-                FlightPlanningView(isEmbedded: true)
-            case .map:
-                NavigationMapView(isPresented: $mapPresented, showsCloseButton: false)
+                switch section {
+                case .flights:
+                    FlightLogView(mode: .plan)
+                case .routes:
+                    FlightPlanningView(isEmbedded: true)
+                case .map:
+                    NavigationMapView(isPresented: $mapPresented, showsCloseButton: false)
+                }
             }
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+            .background(Color.cockpitBackground.ignoresSafeArea())
+            .navigationTitle("")
+            .navigationBarTitleDisplayMode(.inline)
         }
-        .background(Color.cockpitBackground.ignoresSafeArea())
     }
 }

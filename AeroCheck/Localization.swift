@@ -1433,6 +1433,27 @@ enum L10n {
         static let hint = String(localized: "deferred.hint")
         static let check = String(localized: "deferred.check")
         static let review = String(localized: "deferred.review")
+        static let deferredTag = String(localized: "deferred.tag")
+    }
+
+    /// The in-flight Cockpit on iPad. (v6.0 · P2)
+    enum Cockpit {
+        static let checklist = String(localized: "cockpit.checklist")
+        static let map = String(localized: "cockpit.map")
+        static let check = String(localized: "cockpit.check")
+        static let deferItem = String(localized: "cockpit.defer")
+        static let deferHint = String(localized: "cockpit.deferHint")
+        /// "NEXT: TAXI"
+        static func next(_ phase: String) -> String { String(format: String(localized: "cockpit.next"), phase) }
+        static func nextPhaseA11y(_ phase: String) -> String {
+            String(format: String(localized: "cockpit.nextPhaseA11y"), phase)
+        }
+        static let allChecked = String(localized: "cockpit.allChecked")
+        static let stepBackHint = String(localized: "cockpit.stepBackHint")
+        static let menu = String(localized: "cockpit.menu")
+        static let display = String(localized: "cockpit.display")
+        static let options = String(localized: "cockpit.options")
+        static let endFlightHint = String(localized: "cockpit.endFlightHint")
     }
 
     enum Trip {

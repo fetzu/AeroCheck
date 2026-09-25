@@ -1290,6 +1290,47 @@ class AppState {
         checkpointActiveFlight(force: true)
     }
 
+    /// Keep the current item for later and move on: the Cockpit's DEFER. The item joins the deferred
+    /// list, which follows the pilot until it is checked. A section header isn't an item to defer;
+    /// the highlight just moves past it. (v6.0 · P2)
+    func deferHighlightedItem() {
+        let items = activeChecklist.visibleItems(for: currentPhase, learningMode: effectiveLearningMode)
+        let index = currentHighlightedItem[currentPhase] ?? 0
+        guard items.indices.contains(index) else { return }
+        let item = items[index]
+        if !item.isHeader {
+            var ids = deferredItems[currentPhase] ?? []
+            if !ids.contains(item.id) { ids.append(item.id) }
+            deferredItems[currentPhase] = ids
+        }
+        if index >= items.count - 1 {
+            markLastItemComplete(learningMode: effectiveLearningMode)
+        } else {
+            advanceHighlightedItem(learningMode: effectiveLearningMode)
+        }
+        checkpointActiveFlight(force: true)
+    }
+
+    /// Go back to a checked item: it and everything after it are open again, as on a paper list where
+    /// the finger moves back up. An item deferred further down is open again too, so it leaves the
+    /// deferred list rather than being listed twice. (v6.0 · P2)
+    func stepBack(toItemAt index: Int) {
+        let items = activeChecklist.visibleItems(for: currentPhase, learningMode: effectiveLearningMode)
+        guard items.indices.contains(index), index < (currentHighlightedItem[currentPhase] ?? 0) else { return }
+        currentHighlightedItem[currentPhase] = index
+        let reopened = Set(items[index...].map(\.id))
+        if let ids = deferredItems[currentPhase] {
+            let kept = ids.filter { !reopened.contains($0) }
+            deferredItems[currentPhase] = kept.isEmpty ? nil : kept
+        }
+        checkpointActiveFlight(force: true)
+    }
+
+    /// The items of the current phase deferred with DEFER, for drawing them as deferred rather than done.
+    var currentPhaseDeferredIds: Set<String> {
+        Set(deferredItems[currentPhase] ?? [])
+    }
+
     /// Whether the current phase has nothing to show at all. (SEC-C36)
     func currentPhaseHasNoVisibleItems(learningMode: Bool) -> Bool {
         activeChecklist.visibleItemCount(for: currentPhase, learningMode: learningMode) == 0
@@ -1709,9 +1750,16 @@ class AppState {
         // and the deferred list, so an orange phase always has its unchecked items listed. (v6.0 · B2)
         let checklistWorkedThrough = !settings.stepByStepHighlighting
             || areAllItemsCompleted(learningMode: effectiveLearningMode)
-        // Whatever is left unchecked follows the pilot as deferred items until checked. (v6.0 · B2)
-        let open = openItems(in: currentPhase)
-        if !open.isEmpty { deferredItems[currentPhase] = open.map(\.id) }
+        // Whatever is left unchecked follows the pilot as deferred items until checked (v6.0 · B2),
+        // together with what was deferred inside the phase with DEFER (v6.0 · P2), in list order.
+        let open = openItems(in: currentPhase).map(\.id)
+        let deferredHere = deferredItems[currentPhase] ?? []
+        if !open.isEmpty {
+            let order = activeChecklist.visibleItems(for: currentPhase, learningMode: true).map(\.id)
+            let all = Set(deferredHere).union(open)
+            deferredItems[currentPhase] = order.filter(all.contains)
+        }
+        let leftSomethingDeferred = !(deferredItems[currentPhase] ?? []).isEmpty
         if currentPhase.hasMissingRequiredAction(
             engineStarted: engineStartTime != nil,
             linedUp: lineUpTime != nil,
@@ -1722,7 +1770,9 @@ class AppState {
             // instead of inheriting `.completed` from the 0 >= 0 comparison.
             phaseCompletionStatus[currentPhase] = .empty
         } else {
-            phaseCompletionStatus[currentPhase] = checklistWorkedThrough ? .completed : .skipped
+            // Every item reached, but one of them deferred: not done yet. It turns green once the last
+            // deferred item is checked (`checkDeferredItem`).
+            phaseCompletionStatus[currentPhase] = checklistWorkedThrough && !leftSomethingDeferred ? .completed : .skipped
         }
         
         // Update highest completed phase

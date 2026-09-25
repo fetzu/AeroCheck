@@ -250,6 +250,8 @@ struct NavigationMapView: View {
     /// Timer.publish recreated each render can stall, so the cruise check never fired. (v4 UI/UX Revamp fix)
     @State private var cruiseEvalTimer = Timer.publish(every: 5, on: .main, in: .common).autoconnect()
     @State private var mapOrientationMode: MapOrientationMode = .northUp
+    /// The last MARK or leg-timer reset, offered back for a few seconds. (v6.0 · C2)
+    @State private var undoOffer: NavUndoOffer?
     @State private var locationUpdateCounter: Int = 0 // Forces map view updates on location change
 
     // Compact layout state (for small devices)
@@ -734,8 +736,10 @@ struct NavigationMapView: View {
 
             // Bottom nav sheet — carries the plan + frequencies. Sizes to its content.
             // (v4 UI/UX Revamp)
-            VStack {
+            VStack(spacing: 8) {
                 Spacer()
+                undoToast
+                    .padding(.horizontal, 12)
                 compactNavSheet(geometry: geometry)
             }
         }
@@ -1630,6 +1634,10 @@ struct NavigationMapView: View {
             .padding(.horizontal, 16)
             .padding(.bottom, 8)
 
+            undoToast
+                .padding(.horizontal, 16)
+                .padding(.bottom, 8)
+
             // Full-width bottom bar = the expandable flight-plan sheet, pinned to the bottom edge.
             VStack(spacing: 0) {
                 navSheetHandle
@@ -2400,31 +2408,23 @@ struct NavigationMapView: View {
             let plannedLeg = plan.legArriving(at: plan.currentWaypointIndex)?.totalLegEET
             let canMark = plan.currentWaypointIndex < plan.waypoints.count
             let legLabel = currentLegLabel(plan)
-            let iconOnly = density != .full  // MARK/START shrink to their icon when space is tight
             TimelineView(.periodic(from: .now, by: 1)) { _ in
                 let running = flightPlanManager.isChronometerRunning
                 let elapsed = flightPlanManager.chronometerElapsed
                 let started = running || elapsed > 0.5
-                HStack(spacing: 6) {
+                HStack(spacing: 8) {
                     if !started {
-                        legPillButton(icon: "stopwatch", label: L10n.Nav.startLeg, tint: theme.onTarget, filled: false, iconOnly: iconOnly) {
+                        legPillButton(icon: "stopwatch", label: L10n.Nav.startLeg, tint: theme.onTarget, filled: false) {
                             flightPlanManager.startChronometer()
                         }
                     } else {
-                        legReadout(legLabel: density == .minimal ? nil : legLabel, elapsed: elapsed, planned: plannedLeg, running: running)
+                        // The leg label goes first when space runs out; MARK keeps its label. (v6.0 · C2)
+                        legReadout(legLabel: density == .full ? legLabel : nil, elapsed: elapsed, planned: plannedLeg, running: running)
                         if canMark {
-                            let markName = plan.waypoints[plan.currentWaypointIndex].name
-                            let markLabel = markName.isEmpty ? L10n.Nav.mark : "\(L10n.Nav.mark) \(markName)"
-                            legPillButton(icon: "mappin.and.ellipse", label: markLabel, tint: theme.action, filled: true, iconOnly: iconOnly) {
-                                flightPlanManager.markWaypoint()
-                            }
+                            let index = plan.currentWaypointIndex
+                            markButton(name: plan.waypoints[index].name) { markWaypoint(at: index, in: plan) }
                         }
-                        legIconButton(running ? "pause.fill" : "play.fill",
-                                      accessibilityLabel: running ? L10n.Nav.pauseChronometer : L10n.Nav.startChronometer) {
-                            running ? flightPlanManager.pauseChronometer() : flightPlanManager.startChronometer()
-                        }
-                        legIconButton("arrow.counterclockwise",
-                                      accessibilityLabel: L10n.Nav.resetChronometer) { flightPlanManager.resetChronometer() }
+                        legTimerMenu(running: running)
                     }
                 }
             }
@@ -2482,16 +2482,109 @@ struct NavigationMapView: View {
         .accessibilityLabel(label)
     }
 
-    private func legIconButton(_ icon: String, accessibilityLabel: String, action: @escaping () -> Void) -> some View {
+    /// MARK, the action pressed over every waypoint. Labelled with the waypoint at every width and
+    /// sized for a thumb in turbulence: in portrait on a kneeboard it used to shrink to an unlabelled
+    /// 32 pt pin, next to an unguarded reset. (v6.0 · C2)
+    private func markButton(name: String, action: @escaping () -> Void) -> some View {
         Button(action: action) {
-            Image(systemName: icon).font(.system(size: 13, weight: .medium))
-                .foregroundColor(theme.textSecondary)
-                .frame(width: 32, height: 32)
-                .background(RoundedRectangle(cornerRadius: 7).fill(Color.white.opacity(0.05)))
-                .frame(minWidth: 44, minHeight: 44)   // 44pt touch target around the 32pt visual
+            HStack(spacing: 8) {
+                Image(systemName: "mappin.and.ellipse").font(.system(size: 18, weight: .bold))
+                Text(name.isEmpty ? L10n.Nav.mark : "\(L10n.Nav.mark) \(name)")
+                    .font(.system(size: 19, weight: .heavy))
+                    .lineLimit(1)
+                    .fixedSize()
+            }
+            .foregroundColor(theme.actionText)
+            .padding(.horizontal, 18)
+            .frame(minWidth: 132, minHeight: 52)
+            .background(RoundedRectangle(cornerRadius: 12).fill(theme.action))
+            .contentShape(Rectangle())
+        }
+        .accessibilityLabel(name.isEmpty ? L10n.Nav.mark : "\(L10n.Nav.mark) \(name)")
+    }
+
+    /// Pause, resume and reset, one deliberate tap away from MARK instead of beside it.
+    private func legTimerMenu(running: Bool) -> some View {
+        Menu {
+            Button {
+                running ? flightPlanManager.pauseChronometer() : flightPlanManager.startChronometer()
+            } label: {
+                Label(running ? L10n.Nav.pauseChronometer : L10n.Nav.startChronometer,
+                      systemImage: running ? "pause.fill" : "play.fill")
+            }
+            Button(role: .destructive) { resetLegTimer() } label: {
+                Label(L10n.Nav.resetChronometer, systemImage: "arrow.counterclockwise")
+            }
+        } label: {
+            Image(systemName: "ellipsis")
+                .font(.system(size: 18, weight: .bold))
+                .foregroundColor(theme.textPrimary)
+                .frame(width: 52, height: 52)
+                .background(RoundedRectangle(cornerRadius: 12).fill(Color.subtleOverlay(0.07)))
                 .contentShape(Rectangle())
         }
-        .accessibilityLabel(accessibilityLabel)
+        .accessibilityLabel(L10n.Nav.legTimerOptions)
+    }
+
+    private func markWaypoint(at index: Int, in plan: FlightPlan) {
+        let timer = flightPlanManager.legTimerSnapshot
+        flightPlanManager.markWaypoint()
+        guard let timer else { return }
+        let name = plan.waypoints[index].name.isEmpty ? "WPT \(index + 1)" : plan.waypoints[index].name
+        offerUndo(L10n.Nav.markedAt(name, Date().formatted(date: .omitted, time: .shortened))) {
+            flightPlanManager.undoMark(ofWaypointAt: index, timer: timer)
+        }
+    }
+
+    private func resetLegTimer() {
+        guard let timer = flightPlanManager.legTimerSnapshot else { return }
+        flightPlanManager.resetChronometer()
+        offerUndo(L10n.Nav.legTimerReset) { flightPlanManager.restoreLegTimer(timer) }
+    }
+
+    // MARK: - Undo (v6.0 · C2)
+
+    /// A mis-tap in turbulence is taken back with one tap, for a few seconds.
+    private func offerUndo(_ message: String, undo: @escaping () -> Void) {
+        withAnimation(reduceMotion ? nil : .easeOut(duration: 0.2)) {
+            undoOffer = NavUndoOffer(message: message, undo: undo)
+        }
+        AccessibilityNotification.Announcement(message).post()
+    }
+
+    @ViewBuilder
+    private var undoToast: some View {
+        if let offer = undoOffer {
+            HStack(spacing: 16) {
+                Text(offer.message)
+                    .font(.system(size: 18, weight: .semibold))
+                    .foregroundColor(theme.textPrimary)
+                    .lineLimit(2)
+                Spacer(minLength: 8)
+                Button {
+                    offer.undo()
+                    withAnimation(reduceMotion ? nil : .easeOut(duration: 0.2)) { undoOffer = nil }
+                } label: {
+                    Text(L10n.Nav.undo.uppercased())
+                        .font(.system(size: 19, weight: .heavy))
+                        .foregroundColor(theme.actionText)
+                        .frame(minWidth: 104, minHeight: 56)
+                        .background(RoundedRectangle(cornerRadius: 12).fill(theme.action))
+                }
+            }
+            .padding(.leading, 18)
+            .padding(.trailing, 8)
+            .padding(.vertical, 8)
+            .background(RoundedRectangle(cornerRadius: 16).fill(theme.panel.opacity(0.97)))
+            .overlay(RoundedRectangle(cornerRadius: 16).stroke(theme.panelStroke, lineWidth: 1))
+            .transition(.move(edge: .bottom).combined(with: .opacity))
+            .task(id: offer.id) {
+                try? await Task.sleep(for: .seconds(6))
+                if undoOffer?.id == offer.id {
+                    withAnimation(reduceMotion ? nil : .easeOut(duration: 0.2)) { undoOffer = nil }
+                }
+            }
+        }
     }
 
     /// A duration as "M:SS" (or "H:MM:SS" past an hour). (v4 UI/UX Revamp)
@@ -5782,4 +5875,11 @@ private struct NavClockText: View {
         .environmentObject(OpenAIPDataService())
         .environmentObject(FlightEventDetector())
         .environmentObject(DataStatusManager(providers: [], networkMonitor: NetworkMonitor(stub: .disconnected)))
+}
+
+/// A MARK or a leg-timer reset that can still be taken back. (v6.0 · C2)
+struct NavUndoOffer: Identifiable {
+    let id = UUID()
+    let message: String
+    let undo: () -> Void
 }

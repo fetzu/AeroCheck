@@ -1418,6 +1418,10 @@ enum L10n {
         static let planMap = String(localized: "ground.plan.map")
         static let nextFlight = String(localized: "ground.nextFlight")
         static let recent = String(localized: "ground.recent")
+        // Switching aircraft (on-device review #1, G-06)
+        static let yourAircraft = String(localized: "ground.yourAircraft")
+        static let aircraftDetails = String(localized: "ground.aircraftDetails")
+        static let switchAircraft = String(localized: "ground.switchAircraft")
     }
 
     /// Checklist items left unchecked by NEXT. (v6.0 · B2)

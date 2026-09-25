@@ -87,6 +87,41 @@ enum AircraftOption: Identifiable, Hashable {
     }
 }
 
+extension AircraftOption {
+    /// Every aircraft the pilot can fly, in the order they are offered: the bundled ones (never
+    /// hidden), then each premium aircraft they have access to that isn't hidden in Settings. The
+    /// one list Today's aircraft menu and the Aircraft tab both show. (on-device review #1, G-06)
+    static func flyable(remote: [RemoteAircraftMetadata], settings: AppSettings) -> [AircraftOption] {
+        AircraftType.allCases.map { .bundled($0) }
+            + remote
+                .filter { $0.hasAccess && !$0.isBundled
+                    && settings.isAircraftVisible(aircraftId: $0.id, aeroclub: $0.aeroclub) }
+                .map { .remote($0) }
+    }
+
+    /// Whether this is the aircraft the settings say the pilot flies.
+    func isSelected(in settings: AppSettings) -> Bool {
+        switch self {
+        case .bundled(let type):
+            return settings.selectedRemoteAircraftId == nil && settings.selectedAircraft == type
+        case .remote(let metadata):
+            return settings.selectedRemoteAircraftId == metadata.id
+        }
+    }
+
+    /// What `AppState.selectAircraft(id:available:)` resolves this option from.
+    var selectionToken: String {
+        remoteId ?? bundledType?.rawValue ?? registration
+    }
+
+    var checklistLanguages: [String] {
+        switch self {
+        case .bundled(let type): return type.checklistLanguages
+        case .remote(let metadata): return metadata.checklistLanguages
+        }
+    }
+}
+
 /// Home view - main screen when no flight is active
 struct HomeView: View {
     @Environment(AppState.self) private var appState
@@ -140,22 +175,7 @@ struct HomeView: View {
 
     /// Available aircraft options based on subscription status and visibility settings
     private var availableAircraft: [AircraftOption] {
-        var options: [AircraftOption] = []
-
-        // Add bundled aircraft first (bundled aircraft are always visible - they can't be hidden)
-        for aircraft in AircraftType.allCases {
-            options.append(.bundled(aircraft))
-        }
-
-        // Add remote aircraft that user has access to and are visible
-        for remote in aircraftDataService.availableAircraft where remote.hasAccess && !remote.isBundled {
-            // Check visibility settings
-            if appState.settings.isAircraftVisible(aircraftId: remote.id, aeroclub: remote.aeroclub) {
-                options.append(.remote(remote))
-            }
-        }
-
-        return options
+        AircraftOption.flyable(remote: aircraftDataService.availableAircraft, settings: appState.settings)
     }
 
     /// Currently selected aircraft option
@@ -399,8 +419,7 @@ struct HomeView: View {
         let option = availableAircraft[index]
         // Delegate the actual selection to AppState's shared selector so every entry point
         // (carousel, deep link, widget) resolves aircraft the same way. (Task 3, step 1)
-        let token = option.remoteId ?? option.bundledType?.rawValue ?? option.registration
-        guard appState.selectAircraft(id: token, available: aircraftDataService.availableAircraft) else { return }
+        guard appState.selectAircraft(id: option.selectionToken, available: aircraftDataService.availableAircraft) else { return }
 
         // For a remote aircraft, pre-load the checklist in the background so the item count and
         // speed reference are ready before the flight starts.
@@ -640,8 +659,22 @@ struct HomeView: View {
     /// The aircraft, in the strip the flight vacated. Taps into the carousel's own screen.
     private func aircraftStrip(fillsHeight: Bool) -> some View {
         let option = selectedAircraft
-        // The aircraft is chosen in its own tab now. (v6.0 · P1)
-        return Button { appState.groundTab = .aircraft } label: {
+        // A menu: switch aircraft right here, as the carousel used to allow, or go to its speeds and
+        // details in the Aircraft tab. (on-device review #1, G-06)
+        return Menu {
+            ForEach(Array(availableAircraft.enumerated()), id: \.element.id) { index, candidate in
+                Button {
+                    selectedAircraftIndex = index
+                } label: {
+                    Label("\(candidate.registration) · \(candidate.modelName)",
+                          systemImage: candidate.isSelected(in: appState.settings) ? "checkmark" : "airplane")
+                }
+            }
+            Divider()
+            Button { appState.groundTab = .aircraft } label: {
+                Label(L10n.Ground.aircraftDetails, systemImage: "speedometer")
+            }
+        } label: {
             HStack(spacing: 10) {
                 Image(systemName: "airplane")
                     .scaledFont(size: 15, weight: .semibold, relativeTo: .subheadline)
@@ -660,7 +693,7 @@ struct HomeView: View {
                     .scaledFont(size: 11, relativeTo: .caption2)
                     .foregroundColor(.dimText)
                     .lineLimit(1)
-                Image(systemName: "chevron.right")
+                Image(systemName: "chevron.up.chevron.down")
                     .scaledFont(size: 13, weight: .semibold, relativeTo: .caption)
                     .foregroundColor(.dimText.opacity(0.7))
             }
@@ -673,7 +706,9 @@ struct HomeView: View {
                     .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder((AmbientPalette.hairline ?? Color.white.opacity(0.06)), lineWidth: 1))
             )
         }
+        .menuStyle(.button)
         .buttonStyle(.plain)
+        .accessibilityHint(L10n.Ground.switchAircraft)
     }
 
     /// Shared width for the hero card, the Start/Circuits line, and the last-flight strip. (v4 UI/UX Revamp)

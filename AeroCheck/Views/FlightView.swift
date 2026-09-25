@@ -682,7 +682,8 @@ struct FlightView: View {
     /// in-checklist buttons; hold-to-confirm so a stray touch can't fire a go-around. Empty (no space)
     /// when no event applies to the current phase. (v4 UI/UX Revamp)
     @ViewBuilder
-    private var eventActionsRow: some View {
+    /// `kneeboard`: the Cockpit's size and colours (on-device review #1, L-02); the iPhone keeps its row.
+    private func eventActionsRow(kneeboard: Bool = false) -> some View {
         let phase = appState.currentPhase
         let language = appState.settings.checklistLanguage.resolvedLanguage
         // In circuit mode GO-AROUND / TOUCH & GO become single-tap buttons beside NEXT
@@ -695,15 +696,17 @@ struct FlightView: View {
                     HoldToConfirmButton(
                         title: L10n.ChecklistAction.goAround(language: language),
                         systemImage: "arrow.up.right.circle.fill",
-                        tint: theme.warning,
+                        tint: kneeboard ? theme.action : theme.warning,
                         count: appState.currentFlight?.goAroundCount ?? 0,
+                        kneeboard: kneeboard,
                         action: performGoAround
                     )
                     HoldToConfirmButton(
                         title: L10n.ChecklistAction.touchAndGo(language: language),
                         systemImage: "arrow.triangle.2.circlepath",
-                        tint: .aviationBlue,
+                        tint: kneeboard ? theme.action : .aviationBlue,
                         count: appState.currentFlight?.touchAndGoCount ?? 0,
+                        kneeboard: kneeboard,
                         action: performTouchAndGo
                     )
                 }
@@ -711,8 +714,9 @@ struct FlightView: View {
                     HoldToConfirmButton(
                         title: L10n.ChecklistAction.landed(language: language),
                         systemImage: "airplane.arrival",
-                        tint: .aviationBlue,
+                        tint: kneeboard ? theme.action : .aviationBlue,
                         count: appState.currentFlight?.fullStopCount ?? 0,
+                        kneeboard: kneeboard,
                         action: performLanded
                     )
                 }
@@ -729,7 +733,19 @@ struct FlightView: View {
     private func circuitQuickEventButtons(height: CGFloat? = nil) -> some View {
         let phase = appState.currentPhase
         let language = appState.settings.checklistLanguage.resolvedLanguage
-        if appState.isCircuitMode && phase.showsGoAroundButtons {
+        if appState.isCircuitMode && phase.showsGoAroundButtons, height != nil {
+            // The Cockpit's thumb bar: the same outlined buttons as its neighbours, cyan because they
+            // are things to press, not alerts. (on-device review #1, L-02)
+            HStack(spacing: 12) {
+                CockpitThumbButton(title: L10n.ChecklistAction.goAround(language: language),
+                                   icon: "arrow.up.right.circle.fill",
+                                   style: .outlined(tint: theme.action), action: performGoAround)
+                CockpitThumbButton(title: L10n.ChecklistAction.touchAndGo(language: language),
+                                   icon: "arrow.triangle.2.circlepath",
+                                   style: .outlined(tint: theme.action), action: performTouchAndGo)
+            }
+            .frame(maxWidth: .infinity)
+        } else if appState.isCircuitMode && phase.showsGoAroundButtons {
             // The pair shares ~50% of the bottom bar (so each button ≈ 25%, leaving NEXT ≈ 50%).
             HStack(spacing: 12) {
                 quickEventButton(
@@ -987,7 +1003,7 @@ struct FlightView: View {
 
             // Contextual hold-to-confirm GO-AROUND / T&G / FULL-STOP (approach/landing; circuit mode
             // shows single-tap GO-AROUND/T&G beside NEXT instead).
-            eventActionsRow
+            eventActionsRow()
 
             // Bottom action bar: phase timestamp action · circuit quick events · cruise check · NEXT.
             HStack(spacing: 10) {
@@ -1627,7 +1643,7 @@ extension FlightView {
             .background(theme.background)
 
             // Hold-to-confirm GO-AROUND / T&G / LANDED in the phases they belong to.
-            eventActionsRow
+            eventActionsRow(kneeboard: true)
 
             cockpitThumbBar
                 .padding(.horizontal, 16)
@@ -2121,46 +2137,52 @@ struct HoldToConfirmButton: View {
     let systemImage: String
     let tint: Color
     var count: Int = 0
+    /// The Cockpit: kneeboard sizes, the label in the tint (a cyan control), 88 pt tall.
+    /// (on-device review #1, L-02)
+    var kneeboard: Bool = false
     let action: () -> Void
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var progress: CGFloat = 0
 
     private let holdDuration: TimeInterval = 1.0
+    private var corner: CGFloat { kneeboard ? 18 : 12 }
 
     var body: some View {
         ZStack {
-            RoundedRectangle(cornerRadius: 12).fill(tint.opacity(0.18))
+            RoundedRectangle(cornerRadius: corner).fill(tint.opacity(kneeboard ? 0.12 : 0.18))
 
             // Hold-progress fill.
             GeometryReader { geo in
-                RoundedRectangle(cornerRadius: 12)
-                    .fill(tint.opacity(0.5))
+                RoundedRectangle(cornerRadius: corner)
+                    .fill(tint.opacity(kneeboard ? 0.38 : 0.5))
                     .frame(width: geo.size.width * progress)
             }
 
-            RoundedRectangle(cornerRadius: 12).strokeBorder(tint, lineWidth: 2)
+            RoundedRectangle(cornerRadius: corner).strokeBorder(tint, lineWidth: kneeboard ? 1.5 : 2)
 
-            HStack(spacing: 8) {
-                Image(systemName: systemImage).font(.aero(size: 16, weight: .bold))
-                VStack(alignment: .leading, spacing: 0) {
+            HStack(spacing: kneeboard ? 12 : 8) {
+                Image(systemName: systemImage).font(.aero(size: kneeboard ? CockpitType.row : 16, weight: .bold))
+                VStack(alignment: .leading, spacing: kneeboard ? 2 : 0) {
                     Text(title)
-                        .font(.aero(size: 14, weight: .bold))
+                        .font(.aero(size: kneeboard ? CockpitType.row : 14, weight: .bold))
                         .lineLimit(1)
                         .minimumScaleFactor(0.7)
                     Text(L10n.ChecklistAction.holdToConfirm)
-                        .font(.aero(size: 9, weight: .semibold))
+                        .font(.aero(size: kneeboard ? CockpitType.label : 9, weight: .semibold))
                         .foregroundColor(theme.textSecondary)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.7)
                 }
                 if count > 0 {
                     Spacer(minLength: 4)
-                    Text("\(count)").font(.aero(size: 17, weight: .heavy, design: .monospaced))
+                    Text("\(count)").font(.aero(size: kneeboard ? CockpitType.response : 17, weight: .heavy, design: .monospaced))
                 }
             }
-            .foregroundColor(theme.textPrimary)
-            .padding(.horizontal, 12)
+            .foregroundColor(kneeboard ? tint : theme.textPrimary)
+            .padding(.horizontal, kneeboard ? 16 : 12)
         }
-        .frame(height: 54)
+        .frame(height: kneeboard ? 88 : 54)
         .frame(maxWidth: .infinity)
         .contentShape(RoundedRectangle(cornerRadius: 12))
         .onLongPressGesture(minimumDuration: holdDuration, maximumDistance: 60) {

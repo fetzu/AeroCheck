@@ -481,14 +481,14 @@ class FlightPlanManager: ObservableObject {
         // Landed somewhere else than planned: record the diversion, pressed or not. (v5.1)
         plan = TripPlanner.settlingDiversion(plan, landedAt: field, landing: landing ?? flight.landingTime)
 
-        // Time ON = Engine started (engine on)
-        if plan.timeOn == nil, let engineStart = flight.engineStartTime {
-            plan.timeOn = engineStart
+        // Time OFF = take-off, Time ON = landing (wheels off, wheels on). Never the engine: engine
+        // start and shutdown are the checklist taps, kept on the flight and its hour meter. Until
+        // 5.2 these two held the engine times, which made the nav log's air time the engine's. (v5.2)
+        if plan.timeOff == nil, let takeoff = takeoff ?? flight.lineUpTime {
+            plan.timeOff = takeoff
         }
-
-        // Time OFF = Engine shutdown (engine off)
-        if plan.timeOff == nil, let engineShutdown = flight.engineShutdownTime {
-            plan.timeOff = engineShutdown
+        if plan.timeOn == nil, let landing = landing ?? flight.landingTime {
+            plan.timeOn = landing
         }
 
         // Block OFF = Auto-detected first movement (from Flight model)

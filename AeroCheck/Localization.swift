@@ -1672,7 +1672,8 @@ enum L10n {
         static let timeOn = String(localized: "nav.timeOn")
         static let ldgsAtBase = String(localized: "nav.ldgsAtBase")
         static let totalLdgs = String(localized: "nav.totalLdgs")
-        static let engineTime = String(localized: "nav.engineTime")
+        /// Take-off to landing: Time OFF to Time ON on the nav log.
+        static let airTime = String(localized: "nav.airTime")
 
         // Notes
         static let notes = String(localized: "nav.notes")

@@ -499,7 +499,8 @@ struct FlightPlanEditorView: View {
             .buttonStyle(.plain)
 
             if logbookExpanded {
-            // First row: Counter Start, Block OFF, Time ON, Time OFF, Block ON, Counter Stop
+            // First row: Counter Start, Block OFF, Time OFF, Time ON, Block ON, Counter Stop — the nav
+            // log's order. Time OFF/ON are the take-off and the landing, not the engine. (v5.2)
             LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: isCompactWidth ? 2 : 6), spacing: 12) {
                 NumberFormField(
                     label: L10n.Nav.counterStart,
@@ -511,21 +512,21 @@ struct FlightPlanEditorView: View {
                 )
 
                 OptionalTimeFormField(label: L10n.Nav.blockOff, time: $flightPlan.blockOff)
-                OptionalTimeFormField(label: L10n.Nav.timeOn, time: $flightPlan.timeOn)
                 OptionalTimeFormField(label: L10n.Nav.timeOff, time: $flightPlan.timeOff)
+                OptionalTimeFormField(label: L10n.Nav.timeOn, time: $flightPlan.timeOn)
                 OptionalTimeFormField(label: L10n.Nav.blockOn, time: $flightPlan.blockOn)
 
                 NumberFormField(
                     label: L10n.Nav.counterStop,
                     value: Binding(
-                        get: { calculatedCounterStop },
+                        get: { flightPlan.counterStop ?? 0 },
                         set: { flightPlan.counterStop = $0 }
                     ),
                     format: "%.1f"
                 )
             }
 
-            // Second row: Landings and Engine Time
+            // Second row: Landings and Air Time
             LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: isCompactWidth ? 2 : 6), spacing: 12) {
                 IntFormField(
                     label: L10n.Nav.ldgsAtBase,
@@ -543,12 +544,12 @@ struct FlightPlanEditorView: View {
                     )
                 )
 
-                // Engine Time display (HH:MM format)
+                // Air Time display (HH:MM, like the Flight Log's durations)
                 VStack(alignment: .leading, spacing: 4) {
-                    Text(L10n.Nav.engineTime)
+                    Text(L10n.Nav.airTime)
                         .scaledFont(size: 11, relativeTo: .caption2)
                         .foregroundColor(.secondaryText)
-                    Text(formattedEngineTime)
+                    Text(formattedAirTime)
                         .scaledFont(size: 14, weight: .medium, design: .monospaced, relativeTo: .subheadline)
                         .foregroundColor(.primaryText)
                         .frame(maxWidth: .infinity, alignment: .leading)
@@ -752,43 +753,15 @@ struct FlightPlanEditorView: View {
 
     // MARK: - Computed Properties for Auto-Population
 
-    /// Calculate Counter Stop based on Counter Start + Engine Time
-    /// Engine Time = Time OFF (engine stop) - Time ON (engine start)
-    private var calculatedCounterStop: Double {
-        // If explicitly set, use that value
-        if let counterStop = flightPlan.counterStop, counterStop > 0 {
-            return counterStop
-        }
-
-        // Otherwise, try to calculate from counter start + engine time
-        guard let counterStart = flightPlan.counterStart,
-              let timeOn = flightPlan.timeOn,
-              let timeOff = flightPlan.timeOff else {
-            return flightPlan.counterStop ?? 0
-        }
-
-        // Engine time in hours (Hobbs meter is in decimal hours)
-        let engineTimeSeconds = timeOff.timeIntervalSince(timeOn)
-        let engineTimeHours = engineTimeSeconds / 3600.0
-
-        return counterStart + engineTimeHours
-    }
-
-    /// Format engine time as HH:MM (from Time ON = engine start to Time OFF = engine stop)
-    /// Same format as Flight Log detail view duration
-    private var formattedEngineTime: String {
-        guard let timeOn = flightPlan.timeOn,
-              let timeOff = flightPlan.timeOff else {
+    /// Take-off (Time OFF) to landing (Time ON), counted like a logbook: the difference of the two
+    /// times to the minute. Counter Stop is no longer derived from these: it was Counter Start plus
+    /// the engine time Time ON/OFF used to hold, and a meter reading is read, not computed. (v5.2)
+    private var formattedAirTime: String {
+        guard let takeoff = flightPlan.timeOff, let landing = flightPlan.timeOn, landing >= takeoff else {
             return "--:--"
         }
-
-        let engineTimeSeconds = timeOff.timeIntervalSince(timeOn)
-        if engineTimeSeconds < 0 { return "--:--" }
-
-        let hours = Int(engineTimeSeconds) / 3600
-        let minutes = (Int(engineTimeSeconds) % 3600) / 60
-
-        return String(format: "%02d:%02d", hours, minutes)
+        let minutes = Flight.loggedMinutes(from: takeoff, to: landing)
+        return String(format: "%02d:%02d", minutes / 60, minutes % 60)
     }
 
     /// Calculate Total Landings from current flight if available

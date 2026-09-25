@@ -1,6 +1,23 @@
 {
   "sourceLanguage": "en",
   "strings": {
+    "nav.airTime": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Air Time"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Temps en l'air"
+          }
+        }
+      }
+    },
     "trip.createTrip": {
       "extractionState": "manual",
       "localizations": {
@@ -13425,23 +13442,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Autonomie"
-          }
-        }
-      }
-    },
-    "nav.engineTime": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Engine Time"
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Temps moteur"
           }
         }
       }

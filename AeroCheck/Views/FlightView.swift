@@ -2577,7 +2577,10 @@ struct FlightInfoSheet: View {
                         // The one place this switch is reached with the sun actually on the screen.
                         toggleRow(L10n.Settings.sunlightBoost, optionBinding(\.sunlightBoost))
                         rowDivider
-                        toggleRow(L10n.Settings.learningMode, optionBinding(\.learningMode))
+                        toggleRow(L10n.Settings.memoryTest, Binding(
+                            get: { !appState.settings.learningMode },
+                            set: { appState.settings.learningMode = !$0; appState.saveSettings() }
+                        ))
                         rowDivider
                         toggleRow(L10n.Settings.alwaysUseUTC, optionBinding(\.alwaysUseUTC))
                         rowDivider

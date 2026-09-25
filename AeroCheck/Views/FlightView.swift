@@ -230,7 +230,7 @@ struct FlightView: View {
                 // iPad, portrait and landscape: the Cockpit. (v6.0 · P2)
                 cockpit
                     // Reference popups (V-SPEEDS / GPS / BRIEFING) → themed bottom drawer.
-                    .overlay { referenceDrawerOverlay(maxHeight: geometry.size.height * 0.6) }
+                    .overlay { referenceDrawerOverlay(maxHeight: geometry.size.height * 0.6, kneeboard: true) }
             }
         }
         .background(theme.background)
@@ -1305,7 +1305,7 @@ struct FlightView: View {
     /// (tap to dismiss) with the cockpit-themed panel rising from the bottom, leaving the instruments
     /// and current checklist item visible above. (v4 UI/UX Revamp)
     @ViewBuilder
-    private func referenceDrawerOverlay(maxHeight: CGFloat) -> some View {
+    private func referenceDrawerOverlay(maxHeight: CGFloat, kneeboard: Bool = false) -> some View {
         if let reference = activeReference {
             ZStack(alignment: .bottom) {
                 Color.black.opacity(0.22)
@@ -1317,6 +1317,7 @@ struct FlightView: View {
                 HUDReferencePanel(
                     reference: reference,
                     presentation: .drawer,
+                    kneeboard: kneeboard,
                     locationManager: locationManager,
                     briefingContext: reference.isBriefing ? briefingContext : nil,
                     aglFeet: reference == .vSpeeds ? currentAGLFeet : nil,
@@ -2548,6 +2549,8 @@ struct HUDReferencePanel: View {
 
     let reference: HUDReference
     var presentation: Presentation = .docked
+    /// The Cockpit: kneeboard sizes in the header, and the drawer only as tall as its content.
+    var kneeboard: Bool = false
     @ObservedObject var locationManager: LocationManager
     var briefingContext: BriefingContext? = nil
     var aglFeet: Double? = nil
@@ -2555,6 +2558,7 @@ struct HUDReferencePanel: View {
 
     @Environment(AppState.self) private var appState
     @EnvironmentObject var airportDataService: AirportDataService
+    @State private var contentHeight: CGFloat = 0
 
     private var corners: AnyShape {
         switch presentation {
@@ -2581,17 +2585,53 @@ struct HUDReferencePanel: View {
 
             ScrollView {
                 content
-                    .padding(.horizontal, 16)
-                    .padding(.top, 14)
+                    .padding(.horizontal, kneeboard ? 20 : 16)
+                    .padding(.top, kneeboard ? 16 : 14)
                     .padding(.bottom, 22)
+                    .background(GeometryReader { proxy in
+                        Color.clear.preference(key: ReferenceContentHeightKey.self, value: proxy.size.height)
+                    })
             }
+            // In the Cockpit the drawer hugs its content (the caller caps it) instead of always taking
+            // the cap and covering the map with empty panel. (on-device review #2)
+            .frame(maxHeight: kneeboard && contentHeight > 0 ? contentHeight : nil)
+            .onPreferenceChange(ReferenceContentHeightKey.self) { contentHeight = $0 }
         }
         .background(theme.panel)
         .clipShape(corners)
         .overlay(corners.stroke(Color.white.opacity(0.10), lineWidth: 1))
     }
 
+    @ViewBuilder
     private var header: some View {
+        if kneeboard { kneeboardHeader } else { compactHeader }
+    }
+
+    private var kneeboardHeader: some View {
+        HStack(spacing: 12) {
+            Image(systemName: reference.systemImage)
+                .font(.aero(size: CockpitType.label))
+                .foregroundColor(reference.tint)
+            Text(reference.title)
+                .font(.aero(size: CockpitType.label, weight: .bold))
+                .tracking(0.6)
+                .foregroundColor(theme.textPrimary)
+            Spacer()
+            Button(action: onClose) {
+                Image(systemName: "xmark")
+                    .font(.aero(size: 22, weight: .semibold))
+                    .foregroundColor(theme.textSecondary)
+                    .frame(width: CockpitTarget.control, height: 52)
+                    .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel(L10n.Button.close)
+        }
+        .padding(.leading, 20)
+        .padding(.trailing, 6)
+    }
+
+    private var compactHeader: some View {
         HStack(spacing: 10) {
             if presentation == .docked {
                 Button(action: onClose) {
@@ -2627,7 +2667,8 @@ struct HUDReferencePanel: View {
             InFlightSpeedReference(
                 activeChecklist: appState.activeChecklist,
                 currentPhase: appState.currentPhase,
-                aglFeet: aglFeet
+                aglFeet: aglFeet,
+                kneeboard: kneeboard
             )
         case .gps:
             GPSStatusContent(locationManager: locationManager)
@@ -2643,6 +2684,12 @@ struct HUDReferencePanel: View {
             FrequencyReferenceContent(locationManager: locationManager)
         }
     }
+}
+
+/// A reference drawer's natural content height, measured inside its scroll view.
+private struct ReferenceContentHeightKey: PreferenceKey {
+    static let defaultValue: CGFloat = 0
+    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) { value = max(value, nextValue()) }
 }
 
 /// Adds drag-down-to-dismiss to the drawer header only (so it doesn't fight the content ScrollView).
@@ -2892,10 +2939,94 @@ struct InFlightSpeedReference: View {
     let activeChecklist: ActiveChecklist
     let currentPhase: ChecklistPhase
     let aglFeet: Double?
+    /// The Cockpit: a grid of tiles at kneeboard size instead of the iPhone's list.
+    var kneeboard: Bool = false
 
     private var speeds: [SpeedReference] { activeChecklist.speeds }
 
     var body: some View {
+        if kneeboard { tileGrid } else { list }
+    }
+
+    // MARK: Cockpit tiles
+
+    /// Each speed a tile: its name and value side by side, what it's for underneath. As many columns
+    /// as the width takes (five in landscape, three in portrait), so nothing sits at the far edges of
+    /// a full-width row and the whole table fits the drawer without scrolling. Values are the data, in
+    /// white; names in grey. The phase's speed(s) get a white frame, Vne stays red. (on-device review #2)
+    private var tileGrid: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            HStack(alignment: .firstTextBaseline) {
+                Text(activeChecklist.registration)
+                    .font(.aero(size: CockpitType.label, weight: .bold, design: .monospaced))
+                    .foregroundColor(theme.textSecondary)
+                Spacer()
+                Text("IAS · kt")
+                    .font(.aero(size: CockpitType.label, weight: .semibold))
+                    .foregroundColor(theme.textDim)
+            }
+
+            LazyVGrid(columns: [GridItem(.adaptive(minimum: 200), spacing: 12)], spacing: 12) {
+                ForEach(speeds) { speedTile($0) }
+            }
+
+            let crosswind = activeChecklist.crosswindLimits
+            HStack(alignment: .firstTextBaseline, spacing: 12) {
+                Text("Max crosswind")
+                    .foregroundColor(theme.textSecondary)
+                Text("T/O \(crosswind.takeoff) · LDG \(crosswind.landing)")
+                    .font(.aero(size: CockpitType.label, weight: .bold, design: .monospaced))
+                    .foregroundColor(theme.warning)
+            }
+            .font(.aero(size: CockpitType.label))
+        }
+    }
+
+    private func speedTile(_ speed: SpeedReference) -> some View {
+        let highlighted = isHighlighted(speed)
+        let isVne = speed.name.lowercased() == "vne"
+        let ink = isVne ? theme.danger : theme.textPrimary
+        return VStack(alignment: .leading, spacing: 2) {
+            // The unit is in the line above the grid ("IAS · kt"), not on every tile.
+            HStack(alignment: .firstTextBaseline, spacing: 10) {
+                // The name at label size: the value is what's read, and "Vfinal" beside "60–55" must
+                // leave the value room on a landscape tile.
+                Text(speed.name)
+                    .font(.aero(size: CockpitType.label, weight: .bold, design: .monospaced))
+                    .foregroundColor(isVne ? theme.danger : theme.textSecondary)
+                    .fixedSize()
+                Text(Self.compactRange(speed.value))
+                    .font(.aero(size: CockpitType.item, weight: .bold, design: .monospaced))
+                    .foregroundColor(ink)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.5)   // a long range shrinks, never cut to "60…"
+                    .frame(maxWidth: .infinity, alignment: .trailing)
+            }
+            .frame(height: 52)   // every tile the same height, a shrunk value included
+            Text(speed.description)
+                .font(.aero(size: 18))
+                .foregroundColor(theme.textSecondary)
+                .lineLimit(1)
+                .minimumScaleFactor(0.8)
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 8)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(RoundedRectangle(cornerRadius: 12).fill(highlighted ? ink.opacity(0.14) : theme.textPrimary.opacity(0.05)))
+        .overlay(RoundedRectangle(cornerRadius: 12).stroke(highlighted ? ink : Color.clear, lineWidth: 2))
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("\(speed.name), \(speed.value) knots, \(speed.description)")
+        .accessibilityAddTraits(highlighted ? .isSelected : [])
+    }
+
+    /// "97 – 75" (a range, by weight or by flap) as one value on a tile: "97–75".
+    static func compactRange(_ value: String) -> String {
+        value.replacingOccurrences(of: " – ", with: "–").replacingOccurrences(of: " - ", with: "–")
+    }
+
+    // MARK: iPhone list
+
+    private var list: some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack {
                 Text(activeChecklist.registration)

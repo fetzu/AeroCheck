@@ -21,7 +21,8 @@ struct FlightView: View {
     @State private var showEndFlightAlert = false
     @State private var showAbandonFlightAlert = false
     @State private var abandonFlightProgress: CGFloat = 0
-    @State private var abandonFlightTimer: Timer?
+    /// Whether the aircraft name is being held (red while held, whatever the ring shows).
+    @State private var isHoldingAbandon = false
     @State private var showFlightInfo = false
     @State private var showNavigationMode = false
     /// NEXT pressed with items still open: the review sheet lists them first. (v6.0 · B2)
@@ -1172,29 +1173,8 @@ struct FlightView: View {
 
     // MARK: - Abandon Flight Long Press
 
-    private func startAbandonFlightTimer() {
-        abandonFlightProgress = 0
-        abandonFlightTimer = Timer.scheduledTimer(withTimeInterval: 0.05, repeats: true) { timer in
-            abandonFlightProgress += 0.05 / 1.5 // 1.5 seconds total
-            if abandonFlightProgress >= 1.0 {
-                timer.invalidate()
-                abandonFlightTimer = nil
-                abandonFlightProgress = 0
-                // Haptic feedback
-                let generator = UINotificationFeedbackGenerator()
-                generator.notificationOccurred(.warning)
-                showAbandonFlightAlert = true
-            }
-        }
-    }
-
-    private func cancelAbandonFlightTimer() {
-        abandonFlightTimer?.invalidate()
-        abandonFlightTimer = nil
-        withAnimation(.easeOut(duration: 0.2)) {
-            abandonFlightProgress = 0
-        }
-    }
+    /// Hold the aircraft name this long to abandon the flight.
+    private static let abandonHoldDuration: TimeInterval = 1.5
 
     /// Creates an airplane identifier section with long press to abandon gesture
     /// Both the airplane icon and the call sign are tappable
@@ -1203,26 +1183,25 @@ struct FlightView: View {
             // Progress ring behind the icon. The ring footprint is RESERVED at all times (fixed frame)
             // so it appearing on press-and-hold doesn't enlarge the icon and shift the top bar. (v4 UI/UX Revamp fix)
             ZStack {
-                if abandonFlightProgress > 0 {
-                    Circle()
-                        .stroke(theme.danger.opacity(0.3), lineWidth: isCompact ? 2 : 3)
-
-                    Circle()
-                        .trim(from: 0, to: abandonFlightProgress)
-                        .stroke(theme.danger, style: StrokeStyle(lineWidth: isCompact ? 2 : 3, lineCap: .round))
-                        .rotationEffect(.degrees(-90))
-                }
+                // Always in the tree, so the sweep animates from 0 the moment the hold starts.
+                Circle()
+                    .stroke(theme.danger.opacity(0.3), lineWidth: isCompact ? 2 : 3)
+                    .opacity(isHoldingAbandon ? 1 : 0)
+                Circle()
+                    .trim(from: 0, to: abandonFlightProgress)
+                    .stroke(theme.danger, style: StrokeStyle(lineWidth: isCompact ? 2 : 3, lineCap: .round))
+                    .rotationEffect(.degrees(-90))
 
                 Image(systemName: "airplane")
                     .font(.aero(size: iconSize))
-                    .foregroundColor(abandonFlightProgress > 0 ? theme.danger : theme.action)
+                    .foregroundColor(isHoldingAbandon ? theme.danger : theme.action)
             }
             .frame(width: iconSize + (isCompact ? 8 : 12), height: iconSize + (isCompact ? 8 : 12))
 
             HStack(spacing: 4) {
                 Text(appState.activeChecklist.registration)
                     .font(isCompact ? .aero(size: 14, weight: .semibold) : .headerText)
-                    .foregroundColor(abandonFlightProgress > 0 ? theme.danger : theme.textPrimary)
+                    .foregroundColor(isHoldingAbandon ? theme.danger : theme.textPrimary)
                     .lineLimit(1)
                     .minimumScaleFactor(0.7)   // never wrap the registration; shrink slightly if tight
 
@@ -1236,17 +1215,19 @@ struct FlightView: View {
             }
         }
         .contentShape(Rectangle()) // Make entire area tappable
-        .gesture(
-            DragGesture(minimumDistance: 0)
-                .onChanged { _ in
-                    if abandonFlightTimer == nil {
-                        startAbandonFlightTimer()
-                    }
-                }
-                .onEnded { _ in
-                    cancelAbandonFlightTimer()
-                }
-        )
+        // The ring sweeps from the moment the finger lands, over the whole hold; the alert comes at
+        // the end. It used to step a timer, which showed almost nothing at first. (on-device review #1)
+        .onLongPressGesture(minimumDuration: Self.abandonHoldDuration, maximumDistance: 40) {
+            UINotificationFeedbackGenerator().notificationOccurred(.warning)
+            isHoldingAbandon = false
+            abandonFlightProgress = 0
+            showAbandonFlightAlert = true
+        } onPressingChanged: { pressing in
+            isHoldingAbandon = pressing
+            withAnimation(.linear(duration: pressing ? Self.abandonHoldDuration : 0.2)) {
+                abandonFlightProgress = pressing ? 1 : 0
+            }
+        }
     }
 
     // MARK: - HUD reference popups (Pattern B)

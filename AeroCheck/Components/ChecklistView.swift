@@ -22,13 +22,20 @@ struct TimestampActionButton: View {
 
     @State private var isPressed = false
     @State private var showUpdateConfirmation = false
-    @State private var longPressProgress: CGFloat = 0
-    @State private var longPressTimer: Timer?
-    
+    /// 0…1 fill while the button is held to update its time. Animated from the moment the finger
+    /// lands, over the whole hold, so the gesture shows itself at once. (on-device review #1, C-10)
+    @State private var holdProgress: CGFloat = 0
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    /// How long to hold a recorded button to change its time.
+    static let holdDuration: TimeInterval = 1.5
+
     private var hasBeenPressed: Bool {
         timestamp != nil
     }
-    
+
+    private var corner: CGFloat { compact ? 14 : 10 }
+
     var body: some View {
         VStack(spacing: compact ? 0 : 8) {
             // The button — black text on the colour, matching the NEXT button. (v4 UI/UX Revamp)
@@ -48,44 +55,45 @@ struct TimestampActionButton: View {
             .frame(minHeight: minHeight)
             .background(
                 ZStack {
-                    RoundedRectangle(cornerRadius: compact ? 14 : 10)
+                    RoundedRectangle(cornerRadius: corner)
                         .fill(hasBeenPressed ? color.opacity(0.5) : color)
                         .shadow(color: color.opacity(hasBeenPressed ? 0.2 : 0.4), radius: 6, x: 0, y: 3)
-
-                    // Long press progress indicator
-                    if longPressProgress > 0 && hasBeenPressed {
-                        GeometryReader { geo in
-                            RoundedRectangle(cornerRadius: compact ? 14 : 10)
-                                .fill(color.opacity(0.8))
-                                .frame(width: geo.size.width * longPressProgress)
-                        }
-                        .clipShape(RoundedRectangle(cornerRadius: compact ? 14 : 10))
-                    }
+                    // The hold fill: white over the colour, so it reads on any tint, growing left to
+                    // right from the first moment of the hold.
+                    RoundedRectangle(cornerRadius: corner)
+                        .fill(Color.white.opacity(0.38))
+                        .scaleEffect(x: holdProgress, anchor: .leading)
                 }
+                .clipShape(RoundedRectangle(cornerRadius: corner))
             )
             .scaleEffect(isPressed ? 0.95 : 1.0)
             .animation(.easeInOut(duration: 0.1), value: isPressed)
             .modifier(PulseModifier(isActive: isPulsing && !hasBeenPressed))
-            .gesture(
-                DragGesture(minimumDistance: 0)
-                    .onChanged { _ in
-                        if !isPressed {
-                            isPressed = true
-                            if hasBeenPressed {
-                                startLongPressTimer()
-                            }
-                        }
+            .contentShape(RoundedRectangle(cornerRadius: corner))
+            // First press: a tap records the time. Once recorded, holding for `holdDuration` asks to
+            // update it. A long first press still records, when the hold completes.
+            .onTapGesture {
+                if !hasBeenPressed { onFirstPress() }
+            }
+            .onLongPressGesture(minimumDuration: Self.holdDuration, maximumDistance: 60) {
+                if hasBeenPressed {
+                    UIImpactFeedbackGenerator(style: .heavy).impactOccurred()
+                    showUpdateConfirmation = true
+                } else {
+                    onFirstPress()
+                }
+                withAnimation(.easeOut(duration: 0.2)) { holdProgress = 0 }
+            } onPressingChanged: { pressing in
+                isPressed = pressing
+                guard hasBeenPressed else { return }
+                if reduceMotion {
+                    holdProgress = pressing ? 1 : 0   // no sweep; the hold is still required
+                } else {
+                    withAnimation(.linear(duration: pressing ? Self.holdDuration : 0.2)) {
+                        holdProgress = pressing ? 1 : 0
                     }
-                    .onEnded { _ in
-                        isPressed = false
-                        if hasBeenPressed {
-                            cancelLongPressTimer()
-                        } else {
-                            // First press
-                            onFirstPress()
-                        }
-                    }
-            )
+                }
+            }
             
             // Timestamp display + hold hint (full mode only — the compact HUD button is a single row).
             if !compact, let time = timestamp {
@@ -108,11 +116,11 @@ struct TimestampActionButton: View {
         } message: {
             Text(L10n.ChecklistAction.updateConfirm(timestampLabel.lowercased()))
         }
-        // VoiceOver: this control is a DragGesture on a VStack, not a Button, so it exposed no
-        // button trait, no name and no activation path — ENGINE START, LINE UP, LANDED and SHUTDOWN
-        // were literally inoperable with VoiceOver running, on the HUD bottom bar of an app used in
-        // flight. Semantics are added HERE rather than by converting to a Button so the press feel,
-        // long-press progress fill and haptics are untouched.
+        // VoiceOver: this control is a gesture on a VStack, not a Button, so it exposed no button
+        // trait, no name and no activation path — ENGINE START, LINE UP, LANDED and SHUTDOWN were
+        // literally inoperable with VoiceOver running, on the HUD bottom bar of an app used in flight.
+        // Semantics are added HERE rather than by converting to a Button so the press feel and the
+        // hold fill are untouched.
         //
         // Hold-to-update becomes a NAMED ACTION rather than a 1.5 s hold: holding a control steady
         // is exactly what VoiceOver's own gesture handling makes hardest, so a rotor action is both
@@ -132,30 +140,6 @@ struct TimestampActionButton: View {
         }
         .accessibilityAction(named: L10n.ChecklistAction.update) {
             if hasBeenPressed { showUpdateConfirmation = true }
-        }
-    }
-    
-    private func startLongPressTimer() {
-        longPressProgress = 0
-        longPressTimer = Timer.scheduledTimer(withTimeInterval: 0.05, repeats: true) { timer in
-            longPressProgress += 0.05 / 1.5 // 1.5 seconds total
-            if longPressProgress >= 1.0 {
-                timer.invalidate()
-                longPressTimer = nil
-                longPressProgress = 0
-                // Haptic feedback
-                let generator = UIImpactFeedbackGenerator(style: .heavy)
-                generator.impactOccurred()
-                showUpdateConfirmation = true
-            }
-        }
-    }
-    
-    private func cancelLongPressTimer() {
-        longPressTimer?.invalidate()
-        longPressTimer = nil
-        withAnimation(.easeOut(duration: 0.2)) {
-            longPressProgress = 0
         }
     }
 }

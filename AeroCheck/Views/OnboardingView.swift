@@ -505,10 +505,6 @@ struct OnboardingView: View {
                               L10n.Settings.memoryTestOnboarding,
                               Binding(get: { !appState.settings.learningMode },
                                       set: { appState.settings.learningMode = !$0 }))
-                    toggleRow("arrow.triangle.2.circlepath", .altimeterBlue,
-                              String(localized: "Circuit mode"),
-                              String(localized: "Streamlined pattern-training flow"),
-                              Bindable(appState).settings.enableCircuitMode)
                 }
                 languageRow
             }

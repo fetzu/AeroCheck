@@ -142,7 +142,9 @@ struct AppSettings: Codable, Equatable {
     var terrainAltitudeUnit: TerrainAltitudeUnit = .feet // feet, meters, or dual
 
     // Circuit mode
-    var enableCircuitMode: Bool = false // When true, shows START CIRCUITS button
+    /// Retired in 6.0: CIRCUITS is always offered on Today (review P7). Still decoded and synced, so
+    /// an older build on another device keeps its value.
+    var enableCircuitMode: Bool = false
 
     // Aircraft visibility (premium feature)
     var hiddenAircraftIds: Set<String> = [] // Individual aircraft IDs to hide on home screen

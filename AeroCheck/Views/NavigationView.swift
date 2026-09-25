@@ -857,7 +857,7 @@ struct NavigationMapView: View {
                 Text("FREQ").font(.system(size: 11, weight: .bold))
             }
         }
-        .foregroundColor(theme.action).lineLimit(1)
+        .foregroundColor(theme.onTarget).lineLimit(1)
     }
 
     // MARK: - Compact Top Bar
@@ -953,7 +953,7 @@ struct NavigationMapView: View {
                             Text("ft")
                                 .font(.system(size: 12)) // ≥12pt (UX-17)
                         }
-                        .foregroundColor(theme.info)
+                        .foregroundColor(theme.textPrimary)   // data is white (v6.0 · P5)
 
                         Rectangle()
                             .fill(theme.textDim)
@@ -966,7 +966,7 @@ struct NavigationMapView: View {
                             Text("°")
                                 .font(.system(size: 12)) // ≥12pt (UX-17)
                         }
-                        .foregroundColor(theme.action)
+                        .foregroundColor(theme.textPrimary)   // data is white (v6.0 · P5)
                     }
                 }
                 .padding(.horizontal, 8)
@@ -1405,7 +1405,7 @@ struct NavigationMapView: View {
                                 Text("ft")
                                     .font(.system(size: 10, weight: .medium))
                             }
-                            .foregroundColor(theme.info)
+                            .foregroundColor(theme.textPrimary)   // data is white (v6.0 · P5)
 
                             // Heading
                             HStack(spacing: 2) {
@@ -1414,7 +1414,7 @@ struct NavigationMapView: View {
                                 Text("°")
                                     .font(.system(size: 10, weight: .medium))
                             }
-                            .foregroundColor(theme.action)
+                            .foregroundColor(theme.textPrimary)   // data is white (v6.0 · P5)
                         }
                     }
                     .padding(.horizontal, 12)
@@ -1468,7 +1468,7 @@ struct NavigationMapView: View {
                             Text("ft")
                                 .font(.system(size: 12, weight: .medium))
                         }
-                        .foregroundColor(theme.info)
+                        .foregroundColor(theme.textPrimary)   // data is white (v6.0 · P5)
 
                         // Heading
                         HStack(spacing: 4) {
@@ -1477,7 +1477,7 @@ struct NavigationMapView: View {
                             Text("°")
                                 .font(.system(size: 12, weight: .medium))
                         }
-                        .foregroundColor(theme.action)
+                        .foregroundColor(theme.textPrimary)   // data is white (v6.0 · P5)
 
                         // Current phase, inline. When a cruise check is due it becomes a tappable amber
                         // ⟳ FREDA badge (tap to acknowledge); otherwise a plain gold phase label —
@@ -1756,7 +1756,7 @@ struct NavigationMapView: View {
                     .foregroundColor(theme.textPrimary)
                 if let distText = nextWaypointDistanceText {
                     Text("·").foregroundColor(theme.textDim)
-                    Text(distText).font(.system(size: 13, design: .monospaced)).foregroundColor(theme.action)
+                    Text(distText).font(.system(size: 13, design: .monospaced)).foregroundColor(theme.route)
                 }
                 if let brg = liveBearingText {
                     Text("·").foregroundColor(theme.textDim)
@@ -1792,7 +1792,7 @@ struct NavigationMapView: View {
                     Text("FREQ").font(.system(size: 12, weight: .bold))
                 }
             }
-            .foregroundColor(theme.action).lineLimit(1)
+            .foregroundColor(theme.onTarget).lineLimit(1)
         }
         .accessibilityLabel(L10n.Nav.radioFrequencies)
     }
@@ -2115,7 +2115,7 @@ struct NavigationMapView: View {
     /// A short CURRENT/NEXT tag + its colour, or nil for other rows. (v4 UI/UX Revamp)
     private func roleTag(_ role: FreqRole) -> (String, Color)? {
         switch role {
-        case .current: return (L10n.Nav.freqCurrent, theme.action)
+        case .current: return (L10n.Nav.freqCurrent, theme.onTarget)
         case .next: return (L10n.Nav.freqNext, theme.info)
         default: return nil
         }
@@ -2137,7 +2137,7 @@ struct NavigationMapView: View {
             Spacer(minLength: 6)
             Text(item.freq)
                 .font(.system(size: 13, weight: item.highlighted ? .bold : .regular, design: .monospaced))
-                .foregroundColor(item.highlighted ? theme.action : theme.textPrimary)
+                .foregroundColor(item.highlighted ? theme.onTarget : theme.textPrimary)
         }
         .padding(.vertical, 3)
     }
@@ -2196,14 +2196,14 @@ struct NavigationMapView: View {
                 // Sequence number — matches the numbered disc on the map. (v4 UI/UX Revamp)
                 Text("\(index + 1)")
                     .font(.system(size: 11, weight: .bold, design: .monospaced))
-                    .foregroundColor(isCurrent ? theme.action : theme.textSecondary)
+                    .foregroundColor(isCurrent ? theme.route : theme.textSecondary)
                     .frame(width: 16, alignment: .center)
                 Image(systemName: isPast ? "circle.fill" : (isCurrent ? "location.fill" : "circle"))
                     .font(.system(size: 9))
-                    .foregroundColor(isPast ? theme.onTarget : (isCurrent ? theme.action : theme.textDim))
+                    .foregroundColor(isPast ? theme.onTarget : (isCurrent ? theme.route : theme.textDim))
                 Text(wpt.name.isEmpty ? "WPT \(index + 1)" : wpt.name)
                     .font(.system(size: 13, weight: isCurrent ? .semibold : .regular, design: .monospaced))
-                    .foregroundColor(isCurrent ? theme.action : theme.textPrimary)
+                    .foregroundColor(isCurrent ? theme.route : theme.textPrimary)
                     .lineLimit(1)
                 Spacer(minLength: 6)
                 // Fixed-width columns so every row's heading / distance / PLAN / ACT / Δ line up,
@@ -2219,7 +2219,7 @@ struct NavigationMapView: View {
                     Text((leg?.totalLegEET).map { formatClock($0) } ?? "")  // PLAN (EET)
                         .foregroundColor(theme.textDim).frame(width: 44, alignment: .trailing)
                     Text(actual.map { formatClock($0) } ?? "")            // ACT / live
-                        .foregroundColor(isCurrent ? theme.action : theme.onTarget)
+                        .foregroundColor(isCurrent ? theme.route : theme.onTarget)
                         .frame(width: 44, alignment: .trailing)
                     legDeltaText(planned: leg?.totalLegEET, actual: actual)  // Δ ahead/over
                         .frame(width: 52, alignment: .trailing)
@@ -2229,7 +2229,7 @@ struct NavigationMapView: View {
             }
             .padding(.horizontal, 8).padding(.vertical, 7)
             .background(isPreview ? theme.info.opacity(0.14)
-                        : (isCurrent ? theme.action.opacity(0.10) : Color.clear))
+                        : (isCurrent ? theme.route.opacity(0.10) : Color.clear))
             .clipShape(RoundedRectangle(cornerRadius: 6))
             .contentShape(Rectangle())
         }
@@ -2331,7 +2331,7 @@ struct NavigationMapView: View {
                 ForEach(0..<plan.waypoints.count, id: \.self) { i in
                     Circle()
                         .fill(i < plan.currentWaypointIndex ? theme.onTarget
-                              : (i == plan.currentWaypointIndex ? theme.action : theme.textDim.opacity(0.5)))
+                              : (i == plan.currentWaypointIndex ? theme.route : theme.textDim.opacity(0.5)))
                         .frame(width: 5, height: 5)
                 }
             }
@@ -2704,7 +2704,7 @@ struct NavigationMapView: View {
                     Text(L10n.Trip.divertTag).font(.system(size: 13, weight: .bold)).tracking(0.5)
                 }
             }
-            .foregroundColor(diverting ? theme.action : theme.textPrimary)
+            .foregroundColor(diverting ? theme.warning : theme.textPrimary)
             .padding(.horizontal, iconOnly ? 0 : 8)
             .frame(minWidth: 44, minHeight: 44)
             .contentShape(Rectangle())
@@ -2721,12 +2721,12 @@ struct NavigationMapView: View {
                     .font(.system(size: 10, weight: .heavy)).tracking(0.8)
                     .foregroundColor(theme.actionText)
                     .padding(.horizontal, 6).padding(.vertical, 2)
-                    .background(theme.action, in: RoundedRectangle(cornerRadius: 4))
+                    .background(theme.warning, in: RoundedRectangle(cornerRadius: 4))
                 Text(diversion.ident)
                     .font(.system(size: 15, weight: .bold, design: .monospaced))
                     .foregroundColor(theme.textPrimary)
                 if let distText = nextWaypointDistanceText {
-                    Text(distText).font(.system(size: 13, design: .monospaced)).foregroundColor(theme.action)
+                    Text(distText).font(.system(size: 13, design: .monospaced)).foregroundColor(theme.route)
                 }
                 if let brg = liveBearingText {
                     Text(brg).font(.system(size: 13, design: .monospaced)).foregroundColor(theme.textSecondary)
@@ -2741,10 +2741,10 @@ struct NavigationMapView: View {
                 } label: {
                     Text(L10n.Trip.resumeRoute)
                         .font(.system(size: 12, weight: .semibold))
-                        .foregroundColor(theme.action)
+                        .foregroundColor(theme.warning)
                         .padding(.horizontal, 10)
                         .frame(minHeight: 32)
-                        .overlay(Capsule().strokeBorder(theme.action, lineWidth: 1))
+                        .overlay(Capsule().strokeBorder(theme.warning, lineWidth: 1))
                         .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
@@ -3657,7 +3657,7 @@ struct NativeMapViewUIKit: UIViewRepresentable {
             if let flightPlanPolyline = overlay as? FlightPlanRoutePolyline {
                 let renderer = MKPolylineRenderer(polyline: flightPlanPolyline)
                 if flightPlanPolyline.isDiversion {
-                    // Diversion — the app's gold, so it cannot be mistaken for the planned route. (v5.1)
+                    // Diversion — amber, a non-normal state, so it cannot be mistaken for the planned route. (v5.1)
                     renderer.strokeColor = UIColor(red: 0.898, green: 0.655, blue: 0.227, alpha: 1.0)
                     renderer.lineWidth = 5
                     renderer.lineCap = .round
@@ -3693,7 +3693,7 @@ struct NativeMapViewUIKit: UIViewRepresentable {
 
             if let polyline = overlay as? MKPolyline {
                 let renderer = MKPolylineRenderer(polyline: polyline)
-                renderer.strokeColor = UIColor(red: 0.85, green: 0.65, blue: 0.2, alpha: 1.0)
+                renderer.strokeColor = UIColor.flownTrack
                 renderer.lineWidth = 3
                 return renderer
             }
@@ -3768,7 +3768,9 @@ struct NativeMapViewUIKit: UIViewRepresentable {
 
             // Create aircraft marker with outline for visibility on all map backgrounds
             // Following aviation UI/UX best practices: high contrast with dark outline
-            let aviationGold = UIColor(red: 0.85, green: 0.65, blue: 0.2, alpha: 1.0)
+            // Ownship: white with a dark outline, the flight-deck convention; gold sank into the ICAO
+            // chart's own yellows. (v6.0 · P5)
+            let ownshipColor = UIColor.white
             let config = UIImage.SymbolConfiguration(pointSize: 20, weight: .bold)
 
             if let image = UIImage(systemName: "airplane", withConfiguration: config) {
@@ -3799,7 +3801,7 @@ struct NativeMapViewUIKit: UIViewRepresentable {
                 }
 
                 // Draw main icon on top
-                let tintedImage = image.withTintColor(aviationGold, renderingMode: .alwaysOriginal)
+                let tintedImage = image.withTintColor(ownshipColor, renderingMode: .alwaysOriginal)
                 tintedImage.draw(at: CGPoint(x: strokeWidth, y: strokeWidth))
 
                 if let finalImage = UIGraphicsGetImageFromCurrentImageContext() {
@@ -5049,7 +5051,7 @@ struct SwissMapView: UIViewRepresentable {
             if let flightPlanPolyline = overlay as? FlightPlanRoutePolyline {
                 let renderer = MKPolylineRenderer(polyline: flightPlanPolyline)
                 if flightPlanPolyline.isDiversion {
-                    // Diversion — the app's gold, so it cannot be mistaken for the planned route. (v5.1)
+                    // Diversion — amber, a non-normal state, so it cannot be mistaken for the planned route. (v5.1)
                     renderer.strokeColor = UIColor(red: 0.898, green: 0.655, blue: 0.227, alpha: 1.0)
                     renderer.lineWidth = 5
                     renderer.lineCap = .round
@@ -5091,7 +5093,7 @@ struct SwissMapView: UIViewRepresentable {
                     // Bright magenta for visibility on aeronautical charts
                     renderer.strokeColor = UIColor(red: 1.0, green: 0.0, blue: 0.8, alpha: 1.0)
                 } else {
-                    renderer.strokeColor = UIColor(red: 0.85, green: 0.65, blue: 0.2, alpha: 1.0)
+                    renderer.strokeColor = UIColor.flownTrack
                 }
                 renderer.lineWidth = 3
                 return renderer
@@ -5170,7 +5172,9 @@ struct SwissMapView: UIViewRepresentable {
 
             // Create aircraft marker with outline for visibility on all map backgrounds
             // Following aviation UI/UX best practices: high contrast with dark outline
-            let aviationGold = UIColor(red: 0.85, green: 0.65, blue: 0.2, alpha: 1.0)
+            // Ownship: white with a dark outline, the flight-deck convention; gold sank into the ICAO
+            // chart's own yellows. (v6.0 · P5)
+            let ownshipColor = UIColor.white
             let config = UIImage.SymbolConfiguration(pointSize: 20, weight: .bold)
 
             if let image = UIImage(systemName: "airplane", withConfiguration: config) {
@@ -5201,7 +5205,7 @@ struct SwissMapView: UIViewRepresentable {
                 }
 
                 // Draw main icon on top
-                let tintedImage = image.withTintColor(aviationGold, renderingMode: .alwaysOriginal)
+                let tintedImage = image.withTintColor(ownshipColor, renderingMode: .alwaysOriginal)
                 tintedImage.draw(at: CGPoint(x: strokeWidth, y: strokeWidth))
 
                 if let finalImage = UIGraphicsGetImageFromCurrentImageContext() {

@@ -95,6 +95,7 @@ extension CockpitTheme {
             panelStroke: AmbientPalette.hairline ?? accent.opacity(0.28),
             action: accent,
             actionText: .white,
+            route: accent,
             onTarget: .aviationGreen,
             warning: Color(red: 0.91, green: 0.56, blue: 0.18),
             danger: .aviationRed,

@@ -401,6 +401,12 @@ enum L10n {
         static func readiness(_ done: Int, _ total: Int) -> String {
             String(localized: "\(done) of \(total) done")
         }
+        /// After the flight: "3 of 4 closed". (v6.0 · D3)
+        static func closedProgress(_ done: Int, _ total: Int) -> String {
+            String(localized: "\(done) of \(total) closed")
+        }
+        /// A chapter's ticked tasks, folded into one row. (v6.0 · D3)
+        static func doneCount(_ count: Int) -> String { String(localized: "\(count) done") }
         static let nextUp = String(localized: "Next")
         static let allDone = String(localized: "Everything done")
 

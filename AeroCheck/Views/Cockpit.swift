@@ -44,6 +44,146 @@ enum CockpitStripRule {
     }
 }
 
+/// The Cockpit's V-SPEEDS drawer as one fixed table: stall & glide first, then a row per group in the
+/// order the speeds are flown. The table is the same in every phase, cell for cell; the phase only
+/// decides which cells are highlighted, where they stand. A value that moved with the phase would
+/// defeat the pilot's expectancy of where it is (AC 25-11B §6.2.1). (V-SPEEDS proposal, D1–D8)
+enum VSpeedTable {
+    /// The rows, in their fixed order.
+    enum Group: CaseIterable {
+        case stallGlide, takeoffClimb, approachLanding, limits, other
+    }
+
+    enum Tone {
+        case plain
+        /// Vso, Vs: a caution, in amber.
+        case stall
+        /// Vne: the red line.
+        case neverExceed
+    }
+
+    struct Cell: Equatable, Identifiable {
+        /// The speed's index in the checklist's list.
+        let id: Int
+        let name: String
+        let value: String
+        /// What the value depends on (the checklist's description), where it matters.
+        let qualifier: String?
+        let tone: Tone
+        let highlighted: Bool
+    }
+
+    struct Row: Equatable {
+        let group: Group
+        let cells: [Cell]
+        /// The approach is flown step by step: its cells read as a sequence (›).
+        var isSequence: Bool { group == .approachLanding }
+        var isHighlighted: Bool { cells.contains { $0.highlighted } }
+    }
+
+    enum Crosswind { case takeoff, landing }
+
+    static func group(of name: String) -> Group {
+        switch name.lowercased() {
+        case "vso", "vs", "vbg", "vne": return .stallGlide
+        case "vr", "vinitial", "vx", "vy", "vcc": return .takeoffClimb
+        case "vapp", "vfinal", "vref", "vgo": return .approachLanding
+        case "vfe", "vfo", "va", "vno": return .limits
+        default: return .other
+        }
+    }
+
+    static func tone(of name: String) -> Tone {
+        switch name.lowercased() {
+        case "vso", "vs": return .stall
+        case "vne": return .neverExceed
+        default: return .plain
+        }
+    }
+
+    /// Every speed exactly once, grouped; empty groups left out. `phase` and `aglFeet` only decide
+    /// the highlight.
+    static func rows(speeds: [SpeedReference], phase: ChecklistPhase, aglFeet: Double?) -> [Row] {
+        let highlighted = highlightedIndexes(speeds: speeds, phase: phase, aglFeet: aglFeet)
+        let indexed = Array(speeds.enumerated())
+        return Group.allCases.compactMap { group in
+            var members = indexed.filter { self.group(of: $0.element.name) == group }
+            guard !members.isEmpty else { return nil }
+            members.sort { (order(in: group, $0.element.name), $0.offset) < (order(in: group, $1.element.name), $1.offset) }
+            let names = members.map { $0.element.name.lowercased() }
+            let cells = members.map { index, speed in
+                // Approach steps and limits depend on flaps or weight: always qualified. Elsewhere
+                // only a name that repeats needs it (two Vx, two Vr).
+                let repeated = names.filter { $0 == speed.name.lowercased() }.count > 1
+                let qualified = group == .approachLanding || group == .limits || repeated
+                return Cell(id: index, name: speed.name, value: compactRange(speed.value),
+                            qualifier: qualified && !speed.description.isEmpty ? speed.description : nil,
+                            tone: tone(of: speed.name), highlighted: highlighted.contains(index))
+            }
+            return Row(group: group, cells: cells)
+        }
+    }
+
+    /// Stall before glide before Vne; the climb as flown; every other row in the checklist's order.
+    private static func order(in group: Group, _ name: String) -> Int {
+        let key = name.lowercased()
+        switch group {
+        case .stallGlide: return ["vso", "vs", "vbg", "vne"].firstIndex(of: key) ?? 9
+        case .takeoffClimb: return ["vr", "vinitial", "vx", "vy", "vcc"].firstIndex(of: key) ?? 9
+        default: return 0
+        }
+    }
+
+    /// The speeds the phase is flown at. Today's highlight rule (Vr on the line-up, Vx below 300 ft
+    /// AGL then Vy, VA and Vbg in the descent, the approach, Vfinal and Vso on landing) with Vinitial
+    /// where there's no Vr or Vx, and Vno in cruise where it's listed.
+    static func highlightedIndexes(speeds: [SpeedReference], phase: ChecklistPhase, aglFeet: Double?) -> Set<Int> {
+        let names = speeds.map { $0.name.lowercased() }
+        func all(_ wanted: [String]) -> Set<Int> {
+            Set(names.indices.filter { wanted.contains(names[$0]) })
+        }
+        func first(_ wanted: [String]) -> Set<Int> {
+            for name in wanted {
+                let hit = all([name])
+                if !hit.isEmpty { return hit }
+            }
+            return []
+        }
+        switch phase {
+        case .beforeDeparture, .lineUp:
+            return first(["vr", "vinitial"])
+        case .climb:
+            let belowTransition = aglFeet.map { $0 < 300 } ?? false
+            return belowTransition ? first(["vx", "vinitial", "vy"]) : first(["vy", "vx"])
+        case .cruise:
+            return all(["vno", "va"])
+        case .descent:
+            return all(["va", "vbg"])
+        case .approach:
+            return Set(names.indices.filter { group(of: names[$0]) == .approachLanding && names[$0] != "vgo" })
+        case .landing:
+            return first(["vfinal", "vref"]).union(all(["vso"]))
+        default:
+            return []
+        }
+    }
+
+    /// The crosswind limit that applies: take-off on the line-up, landing on landing.
+    static func highlightedCrosswind(phase: ChecklistPhase) -> Crosswind? {
+        switch phase {
+        case .beforeDeparture, .lineUp: return .takeoff
+        case .landing: return .landing
+        default: return nil
+        }
+    }
+
+    /// The checklists write ranges as "97 – 75", "65-55" or "60 - 55"; in a cell they read as one
+    /// value: "97–75".
+    static func compactRange(_ value: String) -> String {
+        value.replacingOccurrences(of: #"(\d)\s*[-–]\s*(\d)"#, with: "$1–$2", options: .regularExpression)
+    }
+}
+
 /// A thumb-bar button: what it does, in `CockpitType.button`, and what it does it to, underneath.
 /// Always `CockpitTarget.thumb` tall.
 struct CockpitThumbButton: View {

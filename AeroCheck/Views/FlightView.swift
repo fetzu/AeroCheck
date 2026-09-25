@@ -380,7 +380,9 @@ struct FlightView: View {
                 // Populate timing fields on the active flight plan from the current flight
                 if let activePlan = flightPlanManager.activeFlightPlan,
                    let flight = appState.currentFlight {
-                    flightPlanManager.populateTimingFromFlight(activePlan.id, flight: flight)
+                    flightPlanManager.populateTimingFromFlight(activePlan.id, flight: flight,
+                                                               takeoff: appState.lineUpTime,
+                                                               landing: appState.landingTime)
                 }
                 // v5.0.0: resolve the followed thread BEFORE the plan is deactivated — afterwards
                 // there is no plan left to resolve it from. A flight with no thread resolves to nil

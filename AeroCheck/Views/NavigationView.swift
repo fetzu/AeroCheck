@@ -259,6 +259,8 @@ struct NavigationMapView: View {
     @State private var streamingCTRCheckTask: Task<Void, Never>?
     /// Preview index for iPhone compact panel waypoint browsing (nil = showing real active waypoint)
     @State private var compactPreviewIndex: Int? = nil
+    /// Last run of the track-based waypoint catch-up (throttled: it replays the whole track so far).
+    @State private var lastPassageCatchUp = Date.distantPast
 
     /// Whether offline mode is active (requires at least ICAO cache)
     private var isOfflineMode: Bool {
@@ -562,6 +564,12 @@ struct NavigationMapView: View {
                     currentLocation: clLocation,
                     threshold: appState.settings.waypointProximityThreshold
                 )
+                // Waypoints passed abeam, or before the map was opened, which the radius above
+                // never sees. Every 15 s is plenty: a waypoint is passed every few minutes.
+                if Date().timeIntervalSince(lastPassageCatchUp) >= 15, let flight = appState.currentFlight {
+                    lastPassageCatchUp = Date()
+                    flightPlanManager.catchUpWaypointPassages(track: flight.gpsTrack, takeoff: appState.lineUpTime)
+                }
                 // Reset compact preview when GPS auto-advances
                 if flightPlanManager.activeFlightPlan?.currentWaypointIndex != prevIndex {
                     compactPreviewIndex = nil

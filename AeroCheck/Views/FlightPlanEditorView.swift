@@ -1,6 +1,7 @@
 import SwiftUI
 import UIKit
 import MapKit
+import QuickLook
 import UniformTypeIdentifiers
 
 /// Export format options
@@ -24,7 +25,7 @@ enum FlightPlanExportFormat {
     var contentType: UTType {
         switch self {
         case .json: return .json
-        case .gpx: return .xml  // GPX is XML-based
+        case .gpx: return .gpx ?? .xml  // GPX is XML-based
         case .xlsx: return .spreadsheet
         case .pdf, .pdfA5: return .pdf
         }
@@ -59,6 +60,10 @@ struct FlightPlanEditorView: View {
     // changes to the non-route fields auto-commit (debounced) — no Save button, no snapshot split.
     @State private var flightPlan: FlightPlan
     @State private var exportItem: FlightPlanExportItem?
+    /// A generated nav log shown in Quick Look, where it can be read, printed or passed on.
+    @State private var previewURL: URL?
+    /// A generated export waiting for the system save dialog.
+    @State private var pendingSave: PendingSave?
     /// Radio plan for the nav log (frequencies, remarks, Radio box), built from the airspace and
     /// airport data when the route changes; also gives the export menu its page count.
     @State private var radioPlan: RouteRadioPlanner.Plan?
@@ -126,6 +131,11 @@ struct FlightPlanEditorView: View {
             .sheet(item: $exportItem) { item in
                 ShareSheet(activityItems: [item.url])
             }
+            .quickLookPreview($previewURL)
+            .fileExporter(isPresented: Binding(get: { pendingSave != nil }, set: { if !$0 { pendingSave = nil } }),
+                          document: pendingSave?.document,
+                          contentType: pendingSave?.contentType ?? .data,
+                          defaultFilename: pendingSave?.filename) { _ in pendingSave = nil }
             .copiedConfirmation(L10n.Nav.icaoFlightPlanCopied, isPresented: $showingICAOCopied)
         }
         .preferredColorScheme(.dark)
@@ -199,6 +209,24 @@ struct FlightPlanEditorView: View {
             Button { exportFlightPlan(format: .pdfA5) } label: {
                 Label("PDF · A5", systemImage: "doc.richtext")
                 Text(navLogSubtitle)
+            }
+            Divider()
+            // The nav log on screen: read it, print it, mark it up or pass it on from Quick Look.
+            Menu {
+                Button("PDF · A4") { exportFlightPlan(format: .pdf, action: .preview) }
+                Button("PDF · A5") { exportFlightPlan(format: .pdfA5, action: .preview) }
+            } label: {
+                Label(L10n.Export.previewPrint, systemImage: "printer")
+            }
+            // A real save dialog, which the share sheet is not on a Mac.
+            Menu {
+                Button("GPX") { exportFlightPlan(format: .gpx, action: .save) }
+                Button("JSON") { exportFlightPlan(format: .json, action: .save) }
+                Button("Excel") { exportFlightPlan(format: .xlsx, action: .save) }
+                Button("PDF · A4") { exportFlightPlan(format: .pdf, action: .save) }
+                Button("PDF · A5") { exportFlightPlan(format: .pdfA5, action: .save) }
+            } label: {
+                Label(L10n.Export.saveToFiles, systemImage: "folder")
             }
             Divider()
             Button {
@@ -303,10 +331,16 @@ struct FlightPlanEditorView: View {
                 // the FLIGHT that uses the route, so it only appears once a flight follows this
                 // plan. (device pass)
                 if isFlownByAFlight {
-                    DateFormField(label: L10n.Nav.date, date: Binding(
+                    // Date AND time: the time is what every ETO on the nav log is counted from, and a
+                    // date-only picker left a flight created without a time no way to get ETOs
+                    // before departure. Line-up still overwrites it with the real time.
+                    DateFormField(label: L10n.Nav.departureTime, date: Binding(
                         get: { flightPlan.plannedDepartureTime ?? Date() },
-                        set: { flightPlan.plannedDepartureTime = $0 }
-                    ))
+                        set: {
+                            flightPlan.plannedDepartureTime = $0
+                            flightPlan.calculateRouteData()
+                        }
+                    ), components: [.date, .hourAndMinute])
                 }
                 // Typed by hand until now, which invited "24" for a field whose runway is 06/24 and
                 // gave no hint of what exists. The idents come from the departure aerodrome's own
@@ -770,7 +804,9 @@ struct FlightPlanEditorView: View {
         return flightPlan.totalLandings ?? 0
     }
 
-    private func exportFlightPlan(format: FlightPlanExportFormat) {
+    private enum ExportAction { case share, save, preview }
+
+    private func exportFlightPlan(format: FlightPlanExportFormat, action: ExportAction = .share) {
         // Generate the data
         let generatedData: Data?
         switch format {
@@ -789,12 +825,20 @@ struct FlightPlanEditorView: View {
         // Only proceed if data was generated successfully
         guard let data = generatedData else { return }
 
-        // Create export item and show sheet (using item: binding is more reliable than isPresented)
-        exportItem = FlightPlanExportItem(
-            data: data,
-            filename: flightPlan.exportFilename,
-            format: format
-        )
+        switch action {
+        case .share:
+            // Create export item and show sheet (using item: binding is more reliable than isPresented)
+            exportItem = FlightPlanExportItem(
+                data: data,
+                filename: flightPlan.exportFilename,
+                format: format
+            )
+        case .save:
+            pendingSave = PendingSave(document: ExportDocument(data: data), contentType: format.contentType,
+                                      filename: flightPlan.exportFilename)
+        case .preview:
+            previewURL = FlightPlanExportItem(data: data, filename: flightPlan.exportFilename, format: format)?.url
+        }
     }
 }
 
@@ -892,6 +936,7 @@ struct OptionalFormField: View {
 struct DateFormField: View {
     let label: String
     @Binding var date: Date
+    var components: DatePickerComponents = [.date]
 
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
@@ -906,7 +951,7 @@ struct DateFormField: View {
             // No `fieldBox` here: the compact picker draws its own chip, and a box around it would
             // nest two backgrounds. The vertical padding matches the neighbouring fields so the row
             // still lines up.
-            DatePicker("", selection: $date, displayedComponents: [.date])
+            DatePicker("", selection: $date, displayedComponents: components)
                 .labelsHidden()
                 .datePickerStyle(.compact)
                 .tint(.aviationGold)

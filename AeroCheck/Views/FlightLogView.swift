@@ -1770,6 +1770,8 @@ struct FlightDetailView: View {
     @State private var showNumbers = false
     @State private var showExportOptions = false
     @State private var exportType: ExportType = .gpx
+    /// A prepared export waiting for the system save dialog.
+    @State private var pendingSave: PendingSave?
     @State private var selectedTime: Date?
     @State private var showFlightPlan = false
     @State private var showShareCustomization = false
@@ -1787,7 +1789,7 @@ struct FlightDetailView: View {
 
     /// PR-25: build the GPX/JSON `Data` off the main actor, then present the share sheet (or an
     /// error alert). Mirrors `prepareExportAll`.
-    private func prepareExport(_ type: ExportType) {
+    private func prepareExport(_ type: ExportType, save: Bool = false) {
         exportType = type
         let flight = self.flight
         let flightPlan: FlightPlan? = {
@@ -1803,7 +1805,11 @@ struct FlightDetailView: View {
                 }
             }.value
             isPreparingExport = false
-            if let data {
+            if let data, save {
+                pendingSave = PendingSave(document: ExportDocument(data: data),
+                                          contentType: type == .gpx ? (UTType.gpx ?? .xml) : .json,
+                                          filename: flight.exportFilename)
+            } else if let data {
                 preparedExportData = data
                 showExportSheet = true
             } else {
@@ -1857,10 +1863,20 @@ struct FlightDetailView: View {
             Button(L10n.FlightDetail.exportFormatJSON) {
                 prepareExport(.json)
             }
+            Button(L10n.Export.saveFormat("GPX")) {
+                prepareExport(.gpx, save: true)
+            }
+            Button(L10n.Export.saveFormat("JSON")) {
+                prepareExport(.json, save: true)
+            }
             Button(L10n.Button.cancel, role: .cancel) { }
         } message: {
             Text(L10n.FlightDetail.exportFormatMessage)
         }
+        .fileExporter(isPresented: Binding(get: { pendingSave != nil }, set: { if !$0 { pendingSave = nil } }),
+                      document: pendingSave?.document,
+                      contentType: pendingSave?.contentType ?? .data,
+                      defaultFilename: pendingSave?.filename) { _ in pendingSave = nil }
         .sheet(isPresented: $showExportSheet) {
             // PR-25: data is already serialized off-main in prepareExport — the builder only wraps it.
             if let data = preparedExportData {
@@ -2154,7 +2170,10 @@ struct FlightDetailView: View {
         }
         .sheet(isPresented: $showFlightPlan) {
             if let savedFlightPlan = flight.flightPlan {
-                FlightPlanEditorView(flightPlan: savedFlightPlan, isViewingFromFlightLog: true)
+                // With the passing times the in-flight trigger missed, so the after-flight nav log
+                // has its ATO column. Flights logged before this change get them too.
+                FlightPlanEditorView(flightPlan: savedFlightPlan.withActualTimesOver(from: flight),
+                                     isViewingFromFlightLog: true)
                     .environment(appState)
                     .environmentObject(flightPlanManager)
                     .environmentObject(airportDataService)
@@ -2188,8 +2207,13 @@ struct FlightDetailView: View {
     /// saved plan that recorded times. Hidden otherwise. (v4 UI/UX Revamp Flight Log revamp)
     @ViewBuilder
     private var planVsActualSection: some View {
-        if let plan = flight.flightPlan {
-            let rows = plan.waypoints.filter { $0.estimatedTimeOver != nil || $0.actualTimeOver != nil }
+        // Passing times the in-flight trigger missed come from the recorded track, and each ATO is
+        // compared with the ETO AT that waypoint (not the leg data stored on it, which is the next
+        // waypoint's).
+        if let plan = flight.flightPlan?.withActualTimesOver(from: flight) {
+            let rows = plan.waypoints.indices.filter {
+                plan.estimatedTimeOver(at: $0) != nil || plan.waypoints[$0].actualTimeOver != nil
+            }
             if !rows.isEmpty {
                 VStack(alignment: .leading, spacing: 10) {
                     Text("PLAN vs ACTUAL")
@@ -2206,14 +2230,16 @@ struct FlightDetailView: View {
                     .scaledFont(size: 10, weight: .semibold, relativeTo: .caption2)
                     .foregroundColor(.dimText)
 
-                    ForEach(rows) { waypoint in
+                    ForEach(rows, id: \.self) { index in
+                        let waypoint = plan.waypoints[index]
+                        let eto = plan.estimatedTimeOver(at: index)
                         HStack {
-                            Text(waypoint.name)
+                            Text(RouteRadioPlanner.displayName(waypoint, index: index))
                                 .scaledFont(size: 13, weight: .medium, design: .monospaced, relativeTo: .caption)
                                 .foregroundColor(.primaryText)
                                 .lineLimit(1)
                                 .frame(maxWidth: .infinity, alignment: .leading)
-                            Text(waypoint.estimatedTimeOver.map(planTimeString) ?? "—")
+                            Text(eto.map(planTimeString) ?? "—")
                                 .scaledFont(size: 12, design: .monospaced, relativeTo: .caption)
                                 .foregroundColor(.secondaryText)
                                 .frame(width: 60, alignment: .trailing)
@@ -2221,7 +2247,7 @@ struct FlightDetailView: View {
                                 .scaledFont(size: 12, design: .monospaced, relativeTo: .caption)
                                 .foregroundColor(.primaryText)
                                 .frame(width: 60, alignment: .trailing)
-                            planDeltaView(eto: waypoint.estimatedTimeOver, ato: waypoint.actualTimeOver)
+                            planDeltaView(eto: eto, ato: waypoint.actualTimeOver)
                                 .frame(width: 56, alignment: .trailing)
                         }
                     }
@@ -2906,26 +2932,32 @@ func presentImageShareSheet(image: UIImage) {
 
 /// Wraps a `Data` blob so it can be shared via `UIActivityViewController` as a named temp file
 /// with an explicit type identifier. Replaces the former byte-identical GPXFile/JSONFile/ZIPFile.
+///
+/// The file is written up front and the PLACEHOLDER is its URL. The share sheet decides which
+/// actions to offer from the placeholder, and this used to be the filename, a plain string: so it
+/// offered text actions only. On a Mac that meant "Copy" and nothing else; on iPad no Print for a
+/// PDF and no Save to Files.
 class ShareFile: NSObject, UIActivityItemSource {
     let data: Data
     let filename: String
     let dataTypeIdentifier: String
+    let url: URL
 
     init(data: Data, filename: String, dataTypeIdentifier: String) {
         self.data = data
         self.filename = filename
         self.dataTypeIdentifier = dataTypeIdentifier
+        self.url = FileManager.default.temporaryDirectory.appendingPathComponent(filename)
+        try? data.write(to: url, options: .atomic)
         super.init()
     }
 
     func activityViewControllerPlaceholderItem(_ activityViewController: UIActivityViewController) -> Any {
-        return filename
+        return url
     }
 
     func activityViewController(_ activityViewController: UIActivityViewController, itemForActivityType activityType: UIActivity.ActivityType?) -> Any? {
-        let tempURL = FileManager.default.temporaryDirectory.appendingPathComponent(filename)
-        try? data.write(to: tempURL)
-        return tempURL
+        return url
     }
 
     func activityViewController(_ activityViewController: UIActivityViewController, dataTypeIdentifierForActivityType activityType: UIActivity.ActivityType?) -> String {
@@ -2935,6 +2967,44 @@ class ShareFile: NSObject, UIActivityItemSource {
     func activityViewController(_ activityViewController: UIActivityViewController, subjectForActivityType activityType: UIActivity.ActivityType?) -> String {
         return filename
     }
+}
+
+// MARK: - Export to Files
+
+/// A generated export handed to `.fileExporter`, so it can be SAVED: a real save panel on the Mac,
+/// the Files picker on iPad and iPhone. Sharing alone is not enough there, because the Mac share
+/// menu has no Save.
+struct ExportDocument: FileDocument {
+    static var readableContentTypes: [UTType] { [.data] }
+    static var writableContentTypes: [UTType] {
+        [.json, .pdf, .xml, .spreadsheet, .commaSeparatedText, .zip, .data] + (UTType.gpx.map { [$0] } ?? [])
+    }
+
+    let data: Data
+
+    init(data: Data) {
+        self.data = data
+    }
+
+    init(configuration: ReadConfiguration) throws {
+        data = configuration.file.regularFileContents ?? Data()
+    }
+
+    func fileWrapper(configuration: WriteConfiguration) throws -> FileWrapper {
+        FileWrapper(regularFileWithContents: data)
+    }
+}
+
+extension UTType {
+    /// GPX, as declared by the app's imported type. Nil only if that declaration is missing.
+    static var gpx: UTType? { UTType("com.topografix.gpx") ?? UTType(filenameExtension: "gpx") }
+}
+
+/// What `.fileExporter` needs for one save.
+struct PendingSave {
+    let document: ExportDocument
+    let contentType: UTType
+    let filename: String
 }
 
 // MARK: - Share Card Color Scheme

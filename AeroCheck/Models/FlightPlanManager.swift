@@ -444,8 +444,16 @@ class FlightPlanManager: ObservableObject {
     /// - Parameters:
     ///   - planId: The ID of the flight plan to update
     ///   - flight: The completed flight with timing data
-    func populateTimingFromFlight(_ planId: UUID, flight: Flight) {
+    ///   - takeoff, landing: the flight's line-up and landing times. Passed in because at END FLIGHT
+    ///     they still live on AppState: `endFlight` copies them onto the flight only afterwards.
+    func populateTimingFromFlight(_ planId: UUID, flight: Flight, takeoff: Date? = nil, landing: Date? = nil) {
         guard var plan = flightPlans.first(where: { $0.id == planId }) else { return }
+
+        // ATO for every waypoint the in-flight trigger did not record, from the GPS track: the
+        // after-flight nav log is the one the times are written on.
+        plan = plan.withActualTimesOver(fromTrack: flight.gpsTrack,
+                                        takeoff: takeoff ?? flight.lineUpTime,
+                                        landing: landing ?? flight.landingTime)
 
         // Time ON = Engine started (engine on)
         if plan.timeOn == nil, let engineStart = flight.engineStartTime {
@@ -607,6 +615,29 @@ class FlightPlanManager: ObservableObject {
 
         // Crossing the active waypoint begins a new leg — restart the leg timer (keeps run state). (v4 UI/UX Revamp)
         if advanced { resetChronometer() }
+    }
+
+    /// Catch the active plan up with the waypoints already passed, from the track recorded so far.
+    ///
+    /// The proximity trigger below only ever looks at the CURRENT waypoint, and only within its
+    /// radius. That starts at the departure aerodrome, so opening the map once airborne (outside the
+    /// radius) left the plan on waypoint 0 for the whole flight, with no ATO anywhere. This records
+    /// every passage `WaypointPassage` can establish (at the time it happened, not now) and moves the
+    /// current waypoint past the last one. Times already recorded are kept.
+    func catchUpWaypointPassages(track: [GPSPoint], takeoff: Date?) {
+        guard var plan = activeFlightPlan, plan.currentWaypointIndex < plan.waypoints.count else { return }
+        let filled = plan.withActualTimesOver(fromTrack: track, takeoff: takeoff, landing: nil)
+        guard let lastPassed = filled.waypoints.lastIndex(where: { $0.actualTimeOver != nil }),
+              lastPassed >= plan.currentWaypointIndex else { return }
+        for i in 0...lastPassed where plan.waypoints[i].actualTimeOver == nil {
+            plan.waypoints[i].actualTimeOver = filled.waypoints[i].actualTimeOver
+        }
+        plan.currentWaypointIndex = lastPassed + 1
+        activeFlightPlan = plan
+        if let index = flightPlans.firstIndex(where: { $0.id == plan.id }) { flightPlans[index] = plan }
+        saveFlightPlans()
+        saveActiveFlightPlan()
+        resetChronometer()
     }
 
     /// Auto-advance waypoint if within proximity (records ATO based on GPS position)

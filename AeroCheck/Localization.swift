@@ -1386,6 +1386,12 @@ enum L10n {
             String(format: String(localized: "export.waypointCount"), count)
         }
         static let allWaypoints = String(localized: "export.allWaypoints")
+        static let saveToFiles = String(localized: "export.saveToFiles")
+        /// "Save GPX to Files…"
+        static func saveFormat(_ format: String) -> String {
+            String(format: String(localized: "export.saveFormat"), format)
+        }
+        static let previewPrint = String(localized: "export.previewPrint")
     }
 
     /// The builder's "Set altitudes" sheet.
@@ -1534,6 +1540,7 @@ enum L10n {
         static let flightType = String(localized: "nav.flightType")
         static let pilot = String(localized: "nav.pilot")
         static let date = String(localized: "nav.date")
+        static let departureTime = String(localized: "nav.departureTime")
         static let runway = String(localized: "nav.runway")
         static let instructor = String(localized: "nav.instructor")
         static let totalEET = String(localized: "nav.totalEET")

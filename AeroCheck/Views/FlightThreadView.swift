@@ -1,4 +1,5 @@
 import SwiftUI
+import QuickLook
 
 // MARK: - Task presentation
 //
@@ -157,8 +158,9 @@ struct FlightThreadView: View {
     @State private var numbersFlightId: UUID?
     /// Confirmation for the ICAO flight-plan copy, which is otherwise invisible. (v5.0.0)
     @State private var copiedFPL = false
-    /// The nav log rendered for sharing, held until its share sheet is up. (v5.0.0)
-    @State private var navLogExport: Data?
+    /// The nav log rendered to a file and shown in Quick Look, where it can be read, printed,
+    /// marked up, saved or shared. (A bare share sheet offered none of the first three on iPad.)
+    @State private var navLogPreview: URL?
     /// Plan open in the map builder, from the route task. (v5.0.0)
     @State private var routeBuilderPlanId: UUID?
     /// Plan open in the details editor, from the fuel task. (v5.0.0)
@@ -227,18 +229,7 @@ struct FlightThreadView: View {
                 FlightNumbersView(flightId: id, onClose: { numbersFlightId = nil })
             }
         }
-        .sheet(isPresented: Binding(
-            get: { navLogExport != nil },
-            set: { if !$0 { navLogExport = nil } }
-        )) {
-            if let data = navLogExport, let thread {
-                ShareSheet(activityItems: [
-                    ShareFile(data: data,
-                              filename: "\(thread.routeLabel.replacingOccurrences(of: " ", with: ""))_NavLog.pdf",
-                              dataTypeIdentifier: "com.adobe.pdf")
-                ])
-            }
-        }
+        .quickLookPreview($navLogPreview)
         .fullScreenCover(isPresented: Binding(
             get: { routeBuilderPlanId != nil },
             set: { if !$0 { routeBuilderPlanId = nil } }
@@ -815,7 +806,10 @@ struct FlightThreadView: View {
             Task {
                 let radio = await RouteRadioPlanner.plan(for: plan, openAIP: openAIPDataService,
                                                          airports: airportDataService)
-                navLogExport = FlightPlanExportService.exportToPDF(plan, radio: radio)
+                guard let data = FlightPlanExportService.exportToPDF(plan, radio: radio) else { return }
+                let name = "\(thread.routeLabel.replacingOccurrences(of: " ", with: ""))_NavLog.pdf"
+                    .replacingOccurrences(of: "/", with: "-")
+                navLogPreview = ShareFile(data: data, filename: name, dataTypeIdentifier: "com.adobe.pdf").url
             }
         case .feesPaid, .logbookEntry:
             numbersFlightId = thread.flightId

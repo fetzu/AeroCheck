@@ -719,6 +719,18 @@ struct FlightPlan: Identifiable, Codable, Equatable {
         updatedAt = Date()
     }
 
+    /// The ETO AT the waypoint at `index`: the departure time for the departure, otherwise the time
+    /// at the end of the leg arriving there. That is stored on the leg's departure waypoint like the
+    /// rest of the leg data (see `legArriving(at:)`), except for the destination, which carries the
+    /// arrival allowance itself. Comparing a waypoint's own `estimatedTimeOver` with its ATO compares
+    /// against the NEXT waypoint's time.
+    func estimatedTimeOver(at index: Int) -> Date? {
+        guard waypoints.indices.contains(index) else { return nil }
+        if index == 0 { return plannedDepartureTime }
+        if index == waypoints.count - 1 { return waypoints[index].estimatedTimeOver }
+        return waypoints[index - 1].estimatedTimeOver
+    }
+
     /// The waypoint carrying the leg data (MC, distance, EET) for the leg ARRIVING at the
     /// waypoint at `index`. Each leg's data is stored on its DEPARTURE waypoint
     /// (`waypoints[i]` holds leg `i → i+1`), so the inbound leg to `index` lives on

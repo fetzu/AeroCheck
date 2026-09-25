@@ -747,9 +747,7 @@ enum L10n {
 
         // Display
         static let display = String(localized: "settings.display")
-        static let keepScreenOn = String(localized: "settings.display.keepScreenOn")
         static let alwaysUseUTC = String(localized: "settings.display.alwaysUseUTC")
-        static let keepScreenOnFooter = String(localized: "settings.display.keepScreenOnDesc")
         static let alwaysUseUTCFooter = String(localized: "settings.display.alwaysUseUTCDesc")
         // Cockpit theme (v4 UI/UX Revamp — replaces the night-mode picker; sunlight now selectable)
         static let theme = String(localized: "settings.display.theme")
@@ -862,14 +860,10 @@ enum L10n {
 
         // Checklist
         static let checklist = String(localized: "settings.checklist")
-        static let stepByStep = String(localized: "settings.checklist.stepByStep")
         /// On = memorisable checks hidden (`AppSettings.learningMode` off). (v6.0 · A7)
         static let memoryTest = String(localized: "settings.checklist.memoryTest")
         static let memoryTestOnboarding = String(localized: "settings.checklist.memoryTestOnboarding")
-        static let circuitMode = String(localized: "settings.checklist.circuitMode")
-        static let stepByStepFooter = String(localized: "settings.checklist.stepByStepFooter")
         static let memoryTestFooter = String(localized: "settings.checklist.memoryTestFooter")
-        static let circuitModeFooter = String(localized: "settings.checklist.circuitModeFooter")
 
         // Flight Logging
         static let flightLogging = String(localized: "settings.flightLogging")

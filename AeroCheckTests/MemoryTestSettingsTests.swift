@@ -15,7 +15,7 @@ final class MemoryTestSettingsTests: XCTestCase {
 
     func testANewInstallShowsEveryCheck() {
         XCTAssertTrue(AppSettings().learningMode)
-        XCTAssertEqual(AppSettings().schemaVersion, 3)
+        XCTAssertEqual(AppSettings().schemaVersion, AppSettings.currentSchemaVersion)
     }
 
     func testSettingsWithoutTheKeyShowEveryCheck() throws {

@@ -22,8 +22,11 @@ struct ChecklistFlightSettingsView: View {
             SettingsGroup(title: L10n.Settings.checklist, tint: tint) {
                 SettingsToggleRow(icon: "checklist", title: L10n.Settings.stepByStep,
                                   subtitle: L10n.Settings.stepByStepFooter, tint: tint, isOn: $stepByStepHighlighting)
-                SettingsToggleRow(icon: "graduationcap", title: L10n.Settings.learningMode,
-                                  subtitle: L10n.Settings.learningModeFooter, tint: tint, isOn: $learningMode)
+                // "Memory test" is learning mode seen from the pilot's side: on hides the memorisable
+                // checks. The stored setting keeps its meaning (on = everything shown). (v6.0 · A7)
+                SettingsToggleRow(icon: "brain.head.profile", title: L10n.Settings.memoryTest,
+                                  subtitle: L10n.Settings.memoryTestFooter, tint: tint,
+                                  isOn: Binding(get: { !learningMode }, set: { learningMode = !$0 }))
                 SettingsToggleRow(icon: "arrow.triangle.2.circlepath", title: L10n.Settings.circuitMode,
                                   subtitle: L10n.Settings.circuitModeFooter, tint: tint, isOn: $enableCircuitMode)
                 SettingsMenuRow(icon: "character.bubble", title: L10n.Settings.checklistLanguage,

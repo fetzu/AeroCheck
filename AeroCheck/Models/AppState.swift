@@ -101,7 +101,9 @@ struct AppSettings: Codable, Equatable {
     var gpsRecordingInterval: Double = 5.0 // seconds
     var showSpeedReference: Bool = true
     var stepByStepHighlighting: Bool = true // Highlight items one by one
-    var learningMode: Bool = false // Hide memorizable checks
+    /// Every check shown. Off is the "Memory test": memorisable checks are hidden until revealed.
+    /// On by default since 6.0: the old default hid checks from pilots who never opened Settings.
+    var learningMode: Bool = true
     var forceICAOChartLayer: Bool = false // When true, ICAO layer stays at all zoom levels
     var offlineMode: Bool = false // When true, use cached ICAO chart only
     var alwaysUseUTC: Bool = false // When true, all times are displayed in UTC
@@ -180,7 +182,7 @@ struct AppSettings: Codable, Equatable {
 
     /// Bump whenever a stored property is added that an older build cannot round-trip, and add it
     /// to `preservingFieldsUnknownTo(_:)` below.
-    static let currentSchemaVersion = 2
+    static let currentSchemaVersion = 3
 
     /// Merge an incoming settings record over `self`, keeping local values the writer could not have
     /// carried. Same-or-newer writers are taken at their word, including deliberate clearings.
@@ -195,8 +197,23 @@ struct AppSettings: Codable, Equatable {
         merged.aircraftRates = aircraftRates
         merged.weightBalanceProfiles = weightBalanceProfiles
         merged.enableCostTracking = enableCostTracking
+        // Schema 3 (v6.0): before 6.0 `learningMode` defaulted to off, hiding memorisable checks, so
+        // an older writer's value says nothing about what this pilot chose.
+        merged.learningMode = learningMode
         merged.schemaVersion = AppSettings.currentSchemaVersion
         return merged
+    }
+
+    /// Settings a pre-6.0 build saved on this device, brought to schema 3: every check shown again,
+    /// once. The old default hid memorisable checks, and most pilots never chose it. The file then
+    /// carries schema 3, so a later "Memory test" choice sticks. Local files only; an incoming sync
+    /// record goes through `preservingFieldsUnknownTo(_:)`. (v6.0 · A7)
+    func migratedLocally() -> AppSettings {
+        guard schemaVersion < 3 else { return self }
+        var migrated = self
+        migrated.learningMode = true
+        migrated.schemaVersion = AppSettings.currentSchemaVersion
+        return migrated
     }
 
     // Flight logging
@@ -338,7 +355,7 @@ struct AppSettings: Codable, Equatable {
         gpsRecordingInterval = try container.decodeIfPresent(Double.self, forKey: .gpsRecordingInterval) ?? 5.0
         showSpeedReference = try container.decodeIfPresent(Bool.self, forKey: .showSpeedReference) ?? true
         stepByStepHighlighting = try container.decodeIfPresent(Bool.self, forKey: .stepByStepHighlighting) ?? true
-        learningMode = try container.decodeIfPresent(Bool.self, forKey: .learningMode) ?? false
+        learningMode = try container.decodeIfPresent(Bool.self, forKey: .learningMode) ?? true
         forceICAOChartLayer = try container.decodeIfPresent(Bool.self, forKey: .forceICAOChartLayer) ?? false
         offlineMode = try container.decodeIfPresent(Bool.self, forKey: .offlineMode) ?? false
         alwaysUseUTC = try container.decodeIfPresent(Bool.self, forKey: .alwaysUseUTC) ?? false
@@ -843,7 +860,7 @@ class AppState {
             guard let fileSettings = await self.persistence.loadSettingsOffMain(),
                   fileSettings != launchSettings,
                   self.settings == launchSettings else { return }
-            self.settings = fileSettings.clampedForIngest() // SEC-C25
+            self.settings = fileSettings.clampedForIngest().migratedLocally() // SEC-C25
             self.saveSettings()
         }
     }
@@ -1979,7 +1996,8 @@ class AppState {
             // Flights/ and NavigationPlans/, so it is exactly as untrusted as a synced record.
             // SyncManager.settingsFromRecord already clamps; this sibling path did not, leaving
             // the numeric ranges (e.g. gpsRecordingInterval) unguarded on the file route.
-            settings = loadedSettings.clampedForIngest()
+            settings = loadedSettings.clampedForIngest().migratedLocally()
+            if settings.schemaVersion != loadedSettings.schemaVersion { persistence.saveSettings(settings) }
 
             // Update sync manager with loaded preference
             syncManager?.isSyncEnabled = settings.iCloudSyncEnabled

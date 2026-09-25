@@ -175,6 +175,18 @@ struct Stopover: Codable, Equatable, Sendable {
     /// Refuel at the stop: the leg departs with the trip's planned fuel on board again, instead of
     /// what the previous leg left in the tanks.
     var refuel: Bool = false
+
+    init(groundMinutes: Int = Stopover.defaultGroundMinutes, refuel: Bool = false) {
+        self.groundMinutes = groundMinutes
+        self.refuel = refuel
+    }
+
+    /// Missing keys take their defaults: the synthesised decoder would reject the whole plan.
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        groundMinutes = try c.decodeIfPresent(Int.self, forKey: .groundMinutes) ?? Stopover.defaultGroundMinutes
+        refuel = try c.decodeIfPresent(Bool.self, forKey: .refuel) ?? false
+    }
 }
 
 /// An aerodrome the flight is now going to instead of the rest of its route.
@@ -195,6 +207,8 @@ struct Diversion: Codable, Equatable, Sendable {
     /// The route waypoint that was next when the aircraft left the route. Every waypoint from here
     /// on without an ATO was not flown.
     var leftRouteAt: Int
+    /// When the flight landed there. Set at END FLIGHT.
+    var landedAt: Date? = nil
 
     var coordinate: CLLocationCoordinate2D {
         CLLocationCoordinate2D(latitude: latitude, longitude: longitude)

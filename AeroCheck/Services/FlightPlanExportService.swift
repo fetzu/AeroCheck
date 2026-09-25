@@ -474,15 +474,46 @@ class FlightPlanExportService {
         var stationChanged = false
         var mc = "", dist = "", alt = "", wind = "", gs = "", eet = "", eto = "", ato = ""
         var remarks: [String] = []
+        /// A waypoint the flight never reached: it diverted first. Printed grey. (v5.1)
+        var notFlown = false
+        /// The aerodrome the flight diverted to, printed after the route. (v5.1)
+        var isDiversion = false
     }
 
     /// Rows for the plan as given; the export entry points recompute the route first (see
     /// `recomputed(_:)`), so Wind/GS/EET/ETO all come from one calculation.
     static func navLogRows(_ plan: FlightPlan, radio: RouteRadioPlanner.Plan) -> [NavLogRow] {
-        let wps = plan.waypoints
-        let last = wps.count - 1
         let timeFmt = DateFormatter()
         timeFmt.dateFormat = "HH:mm"
+        var rows = routeRows(plan, radio: radio, timeFmt: timeFmt)
+        // A trip leg's departure is an estimate until it flies: say so where the times start. (v5.1)
+        if plan.departureIsEstimate == true, !rows.isEmpty, !rows[0].eto.isEmpty {
+            rows[0].eto = "≈" + rows[0].eto
+            rows[0].remarks.insert(L10n.Trip.estimatedDepartureRemark(plan.stopover?.groundMinutes
+                                                                       ?? Stopover.defaultGroundMinutes), at: 0)
+        }
+        // A diversion: what was not flown is greyed, and where the flight went instead comes last.
+        if let diversion = plan.diversion {
+            for i in rows.indices where i > 0 && i >= diversion.leftRouteAt && plan.waypoints[i].actualTimeOver == nil {
+                rows[i].notFlown = true
+                rows[i].remarks = [L10n.Trip.notFlown]
+            }
+            var row = NavLogRow(name: "→ \(diversion.ident)", isDeparture: false, station: nil)
+            row.isDiversion = true
+            row.alt = diversion.elevationFeet.map { String(format: "%.0f", $0) } ?? ""
+            row.ato = diversion.landedAt.map { timeFmt.string(from: $0) } ?? ""
+            row.remarks = [diversion.startedAt.map { L10n.Trip.divertedAt(timeFmt.string(from: $0)) }
+                           ?? L10n.Trip.landedHereInstead]
+            if let frequency = diversion.frequency { row.remarks.append(frequency) }
+            rows.append(row)
+        }
+        return rows
+    }
+
+    private static func routeRows(_ plan: FlightPlan, radio: RouteRadioPlanner.Plan,
+                                  timeFmt: DateFormatter) -> [NavLogRow] {
+        let wps = plan.waypoints
+        let last = wps.count - 1
         return wps.indices.map { i in
             let wp = wps[i]
             let radioRow = i < radio.rows.count ? radio.rows[i] : RouteRadioPlanner.Row()
@@ -983,16 +1014,20 @@ class FlightPlanExportService {
                     cell(next(0), fill: rowFill)
                     cell(next(1), fill: rowFill)
                 }
-                cell(next(2), row.name, font: isDep ? fRouteHdr : fRoute, fill: rowFill, fitWidth: true)
+                // Not flown (a diversion came first): grey. The diversion field: bold. (v5.1)
+                let rowInk: UIColor? = row.notFlown ? dittoInk : nil
+                cell(next(2), row.name, font: (isDep || row.isDiversion) ? fRouteHdr : fRoute, fill: rowFill,
+                     color: rowInk, fitWidth: true)
                 let legValues = [row.mc, row.dist, row.alt, row.wind, row.gs, row.eet]
                 for (offset, value) in legValues.enumerated() {
                     let c = 3 + offset
                     let na = isDep && naCols.contains(c)
                     cell(next(c), na ? "" : value, font: fRoute, align: .center, fill: na ? shNA : rowFill,
-                         fitWidth: true)
+                         color: rowInk, fitWidth: true)
                 }
-                cell(next(9), row.eto, font: isDep ? fRouteHdr : fRoute, align: .center, fill: rowFill)
-                cell(next(10), row.ato, font: fRoute, align: .center, fill: rowFill)
+                cell(next(9), row.eto, font: isDep ? fRouteHdr : fRoute, align: .center, fill: rowFill,
+                     color: rowInk, fitWidth: true)
+                cell(next(10), row.ato, font: row.isDiversion ? fRouteHdr : fRoute, align: .center, fill: rowFill)
                 let remarksRect = next(11)
                 cell(remarksRect, fill: rowFill)
                 drawRemarks(row.remarks, in: remarksRect)

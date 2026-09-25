@@ -169,4 +169,70 @@ final class TripPlannerTests: XCTestCase {
         let next = TripPlanner.continuation(of: plan, from: aerodrome("FFFF", lat: 47.05, lon: 7.5))
         XCTAssertEqual(next.waypoints.map(\.name), ["FFFF", "DDDD"])
     }
+
+    // MARK: - Landing somewhere else
+
+    func testLandingElsewhereRecordsADiversionEvenWithoutTheButton() {
+        // Nobody pressed Divert: END FLIGHT knows where the aircraft stopped, and that is a fact.
+        var plan = route(["AAAA", "W1", "W2", "DDDD"], lons: [7.0, 7.3, 7.6, 7.9])
+        plan.waypoints[1].actualTimeOver = t0.addingTimeInterval(600)
+        let landing = t0.addingTimeInterval(1500)
+        let settled = TripPlanner.settlingDiversion(plan, landedAt: aerodrome("FFFF", lat: 46.9, lon: 7.5),
+                                                    landing: landing)
+        XCTAssertEqual(settled.diversion?.ident, "FFFF")
+        XCTAssertEqual(settled.diversion?.leftRouteAt, 2, "left the route after the last waypoint passed")
+        XCTAssertEqual(settled.diversion?.landedAt, landing)
+        XCTAssertNil(settled.diversion?.startedAt, "no button, no start time")
+    }
+
+    func testLandingAtTheDestinationIsNotADiversion() {
+        let plan = route(["AAAA", "W1", "DDDD"], lons: [7.0, 7.3, 7.6])
+        XCTAssertNil(TripPlanner.settlingDiversion(plan, landedAt: aerodrome("DDDD", lat: 47.0, lon: 7.6),
+                                                   landing: t0).diversion)
+        XCTAssertNil(TripPlanner.settlingDiversion(plan, landedAt: aerodrome("XXXX", lat: 47.01, lon: 7.61),
+                                                   landing: t0).diversion,
+                     "a field within 2 NM of the destination is the destination under another ident")
+    }
+
+    func testADiversionInTheAirKeepsWhereItLeftTheRoute() {
+        var plan = route(["AAAA", "W1", "W2", "DDDD"], lons: [7.0, 7.3, 7.6, 7.9])
+        plan.diversion = Diversion(ident: "FFFF", name: "Field", latitude: 46.9, longitude: 7.5,
+                                   elevationFeet: nil, frequency: nil, startedAt: t0, leftRouteAt: 1)
+        let settled = TripPlanner.settlingDiversion(plan, landedAt: aerodrome("FFFF", lat: 46.9, lon: 7.5),
+                                                    landing: t0.addingTimeInterval(900))
+        XCTAssertEqual(settled.diversion?.leftRouteAt, 1)
+        XCTAssertEqual(settled.diversion?.startedAt, t0)
+        XCTAssertNotNil(settled.diversion?.landedAt)
+
+        let backOnPlan = TripPlanner.settlingDiversion(plan, landedAt: aerodrome("DDDD", lat: 47.0, lon: 7.9),
+                                                       landing: t0)
+        XCTAssertNil(backOnPlan.diversion, "diverted, then made the destination after all")
+    }
+
+    // MARK: - The nav log of a diverted flight
+
+    func testTheNavLogGreysWhatWasNotFlownAndEndsAtTheDiversion() {
+        var plan = route(["AAAA", "W1", "W2", "DDDD"], lons: [7.0, 7.3, 7.6, 7.9])
+        plan.waypoints[0].actualTimeOver = t0
+        plan.waypoints[1].actualTimeOver = t0.addingTimeInterval(600)
+        plan.diversion = Diversion(ident: "FFFF", name: "Field", latitude: 46.9, longitude: 7.5,
+                                   elevationFeet: 1300, frequency: "AFIS 123.200", startedAt: t0.addingTimeInterval(700),
+                                   leftRouteAt: 2, landedAt: t0.addingTimeInterval(1500))
+        let rows = FlightPlanExportService.navLogRows(plan, radio: RouteRadioPlanner.manualOnly(plan.waypoints))
+        XCTAssertEqual(rows.count, 5, "the route, then the diversion field")
+        XCTAssertEqual(rows.map(\.notFlown), [false, false, true, true, false])
+        XCTAssertEqual(rows[4].name, "→ FFFF")
+        XCTAssertTrue(rows[4].isDiversion)
+        XCTAssertEqual(rows[4].alt, "1300")
+        XCTAssertFalse(rows[4].ato.isEmpty, "the landing time is its ATO")
+        XCTAssertTrue(rows[4].remarks.contains("AFIS 123.200"))
+    }
+
+    func testALaterLegsNavLogSaysItsDepartureIsAnEstimate() {
+        let plan = route(["AAAA", "BBBB", "CCCC"], lons: [7.0, 7.3, 7.6])
+        let (_, second) = TripPlanner.split(plan, at: 1, stopover: Stopover(groundMinutes: 45))!
+        let rows = FlightPlanExportService.navLogRows(second, radio: RouteRadioPlanner.manualOnly(second.waypoints))
+        XCTAssertTrue(rows[0].eto.hasPrefix("≈"))
+        XCTAssertEqual(rows[0].remarks.first, L10n.Trip.estimatedDepartureRemark(45))
+    }
 }

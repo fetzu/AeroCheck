@@ -211,6 +211,8 @@ struct NavigationMapView: View {
     }
     @EnvironmentObject var flightEventDetector: FlightEventDetector
     @EnvironmentObject var aviationWeatherService: AviationWeatherService
+    /// For the one line a diversion shows when a flight plan was filed. (v5.1)
+    @EnvironmentObject var threadManager: FlightThreadManager
     @ObservedObject private var marketingProvider = MarketingLocationProvider.shared
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
@@ -261,6 +263,9 @@ struct NavigationMapView: View {
     @State private var compactPreviewIndex: Int? = nil
     /// Last run of the track-based waypoint catch-up (throttled: it replays the whole track so far).
     @State private var lastPassageCatchUp = Date.distantPast
+    /// The Divert sheet, and the field it opens on when reached from an airport callout. (v5.1)
+    @State private var showDivert = false
+    @State private var divertPreselect: String?
 
     /// Whether offline mode is active (requires at least ICAO cache)
     private var isOfflineMode: Bool {
@@ -436,6 +441,14 @@ struct NavigationMapView: View {
         // A detected go-around / touch-and-go / full-stop must be confirmable while the full-screen
         // map is up — FlightView's own overlay sits behind this .fullScreenCover. (PR-40)
         .flightEventConfirmationOverlay(detector: flightEventDetector, appState: appState)
+        .sheet(isPresented: $showDivert) {
+            DivertSheet(onClose: { showDivert = false }, preselectedIdent: divertPreselect)
+                .environment(\.cockpitTheme, theme)
+                .environmentObject(flightPlanManager)
+                .environmentObject(airportDataService)
+                .environmentObject(locationManager)
+                .presentationDetents([.large])
+        }
         .onAppear {
             // Restore map settings from session state
             selectedLayer = appState.navigationMapState.selectedLayer
@@ -879,6 +892,8 @@ struct NavigationMapView: View {
                     .frame(width: 50, height: 44) // HIG minimum tap height (UX-16)
                     .floatingChromeBackground(cornerRadius: 8)
                 }
+                divertButton(iconOnly: true)
+                    .floatingChromeBackground(cornerRadius: 8)
             } else {
                 // When no flight plan is active, show button to open flight planning view
                 Button(action: { showFlightPlanning = true }) {
@@ -1302,7 +1317,8 @@ struct NavigationMapView: View {
                 cachedHeading: locationManager.currentCourseDegrees,
                 onWaypointATOTap: { index in
                     flightPlanManager.recordATO(forWaypointAt: index)
-                }
+                },
+                onAirportDivert: { ident in openDivert(ident) }
             )
         } else {
             // Use UIKit-wrapped MKMapView for standard/satellite to avoid gesture issues
@@ -1329,7 +1345,8 @@ struct NavigationMapView: View {
                 trackVectorEnabled: appState.settings.showTrackVector,
                 onWaypointATOTap: { index in
                     flightPlanManager.recordATO(forWaypointAt: index)
-                }
+                },
+                onAirportDivert: { ident in openDivert(ident) }
             )
         }
     }
@@ -1717,7 +1734,9 @@ struct NavigationMapView: View {
 
     @ViewBuilder
     private var navGlanceData: some View {
-        if let plan = flightPlanManager.activeFlightPlan, let next = plan.nextWaypoint {
+        if let plan = flightPlanManager.activeFlightPlan, let diversion = plan.diversion {
+            divertGlance(diversion, plan: plan)
+        } else if let plan = flightPlanManager.activeFlightPlan, let next = plan.nextWaypoint {
             HStack(spacing: 6) {
                 Text("WPT \(plan.currentWaypointIndex + 1)/\(plan.waypoints.count)")
                     .font(.system(size: 9, weight: .semibold)).tracking(0.3)
@@ -1838,7 +1857,12 @@ struct NavigationMapView: View {
         // NEXT: the next station you'll need — next route airfield, else nearest CTR ahead, else the
         // FIS↔field hand-off (at a field you'll call Info next; enroute the next field).
         var next: FreqEntry?
-        if let plan = flightPlanManager.activeFlightPlan {
+        // Diverting: the field you are going to is the next call, whatever the route says. (v5.1)
+        if let diversion = flightPlanManager.activeFlightPlan?.diversion {
+            next = contact(airfieldFreqs(for: diversion.ident).map { (label: "\(diversion.ident) \($0.type)", freq: $0.freq) })
+        }
+        if next == nil, flightPlanManager.activeFlightPlan?.diversion == nil,
+           let plan = flightPlanManager.activeFlightPlan {
             let idx = plan.currentWaypointIndex
             if let aheadIdx = plan.waypoints.indices.first(where: { $0 > idx && !waypointFreqs(plan.waypoints[$0]).isEmpty }) {
                 next = contact(waypointFreqs(plan.waypoints[aheadIdx]))
@@ -2132,7 +2156,34 @@ struct NavigationMapView: View {
         let isPreview = previewWaypointIndex == index
         let leg = plan.legArriving(at: index)
         let actual = actualLegTime(plan: plan, index: index, isCurrent: isCurrent, isPast: isPast, wpt: wpt)
-        return Button(action: { handleWaypointTap(index: index, plan: plan, isPast: isPast) }) {
+        // A previewed waypoint ahead can be flown to straight away, skipping the ones before it —
+        // and a waypoint of the route is where a diversion can rejoin it. (v5.1)
+        let offersDirect = isPreview && (index > plan.currentWaypointIndex || plan.diversion != nil)
+        return HStack(spacing: 6) {
+            waypointRowButton(plan: plan, index: index, wpt: wpt, compact: compact, isCurrent: isCurrent,
+                              isPast: isPast, isPreview: isPreview, leg: leg, actual: actual)
+            if offersDirect {
+                Button {
+                    flightPlanManager.directTo(waypointAt: index)
+                    previewWaypointIndex = nil
+                    centerOnAircraft()
+                } label: {
+                    Text(L10n.Trip.directToWaypoint)
+                        .font(.system(size: 12, weight: .bold))
+                        .foregroundColor(theme.actionText)
+                        .padding(.horizontal, 10)
+                        .frame(minHeight: 36)
+                        .background(theme.action, in: Capsule())
+                }
+                .buttonStyle(.plain)
+            }
+        }
+    }
+
+    private func waypointRowButton(plan: FlightPlan, index: Int, wpt: FlightPlanWaypoint, compact: Bool,
+                                   isCurrent: Bool, isPast: Bool, isPreview: Bool,
+                                   leg: FlightPlanWaypoint?, actual: TimeInterval?) -> some View {
+        Button(action: { handleWaypointTap(index: index, plan: plan, isPast: isPast) }) {
             HStack(spacing: 8) {
                 // Sequence number — matches the numbered disc on the map. (v4 UI/UX Revamp)
                 Text("\(index + 1)")
@@ -2286,6 +2337,16 @@ struct NavigationMapView: View {
         guard let plan = flightPlanManager.activeFlightPlan,
               plan.waypoints.count >= 2,
               let dest = plan.waypoints.last else { return nil }
+        // Diverting: the destination IS the diversion field, straight there. Adding the rest of the
+        // route to the distance to the field would be a number describing no flight at all. (v5.1)
+        if let diversion = plan.diversion {
+            guard let loc = locationManager.currentLocation,
+                  let d = flightPlanManager.distanceToNextWaypoint(from: loc) else {
+                return (diversion.ident, 0, nil)
+            }
+            let gs = locationManager.currentSpeedKnots
+            return (diversion.ident, d, gs > 30 ? Date().addingTimeInterval(d / gs * 3600) : nil)
+        }
         var remaining = 0.0
         if let loc = locationManager.currentLocation,
            let d = flightPlanManager.distanceToNextWaypoint(from: loc) {
@@ -2457,6 +2518,10 @@ struct NavigationMapView: View {
             }
             .accessibilityLabel(L10n.Nav.flightPlan)
 
+            if hasActiveFlightPlan && !flightPlanManager.isFlightPlanCompleted {
+                divertButton(iconOnly: density != .full)
+            }
+
             // Destination summary — endpoint + total remaining + ETA, so the drawer is only needed for
             // the mid-route outlook. (v4 UI/UX Revamp — device feedback)
             destinationSummaryView
@@ -2526,6 +2591,80 @@ struct NavigationMapView: View {
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 8)
+    }
+
+    // MARK: - Divert (v5.1)
+
+    private func openDivert(_ ident: String?) {
+        divertPreselect = ident
+        showDivert = true
+    }
+
+    /// One tap to the Divert sheet. Gold while diverting, so the state is visible on the bar too.
+    private func divertButton(iconOnly: Bool) -> some View {
+        let diverting = flightPlanManager.activeFlightPlan?.diversion != nil
+        return Button { openDivert(nil) } label: {
+            HStack(spacing: 6) {
+                Image(systemName: "arrow.triangle.turn.up.right.diamond.fill")
+                    .font(.system(size: 17, weight: .medium))
+                if !iconOnly {
+                    Text(L10n.Trip.divertTag).font(.system(size: 13, weight: .bold)).tracking(0.5)
+                }
+            }
+            .foregroundColor(diverting ? theme.action : theme.textPrimary)
+            .padding(.horizontal, iconOnly ? 0 : 8)
+            .frame(minWidth: 44, minHeight: 44)
+            .contentShape(Rectangle())
+        }
+        .accessibilityLabel(L10n.Trip.divert)
+    }
+
+    /// The glance while diverting: where to, how far, which way, how long, and the way back.
+    private func divertGlance(_ diversion: Diversion, plan: FlightPlan) -> some View {
+        let filed = threadManager.thread(forPlanId: plan.id)?.hasOpenFlightPlan ?? false
+        return VStack(alignment: .leading, spacing: 3) {
+            HStack(spacing: 8) {
+                Text(L10n.Trip.divertTag)
+                    .font(.system(size: 10, weight: .heavy)).tracking(0.8)
+                    .foregroundColor(theme.actionText)
+                    .padding(.horizontal, 6).padding(.vertical, 2)
+                    .background(theme.action, in: RoundedRectangle(cornerRadius: 4))
+                Text(diversion.ident)
+                    .font(.system(size: 15, weight: .bold, design: .monospaced))
+                    .foregroundColor(theme.textPrimary)
+                if let distText = nextWaypointDistanceText {
+                    Text(distText).font(.system(size: 13, design: .monospaced)).foregroundColor(theme.action)
+                }
+                if let brg = liveBearingText {
+                    Text(brg).font(.system(size: 13, design: .monospaced)).foregroundColor(theme.textSecondary)
+                }
+                if let loc = locationManager.currentLocation,
+                   let ete = flightPlanManager.etaToNextWaypoint(from: loc, groundSpeedKnots: max(locationManager.currentSpeedKnots, 1)) {
+                    Text("ETE \(formatClock(ete)) · ETA \(Date().addingTimeInterval(ete).formatted(date: .omitted, time: .shortened))")
+                        .font(.system(size: 13, design: .monospaced)).foregroundColor(theme.textDim)
+                }
+                Button {
+                    flightPlanManager.resumeRoute()
+                } label: {
+                    Text(L10n.Trip.resumeRoute)
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundColor(theme.action)
+                        .padding(.horizontal, 10)
+                        .frame(minHeight: 32)
+                        .overlay(Capsule().strokeBorder(theme.action, lineWidth: 1))
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+            }
+            .lineLimit(1)
+            // Filed: one line, the one thing to say on the radio. Nothing else until the ground.
+            if filed {
+                Text(L10n.Trip.tellFIS(diversion.ident))
+                    .font(.system(size: 11))
+                    .foregroundColor(theme.warning)
+                    .lineLimit(1)
+            }
+        }
     }
 
     /// Live distance to the next waypoint (NM), if a fix + plan are available. (v4 UI/UX Revamp)
@@ -3018,6 +3157,7 @@ struct NativeMapViewUIKit: UIViewRepresentable {
     var trackVectorOverlays: [MKPolyline] = []  // Ground-track trend vector (line + ticks)
     var trackVectorEnabled: Bool = false  // Keep a valid vector across transient empties; remove only when off
     var onWaypointATOTap: ((Int) -> Void)?  // Callback when user taps/long-presses a waypoint to set ATO
+    var onAirportDivert: ((String) -> Void)?  // "Divert here" from an airport callout (v5.1)
 
     func makeUIView(context: Context) -> MKMapView {
         let mapView = MKMapView()
@@ -3214,6 +3354,9 @@ struct NativeMapViewUIKit: UIViewRepresentable {
     }
 
     private func updateFlightPlanOverlay(_ mapView: MKMapView, context: Context) {
+        // Last, whatever path is taken below: the route rebuild removes every route polyline, the
+        // diversion line included. (v5.1)
+        defer { refreshDiversionLine(on: mapView, plan: activeFlightPlan, from: currentLocation) }
         let existingFlightPlanPolylines = mapView.overlays.compactMap { $0 as? FlightPlanRoutePolyline }
         let existingWaypointAnnotations = mapView.annotations.compactMap { $0 as? FlightPlanWaypointAnnotation }
 
@@ -3232,7 +3375,7 @@ struct NativeMapViewUIKit: UIViewRepresentable {
         // updateUIView (each map pan / GPS tick). (PR-10)
         let signature = flightPlan.waypoints
             .map { "\($0.coordinate.latitude),\($0.coordinate.longitude),\($0.name)" }
-            .joined(separator: "|") + "@\(currentWaypointIndex)"
+            .joined(separator: "|") + "@\(currentWaypointIndex)" + "→\(flightPlan.diversion?.ident ?? "")"
         if context.coordinator.lastFlightPlanSignature == signature, !existingWaypointAnnotations.isEmpty {
             return
         }
@@ -3257,7 +3400,8 @@ struct NativeMapViewUIKit: UIViewRepresentable {
         if currentWaypointIndex < flightPlan.waypoints.count {
             let remainingCoords = Array(coordinates.suffix(from: currentWaypointIndex))
             let remainingPolyline = FlightPlanRoutePolyline(coordinates: remainingCoords, count: remainingCoords.count)
-            remainingPolyline.isCompletedSegment = false
+            // Diverting: the rest of the route stays on the map for "Resume", dimmed. (v5.1)
+            remainingPolyline.isCompletedSegment = flightPlan.diversion != nil
             mapView.addOverlay(remainingPolyline, level: .aboveLabels)
         }
 
@@ -3419,6 +3563,13 @@ struct NativeMapViewUIKit: UIViewRepresentable {
             // Flight plan route (magenta - high visibility on aviation charts)
             if let flightPlanPolyline = overlay as? FlightPlanRoutePolyline {
                 let renderer = MKPolylineRenderer(polyline: flightPlanPolyline)
+                if flightPlanPolyline.isDiversion {
+                    // Diversion — the app's gold, so it cannot be mistaken for the planned route. (v5.1)
+                    renderer.strokeColor = UIColor(red: 0.898, green: 0.655, blue: 0.227, alpha: 1.0)
+                    renderer.lineWidth = 5
+                    renderer.lineCap = .round
+                    return renderer
+                }
                 if flightPlanPolyline.isCompletedSegment {
                     // Completed segments - dimmed magenta
                     renderer.strokeColor = UIColor(red: 0.8, green: 0.2, blue: 0.6, alpha: 0.5)
@@ -3673,6 +3824,16 @@ struct NativeMapViewUIKit: UIViewRepresentable {
             // Configure callout with multi-line frequency detail
             annotationView.rightCalloutAccessoryView = nil
             annotationView.leftCalloutAccessoryView = nil
+            // "Divert here", with a route to divert from. Opens the Divert sheet on this field, where the
+            // time, runway and the big button are. (v5.1)
+            if parent.activeFlightPlan != nil, parent.onAirportDivert != nil {
+                let button = UIButton(type: .system)
+                button.setImage(UIImage(systemName: "arrow.triangle.turn.up.right.diamond.fill"), for: .normal)
+                button.tintColor = UIColor(red: 0.898, green: 0.655, blue: 0.227, alpha: 1.0)
+                button.frame = CGRect(x: 0, y: 0, width: 44, height: 44)
+                button.accessibilityLabel = L10n.Trip.divert
+                annotationView.rightCalloutAccessoryView = button
+            }
 
             if let freqLines = annotation.frequencyLines {
                 let detailLabel = UILabel()
@@ -3699,6 +3860,15 @@ struct NativeMapViewUIKit: UIViewRepresentable {
             }
 
             return annotationView
+        }
+
+        // MARK: - Divert from an airport callout (v5.1)
+
+        func mapView(_ mapView: MKMapView, annotationView view: MKAnnotationView,
+                     calloutAccessoryControlTapped control: UIControl) {
+            guard let airport = view.annotation as? AirportAnnotation else { return }
+            mapView.deselectAnnotation(airport, animated: true)
+            parent.onAirportDivert?(airport.airport.ident)
         }
 
         // MARK: - Waypoint ATO Tap/Long-Press
@@ -4123,6 +4293,7 @@ struct SwissMapView: UIViewRepresentable {
     var airportFrequencyLines: [String: String] = [:]  // ICAO -> all frequencies (newline-separated)
     var cachedHeading: Double?  // Cached course from LocationManager (survives GPS gaps)
     var onWaypointATOTap: ((Int) -> Void)?  // Callback when user taps/long-presses a waypoint to set ATO
+    var onAirportDivert: ((String) -> Void)?  // "Divert here" from an airport callout (v5.1)
 
     /// Get the camera zoom range for the current layer
     /// This locks the map view to only allow zooming within the valid tile range
@@ -4505,6 +4676,9 @@ struct SwissMapView: UIViewRepresentable {
     }
 
     private func updateFlightPlanOverlay(_ mapView: MKMapView, context: Context) {
+        // Last, whatever path is taken below: the route rebuild removes every route polyline, the
+        // diversion line included. (v5.1)
+        defer { refreshDiversionLine(on: mapView, plan: activeFlightPlan, from: currentLocation) }
         let existingFlightPlanPolylines = mapView.overlays.compactMap { $0 as? FlightPlanRoutePolyline }
         let existingWaypointAnnotations = mapView.annotations.compactMap { $0 as? FlightPlanWaypointAnnotation }
 
@@ -4523,7 +4697,7 @@ struct SwissMapView: UIViewRepresentable {
         // updateUIView (each map pan / GPS tick). (PR-10)
         let signature = flightPlan.waypoints
             .map { "\($0.coordinate.latitude),\($0.coordinate.longitude),\($0.name)" }
-            .joined(separator: "|") + "@\(currentWaypointIndex)"
+            .joined(separator: "|") + "@\(currentWaypointIndex)" + "→\(flightPlan.diversion?.ident ?? "")"
         if context.coordinator.lastFlightPlanSignature == signature, !existingWaypointAnnotations.isEmpty {
             return
         }
@@ -4548,7 +4722,8 @@ struct SwissMapView: UIViewRepresentable {
         if currentWaypointIndex < flightPlan.waypoints.count {
             let remainingCoords = Array(coordinates.suffix(from: currentWaypointIndex))
             let remainingPolyline = FlightPlanRoutePolyline(coordinates: remainingCoords, count: remainingCoords.count)
-            remainingPolyline.isCompletedSegment = false
+            // Diverting: the rest of the route stays on the map for "Resume", dimmed. (v5.1)
+            remainingPolyline.isCompletedSegment = flightPlan.diversion != nil
             mapView.addOverlay(remainingPolyline, level: .aboveLabels)
         }
 
@@ -4780,6 +4955,13 @@ struct SwissMapView: UIViewRepresentable {
             // Flight plan route (magenta - high visibility on aviation charts)
             if let flightPlanPolyline = overlay as? FlightPlanRoutePolyline {
                 let renderer = MKPolylineRenderer(polyline: flightPlanPolyline)
+                if flightPlanPolyline.isDiversion {
+                    // Diversion — the app's gold, so it cannot be mistaken for the planned route. (v5.1)
+                    renderer.strokeColor = UIColor(red: 0.898, green: 0.655, blue: 0.227, alpha: 1.0)
+                    renderer.lineWidth = 5
+                    renderer.lineCap = .round
+                    return renderer
+                }
                 if flightPlanPolyline.isCompletedSegment {
                     // Completed segments - dimmed magenta
                     renderer.strokeColor = UIColor(red: 0.8, green: 0.2, blue: 0.6, alpha: 0.5)
@@ -5044,6 +5226,16 @@ struct SwissMapView: UIViewRepresentable {
             // Configure callout with multi-line frequency detail
             annotationView.rightCalloutAccessoryView = nil
             annotationView.leftCalloutAccessoryView = nil
+            // "Divert here", with a route to divert from. Opens the Divert sheet on this field, where the
+            // time, runway and the big button are. (v5.1)
+            if parent.activeFlightPlan != nil, parent.onAirportDivert != nil {
+                let button = UIButton(type: .system)
+                button.setImage(UIImage(systemName: "arrow.triangle.turn.up.right.diamond.fill"), for: .normal)
+                button.tintColor = UIColor(red: 0.898, green: 0.655, blue: 0.227, alpha: 1.0)
+                button.frame = CGRect(x: 0, y: 0, width: 44, height: 44)
+                button.accessibilityLabel = L10n.Trip.divert
+                annotationView.rightCalloutAccessoryView = button
+            }
 
             if let freqLines = annotation.frequencyLines {
                 let detailLabel = UILabel()
@@ -5070,6 +5262,15 @@ struct SwissMapView: UIViewRepresentable {
             }
 
             return annotationView
+        }
+
+        // MARK: - Divert from an airport callout (v5.1)
+
+        func mapView(_ mapView: MKMapView, annotationView view: MKAnnotationView,
+                     calloutAccessoryControlTapped control: UIControl) {
+            guard let airport = view.annotation as? AirportAnnotation else { return }
+            mapView.deselectAnnotation(airport, animated: true)
+            parent.onAirportDivert?(airport.airport.ident)
         }
 
         // MARK: - Waypoint ATO Tap/Long-Press
@@ -5142,6 +5343,30 @@ class FlightPlanWaypointAnnotation: NSObject, MKAnnotation {
 /// Custom polyline class to distinguish flight plan route from GPS track
 class FlightPlanRoutePolyline: MKPolyline {
     var isCompletedSegment: Bool = false
+    /// The straight line from the aircraft to a diversion field. (v5.1)
+    var isDiversion: Bool = false
+    var diversionIdent: String?
+}
+
+/// Draw — or keep — the line from the aircraft to the diversion field. Shared by both map
+/// representables. Rebuilt only once the aircraft has moved ~150 m or the field changed, so it follows
+/// the aircraft without redrawing on every fix. (v5.1)
+func refreshDiversionLine(on mapView: MKMapView, plan: FlightPlan?, from location: CLLocation?) {
+    let existing = mapView.overlays.compactMap { $0 as? FlightPlanRoutePolyline }.filter(\.isDiversion)
+    guard let diversion = plan?.diversion, let location else {
+        if !existing.isEmpty { mapView.removeOverlays(existing) }
+        return
+    }
+    if existing.count == 1, let line = existing.first, line.diversionIdent == diversion.ident, line.pointCount == 2 {
+        var start = CLLocationCoordinate2D()
+        line.getCoordinates(&start, range: NSRange(location: 0, length: 1))
+        if CLLocation(latitude: start.latitude, longitude: start.longitude).distance(from: location) < 150 { return }
+    }
+    mapView.removeOverlays(existing)
+    let line = FlightPlanRoutePolyline(coordinates: [location.coordinate, diversion.coordinate], count: 2)
+    line.isDiversion = true
+    line.diversionIdent = diversion.ident
+    mapView.addOverlay(line, level: .aboveLabels)
 }
 
 /// The recorded GPS breadcrumb trail. A distinct subclass so overlay bookkeeping targets ONLY the

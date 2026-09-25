@@ -2234,10 +2234,14 @@ struct FlightDetailView: View {
                     ForEach(rows, id: \.self) { index in
                         let waypoint = plan.waypoints[index]
                         let eto = plan.estimatedTimeOver(at: index)
+                        // Diverted before reaching it: say so rather than leave a bare "—". (v5.1)
+                        let notFlown = plan.diversion.map { index > 0 && index >= $0.leftRouteAt } ?? false
+                            && waypoint.actualTimeOver == nil
                         HStack {
-                            Text(RouteRadioPlanner.displayName(waypoint, index: index))
+                            Text(RouteRadioPlanner.displayName(waypoint, index: index)
+                                 + (notFlown ? " · \(L10n.Trip.notFlown)" : ""))
                                 .scaledFont(size: 13, weight: .medium, design: .monospaced, relativeTo: .caption)
-                                .foregroundColor(.primaryText)
+                                .foregroundColor(notFlown ? .dimText : .primaryText)
                                 .lineLimit(1)
                                 .frame(maxWidth: .infinity, alignment: .leading)
                             Text(eto.map(planTimeString) ?? "—")
@@ -2250,6 +2254,22 @@ struct FlightDetailView: View {
                                 .frame(width: 60, alignment: .trailing)
                             planDeltaView(eto: eto, ato: waypoint.actualTimeOver)
                                 .frame(width: 56, alignment: .trailing)
+                        }
+                    }
+                    if let diversion = plan.diversion {
+                        HStack {
+                            Text("→ \(diversion.ident) · \(diversion.name)")
+                                .scaledFont(size: 13, weight: .bold, design: .monospaced, relativeTo: .caption)
+                                .foregroundColor(.aviationGold)
+                                .lineLimit(1)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                            Text("—").frame(width: 60, alignment: .trailing)
+                                .foregroundColor(.secondaryText)
+                            Text(diversion.landedAt.map(planTimeString) ?? "—")
+                                .scaledFont(size: 12, design: .monospaced, relativeTo: .caption)
+                                .foregroundColor(.primaryText)
+                                .frame(width: 60, alignment: .trailing)
+                            Text("").frame(width: 56)
                         }
                     }
                 }

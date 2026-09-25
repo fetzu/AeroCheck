@@ -1421,6 +1421,74 @@ enum L10n {
             String(format: String(localized: "trip.estimated"), time)
         }
         static let stops = String(localized: "trip.stops")
+        static let routeStopsHint = String(localized: "trip.routeStopsHint")
+
+        // Divert
+        static let divert = String(localized: "trip.divert")
+        /// "DIVERT TO LSZE"
+        static func divertTo(_ ident: String) -> String {
+            String(format: String(localized: "trip.divertTo"), ident)
+        }
+        /// "DIRECT TO LSZQ"
+        static func directTo(_ ident: String) -> String {
+            String(format: String(localized: "trip.directTo"), ident)
+        }
+        /// "Diverting to LSZE"
+        static func divertingTo(_ ident: String) -> String {
+            String(format: String(localized: "trip.divertingTo"), ident)
+        }
+        static let resumeRoute = String(localized: "trip.resumeRoute")
+        static let destination = String(localized: "trip.destination")
+        static let alternate = String(localized: "trip.alternate")
+        static let ahead = String(localized: "trip.ahead")
+        static let behind = String(localized: "trip.behind")
+        static let notListed = String(localized: "trip.notListed")
+        /// "AT · border"
+        static func border(_ country: String) -> String {
+            String(format: String(localized: "trip.border"), country)
+        }
+        static let noAerodromes = String(localized: "trip.noAerodromes")
+        static let checkChart = String(localized: "trip.checkChart")
+        static let divertTag = String(localized: "trip.divertTag")
+        /// "Flight plan filed: tell FIS you are diverting to LSZE"
+        static func tellFIS(_ ident: String) -> String {
+            String(format: String(localized: "trip.tellFIS"), ident)
+        }
+        static let directToWaypoint = String(localized: "trip.directToWaypoint")
+
+        // Continue after landing elsewhere
+        /// "Landed at LSZE"
+        static func landedAt(_ ident: String) -> String {
+            String(format: String(localized: "trip.landedAt"), ident)
+        }
+        /// "planned LSZQ"
+        static func planned(_ ident: String) -> String {
+            String(format: String(localized: "trip.planned"), ident)
+        }
+        /// "Continue to LSZQ"
+        static func continueTo(_ ident: String) -> String {
+            String(format: String(localized: "trip.continueTo"), ident)
+        }
+        static func continueExplainer(_ from: String, _ to: String) -> String {
+            String(format: String(localized: "trip.continueExplainer"), from, to)
+        }
+        static let finishHere = String(localized: "trip.finishHere")
+        /// "Tell Zurich FIC you landed at LSZE, not LSZQ."
+        static func tellFICLanded(_ landed: String, _ planned: String) -> String {
+            String(format: String(localized: "trip.tellFICLanded"), landed, planned)
+        }
+
+        // Nav log
+        static let notFlown = String(localized: "trip.notFlown")
+        /// "diverted at 14:36"
+        static func divertedAt(_ time: String) -> String {
+            String(format: String(localized: "trip.divertedAt"), time)
+        }
+        static let landedHereInstead = String(localized: "trip.landedHereInstead")
+        /// "est.: previous leg + 30 min on the ground"
+        static func estimatedDepartureRemark(_ minutes: Int) -> String {
+            String(format: String(localized: "trip.estimatedDepartureRemark"), minutes)
+        }
     }
 
     /// The builder's "Set altitudes" sheet.

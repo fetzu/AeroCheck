@@ -112,8 +112,10 @@ enum TripPlanner {
         guard leg.departureIsEstimate == true, let stopover = leg.stopover else { return nil }
         var updated = leg
         updated.plannedDepartureTime = estimatedDeparture(after: previous, stopover: stopover)
-        if !stopover.refuel {
-            updated.fuelOnBoard = fuelOnBoard(after: previous, stopover: stopover, plannedFOB: nil)
+        // Only when it can be computed: a leg whose previous leg has no fuel figures keeps whatever
+        // the pilot entered on it.
+        if !stopover.refuel, let carried = fuelOnBoard(after: previous, stopover: stopover, plannedFOB: nil) {
+            updated.fuelOnBoard = carried
         }
         guard updated.plannedDepartureTime != leg.plannedDepartureTime
                 || updated.fuelOnBoard != leg.fuelOnBoard else { return nil }
@@ -132,6 +134,10 @@ enum TripPlanner {
         let elevationFeet: Double?
         let frequency: String?
         let isPPR: Bool
+        /// ISO-2 country, for the border chip in the diversion list.
+        var country: String? = nil
+        /// The longest open runway, as a pilot reads it ("12/30 · 620 m asphalt").
+        var runway: String? = nil
 
         var coordinate: CLLocationCoordinate2D {
             CLLocationCoordinate2D(latitude: latitude, longitude: longitude)
@@ -193,6 +199,44 @@ enum TripPlanner {
     }
 
     // MARK: Continuing after landing somewhere else
+
+    /// Within this of the planned destination, a landing is AT the destination.
+    static let destinationToleranceNM = 2.0
+
+    /// The plan as flown, once the flight has landed at `field`: a diversion is recorded when the
+    /// flight ended anywhere but its destination, whether or not the pilot pressed Divert. END FLIGHT
+    /// knows where the aircraft stopped, and that is a fact — no guessing about intentions in the air.
+    ///
+    /// A diversion made in the air keeps its start time and where it left the route; one found only
+    /// now left the route after the last waypoint the track actually passed.
+    static func settlingDiversion(_ plan: FlightPlan, landedAt field: Aerodrome?, landing: Date?) -> FlightPlan {
+        guard let field, let destination = plan.waypoints.last, plan.waypoints.count >= 2 else { return plan }
+        var settled = plan
+        let geometry = RouteGeometry(route: [destination.coordinate])
+        let atDestination = field.ident.uppercased() == destination.name.uppercased()
+            || geometry.distanceNM(field.coordinate, destination.coordinate) <= destinationToleranceNM
+        if var diversion = plan.diversion {
+            if diversion.ident != field.ident {
+                // Went somewhere else again: where it landed is what counts.
+                diversion = Diversion(ident: field.ident, name: field.name, latitude: field.latitude,
+                                      longitude: field.longitude, elevationFeet: field.elevationFeet,
+                                      frequency: field.frequency, startedAt: diversion.startedAt,
+                                      leftRouteAt: diversion.leftRouteAt)
+            }
+            // Diverted, then went to the destination after all: no diversion.
+            settled.diversion = atDestination ? nil : diversion
+            settled.diversion?.landedAt = landing
+            return settled
+        }
+        guard !atDestination else { return plan }
+        let lastPassed = plan.waypoints.lastIndex { $0.actualTimeOver != nil } ?? 0
+        settled.diversion = Diversion(ident: field.ident, name: field.name, latitude: field.latitude,
+                                      longitude: field.longitude, elevationFeet: field.elevationFeet,
+                                      frequency: field.frequency, startedAt: nil,
+                                      leftRouteAt: min(lastPassed + 1, plan.waypoints.count - 1),
+                                      landedAt: landing)
+        return settled
+    }
 
     /// The next leg after a diversion: from the aerodrome the flight landed at, back onto the route,
     /// and along the rest of it to the original destination.

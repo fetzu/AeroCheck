@@ -24,6 +24,8 @@ struct FlightView: View {
     @State private var abandonFlightTimer: Timer?
     @State private var showFlightInfo = false
     @State private var showNavigationMode = false
+    /// Divert, from the HUD's NEAREST strip. (v5.1)
+    @State private var showDivert = false
     /// The reference popup currently shown in the HUD context slot (Pattern B of the A+B hybrid):
     /// docked into the iPad-landscape right column (over the map), or a cockpit-themed bottom drawer
     /// on iPad portrait / iPhone. nil = none. HUD Settings stays a sheet (Pattern A). (v4 UI/UX Revamp)
@@ -371,19 +373,31 @@ struct FlightView: View {
         .fullScreenCover(isPresented: $showNavigationMode) {
             NavigationMapView(isPresented: $showNavigationMode)
         }
+        .sheet(isPresented: $showDivert) {
+            DivertSheet(onClose: { showDivert = false })
+                .environment(\.cockpitTheme, theme)
+                .environmentObject(flightPlanManager)
+                .environmentObject(airportDataService)
+                .environmentObject(locationManager)
+                .presentationDetents([.large])
+        }
         .alert(L10n.Alert.endFlightTitle, isPresented: $showEndFlightAlert) {
             Button(L10n.Button.cancel, role: .cancel) { }
             Button(L10n.Button.endFlight, role: .destructive) {
                 let endedFlightId = appState.currentFlight?.id
                 let checklist = appState.activeChecklist
                 locationManager.stopTracking()
-                // Populate timing fields on the active flight plan from the current flight
+                // Populate timing fields on the active flight plan from the current flight — and, when
+                // it landed somewhere other than planned, the diversion. (v5.1)
+                let plannedDestination = flightPlanManager.activeFlightPlan?.waypoints.last?.name
                 if let activePlan = flightPlanManager.activeFlightPlan,
                    let flight = appState.currentFlight {
                     flightPlanManager.populateTimingFromFlight(activePlan.id, flight: flight,
                                                                takeoff: appState.lineUpTime,
-                                                               landing: appState.landingTime)
+                                                               landing: appState.landingTime,
+                                                               landedAt: landedAerodrome(flight))
                 }
+                let landedDiversion = flightPlanManager.activeFlightPlan?.diversion
                 // v5.0.0: resolve the followed thread BEFORE the plan is deactivated — afterwards
                 // there is no plan left to resolve it from. A flight with no thread resolves to nil
                 // and nothing below changes, which is what "start a flight without a thread" means.
@@ -400,6 +414,13 @@ struct FlightView: View {
                 // Move the thread into close-out. This is what raises the open-flight-plan banner and
                 // arms the reminder, so it must run after the flight is actually over.
                 if let closingThreadId {
+                    // Landed elsewhere: the thread says so first, so the banner and the reminder name
+                    // the aerodrome the aircraft is actually at. (v5.1)
+                    if let landedDiversion, let plannedDestination {
+                        threadManager.recordLanding(threadId: closingThreadId, plannedIdent: plannedDestination,
+                                                    landedIdent: landedDiversion.ident,
+                                                    landedName: landedDiversion.name)
+                    }
                     threadManager.beginCloseOut(threadId: closingThreadId, flightId: endedFlightId)
                 } else if wasCircuits, let endedFlightId,
                           let flown = appState.flights.first(where: { $0.id == endedFlightId }) {
@@ -1661,9 +1682,6 @@ struct FlightView: View {
                 .padding(8)
                 .allowsHitTesting(false)
             }
-            .overlay(alignment: .bottom) {
-                hudNearestStrip.allowsHitTesting(false)
-            }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .clipShape(RoundedRectangle(cornerRadius: 12))
             .overlay(
@@ -1675,6 +1693,31 @@ struct FlightView: View {
         .buttonStyle(.plain)
         .accessibilityLabel(L10n.Button.nav)
         .accessibilityHint("Opens the full navigation map")
+        // Outside the map's button, so it is its own target: with a route armed, NEAREST opens the
+        // Divert sheet — the list a pilot looking at "nearest" is usually about to need. (v5.1)
+        .overlay(alignment: .bottom) {
+            Group {
+                if flightPlanManager.activeFlightPlan != nil {
+                    Button { showDivert = true } label: { hudNearestStrip }
+                        .buttonStyle(.plain)
+                        .accessibilityLabel(L10n.Trip.divert)
+                } else {
+                    hudNearestStrip.allowsHitTesting(false)
+                }
+            }
+            .clipShape(UnevenRoundedRectangle(bottomLeadingRadius: 12, bottomTrailingRadius: 12))
+        }
+    }
+
+    /// Where the flight ended: the aerodrome block-on detection found, else the one nearest the last
+    /// fix. Nil when neither is known (no airport data, no track). (v5.1)
+    private func landedAerodrome(_ flight: Flight) -> TripPlanner.Aerodrome? {
+        if let ident = flight.arrivalAirportIdent, let airport = airportDataService.findAirport(byIdent: ident) {
+            return airportDataService.planningAerodrome(airport)
+        }
+        guard let last = flight.gpsTrack.last else { return nil }
+        return airportDataService.nearestAirport(to: last.coordinate, maxDistanceNm: 3, types: AirportType.fixedWing)
+            .map(airportDataService.planningAerodrome)
     }
 
     /// NEAREST-airport frequency strip overlaid on the map (e.g. "LSZB TWR 121.075"). Throttled via a
@@ -1687,6 +1730,11 @@ struct FlightView: View {
                 Text("NEAREST").font(.system(size: 11, weight: .semibold))
                 Spacer(minLength: 8)
                 Text(text).font(.system(size: 13, weight: .bold, design: .monospaced))
+                if flightPlanManager.activeFlightPlan != nil {
+                    Image(systemName: "arrow.triangle.turn.up.right.diamond.fill")
+                        .font(.system(size: 13))
+                        .foregroundColor(theme.action)
+                }
             }
             .foregroundColor(theme.textPrimary)
             .padding(.horizontal, 10)

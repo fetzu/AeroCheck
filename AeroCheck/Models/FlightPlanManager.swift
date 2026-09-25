@@ -348,6 +348,8 @@ class FlightPlanManager: ObservableObject {
         activePlan.currentWaypointIndex = 0
         activePlan.chronometerStartTime = nil
         activePlan.activatedAt = Date()
+        // A diversion belongs to the flight that made it.
+        activePlan.diversion = nil
 
         // Reset ATO values for all waypoints (fresh start for new flight)
         for i in 0..<activePlan.waypoints.count {
@@ -464,7 +466,8 @@ class FlightPlanManager: ObservableObject {
     ///   - flight: The completed flight with timing data
     ///   - takeoff, landing: the flight's line-up and landing times. Passed in because at END FLIGHT
     ///     they still live on AppState: `endFlight` copies them onto the flight only afterwards.
-    func populateTimingFromFlight(_ planId: UUID, flight: Flight, takeoff: Date? = nil, landing: Date? = nil) {
+    func populateTimingFromFlight(_ planId: UUID, flight: Flight, takeoff: Date? = nil, landing: Date? = nil,
+                                  landedAt field: TripPlanner.Aerodrome? = nil) {
         guard var plan = flightPlans.first(where: { $0.id == planId }) else { return }
 
         // ATO for every waypoint the in-flight trigger did not record, from the GPS track: the
@@ -472,6 +475,8 @@ class FlightPlanManager: ObservableObject {
         plan = plan.withActualTimesOver(fromTrack: flight.gpsTrack,
                                         takeoff: takeoff ?? flight.lineUpTime,
                                         landing: landing ?? flight.landingTime)
+        // Landed somewhere else than planned: record the diversion, pressed or not. (v5.1)
+        plan = TripPlanner.settlingDiversion(plan, landedAt: field, landing: landing ?? flight.landingTime)
 
         // Time ON = Engine started (engine on)
         if plan.timeOn == nil, let engineStart = flight.engineStartTime {
@@ -800,16 +805,9 @@ class FlightPlanManager: ObservableObject {
 
     /// Calculate distance from current location to next waypoint
     func distanceToNextWaypoint(from location: CLLocation) -> Double? {
-        guard let plan = activeFlightPlan,
-              plan.currentWaypointIndex < plan.waypoints.count else {
-            return nil
-        }
-
-        let nextWaypoint = plan.waypoints[plan.currentWaypointIndex]
-        let waypointLocation = CLLocation(
-            latitude: nextWaypoint.latitude,
-            longitude: nextWaypoint.longitude
-        )
+        // The navigation TARGET: the next waypoint, or the diversion field. (v5.1)
+        guard let target = activeFlightPlan?.navigationTarget else { return nil }
+        let waypointLocation = CLLocation(latitude: target.latitude, longitude: target.longitude)
 
         // Return distance in nautical miles
         return location.distance(from: waypointLocation) / 1852.0
@@ -817,15 +815,8 @@ class FlightPlanManager: ObservableObject {
 
     /// Calculate bearing from current location to next waypoint
     func bearingToNextWaypoint(from location: CLLocation) -> Double? {
-        guard let plan = activeFlightPlan,
-              plan.currentWaypointIndex < plan.waypoints.count else {
-            return nil
-        }
-
-        let nextWaypoint = plan.waypoints[plan.currentWaypointIndex]
-        return location.coordinate.bearing(
-            to: CLLocationCoordinate2D(latitude: nextWaypoint.latitude, longitude: nextWaypoint.longitude)
-        )
+        guard let target = activeFlightPlan?.navigationTarget else { return nil }
+        return location.coordinate.bearing(to: target.coordinate)
     }
 
     /// Calculate ETA to next waypoint based on current ground speed
@@ -869,9 +860,49 @@ class FlightPlanManager: ObservableObject {
     /// Name of the waypoint currently being flown to on the active plan, or nil when there is no
     /// active plan / the route is complete. Surfaces on the Live Activity. (UX-25)
     var activeNextWaypointName: String? {
-        guard let plan = activeFlightPlan,
-              plan.currentWaypointIndex < plan.waypoints.count else { return nil }
-        return plan.waypoints[plan.currentWaypointIndex].name
+        activeFlightPlan?.navigationTarget?.name
+    }
+
+    // MARK: - Divert, resume, direct to (v5.1)
+
+    /// Go to `field` instead of the rest of the route. One decision, nothing else: the route stays as
+    /// planned (so `resumeRoute` is one tap and the nav log shows what was planned), no task, reminder
+    /// or thread changes. Everything administrative waits for the ground.
+    func divert(to field: TripPlanner.Aerodrome, now: Date = Date()) {
+        guard var plan = activeFlightPlan else { return }
+        plan.diversion = Diversion(ident: field.ident, name: field.name,
+                                   latitude: field.latitude, longitude: field.longitude,
+                                   elevationFeet: field.elevationFeet, frequency: field.frequency,
+                                   startedAt: now, leftRouteAt: plan.currentWaypointIndex)
+        commitActive(plan)
+        resetChronometer()
+    }
+
+    /// Back onto the route after a diversion, at the waypoint that was next when the aircraft left it.
+    /// Passages recorded meanwhile (route waypoints overflown on the way) are kept.
+    func resumeRoute() {
+        guard var plan = activeFlightPlan, plan.diversion != nil else { return }
+        plan.diversion = nil
+        commitActive(plan)
+        resetChronometer()
+    }
+
+    /// Fly straight to a later waypoint of the route. The ones skipped keep no ATO: they were not
+    /// flown. Also ends a diversion, since the target is the route again.
+    func directTo(waypointAt index: Int) {
+        guard var plan = activeFlightPlan, plan.waypoints.indices.contains(index) else { return }
+        plan.currentWaypointIndex = index
+        plan.diversion = nil
+        commitActive(plan)
+        resetChronometer()
+    }
+
+    /// Write an edited active plan back everywhere it lives.
+    private func commitActive(_ plan: FlightPlan) {
+        activeFlightPlan = plan
+        if let index = flightPlans.firstIndex(where: { $0.id == plan.id }) { flightPlans[index] = plan }
+        saveFlightPlans()
+        saveActiveFlightPlan()
     }
 
     // MARK: - Persistence

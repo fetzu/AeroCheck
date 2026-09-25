@@ -218,12 +218,17 @@ struct PlanNewFlightView: View {
         return route.name.isEmpty ? (names.first ?? L10n.Thread.untitledFlight) : route.name
     }
 
-    /// Picking a route fills the idents from it, so the fields below still read as the flight's route
+    /// Picking a route fills in its two ends, so the fields below still read as the flight's route
     /// and a pilot can see what they chose without opening it.
+    ///
+    /// The ENDS only. Every named waypoint used to land in this list, so a 26-point route showed
+    /// "Create 24 flights" and "24 legs, sharing one preparation" while creating one flight — the app
+    /// describing a trip it was not making. Stops on a route are added to the flight, where the rest
+    /// of the route is known. (v5.1)
     private func choose(_ route: FlightPlan) {
         selectedRoute = route
         let idents = route.waypoints.map(\.name).filter { !$0.isEmpty }
-        stops = idents.count >= 2 ? idents : (idents + ["", ""]).prefix(2).map { $0 }
+        stops = idents.count >= 2 ? [idents[0], idents[idents.count - 1]] : (idents + ["", ""]).prefix(2).map { $0 }
         focused = nil
         suggestions = []
     }
@@ -265,18 +270,26 @@ struct PlanNewFlightView: View {
                 }
             }
 
-            Button {
-                stops.append("")
-                focused = stops.count - 1
-            } label: {
-                HStack(spacing: 6) {
-                    Image(systemName: "plus.circle")
-                    Text(L10n.Flights.addStop)
+            if selectedRoute != nil {
+                // A saved route makes one flight; its stops are added from the flight. (v5.1)
+                Text(L10n.Trip.routeStopsHint)
+                    .scaledFont(size: 12, relativeTo: .caption)
+                    .foregroundColor(.dimText)
+                    .fixedSize(horizontal: false, vertical: true)
+            } else {
+                Button {
+                    stops.append("")
+                    focused = stops.count - 1
+                } label: {
+                    HStack(spacing: 6) {
+                        Image(systemName: "plus.circle")
+                        Text(L10n.Flights.addStop)
+                    }
+                    .scaledFont(size: 13, weight: .semibold, relativeTo: .footnote)
+                    .foregroundColor(.aviationGold)
                 }
-                .scaledFont(size: 13, weight: .semibold, relativeTo: .footnote)
-                .foregroundColor(.aviationGold)
+                .buttonStyle(.plain)
             }
-            .buttonStyle(.plain)
 
             if focused != nil, !suggestions.isEmpty {
                 VStack(spacing: 0) {

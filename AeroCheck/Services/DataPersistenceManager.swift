@@ -892,11 +892,20 @@ class DataPersistenceManager: ObservableObject {
         encoder.dateEncodingStrategy = .iso8601
         encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
         var written: [UUID] = []
+        // The file name carries the route label, so a thread renamed since its last write (a stop
+        // added, a landing elsewhere) would otherwise leave its older files behind: the loader keeps
+        // the freshest per id, but a file that fails to decode loses to a stale one. (v5.1)
+        let existing = (try? FileManager.default.contentsOfDirectory(at: directory, includingPropertiesForKeys: nil)) ?? []
         for thread in changed {
             let url = directory.appendingPathComponent(flightThreadFilename(for: thread))
             do {
                 let data = try encoder.encode(thread)
                 try data.write(to: url, options: protectedWriteOptions)
+                let idSuffix = "_\(thread.id.uuidString.prefix(8)).json"
+                for stale in existing where stale.lastPathComponent.hasSuffix(idSuffix)
+                    && stale.lastPathComponent != url.lastPathComponent {
+                    try? FileManager.default.removeItem(at: stale)
+                }
                 written.append(thread.id)
             } catch {
                 AppLog.general.debugLine(

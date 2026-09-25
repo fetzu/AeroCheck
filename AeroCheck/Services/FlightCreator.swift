@@ -239,6 +239,41 @@ enum FlightCreator {
         return true
     }
 
+    /// After landing somewhere other than planned: the rest of the route as the next leg, from the
+    /// aerodrome the flight is at, in the same trip. (v5.1)
+    ///
+    /// It rejoins the route past the diversion field (`TripPlanner.continuation`), carries the
+    /// route's altitudes and frequency overrides, and brings the trip's weather and NOTAM ticks back
+    /// unticked: a diversion is evidence that something changed. The new leg has no departure time —
+    /// nobody knows it yet — and is today's flight because the one before it just landed.
+    @discardableResult
+    static func continueAfterDiversion(from threadId: UUID,
+                                       plans: FlightPlanManager,
+                                       threads: FlightThreadManager,
+                                       airports: AirportDataService) -> FlightThread? {
+        // Not "no next leg": a diversion on the first leg of a trip still needs a way to the stop the
+        // later legs leave from, and the continuation goes in between them.
+        guard let thread = threads.thread(withId: threadId), thread.landedElsewhere?.continued != true,
+              let planId = thread.flightPlanId,
+              let flown = plans.flightPlans.first(where: { $0.id == planId }),
+              let diversion = flown.diversion
+        else { return nil }
+        let field = airports.findAirport(byIdent: diversion.ident).map(airports.planningAerodrome)
+            ?? TripPlanner.Aerodrome(ident: diversion.ident, name: diversion.name,
+                                     latitude: diversion.latitude, longitude: diversion.longitude,
+                                     elevationFeet: diversion.elevationFeet, frequency: diversion.frequency,
+                                     isPPR: false)
+        let next = TripPlanner.continuation(of: flown, from: field)
+        plans.add(next)
+        let leg = threads.createThread(from: next,
+                                       profile: thread.profile,
+                                       routeLabel: FlightThreadManager.routeLabel(for: next),
+                                       aircraftRegistration: thread.aircraftRegistration)
+        threads.insertLeg(leg.id, after: threadId, rebrief: true)
+        threads.markContinued(threadId: threadId)
+        return threads.thread(withId: leg.id)
+    }
+
     /// Whether a flight can take a stop: it has not flown and has a route with somewhere to stop.
     static func canAddStop(to thread: FlightThread, plans: FlightPlanManager) -> Bool {
         guard thread.flightId == nil, let planId = thread.flightPlanId,

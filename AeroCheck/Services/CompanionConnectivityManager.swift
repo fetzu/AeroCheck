@@ -105,6 +105,8 @@ class CompanionConnectivityManager: NSObject, ObservableObject {
     private var sendHandler: (@Sendable (CompanionMessage) async throws -> Void)?
     private var updateTimer: Timer?
     private var lastSentFlightPlanId: UUID?
+    /// The diversion the viewer was last told about, so a Divert / Resume reaches it at once. (v5.1)
+    private var lastSentDiversionIdent: String?
     /// The last checklist snapshot actually streamed, so the 1 Hz timer only re-encodes/sends when the
     /// phase/highlight/items change instead of every tick (a phase is static for seconds-to-minutes).
     /// Cleared on teardown so a fresh connection re-sends. (efficiency)
@@ -892,6 +894,7 @@ class CompanionConnectivityManager: NSObject, ObservableObject {
             let message = CompanionMessage(type: .flightPlanUpdate, payload: payload)
             sendMessage(message)
             lastSentFlightPlanId = plan.id
+            lastSentDiversionIdent = plan.diversion?.ident
         } catch {
             AppLog.companion.debugLine("Failed to encode flight plan: \(error)")
         }
@@ -900,7 +903,8 @@ class CompanionConnectivityManager: NSObject, ObservableObject {
     private func checkForFlightPlanChanges() {
         guard let flightPlanManager, let plan = flightPlanManager.activeFlightPlan else { return }
 
-        if plan.id != lastSentFlightPlanId || plan.waypoints.contains(where: { $0.actualTimeOver != nil }) {
+        if plan.id != lastSentFlightPlanId || plan.diversion?.ident != lastSentDiversionIdent
+            || plan.waypoints.contains(where: { $0.actualTimeOver != nil }) {
             sendFlightPlanSnapshot()
         }
     }
@@ -1148,7 +1152,15 @@ class CompanionConnectivityManager: NSObject, ObservableObject {
             totalDistance: totalDistance,
             totalEET: totalEET,
             plannedDepartureTime: plan.plannedDepartureTime,
-            chronometerStartTime: plan.chronometerStartTime
+            chronometerStartTime: plan.chronometerStartTime,
+            diversion: plan.diversion.map { field in
+                CompanionWaypoint(id: plan.id, name: field.ident, latitude: field.latitude,
+                                  longitude: field.longitude, altitude: field.elevationFeet,
+                                  frequency: field.frequency, magneticCourse: nil, distance: nil,
+                                  plannedGroundSpeed: nil, estimatedElapsedTime: nil, legEETExtra: nil,
+                                  cumulativeEET: nil, estimatedTimeOver: nil, actualTimeOver: nil,
+                                  remarks: field.name)
+            }
         )
     }
 }

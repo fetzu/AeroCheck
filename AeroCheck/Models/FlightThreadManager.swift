@@ -389,6 +389,13 @@ class FlightThreadManager: ObservableObject {
             guard previous.flightId != nil,
                   previous.state == .closeOut || previous.state == .done,
                   calendar.isDate(previous.updatedAt, inSameDayAs: now) else { continue }
+            // Landed somewhere else: the next leg is only today's flight if it leaves from there (a
+            // continuation). Offering LSMM → LSZS to an aircraft standing at LSPG would be the app
+            // proposing a flight that cannot start.
+            if let landed = previous.landedElsewhere,
+               legs[next].routeLabel.components(separatedBy: " → ").first?.uppercased() != landed.landedIdent.uppercased() {
+                continue
+            }
             return legs[next]
         }
         return nil
@@ -411,6 +418,40 @@ class FlightThreadManager: ObservableObject {
               let position = trip.legIds.firstIndex(of: threadId),
               position + 1 < trip.legIds.count else { return nil }
         return thread(withId: trip.legIds[position + 1])
+    }
+
+    /// The flight ended somewhere other than planned. Call BEFORE `beginCloseOut`, so the open-flight-
+    /// plan banner and the close reminder already name where the aircraft actually is — the aerodrome
+    /// the pilot has to tell the FIC about. (v5.1)
+    func recordLanding(threadId: UUID, plannedIdent: String, landedIdent: String, landedName: String) {
+        guard let index = threads.firstIndex(where: { $0.id == threadId }),
+              plannedIdent.uppercased() != landedIdent.uppercased() else { return }
+        threads[index].landedElsewhere = LandedElsewhere(plannedIdent: plannedIdent, landedIdent: landedIdent,
+                                                         landedName: landedName)
+        // The flight as flown: "LSZS → LSZE". A trip's label is built from its legs' labels, so this is
+        // also what keeps "LSZS → LSZE → LSZQ" right once the continuation is added.
+        let origin = threads[index].routeLabel.components(separatedBy: " → ").first ?? ""
+        threads[index].routeLabel = origin.isEmpty ? landedIdent : "\(origin) → \(landedIdent)"
+        threads[index].touch()
+        saveThreads()
+    }
+
+    /// The continuation of a diversion was planned: the offer is answered.
+    func markContinued(threadId: UUID) {
+        guard let index = threads.firstIndex(where: { $0.id == threadId }),
+              threads[index].landedElsewhere != nil else { return }
+        threads[index].landedElsewhere?.continued = true
+        threads[index].touch()
+        saveThreads()
+    }
+
+    /// "Finish here": no continuation for this diversion.
+    func dismissContinuation(threadId: UUID) {
+        guard let index = threads.firstIndex(where: { $0.id == threadId }),
+              threads[index].landedElsewhere != nil else { return }
+        threads[index].landedElsewhere?.offerDismissed = true
+        threads[index].touch()
+        saveThreads()
     }
 
     /// Rename a flight after its route changed ends — a stop added, two legs joined.

@@ -786,8 +786,20 @@ extension AirportDataService {
             longitude: airport.longitude,
             elevationFeet: airport.elevation.map(Double.init),
             frequency: contact.map { "\($0.type) \($0.formattedFrequency)" },
-            isPPR: OpenAIPAirportDataService.shared.pprIcaoCodes.contains(airport.ident.uppercased())
+            isPPR: OpenAIPAirportDataService.shared.pprIcaoCodes.contains(airport.ident.uppercased()),
+            country: airport.isoCountry.isEmpty ? nil : airport.isoCountry,
+            runway: runwaySummary(for: airport.ident)
         )
+    }
+
+    /// The longest open runway, as a pilot reads it: "12/30 · 620 m · Asphalt". Nil when unknown.
+    func runwaySummary(for ident: String) -> String? {
+        guard let runway = getRunways(for: ident).filter({ !$0.closed })
+                .max(by: { ($0.lengthFt ?? 0) < ($1.lengthFt ?? 0) }) else { return nil }
+        var parts = [runway.identifier]
+        if let length = runway.lengthMeters { parts.append("\(length) m") }
+        if let surface = runway.surface, !surface.isEmpty { parts.append(surface.capitalized) }
+        return parts.joined(separator: " · ")
     }
 
     /// Landing sites inside the box around `coordinates`, widened by `marginNM`.

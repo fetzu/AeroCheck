@@ -376,11 +376,15 @@ struct CompanionFlightPlanSnapshot: Codable, Equatable {
     let totalEET: TimeInterval
     let plannedDepartureTime: Date?
     let chronometerStartTime: Date?
+    /// The aerodrome the master diverted to, when it did. Optional and last, so a viewer on an older
+    /// build ignores it and a snapshot from an older master decodes as "no diversion". (v5.1)
+    var diversion: CompanionWaypoint? = nil
 
     static func == (lhs: CompanionFlightPlanSnapshot, rhs: CompanionFlightPlanSnapshot) -> Bool {
         lhs.planId == rhs.planId &&
         lhs.waypoints.count == rhs.waypoints.count &&
-        lhs.currentWaypointIndex == rhs.currentWaypointIndex
+        lhs.currentWaypointIndex == rhs.currentWaypointIndex &&
+        lhs.diversion?.name == rhs.diversion?.name
     }
 }
 

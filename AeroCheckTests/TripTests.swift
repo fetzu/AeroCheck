@@ -541,9 +541,11 @@ extension TripTests {
         plans.add(route)
         let thread = m.createThread(from: route)
         var created: [UUID] = [route.id]
+        var createdThreads: [UUID] = [thread.id]
+        // Only what this test made: the manager also loads the host app's own threads from disk.
         defer {
             for id in created { if let p = plans.flightPlans.first(where: { $0.id == id }) { plans.deleteFlightPlan(p) } }
-            m.threads.map(\.id).forEach { m.deleteThread(threadId: $0) }
+            createdThreads.forEach { m.deleteThread(threadId: $0) }
         }
 
         let field = TripPlanner.Aerodrome(ident: "LSZE", name: "Bad Ragaz", latitude: 47.04, longitude: 7.45,
@@ -553,6 +555,7 @@ extension TripTests {
                                               plans: plans, threads: m)
         else { return XCTFail("no stop added") }
         if let id = leg.flightPlanId { created.append(id) }
+        createdThreads.append(leg.id)
 
         XCTAssertEqual(m.trip(forThreadId: thread.id)?.legIds, [thread.id, leg.id])
         XCTAssertEqual(m.thread(withId: thread.id)?.routeLabel, "LSZS → LSZE")
@@ -579,5 +582,136 @@ extension TripTests {
                        ["LSZS", "W1", "LSZE", "W2", "LSZQ"],
                        "the stop stays on the route as a waypoint; only the landing is gone")
         XCTAssertEqual(m.thread(withId: thread.id)?.routeLabel, "LSZS → LSZQ")
+    }
+
+    // MARK: - Continuing after a diversion (v5.1)
+
+    @MainActor
+    func testLandingElsewhereRenamesTheFlightAndOffersTheRest() {
+        let m = manager()
+        let a = m.createThread(from: plan("LSZS", "LSZQ"))
+        defer { m.deleteThread(threadId: a.id) }
+        m.recordLanding(threadId: a.id, plannedIdent: "LSZQ", landedIdent: "LSZE", landedName: "Bad Ragaz")
+        let after = m.thread(withId: a.id)
+        XCTAssertEqual(after?.routeLabel, "LSZS → LSZE", "the flight as flown, for the banner and the trip label")
+        XCTAssertEqual(after?.landedElsewhere?.plannedIdent, "LSZQ")
+        m.dismissContinuation(threadId: a.id)
+        XCTAssertEqual(m.thread(withId: a.id)?.landedElsewhere?.offerDismissed, true)
+    }
+
+    @MainActor
+    func testContinuingMakesTheNextLegFromTheDiversionField() {
+        let suite = "TripTests.continue.\(UUID().uuidString)"
+        addTeardownBlock { UserDefaults.standard.removePersistentDomain(forName: suite) }
+        let plans = FlightPlanManager(defaults: UserDefaults(suiteName: suite)!)
+        let m = manager()
+        let airports = AirportDataService()
+
+        var flown = FlightPlan(name: "Return")
+        flown.waypoints = [("LSZS", 7.0), ("W1", 7.3), ("W2", 7.6), ("W3", 7.9), ("LSZQ", 8.2)].map {
+            FlightPlanWaypoint(name: $0.0, coordinate: .init(latitude: 47.0, longitude: $0.1),
+                               altitude: 5000, plannedGroundSpeed: 100)
+        }
+        flown.diversion = Diversion(ident: "LSZE", name: "Bad Ragaz", latitude: 46.94, longitude: 7.62,
+                                    elevationFeet: 1617, frequency: nil, startedAt: Date(), leftRouteAt: 2,
+                                    landedAt: Date())
+        flown.calculateRouteData()
+        plans.add(flown)
+        let a = m.createThread(from: flown)
+        fly(m, a.id)
+        m.recordLanding(threadId: a.id, plannedIdent: "LSZQ", landedIdent: "LSZE", landedName: "Bad Ragaz")
+        var created = [flown.id]
+        var createdThreads = [a.id]
+        defer {
+            for id in created { if let p = plans.flightPlans.first(where: { $0.id == id }) { plans.deleteFlightPlan(p) } }
+            createdThreads.forEach { m.deleteThread(threadId: $0) }
+        }
+
+        guard let leg = FlightCreator.continueAfterDiversion(from: a.id, plans: plans, threads: m, airports: airports)
+        else { return XCTFail("no continuation") }
+        if let id = leg.flightPlanId { created.append(id) }
+        createdThreads.append(leg.id)
+
+        XCTAssertEqual(leg.routeLabel, "LSZE → LSZQ")
+        XCTAssertEqual(plans.flightPlans.first { $0.id == leg.flightPlanId }?.waypoints.map(\.name),
+                       ["LSZE", "W3", "LSZQ"], "rejoins past the field")
+        XCTAssertEqual(m.trip(forThreadId: a.id)?.legIds, [a.id, leg.id])
+        XCTAssertEqual(m.startableFlightToday?.id, leg.id, "the continuation is what START FLIGHT is about now")
+        XCTAssertNil(FlightCreator.continueAfterDiversion(from: a.id, plans: plans, threads: m, airports: airports),
+                     "one continuation per landing")
+    }
+
+    @MainActor
+    func testADiversionOnTheFirstLegGoesBackToTheStopBeforeTheNextLeg() {
+        // Found on the simulator: leg 1 of LSZQ → LSMM → LSZS landed at LSPG. Home then offered
+        // LSMM → LSZS as today's flight to an aircraft standing at LSPG, and the continuation was
+        // hidden because a next leg existed.
+        let suite = "TripTests.midTrip.\(UUID().uuidString)"
+        addTeardownBlock { UserDefaults.standard.removePersistentDomain(forName: suite) }
+        let plans = FlightPlanManager(defaults: UserDefaults(suiteName: suite)!)
+        let m = manager()
+
+        var first = FlightPlan(name: "Trip")
+        first.waypoints = [("LSZQ", 7.0), ("W1", 7.3), ("W2", 7.6), ("LSMM", 7.9)].map {
+            FlightPlanWaypoint(name: $0.0, coordinate: .init(latitude: 47.0, longitude: $0.1), altitude: 5000)
+        }
+        first.diversion = Diversion(ident: "LSPG", name: "Kägiswil", latitude: 47.05, longitude: 7.45,
+                                    elevationFeet: 1525, frequency: nil, startedAt: Date(), leftRouteAt: 2)
+        first.calculateRouteData()
+        plans.add(first)
+        let a = m.createThread(from: first)
+        let b = m.createThread(from: plan("LSMM", "LSZS"))
+        _ = m.formTrip(from: [a.id, b.id])
+        fly(m, a.id)
+        m.recordLanding(threadId: a.id, plannedIdent: "LSMM", landedIdent: "LSPG", landedName: "Kägiswil")
+        var created = [first.id]
+        var createdThreads = [a.id, b.id]
+        defer {
+            for id in created { if let p = plans.flightPlans.first(where: { $0.id == id }) { plans.deleteFlightPlan(p) } }
+            createdThreads.forEach { m.deleteThread(threadId: $0) }
+        }
+
+        XCTAssertNil(m.nextTripLeg(), "LSMM → LSZS cannot start from LSPG")
+
+        guard let leg = FlightCreator.continueAfterDiversion(from: a.id, plans: plans, threads: m,
+                                                             airports: AirportDataService())
+        else { return XCTFail("no continuation while a later leg exists") }
+        if let id = leg.flightPlanId { created.append(id) }
+        createdThreads.append(leg.id)
+        XCTAssertEqual(leg.routeLabel, "LSPG → LSMM", "back to the stop the next leg leaves from")
+        XCTAssertEqual(m.trip(forThreadId: a.id)?.legIds, [a.id, leg.id, b.id])
+        XCTAssertEqual(m.nextTripLeg()?.id, leg.id)
+        XCTAssertEqual(m.thread(withId: a.id)?.landedElsewhere?.continued, true)
+    }
+
+    // MARK: - Persistence of what 5.1 adds
+
+    func testALandingRecordedBeforeAFieldExistedStillDecodes() throws {
+        // A file written by a build without `continued` must not fail to decode: when it did, the
+        // loader fell back to an older file of the same thread and a landed flight came back as
+        // "in flight".
+        let json = #"{"plannedIdent":"LSMM","landedIdent":"LSPG","landedName":"Kägiswil","offerDismissed":false}"#
+        let landed = try JSONDecoder().decode(LandedElsewhere.self, from: Data(json.utf8))
+        XCTAssertEqual(landed.landedIdent, "LSPG")
+        XCTAssertFalse(landed.continued)
+        let stopover = try JSONDecoder().decode(Stopover.self, from: Data("{}".utf8))
+        XCTAssertEqual(stopover, Stopover())
+    }
+
+    func testARenamedThreadKeepsOneFile() throws {
+        let directory = FileManager.default.temporaryDirectory
+            .appendingPathComponent("TripTests-\(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: directory) }
+
+        var thread = FlightThread(routeLabel: "LSZQ → LSMM")
+        DataPersistenceManager.writeFlightThreadFiles([thread], to: directory)
+        thread.routeLabel = "LSZQ → LSPG"
+        thread.touch()
+        DataPersistenceManager.writeFlightThreadFiles([thread], to: directory)
+
+        let files = try FileManager.default.contentsOfDirectory(atPath: directory.path)
+        XCTAssertEqual(files.count, 1, "the file named after the old label must go: \(files)")
+        XCTAssertEqual(DataPersistenceManager.decodeFlightThreads(in: directory).first?.routeLabel, "LSZQ → LSPG")
     }
 }

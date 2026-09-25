@@ -191,6 +191,7 @@ struct FlightThreadView: View {
                             if thread.hasOpenFlightPlan && thread.state == .closeOut {
                                 openFlightPlanCard(thread)
                             }
+                            continuationCard(thread)
                             ForEach(ThreadChapter.allCases) { chapter in
                                 chapterSection(thread, chapter: chapter)
                             }
@@ -756,6 +757,13 @@ struct FlightThreadView: View {
                     Text(L10n.Thread.hintFlightPlanClose)
                         .scaledFont(size: 12, relativeTo: .caption)
                         .foregroundColor(.secondaryText)
+                    // Landed elsewhere: RCC is counting towards the ETA at the PLANNED destination,
+                    // so where the aircraft actually is is the thing to say. (v5.1)
+                    if let landed = thread.landedElsewhere {
+                        Text(L10n.Trip.tellFICLanded(landed.landedIdent, landed.plannedIdent))
+                            .scaledFont(size: 13, weight: .semibold, relativeTo: .footnote)
+                            .foregroundColor(.primaryText)
+                    }
                 }
                 Spacer()
             }
@@ -794,6 +802,65 @@ struct FlightThreadView: View {
             RoundedRectangle(cornerRadius: 14)
                 .strokeBorder(Color.aviationRed.opacity(0.6), lineWidth: 1.5)
         )
+    }
+
+    // MARK: - Continue after landing elsewhere (v5.1)
+
+    /// "Landed at LSZE — planned LSZQ": offer the rest of the route as the next leg. An offer, never
+    /// automatic: the pilot may stay the night, or take the train home.
+    @ViewBuilder
+    private func continuationCard(_ thread: FlightThread) -> some View {
+        if let landed = thread.landedElsewhere, !landed.offerDismissed, !landed.continued {
+            VStack(alignment: .leading, spacing: 10) {
+                HStack(spacing: 10) {
+                    Image(systemName: "arrow.triangle.turn.up.right.diamond.fill")
+                        .scaledFont(size: 18, relativeTo: .title3)
+                        .foregroundColor(.aviationGold)
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(L10n.Trip.landedAt(landed.landedIdent))
+                            .scaledFont(size: 15, weight: .bold, relativeTo: .subheadline)
+                            .foregroundColor(.primaryText)
+                        Text("\(landed.landedName) · \(L10n.Trip.planned(landed.plannedIdent))")
+                            .scaledFont(size: 12, relativeTo: .caption)
+                            .foregroundColor(.secondaryText)
+                    }
+                    Spacer()
+                }
+                Text(L10n.Trip.continueExplainer(landed.landedIdent, landed.plannedIdent))
+                    .scaledFont(size: 12, relativeTo: .caption)
+                    .foregroundColor(.dimText)
+                    .fixedSize(horizontal: false, vertical: true)
+                HStack(spacing: 8) {
+                    Button {
+                        if let leg = FlightCreator.continueAfterDiversion(from: thread.id, plans: flightPlanManager,
+                                                                         threads: threadManager,
+                                                                         airports: airportDataService) {
+                            onOpenLeg?(leg.id)
+                        }
+                    } label: {
+                        Text(L10n.Trip.continueTo(landed.plannedIdent))
+                            .lineLimit(1).minimumScaleFactor(0.6)
+                            .frame(maxWidth: .infinity)
+                    }
+                    .buttonStyle(PrimaryButtonStyle(isLarge: false))
+                    Button {
+                        threadManager.dismissContinuation(threadId: thread.id)
+                    } label: {
+                        Text(L10n.Trip.finishHere)
+                            .lineLimit(1).minimumScaleFactor(0.6)
+                            .frame(maxWidth: .infinity)
+                    }
+                    .buttonStyle(SecondaryButtonStyle(isLarge: false))
+                }
+            }
+            .padding(14)
+            .background(Color.aviationGold.opacity(0.10))
+            .clipShape(RoundedRectangle(cornerRadius: 14))
+            .overlay(
+                RoundedRectangle(cornerRadius: 14)
+                    .strokeBorder(Color.aviationGold.opacity(0.5), lineWidth: 1)
+            )
+        }
     }
 
     // MARK: - Footer

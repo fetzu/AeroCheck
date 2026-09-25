@@ -1323,6 +1323,10 @@ enum L10n {
 
     // MARK: - Hour Meter
     enum HourMeter {
+        /// Inline prompts in the checklist, engine off. (v6.0 · B4)
+        static let promptBeforeStart = String(localized: "hourMeter.prompt.beforeStart")
+        static let promptAfterStop = String(localized: "hourMeter.prompt.afterStop")
+        static let enter = String(localized: "hourMeter.prompt.enter")
         static let beforeStartTitle = String(localized: "hourMeter.beforeStart.title")
         static let afterStopTitle = String(localized: "hourMeter.afterStop.title")
         static let beforeStartSubtitle = String(localized: "hourMeter.beforeStart.subtitle")

@@ -254,6 +254,9 @@ struct ChecklistView: View {
     var engineHourEndInputFormat: String? = nil
     var onEditEngineHourStart: (() -> Void)? = nil
     var onEditEngineHourEnd: (() -> Void)? = nil
+    /// Engine hours are logged: offer the reading inline in the calm phases around start and stop,
+    /// instead of a keypad popping up while the pilot starts the engine. (v6.0 · B4)
+    var promptsEngineHours: Bool = false
     /// Owned by the parent so tap-to-advance / completion include revealed items. (v4 UI/UX Revamp)
     @Binding var hiddenItemsRevealed: Bool
 
@@ -320,6 +323,7 @@ struct ChecklistView: View {
          engineHourEndInputFormat: String? = nil,
          onEditEngineHourStart: (() -> Void)? = nil,
          onEditEngineHourEnd: (() -> Void)? = nil,
+         promptsEngineHours: Bool = false,
          hiddenItemsRevealed: Binding<Bool> = .constant(false)) {
         self.phase = phase
         self.activeChecklist = activeChecklist
@@ -353,6 +357,7 @@ struct ChecklistView: View {
         self.hudMode = hudMode
         self.engineHourStart = engineHourStart
         self.engineHourEnd = engineHourEnd
+        self.promptsEngineHours = promptsEngineHours
         self.engineHourStartInputFormat = engineHourStartInputFormat
         self.engineHourEndInputFormat = engineHourEndInputFormat
         self.onEditEngineHourStart = onEditEngineHourStart
@@ -507,17 +512,29 @@ struct ChecklistView: View {
                 .accessibilityValue(isDone ? L10n.Accessibility.phaseCompleted : "")
             }
             
-            // Engine hours display (between completion text and action button)
-            if phase.showsEngineStartButton, let hours = engineHourStart {
-                Spacer().frame(height: 12)
-                engineHoursRow(hours: hours, format: engineHourStartInputFormat) {
-                    onEditEngineHourStart?()
+            // Engine hours (between completion text and action button): the reading once entered, or
+            // an inline prompt for it in the calm phases, engine off: before the start, after the stop.
+            // (v6.0 · B4 — it used to be a full-screen keypad on entering Engine Start.)
+            if Self.hourMeterStartPhases.contains(phase) {
+                if let hours = engineHourStart {
+                    Spacer().frame(height: 12)
+                    engineHoursRow(hours: hours, format: engineHourStartInputFormat) {
+                        onEditEngineHourStart?()
+                    }
+                } else if promptsEngineHours {
+                    Spacer().frame(height: 12)
+                    engineHoursPrompt(L10n.HourMeter.promptBeforeStart) { onEditEngineHourStart?() }
                 }
             }
-            if phase.showsEngineShutdownButton, let hours = engineHourEnd {
-                Spacer().frame(height: 12)
-                engineHoursRow(hours: hours, format: engineHourEndInputFormat) {
-                    onEditEngineHourEnd?()
+            if Self.hourMeterStopPhases.contains(phase) {
+                if let hours = engineHourEnd {
+                    Spacer().frame(height: 12)
+                    engineHoursRow(hours: hours, format: engineHourEndInputFormat) {
+                        onEditEngineHourEnd?()
+                    }
+                } else if promptsEngineHours {
+                    Spacer().frame(height: 12)
+                    engineHoursPrompt(L10n.HourMeter.promptAfterStop) { onEditEngineHourEnd?() }
                 }
             }
 
@@ -723,6 +740,37 @@ struct ChecklistView: View {
     }
 
     /// Tappable engine hours display row
+    static let hourMeterStartPhases: Set<ChecklistPhase> = [.preflight, .beforeEngineStart, .engineStart]
+    static let hourMeterStopPhases: Set<ChecklistPhase> = [.shutdown, .hangar]
+
+    /// The hour meter not read yet: one tap opens the keypad. Never opens it by itself.
+    private func engineHoursPrompt(_ title: String, onEnter: @escaping () -> Void) -> some View {
+        Button(action: onEnter) {
+            HStack(spacing: 12) {
+                Image(systemName: "gauge.with.dots.needle.50percent")
+                    .font(.aero(size: isCompact ? 16 : 22))
+                Text(title)
+                    .font(.aero(size: isCompact ? 14 : CockpitType.label))
+                    .foregroundColor(theme.textPrimary)
+                    .fixedSize(horizontal: false, vertical: true)
+                Spacer(minLength: 8)
+                Text(L10n.HourMeter.enter.uppercased())
+                    .font(.aero(size: isCompact ? 14 : CockpitType.label, weight: .bold))
+                Image(systemName: "chevron.right")
+                    .font(.aero(size: isCompact ? 12 : 16, weight: .bold))
+            }
+            .foregroundColor(theme.action)
+            .padding(.horizontal, 16)
+            .frame(maxWidth: .infinity, minHeight: isCompact ? 48 : 64)
+            .background(
+                RoundedRectangle(cornerRadius: 12)
+                    .fill(theme.action.opacity(0.08))
+                    .overlay(RoundedRectangle(cornerRadius: 12).stroke(theme.action.opacity(0.35), lineWidth: 1))
+            )
+        }
+        .buttonStyle(.plain)
+    }
+
     private func engineHoursRow(hours: Double, format: String?, onEdit: @escaping () -> Void) -> some View {
         Button(action: onEdit) {
             HStack(spacing: 8) {
@@ -785,12 +833,16 @@ struct ChecklistItemRow: View {
 
     // Smaller than the old fixed 22 pt rows (still text-style-based for Dynamic Type — challenge/response
     // wrap vertically via .fixedSize, so large sizes grow the row instead of clipping). (UX-14 / v4 UI/UX Revamp)
+    // iPad: 24 pt at the default text size, the kneeboard's row size (v6.0 · P6; was 16 pt callout);
+    // still scaling with Dynamic Type, relative to .callout. iPhone keeps its size until its own pass.
     private var itemFont: Font {
-        .aero(isCompact ? .subheadline : .callout, design: .monospaced).weight(.medium)
+        isCompact ? .aero(.subheadline, design: .monospaced).weight(.medium)
+                  : .aero(size: CockpitType.row, relativeTo: .callout, design: .monospaced)
     }
 
     private var responseFont: Font {
-        .aero(isCompact ? .subheadline : .callout, design: .monospaced)
+        isCompact ? .aero(.subheadline, design: .monospaced)
+                  : .aero(size: CockpitType.row, relativeTo: .callout, design: .monospaced)
     }
 
     var body: some View {
@@ -801,11 +853,11 @@ struct ChecklistItemRow: View {
                 Group {
                     if isCompleted {
                         Image(systemName: "checkmark")
-                            .font(.aero(size: isCompact ? 10 : 12, weight: .bold))
+                            .font(.aero(size: isCompact ? 10 : 18, weight: .bold))
                             .foregroundColor(theme.onTarget.opacity(0.7))
                     }
                 }
-                .frame(width: isCompact ? 18 : 22, alignment: .leading)
+                .frame(width: isCompact ? 18 : 28, alignment: .leading)
                 .padding(.trailing, isCompact ? 4 : 6)
 
                 // Challenge text
@@ -830,7 +882,7 @@ struct ChecklistItemRow: View {
                     .multilineTextAlignment(.trailing)
                     .fixedSize(horizontal: false, vertical: true)
             }
-            .padding(.vertical, isCompact ? 4 : 6)
+            .padding(.vertical, isCompact ? 4 : 9)
             .padding(.horizontal, isHighlighted ? (isCompact ? 4 : 8) : 0)
             .background(
                 Group {
@@ -851,7 +903,7 @@ struct ChecklistItemRow: View {
                 Rectangle()
                     .fill(Color.subtleOverlay(0.08))
                     .frame(height: 1)
-                    .padding(.leading, isCompact ? 22 : 28)
+                    .padding(.leading, isCompact ? 22 : 34)
             }
         }
         // VoiceOver: read the row as ONE element. Left alone, a checklist item is three separate

@@ -65,6 +65,33 @@ extension Font {
     }
 }
 
+/// The in-flight type scale, sized for an iPad on a kneeboard, read from about 55 cm. FAA HFDS asks
+/// for a cap height of at least 1/200 of the viewing distance (about 2.75 mm, 20 pt on an iPad Air)
+/// and prefers 1/167 (about 3.3 mm, 24 pt). Anything read in flight uses one of these. (v6.0 · P6)
+enum CockpitType {
+    /// Secondary labels: units, captions, counters, hints.
+    static let label: CGFloat = 20
+    /// Checklist rows and list rows.
+    static let row: CGFloat = 24
+    /// The current checklist item's response.
+    static let response: CGFloat = 28
+    /// Labels of the buttons in the thumb bar.
+    static let button: CGFloat = 30
+    /// The current checklist item's challenge.
+    static let item: CGFloat = 42
+    /// Instrument values: speed, altitude, track.
+    static let value: CGFloat = 48
+}
+
+extension Font {
+    /// B612 at `size` at the default text size, scaling with Dynamic Type like `style` does.
+    static func aero(size: CGFloat, relativeTo style: Font.TextStyle, weight: Font.Weight? = nil,
+                     design: Font.Design? = nil) -> Font {
+        .custom(AeroTypeface.name(bold: AeroTypeface.isBold(weight), monospaced: design == .monospaced),
+                size: size, relativeTo: style)
+    }
+}
+
 extension UIFont {
     /// B612 for the UIKit parts: map labels, navigation bars, segmented controls.
     static func aero(size: CGFloat, weight: UIFont.Weight = .regular, monospaced: Bool = false) -> UIFont {

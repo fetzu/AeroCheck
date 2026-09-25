@@ -6468,7 +6468,6 @@ private struct NavClockText: View {
         .environmentObject(DataStatusManager(providers: [], networkMonitor: NetworkMonitor(stub: .disconnected)))
 }
 
-/// A MARK or a leg-timer reset that can still be taken back. (v6.0 · C2)
 /// The open legs-and-frequencies panel's natural height, measured inside its scroll view.
 private struct LegsPanelHeightKey: PreferenceKey {
     static let defaultValue: CGFloat = 0
@@ -6490,6 +6489,7 @@ private struct FlightEventOverlayUnlessEmbedded: ViewModifier {
     }
 }
 
+/// A MARK or a leg-timer reset that can still be taken back. (v6.0 · C2)
 struct NavUndoOffer: Identifiable {
     let id = UUID()
     let message: String

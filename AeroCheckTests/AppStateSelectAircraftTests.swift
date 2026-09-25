@@ -141,4 +141,44 @@ final class AppStateSelectAircraftTests: XCTestCase {
         appState.currentHighlightedItem[.climb] = 2
         XCTAssertEqual(appState.checklistProgress.currentHighlightedItem[.climb], 2)
     }
+
+    // MARK: - The flyable list (Today's aircraft menu, the Aircraft tab — on-device review #1, G-06)
+
+    func testFlyableListsBundledThenAccessiblePremium() {
+        var locked = metadata(id: "pa28-236", registration: "HB-PMP")
+        locked.hasAccess = false
+        let open = metadata(id: "pa28-181", registration: "HB-PFA")
+
+        let options = AircraftOption.flyable(remote: [locked, open], settings: AppSettings())
+
+        XCTAssertEqual(options.map(\.registration), AircraftType.allCases.map(\.registration) + ["HB-PFA"],
+                       "bundled first, then the premium aircraft the pilot can fly; the locked one isn't offered")
+    }
+
+    func testFlyableFollowsTheVisibilityFilter() {
+        var settings = AppSettings()
+        settings.hiddenAircraftIds = ["pa28-181"]
+        let options = AircraftOption.flyable(remote: [metadata(id: "pa28-181", registration: "HB-PFA")],
+                                             settings: settings)
+        XCTAssertFalse(options.contains { $0.registration == "HB-PFA" })
+    }
+
+    func testExactlyTheSelectedAircraftIsTicked() {
+        let remote = metadata(id: "pa28-181", registration: "HB-PFA")
+        var settings = AppSettings()
+        let options = AircraftOption.flyable(remote: [remote], settings: settings)
+        XCTAssertEqual(options.filter { $0.isSelected(in: settings) }.map(\.registration), ["F-HVXA"])
+
+        settings.selectedRemoteAircraftId = "pa28-181"
+        XCTAssertEqual(options.filter { $0.isSelected(in: settings) }.map(\.registration), ["HB-PFA"])
+    }
+
+    func testEveryFlyableOptionSelectsThroughAppState() {
+        let appState = makeTestAppState()
+        let remote = metadata(id: "pa28-181", registration: "HB-PFA")
+        for option in AircraftOption.flyable(remote: [remote], settings: appState.settings) {
+            XCTAssertTrue(appState.selectAircraft(id: option.selectionToken, available: [remote]))
+            XCTAssertTrue(option.isSelected(in: appState.settings), option.registration)
+        }
+    }
 }

@@ -1186,21 +1186,37 @@ struct SettingsMenuRow<T: Hashable, Options: View>: View {
         // was losing its title and subtitle and appearing as a lone centred value — the checklist
         // language read as a bare "Auto (System Language)" with nothing saying what it set.
         // (device pass)
-        HStack(spacing: 12) {
-            SettingsRowLabel(icon: icon, title: title, subtitle: subtitle, tint: tint)
-            Spacer(minLength: 8)
-            Picker(selection: $selection) {
-                options
-            } label: {
-                EmptyView()
+        //
+        // Side by side when both fit on one line; otherwise the menu goes UNDER the label. A long
+        // value ("Auto (System Language)", set in B612) used to take the width and squeeze the
+        // description into a tall column of short lines. (on-device review #1, G-09)
+        ViewThatFits(in: .horizontal) {
+            HStack(spacing: 12) {
+                SettingsRowLabel(icon: icon, title: title, subtitle: subtitle, tint: tint)
+                    .fixedSize(horizontal: true, vertical: false)
+                Spacer(minLength: 8)
+                picker
             }
-            .pickerStyle(.menu)
-            .labelsHidden()
-            .tint(.secondaryText)
-            .fixedSize()
+            VStack(alignment: .leading, spacing: 4) {
+                SettingsRowLabel(icon: icon, title: title, subtitle: subtitle, tint: tint)
+                picker
+                    .padding(.leading, icon == nil ? 0 : 47)   // under the title, past the icon
+            }
         }
         .padding(.horizontal, 14)
         .padding(.vertical, 5)
+    }
+
+    private var picker: some View {
+        Picker(selection: $selection) {
+            options
+        } label: {
+            EmptyView()
+        }
+        .pickerStyle(.menu)
+        .labelsHidden()
+        .tint(.secondaryText)
+        .fixedSize()
     }
 }
 
@@ -1293,6 +1309,9 @@ struct CockpitInstrumentStrip: View {
     private var failureLevel: InstrumentFailureFlag.FailureLevel { gpsSignalStatus == .lost ? .lost : .degraded }
 
     private var speedColor: Color {
+        // No target speed in this phase (taxi, run-up): the speed is plain data. Compared with a
+        // target of 0 it read as off target, in the caution colour. (on-device review #1, C-14)
+        guard targetSpeed != nil else { return theme.textPrimary }
         switch speedState {
         case .onTarget: return theme.onTarget
         case .offTarget: return theme.warning
@@ -1344,9 +1363,11 @@ struct CockpitInstrumentStrip: View {
         }
         .accessibilityElement(children: .ignore)
         .accessibilityLabel("Ground speed")
-        .accessibilityValue(SpeedIndicatorView.accessibilityValue(
-            displaySpeed: Int(displaySpeed), targetSpeed: targetSpeed ?? 0, state: speedState,
-            gpsLost: gpsSignalStatus == .lost))
+        .accessibilityValue(targetSpeed == nil && gpsSignalStatus != .lost
+            ? "\(Int(max(0, displaySpeed))) knots ground speed"
+            : SpeedIndicatorView.accessibilityValue(
+                displaySpeed: Int(displaySpeed), targetSpeed: targetSpeed ?? 0, state: speedState,
+                gpsLost: gpsSignalStatus == .lost))
         .accessibilityAddTraits(.updatesFrequently)
     }
 

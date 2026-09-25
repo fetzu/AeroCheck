@@ -21,7 +21,8 @@ struct FlightView: View {
     @State private var showEndFlightAlert = false
     @State private var showAbandonFlightAlert = false
     @State private var abandonFlightProgress: CGFloat = 0
-    @State private var abandonFlightTimer: Timer?
+    /// Whether the aircraft name is being held (red while held, whatever the ring shows).
+    @State private var isHoldingAbandon = false
     @State private var showFlightInfo = false
     @State private var showNavigationMode = false
     /// NEXT pressed with items still open: the review sheet lists them first. (v6.0 · B2)
@@ -333,8 +334,14 @@ struct FlightView: View {
         }
         .onChange(of: appState.currentPhase) { oldPhase, newPhase in
             appState.evaluateCruiseCheck()
-            // The hour meter is no longer asked for on entering Engine Start: the checklist offers it
-            // inline, engine off, from Preflight on (v6.0 · B4).
+            // Entering Engine Start asks for the hour meter, unless it was entered inline at the end of
+            // Before engine start. The prompt coming up by itself is what stops it being forgotten.
+            // (on-device review #1, C-03)
+            if newPhase == .engineStart && oldPhase != .engineStart && appState.settings.logEngineHours
+                && appState.currentFlight?.engineHourStart == nil {
+                hourMeterStartInitialValue = ""
+                showHourMeterStart = true
+            }
             // Re-show hour meter stop input when navigating back to Shutdown phase
             // (e.g., after reset) if shutdown time was cleared
             if newPhase == .shutdown && oldPhase != .shutdown && appState.settings.logEngineHours {
@@ -656,7 +663,12 @@ struct FlightView: View {
     private func performEngineShutdown() {
         appState.recordEngineShutdown()
         pulseActionButton = false
-        // The reading after the stop is offered inline by the checklist (Shutdown, At the hangar). (v6.0 · B4)
+        // ENGINE SHUTDOWN asks for the hour meter straight away; the checklist still offers it inline
+        // afterwards (Shutdown, At the hangar) if this is skipped. (on-device review #1, L-03)
+        if appState.settings.logEngineHours && appState.currentFlight?.engineHourEnd == nil {
+            hourMeterStopInitialValue = ""
+            showHourMeterStop = true
+        }
         if allItemsChecked { triggerNextButtonPulse() }
     }
     private func performEngineShutdownUpdate() {
@@ -670,7 +682,8 @@ struct FlightView: View {
     /// in-checklist buttons; hold-to-confirm so a stray touch can't fire a go-around. Empty (no space)
     /// when no event applies to the current phase. (v4 UI/UX Revamp)
     @ViewBuilder
-    private var eventActionsRow: some View {
+    /// `kneeboard`: the Cockpit's size and colours (on-device review #1, L-02); the iPhone keeps its row.
+    private func eventActionsRow(kneeboard: Bool = false) -> some View {
         let phase = appState.currentPhase
         let language = appState.settings.checklistLanguage.resolvedLanguage
         // In circuit mode GO-AROUND / TOUCH & GO become single-tap buttons beside NEXT
@@ -683,15 +696,17 @@ struct FlightView: View {
                     HoldToConfirmButton(
                         title: L10n.ChecklistAction.goAround(language: language),
                         systemImage: "arrow.up.right.circle.fill",
-                        tint: theme.warning,
+                        tint: kneeboard ? theme.action : theme.warning,
                         count: appState.currentFlight?.goAroundCount ?? 0,
+                        kneeboard: kneeboard,
                         action: performGoAround
                     )
                     HoldToConfirmButton(
                         title: L10n.ChecklistAction.touchAndGo(language: language),
                         systemImage: "arrow.triangle.2.circlepath",
-                        tint: .aviationBlue,
+                        tint: kneeboard ? theme.action : .aviationBlue,
                         count: appState.currentFlight?.touchAndGoCount ?? 0,
+                        kneeboard: kneeboard,
                         action: performTouchAndGo
                     )
                 }
@@ -699,8 +714,9 @@ struct FlightView: View {
                     HoldToConfirmButton(
                         title: L10n.ChecklistAction.landed(language: language),
                         systemImage: "airplane.arrival",
-                        tint: .aviationBlue,
+                        tint: kneeboard ? theme.action : .aviationBlue,
                         count: appState.currentFlight?.fullStopCount ?? 0,
+                        kneeboard: kneeboard,
                         action: performLanded
                     )
                 }
@@ -717,7 +733,19 @@ struct FlightView: View {
     private func circuitQuickEventButtons(height: CGFloat? = nil) -> some View {
         let phase = appState.currentPhase
         let language = appState.settings.checklistLanguage.resolvedLanguage
-        if appState.isCircuitMode && phase.showsGoAroundButtons {
+        if appState.isCircuitMode && phase.showsGoAroundButtons, height != nil {
+            // The Cockpit's thumb bar: the same outlined buttons as its neighbours, cyan because they
+            // are things to press, not alerts. (on-device review #1, L-02)
+            HStack(spacing: 12) {
+                CockpitThumbButton(title: L10n.ChecklistAction.goAround(language: language),
+                                   icon: "arrow.up.right.circle.fill",
+                                   style: .outlined(tint: theme.action), action: performGoAround)
+                CockpitThumbButton(title: L10n.ChecklistAction.touchAndGo(language: language),
+                                   icon: "arrow.triangle.2.circlepath",
+                                   style: .outlined(tint: theme.action), action: performTouchAndGo)
+            }
+            .frame(maxWidth: .infinity)
+        } else if appState.isCircuitMode && phase.showsGoAroundButtons {
             // The pair shares ~50% of the bottom bar (so each button ≈ 25%, leaving NEXT ≈ 50%).
             HStack(spacing: 12) {
                 quickEventButton(
@@ -975,7 +1003,7 @@ struct FlightView: View {
 
             // Contextual hold-to-confirm GO-AROUND / T&G / FULL-STOP (approach/landing; circuit mode
             // shows single-tap GO-AROUND/T&G beside NEXT instead).
-            eventActionsRow
+            eventActionsRow()
 
             // Bottom action bar: phase timestamp action · circuit quick events · cruise check · NEXT.
             HStack(spacing: 10) {
@@ -1161,29 +1189,8 @@ struct FlightView: View {
 
     // MARK: - Abandon Flight Long Press
 
-    private func startAbandonFlightTimer() {
-        abandonFlightProgress = 0
-        abandonFlightTimer = Timer.scheduledTimer(withTimeInterval: 0.05, repeats: true) { timer in
-            abandonFlightProgress += 0.05 / 1.5 // 1.5 seconds total
-            if abandonFlightProgress >= 1.0 {
-                timer.invalidate()
-                abandonFlightTimer = nil
-                abandonFlightProgress = 0
-                // Haptic feedback
-                let generator = UINotificationFeedbackGenerator()
-                generator.notificationOccurred(.warning)
-                showAbandonFlightAlert = true
-            }
-        }
-    }
-
-    private func cancelAbandonFlightTimer() {
-        abandonFlightTimer?.invalidate()
-        abandonFlightTimer = nil
-        withAnimation(.easeOut(duration: 0.2)) {
-            abandonFlightProgress = 0
-        }
-    }
+    /// Hold the aircraft name this long to abandon the flight.
+    private static let abandonHoldDuration: TimeInterval = 1.5
 
     /// Creates an airplane identifier section with long press to abandon gesture
     /// Both the airplane icon and the call sign are tappable
@@ -1192,26 +1199,25 @@ struct FlightView: View {
             // Progress ring behind the icon. The ring footprint is RESERVED at all times (fixed frame)
             // so it appearing on press-and-hold doesn't enlarge the icon and shift the top bar. (v4 UI/UX Revamp fix)
             ZStack {
-                if abandonFlightProgress > 0 {
-                    Circle()
-                        .stroke(theme.danger.opacity(0.3), lineWidth: isCompact ? 2 : 3)
-
-                    Circle()
-                        .trim(from: 0, to: abandonFlightProgress)
-                        .stroke(theme.danger, style: StrokeStyle(lineWidth: isCompact ? 2 : 3, lineCap: .round))
-                        .rotationEffect(.degrees(-90))
-                }
+                // Always in the tree, so the sweep animates from 0 the moment the hold starts.
+                Circle()
+                    .stroke(theme.danger.opacity(0.3), lineWidth: isCompact ? 2 : 3)
+                    .opacity(isHoldingAbandon ? 1 : 0)
+                Circle()
+                    .trim(from: 0, to: abandonFlightProgress)
+                    .stroke(theme.danger, style: StrokeStyle(lineWidth: isCompact ? 2 : 3, lineCap: .round))
+                    .rotationEffect(.degrees(-90))
 
                 Image(systemName: "airplane")
                     .font(.aero(size: iconSize))
-                    .foregroundColor(abandonFlightProgress > 0 ? theme.danger : theme.action)
+                    .foregroundColor(isHoldingAbandon ? theme.danger : theme.action)
             }
             .frame(width: iconSize + (isCompact ? 8 : 12), height: iconSize + (isCompact ? 8 : 12))
 
             HStack(spacing: 4) {
                 Text(appState.activeChecklist.registration)
                     .font(isCompact ? .aero(size: 14, weight: .semibold) : .headerText)
-                    .foregroundColor(abandonFlightProgress > 0 ? theme.danger : theme.textPrimary)
+                    .foregroundColor(isHoldingAbandon ? theme.danger : theme.textPrimary)
                     .lineLimit(1)
                     .minimumScaleFactor(0.7)   // never wrap the registration; shrink slightly if tight
 
@@ -1225,17 +1231,19 @@ struct FlightView: View {
             }
         }
         .contentShape(Rectangle()) // Make entire area tappable
-        .gesture(
-            DragGesture(minimumDistance: 0)
-                .onChanged { _ in
-                    if abandonFlightTimer == nil {
-                        startAbandonFlightTimer()
-                    }
-                }
-                .onEnded { _ in
-                    cancelAbandonFlightTimer()
-                }
-        )
+        // The ring sweeps from the moment the finger lands, over the whole hold; the alert comes at
+        // the end. It used to step a timer, which showed almost nothing at first. (on-device review #1)
+        .onLongPressGesture(minimumDuration: Self.abandonHoldDuration, maximumDistance: 40) {
+            UINotificationFeedbackGenerator().notificationOccurred(.warning)
+            isHoldingAbandon = false
+            abandonFlightProgress = 0
+            showAbandonFlightAlert = true
+        } onPressingChanged: { pressing in
+            isHoldingAbandon = pressing
+            withAnimation(.linear(duration: pressing ? Self.abandonHoldDuration : 0.2)) {
+                abandonFlightProgress = pressing ? 1 : 0
+            }
+        }
     }
 
     // MARK: - HUD reference popups (Pattern B)
@@ -1360,8 +1368,8 @@ extension FlightView {
                 .padding(.bottom, 8)
                 .background(theme.panel)
 
-            // GS · ALT · TRK · NEXT, in the flight phases.
-            if appState.activeChecklist.showsSpeedIndicator(for: appState.currentPhase) {
+            // GS · ALT · TRK · NEXT, whenever the aircraft moves (Taxi to After landing).
+            if CockpitStripRule.showsStrip(in: appState.currentPhase) {
                 CockpitInstrumentStrip(
                     speedKnots: locationManager.displaySpeedKnots,
                     targetSpeed: appState.activeChecklist.targetSpeed(for: appState.currentPhase),
@@ -1635,7 +1643,7 @@ extension FlightView {
             .background(theme.background)
 
             // Hold-to-confirm GO-AROUND / T&G / LANDED in the phases they belong to.
-            eventActionsRow
+            eventActionsRow(kneeboard: true)
 
             cockpitThumbBar
                 .padding(.horizontal, 16)
@@ -2129,46 +2137,52 @@ struct HoldToConfirmButton: View {
     let systemImage: String
     let tint: Color
     var count: Int = 0
+    /// The Cockpit: kneeboard sizes, the label in the tint (a cyan control), 88 pt tall.
+    /// (on-device review #1, L-02)
+    var kneeboard: Bool = false
     let action: () -> Void
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var progress: CGFloat = 0
 
     private let holdDuration: TimeInterval = 1.0
+    private var corner: CGFloat { kneeboard ? 18 : 12 }
 
     var body: some View {
         ZStack {
-            RoundedRectangle(cornerRadius: 12).fill(tint.opacity(0.18))
+            RoundedRectangle(cornerRadius: corner).fill(tint.opacity(kneeboard ? 0.12 : 0.18))
 
             // Hold-progress fill.
             GeometryReader { geo in
-                RoundedRectangle(cornerRadius: 12)
-                    .fill(tint.opacity(0.5))
+                RoundedRectangle(cornerRadius: corner)
+                    .fill(tint.opacity(kneeboard ? 0.38 : 0.5))
                     .frame(width: geo.size.width * progress)
             }
 
-            RoundedRectangle(cornerRadius: 12).strokeBorder(tint, lineWidth: 2)
+            RoundedRectangle(cornerRadius: corner).strokeBorder(tint, lineWidth: kneeboard ? 1.5 : 2)
 
-            HStack(spacing: 8) {
-                Image(systemName: systemImage).font(.aero(size: 16, weight: .bold))
-                VStack(alignment: .leading, spacing: 0) {
+            HStack(spacing: kneeboard ? 12 : 8) {
+                Image(systemName: systemImage).font(.aero(size: kneeboard ? CockpitType.row : 16, weight: .bold))
+                VStack(alignment: .leading, spacing: kneeboard ? 2 : 0) {
                     Text(title)
-                        .font(.aero(size: 14, weight: .bold))
+                        .font(.aero(size: kneeboard ? CockpitType.row : 14, weight: .bold))
                         .lineLimit(1)
                         .minimumScaleFactor(0.7)
                     Text(L10n.ChecklistAction.holdToConfirm)
-                        .font(.aero(size: 9, weight: .semibold))
+                        .font(.aero(size: kneeboard ? CockpitType.label : 9, weight: .semibold))
                         .foregroundColor(theme.textSecondary)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.7)
                 }
                 if count > 0 {
                     Spacer(minLength: 4)
-                    Text("\(count)").font(.aero(size: 17, weight: .heavy, design: .monospaced))
+                    Text("\(count)").font(.aero(size: kneeboard ? CockpitType.response : 17, weight: .heavy, design: .monospaced))
                 }
             }
-            .foregroundColor(theme.textPrimary)
-            .padding(.horizontal, 12)
+            .foregroundColor(kneeboard ? tint : theme.textPrimary)
+            .padding(.horizontal, kneeboard ? 16 : 12)
         }
-        .frame(height: 54)
+        .frame(height: kneeboard ? 88 : 54)
         .frame(maxWidth: .infinity)
         .contentShape(RoundedRectangle(cornerRadius: 12))
         .onLongPressGesture(minimumDuration: holdDuration, maximumDistance: 60) {

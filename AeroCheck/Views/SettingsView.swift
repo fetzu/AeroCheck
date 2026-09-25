@@ -12,6 +12,9 @@ struct SettingsView: View {
 
     /// When set, the hub opens directly to this section (e.g. the Home data-status dot → Data & Storage). (v4.1.0)
     var initialSection: Section? = nil
+    /// The Settings tab: no Done button, and a page requested elsewhere (`pendingSettingsSection`, the
+    /// Data chip on Today) opens when the tab shows. (v6.0 · P1)
+    var isEmbedded: Bool = false
 
     /// iPad two-column selection (defaults to the first section so the detail pane is never empty).
     @State private var selection: Section? = .aircraft
@@ -128,6 +131,8 @@ struct SettingsView: View {
             }
         }
         .preferredColorScheme(.dark)
+        .onAppear { openPendingSection() }
+        .onChange(of: appState.pendingSettingsSection) { _, _ in openPendingSection() }
         .onAppear {
             guard !didApplyInitialSection, let initialSection else { return }
             didApplyInitialSection = true
@@ -180,10 +185,19 @@ struct SettingsView: View {
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             // Top-left, matching the app convention (Flight Log, flight-plan list). (v4 UI/UX Revamp)
-            ToolbarItem(placement: .cancellationAction) {
-                Button(L10n.Settings.done) { if let onClose { onClose() } else { dismiss() } }
+            if !isEmbedded {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button(L10n.Settings.done) { if let onClose { onClose() } else { dismiss() } }
+                }
             }
         }
+    }
+
+    /// Open the page another screen asked for, then forget the request.
+    private func openPendingSection() {
+        guard isEmbedded, let section = appState.pendingSettingsSection else { return }
+        appState.pendingSettingsSection = nil
+        if horizontalSizeClass == .regular { selection = section } else { path = [section] }
     }
 
 

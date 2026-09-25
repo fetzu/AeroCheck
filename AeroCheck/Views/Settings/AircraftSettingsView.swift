@@ -12,13 +12,29 @@ struct AircraftSettingsView: View {
 
     private let tint: Color = .aviationGold
 
+    /// The Aircraft tab: the aircraft first, then its speeds, then the subscription. In Settings it
+    /// keeps the subscription on top. (v6.0 · P1)
+    var showsSpeeds: Bool = false
+
     var body: some View {
         SettingsPage {
-            subscriptionSection
-            aircraftSection
+            if showsSpeeds {
+                aircraftSection
+                SettingsGroup(title: L10n.Sheet.speedReference, tint: .aviationGold) {
+                    // An in-flight component on a ground screen: ground screens don't switch to the
+                    // night palette, so neither does the table here.
+                    SpeedReferenceView(activeChecklist: appState.activeChecklist)
+                        .padding(.vertical, 8)
+                        .environment(\.cockpitTheme, .day)
+                }
+                subscriptionSection
+            } else {
+                subscriptionSection
+                aircraftSection
+            }
             aircraftVisibilitySection
         }
-        .navigationTitle(L10n.Settings.aircraftAndSubscription)
+        .navigationTitle(showsSpeeds ? L10n.Ground.aircraft : L10n.Settings.aircraftAndSubscription)
         .navigationBarTitleDisplayMode(.inline)
         .onAppear { loadSettings() }
         .onChange(of: appState.settings) { _, _ in loadSettings() }

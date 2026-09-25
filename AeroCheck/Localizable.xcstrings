@@ -1,6 +1,193 @@
 {
   "sourceLanguage": "en",
   "strings": {
+    "ground.today": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Today"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aujourd'hui"
+          }
+        }
+      }
+    },
+    "ground.plan": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Plan"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Planifier"
+          }
+        }
+      }
+    },
+    "ground.logbook": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Logbook"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Carnet de vol"
+          }
+        }
+      }
+    },
+    "ground.aircraft": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aircraft"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Avions"
+          }
+        }
+      }
+    },
+    "ground.settings": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Settings"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Réglages"
+          }
+        }
+      }
+    },
+    "ground.plan.flights": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Flights"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vols"
+          }
+        }
+      }
+    },
+    "ground.plan.routes": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Routes"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Routes"
+          }
+        }
+      }
+    },
+    "ground.plan.map": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Map"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Carte"
+          }
+        }
+      }
+    },
+    "ground.nextFlight": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Next flight"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Prochain vol"
+          }
+        }
+      }
+    },
+    "ground.recent": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aircraft and last flight"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Avion et dernier vol"
+          }
+        }
+      }
+    },
+    "flightLog.import": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Import"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Importer"
+          }
+        }
+      }
+    },
     "hourMeter.prompt.beforeStart": {
       "extractionState": "manual",
       "localizations": {
@@ -16217,13 +16404,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Step-by-step checklists guide you from Preflight to Shutdown. Enable Learning Mode to test your knowledge, or use Circuit Mode for pattern training."
+            "value": "Step-by-step checklists guide you from Preflight to Shutdown. Turn on Memory test to fly the memory items from memory, or use Circuit Mode for pattern training."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Des checklists pas-à-pas vous guident du prévol à l'arrêt moteur. Activez le mode apprentissage pour tester vos connaissances, ou utilisez le mode circuits pour l'entraînement en tour de piste."
+            "value": "Des checklists pas-à-pas vous guident du prévol à l'arrêt moteur. Activez le test de mémoire pour faire les éléments mémorisables de tête, ou utilisez le mode circuits pour l'entraînement en tour de piste."
           }
         }
       }
@@ -19208,13 +19395,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Step-by-step, learning mode, logging"
+            "value": "Step-by-step, memory test, logging"
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Pas-à-pas, mode apprentissage, journal"
+            "value": "Pas-à-pas, test de mémoire, journal"
           }
         }
       }

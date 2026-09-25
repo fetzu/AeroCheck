@@ -54,7 +54,8 @@ struct ContentView: View {
                     FlightView()
                         .transition(.opacity)
                 } else {
-                    HomeView()
+                    // On the ground: Today · Plan · Logbook · Aircraft · Settings. (v6.0 · P1)
+                    GroundView()
                         .transition(.opacity)
                 }
 

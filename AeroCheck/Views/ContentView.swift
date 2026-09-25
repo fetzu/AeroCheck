@@ -220,7 +220,9 @@ struct ContentView: View {
         // itself on appear, but Home's strip advertises the next task and the readiness ring off the
         // same tasks — so without this, entering the fuel on the plan editor left Home still saying
         // "Next: Fuel plan" until the flight was opened. (device pass)
-        .onChange(of: flightPlanManager.flightPlans) { _, plans in
+        // Every save, not `.onChange(of:)`: `FlightPlan`'s `==` compares ids only, so an edit to a plan
+        // was never seen as a change here either. (on-device review #1, T-01)
+        .onReceive(flightPlanManager.$flightPlans) { plans in
             threadManager.refreshTasks(from: plans)
         }
         #if DEBUG

@@ -270,13 +270,11 @@ struct FlightThreadView: View {
         // reading REQ 0 / FOB 0 forever, and never ticking itself once the tanks were entered.
         // `regenerateTasks` preserves everything the pilot has ticked, so this is safe to run often.
         .onAppear { refreshFromPlan() }
-        .onChange(of: planForRefresh) { _, _ in refreshFromPlan() }
-    }
-
-    /// The followed plan, watched so an edit anywhere re-derives the AUTO rows.
-    private var planForRefresh: FlightPlan? {
-        guard let thread = threadManager.thread(withId: threadId) else { return nil }
-        return plan(for: thread)
+        // Every save of the plans, not `.onChange(of:)`: `FlightPlan`'s `==` compares ids only, so an
+        // edited plan never counted as a change, and the fuel entered in the details sheet stayed
+        // unseen until the page was reopened. The editor also saves after the sheet's `onDismiss`
+        // has run, which is why that refresh came too early. (on-device review #1, T-01)
+        .onReceive(flightPlanManager.$flightPlans) { _ in refreshFromPlan() }
     }
 
     private func refreshFromPlan() {

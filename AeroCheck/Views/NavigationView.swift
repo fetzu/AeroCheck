@@ -232,6 +232,12 @@ struct NavigationMapView: View {
     /// Where "Routes" goes instead of opening the routes as a cover: Plan › Map switches to its own
     /// Routes section, rather than stacking a second copy of it over the tab. (on-device review #4)
     var onShowRoutes: (() -> Void)? = nil
+    /// The Cockpit on a phone on its side (I7): its header and strip, for the top of a column on the
+    /// left that also takes the thumb bar, with the map at full height beside it. (iPhone pass)
+    var leadingColumn: AnyView? = nil
+    var leadingColumnWidth: CGFloat = 340
+    /// Over the map's own chrome, at the top: the Cockpit's pane bar in that same layout.
+    var mapTopAccessory: AnyView? = nil
     @State private var selectedLayer: MapLayerType = .icao
     @State private var isFollowingAircraft: Bool = true
     @State private var showLayerPicker: Bool = false
@@ -431,7 +437,9 @@ struct NavigationMapView: View {
     /// Uses compact layout when flight planning is enabled and device width is compact (iPhone)
     /// Now also supports showing just frequency drawer when no flight plan is active
     private var shouldUseCompactLayout: Bool {
-        isCompactWidth  // iPhone always uses the compact layout; plan/freq UI is gated inside. (v4 UI/UX Revamp)
+        // The phone's own layout is left for the full-screen cover only; the Cockpit's MAP pane and
+        // Plan › Map use the same chrome as the iPad. (iPhone pass, I4)
+        isCompactWidth && !isInCockpit
     }
 
     /// Whether there is an active flight plan
@@ -705,9 +713,29 @@ struct NavigationMapView: View {
         // to a column on the right. A 104 pt bar across a 820 pt-tall screen left the map a letterbox.
         // (on-device review #1, R-01)
         let landscape = geometry.size.width > geometry.size.height
-        let mapAreaWidth = landscape ? geometry.size.width - Self.sideColumnWidth : geometry.size.width
+        let columns = landscape && leadingColumn != nil
+        let mapAreaWidth = columns ? geometry.size.width - leadingColumnWidth
+            : landscape ? geometry.size.width - Self.sideColumnWidth : geometry.size.width
         return Group {
-            if landscape {
+            if columns, let leadingColumn {
+                // A phone on its side, in the Cockpit: the Cockpit's column on the left with the thumb
+                // bar at its foot, the map beside it at full height, the frequencies along its bottom.
+                // (iPhone pass, I7)
+                HStack(spacing: 0) {
+                    VStack(spacing: 0) {
+                        leadingColumn
+                        Spacer(minLength: 0)
+                        navThumbColumnCompact
+                            .padding(12)
+                    }
+                    .frame(width: leadingColumnWidth)
+                    .background(theme.panel.ignoresSafeArea())
+                    .overlay(alignment: .trailing) { Rectangle().fill(theme.panelStroke).frame(width: 1) }
+
+                    mapArea(bottomPanel: bottomPanel(legsMaxHeight: geometry.size.height * 0.5, includesThumbBar: false),
+                            topAccessory: mapTopAccessory)
+                }
+            } else if landscape {
                 HStack(spacing: 0) {
                     mapArea(bottomPanel: EmptyView?.none)
                     sideColumn
@@ -764,7 +792,7 @@ struct NavigationMapView: View {
     /// The map with its chrome: the top bar (full-screen only), the next-waypoint card and the map's
     /// controls on top, the scale bar and the undo toast at the bottom, and — in portrait — the
     /// bottom panel.
-    private func mapArea<Panel: View>(bottomPanel: Panel?) -> some View {
+    private func mapArea<Panel: View>(bottomPanel: Panel?, topAccessory: AnyView? = nil) -> some View {
         ZStack {
             mapContent
                 .ignoresSafeArea()
@@ -779,6 +807,7 @@ struct NavigationMapView: View {
                 // What a pilot reads most, big and on top: the next waypoint. Then the map's own
                 // controls, labelled. (v6.0 · P3)
                 VStack(spacing: 10) {
+                    if let topAccessory { topAccessory }
                     nextWaypointCard
                     mapControlsRow
                         .frame(maxWidth: .infinity, alignment: .trailing)
@@ -789,7 +818,7 @@ struct NavigationMapView: View {
                     routeOffScreenPill
                         .animation(reduceMotion ? nil : .easeInOut(duration: 0.25), value: routeOffScreenHint) // (UX-18)
                 }
-                .padding(.horizontal, 16)
+                .padding(.horizontal, CockpitType.size(kneeboard: 16, phone: 12))
                 .padding(.top, 10)
 
                 Spacer(minLength: 0)
@@ -1703,7 +1732,7 @@ struct NavigationMapView: View {
     /// Portrait: opaque, pinned to the bottom edge — the frequencies to hand, the legs and every
     /// frequency when opened (at most `legsMaxHeight`, scrolling past it), and the thumb bar. No chart
     /// ink behind the numbers. (v6.0 · P3, C6; on-device review #1, M-06)
-    private func bottomPanel(legsMaxHeight: CGFloat) -> some View {
+    private func bottomPanel(legsMaxHeight: CGFloat, includesThumbBar: Bool = true) -> some View {
         VStack(spacing: 0) {
             freqCard
             if navSheetExpanded {
@@ -1717,8 +1746,10 @@ struct NavigationMapView: View {
                 .frame(height: min(legsPanelContentHeight, legsMaxHeight))
                 .onPreferenceChange(LegsPanelHeightKey.self) { legsPanelContentHeight = $0 }
             }
-            Rectangle().fill(theme.panelStroke).frame(height: 1)
-            navThumbBar
+            if includesThumbBar {
+                Rectangle().fill(theme.panelStroke).frame(height: 1)
+                navThumbBar
+            }
         }
         .background(theme.panel.ignoresSafeArea(edges: .bottom))
         .overlay(alignment: .top) {
@@ -1772,31 +1803,27 @@ struct NavigationMapView: View {
             let filed = diversion != nil && (threadManager.thread(forPlanId: plan.id)?.hasOpenFlightPlan ?? false)
             VStack(alignment: .leading, spacing: 10) {
                 Button(action: toggleLegsAndFrequencies) {
-                    HStack(alignment: .center, spacing: 18) {
-                        HStack(spacing: 10) {
-                            if diversion != nil {
-                                Text(L10n.Trip.divertTag)
-                                    .font(.aero(size: CockpitType.label, weight: .bold))
-                                    .foregroundColor(theme.actionText)
-                                    .padding(.horizontal, 8).padding(.vertical, 3)
-                                    .background(theme.warning, in: RoundedRectangle(cornerRadius: 6))
-                            } else {
-                                Image(systemName: "arrow.right")
-                                    .font(.aero(size: CockpitType.response, weight: .bold))
-                                    .foregroundColor(theme.route)
-                            }
-                            Text(diversion?.ident ?? (next.name.isEmpty ? "WPT \(plan.currentWaypointIndex + 1)" : next.name))
-                                .font(.aero(size: CockpitType.item, weight: .bold, design: .monospaced))
-                                .foregroundColor(theme.route)
-                                .lineLimit(1)
-                                .minimumScaleFactor(0.5)
+                    let ident = diversion?.ident ?? (next.name.isEmpty ? "WPT \(plan.currentWaypointIndex + 1)" : next.name)
+                    // One row where it fits (the iPad); on the phone, ETA goes first, then the ident
+                    // takes a line above the figures. (iPhone pass, I4)
+                    ViewThatFits(in: .horizontal) {
+                        HStack(alignment: .center, spacing: 18) {
+                            nextWaypointIdent(ident, diverting: diversion != nil)
+                            Spacer(minLength: 8)
+                            nextWaypointCells(withETA: true)
                         }
-                        Spacer(minLength: 8)
-                        navValueCell("BRG", liveBearingText ?? "—")
-                        navValueCell("DIST", nextWaypointDistanceValue ?? "—", unit: "NM")
-                        navValueCell("ETE", nextLegLive.map { eteValue($0.ete) } ?? "—",
-                                     unit: nextLegLive.map { eteUnit($0.ete) })
-                        navValueCell("ETA", nextLegLive.map { $0.eta.formatted(date: .omitted, time: .shortened) } ?? "—")
+                        HStack(alignment: .center, spacing: 14) {
+                            nextWaypointIdent(ident, diverting: diversion != nil)
+                            Spacer(minLength: 8)
+                            nextWaypointCells(withETA: false)
+                        }
+                        VStack(alignment: .leading, spacing: 8) {
+                            nextWaypointIdent(ident, diverting: diversion != nil)
+                            HStack(spacing: 14) {
+                                nextWaypointCells(withETA: true)
+                            }
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                        }
                     }
                     .contentShape(Rectangle())
                 }
@@ -1830,6 +1857,38 @@ struct NavigationMapView: View {
             .padding(.vertical, 12)
             .background(RoundedRectangle(cornerRadius: 16).fill(theme.panel))
             .overlay(RoundedRectangle(cornerRadius: 16).stroke(theme.panelStroke, lineWidth: 1))
+        }
+    }
+
+    private func nextWaypointIdent(_ ident: String, diverting: Bool) -> some View {
+        HStack(spacing: 10) {
+            if diverting {
+                Text(L10n.Trip.divertTag)
+                    .font(.aero(size: CockpitType.label, weight: .bold))
+                    .foregroundColor(theme.actionText)
+                    .padding(.horizontal, 8).padding(.vertical, 3)
+                    .background(theme.warning, in: RoundedRectangle(cornerRadius: 6))
+            } else {
+                Image(systemName: "arrow.right")
+                    .font(.aero(size: CockpitType.response, weight: .bold))
+                    .foregroundColor(theme.route)
+            }
+            Text(ident)
+                .font(.aero(size: CockpitType.item, weight: .bold, design: .monospaced))
+                .foregroundColor(theme.route)
+                .lineLimit(1)
+                .minimumScaleFactor(0.5)
+        }
+    }
+
+    @ViewBuilder
+    private func nextWaypointCells(withETA: Bool) -> some View {
+        navValueCell("BRG", liveBearingText ?? "—")
+        navValueCell("DIST", nextWaypointDistanceValue ?? "—", unit: "NM")
+        navValueCell("ETE", nextLegLive.map { eteValue($0.ete) } ?? "—",
+                     unit: nextLegLive.map { eteUnit($0.ete) })
+        if withETA {
+            navValueCell("ETA", nextLegLive.map { $0.eta.formatted(date: .omitted, time: .shortened) } ?? "—")
         }
     }
 
@@ -1890,9 +1949,13 @@ struct NavigationMapView: View {
     /// icons, and the airplane was the base chart. Zoom goes first when the row runs out of room;
     /// pinching still zooms. (review C1, C5)
     private var mapControlsRow: some View {
+        // On the phone, North up / Track up becomes one button showing the current mode, and zoom
+        // goes when even that leaves no room. (iPhone pass, I4)
         ViewThatFits(in: .horizontal) {
             mapControls(withZoom: true)
             mapControls(withZoom: false)
+            mapControls(withZoom: true, orientationSegments: false)
+            mapControls(withZoom: false, orientationSegments: false)
         }
         .sheet(isPresented: $showMapSheet) {
             MapSheet(selectedLayer: $selectedLayer, isOfflineMode: isOfflineMode)
@@ -1904,8 +1967,8 @@ struct NavigationMapView: View {
         }
     }
 
-    private func mapControls(withZoom: Bool) -> some View {
-        HStack(spacing: 10) {
+    private func mapControls(withZoom: Bool, orientationSegments: Bool = true) -> some View {
+        HStack(spacing: CockpitType.size(kneeboard: 10, phone: 8)) {
             chromeButton(icon: "square.stack.3d.up", title: L10n.Nav.mapSheet) { showMapSheet = true }
                 .overlay(alignment: .topTrailing) {
                     // Airspace data aging or stale: the cue sits on the button that leads to it.
@@ -1919,7 +1982,11 @@ struct NavigationMapView: View {
                             .accessibilityLabel(Text("Airspace data is out of date"))
                     }
                 }
-            orientationToggle
+            if orientationSegments {
+                orientationToggle
+            } else {
+                orientationButton
+            }
             // Filled when the map has been moved off the aircraft: the one control that matters then.
             chromeButton(icon: isFollowingAircraft ? "location.fill" : "location",
                          title: L10n.Nav.centre, prominent: !isFollowingAircraft) { centerOnAircraft() }
@@ -1943,7 +2010,7 @@ struct NavigationMapView: View {
                     .fixedSize()
             }
             .foregroundColor(prominent ? theme.actionText : theme.action)
-            .padding(.horizontal, 16)
+            .padding(.horizontal, CockpitType.size(kneeboard: 16, phone: 12))
             .frame(minHeight: CockpitTarget.control)
             .background(RoundedRectangle(cornerRadius: 14).fill(prominent ? theme.action : theme.panel))
             .overlay(RoundedRectangle(cornerRadius: 14).stroke(prominent ? Color.clear : theme.panelStroke, lineWidth: 1))
@@ -1962,6 +2029,14 @@ struct NavigationMapView: View {
         .padding(4)
         .background(RoundedRectangle(cornerRadius: 14).fill(theme.panel))
         .overlay(RoundedRectangle(cornerRadius: 14).stroke(theme.panelStroke, lineWidth: 1))
+    }
+
+    /// The phone's orientation control: one button, named after the current mode; a tap switches it.
+    private var orientationButton: some View {
+        let northUp = mapOrientationMode == .northUp
+        return chromeButton(icon: northUp ? "location.north.line" : "location.north.line.fill",
+                            title: northUp ? L10n.Nav.northUp : L10n.Nav.trackUp) { toggleOrientation() }
+            .accessibilityValue(northUp ? L10n.Nav.northUp : L10n.Nav.trackUp)
     }
 
     private func orientationSegment(_ mode: MapOrientationMode, title: String) -> some View {
@@ -2001,17 +2076,18 @@ struct NavigationMapView: View {
         let current = phaseFreqItems.first { $0.role == .current }
         let next = phaseFreqItems.first { $0.role == .next }
         return Button(action: toggleLegsAndFrequencies) {
-            HStack(spacing: 16) {
+            HStack(spacing: CockpitType.size(kneeboard: 16, phone: 10)) {
                 freqCell(tag: L10n.Nav.freqCurrent, tint: theme.onTarget, item: current)
                 Rectangle().fill(theme.panelStroke).frame(width: 1, height: 52)
                 freqCell(tag: L10n.Nav.freqNext, tint: theme.info, item: next)
                 Image(systemName: navSheetExpanded ? "chevron.down" : "chevron.up")
                     .font(.aero(size: CockpitType.label, weight: .bold))
                     .foregroundColor(theme.action)
-                    .frame(width: 52, height: 52)
+                    .frame(width: CockpitType.size(kneeboard: 52, phone: 44),
+                           height: CockpitType.size(kneeboard: 52, phone: 44))
                     .background(Circle().fill(theme.action.opacity(0.14)))
             }
-            .padding(.horizontal, 16)
+            .padding(.horizontal, CockpitType.size(kneeboard: 16, phone: 12))
             .padding(.vertical, 10)
             .contentShape(Rectangle())
         }
@@ -2075,7 +2151,7 @@ struct NavigationMapView: View {
         if let plan = flightPlanManager.activeFlightPlan {
             TimelineView(.periodic(from: .now, by: 1)) { _ in
                 let state = legTimerState(plan)
-                HStack(spacing: 12) {
+                HStack(spacing: CockpitType.size(kneeboard: 12, phone: 8)) {
                     legTimerReadout(elapsed: state.elapsed, planned: state.planned, running: state.running,
                                     started: state.started)
                     navPrimaryButton(plan, started: state.started)
@@ -2083,8 +2159,30 @@ struct NavigationMapView: View {
                     navMoreMenu(running: state.running, started: state.started)
                 }
             }
-            .padding(.horizontal, 16)
-            .padding(.vertical, 12)
+            .padding(.horizontal, CockpitType.size(kneeboard: 16, phone: 12))
+            .padding(.vertical, CockpitType.size(kneeboard: 12, phone: 10))
+        } else {
+            routesButtonRow
+        }
+    }
+
+    /// The landscape phone's version, under the Cockpit's column: the leg timer, MARK, and Divert and
+    /// More stacked, half height, so MARK keeps its width. (iPhone pass, I7)
+    @ViewBuilder
+    private var navThumbColumnCompact: some View {
+        if let plan = flightPlanManager.activeFlightPlan {
+            TimelineView(.periodic(from: .now, by: 1)) { _ in
+                let state = legTimerState(plan)
+                HStack(spacing: 8) {
+                    legTimerReadout(elapsed: state.elapsed, planned: state.planned, running: state.running,
+                                    started: state.started)
+                    navPrimaryButton(plan, started: state.started)
+                    VStack(spacing: 8) {
+                        if !flightPlanManager.isFlightPlanCompleted { divertThumbButton(plan, stacked: true) }
+                        navMoreMenu(running: state.running, started: state.started, stacked: true)
+                    }
+                }
+            }
         } else {
             routesButtonRow
         }
@@ -2150,19 +2248,28 @@ struct NavigationMapView: View {
         } else if plan.currentWaypointIndex < plan.waypoints.count {
             let index = plan.currentWaypointIndex
             let name = plan.waypoints[index].name
-            thumbPrimaryButton(icon: "mappin.and.ellipse",
-                               title: name.isEmpty ? L10n.Nav.mark : "\(L10n.Nav.mark) \(name)") {
-                markWaypoint(at: index, in: plan)
+            if CockpitScale.current == .phone {
+                // The phone: the waypoint under MARK, where "MARK LSGC" on one line had to shrink.
+                thumbPrimaryButton(icon: "mappin.and.ellipse", title: L10n.Nav.mark,
+                                   subtitle: name.isEmpty ? nil : name) {
+                    markWaypoint(at: index, in: plan)
+                }
+            } else {
+                thumbPrimaryButton(icon: "mappin.and.ellipse",
+                                   title: name.isEmpty ? L10n.Nav.mark : "\(L10n.Nav.mark) \(name)") {
+                    markWaypoint(at: index, in: plan)
+                }
             }
         } else {
             Spacer(minLength: 0)
         }
     }
 
-    private func divertThumbButton(_ plan: FlightPlan) -> some View {
+    private func divertThumbButton(_ plan: FlightPlan, stacked: Bool = false) -> some View {
         thumbSecondaryButton(icon: "arrow.triangle.turn.up.right.diamond.fill",
                              title: L10n.Trip.divert,
-                             tint: plan.diversion != nil ? theme.warning : theme.action) { openDivert(nil) }
+                             tint: plan.diversion != nil ? theme.warning : theme.action,
+                             stacked: stacked) { openDivert(nil) }
     }
 
     /// Leg time so far against the planned leg time, and how far ahead or over.
@@ -2176,7 +2283,9 @@ struct NavigationMapView: View {
                 Text(started ? formatClock(elapsed) : "–:––")
                     .font(.aero(size: CockpitType.response, weight: .bold, design: .monospaced))
                     .foregroundColor(running ? theme.textPrimary : theme.textSecondary)
-                if let planned {
+                // The planned leg time only where there is room for it; the line under says how far
+                // ahead or over. (iPhone pass)
+                if let planned, CockpitScale.current == .kneeboard {
                     Text("/ \(formatClock(planned))")
                         .font(.aero(size: CockpitType.label, design: .monospaced))
                         .foregroundColor(theme.textSecondary)
@@ -2193,53 +2302,79 @@ struct NavigationMapView: View {
         .accessibilityElement(children: .combine)
     }
 
-    private func thumbPrimaryButton(icon: String, title: String, action: @escaping () -> Void) -> some View {
+    private func thumbPrimaryButton(icon: String, title: String, subtitle: String? = nil,
+                                    action: @escaping () -> Void) -> some View {
         Button(action: action) {
-            HStack(spacing: 12) {
-                Image(systemName: icon).font(.aero(size: CockpitType.button, weight: .bold))
-                Text(title)
-                    .font(.aero(size: CockpitType.button, weight: .bold))
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.6)
+            VStack(spacing: 2) {
+                HStack(spacing: CockpitType.size(kneeboard: 12, phone: 8)) {
+                    Image(systemName: icon).font(.aero(size: CockpitType.button, weight: .bold))
+                    Text(title)
+                        .font(.aero(size: CockpitType.button, weight: .bold))
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.6)
+                }
+                if let subtitle {
+                    Text(subtitle)
+                        .font(.aero(size: CockpitType.label, weight: .semibold, design: .monospaced))
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.7)
+                }
             }
             .foregroundColor(theme.actionText)
-            .padding(.horizontal, 16)
+            .padding(.horizontal, CockpitType.size(kneeboard: 16, phone: 10))
             .frame(maxWidth: .infinity, minHeight: CockpitTarget.thumb)
             .background(RoundedRectangle(cornerRadius: 18).fill(theme.action))
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
-        .accessibilityLabel(title)
+        .accessibilityLabel(subtitle.map { "\(title) \($0)" } ?? title)
     }
 
-    private func thumbSecondaryButton(icon: String, title: String, tint: Color,
+    private func thumbSecondaryButton(icon: String, title: String, tint: Color, stacked: Bool = false,
                                       action: @escaping () -> Void) -> some View {
         Button(action: action) {
-            thumbSecondaryLabel(icon: icon, title: title, tint: tint)
+            thumbSecondaryLabel(icon: icon, title: title, tint: tint, stacked: stacked)
         }
         .buttonStyle(.plain)
         .accessibilityLabel(title)
     }
 
-    private func thumbSecondaryLabel(icon: String, title: String, tint: Color) -> some View {
-        VStack(spacing: 6) {
-            Image(systemName: icon).font(.aero(size: CockpitType.response, weight: .semibold))
-            Text(title)
-                .font(.aero(size: CockpitType.label, weight: .bold))
-                .lineLimit(1)
-                .minimumScaleFactor(0.7)
+    /// `stacked`: half height, icon beside the word, for two buttons one above the other (the landscape
+    /// phone). Narrower on the phone, where MARK needs the width. (iPhone pass)
+    @ViewBuilder
+    private func thumbSecondaryLabel(icon: String, title: String, tint: Color, stacked: Bool = false) -> some View {
+        Group {
+            if stacked {
+                HStack(spacing: 6) {
+                    Image(systemName: icon).font(.aero(size: CockpitType.label, weight: .semibold))
+                    Text(title)
+                        .font(.aero(size: CockpitType.label, weight: .bold))
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.7)
+                }
+                .padding(.horizontal, 10)
+                .frame(minWidth: 96, minHeight: (CockpitTarget.thumb - 8) / 2)
+            } else {
+                VStack(spacing: 6) {
+                    Image(systemName: icon).font(.aero(size: CockpitType.response, weight: .semibold))
+                    Text(title)
+                        .font(.aero(size: CockpitType.label, weight: .bold))
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.7)
+                }
+                .padding(.horizontal, CockpitType.size(kneeboard: 12, phone: 8))
+                .frame(minWidth: CockpitType.size(kneeboard: 120, phone: 64), minHeight: CockpitTarget.thumb)
+            }
         }
         .foregroundColor(tint)
-        .padding(.horizontal, 12)
-        .frame(minWidth: 120, minHeight: CockpitTarget.thumb)
-        .background(RoundedRectangle(cornerRadius: 18).fill(tint.opacity(0.12)))
-        .overlay(RoundedRectangle(cornerRadius: 18).stroke(tint.opacity(0.45), lineWidth: 1))
+        .background(RoundedRectangle(cornerRadius: stacked ? 12 : 18).fill(tint.opacity(0.12)))
+        .overlay(RoundedRectangle(cornerRadius: stacked ? 12 : 18).stroke(tint.opacity(0.45), lineWidth: 1))
         .contentShape(Rectangle())
     }
 
     /// The rarer actions: the leg timer's pause and reset (reset offers undo), the legs and
     /// frequencies, and the routes.
-    private func navMoreMenu(running: Bool, started: Bool) -> some View {
+    private func navMoreMenu(running: Bool, started: Bool, stacked: Bool = false) -> some View {
         Menu {
             if started {
                 Button {
@@ -2259,7 +2394,7 @@ struct NavigationMapView: View {
                 Label(L10n.Ground.planRoutes, systemImage: "point.topleft.down.to.point.bottomright.curvepath")
             }
         } label: {
-            thumbSecondaryLabel(icon: "ellipsis.circle", title: L10n.Nav.more, tint: theme.action)
+            thumbSecondaryLabel(icon: "ellipsis.circle", title: L10n.Nav.more, tint: theme.action, stacked: stacked)
         }
         .accessibilityLabel(L10n.Nav.more)
     }

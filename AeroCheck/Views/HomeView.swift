@@ -301,7 +301,7 @@ struct HomeView: View {
                 PlanNewFlightView(
                     intent: seed,
                     aircraft: availableAircraft,
-                    savedRoutes: flightPlanManager.flightPlans,
+                    savedRoutes: RouteLibrary.activeRoutes(flightPlanManager.flightPlans, threads: threadManager.threads),
                     onCreate: { stops, intent, route in
                         planningNewFlight = nil
                         createFlight(stops: stops, from: intent, route: route)

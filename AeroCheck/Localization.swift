@@ -1415,6 +1415,41 @@ enum L10n {
 
     /// Trips: stops, legs, diversions and continuing after one. (v5.1)
     /// The ground tabs. (v6.0 · P1)
+    /// Plan › Flights. (planning proposal C)
+    enum FlightsPage {
+        static func upcomingCount(_ count: Int) -> String {
+            String(format: String(localized: "flightsPage.upcomingCount"), count)
+        }
+        static let today = String(localized: "flightsPage.today")
+        static let tomorrow = String(localized: "flightsPage.tomorrow")
+        static let notScheduled = String(localized: "flightsPage.notScheduled")
+        static let openFlight = String(localized: "flightsPage.openFlight")
+        static let noRoute = String(localized: "flightsPage.noRoute")
+        static func border(_ country: String) -> String {
+            String(format: String(localized: "flightsPage.border"), country)
+        }
+        static func tripLeg(_ leg: Int, _ count: Int) -> String {
+            String(format: String(localized: "flightsPage.tripLeg"), leg, count)
+        }
+        static func progress(_ done: Int, _ total: Int) -> String {
+            String(format: String(localized: "flightsPage.progress"), done, total)
+        }
+        static func progressNext(_ done: Int, _ total: Int, _ next: String) -> String {
+            String(format: String(localized: "flightsPage.progressNext"), done, total, next)
+        }
+    }
+
+    /// Plan new flight. (planning proposal B)
+    enum PlanFlight {
+        static let route = String(localized: "planFlight.route")
+        static let airports = String(localized: "planFlight.airports")
+        static let savedRoute = String(localized: "planFlight.savedRoute")
+        static let drawLater = String(localized: "planFlight.drawLater")
+        static let noDateYet = String(localized: "planFlight.noDateYet")
+        static let pickADate = String(localized: "planFlight.pickADate")
+        static let noRouteYet = String(localized: "planFlight.noRouteYet")
+    }
+
     /// The flight sheet: nav log, fuel, times. (planning proposal A)
     enum FlightSheet {
         static let route = String(localized: "flightSheet.route")

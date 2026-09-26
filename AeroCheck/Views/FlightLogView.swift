@@ -10,6 +10,7 @@ struct FlightLogView: View {
     @EnvironmentObject var flightPlanManager: FlightPlanManager
     @EnvironmentObject var threadManager: FlightThreadManager
     @EnvironmentObject var airportDataService: AirportDataService
+    @EnvironmentObject var aircraftDataService: AircraftDataService
     @Environment(\.dismiss) var dismiss
 
     /// When presented as a custom overlay (HomeView's leading-edge slide-in), the host supplies a
@@ -228,8 +229,12 @@ struct FlightLogView: View {
             if let seed = planningNewFlight {
                 PlanNewFlightView(
                     intent: seed,
-                    aircraft: [],
-                    savedRoutes: flightPlanManager.flightPlans,
+                    // The pilot's aircraft as chips here too: this sheet used to offer none from
+                    // the Flights tab, so a flight planned there took whatever Today had selected.
+                    aircraft: AircraftOption.flyable(remote: aircraftDataService.availableAircraft,
+                                                     settings: appState.settings,
+                                                     canFly: aircraftDataService.canFly),
+                    savedRoutes: RouteLibrary.activeRoutes(flightPlanManager.flightPlans, threads: threadManager.threads),
                     onCreate: { stops, intent, route in
                         planningNewFlight = nil
                         // See HomeView.createFlight: the sheet stays hit-testable through its

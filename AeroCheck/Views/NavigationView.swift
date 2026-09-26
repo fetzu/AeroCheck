@@ -971,7 +971,11 @@ struct NavigationMapView: View {
     /// controls on top, the scale bar and the undo toast at the bottom, and — in portrait — the
     /// bottom panel.
     private func mapArea<Panel: View>(bottomPanel: Panel?) -> some View {
-        VStack(spacing: 0) {
+        // The phone: the next waypoint on one line and the controls at the foot of the chart, as on
+        // its side. With the card and a row of controls on top, a phone in cruise had about 150 pt
+        // of chart left, the aircraft under the controls. (round 6, I-06)
+        let compact = CockpitScale.current == .phone
+        return VStack(spacing: 0) {
             chartWithChrome(top: VStack(spacing: 0) {
                 if !isInCockpit {
                     topBar
@@ -981,18 +985,24 @@ struct NavigationMapView: View {
 
                 // What a pilot reads most, big and on top: the next waypoint. Then the map's own
                 // controls, labelled. (v6.0 · P3)
-                VStack(spacing: 10) {
+                VStack(spacing: compact ? 8 : 10) {
                     if let mapTopAccessory {
                         mapTopAccessory
                             .frame(maxWidth: .infinity, alignment: .leading)
                     }
-                    nextWaypointCard
+                    if compact {
+                        nextWaypointLine
+                    } else {
+                        nextWaypointCard
+                    }
                     if routesOnTop {
                         routesButton
                             .frame(maxWidth: .infinity, alignment: .leading)
                     }
-                    mapControlsRow
-                        .frame(maxWidth: .infinity, alignment: .trailing)
+                    if !compact {
+                        mapControlsRow
+                            .frame(maxWidth: .infinity, alignment: .trailing)
+                    }
                     // Hazard chip. Only exists when a hazard is actually in range — a chip that is
                     // always present stops being read.
                     SigmetChip(hazards: rankedSigmets) { showSigmets = true }
@@ -1000,10 +1010,18 @@ struct NavigationMapView: View {
                     routeOffScreenPill
                         .animation(reduceMotion ? nil : .easeInOut(duration: 0.25), value: routeOffScreenHint) // (UX-18)
                 }
-                .padding(.horizontal, CockpitType.size(kneeboard: 16, phone: 12))
-                .padding(.top, 10)
+                .padding(.horizontal, compact ? 10 : 16)
+                .padding(.top, compact ? 8 : 10)
             },
-            bottom: mapFooter)
+            bottom: VStack(spacing: 8) {
+                mapFooter
+                if compact {
+                    mapControlsBottomRow
+                        .frame(maxWidth: .infinity, alignment: .trailing)
+                        .padding(.horizontal, 10)
+                }
+            }
+            .padding(.bottom, compact ? 8 : 0))
 
             if let bottomPanel { bottomPanel }
         }
@@ -1548,8 +1566,9 @@ struct NavigationMapView: View {
             VStack(alignment: .leading, spacing: 10) {
                 Button(action: toggleLegsAndFrequencies) {
                     let ident = diversion?.ident ?? (next.name.isEmpty ? "WPT \(plan.currentWaypointIndex + 1)" : next.name)
-                    // One row where it fits (the iPad); on the phone, ETA goes first, then the ident
-                    // takes a line above the figures. (iPhone pass, I4)
+                    // One row where it fits; in a narrow window (Slide Over), ETA goes first, then the
+                    // ident takes a line above the figures. The phone uses the one-line version.
+                    // (iPhone pass, I4; round 6)
                     ViewThatFits(in: .horizontal) {
                         HStack(alignment: .center, spacing: 18) {
                             nextWaypointIdent(ident, diverting: diversion != nil)
@@ -1693,8 +1712,9 @@ struct NavigationMapView: View {
     /// icons, and the airplane was the base chart. Zoom goes first when the row runs out of room;
     /// pinching still zooms. (review C1, C5)
     private var mapControlsRow: some View {
-        // On the phone, North up / Track up becomes one button showing the current mode, and zoom
-        // goes when even that leaves no room. (iPhone pass, I4)
+        // In a narrow window, North up / Track up becomes one button showing the current mode, and
+        // zoom goes when even that leaves no room. The phone has the row at the chart's foot.
+        // (iPhone pass, I4; round 6)
         ViewThatFits(in: .horizontal) {
             mapControls(withZoom: true)
             mapControls(withZoom: false)

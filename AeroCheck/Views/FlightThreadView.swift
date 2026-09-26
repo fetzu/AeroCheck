@@ -168,6 +168,9 @@ struct FlightThreadView: View {
     @State private var routeBuilderPlanId: UUID?
     /// Plan open in the details editor, from the fuel task. (v5.0.0)
     @State private var planEditorPlan: FlightPlan?
+    /// "Edit route" chosen in the flight sheet: the route editor opens once the sheet has closed.
+    /// It used to only close the sheet. (planning proposal A)
+    @State private var routeAfterEditorPlanId: UUID?
     /// Plan whose fuel on board is being set, from a tap on the fuel task. (on-device review #4)
     @State private var fuelSheetPlanId: UUID?
     /// "Fuel & times" chosen in the fuel sheet: the nav log sheet opens once that one has closed.
@@ -263,8 +266,16 @@ struct FlightThreadView: View {
         // `onDismiss` rather than relying on the plan-watching onChange alone: the editor flushes
         // its debounced commit in its own `onDisappear`, and the pilot should not have to leave the
         // flight and come back to see the fuel row settle. (device pass)
-        .sheet(item: $planEditorPlan, onDismiss: { refreshFromPlan() }) { plan in
-            FlightPlanEditorView(flightPlan: plan)
+        .sheet(item: $planEditorPlan, onDismiss: {
+            refreshFromPlan()
+            // "Edit route" in the flight sheet: the route editor, once the sheet has gone.
+            if let id = routeAfterEditorPlanId { routeBuilderPlanId = id }
+            routeAfterEditorPlanId = nil
+        }) { plan in
+            FlightPlanEditorView(flightPlan: plan, onEditRoute: {
+                routeAfterEditorPlanId = plan.id
+                planEditorPlan = nil
+            })
         }
         .sheet(isPresented: Binding(
             get: { fuelSheetPlanId != nil },

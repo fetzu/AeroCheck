@@ -93,11 +93,9 @@ struct FuelOnBoardSheet: View {
     @Environment(\.dismiss) private var dismiss
 
     @State private var onBoardText = ""
-    @State private var fullTanksText = ""
-    @State private var editingFullTanks = false
     @FocusState private var focus: Field?
 
-    private enum Field { case onBoard, fullTanks }
+    private enum Field { case onBoard }
 
     private var plan: FlightPlan? { flightPlanManager.flightPlans.first { $0.id == planId } }
     private var onBoard: Double? { FuelEntry.litres(from: onBoardText) }
@@ -152,8 +150,9 @@ struct FuelOnBoardSheet: View {
             }
         }
         .onAppear {
+            // Not focused on open: on the iPad the number pad would cover the required fuel, which is
+            // what the pilot reads first. Full tanks and = Required need no keyboard at all.
             if let fob = plan?.fuelOnBoard, fob > 0 { onBoardText = FuelEntry.text(fob) }
-            focus = .onBoard
         }
     }
 
@@ -222,74 +221,10 @@ struct FuelOnBoardSheet: View {
         .background(RoundedRectangle(cornerRadius: 14).fill(Color.cardBackground))
     }
 
-    @ViewBuilder
     private func fullTanksControls(_ plan: FlightPlan) -> some View {
-        let registration = plan.aircraftRegistration
-        if let fullTanks, !editingFullTanks {
-            VStack(alignment: .leading, spacing: 6) {
-                Button {
-                    onBoardText = FuelEntry.text(fullTanks.litres)
-                } label: {
-                    Label(L10n.FuelOnBoard.fullTanks(FuelEntry.text(fullTanks.litres)), systemImage: "fuelpump.fill")
-                        .scaledFont(size: 16, weight: .bold, relativeTo: .body)
-                        .foregroundColor(.aviationGold)
-                        .padding(.horizontal, 14)
-                        .frame(minHeight: 48)
-                        .background(RoundedRectangle(cornerRadius: 10).fill(Color.aviationGold.opacity(0.14)))
-                        .overlay(RoundedRectangle(cornerRadius: 10).strokeBorder(Color.aviationGold.opacity(0.5), lineWidth: 1))
-                }
-                .buttonStyle(.plain)
-                HStack(spacing: 8) {
-                    Text(fullTanks.source == .aircraftData
-                         ? L10n.FuelOnBoard.fromAircraftData
-                         : L10n.FuelOnBoard.yourFigure(registration))
-                        .scaledFont(size: 12, relativeTo: .caption)
-                        .foregroundColor(.dimText)
-                    if fullTanks.source == .pilot {
-                        Button(L10n.FuelOnBoard.change) {
-                            fullTanksText = FuelEntry.text(fullTanks.litres)
-                            editingFullTanks = true
-                            focus = .fullTanks
-                        }
-                        .scaledFont(size: 12, weight: .semibold, relativeTo: .caption)
-                        .foregroundColor(.altimeterBlue)
-                        .buttonStyle(.plain)
-                    }
-                }
-            }
-        } else {
-            // No figure yet (or changing the pilot's): ask for it once, keep it for this tail.
-            VStack(alignment: .leading, spacing: 8) {
-                Text(L10n.FuelOnBoard.fullTanksPrompt(registration))
-                    .scaledFont(size: 13, relativeTo: .caption)
-                    .foregroundColor(.secondaryText)
-                    .fixedSize(horizontal: false, vertical: true)
-                HStack(spacing: 10) {
-                    HStack(spacing: 6) {
-                        TextField("—", text: $fullTanksText)
-                            .keyboardType(.decimalPad)
-                            .focused($focus, equals: .fullTanks)
-                            .scaledFont(size: 18, weight: .semibold, design: .monospaced, relativeTo: .body)
-                            .accessibilityLabel(L10n.FuelOnBoard.fullTanksPrompt(registration))
-                        Text("L").foregroundColor(.secondaryText)
-                    }
-                    .padding(.horizontal, 12)
-                    .frame(width: 130, height: 44)
-                    .background(RoundedRectangle(cornerRadius: 10).fill(Color.panelBackground))
-                    Button(L10n.FuelOnBoard.saveAndFill) { saveFullTanks(for: registration) }
-                        .scaledFont(size: 15, weight: .bold, relativeTo: .subheadline)
-                        .foregroundColor(.aviationGold)
-                        .frame(minHeight: 44)
-                        .buttonStyle(.plain)
-                        .disabled(!(FuelEntry.litres(from: fullTanksText).map(FullTanks.isPlausible) ?? false))
-                    if editingFullTanks {
-                        Button(L10n.Button.cancel) { editingFullTanks = false }
-                            .scaledFont(size: 15, relativeTo: .subheadline)
-                            .foregroundColor(.secondaryText)
-                            .buttonStyle(.plain)
-                    }
-                }
-            }
+        FullTanksButtons(registration: plan.aircraftRegistration, required: plan.fuelRequired) { litres in
+            onBoardText = FuelEntry.text(litres)
+            focus = nil
         }
     }
 
@@ -349,14 +284,125 @@ struct FuelOnBoardSheet: View {
         }
         flightPlanManager.updateFlightPlan(plan)
     }
+}
 
-    private func saveFullTanks(for registration: String) {
+// MARK: - Full tanks and = Required
+
+/// The two one-tap fills for fuel on board: Full tanks (the aircraft's figure, or the pilot's, asked
+/// for once when there's none) and = Required (rounded up to the litre). Shared by the fuel sheet
+/// and the flight sheet's fuel ledger. (on-device review #4, point 3; planning proposal A2)
+struct FullTanksButtons: View {
+    let registration: String
+    let required: Double?
+    let onFill: (Double) -> Void
+
+    @Environment(AppState.self) private var appState
+    @EnvironmentObject var aircraftDataService: AircraftDataService
+    @State private var fullTanksText = ""
+    @State private var editing = false
+    @FocusState private var focused: Bool
+
+    private var fullTanks: FullTanks? {
+        FullTanks.resolve(registration: registration, available: aircraftDataService.availableAircraft,
+                          pilotValues: appState.settings.fullTanksLitres)
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(spacing: 10) {
+                if let fullTanks, !editing {
+                    fillButton(L10n.FuelOnBoard.fullTanks(FuelEntry.text(fullTanks.litres)), icon: "fuelpump.fill") {
+                        onFill(fullTanks.litres)
+                    }
+                }
+                if let required, required > 0 {
+                    fillButton(L10n.FuelOnBoard.equalsRequired(FuelEntry.text(required.rounded(.up))), icon: "equal") {
+                        onFill(required.rounded(.up))
+                    }
+                }
+            }
+            if FullTanks.key(for: registration) != nil {
+                if let fullTanks, !editing {
+                    HStack(spacing: 8) {
+                        Text(fullTanks.source == .aircraftData
+                             ? L10n.FuelOnBoard.fromAircraftData
+                             : L10n.FuelOnBoard.yourFigure(registration))
+                            .scaledFont(size: 12, relativeTo: .caption)
+                            .foregroundColor(.dimText)
+                        if fullTanks.source == .pilot {
+                            Button(L10n.FuelOnBoard.change) {
+                                fullTanksText = FuelEntry.text(fullTanks.litres)
+                                editing = true
+                                focused = true
+                            }
+                            .scaledFont(size: 12, weight: .semibold, relativeTo: .caption)
+                            .foregroundColor(.altimeterBlue)
+                            .buttonStyle(.plain)
+                        }
+                    }
+                } else {
+                    askForFullTanks
+                }
+            }
+        }
+    }
+
+    /// No figure yet, or changing the pilot's: ask for it once, keep it for this tail.
+    private var askForFullTanks: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text(L10n.FuelOnBoard.fullTanksPrompt(registration))
+                .scaledFont(size: 13, relativeTo: .caption)
+                .foregroundColor(.secondaryText)
+                .fixedSize(horizontal: false, vertical: true)
+            HStack(spacing: 10) {
+                HStack(spacing: 6) {
+                    TextField("—", text: $fullTanksText)
+                        .keyboardType(.decimalPad)
+                        .focused($focused)
+                        .scaledFont(size: 18, weight: .semibold, design: .monospaced, relativeTo: .body)
+                        .accessibilityLabel(L10n.FuelOnBoard.fullTanksPrompt(registration))
+                    Text("L").foregroundColor(.secondaryText)
+                }
+                .padding(.horizontal, 12)
+                .frame(width: 130, height: 44)
+                .background(RoundedRectangle(cornerRadius: 10).fill(Color.cockpitBackground.opacity(0.6)))
+                Button(L10n.FuelOnBoard.saveAndFill) { save() }
+                    .scaledFont(size: 15, weight: .bold, relativeTo: .subheadline)
+                    .foregroundColor(.aviationGold)
+                    .frame(minHeight: 44)
+                    .buttonStyle(.plain)
+                    .disabled(!(FuelEntry.litres(from: fullTanksText).map(FullTanks.isPlausible) ?? false))
+                if editing {
+                    Button(L10n.Button.cancel) { editing = false }
+                        .scaledFont(size: 15, relativeTo: .subheadline)
+                        .foregroundColor(.secondaryText)
+                        .buttonStyle(.plain)
+                }
+            }
+        }
+    }
+
+    private func fillButton(_ title: String, icon: String, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Label(title, systemImage: icon)
+                .scaledFont(size: 15, weight: .bold, relativeTo: .subheadline)
+                .foregroundColor(.aviationGold)
+                .lineLimit(1)
+                .padding(.horizontal, 14)
+                .frame(minHeight: 44)
+                .background(RoundedRectangle(cornerRadius: 10).fill(Color.aviationGold.opacity(0.14)))
+                .overlay(RoundedRectangle(cornerRadius: 10).strokeBorder(Color.aviationGold.opacity(0.5), lineWidth: 1))
+        }
+        .buttonStyle(.plain)
+    }
+
+    private func save() {
         guard let key = FullTanks.key(for: registration),
               let litres = FuelEntry.litres(from: fullTanksText), FullTanks.isPlausible(litres) else { return }
         appState.settings.fullTanksLitres[key] = litres
         appState.saveSettings()
-        editingFullTanks = false
-        onBoardText = FuelEntry.text(litres)
-        focus = .onBoard
+        editing = false
+        onFill(litres)
     }
 }
+

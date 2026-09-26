@@ -1415,6 +1415,51 @@ enum L10n {
 
     /// Trips: stops, legs, diversions and continuing after one. (v5.1)
     /// The ground tabs. (v6.0 · P1)
+    /// The flight sheet: nav log, fuel, times. (planning proposal A)
+    enum FlightSheet {
+        static let route = String(localized: "flightSheet.route")
+        static let fuelFlow = String(localized: "flightSheet.fuelFlow")
+        static let departure = String(localized: "flightSheet.departure")
+        static let localTime = String(localized: "flightSheet.localTime")
+        static let dateAndTime = String(localized: "flightSheet.dateAndTime")
+        static let crew = String(localized: "flightSheet.crew")
+        static let fuel = String(localized: "flightSheet.fuel")
+        static let litres = String(localized: "flightSheet.litres")
+        static let defaultTag = String(localized: "flightSheet.default")
+        static let flowNote = String(localized: "flightSheet.flowNote")
+        static let trip = String(localized: "flightSheet.trip")
+        static let fromRoute = String(localized: "flightSheet.fromRoute")
+        static let alternate = String(localized: "flightSheet.alternate")
+        static let finalReserve = String(localized: "flightSheet.finalReserve")
+        static let extra = String(localized: "flightSheet.extra")
+        static let required = String(localized: "flightSheet.required")
+        static let onBoard = String(localized: "flightSheet.onBoard")
+        static let margin = String(localized: "flightSheet.margin")
+        static let short = String(localized: "flightSheet.short")
+        static let endurance = String(localized: "flightSheet.endurance")
+        static let afterFlight = String(localized: "flightSheet.afterFlight")
+        static let afterFlightSummary = String(localized: "flightSheet.afterFlightSummary")
+        static let notesSummary = String(localized: "flightSheet.notesSummary")
+        static let atcSummary = String(localized: "flightSheet.atcSummary")
+        static let rename = String(localized: "flightSheet.rename")
+        static let airTime = String(localized: "flightSheet.airTime")
+        static func aircraftFromFlight(_ aircraft: String) -> String {
+            String(format: String(localized: "flightSheet.aircraftFromFlight"), aircraft)
+        }
+        static func tripNote(_ eet: String, _ flow: String) -> String {
+            String(format: String(localized: "flightSheet.tripNote"), eet, flow)
+        }
+        static func finalReserveNote(_ flow: String) -> String {
+            String(format: String(localized: "flightSheet.finalReserveNote"), flow)
+        }
+        static func marginMinutes(_ minutes: String) -> String {
+            String(format: String(localized: "flightSheet.marginMinutes"), minutes)
+        }
+        static func enduranceNote(_ flow: String) -> String {
+            String(format: String(localized: "flightSheet.enduranceNote"), flow)
+        }
+    }
+
     /// Naming a flight or a trip. (on-device review #4)
     enum FlightNames {
         static let renameFlight = String(localized: "flightNames.renameFlight")
@@ -1490,6 +1535,9 @@ enum L10n {
             String(format: String(localized: "fuelOnBoard.overFullTanks"), litres)
         }
         static let moreFuelSettings = String(localized: "fuelOnBoard.moreFuelSettings")
+        static func equalsRequired(_ litres: String) -> String {
+            String(format: String(localized: "fuelOnBoard.equalsRequired"), litres)
+        }
         static let fuelGroup = String(localized: "fuelOnBoard.fuelGroup")
         static let fullTanksRow = String(localized: "fuelOnBoard.fullTanksRow")
         static let fullTanksRowFooter = String(localized: "fuelOnBoard.fullTanksRowFooter")

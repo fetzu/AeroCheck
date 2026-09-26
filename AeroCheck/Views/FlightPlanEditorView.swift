@@ -73,6 +73,9 @@ struct FlightPlanEditorView: View {
     @State private var logbookExpanded = false
     @State private var showingICAOCopied = false
     @State private var commitWork: DispatchWorkItem?
+    @State private var notesExpanded = false
+    @State private var renaming = false
+    @State private var renameText = ""
 
     /// Whether we're on a compact width device (iPhone)
     /// Note: Using UIDevice instead of horizontalSizeClass because sheets on iPad
@@ -83,39 +86,48 @@ struct FlightPlanEditorView: View {
 
     /// When true, hides Deactivate/Recalculate buttons (viewing from Flight Log)
     let isViewingFromFlightLog: Bool
+    /// "Edit route": opens the route editor. Nil where the sheet was opened FROM the route editor,
+    /// which it then returns to. From a flight's page it used to only close the sheet.
+    /// (planning proposal A)
+    var onEditRoute: (() -> Void)?
 
-    init(flightPlan: FlightPlan, isViewingFromFlightLog: Bool = false) {
+    init(flightPlan: FlightPlan, isViewingFromFlightLog: Bool = false, onEditRoute: (() -> Void)? = nil) {
         _flightPlan = State(initialValue: flightPlan)
         self.isViewingFromFlightLog = isViewingFromFlightLog
-        // Coming from the Flight Log, the Logbook/Times are the point of interest → expand by default;
-        // from the planning side they're post-flight noise → stay collapsed. (#5 feedback)
-        _logbookExpanded = State(initialValue: isViewingFromFlightLog)
+        self.onEditRoute = onEditRoute
+        // What's filled in after the flight stays folded, in its place, until there's something in
+        // it: opened from the logbook, or once a time or a counter is set. (planning proposal A1)
+        let flown = flightPlan.blockOff != nil || flightPlan.timeOff != nil || flightPlan.counterStart != nil
+        _logbookExpanded = State(initialValue: isViewingFromFlightLog || flown)
+        _notesExpanded = State(initialValue: !flightPlan.remarks.isEmpty || !flightPlan.debriefing.isEmpty)
     }
 
     var body: some View {
         NavigationStack {
             ScrollView {
-                VStack(spacing: 16) {
-                    routeSummaryCard        // route is read-only here — the builder owns it (#5)
-                    headerSection
-                    fuelSection
-                    timingSection           // collapsible "Logbook / times"
+                // In the order a flight is planned, then what's filled in after it (planning proposal
+                // A1): one column of related pairs, computed values as plain text, inputs as fields.
+                VStack(spacing: 14) {
+                    routeCard
+                    departureSection
+                    crewSection
+                    fuelLedger
+                    afterFlightSection
                     notesSection
                     icaoDetailsSection
                     if !isViewingFromFlightLog { actionsSection }
                 }
-                .padding()
-                // Add keyboard padding only when needed (handled by system)
+                .padding(16)
                 .padding(.bottom, 20)
             }
             .scrollDismissesKeyboard(.interactively)
             .background(Color.cockpitBackground)
-            .navigationTitle(flightPlan.name.isEmpty ? L10n.Nav.navLog : flightPlan.name)
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button(L10n.Button.done) { dismiss() }
                 }
+                ToolbarItem(placement: .principal) { titleButton }
                 ToolbarItem(placement: .primaryAction) { exportMenu }
                 // A decimal pad has no return key, so a pilot who typed a fuel figure had nothing to
                 // press and no way to see the field settle. (device pass)
@@ -127,6 +139,13 @@ struct FlightPlanEditorView: View {
                     }
                     .foregroundColor(.aviationGold)
                 }
+            }
+            .alert(L10n.FlightNames.renameFlight, isPresented: $renaming) {
+                TextField(L10n.Routes.namePlaceholder, text: $renameText)
+                Button(L10n.Button.cancel, role: .cancel) { }
+                Button(L10n.Routes.rename) { rename(to: renameText) }
+            } message: {
+                Text(L10n.FlightNames.renameFlightMessage)
             }
             .sheet(item: $exportItem) { item in
                 ShareSheet(activityItems: [item.url])
@@ -143,6 +162,9 @@ struct FlightPlanEditorView: View {
         // `.environment(\.colorScheme, .dark)` nor, evidently, enough of `preferredColorScheme` to
         // reach the keyboard — which the system draws in the field's own scheme. (device pass)
         .environment(\.colorScheme, .dark)
+        // Room for the form: 578 × 661 pt put four columns in a row and the date picker over the
+        // runway. (planning proposal A3)
+        .pageSizedSheet()
         // Live: non-route edits auto-commit (debounced) — no Save, no snapshot of the route. (#5)
         .onChange(of: flightPlan) { _, _ in scheduleCommit() }
         .onDisappear { flushCommit() }
@@ -151,28 +173,172 @@ struct FlightPlanEditorView: View {
         .task(id: navLogKey) { await refreshNavLogPreview() }
     }
 
-    // MARK: - Live details helpers (#5)
+    // MARK: - Title (planning proposal A)
 
-    /// Read-only route header — editing the route happens in the builder.
-    private var routeSummaryCard: some View {
-        HStack(spacing: 12) {
-            VStack(alignment: .leading, spacing: 4) {
-                Text(routeEndpoints)
-                    .scaledFont(size: 16, weight: .bold, design: .monospaced, relativeTo: .body)
-                    .foregroundColor(.primaryText).lineLimit(1)
-                Text("\(flightPlan.waypoints.count) wpt · \(String(format: "%.0f", flightPlan.totalDistance)) NM · \(flightPlan.formattedTotalEET)")
-                    .scaledFont(size: 11, relativeTo: .caption2).foregroundColor(.secondaryText)
-            }
-            Spacer()
-            if !isViewingFromFlightLog {
-                Button { dismiss() } label: {
-                    Label(L10n.Nav.editRoute, systemImage: "map")
-                        .scaledFont(size: 12, weight: .semibold, relativeTo: .caption).foregroundColor(.altimeterBlue)
+    /// The flight that follows this plan, if one does.
+    private var followingThread: FlightThread? { threadManager.thread(forPlanId: flightPlan.id) }
+
+    /// The flight's name (or the route's), then when and with what.
+    private var sheetTitle: String {
+        if let thread = followingThread { return thread.displayName }
+        return flightPlan.name.isEmpty ? routeEndpoints : flightPlan.name
+    }
+
+    private var sheetSubtitle: String {
+        var parts: [String] = []
+        if isFlownByAFlight, let departure = flightPlan.plannedDepartureTime {
+            parts.append(departure.formatted(date: .abbreviated, time: .shortened))
+        }
+        if !flightPlan.aircraftRegistration.isEmpty { parts.append(flightPlan.aircraftRegistration) }
+        parts.append(flightPlan.flightType.rawValue)
+        return parts.joined(separator: " · ")
+    }
+
+    /// The title names the flight, and renames it: whatever its ends. (on-device review #4)
+    private var titleButton: some View {
+        Button {
+            renameText = followingThread?.name ?? flightPlan.name
+            renaming = true
+        } label: {
+            VStack(spacing: 2) {
+                HStack(spacing: 6) {
+                    Text(sheetTitle)
+                        .scaledFont(size: 17, weight: .bold, relativeTo: .headline)
+                        .foregroundColor(.primaryText)
+                        .lineLimit(1)
+                    if !isViewingFromFlightLog {
+                        Image(systemName: "pencil")
+                            .scaledFont(size: 13, weight: .semibold, relativeTo: .caption)
+                            .foregroundColor(.aviationGold)
+                    }
                 }
+                Text(sheetSubtitle)
+                    .scaledFont(size: 12, relativeTo: .caption)
+                    .foregroundColor(.secondaryText)
+                    .lineLimit(1)
             }
         }
-        .padding()
-        .background(RoundedRectangle(cornerRadius: 12).fill(Color.panelBackground))
+        .buttonStyle(.plain)
+        .disabled(isViewingFromFlightLog)
+        .accessibilityLabel(sheetTitle)
+        .accessibilityHint(L10n.FlightNames.renameFlight)
+    }
+
+    private func rename(to name: String) {
+        let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        if let thread = followingThread { threadManager.renameFlight(thread.id, to: trimmed) }
+        // The plan carries it too: it titles the nav log.
+        flightPlan.name = trimmed
+    }
+
+    // MARK: - Route (planning proposal A)
+
+    /// The route, as a picture and its figures. It is edited in the route editor, one tap away.
+    private var routeCard: some View {
+        HStack(spacing: 14) {
+            if flightPlan.waypoints.count >= 2 {
+                RouteThumbnail(waypoints: flightPlan.waypoints)
+                    .frame(width: isCompactWidth ? 96 : 150, height: isCompactWidth ? 64 : 92)
+                    .clipShape(RoundedRectangle(cornerRadius: 10))
+            }
+            VStack(alignment: .leading, spacing: 5) {
+                sectionTitle(L10n.FlightSheet.route)
+                Text(routeEndpoints)
+                    .scaledFont(size: 18, weight: .bold, design: .monospaced, relativeTo: .headline)
+                    .foregroundColor(.primaryText)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.7)
+                Text("\(flightPlan.waypoints.count) wpt · \(String(format: "%.0f", flightPlan.totalDistance)) NM · EET \(flightPlan.formattedTotalEET)")
+                    .scaledFont(size: 14, design: .monospaced, relativeTo: .subheadline)
+                    .foregroundColor(.secondaryText)
+            }
+            Spacer(minLength: 8)
+            if !isViewingFromFlightLog {
+                Button {
+                    if let onEditRoute { onEditRoute() } else { dismiss() }
+                } label: {
+                    HStack(spacing: 6) {
+                        Text(L10n.Nav.editRoute)
+                        Image(systemName: "chevron.right")
+                            .scaledFont(size: 12, weight: .semibold, relativeTo: .caption)
+                    }
+                    .scaledFont(size: 15, weight: .semibold, relativeTo: .subheadline)
+                    .foregroundColor(.altimeterBlue)
+                    .padding(.horizontal, 14)
+                    .frame(minHeight: 44)
+                    .overlay(RoundedRectangle(cornerRadius: 10).strokeBorder(Color.altimeterBlue.opacity(0.5), lineWidth: 1))
+                }
+                .buttonStyle(.plain)
+            }
+        }
+        .padding(16)
+        .background(RoundedRectangle(cornerRadius: 14).fill(Color.panelBackground))
+    }
+
+    // MARK: - Section chrome (planning proposal A)
+
+    private func sectionTitle(_ text: String) -> some View {
+        Text(text.uppercased())
+            .scaledFont(size: 13, weight: .bold, design: .monospaced, relativeTo: .caption)
+            .tracking(1.2)
+            .foregroundColor(.aviationGold)
+    }
+
+    private func section<Content: View>(_ title: String, aside: String? = nil,
+                                         @ViewBuilder content: () -> Content) -> some View {
+        VStack(alignment: .leading, spacing: 14) {
+            HStack(alignment: .firstTextBaseline) {
+                sectionTitle(title)
+                Spacer()
+                if let aside {
+                    Text(aside).scaledFont(size: 13, relativeTo: .caption).foregroundColor(.secondaryText)
+                }
+            }
+            content()
+        }
+        .padding(16)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(RoundedRectangle(cornerRadius: 14).fill(Color.panelBackground))
+    }
+
+    /// A section folded to one line until opened, in the same place either way.
+    private func foldedSection<Content: View>(_ title: String, summary: String, isOpen: Binding<Bool>,
+                                              @ViewBuilder content: () -> Content) -> some View {
+        VStack(alignment: .leading, spacing: 14) {
+            Button { withAnimation(reduceMotion ? nil : .default) { isOpen.wrappedValue.toggle() } } label: {
+                HStack(spacing: 10) {
+                    Text(title.uppercased())
+                        .scaledFont(size: 13, weight: .bold, design: .monospaced, relativeTo: .caption)
+                        .tracking(1.2)
+                        .foregroundColor(isOpen.wrappedValue ? .aviationGold : .secondaryText)
+                    if !isOpen.wrappedValue {
+                        Text(summary)
+                            .scaledFont(size: 13, relativeTo: .caption)
+                            .foregroundColor(.dimText)
+                            .lineLimit(1)
+                    }
+                    Spacer(minLength: 4)
+                    Image(systemName: isOpen.wrappedValue ? "chevron.up" : "chevron.down")
+                        .scaledFont(size: 13, weight: .semibold, relativeTo: .caption)
+                        .foregroundColor(.secondaryText)
+                }
+                .frame(minHeight: 32)
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            if isOpen.wrappedValue { content() }
+        }
+        .padding(16)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(RoundedRectangle(cornerRadius: 14).fill(Color.panelBackground))
+    }
+
+    /// Two fields that belong together, side by side; everything else has its own row. (P1)
+    private func pair<A: View, B: View>(@ViewBuilder _ a: () -> A, @ViewBuilder _ b: () -> B) -> some View {
+        HStack(alignment: .top, spacing: 14) {
+            a().frame(maxWidth: .infinity, alignment: .leading)
+            b().frame(maxWidth: .infinity, alignment: .leading)
+        }
     }
 
     /// Runway designators at the DEPARTURE aerodrome, both ends of each strip, in a stable order.
@@ -290,65 +456,31 @@ struct FlightPlanEditorView: View {
         threadManager.thread(forPlanId: flightPlan.id) != nil
     }
 
-    // MARK: - Plan (header) Section
+    // MARK: - Departure (planning proposal A1)
 
-    private var headerSection: some View {
-        VStack(spacing: 16) {
-            HStack {
-                Text(L10n.Nav.navigationFlightPlan)
-                    .scaledFont(size: isCompactWidth ? 12 : 14, weight: .bold, relativeTo: .subheadline)
-                    .foregroundColor(.aviationGold)
-                    .tracking(1)
-                Spacer()
-                HStack(spacing: 8) {
-                    Text(L10n.Nav.flightType)
-                        .scaledFont(size: isCompactWidth ? 10 : 12, relativeTo: .caption)
-                        .foregroundColor(.secondaryText)
-                    Picker("", selection: $flightPlan.flightType) {
-                        ForEach(FlightType.allCases) { type in
-                            Text(type.rawValue).tag(type)
-                        }
+    private var departureSection: some View {
+        section(L10n.FlightSheet.departure, aside: isFlownByAFlight ? L10n.FlightSheet.localTime : nil) {
+            // A ROUTE has no date. It is a path you can fly any day, and giving it one is what let
+            // three saved routes all claim to be "today's flight plan". The date belongs to the
+            // FLIGHT that uses the route, so it only appears once a flight follows this plan.
+            // (device pass) Its own row: in a quarter of the sheet the date and time spilled over
+            // the runway. (on-device review #4)
+            if isFlownByAFlight {
+                // Date AND time: the time is what every ETO on the nav log is counted from.
+                DateFormField(label: L10n.FlightSheet.dateAndTime, date: Binding(
+                    get: { flightPlan.plannedDepartureTime ?? Date() },
+                    set: {
+                        flightPlan.plannedDepartureTime = $0
+                        // A time the pilot picked replaces a trip leg's estimate. (v5.1)
+                        flightPlan.departureIsEstimate = nil
+                        flightPlan.calculateRouteData()
                     }
-                    .pickerStyle(.menu)
-                    .tint(.aviationGold)
-                }
+                ), components: [.date, .hourAndMinute])
             }
-
-            let cols = isCompactWidth ? 2 : 4
-            LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: cols), spacing: 12) {
-                FormField(label: L10n.Nav.pilot, text: $flightPlan.pilot)
-                    .onAppear {
-                        // Settings now hold the pilot's name for the logbook; a blank field here
-                        // meant typing it again on every plan. Only fills an EMPTY field, so a plan
-                        // flown by someone else is never quietly reassigned. (device pass)
-                        if flightPlan.pilot.trimmingCharacters(in: .whitespaces).isEmpty {
-                            flightPlan.pilot = appState.settings.pilotName
-                        }
-                    }
-                FormField(label: L10n.Nav.aircraft, text: .constant(flightPlan.aircraftRegistration), isReadOnly: true)
-                // A ROUTE has no date. It is a path you can fly any day, and giving it one is what
-                // let three saved routes all claim to be "today's flight plan". The date belongs to
-                // the FLIGHT that uses the route, so it only appears once a flight follows this
-                // plan. (device pass)
-                if isFlownByAFlight {
-                    // Date AND time: the time is what every ETO on the nav log is counted from, and a
-                    // date-only picker left a flight created without a time no way to get ETOs
-                    // before departure. Line-up still overwrites it with the real time.
-                    DateFormField(label: L10n.Nav.departureTime, date: Binding(
-                        get: { flightPlan.plannedDepartureTime ?? Date() },
-                        set: {
-                            flightPlan.plannedDepartureTime = $0
-                            // A time the pilot picked replaces a trip leg's estimate. (v5.1)
-                            flightPlan.departureIsEstimate = nil
-                            flightPlan.calculateRouteData()
-                        }
-                    ), components: [.date, .hourAndMinute])
-                }
-                // Typed by hand until now, which invited "24" for a field whose runway is 06/24 and
-                // gave no hint of what exists. The idents come from the departure aerodrome's own
-                // runway data; free text stays available because a grass strip the database does not
-                // know about is still a runway you can take off from. (device pass)
-                HStack(spacing: 6) {
+            pair {
+                // The idents come from the departure aerodrome's own runway data; free text stays,
+                // for a strip the database doesn't know. (device pass)
+                HStack(alignment: .bottom, spacing: 6) {
                     OptionalFormField(label: L10n.Nav.runway, text: $flightPlan.runwayInUse)
                     if !departureRunwayIdents.isEmpty {
                         Menu {
@@ -361,286 +493,347 @@ struct FlightPlanEditorView: View {
                             }
                         } label: {
                             Image(systemName: "chevron.up.chevron.down")
-                                .scaledFont(size: 12, weight: .semibold, relativeTo: .caption)
+                                .scaledFont(size: 14, weight: .semibold, relativeTo: .body)
                                 .foregroundColor(.aviationGold)
-                                .frame(width: 30, height: 30)
+                                .frame(width: 44, height: 44)
                                 .contentShape(Rectangle())
                         }
                         .accessibilityLabel(L10n.Nav.runway)
                     }
                 }
+            } _: {
+                VStack(alignment: .leading, spacing: 5) {
+                    FieldLabel(text: L10n.Nav.flightType)
+                    Menu {
+                        Picker("", selection: $flightPlan.flightType) {
+                            ForEach(FlightType.allCases) { type in
+                                Text(type.rawValue).tag(type)
+                            }
+                        }
+                    } label: {
+                        HStack {
+                            Text(flightPlan.flightType.rawValue)
+                                .scaledFont(size: 17, relativeTo: .body)
+                                .foregroundColor(.primaryText)
+                            Spacer()
+                            Image(systemName: "chevron.up.chevron.down")
+                                .scaledFont(size: 13, weight: .semibold, relativeTo: .caption)
+                                .foregroundColor(.aviationGold)
+                        }
+                        .fieldBox()
+                    }
+                }
+            }
+        }
+    }
+
+    // MARK: - Crew and aircraft (planning proposal A1)
+
+    private var crewSection: some View {
+        section(L10n.FlightSheet.crew) {
+            pair {
+                FormField(label: L10n.Nav.pilot, text: $flightPlan.pilot)
+                    .onAppear {
+                        // Settings hold the pilot's name for the logbook. Only fills an EMPTY field,
+                        // so a plan flown by someone else is never quietly reassigned. (device pass)
+                        if flightPlan.pilot.trimmingCharacters(in: .whitespaces).isEmpty {
+                            flightPlan.pilot = appState.settings.pilotName
+                        }
+                    }
+            } _: {
                 OptionalFormField(label: L10n.Nav.instructor, text: $flightPlan.instructor)
                     .onAppear {
-                        // Same rule as the pilot field: fill an EMPTY one only, so a flight with a
-                        // different instructor is never quietly reassigned. (v5.x)
+                        // Same rule as the pilot field: fill an EMPTY one only. (v5.x)
                         guard appState.settings.isStudentPilot,
                               !appState.settings.instructorName.isEmpty,
                               (flightPlan.instructor ?? "").trimmingCharacters(in: .whitespaces).isEmpty
                         else { return }
                         flightPlan.instructor = appState.settings.instructorName
                     }
-                FormField(label: L10n.Nav.totalEET, text: .constant(flightPlan.formattedTotalEET), isReadOnly: true)
-                FormField(label: L10n.Nav.distance, text: .constant(String(format: "%.1f NM", flightPlan.totalDistance)), isReadOnly: true)
-                FormField(label: L10n.Nav.endurance, text: .constant(flightPlan.formattedEndurance ?? "--:--"), isReadOnly: true)
             }
-        }
-        .padding()
-        .background(RoundedRectangle(cornerRadius: 12).fill(Color.panelBackground))
-    }
-
-    // MARK: - Fuel Section
-
-    private var fuelSection: some View {
-        VStack(spacing: 12) {
-            HStack {
-                Label(L10n.Nav.fuelCalculation, systemImage: "fuelpump")
-                    .scaledFont(size: 14, weight: .bold, relativeTo: .subheadline)
-                    .foregroundColor(.aviationGold)
-
-                Spacer()
-            }
-
-            LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: isCompactWidth ? 2 : 3), spacing: 12) {
-                NumberFormField(
-                    label: L10n.Nav.fuelFlow,
-                    value: Binding(
-                        get: { flightPlan.fuelFlow ?? FlightPlan.defaultFuelFlow(for: flightPlan.aircraftTypeId) },
-                        set: { flightPlan.fuelFlow = $0 }
-                    ),
-                    format: "%.0f"
-                )
-
-                NumberFormField(
-                    label: L10n.Nav.tripFuel,
-                    value: Binding(
-                        get: { flightPlan.tripFuel ?? 0 },
-                        set: { flightPlan.tripFuel = $0 }
-                    ),
-                    format: "%.1f"
-                )
-
-                NumberFormField(
-                    label: L10n.Nav.reserveFuel,
-                    value: Binding(
-                        get: { flightPlan.reserveFuel ?? 0 },
-                        set: { flightPlan.reserveFuel = $0 }
-                    ),
-                    format: "%.1f"
-                )
-
-                NumberFormField(
-                    label: L10n.Nav.additionalFuel,
-                    value: Binding(
-                        // The figure Required counts: 45 minutes at the fuel flow until set.
-                        get: { flightPlan.finalReserveFuel },
-                        set: { flightPlan.additionalFuel = $0 }
-                    ),
-                    format: "%.1f"
-                )
-
-                NumberFormField(
-                    label: L10n.Nav.extraFuel,
-                    value: Binding(
-                        get: { flightPlan.extraFuel ?? 0 },
-                        set: { flightPlan.extraFuel = $0 }
-                    ),
-                    format: "%.1f"
-                )
-
-                FormField(
-                    label: L10n.Nav.requiredFuel,
-                    text: .constant(flightPlan.fuelRequired.map { String(format: "%.1f", $0) } ?? "--"),
-                    isReadOnly: true
-                )
-
-                // Fuel ON BOARD had no field anywhere in the app. The model carried it, the thread's
-                // fuel task compared against it, and the nav log printed it — but nothing could set
-                // it, so that task could never be satisfied and the row sat pending forever.
-                // (device pass)
-                NumberFormField(
-                    label: L10n.Nav.fuelOnBoard,
-                    value: Binding(
-                        get: { flightPlan.fuelOnBoard ?? 0 },
-                        set: { flightPlan.fuelOnBoard = $0 }
-                    ),
-                    format: "%.1f"
-                )
-            }
-        }
-        .padding()
-        .background(
-            RoundedRectangle(cornerRadius: 12)
-                .fill(Color.panelBackground)
-        )
-    }
-
-    // MARK: - Timing Section
-
-    private var timingSection: some View {
-        VStack(spacing: 12) {
-            // Post-flight logbook data — collapsed by default so it doesn't clutter planning. (#5)
-            // No animated expand/collapse under Reduce Motion (UX-18)
-            Button { withAnimation(reduceMotion ? nil : .default) { logbookExpanded.toggle() } } label: {
-                HStack {
-                    Label(L10n.Nav.logbookTimes, systemImage: "clock")
-                        .scaledFont(size: 14, weight: .bold, relativeTo: .subheadline)
-                        .foregroundColor(.aviationGold)
-                    Spacer()
-                    Image(systemName: logbookExpanded ? "chevron.up" : "chevron.down")
-                        .scaledFont(size: 12, relativeTo: .caption).foregroundColor(.secondaryText)
-                }
-            }
-            .buttonStyle(.plain)
-
-            if logbookExpanded {
-            // First row: Counter Start, Block OFF, Time OFF, Time ON, Block ON, Counter Stop — the nav
-            // log's order. Time OFF/ON are the take-off and the landing, not the engine. (v5.2)
-            LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: isCompactWidth ? 2 : 6), spacing: 12) {
-                NumberFormField(
-                    label: L10n.Nav.counterStart,
-                    value: Binding(
-                        get: { flightPlan.counterStart ?? 0 },
-                        set: { flightPlan.counterStart = $0 }
-                    ),
-                    format: "%.1f"
-                )
-
-                OptionalTimeFormField(label: L10n.Nav.blockOff, time: $flightPlan.blockOff)
-                OptionalTimeFormField(label: L10n.Nav.timeOff, time: $flightPlan.timeOff)
-                OptionalTimeFormField(label: L10n.Nav.timeOn, time: $flightPlan.timeOn)
-                OptionalTimeFormField(label: L10n.Nav.blockOn, time: $flightPlan.blockOn)
-
-                NumberFormField(
-                    label: L10n.Nav.counterStop,
-                    value: Binding(
-                        get: { flightPlan.counterStop ?? 0 },
-                        set: { flightPlan.counterStop = $0 }
-                    ),
-                    format: "%.1f"
-                )
-            }
-
-            // Second row: Landings and Air Time
-            LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: isCompactWidth ? 2 : 6), spacing: 12) {
-                IntFormField(
-                    label: L10n.Nav.ldgsAtBase,
-                    value: Binding(
-                        get: { flightPlan.landingsAtBase ?? 0 },
-                        set: { flightPlan.landingsAtBase = $0 }
-                    )
-                )
-
-                IntFormField(
-                    label: L10n.Nav.totalLdgs,
-                    value: Binding(
-                        get: { calculatedTotalLandings },
-                        set: { flightPlan.totalLandings = $0 }
-                    )
-                )
-
-                // Air Time display (HH:MM, like the Flight Log's durations)
-                VStack(alignment: .leading, spacing: 4) {
-                    Text(L10n.Nav.airTime)
-                        .scaledFont(size: 11, relativeTo: .caption2)
-                        .foregroundColor(.secondaryText)
-                    Text(formattedAirTime)
-                        .scaledFont(size: 14, weight: .medium, design: .monospaced, relativeTo: .subheadline)
+            // Not an input: the aircraft is the flight's (or the route's), so it reads as text.
+            VStack(alignment: .leading, spacing: 5) {
+                FieldLabel(text: L10n.Nav.aircraft)
+                HStack(spacing: 8) {
+                    Text(flightPlan.aircraftRegistration)
+                        .scaledFont(size: 17, weight: .bold, design: .monospaced, relativeTo: .body)
                         .foregroundColor(.primaryText)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .padding(.horizontal, 8)
-                        .padding(.vertical, 6)
-                        .background(Color.cardBackground.opacity(0.5))
-                        .clipShape(RoundedRectangle(cornerRadius: 6))
+                    Text(L10n.FlightSheet.aircraftFromFlight(flightPlan.aircraftModelName))
+                        .scaledFont(size: 15, relativeTo: .subheadline)
+                        .foregroundColor(.secondaryText)
                 }
-
-                // Empty cells to maintain grid alignment
-                Spacer()
-                Spacer()
-                Spacer()
             }
-            } // if logbookExpanded
         }
-        .padding()
-        .background(
-            RoundedRectangle(cornerRadius: 12)
-                .fill(Color.panelBackground)
-        )
     }
 
-    // MARK: - Notes Section
+    // MARK: - Fuel ledger (planning proposal A2)
+
+    /// The fuel as the paper nav log adds it up: trip + alternate + final reserve + extra = required,
+    /// then what's on board, the margin, and the endurance. Inputs are fields, results plain text;
+    /// DEFAULT marks what the app filled in, so it gets checked. (FAA EFB human factors §5.1.1,
+    /// §5.1.3)
+    private var fuelLedger: some View {
+        let flow = flightPlan.effectiveFuelFlow
+        let flowText = FuelEntry.text(flow)
+        let required = flightPlan.fuelRequired
+        let onBoard = flightPlan.fuelOnBoard
+        let reserveIsDefault = (flightPlan.additionalFuel ?? 0) <= 0
+        return section(L10n.FlightSheet.fuel, aside: L10n.FlightSheet.litres) {
+            Grid(alignment: .leading, horizontalSpacing: 12, verticalSpacing: 10) {
+                GridRow {
+                    ledgerLabel(L10n.FlightSheet.fuelFlow,
+                                note: flightPlan.fuelFlow == nil ? L10n.FlightSheet.flowNote : nil,
+                                isDefault: flightPlan.fuelFlow == nil)
+                    LedgerNumberField(value: Binding(
+                        get: { flow },
+                        set: {
+                            flightPlan.fuelFlow = $0 > 0 ? $0 : nil
+                            // The trip fuel is the route's time at this flow: it follows the flow.
+                            flightPlan.calculateRouteData()
+                        }), format: "%.0f")
+                    ledgerUnit("L/h")
+                }
+                ledgerRule(double: false)
+                GridRow {
+                    ledgerLabel(L10n.FlightSheet.trip, note: L10n.FlightSheet.tripNote(flightPlan.formattedTotalEET, flowText))
+                    ledgerValue(flightPlan.tripFuel)
+                    ledgerUnit(L10n.FlightSheet.fromRoute)
+                }
+                GridRow {
+                    ledgerLabel(L10n.FlightSheet.alternate, op: "+")
+                    LedgerNumberField(value: Binding(get: { flightPlan.reserveFuel ?? 0 },
+                                                     set: { flightPlan.reserveFuel = $0 }), format: "%.1f")
+                    Color.clear.frame(width: 1, height: 1)
+                }
+                GridRow {
+                    ledgerLabel(L10n.FlightSheet.finalReserve, op: "+",
+                                note: reserveIsDefault ? L10n.FlightSheet.finalReserveNote(flowText) : nil,
+                                isDefault: reserveIsDefault)
+                    // The figure Required counts: 45 minutes at the fuel flow until set.
+                    LedgerNumberField(value: Binding(get: { flightPlan.finalReserveFuel },
+                                                     set: { flightPlan.additionalFuel = $0 }), format: "%.1f")
+                    Color.clear.frame(width: 1, height: 1)
+                }
+                GridRow {
+                    ledgerLabel(L10n.FlightSheet.extra, op: "+")
+                    LedgerNumberField(value: Binding(get: { flightPlan.extraFuel ?? 0 },
+                                                     set: { flightPlan.extraFuel = $0 }), format: "%.1f")
+                    Color.clear.frame(width: 1, height: 1)
+                }
+                ledgerRule(double: true)
+                GridRow {
+                    ledgerLabel(L10n.FlightSheet.required, op: "=", bold: true)
+                    ledgerValue(required, bold: true)
+                    Color.clear.frame(width: 1, height: 1)
+                }
+                GridRow {
+                    ledgerLabel(L10n.FlightSheet.onBoard, bold: true)
+                    LedgerNumberField(value: Binding(get: { onBoard ?? 0 },
+                                                     set: { flightPlan.fuelOnBoard = $0 > 0 ? $0 : nil }),
+                                      format: "%.1f", emphasised: true)
+                    Color.clear.frame(width: 1, height: 1)
+                }
+                if !isViewingFromFlightLog {
+                    GridRow {
+                        FullTanksButtons(registration: flightPlan.aircraftRegistration, required: required) { litres in
+                            flightPlan.fuelOnBoard = litres
+                        }
+                        .gridCellColumns(3)
+                    }
+                }
+                GridRow {
+                    ledgerLabel(L10n.FlightSheet.margin)
+                    marginCells(onBoard: onBoard, required: required, flow: flow)
+                }
+                GridRow {
+                    ledgerLabel(L10n.FlightSheet.endurance, note: L10n.FlightSheet.enduranceNote(flowText))
+                    Text(onBoard.map { endurance($0, flow: flow) } ?? "—")
+                        .scaledFont(size: 19, design: .monospaced, relativeTo: .body)
+                        .foregroundColor(.primaryText)
+                        .frame(width: 130, alignment: .trailing)
+                        .padding(.trailing, 10)
+                    Color.clear.frame(width: 1, height: 1)
+                }
+            }
+        }
+    }
+
+    private func ledgerLabel(_ text: String, op: String? = nil, note: String? = nil,
+                             isDefault: Bool = false, bold: Bool = false) -> some View {
+        HStack(alignment: .firstTextBaseline, spacing: 0) {
+            Text(op ?? "")
+                .scaledFont(size: 16, design: .monospaced, relativeTo: .body)
+                .foregroundColor(.secondaryText)
+                .frame(width: 20, alignment: .leading)
+            VStack(alignment: .leading, spacing: 2) {
+                HStack(spacing: 8) {
+                    Text(text)
+                        .scaledFont(size: bold ? 19 : 16, weight: bold ? .bold : .regular, relativeTo: .body)
+                        .foregroundColor(.primaryText)
+                    if isDefault {
+                        Text(L10n.FlightSheet.defaultTag)
+                            .scaledFont(size: 10, weight: .bold, design: .monospaced, relativeTo: .caption2)
+                            .foregroundColor(.secondaryText)
+                            .padding(.horizontal, 5)
+                            .padding(.vertical, 1)
+                            .overlay(RoundedRectangle(cornerRadius: 4).strokeBorder(Color.dimText, lineWidth: 1))
+                    }
+                }
+                if let note {
+                    Text(note)
+                        .scaledFont(size: 12, relativeTo: .caption)
+                        .foregroundColor(.secondaryText)
+                }
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    private func ledgerValue(_ value: Double?, bold: Bool = false) -> some View {
+        Text(value.map { String(format: "%.1f", $0) } ?? "—")
+            .scaledFont(size: bold ? 21 : 19, weight: bold ? .bold : .regular, design: .monospaced, relativeTo: .body)
+            .foregroundColor(.primaryText)
+            .frame(width: 130, alignment: .trailing)
+            .padding(.trailing, 10)
+    }
+
+    private func ledgerUnit(_ text: String) -> some View {
+        Text(text)
+            .scaledFont(size: 13, relativeTo: .caption)
+            .foregroundColor(.secondaryText)
+            .frame(minWidth: 70, alignment: .leading)
+    }
+
+    private func ledgerRule(double: Bool) -> some View {
+        GridRow {
+            VStack(spacing: 2) {
+                Rectangle().fill(Color.white.opacity(double ? 0.35 : 0.12)).frame(height: 1)
+                if double { Rectangle().fill(Color.white.opacity(0.35)).frame(height: 1) }
+            }
+            .gridCellColumns(3)
+        }
+    }
+
+    @ViewBuilder
+    private func marginCells(onBoard: Double?, required: Double?, flow: Double) -> some View {
+        switch FuelOnBoardStatus.make(onBoard: onBoard, required: required, flowLitresPerHour: flow) {
+        case .notSet:
+            Text("—")
+                .scaledFont(size: 19, design: .monospaced, relativeTo: .body)
+                .foregroundColor(.dimText)
+                .frame(width: 130, alignment: .trailing)
+                .padding(.trailing, 10)
+            Color.clear.frame(width: 1, height: 1)
+        case .enough(let margin, let minutes):
+            Text("+" + String(format: "%.1f", margin))
+                .scaledFont(size: 19, weight: .semibold, design: .monospaced, relativeTo: .body)
+                .foregroundColor(.aviationGreen)
+                .frame(width: 130, alignment: .trailing)
+                .padding(.trailing, 10)
+            Text(L10n.FlightSheet.marginMinutes(String(minutes)))
+                .scaledFont(size: 13, relativeTo: .caption)
+                .foregroundColor(.aviationGreen)
+                .frame(minWidth: 70, alignment: .leading)
+        case .short(let litres):
+            Text("−" + String(format: "%.1f", litres))
+                .scaledFont(size: 19, weight: .semibold, design: .monospaced, relativeTo: .body)
+                .foregroundColor(.aviationAmber)
+                .frame(width: 130, alignment: .trailing)
+                .padding(.trailing, 10)
+            Text(L10n.FlightSheet.short)
+                .scaledFont(size: 13, relativeTo: .caption)
+                .foregroundColor(.aviationAmber)
+                .frame(minWidth: 70, alignment: .leading)
+        }
+    }
+
+    private func endurance(_ litres: Double, flow: Double) -> String {
+        guard flow > 0 else { return "—" }
+        let minutes = Int((litres / flow * 60).rounded(.down))
+        return String(format: "%d:%02d", minutes / 60, minutes % 60)
+    }
+
+    // MARK: - After the flight (planning proposal A1)
+
+    /// What's filled in after the flight: folded until then, in the same place either way.
+    private var afterFlightSection: some View {
+        foldedSection(L10n.FlightSheet.afterFlight, summary: L10n.FlightSheet.afterFlightSummary,
+                      isOpen: $logbookExpanded) {
+            // Pairs in the nav log's order; Time OFF/ON are the take-off and the landing, not the
+            // engine. (v5.2)
+            pair {
+                OptionalTimeFormField(label: L10n.Nav.blockOff, time: $flightPlan.blockOff)
+            } _: {
+                OptionalTimeFormField(label: L10n.Nav.blockOn, time: $flightPlan.blockOn)
+            }
+            pair {
+                OptionalTimeFormField(label: L10n.Nav.timeOff, time: $flightPlan.timeOff)
+            } _: {
+                OptionalTimeFormField(label: L10n.Nav.timeOn, time: $flightPlan.timeOn)
+            }
+            pair {
+                NumberFormField(label: L10n.Nav.counterStart, value: Binding(
+                    get: { flightPlan.counterStart ?? 0 },
+                    set: { flightPlan.counterStart = $0 }
+                ), format: "%.1f")
+            } _: {
+                NumberFormField(label: L10n.Nav.counterStop, value: Binding(
+                    get: { flightPlan.counterStop ?? 0 },
+                    set: { flightPlan.counterStop = $0 }
+                ), format: "%.1f")
+            }
+            pair {
+                IntFormField(label: L10n.Nav.ldgsAtBase, value: Binding(
+                    get: { flightPlan.landingsAtBase ?? 0 },
+                    set: { flightPlan.landingsAtBase = $0 }
+                ))
+            } _: {
+                IntFormField(label: L10n.Nav.totalLdgs, value: Binding(
+                    get: { calculatedTotalLandings },
+                    set: { flightPlan.totalLandings = $0 }
+                ))
+            }
+            // Computed: plain text, not a field.
+            VStack(alignment: .leading, spacing: 5) {
+                FieldLabel(text: L10n.FlightSheet.airTime)
+                Text(formattedAirTime)
+                    .scaledFont(size: 17, design: .monospaced, relativeTo: .body)
+                    .foregroundColor(.primaryText)
+            }
+        }
+    }
+
+    // MARK: - Notes
 
     private var notesSection: some View {
-        VStack(spacing: 12) {
-            HStack {
-                Label(L10n.Nav.notes, systemImage: "note.text")
-                    .scaledFont(size: 14, weight: .bold, relativeTo: .subheadline)
-                    .foregroundColor(.aviationGold)
-
-                Spacer()
-            }
-
-            VStack(alignment: .leading, spacing: 8) {
-                Text(L10n.Nav.remarks)
-                    .scaledFont(size: 12, relativeTo: .caption)
-                    .foregroundColor(.secondaryText)
-
+        foldedSection(L10n.Nav.notes, summary: L10n.FlightSheet.notesSummary, isOpen: $notesExpanded) {
+            VStack(alignment: .leading, spacing: 5) {
+                FieldLabel(text: L10n.Nav.remarks)
                 TextEditor(text: $flightPlan.remarks)
-                    .scaledFont(size: 14, relativeTo: .subheadline)
-                    .frame(minHeight: 60)
+                    .scaledFont(size: 16, relativeTo: .body)
+                    .frame(minHeight: 70)
                     .scrollContentBackground(.hidden)
                     .background(Color.cardBackground)
-                    .clipShape(RoundedRectangle(cornerRadius: 8))
+                    .clipShape(RoundedRectangle(cornerRadius: 9))
             }
-
-            VStack(alignment: .leading, spacing: 8) {
-                Text(L10n.Nav.debriefing)
-                    .scaledFont(size: 12, relativeTo: .caption)
-                    .foregroundColor(.secondaryText)
-
+            VStack(alignment: .leading, spacing: 5) {
+                FieldLabel(text: L10n.Nav.debriefing)
                 TextEditor(text: $flightPlan.debriefing)
-                    .scaledFont(size: 14, relativeTo: .subheadline)
-                    .frame(minHeight: 60)
+                    .scaledFont(size: 16, relativeTo: .body)
+                    .frame(minHeight: 70)
                     .scrollContentBackground(.hidden)
                     .background(Color.cardBackground)
-                    .clipShape(RoundedRectangle(cornerRadius: 8))
+                    .clipShape(RoundedRectangle(cornerRadius: 9))
             }
         }
-        .padding()
-        .background(
-            RoundedRectangle(cornerRadius: 12)
-                .fill(Color.panelBackground)
-        )
     }
 
     // MARK: - ICAO Details Section
 
     private var icaoDetailsSection: some View {
-        VStack(spacing: 12) {
-            // No animated expand/collapse under Reduce Motion (UX-18)
-            Button(action: { withAnimation(reduceMotion ? nil : .default) { icaoSectionExpanded.toggle() } }) {
-                HStack {
-                    Label(L10n.Nav.icaoDetails, systemImage: "doc.plaintext")
-                        .scaledFont(size: 14, weight: .bold, relativeTo: .subheadline)
-                        .foregroundColor(.aviationGold)
-
-                    Spacer()
-
-                    Image(systemName: icaoSectionExpanded ? "chevron.up" : "chevron.down")
-                        .scaledFont(size: 12, relativeTo: .caption)
-                        .foregroundColor(.secondaryText)
-                }
-            }
-            .buttonStyle(.plain)
-
-            if icaoSectionExpanded {
-                icaoFieldsContent
-            }
+        foldedSection(L10n.Nav.icaoDetails, summary: L10n.FlightSheet.atcSummary, isOpen: $icaoSectionExpanded) {
+            icaoFieldsContent
         }
-        .padding()
-        .background(
-            RoundedRectangle(cornerRadius: 12)
-                .fill(Color.panelBackground)
-        )
     }
 
     private var icaoFieldsContent: some View {
@@ -819,7 +1012,7 @@ private struct FieldLabel: View {
 
     var body: some View {
         Text(text)
-            .scaledFont(size: 11, relativeTo: .caption2)
+            .scaledFont(size: 13, relativeTo: .caption)
             .foregroundColor(.secondaryText)
     }
 }
@@ -831,10 +1024,10 @@ private struct FieldBoxModifier: ViewModifier {
 
     func body(content: Content) -> some View {
         content
-            .padding(.horizontal, 8)
-            .padding(.vertical, 6)
+            .padding(.horizontal, 12)
+            .frame(minHeight: 44)
             .background(dimmed ? Color.cardBackground.opacity(0.5) : Color.cardBackground)
-            .clipShape(RoundedRectangle(cornerRadius: 6))
+            .clipShape(RoundedRectangle(cornerRadius: 9))
     }
 }
 
@@ -850,18 +1043,18 @@ struct FormField: View {
     var isReadOnly: Bool = false
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 4) {
+        VStack(alignment: .leading, spacing: 5) {
             FieldLabel(text: label)
 
             if isReadOnly {
                 Text(text.isEmpty ? "-" : text)
-                    .scaledFont(size: 14, design: .monospaced, relativeTo: .subheadline)
+                    .scaledFont(size: 17, design: .monospaced, relativeTo: .body)
                     .foregroundColor(.primaryText)
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .fieldBox(dimmed: true)
             } else {
                 TextField("", text: $text)
-                    .scaledFont(size: 14, relativeTo: .subheadline)
+                    .scaledFont(size: 17, relativeTo: .body)
                     .textFieldStyle(.plain)
                     .fieldBox()
             }
@@ -878,11 +1071,11 @@ struct OptionalFormField: View {
     @State private var localText: String = ""
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 4) {
+        VStack(alignment: .leading, spacing: 5) {
             FieldLabel(text: label)
 
             TextField("", text: $localText)
-                .scaledFont(size: 14, relativeTo: .subheadline)
+                .scaledFont(size: 17, relativeTo: .body)
                 .textFieldStyle(.plain)
                 .keyboardType(keyboardType)
                 .fieldBox()
@@ -908,7 +1101,7 @@ struct DateFormField: View {
     var components: DatePickerComponents = [.date]
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 4) {
+        VStack(alignment: .leading, spacing: 5) {
             FieldLabel(text: label)
 
             // The system's own compact picker, not a bespoke sheet. The sheet version presented a
@@ -971,7 +1164,7 @@ struct OptionalTimeFormField: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 4) {
+        VStack(alignment: .leading, spacing: 5) {
             FieldLabel(text: label)
 
             Button(action: {
@@ -983,7 +1176,7 @@ struct OptionalTimeFormField: View {
                 showingPicker = true
             }) {
                 Text(isSet ? timeFormatter.string(from: selectedTime) : L10n.Nav.set)
-                    .scaledFont(size: 14, weight: isSet ? .medium : .regular, design: .monospaced, relativeTo: .subheadline)
+                    .scaledFont(size: 17, weight: isSet ? .medium : .regular, design: .monospaced, relativeTo: .body)
                     .foregroundColor(isSet ? .primaryText : .aviationGold)
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .fieldBox()
@@ -1053,11 +1246,11 @@ struct NumberFormField: View {
     @FocusState private var isEditing: Bool
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 4) {
+        VStack(alignment: .leading, spacing: 5) {
             FieldLabel(text: label)
 
             TextField("", text: $text)
-                .scaledFont(size: 14, design: .monospaced, relativeTo: .subheadline)
+                .scaledFont(size: 17, design: .monospaced, relativeTo: .body)
                 .textFieldStyle(.plain)
                 .keyboardType(.decimalPad)
                 .focused($isEditing)
@@ -1089,6 +1282,45 @@ struct NumberFormField: View {
     }
 }
 
+/// A ledger cell: the same text-backed number entry as `NumberFormField`, right-aligned under the
+/// ledger's other figures, without a label of its own. (planning proposal A2)
+struct LedgerNumberField: View {
+    @Binding var value: Double
+    let format: String
+    var emphasised: Bool = false
+
+    @State private var text: String = ""
+    @FocusState private var isEditing: Bool
+
+    var body: some View {
+        TextField("0", text: $text)
+            .scaledFont(size: emphasised ? 24 : 19, weight: emphasised ? .bold : .regular,
+                        design: .monospaced, relativeTo: .body)
+            .multilineTextAlignment(.trailing)
+            .textFieldStyle(.plain)
+            .keyboardType(.decimalPad)
+            .focused($isEditing)
+            .padding(.horizontal, 10)
+            .frame(width: 140, height: emphasised ? 52 : 44)
+            .background(RoundedRectangle(cornerRadius: 9).fill(Color.cardBackground))
+            .overlay(RoundedRectangle(cornerRadius: 9)
+                .strokeBorder(emphasised ? Color.aviationGold.opacity(0.8) : Color.clear, lineWidth: 2))
+            .onAppear { text = String(format: format, value) }
+            .onChange(of: text) { _, typed in
+                let normalised = typed.replacingOccurrences(of: ",", with: ".")
+                if normalised.isEmpty { value = 0 }
+                else if let parsed = Double(normalised) { value = parsed }
+            }
+            .onChange(of: isEditing) { _, editing in
+                if editing { if value == 0 { text = "" } }
+                else { text = String(format: format, value) }
+            }
+            .onChange(of: value) { _, updated in
+                if !isEditing { text = String(format: format, updated) }
+            }
+    }
+}
+
 struct IntFormField: View {
     let label: String
     @Binding var value: Int
@@ -1097,11 +1329,11 @@ struct IntFormField: View {
     @FocusState private var isEditing: Bool
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 4) {
+        VStack(alignment: .leading, spacing: 5) {
             FieldLabel(text: label)
 
             TextField("", text: $text)
-                .scaledFont(size: 14, design: .monospaced, relativeTo: .subheadline)
+                .scaledFont(size: 17, design: .monospaced, relativeTo: .body)
                 .textFieldStyle(.plain)
                 .keyboardType(.numberPad)
                 .focused($isEditing)

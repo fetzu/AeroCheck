@@ -1528,3 +1528,20 @@ struct CockpitHeroChecklistItem: View {
         )
     }
 }
+
+// MARK: - Page-sized sheets (planning proposal A3)
+
+extension View {
+    /// A sheet the size of a page on iPadOS 18 and later: taller and wider than the form sheet a
+    /// planning form doesn't fit in (578 × 661 pt on an 11" iPad). iPadOS 17 keeps the form sheet.
+    /// Applied to the sheet's content.
+    @ViewBuilder
+    func pageSizedSheet() -> some View {
+        if #available(iOS 18.0, *) {
+            presentationSizing(.page)
+        } else {
+            self
+        }
+    }
+}
+

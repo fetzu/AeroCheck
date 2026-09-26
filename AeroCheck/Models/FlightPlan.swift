@@ -607,10 +607,22 @@ struct FlightPlan: Identifiable, Codable, Equatable {
     var fuelRequired: Double? {
         guard let trip = tripFuel else { return nil }
         let reserve = reserveFuel ?? 0
-        // Use 45-minute fuel reserve (0.75 hours of fuel flow) as default if not set
-        let additional = additionalFuel ?? (fuelFlow ?? FlightPlan.defaultFuelFlow(for: aircraftTypeId)) * 0.75
         let extra = extraFuel ?? 0
-        return trip + reserve + additional + extra
+        return trip + reserve + finalReserveFuel + extra
+    }
+
+    /// The fuel flow the plan computes with: the pilot's, or the aircraft type's default.
+    var effectiveFuelFlow: Double { fuelFlow ?? FlightPlan.defaultFuelFlow(for: aircraftTypeId) }
+
+    /// The 45-minute final reserve counted in `fuelRequired`: the pilot's figure, or 45 minutes at
+    /// the fuel flow when none is set.
+    ///
+    /// A stored 0 counts as "not set", as the editor has always DISPLAYED it: the field showed 15.0
+    /// while Required counted 0 for it, so Required read 15 L short of the sum on screen.
+    /// (on-device review #4)
+    var finalReserveFuel: Double {
+        if let additional = additionalFuel, additional > 0 { return additional }
+        return effectiveFuelFlow * 0.75
     }
 
     /// Endurance in hours based on FOB (or fuel required if FOB not set) and fuel flow

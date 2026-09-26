@@ -16,7 +16,7 @@ final class StepByStepSettingsTests: XCTestCase {
 
     func testANewInstallRunsStepByStep() {
         XCTAssertTrue(AppSettings().stepByStepHighlighting)
-        XCTAssertEqual(AppSettings().schemaVersion, 4)
+        XCTAssertEqual(AppSettings().schemaVersion, AppSettings.currentSchemaVersion)
     }
 
     func testAFileWithStepByStepOffIsTurnedBackOn() {

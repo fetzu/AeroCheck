@@ -41,6 +41,7 @@
 		A5000047111111110000002 /* MapPresetTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A5000047111111110000001 /* MapPresetTests.swift */; };
 		A5000048111111110000002 /* CockpitPaneRuleTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A5000048111111110000001 /* CockpitPaneRuleTests.swift */; };
 		A5000050111111110000002 /* VSpeedTableTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A5000050111111110000001 /* VSpeedTableTests.swift */; };
+		A5000052111111110000002 /* FuelOnBoardTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A5000052111111110000001 /* FuelOnBoardTests.swift */; };
 		A5000049111111110000002 /* StepByStepSettingsTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A5000049111111110000001 /* StepByStepSettingsTests.swift */; };
 		A5000038111111110000002 /* NavLogExportTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A5000038111111110000001 /* NavLogExportTests.swift */; };
 		A5000037111111110000002 /* AltitudePlannerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A5000037111111110000001 /* AltitudePlannerTests.swift */; };
@@ -214,6 +215,7 @@
 		REC00001211111110000003 /* FlightReconciliationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = REC00001111111110000003 /* FlightReconciliationTests.swift */; };
 		F1000001211111110000002 /* EventConfirmationView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1000001111111110000002 /* EventConfirmationView.swift */; };
 		F1000001211111110000003 /* FlightThreadView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1000001111111110000003 /* FlightThreadView.swift */; };
+		A5000051111111110000002 /* FuelOnBoardSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = A5000051111111110000001 /* FuelOnBoardSheet.swift */; };
 		F1000001211111110000033 /* PlanNewFlightView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1000001111111110000033 /* PlanNewFlightView.swift */; };
 		F1000001211111110000034 /* UpcomingFlightsList.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1000001111111110000034 /* UpcomingFlightsList.swift */; };
 		F1000001211111110000005 /* WeightBalanceView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1000001111111110000005 /* WeightBalanceView.swift */; };
@@ -329,6 +331,7 @@
 		A5000047111111110000001 /* MapPresetTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MapPresetTests.swift; sourceTree = "<group>"; };
 		A5000048111111110000001 /* CockpitPaneRuleTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CockpitPaneRuleTests.swift; sourceTree = "<group>"; };
 		A5000050111111110000001 /* VSpeedTableTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VSpeedTableTests.swift; sourceTree = "<group>"; };
+		A5000052111111110000001 /* FuelOnBoardTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FuelOnBoardTests.swift; sourceTree = "<group>"; };
 		A5000049111111110000001 /* StepByStepSettingsTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StepByStepSettingsTests.swift; sourceTree = "<group>"; };
 		A5000038111111110000001 /* NavLogExportTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NavLogExportTests.swift; sourceTree = "<group>"; };
 		A5000037111111110000001 /* AltitudePlannerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AltitudePlannerTests.swift; sourceTree = "<group>"; };
@@ -497,6 +500,7 @@
 		REC00001111111110000003 /* FlightReconciliationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FlightReconciliationTests.swift; sourceTree = "<group>"; };
 		F1000001111111110000002 /* EventConfirmationView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EventConfirmationView.swift; sourceTree = "<group>"; };
 		F1000001111111110000003 /* FlightThreadView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FlightThreadView.swift; sourceTree = "<group>"; };
+		A5000051111111110000001 /* FuelOnBoardSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FuelOnBoardSheet.swift; sourceTree = "<group>"; };
 		F1000001111111110000033 /* PlanNewFlightView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlanNewFlightView.swift; sourceTree = "<group>"; };
 		F1000001111111110000034 /* UpcomingFlightsList.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UpcomingFlightsList.swift; sourceTree = "<group>"; };
 		F1000001111111110000005 /* WeightBalanceView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WeightBalanceView.swift; sourceTree = "<group>"; };
@@ -602,6 +606,7 @@
 				A5000047111111110000001 /* MapPresetTests.swift */,
 				A5000048111111110000001 /* CockpitPaneRuleTests.swift */,
 				A5000050111111110000001 /* VSpeedTableTests.swift */,
+				A5000052111111110000001 /* FuelOnBoardTests.swift */,
 				A5000049111111110000001 /* StepByStepSettingsTests.swift */,
 				A5000038111111110000001 /* NavLogExportTests.swift */,
 				A5000037111111110000001 /* AltitudePlannerTests.swift */,
@@ -730,6 +735,7 @@
 				B3000001111111110000004 /* SubscriptionView.swift */,
 				F1000001111111110000002 /* EventConfirmationView.swift */,
 				F1000001111111110000003 /* FlightThreadView.swift */,
+				A5000051111111110000001 /* FuelOnBoardSheet.swift */,
 				F1000001111111110000033 /* PlanNewFlightView.swift */,
 				F1000001111111110000034 /* UpcomingFlightsList.swift */,
 				F1000001111111110000005 /* WeightBalanceView.swift */,
@@ -1111,6 +1117,7 @@
 				A5000047111111110000002 /* MapPresetTests.swift in Sources */,
 				A5000048111111110000002 /* CockpitPaneRuleTests.swift in Sources */,
 				A5000050111111110000002 /* VSpeedTableTests.swift in Sources */,
+				A5000052111111110000002 /* FuelOnBoardTests.swift in Sources */,
 				A5000049111111110000002 /* StepByStepSettingsTests.swift in Sources */,
 				A5000038111111110000002 /* NavLogExportTests.swift in Sources */,
 				A5000037111111110000002 /* AltitudePlannerTests.swift in Sources */,
@@ -1264,6 +1271,7 @@
 				A1000001211111110000910 /* SigmetRelevance.swift in Sources */,
 				F1000001211111110000002 /* EventConfirmationView.swift in Sources */,
 				F1000001211111110000003 /* FlightThreadView.swift in Sources */,
+				A5000051111111110000002 /* FuelOnBoardSheet.swift in Sources */,
 				F1000001211111110000033 /* PlanNewFlightView.swift in Sources */,
 				F1000001211111110000034 /* UpcomingFlightsList.swift in Sources */,
 				F1000001211111110000005 /* WeightBalanceView.swift in Sources */,

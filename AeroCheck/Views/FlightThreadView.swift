@@ -168,6 +168,12 @@ struct FlightThreadView: View {
     @State private var routeBuilderPlanId: UUID?
     /// Plan open in the details editor, from the fuel task. (v5.0.0)
     @State private var planEditorPlan: FlightPlan?
+    /// Plan whose fuel on board is being set, from a tap on the fuel task. (on-device review #4)
+    @State private var fuelSheetPlanId: UUID?
+    /// "Fuel & times" chosen in the fuel sheet: the nav log sheet opens once that one has closed.
+    @State private var openEditorAfterFuel = false
+    /// The plan the fuel sheet was last opened for: `fuelSheetPlanId` is already nil in `onDismiss`.
+    @State private var lastFuelPlanId: UUID?
     /// "Add a stop" sheet. (v5.1)
     @State private var addingStop = false
     /// Chapters whose ticked tasks are unfolded. Folded by default: the page leads with what is left.
@@ -254,6 +260,24 @@ struct FlightThreadView: View {
         // flight and come back to see the fuel row settle. (device pass)
         .sheet(item: $planEditorPlan, onDismiss: { refreshFromPlan() }) { plan in
             FlightPlanEditorView(flightPlan: plan)
+        }
+        .sheet(isPresented: Binding(
+            get: { fuelSheetPlanId != nil },
+            set: { if !$0 { fuelSheetPlanId = nil } }
+        ), onDismiss: {
+            refreshFromPlan()
+            if openEditorAfterFuel, let id = fuelSheetPlanId ?? lastFuelPlanId,
+               let plan = flightPlanManager.flightPlans.first(where: { $0.id == id }) {
+                planEditorPlan = plan
+            }
+            openEditorAfterFuel = false
+        }) {
+            if let id = fuelSheetPlanId {
+                FuelOnBoardSheet(planId: id, onOpenFullEditor: {
+                    openEditorAfterFuel = true
+                    fuelSheetPlanId = nil
+                })
+            }
         }
         .sheet(isPresented: $addingStop) {
             AddStopSheet(threadId: threadId) { _ in addingStop = false }
@@ -470,6 +494,11 @@ struct FlightThreadView: View {
             // The tick still works on its own — the tool is an aid, not a gate.
             toolLabel: toolLabel(for: task, in: thread),
             onOpenTool: { openTool(for: task, in: thread) },
+            // The fuel task: a tap anywhere on it sets fuel on board. It can't be ticked (it ticks
+            // itself once the tanks hold enough), so the whole row is free to do this.
+            // (on-device review #4, point 3)
+            onTapRow: task.key == .fuelPlanned && plan(for: thread) != nil
+                ? { openTool(for: task, in: thread) } : nil,
             prominent: prominent
         )
     }
@@ -1026,9 +1055,9 @@ struct FlightThreadView: View {
             // app's most-used editor unreachable from the flight it belongs to.
             return plan(for: thread) != nil ? L10n.Thread.editRoute : nil
         case .fuelPlanned:
-            // Fuel on board is entered on the plan's own sheet. Without this, the row could tell you
-            // the numbers disagreed and give you nowhere to fix them.
-            return plan(for: thread) != nil ? L10n.Thread.editFuel : nil
+            // Fuel on board, in its own sheet: the number this task is about, with Full tanks. The
+            // nav log sheet ("Fuel & times") is a link inside it. (on-device review #4, point 3)
+            return plan(for: thread) != nil ? L10n.FuelOnBoard.title : nil
         case .navLogReady:
             // The nav log is the one artefact this task is about, so the task should hand it over
             // rather than send the pilot to the plan editor to find the same export.
@@ -1066,7 +1095,8 @@ struct FlightThreadView: View {
             routeBuilderPlanId = plan.id
         case .fuelPlanned:
             guard let plan = plan(for: thread) else { return }
-            planEditorPlan = plan
+            lastFuelPlanId = plan.id
+            fuelSheetPlanId = plan.id
         case .navLogReady:
             guard let plan = plan(for: thread) else { return }
             Task {
@@ -1117,6 +1147,9 @@ struct ThreadTaskRow: View {
     /// that is only ever a tick.
     var toolLabel: String?
     var onOpenTool: (() -> Void)?
+    /// A tap anywhere on the row, for a task the row itself opens (fuel on board). Nil: the row
+    /// only has its tick and chips. (on-device review #4, point 3)
+    var onTapRow: (() -> Void)?
     /// The flight page's "Next" card: the title and hint read larger. (v6.0 · D3)
     var prominent: Bool = false
 
@@ -1186,7 +1219,25 @@ struct ThreadTaskRow: View {
         .accessibilityElement(children: .combine)
         .accessibilityLabel(presentation.title)
         .accessibilityValue(task.state == .done ? L10n.Thread.markDone : "")
-        .accessibilityAddTraits(task.kind == .auto ? [] : .isButton)
+        .accessibilityAddTraits(task.kind == .auto && onTapRow == nil ? [] : .isButton)
+        .modifier(RowTap(action: onTapRow))
+    }
+
+    /// A row the whole of which opens something: a tap anywhere but on its chips (buttons keep their
+    /// own taps), and VoiceOver's activate. Rows without it are left exactly as they were: their
+    /// activate still ticks.
+    private struct RowTap: ViewModifier {
+        let action: (() -> Void)?
+
+        func body(content: Content) -> some View {
+            if let action {
+                content
+                    .onTapGesture { action() }
+                    .accessibilityAction { action() }
+            } else {
+                content
+            }
+        }
     }
 
     /// The row's actions. Wraps rather than overflowing: a task can carry a tool button and two

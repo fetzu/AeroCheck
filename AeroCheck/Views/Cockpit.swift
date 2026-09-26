@@ -303,7 +303,7 @@ struct CockpitPanePicker: View {
                 Text(title).font(.aero(size: CockpitType.label, weight: .bold)).lineLimit(1).fixedSize()
             }
             .foregroundColor(selected ? theme.actionText : theme.action)
-            .padding(.horizontal, 16)
+            .padding(.horizontal, CockpitType.size(kneeboard: 16, phone: 10))
             .frame(maxWidth: fillsWidth ? .infinity : nil, minHeight: CockpitType.size(kneeboard: 52, phone: 46))
             .background(RoundedRectangle(cornerRadius: 10).fill(selected ? theme.action : Color.clear))
             .contentShape(Rectangle())
@@ -331,7 +331,7 @@ struct CockpitChip: View {
                 Text(title).font(.aero(size: CockpitType.label, weight: .bold)).lineLimit(1).fixedSize()
             }
             .foregroundColor(color)
-            .padding(.horizontal, 14)
+            .padding(.horizontal, CockpitType.size(kneeboard: 14, phone: 10))
             .frame(minHeight: CockpitType.size(kneeboard: 52, phone: 46))
             .background(RoundedRectangle(cornerRadius: 12).fill(color.opacity(0.12)))
             .overlay(RoundedRectangle(cornerRadius: 12).stroke(color.opacity(0.45), lineWidth: 1))

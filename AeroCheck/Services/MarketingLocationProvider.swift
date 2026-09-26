@@ -587,6 +587,9 @@ enum MarketingScene: String, CaseIterable, Identifiable {
     case cruiseHUD = "Cruise HUD"
     /// The Cockpit's MAP pane in flight, with a route on it (iPhone pass).
     case cruiseRoute = "Cruise — Route on the map"
+    /// The same, with the cruise check worked through, so the Cockpit shows its MAP by itself: the
+    /// website's map shot, no tap needed. (6.0 captures)
+    case cruiseMap = "Cruise — the Cockpit's map"
     case navPlanActive = "Nav — Active Plan"
     case planConflicts = "Plan — Conflicts"
     case planBuilder = "Plan — Builder"
@@ -604,6 +607,7 @@ enum MarketingScene: String, CaseIterable, Identifiable {
         case .home2Aircraft: return "F-HVXA + HB-PFA owned"
         case .cruiseHUD: return "Active flight, CRUISE, SPD/ALT/HDG lit"
         case .cruiseRoute: return "Active flight, CRUISE, LSZQ→LSGC→LSGN→LSZB on the map"
+        case .cruiseMap: return "Active flight, CRUISE checked, the Cockpit on its MAP"
         case .navPlanActive: return "LSZQ→LSGC→LSGN→LSZB active"
         case .planConflicts: return "Geneva→Samedan, full conflict list"
         case .planBuilder: return "LSZQ→LSGN→LSZP→LSZB→LSZS builder"
@@ -704,6 +708,12 @@ enum MarketingSceneInjector {
         case .cruiseRoute:
             injectNavPlanActive(flightPlanManager: flightPlanManager, airportDataService: airportDataService, locationManager: locationManager)
             injectCruiseHUD(appState: appState, locationManager: locationManager, airportDataService: airportDataService)
+        case .cruiseMap:
+            injectNavPlanActive(flightPlanManager: flightPlanManager, airportDataService: airportDataService, locationManager: locationManager)
+            injectCruiseHUD(appState: appState, locationManager: locationManager, airportDataService: airportDataService)
+            // Every cruise item checked: the pane rule then shows the map.
+            let count = appState.activeChecklist.visibleItemCount(for: .cruise, learningMode: appState.settings.learningMode)
+            appState.currentHighlightedItem[.cruise] = ChecklistHighlighting.lastItemComplete(visibleCount: count)
         case .navPlanActive:
             injectNavPlanActive(flightPlanManager: flightPlanManager, airportDataService: airportDataService, locationManager: locationManager)
         case .planConflicts:

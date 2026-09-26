@@ -242,6 +242,7 @@ struct ContentView: View {
             case "home", "home2aircraft":       scene = .home2Aircraft
             case "cruise", "cruisehud":         scene = .cruiseHUD
             case "cruiseroute", "companion":    scene = .cruiseRoute
+            case "cruisemap":                   scene = .cruiseMap
             case "nav", "navplanactive":        scene = .navPlanActive
             case "conflicts", "planconflicts":  scene = .planConflicts
             case "plan", "planbuilder":         scene = .planBuilder

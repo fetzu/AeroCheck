@@ -174,6 +174,11 @@ struct FlightThreadView: View {
     @State private var openEditorAfterFuel = false
     /// The plan the fuel sheet was last opened for: `fuelSheetPlanId` is already nil in `onDismiss`.
     @State private var lastFuelPlanId: UUID?
+    /// Renaming the flight, or its trip. (on-device review #4)
+    @State private var renaming: RenameTarget?
+    @State private var renameText = ""
+
+    private enum RenameTarget: Equatable { case flight, trip(UUID) }
     /// "Add a stop" sheet. (v5.1)
     @State private var addingStop = false
     /// Chapters whose ticked tasks are unfolded. Folded by default: the page leads with what is left.
@@ -286,6 +291,21 @@ struct FlightThreadView: View {
                 .environmentObject(airportDataService)
         }
         .copiedConfirmation(L10n.Nav.icaoFlightPlanCopied, isPresented: $copiedFPL)
+        .alert(renaming == .flight ? L10n.FlightNames.renameFlight : L10n.FlightNames.renameTrip,
+               isPresented: Binding(get: { renaming != nil }, set: { if !$0 { renaming = nil } })) {
+            TextField(L10n.Routes.namePlaceholder, text: $renameText)
+            Button(L10n.Button.cancel, role: .cancel) { renaming = nil }
+            Button(L10n.Routes.rename) {
+                switch renaming {
+                case .flight: threadManager.renameFlight(threadId, to: renameText)
+                case .trip(let id): threadManager.renameTrip(id, to: renameText)
+                case nil: break
+                }
+                renaming = nil
+            }
+        } message: {
+            Text(renaming == .flight ? L10n.FlightNames.renameFlightMessage : L10n.FlightNames.renameTripMessage)
+        }
         // Warm the tariff registry so the fee task can offer the operator's page. Cached for a week
         // and silent on failure — a missing link is a missing convenience, never an error.
         .task { await AirfieldTariffService.shared.refreshIfNeeded() }
@@ -351,8 +371,9 @@ struct FlightThreadView: View {
             // and the thumbnail beside it already opens the route. (device pass)
             Button { planEditorPlan = plan(for: thread) } label: {
                 VStack(alignment: .leading, spacing: 3) {
-                    Text(thread.routeLabel)
-                        .scaledFont(size: 19, weight: .semibold, design: .monospaced, relativeTo: .title3)
+                    Text(thread.displayName)
+                        .scaledFont(size: 19, weight: .semibold, design: thread.name == nil ? .monospaced : .default,
+                                    relativeTo: .title3)
                         .foregroundColor(.primaryText)
                         .lineLimit(1)
                         // A safety net for a long label, not the mechanism — the space comes from
@@ -370,6 +391,20 @@ struct FlightThreadView: View {
             .buttonStyle(.plain)
             .disabled(plan(for: thread) == nil)
             .accessibilityHint(L10n.Nav.flightPlanDetails)
+
+            // A name of the pilot's own, whatever the ends. (on-device review #4)
+            Button {
+                renameText = thread.name ?? ""
+                renaming = .flight
+            } label: {
+                Image(systemName: "pencil")
+                    .scaledFont(size: 15, weight: .semibold, relativeTo: .body)
+                    .foregroundColor(.aviationGold)
+                    .frame(width: 44, height: 44)
+                    .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel(L10n.FlightNames.renameFlight)
 
             if !usesCompactHeader { stateChip(thread) }
             VStack(spacing: 3) {
@@ -391,6 +426,8 @@ struct FlightThreadView: View {
 
     private func subtitle(_ thread: FlightThread) -> String {
         var parts: [String] = []
+        // Named: the route's ends move here, so they're never out of sight.
+        if thread.name != nil { parts.append(thread.routeLabel) }
         // Where this leg sits comes first: on a trip it is the thing that tells one leg from another,
         // since two legs of the same trip share their aircraft and often their date.
         if let trip = threadManager.trip(forThreadId: thread.id),
@@ -543,10 +580,24 @@ struct FlightThreadView: View {
                     .foregroundColor(.aviationGold)
                     .tracking(0.8)
                 Spacer()
-                Text(tripLabel(trip))
-                    .scaledFont(size: 11, relativeTo: .caption2)
-                    .foregroundColor(.dimText)
-                    .lineLimit(1)
+                Button {
+                    renameText = trip.name ?? ""
+                    renaming = .trip(trip.id)
+                } label: {
+                    HStack(spacing: 5) {
+                        Text(trip.name ?? tripLabel(trip))
+                            .scaledFont(size: 11, relativeTo: .caption2)
+                            .foregroundColor(trip.name == nil ? .dimText : .secondaryText)
+                            .lineLimit(1)
+                        Image(systemName: "pencil")
+                            .scaledFont(size: 10, weight: .semibold, relativeTo: .caption2)
+                            .foregroundColor(.aviationGold)
+                    }
+                    .frame(minHeight: 32)
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel(L10n.FlightNames.renameTrip)
             }
             .padding(.horizontal, 14)
             .padding(.vertical, 9)
@@ -614,7 +665,7 @@ struct FlightThreadView: View {
                             Text("\(index + 1)")
                                 .font(.aero(size: 11, weight: .bold, design: .monospaced))
                                 .foregroundColor(.aviationGold)
-                            Text(leg.routeLabel)
+                            Text(leg.displayName)
                                 .scaledFont(size: 12, design: .monospaced, relativeTo: .caption)
                                 .foregroundColor(isCurrent ? .primaryText : .secondaryText)
                                 .lineLimit(1)
@@ -631,7 +682,7 @@ struct FlightThreadView: View {
                     }
                     .buttonStyle(.plain)
                     .disabled(isCurrent || onOpenLeg == nil)
-                    .accessibilityLabel(L10n.Flights.legOf(index + 1, legs.count) + ", " + leg.routeLabel)
+                    .accessibilityLabel(L10n.Flights.legOf(index + 1, legs.count) + ", " + leg.displayName)
                 }
             }
             .padding(.horizontal, 14)

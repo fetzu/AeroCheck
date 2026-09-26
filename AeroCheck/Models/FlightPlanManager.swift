@@ -924,6 +924,42 @@ class FlightPlanManager: ObservableObject {
         return nil
     }
 
+    /// The aircraft a new or imported route is planned for.
+    struct RouteAircraft: Equatable {
+        let typeId: String
+        let registration: String
+        let modelName: String
+    }
+
+    /// Imports a route, and returns with it the ICAO codes a GPX file gives for the waypoints it
+    /// names after a place, so the import can offer them (`ICAONaming`).
+    ///
+    /// A GPX file carries no aircraft, and the parser's default (F-HVXA) used to stay on every
+    /// imported route: it now takes the pilot's selected aircraft, with its fuel flow. An AeroCheck
+    /// JSON file keeps its own. (on-device review #4)
+    func importRoute(from data: Data, aircraft: RouteAircraft) -> (plan: FlightPlan, fileIdents: [UUID: String])? {
+        if let plan = FlightPlan.fromJSON(data) {
+            var imported = plan
+            imported.isActive = false
+            imported.currentWaypointIndex = 0
+            flightPlans.insert(imported, at: 0)
+            saveFlightPlans()
+            return (imported, [:])
+        }
+        guard let (plan, fileIdents) = FlightPlan.fromGPXWithIdents(data) else { return nil }
+        var imported = plan
+        imported.isActive = false
+        imported.currentWaypointIndex = 0
+        imported.aircraftTypeId = aircraft.typeId
+        imported.aircraftRegistration = aircraft.registration
+        imported.aircraftModelName = aircraft.modelName
+        if imported.fuelFlow == nil { imported.fuelFlow = FlightPlan.defaultFuelFlow(for: aircraft.typeId) }
+        imported.calculateRouteData()
+        flightPlans.insert(imported, at: 0)
+        saveFlightPlans()
+        return (imported, fileIdents)
+    }
+
     /// Name of the waypoint currently being flown to on the active plan, or nil when there is no
     /// active plan / the route is complete. Surfaces on the Live Activity. (UX-25)
     var activeNextWaypointName: String? {

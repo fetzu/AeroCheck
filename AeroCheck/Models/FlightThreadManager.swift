@@ -464,6 +464,28 @@ class FlightThreadManager: ObservableObject {
     }
 
     /// Rename a flight after its route changed ends — a stop added, two legs joined.
+    /// The pilot's name for a flight; empty goes back to its route label. (on-device review #4)
+    func renameFlight(_ threadId: UUID, to name: String) {
+        guard let index = threads.firstIndex(where: { $0.id == threadId }) else { return }
+        let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        let new: String? = trimmed.isEmpty ? nil : trimmed
+        guard threads[index].name != new else { return }
+        threads[index].name = new
+        threads[index].touch()
+        saveThreads()
+    }
+
+    /// The pilot's name for a trip; empty goes back to its aerodromes. (on-device review #4)
+    func renameTrip(_ tripId: UUID, to name: String) {
+        guard let index = trips.firstIndex(where: { $0.id == tripId }) else { return }
+        let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        let new: String? = trimmed.isEmpty ? nil : trimmed
+        guard trips[index].name != new else { return }
+        trips[index].name = new
+        trips[index].updatedAt = Date()
+        saveTrips()
+    }
+
     func updateRouteLabel(_ label: String, threadId: UUID) {
         guard let index = threads.firstIndex(where: { $0.id == threadId }),
               threads[index].routeLabel != label else { return }

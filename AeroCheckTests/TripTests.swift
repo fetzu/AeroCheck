@@ -831,4 +831,47 @@ extension TripTests {
         let threads = [landed, next]
         XCTAssertEqual(labels(UpcomingOrder.entries(threads: threads, trips: []), threads), ["M → N"])
     }
+
+    // MARK: - Names (on-device review #4)
+
+    func testAFlightShowsItsNameElseItsRoute() {
+        var thread = FlightThread(routeLabel: "LSZS → LSZQ")
+        XCTAssertEqual(thread.displayName, "LSZS → LSZQ")
+        thread.name = "Home via the Rhine"
+        XCTAssertEqual(thread.displayName, "Home via the Rhine")
+        thread.name = "   "
+        XCTAssertEqual(thread.displayName, "LSZS → LSZQ", "a blank name is no name")
+    }
+
+    @MainActor
+    func testRenamingAFlightAndATripAndClearingThem() {
+        let manager = makeTestThreadManager()
+        let a = manager.createThread(from: FlightPlan(name: "A"), profile: .full, routeLabel: "LSZQ → LSZE", aircraftRegistration: "F-HVXA")
+        let b = manager.createThread(from: FlightPlan(name: "B"), profile: .full, routeLabel: "LSZE → LSZS", aircraftRegistration: "F-HVXA")
+        let trip = manager.formTrip(from: [a.id, b.id])!
+
+        manager.renameFlight(a.id, to: "  First hop ")
+        manager.renameTrip(trip.id, to: "Engadin weekend")
+        XCTAssertEqual(manager.thread(withId: a.id)?.displayName, "First hop")
+        XCTAssertEqual(manager.trip(withId: trip.id)?.name, "Engadin weekend")
+
+        manager.renameFlight(a.id, to: "")
+        manager.renameTrip(trip.id, to: " ")
+        XCTAssertNil(manager.thread(withId: a.id)?.name)
+        XCTAssertNil(manager.trip(withId: trip.id)?.name)
+    }
+
+    func testFlightsAndTripsSavedBeforeNamesStillDecode() throws {
+        let thread = FlightThread(routeLabel: "LSZQ → LSZE")
+        var json = try JSONSerialization.jsonObject(with: JSONEncoder().encode(thread)) as! [String: Any]
+        json.removeValue(forKey: "name")
+        let decoded = try JSONDecoder().decode(FlightThread.self, from: JSONSerialization.data(withJSONObject: json))
+        XCTAssertNil(decoded.name)
+        XCTAssertEqual(decoded.displayName, "LSZQ → LSZE")
+
+        var tripJSON = try JSONSerialization.jsonObject(with: JSONEncoder().encode(Trip(legIds: [thread.id]))) as! [String: Any]
+        tripJSON.removeValue(forKey: "name")
+        XCTAssertNil(try JSONDecoder().decode(Trip.self, from: JSONSerialization.data(withJSONObject: tripJSON)).name)
+    }
 }
+

@@ -20,12 +20,30 @@ struct AircraftSettingsView: View {
             if showsSpeeds {
                 aircraftSection
                 SettingsGroup(title: L10n.Sheet.speedReference, tint: .aviationGold) {
-                    // An in-flight component on a ground screen: ground screens don't switch to the
-                    // night palette, so neither does the table here.
-                    SpeedReferenceView(activeChecklist: appState.activeChecklist)
-                        .padding(.horizontal, 14)   // the group's rows all inset 14 pt (review #1, G-06)
-                        .padding(.vertical, 8)
-                        .environment(\.cockpitTheme, .day)
+                    if let locked = lockedSelection {
+                        // The speeds come with the checklist, which Pro unlocks: say that, rather
+                        // than an empty table. (on-device review #4, point 1)
+                        Text(L10n.Ground.speedsNeedPro(locked.registration))
+                            .font(.aero(.subheadline))
+                            .foregroundColor(.secondaryText)
+                            .fixedSize(horizontal: false, vertical: true)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .padding(.horizontal, 14)
+                            .padding(.vertical, 12)
+                    } else {
+                        // An in-flight component on a ground screen: ground screens don't switch to the
+                        // night palette, so neither does the table here.
+                        SpeedReferenceView(activeChecklist: appState.activeChecklist)
+                            .padding(.horizontal, 14)   // the group's rows all inset 14 pt (review #1, G-06)
+                            .padding(.vertical, 8)
+                            .environment(\.cockpitTheme, .day)
+                    }
+                }
+                if lockedSelection == nil {
+                    SettingsGroup(title: L10n.FuelOnBoard.fuelGroup, tint: .aviationGold,
+                                  footer: L10n.FuelOnBoard.fullTanksRowFooter) {
+                        FullTanksSettingRow(registration: selectedRegistration)
+                    }
                 }
                 tabLinks
             } else {
@@ -148,7 +166,21 @@ struct AircraftSettingsView: View {
     /// WT9 used to be here, with the premium ones behind "Premium aircraft", so once Today lost its
     /// carousel there was no obvious way to switch. (on-device review #1, G-06)
     private var flyableAircraft: [AircraftOption] {
-        AircraftOption.flyable(remote: aircraftDataService.availableAircraft, settings: appState.settings)
+        AircraftOption.flyable(remote: aircraftDataService.availableAircraft, settings: appState.settings,
+                               canFly: aircraftDataService.canFly)
+    }
+
+    /// The selected aircraft, when AéroCheck Pro isn't active for it: listed, locked, and not
+    /// selectable, with the way to Pro. (on-device review #4, point 1)
+    private var lockedSelection: RemoteAircraftMetadata? {
+        AircraftOption.lockedSelection(remote: aircraftDataService.availableAircraft, settings: appState.settings,
+                                       canFly: aircraftDataService.canFly)
+    }
+
+    /// The selected aircraft's registration, bundled or premium.
+    private var selectedRegistration: String {
+        flyableAircraft.first { $0.isSelected(in: appState.settings) }?.registration
+            ?? appState.settings.selectedAircraft.registration
     }
 
     private func fly(_ option: AircraftOption) {
@@ -196,6 +228,10 @@ struct AircraftSettingsView: View {
                 }
                 .buttonStyle(.plain)
                 .accessibilityAddTraits(isSelected ? .isSelected : [])
+            }
+
+            if let locked = lockedSelection {
+                lockedRow(locked)
             }
 
             // Premium Aircrafts navigation link
@@ -275,6 +311,40 @@ struct AircraftSettingsView: View {
             .buttonStyle(.plain)
             .disabled(isSyncingAircraftData)
         }
+    }
+
+    /// The selected premium aircraft while Pro isn't active: ticked, because it is still the one
+    /// selected, but locked. A tap goes to the plans (with Restore), never selects. (review #4, point 1)
+    private func lockedRow(_ aircraft: RemoteAircraftMetadata) -> some View {
+        NavigationLink(destination: SubscriptionView(presentedAsSheet: false)
+            .environmentObject(subscriptionManager)
+        ) {
+            HStack(spacing: 12) {
+                Image(systemName: "lock.circle.fill")
+                    .font(.aero(size: 22))
+                    .foregroundColor(.aviationAmber)
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(aircraft.registration)
+                        .font(.aero(.body, design: .monospaced))
+                        .fontWeight(.semibold)
+                        .foregroundColor(.primary)
+                    Text(L10n.Ground.proNotActiveRow)
+                        .font(.aero(.caption))
+                        .foregroundColor(.aviationAmber)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                Spacer()
+                Image(systemName: "chevron.right")
+                    .font(.aero(size: 13, weight: .semibold))
+                    .foregroundColor(.dimText.opacity(0.7))
+            }
+            .padding(.horizontal, 14)
+            .padding(.vertical, 10)
+            .frame(minHeight: 56)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityAddTraits(.isSelected)
     }
 
     private func getLatestAircraftData() {
@@ -455,6 +525,85 @@ struct AircraftSettingsView: View {
     private func hideAllAircraft() {
         for group in availableAeroclubs {
             appState.settings.hiddenAeroclubs.insert(group.aeroclub)
+        }
+        appState.saveSettings()
+    }
+}
+
+/// The selected aircraft's usable fuel with full tanks: the aircraft's figure when its data gives
+/// one, otherwise the pilot's, editable here and in a flight's fuel sheet. (on-device review #4, point 3)
+private struct FullTanksSettingRow: View {
+    let registration: String
+
+    @Environment(AppState.self) private var appState
+    @EnvironmentObject var aircraftDataService: AircraftDataService
+    @State private var text = ""
+    @FocusState private var focused: Bool
+
+    private var resolved: FullTanks? {
+        FullTanks.resolve(registration: registration, available: aircraftDataService.availableAircraft,
+                          pilotValues: appState.settings.fullTanksLitres)
+    }
+
+    var body: some View {
+        HStack(spacing: 12) {
+            VStack(alignment: .leading, spacing: 3) {
+                Text(L10n.FuelOnBoard.fullTanksRow)
+                    .font(.aero(.body))
+                    .foregroundColor(.primaryText)
+                Text(resolved?.source == .aircraftData
+                     ? L10n.FuelOnBoard.fromAircraftData
+                     : L10n.FuelOnBoard.yourFigure(registration))
+                    .font(.aero(.caption))
+                    .foregroundColor(.secondaryText)
+            }
+            Spacer(minLength: 8)
+            if let resolved, resolved.source == .aircraftData {
+                Text("\(FuelEntry.text(resolved.litres)) L")
+                    .font(.aero(.body, design: .monospaced))
+                    .foregroundColor(.primaryText)
+            } else {
+                HStack(spacing: 6) {
+                    TextField("—", text: $text)
+                        .keyboardType(.decimalPad)
+                        .multilineTextAlignment(.trailing)
+                        .focused($focused)
+                        .font(.aero(.body, design: .monospaced))
+                        .onSubmit(commit)
+                        .accessibilityLabel(L10n.FuelOnBoard.fullTanksRow)
+                    Text("L").foregroundColor(.secondaryText)
+                }
+                .padding(.horizontal, 10)
+                .frame(width: 120, height: 40)
+                .background(RoundedRectangle(cornerRadius: 9).fill(Color.cockpitBackground.opacity(0.6)))
+            }
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 10)
+        .frame(minHeight: 56)
+        .onAppear(perform: load)
+        .onChange(of: registration) { _, _ in load() }
+        // Saved as the field is left: the decimal pad has no return key.
+        .onChange(of: focused) { _, isFocused in if !isFocused { commit() } }
+    }
+
+    private func load() {
+        text = appState.settings.fullTanksLitres[FullTanks.key(for: registration) ?? ""].map(FuelEntry.text) ?? ""
+    }
+
+    private func commit() {
+        guard let key = FullTanks.key(for: registration) else { return }
+        let trimmed = text.trimmingCharacters(in: .whitespaces)
+        if trimmed.isEmpty {
+            guard appState.settings.fullTanksLitres[key] != nil else { return }
+            appState.settings.fullTanksLitres[key] = nil
+        } else {
+            guard let litres = FuelEntry.litres(from: trimmed), FullTanks.isPlausible(litres) else {
+                load()   // not a figure a tank holds: put back what was there
+                return
+            }
+            guard appState.settings.fullTanksLitres[key] != litres else { return }
+            appState.settings.fullTanksLitres[key] = litres
         }
         appState.saveSettings()
     }

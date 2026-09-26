@@ -771,4 +771,107 @@ extension TripTests {
         XCTAssertEqual(savedTrips.map(\.id), [trip.id])
         XCTAssertEqual(Set(savedThreads.map(\.id)), [a.id, b.id])
     }
+
+    // MARK: - The Upcoming list's order (on-device review #4)
+
+    private func flight(_ label: String, on day: Int?, created: TimeInterval = 0) -> FlightThread {
+        var thread = FlightThread(routeLabel: label)
+        thread.scheduledDeparture = day.map { Date(timeIntervalSince1970: 1_790_000_000 + Double($0) * 86_400) }
+        thread.createdAt = Date(timeIntervalSince1970: 1_780_000_000 + created)
+        return thread
+    }
+
+    private func labels(_ entries: [UpcomingOrder.Entry], _ threads: [FlightThread]) -> [String] {
+        entries.map { entry in
+            switch entry {
+            case .flight(let thread): return thread.routeLabel
+            case .trip(let trip): return "trip:" + trip.legIds.compactMap { id in threads.first { $0.id == id }?.routeLabel }.joined(separator: "+")
+            }
+        }
+    }
+
+    /// The device case: the flight on the 28th was listed above the one on the 27th, because it had
+    /// been edited more recently.
+    func testUpcomingIsInTheOrderItWillBeFlownNotLastEdited() {
+        var later = flight("LSZS → LFLI", on: 28)
+        later.updatedAt = Date(timeIntervalSince1970: 1_800_000_000)
+        let sooner = flight("Samedan → Bressaucourt", on: 27)
+        let threads = [later, sooner]
+        XCTAssertEqual(labels(UpcomingOrder.entries(threads: threads, trips: []), threads),
+                       ["Samedan → Bressaucourt", "LSZS → LFLI"])
+    }
+
+    func testUndatedFlightsComeAfterTheDatedOnesNewestFirst() {
+        let old = flight("A → B", on: nil, created: 10)
+        let new = flight("C → D", on: nil, created: 20)
+        let dated = flight("E → F", on: 40)
+        let threads = [old, new, dated]
+        XCTAssertEqual(labels(UpcomingOrder.entries(threads: threads, trips: []), threads),
+                       ["E → F", "C → D", "A → B"])
+    }
+
+    /// A trip is one entry, at the date of its first leg still to fly; its legs aren't listed loose.
+    func testATripSitsAtItsFirstLegsDate() {
+        var leg1 = flight("LSZQ → LSZE", on: 30)
+        var leg2 = flight("LSZE → LSZS", on: 31)
+        let trip = Trip(legIds: [leg1.id, leg2.id])
+        leg1.tripId = trip.id
+        leg2.tripId = trip.id
+        let before = flight("X → Y", on: 29)
+        let after = flight("Y → Z", on: 32)
+        let threads = [after, leg1, leg2, before]
+        XCTAssertEqual(labels(UpcomingOrder.entries(threads: threads, trips: [trip]), threads),
+                       ["X → Y", "trip:LSZQ → LSZE+LSZE → LSZS", "Y → Z"])
+    }
+
+    func testClosingOutFlightsAreNotUpcoming() {
+        var landed = flight("L → M", on: 1)
+        landed.state = .closeOut
+        let next = flight("M → N", on: 2)
+        let threads = [landed, next]
+        XCTAssertEqual(labels(UpcomingOrder.entries(threads: threads, trips: []), threads), ["M → N"])
+    }
+
+    // MARK: - Names (on-device review #4)
+
+    func testAFlightShowsItsNameElseItsRoute() {
+        var thread = FlightThread(routeLabel: "LSZS → LSZQ")
+        XCTAssertEqual(thread.displayName, "LSZS → LSZQ")
+        thread.name = "Home via the Rhine"
+        XCTAssertEqual(thread.displayName, "Home via the Rhine")
+        thread.name = "   "
+        XCTAssertEqual(thread.displayName, "LSZS → LSZQ", "a blank name is no name")
+    }
+
+    @MainActor
+    func testRenamingAFlightAndATripAndClearingThem() {
+        let manager = makeTestThreadManager()
+        let a = manager.createThread(from: FlightPlan(name: "A"), profile: .full, routeLabel: "LSZQ → LSZE", aircraftRegistration: "F-HVXA")
+        let b = manager.createThread(from: FlightPlan(name: "B"), profile: .full, routeLabel: "LSZE → LSZS", aircraftRegistration: "F-HVXA")
+        let trip = manager.formTrip(from: [a.id, b.id])!
+
+        manager.renameFlight(a.id, to: "  First hop ")
+        manager.renameTrip(trip.id, to: "Engadin weekend")
+        XCTAssertEqual(manager.thread(withId: a.id)?.displayName, "First hop")
+        XCTAssertEqual(manager.trip(withId: trip.id)?.name, "Engadin weekend")
+
+        manager.renameFlight(a.id, to: "")
+        manager.renameTrip(trip.id, to: " ")
+        XCTAssertNil(manager.thread(withId: a.id)?.name)
+        XCTAssertNil(manager.trip(withId: trip.id)?.name)
+    }
+
+    func testFlightsAndTripsSavedBeforeNamesStillDecode() throws {
+        let thread = FlightThread(routeLabel: "LSZQ → LSZE")
+        var json = try JSONSerialization.jsonObject(with: JSONEncoder().encode(thread)) as! [String: Any]
+        json.removeValue(forKey: "name")
+        let decoded = try JSONDecoder().decode(FlightThread.self, from: JSONSerialization.data(withJSONObject: json))
+        XCTAssertNil(decoded.name)
+        XCTAssertEqual(decoded.displayName, "LSZQ → LSZE")
+
+        var tripJSON = try JSONSerialization.jsonObject(with: JSONEncoder().encode(Trip(legIds: [thread.id]))) as! [String: Any]
+        tripJSON.removeValue(forKey: "name")
+        XCTAssertNil(try JSONDecoder().decode(Trip.self, from: JSONSerialization.data(withJSONObject: tripJSON)).name)
+    }
 }
+

@@ -179,6 +179,32 @@ class FlightPlanManager: ObservableObject {
         deleteFlightPlanFile(plan)
     }
 
+    // MARK: - The route library (on-device review #4)
+
+    /// Out of the Routes list, kept under Archived. A route on the map comes off it first.
+    func archive(_ plan: FlightPlan) {
+        if activeFlightPlan?.id == plan.id { deactivateFlightPlan() }
+        guard var current = flightPlans.first(where: { $0.id == plan.id }) else { return }
+        current.archivedAt = Date()
+        updateFlightPlan(current)
+    }
+
+    func unarchive(_ plan: FlightPlan) {
+        guard var current = flightPlans.first(where: { $0.id == plan.id }) else { return }
+        current.archivedAt = nil
+        updateFlightPlan(current)
+    }
+
+    /// A name of the pilot's own, whatever the route's ends. Empty clears it: the list then shows
+    /// the route's ends.
+    func rename(_ plan: FlightPlan, to name: String) {
+        guard var current = flightPlans.first(where: { $0.id == plan.id }) else { return }
+        let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard current.name != trimmed else { return }
+        current.name = trimmed
+        updateFlightPlan(current)
+    }
+
     /// Delete flight plans at offsets
     func deleteFlightPlans(at offsets: IndexSet) {
         // Collect plans to delete for file cleanup
@@ -898,6 +924,42 @@ class FlightPlanManager: ObservableObject {
         return nil
     }
 
+    /// The aircraft a new or imported route is planned for.
+    struct RouteAircraft: Equatable {
+        let typeId: String
+        let registration: String
+        let modelName: String
+    }
+
+    /// Imports a route, and returns with it the ICAO codes a GPX file gives for the waypoints it
+    /// names after a place, so the import can offer them (`ICAONaming`).
+    ///
+    /// A GPX file carries no aircraft, and the parser's default (F-HVXA) used to stay on every
+    /// imported route: it now takes the pilot's selected aircraft, with its fuel flow. An AeroCheck
+    /// JSON file keeps its own. (on-device review #4)
+    func importRoute(from data: Data, aircraft: RouteAircraft) -> (plan: FlightPlan, fileIdents: [UUID: String])? {
+        if let plan = FlightPlan.fromJSON(data) {
+            var imported = plan
+            imported.isActive = false
+            imported.currentWaypointIndex = 0
+            flightPlans.insert(imported, at: 0)
+            saveFlightPlans()
+            return (imported, [:])
+        }
+        guard let (plan, fileIdents) = FlightPlan.fromGPXWithIdents(data) else { return nil }
+        var imported = plan
+        imported.isActive = false
+        imported.currentWaypointIndex = 0
+        imported.aircraftTypeId = aircraft.typeId
+        imported.aircraftRegistration = aircraft.registration
+        imported.aircraftModelName = aircraft.modelName
+        if imported.fuelFlow == nil { imported.fuelFlow = FlightPlan.defaultFuelFlow(for: aircraft.typeId) }
+        imported.calculateRouteData()
+        flightPlans.insert(imported, at: 0)
+        saveFlightPlans()
+        return (imported, fileIdents)
+    }
+
     /// Name of the waypoint currently being flown to on the active plan, or nil when there is no
     /// active plan / the route is complete. Surfaces on the Live Activity. (UX-25)
     var activeNextWaypointName: String? {
@@ -1049,3 +1111,45 @@ class FlightPlanManager: ObservableObject {
         defaults.removeObject(forKey: activeFlightPlanKey)
     }
 }
+
+// MARK: - Route library
+
+/// What the Routes list holds, and what its search finds. (on-device review #4)
+enum RouteLibrary {
+    /// Whether a plan is one of the pilot's routes, rather than the plan a planned flight made for
+    /// itself. `followedSince` is when the flight that follows the plan was created, nil when none
+    /// does.
+    ///
+    /// Every flight planned from a route copied it, and the copy was listed under Routes too, as
+    /// were both halves of an "Add a stop": a few flights filled the list with near-duplicates.
+    /// New flights mark their plan (`flightOwned`). A plan saved before that is the flight's own when
+    /// it was made together with the flight; a route followed later ("Follow flight", from Routes)
+    /// stays a route.
+    static func isRoute(_ plan: FlightPlan, followedSince: Date?) -> Bool {
+        if plan.flightOwned == true { return false }
+        guard let followedSince else { return true }
+        return abs(followedSince.timeIntervalSince(plan.createdAt)) > 120
+    }
+
+    /// The pilot's routes among `plans`, archived ones left out: what Routes lists, and what Plan new
+    /// flight offers to start from.
+    static func activeRoutes(_ plans: [FlightPlan], threads: [FlightThread]) -> [FlightPlan] {
+        plans.filter { plan in
+            plan.archivedAt == nil
+                && isRoute(plan, followedSince: threads.first { $0.flightPlanId == plan.id }?.createdAt)
+        }
+    }
+
+    /// Whether a route matches a search: its name, its waypoints (names and idents) and its aircraft,
+    /// ignoring case and accents. Every word must match, in any order: "bress lszs".
+    static func matches(_ plan: FlightPlan, query: String) -> Bool {
+        let words = query.split(whereSeparator: \.isWhitespace).map(String.init)
+        guard !words.isEmpty else { return true }
+        let haystack = ([plan.name, plan.aircraftRegistration, plan.aircraftModelName]
+                        + plan.waypoints.map(\.name)
+                        + plan.waypoints.compactMap(\.callSign))
+            .joined(separator: " ")
+        return words.allSatisfy { haystack.localizedStandardContains($0) }
+    }
+}
+

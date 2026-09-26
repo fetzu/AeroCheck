@@ -91,12 +91,31 @@ extension AircraftOption {
     /// Every aircraft the pilot can fly, in the order they are offered: the bundled ones (never
     /// hidden), then each premium aircraft they have access to that isn't hidden in Settings. The
     /// one list Today's aircraft menu and the Aircraft tab both show. (on-device review #1, G-06)
-    static func flyable(remote: [RemoteAircraftMetadata], settings: AppSettings) -> [AircraftOption] {
+    ///
+    /// `canFly` is `AircraftDataService.canFly`: Pro active on the server AND on this device. The
+    /// default, the server's flag alone, is what the lists used before on-device review #4.
+    static func flyable(remote: [RemoteAircraftMetadata], settings: AppSettings,
+                        canFly: (RemoteAircraftMetadata) -> Bool = { $0.hasAccess }) -> [AircraftOption] {
         AircraftType.allCases.map { .bundled($0) }
             + remote
-                .filter { $0.hasAccess && !$0.isBundled
+                .filter { canFly($0) && !$0.isBundled
                     && settings.isAircraftVisible(aircraftId: $0.id, aeroclub: $0.aeroclub) }
                 .map { .remote($0) }
+    }
+
+    /// The selected premium aircraft when it can't be flown because AéroCheck Pro isn't active. It
+    /// stays selected and is shown locked, rather than being swapped for the WT9 without a word:
+    /// the pilot sees why, and can't start a flight with another aircraft's checklist by mistake.
+    /// nil when the selection is flyable, bundled, or hidden in Settings (hiding is the pilot's
+    /// choice, and moves the selection as before). (on-device review #4, point 1)
+    static func lockedSelection(remote: [RemoteAircraftMetadata], settings: AppSettings,
+                                canFly: (RemoteAircraftMetadata) -> Bool) -> RemoteAircraftMetadata? {
+        guard let id = settings.selectedRemoteAircraftId,
+              let meta = remote.first(where: { $0.id == id }),
+              !meta.isBundled, !canFly(meta),
+              settings.isAircraftVisible(aircraftId: meta.id, aeroclub: meta.aeroclub)
+        else { return nil }
+        return meta
     }
 
     /// Whether this is the aircraft the settings say the pilot flies.
@@ -175,7 +194,14 @@ struct HomeView: View {
 
     /// Available aircraft options based on subscription status and visibility settings
     private var availableAircraft: [AircraftOption] {
-        AircraftOption.flyable(remote: aircraftDataService.availableAircraft, settings: appState.settings)
+        AircraftOption.flyable(remote: aircraftDataService.availableAircraft, settings: appState.settings,
+                               canFly: aircraftDataService.canFly)
+    }
+
+    /// The selected aircraft, when AéroCheck Pro isn't active for it. (on-device review #4, point 1)
+    private var lockedSelection: RemoteAircraftMetadata? {
+        AircraftOption.lockedSelection(remote: aircraftDataService.availableAircraft, settings: appState.settings,
+                                       canFly: aircraftDataService.canFly)
     }
 
     /// Currently selected aircraft option
@@ -260,7 +286,7 @@ struct HomeView: View {
         } message: {
             switch startPrompt {
             case .outstanding(let thread, let remaining):
-                Text(L10n.Home.outstandingBeforeFlight(thread.routeLabel, remaining))
+                Text(L10n.Home.outstandingBeforeFlight(thread.displayName, remaining))
             case nil:
                 EmptyView()
             }
@@ -275,7 +301,7 @@ struct HomeView: View {
                 PlanNewFlightView(
                     intent: seed,
                     aircraft: availableAircraft,
-                    savedRoutes: flightPlanManager.flightPlans,
+                    savedRoutes: RouteLibrary.activeRoutes(flightPlanManager.flightPlans, threads: threadManager.threads),
                     onCreate: { stops, intent, route in
                         planningNewFlight = nil
                         createFlight(stops: stops, from: intent, route: route)
@@ -318,33 +344,6 @@ struct HomeView: View {
                 || locationManager.authorizationStatus == .authorizedAlways {
                 locationManager.startLocationUpdates()
             }
-        }
-        .alert(L10n.Alert.cannotStartFlightTitle, isPresented: Binding(
-            get: { appState.flightStartError != nil },
-            set: { if !$0 { appState.flightStartError = nil } }
-        )) {
-            Button(L10n.Button.close, role: .cancel) { appState.flightStartError = nil }
-        } message: {
-            Text(appState.flightStartError ?? "")
-        }
-        // PR-14: a just-finished flight could not be persisted — its checkpoint was kept and will
-        // be restored next launch. Surface it rather than letting the failure be silent.
-        .alert(L10n.Alert.flightSaveFailedTitle, isPresented: Binding(
-            get: { appState.flightSaveError != nil },
-            set: { if !$0 { appState.flightSaveError = nil } }
-        )) {
-            Button(L10n.Button.close, role: .cancel) { appState.flightSaveError = nil }
-        } message: {
-            Text(appState.flightSaveError ?? "")
-        }
-        // Present the paywall when a flight start was refused for an unowned premium aircraft. (UX-07)
-        .sheet(isPresented: Binding(
-            get: { appState.flightStartPaywallRequest },
-            set: { if !$0 { appState.flightStartPaywallRequest = false } }
-        )) {
-            // Personalise the paywall with the aircraft the pilot just tried to fly.
-            SubscriptionView(contextAircraftName: selectedAircraft?.modelName)
-                .environmentObject(subscriptionManager)
         }
         .onChange(of: aircraftDataService.availableAircraft) { _, _ in
             syncSelectedAircraftIndex()
@@ -393,6 +392,8 @@ struct HomeView: View {
                 }
                 return
             }
+            // Locked (Pro not active): keep it selected, Today and the Aircraft tab show why.
+            if lockedSelection != nil { return }
             // Selected remote aircraft is hidden - fall back to first available (bundled)
             if !aircraft.isEmpty {
                 selectedAircraftIndex = 0
@@ -514,7 +515,7 @@ struct HomeView: View {
             .frame(height: isCompact ? 56 : 76)
         }
         .buttonStyle(PrimaryButtonStyle(color: .aviationGreen))
-        .accessibilityHint(heroFlight?.routeLabel ?? "")
+        .accessibilityHint(heroFlight?.displayName ?? "")
     }
 
     private func planFlightButton(isCompact: Bool) -> some View {
@@ -558,7 +559,7 @@ struct HomeView: View {
                                     .foregroundColor(.secondaryText)
                             }
                         }
-                        Text(thread.routeLabel)
+                        Text(thread.displayName)
                             .scaledFont(size: isCompact ? 22 : 30, weight: .bold, design: .monospaced, relativeTo: .title2)
                             .foregroundColor(.primaryText)
                             .lineLimit(1)
@@ -659,6 +660,7 @@ struct HomeView: View {
     /// The aircraft, in the strip the flight vacated. Taps into the carousel's own screen.
     private func aircraftStrip(fillsHeight: Bool) -> some View {
         let option = selectedAircraft
+        let locked = lockedSelection
         // A menu: switch aircraft right here, as the carousel used to allow, or go to its speeds and
         // details in the Aircraft tab. (on-device review #1, G-06)
         return Menu {
@@ -683,16 +685,24 @@ struct HomeView: View {
                     Text(L10n.Nav.aircraft)
                         .scaledFont(size: 10, weight: .semibold, relativeTo: .caption2).tracking(0.5)
                         .foregroundColor(.dimText)
-                    Text(option?.registration ?? appState.settings.selectedAircraft.registration)
+                    Text(locked?.registration ?? option?.registration ?? appState.settings.selectedAircraft.registration)
                         .scaledFont(size: 15, weight: .semibold, design: .monospaced, relativeTo: .subheadline)
                         .foregroundColor(.primaryText)
                         .lineLimit(1)
                 }
                 Spacer(minLength: 6)
-                Text(option?.modelName ?? appState.settings.selectedAircraft.modelName)
-                    .scaledFont(size: 11, relativeTo: .caption2)
-                    .foregroundColor(.dimText)
-                    .lineLimit(1)
+                if locked != nil {
+                    // Pro isn't active for the selected aircraft: say so where the pilot looks.
+                    Label(L10n.Ground.proNotActiveShort, systemImage: "lock.fill")
+                        .scaledFont(size: 11, weight: .semibold, relativeTo: .caption2)
+                        .foregroundColor(.aviationAmber)
+                        .lineLimit(1)
+                } else {
+                    Text(option?.modelName ?? appState.settings.selectedAircraft.modelName)
+                        .scaledFont(size: 11, relativeTo: .caption2)
+                        .foregroundColor(.dimText)
+                        .lineLimit(1)
+                }
                 Image(systemName: "chevron.up.chevron.down")
                     .scaledFont(size: 13, weight: .semibold, relativeTo: .caption)
                     .foregroundColor(.dimText.opacity(0.7))
@@ -974,7 +984,7 @@ struct HomeView: View {
                                         .strokeBorder(accent.opacity(0.55), lineWidth: 0.5))
                             )
                     }
-                    Text(thread.routeLabel)
+                    Text(thread.displayName)
                         .scaledFont(size: 14, weight: .semibold, design: .monospaced, relativeTo: .subheadline)
                         .foregroundColor(.primaryText)
                         .lineLimit(1)
@@ -1009,7 +1019,7 @@ struct HomeView: View {
         }
         .buttonStyle(.plain)
         .accessibilityLabel(
-            [L10n.Thread.title, threadBadge(thread), thread.routeLabel, threadDetail(thread).first]
+            [L10n.Thread.title, threadBadge(thread), thread.displayName, threadDetail(thread).first]
                 .compactMap { $0 }.joined(separator: ", ")
         )
     }
@@ -1224,7 +1234,7 @@ struct HomeView: View {
             planningNewFlight = seed
             return
         }
-        let aircraft = selectedAircraft
+        let aircraft = lockedSelection.map { AircraftOption.remote($0) } ?? selectedAircraft
         planningNewFlight = NewFlightIntent(
             departureIdent: "",
             arrivalIdent: "",

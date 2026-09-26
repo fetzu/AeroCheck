@@ -226,7 +226,12 @@ struct NavigationMapView: View {
     var showsCloseButton: Bool = true
     /// The MAP pane of the Cockpit (iPad): no top bar — the Cockpit's header and instrument strip are
     /// right above — and no second flight-event overlay, the Cockpit has one. (v6.0 · P2)
+    /// Plan › Map uses the same chrome, so the map a pilot plans on is the map they fly with.
+    /// (on-device review #4)
     var isInCockpit: Bool = false
+    /// Where "Routes" goes instead of opening the routes as a cover: Plan › Map switches to its own
+    /// Routes section, rather than stacking a second copy of it over the tab. (on-device review #4)
+    var onShowRoutes: (() -> Void)? = nil
     @State private var selectedLayer: MapLayerType = .icao
     @State private var isFollowingAircraft: Bool = true
     @State private var showLayerPicker: Bool = false
@@ -2083,7 +2088,9 @@ struct NavigationMapView: View {
     private var routesButtonRow: some View {
         HStack {
             chromeButton(icon: "point.topleft.down.to.point.bottomright.curvepath",
-                         title: L10n.Ground.planRoutes) { showFlightPlanning = true }
+                         title: L10n.Ground.planRoutes) {
+                if let onShowRoutes { onShowRoutes() } else { showFlightPlanning = true }
+            }
             Spacer(minLength: 0)
         }
         .padding(.horizontal, 16)
@@ -2218,7 +2225,7 @@ struct NavigationMapView: View {
             Button(action: toggleLegsAndFrequencies) {
                 Label(L10n.Nav.legsAndFrequencies, systemImage: "list.bullet")
             }
-            Button { showFlightPlanning = true } label: {
+            Button { if let onShowRoutes { onShowRoutes() } else { showFlightPlanning = true } } label: {
                 Label(L10n.Ground.planRoutes, systemImage: "point.topleft.down.to.point.bottomright.curvepath")
             }
         } label: {

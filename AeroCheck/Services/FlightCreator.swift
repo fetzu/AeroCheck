@@ -30,11 +30,13 @@ enum FlightCreator {
         if !intent.departureIdent.isEmpty {
             await airports.ensureLoaded()
         }
-        let plan = FlightPlan.from(intent: intent) { ident in
+        var plan = FlightPlan.from(intent: intent) { ident in
             guard let airport = airports.findAirport(byIdent: ident) else { return nil }
             return FlightPlan.ResolvedPlace(coordinate: airport.coordinate,
                                             elevationFeet: airport.elevation.map(Double.init))
         }
+        // The flight's own plan: it lives with the flight, not in the Routes list. (review #4, R1)
+        plan.flightOwned = true
         plans.add(plan)
 
         // BEFORE `createThread`, which schedules the T-24h reminder behind a `hasPermission()`
@@ -95,6 +97,8 @@ enum FlightCreator {
         )
         plan.tripFuel = route.tripFuel
         plan.plannedDepartureTime = intent.departureTime
+        // The flight's copy lives with the flight; the route stays in Routes, once. (review #4, R1)
+        plan.flightOwned = true
         // Times over recorded on a previous flight of this route belong to that flight.
         for index in plan.waypoints.indices {
             plan.waypoints[index].actualTimeOver = nil

@@ -181,6 +181,9 @@ struct AppSettings: Codable, Equatable {
     var aircraftRates: [String: AircraftRateProfile] = [:]
     /// Mass & balance setup per registration. Empty until the pilot enters their aircraft's figures.
     var weightBalanceProfiles: [String: WeightBalanceProfile] = [:]
+    /// Usable fuel with full tanks, in litres, per registration: the pilot's figure, used when the
+    /// aircraft's data doesn't give one (`FullTanks.resolve`). (on-device review #4, point 3)
+    var fullTanksLitres: [String: Double] = [:]
 
     /// Which generation of the settings schema wrote this blob.
     ///
@@ -194,27 +197,33 @@ struct AppSettings: Codable, Equatable {
 
     /// Bump whenever a stored property is added that an older build cannot round-trip, and add it
     /// to `preservingFieldsUnknownTo(_:)` below.
-    static let currentSchemaVersion = 4
+    static let currentSchemaVersion = 5
 
     /// Merge an incoming settings record over `self`, keeping local values the writer could not have
     /// carried. Same-or-newer writers are taken at their word, including deliberate clearings.
     func preservingFieldsUnknownTo(_ incoming: AppSettings) -> AppSettings {
         guard incoming.schemaVersion < AppSettings.currentSchemaVersion else { return incoming }
         var merged = incoming
+        // Each block keeps only what writers OLDER than its schema can't carry: a writer one schema
+        // behind still carries everything before it, and its edits to those must win.
         // Schema 2 (v5.0.0): none of these round-trip through a v4.x writer.
-        merged.pilotName = pilotName
-        merged.isStudentPilot = isStudentPilot
-        merged.instructorName = instructorName
-        merged.sunlightBoost = sunlightBoost
-        merged.aircraftRates = aircraftRates
-        merged.weightBalanceProfiles = weightBalanceProfiles
-        merged.enableCostTracking = enableCostTracking
+        if incoming.schemaVersion < 2 {
+            merged.pilotName = pilotName
+            merged.isStudentPilot = isStudentPilot
+            merged.instructorName = instructorName
+            merged.sunlightBoost = sunlightBoost
+            merged.aircraftRates = aircraftRates
+            merged.weightBalanceProfiles = weightBalanceProfiles
+            merged.enableCostTracking = enableCostTracking
+        }
         // Schema 3 (v6.0): before 6.0 `learningMode` defaulted to off, hiding memorisable checks, so
         // an older writer's value says nothing about what this pilot chose.
-        merged.learningMode = learningMode
+        if incoming.schemaVersion < 3 { merged.learningMode = learningMode }
         // Schema 4 (v6.0): step-by-step is how every checklist runs now (the Cockpit's CHECK), and
         // there is no switch left to turn it back on, so an older writer can't turn it off.
-        merged.stepByStepHighlighting = stepByStepHighlighting
+        if incoming.schemaVersion < 4 { merged.stepByStepHighlighting = stepByStepHighlighting }
+        // Schema 5 (v6.0): the pilot's full-tanks figures. (on-device review #4, point 3)
+        if incoming.schemaVersion < 5 { merged.fullTanksLitres = fullTanksLitres }
         merged.schemaVersion = AppSettings.currentSchemaVersion
         return merged
     }
@@ -228,7 +237,7 @@ struct AppSettings: Codable, Equatable {
         guard schemaVersion < AppSettings.currentSchemaVersion else { return self }
         var migrated = self
         if schemaVersion < 3 { migrated.learningMode = true }
-        migrated.stepByStepHighlighting = true
+        if schemaVersion < 4 { migrated.stepByStepHighlighting = true }
         migrated.schemaVersion = AppSettings.currentSchemaVersion
         return migrated
     }
@@ -329,6 +338,7 @@ struct AppSettings: Codable, Equatable {
         case enableCompanionMode
         case companionRole
         case pilotName, aircraftRates, weightBalanceProfiles, sunlightBoost
+        case fullTanksLitres
         case schemaVersion
         case isStudentPilot, instructorName
         // marketingMode and developerMode are intentionally excluded (non-persisted, reset each launch)
@@ -421,6 +431,7 @@ struct AppSettings: Codable, Equatable {
         // to "profiles not set up" is bad; silently resetting the whole store is worse.
         aircraftRates = (try? container.decodeIfPresent([String: AircraftRateProfile].self, forKey: .aircraftRates)) ?? [:]
         weightBalanceProfiles = (try? container.decodeIfPresent([String: WeightBalanceProfile].self, forKey: .weightBalanceProfiles)) ?? [:]
+        fullTanksLitres = (try? container.decodeIfPresent([String: Double].self, forKey: .fullTanksLitres)) ?? [:]
         // Absent means a writer from before the version existed, which is exactly schema 1.
         schemaVersion = try container.decodeIfPresent(Int.self, forKey: .schemaVersion) ?? 1
 
@@ -443,6 +454,8 @@ struct AppSettings: Codable, Equatable {
         if let id = result.selectedRemoteAircraftId, !AircraftRegistrationToken.isWellFormed(id) {
             result.selectedRemoteAircraftId = nil
         }
+        // A full-tanks figure is what Full tanks sets fuel on board to: drop one no tank holds.
+        result.fullTanksLitres = result.fullTanksLitres.filter { FullTanks.isPlausible($0.value) }
         return result
     }
 }
@@ -651,6 +664,11 @@ class AppState {
     /// Set when a flight start is refused because the requested premium aircraft isn't owned.
     /// Observed by the UI to present the subscription paywall. (UX-07)
     var flightStartPaywallRequest: Bool = false
+
+    /// The registration of a premium aircraft a flight start was refused for because AéroCheck Pro
+    /// isn't active (never bought, or lapsed). The UI says so, and offers the plans and a restore.
+    /// (on-device review #4, point 1)
+    var flightStartNeedsPro: String?
 
     /// The resolved remote checklist for the current selection — a premium aircraft, or a
     /// language-specific bundled checklist. `nil` means none is loaded (the bundled fallback is

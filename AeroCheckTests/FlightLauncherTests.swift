@@ -129,11 +129,13 @@ final class FlightLauncherTests: XCTestCase {
         appState.isFlightActive = false
     }
 
-    func testBeginRefusesUnownedPremiumAndRequestsPaywall() async {
+    /// An unowned premium aircraft is refused with its reason: AéroCheck Pro isn't active. The alert
+    /// then offers the plans and a restore. (UX-07; on-device review #4, point 1)
+    func testBeginRefusesUnownedPremiumAndSaysProIsNotActive() async {
         let appState = makeTestAppState()
         appState.isFlightActive = false
         appState.currentFlight = nil
-        appState.flightStartPaywallRequest = false
+        appState.flightStartNeedsPro = nil
         appState.settings.selectedRemoteAircraftId = "pa28-181"
 
         let acs = makeTestAircraftDataService(subscriptionManager: makeTestSubscriptionManager())
@@ -142,7 +144,27 @@ final class FlightLauncherTests: XCTestCase {
         let outcome = await makeLauncher(appState: appState, aircraftDataService: acs).begin(circuitMode: false)
 
         XCTAssertEqual(outcome, .blockedUnowned)
-        XCTAssertTrue(appState.flightStartPaywallRequest, "An unowned premium aircraft must request the paywall")
+        XCTAssertEqual(appState.flightStartNeedsPro, "HB-PFA", "the refusal names the aircraft and says Pro isn't active")
+        XCTAssertNil(appState.flightStartError, "not the generic 'check your connection' error")
         XCTAssertFalse(appState.isFlightActive, "No flight may start for an unowned aircraft")
+    }
+
+    /// The server's list still says yes, but this device's subscription has lapsed: the start is
+    /// refused up front, before any load. This is the on-device case, where the list said yes
+    /// and the load then failed with "check your connection and subscription".
+    func testBeginRefusesWhenThisDeviceSaysProLapsedDespiteTheList() async {
+        let appState = makeTestAppState()
+        appState.isFlightActive = false
+        appState.currentFlight = nil
+        appState.flightStartNeedsPro = nil
+        appState.settings.selectedRemoteAircraftId = "pa28-181"
+
+        let acs = makeTestAircraftDataService(subscriptionManager: AircraftDataServiceSeamTests.FakeGating(allowPremium: false))
+        acs.availableAircraft = [metadata(id: "pa28-181", registration: "HB-PFA", hasAccess: true)]
+
+        let outcome = await makeLauncher(appState: appState, aircraftDataService: acs).begin(circuitMode: false)
+
+        XCTAssertEqual(outcome, .blockedUnowned)
+        XCTAssertEqual(appState.flightStartNeedsPro, "HB-PFA")
     }
 }

@@ -549,6 +549,14 @@ enum L10n {
         static let checklistNotReadyTitle = String(localized: "alert.checklistNotReady.title")
         static let checklistNotReady = String(localized: "alert.checklistNotReady.message")
         static let cannotStartFlightTitle = String(localized: "alert.cannotStartFlight.title")
+        static let proNotActiveTitle = String(localized: "alert.proNotActive.title")
+        static func proNotActive(_ registration: String) -> String {
+            String(format: String(localized: "alert.proNotActive.message"), registration)
+        }
+        static func checklistUnreachable(_ registration: String) -> String {
+            String(format: String(localized: "alert.checklistUnreachable.message"), registration)
+        }
+        static let seePlans = String(localized: "alert.proNotActive.seePlans")
         static let locationRequired = String(localized: "alert.locationRequired.message")
         static let acquiringGPS = String(localized: "alert.acquiringGPS.message")
         static let flightSaveFailedTitle = String(localized: "alert.flightSaveFailed.title")
@@ -1407,6 +1415,185 @@ enum L10n {
 
     /// Trips: stops, legs, diversions and continuing after one. (v5.1)
     /// The ground tabs. (v6.0 · P1)
+    /// The route editor. (planning proposal D)
+    enum RouteEditor {
+        static let legs = String(localized: "routeEditor.legs")
+        static func conflicts(_ count: Int) -> String {
+            count == 1 ? String(localized: "routeEditor.oneConflict")
+                       : String(format: String(localized: "routeEditor.conflicts"), count)
+        }
+        static let noConflicts = String(localized: "routeEditor.noConflicts")
+        static let notChecked = String(localized: "routeEditor.notChecked")
+        static let waypoint = String(localized: "routeEditor.waypoint")
+        static let mc = String(localized: "routeEditor.mc")
+        static let altFt = String(localized: "routeEditor.altFt")
+        static let destination = String(localized: "routeEditor.destination")
+        static let selectLeg = String(localized: "routeEditor.selectLeg")
+    }
+
+    /// Plan › Flights. (planning proposal C)
+    enum FlightsPage {
+        static func upcomingCount(_ count: Int) -> String {
+            String(format: String(localized: "flightsPage.upcomingCount"), count)
+        }
+        static let today = String(localized: "flightsPage.today")
+        static let tomorrow = String(localized: "flightsPage.tomorrow")
+        static let notScheduled = String(localized: "flightsPage.notScheduled")
+        static let openFlight = String(localized: "flightsPage.openFlight")
+        static let noRoute = String(localized: "flightsPage.noRoute")
+        static func border(_ country: String) -> String {
+            String(format: String(localized: "flightsPage.border"), country)
+        }
+        static func tripLeg(_ leg: Int, _ count: Int) -> String {
+            String(format: String(localized: "flightsPage.tripLeg"), leg, count)
+        }
+        static func progress(_ done: Int, _ total: Int) -> String {
+            String(format: String(localized: "flightsPage.progress"), done, total)
+        }
+        static func progressNext(_ done: Int, _ total: Int, _ next: String) -> String {
+            String(format: String(localized: "flightsPage.progressNext"), done, total, next)
+        }
+    }
+
+    /// Plan new flight. (planning proposal B)
+    enum PlanFlight {
+        static let route = String(localized: "planFlight.route")
+        static let airports = String(localized: "planFlight.airports")
+        static let savedRoute = String(localized: "planFlight.savedRoute")
+        static let drawLater = String(localized: "planFlight.drawLater")
+        static let noDateYet = String(localized: "planFlight.noDateYet")
+        static let pickADate = String(localized: "planFlight.pickADate")
+        static let noRouteYet = String(localized: "planFlight.noRouteYet")
+    }
+
+    /// The flight sheet: nav log, fuel, times. (planning proposal A)
+    enum FlightSheet {
+        static let route = String(localized: "flightSheet.route")
+        static let fuelFlow = String(localized: "flightSheet.fuelFlow")
+        static let departure = String(localized: "flightSheet.departure")
+        static let localTime = String(localized: "flightSheet.localTime")
+        static let dateAndTime = String(localized: "flightSheet.dateAndTime")
+        static let crew = String(localized: "flightSheet.crew")
+        static let fuel = String(localized: "flightSheet.fuel")
+        static let litres = String(localized: "flightSheet.litres")
+        static let defaultTag = String(localized: "flightSheet.default")
+        static let flowNote = String(localized: "flightSheet.flowNote")
+        static let trip = String(localized: "flightSheet.trip")
+        static let fromRoute = String(localized: "flightSheet.fromRoute")
+        static let alternate = String(localized: "flightSheet.alternate")
+        static let finalReserve = String(localized: "flightSheet.finalReserve")
+        static let extra = String(localized: "flightSheet.extra")
+        static let required = String(localized: "flightSheet.required")
+        static let onBoard = String(localized: "flightSheet.onBoard")
+        static let margin = String(localized: "flightSheet.margin")
+        static let short = String(localized: "flightSheet.short")
+        static let endurance = String(localized: "flightSheet.endurance")
+        static let afterFlight = String(localized: "flightSheet.afterFlight")
+        static let afterFlightSummary = String(localized: "flightSheet.afterFlightSummary")
+        static let notesSummary = String(localized: "flightSheet.notesSummary")
+        static let atcSummary = String(localized: "flightSheet.atcSummary")
+        static let rename = String(localized: "flightSheet.rename")
+        static let airTime = String(localized: "flightSheet.airTime")
+        static func aircraftFromFlight(_ aircraft: String) -> String {
+            String(format: String(localized: "flightSheet.aircraftFromFlight"), aircraft)
+        }
+        static func tripNote(_ eet: String, _ flow: String) -> String {
+            String(format: String(localized: "flightSheet.tripNote"), eet, flow)
+        }
+        static func finalReserveNote(_ flow: String) -> String {
+            String(format: String(localized: "flightSheet.finalReserveNote"), flow)
+        }
+        static func marginMinutes(_ minutes: String) -> String {
+            String(format: String(localized: "flightSheet.marginMinutes"), minutes)
+        }
+        static func enduranceNote(_ flow: String) -> String {
+            String(format: String(localized: "flightSheet.enduranceNote"), flow)
+        }
+    }
+
+    /// Naming a flight or a trip. (on-device review #4)
+    enum FlightNames {
+        static let renameFlight = String(localized: "flightNames.renameFlight")
+        static let renameTrip = String(localized: "flightNames.renameTrip")
+        static let renameFlightMessage = String(localized: "flightNames.renameFlightMessage")
+        static let renameTripMessage = String(localized: "flightNames.renameTripMessage")
+    }
+
+    /// ICAO codes for the place names of an imported route. (on-device review #4)
+    enum ICAONames {
+        static let title = String(localized: "icaoNames.title")
+        static let explainer = String(localized: "icaoNames.explainer")
+        static let footer = String(localized: "icaoNames.footer")
+        static let keepNames = String(localized: "icaoNames.keepNames")
+        static let useCodes = String(localized: "icaoNames.useCodes")
+        static let menu = String(localized: "icaoNames.menu")
+        static let noneFound = String(localized: "icaoNames.noneFound")
+    }
+
+    /// The Routes list: search, archive, rename. (on-device review #4)
+    enum Routes {
+        static let searchPrompt = String(localized: "routes.searchPrompt")
+        static let scope = String(localized: "routes.scope")
+        static let routesScope = String(localized: "routes.routesScope")
+        static func archivedScope(_ count: Int) -> String {
+            String(format: String(localized: "routes.archivedScope"), count)
+        }
+        static let archive = String(localized: "routes.archive")
+        static let unarchive = String(localized: "routes.unarchive")
+        static let archivedHeader = String(localized: "routes.archivedHeader")
+        static let archivedTag = String(localized: "routes.archivedTag")
+        static let noArchived = String(localized: "routes.noArchived")
+        static let allArchived = String(localized: "routes.allArchived")
+        static let noneYet = String(localized: "routes.noneYet")
+        static func noMatch(_ query: String) -> String {
+            String(format: String(localized: "routes.noMatch"), query)
+        }
+        static let rename = String(localized: "routes.rename")
+        static let renameTitle = String(localized: "routes.renameTitle")
+        static let renameMessage = String(localized: "routes.renameMessage")
+        static let namePlaceholder = String(localized: "routes.namePlaceholder")
+    }
+
+    /// The fuel-on-board sheet and the full-tanks figure. (on-device review #4, point 3)
+    enum FuelOnBoard {
+        static let title = String(localized: "fuelOnBoard.title")
+        static let required = String(localized: "fuelOnBoard.required")
+        static let onBoard = String(localized: "fuelOnBoard.onBoard")
+        static func breakdown(_ trip: String, _ alternate: String, _ finalReserve: String, _ extra: String) -> String {
+            String(format: String(localized: "fuelOnBoard.breakdown"), trip, alternate, finalReserve, extra)
+        }
+        static let noRequired = String(localized: "fuelOnBoard.noRequired")
+        static func fullTanks(_ litres: String) -> String {
+            String(format: String(localized: "fuelOnBoard.fullTanks"), litres)
+        }
+        static let fromAircraftData = String(localized: "fuelOnBoard.fromAircraftData")
+        static func yourFigure(_ registration: String) -> String {
+            String(format: String(localized: "fuelOnBoard.yourFigure"), registration)
+        }
+        static let change = String(localized: "fuelOnBoard.change")
+        static func fullTanksPrompt(_ registration: String) -> String {
+            String(format: String(localized: "fuelOnBoard.fullTanksPrompt"), registration)
+        }
+        static let saveAndFill = String(localized: "fuelOnBoard.saveAndFill")
+        static let notSet = String(localized: "fuelOnBoard.notSet")
+        static func enough(_ margin: String, _ minutes: String, _ flow: String) -> String {
+            String(format: String(localized: "fuelOnBoard.enough"), margin, minutes, flow)
+        }
+        static func short(_ litres: String) -> String {
+            String(format: String(localized: "fuelOnBoard.short"), litres)
+        }
+        static func overFullTanks(_ litres: String) -> String {
+            String(format: String(localized: "fuelOnBoard.overFullTanks"), litres)
+        }
+        static let moreFuelSettings = String(localized: "fuelOnBoard.moreFuelSettings")
+        static func equalsRequired(_ litres: String) -> String {
+            String(format: String(localized: "fuelOnBoard.equalsRequired"), litres)
+        }
+        static let fuelGroup = String(localized: "fuelOnBoard.fuelGroup")
+        static let fullTanksRow = String(localized: "fuelOnBoard.fullTanksRow")
+        static let fullTanksRowFooter = String(localized: "fuelOnBoard.fullTanksRowFooter")
+    }
+
     enum Ground {
         static let today = String(localized: "ground.today")
         static let plan = String(localized: "ground.plan")
@@ -1425,6 +1612,11 @@ enum L10n {
         // The Aircraft tab's two links (on-device review #2, G-06)
         static let proUnlocksAll = String(localized: "ground.proUnlocksAll")
         static let visibilityInSettings = String(localized: "ground.visibilityInSettings")
+        static let proNotActiveShort = String(localized: "ground.proNotActiveShort")
+        static let proNotActiveRow = String(localized: "ground.proNotActiveRow")
+        static func speedsNeedPro(_ registration: String) -> String {
+            String(format: String(localized: "ground.speedsNeedPro"), registration)
+        }
     }
 
     /// The Cockpit's V-SPEEDS table: its rows. (V-SPEEDS proposal, D1–D8)

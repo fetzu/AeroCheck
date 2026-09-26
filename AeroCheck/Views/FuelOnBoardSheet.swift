@@ -309,17 +309,11 @@ struct FullTanksButtons: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
-            HStack(spacing: 10) {
-                if let fullTanks, !editing {
-                    fillButton(L10n.FuelOnBoard.fullTanks(FuelEntry.text(fullTanks.litres)), icon: "fuelpump.fill") {
-                        onFill(fullTanks.litres)
-                    }
-                }
-                if let required, required > 0 {
-                    fillButton(L10n.FuelOnBoard.equalsRequired(FuelEntry.text(required.rounded(.up))), icon: "equal") {
-                        onFill(required.rounded(.up))
-                    }
-                }
+            // Side by side where both fit whole, else one above the other: a figure is never cut.
+            // On an iPhone with larger text, "Full tanks · 8…" hid the figure. (round 6, I-03)
+            ViewThatFits(in: .horizontal) {
+                HStack(spacing: 10) { fillButtons(fill: false) }
+                VStack(alignment: .leading, spacing: 8) { fillButtons(fill: true) }
             }
             if FullTanks.key(for: registration) != nil {
                 if let fullTanks, !editing {
@@ -343,6 +337,21 @@ struct FullTanksButtons: View {
                 } else {
                     askForFullTanks
                 }
+            }
+        }
+    }
+
+    /// `fill`: one above the other, the same width.
+    @ViewBuilder
+    private func fillButtons(fill: Bool) -> some View {
+        if let fullTanks, !editing {
+            fillButton(L10n.FuelOnBoard.fullTanks(FuelEntry.text(fullTanks.litres)), icon: "fuelpump.fill", fill: fill) {
+                onFill(fullTanks.litres)
+            }
+        }
+        if let required, required > 0 {
+            fillButton(L10n.FuelOnBoard.equalsRequired(FuelEntry.text(required.rounded(.up))), icon: "equal", fill: fill) {
+                onFill(required.rounded(.up))
             }
         }
     }
@@ -382,14 +391,15 @@ struct FullTanksButtons: View {
         }
     }
 
-    private func fillButton(_ title: String, icon: String, action: @escaping () -> Void) -> some View {
+    private func fillButton(_ title: String, icon: String, fill: Bool = false,
+                            action: @escaping () -> Void) -> some View {
         Button(action: action) {
             Label(title, systemImage: icon)
                 .scaledFont(size: 15, weight: .bold, relativeTo: .subheadline)
                 .foregroundColor(.aviationGold)
                 .lineLimit(1)
                 .padding(.horizontal, 14)
-                .frame(minHeight: 44)
+                .frame(maxWidth: fill ? .infinity : nil, minHeight: 44, alignment: .leading)
                 .background(RoundedRectangle(cornerRadius: 10).fill(Color.aviationGold.opacity(0.14)))
                 .overlay(RoundedRectangle(cornerRadius: 10).strokeBorder(Color.aviationGold.opacity(0.5), lineWidth: 1))
         }

@@ -73,4 +73,18 @@ final class CockpitPaneRuleTests: XCTestCase {
         XCTAssertEqual(CockpitType.value, 48)
         XCTAssertEqual(CockpitTarget.thumb, 104)
     }
+
+    // MARK: Landscape margins (round 6, I-09)
+
+    func testOnlyTheCameraSideKeepsTheSystemInset() {
+        XCTAssertEqual(CameraSideRule.freeEdge(for: .landscapeRight), .trailing)  // the camera on the left
+        XCTAssertEqual(CameraSideRule.freeEdge(for: .landscapeLeft), .leading)    // the camera on the right
+        XCTAssertNil(CameraSideRule.freeEdge(for: .portrait))
+        XCTAssertNil(CameraSideRule.freeEdge(for: .unknown))
+    }
+
+    func testTheFreeSideKeepsClearOfTheCornersButNeverWidens() {
+        XCTAssertEqual(CameraSideRule.margin(systemInset: 62), 16)
+        XCTAssertEqual(CameraSideRule.margin(systemInset: 0), 0)   // a phone with no inset
+    }
 }

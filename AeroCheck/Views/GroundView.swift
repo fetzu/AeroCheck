@@ -165,6 +165,10 @@ struct PlanTabView: View {
                     // (on-device review #4)
                     NavigationMapView(isPresented: $mapPresented, showsCloseButton: false, isInCockpit: true,
                                       onShowRoutes: { section = .routes })
+                        // The chart starts under the picker, as the other sections do. Drawn on under
+                        // the iPhone's bar, it was blurred there by the bar's scroll edge effect.
+                        // (round 6, I-10)
+                        .clipped()
                 }
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)

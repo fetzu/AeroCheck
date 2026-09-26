@@ -197,6 +197,8 @@ struct FlightView: View {
             // iPhone pass I1)
             let layout = CockpitLayout.make(width: geometry.size.width, height: geometry.size.height)
             cockpit(layout: layout)
+                .modifier(CameraSideInset(enabled: layout == .columns,
+                                          systemInset: geometry.safeAreaInsets.leading))
                 // Reference popups (V-SPEEDS / GPS / BRIEFING) → themed bottom drawer.
                 .overlay {
                     referenceDrawerOverlay(maxHeight: geometry.size.height * layout.drawerHeightFraction,
@@ -776,7 +778,8 @@ struct FlightView: View {
     /// Both the airplane icon and the call sign are tappable. `stacked` (the Cockpit) puts the circuit
     /// caption and counts under the registration instead of beside it: in portrait the header row had no
     /// room for them, and cut "(for circuits)" short. (on-device review #2)
-    private func abandonableAircraftIdentifier(iconSize: CGFloat, isCompact: Bool, stacked: Bool = false) -> some View {
+    private func abandonableAircraftIdentifier(iconSize: CGFloat, isCompact: Bool, stacked: Bool = false,
+                                               circuitCaption: Bool = true) -> some View {
         HStack(spacing: isCompact ? 4 : 8) {
             // Progress ring behind the icon. The ring footprint is RESERVED at all times (fixed frame)
             // so it appearing on press-and-hold doesn't enlarge the icon and shift the top bar. (v4 UI/UX Revamp fix)
@@ -805,8 +808,10 @@ struct FlightView: View {
                         .fixedSize()
                     if appState.isCircuitMode {
                         HStack(spacing: 8) {
-                            Text(L10n.Flight.forCircuits)
-                                .foregroundColor(theme.warning)
+                            if circuitCaption {
+                                Text(L10n.Flight.forCircuits)
+                                    .foregroundColor(theme.warning)
+                            }
                             circuitCounts
                         }
                         .font(.aero(size: 16, weight: .medium))
@@ -995,18 +1000,29 @@ extension FlightView {
                 .padding(.horizontal, narrow ? 12 : 16)
                 .padding(.top, 10)
 
-            cockpitPaneBar(twoRows: narrow)
+            cockpitPaneBar(narrow: narrow)
                 .padding(.horizontal, narrow ? 12 : 16)
                 .padding(.vertical, narrow ? 8 : 10)
 
             Group {
                 switch cockpitPane {
                 case .checklist:
-                    cockpitChecklistPane(narrow: narrow)
+                    VStack(spacing: 0) {
+                        // The phone: BRIEFING and NEXT at the top of the list, only while they exist,
+                        // as on its side. (round 6, I-06)
+                        if narrow && cockpitHasOccasionalChips {
+                            cockpitOccasionalChips
+                                .padding(.horizontal, 12)
+                                .padding(.bottom, 4)
+                        }
+                        cockpitChecklistPane(narrow: narrow)
+                    }
                 case .map:
                     // The same map as the full-screen one, minus its top bar: its next-waypoint card,
-                    // controls, frequencies and MARK thumb bar fill the pane.
-                    NavigationMapView(isPresented: .constant(true), showsCloseButton: false, isInCockpit: true)
+                    // controls, frequencies and MARK thumb bar fill the pane. On the phone the chips
+                    // that come and go sit over the chart.
+                    NavigationMapView(isPresented: .constant(true), showsCloseButton: false, isInCockpit: true,
+                                      mapTopAccessory: narrow ? cockpitMapChips : nil)
                 }
             }
             .frame(maxHeight: .infinity)
@@ -1047,14 +1063,17 @@ extension FlightView {
             NavigationMapView(isPresented: .constant(true), showsCloseButton: false, isInCockpit: true,
                               leadingColumn: AnyView(cockpitColumnHead),
                               leadingColumnWidth: Self.cockpitColumnWidth,
-                              // Opaque over the chart, where the chips' tint alone was see-through.
-                              mapTopAccessory: cockpitHasOccasionalChips
-                                ? AnyView(cockpitOccasionalChips
-                                    .fixedSize()
-                                    .padding(6)
-                                    .background(RoundedRectangle(cornerRadius: 16).fill(theme.panel)))
-                                : nil)
+                              mapTopAccessory: cockpitMapChips)
         }
+    }
+
+    /// The chips that come and go, over the chart: opaque, where the chips' tint alone was see-through.
+    private var cockpitMapChips: AnyView? {
+        guard cockpitHasOccasionalChips else { return nil }
+        return AnyView(cockpitOccasionalChips
+            .fixedSize()
+            .padding(6)
+            .background(RoundedRectangle(cornerRadius: 16).fill(theme.panel)))
     }
 
     /// BRIEFING, NEXT and the map's cautions: the chips that come and go.
@@ -1074,9 +1093,9 @@ extension FlightView {
             || (cockpitPane == .map && (appState.deferredItemCount > 0 || appState.cruiseCheckDue))
     }
 
-    /// The landscape column's width: the header's rows, and the thumb bar's three buttons with CHECK
-    /// still readable. It leaves the pane about a portrait phone's width. (I7)
-    static let cockpitColumnWidth: CGFloat = 390
+    /// The landscape column's width: an iPhone 17's in portrait, so its rows lay out as they do there
+    /// (at 390, V-SPEEDS dropped under CHECKLIST | MAP). It leaves the pane about as wide. (I7; round 6)
+    static let cockpitColumnWidth: CGFloat = 402
 
     /// The top of the landscape column: the header on two rows as in portrait, progress, CHECKLIST |
     /// MAP with V-SPEEDS, the strip.
@@ -1088,13 +1107,9 @@ extension FlightView {
             phaseProgressBarView
                 .padding(.horizontal, 12)
                 .padding(.bottom, 6)
-            HStack(spacing: 8) {
-                CockpitPanePicker(selection: cockpitPaneBinding)
-                Spacer(minLength: 0)
-                CockpitChip(title: "V-SPEEDS", icon: "speedometer") { openReference(.vSpeeds) }
-            }
-            .padding(.horizontal, 12)
-            .padding(.bottom, 6)
+            cockpitPickerRow
+                .padding(.horizontal, 12)
+                .padding(.bottom, 6)
             cockpitStrip(showsNext: false)
                 .padding(.horizontal, 10)
         }
@@ -1141,27 +1156,38 @@ extension FlightView {
                 cockpitCompanionIndicator
                 cockpitFlightTime
                 cockpitGPSButton(labelled: true)
-                cockpitMenuButton
+                cockpitMenuButton()
             }
         case .narrow:
             VStack(spacing: 8) {
+                // Richest first, down to one that always fits. A row wider than the screen doesn't
+                // just clip: it widens the whole Cockpit, which then sits off centre with the Menu
+                // past the edge. With the Menu labelled beside its icon, an iPhone 17's row was
+                // 16 pt too wide. (round 6, I-06)
                 ViewThatFits(in: .horizontal) {
-                    cockpitHeaderTopRow(gpsLabelled: true)
-                    cockpitHeaderTopRow(gpsLabelled: false)
+                    cockpitHeaderTopRow(gpsLabelled: true, menu: .labelled)
+                    cockpitHeaderTopRow(gpsLabelled: false, menu: .labelled)
+                    cockpitHeaderTopRow(gpsLabelled: false, menu: .stacked)
+                    cockpitHeaderTopRow(gpsLabelled: false, menu: .stacked, circuitCaption: false)
+                    cockpitHeaderTopRow(gpsLabelled: false, menu: .icon, circuitCaption: false)
                 }
                 cockpitPhaseButton(fillsWidth: true)
             }
         }
     }
 
-    private func cockpitHeaderTopRow(gpsLabelled: Bool) -> some View {
-        HStack(spacing: 10) {
-            abandonableAircraftIdentifier(iconSize: 18, isCompact: false, stacked: true)
-            Spacer(minLength: 8)
+    /// `circuitCaption`: "for circuits" beside the counts under the registration. Without it the counts
+    /// stay; the progress bar already says circuits by skipping cruise and descent.
+    private func cockpitHeaderTopRow(gpsLabelled: Bool, menu: CockpitMenuStyle,
+                                     circuitCaption: Bool = true) -> some View {
+        HStack(spacing: menu == .labelled ? 10 : 8) {
+            abandonableAircraftIdentifier(iconSize: 18, isCompact: false, stacked: true,
+                                          circuitCaption: circuitCaption)
+            Spacer(minLength: menu == .labelled ? 8 : 4)
             cockpitCompanionIndicator
             cockpitFlightTime
             cockpitGPSButton(labelled: gpsLabelled)
-            cockpitMenuButton
+            cockpitMenuButton(menu)
         }
     }
 
@@ -1228,15 +1254,31 @@ extension FlightView {
         .accessibilityLabel(isBorrowingCompanionGPS ? L10n.GPS.sourceCompanion : L10n.GPS.status)
     }
 
+    /// The Menu button's shapes, widest first: the name beside the icon, the name under it (a phone's
+    /// header), the icon alone (only when nothing else fits).
+    enum CockpitMenuStyle { case labelled, stacked, icon }
+
     /// Named: the grey gear gave no hint that the display mode was inside. (review B7)
-    private var cockpitMenuButton: some View {
+    private func cockpitMenuButton(_ style: CockpitMenuStyle = .labelled) -> some View {
         Button(action: { showFlightInfo = true }) {
-            HStack(spacing: 8) {
-                Image(systemName: "slider.horizontal.3").font(.aero(size: 18, weight: .semibold))
-                Text(L10n.Cockpit.menu).font(.aero(size: CockpitType.label, weight: .bold))
+            Group {
+                switch style {
+                case .labelled:
+                    HStack(spacing: 8) {
+                        Image(systemName: "slider.horizontal.3").font(.aero(size: 18, weight: .semibold))
+                        Text(L10n.Cockpit.menu).font(.aero(size: CockpitType.label, weight: .bold))
+                    }
+                case .stacked:
+                    VStack(spacing: 1) {
+                        Image(systemName: "slider.horizontal.3").font(.aero(size: 16, weight: .semibold))
+                        Text(L10n.Cockpit.menu).font(.aero(size: 14, weight: .bold))
+                    }
+                case .icon:
+                    Image(systemName: "slider.horizontal.3").font(.aero(size: 18, weight: .semibold))
+                }
             }
             .foregroundColor(theme.action)
-            .padding(.horizontal, CockpitType.size(kneeboard: 16, phone: 12))
+            .padding(.horizontal, style == .labelled ? CockpitType.size(kneeboard: 16, phone: 12) : 10)
             .frame(minHeight: CockpitType.size(kneeboard: 52, phone: 46))
             .background(RoundedRectangle(cornerRadius: 12).fill(theme.action.opacity(0.12)))
             .overlay(RoundedRectangle(cornerRadius: 12).stroke(theme.action.opacity(0.45), lineWidth: 1))
@@ -1244,6 +1286,7 @@ extension FlightView {
         }
         .buttonStyle(.plain)
         .fixedSize()
+        .accessibilityLabel(L10n.Cockpit.menu)
     }
 
     // MARK: Pane bar
@@ -1251,33 +1294,36 @@ extension FlightView {
     /// CHECKLIST | MAP, then what can be opened from here: the cruise check when it's due (seen from
     /// the map), V-SPEEDS, the briefing of the phase, and the next phase while items are still open.
     ///
-    /// `twoRows` (the phone in portrait): the picker across the width, and the chips on a row of their
-    /// own, V-SPEEDS always first. Beside the picker there was room for V-SPEEDS alone, and a second row
-    /// that came and went would move the checklist. (iPhone pass, I3)
+    /// `narrow` (the phone): CHECKLIST | MAP across the width with V-SPEEDS beside it, as on its side.
+    /// BRIEFING and NEXT go to the top of the list and the cautions over the chart, while they exist.
+    /// On a row of its own V-SPEEDS often stood alone, and the row took the height the map's thumb bar
+    /// needed. (round 6, I-06)
     @ViewBuilder
-    private func cockpitPaneBar(twoRows: Bool) -> some View {
-        if twoRows {
-            VStack(spacing: 8) {
-                CockpitPanePicker(selection: cockpitPaneBinding, fillsWidth: true)
-                ViewThatFits(in: .horizontal) {
-                    cockpitPhoneChips
-                    ScrollView(.horizontal, showsIndicators: false) { cockpitPhoneChips }
-                }
-            }
+    private func cockpitPaneBar(narrow: Bool) -> some View {
+        if narrow {
+            cockpitPickerRow
         } else {
             cockpitPaneBarRow
         }
     }
 
-    /// The phone's chips, V-SPEEDS first so it is always in the same place.
-    private var cockpitPhoneChips: some View {
-        HStack(spacing: 8) {
-            CockpitChip(title: "V-SPEEDS", icon: "speedometer") { openReference(.vSpeeds) }
-            cockpitBriefingChip
-            cockpitNextChip
-            cockpitMapCautionChips
-            Spacer(minLength: 0)
+    /// CHECKLIST | MAP with V-SPEEDS beside it, the phone in both orientations; one above the other
+    /// where a language runs too long for the row.
+    private var cockpitPickerRow: some View {
+        ViewThatFits(in: .horizontal) {
+            HStack(spacing: 8) {
+                CockpitPanePicker(selection: cockpitPaneBinding, fillsWidth: true)
+                cockpitVSpeedsChip
+            }
+            VStack(alignment: .leading, spacing: 8) {
+                CockpitPanePicker(selection: cockpitPaneBinding, fillsWidth: true)
+                cockpitVSpeedsChip
+            }
         }
+    }
+
+    private var cockpitVSpeedsChip: some View {
+        CockpitChip(title: "V-SPEEDS", icon: "speedometer") { openReference(.vSpeeds) }
     }
 
     @ViewBuilder
@@ -1337,7 +1383,7 @@ extension FlightView {
                     paneOverride = nil
                 }
             }
-            CockpitChip(title: "V-SPEEDS", icon: "speedometer") { openReference(.vSpeeds) }
+            cockpitVSpeedsChip
             if let briefing = appState.currentPhase.briefingType {
                 // BRIEFING stays in English in FR, like the other aviation terms.
                 CockpitChip(title: "BRIEFING", icon: briefing == .departure ? "airplane.departure" : "airplane.arrival") {

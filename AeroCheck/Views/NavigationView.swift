@@ -237,7 +237,8 @@ struct NavigationMapView: View {
     /// left that also takes the thumb bar, with the map at full height beside it. (iPhone pass)
     var leadingColumn: AnyView? = nil
     var leadingColumnWidth: CGFloat = 340
-    /// Over the map's own chrome, at the top: the Cockpit's pane bar in that same layout.
+    /// Over the map's own chrome, at the top: the Cockpit's chips that come and go (BRIEFING, the
+    /// cautions), on the phone.
     var mapTopAccessory: AnyView? = nil
     @State private var selectedLayer: MapLayerType = .icao
     @State private var isFollowingAircraft: Bool = true
@@ -746,33 +747,30 @@ struct NavigationMapView: View {
     /// (iPhone pass, I7)
     private func columnsMapArea(legsMaxHeight: CGFloat) -> some View {
         VStack(spacing: 0) {
-            ZStack {
-                mapContent
-                    .ignoresSafeArea()
-
-                VStack(spacing: 8) {
-                    if let mapTopAccessory {
-                        mapTopAccessory
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                    }
-                    nextWaypointLine
-                    VStack(alignment: .leading, spacing: 8) {
-                        SigmetChip(hazards: rankedSigmets) { showSigmets = true }
-                        routeOffScreenPill
-                            .animation(reduceMotion ? nil : .easeInOut(duration: 0.25), value: routeOffScreenHint) // (UX-18)
-                    }
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    Spacer(minLength: 0)
-                    mapFooter
-                    // The controls at the foot of the chart, by the thumb, leaving the top (what's
-                    // ahead, in Track up) clear. Labelled where the row has room, icons where not.
-                    mapControlsBottomRow
-                        .frame(maxWidth: .infinity, alignment: .trailing)
+            chartWithChrome(top: VStack(spacing: 8) {
+                if let mapTopAccessory {
+                    mapTopAccessory
+                        .frame(maxWidth: .infinity, alignment: .leading)
                 }
-                .padding(.horizontal, 10)
-                .padding(.top, 8)
-                .padding(.bottom, 8)
+                nextWaypointLine
+                VStack(alignment: .leading, spacing: 8) {
+                    SigmetChip(hazards: rankedSigmets) { showSigmets = true }
+                    routeOffScreenPill
+                        .animation(reduceMotion ? nil : .easeInOut(duration: 0.25), value: routeOffScreenHint) // (UX-18)
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
             }
+            .padding(.horizontal, 10)
+            .padding(.top, 8),
+            bottom: VStack(spacing: 8) {
+                mapFooter
+                // The controls at the foot of the chart, by the thumb, leaving the top (what's
+                // ahead, in Track up) clear. Labelled where the row has room, icons where not.
+                mapControlsBottomRow
+                    .frame(maxWidth: .infinity, alignment: .trailing)
+                    .padding(.horizontal, 10)
+            }
+            .padding(.bottom, 8))
 
             // The frequencies, and the legs when opened, under the chart rather than over it.
             VStack(spacing: 0) {
@@ -973,11 +971,8 @@ struct NavigationMapView: View {
     /// controls on top, the scale bar and the undo toast at the bottom, and — in portrait — the
     /// bottom panel.
     private func mapArea<Panel: View>(bottomPanel: Panel?) -> some View {
-        ZStack {
-            mapContent
-                .ignoresSafeArea()
-
-            VStack(spacing: 0) {
+        VStack(spacing: 0) {
+            chartWithChrome(top: VStack(spacing: 0) {
                 if !isInCockpit {
                     topBar
                         .padding(.horizontal)
@@ -987,7 +982,15 @@ struct NavigationMapView: View {
                 // What a pilot reads most, big and on top: the next waypoint. Then the map's own
                 // controls, labelled. (v6.0 · P3)
                 VStack(spacing: 10) {
+                    if let mapTopAccessory {
+                        mapTopAccessory
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                    }
                     nextWaypointCard
+                    if routesOnTop {
+                        routesButton
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                    }
                     mapControlsRow
                         .frame(maxWidth: .infinity, alignment: .trailing)
                     // Hazard chip. Only exists when a hazard is actually in range — a chip that is
@@ -999,15 +1002,32 @@ struct NavigationMapView: View {
                 }
                 .padding(.horizontal, CockpitType.size(kneeboard: 16, phone: 12))
                 .padding(.top, 10)
+            },
+            bottom: mapFooter)
 
-                Spacer(minLength: 0)
-
-                mapFooter
-
-                if let bottomPanel { bottomPanel }
-            }
+            if let bottomPanel { bottomPanel }
         }
     }
+
+    /// The chart, its chrome laid over it: over, not stacked, so the chrome never makes the pane taller
+    /// than its room. Stacked, the card, the controls and the route pill pushed the thumb bar half off
+    /// a phone in climb. (round 6, I-06)
+    private func chartWithChrome<Top: View, Bottom: View>(top: Top, bottom: Bottom) -> some View {
+        Color.clear
+            .overlay(alignment: .top) { top }
+            .overlay(alignment: .bottom) { bottom }
+            .clipped()
+            .background { mapContent.ignoresSafeArea() }
+    }
+
+    /// The phone with no route on the map: in flight, the way to one where the next waypoint would be,
+    /// rather than alone on a bar of its own at the foot of the screen; in Plan › Map, none, as the
+    /// picker above has Routes. (round 6, I-06)
+    private var phoneWithoutRoute: Bool {
+        CockpitScale.current == .phone && flightPlanManager.activeFlightPlan == nil
+    }
+
+    private var routesOnTop: Bool { phoneWithoutRoute && onShowRoutes == nil }
 
     // MARK: - State Update Helper
 
@@ -1469,7 +1489,7 @@ struct NavigationMapView: View {
                 .frame(height: min(legsPanelContentHeight, legsMaxHeight))
                 .onPreferenceChange(LegsPanelHeightKey.self) { legsPanelContentHeight = $0 }
             }
-            if includesThumbBar {
+            if includesThumbBar && !phoneWithoutRoute {
                 Rectangle().fill(theme.panelStroke).frame(height: 1)
                 navThumbBar
             }
@@ -1939,14 +1959,18 @@ struct NavigationMapView: View {
 
     private var routesButtonRow: some View {
         HStack {
-            chromeButton(icon: "point.topleft.down.to.point.bottomright.curvepath",
-                         title: L10n.Ground.planRoutes) {
-                if let onShowRoutes { onShowRoutes() } else { showFlightPlanning = true }
-            }
+            routesButton
             Spacer(minLength: 0)
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 12)
+    }
+
+    private var routesButton: some View {
+        chromeButton(icon: "point.topleft.down.to.point.bottomright.curvepath",
+                     title: L10n.Ground.planRoutes) {
+            if let onShowRoutes { onShowRoutes() } else { showFlightPlanning = true }
+        }
     }
 
     private struct LegTimerState {

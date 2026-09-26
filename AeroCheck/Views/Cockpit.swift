@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit
 
 // MARK: - Cockpit (v6.0 · P2)
 //
@@ -42,8 +43,8 @@ enum CockpitPaneRule {
 enum CockpitLayout: Equatable {
     /// The iPad, portrait and landscape: the header and the pane bar on one row each.
     case wide
-    /// A phone in portrait, or any window under 600 pt wide: the same zones, the header and the pane bar
-    /// on two rows each, and no NEXT cell in the strip.
+    /// A phone in portrait, or any window under 600 pt wide: the same zones, the header on two rows, and
+    /// no NEXT cell in the strip.
     case narrow
     /// A phone on its side: the header, the strip and the thumb bar in a column on the left, where the
     /// thumb is, and the pane on the right at full height. Stacked, the zones would leave the checklist
@@ -61,6 +62,73 @@ enum CockpitLayout: Equatable {
         case .wide: return 0.6
         case .narrow: return 0.66
         case .columns: return 0.9
+        }
+    }
+}
+
+/// The side of a phone on its side that needs no clearance: the one away from the front camera. Pure,
+/// so it is tested without a device. (round 6, I-09)
+enum CameraSideRule {
+    /// `.landscapeRight` has the camera on the left; `.landscapeLeft` on the right. Nil in portrait or
+    /// while the orientation is unknown, when both sides keep the system's inset.
+    static func freeEdge(for orientation: UIInterfaceOrientation) -> Edge.Set? {
+        switch orientation {
+        case .landscapeRight: return .trailing
+        case .landscapeLeft: return .leading
+        default: return nil
+        }
+    }
+
+    /// What the free side keeps: clear of the display's rounded corners, never more than the system's.
+    static func margin(systemInset: CGFloat) -> CGFloat { min(systemInset, 16) }
+}
+
+/// A phone on its side keeps the system's clearance on the camera's side only. iOS insets both sides
+/// alike in landscape, about 60 pt on a Dynamic Island iPhone, which left a band as wide as a thumb
+/// unused beside the column. The other side now runs to 16 pt from the edge. (round 6, I-09)
+struct CameraSideInset: ViewModifier {
+    let enabled: Bool
+    /// The system's horizontal inset, the same on both sides in landscape.
+    let systemInset: CGFloat
+    @State private var orientation: UIInterfaceOrientation = .unknown
+
+    func body(content: Content) -> some View {
+        let edge = enabled && systemInset > 0 ? CameraSideRule.freeEdge(for: orientation) : nil
+        let margin = CameraSideRule.margin(systemInset: systemInset)
+        // The same modifiers whatever the side, so a turn never rebuilds the Cockpit (and the map with
+        // its zoom).
+        content
+            .safeAreaPadding(.leading, edge == .leading ? margin : 0)
+            .safeAreaPadding(.trailing, edge == .trailing ? margin : 0)
+            .ignoresSafeArea(.container, edges: edge ?? [])
+            .background(InterfaceOrientationReader { orientation = $0 })
+    }
+}
+
+/// Reports the window scene's interface orientation, a turn from one landscape to the other included:
+/// that turn changes no size, so nothing would lay out again by itself.
+struct InterfaceOrientationReader: UIViewRepresentable {
+    let onChange: (UIInterfaceOrientation) -> Void
+
+    func makeUIView(context: Context) -> ProbeView {
+        let view = ProbeView()
+        view.onChange = onChange
+        return view
+    }
+
+    func updateUIView(_ view: ProbeView, context: Context) { view.onChange = onChange }
+
+    final class ProbeView: UIView {
+        var onChange: ((UIInterfaceOrientation) -> Void)?
+        private var observation: NSKeyValueObservation?
+
+        override func didMoveToWindow() {
+            super.didMoveToWindow()
+            isUserInteractionEnabled = false
+            observation = window?.windowScene?.observe(\.effectiveGeometry, options: [.initial, .new]) { [weak self] scene, _ in
+                let orientation = scene.effectiveGeometry.interfaceOrientation
+                DispatchQueue.main.async { self?.onChange?(orientation) }
+            }
         }
     }
 }

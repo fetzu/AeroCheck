@@ -35,6 +35,9 @@ struct UpcomingFlightsList: View {
         GeometryReader { geometry in
             // Landscape: the next flight on the left, the rest beside it. (proposal C1)
             let wide = geometry.size.width > 1000
+            // iPhone: one column inside the card too; the iPad's map beside the figures ran the card,
+            // and the header with it, off the screen. (iPhone pass)
+            let compact = geometry.size.width < 600
             ScrollView {
                 VStack(alignment: .leading, spacing: 14) {
                     header
@@ -51,12 +54,12 @@ struct UpcomingFlightsList: View {
                                 HStack(alignment: .top, spacing: 16) {
                                     heroCard(first, wide: true)
                                         .frame(width: min(600, geometry.size.width * 0.52))
-                                    laterList(Array(upcoming.dropFirst()))
+                                    laterList(Array(upcoming.dropFirst()), compact: false)
                                         .frame(maxWidth: .infinity)
                                 }
                             } else {
-                                heroCard(first, wide: false)
-                                laterList(Array(upcoming.dropFirst()))
+                                heroCard(first, wide: false, compact: compact)
+                                laterList(Array(upcoming.dropFirst()), compact: compact)
                             }
                         }
                     }
@@ -136,27 +139,27 @@ struct UpcomingFlightsList: View {
 
     // MARK: - The next flight (proposal C1)
 
-    private func heroCard(_ entry: UpcomingOrder.Entry, wide: Bool) -> some View {
+    private func heroCard(_ entry: UpcomingOrder.Entry, wide: Bool, compact: Bool = false) -> some View {
         let (thread, trip) = heroThread(entry)
         let plan = plan(for: thread)
         return Button { onOpen(thread.id) } label: {
             VStack(alignment: .leading, spacing: 14) {
-                // When: the day, the time, and how long until.
-                HStack(alignment: .firstTextBaseline, spacing: 12) {
-                    Text(dayLabel(thread.scheduledDeparture))
-                        .scaledFont(size: 14, weight: .bold, design: .monospaced, relativeTo: .caption)
-                        .tracking(1.2)
-                        .foregroundColor(.aviationGold)
-                    if let departure = thread.scheduledDeparture {
-                        Text(departure.formatted(date: .omitted, time: .shortened))
-                            .scaledFont(size: 30, weight: .bold, design: .monospaced, relativeTo: .title)
-                            .foregroundColor(.primaryText)
+                // When: the day, the time, and how long until. On the iPhone the day goes above the
+                // time when the three don't fit on one line.
+                ViewThatFits(in: .horizontal) {
+                    HStack(alignment: .firstTextBaseline, spacing: 12) {
+                        heroDay(thread)
+                        heroTime(thread)
+                        Spacer(minLength: 8)
+                        heroRelative(thread)
                     }
-                    Spacer(minLength: 8)
-                    if let departure = thread.scheduledDeparture {
-                        Text(Self.relative.localizedString(for: departure, relativeTo: Date()))
-                            .scaledFont(size: 14, relativeTo: .subheadline)
-                            .foregroundColor(.secondaryText)
+                    VStack(alignment: .leading, spacing: 4) {
+                        heroDay(thread)
+                        HStack(alignment: .firstTextBaseline, spacing: 12) {
+                            heroTime(thread)
+                            Spacer(minLength: 8)
+                            heroRelative(thread)
+                        }
                     }
                 }
                 if let trip, let leg = trip.legNumber(of: thread.id) {
@@ -166,9 +169,16 @@ struct UpcomingFlightsList: View {
                         .foregroundColor(.secondaryText)
                 }
 
-                // What: the map, the name, the figures, the borders.
+                // What: the map, the name, the figures, the borders. The map goes above them on the
+                // iPhone, full width.
+                if compact, let plan, plan.waypoints.count >= 2 {
+                    RouteThumbnail(waypoints: plan.waypoints)
+                        .frame(maxWidth: .infinity)
+                        .frame(height: 150)
+                        .clipShape(RoundedRectangle(cornerRadius: 12))
+                }
                 HStack(alignment: .top, spacing: 16) {
-                    if let plan, plan.waypoints.count >= 2 {
+                    if !compact, let plan, plan.waypoints.count >= 2 {
                         RouteThumbnail(waypoints: plan.waypoints)
                             .frame(width: wide ? 200 : 300, height: wide ? 140 : 180)
                             .clipShape(RoundedRectangle(cornerRadius: 12))
@@ -214,10 +224,24 @@ struct UpcomingFlightsList: View {
                     Spacer(minLength: 0)
                 }
 
-                // Where it stands: the flight's own chapters, as on its page.
-                HStack(spacing: 10) {
-                    ForEach(ThreadChapter.allCases) { chapter in
-                        chapterProgress(thread, chapter: chapter)
+                // Where it stands: the flight's own chapters, as on its page. Two by two on the
+                // iPhone, where four in a row cut the last one's name.
+                if compact {
+                    Grid(horizontalSpacing: 14, verticalSpacing: 10) {
+                        GridRow {
+                            chapterProgress(thread, chapter: .plan)
+                            chapterProgress(thread, chapter: .prepare)
+                        }
+                        GridRow {
+                            chapterProgress(thread, chapter: .fly)
+                            chapterProgress(thread, chapter: .close)
+                        }
+                    }
+                } else {
+                    HStack(spacing: 10) {
+                        ForEach(ThreadChapter.allCases) { chapter in
+                            chapterProgress(thread, chapter: chapter)
+                        }
                     }
                 }
 
@@ -264,6 +288,34 @@ struct UpcomingFlightsList: View {
         .accessibilityElement(children: .combine)
     }
 
+    private func heroDay(_ thread: FlightThread) -> some View {
+        Text(dayLabel(thread.scheduledDeparture))
+            .scaledFont(size: 14, weight: .bold, design: .monospaced, relativeTo: .caption)
+            .tracking(1.2)
+            .foregroundColor(.aviationGold)
+            .fixedSize()
+    }
+
+    @ViewBuilder
+    private func heroTime(_ thread: FlightThread) -> some View {
+        if let departure = thread.scheduledDeparture {
+            Text(departure.formatted(date: .omitted, time: .shortened))
+                .scaledFont(size: 30, weight: .bold, design: .monospaced, relativeTo: .title)
+                .foregroundColor(.primaryText)
+                .fixedSize()
+        }
+    }
+
+    @ViewBuilder
+    private func heroRelative(_ thread: FlightThread) -> some View {
+        if let departure = thread.scheduledDeparture {
+            Text(Self.relative.localizedString(for: departure, relativeTo: Date()))
+                .scaledFont(size: 14, relativeTo: .subheadline)
+                .foregroundColor(.secondaryText)
+                .fixedSize()
+        }
+    }
+
     private func fact(_ label: String, _ value: String) -> some View {
         HStack(alignment: .firstTextBaseline, spacing: 5) {
             Text(label)
@@ -307,7 +359,7 @@ struct UpcomingFlightsList: View {
 
     // MARK: - Later flights, by day (proposal C1)
 
-    private func laterList(_ entries: [UpcomingOrder.Entry]) -> some View {
+    private func laterList(_ entries: [UpcomingOrder.Entry], compact: Bool) -> some View {
         VStack(alignment: .leading, spacing: 8) {
             ForEach(dayGroups(entries), id: \.title) { group in
                 Text(group.title)
@@ -318,7 +370,7 @@ struct UpcomingFlightsList: View {
                 ForEach(group.entries) { entry in
                     switch entry {
                     case .trip(let trip): tripRow(trip)
-                    case .flight(let thread): laterRow(thread)
+                    case .flight(let thread): laterRow(thread, compact: compact)
                     }
                 }
             }
@@ -345,38 +397,15 @@ struct UpcomingFlightsList: View {
         return groups
     }
 
-    private func laterRow(_ thread: FlightThread) -> some View {
+    private func laterRow(_ thread: FlightThread, compact: Bool) -> some View {
         let plan = plan(for: thread)
         let progress = thread.preFlightProgress
         return Button { onOpen(thread.id) } label: {
-            HStack(spacing: 14) {
-                Text(thread.scheduledDeparture.map { $0.formatted(date: .omitted, time: .shortened) } ?? "—")
-                    .scaledFont(size: 19, weight: .bold, design: .monospaced, relativeTo: .body)
-                    .foregroundColor(thread.scheduledDeparture == nil ? .dimText : .primaryText)
-                    .frame(width: 64, alignment: .leading)
-                if let plan, plan.waypoints.count >= 2 {
-                    RouteThumbnail(waypoints: plan.waypoints)
-                        .frame(width: 88, height: 54)
-                        .clipShape(RoundedRectangle(cornerRadius: 8))
-                }
-                VStack(alignment: .leading, spacing: 3) {
-                    Text(thread.displayName)
-                        .scaledFont(size: 17, weight: .semibold, relativeTo: .body)
-                        .foregroundColor(.primaryText)
-                        .lineLimit(1)
-                    Text(routeFacts(thread, plan: plan))
-                        .scaledFont(size: 13, design: .monospaced, relativeTo: .caption)
-                        .foregroundColor(.secondaryText)
-                        .lineLimit(1)
-                }
-                Spacer(minLength: 8)
-                VStack(alignment: .trailing, spacing: 5) {
-                    Text(progressText(thread, progress: progress))
-                        .scaledFont(size: 12, relativeTo: .caption)
-                        .foregroundColor(.secondaryText)
-                        .lineLimit(1)
-                    ProgressBar(fraction: progress.total > 0 ? Double(progress.done) / Double(progress.total) : 0)
-                        .frame(width: 140)
+            Group {
+                if compact {
+                    compactLaterRow(thread, plan: plan, progress: progress)
+                } else {
+                    regularLaterRow(thread, plan: plan, progress: progress)
                 }
             }
             .padding(.horizontal, 14)
@@ -387,6 +416,71 @@ struct UpcomingFlightsList: View {
         }
         .buttonStyle(.plain)
         .accessibilityElement(children: .combine)
+    }
+
+    private func regularLaterRow(_ thread: FlightThread, plan: FlightPlan?,
+                                 progress: (done: Int, total: Int)) -> some View {
+        HStack(spacing: 14) {
+            Text(thread.scheduledDeparture.map { $0.formatted(date: .omitted, time: .shortened) } ?? "—")
+                .scaledFont(size: 19, weight: .bold, design: .monospaced, relativeTo: .body)
+                .foregroundColor(thread.scheduledDeparture == nil ? .dimText : .primaryText)
+                .frame(width: 64, alignment: .leading)
+            if let plan, plan.waypoints.count >= 2 {
+                RouteThumbnail(waypoints: plan.waypoints)
+                    .frame(width: 88, height: 54)
+                    .clipShape(RoundedRectangle(cornerRadius: 8))
+            }
+            VStack(alignment: .leading, spacing: 3) {
+                Text(thread.displayName)
+                    .scaledFont(size: 17, weight: .semibold, relativeTo: .body)
+                    .foregroundColor(.primaryText)
+                    .lineLimit(1)
+                Text(routeFacts(thread, plan: plan))
+                    .scaledFont(size: 13, design: .monospaced, relativeTo: .caption)
+                    .foregroundColor(.secondaryText)
+                    .lineLimit(1)
+            }
+            Spacer(minLength: 8)
+            VStack(alignment: .trailing, spacing: 5) {
+                Text(progressText(thread, progress: progress))
+                    .scaledFont(size: 12, relativeTo: .caption)
+                    .foregroundColor(.secondaryText)
+                    .lineLimit(1)
+                ProgressBar(fraction: progress.total > 0 ? Double(progress.done) / Double(progress.total) : 0)
+                    .frame(width: 140)
+            }
+        }
+    }
+
+    /// The iPhone's line: the time and the name, the figures under them, and the progress full width
+    /// below, where the iPad puts a map and a progress column beside the name. (iPhone pass)
+    private func compactLaterRow(_ thread: FlightThread, plan: FlightPlan?,
+                                 progress: (done: Int, total: Int)) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            HStack(alignment: .firstTextBaseline, spacing: 12) {
+                Text(thread.scheduledDeparture.map { $0.formatted(date: .omitted, time: .shortened) } ?? "—")
+                    .scaledFont(size: 19, weight: .bold, design: .monospaced, relativeTo: .body)
+                    .foregroundColor(thread.scheduledDeparture == nil ? .dimText : .primaryText)
+                    .fixedSize()
+                Text(thread.displayName)
+                    .scaledFont(size: 17, weight: .semibold, relativeTo: .body)
+                    .foregroundColor(.primaryText)
+                    .lineLimit(1)
+                Spacer(minLength: 0)
+            }
+            Text(routeFacts(thread, plan: plan))
+                .scaledFont(size: 13, design: .monospaced, relativeTo: .caption)
+                .foregroundColor(.secondaryText)
+                .lineLimit(1)
+            HStack(spacing: 10) {
+                ProgressBar(fraction: progress.total > 0 ? Double(progress.done) / Double(progress.total) : 0)
+                    .frame(width: 72)
+                Text(progressText(thread, progress: progress))
+                    .scaledFont(size: 12, relativeTo: .caption)
+                    .foregroundColor(.secondaryText)
+                    .lineLimit(1)
+            }
+        }
     }
 
     private func routeFacts(_ thread: FlightThread, plan: FlightPlan?) -> String {

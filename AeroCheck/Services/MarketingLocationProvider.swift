@@ -585,6 +585,8 @@ class MarketingLocationProvider: ObservableObject {
 enum MarketingScene: String, CaseIterable, Identifiable {
     case home2Aircraft = "Home — 2 Aircraft"
     case cruiseHUD = "Cruise HUD"
+    /// The Cockpit's MAP pane in flight, with a route on it (iPhone pass).
+    case cruiseRoute = "Cruise — Route on the map"
     case navPlanActive = "Nav — Active Plan"
     case planConflicts = "Plan — Conflicts"
     case planBuilder = "Plan — Builder"
@@ -601,6 +603,7 @@ enum MarketingScene: String, CaseIterable, Identifiable {
         switch self {
         case .home2Aircraft: return "F-HVXA + HB-PFA owned"
         case .cruiseHUD: return "Active flight, CRUISE, SPD/ALT/HDG lit"
+        case .cruiseRoute: return "Active flight, CRUISE, LSZQ→LSGC→LSGN→LSZB on the map"
         case .navPlanActive: return "LSZQ→LSGC→LSGN→LSZB active"
         case .planConflicts: return "Geneva→Samedan, full conflict list"
         case .planBuilder: return "LSZQ→LSGN→LSZP→LSZB→LSZS builder"
@@ -697,6 +700,9 @@ enum MarketingSceneInjector {
         case .home2Aircraft:
             injectHome2Aircraft(appState: appState, subscriptionManager: subscriptionManager, aircraftDataService: aircraftDataService)
         case .cruiseHUD:
+            injectCruiseHUD(appState: appState, locationManager: locationManager, airportDataService: airportDataService)
+        case .cruiseRoute:
+            injectNavPlanActive(flightPlanManager: flightPlanManager, airportDataService: airportDataService, locationManager: locationManager)
             injectCruiseHUD(appState: appState, locationManager: locationManager, airportDataService: airportDataService)
         case .navPlanActive:
             injectNavPlanActive(flightPlanManager: flightPlanManager, airportDataService: airportDataService, locationManager: locationManager)

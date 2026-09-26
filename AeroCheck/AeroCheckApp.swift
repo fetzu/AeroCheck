@@ -629,11 +629,30 @@ struct AppRootView<Content: View>: View {
 /// a quarter turn inside the portrait simulator. simctl cannot rotate a simulator, and iPadOS won't
 /// let an app turn its own window, so this is how the landscape layouts get checked and captured
 /// without touching the Simulator app. Touches still work (the turn applies to hit testing).
+///
+/// On an iPhone, `portrait`, `landscapeLeft` and `landscapeRight` turn the window for real instead
+/// (an iPhone app may), whichever way the simulator is held: the true safe areas, and no blur from the
+/// scroll edge effect of an unturned window. (round 6)
 private struct DebugLandscape: ViewModifier {
-    private let isOn = ProcessInfo.processInfo.environment["AEROCHECK_ORIENTATION"]?.lowercased() == "landscape"
+    private let value = ProcessInfo.processInfo.environment["AEROCHECK_ORIENTATION"]?.lowercased()
+    private var isOn: Bool { value == "landscape" }
+
+    private var requested: UIInterfaceOrientationMask? {
+        switch value {
+        case "portrait": return .portrait
+        case "landscapeleft": return .landscapeLeft
+        case "landscaperight": return .landscapeRight
+        default: return nil
+        }
+    }
 
     func body(content: Content) -> some View {
-        if isOn {
+        if let requested, UIDevice.current.userInterfaceIdiom == .phone {
+            content.task {
+                let scene = UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }.first
+                scene?.requestGeometryUpdate(.iOS(interfaceOrientations: requested))
+            }
+        } else if isOn {
             GeometryReader { geometry in
                 content
                     .frame(width: geometry.size.height, height: geometry.size.width)

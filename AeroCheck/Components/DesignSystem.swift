@@ -1276,8 +1276,8 @@ struct CockpitInstrumentStrip: View {
     let altitudeFeet: Double
     var headingDegrees: Double? = nil
     var verticalSpeedFPM: Double? = nil
-    /// The iPad Cockpit: values at `CockpitType.value`, labels at `CockpitType.label`, read from a
-    /// thigh. The iPhone keeps the compact sizes until its pass. (v6.0 · P2, P6)
+    /// The Cockpit, on both devices: values at `CockpitType.value`, labels at `CockpitType.label`.
+    /// (v6.0 · P2, P6; iPhone pass)
     var kneeboard: Bool = false
     /// The next waypoint, in the route's magenta: the fourth cell of the Cockpit strip. (v6.0 · P2)
     var nextWaypoint: String? = nil
@@ -1397,6 +1397,9 @@ struct CockpitInstrumentStrip: View {
         .accessibilityLabel("Altitude")
         .accessibilityValue(AltimeterView.accessibilityValue(altitudeFeet: Int(altitudeFeet), gpsLost: gpsSignalStatus == .lost))
         .accessibilityAddTraits(.updatesFrequently)
+        // On the phone the three cells are about 118 pt each, and "3'499" at the value size takes all
+        // of it: the altitude, the widest figure, gets its width first. (iPhone pass)
+        .frame(minWidth: kneeboard && CockpitScale.current == .phone ? 140 : 0)
     }
 
     private var headingCell: some View {

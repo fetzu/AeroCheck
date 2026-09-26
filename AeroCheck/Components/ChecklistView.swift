@@ -868,29 +868,70 @@ struct ChecklistItemRow: View {
                   : .aero(size: CockpitType.row, relativeTo: .callout, design: .monospaced)
     }
 
-    var body: some View {
-        VStack(spacing: 0) {
-            HStack(alignment: .lastTextBaseline, spacing: 0) {
-                // Leading status slot — a check for completed items, empty otherwise. The item NUMBER is
-                // intentionally dropped: it added clutter to the muted past/future rows. (v4 UI/UX Revamp)
-                Group {
-                    if isCompleted {
-                        Image(systemName: "checkmark")
-                            .font(.aero(size: isCompact ? 10 : 18, weight: .bold))
-                            .foregroundColor(theme.onTarget.opacity(0.7))
-                    } else if isDeferred {
-                        Image(systemName: "clock.arrow.circlepath")
-                            .font(.aero(size: isCompact ? 10 : 18, weight: .bold))
-                            .foregroundColor(theme.warning)
+    /// The phone's Cockpit: a row that doesn't fit on one line puts the response under the challenge.
+    /// Side by side at 20 pt, the two columns were narrower than a word and broke "Altimeter" into
+    /// "Altimete / r". The iPad keeps its two columns. (iPhone pass, I6)
+    private var stacksWhenLong: Bool { !isCompact && CockpitScale.current == .phone }
+
+    /// Leading status slot — a check for completed items, empty otherwise. The item NUMBER is
+    /// intentionally dropped: it added clutter to the muted past/future rows. (v4 UI/UX Revamp)
+    private var statusSlot: some View {
+        Group {
+            if isCompleted {
+                Image(systemName: "checkmark")
+                    .font(.aero(size: isCompact ? 10 : 18, weight: .bold))
+                    .foregroundColor(theme.onTarget.opacity(0.7))
+            } else if isDeferred {
+                Image(systemName: "clock.arrow.circlepath")
+                    .font(.aero(size: isCompact ? 10 : 18, weight: .bold))
+                    .foregroundColor(theme.warning)
+            }
+        }
+        .frame(width: isCompact ? 18 : 28, alignment: .leading)
+        .padding(.trailing, isCompact ? 4 : 6)
+    }
+
+    private var challengeText: some View {
+        Text(item.challenge)
+            .font(itemFont)
+            .foregroundColor(challengeColor)
+    }
+
+    private var responseText: some View {
+        Text(item.response)
+            .font(responseFont)
+            .foregroundColor(responseColor)
+            .multilineTextAlignment(.trailing)
+    }
+
+    @ViewBuilder
+    private var rowContent: some View {
+        if stacksWhenLong {
+            ViewThatFits(in: .horizontal) {
+                HStack(alignment: .lastTextBaseline, spacing: 0) {
+                    statusSlot
+                    challengeText.fixedSize()
+                    DotLeader()
+                        .padding(.horizontal, 8)
+                        .opacity(isCompleted ? 0.5 : 1.0)
+                    responseText.fixedSize()
+                }
+                HStack(alignment: .firstTextBaseline, spacing: 0) {
+                    statusSlot
+                    VStack(alignment: .leading, spacing: 2) {
+                        challengeText.fixedSize(horizontal: false, vertical: true)
+                        responseText
+                            .fixedSize(horizontal: false, vertical: true)
+                            .frame(maxWidth: .infinity, alignment: .trailing)
                     }
                 }
-                .frame(width: isCompact ? 18 : 28, alignment: .leading)
-                .padding(.trailing, isCompact ? 4 : 6)
+            }
+        } else {
+            HStack(alignment: .lastTextBaseline, spacing: 0) {
+                statusSlot
 
                 // Challenge text
-                Text(item.challenge)
-                    .font(itemFont)
-                    .foregroundColor(challengeColor)
+                challengeText
                     .fixedSize(horizontal: false, vertical: true)
 
                 // Dot leader - fills remaining space, aligned to text baseline
@@ -903,12 +944,15 @@ struct ChecklistItemRow: View {
                 }
 
                 // Response text
-                Text(item.response)
-                    .font(responseFont)
-                    .foregroundColor(responseColor)
-                    .multilineTextAlignment(.trailing)
+                responseText
                     .fixedSize(horizontal: false, vertical: true)
             }
+        }
+    }
+
+    var body: some View {
+        VStack(spacing: 0) {
+            rowContent
             .padding(.vertical, isCompact ? 4 : 9)
             .padding(.horizontal, isHighlighted ? (isCompact ? 4 : 8) : 0)
             .background(

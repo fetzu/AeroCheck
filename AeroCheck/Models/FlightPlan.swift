@@ -305,6 +305,14 @@ struct FlightPlan: Identifiable, Codable, Equatable {
     /// Set when the flight is going somewhere other than the end of its route. See `Diversion`.
     var diversion: Diversion?
 
+    // The route library (on-device review #4). Optional: plans written before decode unchanged.
+
+    /// When the pilot archived this route: out of the Routes list, kept under Archived.
+    var archivedAt: Date?
+    /// True for the plan a planned flight made for itself (Plan new flight, a trip's legs, Add a
+    /// stop): it lives with its flight, not in the Routes list. See `RouteLibrary.isRoute`.
+    var flightOwned: Bool?
+
     init(
         id: UUID = UUID(),
         name: String = "",
@@ -409,6 +417,7 @@ struct FlightPlan: Identifiable, Codable, Equatable {
         case alternateAerodrome, personsOnBoard, aircraftColour
         case isActive, currentWaypointIndex, chronometerStartTime, activatedAt
         case stopover, departureIsEstimate, diversion
+        case archivedAt, flightOwned
     }
 
     init(from decoder: Decoder) throws {
@@ -478,6 +487,8 @@ struct FlightPlan: Identifiable, Codable, Equatable {
         stopover = try container.decodeIfPresent(Stopover.self, forKey: .stopover)
         departureIsEstimate = try container.decodeIfPresent(Bool.self, forKey: .departureIsEstimate)
         diversion = try container.decodeIfPresent(Diversion.self, forKey: .diversion)
+        archivedAt = try container.decodeIfPresent(Date.self, forKey: .archivedAt)
+        flightOwned = try container.decodeIfPresent(Bool.self, forKey: .flightOwned)
     }
 
     func encode(to encoder: Encoder) throws {
@@ -527,6 +538,8 @@ struct FlightPlan: Identifiable, Codable, Equatable {
         try container.encodeIfPresent(stopover, forKey: .stopover)
         try container.encodeIfPresent(departureIsEstimate, forKey: .departureIsEstimate)
         try container.encodeIfPresent(diversion, forKey: .diversion)
+        try container.encodeIfPresent(archivedAt, forKey: .archivedAt)
+        try container.encodeIfPresent(flightOwned, forKey: .flightOwned)
     }
 
     /// The same plan under a new identity: everything the pilot planned, nothing about a flight.
@@ -550,6 +563,9 @@ struct FlightPlan: Identifiable, Codable, Equatable {
         )
         plan.stopover = stopover
         plan.departureIsEstimate = departureIsEstimate
+        // A leg split off a flight's plan is that flight's too. Archiving isn't copied: a copy is
+        // something new the pilot is about to use.
+        plan.flightOwned = flightOwned
         return plan
     }
 

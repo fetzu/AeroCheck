@@ -838,12 +838,21 @@ class DataPersistenceManager: ObservableObject {
         encoder.dateEncodingStrategy = .iso8601
         encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
         var written: [UUID] = []
+        // The file each plan was last written under. A plan's filename carries its name, so a
+        // renamed plan's old file would stay beside the new one; deleting the plan later removed
+        // only the new file, and the old one brought the route back on the next launch.
+        // (on-device review #4: routes can be renamed)
+        let previousFilenames = navigationPlanIndex(in: directory)
         for plan in changed {
-            let url = directory.appendingPathComponent(navigationPlanFilename(for: plan))
+            let filename = navigationPlanFilename(for: plan)
+            let url = directory.appendingPathComponent(filename)
             do {
                 let data = try encoder.encode(plan)
                 try data.write(to: url, options: protectedWriteOptions)
                 written.append(plan.id)
+                if let previous = previousFilenames[plan.id], previous != filename {
+                    try? FileManager.default.removeItem(at: directory.appendingPathComponent(previous))
+                }
             } catch {
                 AppLog.general.debugLine(
                     "Failed to save navigation plan \(navigationPlanFilename(for: plan)): \(error.localizedDescription)")
@@ -875,16 +884,33 @@ class DataPersistenceManager: ObservableObject {
 
     /// Delete a navigation plan file
     func deleteNavigationPlan(_ plan: FlightPlan) {
-        let fileURL = navigationPlansDirectory.appendingPathComponent(navigationPlanFilename(for: plan))
+        Self.deleteNavigationPlanFiles(for: plan, in: navigationPlansDirectory)
+    }
 
-        do {
-            if FileManager.default.fileExists(atPath: fileURL.path) {
-                try FileManager.default.removeItem(at: fileURL)
-                AppLog.general.debugLine("Deleted navigation plan: \(navigationPlanFilename(for: plan))")
+    /// Removes the plan's file under its current name AND under the name the index last recorded
+    /// for it, which differ once the plan has been renamed. (on-device review #4)
+    nonisolated static func deleteNavigationPlanFiles(for plan: FlightPlan, in directory: URL) {
+        var names: Set<String> = [navigationPlanFilename(for: plan)]
+        if let indexed = navigationPlanIndex(in: directory)[plan.id] { names.insert(indexed) }
+        for name in names {
+            let fileURL = directory.appendingPathComponent(name)
+            do {
+                if FileManager.default.fileExists(atPath: fileURL.path) {
+                    try FileManager.default.removeItem(at: fileURL)
+                    AppLog.general.debugLine("Deleted navigation plan: \(name)")
+                }
+            } catch {
+                AppLog.general.debugLine("Failed to delete navigation plan: \(error.localizedDescription)")
             }
-        } catch {
-            AppLog.general.debugLine("Failed to delete navigation plan: \(error.localizedDescription)")
         }
+    }
+
+    /// The index's filename per plan id; empty when there's no readable index.
+    nonisolated static func navigationPlanIndex(in directory: URL) -> [UUID: String] {
+        let url = directory.appendingPathComponent("plans_index.json")
+        guard let data = try? Data(contentsOf: url),
+              let entries = try? JSONDecoder().decode([NavigationPlanIndexEntry].self, from: data) else { return [:] }
+        return Dictionary(entries.map { ($0.id, $0.filename) }, uniquingKeysWith: { first, _ in first })
     }
 
 

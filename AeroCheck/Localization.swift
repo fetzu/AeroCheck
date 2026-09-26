@@ -1415,6 +1415,22 @@ enum L10n {
 
     /// Trips: stops, legs, diversions and continuing after one. (v5.1)
     /// The ground tabs. (v6.0 · P1)
+    /// The route editor. (planning proposal D)
+    enum RouteEditor {
+        static let legs = String(localized: "routeEditor.legs")
+        static func conflicts(_ count: Int) -> String {
+            count == 1 ? String(localized: "routeEditor.oneConflict")
+                       : String(format: String(localized: "routeEditor.conflicts"), count)
+        }
+        static let noConflicts = String(localized: "routeEditor.noConflicts")
+        static let notChecked = String(localized: "routeEditor.notChecked")
+        static let waypoint = String(localized: "routeEditor.waypoint")
+        static let mc = String(localized: "routeEditor.mc")
+        static let altFt = String(localized: "routeEditor.altFt")
+        static let destination = String(localized: "routeEditor.destination")
+        static let selectLeg = String(localized: "routeEditor.selectLeg")
+    }
+
     /// Plan › Flights. (planning proposal C)
     enum FlightsPage {
         static func upcomingCount(_ count: Int) -> String {

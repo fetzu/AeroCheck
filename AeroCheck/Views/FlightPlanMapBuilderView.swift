@@ -75,6 +75,9 @@ struct FlightPlanMapBuilderView: View {
     // Hybrid layout (#4 redesign): wide profile strip under the map + a Waypoints/Conflicts toggle.
     enum RightTab { case waypoints, conflicts }
     @State private var rightTab: RightTab = .waypoints
+    /// The leg selected in the table, on the map or from a conflict (from waypoint n to n+1),
+    /// highlighted in all three where it stands. (planning proposal D3)
+    @State private var selectedLeg: Int?
     @State private var profileCollapsed = false
     @State private var tripBannerDismissed = false   // v4.1.0 trip-aware prefetch banner
     @State private var showDeactivateConfirm = false   // v4.4.0 — arm/disarm from the builder
@@ -247,12 +250,14 @@ struct FlightPlanMapBuilderView: View {
             .padding(.leading, 14)
             .padding(.trailing, 4)
             .padding(.vertical, 4)
-            .floatingChromeBackground(cornerRadius: 12)
+            // Near-opaque, as the From/To bar was: it sits over the chart now, and glass over a busy
+            // ICAO chart left it unreadable. (planning proposal D)
+            .background(Color.panelBackground.opacity(0.95), in: RoundedRectangle(cornerRadius: 12))
             .overlay(
                 RoundedRectangle(cornerRadius: 12)
                     .strokeBorder(tint.opacity(0.35), lineWidth: 1)
             )
-            .padding(.horizontal, 16)
+            .padding(.horizontal, 12)
             .padding(.top, 8)
             .transition(.move(edge: .top).combined(with: .opacity))
         }
@@ -264,26 +269,42 @@ struct FlightPlanMapBuilderView: View {
                 let twoColumn = horizontalSizeClass == .regular && geo.size.width > geo.size.height
                 Group {
                     if twoColumn {
+                        // Landscape: the map on the left; From/To, the profile and the legs in a column
+                        // on the right, like the navigation map. (planning proposal D1)
                         HStack(spacing: 0) {
-                            leftSide
-                                .frame(width: geo.size.width * 0.62)
+                            mapArea
+                                .frame(width: geo.size.width * 0.58)
                             Rectangle().fill(Color.subtleOverlay(0.08)).frame(width: 1)
-                            rightColumn
-                                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                            VStack(spacing: 0) {
+                                fromToBar
+                                if waypoints.count >= 2 {
+                                    Rectangle().fill(Color.subtleOverlay(0.08)).frame(height: 1)
+                                    routeProfileStrip
+                                }
+                                Rectangle().fill(Color.subtleOverlay(0.08)).frame(height: 1)
+                                tablePanel
+                            }
+                            .frame(maxWidth: .infinity, maxHeight: .infinity)
                         }
                     } else {
+                        // Portrait: From/To above the map rather than over it, the profile under it,
+                        // then the legs, about ten of them in view. (planning proposal D1)
                         VStack(spacing: 0) {
-                            leftSide
-                                .frame(height: geo.size.height * 0.65)   // map + profile get the lion's share on iPhone
+                            fromToBar
+                            mapArea
+                                .frame(height: max(240, geo.size.height * (waypoints.count >= 2 ? 0.40 : 0.62)))
+                            if waypoints.count >= 2 {
+                                Rectangle().fill(Color.subtleOverlay(0.08)).frame(height: 1)
+                                routeProfileStrip
+                            }
                             Rectangle().fill(Color.subtleOverlay(0.08)).frame(height: 1)
-                            rightColumn
+                            tablePanel
                                 .frame(maxWidth: .infinity, maxHeight: .infinity)
                         }
                     }
                 }
             }
             .background(Color.cockpitBackground)
-            .overlay(alignment: .top) { tripDataBanner }
             .animation(reduceMotion ? nil : .easeInOut(duration: 0.2), value: tripNeededCountries.isEmpty) // (UX-18)
             .navigationBarTitleDisplayMode(.inline)
             // Direction B: the bar stays, but the dead "Flight plan" title is replaced by the live
@@ -446,13 +467,24 @@ struct FlightPlanMapBuilderView: View {
             onAirportTap: { airport in addAirport(airport) },
             onMoveWaypoint: { index, coord in moveWaypoint(at: index, to: coord) },
             onInsertWaypoint: { afterIndex, coord in insertRouteWaypoint(afterIndex: afterIndex, at: coord) },
-            onAddWaypoint: { coord in smartAddWaypoint(at: coord) }
+            onAddWaypoint: { coord in smartAddWaypoint(at: coord) },
+            selectedLeg: selectedLeg,
+            conflictLegs: Set(legConflicts.keys),
+            onSelectWaypoint: { index in selectLeg(index) }
         )
         .ignoresSafeArea(edges: .bottom)
-        // From/To bar full-width at the top (Done/••• live in the system bar — Direction B).
+        // From and To sit above the map now, not over it (planning proposal D1); what they find
+        // drops over the map's top, under them, as does the missing-data banner (it covered them).
+        .overlay(alignment: .top) { tripDataBanner }
         .overlay(alignment: .top) {
-            fromToBar
-                .padding(12)
+            if focusedEndpoint != nil && !searchResults.isEmpty {
+                airportResults { airport in
+                    if let slot = focusedEndpoint { setEndpoint(slot, airport) }
+                }
+                .background(Color.panelBackground.opacity(0.96), in: RoundedRectangle(cornerRadius: 12))
+                .padding(.horizontal, 12)
+                .padding(.top, 6)
+            }
         }
         // Map-type + Layers buttons bottom-left, center/fit bottom-right. (v4.1.0 two-button)
         .overlay(alignment: .bottomLeading) {
@@ -479,25 +511,16 @@ struct FlightPlanMapBuilderView: View {
                     Image(systemName: "arrow.left.arrow.right")
                         .font(.aero(size: 13, weight: .semibold))
                         .foregroundColor(waypoints.count >= 2 ? .secondaryText : .dimText.opacity(0.4))
-                        .frame(width: 30, height: 30)
+                        .frame(width: 44, height: 44)
                 }
                 .disabled(waypoints.count < 2)
                 .accessibilityLabel(L10n.Nav.swapEndpoints)
                 endpointField(.to)
             }
-            .padding(8)
-            // Near-opaque panel (app convention) instead of translucent glass — the From/To bar must
-            // stay legible over busy chart layers (ICAO/Segelflug). (feedback)
-            .background(Color.panelBackground.opacity(0.92), in: RoundedRectangle(cornerRadius: 12))
-
-            if focusedEndpoint != nil && !searchResults.isEmpty {
-                airportResults { airport in
-                    if let slot = focusedEndpoint { setEndpoint(slot, airport) }
-                }
-                .background(Color.panelBackground.opacity(0.96), in: RoundedRectangle(cornerRadius: 12))
-                .padding(.top, 4)
-            }
+            .padding(.horizontal, 12)
+            .padding(.vertical, 8)
         }
+        .background(Color.panelBackground)
         .onChange(of: fromText) { _, q in if focusedEndpoint == .from { scheduleSearch(q) } }
         .onChange(of: toText) { _, q in if focusedEndpoint == .to { scheduleSearch(q) } }
         .onChange(of: focusedEndpoint) { _, _ in searchTask?.cancel(); searchResults = [] }
@@ -508,16 +531,16 @@ struct FlightPlanMapBuilderView: View {
     private func endpointField(_ slot: RouteEndpoint) -> some View {
         HStack(spacing: 6) {
             Text(slot == .from ? L10n.Nav.from : L10n.Nav.to)
-                .font(.aero(size: 9, weight: .semibold)).tracking(0.4).foregroundColor(.dimText)
+                .font(.aero(size: 11, weight: .semibold)).tracking(0.6).foregroundColor(.dimText)
             TextField(slot == .from ? L10n.Nav.from : L10n.Nav.to,
                       text: slot == .from ? $fromText : $toText)
                 .textInputAutocapitalization(.characters)
                 .autocorrectionDisabled()
-                .font(.aero(size: 14, weight: .semibold, design: .monospaced))
+                .font(.aero(size: 17, weight: .semibold, design: .monospaced))
                 .foregroundColor(slot == .from ? .aviationGreen : .aviationGold)
                 .focused($focusedEndpoint, equals: slot)
         }
-        .padding(.horizontal, 9).padding(.vertical, 7)
+        .padding(.horizontal, 12).frame(minHeight: 44)
         .background(RoundedRectangle(cornerRadius: 8).fill(Color.subtleOverlay(0.06)))
     }
 
@@ -746,38 +769,90 @@ struct FlightPlanMapBuilderView: View {
 
     // MARK: - Hybrid layout: map + bottom profile strip (left) · summary + toggle (right) (#4 redesign)
 
-    /// Map filling the area with the wide route-profile strip pinned beneath it (the EFB convention).
-    private var leftSide: some View {
+    /// The legs, or the conflicts list. The Waypoints | Conflicts tabs are gone: the legs are what
+    /// the editor is for, and a conflict now shows on its leg (⚠ in its row, an amber pin, a mark on
+    /// the profile). The list stays one tap away, on the "⚠ N conflicts" chip, for the details and
+    /// for highlighting one on the profile and the map. (planning proposal D2, and its note)
+    private var tablePanel: some View {
         VStack(spacing: 0) {
-            mapArea
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-            if waypoints.count >= 2 {
-                Rectangle().fill(Color.subtleOverlay(0.08)).frame(height: 1)
-                routeProfileStrip
-            }
-        }
-    }
-
-    /// Right column: compact route summary + a Waypoints/Conflicts toggle, showing one focused view at
-    /// a time instead of stacking everything.
-    private var rightColumn: some View {
-        VStack(spacing: 0) {
-            if waypoints.count >= 2 { rightTabBar }
-            Group {
-                if rightTab == .conflicts && waypoints.count >= 2 {
-                    conflictsTabContent
-                } else if waypoints.isEmpty {
-                    emptyRouteHint
-                } else {
-                    if waypoints.count >= 2 { waypointListHeader }
-                    if hasNoPlannedAltitudes { noAltitudesBanner }
-                    waypointList
-                }
+            if rightTab == .conflicts && waypoints.count >= 2 {
+                conflictsHeader
+                conflictsTabContent
+            } else if waypoints.isEmpty {
+                emptyRouteHint
+            } else {
+                waypointListHeader
+                if hasNoPlannedAltitudes { noAltitudesBanner }
+                if horizontalSizeClass != .compact { legColumnsHeader }
+                waypointList
             }
         }
         .background(Color.cockpitBackground)
         .onChange(of: waypoints.count) { _, count in
             if count < 2 { listEditMode = .inactive; rightTab = .waypoints }
+            if let leg = selectedLeg, leg >= count { selectedLeg = nil }
+        }
+    }
+
+    private var conflictsHeader: some View {
+        HStack(spacing: 10) {
+            Button {
+                withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.15)) { rightTab = .waypoints }
+            } label: {
+                HStack(spacing: 5) {
+                    Image(systemName: "chevron.left")
+                    Text(L10n.RouteEditor.legs)
+                }
+                .font(.aero(size: 15, weight: .semibold))
+                .foregroundColor(.altimeterBlue)
+                .frame(minHeight: 44)
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            Spacer()
+            Text(L10n.Nav.conflictsTab.uppercased())
+                .font(.aero(size: 12, weight: .bold, design: .monospaced)).tracking(1.2)
+                .foregroundColor(hazardTint)
+        }
+        .padding(.horizontal, 16)
+    }
+
+    // MARK: - Legs and their conflicts (planning proposal D)
+
+    /// Along-track distance at each waypoint, from the legs' own distances.
+    private var cumulativeNM: [Double] {
+        var result: [Double] = [0]
+        for waypoint in waypoints.dropLast() { result.append(result.last! + (waypoint.distance ?? 0)) }
+        return result
+    }
+
+    /// The leg (from waypoint n) a distance along the route falls on.
+    private func leg(atNM nm: Double) -> Int? {
+        let cum = cumulativeNM
+        guard cum.count >= 2 else { return nil }
+        for index in 0..<(cum.count - 1) where nm < cum[index + 1] { return index }
+        return cum.count - 2
+    }
+
+    /// The conflicting airspaces each leg crosses, by leg (from waypoint n), in the order they start.
+    private var legConflicts: [Int: [String]] {
+        let cum = cumulativeNM
+        guard cum.count >= 2 else { return [:] }
+        var result: [Int: [String]] = [:]
+        for block in airspaceBlocks.filter(\.isConflict).sorted(by: { $0.startNM < $1.startNM }) {
+            for index in 0..<(cum.count - 1) where block.startNM < cum[index + 1] && block.endNM > cum[index] {
+                result[index, default: []].append(block.id)
+            }
+        }
+        return result
+    }
+
+    /// Select a leg, from the table or a pin. Selecting the selected row again opens its waypoint.
+    private func selectLeg(_ index: Int) {
+        withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.15)) {
+            selectedLeg = index
+            // A conflict of another leg no longer applies to what's selected.
+            if let id = selectedConflictId, !(legConflicts[index]?.contains(id) ?? false) { selectedConflictId = nil }
         }
     }
 
@@ -830,6 +905,7 @@ struct FlightPlanMapBuilderView: View {
                 RouteProfileView(waypoints: waypoints, terrain: terrainData, blocks: airspaceBlocks,
                                  selectedId: selectedConflictId, terrainId: Self.terrainConflictId,
                                  visibleRegion: region,
+                                 selectedLeg: selectedLeg,
                                  onSetAltitude: { index, alt in setWaypointAltitude(index, alt) },
                                  onAddAtDistance: { nm, alt in addProfilePoint(atNM: nm, altitude: alt) })
                     .frame(height: profileExpanded ? 300 : (horizontalSizeClass == .compact ? 100 : 136))
@@ -860,14 +936,6 @@ struct FlightPlanMapBuilderView: View {
         withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.18)) { profileCollapsed.toggle() } // (UX-18)
     }
 
-    private var rightTabBar: some View {
-        HStack(spacing: 8) {
-            tabButton(.waypoints, L10n.Nav.waypointsTab, badge: nil, tint: .aviationGold)
-            tabButton(.conflicts, L10n.Nav.conflictsTab, badge: hazardBadge, tint: hazardTint)
-        }
-        .padding(.horizontal, 12).padding(.top, 10).padding(.bottom, 4)
-    }
-
     private var hazardCount: Int { crossedAirspaces.count + (terrainWarning ? 1 : 0) }
     /// Whether any OpenAIP airspace data is actually loaded to check the route against. Airspace
     /// download is opt-in and off by default, so an empty conflict set means "not checked", NOT
@@ -893,29 +961,6 @@ struct FlightPlanMapBuilderView: View {
     private var hazardBadge: String {
         if hazardCount > 0 { return "\(hazardCount)" }
         return routeFullyChecked ? "✓" : "?"
-    }
-
-    private func tabButton(_ tab: RightTab, _ title: String, badge: String?, tint: Color) -> some View {
-        let selected = rightTab == tab
-        return Button {
-            withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.15)) { rightTab = tab } // (UX-18)
-        } label: {
-            HStack(spacing: 6) {
-                Text(title).font(.aero(size: 13, weight: .semibold))
-                if let badge = badge {
-                    Text(badge)
-                        .font(.aero(size: 11, weight: .bold, design: .monospaced))
-                        .foregroundColor(selected ? .black : tint)
-                        .padding(.horizontal, 6).padding(.vertical, 1)
-                        .background(Capsule().fill(selected ? Color.black.opacity(0.18) : tint.opacity(0.18)))
-                }
-            }
-            .foregroundColor(selected ? .black : .primaryText)
-            .frame(maxWidth: .infinity)
-            .padding(.vertical, 8)
-            .background(RoundedRectangle(cornerRadius: 9).fill(selected ? tint : Color.subtleOverlay(0.06)))
-        }
-        .buttonStyle(.plain)
     }
 
     /// Conflicts tab body — the hazard list, a genuine "clear" state, or a "not checked" state. The
@@ -1023,6 +1068,10 @@ struct FlightPlanMapBuilderView: View {
     private func selectConflict(_ id: String) {
         withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.15)) { // (UX-18)
             selectedConflictId = (selectedConflictId == id) ? nil : id
+            // …and the leg it starts on, so the three views agree. (planning proposal D3)
+            if selectedConflictId != nil, let block = airspaceBlocks.first(where: { $0.id == id }) {
+                selectedLeg = leg(atNM: block.startNM)
+            }
         }
     }
 
@@ -1253,9 +1302,12 @@ struct FlightPlanMapBuilderView: View {
     /// next to the list it edits, leaving exactly one unambiguous "Done" in the top bar to exit.
     private var waypointListHeader: some View {
         HStack(spacing: 8) {
+            Text(L10n.RouteEditor.legs.uppercased())
+                .font(.aero(size: 12, weight: .bold, design: .monospaced)).tracking(1.2)
+                .foregroundColor(.aviationGold)
             if listEditMode == .active {
                 Text(L10n.Nav.dragToReorder)
-                    .font(.aero(size: 10))
+                    .font(.aero(size: 11))
                     .foregroundColor(.dimText)
                     .lineLimit(1)
             }
@@ -1282,13 +1334,58 @@ struct FlightPlanMapBuilderView: View {
                     .foregroundColor(listEditMode == .active ? .black : .aviationGold)
                     .frame(width: 30, height: 30)
                     .background(Circle().fill(listEditMode == .active ? Color.aviationGold : Color.subtleOverlay(0.06)))
+                    .frame(width: 44, height: 44)
             }
             .accessibilityLabel(L10n.Nav.reorderWaypoints)
             .accessibilityAddTraits(listEditMode == .active ? [.isSelected] : [])
+            if waypoints.count >= 2 { conflictsChip }
         }
-        .padding(.horizontal, 16)
-        .padding(.top, 8)
-        .padding(.bottom, 2)
+        .padding(.horizontal, 14)
+        .padding(.top, 4)
+    }
+
+    /// "⚠ 12 conflicts", "✓ No conflicts" or "? Not checked": what the route check found, and the
+    /// way to its list. (planning proposal D2)
+    private var conflictsChip: some View {
+        let text: String = hazardCount > 0
+            ? "⚠ " + L10n.RouteEditor.conflicts(hazardCount)
+            : (routeFullyChecked ? "✓ " + L10n.RouteEditor.noConflicts : "? " + L10n.RouteEditor.notChecked)
+        return Button {
+            withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.15)) { rightTab = .conflicts }
+        } label: {
+            HStack(spacing: 4) {
+                Text(text)
+                Image(systemName: "chevron.right").font(.aero(size: 11, weight: .bold))
+            }
+            .font(.aero(size: 14, weight: .semibold))
+            .foregroundColor(hazardTint)
+            .padding(.horizontal, 12)
+            .frame(minHeight: 36)
+            .background(Capsule().fill(hazardTint.opacity(0.12)))
+            .overlay(Capsule().strokeBorder(hazardTint.opacity(0.5), lineWidth: 1))
+            .frame(minHeight: 44)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+    }
+
+    /// The nav log's own columns, over the legs. (planning proposal D1)
+    private var legColumnsHeader: some View {
+        HStack(spacing: 0) {
+            Text("#").frame(width: LegRow.numberWidth, alignment: .leading)
+            Text(L10n.RouteEditor.waypoint).frame(maxWidth: .infinity, alignment: .leading)
+            Text(L10n.RouteEditor.mc).frame(width: LegRow.mcWidth, alignment: .trailing)
+            Text("NM").frame(width: LegRow.nmWidth, alignment: .trailing)
+            Text("EET").frame(width: LegRow.eetWidth, alignment: .trailing)
+            Text(L10n.RouteEditor.altFt).frame(width: LegRow.altWidth, alignment: .trailing)
+            Text("").frame(width: LegRow.warnWidth)
+        }
+        .font(.aero(size: 11, weight: .bold, design: .monospaced))
+        .tracking(0.8)
+        .foregroundColor(.secondaryText)
+        .padding(.leading, 16)
+        .padding(.trailing, 12)
+        .frame(height: 30)
     }
 
     /// True when no en-route waypoint has a planned altitude — typically a GPX from a planner whose
@@ -1355,34 +1452,67 @@ struct FlightPlanMapBuilderView: View {
     }
 
     private var waypointList: some View {
-        List {
-            ForEach(Array(waypoints.enumerated()), id: \.element.id) { index, waypoint in
-                WaypointBuilderRow(
-                    index: index,
-                    waypoint: waypoint,
-                    isLast: index == waypoints.count - 1,
-                    onEditAltitude: { feet in
-                        var wp = waypoint
-                        wp.altitude = feet
-                        flightPlanManager.updateWaypoint(wp, in: planId)
-                    },
-                    onTap: { editingWaypoint = waypoint }
-                )
-                .listRowBackground(Color.cardBackground)
-                .listRowSeparatorTint(Color.subtleOverlay(0.06))
+        let conflicts = legConflicts
+        return ScrollViewReader { proxy in
+            List {
+                ForEach(Array(waypoints.enumerated()), id: \.element.id) { index, waypoint in
+                    let isSelected = selectedLeg == index
+                    LegRow(
+                        index: index,
+                        waypoint: waypoint,
+                        isLast: index == waypoints.count - 1,
+                        isSelected: isSelected,
+                        conflictCount: conflicts[index]?.count ?? 0,
+                        compact: horizontalSizeClass == .compact,
+                        onEditAltitude: { feet in
+                            var wp = waypoint
+                            wp.altitude = feet
+                            flightPlanManager.updateWaypoint(wp, in: planId)
+                        },
+                        // A tap selects the leg (map, profile and table); a tap on the selected row
+                        // opens its waypoint. (planning proposal D3)
+                        onTap: { if isSelected { editingWaypoint = waypoint } else { selectLeg(index) } },
+                        onConflictTap: {
+                            selectLeg(index)
+                            if let first = conflicts[index]?.first {
+                                withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.15)) { selectedConflictId = first }
+                            }
+                        }
+                    )
+                    .id(waypoint.id)
+                    .listRowInsets(EdgeInsets(top: 0, leading: 16, bottom: 0, trailing: 12))
+                    .listRowBackground(
+                        (isSelected ? Color(red: 1.0, green: 0.08, blue: 0.8).opacity(0.16) : Color.cardBackground)
+                            .overlay(alignment: .leading) {
+                                if isSelected {
+                                    Rectangle().fill(Color(red: 1.0, green: 0.08, blue: 0.8)).frame(width: 3)
+                                }
+                            }
+                    )
+                    .listRowSeparatorTint(Color.subtleOverlay(0.06))
+                }
+                .onMove { source, destination in
+                    selectedLeg = nil
+                    flightPlanManager.moveWaypoints(in: planId, from: source, to: destination)
+                }
+                .onDelete { offsets in
+                    selectedLeg = nil
+                    for index in offsets where index < waypoints.count {
+                        flightPlanManager.removeWaypoint(waypoints[index], from: planId)
+                    }
+                }
             }
-            .onMove { source, destination in
-                flightPlanManager.moveWaypoints(in: planId, from: source, to: destination)
-            }
-            .onDelete { offsets in
-                for index in offsets where index < waypoints.count {
-                    flightPlanManager.removeWaypoint(waypoints[index], from: planId)
+            .listStyle(.plain)
+            .scrollContentBackground(.hidden)
+            .environment(\.editMode, $listEditMode)
+            // A leg picked on the map comes into view; nothing reorders. (planning proposal D3)
+            .onChange(of: selectedLeg) { _, leg in
+                guard let leg, leg < waypoints.count else { return }
+                withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.2)) {
+                    proxy.scrollTo(waypoints[leg].id, anchor: .center)
                 }
             }
         }
-        .listStyle(.plain)
-        .scrollContentBackground(.hidden)
-        .environment(\.editMode, $listEditMode)
     }
 
     // MARK: - Actions
@@ -1596,64 +1726,85 @@ struct FlightPlanMapBuilderView: View {
     }
 }
 
-// MARK: - Waypoint list row
+// MARK: - Leg row (planning proposal D1)
 
-private struct WaypointBuilderRow: View {
+/// One leg, in the nav log's columns: #, waypoint, MC, NM, EET, altitude (editable) and ⚠. 44 pt,
+/// so about ten are in view in portrait where four were. The leg data is the leg FROM this waypoint;
+/// the last row is the destination. On the iPhone the figures go under the name.
+private struct LegRow: View {
+    static let numberWidth: CGFloat = 36
+    static let mcWidth: CGFloat = 58
+    static let nmWidth: CGFloat = 64
+    static let eetWidth: CGFloat = 78
+    static let altWidth: CGFloat = 104
+    static let warnWidth: CGFloat = 44
+
     let index: Int
     let waypoint: FlightPlanWaypoint
     let isLast: Bool
+    let isSelected: Bool
+    let conflictCount: Int
+    let compact: Bool
     let onEditAltitude: (Double?) -> Void
     let onTap: () -> Void
+    let onConflictTap: () -> Void
 
     @State private var altitudeText: String = ""
     @FocusState private var altitudeFocused: Bool
 
-    var body: some View {
-        HStack(spacing: 12) {
-            // The whole left region (badge + name + leg data) is one tap target → opens the waypoint
-            // editor; only the altitude chip on the right stays a separate input. (feedback)
-            Button(action: onTap) {
-                HStack(spacing: 12) {
-                    Text("\(index + 1)")
-                        .font(.aero(size: 13, weight: .bold, design: .monospaced))
-                        .foregroundColor(.black)
-                        .frame(width: 26, height: 26)
-                        .background(Circle().fill(Color.aviationGold))
+    private var name: String { waypoint.name.isEmpty ? "WPT\(index + 1)" : waypoint.name }
 
-                    VStack(alignment: .leading, spacing: 3) {
-                        Text(waypoint.name.isEmpty ? "WPT\(index + 1)" : waypoint.name)
-                            .font(.aero(size: 16, weight: .semibold))
-                            .foregroundColor(.primaryText)
-                            .lineLimit(1)
-                        // Inline leg data to the NEXT waypoint (nil on the last waypoint).
-                        if !isLast {
-                            Text(legLine)
+    var body: some View {
+        HStack(spacing: 0) {
+            // Number, name and figures: one target. A tap selects the leg; a tap on the selected
+            // row opens the waypoint. Only the altitude and ⚠ keep their own. (proposal D3)
+            Button(action: onTap) {
+                HStack(spacing: 0) {
+                    Text("\(index + 1)")
+                        .font(.aero(size: 15, weight: .bold, design: .monospaced))
+                        .foregroundColor(.aviationGold)
+                        .frame(width: Self.numberWidth, alignment: .leading)
+                    VStack(alignment: .leading, spacing: 2) {
+                        HStack(spacing: 6) {
+                            Text(name)
+                                .font(.aero(size: 16, weight: .semibold))
+                                .foregroundColor(.primaryText)
+                                .lineLimit(1)
+                            if let callSign = waypoint.callSign, !callSign.isEmpty, callSign != waypoint.name {
+                                Text(callSign)
+                                    .font(.aero(size: 12, design: .monospaced))
+                                    .foregroundColor(.secondaryText)
+                                    .lineLimit(1)
+                            }
+                        }
+                        if compact {
+                            Text(isLast ? L10n.RouteEditor.destination : legLine)
                                 .font(.aero(size: 11, design: .monospaced))
                                 .foregroundColor(.dimText)
                                 .lineLimit(1)
-                        } else {
-                            Text("destination")
-                                .font(.aero(size: 11))
-                                .foregroundColor(.dimText)
                         }
                     }
-
-                    Spacer(minLength: 6)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    if !compact {
+                        figure(waypoint.magneticCourse.map { String(format: "%03.0f°", $0) }, width: Self.mcWidth)
+                        figure(waypoint.distance.map { String(format: "%.1f", $0) }, width: Self.nmWidth)
+                        figure(waypoint.formattedEET.map { "\($0)′" }, width: Self.eetWidth)
+                    }
                 }
                 .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
-            .accessibilityLabel(waypoint.name.isEmpty ? "Waypoint \(index + 1)" : waypoint.name)
-            .accessibilityHint(L10n.Nav.editWaypoint)
+            .accessibilityLabel(name)
+            .accessibilityHint(isSelected ? L10n.Nav.editWaypoint : L10n.RouteEditor.selectLeg)
+            .accessibilityAddTraits(isSelected ? .isSelected : [])
 
-            // Editable altitude chip (feet) — separate tap target.
+            // Editable altitude (feet) — its own target.
             HStack(spacing: 3) {
                 TextField("ALT", text: $altitudeText)
                     .keyboardType(.numberPad)
                     .multilineTextAlignment(.trailing)
-                    .font(.aero(size: 14, weight: .semibold, design: .monospaced))
+                    .font(.aero(size: 16, weight: .semibold, design: .monospaced))
                     .foregroundColor(.primaryText)
-                    .frame(width: 52)
                     .focused($altitudeFocused)
                     .accessibilityLabel("Planned altitude in feet")
                 Text("ft")
@@ -1662,10 +1813,28 @@ private struct WaypointBuilderRow: View {
                     .accessibilityHidden(true)
             }
             .padding(.horizontal, 8)
-            .padding(.vertical, 6)
+            .frame(width: Self.altWidth - 12, height: 34)
             .background(RoundedRectangle(cornerRadius: 8).fill(Color.subtleOverlay(0.06)))
+            .frame(width: Self.altWidth, alignment: .trailing)
+
+            // The leg's conflicts: a tap highlights the first on the profile and the map. (D2)
+            Group {
+                if conflictCount > 0 {
+                    Button(action: onConflictTap) {
+                        Text(conflictCount > 1 ? "⚠\(conflictCount)" : "⚠")
+                            .font(.aero(size: 15, weight: .semibold))
+                            .foregroundColor(.aviationAmber)
+                            .frame(width: Self.warnWidth, height: 44)
+                            .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel(L10n.RouteEditor.conflicts(conflictCount))
+                } else {
+                    Color.clear.frame(width: Self.warnWidth, height: 1)
+                }
+            }
         }
-        .padding(.vertical, 6)
+        .frame(minHeight: 44)
         .onAppear { altitudeText = waypoint.altitude.map { String(Int($0)) } ?? "" }
         .onChange(of: altitudeFocused) { _, focused in
             if !focused { commitAltitude() }
@@ -1675,6 +1844,15 @@ private struct WaypointBuilderRow: View {
         .onChange(of: waypoint.altitude) { _, altitude in
             if !altitudeFocused { altitudeText = altitude.map { String(Int($0)) } ?? "" }
         }
+    }
+
+    private func figure(_ text: String?, width: CGFloat) -> some View {
+        Text(isLast ? "" : (text ?? "—"))
+            .font(.aero(size: 15, design: .monospaced))
+            .foregroundColor(.primaryText)
+            .lineLimit(1)
+            .minimumScaleFactor(0.75)
+            .frame(width: width, alignment: .trailing)
     }
 
     private var legLine: String {
@@ -1720,6 +1898,13 @@ struct RouteBuilderMapView: UIViewRepresentable {
     var onInsertWaypoint: ((Int, CLLocationCoordinate2D) -> Void)? = nil
     /// Deliberate press-and-hold on empty map appended a new waypoint (coordinate). (tap-add feedback)
     var onAddWaypoint: ((CLLocationCoordinate2D) -> Void)? = nil
+    /// The leg selected in the table or the profile (from waypoint n to n+1): haloed on the map.
+    /// (planning proposal D3)
+    var selectedLeg: Int? = nil
+    /// Waypoints whose leg has a conflict: their pins turn amber. (planning proposal D2)
+    var conflictLegs: Set<Int> = []
+    /// A tap on a waypoint's pin selects it, and its row in the table. (planning proposal D3)
+    var onSelectWaypoint: ((Int) -> Void)? = nil
 
     func makeUIView(context: Context) -> MKMapView {
         let mapView = MKMapView()
@@ -1764,6 +1949,7 @@ struct RouteBuilderMapView: UIViewRepresentable {
         updateAirspaceOverlays(mapView, context: context)
         applyAirspaceSelection(mapView)
         updateRoute(mapView, context: context)
+        updateSelectedLeg(mapView, context: context)
 
         if context.coordinator.lastFitToken != fitRouteToken {
             context.coordinator.lastFitToken = fitRouteToken
@@ -1887,14 +2073,17 @@ struct RouteBuilderMapView: UIViewRepresentable {
 
     private func updateRoute(_ mapView: MKMapView, context: Context) {
         let signature = waypoints.map { "\($0.id.uuidString)\($0.latitude),\($0.longitude)" }.joined(separator: "|")
+            + "#" + conflictLegs.sorted().map(String.init).joined(separator: ",")
         guard signature != context.coordinator.lastRouteSignature else { return }
         context.coordinator.lastRouteSignature = signature
+        context.coordinator.lastSelectedLegKey = ""   // the leg halo is rebuilt below with the route
 
         // Replace numbered waypoint annotations.
         let oldWaypoints = mapView.annotations.compactMap { $0 as? RouteWaypointAnnotation }
         mapView.removeAnnotations(oldWaypoints)
         for (index, waypoint) in waypoints.enumerated() {
             let annotation = RouteWaypointAnnotation(coordinate: waypoint.coordinate, index: index, name: waypoint.name)
+            annotation.hasConflict = conflictLegs.contains(index)
             mapView.addAnnotation(annotation)
         }
 
@@ -1911,13 +2100,31 @@ struct RouteBuilderMapView: UIViewRepresentable {
         }
     }
 
+    /// A white halo under the selected leg, drawn below the route so the magenta line reads through
+    /// it: the leg is highlighted where it is. (planning proposal D3)
+    private func updateSelectedLeg(_ mapView: MKMapView, context: Context) {
+        let key = selectedLeg.map { "\($0)|\(waypoints.count)" } ?? "none"
+        guard key != context.coordinator.lastSelectedLegKey else { return }
+        context.coordinator.lastSelectedLegKey = key
+        mapView.removeOverlays(mapView.overlays.filter { $0 is SelectedLegPolyline })
+        guard let leg = selectedLeg, leg >= 0, leg + 1 < waypoints.count else { return }
+        let coords = [waypoints[leg].coordinate, waypoints[leg + 1].coordinate]
+        let halo = SelectedLegPolyline(coordinates: coords, count: 2)
+        // Right under the route's casing: above the chart tiles (which share the level), under the line.
+        if let casing = mapView.overlays.first(where: { $0 is RouteCasingPolyline }) {
+            mapView.insertOverlay(halo, below: casing)
+        } else {
+            mapView.addOverlay(halo, level: .aboveLabels)
+        }
+    }
+
     private func fitRoute(_ mapView: MKMapView) {
         guard !waypoints.isEmpty else { return }
         let coords = waypoints.map { $0.coordinate }
         let rects = coords.map { MKMapRect(origin: MKMapPoint($0), size: MKMapSize(width: 0, height: 0)) }
         let union = rects.dropFirst().reduce(rects[0]) { $0.union($1) }
-        // Extra top inset so the fitted route clears the floating From/To bar instead of hiding behind it.
-        let padding = UIEdgeInsets(top: 100, left: 60, bottom: 60, right: 60)
+        // The From/To bar sits above the map now; the inset only keeps pins off the edges.
+        let padding = UIEdgeInsets(top: 50, left: 50, bottom: 70, right: 50)
         mapView.setVisibleMapRect(union, edgePadding: padding, animated: true)
     }
 
@@ -1927,6 +2134,7 @@ struct RouteBuilderMapView: UIViewRepresentable {
         var parent: RouteBuilderMapView
         var currentLayer: WaypointPickerMapLayer
         var lastRouteSignature = ""
+        var lastSelectedLegKey = ""
         var lastFitToken = 0
         var lastFocusToken = 0
 
@@ -1974,6 +2182,14 @@ struct RouteBuilderMapView: UIViewRepresentable {
                 if airspace.isDashed { renderer.lineDashPattern = [8, 4] }
                 return renderer
             }
+            // The selected leg's halo, under the route. (planning proposal D3)
+            if let halo = overlay as? SelectedLegPolyline {
+                let renderer = MKPolylineRenderer(polyline: halo)
+                renderer.strokeColor = UIColor.white.withAlphaComponent(0.85)
+                renderer.lineWidth = 16
+                renderer.lineCap = .round
+                return renderer
+            }
             // Casing first — it is also an MKPolyline, so this branch must precede the generic one.
             if let casing = overlay as? RouteCasingPolyline {
                 let renderer = MKPolylineRenderer(polyline: casing)
@@ -1994,6 +2210,12 @@ struct RouteBuilderMapView: UIViewRepresentable {
             return MKOverlayRenderer(overlay: overlay)
         }
 
+        /// A tap on a waypoint's pin selects it in the table too. (planning proposal D3)
+        func mapView(_ mapView: MKMapView, didSelect annotation: MKAnnotation) {
+            guard let waypoint = annotation as? RouteWaypointAnnotation else { return }
+            parent.onSelectWaypoint?(waypoint.index)
+        }
+
         func mapView(_ mapView: MKMapView, viewFor annotation: MKAnnotation) -> MKAnnotationView? {
             if let waypoint = annotation as? RouteWaypointAnnotation {
                 let id = "RouteWaypoint"
@@ -2004,7 +2226,10 @@ struct RouteBuilderMapView: UIViewRepresentable {
                 } else {
                     view = MKMarkerAnnotationView(annotation: annotation, reuseIdentifier: id)
                 }
-                view.markerTintColor = UIColor(red: 1.0, green: 0.0, blue: 0.8, alpha: 1) // navigation magenta
+                // Navigation magenta; amber where the leg from this waypoint has a conflict. (D2)
+                view.markerTintColor = waypoint.hasConflict
+                    ? UIColor(red: 1.0, green: 0.75, blue: 0.0, alpha: 1)
+                    : UIColor(red: 1.0, green: 0.0, blue: 0.8, alpha: 1)
                 view.glyphText = "\(waypoint.index + 1)"
                 view.titleVisibility = .adaptive
                 view.displayPriority = .required
@@ -2317,6 +2542,8 @@ struct RouteBuilderMapView: UIViewRepresentable {
 /// Black casing drawn underneath the magenta route core (a distinct subclass so the renderer can tell
 /// the two `MKPolyline`s apart). Mirrors the in-flight navigation map's route styling.
 final class RouteCasingPolyline: MKPolyline {}
+/// The halo under the leg selected in the route editor. (planning proposal D3)
+final class SelectedLegPolyline: MKPolyline {}
 
 // MARK: - Route waypoint annotation
 
@@ -2325,6 +2552,8 @@ final class RouteWaypointAnnotation: NSObject, MKAnnotation {
     @objc dynamic var coordinate: CLLocationCoordinate2D
     let index: Int
     let title: String?
+    /// The leg from this waypoint has a conflict: the pin is amber. (planning proposal D2)
+    var hasConflict = false
 
     init(coordinate: CLLocationCoordinate2D, index: Int, name: String) {
         self.coordinate = coordinate
@@ -2390,6 +2619,9 @@ private struct RouteProfileView: View {
     var selectedId: String? = nil          // tapped conflict — emphasised here too (#4)
     var terrainId: String = "terrain"
     var visibleRegion: MKCoordinateRegion? = nil   // shade the route window the map currently shows (#9)
+    /// The leg selected in the table or on the map (from waypoint n to n+1): banded here, where it
+    /// stands. (planning proposal D3)
+    var selectedLeg: Int? = nil
     /// Drag a waypoint dot to set its altitude (waypoint index, snapped ft MSL). (R3)
     var onSetAltitude: ((Int, Double) -> Void)? = nil
     /// Tap an empty spot to drop a point on the route line (along-track NM, snapped ft). (R3)
@@ -2477,6 +2709,13 @@ private struct RouteProfileView: View {
                      at: CGPoint(x: leftPad - 4, y: gy), anchor: .trailing)
         }
 
+        // the selected leg: a band behind everything, so nothing moves or hides. (proposal D3)
+        if let leg = selectedLeg, leg + 1 < g.prof.cumNM.count {
+            let x0 = g.px(g.prof.cumNM[leg]), x1 = g.px(g.prof.cumNM[leg + 1])
+            ctx.fill(Path(CGRect(x: x0, y: g.plot.minY, width: max(3, x1 - x0), height: g.plot.height)),
+                     with: .color(Self.magenta.opacity(0.18)))
+        }
+
         // airspace blocks (conflicts solid, context faded/dashed; the selected one emphasised)
         for b in blocks where b.floorFt <= g.yMax {
             let color = Color(red: b.airspace.mapColor.red, green: b.airspace.mapColor.green, blue: b.airspace.mapColor.blue)
@@ -2532,12 +2771,42 @@ private struct RouteProfileView: View {
             }
         }
 
-        // x-axis waypoint labels
-        for (i, nm) in g.prof.cumNM.enumerated() where i < waypoints.count {
-            let name = waypoints[i].name.isEmpty ? "WPT\(i + 1)" : waypoints[i].name
-            let color: Color = i == 0 ? .aviationGreen : (i == g.prof.cumNM.count - 1 ? .aviationGold : .secondaryText)
-            ctx.draw(Text(name).font(.aero(size: 8, design: .monospaced)).foregroundColor(color),
-                     at: CGPoint(x: g.px(nm), y: g.size.height - 5), anchor: .center)
+        // conflicts, marked above the plot where they start: the rectangles below say how long and how
+        // high, this says "here" at a glance. (planning proposal D2)
+        for b in blocks where b.isConflict {
+            ctx.draw(Text("⚠").font(.aero(size: 10)).foregroundColor(.aviationAmber),
+                     at: CGPoint(x: min(max(g.px((b.startNM + b.endNM) / 2), g.plot.minX + 6), g.plot.maxX - 6),
+                                 y: g.plot.minY + 7), anchor: .center)
+        }
+
+        // x-axis waypoint labels: numbered like the pins on the map, named only where the name fits
+        // before the next waypoint. Every name used to be drawn, and they ran into one line
+        // ("SamedanWPTWPT…"). (planning proposal D1)
+        let xs = g.prof.cumNM.prefix(waypoints.count).map { g.px($0) }
+        var lastRight: CGFloat = -.infinity
+        for (i, x) in xs.enumerated() {
+            let isEnd = i == 0 || i == xs.count - 1
+            let color: Color = i == 0 ? .aviationGreen : (i == xs.count - 1 ? .aviationGold : .secondaryText)
+            let number = ctx.resolve(Text("\(i + 1)").font(.aero(size: 10, weight: .semibold, design: .monospaced))
+                .foregroundColor(color))
+            let numberWidth = number.measure(in: CGSize(width: 60, height: 20)).width
+            guard x - numberWidth / 2 > lastRight + 3 || isEnd else { continue }
+            let y = g.size.height - 6
+            ctx.draw(number, at: CGPoint(x: x, y: y), anchor: .center)
+            lastRight = x + numberWidth / 2
+            let rawName = waypoints[i].name
+            guard !rawName.isEmpty, !rawName.hasPrefix("WPT") else { continue }
+            let name = ctx.resolve(Text(rawName).font(.aero(size: 10, design: .monospaced)).foregroundColor(color))
+            let nameWidth = name.measure(in: CGSize(width: 200, height: 20)).width
+            let nextX = i + 1 < xs.count ? xs[i + 1] : g.size.width
+            let room = (i == xs.count - 1 ? g.size.width - rightPad : nextX - 10) - (lastRight + 3)
+            if nameWidth <= room {
+                ctx.draw(name, at: CGPoint(x: lastRight + 3, y: y), anchor: .leading)
+                lastRight += 3 + nameWidth
+            } else if i == xs.count - 1, nameWidth <= x - numberWidth / 2 - 4 - (lastRight - numberWidth) {
+                // The destination's name, left of its number when there's no room after it.
+                ctx.draw(name, at: CGPoint(x: x - numberWidth / 2 - 3, y: y), anchor: .trailing)
+            }
         }
 
         // "You are looking here" — the along-track window the map above currently shows. (#9)

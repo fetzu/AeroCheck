@@ -24,7 +24,6 @@ struct FlightView: View {
     /// Whether the aircraft name is being held (red while held, whatever the ring shows).
     @State private var isHoldingAbandon = false
     @State private var showFlightInfo = false
-    @State private var showNavigationMode = false
     /// NEXT pressed with items still open: the review sheet lists them first. (v6.0 · B2)
     @State private var openItemsReview: OpenItemsReview?
     @State private var showDeferredItems = false
@@ -38,7 +37,6 @@ struct FlightView: View {
     @State private var pulseNextButton = false
     @State private var pulseActionButton = false
     @State private var allItemsChecked = false
-    @State private var scrollToBottom = false
     /// Binding to the hidden-items reveal state, now owned by `AppState` so a companion's hold-to-reveal
     /// syncs to both devices. Reset on phase change in AppState. (companion v2 — hidden-content parity)
     private var hiddenItemsRevealed: Binding<Bool> {
@@ -84,11 +82,6 @@ struct FlightView: View {
     /// so tap-to-advance and completion stay in sync with what's on screen. (v4 UI/UX Revamp feedback)
     private var effectiveLearningMode: Bool {
         appState.effectiveLearningMode
-    }
-
-    /// Determine if we're on an iPhone-sized device
-    private func isCompactWidth(_ geometry: GeometryProxy) -> Bool {
-        geometry.size.width < 600
     }
 
     /// Current track (direction of travel) in degrees from GPS
@@ -198,44 +191,21 @@ struct FlightView: View {
         )
     }
 
-    /// Full-width HUD top bar: aircraft · tappable phase badge · counter ‖ timer · GPS · options.
-    /// Top-bar phase-badge tint by flight stage, so the chip reads at a glance (was always gold):
-    /// ground prep = blue, departure = gold, airborne = green, arrival = orange, wrap-up = grey.
-    private var phaseBadgeColor: Color {
-        switch appState.currentPhase {
-        case .preflight, .beforeEngineStart, .engineStart, .afterEngineStart, .taxi, .runup:
-            return theme.info
-        case .beforeDeparture, .lineUp:
-            return theme.action
-        case .climb, .cruise, .descent:
-            return theme.onTarget
-        case .approach, .landing:
-            return .orange
-        case .afterLanding, .shutdown, .hangar:
-            return theme.textSecondary
-        }
-    }
-
     var body: some View {
         GeometryReader { geometry in
-            if isCompactWidth(geometry) {
-                // iPhone layout: full-width checklist with compact header
-                VStack(spacing: 0) {
-                    mainChecklistAreaCompact(geometry: geometry)
+            // The Cockpit on both devices: the iPad's zones, laid out for the room there is. (v6.0 · P2,
+            // iPhone pass I1)
+            let layout = CockpitLayout.make(width: geometry.size.width, height: geometry.size.height)
+            cockpit(layout: layout)
+                // Reference popups (V-SPEEDS / GPS / BRIEFING) → themed bottom drawer.
+                .overlay {
+                    referenceDrawerOverlay(maxHeight: geometry.size.height * layout.drawerHeightFraction,
+                                           kneeboard: true,
+                                           landscape: geometry.size.width > geometry.size.height,
+                                           // The iPad's table grows rather than scroll (D7); the phone's list
+                                           // keeps the phone's cap, which leaves the strip in view.
+                                           vSpeedsMaxHeight: geometry.size.height * (layout == .wide ? 0.75 : layout.drawerHeightFraction))
                 }
-                // Reference popups (V-SPEEDS / GPS / BRIEFING) → themed bottom drawer; iPhone has no
-                // side column, so Pattern B degrades to a cockpit-styled sheet. (v4 UI/UX Revamp)
-                .overlay { referenceDrawerOverlay(maxHeight: geometry.size.height * 0.66) }
-            } else {
-                // iPad, portrait and landscape: the Cockpit. (v6.0 · P2)
-                cockpit
-                    // Reference popups (V-SPEEDS / GPS / BRIEFING) → themed bottom drawer.
-                    .overlay {
-                        referenceDrawerOverlay(maxHeight: geometry.size.height * 0.6, kneeboard: true,
-                                               landscape: geometry.size.width > geometry.size.height,
-                                               vSpeedsMaxHeight: geometry.size.height * 0.75)
-                    }
-            }
         }
         .background(theme.background)
         .sheet(isPresented: $showPhaseSelector) {
@@ -290,9 +260,6 @@ struct FlightView: View {
                 initialValue: hourMeterStopInitialValue,
                 startHours: appState.currentFlight?.engineHourStart
             )
-        }
-        .fullScreenCover(isPresented: $showNavigationMode) {
-            NavigationMapView(isPresented: $showNavigationMode)
         }
         .alert(L10n.Alert.endFlightTitle, isPresented: $showEndFlightAlert) {
             Button(L10n.Button.cancel, role: .cancel) { }
@@ -521,45 +488,6 @@ struct FlightView: View {
         return String(format: "%d:%02d", s / 60, s % 60)
     }
 
-    // MARK: - HUD primary action (NEXT / END FLIGHT)
-
-    @ViewBuilder
-    private var hudNextButton: some View {
-        if appState.isLastPhase {
-            Button(action: { showEndFlightAlert = true }) {
-                HStack(spacing: 8) {
-                    Image(systemName: "flag.checkered")
-                    Text(L10n.Button.end)
-                }
-                .font(.aero(size: 20, weight: .bold))
-                .foregroundColor(.white)
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, 18)
-                .background(RoundedRectangle(cornerRadius: 14).fill(theme.danger))
-            }
-            .modifier(PulseModifier(isActive: pulseNextButton && allItemsChecked))
-        } else {
-            Button(action: requestNextPhase) {
-                HStack(spacing: 8) {
-                    Text(L10n.Button.next)
-                    Image(systemName: "chevron.right")
-                }
-                .font(.aero(size: 20, weight: .bold))
-                // Greyed (but still tappable) until the checklist is complete; full gold when ready.
-                .foregroundColor(nextButtonReady ? .black : theme.textSecondary)
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, 18)
-                .background(
-                    RoundedRectangle(cornerRadius: 14)
-                        .fill(nextButtonReady ? theme.action : theme.action.opacity(0.22))
-                )
-            }
-            // When the phase becomes ready, a finite gold halo pulses AROUND the button then settles
-            // (no resize, no loop) — reuses the shared PulseModifier. (round 6 feedback)
-            .modifier(PulseModifier(isActive: nextButtonReady))
-        }
-    }
-
     /// NEXT: with items still open, list them before leaving the phase. (v6.0 · B2)
     private func requestNextPhase() {
         let open = appState.openItems(in: appState.currentPhase)
@@ -686,7 +614,7 @@ struct FlightView: View {
     /// in-checklist buttons; hold-to-confirm so a stray touch can't fire a go-around. Empty (no space)
     /// when no event applies to the current phase. (v4 UI/UX Revamp)
     @ViewBuilder
-    /// `kneeboard`: the Cockpit's size and colours (on-device review #1, L-02); the iPhone keeps its row.
+    /// `kneeboard`: the Cockpit's size and colours (on-device review #1, L-02).
     private func eventActionsRow(kneeboard: Bool = false) -> some View {
         let phase = appState.currentPhase
         let language = appState.settings.checklistLanguage.resolvedLanguage
@@ -734,10 +662,10 @@ struct FlightView: View {
     /// missed auto-detection can be corrected instantly (jump back to the CLIMB check). Hold-to-confirm
     /// is too slow here; the accepted trade-off is a small accidental-tap risk during circuit training.
     @ViewBuilder
-    private func circuitQuickEventButtons(height: CGFloat? = nil) -> some View {
+    private func circuitQuickEventButtons() -> some View {
         let phase = appState.currentPhase
         let language = appState.settings.checklistLanguage.resolvedLanguage
-        if appState.isCircuitMode && phase.showsGoAroundButtons, height != nil {
+        if appState.isCircuitMode && phase.showsGoAroundButtons {
             // The Cockpit's thumb bar: the same outlined buttons as its neighbours, cyan because they
             // are things to press, not alerts. (on-device review #1, L-02)
             HStack(spacing: 12) {
@@ -749,65 +677,9 @@ struct FlightView: View {
                                    style: .outlined(tint: theme.action), action: performTouchAndGo)
             }
             .frame(maxWidth: .infinity)
-        } else if appState.isCircuitMode && phase.showsGoAroundButtons {
-            // The pair shares ~50% of the bottom bar (so each button ≈ 25%, leaving NEXT ≈ 50%).
-            HStack(spacing: 12) {
-                quickEventButton(
-                    title: L10n.ChecklistAction.goAround(language: language),
-                    systemImage: "arrow.up.right.circle.fill",
-                    tint: .orange,   // distinct from the gold NEXT (not red/green), caution semantics
-                    height: height,
-                    action: performGoAround
-                )
-                quickEventButton(
-                    title: L10n.ChecklistAction.touchAndGo(language: language),
-                    systemImage: "arrow.triangle.2.circlepath",
-                    tint: theme.info,
-                    height: height,
-                    action: performTouchAndGo
-                )
-            }
-            .frame(maxWidth: .infinity)
         }
     }
 
-    private func quickEventButton(title: String, systemImage: String, tint: Color, height: CGFloat? = nil,
-                                  action: @escaping () -> Void) -> some View {
-        Button(action: action) {
-            VStack(spacing: 2) {
-                Image(systemName: systemImage).font(.aero(size: 18, weight: .bold))
-                Text(title)
-                    .font(.aero(size: 12, weight: .bold))
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.7)
-            }
-            // Match the solid action-button family (NEXT / TimestampActionButton): SOLID tint fill,
-            // black label, corner 14, and the same ~60pt height so they're flush with NEXT. (round 6)
-            .foregroundColor(.black)
-            .frame(maxWidth: .infinity)
-            .frame(height: height ?? 60)
-            .background(
-                RoundedRectangle(cornerRadius: 14)
-                    .fill(tint)
-                    .shadow(color: tint.opacity(0.4), radius: 6, x: 0, y: 3)
-            )
-        }
-        .accessibilityLabel(title)
-    }
-
-    /// Subtle circuit-stats readout in the HUD top bar (circuit mode only): touch-and-goes and, if any,
-    /// go-arounds done. Deliberately non-prominent — dim and small. (round 6 feedback)
-    @ViewBuilder
-    private var circuitCounterChip: some View {
-        if appState.isCircuitMode, appState.currentFlight != nil {
-            HStack(spacing: 6) {
-                Text("[").foregroundColor(theme.textDim).accessibilityHidden(true)
-                circuitCounts
-                Text("]").foregroundColor(theme.textDim).accessibilityHidden(true)
-            }
-            .font(.aero(size: 12, weight: .semibold))
-        }
-    }
 
     /// Touch-and-goes and, if any, go-arounds, in the font the caller sets.
     @ViewBuilder
@@ -847,312 +719,6 @@ struct FlightView: View {
         let physicalTime = flightEventDetector.notifyManualEvent(.fullStop)
         appState.recordLanding(at: physicalTime)
         pulseActionButton = false
-    }
-
-    // MARK: - Compact Layout (iPhone)
-
-    private func mainChecklistAreaCompact(geometry: GeometryProxy) -> some View {
-        VStack(spacing: 0) {
-            // v4 compact top: aircraft · tappable phase badge · counter ‖ timer · GPS · options.
-            compactHudTopBar
-                .padding(.horizontal, 14)
-                .padding(.vertical, 8)
-                .background(theme.panel)
-
-            // Tappable segmented phase progress bar — replaces the old PREV button.
-            phaseProgressBarView
-                .padding(.horizontal, 14)
-                .padding(.top, 2)
-                .padding(.bottom, 8)
-                .background(theme.panel)
-
-            // Live SPD / ALT / HDG instrument strip (flight phases only).
-            if appState.activeChecklist.showsSpeedIndicator(for: appState.currentPhase) {
-                CockpitInstrumentStrip(
-                    speedKnots: locationManager.displaySpeedKnots,
-                    targetSpeed: appState.activeChecklist.targetSpeed(for: appState.currentPhase),
-                    gpsSignalStatus: locationManager.gpsSignalStatus,
-                    altitudeFeet: locationManager.currentAltitudeFeet,
-                    headingDegrees: locationManager.currentCourseDegrees,
-                    verticalSpeedFPM: locationManager.verticalSpeedFpm
-                )
-                .padding(.horizontal, 12)
-                .padding(.top, 10)
-                .padding(.bottom, 4)
-            }
-
-            deferredItemsChip
-                .padding(.horizontal, 12)
-
-            // Checklist content
-            ScrollViewReader { scrollProxy in
-                ScrollView {
-                    VStack(spacing: 0) {
-                        ChecklistView(
-                            phase: appState.currentPhase,
-                            activeChecklist: appState.activeChecklist,
-                            onEngineStart: {
-                                appState.recordEngineStart()
-                                pulseActionButton = false
-                                if allItemsChecked { triggerNextButtonPulse() }
-                            },
-                            onEngineStartUpdate: { appState.recordEngineStart() },
-                            onLineUp: {
-                                appState.recordLineUpTime()
-                                if let lineUpTime = appState.lineUpTime {
-                                    flightPlanManager.updateDepartureTimeFromLineUp(lineUpTime)
-                                }
-                                pulseActionButton = false
-                                if allItemsChecked { triggerNextButtonPulse() }
-                            },
-                            onLineUpUpdate: {
-                                appState.recordLineUpTime()
-                                if let lineUpTime = appState.lineUpTime {
-                                    flightPlanManager.updateDepartureTimeFromLineUp(lineUpTime)
-                                }
-                            },
-                            // Shared with the iPad HUD, so the two layouts can't diverge. (v6.0 · B4)
-                            onEngineShutdown: { performEngineShutdown() },
-                            onEngineShutdownUpdate: { performEngineShutdownUpdate() },
-                            onGoAround: {
-                                appState.recordGoAround()
-                                pulseActionButton = false
-                                pulseNextButton = false
-                                allItemsChecked = false
-                            },
-                            onTouchAndGo: {
-                                appState.recordTouchAndGo()
-                                pulseActionButton = false
-                                pulseNextButton = false
-                                allItemsChecked = false
-                            },
-                            onFullStop: {
-                                appState.recordFullStop()
-                                pulseActionButton = false
-                                pulseNextButton = false
-                                allItemsChecked = false
-                            },
-                            onLanded: {
-                                appState.recordLanding()
-                                pulseActionButton = false
-                                if allItemsChecked { triggerNextButtonPulse() }
-                            },
-                            onLandedUpdate: { appState.updateLandingTime() },
-                            onBriefingTap: { briefingType in
-                                switch briefingType {
-                                case .departure: openReference(.departureBriefing)
-                                case .approach: openReference(.approachBriefing)
-                                }
-                            },
-                            onTapToAdvance: { handleChecklistTap(scrollProxy: scrollProxy) },
-                            onAllItemsCompleted: { },
-                            engineStartTime: appState.formattedEngineStartTime,
-                            lineUpTime: appState.formattedLineUpTime,
-                            landingTime: appState.formattedLandingTime,
-                            engineShutdownTime: appState.formattedEngineShutdownTime,
-                            goAroundCount: appState.currentFlight?.goAroundCount ?? 0,
-                            touchAndGoCount: appState.currentFlight?.touchAndGoCount ?? 0,
-                            fullStopCount: appState.currentFlight?.fullStopCount ?? 0,
-                            stepByStepEnabled: appState.settings.stepByStepHighlighting,
-                            learningModeEnabled: appState.settings.learningMode,
-                            highlightedItemIndex: appState.getHighlightedItem(for: appState.currentPhase),
-                            pulseActionButton: pulseActionButton,
-                            isCompact: true,
-                            checklistLanguage: appState.settings.checklistLanguage.resolvedLanguage,
-                            hudMode: true,
-                            engineHourStart: appState.settings.logEngineHours ? appState.currentFlight?.engineHourStart : nil,
-                            engineHourEnd: appState.settings.logEngineHours ? appState.currentFlight?.engineHourEnd : nil,
-                            engineHourStartInputFormat: appState.currentFlight?.engineHourStartInputFormat,
-                            engineHourEndInputFormat: appState.currentFlight?.engineHourEndInputFormat,
-                            onEditEngineHourStart: {
-                                if let prevStart = appState.currentFlight?.engineHourStart {
-                                    let prevFormat = appState.currentFlight?.engineHourStartInputFormat ?? "decimal"
-                                    hourMeterStartInitialValue = prevFormat == "time"
-                                        ? Flight.formatHoursTime(prevStart)
-                                        : Flight.formatHoursDecimal(prevStart)
-                                } else {
-                                    hourMeterStartInitialValue = ""
-                                }
-                                showHourMeterStart = true
-                            },
-                            onEditEngineHourEnd: {
-                                if let prevEnd = appState.currentFlight?.engineHourEnd {
-                                    let prevFormat = appState.currentFlight?.engineHourEndInputFormat ?? "decimal"
-                                    hourMeterStopInitialValue = prevFormat == "time"
-                                        ? Flight.formatHoursTime(prevEnd)
-                                        : Flight.formatHoursDecimal(prevEnd)
-                                } else {
-                                    hourMeterStopInitialValue = ""
-                                }
-                                showHourMeterStop = true
-                            },
-                            promptsEngineHours: appState.settings.logEngineHours,
-                            hiddenItemsRevealed: hiddenItemsRevealed
-                        )
-                        .padding(.horizontal, 12)
-                        .padding(.vertical, 16)
-                        .id("checklistContent")
-
-                        Color.clear
-                            .frame(height: 1)
-                            .id("bottomAnchor")
-                    }
-                }
-                .contentShape(Rectangle())
-                .onTapGesture {
-                    if appState.settings.stepByStepHighlighting {
-                        handleChecklistTap(scrollProxy: scrollProxy)
-                    }
-                }
-                .onChange(of: scrollToBottom) { _, shouldScroll in
-                    if shouldScroll {
-                        withAnimation(.easeInOut(duration: 0.3)) {
-                            scrollProxy.scrollTo("actionButton", anchor: .center)
-                        }
-                        scrollToBottom = false
-                    }
-                }
-            }
-            .background(theme.background)
-
-            // Contextual hold-to-confirm GO-AROUND / T&G / FULL-STOP (approach/landing; circuit mode
-            // shows single-tap GO-AROUND/T&G beside NEXT instead).
-            eventActionsRow()
-
-            // Bottom action bar: phase timestamp action · circuit quick events · cruise check · NEXT.
-            HStack(spacing: 10) {
-                hudPhaseActionButton()
-                circuitQuickEventButtons()
-                cruiseCheckButton()
-                hudNextButton
-            }
-            .padding(.horizontal, 12)
-            .padding(.top, 8)
-            .padding(.bottom, 6)
-            .background(theme.panel)
-
-            // Bottom dock — MAP · V-SPEEDS · FREQ (locked iPhone concept).
-            compactDock
-                .padding(.horizontal, 12)
-                .padding(.bottom, 10)
-                .background(theme.panel)
-        }
-    }
-
-    // MARK: - Compact HUD top bar (iPhone, v4)
-
-    /// iPhone HUD top bar — the v4 language in one row: aircraft · stage-tinted phase badge · counter
-    /// ‖ timer · GPS · options. Badge → phase selector; GPS → GPS reference; gear → flight-info sheet.
-    private var compactHudTopBar: some View {
-        HStack(spacing: 7) {
-            abandonableAircraftIdentifier(iconSize: 14, isCompact: true)
-
-            Button(action: { showPhaseSelector = true }) {
-                Text(appState.currentPhase.shortTitle)
-                    .font(.aero(size: 12, weight: .bold))
-                    .lineLimit(2)                 // hard cap: never more than 2 lines (iPhone requirement)
-                    .minimumScaleFactor(0.5)      // shrink the text to fit 2 lines rather than wrap further
-                    .multilineTextAlignment(.center)
-                    .foregroundColor(phaseBadgeColor)
-                    .padding(.horizontal, 8)
-                    .padding(.vertical, 3)
-                    .background(Capsule().fill(phaseBadgeColor.opacity(0.18)))
-            }
-            .frame(minHeight: 44)
-            .contentShape(Rectangle())
-            Text("\(appState.currentPhase.rawValue + 1)/\(ChecklistPhase.allCases.count)")
-                .font(.aero(size: 12))
-                .foregroundColor(theme.textSecondary)
-
-            circuitCounterChip
-
-            Spacer(minLength: 4)
-
-            FlightDurationText(
-                startTime: appState.engineStartTime ?? appState.currentFlight?.startTime,
-                font: .aero(size: 16, weight: .bold, design: .monospaced),
-                color: theme.textPrimary
-            )
-            .lineLimit(1)
-            .fixedSize(horizontal: true, vertical: false)   // claim full width — never wrap the clock
-
-            // GPS status — icon only on iPhone to reclaim the horizontal room the bar needs to stay one
-            // row; still a button that opens the GPS reference. (v4.0.0 review iPhone HUD fix)
-            Button(action: { openReference(.gps) }) {
-                Image(systemName: "location.fill")
-                    .font(.aero(size: 14))
-                    .foregroundColor(gpsStatusColor)
-            }
-            .frame(minWidth: 36, minHeight: 44)
-            .contentShape(Rectangle())
-            .accessibilityLabel(L10n.GPS.status)
-
-            Button(action: { showFlightInfo = true }) {
-                Image(systemName: "gearshape")
-                    .font(.aero(size: 17))
-                    .foregroundColor(theme.textSecondary)
-            }
-            .frame(minWidth: 44, minHeight: 44)
-            .contentShape(Rectangle())
-            .accessibilityLabel(L10n.Flight.info)
-        }
-    }
-
-    // MARK: - Compact bottom dock (iPhone, v4)
-
-    /// The iPhone HUD bottom dock — MAP / V-SPEEDS / FREQ, plus BRIEFING in the phases that have one.
-    /// MAP opens the full nav map; the others open the themed bottom drawers.
-    ///
-    /// BRIEFING was reachable on iPad (a tile in the regular layout, a chip in the 6.0 Cockpit) and **on iPhone
-    /// only through the inline checklist button, which scrolls away** — so in Before Departure or
-    /// Descent, once the list had moved, there was no way to open the briefing at all. The dock is
-    /// the one thing that never scrolls, which is why the other three references live here.
-    /// Conditional rather than permanent: a briefing outside its phase has no content to show, and
-    /// a fourth button is only worth the width when it does something.
-    private var compactDock: some View {
-        HStack(spacing: 8) {
-            dockButton(icon: "map.fill", title: L10n.Button.nav) { showNavigationMode = true }
-            dockButton(icon: "speedometer", title: L10n.Button.speeds) { openReference(.vSpeeds) }
-            dockButton(icon: "antenna.radiowaves.left.and.right", title: L10n.Nav.freq) { openReference(.freq) }
-            if let briefing = appState.currentPhase.briefingType {
-                dockButton(
-                    icon: briefing == .departure ? "airplane.departure" : "airplane.arrival",
-                    // Literal, matching the iPad Cockpit chip and HUDReference.title: BRIEFING
-                    // is an aviation term used untranslated in FR, per the localization convention.
-                    title: "BRIEFING"
-                ) {
-                    openReference(briefing == .departure ? .departureBriefing : .approachBriefing)
-                }
-            }
-        }
-    }
-
-    private func dockButton(icon: String, title: String, action: @escaping () -> Void) -> some View {
-        Button(action: action) {
-            VStack(spacing: 3) {
-                Image(systemName: icon)
-                    .font(.aero(size: 18))
-                    .foregroundColor(theme.info)
-                Text(title)
-                    .font(.aero(size: 11, weight: .medium))
-                    .foregroundColor(theme.textPrimary)
-            }
-            .frame(maxWidth: .infinity)
-            .padding(.vertical, 8)
-            .background(
-                RoundedRectangle(cornerRadius: 12)
-                    .fill(theme.card)
-                    .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(Color.white.opacity(0.07), lineWidth: 1))
-            )
-            .contentShape(Rectangle())
-        }
-        .buttonStyle(.plain)
-        .accessibilityLabel(title)
-    }
-
-    private func handleChecklistTap(scrollProxy: ScrollViewProxy) {
-        // Scroll to show the phase's action button when it is the next thing to press.
-        if checkCurrentItem() { scrollToBottom = true }
     }
 
     /// CHECK: the highlighted item is done. Shared by the iPhone's tap-to-advance and the Cockpit's
@@ -1398,43 +964,45 @@ extension FlightView {
                 set: { pane in paneOverride = pane == cockpitDefaultPane ? nil : pane })
     }
 
-    var cockpit: some View {
+    func cockpit(layout: CockpitLayout) -> some View {
+        Group {
+            switch layout {
+            case .wide, .narrow: cockpitStack(narrow: layout == .narrow)
+            case .columns: cockpitColumns
+            }
+        }
+        .background(theme.background)
+        .onChange(of: cockpitDefaultPane) { _, _ in paneOverride = nil }
+    }
+
+    /// The zones stacked, top to bottom: the iPad, and the phone in portrait (`narrow`).
+    private func cockpitStack(narrow: Bool) -> some View {
         VStack(spacing: 0) {
-            cockpitHeader
-                .padding(.horizontal, 20)
+            cockpitHeader(style: narrow ? .narrow : .wide)
+                .padding(.horizontal, narrow ? 16 : 20)
                 .padding(.vertical, 8)
                 .background(theme.panel)
 
             phaseProgressBarView
-                .padding(.horizontal, 20)
+                .padding(.horizontal, narrow ? 16 : 20)
                 .padding(.top, 2)
                 .padding(.bottom, 8)
                 .background(theme.panel)
 
-            // GS · ALT · TRK · NEXT, whenever the aircraft moves (Taxi to After landing).
-            if CockpitStripRule.showsStrip(in: appState.currentPhase) {
-                CockpitInstrumentStrip(
-                    speedKnots: locationManager.displaySpeedKnots,
-                    targetSpeed: appState.activeChecklist.targetSpeed(for: appState.currentPhase),
-                    gpsSignalStatus: locationManager.gpsSignalStatus,
-                    altitudeFeet: locationManager.currentAltitudeFeet,
-                    headingDegrees: locationManager.currentCourseDegrees,
-                    verticalSpeedFPM: locationManager.verticalSpeedFpm,
-                    kneeboard: true,
-                    nextWaypoint: cockpitNextWaypoint
-                )
-                .padding(.horizontal, 16)
+            // GS · ALT · TRK · NEXT, whenever the aircraft moves (Taxi to After landing). The phone has
+            // room for three; the next waypoint is on the map's card.
+            cockpitStrip(showsNext: !narrow)
+                .padding(.horizontal, narrow ? 12 : 16)
                 .padding(.top, 10)
-            }
 
-            cockpitPaneBar
-                .padding(.horizontal, 16)
-                .padding(.vertical, 10)
+            cockpitPaneBar(twoRows: narrow)
+                .padding(.horizontal, narrow ? 12 : 16)
+                .padding(.vertical, narrow ? 8 : 10)
 
             Group {
                 switch cockpitPane {
                 case .checklist:
-                    cockpitChecklistPane
+                    cockpitChecklistPane(narrow: narrow)
                 case .map:
                     // The same map as the full-screen one, minus its top bar: its next-waypoint card,
                     // controls, frequencies and MARK thumb bar fill the pane.
@@ -1443,98 +1011,316 @@ extension FlightView {
             }
             .frame(maxHeight: .infinity)
         }
-        .background(theme.background)
-        .onChange(of: cockpitDefaultPane) { _, _ in paneOverride = nil }
+    }
+
+    /// A phone on its side (I7): everything the pilot works with in a column on the left, where the
+    /// thumb is (the header, CHECKLIST | MAP with V-SPEEDS, the strip, the thumb bar), and the pane on
+    /// the right at full height. Only what comes and goes (BRIEFING, NEXT, the map's cautions) sits
+    /// over the pane, and only while it exists. With the pane bar, the card and a row of controls over
+    /// it, the map had about a third of its column left. (iPhone pass, I7)
+    @ViewBuilder
+    private var cockpitColumns: some View {
+        switch cockpitPane {
+        case .checklist:
+            HStack(spacing: 0) {
+                VStack(spacing: 0) {
+                    cockpitColumnHead
+                    Spacer(minLength: 0)
+                    cockpitThumbBar(narrow: true)
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 10)
+                }
+                .frame(width: Self.cockpitColumnWidth)
+                .background(theme.panel.ignoresSafeArea())
+                .overlay(alignment: .trailing) { Rectangle().fill(theme.panelStroke).frame(width: 1) }
+
+                VStack(spacing: 0) {
+                    if cockpitHasOccasionalChips {
+                        cockpitOccasionalChips
+                            .padding(.horizontal, 12)
+                            .padding(.top, 8)
+                    }
+                    cockpitChecklistPane(narrow: true, includesThumbBar: false)
+                }
+            }
+        case .map:
+            NavigationMapView(isPresented: .constant(true), showsCloseButton: false, isInCockpit: true,
+                              leadingColumn: AnyView(cockpitColumnHead),
+                              leadingColumnWidth: Self.cockpitColumnWidth,
+                              // Opaque over the chart, where the chips' tint alone was see-through.
+                              mapTopAccessory: cockpitHasOccasionalChips
+                                ? AnyView(cockpitOccasionalChips
+                                    .fixedSize()
+                                    .padding(6)
+                                    .background(RoundedRectangle(cornerRadius: 16).fill(theme.panel)))
+                                : nil)
+        }
+    }
+
+    /// BRIEFING, NEXT and the map's cautions: the chips that come and go.
+    private var cockpitOccasionalChips: some View {
+        HStack(spacing: 8) {
+            cockpitBriefingChip
+            cockpitNextChip
+            cockpitMapCautionChips
+            Spacer(minLength: 0)
+        }
+    }
+
+    private var cockpitHasOccasionalChips: Bool {
+        appState.currentPhase.briefingType != nil
+            || (cockpitPane == .checklist && !cockpitChecklistDone
+                && appState.currentPhase.nextNavigable(circuitMode: appState.isCircuitMode) != nil)
+            || (cockpitPane == .map && (appState.deferredItemCount > 0 || appState.cruiseCheckDue))
+    }
+
+    /// The landscape column's width: the header's rows, and the thumb bar's three buttons with CHECK
+    /// still readable. It leaves the pane about a portrait phone's width. (I7)
+    static let cockpitColumnWidth: CGFloat = 390
+
+    /// The top of the landscape column: the header on two rows as in portrait, progress, CHECKLIST |
+    /// MAP with V-SPEEDS, the strip.
+    private var cockpitColumnHead: some View {
+        VStack(spacing: 0) {
+            cockpitHeader(style: .narrow)
+                .padding(.horizontal, 12)
+                .padding(.vertical, 4)
+            phaseProgressBarView
+                .padding(.horizontal, 12)
+                .padding(.bottom, 6)
+            HStack(spacing: 8) {
+                CockpitPanePicker(selection: cockpitPaneBinding)
+                Spacer(minLength: 0)
+                CockpitChip(title: "V-SPEEDS", icon: "speedometer") { openReference(.vSpeeds) }
+            }
+            .padding(.horizontal, 12)
+            .padding(.bottom, 6)
+            cockpitStrip(showsNext: false)
+                .padding(.horizontal, 10)
+        }
+    }
+
+    @ViewBuilder
+    private func cockpitStrip(showsNext: Bool) -> some View {
+        if CockpitStripRule.showsStrip(in: appState.currentPhase) {
+            CockpitInstrumentStrip(
+                speedKnots: locationManager.displaySpeedKnots,
+                targetSpeed: appState.activeChecklist.targetSpeed(for: appState.currentPhase),
+                gpsSignalStatus: locationManager.gpsSignalStatus,
+                altitudeFeet: locationManager.currentAltitudeFeet,
+                headingDegrees: locationManager.currentCourseDegrees,
+                verticalSpeedFPM: locationManager.verticalSpeedFpm,
+                kneeboard: true,
+                nextWaypoint: showsNext ? cockpitNextWaypoint : nil
+            )
+        }
     }
 
     // MARK: Header
 
+    enum CockpitHeaderStyle { case wide, narrow }
+
     /// Aircraft, phase and its place in the flight, flight time, GPS, Menu. Everything a glance at the
     /// top needs, and nothing in the stage colours the old badge used: colour means something in flight.
     ///
-    /// Portrait is tight (about 780 pt for all of it), so: the aircraft stacks its circuit line under the
-    /// registration, the time, GPS and Menu keep their size, and the phase takes what's left, wrapping
-    /// between words ("CHECK BEFORE / ENGINE START"), never inside one. (on-device review #2)
-    private var cockpitHeader: some View {
-        HStack(spacing: 14) {
-            abandonableAircraftIdentifier(iconSize: 20, isCompact: false, stacked: true)
-
-            Button(action: { showPhaseSelector = true }) {
-                HStack(spacing: 8) {
-                    Text(appState.currentPhase.shortTitle)
-                        .font(.aero(size: CockpitType.label, weight: .bold))
-                        .foregroundColor(theme.textPrimary)
-                        .lineLimit(2)
-                        .minimumScaleFactor(0.85)
-                        .fixedSize(horizontal: false, vertical: true)
-                    Text("\(appState.currentPhase.rawValue + 1)/\(ChecklistPhase.allCases.count)")
-                        .font(.aero(size: CockpitType.label, design: .monospaced))
-                        .foregroundColor(theme.textSecondary)
-                        .fixedSize()
-                }
-                .padding(.horizontal, 14)
-                .padding(.vertical, 4)
-                .frame(minHeight: 48)
-                .background(Capsule().fill(theme.textPrimary.opacity(0.10)))
-                .contentShape(Rectangle())
+    /// `wide` (the iPad): one row. Portrait is tight (about 780 pt for all of it), so the aircraft stacks
+    /// its circuit line under the registration, the time, GPS and Menu keep their size, and the phase
+    /// takes what's left, wrapping between words ("CHECK BEFORE / ENGINE START"), never inside one.
+    /// (on-device review #2)
+    /// `narrow` (the phone in portrait): the phase gets a line of its own under the rest, instead of a
+    /// badge shrunk to about 7 pt; the landscape column uses it too. (iPhone pass)
+    @ViewBuilder
+    private func cockpitHeader(style: CockpitHeaderStyle) -> some View {
+        switch style {
+        case .wide:
+            HStack(spacing: 14) {
+                abandonableAircraftIdentifier(iconSize: 20, isCompact: false, stacked: true)
+                cockpitPhaseButton(fillsWidth: false)
+                    .layoutPriority(1)   // one line whenever the row has room; the spacer gets what's left
+                Spacer(minLength: 8)
+                cockpitCompanionIndicator
+                cockpitFlightTime
+                cockpitGPSButton(labelled: true)
+                cockpitMenuButton
             }
-            .buttonStyle(.plain)
-            .layoutPriority(1)   // one line whenever the row has room; the spacer gets what's left
-            .accessibilityHint(L10n.Sheet.selectPhase)
+        case .narrow:
+            VStack(spacing: 8) {
+                ViewThatFits(in: .horizontal) {
+                    cockpitHeaderTopRow(gpsLabelled: true)
+                    cockpitHeaderTopRow(gpsLabelled: false)
+                }
+                cockpitPhaseButton(fillsWidth: true)
+            }
+        }
+    }
 
+    private func cockpitHeaderTopRow(gpsLabelled: Bool) -> some View {
+        HStack(spacing: 10) {
+            abandonableAircraftIdentifier(iconSize: 18, isCompact: false, stacked: true)
             Spacer(minLength: 8)
+            cockpitCompanionIndicator
+            cockpitFlightTime
+            cockpitGPSButton(labelled: gpsLabelled)
+            cockpitMenuButton
+        }
+    }
 
-            if companionConnectivityManager.connectionState == .connected {
-                HStack(spacing: 4) {
-                    Image(systemName: "iphone").font(.aero(size: 16))
-                    StatusIndicator(.active, size: 8)
-                }
-                .foregroundColor(theme.onTarget)
+    private func cockpitPhaseButton(fillsWidth: Bool) -> some View {
+        Button(action: { showPhaseSelector = true }) {
+            HStack(spacing: 8) {
+                Text(appState.currentPhase.shortTitle)
+                    .font(.aero(size: CockpitType.label, weight: .bold))
+                    .foregroundColor(theme.textPrimary)
+                    .lineLimit(2)
+                    .minimumScaleFactor(0.85)
+                    .fixedSize(horizontal: false, vertical: true)
+                if fillsWidth { Spacer(minLength: 8) }
+                Text("\(appState.currentPhase.rawValue + 1)/\(ChecklistPhase.allCases.count)")
+                    .font(.aero(size: CockpitType.label, design: .monospaced))
+                    .foregroundColor(theme.textSecondary)
+                    .fixedSize()
             }
+            .padding(.horizontal, 14)
+            .padding(.vertical, 4)
+            .frame(maxWidth: fillsWidth ? .infinity : nil, minHeight: CockpitType.size(kneeboard: 48, phone: 44))
+            .background(Capsule().fill(theme.textPrimary.opacity(0.10)))
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityHint(L10n.Sheet.selectPhase)
+    }
 
-            FlightDurationText(
-                startTime: appState.engineStartTime ?? appState.currentFlight?.startTime,
-                font: .aero(size: CockpitType.row, weight: .bold, design: .monospaced),
-                color: theme.textPrimary
-            )
-            .fixedSize()
+    @ViewBuilder
+    private var cockpitCompanionIndicator: some View {
+        if companionConnectivityManager.connectionState == .connected {
+            HStack(spacing: 4) {
+                Image(systemName: "iphone").font(.aero(size: 16))
+                StatusIndicator(.active, size: 8)
+            }
+            .foregroundColor(theme.onTarget)
+        }
+    }
 
-            Button(action: { openReference(.gps) }) {
-                HStack(spacing: 6) {
-                    Image(systemName: "location.fill").font(.aero(size: 16))
+    private var cockpitFlightTime: some View {
+        FlightDurationText(
+            startTime: appState.engineStartTime ?? appState.currentFlight?.startTime,
+            font: .aero(size: CockpitType.size(kneeboard: CockpitType.row, phone: CockpitType.label),
+                        weight: .bold, design: .monospaced),
+            color: theme.textPrimary
+        )
+        .fixedSize()
+    }
+
+    private func cockpitGPSButton(labelled: Bool) -> some View {
+        Button(action: { openReference(.gps) }) {
+            HStack(spacing: 6) {
+                Image(systemName: "location.fill").font(.aero(size: 16))
+                if labelled {
                     Text(gpsSourceLabel).font(.aero(size: CockpitType.label, weight: .semibold))
                 }
-                .foregroundColor(gpsStatusColor)
-                .frame(minWidth: 44, minHeight: 48)
-                .contentShape(Rectangle())
             }
-            .buttonStyle(.plain)
-            .fixedSize()
-            .accessibilityLabel(isBorrowingCompanionGPS ? L10n.GPS.sourceCompanion : L10n.GPS.status)
-
-            // Named: the grey gear gave no hint that the display mode was inside. (review B7)
-            Button(action: { showFlightInfo = true }) {
-                HStack(spacing: 8) {
-                    Image(systemName: "slider.horizontal.3").font(.aero(size: 18, weight: .semibold))
-                    Text(L10n.Cockpit.menu).font(.aero(size: CockpitType.label, weight: .bold))
-                }
-                .foregroundColor(theme.action)
-                .padding(.horizontal, 16)
-                .frame(minHeight: 52)
-                .background(RoundedRectangle(cornerRadius: 12).fill(theme.action.opacity(0.12)))
-                .overlay(RoundedRectangle(cornerRadius: 12).stroke(theme.action.opacity(0.45), lineWidth: 1))
-                .contentShape(Rectangle())
-            }
-            .buttonStyle(.plain)
-            .fixedSize()
+            .foregroundColor(gpsStatusColor)
+            .frame(minWidth: 44, minHeight: 48)
+            .contentShape(Rectangle())
         }
+        .buttonStyle(.plain)
+        .fixedSize()
+        .accessibilityLabel(isBorrowingCompanionGPS ? L10n.GPS.sourceCompanion : L10n.GPS.status)
+    }
+
+    /// Named: the grey gear gave no hint that the display mode was inside. (review B7)
+    private var cockpitMenuButton: some View {
+        Button(action: { showFlightInfo = true }) {
+            HStack(spacing: 8) {
+                Image(systemName: "slider.horizontal.3").font(.aero(size: 18, weight: .semibold))
+                Text(L10n.Cockpit.menu).font(.aero(size: CockpitType.label, weight: .bold))
+            }
+            .foregroundColor(theme.action)
+            .padding(.horizontal, CockpitType.size(kneeboard: 16, phone: 12))
+            .frame(minHeight: CockpitType.size(kneeboard: 52, phone: 46))
+            .background(RoundedRectangle(cornerRadius: 12).fill(theme.action.opacity(0.12)))
+            .overlay(RoundedRectangle(cornerRadius: 12).stroke(theme.action.opacity(0.45), lineWidth: 1))
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .fixedSize()
     }
 
     // MARK: Pane bar
 
     /// CHECKLIST | MAP, then what can be opened from here: the cruise check when it's due (seen from
     /// the map), V-SPEEDS, the briefing of the phase, and the next phase while items are still open.
-    private var cockpitPaneBar: some View {
+    ///
+    /// `twoRows` (the phone in portrait): the picker across the width, and the chips on a row of their
+    /// own, V-SPEEDS always first. Beside the picker there was room for V-SPEEDS alone, and a second row
+    /// that came and went would move the checklist. (iPhone pass, I3)
+    @ViewBuilder
+    private func cockpitPaneBar(twoRows: Bool) -> some View {
+        if twoRows {
+            VStack(spacing: 8) {
+                CockpitPanePicker(selection: cockpitPaneBinding, fillsWidth: true)
+                ViewThatFits(in: .horizontal) {
+                    cockpitPhoneChips
+                    ScrollView(.horizontal, showsIndicators: false) { cockpitPhoneChips }
+                }
+            }
+        } else {
+            cockpitPaneBarRow
+        }
+    }
+
+    /// The phone's chips, V-SPEEDS first so it is always in the same place.
+    private var cockpitPhoneChips: some View {
+        HStack(spacing: 8) {
+            CockpitChip(title: "V-SPEEDS", icon: "speedometer") { openReference(.vSpeeds) }
+            cockpitBriefingChip
+            cockpitNextChip
+            cockpitMapCautionChips
+            Spacer(minLength: 0)
+        }
+    }
+
+    @ViewBuilder
+    private var cockpitBriefingChip: some View {
+        if let briefing = appState.currentPhase.briefingType {
+            // BRIEFING stays in English in FR, like the other aviation terms.
+            CockpitChip(title: "BRIEFING", icon: briefing == .departure ? "airplane.departure" : "airplane.arrival") {
+                openReference(briefing == .departure ? .departureBriefing : .approachBriefing)
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var cockpitNextChip: some View {
+        if cockpitPane == .checklist, !cockpitChecklistDone,
+           let next = appState.currentPhase.nextNavigable(circuitMode: appState.isCircuitMode) {
+            // Leaving with items open goes through the review of what's left. (v6.0 · B2)
+            // Just NEXT: phase titles run to "CHECK BEFORE ENGINE START". The name is on the big
+            // NEXT button once the list is done, and in the VoiceOver label here.
+            CockpitChip(title: L10n.Button.next, icon: "forward.end") { requestNextPhase() }
+                .accessibilityLabel(L10n.Cockpit.nextPhaseA11y(next.title))
+        }
+    }
+
+    /// Deferred items and a due cruise check follow the pilot onto the map, as cautions.
+    @ViewBuilder
+    private var cockpitMapCautionChips: some View {
+        // Deferred items follow the pilot onto the map too, as a caution: amber, with the count.
+        // (The checklist pane lists them above the items.)
+        if cockpitPane == .map && appState.deferredItemCount > 0 {
+            CockpitChip(title: "\(appState.deferredItemCount)", icon: "clock.arrow.circlepath", tint: theme.warning) {
+                showDeferredItems = true
+            }
+            .accessibilityLabel(L10n.Deferred.count(appState.deferredItemCount))
+        }
+        if cockpitPane == .map && appState.cruiseCheckDue {
+            CockpitChip(title: L10n.Nav.fredaCheck, icon: "arrow.triangle.2.circlepath", tint: theme.warning) {
+                paneOverride = nil
+            }
+        }
+    }
+
+    private var cockpitPaneBarRow: some View {
         HStack(spacing: 10) {
             CockpitPanePicker(selection: cockpitPaneBinding)
             Spacer(minLength: 8)
@@ -1576,11 +1362,19 @@ extension FlightView {
             || appState.areAllItemsCompleted(learningMode: effectiveLearningMode)
     }
 
-    private var cockpitChecklistPane: some View {
+    /// A tap on the list checks the item too, on the phone, as it always did there; CHECK is the same
+    /// action in a place that doesn't move. The iPad checks with CHECK only. (iPhone pass, I2)
+    private var listTapChecksItem: Bool {
+        CockpitScale.current == .phone && appState.settings.stepByStepHighlighting && !cockpitChecklistDone
+    }
+
+    /// `includesThumbBar`: false in the landscape columns, where the thumb bar is in the left column.
+    private func cockpitChecklistPane(narrow: Bool, includesThumbBar: Bool = true) -> some View {
         VStack(spacing: 0) {
             deferredItemsChip
-                .padding(.horizontal, 16)
+                .padding(.horizontal, narrow ? 12 : 16)
 
+            ScrollViewReader { listProxy in
             ScrollView {
                 VStack(spacing: 0) {
                     ChecklistView(
@@ -1691,38 +1485,51 @@ extension FlightView {
                 ? { appState.stepBack(toItemAt: $0) } : nil,
             hiddenItemsRevealed: hiddenItemsRevealed
         )
-                    .padding(24)
+                    .padding(narrow ? 14 : 24)
                 }
+                .modifier(TapToCheck(enabled: CockpitScale.current == .phone) {
+                    if listTapChecksItem { checkCurrentItem() }
+                })
             }
             .background(theme.background)
+            // Open on the current item: on the phone, a few checked rows are enough to push it below
+            // the fold. (iPhone pass)
+            .onAppear {
+                listProxy.scrollTo(appState.getHighlightedItem(for: appState.currentPhase),
+                                   anchor: UnitPoint(x: 0.5, y: 0.12))
+            }
+            }
 
             // Hold-to-confirm GO-AROUND / T&G / LANDED in the phases they belong to.
             eventActionsRow(kneeboard: true)
 
-            cockpitThumbBar
-                .padding(.horizontal, 16)
-                .padding(.vertical, 12)
-                .background(theme.panel.ignoresSafeArea(edges: .bottom))
-                .overlay(alignment: .top) { Rectangle().fill(theme.panelStroke).frame(height: 1) }
+            if includesThumbBar {
+                cockpitThumbBar(narrow: narrow)
+                    .padding(.horizontal, narrow ? 12 : 16)
+                    .padding(.vertical, narrow ? 10 : 12)
+                    .background(theme.panel.ignoresSafeArea(edges: .bottom))
+                    .overlay(alignment: .top) { Rectangle().fill(theme.panelStroke).frame(height: 1) }
+            }
         }
     }
 
     /// The checklist's thumb bar. The phase's own action and the circuit or cruise buttons keep their
-    /// width; CHECK takes the rest, in the same place for every item. (review B1)
-    private var cockpitThumbBar: some View {
-        HStack(spacing: 12) {
+    /// width; CHECK takes the rest, in the same place for every item. (review B1) Narrower on the
+    /// phone, where CHECK still gets the most. (iPhone pass)
+    private func cockpitThumbBar(narrow: Bool) -> some View {
+        HStack(spacing: narrow ? 8 : 12) {
             hudPhaseActionButton(height: CockpitTarget.thumb)
-                .frame(maxWidth: 240)
-            circuitQuickEventButtons(height: CockpitTarget.thumb)
-                .frame(maxWidth: 320)
+                .frame(maxWidth: narrow ? 110 : 240)
+            circuitQuickEventButtons()
+                .frame(maxWidth: narrow ? 170 : 320)
             cruiseCheckButton(height: CockpitTarget.thumb)
-                .frame(maxWidth: 220)
+                .frame(maxWidth: narrow ? 96 : 220)
             if !cockpitChecklistDone {
                 CockpitThumbButton(title: L10n.Cockpit.deferItem, subtitle: L10n.Cockpit.deferHint,
                                    style: .outlined(tint: theme.warning)) {
                     appState.deferHighlightedItem()
                 }
-                .frame(maxWidth: 200)
+                .frame(maxWidth: narrow ? 112 : 200)
             }
             cockpitPrimaryButton
         }
@@ -1769,6 +1576,23 @@ extension FlightView {
         if let diversion = plan.diversion { return diversion.ident }
         guard let next = plan.nextWaypoint else { return nil }
         return next.name.isEmpty ? "WPT \(plan.currentWaypointIndex + 1)" : next.name
+    }
+}
+
+/// The phone's tap on the checklist: it checks the highlighted item, as it always did there. The iPad
+/// checks with CHECK only, so it gets no gesture at all. (iPhone pass, I2)
+private struct TapToCheck: ViewModifier {
+    let enabled: Bool
+    let action: () -> Void
+
+    func body(content: Content) -> some View {
+        if enabled {
+            content
+                .contentShape(Rectangle())
+                .onTapGesture(perform: action)
+        } else {
+            content
+        }
     }
 }
 
@@ -2027,154 +1851,6 @@ struct SpeedReferenceSheet: View {
         .presentationDetents(isIPad ? [.height(480)] : [.fraction(0.6)])
         .preferredColorScheme(.dark)
     }
-}
-
-// MARK: - Compact Speed View (iPhone)
-
-struct CompactSpeedView: View {
-    @Environment(\.cockpitTheme) private var theme
-    let speedKnots: Double // Ground speed in knots
-    let targetSpeed: Int
-    let gpsSignalStatus: GPSSignalStatus
-
-    /// Always GPS ground speed — the app has no pitot or AoA source. See
-    /// `SpeedIndicatorView.annunciationState` for why the wind-derived estimate was removed.
-    private var displaySpeed: Double { speedKnots }
-
-    // Delegates to the shared pure function so the iPhone annunciates identically to the iPad.
-    private var speedState: SpeedState {
-        switch SpeedIndicatorView.annunciationState(
-            displaySpeed: displaySpeed, targetSpeed: targetSpeed, gpsSignalStatus: gpsSignalStatus) {
-        case .onTarget: return .onTarget
-        case .offTarget: return .offTarget
-        }
-    }
-
-    enum SpeedState {
-        case onTarget, offTarget
-    }
-
-    @Environment(\.isNightMode) private var nightMode
-
-    /// Whether to show failure flag overlay
-    private var showFailureFlag: Bool {
-        gpsSignalStatus == .degraded || gpsSignalStatus == .lost
-    }
-
-    /// Failure level for the flag
-    private var failureLevel: InstrumentFailureFlag.FailureLevel {
-        gpsSignalStatus == .lost ? .lost : .degraded
-    }
-
-    var body: some View {
-        HStack(spacing: 8) {
-            // Speed type label. Always ground speed — the app has no airspeed source.
-            VStack(alignment: .trailing, spacing: 2) {
-                Text(L10n.Speed.gs)
-                    .font(.aero(size: 9, weight: .bold))
-                    .foregroundColor(theme.textDim)
-            }
-
-            // Speed value with failure flag, plus the color-blind-safe proximity bar beneath it
-            VStack(spacing: 3) {
-                ZStack {
-                    VStack(spacing: 0) {
-                        if gpsSignalStatus != .lost {
-                            HStack(spacing: 4) {
-                                // Live airspeed is primary flight data — give it the largest, heaviest type
-                                // in the in-flight bar so it's the glance focal point. (UX-15)
-                                Text("\(Int(max(0, displaySpeed)))")
-                                    .font(.aero(size: 30, weight: .heavy, design: .monospaced))
-                                    .foregroundColor(textColor)
-                                    .minimumScaleFactor(0.6)
-                                    .lineLimit(1)
-                                Text(L10n.Unit.kt)
-                                    .font(.aero(size: 13, weight: .semibold))
-                                    .foregroundColor(textColor.opacity(0.8))
-                            }
-                        }
-                    }
-                    .padding(.horizontal, 10)
-                    .padding(.vertical, 6)
-                    .background(
-                        RoundedRectangle(cornerRadius: 6)
-                            .fill(backgroundColor)
-                    )
-
-                    // Failure flag overlay
-                    if showFailureFlag {
-                        InstrumentFailureFlag(level: failureLevel, size: CGSize(width: 70, height: 40))
-                            .clipShape(RoundedRectangle(cornerRadius: 6))
-                    }
-                }
-                .frame(minWidth: 70, minHeight: 40)
-
-                // Same proximity bar as the iPad instrument: WIDTH = closeness to target, COLOR =
-                // state. Hidden when GPS is lost; accessibilityHidden (the value already speaks the
-                // state in words). (v4 UI/UX Revamp)
-                if gpsSignalStatus != .lost {
-                    InstrumentTargetBar(
-                        fraction: SpeedIndicatorView.targetBarFraction(displaySpeed: displaySpeed, targetSpeed: targetSpeed),
-                        state: SpeedIndicatorView.barState(for: mappedSpeedState)
-                    )
-                    .frame(width: 70)
-                    .accessibilityHidden(true)
-                }
-            }
-
-            // Target indicator (always shown)
-            VStack(alignment: .leading, spacing: 2) {
-                Text(L10n.Speed.tgt)
-                    .font(.aero(size: 9, weight: .medium))
-                    .foregroundColor(theme.textDim)
-                HStack(spacing: 2) {
-                    Image(systemName: targetIcon)
-                        .font(.aero(size: 10))
-                    Text("\(targetSpeed)")
-                        .font(.aero(size: 12, weight: .medium, design: .monospaced))
-                }
-                .foregroundColor(theme.textSecondary)
-            }
-        }
-        .accessibilityElement(children: .ignore)
-        .accessibilityLabel("Ground speed")
-        .accessibilityValue(SpeedIndicatorView.accessibilityValue(
-            displaySpeed: Int(displaySpeed), targetSpeed: targetSpeed, state: mappedSpeedState,
-            gpsLost: gpsSignalStatus == .lost))
-        .accessibilityAddTraits(.updatesFrequently)
-    }
-
-    /// Maps to the shared instrument state so the VoiceOver wording is identical (and tested). (UX-10)
-    private var mappedSpeedState: SpeedIndicatorView.SpeedState {
-        switch speedState {
-        case .onTarget: return .onTarget
-        case .offTarget: return .offTarget
-        }
-    }
-
-    private var backgroundColor: Color {
-        // Solid high-contrast fills (black text) for sunlight legibility (UX-17); low-luminance
-        // variants at night (UX-09).
-        switch speedState {
-        case .onTarget: return nightMode ? .nightOnTarget : theme.onTarget
-        case .offTarget: return nightMode ? .nightOffTarget : .orange
-        }
-    }
-
-    private var textColor: Color {
-        if nightMode { return .nightInstrumentText }
-        switch speedState {
-        case .onTarget, .offTarget: return .black
-        }
-    }
-
-    private var targetIcon: String {
-        let speedInt = Int(displaySpeed)
-        if speedInt < targetSpeed - 5 { return "arrow.up" }
-        else if speedInt > targetSpeed + 5 { return "arrow.down" }
-        else { return "checkmark" }
-    }
-
 }
 
 // MARK: - Flight Mini-Map (persistent HUD glance map)
@@ -2504,7 +2180,6 @@ enum HUDReference: Identifiable, Equatable {
     case gps
     case departureBriefing
     case approachBriefing
-    case freq
 
     var id: Int {
         switch self {
@@ -2512,7 +2187,6 @@ enum HUDReference: Identifiable, Equatable {
         case .gps: return 1
         case .departureBriefing: return 2
         case .approachBriefing: return 3
-        case .freq: return 4
         }
     }
 
@@ -2521,7 +2195,6 @@ enum HUDReference: Identifiable, Equatable {
         case .vSpeeds: return "V-SPEEDS"
         case .gps: return L10n.GPS.statusTitle
         case .departureBriefing, .approachBriefing: return "BRIEFING"
-        case .freq: return L10n.Nav.freq
         }
     }
 
@@ -2531,7 +2204,6 @@ enum HUDReference: Identifiable, Equatable {
         case .gps: return "location.fill"
         case .departureBriefing: return "airplane.departure"
         case .approachBriefing: return "airplane.arrival"
-        case .freq: return "antenna.radiowaves.left.and.right"
         }
     }
 
@@ -2542,7 +2214,6 @@ enum HUDReference: Identifiable, Equatable {
         case .vSpeeds: return .aviationGreen
         case .gps: return .primaryText
         case .departureBriefing, .approachBriefing: return .primaryText   // no gold in flight (v6.0 · P5)
-        case .freq: return .altimeterBlue
         }
     }
 
@@ -2563,6 +2234,8 @@ struct HUDReferencePanel: View {
     var kneeboard: Bool = false
     /// The Cockpit in landscape (V-SPEEDS lays its rows out for it).
     var landscape: Bool = false
+    /// V-SPEEDS as the fixed table (the iPad) or as the list (the phone keeps its list, iPhone pass I5).
+    var vSpeedsTable: Bool = CockpitScale.current == .kneeboard
     @ObservedObject var locationManager: LocationManager
     var briefingContext: BriefingContext? = nil
     var aglFeet: Double? = nil
@@ -2680,7 +2353,7 @@ struct HUDReferencePanel: View {
                 activeChecklist: appState.activeChecklist,
                 currentPhase: appState.currentPhase,
                 aglFeet: aglFeet,
-                kneeboard: kneeboard,
+                kneeboard: kneeboard && vSpeedsTable,
                 landscape: landscape
             )
         case .gps:
@@ -2693,8 +2366,6 @@ struct HUDReferencePanel: View {
             if let context = briefingContext {
                 ApproachBriefingContent(context: context)
             }
-        case .freq:
-            FrequencyReferenceContent(locationManager: locationManager)
         }
     }
 }
@@ -2964,8 +2635,8 @@ private struct CappedWidth: Layout {
 }
 
 /// The V-speeds reference shown in the HUD panel. The Cockpit shows `VSpeedTable`: one fixed table,
-/// the phase's speeds framed where they stand. The iPhone keeps its list (V-name accent · description
-/// muted · value right-aligned) until its own pass; its highlight switches Vx → Vy at 300 ft AGL,
+/// the phase's speeds framed where they stand, on the iPad. The phone keeps its list (V-name accent ·
+/// description muted · value right-aligned, iPhone pass I5); its highlight switches Vx → Vy at 300 ft AGL,
 /// cruise = Vc (or Va), descent = Va + Vbg. (round 6; V-SPEEDS proposal D1–D8)
 struct InFlightSpeedReference: View {
     @Environment(\.cockpitTheme) private var theme
@@ -3279,75 +2950,6 @@ struct InFlightSpeedReference: View {
         .environmentObject(FlightPlanManager())
 }
 
-
-// MARK: - Frequency reference content (nearby radio frequencies, hosted in HUDReferencePanel)
-
-/// iPhone HUD FREQ drawer: nearby airports and their radio frequencies, queried once on appear.
-/// Cockpit cards (no system List), matching the other reference drawers. (iPhone HUD)
-struct FrequencyReferenceContent: View {
-    @ObservedObject var locationManager: LocationManager
-    @EnvironmentObject var airportDataService: AirportDataService
-
-    private struct Entry: Identifiable {
-        let id = UUID()
-        let ident: String
-        let freqs: [(type: String, value: String)]
-    }
-    @State private var entries: [Entry] = []
-    @State private var loaded = false
-
-    var body: some View {
-        VStack(spacing: 12) {
-            if !airportDataService.isDataAvailable {
-                infoCard(L10n.Nav.freqUnavailable)
-            } else if loaded && entries.isEmpty {
-                infoCard(L10n.Nav.noNearbyFreq)
-            } else {
-                ForEach(entries) { entry in
-                    VStack(alignment: .leading, spacing: 8) {
-                        Text(entry.ident)
-                            .font(.aero(size: 15, weight: .bold))
-                            .foregroundColor(.primaryText)
-                        ForEach(Array(entry.freqs.enumerated()), id: \.offset) { _, f in
-                            HStack {
-                                Text(f.type)
-                                    .font(.aero(size: 13))
-                                    .foregroundColor(.secondaryText)
-                                Spacer()
-                                Text(f.value)
-                                    .font(.aero(size: 14, weight: .semibold, design: .monospaced))
-                                    .foregroundColor(.primaryText)
-                            }
-                        }
-                    }
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .cardSection()
-                }
-            }
-        }
-        .onAppear(perform: load)
-    }
-
-    private func infoCard(_ text: String) -> some View {
-        Text(text)
-            .font(.aero(size: 13))
-            .foregroundColor(.secondaryText)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .cardSection()
-    }
-
-    private func load() {
-        guard !loaded else { return }
-        loaded = true
-        guard let coord = locationManager.currentLocation?.coordinate, airportDataService.isDataAvailable else { return }
-        let nearby = airportDataService.findNearestAirports(to: coord, limit: 6, maxDistanceNm: 40)
-        entries = nearby.compactMap { airport in
-            let fs = airportDataService.getFrequencies(for: airport.ident)
-            guard !fs.isEmpty else { return nil }
-            return Entry(ident: airport.ident, freqs: fs.map { (type: $0.type, value: $0.formattedFrequency) })
-        }
-    }
-}
 
 /// One NEXT press held for review: the phase being left and its unchecked items. (v6.0 · B2)
 struct OpenItemsReview: Identifiable {

@@ -235,44 +235,57 @@ struct FlightPlanEditorView: View {
 
     /// The route, as a picture and its figures. It is edited in the route editor, one tap away.
     private var routeCard: some View {
-        HStack(spacing: 14) {
-            if flightPlan.waypoints.count >= 2 {
-                RouteThumbnail(waypoints: flightPlan.waypoints)
-                    .frame(width: isCompactWidth ? 96 : 150, height: isCompactWidth ? 64 : 92)
-                    .clipShape(RoundedRectangle(cornerRadius: 10))
-            }
-            VStack(alignment: .leading, spacing: 5) {
-                sectionTitle(L10n.FlightSheet.route)
-                Text(routeEndpoints)
-                    .scaledFont(size: 18, weight: .bold, design: .monospaced, relativeTo: .headline)
-                    .foregroundColor(.primaryText)
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.7)
-                Text("\(flightPlan.waypoints.count) wpt · \(String(format: "%.0f", flightPlan.totalDistance)) NM · EET \(flightPlan.formattedTotalEET)")
-                    .scaledFont(size: 14, design: .monospaced, relativeTo: .subheadline)
-                    .foregroundColor(.secondaryText)
-            }
-            Spacer(minLength: 8)
-            if !isViewingFromFlightLog {
-                Button {
-                    if let onEditRoute { onEditRoute() } else { dismiss() }
-                } label: {
-                    HStack(spacing: 6) {
-                        Text(L10n.Nav.editRoute)
-                        Image(systemName: "chevron.right")
-                            .scaledFont(size: 12, weight: .semibold, relativeTo: .caption)
-                    }
-                    .scaledFont(size: 15, weight: .semibold, relativeTo: .subheadline)
-                    .foregroundColor(.altimeterBlue)
-                    .padding(.horizontal, 14)
-                    .frame(minHeight: 44)
-                    .overlay(RoundedRectangle(cornerRadius: 10).strokeBorder(Color.altimeterBlue.opacity(0.5), lineWidth: 1))
+        // On the iPhone, Edit route goes under the route: beside it, it left the figures about 80 pt
+        // and broke "25 NM" and "EET 0:25" across lines. (iPhone pass)
+        VStack(alignment: .leading, spacing: 12) {
+            HStack(spacing: 14) {
+                if flightPlan.waypoints.count >= 2 {
+                    RouteThumbnail(waypoints: flightPlan.waypoints)
+                        .frame(width: isCompactWidth ? 96 : 150, height: isCompactWidth ? 64 : 92)
+                        .clipShape(RoundedRectangle(cornerRadius: 10))
                 }
-                .buttonStyle(.plain)
+                VStack(alignment: .leading, spacing: 5) {
+                    sectionTitle(L10n.FlightSheet.route)
+                    Text(routeEndpoints)
+                        .scaledFont(size: 18, weight: .bold, design: .monospaced, relativeTo: .headline)
+                        .foregroundColor(.primaryText)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.7)
+                    Text("\(flightPlan.waypoints.count) wpt · \(String(format: "%.0f", flightPlan.totalDistance)) NM · EET \(flightPlan.formattedTotalEET)")
+                        .scaledFont(size: 14, design: .monospaced, relativeTo: .subheadline)
+                        .foregroundColor(.secondaryText)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.75)
+                }
+                Spacer(minLength: 8)
+                if !isCompactWidth { editRouteButton }
             }
+            if isCompactWidth { editRouteButton }
         }
         .padding(16)
         .background(RoundedRectangle(cornerRadius: 14).fill(Color.panelBackground))
+    }
+
+    @ViewBuilder
+    private var editRouteButton: some View {
+        if !isViewingFromFlightLog {
+            Button {
+                if let onEditRoute { onEditRoute() } else { dismiss() }
+            } label: {
+                HStack(spacing: 6) {
+                    Text(L10n.Nav.editRoute)
+                    Image(systemName: "chevron.right")
+                        .scaledFont(size: 12, weight: .semibold, relativeTo: .caption)
+                }
+                .scaledFont(size: 15, weight: .semibold, relativeTo: .subheadline)
+                .foregroundColor(.altimeterBlue)
+                .padding(.horizontal, 14)
+                .frame(maxWidth: isCompactWidth ? .infinity : nil, minHeight: 44)
+                .overlay(RoundedRectangle(cornerRadius: 10).strokeBorder(Color.altimeterBlue.opacity(0.5), lineWidth: 1))
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+        }
     }
 
     // MARK: - Section chrome (planning proposal A)
@@ -311,6 +324,8 @@ struct FlightPlanEditorView: View {
                         .scaledFont(size: 13, weight: .bold, design: .monospaced, relativeTo: .caption)
                         .tracking(1.2)
                         .foregroundColor(isOpen.wrappedValue ? .aviationGold : .secondaryText)
+                        // The summary gives way, not the title. (iPhone pass)
+                        .fixedSize()
                     if !isOpen.wrappedValue {
                         Text(summary)
                             .scaledFont(size: 13, relativeTo: .caption)
@@ -579,7 +594,7 @@ struct FlightPlanEditorView: View {
         let onBoard = flightPlan.fuelOnBoard
         let reserveIsDefault = (flightPlan.additionalFuel ?? 0) <= 0
         return section(L10n.FlightSheet.fuel, aside: L10n.FlightSheet.litres) {
-            Grid(alignment: .leading, horizontalSpacing: 12, verticalSpacing: 10) {
+            Grid(alignment: .leading, horizontalSpacing: isCompactWidth ? 8 : 12, verticalSpacing: 10) {
                 GridRow {
                     ledgerLabel(L10n.FlightSheet.fuelFlow,
                                 note: flightPlan.fuelFlow == nil ? L10n.FlightSheet.flowNote : nil,
@@ -590,19 +605,21 @@ struct FlightPlanEditorView: View {
                             flightPlan.fuelFlow = $0 > 0 ? $0 : nil
                             // The trip fuel is the route's time at this flow: it follows the flow.
                             flightPlan.calculateRouteData()
-                        }), format: "%.0f")
+                        }), format: "%.0f", width: ledgerFieldWidth)
                     ledgerUnit("L/h")
                 }
                 ledgerRule(double: false)
                 GridRow {
                     ledgerLabel(L10n.FlightSheet.trip, note: L10n.FlightSheet.tripNote(flightPlan.formattedTotalEET, flowText))
                     ledgerValue(flightPlan.tripFuel)
-                    ledgerUnit(L10n.FlightSheet.fromRoute)
+                    // The note under Trip already says where it comes from; the iPhone has no room
+                    // for it twice.
+                    if isCompactWidth { Color.clear.frame(width: 1, height: 1) } else { ledgerUnit(L10n.FlightSheet.fromRoute) }
                 }
                 GridRow {
                     ledgerLabel(L10n.FlightSheet.alternate, op: "+")
                     LedgerNumberField(value: Binding(get: { flightPlan.reserveFuel ?? 0 },
-                                                     set: { flightPlan.reserveFuel = $0 }), format: "%.1f")
+                                                     set: { flightPlan.reserveFuel = $0 }), format: "%.1f", width: ledgerFieldWidth)
                     Color.clear.frame(width: 1, height: 1)
                 }
                 GridRow {
@@ -611,13 +628,13 @@ struct FlightPlanEditorView: View {
                                 isDefault: reserveIsDefault)
                     // The figure Required counts: 45 minutes at the fuel flow until set.
                     LedgerNumberField(value: Binding(get: { flightPlan.finalReserveFuel },
-                                                     set: { flightPlan.additionalFuel = $0 }), format: "%.1f")
+                                                     set: { flightPlan.additionalFuel = $0 }), format: "%.1f", width: ledgerFieldWidth)
                     Color.clear.frame(width: 1, height: 1)
                 }
                 GridRow {
                     ledgerLabel(L10n.FlightSheet.extra, op: "+")
                     LedgerNumberField(value: Binding(get: { flightPlan.extraFuel ?? 0 },
-                                                     set: { flightPlan.extraFuel = $0 }), format: "%.1f")
+                                                     set: { flightPlan.extraFuel = $0 }), format: "%.1f", width: ledgerFieldWidth)
                     Color.clear.frame(width: 1, height: 1)
                 }
                 ledgerRule(double: true)
@@ -630,7 +647,7 @@ struct FlightPlanEditorView: View {
                     ledgerLabel(L10n.FlightSheet.onBoard, bold: true)
                     LedgerNumberField(value: Binding(get: { onBoard ?? 0 },
                                                      set: { flightPlan.fuelOnBoard = $0 > 0 ? $0 : nil }),
-                                      format: "%.1f", emphasised: true)
+                                      format: "%.1f", emphasised: true, width: ledgerFieldWidth)
                     Color.clear.frame(width: 1, height: 1)
                 }
                 if !isViewingFromFlightLog {
@@ -650,7 +667,7 @@ struct FlightPlanEditorView: View {
                     Text(onBoard.map { endurance($0, flow: flow) } ?? "—")
                         .scaledFont(size: 19, design: .monospaced, relativeTo: .body)
                         .foregroundColor(.primaryText)
-                        .frame(width: 130, alignment: .trailing)
+                        .frame(width: ledgerValueWidth, alignment: .trailing)
                         .padding(.trailing, 10)
                     Color.clear.frame(width: 1, height: 1)
                 }
@@ -693,7 +710,7 @@ struct FlightPlanEditorView: View {
         Text(value.map { String(format: "%.1f", $0) } ?? "—")
             .scaledFont(size: bold ? 21 : 19, weight: bold ? .bold : .regular, design: .monospaced, relativeTo: .body)
             .foregroundColor(.primaryText)
-            .frame(width: 130, alignment: .trailing)
+            .frame(width: ledgerValueWidth, alignment: .trailing)
             .padding(.trailing, 10)
     }
 
@@ -701,8 +718,13 @@ struct FlightPlanEditorView: View {
         Text(text)
             .scaledFont(size: 13, relativeTo: .caption)
             .foregroundColor(.secondaryText)
-            .frame(minWidth: 70, alignment: .leading)
+            .frame(minWidth: isCompactWidth ? nil : 70, alignment: .leading)
     }
+
+    /// The ledger's figures column. Narrower on the iPhone, where the iPad's width left the labels
+    /// about 80 pt: "Final reserve 45′" took three lines and "On board" two. (iPhone pass)
+    private var ledgerValueWidth: CGFloat { isCompactWidth ? 100 : 130 }
+    private var ledgerFieldWidth: CGFloat { isCompactWidth ? 108 : 140 }
 
     private func ledgerRule(double: Bool) -> some View {
         GridRow {
@@ -721,29 +743,31 @@ struct FlightPlanEditorView: View {
             Text("—")
                 .scaledFont(size: 19, design: .monospaced, relativeTo: .body)
                 .foregroundColor(.dimText)
-                .frame(width: 130, alignment: .trailing)
+                .frame(width: ledgerValueWidth, alignment: .trailing)
                 .padding(.trailing, 10)
             Color.clear.frame(width: 1, height: 1)
         case .enough(let margin, let minutes):
             Text("+" + String(format: "%.1f", margin))
                 .scaledFont(size: 19, weight: .semibold, design: .monospaced, relativeTo: .body)
                 .foregroundColor(.aviationGreen)
-                .frame(width: 130, alignment: .trailing)
+                .frame(width: ledgerValueWidth, alignment: .trailing)
                 .padding(.trailing, 10)
             Text(L10n.FlightSheet.marginMinutes(String(minutes)))
                 .scaledFont(size: 13, relativeTo: .caption)
                 .foregroundColor(.aviationGreen)
-                .frame(minWidth: 70, alignment: .leading)
+                .fixedSize()
+                .frame(minWidth: isCompactWidth ? nil : 70, alignment: .leading)
         case .short(let litres):
             Text("−" + String(format: "%.1f", litres))
                 .scaledFont(size: 19, weight: .semibold, design: .monospaced, relativeTo: .body)
                 .foregroundColor(.aviationAmber)
-                .frame(width: 130, alignment: .trailing)
+                .frame(width: ledgerValueWidth, alignment: .trailing)
                 .padding(.trailing, 10)
             Text(L10n.FlightSheet.short)
                 .scaledFont(size: 13, relativeTo: .caption)
                 .foregroundColor(.aviationAmber)
-                .frame(minWidth: 70, alignment: .leading)
+                .fixedSize()
+                .frame(minWidth: isCompactWidth ? nil : 70, alignment: .leading)
         }
     }
 
@@ -1288,6 +1312,7 @@ struct LedgerNumberField: View {
     @Binding var value: Double
     let format: String
     var emphasised: Bool = false
+    var width: CGFloat = 140
 
     @State private var text: String = ""
     @FocusState private var isEditing: Bool
@@ -1301,7 +1326,7 @@ struct LedgerNumberField: View {
             .keyboardType(.decimalPad)
             .focused($isEditing)
             .padding(.horizontal, 10)
-            .frame(width: 140, height: emphasised ? 52 : 44)
+            .frame(width: width, height: emphasised ? 52 : 44)
             .background(RoundedRectangle(cornerRadius: 9).fill(Color.cardBackground))
             .overlay(RoundedRectangle(cornerRadius: 9)
                 .strokeBorder(emphasised ? Color.aviationGold.opacity(0.8) : Color.clear, lineWidth: 2))

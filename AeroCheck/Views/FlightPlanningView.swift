@@ -751,6 +751,8 @@ struct FlightPlanRow: View {
             Image(systemName: icon).scaledFont(size: 10, relativeTo: .caption2).foregroundColor(.dimText)
             Text(value).scaledFont(size: 12, weight: .semibold, design: .monospaced, relativeTo: .caption).foregroundColor(.secondaryText)
         }
+        // A figure never breaks across lines: "0:" over "43" read as two numbers. (iPhone pass)
+        .fixedSize()
     }
 
     @Environment(\.horizontalSizeClass) private var sizeClass
@@ -811,70 +813,101 @@ struct FlightPlanRow: View {
         }
     }
 
-    var body: some View {
-        HStack(spacing: 12) {
-            // Route map preview — anchors the card visually. (revamp #1b)
-            RouteThumbnail(waypoints: plan.waypoints, loadPriority: loadPriority)
-                .frame(width: 96, height: 66)
-
-            VStack(alignment: .leading, spacing: 5) {
-                // Hero: the pilot's name for the route when there is one, else its ends.
-                HStack(spacing: 6) {
-                    Text(customName ?? routeEndpoints)
-                        .scaledFont(size: 16, weight: .semibold, design: customName == nil ? .monospaced : .default,
-                                    relativeTo: .body)
-                        .foregroundColor(.primaryText)
-                        .lineLimit(1).minimumScaleFactor(0.7)
-                    if isArchived {
-                        Text(L10n.Routes.archivedTag)
-                            .font(.aero(.caption2).weight(.bold)).foregroundColor(.secondaryText)
-                            .padding(.horizontal, 6).padding(.vertical, 1)
-                            .overlay(RoundedRectangle(cornerRadius: 5).strokeBorder(Color.secondaryText.opacity(0.5), lineWidth: 1))
-                    }
-                    if isActive {
-                        Text(L10n.Nav.active)
-                            .font(.aero(.caption2).weight(.bold)).foregroundColor(.black)
-                            .padding(.horizontal, 6).padding(.vertical, 1)
-                            .background(RoundedRectangle(cornerRadius: 5).fill(Color.aviationGreen))
-                    }
-                }
-                // The ends, under the name.
-                if customName != nil {
-                    Text(routeEndpoints)
-                        .scaledFont(size: 13, design: .monospaced, relativeTo: .caption)
-                        .foregroundColor(.secondaryText)
-                        .lineLimit(1).minimumScaleFactor(0.7)
-                }
-                // Metric strip — structured, not a flat dot-list.
-                if plan.waypoints.count >= 2 {
-                    HStack(spacing: 13) {
-                        if plan.totalDistance > 0 { metric("ruler", String(format: "%.0f NM", plan.totalDistance)) }
-                        let eet = plan.formattedTotalEET
-                        if !eet.isEmpty && eet != "0:00" { metric("clock", eet) }
-                        metric("mappin.and.ellipse", "\(plan.waypoints.count)")
-                    }
-                } else {
-                    Text(L10n.Nav.tapToBuild).font(.aero(.caption)).foregroundColor(.aviationGold.opacity(0.85))
-                }
-                // Metadata: aircraft · recency (muted).
-                HStack(spacing: 5) {
-                    Image(systemName: "airplane").scaledFont(size: 9, relativeTo: .caption2)
-                    Text(plan.aircraftRegistration)
-                    Text("·")
-                    Text(relativeDate)
-                }
-                .scaledFont(size: 11, relativeTo: .caption2).foregroundColor(.dimText).lineLimit(1)
+    /// The pilot's name for the route when there is one, else its ends, with its tags.
+    private var titleLine: some View {
+        HStack(spacing: 6) {
+            Text(customName ?? routeEndpoints)
+                .scaledFont(size: 16, weight: .semibold, design: customName == nil ? .monospaced : .default,
+                            relativeTo: .body)
+                .foregroundColor(.primaryText)
+                .lineLimit(1).minimumScaleFactor(0.7)
+            if isArchived {
+                Text(L10n.Routes.archivedTag)
+                    .font(.aero(.caption2).weight(.bold)).foregroundColor(.secondaryText)
+                    .padding(.horizontal, 6).padding(.vertical, 1)
+                    .overlay(RoundedRectangle(cornerRadius: 5).strokeBorder(Color.secondaryText.opacity(0.5), lineWidth: 1))
+                    .fixedSize()
             }
+            if isActive {
+                Text(L10n.Nav.active)
+                    .font(.aero(.caption2).weight(.bold)).foregroundColor(.black)
+                    .padding(.horizontal, 6).padding(.vertical, 1)
+                    .background(RoundedRectangle(cornerRadius: 5).fill(Color.aviationGreen))
+                    .fixedSize()
+            }
+        }
+    }
 
-            Spacer(minLength: 6)
+    /// The ends under the name, the figures, and who flies it when.
+    @ViewBuilder
+    private var details: some View {
+        // The ends, under the name.
+        if customName != nil {
+            Text(routeEndpoints)
+                .scaledFont(size: 13, design: .monospaced, relativeTo: .caption)
+                .foregroundColor(.secondaryText)
+                .lineLimit(1).minimumScaleFactor(0.7)
+        }
+        // Metric strip — structured, not a flat dot-list.
+        if plan.waypoints.count >= 2 {
+            HStack(spacing: 13) {
+                if plan.totalDistance > 0 { metric("ruler", String(format: "%.0f NM", plan.totalDistance)) }
+                let eet = plan.formattedTotalEET
+                if !eet.isEmpty && eet != "0:00" { metric("clock", eet) }
+                metric("mappin.and.ellipse", "\(plan.waypoints.count)")
+            }
+        } else {
+            Text(L10n.Nav.tapToBuild).font(.aero(.caption)).foregroundColor(.aviationGold.opacity(0.85))
+        }
+        // Metadata: aircraft · recency (muted).
+        HStack(spacing: 5) {
+            Image(systemName: "airplane").scaledFont(size: 9, relativeTo: .caption2)
+            Text(plan.aircraftRegistration)
+            Text("·")
+            Text(relativeDate)
+        }
+        .scaledFont(size: 11, relativeTo: .caption2).foregroundColor(.dimText).lineLimit(1)
+    }
 
-            // One-tap activate / deactivate — was buried in a swipe / context menu. (revamp)
-            //
-            // The active row used to show "In use" as a static label, so the one state change a pilot
-            // makes under time pressure — "that's not the flight I'm doing" — was the only one with no
-            // button. Same slot, same size, opposite action: the row no longer changes shape with
-            // state. Swipe and long-press stay as accelerators. (v4.4.0 device-test feedback)
-            if !isArchived { planActionButton }
+    var body: some View {
+        Group {
+            if sizeClass == .compact {
+                // The iPhone: the name across the whole card, then the map, the figures and the
+                // button under it. Beside the map and the button, the name had about 140 pt and was
+                // cut after three letters. (iPhone pass)
+                VStack(alignment: .leading, spacing: 8) {
+                    titleLine
+                    HStack(spacing: 12) {
+                        RouteThumbnail(waypoints: plan.waypoints, loadPriority: loadPriority)
+                            .frame(width: 80, height: 56)
+                        VStack(alignment: .leading, spacing: 5) { details }
+                        Spacer(minLength: 6)
+                        if !isArchived { planActionButton }
+                    }
+                }
+            } else {
+                HStack(spacing: 12) {
+                    // Route map preview — anchors the card visually. (revamp #1b)
+                    RouteThumbnail(waypoints: plan.waypoints, loadPriority: loadPriority)
+                        .frame(width: 96, height: 66)
+
+                    VStack(alignment: .leading, spacing: 5) {
+                        titleLine
+                        details
+                    }
+
+                    Spacer(minLength: 6)
+
+                    // One-tap activate / deactivate — was buried in a swipe / context menu. (revamp)
+                    //
+                    // The active row used to show "In use" as a static label, so the one state change a
+                    // pilot makes under time pressure — "that's not the flight I'm doing" — was the only
+                    // one with no button. Same slot, same size, opposite action: the row no longer
+                    // changes shape with state. Swipe and long-press stay as accelerators. (v4.4.0
+                    // device-test feedback)
+                    if !isArchived { planActionButton }
+                }
+            }
         }
         .padding(10)
         .background(

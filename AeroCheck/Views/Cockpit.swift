@@ -13,7 +13,8 @@ import SwiftUI
 //    DEFER, next to the phase's own action. Map: MARK, the leg timer, Divert and More.
 //
 // It replaces the iPad HUD's two layouts (portrait stack, landscape columns), whose map was a
-// 200 pt band that opened a full-screen cover. The iPhone keeps its layout until its own pass.
+// 200 pt band that opened a full-screen cover. Since the iPhone pass the phone has the same Cockpit,
+// laid out by `CockpitLayout` and sized by `CockpitScale`.
 
 /// What the Cockpit's context pane shows.
 enum CockpitPane: Hashable {
@@ -32,6 +33,34 @@ enum CockpitPaneRule {
             return checklistDone ? .map : .checklist
         default:
             return .checklist
+        }
+    }
+}
+
+/// How the Cockpit lays its zones out for the room it has. Pure, so it is tested without a view.
+/// (iPhone pass, I1 and I7)
+enum CockpitLayout: Equatable {
+    /// The iPad, portrait and landscape: the header and the pane bar on one row each.
+    case wide
+    /// A phone in portrait, or any window under 600 pt wide: the same zones, the header and the pane bar
+    /// on two rows each, and no NEXT cell in the strip.
+    case narrow
+    /// A phone on its side: the header, the strip and the thumb bar in a column on the left, where the
+    /// thumb is, and the pane on the right at full height. Stacked, the zones would leave the checklist
+    /// about 90 pt.
+    case columns
+
+    static func make(width: CGFloat, height: CGFloat) -> CockpitLayout {
+        if width > height && height < 500 { return .columns }
+        return width < 600 ? .narrow : .wide
+    }
+
+    /// The reference drawers' height cap, as a share of the screen.
+    var drawerHeightFraction: CGFloat {
+        switch self {
+        case .wide: return 0.6
+        case .narrow: return 0.66
+        case .columns: return 0.9
         }
     }
 }
@@ -254,6 +283,8 @@ struct CockpitThumbButton: View {
 struct CockpitPanePicker: View {
     @Environment(\.cockpitTheme) private var theme
     @Binding var selection: CockpitPane
+    /// The phone's pane bar: the two segments share the full width.
+    var fillsWidth: Bool = false
 
     var body: some View {
         HStack(spacing: 0) {
@@ -273,8 +304,8 @@ struct CockpitPanePicker: View {
                 Text(title).font(.aero(size: CockpitType.label, weight: .bold)).lineLimit(1).fixedSize()
             }
             .foregroundColor(selected ? theme.actionText : theme.action)
-            .padding(.horizontal, 16)
-            .frame(minHeight: 52)
+            .padding(.horizontal, CockpitType.size(kneeboard: 16, phone: 10))
+            .frame(maxWidth: fillsWidth ? .infinity : nil, minHeight: CockpitType.size(kneeboard: 52, phone: 46))
             .background(RoundedRectangle(cornerRadius: 10).fill(selected ? theme.action : Color.clear))
             .contentShape(Rectangle())
         }
@@ -301,8 +332,8 @@ struct CockpitChip: View {
                 Text(title).font(.aero(size: CockpitType.label, weight: .bold)).lineLimit(1).fixedSize()
             }
             .foregroundColor(color)
-            .padding(.horizontal, 14)
-            .frame(minHeight: 52)
+            .padding(.horizontal, CockpitType.size(kneeboard: 14, phone: 10))
+            .frame(minHeight: CockpitType.size(kneeboard: 52, phone: 46))
             .background(RoundedRectangle(cornerRadius: 12).fill(color.opacity(0.12)))
             .overlay(RoundedRectangle(cornerRadius: 12).stroke(color.opacity(0.45), lineWidth: 1))
             .contentShape(Rectangle())

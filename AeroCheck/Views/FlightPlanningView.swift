@@ -544,28 +544,62 @@ struct FlightPlanRow: View {
         }
     }
 
-    /// Activate, or Deactivate when this row is the active plan. Both are 62 × 44 in the same slot.
+    @Environment(\.horizontalSizeClass) private var sizeClass
+
+    /// Show on map, or Clear from map when this row is the active plan. One slot, sized for the
+    /// longer label, so the row never changes shape with state. The label used to be squeezed into
+    /// 62 pt at 10 pt, and shrunk further to fit (on-device review #4, point 2). On the iPad it now
+    /// reads on one line beside its icon; on the iPhone the icon sits above at most two short lines.
     private var planActionButton: some View {
-        Button(action: isActive ? onDeactivate : onActivate) {
-            VStack(spacing: 3) {
-                Image(systemName: isActive ? "airplane.arrival" : "airplane.departure")
-                    .scaledFont(size: 15, relativeTo: .subheadline)
-                Text(isActive ? L10n.Nav.deactivate : L10n.Nav.activate)
-                    .scaledFont(size: 10, weight: .semibold, relativeTo: .caption2)
-                    .lineLimit(1).minimumScaleFactor(0.8)
+        let tint: Color = isActive ? .aviationAmber : .aviationGreen
+        return Button(action: isActive ? onDeactivate : onActivate) {
+            ZStack {
+                // Both are laid out, one is shown: the slot keeps the wider label's size.
+                actionLabel(clears: false)
+                    .opacity(isActive ? 0 : 1)
+                    .accessibilityHidden(isActive)
+                actionLabel(clears: true)
+                    .opacity(isActive ? 1 : 0)
+                    .accessibilityHidden(!isActive)
             }
-            .foregroundColor(isActive ? .aviationAmber : .aviationGreen)
-            .frame(width: 62)
-            .padding(.vertical, 9)
+            .foregroundColor(tint)
+            .padding(.horizontal, sizeClass == .compact ? 6 : 14)
+            .frame(minHeight: 48)
             .background(
-                RoundedRectangle(cornerRadius: 9)
-                    .fill((isActive ? Color.aviationAmber : .aviationGreen).opacity(0.14))
-                    .overlay(RoundedRectangle(cornerRadius: 9)
-                        .stroke((isActive ? Color.aviationAmber : .aviationGreen).opacity(0.4), lineWidth: 1))
+                RoundedRectangle(cornerRadius: 10)
+                    .fill(tint.opacity(0.14))
+                    .overlay(RoundedRectangle(cornerRadius: 10).stroke(tint.opacity(0.4), lineWidth: 1))
             )
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
+    }
+
+    @ViewBuilder
+    private func actionLabel(clears: Bool) -> some View {
+        let icon = clears ? "airplane.arrival" : "airplane.departure"
+        let text = clears ? L10n.Nav.deactivate : L10n.Nav.activate
+        if sizeClass == .compact {
+            VStack(spacing: 3) {
+                Image(systemName: icon).scaledFont(size: 16, relativeTo: .subheadline)
+                Text(text)
+                    .scaledFont(size: 11, weight: .semibold, relativeTo: .caption2)
+                    .multilineTextAlignment(.center)
+                    .lineLimit(2)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            .frame(width: 74)
+            .padding(.vertical, 8)
+        } else {
+            HStack(spacing: 8) {
+                Image(systemName: icon).scaledFont(size: 17, relativeTo: .subheadline)
+                Text(text)
+                    .scaledFont(size: 15, weight: .semibold, relativeTo: .subheadline)
+                    .lineLimit(1)
+            }
+            .fixedSize()
+            .padding(.vertical, 12)
+        }
     }
 
     var body: some View {

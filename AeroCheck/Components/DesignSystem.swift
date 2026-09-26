@@ -1479,7 +1479,7 @@ struct CockpitHeroChecklistItem: View {
 
     @Environment(\.cockpitTheme) private var theme
 
-    // iPad: the kneeboard scale (v6.0 · P6). iPhone keeps its sizes until its own pass.
+    // The Cockpit's scale on both devices (v6.0 · P6, iPhone pass).
     private var challengeSize: CGFloat { isCompact ? 20 : CockpitType.item }
     private var responseSize: CGFloat { isCompact ? 16 : CockpitType.response }
     private var metaSize: CGFloat { isCompact ? 11 : CockpitType.label }

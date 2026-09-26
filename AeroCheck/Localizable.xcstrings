@@ -3067,23 +3067,6 @@
         }
       }
     },
-    "nav.legTimerOptions": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Leg timer options"
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Options du chronomètre"
-          }
-        }
-      }
-    },
     "nav.legTimerReset": {
       "extractionState": "manual",
       "localizations": {
@@ -11702,23 +11685,6 @@
         }
       }
     },
-    "button.nav": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "NAV"
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "NAV"
-          }
-        }
-      }
-    },
     "button.next": {
       "extractionState": "manual",
       "localizations": {
@@ -11766,23 +11732,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Réessayer"
-          }
-        }
-      }
-    },
-    "button.speeds": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "SPEEDS"
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "VITESSES"
           }
         }
       }
@@ -14914,23 +14863,6 @@
         }
       }
     },
-    "flightPlan.overlay.fltTime": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "FLT TIME:"
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "TEMPS VOL :"
-          }
-        }
-      }
-    },
     "ft": {},
     "gps.accessRevoked": {
       "extractionState": "manual",
@@ -17041,22 +16973,6 @@
         }
       }
     },
-    "nav.freqUnavailable": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Airport data isn't downloaded. Enable it in Settings › Navigation & Maps."
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Les données aéroport ne sont pas téléchargées. Activez-les dans Réglages › Navigation et cartes."
-          }
-        }
-      }
-    },
     "nav.frequency": {
       "extractionState": "manual",
       "localizations": {
@@ -17188,23 +17104,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Vitesse propre"
-          }
-        }
-      }
-    },
-    "nav.hdgTo": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "HDG TO"
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "CAP VERS"
           }
         }
       }
@@ -17811,22 +17710,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Créez une route pour commencer."
-          }
-        }
-      }
-    },
-    "nav.noNearbyFreq": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "No nearby frequencies."
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Aucune fréquence à proximité."
           }
         }
       }
@@ -18617,22 +18500,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Démarrer le chronomètre"
-          }
-        }
-      }
-    },
-    "nav.startLeg": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "START"
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "DÉBUT"
           }
         }
       }
@@ -23395,23 +23262,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "MSL"
-          }
-        }
-      }
-    },
-    "speed.tgt": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "TGT"
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "TGT"
           }
         }
       }

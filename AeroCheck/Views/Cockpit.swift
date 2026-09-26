@@ -13,7 +13,8 @@ import SwiftUI
 //    DEFER, next to the phase's own action. Map: MARK, the leg timer, Divert and More.
 //
 // It replaces the iPad HUD's two layouts (portrait stack, landscape columns), whose map was a
-// 200 pt band that opened a full-screen cover. The iPhone keeps its layout until its own pass.
+// 200 pt band that opened a full-screen cover. Since the iPhone pass the phone has the same Cockpit,
+// laid out by `CockpitLayout` and sized by `CockpitScale`.
 
 /// What the Cockpit's context pane shows.
 enum CockpitPane: Hashable {

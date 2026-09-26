@@ -240,8 +240,6 @@ struct NavigationMapView: View {
     var mapTopAccessory: AnyView? = nil
     @State private var selectedLayer: MapLayerType = .icao
     @State private var isFollowingAircraft: Bool = true
-    @State private var showLayerPicker: Bool = false
-    @State private var showOverlaysSheet: Bool = false   // v4.1.0 ② — the Layers sheet
     /// iPad: base chart and overlays in one labelled sheet. (v6.0 · C1)
     @State private var showMapSheet: Bool = false
     /// Measured height of the open legs-and-frequencies panel, so it hugs its content up to its limit.
@@ -249,8 +247,6 @@ struct NavigationMapView: View {
     @State private var showCacheInfoModal: Bool = false
     @State private var showSigmets: Bool = false
     @State private var showFlightPlanning: Bool = false
-    /// The iPhone top bar's height: one row, or two when its instruments go under the buttons.
-    @State private var compactTopBarHeight: CGFloat = 0
     /// Whether the flight-plan sheet (bottom bar) is expanded to show the full plan detail. (v4 UI/UX Revamp — inc C)
     @State private var navSheetExpanded: Bool = false
     /// True once the map has snapped to the aircraft after opening, so the first GPS fix centers
@@ -281,11 +277,6 @@ struct NavigationMapView: View {
     @State private var undoOffer: NavUndoOffer?
     @State private var locationUpdateCounter: Int = 0 // Forces map view updates on location change
 
-    // Compact layout state (for small devices)
-    @State private var showCompactPanel: Bool = false
-    /// Measured height of the compact bottom sheet — the floating controls sit just above it and the
-    /// sheet grows only to its content (not a fixed half-screen). (v4 UI/UX Revamp — iPhone)
-    @State private var compactSheetHeight: CGFloat = 96
     @State private var showGPSStatusModal: Bool = false
     @State private var streamingCTRCheckTask: Task<Void, Never>?
     /// Preview index for iPhone compact panel waypoint browsing (nil = showing real active waypoint)
@@ -402,16 +393,6 @@ struct NavigationMapView: View {
         return theme.onTarget
     }
 
-    /// GPS status color
-    private var gpsStatusColor: Color {
-        guard locationManager.isTracking || locationManager.isLocationUpdatesActive else { return theme.textDim }
-        switch locationManager.gpsSignalStatus {
-        case .good: return theme.onTarget
-        case .degraded: return .orange
-        case .lost: return theme.danger
-        }
-    }
-
     /// GPS status indicator
     private var gpsStatusIndicator: StatusIndicator.Status {
         guard locationManager.isTracking || locationManager.isLocationUpdatesActive else { return .inactive }
@@ -433,41 +414,10 @@ struct NavigationMapView: View {
         return 0
     }
 
-    /// Determine if we should use compact layout for small devices
-    /// Uses compact layout when flight planning is enabled and device width is compact (iPhone)
-    /// Now also supports showing just frequency drawer when no flight plan is active
-    private var shouldUseCompactLayout: Bool {
-        // The phone's own layout is left for the full-screen cover only; the Cockpit's MAP pane and
-        // Plan › Map use the same chrome as the iPad. (iPhone pass, I4)
-        isCompactWidth && !isInCockpit
-    }
-
-    /// Whether there is an active flight plan
-    private var hasActiveFlightPlan: Bool {
-        flightPlanManager.activeFlightPlan != nil
-    }
-
     var body: some View {
+        // One layout on both devices: the phone's own map chrome went with the iPhone pass (I4).
         GeometryReader { geometry in
-            if shouldUseCompactLayout {
-                // Compact layout for small devices with flight plan active
-                compactLayoutBody(geometry: geometry)
-            } else {
-                // Standard layout for large devices or when no flight plan
-                standardLayoutBody(geometry: geometry)
-            }
-        }
-        // Attached ONCE here rather than inside each layout body: the two bodies don't share an
-        // overlay stack, and the pill is identical on both — only the top inset differs, because the
-        // compact bar is taller than the regular one. (v4.4.0)
-        // On iPad the pill sits in the chrome stack, under the next-waypoint card and the map controls.
-        .overlay(alignment: .top) {
-            if shouldUseCompactLayout {
-                // Under the top bar, which is taller when its instruments go under the buttons.
-                routeOffScreenPill
-                    .padding(.top, max(104, compactTopBarHeight + 20))
-                    .animation(reduceMotion ? nil : .easeInOut(duration: 0.25), value: routeOffScreenHint) // (UX-18)
-            }
+            standardLayoutBody(geometry: geometry)
         }
         // Only as its own cover. Embedded in a ground tab, a preferred scheme would darken the whole
         // window, and the root could no longer read the device's light/dark for Auto. (v6.0 · P1)
@@ -1058,462 +1008,6 @@ struct NavigationMapView: View {
         }
     }
 
-    // MARK: - Compact Layout (iPhone with active flight plan)
-
-    @ViewBuilder
-    private func compactLayoutBody(geometry: GeometryProxy) -> some View {
-        // Single expression (no top-level `let` + `return`) so the body is unambiguously a view, not a
-        // result-builder with a disabling `return`. Heights are inlined / measured. (v4 UI/UX Revamp fix)
-        ZStack(alignment: .top) {
-            // Map content - full screen behind everything
-            mapContent
-                .ignoresSafeArea()
-
-            // Fixed top bar overlay.
-            VStack {
-                compactTopBar
-                    .padding(.horizontal, 12)
-                    .padding(.top, geometry.safeAreaInsets.top + (geometry.safeAreaInsets.top > 50 ? 8 : 4))
-                Spacer()
-            }
-
-            // Floating map controls, pinned just above the sheet (or the bottom edge when no sheet).
-            VStack {
-                Spacer()
-                compactMapControls
-                    .padding(.horizontal, 12)
-                    .padding(.bottom, compactSheetHeight + 8)
-                    // No animated resize under Reduce Motion (UX-18)
-                    .animation(reduceMotion ? nil : .easeInOut(duration: 0.3), value: compactSheetHeight)
-            }
-
-            // Bottom nav sheet — carries the plan + frequencies. Sizes to its content.
-            // (v4 UI/UX Revamp)
-            VStack(spacing: 8) {
-                Spacer()
-                undoToast
-                    .padding(.horizontal, 12)
-                compactNavSheet(geometry: geometry)
-            }
-        }
-        .ignoresSafeArea()
-        .onAppear { mapWidth = geometry.size.width }
-        .onChange(of: geometry.size) { _, newSize in mapWidth = newSize.width }
-        .onPreferenceChange(CompactSheetHeightPreferenceKey.self) { compactSheetHeight = $0 }
-    }
-
-    // MARK: - Compact nav sheet (iPhone) — always-visible peek that expands to fit its content. (v4 UI/UX Revamp)
-
-    private func compactNavSheet(geometry: GeometryProxy) -> some View {
-        VStack(spacing: 0) {
-            compactSheetHandle
-            if showCompactPanel {
-                compactExpandedContent(bottomSafeArea: geometry.safeAreaInsets.bottom)
-            } else {
-                compactPeekContent(bottomSafeArea: geometry.safeAreaInsets.bottom)
-            }
-        }
-        .frame(maxWidth: .infinity, alignment: .top)
-        .background(
-            theme.panel.opacity(0.97)
-                .overlay(GeometryReader { p in
-                    Color.clear.preference(key: CompactSheetHeightPreferenceKey.self, value: p.size.height)
-                })
-        )
-        .clipShape(UnevenRoundedRectangle(topLeadingRadius: 16, topTrailingRadius: 16))
-        .overlay(alignment: .top) {
-            UnevenRoundedRectangle(topLeadingRadius: 16, topTrailingRadius: 16)
-                .stroke(Color.white.opacity(0.1), lineWidth: 0.5)
-        }
-        // No animated expand/collapse under Reduce Motion (UX-18)
-        .animation(reduceMotion ? nil : .easeInOut(duration: 0.3), value: showCompactPanel)
-    }
-
-    /// Expanded sheet body — sizes to its content (waypointList caps + scrolls internally, freqColumn
-    /// is short) so the sheet only grows as much as needed. (v4 UI/UX Revamp — iPhone)
-    @ViewBuilder
-    private func compactExpandedContent(bottomSafeArea: CGFloat) -> some View {
-        VStack(alignment: .leading, spacing: 12) {
-            if let plan = flightPlanManager.activeFlightPlan {
-                legTimerCluster(.minimal)
-                waypointList(plan: plan, compact: true)
-                liveDataRow
-                progressRow(plan: plan)
-            }
-            freqColumn(large: false)
-        }
-        .padding(.horizontal, 14)
-        .padding(.top, 2)
-        .padding(.bottom, bottomSafeArea + 12)
-    }
-
-    /// Peek sheet body — leg timer (when a plan is active) + a one-line glance. No trailing Spacer, so
-    /// it sizes to content. (v4 UI/UX Revamp — iPhone)
-    @ViewBuilder
-    private func compactPeekContent(bottomSafeArea: CGFloat) -> some View {
-        VStack(spacing: 0) {
-            if hasActiveFlightPlan {
-                legTimerCluster(.minimal)
-                    .padding(.horizontal, 12)
-                    .padding(.bottom, 6)
-            }
-            compactGlanceRow
-                .padding(.horizontal, 12)
-                .padding(.bottom, bottomSafeArea + 10)
-        }
-    }
-
-    /// "— ⌃ —" handle (pills + state chevron); tap or drag to expand/collapse the sheet. (v4 UI/UX Revamp — iPhone)
-    private var compactSheetHandle: some View {
-        HStack(spacing: 6) {
-            Capsule().fill(Color.white.opacity(0.22)).frame(width: 16, height: 4)
-            Image(systemName: showCompactPanel ? "chevron.down" : "chevron.up")
-                .font(.aero(size: 11, weight: .semibold)).foregroundColor(.white.opacity(0.5))
-            Capsule().fill(Color.white.opacity(0.22)).frame(width: 16, height: 4)
-        }
-        .frame(maxWidth: .infinity)
-        .padding(.top, 8).padding(.bottom, 7)
-        .contentShape(Rectangle())
-        // No animated expand/collapse under Reduce Motion (UX-18)
-        .onTapGesture { withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.3)) { showCompactPanel.toggle() } }
-        .gesture(
-            DragGesture(minimumDistance: 10).onEnded { value in
-                withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.3)) {
-                    if value.translation.height < -24 { showCompactPanel = true }
-                    else if value.translation.height > 24 { showCompactPanel = false }
-                }
-            }
-        )
-    }
-
-    /// Peek glance — next-waypoint summary + the current frequency chip; tap to expand. (v4 UI/UX Revamp — iPhone)
-    private var compactGlanceRow: some View {
-        HStack(spacing: 8) {
-            navGlanceData
-            Spacer(minLength: 6)
-            compactFreqChip
-        }
-        .contentShape(Rectangle())
-        // No animated expand under Reduce Motion (UX-18)
-        .onTapGesture { withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.3)) { showCompactPanel = true } }
-    }
-
-    private var compactFreqChip: some View {
-        let active = phaseFreqItems.first(where: { $0.role == .current })
-            ?? phaseFreqItems.first(where: { !$0.isEmergency }) ?? phaseFreqItems.first
-        return HStack(spacing: 5) {
-            Image(systemName: "antenna.radiowaves.left.and.right").font(.aero(size: 12))
-            if let active {
-                Text(active.station).font(.aero(size: 9, weight: .semibold)).lineLimit(1)
-                Text(active.freq).font(.aero(size: 13, weight: .semibold, design: .monospaced))
-            } else {
-                Text("FREQ").font(.aero(size: 11, weight: .bold))
-            }
-        }
-        .foregroundColor(theme.onTarget).lineLimit(1)
-    }
-
-    // MARK: - Compact Top Bar
-
-    /// The buttons either side and the instruments between them, on one row when they fit. When they
-    /// don't (a route adds its buttons on the left, and the phase's name widens the box), the
-    /// instruments go under the buttons: squeezed between them, "2 500 ft" broke into "2′ / 50 / 0" and
-    /// the time into "18:2 / 3:51". (iPhone pass)
-    private var compactTopBar: some View {
-        ViewThatFits(in: .horizontal) {
-            HStack(spacing: 8) {
-                compactLeadingButtons
-                Spacer(minLength: 4)
-                compactStatusBox
-                Spacer(minLength: 4)
-                compactTrailingButtons
-            }
-            VStack(spacing: 6) {
-                HStack(spacing: 8) {
-                    compactLeadingButtons
-                    Spacer(minLength: 4)
-                    compactTrailingButtons
-                }
-                compactStatusBox
-            }
-        }
-        .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { compactTopBarHeight = $0 }
-        // Presented from here, not from the buttons: `ViewThatFits` holds each button twice.
-        .sheet(isPresented: $showOverlaysSheet) {
-            OverlaysSheet()
-                .environment(appState)
-                .environmentObject(openAIPDataService)
-                .environmentObject(dataStatusManager)
-        }
-        .sheet(isPresented: $showLayerPicker) {
-            LayerPickerSheet(selectedLayer: $selectedLayer)
-                .environment(appState)
-        }
-    }
-
-    private var compactLeadingButtons: some View {
-        HStack(spacing: 8) {
-            // Close button
-            if showsCloseButton {
-                Button(action: { isPresented = false }) {
-                    Image(systemName: "chevron.down")
-                        .font(.aero(size: 14, weight: .bold))
-                        .foregroundColor(theme.textPrimary)
-                        .frame(width: 44, height: 44) // HIG minimum tap target (UX-16)
-                        .floatingChromeCircle()
-                }
-            }
-
-            // Flight Plan button. (v4 UI/UX Revamp — iPhone)
-            if hasActiveFlightPlan && !flightPlanManager.isFlightPlanCompleted {
-                Button(action: {
-                    // No animated expand/collapse under Reduce Motion (UX-18)
-                    withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.3)) {
-                        showCompactPanel.toggle()
-                    }
-                }) {
-                    HStack(spacing: 4) {
-                        Image(systemName: "map.fill")
-                            .font(.aero(size: 12))
-                        if showCompactPanel {
-                            Image(systemName: "chevron.down")
-                                .font(.aero(size: 8, weight: .bold))
-                        } else {
-                            Image(systemName: "chevron.up")
-                                .font(.aero(size: 8, weight: .bold))
-                        }
-                    }
-                    .foregroundColor(showCompactPanel ? theme.onTarget : theme.textPrimary)
-                    .frame(width: 50, height: 44) // HIG minimum tap height (UX-16)
-                    .floatingChromeBackground(cornerRadius: 8)
-                }
-                divertButton(iconOnly: true)
-                    .floatingChromeBackground(cornerRadius: 8)
-            } else {
-                // When no flight plan is active, the routes: Plan › Map switches to Plan › Routes, as
-                // on the iPad; elsewhere they open as a cover (the view's own `fullScreenCover`).
-                Button(action: { if let onShowRoutes { onShowRoutes() } else { showFlightPlanning = true } }) {
-                    Image(systemName: "map.fill")
-                        .font(.aero(size: 12))
-                        .foregroundColor(theme.textPrimary)
-                        .frame(width: 44, height: 44) // HIG minimum tap target (UX-16)
-                        .floatingChromeBackground(cornerRadius: 8)
-                }
-            }
-        }
-    }
-
-    /// Time, speed, altitude and heading, with the phase under them in flight. Every figure keeps its
-    /// width: the box grows, or moves under the buttons, rather than break a number. (iPhone pass)
-    private var compactStatusBox: some View {
-        VStack(spacing: 0) {
-            VStack(spacing: 2) {
-                // Row 1: Time + Speed
-                HStack(spacing: 6) {
-                    // Time
-                    NavClockText(useUTC: appState.settings.alwaysUseUTC,
-                                 font: .aero(size: 11, weight: .medium, design: .monospaced),
-                                 color: theme.textPrimary)
-
-                    Rectangle()
-                        .fill(theme.textDim)
-                        .frame(width: 1, height: 14)
-
-                    // Speed
-                    HStack(spacing: 1) {
-                        Text("\(Int(locationManager.currentSpeedKnots))")
-                            .font(.aero(size: 12, weight: .bold, design: .monospaced))
-                        Text("kt")
-                            .font(.aero(size: 12)) // ≥12pt for glance legibility (UX-17)
-                    }
-                    .foregroundColor(speedColor)
-                }
-
-                // Row 2: Altitude + Heading
-                HStack(spacing: 6) {
-                    // Altitude
-                    HStack(spacing: 1) {
-                        Text("\(Int(locationManager.currentAltitudeFeet))")
-                            .font(.aero(size: 12, weight: .bold, design: .monospaced))
-                        Text("ft")
-                            .font(.aero(size: 12)) // ≥12pt (UX-17)
-                    }
-                    .foregroundColor(theme.textPrimary)   // data is white (v6.0 · P5)
-
-                    Rectangle()
-                        .fill(theme.textDim)
-                        .frame(width: 1, height: 14)
-
-                    // Heading
-                    HStack(spacing: 1) {
-                        Text(String(format: "%03d", currentHeading))
-                            .font(.aero(size: 12, weight: .bold, design: .monospaced))
-                        Text("°")
-                            .font(.aero(size: 12)) // ≥12pt (UX-17)
-                    }
-                    .foregroundColor(theme.textPrimary)   // data is white (v6.0 · P5)
-                }
-            }
-            .lineLimit(1)
-            .fixedSize()
-            .padding(.horizontal, 8)
-            .padding(.vertical, 5)
-
-            // "Next Check" line integrated in the info box
-            if appState.isFlightActive {
-                Rectangle()
-                    .fill(theme.textDim.opacity(0.3))
-                    .frame(height: 0.5)
-
-                HStack(spacing: 4) {
-                    Image(systemName: "checkmark.circle")
-                        .font(.aero(size: 9))
-                    Text("Next: \(appState.currentPhase.title)")
-                        .font(.aero(size: 10, weight: .medium))
-                        .lineLimit(1)
-                }
-                .fixedSize()
-                .foregroundColor(theme.action)
-                .padding(.horizontal, 8)
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, 3)
-            }
-        }
-        .fixedSize()
-        .floatingChromeBackground(cornerRadius: 8)
-    }
-
-    private var compactTrailingButtons: some View {
-        HStack(spacing: 8) {
-            // Layers button → grouped overlays sheet (airspace/tiles · markers + show-all · track vector).
-            // (v4.1.0 ② — iPhone reaches every layer toggle here; the map-type picker is its own button.)
-            Button(action: { showOverlaysSheet = true }) {
-                Image(systemName: "square.stack.3d.up")
-                    .font(.aero(size: 14))
-                    .foregroundColor(theme.textPrimary)
-                    .frame(width: 44, height: 44)
-                    .floatingChromeCircle()
-            }
-            .accessibilityLabel(L10n.Nav.layers)
-            .overlay(alignment: .topTrailing) {
-                // On-map staleness cue on iPhone: the airspace toggle lives in the Layers sheet here, so
-                // the amber "stale airspace" badge rides the Layers button. (review #10)
-                if airspaceDataNeedsAttention {
-                    Image(systemName: "exclamationmark.triangle.fill")
-                        .font(.aero(size: 10, weight: .bold))
-                        .foregroundColor(theme.warning)
-                        .padding(2)
-                        .background(theme.panel, in: Circle())
-                        .offset(x: 4, y: -4)
-                        .accessibilityHidden(true)
-                }
-            }
-
-            // Map-type picker button (shows the cache info modal in offline mode).
-            Button(action: {
-                if isOfflineMode {
-                    showCacheInfoModal = true
-                } else {
-                    showLayerPicker = true
-                }
-            }) {
-                Image(systemName: isOfflineMode ? MapLayerType.icao.icon : selectedLayer.icon)
-                    .font(.aero(size: 14))
-                    .foregroundColor(isOfflineMode ? theme.textSecondary : theme.textPrimary)
-                    .frame(width: 44, height: 44) // HIG minimum tap target (UX-16)
-                    .floatingChromeCircle()
-            }
-            .accessibilityLabel(L10n.MapLayer.title)
-        }
-    }
-
-    // MARK: - Compact Map Controls
-
-    private var compactMapControls: some View {
-        HStack(alignment: .bottom) {
-            // Left side: Scale bar and cache/offline indicator
-            VStack(alignment: .leading, spacing: 6) {
-                // Offline/Cached mode indicator
-                if isOfflineMode || isCachedMode {
-                    Button(action: { showCacheInfoModal = true }) {
-                        HStack(spacing: 4) {
-                            Image(systemName: "internaldrive.fill")
-                                .font(.aero(size: 10))
-                            Text(isOfflineMode ? L10n.Nav.offline : L10n.Nav.cached)
-                                .font(.aero(size: 10, weight: .bold))
-                        }
-                        .foregroundColor(.white)
-                        .padding(.horizontal, 8)
-                        .padding(.vertical, 4)
-                        .background(
-                            RoundedRectangle(cornerRadius: 6)
-                                .fill(isOfflineMode ? theme.danger.opacity(0.9) : theme.action.opacity(0.9))
-                        )
-                    }
-                    .sheet(isPresented: $showCacheInfoModal) {
-                        CacheInfoSheet(isOfflineMode: isOfflineMode)
-                            .environment(appState)
-                            .environmentObject(offlineMapManager)
-                    }
-                }
-
-                // Scale bar
-                SwissScaleBar(region: mapState.region, mapWidth: mapWidth, nauticalMiles: appState.settings.distanceInNauticalMiles)
-            }
-
-            Spacer()
-
-            // Right side: GPS status, FREQ button (when no flight plan), and center button
-            VStack(alignment: .trailing, spacing: 8) {
-                // GPS Status (tappable for info modal)
-                Button(action: { showGPSStatusModal = true }) {
-                    HStack(spacing: 4) {
-                        Text("GPS")
-                            .font(.aero(size: 10, weight: .semibold))
-                            .foregroundColor(gpsStatusColor)
-                        StatusIndicator(gpsStatusIndicator, size: 6)
-                    }
-                    .padding(.horizontal, 8)
-                    .padding(.vertical, 6)
-                    .floatingChromeBackground(cornerRadius: 6)
-                }
-                .fullScreenCover(isPresented: $showGPSStatusModal) {
-                    GPSStatusInfoSheet(currentStatus: locationManager.gpsSignalStatus, isPresented: $showGPSStatusModal)
-                }
-
-                // (FREQ button removed — frequencies now live in the always-visible bottom sheet peek.)
-
-                // 3-state tracking button: free → center & follow → track-up → free. (v4 UI/UX Revamp — iPhone)
-                Button(action: cycleTracking) {
-                    Image(systemName: trackingIcon)
-                        .font(.aero(size: 16, weight: .medium))
-                        .foregroundColor(trackingTint)
-                        .frame(width: 40, height: 40)
-                        .floatingChromeCircle()
-                }
-                .accessibilityLabel(L10n.Nav.navigation)
-                // No animated icon transition under Reduce Motion (UX-18)
-                .animation(reduceMotion ? nil : .easeInOut(duration: 0.2), value: mapState.cameraHeading)
-
-                // Zoom out / in (pinch also works). (v4 UI/UX Revamp — iPhone)
-                VStack(spacing: 0) {
-                    Button(action: { zoom(by: 0.5) }) {
-                        Image(systemName: "plus").font(.aero(size: 16, weight: .semibold))
-                            .foregroundColor(theme.textPrimary).frame(width: 40, height: 36).contentShape(Rectangle())
-                    }
-                    .accessibilityLabel(L10n.Nav.zoomIn)
-                    Rectangle().fill(Color.white.opacity(0.12)).frame(width: 22, height: 0.5)
-                    Button(action: { zoom(by: 2.0) }) {
-                        Image(systemName: "minus").font(.aero(size: 16, weight: .semibold))
-                            .foregroundColor(theme.textPrimary).frame(width: 40, height: 36).contentShape(Rectangle())
-                    }
-                    .accessibilityLabel(L10n.Nav.zoomOut)
-                }
-                .floatingChromeBackground(cornerRadius: 10)
-            }
-        }
-    }
-
     // MARK: - State Update Helper
 
     private func updateMapStateForLocation(_ location: CLLocation) {
@@ -2019,7 +1513,8 @@ struct NavigationMapView: View {
     //
     // Sized to be read from a thigh, about 55 cm away (see `CockpitType`): the next waypoint in a big
     // card on top, the map's controls labelled beneath it, the frequencies and the thumb bar at the
-    // bottom on an opaque panel. The iPhone layout keeps its own chrome until its pass.
+    // bottom on an opaque panel. The phone uses the same chrome since its pass (I4), with fallbacks
+    // where a row runs out of room.
 
     /// The next waypoint: the ident in magenta (the active route), then bearing, distance, ETE and ETA.
     /// Tap for every leg and frequency. It replaces a 13 pt line in the bottom bar. (review C3)
@@ -2627,42 +2122,6 @@ struct NavigationMapView: View {
         .accessibilityLabel(L10n.Nav.more)
     }
 
-    @ViewBuilder
-    private var navGlanceData: some View {
-        if let plan = flightPlanManager.activeFlightPlan, let diversion = plan.diversion {
-            divertGlance(diversion, plan: plan)
-        } else if let plan = flightPlanManager.activeFlightPlan, let next = plan.nextWaypoint {
-            HStack(spacing: 6) {
-                Text("WPT \(plan.currentWaypointIndex + 1)/\(plan.waypoints.count)")
-                    .font(.aero(size: 9, weight: .semibold)).tracking(0.3)
-                    .foregroundColor(theme.textDim)
-                    .padding(.horizontal, 6).padding(.vertical, 2)
-                    .background(Color.white.opacity(0.06), in: RoundedRectangle(cornerRadius: 4))
-                Text(next.name.isEmpty ? "—" : next.name)
-                    .font(.aero(size: 14, weight: .semibold, design: .monospaced))
-                    .foregroundColor(theme.textPrimary)
-                if let distText = nextWaypointDistanceText {
-                    Text("·").foregroundColor(theme.textDim)
-                    Text(distText).font(.aero(size: 13, design: .monospaced)).foregroundColor(theme.route)
-                }
-                if let brg = liveBearingText {
-                    Text("·").foregroundColor(theme.textDim)
-                    Text(brg).font(.aero(size: 13, design: .monospaced)).foregroundColor(theme.textSecondary)
-                }
-                if let eto = next.estimatedTimeOver {
-                    Text("·").foregroundColor(theme.textDim)
-                    Text("ETO \(eto.formatted(date: .omitted, time: .shortened))")
-                        .font(.aero(size: 13, design: .monospaced)).foregroundColor(theme.textDim)
-                }
-                // Chronometer moved to bottom-bar row 2 (always visible). (v4 UI/UX Revamp)
-            }
-            .lineLimit(1)
-        } else {
-            Text(L10n.Nav.flightPlan)
-                .font(.aero(size: 12)).foregroundColor(theme.textDim)
-        }
-    }
-
     private var liveBearingText: String? {
         guard let loc = locationManager.currentLocation,
               let brg = flightPlanManager.bearingToNextWaypoint(from: loc) else { return nil }
@@ -3133,43 +2592,6 @@ struct NavigationMapView: View {
         }
     }
 
-    private var liveDataRow: some View {
-        HStack(spacing: 16) {
-            if let loc = locationManager.currentLocation {
-                if let brg = flightPlanManager.bearingToNextWaypoint(from: loc) {
-                    liveStat(L10n.Nav.hdgTo, String(format: "%03d°", Int(brg)))
-                }
-                if let d = flightPlanManager.distanceToNextWaypoint(from: loc) {
-                    liveStat(L10n.Nav.dist, String(format: "%.1f", d))
-                }
-                let gs = max(locationManager.currentSpeedKnots, 1)
-                if let eta = flightPlanManager.etaToNextWaypoint(from: loc, groundSpeedKnots: gs) {
-                    liveStat("ETE", formatClock(eta))  // live time to the next waypoint
-                    liveStat("ETA", Date().addingTimeInterval(eta).formatted(date: .omitted, time: .shortened))
-                }
-            }
-            if appState.lineUpTime != nil {
-                TimelineView(.periodic(from: .now, by: 1)) { _ in
-                    liveStat(L10n.FlightPlan.fltTime, flightTimeText)
-                }
-            }
-            Spacer()
-        }
-    }
-
-    private func liveStat(_ label: String, _ value: String) -> some View {
-        HStack(spacing: 4) {
-            Text(label).font(.aero(size: 9, weight: .semibold)).foregroundColor(theme.textDim)
-            Text(value).font(.aero(size: 11, design: .monospaced)).foregroundColor(theme.textSecondary)
-        }
-    }
-
-    private var flightTimeText: String {
-        guard let t = appState.lineUpTime else { return "--:--:--" }
-        let e = max(0, Int(Date().timeIntervalSince(t)))
-        return String(format: "%02d:%02d:%02d", e / 3600, (e % 3600) / 60, e % 60)
-    }
-
     private func progressRow(plan: FlightPlan) -> some View {
         HStack(spacing: 10) {
             ProgressView(value: plan.progress)
@@ -3242,137 +2664,6 @@ struct NavigationMapView: View {
         }
     }
 
-    /// How dense the bottom control row renders — ViewThatFits picks the first that fits, degrading the
-    /// MARK/START labels to icon-only (compact), then dropping the +/− zoom buttons (minimal, pinch
-    /// still zooms). (v4 UI/UX Revamp — responsive row 2)
-    enum BarDensity { case full, compact, minimal }
-
-    /// VFR leg timer on row 2 — times the current leg, compares it to the planned leg time (▲ ahead /
-    /// ▼ over), and MARK records the crossing + restarts the leg. Pause/resume + reset. Idle shows just
-    /// a START button. Plan-scoped, always visible without opening the drawer. (v4 UI/UX Revamp — leg timer)
-    @ViewBuilder
-    private func legTimerCluster(_ density: BarDensity) -> some View {
-        if let plan = flightPlanManager.activeFlightPlan {
-            let plannedLeg = plan.legArriving(at: plan.currentWaypointIndex)?.totalLegEET
-            let canMark = plan.currentWaypointIndex < plan.waypoints.count
-            let legLabel = currentLegLabel(plan)
-            TimelineView(.periodic(from: .now, by: 1)) { _ in
-                let running = flightPlanManager.isChronometerRunning
-                let elapsed = flightPlanManager.chronometerElapsed
-                let started = running || elapsed > 0.5
-                HStack(spacing: 8) {
-                    if !started {
-                        legPillButton(icon: "stopwatch", label: L10n.Nav.startLeg, tint: theme.onTarget, filled: false) {
-                            flightPlanManager.startChronometer()
-                        }
-                    } else {
-                        // The leg label goes first when space runs out; MARK keeps its label. (v6.0 · C2)
-                        legReadout(legLabel: density == .full ? legLabel : nil, elapsed: elapsed, planned: plannedLeg, running: running)
-                        if canMark {
-                            let index = plan.currentWaypointIndex
-                            markButton(name: plan.waypoints[index].name) { markWaypoint(at: index, in: plan) }
-                        }
-                        legTimerMenu(running: running)
-                    }
-                }
-            }
-        }
-    }
-
-    /// "FROM → TO" idents for the leg currently being flown, or nil before the first leg / once done. (v4 UI/UX Revamp)
-    private func currentLegLabel(_ plan: FlightPlan) -> String? {
-        let i = plan.currentWaypointIndex
-        guard i >= 1, i < plan.waypoints.count else { return nil }
-        let from = plan.waypoints[i - 1].name
-        let to = plan.waypoints[i].name
-        return "\(from.isEmpty ? "WPT \(i)" : from) → \(to.isEmpty ? "WPT \(i + 1)" : to)"
-    }
-
-    /// The current leg (FROM → TO) + leg elapsed vs the planned leg time, with an ahead/over delta. (v4 UI/UX Revamp)
-    private func legReadout(legLabel: String?, elapsed: TimeInterval, planned: TimeInterval?, running: Bool) -> some View {
-        HStack(spacing: 6) {
-            if let legLabel {
-                Text(legLabel)
-                    .font(.aero(size: 11, weight: .semibold, design: .monospaced))
-                    .foregroundColor(theme.textPrimary).lineLimit(1)
-                Rectangle().fill(Color.white.opacity(0.12)).frame(width: 1, height: 16)
-            }
-            Image(systemName: "stopwatch").font(.aero(size: 12)).foregroundColor(running ? theme.onTarget : theme.textSecondary)
-            Text(formatClock(elapsed))
-                .font(.aero(size: 14, weight: .semibold, design: .monospaced))
-                .foregroundColor(running ? theme.onTarget : theme.textSecondary)
-            if let planned {
-                Text("/ \(formatClock(planned))").font(.aero(size: 11, design: .monospaced)).foregroundColor(theme.textDim)
-                let delta = planned - elapsed
-                Text((delta >= 0 ? "▲" : "▼") + formatClock(abs(delta)))
-                    .font(.aero(size: 11, weight: .semibold, design: .monospaced))
-                    .foregroundColor(delta >= 0 ? theme.onTarget : theme.warning)
-            }
-        }
-        .padding(.horizontal, 9).frame(height: 32)
-        .background(RoundedRectangle(cornerRadius: 7).fill(Color.white.opacity(0.05))
-            .overlay(RoundedRectangle(cornerRadius: 7).stroke(Color.white.opacity(0.10), lineWidth: 1)))
-        .fixedSize(horizontal: true, vertical: false)  // one line — never wrap the timer text
-    }
-
-    private func legPillButton(icon: String, label: String, tint: Color, filled: Bool, iconOnly: Bool = false, action: @escaping () -> Void) -> some View {
-        Button(action: action) {
-            HStack(spacing: 4) {
-                Image(systemName: icon).font(.aero(size: 12, weight: .semibold))
-                if !iconOnly { Text(label).font(.aero(size: 12, weight: .semibold)).fixedSize() }
-            }
-            .foregroundColor(filled ? .black : tint)
-            .padding(.horizontal, iconOnly ? 8 : 10).frame(height: 32)
-            .background(RoundedRectangle(cornerRadius: 7).fill(filled ? tint : tint.opacity(0.16)))
-            .frame(minHeight: 44)   // 44pt touch target around the 32pt visual
-            .contentShape(Rectangle())
-        }
-        .accessibilityLabel(label)
-    }
-
-    /// MARK, the action pressed over every waypoint. Labelled with the waypoint at every width and
-    /// sized for a thumb in turbulence: in portrait on a kneeboard it used to shrink to an unlabelled
-    /// 32 pt pin, next to an unguarded reset. (v6.0 · C2)
-    private func markButton(name: String, action: @escaping () -> Void) -> some View {
-        Button(action: action) {
-            HStack(spacing: 8) {
-                Image(systemName: "mappin.and.ellipse").font(.aero(size: 18, weight: .bold))
-                Text(name.isEmpty ? L10n.Nav.mark : "\(L10n.Nav.mark) \(name)")
-                    .font(.aero(size: 19, weight: .heavy))
-                    .lineLimit(1)
-                    .fixedSize()
-            }
-            .foregroundColor(theme.actionText)
-            .padding(.horizontal, 18)
-            .frame(minWidth: 132, minHeight: 52)
-            .background(RoundedRectangle(cornerRadius: 12).fill(theme.action))
-            .contentShape(Rectangle())
-        }
-        .accessibilityLabel(name.isEmpty ? L10n.Nav.mark : "\(L10n.Nav.mark) \(name)")
-    }
-
-    /// Pause, resume and reset, one deliberate tap away from MARK instead of beside it.
-    private func legTimerMenu(running: Bool) -> some View {
-        Menu {
-            Button {
-                running ? flightPlanManager.pauseChronometer() : flightPlanManager.startChronometer()
-            } label: {
-                Label(running ? L10n.Nav.pauseChronometer : L10n.Nav.startChronometer,
-                      systemImage: running ? "pause.fill" : "play.fill")
-            }
-            Button(role: .destructive) { resetLegTimer() } label: {
-                Label(L10n.Nav.resetChronometer, systemImage: "arrow.counterclockwise")
-            }
-        } label: {
-            Image(systemName: "ellipsis")
-                .font(.aero(size: 18, weight: .bold))
-                .foregroundColor(theme.textPrimary)
-                .frame(width: 52, height: 52)
-                .background(RoundedRectangle(cornerRadius: 12).fill(Color.subtleOverlay(0.07)))
-                .contentShape(Rectangle())
-        }
-        .accessibilityLabel(L10n.Nav.legTimerOptions)
-    }
 
     private func markWaypoint(at index: Int, in plan: FlightPlan) {
         let timer = flightPlanManager.legTimerSnapshot
@@ -3447,80 +2738,6 @@ struct NavigationMapView: View {
     private func openDivert(_ ident: String?) {
         divertPreselect = ident
         showDivert = true
-    }
-
-    /// One tap to the Divert sheet. Gold while diverting, so the state is visible on the bar too.
-    private func divertButton(iconOnly: Bool) -> some View {
-        let diverting = flightPlanManager.activeFlightPlan?.diversion != nil
-        return Button { openDivert(nil) } label: {
-            HStack(spacing: 6) {
-                Image(systemName: "arrow.triangle.turn.up.right.diamond.fill")
-                    .font(.aero(size: 17, weight: .medium))
-                if !iconOnly {
-                    Text(L10n.Trip.divertTag).font(.aero(size: 13, weight: .bold)).tracking(0.5)
-                }
-            }
-            .foregroundColor(diverting ? theme.warning : theme.textPrimary)
-            .padding(.horizontal, iconOnly ? 0 : 8)
-            .frame(minWidth: 44, minHeight: 44)
-            .contentShape(Rectangle())
-        }
-        .accessibilityLabel(L10n.Trip.divert)
-    }
-
-    /// The glance while diverting: where to, how far, which way, how long, and the way back.
-    private func divertGlance(_ diversion: Diversion, plan: FlightPlan) -> some View {
-        let filed = threadManager.thread(forPlanId: plan.id)?.hasOpenFlightPlan ?? false
-        return VStack(alignment: .leading, spacing: 3) {
-            HStack(spacing: 8) {
-                Text(L10n.Trip.divertTag)
-                    .font(.aero(size: 10, weight: .heavy)).tracking(0.8)
-                    .foregroundColor(theme.actionText)
-                    .padding(.horizontal, 6).padding(.vertical, 2)
-                    .background(theme.warning, in: RoundedRectangle(cornerRadius: 4))
-                Text(diversion.ident)
-                    .font(.aero(size: 15, weight: .bold, design: .monospaced))
-                    .foregroundColor(theme.textPrimary)
-                if let distText = nextWaypointDistanceText {
-                    Text(distText).font(.aero(size: 13, design: .monospaced)).foregroundColor(theme.route)
-                }
-                if let brg = liveBearingText {
-                    Text(brg).font(.aero(size: 13, design: .monospaced)).foregroundColor(theme.textSecondary)
-                }
-                if let loc = locationManager.currentLocation,
-                   let ete = flightPlanManager.etaToNextWaypoint(from: loc, groundSpeedKnots: max(locationManager.currentSpeedKnots, 1)) {
-                    Text("ETE \(formatClock(ete)) · ETA \(Date().addingTimeInterval(ete).formatted(date: .omitted, time: .shortened))")
-                        .font(.aero(size: 13, design: .monospaced)).foregroundColor(theme.textDim)
-                }
-                Button {
-                    flightPlanManager.resumeRoute()
-                } label: {
-                    Text(L10n.Trip.resumeRoute)
-                        .font(.aero(size: 12, weight: .semibold))
-                        .foregroundColor(theme.warning)
-                        .padding(.horizontal, 10)
-                        .frame(minHeight: 32)
-                        .overlay(Capsule().strokeBorder(theme.warning, lineWidth: 1))
-                        .contentShape(Rectangle())
-                }
-                .buttonStyle(.plain)
-            }
-            .lineLimit(1)
-            // Filed: one line, the one thing to say on the radio. Nothing else until the ground.
-            if filed {
-                Text(L10n.Trip.tellFIS(diversion.ident))
-                    .font(.aero(size: 11))
-                    .foregroundColor(theme.warning)
-                    .lineLimit(1)
-            }
-        }
-    }
-
-    /// Live distance to the next waypoint (NM), if a fix + plan are available. (v4 UI/UX Revamp)
-    private var nextWaypointDistanceText: String? {
-        guard let loc = locationManager.currentLocation,
-              let dist = flightPlanManager.distanceToNextWaypoint(from: loc) else { return nil }
-        return String(format: "%.1f NM", dist)
     }
 
     // MARK: - Off-screen route (v4.4.0)
@@ -3620,41 +2837,6 @@ struct NavigationMapView: View {
         appState.navigationMapState.orientationMode = mapOrientationMode
     }
 
-    /// Single tracking button: each tap advances an Apple-Maps-style cycle —
-    /// free → center & follow (north-up) → track-up (rotate with heading) → free. (v4 UI/UX Revamp nav-chrome rebuild)
-    private func cycleTracking() {
-        if !isFollowingAircraft {
-            // free → center & follow, north-up
-            if mapOrientationMode == .trackUp {
-                mapOrientationMode = .northUp
-                mapState.requestHeadingReset()
-            }
-            isFollowingAircraft = true
-            centerOnAircraft()
-        } else if mapOrientationMode == .northUp {
-            // center & follow → track-up
-            mapOrientationMode = .trackUp
-            centerOnAircraft()
-        } else {
-            // track-up → free
-            isFollowingAircraft = false
-            mapOrientationMode = .northUp
-            mapState.requestHeadingReset()
-        }
-        appState.navigationMapState.orientationMode = mapOrientationMode
-    }
-
-    /// SF Symbol reflecting the current tracking state.
-    private var trackingIcon: String {
-        if !isFollowingAircraft { return "location" }
-        return mapOrientationMode == .trackUp ? "location.north.line.fill" : "location.fill"
-    }
-
-    /// Tint for the tracking button — gold once engaged.
-    private var trackingTint: Color {
-        isFollowingAircraft ? theme.action : theme.textPrimary
-    }
-
     /// Zoom the live map by scaling the current region span (factor < 1 zooms in). `mapState.region`
     /// is kept current by the map's `regionDidChangeAnimated`, so this reads the true zoom. (v4 UI/UX Revamp)
     private func zoom(by factor: Double) {
@@ -3675,13 +2857,6 @@ struct NavigationMapView: View {
 /// Role of a frequency in the current/next/emergency model: only CURRENT + NEXT (+ EMERGENCY) show by
 /// default; everything else is `.other`, revealed by "All Frequencies". (v4 UI/UX Revamp)
 enum FreqRole { case current, next, other, emergency }
-
-/// Preference key reporting the compact bottom sheet's measured height, so the floating map controls
-/// sit just above it. (v4 UI/UX Revamp — iPhone)
-struct CompactSheetHeightPreferenceKey: PreferenceKey {
-    static var defaultValue: CGFloat = 0
-    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) { value = nextValue() }
-}
 
 struct PhaseFrequency: Identifiable {
     let id = UUID()
@@ -4747,123 +3922,6 @@ struct NativeMapViewUIKit: UIViewRepresentable {
     }
 }
 
-// MARK: - Layer Picker Sheet
-
-struct LayerPickerSheet: View {
-    @Environment(\.cockpitTheme) private var theme
-    @Binding var selectedLayer: MapLayerType
-    @Environment(AppState.self) private var appState
-    @Environment(\.dismiss) var dismiss
-    @Environment(\.horizontalSizeClass) var horizontalSizeClass
-
-    var body: some View {
-        NavigationStack {
-            ScrollView {
-                VStack(spacing: 16) {
-                    // Apple Maps section
-                    VStack(alignment: .leading, spacing: 8) {
-                        Text("Apple Maps")
-                            .font(.aero(size: 13, weight: .semibold))
-                            .foregroundColor(theme.textSecondary)
-                            .textCase(.uppercase)
-                            .padding(.horizontal, 20)
-
-                        VStack(spacing: 0) {
-                            ForEach([MapLayerType.standard, .satellite]) { layer in
-                                layerRow(layer)
-                                if layer != .satellite {
-                                    Divider()
-                                        .padding(.leading, 56)
-                                }
-                            }
-                        }
-                        .background(theme.panel)
-                        .cornerRadius(12)
-                        .padding(.horizontal, 16)
-                    }
-
-                    // swisstopo section
-                    VStack(alignment: .leading, spacing: 8) {
-                        Text("swisstopo")
-                            .font(.aero(size: 13, weight: .semibold))
-                            .foregroundColor(theme.textSecondary)
-                            .padding(.horizontal, 20)
-
-                        VStack(spacing: 0) {
-                            ForEach([MapLayerType.icao, .landeskarten, .swissimage]) { layer in
-                                layerRow(layer)
-                                if layer != .swissimage {
-                                    Divider()
-                                        .padding(.leading, 56)
-                                }
-                            }
-                        }
-                        .background(theme.panel)
-                        .cornerRadius(12)
-                        .padding(.horizontal, 16)
-                    }
-
-                    // Data-source attribution required by the providers' terms (swisstopo/BAZL,
-                    // MeteoSwiss, Open-Meteo, OpenAIP). (SEC-16)
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text("Data sources")
-                            .font(.aero(size: 13, weight: .semibold))
-                            .foregroundColor(theme.textSecondary)
-                            .padding(.horizontal, 20)
-                        Text("Charts © swisstopo / BAZL · Wind © MeteoSwiss · Elevation: Open-Meteo & © swisstopo · \(OpenAIPConfig.attributionText)")
-                            .font(.aero(size: 11))
-                            .foregroundColor(theme.textDim)
-                            .fixedSize(horizontal: false, vertical: true)
-                            .padding(.horizontal, 20)
-                    }
-                }
-                .padding(.vertical, 16)
-            }
-            .background(theme.background)
-            .navigationTitle(L10n.MapLayer.title)
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button(L10n.Button.done) { dismiss() }
-                }
-            }
-        }
-        .presentationDetents([.height(620)])
-        .preferredColorScheme(.dark)
-    }
-
-    private func layerRow(_ layer: MapLayerType) -> some View {
-        Button(action: {
-            selectedLayer = layer
-            dismiss()
-        }) {
-            HStack {
-                Image(systemName: layer.icon)
-                    .font(.aero(size: 18))
-                    .foregroundColor(theme.action)
-                    .frame(width: 30)
-
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(layer.rawValue)
-                        .font(.aero(size: 16, weight: .medium))
-                        .foregroundColor(theme.textPrimary)
-                    Text(layer.description)
-                        .font(.aero(size: 12))
-                        .foregroundColor(theme.textSecondary)
-                }
-
-                Spacer()
-
-                if selectedLayer == layer {
-                    Image(systemName: "checkmark")
-                        .foregroundColor(theme.action)
-                }
-            }
-            .padding(.horizontal, 16)
-            .padding(.vertical, 12)
-        }
-    }
-}
 
 // MARK: - Map Sheet (iPad, v6.0 · C1)
 
@@ -5084,38 +4142,7 @@ enum MapPreset: CaseIterable {
     }
 }
 
-// MARK: - Swiss Map View (UIKit Wrapper)
-
-/// UIViewRepresentable wrapper for MKMapView with swisstopo tile overlays
-/// The grouped map-layers sheet opened by the "Layers" button: Airspace & charts (airspace vector +
-/// optional raster tiles), Map markers (airports/navaids/reporting points/obstacles with a show-all
-/// master), and Flight (track vector). (v4.1.0 ② — entry-point consolidation + tiles/airspace split)
-struct OverlaysSheet: View {
-    @Environment(\.cockpitTheme) private var theme
-    @Environment(\.dismiss) var dismiss
-
-    var body: some View {
-        NavigationStack {
-            ScrollView {
-                OverlaysSections()
-                    .padding(.vertical, 16)
-            }
-            .background(theme.background)
-            .navigationTitle(L10n.Nav.layers)
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button(L10n.Button.done) { dismiss() }
-                }
-            }
-        }
-        .presentationDetents([.height(520)])
-        .preferredColorScheme(.dark)
-    }
-}
-
-/// The overlay switches (airspace and tiles, markers, track vector), shared by the iPhone Layers
-/// sheet and the iPad Map sheet. (v6.0 · C1)
+/// The overlay switches (airspace and tiles, markers, track vector), in the Map sheet. (v6.0 · C1)
 struct OverlaysSections: View {
     @Environment(\.cockpitTheme) private var theme
     @Environment(AppState.self) private var appState
@@ -5348,6 +4375,8 @@ struct OverlaysSections: View {
         .buttonStyle(.plain)
     }
 }
+
+// MARK: - Swiss Map View (UIKit Wrapper)
 
 struct SwissMapView: UIViewRepresentable {
     let layerType: MapLayerType

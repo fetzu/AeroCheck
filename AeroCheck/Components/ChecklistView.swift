@@ -857,7 +857,7 @@ struct ChecklistItemRow: View {
     // Smaller than the old fixed 22 pt rows (still text-style-based for Dynamic Type — challenge/response
     // wrap vertically via .fixedSize, so large sizes grow the row instead of clipping). (UX-14 / v4 UI/UX Revamp)
     // iPad: 24 pt at the default text size, the kneeboard's row size (v6.0 · P6; was 16 pt callout);
-    // still scaling with Dynamic Type, relative to .callout. iPhone keeps its size until its own pass.
+    // still scaling with Dynamic Type, relative to .callout. The phone's Cockpit reads 20 pt (`CockpitType`).
     private var itemFont: Font {
         isCompact ? .aero(.subheadline, design: .monospaced).weight(.medium)
                   : .aero(size: CockpitType.row, relativeTo: .callout, design: .monospaced)

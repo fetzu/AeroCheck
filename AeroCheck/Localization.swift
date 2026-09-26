@@ -128,8 +128,6 @@ enum L10n {
         static let retry = String(localized: "button.retry")
         static let cancel = String(localized: "button.cancel")
         static let delete = String(localized: "button.delete")
-        static let nav = String(localized: "button.nav")
-        static let speeds = String(localized: "button.speeds")
         static let flightLog = String(localized: "button.flightLog")
     }
 
@@ -1003,7 +1001,6 @@ enum L10n {
     enum Speed {
         static let gs = String(localized: "speed.gs")
         static let ias = String(localized: "speed.ias")
-        static let tgt = String(localized: "speed.tgt")
         static let msl = String(localized: "speed.msl")
     }
 
@@ -1370,7 +1367,6 @@ enum L10n {
 
     // MARK: - Flight Plan Overlay
     enum FlightPlan {
-        static let fltTime = String(localized: "flightPlan.overlay.fltTime")
     }
 
     // MARK: - Navigation / Flight Plans
@@ -1924,8 +1920,6 @@ enum L10n {
         static let distance = String(localized: "nav.distance")
         static let endurance = String(localized: "nav.endurance")
         static let freq = String(localized: "nav.freq")
-        static let freqUnavailable = String(localized: "nav.freqUnavailable")
-        static let noNearbyFreq = String(localized: "nav.noNearbyFreq")
         static let eto = String(localized: "nav.eto")
         static let mc = String(localized: "nav.mc")
         static let moveUp = String(localized: "nav.moveUp")
@@ -2008,7 +2002,6 @@ enum L10n {
         static let holdToReset = String(localized: "nav.holdToReset")
         static let freqCurrent = String(localized: "nav.freqCurrent")
         static let freqNext = String(localized: "nav.freqNext")
-        static let startLeg = String(localized: "nav.startLeg")
         static let mark = String(localized: "nav.mark")
         static let overlays = String(localized: "nav.overlays")
         static let airspace = String(localized: "nav.airspace")
@@ -2039,11 +2032,9 @@ enum L10n {
         static let resumeLegMessage = String(localized: "nav.resumeLegMessage")
 
         // Navigation View - Waypoint Info
-        static let hdgTo = String(localized: "nav.hdgTo")
         static let pauseChronometer = String(localized: "nav.pauseChronometer")
         static let startChronometer = String(localized: "nav.startChronometer")
         static let resetChronometer = String(localized: "nav.resetChronometer")
-        static let legTimerOptions = String(localized: "nav.legTimerOptions")
         static let legTimerReset = String(localized: "nav.legTimerReset")
         static let undo = String(localized: "nav.undo")
         /// "LSGC passed at 13:07"

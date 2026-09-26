@@ -870,7 +870,12 @@ struct HomeView: View {
     private func flightPlanStripCard(title: String, detail: [String], accent: Color,
                                      badge: String? = nil, showsRail: Bool = false,
                                      fillsHeight: Bool = false) -> some View {
-        Button { appState.groundTab = .plan } label: {
+        // The route is under Plan › Routes: the strip used to open Plan at whatever section it was
+        // last on, usually Flights, where the route isn't. (iPhone pass)
+        Button {
+            appState.pendingPlanSection = .routes
+            appState.groundTab = .plan
+        } label: {
             HStack(spacing: 10) {
                 Image(systemName: "point.topleft.down.to.point.bottomright.curvepath")
                     .scaledFont(size: 17, relativeTo: .body)

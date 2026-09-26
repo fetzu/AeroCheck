@@ -76,10 +76,12 @@ struct FlightLauncher {
         // checklist out from under a flight already in progress.
         guard !appState.isFlightActive else { return .blockedActiveFlight }
 
-        // UX-07: refuse an unowned premium aircraft up-front, so the caller can present the
-        // paywall instead of the misleading "checklist not ready" error a failed load would give.
+        // UX-07: refuse an unowned premium aircraft up-front, and say why: AéroCheck Pro isn't active
+        // (never bought, or lapsed). The alert offers the plans and a restore; it used to open the
+        // paywall with no word of explanation, or fail later as "check your connection".
+        // (on-device review #4, point 1)
         guard isSelectedAircraftOwned else {
-            appState.flightStartPaywallRequest = true
+            appState.flightStartNeedsPro = selectedRegistration ?? ""
             return .blockedUnowned
         }
 
@@ -90,7 +92,13 @@ struct FlightLauncher {
         // ARCH-01: a premium aircraft whose checklist failed to load must not start — it would
         // otherwise present an empty or wrong checklist.
         guard appState.isPremiumChecklistResolved else {
-            appState.flightStartError = L10n.Alert.checklistNotReady
+            // The load says which: the server (or this device) says Pro isn't active, or the
+            // checklist couldn't be reached and there's no copy here.
+            if aircraftDataService.checklistUnavailableReason == .proNotActive {
+                appState.flightStartNeedsPro = selectedRegistration ?? ""
+            } else {
+                appState.flightStartError = L10n.Alert.checklistUnreachable(selectedRegistration ?? "")
+            }
             return .blockedChecklistUnresolved
         }
 
@@ -185,13 +193,14 @@ struct FlightLauncher {
         return aircraftDataService.availableAircraft.first(where: { $0.id == remoteId })
     }
 
-    /// Whether the selected aircraft is owned. Bundled aircraft are always owned. A premium
-    /// aircraft is owned when its metadata grants access; if the metadata hasn't loaded yet we
-    /// allow the start to proceed and let the checklist-resolution guard decide. (UX-07)
+    /// Whether the selected aircraft can be flown. Bundled aircraft always can. A premium aircraft
+    /// can while AéroCheck Pro is active on both sides (`AircraftDataService.canFly`); if the
+    /// metadata hasn't loaded yet we allow the start to proceed and let the checklist-resolution
+    /// guard decide. (UX-07; on-device review #4, point 1)
     private var isSelectedAircraftOwned: Bool {
         guard appState.settings.selectedRemoteAircraftId != nil else { return true }
         guard let meta = selectedRemoteMetadata else { return true }
-        return meta.hasAccess
+        return aircraftDataService.canFly(meta)
     }
 
     private var selectedRegistration: String? {

@@ -947,9 +947,12 @@ struct PremiumAircraftListView: View {
                         ForEach(group.aircraft) { aircraft in
                             PremiumAircraftRow(
                                 aircraft: aircraft,
+                                canFly: aircraftDataService.canFly(aircraft),
                                 isSelected: appState.settings.selectedRemoteAircraftId == aircraft.id,
                                 onSelect: {
-                                    if aircraft.hasAccess {
+                                    // The same rule as the Aircraft tab and START FLIGHT: Pro active
+                                    // on the server AND on this device. (on-device review #4, point 1)
+                                    if aircraftDataService.canFly(aircraft) {
                                         // UX-14: route through the unified selection path (persists to
                                         // file + iCloud and reconciles the active checklist) instead of
                                         // a direct mutation + a dead UserDefaults write that was never
@@ -1011,6 +1014,8 @@ struct PremiumAircraftListView: View {
 
 struct PremiumAircraftRow: View {
     let aircraft: RemoteAircraftMetadata
+    /// `AircraftDataService.canFly(aircraft)`: whether the row offers the aircraft or the plans.
+    let canFly: Bool
     let isSelected: Bool
     let onSelect: () -> Void
 
@@ -1019,12 +1024,12 @@ struct PremiumAircraftRow: View {
             HStack(spacing: 16) {
                 ZStack {
                     Circle()
-                        .fill(aircraft.hasAccess ? Color.aviationGold.opacity(0.2) : Color.secondary.opacity(0.2))
+                        .fill(canFly ? Color.aviationGold.opacity(0.2) : Color.secondary.opacity(0.2))
                         .frame(width: 50, height: 50)
 
-                    Image(systemName: aircraft.hasAccess ? "airplane.circle.fill" : "lock.fill")
+                    Image(systemName: canFly ? "airplane.circle.fill" : "lock.fill")
                         .scaledFont(size: 24, relativeTo: .title2)
-                        .foregroundColor(aircraft.hasAccess ? .aviationGold : .secondary)
+                        .foregroundColor(canFly ? .aviationGold : .secondary)
                 }
 
                 VStack(alignment: .leading, spacing: 6) {
@@ -1043,7 +1048,7 @@ struct PremiumAircraftRow: View {
                         .font(.aero(.caption))
                         .foregroundColor(.secondary)
 
-                    if !aircraft.hasAccess {
+                    if !canFly {
                         HStack(spacing: 4) {
                             Image(systemName: "lock.fill")
                                 .scaledFont(size: 10, relativeTo: .caption2)
@@ -1062,7 +1067,7 @@ struct PremiumAircraftRow: View {
                     }
                 }
 
-                if isSelected && aircraft.hasAccess {
+                if isSelected && canFly {
                     Image(systemName: "checkmark.circle.fill")
                         .font(.aero(.title3))
                         .foregroundColor(.aviationGold)
@@ -1070,7 +1075,7 @@ struct PremiumAircraftRow: View {
             }
             .padding(.vertical, 8)
         }
-        .opacity(aircraft.hasAccess ? 1.0 : 0.7)
+        .opacity(canFly ? 1.0 : 0.7)
     }
 }
 

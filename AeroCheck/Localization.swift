@@ -549,6 +549,14 @@ enum L10n {
         static let checklistNotReadyTitle = String(localized: "alert.checklistNotReady.title")
         static let checklistNotReady = String(localized: "alert.checklistNotReady.message")
         static let cannotStartFlightTitle = String(localized: "alert.cannotStartFlight.title")
+        static let proNotActiveTitle = String(localized: "alert.proNotActive.title")
+        static func proNotActive(_ registration: String) -> String {
+            String(format: String(localized: "alert.proNotActive.message"), registration)
+        }
+        static func checklistUnreachable(_ registration: String) -> String {
+            String(format: String(localized: "alert.checklistUnreachable.message"), registration)
+        }
+        static let seePlans = String(localized: "alert.proNotActive.seePlans")
         static let locationRequired = String(localized: "alert.locationRequired.message")
         static let acquiringGPS = String(localized: "alert.acquiringGPS.message")
         static let flightSaveFailedTitle = String(localized: "alert.flightSaveFailed.title")
@@ -1425,6 +1433,11 @@ enum L10n {
         // The Aircraft tab's two links (on-device review #2, G-06)
         static let proUnlocksAll = String(localized: "ground.proUnlocksAll")
         static let visibilityInSettings = String(localized: "ground.visibilityInSettings")
+        static let proNotActiveShort = String(localized: "ground.proNotActiveShort")
+        static let proNotActiveRow = String(localized: "ground.proNotActiveRow")
+        static func speedsNeedPro(_ registration: String) -> String {
+            String(format: String(localized: "ground.speedsNeedPro"), registration)
+        }
     }
 
     /// The Cockpit's V-SPEEDS table: its rows. (V-SPEEDS proposal, D1–D8)

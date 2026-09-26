@@ -652,6 +652,11 @@ class AppState {
     /// Observed by the UI to present the subscription paywall. (UX-07)
     var flightStartPaywallRequest: Bool = false
 
+    /// The registration of a premium aircraft a flight start was refused for because AéroCheck Pro
+    /// isn't active (never bought, or lapsed). The UI says so, and offers the plans and a restore.
+    /// (on-device review #4, point 1)
+    var flightStartNeedsPro: String?
+
     /// The resolved remote checklist for the current selection — a premium aircraft, or a
     /// language-specific bundled checklist. `nil` means none is loaded (the bundled fallback is
     /// used, unless a premium aircraft is selected, in which case the checklist is unresolved).

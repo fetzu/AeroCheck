@@ -732,8 +732,7 @@ struct NavigationMapView: View {
                     .background(theme.panel.ignoresSafeArea())
                     .overlay(alignment: .trailing) { Rectangle().fill(theme.panelStroke).frame(width: 1) }
 
-                    mapArea(bottomPanel: bottomPanel(legsMaxHeight: geometry.size.height * 0.5, includesThumbBar: false),
-                            topAccessory: mapTopAccessory)
+                    columnsMapArea(legsMaxHeight: geometry.size.height * 0.5)
                 }
             } else if landscape {
                 HStack(spacing: 0) {
@@ -789,10 +788,199 @@ struct NavigationMapView: View {
         .onChange(of: mapAreaWidth) { _, width in mapWidth = width }
     }
 
+    /// The landscape phone's map, beside the Cockpit's column: as much chart as the height allows. The
+    /// next waypoint on one line, the controls in a short column on the right edge, the frequencies on
+    /// two lines at the bottom, and over the chart only the chips that come and go. The card, a row of
+    /// controls, the pane bar and the tall frequency bar left the map about a third of its column.
+    /// (iPhone pass, I7)
+    private func columnsMapArea(legsMaxHeight: CGFloat) -> some View {
+        VStack(spacing: 0) {
+            ZStack {
+                mapContent
+                    .ignoresSafeArea()
+
+                VStack(spacing: 8) {
+                    if let mapTopAccessory {
+                        mapTopAccessory
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                    }
+                    nextWaypointLine
+                    HStack(alignment: .top, spacing: 8) {
+                        VStack(alignment: .leading, spacing: 8) {
+                            SigmetChip(hazards: rankedSigmets) { showSigmets = true }
+                            routeOffScreenPill
+                                .animation(reduceMotion ? nil : .easeInOut(duration: 0.25), value: routeOffScreenHint) // (UX-18)
+                        }
+                        Spacer(minLength: 0)
+                        mapControlsColumn
+                    }
+                    Spacer(minLength: 0)
+                    mapFooter
+                }
+                .padding(.horizontal, 10)
+                .padding(.top, 8)
+            }
+
+            // The frequencies, and the legs when opened, under the chart rather than over it.
+            VStack(spacing: 0) {
+                freqLine
+                if navSheetExpanded {
+                    Rectangle().fill(theme.panelStroke).frame(height: 1)
+                    ScrollView {
+                        legsAndFrequencies
+                            .background(GeometryReader { proxy in
+                                Color.clear.preference(key: LegsPanelHeightKey.self, value: proxy.size.height)
+                            })
+                    }
+                    .frame(height: min(legsPanelContentHeight, legsMaxHeight))
+                    .onPreferenceChange(LegsPanelHeightKey.self) { legsPanelContentHeight = $0 }
+                }
+            }
+            .background(theme.panel.ignoresSafeArea(edges: .bottom))
+            .overlay(alignment: .top) { Rectangle().fill(theme.panelStroke).frame(height: 1) }
+        }
+    }
+
+    /// The next waypoint on one line: the ident in magenta, then bearing, distance and time. Tap for
+    /// every leg and frequency. A diversion shows its tag and the way back to the route.
+    @ViewBuilder
+    private var nextWaypointLine: some View {
+        if let plan = flightPlanManager.activeFlightPlan, !flightPlanManager.isFlightPlanCompleted,
+           let next = plan.nextWaypoint {
+            let diversion = plan.diversion
+            let ident = diversion?.ident ?? (next.name.isEmpty ? "WPT \(plan.currentWaypointIndex + 1)" : next.name)
+            HStack(spacing: 12) {
+                Button(action: toggleLegsAndFrequencies) {
+                    HStack(alignment: .firstTextBaseline, spacing: 10) {
+                        if diversion != nil {
+                            Text(L10n.Trip.divertTag)
+                                .font(.aero(size: CockpitType.label, weight: .bold))
+                                .foregroundColor(theme.actionText)
+                                .padding(.horizontal, 6).padding(.vertical, 2)
+                                .background(theme.warning, in: RoundedRectangle(cornerRadius: 6))
+                        } else {
+                            Image(systemName: "arrow.right")
+                                .font(.aero(size: CockpitType.label, weight: .bold))
+                                .foregroundColor(theme.route)
+                        }
+                        Text(ident)
+                            .font(.aero(size: CockpitType.response, weight: .bold, design: .monospaced))
+                            .foregroundColor(theme.route)
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.6)
+                        Spacer(minLength: 6)
+                        Text([liveBearingText,
+                              nextWaypointDistanceValue.map { "\($0) NM" },
+                              nextLegLive.map { "\(eteValue($0.ete)) \(eteUnit($0.ete))" }]
+                                .compactMap { $0 }.joined(separator: " · "))
+                            .font(.aero(size: CockpitType.label, weight: .bold, design: .monospaced))
+                            .foregroundColor(theme.textPrimary)
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.7)
+                    }
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .accessibilityHint(L10n.Nav.legsAndFrequencies)
+                if diversion != nil {
+                    Button { flightPlanManager.resumeRoute() } label: {
+                        Text(L10n.Trip.resumeRoute)
+                            .font(.aero(size: CockpitType.label, weight: .bold))
+                            .foregroundColor(theme.action)
+                            .lineLimit(1)
+                            .padding(.horizontal, 10)
+                            .frame(minHeight: 44)
+                            .overlay(Capsule().strokeBorder(theme.action, lineWidth: 1.5))
+                            .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+                    .fixedSize()
+                }
+            }
+            .padding(.horizontal, 12)
+            .padding(.vertical, 6)
+            .frame(minHeight: 44)
+            .background(RoundedRectangle(cornerRadius: 12).fill(theme.panel))
+            .overlay(RoundedRectangle(cornerRadius: 12).stroke(theme.panelStroke, lineWidth: 1))
+        }
+    }
+
+    /// Map, the orientation and Centre, one above the other on the chart's right edge. Zoom is a pinch.
+    private var mapControlsColumn: some View {
+        VStack(alignment: .trailing, spacing: 8) {
+            chromeButton(icon: "square.stack.3d.up", title: L10n.Nav.mapSheet) { showMapSheet = true }
+                .overlay(alignment: .topTrailing) {
+                    if airspaceDataNeedsAttention {
+                        Image(systemName: "exclamationmark.triangle.fill")
+                            .font(.aero(size: 14, weight: .bold))
+                            .foregroundColor(theme.warning)
+                            .padding(4)
+                            .background(theme.panel, in: Circle())
+                            .offset(x: 8, y: -8)
+                            .accessibilityLabel(Text("Airspace data is out of date"))
+                    }
+                }
+            orientationButton
+            chromeButton(icon: isFollowingAircraft ? "location.fill" : "location",
+                         title: L10n.Nav.centre, prominent: !isFollowingAircraft) { centerOnAircraft() }
+        }
+        .sheet(isPresented: $showMapSheet) {
+            MapSheet(selectedLayer: $selectedLayer, isOfflineMode: isOfflineMode)
+                .environment(appState)
+                .environment(\.cockpitTheme, theme)
+                .environmentObject(openAIPDataService)
+                .environmentObject(dataStatusManager)
+                .environmentObject(offlineMapManager)
+        }
+    }
+
+    /// NOW and NEXT on two lines: the station over the frequency. The landscape phone's version of
+    /// `freqCard`, about 20 pt shorter.
+    private var freqLine: some View {
+        let current = phaseFreqItems.first { $0.role == .current }
+        let next = phaseFreqItems.first { $0.role == .next }
+        return Button(action: toggleLegsAndFrequencies) {
+            HStack(spacing: 10) {
+                freqLineCell(tag: L10n.Nav.freqCurrent, tint: theme.onTarget, item: current)
+                Rectangle().fill(theme.panelStroke).frame(width: 1, height: 36)
+                freqLineCell(tag: L10n.Nav.freqNext, tint: theme.info, item: next)
+                Image(systemName: navSheetExpanded ? "chevron.down" : "chevron.up")
+                    .font(.aero(size: CockpitType.label, weight: .bold))
+                    .foregroundColor(theme.action)
+                    .frame(width: 40, height: 40)
+                    .background(Circle().fill(theme.action.opacity(0.14)))
+            }
+            .padding(.horizontal, 12)
+            .padding(.vertical, 5)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(L10n.Nav.legsAndFrequencies)
+    }
+
+    private func freqLineCell(tag: String, tint: Color, item: PhaseFrequency?) -> some View {
+        VStack(alignment: .leading, spacing: 0) {
+            HStack(spacing: 6) {
+                Text(tag)
+                    .font(.aero(size: 13, weight: .bold))
+                    .foregroundColor(tint)
+                Text(item?.station ?? "—")
+                    .font(.aero(size: 13))
+                    .foregroundColor(theme.textSecondary)
+                    .lineLimit(1)
+            }
+            Text(item?.freq ?? "—")
+                .font(.aero(size: CockpitType.label, weight: .bold, design: .monospaced))
+                .foregroundColor(theme.textPrimary)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .accessibilityElement(children: .combine)
+    }
+
     /// The map with its chrome: the top bar (full-screen only), the next-waypoint card and the map's
     /// controls on top, the scale bar and the undo toast at the bottom, and — in portrait — the
     /// bottom panel.
-    private func mapArea<Panel: View>(bottomPanel: Panel?, topAccessory: AnyView? = nil) -> some View {
+    private func mapArea<Panel: View>(bottomPanel: Panel?) -> some View {
         ZStack {
             mapContent
                 .ignoresSafeArea()
@@ -807,7 +995,6 @@ struct NavigationMapView: View {
                 // What a pilot reads most, big and on top: the next waypoint. Then the map's own
                 // controls, labelled. (v6.0 · P3)
                 VStack(spacing: 10) {
-                    if let topAccessory { topAccessory }
                     nextWaypointCard
                     mapControlsRow
                         .frame(maxWidth: .infinity, alignment: .trailing)

@@ -1442,9 +1442,11 @@ extension FlightView {
         }
     }
 
-    /// A phone on its side (I7): the header, the strip and the thumb bar in a column on the left, the
-    /// pane on the right at full height, with the pane bar over it. The same zones as in portrait,
-    /// folded. On the map, the map lays itself out around the same column.
+    /// A phone on its side (I7): everything the pilot works with in a column on the left, where the
+    /// thumb is (the header, CHECKLIST | MAP with V-SPEEDS, the strip, the thumb bar), and the pane on
+    /// the right at full height. Only what comes and goes (BRIEFING, NEXT, the map's cautions) sits
+    /// over the pane, and only while it exists. With the pane bar, the card and a row of controls over
+    /// it, the map had about a third of its column left. (iPhone pass, I7)
     @ViewBuilder
     private var cockpitColumns: some View {
         switch cockpitPane {
@@ -1454,16 +1456,19 @@ extension FlightView {
                     cockpitColumnHead
                     Spacer(minLength: 0)
                     cockpitThumbBar(narrow: true)
-                        .padding(12)
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 10)
                 }
                 .frame(width: Self.cockpitColumnWidth)
                 .background(theme.panel.ignoresSafeArea())
                 .overlay(alignment: .trailing) { Rectangle().fill(theme.panelStroke).frame(width: 1) }
 
                 VStack(spacing: 0) {
-                    cockpitPaneBarFitting
-                        .padding(.horizontal, 12)
-                        .padding(.vertical, 8)
+                    if cockpitHasOccasionalChips {
+                        cockpitOccasionalChips
+                            .padding(.horizontal, 12)
+                            .padding(.top, 8)
+                    }
                     cockpitChecklistPane(narrow: true, includesThumbBar: false)
                 }
             }
@@ -1472,25 +1477,53 @@ extension FlightView {
                               leadingColumn: AnyView(cockpitColumnHead),
                               leadingColumnWidth: Self.cockpitColumnWidth,
                               // Opaque over the chart, where the chips' tint alone was see-through.
-                              mapTopAccessory: AnyView(cockpitPaneBarFitting
-                                .padding(6)
-                                .background(RoundedRectangle(cornerRadius: 16).fill(theme.panel))))
+                              mapTopAccessory: cockpitHasOccasionalChips
+                                ? AnyView(cockpitOccasionalChips
+                                    .fixedSize()
+                                    .padding(6)
+                                    .background(RoundedRectangle(cornerRadius: 16).fill(theme.panel)))
+                                : nil)
         }
+    }
+
+    /// BRIEFING, NEXT and the map's cautions: the chips that come and go.
+    private var cockpitOccasionalChips: some View {
+        HStack(spacing: 8) {
+            cockpitBriefingChip
+            cockpitNextChip
+            cockpitMapCautionChips
+            Spacer(minLength: 0)
+        }
+    }
+
+    private var cockpitHasOccasionalChips: Bool {
+        appState.currentPhase.briefingType != nil
+            || (cockpitPane == .checklist && !cockpitChecklistDone
+                && appState.currentPhase.nextNavigable(circuitMode: appState.isCircuitMode) != nil)
+            || (cockpitPane == .map && (appState.deferredItemCount > 0 || appState.cruiseCheckDue))
     }
 
     /// The landscape column's width: the header's rows, and the thumb bar's three buttons with CHECK
     /// still readable. It leaves the pane about a portrait phone's width. (I7)
-    static let cockpitColumnWidth: CGFloat = 380
+    static let cockpitColumnWidth: CGFloat = 390
 
-    /// The top of the landscape column: header, progress, strip.
+    /// The top of the landscape column: the header on two rows as in portrait, progress, CHECKLIST |
+    /// MAP with V-SPEEDS, the strip.
     private var cockpitColumnHead: some View {
         VStack(spacing: 0) {
-            cockpitHeader(style: .column)
+            cockpitHeader(style: .narrow)
                 .padding(.horizontal, 12)
-                .padding(.vertical, 6)
+                .padding(.vertical, 4)
             phaseProgressBarView
                 .padding(.horizontal, 12)
                 .padding(.bottom, 6)
+            HStack(spacing: 8) {
+                CockpitPanePicker(selection: cockpitPaneBinding)
+                Spacer(minLength: 0)
+                CockpitChip(title: "V-SPEEDS", icon: "speedometer") { openReference(.vSpeeds) }
+            }
+            .padding(.horizontal, 12)
+            .padding(.bottom, 6)
             cockpitStrip(showsNext: false)
                 .padding(.horizontal, 10)
         }
@@ -1514,7 +1547,7 @@ extension FlightView {
 
     // MARK: Header
 
-    enum CockpitHeaderStyle { case wide, narrow, column }
+    enum CockpitHeaderStyle { case wide, narrow }
 
     /// Aircraft, phase and its place in the flight, flight time, GPS, Menu. Everything a glance at the
     /// top needs, and nothing in the stage colours the old badge used: colour means something in flight.
@@ -1524,8 +1557,7 @@ extension FlightView {
     /// takes what's left, wrapping between words ("CHECK BEFORE / ENGINE START"), never inside one.
     /// (on-device review #2)
     /// `narrow` (the phone in portrait): the phase gets a line of its own under the rest, instead of a
-    /// badge shrunk to about 7 pt. `column` (the phone on its side): three short rows, the landscape
-    /// column being too narrow for the time beside the Menu. (iPhone pass)
+    /// badge shrunk to about 7 pt; the landscape column uses it too. (iPhone pass)
     @ViewBuilder
     private func cockpitHeader(style: CockpitHeaderStyle) -> some View {
         switch style {
@@ -1547,21 +1579,6 @@ extension FlightView {
                     cockpitHeaderTopRow(gpsLabelled: false)
                 }
                 cockpitPhaseButton(fillsWidth: true)
-            }
-        case .column:
-            VStack(spacing: 6) {
-                HStack(spacing: 10) {
-                    abandonableAircraftIdentifier(iconSize: 18, isCompact: false, stacked: true)
-                    Spacer(minLength: 8)
-                    cockpitMenuButton
-                }
-                cockpitPhaseButton(fillsWidth: true)
-                HStack(spacing: 10) {
-                    cockpitFlightTime
-                    Spacer(minLength: 8)
-                    cockpitCompanionIndicator
-                    cockpitGPSButton(labelled: true)
-                }
             }
         }
     }
@@ -1678,18 +1695,6 @@ extension FlightView {
             }
         } else {
             cockpitPaneBarRow
-        }
-    }
-
-    /// The landscape phone's pane bar: one row when the chips fit beside the picker, two when not.
-    private var cockpitPaneBarFitting: some View {
-        ViewThatFits(in: .horizontal) {
-            HStack(spacing: 8) {
-                CockpitPanePicker(selection: cockpitPaneBinding)
-                Spacer(minLength: 8)
-                cockpitPhoneChips.fixedSize()
-            }
-            cockpitPaneBar(twoRows: true)
         }
     }
 

@@ -1131,6 +1131,15 @@ enum RouteLibrary {
         return abs(followedSince.timeIntervalSince(plan.createdAt)) > 120
     }
 
+    /// The pilot's routes among `plans`, archived ones left out: what Routes lists, and what Plan new
+    /// flight offers to start from.
+    static func activeRoutes(_ plans: [FlightPlan], threads: [FlightThread]) -> [FlightPlan] {
+        plans.filter { plan in
+            plan.archivedAt == nil
+                && isRoute(plan, followedSince: threads.first { $0.flightPlanId == plan.id }?.createdAt)
+        }
+    }
+
     /// Whether a route matches a search: its name, its waypoints (names and idents) and its aircraft,
     /// ignoring case and accents. Every word must match, in any order: "bress lszs".
     static func matches(_ plan: FlightPlan, query: String) -> Bool {

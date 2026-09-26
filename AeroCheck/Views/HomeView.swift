@@ -286,7 +286,7 @@ struct HomeView: View {
         } message: {
             switch startPrompt {
             case .outstanding(let thread, let remaining):
-                Text(L10n.Home.outstandingBeforeFlight(thread.routeLabel, remaining))
+                Text(L10n.Home.outstandingBeforeFlight(thread.displayName, remaining))
             case nil:
                 EmptyView()
             }
@@ -515,7 +515,7 @@ struct HomeView: View {
             .frame(height: isCompact ? 56 : 76)
         }
         .buttonStyle(PrimaryButtonStyle(color: .aviationGreen))
-        .accessibilityHint(heroFlight?.routeLabel ?? "")
+        .accessibilityHint(heroFlight?.displayName ?? "")
     }
 
     private func planFlightButton(isCompact: Bool) -> some View {
@@ -559,7 +559,7 @@ struct HomeView: View {
                                     .foregroundColor(.secondaryText)
                             }
                         }
-                        Text(thread.routeLabel)
+                        Text(thread.displayName)
                             .scaledFont(size: isCompact ? 22 : 30, weight: .bold, design: .monospaced, relativeTo: .title2)
                             .foregroundColor(.primaryText)
                             .lineLimit(1)
@@ -984,7 +984,7 @@ struct HomeView: View {
                                         .strokeBorder(accent.opacity(0.55), lineWidth: 0.5))
                             )
                     }
-                    Text(thread.routeLabel)
+                    Text(thread.displayName)
                         .scaledFont(size: 14, weight: .semibold, design: .monospaced, relativeTo: .subheadline)
                         .foregroundColor(.primaryText)
                         .lineLimit(1)
@@ -1019,7 +1019,7 @@ struct HomeView: View {
         }
         .buttonStyle(.plain)
         .accessibilityLabel(
-            [L10n.Thread.title, threadBadge(thread), thread.routeLabel, threadDetail(thread).first]
+            [L10n.Thread.title, threadBadge(thread), thread.displayName, threadDetail(thread).first]
                 .compactMap { $0 }.joined(separator: ", ")
         )
     }

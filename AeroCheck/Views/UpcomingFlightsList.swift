@@ -129,7 +129,7 @@ struct UpcomingFlightsList: View {
         return Button { onOpen(thread.id) } label: {
             HStack(spacing: 12) {
                 VStack(alignment: .leading, spacing: 3) {
-                    Text(thread.routeLabel)
+                    Text(thread.displayName)
                         .scaledFont(size: 15, weight: .semibold, relativeTo: .subheadline)
                         .foregroundColor(.primaryText)
                         .lineLimit(1)
@@ -165,7 +165,7 @@ struct UpcomingFlightsList: View {
                     .clipShape(RoundedRectangle(cornerRadius: 10))
             )
             .accessibilityElement(children: .combine)
-            .accessibilityLabel("\(thread.routeLabel), \(badge(thread)), \(detail(thread))")
+            .accessibilityLabel("\(thread.displayName), \(badge(thread)), \(detail(thread))")
             .accessibilityValue(Text(verbatim: "\(progress.done)/\(progress.total)"))
         }
         .buttonStyle(.plain)
@@ -177,7 +177,7 @@ struct UpcomingFlightsList: View {
         let legs = trip.legIds.compactMap { id in threads.first { $0.id == id } }
         return VStack(alignment: .leading, spacing: 8) {
             HStack(spacing: 8) {
-                Text(tripLabel(legs))
+                Text(trip.name ?? tripLabel(legs))
                     .scaledFont(size: 15, weight: .semibold, relativeTo: .subheadline)
                     .foregroundColor(.primaryText)
                     .lineLimit(1)
@@ -198,7 +198,7 @@ struct UpcomingFlightsList: View {
                             .foregroundColor(.aviationGold)
                             .frame(width: 12, alignment: .leading)
                         VStack(alignment: .leading, spacing: 2) {
-                            Text(leg.routeLabel)
+                            Text(leg.displayName)
                                 .scaledFont(size: 13, relativeTo: .footnote)
                                 .foregroundColor(.primaryText)
                                 .lineLimit(1)

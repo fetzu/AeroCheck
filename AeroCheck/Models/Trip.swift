@@ -120,6 +120,10 @@ struct Trip: Codable, Identifiable, Equatable, Sendable {
     /// records only that it belongs to a trip, never where in it, so there is nothing to drift.
     var legIds: [UUID] = []
 
+    /// The pilot's name for the trip; nil shows its aerodromes, "LSZQ → LSZE → LSZS". Optional, so
+    /// trips written before decode unchanged. (on-device review #4)
+    var name: String?
+
     /// The preparation the legs share. Their `completedAt` is what makes staleness work, so these
     /// live here rather than being duplicated onto each leg.
     var sharedTasks: [ThreadTask] = []

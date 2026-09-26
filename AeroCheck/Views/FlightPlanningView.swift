@@ -46,6 +46,15 @@ struct FlightPlanningView: View {
     /// The route being renamed, and the name being typed.
     @State private var renamingPlan: FlightPlan?
     @State private var renameText = ""
+    /// ICAO codes offered for a route's place names, on import or from the context menu.
+    @State private var icaoOffer: ICAOOffer?
+    @State private var icaoNoneFound = false
+
+    struct ICAOOffer: Identifiable {
+        let planId: UUID
+        let renames: [ICAORename]
+        var id: UUID { planId }
+    }
 
     enum ExportFormat: String, CaseIterable {
         case gpx = "GPX"
@@ -142,6 +151,19 @@ struct FlightPlanningView: View {
             }
         } message: {
             Text(L10n.Routes.renameMessage)
+        }
+        .sheet(item: $icaoOffer) { offer in
+            ICAONamesSheet(renames: offer.renames) { chosen in
+                if let plan = flightPlanManager.flightPlans.first(where: { $0.id == offer.planId }), !chosen.isEmpty {
+                    flightPlanManager.updateFlightPlan(ICAONaming.apply(chosen, to: plan))
+                }
+                icaoOffer = nil
+            }
+        }
+        .alert(L10n.ICAONames.title, isPresented: $icaoNoneFound) {
+            Button("OK", role: .cancel) { }
+        } message: {
+            Text(L10n.ICAONames.noneFound)
         }
         .alert(L10n.Nav.importError, isPresented: $showingImportError) {
             Button("OK", role: .cancel) { }
@@ -443,6 +465,14 @@ struct FlightPlanningView: View {
                             Label(L10n.Routes.rename, systemImage: "character.cursor.ibeam")
                         }
 
+                        if plan.waypoints.contains(where: { !$0.name.isEmpty && !FlightPlanGPXParser.isIdentLike($0.name) }) {
+                            Button {
+                                offerICAOCodes(for: plan, fileIdents: [:], whenNone: true)
+                            } label: {
+                                Label(L10n.ICAONames.menu, systemImage: "textformat.abc")
+                            }
+                        }
+
                         if plan.id != flightPlanManager.activeFlightPlan?.id {
                             Button {
                                 activate(plan)
@@ -541,14 +571,42 @@ struct FlightPlanningView: View {
     /// Create a new plan and open the builder immediately — no name/aircraft gate. Defaults to the
     /// selected aircraft; the builder's From/To bar names the plan. (flight-plan revamp)
     private func createAndEditNewPlan() {
-        let ac = appState.settings.selectedAircraft
+        let ac = selectedRouteAircraft
         let plan = flightPlanManager.createFlightPlan(
             name: "",
-            aircraftTypeId: ac.rawValue,
+            aircraftTypeId: ac.typeId,
             aircraftRegistration: ac.registration,
             aircraftModelName: ac.modelName
         )
         editingPlan = plan
+    }
+
+    /// The aircraft selected in the app, premium or bundled. New and imported routes are planned for
+    /// it; they used to take the WT9 whatever was selected. (on-device review #4)
+    private var selectedRouteAircraft: FlightPlanManager.RouteAircraft {
+        if let id = appState.settings.selectedRemoteAircraftId,
+           let meta = aircraftDataService.availableAircraft.first(where: { $0.id == id }) {
+            return .init(typeId: meta.aircraftType, registration: meta.registration, modelName: meta.modelName)
+        }
+        let ac = appState.settings.selectedAircraft
+        return .init(typeId: ac.rawValue, registration: ac.registration, modelName: ac.modelName)
+    }
+
+    /// Offers ICAO codes for the route's place names: the file's own codes, else the aerodrome the
+    /// waypoint sits on. Nothing to offer, nothing shown (after an import); from the menu, it says so.
+    private func offerICAOCodes(for plan: FlightPlan, fileIdents: [UUID: String], whenNone: Bool) {
+        Task {
+            await airportDataService.ensureLoaded()
+            let renames = ICAONaming.suggestions(for: plan, fileIdents: fileIdents) { coordinate in
+                airportDataService.nearestAirport(to: coordinate, maxDistanceNm: 0.5,
+                                                  types: [.smallAirport, .mediumAirport, .largeAirport])?.ident
+            }
+            if !renames.isEmpty {
+                icaoOffer = ICAOOffer(planId: plan.id, renames: renames)
+            } else if whenNone {
+                icaoNoneFound = true
+            }
+        }
     }
 
     /// Deactivate the active plan, asking first ONLY when there is something to lose.
@@ -636,8 +694,9 @@ struct FlightPlanningView: View {
                 }
 
                 let data = try Data(contentsOf: url)
-                if let _ = flightPlanManager.importFlightPlan(from: data) {
-                    // Success - plan was imported
+                if let (plan, fileIdents) = flightPlanManager.importRoute(from: data, aircraft: selectedRouteAircraft) {
+                    // A SkyDemon route names aerodromes after their place: offer their codes.
+                    offerICAOCodes(for: plan, fileIdents: fileIdents, whenNone: false)
                 } else {
                     importError = L10n.Nav.importErrorFormat
                     showingImportError = true
@@ -1075,3 +1134,72 @@ struct FlightPlanDocument: FileDocument {
         .environmentObject(FlightPlanManager())
         .environmentObject(LocationManager())
 }
+
+// MARK: - ICAO codes for place names (on-device review #4)
+
+/// "Use ICAO codes?" after importing a route that names aerodromes after their place (SkyDemon:
+/// "Samedan", "Bressaucourt"), or from a route's menu. One switch per waypoint, all on; the place
+/// name moves to the waypoint's remarks.
+struct ICAONamesSheet: View {
+    let renames: [ICAORename]
+    let onDone: ([ICAORename]) -> Void
+
+    @State private var chosen: Set<UUID> = []
+
+    var body: some View {
+        NavigationStack {
+            List {
+                Section {
+                    ForEach(renames) { rename in
+                        Toggle(isOn: Binding(
+                            get: { chosen.contains(rename.id) },
+                            set: { on in if on { chosen.insert(rename.id) } else { chosen.remove(rename.id) } }
+                        )) {
+                            HStack(spacing: 10) {
+                                Text("\(rename.number)")
+                                    .font(.aero(.subheadline, design: .monospaced).weight(.bold))
+                                    .foregroundColor(.aviationGold)
+                                    .frame(minWidth: 24, alignment: .leading)
+                                Text(rename.name)
+                                    .font(.aero(.body))
+                                    .foregroundColor(.primaryText)
+                                Image(systemName: "arrow.right")
+                                    .font(.aero(.caption))
+                                    .foregroundColor(.dimText)
+                                Text(rename.ident)
+                                    .font(.aero(.body, design: .monospaced).weight(.bold))
+                                    .foregroundColor(.primaryText)
+                            }
+                        }
+                        .tint(.aviationGold)
+                    }
+                } header: {
+                    Text(L10n.ICAONames.explainer)
+                        .font(.aero(.subheadline))
+                        .foregroundColor(.secondaryText)
+                        .textCase(nil)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .padding(.bottom, 6)
+                } footer: {
+                    Text(L10n.ICAONames.footer)
+                        .font(.aero(.caption))
+                        .foregroundColor(.dimText)
+                }
+            }
+            .navigationTitle(L10n.ICAONames.title)
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button(L10n.ICAONames.keepNames) { onDone([]) }
+                }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button(L10n.ICAONames.useCodes) { onDone(renames.filter { chosen.contains($0.id) }) }
+                        .fontWeight(.bold)
+                        .disabled(chosen.isEmpty)
+                }
+            }
+        }
+        .onAppear { chosen = Set(renames.map(\.id)) }
+    }
+}
+

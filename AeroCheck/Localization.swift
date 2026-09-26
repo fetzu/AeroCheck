@@ -1415,6 +1415,25 @@ enum L10n {
 
     /// Trips: stops, legs, diversions and continuing after one. (v5.1)
     /// The ground tabs. (v6.0 · P1)
+    /// Naming a flight or a trip. (on-device review #4)
+    enum FlightNames {
+        static let renameFlight = String(localized: "flightNames.renameFlight")
+        static let renameTrip = String(localized: "flightNames.renameTrip")
+        static let renameFlightMessage = String(localized: "flightNames.renameFlightMessage")
+        static let renameTripMessage = String(localized: "flightNames.renameTripMessage")
+    }
+
+    /// ICAO codes for the place names of an imported route. (on-device review #4)
+    enum ICAONames {
+        static let title = String(localized: "icaoNames.title")
+        static let explainer = String(localized: "icaoNames.explainer")
+        static let footer = String(localized: "icaoNames.footer")
+        static let keepNames = String(localized: "icaoNames.keepNames")
+        static let useCodes = String(localized: "icaoNames.useCodes")
+        static let menu = String(localized: "icaoNames.menu")
+        static let noneFound = String(localized: "icaoNames.noneFound")
+    }
+
     /// The Routes list: search, archive, rename. (on-device review #4)
     enum Routes {
         static let searchPrompt = String(localized: "routes.searchPrompt")

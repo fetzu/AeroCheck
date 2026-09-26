@@ -1,6 +1,193 @@
 {
   "sourceLanguage": "en",
   "strings": {
+    "flightNames.renameFlight": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Name this flight"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nommer ce vol"
+          }
+        }
+      }
+    },
+    "flightNames.renameTrip": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Name this trip"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nommer ce voyage"
+          }
+        }
+      }
+    },
+    "flightNames.renameFlightMessage": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Any name you like, whatever its ends. Leave it empty to show the route again."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Le nom de votre choix, quelles que soient ses extrémités. Laissez vide pour réafficher la route."
+          }
+        }
+      }
+    },
+    "flightNames.renameTripMessage": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "A name for the whole trip; each leg keeps its own. Leave it empty to show its aerodromes again."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Un nom pour tout le voyage ; chaque étape garde le sien. Laissez vide pour réafficher ses aérodromes."
+          }
+        }
+      }
+    },
+    "icaoNames.title": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Use ICAO codes?"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Utiliser les codes OACI ?"
+          }
+        }
+      }
+    },
+    "icaoNames.explainer": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This route names these aerodromes after their place. AéroCheck can use their ICAO codes instead: PPR, landing fees, fuel and frequencies are looked up by code."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cette route désigne ces aérodromes par leur lieu. AéroCheck peut utiliser leurs codes OACI à la place : PPR, taxes d'atterrissage, carburant et fréquences sont cherchés par code."
+          }
+        }
+      }
+    },
+    "icaoNames.footer": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Each place name is kept in its waypoint's remarks. You can rename a waypoint at any time in the route editor."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chaque nom de lieu est conservé dans les remarques de son point. Vous pouvez renommer un point à tout moment dans l'éditeur de route."
+          }
+        }
+      }
+    },
+    "icaoNames.keepNames": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Keep the names"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Garder les noms"
+          }
+        }
+      }
+    },
+    "icaoNames.useCodes": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Use the codes"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Utiliser les codes"
+          }
+        }
+      }
+    },
+    "icaoNames.menu": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Use ICAO codes…"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Utiliser les codes OACI…"
+          }
+        }
+      }
+    },
+    "icaoNames.noneFound": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No waypoint of this route is named after an aerodrome with an ICAO code."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aucun point de cette route ne porte le nom d'un aérodrome ayant un code OACI."
+          }
+        }
+      }
+    },
     "routes.searchPrompt": {
       "extractionState": "manual",
       "localizations": {

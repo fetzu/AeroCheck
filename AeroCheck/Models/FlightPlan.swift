@@ -1297,9 +1297,17 @@ extension FlightPlan {
 
     /// Import flight plan from GPX data
     static func fromGPX(_ data: Data) -> FlightPlan? {
+        fromGPXWithIdents(data)?.plan
+    }
+
+    /// The plan, and the ICAO code the file gives for each waypoint it named after a place:
+    /// SkyDemon writes `<name>Samedan</name><sym>LSZS</sym>`. The import offers those codes instead
+    /// of the names (`ICAONaming`). (on-device review #4)
+    static func fromGPXWithIdents(_ data: Data) -> (plan: FlightPlan, fileIdents: [UUID: String])? {
         let parser = FlightPlanGPXParser(data: data)
         // SEC-C17: same validator as the JSON path — the two importers had diverged.
-        return parser.parse()?.validatedForIngest()
+        guard let plan = parser.parse()?.validatedForIngest() else { return nil }
+        return (plan, parser.fileIdents)
     }
 
     /// Escape XML special characters (delegates to the shared `String.xmlEscaped`).
@@ -1349,6 +1357,8 @@ class FlightPlanGPXParser: NSObject, XMLParserDelegate {
     private var currentLevelFeet: Double?
     private var currentExplicitAltitude: Double?
     private var syms: [String?] = []
+    /// The 4-letter code the file gives for a waypoint it names after a place, by waypoint id.
+    private(set) var fileIdents: [UUID: String] = [:]
     private var eleFeet: [Double?] = []
     private var levelsFeet: [Double?] = []
     private var explicitAltitudes: [Double?] = []
@@ -1529,6 +1539,9 @@ class FlightPlanGPXParser: NSObject, XMLParserDelegate {
                     if waypoint.name.isEmpty, let sym = currentSym, Self.isIdentLike(sym) {
                         waypoint.name = sym
                     }
+                    if let sym = currentSym, ICAONaming.isICAO(sym), waypoint.name.uppercased() != sym {
+                        fileIdents[waypoint.id] = sym
+                    }
                     waypoints.append(waypoint)
                     syms.append(currentSym)
                     eleFeet.append(currentEleFeet)
@@ -1567,6 +1580,59 @@ extension CLLocationCoordinate2D {
 
         let bearing = atan2(y, x) * 180 / .pi
         return (bearing + 360).truncatingRemainder(dividingBy: 360)
+    }
+}
+
+// MARK: - ICAO codes for place names (on-device review #4)
+
+/// One waypoint named after a place ("Samedan") that is an aerodrome with an ICAO code (LSZS).
+struct ICAORename: Identifiable, Equatable {
+    var id: UUID { waypointId }
+    let waypointId: UUID
+    /// 1-based, as the route editor numbers it.
+    let number: Int
+    let name: String
+    let ident: String
+}
+
+/// Offering ICAO codes in place of place names.
+///
+/// SkyDemon names aerodromes after their place: an imported route read "Samedan → Bressaucourt"
+/// where the rest of the app reads LSZS → LSZQ, and PPR, fees and destination fuel, which are
+/// looked up by code, found nothing for it. Some pilots prefer the place names, so it's offered,
+/// waypoint by waypoint, never imposed.
+enum ICAONaming {
+    static func isICAO(_ text: String) -> Bool {
+        text.range(of: "^[A-Z]{4}$", options: .regularExpression) != nil
+    }
+
+    /// The code the file gives, else the aerodrome the waypoint sits on (`aerodromeAt`, by position),
+    /// for every waypoint whose name is a place rather than a code.
+    static func suggestions(for plan: FlightPlan, fileIdents: [UUID: String],
+                            aerodromeAt: (CLLocationCoordinate2D) -> String?) -> [ICAORename] {
+        plan.waypoints.enumerated().compactMap { index, waypoint in
+            let name = waypoint.name.trimmingCharacters(in: .whitespaces)
+            // Unnamed (shown as WPTn) or already a code, a reporting point or a navaid: nothing to offer.
+            guard !name.isEmpty, !FlightPlanGPXParser.isIdentLike(name) else { return nil }
+            guard let ident = fileIdents[waypoint.id] ?? aerodromeAt(waypoint.coordinate),
+                  isICAO(ident) else { return nil }
+            return ICAORename(waypointId: waypoint.id, number: index + 1, name: name, ident: ident)
+        }
+    }
+
+    /// The plan with the chosen codes in place of the names. Each place name moves to its
+    /// waypoint's remarks when those are empty, so it isn't lost.
+    static func apply(_ renames: [ICAORename], to plan: FlightPlan) -> FlightPlan {
+        var result = plan
+        let byId = Dictionary(renames.map { ($0.waypointId, $0) }, uniquingKeysWith: { first, _ in first })
+        for index in result.waypoints.indices {
+            guard let rename = byId[result.waypoints[index].id] else { continue }
+            if result.waypoints[index].remarks.trimmingCharacters(in: .whitespaces).isEmpty {
+                result.waypoints[index].remarks = rename.name
+            }
+            result.waypoints[index].name = rename.ident
+        }
+        return result
     }
 }
 

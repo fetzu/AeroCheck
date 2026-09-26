@@ -153,8 +153,17 @@ struct FlightThread: Codable, Identifiable, Equatable, Sendable {
     /// Route label captured at creation ("LSZQ → LSGY"), so the thread still reads correctly after the
     /// plan it came from is edited or deleted.
     var routeLabel: String
+    /// The pilot's name for the flight, whatever its ends: "Rhine valley, home". Optional, so
+    /// threads written before decode unchanged. (on-device review #4)
+    var name: String?
     var aircraftRegistration: String?
     var scheduledDeparture: Date?
+
+    /// What the flight is called on screen: the pilot's name, else the route label.
+    var displayName: String {
+        let trimmed = name?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        return trimmed.isEmpty ? routeLabel : trimmed
+    }
 
     /// ISO-2 countries the route actually touches, recorded when the tasks are generated.
     ///

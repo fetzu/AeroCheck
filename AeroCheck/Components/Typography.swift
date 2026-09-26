@@ -65,31 +65,49 @@ extension Font {
     }
 }
 
-/// The in-flight type scale, sized for an iPad on a kneeboard, read from about 55 cm. FAA HFDS asks
-/// for a cap height of at least 1/200 of the viewing distance (about 2.75 mm, 20 pt on an iPad Air)
-/// and prefers 1/167 (about 3.3 mm, 24 pt). Anything read in flight uses one of these. (v6.0 · P6)
-enum CockpitType {
-    /// Secondary labels: units, captions, counters, hints.
-    static let label: CGFloat = 20
-    /// Checklist rows and list rows.
-    static let row: CGFloat = 24
-    /// The current checklist item's response.
-    static let response: CGFloat = 28
-    /// Labels of the buttons in the thumb bar.
-    static let button: CGFloat = 30
-    /// The current checklist item's challenge.
-    static let item: CGFloat = 42
-    /// Instrument values: speed, altitude, track.
-    static let value: CGFloat = 48
+/// Which in-flight scale this device reads at. The scale is physical, so it follows the device, not
+/// the window: a phone point is 0.166 mm (iPhone 17, 460 ppi at 3×), an iPad Air point 0.192 mm (264 ppi
+/// at 2×), and a phone is read closer, in the hand or on a yoke clip at about 40 cm rather than a
+/// kneeboard's 55. The phone's sizes are the iPad's × 0.85, the same angle at the eye. (iPhone pass, I6)
+enum CockpitScale: Equatable {
+    case kneeboard
+    case phone
+
+    static let current: CockpitScale = UIDevice.current.userInterfaceIdiom == .phone ? .phone : .kneeboard
 }
 
-/// Touch targets in flight, from the same kneeboard yardsticks: an EFB control wants about 15 mm
-/// (78 pt on an iPad Air), a critical one about 20 mm (104 pt, Avsar et al.). (v6.0 · P6)
+/// The in-flight type scale. On the iPad, sized for a kneeboard read from about 55 cm: FAA HFDS asks
+/// for a cap height of at least 1/200 of the viewing distance (about 2.75 mm, 20 pt on an iPad Air)
+/// and prefers 1/167 (about 3.3 mm, 24 pt). On the phone, the same angles from about 40 cm
+/// (`CockpitScale`). Anything read in flight uses one of these. (v6.0 · P6)
+enum CockpitType {
+    /// Secondary labels: units, captions, counters, hints.
+    static var label: CGFloat { size(kneeboard: 20, phone: 17) }
+    /// Checklist rows and list rows.
+    static var row: CGFloat { size(kneeboard: 24, phone: 20) }
+    /// The current checklist item's response.
+    static var response: CGFloat { size(kneeboard: 28, phone: 24) }
+    /// Labels of the buttons in the thumb bar.
+    static var button: CGFloat { size(kneeboard: 30, phone: 25) }
+    /// The current checklist item's challenge.
+    static var item: CGFloat { size(kneeboard: 42, phone: 36) }
+    /// Instrument values: speed, altitude, track. 36 on the phone rather than 41: three values across
+    /// its width, "10500" among them, set the limit.
+    static var value: CGFloat { size(kneeboard: 48, phone: 36) }
+
+    static func size(kneeboard: CGFloat, phone: CGFloat, scale: CockpitScale = .current) -> CGFloat {
+        scale == .phone ? phone : kneeboard
+    }
+}
+
+/// Touch targets in flight, from the same yardsticks: an EFB control wants about 15 mm (78 pt on an
+/// iPad Air), a critical one about 20 mm (104 pt, Avsar et al.). The phone's thumb bar keeps the 15 mm
+/// (92 pt); 20 mm would take the checklist's room. (v6.0 · P6, iPhone pass I6)
 enum CockpitTarget {
     /// The thumb bar: CHECK, MARK and their neighbours.
-    static let thumb: CGFloat = 104
+    static var thumb: CGFloat { CockpitType.size(kneeboard: 104, phone: 92) }
     /// Controls over the map: Map, orientation, centre, zoom. Short enough to leave the map visible.
-    static let control: CGFloat = 64
+    static var control: CGFloat { CockpitType.size(kneeboard: 64, phone: 50) }
 }
 
 extension Font {

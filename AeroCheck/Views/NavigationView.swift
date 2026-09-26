@@ -243,6 +243,8 @@ struct NavigationMapView: View {
     @State private var showCacheInfoModal: Bool = false
     @State private var showSigmets: Bool = false
     @State private var showFlightPlanning: Bool = false
+    /// The iPhone top bar's height: one row, or two when its instruments go under the buttons.
+    @State private var compactTopBarHeight: CGFloat = 0
     /// Whether the flight-plan sheet (bottom bar) is expanded to show the full plan detail. (v4 UI/UX Revamp — inc C)
     @State private var navSheetExpanded: Bool = false
     /// True once the map has snapped to the aircraft after opening, so the first GPS fix centers
@@ -453,8 +455,9 @@ struct NavigationMapView: View {
         // On iPad the pill sits in the chrome stack, under the next-waypoint card and the map controls.
         .overlay(alignment: .top) {
             if shouldUseCompactLayout {
+                // Under the top bar, which is taller when its instruments go under the buttons.
                 routeOffScreenPill
-                    .padding(.top, 104)
+                    .padding(.top, max(104, compactTopBarHeight + 20))
                     .animation(reduceMotion ? nil : .easeInOut(duration: 0.25), value: routeOffScreenHint) // (UX-18)
             }
         }
@@ -955,7 +958,43 @@ struct NavigationMapView: View {
 
     // MARK: - Compact Top Bar
 
+    /// The buttons either side and the instruments between them, on one row when they fit. When they
+    /// don't (a route adds its buttons on the left, and the phase's name widens the box), the
+    /// instruments go under the buttons: squeezed between them, "2 500 ft" broke into "2′ / 50 / 0" and
+    /// the time into "18:2 / 3:51". (iPhone pass)
     private var compactTopBar: some View {
+        ViewThatFits(in: .horizontal) {
+            HStack(spacing: 8) {
+                compactLeadingButtons
+                Spacer(minLength: 4)
+                compactStatusBox
+                Spacer(minLength: 4)
+                compactTrailingButtons
+            }
+            VStack(spacing: 6) {
+                HStack(spacing: 8) {
+                    compactLeadingButtons
+                    Spacer(minLength: 4)
+                    compactTrailingButtons
+                }
+                compactStatusBox
+            }
+        }
+        .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { compactTopBarHeight = $0 }
+        // Presented from here, not from the buttons: `ViewThatFits` holds each button twice.
+        .sheet(isPresented: $showOverlaysSheet) {
+            OverlaysSheet()
+                .environment(appState)
+                .environmentObject(openAIPDataService)
+                .environmentObject(dataStatusManager)
+        }
+        .sheet(isPresented: $showLayerPicker) {
+            LayerPickerSheet(selectedLayer: $selectedLayer)
+                .environment(appState)
+        }
+    }
+
+    private var compactLeadingButtons: some View {
         HStack(spacing: 8) {
             // Close button
             if showsCloseButton {
@@ -994,100 +1033,101 @@ struct NavigationMapView: View {
                 divertButton(iconOnly: true)
                     .floatingChromeBackground(cornerRadius: 8)
             } else {
-                // When no flight plan is active, show button to open flight planning view
-                Button(action: { showFlightPlanning = true }) {
+                // When no flight plan is active, the routes: Plan › Map switches to Plan › Routes, as
+                // on the iPad; elsewhere they open as a cover (the view's own `fullScreenCover`).
+                Button(action: { if let onShowRoutes { onShowRoutes() } else { showFlightPlanning = true } }) {
                     Image(systemName: "map.fill")
                         .font(.aero(size: 12))
                         .foregroundColor(theme.textPrimary)
                         .frame(width: 44, height: 44) // HIG minimum tap target (UX-16)
                         .floatingChromeBackground(cornerRadius: 8)
                 }
-                .fullScreenCover(isPresented: $showFlightPlanning) {
-                    FlightPlanningView()
-                        .environment(appState)
-                        .environmentObject(flightPlanManager)
-                        .environmentObject(airportDataService)
-                        .environmentObject(aircraftDataService)
-                        .environmentObject(openAIPDataService)
-                        .environmentObject(locationManager)
-                }
             }
+        }
+    }
 
-            Spacer()
+    /// Time, speed, altitude and heading, with the phase under them in flight. Every figure keeps its
+    /// width: the box grows, or moves under the buttons, rather than break a number. (iPhone pass)
+    private var compactStatusBox: some View {
+        VStack(spacing: 0) {
+            VStack(spacing: 2) {
+                // Row 1: Time + Speed
+                HStack(spacing: 6) {
+                    // Time
+                    NavClockText(useUTC: appState.settings.alwaysUseUTC,
+                                 font: .aero(size: 11, weight: .medium, design: .monospaced),
+                                 color: theme.textPrimary)
 
-            // Compact time/speed/altitude/heading display (two rows)
-            VStack(spacing: 0) {
-                VStack(spacing: 2) {
-                    // Row 1: Time + Speed
-                    HStack(spacing: 6) {
-                        // Time
-                        NavClockText(useUTC: appState.settings.alwaysUseUTC,
-                                     font: .aero(size: 11, weight: .medium, design: .monospaced),
-                                     color: theme.textPrimary)
-
-                        Rectangle()
-                            .fill(theme.textDim)
-                            .frame(width: 1, height: 14)
-
-                        // Speed
-                        HStack(spacing: 1) {
-                            Text("\(Int(locationManager.currentSpeedKnots))")
-                                .font(.aero(size: 12, weight: .bold, design: .monospaced))
-                            Text("kt")
-                                .font(.aero(size: 12)) // ≥12pt for glance legibility (UX-17)
-                        }
-                        .foregroundColor(speedColor)
-                    }
-
-                    // Row 2: Altitude + Heading
-                    HStack(spacing: 6) {
-                        // Altitude
-                        HStack(spacing: 1) {
-                            Text("\(Int(locationManager.currentAltitudeFeet))")
-                                .font(.aero(size: 12, weight: .bold, design: .monospaced))
-                            Text("ft")
-                                .font(.aero(size: 12)) // ≥12pt (UX-17)
-                        }
-                        .foregroundColor(theme.textPrimary)   // data is white (v6.0 · P5)
-
-                        Rectangle()
-                            .fill(theme.textDim)
-                            .frame(width: 1, height: 14)
-
-                        // Heading
-                        HStack(spacing: 1) {
-                            Text(String(format: "%03d", currentHeading))
-                                .font(.aero(size: 12, weight: .bold, design: .monospaced))
-                            Text("°")
-                                .font(.aero(size: 12)) // ≥12pt (UX-17)
-                        }
-                        .foregroundColor(theme.textPrimary)   // data is white (v6.0 · P5)
-                    }
-                }
-                .padding(.horizontal, 8)
-                .padding(.vertical, 5)
-
-                // "Next Check" line integrated in the info box
-                if appState.isFlightActive {
                     Rectangle()
-                        .fill(theme.textDim.opacity(0.3))
-                        .frame(height: 0.5)
+                        .fill(theme.textDim)
+                        .frame(width: 1, height: 14)
 
-                    HStack(spacing: 4) {
-                        Image(systemName: "checkmark.circle")
-                            .font(.aero(size: 9))
-                        Text("Next: \(appState.currentPhase.title)")
-                            .font(.aero(size: 10, weight: .medium))
+                    // Speed
+                    HStack(spacing: 1) {
+                        Text("\(Int(locationManager.currentSpeedKnots))")
+                            .font(.aero(size: 12, weight: .bold, design: .monospaced))
+                        Text("kt")
+                            .font(.aero(size: 12)) // ≥12pt for glance legibility (UX-17)
                     }
-                    .foregroundColor(theme.action)
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 3)
+                    .foregroundColor(speedColor)
+                }
+
+                // Row 2: Altitude + Heading
+                HStack(spacing: 6) {
+                    // Altitude
+                    HStack(spacing: 1) {
+                        Text("\(Int(locationManager.currentAltitudeFeet))")
+                            .font(.aero(size: 12, weight: .bold, design: .monospaced))
+                        Text("ft")
+                            .font(.aero(size: 12)) // ≥12pt (UX-17)
+                    }
+                    .foregroundColor(theme.textPrimary)   // data is white (v6.0 · P5)
+
+                    Rectangle()
+                        .fill(theme.textDim)
+                        .frame(width: 1, height: 14)
+
+                    // Heading
+                    HStack(spacing: 1) {
+                        Text(String(format: "%03d", currentHeading))
+                            .font(.aero(size: 12, weight: .bold, design: .monospaced))
+                        Text("°")
+                            .font(.aero(size: 12)) // ≥12pt (UX-17)
+                    }
+                    .foregroundColor(theme.textPrimary)   // data is white (v6.0 · P5)
                 }
             }
-            .floatingChromeBackground(cornerRadius: 8)
+            .lineLimit(1)
+            .fixedSize()
+            .padding(.horizontal, 8)
+            .padding(.vertical, 5)
 
-            Spacer()
+            // "Next Check" line integrated in the info box
+            if appState.isFlightActive {
+                Rectangle()
+                    .fill(theme.textDim.opacity(0.3))
+                    .frame(height: 0.5)
 
+                HStack(spacing: 4) {
+                    Image(systemName: "checkmark.circle")
+                        .font(.aero(size: 9))
+                    Text("Next: \(appState.currentPhase.title)")
+                        .font(.aero(size: 10, weight: .medium))
+                        .lineLimit(1)
+                }
+                .fixedSize()
+                .foregroundColor(theme.action)
+                .padding(.horizontal, 8)
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 3)
+            }
+        }
+        .fixedSize()
+        .floatingChromeBackground(cornerRadius: 8)
+    }
+
+    private var compactTrailingButtons: some View {
+        HStack(spacing: 8) {
             // Layers button → grouped overlays sheet (airspace/tiles · markers + show-all · track vector).
             // (v4.1.0 ② — iPhone reaches every layer toggle here; the map-type picker is its own button.)
             Button(action: { showOverlaysSheet = true }) {
@@ -1111,12 +1151,6 @@ struct NavigationMapView: View {
                         .accessibilityHidden(true)
                 }
             }
-            .sheet(isPresented: $showOverlaysSheet) {
-                OverlaysSheet()
-                    .environment(appState)
-                    .environmentObject(openAIPDataService)
-                    .environmentObject(dataStatusManager)
-            }
 
             // Map-type picker button (shows the cache info modal in offline mode).
             Button(action: {
@@ -1133,10 +1167,6 @@ struct NavigationMapView: View {
                     .floatingChromeCircle()
             }
             .accessibilityLabel(L10n.MapLayer.title)
-            .sheet(isPresented: $showLayerPicker) {
-                LayerPickerSheet(selectedLayer: $selectedLayer)
-                    .environment(appState)
-            }
         }
     }
 

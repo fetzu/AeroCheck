@@ -149,7 +149,11 @@ struct PlanTabView: View {
                 case .routes:
                     FlightPlanningView(isEmbedded: true)
                 case .map:
-                    NavigationMapView(isPresented: $mapPresented, showsCloseButton: false)
+                    // The in-flight map's chrome, exactly: no clock/speed/altitude bar or GPS chip over
+                    // the map controls (they sat on top of them), the same controls in the same places.
+                    // (on-device review #4)
+                    NavigationMapView(isPresented: $mapPresented, showsCloseButton: false, isInCockpit: true,
+                                      onShowRoutes: { section = .routes })
                 }
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)

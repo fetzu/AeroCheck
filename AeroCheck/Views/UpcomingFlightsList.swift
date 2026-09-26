@@ -21,18 +21,8 @@ struct UpcomingFlightsList: View {
 
     private var needsAttention: [FlightThread] { threads.filter { $0.state == .closeOut } }
 
-    /// Upcoming legs that are NOT part of a trip. A trip's legs are shown under their trip instead
-    /// of loose in the list, where three rows for one journey would read as three journeys.
-    private var ahead: [FlightThread] {
-        threads.filter { $0.state != .closeOut && $0.tripId == nil }
-    }
-
-    /// Trips with at least one leg still owing something.
-    private var upcomingTrips: [Trip] {
-        trips.filter { trip in
-            trip.legIds.contains { id in threads.contains { $0.id == id && $0.state != .closeOut } }
-        }
-    }
+    /// What's ahead, in the order it will be flown. (on-device review #4)
+    private var upcoming: [UpcomingOrder.Entry] { UpcomingOrder.entries(threads: threads, trips: trips) }
 
     var body: some View {
         ScrollView {
@@ -46,14 +36,18 @@ struct UpcomingFlightsList: View {
                     if !needsAttention.isEmpty {
                         section(L10n.Flights.needsAttention, tint: .aviationRed, threads: needsAttention)
                     }
-                    if !upcomingTrips.isEmpty || !ahead.isEmpty {
+                    if !upcoming.isEmpty {
                         VStack(alignment: .leading, spacing: 8) {
                             Text(L10n.Flights.upcoming.uppercased())
                                 .scaledFont(size: 11, weight: .bold, design: .monospaced, relativeTo: .caption2)
                                 .foregroundColor(.secondaryText)
                                 .tracking(0.8)
-                            ForEach(upcomingTrips) { trip in tripRow(trip) }
-                            ForEach(ahead) { thread in row(thread) }
+                            ForEach(upcoming) { entry in
+                                switch entry {
+                                case .trip(let trip): tripRow(trip)
+                                case .flight(let thread): row(thread)
+                                }
+                            }
                         }
                     }
                 }
@@ -260,5 +254,51 @@ struct UpcomingFlightsList: View {
         let remaining = max(0, progress.total - progress.done)
         if remaining > 0 { parts.append(L10n.Flights.toDo(remaining)) }
         return parts.joined(separator: " · ")
+    }
+}
+
+// MARK: - Order
+
+/// The Upcoming list's order: the soonest planned departure first, then the flights with no date
+/// yet, newest first. A trip is one entry, at the date of its first leg still to fly.
+///
+/// The list used to be two runs, every trip and then every flight, each by when it was last
+/// EDITED: a flight planned for the 28th sat above one planned for the 27th because it had been
+/// touched more recently. (on-device review #4)
+enum UpcomingOrder {
+    enum Entry: Identifiable {
+        case trip(Trip)
+        case flight(FlightThread)
+
+        var id: UUID {
+            switch self {
+            case .trip(let trip): return trip.id
+            case .flight(let thread): return thread.id
+            }
+        }
+    }
+
+    static func entries(threads: [FlightThread], trips: [Trip]) -> [Entry] {
+        let ahead = threads.filter { $0.state != .closeOut }
+        // Trips with at least one leg still owing something; their date is that leg's.
+        let tripEntries: [(Entry, Date?, Date)] = trips.compactMap { trip in
+            let legs = trip.legIds.compactMap { id in ahead.first { $0.id == id } }
+            guard !legs.isEmpty else { return nil }
+            let date = legs.compactMap(\.scheduledDeparture).min() ?? trip.scheduledStart
+            return (.trip(trip), date, trip.createdAt)
+        }
+        // A trip's legs are shown under their trip, not loose: three rows for one journey would
+        // read as three journeys.
+        let flightEntries: [(Entry, Date?, Date)] = ahead.filter { $0.tripId == nil }.map {
+            (.flight($0), $0.scheduledDeparture, $0.createdAt)
+        }
+        return (tripEntries + flightEntries).sorted { a, b in
+            switch (a.1, b.1) {
+            case let (x?, y?): return x != y ? x < y : a.2 > b.2
+            case (.some, nil): return true
+            case (nil, .some): return false
+            case (nil, nil): return a.2 > b.2
+            }
+        }.map(\.0)
     }
 }

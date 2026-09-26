@@ -717,6 +717,8 @@ class AppState {
     var groundTab: GroundTab = .today
     /// A Settings page to open the next time the Settings tab shows (the Data chip on Today). (v6.0 · P1)
     var pendingSettingsSection: SettingsView.Section?
+    /// A Plan section to open the next time the Plan tab shows (Today's route strip opens Routes).
+    var pendingPlanSection: PlanTabView.Section?
 
     /// Set when iCloud sync auto-merged (or couldn't merge) a conflicting flight edit, so the UI can
     /// surface it instead of the conflict being silent. (ARCH-02)

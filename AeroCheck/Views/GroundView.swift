@@ -125,9 +125,18 @@ struct PlanTabView: View {
         }
     }
 
+    @Environment(AppState.self) private var appState
+    @Environment(\.horizontalSizeClass) private var horizontalSizeClass
     @State private var section: Section = .flights
     /// The embedded map has no close button; this only satisfies its binding.
     @State private var mapPresented = true
+
+    private var picker: some View {
+        Picker(L10n.Ground.plan, selection: $section) {
+            ForEach(Section.allCases, id: \.self) { Text($0.title).tag($0) }
+        }
+        .pickerStyle(.segmented)
+    }
 
     var body: some View {
         // One navigation stack, at the tab's root, as the other tabs have. The sections bring none of
@@ -136,12 +145,14 @@ struct PlanTabView: View {
         // #1, G-07)
         NavigationStack {
             VStack(spacing: 0) {
-                Picker(L10n.Ground.plan, selection: $section) {
-                    ForEach(Section.allCases, id: \.self) { Text($0.title).tag($0) }
+                // On the iPhone the bar has a row of its own, shown only when a section has actions:
+                // the picker dropped by a bar's height on Routes and came back up on Flights. There it
+                // sits in the bar, which every section then shows. (iPhone pass)
+                if horizontalSizeClass != .compact {
+                    picker
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 8)
                 }
-                .pickerStyle(.segmented)
-                .padding(.horizontal, 16)
-                .padding(.vertical, 8)
 
                 switch section {
                 case .flights:
@@ -160,6 +171,22 @@ struct PlanTabView: View {
             .background(Color.cockpitBackground.ignoresSafeArea())
             .navigationTitle("")
             .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                if horizontalSizeClass == .compact {
+                    ToolbarItem(placement: .principal) {
+                        picker.frame(maxWidth: 250)
+                    }
+                }
+            }
         }
+        // A section asked for from elsewhere: Today's route strip opens Routes. (iPhone pass)
+        .onAppear { openPendingSection() }
+        .onChange(of: appState.pendingPlanSection) { _, _ in openPendingSection() }
+    }
+
+    private func openPendingSection() {
+        guard let pending = appState.pendingPlanSection else { return }
+        appState.pendingPlanSection = nil
+        section = pending
     }
 }

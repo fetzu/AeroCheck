@@ -216,6 +216,12 @@ struct ContentView: View {
         .onChange(of: routeDateSweepReady) { _, ready in
             if ready { sweepRouteDates() }
         }
+        // START FLIGHT from a flight opened in Plan › Flights. (round 6)
+        .onChange(of: appState.pendingFlightStart) { _, request in
+            guard let request else { return }
+            appState.pendingFlightStart = nil
+            startFollowedFlight(threadId: request.threadId, circuits: request.circuits)
+        }
         // Re-derive the AUTO rows whenever a plan changes anywhere. The flight screen refreshes
         // itself on appear, but Home's strip advertises the next task and the readiness ring off the
         // same tasks — so without this, entering the fuel on the plan editor left Home still saying

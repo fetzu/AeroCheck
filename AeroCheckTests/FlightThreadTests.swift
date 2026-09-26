@@ -861,4 +861,21 @@ extension FlightThreadTests {
         XCTAssertEqual(after.count, before + 1,
                        "filing adds the close-out task and nothing else")
     }
+
+    // MARK: - Starting a flight planned for another day (round 6)
+
+    func testAFlightIsDueOnItsDayOrWhenUndated() {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = TimeZone(identifier: "Europe/Zurich")!
+        let now = calendar.date(from: DateComponents(year: 2026, month: 9, day: 26, hour: 23, minute: 2))!
+        var thread = FlightThread(routeLabel: "LZPE → EDME")
+
+        XCTAssertTrue(thread.isDueToday(now: now, calendar: calendar), "undated: START FLIGHT")
+        thread.scheduledDeparture = calendar.date(from: DateComponents(year: 2026, month: 9, day: 26, hour: 7))
+        XCTAssertTrue(thread.isDueToday(now: now, calendar: calendar), "earlier today")
+        thread.scheduledDeparture = calendar.date(from: DateComponents(year: 2026, month: 9, day: 27, hour: 10))
+        XCTAssertFalse(thread.isDueToday(now: now, calendar: calendar), "tomorrow at 10:00: Start now, with a question")
+        thread.scheduledDeparture = calendar.date(from: DateComponents(year: 2026, month: 9, day: 25, hour: 10))
+        XCTAssertFalse(thread.isDueToday(now: now, calendar: calendar), "yesterday's, not flown")
+    }
 }

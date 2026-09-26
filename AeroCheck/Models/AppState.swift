@@ -742,6 +742,11 @@ class AppState {
     /// and cleared by the root router, same one-shot contract as the notices above. (v5.0.0)
     var pendingThreadToOpen: UUID?
 
+    /// A followed flight to start, asked for by a screen that can't run the launch itself (Plan ›
+    /// Flights). Consumed and cleared by the root, which starts it as a thread notification would.
+    /// (round 6)
+    var pendingFlightStart: PendingFlightStart?
+
     // Navigation view session state (not persisted to disk — resets on app restart).
     // One cohesive value (selected layer + orientation) instead of two loose @Published properties.
     var navigationMapState = NavigationMapState()
@@ -2349,4 +2354,10 @@ extension AppState {
     func formatTime(_ date: Date) -> String {
         FlightClock.formattedTimeOfDay(date, useUTC: settings.alwaysUseUTC)
     }
+}
+
+/// See `AppState.pendingFlightStart`.
+struct PendingFlightStart: Equatable {
+    let threadId: UUID
+    let circuits: Bool
 }

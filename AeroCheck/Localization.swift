@@ -342,6 +342,14 @@ enum L10n {
         static let chapterFly = String(localized: "Fly")
         static let chapterClose = String(localized: "Close")
         static let chapterFlyDetail = String(localized: "16 phases · checklist, nav and briefings")
+        static let startNow = String(localized: "thread.startNow")
+        static let startEarlyTitle = String(localized: "thread.startEarlyTitle")
+        static func plannedFor(_ when: String) -> String {
+            String(format: String(localized: "thread.plannedFor"), when)
+        }
+        static func startEarlyMessage(_ when: String) -> String {
+            String(format: String(localized: "thread.startEarlyMessage"), when)
+        }
 
         // States
         static let statePlanned = String(localized: "PLANNED")

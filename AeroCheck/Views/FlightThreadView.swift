@@ -187,6 +187,8 @@ struct FlightThreadView: View {
     /// Chapters whose ticked tasks are unfolded. Folded by default: the page leads with what is left.
     /// (v6.0 · D3)
     @State private var unfoldedDone: Set<ThreadChapter> = []
+    /// "Start now" pressed on a flight planned for another day: the question before it starts.
+    @State private var confirmingEarlyStart = false
 
     private var thread: FlightThread? { threadManager.thread(withId: threadId) }
 
@@ -912,7 +914,9 @@ struct FlightThreadView: View {
         // The chapter said what happens next without offering to do it, which made FLY the one
         // chapter you had to leave the flight to act on. The 16 phases still live where they always
         // did — this only starts them.
-        if let onStartFlight, thread.flightId == nil {
+        if let onStartFlight, thread.flightId == nil, !isDue(thread) {
+            earlyStart(thread, onStart: onStartFlight)
+        } else if let onStartFlight, thread.flightId == nil {
             Button {
                 onStartFlight(thread.profile == .local)
             } label: {
@@ -935,6 +939,49 @@ struct FlightThreadView: View {
             RoundedRectangle(cornerRadius: 14)
                 .strokeBorder(Color.altimeterBlue.opacity(0.25), lineWidth: 1)
         )
+    }
+
+    /// Today's flight, an undated one, or the next leg from a stop: START FLIGHT, the page's main
+    /// button. (Plan › Flights opens next week's flights too.)
+    private func isDue(_ thread: FlightThread) -> Bool {
+        thread.isDueToday() || threadManager.startableFlightToday?.id == thread.id
+    }
+
+    /// A flight planned for another day starts from its page too: its day and a quieter button, then a
+    /// question, so it isn't started by mistake in place of today's. There was no way to start it
+    /// before its day. (round 6)
+    private func earlyStart(_ thread: FlightThread, onStart: @escaping (Bool) -> Void) -> some View {
+        let when = thread.scheduledDeparture.map(Self.departureText) ?? ""
+        return VStack(alignment: .leading, spacing: 8) {
+            if !when.isEmpty {
+                Text(L10n.Thread.plannedFor(when))
+                    .scaledFont(size: 13, relativeTo: .footnote)
+                    .foregroundColor(.secondaryText)
+            }
+            Button { confirmingEarlyStart = true } label: {
+                HStack(spacing: 8) {
+                    Image(systemName: thread.profile == .local ? "arrow.triangle.2.circlepath" : "play.fill")
+                        .scaledFont(size: 14, weight: .semibold, relativeTo: .subheadline)
+                    Text(L10n.Thread.startNow)
+                        .scaledFont(size: 14, weight: .bold, relativeTo: .subheadline)
+                }
+                .frame(maxWidth: .infinity)
+            }
+            .buttonStyle(SecondaryButtonStyle(color: thread.profile == .local ? .aviationAmber : .aviationGreen,
+                                              isLarge: false))
+            .confirmationDialog(L10n.Thread.startEarlyTitle, isPresented: $confirmingEarlyStart,
+                                titleVisibility: .visible) {
+                Button(L10n.Thread.startNow) { onStart(thread.profile == .local) }
+                Button(L10n.Button.cancel, role: .cancel) {}
+            } message: {
+                if !when.isEmpty { Text(L10n.Thread.startEarlyMessage(when)) }
+            }
+        }
+    }
+
+    /// "Sat 27 Sep, 10:00", in the pilot's locale.
+    private static func departureText(_ date: Date) -> String {
+        date.formatted(.dateTime.weekday(.abbreviated).day().month(.abbreviated).hour().minute())
     }
 
     // MARK: - Open flight plan card

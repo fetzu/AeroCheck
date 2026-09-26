@@ -165,6 +165,13 @@ struct FlightThread: Codable, Identifiable, Equatable, Sendable {
         return trimmed.isEmpty ? routeLabel : trimmed
     }
 
+    /// Planned for the day of `now`, or not dated at all: START FLIGHT is the flight page's main
+    /// button. Planned for another day, it starts after a question. (round 6)
+    func isDueToday(now: Date = Date(), calendar: Calendar = .current) -> Bool {
+        guard let scheduledDeparture else { return true }
+        return calendar.isDate(scheduledDeparture, inSameDayAs: now)
+    }
+
     /// ISO-2 countries the route actually touches, recorded when the tasks are generated.
     ///
     /// Stored rather than recomputed because a regeneration triggered by something other than a plan

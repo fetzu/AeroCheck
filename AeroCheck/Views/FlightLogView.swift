@@ -216,7 +216,13 @@ struct FlightLogView: View {
             set: { if !$0 { threadToOpen = nil } }
         )) {
             if let id = threadToOpen {
+                // Started through the root, which has the launch: a flight opened here had no START
+                // FLIGHT at all. (round 6)
                 FlightThreadView(threadId: id, onClose: { threadToOpen = nil },
+                                 onStartFlight: { circuits in
+                                     threadToOpen = nil
+                                     appState.pendingFlightStart = PendingFlightStart(threadId: id, circuits: circuits)
+                                 },
                                  onOpenLeg: { threadToOpen = $0 })
                     .environmentObject(threadManager)
                     .environmentObject(flightPlanManager)

@@ -1,6 +1,74 @@
 {
   "sourceLanguage": "en",
   "strings": {
+    "thread.startNow": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Start now"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Démarrer maintenant"
+          }
+        }
+      }
+    },
+    "thread.startEarlyTitle": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Start this flight now?"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Démarrer ce vol maintenant ?"
+          }
+        }
+      }
+    },
+    "thread.plannedFor": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Planned for %@"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Prévu le %@"
+          }
+        }
+      }
+    },
+    "thread.startEarlyMessage": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "It is planned for %@."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Il est prévu le %@."
+          }
+        }
+      }
+    },
     "routeEditor.legs": {
       "extractionState": "manual",
       "localizations": {

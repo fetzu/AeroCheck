@@ -805,20 +805,22 @@ struct NavigationMapView: View {
                             .frame(maxWidth: .infinity, alignment: .leading)
                     }
                     nextWaypointLine
-                    HStack(alignment: .top, spacing: 8) {
-                        VStack(alignment: .leading, spacing: 8) {
-                            SigmetChip(hazards: rankedSigmets) { showSigmets = true }
-                            routeOffScreenPill
-                                .animation(reduceMotion ? nil : .easeInOut(duration: 0.25), value: routeOffScreenHint) // (UX-18)
-                        }
-                        Spacer(minLength: 0)
-                        mapControlsColumn
+                    VStack(alignment: .leading, spacing: 8) {
+                        SigmetChip(hazards: rankedSigmets) { showSigmets = true }
+                        routeOffScreenPill
+                            .animation(reduceMotion ? nil : .easeInOut(duration: 0.25), value: routeOffScreenHint) // (UX-18)
                     }
+                    .frame(maxWidth: .infinity, alignment: .leading)
                     Spacer(minLength: 0)
                     mapFooter
+                    // The controls at the foot of the chart, by the thumb, leaving the top (what's
+                    // ahead, in Track up) clear. Labelled where the row has room, icons where not.
+                    mapControlsBottomRow
+                        .frame(maxWidth: .infinity, alignment: .trailing)
                 }
                 .padding(.horizontal, 10)
                 .padding(.top, 8)
+                .padding(.bottom, 8)
             }
 
             // The frequencies, and the legs when opened, under the chart rather than over it.
@@ -905,24 +907,25 @@ struct NavigationMapView: View {
         }
     }
 
-    /// Map, the orientation and Centre, one above the other on the chart's right edge. Zoom is a pinch.
-    private var mapControlsColumn: some View {
-        VStack(alignment: .trailing, spacing: 8) {
-            chromeButton(icon: "square.stack.3d.up", title: L10n.Nav.mapSheet) { showMapSheet = true }
-                .overlay(alignment: .topTrailing) {
-                    if airspaceDataNeedsAttention {
-                        Image(systemName: "exclamationmark.triangle.fill")
-                            .font(.aero(size: 14, weight: .bold))
-                            .foregroundColor(theme.warning)
-                            .padding(4)
-                            .background(theme.panel, in: Circle())
-                            .offset(x: 8, y: -8)
-                            .accessibilityLabel(Text("Airspace data is out of date"))
-                    }
+    /// Map, the orientation and Centre in a row at the foot of the chart: labelled when they fit, icons
+    /// with their names for VoiceOver when they don't (French runs longer). Zoom is a pinch.
+    private var mapControlsBottomRow: some View {
+        ViewThatFits(in: .horizontal) {
+            HStack(spacing: 8) {
+                mapSheetButton(labelled: true)
+                orientationButton
+                chromeButton(icon: isFollowingAircraft ? "location.fill" : "location",
+                             title: L10n.Nav.centre, prominent: !isFollowingAircraft) { centerOnAircraft() }
+            }
+            HStack(spacing: 8) {
+                mapSheetButton(labelled: false)
+                chromeIconButton(icon: mapOrientationMode == .northUp ? "location.north.line" : "location.north.line.fill",
+                                 label: mapOrientationMode == .northUp ? L10n.Nav.northUp : L10n.Nav.trackUp) {
+                    toggleOrientation()
                 }
-            orientationButton
-            chromeButton(icon: isFollowingAircraft ? "location.fill" : "location",
-                         title: L10n.Nav.centre, prominent: !isFollowingAircraft) { centerOnAircraft() }
+                chromeIconButton(icon: isFollowingAircraft ? "location.fill" : "location", label: L10n.Nav.centre,
+                                 prominent: !isFollowingAircraft) { centerOnAircraft() }
+            }
         }
         .sheet(isPresented: $showMapSheet) {
             MapSheet(selectedLayer: $selectedLayer, isOfflineMode: isOfflineMode)
@@ -932,6 +935,44 @@ struct NavigationMapView: View {
                 .environmentObject(dataStatusManager)
                 .environmentObject(offlineMapManager)
         }
+    }
+
+    /// Map, with the stale-airspace cue on it.
+    private func mapSheetButton(labelled: Bool) -> some View {
+        Group {
+            if labelled {
+                chromeButton(icon: "square.stack.3d.up", title: L10n.Nav.mapSheet) { showMapSheet = true }
+            } else {
+                chromeIconButton(icon: "square.stack.3d.up", label: L10n.Nav.mapSheet) { showMapSheet = true }
+            }
+        }
+        .overlay(alignment: .topTrailing) {
+            if airspaceDataNeedsAttention {
+                Image(systemName: "exclamationmark.triangle.fill")
+                    .font(.aero(size: 14, weight: .bold))
+                    .foregroundColor(theme.warning)
+                    .padding(4)
+                    .background(theme.panel, in: Circle())
+                    .offset(x: 8, y: -8)
+                    .accessibilityLabel(Text("Airspace data is out of date"))
+            }
+        }
+    }
+
+    /// A control as a square icon, its name kept for VoiceOver.
+    private func chromeIconButton(icon: String, label: String, prominent: Bool = false,
+                                  action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Image(systemName: icon)
+                .font(.aero(size: CockpitType.label, weight: .semibold))
+                .foregroundColor(prominent ? theme.actionText : theme.action)
+                .frame(width: CockpitTarget.control, height: CockpitTarget.control)
+                .background(RoundedRectangle(cornerRadius: 14).fill(prominent ? theme.action : theme.panel))
+                .overlay(RoundedRectangle(cornerRadius: 14).stroke(prominent ? Color.clear : theme.panelStroke, lineWidth: 1))
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(label)
     }
 
     /// NOW and NEXT on two lines: the station over the frequency. The landscape phone's version of

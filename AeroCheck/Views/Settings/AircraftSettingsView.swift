@@ -20,12 +20,24 @@ struct AircraftSettingsView: View {
             if showsSpeeds {
                 aircraftSection
                 SettingsGroup(title: L10n.Sheet.speedReference, tint: .aviationGold) {
-                    // An in-flight component on a ground screen: ground screens don't switch to the
-                    // night palette, so neither does the table here.
-                    SpeedReferenceView(activeChecklist: appState.activeChecklist)
-                        .padding(.horizontal, 14)   // the group's rows all inset 14 pt (review #1, G-06)
-                        .padding(.vertical, 8)
-                        .environment(\.cockpitTheme, .day)
+                    if let locked = lockedSelection {
+                        // The speeds come with the checklist, which Pro unlocks: say that, rather
+                        // than an empty table. (on-device review #4, point 1)
+                        Text(L10n.Ground.speedsNeedPro(locked.registration))
+                            .font(.aero(.subheadline))
+                            .foregroundColor(.secondaryText)
+                            .fixedSize(horizontal: false, vertical: true)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .padding(.horizontal, 14)
+                            .padding(.vertical, 12)
+                    } else {
+                        // An in-flight component on a ground screen: ground screens don't switch to the
+                        // night palette, so neither does the table here.
+                        SpeedReferenceView(activeChecklist: appState.activeChecklist)
+                            .padding(.horizontal, 14)   // the group's rows all inset 14 pt (review #1, G-06)
+                            .padding(.vertical, 8)
+                            .environment(\.cockpitTheme, .day)
+                    }
                 }
                 tabLinks
             } else {
@@ -148,7 +160,15 @@ struct AircraftSettingsView: View {
     /// WT9 used to be here, with the premium ones behind "Premium aircraft", so once Today lost its
     /// carousel there was no obvious way to switch. (on-device review #1, G-06)
     private var flyableAircraft: [AircraftOption] {
-        AircraftOption.flyable(remote: aircraftDataService.availableAircraft, settings: appState.settings)
+        AircraftOption.flyable(remote: aircraftDataService.availableAircraft, settings: appState.settings,
+                               canFly: aircraftDataService.canFly)
+    }
+
+    /// The selected aircraft, when AéroCheck Pro isn't active for it: listed, locked, and not
+    /// selectable, with the way to Pro. (on-device review #4, point 1)
+    private var lockedSelection: RemoteAircraftMetadata? {
+        AircraftOption.lockedSelection(remote: aircraftDataService.availableAircraft, settings: appState.settings,
+                                       canFly: aircraftDataService.canFly)
     }
 
     private func fly(_ option: AircraftOption) {
@@ -196,6 +216,10 @@ struct AircraftSettingsView: View {
                 }
                 .buttonStyle(.plain)
                 .accessibilityAddTraits(isSelected ? .isSelected : [])
+            }
+
+            if let locked = lockedSelection {
+                lockedRow(locked)
             }
 
             // Premium Aircrafts navigation link
@@ -275,6 +299,40 @@ struct AircraftSettingsView: View {
             .buttonStyle(.plain)
             .disabled(isSyncingAircraftData)
         }
+    }
+
+    /// The selected premium aircraft while Pro isn't active: ticked, because it is still the one
+    /// selected, but locked. A tap goes to the plans (with Restore), never selects. (review #4, point 1)
+    private func lockedRow(_ aircraft: RemoteAircraftMetadata) -> some View {
+        NavigationLink(destination: SubscriptionView(presentedAsSheet: false)
+            .environmentObject(subscriptionManager)
+        ) {
+            HStack(spacing: 12) {
+                Image(systemName: "lock.circle.fill")
+                    .font(.aero(size: 22))
+                    .foregroundColor(.aviationAmber)
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(aircraft.registration)
+                        .font(.aero(.body, design: .monospaced))
+                        .fontWeight(.semibold)
+                        .foregroundColor(.primary)
+                    Text(L10n.Ground.proNotActiveRow)
+                        .font(.aero(.caption))
+                        .foregroundColor(.aviationAmber)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                Spacer()
+                Image(systemName: "chevron.right")
+                    .font(.aero(size: 13, weight: .semibold))
+                    .foregroundColor(.dimText.opacity(0.7))
+            }
+            .padding(.horizontal, 14)
+            .padding(.vertical, 10)
+            .frame(minHeight: 56)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityAddTraits(.isSelected)
     }
 
     private func getLatestAircraftData() {

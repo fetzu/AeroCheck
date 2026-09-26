@@ -1,6 +1,125 @@
 {
   "sourceLanguage": "en",
   "strings": {
+    "alert.proNotActive.title": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "AéroCheck Pro isn't active"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "AéroCheck Pro n'est pas actif"
+          }
+        }
+      }
+    },
+    "alert.proNotActive.message": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ needs an active AéroCheck Pro subscription, and this device can't confirm one: it may have expired. If you renewed it, or bought it on another device, restore your purchases."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ nécessite un abonnement AéroCheck Pro actif, et cet appareil ne peut pas en confirmer un : il a peut-être expiré. Si vous l'avez renouvelé, ou acheté sur un autre appareil, restaurez vos achats."
+          }
+        }
+      }
+    },
+    "alert.proNotActive.seePlans": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "See plans"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Voir les offres"
+          }
+        }
+      }
+    },
+    "alert.checklistUnreachable.message": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@'s checklist couldn't be downloaded, and there's no copy on this device yet. Check your connection and try again."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "La check-list de %@ n'a pas pu être téléchargée, et cet appareil n'en a pas encore de copie. Vérifiez votre connexion et réessayez."
+          }
+        }
+      }
+    },
+    "ground.proNotActiveShort": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pro not active"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pro inactif"
+          }
+        }
+      }
+    },
+    "ground.proNotActiveRow": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "AéroCheck Pro isn't active: this aircraft can't be flown until you renew or restore it"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "AéroCheck Pro n'est pas actif : cet avion ne peut pas être utilisé tant que vous ne l'avez pas renouvelé ou restauré"
+          }
+        }
+      }
+    },
+    "ground.speedsNeedPro": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@'s speeds come with its checklist, which needs an active AéroCheck Pro subscription."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Les vitesses de %@ viennent avec sa check-list, qui nécessite un abonnement AéroCheck Pro actif."
+          }
+        }
+      }
+    },
     "vspeeds.stallGlide": {
       "extractionState": "manual",
       "localizations": {

@@ -11,6 +11,8 @@ import SwiftUI
 struct GroundView: View {
     @Environment(AppState.self) private var appState
     @EnvironmentObject var threadManager: FlightThreadManager
+    @EnvironmentObject var subscriptionManager: SubscriptionManager
+    @EnvironmentObject var aircraftDataService: AircraftDataService
 
     var body: some View {
         TabView(selection: Bindable(appState).groundTab) {
@@ -33,12 +35,78 @@ struct GroundView: View {
         }
         // The brand colour on the ground; the flight screens don't use it (v6.0 · P5).
         .tint(.aviationGold)
+        .modifier(FlightStartAlerts())
     }
 
     /// A badge only for what can't wait: an ATC flight plan still open after landing. The Flights
     /// badge used to count every flight ever flown, which taught the eye to skip badges. (review A6)
     private var openFlightPlanBadge: Int {
         (threadManager.threadAwaitingCloseOut?.hasOpenFlightPlan ?? false) ? 1 : 0
+    }
+}
+
+/// Why a flight didn't start, and what couldn't be saved at its end, on whichever tab the pilot is
+/// on. These lived on Today, so a START FLIGHT refused from a flight's page in Plan said nothing
+/// until the pilot went back to Today. (on-device review #4, point 1)
+private struct FlightStartAlerts: ViewModifier {
+    @Environment(AppState.self) private var appState
+    @EnvironmentObject var subscriptionManager: SubscriptionManager
+    @EnvironmentObject var aircraftDataService: AircraftDataService
+
+    func body(content: Content) -> some View {
+        content
+            .alert(L10n.Alert.cannotStartFlightTitle, isPresented: Binding(
+                get: { appState.flightStartError != nil },
+                set: { if !$0 { appState.flightStartError = nil } }
+            )) {
+                Button(L10n.Button.close, role: .cancel) { appState.flightStartError = nil }
+            } message: {
+                Text(appState.flightStartError ?? "")
+            }
+            // AéroCheck Pro isn't active for the aircraft the pilot tried to fly: say so, and offer
+            // the two ways out. A lapsed subscription used to read "check your connection".
+            .alert(L10n.Alert.proNotActiveTitle, isPresented: Binding(
+                get: { appState.flightStartNeedsPro != nil },
+                set: { if !$0 { appState.flightStartNeedsPro = nil } }
+            )) {
+                Button(L10n.Alert.seePlans) {
+                    appState.flightStartNeedsPro = nil
+                    appState.flightStartPaywallRequest = true
+                }
+                Button(L10n.Subscription.restorePurchases) {
+                    appState.flightStartNeedsPro = nil
+                    Task {
+                        await subscriptionManager.restorePurchases()
+                        await aircraftDataService.refetchUntilPremiumUnlocked()
+                    }
+                }
+                Button(L10n.Button.cancel, role: .cancel) { appState.flightStartNeedsPro = nil }
+            } message: {
+                Text(L10n.Alert.proNotActive(appState.flightStartNeedsPro ?? ""))
+            }
+            // PR-14: a just-finished flight could not be persisted — its checkpoint was kept and will
+            // be restored next launch. Surface it rather than letting the failure be silent.
+            .alert(L10n.Alert.flightSaveFailedTitle, isPresented: Binding(
+                get: { appState.flightSaveError != nil },
+                set: { if !$0 { appState.flightSaveError = nil } }
+            )) {
+                Button(L10n.Button.close, role: .cancel) { appState.flightSaveError = nil }
+            } message: {
+                Text(appState.flightSaveError ?? "")
+            }
+            // The plans, personalised with the aircraft the pilot just tried to fly. (UX-07)
+            .sheet(isPresented: Binding(
+                get: { appState.flightStartPaywallRequest },
+                set: { if !$0 { appState.flightStartPaywallRequest = false } }
+            )) {
+                SubscriptionView(contextAircraftName: selectedModelName)
+                    .environmentObject(subscriptionManager)
+            }
+    }
+
+    private var selectedModelName: String? {
+        guard let id = appState.settings.selectedRemoteAircraftId else { return appState.settings.selectedAircraft.modelName }
+        return aircraftDataService.availableAircraft.first { $0.id == id }?.modelName
     }
 }
 

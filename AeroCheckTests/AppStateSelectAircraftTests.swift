@@ -155,6 +155,36 @@ final class AppStateSelectAircraftTests: XCTestCase {
                        "bundled first, then the premium aircraft the pilot can fly; the locked one isn't offered")
     }
 
+    /// The lists use `AircraftDataService.canFly`: an aircraft the server still lists as accessible
+    /// isn't offered once this device says Pro lapsed. (on-device review #4, point 1)
+    func testFlyableUsesTheCanFlyRule() {
+        let open = metadata(id: "pa28-181", registration: "HB-PFA")
+        let options = AircraftOption.flyable(remote: [open], settings: AppSettings(), canFly: { _ in false })
+        XCTAssertEqual(options.map(\.registration), AircraftType.allCases.map(\.registration))
+    }
+
+    /// A selected premium aircraft that can't be flown stays selected, and is reported locked, so
+    /// Today and the Aircraft tab can say why instead of swapping in the WT9 without a word.
+    func testALapsedSelectionIsKeptAndReportedLocked() {
+        let archer = metadata(id: "pa28-181", registration: "HB-PFA")
+        var settings = AppSettings()
+        settings.selectedRemoteAircraftId = "pa28-181"
+
+        XCTAssertEqual(AircraftOption.lockedSelection(remote: [archer], settings: settings, canFly: { _ in false })?.id,
+                       "pa28-181")
+        XCTAssertNil(AircraftOption.lockedSelection(remote: [archer], settings: settings, canFly: { _ in true }),
+                     "a flyable selection isn't locked")
+
+        settings.hiddenAircraftIds = ["pa28-181"]
+        XCTAssertNil(AircraftOption.lockedSelection(remote: [archer], settings: settings, canFly: { _ in false }),
+                     "hidden is the pilot's choice: the selection moves, as before")
+
+        settings.hiddenAircraftIds = []
+        settings.selectedRemoteAircraftId = nil
+        XCTAssertNil(AircraftOption.lockedSelection(remote: [archer], settings: settings, canFly: { _ in false }),
+                     "the WT9 is never locked")
+    }
+
     func testFlyableFollowsTheVisibilityFilter() {
         var settings = AppSettings()
         settings.hiddenAircraftIds = ["pa28-181"]

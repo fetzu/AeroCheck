@@ -36,11 +36,11 @@ final class AircraftDataServiceSeamTests: XCTestCase {
         }
     }
 
-    private func premiumMetadata(id: String = "pa28-181") throws -> RemoteAircraftMetadata {
+    private func premiumMetadata(id: String = "pa28-181", isFree: Bool = false) throws -> RemoteAircraftMetadata {
         try JSONDecoder().decode(RemoteAircraftMetadata.self, from: Data(#"""
         {"id":"\#(id)","aircraftType":"PA28","registration":"HB-PFA","modelName":"Piper Archer",
-         "shortModelName":"PA-28","version":"1.0","lastUpdated":"x","isFree":false,"stallSpeed":53,
-         "pageCount":4,"hasAccess":false}
+         "shortModelName":"PA-28","version":"1.0","lastUpdated":"x","isFree":\#(isFree),"stallSpeed":53,
+         "pageCount":4,"hasAccess":\#(isFree)}
         """#.utf8))
     }
 
@@ -111,6 +111,66 @@ final class AircraftDataServiceSeamTests: XCTestCase {
 
         await service.fetchAvailableAircraft()
         XCTAssertEqual(published, 2, "refreshed once the fetch resolved")
+    }
+
+    // MARK: - Can it be flown? (on-device review #4, point 1)
+
+    /// Pro must be active on both sides: the server's `hasAccess` AND this device's StoreKit status.
+    /// A lapsed subscription used to leave the server's stale `true` in the lists.
+    func testCanFlyNeedsProOnTheServerAndOnThisDevice() throws {
+        var open = try premiumMetadata()
+        open.hasAccess = true
+        let locked = try premiumMetadata()
+        let free = try premiumMetadata(id: "wt9-dynamic", isFree: true)
+
+        let active = makeTestAircraftDataService(subscriptionManager: FakeGating(allowPremium: true))
+        XCTAssertTrue(active.canFly(open))
+        XCTAssertFalse(active.canFly(locked), "the server says no")
+        XCTAssertTrue(active.canFly(free))
+
+        let lapsed = makeTestAircraftDataService(subscriptionManager: FakeGating(allowPremium: false))
+        XCTAssertFalse(lapsed.canFly(open), "this device says no, whatever the last list said")
+        XCTAssertTrue(lapsed.canFly(free), "the free aircraft never depends on Pro")
+    }
+
+    /// A 403 from the server is "no active subscription": the failure says so, and every premium
+    /// aircraft locks at once rather than at the next list fetch.
+    func testAServerRefusalLocksPremiumAndSaysProIsNotActive() async throws {
+        let http = FakeHTTPClient(responseData: Data(#"{"success":false,"code":"ACCESS_DENIED"}"#.utf8), statusCode: 403)
+        let service = makeTestAircraftDataService(subscriptionManager: FakeGating(allowPremium: true), httpClient: http)
+        var archer = try premiumMetadata()
+        archer.hasAccess = true
+        var cruiser = try premiumMetadata(id: "ps28-cruiser")
+        cruiser.hasAccess = true
+        service.availableAircraft = [archer, cruiser]
+
+        let result = await service.fetchChecklist(for: "pa28-181", language: "en")
+
+        XCTAssertNil(result)
+        XCTAssertEqual(service.checklistUnavailableReason, .proNotActive)
+        XCTAssertFalse(service.availableAircraft.contains { $0.hasAccess }, "every premium aircraft locks")
+        XCTAssertFalse(service.availableAircraft.contains { service.canFly($0) })
+    }
+
+    func testAnyOtherFailureIsUnreachable() async throws {
+        let http = FakeHTTPClient(responseData: Data("oops".utf8), statusCode: 503)
+        let service = makeTestAircraftDataService(subscriptionManager: FakeGating(allowPremium: true), httpClient: http)
+        var archer = try premiumMetadata()
+        archer.hasAccess = true
+        service.availableAircraft = [archer]
+
+        _ = await service.fetchChecklist(for: "pa28-181", language: "en")
+
+        XCTAssertEqual(service.checklistUnavailableReason, .unreachable)
+        XCTAssertTrue(service.availableAircraft[0].hasAccess, "a server error says nothing about the subscription")
+    }
+
+    func testThisDeviceSayingNoIsProNotActive() async throws {
+        let service = makeTestAircraftDataService(subscriptionManager: FakeGating(allowPremium: false),
+                                                  httpClient: FakeHTTPClient())
+        service.availableAircraft = [try premiumMetadata()]
+        _ = await service.fetchChecklist(for: "pa28-181", language: "en")
+        XCTAssertEqual(service.checklistUnavailableReason, .proNotActive)
     }
 
     // MARK: - PR-41: additive language-fallback fields

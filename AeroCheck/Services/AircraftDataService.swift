@@ -79,6 +79,11 @@ class AircraftDataService: ObservableObject {
     /// Incremented when a checklist is updated in the background, so views can reload
     @Published var checklistUpdateCount: Int = 0
 
+    /// Why the last premium checklist couldn't be loaded, so a refused flight start can say why
+    /// instead of "check your connection and subscription". nil after a load that worked.
+    /// (on-device review #4, point 1)
+    @Published private(set) var checklistUnavailableReason: ChecklistUnavailableReason?
+
     // MARK: - Private Properties
 
     private let apiBaseURL: String
@@ -232,6 +237,29 @@ class AircraftDataService: ObservableObject {
         AppLog.aircraftData.debugLine("Premium still locked after \(attempts) attempt(s); periodic check will reconcile")
     }
 
+    /// Whether the pilot can fly this aircraft now: free, or premium with Pro active on BOTH sides —
+    /// the server's `hasAccess` from the last list fetch, and this device's StoreKit status.
+    ///
+    /// Either alone was trusted before, in different places: the aircraft lists and the start check
+    /// read `hasAccess`, the checklist load read StoreKit. When a subscription lapsed between two list
+    /// fetches, the lists kept offering the aircraft, the start check passed, and the load then
+    /// refused it with "check your connection and subscription". (on-device review #4, point 1)
+    func canFly(_ aircraft: RemoteAircraftMetadata) -> Bool {
+        aircraft.isFree || (aircraft.hasAccess && !gating.isPremiumAccessDefinitivelyDenied())
+    }
+
+    /// The server refused a premium checklist (403): it holds no active subscription for this
+    /// account. Lock every premium aircraft now, in memory, rather than waiting for the next list
+    /// fetch; a purchase or restore refetches the list and unlocks them again.
+    private func lockPremiumAircraft() {
+        for index in availableAircraft.indices where !availableAircraft[index].isFree {
+            availableAircraft[index].hasAccess = false
+        }
+        // Kept on disk too: an offline relaunch reads the cached list, which would unlock them again.
+        cacheMetadata(availableAircraft)
+        publishToWidget(availableAircraft)
+    }
+
     /// Fetches a specific aircraft checklist
     /// For bundled aircraft (like WT9), prefers API version if newer, falls back to bundled version
     /// - Parameters:
@@ -253,8 +281,10 @@ class AircraftDataService: ObservableObject {
            gating.isPremiumAccessDefinitivelyDenied() {
             AppLog.aircraftData.debugLine("Premium access definitively denied for \(aircraftId); withholding checklist and clearing cache")
             clearCache(for: cacheKey)
+            checklistUnavailableReason = .proNotActive
             return nil
         }
+        checklistUnavailableReason = nil
 
         // Check cache first
         if let cached = loadCachedChecklist(aircraftId: cacheKey) {
@@ -351,6 +381,12 @@ class AircraftDataService: ObservableObject {
 
             errorMessage = "Failed to fetch checklist: \(error.localizedDescription)"
             AppLog.aircraftData.debugLine("Failed to fetch checklist for \(cacheKey): \(error)")
+            if case AircraftDataError.accessDenied = error {
+                checklistUnavailableReason = .proNotActive
+                lockPremiumAircraft()
+            } else {
+                checklistUnavailableReason = .unreachable
+            }
             return nil
         }
     }
@@ -1089,6 +1125,14 @@ struct CachedAircraftInfo: Identifiable {
 }
 
 // MARK: - Error Types
+
+/// Why a premium checklist couldn't be loaded. (on-device review #4, point 1)
+enum ChecklistUnavailableReason: Equatable {
+    /// The server or this device says AéroCheck Pro isn't active.
+    case proNotActive
+    /// Anything else: no connection, a server error. No copy on the device either.
+    case unreachable
+}
 
 enum AircraftDataError: LocalizedError {
     case serverError(Int)

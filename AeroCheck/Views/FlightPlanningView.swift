@@ -39,26 +39,47 @@ struct FlightPlanningView: View {
     @State private var showingImportError = false
     /// Optional aircraft filter (registration); nil = all. (v4 UI/UX Revamp — user feedback)
     @State private var selectedAircraft: String? = nil
+    /// The search over the routes: name, waypoints, aircraft. (on-device review #4)
+    @State private var searchText = ""
+    /// Archived routes instead of the others. (on-device review #4)
+    @State private var showsArchived = false
+    /// The route being renamed, and the name being typed.
+    @State private var renamingPlan: FlightPlan?
+    @State private var renameText = ""
 
     enum ExportFormat: String, CaseIterable {
         case gpx = "GPX"
         case json = "JSON"
     }
 
-    /// Distinct aircraft (registration) across all plans, most-recent first.
+    /// Distinct aircraft (registration) across the routes, most-recent first.
     private var availableAircraft: [String] {
         var seen: [String] = []
-        for plan in flightPlanManager.flightPlans {
+        for plan in routes {
             let reg = plan.aircraftRegistration
             if !reg.isEmpty && !seen.contains(reg) { seen.append(reg) }
         }
         return seen
     }
 
-    /// The "all plans" list, scoped to the aircraft filter (the active plan stays pinned regardless).
+    /// The pilot's routes: not the plans planned flights made for themselves, which live with their
+    /// flights. (on-device review #4, R1)
+    private var routes: [FlightPlan] {
+        flightPlanManager.flightPlans.filter { plan in
+            RouteLibrary.isRoute(plan, followedSince: threadManager.threads.first { $0.flightPlanId == plan.id }?.createdAt)
+        }
+    }
+
+    private var archivedCount: Int { routes.filter { $0.archivedAt != nil }.count }
+
+    /// The list: archived or not, then the aircraft filter, then the search (the active plan stays
+    /// pinned above regardless).
     private var filteredPlans: [FlightPlan] {
-        guard let selectedAircraft else { return flightPlanManager.flightPlans }
-        return flightPlanManager.flightPlans.filter { $0.aircraftRegistration == selectedAircraft }
+        routes.filter { plan in
+            (plan.archivedAt != nil) == showsArchived
+                && (selectedAircraft == nil || plan.aircraftRegistration == selectedAircraft)
+                && RouteLibrary.matches(plan, query: searchText)
+        }
     }
 
     var body: some View {
@@ -69,7 +90,12 @@ struct FlightPlanningView: View {
                 // Single full-width card list — tapping a card opens the builder directly (which is
                 // itself the iPad two-column map+list), so there's no separate read-only detail pane to
                 // navigate through. (flight-plan revamp)
-                listNavStack { plansList() }
+                listNavStack {
+                    VStack(spacing: 0) {
+                        libraryBar
+                        plansList()
+                    }
+                }
             }
         }
         .alert(L10n.Nav.activateEmptyTitle, isPresented: $showingEmptyActivateAlert) {
@@ -103,6 +129,19 @@ struct FlightPlanningView: View {
             }
         } message: {
             Text(L10n.Nav.deleteFlightPlanMessage)
+        }
+        .alert(L10n.Routes.renameTitle, isPresented: Binding(
+            get: { renamingPlan != nil },
+            set: { if !$0 { renamingPlan = nil } }
+        )) {
+            TextField(L10n.Routes.namePlaceholder, text: $renameText)
+            Button(L10n.Button.cancel, role: .cancel) { renamingPlan = nil }
+            Button(L10n.Routes.rename) {
+                if let plan = renamingPlan { flightPlanManager.rename(plan, to: renameText) }
+                renamingPlan = nil
+            }
+        } message: {
+            Text(L10n.Routes.renameMessage)
         }
         .alert(L10n.Nav.importError, isPresented: $showingImportError) {
             Button("OK", role: .cancel) { }
@@ -232,12 +271,73 @@ struct FlightPlanningView: View {
         }
     }
 
+    // MARK: - Search and archive (on-device review #4)
+
+    /// The search field, and Routes | Archived once there's anything archived.
+    private var libraryBar: some View {
+        HStack(spacing: 10) {
+            HStack(spacing: 8) {
+                Image(systemName: "magnifyingglass")
+                    .foregroundColor(.dimText)
+                TextField(L10n.Routes.searchPrompt, text: $searchText)
+                    .textInputAutocapitalization(.never)
+                    .autocorrectionDisabled()
+                    .submitLabel(.search)
+                if !searchText.isEmpty {
+                    Button { searchText = "" } label: {
+                        Image(systemName: "xmark.circle.fill").foregroundColor(.dimText)
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel(L10n.Button.clear)
+                }
+            }
+            .scaledFont(size: 16, relativeTo: .body)
+            .padding(.horizontal, 12)
+            .frame(minHeight: 44)
+            .background(RoundedRectangle(cornerRadius: 12).fill(Color.cardBackground))
+
+            if archivedCount > 0 || showsArchived {
+                Picker(L10n.Routes.scope, selection: $showsArchived) {
+                    Text(L10n.Routes.routesScope).tag(false)
+                    Text(L10n.Routes.archivedScope(archivedCount)).tag(true)
+                }
+                .pickerStyle(.segmented)
+                .frame(maxWidth: horizontalSizeClass == .compact ? 170 : 260)
+            }
+        }
+        .padding(.horizontal, 16)
+        .padding(.top, 8)
+        .padding(.bottom, 4)
+    }
+
+    /// What the list says when the search or the scope leaves nothing.
+    @ViewBuilder
+    private var noMatch: some View {
+        if filteredPlans.isEmpty {
+            Text(!searchText.isEmpty ? L10n.Routes.noMatch(searchText)
+                 : showsArchived ? L10n.Routes.noArchived
+                 : archivedCount > 0 ? L10n.Routes.allArchived
+                 : L10n.Routes.noneYet)
+                .scaledFont(size: 15, relativeTo: .subheadline)
+                .foregroundColor(.secondaryText)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.vertical, 12)
+                .listRowBackground(Color.clear)
+                .listRowSeparator(.hidden)
+        }
+    }
+
+    private func startRenaming(_ plan: FlightPlan) {
+        renameText = plan.name
+        renamingPlan = plan
+    }
+
     // MARK: - Plans List
 
     private func plansList() -> some View {
         let list = List {
             // Active flight plan section
-            if let activePlan = flightPlanManager.activeFlightPlan {
+            if let activePlan = flightPlanManager.activeFlightPlan, !showsArchived {
                 Section {
                     ActiveFlightPlanRow(plan: activePlan)
                         .onTapGesture {
@@ -259,7 +359,8 @@ struct FlightPlanningView: View {
                         isActive: plan.id == flightPlanManager.activeFlightPlan?.id,
                         loadPriority: index,
                         onActivate: { activate(plan) },
-                        onDeactivate: { requestDeactivate() }
+                        onDeactivate: { requestDeactivate() },
+                        isArchived: plan.archivedAt != nil
                     )
                     .id("\(plan.id)-\(plan.waypoints.count)-\(plan.updatedAt)")
                     .listRowBackground(Color.clear)
@@ -270,11 +371,22 @@ struct FlightPlanningView: View {
                         editingPlan = plan
                     }
                     .swipeActions(edge: .trailing, allowsFullSwipe: false) {
-                        Button(role: .destructive) {
-                            planToDelete = plan
-                            showingDeleteAlert = true
-                        } label: {
-                            Label(L10n.Button.delete, systemImage: "trash")
+                        // Archive first: the way to clear the list without losing a route.
+                        // (on-device review #4)
+                        if plan.archivedAt == nil {
+                            Button {
+                                flightPlanManager.archive(plan)
+                            } label: {
+                                Label(L10n.Routes.archive, systemImage: "archivebox")
+                            }
+                            .tint(.indigo)
+                        } else {
+                            Button {
+                                flightPlanManager.unarchive(plan)
+                            } label: {
+                                Label(L10n.Routes.unarchive, systemImage: "tray.and.arrow.up")
+                            }
+                            .tint(.indigo)
                         }
 
                         Button {
@@ -283,6 +395,13 @@ struct FlightPlanningView: View {
                             Label(L10n.Nav.duplicate, systemImage: "doc.on.doc")
                         }
                         .tint(.aviationBlue)
+
+                        Button(role: .destructive) {
+                            planToDelete = plan
+                            showingDeleteAlert = true
+                        } label: {
+                            Label(L10n.Button.delete, systemImage: "trash")
+                        }
                     }
                     .swipeActions(edge: .leading, allowsFullSwipe: true) {
                         if plan.id != flightPlanManager.activeFlightPlan?.id {
@@ -316,6 +435,12 @@ struct FlightPlanningView: View {
                             editingPlan = plan
                         } label: {
                             Label(L10n.Nav.edit, systemImage: "pencil")
+                        }
+
+                        Button {
+                            startRenaming(plan)
+                        } label: {
+                            Label(L10n.Routes.rename, systemImage: "character.cursor.ibeam")
                         }
 
                         if plan.id != flightPlanManager.activeFlightPlan?.id {
@@ -371,6 +496,20 @@ struct FlightPlanningView: View {
                             Label(L10n.Nav.duplicate, systemImage: "doc.on.doc")
                         }
 
+                        if plan.archivedAt == nil {
+                            Button {
+                                flightPlanManager.archive(plan)
+                            } label: {
+                                Label(L10n.Routes.archive, systemImage: "archivebox")
+                            }
+                        } else {
+                            Button {
+                                flightPlanManager.unarchive(plan)
+                            } label: {
+                                Label(L10n.Routes.unarchive, systemImage: "tray.and.arrow.up")
+                            }
+                        }
+
                         Divider()
 
                         Button(role: .destructive) {
@@ -387,8 +526,10 @@ struct FlightPlanningView: View {
                         flightPlanManager.deleteFlightPlan(filteredPlans[index])
                     }
                 }
+                noMatch
             } header: {
-                cockpitSectionHeader(L10n.Nav.allFlightPlans, tint: .secondaryText, showDot: false)
+                cockpitSectionHeader(showsArchived ? L10n.Routes.archivedHeader : L10n.Nav.allFlightPlans,
+                                     tint: .secondaryText, showDot: false)
             }
         }
         .listStyle(.plain)
@@ -521,6 +662,15 @@ struct FlightPlanRow: View {
     var loadPriority: Int = 0   // row index — top rows render their map preview first
     var onActivate: () -> Void
     var onDeactivate: () -> Void = {}
+    /// Under Archived: no Show on map, and an ARCHIVED tag. (on-device review #4)
+    var isArchived: Bool = false
+
+    /// The name the pilot gave the route, when it says something the ends don't. It is the title
+    /// then, with the ends under it: a route can be renamed whatever its ends. (on-device review #4)
+    private var customName: String? {
+        let name = plan.name.trimmingCharacters(in: .whitespaces)
+        return name.isEmpty || name == routeEndpoints ? nil : name
+    }
 
     /// The route endpoints (departure → destination) — the plan's identity. (revamp #1b)
     private var routeEndpoints: String {
@@ -609,22 +759,32 @@ struct FlightPlanRow: View {
                 .frame(width: 96, height: 66)
 
             VStack(alignment: .leading, spacing: 5) {
-                // Custom name as a small caption — only when it differs from the route.
-                if !plan.name.isEmpty && plan.name != routeEndpoints {
-                    Text(plan.name).font(.aero(.caption2)).foregroundColor(.dimText).lineLimit(1)
-                }
-                // Hero: the route endpoints.
+                // Hero: the pilot's name for the route when there is one, else its ends.
                 HStack(spacing: 6) {
-                    Text(routeEndpoints)
-                        .scaledFont(size: 16, weight: .semibold, design: .monospaced, relativeTo: .body)
+                    Text(customName ?? routeEndpoints)
+                        .scaledFont(size: 16, weight: .semibold, design: customName == nil ? .monospaced : .default,
+                                    relativeTo: .body)
                         .foregroundColor(.primaryText)
                         .lineLimit(1).minimumScaleFactor(0.7)
+                    if isArchived {
+                        Text(L10n.Routes.archivedTag)
+                            .font(.aero(.caption2).weight(.bold)).foregroundColor(.secondaryText)
+                            .padding(.horizontal, 6).padding(.vertical, 1)
+                            .overlay(RoundedRectangle(cornerRadius: 5).strokeBorder(Color.secondaryText.opacity(0.5), lineWidth: 1))
+                    }
                     if isActive {
                         Text(L10n.Nav.active)
                             .font(.aero(.caption2).weight(.bold)).foregroundColor(.black)
                             .padding(.horizontal, 6).padding(.vertical, 1)
                             .background(RoundedRectangle(cornerRadius: 5).fill(Color.aviationGreen))
                     }
+                }
+                // The ends, under the name.
+                if customName != nil {
+                    Text(routeEndpoints)
+                        .scaledFont(size: 13, design: .monospaced, relativeTo: .caption)
+                        .foregroundColor(.secondaryText)
+                        .lineLimit(1).minimumScaleFactor(0.7)
                 }
                 // Metric strip — structured, not a flat dot-list.
                 if plan.waypoints.count >= 2 {
@@ -655,7 +815,7 @@ struct FlightPlanRow: View {
             // makes under time pressure — "that's not the flight I'm doing" — was the only one with no
             // button. Same slot, same size, opposite action: the row no longer changes shape with
             // state. Swipe and long-press stay as accelerators. (v4.4.0 device-test feedback)
-            planActionButton
+            if !isArchived { planActionButton }
         }
         .padding(10)
         .background(

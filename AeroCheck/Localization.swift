@@ -1415,6 +1415,30 @@ enum L10n {
 
     /// Trips: stops, legs, diversions and continuing after one. (v5.1)
     /// The ground tabs. (v6.0 · P1)
+    /// The Routes list: search, archive, rename. (on-device review #4)
+    enum Routes {
+        static let searchPrompt = String(localized: "routes.searchPrompt")
+        static let scope = String(localized: "routes.scope")
+        static let routesScope = String(localized: "routes.routesScope")
+        static func archivedScope(_ count: Int) -> String {
+            String(format: String(localized: "routes.archivedScope"), count)
+        }
+        static let archive = String(localized: "routes.archive")
+        static let unarchive = String(localized: "routes.unarchive")
+        static let archivedHeader = String(localized: "routes.archivedHeader")
+        static let archivedTag = String(localized: "routes.archivedTag")
+        static let noArchived = String(localized: "routes.noArchived")
+        static let allArchived = String(localized: "routes.allArchived")
+        static let noneYet = String(localized: "routes.noneYet")
+        static func noMatch(_ query: String) -> String {
+            String(format: String(localized: "routes.noMatch"), query)
+        }
+        static let rename = String(localized: "routes.rename")
+        static let renameTitle = String(localized: "routes.renameTitle")
+        static let renameMessage = String(localized: "routes.renameMessage")
+        static let namePlaceholder = String(localized: "routes.namePlaceholder")
+    }
+
     /// The fuel-on-board sheet and the full-tanks figure. (on-device review #4, point 3)
     enum FuelOnBoard {
         static let title = String(localized: "fuelOnBoard.title")

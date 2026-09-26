@@ -1415,6 +1415,43 @@ enum L10n {
 
     /// Trips: stops, legs, diversions and continuing after one. (v5.1)
     /// The ground tabs. (v6.0 · P1)
+    /// The fuel-on-board sheet and the full-tanks figure. (on-device review #4, point 3)
+    enum FuelOnBoard {
+        static let title = String(localized: "fuelOnBoard.title")
+        static let required = String(localized: "fuelOnBoard.required")
+        static let onBoard = String(localized: "fuelOnBoard.onBoard")
+        static func breakdown(_ trip: String, _ alternate: String, _ finalReserve: String, _ extra: String) -> String {
+            String(format: String(localized: "fuelOnBoard.breakdown"), trip, alternate, finalReserve, extra)
+        }
+        static let noRequired = String(localized: "fuelOnBoard.noRequired")
+        static func fullTanks(_ litres: String) -> String {
+            String(format: String(localized: "fuelOnBoard.fullTanks"), litres)
+        }
+        static let fromAircraftData = String(localized: "fuelOnBoard.fromAircraftData")
+        static func yourFigure(_ registration: String) -> String {
+            String(format: String(localized: "fuelOnBoard.yourFigure"), registration)
+        }
+        static let change = String(localized: "fuelOnBoard.change")
+        static func fullTanksPrompt(_ registration: String) -> String {
+            String(format: String(localized: "fuelOnBoard.fullTanksPrompt"), registration)
+        }
+        static let saveAndFill = String(localized: "fuelOnBoard.saveAndFill")
+        static let notSet = String(localized: "fuelOnBoard.notSet")
+        static func enough(_ margin: String, _ minutes: String, _ flow: String) -> String {
+            String(format: String(localized: "fuelOnBoard.enough"), margin, minutes, flow)
+        }
+        static func short(_ litres: String) -> String {
+            String(format: String(localized: "fuelOnBoard.short"), litres)
+        }
+        static func overFullTanks(_ litres: String) -> String {
+            String(format: String(localized: "fuelOnBoard.overFullTanks"), litres)
+        }
+        static let moreFuelSettings = String(localized: "fuelOnBoard.moreFuelSettings")
+        static let fuelGroup = String(localized: "fuelOnBoard.fuelGroup")
+        static let fullTanksRow = String(localized: "fuelOnBoard.fullTanksRow")
+        static let fullTanksRowFooter = String(localized: "fuelOnBoard.fullTanksRowFooter")
+    }
+
     enum Ground {
         static let today = String(localized: "ground.today")
         static let plan = String(localized: "ground.plan")

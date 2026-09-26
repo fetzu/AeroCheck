@@ -431,14 +431,8 @@ struct FlightPlanEditorView: View {
                 NumberFormField(
                     label: L10n.Nav.additionalFuel,
                     value: Binding(
-                        get: {
-                            // Auto-populate with 45 minutes of fuel if not set
-                            if let additional = flightPlan.additionalFuel, additional > 0 {
-                                return additional
-                            }
-                            let fuelFlow = flightPlan.fuelFlow ?? FlightPlan.defaultFuelFlow(for: flightPlan.aircraftTypeId)
-                            return fuelFlow * 0.75 // 45 minutes = 0.75 hours
-                        },
+                        // The figure Required counts: 45 minutes at the fuel flow until set.
+                        get: { flightPlan.finalReserveFuel },
                         set: { flightPlan.additionalFuel = $0 }
                     ),
                     format: "%.1f"

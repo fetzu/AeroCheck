@@ -39,6 +39,12 @@ struct AircraftSettingsView: View {
                             .environment(\.cockpitTheme, .day)
                     }
                 }
+                if lockedSelection == nil {
+                    SettingsGroup(title: L10n.FuelOnBoard.fuelGroup, tint: .aviationGold,
+                                  footer: L10n.FuelOnBoard.fullTanksRowFooter) {
+                        FullTanksSettingRow(registration: selectedRegistration)
+                    }
+                }
                 tabLinks
             } else {
                 subscriptionSection
@@ -169,6 +175,12 @@ struct AircraftSettingsView: View {
     private var lockedSelection: RemoteAircraftMetadata? {
         AircraftOption.lockedSelection(remote: aircraftDataService.availableAircraft, settings: appState.settings,
                                        canFly: aircraftDataService.canFly)
+    }
+
+    /// The selected aircraft's registration, bundled or premium.
+    private var selectedRegistration: String {
+        flyableAircraft.first { $0.isSelected(in: appState.settings) }?.registration
+            ?? appState.settings.selectedAircraft.registration
     }
 
     private func fly(_ option: AircraftOption) {
@@ -513,6 +525,85 @@ struct AircraftSettingsView: View {
     private func hideAllAircraft() {
         for group in availableAeroclubs {
             appState.settings.hiddenAeroclubs.insert(group.aeroclub)
+        }
+        appState.saveSettings()
+    }
+}
+
+/// The selected aircraft's usable fuel with full tanks: the aircraft's figure when its data gives
+/// one, otherwise the pilot's, editable here and in a flight's fuel sheet. (on-device review #4, point 3)
+private struct FullTanksSettingRow: View {
+    let registration: String
+
+    @Environment(AppState.self) private var appState
+    @EnvironmentObject var aircraftDataService: AircraftDataService
+    @State private var text = ""
+    @FocusState private var focused: Bool
+
+    private var resolved: FullTanks? {
+        FullTanks.resolve(registration: registration, available: aircraftDataService.availableAircraft,
+                          pilotValues: appState.settings.fullTanksLitres)
+    }
+
+    var body: some View {
+        HStack(spacing: 12) {
+            VStack(alignment: .leading, spacing: 3) {
+                Text(L10n.FuelOnBoard.fullTanksRow)
+                    .font(.aero(.body))
+                    .foregroundColor(.primaryText)
+                Text(resolved?.source == .aircraftData
+                     ? L10n.FuelOnBoard.fromAircraftData
+                     : L10n.FuelOnBoard.yourFigure(registration))
+                    .font(.aero(.caption))
+                    .foregroundColor(.secondaryText)
+            }
+            Spacer(minLength: 8)
+            if let resolved, resolved.source == .aircraftData {
+                Text("\(FuelEntry.text(resolved.litres)) L")
+                    .font(.aero(.body, design: .monospaced))
+                    .foregroundColor(.primaryText)
+            } else {
+                HStack(spacing: 6) {
+                    TextField("—", text: $text)
+                        .keyboardType(.decimalPad)
+                        .multilineTextAlignment(.trailing)
+                        .focused($focused)
+                        .font(.aero(.body, design: .monospaced))
+                        .onSubmit(commit)
+                        .accessibilityLabel(L10n.FuelOnBoard.fullTanksRow)
+                    Text("L").foregroundColor(.secondaryText)
+                }
+                .padding(.horizontal, 10)
+                .frame(width: 120, height: 40)
+                .background(RoundedRectangle(cornerRadius: 9).fill(Color.cockpitBackground.opacity(0.6)))
+            }
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 10)
+        .frame(minHeight: 56)
+        .onAppear(perform: load)
+        .onChange(of: registration) { _, _ in load() }
+        // Saved as the field is left: the decimal pad has no return key.
+        .onChange(of: focused) { _, isFocused in if !isFocused { commit() } }
+    }
+
+    private func load() {
+        text = appState.settings.fullTanksLitres[FullTanks.key(for: registration) ?? ""].map(FuelEntry.text) ?? ""
+    }
+
+    private func commit() {
+        guard let key = FullTanks.key(for: registration) else { return }
+        let trimmed = text.trimmingCharacters(in: .whitespaces)
+        if trimmed.isEmpty {
+            guard appState.settings.fullTanksLitres[key] != nil else { return }
+            appState.settings.fullTanksLitres[key] = nil
+        } else {
+            guard let litres = FuelEntry.litres(from: trimmed), FullTanks.isPlausible(litres) else {
+                load()   // not a figure a tank holds: put back what was there
+                return
+            }
+            guard appState.settings.fullTanksLitres[key] != litres else { return }
+            appState.settings.fullTanksLitres[key] = litres
         }
         appState.saveSettings()
     }

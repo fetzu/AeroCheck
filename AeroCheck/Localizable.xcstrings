@@ -1,6 +1,329 @@
 {
   "sourceLanguage": "en",
   "strings": {
+    "fuelOnBoard.title": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Fuel on board"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Carburant à bord"
+          }
+        }
+      }
+    },
+    "fuelOnBoard.required": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Required"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Requis"
+          }
+        }
+      }
+    },
+    "fuelOnBoard.onBoard": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "On board"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "À bord"
+          }
+        }
+      }
+    },
+    "fuelOnBoard.breakdown": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Trip %1$@ + alternate %2$@ + final reserve 45′ %3$@ + extra %4$@"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Étape %1$@ + dégagement %2$@ + réserve finale 45′ %3$@ + supplément %4$@"
+          }
+        }
+      }
+    },
+    "fuelOnBoard.noRequired": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The required fuel shows once the route has a flight time."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Le carburant requis s'affiche dès que la route a une durée de vol."
+          }
+        }
+      }
+    },
+    "fuelOnBoard.fullTanks": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Full tanks · %@ L"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pleins · %@ L"
+          }
+        }
+      }
+    },
+    "fuelOnBoard.fromAircraftData": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Usable fuel, from the aircraft's data"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Carburant utilisable, selon les données de l'avion"
+          }
+        }
+      }
+    },
+    "fuelOnBoard.yourFigure": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Your figure for %@"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Votre valeur pour %@"
+          }
+        }
+      }
+    },
+    "fuelOnBoard.change": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Change"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Modifier"
+          }
+        }
+      }
+    },
+    "fuelOnBoard.fullTanksPrompt": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Usable fuel with full tanks for %@, in litres (from the POH). Kept for this aircraft."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Carburant utilisable avec les pleins pour %@, en litres (selon le manuel de vol). Conservé pour cet avion."
+          }
+        }
+      }
+    },
+    "fuelOnBoard.saveAndFill": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Save · full tanks"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Enregistrer · pleins"
+          }
+        }
+      }
+    },
+    "fuelOnBoard.notSet": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Enter what's in the tanks."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Indiquez ce qu'il y a dans les réservoirs."
+          }
+        }
+      }
+    },
+    "fuelOnBoard.enough": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@ L over required · ≈ %2$@ min at %3$@ L/h"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@ L de plus que le requis · ≈ %2$@ min à %3$@ L/h"
+          }
+        }
+      }
+    },
+    "fuelOnBoard.short": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Short by %@ L"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Il manque %@ L"
+          }
+        }
+      }
+    },
+    "fuelOnBoard.overFullTanks": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "More than full tanks hold (%@ L)"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Plus que ce que contiennent les pleins (%@ L)"
+          }
+        }
+      }
+    },
+    "fuelOnBoard.moreFuelSettings": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Fuel & times: flow, reserves, extra"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Carburant et horaires : débit, réserves, supplément"
+          }
+        }
+      }
+    },
+    "fuelOnBoard.fuelGroup": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Fuel"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Carburant"
+          }
+        }
+      }
+    },
+    "fuelOnBoard.fullTanksRow": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Usable fuel, full tanks"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Carburant utilisable, pleins"
+          }
+        }
+      }
+    },
+    "fuelOnBoard.fullTanksRowFooter": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "What Full tanks sets fuel on board to, on a flight's fuel. From the aircraft's data when it gives one; otherwise yours, from the POH."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ce que « Pleins » inscrit comme carburant à bord, dans le carburant d'un vol. Selon les données de l'avion quand elles le donnent ; sinon votre valeur, selon le manuel de vol."
+          }
+        }
+      }
+    },
     "alert.proNotActive.title": {
       "extractionState": "manual",
       "localizations": {

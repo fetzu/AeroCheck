@@ -12,6 +12,9 @@ struct RemoteAircraftRegistration: Codable, Identifiable, Equatable {
     let version: String
     let lastUpdated: String
     let availableLanguages: [String]?
+    /// Usable fuel with full tanks for this tail, in litres, when its checklist gives it.
+    /// (on-device review #4, point 3)
+    var usableFuelLitres: Double? = nil
 }
 
 /// Selection/cache token for a specific tail of a multi-registration aircraft: "id~REG".
@@ -83,6 +86,10 @@ struct RemoteAircraftMetadata: Codable, Identifiable, Equatable {
     /// All registrations of this aircraft (PR-17, additive). Nil for older server responses; the
     /// top-level fields above reflect the first registration for backward compatibility.
     var registrations: [RemoteAircraftRegistration]? = nil
+    /// Usable fuel with full tanks, in litres, when the checklist gives it: what the fuel-on-board
+    /// sheet's Full tanks button sets. Nil for most aircraft (the pilot enters it). Additive.
+    /// (on-device review #4, point 3)
+    var usableFuelLitres: Double? = nil
 
     /// Whether this aircraft is bundled locally in the app
     var isBundled: Bool {
@@ -132,7 +139,8 @@ struct RemoteAircraftMetadata: Codable, Identifiable, Equatable {
                 pageCount: pageCount,
                 hasAccess: hasAccess,
                 availableLanguages: reg.availableLanguages ?? availableLanguages,
-                registrations: nil
+                registrations: nil,
+                usableFuelLitres: reg.usableFuelLitres
             )
         }
     }

@@ -235,6 +235,7 @@ struct ContentView: View {
             switch key {
             case "home", "home2aircraft":       scene = .home2Aircraft
             case "cruise", "cruisehud":         scene = .cruiseHUD
+            case "cruiseroute":                 scene = .cruiseRoute
             case "nav", "navplanactive":        scene = .navPlanActive
             case "conflicts", "planconflicts":  scene = .planConflicts
             case "plan", "planbuilder":         scene = .planBuilder

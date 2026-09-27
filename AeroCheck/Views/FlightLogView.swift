@@ -2970,13 +2970,13 @@ struct ShareSheet: UIViewControllerRepresentable {
 /// bypassing SwiftUI sheet timing issues that can cause grey/empty sheets on first invocation.
 @MainActor
 func presentImageShareSheet(image: UIImage) {
-    let tempURL = FileManager.default.temporaryDirectory
-        .appendingPathComponent("AeroCheck_Flight_\(UUID().uuidString.prefix(8)).jpg")
-    if let jpegData = image.jpegData(compressionQuality: 0.9) {
-        try? jpegData.write(to: tempURL)
-    }
+    guard let jpegData = image.jpegData(compressionQuality: 0.9) else { return }
+    // A ShareFile rather than a bare temp URL: the share sheet holds it, and the staged image goes
+    // with it once the sheet is closed. It used to stay in tmp/ for good. (S9-06)
+    let file = ShareFile(data: jpegData, filename: "AeroCheck_Flight_\(UUID().uuidString.prefix(8)).jpg",
+                         dataTypeIdentifier: UTType.jpeg.identifier)
 
-    let activityVC = UIActivityViewController(activityItems: [tempURL], applicationActivities: nil)
+    let activityVC = UIActivityViewController(activityItems: [file], applicationActivities: nil)
 
     // Find the topmost presented view controller
     guard let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
@@ -3003,23 +3003,41 @@ func presentImageShareSheet(image: UIImage) {
 /// Wraps a `Data` blob so it can be shared via `UIActivityViewController` as a named temp file
 /// with an explicit type identifier. Replaces the former byte-identical GPXFile/JSONFile/ZIPFile.
 ///
-/// The file is written up front and the PLACEHOLDER is its URL. The share sheet decides which
-/// actions to offer from the placeholder, and this used to be the filename, a plain string: so it
-/// offered text actions only. On a Mac that meant "Copy" and nothing else; on iPad no Print for a
-/// PDF and no Save to Files.
+/// The PLACEHOLDER is the file's URL. The share sheet decides which actions to offer from the
+/// placeholder, and this used to be the filename, a plain string: so it offered text actions only.
+/// On a Mac that meant "Copy" and nothing else; on iPad no Print for a PDF and no Save to Files.
+///
+/// The file is staged on first use, in a directory of its own under `ExportStaging`, and removed
+/// with this object: once the share sheet, preview or state holding it lets go. It used to be
+/// written into tmp/ with a bare `.atomic` and never removed, a copy of the logbook or a track per
+/// share. Staging on first use also means the extra copies SwiftUI makes of a sheet's content
+/// write nothing. (S9-06)
 class ShareFile: NSObject, UIActivityItemSource {
-    let data: Data
     let filename: String
     let dataTypeIdentifier: String
-    let url: URL
+    private let root: URL
+    /// The bytes until they are staged; released then.
+    private var pendingData: Data?
+    private var staged: StagedExport?
 
-    init(data: Data, filename: String, dataTypeIdentifier: String) {
-        self.data = data
+    init(data: Data, filename: String, dataTypeIdentifier: String, root: URL = ExportStaging.rootDirectory) {
+        self.pendingData = data
         self.filename = filename
         self.dataTypeIdentifier = dataTypeIdentifier
-        self.url = FileManager.default.temporaryDirectory.appendingPathComponent(filename)
-        try? data.write(to: url, options: .atomic)
+        self.root = root
         super.init()
+    }
+
+    /// The staged file. A failed write (a full disk) gives an address with nothing behind it, which
+    /// the share sheet reports as a failed share, as it always did.
+    var url: URL {
+        if let staged { return staged.url }
+        if let data = pendingData, let file = try? StagedExport(data: data, filename: filename, root: root) {
+            staged = file
+            pendingData = nil
+            return file.url
+        }
+        return root.appendingPathComponent(ExportStaging.safeFilename(filename))
     }
 
     func activityViewControllerPlaceholderItem(_ activityViewController: UIActivityViewController) -> Any {
@@ -3036,6 +3054,15 @@ class ShareFile: NSObject, UIActivityItemSource {
 
     func activityViewController(_ activityViewController: UIActivityViewController, subjectForActivityType activityType: UIActivity.ActivityType?) -> String {
         return filename
+    }
+}
+
+extension Binding where Value == URL? {
+    /// Quick Look over a staged export: closing the preview releases the file, which removes it.
+    /// (S9-06)
+    static func preview(_ file: Binding<StagedExport?>) -> Binding<URL?> {
+        Binding(get: { file.wrappedValue?.url },
+                set: { if $0 == nil { file.wrappedValue = nil } })
     }
 }
 

@@ -166,7 +166,8 @@ struct FlightThreadView: View {
     @State private var confirmingCancel = false
     /// The nav log rendered to a file and shown in Quick Look, where it can be read, printed,
     /// marked up, saved or shared. (A bare share sheet offered none of the first three on iPad.)
-    @State private var navLogPreview: URL?
+    /// Staged for this preview only, and removed once it closes. (S9-06)
+    @State private var navLogPreview: StagedExport?
     /// Plan open in the map builder, from the route task. (v5.0.0)
     @State private var routeBuilderPlanId: UUID?
     /// Plan open in the details editor, from the fuel task. (v5.0.0)
@@ -262,7 +263,7 @@ struct FlightThreadView: View {
                 FlightNumbersView(flightId: id, onClose: { numbersFlightId = nil })
             }
         }
-        .quickLookPreview($navLogPreview)
+        .quickLookPreview(.preview($navLogPreview))
         .fullScreenCover(isPresented: Binding(
             get: { routeBuilderPlanId != nil },
             set: { if !$0 { routeBuilderPlanId = nil } }
@@ -1274,7 +1275,7 @@ struct FlightThreadView: View {
                 guard let data = FlightPlanExportService.exportToPDF(plan, radio: radio) else { return }
                 let name = "\(thread.routeLabel.replacingOccurrences(of: " ", with: ""))_NavLog.pdf"
                     .replacingOccurrences(of: "/", with: "-")
-                navLogPreview = ShareFile(data: data, filename: name, dataTypeIdentifier: "com.adobe.pdf").url
+                navLogPreview = try? StagedExport(data: data, filename: name)
             }
         case .feesPaid, .logbookEntry:
             numbersFlightId = thread.flightId

@@ -34,15 +34,19 @@ enum FlightPlanExportFormat {
 
 /// A generated export, written to a temp file so it can go straight to the system share sheet
 /// (no intermediate "export ready" screen). (#5 feedback)
+///
+/// The file is staged by its `ShareFile`, which both this item and the share sheet hold, and is
+/// removed once neither does. It used to stay in tmp/ for good. (S9-06)
 struct FlightPlanExportItem: Identifiable {
     let id = UUID()
-    let url: URL
+    let file: ShareFile
+
+    var url: URL { file.url }
 
     init?(data: Data, filename: String, format: FlightPlanExportFormat) {
-        let url = FileManager.default.temporaryDirectory
-            .appendingPathComponent("\(filename).\(format.fileExtension)")
-        do { try data.write(to: url, options: .atomic) } catch { return nil }
-        self.url = url
+        file = ShareFile(data: data, filename: "\(filename).\(format.fileExtension)",
+                         dataTypeIdentifier: format.contentType.identifier)
+        guard FileManager.default.fileExists(atPath: file.url.path) else { return nil }
     }
 }
 
@@ -60,8 +64,9 @@ struct FlightPlanEditorView: View {
     // changes to the non-route fields auto-commit (debounced) — no Save button, no snapshot split.
     @State private var flightPlan: FlightPlan
     @State private var exportItem: FlightPlanExportItem?
-    /// A generated nav log shown in Quick Look, where it can be read, printed or passed on.
-    @State private var previewURL: URL?
+    /// A generated nav log shown in Quick Look, where it can be read, printed or passed on. Staged
+    /// for the preview only, and removed once it closes. (S9-06)
+    @State private var preview: StagedExport?
     /// A generated export waiting for the system save dialog.
     @State private var pendingSave: PendingSave?
     /// Radio plan for the nav log (frequencies, remarks, Radio box), built from the airspace and
@@ -148,9 +153,9 @@ struct FlightPlanEditorView: View {
                 Text(L10n.FlightNames.renameFlightMessage)
             }
             .sheet(item: $exportItem) { item in
-                ShareSheet(activityItems: [item.url])
+                ShareSheet(activityItems: [item.file])
             }
-            .quickLookPreview($previewURL)
+            .quickLookPreview(.preview($preview))
             .fileExporter(isPresented: Binding(get: { pendingSave != nil }, set: { if !$0 { pendingSave = nil } }),
                           document: pendingSave?.document,
                           contentType: pendingSave?.contentType ?? .data,
@@ -1026,7 +1031,7 @@ struct FlightPlanEditorView: View {
             pendingSave = PendingSave(document: ExportDocument(data: data), contentType: format.contentType,
                                       filename: flightPlan.exportFilename)
         case .preview:
-            previewURL = FlightPlanExportItem(data: data, filename: flightPlan.exportFilename, format: format)?.url
+            preview = try? StagedExport(data: data, filename: "\(flightPlan.exportFilename).\(format.fileExtension)")
         }
     }
 }

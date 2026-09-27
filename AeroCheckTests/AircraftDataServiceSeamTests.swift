@@ -11,12 +11,59 @@ final class AircraftDataServiceSeamTests: XCTestCase {
     final class FakeGating: SubscriptionGating {
         var userID: String?
         var allowPremium: Bool
-        init(userID: String? = "test-user", allowPremium: Bool = true) {
+        /// nil follows `allowPremium`, as the protocol's default does. `true` with `allowPremium`
+        /// is a lapsed subscription still inside its grace window.
+        var noEntitlement: Bool?
+        private(set) var syncCount = 0
+        /// Runs on every `syncWithServer`, e.g. to have the server accept the fresh token.
+        var onSync: () -> Void = {}
+        init(userID: String? = "test-user", allowPremium: Bool = true, noEntitlement: Bool? = nil) {
             self.userID = userID
             self.allowPremium = allowPremium
+            self.noEntitlement = noEntitlement
         }
         func getUserID() async -> String? { userID }
         func shouldAllowPremiumAccess() -> Bool { allowPremium }
+        func holdsNoEntitlement() -> Bool { noEntitlement ?? !allowPremium }
+        func syncWithServer() async {
+            syncCount += 1
+            onSync()
+        }
+    }
+
+    /// Answers each request by what it asks for, so the list, a checklist and its version can each
+    /// get their own status.
+    final class RoutedHTTPClient: HTTPClient {
+        private(set) var capturedRequests: [URLRequest] = []
+        var answer: (URLRequest) -> (status: Int, body: String)
+        init(answer: @escaping (URLRequest) -> (status: Int, body: String)) { self.answer = answer }
+        func data(for request: URLRequest) async throws -> (Data, URLResponse) {
+            capturedRequests.append(request)
+            let (status, body) = answer(request)
+            let response = HTTPURLResponse(url: request.url!, statusCode: status, httpVersion: nil, headerFields: nil)!
+            return (Data(body.utf8), response)
+        }
+        var checklistRequests: Int { capturedRequests.filter { $0.url?.path.hasSuffix("/checklist") == true }.count }
+    }
+
+    private static let refusal = (status: 403, body: #"{"success":false,"code":"ACCESS_DENIED"}"#)
+    private static let archerChecklist = (status: 200, body: #"""
+        {"success":true,"data":{"id":"pa28-181","aircraftType":"PA28","registration":"HB-PFA",
+         "modelName":"Piper Archer","shortModelName":"PA-28","aeroclub":null,"version":"1.0",
+         "lastUpdated":"2025","isFree":false,"stallSpeed":53,"pageCount":4,"hasParachute":false,
+         "crosswindLimits":{"takeoff":"15 kt","landing":"15 kt"},"speeds":[],
+         "targetSpeeds":{},"learningModeVisibleCount":{},"phases":{}}}
+        """#)
+    private static func list(hasAccess: Bool) -> (status: Int, body: String) {
+        (200, #"""
+        {"success":true,"data":{"aircraft":[
+         {"id":"pa28-181","aircraftType":"PA28","registration":"HB-PFA","modelName":"Piper Archer",
+          "shortModelName":"PA-28","version":"1.0","lastUpdated":"x","isFree":false,"stallSpeed":53,
+          "pageCount":4,"hasAccess":\#(hasAccess)},
+         {"id":"ps28-cruiser","aircraftType":"PS28","registration":"F-HPSA","modelName":"Sportcruiser",
+          "shortModelName":"PS-28","version":"1.0","lastUpdated":"x","isFree":false,"stallSpeed":39,
+          "pageCount":4,"hasAccess":\#(hasAccess)}]}}
+        """#)
     }
 
     final class FakeHTTPClient: HTTPClient {
@@ -133,23 +180,113 @@ final class AircraftDataServiceSeamTests: XCTestCase {
         XCTAssertTrue(lapsed.canFly(free), "the free aircraft never depends on Pro")
     }
 
-    /// A 403 from the server is "no active subscription": the failure says so, and every premium
-    /// aircraft locks at once rather than at the next list fetch.
-    func testAServerRefusalLocksPremiumAndSaysProIsNotActive() async throws {
-        let http = FakeHTTPClient(responseData: Data(#"{"success":false,"code":"ACCESS_DENIED"}"#.utf8), statusCode: 403)
-        let service = makeTestAircraftDataService(subscriptionManager: FakeGating(allowPremium: true), httpClient: http)
-        var archer = try premiumMetadata()
-        archer.hasAccess = true
-        var cruiser = try premiumMetadata(id: "ps28-cruiser")
-        cruiser.hasAccess = true
-        service.availableAircraft = [archer, cruiser]
+    /// A 403 while this device holds no entitlement either (a lapsed subscription in its grace
+    /// window): the failure says Pro isn't active, and every premium aircraft locks at once, on
+    /// disk too, rather than at the next list fetch.
+    func testARefusalThisDeviceAgreesWithLocksPremiumAndSaysProIsNotActive() async throws {
+        let directory = makeTestDirectory()
+        let gating = FakeGating(allowPremium: true, noEntitlement: true)
+        let http = RoutedHTTPClient { request in
+            request.url?.path.hasSuffix("/available") == true ? Self.list(hasAccess: true) : Self.refusal
+        }
+        let service = AircraftDataService(subscriptionManager: gating, httpClient: http,
+                                          cacheDirectory: directory, publishToWidget: { _ in })
+        await service.fetchAvailableAircraft()
+        XCTAssertTrue(service.availableAircraft.allSatisfy { $0.hasAccess })
 
         let result = await service.fetchChecklist(for: "pa28-181", language: "en")
 
         XCTAssertNil(result)
         XCTAssertEqual(service.checklistUnavailableReason, .proNotActive)
+        XCTAssertEqual(gating.syncCount, 0, "nothing to verify: this device holds no entitlement")
         XCTAssertFalse(service.availableAircraft.contains { $0.hasAccess }, "every premium aircraft locks")
         XCTAssertFalse(service.availableAircraft.contains { service.canFly($0) })
+        let relaunched = AircraftDataService(subscriptionManager: gating, httpClient: RoutedHTTPClient { _ in (503, "") },
+                                             cacheDirectory: directory, publishToWidget: { _ in })
+        XCTAssertFalse(relaunched.availableAircraft.contains { $0.hasAccess }, "an offline relaunch stays locked")
+    }
+
+    /// A 403 for an entitlement this device holds is disputed, not obeyed: the server is asked to
+    /// verify it again (a fresh session token), and the second answer is the one that counts.
+    /// One refusal used to lock every premium aircraft, on disk. (v6.0 review, security pass)
+    func testARefusalThisDeviceDisputesIsVerifiedAgainAndRetried() async throws {
+        let directory = makeTestDirectory()
+        var serverAccepts = false
+        let gating = FakeGating(allowPremium: true, noEntitlement: false)
+        gating.onSync = { serverAccepts = true }
+        let http = RoutedHTTPClient { request in
+            guard let path = request.url?.path else { return (500, "") }
+            if path.hasSuffix("/available") { return Self.list(hasAccess: true) }
+            if path.hasSuffix("/checklist") { return serverAccepts ? Self.archerChecklist : Self.refusal }
+            return (503, "")
+        }
+        let service = AircraftDataService(subscriptionManager: gating, httpClient: http,
+                                          cacheDirectory: directory, publishToWidget: { _ in })
+        await service.fetchAvailableAircraft()
+
+        let result = await service.fetchChecklist(for: "pa28-181", language: "en")
+
+        XCTAssertEqual(result?.id, "pa28-181", "loaded once the entitlement was verified again")
+        XCTAssertEqual(gating.syncCount, 1)
+        XCTAssertEqual(http.checklistRequests, 2)
+        XCTAssertNil(service.checklistUnavailableReason)
+        XCTAssertTrue(service.availableAircraft.allSatisfy { $0.hasAccess })
+    }
+
+    /// Still refused after verifying again: this aircraft can't load and says why, but nothing else
+    /// locks, and nothing is written over the server's list on disk. A subscribed pilot offline
+    /// keeps every aircraft already downloaded.
+    func testARefusalThatStandsLocksNothingElseAndNothingOnDisk() async throws {
+        let directory = makeTestDirectory()
+        let gating = FakeGating(allowPremium: true, noEntitlement: false)
+        let http = RoutedHTTPClient { request in
+            request.url?.path.hasSuffix("/available") == true ? Self.list(hasAccess: true) : Self.refusal
+        }
+        let service = AircraftDataService(subscriptionManager: gating, httpClient: http,
+                                          cacheDirectory: directory, publishToWidget: { _ in })
+        await service.fetchAvailableAircraft()
+
+        let result = await service.fetchChecklist(for: "pa28-181", language: "en")
+
+        XCTAssertNil(result)
+        XCTAssertEqual(service.checklistUnavailableReason, .proNotActive)
+        XCTAssertEqual(gating.syncCount, 1)
+        XCTAssertTrue(service.availableAircraft.allSatisfy { $0.hasAccess }, "one refusal doesn't lock the others")
+        let relaunched = AircraftDataService(subscriptionManager: gating, httpClient: RoutedHTTPClient { _ in (503, "") },
+                                             cacheDirectory: directory, publishToWidget: { _ in })
+        XCTAssertTrue(relaunched.availableAircraft.allSatisfy { relaunched.canFly($0) },
+                      "an offline relaunch still offers them")
+    }
+
+    /// Refusals in a row ask the server once: `/verify` is rate-limited and fails closed.
+    func testRepeatedRefusalsVerifyOnlyOnce() async throws {
+        let gating = FakeGating(allowPremium: true, noEntitlement: false)
+        let service = makeTestAircraftDataService(subscriptionManager: gating,
+                                                  httpClient: RoutedHTTPClient { _ in Self.refusal })
+        var archer = try premiumMetadata()
+        archer.hasAccess = true
+        service.availableAircraft = [archer]
+
+        _ = await service.fetchChecklist(for: "pa28-181", language: "en")
+        _ = await service.fetchChecklist(for: "pa28-181", language: "en")
+
+        XCTAssertEqual(gating.syncCount, 1)
+    }
+
+    /// After a purchase the list can come back locked because the server no longer accepts the
+    /// session token, which waiting never fixes: the entitlement is verified again after the first
+    /// locked answer.
+    func testALockedListAfterAPurchaseVerifiesTheEntitlementAgain() async {
+        var serverAccepts = false
+        let gating = FakeGating(allowPremium: true, noEntitlement: false)
+        gating.onSync = { serverAccepts = true }
+        let http = RoutedHTTPClient { _ in Self.list(hasAccess: serverAccepts) }
+        let service = makeTestAircraftDataService(subscriptionManager: gating, httpClient: http)
+
+        await service.refetchUntilPremiumUnlocked(maxAttempts: 2)
+
+        XCTAssertEqual(gating.syncCount, 1)
+        XCTAssertTrue(service.availableAircraft.allSatisfy { $0.hasAccess })
     }
 
     func testAnyOtherFailureIsUnreachable() async throws {

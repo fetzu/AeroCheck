@@ -49,6 +49,25 @@ final class SubscriptionReconcileTests: XCTestCase {
         XCTAssertFalse(sm.isPremiumAccessDefinitivelyDenied(), "Lifetime is never definitively denied")
     }
 
+    /// Whether a server refusal is agreed with: only once StoreKit has looked and found nothing. A
+    /// grace window doesn't change that; a status still resolving, a subscription or lifetime does.
+    func testHoldsNoEntitlementOnlyWhenStoreKitFoundNone() {
+        let sm = manager()
+        sm.subscriptionStatus = .unknown
+        XCTAssertFalse(sm.holdsNoEntitlement(), "still resolving is not none")
+
+        sm.confirmNoActiveSubscription()
+        XCTAssertTrue(sm.holdsNoEntitlement())
+        sm.startGracePeriod()
+        XCTAssertTrue(sm.shouldAllowPremiumAccess(), "the grace window keeps downloaded aircraft")
+        XCTAssertTrue(sm.holdsNoEntitlement(), "but there is still no entitlement to verify")
+
+        sm.subscriptionStatus = .subscribed(expiresAt: Date().addingTimeInterval(1000), productID: "aerocheck.pro.yearly")
+        XCTAssertFalse(sm.holdsNoEntitlement())
+        sm.subscriptionStatus = .lifetime
+        XCTAssertFalse(sm.holdsNoEntitlement())
+    }
+
     /// The entitlement flags must distinguish subscriptions from lifetime correctly.
     func testSubscriptionStatusEntitlementFlags() {
         let future = Date().addingTimeInterval(1000)

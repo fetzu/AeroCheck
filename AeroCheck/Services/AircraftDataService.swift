@@ -14,6 +14,12 @@ protocol SubscriptionGating {
     /// valid grace window). Used for the cache-DESTROYING decision so a transient cold-launch state
     /// can't wipe the offline checklist. (PR-05)
     func isPremiumAccessDefinitivelyDenied() -> Bool
+    /// True when this device has looked and holds no entitlement: StoreKit has resolved and found
+    /// none, whether or not a grace window is still running. A status still resolving is not this.
+    /// Decides whether a server refusal is agreed with (lock the aircraft) or disputed (ask again).
+    func holdsNoEntitlement() -> Bool
+    /// Has the server verify this device's entitlement again, which mints a fresh session token.
+    func syncWithServer() async
 }
 
 extension SubscriptionGating {
@@ -23,6 +29,12 @@ extension SubscriptionGating {
     /// Conservative default for conformers without richer state (e.g. test fakes): defer to the
     /// access check. `SubscriptionManager` overrides this to avoid clearing caches mid-load. (PR-05)
     func isPremiumAccessDefinitivelyDenied() -> Bool { !shouldAllowPremiumAccess() }
+
+    /// Default for conformers without a StoreKit status (e.g. test fakes): defer to the access check.
+    func holdsNoEntitlement() -> Bool { !shouldAllowPremiumAccess() }
+
+    /// Default for conformers with nothing to verify (e.g. test fakes).
+    func syncWithServer() async {}
 }
 
 extension SubscriptionManager: SubscriptionGating {}
@@ -83,6 +95,12 @@ class AircraftDataService: ObservableObject {
     /// instead of "check your connection and subscription". nil after a load that worked.
     /// (on-device review #4, point 1)
     @Published private(set) var checklistUnavailableReason: ChecklistUnavailableReason?
+
+    /// When this device last had the server verify its entitlement again after a refusal it
+    /// disputes. At most once per `entitlementResyncInterval`, so a run of refusals can't hammer
+    /// `/verify`, which is rate-limited and fails closed.
+    private var lastEntitlementResync: Date?
+    static let entitlementResyncInterval: TimeInterval = 5 * 60
 
     // MARK: - Private Properties
 
@@ -221,6 +239,10 @@ class AircraftDataService: ObservableObject {
     /// a single refetch can still return the locked list ("bought it but still locked"). Retry a few
     /// times with backoff until at least one premium aircraft reports access — then stop. If it never
     /// unlocks within the attempts, the periodic check / next launch reconciles. (premium reliability)
+    ///
+    /// When the list still comes back locked while this device holds an entitlement, the server is
+    /// asked to verify it again before the next attempt: a session token it no longer accepts looks
+    /// exactly like a lagging write, and waiting never fixes that one.
     func refetchUntilPremiumUnlocked(maxAttempts: Int = 4) async {
         let attempts = max(1, maxAttempts)
         for attempt in 1...attempts {
@@ -229,6 +251,7 @@ class AircraftDataService: ObservableObject {
                 AppLog.aircraftData.debugLine("Premium unlocked after \(attempt) fetch attempt(s)")
                 return
             }
+            if attempt == 1 { await resyncEntitlementIfDisputed() }
             if attempt < attempts {
                 // 1.5s, 3s, 4.5s — enough for the edge KV write to propagate without a long hang.
                 try? await Task.sleep(for: .seconds(Double(attempt) * 1.5))
@@ -248,9 +271,14 @@ class AircraftDataService: ObservableObject {
         aircraft.isFree || (aircraft.hasAccess && !gating.isPremiumAccessDefinitivelyDenied())
     }
 
-    /// The server refused a premium checklist (403): it holds no active subscription for this
-    /// account. Lock every premium aircraft now, in memory, rather than waiting for the next list
-    /// fetch; a purchase or restore refetches the list and unlocks them again.
+    /// The server refused a premium checklist (403) and this device agrees: it holds no entitlement
+    /// either (a grace window may still be running). Lock every premium aircraft now rather than
+    /// waiting for the next list fetch; a purchase or restore refetches the list and unlocks them.
+    ///
+    /// Only then. A refusal used to lock every aircraft, on disk, whatever this device held. Right
+    /// after a purchase the server's entitlement write can trail StoreKit, and a session token can be
+    /// lost with a device restore; one refusal then locked a subscribed pilot out of every aircraft
+    /// already downloaded, and an offline relaunch kept them locked. (v6.0 review, security pass)
     private func lockPremiumAircraft() {
         for index in availableAircraft.indices where !availableAircraft[index].isFree {
             availableAircraft[index].hasAccess = false
@@ -258,6 +286,32 @@ class AircraftDataService: ObservableObject {
         // Kept on disk too: an offline relaunch reads the cached list, which would unlock them again.
         cacheMetadata(availableAircraft)
         publishToWidget(availableAircraft)
+    }
+
+    /// Has the server verify this device's entitlement again when it refuses premium content that
+    /// this device holds an entitlement for (or is still resolving). Returns whether it asked:
+    /// never when the device agrees there is none, and at most once per `entitlementResyncInterval`.
+    @discardableResult
+    private func resyncEntitlementIfDisputed() async -> Bool {
+        guard !gating.holdsNoEntitlement() else { return false }
+        if let last = lastEntitlementResync,
+           Date().timeIntervalSince(last) < Self.entitlementResyncInterval { return false }
+        lastEntitlementResync = Date()
+        AppLog.aircraftData.debugLine("Server refused premium access this device holds; verifying the entitlement again")
+        await gating.syncWithServer()
+        return true
+    }
+
+    /// A checklist from the server, asked for a second time once the entitlement has been verified
+    /// again if the first answer was a refusal this device disputes.
+    private func fetchChecklistFromServerResyncing(aircraftId: String, language: String?) async throws
+        -> RemoteAircraftChecklist {
+        do {
+            return try await fetchChecklistFromServer(aircraftId: aircraftId, language: language)
+        } catch AircraftDataError.accessDenied {
+            guard await resyncEntitlementIfDisputed() else { throw AircraftDataError.accessDenied }
+            return try await fetchChecklistFromServer(aircraftId: aircraftId, language: language)
+        }
     }
 
     /// Fetches a specific aircraft checklist
@@ -311,7 +365,7 @@ class AircraftDataService: ObservableObject {
         do {
             // First get version info for checksum
             let versionInfo = try? await fetchVersion(aircraftId: aircraftId, language: language)
-            let checklist = try await fetchChecklistFromServer(aircraftId: aircraftId, language: language)
+            let checklist = try await fetchChecklistFromServerResyncing(aircraftId: aircraftId, language: language)
 
             // RES-13: these are two SEPARATE requests, and their results were paired and cached
             // without ever checking they describe the same revision. A deploy landing between them —
@@ -383,7 +437,9 @@ class AircraftDataService: ObservableObject {
             AppLog.aircraftData.debugLine("Failed to fetch checklist for \(cacheKey): \(error)")
             if case AircraftDataError.accessDenied = error {
                 checklistUnavailableReason = .proNotActive
-                lockPremiumAircraft()
+                // Still refused after asking again: this aircraft can't load, but the others keep
+                // what the server's list said unless this device agrees there is no entitlement.
+                if gating.holdsNoEntitlement() { lockPremiumAircraft() }
             } else {
                 checklistUnavailableReason = .unreachable
             }

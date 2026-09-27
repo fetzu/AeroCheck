@@ -655,6 +655,17 @@ class SubscriptionManager: ObservableObject {
         return true
     }
 
+    /// True when StoreKit has resolved and this device holds no entitlement, grace window or not.
+    /// A server refusal is then agreed with; otherwise it is disputed and the server is asked to
+    /// verify the entitlement again. `.unknown` is not "none": the status is still resolving.
+    func holdsNoEntitlement() -> Bool {
+        #if DEBUG
+        if forceSubscribed { return false } // DEBUG-ONLY marketing override (compiled out of release)
+        #endif
+        if debugForceNotSubscribed { return true }
+        return subscriptionStatus == .notSubscribed
+    }
+
     /// Redacts an identifier for logging — keeps only a short suffix so support can correlate
     /// without the full id (a server auth principal) ever landing in the debug log. (SEC-19)
     static func redactedIdentifier(_ id: String) -> String {

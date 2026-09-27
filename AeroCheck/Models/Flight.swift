@@ -554,12 +554,6 @@ struct Flight: Identifiable, Codable {
         return "\(Flight.formatHoursDecimal(flown)) / \(Flight.formatHoursTime(flown))"
     }
 
-    /// Logged minutes, like the logbook (see `loggedMinutes`).
-    var formattedBlockTime: String {
-        guard let minutes = blockMinutes else { return "--:--" }
-        return String(format: "%02d:%02d", minutes / 60, minutes % 60)
-    }
-
     var formattedFlightTime: String {
         guard let minutes = flightMinutes else { return "--:--" }
         return String(format: "%02d:%02d", minutes / 60, minutes % 60)

@@ -22,16 +22,6 @@ final class BorderCrossingTests: XCTestCase {
         XCTAssertEqual(BorderCrossingGuide.rule(for: "fr")?.country, "FR")
     }
 
-    func testUnknownIsTreatedAsDemandingNotAsAbsent() {
-        // "Not established" must never read like "not required" — an obligation nobody has verified
-        // is one the pilot still has to satisfy. Only an established "no" is not demanding.
-        XCTAssertTrue(BorderRequirement.unknown.isDemanding)
-        XCTAssertTrue(BorderRequirement.disputed.isDemanding)
-        XCTAssertTrue(BorderRequirement.required.isDemanding)
-        XCTAssertTrue(BorderRequirement.conditional.isDemanding)
-        XCTAssertFalse(BorderRequirement.notRequired.isDemanding)
-    }
-
     func testEveryStateHasItsOwnWording() {
         // A state that renders as another state's label is a silent mistranslation of an obligation.
         let labels = [BorderRequirement.required, .conditional, .notRequired, .unknown, .disputed]
@@ -46,7 +36,7 @@ final class BorderCrossingTests: XCTestCase {
         // reviewer attention.
         let governmentSuffixes = [".admin.ch", ".gouv.fr", ".gov.uk", ".gv.at", ".gov.it", ".zoll.de",
                                   ".legifrance.gouv.fr", ".bund.de"]
-        let all = BorderCrossingGuide.curatedCountries.compactMap { BorderCrossingGuide.rule(for: $0) }
+        let all = BorderCrossingGuide.rules.keys.sorted().compactMap { BorderCrossingGuide.rule(for: $0) }
             + [BorderCrossingGuide.switzerland]
         for rule in all {
             let host = rule.officialURL.host ?? ""
@@ -56,7 +46,7 @@ final class BorderCrossingTests: XCTestCase {
     }
 
     func testEveryCuratedRuleCarriesAnHTTPSSourceAndAReviewDate() {
-        for code in BorderCrossingGuide.curatedCountries {
+        for code in BorderCrossingGuide.rules.keys.sorted() {
             let rule = try! XCTUnwrap(BorderCrossingGuide.rule(for: code))
             XCTAssertEqual(rule.country, code)
             XCTAssertEqual(rule.officialURL.scheme, "https", "\(code): the source must be a real https page")
@@ -72,7 +62,7 @@ final class BorderCrossingTests: XCTestCase {
     func testALeadTimeOnlyAppearsWhereNotificationIsActuallyRequired() {
         // A lead time attached to a "not required" rule would be a contradiction a pilot has to
         // resolve in their head at the worst moment.
-        for code in BorderCrossingGuide.curatedCountries {
+        for code in BorderCrossingGuide.rules.keys.sorted() {
             let rule = try! XCTUnwrap(BorderCrossingGuide.rule(for: code))
             if rule.priorNotification == .notRequired {
                 XCTAssertNil(rule.noticeLeadTime, "\(code): a lead time contradicts 'not required'")
@@ -86,7 +76,7 @@ final class BorderCrossingTests: XCTestCase {
         let ch = BorderCrossingGuide.switzerland
         XCTAssertEqual(ch.country, "CH")
         XCTAssertEqual(ch.officialURL.scheme, "https")
-        XCTAssertTrue(ch.customsAerodrome.isDemanding, "category A-C is the rule, D only under conditions")
+        XCTAssertNotEqual(ch.customsAerodrome, .notRequired, "category A-C is the rule, D only under conditions")
     }
 
     func testGermanyIsRecordedAsContradictingItselfRatherThanResolved() {
@@ -95,8 +85,6 @@ final class BorderCrossingTests: XCTestCase {
         // "required" would send pilots to airports they no longer need.
         let de = try! XCTUnwrap(BorderCrossingGuide.rule(for: "DE"))
         XCTAssertEqual(de.customsAerodrome, .disputed)
-        XCTAssertTrue(de.hasOpenQuestion, "a disputed fact is an open question, like an unknown one")
-        XCTAssertTrue(de.customsAerodrome.isDemanding)
     }
 
     func testItalyRequiresACustomsAirportOutright() {
@@ -137,22 +125,6 @@ final class BorderCrossingTests: XCTestCase {
         let fr = try! XCTUnwrap(BorderCrossingGuide.rule(for: "FR"))
         XCTAssertEqual(fr.priorNotification, .notRequired)
         XCTAssertNil(fr.noticeLeadTime)
-    }
-
-    func testARuleWithAnUnknownIsFlaggedAsHavingAnOpenQuestion() {
-        let open = BorderCrossingRule(
-            country: "XX", countryName: "Test",
-            customsAerodrome: .unknown, priorNotification: .required, noticeLeadTime: "1 h",
-            officialURL: URL(string: "https://example.com")!, lastReviewed: "2026-09-01"
-        )
-        XCTAssertTrue(open.hasOpenQuestion)
-
-        let settled = BorderCrossingRule(
-            country: "XX", countryName: "Test",
-            customsAerodrome: .required, priorNotification: .required, noticeLeadTime: "1 h",
-            officialURL: URL(string: "https://example.com")!, lastReviewed: "2026-09-01"
-        )
-        XCTAssertFalse(settled.hasOpenQuestion)
     }
 
     // MARK: - A5 nav log

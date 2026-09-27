@@ -487,11 +487,6 @@ class DataPersistenceManager: ObservableObject {
         return try? Data(contentsOf: activeFlightStateURL)
     }
 
-    /// Whether a crash-recovery checkpoint file exists.
-    var hasActiveFlightStateFile: Bool {
-        FileManager.default.fileExists(atPath: activeFlightStateURL.path)
-    }
-
     /// Removes the crash-recovery checkpoint (flight ended / cancelled / restored).
     func clearActiveFlightStateFile() {
         try? FileManager.default.removeItem(at: activeFlightStateURL)

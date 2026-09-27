@@ -106,16 +106,6 @@ enum ChecklistPhase: Int, CaseIterable, Identifiable, Codable {
         self == .afterLanding
     }
     
-    /// Whether this phase has an interactive briefing
-    var hasBriefing: Bool {
-        switch self {
-        case .beforeDeparture, .descent:
-            return true
-        default:
-            return false
-        }
-    }
-    
     /// Briefing type for this phase
     var briefingType: BriefingType? {
         switch self {

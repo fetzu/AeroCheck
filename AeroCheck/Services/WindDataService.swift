@@ -69,9 +69,6 @@ class WindDataService: ObservableObject {
     /// check this URL FIRST.
     private let windDataURL = "https://data.geo.admin.ch/ch.meteoschweiz.messwerte-windgeschwindigkeit-kmh-10min/ch.meteoschweiz.messwerte-windgeschwindigkeit-kmh-10min_en.json"
 
-    /// Maximum age of a wind reading before it is considered stale and no longer shown. (UX-04)
-    private let maxWindAgeSeconds: TimeInterval = 20 * 60
-
     /// Reject stations further away than this. The network is dense enough in the lowlands that a
     /// nearest station beyond this radius means there is no representative observation — better to
     /// say "not available" than to brief a runway against a wind measured 60 km away.
@@ -119,24 +116,6 @@ class WindDataService: ObservableObject {
                coordinate.latitude <= switzerlandBounds.maxLat &&
                coordinate.longitude >= switzerlandBounds.minLon &&
                coordinate.longitude <= switzerlandBounds.maxLon
-    }
-
-    /// Whether the current reading is fresh enough to show. (UX-04)
-    var hasFreshWind: Bool {
-        guard let w = currentWindData else { return false }
-        return Date().timeIntervalSince(w.timestamp) <= maxWindAgeSeconds
-    }
-
-    /// Age of the current wind reading in seconds, if any (for provenance display).
-    var windDataAgeSeconds: TimeInterval? {
-        guard let w = currentWindData else { return nil }
-        return Date().timeIntervalSince(w.timestamp)
-    }
-
-    /// True if we hold a wind reading that has aged past the usable window.
-    var isWindDataStale: Bool {
-        guard let age = windDataAgeSeconds else { return false }
-        return age > maxWindAgeSeconds
     }
 
     // MARK: - Private Methods

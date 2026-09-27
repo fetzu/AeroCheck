@@ -42,12 +42,6 @@ struct NewFlightIntent: Equatable, Sendable {
         kind == .circuits ? departureIdent : arrivalIdent
     }
 
-    /// Enough to be worth creating. A flight with no departure is not a flight yet; everything else,
-    /// including the route, can arrive later.
-    var isCreatable: Bool {
-        !departureIdent.trimmingCharacters(in: .whitespaces).isEmpty
-    }
-
     /// The label the thread carries, captured now so it still reads correctly after the plan it came
     /// from is edited or deleted.
     var routeLabel: String {

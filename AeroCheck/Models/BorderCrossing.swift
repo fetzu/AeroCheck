@@ -44,10 +44,6 @@ enum BorderRequirement: String, Codable, Sendable {
         case .disputed:    return L10n.Border.disputed
         }
     }
-
-    /// Whether this should read as a warning rather than a fact. Everything except an established
-    /// "no" qualifies.
-    var isDemanding: Bool { self != .notRequired }
 }
 
 /// One country's rules for a private GA flight crossing to or from Switzerland.
@@ -66,12 +62,6 @@ struct BorderCrossingRule: Equatable, Sendable {
     /// When a human last read that page. Shown, because a rule nobody has re-checked in two years
     /// should be treated differently from one checked last month.
     let lastReviewed: String
-
-    /// Whether this rule has something a human still needs to settle — either nobody has established
-    /// the answer, or the country's own sources disagree about it.
-    var hasOpenQuestion: Bool {
-        [customsAerodrome, priorNotification].contains { $0 == .unknown || $0 == .disputed }
-    }
 }
 
 enum BorderCrossingGuide {
@@ -190,7 +180,4 @@ enum BorderCrossingGuide {
     static func rule(for country: String) -> BorderCrossingRule? {
         rules[country.trimmingCharacters(in: .whitespaces).uppercased()]
     }
-
-    /// Countries with a curated rule, for tests and for the settings-style listing.
-    static var curatedCountries: [String] { rules.keys.sorted() }
 }

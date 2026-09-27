@@ -269,20 +269,6 @@ final class DataStatusManager: ObservableObject {
         recompute()
     }
 
-    /// Refresh every downloaded small-JSON dataset permitted on the current network (tiles are excluded
-    /// — they need an explicit size-shown confirmation). Backs the hub's "Update all". No-op when the
-    /// network gate forbids it.
-    func refreshAllUpdatable(cellularUpdatesEnabled: Bool) async {
-        guard DataRefreshGate.allowsSilentSmallRefresh(networkMonitor.conditions, cellularUpdatesEnabled: cellularUpdatesEnabled) else { return }
-        let stamp = now()
-        for provider in providers {
-            let set = provider.makeDataSet(now: stamp)
-            guard set.refreshPolicy == .smallSilentJSON, set.isDownloaded else { continue }
-            await provider.refresh()
-        }
-        recompute()
-    }
-
     /// Delete every dataset's cache ("Remove all downloads"), then recompute.
     func removeAll() {
         providers.forEach { $0.delete() }

@@ -31,38 +31,6 @@ final class WindDataServiceTests: XCTestCase {
         )
     }
 
-    // MARK: - Freshness (UX-04)
-
-    func testFreshWindIsUsable() {
-        let service = WindDataService()
-        service.currentWindData = wind(ageMinutes: 1)
-        XCTAssertTrue(service.hasFreshWind)
-        XCTAssertFalse(service.isWindDataStale)
-    }
-
-    /// A reading past the 20-minute window must not be briefed as current.
-    func testStaleWindIsNotFresh() {
-        let service = WindDataService()
-        service.currentWindData = wind(ageMinutes: 45)
-        XCTAssertFalse(service.hasFreshWind)
-        XCTAssertTrue(service.isWindDataStale)
-    }
-
-    func testNoWindDataIsNeitherFreshNorStale() {
-        let service = WindDataService()
-        service.currentWindData = nil
-        XCTAssertFalse(service.hasFreshWind)
-        XCTAssertFalse(service.isWindDataStale, "absent wind is not the same as stale wind")
-        XCTAssertNil(service.windDataAgeSeconds)
-    }
-
-    func testAgeIsReported() {
-        let service = WindDataService()
-        service.currentWindData = wind(ageMinutes: 5)
-        guard let age = service.windDataAgeSeconds else { return XCTFail("age must be reported") }
-        XCTAssertEqual(age, 300, accuracy: 5)
-    }
-
     // MARK: - Geofence
 
     func testInsideSwitzerland() {

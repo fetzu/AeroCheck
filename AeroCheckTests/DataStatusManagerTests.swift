@@ -148,25 +148,6 @@ final class DataStatusManagerTests: XCTestCase {
         XCTAssertEqual(b.deleteCount, 2)
     }
 
-    func testRefreshAllUpdatableRespectsGateAndSkipsTiles() async {
-        // Offline → gate forbids → nothing refreshes.
-        let offlineMon = NetworkMonitor(stub: .disconnected)
-        let p = FakeProvider(dataSet(id: "a", urgency: .primary, freshness: .stale, isDownloaded: true))
-        let m1 = DataStatusManager(providers: [p], networkMonitor: offlineMon, now: { self.now })
-        await m1.refreshAllUpdatable(cellularUpdatesEnabled: true)
-        XCTAssertEqual(p.refreshCount, 0)
-
-        // Wi-Fi → downloaded small-JSON refreshes; tiles are excluded from Update-all.
-        let wifi = NetworkConditions(isConnected: true, isWiFi: true, isExpensive: false, isConstrained: false)
-        let wifiMon = NetworkMonitor(stub: wifi)
-        let small = FakeProvider(dataSet(id: "small", urgency: .primary, freshness: .stale, refreshPolicy: .smallSilentJSON, isDownloaded: true))
-        let tile = FakeProvider(dataSet(id: "tile", urgency: .imagery, freshness: .stale, refreshPolicy: .largeTilesConfirmCellular, isDownloaded: true))
-        let m2 = DataStatusManager(providers: [small, tile], networkMonitor: wifiMon, now: { self.now })
-        await m2.refreshAllUpdatable(cellularUpdatesEnabled: true)
-        XCTAssertEqual(small.refreshCount, 1)
-        XCTAssertEqual(tile.refreshCount, 0)
-    }
-
     // MARK: - Stale-data nudge
 
     func testStaleNudgeFiresOnUrgentAndSnoozeSilencesIt() {

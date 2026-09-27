@@ -1170,10 +1170,6 @@ struct HomeView: View {
         return formatter.localizedString(for: date, relativeTo: Date())
     }
 
-    // MARK: - Aircraft
-
-    private enum CarouselDirection { case left, right }
-
     // MARK: - GPS Status Indicator
 
     /// Ambient data-currency dot beside GPS: quiet green when fresh, amber/red when stale; tap opens the

@@ -11,7 +11,6 @@ import SwiftUI
 extension Color {
     // Primary colors — aviation inspired
     static let aviationBlue = Color(red: 0.1, green: 0.2, blue: 0.4)
-    static let aviationDarkBlue = Color(red: 0.05, green: 0.1, blue: 0.25)
     // Accent + surfaces route through AmbientPalette so they can be re-skinned at runtime; absent an
     // installed override they return their standard values, so the default look is unchanged.
     static var aviationGold: Color { AmbientPalette.accent ?? Color(red: 0.85, green: 0.65, blue: 0.2) }

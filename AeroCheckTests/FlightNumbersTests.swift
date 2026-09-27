@@ -75,7 +75,6 @@ final class FlightNumbersTests: XCTestCase {
         XCTAssertEqual(LogbookTotals.forFlight(f).totalMinutes, 31, "the page total is the sum of its lines")
         XCTAssertEqual(FlightCostCalculator.billableHours(for: f, basis: .block)!, 31.0 / 60.0, accuracy: 1e-9,
                        "the bill agrees with the logbook")
-        XCTAssertEqual(f.formattedBlockTime, "00:31")
     }
 
     func testTheMinuteRuleCutsBothWays() {

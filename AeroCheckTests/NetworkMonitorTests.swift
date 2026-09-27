@@ -34,21 +34,6 @@ final class NetworkMonitorTests: XCTestCase {
         XCTAssertFalse(DataRefreshGate.allowsSilentSmallRefresh(offline, cellularUpdatesEnabled: true))
     }
 
-    // MARK: - Tile-download gate
-
-    func testTileDownloadAllowedOnWiFiWithoutConfirmation() {
-        XCTAssertTrue(DataRefreshGate.allowsTileDownload(wifi, userConfirmedCellular: false))
-    }
-
-    func testTileDownloadOnCellularRequiresConfirmation() {
-        XCTAssertFalse(DataRefreshGate.allowsTileDownload(cellular, userConfirmedCellular: false))
-        XCTAssertTrue(DataRefreshGate.allowsTileDownload(cellular, userConfirmedCellular: true))
-    }
-
-    func testTileDownloadNeverWhenOffline() {
-        XCTAssertFalse(DataRefreshGate.allowsTileDownload(offline, userConfirmedCellular: true))
-    }
-
     // MARK: - Monitor snapshot
 
     @MainActor

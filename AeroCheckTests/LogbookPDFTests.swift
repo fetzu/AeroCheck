@@ -229,3 +229,12 @@ final class LogbookPDFTests: XCTestCase {
         return document.numberOfPages
     }
 }
+
+extension LogbookTotals {
+    /// A kept logbook balances: the four function columns must add up to the total. Worth asserting
+    /// rather than assuming, since it is the first thing an auditor adds up. Test-only: the app
+    /// never needed it at run time, so it lives here rather than in LogbookEntry.swift.
+    var functionMinutesBalance: Bool {
+        picMinutes + coPilotMinutes + dualMinutes + instructorMinutes == totalMinutes
+    }
+}

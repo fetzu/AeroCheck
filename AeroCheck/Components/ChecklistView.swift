@@ -1224,7 +1224,7 @@ struct DepartureBriefingContent: View {
                         } else {
                             BriefingItem(label: L10n.Briefing.wind, value: L10n.Briefing.notAvailable)
                             Text(L10n.Briefing.windCheckHint)
-                                .font(.aero(size: 11))
+                                .font(.aero(size: CockpitType.label))
                                 .foregroundColor(theme.textDim)
                                 .italic()
                         }
@@ -1312,7 +1312,7 @@ struct ApproachBriefingContent: View {
                         } else {
                             BriefingItem(label: L10n.Briefing.wind, value: L10n.Briefing.notAvailable)
                             Text(L10n.Briefing.windCheckHint)
-                                .font(.aero(size: 11))
+                                .font(.aero(size: CockpitType.label))
                                 .foregroundColor(theme.textDim)
                                 .italic()
                         }
@@ -1346,7 +1346,8 @@ struct ApproachBriefingContent: View {
                     }
 
                     // Missed Approach Section
-                    BriefingSection(title: L10n.Briefing.missedApproach.uppercased(), isWarning: true) {
+                    // A standing procedure, not a warning: red is for warnings only. (v6.0 review)
+                    BriefingSection(title: L10n.Briefing.missedApproach.uppercased()) {
                         EmergencyItem(text: L10n.Briefing.goAroundProcedure)
                     }
 
@@ -1394,12 +1395,12 @@ struct SpeedGridView: View {
                     // speed, which is short and must stay whole, never gives up a character.
                     // (device-test feedback, v4.4.0)
                     Text(item.label)
-                        .font(.aero(size: 12, weight: .medium))
+                        .font(.aero(size: CockpitType.label, weight: .medium))
                         .foregroundColor(theme.textSecondary)
                         .fixedSize(horizontal: false, vertical: true)
                     Spacer(minLength: 0)
                     Text(item.value)
-                        .font(.aero(size: 14, weight: .bold, design: .monospaced))
+                        .font(.aero(size: CockpitType.row, weight: .bold, design: .monospaced))
                         .foregroundColor(item.value == L10n.Briefing.speedNA ? theme.textDim : theme.onTarget)
                         .fixedSize()
                 }
@@ -1419,15 +1420,17 @@ struct RunwayRowView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 2) {
             HStack(spacing: 8) {
+                // The suggested runway in white and bold, starred: data, not a control, so not cyan.
+                // (v6.0 review)
                 if isSuggested {
                     Image(systemName: "star.fill")
-                        .font(.aero(size: 12))
-                        .foregroundColor(theme.action)
+                        .font(.aero(size: CockpitType.label))
+                        .foregroundColor(theme.textPrimary)
                 }
 
                 Text(runway.identifier)
-                    .font(.aero(size: 14, weight: .bold, design: .monospaced))
-                    .foregroundColor(isSuggested ? theme.action : theme.textPrimary)
+                    .font(.aero(size: CockpitType.row, weight: .bold, design: .monospaced))
+                    .foregroundColor(theme.textPrimary)
                     .fixedSize()
 
                 Text("-")
@@ -1437,7 +1440,7 @@ struct RunwayRowView: View {
                 // Wraps rather than truncating: a long surface/lighting string must stay readable on a
                 // narrow screen, like every other briefing line. (device-test feedback, v4.4.0)
                 Text(runway.descriptionString)
-                    .font(.aero(size: 12))
+                    .font(.aero(size: CockpitType.label))
                     .foregroundColor(theme.textSecondary)
                     .fixedSize(horizontal: false, vertical: true)
 
@@ -1447,14 +1450,14 @@ struct RunwayRowView: View {
             // OpenAIP extras (PCN + declared distances), only when present. Indented under the runway id.
             if let extra = runway.extraInfoLine {
                 Text(extra)
-                    .font(.aero(size: 11, design: .monospaced))
+                    .font(.aero(size: CockpitType.label, design: .monospaced))
                     .foregroundColor(theme.textDim)
                     .fixedSize(horizontal: false, vertical: true)
-                    .padding(.leading, isSuggested ? 20 : 0)
+                    .padding(.leading, isSuggested ? CockpitType.label + 8 : 0)
             }
         }
         .padding(.vertical, 4)
-        .background(isSuggested ? theme.action.opacity(0.1) : Color.clear)
+        .background(isSuggested ? theme.textPrimary.opacity(0.08) : Color.clear)
         .cornerRadius(4)
     }
 }
@@ -1510,9 +1513,10 @@ struct BriefingSection<Content: View>: View {
     
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
+            // A heading, so not cyan (nothing to touch); red only over a warning. (v6.0 review)
             Text(title)
-                .font(.aero(size: 14, weight: .bold))
-                .foregroundColor(isWarning ? theme.danger : theme.action)
+                .font(.aero(size: CockpitType.label, weight: .bold))
+                .foregroundColor(isWarning ? theme.danger : theme.textSecondary)
                 .tracking(1)
             
             content
@@ -1524,7 +1528,7 @@ struct BriefingSection<Content: View>: View {
                 .fill(theme.card)
                 .overlay(
                     RoundedRectangle(cornerRadius: 8)
-                        .stroke(isWarning ? theme.danger.opacity(0.3) : theme.action.opacity(0.2), lineWidth: 1)
+                        .stroke(isWarning ? theme.danger.opacity(0.3) : theme.panelStroke, lineWidth: 1)
                 )
         )
     }
@@ -1553,7 +1557,7 @@ struct BriefingTafRow: View {
                 value: taf.validity.isEmpty ? taf.icao : "\(taf.icao) (\(taf.validity))"
             ) {
                 Text(taf.raw)
-                    .font(.aero(size: 12, design: .monospaced))
+                    .font(.aero(size: CockpitType.label, design: .monospaced))
                     .foregroundColor(theme.textSecondary)
                     .lineSpacing(2)
                     .textSelection(.enabled)
@@ -1567,7 +1571,8 @@ struct BriefingTafRow: View {
 /// Shared geometry for a briefing row, so a continuation block (the raw TAF) can line up under the
 /// value column instead of hard-coding the same number twice.
 enum BriefingRowMetrics {
-    static let labelWidth: CGFloat = 100
+    /// Wide enough for the labels at the Cockpit's label size (it was 100 pt for 14 pt text).
+    static var labelWidth: CGFloat { CockpitType.size(kneeboard: 150, phone: 124) }
     static let labelGap: CGFloat = 8
     /// Left inset that puts continuation text under the value, not the label.
     static var valueIndent: CGFloat { labelWidth + labelGap }
@@ -1619,16 +1624,18 @@ struct BriefingItem<Detail: View>: View {
         .frame(maxWidth: .infinity, alignment: .leading)
     }
 
+    // The Cockpit's scale: the briefing is read in flight, in the drawer over the Cockpit. It was
+    // 11-14 pt, about 60 % of the 20 pt floor, on both devices. (v6.0 review)
     private var labelText: some View {
         Text(label)
-            .font(.aero(size: 14, weight: .medium))
+            .font(.aero(size: CockpitType.label, weight: .medium))
             .foregroundColor(theme.textSecondary)
             .fixedSize(horizontal: false, vertical: true)
     }
 
     private var valueText: some View {
         Text(value)
-            .font(.aero(size: 14, weight: .semibold, design: .monospaced))
+            .font(.aero(size: CockpitType.row, weight: .semibold, design: .monospaced))
             .foregroundColor(theme.textPrimary)
             .fixedSize(horizontal: false, vertical: true)
     }
@@ -1647,11 +1654,11 @@ struct EmergencyItem: View {
     var body: some View {
         HStack(alignment: .top, spacing: 8) {
             Image(systemName: "exclamationmark.triangle.fill")
-                .font(.aero(size: 12))
+                .font(.aero(size: CockpitType.label))
                 .foregroundColor(theme.danger)
             
             Text(text)
-                .font(.aero(size: 14, weight: .medium))
+                .font(.aero(size: CockpitType.row, weight: .medium))
                 .foregroundColor(theme.textPrimary)
         }
     }

@@ -7,170 +7,351 @@ AéroCheck is a flight companion, not a certified instrument. Everything it show
 
 ### First Launch
 
-The very first screen is a **safety notice** you must acknowledge before anything else; it comes back whenever its wording changes materially. Then a short onboarding flow walks you through setup:
+The very first screen is a **safety notice** you must acknowledge before anything else; it comes back whenever its wording changes materially, and you can read it again at any time under **Settings › About › Safety notice**. A short onboarding then walks you through setup:
 
-- **Location permission** — required for GPS flight tracking, ground speed, and the navigation map. Grant "While Using the App" or "Always" for full functionality. "Always" is what lets the track keep recording when the screen locks or you switch apps in flight; if you grant only "While Using the App," AéroCheck offers to **upgrade to "Always"** when you start a flight.
-- **Maps and data for your region** — AéroCheck suggests the aeronautical data to download for your home country (detected from your device region or, if available, a GPS fix) and its neighbours, so airspace, frequencies, and map markers work where you fly. See [Aeronautical Data and Storage](#aeronautical-data-and-storage).
-- **The four chapters** — a page introduces how AéroCheck follows a flight: Plan, Prepare, Fly, Close. See [Following a Flight](#following-a-flight).
-- **Preferences** — checklist options (learning mode, circuit mode) and a tour of the in-flight features.
+- **Use your location**: needed for the GPS track, ground speed and the map. Grant "While Using the App" or "Always". "Always" is what keeps the track recording when the screen locks or you switch apps in flight; if you grant only "While Using the App", AéroCheck asks to **upgrade to "Always"** when you start a flight.
+- **Maps & Data**: the aeronautical data for your country (detected from the device region or, if available, a GPS fix) and its neighbours, the worldwide airport database and, optionally, the Swiss charts. See [Aeronautical Data and Storage](#aeronautical-data-and-storage).
+- **Checklists**: the **Memory test** and the checklist language.
+- **Flights**: the four chapters AéroCheck follows a flight through: Plan, Prepare, Fly, Close. See [Following a Flight](#following-a-flight).
+- **Your map** and **In flight & features**: what the map draws (airspace, track vector, obstacles, the ICAO chart at every zoom), engine-hour logging and iCloud sync.
 
-You can replay the whole tour anytime from **Settings > About > Replay Onboarding**.
+You can replay the whole tour at any time from **Settings › About › Replay onboarding**.
 
 ### AéroCheck Pro
 
 AéroCheck is free to use with the bundled **WT9 Dynamic (F-HVXA)** aircraft. The other aircraft are unlocked with **AéroCheck Pro**:
 
-- A **monthly** or **yearly** subscription — the yearly plan includes a **7-day free trial** for eligible accounts.
-- A one-time **Lifetime** purchase — pay once, no renewal.
+- A **monthly** or **yearly** subscription; the yearly plan includes a **7-day free trial** for eligible accounts.
+- A one-time **Lifetime** purchase: pay once, no renewal.
 
-Manage your plan under **Settings > Aircraft & Subscription**, where you can subscribe, start a trial, buy Lifetime, or **Restore Purchases** on a new device. Subscriptions renew automatically unless cancelled at least 24 hours before the period ends; you can cancel anytime in your device's Settings app. Premium aircraft and their checklists are delivered over the network, so an unlocked aircraft downloads its checklist the first time you select it and is then cached for offline use.
+Open **AéroCheck Pro** from the **Aircraft** tab or from **Settings › Aircraft & Subscription** to subscribe, start the trial, buy Lifetime, or **Restore Purchases** on a new device. Subscriptions renew automatically unless cancelled at least 24 hours before the period ends; you can cancel at any time in your device's Settings app. Premium aircraft and their checklists are delivered over the network: an unlocked aircraft downloads its checklist the first time you select it, and it is then kept on the device for offline use.
 
-### The Home Screen
+When AéroCheck Pro is not active for the aircraft you selected (never bought, or lapsed), Today shows that aircraft locked with **Pro not active**, and a start is refused with "AéroCheck Pro isn't active", which offers **See plans** and **Restore Purchases**.
 
-Home changes with your day.
+### The Five Tabs
 
-- **On a day you have planned a flight**, that flight is the hero: its route, how ready it is, what is left to do, and a green **START THIS FLIGHT** button. Your aircraft moves to a strip below, next to your last flight. Underneath, **Fly without a plan** and **CIRCUITS** remain for a flight you did not plan in the app.
-- **On any other day**, Home shows your **aircraft** — swipe the carousel to browse the aircraft you own — with **START FLIGHT** and **CIRCUITS**, your last flight, and either the route currently shown on the map, or an invitation to **Plan a flight**.
+On the ground, AéroCheck has five tabs along the bottom: **Today**, **Plan**, **Logbook**, **Aircraft** and **Settings**. Each one keeps its place while you look at another. In flight, the Cockpit takes the whole screen instead (see [The Cockpit](#the-cockpit)).
 
-The badge on the **Flights** button counts the flights in your log.
+- **Today**: the next flight, the buttons that start one, your aircraft and your last flight. A badge on the tab means an ATC flight plan is still open after landing.
+- **Plan**: three sections, **Flights** (the flights you are preparing), **Routes** (the routes you keep) and **Map** (the map, to look at the airspace before either). See [Following a Flight](#following-a-flight) and [Routes](#routes).
+- **Logbook**: the flights you have flown. See [Flight Logging](#flight-logging).
+- **Aircraft**: the aircraft you fly, its speeds and its usable fuel with full tanks.
+- **Settings**: see [Settings Reference](#settings-reference).
 
-### Selecting an Aircraft
+### Today
 
-The aircraft carousel shows the free WT9 Dynamic plus any premium aircraft you have unlocked; each card shows the registration, type, and the checklist version and item count. When a flight owns the hero, tap the **aircraft strip** to open the aircraft settings instead. Use **Settings > Aircraft & Subscription** to choose your active aircraft, manage your subscription, or show and hide aircraft by aeroclub.
+Today keeps the same slots in the same places every day, filled or not.
+
+- At the top, two chips: **Data** (how current your aeronautical data is; tap it for Data & Storage) and the GPS status.
+- **NEXT FLIGHT**: the flight the start button is about, as a card with its time, aircraft, name and what is left to do ("Next: Weather briefed · 2 open in Plan and Prepare", or "Everything ticked — ready to fly"). That is today's flight, a flight you left in the air, or the next leg of a trip once you have landed at a stop. Tap the card to open the flight. With no such flight, the slot shows a flight you are following or still have to close, or **Plan new flight**.
+- The green start button, always in the same place: **START THIS FLIGHT** when there is a flight for today (**RESUME THIS FLIGHT** once it is in the air), **START FLIGHT** otherwise.
+- Under it, **CIRCUITS**, always offered, beside **FLY WITHOUT A PLAN** when there is a flight for today, or **PLAN NEW FLIGHT** when there is not.
+- **AIRCRAFT AND LAST FLIGHT**: the aircraft you fly (tap it to switch, see below) and your last flight (tap it for its details). With nothing planned, a route you have put on the map shows here as well; tap it to open **Plan › Routes**.
+
+### Choosing Your Aircraft
+
+Tap the aircraft on Today for the list of every aircraft you can fly: the free WT9 Dynamic, and each premium aircraft AéroCheck Pro unlocks that you have not hidden. Choose one to switch to it; **Speeds and details** opens the **Aircraft** tab.
+
+The **Aircraft** tab lists the same aircraft under **YOUR AIRCRAFT**. Below the list come the selected aircraft's **SPEED REFERENCE**, its **FUEL** (the usable fuel with full tanks, see [Fuel on Board](#fuel-on-board)), a link to **AéroCheck Pro**, and **Aircraft Visibility**, which opens Settings to show or hide aircraft one by one or by aeroclub.
+
+Selecting a premium aircraft loads its checklist in the background, so it is ready before you start.
 
 ### Starting a Flight
 
-There are three ways to start, and they are different on purpose.
+There are four ways to start, and they are different on purpose.
 
-- **START THIS FLIGHT** on a planned flight (from Home's hero or from the flight's own screen) starts the checklist **and loads the flight's route** into the navigation map, on the aircraft the flight was planned with. If preparation items are still open, AéroCheck says how many and offers to **review the flight** first or **start anyway** — an unticked item may be a briefing nobody did.
-- **START FLIGHT** / **Fly without a plan** starts the 16-phase checklist with no route and no follow-up. It is the shortcut for a flight you did not plan in the app; it never adopts a planned flight.
-- **CIRCUITS** starts pattern work — see [Circuit Mode](#circuit-mode). A circuit session never adopts a planned cross-country either.
+- **START THIS FLIGHT** on Today, or **START FLIGHT** on a flight's own page, starts that flight: on the aircraft it was planned with, and with its route on the map. If Plan and Prepare still have items open, AéroCheck asks first ("Not everything is ticked"): **Review the flight** or **Start anyway**. An unticked item may be a briefing nobody did.
+- **START FLIGHT** on Today, when there is no flight for today, starts the 16-phase checklist on the selected aircraft. If a route is on the map (**Show on map** in Plan › Routes), the flight flies it.
+- **FLY WITHOUT A PLAN**, offered when there is a flight for today, starts another flight: no route, and today's flight is left as it is.
+- **CIRCUITS** starts pattern work; see [Circuit Mode](#circuit-mode). A circuit session never takes over a planned flight.
 
-For premium aircraft, the checklist is fetched from the AéroCheck service. If it has not finished loading — for example because of a missing connection or an inactive subscription — AéroCheck will **not** start the flight with an incomplete checklist. It shows a **"Checklist Not Ready"** alert asking you to check your connection and subscription, so a wrong or empty checklist can never appear in flight.
+A flight planned for another day starts from its own page, after a question; see [Fly](#fly).
 
-### Starting from the Home Screen Widget
+AéroCheck will not start a flight it cannot run properly, and it says why:
 
-Add the **AéroCheck widget** to your iPhone or iPad home screen for one-tap starts. The widget shows a start button for each aircraft you own (aircraft you don't own are never shown). Tapping a button loads that aircraft's checklist and begins GPS tracking, exactly like the in-app START button; if a route is loaded on the map, the flight follows it. The medium widget also includes a shortcut to your flights.
+- **AéroCheck Pro isn't active** for the selected premium aircraft: **See plans** or **Restore Purchases**.
+- **Can't Start Flight**: the checklist of a premium aircraft could not be downloaded and there is no copy on the device yet (check your connection and try again), location access is off, or there is no GPS fix yet (try again once the GPS has one). A wrong or empty checklist never appears in flight.
+
+### Starting from the Widget
+
+Add the **AéroCheck widget** to the Home Screen of your iPhone or iPad (the system's, outside the app) for one-tap starts. It shows a start button for each aircraft you own (aircraft you don't own are never shown). A tap starts a flight on that aircraft through the same checks as START FLIGHT, and flies the route on the map if there is one. The medium widget also opens your logbook.
 
 ---
 
 ## Following a Flight
 
-A flight in AéroCheck has four chapters — **PLAN → PREPARE → FLY → CLOSE**. FLY is the checklist you know, unchanged. The other three carry the admin around it, as checks you tick, each with the link or tool it needs. Following a flight is optional: START FLIGHT works without one, and a flight that ran without one ends exactly as it always did.
+A flight in AéroCheck has four chapters: **Plan**, **Prepare**, **Fly** and **Close**. Fly is the checklist. The other three carry the admin around it, as tasks you tick, each with the link or the tool it needs. Following a flight is optional: START FLIGHT works without one, and a flight flown without one is logged all the same.
+
+### Plan › Flights
+
+The flights you are preparing, in the order they will be flown. At the top, the count (**UPCOMING · 3**) and **Plan new flight**.
+
+- A flight waiting for its close-out comes first, under **NEEDS ATTENTION**.
+- The next flight gets a card: its day, time and how long until; its map, distance (DIST), time (EET), waypoints (WPT) and aircraft (ACFT); the borders it crosses; its progress chapter by chapter; and its next task. Tap it to open the flight. For a trip, the card shows the next leg.
+- Later flights follow, one line each, under their day ("TOMORROW · SUN 27 SEP"). Flights with no date come last, under **NOT SCHEDULED**.
+- A flight whose day went by without it being flown moves after the others, under **DATE PASSED**, where you can still fly it, move it or cancel it.
 
 ### Plan New Flight
 
-Open **Flights** (the first tab) and tap **Plan new flight**, or tap **Plan a flight** on Home. The sheet asks for what you know first:
+**Plan new flight** (on Today or in Plan › Flights) opens one sheet, the route first:
 
-- **When** — turn on *I know when I am flying* and pick the date and time. This is what makes the flight *today's* on Home and what drives the reminder the day before. Leave it off if you do not know yet.
-- **Aircraft** — defaults to your selection.
-- **Start from a saved route** — pick one of your routes and the flight is built from a **copy** of it: its waypoints, altitudes and fuel figures, on the aircraft you chose. See [Routes](#routes).
-- **From → To** — or type the aerodromes: ICAO code or name, with completion. **Add stop** turns the flight into a [trip](#trips) with one leg per stop.
+- **Route**: **Airports**, where you type each aerodrome's ICAO code or name, with completion (the aerodrome's name shows beside a code it knows), or **A saved route**, searchable, each with its map. **Add stop** adds an aerodrome between the two; three or more aerodromes make a [trip](#trips-and-stops). A saved route makes one flight, built from a **copy** of the route (its waypoints, altitudes and fuel figures); stops on the way are added later, on the flight.
+- **When**: already set to tomorrow at 10:00, since the preparation reminder counts back from it. Change it, or choose **No date yet**.
+- **Aircraft**: your aircraft as chips, one tap.
 
-**Create flight** opens the new flight. Waypoints take the elevation of the aerodrome under them, and an aerodrome you fly over gets a transit altitude you can change.
+The bar at the bottom says what it will create (the route, the day and time, the aircraft) above **Create flight**, or **Create trip · 3 legs**. The new flight opens on its page.
 
-### The Flight Screen
+In the Logbook, swipe a flight to the right for **Plan this again**: the same sheet, filled in with that flight's route and aircraft and nothing else, since last week's preparation is not this week's.
 
-The header shows the route as a thumbnail (tap it to edit the route on the map), the route and date (tap them to open the **flight details**: pilot, aircraft, date, runway, fuel, times), a state chip — PLANNED, IN FLIGHT, or the close-out — and the **readiness ring**, which counts ticked items across Plan and Prepare.
+### A Flight's Page
 
-Below it, one chip per chapter: tap a chip to expand or collapse that chapter. A chapter turns green when everything in it is done; FLY turns green once the flight has been flown.
+A flight has a page of its own, opened from Today or from Plan › Flights.
 
-Each task is a row with a checkbox, a hint, and often an action — *Open DABS*, *Copy ICAO flight plan*, *Fuel & times*, *Mass & balance*. Tap a row's text for a **note**; use the context menu to mark a task **not applicable**, which removes it from the ring rather than leaving it stuck at 9 of 10.
+- **The header**: the route as a thumbnail (tap it to edit the route), the flight's name with its date and aircraft (tap it for [the flight sheet](#the-flight-sheet)), a pencil to name the flight, its state (PLANNED, READY, IN FLIGHT, CLOSE-OUT, DONE) and a ring counting what is done ("3 of 4 done" on iPad).
+- **The chapters**: Plan, Prepare, Fly and Close, each with its count. A chapter turns green when everything in it is done; Fly turns green once the flight has been flown.
+- **NEXT**, on top: the one thing to do next, larger, with its link or its tool. It is the task Today shows. When nothing is left before the flight, it reads "Everything done". After a landing with an ATC flight plan still open, a red card comes first (see [Close](#close)).
+- Then each chapter lists what is left. The ticked and not applicable tasks fold into one row ("6 done"), which unfolds on a tap.
 
-**AUTO rows** — *Route planned* and *Fuel plan* — are computed, not ticked. They settle themselves as soon as the plan satisfies them and un-settle if it stops: the fuel row shows **REQ** (trip + alternate + 45-minute final reserve + extra) against **FOB** (what you plan to carry) and stays open until FOB covers REQ. Edit either through *Fuel & times*.
+Each task has a tick, a hint and often a chip: a gold chip opens a tool in the app, a blue one opens an official page outside it. Touch and hold a task for **Not applicable**, which takes it out of the count. The two **AUTO** tasks, Route planned and Fuel plan, are computed, not ticked: they settle by themselves as soon as the plan satisfies them, and open again if it stops doing so.
+
+At the bottom of the page, **Cancel flight** asks first ("Cancel this flight?"): the page, its tasks and the copy of the route made for it are deleted; your routes and the logbook are not touched. **Keep flight** leaves it as it was.
 
 ### Plan
 
-- **Route planned** (auto) — the flight has a route with at least two points. *View route* opens the map builder.
-- **Fuel plan** (auto) — see above. The row also lists the fuel grades the destination reports, when airfield data is downloaded.
-- **Mass & balance** — opens the calculator for the flight's aircraft; see [Mass & Balance](#mass--balance).
-- **Aircraft reserved** — booked with your club. A reminder; AéroCheck talks to no booking system.
+- **Route planned** (AUTO): the flight has a route. **View route** opens the route editor.
+- **Fuel plan** (AUTO): **REQ** (trip + alternate + 45-minute final reserve + extra) against **FOB** (what you plan to carry); it ticks itself once FOB covers REQ. A tap anywhere on the task, or on its **Fuel on board** chip, opens [Fuel on Board](#fuel-on-board). When the fuel on board is short, the task says so in amber ("Short by 12.0 L"). With airfield data downloaded, it also lists the fuel grades the destination reports.
+- **Mass & balance**: opens the calculator for the flight's aircraft; see [Mass & Balance](#mass--balance).
+- **Aircraft reserved**: booked with your club. A reminder; AéroCheck talks to no booking system.
 
 ### Prepare
 
-- **Weather briefed**; **DABS checked** and **GAFOR checked** appear on routes that touch Switzerland (each opens the official page); **NOTAMs checked** opens a NOTAM briefing.
-- **Flight plan filed** — *Copy ICAO flight plan* puts a complete ICAO Doc 4444 message on the clipboard (fields 7–19, with your route, endurance and persons on board), and *Open skybriefing* takes you to file it. Ticking this is what arms the close-out reminder after landing.
-- **PPR** — raised automatically for an aerodrome on your route that openAIP flags as prior permission required, so you call before you go. Appears only when the airfield data is downloaded.
-- **Customs / border** — one row per foreign country the route crosses, with the country's **border pack**: whether a customs aerodrome is required, whether prior notification is required, and the lead time, for CH, FR, DE, AT, IT and GB, each with a link to the official source and the date it was checked. A country not yet curated says so and points you to the AIP. Where official sources disagree the row says that too. **Treat an unestablished requirement as one that applies until you have checked.** This is a reminder, not a clearance.
-- **Nav log ready** — *Export nav log* hands you the route as an **A5 PDF for the kneeboard** (A4 from the route details), ready to print.
+- **Weather briefed**. On routes that touch Switzerland, **DABS checked** (**Open DABS**) and **GAFOR checked** (**Open MeteoSwiss**). **NOTAMs checked** (**Open NOTAM briefing**).
+- **ATC flight plan filed**: **Copy ATC flight plan** puts a complete ICAO flight plan message on the clipboard (fields 7 to 19, with your route, endurance and persons on board), and **Open skybriefing** takes you to file it. Ticking this task is what arms the close-out reminder after landing.
+- **PPR**: raised for an aerodrome on your route that openAIP flags as prior permission required, so you call before you go. It appears only when the airfield data is downloaded.
+- **Border crossing**: one task per foreign country the route crosses, with the country's **border pack**: whether a customs aerodrome is required, whether prior notification is required, and the lead time, for CH, FR, DE, AT, IT and GB. Each comes with **Official rules** (and **Swiss side** when the flight touches Switzerland) and the date it was checked. A country not yet curated says so and points you to the AIP. Where official sources disagree, the task says that too. **Treat an unestablished requirement as one that applies until you have checked.** This is a reminder, not a clearance.
+- **Nav log ready**: **Export nav log** opens the nav log as an A4 PDF, to read, print, mark up or share. The flight sheet's **Export** menu has it in A5 as well, the kneeboard size.
 
 The day before a dated flight, a **preparation reminder** arrives at T−24 h.
 
 ### Fly
 
-**START THIS FLIGHT** loads the route into the map, starts the checklist on the flight's aircraft and moves the flight into IN FLIGHT. From here on it is the 16 phases — see [Checklists and the In-Flight HUD](#checklists-and-the-in-flight-hud) and [In-Flight Navigation](#in-flight-navigation). Abandoning a flight (hold the tail number on the checklist screen) returns the planned flight to READY: what you prepared stays ticked.
+The Fly card says what comes next ("16 phases · checklist, nav and briefings") and starts it.
+
+- For today's flight, a flight with no date, or the next leg after a stop: **START FLIGHT**. It selects the flight's aircraft, puts its route on the map and starts the checklist; the flight is then IN FLIGHT.
+- For a flight planned for another day: its day ("Planned for Sat 27 Sep, 10:00") and a quieter **Start now**, which asks first ("Start this flight now?"), so tomorrow's flight is not started by mistake in place of today's. The page offers it in the same way when you open it from Plan › Flights.
+
+From there on it is the 16 phases; see [The Cockpit](#the-cockpit) and [The Map](#the-map). If you abandon the flight (see [Ending or Abandoning a Flight](#ending-or-abandoning-a-flight)), the planned flight goes back to READY: what you prepared stays ticked.
 
 ### Close
 
-After **END FLIGHT** the flight moves to CLOSE:
+After **END FLIGHT**, the flight moves to CLOSE-OUT.
 
-- **Close your flight plan** — appears **only if you ticked *Flight plan filed***. It is the one reminder with a search-and-rescue consequence: Zurich RCC is alerted 30 minutes after your ETA, so this row is red, the banner does not go away on its own, and a notification is scheduled 15 minutes after your landing is confirmed. Mark it closed from the banner, the row, or the notification itself.
-- **Logbook entry** — opens **Logbook & costs** for the recorded flight; see [Logbook & Costs](#logbook--costs).
-- **Fees paid** — the landing fee, when your destination has one; the row links to the operator's own tariff page where AéroCheck knows it (810 aerodromes across Europe). Appears only when cost tracking is on.
-- **Debrief written** — a note to yourself.
+- **Close the ATC flight plan**: only if you ticked **ATC flight plan filed**. It is the one task with a search-and-rescue consequence: if the plan was not closed on arrival, Zurich RCC is alerted 30 minutes after your ETA. So the flight's page opens on a red card, **Close your ATC flight plan**, with **Call 0800 437 837** and **Mark closed**; the Today tab shows a badge; and a notification comes about two minutes after END FLIGHT (or 15 minutes after a detected full-stop landing, if you have not ended the flight). If you landed somewhere other than planned, the card tells you which aerodrome to give the FIC.
+- **Logbook entry**: **Logbook line** opens **Logbook & costs** for the recorded flight; see [Logbook & Costs](#logbook--costs).
+- **Fees**: the landing fee, when your destination has one. **Flight cost** opens the cost of the flight, and **Operator's tariff** the operator's own tariff page, where AéroCheck knows it. It appears only when cost tracking is on.
+- **Debrief**: a note to yourself.
 
-**Finish** the flight when you are done; anything still open simply stops asking. Finished flights stay in **Past**.
+**Finish** the flight when you are done; anything still open simply stops asking. A finished flight leaves Plan › Flights and stays in the Logbook.
 
-### Trips
+### The Flight Sheet
 
-Several stops in *Plan new flight* create a **trip**: one flight per leg, shown as one entry in Upcoming. Only the first leg carries the departure time — the later legs depart when the earlier ones land, which the app cannot know.
+Tap a flight's name on its page for the flight sheet: the flight's nav log data, in the order a flight is planned. Its title is the flight's name (tap it to rename the flight), with the date, the aircraft and the flight type under it. Changes are saved as you type.
 
-Preparation that is really about the day — weather, DABS, GAFOR, NOTAMs, the filed flight plan, the nav log — is **shared across the legs**: tick it once. A shared tick **goes stale** when it no longer covers the next leg (a different day, or more than six hours before its departure), so yesterday's NOTAM briefing never shows as green on today's leg. Deleting a leg dissolves a trip that has only one leg left.
+- **ROUTE**: the map, the waypoints, the distance and the EET, and **Edit route**.
+- **DEPARTURE**: **Date and time** (local time; every waypoint's ETO is counted from it), **Runway** (pick one of the departure aerodrome's runways, or type one) and **Flight Type**.
+- **CREW AND AIRCRAFT**: **Pilot** (filled in from Settings when empty), **Instructor**, and the aircraft, which is the flight's.
+- **FUEL**, as the paper nav log adds it up: **Fuel flow**, **Trip** (the route's EET at that flow), + **Alternate**, + **Final reserve 45′**, + **Extra**, = **Required**; then **On board**, with **Full tanks** and **= Required**, the **Margin** (in litres and minutes, green; or short, amber) and the **Endurance**. **DEFAULT** marks what the app filled in (the fuel flow and the 45-minute reserve), so you check it.
+- **AFTER THE FLIGHT** (block and flight times, counters, landings), **NOTES** and **ATC FLIGHT PLAN DETAILS** (type, wake turbulence, equipment, alternate, persons on board, colour) stay folded to one line until there is something in them.
+- **Show this route on the map**, or **Clear this route from the map**.
 
-### Upcoming and Past
+The **Export** menu at the top offers GPX, JSON, Excel (every waypoint, no page limit) and the nav log as **PDF · A4** or **PDF · A5**, then **Preview & Print**, **Save to Files…** and **Copy ATC flight plan**.
 
-The **Flights** tab has two segments. **Upcoming** lists the flights and trips still owing something, close-out first, plus **Saved routes**. **Past** is the flight log — see [Flight Logging](#flight-logging); swipe a past flight to **Plan again**, which opens the creation sheet pre-filled with its route and aircraft and nothing else: last week's preparation is not this week's.
+### Fuel on Board
+
+A tap on the Fuel plan task opens **Fuel on board**:
+
+- **REQUIRED**, large, with what it adds up to (trip + alternate + final reserve 45′ + extra). It shows once the route has a flight time.
+- **ON BOARD**: type the litres, or tap **Full tanks** or **= Required** (rounded up to the litre); each button shows its figure.
+- The result: how much is over the requirement, in litres and in minutes at the fuel flow (green), or **Short by … L** (amber). More than full tanks can hold is flagged too.
+- **Fuel & times: flow, reserves, extra** opens the flight sheet for the rest.
+
+**Full tanks** is the aircraft's usable fuel with full tanks. It comes from the aircraft's data when its checklist gives one; otherwise AéroCheck asks you for it once, for this registration, from the POH, and keeps it. Change your figure here (**Change**) or in the **Aircraft** tab, under **FUEL**. An empty field means "not entered"; 0 is an answer (empty tanks) and reads as short.
+
+### Naming a Flight or a Trip
+
+A flight can have a name of its own, whatever its ends: tap the pencil beside its title (or the title of the flight sheet). The name becomes the title and the route moves to the line under it; an empty name shows the route again. A trip is named the same way, with the pencil beside its aerodromes on each leg; each leg keeps its own name.
+
+### Trips and Stops
+
+Several aerodromes in Plan new flight make a **trip**: one flight per leg, shown as one entry in Plan › Flights. Only the first leg has a departure time; the later ones show an estimate ("≈ 15:10 (est.)"), since each leaves when the one before lands.
+
+**Add a stop…**, on a flight that has not flown yet, turns it into two legs of one trip, each with its own logbook line, ATC flight plan, nav log and close-out. Pick an aerodrome within 5 NM of the route (listed in the order you reach them, with the frequency and a PPR mark) or **Search any aerodrome**, set the time **On the ground**, choose whether to **Refuel at the stop** (without a refuel, the next leg starts with the fuel this one leaves in the tanks), then **Split into two legs**. **Join with next leg** puts two legs that have not flown back into one flight.
+
+Each leg's page shows the trip (**TRIP · 2 of 6**, the shared tasks done), its legs (tap one to open it) and the preparation the legs share: **Aircraft reserved**, **Weather briefed**, **DABS checked**, **GAFOR checked**, **NOTAMs checked** and **Debrief** are ticked once for the whole trip. A briefing tick **goes stale** when it no longer covers the next leg (a different day, or more than six hours before its departure), so yesterday's NOTAM briefing never shows as done on today's leg; the row then says when it was last checked. Everything else (route, fuel, mass & balance, ATC flight plan, PPR, customs, nav log, fees, logbook) belongs to each leg.
+
+If you land somewhere other than planned, the flight's page says so ("Landed at LSZE") and offers **Continue to** the planned destination as the next leg of the trip, or **Finish here**. Weather and NOTAM come back unticked on that next leg: you turned away from something.
 
 ### Notifications
 
-AéroCheck sends exactly two kinds of local notification: the **preparation reminder** the day before a dated flight, and the **close-your-flight-plan reminder** after landing when a plan was filed. Permission is asked when you create your first flight. Nothing else notifies.
+AéroCheck sends exactly two kinds of local notification: the **preparation reminder** the day before a dated flight, and the **reminder to close the ATC flight plan** after landing, when one was filed. Permission is asked when you first follow a flight. Nothing else notifies.
 
 ---
 
 ## Routes
 
-A **route** is a path — waypoints, distances, fuel figures — that you can fly on any day. It has **no date**: the date belongs to the flight that uses it. Routes are reached from **Flights > Saved routes** and from the navigation map.
+A **route** is a path (waypoints, altitudes, distances, fuel figures) that you can fly on any day. It has **no date**: the date belongs to the flight that uses it. A flight planned from a route gets its own copy, so changing next month's flight never rewrites last month's, and that copy stays with its flight rather than among your routes.
 
-### The Routes List
+### Plan › Routes
 
-Each route shows a thumbnail, its endpoints, waypoint count, distance and time. Tap a route to edit it. Swipe left to **delete** or **duplicate**; swipe right to **Show on map**, which loads the route onto the navigation map to look at without starting a flight (**Clear from map** takes it off again). A route shown on the map that nobody flies is retired from the map after 72 hours.
+The routes you keep. Each row shows the route's map, its name or its ends, its waypoints, distance and time, and a **Show on map** button: it puts the route on the map to look at without starting a flight, and START FLIGHT on Today then flies it. The route on the map is listed on top, under **On the map**, and its button reads **Clear from map**. A route on the map that nobody flies comes off it after 72 hours.
 
-To fly a route, create a flight from it — *Plan new flight > Start from a saved route*. The flight gets its own copy, so changing the fuel on next month's flight never rewrites last month's.
+- Tap a route to edit it.
+- Swipe left for **Archive**, **Duplicate** and **Delete** (which asks first). An archived route leaves the list; once anything is archived, **Routes** and **Archived · 2** (with the count) appear beside the search, and **Unarchive** brings a route back.
+- Swipe right for **Show on map** or **Clear from map**.
+- Touch and hold for the menu: **Edit**, **Rename** (any name, whatever the route's ends; empty shows the ends again), **Use ICAO codes…**, **Export** (GPX or JSON), and the actions above.
+- The search field finds routes by name, aerodrome, waypoint or aircraft, ignoring case and accents; every word must match, in any order.
+- The filter button shows the routes of one aircraft; **+** draws a **New Route** or opens **Import route**.
 
-### Building a Route
+To fly a route on a given day, plan a flight from it: **Plan new flight › A saved route**.
 
-AéroCheck's planner is **map-first**:
+### The Route Editor
 
-- Set your departure and destination in the **From → To** bar, then refine on the map.
-- **Drag a waypoint** to move it; **drag the route line** to insert a new waypoint mid-route.
-- Release a dragged point **near an airfield or navaid** to auto-snap to it — its name and frequency are filled in automatically.
-- Dropping a waypoint uses **smart "cheapest insertion,"** placing it into the leg that adds the least detour.
+The route editor is a map with **From** and **To** above it, the route profile under it, and the legs.
 
-### Route Details
+- Type the departure and the destination in **From** and **To** (ICAO code or name; the results are sorted by distance). The arrows between the two swap them.
+- On the map, **drag a waypoint** to move it, **drag the route line** to insert a waypoint, or **touch and hold** an empty spot to add one where it lengthens the route least. A waypoint released within 2.5 NM of an aerodrome or a navaid (or 1.2 NM of a reporting point, when they are shown) takes its name, frequency and position.
+- **The legs** are a table in the nav log's columns: **#**, **WAYPOINT** (with its call sign when it differs), **MC**, **NM**, **EET**, **ALT FT** (edit it in place) and ⚠. The figures are those of the leg *from* the waypoint; the last row is the destination. On the iPhone, the figures go under the name.
+- **One selection** across map, profile and legs: tap a leg to select it, and it is highlighted in the table, on the map and on the profile, where each stands. Tap the selected row again to open the waypoint; tap a pin to select its row.
+- **Set altitudes…** sets many waypoints at once: a **Fixed altitude**, or a clearance **Above terrain**, with a preview of the lowest clearance on each leg and of the airspace the new profile runs into. The departure and the destination keep theirs. A route with no planned altitudes (often an imported GPX) says so: **No planned altitudes**.
 
-Open **Flight details** (from a flight's title, or from the route) for the leg-by-leg breakdown — each waypoint's name and frequency, planned altitude, ground speed, estimated enroute time (EET), estimated time over (ETO), and magnetic course (MC) — and the header fields: **pilot** (pre-filled from Settings), aircraft, **runway** (pick from the departure aerodrome's own runways, or type one), instructor, and the **fuel** figures: fuel flow, trip, reserve, additional, extra and **fuel on board**. The **date** appears only when a flight follows the plan.
+At the top: **Show this route on the map** (or **Clear this route from the map**), **Nav Log** (the flight sheet) and **Export GPX**; **Done** closes the editor. When the route crosses a country whose data you have not downloaded, a banner offers the download, and fetches only the countries you are missing.
 
 ### Route Profile
 
-The **interactive route profile** draws a terrain silhouette (swisstopo elevation in Switzerland, worldwide elsewhere) against your planned-altitude line. Drag a point to set its altitude, or hold to add one. Terrain-clearance and airspace-conflict warnings update live as you reshape the route.
+The **Route profile** draws the terrain along the route (swisstopo elevation when the whole route is in Switzerland, worldwide elevation elsewhere) under your planned altitudes, with the airspace the route crosses as blocks. Drag a waypoint's dot to set its altitude, or touch and hold elsewhere on the profile to add a waypoint, then drag it into place. The waypoints are numbered as on the map. Tap the title to fold the profile away; the arrows beside it make it taller.
 
-### Airspace Conflict Checks
+### Airspace and Terrain Checks
 
-AéroCheck checks your planned route against OpenAIP airspace data and flags controlled or restricted airspace it may enter. Conflicts appear as a banner and highlight on the route; tap to see each airspace, its vertical limits, and its frequency. A green "no conflicts" result is shown only when airspace data is actually loaded — otherwise AéroCheck tells you airspace wasn't checked rather than implying you are clear.
+AéroCheck checks the route against the downloaded OpenAIP airspace along its whole geometry, about every nautical mile, not only at the waypoints: a leg that clips the corner of a zone is still caught. An airspace counts as a conflict where your planned altitude is within 500 ft of its vertical limits; one crossed but cleared vertically is drawn faded on the profile. On a route with no planned altitudes, every airspace it crosses counts as a conflict. The check also warns when a planned altitude comes within 150 m of the terrain (**Terrain proximity**).
 
-The check follows the exact route geometry between waypoints (not just the endpoints), so a leg that clips the corner of a zone is still caught. Where the result depends on altitude, AéroCheck is deliberately conservative: it reports the worst-case severity, and when a zone's limit is published relative to the ground or as a flight level (AGL/FL), or when a leg has no planned altitude, the conflict is marked **"Altitude uncertain — verify vertical separation."** That qualifier means the horizontal conflict is real but the app cannot confirm whether your altitude keeps you clear — you must verify the vertical separation yourself against current charts and QNH.
+Conflicts show on their legs: ⚠ with a count in the leg's row, an amber pin on the map, a ⚠ above the profile where the conflict starts. The chip above the legs sums it up: **⚠ 3 conflicts**, **✓ No conflicts** or **? Not checked**. Tap it for the list (**‹ Legs** goes back): each entry gives the airspace's vertical limits and frequency. Tap an entry to highlight it on the profile and the map and select its leg; hold it to centre the map on it.
 
-When the route crosses a country whose airspace you have not downloaded, the builder offers the download — and fetches only the countries you are missing, not the ones you already have.
+A green "no conflicts" appears only when both checks actually ran. Without airspace data, or without terrain data and planned altitudes, AéroCheck says **Airspace not checked** or **Terrain not checked** rather than implying you are clear. A limit published above the ground or as a flight level can only be estimated without QNH and terrain: verify the vertical separation yourself against current charts and QNH.
 
-As always, airspace data is advisory and may be incomplete or out of date; it never replaces official aeronautical charts and NOTAMs.
+As always, the data is advisory and may be incomplete or out of date; it never replaces official aeronautical charts and NOTAMs.
+
+### Importing a Route
+
+**Import route** (the **+** menu in Plan › Routes) reads GPX and JSON. An imported route is a new route, planned for the aircraft you have selected, with its fuel flow.
+
+A route exported from SkyDemon names its aerodromes after their place ("Samedan", "Bressaucourt"). The file carries their ICAO codes too, and AéroCheck offers them after the import: **Use ICAO codes?**, one switch per waypoint (Samedan → LSZS), all on, then **Use the codes** or **Keep the names**. The place name moves to the waypoint's remarks. The codes matter beyond the label: PPR, landing fees, fuel and frequencies are looked up by code. For a route imported before, **Use ICAO codes…** in its menu offers the aerodrome each waypoint sits on.
 
 ### Exporting a Route
 
-Routes export as **GPX** for Dynon, Garmin and other avionics, and as a **nav log PDF** in A4 or A5 (the kneeboard size). The **ICAO flight plan** message is one tap away from any flight that has a route.
+Routes export as **GPX** for Dynon, Garmin and other avionics, and as JSON. The nav log comes as a PDF in A4 or A5 (the kneeboard size) from the flight sheet's **Export** menu, which also has **Copy ATC flight plan**.
 
 ---
 
-## Checklists and the In-Flight HUD
+## The Cockpit
+
+In flight, AéroCheck shows one screen: the **Cockpit**. It is built for an iPad in portrait on a kneeboard, read from about 55 cm, and the iPhone shows the same Cockpit, sized for the phone (see [The iPhone](#the-iphone)). The screen stays on while a flight runs, and only then.
+
+### Four Zones
+
+From top to bottom, always in the same places:
+
+1. **The header**: the aircraft, the phase and its place in the flight, the flight time, GPS and **Menu**.
+2. **The instrument strip**: GS, ALT, TRK and, on the iPad, NEXT.
+3. **The pane**: **CHECKLIST** or **MAP**, at full height.
+4. **The thumb bar**: the big buttons, where the hand rests. Their places never change, so the hand learns them.
+
+Colours keep one meaning in flight: cyan for what you can touch, magenta for the active route, green for normal or done, amber for a caution, red for a warning, white for data.
+
+### The Header
+
+- **The registration**, with "(for circuits)" and the touch-and-go and go-around counts in circuit mode. Touch and hold it to abandon the flight (see [Ending or Abandoning a Flight](#ending-or-abandoning-a-flight)).
+- **The phase** and its place ("CRUISE CHECK 10/16"). Tap it for **Select Phase**, the list of all 16 phases with their status and each one's page in the paper checklist.
+- **The flight time**, counted from ENGINE START.
+- **GPS**, in the colour of its status: green good, orange degraded, red lost or not recording. Tap it for the **GPS Status** drawer: the signal and why it is degraded or lost, the accuracy, the time of the fix, the altitude, the position (tap it to copy) and the points recorded. When location access is limited to "While Using the App", the drawer says so.
+- **Menu**: see [The Menu](#the-menu).
+- An iPhone icon appears while a companion is connected.
+
+### The Phase Bar
+
+Under the header, one segment per phase: the current one taller, the others coloured by their status (green done, orange skipped, red when a required ENGINE START, READY FOR LINE UP or ENGINE SHUTDOWN was not pressed, amber for a cruise check due, grey not started). Tap a segment to jump to that phase. A jump forward leaves the phases behind it the way NEXT does: they turn orange, and their unchecked items go on the [deferred list](#deferred-items-and-next). Coming back to a phase takes its open items off that list again. In circuit mode, a bracket with ↻ marks the phases that repeat each lap (Climb to Landing), and Cruise and Descent are left out.
+
+### The Instrument Strip
+
+From Taxi to After Landing, whenever the aircraft moves, the strip shows:
+
+- **GS kt**: GPS ground speed. In a phase with a target speed it is green within 5 kt of the target and amber outside it, with a bar that fills as you get closer; without a target (taxi, run-up) it is plain white.
+- **ALT ft**: GPS altitude, with the vertical speed under it (↑ or ↓, from 50 ft/min).
+- **TRK**: the GPS track.
+- **NEXT** (iPad): the next waypoint of the route on the map, in magenta, or the diversion field.
+
+Ground speed is not the airspeed your panel shows (a head- or tailwind shifts it), and the app has no pitot or angle-of-attack source: it deliberately shows **no estimated airspeed and no stall warning**. Fly the aircraft's certified airspeed indicator. When the GPS degrades, a failure flag covers the values; when it is lost (no fix for more than 90 seconds), only the flag remains, so a silent dropout is never mistaken for a valid reading.
+
+### Checklist or Map
+
+**CHECKLIST | MAP** switches the pane. The pane also follows the flight by itself: the checklist on the ground, around take-off and landing, and whenever a checklist is open; the map in Climb, Cruise and Descent once that phase's checklist is worked through. A cruise check coming due brings the checklist back. A tap on CHECKLIST or MAP overrides the choice until the flight moves on: the next phase, the list worked through, or a cruise check coming due.
+
+Beside the switch: **V-SPEEDS** always, **BRIEFING** in Before Departure and in Descent, and **NEXT** while the list still has items open (it leaves through the review, see below). On the map, amber chips follow you: the number of deferred items, and **Cruise Check** when one is due (tap it to go back to the checklist).
+
+### Working the Checklist
+
+The checklist runs step by step, as on paper with a finger on the line. The current item is framed where it stands in the list, larger, with its place ("3 / 11"); the items checked above it are dimmed with a tick, and the ones below wait their turn. The list scrolls to keep the current item near the top.
+
+- **CHECK**, in the thumb bar with the item's challenge under the word, checks the current item and moves the frame to the next one.
+- **DEFER** ("keep for later") passes over the current item without checking it: it stays in the list in amber and goes on the deferred list.
+- Tap a checked (or deferred) item to go back to it: that item and everything after it are open again.
+
+On the iPad the list only reads, and CHECK is the way to check. On the iPhone, a tap on the list checks as well.
+
+When the last item is checked, the checklist's closing line ("… CHECK COMPLETED") turns green, and the big button becomes **NEXT: <phase>**, with "All checked" (or the number of deferred items) under it. If the phase has its own button still to press (ENGINE START, READY FOR LINE UP, ENGINE SHUTDOWN), that one pulses first.
+
+### Deferred Items and NEXT
+
+NEXT with items still open lists them first ("3 items not checked", with the phase): **BACK TO CHECKLIST** stays on the phase, at the first open item; **CONTINUE, CHECK LATER** leaves it, and the unchecked items become deferred items. The phase turns orange.
+
+Deferred items follow you until you check them. An amber row on top of the checklist ("2 deferred items", **Review**) opens **Deferred items**, phase by phase, each with its own **CHECK**. On the map, the amber chip with the count opens the same list. A skipped phase turns green once its last deferred item is checked; a phase missing its ENGINE START, READY FOR LINE UP or ENGINE SHUTDOWN stays red.
+
+In circuit mode, a go-around, a touch-and-go or a full stop starts the repeated phases clean, their deferred items included: what you put off on the last lap is asked again on this one.
+
+### Memory Test
+
+Every check is shown by default. Turn on **Memory test** (in the Menu, under **Settings › Checklist & Flight**, or in onboarding) to hide the checks you should know by heart, so you can say them from memory. A **MEMORY TEST** banner at the end of the list says how many are hidden; hold it to show them for the current phase. Memory test replaces the former learning mode.
+
+### V-SPEEDS and BRIEFING
+
+**V-SPEEDS** opens the aircraft's speeds (indicated airspeed, in knots) in a drawer from the bottom. On the iPad it is one fixed table, the same in every phase: **STALL & GLIDE** first, on a panel of its own (Vso and Vs in amber, Vne in red), then **TAKE-OFF & CLIMB**, **APPROACH & LANDING** (in the order they are flown), **LIMITS**, **OTHER** and **CROSSWIND** (T/O and LDG). The phase only decides which cells are framed, where they stand: Vr before departure and on the line-up, Vx below 300 ft above the departure field and then Vy in the climb, Vno and Va in cruise, Va and Vbg in the descent, the approach speeds on approach, Vfinal and Vso on landing. On the iPhone the speeds are a list, with the phase's highlighted. Tap outside the drawer, or drag it down, to close it.
+
+**BRIEFING** opens the departure briefing in Before Departure and the approach briefing in Descent; see [Briefings](#briefings).
+
+### The Thumb Bar
+
+Besides CHECK, DEFER and NEXT, the thumb bar carries each phase's own buttons, in the checklist's language:
+
+- **ENGINE START** (Engine Start), **READY FOR LINE UP** (Before Departure) and **ENGINE SHUTDOWN** (Shutdown): a tap records the time. Once it is recorded, hold the button 1.5 s to change it; AéroCheck asks first.
+- The **cruise check timer** (Cruise): ⟳ with the time left. It starts by itself when you finish the Cruise checklist, or with a tap, and counts down 15 minutes. When it runs out it turns amber and pulses (**CHECK NOW**), the Cruise segment of the phase bar turns amber, and the Cruise checklist starts again from the top, so the pane goes back to it. A tap restarts the countdown; hold it 1 s to reset it at any time.
+- In **Landing**, **GO AROUND** and **TOUCH-AND-GO** sit above the thumb bar, and in **After Landing**, **FULL STOP LANDING**. Each needs a 1-second hold (**Hold to confirm**), so a stray touch cannot fire it, and shows its count. A go-around or a touch-and-go takes the checklist back to Climb.
+- In circuit mode, **GO AROUND** and **TOUCH-AND-GO** are single-tap buttons in the thumb bar instead, to correct a missed detection at once.
+- **END FLIGHT** takes NEXT's place once the last phase is checked.
+
+When **Log Engine Hours** is on (**Settings › Checklist & Flight**), the checklist offers the hour meter at the end of Before Engine Start and in Engine Start (it asks by itself on entering Engine Start if you have not entered it yet), and again after ENGINE SHUTDOWN, in Shutdown and At the Hangar.
+
+### The Menu
+
+**Menu**, at the right of the header, opens:
+
+- **DISPLAY**: the **Cockpit theme**, **Auto**, **Day** or **Night** (Night dims to red to protect your night vision; Auto follows the device's appearance), and **High contrast in sunlight**, which switches to a high-contrast palette while the screen is near full brightness (the app cannot read the ambient light, so brightness is the signal).
+- **OPTIONS**: **Memory test**, **Always Use UTC Times**, and **Enable Companion Mode** once a device is paired.
+- **GPS STATUS**: the signal and the points recorded.
+- **FLIGHT TIMES**: engine start, take-off, landing and shutdown, as recorded.
+- **END FLIGHT**, from any phase ("Ends the flight now, in any phase."), after a question.
+
+### Checklist Language
+
+When an aircraft's checklist exists in several languages, choose yours under **Settings › Checklist & Flight › Checklist Language**: Auto (follows the device language), English or French. If your language is not available for an aircraft, English is used.
 
 ### The 16 Flight Phases
 
@@ -193,96 +374,107 @@ AéroCheck covers every phase of flight:
 15. Engine Shutdown
 16. At the Hangar
 
-Move between phases with the **tappable phase bar** at the top of the screen. Completed phases are marked; you can jump forward or back at any time.
+In circuit mode, Cruise and Descent are skipped.
 
-### The Cockpit HUD
+### Ending or Abandoning a Flight
 
-In flight, the current checklist item is shown as the **hero** while past and future steps recede, so the next action is always obvious. A **cockpit instrument strip** shows live **speed, altitude, heading, and vertical speed**, with a color-blind-safe on-target bar and an instrument-failure flag when the GPS stops delivering. Reference panels — V-speeds, GPS status, and departure/approach briefings — open as a docked panel on iPad or a bottom drawer on iPhone.
+**END FLIGHT** (the big button after At the Hangar, or in the Menu at any phase) asks first ("End Flight?"), then saves the flight to your logbook and stops the GPS recording. A followed flight then moves to its close-out ([Close](#close)); a circuit session offers a light close-out ([Circuit Mode](#circuit-mode)). If the track disagrees with the events you confirmed, a review follows ([Post-Flight Review](#post-flight-review)).
 
-### Step-by-Step Mode
-
-When enabled (default), the current checklist item is highlighted. Tap it to mark it complete and advance to the next item, helping ensure nothing is skipped. Toggle it under **Settings > Checklist & Flight**.
-
-### Learning Mode
-
-Learning mode hides items that should be memorized so you can test your knowledge. Items configured as "memorizable" only appear when Learning Mode is off. In flight you can hold the hidden-content placeholder to reveal those items temporarily. Toggle it under **Settings > Checklist & Flight**.
-
-### Multi-Page Phases
-
-Some phases span multiple pages. A page indicator shows your position; swipe or tap to move between pages within a phase.
-
-### Checklist Language
-
-If a checklist is available in multiple languages, choose your preferred language under **Settings > Checklist & Flight > Checklist Language**. Options include Auto (follows device language), English, and French.
-
-### Speed Guidance
-
-During the flying phases, AéroCheck shows a large speed indicator with color-coded guidance toward the target speed for the current phase. It shows **GPS ground speed** (`GND SPD`, in knots). Ground speed is not the same as the airspeed your panel shows — a head- or tailwind shifts it — and the app has no pitot or angle-of-attack source, so it deliberately shows **no estimated airspeed and no stall warning**. Fly the aircraft's certified airspeed indicator.
-
-### Cockpit Theme
-
-Under **Settings > Checklist & Flight**, choose **Auto**, **Day** or **Night** (Night dims the instruments to a red/amber palette to protect dark adaptation; Auto follows the system appearance), and optionally turn on **High contrast in sunlight**, which switches to a high-contrast palette while the screen is near full brightness — the app cannot read ambient light, so screen brightness is the signal. The same options are one tap away in the in-flight **Options** panel.
+To abandon a flight, touch and hold the registration in the header for 1.5 s, until the ring around the aircraft icon closes. **Abandon Flight** discards the flight without saving it; its GPS data is lost.
 
 ---
 
-## In-Flight Navigation
+## The Map
 
-### Opening the Map
+The map is the same in two places: the **MAP** pane of the Cockpit, and **Plan › Map** on the ground, so the map you plan on is the map you fly with. It opens on your position, at the zoom you left it.
 
-Tap the **NAV** button during a flight to open the full-screen navigation map, which shows your position with a heading indicator and a short ground-track trend vector.
+### The Next Waypoint
 
-### Map Layers
+With a route on the map, the next waypoint sits on top: its name in magenta, then **BRG**, **DIST** (NM), **ETE** and **ETA**. ETE is given in minutes ("13 min", or "1:07 h" past the hour), so it does not read as a clock time; ETE and ETA appear only above 30 kt, so a taxi at 8 kt does not promise an hour and a half to the first waypoint. On the iPad it is a card; on the iPhone, one line. Tap it for every leg and every frequency.
 
-Open the **Layers** button to choose the base chart and toggle overlays.
+The legs list each waypoint with its planned leg time, the time flown, and how far ahead (▲) or over (▼) you are, then the destination with the distance left and the ETA. Tap a waypoint ahead to look at it on the map, then **Direct to** to fly straight to it. Tap one already passed to go back to that leg ("Go back to this leg?"): its crossing and the later ones are cleared, and the leg timer restarts.
 
-**Base charts:**
+In flight, a waypoint is passed automatically when you come within the waypoint proximity distance (**Settings › Flight Planning**), and also when you pass it abeam. If none of the route is on screen, a pill says where it is ("Route 12 NM · 045°"); **Show** frames it.
 
-- **Standard** — default Apple Maps view
-- **Satellite** — Apple satellite imagery
-- **ICAO Chart 1:500,000** — Swiss aeronautical chart from swisstopo
-- **Landeskarten 1:100,000 / 1:50,000** — Swiss national maps
-- **Segelflugkarte 1:300,000** — Swiss glider chart
+### The Map Sheet
 
-The ICAO Chart and Segelflugkarte switch seamlessly with zoom. Swiss map layers are available within and near Switzerland.
+**Map** opens everything about how the map looks, in one sheet:
 
-**Overlays and markers** (from downloaded OpenAIP data — see [Aeronautical Data and Storage](#aeronautical-data-and-storage)):
+- **Base chart**: **ICAO chart** (the Swiss aeronautical chart 1:500,000, which becomes the glider chart, the Segelflugkarte 1:300,000, when you zoom in, unless **Force ICAO Chart Layer** is on), **National map**, **SWISSIMAGE aerial**, **Satellite** and **Standard map**. The Swiss layers are available within and near Switzerland. In offline mode, the cached ICAO chart is the only one.
+- **Presets**: **Cruise** shows airspace and reporting points; **Approach** adds airports and obstacles; **Everything** shows every marker. Airspace stays on in all three.
+- **Airspace & charts**: **Airspace** (the OpenAIP airspace, drawn as a vector overlay) and **Map tiles** (OpenAIP's raster tiles, off by default). When the airspace is on and no data is downloaded, the sheet says so and offers **Download data…**.
+- **Map markers**, from the downloaded OpenAIP data (see [Aeronautical Data and Storage](#aeronautical-data-and-storage)): **Airports** (with frequencies on tap), **Navaids** (VOR, DME, NDB), **Reporting points** and **Obstacles** (towers, masts, wind turbines; off by default, they are dense). **Show all** or **Hide all**.
+- **Flight**: **Track vector**.
 
-- **Airspace** — OpenAIP airspace (CTR/TMA/restricted, etc.), as a vector overlay; raster airspace tiles are an optional, separate toggle
-- **Airports** — with frequencies on tap
-- **Navaids** — VOR / DME / NDB (gold markers, on by default)
-- **Obstacles** — towers, masts, wind turbines (off by default; they are dense)
-- **Reporting points** — VFR reporting points (on by default; compulsory points are emphasized)
+When the downloaded airspace is aging, an amber mark sits on the **Map** button, and the sheet explains it ("Airspace data is out of date") with **Update**, so you know that what is drawn may not reflect recent changes.
 
-If downloaded airspace data is aging, an amber **staleness badge** appears on the Layers button as a reminder that what's drawn may not reflect recent changes. When your data is old or missing for where you are, a banner says so — it never draws a stale map as if it were current.
+### Map Controls
 
-### Following a Route
+Under the next waypoint on the iPad, and at the foot of the chart on the iPhone: **Map**, **North up** / **Track up**, **Centre** and the zoom buttons. **Centre** fills in once you have moved the map off the aircraft, and puts it back. Pinching zooms too.
 
-With a route loaded — automatically, when you started a planned flight — the map adds leg-by-leg guidance: the next waypoint, track-up orientation, leg timing (EET/ETO), and a chronometer. A **FREDA** reminder prompts the periodic cruise check. Expand the bottom bar for the waypoint-progress list and the frequency panel. If none of the route is on screen, a pill says which way it is.
+### Frequencies
 
-### FREQ Panel
+Along the bottom of the map, the two frequencies to have set: **NOW**, the one to talk to now (within about 10 NM of an aerodrome, its contact frequency; en route, the area FIS), and **NEXT**, the next one you will need (the next aerodrome on the route, else the nearest control zone ahead, else the hand-over between FIS and an aerodrome; when diverting, the diversion field). Tap them for the legs and the **RADIO FREQUENCIES**: NOW and NEXT, **All frequencies** along the way (the nearest aerodrome, the route's waypoints, the area FIS, nearby control zones), and the emergency frequency, always last.
 
-The radio-frequency panel displays:
+### Leg Timer and MARK
 
-- **Route frequencies** (if a route is loaded)
-- **Nearby airport frequencies** — the nearest six airports within 40 NM, showing ATIS, TWR, GND, APP, and other published frequencies from the OpenAIP / OurAirports data
-- **Common frequencies** — emergency, information, and FIS
-- **Nearby CTR frequencies** — control-zone frequencies based on your position
+In flight, with a route on the map, the thumb bar under the map holds:
 
-It is organized as **CURRENT / NEXT / EMERGENCY** so the frequency you need is one glance away.
+- **LEG**: the time on the current leg, the planned leg time (iPad), and how far ahead (▲, green) or over (▼, amber) you are.
+- **START LEG** starts the leg timer. The big button then becomes **MARK** with the waypoint's name: tap it as you pass the waypoint to record its time over and start the next leg.
+- **Divert**: see below.
+- **More**: pause or start the chronometer, **Reset chronometer**, **Legs and frequencies**, and **Routes**.
+
+For six seconds after a MARK or a reset, a message ("LSGC passed at 10:42", "Leg timer reset") offers **UNDO**: a mis-tap in turbulence is taken back with one tap.
+
+On the ground, and in Plan › Map, the thumb bar holds **Routes** instead: nothing is timed or marked before the flight exists.
+
+### Divert
+
+**Divert** (in flight, in the thumb bar) answers "where do I go instead?" in two taps and no typing. It lists the aerodromes around you, **Ahead · soonest first** and **Behind · turn back**, with the destination and the alternate; tap one to see it, then **DIVERT TO** it. Tapping the destination itself is **DIRECT TO**, not a diversion. Glacier and mountain landing sites, heliports and closed fields are not listed. With a route on the map, an airport's callout on the map offers the diversion too.
+
+A diversion changes where you navigate to and nothing else: the next waypoint shows **DIVERT** and the field, the frequencies follow it, and **Resume route** takes you back to the route in one tap. With an ATC flight plan filed, the iPad's card reminds you to tell FIS ("ATC flight plan filed: tell FIS you are diverting to …"). Nothing administrative moves until you are on the ground; for what the flight's page offers after the landing, see [Trips and Stops](#trips-and-stops).
+
+### Track Vector
+
+The track vector projects your smoothed ground track 5 minutes ahead, with ticks at 1, 2 and 5 minutes. It hides below 5 kt, where a track means nothing. Turn it off in the Map sheet (**Track vector**) or under **Settings › Navigation & Maps**.
 
 ### GPS Indicators
 
-The navigation view shows real-time **ground speed** (knots), **altitude** (feet MSL), and a **GPS signal quality** indicator.
-
-If the GPS position stops updating in flight (no fix for more than 90 seconds), the speed and altitude indicators show a **failure flag** instead of stale numbers, and the GPS status reads **Lost** — so a silent dropout is never mistaken for a valid reading. If location access is limited to "While Using the App," an amber **"Limited GPS"** banner reminds you to grant "Always" so the track keeps recording in the background.
+The GPS button in the Cockpit's header shows the signal in its colour; tap it for the GPS Status drawer (see [The Header](#the-header)). If the position stops updating in flight (no fix for more than 90 seconds), the status reads **Lost** and the instrument strip shows a failure flag instead of stale numbers. If location access is limited to "While Using the App", the GPS Status drawer says so ("Limited GPS …"), so you can grant "Always" and keep the track recording in the background.
 
 ### Offline Maps
 
-The Swiss ICAO Chart and Segelflugkarte can be cached for offline use under **Settings > Navigation & Maps** (or the Data & Storage hub), roughly 100–250 MB. When a cached chart is available it is served from local storage, so the map works without a connection.
+The Swiss ICAO chart and the Segelflugkarte can be cached for offline use under **Settings › Navigation & Maps › Offline Maps** (up to about 250 MB), with **Offline Mode** to use the cache only. A cached chart is served from the device, so the map works without a connection. An **OFFLINE** or **CACHED** badge at the bottom left of the map says which; tap it for the details.
+
+---
+
+## The iPhone
+
+The iPhone flies with the same Cockpit as the iPad: the same zones, in the same order, with the same words. Its sizes are the iPad's × 0.85: a phone is read closer, in the hand or on a yoke clip, so the text reaches the eye at the same angle.
+
+### The Cockpit on the Phone
+
+- **The header, on two rows**: the registration, the flight time, GPS and **Menu** on the first; the phase and its place on a line of its own under them.
+- **The strip** has three cells, GS, ALT and TRK; the next waypoint is on the map.
+- **CHECKLIST | MAP** runs across the width, with **V-SPEEDS** beside it. **BRIEFING** and **NEXT** appear at the top of the list, only while they apply; on the map, **BRIEFING** and the amber chips sit over the chart.
+- **CHECK** and **DEFER** in the thumb bar, as on the iPad, and a tap anywhere on the list checks the current item too.
+- **V-SPEEDS** is a list, with the phase's speeds highlighted and the maximum crosswind under it.
+- A checklist row too long for one line puts the response under the challenge. The list opens on the current item.
+
+### The Map on the Phone
+
+The next waypoint takes one line (its name in magenta, then BRG, DIST and ETE), and the controls sit at the foot of the chart: **Map**, one button showing the orientation (**North up** or **Track up**; a tap switches it) and **Centre**. Pinch to zoom. NOW and NEXT, and the thumb bar (LEG, MARK with the waypoint's name under the word, Divert, More), are under the chart. In flight with no route on the map, **Routes** sits where the next waypoint would be.
+
+### The Phone on Its Side
+
+On its side, the phone shows two columns. On the left, the Cockpit's controls: the header, the phase bar, CHECKLIST | MAP with V-SPEEDS, the strip, and the thumb bar at the foot, where the thumb is. On the right, the pane at full height. On the map, the frequencies run along the bottom of the chart on two lines, and Divert and More are stacked in the thumb bar so that MARK keeps its width.
 
 ---
 
 ## Briefings
+
+**BRIEFING** in the Cockpit opens the departure briefing in Before Departure, and the approach briefing in Descent.
 
 ### Departure Briefing
 
@@ -324,11 +516,11 @@ Confirmation prompts auto-dismiss, and in the circuit you will miss some. At fli
 
 ### Engine Hours
 
-If enabled under **Settings > Checklist & Flight**, the app prompts for tachometer or Hobbs readings at engine start and shutdown, and calculates hours flown automatically.
+If **Log Engine Hours** is on under **Settings › Checklist & Flight**, the app asks for the tachometer or Hobbs readings at engine start and shutdown, and calculates the hours flown automatically.
 
 ### Viewing Flight History
 
-Open **Flights > Past** to review flights; each entry shows the date, duration, aircraft, and distance. Tap a flight for its **detail view**:
+Open the **Logbook** tab to review flights; each entry shows the date, duration, aircraft, and distance. Tap a flight for its **detail view**:
 
 - An interactive map of your flight track
 - An altitude (and speed) profile chart
@@ -337,17 +529,17 @@ Open **Flights > Past** to review flights; each entry shows the date, duration, 
 - Engine hours (if logged) and flight notes
 - **Logbook & costs** — see below
 
-The log filters by year (set it to **All time** to see every flight), in UTC like every printed date, and your flights sync across devices via iCloud.
+The logbook filters by year (set it to **All time** to see every flight), in UTC like every printed date, and your flights sync across devices via iCloud.
 
 ### Logbook & Costs
 
-From a past flight's detail, or from a flight's CLOSE chapter, **Logbook & costs** holds three things.
+From a flight's detail in the Logbook, or from a flight's CLOSE chapter, **Logbook & costs** holds three things.
 
 **The logbook line.** A draft of the line an EASA Part-FCL logbook wants for this flight, per **AMC1 FCL.050**: date, departure and arrival with **UTC** block times, aircraft, single-engine and total time, PIC, landings, night and IFR time, function time, remarks. Dates, places, times and landings come from the recorded flight. **Function time is a judgment** the app cannot make from a flight, so it defaults from a signal — an instructor named on the flight, or [student mode](#student-pilots) — and is yours to change with **Edit**, together with the PIC name, night landings, night and IFR time (deliberately **not computed**: a plausible wrong number in a logbook column is worse than an empty one you fill in) and remarks.
 
-**Logbook row** lays the same values out as your paper logbook's own twelve column groups, to copy from; **Copy line** and **Export CSV** hand them over as text; and **Export logbook PDF** from the Past list renders any selection of flights as logbook pages with page and carried-forward totals. AéroCheck is not a logbook of record and every page says so.
+**Logbook row** lays the same values out as your paper logbook's own twelve column groups, to copy from; **Copy line** and **Export CSV** hand them over as text; and **Export logbook PDF** in the Logbook renders any selection of flights as logbook pages with page and carried-forward totals. AéroCheck is not a logbook of record and every page says so.
 
-**Cost.** Set an hourly **rate** per aircraft (with the billing basis — block time, flight time or engine hours — and currency) once; each flight then shows its aircraft cost, plus any fees you add (a landing fee, fuel). The rate is snapshot onto the flight when computed, so a rate change next year does not rewrite last year. The Past list's summary shows the period total and says how many flights have no cost rather than pretending the total is complete. Turn the whole thing off under **Settings > Flight Planning** if you do not track what flying costs.
+**Cost.** Set an hourly **rate** per aircraft (with the billing basis — block time, flight time or engine hours — and currency) once; each flight then shows its aircraft cost, plus any fees you add (a landing fee, fuel). The rate is snapshot onto the flight when computed, so a rate change next year does not rewrite last year. The Logbook's summary shows the period total and says how many flights have no cost rather than pretending the total is complete. Turn the whole thing off with **Track flight costs** under **Settings › Flight Planning** if you do not track what flying costs.
 
 ### Mass & Balance
 
@@ -355,7 +547,7 @@ The **Mass & balance** calculator, per aircraft: enter the empty mass and arm, t
 
 ### Student Pilots
 
-If you fly with an instructor, turn on **Student pilot** under **Settings > Flight Planning** and enter the instructor's name. Your flights then log as **dual**, with the **instructor named as PIC** — that column states who commanded the aircraft — and the instructor is pre-filled on new flights. An instructor named on the flight itself always wins over the usual one, and your own edits to a line win over everything.
+If you fly with an instructor, turn on **Student pilot** under **Settings › Flight Planning** and enter the instructor's name. Your flights then log as **dual**, with the **instructor named as PIC** — that column states who commanded the aircraft — and the instructor is pre-filled on new flights. An instructor named on the flight itself always wins over the usual one, and your own edits to a line win over everything.
 
 ### Exporting and Sharing
 
@@ -373,16 +565,16 @@ The **Apple Watch app** shows the current phase, ground speed, and altitude on y
 
 ### Companion Mode
 
-**Companion Mode** pairs an iPad and an iPhone over a direct Wi-Fi link (Wi-Fi Aware; requires **iOS 26 on both devices**) to turn the second device into a synced **wingman** screen. Pair the two devices once under **Settings > Companion Mode**; afterwards they connect automatically when both are nearby and ready.
+**Companion Mode** pairs an iPad and an iPhone over a direct Wi-Fi link (Wi-Fi Aware; requires **iOS 26 on both devices**) to turn the second device into a synced **wingman** screen. Pair the two devices once under **Settings › Companion Mode**; afterwards they connect automatically when both are nearby and ready.
 
 The companion viewer offers two screens you can swipe between, and it switches automatically with the flight phase:
 
-- **NAV** — a track-up next-waypoint view with the loaded route
+- **NAV** — a track-up next-waypoint view with the route on the map
 - **CHECKLIST** — a mirror of the master's checklist
 
-Control is **two-way**: advancing the checklist or revealing hidden items on either device updates both, and both screens match the master's theme. A **GPS chip** shows which device's GPS is in use.
+Control is **two-way**: advancing the checklist or revealing the checks the Memory test hides on either device updates both, and both screens match the master's theme. A **GPS chip** shows which device's GPS is in use.
 
-**Shared GPS.** If the iPad has no GPS of its own (a Wi-Fi-only model), it can run the entire flight on the **iPhone's GPS** — the iPhone shares its position over the link, and the iPad records the track and drives the HUD as if the fix were its own.
+**Shared GPS.** If the iPad has no GPS of its own (a Wi-Fi-only model), it can run the entire flight on the **iPhone's GPS** — the iPhone shares its position over the link, and the iPad records the track and drives the Cockpit as if the fix were its own (the header's GPS then reads **GPS · iPhone**).
 
 If the connection drops or the data goes stale, the companion shows a **"Data stale — values may be frozen"** or **"Connection lost"** banner. The rule is simple: a staleness or disconnect banner means *stop trusting the numbers on that screen* until it reconnects. To save battery, an idle link disconnects on its own.
 
@@ -390,13 +582,13 @@ If the connection drops or the data goes stale, the companion shows a **"Data st
 
 ## Circuit Mode
 
-Circuit mode is designed for **pattern training** (touch-and-go practice). When active:
+Circuit mode is designed for **pattern training** (touch-and-go practice). Start it with **CIRCUITS** on Today, where it is always offered. When active:
 
 - The checklist skips the **Cruise** and **Descent** phases
-- After landing, the checklist returns directly to the **Before Departure** phase
+- A go-around or a touch-and-go takes the checklist back to **Climb** for the next lap, and a confirmed full stop back to **Taxi**
 - **Full-stop landings** are tracked automatically
 
-Start it by tapping **CIRCUITS** on the home screen. Circuits are start-now only — there is no such thing as a planned circuit session — so a session never adopts a flight you planned. When it ends, AéroCheck **offers** to close it out: a light version of CLOSE with just the logbook line and a debrief. Dismissing the offer is a complete answer.
+Circuits are start-now only (there is no such thing as a planned circuit session), so a session never adopts a flight you planned. When it ends, AéroCheck **offers** to close it out: a light version of CLOSE with just the logbook line and a debrief. Dismissing the offer is a complete answer.
 
 ---
 
@@ -408,22 +600,22 @@ AéroCheck draws on several external datasets so navigation works wherever you f
 
 - **Airports and frequencies** — from OurAirports and OpenAIP (positions, runways, fuel grades, PPR flags and radio frequencies)
 - **Airspace** — OpenAIP controlled and restricted airspace, with vertical limits and frequencies
-- **Navaids, obstacles, and reporting points** — OpenAIP map layers (see [Map Layers](#map-layers))
-- **Charts** — Swiss ICAO, Landeskarten, and Segelflug charts from swisstopo
+- **Navaids, obstacles, and reporting points** — OpenAIP map layers (see [The Map Sheet](#the-map-sheet))
+- **Charts** — Swiss ICAO, national map, and Segelflug charts from swisstopo
 - **Landing-fee sources** — where each aerodrome publishes its own tariff (links and dates, never amounts), from the AéroCheck service
 
 ### Downloading Data
 
-Download aeronautical data **by country or continent** from **Settings > Data & Storage** (or **Navigation & Maps**). Onboarding offers a recommended set for your region and its neighbours so you are covered from the first flight. Airspace, navaids, obstacles, and reporting points download together per country.
+Download aeronautical data **by country or continent** from **Settings › Data & Storage** (or **Navigation & Maps**). Onboarding offers a recommended set for your region and its neighbours so you are covered from the first flight. Airspace, navaids, obstacles, and reporting points download together per country.
 
 ### Keeping Data Current
 
 Aeronautical data changes regularly, so AéroCheck surfaces its freshness in several places:
 
-- A **data indicator** on the home screen and a freshness summary in **Data & Storage**
+- The **Data** chip on Today and a freshness summary in **Data & Storage**
 - A snoozable **nudge** when a dataset is out of date
-- The on-map **staleness badge** when downloaded airspace is aging (see [Map Layers](#map-layers))
-- **Trip-aware prefetch** — when a route crosses a country you haven't downloaded, AéroCheck offers to fetch that data, and fetches only what is missing
+- The amber mark on the map's **Map** button when downloaded airspace is aging (see [The Map Sheet](#the-map-sheet))
+- **Route-aware prefetch** — when a route crosses a country you haven't downloaded, AéroCheck offers to fetch that data, and fetches only what is missing
 
 Data refreshes when you bring the app to the foreground (there is no background download), so updates happen while you're using the app, not on battery in your pocket.
 
@@ -437,27 +629,27 @@ Cache the Swiss ICAO Chart and Segelflugkarte for offline use (~100–250 MB). *
 
 ## Settings Reference
 
-Settings are organized into a hub of dedicated pages.
+Settings is a tab of its own, organized into dedicated pages. Three former settings are now simply how the app works: **CIRCUITS** is always offered on Today, the screen stays on during a flight (and only then), and every checklist runs step by step. Two things live outside Settings: the aircraft you fly is chosen on Today or in the **Aircraft** tab, which also keeps each aircraft's usable fuel with full tanks; and the Cockpit's **Menu** repeats the display options in flight.
 
 ### Aircraft & Subscription
 
-Select your active aircraft, manage **AéroCheck Pro** (subscribe, start the trial, buy Lifetime, or restore purchases), and show or hide aircraft by aeroclub.
+**AéroCheck Pro** (subscribe, start the trial, buy Lifetime, or restore purchases), the aircraft you fly (with **Get latest aircraft data** to refresh the list and check for checklist updates), and **Aircraft Visibility**, to show or hide aircraft one by one or by aeroclub.
 
 ### Checklist & Flight
 
-Step-by-step highlighting, learning mode, circuit mode, and checklist language; the **cockpit theme** (Auto / Day / Night) and **High contrast in sunlight**; engine-hour (Hobbs) logging; and in-flight display options such as keeping the screen on and using UTC time.
+**Memory test** and **Checklist Language**; **Log Engine Hours** (on by default); **Always Use UTC Times**; the **Cockpit theme** (Auto / Day / Night) and **High contrast in sunlight**.
 
 ### Navigation & Maps
 
-Map layers, the OpenAIP airspace overlay and marker layers, offline chart caching, and airport data.
+**Force ICAO Chart Layer** and the **Track vector**; **Offline Maps** (offline mode, chart cache, update, delete, download); the OpenAIP airspace overlay, the navaid, obstacle and reporting-point layers, and **Online Airspace Data** (nearby control zones fetched online when no airspace is downloaded); airport data.
 
 ### Flight Planning
 
-Your **pilot name** (used for the plan and the logbook), **Student pilot** with your instructor's name, **cost tracking** on or off, and the waypoint-proximity distance the map uses to advance to the next waypoint.
+Your **pilot name** (for the PIC column and the logbook PDF), **Student pilot** with your instructor's name, **Track flight costs** on or off, the **Waypoint Proximity** distance at which a waypoint is passed in flight, and the **Terrain Altitude Unit** of the route profile.
 
 ### iCloud & Log
 
-iCloud sync of settings and flights across devices, GPS recording interval, and flight-log preferences.
+**iCloud Sync** of settings and flights across devices, the GPS **Recording Interval** and **GPS Priority** (**Precision** or **Battery Saver**), and the numbers of recorded flights and GPS points.
 
 ### Data & Storage
 
@@ -469,4 +661,4 @@ Pair an iPhone and iPad as a synced second screen (Wi-Fi Aware; requires iOS 26 
 
 ### About
 
-App version, website, author and open-source information; the list of cached aircraft checklists and versions; **Replay Onboarding**; and hidden **Developer Options** (tap the version number five times to unlock).
+App version, website, author and open-source information; **Legal** (the safety notice, the terms of use and the privacy policy) and the data sources; **Replay onboarding**; and hidden **Developer Options** (tap the version number five times to unlock).

@@ -558,8 +558,9 @@ struct NavigationMapView: View {
                 mapState.cameraHeading = course
             }
 
-            // Auto-advance waypoint when within proximity threshold
-            if let location = newLocation {
+            // Auto-advance waypoint when within proximity threshold. In flight only: parked near a
+            // waypoint with Plan › Map open, it recorded a time over it. (v6.0 review)
+            if appState.isFlightActive, let location = newLocation {
                 let clLocation = CLLocation(latitude: location.coordinate.latitude, longitude: location.coordinate.longitude)
                 let prevIndex = flightPlanManager.activeFlightPlan?.currentWaypointIndex
                 flightPlanManager.autoAdvanceWaypointIfNeeded(
@@ -1912,8 +1913,13 @@ struct NavigationMapView: View {
     /// normal-size button, not a 104 pt bar. (on-device review #1, R-01)
     @ViewBuilder
     private var navThumbBar: some View {
-        if let plan = flightPlanManager.activeFlightPlan {
+        if appState.isFlightActive, let plan = flightPlanManager.activeFlightPlan {
             TimelineView(.periodic(from: .now, by: 1)) { _ in
+    ///
+    /// Only in flight. The same map is Plan › Map on the ground (`isInCockpit` there too), and with a
+    /// route armed it offered START LEG, MARK and DIVERT: a tap recorded a time over a waypoint and
+    /// advanced the leg before the flight existed, so the leg timer and the nav log's times were wrong
+    /// once airborne. On the ground the row is the way to the routes, as with no route. (v6.0 review)
                 let state = legTimerState(plan)
                 HStack(spacing: CockpitType.size(kneeboard: 12, phone: 8)) {
                     legTimerReadout(elapsed: state.elapsed, planned: state.planned, running: state.running,
@@ -1934,7 +1940,7 @@ struct NavigationMapView: View {
     /// More stacked, half height, so MARK keeps its width. (iPhone pass, I7)
     @ViewBuilder
     private var navThumbColumnCompact: some View {
-        if let plan = flightPlanManager.activeFlightPlan {
+        if appState.isFlightActive, let plan = flightPlanManager.activeFlightPlan {
             TimelineView(.periodic(from: .now, by: 1)) { _ in
                 let state = legTimerState(plan)
                 HStack(spacing: 8) {
@@ -1956,7 +1962,7 @@ struct NavigationMapView: View {
     /// and Divert, then MARK with More beside it, where the thumb rests.
     @ViewBuilder
     private var navThumbColumn: some View {
-        if let plan = flightPlanManager.activeFlightPlan {
+        if appState.isFlightActive, let plan = flightPlanManager.activeFlightPlan {
             TimelineView(.periodic(from: .now, by: 1)) { _ in
                 let state = legTimerState(plan)
                 VStack(spacing: 12) {

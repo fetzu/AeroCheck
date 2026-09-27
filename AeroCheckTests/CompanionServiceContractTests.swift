@@ -245,4 +245,27 @@ final class CompanionServiceContractTests: XCTestCase {
         // never learns the viewer's entitlement and (correctly, but unhelpfully) redacts forever.
         XCTAssertEqual(CompanionMessage.MessageType(rawValue: "viewerHello"), .viewerHello)
     }
+
+    // MARK: - Deferred items on the viewer (v6.0 review, B2)
+
+    func testChecklistSnapshotCarriesDeferredItems() throws {
+        let snapshot = CompanionChecklistSnapshot(
+            phaseTitle: "Taxi", phaseRawValue: 5, highlightedIndex: 2, visibleCount: 3, completedCount: 2,
+            items: [], hiddenItemCount: 0, deferredItemIds: ["a"], deferredItemCount: 3)
+        let decoded = try JSONDecoder().decode(CompanionChecklistSnapshot.self,
+                                               from: JSONEncoder().encode(snapshot))
+        XCTAssertEqual(decoded, snapshot)
+        XCTAssertEqual(decoded.deferredItemIds, ["a"])
+        XCTAssertEqual(decoded.deferredItemCount, 3)
+    }
+
+    func testChecklistSnapshotFromAnOlderMasterHasNothingDeferred() throws {
+        // A 5.x or 6.0 iPad sends no deferred fields; the viewer must still take the update.
+        let decoded = try JSONDecoder().decode(
+            CompanionChecklistSnapshot.self,
+            from: Data(#"{"phaseTitle":"Taxi","phaseRawValue":5,"highlightedIndex":1}"#.utf8))
+        XCTAssertEqual(decoded.highlightedIndex, 1)
+        XCTAssertEqual(decoded.deferredItemIds, [])
+        XCTAssertEqual(decoded.deferredItemCount, 0)
+    }
 }

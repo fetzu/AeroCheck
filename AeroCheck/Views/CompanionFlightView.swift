@@ -481,6 +481,9 @@ struct CompanionFlightView: View {
             if let cl = checklist {
                 VStack(spacing: 0) {
                     checklistPhaseHeader(cl)
+                    if cl.deferredItemCount > 0 {
+                        deferredItemsRow(count: cl.deferredItemCount)
+                    }
                     ScrollViewReader { proxy in
                         ScrollView {
                             VStack(alignment: .leading, spacing: 0) {
@@ -563,14 +566,36 @@ struct CompanionFlightView: View {
                 isCompact: true
             ).padding(.vertical, 4)
         } else {
+            // Passed over with DEFER on the iPad: drawn deferred, as there, not ticked as done.
+            // (v6.0 review, B2)
+            let isDeferred = index < cl.highlightedIndex && cl.deferredItemIds.contains(item.id)
             ChecklistItemRow(
                 item: ChecklistItem(challenge: item.challenge, response: item.response, isHeader: item.isHeader),
                 showSeparator: index < cl.items.count - 1,
                 isHighlighted: false,
-                isCompleted: index < cl.highlightedIndex,
+                isCompleted: index < cl.highlightedIndex && !isDeferred,
+                isDeferred: isDeferred,
                 isCompact: true
             )
         }
+    }
+
+    /// The iPad's deferred-items row, to read only: the list and its CHECK buttons stay on the iPad.
+    private func deferredItemsRow(count: Int) -> some View {
+        HStack(spacing: 8) {
+            Image(systemName: "exclamationmark.triangle.fill")
+            Text(L10n.Deferred.count(count))
+            Spacer(minLength: 0)
+        }
+        .font(.aero(size: 15, weight: .semibold))
+        .foregroundColor(theme.warning)
+        .padding(.horizontal, 12)
+        .padding(.vertical, 8)
+        .background(RoundedRectangle(cornerRadius: 10).fill(theme.warning.opacity(0.12)))
+        .overlay(RoundedRectangle(cornerRadius: 10).stroke(theme.warning.opacity(0.6), lineWidth: 1))
+        .padding(.horizontal, 12)
+        .padding(.bottom, 4)
+        .accessibilityElement(children: .combine)
     }
 
     /// "Hidden Checklist Content" placeholder — matches the iPad's learning-mode indicator. Hold to

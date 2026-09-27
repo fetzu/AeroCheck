@@ -968,7 +968,11 @@ class CompanionConnectivityManager: NSObject, ObservableObject {
             visibleCount: visibleCount,
             completedCount: min(highlighted, visibleCount),
             items: items,
-            hiddenItemCount: hiddenCount
+            hiddenItemCount: hiddenCount,
+            // Ids only: the viewer matches them against the items it was sent, so an unentitled one,
+            // sent no items, gets nothing it could read.
+            deferredItemIds: appState.deferredItems[phase] ?? [],
+            deferredItemCount: appState.deferredItemCount
         )
     }
 

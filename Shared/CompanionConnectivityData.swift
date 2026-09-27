@@ -448,9 +448,15 @@ struct CompanionChecklistSnapshot: Codable, Equatable {
     /// viewer shows the same "Hidden Checklist Content" placeholder as the iPad. 0 once revealed.
     /// (companion v2 — hidden-content parity)
     let hiddenItemCount: Int
+    /// The items of this phase deferred rather than checked, so the viewer draws them as the iPad
+    /// does instead of as done. (v6.0 review, B2)
+    let deferredItemIds: [String]
+    /// Every deferred item still to check, all phases together: the iPad's deferred-items row.
+    let deferredItemCount: Int
 
     init(phaseTitle: String, phaseRawValue: Int, highlightedIndex: Int, visibleCount: Int,
-         completedCount: Int, items: [CompanionChecklistItem], hiddenItemCount: Int) {
+         completedCount: Int, items: [CompanionChecklistItem], hiddenItemCount: Int,
+         deferredItemIds: [String] = [], deferredItemCount: Int = 0) {
         self.phaseTitle = phaseTitle
         self.phaseRawValue = phaseRawValue
         self.highlightedIndex = highlightedIndex
@@ -458,6 +464,8 @@ struct CompanionChecklistSnapshot: Codable, Equatable {
         self.completedCount = completedCount
         self.items = items
         self.hiddenItemCount = hiddenItemCount
+        self.deferredItemIds = deferredItemIds
+        self.deferredItemCount = deferredItemCount
     }
 
     /// Tolerant decoder: every field defaults so a field skew between independently-updated builds never
@@ -471,5 +479,8 @@ struct CompanionChecklistSnapshot: Codable, Equatable {
         completedCount = try c.decodeIfPresent(Int.self, forKey: .completedCount) ?? 0
         items = try c.decodeIfPresent([CompanionChecklistItem].self, forKey: .items) ?? []
         hiddenItemCount = try c.decodeIfPresent(Int.self, forKey: .hiddenItemCount) ?? 0
+        // Absent from an iPad on 5.x or 6.0: nothing deferred, as that iPad knew no better.
+        deferredItemIds = try c.decodeIfPresent([String].self, forKey: .deferredItemIds) ?? []
+        deferredItemCount = try c.decodeIfPresent(Int.self, forKey: .deferredItemCount) ?? 0
     }
 }

@@ -145,14 +145,12 @@ extension AircraftOption {
 struct HomeView: View {
     @Environment(AppState.self) private var appState
     @EnvironmentObject var locationManager: LocationManager
-    @EnvironmentObject var offlineMapManager: OfflineMapManager
     @EnvironmentObject var flightPlanManager: FlightPlanManager
     @EnvironmentObject var threadManager: FlightThreadManager
     @EnvironmentObject var aircraftDataService: AircraftDataService
     @EnvironmentObject var subscriptionManager: SubscriptionManager
     @EnvironmentObject var airportDataService: AirportDataService
     @EnvironmentObject var flightEventDetector: FlightEventDetector
-    @EnvironmentObject var openAIPCacheManager: OpenAIPCacheManager
     @EnvironmentObject var openAIPDataService: OpenAIPDataService
     @EnvironmentObject var dataStatusManager: DataStatusManager
     @State private var selectedAircraftIndex: Int = 0
@@ -666,7 +664,15 @@ struct HomeView: View {
         return Menu {
             ForEach(Array(availableAircraft.enumerated()), id: \.element.id) { index, candidate in
                 Button {
-                    selectedAircraftIndex = index
+                    // With a locked Pro aircraft selected, the index already points at the WT9 (the
+                    // sync keeps it there), so setting it again changed nothing and `onChange` never
+                    // fired: the one way out on Today did nothing. Select directly in that case.
+                    // (v6.0 review)
+                    if selectedAircraftIndex == index {
+                        updateAppStateAircraft(index: index)
+                    } else {
+                        selectedAircraftIndex = index
+                    }
                 } label: {
                     Label("\(candidate.registration) · \(candidate.modelName)",
                           systemImage: candidate.isSelected(in: appState.settings) ? "checkmark" : "airplane")

@@ -550,12 +550,9 @@ struct FlightPlanningView: View {
                         }
                     }
                 }
-                .onDelete { offsets in
-                    // Map filtered indices back to plans (indices into filteredPlans, not the full list).
-                    for index in offsets where index < filteredPlans.count {
-                        flightPlanManager.deleteFlightPlan(filteredPlans[index])
-                    }
-                }
+                // No `.onDelete`: the rows' own swipe actions replace SwiftUI's swipe-to-delete, and the
+                // Delete there asks first. The `.onDelete` that was here deleted without asking and was
+                // only unreachable because nothing puts this list in edit mode. (v6.0 review)
                 noMatch
             } header: {
                 cockpitSectionHeader(showsArchived ? L10n.Routes.archivedHeader : L10n.Nav.allFlightPlans,

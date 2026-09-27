@@ -370,7 +370,9 @@ struct UpcomingFlightsList: View {
                 ForEach(group.entries) { entry in
                     switch entry {
                     case .trip(let trip): tripRow(trip)
-                    case .flight(let thread): laterRow(thread, compact: compact)
+                    case .flight(let thread):
+                        laterRow(thread, compact: compact,
+                                 loadPriority: (entries.firstIndex { $0.id == thread.id } ?? 0) + 1)
                     }
                 }
             }
@@ -397,7 +399,9 @@ struct UpcomingFlightsList: View {
         return groups
     }
 
-    private func laterRow(_ thread: FlightThread, compact: Bool) -> some View {
+    /// `loadPriority`: the row's place in the list, so its map thumbnail waits its turn behind the
+    /// hero card's and the rows above, as on Routes. (v6.0 review)
+    private func laterRow(_ thread: FlightThread, compact: Bool, loadPriority: Int = 0) -> some View {
         let plan = plan(for: thread)
         let progress = thread.preFlightProgress
         return Button { onOpen(thread.id) } label: {
@@ -405,7 +409,7 @@ struct UpcomingFlightsList: View {
                 if compact {
                     compactLaterRow(thread, plan: plan, progress: progress)
                 } else {
-                    regularLaterRow(thread, plan: plan, progress: progress)
+                    regularLaterRow(thread, plan: plan, progress: progress, loadPriority: loadPriority)
                 }
             }
             .padding(.horizontal, 14)
@@ -419,14 +423,14 @@ struct UpcomingFlightsList: View {
     }
 
     private func regularLaterRow(_ thread: FlightThread, plan: FlightPlan?,
-                                 progress: (done: Int, total: Int)) -> some View {
+                                 progress: (done: Int, total: Int), loadPriority: Int = 0) -> some View {
         HStack(spacing: 14) {
             Text(thread.scheduledDeparture.map { $0.formatted(date: .omitted, time: .shortened) } ?? "—")
                 .scaledFont(size: 19, weight: .bold, design: .monospaced, relativeTo: .body)
                 .foregroundColor(thread.scheduledDeparture == nil ? .dimText : .primaryText)
                 .frame(width: 64, alignment: .leading)
             if let plan, plan.waypoints.count >= 2 {
-                RouteThumbnail(waypoints: plan.waypoints)
+                RouteThumbnail(waypoints: plan.waypoints, loadPriority: loadPriority)
                     .frame(width: 88, height: 54)
                     .clipShape(RoundedRectangle(cornerRadius: 8))
             }

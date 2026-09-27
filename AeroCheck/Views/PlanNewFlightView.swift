@@ -313,6 +313,9 @@ struct PlanNewFlightView: View {
                             get: { intent.departureTime ?? Self.defaultDeparture() },
                             set: { intent.departureTime = $0 }
                         ),
+                        // From today on: a flight planned for a day already gone lands straight under
+                        // "Date passed". Earlier today is still fine. (v6.0 review)
+                        in: Calendar.current.startOfDay(for: Date())...,
                         displayedComponents: [.date, .hourAndMinute]
                     )
                     .datePickerStyle(.compact)

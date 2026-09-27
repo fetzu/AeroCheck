@@ -514,6 +514,8 @@ enum L10n {
         static let accessRevoked = String(localized: "gps.accessRevoked")
         /// Shown when "Precise Location" is off, which otherwise looks like a permanently weak signal. (RES-09)
         static let preciseOff = String(localized: "gps.preciseOff")
+        /// The "Simulate position" developer option is on: real GPS is ignored. (S9-25)
+        static let simulatedPosition = String(localized: "gps.simulatedPosition")
         static let points = String(localized: "gps.points")
         static let pointsRecorded = String(localized: "gps.pointsRecorded")
 

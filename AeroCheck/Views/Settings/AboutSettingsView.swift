@@ -17,7 +17,6 @@ struct AboutSettingsView: View {
     @State private var showSubscriptionLogs: Bool = false
     @State private var marketingMode: Bool = false
     @State private var showSafetyNotice: Bool = false
-    @State private var simulateLSZS: Bool = false   // dev: hold a static fix at LSZS to test briefings
     @State private var previewEvent: DetectedFlightEvent?   // dev: preview the restyled event prompt
 
     private let tint: Color = .secondaryText
@@ -266,17 +265,17 @@ struct AboutSettingsView: View {
                                   tint: tint, isOn: $dataStatusManager.debugForceStale)
 
                 // v4.1.0: hold a static GPS fix at LSZS (Samedan) so the departure briefing can be tested
-                // without being at an airport. Reuses the marketing static-fix injector.
+                // without being at an airport. The state lives in LocationManager, which shows it
+                // (orange GPS, "SIM") and ends it with the flight. (S9-25)
                 SettingsToggleRow(icon: "location.viewfinder", title: L10n.Settings.simulateLSZS,
                                   tint: tint, isOn: Binding(
-                                    get: { simulateLSZS },
+                                    get: { locationManager.isSimulatingPosition },
                                     set: { on in
-                                        simulateLSZS = on
                                         if on {
-                                            locationManager.injectMarketingStaticFix(
-                                                CLLocation(latitude: 46.533859, longitude: 9.883783))
+                                            locationManager.startSimulatingPosition(
+                                                at: CLLocation(latitude: 46.533859, longitude: 9.883783))
                                         } else {
-                                            locationManager.clearGPSStatusOverride()
+                                            locationManager.stopSimulatingPosition()
                                         }
                                     }))
 
@@ -328,6 +327,9 @@ struct AboutSettingsView: View {
                 SettingsButtonRow(icon: "xmark.circle", title: "Disable developer mode",
                                   tint: tint, showsChevron: false, destructive: true) {
                     appState.settings.developerMode = false
+                    // Its tools go with it: a simulated position must not outlive the section
+                    // that turns it off. (S9-25)
+                    locationManager.stopSimulatingPosition()
                     withAnimation { showDeveloperOptions = false }
                 }
             }

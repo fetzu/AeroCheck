@@ -15825,6 +15825,23 @@
         }
       }
     },
+    "gps.simulatedPosition": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Simulated position (developer option): real GPS is ignored"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Position simulée (option développeur) : le GPS réel est ignoré"
+          }
+        }
+      }
+    },
     "gps.source.companion": {
       "extractionState": "manual",
       "localizations": {

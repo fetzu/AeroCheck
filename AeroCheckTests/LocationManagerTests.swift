@@ -89,6 +89,59 @@ final class LocationManagerTests: XCTestCase {
         XCTAssertNil(lm.currentLocation, "marketing mode is authoritative — companion injection is ignored")
     }
 
+    // MARK: - Simulated position (developer option, S9-25)
+
+    /// The option held the GPS status at GREEN while every real fix was dropped: a flight started
+    /// later in the run flew a static position at Samedan under a healthy indicator.
+    @MainActor
+    func testASimulatedPositionIsNeverShownAsAHealthyGPS() {
+        let lm = LocationManager()
+        lm.startSimulatingPosition(at: fix(lat: 46.53, lon: 9.88))
+
+        XCTAssertTrue(lm.isSimulatingPosition)
+        XCTAssertEqual(lm.gpsSignalStatus, .degraded, "orange, with the instruments' failure flags up")
+        XCTAssertEqual(lm.currentLocation?.coordinate.latitude, 46.53)
+    }
+
+    @MainActor
+    func testTurningItOffLeavesNothingOfTheHeldFix() {
+        let lm = LocationManager()
+        lm.startSimulatingPosition(at: fix(lat: 46.53, lon: 9.88))
+
+        lm.stopSimulatingPosition()
+
+        XCTAssertFalse(lm.isSimulatingPosition)
+        XCTAssertFalse(lm.isTracking, "no flight is running, so nothing records")
+        XCTAssertNil(lm.currentLocation, "a flight started now must not begin at Samedan")
+        XCTAssertFalse(lm.hasRecentUsableFix)
+        XCTAssertEqual(lm.gpsSignalStatus, .good)
+    }
+
+    @MainActor
+    func testEndingAFlightEndsTheSimulation() {
+        let lm = LocationManager()
+        lm.startSimulatingPosition(at: fix())
+
+        lm.stopTracking()
+
+        XCTAssertFalse(lm.isSimulatingPosition, "one test flight, never the next one")
+    }
+
+    /// The marketing scenes use the same injector with an override of their own, which turning
+    /// the developer option off must not touch.
+    @MainActor
+    func testStoppingWithNoSimulationLeavesTheMarketingOverrideAlone() {
+        let lm = LocationManager()
+        lm.injectMarketingStaticFix(fix())
+
+        lm.stopSimulatingPosition()
+
+        XCTAssertTrue(lm.isTracking)
+        XCTAssertNotNil(lm.currentLocation)
+        lm.injectCompanionLocation(fix(lat: 45.0, lon: 7.0))
+        XCTAssertEqual(lm.currentLocation?.coordinate.latitude, 47, "still ignoring every other fix")
+    }
+
     // MARK: - Companion GPS provider (viewer background sourcing, v4.1)
 
     @MainActor

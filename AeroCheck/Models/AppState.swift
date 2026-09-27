@@ -1004,7 +1004,13 @@ class AppState {
 
         // Handle remote (premium) aircraft
         if let remoteId = settings.selectedRemoteAircraftId {
-            if let checklist = await aircraftDataService.fetchChecklist(for: remoteId, language: language) {
+            let checklist = await aircraftDataService.fetchChecklist(for: remoteId, language: language)
+            // A load outlives its selection: pick X on a weak signal, switch to Y, press START, and X's
+            // answer (up to 40 s later) replaced Y's checklist and speeds, or blanked them if it failed.
+            // An answer for an aircraft or a language no longer selected is dropped. (v6.0 review)
+            guard settings.selectedRemoteAircraftId == remoteId,
+                  settings.checklistLanguage.resolvedLanguage == language else { return }
+            if let checklist {
                 resolvedRemoteChecklist = checklist
                 noteLanguageFallback(for: checklist, requested: language)
                 AppLog.general.debugLine("Loaded remote checklist for \(remoteId) (\(language))")
@@ -1024,7 +1030,11 @@ class AppState {
             let bundledId = "wt9-dynamic"
 
             // First try to get a cached/API version for this language
-            if let checklist = await aircraftDataService.fetchChecklist(for: bundledId, language: language) {
+            let fetched = await aircraftDataService.fetchChecklist(for: bundledId, language: language)
+            // The same rule as above: the WT9 must still be the one selected. (v6.0 review)
+            guard settings.selectedRemoteAircraftId == nil, settings.selectedAircraft == .wt9Dynamic,
+                  settings.checklistLanguage.resolvedLanguage == language else { return }
+            if let checklist = fetched {
                 resolvedRemoteChecklist = checklist
                 noteLanguageFallback(for: checklist, requested: language)
                 AppLog.general.debugLine("Loaded checklist for bundled aircraft \(bundledId) (\(language))")

@@ -23,29 +23,34 @@ open AeroCheck.xcodeproj
 # Run scheme: AéroCheck (with accent). Tests are on a separate scheme — the app
 # scheme has no test action, so a plain `build` never compiles tests.
 
-# Preferred: wraps xcodebuild with a preflight cleanup (see the note below).
+# Preferred: build and test phases with a watchdog each, on one simulator (see the note below).
 scripts/run-tests.sh                      # full suite
-scripts/run-tests.sh "iPhone 17"          # another simulator
+scripts/run-tests.sh "iPhone 17"          # another simulator, by name or UDID
 scripts/run-tests.sh "" ObstacleTests     # one class
+scripts/run-tests.sh --keep-install       # don't reinstall the host app first
 
 # Equivalent raw invocation:
 xcodebuild test -scheme AeroCheckTests -destination "platform=iOS Simulator,name=iPad Air 11-inch (M4)"
 ```
 
-> **If a test run hangs with ZERO test cases started** — the log stops partway and it sits there —
-> the cause is a stalled **build service**, not the test harness. `xcodebuild` blocks in
-> `waitForBuildWithBuildLog:` waiting on `SWBBuildService`, which sits idle in `read`: a lost message
-> between the two, so the build never completes and tests never begin.
+> **Two different failures look like a hung test run.** Tell them apart by where the log stops.
 >
-> Fix: `killall SWBBuildService XCBBuildService` (xcodebuild spawns a fresh one), plus
-> `pkill -f "AeroCheck.app/AeroCheck"` to clear leftover simulator app processes.
-> `scripts/run-tests.sh` does both in its preflight.
+> 1. **It stops during the build** (no "Testing started"): the **build service** has wedged. `xcodebuild`
+>    blocks in `waitForBuildWithBuildLog:` waiting on `SWBBuildService`, which sits idle in `read`, so the
+>    build never completes. Fix: `killall SWBBuildService XCBBuildService` (xcodebuild spawns a fresh one).
+>    Diagnose by sampling `xcodebuild`, not the app: an app left on the simulator is a red herring here.
+> 2. **"Testing started", then no test case**, and after ~5 min "The test runner hung before establishing
+>    connection": the host app was launched **without the XCTest bundle** (`ps eww <pid>` shows no
+>    XCTestBundleInject). Seen after several `simctl install`/launch rounds on one simulator. Restarting
+>    testmanagerd or rebooting the simulator doesn't fix it; `xcrun simctl uninstall <udid>
+>    com.fetzu.aerocheck` does. The app's data is not the cause.
 >
-> **Diagnose by sampling `xcodebuild`, not the app.** An app process left running on the simulator is
-> a red herring — it is usually a leftover from a previous run, and sampling it shows an ordinary idle
-> run loop, which reads convincingly like "the test bundle was never injected" when the build simply
-> never finished. Quick discriminator: if the log stops growing over ~20 s and no test case has
-> started, the build is stuck.
+> `scripts/run-tests.sh` handles both: a log-growth watchdog on the build (retry once), a clean host
+> install before the test phase (its Documents, Library and app group are kept aside and put back;
+> location and other permission answers are asked again), and a 90 s "no test case started" watchdog
+> that stops with the reason. It only ever touches the simulator it runs on, and passes
+> `-collect-test-diagnostics never` (otherwise a failing test triggers a minutes-long sysdiagnose
+> that also looks like a hang).
 >
 > Never stop a test run with `kill -9` — Ctrl-C/SIGTERM lets xcodebuild tear its own session down.
 

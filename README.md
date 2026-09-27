@@ -525,18 +525,23 @@ Target speeds vary by aircraft. Examples for WT9:
 ### Unit Tests
 
 ```bash
-scripts/run-tests.sh                      # full suite (~390 tests)
-scripts/run-tests.sh "iPhone 17"          # a different simulator
+scripts/run-tests.sh                      # full suite
+scripts/run-tests.sh "iPhone 17"          # a different simulator, by name or UDID
 scripts/run-tests.sh "" ObstacleTests     # one test class
+scripts/run-tests.sh --keep-install       # don't reinstall the host app first
 ```
 
-The script wraps `xcodebuild test -scheme AeroCheckTests` with a preflight cleanup and a stall
-watchdog. Two details cost time if you meet them cold:
+The script runs `xcodebuild build-for-testing`, then `test-without-building`, on one simulator, with a
+watchdog on each phase: a run ends with a verdict or a one-line reason, never an open-ended wait.
+Before the test phase it reinstalls the host app (keeping its data aside and putting it back). Two
+details cost time if you meet them cold:
 
 - Tests live on the **`AeroCheckTests`** scheme. The app scheme is **`AéroCheck`** (with the
   accent) and has **no test action**, so a plain build never compiles the tests.
-- If a run hangs with *zero* test cases started, the build service has wedged — not the harness.
-  `killall SWBBuildService XCBBuildService` and retry; the script's preflight does this for you.
+- A run that seems to hang is one of two things. If the log stops during the build, the build service
+  has wedged: `killall SWBBuildService XCBBuildService` and retry. If it stops after "Testing started"
+  with no test case, the host app was launched without XCTest: `xcrun simctl uninstall` the app.
+  The script handles both; its header explains how to tell them apart.
 
 ### StoreKit Testing
 

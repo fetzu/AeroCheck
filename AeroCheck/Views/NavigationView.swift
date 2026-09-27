@@ -665,7 +665,13 @@ struct NavigationMapView: View {
         // Landscape: the map takes the full height and the frequencies, legs and thumb controls move
         // to a column on the right. A 104 pt bar across a 820 pt-tall screen left the map a letterbox.
         // (on-device review #1, R-01)
-        let landscape = geometry.size.width > geometry.size.height
+        //
+        // Landscape only when clearly wider than tall. The Cockpit's map pane on an iPad in portrait is
+        // nearly square (about 820 x 870 pt in the phases that show the instrument strip), so a plain
+        // width > height flipped it to the side column as soon as anything above it grew a few points,
+        // and only in those phases: the phase bar's taller touch area did exactly that. A real
+        // landscape pane is 1.5 to 2.5 times wider than tall. (v6.0 review, fixed layout)
+        let landscape = geometry.size.width > geometry.size.height * 1.2
         let columns = landscape && leadingColumn != nil
         let mapAreaWidth = columns ? geometry.size.width - leadingColumnWidth
             : landscape ? geometry.size.width - Self.sideColumnWidth : geometry.size.width

@@ -577,6 +577,14 @@ class CompanionConnectivityManager: NSObject, ObservableObject {
 
     /// Send a command to the master device
     func sendCommand(_ command: CompanionCommand) {
+        #if DEBUG
+        // The debug viewer scene has no link: its commands act on the flight it shows, through the
+        // master's own code.
+        if debugLoopback, let flightPlanManager {
+            Self.apply(command, appState: appState, flightPlanManager: flightPlanManager)
+            return
+        }
+        #endif
         guard connectionState == .connected, sendHandler != nil else { return }
 
         do {
@@ -797,6 +805,13 @@ class CompanionConnectivityManager: NSObject, ObservableObject {
             return
         }
 
+        Self.apply(command, appState: appState, flightPlanManager: flightPlanManager)
+    }
+
+    /// What a command does on the master once it is allowed: the iPad's own action, as a tap there
+    /// would do it. Apart from the checks above, so the debug viewer scene and the tests run exactly
+    /// this. (v6.0 review, decision 2)
+    static func apply(_ command: CompanionCommand, appState: AppState?, flightPlanManager: FlightPlanManager) {
         switch command {
         case .recordATO(let waypointIndex):
             flightPlanManager.recordATO(forWaypointAt: waypointIndex)
@@ -858,6 +873,24 @@ class CompanionConnectivityManager: NSObject, ObservableObject {
         case .checkDeferredItem(let phaseRawValue, let itemId):
             if let phase = ChecklistPhase(rawValue: phaseRawValue) {
                 appState?.checkDeferredItem(itemId, in: phase)
+            }
+
+        case .checkInDeferredCheck(let phaseRawValue):
+            if let phase = ChecklistPhase(rawValue: phaseRawValue) {
+                appState?.checkItem(inDeferredCheck: phase)
+            }
+
+        case .deferInDeferredCheck(let phaseRawValue):
+            if let phase = ChecklistPhase(rawValue: phaseRawValue) {
+                appState?.deferItem(inDeferredCheck: phase)
+            }
+
+        case .toggleChecklistItem(let phaseRawValue, let itemId):
+            guard let appState, appState.currentPhase.rawValue == phaseRawValue else { return }
+            let items = appState.activeChecklist.visibleItems(for: appState.currentPhase,
+                                                              learningMode: appState.effectiveLearningMode)
+            if let index = items.firstIndex(where: { $0.id == itemId }) {
+                appState.toggleItem(at: index)
             }
         }
     }
@@ -947,11 +980,16 @@ class CompanionConnectivityManager: NSObject, ObservableObject {
     }
 
     #if DEBUG
+    private var debugLoopback = false
+
     /// DEV-ONLY (`AEROCHECK_SCENE=companion`): this device shows the Companion viewer of its own flight,
     /// refreshed every second from the local state, so the viewer can be checked and captured on one
-    /// simulator. Wi-Fi Aware needs two real devices. Commands from it go nowhere: there is no link.
+    /// simulator. Wi-Fi Aware needs two real devices. Its commands act on that same flight, through
+    /// `apply`, as the iPad would take them from a phone.
     func showAsViewerOfOwnFlight(appState: AppState, locationManager: LocationManager,
                                  flightPlanManager: FlightPlanManager) {
+        configure(appState: appState, locationManager: locationManager, flightPlanManager: flightPlanManager)
+        debugLoopback = true
         currentRole = .viewer
         connectionState = .connected
         connectedDeviceName = "iPad"
@@ -1037,7 +1075,17 @@ class CompanionConnectivityManager: NSObject, ObservableObject {
                     })
             } : [],
             openItemCount: appState.openItems(in: phase).count,
-            supportsDefer: true
+            supportsDefer: true,
+            deferredChecks: appState.deferredCheckList.map { check in
+                CompanionDeferredCheck(
+                    phaseRawValue: check.phase.rawValue, phaseTitle: check.phase.title,
+                    remaining: check.remaining, total: check.total,
+                    items: mayStreamItemText ? appState.checkItems(check.phase).map {
+                        CompanionChecklistItem(id: $0.id, challenge: $0.challenge, response: $0.response, isHeader: $0.isHeader)
+                    } : [],
+                    highlightedIndex: appState.getHighlightedItem(for: check.phase),
+                    deferredItemIds: mayStreamItemText ? (appState.deferredItems[check.phase] ?? []) : [])
+            }
         )
     }
 

@@ -23,6 +23,8 @@ struct CompanionFlightView: View {
     /// NEXT's review of the items still open, as on the Cockpit. (v6.0 review, decision 2)
     @State private var openItemsReview: CompanionOpenItemsReview?
     @State private var showDeferredList = false
+    /// The deferred check being run from the list, by phase. (v6.0 review, J1)
+    @State private var runningCheck: Int?
     private let tick = Timer.publish(every: 1, on: .main, in: .common).autoconnect()
 
     private var flightData: CompanionFlightData? { companionConnectivityManager.lastReceivedData }
@@ -497,7 +499,7 @@ struct CompanionFlightView: View {
             if let cl = checklist {
                 VStack(spacing: 0) {
                     checklistPhaseHeader(cl)
-                    if cl.deferredItemCount > 0 {
+                    if cl.deferredItemCount > 0 || !cl.deferredChecks.isEmpty {
                         deferredItemsEntry(cl)
                     }
                     ScrollViewReader { proxy in
@@ -542,14 +544,9 @@ struct CompanionFlightView: View {
                         })
                     .environment(\.cockpitTheme, theme)
                 }
-                .sheet(isPresented: $showDeferredList) {
-                    DeferredItemsList(
-                        groups: deferredListGroups,
-                        onCheck: { id, phaseRawValue in
-                            companionConnectivityManager.sendCommand(.checkDeferredItem(phaseRawValue: phaseRawValue, itemId: id))
-                        },
-                        onClose: { showDeferredList = false })
-                    .environment(\.cockpitTheme, theme)
+                .sheet(isPresented: $showDeferredList, onDismiss: { runningCheck = nil }) {
+                    deferredSheet
+                        .environment(\.cockpitTheme, theme)
                 }
             } else {
                 VStack(spacing: 8) {
@@ -598,7 +595,25 @@ struct CompanionFlightView: View {
 
     @ViewBuilder
     private func checklistRow(_ cl: CompanionChecklistSnapshot, index: Int, item: CompanionChecklistItem) -> some View {
-        if index == cl.highlightedIndex {
+        let isDeferred = index < cl.highlightedIndex && cl.deferredItemIds.contains(item.id)
+        if index < cl.highlightedIndex && !item.isHeader && cl.supportsDefer {
+            // A tap on a checked row reopens that item alone; on an open one, checks it. As on the
+            // iPad, and over the list's own tap, which checks the current item. (v6.0 review, K-C)
+            Button {
+                companionConnectivityManager.sendCommand(.toggleChecklistItem(phaseRawValue: cl.phaseRawValue, itemId: item.id))
+            } label: {
+                ChecklistItemRow(
+                    item: ChecklistItem(challenge: item.challenge, response: item.response, isHeader: item.isHeader),
+                    showSeparator: index < cl.items.count - 1,
+                    isHighlighted: false,
+                    isCompleted: !isDeferred,
+                    isDeferred: isDeferred
+                )
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .accessibilityHint(isDeferred ? L10n.Cockpit.checkAgainHint : L10n.Cockpit.reopenHint)
+        } else if index == cl.highlightedIndex {
             CockpitHeroChecklistItem(
                 challenge: item.challenge,
                 response: item.response,
@@ -608,7 +623,6 @@ struct CompanionFlightView: View {
         } else {
             // Passed over with DEFER on the iPad: drawn deferred, as there, not ticked as done.
             // (v6.0 review, B2)
-            let isDeferred = index < cl.highlightedIndex && cl.deferredItemIds.contains(item.id)
             ChecklistItemRow(
                 item: ChecklistItem(challenge: item.challenge, response: item.response, isHeader: item.isHeader),
                 showSeparator: index < cl.items.count - 1,
@@ -623,13 +637,13 @@ struct CompanionFlightView: View {
     /// the text); otherwise it only says how many, as the list would have nothing to show.
     @ViewBuilder
     private func deferredItemsEntry(_ cl: CompanionChecklistSnapshot) -> some View {
-        if cl.supportsDefer && !cl.deferredGroups.isEmpty {
-            DeferredItemsChip(count: cl.deferredItemCount) { showDeferredList = true }
+        if cl.supportsDefer && (!cl.deferredGroups.isEmpty || cl.deferredChecks.contains { !$0.items.isEmpty }) {
+            DeferredItemsChip(checks: cl.deferredChecks.count, count: cl.deferredItemCount) { showDeferredList = true }
                 .padding(.horizontal, 12).padding(.bottom, 4)
         } else {
             HStack(spacing: 10) {
                 Image(systemName: "exclamationmark.triangle.fill")
-                Text(L10n.Deferred.count(cl.deferredItemCount))
+                Text(L10n.Deferred.summary(checks: cl.deferredChecks.count, items: cl.deferredItemCount))
                 Spacer(minLength: 0)
             }
             .font(.aero(size: CockpitType.label, weight: .semibold))
@@ -640,6 +654,35 @@ struct CompanionFlightView: View {
             .overlay(RoundedRectangle(cornerRadius: 12).stroke(theme.warning.opacity(0.6), lineWidth: 1))
             .padding(.horizontal, 12).padding(.bottom, 4)
             .accessibilityElement(children: .combine)
+        }
+    }
+
+    /// The iPad's deferred list, or the check being run from it, from the snapshot. Every action is
+    /// sent; the next snapshot redraws this. (v6.0 review, decision 2 and J1)
+    @ViewBuilder
+    private var deferredSheet: some View {
+        let checks = checklist?.deferredChecks ?? []
+        if let raw = runningCheck, let check = checks.first(where: { $0.phaseRawValue == raw }), !check.items.isEmpty {
+            DeferredCheckRunView(
+                title: check.phaseTitle,
+                backTitle: checklist.flatMap { ChecklistPhase(rawValue: $0.phaseRawValue)?.shortTitle } ?? "",
+                rows: check.items.map { .init(id: $0.id, item: ChecklistItem(challenge: $0.challenge, response: $0.response, isHeader: $0.isHeader)) },
+                highlightedIndex: check.highlightedIndex,
+                deferredIds: Set(check.deferredItemIds),
+                onCheck: { companionConnectivityManager.sendCommand(.checkInDeferredCheck(phaseRawValue: raw)) },
+                onDefer: { companionConnectivityManager.sendCommand(.deferInDeferredCheck(phaseRawValue: raw)) },
+                onBack: { runningCheck = nil })
+        } else {
+            DeferredItemsList(
+                checks: checks.filter { !$0.items.isEmpty }.map {
+                    .init(phaseRawValue: $0.phaseRawValue, title: $0.phaseTitle, remaining: $0.remaining, total: $0.total)
+                },
+                groups: deferredListGroups,
+                onRun: { runningCheck = $0 },
+                onCheck: { id, phaseRawValue in
+                    companionConnectivityManager.sendCommand(.checkDeferredItem(phaseRawValue: phaseRawValue, itemId: id))
+                },
+                onClose: { showDeferredList = false })
         }
     }
 

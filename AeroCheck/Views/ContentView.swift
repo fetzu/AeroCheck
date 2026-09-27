@@ -277,9 +277,13 @@ struct ContentView: View {
                 airportDataService: airportDataService,
                 threadManager: threadManager
             )
-            // The Companion viewer of that cruise, with an item deferred so its list shows. (v6.0 review)
+            // The Companion viewer of that cruise, with an item deferred so its list shows, and the
+            // run-up deferred whole so a check's RUN does too. (v6.0 review, J1)
             if key == "companion" {
                 appState.deferHighlightedItem()
+                appState.resetHighlightedItem(for: .runup)
+                appState.deferredChecks = [.runup]
+                appState.phaseCompletionStatus[.runup] = .skipped
                 companionConnectivityManager.showAsViewerOfOwnFlight(
                     appState: appState, locationManager: locationManager, flightPlanManager: flightPlanManager)
             }

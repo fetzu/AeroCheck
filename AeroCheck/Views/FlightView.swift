@@ -983,22 +983,21 @@ extension FlightView {
     /// The zones stacked, top to bottom: the iPad, and the phone in portrait (`narrow`).
     private func cockpitStack(narrow: Bool) -> some View {
         VStack(spacing: 0) {
+            // No padding under the header: the phase bar's segments are a full control tall, and the
+            // room around the drawn bar is theirs to the touch. (v6.0 review, B1)
             cockpitHeader(style: narrow ? .narrow : .wide)
                 .padding(.horizontal, narrow ? 16 : 20)
-                .padding(.vertical, 8)
+                .padding(.top, 8)
                 .background(theme.panel)
 
             phaseProgressBarView
                 .padding(.horizontal, narrow ? 16 : 20)
-                .padding(.top, 2)
-                .padding(.bottom, 8)
                 .background(theme.panel)
 
             // GS · ALT · TRK · NEXT, whenever the aircraft moves (Taxi to After landing). The phone has
             // room for three; the next waypoint is on the map's card.
             cockpitStrip(showsNext: !narrow)
                 .padding(.horizontal, narrow ? 12 : 16)
-                .padding(.top, 10)
 
             cockpitPaneBar(narrow: narrow)
                 .padding(.horizontal, narrow ? 12 : 16)
@@ -1103,10 +1102,9 @@ extension FlightView {
         VStack(spacing: 0) {
             cockpitHeader(style: .narrow)
                 .padding(.horizontal, 12)
-                .padding(.vertical, 4)
+                .padding(.top, 4)
             phaseProgressBarView
                 .padding(.horizontal, 12)
-                .padding(.bottom, 6)
             cockpitPickerRow
                 .padding(.horizontal, 12)
                 .padding(.bottom, 6)
@@ -1657,6 +1655,8 @@ struct PhaseProgressBar: View {
     var isCircuitMode: Bool = false
     /// When true, the Cruise segment turns amber to flag an (over)due FREDA cruise check. (v4 UI/UX Revamp)
     var cruiseCheckDue: Bool = false
+    /// How tall a segment is to the touch; the bar is drawn centred in it.
+    var hitHeight: CGFloat = CockpitTarget.control
 
     /// The pattern phases that repeat each lap in circuit mode. Contiguous in the visible list since
     /// cruise/descent are filtered out, so the bracket draws as one continuous span. (round 6)
@@ -1670,40 +1670,45 @@ struct PhaseProgressBar: View {
     }
 
     var body: some View {
-        VStack(spacing: 3) {
+        HStack(spacing: 3) {
+            ForEach(phases, id: \.self) { phase in
+                let isCurrent = phase == currentPhase
+                Button { onSelect(phase) } label: {
+                    RoundedRectangle(cornerRadius: 2)
+                        .fill(color(for: phase, isCurrent: isCurrent))
+                        .frame(height: isCurrent ? 8 : 5)
+                        .frame(maxWidth: .infinity)
+                        // The bar DRAWS at 5–8 pt; its segments are a full Cockpit control tall
+                        // (`CockpitTarget.control`, 64 pt on the kneeboard, 50 on the phone).
+                        //
+                        // This is not cosmetic. Tapping a segment calls `goToPhase`, and a forward
+                        // jump marks every phase it passes as skipped and defers what they hold,
+                        // without asking, by design: a deliberate jump should not nag. At 5 pt that
+                        // made an ACCIDENTAL jump likely, and in turbulence a mis-tap quietly marked
+                        // checklist phases skipped. (UX-10)
+                        //
+                        // The segments used to reach about 45 pt by growing their touch region 20 pt
+                        // over their neighbours without growing the layout. That was still well
+                        // under the Cockpit's scale, and the 20 pt above landed on the header: a tap
+                        // low on the phase name jumped to a phase instead. The height is now real
+                        // layout, so the target is the Cockpit's size and overlaps nothing.
+                        // (v6.0 review, B1)
+                        .frame(height: hitHeight)
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel(phase.shortTitle)
+                .accessibilityValue(accessibilityStatus(for: phase))
+                .accessibilityAddTraits(isCurrent ? [.isButton, .isSelected] : .isButton)
+            }
+        }
+        // The circuit bracket sits just over the drawn bar, inside the segments' touch height, and
+        // lets taps through to them.
+        .overlay {
             if !loopPhases.isEmpty {
                 circuitBracket
-            }
-            HStack(spacing: 3) {
-                ForEach(phases, id: \.self) { phase in
-                    let isCurrent = phase == currentPhase
-                    Button { onSelect(phase) } label: {
-                        RoundedRectangle(cornerRadius: 2)
-                            .fill(color(for: phase, isCurrent: isCurrent))
-                            .frame(height: isCurrent ? 8 : 5)
-                            .frame(maxWidth: .infinity)
-                            // Hit area ~45 pt tall while the bar still DRAWS at 5–8 pt. The
-                            // pad/contentShape/negative-pad sandwich grows the touch region without
-                            // growing the layout, so the HUD keeps its thin progress bar.
-                            //
-                            // This is not cosmetic. Tapping a segment calls `goToPhase`, and a
-                            // forward jump marks every phase it passes as `.skipped` or
-                            // `.missingAction` — silently, by design, because a deliberate jump
-                            // should not nag. At 5 pt that made an ACCIDENTAL jump likely, and in
-                            // turbulence a mis-tap quietly marked checklist phases skipped. Apple's
-                            // current floor is 28x28 pt (44x44 recommended); this was well under it.
-                            // Enlarging the target is the right fix rather than confirming the jump:
-                            // phase navigation is frequent and deliberate, and a prompt on every
-                            // jump would be worse in a cockpit than the thing it guards. (UX-10)
-                            .padding(.vertical, 20)
-                            .contentShape(Rectangle())
-                            .padding(.vertical, -20)
-                    }
-                    .buttonStyle(.plain)
-                    .accessibilityLabel(phase.shortTitle)
-                    .accessibilityValue(accessibilityStatus(for: phase))
-                    .accessibilityAddTraits(isCurrent ? [.isButton, .isSelected] : .isButton)
-                }
+                    .offset(y: -(8 / 2 + 3 + 9 / 2))
+                    .allowsHitTesting(false)
             }
         }
     }

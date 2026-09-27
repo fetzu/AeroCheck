@@ -95,6 +95,7 @@ extension CockpitTheme {
             panelStroke: AmbientPalette.hairline ?? accent.opacity(0.28),
             action: accent,
             actionText: .white,
+            route: accent,
             onTarget: .aviationGreen,
             warning: Color(red: 0.91, green: 0.56, blue: 0.18),
             danger: .aviationRed,
@@ -166,7 +167,7 @@ private struct CurvedText: View {
         let total = widths.reduce(0, +)
         let dim = radius * 2 + uiFont.lineHeight * 2
         let center = CGPoint(x: dim / 2, y: dim / 2)
-        let font = Font.system(size: size, weight: swiftWeight, design: .rounded)
+        let font = Font.aero(size: size, weight: swiftWeight, design: .rounded)
 
         return ZStack {
             ForEach(Array(characters.enumerated()), id: \.offset) { index, character in

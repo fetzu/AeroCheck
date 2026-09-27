@@ -15,18 +15,27 @@ struct TimestampActionButton: View {
     /// HUD bottom-bar style: single row at NEXT's height/corner radius (no timestamp/hint stacked
     /// below), so it sits flush next to the NEXT button. (v4 UI/UX Revamp)
     var compact: Bool = false
+    /// The Cockpit's thumb bar: at least this tall, label at the row size. (v6.0 · P2)
+    var minHeight: CGFloat? = nil
     let onFirstPress: () -> Void
     let onUpdateTime: () -> Void
 
     @State private var isPressed = false
     @State private var showUpdateConfirmation = false
-    @State private var longPressProgress: CGFloat = 0
-    @State private var longPressTimer: Timer?
-    
+    /// 0…1 fill while the button is held to update its time. Animated from the moment the finger
+    /// lands, over the whole hold, so the gesture shows itself at once. (on-device review #1, C-10)
+    @State private var holdProgress: CGFloat = 0
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    /// How long to hold a recorded button to change its time.
+    static let holdDuration: TimeInterval = 1.5
+
     private var hasBeenPressed: Bool {
         timestamp != nil
     }
-    
+
+    private var corner: CGFloat { compact ? 14 : 10 }
+
     var body: some View {
         VStack(spacing: compact ? 0 : 8) {
             // The button — black text on the colour, matching the NEXT button. (v4 UI/UX Revamp)
@@ -36,53 +45,55 @@ struct TimestampActionButton: View {
                     .lineLimit(1)
                     .minimumScaleFactor(0.6)
             }
-            .font(.system(size: compact ? 20 : 18, weight: .bold))
+            .font(.aero(size: minHeight != nil ? CockpitType.row : (compact ? 20 : 18), weight: .bold))
             .foregroundColor(compact ? .black : .white)
             // Compact = HUD bottom bar: fill width + match NEXT's vertical padding so the heights are
             // identical; the title shrinks (one line) rather than wrapping when the row is tight.
             .frame(maxWidth: compact ? .infinity : nil)
-            .padding(.horizontal, compact ? 0 : 24)
-            .padding(.vertical, compact ? 18 : 14)
+            .padding(.horizontal, compact ? (minHeight != nil ? 10 : 0) : 24)
+            .padding(.vertical, minHeight != nil ? 0 : (compact ? 18 : 14))
+            .frame(minHeight: minHeight)
             .background(
                 ZStack {
-                    RoundedRectangle(cornerRadius: compact ? 14 : 10)
+                    RoundedRectangle(cornerRadius: corner)
                         .fill(hasBeenPressed ? color.opacity(0.5) : color)
                         .shadow(color: color.opacity(hasBeenPressed ? 0.2 : 0.4), radius: 6, x: 0, y: 3)
-
-                    // Long press progress indicator
-                    if longPressProgress > 0 && hasBeenPressed {
-                        GeometryReader { geo in
-                            RoundedRectangle(cornerRadius: compact ? 14 : 10)
-                                .fill(color.opacity(0.8))
-                                .frame(width: geo.size.width * longPressProgress)
-                        }
-                        .clipShape(RoundedRectangle(cornerRadius: compact ? 14 : 10))
-                    }
+                    // The hold fill: white over the colour, so it reads on any tint, growing left to
+                    // right from the first moment of the hold.
+                    RoundedRectangle(cornerRadius: corner)
+                        .fill(Color.white.opacity(0.38))
+                        .scaleEffect(x: holdProgress, anchor: .leading)
                 }
+                .clipShape(RoundedRectangle(cornerRadius: corner))
             )
             .scaleEffect(isPressed ? 0.95 : 1.0)
             .animation(.easeInOut(duration: 0.1), value: isPressed)
             .modifier(PulseModifier(isActive: isPulsing && !hasBeenPressed))
-            .gesture(
-                DragGesture(minimumDistance: 0)
-                    .onChanged { _ in
-                        if !isPressed {
-                            isPressed = true
-                            if hasBeenPressed {
-                                startLongPressTimer()
-                            }
-                        }
+            .contentShape(RoundedRectangle(cornerRadius: corner))
+            // First press: a tap records the time. Once recorded, holding for `holdDuration` asks to
+            // update it. A long first press still records, when the hold completes.
+            .onTapGesture {
+                if !hasBeenPressed { onFirstPress() }
+            }
+            .onLongPressGesture(minimumDuration: Self.holdDuration, maximumDistance: 60) {
+                if hasBeenPressed {
+                    UIImpactFeedbackGenerator(style: .heavy).impactOccurred()
+                    showUpdateConfirmation = true
+                } else {
+                    onFirstPress()
+                }
+                withAnimation(.easeOut(duration: 0.2)) { holdProgress = 0 }
+            } onPressingChanged: { pressing in
+                isPressed = pressing
+                guard hasBeenPressed else { return }
+                if reduceMotion {
+                    holdProgress = pressing ? 1 : 0   // no sweep; the hold is still required
+                } else {
+                    withAnimation(.linear(duration: pressing ? Self.holdDuration : 0.2)) {
+                        holdProgress = pressing ? 1 : 0
                     }
-                    .onEnded { _ in
-                        isPressed = false
-                        if hasBeenPressed {
-                            cancelLongPressTimer()
-                        } else {
-                            // First press
-                            onFirstPress()
-                        }
-                    }
-            )
+                }
+            }
             
             // Timestamp display + hold hint (full mode only — the compact HUD button is a single row).
             if !compact, let time = timestamp {
@@ -93,7 +104,7 @@ struct TimestampActionButton: View {
 
             if !compact, hasBeenPressed {
                 Text(L10n.ChecklistAction.holdToUpdate)
-                    .font(.system(size: 10))
+                    .font(.aero(size: 10))
                     .foregroundColor(theme.textDim)
             }
         }
@@ -105,11 +116,11 @@ struct TimestampActionButton: View {
         } message: {
             Text(L10n.ChecklistAction.updateConfirm(timestampLabel.lowercased()))
         }
-        // VoiceOver: this control is a DragGesture on a VStack, not a Button, so it exposed no
-        // button trait, no name and no activation path — ENGINE START, LINE UP, LANDED and SHUTDOWN
-        // were literally inoperable with VoiceOver running, on the HUD bottom bar of an app used in
-        // flight. Semantics are added HERE rather than by converting to a Button so the press feel,
-        // long-press progress fill and haptics are untouched.
+        // VoiceOver: this control is a gesture on a VStack, not a Button, so it exposed no button
+        // trait, no name and no activation path — ENGINE START, LINE UP, LANDED and SHUTDOWN were
+        // literally inoperable with VoiceOver running, on the HUD bottom bar of an app used in flight.
+        // Semantics are added HERE rather than by converting to a Button so the press feel and the
+        // hold fill are untouched.
         //
         // Hold-to-update becomes a NAMED ACTION rather than a 1.5 s hold: holding a control steady
         // is exactly what VoiceOver's own gesture handling makes hardest, so a rotor action is both
@@ -129,30 +140,6 @@ struct TimestampActionButton: View {
         }
         .accessibilityAction(named: L10n.ChecklistAction.update) {
             if hasBeenPressed { showUpdateConfirmation = true }
-        }
-    }
-    
-    private func startLongPressTimer() {
-        longPressProgress = 0
-        longPressTimer = Timer.scheduledTimer(withTimeInterval: 0.05, repeats: true) { timer in
-            longPressProgress += 0.05 / 1.5 // 1.5 seconds total
-            if longPressProgress >= 1.0 {
-                timer.invalidate()
-                longPressTimer = nil
-                longPressProgress = 0
-                // Haptic feedback
-                let generator = UIImpactFeedbackGenerator(style: .heavy)
-                generator.impactOccurred()
-                showUpdateConfirmation = true
-            }
-        }
-    }
-    
-    private func cancelLongPressTimer() {
-        longPressTimer?.invalidate()
-        longPressTimer = nil
-        withAnimation(.easeOut(duration: 0.2)) {
-            longPressProgress = 0
         }
     }
 }
@@ -183,7 +170,7 @@ struct CounterActionButton: View {
                     Image(systemName: icon)
                     Text(title)
                 }
-                .font(.system(size: 18, weight: .bold))
+                .font(.aero(size: 18, weight: .bold))
                 .foregroundColor(.white)
                 .padding(.horizontal, 24)
                 .padding(.vertical, 14)
@@ -254,6 +241,16 @@ struct ChecklistView: View {
     var engineHourEndInputFormat: String? = nil
     var onEditEngineHourStart: (() -> Void)? = nil
     var onEditEngineHourEnd: (() -> Void)? = nil
+    /// Engine hours are logged: offer the reading inline in the calm phases around start and stop,
+    /// instead of a keypad popping up while the pilot starts the engine. (v6.0 · B4)
+    var promptsEngineHours: Bool = false
+    /// Items of this phase deferred with DEFER: drawn as deferred, not as done, although the highlight
+    /// has passed them. (v6.0 · P2)
+    var deferredItemIds: Set<String> = []
+    /// The Cockpit: CHECK in the thumb bar advances, so the "tap to advance" hint goes, and a tap on a
+    /// row above the highlight reopens that item alone, or checks it again (`onToggleItem`). (v6.0 · P2,
+    /// v6.0 review K-C)
+    var onToggleItem: ((Int) -> Void)? = nil
     /// Owned by the parent so tap-to-advance / completion include revealed items. (v4 UI/UX Revamp)
     @Binding var hiddenItemsRevealed: Bool
 
@@ -320,6 +317,9 @@ struct ChecklistView: View {
          engineHourEndInputFormat: String? = nil,
          onEditEngineHourStart: (() -> Void)? = nil,
          onEditEngineHourEnd: (() -> Void)? = nil,
+         promptsEngineHours: Bool = false,
+         deferredItemIds: Set<String> = [],
+         onToggleItem: ((Int) -> Void)? = nil,
          hiddenItemsRevealed: Binding<Bool> = .constant(false)) {
         self.phase = phase
         self.activeChecklist = activeChecklist
@@ -353,10 +353,13 @@ struct ChecklistView: View {
         self.hudMode = hudMode
         self.engineHourStart = engineHourStart
         self.engineHourEnd = engineHourEnd
+        self.promptsEngineHours = promptsEngineHours
         self.engineHourStartInputFormat = engineHourStartInputFormat
         self.engineHourEndInputFormat = engineHourEndInputFormat
         self.onEditEngineHourStart = onEditEngineHourStart
         self.onEditEngineHourEnd = onEditEngineHourEnd
+        self.deferredItemIds = deferredItemIds
+        self.onToggleItem = onToggleItem
         self._hiddenItemsRevealed = hiddenItemsRevealed
     }
     
@@ -366,18 +369,18 @@ struct ChecklistView: View {
             HStack {
                 if !hudMode {
                     Text(L10n.ChecklistAction.page(phase.pageNumber))
-                        .font(isCompact ? .system(size: 11) : .captionText)
+                        .font(isCompact ? .aero(size: 11) : .captionText)
                         .foregroundColor(theme.textDim)
                 }
 
                 Spacer()
 
-                if stepByStepEnabled && !visibleItems.isEmpty {
+                if stepByStepEnabled && !visibleItems.isEmpty && onToggleItem == nil {
                     HStack(spacing: 4) {
                         Image(systemName: "hand.tap.fill")
-                            .font(.system(size: isCompact ? 9 : 10))
+                            .font(.aero(size: isCompact ? 9 : 10))
                         Text(L10n.ChecklistAction.tapToAdvance)
-                            .font(.system(size: isCompact ? 10 : 11))
+                            .font(.aero(size: isCompact ? 10 : 11))
                     }
                     .foregroundColor(theme.textDim)
                 }
@@ -389,7 +392,7 @@ struct ChecklistView: View {
                 Button(action: { onBriefingTap?(briefingType) }) {
                     HStack {
                         Text(briefingText)
-                            .font(.system(size: isCompact ? 13 : 16, weight: .medium, design: .monospaced))
+                            .font(.aero(size: isCompact ? 13 : 16, weight: .medium, design: .monospaced))
                             .foregroundColor(theme.warning)
                             .italic()
                         Spacer()
@@ -415,14 +418,14 @@ struct ChecklistView: View {
             if !hudMode {
                 HStack {
                     Text(phase.title)
-                        .font(isCompact ? .system(size: 20, weight: .bold) : .checklistTitle)
+                        .font(isCompact ? .aero(size: 20, weight: .bold) : .checklistTitle)
                         .foregroundColor(theme.action)
                         .textCase(.uppercase)
                         .tracking(isCompact ? 1 : 2)
                     Spacer()
                 }
 
-                AviationDivider()
+                AviationDivider(color: theme.panelStroke)   // no gold in flight (v6.0 review)
                     .padding(.vertical, isCompact ? 8 : 12)
             }
             
@@ -431,7 +434,8 @@ struct ChecklistView: View {
                 VStack(alignment: .leading, spacing: 0) {
                     ForEach(Array(visibleItems.enumerated()), id: \.element.id) { index, item in
                         let isHighlighted = stepByStepEnabled && index == highlightedItemIndex && highlightedItemIndex < visibleItems.count
-                        let isCompleted = stepByStepEnabled && index < highlightedItemIndex
+                        let isDeferred = stepByStepEnabled && index < highlightedItemIndex && deferredItemIds.contains(item.id)
+                        let isCompleted = stepByStepEnabled && index < highlightedItemIndex && !isDeferred
 
                         Group {
                             // The CURRENT item becomes the one-glance "hero" (v4 UI/UX Revamp HUD): same
@@ -449,12 +453,29 @@ struct ChecklistView: View {
                                     isCompact: isCompact
                                 )
                                 .padding(.vertical, 4)
+                            } else if let onToggleItem, isCompleted || isDeferred, !item.isHeader {
+                                // The Cockpit: a checked row reopens that item alone; an open one
+                                // (reopened, or deferred) is checked. Nothing else moves.
+                                Button { onToggleItem(index) } label: {
+                                    ChecklistItemRow(
+                                        item: item,
+                                        showSeparator: index < visibleItems.count - 1,
+                                        isHighlighted: false,
+                                        isCompleted: isCompleted,
+                                        isDeferred: isDeferred,
+                                        isCompact: isCompact
+                                    )
+                                    .contentShape(Rectangle())
+                                }
+                                .buttonStyle(.plain)
+                                .accessibilityHint(isDeferred ? L10n.Cockpit.checkAgainHint : L10n.Cockpit.reopenHint)
                             } else {
                                 ChecklistItemRow(
                                     item: item,
                                     showSeparator: index < visibleItems.count - 1,
                                     isHighlighted: isHighlighted,
                                     isCompleted: isCompleted,
+                                    isDeferred: isDeferred,
                                     isCompact: isCompact
                                 )
                             }
@@ -484,31 +505,52 @@ struct ChecklistView: View {
                 }
             }
             
-            // Completion text
+            // Completion text — the checklist's closing call ("PREFLIGHT CHECK COMPLETED"). Dim until
+            // it is true: drawn green from the start, it claimed a phase done before any item was.
+            // (v6.0 · B3)
             if !phase.completionText.isEmpty {
-                AviationDivider()
+                let isDone = stepByStepEnabled && highlightedItemIndex >= visibleItems.count
+                AviationDivider(color: theme.panelStroke)   // no gold in flight (v6.0 review)
                     .padding(.vertical, 12)
                 
-                HStack {
+                HStack(spacing: 8) {
                     Spacer()
+                    if isDone {
+                        Image(systemName: "checkmark.circle.fill")
+                            .font(.aero(size: 18, weight: .bold))
+                    }
                     Text(phase.completionText)
-                        .font(.system(size: 18, weight: .bold, design: .monospaced))
-                        .foregroundColor(theme.onTarget)
+                        .font(.aero(size: 18, weight: .bold, design: .monospaced))
                     Spacer()
                 }
+                .foregroundColor(isDone ? theme.onTarget : theme.textDim)
+                .accessibilityElement(children: .combine)
+                .accessibilityValue(isDone ? L10n.Accessibility.phaseCompleted : "")
             }
             
-            // Engine hours display (between completion text and action button)
-            if phase.showsEngineStartButton, let hours = engineHourStart {
-                Spacer().frame(height: 12)
-                engineHoursRow(hours: hours, format: engineHourStartInputFormat) {
-                    onEditEngineHourStart?()
+            // Engine hours (between completion text and action button): the reading once entered, or
+            // an inline prompt for it in the calm phases, engine off: before the start, after the stop.
+            // (v6.0 · B4 — it used to be a full-screen keypad on entering Engine Start.)
+            if Self.hourMeterStartPhases.contains(phase) {
+                if let hours = engineHourStart {
+                    Spacer().frame(height: 12)
+                    engineHoursRow(hours: hours, format: engineHourStartInputFormat) {
+                        onEditEngineHourStart?()
+                    }
+                } else if promptsEngineHours {
+                    Spacer().frame(height: 12)
+                    engineHoursPrompt(L10n.HourMeter.promptBeforeStart) { onEditEngineHourStart?() }
                 }
             }
-            if phase.showsEngineShutdownButton, let hours = engineHourEnd {
-                Spacer().frame(height: 12)
-                engineHoursRow(hours: hours, format: engineHourEndInputFormat) {
-                    onEditEngineHourEnd?()
+            if Self.hourMeterStopPhases.contains(phase) {
+                if let hours = engineHourEnd {
+                    Spacer().frame(height: 12)
+                    engineHoursRow(hours: hours, format: engineHourEndInputFormat) {
+                        onEditEngineHourEnd?()
+                    }
+                } else if promptsEngineHours {
+                    Spacer().frame(height: 12)
+                    engineHoursPrompt(L10n.HourMeter.promptAfterStop) { onEditEngineHourEnd?() }
                 }
             }
 
@@ -635,16 +677,16 @@ struct ChecklistView: View {
 
             HStack {
                 Image(systemName: "eye.slash.fill")
-                    .font(.system(size: 20))
+                    .font(.aero(size: 20))
                     .foregroundColor(theme.warning)
 
                 VStack(alignment: .leading, spacing: 4) {
                     Text(L10n.ChecklistAction.hiddenItemsTitle)
-                        .font(.system(size: 14, weight: .bold))
+                        .font(.aero(size: 14, weight: .bold))
                         .foregroundColor(theme.warning)
 
                     Text(L10n.ChecklistAction.hiddenItemsCount(hiddenItemCount, hiddenItemCount == 1 ? "" : "s"))
-                        .font(.system(size: 12))
+                        .font(.aero(size: 12))
                         .foregroundColor(theme.textSecondary)
                 }
 
@@ -713,31 +755,68 @@ struct ChecklistView: View {
         }
     }
 
-    /// Tappable engine hours display row
+    /// Where the hour meter is read: at the end of Before engine start (the avionics are on by then;
+    /// on Preflight they are not), then Engine Start, which also asks for it by itself on entry. After
+    /// the stop: Shutdown and At the hangar, where ENGINE SHUTDOWN asks for it first. (on-device
+    /// review #1, C-03)
+    static let hourMeterStartPhases: Set<ChecklistPhase> = [.beforeEngineStart, .engineStart]
+    static let hourMeterStopPhases: Set<ChecklistPhase> = [.shutdown, .hangar]
+
+    /// The hour meter not read yet: one tap opens the keypad. The keypad also comes up by itself on
+    /// entering Engine Start and after ENGINE SHUTDOWN (FlightView); this row is the way back to it.
+    private func engineHoursPrompt(_ title: String, onEnter: @escaping () -> Void) -> some View {
+        Button(action: onEnter) {
+            HStack(spacing: 12) {
+                Image(systemName: "gauge.with.dots.needle.50percent")
+                    .font(.aero(size: isCompact ? 16 : 22))
+                Text(title)
+                    .font(.aero(size: isCompact ? 14 : CockpitType.label))
+                    .foregroundColor(theme.textPrimary)
+                    .fixedSize(horizontal: false, vertical: true)
+                Spacer(minLength: 8)
+                Text(L10n.HourMeter.enter.uppercased())
+                    .font(.aero(size: isCompact ? 14 : CockpitType.label, weight: .bold))
+                Image(systemName: "chevron.right")
+                    .font(.aero(size: isCompact ? 12 : 16, weight: .bold))
+            }
+            .foregroundColor(theme.action)
+            .padding(.horizontal, 16)
+            .frame(maxWidth: .infinity, minHeight: isCompact ? 48 : 64)
+            .background(
+                RoundedRectangle(cornerRadius: 12)
+                    .fill(theme.action.opacity(0.08))
+                    .overlay(RoundedRectangle(cornerRadius: 12).stroke(theme.action.opacity(0.35), lineWidth: 1))
+            )
+        }
+        .buttonStyle(.plain)
+    }
+
+    /// The hour meter once read: the same size as the prompt it replaces, where it was a 40 pt row of
+    /// 12-16 pt text beside a 64 pt prompt. (v6.0 review)
     private func engineHoursRow(hours: Double, format: String?, onEdit: @escaping () -> Void) -> some View {
         Button(action: onEdit) {
-            HStack(spacing: 8) {
+            HStack(spacing: 12) {
                 Image(systemName: "gauge.with.dots.needle.50percent")
                     .foregroundColor(theme.action)
-                    .font(.system(size: 14))
+                    .font(.aero(size: isCompact ? 16 : 22))
                 Text(L10n.FlightDetail.engineHours.uppercased())
-                    .font(.system(size: 12, weight: .medium))
+                    .font(.aero(size: isCompact ? 12 : CockpitType.label, weight: .medium))
                     .foregroundColor(theme.textSecondary)
-                Spacer()
+                Spacer(minLength: 8)
                 Text(format == "time" ? Flight.formatHoursTime(hours) : Flight.formatHoursDecimal(hours))
-                    .font(.system(size: 16, weight: .medium, design: .monospaced))
+                    .font(.aero(size: isCompact ? 16 : CockpitType.row, weight: .bold, design: .monospaced))
                     .foregroundColor(theme.action)
                 Image(systemName: "pencil")
                     .foregroundColor(theme.textDim)
-                    .font(.system(size: 12))
+                    .font(.aero(size: isCompact ? 12 : 16))
             }
             .padding(.horizontal, 16)
-            .padding(.vertical, 10)
+            .frame(maxWidth: .infinity, minHeight: isCompact ? 48 : 64)
             .background(
-                RoundedRectangle(cornerRadius: 8)
+                RoundedRectangle(cornerRadius: 12)
                     .fill(theme.action.opacity(0.08))
                     .overlay(
-                        RoundedRectangle(cornerRadius: 8)
+                        RoundedRectangle(cornerRadius: 12)
                             .stroke(theme.action.opacity(0.2), lineWidth: 1)
                     )
             )
@@ -753,13 +832,17 @@ struct ChecklistItemRow: View {
     let showSeparator: Bool
     var isHighlighted: Bool = false
     var isCompleted: Bool = false
+    /// Passed over with DEFER: still to do, and a caution until it is. (v6.0 · P2)
+    var isDeferred: Bool = false
     var isCompact: Bool = false
 
-    init(item: ChecklistItem, showSeparator: Bool = true, isHighlighted: Bool = false, isCompleted: Bool = false, isCompact: Bool = false) {
+    init(item: ChecklistItem, showSeparator: Bool = true, isHighlighted: Bool = false, isCompleted: Bool = false,
+         isDeferred: Bool = false, isCompact: Bool = false) {
         self.item = item
         self.showSeparator = showSeparator
         self.isHighlighted = isHighlighted
         self.isCompleted = isCompleted
+        self.isDeferred = isDeferred
         self.isCompact = isCompact
     }
     
@@ -767,7 +850,8 @@ struct ChecklistItemRow: View {
     // card) is the focus. (v4 UI/UX Revamp)
 
     private var challengeColor: Color {
-        isCompleted ? theme.textDim : theme.textSecondary
+        if isDeferred { return theme.warning }
+        return isCompleted ? theme.textDim : theme.textSecondary
     }
 
     private var responseColor: Color {
@@ -776,33 +860,82 @@ struct ChecklistItemRow: View {
 
     // Smaller than the old fixed 22 pt rows (still text-style-based for Dynamic Type — challenge/response
     // wrap vertically via .fixedSize, so large sizes grow the row instead of clipping). (UX-14 / v4 UI/UX Revamp)
+    // iPad: 24 pt at the default text size, the kneeboard's row size (v6.0 · P6; was 16 pt callout);
+    // still scaling with Dynamic Type, relative to .callout. The phone's Cockpit reads 20 pt (`CockpitType`).
     private var itemFont: Font {
-        .system(isCompact ? .subheadline : .callout, design: .monospaced).weight(.medium)
+        isCompact ? .aero(.subheadline, design: .monospaced).weight(.medium)
+                  : .aero(size: CockpitType.row, relativeTo: .callout, design: .monospaced)
     }
 
     private var responseFont: Font {
-        .system(isCompact ? .subheadline : .callout, design: .monospaced)
+        isCompact ? .aero(.subheadline, design: .monospaced)
+                  : .aero(size: CockpitType.row, relativeTo: .callout, design: .monospaced)
     }
 
-    var body: some View {
-        VStack(spacing: 0) {
-            HStack(alignment: .lastTextBaseline, spacing: 0) {
-                // Leading status slot — a check for completed items, empty otherwise. The item NUMBER is
-                // intentionally dropped: it added clutter to the muted past/future rows. (v4 UI/UX Revamp)
-                Group {
-                    if isCompleted {
-                        Image(systemName: "checkmark")
-                            .font(.system(size: isCompact ? 10 : 12, weight: .bold))
-                            .foregroundColor(theme.onTarget.opacity(0.7))
+    /// The phone's Cockpit: a row that doesn't fit on one line puts the response under the challenge.
+    /// Side by side at 20 pt, the two columns were narrower than a word and broke "Altimeter" into
+    /// "Altimete / r". The iPad keeps its two columns. (iPhone pass, I6)
+    private var stacksWhenLong: Bool { !isCompact && CockpitScale.current == .phone }
+
+    /// Leading status slot — a check for completed items, empty otherwise. The item NUMBER is
+    /// intentionally dropped: it added clutter to the muted past/future rows. (v4 UI/UX Revamp)
+    private var statusSlot: some View {
+        Group {
+            if isCompleted {
+                Image(systemName: "checkmark")
+                    .font(.aero(size: isCompact ? 10 : 18, weight: .bold))
+                    .foregroundColor(theme.onTarget.opacity(0.7))
+            } else if isDeferred {
+                Image(systemName: "clock.arrow.circlepath")
+                    .font(.aero(size: isCompact ? 10 : 18, weight: .bold))
+                    .foregroundColor(theme.warning)
+            }
+        }
+        .frame(width: isCompact ? 18 : 28, alignment: .leading)
+        .padding(.trailing, isCompact ? 4 : 6)
+    }
+
+    private var challengeText: some View {
+        Text(item.challenge)
+            .font(itemFont)
+            .foregroundColor(challengeColor)
+    }
+
+    private var responseText: some View {
+        Text(item.response)
+            .font(responseFont)
+            .foregroundColor(responseColor)
+            .multilineTextAlignment(.trailing)
+    }
+
+    @ViewBuilder
+    private var rowContent: some View {
+        if stacksWhenLong {
+            ViewThatFits(in: .horizontal) {
+                HStack(alignment: .lastTextBaseline, spacing: 0) {
+                    statusSlot
+                    challengeText.fixedSize()
+                    DotLeader()
+                        .padding(.horizontal, 8)
+                        .opacity(isCompleted ? 0.5 : 1.0)
+                    responseText.fixedSize()
+                }
+                HStack(alignment: .firstTextBaseline, spacing: 0) {
+                    statusSlot
+                    VStack(alignment: .leading, spacing: 2) {
+                        challengeText.fixedSize(horizontal: false, vertical: true)
+                        responseText
+                            .fixedSize(horizontal: false, vertical: true)
+                            .frame(maxWidth: .infinity, alignment: .trailing)
                     }
                 }
-                .frame(width: isCompact ? 18 : 22, alignment: .leading)
-                .padding(.trailing, isCompact ? 4 : 6)
+            }
+        } else {
+            HStack(alignment: .lastTextBaseline, spacing: 0) {
+                statusSlot
 
                 // Challenge text
-                Text(item.challenge)
-                    .font(itemFont)
-                    .foregroundColor(challengeColor)
+                challengeText
                     .fixedSize(horizontal: false, vertical: true)
 
                 // Dot leader - fills remaining space, aligned to text baseline
@@ -815,13 +948,16 @@ struct ChecklistItemRow: View {
                 }
 
                 // Response text
-                Text(item.response)
-                    .font(responseFont)
-                    .foregroundColor(responseColor)
-                    .multilineTextAlignment(.trailing)
+                responseText
                     .fixedSize(horizontal: false, vertical: true)
             }
-            .padding(.vertical, isCompact ? 4 : 6)
+        }
+    }
+
+    var body: some View {
+        VStack(spacing: 0) {
+            rowContent
+            .padding(.vertical, isCompact ? 4 : 9)
             .padding(.horizontal, isHighlighted ? (isCompact ? 4 : 8) : 0)
             .background(
                 Group {
@@ -842,7 +978,7 @@ struct ChecklistItemRow: View {
                 Rectangle()
                     .fill(Color.subtleOverlay(0.08))
                     .frame(height: 1)
-                    .padding(.leading, isCompact ? 22 : 28)
+                    .padding(.leading, isCompact ? 22 : 34)
             }
         }
         // VoiceOver: read the row as ONE element. Left alone, a checklist item is three separate
@@ -855,7 +991,7 @@ struct ChecklistItemRow: View {
         // (UX-10)
         .accessibilityElement(children: .ignore)
         .accessibilityLabel("\(item.challenge), \(item.response)")
-        .accessibilityValue(isCompleted ? L10n.Accessibility.itemCompleted : "")
+        .accessibilityValue(isCompleted ? L10n.Accessibility.itemCompleted : (isDeferred ? L10n.Deferred.deferredTag : ""))
         .accessibilityAddTraits(isHighlighted ? [.isStaticText, .isSelected] : .isStaticText)
     }
 }
@@ -927,7 +1063,7 @@ struct SpeedReferenceView: View {
                     .headerStyle()
                 Spacer()
                 Text(currentRegistration)
-                    .font(.system(size: 14, weight: .semibold, design: .monospaced))
+                    .font(.aero(size: 14, weight: .semibold, design: .monospaced))
                     .foregroundColor(theme.textSecondary)
             }
             .padding(.top, 8)
@@ -964,12 +1100,12 @@ struct SpeedReferenceView: View {
             // Crosswind limits
             HStack {
                 Text(L10n.ChecklistAction.maxCrosswind)
-                    .font(.system(size: 13, weight: .medium))
+                    .font(.aero(size: 13, weight: .medium))
                     .foregroundColor(theme.textSecondary)
                 Spacer()
                 let crosswind = currentCrosswindLimits
                 Text(L10n.ChecklistAction.crosswindFormat(takeoff: crosswind.takeoff, landing: crosswind.landing))
-                    .font(.system(size: 13, weight: .bold, design: .monospaced))
+                    .font(.aero(size: 13, weight: .bold, design: .monospaced))
                     .foregroundColor(theme.warning)
             }
             .padding(.top, 8)
@@ -997,7 +1133,7 @@ struct SpeedReferenceView: View {
         HStack(alignment: .firstTextBaseline, spacing: 0) {
             // Name (e.g., "Vso")
             Text(speed.name)
-                .font(.system(size: 16, weight: .bold, design: .monospaced))
+                .font(.aero(size: 16, weight: .bold, design: .monospaced))
                 .foregroundColor(theme.action)
 
             Spacer(minLength: 4)
@@ -1005,17 +1141,17 @@ struct SpeedReferenceView: View {
             // Value + unit (e.g., "33 kt")
             HStack(alignment: .firstTextBaseline, spacing: 3) {
                 Text(speed.value)
-                    .font(.system(size: 17, weight: .bold, design: .monospaced))
+                    .font(.aero(size: 17, weight: .bold, design: .monospaced))
                     .foregroundColor(theme.textPrimary)
                 Text("kt")
-                    .font(.system(size: 12, weight: .medium))
+                    .font(.aero(size: 12, weight: .medium))
                     .foregroundColor(theme.textDim)
             }
         }
         .overlay(alignment: .bottomLeading) {
             // Description below the name
             Text(speed.description)
-                .font(.system(size: 11))
+                .font(.aero(size: 11))
                 .foregroundColor(theme.textDim)
                 .offset(y: 14)
         }
@@ -1032,14 +1168,14 @@ struct CompactSpeedRow: View {
     var body: some View {
         HStack(spacing: 4) {
             Text(name)
-                .font(.system(size: 15, weight: .bold, design: .monospaced))
+                .font(.aero(size: 15, weight: .bold, design: .monospaced))
                 .foregroundColor(theme.action)
                 .frame(width: 55, alignment: .leading)
                 .lineLimit(1)
                 .minimumScaleFactor(0.8)
 
             Text(description)
-                .font(.system(size: 12))
+                .font(.aero(size: 12))
                 .foregroundColor(theme.textDim)
                 .frame(minWidth: 75, alignment: .leading)
                 .lineLimit(1)
@@ -1048,12 +1184,12 @@ struct CompactSpeedRow: View {
 
             HStack(spacing: 2) {
                 Text(value)
-                    .font(.system(size: 15, weight: .bold, design: .monospaced))
+                    .font(.aero(size: 15, weight: .bold, design: .monospaced))
                     .foregroundColor(theme.textPrimary)
                     .lineLimit(1)
 
                 Text("kt")
-                    .font(.system(size: 11))
+                    .font(.aero(size: 11))
                     .foregroundColor(theme.textDim)
             }
             .fixedSize(horizontal: true, vertical: false)
@@ -1090,7 +1226,7 @@ struct DepartureBriefingContent: View {
                         } else {
                             BriefingItem(label: L10n.Briefing.wind, value: L10n.Briefing.notAvailable)
                             Text(L10n.Briefing.windCheckHint)
-                                .font(.system(size: 11))
+                                .font(.aero(size: CockpitType.label))
                                 .foregroundColor(theme.textDim)
                                 .italic()
                         }
@@ -1178,7 +1314,7 @@ struct ApproachBriefingContent: View {
                         } else {
                             BriefingItem(label: L10n.Briefing.wind, value: L10n.Briefing.notAvailable)
                             Text(L10n.Briefing.windCheckHint)
-                                .font(.system(size: 11))
+                                .font(.aero(size: CockpitType.label))
                                 .foregroundColor(theme.textDim)
                                 .italic()
                         }
@@ -1212,7 +1348,8 @@ struct ApproachBriefingContent: View {
                     }
 
                     // Missed Approach Section
-                    BriefingSection(title: L10n.Briefing.missedApproach.uppercased(), isWarning: true) {
+                    // A standing procedure, not a warning: red is for warnings only. (v6.0 review)
+                    BriefingSection(title: L10n.Briefing.missedApproach.uppercased()) {
                         EmergencyItem(text: L10n.Briefing.goAroundProcedure)
                     }
 
@@ -1260,12 +1397,12 @@ struct SpeedGridView: View {
                     // speed, which is short and must stay whole, never gives up a character.
                     // (device-test feedback, v4.4.0)
                     Text(item.label)
-                        .font(.system(size: 12, weight: .medium))
+                        .font(.aero(size: CockpitType.label, weight: .medium))
                         .foregroundColor(theme.textSecondary)
                         .fixedSize(horizontal: false, vertical: true)
                     Spacer(minLength: 0)
                     Text(item.value)
-                        .font(.system(size: 14, weight: .bold, design: .monospaced))
+                        .font(.aero(size: CockpitType.row, weight: .bold, design: .monospaced))
                         .foregroundColor(item.value == L10n.Briefing.speedNA ? theme.textDim : theme.onTarget)
                         .fixedSize()
                 }
@@ -1285,15 +1422,17 @@ struct RunwayRowView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 2) {
             HStack(spacing: 8) {
+                // The suggested runway in white and bold, starred: data, not a control, so not cyan.
+                // (v6.0 review)
                 if isSuggested {
                     Image(systemName: "star.fill")
-                        .font(.system(size: 12))
-                        .foregroundColor(theme.action)
+                        .font(.aero(size: CockpitType.label))
+                        .foregroundColor(theme.textPrimary)
                 }
 
                 Text(runway.identifier)
-                    .font(.system(size: 14, weight: .bold, design: .monospaced))
-                    .foregroundColor(isSuggested ? theme.action : theme.textPrimary)
+                    .font(.aero(size: CockpitType.row, weight: .bold, design: .monospaced))
+                    .foregroundColor(theme.textPrimary)
                     .fixedSize()
 
                 Text("-")
@@ -1303,7 +1442,7 @@ struct RunwayRowView: View {
                 // Wraps rather than truncating: a long surface/lighting string must stay readable on a
                 // narrow screen, like every other briefing line. (device-test feedback, v4.4.0)
                 Text(runway.descriptionString)
-                    .font(.system(size: 12))
+                    .font(.aero(size: CockpitType.label))
                     .foregroundColor(theme.textSecondary)
                     .fixedSize(horizontal: false, vertical: true)
 
@@ -1313,14 +1452,14 @@ struct RunwayRowView: View {
             // OpenAIP extras (PCN + declared distances), only when present. Indented under the runway id.
             if let extra = runway.extraInfoLine {
                 Text(extra)
-                    .font(.system(size: 11, design: .monospaced))
+                    .font(.aero(size: CockpitType.label, design: .monospaced))
                     .foregroundColor(theme.textDim)
                     .fixedSize(horizontal: false, vertical: true)
-                    .padding(.leading, isSuggested ? 20 : 0)
+                    .padding(.leading, isSuggested ? CockpitType.label + 8 : 0)
             }
         }
         .padding(.vertical, 4)
-        .background(isSuggested ? theme.action.opacity(0.1) : Color.clear)
+        .background(isSuggested ? theme.textPrimary.opacity(0.08) : Color.clear)
         .cornerRadius(4)
     }
 }
@@ -1376,9 +1515,10 @@ struct BriefingSection<Content: View>: View {
     
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
+            // A heading, so not cyan (nothing to touch); red only over a warning. (v6.0 review)
             Text(title)
-                .font(.system(size: 14, weight: .bold))
-                .foregroundColor(isWarning ? theme.danger : theme.action)
+                .font(.aero(size: CockpitType.label, weight: .bold))
+                .foregroundColor(isWarning ? theme.danger : theme.textSecondary)
                 .tracking(1)
             
             content
@@ -1390,7 +1530,7 @@ struct BriefingSection<Content: View>: View {
                 .fill(theme.card)
                 .overlay(
                     RoundedRectangle(cornerRadius: 8)
-                        .stroke(isWarning ? theme.danger.opacity(0.3) : theme.action.opacity(0.2), lineWidth: 1)
+                        .stroke(isWarning ? theme.danger.opacity(0.3) : theme.panelStroke, lineWidth: 1)
                 )
         )
     }
@@ -1419,7 +1559,7 @@ struct BriefingTafRow: View {
                 value: taf.validity.isEmpty ? taf.icao : "\(taf.icao) (\(taf.validity))"
             ) {
                 Text(taf.raw)
-                    .font(.system(size: 12, design: .monospaced))
+                    .font(.aero(size: CockpitType.label, design: .monospaced))
                     .foregroundColor(theme.textSecondary)
                     .lineSpacing(2)
                     .textSelection(.enabled)
@@ -1433,7 +1573,8 @@ struct BriefingTafRow: View {
 /// Shared geometry for a briefing row, so a continuation block (the raw TAF) can line up under the
 /// value column instead of hard-coding the same number twice.
 enum BriefingRowMetrics {
-    static let labelWidth: CGFloat = 100
+    /// Wide enough for the labels at the Cockpit's label size (it was 100 pt for 14 pt text).
+    static var labelWidth: CGFloat { CockpitType.size(kneeboard: 150, phone: 124) }
     static let labelGap: CGFloat = 8
     /// Left inset that puts continuation text under the value, not the label.
     static var valueIndent: CGFloat { labelWidth + labelGap }
@@ -1485,16 +1626,18 @@ struct BriefingItem<Detail: View>: View {
         .frame(maxWidth: .infinity, alignment: .leading)
     }
 
+    // The Cockpit's scale: the briefing is read in flight, in the drawer over the Cockpit. It was
+    // 11-14 pt, about 60 % of the 20 pt floor, on both devices. (v6.0 review)
     private var labelText: some View {
         Text(label)
-            .font(.system(size: 14, weight: .medium))
+            .font(.aero(size: CockpitType.label, weight: .medium))
             .foregroundColor(theme.textSecondary)
             .fixedSize(horizontal: false, vertical: true)
     }
 
     private var valueText: some View {
         Text(value)
-            .font(.system(size: 14, weight: .semibold, design: .monospaced))
+            .font(.aero(size: CockpitType.row, weight: .semibold, design: .monospaced))
             .foregroundColor(theme.textPrimary)
             .fixedSize(horizontal: false, vertical: true)
     }
@@ -1513,11 +1656,11 @@ struct EmergencyItem: View {
     var body: some View {
         HStack(alignment: .top, spacing: 8) {
             Image(systemName: "exclamationmark.triangle.fill")
-                .font(.system(size: 12))
+                .font(.aero(size: CockpitType.label))
                 .foregroundColor(theme.danger)
             
             Text(text)
-                .font(.system(size: 14, weight: .medium))
+                .font(.aero(size: CockpitType.row, weight: .medium))
                 .foregroundColor(theme.textPrimary)
         }
     }

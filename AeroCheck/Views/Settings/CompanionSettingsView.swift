@@ -224,12 +224,12 @@ struct CompanionSettingsView: View {
         VStack(alignment: .leading, spacing: 4) {
             if companionConnectivityManager.diagnostics.isEmpty {
                 Text(L10n.Companion.diagNoEvents)
-                    .font(.caption)
+                    .font(.aero(.caption))
                     .foregroundColor(.secondaryText)
             } else {
                 ForEach(Array(companionConnectivityManager.diagnostics.enumerated()), id: \.offset) { _, line in
                     Text(line)
-                        .font(.system(.caption2, design: .monospaced))
+                        .font(.aero(.caption2, design: .monospaced))
                         .foregroundColor(.secondaryText)
                         .frame(maxWidth: .infinity, alignment: .leading)
                         .lineLimit(2)

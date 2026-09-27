@@ -667,6 +667,9 @@ class LocationManager: NSObject, ObservableObject {
     func injectMarketingStaticFix(_ location: CLLocation) {
         // Force the override on, so real fixes are ignored and the GPS indicator stays green.
         overrideGPSStatus(.good)
+        // And say it records, as a real flight's GPS does: since 6.0 an active flight whose GPS isn't
+        // recording turns the indicator red, which put an alarm on every in-flight screenshot.
+        isTracking = true
 
         currentLocation = location
 

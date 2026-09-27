@@ -253,6 +253,36 @@ final class FlightThreadTests: XCTestCase {
         XCTAssertEqual(thread.nextTask?.chapter, .close)
     }
 
+    /// The flight page's gold NEXT card and its red open-plan card both said "close the flight plan".
+    /// While the red card is up it carries that task, so NEXT moves on to the one after it.
+    func testTheNextCardLeavesAnOpenFlightPlanToTheRedCard() {
+        var thread = FlightThread(routeLabel: "LSZQ → LSGY")
+        var c = context()
+        c.flightPlanFiled = true
+        c.feeIdents = ["LSGY"]
+        thread.tasks = ThreadTaskEngine.generate(context: c)
+        // Settle everything before the flight, the filing included.
+        for task in thread.tasks where task.chapter != .close {
+            thread.setState(.done, forTaskWithId: task.id)
+        }
+        thread.state = .closeOut
+
+        XCTAssertTrue(thread.hasOpenFlightPlanAfterFlight)
+        XCTAssertEqual(thread.nextTask?.key, .flightPlanClosed, "Home has no red card, so it still leads with it")
+        XCTAssertEqual(thread.nextTaskBesideOpenFlightPlan?.key, .feesPaid)
+
+        // Only the plan left: the red card is the page's next task, and NEXT has nothing to add.
+        for task in thread.tasks where task.chapter == .close && task.key != .flightPlanClosed {
+            thread.setState(.done, forTaskWithId: task.id)
+        }
+        XCTAssertNil(thread.nextTaskBesideOpenFlightPlan)
+
+        // Finished with the plan still open: no red card any more, so NEXT must say it.
+        thread.state = .done
+        XCTAssertFalse(thread.hasOpenFlightPlanAfterFlight)
+        XCTAssertEqual(thread.nextTaskBesideOpenFlightPlan?.key, .flightPlanClosed)
+    }
+
     // MARK: - Context building
 
     func testContextFromPlanDerivesRouteFuelAndFees() {
@@ -860,5 +890,58 @@ extension FlightThreadTests {
                       "a leg must never carry a trip-scoped row — those live on the trip")
         XCTAssertEqual(after.count, before + 1,
                        "filing adds the close-out task and nothing else")
+    }
+
+    // MARK: - Starting a flight planned for another day (round 6)
+
+    func testAFlightIsDueOnItsDayOrWhenUndated() {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = TimeZone(identifier: "Europe/Zurich")!
+        let now = calendar.date(from: DateComponents(year: 2026, month: 9, day: 26, hour: 23, minute: 2))!
+        var thread = FlightThread(routeLabel: "LZPE → EDME")
+
+        XCTAssertTrue(thread.isDueToday(now: now, calendar: calendar), "undated: START FLIGHT")
+        thread.scheduledDeparture = calendar.date(from: DateComponents(year: 2026, month: 9, day: 26, hour: 7))
+        XCTAssertTrue(thread.isDueToday(now: now, calendar: calendar), "earlier today")
+        thread.scheduledDeparture = calendar.date(from: DateComponents(year: 2026, month: 9, day: 27, hour: 10))
+        XCTAssertFalse(thread.isDueToday(now: now, calendar: calendar), "tomorrow at 10:00: Start now, with a question")
+        thread.scheduledDeparture = calendar.date(from: DateComponents(year: 2026, month: 9, day: 25, hour: 10))
+        XCTAssertFalse(thread.isDueToday(now: now, calendar: calendar), "yesterday's, not flown")
+    }
+
+    // MARK: - Cancel flight takes its own copy of the route (v6.0 review)
+
+    private func threadFlying(_ plan: FlightPlan) -> FlightThread {
+        var thread = FlightThread(routeLabel: plan.name)
+        thread.flightPlanId = plan.id
+        return thread
+    }
+
+    func testCancellingAFlightDeletesTheCopyMadeForIt() {
+        var copy = swissPlan()
+        copy.flightOwned = true
+        let thread = threadFlying(copy)
+        XCTAssertEqual(FlightThreadManager.planToDelete(withThread: thread.id, threads: [thread],
+                                                        plans: [copy], logbookPlanIds: [])?.id, copy.id)
+    }
+
+    func testARouteFromTheLibraryIsNeverDeleted() {
+        let route = swissPlan()                                   // flightOwned nil: a route
+        let thread = threadFlying(route)
+        XCTAssertNil(FlightThreadManager.planToDelete(withThread: thread.id, threads: [thread],
+                                                      plans: [route], logbookPlanIds: []))
+    }
+
+    func testACopyStillUsedElsewhereIsKept() {
+        var copy = swissPlan()
+        copy.flightOwned = true
+        let cancelled = threadFlying(copy)
+        let other = threadFlying(copy)
+        XCTAssertNil(FlightThreadManager.planToDelete(withThread: cancelled.id, threads: [cancelled, other],
+                                                      plans: [copy], logbookPlanIds: []),
+                     "another flight follows it")
+        XCTAssertNil(FlightThreadManager.planToDelete(withThread: cancelled.id, threads: [cancelled],
+                                                      plans: [copy], logbookPlanIds: [copy.id]),
+                     "the logbook exports it with its flight")
     }
 }

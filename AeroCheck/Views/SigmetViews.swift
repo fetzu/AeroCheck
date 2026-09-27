@@ -44,13 +44,13 @@ struct SigmetChip: View {
             Button(action: action) {
                 HStack(spacing: 7) {
                     Image(systemName: "exclamationmark.triangle.fill")
-                        .font(.system(size: 14))
+                        .font(.aero(size: 14))
                     Text(SigmetFormat.summary(headline.sigmet))
-                        .font(.system(size: 12, weight: .semibold))
+                        .font(.aero(size: 12, weight: .semibold))
                         .lineLimit(1)
                     if hazards.count > 1 {
                         Text("+\(hazards.count - 1)")
-                            .font(.system(size: 11, weight: .medium))
+                            .font(.aero(size: 11, weight: .medium))
                             .opacity(0.8)
                     }
                 }
@@ -93,7 +93,7 @@ struct SigmetSheet: View {
                     // The absence of a SIGMET is not an all-clear, and this is the surface most
                     // likely to be mistaken for a briefing tool.
                     Text(L10n.Nav.sigmetDisclaimer)
-                        .font(.system(size: 11))
+                        .font(.aero(size: 11))
                         .italic()
                         .foregroundColor(theme.textDim)
                         .fixedSize(horizontal: false, vertical: true)
@@ -122,14 +122,14 @@ struct SigmetSheet: View {
             VStack(alignment: .leading, spacing: 3) {
                 HStack(spacing: 6) {
                     Text(SigmetFormat.hazardName(item.sigmet))
-                        .font(.system(size: 13, weight: .semibold))
+                        .font(.aero(size: 13, weight: .semibold))
                         .foregroundColor(theme.textPrimary)
                     Text(SigmetFormat.proximity(item))
-                        .font(.system(size: 13, weight: .medium))
+                        .font(.aero(size: 13, weight: .medium))
                         .foregroundColor(item.isOnPath ? theme.warning : theme.textDim)
                 }
                 Text(SigmetFormat.detail(item.sigmet))
-                    .font(.system(size: 12, design: .monospaced))
+                    .font(.aero(size: 12, design: .monospaced))
                     .foregroundColor(theme.textSecondary)
                     .fixedSize(horizontal: false, vertical: true)
             }

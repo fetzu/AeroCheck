@@ -15,6 +15,13 @@ final class AeroCheckAppDelegate: NSObject, UIApplicationDelegate {
         NotificationService.shared.configure()
         return true
     }
+
+    /// Quit from the app switcher while running (in flight, it runs in the background for GPS): the
+    /// Live Activity would otherwise stay on the Lock Screen with its clock ticking, for a flight
+    /// nothing records any more. (Live Activities, 6.0)
+    func applicationWillTerminate(_ application: UIApplication) {
+        FlightActivityController.shared.endAllBeforeTermination()
+    }
 }
 
 /// Main application entry point
@@ -48,6 +55,8 @@ struct AeroCheckApp: App {
     @Environment(\.scenePhase) private var scenePhase
 
     init() {
+        // B612 in the UIKit chrome SwiftUI draws: bar titles, segmented pickers, tab labels. (v6.0)
+        AeroAppearance.apply()
         // Initialize subscription manager first, then aircraft data service
         // Use deferLoadProducts to speed up initial launch - products will be loaded after view appears
         let subManager = SubscriptionManager(deferLoadProducts: true)
@@ -100,6 +109,9 @@ struct AeroCheckApp: App {
         WindowGroup {
             AppRootView(appState: appState) {
             ContentView()
+                #if DEBUG
+                .modifier(DebugLandscape())
+                #endif
                 .environment(appState)
                 .environmentObject(locationManager)
                 .environmentObject(offlineMapManager)
@@ -351,7 +363,8 @@ struct AeroCheckApp: App {
             )
             Task { await launcher.begin(circuitMode: false) }
         case "flight-log":
-            appState.showFlightLog = true
+            // The Logbook is a tab now. (v6.0 · P1)
+            appState.groundTab = .logbook
         default:
             break
         }
@@ -394,18 +407,18 @@ struct MapUpdateReminderSheet: View {
             VStack(spacing: 24) {
                 // Header icon
                 Image(systemName: "arrow.triangle.2.circlepath")
-                    .font(.system(size: 60))
+                    .font(.aero(size: 60))
                     .foregroundColor(.aviationGold)
                     .padding(.top, 40)
 
                 // Title
                 Text("ICAO Chart Update Available")
-                    .font(.system(size: 24, weight: .bold))
+                    .font(.aero(size: 24, weight: .bold))
                     .foregroundColor(.primaryText)
 
                 // Description
                 Text("SwissTopo has released a new version of the ICAO Aeronautical Chart. The chart is updated yearly in April. Update your cached chart to ensure accurate navigation data.")
-                    .font(.system(size: 16))
+                    .font(.aero(size: 16))
                     .foregroundColor(.secondaryText)
                     .multilineTextAlignment(.center)
                     .padding(.horizontal, 32)
@@ -413,11 +426,11 @@ struct MapUpdateReminderSheet: View {
                 // Current cache info
                 VStack(spacing: 8) {
                     Text("Current cache: \(offlineMapManager.cacheVersion)")
-                        .font(.system(size: 14))
+                        .font(.aero(size: 14))
                         .foregroundColor(.secondaryText)
 
                     Text("Downloaded: \(offlineMapManager.formattedCacheDate)")
-                        .font(.system(size: 14))
+                        .font(.aero(size: 14))
                         .foregroundColor(.secondaryText)
                 }
                 .padding(.top, 8)
@@ -432,11 +445,11 @@ struct MapUpdateReminderSheet: View {
                             .padding(.horizontal, 40)
 
                         Text("Updating tiles...")
-                            .font(.system(size: 14))
+                            .font(.aero(size: 14))
                             .foregroundColor(.secondaryText)
 
                         Text("\(offlineMapManager.downloadedTileCount) / \(offlineMapManager.totalTileCount)")
-                            .font(.system(size: 14, design: .monospaced))
+                            .font(.aero(size: 14, design: .monospaced))
                             .foregroundColor(.secondaryText)
                     }
                 }
@@ -448,7 +461,7 @@ struct MapUpdateReminderSheet: View {
                     VStack(spacing: 12) {
                         Button(action: updateNow) {
                             Text("Update Now")
-                                .font(.system(size: 17, weight: .semibold))
+                                .font(.aero(size: 17, weight: .semibold))
                                 .foregroundColor(.white)
                                 .frame(maxWidth: .infinity)
                                 .padding(.vertical, 16)
@@ -461,7 +474,7 @@ struct MapUpdateReminderSheet: View {
 
                         Button(action: remindLater) {
                             Text("Remind Me Next Time")
-                                .font(.system(size: 17, weight: .medium))
+                                .font(.aero(size: 17, weight: .medium))
                                 .foregroundColor(.aviationGold)
                                 .frame(maxWidth: .infinity)
                                 .padding(.vertical, 16)
@@ -470,7 +483,7 @@ struct MapUpdateReminderSheet: View {
 
                         Button(action: ignore) {
                             Text("Ignore")
-                                .font(.system(size: 15))
+                                .font(.aero(size: 15))
                                 .foregroundColor(.secondaryText)
                         }
                         .padding(.top, 8)
@@ -608,6 +621,8 @@ struct AppRootView<Content: View>: View {
             // The runtime light treatment flips this to `.light` so system controls (toggles, pickers),
             // materials and any default/semantic text render correctly on the light surfaces.
             .environment(\.colorScheme, AmbientPalette.isActive ? .light : .dark)
+            // B612 wherever a view sets no font of its own: lists, toggles, buttons. (v6.0)
+            .font(.aero(.body))
             .ambientCelebrationOverlay()
             // Publish the DEVICE's real appearance so the companion master streams the same theme the
             // iPad actually displays (not the force-dark window trait). (companion v2 — theme default fix)
@@ -615,3 +630,46 @@ struct AppRootView<Content: View>: View {
             .onChange(of: systemColorScheme) { _, scheme in appState.deviceIsDark = (scheme == .dark) }
     }
 }
+
+#if DEBUG
+/// DEV-ONLY: `SIMCTL_CHILD_AEROCHECK_ORIENTATION=landscape` lays the app out at landscape size, turned
+/// a quarter turn inside the portrait simulator. simctl cannot rotate a simulator, and iPadOS won't
+/// let an app turn its own window, so this is how the landscape layouts get checked and captured
+/// without touching the Simulator app. Touches still work (the turn applies to hit testing).
+///
+/// On an iPhone, `portrait`, `landscapeLeft` and `landscapeRight` turn the window for real instead
+/// (an iPhone app may), whichever way the simulator is held: the true safe areas, and no blur from the
+/// scroll edge effect of an unturned window. (round 6)
+private struct DebugLandscape: ViewModifier {
+    private let value = ProcessInfo.processInfo.environment["AEROCHECK_ORIENTATION"]?.lowercased()
+    private var isOn: Bool { value == "landscape" }
+
+    private var requested: UIInterfaceOrientationMask? {
+        switch value {
+        case "portrait": return .portrait
+        case "landscapeleft": return .landscapeLeft
+        case "landscaperight": return .landscapeRight
+        default: return nil
+        }
+    }
+
+    func body(content: Content) -> some View {
+        if let requested, UIDevice.current.userInterfaceIdiom == .phone {
+            content.task {
+                let scene = UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }.first
+                scene?.requestGeometryUpdate(.iOS(interfaceOrientations: requested))
+            }
+        } else if isOn {
+            GeometryReader { geometry in
+                content
+                    .frame(width: geometry.size.height, height: geometry.size.width)
+                    .rotationEffect(.degrees(90))
+                    .frame(width: geometry.size.width, height: geometry.size.height)
+            }
+            .ignoresSafeArea()
+        } else {
+            content
+        }
+    }
+}
+#endif

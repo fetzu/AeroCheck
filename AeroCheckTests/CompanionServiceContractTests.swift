@@ -245,4 +245,167 @@ final class CompanionServiceContractTests: XCTestCase {
         // never learns the viewer's entitlement and (correctly, but unhelpfully) redacts forever.
         XCTAssertEqual(CompanionMessage.MessageType(rawValue: "viewerHello"), .viewerHello)
     }
+
+    // MARK: - Deferred items on the viewer (v6.0 review, B2)
+
+    func testChecklistSnapshotCarriesDeferredItems() throws {
+        let snapshot = CompanionChecklistSnapshot(
+            phaseTitle: "Taxi", phaseRawValue: 5, highlightedIndex: 2, visibleCount: 3, completedCount: 2,
+            items: [], hiddenItemCount: 0, deferredItemIds: ["a"], deferredItemCount: 3)
+        let decoded = try JSONDecoder().decode(CompanionChecklistSnapshot.self,
+                                               from: JSONEncoder().encode(snapshot))
+        XCTAssertEqual(decoded, snapshot)
+        XCTAssertEqual(decoded.deferredItemIds, ["a"])
+        XCTAssertEqual(decoded.deferredItemCount, 3)
+    }
+
+    func testChecklistSnapshotFromAnOlderMasterHasNothingDeferred() throws {
+        // A 5.x or 6.0 iPad sends no deferred fields; the viewer must still take the update.
+        let decoded = try JSONDecoder().decode(
+            CompanionChecklistSnapshot.self,
+            from: Data(#"{"phaseTitle":"Taxi","phaseRawValue":5,"highlightedIndex":1}"#.utf8))
+        XCTAssertEqual(decoded.highlightedIndex, 1)
+        XCTAssertEqual(decoded.deferredItemIds, [])
+        XCTAssertEqual(decoded.deferredItemCount, 0)
+    }
+
+    /// SA-26 covers the deferred ids too: an item's id carries its challenge text. (v6.0 review, security)
+    @MainActor
+    func testAnUnentitledViewerGetsNoDeferredIds() throws {
+        let appState = makeTestAppState()
+        appState.settings.selectedRemoteAircraftId = nil
+        appState.settings.selectedAircraft = .wt9Dynamic
+        let item = try XCTUnwrap(appState.activeChecklist.visibleItems(for: appState.currentPhase, learningMode: true)
+            .first { !$0.isHeader })
+        appState.deferredItems[appState.currentPhase] = [item.id]
+        XCTAssertEqual(appState.deferredItemCount, 1, "a real deferred item, so the redaction has something to hide")
+
+        let redacted = CompanionConnectivityManager.checklistSnapshot(of: appState, mayStreamItemText: false)
+        XCTAssertTrue(redacted.items.isEmpty)
+        XCTAssertTrue(redacted.deferredItemIds.isEmpty, "the id would spell out the challenge")
+        let wire = String(decoding: try JSONEncoder().encode(redacted), as: UTF8.self)
+        XCTAssertFalse(wire.contains(item.challenge), "no challenge text anywhere in the snapshot")
+        XCTAssertEqual(redacted.deferredItemCount, 1, "the count still goes")
+
+        let full = CompanionConnectivityManager.checklistSnapshot(of: appState, mayStreamItemText: true)
+        XCTAssertEqual(full.deferredItemIds, [item.id])
+    }
+
+    /// Who gets the words: an entitled viewer always, anyone for the bundled aircraft.
+    func testTheTextGateFollowsEntitlementForProAircraftOnly() {
+        XCTAssertFalse(CompanionConnectivityManager.mayStreamItemText(viewerIsEntitled: false, remoteAircraftSelected: true))
+        XCTAssertTrue(CompanionConnectivityManager.mayStreamItemText(viewerIsEntitled: true, remoteAircraftSelected: true))
+        XCTAssertTrue(CompanionConnectivityManager.mayStreamItemText(viewerIsEntitled: false, remoteAircraftSelected: false))
+    }
+
+    // MARK: - CHECK and DEFER from the viewer (v6.0 review, decision 2)
+
+    func testTheNewCommandsRoundTrip() throws {
+        for command in [CompanionCommand.deferChecklistItem,
+                        .checkDeferredItem(phaseRawValue: 3, itemId: "2.I.Fuel"),
+                        .checkInDeferredCheck(phaseRawValue: 4),
+                        .deferInDeferredCheck(phaseRawValue: 4),
+                        .toggleChecklistItem(phaseRawValue: 0, itemId: "1.I.Papers")] {
+            let data = try JSONEncoder().encode(command)
+            let decoded = try JSONDecoder().decode(CompanionCommand.self, from: data)
+            XCTAssertEqual(String(describing: decoded), String(describing: command))
+        }
+    }
+
+    /// An iPad built before these fields says nothing about DEFER: the viewer must not offer it.
+    func testAnOlderMasterDoesNotOfferDefer() throws {
+        let decoded = try JSONDecoder().decode(CompanionChecklistSnapshot.self,
+                                               from: Data(#"{"phaseTitle":"Taxi","highlightedIndex":0}"#.utf8))
+        XCTAssertFalse(decoded.supportsDefer)
+        XCTAssertTrue(decoded.deferredGroups.isEmpty)
+        XCTAssertEqual(decoded.openItemCount, 0)
+    }
+
+    @MainActor
+    func testTheViewerGetsTheDeferredListOnlyWhenEntitled() throws {
+        let appState = makeTestAppState()
+        appState.settings.selectedRemoteAircraftId = nil
+        appState.settings.selectedAircraft = .wt9Dynamic
+        let phase = appState.currentPhase
+        let items = appState.activeChecklist.visibleItems(for: phase, learningMode: true).filter { !$0.isHeader }
+        let item = try XCTUnwrap(items.first)
+        appState.deferredItems[phase] = [item.id]
+
+        let full = CompanionConnectivityManager.checklistSnapshot(of: appState, mayStreamItemText: true)
+        XCTAssertTrue(full.supportsDefer)
+        XCTAssertEqual(full.deferredGroups.first?.phaseRawValue, phase.rawValue)
+        XCTAssertEqual(full.deferredGroups.first?.items.map(\.id), [item.id], "the master's own id, to check it by")
+        XCTAssertEqual(full.openItemCount, appState.openItems(in: phase).count)
+
+        let redacted = CompanionConnectivityManager.checklistSnapshot(of: appState, mayStreamItemText: false)
+        XCTAssertTrue(redacted.supportsDefer, "DEFER needs no text")
+        XCTAssertTrue(redacted.deferredGroups.isEmpty, "no challenge text for an unentitled viewer")
+        XCTAssertEqual(redacted.openItemCount, full.openItemCount, "the count still goes")
+    }
+
+    /// A check deferred whole goes to every viewer as a title and counts; its items, to run it, only to
+    /// a viewer entitled to them. (v6.0 review, J1)
+    @MainActor
+    func testDeferredChecksReachTheViewerWithTheSameGate() throws {
+        let appState = makeTestAppState()
+        appState.settings.selectedRemoteAircraftId = nil
+        appState.settings.selectedAircraft = .wt9Dynamic
+        appState.settings.stepByStepHighlighting = true
+        try XCTSkipIf(appState.checkItems(.preflight).isEmpty)
+        appState.goToPhase(.beforeEngineStart)
+        XCTAssertEqual(appState.deferredChecks, [.preflight])
+
+        let full = CompanionConnectivityManager.checklistSnapshot(of: appState, mayStreamItemText: true)
+        let check = try XCTUnwrap(full.deferredChecks.first)
+        XCTAssertEqual(check.phaseRawValue, ChecklistPhase.preflight.rawValue)
+        XCTAssertEqual(check.items.map(\.id), appState.checkItems(.preflight).map(\.id))
+        XCTAssertEqual(check.highlightedIndex, 0)
+        XCTAssertEqual(check.remaining, check.total)
+
+        let redacted = CompanionConnectivityManager.checklistSnapshot(of: appState, mayStreamItemText: false)
+        let bare = try XCTUnwrap(redacted.deferredChecks.first)
+        XCTAssertTrue(bare.items.isEmpty, "no challenge text for an unentitled viewer")
+        XCTAssertTrue(bare.deferredItemIds.isEmpty)
+        XCTAssertEqual(bare.total, check.total, "the counts still go")
+
+        let decoded = try JSONDecoder().decode(CompanionChecklistSnapshot.self, from: JSONEncoder().encode(full))
+        XCTAssertEqual(decoded.deferredChecks, full.deferredChecks)
+    }
+
+    /// The phone's commands do on the iPad what the iPad's own taps do: RUN and CHECK in a deferred
+    /// check, and a tap on a checked row (by id, in the phase it was sent for). (v6.0 review, J1, K-C)
+    @MainActor
+    func testTheViewersCommandsActOnTheMastersChecklist() throws {
+        let appState = makeTestAppState()
+        appState.settings.selectedRemoteAircraftId = nil
+        appState.settings.selectedAircraft = .wt9Dynamic
+        appState.settings.stepByStepHighlighting = true
+        let plans = makeTestPlanManager()
+        let items = appState.checkItems(.preflight)
+        try XCTSkipIf(items.count < 3 || items[0].isHeader || items[1].isHeader)
+
+        appState.goToPhase(.beforeEngineStart)
+        CompanionConnectivityManager.apply(.checkInDeferredCheck(phaseRawValue: ChecklistPhase.preflight.rawValue),
+                                           appState: appState, flightPlanManager: plans)
+        XCTAssertEqual(appState.getHighlightedItem(for: .preflight), 1)
+        CompanionConnectivityManager.apply(.deferInDeferredCheck(phaseRawValue: ChecklistPhase.preflight.rawValue),
+                                           appState: appState, flightPlanManager: plans)
+        XCTAssertEqual(appState.deferredItems[.preflight], [items[1].id])
+
+        let current = appState.checkItems(.beforeEngineStart)
+        try XCTSkipIf(current.isEmpty || current[0].isHeader)
+        appState.advanceHighlightedItem(learningMode: appState.effectiveLearningMode)
+        let toggle = CompanionCommand.toggleChecklistItem(phaseRawValue: ChecklistPhase.beforeEngineStart.rawValue,
+                                                          itemId: current[0].id)
+        CompanionConnectivityManager.apply(toggle, appState: appState, flightPlanManager: plans)
+        XCTAssertEqual(appState.deferredItems[.beforeEngineStart], [current[0].id], "reopened alone")
+        CompanionConnectivityManager.apply(toggle, appState: appState, flightPlanManager: plans)
+        XCTAssertNil(appState.deferredItems[.beforeEngineStart], "and checked again")
+
+        // Sent for a phase the iPad has since left: nothing moves.
+        let stale = CompanionCommand.toggleChecklistItem(phaseRawValue: ChecklistPhase.preflight.rawValue,
+                                                         itemId: items[0].id)
+        CompanionConnectivityManager.apply(stale, appState: appState, flightPlanManager: plans)
+        XCTAssertEqual(appState.deferredItems[.preflight], [items[1].id])
+    }
 }

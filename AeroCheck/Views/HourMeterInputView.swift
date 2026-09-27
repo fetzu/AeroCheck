@@ -133,12 +133,12 @@ struct HourMeterInputView: View {
             // Title and subtitle
             VStack(spacing: 8) {
                 Text(phase.title)
-                    .font(.title2)
+                    .font(.aero(.title2))
                     .fontWeight(.bold)
                     .foregroundColor(.primaryText)
 
                 Text(phase.subtitle)
-                    .font(.subheadline)
+                    .font(.aero(.subheadline))
                     .foregroundColor(.secondaryText)
                     .multilineTextAlignment(.center)
                     .padding(.horizontal)
@@ -148,7 +148,7 @@ struct HourMeterInputView: View {
             // Display showing current input
             VStack(spacing: 4) {
                 Text(inputValue.isEmpty ? "0.0" : inputValue)
-                    .font(.system(size: 56, weight: .light, design: .monospaced))
+                    .font(.aero(size: 56, weight: .light, design: .monospaced))
                     .foregroundColor(.primaryText)
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 20)
@@ -156,14 +156,14 @@ struct HourMeterInputView: View {
                     .cornerRadius(12)
 
                 Text(L10n.HourMeter.hours)
-                    .font(.caption)
+                    .font(.aero(.caption))
                     .foregroundColor(.secondaryText)
             }
             .padding(.horizontal, 32)
 
             // Format hint
             Text(L10n.HourMeter.formatHint)
-                .font(.caption)
+                .font(.aero(.caption))
                 .foregroundColor(.secondaryText)
                 .multilineTextAlignment(.center)
                 .padding(.horizontal, 32)
@@ -205,7 +205,7 @@ struct HourMeterInputView: View {
                 // Backspace
                 Button(action: backspace) {
                     Image(systemName: "delete.left")
-                        .font(.title2)
+                        .font(.aero(.title2))
                         .foregroundColor(.secondaryText)
                         .frame(maxWidth: .infinity)
                         .frame(height: 50)
@@ -216,7 +216,7 @@ struct HourMeterInputView: View {
                 // Clear
                 Button(action: { inputValue = "" }) {
                     Text(L10n.HourMeter.clear)
-                        .font(.headline)
+                        .font(.aero(.headline))
                         .foregroundColor(.secondaryText)
                         .frame(maxWidth: .infinity)
                         .frame(height: 50)
@@ -227,7 +227,7 @@ struct HourMeterInputView: View {
                 // Skip
                 Button(action: { isPresented = false }) {
                     Text(L10n.HourMeter.skip)
-                        .font(.headline)
+                        .font(.aero(.headline))
                         .foregroundColor(.secondaryText)
                         .frame(maxWidth: .infinity)
                         .frame(height: 50)
@@ -238,7 +238,7 @@ struct HourMeterInputView: View {
                 // Save (gold = primary action, matching the cockpit language)
                 Button(action: saveValue) {
                     Text(L10n.HourMeter.save)
-                        .font(.headline)
+                        .font(.aero(.headline))
                         .foregroundColor(inputValue.isEmpty ? .secondaryText : .black)
                         .frame(maxWidth: .infinity)
                         .frame(height: 50)
@@ -257,7 +257,7 @@ struct HourMeterInputView: View {
     private func dialButton(_ character: String) -> some View {
         Button(action: { appendCharacter(character) }) {
             Text(character)
-                .font(.system(size: 28, weight: .medium))
+                .font(.aero(size: 28, weight: .medium))
                 .foregroundColor(.primaryText)
                 .frame(maxWidth: .infinity)
                 .frame(height: 60)

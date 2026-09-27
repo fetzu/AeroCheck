@@ -50,6 +50,13 @@
 	<string>$(WEATHER_CLIENT_SECRET)</string>
 	<key>AppClientSecret</key>
 	<string>$(APP_CLIENT_SECRET)</string>
+	<key>UIAppFonts</key>
+	<array>
+		<string>B612-Regular.ttf</string>
+		<string>B612-Bold.ttf</string>
+		<string>B612Mono-Regular.ttf</string>
+		<string>B612Mono-Bold.ttf</string>
+	</array>
 	<key>UIApplicationSceneManifest</key>
 	<dict>
 		<key>UIApplicationSupportsMultipleScenes</key>

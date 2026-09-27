@@ -10,6 +10,7 @@ struct FlightLogView: View {
     @EnvironmentObject var flightPlanManager: FlightPlanManager
     @EnvironmentObject var threadManager: FlightThreadManager
     @EnvironmentObject var airportDataService: AirportDataService
+    @EnvironmentObject var aircraftDataService: AircraftDataService
     @Environment(\.dismiss) var dismiss
 
     /// When presented as a custom overlay (HomeView's leading-edge slide-in), the host supplies a
@@ -20,6 +21,12 @@ struct FlightLogView: View {
     /// so it can't trigger the transient-geometry push race. Compact opens the detail directly from
     /// Home instead. (v4 UI/UX Revamp — feedback)
     var initialFlightID: UUID? = nil
+    /// Which half this screen shows. The ground tabs split it: the Logbook tab is `.logbook`, the Plan
+    /// tab's flights are `.plan`, both without a Close button. Presented on its own it stays
+    /// `.combined`, with the Past / Upcoming picker. (v6.0 · P1)
+    var mode: Mode = .combined
+
+    enum Mode { case combined, logbook, plan }
 
     /// What the 2-column pane shows: a manual selection wins, otherwise the seeded initial flight.
     private var effectiveSelectionID: UUID? { selectedFlightID ?? initialFlightID }
@@ -96,7 +103,7 @@ struct FlightLogView: View {
                         ProgressView()
                             .tint(Color.aviationGold)
                         Text(L10n.FlightLog.loading)
-                            .font(.subheadline)
+                            .font(.aero(.subheadline))
                             .foregroundColor(.secondaryText)
                     }
                 } else if appState.flights.isEmpty {
@@ -133,41 +140,63 @@ struct FlightLogView: View {
     /// Per-aircraft accent palette for the hours-by-aircraft bars.
     private static let aircraftPalette: [Color] = [.aviationGold, .altimeterBlue, .aviationGreen, .aviationAmber, .orange]
     
-    var body: some View {
-        NavigationStack {
-            ZStack {
-                Color.cockpitBackground
-                    .ignoresSafeArea()
-                
-                VStack(spacing: 0) {
-                    segmentPicker
-                    if segment == .upcoming {
-                        UpcomingFlightsList(threads: threadManager.unfinishedThreads,
-                                            trips: threadManager.trips,
-                                            onOpen: { threadToOpen = $0 },
-                                            onPlanNew: { planningNewFlight = seedIntent() },
-                                            onOpenRoutes: { showFlightPlanning = true })
-                    } else {
-                        pastContent
-                    }
+    /// In the Plan tab, the tab's own navigation stack holds this list. A second stack inside it put
+    /// its bar in the tab bar's row and dragged the Plan picker up under the tabs. (on-device review
+    /// #1, G-07)
+    @ViewBuilder
+    private var navigationContainer: some View {
+        if mode == .plan {
+            listContent
+        } else {
+            NavigationStack { listContent }
+        }
+    }
+
+    private var listContent: some View {
+        ZStack {
+            Color.cockpitBackground
+                .ignoresSafeArea()
+            
+            VStack(spacing: 0) {
+                if mode == .combined { segmentPicker }
+                if mode == .plan || (mode == .combined && segment == .upcoming) {
+                    UpcomingFlightsList(threads: threadManager.unfinishedThreads,
+                                        trips: threadManager.trips,
+                                        onOpen: { threadToOpen = $0 },
+                                        onPlanNew: { planningNewFlight = seedIntent() },
+                                        // The Plan tab has its own Routes segment, one tap away.
+                                        onOpenRoutes: mode == .plan ? nil : { showFlightPlanning = true })
+                } else {
+                    pastContent
                 }
             }
-            .navigationTitle("")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                // Close + import only — the big in-content "Flight Log" title and the gold Export
-                // button live in the dashboard header now (concept). (v4 UI/UX Revamp)
+        }
+        .navigationTitle("")
+        .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            // Close + import only — the big in-content "Flight Log" title and the gold Export
+            // button live in the dashboard header now (concept). (v4 UI/UX Revamp)
+            if mode == .combined {
                 ToolbarItem(placement: .cancellationAction) {
                     Button(L10n.FlightLog.close) { if let onClose { onClose() } else { dismiss() } }
                 }
+            }
+            if mode != .plan {
                 ToolbarItem(placement: .primaryAction) {
                     Button(action: { showImportPicker = true }) {
-                        Image(systemName: "square.and.arrow.down")
+                        Label(L10n.FlightLog.importFlights, systemImage: "square.and.arrow.down")
+                            .labelStyle(.titleAndIcon)
                     }
                 }
             }
         }
-        .preferredColorScheme(.dark)
+    }
+
+    var body: some View {
+        navigationContainer
+        // Only as its own cover. Embedded in a ground tab, a preferred scheme would darken the whole
+        // window, and the root could no longer read the device's light/dark for Auto. (v6.0 · P1)
+        .preferredColorScheme(mode == .combined ? .dark : nil)
         .fullScreenCover(isPresented: $showFlightPlanning) {
             FlightPlanningView()
         }
@@ -187,7 +216,13 @@ struct FlightLogView: View {
             set: { if !$0 { threadToOpen = nil } }
         )) {
             if let id = threadToOpen {
+                // Started through the root, which has the launch: a flight opened here had no START
+                // FLIGHT at all. (round 6)
                 FlightThreadView(threadId: id, onClose: { threadToOpen = nil },
+                                 onStartFlight: { circuits in
+                                     threadToOpen = nil
+                                     appState.pendingFlightStart = PendingFlightStart(threadId: id, circuits: circuits)
+                                 },
                                  onOpenLeg: { threadToOpen = $0 })
                     .environmentObject(threadManager)
                     .environmentObject(flightPlanManager)
@@ -200,8 +235,12 @@ struct FlightLogView: View {
             if let seed = planningNewFlight {
                 PlanNewFlightView(
                     intent: seed,
-                    aircraft: [],
-                    savedRoutes: flightPlanManager.flightPlans,
+                    // The pilot's aircraft as chips here too: this sheet used to offer none from
+                    // the Flights tab, so a flight planned there took whatever Today had selected.
+                    aircraft: AircraftOption.flyable(remote: aircraftDataService.availableAircraft,
+                                                     settings: appState.settings,
+                                                     canFly: aircraftDataService.canFly),
+                    savedRoutes: RouteLibrary.activeRoutes(flightPlanManager.flightPlans, threads: threadManager.threads),
                     onCreate: { stops, intent, route in
                         planningNewFlight = nil
                         // See HomeView.createFlight: the sheet stays hit-testable through its
@@ -786,7 +825,8 @@ struct FlightLogView: View {
         return VStack(spacing: 14) {
             // Title + year selector + export (concept header)
             HStack(alignment: .center) {
-                Text("Flight Log")
+                // The tab's name: flown flights live in the Logbook. (v6.0 · P8)
+                Text(L10n.Ground.logbook)
                     .scaledFont(size: 28, weight: .bold, relativeTo: .title2)
                     .foregroundColor(.primaryText)
                     .lineLimit(1)
@@ -881,7 +921,7 @@ struct FlightLogView: View {
     private var shareScopeLabel: String {
         var parts: [String] = []
         if let aircraft = selectedAircraft { parts.append(aircraft) }
-        parts.append(selectedYear.map { String($0) } ?? "All time")
+        parts.append(selectedYear.map { String($0) } ?? String(localized: "All time"))
         return parts.joined(separator: " · ")
     }
 
@@ -1491,11 +1531,11 @@ struct FlightLogStatsShareCard: View {
         HStack(alignment: .top) {
             VStack(alignment: .leading, spacing: 10) {
                 Text("FLIGHT LOG")
-                    .font(.system(size: 26, weight: .semibold)).tracking(6)
+                    .font(.aero(size: 26, weight: .semibold)).tracking(6)
                     .foregroundColor(accent)
                 if options.showPeriod {
                     Text(periodLabel)
-                        .font(.system(size: 64, weight: .bold))
+                        .font(.aero(size: 64, weight: .bold))
                         .foregroundColor(theme.primaryTextColor)
                         .lineLimit(1)
                         .minimumScaleFactor(0.5)
@@ -1503,7 +1543,7 @@ struct FlightLogStatsShareCard: View {
             }
             Spacer()
             Image(systemName: "airplane")
-                .font(.system(size: 54))
+                .font(.aero(size: 54))
                 .foregroundColor(accent)
         }
     }
@@ -1522,10 +1562,10 @@ struct FlightLogStatsShareCard: View {
             VStack(alignment: .leading, spacing: 20) {
                 VStack(alignment: .leading, spacing: 4) {
                     Text("HOURS")
-                        .font(.system(size: 24, weight: .semibold)).tracking(2)
+                        .font(.aero(size: 24, weight: .semibold)).tracking(2)
                         .foregroundColor(theme.secondaryTextColor)
                     Text(String(format: "%.1f", hours))
-                        .font(.system(size: 170, weight: .bold, design: .rounded))
+                        .font(.aero(size: 170, weight: .bold, design: .rounded))
                         .foregroundColor(accent)
                         .lineLimit(1)
                         .minimumScaleFactor(0.5)
@@ -1546,14 +1586,14 @@ struct FlightLogStatsShareCard: View {
     private var byAircraftSection: some View {
         VStack(alignment: .leading, spacing: 20) {
             Text("HOURS BY AIRCRAFT")
-                .font(.system(size: 22, weight: .semibold)).tracking(2)
+                .font(.aero(size: 22, weight: .semibold)).tracking(2)
                 .foregroundColor(theme.secondaryTextColor)
             let maxHours = byAircraft.map(\.hours).max() ?? 1
             // Cap at the top 4 aircraft so the fixed-height card never overflows.
             ForEach(Array(byAircraft.prefix(4).enumerated()), id: \.offset) { _, item in
                 HStack(spacing: 24) {
                     Text(item.name)
-                        .font(.system(size: 30, weight: .semibold, design: .monospaced))
+                        .font(.aero(size: 30, weight: .semibold, design: .monospaced))
                         .foregroundColor(theme.primaryTextColor)
                         .frame(width: 240, alignment: .leading)
                         .lineLimit(1)
@@ -1566,7 +1606,7 @@ struct FlightLogStatsShareCard: View {
                     }
                     .frame(height: 22)
                     Text(String(format: "%.1f", item.hours))
-                        .font(.system(size: 30, weight: .bold, design: .monospaced))
+                        .font(.aero(size: 30, weight: .bold, design: .monospaced))
                         .foregroundColor(theme.primaryTextColor)
                         .frame(width: 110, alignment: .trailing)
                 }
@@ -1576,11 +1616,11 @@ struct FlightLogStatsShareCard: View {
 
     private var footer: some View {
         HStack(alignment: .bottom) {
-            Image(systemName: "airplane.circle.fill").font(.system(size: 34)).foregroundColor(accent)
+            Image(systemName: "airplane.circle.fill").font(.aero(size: 34)).foregroundColor(accent)
             Spacer()
             VStack(alignment: .trailing, spacing: 2) {
-                Text("AéroCheck").font(.system(size: 26, weight: .semibold)).foregroundColor(theme.primaryTextColor)
-                Text("aerocheck.app").font(.system(size: 20)).foregroundColor(accent)
+                Text("AéroCheck").font(.aero(size: 26, weight: .semibold)).foregroundColor(theme.primaryTextColor)
+                Text("aerocheck.app").font(.aero(size: 20)).foregroundColor(accent)
             }
         }
     }
@@ -1588,10 +1628,10 @@ struct FlightLogStatsShareCard: View {
     private func statTile(_ label: String, _ value: String, _ color: Color) -> some View {
         VStack(alignment: .leading, spacing: 10) {
             Text(label)
-                .font(.system(size: 20, weight: .semibold)).tracking(1)
+                .font(.aero(size: 20, weight: .semibold)).tracking(1)
                 .foregroundColor(theme.secondaryTextColor)
             Text(value)
-                .font(.system(size: 58, weight: .bold, design: .rounded))
+                .font(.aero(size: 58, weight: .bold, design: .rounded))
                 .foregroundColor(color)
                 .lineLimit(1)
                 .minimumScaleFactor(0.4)
@@ -2846,7 +2886,7 @@ struct AltitudeChartView: View {
                     AxisValueLabel()
                         .foregroundStyle(Color.secondaryText)
                         // AxisMark is not a View — .scaledFont doesn't apply; fixed size stays. (UX-24)
-                        .font(.system(size: 10))
+                        .font(.aero(size: 10))
                 }
             }
             .chartYAxis {
@@ -4338,7 +4378,7 @@ struct FlightShareCard: View {
         HStack {
             // Date
             Text(formattedDate)
-                .font(.system(size: 22, weight: .semibold))
+                .font(.aero(size: 22, weight: .semibold))
                 .foregroundColor(colorScheme.secondaryTextColor)
                 .tracking(2)
 
@@ -4348,12 +4388,12 @@ struct FlightShareCard: View {
             HStack(spacing: 10) {
                 if let type = aircraftTypeDisplay {
                     Text(type)
-                        .font(.system(size: 18, weight: .medium))
+                        .font(.aero(size: 18, weight: .medium))
                         .foregroundColor(colorScheme.secondaryTextColor)
                 }
 
                 Text(aircraftIdentifier)
-                    .font(.system(size: 20, weight: .bold, design: .monospaced))
+                    .font(.aero(size: 20, weight: .bold, design: .monospaced))
                     .foregroundColor(colorScheme.accentColor)
             }
             .padding(.horizontal, 16)
@@ -4376,7 +4416,7 @@ struct FlightShareCard: View {
             HStack(alignment: .firstTextBaseline) {
                 // Title (route, flight name, or aircraft)
                 Text(displayTitle)
-                    .font(.system(size: 52, weight: .bold, design: .default))
+                    .font(.aero(size: 52, weight: .bold, design: .default))
                     .foregroundColor(colorScheme.primaryTextColor)
                     .lineLimit(1)
                     .minimumScaleFactor(0.5)
@@ -4385,7 +4425,7 @@ struct FlightShareCard: View {
 
                 // Flight time
                 Text(formattedExportFlightTime)
-                    .font(.system(size: 46, weight: .bold, design: .monospaced))
+                    .font(.aero(size: 46, weight: .bold, design: .monospaced))
                     .foregroundColor(colorScheme.accentColor)
                     .lineLimit(1)
             }
@@ -4395,7 +4435,7 @@ struct FlightShareCard: View {
                 // Show flight name below if route is the main title
                 if routeString != nil && !flight.name.isEmpty {
                     Text(flight.name)
-                        .font(.system(size: 22, weight: .medium))
+                        .font(.aero(size: 22, weight: .medium))
                         .foregroundColor(colorScheme.tertiaryTextColor)
                         .lineLimit(1)
                 }
@@ -4403,7 +4443,7 @@ struct FlightShareCard: View {
                 Spacer()
 
                 Text("FLIGHT TIME")
-                    .font(.system(size: 14, weight: .bold))
+                    .font(.aero(size: 14, weight: .bold))
                     .foregroundColor(colorScheme.tertiaryTextColor)
                     .tracking(2)
             }
@@ -4428,7 +4468,7 @@ struct FlightShareCard: View {
                     // "ROUTE" label
                     HStack {
                         Text("ROUTE")
-                            .font(.system(size: 16, weight: .bold))
+                            .font(.aero(size: 16, weight: .bold))
                             .foregroundColor(colorScheme.tertiaryTextColor)
                             .tracking(3)
                         Spacer()
@@ -4460,10 +4500,10 @@ struct FlightShareCard: View {
                             if isEllipsis {
                                 VStack(spacing: 8) {
                                     Text("···")
-                                        .font(.system(size: 22, weight: .bold))
+                                        .font(.aero(size: 22, weight: .bold))
                                         .foregroundColor(colorScheme.tertiaryTextColor)
                                     Text("")
-                                        .font(.system(size: 18, weight: .bold, design: .monospaced))
+                                        .font(.aero(size: 18, weight: .bold, design: .monospaced))
                                 }
                                 .frame(width: 34)
                             } else {
@@ -4474,7 +4514,7 @@ struct FlightShareCard: View {
                                         .frame(width: dotSize, height: dotSize)
 
                                     Text(name)
-                                        .font(.system(size: 18, weight: .bold, design: .monospaced))
+                                        .font(.aero(size: 18, weight: .bold, design: .monospaced))
                                         .foregroundColor(isFirst || isLast ? colorScheme.primaryTextColor : colorScheme.secondaryTextColor)
                                         .lineLimit(1)
                                         .minimumScaleFactor(0.5)
@@ -4509,10 +4549,10 @@ struct FlightShareCard: View {
                     .overlay(
                         VStack(spacing: 16) {
                             Image(systemName: "map")
-                                .font(.system(size: 60))
+                                .font(.aero(size: 60))
                                 .foregroundColor(colorScheme.tertiaryTextColor)
                             Text(L10n.FlightDetail.noGPSData)
-                                .font(.system(size: 24))
+                                .font(.aero(size: 24))
                                 .foregroundColor(colorScheme.tertiaryTextColor)
                         }
                     )
@@ -4537,17 +4577,17 @@ struct FlightShareCard: View {
     private func mapStatPill(icon: String, value: String, label: String) -> some View {
         VStack(spacing: 5) {
             Image(systemName: icon)
-                .font(.system(size: 17, weight: .medium))
+                .font(.aero(size: 17, weight: .medium))
                 .foregroundColor(colorScheme.accentColor)
 
             Text(value)
-                .font(.system(size: 21, weight: .bold, design: .monospaced))
+                .font(.aero(size: 21, weight: .bold, design: .monospaced))
                 .foregroundColor(colorScheme.primaryTextColor)
                 .lineLimit(1)
                 .minimumScaleFactor(0.8)
 
             Text(label)
-                .font(.system(size: 11, weight: .bold))
+                .font(.aero(size: 11, weight: .bold))
                 .foregroundColor(colorScheme.secondaryTextColor)
                 .tracking(1)
         }
@@ -4570,7 +4610,7 @@ struct FlightShareCard: View {
             // Section label
             HStack {
                 Text("ALTITUDE PROFILE")
-                    .font(.system(size: 13, weight: .bold))
+                    .font(.aero(size: 13, weight: .bold))
                     .foregroundColor(colorScheme.tertiaryTextColor)
                     .tracking(2)
 
@@ -4578,7 +4618,7 @@ struct FlightShareCard: View {
 
                 if let maxAlt = maxAltitudeFt {
                     Text("PEAK \(maxAlt) FT")
-                        .font(.system(size: 13, weight: .bold, design: .monospaced))
+                        .font(.aero(size: 13, weight: .bold, design: .monospaced))
                         .foregroundColor(colorScheme.sparklineColor.opacity(0.7))
                 }
             }
@@ -4665,17 +4705,17 @@ struct FlightShareCard: View {
     private func bottomStatItem(icon: String, value: String, label: String, color: Color) -> some View {
         VStack(spacing: 6) {
             Image(systemName: icon)
-                .font(.system(size: 20))
+                .font(.aero(size: 20))
                 .foregroundColor(color)
 
             Text(value)
-                .font(.system(size: 22, weight: .bold, design: .monospaced))
+                .font(.aero(size: 22, weight: .bold, design: .monospaced))
                 .foregroundColor(colorScheme.primaryTextColor)
                 .lineLimit(1)
                 .minimumScaleFactor(0.7)
 
             Text(label)
-                .font(.system(size: 11, weight: .bold))
+                .font(.aero(size: 11, weight: .bold))
                 .foregroundColor(colorScheme.tertiaryTextColor)
                 .tracking(1)
         }
@@ -4692,16 +4732,16 @@ struct FlightShareCard: View {
             VStack(alignment: .trailing, spacing: 4) {
                 HStack(spacing: 8) {
                     Image(systemName: "airplane.circle.fill")
-                        .font(.system(size: 24))
+                        .font(.aero(size: 24))
                         .foregroundColor(colorScheme.footerIconColor)
 
                     Text("AéroCheck")
-                        .font(.system(size: 22, weight: .semibold))
+                        .font(.aero(size: 22, weight: .semibold))
                         .foregroundColor(colorScheme.footerTextColor)
                 }
 
                 Text("https://aerocheck.app")
-                    .font(.system(size: 13, weight: .medium))
+                    .font(.aero(size: 13, weight: .medium))
                     .foregroundColor(colorScheme.footerUrlColor)
             }
         }
@@ -4826,7 +4866,7 @@ struct ShareCardAltitudeChart: View {
     var body: some View {
         if altitudeData.isEmpty {
             Text(L10n.FlightDetail.noAltitudeData)
-                .font(.system(size: 18))
+                .font(.aero(size: 18))
                 .foregroundColor(sparklineColor.opacity(0.4))
         } else if !terrainData.isEmpty {
             // Path-based terrain rendering — SwiftUI Charts AreaMark always stacks

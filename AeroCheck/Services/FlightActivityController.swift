@@ -3,12 +3,40 @@ import Foundation
 import ActivityKit
 #endif
 
+/// Which of the app's Live Activities belongs on screen. Pure, so it is tested without ActivityKit.
+enum LiveActivityTriage {
+    struct Item: Equatable {
+        /// The flight the activity was started for; nil for one started before activities carried it.
+        let flightId: UUID?
+        /// Still running (active or stale), as opposed to ended or dismissed.
+        let isLive: Bool
+    }
+
+    /// Keep the first live activity of the current flight, if there is one; end everything else:
+    /// a previous flight's, an ended one still on screen, a duplicate, one from an older build.
+    /// With no flight in progress, nothing is kept.
+    static func decide(_ items: [Item], currentFlightId: UUID?) -> (keep: Int?, end: [Int]) {
+        let keep = currentFlightId.flatMap { id in
+            items.firstIndex { $0.flightId == id && $0.isLive }
+        }
+        return (keep, items.indices.filter { $0 != keep })
+    }
+}
+
 /// Starts, updates and ends the in-flight Live Activity (Lock Screen + Dynamic Island). (UX-25)
 ///
 /// Updates are event-driven and deduplicated: `sync(from:)` is cheap to call often (it diffs the
 /// content state and no-ops when nothing changed), and the elapsed-time clock in the activity UI
 /// is a self-ticking `Text(timerInterval:)` — the system is never asked for per-second updates,
 /// staying far inside ActivityKit's update budget.
+///
+/// There is only ever one activity, the current flight's. Each activity carries its flight's id, and
+/// whenever the flight changes (a launch, a new flight, the end of one) the controller goes through
+/// everything ActivityKit holds for the app and ends what isn't that flight's. It used to adopt the
+/// first activity it found and end others only once per launch, and to leave an ended flight's on the
+/// Lock Screen for 15 minutes with its clock still running. A flight started in those 15 minutes
+/// showed two, a launch without a flight to resume cleaned up nothing, and a quit app left its
+/// flight's activity running. (Live Activities, 6.0)
 @MainActor
 final class FlightActivityController {
     static let shared = FlightActivityController()
@@ -21,6 +49,9 @@ final class FlightActivityController {
     #if canImport(ActivityKit)
     private var activity: Activity<FlightActivityAttributes>?
     private var lastState: FlightActivityAttributes.ContentState?
+    /// The flight the app's activities were last put in order for; `hasReconciled` false until the
+    /// first time. Reconciling again only when the flight changes keeps the per-fix `sync` cheap.
+    private var reconciledFlightId: UUID?
     private var hasReconciled = false
 
     /// How long a Live Activity may keep showing its last values before the system marks it stale.
@@ -37,39 +68,49 @@ final class FlightActivityController {
         ActivityContent(state: state, staleDate: Date().addingTimeInterval(Self.staleAfter))
     }
 
-    /// Adopt whatever ActivityKit already has running before deciding to start anything.
-    ///
-    /// The in-memory `activity` reference does NOT survive the process. A force-quit, a crash, or an
-    /// OS termination while a flight was active left the system Activity alive with nothing pointing
-    /// at it — so the next `sync` saw `activity == nil` and requested a SECOND one. The pilot ended
-    /// up with duplicate Live Activities, one of them frozen at the moment the app died and
-    /// unendable because no reference to it existed.
-    ///
-    /// Runs once per launch. Adopts the first activity and ends any extras, so a device that already
-    /// accumulated duplicates converges back to one.
-    private func reconcileWithSystem() {
-        guard !hasReconciled else { return }
-        hasReconciled = true
+    private static func isLive(_ state: ActivityState) -> Bool {
+        switch state {
+        case .active, .stale: return true
+        default: return false
+        }
+    }
 
-        let existing = Activity<FlightActivityAttributes>.activities
-        guard let first = existing.first else { return }
-        activity = first
-        // lastState stays nil so the next sync pushes a fresh update rather than diffing against a
-        // state this process never observed.
-        for orphan in existing.dropFirst() {
+    /// Put the app's activities in order for `flightId` (nil: no flight in progress): adopt the
+    /// flight's own if it is still running, end every other one at once.
+    ///
+    /// The in-memory `activity` reference does not survive the process: after a force-quit, a crash
+    /// or an OS termination mid-flight, the system activity lives on with nothing pointing at it.
+    /// The restored flight adopts it here; any other is ended.
+    private func reconcile(for flightId: UUID?) {
+        guard !hasReconciled || reconciledFlightId != flightId else { return }
+        hasReconciled = true
+        reconciledFlightId = flightId
+
+        let all = Activity<FlightActivityAttributes>.activities
+        let decision = LiveActivityTriage.decide(
+            all.map { .init(flightId: $0.attributes.flightId, isLive: Self.isLive($0.activityState)) },
+            currentFlightId: flightId
+        )
+        activity = decision.keep.map { all[$0] }
+        // Pushes a fresh update to an adopted activity rather than diffing against a state this
+        // process never observed.
+        lastState = nil
+        for index in decision.end {
+            let orphan = all[index]
             Task { await orphan.end(nil, dismissalPolicy: .immediate) }
         }
     }
 
     /// Reflect the current flight into the Live Activity: starts one when a flight is active,
     /// pushes an update when the observable state changed, ends it when the flight is over.
+    /// Also called once at launch, which tidies up after a process that didn't end its own.
     func sync(from appState: AppState) {
         guard ActivityAuthorizationInfo().areActivitiesEnabled else { return }
-        reconcileWithSystem()
         guard appState.isFlightActive, let flight = appState.currentFlight else {
             end()
             return
         }
+        reconcile(for: flight.id)
 
         let state = FlightActivityAttributes.ContentState(
             phaseName: appState.currentPhase.title,
@@ -81,13 +122,15 @@ final class FlightActivityController {
         )
 
         if let activity {
+            // Not re-requested once the pilot has swiped it away: this flight had its activity.
             guard state != lastState else { return }
             lastState = state
             Task { [content = content(state)] in await activity.update(content) }
         } else {
             let attributes = FlightActivityAttributes(
                 aircraftName: flight.displayName,
-                registration: flight.aircraftRegistration ?? flight.airplane
+                registration: flight.aircraftRegistration ?? flight.airplane,
+                flightId: flight.id
             )
             // A denied/failed request is silently tolerated — the activity is a convenience
             // surface, never load-bearing for the flight itself.
@@ -96,21 +139,37 @@ final class FlightActivityController {
         }
     }
 
-    /// End the activity, keeping the final state visible briefly before the system removes it.
+    /// The flight is over: every activity the app has goes, at once. The flight's summary is in the
+    /// app; one kept on the Lock Screen with its clock still running read as a flight in progress.
     func end() {
-        // Reconcile first: ending only the reference this process happens to hold would leave an
-        // activity adopted from a previous launch running forever.
-        reconcileWithSystem()
-        guard let activity else { return }
-        let finalContent = lastState.map { content($0) }
-        self.activity = nil
+        activity = nil
         lastState = nil
-        Task {
-            await activity.end(finalContent, dismissalPolicy: .after(Date(timeIntervalSinceNow: 15 * 60)))
+        hasReconciled = true
+        reconciledFlightId = nil
+        for leftover in Activity<FlightActivityAttributes>.activities {
+            Task { await leftover.end(nil, dismissalPolicy: .immediate) }
         }
+    }
+
+    /// The app is being quit: nothing will update the activity any more, so it goes now, flight or
+    /// not. A flight restored at the next launch gets a new one. This is the only chance there is,
+    /// so it waits up to two seconds for ActivityKit; a system kill never gets here, and the next
+    /// launch tidies up instead.
+    func endAllBeforeTermination() {
+        let all = Activity<FlightActivityAttributes>.activities
+        guard !all.isEmpty else { return }
+        activity = nil
+        lastState = nil
+        let done = DispatchSemaphore(value: 0)
+        Task.detached {
+            for leftover in all { await leftover.end(nil, dismissalPolicy: .immediate) }
+            done.signal()
+        }
+        _ = done.wait(timeout: .now() + 2)
     }
     #else
     func sync(from appState: AppState) {}
     func end() {}
+    func endAllBeforeTermination() {}
     #endif
 }

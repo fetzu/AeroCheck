@@ -12,6 +12,9 @@ struct SettingsView: View {
 
     /// When set, the hub opens directly to this section (e.g. the Home data-status dot → Data & Storage). (v4.1.0)
     var initialSection: Section? = nil
+    /// The Settings tab: no Done button, and a page requested elsewhere (`pendingSettingsSection`, the
+    /// Data chip on Today) opens when the tab shows. (v6.0 · P1)
+    var isEmbedded: Bool = false
 
     /// iPad two-column selection (defaults to the first section so the detail pane is never empty).
     @State private var selection: Section? = .aircraft
@@ -127,7 +130,11 @@ struct SettingsView: View {
                 }
             }
         }
-        .preferredColorScheme(.dark)
+        // Only as its own cover. Embedded in a ground tab, a preferred scheme would darken the whole
+        // window, and the root could no longer read the device's light/dark for Auto. (v6.0 · P1)
+        .preferredColorScheme(isEmbedded ? nil : .dark)
+        .onAppear { openPendingSection() }
+        .onChange(of: appState.pendingSettingsSection) { _, _ in openPendingSection() }
         .onAppear {
             guard !didApplyInitialSection, let initialSection else { return }
             didApplyInitialSection = true
@@ -180,10 +187,19 @@ struct SettingsView: View {
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             // Top-left, matching the app convention (Flight Log, flight-plan list). (v4 UI/UX Revamp)
-            ToolbarItem(placement: .cancellationAction) {
-                Button(L10n.Settings.done) { if let onClose { onClose() } else { dismiss() } }
+            if !isEmbedded {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button(L10n.Settings.done) { if let onClose { onClose() } else { dismiss() } }
+                }
             }
         }
+    }
+
+    /// Open the page another screen asked for, then forget the request.
+    private func openPendingSection() {
+        guard isEmbedded, let section = appState.pendingSettingsSection else { return }
+        appState.pendingSettingsSection = nil
+        if horizontalSizeClass == .regular { selection = section } else { path = [section] }
     }
 
 
@@ -607,7 +623,7 @@ struct TransactionDebugView: View {
                     VStack(spacing: 16) {
                         ProgressView()
                         Text("Loading transactions...")
-                            .font(.caption)
+                            .font(.aero(.caption))
                             .foregroundColor(.secondary)
                     }
                 } else if transactions.isEmpty {
@@ -616,9 +632,9 @@ struct TransactionDebugView: View {
                             .scaledFont(size: 60, relativeTo: .largeTitle)
                             .foregroundColor(.secondary)
                         Text("No Transactions Found")
-                            .font(.headline)
+                            .font(.aero(.headline))
                         Text("This could mean:\n• You're not signed into an Apple ID\n• No subscriptions have been purchased\n• Testing with StoreKit Configuration file")
-                            .font(.caption)
+                            .font(.aero(.caption))
                             .foregroundColor(.secondary)
                             .multilineTextAlignment(.center)
                             .padding(.horizontal, 32)
@@ -697,42 +713,42 @@ struct TransactionDebugRow: View {
         VStack(alignment: .leading, spacing: 8) {
             HStack {
                 Text(transaction.productID)
-                    .font(.system(.body, design: .monospaced))
+                    .font(.aero(.body, design: .monospaced))
                     .fontWeight(.semibold)
                 Spacer()
                 Text(transaction.statusText)
-                    .font(.caption)
+                    .font(.aero(.caption))
                     .fontWeight(.medium)
             }
 
             HStack {
                 Text("Environment")
-                    .font(.caption)
+                    .font(.aero(.caption))
                     .foregroundColor(.secondary)
                 Spacer()
                 Text(transaction.environmentText)
-                    .font(.caption)
+                    .font(.aero(.caption))
                     .foregroundColor(.secondary)
             }
 
             HStack {
                 Text("Purchased")
-                    .font(.caption)
+                    .font(.aero(.caption))
                     .foregroundColor(.secondary)
                 Spacer()
                 Text(transaction.purchaseDate.formatted(date: .abbreviated, time: .shortened))
-                    .font(.caption)
+                    .font(.aero(.caption))
                     .foregroundColor(.secondary)
             }
 
             if let expirationDate = transaction.expirationDate {
                 HStack {
                     Text("Expires")
-                        .font(.caption)
+                        .font(.aero(.caption))
                         .foregroundColor(.secondary)
                     Spacer()
                     Text(expirationDate.formatted(date: .abbreviated, time: .shortened))
-                        .font(.caption)
+                        .font(.aero(.caption))
                         .foregroundColor(transaction.isActive ? .green : .red)
                 }
             }
@@ -740,7 +756,7 @@ struct TransactionDebugRow: View {
             VStack(alignment: .leading, spacing: 4) {
                 HStack {
                     Text("Transaction ID")
-                        .font(.caption2)
+                        .font(.aero(.caption2))
                         .foregroundColor(.secondary)
                     Spacer()
                     Text(transaction.id)
@@ -757,7 +773,7 @@ struct TransactionDebugRow: View {
                 // suffix that is still enough to correlate with a server log line.
                 HStack {
                     Text("Original ID")
-                        .font(.caption2)
+                        .font(.aero(.caption2))
                         .foregroundColor(.secondary)
                     Spacer()
                     Text(SubscriptionManager.redactedIdentifier(transaction.originalID))
@@ -770,14 +786,14 @@ struct TransactionDebugRow: View {
 
             if let error = transaction.verificationError {
                 Text("Verification Error: \(error)")
-                    .font(.caption2)
+                    .font(.aero(.caption2))
                     .foregroundColor(.red)
                     .padding(.top, 4)
             }
 
             if let revocationDate = transaction.revocationDate {
                 Text("Revoked on \(revocationDate.formatted(date: .abbreviated, time: .shortened))")
-                    .font(.caption2)
+                    .font(.aero(.caption2))
                     .foregroundColor(.red)
                     .padding(.top, 4)
             }
@@ -802,9 +818,9 @@ struct SubscriptionDebugLogView: View {
                             .scaledFont(size: 60, relativeTo: .largeTitle)
                             .foregroundColor(.secondary)
                         Text("No Logs Yet")
-                            .font(.headline)
+                            .font(.aero(.headline))
                         Text("Logs will appear here when you sync with the server or perform subscription operations.")
-                            .font(.caption)
+                            .font(.aero(.caption))
                             .foregroundColor(.secondary)
                             .multilineTextAlignment(.center)
                             .padding(.horizontal, 32)
@@ -842,15 +858,15 @@ struct DebugLogRow: View {
         VStack(alignment: .leading, spacing: 4) {
             HStack {
                 Text(log.level.emoji)
-                    .font(.body)
+                    .font(.aero(.body))
                 Text(log.timestamp.formatted(date: .omitted, time: .standard))
-                    .font(.caption)
+                    .font(.aero(.caption))
                     .foregroundColor(.secondary)
                 Spacer()
             }
 
             Text(log.message)
-                .font(.system(.caption, design: .monospaced))
+                .font(.aero(.caption, design: .monospaced))
                 .foregroundColor(colorForLevel(log.level))
                 .fixedSize(horizontal: false, vertical: true)
         }
@@ -905,7 +921,7 @@ struct PremiumAircraftListView: View {
                     VStack(spacing: 16) {
                         ProgressView()
                         Text(L10n.Premium.loadingAircraft)
-                            .font(.caption)
+                            .font(.aero(.caption))
                             .foregroundColor(.secondary)
                     }
                     Spacer()
@@ -917,9 +933,9 @@ struct PremiumAircraftListView: View {
                         .scaledFont(size: 60, relativeTo: .largeTitle)
                         .foregroundColor(.secondary)
                     Text(L10n.Premium.noAircraftAvailable)
-                        .font(.headline)
+                        .font(.aero(.headline))
                     Text(L10n.Premium.checkBackLater)
-                        .font(.caption)
+                        .font(.aero(.caption))
                         .foregroundColor(.secondary)
                 }
                 .frame(maxWidth: .infinity)
@@ -931,9 +947,12 @@ struct PremiumAircraftListView: View {
                         ForEach(group.aircraft) { aircraft in
                             PremiumAircraftRow(
                                 aircraft: aircraft,
+                                canFly: aircraftDataService.canFly(aircraft),
                                 isSelected: appState.settings.selectedRemoteAircraftId == aircraft.id,
                                 onSelect: {
-                                    if aircraft.hasAccess {
+                                    // The same rule as the Aircraft tab and START FLIGHT: Pro active
+                                    // on the server AND on this device. (on-device review #4, point 1)
+                                    if aircraftDataService.canFly(aircraft) {
                                         // UX-14: route through the unified selection path (persists to
                                         // file + iCloud and reconciles the active checklist) instead of
                                         // a direct mutation + a dead UserDefaults write that was never
@@ -962,7 +981,7 @@ struct PremiumAircraftListView: View {
                         if !group.aeroclub.isEmpty {
                             HStack(spacing: 6) {
                                 Image(systemName: "building.2")
-                                    .font(.caption)
+                                    .font(.aero(.caption))
                                 Text(group.aeroclub)
                             }
                         }
@@ -975,7 +994,8 @@ struct PremiumAircraftListView: View {
         .background(Color.cockpitBackground.ignoresSafeArea())
         .navigationTitle(L10n.Settings.premiumAircrafts)
         .navigationBarTitleDisplayMode(.inline)
-        .preferredColorScheme(.dark)
+        // Pushed, never presented: it inherits the app's dark environment. A preferred scheme here
+        // would darken the whole window from inside the Aircraft tab. (v6.0 · P1)
         .onAppear {
             Task { await aircraftDataService.fetchAvailableAircraft() }
         }
@@ -994,6 +1014,8 @@ struct PremiumAircraftListView: View {
 
 struct PremiumAircraftRow: View {
     let aircraft: RemoteAircraftMetadata
+    /// `AircraftDataService.canFly(aircraft)`: whether the row offers the aircraft or the plans.
+    let canFly: Bool
     let isSelected: Bool
     let onSelect: () -> Void
 
@@ -1002,31 +1024,31 @@ struct PremiumAircraftRow: View {
             HStack(spacing: 16) {
                 ZStack {
                     Circle()
-                        .fill(aircraft.hasAccess ? Color.aviationGold.opacity(0.2) : Color.secondary.opacity(0.2))
+                        .fill(canFly ? Color.aviationGold.opacity(0.2) : Color.secondary.opacity(0.2))
                         .frame(width: 50, height: 50)
 
-                    Image(systemName: aircraft.hasAccess ? "airplane.circle.fill" : "lock.fill")
+                    Image(systemName: canFly ? "airplane.circle.fill" : "lock.fill")
                         .scaledFont(size: 24, relativeTo: .title2)
-                        .foregroundColor(aircraft.hasAccess ? .aviationGold : .secondary)
+                        .foregroundColor(canFly ? .aviationGold : .secondary)
                 }
 
                 VStack(alignment: .leading, spacing: 6) {
                     HStack(spacing: 6) {
                         Text(aircraft.registration)
-                            .font(.system(.body, design: .monospaced))
+                            .font(.aero(.body, design: .monospaced))
                             .fontWeight(.semibold)
                             .foregroundColor(.primary)
 
                         Image(systemName: "star.fill")
-                            .font(.caption)
+                            .font(.aero(.caption))
                             .foregroundColor(.aviationGold)
                     }
 
                     Text(aircraft.shortModelName)
-                        .font(.caption)
+                        .font(.aero(.caption))
                         .foregroundColor(.secondary)
 
-                    if !aircraft.hasAccess {
+                    if !canFly {
                         HStack(spacing: 4) {
                             Image(systemName: "lock.fill")
                                 .scaledFont(size: 10, relativeTo: .caption2)
@@ -1045,15 +1067,15 @@ struct PremiumAircraftRow: View {
                     }
                 }
 
-                if isSelected && aircraft.hasAccess {
+                if isSelected && canFly {
                     Image(systemName: "checkmark.circle.fill")
-                        .font(.title3)
+                        .font(.aero(.title3))
                         .foregroundColor(.aviationGold)
                 }
             }
             .padding(.vertical, 8)
         }
-        .opacity(aircraft.hasAccess ? 1.0 : 0.7)
+        .opacity(canFly ? 1.0 : 0.7)
     }
 }
 

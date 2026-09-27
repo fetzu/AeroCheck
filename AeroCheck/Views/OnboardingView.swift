@@ -106,7 +106,7 @@ struct OnboardingView: View {
                     Spacer()
                     Button(action: { showSkipConfirm = true }) {
                         Text(L10n.Onboarding.skip)
-                            .font(.subheadline.weight(.medium))
+                            .font(.aero(.subheadline).weight(.medium))
                             .foregroundColor(.secondaryText)
                             .padding(.horizontal, 16)
                             .padding(.vertical, 8)
@@ -183,11 +183,11 @@ struct OnboardingView: View {
 
             VStack(spacing: 6) {
                 Text(L10n.Onboarding.welcomeTitle)
-                    .font(.title.weight(.bold))
+                    .font(.aero(.title).weight(.bold))
                     .foregroundColor(.primaryText)
                     .multilineTextAlignment(.center)
                 Text(L10n.Onboarding.welcomeSubtitle)
-                    .font(.callout)
+                    .font(.aero(.callout))
                     .foregroundColor(.secondaryText)
                     .multilineTextAlignment(.center)
                     .padding(.horizontal, 32)
@@ -227,8 +227,8 @@ struct OnboardingView: View {
                 .foregroundColor(.aviationGold)
                 .frame(width: 24, height: 20)
                 .accessibilityHidden(true)
-            (Text(phase + "  ").font(.footnote.weight(.bold)).foregroundColor(.aviationGold)
-                + Text(text).font(.footnote).foregroundColor(.secondaryText))
+            (Text(phase + "  ").font(.aero(.footnote).weight(.bold)).foregroundColor(.aviationGold)
+                + Text(text).font(.aero(.footnote)).foregroundColor(.secondaryText))
                 .fixedSize(horizontal: false, vertical: true)
             Spacer(minLength: 0)
         }
@@ -264,7 +264,7 @@ struct OnboardingView: View {
                     }
                 }
                 Button(String(localized: "Not now")) { withAnimation { currentPage = 2 } }
-                    .font(.subheadline)
+                    .font(.aero(.subheadline))
                     .foregroundColor(.secondaryText)
                     .padding(.vertical, 4)
             }
@@ -285,10 +285,10 @@ struct OnboardingView: View {
                     .accessibilityHidden(true)
                 VStack(alignment: .leading, spacing: 3) {
                     Text(String(localized: "Maps & Data"))
-                        .font(.title3.weight(.semibold))
+                        .font(.aero(.title3).weight(.semibold))
                         .foregroundColor(.primaryText)
                     Text(String(localized: "Download what you'll fly over — offline-ready."))
-                        .font(.footnote)
+                        .font(.aero(.footnote))
                         .foregroundColor(.secondaryText)
                         .fixedSize(horizontal: false, vertical: true)
                 }
@@ -324,7 +324,7 @@ struct OnboardingView: View {
             }
 
             Text(String(localized: "Add more countries anytime in Settings → Data."))
-                .font(.caption2)
+                .font(.aero(.caption2))
                 .foregroundColor(.dimText)
                 .padding(.top, 10)
 
@@ -355,7 +355,7 @@ struct OnboardingView: View {
         let name = Locale.current.localizedString(forRegionCode: effectiveHome) ?? effectiveHome
         return HStack(spacing: 6) {
             Image(systemName: "location.fill").scaledFont(size: 11, weight: .semibold, relativeTo: .caption2)
-            Text(name).font(.caption.weight(.medium)).lineLimit(1)
+            Text(name).font(.aero(.caption).weight(.medium)).lineLimit(1)
         }
         .foregroundColor(.aviationGreen)
         .padding(.horizontal, 10)
@@ -377,11 +377,11 @@ struct OnboardingView: View {
                     .foregroundColor(done ? .aviationGreen : .aviationGold)
                     .accessibilityHidden(true)
                 Text(String(localized: "Airspace, navaids & reporting points"))
-                    .font(.subheadline.weight(.medium))
+                    .font(.aero(.subheadline).weight(.medium))
                     .foregroundColor(.primaryText)
                 Spacer()
                 Text(String(localized: "Recommended"))
-                    .font(.caption2.weight(.medium))
+                    .font(.aero(.caption2).weight(.medium))
                     .foregroundColor(.black)
                     .padding(.horizontal, 8)
                     .padding(.vertical, 3)
@@ -395,7 +395,7 @@ struct OnboardingView: View {
                         .frame(maxWidth: 160)
                 } else if !done {
                     Text(String(localized: "≈ \(openAIPEstimateMB) MB"))
-                        .font(.caption2)
+                        .font(.aero(.caption2))
                         .foregroundColor(.dimText)
                 }
                 Spacer()
@@ -405,7 +405,7 @@ struct OnboardingView: View {
                     HStack(spacing: 6) {
                         Image(systemName: done ? "checkmark.circle.fill" : "arrow.down.circle").scaledFont(size: 14, relativeTo: .subheadline)
                         Text(done ? L10n.Onboarding.downloaded : String(localized: "Download"))
-                            .font(.subheadline.weight(.medium))
+                            .font(.aero(.subheadline).weight(.medium))
                     }
                     .foregroundColor(.black)
                     .padding(.horizontal, 16)
@@ -441,7 +441,7 @@ struct OnboardingView: View {
     private func countryChip(_ code: String, isHome: Bool) -> some View {
         let selected = isHome || selectedCountries.contains(code)
         return Text(isHome ? "\(code) ✓" : (selected ? code : "+ \(code)"))
-            .font(.caption.weight(.medium))
+            .font(.aero(.caption).weight(.medium))
             .foregroundColor(selected ? .black : .secondaryText)
             .padding(.horizontal, 9)
             .padding(.vertical, 4)
@@ -500,14 +500,11 @@ struct OnboardingView: View {
         ) {
             VStack(spacing: 11) {
                 LazyVGrid(columns: toggleColumns, spacing: 11) {
-                    toggleRow("graduationcap", .altimeterBlue,
-                              String(localized: "Learning mode"),
-                              String(localized: "Show memorised items while you learn"),
-                              Bindable(appState).settings.learningMode)
-                    toggleRow("arrow.triangle.2.circlepath", .altimeterBlue,
-                              String(localized: "Circuit mode"),
-                              String(localized: "Streamlined pattern-training flow"),
-                              Bindable(appState).settings.enableCircuitMode)
+                    toggleRow("brain.head.profile", .altimeterBlue,
+                              L10n.Settings.memoryTest,
+                              L10n.Settings.memoryTestOnboarding,
+                              Binding(get: { !appState.settings.learningMode },
+                                      set: { appState.settings.learningMode = !$0 }))
                 }
                 languageRow
             }
@@ -534,7 +531,7 @@ struct OnboardingView: View {
                            String(localized: "The 16-phase checklist you already know"))
                 chapterRow("checkmark.shield", String(localized: "Close"),
                            String(localized: "Close the flight plan, fees, the logbook line"))
-                Text(String(localized: "Plan a flight from the Home screen. You can always start flying without one."))
+                Text(String(localized: "Plan a flight from Today. You can always start flying without one."))
                     .scaledFont(size: 12, relativeTo: .caption)
                     .foregroundColor(.dimText)
                     .fixedSize(horizontal: false, vertical: true)
@@ -649,7 +646,7 @@ struct OnboardingView: View {
             Spacer()
             pageIcon("airplane.circle.fill", tint: .aviationGold, iconSize: 46)
             Text(L10n.Onboarding.readyTitle)
-                .font(.largeTitle.weight(.bold))
+                .font(.aero(.largeTitle).weight(.bold))
                 .foregroundColor(.primaryText)
                 .multilineTextAlignment(.center)
             pageBody(L10n.Onboarding.readyBody)
@@ -678,10 +675,10 @@ struct OnboardingView: View {
                     .accessibilityHidden(true)
                 VStack(alignment: .leading, spacing: 3) {
                     Text(title)
-                        .font(.title3.weight(.semibold))
+                        .font(.aero(.title3).weight(.semibold))
                         .foregroundColor(.primaryText)
                     Text(subtitle)
-                        .font(.footnote)
+                        .font(.aero(.footnote))
                         .foregroundColor(.secondaryText)
                         .fixedSize(horizontal: false, vertical: true)
                 }
@@ -720,14 +717,14 @@ struct OnboardingView: View {
 
     private func pageTitle(_ text: String) -> some View {
         Text(text)
-            .font(.title.weight(.bold))
+            .font(.aero(.title).weight(.bold))
             .foregroundColor(.primaryText)
             .multilineTextAlignment(.center)
     }
 
     private func pageBody(_ text: String) -> some View {
         Text(text)
-            .font(.callout)
+            .font(.aero(.callout))
             .foregroundColor(.secondaryText)
             .multilineTextAlignment(.center)
             .padding(.horizontal, 40)
@@ -742,7 +739,7 @@ struct OnboardingView: View {
                 .frame(width: 24)
                 .accessibilityHidden(true)
             Text(text)
-                .font(.callout)
+                .font(.aero(.callout))
                 .foregroundColor(.primaryText)
             Spacer(minLength: 0)
         }
@@ -759,11 +756,11 @@ struct OnboardingView: View {
                 .accessibilityHidden(true)
             VStack(alignment: .leading, spacing: 2) {
                 Text(title)
-                    .font(.subheadline.weight(.medium))
+                    .font(.aero(.subheadline).weight(.medium))
                     .foregroundColor(.primaryText)
                     .lineLimit(2)
                 Text(subtitle)
-                    .font(.caption2)
+                    .font(.aero(.caption2))
                     .foregroundColor(.dimText)
                     .fixedSize(horizontal: false, vertical: true)
             }
@@ -794,10 +791,10 @@ struct OnboardingView: View {
                 .accessibilityHidden(true)
             VStack(alignment: .leading, spacing: 2) {
                 Text(String(localized: "Checklist language"))
-                    .font(.subheadline.weight(.medium))
+                    .font(.aero(.subheadline).weight(.medium))
                     .foregroundColor(.primaryText)
                 Text(String(localized: "Auto follows your device language"))
-                    .font(.caption2)
+                    .font(.aero(.caption2))
                     .foregroundColor(.dimText)
                     .lineLimit(1)
             }
@@ -806,7 +803,7 @@ struct OnboardingView: View {
                 ForEach(ChecklistLanguage.availableLanguages) { lang in
                     Button { appState.settings.checklistLanguage = lang } label: {
                         Text(langShort(lang))
-                            .font(.caption.weight(.medium))
+                            .font(.aero(.caption).weight(.medium))
                             .lineLimit(1)
                             .fixedSize()
                             .foregroundColor(appState.settings.checklistLanguage == lang ? .black : .secondaryText)
@@ -845,7 +842,7 @@ struct OnboardingView: View {
         Button(action: action) {
             HStack(spacing: 8) {
                 Text(title)
-                    .font(.body.weight(.semibold))
+                    .font(.aero(.body).weight(.semibold))
                 Image(systemName: icon)
                     .scaledFont(size: 16, weight: .semibold, relativeTo: .body)
                     .accessibilityHidden(true)
@@ -864,7 +861,7 @@ struct OnboardingView: View {
         Button(action: action) {
             HStack(spacing: 8) {
                 Text(title)
-                    .font(.body.weight(.semibold))
+                    .font(.aero(.body).weight(.semibold))
                 Image(systemName: icon)
                     .scaledFont(size: 16, weight: .semibold, relativeTo: .body)
                     .accessibilityHidden(true)
@@ -886,7 +883,7 @@ struct OnboardingView: View {
         Button(action: action) {
             HStack(spacing: 7) {
                 Text(title)
-                    .font(.body.weight(.semibold))
+                    .font(.aero(.body).weight(.semibold))
                 Image(systemName: icon)
                     .scaledFont(size: 15, weight: .semibold, relativeTo: .subheadline)
                     .accessibilityHidden(true)
@@ -936,7 +933,7 @@ struct OnboardingView: View {
 
                 VStack(alignment: .leading, spacing: 4) {
                     Text(title)
-                        .font(.subheadline.weight(.medium))
+                        .font(.aero(.subheadline).weight(.medium))
                         .foregroundColor(.primaryText)
 
                     if isDownloading {
@@ -944,11 +941,11 @@ struct OnboardingView: View {
                             .tint(.aviationGold)
                     } else if isCompleted {
                         Text(L10n.Onboarding.downloaded)
-                            .font(.caption)
+                            .font(.aero(.caption))
                             .foregroundColor(.aviationGreen)
                     } else if let detail {
                         Text(detail)
-                            .font(.caption2)
+                            .font(.aero(.caption2))
                             .foregroundColor(.dimText)
                     }
                 }

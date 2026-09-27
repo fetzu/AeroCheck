@@ -54,10 +54,10 @@ struct FlightReconciliationView: View {
     private var header: some View {
         VStack(alignment: .leading, spacing: 6) {
             Text(L10n.Reconciliation.title)
-                .font(.system(size: 24, weight: .bold, design: .monospaced))
+                .font(.aero(size: 24, weight: .bold, design: .monospaced))
                 .foregroundColor(.primaryText)
             Text(L10n.Reconciliation.subtitle)
-                .font(.system(size: 14))
+                .font(.aero(size: 14))
                 .foregroundColor(.secondaryText)
                 .fixedSize(horizontal: false, vertical: true)
         }
@@ -73,7 +73,7 @@ struct FlightReconciliationView: View {
         let value = row.wrappedValue
         return HStack(spacing: 12) {
             Image(systemName: icon(for: value.type))
-                .font(.system(size: 20))
+                .font(.aero(size: 20))
                 .foregroundColor(color(for: value.type))
                 .frame(width: 30)
 
@@ -90,20 +90,20 @@ struct FlightReconciliationView: View {
                 } label: {
                     HStack(spacing: 5) {
                         Text(value.type.rawValue)
-                            .font(.system(size: 16, weight: .semibold))
+                            .font(.aero(size: 16, weight: .semibold))
                             .foregroundColor(.primaryText)
                         Image(systemName: "chevron.up.chevron.down")
-                            .font(.system(size: 10, weight: .semibold))
+                            .font(.aero(size: 10, weight: .semibold))
                             .foregroundColor(.dimText)
                     }
                 }
                 HStack(spacing: 8) {
                     Text(Self.timeFormatter.string(from: value.timestamp))
-                        .font(.system(size: 12, design: .monospaced))
+                        .font(.aero(size: 12, design: .monospaced))
                         .foregroundColor(.secondaryText)
                     if let ident = value.airportIdent {
                         Text(ident)
-                            .font(.system(size: 12, design: .monospaced))
+                            .font(.aero(size: 12, design: .monospaced))
                             .foregroundColor(.dimText)
                     }
                     badge(for: value.source)
@@ -118,7 +118,7 @@ struct FlightReconciliationView: View {
                     row.wrappedValue.included.toggle()
                 } label: {
                     Image(systemName: value.included ? "checkmark.circle.fill" : "circle")
-                        .font(.system(size: 24))
+                        .font(.aero(size: 24))
                         .foregroundColor(value.included ? .aviationGreen : .dimText)
                 }
                 .accessibilityLabel(value.included
@@ -150,7 +150,7 @@ struct FlightReconciliationView: View {
 
     private func badgeLabel(_ text: String, color: Color) -> some View {
         Text(text)
-            .font(.system(size: 10, weight: .semibold))
+            .font(.aero(size: 10, weight: .semibold))
             .foregroundColor(color)
             .padding(.horizontal, 7)
             .padding(.vertical, 2)
@@ -160,10 +160,10 @@ struct FlightReconciliationView: View {
     private var blockTimeNote: some View {
         HStack(spacing: 10) {
             Image(systemName: "clock.arrow.circlepath")
-                .font(.system(size: 15))
+                .font(.aero(size: 15))
                 .foregroundColor(.aviationGreen)
             Text(L10n.Reconciliation.blockBackfill)
-                .font(.system(size: 12))
+                .font(.aero(size: 12))
                 .foregroundColor(.secondaryText)
                 .fixedSize(horizontal: false, vertical: true)
             Spacer(minLength: 0)
@@ -182,7 +182,7 @@ struct FlightReconciliationView: View {
                 onApply(applied)
             } label: {
                 Text(L10n.Reconciliation.apply)
-                    .font(.headline)
+                    .font(.aero(.headline))
                     .foregroundColor(.black)
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 14)
@@ -190,7 +190,7 @@ struct FlightReconciliationView: View {
             }
             Button(action: onKeep) {
                 Text(L10n.Reconciliation.keepRecorded)
-                    .font(.headline)
+                    .font(.aero(.headline))
                     .foregroundColor(.secondaryText)
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 14)

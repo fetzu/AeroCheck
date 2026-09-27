@@ -153,8 +153,24 @@ struct FlightThread: Codable, Identifiable, Equatable, Sendable {
     /// Route label captured at creation ("LSZQ → LSGY"), so the thread still reads correctly after the
     /// plan it came from is edited or deleted.
     var routeLabel: String
+    /// The pilot's name for the flight, whatever its ends: "Rhine valley, home". Optional, so
+    /// threads written before decode unchanged. (on-device review #4)
+    var name: String?
     var aircraftRegistration: String?
     var scheduledDeparture: Date?
+
+    /// What the flight is called on screen: the pilot's name, else the route label.
+    var displayName: String {
+        let trimmed = name?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        return trimmed.isEmpty ? routeLabel : trimmed
+    }
+
+    /// Planned for the day of `now`, or not dated at all: START FLIGHT is the flight page's main
+    /// button. Planned for another day, it starts after a question. (round 6)
+    func isDueToday(now: Date = Date(), calendar: Calendar = .current) -> Bool {
+        guard let scheduledDeparture else { return true }
+        return calendar.isDate(scheduledDeparture, inSameDayAs: now)
+    }
 
     /// ISO-2 countries the route actually touches, recorded when the tasks are generated.
     ///
@@ -220,11 +236,23 @@ struct FlightThread: Codable, Identifiable, Equatable, Sendable {
     }
 
     /// The single next thing to do, in chapter order — what the Home strip advertises.
-    var nextTask: ThreadTask? {
+    var nextTask: ThreadTask? { nextTask(skipping: []) }
+
+    /// The next task for the flight page's NEXT card. The same as `nextTask`, except while the red
+    /// open-plan card is up: that card already says "close your flight plan", with the call and the
+    /// tick, so a gold NEXT card saying it again only pushed the rest of the page down. It moves on
+    /// to the task after, or to nothing. Home keeps `nextTask`: its strip has no red card beside it.
+    var nextTaskBesideOpenFlightPlan: ThreadTask? {
+        nextTask(skipping: hasOpenFlightPlanAfterFlight ? [.flightPlanClosed] : [])
+    }
+
+    private func nextTask(skipping keys: Set<ThreadTaskKey>) -> ThreadTask? {
         for chapter in ThreadChapter.taskBearing {
             // Before the flight, the close chapter isn't the pilot's problem yet.
             if chapter == .close && state != .closeOut && state != .done { continue }
-            if let task = tasks(in: chapter).first(where: { $0.state == .pending }) { return task }
+            if let task = tasks(in: chapter).first(where: { $0.state == .pending && !keys.contains($0.key) }) {
+                return task
+            }
         }
         return nil
     }
@@ -233,6 +261,12 @@ struct FlightThread: Codable, Identifiable, Equatable, Sendable {
     /// notification; deliberately independent of the task's own state so a stale tick can't mute it.
     var hasOpenFlightPlan: Bool {
         flightPlanFiledAt != nil && flightPlanClosedAt == nil
+    }
+
+    /// A filed plan still open once the flight is over: what puts the red card on the flight page.
+    /// Before the flight an open plan is the normal state of a well-prepared one, not an alarm.
+    var hasOpenFlightPlanAfterFlight: Bool {
+        hasOpenFlightPlan && state == .closeOut
     }
 
     var isFinished: Bool { state == .done }

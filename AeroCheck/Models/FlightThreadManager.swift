@@ -464,6 +464,28 @@ class FlightThreadManager: ObservableObject {
     }
 
     /// Rename a flight after its route changed ends — a stop added, two legs joined.
+    /// The pilot's name for a flight; empty goes back to its route label. (on-device review #4)
+    func renameFlight(_ threadId: UUID, to name: String) {
+        guard let index = threads.firstIndex(where: { $0.id == threadId }) else { return }
+        let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        let new: String? = trimmed.isEmpty ? nil : trimmed
+        guard threads[index].name != new else { return }
+        threads[index].name = new
+        threads[index].touch()
+        saveThreads()
+    }
+
+    /// The pilot's name for a trip; empty goes back to its aerodromes. (on-device review #4)
+    func renameTrip(_ tripId: UUID, to name: String) {
+        guard let index = trips.firstIndex(where: { $0.id == tripId }) else { return }
+        let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        let new: String? = trimmed.isEmpty ? nil : trimmed
+        guard trips[index].name != new else { return }
+        trips[index].name = new
+        trips[index].updatedAt = Date()
+        saveTrips()
+    }
+
     func updateRouteLabel(_ label: String, threadId: UUID) {
         guard let index = threads.firstIndex(where: { $0.id == threadId }),
               threads[index].routeLabel != label else { return }
@@ -903,6 +925,21 @@ class FlightThreadManager: ObservableObject {
             saveCurrentThreadPointer()
         }
         if openFlightPlanNotice?.threadId == threadId { openFlightPlanNotice = nil }
+    }
+
+    /// The plan a cancelled flight takes with it: the copy of the route made for the flight
+    /// (`flightOwned`, R1), which nothing else can reach once the flight is gone. Never a route from
+    /// the library, and never a copy another flight or a logbook entry still points at (the logbook
+    /// exports it with the flight). Deleting the flight used to leave every such copy behind, hidden
+    /// from Routes for good. (v6.0 review)
+    nonisolated static func planToDelete(withThread threadId: UUID, threads: [FlightThread],
+                                         plans: [FlightPlan], logbookPlanIds: Set<UUID>) -> FlightPlan? {
+        guard let planId = threads.first(where: { $0.id == threadId })?.flightPlanId,
+              let plan = plans.first(where: { $0.id == planId }), plan.flightOwned == true,
+              !threads.contains(where: { $0.id != threadId && $0.flightPlanId == planId }),
+              !logbookPlanIds.contains(planId)
+        else { return nil }
+        return plan
     }
 
     func setCurrentThread(_ threadId: UUID?) {

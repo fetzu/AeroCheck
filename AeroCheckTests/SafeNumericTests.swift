@@ -62,4 +62,10 @@ final class SafeNumericTests: XCTestCase {
         XCTAssertTrue(PlausibleRange.isPlausible(60, in: PlausibleRange.speedMPS))
         XCTAssertTrue(PlausibleRange.isPlausible(2_500, in: PlausibleRange.altitudeMeters))
     }
+
+    /// Double(Int.max) is 2^63, one past Int.max: it has to be refused, not converted. (v6.0 review)
+    func testSafeIntRefusesTwoToTheSixtyThird() {
+        XCTAssertNil(Double(Int.max).safeInt)
+        XCTAssertNotNil(Double(Int.max).nextDown.safeInt)
+    }
 }

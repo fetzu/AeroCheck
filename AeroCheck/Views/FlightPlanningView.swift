@@ -19,6 +19,8 @@ struct FlightPlanningView: View {
     @EnvironmentObject var openAIPDataService: OpenAIPDataService
     @EnvironmentObject var locationManager: LocationManager
     @Environment(\.dismiss) var dismiss
+    /// Shown in the Plan tab's Routes section: no Done button. (v6.0 · P1)
+    var isEmbedded: Bool = false
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
 
     /// The plan being edited in the map builder (opened on tap, or for a new plan). (flight-plan revamp)
@@ -37,26 +39,56 @@ struct FlightPlanningView: View {
     @State private var showingImportError = false
     /// Optional aircraft filter (registration); nil = all. (v4 UI/UX Revamp — user feedback)
     @State private var selectedAircraft: String? = nil
+    /// The search over the routes: name, waypoints, aircraft. (on-device review #4)
+    @State private var searchText = ""
+    /// Archived routes instead of the others. (on-device review #4)
+    @State private var showsArchived = false
+    /// The route being renamed, and the name being typed.
+    @State private var renamingPlan: FlightPlan?
+    @State private var renameText = ""
+    /// ICAO codes offered for a route's place names, on import or from the context menu.
+    @State private var icaoOffer: ICAOOffer?
+    @State private var icaoNoneFound = false
+
+    struct ICAOOffer: Identifiable {
+        let planId: UUID
+        let renames: [ICAORename]
+        var id: UUID { planId }
+    }
 
     enum ExportFormat: String, CaseIterable {
         case gpx = "GPX"
         case json = "JSON"
     }
 
-    /// Distinct aircraft (registration) across all plans, most-recent first.
+    /// Distinct aircraft (registration) across the routes, most-recent first.
     private var availableAircraft: [String] {
         var seen: [String] = []
-        for plan in flightPlanManager.flightPlans {
+        for plan in routes {
             let reg = plan.aircraftRegistration
             if !reg.isEmpty && !seen.contains(reg) { seen.append(reg) }
         }
         return seen
     }
 
-    /// The "all plans" list, scoped to the aircraft filter (the active plan stays pinned regardless).
+    /// The pilot's routes: not the plans planned flights made for themselves, which live with their
+    /// flights. (on-device review #4, R1)
+    private var routes: [FlightPlan] {
+        flightPlanManager.flightPlans.filter { plan in
+            RouteLibrary.isRoute(plan, followedSince: threadManager.threads.first { $0.flightPlanId == plan.id }?.createdAt)
+        }
+    }
+
+    private var archivedCount: Int { routes.filter { $0.archivedAt != nil }.count }
+
+    /// The list: archived or not, then the aircraft filter, then the search (the active plan stays
+    /// pinned above regardless).
     private var filteredPlans: [FlightPlan] {
-        guard let selectedAircraft else { return flightPlanManager.flightPlans }
-        return flightPlanManager.flightPlans.filter { $0.aircraftRegistration == selectedAircraft }
+        routes.filter { plan in
+            (plan.archivedAt != nil) == showsArchived
+                && (selectedAircraft == nil || plan.aircraftRegistration == selectedAircraft)
+                && RouteLibrary.matches(plan, query: searchText)
+        }
     }
 
     var body: some View {
@@ -67,7 +99,12 @@ struct FlightPlanningView: View {
                 // Single full-width card list — tapping a card opens the builder directly (which is
                 // itself the iPad two-column map+list), so there's no separate read-only detail pane to
                 // navigate through. (flight-plan revamp)
-                listNavStack { plansList() }
+                listNavStack {
+                    VStack(spacing: 0) {
+                        libraryBar
+                        plansList()
+                    }
+                }
             }
         }
         .alert(L10n.Nav.activateEmptyTitle, isPresented: $showingEmptyActivateAlert) {
@@ -102,6 +139,32 @@ struct FlightPlanningView: View {
         } message: {
             Text(L10n.Nav.deleteFlightPlanMessage)
         }
+        .alert(L10n.Routes.renameTitle, isPresented: Binding(
+            get: { renamingPlan != nil },
+            set: { if !$0 { renamingPlan = nil } }
+        )) {
+            TextField(L10n.Routes.namePlaceholder, text: $renameText)
+            Button(L10n.Button.cancel, role: .cancel) { renamingPlan = nil }
+            Button(L10n.Routes.rename) {
+                if let plan = renamingPlan { flightPlanManager.rename(plan, to: renameText) }
+                renamingPlan = nil
+            }
+        } message: {
+            Text(L10n.Routes.renameMessage)
+        }
+        .sheet(item: $icaoOffer) { offer in
+            ICAONamesSheet(renames: offer.renames) { chosen in
+                if let plan = flightPlanManager.flightPlans.first(where: { $0.id == offer.planId }), !chosen.isEmpty {
+                    flightPlanManager.updateFlightPlan(ICAONaming.apply(chosen, to: plan))
+                }
+                icaoOffer = nil
+            }
+        }
+        .alert(L10n.ICAONames.title, isPresented: $icaoNoneFound) {
+            Button("OK", role: .cancel) { }
+        } message: {
+            Text(L10n.ICAONames.noneFound)
+        }
         .alert(L10n.Nav.importError, isPresented: $showingImportError) {
             Button("OK", role: .cancel) { }
         } message: {
@@ -124,29 +187,43 @@ struct FlightPlanningView: View {
                 AppLog.general.debugLine("Export failed: \(error.localizedDescription)")
             }
         }
-        .preferredColorScheme(.dark)
+        // Only as its own cover. Embedded in a ground tab, a preferred scheme would darken the whole
+        // window, and the root could no longer read the device's light/dark for Auto. (v6.0 · P1)
+        .preferredColorScheme(isEmbedded ? nil : .dark)
     }
 
     /// Wraps the list (or empty state) in its own NavigationStack so its toolbar (Done + filter + add)
     /// lives in the LEFT panel's nav bar, not spanning both columns. (v4 UI/UX Revamp — user feedback)
+    /// Embedded in the Plan tab it has no stack of its own: the tab's holds it, and the filter and +
+    /// join the tab bar's row. A second stack there dragged the Plan picker up under the tabs.
+    /// (on-device review #1, G-07)
+    @ViewBuilder
     private func listNavStack<Content: View>(@ViewBuilder content: () -> Content) -> some View {
-        NavigationStack {
-            ZStack {
-                Color.cockpitBackground.ignoresSafeArea()
-                content()
-            }
-            .navigationTitle(L10n.Nav.flightPlans)
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar { listToolbar }
+        if isEmbedded {
+            listPanel(content())
+        } else {
+            NavigationStack { listPanel(content()) }
         }
+    }
+
+    private func listPanel<Content: View>(_ content: Content) -> some View {
+        ZStack {
+            Color.cockpitBackground.ignoresSafeArea()
+            content
+        }
+        .navigationTitle(isEmbedded ? "" : L10n.Nav.flightPlans)
+        .navigationBarTitleDisplayMode(.inline)
+        .toolbar { listToolbar }
     }
 
     /// The list actions — they scope the list, so they belong to its panel: Done (top-left),
     /// the aircraft filter, and the add/import menu.
     @ToolbarContentBuilder
     private var listToolbar: some ToolbarContent {
-        ToolbarItem(placement: .cancellationAction) {
-            Button(L10n.Button.done) { dismiss() }
+        if !isEmbedded {
+            ToolbarItem(placement: .cancellationAction) {
+                Button(L10n.Button.done) { dismiss() }
+            }
         }
 
         if availableAircraft.count > 1 {
@@ -216,12 +293,73 @@ struct FlightPlanningView: View {
         }
     }
 
+    // MARK: - Search and archive (on-device review #4)
+
+    /// The search field, and Routes | Archived once there's anything archived.
+    private var libraryBar: some View {
+        HStack(spacing: 10) {
+            HStack(spacing: 8) {
+                Image(systemName: "magnifyingglass")
+                    .foregroundColor(.dimText)
+                TextField(L10n.Routes.searchPrompt, text: $searchText)
+                    .textInputAutocapitalization(.never)
+                    .autocorrectionDisabled()
+                    .submitLabel(.search)
+                if !searchText.isEmpty {
+                    Button { searchText = "" } label: {
+                        Image(systemName: "xmark.circle.fill").foregroundColor(.dimText)
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel(L10n.Button.clear)
+                }
+            }
+            .scaledFont(size: 16, relativeTo: .body)
+            .padding(.horizontal, 12)
+            .frame(minHeight: 44)
+            .background(RoundedRectangle(cornerRadius: 12).fill(Color.cardBackground))
+
+            if archivedCount > 0 || showsArchived {
+                Picker(L10n.Routes.scope, selection: $showsArchived) {
+                    Text(L10n.Routes.routesScope).tag(false)
+                    Text(L10n.Routes.archivedScope(archivedCount)).tag(true)
+                }
+                .pickerStyle(.segmented)
+                .frame(maxWidth: horizontalSizeClass == .compact ? 170 : 260)
+            }
+        }
+        .padding(.horizontal, 16)
+        .padding(.top, 8)
+        .padding(.bottom, 4)
+    }
+
+    /// What the list says when the search or the scope leaves nothing.
+    @ViewBuilder
+    private var noMatch: some View {
+        if filteredPlans.isEmpty {
+            Text(!searchText.isEmpty ? L10n.Routes.noMatch(searchText)
+                 : showsArchived ? L10n.Routes.noArchived
+                 : archivedCount > 0 ? L10n.Routes.allArchived
+                 : L10n.Routes.noneYet)
+                .scaledFont(size: 15, relativeTo: .subheadline)
+                .foregroundColor(.secondaryText)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.vertical, 12)
+                .listRowBackground(Color.clear)
+                .listRowSeparator(.hidden)
+        }
+    }
+
+    private func startRenaming(_ plan: FlightPlan) {
+        renameText = plan.name
+        renamingPlan = plan
+    }
+
     // MARK: - Plans List
 
     private func plansList() -> some View {
         let list = List {
             // Active flight plan section
-            if let activePlan = flightPlanManager.activeFlightPlan {
+            if let activePlan = flightPlanManager.activeFlightPlan, !showsArchived {
                 Section {
                     ActiveFlightPlanRow(plan: activePlan)
                         .onTapGesture {
@@ -243,7 +381,8 @@ struct FlightPlanningView: View {
                         isActive: plan.id == flightPlanManager.activeFlightPlan?.id,
                         loadPriority: index,
                         onActivate: { activate(plan) },
-                        onDeactivate: { requestDeactivate() }
+                        onDeactivate: { requestDeactivate() },
+                        isArchived: plan.archivedAt != nil
                     )
                     .id("\(plan.id)-\(plan.waypoints.count)-\(plan.updatedAt)")
                     .listRowBackground(Color.clear)
@@ -254,11 +393,22 @@ struct FlightPlanningView: View {
                         editingPlan = plan
                     }
                     .swipeActions(edge: .trailing, allowsFullSwipe: false) {
-                        Button(role: .destructive) {
-                            planToDelete = plan
-                            showingDeleteAlert = true
-                        } label: {
-                            Label(L10n.Button.delete, systemImage: "trash")
+                        // Archive first: the way to clear the list without losing a route.
+                        // (on-device review #4)
+                        if plan.archivedAt == nil {
+                            Button {
+                                flightPlanManager.archive(plan)
+                            } label: {
+                                Label(L10n.Routes.archive, systemImage: "archivebox")
+                            }
+                            .tint(.indigo)
+                        } else {
+                            Button {
+                                flightPlanManager.unarchive(plan)
+                            } label: {
+                                Label(L10n.Routes.unarchive, systemImage: "tray.and.arrow.up")
+                            }
+                            .tint(.indigo)
                         }
 
                         Button {
@@ -267,6 +417,13 @@ struct FlightPlanningView: View {
                             Label(L10n.Nav.duplicate, systemImage: "doc.on.doc")
                         }
                         .tint(.aviationBlue)
+
+                        Button(role: .destructive) {
+                            planToDelete = plan
+                            showingDeleteAlert = true
+                        } label: {
+                            Label(L10n.Button.delete, systemImage: "trash")
+                        }
                     }
                     .swipeActions(edge: .leading, allowsFullSwipe: true) {
                         if plan.id != flightPlanManager.activeFlightPlan?.id {
@@ -300,6 +457,20 @@ struct FlightPlanningView: View {
                             editingPlan = plan
                         } label: {
                             Label(L10n.Nav.edit, systemImage: "pencil")
+                        }
+
+                        Button {
+                            startRenaming(plan)
+                        } label: {
+                            Label(L10n.Routes.rename, systemImage: "character.cursor.ibeam")
+                        }
+
+                        if plan.waypoints.contains(where: { !$0.name.isEmpty && !FlightPlanGPXParser.isIdentLike($0.name) }) {
+                            Button {
+                                offerICAOCodes(for: plan, fileIdents: [:], whenNone: true)
+                            } label: {
+                                Label(L10n.ICAONames.menu, systemImage: "textformat.abc")
+                            }
                         }
 
                         if plan.id != flightPlanManager.activeFlightPlan?.id {
@@ -355,6 +526,20 @@ struct FlightPlanningView: View {
                             Label(L10n.Nav.duplicate, systemImage: "doc.on.doc")
                         }
 
+                        if plan.archivedAt == nil {
+                            Button {
+                                flightPlanManager.archive(plan)
+                            } label: {
+                                Label(L10n.Routes.archive, systemImage: "archivebox")
+                            }
+                        } else {
+                            Button {
+                                flightPlanManager.unarchive(plan)
+                            } label: {
+                                Label(L10n.Routes.unarchive, systemImage: "tray.and.arrow.up")
+                            }
+                        }
+
                         Divider()
 
                         Button(role: .destructive) {
@@ -365,14 +550,13 @@ struct FlightPlanningView: View {
                         }
                     }
                 }
-                .onDelete { offsets in
-                    // Map filtered indices back to plans (indices into filteredPlans, not the full list).
-                    for index in offsets where index < filteredPlans.count {
-                        flightPlanManager.deleteFlightPlan(filteredPlans[index])
-                    }
-                }
+                // No `.onDelete`: the rows' own swipe actions replace SwiftUI's swipe-to-delete, and the
+                // Delete there asks first. The `.onDelete` that was here deleted without asking and was
+                // only unreachable because nothing puts this list in edit mode. (v6.0 review)
+                noMatch
             } header: {
-                cockpitSectionHeader(L10n.Nav.allFlightPlans, tint: .secondaryText, showDot: false)
+                cockpitSectionHeader(showsArchived ? L10n.Routes.archivedHeader : L10n.Nav.allFlightPlans,
+                                     tint: .secondaryText, showDot: false)
             }
         }
         .listStyle(.plain)
@@ -384,14 +568,42 @@ struct FlightPlanningView: View {
     /// Create a new plan and open the builder immediately — no name/aircraft gate. Defaults to the
     /// selected aircraft; the builder's From/To bar names the plan. (flight-plan revamp)
     private func createAndEditNewPlan() {
-        let ac = appState.settings.selectedAircraft
+        let ac = selectedRouteAircraft
         let plan = flightPlanManager.createFlightPlan(
             name: "",
-            aircraftTypeId: ac.rawValue,
+            aircraftTypeId: ac.typeId,
             aircraftRegistration: ac.registration,
             aircraftModelName: ac.modelName
         )
         editingPlan = plan
+    }
+
+    /// The aircraft selected in the app, premium or bundled. New and imported routes are planned for
+    /// it; they used to take the WT9 whatever was selected. (on-device review #4)
+    private var selectedRouteAircraft: FlightPlanManager.RouteAircraft {
+        if let id = appState.settings.selectedRemoteAircraftId,
+           let meta = aircraftDataService.availableAircraft.first(where: { $0.id == id }) {
+            return .init(typeId: meta.aircraftType, registration: meta.registration, modelName: meta.modelName)
+        }
+        let ac = appState.settings.selectedAircraft
+        return .init(typeId: ac.rawValue, registration: ac.registration, modelName: ac.modelName)
+    }
+
+    /// Offers ICAO codes for the route's place names: the file's own codes, else the aerodrome the
+    /// waypoint sits on. Nothing to offer, nothing shown (after an import); from the menu, it says so.
+    private func offerICAOCodes(for plan: FlightPlan, fileIdents: [UUID: String], whenNone: Bool) {
+        Task {
+            await airportDataService.ensureLoaded()
+            let renames = ICAONaming.suggestions(for: plan, fileIdents: fileIdents) { coordinate in
+                airportDataService.nearestAirport(to: coordinate, maxDistanceNm: 0.5,
+                                                  types: [.smallAirport, .mediumAirport, .largeAirport])?.ident
+            }
+            if !renames.isEmpty {
+                icaoOffer = ICAOOffer(planId: plan.id, renames: renames)
+            } else if whenNone {
+                icaoNoneFound = true
+            }
+        }
     }
 
     /// Deactivate the active plan, asking first ONLY when there is something to lose.
@@ -444,7 +656,7 @@ struct FlightPlanningView: View {
                 Circle().fill(tint).frame(width: 6, height: 6)
             }
             Text(title)
-                .font(.caption.weight(.semibold))
+                .font(.aero(.caption).weight(.semibold))
                 .tracking(0.6)
                 .foregroundColor(tint)
             Spacer()
@@ -479,8 +691,9 @@ struct FlightPlanningView: View {
                 }
 
                 let data = try Data(contentsOf: url)
-                if let _ = flightPlanManager.importFlightPlan(from: data) {
-                    // Success - plan was imported
+                if let (plan, fileIdents) = flightPlanManager.importRoute(from: data, aircraft: selectedRouteAircraft) {
+                    // A SkyDemon route names aerodromes after their place: offer their codes.
+                    offerICAOCodes(for: plan, fileIdents: fileIdents, whenNone: false)
                 } else {
                     importError = L10n.Nav.importErrorFormat
                     showingImportError = true
@@ -505,6 +718,15 @@ struct FlightPlanRow: View {
     var loadPriority: Int = 0   // row index — top rows render their map preview first
     var onActivate: () -> Void
     var onDeactivate: () -> Void = {}
+    /// Under Archived: no Show on map, and an ARCHIVED tag. (on-device review #4)
+    var isArchived: Bool = false
+
+    /// The name the pilot gave the route, when it says something the ends don't. It is the title
+    /// then, with the ends under it: a route can be renamed whatever its ends. (on-device review #4)
+    private var customName: String? {
+        let name = plan.name.trimmingCharacters(in: .whitespaces)
+        return name.isEmpty || name == routeEndpoints ? nil : name
+    }
 
     /// The route endpoints (departure → destination) — the plan's identity. (revamp #1b)
     private var routeEndpoints: String {
@@ -526,86 +748,163 @@ struct FlightPlanRow: View {
             Image(systemName: icon).scaledFont(size: 10, relativeTo: .caption2).foregroundColor(.dimText)
             Text(value).scaledFont(size: 12, weight: .semibold, design: .monospaced, relativeTo: .caption).foregroundColor(.secondaryText)
         }
+        // A figure never breaks across lines: "0:" over "43" read as two numbers. (iPhone pass)
+        .fixedSize()
     }
 
-    /// Activate, or Deactivate when this row is the active plan. Both are 62 × 44 in the same slot.
+    @Environment(\.horizontalSizeClass) private var sizeClass
+
+    /// Show on map, or Clear from map when this row is the active plan. One slot, sized for the
+    /// longer label, so the row never changes shape with state. The label used to be squeezed into
+    /// 62 pt at 10 pt, and shrunk further to fit (on-device review #4, point 2). On the iPad it now
+    /// reads on one line beside its icon; on the iPhone the icon sits above at most two short lines.
     private var planActionButton: some View {
-        Button(action: isActive ? onDeactivate : onActivate) {
-            VStack(spacing: 3) {
-                Image(systemName: isActive ? "airplane.arrival" : "airplane.departure")
-                    .scaledFont(size: 15, relativeTo: .subheadline)
-                Text(isActive ? L10n.Nav.deactivate : L10n.Nav.activate)
-                    .scaledFont(size: 10, weight: .semibold, relativeTo: .caption2)
-                    .lineLimit(1).minimumScaleFactor(0.8)
+        let tint: Color = isActive ? .aviationAmber : .aviationGreen
+        return Button(action: isActive ? onDeactivate : onActivate) {
+            ZStack {
+                // Both are laid out, one is shown: the slot keeps the wider label's size.
+                actionLabel(clears: false)
+                    .opacity(isActive ? 0 : 1)
+                    .accessibilityHidden(isActive)
+                actionLabel(clears: true)
+                    .opacity(isActive ? 1 : 0)
+                    .accessibilityHidden(!isActive)
             }
-            .foregroundColor(isActive ? .aviationAmber : .aviationGreen)
-            .frame(width: 62)
-            .padding(.vertical, 9)
+            .foregroundColor(tint)
+            .padding(.horizontal, sizeClass == .compact ? 6 : 14)
+            .frame(minHeight: 48)
             .background(
-                RoundedRectangle(cornerRadius: 9)
-                    .fill((isActive ? Color.aviationAmber : .aviationGreen).opacity(0.14))
-                    .overlay(RoundedRectangle(cornerRadius: 9)
-                        .stroke((isActive ? Color.aviationAmber : .aviationGreen).opacity(0.4), lineWidth: 1))
+                RoundedRectangle(cornerRadius: 10)
+                    .fill(tint.opacity(0.14))
+                    .overlay(RoundedRectangle(cornerRadius: 10).stroke(tint.opacity(0.4), lineWidth: 1))
             )
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
     }
 
-    var body: some View {
-        HStack(spacing: 12) {
-            // Route map preview — anchors the card visually. (revamp #1b)
-            RouteThumbnail(waypoints: plan.waypoints, loadPriority: loadPriority)
-                .frame(width: 96, height: 66)
-
-            VStack(alignment: .leading, spacing: 5) {
-                // Custom name as a small caption — only when it differs from the route.
-                if !plan.name.isEmpty && plan.name != routeEndpoints {
-                    Text(plan.name).font(.caption2).foregroundColor(.dimText).lineLimit(1)
-                }
-                // Hero: the route endpoints.
-                HStack(spacing: 6) {
-                    Text(routeEndpoints)
-                        .scaledFont(size: 16, weight: .semibold, design: .monospaced, relativeTo: .body)
-                        .foregroundColor(.primaryText)
-                        .lineLimit(1).minimumScaleFactor(0.7)
-                    if isActive {
-                        Text(L10n.Nav.active)
-                            .font(.caption2.weight(.bold)).foregroundColor(.black)
-                            .padding(.horizontal, 6).padding(.vertical, 1)
-                            .background(RoundedRectangle(cornerRadius: 5).fill(Color.aviationGreen))
-                    }
-                }
-                // Metric strip — structured, not a flat dot-list.
-                if plan.waypoints.count >= 2 {
-                    HStack(spacing: 13) {
-                        if plan.totalDistance > 0 { metric("ruler", String(format: "%.0f NM", plan.totalDistance)) }
-                        let eet = plan.formattedTotalEET
-                        if !eet.isEmpty && eet != "0:00" { metric("clock", eet) }
-                        metric("mappin.and.ellipse", "\(plan.waypoints.count)")
-                    }
-                } else {
-                    Text(L10n.Nav.tapToBuild).font(.caption).foregroundColor(.aviationGold.opacity(0.85))
-                }
-                // Metadata: aircraft · recency (muted).
-                HStack(spacing: 5) {
-                    Image(systemName: "airplane").scaledFont(size: 9, relativeTo: .caption2)
-                    Text(plan.aircraftRegistration)
-                    Text("·")
-                    Text(relativeDate)
-                }
-                .scaledFont(size: 11, relativeTo: .caption2).foregroundColor(.dimText).lineLimit(1)
+    @ViewBuilder
+    private func actionLabel(clears: Bool) -> some View {
+        let icon = clears ? "airplane.arrival" : "airplane.departure"
+        let text = clears ? L10n.Nav.deactivate : L10n.Nav.activate
+        if sizeClass == .compact {
+            VStack(spacing: 3) {
+                Image(systemName: icon).scaledFont(size: 16, relativeTo: .subheadline)
+                Text(text)
+                    .scaledFont(size: 11, weight: .semibold, relativeTo: .caption2)
+                    .multilineTextAlignment(.center)
+                    .lineLimit(2)
+                    .fixedSize(horizontal: false, vertical: true)
             }
+            .frame(width: 74)
+            .padding(.vertical, 8)
+        } else {
+            HStack(spacing: 8) {
+                Image(systemName: icon).scaledFont(size: 17, relativeTo: .subheadline)
+                Text(text)
+                    .scaledFont(size: 15, weight: .semibold, relativeTo: .subheadline)
+                    .lineLimit(1)
+            }
+            .fixedSize()
+            .padding(.vertical, 12)
+        }
+    }
 
-            Spacer(minLength: 6)
+    /// The pilot's name for the route when there is one, else its ends, with its tags.
+    private var titleLine: some View {
+        HStack(spacing: 6) {
+            Text(customName ?? routeEndpoints)
+                .scaledFont(size: 16, weight: .semibold, design: customName == nil ? .monospaced : .default,
+                            relativeTo: .body)
+                .foregroundColor(.primaryText)
+                .lineLimit(1).minimumScaleFactor(0.7)
+            if isArchived {
+                Text(L10n.Routes.archivedTag)
+                    .font(.aero(.caption2).weight(.bold)).foregroundColor(.secondaryText)
+                    .padding(.horizontal, 6).padding(.vertical, 1)
+                    .overlay(RoundedRectangle(cornerRadius: 5).strokeBorder(Color.secondaryText.opacity(0.5), lineWidth: 1))
+                    .fixedSize()
+            }
+            if isActive {
+                Text(L10n.Nav.active)
+                    .font(.aero(.caption2).weight(.bold)).foregroundColor(.black)
+                    .padding(.horizontal, 6).padding(.vertical, 1)
+                    .background(RoundedRectangle(cornerRadius: 5).fill(Color.aviationGreen))
+                    .fixedSize()
+            }
+        }
+    }
 
-            // One-tap activate / deactivate — was buried in a swipe / context menu. (revamp)
-            //
-            // The active row used to show "In use" as a static label, so the one state change a pilot
-            // makes under time pressure — "that's not the flight I'm doing" — was the only one with no
-            // button. Same slot, same size, opposite action: the row no longer changes shape with
-            // state. Swipe and long-press stay as accelerators. (v4.4.0 device-test feedback)
-            planActionButton
+    /// The ends under the name, the figures, and who flies it when.
+    @ViewBuilder
+    private var details: some View {
+        // The ends, under the name.
+        if customName != nil {
+            Text(routeEndpoints)
+                .scaledFont(size: 13, design: .monospaced, relativeTo: .caption)
+                .foregroundColor(.secondaryText)
+                .lineLimit(1).minimumScaleFactor(0.7)
+        }
+        // Metric strip — structured, not a flat dot-list.
+        if plan.waypoints.count >= 2 {
+            HStack(spacing: 13) {
+                if plan.totalDistance > 0 { metric("ruler", String(format: "%.0f NM", plan.totalDistance)) }
+                let eet = plan.formattedTotalEET
+                if !eet.isEmpty && eet != "0:00" { metric("clock", eet) }
+                metric("mappin.and.ellipse", "\(plan.waypoints.count)")
+            }
+        } else {
+            Text(L10n.Nav.tapToBuild).font(.aero(.caption)).foregroundColor(.aviationGold.opacity(0.85))
+        }
+        // Metadata: aircraft · recency (muted).
+        HStack(spacing: 5) {
+            Image(systemName: "airplane").scaledFont(size: 9, relativeTo: .caption2)
+            Text(plan.aircraftRegistration)
+            Text("·")
+            Text(relativeDate)
+        }
+        .scaledFont(size: 11, relativeTo: .caption2).foregroundColor(.dimText).lineLimit(1)
+    }
+
+    var body: some View {
+        Group {
+            if sizeClass == .compact {
+                // The iPhone: the name across the whole card, then the map, the figures and the
+                // button under it. Beside the map and the button, the name had about 140 pt and was
+                // cut after three letters. (iPhone pass)
+                VStack(alignment: .leading, spacing: 8) {
+                    titleLine
+                    HStack(spacing: 12) {
+                        RouteThumbnail(waypoints: plan.waypoints, loadPriority: loadPriority)
+                            .frame(width: 80, height: 56)
+                        VStack(alignment: .leading, spacing: 5) { details }
+                        Spacer(minLength: 6)
+                        if !isArchived { planActionButton }
+                    }
+                }
+            } else {
+                HStack(spacing: 12) {
+                    // Route map preview — anchors the card visually. (revamp #1b)
+                    RouteThumbnail(waypoints: plan.waypoints, loadPriority: loadPriority)
+                        .frame(width: 96, height: 66)
+
+                    VStack(alignment: .leading, spacing: 5) {
+                        titleLine
+                        details
+                    }
+
+                    Spacer(minLength: 6)
+
+                    // One-tap activate / deactivate — was buried in a swipe / context menu. (revamp)
+                    //
+                    // The active row used to show "In use" as a static label, so the one state change a
+                    // pilot makes under time pressure — "that's not the flight I'm doing" — was the only
+                    // one with no button. Same slot, same size, opposite action: the row no longer
+                    // changes shape with state. Swipe and long-press stay as accelerators. (v4.4.0
+                    // device-test feedback)
+                    if !isArchived { planActionButton }
+                }
+            }
         }
         .padding(10)
         .background(
@@ -758,7 +1057,7 @@ struct ActiveFlightPlanRow: View {
         VStack(alignment: .leading, spacing: 12) {
             HStack {
                 Text(plan.name.isEmpty ? L10n.Nav.unnamedPlan : plan.name)
-                    .font(.headline)
+                    .font(.aero(.headline))
                     .foregroundColor(.primaryText)
                 Spacer()
                 Text(plan.aircraftRegistration)
@@ -770,7 +1069,7 @@ struct ActiveFlightPlanRow: View {
                 VStack(alignment: .leading, spacing: 6) {
                     HStack {
                         Text(L10n.Nav.progress)
-                            .font(.caption)
+                            .font(.aero(.caption))
                             .foregroundColor(.secondaryText)
                         Spacer()
                         Text("\(plan.currentWaypointIndex)/\(plan.waypoints.count)")
@@ -865,3 +1164,72 @@ struct FlightPlanDocument: FileDocument {
         .environmentObject(FlightPlanManager())
         .environmentObject(LocationManager())
 }
+
+// MARK: - ICAO codes for place names (on-device review #4)
+
+/// "Use ICAO codes?" after importing a route that names aerodromes after their place (SkyDemon:
+/// "Samedan", "Bressaucourt"), or from a route's menu. One switch per waypoint, all on; the place
+/// name moves to the waypoint's remarks.
+struct ICAONamesSheet: View {
+    let renames: [ICAORename]
+    let onDone: ([ICAORename]) -> Void
+
+    @State private var chosen: Set<UUID> = []
+
+    var body: some View {
+        NavigationStack {
+            List {
+                Section {
+                    ForEach(renames) { rename in
+                        Toggle(isOn: Binding(
+                            get: { chosen.contains(rename.id) },
+                            set: { on in if on { chosen.insert(rename.id) } else { chosen.remove(rename.id) } }
+                        )) {
+                            HStack(spacing: 10) {
+                                Text("\(rename.number)")
+                                    .font(.aero(.subheadline, design: .monospaced).weight(.bold))
+                                    .foregroundColor(.aviationGold)
+                                    .frame(minWidth: 24, alignment: .leading)
+                                Text(rename.name)
+                                    .font(.aero(.body))
+                                    .foregroundColor(.primaryText)
+                                Image(systemName: "arrow.right")
+                                    .font(.aero(.caption))
+                                    .foregroundColor(.dimText)
+                                Text(rename.ident)
+                                    .font(.aero(.body, design: .monospaced).weight(.bold))
+                                    .foregroundColor(.primaryText)
+                            }
+                        }
+                        .tint(.aviationGold)
+                    }
+                } header: {
+                    Text(L10n.ICAONames.explainer)
+                        .font(.aero(.subheadline))
+                        .foregroundColor(.secondaryText)
+                        .textCase(nil)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .padding(.bottom, 6)
+                } footer: {
+                    Text(L10n.ICAONames.footer)
+                        .font(.aero(.caption))
+                        .foregroundColor(.dimText)
+                }
+            }
+            .navigationTitle(L10n.ICAONames.title)
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button(L10n.ICAONames.keepNames) { onDone([]) }
+                }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button(L10n.ICAONames.useCodes) { onDone(renames.filter { chosen.contains($0.id) }) }
+                        .fontWeight(.bold)
+                        .disabled(chosen.isEmpty)
+                }
+            }
+        }
+        .onAppear { chosen = Set(renames.map(\.id)) }
+    }
+}
+

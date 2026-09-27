@@ -30,6 +30,18 @@ struct ChecklistProgress {
     var phaseCompletionStatus: [ChecklistPhase: PhaseCompletionStatus] = [:]
     var highestCompletedPhase: ChecklistPhase = .preflight
     var currentHighlightedItem: [ChecklistPhase: Int] = [:]
+    /// Items the pilot left unchecked when pressing NEXT, by phase: the stable `ChecklistItem.id`s,
+    /// kept until they are checked from the deferred list. (v6.0 · B2)
+    var deferredItems: [ChecklistPhase: [String]] = [:]
+    /// Checks deferred whole, in flight order: a phase jumped over on the phase bar, to be run from
+    /// the deferred list. Its progress is the phase's own highlight. (v6.0 review, J1)
+    var deferredChecks: [ChecklistPhase] = []
+}
+
+/// The sections of the app on the ground, one tab each. In the air the Cockpit replaces all of them.
+/// (v6.0 · P1)
+enum GroundTab: Hashable {
+    case today, plan, logbook, aircraft, settings
 }
 
 /// Night-mode preference: off, always on, or follow the device's dark-mode setting. (v4 UI/UX Revamp)
@@ -45,6 +57,8 @@ enum ThemePreference: String, Codable, CaseIterable, Identifiable, Sendable {
 struct AppSettings: Codable, Equatable {
     var selectedAircraft: AircraftType = .wt9Dynamic
     var selectedRemoteAircraftId: String? = nil // ID of selected remote aircraft (e.g., "pa28-181")
+    /// Retired in 6.0: the screen stays on during a flight and only then (review P7). Still decoded
+    /// and synced for older builds.
     var keepScreenOn: Bool = true
     /// Cockpit theme choice: auto (follow device) / day / sunlight / night. Night dims instruments to
     /// a red/amber palette to protect dark adaptation (UX-09); sunlight is high-contrast for bright
@@ -97,8 +111,12 @@ struct AppSettings: Codable, Equatable {
     }
     var gpsRecordingInterval: Double = 5.0 // seconds
     var showSpeedReference: Bool = true
-    var stepByStepHighlighting: Bool = true // Highlight items one by one
-    var learningMode: Bool = false // Hide memorizable checks
+    /// Highlight items one by one. Always on since 6.0: CHECK is this flow, and the switch is gone
+    /// (review P7). The off path still works for a file an older build wrote.
+    var stepByStepHighlighting: Bool = true
+    /// Every check shown. Off is the "Memory test": memorisable checks are hidden until revealed.
+    /// On by default since 6.0: the old default hid checks from pilots who never opened Settings.
+    var learningMode: Bool = true
     var forceICAOChartLayer: Bool = false // When true, ICAO layer stays at all zoom levels
     var offlineMode: Bool = false // When true, use cached ICAO chart only
     var alwaysUseUTC: Bool = false // When true, all times are displayed in UTC
@@ -131,11 +149,13 @@ struct AppSettings: Codable, Equatable {
     var terrainAltitudeUnit: TerrainAltitudeUnit = .feet // feet, meters, or dual
 
     // Circuit mode
-    var enableCircuitMode: Bool = false // When true, shows START CIRCUITS button
+    /// Retired in 6.0: CIRCUITS is always offered on Today (review P7). Still decoded and synced, so
+    /// an older build on another device keeps its value.
+    var enableCircuitMode: Bool = false
 
     // Aircraft visibility (premium feature)
-    var hiddenAircraftIds: Set<String> = [] // Individual aircraft IDs to hide on home screen
-    var hiddenAeroclubs: Set<String> = [] // Entire aeroclubs to hide on home screen
+    var hiddenAircraftIds: Set<String> = [] // Individual aircraft IDs left out of the aircraft you pick from (Today, Your aircraft, Plan new flight)
+    var hiddenAeroclubs: Set<String> = [] // Entire aeroclubs left out the same way
 
     // iCloud Sync
     var iCloudSyncEnabled: Bool = true // When true, syncs settings and flights to iCloud
@@ -164,6 +184,9 @@ struct AppSettings: Codable, Equatable {
     var aircraftRates: [String: AircraftRateProfile] = [:]
     /// Mass & balance setup per registration. Empty until the pilot enters their aircraft's figures.
     var weightBalanceProfiles: [String: WeightBalanceProfile] = [:]
+    /// Usable fuel with full tanks, in litres, per registration: the pilot's figure, used when the
+    /// aircraft's data doesn't give one (`FullTanks.resolve`). (on-device review #4, point 3)
+    var fullTanksLitres: [String: Double] = [:]
 
     /// Which generation of the settings schema wrote this blob.
     ///
@@ -177,23 +200,49 @@ struct AppSettings: Codable, Equatable {
 
     /// Bump whenever a stored property is added that an older build cannot round-trip, and add it
     /// to `preservingFieldsUnknownTo(_:)` below.
-    static let currentSchemaVersion = 2
+    static let currentSchemaVersion = 5
 
     /// Merge an incoming settings record over `self`, keeping local values the writer could not have
     /// carried. Same-or-newer writers are taken at their word, including deliberate clearings.
     func preservingFieldsUnknownTo(_ incoming: AppSettings) -> AppSettings {
         guard incoming.schemaVersion < AppSettings.currentSchemaVersion else { return incoming }
         var merged = incoming
+        // Each block keeps only what writers OLDER than its schema can't carry: a writer one schema
+        // behind still carries everything before it, and its edits to those must win.
         // Schema 2 (v5.0.0): none of these round-trip through a v4.x writer.
-        merged.pilotName = pilotName
-        merged.isStudentPilot = isStudentPilot
-        merged.instructorName = instructorName
-        merged.sunlightBoost = sunlightBoost
-        merged.aircraftRates = aircraftRates
-        merged.weightBalanceProfiles = weightBalanceProfiles
-        merged.enableCostTracking = enableCostTracking
+        if incoming.schemaVersion < 2 {
+            merged.pilotName = pilotName
+            merged.isStudentPilot = isStudentPilot
+            merged.instructorName = instructorName
+            merged.sunlightBoost = sunlightBoost
+            merged.aircraftRates = aircraftRates
+            merged.weightBalanceProfiles = weightBalanceProfiles
+            merged.enableCostTracking = enableCostTracking
+        }
+        // Schema 3 (v6.0): before 6.0 `learningMode` defaulted to off, hiding memorisable checks, so
+        // an older writer's value says nothing about what this pilot chose.
+        if incoming.schemaVersion < 3 { merged.learningMode = learningMode }
+        // Schema 4 (v6.0): step-by-step is how every checklist runs now (the Cockpit's CHECK), and
+        // there is no switch left to turn it back on, so an older writer can't turn it off.
+        if incoming.schemaVersion < 4 { merged.stepByStepHighlighting = stepByStepHighlighting }
+        // Schema 5 (v6.0): the pilot's full-tanks figures. (on-device review #4, point 3)
+        if incoming.schemaVersion < 5 { merged.fullTanksLitres = fullTanksLitres }
         merged.schemaVersion = AppSettings.currentSchemaVersion
         return merged
+    }
+
+    /// Settings a pre-6.0 build saved on this device, brought to the current schema. Local files
+    /// only; an incoming sync record goes through `preservingFieldsUnknownTo(_:)`.
+    /// - Schema 3: every check shown again, once. The old default hid memorisable checks, and most
+    ///   pilots never chose it. A later "Memory test" choice sticks. (v6.0 · A7)
+    /// - Schema 4: step-by-step on. The Cockpit's CHECK is that flow, and its switch is gone. (v6.0 · P7)
+    func migratedLocally() -> AppSettings {
+        guard schemaVersion < AppSettings.currentSchemaVersion else { return self }
+        var migrated = self
+        if schemaVersion < 3 { migrated.learningMode = true }
+        if schemaVersion < 4 { migrated.stepByStepHighlighting = true }
+        migrated.schemaVersion = AppSettings.currentSchemaVersion
+        return migrated
     }
 
     // Flight logging
@@ -292,6 +341,7 @@ struct AppSettings: Codable, Equatable {
         case enableCompanionMode
         case companionRole
         case pilotName, aircraftRates, weightBalanceProfiles, sunlightBoost
+        case fullTanksLitres
         case schemaVersion
         case isStudentPilot, instructorName
         // marketingMode and developerMode are intentionally excluded (non-persisted, reset each launch)
@@ -335,7 +385,7 @@ struct AppSettings: Codable, Equatable {
         gpsRecordingInterval = try container.decodeIfPresent(Double.self, forKey: .gpsRecordingInterval) ?? 5.0
         showSpeedReference = try container.decodeIfPresent(Bool.self, forKey: .showSpeedReference) ?? true
         stepByStepHighlighting = try container.decodeIfPresent(Bool.self, forKey: .stepByStepHighlighting) ?? true
-        learningMode = try container.decodeIfPresent(Bool.self, forKey: .learningMode) ?? false
+        learningMode = try container.decodeIfPresent(Bool.self, forKey: .learningMode) ?? true
         forceICAOChartLayer = try container.decodeIfPresent(Bool.self, forKey: .forceICAOChartLayer) ?? false
         offlineMode = try container.decodeIfPresent(Bool.self, forKey: .offlineMode) ?? false
         alwaysUseUTC = try container.decodeIfPresent(Bool.self, forKey: .alwaysUseUTC) ?? false
@@ -384,6 +434,7 @@ struct AppSettings: Codable, Equatable {
         // to "profiles not set up" is bad; silently resetting the whole store is worse.
         aircraftRates = (try? container.decodeIfPresent([String: AircraftRateProfile].self, forKey: .aircraftRates)) ?? [:]
         weightBalanceProfiles = (try? container.decodeIfPresent([String: WeightBalanceProfile].self, forKey: .weightBalanceProfiles)) ?? [:]
+        fullTanksLitres = (try? container.decodeIfPresent([String: Double].self, forKey: .fullTanksLitres)) ?? [:]
         // Absent means a writer from before the version existed, which is exactly schema 1.
         schemaVersion = try container.decodeIfPresent(Int.self, forKey: .schemaVersion) ?? 1
 
@@ -406,6 +457,8 @@ struct AppSettings: Codable, Equatable {
         if let id = result.selectedRemoteAircraftId, !AircraftRegistrationToken.isWellFormed(id) {
             result.selectedRemoteAircraftId = nil
         }
+        // A full-tanks figure is what Full tanks sets fuel on board to: drop one no tank holds.
+        result.fullTanksLitres = result.fullTanksLitres.filter { FullTanks.isPlausible($0.value) }
         return result
     }
 }
@@ -457,6 +510,10 @@ struct ActiveFlightState: Codable {
     let phaseCompletionStatus: [ChecklistPhase: PhaseCompletionStatus]
     let highestCompletedPhase: ChecklistPhase
     let currentHighlightedItem: [ChecklistPhase: Int]
+    /// Optional so a checkpoint written before 6.0 still decodes. (v6.0 · B2)
+    let deferredItems: [ChecklistPhase: [String]]?
+    /// Optional for the same reason. (v6.0 review, J1)
+    let deferredChecks: [ChecklistPhase]?
     let hasLandingBeenDetected: Bool
     let isCircuitMode: Bool
     /// Aircraft selection captured at save time so the correct checklist is re-resolved on
@@ -484,6 +541,8 @@ struct ActiveFlightState: Codable {
         self.phaseCompletionStatus = appState.phaseCompletionStatus
         self.highestCompletedPhase = appState.highestCompletedPhase
         self.currentHighlightedItem = appState.currentHighlightedItem
+        self.deferredItems = appState.deferredItems
+        self.deferredChecks = appState.deferredChecks
         self.hasLandingBeenDetected = appState.hasLandingBeenDetected
         self.isCircuitMode = appState.isCircuitMode
         self.flightIsUnplanned = appState.flightIsUnplanned
@@ -505,6 +564,8 @@ struct ActiveFlightState: Codable {
         appState.phaseCompletionStatus = phaseCompletionStatus
         appState.highestCompletedPhase = highestCompletedPhase
         appState.currentHighlightedItem = currentHighlightedItem
+        appState.deferredItems = deferredItems ?? [:]
+        appState.deferredChecks = deferredChecks ?? []
         appState.hasLandingBeenDetected = hasLandingBeenDetected
         appState.isCircuitMode = isCircuitMode
         appState.flightIsUnplanned = flightIsUnplanned ?? false
@@ -611,6 +672,11 @@ class AppState {
     /// Observed by the UI to present the subscription paywall. (UX-07)
     var flightStartPaywallRequest: Bool = false
 
+    /// The registration of a premium aircraft a flight start was refused for because AéroCheck Pro
+    /// isn't active (never bought, or lapsed). The UI says so, and offers the plans and a restore.
+    /// (on-device review #4, point 1)
+    var flightStartNeedsPro: String?
+
     /// The resolved remote checklist for the current selection — a premium aircraft, or a
     /// language-specific bundled checklist. `nil` means none is loaded (the bundled fallback is
     /// used, unless a premium aircraft is selected, in which case the checklist is unresolved).
@@ -653,6 +719,14 @@ class AppState {
     var settings: AppSettings = AppSettings()
     var showFlightLog: Bool = false
 
+    /// The ground tab on screen. Held here so any screen, deep link or notification can send the
+    /// pilot to a section. (v6.0 · P1)
+    var groundTab: GroundTab = .today
+    /// A Settings page to open the next time the Settings tab shows (the Data chip on Today). (v6.0 · P1)
+    var pendingSettingsSection: SettingsView.Section?
+    /// A Plan section to open the next time the Plan tab shows (Today's route strip opens Routes).
+    var pendingPlanSection: PlanTabView.Section?
+
     /// Set when iCloud sync auto-merged (or couldn't merge) a conflicting flight edit, so the UI can
     /// surface it instead of the conflict being silent. (ARCH-02)
     var syncConflictNotice: String?
@@ -674,6 +748,11 @@ class AppState {
     /// A flight thread the app should open — set when the pilot taps a thread notification. Consumed
     /// and cleared by the root router, same one-shot contract as the notices above. (v5.0.0)
     var pendingThreadToOpen: UUID?
+
+    /// A followed flight to start, asked for by a screen that can't run the launch itself (Plan ›
+    /// Flights). Consumed and cleared by the root, which starts it as a thread notification would.
+    /// (round 6)
+    var pendingFlightStart: PendingFlightStart?
 
     // Navigation view session state (not persisted to disk — resets on app restart).
     // One cohesive value (selected layer + orientation) instead of two loose @Published properties.
@@ -715,6 +794,14 @@ class AppState {
     var currentHighlightedItem: [ChecklistPhase: Int] {
         get { checklistProgress.currentHighlightedItem }
         set { checklistProgress.currentHighlightedItem = newValue }
+    }
+    var deferredItems: [ChecklistPhase: [String]] {
+        get { checklistProgress.deferredItems }
+        set { checklistProgress.deferredItems = newValue }
+    }
+    var deferredChecks: [ChecklistPhase] {
+        get { checklistProgress.deferredChecks }
+        set { checklistProgress.deferredChecks = newValue }
     }
     
     // Landing detection
@@ -814,6 +901,10 @@ class AppState {
 
         // Try to restore active flight state if app was closed during a flight
         restoreActiveFlightState()
+        // Put the Live Activities in order for what was restored: the resumed flight adopts its own,
+        // and anything left behind by a quit or a crash goes. Nothing else would until the next
+        // flight started. (Live Activities, 6.0)
+        liveActivity?.sync(from: self)
 
         // Load flights in background - iCloud file enumeration can be slow
         // and should not block the main thread during startup
@@ -832,7 +923,7 @@ class AppState {
             guard let fileSettings = await self.persistence.loadSettingsOffMain(),
                   fileSettings != launchSettings,
                   self.settings == launchSettings else { return }
-            self.settings = fileSettings.clampedForIngest() // SEC-C25
+            self.settings = fileSettings.clampedForIngest().migratedLocally() // SEC-C25
             self.saveSettings()
         }
     }
@@ -928,7 +1019,13 @@ class AppState {
 
         // Handle remote (premium) aircraft
         if let remoteId = settings.selectedRemoteAircraftId {
-            if let checklist = await aircraftDataService.fetchChecklist(for: remoteId, language: language) {
+            let checklist = await aircraftDataService.fetchChecklist(for: remoteId, language: language)
+            // A load outlives its selection: pick X on a weak signal, switch to Y, press START, and X's
+            // answer (up to 40 s later) replaced Y's checklist and speeds, or blanked them if it failed.
+            // An answer for an aircraft or a language no longer selected is dropped. (v6.0 review)
+            guard settings.selectedRemoteAircraftId == remoteId,
+                  settings.checklistLanguage.resolvedLanguage == language else { return }
+            if let checklist {
                 resolvedRemoteChecklist = checklist
                 noteLanguageFallback(for: checklist, requested: language)
                 AppLog.general.debugLine("Loaded remote checklist for \(remoteId) (\(language))")
@@ -948,7 +1045,11 @@ class AppState {
             let bundledId = "wt9-dynamic"
 
             // First try to get a cached/API version for this language
-            if let checklist = await aircraftDataService.fetchChecklist(for: bundledId, language: language) {
+            let fetched = await aircraftDataService.fetchChecklist(for: bundledId, language: language)
+            // The same rule as above: the WT9 must still be the one selected. (v6.0 review)
+            guard settings.selectedRemoteAircraftId == nil, settings.selectedAircraft == .wt9Dynamic,
+                  settings.checklistLanguage.resolvedLanguage == language else { return }
+            if let checklist = fetched {
                 resolvedRemoteChecklist = checklist
                 noteLanguageFallback(for: checklist, requested: language)
                 AppLog.general.debugLine("Loaded checklist for bundled aircraft \(bundledId) (\(language))")
@@ -1070,6 +1171,8 @@ class AppState {
         landingTime = nil
         engineShutdownTime = nil
         phaseCompletionStatus = [:]
+        deferredItems = [:]
+        deferredChecks = []
         highestCompletedPhase = .preflight
         hasLandingBeenDetected = false
         consecutiveLowSpeedReadings = 0
@@ -1133,6 +1236,8 @@ class AppState {
         landingTime = nil
         engineShutdownTime = nil
         phaseCompletionStatus = [:]
+        deferredItems = [:]
+        deferredChecks = []
         currentPhase = .preflight
         hasLandingBeenDetected = false
         consecutiveMovingReadings = 0
@@ -1161,6 +1266,8 @@ class AppState {
         landingTime = nil
         engineShutdownTime = nil
         phaseCompletionStatus = [:]
+        deferredItems = [:]
+        deferredChecks = []
         currentPhase = .preflight
         hasLandingBeenDetected = false
         consecutiveMovingReadings = 0
@@ -1204,6 +1311,234 @@ class AppState {
         let visibleCount = activeChecklist.visibleItemCount(for: currentPhase, learningMode: learningMode)
         let currentIndex = currentHighlightedItem[currentPhase] ?? 0
         return ChecklistHighlighting.allItemsCompleted(current: currentIndex, visibleCount: visibleCount)
+    }
+
+    // MARK: Deferred items (v6.0 · B2)
+    //
+    // A paper checklist cannot remind anyone of an item that was put off, and those are the items
+    // that get forgotten (Degani & Wiener, 1993: the crew that deferred the fuel check and departed
+    // unfuelled). The FAA's EFB guidance asks that leaving an incomplete checklist list the open
+    // items for review first. NEXT now does that, and what is left unchecked stays listed here.
+
+    /// The items of `phase` not checked yet: everything from the step-by-step highlight on, among
+    /// the items on screen. Empty when step-by-step is off, since then nothing is tracked.
+    /// `learningMode` defaults to what the current phase shows; a phase that isn't on screen has no
+    /// reveal of its own, so pass the setting for those.
+    func openItems(in phase: ChecklistPhase, learningMode: Bool? = nil) -> [ChecklistItem] {
+        guard settings.stepByStepHighlighting else { return [] }
+        let items = activeChecklist.visibleItems(for: phase, learningMode: learningMode ?? effectiveLearningMode)
+        let checked = currentHighlightedItem[phase] ?? 0
+        return items.dropFirst(checked).filter { !$0.isHeader }
+    }
+
+    /// The deferred items still to check, phase by phase in flight order. Ids that no longer resolve
+    /// (a checklist updated mid-flight) are left out.
+    var deferredChecklist: [(phase: ChecklistPhase, items: [ChecklistItem])] {
+        ChecklistPhase.allCases.compactMap { phase in
+            guard let ids = deferredItems[phase], !ids.isEmpty else { return nil }
+            let all = activeChecklist.visibleItems(for: phase, learningMode: true)
+            let items = ids.compactMap { id in all.first { $0.id == id } }
+            return items.isEmpty ? nil : (phase, items)
+        }
+    }
+
+    var deferredItemCount: Int { deferredChecklist.reduce(0) { $0 + $1.items.count } }
+
+    /// Check a deferred item. Once a skipped phase has nothing deferred left, it was worked through
+    /// after all and turns green; a phase missing its ENGINE START / LINE UP / SHUTDOWN press stays red.
+    func checkDeferredItem(_ id: String, in phase: ChecklistPhase) {
+        guard var ids = deferredItems[phase] else { return }
+        ids.removeAll { $0 == id }
+        deferredItems[phase] = ids.isEmpty ? nil : ids
+        // A check still deferred whole has items left to run: it stays orange until it is run.
+        if ids.isEmpty, phaseCompletionStatus[phase] == .skipped, !deferredChecks.contains(phase) {
+            phaseCompletionStatus[phase] = .completed
+        }
+        checkpointActiveFlight(force: true)
+    }
+
+    /// Keep the current item for later and move on: the Cockpit's DEFER. The item joins the deferred
+    /// list, which follows the pilot until it is checked. A section header isn't an item to defer;
+    /// the highlight just moves past it. (v6.0 · P2)
+    func deferHighlightedItem() {
+        let items = activeChecklist.visibleItems(for: currentPhase, learningMode: effectiveLearningMode)
+        let index = currentHighlightedItem[currentPhase] ?? 0
+        guard items.indices.contains(index) else { return }
+        let item = items[index]
+        if !item.isHeader {
+            var ids = deferredItems[currentPhase] ?? []
+            if !ids.contains(item.id) { ids.append(item.id) }
+            deferredItems[currentPhase] = ids
+        }
+        if index >= items.count - 1 {
+            markLastItemComplete(learningMode: effectiveLearningMode)
+        } else {
+            advanceHighlightedItem(learningMode: effectiveLearningMode)
+        }
+        checkpointActiveFlight(force: true)
+    }
+
+    /// A tap on an item above the highlight (v6.0 review, K-C). A checked item is open again, on its
+    /// own: it joins the deferred list and is drawn as open, while the highlight and every other tick
+    /// stay where they are. An open one (reopened, or put off with DEFER) is checked. The same gesture
+    /// undoes itself.
+    ///
+    /// It replaces stepping back, which reopened the item and everything after it, with no undo: on
+    /// the phone, where a tap on the list also checks, a tap a little too high cost the whole list.
+    func toggleItem(at index: Int) {
+        let items = activeChecklist.visibleItems(for: currentPhase, learningMode: effectiveLearningMode)
+        guard items.indices.contains(index), index < (currentHighlightedItem[currentPhase] ?? 0),
+              !items[index].isHeader else { return }
+        let id = items[index].id
+        if deferredItems[currentPhase]?.contains(id) == true {
+            checkDeferredItem(id, in: currentPhase)
+            return
+        }
+        let order = activeChecklist.visibleItems(for: currentPhase, learningMode: true).map(\.id)
+        let all = Set(deferredItems[currentPhase] ?? []).union([id])
+        deferredItems[currentPhase] = order.filter(all.contains)
+        checkpointActiveFlight(force: true)
+    }
+
+    // MARK: Deferred checks (v6.0 review, J1-J3)
+    //
+    // A jump on the phase bar used to defer every open item of every phase it passed, one by one:
+    // Preflight to Cruise listed 72 items nobody would work through. A phase jumped over is now
+    // deferred WHOLE, as one entry, and run from the deferred list; a phase left part-way keeps its
+    // open items one by one, as NEXT does. A jump over two checks or more asks first: defer them, or
+    // they were already done (on paper, before the app).
+
+    /// What a forward jump does with the checks it passes.
+    enum SkippedChecks {
+        /// Listed, each to be run from the deferred list.
+        case deferred
+        /// The pilot says they were done: checked, green, nothing listed.
+        case alreadyDone
+    }
+
+    /// A jump over this many checks or more asks first. (J2)
+    static let jumpQuestionThreshold = 2
+
+    /// The checks a jump to `target` passes over: the flown phases strictly between here and there
+    /// (cruise and descent aren't flown in circuit mode). Empty for a jump back, or to the next phase.
+    func checksPassed(jumpingTo target: ChecklistPhase) -> [ChecklistPhase] {
+        guard let from = ChecklistPhase.allCases.firstIndex(of: currentPhase),
+              let to = ChecklistPhase.allCases.firstIndex(of: target), to > from + 1 else { return [] }
+        return ChecklistPhase.allCases[(from + 1)..<to].filter {
+            !$0.isSkippedInCircuitMode(isCircuitMode) && !checkIsDone($0)
+        }
+    }
+
+    /// Whether the jump to `target` asks first.
+    func jumpNeedsQuestion(to target: ChecklistPhase) -> Bool {
+        settings.stepByStepHighlighting && checksPassed(jumpingTo: target).count >= Self.jumpQuestionThreshold
+    }
+
+    /// Nothing ticked in this phase yet, and nothing put off in it: leaving it now leaves the whole
+    /// check to do, not some of its items.
+    func checkIsUntouched(_ phase: ChecklistPhase) -> Bool {
+        (currentHighlightedItem[phase] ?? 0) == 0 && (deferredItems[phase] ?? []).isEmpty
+            && !checkItems(phase).isEmpty
+    }
+
+    /// The items a deferred check runs through: those on screen when the phase is shown (hidden
+    /// memory items stay hidden, as they would be there).
+    func checkItems(_ phase: ChecklistPhase) -> [ChecklistItem] {
+        activeChecklist.visibleItems(for: phase, learningMode: settings.learningMode)
+    }
+
+    private func checkIsDone(_ phase: ChecklistPhase) -> Bool {
+        let items = checkItems(phase)
+        return items.isEmpty || (currentHighlightedItem[phase] ?? 0) >= items.count
+    }
+
+    /// The deferred checks, with how many of their items are still to run.
+    var deferredCheckList: [(phase: ChecklistPhase, remaining: Int, total: Int)] {
+        deferredChecks.map { phase in
+            let items = checkItems(phase)
+            let done = min(currentHighlightedItem[phase] ?? 0, items.count)
+            let remaining = items.dropFirst(done).filter { !$0.isHeader }.count
+            return (phase, remaining, items.filter { !$0.isHeader }.count)
+        }
+    }
+
+    /// Anything owed: a deferred check or a deferred item. The Cockpit's deferred row shows while it is.
+    var hasDeferredWork: Bool { !deferredChecks.isEmpty || deferredItemCount > 0 }
+
+    /// CHECK while running a deferred check: the item highlighted in THAT phase is done.
+    func checkItem(inDeferredCheck phase: ChecklistPhase) {
+        guard deferredChecks.contains(phase) else { return }
+        let count = checkItems(phase).count
+        let index = currentHighlightedItem[phase] ?? 0
+        currentHighlightedItem[phase] = index >= count - 1
+            ? ChecklistHighlighting.lastItemComplete(visibleCount: count)
+            : ChecklistHighlighting.advanced(current: index, visibleCount: count)
+        concludeDeferredCheckIfRun(phase)
+        checkpointActiveFlight(force: true)
+    }
+
+    /// DEFER while running a deferred check: the item stays behind as a deferred item.
+    func deferItem(inDeferredCheck phase: ChecklistPhase) {
+        guard deferredChecks.contains(phase) else { return }
+        let items = checkItems(phase)
+        let index = currentHighlightedItem[phase] ?? 0
+        guard items.indices.contains(index) else { return }
+        if !items[index].isHeader {
+            var ids = deferredItems[phase] ?? []
+            if !ids.contains(items[index].id) { ids.append(items[index].id) }
+            deferredItems[phase] = ids
+        }
+        currentHighlightedItem[phase] = index >= items.count - 1
+            ? ChecklistHighlighting.lastItemComplete(visibleCount: items.count)
+            : ChecklistHighlighting.advanced(current: index, visibleCount: items.count)
+        concludeDeferredCheckIfRun(phase)
+        checkpointActiveFlight(force: true)
+    }
+
+    /// Run to the end: the check leaves the list. Green when nothing in it was put off; orange, with
+    /// the items listed, when something was; red when its phase's own action (ENGINE START, LINE UP,
+    /// SHUTDOWN) was never pressed.
+    private func concludeDeferredCheckIfRun(_ phase: ChecklistPhase) {
+        guard checkIsDone(phase) else { return }
+        deferredChecks.removeAll { $0 == phase }
+        phaseCompletionStatus[phase] = status(ofCheckRunIn: phase)
+    }
+
+    private func status(ofCheckRunIn phase: ChecklistPhase) -> PhaseCompletionStatus {
+        if phase.hasMissingRequiredAction(engineStarted: engineStartTime != nil, linedUp: lineUpTime != nil,
+                                          engineShutDown: engineShutdownTime != nil) {
+            return .missingAction
+        }
+        return (deferredItems[phase] ?? []).isEmpty ? .completed : .skipped
+    }
+
+    /// A check jumped over, or left untouched: deferred whole, or done, as the pilot said.
+    private func conclude(passedCheck phase: ChecklistPhase, as skipped: SkippedChecks) {
+        let items = checkItems(phase)
+        guard !items.isEmpty else {
+            if phaseCompletionStatus[phase] == nil { phaseCompletionStatus[phase] = .empty }
+            return
+        }
+        switch skipped {
+        case .alreadyDone:
+            currentHighlightedItem[phase] = ChecklistHighlighting.lastItemComplete(visibleCount: items.count)
+            deferredChecks.removeAll { $0 == phase }
+            phaseCompletionStatus[phase] = status(ofCheckRunIn: phase)
+        case .deferred:
+            guard !checkIsDone(phase) else { return }
+            if !deferredChecks.contains(phase) {
+                deferredChecks.append(phase)
+                deferredChecks.sort { $0.rawValue < $1.rawValue }
+            }
+            phaseCompletionStatus[phase] = phase.hasMissingRequiredAction(
+                engineStarted: engineStartTime != nil, linedUp: lineUpTime != nil,
+                engineShutDown: engineShutdownTime != nil) ? .missingAction : .skipped
+        }
+    }
+
+    /// The items of the current phase deferred with DEFER, for drawing them as deferred rather than done.
+    var currentPhaseDeferredIds: Set<String> {
+        Set(deferredItems[currentPhase] ?? [])
     }
 
     /// Whether the current phase has nothing to show at all. (SEC-C36)
@@ -1349,11 +1684,14 @@ class AppState {
         currentFlight?.goAroundCount += 1
         currentFlight?.goAroundTimes.append(goAroundTime)
 
-        // Reset phases from climb onwards
+        // Reset phases from climb onwards. The new circuit starts them clean, deferred items included:
+        // what was put off on the last lap is asked again on this one. (v6.0 review, confirmed rule)
         for phase in ChecklistPhase.allCases {
             if phase.rawValue >= ChecklistPhase.climb.rawValue {
                 phaseCompletionStatus[phase] = nil
                 currentHighlightedItem[phase] = 0
+                deferredItems[phase] = nil
+                deferredChecks.removeAll { $0 == phase }
             }
         }
 
@@ -1372,11 +1710,14 @@ class AppState {
         currentFlight?.touchAndGoCount += 1
         currentFlight?.touchAndGoTimes.append(touchAndGoTime)
 
-        // Reset phases from climb onwards
+        // Reset phases from climb onwards. The new circuit starts them clean, deferred items included:
+        // what was put off on the last lap is asked again on this one. (v6.0 review, confirmed rule)
         for phase in ChecklistPhase.allCases {
             if phase.rawValue >= ChecklistPhase.climb.rawValue {
                 phaseCompletionStatus[phase] = nil
                 currentHighlightedItem[phase] = 0
+                deferredItems[phase] = nil
+                deferredChecks.removeAll { $0 == phase }
             }
         }
 
@@ -1403,11 +1744,14 @@ class AppState {
         currentFlight?.landingTime = fullStopTime
         hasLandingBeenDetected = true
 
-        // Reset phases from taxi onwards (taxi through afterLanding)
+        // Reset phases from taxi onwards (taxi through afterLanding), deferred items included, as for
+        // a touch-and-go. (v6.0 review, confirmed rule)
         for phase in ChecklistPhase.allCases {
             if phase.rawValue >= ChecklistPhase.taxi.rawValue && phase.rawValue <= ChecklistPhase.afterLanding.rawValue {
                 phaseCompletionStatus[phase] = nil
                 currentHighlightedItem[phase] = 0
+                deferredItems[phase] = nil
+                deferredChecks.removeAll { $0 == phase }
             }
         }
 
@@ -1613,30 +1957,8 @@ class AppState {
     func nextPhase() {
         guard let currentIndex = ChecklistPhase.allCases.firstIndex(of: currentPhase),
               currentIndex + 1 < ChecklistPhase.allCases.count else { return }
-        
-        // Advancing from the current phase: .missingAction if a required button wasn't pressed; else
-        // .completed ONLY if the checklist was actually worked through (all step-by-step items reached),
-        // otherwise .skipped. Since NEXT is tappable while a phase is still incomplete, pressing past an
-        // un-worked phase must read as skipped (orange), not done (green). (round 6 regression fix)
-        let checklistWorkedThrough = !settings.stepByStepHighlighting
-            || areAllItemsCompleted(learningMode: settings.learningMode)
-        if currentPhase.hasMissingRequiredAction(
-            engineStarted: engineStartTime != nil,
-            linedUp: lineUpTime != nil,
-            engineShutDown: engineShutdownTime != nil) {
-            phaseCompletionStatus[currentPhase] = .missingAction
-        } else if currentPhaseHasNoVisibleItems(learningMode: settings.learningMode) {
-            // SEC-C36: nothing was displayed, so nothing was worked through. Report that honestly
-            // instead of inheriting `.completed` from the 0 >= 0 comparison.
-            phaseCompletionStatus[currentPhase] = .empty
-        } else {
-            phaseCompletionStatus[currentPhase] = checklistWorkedThrough ? .completed : .skipped
-        }
-        
-        // Update highest completed phase
-        if currentPhase.rawValue >= highestCompletedPhase.rawValue {
-            highestCompletedPhase = currentPhase
-        }
+
+        leaveCurrentPhase()
 
         // Calculate the next phase, skipping CRUISE and DESCENT in circuit mode (marking each
         // skipped phase as .skipped along the way — that side effect stays here).
@@ -1652,44 +1974,120 @@ class AppState {
         }
 
         if nextIndex < ChecklistPhase.allCases.count {
-            currentPhase = ChecklistPhase.allCases[nextIndex]
+            enterPhase(ChecklistPhase.allCases[nextIndex])
         }
+    }
+
+    /// Leaving the current phase, by NEXT or by a forward jump on the phase bar: its status, and its
+    /// unchecked items onto the deferred list. The two used to differ, and a jump dropped the open
+    /// items on the floor: not checked, not deferred, never listed again. (v6.0 review, B1)
+    private func leaveCurrentPhase() {
+        // Advancing from the current phase: .missingAction if a required button wasn't pressed; else
+        // .completed ONLY if the checklist was actually worked through (all step-by-step items reached),
+        // otherwise .skipped. Since NEXT is tappable while a phase is still incomplete, pressing past an
+        // un-worked phase must read as skipped (orange), not done (green). (round 6 regression fix)
+        // Counted over the items on screen (hidden items included once revealed), like the NEXT button
+        // and the deferred list, so an orange phase always has its unchecked items listed. (v6.0 · B2)
+        let checklistWorkedThrough = !settings.stepByStepHighlighting
+            || areAllItemsCompleted(learningMode: effectiveLearningMode)
+        // Whatever is left unchecked follows the pilot as deferred items until checked (v6.0 · B2),
+        // together with what was deferred inside the phase with DEFER (v6.0 · P2), in list order.
+        let open = openItems(in: currentPhase).map(\.id)
+        let deferredHere = deferredItems[currentPhase] ?? []
+        if !open.isEmpty {
+            let order = activeChecklist.visibleItems(for: currentPhase, learningMode: true).map(\.id)
+            let all = Set(deferredHere).union(open)
+            deferredItems[currentPhase] = order.filter(all.contains)
+        }
+        let leftSomethingDeferred = !(deferredItems[currentPhase] ?? []).isEmpty
+        if currentPhase.hasMissingRequiredAction(
+            engineStarted: engineStartTime != nil,
+            linedUp: lineUpTime != nil,
+            engineShutDown: engineShutdownTime != nil) {
+            phaseCompletionStatus[currentPhase] = .missingAction
+        } else if currentPhaseHasNoVisibleItems(learningMode: settings.learningMode) {
+            // SEC-C36: nothing was displayed, so nothing was worked through. Report that honestly
+            // instead of inheriting `.completed` from the 0 >= 0 comparison.
+            phaseCompletionStatus[currentPhase] = .empty
+        } else {
+            // Every item reached, but one of them deferred: not done yet. It turns green once the last
+            // deferred item is checked (`checkDeferredItem`).
+            phaseCompletionStatus[currentPhase] = checklistWorkedThrough && !leftSomethingDeferred ? .completed : .skipped
+        }
+        
+        // Update highest completed phase
+        if currentPhase.rawValue >= highestCompletedPhase.rawValue {
+            highestCompletedPhase = currentPhase
+        }
+    }
+
+    /// Arriving in a phase. What is still open on its list, from the highlight down, is open again
+    /// on screen, so it leaves the deferred list; a deferred check is simply run in place.
+    /// Without this, coming back to a phase left with items open had them listed twice, and a CHECK
+    /// on the list drew them as deferred rather than done: an accidental jump then cost the pilot
+    /// every item a second time, in the deferred list. (v6.0 review, B1)
+    private func enterPhase(_ phase: ChecklistPhase) {
+        currentPhase = phase
+        // A deferred check you go back to is run where it stands, as the current phase.
+        deferredChecks.removeAll { $0 == phase }
+        guard settings.stepByStepHighlighting, let ids = deferredItems[phase] else { return }
+        let checked = currentHighlightedItem[phase] ?? 0
+        let reopened = Set(activeChecklist.visibleItems(for: phase, learningMode: effectiveLearningMode)
+            .dropFirst(checked).map(\.id))
+        let kept = ids.filter { !reopened.contains($0) }
+        deferredItems[phase] = kept.isEmpty ? nil : kept
     }
 
     func previousPhase() {
         // The previous-navigable rule (with circuit-mode skipping) lives on ChecklistPhase.
         if let target = currentPhase.previousNavigable(circuitMode: isCircuitMode) {
-            currentPhase = target
+            enterPhase(target)
         }
     }
 
-    func goToPhase(_ phase: ChecklistPhase) {
+    /// A jump on the phase bar or the phase list. Forward, the phase left goes the way NEXT takes it
+    /// (its open items deferred one by one) unless nothing in it was ticked, in which case it is a
+    /// whole check like the phases passed over; those are deferred whole, or marked done, as
+    /// `skipped` says. The Cockpit asks which above the threshold (`jumpNeedsQuestion`); below it,
+    /// they are deferred. (v6.0 review, B1 and J1-J3)
+    func goToPhase(_ phase: ChecklistPhase, skipped: SkippedChecks = .deferred) {
         // In circuit mode, don't allow navigation to CRUISE or DESCENT
         if phase.isSkippedInCircuitMode(isCircuitMode) {
             return
         }
 
-        // When jumping to a phase, mark any skipped phases appropriately
         if let currentIndex = ChecklistPhase.allCases.firstIndex(of: currentPhase),
-           let targetIndex = ChecklistPhase.allCases.firstIndex(of: phase) {
-
-            if targetIndex > currentIndex {
-                // Jumping forward - mark skipped phases
-                for i in currentIndex..<targetIndex {
-                    let skippedPhase = ChecklistPhase.allCases[i]
-                    if phaseCompletionStatus[skippedPhase] == nil {
-                        // Jumped over this phase: .missingAction if it had an unpressed required button, else .skipped.
-                        phaseCompletionStatus[skippedPhase] = skippedPhase.hasMissingRequiredAction(
-                            engineStarted: engineStartTime != nil,
-                            linedUp: lineUpTime != nil,
-                            engineShutDown: engineShutdownTime != nil) ? .missingAction : .skipped
-                    }
+           let targetIndex = ChecklistPhase.allCases.firstIndex(of: phase),
+           targetIndex > currentIndex {
+            if settings.stepByStepHighlighting {
+                let passed = checksPassed(jumpingTo: phase)
+                if checkIsUntouched(currentPhase) {
+                    conclude(passedCheck: currentPhase, as: skipped)
+                    if currentPhase.rawValue >= highestCompletedPhase.rawValue { highestCompletedPhase = currentPhase }
+                } else {
+                    leaveCurrentPhase()
+                }
+                for check in passed { conclude(passedCheck: check, as: skipped) }
+            } else {
+                // Nothing is tracked without step-by-step: the phase left and the phases passed only
+                // get their colour.
+                leaveCurrentPhase()
+            }
+            // Whatever the jump passed and didn't conclude (cruise and descent in circuit mode, a
+            // phase already worked through): the colour it had, or skipped / missing action.
+            for i in (currentIndex + 1)..<targetIndex {
+                let skippedPhase = ChecklistPhase.allCases[i]
+                if phaseCompletionStatus[skippedPhase] == nil {
+                    phaseCompletionStatus[skippedPhase] = skippedPhase.hasMissingRequiredAction(
+                        engineStarted: engineStartTime != nil,
+                        linedUp: lineUpTime != nil,
+                        engineShutDown: engineShutdownTime != nil) ? .missingAction : .skipped
                 }
             }
         }
-        currentPhase = phase
+        enterPhase(phase)
     }
-    
+
     /// Get the completion status for a phase
     func getPhaseStatus(_ phase: ChecklistPhase) -> PhaseCompletionStatus {
         // If we have an explicit status recorded, use it
@@ -1916,7 +2314,8 @@ class AppState {
             // Flights/ and NavigationPlans/, so it is exactly as untrusted as a synced record.
             // SyncManager.settingsFromRecord already clamps; this sibling path did not, leaving
             // the numeric ranges (e.g. gpsRecordingInterval) unguarded on the file route.
-            settings = loadedSettings.clampedForIngest()
+            settings = loadedSettings.clampedForIngest().migratedLocally()
+            if settings.schemaVersion != loadedSettings.schemaVersion { persistence.saveSettings(settings) }
 
             // Update sync manager with loaded preference
             syncManager?.isSyncEnabled = settings.iCloudSyncEnabled
@@ -2175,4 +2574,10 @@ extension AppState {
     func formatTime(_ date: Date) -> String {
         FlightClock.formattedTimeOfDay(date, useUTC: settings.alwaysUseUTC)
     }
+}
+
+/// See `AppState.pendingFlightStart`.
+struct PendingFlightStart: Equatable {
+    let threadId: UUID
+    let circuits: Bool
 }

@@ -64,17 +64,17 @@ struct DisclaimerView: View {
     private var header: some View {
         VStack(spacing: 12) {
             Image(systemName: "exclamationmark.triangle.fill")
-                .font(.system(size: 38))
+                .font(.aero(size: 38))
                 .foregroundColor(.aviationAmber)
                 .accessibilityHidden(true)
 
             Text(L10n.Disclaimer.title)
-                .font(.title2.weight(.bold))
+                .font(.aero(.title2).weight(.bold))
                 .foregroundColor(.primaryText)
                 .multilineTextAlignment(.center)
 
             Text(L10n.Disclaimer.intro)
-                .font(.callout)
+                .font(.aero(.callout))
                 .foregroundColor(.secondaryText)
                 .multilineTextAlignment(.center)
                 .fixedSize(horizontal: false, vertical: true)
@@ -99,17 +99,17 @@ struct DisclaimerView: View {
     private func point(_ icon: String, _ title: String, _ body: String) -> some View {
         HStack(alignment: .top, spacing: 14) {
             Image(systemName: icon)
-                .font(.system(size: 17, weight: .medium))
+                .font(.aero(size: 17, weight: .medium))
                 .foregroundColor(.aviationAmber)
                 .frame(width: 26, height: 22)
                 .accessibilityHidden(true)
 
             VStack(alignment: .leading, spacing: 3) {
                 Text(title)
-                    .font(.subheadline.weight(.semibold))
+                    .font(.aero(.subheadline).weight(.semibold))
                     .foregroundColor(.primaryText)
                 Text(body)
-                    .font(.footnote)
+                    .font(.aero(.footnote))
                     .foregroundColor(.secondaryText)
                     .fixedSize(horizontal: false, vertical: true)
             }
@@ -136,9 +136,9 @@ struct DisclaimerView: View {
                 Image(systemName: "doc.text")
                 Text(L10n.Disclaimer.readTerms)
                 Image(systemName: "arrow.up.right")
-                    .font(.caption2)
+                    .font(.aero(.caption2))
             }
-            .font(.footnote.weight(.medium))
+            .font(.aero(.footnote).weight(.medium))
             .foregroundColor(.aviationGold)
         }
         .buttonStyle(.plain)
@@ -150,14 +150,14 @@ struct DisclaimerView: View {
     private var footer: some View {
         VStack(spacing: 10) {
             Text(L10n.Disclaimer.asIs)
-                .font(.caption2)
+                .font(.aero(.caption2))
                 .foregroundColor(.dimText)
                 .multilineTextAlignment(.center)
                 .fixedSize(horizontal: false, vertical: true)
 
             Button(action: primaryAction) {
                 Text(mode == .gate ? L10n.Disclaimer.accept : L10n.Button.close)
-                    .font(.headline)
+                    .font(.aero(.headline))
                     .foregroundColor(.onAccent)
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 15)

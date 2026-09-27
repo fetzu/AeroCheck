@@ -125,4 +125,34 @@ final class AppStateFlightStartTests: XCTestCase {
         throw XCTSkip("ActivityKit is not available")
         #endif
     }
+
+    // MARK: - Live Activities: one, the current flight's (6.0)
+
+    func testWithNoFlightEveryActivityEnds() {
+        let items: [LiveActivityTriage.Item] = [.init(flightId: UUID(), isLive: true), .init(flightId: nil, isLive: true)]
+        let decision = LiveActivityTriage.decide(items, currentFlightId: nil)
+        XCTAssertNil(decision.keep)
+        XCTAssertEqual(decision.end, [0, 1], "a quit flight's activity doesn't outlive a launch without it")
+    }
+
+    func testTheFlightKeepsItsOwnActivityAndNothingElse() {
+        let flight = UUID()
+        let items: [LiveActivityTriage.Item] = [
+            .init(flightId: UUID(), isLive: false),   // the last flight's, ended but still on screen
+            .init(flightId: flight, isLive: true),     // this flight's
+            .init(flightId: flight, isLive: true),     // a duplicate of it
+            .init(flightId: nil, isLive: true),        // one from an older build
+        ]
+        let decision = LiveActivityTriage.decide(items, currentFlightId: flight)
+        XCTAssertEqual(decision.keep, 1)
+        XCTAssertEqual(decision.end, [0, 2, 3])
+    }
+
+    func testAnEndedActivityOfTheFlightIsNotAdopted() {
+        let flight = UUID()
+        let decision = LiveActivityTriage.decide([.init(flightId: flight, isLive: false)], currentFlightId: flight)
+        XCTAssertNil(decision.keep, "an ended activity can't be updated: the flight gets a new one")
+        XCTAssertEqual(decision.end, [0])
+    }
 }
+

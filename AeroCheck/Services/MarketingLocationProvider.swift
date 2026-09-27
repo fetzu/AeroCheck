@@ -585,6 +585,11 @@ class MarketingLocationProvider: ObservableObject {
 enum MarketingScene: String, CaseIterable, Identifiable {
     case home2Aircraft = "Home — 2 Aircraft"
     case cruiseHUD = "Cruise HUD"
+    /// The Cockpit's MAP pane in flight, with a route on it (iPhone pass).
+    case cruiseRoute = "Cruise — Route on the map"
+    /// The same, with the cruise check worked through, so the Cockpit shows its MAP by itself: the
+    /// website's map shot, no tap needed. (6.0 captures)
+    case cruiseMap = "Cruise — the Cockpit's map"
     case navPlanActive = "Nav — Active Plan"
     case planConflicts = "Plan — Conflicts"
     case planBuilder = "Plan — Builder"
@@ -601,6 +606,8 @@ enum MarketingScene: String, CaseIterable, Identifiable {
         switch self {
         case .home2Aircraft: return "F-HVXA + HB-PFA owned"
         case .cruiseHUD: return "Active flight, CRUISE, SPD/ALT/HDG lit"
+        case .cruiseRoute: return "Active flight, CRUISE, LSZQ→LSGC→LSGN→LSZB on the map"
+        case .cruiseMap: return "Active flight, CRUISE checked, the Cockpit on its MAP"
         case .navPlanActive: return "LSZQ→LSGC→LSGN→LSZB active"
         case .planConflicts: return "Geneva→Samedan, full conflict list"
         case .planBuilder: return "LSZQ→LSGN→LSZP→LSZB→LSZS builder"
@@ -667,11 +674,6 @@ enum MarketingSceneInjector {
         airportDataService: AirportDataService,
         threadManager: FlightThreadManager? = nil
     ) {
-        // Circuit mode on for every scene: CIRCUITS is a headline feature and it is gated behind a
-        // setting, so a shot taken with it off simply does not show it. Home is where it reads, but
-        // setting it once here keeps every scene consistent rather than only the two Home ones.
-        appState.settings.enableCircuitMode = true
-        appState.saveSettings()
 
         // Every scene starts from NO threads. A single leftover thread scheduled today takes over
         // Home's hero, which silently ruined the `home` and `conflicts` shots — they came back
@@ -703,6 +705,22 @@ enum MarketingSceneInjector {
             injectHome2Aircraft(appState: appState, subscriptionManager: subscriptionManager, aircraftDataService: aircraftDataService)
         case .cruiseHUD:
             injectCruiseHUD(appState: appState, locationManager: locationManager, airportDataService: airportDataService)
+        case .cruiseRoute:
+            injectNavPlanActive(flightPlanManager: flightPlanManager, airportDataService: airportDataService, locationManager: locationManager)
+            injectCruiseHUD(appState: appState, locationManager: locationManager, airportDataService: airportDataService,
+                            fix: .onTheLeg)
+        case .cruiseMap:
+            injectNavPlanActive(flightPlanManager: flightPlanManager, airportDataService: airportDataService, locationManager: locationManager)
+            injectCruiseHUD(appState: appState, locationManager: locationManager, airportDataService: airportDataService,
+                            fix: .onTheLeg)
+            // The chart as the 5.0 captures showed it: the ICAO chart's own airspace, no OpenAIP layers
+            // over it. The scene sets it rather than relying on a simulator's settings.
+            appState.settings.showOpenAIPOverlay = false
+            appState.settings.showReportingPointsOnMap = false
+            appState.settings.showObstaclesOnMap = false
+            // Every cruise item checked: the pane rule then shows the map.
+            let count = appState.activeChecklist.visibleItemCount(for: .cruise, learningMode: appState.settings.learningMode)
+            appState.currentHighlightedItem[.cruise] = ChecklistHighlighting.lastItemComplete(visibleCount: count)
         case .navPlanActive:
             injectNavPlanActive(flightPlanManager: flightPlanManager, airportDataService: airportDataService, locationManager: locationManager)
         case .planConflicts:
@@ -750,7 +768,17 @@ enum MarketingSceneInjector {
 
     // MARK: - Scene 2: Active flight on CRUISE with a held static fix
 
-    private static func injectCruiseHUD(appState: AppState, locationManager: LocationManager, airportDataService: AirportDataService) {
+    /// Where the cruise scenes hold the aircraft. Alone, it sits NE of LSZQ tracking 315°; with the
+    /// nav scene's route, ON the LSZQ → LSGC leg tracking along it. Two fixes with two courses left
+    /// the smoothed track vector pointing one way and the aircraft another. (6.0 captures)
+    struct CruiseFix {
+        let latitude: Double, longitude: Double, headingDegrees: Double
+        static let standalone = CruiseFix(latitude: 47.364761, longitude: 7.090180, headingDegrees: 315)
+        static let onTheLeg = CruiseFix(latitude: 47.345151, longitude: 6.982395, headingDegrees: 211)
+    }
+
+    private static func injectCruiseHUD(appState: AppState, locationManager: LocationManager, airportDataService: AirportDataService,
+                                        fix: CruiseFix = .standalone) {
         // Start a fresh flight on the bundled WT9 (always resolvable, no network needed).
         if appState.isFlightActive { appState.cancelFlight() }
         appState.settings.selectedRemoteAircraftId = nil
@@ -790,7 +818,8 @@ enum MarketingSceneInjector {
         let provider = MarketingLocationProvider.shared
         Task {
             await airportDataService.ensureLoaded()
-            provider.holdStaticFix(latitude: 47.364761, longitude: 7.090180, altitudeMeters: altMeters, speedKnots: 105, headingDegrees: 315)
+            provider.holdStaticFix(latitude: fix.latitude, longitude: fix.longitude, altitudeMeters: altMeters,
+                                   speedKnots: 105, headingDegrees: fix.headingDegrees)
             if let loc = provider.currentLocation {
                 locationManager.injectMarketingStaticFix(loc)
             }
@@ -1124,7 +1153,7 @@ struct MarketingControlsView: View {
                 // Header
                 HStack {
                     Text("MARKETING MODE")
-                        .font(.system(size: 12, weight: .bold))
+                        .font(.aero(size: 12, weight: .bold))
                         .foregroundColor(.white)
                     Spacer()
 
@@ -1142,7 +1171,7 @@ struct MarketingControlsView: View {
                 VStack(spacing: 6) {
                     HStack {
                         Text("SCENE INJECTOR")
-                            .font(.system(size: 10, weight: .bold))
+                            .font(.aero(size: 10, weight: .bold))
                             .foregroundColor(.aviationGold)
                         Spacer()
                     }
@@ -1154,7 +1183,7 @@ struct MarketingControlsView: View {
                     .pickerStyle(MenuPickerStyle())
 
                     Text(selectedScene.detail)
-                        .font(.system(size: 9))
+                        .font(.aero(size: 9))
                         .foregroundColor(.white.opacity(0.6))
                         .frame(maxWidth: .infinity, alignment: .leading)
 
@@ -1167,7 +1196,7 @@ struct MarketingControlsView: View {
 
                     if let lastInjected {
                         Text(lastInjected)
-                            .font(.system(size: 9, design: .monospaced))
+                            .font(.aero(size: 9, design: .monospaced))
                             .foregroundColor(.green)
                             .frame(maxWidth: .infinity, alignment: .leading)
                     }
@@ -1189,7 +1218,7 @@ struct MarketingControlsView: View {
                 VStack(spacing: 4) {
                     HStack {
                         Text("Speed: \(String(format: "%.1fx", provider.playbackSpeed))")
-                            .font(.system(size: 11))
+                            .font(.aero(size: 11))
                             .foregroundColor(.white.opacity(0.8))
                         Spacer()
                     }
@@ -1212,7 +1241,7 @@ struct MarketingControlsView: View {
                         }
                     }) {
                         Image(systemName: provider.isActive && !provider.isPaused && !provider.useCustomPosition ? "pause.fill" : "play.fill")
-                            .font(.system(size: 24))
+                            .font(.aero(size: 24))
                     }
 
                     Button(action: { provider.nextWaypoint() }) {
@@ -1239,7 +1268,7 @@ struct MarketingControlsView: View {
                             Text("Mode: Custom Position")
                         }
                     }
-                    .font(.system(size: 10, design: .monospaced))
+                    .font(.aero(size: 10, design: .monospaced))
                     .foregroundColor(.white.opacity(0.8))
                     .padding(.horizontal)
                 }
@@ -1312,7 +1341,7 @@ struct MarketingControlsView: View {
                         .buttonStyle(.bordered)
                     }
                     .padding(.horizontal)
-                    .font(.system(size: 12))
+                    .font(.aero(size: 12))
                     .foregroundColor(.white)
                 }
             }

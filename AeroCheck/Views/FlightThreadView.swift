@@ -149,6 +149,7 @@ struct FlightThreadView: View {
 
     @EnvironmentObject var threadManager: FlightThreadManager
     @EnvironmentObject var flightPlanManager: FlightPlanManager
+    @Environment(AppState.self) private var appState
     @EnvironmentObject var openAIPDataService: OpenAIPDataService
     @EnvironmentObject var airportDataService: AirportDataService
     @Environment(\.dismiss) private var dismiss
@@ -161,6 +162,8 @@ struct FlightThreadView: View {
     @State private var numbersFlightId: UUID?
     /// Confirmation for the ICAO flight-plan copy, which is otherwise invisible. (v5.0.0)
     @State private var copiedFPL = false
+    /// Cancel flight's question is showing. (v6.0 review, B4)
+    @State private var confirmingCancel = false
     /// The nav log rendered to a file and shown in Quick Look, where it can be read, printed,
     /// marked up, saved or shared. (A bare share sheet offered none of the first three on iPad.)
     @State private var navLogPreview: URL?
@@ -168,8 +171,27 @@ struct FlightThreadView: View {
     @State private var routeBuilderPlanId: UUID?
     /// Plan open in the details editor, from the fuel task. (v5.0.0)
     @State private var planEditorPlan: FlightPlan?
+    /// "Edit route" chosen in the flight sheet: the route editor opens once the sheet has closed.
+    /// It used to only close the sheet. (planning proposal A)
+    @State private var routeAfterEditorPlanId: UUID?
+    /// Plan whose fuel on board is being set, from a tap on the fuel task. (on-device review #4)
+    @State private var fuelSheetPlanId: UUID?
+    /// "Fuel & times" chosen in the fuel sheet: the nav log sheet opens once that one has closed.
+    @State private var openEditorAfterFuel = false
+    /// The plan the fuel sheet was last opened for: `fuelSheetPlanId` is already nil in `onDismiss`.
+    @State private var lastFuelPlanId: UUID?
+    /// Renaming the flight, or its trip. (on-device review #4)
+    @State private var renaming: RenameTarget?
+    @State private var renameText = ""
+
+    private enum RenameTarget: Equatable { case flight, trip(UUID) }
     /// "Add a stop" sheet. (v5.1)
     @State private var addingStop = false
+    /// Chapters whose ticked tasks are unfolded. Folded by default: the page leads with what is left.
+    /// (v6.0 · D3)
+    @State private var unfoldedDone: Set<ThreadChapter> = []
+    /// "Start now" pressed on a flight planned for another day: the question before it starts.
+    @State private var confirmingEarlyStart = false
 
     private var thread: FlightThread? { threadManager.thread(withId: threadId) }
 
@@ -184,13 +206,17 @@ struct FlightThreadView: View {
                     Divider().overlay(Color.white.opacity(0.06))
                     ScrollView {
                         VStack(spacing: 16) {
+                            // The red card leads, and the NEXT card under it moves on to the task
+                            // after: both used to say "close the flight plan", NEXT first, so the
+                            // safety headline was the second card on the page.
+                            if thread.hasOpenFlightPlanAfterFlight {
+                                openFlightPlanCard(thread)
+                            }
+                            nextTaskCard(thread)
                             if let trip = threadManager.trip(forThreadId: thread.id) {
                                 tripBand(trip, leg: thread)
                             }
                             stopActions(thread)
-                            if thread.hasOpenFlightPlan && thread.state == .closeOut {
-                                openFlightPlanCard(thread)
-                            }
                             continuationCard(thread)
                             ForEach(ThreadChapter.allCases) { chapter in
                                 chapterSection(thread, chapter: chapter)
@@ -248,8 +274,34 @@ struct FlightThreadView: View {
         // `onDismiss` rather than relying on the plan-watching onChange alone: the editor flushes
         // its debounced commit in its own `onDisappear`, and the pilot should not have to leave the
         // flight and come back to see the fuel row settle. (device pass)
-        .sheet(item: $planEditorPlan, onDismiss: { refreshFromPlan() }) { plan in
-            FlightPlanEditorView(flightPlan: plan)
+        .sheet(item: $planEditorPlan, onDismiss: {
+            refreshFromPlan()
+            // "Edit route" in the flight sheet: the route editor, once the sheet has gone.
+            if let id = routeAfterEditorPlanId { routeBuilderPlanId = id }
+            routeAfterEditorPlanId = nil
+        }) { plan in
+            FlightPlanEditorView(flightPlan: plan, onEditRoute: {
+                routeAfterEditorPlanId = plan.id
+                planEditorPlan = nil
+            })
+        }
+        .sheet(isPresented: Binding(
+            get: { fuelSheetPlanId != nil },
+            set: { if !$0 { fuelSheetPlanId = nil } }
+        ), onDismiss: {
+            refreshFromPlan()
+            if openEditorAfterFuel, let id = fuelSheetPlanId ?? lastFuelPlanId,
+               let plan = flightPlanManager.flightPlans.first(where: { $0.id == id }) {
+                planEditorPlan = plan
+            }
+            openEditorAfterFuel = false
+        }) {
+            if let id = fuelSheetPlanId {
+                FuelOnBoardSheet(planId: id, onOpenFullEditor: {
+                    openEditorAfterFuel = true
+                    fuelSheetPlanId = nil
+                })
+            }
         }
         .sheet(isPresented: $addingStop) {
             AddStopSheet(threadId: threadId) { _ in addingStop = false }
@@ -258,6 +310,21 @@ struct FlightThreadView: View {
                 .environmentObject(airportDataService)
         }
         .copiedConfirmation(L10n.Nav.icaoFlightPlanCopied, isPresented: $copiedFPL)
+        .alert(renaming == .flight ? L10n.FlightNames.renameFlight : L10n.FlightNames.renameTrip,
+               isPresented: Binding(get: { renaming != nil }, set: { if !$0 { renaming = nil } })) {
+            TextField(L10n.Routes.namePlaceholder, text: $renameText)
+            Button(L10n.Button.cancel, role: .cancel) { renaming = nil }
+            Button(L10n.Routes.rename) {
+                switch renaming {
+                case .flight: threadManager.renameFlight(threadId, to: renameText)
+                case .trip(let id): threadManager.renameTrip(id, to: renameText)
+                case nil: break
+                }
+                renaming = nil
+            }
+        } message: {
+            Text(renaming == .flight ? L10n.FlightNames.renameFlightMessage : L10n.FlightNames.renameTripMessage)
+        }
         // Warm the tariff registry so the fee task can offer the operator's page. Cached for a week
         // and silent on failure — a missing link is a missing convenience, never an error.
         .task { await AirfieldTariffService.shared.refreshIfNeeded() }
@@ -266,13 +333,11 @@ struct FlightThreadView: View {
         // reading REQ 0 / FOB 0 forever, and never ticking itself once the tanks were entered.
         // `regenerateTasks` preserves everything the pilot has ticked, so this is safe to run often.
         .onAppear { refreshFromPlan() }
-        .onChange(of: planForRefresh) { _, _ in refreshFromPlan() }
-    }
-
-    /// The followed plan, watched so an edit anywhere re-derives the AUTO rows.
-    private var planForRefresh: FlightPlan? {
-        guard let thread = threadManager.thread(withId: threadId) else { return nil }
-        return plan(for: thread)
+        // Every save of the plans, not `.onChange(of:)`: `FlightPlan`'s `==` compares ids only, so an
+        // edited plan never counted as a change, and the fuel entered in the details sheet stayed
+        // unseen until the page was reopened. The editor also saves after the sheet's `onDismiss`
+        // has run, which is why that refresh came too early. (on-device review #1, T-01)
+        .onReceive(flightPlanManager.$flightPlans) { _ in refreshFromPlan() }
     }
 
     private func refreshFromPlan() {
@@ -325,8 +390,9 @@ struct FlightThreadView: View {
             // and the thumbnail beside it already opens the route. (device pass)
             Button { planEditorPlan = plan(for: thread) } label: {
                 VStack(alignment: .leading, spacing: 3) {
-                    Text(thread.routeLabel)
-                        .scaledFont(size: 19, weight: .semibold, design: .monospaced, relativeTo: .title3)
+                    Text(thread.displayName)
+                        .scaledFont(size: 19, weight: .semibold, design: thread.name == nil ? .monospaced : .default,
+                                    relativeTo: .title3)
                         .foregroundColor(.primaryText)
                         .lineLimit(1)
                         // A safety net for a long label, not the mechanism — the space comes from
@@ -345,8 +411,32 @@ struct FlightThreadView: View {
             .disabled(plan(for: thread) == nil)
             .accessibilityHint(L10n.Nav.flightPlanDetails)
 
+            // A name of the pilot's own, whatever the ends. (on-device review #4)
+            Button {
+                renameText = thread.name ?? ""
+                renaming = .flight
+            } label: {
+                Image(systemName: "pencil")
+                    .scaledFont(size: 15, weight: .semibold, relativeTo: .body)
+                    .foregroundColor(.aviationGold)
+                    .frame(width: 44, height: 44)
+                    .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel(L10n.FlightNames.renameFlight)
+
             if !usesCompactHeader { stateChip(thread) }
-            readinessRing(thread)
+            VStack(spacing: 3) {
+                readinessRing(thread)
+                // The ring in words, where there is room for them: "3 of 4 done". (v6.0 · D3)
+                if !usesCompactHeader {
+                    Text(readinessCaption(thread))
+                        .scaledFont(size: 11, relativeTo: .caption2)
+                        .foregroundColor(.secondaryText)
+                        .lineLimit(1)
+                        .fixedSize()
+                }
+            }
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 12)
@@ -355,6 +445,8 @@ struct FlightThreadView: View {
 
     private func subtitle(_ thread: FlightThread) -> String {
         var parts: [String] = []
+        // Named: the route's ends move here, so they're never out of sight.
+        if thread.name != nil { parts.append(thread.routeLabel) }
         // Where this leg sits comes first: on a trip it is the thing that tells one leg from another,
         // since two legs of the same trip share their aircraft and often their date.
         if let trip = threadManager.trip(forThreadId: thread.id),
@@ -390,6 +482,94 @@ struct FlightThreadView: View {
             .padding(.horizontal, 8)
             .padding(.vertical, 4)
             .overlay(Capsule().strokeBorder(color.opacity(0.55), lineWidth: 1))
+    }
+
+    private func readinessCaption(_ thread: FlightThread) -> String {
+        if thread.state == .closeOut || thread.state == .done {
+            let p = thread.closeOutProgress
+            return L10n.Thread.closedProgress(p.done, p.total)
+        }
+        let p = thread.preFlightProgress
+        return L10n.Thread.readiness(p.done, p.total)
+    }
+
+    // MARK: - Next task (v6.0 · D3)
+
+    /// The one thing to do next, big and on top, so the page opens on it: the same task Today
+    /// advertises as "Next". Fifteen rows of equal weight left the pilot to find it. The list below
+    /// still has it, in its chapter. While the red open-plan card is up, that card is the next task
+    /// and this one shows the task after it.
+    @ViewBuilder
+    private func nextTaskCard(_ thread: FlightThread) -> some View {
+        if thread.state != .flying {
+            if let task = thread.nextTaskBesideOpenFlightPlan {
+                VStack(alignment: .leading, spacing: 0) {
+                    Text(L10n.Thread.nextUp.uppercased())
+                        .scaledFont(size: 12, weight: .bold, design: .monospaced, relativeTo: .caption)
+                        .foregroundColor(.aviationGold)
+                        .tracking(0.8)
+                        .padding(.horizontal, 14)
+                        .padding(.top, 12)
+                    taskRow(task, in: thread, prominent: true)
+                }
+                .background(Color.cardBackground)
+                .clipShape(RoundedRectangle(cornerRadius: 14))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 14)
+                        .strokeBorder(Color.aviationGold.opacity(0.6), lineWidth: 1.5)
+                )
+            } else if thread.state == .planned || thread.state == .ready {
+                HStack(spacing: 10) {
+                    Image(systemName: "checkmark.seal.fill")
+                        .scaledFont(size: 20, relativeTo: .title3)
+                        .foregroundColor(.aviationGreen)
+                    Text(L10n.Thread.allDone)
+                        .scaledFont(size: 17, weight: .semibold, relativeTo: .headline)
+                        .foregroundColor(.primaryText)
+                    Spacer(minLength: 0)
+                }
+                .padding(14)
+                .background(Color.cardBackground)
+                .clipShape(RoundedRectangle(cornerRadius: 14))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 14)
+                        .strokeBorder(Color.aviationGreen.opacity(0.5), lineWidth: 1)
+                )
+            }
+        }
+    }
+
+    private func taskRow(_ task: ThreadTask, in thread: FlightThread, prominent: Bool = false) -> some View {
+        ThreadTaskRow(
+            task: task,
+            onToggle: { toggle(task, in: thread) },
+            onDismissTask: { setState(.notApplicable, task, in: thread) },
+            onOpen: { url in openURL(url) },
+            tariffURL: tariffURL(for: task),
+            touchesSwitzerland: thread.countries?.contains("CH") ?? false,
+            // v5.0.0: three tasks now open a calculator instead of only taking a tick.
+            // The tick still works on its own — the tool is an aid, not a gate.
+            toolLabel: toolLabel(for: task, in: thread),
+            onOpenTool: { openTool(for: task, in: thread) },
+            // The fuel task: a tap anywhere on it sets fuel on board. It can't be ticked (it ticks
+            // itself once the tanks hold enough), so the whole row is free to do this.
+            // (on-device review #4, point 3)
+            onTapRow: task.key == .fuelPlanned && plan(for: thread) != nil
+                ? { openTool(for: task, in: thread) } : nil,
+            warning: fuelWarning(for: task, in: thread),
+            prominent: prominent
+        )
+    }
+
+    /// Fuel on board short of what the flight requires, said on the flight's page and not only in
+    /// the fuel sheet, where it was the one place "Short by X L" appeared. (v6.0 review, B3)
+    private func fuelWarning(for task: ThreadTask, in thread: FlightThread) -> String? {
+        guard task.key == .fuelPlanned, task.state != .notApplicable, let plan = plan(for: thread),
+              case .short(let litres) = FuelOnBoardStatus.make(onBoard: plan.fuelOnBoard,
+                                                               required: plan.fuelRequired,
+                                                               flowLitresPerHour: plan.effectiveFuelFlow)
+        else { return nil }
+        return L10n.FuelOnBoard.short(String(format: "%.1f", litres))
     }
 
     /// The readiness ring: pre-flight progress before the flight, close-out progress after it.
@@ -432,10 +612,24 @@ struct FlightThreadView: View {
                     .foregroundColor(.aviationGold)
                     .tracking(0.8)
                 Spacer()
-                Text(tripLabel(trip))
-                    .scaledFont(size: 11, relativeTo: .caption2)
-                    .foregroundColor(.dimText)
-                    .lineLimit(1)
+                Button {
+                    renameText = trip.name ?? ""
+                    renaming = .trip(trip.id)
+                } label: {
+                    HStack(spacing: 5) {
+                        Text(trip.name ?? tripLabel(trip))
+                            .scaledFont(size: 11, relativeTo: .caption2)
+                            .foregroundColor(trip.name == nil ? .dimText : .secondaryText)
+                            .lineLimit(1)
+                        Image(systemName: "pencil")
+                            .scaledFont(size: 10, weight: .semibold, relativeTo: .caption2)
+                            .foregroundColor(.aviationGold)
+                    }
+                    .frame(minHeight: 32)
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel(L10n.FlightNames.renameTrip)
             }
             .padding(.horizontal, 14)
             .padding(.vertical, 9)
@@ -501,15 +695,15 @@ struct FlightThreadView: View {
                     } label: {
                         HStack(spacing: 6) {
                             Text("\(index + 1)")
-                                .font(.system(size: 11, weight: .bold, design: .monospaced))
+                                .font(.aero(size: 11, weight: .bold, design: .monospaced))
                                 .foregroundColor(.aviationGold)
-                            Text(leg.routeLabel)
+                            Text(leg.displayName)
                                 .scaledFont(size: 12, design: .monospaced, relativeTo: .caption)
                                 .foregroundColor(isCurrent ? .primaryText : .secondaryText)
                                 .lineLimit(1)
                             if flown {
                                 Image(systemName: "checkmark")
-                                    .font(.system(size: 10, weight: .bold))
+                                    .font(.aero(size: 10, weight: .bold))
                                     .foregroundColor(.aviationGreen)
                             }
                         }
@@ -520,7 +714,7 @@ struct FlightThreadView: View {
                     }
                     .buttonStyle(.plain)
                     .disabled(isCurrent || onOpenLeg == nil)
-                    .accessibilityLabel(L10n.Flights.legOf(index + 1, legs.count) + ", " + leg.routeLabel)
+                    .accessibilityLabel(L10n.Flights.legOf(index + 1, legs.count) + ", " + leg.displayName)
                 }
             }
             .padding(.horizontal, 14)
@@ -577,22 +771,45 @@ struct FlightThreadView: View {
 
     // MARK: - Chapter bar
 
+    /// The state chip and the four chapters, all in view: on one row where they fit, else the state
+    /// chip over the chapters, else the chapters two by two. On an iPhone the single scrolling row cut
+    /// Close off at the edge with nothing to say there was more, and in French even the four
+    /// chapters alone are wider than the screen. Scrolling stays as the last resort, for the largest
+    /// text sizes. (v6.0 review)
     private func chapterBar(_ thread: FlightThread) -> some View {
-        ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: 8) {
-                // Displaced from the header on iPhone, where it was costing the route label the
-                // width it needed. It belongs with the per-chapter progress anyway: same question,
-                // one level up — and it leads, so it is on screen without scrolling the bar.
-                // (device pass)
+        let chapters = Array(ThreadChapter.allCases)
+        return ViewThatFits(in: .horizontal) {
+            chapterRow(thread, chapters: chapters, withState: true)
+            VStack(alignment: .leading, spacing: 8) {
                 if usesCompactHeader { stateChip(thread) }
-                ForEach(ThreadChapter.allCases) { chapter in
-                    chapterChip(thread, chapter: chapter)
-                }
+                chapterRow(thread, chapters: chapters, withState: false)
             }
-            .padding(.horizontal, 16)
-            .padding(.vertical, 10)
+            VStack(alignment: .leading, spacing: 8) {
+                if usesCompactHeader { stateChip(thread) }
+                chapterRow(thread, chapters: Array(chapters.prefix(2)), withState: false)
+                chapterRow(thread, chapters: Array(chapters.dropFirst(2)), withState: false)
+            }
+            ScrollView(.horizontal, showsIndicators: false) {
+                chapterRow(thread, chapters: chapters, withState: true)
+            }
         }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 10)
+        .frame(maxWidth: .infinity, alignment: .leading)
         .background(Color.cockpitBackground)
+    }
+
+    private func chapterRow(_ thread: FlightThread, chapters: [ThreadChapter], withState: Bool) -> some View {
+        HStack(spacing: 8) {
+            // Displaced from the header on iPhone, where it was costing the route label the
+            // width it needed. It belongs with the per-chapter progress anyway: same question,
+            // one level up — and it leads, so it is on screen without scrolling the bar.
+            // (device pass)
+            if withState && usesCompactHeader { stateChip(thread) }
+            ForEach(chapters) { chapter in
+                chapterChip(thread, chapter: chapter)
+            }
+        }
     }
 
     private func chapterChip(_ thread: FlightThread, chapter: ThreadChapter) -> some View {
@@ -664,21 +881,45 @@ struct FlightThreadView: View {
                 .padding(.vertical, 9)
                 .background(Color.panelBackground)
 
-                ForEach(tasks) { task in
-                    ThreadTaskRow(
-                        task: task,
-                        onToggle: { toggle(task, in: thread) },
-                        onDismissTask: { setState(.notApplicable, task, in: thread) },
-                        onOpen: { url in openURL(url) },
-                        tariffURL: tariffURL(for: task),
-                        touchesSwitzerland: thread.countries?.contains("CH") ?? false,
-                        // v5.0.0: three tasks now open a calculator instead of only taking a tick.
-                        // The tick still works on its own — the tool is an aid, not a gate.
-                        toolLabel: toolLabel(for: task, in: thread),
-                        onOpenTool: { openTool(for: task, in: thread) }
-                    )
-                    if task.id != tasks.last?.id {
+                // What is left first; the ticked (and not-applicable) ones fold into one row, so a
+                // chapter reads as its open work. (v6.0 · D3)
+                let open = tasks.filter { $0.state == .pending }
+                let closed = tasks.filter { $0.state != .pending }
+                ForEach(open) { task in
+                    taskRow(task, in: thread)
+                    if task.id != open.last?.id || !closed.isEmpty {
                         Divider().overlay(Color.white.opacity(0.06)).padding(.leading, 46)
+                    }
+                }
+                if !closed.isEmpty {
+                    let unfolded = unfoldedDone.contains(chapter)
+                    Button {
+                        withAnimation(.easeInOut(duration: 0.2)) {
+                            if unfolded { unfoldedDone.remove(chapter) } else { unfoldedDone.insert(chapter) }
+                        }
+                    } label: {
+                        HStack(spacing: 12) {
+                            Image(systemName: "checkmark.circle.fill")
+                                .scaledFont(size: 18, relativeTo: .body)
+                                .foregroundColor(.aviationGreen)
+                            Text(L10n.Thread.doneCount(closed.count))
+                                .scaledFont(size: 14, weight: .semibold, relativeTo: .subheadline)
+                                .foregroundColor(.secondaryText)
+                            Spacer(minLength: 0)
+                            Image(systemName: unfolded ? "chevron.up" : "chevron.down")
+                                .scaledFont(size: 13, weight: .semibold, relativeTo: .footnote)
+                                .foregroundColor(.dimText)
+                        }
+                        .padding(.horizontal, 14)
+                        .frame(minHeight: 44)
+                        .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+                    if unfolded {
+                        ForEach(closed) { task in
+                            Divider().overlay(Color.white.opacity(0.06)).padding(.leading, 46)
+                            taskRow(task, in: thread)
+                        }
                     }
                 }
             }
@@ -715,7 +956,9 @@ struct FlightThreadView: View {
         // The chapter said what happens next without offering to do it, which made FLY the one
         // chapter you had to leave the flight to act on. The 16 phases still live where they always
         // did — this only starts them.
-        if let onStartFlight, thread.flightId == nil {
+        if let onStartFlight, thread.flightId == nil, !isDue(thread) {
+            earlyStart(thread, onStart: onStartFlight)
+        } else if let onStartFlight, thread.flightId == nil {
             Button {
                 onStartFlight(thread.profile == .local)
             } label: {
@@ -738,6 +981,49 @@ struct FlightThreadView: View {
             RoundedRectangle(cornerRadius: 14)
                 .strokeBorder(Color.altimeterBlue.opacity(0.25), lineWidth: 1)
         )
+    }
+
+    /// Today's flight, an undated one, or the next leg from a stop: START FLIGHT, the page's main
+    /// button. (Plan › Flights opens next week's flights too.)
+    private func isDue(_ thread: FlightThread) -> Bool {
+        thread.isDueToday() || threadManager.startableFlightToday?.id == thread.id
+    }
+
+    /// A flight planned for another day starts from its page too: its day and a quieter button, then a
+    /// question, so it isn't started by mistake in place of today's. There was no way to start it
+    /// before its day. (round 6)
+    private func earlyStart(_ thread: FlightThread, onStart: @escaping (Bool) -> Void) -> some View {
+        let when = thread.scheduledDeparture.map(Self.departureText) ?? ""
+        return VStack(alignment: .leading, spacing: 8) {
+            if !when.isEmpty {
+                Text(L10n.Thread.plannedFor(when))
+                    .scaledFont(size: 13, relativeTo: .footnote)
+                    .foregroundColor(.secondaryText)
+            }
+            Button { confirmingEarlyStart = true } label: {
+                HStack(spacing: 8) {
+                    Image(systemName: thread.profile == .local ? "arrow.triangle.2.circlepath" : "play.fill")
+                        .scaledFont(size: 14, weight: .semibold, relativeTo: .subheadline)
+                    Text(L10n.Thread.startNow)
+                        .scaledFont(size: 14, weight: .bold, relativeTo: .subheadline)
+                }
+                .frame(maxWidth: .infinity)
+            }
+            .buttonStyle(SecondaryButtonStyle(color: thread.profile == .local ? .aviationAmber : .aviationGreen,
+                                              isLarge: false))
+            .confirmationDialog(L10n.Thread.startEarlyTitle, isPresented: $confirmingEarlyStart,
+                                titleVisibility: .visible) {
+                Button(L10n.Thread.startNow) { onStart(thread.profile == .local) }
+                Button(L10n.Button.cancel, role: .cancel) {}
+            } message: {
+                if !when.isEmpty { Text(L10n.Thread.startEarlyMessage(when)) }
+            }
+        }
+    }
+
+    /// "Sat 27 Sep, 10:00", in the pilot's locale.
+    private static func departureText(_ date: Date) -> String {
+        date.formatted(.dateTime.weekday(.abbreviated).day().month(.abbreviated).hour().minute())
     }
 
     // MARK: - Open flight plan card
@@ -876,23 +1162,41 @@ struct FlightThreadView: View {
                 .buttonStyle(PrimaryButtonStyle(color: .aviationGreen))
                 .frame(maxWidth: .infinity)
             }
+            // Asks first: the page, its tasks and the route copied for it go for good, and one tap
+            // did it, the only delete on the ground screens without a question. (v6.0 review, B4)
             Button(role: .destructive) {
-                // `removeLeg`, not `deleteThread`: this is the app's ONLY delete affordance and it
-                // is shown on trip legs too. `deleteThread` knows nothing about trips, so cancelling
-                // a leg left its id dangling in `Trip.legIds` — "Leg 3 of 3" on the second of two, a
-                // degenerate trip never dissolved, and the survivor stuck with `tripId` set so its
-                // trip-scoped rows never came back. `removeLeg` delegates to `deleteThread` for a
-                // thread that is not in a trip, so it is a safe drop-in. (review F14)
-                threadManager.removeLeg(threadId: thread.id)
-                close()
+                confirmingCancel = true
             } label: {
                 Text(L10n.Thread.deleteThread)
                     .scaledFont(size: 13, relativeTo: .footnote)
                     .foregroundColor(.aviationRed.opacity(0.9))
+                    .frame(minHeight: 44)
             }
             .buttonStyle(.plain)
+            .confirmationDialog(L10n.Thread.cancelConfirmTitle, isPresented: $confirmingCancel,
+                                titleVisibility: .visible) {
+                Button(L10n.Thread.deleteThread, role: .destructive) { cancelFlight(thread) }
+                Button(L10n.Thread.keepFlight, role: .cancel) { }
+            } message: {
+                Text(L10n.Thread.cancelConfirmMessage)
+            }
         }
         .padding(.top, 4)
+    }
+
+    private func cancelFlight(_ thread: FlightThread) {
+        let ownPlan = FlightThreadManager.planToDelete(
+            withThread: thread.id, threads: threadManager.threads, plans: flightPlanManager.flightPlans,
+            logbookPlanIds: Set(appState.flights.compactMap(\.flightPlanId)))
+        // `removeLeg`, not `deleteThread`: this is the app's ONLY delete affordance and it
+        // is shown on trip legs too. `deleteThread` knows nothing about trips, so cancelling
+        // a leg left its id dangling in `Trip.legIds` — "Leg 3 of 3" on the second of two, a
+        // degenerate trip never dissolved, and the survivor stuck with `tripId` set so its
+        // trip-scoped rows never came back. `removeLeg` delegates to `deleteThread` for a
+        // thread that is not in a trip, so it is a safe drop-in. (review F14)
+        threadManager.removeLeg(threadId: thread.id)
+        if let ownPlan { flightPlanManager.deleteFlightPlan(ownPlan) }
+        close()
     }
 
     // MARK: - Actions
@@ -920,9 +1224,9 @@ struct FlightThreadView: View {
             // app's most-used editor unreachable from the flight it belongs to.
             return plan(for: thread) != nil ? L10n.Thread.editRoute : nil
         case .fuelPlanned:
-            // Fuel on board is entered on the plan's own sheet. Without this, the row could tell you
-            // the numbers disagreed and give you nowhere to fix them.
-            return plan(for: thread) != nil ? L10n.Thread.editFuel : nil
+            // Fuel on board, in its own sheet: the number this task is about, with Full tanks. The
+            // nav log sheet ("Fuel & times") is a link inside it. (on-device review #4, point 3)
+            return plan(for: thread) != nil ? L10n.FuelOnBoard.title : nil
         case .navLogReady:
             // The nav log is the one artefact this task is about, so the task should hand it over
             // rather than send the pilot to the plan editor to find the same export.
@@ -960,7 +1264,8 @@ struct FlightThreadView: View {
             routeBuilderPlanId = plan.id
         case .fuelPlanned:
             guard let plan = plan(for: thread) else { return }
-            planEditorPlan = plan
+            lastFuelPlanId = plan.id
+            fuelSheetPlanId = plan.id
         case .navLogReady:
             guard let plan = plan(for: thread) else { return }
             Task {
@@ -1011,6 +1316,13 @@ struct ThreadTaskRow: View {
     /// that is only ever a tick.
     var toolLabel: String?
     var onOpenTool: (() -> Void)?
+    /// A tap anywhere on the row, for a task the row itself opens (fuel on board). Nil: the row
+    /// only has its tick and chips. (on-device review #4, point 3)
+    var onTapRow: (() -> Void)?
+    /// A caution under the task, in amber: fuel on board short of the required fuel. (v6.0 review, B3)
+    var warning: String?
+    /// The flight page's "Next" card: the title and hint read larger. (v6.0 · D3)
+    var prominent: Bool = false
 
     private var presentation: ThreadTaskPresentation { .make(for: task) }
     private var links: [(label: String, url: URL)] {
@@ -1024,7 +1336,8 @@ struct ThreadTaskRow: View {
                 VStack(alignment: .leading, spacing: 2) {
                     HStack(spacing: 6) {
                         Text(presentation.title)
-                            .scaledFont(size: 14, weight: .semibold, relativeTo: .subheadline)
+                            .scaledFont(size: prominent ? 20 : 14, weight: .semibold,
+                                        relativeTo: prominent ? .title3 : .subheadline)
                             .foregroundColor(task.state == .notApplicable ? .dimText : .primaryText)
                             .strikethrough(task.state == .notApplicable)
                         if task.kind == .auto {
@@ -1042,7 +1355,7 @@ struct ThreadTaskRow: View {
                             .foregroundColor(.secondaryText)
                     } else if let hint = presentation.hint {
                         Text(hint)
-                            .scaledFont(size: 12, relativeTo: .caption)
+                            .scaledFont(size: prominent ? 15 : 12, relativeTo: prominent ? .subheadline : .caption)
                             .foregroundColor(.dimText)
                             .fixedSize(horizontal: false, vertical: true)
                     }
@@ -1050,6 +1363,13 @@ struct ThreadTaskRow: View {
                         Text(note)
                             .scaledFont(size: 12, relativeTo: .caption)
                             .foregroundColor(.aviationGold)
+                    }
+                    if let warning {
+                        Label(warning, systemImage: "exclamationmark.triangle.fill")
+                            .scaledFont(size: prominent ? 16 : 13, weight: .semibold,
+                                        relativeTo: prominent ? .subheadline : .caption)
+                            .foregroundColor(.aviationAmber)
+                            .padding(.top, 2)
                     }
                     // Inside the text column, not a sibling of it. These used to hang off the outer
                     // stack with a hand-tuned `.leading` padding that did not match the tick button's
@@ -1062,7 +1382,7 @@ struct ThreadTaskRow: View {
                 Spacer(minLength: 0)
                 Image(systemName: presentation.icon)
                     .scaledFont(size: 14, relativeTo: .footnote)
-                    .foregroundColor(.dimText.opacity(0.6))
+                    .foregroundColor(warning == nil ? .dimText.opacity(0.6) : .aviationAmber)
             }
 
         }
@@ -1076,8 +1396,27 @@ struct ThreadTaskRow: View {
         }
         .accessibilityElement(children: .combine)
         .accessibilityLabel(presentation.title)
-        .accessibilityValue(task.state == .done ? L10n.Thread.markDone : "")
-        .accessibilityAddTraits(task.kind == .auto ? [] : .isButton)
+        .accessibilityValue([task.state == .done ? L10n.Thread.markDone : nil, warning]
+            .compactMap { $0 }.joined(separator: ", "))
+        .accessibilityAddTraits(task.kind == .auto && onTapRow == nil ? [] : .isButton)
+        .modifier(RowTap(action: onTapRow))
+    }
+
+    /// A row the whole of which opens something: a tap anywhere but on its chips (buttons keep their
+    /// own taps), and VoiceOver's activate. Rows without it are left exactly as they were: their
+    /// activate still ticks.
+    private struct RowTap: ViewModifier {
+        let action: (() -> Void)?
+
+        func body(content: Content) -> some View {
+            if let action {
+                content
+                    .onTapGesture { action() }
+                    .accessibilityAction { action() }
+            } else {
+                content
+            }
+        }
     }
 
     /// The row's actions. Wraps rather than overflowing: a task can carry a tool button and two

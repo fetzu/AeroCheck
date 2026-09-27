@@ -5334,23 +5334,6 @@
         }
       }
     },
-    "altitudes.col.airspace": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Leg enters"
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "La branche entre dans"
-          }
-        }
-      }
-    },
     "altitudes.summary.lowest": {
       "extractionState": "manual",
       "localizations": {
@@ -6025,42 +6008,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Démarrer quand même"
-          }
-        }
-      }
-    },
-    "Start from a saved route" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Start from a route"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Partir d’une route"
-          }
-        }
-      }
-    },
-    "Choose a route" : {
-      "localizations" : {
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Choisir une route"
-          }
-        }
-      }
-    },
-    "Copied with its %lld waypoint(s), altitudes and fuel" : {
-      "localizations" : {
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Copiée avec ses %lld point(s) tournant(s), altitudes et carburant"
           }
         }
       }
@@ -7187,32 +7134,12 @@
         }
       }
     },
-    "I know when I am flying" : {
-      "localizations" : {
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Je sais quand je vole"
-          }
-        }
-      }
-    },
     "Used for the reminder the day before" : {
       "localizations" : {
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Utilisé pour le rappel de la veille"
-          }
-        }
-      }
-    },
-    "From → To" : {
-      "localizations" : {
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "De → Vers"
           }
         }
       }
@@ -7233,16 +7160,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Vers"
-          }
-        }
-      }
-    },
-    "The route is optional — draw it on the map whenever you are ready" : {
-      "localizations" : {
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "La route est optionnelle — tracez-la sur la carte quand vous le souhaitez"
           }
         }
       }
@@ -7653,16 +7570,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Voir la route"
-          }
-        }
-      }
-    },
-    "Fuel & times" : {
-      "localizations" : {
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Carburant et heures"
           }
         }
       }
@@ -11252,23 +11159,6 @@
         }
       }
     },
-    "alert.checklistNotReady.title": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Checklist Not Ready"
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Checklist non disponible"
-          }
-        }
-      }
-    },
     "alert.deleteCache.message": {
       "extractionState": "manual",
       "localizations": {
@@ -11299,40 +11189,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Supprimer le cache ?"
-          }
-        }
-      }
-    },
-    "alert.deleteFlight.message": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "This action cannot be undone."
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Cette action est irréversible."
-          }
-        }
-      }
-    },
-    "alert.deleteFlight.title": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Delete Flight?"
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Supprimer le vol ?"
           }
         }
       }
@@ -11588,23 +11444,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Briefing d'approche"
-          }
-        }
-      }
-    },
-    "briefing.brs.consider": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "If unable to climb: Consider BRS activation"
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Si impossible de monter : Envisager l'activation du BRS"
           }
         }
       }
@@ -15144,74 +14983,6 @@
         }
       }
     },
-    "flightLog.exportAll.gpx": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "GPX Files (.zip)"
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Fichiers GPX (.zip)"
-          }
-        }
-      }
-    },
-    "flightLog.exportAll.json": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "JSON Files (.zip)"
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Fichiers JSON (.zip)"
-          }
-        }
-      }
-    },
-    "flightLog.exportAll.message": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Export all %d flights as a ZIP archive"
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Exporter les %d vols dans une archive ZIP"
-          }
-        }
-      }
-    },
-    "flightLog.exportAll.title": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Export All Flights"
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Exporter tous les vols"
-          }
-        }
-      }
-    },
     "flightLog.importError.archiveTooLarge": {
       "extractionState": "manual",
       "localizations": {
@@ -16421,23 +16192,6 @@
         }
       }
     },
-    "nav.activate": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Activate"
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Activer"
-          }
-        }
-      }
-    },
     "nav.activateEmptyMessage": {
       "localizations": {
         "en": {
@@ -17019,23 +16773,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Date"
-          }
-        }
-      }
-    },
-    "nav.deactivate": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Deactivate"
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Désactiver"
           }
         }
       }
@@ -19680,70 +19417,6 @@
         }
       }
     },
-    "onboarding.briefings.body": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Dynamic departure and approach briefings with wind data. Automatic flight event detection and GPS track export."
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Briefings de départ et d'approche dynamiques avec données de vent. Détection automatique des événements de vol et export de trace GPS."
-          }
-        }
-      }
-    },
-    "onboarding.briefings.title": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Smart briefings & logbook"
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Briefings intelligents et carnet de vol"
-          }
-        }
-      }
-    },
-    "onboarding.checklists.body": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Step-by-step checklists guide you from Preflight to Shutdown. Turn on Memory test to fly the memory items from memory, or use Circuit Mode for pattern training."
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Des checklists pas-à-pas vous guident du prévol à l'arrêt moteur. Activez le test de mémoire pour faire les éléments mémorisables de tête, ou utilisez le mode circuits pour l'entraînement en tour de piste."
-          }
-        }
-      }
-    },
-    "onboarding.checklists.title": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "16 Flight Phases"
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "16 Phases de Vol"
-          }
-        }
-      }
-    },
     "onboarding.getStarted": {
       "localizations": {
         "en": {
@@ -19756,22 +19429,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Commencer"
-          }
-        }
-      }
-    },
-    "onboarding.navigation.body": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Full-screen map with Swiss ICAO charts, GPS tracking, and nearby airport frequencies. Download data for offline use."
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Carte plein écran avec cartes OACI suisses, suivi GPS et fréquences des aéroports proches. Téléchargez les données pour une utilisation hors ligne."
           }
         }
       }
@@ -21585,23 +21242,6 @@
         }
       }
     },
-    "settings.availableChecklists.cachedDesc": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Checklists cached on this device for offline use. Checklists are downloaded when you select an aircraft and refreshed automatically every 24 hours when online."
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Checklists en cache sur cet appareil pour une utilisation hors ligne. Les checklists sont téléchargées lorsque vous sélectionnez un avion et actualisées automatiquement toutes les 24 heures en ligne."
-          }
-        }
-      }
-    },
     "settings.availableChecklists.noCached": {
       "extractionState": "manual",
       "localizations": {
@@ -22112,23 +21752,6 @@
         }
       }
     },
-    "settings.display.theme.sunlight": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Sunlight"
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Plein soleil"
-          }
-        }
-      }
-    },
     "settings.display.themeDesc": {
       "extractionState": "manual",
       "localizations": {
@@ -22176,57 +21799,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Expérimental"
-          }
-        }
-      }
-    },
-    "settings.experimental.onlyInSwitzerland": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "This feature only works in Switzerland and requires a constant cellular connection."
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Cette fonctionnalité fonctionne uniquement en Suisse et nécessite une connexion cellulaire constante."
-          }
-        }
-      }
-    },
-    "settings.experimental.showEstimatedAirspeed": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Show Estimated Airspeed"
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Afficher la vitesse estimée"
-          }
-        }
-      }
-    },
-    "settings.experimental.whenEnabled": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "When enabled, displays an estimated indicated airspeed (IAS) calculated from GPS ground speed and wind data from MeteoSwiss."
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Lorsqu'activé, affiche une vitesse air indiquée (IAS) estimée calculée à partir de la vitesse sol GPS et des données de vent de MétéoSuisse."
           }
         }
       }
@@ -22295,23 +21867,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Planification de vol"
-          }
-        }
-      }
-    },
-    "settings.flightPlanning.enable": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Enable Flight Planning"
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Activer la planification de vol"
           }
         }
       }
@@ -22695,38 +22250,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Couches de carte, cartes hors ligne, données aéroports"
-          }
-        }
-      }
-    },
-    "settings.hub.syncAndData": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Sync & Data"
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Synchronisation & Données"
-          }
-        }
-      }
-    },
-    "settings.hub.syncAndDataSubtitle": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "iCloud sync, GPS, data management"
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Synchro iCloud, GPS, gestion des données"
           }
         }
       }
@@ -23615,23 +23138,6 @@
         }
       }
     },
-    "settings.openAIP.tileCount": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Tiles: %d"
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Tuiles : %d"
-          }
-        }
-      }
-    },
     "settings.openAIP.updateData": {
       "extractionState": "manual",
       "localizations": {
@@ -23717,23 +23223,6 @@
         }
       }
     },
-    "settings.subscription.gracePeriod": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Your subscription has lapsed. Premium checklists will remain available during the grace period."
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Votre abonnement a expiré. Les checklists premium restent disponibles pendant la période de grâce."
-          }
-        }
-      }
-    },
     "settings.subscription.gracePeriodEnds": {
       "extractionState": "manual",
       "localizations": {
@@ -23764,40 +23253,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Votre abonnement a expiré. Les checklists premium resteront disponibles pendant la période de grâce."
-          }
-        }
-      }
-    },
-    "settings.subscription.subscribed": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "You have access to all premium aircraft checklists."
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Vous avez accès à toutes les checklists premium."
-          }
-        }
-      }
-    },
-    "settings.subscription.unlock": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Subscribe to unlock additional aircraft checklists."
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Abonnez-vous pour débloquer des checklists supplémentaires."
           }
         }
       }

@@ -41,17 +41,6 @@ enum CompanionRoleSetting: String, Codable, CaseIterable, Identifiable {
     case companion = "Companion"
 
     var id: String { rawValue }
-
-    func resolvedRole(for idiom: UIUserInterfaceIdiom) -> CompanionRole {
-        switch self {
-        case .auto:
-            return CompanionRole.automatic(for: idiom)
-        case .primary:
-            return .master
-        case .companion:
-            return .viewer
-        }
-    }
 }
 #endif
 

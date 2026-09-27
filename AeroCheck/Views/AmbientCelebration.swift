@@ -25,9 +25,6 @@ final class AmbientController: ObservableObject {
     /// Bumped to play the reveal overlay exactly once.
     @Published private(set) var reveal: Int = 0
 
-    /// `true` while the alternate accent palette is installed.
-    var isEngaged: Bool { AmbientPalette.isActive }
-
     /// Installs the alternate accent palette (idempotent) and replays the reveal. Never persisted —
     /// a fresh launch always starts on the standard cockpit palette.
     func engage() {

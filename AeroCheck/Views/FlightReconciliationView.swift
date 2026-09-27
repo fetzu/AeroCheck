@@ -25,9 +25,6 @@ struct FlightReconciliationView: View {
         _rows = State(initialValue: result.events)
     }
 
-    private var landingsDetected: Int { rows.filter { $0.type != .goAround }.count }
-    private var goAroundsDetected: Int { rows.filter { $0.type == .goAround }.count }
-
     var body: some View {
         VStack(spacing: 0) {
             header

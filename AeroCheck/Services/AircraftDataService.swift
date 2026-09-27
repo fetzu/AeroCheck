@@ -607,11 +607,6 @@ class AircraftDataService: ObservableObject {
         }
     }
 
-    /// Gets a checklist, preferring cached data
-    func getChecklist(for aircraftId: String) -> RemoteAircraftChecklist? {
-        return loadCachedChecklist(aircraftId: aircraftId)
-    }
-
     /// Checks if a checklist is cached locally
     func isChecklistCached(aircraftId: String) -> Bool {
         guard let path = cacheFileURL(aircraftId: aircraftId, suffix: ".json") else { return false }

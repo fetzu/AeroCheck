@@ -87,11 +87,6 @@ struct ActiveChecklist: Equatable {
         }
     }
 
-    /// Whether the speed indicator should be shown for this phase (a target speed exists).
-    func showsSpeedIndicator(for phase: ChecklistPhase) -> Bool {
-        targetSpeed(for: phase) != nil
-    }
-
     var registration: String {
         switch source {
         case .bundled(let type): return type.registration

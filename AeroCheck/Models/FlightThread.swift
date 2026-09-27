@@ -318,12 +318,6 @@ struct FlightThread: Codable, Identifiable, Equatable, Sendable {
         flightId = nil
         updatedAt = now
     }
-
-    mutating func setNote(_ note: String?, forTaskWithId taskId: UUID) {
-        guard let index = tasks.firstIndex(where: { $0.id == taskId }) else { return }
-        tasks[index].note = (note?.isEmpty == true) ? nil : note
-        touch()
-    }
 }
 
 // MARK: - Landing somewhere else (v5.1)

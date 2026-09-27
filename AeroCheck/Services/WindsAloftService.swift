@@ -188,10 +188,4 @@ final class WindsAloftService: ObservableObject {
             await prefetch(coordinate)
         }
     }
-
-    /// Drop cached forecasts that belong to an earlier hour bucket.
-    func pruneStale(now: Date = Date()) {
-        let suffix = String(Self.cacheKey(lat: 0, lon: 0, now: now).split(separator: ",").last ?? "")
-        cache = cache.filter { $0.key.hasSuffix(suffix) }
-    }
 }

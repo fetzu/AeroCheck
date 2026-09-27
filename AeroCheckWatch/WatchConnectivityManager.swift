@@ -38,11 +38,6 @@ class WatchConnectivityManager: NSObject, ObservableObject {
         return formatter.string(from: date)
     }
 
-    /// Get current time formatted according to settings
-    func getCurrentTimeString() -> String {
-        formatTime(Date())
-    }
-
     /// Live data is considered stale after this long without an update from the phone. (UX-05)
     let staleThresholdSeconds: TimeInterval = 5.0
 

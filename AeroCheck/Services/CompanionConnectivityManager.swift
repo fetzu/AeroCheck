@@ -82,7 +82,6 @@ class CompanionConnectivityManager: NSObject, ObservableObject {
     /// by THIS, not the fix's embedded timestamp, which carries the peer's clock and would be unsafe to
     /// compare across devices. The viewer already validated the fix's own-clock age before sending. (shared-GPS)
     private var lastPeerGPSReceivedAt: Date?
-    @Published var latencyMs: Int?
     @Published var pairedDevices: [CompanionPairedDevice] = []
     @Published var isWiFiAwareSupported: Bool = false
 

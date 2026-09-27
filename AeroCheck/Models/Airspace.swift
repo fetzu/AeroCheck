@@ -167,20 +167,6 @@ struct Airspace: Codable, Identifiable {
         }
     }
 
-    /// Check if a given altitude (feet MSL) is within this airspace's vertical limits
-    func containsAltitude(_ altitudeFeetMSL: Double) -> Bool {
-        let lower = lowerCeiling.asFeetMSL
-        let upper = upperCeiling.asFeetMSL
-        return altitudeFeetMSL >= lower && altitudeFeetMSL <= upper
-    }
-
-    /// True if either vertical limit can't be precisely compared against an MSL altitude
-    /// without terrain/QNH data (AGL or FL referenced). Used to fail safe: such an airspace
-    /// is never silently ruled out vertically — the pilot is asked to verify. (PERF-08)
-    var altitudeIsUncertain: Bool {
-        lowerCeiling.isDatumUncertain || upperCeiling.isDatumUncertain
-    }
-
     /// Check if a coordinate falls within this airspace's polygon using ray casting algorithm
     func containsPoint(_ point: CLLocationCoordinate2D) -> Bool {
         // Fast reject via the precomputed bounding box before the O(n) ray cast. (PR-11)

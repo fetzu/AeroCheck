@@ -149,6 +149,7 @@ struct FlightThreadView: View {
 
     @EnvironmentObject var threadManager: FlightThreadManager
     @EnvironmentObject var flightPlanManager: FlightPlanManager
+    @Environment(AppState.self) private var appState
     @EnvironmentObject var openAIPDataService: OpenAIPDataService
     @EnvironmentObject var airportDataService: AirportDataService
     @Environment(\.dismiss) private var dismiss
@@ -161,6 +162,8 @@ struct FlightThreadView: View {
     @State private var numbersFlightId: UUID?
     /// Confirmation for the ICAO flight-plan copy, which is otherwise invisible. (v5.0.0)
     @State private var copiedFPL = false
+    /// Cancel flight's question is showing. (v6.0 review, B4)
+    @State private var confirmingCancel = false
     /// The nav log rendered to a file and shown in Quick Look, where it can be read, printed,
     /// marked up, saved or shared. (A bare share sheet offered none of the first three on iPad.)
     @State private var navLogPreview: URL?
@@ -553,14 +556,11 @@ struct FlightThreadView: View {
             // (on-device review #4, point 3)
             onTapRow: task.key == .fuelPlanned && plan(for: thread) != nil
                 ? { openTool(for: task, in: thread) } : nil,
+            warning: fuelWarning(for: task, in: thread),
             prominent: prominent
         )
     }
-            warning: fuelWarning(for: task, in: thread),
 
-    /// The readiness ring: pre-flight progress before the flight, close-out progress after it.
-    private func readinessRing(_ thread: FlightThread) -> some View {
-        let progress = (thread.state == .closeOut || thread.state == .done)
     /// Fuel on board short of what the flight requires, said on the flight's page and not only in
     /// the fuel sheet, where it was the one place "Short by X L" appeared. (v6.0 review, B3)
     private func fuelWarning(for task: ThreadTask, in thread: FlightThread) -> String? {
@@ -572,6 +572,9 @@ struct FlightThreadView: View {
         return L10n.FuelOnBoard.short(String(format: "%.1f", litres))
     }
 
+    /// The readiness ring: pre-flight progress before the flight, close-out progress after it.
+    private func readinessRing(_ thread: FlightThread) -> some View {
+        let progress = (thread.state == .closeOut || thread.state == .done)
             ? thread.closeOutProgress
             : thread.preFlightProgress
         let fraction = progress.total > 0 ? Double(progress.done) / Double(progress.total) : 0
@@ -1136,23 +1139,41 @@ struct FlightThreadView: View {
                 .buttonStyle(PrimaryButtonStyle(color: .aviationGreen))
                 .frame(maxWidth: .infinity)
             }
+            // Asks first: the page, its tasks and the route copied for it go for good, and one tap
+            // did it, the only delete on the ground screens without a question. (v6.0 review, B4)
             Button(role: .destructive) {
-                // `removeLeg`, not `deleteThread`: this is the app's ONLY delete affordance and it
-                // is shown on trip legs too. `deleteThread` knows nothing about trips, so cancelling
-                // a leg left its id dangling in `Trip.legIds` — "Leg 3 of 3" on the second of two, a
-                // degenerate trip never dissolved, and the survivor stuck with `tripId` set so its
-                // trip-scoped rows never came back. `removeLeg` delegates to `deleteThread` for a
-                // thread that is not in a trip, so it is a safe drop-in. (review F14)
-                threadManager.removeLeg(threadId: thread.id)
-                close()
+                confirmingCancel = true
             } label: {
                 Text(L10n.Thread.deleteThread)
                     .scaledFont(size: 13, relativeTo: .footnote)
                     .foregroundColor(.aviationRed.opacity(0.9))
+                    .frame(minHeight: 44)
             }
             .buttonStyle(.plain)
+            .confirmationDialog(L10n.Thread.cancelConfirmTitle, isPresented: $confirmingCancel,
+                                titleVisibility: .visible) {
+                Button(L10n.Thread.deleteThread, role: .destructive) { cancelFlight(thread) }
+                Button(L10n.Thread.keepFlight, role: .cancel) { }
+            } message: {
+                Text(L10n.Thread.cancelConfirmMessage)
+            }
         }
         .padding(.top, 4)
+    }
+
+    private func cancelFlight(_ thread: FlightThread) {
+        let ownPlan = FlightThreadManager.planToDelete(
+            withThread: thread.id, threads: threadManager.threads, plans: flightPlanManager.flightPlans,
+            logbookPlanIds: Set(appState.flights.compactMap(\.flightPlanId)))
+        // `removeLeg`, not `deleteThread`: this is the app's ONLY delete affordance and it
+        // is shown on trip legs too. `deleteThread` knows nothing about trips, so cancelling
+        // a leg left its id dangling in `Trip.legIds` — "Leg 3 of 3" on the second of two, a
+        // degenerate trip never dissolved, and the survivor stuck with `tripId` set so its
+        // trip-scoped rows never came back. `removeLeg` delegates to `deleteThread` for a
+        // thread that is not in a trip, so it is a safe drop-in. (review F14)
+        threadManager.removeLeg(threadId: thread.id)
+        if let ownPlan { flightPlanManager.deleteFlightPlan(ownPlan) }
+        close()
     }
 
     // MARK: - Actions
@@ -1275,6 +1296,8 @@ struct ThreadTaskRow: View {
     /// A tap anywhere on the row, for a task the row itself opens (fuel on board). Nil: the row
     /// only has its tick and chips. (on-device review #4, point 3)
     var onTapRow: (() -> Void)?
+    /// A caution under the task, in amber: fuel on board short of the required fuel. (v6.0 review, B3)
+    var warning: String?
     /// The flight page's "Next" card: the title and hint read larger. (v6.0 · D3)
     var prominent: Bool = false
 
@@ -1296,8 +1319,6 @@ struct ThreadTaskRow: View {
                             .strikethrough(task.state == .notApplicable)
                         if task.kind == .auto {
                             Text(L10n.ThreadBadge.auto)
-    /// A caution under the task, in amber: fuel on board short of the required fuel. (v6.0 review, B3)
-    var warning: String?
                                 .scaledFont(size: 9, weight: .bold, design: .monospaced, relativeTo: .caption2)
                                 .foregroundColor(.aviationGreen)
                                 .padding(.horizontal, 5)
@@ -1320,6 +1341,13 @@ struct ThreadTaskRow: View {
                             .scaledFont(size: 12, relativeTo: .caption)
                             .foregroundColor(.aviationGold)
                     }
+                    if let warning {
+                        Label(warning, systemImage: "exclamationmark.triangle.fill")
+                            .scaledFont(size: prominent ? 16 : 13, weight: .semibold,
+                                        relativeTo: prominent ? .subheadline : .caption)
+                            .foregroundColor(.aviationAmber)
+                            .padding(.top, 2)
+                    }
                     // Inside the text column, not a sibling of it. These used to hang off the outer
                     // stack with a hand-tuned `.leading` padding that did not match the tick button's
                     // real width, so every chip sat a few points LEFT of the title it belonged to.
@@ -1341,13 +1369,6 @@ struct ThreadTaskRow: View {
         .contextMenu {
             if task.kind != .auto {
                 Button(L10n.Thread.markNotApplicable, systemImage: "minus.circle") { onDismissTask() }
-                    if let warning {
-                        Label(warning, systemImage: "exclamationmark.triangle.fill")
-                            .scaledFont(size: prominent ? 16 : 13, weight: .semibold,
-                                        relativeTo: prominent ? .subheadline : .caption)
-                            .foregroundColor(.aviationAmber)
-                            .padding(.top, 2)
-                    }
             }
         }
         .accessibilityElement(children: .combine)

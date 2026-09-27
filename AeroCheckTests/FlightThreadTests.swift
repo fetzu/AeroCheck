@@ -908,4 +908,40 @@ extension FlightThreadTests {
         thread.scheduledDeparture = calendar.date(from: DateComponents(year: 2026, month: 9, day: 25, hour: 10))
         XCTAssertFalse(thread.isDueToday(now: now, calendar: calendar), "yesterday's, not flown")
     }
+
+    // MARK: - Cancel flight takes its own copy of the route (v6.0 review)
+
+    private func threadFlying(_ plan: FlightPlan) -> FlightThread {
+        var thread = FlightThread(routeLabel: plan.name)
+        thread.flightPlanId = plan.id
+        return thread
+    }
+
+    func testCancellingAFlightDeletesTheCopyMadeForIt() {
+        var copy = swissPlan()
+        copy.flightOwned = true
+        let thread = threadFlying(copy)
+        XCTAssertEqual(FlightThreadManager.planToDelete(withThread: thread.id, threads: [thread],
+                                                        plans: [copy], logbookPlanIds: [])?.id, copy.id)
+    }
+
+    func testARouteFromTheLibraryIsNeverDeleted() {
+        let route = swissPlan()                                   // flightOwned nil: a route
+        let thread = threadFlying(route)
+        XCTAssertNil(FlightThreadManager.planToDelete(withThread: thread.id, threads: [thread],
+                                                      plans: [route], logbookPlanIds: []))
+    }
+
+    func testACopyStillUsedElsewhereIsKept() {
+        var copy = swissPlan()
+        copy.flightOwned = true
+        let cancelled = threadFlying(copy)
+        let other = threadFlying(copy)
+        XCTAssertNil(FlightThreadManager.planToDelete(withThread: cancelled.id, threads: [cancelled, other],
+                                                      plans: [copy], logbookPlanIds: []),
+                     "another flight follows it")
+        XCTAssertNil(FlightThreadManager.planToDelete(withThread: cancelled.id, threads: [cancelled],
+                                                      plans: [copy], logbookPlanIds: [copy.id]),
+                     "the logbook exports it with its flight")
+    }
 }

@@ -927,6 +927,21 @@ class FlightThreadManager: ObservableObject {
         if openFlightPlanNotice?.threadId == threadId { openFlightPlanNotice = nil }
     }
 
+    /// The plan a cancelled flight takes with it: the copy of the route made for the flight
+    /// (`flightOwned`, R1), which nothing else can reach once the flight is gone. Never a route from
+    /// the library, and never a copy another flight or a logbook entry still points at (the logbook
+    /// exports it with the flight). Deleting the flight used to leave every such copy behind, hidden
+    /// from Routes for good. (v6.0 review)
+    nonisolated static func planToDelete(withThread threadId: UUID, threads: [FlightThread],
+                                         plans: [FlightPlan], logbookPlanIds: Set<UUID>) -> FlightPlan? {
+        guard let planId = threads.first(where: { $0.id == threadId })?.flightPlanId,
+              let plan = plans.first(where: { $0.id == planId }), plan.flightOwned == true,
+              !threads.contains(where: { $0.id != threadId && $0.flightPlanId == planId }),
+              !logbookPlanIds.contains(planId)
+        else { return nil }
+        return plan
+    }
+
     func setCurrentThread(_ threadId: UUID?) {
         currentThreadId = threadId
         saveCurrentThreadPointer()

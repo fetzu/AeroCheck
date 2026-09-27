@@ -1,6 +1,57 @@
 {
   "sourceLanguage": "en",
   "strings": {
+    "thread.cancelConfirm.title": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cancel this flight?"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Annuler ce vol ?"
+          }
+        }
+      }
+    },
+    "thread.cancelConfirm.message": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Its page and tasks are deleted, with the copy of the route made for it. Your routes and the logbook are not touched. This can't be undone."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sa page et ses tâches sont supprimées, avec la copie de la route faite pour ce vol. Vos routes et le carnet de vol ne sont pas touchés. Cette action est irréversible."
+          }
+        }
+      }
+    },
+    "thread.cancelConfirm.keep": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Keep flight"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Garder le vol"
+          }
+        }
+      }
+    },
     "thread.startNow": {
       "extractionState": "manual",
       "localizations": {

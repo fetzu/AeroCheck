@@ -402,6 +402,9 @@ enum L10n {
         static let finishThread = String(localized: "Finish")
         /// "Thread" is our internal word for it; a pilot cancels a flight.
         static let deleteThread = String(localized: "Cancel flight")
+        static let cancelConfirmTitle = String(localized: "thread.cancelConfirm.title")
+        static let cancelConfirmMessage = String(localized: "thread.cancelConfirm.message")
+        static let keepFlight = String(localized: "thread.cancelConfirm.keep")
 
         // Readiness
         static func readiness(_ done: Int, _ total: Int) -> String {

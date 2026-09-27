@@ -6,8 +6,8 @@ import CryptoKit
 @MainActor
 protocol SubscriptionGating {
     func getUserID() async -> String?
-    /// Credential for `Authorization: Bearer …` — the minted session token when one exists,
-    /// otherwise the legacy identifier during migration. (SEC-C3)
+    /// Credential for `Authorization: Bearer …`: the minted session token, or nil (no header).
+    /// (SEC-C3, S9-39)
     func getAuthCredential() async -> String?
     func shouldAllowPremiumAccess() -> Bool
     /// True only when premium access is DEFINITIVELY denied (status resolved, not subscribed, no
@@ -20,10 +20,13 @@ protocol SubscriptionGating {
     func holdsNoEntitlement() -> Bool
     /// Has the server verify this device's entitlement again, which mints a fresh session token.
     func syncWithServer() async
+    /// Whether StoreKit holds a verified Pro entitlement right now, however far the subscription
+    /// status has resolved. Decides whether a locked aircraft list is disputed.
+    func holdsVerifiedEntitlement() async -> Bool
 }
 
 extension SubscriptionGating {
-    /// Default for conformers (e.g. test fakes) that predate the session token.
+    /// Default for test fakes, whose user id stands in for a minted token.
     func getAuthCredential() async -> String? { await getUserID() }
 
     /// Conservative default for conformers without richer state (e.g. test fakes): defer to the
@@ -35,6 +38,9 @@ extension SubscriptionGating {
 
     /// Default for conformers with nothing to verify (e.g. test fakes).
     func syncWithServer() async {}
+
+    /// Default for conformers without StoreKit (e.g. test fakes): the opposite of holding none.
+    func holdsVerifiedEntitlement() async -> Bool { !holdsNoEntitlement() }
 }
 
 extension SubscriptionManager: SubscriptionGating {}
@@ -210,7 +216,10 @@ class AircraftDataService: ObservableObject {
         defer { isLoading = false }
 
         do {
-            let aircraft = try await fetchAircraftList()
+            var aircraft = try await fetchAircraftList()
+            if await disputeLockedList(aircraft), let again = try? await fetchAircraftList() {
+                aircraft = again
+            }
             self.availableAircraft = aircraft
             self.lastSyncDate = Date()
 
@@ -300,6 +309,20 @@ class AircraftDataService: ObservableObject {
         AppLog.aircraftData.debugLine("Server refused premium access this device holds; verifying the entitlement again")
         await gating.syncWithServer()
         return true
+    }
+
+    /// The list came back with every premium aircraft locked while StoreKit holds an entitlement.
+    ///
+    /// That is the server no longer taking this device's session token (it keeps a few per
+    /// purchase and pushes the oldest out), or a purchase it never recorded. Waiting fixes neither,
+    /// and a locked aircraft can't be picked, so the checklist refusal that would dispute it never
+    /// comes. So the entitlement is verified again here, as for a disputed checklist, and under the
+    /// same throttle. Returns whether it was, i.e. whether the list is worth asking for again.
+    private func disputeLockedList(_ list: [RemoteAircraftMetadata]) async -> Bool {
+        let premium = list.filter { !$0.isFree }
+        guard !premium.isEmpty, !premium.contains(where: { $0.hasAccess }) else { return false }
+        guard await gating.holdsVerifiedEntitlement() else { return false }
+        return await resyncEntitlementIfDisputed()
     }
 
     /// A checklist from the server, asked for a second time once the entitlement has been verified
@@ -844,7 +867,7 @@ class AircraftDataService: ObservableObject {
         request.setValue("application/json", forHTTPHeaderField: "Accept")
         request.timeoutInterval = 15 // Set timeout for poor network conditions
 
-        // Add auth header if available (minted session token, or legacy id during migration)
+        // Add auth header if available: the minted session token, nothing without one (S9-39)
         if let credential = await gating.getAuthCredential() {
             request.setValue("Bearer \(credential)", forHTTPHeaderField: "Authorization")
         }
@@ -921,7 +944,7 @@ class AircraftDataService: ObservableObject {
         request.setValue("application/json", forHTTPHeaderField: "Accept")
         request.timeoutInterval = 30 // Checklists can be larger, allow more time
 
-        // Add auth header if available (minted session token, or legacy id during migration)
+        // Add auth header if available: the minted session token, nothing without one (S9-39)
         if let credential = await gating.getAuthCredential() {
             request.setValue("Bearer \(credential)", forHTTPHeaderField: "Authorization")
         }

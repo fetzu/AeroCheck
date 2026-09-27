@@ -289,6 +289,62 @@ final class AircraftDataServiceSeamTests: XCTestCase {
         XCTAssertTrue(service.availableAircraft.allSatisfy { $0.hasAccess })
     }
 
+    /// Any list fetch, not only after a purchase: every premium aircraft locked while StoreKit holds
+    /// an entitlement is a session token the server no longer takes (it keeps a few per purchase
+    /// and pushes the oldest out). A locked aircraft can't be picked, so no checklist refusal would
+    /// ever dispute it: the entitlement is verified again and the list asked for once more.
+    func testALockedListThisDeviceIsEntitledToIsVerifiedAgainAndFetchedOnceMore() async {
+        var serverAccepts = false
+        let gating = FakeGating(allowPremium: true, noEntitlement: false)
+        gating.onSync = { serverAccepts = true }
+        let http = RoutedHTTPClient { _ in Self.list(hasAccess: serverAccepts) }
+        let service = makeTestAircraftDataService(subscriptionManager: gating, httpClient: http)
+
+        await service.fetchAvailableAircraft()
+
+        XCTAssertEqual(gating.syncCount, 1)
+        XCTAssertEqual(http.capturedRequests.count, 2)
+        XCTAssertTrue(service.availableAircraft.allSatisfy { $0.hasAccess })
+    }
+
+    /// `/verify` is rate-limited and fails closed: a list that stays locked is disputed once per
+    /// interval, shared with the checklist refusals.
+    func testALockedListThatStaysLockedIsVerifiedOnlyOnce() async {
+        let gating = FakeGating(allowPremium: true, noEntitlement: false)
+        let http = RoutedHTTPClient { _ in Self.list(hasAccess: false) }
+        let service = makeTestAircraftDataService(subscriptionManager: gating, httpClient: http)
+
+        await service.fetchAvailableAircraft()
+        await service.fetchAvailableAircraft()
+
+        XCTAssertEqual(gating.syncCount, 1)
+        XCTAssertEqual(http.capturedRequests.count, 3, "asked again once, after the one verification")
+        XCTAssertFalse(service.availableAircraft.contains { $0.hasAccess })
+    }
+
+    /// A free user's list is locked, and that is the right answer: nothing to verify, no second fetch.
+    func testALockedListWithoutAnEntitlementIsNotDisputed() async {
+        let gating = FakeGating(allowPremium: false)
+        let http = RoutedHTTPClient { _ in Self.list(hasAccess: false) }
+        let service = makeTestAircraftDataService(subscriptionManager: gating, httpClient: http)
+
+        await service.fetchAvailableAircraft()
+
+        XCTAssertEqual(gating.syncCount, 0)
+        XCTAssertEqual(http.capturedRequests.count, 1)
+    }
+
+    func testAnUnlockedListIsNotDisputed() async {
+        let gating = FakeGating(allowPremium: true, noEntitlement: false)
+        let http = RoutedHTTPClient { _ in Self.list(hasAccess: true) }
+        let service = makeTestAircraftDataService(subscriptionManager: gating, httpClient: http)
+
+        await service.fetchAvailableAircraft()
+
+        XCTAssertEqual(gating.syncCount, 0)
+        XCTAssertEqual(http.capturedRequests.count, 1)
+    }
+
     func testAnyOtherFailureIsUnreachable() async throws {
         let http = FakeHTTPClient(responseData: Data("oops".utf8), statusCode: 503)
         let service = makeTestAircraftDataService(subscriptionManager: FakeGating(allowPremium: true), httpClient: http)

@@ -99,8 +99,9 @@ class SubscriptionManager: ObservableObject {
     /// Task for listening to transaction updates
     private var updateListenerTask: Task<Void, Error>?
 
-    /// Cached user ID from StoreKit
-    private var cachedUserID: String?
+    /// Cached user ID from StoreKit. Internal (not private) only so a test can stand in for a
+    /// StoreKit transaction.
+    var cachedUserID: String?
     /// In-memory mirror of the Keychain session token, to avoid a Keychain read per request. (SEC-C3)
     private var cachedSessionToken: String?
 
@@ -668,24 +669,33 @@ class SubscriptionManager: ObservableObject {
 
     /// Redacts an identifier for logging — keeps only a short suffix so support can correlate
     /// without the full id (a server auth principal) ever landing in the debug log. (SEC-19)
-    static func redactedIdentifier(_ id: String) -> String {
+    nonisolated static func redactedIdentifier(_ id: String) -> String {
         id.count <= 4 ? "****" : "****\(id.suffix(4))"
     }
 
-    /// The API credential to send as `Authorization: Bearer …`. (SEC-C3)
+    /// The API credential to send as `Authorization: Bearer …`: the server-minted session token,
+    /// or nil, and then no Authorization header at all. (SEC-C3)
     ///
-    /// Prefers the server-minted session token; falls back to the legacy Apple
-    /// `originalTransactionId` only until the user next verifies (and only while the server still
-    /// dual-accepts it). The legacy value is the finding, not the fix: it is non-secret,
-    /// unrotatable, was rendered in the app's own debug screen, and proved nothing about the
-    /// caller — one shared string unlocked premium on unlimited devices.
+    /// Without a token this fell back to the Apple `originalTransactionId`, the credential SEC-C3
+    /// retired: non-secret, unrotatable, and proof of nothing. The server has refused it in every
+    /// environment since v4 (`LEGACY_BEARER_MODE = "off"`), so the fallback authenticated nothing and
+    /// only put the old principal on the wire, right after a restore or a failed Keychain write.
+    /// Old builds are unaffected: this only changes what this build sends. (S9-39)
     func getAuthCredential() async -> String? {
         if let cached = cachedSessionToken { return cached }
         if let stored = keychain.get(.apiSessionToken) {
             cachedSessionToken = stored
             return stored
         }
-        return await getUserID()
+        return nil
+    }
+
+    /// Whether StoreKit holds a verified Pro entitlement now, read from StoreKit itself rather than
+    /// from `subscriptionStatus`, which is still `.unknown` early in a launch. The debug "not
+    /// subscribed" switch wins, as it does everywhere else.
+    func holdsVerifiedEntitlement() async -> Bool {
+        if debugForceNotSubscribed { return false }
+        return await preferredEntitlement() != nil
     }
 
     /// The entitlement this install treats as authoritative, chosen DETERMINISTICALLY.
@@ -997,12 +1007,14 @@ class SubscriptionManager: ObservableObject {
                 // displayed — so anyone given that string got the whole catalogue. Stored in the
                 // Keychain, never in UserDefaults/the App Group.
                 if let token = decoded?.data?.sessionToken, !token.isEmpty {
+                    // Used for this run either way. Nothing else authenticates without it: the
+                    // server stopped taking the originalTransactionId in v4. (S9-39)
+                    cachedSessionToken = token
                     if keychain.set(token, for: .apiSessionToken) {
-                        cachedSessionToken = token
                         debugLogger.log("Session token stored", level: .success)
                     } else {
-                        // Non-fatal: the legacy identifier still authenticates during migration.
-                        debugLogger.log("Session token could not be stored in Keychain", level: .warning)
+                        debugLogger.log("Session token could not be stored in Keychain; it lasts until the app quits",
+                                        level: .warning)
                     }
                 }
                 recordSuccessfulVerification()
@@ -1138,6 +1150,13 @@ struct TransactionDebugInfo: Identifiable {
     var environmentText: String {
         return environmentRaw
     }
+
+    /// The transaction id as the debug screen shows it: redacted like `originalID`, because for a
+    /// lifetime purchase or a subscription's first transaction the two are the same value. (S9-39)
+    var displayedID: String { SubscriptionManager.redactedIdentifier(id) }
+
+    /// The original transaction id as the debug screen shows it. (SEC-C3)
+    var displayedOriginalID: String { SubscriptionManager.redactedIdentifier(originalID) }
 }
 
 // MARK: - Product Extensions

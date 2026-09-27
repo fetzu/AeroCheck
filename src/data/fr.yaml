@@ -1,7 +1,7 @@
 lang: "fr"
 meta:
   title: "AéroCheck — Planifier, préparer, voler et clôturer chaque vol"
-  description: "Planifiez la route, préparez l'administratif, volez avec la checklist en 16 phases, clôturez le carnet de vol. AéroCheck suit chaque vol de l'idée à la dernière ligne de votre carnet — pour élèves-pilotes et pilotes privés."
+  description: "Un écran de cockpit lisible depuis la planchette, et tout le vol autour : planifiez la route, préparez l'administratif, volez avec la checklist en 16 phases, clôturez le carnet. Pour élèves-pilotes et pilotes privés, sur iPad et iPhone."
 brand: "AéroCheck"
 
 nav:
@@ -13,82 +13,106 @@ nav:
 
 hero:
   eyebrow: "Planifier. Préparer. Voler. Clôturer."
-  title: "Tout le vol, au même endroit."
-  subtitle: "De la première idée à la dernière ligne du carnet : une route, l'administratif autour, la checklist en 16 phases dans le cockpit, et la clôture après l'atterrissage — suivis comme un seul vol, pas quatre applications."
+  title: "Conçu pour la planchette."
+  subtitle: "Un seul écran de cockpit, lisible sur la cuisse : l'étape de checklist en cours, la vitesse et l'altitude, la carte, et les boutons sous le pouce. Autour, tout le vol, de la première idée à la ligne du carnet."
   primary: { label: "Obtenir sur GitHub", href: "https://github.com/fetzu/AeroCheck/releases", icon: "brand-github" }
   secondary: { label: "Lire le manuel", href: "/fr/manual", icon: "book-2" }
-  cycle_caption: "défile automatiquement : vol · HUD · nav · clôture"
-  cycle: ["flight", "hudhero", "nav", "closeout"]
+  cycle_caption: "le Cockpit · la carte · Aujourd'hui · un vol · la clôture"
+  cycle: ["cockpit", "cockpitmap", "today", "flight", "closeout"]
+  cycle_labels: ["Le Cockpit en croisière", "Le Cockpit sur sa carte", "Aujourd'hui, avec le vol du jour", "Un vol suivi, préparé à 10 sur 12", "La clôture d'un vol"]
 
+# Les quatre chapitres d'un vol dans l'app. VOLER est le cœur, rempli du cyan du poste de pilotage.
 chapters:
   heading: "Un vol, quatre chapitres"
   items:
-    - { key: "plan",    name: "Planifier", line: "Où, quand, quel aéronef — et une route qui se vérifie toute seule." }
-    - { key: "prepare", name: "Préparer",  line: "Météo, NOTAM, plan de vol déposé, dossier frontière, log de nav." }
-    - { key: "fly",     name: "Voler",     line: "Seize phases, une étape à la fois, les cartes à portée de doigt.", core: true }
-    - { key: "close",   name: "Clôturer",  line: "Clôturer le plan de vol, écrire la ligne du carnet, savoir ce que ça a coûté." }
+    - { key: "plan",    name: "Planifier", line: "Où, quand, quel avion — et une route qui se vérifie toute seule." }
+    - { key: "prepare", name: "Préparer",  line: "Météo, NOTAM, plan de vol ATC, dossier frontière, log de nav." }
+    - { key: "fly",     name: "Voler",     line: "Un seul écran de cockpit : la checklist ou la carte, sur toute la hauteur.", core: true }
+    - { key: "close",   name: "Clôturer",  line: "Clôturer le plan de vol ATC, écrire la ligne du carnet, savoir ce que ça a coûté." }
 
+# Les rangées `fly: true` forment la bande VOLER, suivie de la bande iPhone (`phone`).
 flagship:
   heading: "Un vol, du début à la fin"
   items:
     - step: "01 · Planifier"
       anchor: "plan"
       title: "Un vol, pas seulement une route"
-      description: "Planifier un vol demande les deux choses que vous savez en premier — quand, et d'où — et construit le reste autour. Partez d'une route enregistrée ou tracez-en une sur la carte ; les points tournants prennent l'altitude du terrain ; le plan carburant est vérifié contre la route dès que l'un ou l'autre change. Plusieurs escales deviennent un voyage, avec une préparation partagée entre ses étapes."
-      chips: ["Planifier un vol", "Routes en bibliothèque", "Tracé sur la carte", "Conflits terrain & espace aérien", "Carburant vérifié en direct", "Masse & centrage", "Voyages à plusieurs étapes"]
-      shot: "flight"
+      description: "Planifier un vol demande les deux choses que vous savez en premier — quand, et d'où — et construit le reste autour. Les routes sont une bibliothèque où puiser. L'éditeur de route trace le profil au-dessus du relief, tient un tableau des tronçons modifiable sur place, et liste chaque espace aérien traversé à l'altitude prévue. Le carburant à bord se remplit d'un tap : les pleins, ou exactement ce qui est requis."
+      chips: ["Vols · Routes · Carte", "Planifier un vol", "Profil sur le relief", "Tableau des tronçons", "Conflits espace aérien & relief", "Carburant à bord en un tap", "Voyages à plusieurs étapes"]
+      shot: "route"
     - step: "02 · Préparer"
       anchor: "prepare"
       title: "Tout ce que vous gardiez dans la tête"
-      description: "Météo, DABS et GAFOR, NOTAM, le plan de vol OACI copié et prêt à déposer, la PPR détectée dans les données d'aérodrome, un dossier frontière pour les pays voisins, un log de navigation A5 pour la planchette — sous forme de checklist à cocher, chaque point avec son lien. Un rappel la veille, et un anneau de préparation qui ne dit « prêt » que lorsque tout l'est."
-      chips: ["Météo · DABS · GAFOR · NOTAM", "FPL OACI → skybriefing", "PPR depuis openAIP", "Dossier frontière CH · FR · DE · AT · IT · GB", "Log de nav A5", "Rappel T−24 h"]
+      description: "Météo, DABS et GAFOR, NOTAM, le plan de vol ATC copié et prêt à déposer, la PPR détectée dans les données d'aérodrome, un dossier frontière pour les pays voisins, un log de navigation A5 pour la planchette — sous forme de checklist à cocher, chaque point avec son lien. Un rappel la veille, et un anneau de préparation qui ne dit « prêt » que lorsque tout l'est."
+      chips: ["Météo · DABS · GAFOR · NOTAM", "Plan de vol ATC → skybriefing", "PPR depuis openAIP", "Dossier frontière CH · FR · DE · AT · IT · GB", "Log de nav A5", "Rappel T−24 h"]
       shot: "prepare"
     - step: "03 · Voler"
       anchor: "fly"
-      title: "La bonne étape de checklist, au bon moment"
-      description: "L'élément actif est mis en avant tandis que les étapes passées et à venir s'effacent ; un bandeau d'instruments affiche vitesse, altitude et cap avec une barre de cible, sur les 16 phases. Temps moteur, temps bloc, remises de gaz, touch-and-go et atterrissages sont détectés et consignés automatiquement — par un moteur validé sur des vols réels, avec le baromètre comme référence d'altitude."
-      chips: ["16 phases", "{total} aéronefs", "Bandeau d'instruments avec cible", "Briefings départ & approche", "Mode tours de piste", "Remise de gaz / touch-and-go / atterrissage auto", "Assisté par baromètre"]
-      shot: "hud"
+      fly: true
+      title: "Un seul écran dans le cockpit"
+      description: "Le Cockpit garde chaque chose à la place que la main apprend : la phase et le temps de vol en haut, vitesse sol, altitude et route dans un bandeau, la checklist ou la carte sur toute la hauteur, et une barre sous le pouce en bas. L'élément en cours est encadré là où il se trouve ; COCHER le nomme, REPORTER le garde pour plus tard, et SUIVANT montre ce qui reste ouvert avant de passer à la suite. Décollages, remises de gaz, touch-and-go et atterrissages sont détectés et consignés d'eux-mêmes."
+      chips: ["À la taille d'une planchette, en portrait", "COCHER · REPORTER · SUIVANT", "Éléments reportés", "GS · ALT · TRK", "Le volet suit le vol", "Remise de gaz · touch-and-go · atterrissage auto", "Jour · Nuit · Plein soleil"]
+      shot: "cockpit"
     - step: "03 · Voler"
-      title: "Cartes plein écran, fréquences à portée de main"
-      description: "Cartes OACI suisses, Apple vecteur & satellite, et une couche d'espaces aériens OpenAIP mondiale avec aérodromes, radionavigation, obstacles et points de report VFR d'un tap. Chronométrage par tronçon, vecteur de tendance de la route sol, rappel FREDA et un panneau de fréquences actuelle / suivante / urgence — en cache par continent ou en direct."
-      chips: ["OACI / Segelflug", "Apple vecteur & satellite", "Espaces aériens OpenAIP", "Aérodromes, balises & points de report", "ACTUELLE / SUIVANTE / URGENCE", "Rappel FREDA", "Hors ligne par continent"]
-      shot: "nav"
+      fly: true
+      title: "La carte, en contexte"
+      description: "En route, le volet passe à la carte : le prochain point en haut, dans le magenta de la route, avec relèvement, distance, temps et ETA ; les fréquences à contacter maintenant et ensuite en bas ; MARQUER, le chrono du tronçon et le déroutement sous le pouce, avec annulation. Cartes OACI et vol à voile suisses, imagerie satellite et une couche d'espaces aériens OpenAIP mondiale, en cache pour voler hors ligne."
+      chips: ["Prochain point · BRG · DIST · ETE · ETA", "Fréquences MAINTENANT / ENSUITE", "MARQUER, avec annulation", "Déroutement en deux taps", "OACI · Segelflug · satellite", "Espaces aériens OpenAIP", "Hors ligne par continent"]
+      shot: "cockpitmap"
+    - step: "03 · Voler"
+      fly: true
+      title: "Toutes les vitesses, d'un coup d'œil"
+      description: "V-SPEEDS s'ouvre par-dessus le Cockpit et laisse le bandeau visible : décrochage et plané, décollage et montée, les vitesses d'approche par cran de volets, les limites avec VA selon la masse, et les limites de vent de travers — tirées des données de l'avion. Les briefings départ et approche s'ouvrent de la même façon, avec le vent et la piste depuis votre position."
+      chips: ["V-SPEEDS", "VA selon la masse", "Limites de vent de travers", "Briefings départ & approche", "{total} avions"]
+      shot: "vspeeds"
     - step: "04 · Clôturer"
       anchor: "close"
       title: "Posé. Maintenant, le carnet."
-      description: "Le seul rappel qui a une conséquence de recherche et sauvetage — clôturer votre plan de vol — arrive après l'atterrissage, et seulement si vous en avez déposé un. Puis la ligne du carnet, rédigée selon l'AMC1 FCL.050 avec les heures en UTC et disposée dans les colonnes de votre propre carnet, exportable en CSV ou en extrait PDF ; ce que le vol a coûté ; et une revue post-vol de ce que la trace a vu. Les élèves-pilotes consignent en double commande, avec l'instructeur comme PIC."
-      chips: ["Rappel de clôture du plan de vol", "Ligne de carnet · AMC1 FCL.050", "Ligne du carnet & extrait PDF", "Coût par vol", "Revue post-vol", "Mode élève-pilote"]
+      description: "Le seul rappel qui a une conséquence de recherche et sauvetage — clôturer votre plan de vol ATC — arrive après l'atterrissage, et seulement si vous en avez déposé un. Puis la ligne du carnet, rédigée selon l'AMC1 FCL.050 avec les heures en UTC et disposée dans les colonnes de votre propre carnet, exportable en CSV ou en extrait PDF ; ce que le vol a coûté ; et une revue post-vol de ce que la trace a vu. Les élèves-pilotes consignent en double commande, avec l'instructeur comme PIC."
+      chips: ["Rappel de clôture du plan de vol ATC", "Ligne de carnet · AMC1 FCL.050", "CSV & extrait PDF", "Coût par vol", "Revue post-vol", "Mode élève-pilote"]
       shot: "closeout"
+      iphone_shot: "log"
+
+phone:
+  step: "03 · Voler · iPhone"
+  title: "Le même Cockpit sur l'iPhone"
+  description: "À la taille d'un téléphone tenu à bout de bras : les mêmes zones dans le même ordre, COCHER et REPORTER sous le pouce, et un tap sur la liste coche aussi. Tournez-le sur le côté : les commandes passent dans une colonne, et la carte prend tout le reste de l'écran."
+  chips: ["Portrait et paysage", "Tap sur la liste pour cocher", "Mode compagnon avec un iPad"]
+  shots: ["cockpitmap", "landscape"]
 
 supporting:
   heading: "Et tout le reste"
   items:
     - title: "AéroCheck Pro"
-      description: "Le WT9 Dynamic est gratuit ; les {premium} autres aéronefs se débloquent avec AéroCheck Pro — un abonnement avec 7 jours d'essai gratuit, ou un achat unique Lifetime."
+      description: "Le WT9 Dynamic est gratuit ; les {premium} autres avions se débloquent avec AéroCheck Pro — un abonnement avec 7 jours d'essai gratuit, ou un achat unique Lifetime."
       icon: "sparkles"
-    - title: "Mode Compagnon"
-      description: "Associez un iPad et un iPhone en Wi-Fi Aware pour un second écran synchronisé — passez des cartes à la checklist et pilotez l'un depuis l'autre. Un iPad Wi-Fi seul peut même voler sur le GPS de l'iPhone."
+    - title: "Mode compagnon"
+      description: "Associez un iPad et un iPhone en Wi-Fi Aware pour un second écran synchronisé, chacun pouvant piloter l'autre. Un iPad Wi-Fi seul peut voler sur le GPS de l'iPhone."
       icon: "devices"
     - title: "Taxes d'atterrissage, à la source"
-      description: "{tariffs} aérodromes dans {tariffCountries} pays renvoient directement à la page où l'exploitant publie ses propres taxes — avec la date de dernière modification. Jamais un chiffre inventé par l'app."
+      description: "{tariffs} aérodromes dans {tariffCountries} pays renvoient directement à la page où l'exploitant publie ses propres taxes, avec la date de dernière modification. Jamais un chiffre inventé par l'app."
       icon: "receipt"
-    - title: "Briefings départ & approche"
-      description: "Briefings dynamiques avec vitesses de référence, procédures d'urgence et détection des aérodromes proches — vent et piste suggérés depuis votre position GPS, dans le monde entier."
-      icon: "book-2"
-    - title: "Modes apprentissage & tours de piste"
-      description: "Masquez les éléments à mémoriser pour vous tester ; le mode tours de piste simplifie le travail en circuit, compte les atterrissages complets et propose ensuite la clôture allégée."
+    - title: "Le carnet de vol"
+      description: "Heures, vols, atterrissages, distance et dépenses par année ; chaque vol avec sa trace, son profil d'altitude et sa chronologie, exportable en CSV, GPX ou extrait PDF."
+      icon: "notebook"
+    - title: "Test de mémoire & tours de piste"
+      description: "Le test de mémoire masque les vérifications à connaître par cœur, pour les réciter de mémoire. Les tours de piste sont à un tap sur Aujourd'hui, comptent touch-and-go et remises de gaz, et proposent ensuite une clôture allégée."
       icon: "school"
+    - title: "Composé en B612"
+      description: "La police conçue pour les écrans de cockpit Airbus, là où un texte doit se lire vite et sans erreur. Toute l'app est composée avec, et cette page aussi."
+      icon: "typography"
 
 ecosystem:
-  - { label: "{total} aéronefs · 16 phases", icon: "plane" }
+  - { label: "{total} avions · 16 phases", icon: "plane" }
+  - { label: "iPad & iPhone", icon: "devices" }
   - { label: "Apple Watch", icon: "clock" }
-  - { label: "Thèmes cockpit", icon: "adjustments" }
-  - { label: "Sync iCloud", icon: "cloud" }
+  - { label: "Jour · Nuit · Plein soleil", icon: "adjustments" }
+  - { label: "Synchro iCloud", icon: "cloud" }
   - { label: "Accessibilité", icon: "accessible" }
   - { label: "Open source", icon: "brand-github" }
 
-device_toggle: { ipad: "iPad", iphone: "iPhone" }
+device_labels: { ipad: "iPad", iphone: "iPhone", dots: "Choisir un écran" }
+
 
 footer:
   made_by: "Fait par"

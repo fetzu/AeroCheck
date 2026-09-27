@@ -1,0 +1,55 @@
+---
+// The landing page, shared by / and /fr/: the hero, the four chapters, the flight start to finish —
+// the FLY rows and the iPhone together in the FLY band, drawn in the flight-deck colours as the app
+// switches to them at take-off — then everything else. (6.0)
+import type { SiteData } from '../lib/site';
+import Hero from './Hero.astro';
+import FeatureRow from './FeatureRow.astro';
+import PhoneBand from './PhoneBand.astro';
+import FeatureGrid from './FeatureGrid.astro';
+import Pills from './Pills.astro';
+import ChapterStrip from './ChapterStrip.astro';
+interface Props { site: SiteData; }
+const { site } = Astro.props;
+const items = site.flagship.items.map((item, index) => ({ item, index }));
+const before = items.filter(({ item }, i) => !item.fly && items.slice(i).some(({ item: later }) => later.fly));
+const fly = items.filter(({ item }) => item.fly);
+const after = items.filter(({ item }, i) => !item.fly && !before.some((b) => b.index === i));
+---
+<Hero site={site} />
+<ChapterStrip heading={site.chapters.heading} items={site.chapters.items} />
+
+<section id="features" class="flagship">
+  <div class="container">
+    <div class="section-head"><span class="section-label">{site.flagship.heading}</span></div>
+    {before.map(({ item, index }) => <FeatureRow item={item} index={index} labels={site.device_labels} />)}
+  </div>
+  <div class="fly-band">
+    <div class="container">
+      {fly.map(({ item, index }) => <FeatureRow item={item} index={index} labels={site.device_labels} />)}
+      <PhoneBand band={site.phone} labels={site.device_labels} />
+    </div>
+  </div>
+  <div class="container">
+    {after.map(({ item, index }) => <FeatureRow item={item} index={index} labels={site.device_labels} />)}
+  </div>
+</section>
+
+<section class="supporting">
+  <div class="container">
+    <div class="section-head"><span class="section-label">{site.supporting.heading}</span></div>
+    <FeatureGrid items={site.supporting.items} />
+    <div class="pills-wrap"><Pills items={site.ecosystem} /></div>
+  </div>
+</section>
+
+<style>
+  .flagship { padding-top: 24px; }
+  /* FLY, the width of the page: a cyan edge and wash, the rows' labels in cyan (FeatureRow). */
+  .fly-band { border-top: 1px solid rgba(61, 199, 237, .3); border-bottom: 1px solid rgba(61, 199, 237, .18);
+    background: linear-gradient(180deg, rgba(61, 199, 237, .07), rgba(61, 199, 237, .015) 55%, rgba(61, 199, 237, 0)); }
+  /* The band's edges and the next section's border draw the lines; a row's own would double them. */
+  .flagship .container > :global(:last-child) { border-bottom: 0; }
+  .supporting { background: var(--bg-band); border-top: 1px solid var(--line); }
+  .pills-wrap { margin-top: 16px; }
+</style>

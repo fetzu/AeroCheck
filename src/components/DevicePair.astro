@@ -1,0 +1,49 @@
+---
+// An iPad in portrait with an iPhone in front of it, on the same screen. The Cockpit is built for an
+// iPad on a kneeboard and the phone flies the same one, so every picture shows both. (6.0; replaces
+// the landscape iPad and the iPad/iPhone toggle.) The frames are drawn around the screenshots,
+// which are shown whole, never cropped.
+interface Props {
+  /** One image per frame; more than one makes the pair cycle (the hero). */
+  ipad: string[];
+  iphone: string[];
+  /** Alt text per frame, without the device name. */
+  alts: string[];
+  labels: { ipad: string; iphone: string };
+  eager?: boolean;
+  class?: string;
+}
+const { ipad, iphone, alts, labels, eager = false, class: cls = '' } = Astro.props;
+const cycles = ipad.length > 1;
+---
+<div class:list={['pair', cls]}>
+  <div class="dev dev--ipad">
+    <div class:list={['screen', { cycle: cycles }]}>
+      {ipad.map((src, i) => (
+        <img src={src} alt={`${alts[i]} — ${labels.ipad}`} class={i === 0 ? 'is-active' : undefined} data-i={i}
+          width="1112" height="1600" loading={eager && i === 0 ? 'eager' : 'lazy'} decoding="async" />
+      ))}
+    </div>
+  </div>
+  <div class="dev dev--iphone">
+    <div class:list={['screen', { cycle: cycles }]}>
+      {iphone.map((src, i) => (
+        <img src={src} alt={`${alts[i]} — ${labels.iphone}`} class={i === 0 ? 'is-active' : undefined} data-i={i}
+          width="800" height="1739" loading={eager && i === 0 ? 'eager' : 'lazy'} decoding="async" />
+      ))}
+    </div>
+  </div>
+</div>
+
+<style>
+  .pair { position: relative; padding-bottom: 7%; }
+  .dev { background: #0A0A0D; box-shadow: 0 30px 70px rgba(0, 0, 0, .55), inset 0 0 0 1px rgba(255, 255, 255, .07); }
+  .dev--ipad { width: 80%; border-radius: 26px; padding: 10px; }
+  .dev--iphone { position: absolute; right: 0; bottom: 0; width: 33%; border-radius: 34px; padding: 7px; }
+  .screen { position: relative; overflow: hidden; border-radius: 17px; background: #0C0C10; line-height: 0; }
+  .dev--iphone .screen { border-radius: 28px; }
+  .screen img { width: 100%; height: auto; display: block; }
+  .cycle img { position: absolute; inset: 0; opacity: 0; transition: opacity .6s ease; }
+  .cycle img.is-active { position: relative; opacity: 1; }
+  @media (prefers-reduced-motion: reduce) { .cycle img { transition: none; } }
+</style>

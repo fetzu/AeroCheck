@@ -1,7 +1,7 @@
 ---
 import type { SiteData } from '../lib/site';
 import { shot } from '../lib/shots';
-import DeviceFrame from './DeviceFrame.astro';
+import DevicePair from './DevicePair.astro';
 import Icon from './Icon.astro';
 interface Props { site: SiteData; }
 const { site } = Astro.props;
@@ -10,59 +10,45 @@ const screens = h.cycle.map((k) => shot(k));
 ---
 <section class="hero">
   <div class="container hero-inner">
-    <p class="eyebrow">{h.eyebrow}</p>
-    <h1 class="hero-title">{h.title}</h1>
-    <p class="hero-sub">{h.subtitle}</p>
-
-    <div class="hero-ctas">
-      <a class="btn btn--primary" href={h.primary.href}><Icon name={h.primary.icon} size={18} />{h.primary.label}</a>
-      <a class="btn btn--ghost" href={h.secondary.href}><Icon name={h.secondary.icon} size={18} />{h.secondary.label}</a>
-    </div>
-
-    <div class="device-toggle" role="group" aria-label="Choose device">
-      <button type="button" data-device="ipad" aria-pressed="true"><Icon name="device-ipad" size={15} />{site.device_toggle.ipad}</button>
-      <button type="button" data-device="iphone" aria-pressed="false"><Icon name="device-mobile" size={15} />{site.device_toggle.iphone}</button>
-    </div>
-
-    <div class="hero-device dv-pair" data-hero>
-      <div class="dv--ipad ipad-wrap">
-        <DeviceFrame device="ipad">
-          <div class="cycle" style="aspect-ratio:1.44">
-            {screens.map((s, i) => <img src={s.ipad} alt={s.label} class={i === 0 ? 'is-active' : ''} data-i={i} loading={i === 0 ? 'eager' : 'lazy'} />)}
-          </div>
-        </DeviceFrame>
+    <div class="hero-copy">
+      <p class="eyebrow">{h.eyebrow}</p>
+      <h1 class="hero-title">{h.title}</h1>
+      <p class="hero-sub">{h.subtitle}</p>
+      <div class="hero-ctas">
+        <a class="btn btn--primary" href={h.primary.href}><Icon name={h.primary.icon} size={18} />{h.primary.label}</a>
+        <a class="btn btn--ghost" href={h.secondary.href}><Icon name={h.secondary.icon} size={18} />{h.secondary.label}</a>
       </div>
-      <div class="dv--iphone">
-        <DeviceFrame device="iphone">
-          <div class="cycle" style="aspect-ratio:.46">
-            {screens.map((s, i) => <img src={s.iphone} alt={s.label} class={i === 0 ? 'is-active' : ''} data-i={i} loading={i === 0 ? 'eager' : 'lazy'} />)}
-          </div>
-        </DeviceFrame>
+      <div class="cycle-dots" data-dots role="group" aria-label={site.device_labels.dots}>
+        {screens.map((_, i) => (
+          <button type="button" class={i === 0 ? 'is-active' : undefined} data-dot={i}
+            aria-label={h.cycle_labels[i]} aria-pressed={i === 0 ? 'true' : 'false'}></button>
+        ))}
       </div>
+      <p class="cycle-cap">{h.cycle_caption}</p>
     </div>
-
-    <div class="cycle-dots" data-dots role="group" aria-label="Choose a screenshot">
-      {screens.map((s, i) => (
-        <button type="button" class={i === 0 ? 'is-active' : ''} data-dot={i}
-          aria-label={s.label} aria-pressed={i === 0 ? 'true' : 'false'}></button>
-      ))}
+    <div class="hero-device" data-hero>
+      <DevicePair ipad={screens.map((s) => s.ipad)} iphone={screens.map((s) => s.iphone)}
+        alts={h.cycle_labels} labels={site.device_labels} eager />
     </div>
-    <p class="cycle-cap">{h.cycle_caption}</p>
   </div>
 </section>
 
 <style>
-  .hero { padding: 56px 0 36px; text-align: center; }
-  .hero-title { font-size: clamp(30px, 5vw, 44px); max-width: 620px; margin: 14px auto 0; }
-  .hero-sub { color: var(--muted); font-size: 16px; max-width: 520px; margin: 16px auto 22px; }
-  .hero-ctas { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; margin-bottom: 22px; }
-  .ipad-wrap { max-width: 600px; margin: 0 auto; }
-  .hero-device { margin-top: 4px; }
-  .cycle-dots { display: flex; gap: 4px; justify-content: center; margin-top: 12px; }
+  .hero { padding: 56px 0 28px; }
+  .hero-inner { display: grid; grid-template-columns: 1fr 1.05fr; gap: 48px; align-items: center; }
+  .hero-title { font-size: clamp(34px, 5vw, 56px); margin: 14px 0 16px; }
+  .hero-sub { color: var(--muted); font-size: 17px; max-width: 34em; margin: 0 0 22px; }
+  .hero-ctas { display: flex; gap: 12px; flex-wrap: wrap; }
+  .hero-device { max-width: 520px; width: 100%; justify-self: center; }
+  .cycle-dots { display: flex; gap: 4px; margin-top: 22px; }
   .cycle-dots button { appearance: none; border: none; background: none; padding: 8px 3px; cursor: pointer; display: block; line-height: 0; }
-  .cycle-dots button::before { content: ''; display: block; width: 7px; height: 3px; border-radius: 2px; background: #2A3742; transition: width .25s ease, background .25s ease; }
-  .cycle-dots button:hover::before { background: #3C4A57; }
-  .cycle-dots button.is-active::before { width: 20px; background: var(--gold); }
-  .cycle-dots button:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; border-radius: 4px; }
-  .cycle-cap { font-family: var(--mono); font-size: 11px; color: var(--dim); margin-top: 10px; }
+  .cycle-dots button::before { content: ''; display: block; width: 8px; height: 3px; border-radius: 2px; background: #3A3A44; transition: width .25s ease, background .25s ease; }
+  .cycle-dots button:hover::before { background: #4C4C58; }
+  .cycle-dots button.is-active::before { width: 22px; background: var(--cyan); }
+  .cycle-dots button:focus-visible { outline: 2px solid var(--cyan); outline-offset: 2px; border-radius: 4px; }
+  .cycle-cap { font-family: var(--mono); font-size: 11px; color: var(--dim); margin-top: 8px; }
+  @media (max-width: 820px) {
+    .hero { padding-top: 36px; }
+    .hero-inner { grid-template-columns: 1fr; gap: 32px; }
+  }
 </style>

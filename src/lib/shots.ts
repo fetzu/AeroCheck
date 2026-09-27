@@ -1,36 +1,37 @@
 export interface Shot { ipad: string; iphone: string; label: string; }
 
-// Recaptured 2026-09-07 against review/v5-cumulative-fixes, after the button-label and Home layout
-// pass — every image below is a FULL-DEVICE screen, iPad landscape (1600×1112) and iPhone portrait
-// (800×1739). (An older comment here described some of them as region crops; they were already full
-// screens by then.) All captured deterministically via the DEBUG scene injector — see SCREENSHOTS.md.
-// The hero carousel cover-crops to a fixed aspect, so any of these fit there too.
+// 6.0: every image is a full screen, the iPad in PORTRAIT (1112×1600) as the Cockpit is flown on a
+// kneeboard, the iPhone in portrait (800×1739) — except `landscape`, the iPhone on its side
+// (1600×736). All captured deterministically via the DEBUG scene injector; see SCREENSHOTS.md.
+// These are the proposal-era captures: the whole set is recaptured from the merged 6.0 build.
+const v6 = (device: 'ipad' | 'iphone', key: string) => `/assets/screenshot/v6/${device}/${key}.jpg`;
+const both = (key: string, label: string): Shot => ({ ipad: v6('ipad', key), iphone: v6('iphone', key), label });
+
 export const SHOTS: Record<string, Shot> = {
-  hud:      { ipad: '/assets/screenshot/v5/ipad/hud.jpg',      iphone: '/assets/screenshot/v5/iphone/hud.jpg',      label: 'In-flight HUD' },
-  // Hero carousel uses the FULL iPad HUD screen; the cropped `hud` region is reserved for the Fly
-  // feature-row highlight. iPhone is full-screen in both cases, so it reuses the same image.
-  hudhero:  { ipad: '/assets/screenshot/v5/ipad/hud-hero.jpg', iphone: '/assets/screenshot/v5/iphone/hud.jpg',      label: 'In-flight HUD' },
-  nav:      { ipad: '/assets/screenshot/v5/ipad/nav.jpg',      iphone: '/assets/screenshot/v5/iphone/nav.jpg',      label: 'Navigation' },
-  planning: { ipad: '/assets/screenshot/v5/ipad/planning.jpg', iphone: '/assets/screenshot/v5/iphone/planning.jpg', label: 'Flight planning' },
-  airspace: { ipad: '/assets/screenshot/v5/ipad/airspace.jpg', iphone: '/assets/screenshot/v5/iphone/airspace.jpg', label: 'Airspace' },
-  log:      { ipad: '/assets/screenshot/v5/ipad/log.jpg',      iphone: '/assets/screenshot/v5/iphone/log.jpg',      label: 'Flight log' },
-  home:     { ipad: '/assets/screenshot/v5/ipad/home.jpg',     iphone: '/assets/screenshot/v5/iphone/home.jpg',     label: 'Home' },
+  cockpit:    both('cockpit', 'The Cockpit in cruise'),
+  cockpitmap: both('cockpitmap', 'The Cockpit on its map'),
+  vspeeds:    both('vspeeds', 'V-SPEEDS'),
+  today:      both('today', 'Today, with the day’s flight'),
+  flight:     both('flight', 'A followed flight'),
+  prepare:    both('prepare', 'Preparing a flight'),
+  closeout:   both('closeout', 'Closing out a flight'),
+  route:      both('route', 'The route editor'),
+  log:        both('log', 'A flight in the logbook'),
+  // The iPhone on its side; no iPad counterpart.
+  landscape:  { ipad: '', iphone: v6('iphone', 'landscape'), label: 'The iPhone on its side' },
 };
 
-// The 5.0.0 flight-thread scenes, captured the same way and at the same time as the rest.
-// PLACEHOLDERS stays as the guard rail: put a key back in it if its image ever goes stand-in again,
-// and `shot()` will warn on every build until it is recaptured.
+// The guard rail: put a key in PLACEHOLDERS if its image is ever a stand-in, and `shot()` warns on
+// every build until it is recaptured.
 const PLACEHOLDERS = new Set<string>();
-SHOTS.flight     = { ipad: '/assets/screenshot/v5/ipad/flight.jpg',     iphone: '/assets/screenshot/v5/iphone/flight.jpg',     label: 'A followed flight' };
-SHOTS.prepare    = { ipad: '/assets/screenshot/v5/ipad/prepare.jpg',    iphone: '/assets/screenshot/v5/iphone/prepare.jpg',    label: 'Preparing a flight' };
-SHOTS.closeout   = { ipad: '/assets/screenshot/v5/ipad/closeout.jpg',   iphone: '/assets/screenshot/v5/iphone/closeout.jpg',   label: 'Closing out a flight' };
-SHOTS.homeflight = { ipad: '/assets/screenshot/v5/ipad/homeflight.jpg', iphone: '/assets/screenshot/v5/iphone/homeflight.jpg', label: "Today's flight on Home" };
 
 const warned = new Set<string>();
 export function shot(key: string): Shot {
   if (PLACEHOLDERS.has(key) && !warned.has(key)) {
     warned.add(key);
-    console.warn(`[shots] PLACEHOLDER image in use for "${key}" — capture the 5.0 scene before shipping.`);
+    console.warn(`[shots] PLACEHOLDER image in use for "${key}" — capture the scene before shipping.`);
   }
-  return SHOTS[key] ?? SHOTS.hud;
+  const found = SHOTS[key];
+  if (!found) throw new Error(`[shots] unknown shot key "${key}"`);
+  return found;
 }

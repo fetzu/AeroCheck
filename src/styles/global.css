@@ -1,24 +1,44 @@
-/* AéroCheck — cockpit design system (Glass Cockpit dark + Sectional editorial). */
+/* AéroCheck — the app's own design system on the web (6.0): B612, the app's colour tokens, gold on
+   the ground and the flight-deck contract (cyan, magenta, green) in the FLY chapter, as in the app. */
+
+/* B612 and B612 Mono, the faces designed for Airbus cockpit displays, served from the site itself
+   (SIL Open Font License, public/fonts/OFL.txt): no request to a font host. */
+@font-face { font-family: "B612"; font-style: normal; font-weight: 400; font-display: swap; src: url("/fonts/b612-regular.woff2") format("woff2"); }
+@font-face { font-family: "B612"; font-style: italic; font-weight: 400; font-display: swap; src: url("/fonts/b612-italic.woff2") format("woff2"); }
+@font-face { font-family: "B612"; font-style: normal; font-weight: 700; font-display: swap; src: url("/fonts/b612-bold.woff2") format("woff2"); }
+@font-face { font-family: "B612 Mono"; font-style: normal; font-weight: 400; font-display: swap; src: url("/fonts/b612-mono-regular.woff2") format("woff2"); }
+@font-face { font-family: "B612 Mono"; font-style: normal; font-weight: 700; font-display: swap; src: url("/fonts/b612-mono-bold.woff2") format("woff2"); }
 
 :root {
-  --bg: #0A1018;
-  --bg-band: #070C12;
-  --panel: #0F1A24;
-  --panel-2: #0E1620;
-  --line: rgba(255, 255, 255, 0.07);
-  --line-2: rgba(255, 255, 255, 0.12);
+  color-scheme: dark;
+  /* The app's ground palette (DesignTokens.swift): near-black, panels, cards. */
+  --bg: #141419;
+  --bg-band: #0E0E12;
+  --panel: #1F1F26;
+  --panel-2: #1A1A20;
+  --card: #26262E;
+  --line: rgba(255, 255, 255, 0.08);
+  --line-2: rgba(255, 255, 255, 0.14);
 
-  --gold: #E0A93B;
-  --gold-ink: #1A1205;
-  --green: #3FB861;
-  --magenta: #D14FA0;
+  /* Gold: the brand and the ground chapters (aviationGold). */
+  --gold: #D9A633;
+  --gold-hover: #E5B447;
+  --gold-ink: #1B1405;
+  /* The flight-deck contract (CockpitTheme.day): cyan for what you press, magenta for the route,
+     green for on target, amber for caution. */
+  --cyan: #3DC7ED;
+  --cyan-ink: #051217;
+  --magenta: #E34DB0;
+  --green: #33B34D;
+  --amber: #FFBF00;
 
-  --text: #E8EDF2;
-  --muted: #8A97A6;
-  --dim: #5E6B78;
+  --text: #F3F3F6;
+  --muted: #B4B4BC;
+  --dim: #8A8A93;
+  --chip-text: #CFCFD6;
 
-  --sans: system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-  --mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+  --sans: "B612", "Avenir Next", system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  --mono: "B612 Mono", ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
 
   --maxw: 1080px;
   --radius: 12px;
@@ -45,7 +65,7 @@ a { color: inherit; text-decoration: none; }
 
 img { max-width: 100%; display: block; }
 
-h1, h2, h3 { margin: 0; font-weight: 500; letter-spacing: -0.02em; line-height: 1.1; }
+h1, h2, h3 { margin: 0; font-weight: 700; letter-spacing: -0.01em; line-height: 1.12; text-wrap: balance; }
 
 .container { width: 100%; max-width: var(--maxw); margin: 0 auto; padding: 0 24px; }
 
@@ -73,13 +93,13 @@ h1, h2, h3 { margin: 0; font-weight: 500; letter-spacing: -0.02em; line-height: 
   padding: 11px 20px;
   border-radius: var(--radius-sm);
   font-size: 14px;
-  font-weight: 500;
+  font-weight: 700;
   border: 1px solid transparent;
   transition: transform 0.15s ease, background 0.15s ease, border-color 0.15s ease;
 }
 .btn:active { transform: scale(0.98); }
 .btn--primary { background: var(--gold); color: var(--gold-ink); }
-.btn--primary:hover { background: #ecb849; }
+.btn--primary:hover { background: var(--gold-hover); }
 .btn--ghost { border-color: var(--line-2); color: var(--text); }
 .btn--ghost:hover { background: var(--panel-2); }
 
@@ -87,17 +107,17 @@ h1, h2, h3 { margin: 0; font-weight: 500; letter-spacing: -0.02em; line-height: 
 .chips { display: flex; flex-wrap: wrap; gap: 6px; }
 .chip {
   font-family: var(--mono);
-  font-size: 11px;
-  color: #A7B3C0;
-  background: var(--panel-2);
-  border: 1px solid var(--line);
-  border-radius: 6px;
-  padding: 4px 9px;
+  font-size: 11.5px;
+  color: var(--chip-text);
+  background: var(--panel);
+  border: 1px solid var(--line-2);
+  border-radius: 999px;
+  padding: 3px 10px;
 }
 .pills { display: flex; flex-wrap: wrap; gap: 8px; }
 .pill {
   font-size: 13px;
-  color: #A7B3C0;
+  color: var(--chip-text);
   background: var(--panel-2);
   border: 1px solid var(--line);
   border-radius: 20px;
@@ -123,21 +143,6 @@ section { padding: 64px 0; }
   border-radius: 6px;
   padding: 2px 8px;
 }
-
-/* Global device toggle: one segmented control sets :root[data-device]; every device pair
-   (hero + each feature row) follows it. Default is iPad, except phone-width visitors get iPhone
-   (set before first paint by the inline script in Base.astro <head>). */
-.dv-pair .dv--iphone { display: none; }
-:root[data-device="iphone"] .dv-pair .dv--ipad { display: none; }
-:root[data-device="iphone"] .dv-pair .dv--iphone { display: block; }
-
-.device-toggle { display: inline-flex; background: var(--panel-2); border: 1px solid var(--line-2); border-radius: 10px; padding: 3px; gap: 2px; }
-.device-toggle button {
-  display: inline-flex; align-items: center; gap: 6px;
-  font-family: var(--sans); font-size: 13px; color: var(--muted);
-  background: transparent; border: 0; border-radius: 7px; padding: 6px 14px; cursor: pointer;
-}
-.device-toggle button[aria-pressed="true"] { background: var(--gold); color: var(--gold-ink); font-weight: 500; }
 
 .icon { display: inline-flex; }
 .sr-only {

@@ -1,25 +1,6 @@
-// Client behaviour: global device toggle, hero auto-cycle, scroll reveal. All Reduce-Motion aware.
+// Client behaviour: mobile nav, hero auto-cycle (both device frames together), scroll reveal. All
+// Reduce-Motion aware.
 const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-
-type Device = 'ipad' | 'iphone';
-
-function applyDevice(d: Device): void {
-  document.documentElement.dataset.device = d;
-  document.querySelectorAll<HTMLButtonElement>('.device-toggle button').forEach((b) => {
-    b.setAttribute('aria-pressed', String(b.dataset.device === d));
-  });
-}
-
-// The inline <head> script (Base.astro) already set the default on <html> before paint — a saved
-// choice, otherwise phone-width (≤600px) → iphone. Re-apply it so the toggle buttons reflect it.
-applyDevice(document.documentElement.dataset.device === 'iphone' ? 'iphone' : 'ipad');
-document.querySelectorAll<HTMLButtonElement>('.device-toggle button').forEach((b) => {
-  b.addEventListener('click', () => {
-    const d = (b.dataset.device as Device) || 'ipad';
-    applyDevice(d);
-    localStorage.setItem('ac-device', d);
-  });
-});
 
 // Mobile nav menu (hamburger) toggle.
 const navToggle = document.querySelector<HTMLButtonElement>('[data-nav-toggle]');
@@ -38,7 +19,7 @@ if (navToggle && navMenu) {
   });
 }
 
-// Hero auto-cycle: advance the active screenshot across both device variants + the dots.
+// Hero auto-cycle: advance the active screenshot in both device frames (iPad and iPhone) + the dots.
 // Play/pause is driven by visibility + interaction so it behaves on touch as well as mouse:
 //   • IntersectionObserver — only cycles while the hero is on screen, and RESUMES when scrolled back
 //     (fixes touch devices where a scroll-"hover" used to stop it forever).

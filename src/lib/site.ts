@@ -5,7 +5,11 @@ import yaml from 'js-yaml';
 export type Lang = 'en' | 'fr';
 
 export interface CTA { label: string; href: string; icon: string; }
-export interface FlagshipItem { step: string; title: string; description: string; chips: string[]; shot: string; anchor?: string; }
+/** A flagship row. `shot` is shown on both devices; `iphone_shot` overrides the iPhone's. A row whose
+ *  anchor or step belongs to FLY sits in the FLY band (see Landing.astro). */
+export interface FlagshipItem { step: string; title: string; description: string; chips: string[]; shot: string; iphone_shot?: string; anchor?: string; fly?: boolean; }
+/** The iPhone band in FLY: the phone in portrait, then on its side. */
+export interface PhoneBand { step: string; title: string; description: string; chips: string[]; shots: [string, string]; }
 /** One of the four chapters a flight has in the app. `core` marks FLY, drawn filled like the app does. */
 export interface Chapter { key: string; name: string; line: string; core?: boolean; }
 export interface SupportingItem { title: string; description: string; icon: string; }
@@ -19,13 +23,14 @@ export interface SiteData {
   hero: {
     eyebrow: string; title: string; subtitle: string;
     primary: CTA; secondary: CTA;
-    cycle_caption: string; cycle: string[];
+    cycle_caption: string; cycle: string[]; cycle_labels: string[];
   };
   chapters: { heading: string; items: Chapter[] };
   flagship: { heading: string; items: FlagshipItem[] };
+  phone: PhoneBand;
   supporting: { heading: string; items: SupportingItem[] };
   ecosystem: EcoItem[];
-  device_toggle: { ipad: string; iphone: string };
+  device_labels: { ipad: string; iphone: string; dots: string };
   footer: {
     made_by: string; author: string; author_url: string;
     with: string; in: string; city: string;

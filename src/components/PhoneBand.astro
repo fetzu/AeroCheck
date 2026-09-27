@@ -1,0 +1,43 @@
+---
+// The iPhone in the FLY band: the same Cockpit in portrait, then on its side, where the controls move
+// to a column and the map takes the rest. (6.0)
+import type { PhoneBand } from '../lib/site';
+import { shot } from '../lib/shots';
+interface Props { band: PhoneBand; labels: { iphone: string }; }
+const { band, labels } = Astro.props;
+const [portrait, side] = band.shots.map((k) => shot(k));
+---
+<div class="phone-band reveal">
+  <div class="phone-copy">
+    <p class="step">{band.step}</p>
+    <h3 class="feature-title">{band.title}</h3>
+    <p class="feature-desc">{band.description}</p>
+    <div class="chips">{band.chips.map((c) => <span class="chip">{c}</span>)}</div>
+  </div>
+  <div class="phones">
+    <div class="dev"><div class="screen"><img src={portrait.iphone} alt={`${band.title} — ${labels.iphone}`} width="800" height="1739" loading="lazy" decoding="async" /></div></div>
+    <div class="dev dev--side"><div class="screen"><img src={side.iphone} alt={`${side.label} — ${labels.iphone}`} width="1600" height="736" loading="lazy" decoding="async" /></div></div>
+  </div>
+</div>
+
+<style>
+  .phone-band { display: grid; grid-template-columns: 1fr 1.35fr; gap: 44px; align-items: center; padding: 40px 0; border-bottom: 1px solid var(--line); }
+  .step { font-family: var(--mono); font-size: 11px; letter-spacing: .1em; text-transform: uppercase; color: var(--cyan); margin: 0 0 10px; }
+  .feature-title { font-size: 24px; margin-bottom: 12px; }
+  .feature-desc { color: var(--muted); font-size: 15px; line-height: 1.7; margin: 0 0 16px; }
+  .chips :global(.chip) { border-color: rgba(61, 199, 237, .35); }
+  .phones { display: flex; gap: 18px; align-items: flex-end; }
+  .dev { width: 30%; flex: none; background: #0A0A0D; border-radius: 34px; padding: 7px; box-shadow: 0 24px 50px rgba(0, 0, 0, .55), inset 0 0 0 1px rgba(255, 255, 255, .08); }
+  .dev--side { width: auto; flex: 1; border-radius: 26px; }
+  .screen { overflow: hidden; border-radius: 28px; line-height: 0; background: #0C0C10; }
+  .dev--side .screen { border-radius: 20px; }
+  .screen img { width: 100%; height: auto; display: block; }
+  @media (max-width: 820px) {
+    .phone-band { grid-template-columns: 1fr; gap: 24px; }
+  }
+  @media (max-width: 520px) {
+    .phones { flex-wrap: wrap; }
+    .dev { width: 42%; }
+    .dev--side { flex-basis: 100%; }
+  }
+</style>

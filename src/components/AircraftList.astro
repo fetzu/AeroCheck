@@ -181,7 +181,7 @@ const ordered = group(aircraft);
   .ac .ac-error { color: var(--magenta); padding: 32px 0; font-size: 15px; }
 
   .ac .club { margin-bottom: 28px; }
-  .ac .club-name { font-size: 15px; color: var(--gold); font-weight: 500; padding: 10px 14px; background: var(--panel-2); border-left: 3px solid var(--gold); border-radius: var(--radius-sm); margin-bottom: 10px; }
+  .ac .club-name { font-size: 15px; color: var(--gold); font-weight: 700; padding: 10px 14px; background: var(--panel-2); border-left: 3px solid var(--gold); border-radius: var(--radius-sm); margin-bottom: 10px; }
   .ac .table-wrap { overflow-x: auto; border: 1px solid var(--line); border-radius: var(--radius); }
   .ac .ac-table { width: 100%; border-collapse: collapse; font-size: 14px; min-width: 640px; }
   .ac .ac-table th { text-align: left; font-family: var(--mono); font-size: 10.5px; letter-spacing: .07em; text-transform: uppercase; color: var(--dim); padding: 12px 14px; background: var(--panel-2); border-bottom: 1px solid var(--line); }
@@ -190,12 +190,14 @@ const ordered = group(aircraft);
   .ac .ac-table tbody tr:hover { background: rgba(255,255,255,.02); }
   .ac .c-reg { font-family: var(--mono); font-weight: 600; color: var(--gold); }
   .ac .c-model { color: var(--text); }
-  .ac .c-type, .ac .c-ver { font-family: var(--mono); }
+  .ac .c-type { font-family: var(--mono); }
+  /* B612 Mono gives the dot a full cell ("2. 1e"); versions read better in B612 with even figures. */
+  .ac .c-ver { font-variant-numeric: tabular-nums; }
   .ac .c-upd { font-size: 13px; }
   .ac .langs { display: inline-flex; gap: 4px; }
   .ac .lang-tag { font-family: var(--mono); font-size: 10px; padding: 2px 6px; border-radius: 4px; background: var(--panel); border: 1px solid var(--line); color: var(--muted); }
   .ac .badge { font-family: var(--mono); font-size: 10px; font-weight: 600; letter-spacing: .05em; text-transform: uppercase; padding: 3px 8px; border-radius: 4px; }
-  .ac .badge--free { background: rgba(63,184,97,.16); color: var(--green); }
+  .ac .badge--free { background: rgba(51,179,77,.16); color: var(--green); }
   .ac .badge--pro { background: var(--gold); color: var(--gold-ink); }
 
   @media (max-width: 600px) { .ac .ac-stats { grid-template-columns: repeat(2, 1fr); } }

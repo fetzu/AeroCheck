@@ -1,11 +1,8 @@
 name: Deploy website (Astro → Pages)
 
 # Builds the Astro site and deploys it to GitHub Pages on every push to `website` (the site's prod
-# branch) and on manual dispatch.
-#
-# REQUIRES (one-time): repo Settings → Pages → Build and deployment → Source → "GitHub Actions"
-# (switches off the old Jekyll gh-pages source). Until that's set the final deploy step fails — the
-# build still runs, so it's safe; just flip the setting and re-run / push again.
+# branch) and on manual dispatch. Pages is already on the "GitHub Actions" source (gh-pages/Jekyll is
+# fully retired — DOC9-DATA-08).
 #
 # Note: a workflow_dispatch "Run workflow" button only appears when the file is on the repo's
 # DEFAULT branch (main). Since this lives on `website`, the push trigger below is what actually runs it.
@@ -15,11 +12,6 @@ on:
     branches: [website]
   workflow_dispatch:
 
-permissions:
-  contents: read
-  pages: write
-  id-token: write
-
 concurrency:
   group: pages
   cancel-in-progress: true
@@ -27,9 +19,11 @@ concurrency:
 jobs:
   build:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     steps:
-      - uses: actions/checkout@v7
-      - uses: actions/setup-node@v6
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: 22
           cache: npm
@@ -44,16 +38,19 @@ jobs:
           # list — give the site its own entry). Absent, the build falls back to the last-known count
           # with a warning; it never fails.
           AEROCHECK_CLIENT: ${{ secrets.AEROCHECK_CLIENT }}
-      - uses: actions/upload-pages-artifact@v5
+      - uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0
         with:
           path: dist
 
   deploy:
     needs: build
     runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - id: deployment
-        uses: actions/deploy-pages@v5
+        uses: actions/deploy-pages@368f82528645a54fb793d4d04e342629a3f51346 # v5.0.1

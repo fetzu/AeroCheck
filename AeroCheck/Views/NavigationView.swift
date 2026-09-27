@@ -1047,14 +1047,17 @@ struct NavigationMapView: View {
             .background { mapContent.ignoresSafeArea() }
     }
 
-    /// The phone with no route on the map: in flight, the way to one where the next waypoint would be,
-    /// rather than alone on a bar of its own at the foot of the screen; in Plan › Map, none, as the
-    /// picker above has Routes. (round 6, I-06)
-    private var phoneWithoutRoute: Bool {
-        CockpitScale.current == .phone && flightPlanManager.activeFlightPlan == nil
+    /// The phone with no leg to fly, so the thumb bar would only hold Routes: no route on the map, or
+    /// no flight running (Plan › Map on the ground, where the bar is the way to the routes since the
+    /// leg controls went in-flight-only). In flight, the way to a route sits where the next waypoint
+    /// would be, rather than alone on a bar of its own at the foot of the screen; in Plan › Map there
+    /// is none, as the picker above has Routes. (round 6, I-06)
+    private var phoneWithNoLegToFly: Bool {
+        CockpitScale.current == .phone
+            && (flightPlanManager.activeFlightPlan == nil || !appState.isFlightActive)
     }
 
-    private var routesOnTop: Bool { phoneWithoutRoute && onShowRoutes == nil }
+    private var routesOnTop: Bool { phoneWithNoLegToFly && onShowRoutes == nil }
 
     // MARK: - State Update Helper
 
@@ -1246,7 +1249,7 @@ struct NavigationMapView: View {
                 onWaypointATOTap: { index in
                     flightPlanManager.recordATO(forWaypointAt: index)
                 },
-                onAirportDivert: { ident in openDivert(ident) }
+                onAirportDivert: airportDivert
             )
         } else {
             // Use UIKit-wrapped MKMapView for standard/satellite to avoid gesture issues
@@ -1274,7 +1277,7 @@ struct NavigationMapView: View {
                 onWaypointATOTap: { index in
                     flightPlanManager.recordATO(forWaypointAt: index)
                 },
-                onAirportDivert: { ident in openDivert(ident) }
+                onAirportDivert: airportDivert
             )
         }
     }
@@ -1516,7 +1519,7 @@ struct NavigationMapView: View {
                 .frame(height: min(legsPanelContentHeight, legsMaxHeight))
                 .onPreferenceChange(LegsPanelHeightKey.self) { legsPanelContentHeight = $0 }
             }
-            if includesThumbBar && !phoneWithoutRoute {
+            if includesThumbBar && !phoneWithNoLegToFly {
                 Rectangle().fill(theme.panelStroke).frame(height: 1)
                 navThumbBar
             }
@@ -2795,6 +2798,13 @@ struct NavigationMapView: View {
     }
 
     // MARK: - Divert (v5.1)
+
+    /// "Divert here" in an airport's callout: in flight only, like the thumb bar's Divert. Plan › Map on
+    /// the ground is this same map, and with a route armed the callout offered it there too, leaving a
+    /// diversion on the route before the flight existed. (v6.0 review, 1694b7c; found by the 6.0 manual)
+    private var airportDivert: ((String) -> Void)? {
+        appState.isFlightActive ? { ident in openDivert(ident) } : nil
+    }
 
     private func openDivert(_ ident: String?) {
         divertPreselect = ident

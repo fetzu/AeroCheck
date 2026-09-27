@@ -921,7 +921,7 @@ struct FlightLogView: View {
     private var shareScopeLabel: String {
         var parts: [String] = []
         if let aircraft = selectedAircraft { parts.append(aircraft) }
-        parts.append(selectedYear.map { String($0) } ?? "All time")
+        parts.append(selectedYear.map { String($0) } ?? String(localized: "All time"))
         return parts.joined(separator: " · ")
     }
 

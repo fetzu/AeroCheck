@@ -154,8 +154,8 @@ struct AppSettings: Codable, Equatable {
     var enableCircuitMode: Bool = false
 
     // Aircraft visibility (premium feature)
-    var hiddenAircraftIds: Set<String> = [] // Individual aircraft IDs to hide on home screen
-    var hiddenAeroclubs: Set<String> = [] // Entire aeroclubs to hide on home screen
+    var hiddenAircraftIds: Set<String> = [] // Individual aircraft IDs left out of the aircraft you pick from (Today, Your aircraft, Plan new flight)
+    var hiddenAeroclubs: Set<String> = [] // Entire aeroclubs left out the same way
 
     // iCloud Sync
     var iCloudSyncEnabled: Bool = true // When true, syncs settings and flights to iCloud

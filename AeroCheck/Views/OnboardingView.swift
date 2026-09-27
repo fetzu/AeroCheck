@@ -531,7 +531,7 @@ struct OnboardingView: View {
                            String(localized: "The 16-phase checklist you already know"))
                 chapterRow("checkmark.shield", String(localized: "Close"),
                            String(localized: "Close the flight plan, fees, the logbook line"))
-                Text(String(localized: "Plan a flight from the Home screen. You can always start flying without one."))
+                Text(String(localized: "Plan a flight from Today. You can always start flying without one."))
                     .scaledFont(size: 12, relativeTo: .caption)
                     .foregroundColor(.dimText)
                     .fixedSize(horizontal: false, vertical: true)

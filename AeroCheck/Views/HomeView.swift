@@ -490,11 +490,14 @@ struct HomeView: View {
                 .padding(.top, isCompact ? 4 : 8)
             aircraftStrip(fillsHeight: false)
             lastFlightStrip(fillsHeight: false)
+            // Only a route already on the map is shown here, so the badge states it, in the green and
+            // the words of Plan › Routes' "On the map". It said SHOW ON MAP, the action already taken.
+            // (found by the 6.0 manual)
             if heroFlight == nil, homeThread == nil, let active = flightPlanManager.activeFlightPlan {
                 flightPlanStripCard(title: planRoute(active),
                                     detail: armedDetail(active),
-                                    accent: .altimeterBlue,
-                                    badge: L10n.Nav.activate.uppercased(),
+                                    accent: .aviationGreen,
+                                    badge: L10n.Nav.activeFlightPlan.uppercased(),
                                     showsRail: false,
                                     fillsHeight: false)
             }

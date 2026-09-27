@@ -51,7 +51,7 @@ flagship:
       fly: true
       title: "One screen in the cockpit"
       description: "The Cockpit keeps everything where the hand learns it: the phase and flight time on top, ground speed, altitude and track in a strip, the checklist or the map at full height, and a thumb bar at the bottom. The item you are on is framed where it stands; CHECK names it, DEFER keeps it for later, and NEXT shows what is still open before you move on. Take-offs, go-arounds, touch-and-goes and landings are detected and logged by themselves."
-      chips: ["Kneeboard-sized, portrait", "CHECK · DEFER · NEXT", "Deferred items", "GS · ALT · TRK", "The pane follows the flight", "Auto go-around · touch-and-go · landing", "Day · Night · Sunlight"]
+      chips: ["Kneeboard-sized, portrait", "CHECK · DEFER · NEXT", "Deferred items", "GS · ALT · TRK", "The pane follows the flight", "Auto go-around · touch-and-go · landing", "Day · Night · sunlight contrast"]
       shot: "cockpit"
     - step: "03 · Fly"
       fly: true
@@ -106,7 +106,7 @@ ecosystem:
   - { label: "{total} aircraft · 16 phases", icon: "plane" }
   - { label: "iPad & iPhone", icon: "devices" }
   - { label: "Apple Watch", icon: "clock" }
-  - { label: "Day · Night · Sunlight", icon: "adjustments" }
+  - { label: "Day · Night · sunlight contrast", icon: "adjustments" }
   - { label: "iCloud sync", icon: "cloud" }
   - { label: "Accessibility", icon: "accessible" }
   - { label: "Open source", icon: "brand-github" }

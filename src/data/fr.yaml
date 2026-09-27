@@ -51,7 +51,7 @@ flagship:
       fly: true
       title: "Un seul écran dans le cockpit"
       description: "Le Cockpit garde chaque chose à la place que la main apprend : la phase et le temps de vol en haut, vitesse sol, altitude et route dans un bandeau, la checklist ou la carte sur toute la hauteur, et une barre sous le pouce en bas. L'élément en cours est encadré là où il se trouve ; COCHER le nomme, REPORTER le garde pour plus tard, et SUIVANT montre ce qui reste ouvert avant de passer à la suite. Décollages, remises de gaz, touch-and-go et atterrissages sont détectés et consignés d'eux-mêmes."
-      chips: ["À la taille d'une planchette, en portrait", "COCHER · REPORTER · SUIVANT", "Éléments reportés", "GS · ALT · TRK", "Le volet suit le vol", "Remise de gaz · touch-and-go · atterrissage auto", "Jour · Nuit · Plein soleil"]
+      chips: ["À la taille d'une planchette, en portrait", "COCHER · REPORTER · SUIVANT", "Éléments reportés", "GS · ALT · TRK", "Le volet suit le vol", "Remise de gaz · touch-and-go · atterrissage auto", "Jour · Nuit · contraste au soleil"]
       shot: "cockpit"
     - step: "03 · Voler"
       fly: true
@@ -106,7 +106,7 @@ ecosystem:
   - { label: "{total} avions · 16 phases", icon: "plane" }
   - { label: "iPad & iPhone", icon: "devices" }
   - { label: "Apple Watch", icon: "clock" }
-  - { label: "Jour · Nuit · Plein soleil", icon: "adjustments" }
+  - { label: "Jour · Nuit · contraste au soleil", icon: "adjustments" }
   - { label: "Synchro iCloud", icon: "cloud" }
   - { label: "Accessibilité", icon: "accessible" }
   - { label: "Open source", icon: "brand-github" }

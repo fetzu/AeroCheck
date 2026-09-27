@@ -12,13 +12,11 @@
     "astro": "astro"
   },
   "dependencies": {
-    "astro": "^6.4.8",
     "@astrojs/sitemap": "^3.7.3",
-    "astro-icon": "^1.1.5"
+    "astro": "^6.4.8"
   },
   "devDependencies": {
-    "js-yaml": "^4.2.0",
     "@types/js-yaml": "^4.0.9",
-    "@iconify-json/tabler": "^1.2.35"
+    "js-yaml": "^4.2.0"
   }
 }

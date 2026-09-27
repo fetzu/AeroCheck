@@ -292,6 +292,11 @@ struct CompanionPeerGPS: Codable, Equatable {
 /// This is defence in depth, not a server gap: the paid content is legitimately on the paying
 /// device. A legitimate single user's iPhone shares the subscriber's Apple ID and reports
 /// `isSubscribed: true`, so the normal second-screen workflow is unaffected.
+///
+/// Since the 2026-09 review (S9-30) a master no longer decides on this claim: a bare boolean the
+/// peer states about itself proves nothing, so the master streams the text on its OWN entitlement
+/// (see `CompanionConnectivityManager.mayStreamItemText`). The viewer still sends the hello, and
+/// truthfully, because a master on 6.0 or older still gates on it.
 struct CompanionViewerHello: Codable, Equatable {
     /// Whether the viewer device itself holds a premium entitlement.
     let isSubscribed: Bool

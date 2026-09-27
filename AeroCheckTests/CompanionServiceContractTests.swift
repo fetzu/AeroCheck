@@ -291,11 +291,40 @@ final class CompanionServiceContractTests: XCTestCase {
         XCTAssertEqual(full.deferredItemIds, [item.id])
     }
 
-    /// Who gets the words: an entitled viewer always, anyone for the bundled aircraft.
-    func testTheTextGateFollowsEntitlementForProAircraftOnly() {
-        XCTAssertFalse(CompanionConnectivityManager.mayStreamItemText(viewerIsEntitled: false, remoteAircraftSelected: true))
-        XCTAssertTrue(CompanionConnectivityManager.mayStreamItemText(viewerIsEntitled: true, remoteAircraftSelected: true))
-        XCTAssertTrue(CompanionConnectivityManager.mayStreamItemText(viewerIsEntitled: false, remoteAircraftSelected: false))
+    /// Who gets the words: a Pro aircraft's from an iPad entitled to them, the bundled aircraft's
+    /// always. The iPad's own entitlement decides, not what the viewer says about itself (S9-30).
+    func testTheTextGateFollowsTheMastersOwnEntitlement() {
+        XCTAssertFalse(CompanionConnectivityManager.mayStreamItemText(masterIsEntitled: false, remoteAircraftSelected: true))
+        XCTAssertTrue(CompanionConnectivityManager.mayStreamItemText(masterIsEntitled: true, remoteAircraftSelected: true))
+        XCTAssertTrue(CompanionConnectivityManager.mayStreamItemText(masterIsEntitled: false, remoteAircraftSelected: false))
+    }
+
+    /// A viewer claiming a subscription changes nothing on an iPad without one. (S9-30)
+    @MainActor
+    func testAViewersClaimDoesNotUnlockTheText() throws {
+        let manager = CompanionConnectivityManager(defaults: makeTestDefaults(), usesWiFiAware: false)
+        let appState = makeTestAppState()
+        appState.settings.selectedRemoteAircraftId = "pa28-181"
+        XCTAssertTrue(appState.settings.isRemoteAircraftSelected)
+        let location = LocationManager()
+        let plans = makeTestPlanManager()
+        manager.configure(appState: appState, locationManager: location, flightPlanManager: plans)
+        manager.currentRole = .master
+        addTeardownBlock { @MainActor in manager.disconnect() }
+        manager.entitlementProvider = { false }
+        let gen = try XCTUnwrap(manager.adoptMasterConnection(identity: nil, send: { _ in }))
+
+        let claim = CompanionMessage(type: .viewerHello,
+                                     payload: try JSONEncoder().encode(CompanionViewerHello(isSubscribed: true)))
+        manager.handleReceivedMessage(claim, generation: gen)
+        XCTAssertFalse(manager.streamsItemText, "redacted: the claim is not proof")
+
+        manager.entitlementProvider = { true }
+        XCTAssertTrue(manager.streamsItemText, "an entitled iPad streams what it shows")
+
+        appState.settings.selectedRemoteAircraftId = nil
+        manager.entitlementProvider = { false }
+        XCTAssertTrue(manager.streamsItemText, "the bundled aircraft always")
     }
 
     // MARK: - CHECK and DEFER from the viewer (v6.0 review, decision 2)

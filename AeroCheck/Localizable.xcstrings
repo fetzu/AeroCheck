@@ -12860,13 +12860,30 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "“%@” is trying to control this flight's checklist and waypoints. Allow it for this connection only?"
+            "value": "“%@” wants to control this flight's checklist and waypoints, or to supply its GPS position. Allow it for this connection only?"
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "« %@ » tente de contrôler la checklist et les points de cheminement de ce vol. Autoriser pour cette connexion uniquement ?"
+            "value": "« %@ » veut contrôler la checklist et les points de cheminement de ce vol, ou lui fournir sa position GPS. Autoriser pour cette connexion uniquement ?"
+          }
+        }
+      }
+    },
+    "companion.allowControlMessageUnnamed": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "A paired device wants to control this flight's checklist and waypoints, or to supply its GPS position. Allow it for this connection only?"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Un appareil appairé veut contrôler la checklist et les points de cheminement de ce vol, ou lui fournir sa position GPS. Autoriser pour cette connexion uniquement ?"
           }
         }
       }
@@ -12884,6 +12901,40 @@
           "stringUnit": {
             "state": "translated",
             "value": "Autoriser le contrôle du compagnon ?"
+          }
+        }
+      }
+    },
+    "companion.allowDeviceAgain": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Allow Again"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Réautoriser"
+          }
+        }
+      }
+    },
+    "companion.allowDeviceAgainAccessibility": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Allow %@ again"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Réautoriser %@"
           }
         }
       }
@@ -13105,6 +13156,40 @@
           "stringUnit": {
             "state": "translated",
             "value": "Données obsolètes — valeurs possiblement figées"
+          }
+        }
+      }
+    },
+    "companion.denyControl": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Don't Allow"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ne pas autoriser"
+          }
+        }
+      }
+    },
+    "companion.deviceForgotten": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Forgotten: AéroCheck no longer connects to it"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Oublié : AéroCheck ne s’y connecte plus"
           }
         }
       }
@@ -13445,6 +13530,40 @@
           "stringUnit": {
             "state": "translated",
             "value": "Quitter le mode Companion ?"
+          }
+        }
+      }
+    },
+    "companion.forgetDevice": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Forget"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Oublier"
+          }
+        }
+      }
+    },
+    "companion.forgetDeviceAccessibility": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Forget %@"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Oublier %@"
           }
         }
       }

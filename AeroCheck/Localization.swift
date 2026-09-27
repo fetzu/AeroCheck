@@ -2180,8 +2180,23 @@ enum L10n {
         // Companion command authorisation (SEC-C40)
         static let allowControlTitle = String(localized: "companion.allowControlTitle")
         static let allowControl = String(localized: "companion.allowControl")
-        static func allowControlMessage(_ device: String) -> String {
-            String(format: String(localized: "companion.allowControlMessage"), device)
+        static let denyControl = String(localized: "companion.denyControl")
+        /// Nil when Wi-Fi Aware did not name the peer: the prompt then says "a paired device" rather
+        /// than guess one from the paired list. (S9-28)
+        static func allowControlMessage(_ device: String?) -> String {
+            guard let device else { return String(localized: "companion.allowControlMessageUnnamed") }
+            return String(format: String(localized: "companion.allowControlMessage"), device)
+        }
+
+        // Forget device (S9-09)
+        static let forgetDevice = String(localized: "companion.forgetDevice")
+        static let allowDeviceAgain = String(localized: "companion.allowDeviceAgain")
+        static let deviceForgotten = String(localized: "companion.deviceForgotten")
+        static func forgetDeviceAccessibility(_ device: String) -> String {
+            String(format: String(localized: "companion.forgetDeviceAccessibility"), device)
+        }
+        static func allowDeviceAgainAccessibility(_ device: String) -> String {
+            String(format: String(localized: "companion.allowDeviceAgainAccessibility"), device)
         }
 
         // Connectivity

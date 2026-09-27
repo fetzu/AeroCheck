@@ -1,0 +1,340 @@
+import XCTest
+import CoreLocation
+@testable import AeroCheck
+
+/// What a paired peer may do to the master's flight, and when the pilot is asked (SEC-C40).
+///
+/// Being paired is not authorisation: the first request of a connection to act on the flight (a
+/// command that changes something, or a position to borrow) asks the pilot, once; the answer holds
+/// for that connection only. A keep-alive never asks (S9-08), a position needs the same answer as a
+/// command and a forgotten device is refused (S9-09), and trust belongs to one connection, whose
+/// frames stop counting once another replaced it (S9-28).
+///
+/// The manager here is a test one: its own defaults suite, and no Wi-Fi Aware, so nothing starts a
+/// real listener on the simulator. Connections are adopted through the same entry point the
+/// listener uses, with a send handler that goes nowhere.
+@MainActor
+final class CompanionPeerAuthorizationTests: XCTestCase {
+
+    private struct Master {
+        let manager: CompanionConnectivityManager
+        let appState: AppState
+        let location: LocationManager
+        /// Held here: the manager keeps its data sources weakly.
+        let plans: FlightPlanManager
+        let defaults: UserDefaults
+    }
+
+    private func makeMaster(defaults: UserDefaults? = nil) -> Master {
+        let defaults = defaults ?? makeTestDefaults()
+        let manager = CompanionConnectivityManager(defaults: defaults, usesWiFiAware: false)
+        let appState = makeTestAppState()
+        let location = LocationManager()
+        let plans = makeTestPlanManager()
+        manager.configure(appState: appState, locationManager: location, flightPlanManager: plans)
+        manager.currentRole = .master
+        addTeardownBlock { @MainActor in manager.disconnect() }
+        return Master(manager: manager, appState: appState, location: location, plans: plans, defaults: defaults)
+    }
+
+    private func connect(_ manager: CompanionConnectivityManager, id: UInt64? = 7,
+                         name: String? = "Pilot's iPhone") throws -> Int {
+        let identity = id.map { CompanionPeerIdentity(deviceID: $0, name: name) }
+        return try XCTUnwrap(manager.adoptMasterConnection(identity: identity, send: { _ in }),
+                             "the connection should have been adopted")
+    }
+
+    private func command(_ command: CompanionCommand) -> CompanionMessage {
+        CompanionMessage(type: .command, payload: try! JSONEncoder().encode(command))
+    }
+
+    private func peerFix() -> CompanionMessage {
+        let fix = CompanionPeerGPS(latitude: 46.9, longitude: 7.4, speedMPS: 50, altitudeMeters: 1_500,
+                                   courseDegrees: 90, horizontalAccuracy: 5, signalStatus: "good",
+                                   timestamp: Date())
+        return CompanionMessage(type: .peerGPS, payload: try! JSONEncoder().encode(fix))
+    }
+
+    // MARK: - S9-08: the keep-alive never asks
+
+    func testAKeepAliveNeverAsks() throws {
+        let master = makeMaster()
+        let gen = try connect(master.manager)
+
+        // The viewer pings on connect and every 2 s after, whether or not it ever taps anything.
+        for _ in 0..<20 {
+            XCTAssertTrue(master.manager.handleReceivedMessage(command(.ping), generation: gen))
+        }
+        XCTAssertNil(master.manager.pendingAuthorization, "a ping must not raise the prompt")
+        XCTAssertEqual(master.manager.peerLink?.hasAsked, false)
+        XCTAssertEqual(master.manager.peerLink?.authorization, .undecided)
+    }
+
+    func testTheViewerHelloNeverAsks() throws {
+        let master = makeMaster()
+        let gen = try connect(master.manager)
+        let hello = CompanionMessage(type: .viewerHello,
+                                     payload: try JSONEncoder().encode(CompanionViewerHello(isSubscribed: true)))
+        for _ in 0..<5 { master.manager.handleReceivedMessage(hello, generation: gen) }
+        XCTAssertNil(master.manager.pendingAuthorization)
+    }
+
+    // MARK: - SEC-C40: asked once per connection, the answer remembered
+
+    func testAnActionAsksOnceAndIsDroppedUntilAnswered() throws {
+        let master = makeMaster()
+        let gen = try connect(master.manager, name: "Student iPhone")
+
+        master.manager.handleReceivedMessage(command(.revealHiddenItems), generation: gen)
+        let request = try XCTUnwrap(master.manager.pendingAuthorization, "the first action asks")
+        XCTAssertEqual(request.generation, gen)
+        XCTAssertEqual(request.deviceName, "Student iPhone", "the peer that asked, named by its own connection")
+        XCTAssertFalse(master.appState.hiddenItemsRevealed, "not applied before the pilot answers")
+
+        // More taps while the prompt is up: dropped, and the same question stays on screen.
+        for _ in 0..<5 {
+            master.manager.handleReceivedMessage(command(.revealHiddenItems), generation: gen)
+            master.manager.handleReceivedMessage(command(.ping), generation: gen)
+        }
+        XCTAssertEqual(master.manager.pendingAuthorization, request)
+        XCTAssertFalse(master.appState.hiddenItemsRevealed)
+    }
+
+    func testDontAllowIsRememberedForTheConnection() throws {
+        let master = makeMaster()
+        let gen = try connect(master.manager)
+        master.manager.handleReceivedMessage(command(.revealHiddenItems), generation: gen)
+        let request = try XCTUnwrap(master.manager.pendingAuthorization)
+
+        master.manager.answerAuthorization(request, allow: false)
+        XCTAssertNil(master.manager.pendingAuthorization)
+        XCTAssertEqual(master.manager.peerLink?.authorization, .denied)
+
+        // Cancel used to clear the prompt only, and the next ping raised it again 2 s later.
+        for _ in 0..<10 {
+            master.manager.handleReceivedMessage(command(.ping), generation: gen)
+            master.manager.handleReceivedMessage(command(.revealHiddenItems), generation: gen)
+            master.manager.handleReceivedMessage(peerFix(), generation: gen)
+        }
+        XCTAssertNil(master.manager.pendingAuthorization, "Don't Allow holds: no second prompt")
+        XCTAssertFalse(master.appState.hiddenItemsRevealed)
+        XCTAssertNil(master.manager.receivedPeerGPS)
+    }
+
+    func testAllowLetsTheConnectionAct() throws {
+        let master = makeMaster()
+        let gen = try connect(master.manager)
+        master.manager.handleReceivedMessage(command(.revealHiddenItems), generation: gen)
+        master.manager.answerAuthorization(try XCTUnwrap(master.manager.pendingAuthorization), allow: true)
+        XCTAssertTrue(master.manager.peerMayIssueCommands)
+
+        master.manager.handleReceivedMessage(command(.revealHiddenItems), generation: gen)
+        XCTAssertTrue(master.appState.hiddenItemsRevealed, "an allowed peer drives the checklist")
+        XCTAssertNil(master.manager.pendingAuthorization)
+    }
+
+    func testAPromptLostWithoutAnAnswerMayAskAgain() throws {
+        // SwiftUI can drop an alert it cannot present; the connection must not stay silently
+        // ignored for good.
+        let master = makeMaster()
+        let gen = try connect(master.manager)
+        master.manager.handleReceivedMessage(command(.revealHiddenItems), generation: gen)
+        master.manager.authorizationPromptDismissed(try XCTUnwrap(master.manager.pendingAuthorization))
+        XCTAssertNil(master.manager.pendingAuthorization)
+
+        master.manager.handleReceivedMessage(command(.revealHiddenItems), generation: gen)
+        XCTAssertNotNil(master.manager.pendingAuthorization)
+    }
+
+    func testTheAnswerDoesNotOutliveTheConnection() throws {
+        let master = makeMaster()
+        let first = try connect(master.manager)
+        master.manager.handleReceivedMessage(command(.revealHiddenItems), generation: first)
+        master.manager.answerAuthorization(try XCTUnwrap(master.manager.pendingAuthorization), allow: true)
+
+        let second = try connect(master.manager)
+        XCTAssertFalse(master.manager.peerMayIssueCommands, "a new connection starts from nothing")
+        master.manager.handleReceivedMessage(command(.revealHiddenItems), generation: second)
+        XCTAssertEqual(master.manager.pendingAuthorization?.generation, second, "and is asked about")
+        XCTAssertFalse(master.appState.hiddenItemsRevealed)
+    }
+
+    // MARK: - S9-28: trust bound to the connection
+
+    func testAnAnswerForAReplacedConnectionAuthorisesNothing() throws {
+        let master = makeMaster()
+        let first = try connect(master.manager, id: 7, name: "Pilot's iPhone")
+        master.manager.handleReceivedMessage(command(.revealHiddenItems), generation: first)
+        let staleRequest = try XCTUnwrap(master.manager.pendingAuthorization)
+
+        // Another paired phone takes over while the prompt is still up; the pilot then taps Allow.
+        let second = try connect(master.manager, id: 8, name: "Someone else's iPhone")
+        XCTAssertNil(master.manager.pendingAuthorization, "the old question went with its connection")
+        master.manager.answerAuthorization(staleRequest, allow: true)
+
+        XCTAssertFalse(master.manager.peerMayIssueCommands, "the Allow was for the replaced connection")
+        master.manager.handleReceivedMessage(command(.revealHiddenItems), generation: second)
+        XCTAssertFalse(master.appState.hiddenItemsRevealed)
+        XCTAssertEqual(master.manager.pendingAuthorization?.deviceName, "Someone else's iPhone")
+    }
+
+    func testFramesFromAReplacedConnectionAreDropped() throws {
+        let master = makeMaster()
+        let first = try connect(master.manager)
+        master.manager.handleReceivedMessage(command(.revealHiddenItems), generation: first)
+        master.manager.answerAuthorization(try XCTUnwrap(master.manager.pendingAuthorization), allow: true)
+        let second = try connect(master.manager, id: 8)
+        master.manager.handleReceivedMessage(command(.revealHiddenItems), generation: second)
+        master.manager.answerAuthorization(try XCTUnwrap(master.manager.pendingAuthorization), allow: true)
+        master.appState.hiddenItemsRevealed = false
+
+        // The old connection's receive loop is still running: its frames count for nothing.
+        XCTAssertFalse(master.manager.handleReceivedMessage(command(.revealHiddenItems), generation: first),
+                       "false tells the loop to stop reading that connection")
+        XCTAssertFalse(master.appState.hiddenItemsRevealed, "no riding on the current peer's Allow")
+        XCTAssertFalse(master.manager.handleReceivedMessage(peerFix(), generation: first))
+        XCTAssertNil(master.manager.receivedPeerGPS)
+        XCTAssertFalse(master.manager.handleReceivedMessage(CompanionMessage(type: .disconnect, payload: Data()),
+                                                            generation: first))
+        XCTAssertEqual(master.manager.connectionState, .connected, "a stray disconnect no longer kicks the viewer")
+        XCTAssertEqual(master.manager.peerLink?.generation, second)
+    }
+
+    func testThePromptNamesThePeerThatAskedNotTheFirstPairedDevice() throws {
+        let master = makeMaster()
+        master.manager.pairedDevices = [
+            CompanionPairedDevice(name: "Pilot's iPhone", pairingName: nil, deviceIDs: [7]),
+            CompanionPairedDevice(name: "Club iPhone", pairingName: nil, deviceIDs: [8]),
+        ]
+        let gen = try connect(master.manager, id: 8, name: "Club iPhone")
+        master.manager.handleReceivedMessage(command(.advanceWaypoint), generation: gen)
+        XCTAssertEqual(master.manager.pendingAuthorization?.deviceName, "Club iPhone")
+        XCTAssertEqual(master.manager.connectedDeviceName, "Club iPhone")
+    }
+
+    func testAnUnnamedPeerIsAskedAboutAsAPairedDevice() throws {
+        let master = makeMaster()
+        master.manager.pairedDevices = [CompanionPairedDevice(name: "Pilot's iPhone", pairingName: nil, deviceIDs: [7])]
+        let gen = try connect(master.manager, id: nil)
+        master.manager.handleReceivedMessage(command(.advanceWaypoint), generation: gen)
+        let request = try XCTUnwrap(master.manager.pendingAuthorization)
+        XCTAssertNil(request.deviceName, "no guess from the paired list")
+        XCTAssertFalse(L10n.Companion.allowControlMessage(nil).contains("Pilot's iPhone"))
+    }
+
+    // MARK: - S9-09: position needs the same answer
+
+    func testPositionIsRefusedBeforeAuthorisation() throws {
+        let master = makeMaster()
+        let gen = try connect(master.manager)
+
+        master.manager.handleReceivedMessage(peerFix(), generation: gen)
+        XCTAssertNil(master.manager.receivedPeerGPS, "not stored")
+        XCTAssertFalse(master.manager.hasUsablePeerFix, "cannot start a flight off it either")
+        XCTAssertNil(master.location.currentLocation, "never reaches the flight pipeline")
+        XCTAssertNotNil(master.manager.pendingAuthorization, "the pilot is asked, as for a command")
+
+        master.manager.answerAuthorization(try XCTUnwrap(master.manager.pendingAuthorization), allow: true)
+        master.manager.handleReceivedMessage(peerFix(), generation: gen)
+        XCTAssertNotNil(master.manager.receivedPeerGPS)
+        XCTAssertEqual(master.manager.effectiveGPSSource, .peer)
+        XCTAssertEqual(master.location.currentLocation?.coordinate.latitude ?? 0, 46.9, accuracy: 1e-9,
+                       "an allowed peer's fix is borrowed, as before")
+    }
+
+    func testAnInvalidFixDoesNotAsk() throws {
+        let master = makeMaster()
+        let gen = try connect(master.manager)
+        let nonsense = CompanionPeerGPS(latitude: 4.0e9, longitude: 7.4, speedMPS: nil, altitudeMeters: nil,
+                                        courseDegrees: nil, horizontalAccuracy: 5, signalStatus: "good",
+                                        timestamp: Date())
+        master.manager.handleReceivedMessage(CompanionMessage(type: .peerGPS, payload: try JSONEncoder().encode(nonsense)),
+                                             generation: gen)
+        XCTAssertNil(master.manager.pendingAuthorization, "garbage is dropped, not put to the pilot")
+    }
+
+    // MARK: - S9-09: Forget
+
+    func testAForgottenDeviceIsRefused() throws {
+        let master = makeMaster()
+        let oldPhone = CompanionPairedDevice(name: "Former member's iPhone", pairingName: nil, deviceIDs: [42, 43])
+        master.manager.pairedDevices = [oldPhone]
+        master.manager.forget(oldPhone)
+        XCTAssertTrue(master.manager.isForgotten(oldPhone))
+        XCTAssertFalse(master.manager.hasPairedDevices, "nothing left to connect to")
+
+        for id: UInt64 in [42, 43] {
+            XCTAssertNil(master.manager.adoptMasterConnection(identity: CompanionPeerIdentity(deviceID: id, name: nil),
+                                                              send: { _ in }),
+                         "every record behind the row is refused")
+        }
+        XCTAssertNotEqual(master.manager.connectionState, .connected)
+        XCTAssertNil(master.manager.peerLink)
+
+        // Another device still connects.
+        XCTAssertNotNil(master.manager.adoptMasterConnection(identity: CompanionPeerIdentity(deviceID: 7, name: nil),
+                                                             send: { _ in }))
+    }
+
+    func testForgettingIsKeptAndCanBeUndone() throws {
+        let defaults = makeTestDefaults()
+        let master = makeMaster(defaults: defaults)
+        let phone = CompanionPairedDevice(name: "iPhone", pairingName: nil, deviceIDs: [UInt64.max])
+        master.manager.forget(phone)
+
+        // A relaunch: same defaults, new manager. UInt64.max does not fit an Int64, hence the strings.
+        let relaunched = CompanionConnectivityManager(defaults: defaults, usesWiFiAware: false)
+        XCTAssertTrue(relaunched.isForgotten(phone))
+
+        relaunched.allowAgain(phone)
+        XCTAssertFalse(relaunched.isForgotten(phone))
+        XCTAssertFalse(CompanionConnectivityManager(defaults: defaults, usesWiFiAware: false).isForgotten(phone))
+    }
+
+    func testForgettingTheConnectedDeviceEndsTheLink() throws {
+        let master = makeMaster()
+        _ = try connect(master.manager, id: 7)
+        master.manager.forget(CompanionPairedDevice(name: "Pilot's iPhone", pairingName: nil, deviceIDs: [7]))
+        XCTAssertNotEqual(master.manager.connectionState, .connected)
+        XCTAssertNil(master.manager.peerLink)
+    }
+
+    func testForgettingAnotherDeviceLeavesTheLinkUp() throws {
+        let master = makeMaster()
+        _ = try connect(master.manager, id: 7)
+        master.manager.forget(CompanionPairedDevice(name: "Old iPhone", pairingName: nil, deviceIDs: [9]))
+        XCTAssertEqual(master.manager.connectionState, .connected)
+        XCTAssertEqual(master.manager.peerLink?.identity?.deviceID, 7)
+    }
+
+    func testTheRefusalRule() {
+        let named = CompanionPeerIdentity(deviceID: 7, name: "iPhone")
+        XCTAssertFalse(CompanionConnectivityManager.refusesPeer(named, forgotten: []))
+        XCTAssertFalse(CompanionConnectivityManager.refusesPeer(nil, forgotten: []),
+                       "with nothing forgotten an unnamed peer connects (and still has to be allowed)")
+        XCTAssertTrue(CompanionConnectivityManager.refusesPeer(named, forgotten: [7]))
+        XCTAssertFalse(CompanionConnectivityManager.refusesPeer(named, forgotten: [9]))
+        XCTAssertTrue(CompanionConnectivityManager.refusesPeer(nil, forgotten: [9]),
+                      "once something is forgotten, a peer Wi-Fi Aware will not name could be it")
+    }
+
+    // MARK: - The link's own rule
+
+    func testTheLinkAsksOnlyOnce() {
+        var link = CompanionPeerLink(generation: 1, identity: nil)
+        let first = link.admit()
+        XCTAssertFalse(first.admitted)
+        XCTAssertTrue(first.ask, "the first request asks")
+        let second = link.admit()
+        XCTAssertFalse(second.admitted)
+        XCTAssertFalse(second.ask, "and the next one does not")
+        link.authorization = .allowed
+        let allowed = link.admit()
+        XCTAssertTrue(allowed.admitted)
+        XCTAssertFalse(allowed.ask)
+        link.authorization = .denied
+        let denied = link.admit()
+        XCTAssertFalse(denied.admitted)
+        XCTAssertFalse(denied.ask)
+    }
+}

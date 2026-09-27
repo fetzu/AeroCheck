@@ -3,6 +3,7 @@ import Network
 import WiFiAware
 import CoreLocation
 import UIKit
+import os
 
 // MARK: - Wi-Fi Aware Service Extensions
 
@@ -47,6 +48,107 @@ struct CompanionPairedDevice: Identifiable, Equatable {
     var id: String { (name ?? "") + (pairingName ?? "") }
     let name: String?
     let pairingName: String?
+    /// The system's `WAPairedDevice.ID`s behind this row. Usually one; a flaky or retried pairing
+    /// can leave several records for the same device, which the list shows once, so forgetting it
+    /// has to forget them all. (S9-09)
+    var deviceIDs: [UInt64] = []
+
+    var displayName: String? { name ?? pairingName }
+}
+
+/// Who is at the other end of a companion connection, as Wi-Fi Aware names it: the system's
+/// `WAPairedDevice.ID`, kept as a plain number so the manager stays usable below iOS 26 (ARCH-09).
+///
+/// The master used to call whoever connected `pairedDevices.first`, the first entry of an unordered
+/// list, so on an iPad paired to several phones the authorisation prompt could name one phone while
+/// another was asking. The identity now comes from the connection itself. (S9-28)
+struct CompanionPeerIdentity: Equatable, Sendable {
+    let deviceID: UInt64
+    let name: String?
+}
+
+@available(iOS 26.0, *)
+extension CompanionPeerIdentity {
+    init(_ device: WAPairedDevice) {
+        self.init(deviceID: device.id, name: device.name ?? device.pairingInfo?.pairingName)
+    }
+}
+
+/// The pilot's answer about the peer of ONE connection. (SEC-C40)
+enum CompanionPeerAuthorization: Equatable {
+    case undecided
+    case allowed
+    case denied
+}
+
+/// One accepted connection and what its peer may do. Trust lives here, per connection, and dies with
+/// it; nothing about it is global to the manager any more. (S9-28)
+struct CompanionPeerLink: Equatable {
+    /// The connection's `connectionGeneration`: frames and answers carrying another one are stale.
+    let generation: Int
+    /// Nil when Wi-Fi Aware would not say who it is.
+    let identity: CompanionPeerIdentity?
+    var authorization: CompanionPeerAuthorization = .undecided
+    /// The pilot was asked about this connection already. Never twice: the viewer's keep-alive and
+    /// its taps kept raising the same modal every 2 s, and a pilot who cancelled got it straight back
+    /// over the checklist until they gave in and allowed it. (S9-08)
+    var hasAsked = false
+
+    /// A request to act on the flight (a command that changes something, or a position to borrow):
+    /// whether it goes through, and whether to ask the pilot now.
+    mutating func admit() -> (admitted: Bool, ask: Bool) {
+        switch authorization {
+        case .allowed: return (true, false)
+        case .denied: return (false, false)
+        case .undecided:
+            let ask = !hasAsked
+            hasAsked = true
+            return (false, ask)
+        }
+    }
+}
+
+/// The question put to the pilot, bound to the connection that raised it, so an answer given after
+/// that connection was replaced cannot authorise its successor. (S9-28)
+struct CompanionAuthorizationRequest: Identifiable, Equatable {
+    let generation: Int
+    /// The peer's name as Wi-Fi Aware gives it; nil and the prompt says "a paired device".
+    let deviceName: String?
+    var id: Int { generation }
+}
+
+/// The paired devices the pilot told AéroCheck to forget. (S9-09)
+///
+/// Wi-Fi Aware has no API to remove a system pairing (`WAPairedDevice` only lists them), so this is
+/// the app's own list: a device on it is refused when it connects to the iPad and skipped when the
+/// iPhone looks for one. "Allow Again" takes it off. Stored by `WAPairedDevice.ID`, as strings
+/// because a `UInt64` above `Int64.max` does not survive a round trip through `UserDefaults`.
+struct CompanionForgottenDevices {
+    static let defaultsKey = "companionForgottenDeviceIDs"
+
+    private let defaults: UserDefaults
+    private(set) var ids: Set<UInt64>
+
+    init(defaults: UserDefaults) {
+        self.defaults = defaults
+        ids = Set((defaults.stringArray(forKey: Self.defaultsKey) ?? []).compactMap { UInt64($0) })
+    }
+
+    func contains(_ id: UInt64) -> Bool { ids.contains(id) }
+
+    mutating func forget(_ newIDs: [UInt64]) {
+        ids.formUnion(newIDs)
+        save()
+    }
+
+    mutating func allow(_ allowedIDs: [UInt64]) {
+        ids.subtract(allowedIDs)
+        save()
+    }
+
+    private func save() {
+        defaults.set(ids.sorted().map(String.init), forKey: Self.defaultsKey)
+    }
 }
 
 /// Manages companion device connectivity using Wi-Fi Aware (iOS 26+)
@@ -142,30 +244,44 @@ class CompanionConnectivityManager: NSObject, ObservableObject {
     // References for data creation (set during startUpdates)
     private weak var appState: AppState?
 
-    /// Whether the connected viewer reported its own premium entitlement (SA-26).
-    /// Defaults to false and resets on every disconnect — an older viewer that never sends
-    /// `viewerHello`, or one that sends a malformed one, gets the redacted checklist stream.
-    private var peerIsEntitled = false
-
-    /// Whether the connected peer may drive checklist/waypoint state in THIS session. (SEC-C40)
+    /// The current connection and what its peer may do (SEC-C40). Nil when nothing is connected.
     ///
-    /// The listener accepts `.allPairedDevices`, and `handleCommand` checked only that we are the
-    /// master — i.e. any device that completed the one-time system pairing at any point in the past
-    /// could mutate the master's checklist and waypoints, forever, with no in-app way to revoke it.
-    /// That is a realistic precondition in this app's actual market: shared aeroclub/rental iPads
-    /// that many student pilots pair their personal phones to over time.
-    ///
-    /// Deliberately per-connection and defaulting to false: a stale pairing from a previous user
-    /// gets nothing until the person holding the master says so, and saying so does not persist.
-    @Published var peerMayIssueCommands = false
+    /// The listener accepts `.allPairedDevices`, so any device that completed the one-time system
+    /// pairing at any point in the past can connect. That is a realistic precondition in this app's
+    /// actual market: shared aeroclub/rental iPads that many student pilots pair their personal
+    /// phones to over time. So a peer may drive the checklist or waypoints, or feed its position into
+    /// the flight, only once the person holding the master allowed it, and only for that connection:
+    /// a stale pairing from a previous user gets nothing, and saying yes does not persist. (SEC-C40,
+    /// S9-09)
+    @Published private(set) var peerLink: CompanionPeerLink?
 
-    /// Set when a peer attempted a command before being authorised, so the UI can ask. (SEC-C40)
-    @Published var pendingCommandAuthorizationFrom: String?
+    /// The question awaiting the pilot's answer, for the prompt to show. (SEC-C40)
+    @Published var pendingAuthorization: CompanionAuthorizationRequest?
+
+    /// Whether the connected peer may act on this flight. Read-only: only the pilot's answer to
+    /// `pendingAuthorization` sets it, through `answerAuthorization(_:allow:)`.
+    var peerMayIssueCommands: Bool { peerLink?.authorization == .allowed }
+
+    /// The devices the pilot forgot (S9-09): refused on the iPad, skipped by the iPhone.
+    @Published private(set) var forgottenDevices: CompanionForgottenDevices
+
     private weak var locationManager: LocationManager?
     private weak var flightPlanManager: FlightPlanManager?
 
-    private override init() {
+    /// False for a manager built by a test: it never touches Wi-Fi Aware, so a test cannot start a
+    /// real listener or browser on the simulator.
+    private let usesWiFiAware: Bool
+
+    private override convenience init() {
+        self.init(defaults: .standard, usesWiFiAware: true)
+    }
+
+    /// `usesWiFiAware: false` and a defaults suite of its own for tests; the app has `shared`.
+    init(defaults: UserDefaults, usesWiFiAware: Bool) {
+        forgottenDevices = CompanionForgottenDevices(defaults: defaults)
+        self.usesWiFiAware = usesWiFiAware
         super.init()
+        guard usesWiFiAware else { return }
         // Wi-Fi Aware is an iOS 26+ capability. On the iOS 17.0 deployment floor
         // the manager is still instantiated (it is injected as an environment
         // object) but stays inert: no Wi-Fi Aware symbol is ever touched. (ARCH-09)
@@ -210,11 +326,16 @@ class CompanionConnectivityManager: NSObject, ObservableObject {
                 for try await devices in WAPairedDevice.allDevices {
                     // De-dupe by identity: a flaky/retried pairing can leave several system records for the
                     // SAME device (e.g. "FlyPad" twice), which would show duplicates and warn in ForEach.
-                    var seen = Set<String>()
-                    let mapped = devices.values.compactMap { dev -> CompanionPairedDevice? in
-                        let d = CompanionPairedDevice(name: dev.name, pairingName: dev.pairingInfo?.pairingName)
-                        return seen.insert(d.id).inserted ? d : nil
+                    // The row keeps every record's id, so Forget covers them all (S9-09), and the list is
+                    // sorted: the dictionary has no order, and a row that moves is a row mis-tapped.
+                    var rows: [String: CompanionPairedDevice] = [:]
+                    for dev in devices.values {
+                        let fresh = CompanionPairedDevice(name: dev.name, pairingName: dev.pairingInfo?.pairingName)
+                        var row = rows[fresh.id] ?? fresh
+                        row.deviceIDs = (row.deviceIDs + [dev.id]).sorted()
+                        rows[row.id] = row
                     }
+                    let mapped = rows.values.sorted { ($0.displayName ?? "", $0.id) < ($1.displayName ?? "", $1.id) }
                     await MainActor.run {
                         guard let self else { return }
                         if self.pairedDevices.count != mapped.count {
@@ -229,9 +350,61 @@ class CompanionConnectivityManager: NSObject, ObservableObject {
         }
     }
 
-    /// Whether any devices have been paired for companion mode
+    /// Whether any device is paired for companion mode and not forgotten: one the app will connect to.
     var hasPairedDevices: Bool {
-        !pairedDevices.isEmpty
+        pairedDevices.contains { !isForgotten($0) }
+    }
+
+    // MARK: - Forget device (S9-09)
+
+    /// Whether the pilot forgot this device: every system record behind the row is on the list.
+    func isForgotten(_ device: CompanionPairedDevice) -> Bool {
+        !device.deviceIDs.isEmpty && device.deviceIDs.allSatisfy(forgottenDevices.contains)
+    }
+
+    /// Stop connecting to this device, on both roles, until the pilot allows it again. If it is the
+    /// device connected right now, the link ends here. (S9-09)
+    func forget(_ device: CompanionPairedDevice) {
+        forgottenDevices.forget(device.deviceIDs)
+        diag("Forgot \(device.displayName ?? "a device"): it can no longer connect")
+        rebrowseIfLooking()
+        guard let connected = peerLink?.identity?.deviceID, device.deviceIDs.contains(connected) else { return }
+        switch currentRole {
+        case .master:
+            // Tell the viewer, then drop it and listen again: the next connection it makes is refused.
+            sendMessage(CompanionMessage(type: .disconnect, payload: Data()))
+            handleDisconnection(generation: connectionGeneration)
+        case .viewer:
+            disconnect()
+        case .none:
+            break
+        }
+    }
+
+    /// Take the device off the forgotten list; it connects again as any paired device does.
+    func allowAgain(_ device: CompanionPairedDevice) {
+        forgottenDevices.allow(device.deviceIDs)
+        diag("Allowed \(device.displayName ?? "a device") again")
+        rebrowseIfLooking()
+        autoConnectIfReady(force: true)
+    }
+
+    /// Viewer: a browse already running took the forgotten list as it was when it started. Start it
+    /// again so the change applies now, not after the next drop.
+    private func rebrowseIfLooking() {
+        guard currentRole == .viewer,
+              connectionState == .connecting || connectionState == .reconnecting else { return }
+        connectToPairedDevice()
+    }
+
+    /// Whether the iPad refuses a connecting peer: one the pilot forgot or, once any device is
+    /// forgotten, one Wi-Fi Aware will not name, since it could be the forgotten one. Fails closed on
+    /// purpose: a pilot who forgot a device and finds the companion refusing everything notices at
+    /// once, which is better than a forget that silently does nothing. With nothing forgotten an
+    /// unnamed peer connects, and like any peer it still has to be allowed to act. (S9-09)
+    nonisolated static func refusesPeer(_ identity: CompanionPeerIdentity?, forgotten: Set<UInt64>) -> Bool {
+        guard let identity else { return !forgotten.isEmpty }
+        return forgotten.contains(identity.deviceID)
     }
 
     // MARK: - Master (iPad) Methods
@@ -244,6 +417,10 @@ class CompanionConnectivityManager: NSObject, ObservableObject {
         connectionState = .connecting
         diag("Master: start listening (advertising '\(serviceName)')")
 
+        guard usesWiFiAware else {
+            connectionState = .disconnected
+            return
+        }
         // Wi-Fi Aware listening requires iOS 26+. Below that, stay inert. (ARCH-09)
         guard #available(iOS 26.0, *) else {
             connectionState = .disconnected
@@ -275,31 +452,50 @@ class CompanionConnectivityManager: NSObject, ObservableObject {
                         try await connection.send(msg)
                     }
 
+                    // Who is connecting, from the connection itself, before anything is streamed to
+                    // it or it takes over from the current one. (S9-28) The Wi-Fi Aware path may
+                    // only be there once the connection carries traffic, so when it will not say
+                    // yet, take the first frame (the viewer pings on connect, then every 2 s) and
+                    // ask again. Both waits are short: the viewer drops a link that stays silent
+                    // for 5 s.
+                    var messages = connection.messages.makeAsyncIterator()
+                    var firstFrame: CompanionMessage?
+                    var identity = await Self.peerIdentity(of: connection)
+                    if identity == nil {
+                        guard let frame = try? await messages.next() else { return }   // gone already
+                        firstFrame = frame.0
+                        identity = await Self.peerIdentity(of: connection)
+                    }
+
                     // New companion connected — update state on main actor and capture this
                     // connection's generation so a later teardown only acts if it's still current.
-                    let myGeneration = await MainActor.run { () -> Int in
-                        self.connectionGeneration += 1
-                        self.resetPeerTrust()   // before anything is streamed to this peer
-                        self.sendHandler = send
-                        self.connectionState = .connected
-                        self.connectedDeviceName = self.pairedDevices.first?.name ?? self.pairedDevices.first?.pairingName ?? L10n.Companion.companionDevice
-                        self.sendFailureCount = 0
-                        self.lastReceivedAt = Date()
-                        self.startSendTimer()              // stream state 1 Hz while connected (flight or not)
-                        self.startConnectionHealthTimer()
-                        self.diag("Master: companion connected (\(self.connectedDeviceName ?? "?"))")
-                        return self.connectionGeneration
-                    }
+                    // Nil: a forgotten device, refused; returning ends (closes) its connection. (S9-09)
+                    guard let myGeneration = await MainActor.run(body: { [identity] in
+                        self.adoptMasterConnection(identity: identity, send: send)
+                    }) else { return }
 
                     // Send initial flight data and plan
                     await self.sendInitialData(send: send)
 
                     // Receive typed messages until the connection ends (the Coder decodes each one).
                     do {
-                        for try await (message, _) in connection.messages {
-                            await MainActor.run {
-                                self.handleReceivedMessage(message)
+                        var pending = firstFrame
+                        while true {
+                            let message: CompanionMessage
+                            if let frame = pending {
+                                message = frame
+                                pending = nil
+                            } else if let frame = try await messages.next() {
+                                message = frame.0
+                            } else {
+                                break
                             }
+                            let isCurrent = await MainActor.run {
+                                self.handleReceivedMessage(message, generation: myGeneration)
+                            }
+                            // A newer connection took over: this one's frames are dropped, and
+                            // leaving the loop closes it rather than keeping it half alive. (S9-28)
+                            if !isCurrent { break }
                         }
                     } catch {
                         if !Task.isCancelled {
@@ -327,13 +523,78 @@ class CompanionConnectivityManager: NSObject, ObservableObject {
         listenerTask = nil
     }
 
-    /// Reports THIS device's own premium entitlement, for the viewer→master hello (SA-26).
+    /// Master: take an accepted connection as the current one, or refuse it (nil) when it comes from
+    /// a device the pilot forgot. Trust starts from nothing: the new peer has to be allowed before it
+    /// can act, whatever the previous one was allowed. (SEC-C40, S9-09, S9-28)
+    func adoptMasterConnection(identity: CompanionPeerIdentity?,
+                               send: @escaping @Sendable (CompanionMessage) async throws -> Void) -> Int? {
+        if Self.refusesPeer(identity, forgotten: forgottenDevices.ids) {
+            diag("Master: refused \(identity?.name ?? "an unnamed device"), forgotten on this iPad")
+            return nil
+        }
+        connectionGeneration += 1
+        resetPeerTrust()   // before anything is streamed to this peer
+        peerLink = CompanionPeerLink(generation: connectionGeneration, identity: identity)
+        sendHandler = send
+        connectionState = .connected
+        connectedDeviceName = identity?.name ?? L10n.Companion.companionDevice
+        sendFailureCount = 0
+        lastReceivedAt = Date()
+        startSendTimer()              // stream state 1 Hz while connected (flight or not)
+        startConnectionHealthTimer()
+        diag("Master: companion connected (\(identity?.name ?? "unnamed device"))")
+        return connectionGeneration
+    }
+
+    /// The paired device at the other end of an accepted connection, from its Wi-Fi Aware path.
+    ///
+    /// The path can lag the accept by a moment, hence a few short tries; and the whole thing is
+    /// capped, because a companion that never connects is worse than one whose peer has no name.
+    /// Nil when Wi-Fi Aware will not say. (S9-28)
+    @available(iOS 26.0, *)
+    private nonisolated static func peerIdentity<P: NetworkProtocolOptions>(
+        of connection: NetworkConnection<P>
+    ) async -> CompanionPeerIdentity? {
+        await firstResult(within: .milliseconds(800)) {
+            for attempt in 0..<3 {
+                if let path = connection.currentPath, let wifiAware = try? await path.wifiAware {
+                    return CompanionPeerIdentity(wifiAware.endpoint.device)
+                }
+                if attempt < 2 { try? await Task.sleep(for: .milliseconds(200)) }
+            }
+            return nil
+        }
+    }
+
+    /// `work`'s result, or nil when it has not finished within `timeout`: the caller moves on either
+    /// way, and a late result is dropped.
+    private nonisolated static func firstResult<T: Sendable>(
+        within timeout: Duration, _ work: @escaping @Sendable () async -> T?
+    ) async -> T? {
+        let waiting = OSAllocatedUnfairLock<CheckedContinuation<T?, Never>?>(initialState: nil)
+        return await withCheckedContinuation { continuation in
+            waiting.withLock { $0 = continuation }
+            Task {
+                let value = await work()
+                waiting.withLock { $0?.resume(returning: value); $0 = nil }
+            }
+            Task {
+                try? await Task.sleep(for: timeout)
+                waiting.withLock { $0?.resume(returning: nil); $0 = nil }
+            }
+        }
+    }
+
+    /// Reports THIS device's own premium entitlement (SA-26, S9-30).
+    ///
+    /// The master decides from it how much checklist text to stream; the viewer still reports it in
+    /// its hello, for a master on 6.0 or older that decides from that.
     ///
     /// A closure rather than a stored reference so the manager keeps no dependency on
     /// SubscriptionManager and stays usable in tests and previews. Absent ⇒ not entitled, which is
     /// the fail-closed direction: the worst case is a legitimate subscriber briefly seeing the
     /// redacted stream, never an unentitled peer seeing premium text.
-    var viewerEntitlementProvider: (() -> Bool)?
+    var entitlementProvider: (() -> Bool)?
 
     /// Wire the data sources (idempotent, no timer). Needed on BOTH roles, so the viewer can read its
     /// own GPS to stream upstream when the master has none. (shared-GPS)
@@ -445,7 +706,7 @@ class CompanionConnectivityManager: NSObject, ObservableObject {
     /// may stream to us. Sent on connect, alongside the first ping. (SA-26)
     private func sendViewerHello() {
         guard currentRole == .viewer else { return }
-        let hello = CompanionViewerHello(isSubscribed: viewerEntitlementProvider?() ?? false)
+        let hello = CompanionViewerHello(isSubscribed: entitlementProvider?() ?? false)
         guard let payload = try? JSONEncoder().encode(hello) else { return }
         sendMessage(CompanionMessage(type: .viewerHello, payload: payload))
     }
@@ -475,12 +736,19 @@ class CompanionConnectivityManager: NSObject, ObservableObject {
         connectionState = .connecting
         diag("Viewer: browsing for iPad ('\(serviceName)')")
 
+        guard usesWiFiAware else {
+            connectionState = .disconnected
+            return
+        }
         // Wi-Fi Aware browsing requires iOS 26+. Below that, stay inert. (ARCH-09)
         guard #available(iOS 26.0, *) else {
             connectionState = .disconnected
             diag("Viewer: aborted — Wi-Fi Aware needs iOS 26")
             return
         }
+
+        // The iPads the pilot forgot on this phone are passed over. (S9-09)
+        let forgotten = forgottenDevices.ids
 
         browserTask = Task { [weak self] in
             do {
@@ -491,11 +759,14 @@ class CompanionConnectivityManager: NSObject, ObservableObject {
 
                 // Browse for the master device
                 let endpoint = try await browser.run { waEndpoints in
-                    if let endpoint = waEndpoints.first {
+                    if let endpoint = waEndpoints.first(where: { !forgotten.contains($0.device.id) }) {
                         return .finish(endpoint)
                     }
                     return .continue
                 }
+                // The endpoint names the iPad it runs to; `pairedDevices.first` was whichever came
+                // first in an unordered list. (S9-28)
+                let identity = CompanionPeerIdentity(endpoint.device)
 
                 // Create connection to the master — JSON messages over UDP (matches the listener + service).
                 let connection = NetworkConnection(to: endpoint, using: .parameters {
@@ -520,8 +791,9 @@ class CompanionConnectivityManager: NSObject, ObservableObject {
                 let stillCurrent = await MainActor.run { () -> Bool in
                     guard let self, self.connectionGeneration == myGeneration else { return false }
                     self.sendHandler = send
+                    self.peerLink = CompanionPeerLink(generation: myGeneration, identity: identity)
                     self.connectionState = .connected
-                    self.connectedDeviceName = self.pairedDevices.first?.name ?? self.pairedDevices.first?.pairingName ?? L10n.Companion.masterDevice
+                    self.connectedDeviceName = identity.name ?? L10n.Companion.masterDevice
                     self.sendFailureCount = 0
                     self.lastReceivedAt = Date()
                     self.startConnectionHealthTimer()
@@ -541,9 +813,11 @@ class CompanionConnectivityManager: NSObject, ObservableObject {
                 // Receive typed messages until the connection ends (the Coder decodes each one).
                 do {
                     for try await (message, _) in connection.messages {
-                        await MainActor.run { [weak self] in
-                            self?.handleReceivedMessage(message)
+                        let isCurrent = await MainActor.run { [weak self] in
+                            self?.handleReceivedMessage(message, generation: myGeneration) ?? false
                         }
+                        // Superseded by a newer connection: stop reading this one. (S9-28)
+                        if !isCurrent { break }
                     }
                 } catch {
                     if !Task.isCancelled {
@@ -686,16 +960,55 @@ class CompanionConnectivityManager: NSObject, ObservableObject {
         effectiveGPSSource = .own
     }
 
-    /// A new peer proves its entitlement again (SA-26) and is authorised again (SEC-C40): trust is
-    /// per connection. This used to happen only on a graceful `.disconnect` message, so after a Wi-Fi
-    /// Aware drop (health timeout, send failure, end of the receive loop) the next device to connect,
-    /// possibly another phone paired to a shared club iPad, inherited the last one's entitlement and
-    /// its right to drive the checklist. Now every teardown, and every accepted connection, resets
-    /// it. (v6.0 review, security)
+    /// A new peer is authorised again (SEC-C40): trust is per connection. This used to happen only on
+    /// a graceful `.disconnect` message, so after a Wi-Fi Aware drop (health timeout, send failure,
+    /// end of the receive loop) the next device to connect, possibly another phone paired to a shared
+    /// club iPad, inherited the last one's right to drive the checklist. Now every teardown, and every
+    /// accepted connection, resets it; the link itself carries the trust, so there is nothing left
+    /// over to inherit. (v6.0 review, security; S9-28)
     private func resetPeerTrust() {
-        peerIsEntitled = false
-        peerMayIssueCommands = false
-        pendingCommandAuthorizationFrom = nil
+        peerLink = nil
+        pendingAuthorization = nil
+    }
+
+    // MARK: - Peer authorisation (SEC-C40)
+
+    /// Whether the current peer may act on this flight: drive the checklist or the waypoints, or feed
+    /// its position into it. The first request of a connection asks the pilot; until the answer, and
+    /// after a Don't Allow, requests are dropped without asking again. (SEC-C40, S9-08, S9-09)
+    private func peerIsAuthorised() -> Bool {
+        guard var link = peerLink else { return false }
+        let (admitted, ask) = link.admit()
+        peerLink = link
+        if ask {
+            pendingAuthorization = CompanionAuthorizationRequest(generation: link.generation,
+                                                                 deviceName: link.identity?.name)
+            diag("Master: \(link.identity?.name ?? "unnamed peer") asked to act on the flight, awaiting the pilot")
+        }
+        return admitted
+    }
+
+    /// The pilot's answer, for the connection it was asked about only. A connection that has since
+    /// ended or been replaced gets nothing from it, the new one in particular. (S9-28)
+    func answerAuthorization(_ request: CompanionAuthorizationRequest, allow: Bool) {
+        if pendingAuthorization == request { pendingAuthorization = nil }
+        guard var link = peerLink, link.generation == request.generation else {
+            diag("Master: answer for a connection that has ended, ignored")
+            return
+        }
+        link.authorization = allow ? .allowed : .denied
+        peerLink = link
+        diag("Master: pilot \(allow ? "allowed" : "did not allow") \(link.identity?.name ?? "the peer") for this connection")
+    }
+
+    /// The prompt went away without an answer (SwiftUI can drop an alert it cannot present). The
+    /// connection may then ask once more, rather than stay undecided and silently ignored for good.
+    func authorizationPromptDismissed(_ request: CompanionAuthorizationRequest) {
+        if pendingAuthorization == request { pendingAuthorization = nil }
+        guard var link = peerLink, link.generation == request.generation,
+              link.authorization == .undecided else { return }
+        link.hasAsked = false
+        peerLink = link
     }
 
     // MARK: - Message Sending (Length-Prefixed JSON)
@@ -716,7 +1029,16 @@ class CompanionConnectivityManager: NSObject, ObservableObject {
 
     // MARK: - Message Handling
 
-    private func handleReceivedMessage(_ message: CompanionMessage) {
+    /// Handle one frame from the connection of `generation`. False, and the frame dropped, when that
+    /// connection is no longer the current one: its frames used to be processed as if they came from
+    /// the current peer (commands under the current peer's authorisation, a stray `.disconnect`
+    /// kicking the legitimate viewer). The receive loop stops on false. (S9-28)
+    @discardableResult
+    func handleReceivedMessage(_ message: CompanionMessage, generation: Int) -> Bool {
+        guard generation == connectionGeneration else {
+            AppLog.companion.debugLine("Dropped a \(message.type.rawValue) frame from a superseded connection (gen \(generation))")
+            return false
+        }
         lastReceivedAt = Date()   // any inbound traffic = the link is alive (connection-health watchdog)
         switch message.type {
         case .flightData:
@@ -762,8 +1084,13 @@ class CompanionConnectivityManager: NSObject, ObservableObject {
                 // which is the same behaviour as a missed update.
                 guard gps.hasValidGeometry else {
                     AppLog.companion.debugLine("Dropped peer GPS with invalid geometry")
-                    return
+                    return true
                 }
+                // S9-09: a borrowed fix becomes the aircraft's position on the nav display and in
+                // the recorded track, so it needs the same answer from the pilot as a command. Only
+                // commands were gated, and any once-paired device in range could feed a GPS-less
+                // iPad a plausible false position.
+                guard peerIsAuthorised() else { return true }
                 receivedPeerGPS = gps
                 lastPeerGPSReceivedAt = Date()
                 updateEffectiveGPSSource()
@@ -776,13 +1103,12 @@ class CompanionConnectivityManager: NSObject, ObservableObject {
             }
 
         case .viewerHello:
-            // Only the master consumes this, and only to decide how much checklist text to stream.
+            // Logged only. The viewer's claim used to decide how much checklist text it was sent,
+            // but a boolean a peer states about itself proves nothing; the master now decides from
+            // its own entitlement (S9-30, see `mayStreamItemText`). Older viewers keep sending it.
             if currentRole == .master,
                let hello = try? JSONDecoder().decode(CompanionViewerHello.self, from: message.payload) {
-                peerIsEntitled = hello.isSubscribed
-                diag("Master: viewer reported entitlement = \(hello.isSubscribed)")
-                // Re-send with the new redaction level applied.
-                sendChecklistSnapshot()
+                AppLog.companion.debugLine("Master: viewer reports entitlement = \(hello.isSubscribed)")
             }
 
         case .disconnect:
@@ -791,19 +1117,19 @@ class CompanionConnectivityManager: NSObject, ObservableObject {
             connectionState = .disconnected
             connectedDeviceName = nil
         }
+        return true
     }
 
     private func handleCommand(_ command: CompanionCommand) {
-        guard currentRole == .master, let flightPlanManager else { return }
+        guard currentRole == .master else { return }
+
+        // The viewer's keep-alive changes nothing, so it needs no authorisation, and it must never
+        // raise the prompt: it arrives every 2 s from every viewer, the first datagram of each
+        // connection included, and asked "allow control?" of a phone that was only viewing. (S9-08)
+        if case .ping = command { return }
 
         // SEC-C40: being paired is not authorisation to control this flight.
-        guard peerMayIssueCommands else {
-            if pendingCommandAuthorizationFrom == nil {
-                pendingCommandAuthorizationFrom = connectedDeviceName ?? L10n.Companion.companionDevice
-                diag("Master: blocked command from unauthorised peer; awaiting confirmation")
-            }
-            return
-        }
+        guard peerIsAuthorised(), let flightPlanManager else { return }
 
         Self.apply(command, appState: appState, flightPlanManager: flightPlanManager)
     }
@@ -1009,14 +1335,26 @@ class CompanionConnectivityManager: NSObject, ObservableObject {
     /// show and drive. (companion v2 — synced checklist)
     private func createChecklistSnapshot() -> CompanionChecklistSnapshot? {
         guard let appState else { return nil }
-        return Self.checklistSnapshot(of: appState, mayStreamItemText: Self.mayStreamItemText(
-            viewerIsEntitled: peerIsEntitled, remoteAircraftSelected: appState.settings.isRemoteAircraftSelected))
+        return Self.checklistSnapshot(of: appState, mayStreamItemText: streamsItemText)
     }
 
-    /// SA-26: the checklist's words go to a viewer entitled to them, or for the bundled aircraft.
-    /// (The reasoning is at the call in `checklistSnapshot`.)
-    nonisolated static func mayStreamItemText(viewerIsEntitled: Bool, remoteAircraftSelected: Bool) -> Bool {
-        viewerIsEntitled || !remoteAircraftSelected
+    /// Whether the checklist's words go to the viewer right now. (SA-26, S9-30)
+    var streamsItemText: Bool {
+        Self.mayStreamItemText(masterIsEntitled: entitlementProvider?() ?? false,
+                               remoteAircraftSelected: appState?.settings.isRemoteAircraftSelected ?? true)
+    }
+
+    /// SA-26: the checklist's words go out when this iPad is itself entitled to them, or for the
+    /// bundled aircraft. (The reasoning is at the call in `checklistSnapshot`.)
+    ///
+    /// S9-30: this used to follow the viewer's own claim, `CompanionViewerHello.isSubscribed`, a
+    /// boolean nothing verified, so a rebuilt viewer that said true read the whole premium checklist.
+    /// The master's entitlement is the one thing here the master can check. The text goes to a
+    /// device the subscriber paired to their own iPad, on which it is already displayed; a device
+    /// the subscriber no longer wants has Forget (S9-09). An iPad whose subscription lapsed streams
+    /// no premium text at all, whatever the viewer claims.
+    nonisolated static func mayStreamItemText(masterIsEntitled: Bool, remoteAircraftSelected: Bool) -> Bool {
+        masterIsEntitled || !remoteAircraftSelected
     }
 
     /// The snapshot itself, apart from the connection, so the SA-26 redaction can be tested against a
@@ -1028,21 +1366,19 @@ class CompanionConnectivityManager: NSObject, ObservableObject {
         let learning = appState.effectiveLearningMode
         let visible = appState.activeChecklist.visibleItems(for: phase, learningMode: learning)
 
-        // SA-26: stream the actual challenge/response text only when the viewer is entitled to it.
-        // Pairing is one system sheet plus one confirmation code, after which the devices reconnect
-        // automatically in proximity — so without this, an unsubscribed peer could read a
-        // subscriber's whole premium checklist (and drive it via nextChecklistPhase /
-        // revealHiddenItems) simply by being nearby. The viewer still gets the phase title,
-        // progress counters and highlight, so the second-screen layout is intact; only the words
-        // are withheld.
+        // SA-26: stream the actual challenge/response text only when it may go (see
+        // `mayStreamItemText`: this iPad's own entitlement since S9-30). Pairing is one system sheet
+        // plus one confirmation code, after which the devices reconnect automatically in proximity.
+        // The viewer still gets the phase title, progress counters and highlight, so the
+        // second-screen layout is intact; only the words are withheld. (Driving the checklist needs
+        // the pilot's per-connection answer on top, SEC-C40.)
         //
         // Bundled/free aircraft always stream in full. `isUsingRemoteAircraft` is the conservative
         // signal available here — today every remote aircraft is premium, and if a free one ever
         // ships, withholding its text from an unentitled peer is the harmless direction to err.
         //
         // Defence in depth, NOT a server gap: the paid content is legitimately on the paying
-        // device. A legitimate single user's iPhone shares the subscriber's Apple ID, reports
-        // isSubscribed = true, and is unaffected.
+        // device, which is the one deciding.
         let items = mayStreamItemText
             ? visible.map {
                 CompanionChecklistItem(id: $0.id, challenge: $0.challenge, response: $0.response, isHeader: $0.isHeader)

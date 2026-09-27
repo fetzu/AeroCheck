@@ -146,11 +146,12 @@ struct AeroCheckApp: App {
                         locationManager: locationManager,
                         flightPlanManager: flightPlanManager
                     )
-                    // The viewer reports its OWN entitlement to the master, which decides how much
-                    // premium checklist text it may stream back. (SA-26)
+                    // This device's OWN entitlement: the master decides from it how much premium
+                    // checklist text it streams (S9-30), the viewer reports it in its hello for a
+                    // master on 6.0 or older, which decides from that. (SA-26)
                     // A strong capture, stated: the manager is a @StateObject that lives as long as the
                     // app, and the surrounding task already holds it strongly, so `weak` bought nothing.
-                    companionConnectivityManager.viewerEntitlementProvider = { [subscriptionManager] in
+                    companionConnectivityManager.entitlementProvider = { [subscriptionManager] in
                         subscriptionManager.subscriptionStatus.isSubscribed
                     }
 

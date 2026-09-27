@@ -88,13 +88,7 @@ struct CompanionSettingsView: View {
                                  tint: tint, value: "")
             } else {
                 ForEach(companionConnectivityManager.pairedDevices) { device in
-                    // Single line: `name` and `pairingName` are usually identical, so showing both is
-                    // redundant. Prefer whichever is present. (v4.1)
-                    SettingsRowLabel(icon: "checkmark.circle.fill",
-                                     title: device.name ?? device.pairingName ?? L10n.Companion.unknownDevice,
-                                     tint: .aviationGreen)
-                        .padding(.horizontal, 14)
-                        .padding(.vertical, 11)
+                    pairedDeviceRow(device)
                 }
             }
 
@@ -103,6 +97,42 @@ struct CompanionSettingsView: View {
                               action: { showPairingSheet = true })
                 .disabled(!companionConnectivityManager.isWiFiAwareSupported)
         }
+    }
+
+    /// A paired device, with Forget, or Allow Again once forgotten. (S9-09)
+    ///
+    /// Single line: `name` and `pairingName` are usually identical, so showing both is redundant.
+    /// Prefer whichever is present. (v4.1) Wi-Fi Aware has no API to undo a system pairing, so
+    /// Forget is AéroCheck's own: the device stays paired to the system but this app will not
+    /// connect to it (and drops it if it is connected now).
+    private func pairedDeviceRow(_ device: CompanionPairedDevice) -> some View {
+        let name = device.displayName ?? L10n.Companion.unknownDevice
+        let forgotten = companionConnectivityManager.isForgotten(device)
+        return HStack(spacing: 10) {
+            SettingsRowLabel(icon: forgotten ? "nosign" : "checkmark.circle.fill",
+                             title: name,
+                             subtitle: forgotten ? L10n.Companion.deviceForgotten : nil,
+                             tint: forgotten ? .secondaryText : .aviationGreen,
+                             titleColor: forgotten ? .secondaryText : .primaryText)
+            Button {
+                if forgotten {
+                    companionConnectivityManager.allowAgain(device)
+                } else {
+                    companionConnectivityManager.forget(device)
+                }
+            } label: {
+                Text(forgotten ? L10n.Companion.allowDeviceAgain : L10n.Companion.forgetDevice)
+                    .font(.aero(.subheadline).weight(.semibold))
+                    .foregroundColor(forgotten ? tint : .aviationRed)
+                    .frame(minHeight: 44)
+                    .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel(forgotten ? L10n.Companion.allowDeviceAgainAccessibility(name)
+                                          : L10n.Companion.forgetDeviceAccessibility(name))
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 11)
     }
 
     /// One-line guidance naming what this device does and what to do on the other one.
@@ -288,27 +318,34 @@ struct CompanionSettingsView: View {
 /// budget problem the waypoint editor hit).
 /// Presents the peer-command authorisation prompt. Mounted in TWO places on purpose — see the call
 /// site in `ContentView` for why. Internal (not private) so the root can mount it too.
+///
+/// The answer is bound to the connection that asked (the request carries its generation) and holds
+/// for that connection: Don't Allow is remembered, not asked again 2 s later. (S9-08, S9-28)
 struct CompanionCommandAuthorizationAlert: ViewModifier {
     @ObservedObject var manager: CompanionConnectivityManager
 
     private var isPresented: Binding<Bool> {
         Binding(
-            get: { manager.pendingCommandAuthorizationFrom != nil },
-            set: { if !$0 { manager.pendingCommandAuthorizationFrom = nil } }
+            get: { manager.pendingAuthorization != nil },
+            set: { presented in
+                if !presented, let request = manager.pendingAuthorization {
+                    manager.authorizationPromptDismissed(request)
+                }
+            }
         )
     }
 
     func body(content: Content) -> some View {
-        content.alert(L10n.Companion.allowControlTitle, isPresented: isPresented) {
+        content.alert(L10n.Companion.allowControlTitle, isPresented: isPresented,
+                      presenting: manager.pendingAuthorization) { request in
             Button(L10n.Companion.allowControl) {
-                manager.peerMayIssueCommands = true
-                manager.pendingCommandAuthorizationFrom = nil
+                manager.answerAuthorization(request, allow: true)
             }
-            Button(L10n.Button.cancel, role: .cancel) {
-                manager.pendingCommandAuthorizationFrom = nil
+            Button(L10n.Companion.denyControl, role: .cancel) {
+                manager.answerAuthorization(request, allow: false)
             }
-        } message: {
-            Text(L10n.Companion.allowControlMessage(manager.pendingCommandAuthorizationFrom ?? ""))
+        } message: { request in
+            Text(L10n.Companion.allowControlMessage(request.deviceName))
         }
     }
 }

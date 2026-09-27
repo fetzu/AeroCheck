@@ -4,7 +4,7 @@ Septembre 2026
 
 AéroCheck est une app open source de listes de vérification et de conscience de la situation pour pilotes, développée et publiée par Julien Bono, en Suisse. Cette page dit ce que l'app garde sur votre appareil, ce qu'elle envoie, à qui et avec quelle précision, et ce que nos propres serveurs conservent.
 
-En bref : pas de compte, pas de publicité, pas de statistiques d'utilisation, aucun pistage. Vos vols sont conservés sur votre appareil et dans votre propre iCloud. Certaines requêtes portent une position, une route ou quelques points d'une trace, arrondis pour la plupart, pour que l'app puisse afficher la météo, le relief et les espaces aériens (la section 3.0 les énumère toutes). Notre serveur d'API garde la trace d'un achat, jamais une position.
+En bref : pas de compte, pas de publicité, pas de statistiques d'utilisation, aucun pistage. Vos vols sont conservés sur votre appareil et, si vous synchronisez, dans votre propre iCloud. Certaines requêtes portent une position, une route ou quelques points d'une trace, arrondis pour la plupart, pour que l'app puisse afficher la météo, le relief et les espaces aériens (la section 3.0 les énumère toutes). Notre serveur d'API garde la trace d'un achat, jamais une position.
 
 
 ## 1.0 Ce qui reste sur votre appareil
@@ -24,9 +24,9 @@ AéroCheck ne contient aucun SDK de statistiques ou de publicité, aucun outil d
 
 ## 2.0 iCloud
 
-Vos vols (avec leurs traces), plans de vol, voyages, pages de vol et réglages (y compris les noms de pilote et d'instructeur que vous saisissez) sont conservés dans le dossier d'AéroCheck de votre iCloud Drive, ce qui explique d'ailleurs que vous les voyiez dans l'app Fichiers. Avec « Synchroniser avec iCloud » activé (dans les réglages de l'app, activé par défaut), les réglages et les vols sont en plus synchronisés entre vos appareils par la base de données privée de l'app dans votre compte iCloud.
+Avec « Synchroniser avec iCloud » activé (dans les réglages de l'app, activé par défaut), vos vols (avec leurs traces), plans de vol, voyages, pages de vol et réglages (y compris les noms de pilote et d'instructeur que vous saisissez) sont conservés dans le dossier d'AéroCheck de votre iCloud Drive, ce qui explique d'ailleurs que vous les voyiez dans l'app Fichiers, et les réglages et les vols sont synchronisés entre vos appareils par la base de données privée de l'app dans votre compte iCloud. Dans les deux cas, il s'agit de votre propre compte iCloud : Apple conserve les données selon sa [politique de confidentialité](https://www.apple.com/chfr/legal/privacy/), et le développeur n'y a pas accès.
 
-Dans les deux cas, il s'agit de votre propre compte iCloud : Apple conserve les données selon sa [politique de confidentialité](https://www.apple.com/chfr/legal/privacy/), et le développeur n'y a pas accès. Pour tout garder sur l'appareil, désactivez « Synchroniser avec iCloud » dans l'app et désactivez iCloud Drive pour AéroCheck dans l'app Réglages d'iOS.
+Avec l'option désactivée, tout reste sur l'appareil : l'app ne lit ni n'écrit son dossier iCloud Drive, et ne synchronise rien. La désactiver copie d'abord sur l'appareil ce qui se trouve dans iCloud Drive et laisse les fichiers d'iCloud Drive où ils sont (supprimez-les dans l'app Fichiers si vous voulez qu'ils disparaissent) ; la réactiver recopie dans iCloud Drive ce que vous avez fait entre-temps. L'option vaut pour l'appareil sur lequel elle est réglée.
 
 
 ## 3.0 Ce qui quitte votre appareil, et vers qui

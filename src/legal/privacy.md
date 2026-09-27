@@ -4,7 +4,7 @@ September 2026
 
 AéroCheck is an open-source flight checklist and situational-awareness app for pilots, developed and published by Julien Bono in Switzerland. This page says what the app keeps on your device, what it sends, to whom and how precisely, and what our own servers keep.
 
-The short version: there is no account, no advertising, no analytics and no tracking. Your flights are kept on your device and in your own iCloud. Some requests carry a position, a route or a few points of a track, most of them rounded, so that the app can show weather, terrain and airspace (section 3.0 lists every one of them). Our API server keeps a record of a purchase, never a location.
+The short version: there is no account, no advertising, no analytics and no tracking. Your flights are kept on your device and, if you sync, in your own iCloud. Some requests carry a position, a route or a few points of a track, most of them rounded, so that the app can show weather, terrain and airspace (section 3.0 lists every one of them). Our API server keeps a record of a purchase, never a location.
 
 
 ## 1.0 What stays on your device
@@ -24,9 +24,9 @@ AéroCheck contains no analytics or advertising SDK, no crash reporter and no tr
 
 ## 2.0 iCloud
 
-Your flights (with their tracks), flight plans, trips, flight pages and settings (including the pilot and instructor names you enter) are kept in AéroCheck's folder in your iCloud Drive, which is also why you can see them in the Files app. With "Sync to iCloud" on (in the app's settings, on by default), settings and flights are also synced between your devices through the app's private database in your iCloud account.
+With "Sync to iCloud" on (in the app's settings, on by default), your flights (with their tracks), flight plans, trips, flight pages and settings (including the pilot and instructor names you enter) are kept in AéroCheck's folder in your iCloud Drive, which is also why you can see them in the Files app, and settings and flights are synced between your devices through the app's private database in your iCloud account. Both are your own iCloud account: Apple stores the data under [Apple's privacy policy](https://www.apple.com/legal/privacy/), and the developer has no access to it.
 
-Both are your own iCloud account: Apple stores the data under [Apple's privacy policy](https://www.apple.com/legal/privacy/), and the developer has no access to it. To keep everything on the device, turn "Sync to iCloud" off in the app and turn iCloud Drive off for AéroCheck in the iOS Settings app.
+With the switch off, all of it stays on the device: the app neither reads nor writes its iCloud Drive folder, and syncs nothing. Turning it off first copies what is in iCloud Drive to the device and leaves the files in iCloud Drive where they are (delete them in the Files app if you want them gone); turning it back on copies what you did in the meantime back to iCloud Drive. The switch applies to the device it is set on.
 
 
 ## 3.0 What leaves your device, and to whom

@@ -707,10 +707,17 @@ enum MarketingSceneInjector {
             injectCruiseHUD(appState: appState, locationManager: locationManager, airportDataService: airportDataService)
         case .cruiseRoute:
             injectNavPlanActive(flightPlanManager: flightPlanManager, airportDataService: airportDataService, locationManager: locationManager)
-            injectCruiseHUD(appState: appState, locationManager: locationManager, airportDataService: airportDataService)
+            injectCruiseHUD(appState: appState, locationManager: locationManager, airportDataService: airportDataService,
+                            fix: .onTheLeg)
         case .cruiseMap:
             injectNavPlanActive(flightPlanManager: flightPlanManager, airportDataService: airportDataService, locationManager: locationManager)
-            injectCruiseHUD(appState: appState, locationManager: locationManager, airportDataService: airportDataService)
+            injectCruiseHUD(appState: appState, locationManager: locationManager, airportDataService: airportDataService,
+                            fix: .onTheLeg)
+            // The chart as the 5.0 captures showed it: the ICAO chart's own airspace, no OpenAIP layers
+            // over it. The scene sets it rather than relying on a simulator's settings.
+            appState.settings.showOpenAIPOverlay = false
+            appState.settings.showReportingPointsOnMap = false
+            appState.settings.showObstaclesOnMap = false
             // Every cruise item checked: the pane rule then shows the map.
             let count = appState.activeChecklist.visibleItemCount(for: .cruise, learningMode: appState.settings.learningMode)
             appState.currentHighlightedItem[.cruise] = ChecklistHighlighting.lastItemComplete(visibleCount: count)
@@ -761,7 +768,17 @@ enum MarketingSceneInjector {
 
     // MARK: - Scene 2: Active flight on CRUISE with a held static fix
 
-    private static func injectCruiseHUD(appState: AppState, locationManager: LocationManager, airportDataService: AirportDataService) {
+    /// Where the cruise scenes hold the aircraft. Alone, it sits NE of LSZQ tracking 315°; with the
+    /// nav scene's route, ON the LSZQ → LSGC leg tracking along it. Two fixes with two courses left
+    /// the smoothed track vector pointing one way and the aircraft another. (6.0 captures)
+    struct CruiseFix {
+        let latitude: Double, longitude: Double, headingDegrees: Double
+        static let standalone = CruiseFix(latitude: 47.364761, longitude: 7.090180, headingDegrees: 315)
+        static let onTheLeg = CruiseFix(latitude: 47.345151, longitude: 6.982395, headingDegrees: 211)
+    }
+
+    private static func injectCruiseHUD(appState: AppState, locationManager: LocationManager, airportDataService: AirportDataService,
+                                        fix: CruiseFix = .standalone) {
         // Start a fresh flight on the bundled WT9 (always resolvable, no network needed).
         if appState.isFlightActive { appState.cancelFlight() }
         appState.settings.selectedRemoteAircraftId = nil
@@ -801,7 +818,8 @@ enum MarketingSceneInjector {
         let provider = MarketingLocationProvider.shared
         Task {
             await airportDataService.ensureLoaded()
-            provider.holdStaticFix(latitude: 47.364761, longitude: 7.090180, altitudeMeters: altMeters, speedKnots: 105, headingDegrees: 315)
+            provider.holdStaticFix(latitude: fix.latitude, longitude: fix.longitude, altitudeMeters: altMeters,
+                                   speedKnots: 105, headingDegrees: fix.headingDegrees)
             if let loc = provider.currentLocation {
                 locationManager.injectMarketingStaticFix(loc)
             }

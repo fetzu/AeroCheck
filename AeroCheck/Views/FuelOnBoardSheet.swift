@@ -51,8 +51,10 @@ enum FuelOnBoardStatus: Equatable {
     case enough(marginLitres: Double, minutes: Int)
     case short(litres: Double)
 
+    /// Nil on board is "not entered"; 0 is an answer, and short by everything required. The two
+    /// used to read the same, so empty tanks showed no warning at all. (v6.0 review, B3)
     static func make(onBoard: Double?, required: Double?, flowLitresPerHour: Double) -> FuelOnBoardStatus {
-        guard let onBoard, onBoard > 0, let required else { return .notSet }
+        guard let onBoard, onBoard.isFinite, onBoard >= 0, let required else { return .notSet }
         let margin = onBoard - required
         guard margin >= 0 else { return .short(litres: -margin) }
         let minutes = flowLitresPerHour > 0 ? Int((margin / flowLitresPerHour * 60).rounded(.down)) : 0
@@ -152,7 +154,7 @@ struct FuelOnBoardSheet: View {
         .onAppear {
             // Not focused on open: on the iPad the number pad would cover the required fuel, which is
             // what the pilot reads first. Full tanks and = Required need no keyboard at all.
-            if let fob = plan?.fuelOnBoard, fob > 0 { onBoardText = FuelEntry.text(fob) }
+            if let fob = plan?.fuelOnBoard { onBoardText = FuelEntry.text(fob) }
         }
     }
 

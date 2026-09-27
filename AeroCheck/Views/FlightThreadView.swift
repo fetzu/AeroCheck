@@ -556,10 +556,22 @@ struct FlightThreadView: View {
             prominent: prominent
         )
     }
+            warning: fuelWarning(for: task, in: thread),
 
     /// The readiness ring: pre-flight progress before the flight, close-out progress after it.
     private func readinessRing(_ thread: FlightThread) -> some View {
         let progress = (thread.state == .closeOut || thread.state == .done)
+    /// Fuel on board short of what the flight requires, said on the flight's page and not only in
+    /// the fuel sheet, where it was the one place "Short by X L" appeared. (v6.0 review, B3)
+    private func fuelWarning(for task: ThreadTask, in thread: FlightThread) -> String? {
+        guard task.key == .fuelPlanned, task.state != .notApplicable, let plan = plan(for: thread),
+              case .short(let litres) = FuelOnBoardStatus.make(onBoard: plan.fuelOnBoard,
+                                                               required: plan.fuelRequired,
+                                                               flowLitresPerHour: plan.effectiveFuelFlow)
+        else { return nil }
+        return L10n.FuelOnBoard.short(String(format: "%.1f", litres))
+    }
+
             ? thread.closeOutProgress
             : thread.preFlightProgress
         let fraction = progress.total > 0 ? Double(progress.done) / Double(progress.total) : 0
@@ -1284,6 +1296,8 @@ struct ThreadTaskRow: View {
                             .strikethrough(task.state == .notApplicable)
                         if task.kind == .auto {
                             Text(L10n.ThreadBadge.auto)
+    /// A caution under the task, in amber: fuel on board short of the required fuel. (v6.0 review, B3)
+    var warning: String?
                                 .scaledFont(size: 9, weight: .bold, design: .monospaced, relativeTo: .caption2)
                                 .foregroundColor(.aviationGreen)
                                 .padding(.horizontal, 5)
@@ -1317,7 +1331,7 @@ struct ThreadTaskRow: View {
                 Spacer(minLength: 0)
                 Image(systemName: presentation.icon)
                     .scaledFont(size: 14, relativeTo: .footnote)
-                    .foregroundColor(.dimText.opacity(0.6))
+                    .foregroundColor(warning == nil ? .dimText.opacity(0.6) : .aviationAmber)
             }
 
         }
@@ -1327,11 +1341,19 @@ struct ThreadTaskRow: View {
         .contextMenu {
             if task.kind != .auto {
                 Button(L10n.Thread.markNotApplicable, systemImage: "minus.circle") { onDismissTask() }
+                    if let warning {
+                        Label(warning, systemImage: "exclamationmark.triangle.fill")
+                            .scaledFont(size: prominent ? 16 : 13, weight: .semibold,
+                                        relativeTo: prominent ? .subheadline : .caption)
+                            .foregroundColor(.aviationAmber)
+                            .padding(.top, 2)
+                    }
             }
         }
         .accessibilityElement(children: .combine)
         .accessibilityLabel(presentation.title)
-        .accessibilityValue(task.state == .done ? L10n.Thread.markDone : "")
+        .accessibilityValue([task.state == .done ? L10n.Thread.markDone : nil, warning]
+            .compactMap { $0 }.joined(separator: ", "))
         .accessibilityAddTraits(task.kind == .auto && onTapRow == nil ? [] : .isButton)
         .modifier(RowTap(action: onTapRow))
     }

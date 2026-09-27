@@ -84,8 +84,13 @@ final class FuelOnBoardTests: XCTestCase {
 
     func testNothingOnBoardOrNothingRequiredSaysNothing() {
         XCTAssertEqual(FuelOnBoardStatus.make(onBoard: nil, required: 49.5, flowLitresPerHour: 20), .notSet)
-        XCTAssertEqual(FuelOnBoardStatus.make(onBoard: 0, required: 49.5, flowLitresPerHour: 20), .notSet)
         XCTAssertEqual(FuelOnBoardStatus.make(onBoard: 60, required: nil, flowLitresPerHour: 20), .notSet)
+    }
+
+    /// The device case: 0 L on board read as "not entered", with no warning. (v6.0 review, B3)
+    func testZeroOnBoardIsShortByEverythingRequired() {
+        XCTAssertEqual(FuelOnBoardStatus.make(onBoard: 0, required: 49.5, flowLitresPerHour: 20),
+                       .short(litres: 49.5))
     }
 
     func testMoreThanTheTanksHold() {

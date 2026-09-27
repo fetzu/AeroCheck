@@ -645,8 +645,9 @@ struct FlightPlanEditorView: View {
                 }
                 GridRow {
                     ledgerLabel(L10n.FlightSheet.onBoard, bold: true)
-                    LedgerNumberField(value: Binding(get: { onBoard ?? 0 },
-                                                     set: { flightPlan.fuelOnBoard = $0 > 0 ? $0 : nil }),
+                    // Empty is "not entered", 0 is empty tanks: the field keeps the two apart.
+                    // (v6.0 review, B3)
+                    LedgerNumberField(optional: $flightPlan.fuelOnBoard,
                                       format: "%.1f", emphasised: true, width: ledgerFieldWidth)
                     Color.clear.frame(width: 1, height: 1)
                 }
@@ -1309,13 +1310,37 @@ struct NumberFormField: View {
 /// A ledger cell: the same text-backed number entry as `NumberFormField`, right-aligned under the
 /// ledger's other figures, without a label of its own. (planning proposal A2)
 struct LedgerNumberField: View {
-    @Binding var value: Double
+    @Binding var value: Double?
     let format: String
     var emphasised: Bool = false
     var width: CGFloat = 140
+    /// A figure where empty and 0 mean the same clears a 0 when editing starts, as before. Fuel on
+    /// board doesn't: there 0 is an answer, and clearing it would turn it into "not entered".
+    private var clearsZeroOnEdit = true
 
     @State private var text: String = ""
     @FocusState private var isEditing: Bool
+
+    /// A figure where empty means 0: the fuel flow, the reserves, the extra.
+    init(value: Binding<Double>, format: String, emphasised: Bool = false, width: CGFloat = 140) {
+        _value = Binding(get: { value.wrappedValue }, set: { value.wrappedValue = $0 ?? 0 })
+        self.format = format
+        self.emphasised = emphasised
+        self.width = width
+    }
+
+    /// A figure that can be left out, where 0 is a value of its own: fuel on board. (v6.0 review, B3)
+    init(optional value: Binding<Double?>, format: String, emphasised: Bool = false, width: CGFloat = 140) {
+        _value = value
+        self.format = format
+        self.emphasised = emphasised
+        self.width = width
+        clearsZeroOnEdit = false
+    }
+
+    private func display(_ value: Double?) -> String {
+        value.map { String(format: format, $0) } ?? ""
+    }
 
     var body: some View {
         TextField("0", text: $text)
@@ -1330,18 +1355,18 @@ struct LedgerNumberField: View {
             .background(RoundedRectangle(cornerRadius: 9).fill(Color.cardBackground))
             .overlay(RoundedRectangle(cornerRadius: 9)
                 .strokeBorder(emphasised ? Color.aviationGold.opacity(0.8) : Color.clear, lineWidth: 2))
-            .onAppear { text = String(format: format, value) }
+            .onAppear { text = display(value) }
             .onChange(of: text) { _, typed in
-                let normalised = typed.replacingOccurrences(of: ",", with: ".")
-                if normalised.isEmpty { value = 0 }
-                else if let parsed = Double(normalised) { value = parsed }
+                let normalised = typed.trimmingCharacters(in: .whitespaces).replacingOccurrences(of: ",", with: ".")
+                if normalised.isEmpty { value = nil }
+                else if let parsed = Double(normalised), parsed.isFinite, parsed >= 0 { value = parsed }
             }
             .onChange(of: isEditing) { _, editing in
-                if editing { if value == 0 { text = "" } }
-                else { text = String(format: format, value) }
+                if editing { if clearsZeroOnEdit, value == 0 { text = "" } }
+                else { text = display(value) }
             }
             .onChange(of: value) { _, updated in
-                if !isEditing { text = String(format: format, updated) }
+                if !isEditing { text = display(updated) }
             }
     }
 }

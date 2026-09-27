@@ -203,14 +203,17 @@ struct FlightThreadView: View {
                     Divider().overlay(Color.white.opacity(0.06))
                     ScrollView {
                         VStack(spacing: 16) {
+                            // The red card leads, and the NEXT card under it moves on to the task
+                            // after: both used to say "close the flight plan", NEXT first, so the
+                            // safety headline was the second card on the page.
+                            if thread.hasOpenFlightPlanAfterFlight {
+                                openFlightPlanCard(thread)
+                            }
                             nextTaskCard(thread)
                             if let trip = threadManager.trip(forThreadId: thread.id) {
                                 tripBand(trip, leg: thread)
                             }
                             stopActions(thread)
-                            if thread.hasOpenFlightPlan && thread.state == .closeOut {
-                                openFlightPlanCard(thread)
-                            }
                             continuationCard(thread)
                             ForEach(ThreadChapter.allCases) { chapter in
                                 chapterSection(thread, chapter: chapter)
@@ -491,11 +494,12 @@ struct FlightThreadView: View {
 
     /// The one thing to do next, big and on top, so the page opens on it: the same task Today
     /// advertises as "Next". Fifteen rows of equal weight left the pilot to find it. The list below
-    /// still has it, in its chapter.
+    /// still has it, in its chapter. While the red open-plan card is up, that card is the next task
+    /// and this one shows the task after it.
     @ViewBuilder
     private func nextTaskCard(_ thread: FlightThread) -> some View {
         if thread.state != .flying {
-            if let task = thread.nextTask {
+            if let task = thread.nextTaskBesideOpenFlightPlan {
                 VStack(alignment: .leading, spacing: 0) {
                     Text(L10n.Thread.nextUp.uppercased())
                         .scaledFont(size: 12, weight: .bold, design: .monospaced, relativeTo: .caption)

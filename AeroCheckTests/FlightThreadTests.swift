@@ -253,6 +253,36 @@ final class FlightThreadTests: XCTestCase {
         XCTAssertEqual(thread.nextTask?.chapter, .close)
     }
 
+    /// The flight page's gold NEXT card and its red open-plan card both said "close the flight plan".
+    /// While the red card is up it carries that task, so NEXT moves on to the one after it.
+    func testTheNextCardLeavesAnOpenFlightPlanToTheRedCard() {
+        var thread = FlightThread(routeLabel: "LSZQ → LSGY")
+        var c = context()
+        c.flightPlanFiled = true
+        c.feeIdents = ["LSGY"]
+        thread.tasks = ThreadTaskEngine.generate(context: c)
+        // Settle everything before the flight, the filing included.
+        for task in thread.tasks where task.chapter != .close {
+            thread.setState(.done, forTaskWithId: task.id)
+        }
+        thread.state = .closeOut
+
+        XCTAssertTrue(thread.hasOpenFlightPlanAfterFlight)
+        XCTAssertEqual(thread.nextTask?.key, .flightPlanClosed, "Home has no red card, so it still leads with it")
+        XCTAssertEqual(thread.nextTaskBesideOpenFlightPlan?.key, .feesPaid)
+
+        // Only the plan left: the red card is the page's next task, and NEXT has nothing to add.
+        for task in thread.tasks where task.chapter == .close && task.key != .flightPlanClosed {
+            thread.setState(.done, forTaskWithId: task.id)
+        }
+        XCTAssertNil(thread.nextTaskBesideOpenFlightPlan)
+
+        // Finished with the plan still open: no red card any more, so NEXT must say it.
+        thread.state = .done
+        XCTAssertFalse(thread.hasOpenFlightPlanAfterFlight)
+        XCTAssertEqual(thread.nextTaskBesideOpenFlightPlan?.key, .flightPlanClosed)
+    }
+
     // MARK: - Context building
 
     func testContextFromPlanDerivesRouteFuelAndFees() {

@@ -236,11 +236,23 @@ struct FlightThread: Codable, Identifiable, Equatable, Sendable {
     }
 
     /// The single next thing to do, in chapter order — what the Home strip advertises.
-    var nextTask: ThreadTask? {
+    var nextTask: ThreadTask? { nextTask(skipping: []) }
+
+    /// The next task for the flight page's NEXT card. The same as `nextTask`, except while the red
+    /// open-plan card is up: that card already says "close your flight plan", with the call and the
+    /// tick, so a gold NEXT card saying it again only pushed the rest of the page down. It moves on
+    /// to the task after, or to nothing. Home keeps `nextTask`: its strip has no red card beside it.
+    var nextTaskBesideOpenFlightPlan: ThreadTask? {
+        nextTask(skipping: hasOpenFlightPlanAfterFlight ? [.flightPlanClosed] : [])
+    }
+
+    private func nextTask(skipping keys: Set<ThreadTaskKey>) -> ThreadTask? {
         for chapter in ThreadChapter.taskBearing {
             // Before the flight, the close chapter isn't the pilot's problem yet.
             if chapter == .close && state != .closeOut && state != .done { continue }
-            if let task = tasks(in: chapter).first(where: { $0.state == .pending }) { return task }
+            if let task = tasks(in: chapter).first(where: { $0.state == .pending && !keys.contains($0.key) }) {
+                return task
+            }
         }
         return nil
     }
@@ -249,6 +261,12 @@ struct FlightThread: Codable, Identifiable, Equatable, Sendable {
     /// notification; deliberately independent of the task's own state so a stale tick can't mute it.
     var hasOpenFlightPlan: Bool {
         flightPlanFiledAt != nil && flightPlanClosedAt == nil
+    }
+
+    /// A filed plan still open once the flight is over: what puts the red card on the flight page.
+    /// Before the flight an open plan is the normal state of a well-prepared one, not an alarm.
+    var hasOpenFlightPlanAfterFlight: Bool {
+        hasOpenFlightPlan && state == .closeOut
     }
 
     var isFinished: Bool { state == .done }

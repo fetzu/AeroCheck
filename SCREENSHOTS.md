@@ -46,35 +46,38 @@ The rules that are not negotiable:
 
 ## 1 · Build the app
 
-From a checkout of the app repo on the branch that carries the scenes (the 6.0 ones, `cruisemap` and
-the capture fixes, are on `chore/marketing-scenes-6` until merged):
+From a checkout of the app repo's `main` (the 6.0 scenes, `cruisemap` and the capture fixes, are
+merged), in a worktree of its own so your working copy is left alone:
 
 ```bash
 cp ../AeroCheck/Secrets.xcconfig .   # gitignored; needed for the airspace download (route shot)
-xcodebuild -scheme "AéroCheck" \
-  -destination "platform=iOS Simulator,name=iPad Air 11-inch (M4)" \
+xcodebuild -scheme "AéroCheck" -destination "generic/platform=iOS Simulator" \
   -derivedDataPath /tmp/ac_dd build
 ```
 
 The universal `.app` is at `/tmp/ac_dd/Build/Products/Debug-iphonesimulator/AeroCheck.app` — install
-the same file on both simulators: an **iPad Air 11-inch (M4)** and an **iPhone 17**, both kept for
-captures (`xcrun simctl list devices available` — names go stale between Xcode releases).
+the same file on both simulators: an **iPad Air 11-inch (M4)** and an **iPhone 17**, each a copy kept
+for captures (`xcrun simctl create "Capture iPad" <iPad Air 11-inch (M4) type> <runtime>`). Give them
+names of their own: `--device` with a stock name like "iPad Air 11-inch (M4)" picks whichever
+simulator has it, which may be the one you use every day. A name containing "iPad" is captured as an
+iPad. Don't build with `CODE_SIGNING_ALLOWED=NO`: without entitlements CloudKit throws and the app
+quits at launch.
 
 ## 2 · Capture
 
 ```bash
 APP=/tmp/ac_dd/Build/Products/Debug-iphonesimulator/AeroCheck.app
 # Each device: the scenes without a gesture, then the ones with one (--pause stops before each shot).
-scripts/capture-screenshots.sh --app $APP --device "iPad Air 11-inch (M4)" \
+scripts/capture-screenshots.sh --app $APP --device "Capture iPad" \
   --scenes cruise,cruisemap,homeflight,flight,closeout
-scripts/capture-screenshots.sh --app $APP --device "iPad Air 11-inch (M4)" --scenes cruise --as vspeeds --pause
-scripts/capture-screenshots.sh --app $APP --device "iPad Air 11-inch (M4)" --scenes prepare,conflicts,flightlog --pause
+scripts/capture-screenshots.sh --app $APP --device "Capture iPad" --scenes cruise --as vspeeds --pause
+scripts/capture-screenshots.sh --app $APP --device "Capture iPad" --scenes prepare,conflicts,flightlog --pause
 
-scripts/capture-screenshots.sh --app $APP --device "iPhone 17" \
+scripts/capture-screenshots.sh --app $APP --device "Capture iPhone" \
   --scenes cruise,cruisemap,homeflight,flight,closeout
-scripts/capture-screenshots.sh --app $APP --device "iPhone 17" --scenes cruise --as vspeeds --pause
-scripts/capture-screenshots.sh --app $APP --device "iPhone 17" --scenes prepare,conflicts,flightlog --pause
-scripts/capture-screenshots.sh --app $APP --device "iPhone 17" --scenes cruisemap \
+scripts/capture-screenshots.sh --app $APP --device "Capture iPhone" --scenes cruise --as vspeeds --pause
+scripts/capture-screenshots.sh --app $APP --device "Capture iPhone" --scenes prepare,conflicts,flightlog --pause
+scripts/capture-screenshots.sh --app $APP --device "Capture iPhone" --scenes cruisemap \
   --orientation landscapeLeft --as landscape
 ```
 
@@ -93,8 +96,14 @@ Things that bite:
   real time: capture in the daytime, or the map's ETA reads 0:50.
 - **A fresh container has no aeronautical data.** Airport data (NOW / NEXT frequencies) and airspace
   (the route editor's conflicts) come from Settings ▸ Data & Storage, or the route editor's "Download
-  data" banner, or are copied from a container that has them (below). The in-flight map shots want no
-  OpenAIP layers; the `cruisemap` scene turns them off.
+  data" banner, or are copied from a container that has them: terminate the app, then copy
+  `Library/Application Support/OpenAIPData/` between the two `xcrun simctl get_app_container <udid>
+  com.fetzu.aerocheck data` folders. Airspace alone gives the route shot its conflicts (18 on Geneva →
+  Samedan); the banner may keep offering the other layers, so dismiss it with its × before the shot.
+  The in-flight map shots want no OpenAIP layers; the `cruisemap` scene turns them off.
+- **`--pause` needs a terminal**: it waits for Return. Driven from a script or an agent, launch the
+  scene the same way (twice, 12 s each), do the gesture with the simulator tools, then take and convert
+  the screenshot with the same `simctl io … --mask=ignored` and `sips` settings as the script.
 - The injector **deletes and re-creates** its own demo flights and routes on every run, so repeated
   runs do not pile duplicates into Upcoming or Routes. It never touches flights or routes it did not
   create.

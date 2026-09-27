@@ -14,7 +14,8 @@
 #   scripts/capture-screenshots.sh --app … --device "iPhone 17" --scenes cruisemap \
 #       --orientation landscapeLeft --as landscape
 #
-#   --device       simulator name; iPad output goes to <out>/ipad, iPhone to <out>/iphone. Since 6.0 both
+#   --device       simulator name (a name containing "iPad" is an iPad); iPad output goes to <out>/ipad,
+#                  iPhone to <out>/iphone. Since 6.0 both
 #                  are captured in PORTRAIT: the Cockpit is flown on an iPad in portrait on a kneeboard.
 #   --orientation  iPhone only: portrait (default), landscapeLeft or landscapeRight. The app's DEBUG hook
 #                  turns its window for real, whichever way the simulator is held.
@@ -51,15 +52,16 @@ done
 [ -n "$APP" ] && [ -n "$DEVICE" ] && [ -n "$SCENES" ] || { sed -n '2,25p' "$0"; exit 2; }
 
 BUNDLE="com.fetzu.aerocheck"
+# Matched anywhere in the name, so a dedicated capture simulator ("AeroCheck Dev Check iPad") counts.
 case "$DEVICE" in
-  iPad*) KIND="ipad";  MAXW=1600 ;;
+  *iPad*) KIND="ipad";  MAXW=1600 ;;
   *)     KIND="iphone"; MAXW=800 ;;
 esac
 mkdir -p "$OUT/$KIND" /tmp/ac_shots
 
 echo "▶ booting $DEVICE"
 xcrun simctl boot "$DEVICE" 2>/dev/null || true
-open -a Simulator
+open -a Simulator 2>/dev/null || true   # the window is a convenience; simctl captures without it
 xcrun simctl bootstatus "$DEVICE" -b >/dev/null
 
 echo "▶ installing $APP"

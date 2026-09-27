@@ -1294,9 +1294,11 @@ class AppState {
 
     /// The items of `phase` not checked yet: everything from the step-by-step highlight on, among
     /// the items on screen. Empty when step-by-step is off, since then nothing is tracked.
-    func openItems(in phase: ChecklistPhase) -> [ChecklistItem] {
+    /// `learningMode` defaults to what the current phase shows; a phase that isn't on screen has no
+    /// reveal of its own, so pass the setting for those.
+    func openItems(in phase: ChecklistPhase, learningMode: Bool? = nil) -> [ChecklistItem] {
         guard settings.stepByStepHighlighting else { return [] }
-        let items = activeChecklist.visibleItems(for: phase, learningMode: effectiveLearningMode)
+        let items = activeChecklist.visibleItems(for: phase, learningMode: learningMode ?? effectiveLearningMode)
         let checked = currentHighlightedItem[phase] ?? 0
         return items.dropFirst(checked).filter { !$0.isHeader }
     }
@@ -1510,7 +1512,8 @@ class AppState {
         currentFlight?.goAroundCount += 1
         currentFlight?.goAroundTimes.append(goAroundTime)
 
-        // Reset phases from climb onwards
+        // Reset phases from climb onwards. The new circuit starts them clean, deferred items included:
+        // what was put off on the last lap is asked again on this one. (v6.0 review, confirmed rule)
         for phase in ChecklistPhase.allCases {
             if phase.rawValue >= ChecklistPhase.climb.rawValue {
                 phaseCompletionStatus[phase] = nil
@@ -1534,7 +1537,8 @@ class AppState {
         currentFlight?.touchAndGoCount += 1
         currentFlight?.touchAndGoTimes.append(touchAndGoTime)
 
-        // Reset phases from climb onwards
+        // Reset phases from climb onwards. The new circuit starts them clean, deferred items included:
+        // what was put off on the last lap is asked again on this one. (v6.0 review, confirmed rule)
         for phase in ChecklistPhase.allCases {
             if phase.rawValue >= ChecklistPhase.climb.rawValue {
                 phaseCompletionStatus[phase] = nil
@@ -1566,7 +1570,8 @@ class AppState {
         currentFlight?.landingTime = fullStopTime
         hasLandingBeenDetected = true
 
-        // Reset phases from taxi onwards (taxi through afterLanding)
+        // Reset phases from taxi onwards (taxi through afterLanding), deferred items included, as for
+        // a touch-and-go. (v6.0 review, confirmed rule)
         for phase in ChecklistPhase.allCases {
             if phase.rawValue >= ChecklistPhase.taxi.rawValue && phase.rawValue <= ChecklistPhase.afterLanding.rawValue {
                 phaseCompletionStatus[phase] = nil
@@ -1777,7 +1782,31 @@ class AppState {
     func nextPhase() {
         guard let currentIndex = ChecklistPhase.allCases.firstIndex(of: currentPhase),
               currentIndex + 1 < ChecklistPhase.allCases.count else { return }
-        
+
+        leaveCurrentPhase()
+
+        // Calculate the next phase, skipping CRUISE and DESCENT in circuit mode (marking each
+        // skipped phase as .skipped along the way — that side effect stays here).
+        var nextIndex = currentIndex + 1
+        while nextIndex < ChecklistPhase.allCases.count {
+            let nextPhase = ChecklistPhase.allCases[nextIndex]
+            if nextPhase.isSkippedInCircuitMode(isCircuitMode) {
+                phaseCompletionStatus[nextPhase] = .skipped
+                nextIndex += 1
+            } else {
+                break
+            }
+        }
+
+        if nextIndex < ChecklistPhase.allCases.count {
+            enterPhase(ChecklistPhase.allCases[nextIndex])
+        }
+    }
+
+    /// Leaving the current phase, by NEXT or by a forward jump on the phase bar: its status, and its
+    /// unchecked items onto the deferred list. The two used to differ, and a jump dropped the open
+    /// items on the floor: not checked, not deferred, never listed again. (v6.0 review, B1)
+    private func leaveCurrentPhase() {
         // Advancing from the current phase: .missingAction if a required button wasn't pressed; else
         // .completed ONLY if the checklist was actually worked through (all step-by-step items reached),
         // otherwise .skipped. Since NEXT is tappable while a phase is still incomplete, pressing past an
@@ -1815,29 +1844,27 @@ class AppState {
         if currentPhase.rawValue >= highestCompletedPhase.rawValue {
             highestCompletedPhase = currentPhase
         }
+    }
 
-        // Calculate the next phase, skipping CRUISE and DESCENT in circuit mode (marking each
-        // skipped phase as .skipped along the way — that side effect stays here).
-        var nextIndex = currentIndex + 1
-        while nextIndex < ChecklistPhase.allCases.count {
-            let nextPhase = ChecklistPhase.allCases[nextIndex]
-            if nextPhase.isSkippedInCircuitMode(isCircuitMode) {
-                phaseCompletionStatus[nextPhase] = .skipped
-                nextIndex += 1
-            } else {
-                break
-            }
-        }
-
-        if nextIndex < ChecklistPhase.allCases.count {
-            currentPhase = ChecklistPhase.allCases[nextIndex]
-        }
+    /// Arriving in a phase. What is still open on its list, from the highlight down, is open again
+    /// on screen, so it leaves the deferred list, as it does when stepping back (`stepBack`).
+    /// Without this, coming back to a phase left with items open had them listed twice, and a CHECK
+    /// on the list drew them as deferred rather than done: an accidental jump then cost the pilot
+    /// every item a second time, in the deferred list. (v6.0 review, B1)
+    private func enterPhase(_ phase: ChecklistPhase) {
+        currentPhase = phase
+        guard settings.stepByStepHighlighting, let ids = deferredItems[phase] else { return }
+        let checked = currentHighlightedItem[phase] ?? 0
+        let reopened = Set(activeChecklist.visibleItems(for: phase, learningMode: effectiveLearningMode)
+            .dropFirst(checked).map(\.id))
+        let kept = ids.filter { !reopened.contains($0) }
+        deferredItems[phase] = kept.isEmpty ? nil : kept
     }
 
     func previousPhase() {
         // The previous-navigable rule (with circuit-mode skipping) lives on ChecklistPhase.
         if let target = currentPhase.previousNavigable(circuitMode: isCircuitMode) {
-            currentPhase = target
+            enterPhase(target)
         }
     }
 
@@ -1849,25 +1876,40 @@ class AppState {
 
         // When jumping to a phase, mark any skipped phases appropriately
         if let currentIndex = ChecklistPhase.allCases.firstIndex(of: currentPhase),
-           let targetIndex = ChecklistPhase.allCases.firstIndex(of: phase) {
-
-            if targetIndex > currentIndex {
-                // Jumping forward - mark skipped phases
-                for i in currentIndex..<targetIndex {
-                    let skippedPhase = ChecklistPhase.allCases[i]
-                    if phaseCompletionStatus[skippedPhase] == nil {
-                        // Jumped over this phase: .missingAction if it had an unpressed required button, else .skipped.
-                        phaseCompletionStatus[skippedPhase] = skippedPhase.hasMissingRequiredAction(
-                            engineStarted: engineStartTime != nil,
-                            linedUp: lineUpTime != nil,
-                            engineShutDown: engineShutdownTime != nil) ? .missingAction : .skipped
-                    }
+           let targetIndex = ChecklistPhase.allCases.firstIndex(of: phase),
+           targetIndex > currentIndex {
+            // The phase being left goes the way NEXT takes it: same status, open items deferred.
+            leaveCurrentPhase()
+            // The phases jumped over: whatever they hold is open, and is deferred as well, so a phase
+            // drawn orange always has its unchecked items listed. Cruise and descent in circuit mode
+            // aren't flown at all; NEXT passes them without deferring anything either.
+            for i in (currentIndex + 1)..<targetIndex {
+                let skippedPhase = ChecklistPhase.allCases[i]
+                if !skippedPhase.isSkippedInCircuitMode(isCircuitMode) {
+                    deferOpenItems(in: skippedPhase)
+                }
+                if phaseCompletionStatus[skippedPhase] == nil {
+                    // Jumped over this phase: .missingAction if it had an unpressed required button, else .skipped.
+                    phaseCompletionStatus[skippedPhase] = skippedPhase.hasMissingRequiredAction(
+                        engineStarted: engineStartTime != nil,
+                        linedUp: lineUpTime != nil,
+                        engineShutDown: engineShutdownTime != nil) ? .missingAction : .skipped
                 }
             }
         }
-        currentPhase = phase
+        enterPhase(phase)
     }
-    
+
+    /// Adds a phase's open items to its deferred ones, in list order. The items on screen when the
+    /// phase is shown, so hidden memory items stay out until revealed, as with NEXT.
+    private func deferOpenItems(in phase: ChecklistPhase) {
+        let open = openItems(in: phase, learningMode: settings.learningMode).map(\.id)
+        guard !open.isEmpty else { return }
+        let order = activeChecklist.visibleItems(for: phase, learningMode: true).map(\.id)
+        let all = Set(deferredItems[phase] ?? []).union(open)
+        deferredItems[phase] = order.filter(all.contains)
+    }
+
     /// Get the completion status for a phase
     func getPhaseStatus(_ phase: ChecklistPhase) -> PhaseCompletionStatus {
         // If we have an explicit status recorded, use it

@@ -216,4 +216,90 @@ final class DeferredItemsTests: XCTestCase {
         appState.stepBack(toItemAt: 2)
         XCTAssertEqual(appState.getHighlightedItem(for: .preflight), 1, "can't step forward")
     }
+
+    // MARK: The phase bar and circuits (v6.0 review, B1)
+
+    /// The device case: tapping ahead on the phase bar left the open items neither checked nor
+    /// deferred, and nothing ever listed them again.
+    func testAJumpOnThePhaseBarDefersLikeNext() throws {
+        let appState = flight()
+        let preflight = items(appState, .preflight)
+        let jumped = items(appState, .beforeEngineStart)
+        try XCTSkipIf(preflight.count < 2 || jumped.isEmpty, "needs two phases with items")
+        appState.advanceHighlightedItem(learningMode: true)          // the first one checked
+        let open = appState.openItems(in: .preflight).map(\.id)
+
+        appState.goToPhase(.engineStart)
+
+        XCTAssertEqual(appState.currentPhase, .engineStart)
+        XCTAssertEqual(appState.deferredItems[.preflight], open, "the phase left, as NEXT leaves it")
+        XCTAssertEqual(appState.phaseCompletionStatus[.preflight], .skipped)
+        XCTAssertEqual(appState.deferredItems[.beforeEngineStart], jumped.map(\.id), "the phase jumped over")
+        XCTAssertEqual(appState.deferredItemCount, open.count + jumped.count)
+    }
+
+    func testAJumpFromAWorkedThroughPhaseLeavesItGreen() {
+        let appState = flight()
+        appState.markLastItemComplete(learningMode: true)
+        appState.goToPhase(.beforeEngineStart)
+        XCTAssertEqual(appState.phaseCompletionStatus[.preflight], .completed)
+        XCTAssertNil(appState.deferredItems[.preflight])
+    }
+
+    /// Back to the phase just left by mistake: its open items are open on screen again, not also
+    /// waiting in the deferred list to be checked a second time.
+    func testComingBackTakesTheOpenItemsOffTheDeferredList() throws {
+        let appState = flight()
+        let list = visible(appState, .preflight)
+        try XCTSkipIf(list.count < 3 || list[0].isHeader || list[1].isHeader)
+        appState.deferHighlightedItem()                               // item 0 deferred with DEFER
+        appState.goToPhase(.beforeEngineStart)                        // items 1… deferred by the jump
+        XCTAssertEqual(appState.deferredItems[.preflight]?.count, list.filter { !$0.isHeader }.count)
+
+        appState.goToPhase(.preflight)
+
+        XCTAssertEqual(appState.deferredItems[.preflight], [list[0].id], "only what DEFER put off")
+        XCTAssertEqual(appState.openItems(in: .preflight).first?.id, list[1].id)
+    }
+
+    func testNextBackReopensToo() throws {
+        let appState = flight()
+        try XCTSkipIf(items(appState, .preflight).isEmpty)
+        appState.nextPhase()
+        XCTAssertNotNil(appState.deferredItems[.preflight])
+        appState.previousPhase()
+        XCTAssertEqual(appState.currentPhase, .preflight)
+        XCTAssertNil(appState.deferredItems[.preflight])
+    }
+
+    func testAJumpInCircuitModeDefersNothingForCruiseAndDescent() {
+        let appState = flight()
+        appState.isCircuitMode = true
+        appState.currentPhase = .climb
+        appState.markLastItemComplete(learningMode: true)
+        appState.goToPhase(.approach)
+        XCTAssertNil(appState.deferredItems[.cruise])
+        XCTAssertNil(appState.deferredItems[.descent])
+        XCTAssertEqual(appState.deferredItemCount, 0)
+    }
+
+    /// The rule the author confirmed: a new circuit clears what was deferred in the phases it repeats,
+    /// and only those, for all three ways a circuit ends.
+    func testEachNewCircuitClearsOnlyTheRepeatedPhases() {
+        let repeated: [(String, ChecklistPhase, (AppState) -> Void)] = [
+            ("go-around", .climb, { $0.recordGoAround(at: Date()) }),
+            ("touch-and-go", .climb, { $0.recordTouchAndGo(at: Date()) }),
+            ("full stop", .taxi, { $0.recordFullStop(at: Date()) }),
+        ]
+        for (name, first, event) in repeated {
+            let appState = flight()
+            for phase in ChecklistPhase.allCases { appState.deferredItems[phase] = ["x"] }
+            event(appState)
+            for phase in ChecklistPhase.allCases {
+                let cleared = phase.rawValue >= first.rawValue
+                    && (first != .taxi || phase.rawValue <= ChecklistPhase.afterLanding.rawValue)
+                XCTAssertEqual(appState.deferredItems[phase] == nil, cleared, "\(name): \(phase)")
+            }
+        }
+    }
 }

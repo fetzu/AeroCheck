@@ -268,4 +268,27 @@ final class CompanionServiceContractTests: XCTestCase {
         XCTAssertEqual(decoded.deferredItemIds, [])
         XCTAssertEqual(decoded.deferredItemCount, 0)
     }
+
+    /// SA-26 covers the deferred ids too: an item's id carries its challenge text. (v6.0 review, security)
+    @MainActor
+    func testAnUnentitledViewerGetsNoDeferredIds() throws {
+        let appState = makeTestAppState()
+        appState.settings.selectedRemoteAircraftId = nil
+        appState.settings.selectedAircraft = .wt9Dynamic
+        let item = try XCTUnwrap(appState.activeChecklist.visibleItems(for: appState.currentPhase, learningMode: true)
+            .first { !$0.isHeader })
+        appState.deferredItems[appState.currentPhase] = [item.id]
+        // Premium selected (the gate's condition); the checklist on screen stays the bundled one.
+        appState.settings.selectedRemoteAircraftId = "premium-test"
+
+        let redacted = CompanionConnectivityManager.checklistSnapshot(of: appState, viewerIsEntitled: false)
+        XCTAssertTrue(redacted.items.isEmpty)
+        XCTAssertTrue(redacted.deferredItemIds.isEmpty, "the id would spell out the challenge")
+        let wire = String(decoding: try JSONEncoder().encode(redacted), as: UTF8.self)
+        XCTAssertFalse(wire.contains(item.challenge), "no challenge text anywhere in the snapshot")
+        XCTAssertEqual(redacted.deferredItemCount, appState.deferredItemCount, "the count still goes")
+
+        let full = CompanionConnectivityManager.checklistSnapshot(of: appState, viewerIsEntitled: true)
+        XCTAssertEqual(full.deferredItemIds, [item.id])
+    }
 }

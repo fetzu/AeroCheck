@@ -279,6 +279,7 @@ class CompanionConnectivityManager: NSObject, ObservableObject {
                     // connection's generation so a later teardown only acts if it's still current.
                     let myGeneration = await MainActor.run { () -> Int in
                         self.connectionGeneration += 1
+                        self.resetPeerTrust()   // before anything is streamed to this peer
                         self.sendHandler = send
                         self.connectionState = .connected
                         self.connectedDeviceName = self.pairedDevices.first?.name ?? self.pairedDevices.first?.pairingName ?? L10n.Companion.companionDevice
@@ -527,6 +528,9 @@ class CompanionConnectivityManager: NSObject, ObservableObject {
                     // Open the UDP flow immediately — until the master receives a datagram from us, its
                     // listener never accepts and it never streams back. (v4.1)
                     self.sendPing()
+                    // And say at once what we may be sent, rather than on the first health tick 2 s
+                    // later, as the hello's own comment already promised. (v6.0 review, security)
+                    self.sendViewerHello()
                     self.diag("Viewer: connected to iPad")
                     return true
                 }
@@ -659,6 +663,7 @@ class CompanionConnectivityManager: NSObject, ObservableObject {
 
     private func cleanupConnection() {
         sendHandler = nil
+        resetPeerTrust()
         stopConnectionHealthTimer()
         stopUpdates()
         sendFailureCount = 0
@@ -671,6 +676,18 @@ class CompanionConnectivityManager: NSObject, ObservableObject {
         receivedPeerGPS = nil
         lastPeerGPSReceivedAt = nil
         effectiveGPSSource = .own
+    }
+
+    /// A new peer proves its entitlement again (SA-26) and is authorised again (SEC-C40): trust is
+    /// per connection. This used to happen only on a graceful `.disconnect` message, so after a Wi-Fi
+    /// Aware drop (health timeout, send failure, end of the receive loop) the next device to connect,
+    /// possibly another phone paired to a shared club iPad, inherited the last one's entitlement and
+    /// its right to drive the checklist. Now every teardown, and every accepted connection, resets
+    /// it. (v6.0 review, security)
+    private func resetPeerTrust() {
+        peerIsEntitled = false
+        peerMayIssueCommands = false
+        pendingCommandAuthorizationFrom = nil
     }
 
     // MARK: - Message Sending (Length-Prefixed JSON)
@@ -765,11 +782,6 @@ class CompanionConnectivityManager: NSObject, ObservableObject {
             cleanupConnection()
             connectionState = .disconnected
             connectedDeviceName = nil
-            peerIsEntitled = false   // a new peer must re-prove entitlement (SA-26)
-            // SEC-C40: authorisation is per-connection, so a reconnecting (or different) device
-            // must be confirmed again rather than inheriting the last session's trust.
-            peerMayIssueCommands = false
-            pendingCommandAuthorizationFrom = nil
         }
     }
 
@@ -929,6 +941,11 @@ class CompanionConnectivityManager: NSObject, ObservableObject {
     /// show and drive. (companion v2 — synced checklist)
     private func createChecklistSnapshot() -> CompanionChecklistSnapshot? {
         guard let appState else { return nil }
+        return Self.checklistSnapshot(of: appState, viewerIsEntitled: peerIsEntitled)
+    }
+
+    /// The snapshot itself, apart from the connection so the SA-26 redaction can be tested.
+    static func checklistSnapshot(of appState: AppState, viewerIsEntitled: Bool) -> CompanionChecklistSnapshot {
         let phase = appState.currentPhase
         // Effective learning mode includes a hold-to-reveal, so revealing on either device streams the
         // hidden items to the viewer (and vice-versa). (companion v2 — hidden-content parity)
@@ -950,7 +967,7 @@ class CompanionConnectivityManager: NSObject, ObservableObject {
         // Defence in depth, NOT a server gap: the paid content is legitimately on the paying
         // device. A legitimate single user's iPhone shares the subscriber's Apple ID, reports
         // isSubscribed = true, and is unaffected.
-        let mayStreamItemText = peerIsEntitled || !appState.settings.isRemoteAircraftSelected
+        let mayStreamItemText = viewerIsEntitled || !appState.settings.isRemoteAircraftSelected
         let items = mayStreamItemText
             ? visible.map {
                 CompanionChecklistItem(id: $0.id, challenge: $0.challenge, response: $0.response, isHeader: $0.isHeader)
@@ -969,9 +986,10 @@ class CompanionConnectivityManager: NSObject, ObservableObject {
             completedCount: min(highlighted, visibleCount),
             items: items,
             hiddenItemCount: hiddenCount,
-            // Ids only: the viewer matches them against the items it was sent, so an unentitled one,
-            // sent no items, gets nothing it could read.
-            deferredItemIds: appState.deferredItems[phase] ?? [],
+            // Withheld like the items: an item's id is built from its challenge text
+            // ("3.I.Fuel selector"), so the ids alone would hand an unentitled viewer the challenges
+            // of every deferred item. The count carries no text and always goes. (v6.0 review, security)
+            deferredItemIds: mayStreamItemText ? (appState.deferredItems[phase] ?? []) : [],
             deferredItemCount: appState.deferredItemCount
         )
     }

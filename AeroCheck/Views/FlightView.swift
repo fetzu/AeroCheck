@@ -1527,8 +1527,8 @@ extension FlightView {
             },
             promptsEngineHours: appState.settings.logEngineHours,
             deferredItemIds: appState.currentPhaseDeferredIds,
-            onStepBack: appState.settings.stepByStepHighlighting
-                ? { appState.stepBack(toItemAt: $0) } : nil,
+            onToggleItem: appState.settings.stepByStepHighlighting
+                ? { appState.toggleItem(at: $0) } : nil,
             hiddenItemsRevealed: hiddenItemsRevealed
         )
                     .padding(narrow ? 14 : 24)

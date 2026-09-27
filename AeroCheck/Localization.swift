@@ -1691,7 +1691,9 @@ enum L10n {
             String(format: String(localized: "cockpit.nextPhaseA11y"), phase)
         }
         static let allChecked = String(localized: "cockpit.allChecked")
-        static let stepBackHint = String(localized: "cockpit.stepBackHint")
+        /// A tap on a checked item opens it again, on its own (v6.0 review, K-C); on an open one, checks it.
+        static let reopenHint = String(localized: "cockpit.stepBackHint")
+        static let checkAgainHint = String(localized: "cockpit.checkAgainHint")
         static let menu = String(localized: "cockpit.menu")
         static let display = String(localized: "cockpit.display")
         static let options = String(localized: "cockpit.options")

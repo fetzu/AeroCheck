@@ -247,9 +247,10 @@ struct ChecklistView: View {
     /// Items of this phase deferred with DEFER: drawn as deferred, not as done, although the highlight
     /// has passed them. (v6.0 · P2)
     var deferredItemIds: Set<String> = []
-    /// The Cockpit: CHECK in the thumb bar advances, so the "tap to advance" hint goes, and tapping a
-    /// checked row steps back to it (`onStepBack`). (v6.0 · P2)
-    var onStepBack: ((Int) -> Void)? = nil
+    /// The Cockpit: CHECK in the thumb bar advances, so the "tap to advance" hint goes, and a tap on a
+    /// row above the highlight reopens that item alone, or checks it again (`onToggleItem`). (v6.0 · P2,
+    /// v6.0 review K-C)
+    var onToggleItem: ((Int) -> Void)? = nil
     /// Owned by the parent so tap-to-advance / completion include revealed items. (v4 UI/UX Revamp)
     @Binding var hiddenItemsRevealed: Bool
 
@@ -318,7 +319,7 @@ struct ChecklistView: View {
          onEditEngineHourEnd: (() -> Void)? = nil,
          promptsEngineHours: Bool = false,
          deferredItemIds: Set<String> = [],
-         onStepBack: ((Int) -> Void)? = nil,
+         onToggleItem: ((Int) -> Void)? = nil,
          hiddenItemsRevealed: Binding<Bool> = .constant(false)) {
         self.phase = phase
         self.activeChecklist = activeChecklist
@@ -358,7 +359,7 @@ struct ChecklistView: View {
         self.onEditEngineHourStart = onEditEngineHourStart
         self.onEditEngineHourEnd = onEditEngineHourEnd
         self.deferredItemIds = deferredItemIds
-        self.onStepBack = onStepBack
+        self.onToggleItem = onToggleItem
         self._hiddenItemsRevealed = hiddenItemsRevealed
     }
     
@@ -374,7 +375,7 @@ struct ChecklistView: View {
 
                 Spacer()
 
-                if stepByStepEnabled && !visibleItems.isEmpty && onStepBack == nil {
+                if stepByStepEnabled && !visibleItems.isEmpty && onToggleItem == nil {
                     HStack(spacing: 4) {
                         Image(systemName: "hand.tap.fill")
                             .font(.aero(size: isCompact ? 9 : 10))
@@ -452,9 +453,10 @@ struct ChecklistView: View {
                                     isCompact: isCompact
                                 )
                                 .padding(.vertical, 4)
-                            } else if let onStepBack, isCompleted || isDeferred {
-                                // The Cockpit: a checked (or deferred) row is a button back to it.
-                                Button { onStepBack(index) } label: {
+                            } else if let onToggleItem, isCompleted || isDeferred, !item.isHeader {
+                                // The Cockpit: a checked row reopens that item alone; an open one
+                                // (reopened, or deferred) is checked. Nothing else moves.
+                                Button { onToggleItem(index) } label: {
                                     ChecklistItemRow(
                                         item: item,
                                         showSeparator: index < visibleItems.count - 1,
@@ -466,7 +468,7 @@ struct ChecklistView: View {
                                     .contentShape(Rectangle())
                                 }
                                 .buttonStyle(.plain)
-                                .accessibilityHint(L10n.Cockpit.stepBackHint)
+                                .accessibilityHint(isDeferred ? L10n.Cockpit.checkAgainHint : L10n.Cockpit.reopenHint)
                             } else {
                                 ChecklistItemRow(
                                     item: item,

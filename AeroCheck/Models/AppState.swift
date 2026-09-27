@@ -1359,18 +1359,25 @@ class AppState {
         checkpointActiveFlight(force: true)
     }
 
-    /// Go back to a checked item: it and everything after it are open again, as on a paper list where
-    /// the finger moves back up. An item deferred further down is open again too, so it leaves the
-    /// deferred list rather than being listed twice. (v6.0 · P2)
-    func stepBack(toItemAt index: Int) {
+    /// A tap on an item above the highlight (v6.0 review, K-C). A checked item is open again, on its
+    /// own: it joins the deferred list and is drawn as open, while the highlight and every other tick
+    /// stay where they are. An open one (reopened, or put off with DEFER) is checked. The same gesture
+    /// undoes itself.
+    ///
+    /// It replaces stepping back, which reopened the item and everything after it, with no undo: on
+    /// the phone, where a tap on the list also checks, a tap a little too high cost the whole list.
+    func toggleItem(at index: Int) {
         let items = activeChecklist.visibleItems(for: currentPhase, learningMode: effectiveLearningMode)
-        guard items.indices.contains(index), index < (currentHighlightedItem[currentPhase] ?? 0) else { return }
-        currentHighlightedItem[currentPhase] = index
-        let reopened = Set(items[index...].map(\.id))
-        if let ids = deferredItems[currentPhase] {
-            let kept = ids.filter { !reopened.contains($0) }
-            deferredItems[currentPhase] = kept.isEmpty ? nil : kept
+        guard items.indices.contains(index), index < (currentHighlightedItem[currentPhase] ?? 0),
+              !items[index].isHeader else { return }
+        let id = items[index].id
+        if deferredItems[currentPhase]?.contains(id) == true {
+            checkDeferredItem(id, in: currentPhase)
+            return
         }
+        let order = activeChecklist.visibleItems(for: currentPhase, learningMode: true).map(\.id)
+        let all = Set(deferredItems[currentPhase] ?? []).union([id])
+        deferredItems[currentPhase] = order.filter(all.contains)
         checkpointActiveFlight(force: true)
     }
 

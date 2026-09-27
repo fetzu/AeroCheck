@@ -1,6 +1,23 @@
 {
   "sourceLanguage": "en",
   "strings": {
+    "cockpit.checkAgainHint": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Checks this item"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Coche cet élément"
+          }
+        }
+      }
+    },
     "planFlight.loadingAerodromes": {
       "extractionState": "manual",
       "localizations": {
@@ -2631,13 +2648,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Goes back to this item"
+            "value": "Opens this item again, on its own"
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Revient à cet élément"
+            "value": "Rouvre cet élément, seul"
           }
         }
       }

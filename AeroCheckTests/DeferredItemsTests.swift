@@ -200,21 +200,56 @@ final class DeferredItemsTests: XCTestCase {
         XCTAssertEqual(ids.count, list.count)
     }
 
-    func testSteppingBackReopensItemsAndTakesThemOffTheDeferredList() throws {
+    // MARK: A tap on a checked item (v6.0 review, K-C)
+
+    /// Stepping back reopened the tapped item and everything after it, with no undo. Now only that item
+    /// opens, and the same tap checks it again.
+    func testATapOnACheckedItemReopensOnlyThatItem() throws {
         let appState = flight()
         let list = visible(appState, .preflight)
-        try XCTSkipIf(list.count < 4 || list[0].isHeader || list[1].isHeader)
-        appState.advanceHighlightedItem(learningMode: appState.effectiveLearningMode)   // 0 checked
-        appState.deferHighlightedItem()                                                 // 1 deferred
-        appState.advanceHighlightedItem(learningMode: appState.effectiveLearningMode)   // 2 checked
+        try XCTSkipIf(list.count < 4 || list[0...2].contains(where: \.isHeader))
+        for _ in 0..<3 { appState.advanceHighlightedItem(learningMode: appState.effectiveLearningMode) }
         XCTAssertEqual(appState.getHighlightedItem(for: .preflight), 3)
 
-        appState.stepBack(toItemAt: 1)
-        XCTAssertEqual(appState.getHighlightedItem(for: .preflight), 1)
-        XCTAssertNil(appState.deferredItems[.preflight], "item 1 is the current one again, not deferred")
+        appState.toggleItem(at: 1)
+        XCTAssertEqual(appState.getHighlightedItem(for: .preflight), 3, "the highlight stays")
+        XCTAssertEqual(appState.deferredItems[.preflight], [list[1].id], "open, as a deferred item")
+        XCTAssertEqual(appState.deferredItemCount, 1)
 
-        appState.stepBack(toItemAt: 2)
-        XCTAssertEqual(appState.getHighlightedItem(for: .preflight), 1, "can't step forward")
+        appState.toggleItem(at: 1)
+        XCTAssertNil(appState.deferredItems[.preflight], "the same tap checks it again")
+        XCTAssertEqual(appState.getHighlightedItem(for: .preflight), 3)
+    }
+
+    func testReopenedItemsKeepTheListOrder() throws {
+        let appState = flight()
+        let list = visible(appState, .preflight)
+        try XCTSkipIf(list.count < 4 || list[0...2].contains(where: \.isHeader))
+        for _ in 0..<3 { appState.advanceHighlightedItem(learningMode: appState.effectiveLearningMode) }
+        appState.toggleItem(at: 2)
+        appState.toggleItem(at: 0)
+        XCTAssertEqual(appState.deferredItems[.preflight], [list[0].id, list[2].id])
+    }
+
+    func testATapOnADeferredItemChecksIt() throws {
+        let appState = flight()
+        let list = visible(appState, .preflight)
+        try XCTSkipIf(list.count < 3 || list[0].isHeader)
+        appState.deferHighlightedItem()
+        XCTAssertEqual(appState.deferredItems[.preflight], [list[0].id])
+        appState.toggleItem(at: 0)
+        XCTAssertNil(appState.deferredItems[.preflight])
+    }
+
+    func testATapAtOrBelowTheHighlightDoesNothing() throws {
+        let appState = flight()
+        let list = visible(appState, .preflight)
+        try XCTSkipIf(list.count < 3 || list[0].isHeader)
+        appState.advanceHighlightedItem(learningMode: appState.effectiveLearningMode)
+        appState.toggleItem(at: 1)
+        appState.toggleItem(at: 2)
+        XCTAssertNil(appState.deferredItems[.preflight])
+        XCTAssertEqual(appState.getHighlightedItem(for: .preflight), 1)
     }
 
     // MARK: The phase bar and circuits (v6.0 review, B1)

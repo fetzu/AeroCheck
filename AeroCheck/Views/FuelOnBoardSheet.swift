@@ -57,7 +57,7 @@ enum FuelOnBoardStatus: Equatable {
         guard let onBoard, onBoard.isFinite, onBoard >= 0, let required else { return .notSet }
         let margin = onBoard - required
         guard margin >= 0 else { return .short(litres: -margin) }
-        let minutes = flowLitresPerHour > 0 ? Int((margin / flowLitresPerHour * 60).rounded(.down)) : 0
+        let minutes = flowLitresPerHour > 0 ? (margin / flowLitresPerHour * 60).safeRoundedInt(.down, or: 0) : 0
         return .enough(marginLitres: margin, minutes: minutes)
     }
 
@@ -78,7 +78,8 @@ enum FuelEntry {
 
     /// One decimal at most, none when whole: "60", "60.5".
     static func text(_ litres: Double) -> String {
-        litres.rounded() == litres ? String(Int(litres)) : String(format: "%.1f", litres)
+        if litres.rounded() == litres, let whole = litres.safeInt { return String(whole) }
+        return String(format: "%.1f", litres)
     }
 }
 

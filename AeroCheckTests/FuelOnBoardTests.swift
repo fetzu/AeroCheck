@@ -165,4 +165,30 @@ final class FuelOnBoardTests: XCTestCase {
         plan.additionalFuel = nil
         XCTAssertEqual(plan.finalReserveFuel, 22.5)
     }
+
+    // MARK: Out-of-range figures (v6.0 review, security)
+
+    /// A shared route with "fuelFlow": 1e19 trapped the app wherever its fuel was shown.
+    func testAbsurdFuelFiguresAreDroppedOnImport() throws {
+        var plan = FlightPlan(name: "Crafted")
+        plan.fuelFlow = 1e19
+        plan.fuelOnBoard = -5
+        plan.extraFuel = .infinity
+        plan.tripFuel = 30
+        let validated = try XCTUnwrap(plan.validatedForIngest())
+        XCTAssertNil(validated.fuelFlow)
+        XCTAssertNil(validated.fuelOnBoard)
+        XCTAssertNil(validated.extraFuel)
+        XCTAssertEqual(validated.tripFuel, 30, "a plausible figure is kept")
+    }
+
+    func testFuelTextAndMarginNeverTrap() {
+        XCTAssertFalse(FuelEntry.text(1e19).isEmpty)
+        XCTAssertEqual(FuelEntry.text(60), "60")
+        if case .enough(_, let minutes) = FuelOnBoardStatus.make(onBoard: 1e18, required: 1, flowLitresPerHour: 1e-300) {
+            XCTAssertEqual(minutes, 0, "not representable: no minutes, and no trap")
+        } else {
+            XCTFail("expected enough")
+        }
+    }
 }

@@ -21,9 +21,10 @@ extension Double {
     /// Converts to `Int`, or returns nil when the value is not finite or not representable.
     /// Use instead of `Int(x)` for anything derived from outside the app.
     var safeInt: Int? {
+        // `<`, not `<=`: Double(Int.max) rounds up to 2^63, which is one past Int.max and traps.
         guard isFinite,
               self >= Double(Int.min),
-              self <= Double(Int.max)
+              self < Double(Int.max)
         else { return nil }
         return Int(self)
     }
@@ -63,6 +64,11 @@ enum PlausibleRange {
     static let courseDegrees: ClosedRange<Double> = 0...360
     /// Airport/field elevation in feet MSL (Daocheng Yading is ~14 500 ft).
     static let fieldElevationFeet: ClosedRange<Double> = -1_500...20_000
+    /// A fuel quantity in litres: trip, reserves, extra, on board. A light aircraft holds a few
+    /// hundred at most. (v6.0 review, security)
+    static let fuelLitres: ClosedRange<Double> = 0...5_000
+    /// A fuel flow in litres per hour.
+    static let fuelFlowLitresPerHour: ClosedRange<Double> = 0...500
 
     /// True when `value` is finite and inside `range`.
     static func isPlausible(_ value: Double, in range: ClosedRange<Double>) -> Bool {

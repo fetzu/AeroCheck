@@ -1277,6 +1277,18 @@ extension FlightPlan {
             }
             return w
         }
+        // The fuel figures reach `Int` conversions and a division in the fuel ledger and the flight's
+        // page: a shared route with "fuelFlow": 1e19 trapped the app on every device it synced to.
+        // Out of range, a figure is dropped, as an implausible altitude is. (v6.0 review, security)
+        func plausibleFuel(_ value: Double?, _ range: ClosedRange<Double>) -> Double? {
+            value.flatMap { PlausibleRange.isPlausible($0, in: range) ? $0 : nil }
+        }
+        sanitised.fuelFlow = plausibleFuel(fuelFlow, PlausibleRange.fuelFlowLitresPerHour)
+        sanitised.tripFuel = plausibleFuel(tripFuel, PlausibleRange.fuelLitres)
+        sanitised.reserveFuel = plausibleFuel(reserveFuel, PlausibleRange.fuelLitres)
+        sanitised.additionalFuel = plausibleFuel(additionalFuel, PlausibleRange.fuelLitres)
+        sanitised.extraFuel = plausibleFuel(extraFuel, PlausibleRange.fuelLitres)
+        sanitised.fuelOnBoard = plausibleFuel(fuelOnBoard, PlausibleRange.fuelLitres)
         return sanitised
     }
 

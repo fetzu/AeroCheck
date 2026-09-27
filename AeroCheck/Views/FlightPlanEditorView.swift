@@ -774,7 +774,7 @@ struct FlightPlanEditorView: View {
 
     private func endurance(_ litres: Double, flow: Double) -> String {
         guard flow > 0 else { return "—" }
-        let minutes = Int((litres / flow * 60).rounded(.down))
+        let minutes = (litres / flow * 60).safeRoundedInt(.down, or: 0)
         return String(format: "%d:%02d", minutes / 60, minutes % 60)
     }
 

@@ -4243,7 +4243,7 @@ struct OverlaysSections: View {
                         HStack(alignment: .top, spacing: 8) {
                             Image(systemName: "exclamationmark.triangle.fill")
                                 .font(.aero(.footnote))
-                                .foregroundColor(.orange)
+                                .foregroundColor(theme.warning)   // the caution token, not a fixed orange (v6.0 review)
                                 .accessibilityHidden(true)
                             Text(L10n.Nav.airspaceNoData)
                                 .font(.aero(.caption))

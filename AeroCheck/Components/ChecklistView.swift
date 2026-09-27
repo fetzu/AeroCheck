@@ -424,7 +424,7 @@ struct ChecklistView: View {
                     Spacer()
                 }
 
-                AviationDivider()
+                AviationDivider(color: theme.panelStroke)   // no gold in flight (v6.0 review)
                     .padding(.vertical, isCompact ? 8 : 12)
             }
             
@@ -508,7 +508,7 @@ struct ChecklistView: View {
             // (v6.0 · B3)
             if !phase.completionText.isEmpty {
                 let isDone = stepByStepEnabled && highlightedItemIndex >= visibleItems.count
-                AviationDivider()
+                AviationDivider(color: theme.panelStroke)   // no gold in flight (v6.0 review)
                     .padding(.vertical, 12)
                 
                 HStack(spacing: 8) {
@@ -789,30 +789,32 @@ struct ChecklistView: View {
         .buttonStyle(.plain)
     }
 
+    /// The hour meter once read: the same size as the prompt it replaces, where it was a 40 pt row of
+    /// 12-16 pt text beside a 64 pt prompt. (v6.0 review)
     private func engineHoursRow(hours: Double, format: String?, onEdit: @escaping () -> Void) -> some View {
         Button(action: onEdit) {
-            HStack(spacing: 8) {
+            HStack(spacing: 12) {
                 Image(systemName: "gauge.with.dots.needle.50percent")
                     .foregroundColor(theme.action)
-                    .font(.aero(size: 14))
+                    .font(.aero(size: isCompact ? 16 : 22))
                 Text(L10n.FlightDetail.engineHours.uppercased())
-                    .font(.aero(size: 12, weight: .medium))
+                    .font(.aero(size: isCompact ? 12 : CockpitType.label, weight: .medium))
                     .foregroundColor(theme.textSecondary)
-                Spacer()
+                Spacer(minLength: 8)
                 Text(format == "time" ? Flight.formatHoursTime(hours) : Flight.formatHoursDecimal(hours))
-                    .font(.aero(size: 16, weight: .medium, design: .monospaced))
+                    .font(.aero(size: isCompact ? 16 : CockpitType.row, weight: .bold, design: .monospaced))
                     .foregroundColor(theme.action)
                 Image(systemName: "pencil")
                     .foregroundColor(theme.textDim)
-                    .font(.aero(size: 12))
+                    .font(.aero(size: isCompact ? 12 : 16))
             }
             .padding(.horizontal, 16)
-            .padding(.vertical, 10)
+            .frame(maxWidth: .infinity, minHeight: isCompact ? 48 : 64)
             .background(
-                RoundedRectangle(cornerRadius: 8)
+                RoundedRectangle(cornerRadius: 12)
                     .fill(theme.action.opacity(0.08))
                     .overlay(
-                        RoundedRectangle(cornerRadius: 8)
+                        RoundedRectangle(cornerRadius: 12)
                             .stroke(theme.action.opacity(0.2), lineWidth: 1)
                     )
             )

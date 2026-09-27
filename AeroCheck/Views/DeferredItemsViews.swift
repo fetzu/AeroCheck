@@ -88,10 +88,11 @@ struct DeferredItemsChip: View {
                 Text(L10n.Deferred.review)
                 Image(systemName: "chevron.right")
             }
-            .font(.aero(size: 19, weight: .semibold))
+            // On the Cockpit's scale: its label size, and a control's height at least. (v6.0 review)
+            .font(.aero(size: CockpitType.label, weight: .semibold))
             .foregroundColor(theme.warning)
             .padding(.horizontal, 16)
-            .frame(maxWidth: .infinity, minHeight: 56)
+            .frame(maxWidth: .infinity, minHeight: max(56, CockpitTarget.control))
             .background(RoundedRectangle(cornerRadius: 12).fill(theme.warning.opacity(0.12)))
             .overlay(RoundedRectangle(cornerRadius: 12).stroke(theme.warning.opacity(0.6), lineWidth: 1))
         }

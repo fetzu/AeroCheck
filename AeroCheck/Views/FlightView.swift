@@ -1269,7 +1269,9 @@ extension FlightView {
                 case .stacked:
                     VStack(spacing: 1) {
                         Image(systemName: "slider.horizontal.3").font(.aero(size: 16, weight: .semibold))
-                        Text(L10n.Cockpit.menu).font(.aero(size: 14, weight: .bold))
+                        // The Cockpit's label size, as the labelled variant beside it; 14 pt was under
+                        // the phone's scale on every mid-size iPhone in portrait. (v6.0 review)
+                        Text(L10n.Cockpit.menu).font(.aero(size: CockpitType.label, weight: .bold))
                     }
                 case .icon:
                     Image(systemName: "slider.horizontal.3").font(.aero(size: 18, weight: .semibold))

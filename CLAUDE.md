@@ -71,7 +71,7 @@ AeroCheck/
 │   ├── ContentView.swift      # Root router: GroundView on the ground, FlightView in flight
 │   ├── GroundView.swift       # 6.0 ground tab bar: Today · Plan (Flights | Routes | Map) · Logbook · Aircraft · Settings
 │   ├── HomeView.swift         # The Today tab: logo (5-tap), next flight, START, Circuits / second action, aircraft, last flight
-│   ├── FlightView.swift       # In flight: the Cockpit on iPad (see Cockpit.swift), the v4 HUD on iPhone; the Menu sheet
+│   ├── FlightView.swift       # In flight: the Cockpit (see Cockpit.swift) on both iPad and iPhone since the iPhone pass — `CockpitLayout` (wide/narrow/columns) adapts the same four zones; the Menu sheet
 │   ├── Cockpit.swift          # 6.0 Cockpit pieces: CockpitPaneRule (CHECKLIST | MAP by phase), thumb button, pane picker
 │   ├── DeferredItemsViews.swift # Open-items review on NEXT, deferred chip + sheet (v6.0 · B2)
 │   ├── FlightLogView.swift    # The Logbook: dashboard + master/detail flight history, export/import, share cards (modes: combined/logbook/plan)
@@ -390,7 +390,7 @@ Liquid Glass chrome (`DesignSystem.floatingChromeBackground/Circle`) is iOS 26+ 
 ### Premium (Subscription) — 13 aircraft (14 total) delivered via the v3 API
 Piper Archer II PA-28-181 (HB-PFA), PA28-161 Warrior II (HB-PNL), PA28-161 Piper Cadet (HB-OJI),
 PA28-236 Dakota II (HB-PMP), PA32R-301 Saratoga II (HB-PJE), PA18-150 Super Cub (HB-ORV),
-Piper L4 (HB-OKN), Robin DR400/140B (HB-KFD), Robin DR400/140B (HB-KFO, HB-KFP), Robin DR401/140B (HB-KOJ),
+Piper L4 (HB-OKN), Robin DR400/140B (HB-KFD, HB-KFI), Robin DR400/140B (HB-KFO, HB-KFP), Robin DR401/140B (HB-KOJ),
 CAP10-C (HB-SAX), Pipistrel VELIS Electro SW128 (HB-SYI), Sportcruiser PS-28 (F-HPSA).
 
 Sourced from three flying clubs (Groupe de Vol à Moteur de Porrentruy / GVMP, Lausanne Aéroclub, and
@@ -557,6 +557,12 @@ Secrets are **not** hard-coded in tracked source. They flow:
 - A client-embedded key is inherently extractable from the binary/traffic. The protections that
   matter are: (a) keep it out of *tracked* (esp. *public*) source, and (b) rotate if it leaks.
   Do **not** reintroduce a literal key in source.
+
+`ElevationService.swift` calls `api.open-meteo.com/v1/elevation` directly, unkeyed, instead of
+through the weather worker — a deliberate choice (author decision 2026-09-27), not an oversight:
+the app itself is free, the subscription only unlocks premium aircraft checklists, and Open-Meteo
+elevation is not paywalled content worth routing through licensed infrastructure. Don't re-raise
+this in review.
 
 ### Versioning and build numbers
 

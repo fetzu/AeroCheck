@@ -817,6 +817,8 @@ enum L10n {
         static let syncing = String(localized: "settings.icloud.syncing")
         static let icloudFooter = String(localized: "settings.icloud.whenEnabledDesc")
         static let flightLogsFooter = String(localized: "settings.icloud.flightLogsStored")
+        /// What "Sync to iCloud" off means now that it covers iCloud Drive too.
+        static let icloudOffFooter = String(localized: "settings.icloud.offKeepsLocal")
 
         // Offline Maps
         static let offlineMaps = String(localized: "settings.offlineMaps")

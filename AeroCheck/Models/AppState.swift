@@ -158,7 +158,7 @@ struct AppSettings: Codable, Equatable {
     var hiddenAeroclubs: Set<String> = [] // Entire aeroclubs left out the same way
 
     // iCloud Sync
-    var iCloudSyncEnabled: Bool = true // When true, syncs settings and flights to iCloud
+    var iCloudSyncEnabled: Bool = true // When true, syncs settings and flights to iCloud (CloudKit AND the iCloud Drive store). Per device: the datastore's switch is authoritative, see AppState.reconcileSyncSwitch
 
     // Checklist Language
     var checklistLanguage: ChecklistLanguage = .auto // Language for checklist content
@@ -920,8 +920,10 @@ class AppState {
         let launchSettings = settings
         Task { [weak self] in
             guard let self = self else { return }
-            guard let fileSettings = await self.persistence.loadSettingsOffMain(),
-                  fileSettings != launchSettings,
+            guard var fileSettings = await self.persistence.loadSettingsOffMain() else { return }
+            // The switch is this device's, not the file's (see reconcileSyncSwitch).
+            fileSettings.iCloudSyncEnabled = self.persistence.usesICloudDrive
+            guard fileSettings != launchSettings,
                   self.settings == launchSettings else { return }
             self.settings = fileSettings.clampedForIngest().migratedLocally() // SEC-C25
             self.saveSettings()
@@ -962,6 +964,8 @@ class AppState {
                 var merged = self.settings.preservingFieldsUnknownTo(settings)
                 merged.developerMode = self.settings.developerMode
                 merged.marketingMode = self.settings.marketingMode
+                // Where this device keeps its data is its own choice, never another device's.
+                merged.iCloudSyncEnabled = self.settings.iCloudSyncEnabled
                 self.settings = merged
                 // Save synced settings to file for future loads
                 self.persistence.saveSettings(merged)
@@ -2252,6 +2256,12 @@ class AppState {
     }
 
     func saveSettings() {
+        // The switch covers the iCloud Drive store too: move the datastore first, so the settings
+        // land in the store they now belong to. A move brings in what the other store adds.
+        if persistence.setUsesICloudDrive(settings.iCloudSyncEnabled) {
+            reloadFlights()
+        }
+
         // Save to file-based storage
         persistence.saveSettings(settings)
 
@@ -2316,9 +2326,24 @@ class AppState {
             // the numeric ranges (e.g. gpsRecordingInterval) unguarded on the file route.
             settings = loadedSettings.clampedForIngest().migratedLocally()
             if settings.schemaVersion != loadedSettings.schemaVersion { persistence.saveSettings(settings) }
+        }
+        reconcileSyncSwitch()
 
-            // Update sync manager with loaded preference
-            syncManager?.isSyncEnabled = settings.iCloudSyncEnabled
+        // Update sync manager with the switch
+        syncManager?.isSyncEnabled = settings.iCloudSyncEnabled
+    }
+
+    /// "Sync to iCloud" decides where this device keeps its data, so it is the device's own: the
+    /// datastore reads it before settings.json can be found, since that file lives in the store
+    /// the switch picks. A value in the file, or from another device, does not override it.
+    ///
+    /// A device with no stored choice yet (a fresh install) takes the value it just loaded, and a
+    /// file saying off then moves the datastore to local, as the switch would.
+    private func reconcileSyncSwitch() {
+        if persistence.hasStoredSyncPreference {
+            settings.iCloudSyncEnabled = persistence.usesICloudDrive
+        } else {
+            persistence.setUsesICloudDrive(settings.iCloudSyncEnabled)
         }
     }
 

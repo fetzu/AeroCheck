@@ -22799,6 +22799,23 @@
         }
       }
     },
+    "settings.icloud.offKeepsLocal": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Off: your flights and settings stay on this device. What is already in iCloud Drive stays there."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Désactivé : vos vols et réglages restent sur cet appareil. Ce qui se trouve déjà dans iCloud Drive y reste."
+          }
+        }
+      }
+    },
     "settings.icloud.syncNow": {
       "extractionState": "manual",
       "localizations": {

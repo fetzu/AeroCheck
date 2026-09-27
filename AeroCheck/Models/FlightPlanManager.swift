@@ -1,3 +1,4 @@
+import Combine
 import Foundation
 import CoreLocation
 import SwiftUI
@@ -25,6 +26,8 @@ class FlightPlanManager: ObservableObject {
     /// Where the plan files live. Injectable for the same reason as `defaults`: in a test, `.shared`
     /// is the simulator app's own datastore.
     private let persistence: DataPersistenceManager
+    /// Loads what a store move brings in ("Sync to iCloud" switched), see `init`.
+    private var datastoreMoves: AnyCancellable?
     /// Where the active-plan pointer lives. Injectable so tests get their own suite: the test host
     /// shares the app's bundle id, so a test that activated a plan against `.standard` left a
     /// synthetic route showing as ACTIVE in the real app on that simulator.
@@ -60,6 +63,14 @@ class FlightPlanManager: ObservableObject {
         Task { [weak self] in
             await self?.loadFlightPlansAsync()
         }
+        // "Sync to iCloud" moved the datastore: the plans the other store adds join the ones in
+        // memory (the load merges by id, so nothing in memory is replaced).
+        datastoreMoves = NotificationCenter.default
+            .publisher(for: .datastoreLocationDidChange, object: self.persistence)
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] _ in
+                Task { await self?.loadFlightPlansAsync() }
+            }
     }
 
     /// Clear the departure time from every plan no flight follows.

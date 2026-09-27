@@ -1,8 +1,9 @@
 import Foundation
 
 /// Manages file-based data persistence
-/// - Flights and NavigationPlans: Stored in iCloud Drive (visible in Files app under iCloud/AéroCheck/)
-/// - Settings: Stored in iCloud Drive (synced automatically)
+/// - Flights, NavigationPlans, FlightThreads, trips and settings: in iCloud Drive (visible in Files
+///   under iCloud/AéroCheck/) while "Sync to iCloud" is on and iCloud is available, otherwise in
+///   local Application Support
 /// - Map Cache: Stored locally in Documents (not synced)
 @MainActor
 class DataPersistenceManager: ObservableObject {
@@ -35,7 +36,7 @@ class DataPersistenceManager: ObservableObject {
     /// The index files that live beside flights and plans. Matched by name: the filter used to skip
     /// any file with "index" in its name, and plan files are named after their route, so a route
     /// called, say, "Index test" vanished at the next launch. (v6.0 review)
-    static let indexFileNames: Set<String> = ["plans_index.json", "flights_index.json"]
+    nonisolated static let indexFileNames: Set<String> = ["plans_index.json", "flights_index.json"]
 
     // MARK: - Cached Properties
 
@@ -77,6 +78,23 @@ class DataPersistenceManager: ObservableObject {
     /// iCloud Documents directory (visible in Files app as iCloud/AéroCheck)
     private var iCloudDocumentsURL: URL?
 
+    /// Where this device keeps its "Sync to iCloud" choice. `.standard` for the app's datastore; nil
+    /// for a confined (test) datastore without injected preferences, which then keeps it in memory.
+    private let preferences: UserDefaults?
+
+    /// The device's "Sync to iCloud" switch, which now covers iCloud Drive as well as CloudKit.
+    ///
+    /// The switch only ever gated CloudKit: flights, plans, threads, trips and settings kept going
+    /// to the app's iCloud Drive folder whenever it was available, switch on or off. Off now means
+    /// the datastore is local. It is decided per device and read before anything else loads,
+    /// because settings.json itself lives in whichever store is active. (author decision 2026-09-28)
+    private(set) var usesICloudDrive: Bool
+
+    /// The iCloud Documents directory while it is the active store: available AND switched on.
+    private var activeICloudDocumentsURL: URL? {
+        usesICloudDrive ? iCloudDocumentsURL : nil
+    }
+
     /// Local app data directory (non-browsable Application Support, not the exposed Documents root).
     var localAppDirectory: URL {
         applicationSupportDirectory
@@ -84,7 +102,7 @@ class DataPersistenceManager: ObservableObject {
 
     /// Flights directory - directly in iCloud Documents (visible as iCloud/AéroCheck/Flights)
     var flightsDirectory: URL {
-        if let iCloudDocs = iCloudDocumentsURL {
+        if let iCloudDocs = activeICloudDocumentsURL {
             return iCloudDocs.appendingPathComponent(flightsFolderName, isDirectory: true)
         }
         return localAppDirectory.appendingPathComponent(flightsFolderName, isDirectory: true)
@@ -92,7 +110,7 @@ class DataPersistenceManager: ObservableObject {
 
     /// Navigation plans directory - directly in iCloud Documents (visible as iCloud/AéroCheck/NavigationPlans)
     var navigationPlansDirectory: URL {
-        if let iCloudDocs = iCloudDocumentsURL {
+        if let iCloudDocs = activeICloudDocumentsURL {
             return iCloudDocs.appendingPathComponent(navigationPlansFolderName, isDirectory: true)
         }
         return localAppDirectory.appendingPathComponent(navigationPlansFolderName, isDirectory: true)
@@ -100,7 +118,7 @@ class DataPersistenceManager: ObservableObject {
 
     /// Flight threads directory — beside the plans, so a thread syncs with the plan it follows. (v5.0.0)
     var flightThreadsDirectory: URL {
-        if let iCloudDocs = iCloudDocumentsURL {
+        if let iCloudDocs = activeICloudDocumentsURL {
             return iCloudDocs.appendingPathComponent(flightThreadsFolderName, isDirectory: true)
         }
         return localAppDirectory.appendingPathComponent(flightThreadsFolderName, isDirectory: true)
@@ -117,7 +135,7 @@ class DataPersistenceManager: ObservableObject {
 
     /// Settings file URL - in iCloud Documents if available, otherwise local
     private var settingsFileURL: URL {
-        if let iCloudDocs = iCloudDocumentsURL {
+        if let iCloudDocs = activeICloudDocumentsURL {
             return iCloudDocs.appendingPathComponent(settingsFileName)
         }
         return localAppDirectory.appendingPathComponent(settingsFileName)
@@ -126,6 +144,11 @@ class DataPersistenceManager: ObservableObject {
     /// Whether iCloud is available
     var isICloudAvailable: Bool {
         iCloudContainerURL != nil
+    }
+
+    /// Whether the datastore is in iCloud Drive right now: iCloud available and the switch on.
+    var isUsingICloudDrive: Bool {
+        activeICloudDocumentsURL != nil
     }
 
     /// False only for a datastore confined to a directory (`init(rootDirectory:)`), which must never
@@ -145,15 +168,26 @@ class DataPersistenceManager: ObservableObject {
     /// Everything this instance hands out stays under `rootDirectory`: it never resolves the iCloud
     /// container, never runs the Documents → Application Support migration (whose flag lives in
     /// `UserDefaults.standard`), and ignores iCloud account changes.
-    init(rootDirectory: URL) {
+    ///
+    /// `iCloudDocumentsDirectory` stands in for the iCloud Drive container, a plain directory, so the
+    /// "Sync to iCloud" gate can be tested; `preferences` keeps the switch (nil: in memory only).
+    init(rootDirectory: URL, iCloudDocumentsDirectory: URL? = nil, preferences: UserDefaults? = nil) {
         self.documentsDirectory = rootDirectory.appendingPathComponent("Documents", isDirectory: true)
         self.applicationSupportDirectory = rootDirectory
         self.followsICloud = false
+        self.preferences = preferences
+        self.usesICloudDrive = preferences?.object(forKey: Self.syncPreferenceKey) as? Bool ?? true
+        self.iCloudContainerURL = iCloudDocumentsDirectory?.deletingLastPathComponent()
+        self.iCloudDocumentsURL = iCloudDocumentsDirectory
+        adoptSyncSwitchIfNeeded()
+        runPendingDatastoreMerge()
         createDirectoryStructure()
     }
 
     private init() {
         self.followsICloud = true
+        self.preferences = .standard
+        self.usesICloudDrive = UserDefaults.standard.object(forKey: Self.syncPreferenceKey) as? Bool ?? true
         // Cache directory URLs once to avoid repeated calls to
         // url(forUbiquityContainerIdentifier:) which blocks the main thread
         self.documentsDirectory = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first
@@ -173,6 +207,11 @@ class DataPersistenceManager: ObservableObject {
         // One-time relocation of any existing local-fallback data out of the exposed Documents
         // root into Application Support, BEFORE creating the (possibly-overlapping) new dirs. (SEC-12)
         migrateLocalDatastoreIfNeeded()
+
+        // Before anything loads: a device that had the switch off kept its data in iCloud Drive
+        // until now, and reads it locally from this build on.
+        adoptSyncSwitchIfNeeded()
+        runPendingDatastoreMerge()
 
         createDirectoryStructure()
 
@@ -217,6 +256,8 @@ class DataPersistenceManager: ObservableObject {
         iCloudDocumentsURL = container?.appendingPathComponent("Documents", isDirectory: true)
         AppLog.general.debugLine(
             "iCloud identity changed; container is now \(container == nil ? "unavailable (local-only)" : "available")")
+        // A copy the switch owes that had to wait for the container.
+        runPendingDatastoreMerge()
         createDirectoryStructure()
     }
 
@@ -287,6 +328,176 @@ class DataPersistenceManager: ObservableObject {
         return moved
     }
 
+    // MARK: - "Sync to iCloud" and the iCloud Drive store
+
+    /// The device's switch, in `preferences`. The same key `SyncManager` keeps its CloudKit switch
+    /// under, so one device-local value decides both.
+    nonisolated static let syncPreferenceKey = "iCloudSyncEnabled"
+
+    /// The copy between the two stores the switch still owes, if any (`MergeDirection` raw value).
+    nonisolated static let pendingMergeKey = "iCloudDrivePendingMerge_v1"
+
+    /// Set once this install has adopted the switch for iCloud Drive (see `adoptSyncSwitchIfNeeded`).
+    nonisolated static let switchAdoptedKey = "iCloudDriveSwitchAdopted_v1"
+
+    enum MergeDirection: String {
+        /// iCloud Drive → local: the switch went off.
+        case toLocal
+        /// Local → iCloud Drive: the switch went back on.
+        case toICloud
+    }
+
+    /// In-memory stand-ins for a datastore without `preferences`.
+    private var memoryPendingMerge: MergeDirection?
+    private var memorySwitchAdopted = false
+
+    private var pendingMerge: MergeDirection? {
+        get {
+            guard let preferences else { return memoryPendingMerge }
+            return preferences.string(forKey: Self.pendingMergeKey).flatMap(MergeDirection.init(rawValue:))
+        }
+        set {
+            guard let preferences else { memoryPendingMerge = newValue; return }
+            preferences.set(newValue?.rawValue, forKey: Self.pendingMergeKey)
+        }
+    }
+
+    /// Whether this device has a stored choice. Without one (a fresh install), `AppState` adopts
+    /// the value in the settings it loads.
+    var hasStoredSyncPreference: Bool {
+        preferences?.object(forKey: Self.syncPreferenceKey) != nil
+    }
+
+    /// Turns the iCloud Drive store on or off with the switch. Returns whether the store moved.
+    ///
+    /// Nothing is deleted on either side: what is in iCloud Drive stays there when the switch goes
+    /// off, and the local files stay when it goes back on. The store being left is copied into the
+    /// one taken up (files missing there, or newer), so nothing the pilot saw disappears. Observers
+    /// of `.datastoreLocationDidChange` then load what the new store adds.
+    @discardableResult
+    func setUsesICloudDrive(_ enabled: Bool) -> Bool {
+        preferences?.set(enabled, forKey: Self.syncPreferenceKey)
+        guard enabled != usesICloudDrive else { return false }
+        usesICloudDrive = enabled
+        pendingMerge = enabled ? .toICloud : .toLocal
+        runPendingDatastoreMerge()
+        createDirectoryStructure()
+        NotificationCenter.default.post(name: .datastoreLocationDidChange, object: self)
+        return true
+    }
+
+    /// Up to this build, a device with the switch off still kept everything in iCloud Drive. The
+    /// first launch with the switch covering iCloud Drive therefore owes such a device a copy of it
+    /// in the local store, or its logbook would come up empty. Once per install.
+    private func adoptSyncSwitchIfNeeded() {
+        let adopted = preferences?.bool(forKey: Self.switchAdoptedKey) ?? memorySwitchAdopted
+        guard !adopted else { return }
+        if !usesICloudDrive { pendingMerge = .toLocal }
+        if let preferences { preferences.set(true, forKey: Self.switchAdoptedKey) } else { memorySwitchAdopted = true }
+    }
+
+    /// Runs the copy the switch owes, once iCloud Drive can be reached.
+    ///
+    /// A file iCloud has not downloaded yet cannot be copied without waiting on the network: its
+    /// download is requested and the copy stays owed until a later launch finds it. A copy owed in
+    /// the direction the switch no longer points is dropped: the other direction has replaced it.
+    func runPendingDatastoreMerge() {
+        guard let direction = pendingMerge else { return }
+        guard (direction == .toICloud) == usesICloudDrive else {
+            pendingMerge = nil
+            return
+        }
+        guard let iCloudDocs = iCloudDocumentsURL else { return }
+        let result: DatastoreMergeResult
+        switch direction {
+        case .toLocal:
+            result = Self.mergeDatastore(from: iCloudDocs, into: localAppDirectory, fileManager: .default)
+        case .toICloud:
+            result = Self.mergeDatastore(from: localAppDirectory, into: iCloudDocs, fileManager: .default)
+        }
+        AppLog.general.debugLine(
+            "Datastore merge \(direction.rawValue): copied \(result.copied), waiting on \(result.notDownloaded) download(s)")
+        if result.notDownloaded == 0 { pendingMerge = nil }
+    }
+
+    /// What a merge copied, and how many source files were not downloaded yet.
+    struct DatastoreMergeResult: Equatable {
+        var copied = 0
+        var notDownloaded = 0
+    }
+
+    /// The folders and root files the switch moves between the stores. The plans index is left out:
+    /// it records the filename each plan was last written under IN THAT STORE, and the next plan
+    /// save rewrites it for the store it lands in.
+    nonisolated static let mergedFolders = ["Flights", "NavigationPlans", "FlightThreads"]
+    nonisolated static let mergedRootFiles = ["settings.json", "trips.json"]
+
+    /// Copies every datastore file of `source` that `destination` lacks, or holds an older copy of.
+    /// Never deletes anything, on either side. Pure file work, so it is tested on plain directories.
+    nonisolated static func mergeDatastore(from source: URL, into destination: URL,
+                                           fileManager: FileManager) -> DatastoreMergeResult {
+        var result = DatastoreMergeResult()
+        for folder in mergedFolders {
+            let from = source.appendingPathComponent(folder, isDirectory: true)
+            let to = destination.appendingPathComponent(folder, isDirectory: true)
+            guard let entries = try? fileManager.contentsOfDirectory(
+                at: from, includingPropertiesForKeys: [.contentModificationDateKey, .ubiquitousItemDownloadingStatusKey])
+            else { continue }
+            try? fileManager.createDirectory(at: to, withIntermediateDirectories: true)
+            for entry in entries {
+                let name = entry.lastPathComponent
+                // An evicted iCloud file shows as ".<name>.icloud".
+                if name.hasPrefix("."), name.hasSuffix(".icloud") {
+                    let real = String(name.dropFirst().dropLast(".icloud".count))
+                    try? fileManager.startDownloadingUbiquitousItem(at: from.appendingPathComponent(real))
+                    result.notDownloaded += 1
+                    continue
+                }
+                guard entry.pathExtension == "json", !indexFileNames.contains(name) else { continue }
+                copyIfNewer(entry, to: to.appendingPathComponent(name), fileManager: fileManager, result: &result)
+            }
+        }
+        for file in mergedRootFiles {
+            let from = source.appendingPathComponent(file)
+            if fileManager.fileExists(atPath: from.path) {
+                copyIfNewer(from, to: destination.appendingPathComponent(file), fileManager: fileManager, result: &result)
+            } else {
+                let placeholder = source.appendingPathComponent(".\(file).icloud")
+                if fileManager.fileExists(atPath: placeholder.path) {
+                    try? fileManager.startDownloadingUbiquitousItem(at: from)
+                    result.notDownloaded += 1
+                }
+            }
+        }
+        return result
+    }
+
+    /// Copies `source` over `destination` when the destination is missing or older.
+    private nonisolated static func copyIfNewer(_ source: URL, to destination: URL, fileManager: FileManager,
+                                                result: inout DatastoreMergeResult) {
+        guard isLocallyMaterialized(source) else {
+            try? fileManager.startDownloadingUbiquitousItem(at: source)
+            result.notDownloaded += 1
+            return
+        }
+        let modified = { (url: URL) in
+            (try? url.resourceValues(forKeys: [.contentModificationDateKey]))?.contentModificationDate
+        }
+        if fileManager.fileExists(atPath: destination.path) {
+            guard let sourceDate = modified(source), let destinationDate = modified(destination),
+                  sourceDate > destinationDate else { return }
+            try? fileManager.removeItem(at: destination)
+        }
+        do {
+            try fileManager.copyItem(at: source, to: destination)
+            try? fileManager.setAttributes([.protectionKey: FileProtectionType.completeUntilFirstUserAuthentication],
+                                           ofItemAtPath: destination.path)
+            result.copied += 1
+        } catch {
+            AppLog.general.debugLine("Datastore merge: could not copy \(source.lastPathComponent): \(error.localizedDescription)")
+        }
+    }
+
     // MARK: - Directory Management
 
     /// Creates the required directory structure
@@ -297,8 +508,9 @@ class DataPersistenceManager: ObservableObject {
             // Create map data folder (local only - On this iPhone/AéroCheck/MapData)
             try fileManager.createDirectory(at: mapTilesDirectory, withIntermediateDirectories: true)
 
-            // Create iCloud Documents directory if available
-            if let iCloudDocs = iCloudDocumentsURL {
+            // Create iCloud Documents directory if it is the active store (nothing is created in
+            // iCloud Drive while "Sync to iCloud" is off)
+            if let iCloudDocs = activeICloudDocumentsURL {
                 try fileManager.createDirectory(at: iCloudDocs, withIntermediateDirectories: true)
             }
 
@@ -307,7 +519,7 @@ class DataPersistenceManager: ObservableObject {
             try fileManager.createDirectory(at: navigationPlansDirectory, withIntermediateDirectories: true)
             try fileManager.createDirectory(at: flightThreadsDirectory, withIntermediateDirectories: true)
 
-            if isICloudAvailable {
+            if isUsingICloudDrive {
                 AppLog.general.debugLine("Directory structure created with iCloud at: \(flightsDirectory.path)")
             } else {
                 AppLog.general.debugLine("Directory structure created locally at: \(localAppDirectory.path)")
@@ -995,7 +1207,7 @@ class DataPersistenceManager: ObservableObject {
     /// It sits in the iCloud Documents ROOT rather than the FlightThreads folder because
     /// `decodeFlightThreads` enumerates that folder and would try to read a trip as a thread.
     var tripsFileURL: URL {
-        if let iCloudDocs = iCloudDocumentsURL {
+        if let iCloudDocs = activeICloudDocumentsURL {
             return iCloudDocs.appendingPathComponent("trips.json")
         }
         return localAppDirectory.appendingPathComponent("trips.json")
@@ -1109,4 +1321,9 @@ class DataPersistenceManager: ObservableObject {
 struct NavigationPlanIndexEntry: Codable {
     let id: UUID
     let filename: String
+}
+
+extension Notification.Name {
+    /// Posted by a `DataPersistenceManager` (the object) when "Sync to iCloud" moved its store.
+    static let datastoreLocationDidChange = Notification.Name("AeroCheck.datastoreLocationDidChange")
 }

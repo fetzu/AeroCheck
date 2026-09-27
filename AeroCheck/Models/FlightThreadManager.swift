@@ -1,3 +1,4 @@
+import Combine
 import Foundation
 import CoreLocation
 
@@ -41,6 +42,8 @@ class FlightThreadManager: ObservableObject {
 
     private let currentThreadKey = "currentFlightThreadId"
     private let persistence: DataPersistenceManager
+    /// Loads what a store move brings in ("Sync to iCloud" switched), see `init`.
+    private var datastoreMoves: AnyCancellable?
     private let defaults: UserDefaults
     private let notifications: NotificationService
     /// Mirrors `AppSettings.enableCostTracking`. Held here rather than reached for, because the task
@@ -72,6 +75,25 @@ class FlightThreadManager: ObservableObject {
             await tripLoad.value
             await self?.loadThreadsAsync()
         }
+        // "Sync to iCloud" moved the datastore: the trips and threads the other store adds join
+        // the ones in memory (both loads merge by id). The trip load goes on the write chain, as at
+        // launch, so no save writes a trips.json that lacks them.
+        datastoreMoves = NotificationCenter.default
+            .publisher(for: .datastoreLocationDidChange, object: self.persistence)
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] _ in
+                guard let self else { return }
+                let previous = self.tripWriteChain
+                let tripLoad: Task<Void, Never> = Task { [weak self] in
+                    await previous?.value
+                    await self?.loadTrips()
+                }
+                self.tripWriteChain = tripLoad
+                Task { [weak self] in
+                    await tripLoad.value
+                    await self?.loadThreadsAsync()
+                }
+            }
     }
 
     // MARK: - Derived

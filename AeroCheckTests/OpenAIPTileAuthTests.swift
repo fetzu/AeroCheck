@@ -1,3 +1,4 @@
+import CoreLocation
 import XCTest
 @testable import AeroCheck
 
@@ -132,5 +133,105 @@ final class OpenAIPTilePruneTests: XCTestCase {
         XCTAssertEqual(deleted, 0)
         XCTAssertTrue(tileExists(z: keep.z, x: keep.x, y: keep.y),
                       "a tile the current selection still covers must be kept")
+    }
+}
+
+/// S9-26: the two requests carrying the OpenAIP key that bypassed `ExternalRequest` (the CTRs-near-me
+/// fetch and the bulk tile download) now go through it, so the key header is stripped on a
+/// cross-host redirect (SEC-C33) and the body is capped (SEC-C32). The bulk path is driven here
+/// through a stub transport; nothing reaches the network.
+final class OpenAIPRequestGuardTests: XCTestCase {
+
+    /// Answers by host instead of the network, and remembers the headers each host was sent.
+    final class StubProtocol: URLProtocol {
+        private static let lock = NSLock()
+        private static var headersByHost: [String: [String: String]] = [:]
+
+        static func reset() { lock.withLock { headersByHost = [:] } }
+        static func headers(sentTo host: String) -> [String: String]? { lock.withLock { headersByHost[host] } }
+
+        override class func canInit(with request: URLRequest) -> Bool { true }
+        override class func canonicalRequest(for request: URLRequest) -> URLRequest { request }
+        override func stopLoading() {}
+
+        override func startLoading() {
+            guard let url = request.url, let host = url.host else { return }
+            Self.lock.withLock { Self.headersByHost[host] = request.allHTTPHeaderFields ?? [:] }
+            switch host {
+            case "a.api.tiles.openaip.net":
+                // A cross-host redirect, as a compromised or misconfigured origin could send. The
+                // new request starts as a copy of the old one, headers and all, as CFNetwork's does.
+                let target = URL(string: "https://elsewhere.example/tile.png")!
+                let redirect = HTTPURLResponse(url: url, statusCode: 302, httpVersion: "HTTP/1.1",
+                                               headerFields: ["Location": target.absoluteString])!
+                var next = request
+                next.url = target
+                client?.urlProtocol(self, wasRedirectedTo: next, redirectResponse: redirect)
+                client?.urlProtocol(self, didReceive: redirect, cacheStoragePolicy: .notAllowed)
+                client?.urlProtocolDidFinishLoading(self)
+            default:
+                // A small body with no declared length: only counting while it streams can bound it.
+                let response = HTTPURLResponse(url: url, statusCode: 200, httpVersion: "HTTP/1.1", headerFields: [:])!
+                client?.urlProtocol(self, didReceive: response, cacheStoragePolicy: .notAllowed)
+                client?.urlProtocol(self, didLoad: Data(count: 2048))
+                client?.urlProtocolDidFinishLoading(self)
+            }
+        }
+    }
+
+    private var session: URLSession!
+
+    override func setUp() {
+        super.setUp()
+        StubProtocol.reset()
+        let config = URLSessionConfiguration.ephemeral
+        config.protocolClasses = [StubProtocol.self]
+        session = URLSession(configuration: config)
+    }
+
+    override func tearDown() {
+        session.invalidateAndCancel()
+        super.tearDown()
+    }
+
+    private func keyedRequest(_ string: String) -> URLRequest {
+        var request = URLRequest(url: URL(string: string)!)
+        request.setValue("test-openaip-key", forHTTPHeaderField: OpenAIPConfig.apiKeyHeader)
+        return request
+    }
+
+    func testABulkTileRedirectedToAnotherHostArrivesWithoutTheKey() async throws {
+        let (_, response) = try await OpenAIPCacheManager.fetchTile(
+            keyedRequest("https://a.api.tiles.openaip.net/api/data/openaip/1/2/3.png"), session: session)
+
+        XCTAssertEqual(response.statusCode, 200)
+        XCTAssertEqual(StubProtocol.headers(sentTo: "a.api.tiles.openaip.net")?[OpenAIPConfig.apiKeyHeader],
+                       "test-openaip-key", "OpenAIP itself still gets the key")
+        let elsewhere = try XCTUnwrap(StubProtocol.headers(sentTo: "elsewhere.example"), "the redirect was followed")
+        XCTAssertNil(elsewhere[OpenAIPConfig.apiKeyHeader], "the key must not follow a redirect off OpenAIP")
+    }
+
+    func testABulkTileIsCappedWhileItStreams() async {
+        do {
+            _ = try await OpenAIPCacheManager.fetchTile(
+                keyedRequest("https://c.api.tiles.openaip.net/api/data/openaip/1/2/3.png"), session: session,
+                maxResponseBytes: 1024)
+            XCTFail("a body over the ceiling must be refused even without a Content-Length")
+        } catch {
+            XCTAssertTrue(error is ExternalRequest.SizeError, "refused on size, got \(error)")
+        }
+    }
+
+    /// The CTRs-near-me request: key in a header, never the URL, and the live position rounded to
+    /// about 1 km.
+    func testTheStreamingCTRRequestCarriesTheKeyInAHeaderAndACoarsePosition() throws {
+        let request = try XCTUnwrap(OpenAIPDataService.streamingCTRRequest(
+            near: CLLocationCoordinate2D(latitude: 46.912345, longitude: 7.498765)))
+        let items = try XCTUnwrap(URLComponents(url: request.url!, resolvingAgainstBaseURL: false)?.queryItems)
+
+        XCTAssertEqual(request.value(forHTTPHeaderField: OpenAIPConfig.apiKeyHeader), OpenAIPConfig.apiKey)
+        XCTAssertEqual(items.first { $0.name == "pos" }?.value, "46.91,7.50")
+        XCTAssertFalse(items.contains { $0.name.lowercased().contains("key") })
+        XCTAssertEqual(request.timeoutInterval, OpenAIPConfig.streamingRequestTimeout)
     }
 }

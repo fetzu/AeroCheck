@@ -158,6 +158,7 @@ class OpenAIPCacheManager: ObservableObject {
             let config = URLSessionConfiguration.default
             config.httpMaximumConnectionsPerHost = maxConcurrent
             config.timeoutIntervalForRequest = 15
+            config.httpAdditionalHeaders = ["User-Agent": ExternalRequest.userAgent]
             return config
         }())
 
@@ -224,6 +225,16 @@ class OpenAIPCacheManager: ObservableObject {
         await calculateCacheSize()
     }
 
+    /// One tile of a bulk download, through `ExternalRequest` like the on-screen tiles: the key
+    /// header is stripped on a cross-host redirect (SEC-C33) and the body is capped while it streams
+    /// (SEC-C32). This used the bulk session directly, with neither. No retries, as before: a failed
+    /// tile is counted and reported, and a dead network fails the batch fast. (S9-26)
+    nonisolated static func fetchTile(_ request: URLRequest, session: URLSession,
+                                      maxResponseBytes: Int = OpenAIPConfig.maxTileBytes) async throws -> (Data, HTTPURLResponse) {
+        try await ExternalRequest.data(for: request, session: session, maxRetries: 0,
+                                       maxResponseBytes: maxResponseBytes)
+    }
+
     /// Download a single tile and save to disk
     private nonisolated func downloadAndSaveTile(z: Int, x: Int, y: Int, session: URLSession) async -> Bool {
         let subdomain = OpenAIPConfig.tileSubdomains[abs(x + y) % OpenAIPConfig.tileSubdomains.count]
@@ -231,8 +242,7 @@ class OpenAIPCacheManager: ObservableObject {
         guard let request = OpenAIPConfig.tileRequest(subdomain: subdomain, z: z, x: x, y: y) else { return false }
 
         do {
-            let (data, response) = try await session.data(for: request)
-            guard let httpResponse = response as? HTTPURLResponse else { return false }
+            let (data, httpResponse) = try await Self.fetchTile(request, session: session)
 
             // HTTP 204 = no content for this tile (valid, skip)
             if httpResponse.statusCode == 204 { return true }

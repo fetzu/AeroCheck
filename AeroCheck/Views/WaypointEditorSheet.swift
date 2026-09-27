@@ -187,8 +187,8 @@ struct WaypointEditorSheet: View {
                     .padding(.vertical, 10)
 
                     // Computed values (read-only)
-                    if let mc = waypoint.magneticCourse {
-                        SettingsValueRow(title: L10n.Nav.magneticCourse, tint: tint, value: String(format: "%03d°", Int(mc)))
+                    if let mc = waypoint.formattedMagneticCourse {
+                        SettingsValueRow(title: L10n.Nav.magneticCourse, tint: tint, value: mc)
                     }
 
                     if let distance = waypoint.distance {
@@ -389,6 +389,32 @@ struct WaypointEditorSheet: View {
             }
         }
 
+        // A typed speed or wind reaches the same `Int` conversions as an imported one (a speed near
+        // Int.max trapped the leg calculation), so it gets the same bounds, and is refused out loud
+        // like the altitude above. An empty field still means "not set". (S9-07)
+        let speedText = groundSpeedString.trimmingCharacters(in: .whitespaces)
+        let parsedSpeed = speedText.isEmpty ? nil : Int(speedText)
+        if !speedText.isEmpty {
+            guard let speed = parsedSpeed, PlausibleRange.plannedAirspeedKnots.contains(Double(speed)) else {
+                invalidFieldMessage = L10n.Nav.invalidGroundSpeedMessage
+                showingInvalidValue = true
+                return
+            }
+        }
+        let directionText = windDirectionString.trimmingCharacters(in: .whitespaces)
+        let windSpeedText = windSpeedString.trimmingCharacters(in: .whitespaces)
+        let parsedDirection = directionText.isEmpty ? nil : Double(directionText)
+        let parsedWindSpeed = windSpeedText.isEmpty ? nil : Double(windSpeedText)
+        let directionIsValid = directionText.isEmpty
+            || parsedDirection.map { PlausibleRange.isPlausible($0, in: PlausibleRange.courseDegrees) } == true
+        let windSpeedIsValid = windSpeedText.isEmpty
+            || parsedWindSpeed.map { PlausibleRange.isPlausible($0, in: PlausibleRange.windSpeedKnots) } == true
+        guard directionIsValid, windSpeedIsValid else {
+            invalidFieldMessage = L10n.Nav.invalidWindMessage
+            showingInvalidValue = true
+            return
+        }
+
         var updatedWaypoint = waypoint
         updatedWaypoint.name = name
         updatedWaypoint.latitude = lat
@@ -397,9 +423,9 @@ struct WaypointEditorSheet: View {
         updatedWaypoint.frequency = frequency.isEmpty ? nil : frequency
         updatedWaypoint.callSign = callSign.isEmpty ? nil : callSign
         updatedWaypoint.remarks = remarks
-        updatedWaypoint.plannedGroundSpeed = Int(groundSpeedString)
-        updatedWaypoint.windDirection = Double(windDirectionString)
-        updatedWaypoint.windSpeed = Double(windSpeedString)
+        updatedWaypoint.plannedGroundSpeed = parsedSpeed
+        updatedWaypoint.windDirection = parsedDirection
+        updatedWaypoint.windSpeed = parsedWindSpeed
 
         onSave(updatedWaypoint)
         dismiss()

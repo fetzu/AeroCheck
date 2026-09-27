@@ -18016,6 +18016,23 @@
         }
       }
     },
+    "nav.invalidGroundSpeedMessage": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Enter a planned speed between 1 and 1000 kt, or leave the field empty."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Saisissez une vitesse prévue entre 1 et 1000 kt, ou laissez le champ vide."
+          }
+        }
+      }
+    },
     "nav.invalidValueTitle": {
       "extractionState": "manual",
       "localizations": {
@@ -18029,6 +18046,23 @@
           "stringUnit": {
             "state": "translated",
             "value": "Valeur invalide"
+          }
+        }
+      }
+    },
+    "nav.invalidWindMessage": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Enter a wind direction between 0 and 360° and a wind speed between 0 and 300 kt, or leave the fields empty."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Saisissez une direction du vent entre 0 et 360° et une vitesse du vent entre 0 et 300 kt, ou laissez les champs vides."
           }
         }
       }

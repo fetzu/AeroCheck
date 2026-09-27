@@ -2581,7 +2581,7 @@ struct NavigationMapView: View {
                 HStack(spacing: 6) {
                     // Heading + distance kept on iPad; dropped on the narrow iPhone table. (v4 UI/UX Revamp)
                     if !compact && !large {
-                        Text(leg?.magneticCourse.map { String(format: "%03d°", Int($0)) } ?? "")
+                        Text(leg?.formattedMagneticCourse ?? "")
                             .foregroundColor(theme.textSecondary).frame(width: 38, alignment: .trailing)
                         Text(leg?.distance.map { String(format: "%.1f", $0) } ?? "")
                             .foregroundColor(theme.textSecondary).frame(width: 40, alignment: .trailing)

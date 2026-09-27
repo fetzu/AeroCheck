@@ -105,11 +105,11 @@ struct FlightPlanWaypoint: Identifiable, Codable, Equatable {
 
         // Rounded, not truncated: truncating turned a 6.7-minute leg into "6", so a column of leg EETs
         // no longer added up to the ETOs printed beside it.
-        let minutes = hasLegEET ? Int((estimatedElapsedTime! / 60).rounded()) : 0
+        let minutes = hasLegEET ? (estimatedElapsedTime! / 60).safeRoundedInt(or: 0) : 0
 
         // Check if there's extra time (+5 min for first/last waypoint)
         if hasExtra {
-            let extraMinutes = Int((legEETExtra! / 60).rounded())
+            let extraMinutes = (legEETExtra! / 60).safeRoundedInt(or: 0)
             if hasLegEET {
                 return "\(minutes) + \(extraMinutes)"
             } else {
@@ -124,6 +124,36 @@ struct FlightPlanWaypoint: Identifiable, Codable, Equatable {
     /// Total EET including extra time (for calculations)
     var totalLegEET: TimeInterval {
         return (estimatedElapsedTime ?? 0) + (legEETExtra ?? 0)
+    }
+
+    /// "075°": the magnetic course to the next waypoint in whole degrees, truncated as it always
+    /// was. Nil without a course, or with one `Int` cannot hold: a course of 1e19 in a shared route
+    /// trapped the navigation table, the planning card and the waypoint editor. (S9-07)
+    var formattedMagneticCourse: String? {
+        magneticCourse.flatMap(\.safeInt).map { String(format: "%03d°", $0) }
+    }
+
+    /// The waypoint with every number `calculateRouteData` reads or writes brought inside a plausible
+    /// envelope; out of range, a value becomes nil. Nil is honest: a planned speed falls back to the
+    /// aircraft's cruise speed, a wind to the forecast, a derived leg value to "not computed".
+    /// (SEC-C17, S9-07)
+    func withPlausibleNumerics() -> FlightPlanWaypoint {
+        func inRange(_ value: Double?, _ range: ClosedRange<Double>) -> Double? {
+            value.flatMap { PlausibleRange.isPlausible($0, in: range) ? $0 : nil }
+        }
+        var w = self
+        w.altitude = inRange(altitude, PlausibleRange.altitudeFeet)
+        w.plannedGroundSpeed = plannedGroundSpeed.flatMap {
+            PlausibleRange.plannedAirspeedKnots.contains(Double($0)) ? $0 : nil
+        }
+        w.windDirection = inRange(windDirection, PlausibleRange.courseDegrees)
+        w.windSpeed = inRange(windSpeed, PlausibleRange.windSpeedKnots)
+        w.magneticCourse = inRange(magneticCourse, PlausibleRange.courseDegrees)
+        w.distance = inRange(distance, PlausibleRange.legDistanceNM)
+        w.estimatedElapsedTime = inRange(estimatedElapsedTime, FlightDataLimits.routeTimeSeconds)
+        w.legEETExtra = inRange(legEETExtra, FlightDataLimits.routeTimeSeconds)
+        w.cumulativeEET = inRange(cumulativeEET, FlightDataLimits.routeTimeSeconds)
+        return w
     }
 
     /// Formatted ETO string (e.g., "14:35"), rounded to the nearest minute like the EET beside it.
@@ -614,9 +644,8 @@ struct FlightPlan: Identifiable, Codable, Equatable {
 
     /// Formatted total EET
     var formattedTotalEET: String {
-        let hours = Int(totalEET) / 3600
-        let minutes = (Int(totalEET) % 3600) / 60
-        return String(format: "%d:%02d", hours, minutes)
+        let seconds = totalEET.safeInt(or: 0)
+        return String(format: "%d:%02d", seconds / 3600, (seconds % 3600) / 60)
     }
 
     /// Fuel required (trip + reserve + additional + extra)
@@ -652,8 +681,8 @@ struct FlightPlan: Identifiable, Codable, Equatable {
 
     /// Formatted endurance string
     var formattedEndurance: String? {
-        guard let endurance = endurance else { return nil }
-        let hours = Int(endurance)
+        // A fuel flow of 1e-300 passes the fuel-flow bound and makes the endurance 1e303 hours.
+        guard let endurance = endurance, let hours = endurance.safeInt else { return nil }
         let minutes = Int((endurance - Double(hours)) * 60)
         return String(format: "%d:%02d", hours, minutes)
     }
@@ -820,9 +849,12 @@ struct FlightPlan: Identifiable, Codable, Equatable {
         let corrected = wind.flatMap {
             FlightPlan.windCorrectedGroundSpeed(trueAirspeedKt: Double(airspeed), trueCourseDeg: trueCourse, wind: $0)
         }
+        // `safeRoundedInt`: an airspeed near Int.max from a shared route made the corrected ground
+        // speed 9.2e18, and `Int(_:)` trapped. Airspeeds are bounded on ingest now. (S9-07)
+        let correctedKt = corrected.flatMap { $0.safeRoundedInt() }
         return LegPlanning(distanceNM: distanceNM, trueCourse: trueCourse, magneticCourse: magneticCourse,
-                           airspeedKt: airspeed, wind: corrected == nil ? nil : wind,
-                           groundSpeedKt: corrected.map { Int($0.rounded()) } ?? airspeed)
+                           airspeedKt: airspeed, wind: correctedKt == nil ? nil : wind,
+                           groundSpeedKt: correctedKt ?? airspeed)
     }
 
     /// Calculate magnetic course and distance between consecutive waypoints
@@ -1004,7 +1036,7 @@ extension FlightPlan {
         }
 
         // EET in HHMM format
-        let totalSeconds = Int(totalEET)
+        let totalSeconds = totalEET.safeInt(or: 0)
         let eetHours = totalSeconds / 3600
         let eetMinutes = (totalSeconds % 3600) / 60
         let eetStr = String(format: "%02d%02d", eetHours, eetMinutes)
@@ -1194,12 +1226,12 @@ extension FlightPlan {
                 gpx += "\n        <ac:callSign>\(escapeXML(callSign))</ac:callSign>"
             }
 
-            if let altitude = waypoint.altitude {
-                gpx += "\n        <ac:altitudeFeet>\(Int(altitude))</ac:altitudeFeet>"
+            if let altitude = waypoint.altitude?.safeInt {
+                gpx += "\n        <ac:altitudeFeet>\(altitude)</ac:altitudeFeet>"
             }
 
-            if let mc = waypoint.magneticCourse {
-                gpx += "\n        <ac:magneticCourse>\(Int(mc))</ac:magneticCourse>"
+            if let mc = waypoint.magneticCourse?.safeInt {
+                gpx += "\n        <ac:magneticCourse>\(mc)</ac:magneticCourse>"
             }
 
             if let distance = waypoint.distance {
@@ -1210,8 +1242,8 @@ extension FlightPlan {
                 gpx += "\n        <ac:groundSpeed>\(gs)</ac:groundSpeed>"
             }
 
-            if let eet = waypoint.estimatedElapsedTime {
-                gpx += "\n        <ac:eet>\(Int(eet))</ac:eet>"
+            if let eet = waypoint.estimatedElapsedTime?.safeInt {
+                gpx += "\n        <ac:eet>\(eet)</ac:eet>"
             }
 
             if !waypoint.remarks.isEmpty {
@@ -1267,16 +1299,30 @@ extension FlightPlan {
             AppLog.general.debugLine("Rejected flight plan: invalid coordinates")
             return nil
         }
+        return withPlausibleNumerics()
+    }
 
-        var sanitised = self
-        sanitised.waypoints = waypoints.map { waypoint in
-            var w = waypoint
-            if let altitude = w.altitude,
-               !PlausibleRange.isPlausible(altitude, in: PlausibleRange.altitudeFeet) {
-                w.altitude = nil
-            }
-            return w
+    /// The plan a recorded flight carries, bounded without ever being rejected: a waypoint at an
+    /// impossible position is dropped, and every number is bounded as `validatedForIngest()` bounds
+    /// it. The plan came with the flight, from a file or another device, and the Logbook shows it
+    /// (plan against actual, the after-flight nav log), so it gets the same checks. Losing the flight's
+    /// whole nav log over one bad waypoint would be worse than a gap in it. (S9-07, S9-10)
+    func salvagedForFlight() -> FlightPlan {
+        var salvaged = self
+        if !waypoints.allSatisfy({ GeoValidation.isValidLatLon($0.latitude, $0.longitude) }) {
+            salvaged.waypoints = waypoints.filter { GeoValidation.isValidLatLon($0.latitude, $0.longitude) }
         }
+        return salvaged.withPlausibleNumerics()
+    }
+
+    /// The plan with its implausible optional numerics dropped. Never rejects.
+    func withPlausibleNumerics() -> FlightPlan {
+        var sanitised = self
+        // Ground speed, wind and the derived leg values reach `Int` conversions on the navigation
+        // table, the planning card, the waypoint editor, the Companion and the nav log export: a
+        // shared route with a course or an EET of 1e19, or a ground speed near Int.max, trapped the
+        // app wherever it was shown. (S9-07)
+        sanitised.waypoints = waypoints.map { $0.withPlausibleNumerics() }
         // The fuel figures reach `Int` conversions and a division in the fuel ledger and the flight's
         // page: a shared route with "fuelFlow": 1e19 trapped the app on every device it synced to.
         // Out of range, a figure is dropped, as an implausible altitude is. (v6.0 review, security)
@@ -1540,7 +1586,11 @@ class FlightPlanGPXParser: NSObject, XMLParserDelegate {
         case "distanceNM":
             currentWaypoint?.distance = GeoValidation.finite(Double(text))
         case "groundSpeed":
-            currentWaypoint?.plannedGroundSpeed = Int(text)
+            // Bounded here, not only in `validatedForIngest`: `calculateRouteData` runs at the end of
+            // `<rte>`, before validation, and a speed near Int.max trapped it. (S9-07)
+            currentWaypoint?.plannedGroundSpeed = Int(text).flatMap {
+                PlausibleRange.plannedAirspeedKnots.contains(Double($0)) ? $0 : nil
+            }
         case "eet":
             currentWaypoint?.estimatedElapsedTime = TimeInterval(text)
         case "rtept":

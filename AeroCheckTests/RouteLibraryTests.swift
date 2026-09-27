@@ -230,6 +230,37 @@ final class RouteLibraryTests: XCTestCase {
         XCTAssertEqual(imported.waypoints.map(\.name), ["LSZQ", "LSGY"])
     }
 
+    /// A route's courses, distances and times come from its own waypoints, not from the file: kept as
+    /// sent, a route edited by hand or exported by an older build showed the pilot, in flight, a course
+    /// and an EET its geometry did not give. Absurd values reached `Int(_:)` and trapped. (S9-07)
+    func testAnImportedJSONRouteTakesItsNavValuesFromItsGeometry() throws {
+        let manager = makeTestPlanManager()
+        let a = CLLocationCoordinate2D(latitude: 47.42, longitude: 7.19)
+        let b = CLLocationCoordinate2D(latitude: 46.76, longitude: 6.61)
+        var sent = FlightPlan(name: "Edited by hand")
+        sent.waypoints = [FlightPlanWaypoint(name: "LSZQ", coordinate: a, magneticCourse: 1e19, distance: 3,
+                                             plannedGroundSpeed: Int.max, windDirection: 1e300, windSpeed: 5,
+                                             estimatedElapsedTime: 60, cumulativeEET: 1e300),
+                          FlightPlanWaypoint(name: "LSGY", coordinate: b)]
+        let data = try XCTUnwrap(sent.toJSON())
+        let aircraft = FlightPlanManager.RouteAircraft(typeId: "WT9", registration: "F-HVXA", modelName: "WT9 Dynamic")
+
+        let (imported, _) = try XCTUnwrap(manager.importRoute(from: data, aircraft: aircraft))
+
+        // The same route, computed from scratch with the same providers.
+        var expected = FlightPlan(name: "Clean")
+        expected.waypoints = [FlightPlanWaypoint(name: "LSZQ", coordinate: a), FlightPlanWaypoint(name: "LSGY", coordinate: b)]
+        expected.calculateRouteData()
+        let leg = imported.waypoints[0], want = expected.waypoints[0]
+        XCTAssertNil(leg.plannedGroundSpeed)
+        XCTAssertNil(leg.windDirection)
+        XCTAssertEqual(leg.magneticCourse ?? -1, want.magneticCourse ?? -2, accuracy: 0.001)
+        XCTAssertEqual(leg.distance ?? -1, want.distance ?? -2, accuracy: 0.001)
+        XCTAssertEqual(leg.estimatedElapsedTime ?? -1, want.estimatedElapsedTime ?? -2, accuracy: 0.001)
+        XCTAssertEqual(imported.totalEET, expected.totalEET, accuracy: 0.001)
+        XCTAssertEqual(manager.flightPlans.first?.waypoints[0].magneticCourse, leg.magneticCourse, "what is saved")
+    }
+
     /// Plan files are named after their route; only the index itself is skipped when loading.
     func testOnlyTheIndexFilesAreSkipped() {
         XCTAssertTrue(DataPersistenceManager.indexFileNames.contains("plans_index.json"))

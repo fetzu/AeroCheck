@@ -1,8 +1,8 @@
 import XCTest
 @testable import AeroCheck
 
-/// Tests identity-log redaction (SEC-19), GPX import XML hardening (SEC-20) and the flight-archive
-/// (ZIP) budgets (SA-24, S9-29).
+/// Tests identity-log redaction (SEC-19), GPX import XML hardening (SEC-20), the numbers a GPX file
+/// may carry (S9-10), and the flight-archive (ZIP) budgets (SA-24, S9-29).
 @MainActor
 final class GPXImportHygieneTests: XCTestCase {
 
@@ -56,6 +56,38 @@ final class GPXImportHygieneTests: XCTestCase {
         // External entities are not resolved; the two valid track points still parse and nothing
         // external is fetched/injected.
         XCTAssertEqual(parsed?.gpsTrack.count, 2)
+    }
+
+    // MARK: - S9-10: engine hours
+
+    /// `Double(_:)` reads "nan", "inf" and "1e300" as numbers, and the Logbook then trapped on them.
+    func testAnEngineHourReadingMustBeOneAMeterCanShow() {
+        for text in ["nan", "inf", "-inf", "1e300", "-3", "100000.1", "", "12:30"] {
+            XCTAssertNil(GPXParser.engineHourReading(text), "\(text) is not a reading")
+        }
+        XCTAssertEqual(GPXParser.engineHourReading("1234.50"), 1234.5)
+        XCTAssertEqual(GPXParser.engineHourReading("0"), 0)
+    }
+
+    func testNonFiniteEngineHoursInAGPXAreDroppedAndRealOnesKept() throws {
+        var flight = sampleFlight()
+        flight.engineHourStart = .nan
+        flight.engineHourEnd = .infinity
+        let poisoned = flight.toGPX()
+        XCTAssertTrue(poisoned.contains("<pc:engineHourStart>nan</pc:engineHourStart>"), "precondition")
+        XCTAssertTrue(poisoned.contains("<pc:engineHourEnd>inf</pc:engineHourEnd>"), "precondition")
+
+        let parsed = try XCTUnwrap(GPXParser(data: Data(poisoned.utf8)).parse())
+        XCTAssertNil(parsed.engineHourStart)
+        XCTAssertNil(parsed.engineHourEnd)
+        XCTAssertNil(parsed.engineHoursFlownFormatted)
+
+        flight.engineHourStart = 1234.5
+        flight.engineHourEnd = 1235.75
+        let imported = try XCTUnwrap(Flight.fromGPX(Data(flight.toGPX().utf8)))
+        XCTAssertEqual(imported.engineHourStart, 1234.5)
+        XCTAssertEqual(imported.engineHourEnd, 1235.75)
+        XCTAssertEqual(imported.engineHoursFlownFormatted, "1.25 / 1:15")
     }
 
     // MARK: - SA-24 / S9-29: flight archive (ZIP) budgets

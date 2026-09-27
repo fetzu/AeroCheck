@@ -590,7 +590,7 @@ struct FlightLogView: View {
         let formatter = NumberFormatter()
         formatter.numberStyle = .decimal
         formatter.maximumFractionDigits = 0
-        return formatter.string(from: NSNumber(value: value)) ?? "\(Int(value.rounded()))"
+        return formatter.string(from: NSNumber(value: value)) ?? value.safeRoundedInt().map(String.init) ?? "—"
     }
 
     /// The right-hand detail pane in the 2-column layout (or a placeholder until a flight is picked).
@@ -1562,7 +1562,7 @@ struct FlightLogStatsShareCard: View {
         let formatter = NumberFormatter()
         formatter.numberStyle = .decimal
         formatter.maximumFractionDigits = 0
-        return formatter.string(from: NSNumber(value: value)) ?? "\(Int(value.rounded()))"
+        return formatter.string(from: NSNumber(value: value)) ?? value.safeRoundedInt().map(String.init) ?? "—"
     }
 
     var body: some View {
@@ -1834,13 +1834,22 @@ struct FlightRowView: View {
     }
 
 
-    private var statsLine: String {
+    private var statsLine: String { Self.statsLine(for: flight, nauticalMiles: nauticalMiles) }
+
+    /// "HB-KFD · 3 ldg · 42 NM".
+    ///
+    /// `Int(distance.rounded())` trapped on a cached distance of 1e300 from an imported flight, and
+    /// the whole Logbook went down with the row: it could not even be swiped away. The number is
+    /// bounded on ingest and load now; the row stays safe for whatever reaches it. (S9-10)
+    nonisolated static func statsLine(for flight: Flight, nauticalMiles: Bool) -> String {
         var parts: [String] = [flight.aircraftRegistration ?? flight.airplane]
         if flight.totalLandings > 0 {
             parts.append("\(flight.totalLandings) ldg")
         }
         let distance = nauticalMiles ? flight.distanceKilometers * 0.539957 : flight.distanceKilometers
-        if distance >= 0.5 { parts.append("\(Int(distance.rounded())) \(nauticalMiles ? "NM" : "km")") }
+        if distance >= 0.5, let whole = distance.safeRoundedInt() {
+            parts.append("\(whole) \(nauticalMiles ? "NM" : "km")")
+        }
         return parts.joined(separator: " · ")
     }
 
@@ -2115,15 +2124,23 @@ struct FlightDetailView: View {
     }
 
     private var headerDistanceText: String {
-        let nm = appState.settings.distanceInNauticalMiles
-        let value = nm ? flight.distanceKilometers * 0.539957 : flight.distanceKilometers
-        return "\(Int(value.rounded())) \(nm ? "NM" : "km")"
+        Self.distanceText(for: flight, nauticalMiles: appState.settings.distanceInNauticalMiles)
     }
 
-    private var headerMaxAltText: String {
+    private var headerMaxAltText: String { Self.maxAltitudeText(for: flight) }
+
+    /// The header's distance chip. Safe for any value, like the Logbook row's. (S9-10, S9-16)
+    nonisolated static func distanceText(for flight: Flight, nauticalMiles nm: Bool) -> String {
+        let value = nm ? flight.distanceKilometers * 0.539957 : flight.distanceKilometers
+        guard let whole = value.safeRoundedInt() else { return "—" }
+        return "\(whole) \(nm ? "NM" : "km")"
+    }
+
+    /// The header's maximum altitude chip, in feet. Safe for any value. (S9-10, S9-16)
+    nonisolated static func maxAltitudeText(for flight: Flight) -> String {
         let meters = flight.cachedMaxAltitudeMeters ?? flight.gpsTrack.map { $0.altitude }.max()
-        guard let meters else { return "—" }
-        return "\(Int((meters * 3.28084).rounded())) ft"
+        guard let feet = meters.flatMap({ ($0 * 3.28084).safeRoundedInt() }) else { return "—" }
+        return "\(feet) ft"
     }
 
     /// Route hero + subtitle + the four stat chips (replaces the old details/route cards). (round 8)
@@ -2388,8 +2405,9 @@ struct FlightDetailView: View {
     private func planDeltaView(eto: Date?, ato: Date?) -> some View {
         if let eto, let ato {
             let delta = ato.timeIntervalSince(eto)   // positive = behind/late
-            let minutes = Int(abs(delta)) / 60
-            let seconds = Int(abs(delta)) % 60
+            let magnitude = abs(delta).safeInt(or: 0)
+            let minutes = magnitude / 60
+            let seconds = magnitude % 60
             let sign = delta > 0.5 ? "+" : (delta < -0.5 ? "-" : "")
             // Within a minute = on time (green); late = orange; early = blue.
             let color: Color = abs(delta) < 60 ? .aviationGreen : (delta > 0 ? .orange : .altimeterBlue)
@@ -2921,7 +2939,7 @@ struct AltitudeChartView: View {
                     .foregroundStyle(Color.aviationGold)
                     .symbolSize(100)
                     .annotation(position: .top, spacing: 8) {
-                        Text("\(Int(value)) \(mode.unit)")
+                        Text("\(value.safeInt.map(String.init) ?? "—") \(mode.unit)")
                             .scaledFont(size: 11, weight: .bold, design: .monospaced, relativeTo: .caption2)
                             .foregroundColor(.aviationGold)
                             .padding(.horizontal, 6)
@@ -2950,7 +2968,7 @@ struct AltitudeChartView: View {
                         .foregroundStyle(Color.dimText.opacity(0.3))
                     AxisValueLabel {
                         if let v = value.as(Double.self) {
-                            Text("\(Int(v)) \(mode.unit)")
+                            Text("\(v.safeInt.map(String.init) ?? "—") \(mode.unit)")
                                 .scaledFont(size: 10, relativeTo: .caption2)
                                 .foregroundStyle(Color.secondaryText)
                         }
@@ -4308,7 +4326,7 @@ struct FlightShareCard: View {
     /// Max altitude in feet from GPS track
     private var maxAltitudeFt: Int? {
         guard let maxAlt = flight.gpsTrack.map({ $0.altitude * 3.28084 }).max() else { return nil }
-        return Int(maxAlt)
+        return maxAlt.safeInt
     }
 
     /// Distance in nautical miles

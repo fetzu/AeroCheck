@@ -1908,6 +1908,8 @@ enum L10n {
         static let invalidValueTitle = String(localized: "nav.invalidValueTitle")
         static let invalidCoordinatesMessage = String(localized: "nav.invalidCoordinatesMessage")
         static let invalidAltitudeMessage = String(localized: "nav.invalidAltitudeMessage")
+        static let invalidGroundSpeedMessage = String(localized: "nav.invalidGroundSpeedMessage")
+        static let invalidWindMessage = String(localized: "nav.invalidWindMessage")
 
         // Flight Plans List
         static let flightPlans = String(localized: "nav.flightPlans")

@@ -303,7 +303,9 @@ struct HourMeterInputView: View {
     }
 
     private func saveValue() {
-        guard let hours = parseInput() else {
+        // Eight digits fit the field, but a reading past what a meter shows would be dropped on the
+        // next launch (`Flight.withPlausibleValues()`), so it is refused here instead. (S9-10)
+        guard let hours = parseInput(), PlausibleRange.isPlausible(hours, in: PlausibleRange.engineHours) else {
             showInvalidAlert = true
             return
         }

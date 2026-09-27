@@ -392,5 +392,90 @@ final class FlightPlanTests: XCTestCase {
         XCTAssertTrue(plan.waypoints.allSatisfy { $0.estimatedTimeOver == nil },
                       "a route with no date must not keep printing the old flight's times")
     }
+
+    // MARK: - Numbers a shared route may carry (S9-07)
+
+    private func absurdRoute() -> FlightPlan {
+        var plan = FlightPlan(name: "Shared")
+        plan.waypoints = [
+            FlightPlanWaypoint(name: "A", coordinate: .init(latitude: 47.0, longitude: 7.0),
+                               magneticCourse: 1e19, distance: 9_999, plannedGroundSpeed: Int.max,
+                               windDirection: 1e300, windSpeed: 5, estimatedElapsedTime: 1e19,
+                               legEETExtra: -300, cumulativeEET: 1e300),
+            FlightPlanWaypoint(name: "B", coordinate: .init(latitude: 47.1, longitude: 7.2),
+                               plannedGroundSpeed: 95, windDirection: 240, windSpeed: 15),
+        ]
+        return plan
+    }
+
+    func testIngestDropsImpossibleSpeedWindAndLegValues() throws {
+        let plan = try XCTUnwrap(absurdRoute().validatedForIngest())
+        let a = plan.waypoints[0], b = plan.waypoints[1]
+
+        XCTAssertNil(a.plannedGroundSpeed, "falls back to the aircraft's cruise speed")
+        XCTAssertNil(a.windDirection)
+        XCTAssertEqual(a.windSpeed, 5)
+        XCTAssertNil(a.magneticCourse)
+        XCTAssertEqual(a.distance, 9_999, "a long leg is still a leg")
+        XCTAssertNil(a.estimatedElapsedTime)
+        XCTAssertNil(a.legEETExtra)
+        XCTAssertNil(a.cumulativeEET)
+        XCTAssertEqual(b.plannedGroundSpeed, 95, "plausible values are kept")
+        XCTAssertEqual(b.windDirection, 240)
+        XCTAssertEqual(b.windSpeed, 15)
+    }
+
+    /// A course of 1e19 trapped the navigation table, the planning card and the waypoint editor.
+    func testTheMagneticCourseIsFormattedSafely() {
+        var waypoint = FlightPlanWaypoint(name: "A", coordinate: .init(latitude: 47, longitude: 7), magneticCourse: 75.9)
+        XCTAssertEqual(waypoint.formattedMagneticCourse, "075°", "truncated, as it always was")
+        waypoint.magneticCourse = 1e19
+        XCTAssertNil(waypoint.formattedMagneticCourse)
+        waypoint.magneticCourse = nil
+        XCTAssertNil(waypoint.formattedMagneticCourse)
+    }
+
+    /// A plan built in memory has not been through the bounds: with a known wind, an airspeed near
+    /// Int.max made the corrected ground speed 9.2e18, and `Int(_:)` trapped.
+    func testLegPlanningSurvivesAnAirspeedNearIntMax() throws {
+        var plan = FlightPlan(name: "Raw")
+        plan.waypoints = [
+            FlightPlanWaypoint(name: "A", coordinate: .init(latitude: 47.0, longitude: 7.0),
+                               plannedGroundSpeed: Int.max, windDirection: 0, windSpeed: 15),
+            FlightPlanWaypoint(name: "B", coordinate: .init(latitude: 47.1, longitude: 7.2)),
+        ]
+
+        let leg = try XCTUnwrap(plan.legPlanning(from: 0))
+        XCTAssertEqual(leg.groundSpeedKt, Int.max, "falls back to the airspeed instead of trapping")
+
+        plan.calculateRouteData()
+        XCTAssertNotNil(plan.waypoints[0].estimatedElapsedTime)
+    }
+
+    /// The GPX parser runs the leg calculation at the end of `<rte>`, before validation, so a ground
+    /// speed is bounded as it is read.
+    func testAGPXGroundSpeedNearIntMaxIsDroppedAsItIsRead() throws {
+        var sent = FlightPlan(name: "GPX")
+        sent.waypoints = [
+            FlightPlanWaypoint(name: "A", coordinate: .init(latitude: 47.0, longitude: 7.0), plannedGroundSpeed: 95),
+            FlightPlanWaypoint(name: "B", coordinate: .init(latitude: 47.1, longitude: 7.2)),
+        ]
+        let gpx = sent.toGPX().replacingOccurrences(of: "<ac:groundSpeed>95</ac:groundSpeed>",
+                                                    with: "<ac:groundSpeed>\(Int.max)</ac:groundSpeed>")
+        XCTAssertTrue(gpx.contains("\(Int.max)"), "precondition")
+
+        let plan = try XCTUnwrap(FlightPlan.fromGPX(Data(gpx.utf8)))
+
+        XCTAssertNil(plan.waypoints[0].plannedGroundSpeed)
+        XCTAssertNotNil(plan.waypoints[0].estimatedElapsedTime, "the leg is timed at the cruise speed")
+    }
+
+    /// A wind the nav log cannot print as a number is left blank, not printed as "calm".
+    func testTheNavLogWindTextIsSafeForAnyWind() {
+        XCTAssertEqual(FlightPlanExportService.windText(.init(directionDegTrue: 240, speedKt: 15)), "240/15")
+        XCTAssertEqual(FlightPlanExportService.windText(.init(directionDegTrue: 0, speedKt: 8)), "360/08")
+        XCTAssertEqual(FlightPlanExportService.windText(.init(directionDegTrue: 1e300, speedKt: 5)), "")
+        XCTAssertEqual(FlightPlanExportService.windText(.init(directionDegTrue: 90, speedKt: 0.2)), "calm")
+    }
 }
 

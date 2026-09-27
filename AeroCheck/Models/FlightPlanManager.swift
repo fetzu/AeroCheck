@@ -906,6 +906,8 @@ class FlightPlanManager: ObservableObject {
             var importedPlan = plan
             importedPlan.isActive = false
             importedPlan.currentWaypointIndex = 0
+            // Course, distance and times from the route's own geometry, not from the file. (S9-07)
+            importedPlan.calculateRouteData()
             flightPlans.insert(importedPlan, at: 0)
             saveFlightPlans()
             return importedPlan
@@ -949,6 +951,11 @@ class FlightPlanManager: ObservableObject {
             imported.archivedAt = nil
             imported.isActive = false
             imported.currentWaypointIndex = 0
+            // The file's magnetic courses, leg distances and times are recomputed from its waypoints,
+            // as a GPX route's are. Kept as sent, a route edited by hand or exported by an older build
+            // showed the pilot a course and an EET its own geometry did not give, in flight, while
+            // the printed nav log (which recomputes) disagreed with the screen. (S9-07)
+            imported.calculateRouteData()
             flightPlans.insert(imported, at: 0)
             saveFlightPlans()
             return (imported, [:])

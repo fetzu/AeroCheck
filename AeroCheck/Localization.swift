@@ -1662,12 +1662,41 @@ enum L10n {
         }
     }
 
+    /// The question before a jump that leaves two checks or more undone. (v6.0 review, J2-J3)
+    enum Jump {
+        static func title(_ phase: String) -> String { String(format: String(localized: "jump.title"), phase) }
+        static func checksLeft(_ count: Int, _ list: String) -> String {
+            String(format: String(localized: "jump.checksLeft"), count, list)
+        }
+        static func itemsKept(_ count: Int, _ phase: String) -> String {
+            String(format: String(localized: "jump.itemsKept"), String(localized: "\(count) items"), phase)
+        }
+        static func deferChecks(_ count: Int) -> String { String(format: String(localized: "jump.deferChecks"), count) }
+        static let deferHint = String(localized: "jump.deferHint")
+        static let alreadyDone = String(localized: "jump.alreadyDone")
+        static let alreadyDoneHint = String(localized: "jump.alreadyDoneHint")
+        static func stay(_ phase: String) -> String { String(format: String(localized: "jump.stay"), phase) }
+    }
+
     /// Checklist items left unchecked by NEXT. (v6.0 · B2)
     enum Deferred {
         /// "2 items not checked"
         static func notChecked(_ count: Int) -> String { String(localized: "\(count) items not checked") }
         /// "2 deferred items"
         static func count(_ count: Int) -> String { String(localized: "\(count) deferred items") }
+        /// "2 deferred checks · 3 deferred items", as the deferred row says it. (v6.0 review, J1)
+        static func summary(checks: Int, items: Int) -> String {
+            if checks == 0 { return count(items) }
+            if items == 0 { return String(localized: "\(checks) deferred checks") }
+            return String(format: String(localized: "deferred.both"),
+                          String(localized: "\(checks) checks"), String(localized: "\(items) items"))
+        }
+        static let checksHeader = String(localized: "deferred.checksHeader")
+        static func checkRemaining(_ remaining: Int, _ total: Int) -> String {
+            String(format: String(localized: "deferred.checkRemaining"), remaining, total)
+        }
+        static let run = String(localized: "deferred.run")
+        static let runLabel = String(localized: "deferred.runLabel")
         static let backToChecklist = String(localized: "deferred.back")
         static let continueLater = String(localized: "deferred.continue")
         static let continueNote = String(localized: "deferred.continueNote")

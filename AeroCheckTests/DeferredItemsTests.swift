@@ -255,7 +255,8 @@ final class DeferredItemsTests: XCTestCase {
     // MARK: The phase bar and circuits (v6.0 review, B1)
 
     /// The device case: tapping ahead on the phase bar left the open items neither checked nor
-    /// deferred, and nothing ever listed them again.
+    /// deferred, and nothing ever listed them again. The phase left part-way keeps its open items one
+    /// by one; the phase jumped over is deferred whole. (v6.0 review, J1)
     func testAJumpOnThePhaseBarDefersLikeNext() throws {
         let appState = flight()
         let preflight = items(appState, .preflight)
@@ -269,8 +270,11 @@ final class DeferredItemsTests: XCTestCase {
         XCTAssertEqual(appState.currentPhase, .engineStart)
         XCTAssertEqual(appState.deferredItems[.preflight], open, "the phase left, as NEXT leaves it")
         XCTAssertEqual(appState.phaseCompletionStatus[.preflight], .skipped)
-        XCTAssertEqual(appState.deferredItems[.beforeEngineStart], jumped.map(\.id), "the phase jumped over")
-        XCTAssertEqual(appState.deferredItemCount, open.count + jumped.count)
+        XCTAssertEqual(appState.deferredChecks, [.beforeEngineStart], "the phase jumped over, whole")
+        XCTAssertNil(appState.deferredItems[.beforeEngineStart], "not item by item")
+        XCTAssertEqual(appState.phaseCompletionStatus[.beforeEngineStart], .skipped)
+        XCTAssertEqual(appState.deferredItemCount, open.count)
+        XCTAssertTrue(appState.hasDeferredWork)
     }
 
     func testAJumpFromAWorkedThroughPhaseLeavesItGreen() {
@@ -316,6 +320,8 @@ final class DeferredItemsTests: XCTestCase {
         XCTAssertNil(appState.deferredItems[.cruise])
         XCTAssertNil(appState.deferredItems[.descent])
         XCTAssertEqual(appState.deferredItemCount, 0)
+        XCTAssertTrue(appState.deferredChecks.isEmpty, "not flown, so not owed")
+        XCTAssertTrue(appState.checksPassed(jumpingTo: .approach).isEmpty)
     }
 
     /// The rule the author confirmed: a new circuit clears what was deferred in the phases it repeats,
@@ -329,12 +335,161 @@ final class DeferredItemsTests: XCTestCase {
         for (name, first, event) in repeated {
             let appState = flight()
             for phase in ChecklistPhase.allCases { appState.deferredItems[phase] = ["x"] }
+            appState.deferredChecks = ChecklistPhase.allCases
             event(appState)
             for phase in ChecklistPhase.allCases {
                 let cleared = phase.rawValue >= first.rawValue
                     && (first != .taxi || phase.rawValue <= ChecklistPhase.afterLanding.rawValue)
                 XCTAssertEqual(appState.deferredItems[phase] == nil, cleared, "\(name): \(phase)")
+                XCTAssertEqual(!appState.deferredChecks.contains(phase), cleared, "\(name), check: \(phase)")
             }
         }
+    }
+
+    // MARK: Checks deferred whole, and the jump question (v6.0 review, J1-J3)
+
+    private func runToTheEnd(_ appState: AppState, _ phase: ChecklistPhase) {
+        var guardCount = 0
+        while appState.deferredChecks.contains(phase) && guardCount < 200 {
+            appState.checkItem(inDeferredCheck: phase)
+            guardCount += 1
+        }
+    }
+
+    func testAPhaseLeftUntouchedIsDeferredWhole() throws {
+        let appState = flight()
+        try XCTSkipIf(items(appState, .preflight).isEmpty)
+        appState.goToPhase(.beforeEngineStart)
+        XCTAssertEqual(appState.deferredChecks, [.preflight])
+        XCTAssertNil(appState.deferredItems[.preflight])
+        XCTAssertEqual(appState.phaseCompletionStatus[.preflight], .skipped)
+    }
+
+    func testNextStillDefersItemByItem() throws {
+        let appState = flight()
+        try XCTSkipIf(items(appState, .preflight).isEmpty)
+        appState.nextPhase()
+        XCTAssertTrue(appState.deferredChecks.isEmpty, "NEXT goes through the review, item by item")
+        XCTAssertNotNil(appState.deferredItems[.preflight])
+    }
+
+    /// J2: a jump that passes over two checks or more asks; one check, or the next phase, doesn't.
+    func testTheQuestionComesFromTwoChecksPassed() {
+        let appState = flight()
+        XCTAssertFalse(appState.jumpNeedsQuestion(to: .beforeEngineStart))
+        XCTAssertFalse(appState.jumpNeedsQuestion(to: .engineStart), "one check passed")
+        XCTAssertEqual(appState.checksPassed(jumpingTo: .afterEngineStart), [.beforeEngineStart, .engineStart])
+        XCTAssertTrue(appState.jumpNeedsQuestion(to: .afterEngineStart))
+        XCTAssertFalse(appState.jumpNeedsQuestion(to: .preflight), "never going back")
+    }
+
+    func testChecksAlreadyWorkedThroughDontCount() {
+        let appState = flight()
+        appState.currentPhase = .beforeEngineStart
+        appState.markLastItemComplete(learningMode: true)
+        appState.currentPhase = .preflight
+        XCTAssertEqual(appState.checksPassed(jumpingTo: .afterEngineStart), [.engineStart])
+        XCTAssertFalse(appState.jumpNeedsQuestion(to: .afterEngineStart))
+    }
+
+    func testNoQuestionWithoutStepByStep() {
+        let appState = flight(stepByStep: false)
+        XCTAssertFalse(appState.jumpNeedsQuestion(to: .cruise))
+    }
+
+    /// J3's DEFER: every check left undone is listed, in flight order, the phase left included.
+    func testDeferringTheChecksListsEachOne() {
+        let appState = flight()
+        appState.goToPhase(.afterEngineStart, skipped: .deferred)
+        let owed = [ChecklistPhase.preflight, .beforeEngineStart, .engineStart].filter { !items(appState, $0).isEmpty }
+        XCTAssertEqual(appState.deferredChecks, owed)
+        XCTAssertEqual(appState.deferredItemCount, 0)
+        XCTAssertEqual(appState.deferredCheckList.map(\.phase), owed)
+        XCTAssertEqual(appState.deferredCheckList.first?.remaining, appState.deferredCheckList.first?.total)
+    }
+
+    /// J3's ALREADY DONE: green and nothing listed; a phase whose own action was never pressed stays red.
+    func testAlreadyDoneMarksTheChecksDone() {
+        let appState = flight()
+        appState.goToPhase(.afterEngineStart, skipped: .alreadyDone)
+        XCTAssertTrue(appState.deferredChecks.isEmpty)
+        XCTAssertEqual(appState.deferredItemCount, 0)
+        XCTAssertEqual(appState.phaseCompletionStatus[.preflight], .completed)
+        XCTAssertEqual(appState.phaseCompletionStatus[.beforeEngineStart], .completed)
+        XCTAssertEqual(appState.phaseCompletionStatus[.engineStart], .missingAction, "ENGINE START never pressed")
+        XCTAssertFalse(appState.hasDeferredWork)
+    }
+
+    /// RUN, then CHECK to the end: the check leaves the list and turns green, while the phase being
+    /// flown stays where it was.
+    func testRunningADeferredCheckToTheEnd() throws {
+        let appState = flight()
+        try XCTSkipIf(items(appState, .preflight).isEmpty)
+        appState.goToPhase(.beforeEngineStart)
+        XCTAssertEqual(appState.deferredChecks, [.preflight])
+
+        appState.checkItem(inDeferredCheck: .preflight)
+        XCTAssertEqual(appState.getHighlightedItem(for: .preflight), 1)
+        XCTAssertEqual(appState.currentPhase, .beforeEngineStart, "the phase flown stays current")
+
+        runToTheEnd(appState, .preflight)
+        XCTAssertTrue(appState.deferredChecks.isEmpty)
+        XCTAssertEqual(appState.phaseCompletionStatus[.preflight], .completed)
+        XCTAssertEqual(appState.currentPhase, .beforeEngineStart)
+        XCTAssertEqual(appState.getHighlightedItem(for: .beforeEngineStart), 0, "untouched")
+    }
+
+    /// DEFER inside a deferred check: that item stays behind as an item, and the check is orange until
+    /// it is checked.
+    func testDeferringInsideADeferredCheckLeavesTheItem() throws {
+        let appState = flight()
+        let list = appState.checkItems(.preflight)
+        try XCTSkipIf(list.count < 2 || list[0].isHeader || list[1].isHeader)
+        appState.goToPhase(.beforeEngineStart)
+        appState.deferItem(inDeferredCheck: .preflight)
+        XCTAssertEqual(appState.deferredItems[.preflight], [list[0].id])
+
+        appState.checkDeferredItem(list[0].id, in: .preflight)
+        XCTAssertEqual(appState.phaseCompletionStatus[.preflight], .skipped,
+                       "the check still has items to run: not green yet")
+
+        appState.deferItem(inDeferredCheck: .preflight)
+        runToTheEnd(appState, .preflight)
+        XCTAssertTrue(appState.deferredChecks.isEmpty)
+        XCTAssertEqual(appState.phaseCompletionStatus[.preflight], .skipped, "one item put off")
+        for id in appState.deferredItems[.preflight] ?? [] { appState.checkDeferredItem(id, in: .preflight) }
+        XCTAssertEqual(appState.phaseCompletionStatus[.preflight], .completed)
+    }
+
+    func testGoingBackToADeferredCheckRunsItInPlace() throws {
+        let appState = flight()
+        try XCTSkipIf(items(appState, .preflight).isEmpty)
+        appState.goToPhase(.beforeEngineStart)
+        appState.goToPhase(.preflight)
+        XCTAssertEqual(appState.currentPhase, .preflight)
+        XCTAssertTrue(appState.deferredChecks.isEmpty, "it is the current phase again, not also listed")
+    }
+
+    func testDeferredChecksSurviveACrash() throws {
+        let source = flight()
+        try XCTSkipIf(items(source, .preflight).isEmpty)
+        source.goToPhase(.beforeEngineStart)
+        let snapshot = ActiveFlightState(flight: try XCTUnwrap(source.currentFlight), from: source)
+        let encoder = JSONEncoder(); encoder.dateEncodingStrategy = .iso8601
+        let decoder = JSONDecoder(); decoder.dateDecodingStrategy = .iso8601
+        let decoded = try decoder.decode(ActiveFlightState.self, from: encoder.encode(snapshot))
+        let restored = makeTestAppState()
+        decoded.restore(to: restored)
+        XCTAssertEqual(restored.deferredChecks, [.preflight])
+        restored.isFlightActive = false
+
+        // A checkpoint written before deferred checks existed restores with none.
+        var json = try XCTUnwrap(JSONSerialization.jsonObject(with: encoder.encode(snapshot)) as? [String: Any])
+        json.removeValue(forKey: "deferredChecks")
+        let old = try decoder.decode(ActiveFlightState.self, from: JSONSerialization.data(withJSONObject: json))
+        let restoredOld = makeTestAppState()
+        old.restore(to: restoredOld)
+        XCTAssertTrue(restoredOld.deferredChecks.isEmpty)
+        restoredOld.isFlightActive = false
     }
 }

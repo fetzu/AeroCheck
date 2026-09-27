@@ -27,6 +27,10 @@ struct FlightView: View {
     /// NEXT pressed with items still open: the review sheet lists them first. (v6.0 · B2)
     @State private var openItemsReview: OpenItemsReview?
     @State private var showDeferredItems = false
+    /// A jump on the phase bar that leaves two checks or more undone asks first. (v6.0 review, J2-J3)
+    @State private var jumpQuestion: JumpQuestion?
+    /// A phase picked in the phase list, jumped to once the list is gone (one sheet at a time).
+    @State private var pendingJump: ChecklistPhase?
     /// The reference popup currently shown in the HUD context slot (Pattern B of the A+B hybrid):
     /// docked into the iPad-landscape right column (over the map), or a cockpit-themed bottom drawer
     /// on iPad portrait / iPhone. nil = none. HUD Settings stays a sheet (Pattern A). (v4 UI/UX Revamp)
@@ -185,7 +189,7 @@ struct FlightView: View {
             phases: visiblePhases,
             currentPhase: appState.currentPhase,
             status: { appState.getPhaseStatus($0) },
-            onSelect: { appState.goToPhase($0) },
+            onSelect: { requestJump(to: $0) },
             isCircuitMode: appState.isCircuitMode,
             cruiseCheckDue: appState.cruiseCheckDue
         )
@@ -210,8 +214,16 @@ struct FlightView: View {
                 }
         }
         .background(theme.background)
-        .sheet(isPresented: $showPhaseSelector) {
-            PhaseSelectorView()
+        .sheet(isPresented: $showPhaseSelector, onDismiss: {
+            if let phase = pendingJump {
+                pendingJump = nil
+                requestJump(to: phase)
+            }
+        }) {
+            PhaseSelectorView(onSelect: { phase in
+                pendingJump = phase
+                showPhaseSelector = false
+            })
         }
         .sheet(isPresented: $showFlightInfo) {
             FlightInfoSheet(locationManager: locationManager, onEndFlight: {
@@ -232,9 +244,29 @@ struct FlightView: View {
             )
             .environment(\.cockpitTheme, theme)
         }
+        .sheet(item: $jumpQuestion) { question in
+            JumpQuestionSheet(
+                target: question.target,
+                checks: question.checks,
+                leaving: question.leaving,
+                leavingOpenItems: question.leavingOpenItems,
+                onDefer: {
+                    jumpQuestion = nil
+                    appState.goToPhase(question.target, skipped: .deferred)
+                },
+                onAlreadyDone: {
+                    jumpQuestion = nil
+                    appState.goToPhase(question.target, skipped: .alreadyDone)
+                },
+                onStay: { jumpQuestion = nil }
+            )
+            .environment(\.cockpitTheme, theme)
+        }
         .sheet(isPresented: $showDeferredItems) {
             DeferredItemsSheet(onClose: { showDeferredItems = false })
                 .environment(\.cockpitTheme, theme)
+                // Room for a deferred check's list and thumb bar, not the form sheet's. (J1)
+                .pageSizedSheet()
         }
         // ⚠️ DO NOT CHANGE the presentation style (.fullScreenCover) unless explicitly asked
         // by the user. Using .fullScreenCover guarantees all content is visible on both iPad
@@ -500,6 +532,22 @@ struct FlightView: View {
         }
     }
 
+    /// A jump on the phase bar or the phase list. Past the threshold, the checks it would leave undone
+    /// are listed first: defer them, they were already done, or stay. (v6.0 review, J2-J3)
+    private func requestJump(to target: ChecklistPhase) {
+        guard appState.jumpNeedsQuestion(to: target) else {
+            appState.goToPhase(target)
+            return
+        }
+        let leaving = appState.currentPhase
+        let untouched = appState.checkIsUntouched(leaving)
+        jumpQuestion = JumpQuestion(
+            target: target,
+            checks: (untouched ? [leaving] : []) + appState.checksPassed(jumpingTo: target),
+            leaving: leaving,
+            leavingOpenItems: untouched ? 0 : appState.openItems(in: leaving).count)
+    }
+
     private func advanceToNextPhase() {
         pulseNextButton = false
         pulseActionButton = false
@@ -510,9 +558,10 @@ struct FlightView: View {
     /// While anything is deferred, a caution row on top of the checklist opens the deferred list.
     @ViewBuilder
     private var deferredItemsChip: some View {
-        let count = appState.deferredItemCount
-        if count > 0 {
-            DeferredItemsChip(count: count) { showDeferredItems = true }
+        if appState.hasDeferredWork {
+            DeferredItemsChip(checks: appState.deferredChecks.count, count: appState.deferredItemCount) {
+                showDeferredItems = true
+            }
                 .padding(.top, 8)
                 .padding(.bottom, 2)
         }
@@ -1089,7 +1138,7 @@ extension FlightView {
         appState.currentPhase.briefingType != nil
             || (cockpitPane == .checklist && !cockpitChecklistDone
                 && appState.currentPhase.nextNavigable(circuitMode: appState.isCircuitMode) != nil)
-            || (cockpitPane == .map && (appState.deferredItemCount > 0 || appState.cruiseCheckDue))
+            || (cockpitPane == .map && (appState.hasDeferredWork || appState.cruiseCheckDue))
     }
 
     /// The landscape column's width: an iPhone 17's in portrait, so its rows lay out as they do there
@@ -1348,16 +1397,23 @@ extension FlightView {
         }
     }
 
+    /// What is deferred, on the map: checks and items together, in one count.
+    private var deferredMapChip: some View {
+        CockpitChip(title: "\(appState.deferredChecks.count + appState.deferredItemCount)",
+                    icon: "clock.arrow.circlepath", tint: theme.warning) {
+            showDeferredItems = true
+        }
+        .accessibilityLabel(L10n.Deferred.summary(checks: appState.deferredChecks.count,
+                                                  items: appState.deferredItemCount))
+    }
+
     /// Deferred items and a due cruise check follow the pilot onto the map, as cautions.
     @ViewBuilder
     private var cockpitMapCautionChips: some View {
         // Deferred items follow the pilot onto the map too, as a caution: amber, with the count.
         // (The checklist pane lists them above the items.)
-        if cockpitPane == .map && appState.deferredItemCount > 0 {
-            CockpitChip(title: "\(appState.deferredItemCount)", icon: "clock.arrow.circlepath", tint: theme.warning) {
-                showDeferredItems = true
-            }
-            .accessibilityLabel(L10n.Deferred.count(appState.deferredItemCount))
+        if cockpitPane == .map && appState.hasDeferredWork {
+            deferredMapChip
         }
         if cockpitPane == .map && appState.cruiseCheckDue {
             CockpitChip(title: L10n.Nav.fredaCheck, icon: "arrow.triangle.2.circlepath", tint: theme.warning) {
@@ -1372,11 +1428,8 @@ extension FlightView {
             Spacer(minLength: 8)
             // Deferred items follow the pilot onto the map too, as a caution: amber, with the count.
             // (The checklist pane lists them above the items.)
-            if cockpitPane == .map && appState.deferredItemCount > 0 {
-                CockpitChip(title: "\(appState.deferredItemCount)", icon: "clock.arrow.circlepath", tint: theme.warning) {
-                    showDeferredItems = true
-                }
-                .accessibilityLabel(L10n.Deferred.count(appState.deferredItemCount))
+            if cockpitPane == .map && appState.hasDeferredWork {
+                deferredMapChip
             }
             if cockpitPane == .map && appState.cruiseCheckDue {
                 CockpitChip(title: L10n.Nav.fredaCheck, icon: "arrow.triangle.2.circlepath", tint: theme.warning) {
@@ -1809,6 +1862,8 @@ private struct FlightDurationText: View {
 // MARK: - Phase Selector Sheet
 
 struct PhaseSelectorView: View {
+    /// The Cockpit's jump, so a long one asks as it does from the phase bar. (v6.0 review, J2)
+    let onSelect: (ChecklistPhase) -> Void
     @Environment(\.cockpitTheme) private var theme
     @Environment(AppState.self) private var appState
     @Environment(\.dismiss) var dismiss
@@ -1816,10 +1871,7 @@ struct PhaseSelectorView: View {
     var body: some View {
         NavigationStack {
             List(ChecklistPhase.allCases) { phase in
-                Button(action: {
-                    appState.goToPhase(phase)
-                    dismiss()
-                }) {
+                Button(action: { onSelect(phase) }) {
                     HStack {
                         // Status indicator
                         Circle()
@@ -3005,6 +3057,14 @@ struct InFlightSpeedReference: View {
 
 
 /// One NEXT press held for review: the phase being left and its unchecked items. (v6.0 · B2)
+struct JumpQuestion: Identifiable {
+    let id = UUID()
+    let target: ChecklistPhase
+    let checks: [ChecklistPhase]
+    let leaving: ChecklistPhase
+    let leavingOpenItems: Int
+}
+
 struct OpenItemsReview: Identifiable {
     let id = UUID()
     let phase: ChecklistPhase

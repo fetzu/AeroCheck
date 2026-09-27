@@ -133,7 +133,7 @@ struct AircraftSettingsView: View {
                                      subtitle: proNote, tint: tint)
                     Image(systemName: "chevron.right")
                         .font(.aero(size: 13, weight: .semibold))
-                        .foregroundColor(.dimText.opacity(0.7))
+                        .foregroundColor(.dimText)
                 }
                 .padding(.horizontal, 14)
                 .padding(.vertical, 11)
@@ -277,7 +277,7 @@ struct AircraftSettingsView: View {
 
                     Image(systemName: "chevron.right")
                         .scaledFont(size: 13, weight: .semibold, relativeTo: .caption)
-                        .foregroundColor(.dimText.opacity(0.7))
+                        .foregroundColor(.dimText)
                 }
                 .padding(.horizontal, 14)
                 .padding(.vertical, 11)
@@ -336,7 +336,7 @@ struct AircraftSettingsView: View {
                 Spacer()
                 Image(systemName: "chevron.right")
                     .font(.aero(size: 13, weight: .semibold))
-                    .foregroundColor(.dimText.opacity(0.7))
+                    .foregroundColor(.dimText)
             }
             .padding(.horizontal, 14)
             .padding(.vertical, 10)

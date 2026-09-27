@@ -976,7 +976,7 @@ struct SettingsRow: View {
 
             Image(systemName: "chevron.right")
                 .font(.aero(size: 14, weight: .semibold))
-                .foregroundColor(.dimText.opacity(0.7))
+                .foregroundColor(.dimText)
                 .accessibilityHidden(true)
         }
         .padding(.horizontal, 14)
@@ -1139,7 +1139,7 @@ struct SettingsButtonRow: View {
                 if showsChevron {
                     Image(systemName: "chevron.right")
                         .font(.aero(size: 13, weight: .semibold))
-                        .foregroundColor(.dimText.opacity(0.7))
+                        .foregroundColor(.dimText)
                 }
             }
             .padding(.horizontal, 14)

@@ -458,7 +458,7 @@ struct FlightNumbersView: View {
                         Spacer(minLength: 6)
                         Image(systemName: "chevron.right")
                             .scaledFont(size: 13, weight: .semibold, relativeTo: .caption)
-                            .foregroundColor(.dimText.opacity(0.7))
+                            .foregroundColor(.dimText)
                     }
                     .contentShape(Rectangle())
                 }

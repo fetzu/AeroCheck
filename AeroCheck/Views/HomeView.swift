@@ -711,7 +711,7 @@ struct HomeView: View {
                 }
                 Image(systemName: "chevron.up.chevron.down")
                     .scaledFont(size: 13, weight: .semibold, relativeTo: .caption)
-                    .foregroundColor(.dimText.opacity(0.7))
+                    .foregroundColor(.dimText)
             }
             .padding(.horizontal, 14)
             .padding(.vertical, 12)
@@ -789,7 +789,7 @@ struct HomeView: View {
                     }
                     Image(systemName: "chevron.right")
                         .scaledFont(size: 13, weight: .semibold, relativeTo: .caption)
-                        .foregroundColor(.dimText.opacity(0.7))
+                        .foregroundColor(.dimText)
                 }
                 .padding(.horizontal, 14)
                 .padding(.vertical, 12)
@@ -922,7 +922,7 @@ struct HomeView: View {
                 Spacer(minLength: 6)
                 Image(systemName: "chevron.right")
                     .scaledFont(size: 13, weight: .semibold, relativeTo: .caption)
-                    .foregroundColor(.dimText.opacity(0.7))
+                    .foregroundColor(.dimText)
             }
             .padding(.leading, showsRail ? 11 : 14)
             .padding(.trailing, 14)
@@ -1010,7 +1010,7 @@ struct HomeView: View {
                 Spacer(minLength: 6)
                 Image(systemName: "chevron.right")
                     .scaledFont(size: 13, weight: .semibold, relativeTo: .caption)
-                    .foregroundColor(.dimText.opacity(0.7))
+                    .foregroundColor(.dimText)
             }
             .padding(.leading, 11)
             .padding(.trailing, 14)

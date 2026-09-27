@@ -30,7 +30,10 @@ extension Color {
     // Text colors (overridable — see note on aviationGold above; lets a light theme flip text to dark)
     static var primaryText: Color { AmbientPalette.textPrimary ?? Color.white }
     static var secondaryText: Color { AmbientPalette.textSecondary ?? Color(white: 0.7) }
-    static var dimText: Color { AmbientPalette.textDim ?? Color(white: 0.5) }
+    // 0.58, not 0.5: at 0.5 the dim text was 3.8:1 on the cards and 4.1:1 on the panels, under the
+    // 4.5:1 WCAG asks of text, and it carries the 10-12 pt explainers. 0.58 is 5.0:1 and 5.4:1, and
+    // still reads as the quietest level under `secondaryText` (0.7). (v6.0 review)
+    static var dimText: Color { AmbientPalette.textDim ?? Color(white: 0.58) }
 
     // Instrument accent
     static let altimeterBlue = Color(red: 0.4, green: 0.6, blue: 0.8)

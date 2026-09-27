@@ -53,7 +53,7 @@ struct DataStorageSettingsView: View {
                                                  tint: tint)
                                 Image(systemName: "chevron.right")
                                     .font(.aero(size: 14, weight: .semibold))
-                                    .foregroundColor(.dimText.opacity(0.7))
+                                    .foregroundColor(.dimText)
                                     .accessibilityHidden(true)
                             }
                             .padding(.horizontal, 14)

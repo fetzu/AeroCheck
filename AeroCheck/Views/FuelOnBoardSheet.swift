@@ -173,6 +173,10 @@ struct FuelOnBoardSheet: View {
                         .scaledFont(size: 17, relativeTo: .body)
                         .foregroundColor(.secondaryText)
                 }
+                // One figure with its unit for VoiceOver, which read the "L" as a letter on its own.
+                // (v6.0 review)
+                .accessibilityElement(children: .ignore)
+                .accessibilityLabel("\(L10n.FuelOnBoard.required), \(String(format: "%.1f", required)) \(L10n.FlightSheet.litres)")
                 // What it adds up to, so the figure can be checked at a glance.
                 Text(L10n.FuelOnBoard.breakdown(
                     String(format: "%.1f", plan.tripFuel ?? 0),
@@ -205,10 +209,11 @@ struct FuelOnBoardSheet: View {
                     .focused($focus, equals: .onBoard)
                     .scaledFont(size: 34, weight: .bold, design: .monospaced, relativeTo: .largeTitle)
                     .foregroundColor(.primaryText)
-                    .accessibilityLabel(L10n.FuelOnBoard.onBoard)
+                    .accessibilityLabel("\(L10n.FuelOnBoard.onBoard), \(L10n.FlightSheet.litres)")
                 Text("L")
                     .scaledFont(size: 17, relativeTo: .body)
                     .foregroundColor(.secondaryText)
+                    .accessibilityHidden(true)
             }
             .padding(.horizontal, 14)
             .padding(.vertical, 10)

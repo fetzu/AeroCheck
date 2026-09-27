@@ -416,7 +416,9 @@ struct FlightPlanEditorView: View {
             } label: { Label(L10n.Nav.copyICAOFlightPlan, systemImage: "doc.on.clipboard") }
                 .disabled(flightPlan.waypoints.count < 2)
         } label: {
-            Image(systemName: "square.and.arrow.up")
+            // Named "Export", not the symbol's own "Share": the menu exports, previews, saves and
+            // copies. The toolbar still draws the icon alone. (v6.0 review)
+            Label(L10n.Nav.export, systemImage: "square.and.arrow.up")
         }
         .disabled(flightPlan.waypoints.isEmpty)
     }

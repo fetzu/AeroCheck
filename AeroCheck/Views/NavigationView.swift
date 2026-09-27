@@ -946,7 +946,9 @@ struct NavigationMapView: View {
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
-        .accessibilityLabel(L10n.Nav.legsAndFrequencies)
+        // A hint, not a label: a label replaced the station and frequency, so VoiceOver never read the
+        // NOW and NEXT frequencies at all. (v6.0 review)
+        .accessibilityHint(L10n.Nav.legsAndFrequencies)
     }
 
     private func freqLineCell(tag: String, tint: Color, item: PhaseFrequency?) -> some View {
@@ -1857,7 +1859,9 @@ struct NavigationMapView: View {
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
-        .accessibilityLabel(L10n.Nav.legsAndFrequencies)
+        // A hint, not a label: a label replaced the station and frequency, so VoiceOver never read the
+        // NOW and NEXT frequencies at all. (v6.0 review)
+        .accessibilityHint(L10n.Nav.legsAndFrequencies)
     }
 
     private func freqCell(tag: String, tint: Color, item: PhaseFrequency?) -> some View {

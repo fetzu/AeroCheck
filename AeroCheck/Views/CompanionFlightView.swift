@@ -190,9 +190,11 @@ struct CompanionFlightView: View {
 
     private var gpsColor: Color {
         switch flightData?.gpsSignalStatus {
-        case "good": return .aviationGreen
-        case "degraded": return .orange
-        case "lost": return .aviationRed
+        // The theme's tokens, which follow day, night and sunlight; the fixed colours stayed at full
+        // brightness at night. (v6.0 review)
+        case "good": return theme.onTarget
+        case "degraded": return theme.warning
+        case "lost": return theme.danger
         default: return .gray
         }
     }
@@ -319,7 +321,7 @@ struct CompanionFlightView: View {
                     .animation(reduceMotion ? nil : .easeInOut(duration: 0.4), value: arrowRotation(wp)) // (UX-18)
             }
             VStack(alignment: .leading, spacing: 2) {
-                Text("NEXT").font(.aero(size: 10, weight: .bold, design: .monospaced)).foregroundColor(theme.textSecondary)
+                Text(L10n.Nav.next.uppercased()).font(.aero(size: 10, weight: .bold, design: .monospaced)).foregroundColor(theme.textSecondary)
                 Text(wp.name.isEmpty ? "WP\(index + 1)" : wp.name)
                     .font(.aero(size: 28, weight: .bold, design: .monospaced)).foregroundColor(theme.textPrimary)
                     .lineLimit(1).minimumScaleFactor(0.6)
@@ -498,7 +500,7 @@ struct CompanionFlightView: View {
                                 if let completion = phaseCompletionText(cl), !completion.isEmpty {
                                     Rectangle().fill(Color.subtleOverlay(0.12)).frame(height: 1).padding(.vertical, 12)
                                     HStack { Spacer()
-                                        Text(completion).font(.aero(size: 16, weight: .bold, design: .monospaced)).foregroundColor(.aviationGreen)
+                                        Text(completion).font(.aero(size: 16, weight: .bold, design: .monospaced)).foregroundColor(theme.onTarget)
                                         Spacer() }
                                 }
                             }
@@ -542,9 +544,14 @@ struct CompanionFlightView: View {
                 Text(cl.phaseTitle).font(.aero(size: 16, weight: .bold)).foregroundColor(theme.action)
                     .textCase(.uppercase).tracking(1).lineLimit(1)
                 Spacer()
+                // As large as its twin on the left, and named for VoiceOver. It was 34 x 30 pt, unlabelled.
+                // (v6.0 review)
                 Button { companionConnectivityManager.sendCommand(.nextChecklistPhase) } label: {
-                    Image(systemName: "chevron.right").font(.aero(size: 15)).foregroundColor(theme.action).frame(width: 34, height: 30)
+                    Image(systemName: "chevron.right").font(.aero(size: 15)).foregroundColor(theme.action)
+                        .frame(width: 44, height: 44)
+                        .contentShape(Rectangle())
                 }
+                .accessibilityLabel(L10n.Accessibility.nextPhase)
             }
             HStack(spacing: 4) {
                 Image(systemName: "hand.tap.fill").font(.aero(size: 9))
@@ -602,12 +609,12 @@ struct CompanionFlightView: View {
     /// reveal; the reveal command flips the master's reveal state, which streams the items to BOTH.
     private func hiddenContentPlaceholder(count: Int) -> some View {
         VStack(spacing: 8) {
-            Rectangle().fill(Color.aviationAmber.opacity(0.3)).frame(height: 1).padding(.top, 12)
+            Rectangle().fill(theme.warning.opacity(0.3)).frame(height: 1).padding(.top, 12)
             HStack(spacing: 10) {
-                Image(systemName: "eye.slash.fill").font(.aero(size: 18)).foregroundColor(.aviationAmber)
+                Image(systemName: "eye.slash.fill").font(.aero(size: 18)).foregroundColor(theme.warning)
                 VStack(alignment: .leading, spacing: 2) {
                     Text(L10n.ChecklistAction.hiddenItemsTitle)
-                        .font(.aero(size: 13, weight: .bold)).foregroundColor(.aviationAmber)
+                        .font(.aero(size: 13, weight: .bold)).foregroundColor(theme.warning)
                     Text(L10n.ChecklistAction.hiddenItemsCount(count, count == 1 ? "" : "s"))
                         .font(.aero(size: 11)).foregroundColor(theme.textSecondary)
                 }
@@ -616,8 +623,8 @@ struct CompanionFlightView: View {
             }
             .padding(.horizontal, 12).padding(.vertical, 12)
             .background(
-                RoundedRectangle(cornerRadius: 8).fill(Color.aviationAmber.opacity(0.1))
-                    .overlay(RoundedRectangle(cornerRadius: 8).stroke(Color.aviationAmber.opacity(0.3), lineWidth: 1))
+                RoundedRectangle(cornerRadius: 8).fill(theme.warning.opacity(0.1))
+                    .overlay(RoundedRectangle(cornerRadius: 8).stroke(theme.warning.opacity(0.3), lineWidth: 1))
             )
             .onLongPressGesture(minimumDuration: 0.4) {
                 let generator = UIImpactFeedbackGenerator(style: .medium)
@@ -636,7 +643,7 @@ struct CompanionFlightView: View {
     private var nextButton: some View {
         Button { companionConnectivityManager.sendCommand(.nextChecklistPhase) } label: {
             HStack(spacing: 8) {
-                Text("NEXT").font(.aero(size: 16, weight: .bold))
+                Text(L10n.Button.next).font(.aero(size: 16, weight: .bold))
                 Image(systemName: "chevron.right").font(.aero(size: 14, weight: .bold))
             }
             .foregroundColor(theme.actionText).frame(maxWidth: .infinity).padding(.vertical, 14)
@@ -671,7 +678,7 @@ struct CompanionFlightView: View {
         let textColor: Color = isPast ? theme.textSecondary : theme.textPrimary.opacity(isCurrent ? 1 : 0.8)
         return HStack(spacing: 0) {
             Group {
-                if isPast { Image(systemName: "checkmark").font(.aero(size: 9)).foregroundColor(.aviationGreen) }
+                if isPast { Image(systemName: "checkmark").font(.aero(size: 9)).foregroundColor(theme.onTarget) }
                 else if isCurrent { Image(systemName: "arrowtriangle.right.fill").font(.aero(size: 9)).foregroundColor(theme.action) }
                 else { Text("\(index + 1)").font(.aero(size: 10, design: .monospaced)).foregroundColor(theme.textSecondary) }
             }.frame(width: 24)
@@ -682,7 +689,7 @@ struct CompanionFlightView: View {
             Button {
                 if wp.actualTimeOver == nil { companionConnectivityManager.sendCommand(.recordATO(waypointIndex: index)) }
             } label: {
-                Text(formattedTime(wp.actualTimeOver)).font(.aero(size: 11, weight: wp.actualTimeOver != nil ? .bold : .regular, design: .monospaced)).foregroundColor(wp.actualTimeOver != nil ? .aviationGreen : theme.textSecondary).frame(width: 48)
+                Text(formattedTime(wp.actualTimeOver)).font(.aero(size: 11, weight: wp.actualTimeOver != nil ? .bold : .regular, design: .monospaced)).foregroundColor(wp.actualTimeOver != nil ? theme.onTarget : theme.textSecondary).frame(width: 48)
             }.disabled(wp.actualTimeOver != nil)
         }
         .padding(.vertical, 6)
@@ -707,11 +714,13 @@ struct CompanionFlightView: View {
             Text(L10n.Companion.connectionLost).font(.aero(size: 13, weight: .semibold))
             Spacer()
             Button(L10n.Companion.switchToStandalone) { companionConnectivityManager.switchToStandalone() }
-                .font(.aero(size: 12, weight: .medium)).foregroundColor(.white)
+                .font(.aero(size: 12, weight: .medium)).foregroundColor(.black)
                 .padding(.horizontal, 8).padding(.vertical, 4)
-                .background(Color.white.opacity(0.2)).clipShape(RoundedRectangle(cornerRadius: 4))
+                .background(Color.black.opacity(0.12)).clipShape(RoundedRectangle(cornerRadius: 4))
         }
-        .foregroundColor(.white).padding(.horizontal, 12).padding(.vertical, 8).background(Color.orange)
+        // The caution colour of the theme, dark text on it as on the stale-data banner below; white on
+        // a fixed orange was both off the contract and hard to read. (v6.0 review)
+        .foregroundColor(.black).padding(.horizontal, 12).padding(.vertical, 8).background(theme.warning)
     }
 
     private var staleBanner: some View {
@@ -720,7 +729,7 @@ struct CompanionFlightView: View {
             Text(L10n.Companion.dataStale).font(.aero(size: 13, weight: .semibold))
             Spacer()
         }
-        .foregroundColor(.black).padding(.horizontal, 12).padding(.vertical, 8).background(Color.aviationAmber)
+        .foregroundColor(.black).padding(.horizontal, 12).padding(.vertical, 8).background(theme.warning)
     }
 
     private var instrumentsStrip: some View {

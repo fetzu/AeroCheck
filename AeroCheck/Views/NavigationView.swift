@@ -1915,15 +1915,15 @@ struct NavigationMapView: View {
     /// everything else under More. Reset lives in More, with undo, not beside MARK. (review C2)
     /// With no route on the map there is nothing to time or mark: the way to put one there is a
     /// normal-size button, not a 104 pt bar. (on-device review #1, R-01)
-    @ViewBuilder
-    private var navThumbBar: some View {
-        if appState.isFlightActive, let plan = flightPlanManager.activeFlightPlan {
-            TimelineView(.periodic(from: .now, by: 1)) { _ in
     ///
     /// Only in flight. The same map is Plan › Map on the ground (`isInCockpit` there too), and with a
     /// route armed it offered START LEG, MARK and DIVERT: a tap recorded a time over a waypoint and
     /// advanced the leg before the flight existed, so the leg timer and the nav log's times were wrong
     /// once airborne. On the ground the row is the way to the routes, as with no route. (v6.0 review)
+    @ViewBuilder
+    private var navThumbBar: some View {
+        if appState.isFlightActive, let plan = flightPlanManager.activeFlightPlan {
+            TimelineView(.periodic(from: .now, by: 1)) { _ in
                 let state = legTimerState(plan)
                 HStack(spacing: CockpitType.size(kneeboard: 12, phone: 8)) {
                     legTimerReadout(elapsed: state.elapsed, planned: state.planned, running: state.running,
@@ -3280,14 +3280,24 @@ struct NativeMapViewUIKit: UIViewRepresentable {
         // Update airspace polygon overlays
         updateAirspaceOverlays(mapView, context: context)
 
-        // Track vector — rebuilt each update. Only wipe when the feature is OFF; on a transient empty
-        // (brief GPS gap / <5 kt) keep the existing vector instead of blanking it. (v4 UI/UX Revamp fix)
+        // Track vector. Only wipe when the feature is OFF; on a transient empty (brief GPS gap / <5 kt)
+        // keep the existing vector instead of blanking it. (v4 UI/UX Revamp fix)
+        //
+        // Replaced only when it moved. The overlays arrive as new objects on every SwiftUI pass, several
+        // per GPS fix, and swapping identical ones was most of this function's time in a 30 s Time
+        // Profiler trace of the Cockpit's map in cruise (MapKit's removeOverlays + addOverlay, about
+        // 460 of 500 ms), plus MapKit redrawing them each time. (v6.0 review, render-perf-001)
         let existingTrackVector = mapView.overlays.compactMap { $0 as? TrackVectorPolyline }
         if !trackVectorEnabled {
             mapView.removeOverlays(existingTrackVector)
+            context.coordinator.trackVectorGeometry = []
         } else if !trackVectorOverlays.isEmpty {
-            mapView.removeOverlays(existingTrackVector)
-            for tv in trackVectorOverlays { mapView.addOverlay(tv, level: .aboveLabels) }
+            let geometry = TrackVectorPolyline.geometry(of: trackVectorOverlays)
+            if geometry != context.coordinator.trackVectorGeometry || existingTrackVector.isEmpty {
+                mapView.removeOverlays(existingTrackVector)
+                for tv in trackVectorOverlays { mapView.addOverlay(tv, level: .aboveLabels) }
+                context.coordinator.trackVectorGeometry = geometry
+            }
         }
 
         // Handle heading reset request (user tapped compass)
@@ -3584,6 +3594,9 @@ struct NativeMapViewUIKit: UIViewRepresentable {
 
     class Coordinator: NSObject, MKMapViewDelegate {
         var parent: NativeMapViewUIKit
+        /// The track vector on the map, as `TrackVectorPolyline.geometry(of:)`, so an update only
+        /// replaces it when it moved. (v6.0 review)
+        var trackVectorGeometry: [Double] = []
         var isUserInteracting = false
         /// Signature of the last-rendered flight plan, so the overlay is rebuilt only on change. (PR-10)
         var lastFlightPlanSignature: String?
@@ -4695,14 +4708,24 @@ struct SwissMapView: UIViewRepresentable {
         // Update airspace polygon overlays (incremental diff, shared with NativeMapViewUIKit)
         updateAirspaceOverlays(on: mapView, polygons: airspacePolygons)
 
-        // Track vector — rebuilt each update. Only wipe when the feature is OFF; on a transient empty
-        // (brief GPS gap / <5 kt) keep the existing vector instead of blanking it. (v4 UI/UX Revamp fix)
+        // Track vector. Only wipe when the feature is OFF; on a transient empty (brief GPS gap / <5 kt)
+        // keep the existing vector instead of blanking it. (v4 UI/UX Revamp fix)
+        //
+        // Replaced only when it moved. The overlays arrive as new objects on every SwiftUI pass, several
+        // per GPS fix, and swapping identical ones was most of this function's time in a 30 s Time
+        // Profiler trace of the Cockpit's map in cruise (MapKit's removeOverlays + addOverlay, about
+        // 460 of 500 ms), plus MapKit redrawing them each time. (v6.0 review, render-perf-001)
         let existingTrackVector = mapView.overlays.compactMap { $0 as? TrackVectorPolyline }
         if !trackVectorEnabled {
             mapView.removeOverlays(existingTrackVector)
+            context.coordinator.trackVectorGeometry = []
         } else if !trackVectorOverlays.isEmpty {
-            mapView.removeOverlays(existingTrackVector)
-            for tv in trackVectorOverlays { mapView.addOverlay(tv, level: .aboveLabels) }
+            let geometry = TrackVectorPolyline.geometry(of: trackVectorOverlays)
+            if geometry != context.coordinator.trackVectorGeometry || existingTrackVector.isEmpty {
+                mapView.removeOverlays(existingTrackVector)
+                for tv in trackVectorOverlays { mapView.addOverlay(tv, level: .aboveLabels) }
+                context.coordinator.trackVectorGeometry = geometry
+            }
         }
 
         // Update camera from shared state (preserves heading)
@@ -5011,6 +5034,9 @@ struct SwissMapView: UIViewRepresentable {
 
     class Coordinator: NSObject, MKMapViewDelegate, UIGestureRecognizerDelegate {
         var parent: SwissMapView
+        /// The track vector on the map, as `TrackVectorPolyline.geometry(of:)`, so an update only
+        /// replaces it when it moved. (v6.0 review)
+        var trackVectorGeometry: [Double] = []
         /// Signature of the last-rendered flight plan, so the overlay is rebuilt only on change. (PR-10)
         var lastFlightPlanSignature: String?
         var currentLayerType: MapLayerType?
@@ -5561,7 +5587,17 @@ private func subsampledTrackCoordinates(_ track: [GPSPoint]) -> [CLLocationCoord
 }
 
 /// Marker subclass for the ground-track trend vector (line + 1/2/5-min ticks), rendered cyan. (v4 UI/UX Revamp C4)
-class TrackVectorPolyline: MKPolyline {}
+class TrackVectorPolyline: MKPolyline {
+    /// Every point of every segment, in order, with each segment's class and length: equal when the
+    /// vector drawn would be the same.
+    static func geometry(of overlays: [MKPolyline]) -> [Double] {
+        overlays.flatMap { polyline -> [Double] in
+            let points = UnsafeBufferPointer(start: polyline.points(), count: polyline.pointCount)
+            return [polyline is TrackVectorCasingPolyline ? 1 : 0, Double(polyline.pointCount)]
+                + points.flatMap { [$0.x, $0.y] }
+        }
+    }
+}
 
 /// The dark casing drawn under each track-vector segment for legibility on any map. (v4 UI/UX Revamp fix)
 class TrackVectorCasingPolyline: TrackVectorPolyline {}

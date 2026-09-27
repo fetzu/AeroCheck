@@ -288,7 +288,7 @@ struct CompanionFlightView: View {
 
     /// True geographic bearing (0–360°) from the current GPS position to the waypoint, or nil with no fix.
     private func bearingToWaypoint(_ wp: CompanionWaypoint) -> Double? {
-        guard let lat1 = flightData?.latitude, let lon1 = flightData?.longitude else { return nil }
+        guard let lat1 = flightData?.latitude, let lon1 = flightData?.longitude, wp.hasValidCoordinate else { return nil }
         let lat1r = lat1 * .pi / 180, lat2r = wp.latitude * .pi / 180
         let dLon = (wp.longitude - lon1) * .pi / 180
         let y = sin(dLon) * cos(lat2r)
@@ -303,18 +303,21 @@ struct CompanionFlightView: View {
     /// (item 2 — the arrow was stuck pointing up because it used leg-course − track.)
     private func arrowRotation(_ wp: CompanionWaypoint) -> Double {
         if let brg = bearingToWaypoint(wp) {
-            let track = flightData?.courseDegrees ?? 0
-            var rel = brg - track
-            while rel > 180 { rel -= 360 }
-            while rel < -180 { rel += 360 }
-            return rel
+            return Self.signedAngle(brg - (flightData?.courseDegrees ?? 0))
         }
         // No fix: best-effort using the planned magnetic course vs current track.
         guard let mc = wp.magneticCourse, let track = flightData?.courseDegrees else { return 0 }
-        var rel = mc - track
-        while rel > 180 { rel -= 360 }
-        while rel < -180 { rel += 360 }
-        return rel
+        return Self.signedAngle(mc - track)
+    }
+
+    /// An angle folded into -180…180°. In one step: the `while rel > 180 { rel -= 360 }` it replaces
+    /// never ended on a course of 1e300 from the master (subtracting 360 changes nothing at that
+    /// magnitude), freezing the phone. The wire bounds the course now; this holds without them.
+    static func signedAngle(_ degrees: Double) -> Double {
+        guard degrees.isFinite else { return 0 }
+        var r = degrees.truncatingRemainder(dividingBy: 360)
+        if r > 180 { r -= 360 } else if r < -180 { r += 360 }
+        return r
     }
 
     private func nextWaypointHero(index: Int, waypoint wp: CompanionWaypoint) -> some View {
@@ -897,8 +900,10 @@ struct CompanionFlightView: View {
         return String(format: "%03.0f", c)
     }
     private var formattedChronometer: String {
-        let e = flightData?.chronometerElapsed ?? 0
-        return String(format: "%02d:%02d:%02d", Int(e) / 3600, (Int(e) % 3600) / 60, Int(e) % 60)
+        // The master's number: bounded at the wire (CompanionWireLimits), and `safeInt` all the
+        // same, since `Int(e)` on an unrepresentable value is a trap, not an error.
+        let e = max(0, (flightData?.chronometerElapsed ?? 0).safeInt(or: 0))
+        return String(format: "%02d:%02d:%02d", e / 3600, (e % 3600) / 60, e % 60)
     }
 
     private func formattedEET(_ wp: CompanionWaypoint) -> String {

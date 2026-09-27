@@ -1143,7 +1143,10 @@ class CompanionConnectivityManager: NSObject, ObservableObject {
             flightPlanManager.recordATO(forWaypointAt: waypointIndex)
 
         case .updateGroundSpeed(let waypointIndex, let newGS):
-            guard var plan = flightPlanManager.activeFlightPlan,
+            // A speed from the wire goes into the leg calculation: an impossible one is refused, as
+            // the iPad's own waypoint editor refuses it.
+            guard CompanionWireLimits.groundSpeedKnots.contains(newGS),
+                  var plan = flightPlanManager.activeFlightPlan,
                   plan.waypoints.indices.contains(waypointIndex) else { return }
             plan.waypoints[waypointIndex].plannedGroundSpeed = newGS
             plan.calculateRouteData()

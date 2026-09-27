@@ -14,6 +14,9 @@ import SwiftUI
 struct OpenItemsReviewSheet: View {
     let phase: ChecklistPhase
     let items: [ChecklistItem]
+    /// How many are open, when the items themselves can't be listed: the Companion viewer that isn't
+    /// entitled to the checklist's text. (v6.0 review, decision 2)
+    var openCount: Int? = nil
     /// Stay on the phase, at the first open item.
     let onBack: () -> Void
     /// Leave the phase; the open items become deferred.
@@ -24,7 +27,7 @@ struct OpenItemsReviewSheet: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 20) {
             VStack(alignment: .leading, spacing: 6) {
-                Text(L10n.Deferred.notChecked(items.count))
+                Text(L10n.Deferred.notChecked(openCount ?? items.count))
                     .font(.aero(size: 30, weight: .bold))
                     .foregroundColor(theme.textPrimary)
                 Text(phase.title)
@@ -102,12 +105,48 @@ struct DeferredItemsChip: View {
     }
 }
 
-/// Every deferred item, by phase, each with its own CHECK button.
+/// Every deferred item, by phase, each with its own CHECK button: the iPad's and the phone's.
 struct DeferredItemsSheet: View {
     let onClose: () -> Void
 
     @Environment(AppState.self) private var appState
+
+    var body: some View {
+        DeferredItemsList(
+            groups: appState.deferredChecklist.map { group in
+                DeferredItemsList.Group(phaseRawValue: group.phase.rawValue, title: group.phase.title,
+                                        items: group.items.map { .init(id: $0.id, item: $0) })
+            },
+            onCheck: { id, phaseRawValue in
+                if let phase = ChecklistPhase(rawValue: phaseRawValue) { appState.checkDeferredItem(id, in: phase) }
+            },
+            onClose: onClose)
+    }
+}
+
+/// The deferred list itself, from plain values, so the Companion viewer shows the same list from the
+/// iPad's snapshot and checks through it. (v6.0 review, decision 2)
+struct DeferredItemsList: View {
+    struct Row: Identifiable {
+        /// The item's id on the device that owns the checklist.
+        let id: String
+        let item: ChecklistItem
+    }
+
+    struct Group: Identifiable {
+        let phaseRawValue: Int
+        let title: String
+        let items: [Row]
+        var id: Int { phaseRawValue }
+    }
+
+    let groups: [Group]
+    let onCheck: (_ id: String, _ phaseRawValue: Int) -> Void
+    let onClose: () -> Void
+
     @Environment(\.cockpitTheme) private var theme
+
+    private var count: Int { groups.reduce(0) { $0 + $1.items.count } }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
@@ -128,21 +167,21 @@ struct DeferredItemsSheet: View {
 
             ScrollView {
                 VStack(alignment: .leading, spacing: 22) {
-                    ForEach(appState.deferredChecklist, id: \.phase) { group in
+                    ForEach(groups) { group in
                         VStack(alignment: .leading, spacing: 0) {
-                            Text(group.phase.title.uppercased())
+                            Text(group.title.uppercased())
                                 .font(.aero(size: 17, weight: .semibold))
                                 .tracking(0.8)
                                 .foregroundColor(theme.textSecondary)
                                 .padding(.bottom, 6)
                                 .accessibilityAddTraits(.isHeader)
-                            ForEach(group.items) { item in
+                            ForEach(group.items) { row in
                                 HStack(spacing: 16) {
-                                    DeferredItemText(item: item)
+                                    DeferredItemText(item: row.item)
                                     Spacer(minLength: 8)
                                     Button {
                                         withAnimation(.easeOut(duration: 0.2)) {
-                                            appState.checkDeferredItem(item.id, in: group.phase)
+                                            onCheck(row.id, group.phaseRawValue)
                                         }
                                     } label: {
                                         Text(L10n.Deferred.check.uppercased())
@@ -151,7 +190,7 @@ struct DeferredItemsSheet: View {
                                             .frame(minWidth: 128, minHeight: 76)
                                             .background(RoundedRectangle(cornerRadius: 14).fill(theme.action))
                                     }
-                                    .accessibilityLabel("\(L10n.Deferred.check) \(item.challenge)")
+                                    .accessibilityLabel("\(L10n.Deferred.check) \(row.item.challenge)")
                                 }
                                 .padding(.vertical, 10)
                                 .overlay(alignment: .top) { Rectangle().fill(theme.panelStroke).frame(height: 1) }
@@ -164,7 +203,7 @@ struct DeferredItemsSheet: View {
         .padding(28)
         .background(theme.panel.ignoresSafeArea())
         // The last one checked: nothing left to show.
-        .onChange(of: appState.deferredItemCount) { _, count in
+        .onChange(of: count) { _, count in
             if count == 0 { onClose() }
         }
     }

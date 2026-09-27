@@ -241,7 +241,7 @@ struct ContentView: View {
             switch key {
             case "home", "home2aircraft":       scene = .home2Aircraft
             case "cruise", "cruisehud":         scene = .cruiseHUD
-            case "cruiseroute":                 scene = .cruiseRoute
+            case "cruiseroute", "companion":    scene = .cruiseRoute
             case "nav", "navplanactive":        scene = .navPlanActive
             case "conflicts", "planconflicts":  scene = .planConflicts
             case "plan", "planbuilder":         scene = .planBuilder
@@ -277,6 +277,12 @@ struct ContentView: View {
                 airportDataService: airportDataService,
                 threadManager: threadManager
             )
+            // The Companion viewer of that cruise, with an item deferred so its list shows. (v6.0 review)
+            if key == "companion" {
+                appState.deferHighlightedItem()
+                companionConnectivityManager.showAsViewerOfOwnFlight(
+                    appState: appState, locationManager: locationManager, flightPlanManager: flightPlanManager)
+            }
         }
         #endif
         .onShake {

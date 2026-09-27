@@ -20,6 +20,9 @@ struct CompanionFlightView: View {
     @State private var isHoldingExit = false
     @State private var showExitConfirm = false
     @State private var now = Date()
+    /// NEXT's review of the items still open, as on the Cockpit. (v6.0 review, decision 2)
+    @State private var openItemsReview: CompanionOpenItemsReview?
+    @State private var showDeferredList = false
     private let tick = Timer.publish(every: 1, on: .main, in: .common).autoconnect()
 
     private var flightData: CompanionFlightData? { companionConnectivityManager.lastReceivedData }
@@ -103,7 +106,7 @@ struct CompanionFlightView: View {
         HStack(alignment: .top) {
             HStack(spacing: 7) {
                 Text("COMPANION")
-                    .font(.aero(size: 11, weight: .bold, design: .monospaced))
+                    .font(.aero(size: CockpitType.label, weight: .bold, design: .monospaced))
                     .foregroundColor(theme.actionText)
                     .padding(.horizontal, 6).padding(.vertical, 2)
                     .background(theme.action)
@@ -120,7 +123,7 @@ struct CompanionFlightView: View {
                     .accessibilityHint(L10n.Companion.holdToExit)
 
                 Text(flightData?.aircraftRegistration ?? "---")
-                    .font(.aero(size: 14, weight: .bold, design: .monospaced))
+                    .font(.aero(size: CockpitType.label, weight: .bold, design: .monospaced))
                     .foregroundColor(theme.textPrimary)
             }
 
@@ -139,7 +142,7 @@ struct CompanionFlightView: View {
     private var connectionStatusRow: some View {
         HStack(spacing: 5) {
             if let name = companionConnectivityManager.connectedDeviceName {
-                Text(name).font(.aero(size: 11)).foregroundColor(theme.textSecondary)
+                Text(name).font(.aero(size: CockpitType.label)).foregroundColor(theme.textSecondary).lineLimit(1)
             }
             StatusIndicator(connectionStatus, size: 8)
         }
@@ -157,9 +160,9 @@ struct CompanionFlightView: View {
     /// the signal status, in the app's design language. (companion v2 — GPS clarity)
     private var gpsChip: some View {
         HStack(spacing: 5) {
-            Text("GPS").font(.aero(size: 11, weight: .medium, design: .monospaced)).foregroundColor(theme.textSecondary)
-            Text(gpsSourceLabel).font(.aero(size: 11, design: .monospaced)).foregroundColor(theme.textPrimary)
-            Circle().fill(gpsColor).frame(width: 8, height: 8)
+            Text("GPS").font(.aero(size: CockpitType.label, weight: .medium, design: .monospaced)).foregroundColor(theme.textSecondary)
+            Text(gpsSourceLabel).font(.aero(size: CockpitType.label, design: .monospaced)).foregroundColor(theme.textPrimary)
+            Circle().fill(gpsColor).frame(width: 10, height: 10)
         }
         // Merge the fragments so VoiceOver reads "GPS <source>" as one element instead of three. (v4.1.0)
         .accessibilityElement(children: .combine)
@@ -239,16 +242,16 @@ struct CompanionFlightView: View {
         // already-active mode, which wouldn't fire an .onChange) so auto-by-phase stops overriding the pilot.
         Button { userPickedMode = true; withAnimation(reduceMotion ? nil : .default) { mode = m } } label: { // (UX-18)
             HStack(spacing: 5) {
-                Image(systemName: icon).font(.aero(size: 11))
-                Text(title).font(.aero(size: 12, weight: .bold, design: .monospaced))
+                Image(systemName: icon).font(.aero(size: CockpitType.label))
+                Text(title).font(.aero(size: CockpitType.label, weight: .bold, design: .monospaced))
             }
             .foregroundColor(mode == m ? theme.actionText : theme.textSecondary)
-            .frame(maxWidth: .infinity).padding(.vertical, 6)
+            .frame(maxWidth: .infinity, minHeight: CockpitTarget.control - 6)
             .background(mode == m ? theme.action : Color.clear)
             .clipShape(RoundedRectangle(cornerRadius: 6))
         }
-        // Invisible hit-area expansion to the HIG 44pt minimum, without growing the visual chip. (UX-16)
-        .frame(minHeight: 44)
+        // A Cockpit control's height, as the Cockpit's own pane switch. (v6.0 review)
+        .frame(minHeight: CockpitTarget.control)
         .contentShape(Rectangle())
         .accessibilityAddTraits(mode == m ? .isSelected : [])
     }
@@ -315,18 +318,19 @@ struct CompanionFlightView: View {
     private func nextWaypointHero(index: Int, waypoint wp: CompanionWaypoint) -> some View {
         HStack(spacing: 16) {
             ZStack {
-                Circle().stroke(theme.action, lineWidth: 2).frame(width: 72, height: 72)
-                Image(systemName: "arrow.up").font(.aero(size: 34, weight: .semibold)).foregroundColor(theme.action)
+                Circle().stroke(theme.action, lineWidth: 2).frame(width: 84, height: 84)
+                Image(systemName: "arrow.up").font(.aero(size: 40, weight: .semibold)).foregroundColor(theme.action)
                     .rotationEffect(.degrees(arrowRotation(wp)))
                     .animation(reduceMotion ? nil : .easeInOut(duration: 0.4), value: arrowRotation(wp)) // (UX-18)
             }
             VStack(alignment: .leading, spacing: 2) {
-                Text(L10n.Nav.next.uppercased()).font(.aero(size: 10, weight: .bold, design: .monospaced)).foregroundColor(theme.textSecondary)
+                Text(L10n.Nav.next.uppercased()).font(.aero(size: CockpitType.label, weight: .bold, design: .monospaced)).foregroundColor(theme.textSecondary)
+                // The next waypoint in the route's colour, as on the Cockpit's card.
                 Text(wp.name.isEmpty ? "WP\(index + 1)" : wp.name)
-                    .font(.aero(size: 28, weight: .bold, design: .monospaced)).foregroundColor(theme.textPrimary)
+                    .font(.aero(size: CockpitType.item, weight: .bold, design: .monospaced)).foregroundColor(theme.route)
                     .lineLimit(1).minimumScaleFactor(0.6)
                 if let mc = wp.magneticCourse {
-                    Text(String(format: "%03.0f° mag", mc)).font(.aero(size: 13, design: .monospaced)).foregroundColor(theme.action)
+                    Text(String(format: "%03.0f° mag", mc)).font(.aero(size: CockpitType.label, design: .monospaced)).foregroundColor(theme.textSecondary)
                 }
             }
             Spacer()
@@ -344,10 +348,11 @@ struct CompanionFlightView: View {
 
     private func metricCell(_ label: String, _ value: String, _ unit: String) -> some View {
         VStack(spacing: 2) {
-            Text(label).font(.aero(size: 10, design: .monospaced)).foregroundColor(theme.textSecondary)
-            HStack(alignment: .firstTextBaseline, spacing: 2) {
-                Text(value).font(.aero(size: 18, weight: .bold, design: .monospaced)).foregroundColor(theme.textPrimary)
-                if !unit.isEmpty { Text(unit).font(.aero(size: 10, design: .monospaced)).foregroundColor(theme.textSecondary) }
+            Text(label).font(.aero(size: CockpitType.label, design: .monospaced)).foregroundColor(theme.textSecondary)
+            HStack(alignment: .firstTextBaseline, spacing: 3) {
+                Text(value).font(.aero(size: CockpitType.button, weight: .bold, design: .monospaced)).foregroundColor(theme.textPrimary)
+                    .lineLimit(1).minimumScaleFactor(0.7)
+                if !unit.isEmpty { Text(unit).font(.aero(size: CockpitType.label, design: .monospaced)).foregroundColor(theme.textSecondary) }
             }
         }
         .frame(maxWidth: .infinity).padding(.vertical, 8)
@@ -360,13 +365,15 @@ struct CompanionFlightView: View {
                 VStack(spacing: 0) {
                     Button { withAnimation(reduceMotion ? nil : .default) { showFullPlan.toggle() } } label: { // (UX-18)
                         HStack {
-                            Text("PLAN").font(.aero(size: 11, weight: .bold, design: .monospaced)).foregroundColor(theme.action)
+                            Text("PLAN").font(.aero(size: CockpitType.label, weight: .bold, design: .monospaced)).foregroundColor(theme.action)
                             Spacer()
-                            Image(systemName: showFullPlan ? "chevron.up" : "chevron.down").font(.aero(size: 11)).foregroundColor(theme.textSecondary)
+                            Image(systemName: showFullPlan ? "chevron.up" : "chevron.down").font(.aero(size: CockpitType.label)).foregroundColor(theme.action)
                         }
-                        .padding(.horizontal, 10).padding(.vertical, 8)
+                        .padding(.horizontal, 12)
+                        .frame(minHeight: CockpitTarget.control)
+                        .contentShape(Rectangle())
                     }
-                    if showFullPlan { routeTable(plan).frame(maxHeight: 260) } else { upcomingStrip(plan) }
+                    if showFullPlan { routeTable(plan).frame(maxHeight: 320) } else { upcomingStrip(plan) }
                 }
                 .background(Color.black.opacity(0.2)).clipShape(RoundedRectangle(cornerRadius: 8))
             }
@@ -378,7 +385,7 @@ struct CompanionFlightView: View {
         let upcoming = Array(plan.waypoints.enumerated()).filter { $0.offset >= start }.prefix(2)
         return VStack(spacing: 0) {
             if upcoming.isEmpty {
-                Text("—").font(.aero(size: 12, design: .monospaced)).foregroundColor(theme.textSecondary)
+                Text("—").font(.aero(size: CockpitType.label, design: .monospaced)).foregroundColor(theme.textSecondary)
                     .frame(maxWidth: .infinity).padding(.vertical, 6)
             } else {
                 ForEach(Array(upcoming), id: \.element.id) { i, wp in
@@ -386,10 +393,10 @@ struct CompanionFlightView: View {
                         Text("\(i + 1) · \(wp.name.isEmpty ? "WP" : wp.name)").lineLimit(1)
                         Spacer()
                         Text(wp.magneticCourse.map { String(format: "%03.0f°", $0) } ?? "---")
-                        Text(wp.distance.map { String(format: "%.1f NM", $0) } ?? "---").frame(width: 70, alignment: .trailing)
+                        Text(wp.distance.map { String(format: "%.1f NM", $0) } ?? "---").frame(width: 96, alignment: .trailing)
                     }
-                    .font(.aero(size: 12, design: .monospaced)).foregroundColor(theme.textPrimary.opacity(0.85))
-                    .padding(.horizontal, 10).padding(.vertical, 5)
+                    .font(.aero(size: CockpitType.label, design: .monospaced)).foregroundColor(theme.textPrimary.opacity(0.85))
+                    .padding(.horizontal, 12).padding(.vertical, 6)
                 }
             }
         }
@@ -401,10 +408,10 @@ struct CompanionFlightView: View {
                 // FREQ + a descriptor of WHAT the frequency is (the waypoint it belongs to, or GUARD for
                 // the 121.50 emergency fallback). (item 3)
                 HStack(spacing: 4) {
-                    Text("FREQ").font(.aero(size: 10, design: .monospaced)).foregroundColor(theme.textSecondary)
-                    Text(freqDescriptor).font(.aero(size: 10, weight: .semibold, design: .monospaced)).foregroundColor(theme.action).lineLimit(1)
+                    Text("FREQ").font(.aero(size: CockpitType.label, design: .monospaced)).foregroundColor(theme.textSecondary)
+                    Text(freqDescriptor).font(.aero(size: CockpitType.label, weight: .semibold, design: .monospaced)).foregroundColor(theme.textPrimary).lineLimit(1)
                 }
-                Text(freqValue).font(.aero(size: 14, design: .monospaced)).foregroundColor(theme.textPrimary)
+                Text(freqValue).font(.aero(size: CockpitType.row, weight: .bold, design: .monospaced)).foregroundColor(theme.textPrimary)
             }
             .frame(maxWidth: .infinity, alignment: .leading).padding(10)
             .background(Color.black.opacity(0.25)).clipShape(RoundedRectangle(cornerRadius: 8))
@@ -418,10 +425,10 @@ struct CompanionFlightView: View {
             } label: {
                 VStack(alignment: .leading, spacing: 2) {
                     HStack(spacing: 4) {
-                        Image(systemName: "stopwatch").font(.aero(size: 10)).foregroundColor(theme.action)
-                        Text("CHRONO").font(.aero(size: 10, design: .monospaced)).foregroundColor(theme.textSecondary)
+                        Image(systemName: "stopwatch").font(.aero(size: CockpitType.label)).foregroundColor(theme.action)
+                        Text("CHRONO").font(.aero(size: CockpitType.label, design: .monospaced)).foregroundColor(theme.action)
                     }
-                    Text(formattedChronometer).font(.aero(size: 14, weight: .bold, design: .monospaced)).foregroundColor(theme.textPrimary)
+                    Text(formattedChronometer).font(.aero(size: CockpitType.row, weight: .bold, design: .monospaced)).foregroundColor(theme.textPrimary)
                 }
                 .frame(maxWidth: .infinity, alignment: .leading).padding(10)
                 .background(Color.black.opacity(0.25)).clipShape(RoundedRectangle(cornerRadius: 8))
@@ -457,10 +464,12 @@ struct CompanionFlightView: View {
             }
         } label: {
             HStack(spacing: 6) {
-                Image(systemName: "clock.badge.checkmark").font(.aero(size: 14))
-                Text(L10n.Companion.recordATO).font(.aero(size: 14, weight: .bold))
+                Image(systemName: "clock.badge.checkmark").font(.aero(size: CockpitType.response, weight: .bold))
+                Text(L10n.Companion.recordATO).font(.aero(size: CockpitType.button, weight: .bold))
+                    .lineLimit(1).minimumScaleFactor(0.6)
             }
-            .foregroundColor(theme.actionText).frame(maxWidth: .infinity).padding(.vertical, 12)
+            // The thumb bar's height, as MARK on the Cockpit. (v6.0 review)
+            .foregroundColor(theme.actionText).frame(maxWidth: .infinity, minHeight: CockpitTarget.thumb)
             .background(theme.action).clipShape(RoundedRectangle(cornerRadius: 10))
         }
         // No ButtonStyle here, so .disabled() alone won't dim the inline background — dim explicitly so a
@@ -469,13 +478,18 @@ struct CompanionFlightView: View {
         .opacity(canRecordATO ? 1.0 : 0.45)
     }
 
-    // MARK: - CHECKLIST mode (mirrors the iPad checklist: hero + rows + tap-to-advance + NEXT)
+    // MARK: - CHECKLIST mode
+    //
+    // The phone Cockpit's checklist, driven over the link: the list at the Cockpit's scale, CHECK and
+    // DEFER in a thumb bar, NEXT listing what is still open before leaving the phase, and the deferred
+    // list checked from here. Every action is the iPad's own, sent as a command; the iPad stays the
+    // source of truth and its snapshot redraws this. A tap on the list still checks, as on the phone
+    // (I2). (v6.0 review, decision 2)
 
-    /// Whether the current phase is fully worked through (so the NEXT button gets the attention pulse,
-    /// like the iPad). Same condition that shows the green completion text.
+    /// Everything on the list reached: CHECK gives way to NEXT, as on the Cockpit.
     private var phaseComplete: Bool {
         guard let cl = checklist else { return false }
-        return cl.visibleCount > 0 && cl.completedCount >= cl.visibleCount
+        return cl.visibleCount == 0 || cl.completedCount >= cl.visibleCount
     }
 
     private var checklistMode: some View {
@@ -484,7 +498,7 @@ struct CompanionFlightView: View {
                 VStack(spacing: 0) {
                     checklistPhaseHeader(cl)
                     if cl.deferredItemCount > 0 {
-                        deferredItemsRow(count: cl.deferredItemCount)
+                        deferredItemsEntry(cl)
                     }
                     ScrollViewReader { proxy in
                         ScrollView {
@@ -498,9 +512,9 @@ struct CompanionFlightView: View {
                                     hiddenContentPlaceholder(count: cl.hiddenItemCount)
                                 }
                                 if let completion = phaseCompletionText(cl), !completion.isEmpty {
-                                    Rectangle().fill(Color.subtleOverlay(0.12)).frame(height: 1).padding(.vertical, 12)
+                                    Rectangle().fill(theme.panelStroke).frame(height: 1).padding(.vertical, 12)
                                     HStack { Spacer()
-                                        Text(completion).font(.aero(size: 16, weight: .bold, design: .monospaced)).foregroundColor(theme.onTarget)
+                                        Text(completion).font(.aero(size: CockpitType.label, weight: .bold, design: .monospaced)).foregroundColor(theme.onTarget)
                                         Spacer() }
                                 }
                             }
@@ -509,18 +523,39 @@ struct CompanionFlightView: View {
                         .onChange(of: cl.highlightedIndex) { _, idx in
                             withAnimation(reduceMotion ? nil : .default) { proxy.scrollTo(idx, anchor: UnitPoint(x: 0.5, y: 0.12)) } // (UX-18)
                         }
+                        // And on arriving in this mode, so the current item isn't left under the thumb bar.
+                        .onAppear { proxy.scrollTo(cl.highlightedIndex, anchor: UnitPoint(x: 0.5, y: 0.12)) }
                     }
-                    // Tap anywhere on the list to advance the highlighted item (mirrors the iPad).
+                    // A tap on the list checks the highlighted item, as on the phone Cockpit (I2).
                     .contentShape(Rectangle())
-                    .onTapGesture { companionConnectivityManager.sendCommand(.advanceChecklistItem) }
+                    .onTapGesture { if !phaseComplete { companionConnectivityManager.sendCommand(.advanceChecklistItem) } }
 
-                    nextButton
+                    thumbBar(cl)
+                }
+                .sheet(item: $openItemsReview) { review in
+                    OpenItemsReviewSheet(
+                        phase: review.phase, items: review.items, openCount: review.count,
+                        onBack: { openItemsReview = nil },
+                        onContinue: {
+                            openItemsReview = nil
+                            companionConnectivityManager.sendCommand(.nextChecklistPhase)
+                        })
+                    .environment(\.cockpitTheme, theme)
+                }
+                .sheet(isPresented: $showDeferredList) {
+                    DeferredItemsList(
+                        groups: deferredListGroups,
+                        onCheck: { id, phaseRawValue in
+                            companionConnectivityManager.sendCommand(.checkDeferredItem(phaseRawValue: phaseRawValue, itemId: id))
+                        },
+                        onClose: { showDeferredList = false })
+                    .environment(\.cockpitTheme, theme)
                 }
             } else {
                 VStack(spacing: 8) {
                     Spacer()
                     Image(systemName: "checklist").font(.aero(size: 40)).foregroundColor(theme.textSecondary)
-                    Text(L10n.Companion.checklistUnavailable).font(.aero(.subheadline)).foregroundColor(theme.textSecondary)
+                    Text(L10n.Companion.checklistUnavailable).font(.aero(size: CockpitType.label)).foregroundColor(theme.textSecondary)
                         .multilineTextAlignment(.center).padding(.horizontal, 30)
                     Spacer()
                 }
@@ -530,36 +565,35 @@ struct CompanionFlightView: View {
     }
 
     private func checklistPhaseHeader(_ cl: CompanionChecklistSnapshot) -> some View {
-        VStack(spacing: 2) {
-            HStack {
-                // 34x30 was below Apple's 28x28 floor on one axis and well under the 44x44
-                // recommendation on both. Padding grows the target without moving the chevron.
-                Button { companionConnectivityManager.sendCommand(.previousChecklistPhase) } label: {
-                    Image(systemName: "chevron.left").font(.aero(size: 15)).foregroundColor(theme.action)
-                        .frame(width: 44, height: 44)
-                        .contentShape(Rectangle())
-                }
-                .accessibilityLabel(L10n.Accessibility.previousPhase)
-                Spacer()
-                Text(cl.phaseTitle).font(.aero(size: 16, weight: .bold)).foregroundColor(theme.action)
-                    .textCase(.uppercase).tracking(1).lineLimit(1)
-                Spacer()
-                // As large as its twin on the left, and named for VoiceOver. It was 34 x 30 pt, unlabelled.
-                // (v6.0 review)
-                Button { companionConnectivityManager.sendCommand(.nextChecklistPhase) } label: {
-                    Image(systemName: "chevron.right").font(.aero(size: 15)).foregroundColor(theme.action)
-                        .frame(width: 44, height: 44)
-                        .contentShape(Rectangle())
-                }
-                .accessibilityLabel(L10n.Accessibility.nextPhase)
+        HStack(spacing: 6) {
+            Button { companionConnectivityManager.sendCommand(.previousChecklistPhase) } label: {
+                Image(systemName: "chevron.left").font(.aero(size: CockpitType.row, weight: .semibold))
+                    .foregroundColor(theme.action)
+                    .frame(width: CockpitTarget.control, height: CockpitTarget.control)
+                    .contentShape(Rectangle())
             }
-            HStack(spacing: 4) {
-                Image(systemName: "hand.tap.fill").font(.aero(size: 9))
-                Text(L10n.ChecklistAction.tapToAdvance).font(.aero(size: 10))
+            .accessibilityLabel(L10n.Accessibility.previousPhase)
+            Spacer(minLength: 0)
+            VStack(spacing: 2) {
+                Text(cl.phaseTitle).font(.aero(size: CockpitType.label, weight: .bold)).foregroundColor(theme.textPrimary)
+                    .textCase(.uppercase).lineLimit(1).minimumScaleFactor(0.7)
+                if cl.visibleCount > 0 {
+                    Text("\(min(cl.completedCount, cl.visibleCount)) / \(cl.visibleCount)")
+                        .font(.aero(size: CockpitType.label, design: .monospaced)).foregroundColor(theme.textSecondary)
+                }
             }
-            .foregroundColor(theme.textDim)
+            .accessibilityElement(children: .combine)
+            Spacer(minLength: 0)
+            // The next phase, through the same review as NEXT when items are still open.
+            Button { requestNextPhase(cl) } label: {
+                Image(systemName: "chevron.right").font(.aero(size: CockpitType.row, weight: .semibold))
+                    .foregroundColor(theme.action)
+                    .frame(width: CockpitTarget.control, height: CockpitTarget.control)
+                    .contentShape(Rectangle())
+            }
+            .accessibilityLabel(L10n.Accessibility.nextPhase)
         }
-        .padding(.horizontal, 12).padding(.vertical, 6)
+        .padding(.horizontal, 6).padding(.vertical, 4)
     }
 
     @ViewBuilder
@@ -569,8 +603,7 @@ struct CompanionFlightView: View {
                 challenge: item.challenge,
                 response: item.response,
                 progressText: "\(index + 1) / \(cl.items.count)",
-                showAdvanceHint: false,
-                isCompact: true
+                showAdvanceHint: false
             ).padding(.vertical, 4)
         } else {
             // Passed over with DEFER on the iPad: drawn deferred, as there, not ticked as done.
@@ -581,28 +614,91 @@ struct CompanionFlightView: View {
                 showSeparator: index < cl.items.count - 1,
                 isHighlighted: false,
                 isCompleted: index < cl.highlightedIndex && !isDeferred,
-                isDeferred: isDeferred,
-                isCompact: true
+                isDeferred: isDeferred
             )
         }
     }
 
-    /// The iPad's deferred-items row, to read only: the list and its CHECK buttons stay on the iPad.
-    private func deferredItemsRow(count: Int) -> some View {
-        HStack(spacing: 8) {
-            Image(systemName: "exclamationmark.triangle.fill")
-            Text(L10n.Deferred.count(count))
-            Spacer(minLength: 0)
+    /// The Cockpit's deferred-items row. It opens the list when the iPad sent it (a viewer entitled to
+    /// the text); otherwise it only says how many, as the list would have nothing to show.
+    @ViewBuilder
+    private func deferredItemsEntry(_ cl: CompanionChecklistSnapshot) -> some View {
+        if cl.supportsDefer && !cl.deferredGroups.isEmpty {
+            DeferredItemsChip(count: cl.deferredItemCount) { showDeferredList = true }
+                .padding(.horizontal, 12).padding(.bottom, 4)
+        } else {
+            HStack(spacing: 10) {
+                Image(systemName: "exclamationmark.triangle.fill")
+                Text(L10n.Deferred.count(cl.deferredItemCount))
+                Spacer(minLength: 0)
+            }
+            .font(.aero(size: CockpitType.label, weight: .semibold))
+            .foregroundColor(theme.warning)
+            .padding(.horizontal, 16)
+            .frame(maxWidth: .infinity, minHeight: CockpitTarget.control)
+            .background(RoundedRectangle(cornerRadius: 12).fill(theme.warning.opacity(0.12)))
+            .overlay(RoundedRectangle(cornerRadius: 12).stroke(theme.warning.opacity(0.6), lineWidth: 1))
+            .padding(.horizontal, 12).padding(.bottom, 4)
+            .accessibilityElement(children: .combine)
         }
-        .font(.aero(size: 15, weight: .semibold))
-        .foregroundColor(theme.warning)
-        .padding(.horizontal, 12)
-        .padding(.vertical, 8)
-        .background(RoundedRectangle(cornerRadius: 10).fill(theme.warning.opacity(0.12)))
-        .overlay(RoundedRectangle(cornerRadius: 10).stroke(theme.warning.opacity(0.6), lineWidth: 1))
-        .padding(.horizontal, 12)
-        .padding(.bottom, 4)
-        .accessibilityElement(children: .combine)
+    }
+
+    private var deferredListGroups: [DeferredItemsList.Group] {
+        (checklist?.deferredGroups ?? []).map { group in
+            DeferredItemsList.Group(
+                phaseRawValue: group.phaseRawValue, title: group.phaseTitle,
+                items: group.items.map { .init(id: $0.id, item: ChecklistItem(challenge: $0.challenge, response: $0.response)) })
+        }
+    }
+
+    /// The thumb bar: DEFER and CHECK (which names the item) while items are open, then NEXT, as on the
+    /// Cockpit. DEFER only when this iPad takes it: an older one would drop the command.
+    private func thumbBar(_ cl: CompanionChecklistSnapshot) -> some View {
+        HStack(spacing: 8) {
+            if !phaseComplete {
+                if cl.supportsDefer {
+                    CockpitThumbButton(title: L10n.Cockpit.deferItem, subtitle: L10n.Cockpit.deferHint,
+                                       style: .outlined(tint: theme.warning)) {
+                        companionConnectivityManager.sendCommand(.deferChecklistItem)
+                    }
+                    .frame(maxWidth: 112)
+                }
+                CockpitThumbButton(title: L10n.Cockpit.check, subtitle: currentChallenge(cl), icon: "checkmark",
+                                   style: .filled(fill: theme.action, text: theme.actionText)) {
+                    companionConnectivityManager.sendCommand(.advanceChecklistItem)
+                }
+            } else {
+                let deferred = cl.deferredItemIds.count
+                let next = ChecklistPhase(rawValue: cl.phaseRawValue)?.nextNavigable(circuitMode: flightData?.isCircuitMode == true)
+                CockpitThumbButton(title: next.map { L10n.Cockpit.next($0.shortTitle) } ?? L10n.Button.next,
+                                   subtitle: deferred > 0 ? L10n.Deferred.count(deferred) : L10n.Cockpit.allChecked,
+                                   icon: "chevron.right",
+                                   style: .filled(fill: theme.action, text: theme.actionText)) {
+                    requestNextPhase(cl)
+                }
+                .modifier(PulseModifier(isActive: phaseComplete))
+            }
+        }
+        .padding(.horizontal, 12).padding(.vertical, 10)
+        .background(theme.panel)
+        .overlay(alignment: .top) { Rectangle().fill(theme.panelStroke).frame(height: 1) }
+    }
+
+    private func currentChallenge(_ cl: CompanionChecklistSnapshot) -> String? {
+        cl.items.indices.contains(cl.highlightedIndex) ? cl.items[cl.highlightedIndex].challenge : nil
+    }
+
+    /// NEXT: with items still open, list them before leaving the phase, as the iPad does (v6.0 · B2).
+    /// A viewer without the items' text gets the count.
+    private func requestNextPhase(_ cl: CompanionChecklistSnapshot) {
+        guard cl.openItemCount > 0, let phase = ChecklistPhase(rawValue: cl.phaseRawValue) else {
+            companionConnectivityManager.sendCommand(.nextChecklistPhase)
+            return
+        }
+        let open = cl.items.enumerated()
+            .filter { $0.offset >= cl.highlightedIndex && !$0.element.isHeader }
+            .map { ChecklistItem(challenge: $0.element.challenge, response: $0.element.response) }
+        openItemsReview = CompanionOpenItemsReview(phase: phase, items: open, count: cl.openItemCount)
     }
 
     /// "Hidden Checklist Content" placeholder — matches the iPad's learning-mode indicator. Hold to
@@ -611,17 +707,18 @@ struct CompanionFlightView: View {
         VStack(spacing: 8) {
             Rectangle().fill(theme.warning.opacity(0.3)).frame(height: 1).padding(.top, 12)
             HStack(spacing: 10) {
-                Image(systemName: "eye.slash.fill").font(.aero(size: 18)).foregroundColor(theme.warning)
+                Image(systemName: "eye.slash.fill").font(.aero(size: CockpitType.row)).foregroundColor(theme.warning)
                 VStack(alignment: .leading, spacing: 2) {
                     Text(L10n.ChecklistAction.hiddenItemsTitle)
-                        .font(.aero(size: 13, weight: .bold)).foregroundColor(theme.warning)
+                        .font(.aero(size: CockpitType.label, weight: .bold)).foregroundColor(theme.warning)
                     Text(L10n.ChecklistAction.hiddenItemsCount(count, count == 1 ? "" : "s"))
-                        .font(.aero(size: 11)).foregroundColor(theme.textSecondary)
+                        .font(.aero(size: CockpitType.label)).foregroundColor(theme.textSecondary)
                 }
                 Spacer()
-                Text(L10n.Companion.holdToReveal).font(.aero(size: 10, weight: .medium)).foregroundColor(theme.textDim)
+                Text(L10n.Companion.holdToReveal).font(.aero(size: CockpitType.label, weight: .medium)).foregroundColor(theme.textDim)
             }
             .padding(.horizontal, 12).padding(.vertical, 12)
+            .frame(minHeight: CockpitTarget.control)
             .background(
                 RoundedRectangle(cornerRadius: 8).fill(theme.warning.opacity(0.1))
                     .overlay(RoundedRectangle(cornerRadius: 8).stroke(theme.warning.opacity(0.3), lineWidth: 1))
@@ -638,20 +735,6 @@ struct CompanionFlightView: View {
         guard cl.completedCount >= cl.visibleCount, cl.visibleCount > 0,
               let phase = ChecklistPhase(rawValue: cl.phaseRawValue) else { return nil }
         return phase.completionText
-    }
-
-    private var nextButton: some View {
-        Button { companionConnectivityManager.sendCommand(.nextChecklistPhase) } label: {
-            HStack(spacing: 8) {
-                Text(L10n.Button.next).font(.aero(size: 16, weight: .bold))
-                Image(systemName: "chevron.right").font(.aero(size: 14, weight: .bold))
-            }
-            .foregroundColor(theme.actionText).frame(maxWidth: .infinity).padding(.vertical, 14)
-            .background(theme.action).clipShape(RoundedRectangle(cornerRadius: 12))
-        }
-        // Pulse the NEXT button once the phase is complete, exactly like the iPad checklist. (item 1b)
-        .modifier(PulseModifier(isActive: phaseComplete))
-        .padding(.horizontal, 12).padding(.bottom, 8)
     }
 
     // MARK: - Route table (full plan, inside the PLAN disclosure)
@@ -678,21 +761,24 @@ struct CompanionFlightView: View {
         let textColor: Color = isPast ? theme.textSecondary : theme.textPrimary.opacity(isCurrent ? 1 : 0.8)
         return HStack(spacing: 0) {
             Group {
-                if isPast { Image(systemName: "checkmark").font(.aero(size: 9)).foregroundColor(theme.onTarget) }
-                else if isCurrent { Image(systemName: "arrowtriangle.right.fill").font(.aero(size: 9)).foregroundColor(theme.action) }
-                else { Text("\(index + 1)").font(.aero(size: 10, design: .monospaced)).foregroundColor(theme.textSecondary) }
-            }.frame(width: 24)
-            Text(wp.name.isEmpty ? "WP\(index)" : wp.name).font(.aero(size: 12, weight: isCurrent ? .bold : .regular, design: .monospaced)).foregroundColor(textColor).lineLimit(1).frame(width: 64, alignment: .leading)
-            Text(wp.magneticCourse.map { String(format: "%03.0f", $0) } ?? "---").font(.aero(size: 11, design: .monospaced)).foregroundColor(textColor).frame(width: 40)
-            Text(wp.distance.map { String(format: "%.1f", $0) } ?? "---").font(.aero(size: 11, design: .monospaced)).foregroundColor(textColor).frame(width: 46)
-            Text(formattedTime(wp.estimatedTimeOver)).font(.aero(size: 11, design: .monospaced)).foregroundColor(textColor).frame(width: 48)
+                if isPast { Image(systemName: "checkmark").font(.aero(size: CockpitType.label)).foregroundColor(theme.onTarget) }
+                else if isCurrent { Image(systemName: "arrowtriangle.right.fill").font(.aero(size: CockpitType.label)).foregroundColor(theme.route) }
+                else { Text("\(index + 1)").font(.aero(size: CockpitType.label, design: .monospaced)).foregroundColor(theme.textSecondary) }
+            }.frame(width: 28)
+            // The Cockpit's label size throughout: the name takes what the four figures leave. (v6.0 review)
+            Text(wp.name.isEmpty ? "WP\(index)" : wp.name).font(.aero(size: CockpitType.label, weight: isCurrent ? .bold : .regular, design: .monospaced)).foregroundColor(isCurrent ? theme.route : textColor).lineLimit(1).minimumScaleFactor(0.7).frame(maxWidth: .infinity, alignment: .leading)
+            Text(wp.magneticCourse.map { String(format: "%03.0f", $0) } ?? "---").font(.aero(size: CockpitType.label, design: .monospaced)).foregroundColor(textColor).frame(width: 44)
+            Text(wp.distance.map { String(format: "%.1f", $0) } ?? "---").font(.aero(size: CockpitType.label, design: .monospaced)).foregroundColor(textColor).frame(width: 52)
+            Text(formattedTime(wp.estimatedTimeOver)).font(.aero(size: CockpitType.label, design: .monospaced)).foregroundColor(textColor).frame(width: 60)
             Button {
                 if wp.actualTimeOver == nil { companionConnectivityManager.sendCommand(.recordATO(waypointIndex: index)) }
             } label: {
-                Text(formattedTime(wp.actualTimeOver)).font(.aero(size: 11, weight: wp.actualTimeOver != nil ? .bold : .regular, design: .monospaced)).foregroundColor(wp.actualTimeOver != nil ? theme.onTarget : theme.textSecondary).frame(width: 48)
+                Text(formattedTime(wp.actualTimeOver)).font(.aero(size: CockpitType.label, weight: wp.actualTimeOver != nil ? .bold : .regular, design: .monospaced)).foregroundColor(wp.actualTimeOver != nil ? theme.onTarget : theme.action).frame(width: 60)
+                    .frame(minHeight: 44)
+                    .contentShape(Rectangle())
             }.disabled(wp.actualTimeOver != nil)
         }
-        .padding(.vertical, 6)
+        .padding(.vertical, 2)
         .background(isCurrent ? theme.action.opacity(0.1) : Color.clear)
     }
 
@@ -711,11 +797,11 @@ struct CompanionFlightView: View {
     private var disconnectedBanner: some View {
         HStack {
             Image(systemName: "wifi.slash")
-            Text(L10n.Companion.connectionLost).font(.aero(size: 13, weight: .semibold))
+            Text(L10n.Companion.connectionLost).font(.aero(size: CockpitType.label, weight: .semibold))
             Spacer()
             Button(L10n.Companion.switchToStandalone) { companionConnectivityManager.switchToStandalone() }
-                .font(.aero(size: 12, weight: .medium)).foregroundColor(.black)
-                .padding(.horizontal, 8).padding(.vertical, 4)
+                .font(.aero(size: CockpitType.label, weight: .semibold)).foregroundColor(.black)
+                .padding(.horizontal, 10).frame(minHeight: 44)
                 .background(Color.black.opacity(0.12)).clipShape(RoundedRectangle(cornerRadius: 4))
         }
         // The caution colour of the theme, dark text on it as on the stale-data banner below; white on
@@ -726,7 +812,7 @@ struct CompanionFlightView: View {
     private var staleBanner: some View {
         HStack {
             Image(systemName: "wifi.exclamationmark")
-            Text(L10n.Companion.dataStale).font(.aero(size: 13, weight: .semibold))
+            Text(L10n.Companion.dataStale).font(.aero(size: CockpitType.label, weight: .semibold))
             Spacer()
         }
         .foregroundColor(.black).padding(.horizontal, 12).padding(.vertical, 8).background(theme.warning)
@@ -740,14 +826,15 @@ struct CompanionFlightView: View {
             Divider().frame(height: 20)
             instrumentItem("TRK", formattedTrack, "°")
         }
-        .padding(.horizontal, 12).padding(.vertical, 8).background(Color.black.opacity(0.4))
+        .padding(.horizontal, 12).padding(.vertical, 10).background(theme.panel)
     }
 
     private func instrumentItem(_ label: String, _ value: String, _ unit: String) -> some View {
         HStack(spacing: 4) {
-            Text(label).font(.aero(size: 10, weight: .medium, design: .monospaced)).foregroundColor(theme.textSecondary)
-            Text(value).font(.aero(size: 16, weight: .bold, design: .monospaced)).foregroundColor(theme.textPrimary)
-            Text(unit).font(.aero(size: 10, design: .monospaced)).foregroundColor(theme.textSecondary)
+            Text(label).font(.aero(size: CockpitType.label, weight: .medium, design: .monospaced)).foregroundColor(theme.textSecondary)
+            Text(value).font(.aero(size: CockpitType.row, weight: .bold, design: .monospaced)).foregroundColor(theme.textPrimary)
+                .lineLimit(1).minimumScaleFactor(0.7)
+            Text(unit).font(.aero(size: CockpitType.label, design: .monospaced)).foregroundColor(theme.textSecondary)
         }
         .frame(maxWidth: .infinity)
     }
@@ -797,4 +884,12 @@ struct CompanionFlightView: View {
         let f = flightData?.alwaysUseUTC == true ? Self.timeFormatterUTC : Self.timeFormatterLocal
         return f.string(from: date)
     }
+}
+
+/// What NEXT's review lists on the viewer.
+struct CompanionOpenItemsReview: Identifiable {
+    let phase: ChecklistPhase
+    let items: [ChecklistItem]
+    let count: Int
+    var id: Int { phase.rawValue }
 }

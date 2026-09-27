@@ -278,17 +278,66 @@ final class CompanionServiceContractTests: XCTestCase {
         let item = try XCTUnwrap(appState.activeChecklist.visibleItems(for: appState.currentPhase, learningMode: true)
             .first { !$0.isHeader })
         appState.deferredItems[appState.currentPhase] = [item.id]
-        // Premium selected (the gate's condition); the checklist on screen stays the bundled one.
-        appState.settings.selectedRemoteAircraftId = "premium-test"
+        XCTAssertEqual(appState.deferredItemCount, 1, "a real deferred item, so the redaction has something to hide")
 
-        let redacted = CompanionConnectivityManager.checklistSnapshot(of: appState, viewerIsEntitled: false)
+        let redacted = CompanionConnectivityManager.checklistSnapshot(of: appState, mayStreamItemText: false)
         XCTAssertTrue(redacted.items.isEmpty)
         XCTAssertTrue(redacted.deferredItemIds.isEmpty, "the id would spell out the challenge")
         let wire = String(decoding: try JSONEncoder().encode(redacted), as: UTF8.self)
         XCTAssertFalse(wire.contains(item.challenge), "no challenge text anywhere in the snapshot")
-        XCTAssertEqual(redacted.deferredItemCount, appState.deferredItemCount, "the count still goes")
+        XCTAssertEqual(redacted.deferredItemCount, 1, "the count still goes")
 
-        let full = CompanionConnectivityManager.checklistSnapshot(of: appState, viewerIsEntitled: true)
+        let full = CompanionConnectivityManager.checklistSnapshot(of: appState, mayStreamItemText: true)
         XCTAssertEqual(full.deferredItemIds, [item.id])
     }
+
+    /// Who gets the words: an entitled viewer always, anyone for the bundled aircraft.
+    func testTheTextGateFollowsEntitlementForProAircraftOnly() {
+        XCTAssertFalse(CompanionConnectivityManager.mayStreamItemText(viewerIsEntitled: false, remoteAircraftSelected: true))
+        XCTAssertTrue(CompanionConnectivityManager.mayStreamItemText(viewerIsEntitled: true, remoteAircraftSelected: true))
+        XCTAssertTrue(CompanionConnectivityManager.mayStreamItemText(viewerIsEntitled: false, remoteAircraftSelected: false))
+    }
+
+    // MARK: - CHECK and DEFER from the viewer (v6.0 review, decision 2)
+
+    func testTheNewCommandsRoundTrip() throws {
+        for command in [CompanionCommand.deferChecklistItem,
+                        .checkDeferredItem(phaseRawValue: 3, itemId: "2.I.Fuel")] {
+            let data = try JSONEncoder().encode(command)
+            let decoded = try JSONDecoder().decode(CompanionCommand.self, from: data)
+            XCTAssertEqual(String(describing: decoded), String(describing: command))
+        }
+    }
+
+    /// An iPad built before these fields says nothing about DEFER: the viewer must not offer it.
+    func testAnOlderMasterDoesNotOfferDefer() throws {
+        let decoded = try JSONDecoder().decode(CompanionChecklistSnapshot.self,
+                                               from: Data(#"{"phaseTitle":"Taxi","highlightedIndex":0}"#.utf8))
+        XCTAssertFalse(decoded.supportsDefer)
+        XCTAssertTrue(decoded.deferredGroups.isEmpty)
+        XCTAssertEqual(decoded.openItemCount, 0)
+    }
+
+    @MainActor
+    func testTheViewerGetsTheDeferredListOnlyWhenEntitled() throws {
+        let appState = makeTestAppState()
+        appState.settings.selectedRemoteAircraftId = nil
+        appState.settings.selectedAircraft = .wt9Dynamic
+        let phase = appState.currentPhase
+        let items = appState.activeChecklist.visibleItems(for: phase, learningMode: true).filter { !$0.isHeader }
+        let item = try XCTUnwrap(items.first)
+        appState.deferredItems[phase] = [item.id]
+
+        let full = CompanionConnectivityManager.checklistSnapshot(of: appState, mayStreamItemText: true)
+        XCTAssertTrue(full.supportsDefer)
+        XCTAssertEqual(full.deferredGroups.first?.phaseRawValue, phase.rawValue)
+        XCTAssertEqual(full.deferredGroups.first?.items.map(\.id), [item.id], "the master's own id, to check it by")
+        XCTAssertEqual(full.openItemCount, appState.openItems(in: phase).count)
+
+        let redacted = CompanionConnectivityManager.checklistSnapshot(of: appState, mayStreamItemText: false)
+        XCTAssertTrue(redacted.supportsDefer, "DEFER needs no text")
+        XCTAssertTrue(redacted.deferredGroups.isEmpty, "no challenge text for an unentitled viewer")
+        XCTAssertEqual(redacted.openItemCount, full.openItemCount, "the count still goes")
+    }
 }
+

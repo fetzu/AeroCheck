@@ -423,6 +423,18 @@ enum CompanionCommand: Codable {
     case nextChecklistPhase
     case previousChecklistPhase
     case revealHiddenItems   // hold-to-reveal hidden (memorizable) items — reveals on BOTH devices
+    // CHECK and DEFER as on the iPad (v6.0 review, decision 2). An older iPad can't decode these and
+    // drops them, so the viewer only offers them when the snapshot says `supportsDefer`.
+    case deferChecklistItem
+    case checkDeferredItem(phaseRawValue: Int, itemId: String)
+}
+
+/// One phase's deferred items, for the viewer's deferred list. Sent only to a viewer entitled to the
+/// checklist's text (SA-26). (v6.0 review, decision 2)
+struct CompanionDeferredGroup: Codable, Equatable {
+    let phaseRawValue: Int
+    let phaseTitle: String
+    let items: [CompanionChecklistItem]
 }
 
 // MARK: - Checklist Snapshot (Master -> Viewer)
@@ -453,10 +465,20 @@ struct CompanionChecklistSnapshot: Codable, Equatable {
     let deferredItemIds: [String]
     /// Every deferred item still to check, all phases together: the iPad's deferred-items row.
     let deferredItemCount: Int
+    /// The deferred items themselves, by phase, so the viewer can list and check them. Empty for a
+    /// viewer not entitled to the text. (v6.0 review, decision 2)
+    let deferredGroups: [CompanionDeferredGroup]
+    /// Items of this phase not checked yet, for the viewer's review before NEXT (the count also goes to
+    /// an unentitled viewer, which has no item text to list).
+    let openItemCount: Int
+    /// This iPad takes `deferChecklistItem` and `checkDeferredItem`. False from an older iPad, which
+    /// never sends the field. (v6.0 review, decision 2)
+    let supportsDefer: Bool
 
     init(phaseTitle: String, phaseRawValue: Int, highlightedIndex: Int, visibleCount: Int,
          completedCount: Int, items: [CompanionChecklistItem], hiddenItemCount: Int,
-         deferredItemIds: [String] = [], deferredItemCount: Int = 0) {
+         deferredItemIds: [String] = [], deferredItemCount: Int = 0,
+         deferredGroups: [CompanionDeferredGroup] = [], openItemCount: Int = 0, supportsDefer: Bool = false) {
         self.phaseTitle = phaseTitle
         self.phaseRawValue = phaseRawValue
         self.highlightedIndex = highlightedIndex
@@ -466,6 +488,9 @@ struct CompanionChecklistSnapshot: Codable, Equatable {
         self.hiddenItemCount = hiddenItemCount
         self.deferredItemIds = deferredItemIds
         self.deferredItemCount = deferredItemCount
+        self.deferredGroups = deferredGroups
+        self.openItemCount = openItemCount
+        self.supportsDefer = supportsDefer
     }
 
     /// Tolerant decoder: every field defaults so a field skew between independently-updated builds never
@@ -482,5 +507,8 @@ struct CompanionChecklistSnapshot: Codable, Equatable {
         // Absent from an iPad on 5.x or 6.0: nothing deferred, as that iPad knew no better.
         deferredItemIds = try c.decodeIfPresent([String].self, forKey: .deferredItemIds) ?? []
         deferredItemCount = try c.decodeIfPresent(Int.self, forKey: .deferredItemCount) ?? 0
+        deferredGroups = try c.decodeIfPresent([CompanionDeferredGroup].self, forKey: .deferredGroups) ?? []
+        openItemCount = try c.decodeIfPresent(Int.self, forKey: .openItemCount) ?? 0
+        supportsDefer = try c.decodeIfPresent(Bool.self, forKey: .supportsDefer) ?? false
     }
 }

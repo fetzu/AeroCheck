@@ -850,6 +850,15 @@ class CompanionConnectivityManager: NSObject, ObservableObject {
             // Hold-to-reveal on the viewer reveals hidden items on BOTH devices (single source of truth
             // in AppState; the iPad's FlightView binds to it). (item 1c)
             appState?.hiddenItemsRevealed = true
+
+        // The phone's DEFER and its deferred list do exactly what the iPad's do. (v6.0 review, decision 2)
+        case .deferChecklistItem:
+            appState?.deferHighlightedItem()
+
+        case .checkDeferredItem(let phaseRawValue, let itemId):
+            if let phase = ChecklistPhase(rawValue: phaseRawValue) {
+                appState?.checkDeferredItem(itemId, in: phase)
+            }
         }
     }
 
@@ -937,15 +946,44 @@ class CompanionConnectivityManager: NSObject, ObservableObject {
         return createFlightPlanSnapshot(plan)
     }
 
+    #if DEBUG
+    /// DEV-ONLY (`AEROCHECK_SCENE=companion`): this device shows the Companion viewer of its own flight,
+    /// refreshed every second from the local state, so the viewer can be checked and captured on one
+    /// simulator. Wi-Fi Aware needs two real devices. Commands from it go nowhere: there is no link.
+    func showAsViewerOfOwnFlight(appState: AppState, locationManager: LocationManager,
+                                 flightPlanManager: FlightPlanManager) {
+        currentRole = .viewer
+        connectionState = .connected
+        connectedDeviceName = "iPad"
+        Task { @MainActor in
+            for _ in 0..<600 {
+                lastReceivedData = createCompanionFlightData(appState: appState, locationManager: locationManager,
+                                                             flightPlanManager: flightPlanManager)
+                lastFlightPlanSnapshot = flightPlanManager.activeFlightPlan.map { createFlightPlanSnapshot($0) }
+                lastReceivedChecklist = Self.checklistSnapshot(of: appState, mayStreamItemText: true)
+                try? await Task.sleep(nanoseconds: 1_000_000_000)
+            }
+        }
+    }
+    #endif
+
     /// Master: snapshot the current checklist phase + its visible items + highlight, for the viewer to
     /// show and drive. (companion v2 — synced checklist)
     private func createChecklistSnapshot() -> CompanionChecklistSnapshot? {
         guard let appState else { return nil }
-        return Self.checklistSnapshot(of: appState, viewerIsEntitled: peerIsEntitled)
+        return Self.checklistSnapshot(of: appState, mayStreamItemText: Self.mayStreamItemText(
+            viewerIsEntitled: peerIsEntitled, remoteAircraftSelected: appState.settings.isRemoteAircraftSelected))
     }
 
-    /// The snapshot itself, apart from the connection so the SA-26 redaction can be tested.
-    static func checklistSnapshot(of appState: AppState, viewerIsEntitled: Bool) -> CompanionChecklistSnapshot {
+    /// SA-26: the checklist's words go to a viewer entitled to them, or for the bundled aircraft.
+    /// (The reasoning is at the call in `checklistSnapshot`.)
+    nonisolated static func mayStreamItemText(viewerIsEntitled: Bool, remoteAircraftSelected: Bool) -> Bool {
+        viewerIsEntitled || !remoteAircraftSelected
+    }
+
+    /// The snapshot itself, apart from the connection, so the SA-26 redaction can be tested against a
+    /// real checklist.
+    static func checklistSnapshot(of appState: AppState, mayStreamItemText: Bool) -> CompanionChecklistSnapshot {
         let phase = appState.currentPhase
         // Effective learning mode includes a hold-to-reveal, so revealing on either device streams the
         // hidden items to the viewer (and vice-versa). (companion v2 — hidden-content parity)
@@ -967,7 +1005,6 @@ class CompanionConnectivityManager: NSObject, ObservableObject {
         // Defence in depth, NOT a server gap: the paid content is legitimately on the paying
         // device. A legitimate single user's iPhone shares the subscriber's Apple ID, reports
         // isSubscribed = true, and is unaffected.
-        let mayStreamItemText = viewerIsEntitled || !appState.settings.isRemoteAircraftSelected
         let items = mayStreamItemText
             ? visible.map {
                 CompanionChecklistItem(id: $0.id, challenge: $0.challenge, response: $0.response, isHeader: $0.isHeader)
@@ -990,7 +1027,17 @@ class CompanionConnectivityManager: NSObject, ObservableObject {
             // ("3.I.Fuel selector"), so the ids alone would hand an unentitled viewer the challenges
             // of every deferred item. The count carries no text and always goes. (v6.0 review, security)
             deferredItemIds: mayStreamItemText ? (appState.deferredItems[phase] ?? []) : [],
-            deferredItemCount: appState.deferredItemCount
+            deferredItemCount: appState.deferredItemCount,
+            // The list the viewer checks from, with the same SA-26 gate as the items.
+            deferredGroups: mayStreamItemText ? appState.deferredChecklist.map { group in
+                CompanionDeferredGroup(
+                    phaseRawValue: group.phase.rawValue, phaseTitle: group.phase.title,
+                    items: group.items.map {
+                        CompanionChecklistItem(id: $0.id, challenge: $0.challenge, response: $0.response, isHeader: $0.isHeader)
+                    })
+            } : [],
+            openItemCount: appState.openItems(in: phase).count,
+            supportsDefer: true
         )
     }
 

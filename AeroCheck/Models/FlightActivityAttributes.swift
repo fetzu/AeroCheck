@@ -29,5 +29,9 @@ struct FlightActivityAttributes: ActivityAttributes {
     var aircraftName: String
     /// Registration (e.g. "F-HVXA").
     var registration: String
+    /// The flight the activity was started for, so a launch can tell the current flight's activity
+    /// from one left behind by another. Optional: activities started before it decode as nil (and are
+    /// ended as leftovers). (Live Activities, 6.0)
+    var flightId: UUID?
 }
 #endif

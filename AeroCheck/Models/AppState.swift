@@ -901,6 +901,10 @@ class AppState {
 
         // Try to restore active flight state if app was closed during a flight
         restoreActiveFlightState()
+        // Put the Live Activities in order for what was restored: the resumed flight adopts its own,
+        // and anything left behind by a quit or a crash goes. Nothing else would until the next
+        // flight started. (Live Activities, 6.0)
+        liveActivity?.sync(from: self)
 
         // Load flights in background - iCloud file enumeration can be slow
         // and should not block the main thread during startup

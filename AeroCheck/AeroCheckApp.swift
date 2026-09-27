@@ -15,6 +15,13 @@ final class AeroCheckAppDelegate: NSObject, UIApplicationDelegate {
         NotificationService.shared.configure()
         return true
     }
+
+    /// Quit from the app switcher while running (in flight, it runs in the background for GPS): the
+    /// Live Activity would otherwise stay on the Lock Screen with its clock ticking, for a flight
+    /// nothing records any more. (Live Activities, 6.0)
+    func applicationWillTerminate(_ application: UIApplication) {
+        FlightActivityController.shared.endAllBeforeTermination()
+    }
 }
 
 /// Main application entry point

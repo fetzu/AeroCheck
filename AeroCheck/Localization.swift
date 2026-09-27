@@ -1483,6 +1483,14 @@ enum L10n {
         static let localTime = String(localized: "flightSheet.localTime")
         static let dateAndTime = String(localized: "flightSheet.dateAndTime")
         static let crew = String(localized: "flightSheet.crew")
+        // Resolving what was typed against the airport data (v6.0 review)
+        static let loadingAerodromes = String(localized: "planFlight.loadingAerodromes")
+        static let unknownAerodrome = String(localized: "planFlight.unknownAerodrome")
+        static func unknownInSummary(_ idents: String) -> String {
+            String(format: String(localized: "planFlight.unknownInSummary"), idents)
+        }
+        static let noAirportData = String(localized: "planFlight.noAirportData")
+        static let sameAerodrome = String(localized: "planFlight.sameAerodrome")
         static let fuel = String(localized: "flightSheet.fuel")
         static let litres = String(localized: "flightSheet.litres")
         static let defaultTag = String(localized: "flightSheet.default")

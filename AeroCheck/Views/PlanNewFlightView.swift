@@ -151,12 +151,28 @@ struct PlanNewFlightView: View {
                             .font(.aero(size: 18, weight: .bold, design: .monospaced))
                             .foregroundColor(.primaryText)
                             .focused($focused, equals: index)
-                        // The aerodrome's name once its code is typed: the check that LSZS is Samedan.
-                        if let name = aerodromeName(stops[index]) {
+                            .onSubmit { resolveTyped(at: index) }
+                        // What the stop resolves to: the aerodrome's name (the check that LSZS is
+                        // Samedan), or that it can't be found, rather than a flight that silently loses
+                        // it. Not while typing: "GREN" is not unknown yet. (v6.0 review)
+                        switch stopState(stops[index]) {
+                        case .resolved(let name):
                             Text(name)
                                 .scaledFont(size: 14, relativeTo: .subheadline)
                                 .foregroundColor(.secondaryText)
                                 .lineLimit(1)
+                        case .loading:
+                            Text(L10n.PlanFlight.loadingAerodromes)
+                                .scaledFont(size: 14, relativeTo: .subheadline)
+                                .foregroundColor(.secondaryText)
+                                .lineLimit(1)
+                        case .unknown where focused != index:
+                            Label(L10n.PlanFlight.unknownAerodrome, systemImage: "exclamationmark.triangle.fill")
+                                .scaledFont(size: 14, weight: .semibold, relativeTo: .subheadline)
+                                .foregroundColor(.aviationAmber)
+                                .lineLimit(1)
+                        default:
+                            EmptyView()
                         }
                     }
                     .padding(.horizontal, 12)
@@ -194,7 +210,7 @@ struct PlanNewFlightView: View {
                                 Spacer(minLength: 0)
                             }
                             .contentShape(Rectangle())
-                            .frame(minHeight: 40)
+                            .frame(minHeight: 44)
                         }
                         .buttonStyle(.plain)
                         if airport.ident != suggestions.prefix(5).last?.ident {
@@ -231,8 +247,21 @@ struct PlanNewFlightView: View {
                     .fixedSize(horizontal: false, vertical: true)
             }
             .padding(.leading, 28)
+
+            if let note = routeNote {
+                Label(note, systemImage: "info.circle")
+                    .scaledFont(size: 13, relativeTo: .footnote)
+                    .foregroundColor(.secondaryText)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .padding(.leading, 28)
+            }
         }
         .onChange(of: stops) { _, _ in search() }
+        // Leaving a field settles what was typed there: a name that matches one aerodrome becomes its
+        // code, so "Grenchen" isn't kept as an ident nothing can find. (v6.0 review)
+        .onChange(of: focused) { previous, _ in
+            if let previous { resolveTyped(at: previous) }
+        }
         .onChange(of: focused) { _, _ in search() }
     }
 
@@ -393,14 +422,24 @@ struct PlanNewFlightView: View {
 
     // MARK: - Create (planning proposal B2)
 
-    /// What will be created, then the button: confirm what you see.
+    /// What will be created, then the button: confirm what you see. While a stop can't be found, what
+    /// stops it instead, and no Create. (v6.0 review)
     private var createBar: some View {
         VStack(spacing: 8) {
-            Text(summary)
-                .scaledFont(size: 14, relativeTo: .subheadline)
-                .foregroundColor(.secondaryText)
-                .lineLimit(1)
-                .minimumScaleFactor(0.8)
+            if !unknownStops.isEmpty {
+                Label(L10n.PlanFlight.unknownInSummary(unknownStops.joined(separator: ", ")),
+                      systemImage: "exclamationmark.triangle.fill")
+                    .scaledFont(size: 14, weight: .semibold, relativeTo: .subheadline)
+                    .foregroundColor(.aviationAmber)
+                    .lineLimit(2)
+                    .multilineTextAlignment(.center)
+            } else {
+                Text(summary)
+                    .scaledFont(size: 14, relativeTo: .subheadline)
+                    .foregroundColor(.secondaryText)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.8)
+            }
             Button {
                 onCreate(normalisedStops(), normalised(), selectedRoute)
             } label: {
@@ -410,7 +449,7 @@ struct PlanNewFlightView: View {
                     .frame(maxWidth: .infinity)
             }
             .buttonStyle(PrimaryButtonStyle())
-            .disabled(legCount < 1)
+            .disabled(legCount < 1 || !unknownStops.isEmpty)
         }
         .padding(.horizontal, 16)
         .padding(.top, 10)
@@ -491,11 +530,59 @@ struct PlanNewFlightView: View {
         )
     }
 
-    /// The aerodrome's name, once a 4-letter code the database knows is typed.
-    private func aerodromeName(_ typed: String) -> String? {
+    // MARK: - Resolving the stops (v6.0 review)
+    //
+    // A stop the airport data can't find used to be dropped when the flight was built (no guessed
+    // position, rightly), and nothing said so: "LSZG → GRENCHEN" became a flight with one waypoint or
+    // none, no map, no nav log, and without coordinates no customs, DABS or GAFOR.
+
+    private enum StopState: Equatable {
+        case empty
+        case loading
+        case resolved(String)
+        case unknown
+    }
+
+    private func stopState(_ typed: String) -> StopState {
         let ident = typed.trimmingCharacters(in: .whitespaces).uppercased()
-        guard ident.count == 4 else { return nil }
-        return airports.findAirport(byIdent: ident)?.name
+        guard !ident.isEmpty else { return .empty }
+        if isLoadingAirports { return .loading }
+        if let airport = airports.findAirport(byIdent: ident) { return .resolved(airport.name) }
+        // Without the airport data nothing can be checked: say so once, below the fields, and let
+        // the flight be created (its route is drawn later), rather than block every stop.
+        return airports.isDataAvailable ? .unknown : .empty
+    }
+
+    /// The stops that stop Create: typed, and not found.
+    private var unknownStops: [String] {
+        guard !fromSavedRoute else { return [] }
+        return normalisedStops().filter { stopState($0) == .unknown }
+    }
+
+    /// A name typed in full (or enough of one) that matches exactly one aerodrome, or one whose name it
+    /// is, becomes that aerodrome's code.
+    private func resolveTyped(at index: Int) {
+        guard index < stops.count, stopState(stops[index]) == .unknown else { return }
+        let typed = stops[index].trimmingCharacters(in: .whitespaces)
+        let hits = airports.searchAirports(query: typed, limit: 5, types: AirportType.fixedWing)
+        if hits.count == 1 {
+            stops[index] = hits[0].ident
+        } else if let exact = hits.first(where: { $0.name.compare(typed, options: [.caseInsensitive, .diacriticInsensitive]) == .orderedSame }) {
+            stops[index] = exact.ident
+        }
+    }
+
+    /// Below the fields: no airport data to check against, or the same aerodrome twice in a row.
+    private var routeNote: String? {
+        guard !fromSavedRoute else { return nil }
+        if !isLoadingAirports, !airports.isDataAvailable, !normalisedStops().isEmpty {
+            return L10n.PlanFlight.noAirportData
+        }
+        let clean = normalisedStops()
+        if zip(clean, clean.dropFirst()).contains(where: { $0 == $1 }) {
+            return L10n.PlanFlight.sameAerodrome
+        }
+        return nil
     }
 
     /// Completion is by ICAO **or name**, because a pilot heading somewhere new knows "Grenchen"

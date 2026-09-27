@@ -1,6 +1,91 @@
 {
   "sourceLanguage": "en",
   "strings": {
+    "planFlight.loadingAerodromes": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Loading aerodromes…"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chargement des aérodromes…"
+          }
+        }
+      }
+    },
+    "planFlight.unknownAerodrome": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Unknown aerodrome"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aérodrome inconnu"
+          }
+        }
+      }
+    },
+    "planFlight.unknownInSummary": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Unknown aerodrome: %@. Pick it from the list."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aérodrome inconnu : %@. Choisissez-le dans la liste."
+          }
+        }
+      }
+    },
+    "planFlight.noAirportData": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The airport data isn't loaded, so the aerodromes can't be checked: the flight is created without a route, which you can draw later."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Les données aéroports ne sont pas chargées : les aérodromes ne peuvent pas être vérifiés, et le vol est créé sans route, à tracer plus tard."
+          }
+        }
+      }
+    },
+    "planFlight.sameAerodrome": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The same aerodrome twice in a row makes a local flight: add a turning point to its route later."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Deux fois le même aérodrome à la suite, c'est un vol local : ajoutez un point de virage à sa route plus tard."
+          }
+        }
+      }
+    },
     "thread.cancelConfirm.title": {
       "extractionState": "manual",
       "localizations": {

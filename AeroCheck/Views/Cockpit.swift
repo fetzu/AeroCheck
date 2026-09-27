@@ -1,4 +1,5 @@
 import SwiftUI
+import os
 import UIKit
 
 // MARK: - Cockpit (v6.0 · P2)
@@ -200,7 +201,31 @@ enum VSpeedTable {
 
     /// Every speed exactly once, grouped; empty groups left out. `phase` and `aglFeet` only decide
     /// the highlight.
+    ///
+    /// The table asks for its rows on every GPS fix, since the height is one of its inputs, but the
+    /// rows only change with the phase and the side of the climb transition the aircraft is on. The
+    /// last answer is kept and given again until one of those changes. (v6.0 review)
     static func rows(speeds: [SpeedReference], phase: ChecklistPhase, aglFeet: Double?) -> [Row] {
+        let key = RowsKey(speeds: speeds.map { [$0.name, $0.description, $0.value] }, phase: phase,
+                          belowTransition: aglFeet.map { $0 < climbTransitionFeet })
+        if let hit = lastRows.withLock({ $0?.key == key ? $0?.rows : nil }) { return hit }
+        let rows = makeRows(speeds: speeds, phase: phase, aglFeet: aglFeet)
+        lastRows.withLock { $0 = (key, rows) }
+        return rows
+    }
+
+    /// Below this height, the climb is flown at Vx; above it, at Vy.
+    static let climbTransitionFeet: Double = 300
+
+    private struct RowsKey: Equatable {
+        let speeds: [[String]]
+        let phase: ChecklistPhase
+        let belowTransition: Bool?
+    }
+
+    private static let lastRows = OSAllocatedUnfairLock<(key: RowsKey, rows: [Row])?>(initialState: nil)
+
+    private static func makeRows(speeds: [SpeedReference], phase: ChecklistPhase, aglFeet: Double?) -> [Row] {
         let highlighted = highlightedIndexes(speeds: speeds, phase: phase, aglFeet: aglFeet)
         let indexed = Array(speeds.enumerated())
         return Group.allCases.compactMap { group in
@@ -250,7 +275,7 @@ enum VSpeedTable {
         case .beforeDeparture, .lineUp:
             return first(["vr", "vinitial"])
         case .climb:
-            let belowTransition = aglFeet.map { $0 < 300 } ?? false
+            let belowTransition = aglFeet.map { $0 < climbTransitionFeet } ?? false
             return belowTransition ? first(["vx", "vinitial", "vy"]) : first(["vy", "vx"])
         case .cruise:
             return all(["vno", "va"])
@@ -277,8 +302,13 @@ enum VSpeedTable {
     /// The checklists write ranges as "97 – 75", "65-55" or "60 - 55"; in a cell they read as one
     /// value: "97–75".
     static func compactRange(_ value: String) -> String {
-        value.replacingOccurrences(of: #"(\d)\s*[-–]\s*(\d)"#, with: "$1–$2", options: .regularExpression)
+        let range = NSRange(value.startIndex..., in: value)
+        return rangePattern.stringByReplacingMatches(in: value, range: range, withTemplate: "$1–$2")
     }
+
+    /// Compiled once: `replacingOccurrences(options: .regularExpression)` compiled it for every cell,
+    /// on every fix. (v6.0 review)
+    private static let rangePattern = try! NSRegularExpression(pattern: #"(\d)\s*[-–]\s*(\d)"#)
 }
 
 /// A thumb-bar button: what it does, in `CockpitType.button`, and what it does it to, underneath.

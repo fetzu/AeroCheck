@@ -208,5 +208,31 @@ final class RouteLibraryTests: XCTestCase {
         XCTAssertEqual(idents.count, 3)
         XCTAssertEqual(manager.flightPlans.first?.id, plan.id)
     }
-}
 
+    /// A route sent back as JSON (exported here, returned by a club member) is a new route: its own id,
+    /// listed, not archived. Kept as decoded, its id matched the original's, and the renamed-file
+    /// cleanup deleted the original's file. (v6.0 review, security)
+    func testAnImportedJSONRouteIsANewRoute() throws {
+        let manager = makeTestPlanManager()
+        var sent = FlightPlan(name: "Club route")
+        sent.waypoints = [FlightPlanWaypoint(name: "LSZQ", coordinate: CLLocationCoordinate2D(latitude: 47.42, longitude: 7.19)),
+                          FlightPlanWaypoint(name: "LSGY", coordinate: CLLocationCoordinate2D(latitude: 46.76, longitude: 6.61))]
+        sent.flightOwned = true
+        sent.archivedAt = Date(timeIntervalSince1970: 1_790_000_000)
+        let data = try XCTUnwrap(sent.toJSON())
+        let aircraft = FlightPlanManager.RouteAircraft(typeId: "WT9", registration: "F-HVXA", modelName: "WT9 Dynamic")
+
+        let (imported, _) = try XCTUnwrap(manager.importRoute(from: data, aircraft: aircraft))
+
+        XCTAssertNotEqual(imported.id, sent.id)
+        XCTAssertNil(imported.flightOwned, "listed in Routes")
+        XCTAssertNil(imported.archivedAt)
+        XCTAssertEqual(imported.waypoints.map(\.name), ["LSZQ", "LSGY"])
+    }
+
+    /// Plan files are named after their route; only the index itself is skipped when loading.
+    func testOnlyTheIndexFilesAreSkipped() {
+        XCTAssertTrue(DataPersistenceManager.indexFileNames.contains("plans_index.json"))
+        XCTAssertFalse(DataPersistenceManager.indexFileNames.contains("20260927-0820_Index_test.json"))
+    }
+}

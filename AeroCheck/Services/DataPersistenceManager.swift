@@ -32,6 +32,10 @@ class DataPersistenceManager: ObservableObject {
 
     /// Index file for tracking all navigation plans
     private let plansIndexFileName = "plans_index.json"
+    /// The index files that live beside flights and plans. Matched by name: the filter used to skip
+    /// any file with "index" in its name, and plan files are named after their route, so a route
+    /// called, say, "Index test" vanished at the next launch. (v6.0 review)
+    static let indexFileNames: Set<String> = ["plans_index.json", "flights_index.json"]
 
     // MARK: - Cached Properties
 
@@ -627,7 +631,7 @@ class DataPersistenceManager: ObservableObject {
 
         do {
             let files = try fileManager.contentsOfDirectory(at: directory, includingPropertiesForKeys: nil)
-            let jsonFiles = files.filter { $0.pathExtension == "json" && !$0.lastPathComponent.contains("index") }
+            let jsonFiles = files.filter { $0.pathExtension == "json" && !Self.indexFileNames.contains($0.lastPathComponent) }
 
             let decoder = JSONDecoder()
             decoder.dateDecodingStrategy = .iso8601
@@ -782,7 +786,7 @@ class DataPersistenceManager: ObservableObject {
 
         do {
             let files = try fileManager.contentsOfDirectory(at: directory, includingPropertiesForKeys: nil)
-            let jsonFiles = files.filter { $0.pathExtension == "json" && !$0.lastPathComponent.contains("index") }
+            let jsonFiles = files.filter { $0.pathExtension == "json" && !Self.indexFileNames.contains($0.lastPathComponent) }
 
             let decoder = JSONDecoder()
             decoder.dateDecodingStrategy = .iso8601

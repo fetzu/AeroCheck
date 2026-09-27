@@ -939,7 +939,14 @@ class FlightPlanManager: ObservableObject {
     /// JSON file keeps its own. (on-device review #4)
     func importRoute(from data: Data, aircraft: RouteAircraft) -> (plan: FlightPlan, fileIdents: [UUID: String])? {
         if let plan = FlightPlan.fromJSON(data) {
-            var imported = plan
+            // A new route, whatever the file says: a new id, in the Routes list, not archived. Kept as
+            // decoded, a file exported from this device and sent back (a club member returning a
+            // route) shared its id with the route it came from, and the renamed-file cleanup then
+            // deleted that route's file; one marked `flightOwned` imported invisibly.
+            // (v6.0 review, security)
+            var imported = plan.copy()
+            imported.flightOwned = nil
+            imported.archivedAt = nil
             imported.isActive = false
             imported.currentWaypointIndex = 0
             flightPlans.insert(imported, at: 0)

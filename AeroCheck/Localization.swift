@@ -443,6 +443,16 @@ enum L10n {
         /// "ready to fly" at a glance on a card that also has a "departing today" state. (v4.4.0)
         static let flightPlanArmed = String(localized: "home.flightPlanArmed")
         static let outstandingTitle = String(localized: "Not everything is ticked")
+        // START FLIGHT with another day's flight on the map (v6.0 review)
+        static let otherDayTitle = String(localized: "home.otherDayTitle")
+        static func otherDayMessage(_ flight: String, _ when: String) -> String {
+            String(format: String(localized: "home.otherDayMessage"), flight, when)
+        }
+        static func undatedMessage(_ flight: String) -> String {
+            String(format: String(localized: "home.undatedMessage"), flight)
+        }
+        static let flyItNow = String(localized: "home.flyItNow")
+        static let startSeparateFlight = String(localized: "home.startSeparateFlight")
         static func outstandingBeforeFlight(_ route: String, _ remaining: Int) -> String {
             String(localized: "\(route) still has \(remaining) item(s) open in Plan and Prepare.")
         }
@@ -1473,6 +1483,14 @@ enum L10n {
         static let noDateYet = String(localized: "planFlight.noDateYet")
         static let pickADate = String(localized: "planFlight.pickADate")
         static let noRouteYet = String(localized: "planFlight.noRouteYet")
+        // Resolving what was typed against the airport data (v6.0 review)
+        static let loadingAerodromes = String(localized: "planFlight.loadingAerodromes")
+        static let unknownAerodrome = String(localized: "planFlight.unknownAerodrome")
+        static func unknownInSummary(_ idents: String) -> String {
+            String(format: String(localized: "planFlight.unknownInSummary"), idents)
+        }
+        static let noAirportData = String(localized: "planFlight.noAirportData")
+        static let sameAerodrome = String(localized: "planFlight.sameAerodrome")
     }
 
     /// The flight sheet: nav log, fuel, times. (planning proposal A)
@@ -1483,14 +1501,6 @@ enum L10n {
         static let localTime = String(localized: "flightSheet.localTime")
         static let dateAndTime = String(localized: "flightSheet.dateAndTime")
         static let crew = String(localized: "flightSheet.crew")
-        // Resolving what was typed against the airport data (v6.0 review)
-        static let loadingAerodromes = String(localized: "planFlight.loadingAerodromes")
-        static let unknownAerodrome = String(localized: "planFlight.unknownAerodrome")
-        static func unknownInSummary(_ idents: String) -> String {
-            String(format: String(localized: "planFlight.unknownInSummary"), idents)
-        }
-        static let noAirportData = String(localized: "planFlight.noAirportData")
-        static let sameAerodrome = String(localized: "planFlight.sameAerodrome")
         static let fuel = String(localized: "flightSheet.fuel")
         static let litres = String(localized: "flightSheet.litres")
         static let defaultTag = String(localized: "flightSheet.default")

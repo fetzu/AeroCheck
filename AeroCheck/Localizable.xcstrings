@@ -86,6 +86,91 @@
         }
       }
     },
+    "home.otherDayTitle": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Fly this flight now?"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Faire ce vol maintenant ?"
+          }
+        }
+      }
+    },
+    "home.otherDayMessage": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The route on the map belongs to %@, planned for %@."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "La route sur la carte est celle du vol %@, prévu le %@."
+          }
+        }
+      }
+    },
+    "home.undatedMessage": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The route on the map belongs to %@, which has no date yet."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "La route sur la carte est celle du vol %@, qui n'a pas encore de date."
+          }
+        }
+      }
+    },
+    "home.flyItNow": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Fly it now"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Le faire maintenant"
+          }
+        }
+      }
+    },
+    "home.startSeparateFlight": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Start a separate flight"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Démarrer un autre vol"
+          }
+        }
+      }
+    },
     "thread.cancelConfirm.title": {
       "extractionState": "manual",
       "localizations": {

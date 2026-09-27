@@ -174,10 +174,14 @@ struct HomeView: View {
     private enum StartPrompt: Identifiable {
         /// A followed flight for today with pre-flight work still open.
         case outstanding(thread: FlightThread, remaining: Int)
+        /// The route on the map belongs to a flight planned for another day (or not dated): starting
+        /// would fly THAT flight now. (v6.0 review)
+        case otherDayFlight(thread: FlightThread)
 
         var id: String {
             switch self {
             case .outstanding(let thread, _): return "outstanding-\(thread.id)"
+            case .otherDayFlight(let thread): return "other-day-\(thread.id)"
             }
         }
     }
@@ -278,6 +282,17 @@ struct HomeView: View {
                 }
                 Button(L10n.Button.cancel, role: .cancel) { startPrompt = nil }
 
+            case .otherDayFlight(let thread):
+                Button(L10n.Home.flyItNow) {
+                    startPrompt = nil
+                    launch(thread)
+                }
+                Button(L10n.Home.startSeparateFlight) {
+                    startPrompt = nil
+                    startUnplannedFlight()
+                }
+                Button(L10n.Button.cancel, role: .cancel) { startPrompt = nil }
+
             case nil:
                 EmptyView()
             }
@@ -285,6 +300,14 @@ struct HomeView: View {
             switch startPrompt {
             case .outstanding(let thread, let remaining):
                 Text(L10n.Home.outstandingBeforeFlight(thread.displayName, remaining))
+            case .otherDayFlight(let thread):
+                if let departure = thread.scheduledDeparture {
+                    Text(L10n.Home.otherDayMessage(
+                        thread.displayName,
+                        departure.formatted(.dateTime.weekday(.abbreviated).day().month(.abbreviated).hour().minute())))
+                } else {
+                    Text(L10n.Home.undatedMessage(thread.displayName))
+                }
             case nil:
                 EmptyView()
             }
@@ -430,7 +453,11 @@ struct HomeView: View {
     }
     
     private var startPromptTitle: String {
-        startPrompt == nil ? "" : L10n.Home.outstandingTitle
+        switch startPrompt {
+        case .outstanding: return L10n.Home.outstandingTitle
+        case .otherDayFlight: return L10n.Home.otherDayTitle
+        case nil: return ""
+        }
     }
 
     // MARK: - Today (v6.0 · P1, A2)
@@ -958,11 +985,28 @@ struct HomeView: View {
     // MARK: - Flight thread strip (v5.0.0)
 
     /// The thread Home advertises: close-out work first because it is already overdue (a filed flight
-    /// plan may still be open), otherwise the flight currently being followed.
+    /// plan may still be open), otherwise the next flight, in the order Plan › Flights lists them.
+    /// It used to be the flight last created or opened: plan Saturday, then Wednesday, and Today
+    /// showed Wednesday on Thursday. (v6.0 review)
     private var homeThread: FlightThread? {
         if let closing = threadManager.threadAwaitingCloseOut { return closing }
-        if let current = threadManager.currentThread, !current.isFinished { return current }
-        return nil
+        let open = threadManager.threads.filter { !$0.isFinished }
+        switch UpcomingOrder.entries(threads: open, trips: threadManager.trips).first {
+        case .flight(let thread): return thread
+        case .trip(let trip): return threadManager.legs(of: trip).first { !$0.isFinished && $0.state != .closeOut }
+        case nil: return nil
+        }
+    }
+
+    /// When the strip's flight is planned: "SAT 3 OCT 10:00", "TODAY 10:00", or that its day has gone.
+    private func stripWhen(_ thread: FlightThread) -> String? {
+        guard thread.state != .closeOut, let departure = thread.scheduledDeparture else { return nil }
+        if UpcomingOrder.isPassed(departure) {
+            return L10n.FlightsPage.datePassed.uppercased() + " · "
+                + departure.formatted(.dateTime.weekday(.abbreviated).day().month(.abbreviated)).uppercased()
+        }
+        if Calendar.current.isDateInToday(departure) { return heroWhen(thread) }
+        return departure.formatted(.dateTime.weekday(.abbreviated).day().month(.abbreviated).hour().minute()).uppercased()
     }
 
     /// Replaces the flight-plan strip while a flight is being followed: route, readiness, and the one
@@ -994,6 +1038,12 @@ struct HomeView: View {
                                     .overlay(RoundedRectangle(cornerRadius: 3)
                                         .strokeBorder(accent.opacity(0.55), lineWidth: 0.5))
                             )
+                        if let when = stripWhen(thread) {
+                            Text(when)
+                                .scaledFont(size: 10, weight: .semibold, design: .monospaced, relativeTo: .caption2)
+                                .foregroundColor(.secondaryText)
+                                .lineLimit(1)
+                        }
                     }
                     Text(thread.displayName)
                         .scaledFont(size: 14, weight: .semibold, design: .monospaced, relativeTo: .subheadline)
@@ -1316,6 +1366,16 @@ struct HomeView: View {
                 return
             }
             launch(followed)
+            return
+        }
+        // The route on the map may be a flight's own, for another day (one tap on "Show on map" in
+        // its route editor arms it). Starting then attached THAT flight by its plan: Saturday's
+        // flight went to FLY, lost its reminder and would close out with today's, with nothing on
+        // Today to warn about it. Ask which flight this is. (v6.0 review)
+        if let planId = flightPlanManager.activeFlightPlan?.id,
+           let owner = threadManager.thread(forPlanId: planId),
+           owner.state != .flying, owner.state != .closeOut {
+            startPrompt = .otherDayFlight(thread: owner)
             return
         }
         beginFlight(circuitMode: false)

@@ -292,17 +292,30 @@ final class CompanionServiceContractTests: XCTestCase {
         XCTAssertEqual(full.deferredItemIds, [item.id])
     }
 
-    /// Who gets the words: a Pro aircraft's from an iPad entitled to them, the bundled aircraft's
-    /// always. The iPad's own entitlement decides, not what the viewer says about itself (S9-30).
-    func testTheTextGateFollowsTheMastersOwnEntitlement() {
-        XCTAssertFalse(CompanionConnectivityManager.mayStreamItemText(masterIsEntitled: false, remoteAircraftSelected: true))
-        XCTAssertTrue(CompanionConnectivityManager.mayStreamItemText(masterIsEntitled: true, remoteAircraftSelected: true))
-        XCTAssertTrue(CompanionConnectivityManager.mayStreamItemText(masterIsEntitled: false, remoteAircraftSelected: false))
+    /// Who gets the words (S9-30): the bundled aircraft's always; a Pro aircraft's only from an
+    /// entitled iPad, and then to a viewer that says it is subscribed or that the pilot allowed.
+    func testTheTextGateNeedsTheMastersEntitlementAndAClaimOrConsent() {
+        func gate(master: Bool, claim: Bool, allowed: Bool, remote: Bool = true) -> Bool {
+            CompanionConnectivityManager.mayStreamItemText(masterIsEntitled: master, viewerClaimsEntitlement: claim,
+                                                           connectionAllowed: allowed, remoteAircraftSelected: remote)
+        }
+        XCTAssertFalse(gate(master: true, claim: false, allowed: false), "entitled iPad, unsubscribed phone, no consent")
+        XCTAssertTrue(gate(master: true, claim: false, allowed: true), "the pilot allowed this connection")
+        XCTAssertTrue(gate(master: true, claim: true, allowed: false), "the subscriber's own phone")
+        XCTAssertTrue(gate(master: true, claim: true, allowed: true))
+        for claim in [false, true] {
+            for allowed in [false, true] {
+                XCTAssertFalse(gate(master: false, claim: claim, allowed: allowed),
+                               "an unentitled iPad never streams Pro text (claim \(claim), allowed \(allowed))")
+                XCTAssertTrue(gate(master: false, claim: claim, allowed: allowed, remote: false), "the bundled aircraft always")
+            }
+        }
     }
 
-    /// A viewer claiming a subscription changes nothing on an iPad without one. (S9-30)
+    /// The same rule on a live connection: the text follows the hello and the pilot's answer, per
+    /// connection. (S9-30)
     @MainActor
-    func testAViewersClaimDoesNotUnlockTheText() throws {
+    func testTheTextFollowsTheClaimOrThePilotsAnswerPerConnection() throws {
         let manager = CompanionConnectivityManager(defaults: makeTestDefaults(), usesWiFiAware: false)
         let appState = makeTestAppState()
         appState.settings.selectedRemoteAircraftId = "pa28-181"
@@ -312,20 +325,45 @@ final class CompanionServiceContractTests: XCTestCase {
         manager.configure(appState: appState, locationManager: location, flightPlanManager: plans)
         manager.currentRole = .master
         addTeardownBlock { @MainActor in manager.disconnect() }
-        manager.entitlementProvider = { false }
-        let gen = try XCTUnwrap(manager.adoptMasterConnection(identity: nil, send: { _ in }))
-
-        let claim = CompanionMessage(type: .viewerHello,
-                                     payload: try JSONEncoder().encode(CompanionViewerHello(isSubscribed: true)))
-        manager.handleReceivedMessage(claim, generation: gen)
-        XCTAssertFalse(manager.streamsItemText, "redacted: the claim is not proof")
-
         manager.entitlementProvider = { true }
-        XCTAssertTrue(manager.streamsItemText, "an entitled iPad streams what it shows")
 
-        appState.settings.selectedRemoteAircraftId = nil
+        func hello(_ subscribed: Bool) throws -> CompanionMessage {
+            CompanionMessage(type: .viewerHello, payload: try JSONEncoder().encode(CompanionViewerHello(isSubscribed: subscribed)))
+        }
+        let tap = CompanionMessage(type: .command, payload: try JSONEncoder().encode(CompanionCommand.advanceWaypoint))
+
+        // An unsubscribed phone on an entitled iPad: no text until the pilot allows the connection.
+        var gen = try XCTUnwrap(manager.adoptMasterConnection(identity: nil, send: { _ in }))
+        manager.handleReceivedMessage(try hello(false), generation: gen)
+        XCTAssertFalse(manager.streamsItemText, "no claim, no consent: no text")
+        manager.handleReceivedMessage(tap, generation: gen)
+        manager.answerAuthorization(try XCTUnwrap(manager.pendingAuthorization), allow: true)
+        XCTAssertTrue(manager.streamsItemText, "allowed: the text streams from now on")
+
+        // The consent was for that connection only.
+        gen = try XCTUnwrap(manager.adoptMasterConnection(identity: nil, send: { _ in }))
+        manager.handleReceivedMessage(try hello(false), generation: gen)
+        XCTAssertFalse(manager.streamsItemText, "a new connection starts without it")
+        manager.handleReceivedMessage(tap, generation: gen)
+        manager.answerAuthorization(try XCTUnwrap(manager.pendingAuthorization), allow: false)
+        XCTAssertFalse(manager.streamsItemText, "Don't Allow keeps the text off for the connection")
+
+        // The subscriber's own phone needs no prompt.
+        gen = try XCTUnwrap(manager.adoptMasterConnection(identity: nil, send: { _ in }))
+        manager.handleReceivedMessage(try hello(true), generation: gen)
+        XCTAssertTrue(manager.streamsItemText, "the claim lets it through on an entitled iPad")
+        XCTAssertNil(manager.pendingAuthorization, "and asks nothing")
+
+        // An iPad without a subscription: never, whatever the phone says or the pilot allows.
         manager.entitlementProvider = { false }
-        XCTAssertTrue(manager.streamsItemText, "the bundled aircraft always")
+        XCTAssertFalse(manager.streamsItemText)
+        manager.handleReceivedMessage(tap, generation: gen)
+        manager.answerAuthorization(try XCTUnwrap(manager.pendingAuthorization), allow: true)
+        XCTAssertFalse(manager.streamsItemText, "claim and consent together are still not enough")
+
+        // The bundled aircraft: always.
+        appState.settings.selectedRemoteAircraftId = nil
+        XCTAssertTrue(manager.streamsItemText)
     }
 
     // MARK: - Wire bounds on the viewer (master -> viewer)

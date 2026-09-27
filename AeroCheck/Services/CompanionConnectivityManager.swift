@@ -93,6 +93,9 @@ struct CompanionPeerLink: Equatable {
     /// its taps kept raising the same modal every 2 s, and a pilot who cancelled got it straight back
     /// over the checklist until they gave in and allowed it. (S9-08)
     var hasAsked = false
+    /// What the viewer's latest hello says about its own subscription. Unverified, so it counts for
+    /// the checklist text only, and only on an entitled iPad (see `mayStreamItemText`). (S9-30)
+    var claimsEntitlement = false
 
     /// A request to act on the flight (a command that changes something, or a position to borrow):
     /// whether it goes through, and whether to ask the pilot now.
@@ -587,8 +590,9 @@ class CompanionConnectivityManager: NSObject, ObservableObject {
 
     /// Reports THIS device's own premium entitlement (SA-26, S9-30).
     ///
-    /// The master decides from it how much checklist text to stream; the viewer still reports it in
-    /// its hello, for a master on 6.0 or older that decides from that.
+    /// The master needs it before any premium checklist text goes out; the viewer reports it in its
+    /// hello, which the master takes as one of the two ways to let the text through (a master on 6.0
+    /// or older takes it as the only one).
     ///
     /// A closure rather than a stored reference so the manager keeps no dependency on
     /// SubscriptionManager and stays usable in tests and previews. Absent ⇒ not entitled, which is
@@ -999,6 +1003,8 @@ class CompanionConnectivityManager: NSObject, ObservableObject {
         link.authorization = allow ? .allowed : .denied
         peerLink = link
         diag("Master: pilot \(allow ? "allowed" : "did not allow") \(link.identity?.name ?? "the peer") for this connection")
+        // An Allow also lets the checklist text through (S9-30): send it now, not on the next tick.
+        sendChecklistSnapshot()
     }
 
     /// The prompt went away without an answer (SwiftUI can drop an alert it cannot present). The
@@ -1103,12 +1109,16 @@ class CompanionConnectivityManager: NSObject, ObservableObject {
             }
 
         case .viewerHello:
-            // Logged only. The viewer's claim used to decide how much checklist text it was sent,
-            // but a boolean a peer states about itself proves nothing; the master now decides from
-            // its own entitlement (S9-30, see `mayStreamItemText`). Older viewers keep sending it.
+            // The viewer's claim, kept on its connection's link: one of the two ways the checklist
+            // text reaches it, and only from an entitled iPad (S9-30, see `mayStreamItemText`).
             if currentRole == .master,
-               let hello = try? JSONDecoder().decode(CompanionViewerHello.self, from: message.payload) {
-                AppLog.companion.debugLine("Master: viewer reports entitlement = \(hello.isSubscribed)")
+               let hello = try? JSONDecoder().decode(CompanionViewerHello.self, from: message.payload),
+               var link = peerLink, link.claimsEntitlement != hello.isSubscribed {
+                link.claimsEntitlement = hello.isSubscribed
+                peerLink = link
+                diag("Master: viewer reports entitlement = \(hello.isSubscribed)")
+                // Re-send with the new redaction level applied.
+                sendChecklistSnapshot()
             }
 
         case .disconnect:
@@ -1341,23 +1351,30 @@ class CompanionConnectivityManager: NSObject, ObservableObject {
         return Self.checklistSnapshot(of: appState, mayStreamItemText: streamsItemText)
     }
 
-    /// Whether the checklist's words go to the viewer right now. (SA-26, S9-30)
+    /// Whether the checklist's words go to the current viewer right now. (SA-26, S9-30)
     var streamsItemText: Bool {
         Self.mayStreamItemText(masterIsEntitled: entitlementProvider?() ?? false,
+                               viewerClaimsEntitlement: peerLink?.claimsEntitlement ?? false,
+                               connectionAllowed: peerLink?.authorization == .allowed,
                                remoteAircraftSelected: appState?.settings.isRemoteAircraftSelected ?? true)
     }
 
-    /// SA-26: the checklist's words go out when this iPad is itself entitled to them, or for the
-    /// bundled aircraft. (The reasoning is at the call in `checklistSnapshot`.)
+    /// SA-26: the bundled aircraft's words always go out; a Pro aircraft's only from an iPad itself
+    /// entitled to them, and then to a viewer that says it is subscribed or that the pilot allowed
+    /// for this connection. (The reasoning is at the call in `checklistSnapshot`.)
     ///
-    /// S9-30: this used to follow the viewer's own claim, `CompanionViewerHello.isSubscribed`, a
-    /// boolean nothing verified, so a rebuilt viewer that said true read the whole premium checklist.
-    /// The master's entitlement is the one thing here the master can check. The text goes to a
-    /// device the subscriber paired to their own iPad, on which it is already displayed; a device
-    /// the subscriber no longer wants has Forget (S9-09). An iPad whose subscription lapsed streams
-    /// no premium text at all, whatever the viewer claims.
-    nonisolated static func mayStreamItemText(masterIsEntitled: Bool, remoteAircraftSelected: Bool) -> Bool {
-        masterIsEntitled || !remoteAircraftSelected
+    /// S9-30: this used to follow the viewer's claim alone, `CompanionViewerHello.isSubscribed`, a
+    /// boolean nothing verifies, so a rebuilt viewer that said true on any iPad read the whole
+    /// premium checklist. The iPad's own entitlement is now required, since it is the one thing here
+    /// the iPad can check: one whose subscription lapsed streams no premium text whatever the viewer
+    /// says. The claim still counts on an entitled iPad, so the subscriber's own iPhone (same Apple
+    /// ID) needs no prompt; an unsubscribed phone gets the text once the pilot allows its connection
+    /// (a Don't Allow keeps it off for that connection). A lying phone still needs a subscriber's
+    /// iPad and the subscriber's pairing, and the subscriber has Forget (S9-09).
+    nonisolated static func mayStreamItemText(masterIsEntitled: Bool, viewerClaimsEntitlement: Bool,
+                                              connectionAllowed: Bool, remoteAircraftSelected: Bool) -> Bool {
+        guard remoteAircraftSelected else { return true }
+        return masterIsEntitled && (viewerClaimsEntitlement || connectionAllowed)
     }
 
     /// The snapshot itself, apart from the connection, so the SA-26 redaction can be tested against a
@@ -1370,8 +1387,9 @@ class CompanionConnectivityManager: NSObject, ObservableObject {
         let visible = appState.activeChecklist.visibleItems(for: phase, learningMode: learning)
 
         // SA-26: stream the actual challenge/response text only when it may go (see
-        // `mayStreamItemText`: this iPad's own entitlement since S9-30). Pairing is one system sheet
-        // plus one confirmation code, after which the devices reconnect automatically in proximity.
+        // `mayStreamItemText`: this iPad's own entitlement, and the viewer's claim or the pilot's
+        // Allow, since S9-30). Pairing is one system sheet plus one confirmation code, after which
+        // the devices reconnect automatically in proximity.
         // The viewer still gets the phase title, progress counters and highlight, so the
         // second-screen layout is intact; only the words are withheld. (Driving the checklist needs
         // the pilot's per-connection answer on top, SEC-C40.)

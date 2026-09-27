@@ -52,13 +52,42 @@ actor ElevationService {
                coordinate.longitude <= swissBounds.maxLon
     }
 
+    // MARK: - What leaves the device (SEC-C39 / S9-13)
+
+    /// The Open-Meteo elevation request for `coordinates`, each rounded to 3 decimals (about 100 m).
+    ///
+    /// SEC-C39 coarsened the recorded track this way: ~1 m precision is far more than a terrain
+    /// profile needs, and departure and arrival can be read off a route's ends. The planning path
+    /// (a route's profile, Set altitudes) still sent 4 decimals, and a planned route usually starts
+    /// at the pilot's home airfield just the same. Both paths now build their request here. Rounding
+    /// moves a sample by 55 m at most, less than one cell of Open-Meteo's 90 m terrain model.
+    /// (S9-13)
+    nonisolated static func openMeteoElevationURL(for coordinates: [CLLocationCoordinate2D]) -> URL? {
+        let lats = coordinates.map { String(format: "%.3f", $0.latitude) }.joined(separator: ",")
+        let lons = coordinates.map { String(format: "%.3f", $0.longitude) }.joined(separator: ",")
+        return URL(string: "https://api.open-meteo.com/v1/elevation?latitude=\(lats)&longitude=\(lons)")
+    }
+
+    /// LV95 rounded to whole metres. LV95 is metre-based, so the fraction is sub-metre detail of
+    /// the pilot's route sent to a third party for nothing: swisstopo samples the profile far more
+    /// coarsely. (SEC-C39, extended to the planning paths by S9-13)
+    nonisolated static func wholeMetres(_ lv95: (easting: Double, northing: Double)) -> (easting: Int, northing: Int) {
+        (Int(lv95.easting.rounded()), Int(lv95.northing.rounded()))
+    }
+
+    /// A GeoJSON LineString for swisstopo's profile service, in whole LV95 metres.
+    nonisolated static func lv95LineString(_ points: [(easting: Double, northing: Double)]) -> String {
+        let coordinates = points.map(wholeMetres).map { "[\($0.easting),\($0.northing)]" }
+        return "{\"type\":\"LineString\",\"coordinates\":[\(coordinates.joined(separator: ","))]}"
+    }
+
     /// Fetch elevation for a single point (in meters)
     /// Returns nil if outside Switzerland or on error
     func fetchElevation(at coordinate: CLLocationCoordinate2D) async -> Double? {
         guard isInSwitzerland(coordinate) else { return nil }
 
-        // Convert WGS84 to LV95
-        let lv95 = wgs84ToLV95(coordinate)
+        // Convert WGS84 to LV95, in whole metres like every other point sent to swisstopo. (S9-13)
+        let lv95 = Self.wholeMetres(wgs84ToLV95(coordinate))
 
         let urlString = "https://api3.geo.admin.ch/rest/services/height?easting=\(lv95.easting)&northing=\(lv95.northing)&sr=2056"
 
@@ -127,9 +156,7 @@ actor ElevationService {
         var elevations: [Double] = []
         for start in stride(from: 0, to: points.count, by: 100) {
             let batch = points[start..<min(start + 100, points.count)]
-            let lats = batch.map { String(format: "%.4f", $0.coordinate.latitude) }.joined(separator: ",")
-            let lons = batch.map { String(format: "%.4f", $0.coordinate.longitude) }.joined(separator: ",")
-            guard let url = URL(string: "https://api.open-meteo.com/v1/elevation?latitude=\(lats)&longitude=\(lons)") else { return [] }
+            guard let url = Self.openMeteoElevationURL(for: batch.map { $0.coordinate }) else { return [] }
             do {
                 let (data, response) = try await ExternalRequest.data(from: url)
                 guard response.statusCode == 200,
@@ -205,14 +232,8 @@ actor ElevationService {
     private func fetchLegProfileWithSamples(from: CLLocationCoordinate2D, to: CLLocationCoordinate2D, samples: Int) async -> [(distance: Double, elevation: Double)]? {
         guard isInSwitzerland(from) && isInSwitzerland(to) else { return nil }
 
-        // Convert to LV95
-        let fromLV95 = wgs84ToLV95(from)
-        let toLV95 = wgs84ToLV95(to)
-
-        // Build GeoJSON LineString
-        let geom = """
-        {"type":"LineString","coordinates":[[\(fromLV95.easting),\(fromLV95.northing)],[\(toLV95.easting),\(toLV95.northing)]]}
-        """
+        // Build GeoJSON LineString, in whole LV95 metres. (S9-13)
+        let geom = Self.lv95LineString([wgs84ToLV95(from), wgs84ToLV95(to)])
 
         guard let encodedGeom = geom.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed),
               let url = URL(string: "https://api3.geo.admin.ch/rest/services/profile.json?geom=\(encodedGeom)&sr=2056&nb_points=\(samples)") else {
@@ -279,14 +300,8 @@ actor ElevationService {
         let maxGeomPoints = min(200, gpsTrack.count)
         let sampledTrack = strideSample(gpsTrack, count: maxGeomPoints)
 
-        // Convert sampled coordinates to LV95 for the LineString
-        let lv95Coords = sampledTrack.map { wgs84ToLV95($0.coordinate) }
-
-        // SEC-C39: round to whole metres. LV95 is metre-based, so the fractional part is
-        // sub-metre detail of the pilot's actual route being sent to a third party for no benefit —
-        // the terrain profile is sampled at a far coarser resolution than that.
-        let coordStrings = lv95Coords.map { "[\(Int($0.easting.rounded())),\(Int($0.northing.rounded()))]" }
-        let geom = "{\"type\":\"LineString\",\"coordinates\":[\(coordStrings.joined(separator: ","))]}"
+        // Convert sampled coordinates to LV95 for the LineString, in whole metres. (SEC-C39)
+        let geom = Self.lv95LineString(sampledTrack.map { wgs84ToLV95($0.coordinate) })
 
         // Use POST to avoid URL length limits
         guard let url = URL(string: "https://api3.geo.admin.ch/rest/services/profile.json") else { return [] }
@@ -365,14 +380,8 @@ actor ElevationService {
         // failure (URL, non-200, parse, count mismatch, network) return [] so the caller honestly
         // shows "no terrain" instead of a fabricated flat band.
         for batch in batches {
-            // SEC-C39: ~1 m precision (%.5f) is far more than a terrain-profile graph needs, and
-            // this is the RECORDED FLIGHT TRACK — departure and arrival are inferable from its
-            // endpoints — going to a third party. %.3f is ~100 m, which changes no pixel of the
-            // rendered profile while materially coarsening what leaves the device.
-            let lats = batch.map { String(format: "%.3f", $0.coordinate.latitude) }.joined(separator: ",")
-            let lons = batch.map { String(format: "%.3f", $0.coordinate.longitude) }.joined(separator: ",")
-
-            guard let url = URL(string: "https://api.open-meteo.com/v1/elevation?latitude=\(lats)&longitude=\(lons)") else {
+            // Coarsened to ~100 m, see `openMeteoElevationURL`. (SEC-C39)
+            guard let url = Self.openMeteoElevationURL(for: batch.map { $0.coordinate }) else {
                 return []
             }
 

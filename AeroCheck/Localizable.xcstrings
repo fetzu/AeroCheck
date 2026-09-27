@@ -52,6 +52,23 @@
         }
       }
     },
+    "flightsPage.datePassed": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Date passed"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Date passée"
+          }
+        }
+      }
+    },
     "thread.startNow": {
       "extractionState": "manual",
       "localizations": {

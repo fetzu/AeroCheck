@@ -781,6 +781,14 @@ extension TripTests {
         return thread
     }
 
+    /// The tests' "now": day 0 of `flight(_:on:)`, before every dated flight but the passed ones.
+    private var day0: Date { Date(timeIntervalSince1970: 1_790_000_000) }
+    private var utc: Calendar {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = TimeZone(identifier: "UTC")!
+        return calendar
+    }
+
     private func labels(_ entries: [UpcomingOrder.Entry], _ threads: [FlightThread]) -> [String] {
         entries.map { entry in
             switch entry {
@@ -797,7 +805,7 @@ extension TripTests {
         later.updatedAt = Date(timeIntervalSince1970: 1_800_000_000)
         let sooner = flight("Samedan → Bressaucourt", on: 27)
         let threads = [later, sooner]
-        XCTAssertEqual(labels(UpcomingOrder.entries(threads: threads, trips: []), threads),
+        XCTAssertEqual(labels(UpcomingOrder.entries(threads: threads, trips: [], now: day0), threads),
                        ["Samedan → Bressaucourt", "LSZS → LFLI"])
     }
 
@@ -806,7 +814,7 @@ extension TripTests {
         let new = flight("C → D", on: nil, created: 20)
         let dated = flight("E → F", on: 40)
         let threads = [old, new, dated]
-        XCTAssertEqual(labels(UpcomingOrder.entries(threads: threads, trips: []), threads),
+        XCTAssertEqual(labels(UpcomingOrder.entries(threads: threads, trips: [], now: day0), threads),
                        ["E → F", "C → D", "A → B"])
     }
 
@@ -820,8 +828,31 @@ extension TripTests {
         let before = flight("X → Y", on: 29)
         let after = flight("Y → Z", on: 32)
         let threads = [after, leg1, leg2, before]
-        XCTAssertEqual(labels(UpcomingOrder.entries(threads: threads, trips: [trip]), threads),
+        XCTAssertEqual(labels(UpcomingOrder.entries(threads: threads, trips: [trip], now: day0), threads),
                        ["X → Y", "trip:LSZQ → LSZE+LSZE → LSZS", "Y → Z"])
+    }
+
+    /// The review case: a flight whose day went by unflown held the next-flight slot for good.
+    func testAFlightWhoseDayHasPassedGoesAfterTheOnesToCome() {
+        let scrubbed = flight("Scrubbed", on: -3)
+        let older = flight("Older", on: -9)
+        let undated = flight("Undated", on: nil)
+        let next = flight("Next", on: 2)
+        let threads = [scrubbed, older, undated, next]
+        XCTAssertEqual(labels(UpcomingOrder.entries(threads: threads, trips: [], now: day0, calendar: utc), threads),
+                       ["Next", "Undated", "Scrubbed", "Older"])
+    }
+
+    func testEarlierTodayIsStillToday() {
+        let thisMorning = flight("This morning", on: 0)
+        let tomorrow = flight("Tomorrow", on: 1)
+        let threads = [tomorrow, thisMorning]
+        let afternoon = day0.addingTimeInterval(8 * 3_600)
+        XCTAssertEqual(labels(UpcomingOrder.entries(threads: threads, trips: [], now: afternoon, calendar: utc), threads),
+                       ["This morning", "Tomorrow"])
+        XCTAssertFalse(UpcomingOrder.isPassed(thisMorning.scheduledDeparture, now: afternoon, calendar: utc))
+        XCTAssertTrue(UpcomingOrder.isPassed(thisMorning.scheduledDeparture,
+                                             now: afternoon.addingTimeInterval(86_400), calendar: utc))
     }
 
     func testClosingOutFlightsAreNotUpcoming() {
@@ -829,7 +860,7 @@ extension TripTests {
         landed.state = .closeOut
         let next = flight("M → N", on: 2)
         let threads = [landed, next]
-        XCTAssertEqual(labels(UpcomingOrder.entries(threads: threads, trips: []), threads), ["M → N"])
+        XCTAssertEqual(labels(UpcomingOrder.entries(threads: threads, trips: [], now: day0), threads), ["M → N"])
     }
 
     // MARK: - Names (on-device review #4)

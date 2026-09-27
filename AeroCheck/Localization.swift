@@ -1446,6 +1446,8 @@ enum L10n {
         static let today = String(localized: "flightsPage.today")
         static let tomorrow = String(localized: "flightsPage.tomorrow")
         static let notScheduled = String(localized: "flightsPage.notScheduled")
+        /// Over a flight whose day has gone by without it being flown. (v6.0 review)
+        static let datePassed = String(localized: "flightsPage.datePassed")
         static let openFlight = String(localized: "flightsPage.openFlight")
         static let noRoute = String(localized: "flightsPage.noRoute")
         static func border(_ country: String) -> String {

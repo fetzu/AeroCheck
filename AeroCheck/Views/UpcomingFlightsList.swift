@@ -647,10 +647,11 @@ struct UpcomingFlightsList: View {
         }
     }
 
-    /// "TODAY", "TOMORROW · SUN 27 SEP", "MON 28 SEP", or "NOT SCHEDULED".
+    /// "TODAY", "TOMORROW · SUN 27 SEP", "MON 28 SEP", "DATE PASSED · SAT 20 SEP", or "NOT SCHEDULED".
     private func dayLabel(_ date: Date?) -> String {
         guard let date else { return L10n.FlightsPage.notScheduled.uppercased() }
         let day = date.formatted(.dateTime.weekday(.abbreviated).day().month(.abbreviated)).uppercased()
+        if UpcomingOrder.isPassed(date) { return L10n.FlightsPage.datePassed.uppercased() + " · " + day }
         let calendar = Calendar.current
         if calendar.isDateInToday(date) { return L10n.FlightsPage.today.uppercased() + " · " + day }
         if calendar.isDateInTomorrow(date) { return L10n.FlightsPage.tomorrow.uppercased() + " · " + day }
@@ -741,7 +742,9 @@ enum UpcomingOrder {
         }
     }
 
-    static func entries(threads: [FlightThread], trips: [Trip]) -> [Entry] {
+    /// `now` and `calendar` are parameters for the tests; the list passes neither.
+    static func entries(threads: [FlightThread], trips: [Trip], now: Date = Date(),
+                        calendar: Calendar = .current) -> [Entry] {
         let ahead = threads.filter { $0.state != .closeOut }
         // Trips with at least one leg still owing something; their date is that leg's.
         let tripEntries: [(Entry, Date?, Date)] = trips.compactMap { trip in
@@ -755,13 +758,30 @@ enum UpcomingOrder {
         let flightEntries: [(Entry, Date?, Date)] = ahead.filter { $0.tripId == nil }.map {
             (.flight($0), $0.scheduledDeparture, $0.createdAt)
         }
-        return (tripEntries + flightEntries).sorted { a, b in
+        // A flight whose day has gone by without it being flown (scrubbed, or forgotten) used to sort
+        // before everything and hold the next-flight slot for good. It goes after the flights still
+        // to come, the most recent first, where it can still be flown, moved or cancelled. Today's
+        // flights stay today's all day, whatever the hour. (v6.0 review)
+        let all = tripEntries + flightEntries
+        let passed = all.filter { isPassed($0.1, now: now, calendar: calendar) }
+        let toCome = all.filter { !isPassed($0.1, now: now, calendar: calendar) }
+        let toComeInOrder = toCome.sorted { a, b in
             switch (a.1, b.1) {
             case let (x?, y?): return x != y ? x < y : a.2 > b.2
             case (.some, nil): return true
             case (nil, .some): return false
             case (nil, nil): return a.2 > b.2
             }
-        }.map(\.0)
+        }
+        let passedMostRecentFirst = passed.sorted { a, b in
+            let (x, y) = (a.1 ?? .distantPast, b.1 ?? .distantPast)
+            return x != y ? x > y : a.2 > b.2
+        }
+        return (toComeInOrder + passedMostRecentFirst).map(\.0)
+    }
+
+    /// Whether a flight's day has gone by: before today, not merely earlier today.
+    static func isPassed(_ date: Date?, now: Date = Date(), calendar: Calendar = .current) -> Bool {
+        date.map { $0 < calendar.startOfDay(for: now) } ?? false
     }
 }

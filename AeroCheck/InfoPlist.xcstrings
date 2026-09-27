@@ -8,13 +8,13 @@
         "en" : {
           "stringUnit" : {
             "state" : "new",
-            "value" : "AéroCheck keeps recording your flight track when the screen locks or you switch apps in flight, so landings are not missed and the logbook times are right. Without Always, recording stops as soon as the app leaves the screen. The track stays on your device and in your own iCloud."
+            "value" : "AéroCheck keeps recording your flight when the screen locks or you switch apps, so no landing is missed and the logbook times are right; without Always, recording stops when the app leaves the screen. The track stays on your device, and in your own iCloud if you sync. Weather, terrain and airspace services only receive rounded positions."
           }
         },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "AéroCheck continue d'enregistrer la trace de votre vol quand l'écran se verrouille ou que vous changez d'app en vol : aucun atterrissage n'est manqué et les heures du carnet de vol sont justes. Sans « Toujours », l'enregistrement s'arrête dès que l'app quitte l'écran. La trace reste sur votre appareil et dans votre propre iCloud."
+            "value" : "AéroCheck continue d'enregistrer votre vol quand l'écran se verrouille ou que vous changez d'app, pour ne manquer aucun atterrissage et avoir des heures de carnet justes ; sans « Toujours », l'enregistrement s'arrête dès que l'app quitte l'écran. La trace reste sur votre appareil, et dans votre propre iCloud si vous synchronisez. Les services de météo, de relief et d'espaces aériens ne reçoivent que des positions arrondies."
           }
         }
       }
@@ -26,13 +26,13 @@
         "en" : {
           "stringUnit" : {
             "state" : "new",
-            "value" : "AéroCheck records your flight track (position, altitude and ground speed) to draw the navigation map and fill in your logbook. The track stays on your device and in your own iCloud."
+            "value" : "AéroCheck records your flight track (position, altitude and ground speed) to draw the navigation map and fill in your logbook. The track stays on your device, and in your own iCloud if you sync. Weather, terrain and airspace services only receive rounded positions, to show data for where you fly."
           }
         },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "AéroCheck enregistre la trace de votre vol (position, altitude et vitesse sol) pour dessiner la carte de navigation et remplir votre carnet de vol. La trace reste sur votre appareil et dans votre propre iCloud."
+            "value" : "AéroCheck enregistre la trace de votre vol (position, altitude et vitesse sol) pour dessiner la carte de navigation et remplir votre carnet de vol. La trace reste sur votre appareil, et dans votre propre iCloud si vous synchronisez. Les services de météo, de relief et d'espaces aériens ne reçoivent que des positions arrondies, pour afficher les données de l'endroit où vous volez."
           }
         }
       }

@@ -771,22 +771,45 @@ struct FlightThreadView: View {
 
     // MARK: - Chapter bar
 
+    /// The state chip and the four chapters, all in view: on one row where they fit, else the state
+    /// chip over the chapters, else the chapters two by two. On an iPhone the single scrolling row cut
+    /// Close off at the edge with nothing to say there was more, and in French even the four
+    /// chapters alone are wider than the screen. Scrolling stays as the last resort, for the largest
+    /// text sizes. (v6.0 review)
     private func chapterBar(_ thread: FlightThread) -> some View {
-        ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: 8) {
-                // Displaced from the header on iPhone, where it was costing the route label the
-                // width it needed. It belongs with the per-chapter progress anyway: same question,
-                // one level up — and it leads, so it is on screen without scrolling the bar.
-                // (device pass)
+        let chapters = Array(ThreadChapter.allCases)
+        return ViewThatFits(in: .horizontal) {
+            chapterRow(thread, chapters: chapters, withState: true)
+            VStack(alignment: .leading, spacing: 8) {
                 if usesCompactHeader { stateChip(thread) }
-                ForEach(ThreadChapter.allCases) { chapter in
-                    chapterChip(thread, chapter: chapter)
-                }
+                chapterRow(thread, chapters: chapters, withState: false)
             }
-            .padding(.horizontal, 16)
-            .padding(.vertical, 10)
+            VStack(alignment: .leading, spacing: 8) {
+                if usesCompactHeader { stateChip(thread) }
+                chapterRow(thread, chapters: Array(chapters.prefix(2)), withState: false)
+                chapterRow(thread, chapters: Array(chapters.dropFirst(2)), withState: false)
+            }
+            ScrollView(.horizontal, showsIndicators: false) {
+                chapterRow(thread, chapters: chapters, withState: true)
+            }
         }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 10)
+        .frame(maxWidth: .infinity, alignment: .leading)
         .background(Color.cockpitBackground)
+    }
+
+    private func chapterRow(_ thread: FlightThread, chapters: [ThreadChapter], withState: Bool) -> some View {
+        HStack(spacing: 8) {
+            // Displaced from the header on iPhone, where it was costing the route label the
+            // width it needed. It belongs with the per-chapter progress anyway: same question,
+            // one level up — and it leads, so it is on screen without scrolling the bar.
+            // (device pass)
+            if withState && usesCompactHeader { stateChip(thread) }
+            ForEach(chapters) { chapter in
+                chapterChip(thread, chapter: chapter)
+            }
+        }
     }
 
     private func chapterChip(_ thread: FlightThread, chapter: ThreadChapter) -> some View {

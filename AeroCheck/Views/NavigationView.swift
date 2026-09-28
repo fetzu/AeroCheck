@@ -666,6 +666,11 @@ struct NavigationMapView: View {
         let columns = landscape && leadingColumn != nil
         let mapAreaWidth = columns ? geometry.size.width - leadingColumnWidth
             : landscape ? geometry.size.width - Self.sideColumnWidth : geometry.size.width
+        // The closures below run later, in their own view's update: read the proxy here, while it
+        // is current.
+        let height = geometry.size.height
+        // Each large part of the map is a view of its own (`SeparateView`): built inline, this body's
+        // value was about 33 KB, and rendering it overflowed the device's 1 MB main-thread stack.
         return Group {
             if columns, let leadingColumn {
                 // A phone on its side, in the Cockpit: the Cockpit's column on the left with the thumb
@@ -682,18 +687,20 @@ struct NavigationMapView: View {
                     .background(theme.panel.ignoresSafeArea())
                     .overlay(alignment: .trailing) { Rectangle().fill(theme.panelStroke).frame(width: 1) }
 
-                    columnsMapArea(legsMaxHeight: geometry.size.height * 0.5)
+                    SeparateView { columnsMapArea(legsMaxHeight: height * 0.5) }
                 }
             } else if landscape {
                 HStack(spacing: 0) {
-                    mapArea(bottomPanel: EmptyView?.none)
-                    sideColumn
+                    SeparateView { mapArea(bottomPanel: EmptyView?.none) }
+                    SeparateView { sideColumn }
                         .frame(width: Self.sideColumnWidth)
                 }
             } else {
                 // The legs and every frequency open inside the bottom panel, never taller than 40 %
                 // of the map: past that they scroll, and the thumb bar stays on screen. (M-06)
-                mapArea(bottomPanel: bottomPanel(legsMaxHeight: geometry.size.height * 0.4))
+                SeparateView {
+                    mapArea(bottomPanel: SeparateView { bottomPanel(legsMaxHeight: height * 0.4) })
+                }
             }
         }
         // Declared once here, so both layouts have them.
@@ -764,7 +771,7 @@ struct NavigationMapView: View {
                 mapFooter
                 // The controls at the foot of the chart, by the thumb, leaving the top (what's
                 // ahead, in Track up) clear. Labelled where the row has room, icons where not.
-                mapControlsBottomRow
+                SeparateView { mapControlsBottomRow }
                     .frame(maxWidth: .infinity, alignment: .trailing)
                     .padding(.horizontal, 10)
             }
@@ -776,7 +783,7 @@ struct NavigationMapView: View {
                 if navSheetExpanded {
                     Rectangle().fill(theme.panelStroke).frame(height: 1)
                     ScrollView {
-                        legsAndFrequencies
+                        SeparateView { legsAndFrequencies }
                             .background(GeometryReader { proxy in
                                 Color.clear.preference(key: LegsPanelHeightKey.self, value: proxy.size.height)
                             })
@@ -993,14 +1000,14 @@ struct NavigationMapView: View {
                     if compact {
                         nextWaypointLine
                     } else {
-                        nextWaypointCard
+                        SeparateView { nextWaypointCard }
                     }
                     if routesOnTop {
                         routesButton
                             .frame(maxWidth: .infinity, alignment: .leading)
                     }
                     if !compact {
-                        mapControlsRow
+                        SeparateView { mapControlsRow }
                             .frame(maxWidth: .infinity, alignment: .trailing)
                     }
                     // Hazard chip. Only exists when a hazard is actually in range — a chip that is
@@ -1016,7 +1023,7 @@ struct NavigationMapView: View {
             bottom: VStack(spacing: 8) {
                 mapFooter
                 if compact {
-                    mapControlsBottomRow
+                    SeparateView { mapControlsBottomRow }
                         .frame(maxWidth: .infinity, alignment: .trailing)
                         .padding(.horizontal, 10)
                 }
@@ -1502,7 +1509,7 @@ struct NavigationMapView: View {
             if navSheetExpanded {
                 Rectangle().fill(theme.panelStroke).frame(height: 1)
                 ScrollView {
-                    legsAndFrequencies
+                    SeparateView { legsAndFrequencies }
                         .background(GeometryReader { proxy in
                             Color.clear.preference(key: LegsPanelHeightKey.self, value: proxy.size.height)
                         })

@@ -387,9 +387,14 @@ class OpenAIPDataService: ObservableObject {
     /// true when the extrapolated flight altitude there is within the airspace ± the buffer; the others
     /// are "context" (crossed horizontally but cleared vertically) and drawn faded. Conflicts sort
     /// first, then by start distance.
+    ///
+    /// Limits in ft AGL are resolved against `terrain` (the route's profile, `AltitudePlanner` NM);
+    /// where there is none, and for flight levels, a route that may be inside is a conflict marked
+    /// `verticalUncertainty`, never context. (APP-11)
     func airspaceProfileBlocks(
         _ waypoints: [CLLocationCoordinate2D],
         altitudesFt: [Double?] = [],
+        terrain: [AltitudePlanner.TerrainSample] = [],
         verticalBufferFt: Double = 500,
         sampleStepNM: Double = 1.0
     ) -> [AirspaceProfileBlock] {
@@ -434,23 +439,41 @@ class OpenAIPDataService: ObservableObject {
         }
         if let last = waypoints.last { samples.append((last, cum.last ?? 0)) }
 
+        // The ground each sample stands for: half a step either side, so an AGL limit is not resolved
+        // against a valley between two samples on a ridge. (APP-11)
+        let half = max(0.1, sampleStepNM) / 2
+        let ground = samples.map { AltitudePlanner.terrainRange(terrain, fromNM: $0.d - half, toNM: $0.d + half) }
+
         var blocks: [AirspaceProfileBlock] = []
         for airspace in candidates {
-            var minD = Double.infinity, maxD = -Double.infinity, anyInside = false, anyVertical = false
-            let floor = airspace.lowerCeiling.asFeetMSL
-            let ceiling = airspace.upperCeiling.asFeetMSL
-            for sample in samples where airspace.containsPoint(sample.c) {
+            var minD = Double.infinity, maxD = -Double.infinity
+            var anyInside = false, anyVertical = false
+            var uncertainty: Set<AirspaceVerticalUncertainty> = []
+            var outline: [AirspaceProfileBlock.BandPoint] = []
+            for (i, sample) in samples.enumerated() where airspace.containsPoint(sample.c) {
                 anyInside = true
                 minD = min(minD, sample.d); maxD = max(maxD, sample.d)
-                if let alt = altAt(sample.d) {
-                    if alt + verticalBufferFt >= floor && alt - verticalBufferFt <= ceiling { anyVertical = true }
-                } else {
+                let band = AirspaceVerticalBand(airspace, terrainFt: ground[i])
+                outline.append(.init(nm: sample.d, floorFt: band.drawnFloorFt, ceilingFt: band.drawnCeilingFt,
+                                     outerFloorFt: band.floor.low, outerCeilingFt: band.ceiling.high))
+                guard let alt = altAt(sample.d) else {
                     anyVertical = true // no altitude profile → treat horizontal crossing as a conflict
+                    continue
+                }
+                switch band.verdict(altitudeFt: alt, bufferFt: verticalBufferFt) {
+                case .inside: anyVertical = true
+                case .possiblyInside(let why) where why.isEmpty: anyVertical = true // no reason given: take it as inside
+                case .possiblyInside(let why): uncertainty.formUnion(why)
+                case .outside: break
                 }
             }
             guard anyInside else { continue }
-            blocks.append(AirspaceProfileBlock(airspace: airspace, startNM: minD, endNM: maxD,
-                                               floorFt: floor, ceilingFt: ceiling, isConflict: anyVertical))
+            // Surely inside somewhere: a plain conflict. Only maybe: a conflict that says why.
+            blocks.append(AirspaceProfileBlock(
+                airspace: airspace, startNM: minD, endNM: maxD,
+                floorFt: outline.map(\.floorFt).min() ?? 0, ceilingFt: outline.map(\.ceilingFt).max() ?? 0,
+                isConflict: anyVertical || !uncertainty.isEmpty, outline: outline,
+                verticalUncertainty: anyVertical ? [] : uncertainty))
         }
         return blocks.sorted { a, b in
             if a.isConflict != b.isConflict { return a.isConflict }

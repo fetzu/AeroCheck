@@ -243,15 +243,116 @@ struct Airspace: Codable, Identifiable {
 /// spans (NM) and its vertical band (ft MSL), plus whether the route actually conflicts with it
 /// (within ± a separation buffer) or merely passes it horizontally while clearing it vertically
 /// ("context", drawn faded). (flight-plan revamp #4 redesign)
+///
+/// A limit in ft AGL or a flight level has no single height in ft MSL (see `AirspaceVerticalBand`),
+/// so the block carries the band sample by sample (`outline`) and, when the route may be inside it
+/// only because such a limit could not be pinned down, why (`verticalUncertainty`). Such a block is
+/// a conflict too: never reported clear on a guess. (APP-11)
 struct AirspaceProfileBlock: Identifiable {
+    /// The vertical band at one sample of the route, ft MSL.
+    struct BandPoint: Equatable {
+        let nm: Double
+        /// Drawn band: the best figure there is (see `AirspaceVerticalBand.drawnFloorFt`).
+        let floorFt: Double
+        let ceilingFt: Double
+        /// The furthest the limits can really be: lowest floor, highest ceiling (infinite for an AGL
+        /// ceiling over unknown terrain).
+        let outerFloorFt: Double
+        let outerCeilingFt: Double
+    }
+
     let airspace: Airspace
     let startNM: Double
     let endNM: Double
+    /// The drawn band over the whole span: lowest floor, highest ceiling.
     let floorFt: Double
     let ceilingFt: Double
     let isConflict: Bool
+    /// The band per sample inside the footprint, in route order. An AGL limit follows the ground, so
+    /// its top is not a straight line.
+    var outline: [BandPoint] = []
+    /// Non-empty when the block is a conflict ONLY because a limit could not be pinned down (ft AGL
+    /// over unknown terrain, a flight level with no QNH): the route may be inside, or not.
+    var verticalUncertainty: Set<AirspaceVerticalUncertainty> = []
 
     var id: String { airspace.id }
+    var isVerticallyUncertain: Bool { !verticalUncertainty.isEmpty }
+    /// The furthest the band can reach over the span (the ceiling may be infinite).
+    var outerFloorFt: Double { outline.map(\.outerFloorFt).min() ?? floorFt }
+    var outerCeilingFt: Double { outline.map(\.outerCeilingFt).max() ?? ceilingFt }
+}
+
+// MARK: - Vertical band at a point of a route
+
+/// Why an airspace's vertical band at a point cannot be pinned down in feet MSL.
+enum AirspaceVerticalUncertainty: Hashable {
+    /// A limit in ft AGL over ground the app has no elevation for.
+    case terrainUnknown
+    /// A flight level: where it sits on a QNH altimeter depends on the day's QNH.
+    case flightLevel
+}
+
+/// One vertical limit resolved to feet MSL at a point of a route.
+struct ResolvedAltitudeLimit: Equatable {
+    /// Lowest and highest the limit can really be here. `high` is infinite for an AGL limit over
+    /// unknown terrain.
+    let low: Double
+    let high: Double
+    /// The figure a planned altitude is compared with, nil when there is none to give (AGL over
+    /// unknown terrain).
+    let nominal: Double?
+    /// Set when `low` and `high` are apart for want of data.
+    let uncertainty: AirspaceVerticalUncertainty?
+}
+
+/// An airspace's vertical band at one point of a route, as far as the data allows and no further.
+///
+/// Only a limit in feet MSL compares directly with a planned altitude:
+/// - a limit in ft AGL follows the ground: terrain + value where the terrain is known; where it is
+///   not, anywhere from `value` ft MSL (ground at sea level) upwards;
+/// - a flight level is FL × 100 ft on 1013.25 hPa, and the app has no QNH for the time of a planned
+///   flight, so it can sit `AltitudeLimit.flightLevelUncertaintyFt` either side of that.
+///
+/// Reading either as feet MSL is what put routes above a 2000 ft AGL ceiling drawn at 2000 ft MSL,
+/// over ground at 1400 ft. `verdict` says `.possiblyInside` wherever the answer hangs on a limit
+/// that could not be pinned down, and callers must show that, never clear it. (APP-11, restores
+/// the fail-safe PERF-08 had put in the old AirspaceAnalyzer)
+struct AirspaceVerticalBand: Equatable {
+    let floor: ResolvedAltitudeLimit
+    let ceiling: ResolvedAltitudeLimit
+
+    /// `terrainFt`: lowest and highest ground around the point, ft MSL, nil where unknown.
+    init(_ airspace: Airspace, terrainFt: ClosedRange<Double>?) {
+        floor = airspace.lowerCeiling.resolved(as: .floor, terrainFt: terrainFt)
+        ceiling = airspace.upperCeiling.resolved(as: .ceiling, terrainFt: terrainFt)
+    }
+
+    enum Verdict: Equatable {
+        case inside
+        /// Inside if a limit the app could not pin down falls the wrong way, and why.
+        case possiblyInside(Set<AirspaceVerticalUncertainty>)
+        case outside
+    }
+
+    /// Where a planned altitude (ft MSL) stands against the band, within ± `bufferFt`.
+    func verdict(altitudeFt alt: Double, bufferFt: Double = 0) -> Verdict {
+        // Each limit on its own: surely on the airspace's side of it, maybe, or surely not.
+        let overFloor: Bool? = floor.nominal.map { alt + bufferFt >= $0 } == true ? true
+            : (alt + bufferFt >= floor.low ? nil : false)
+        let underCeiling: Bool? = ceiling.nominal.map { alt - bufferFt <= $0 } == true ? true
+            : (alt - bufferFt <= ceiling.high ? nil : false)
+        if overFloor == false || underCeiling == false { return .outside }
+        if overFloor == true && underCeiling == true { return .inside }
+        var why: Set<AirspaceVerticalUncertainty> = []
+        if overFloor == nil, let u = floor.uncertainty { why.insert(u) }
+        if underCeiling == nil, let u = ceiling.uncertainty { why.insert(u) }
+        return .possiblyInside(why)
+    }
+
+    /// The band as drawn: the nominal figure where there is one, else the lowest the limit can be
+    /// (an AGL limit over unknown terrain is at least its value above sea level).
+    var drawnFloorFt: Double { floor.nominal ?? floor.low }
+    var drawnCeilingFt: Double { ceiling.nominal ?? ceiling.low }
 }
 
 // MARK: - Airspace Bounding Box
@@ -300,7 +401,12 @@ struct AltitudeLimit: Codable {
     let unit: Int                        // 0 = M, 1 = FT, 6 = FL (OpenAIP schema)
     let referenceDatum: Int              // 0 = GND, 1 = MSL, 2 = STD
 
-    /// Convert to feet MSL for comparison (approximate for GND reference)
+    /// The value in feet, with NO datum applied: metres converted, a flight level × 100.
+    ///
+    /// Only an MSL limit comes out as feet MSL. "2000 ft GND" comes out as 2000, which is too low
+    /// by the height of the ground: as a ceiling, that clears routes that are inside the airspace.
+    /// A flight level comes out on 1013.25 hPa. Compare limits with a planned altitude through
+    /// `resolved(as:terrainFt:)` / `AirspaceVerticalBand`, never through this. (APP-11)
     var asFeetMSL: Double {
         let feetValue: Double
         switch unit {
@@ -311,13 +417,42 @@ struct AltitudeLimit: Codable {
         default: // Feet (OpenAIP unit code 1, and fallback)
             feetValue = Double(value)
         }
-
-        // For GND (AGL) reference, we can't convert to MSL without terrain data.
-        // Return the raw feet value as an approximation — for a lower limit of
-        // "0 ft GND" this correctly returns 0, and for non-zero AGL values this
-        // is a reasonable conservative estimate.
-        // STD (standard pressure) is effectively MSL for comparison purposes.
         return feetValue
+    }
+
+    /// How far a flight level can sit from FL × 100 ft on a QNH altimeter. 1000 ft is 37 hPa at
+    /// 27 ft/hPa, i.e. any QNH from 976 to 1050 hPa. The app has no QNH for the time of a planned
+    /// flight, so a flight-level limit is only known to within this. (APP-11)
+    static let flightLevelUncertaintyFt: Double = 1000
+
+    enum Role { case floor, ceiling }
+
+    /// This limit in feet MSL at one point of a route, for comparing with a planned altitude.
+    ///
+    /// `terrainFt` is the lowest and highest ground around the point, nil where unknown. An AGL
+    /// limit takes the lowest ground as a floor and the highest as a ceiling, so it errs on the side
+    /// of a bigger airspace between terrain samples. "GND" (0 ft AGL) stays 0: a floor at the
+    /// surface is below anything flying, and a planned altitude a few feet under a terrain sample
+    /// must not put the route outside a CTR it departs from. (APP-11)
+    func resolved(as role: Role, terrainFt: ClosedRange<Double>?) -> ResolvedAltitudeLimit {
+        let feet = asFeetMSL
+        // Pressure-referenced: FL × 100 on 1013.25 hPa, QNH unknown.
+        if unit == 6 || referenceDatum == 2 {
+            let margin = Self.flightLevelUncertaintyFt
+            return ResolvedAltitudeLimit(low: feet - margin, high: feet + margin, nominal: feet,
+                                         uncertainty: .flightLevel)
+        }
+        // Above the ground: needs the terrain under the point.
+        if referenceDatum == 0 && value != 0 {
+            guard let terrain = terrainFt else {
+                return ResolvedAltitudeLimit(low: feet, high: .infinity, nominal: nil, uncertainty: .terrainUnknown)
+            }
+            let low = terrain.lowerBound + feet, high = terrain.upperBound + feet
+            return ResolvedAltitudeLimit(low: low, high: high, nominal: role == .floor ? low : high,
+                                         uncertainty: nil)
+        }
+        // MSL, or the ground itself.
+        return ResolvedAltitudeLimit(low: feet, high: feet, nominal: feet, uncertainty: nil)
     }
 
     /// True when converting this limit to MSL is only approximate without external data:

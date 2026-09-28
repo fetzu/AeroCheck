@@ -283,18 +283,22 @@ struct SetAltitudesSheet: View {
     }
 
     /// Per leg (k → k+1): controlled or restricted airspace the previewed profile runs into, within the
-    /// builder's ±500 ft buffer.
+    /// builder's ±500 ft buffer. Limits in ft AGL are resolved against the terrain this sheet fetched;
+    /// an airspace the profile MAY run into (ft AGL where there is no terrain, a flight level) is
+    /// listed with a "?". (APP-11)
     private func airspaceEntered(_ altitudes: [Double?]) -> [[String]] {
         let n = waypoints.count
         guard n >= 2 else { return [] }
         let cum = AltitudePlanner.cumulativeNM(waypoints)
-        let blocks = openAIPDataService.airspaceProfileBlocks(waypoints.map(\.coordinate), altitudesFt: altitudes)
+        let blocks = openAIPDataService.airspaceProfileBlocks(waypoints.map(\.coordinate), altitudesFt: altitudes,
+                                                              terrain: terrain)
             .filter { $0.isConflict && RouteRadioPlanner.kind(of: $0.airspace) != .ignore
                 && $0.airspace.airspaceType != .gliderSector }
         return (0..<(n - 1)).map { k in
             blocks.filter { $0.startNM <= cum[k + 1] && $0.endNM >= cum[k] }
-                .map { RouteRadioPlanner.kind(of: $0.airspace) == .check
-                    ? RouteRadioPlanner.checkAreaName($0.airspace) : RouteRadioPlanner.label($0.airspace) }
+                .map { (RouteRadioPlanner.kind(of: $0.airspace) == .check
+                    ? RouteRadioPlanner.checkAreaName($0.airspace) : RouteRadioPlanner.label($0.airspace))
+                    + ($0.isVerticallyUncertain ? "?" : "") }
         }
     }
 

@@ -17,12 +17,13 @@ final class BriefingWindLadderTests: XCTestCase {
               observedAt: Date(timeIntervalSince1970: 1_785_196_800))
     }
 
+    /// A reading `ageMinutes` old now: `select` ages it against the clock unless given a `now`.
     private func station(
         _ name: String = "Sion", distanceM: Double = 5_000, altitudeM: Double = 450,
-        speedKmh: Double = 18.5, dir: Double = 270
+        speedKmh: Double = 18.5, dir: Double = 270, ageMinutes: Double = 5
     ) -> WindData {
         .init(stationName: name, speedKmh: speedKmh, directionDegrees: dir,
-              timestamp: Date(timeIntervalSince1970: 1_785_196_800),
+              timestamp: Date().addingTimeInterval(-ageMinutes * 60),
               stationCoordinate: CLLocationCoordinate2D(latitude: 46.2, longitude: 7.3),
               distanceMeters: distanceM, stationAltitudeMeters: altitudeM)
     }
@@ -127,6 +128,44 @@ final class BriefingWindLadderTests: XCTestCase {
             station: nil, model: nil, aircraftAltitudeM: 400
         )
         XCTAssertEqual(wind?.source, .metar(icao: "GOOD"))
+    }
+
+    // MARK: - Freshness
+
+    /// The MeteoSwiss feed is a 10-minute mean. A reading older than 20 minutes is no longer the
+    /// wind at the field and must not be briefed as current: the ladder moves on to the next rung.
+    func testStaleStationReadingIsNotBriefed() {
+        let stale = WindData(stationName: "Sion", speedKmh: 18.5, directionDegrees: 270,
+                             timestamp: Date().addingTimeInterval(-45 * 60),
+                             stationCoordinate: CLLocationCoordinate2D(latitude: 46.2, longitude: 7.3),
+                             distanceMeters: 5_000, stationAltitudeMeters: 450)
+        let wind = BriefingWindLadder.select(metars: [], station: stale, model: model, aircraftAltitudeM: 450)
+        XCTAssertEqual(wind?.source, .model)
+    }
+
+    /// With nothing else to fall back on, a stale reading leaves the briefing without a wind (shown
+    /// as "not available", with the hint to check it) rather than with an old one.
+    func testStaleStationReadingAloneGivesNoWind() {
+        XCTAssertNil(BriefingWindLadder.select(metars: [], station: station(ageMinutes: 45), model: nil,
+                                               aircraftAltitudeM: 450))
+    }
+
+    /// Twenty minutes is still usable, a minute more is not; the time is the caller's.
+    func testStationAgeLimitIsTwentyMinutes() {
+        let reading = station(ageMinutes: 0)
+        let at20 = BriefingWindLadder.select(metars: [], station: reading, model: nil, aircraftAltitudeM: 450,
+                                             now: reading.timestamp.addingTimeInterval(20 * 60))
+        let at21 = BriefingWindLadder.select(metars: [], station: reading, model: nil, aircraftAltitudeM: 450,
+                                             now: reading.timestamp.addingTimeInterval(21 * 60))
+        XCTAssertEqual(at20?.source, .meteoSwiss(station: "Sion"))
+        XCTAssertNil(at21)
+    }
+
+    /// A reading inside the window still beats the model.
+    func testFreshStationStillWinsOverTheModel() {
+        let wind = BriefingWindLadder.select(metars: [], station: station(ageMinutes: 12), model: model,
+                                             aircraftAltitudeM: 450)
+        XCTAssertEqual(wind?.source, .meteoSwiss(station: "Sion"))
     }
 
     // MARK: - VRB

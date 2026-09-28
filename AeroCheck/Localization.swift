@@ -1414,6 +1414,8 @@ enum L10n {
         }
         static let noRadioData = String(localized: "export.noRadioData")
         static let noAirspaceData = String(localized: "export.noAirspaceData")
+        /// Radio box footnote for the "▸?" / "?" remarks: a limit in ft AGL or a flight level. (APP-11)
+        static let verticalLimitUncertain = String(localized: "export.verticalLimitUncertain")
         static func radioSource(_ source: String) -> String {
             String(format: String(localized: "export.radioSource"), source)
         }
@@ -1948,6 +1950,9 @@ enum L10n {
         static let terrainNotCheckedDetail = String(localized: "nav.terrainNotCheckedDetail")
         static let terrainProximity = String(localized: "nav.terrainProximity")
         static let terrainProximityDetail = String(localized: "nav.terrainProximityDetail")
+        // Route profile: the route may be inside an airspace whose limit could not be pinned down (APP-11)
+        static let airspaceMaybeAGL = String(localized: "nav.airspaceMaybeAGL")
+        static let airspaceMaybeFL = String(localized: "nav.airspaceMaybeFL")
         static let exportGPX = String(localized: "nav.exportGPX")
         static let routeProfileTitle = String(localized: "nav.routeProfileTitle")
         static let editRoute = String(localized: "nav.editRoute")

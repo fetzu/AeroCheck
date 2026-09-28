@@ -39,6 +39,41 @@ enum AltitudePlanner {
         return terrain.map { TerrainSample(distanceNM: $0.distance / span * routeNM, elevationFt: $0.elevation * 3.28084) }
     }
 
+    /// Lowest and highest ground between two along-track distances, from the samples in the stretch
+    /// and the profile interpolated at both ends; nil where there is no terrain there (none fetched,
+    /// or the stretch lies outside the profile). What an AGL airspace limit is resolved against, so
+    /// the ground between two route samples is not skipped. (APP-11)
+    static func terrainRange(_ terrain: [TerrainSample], fromNM a: Double, toNM b: Double) -> ClosedRange<Double>? {
+        guard terrain.count >= 2, let first = terrain.first, let last = terrain.last else { return nil }
+        let lo = max(min(a, b), first.distanceNM), hi = min(max(a, b), last.distanceNM)
+        guard lo <= hi else { return nil }
+        // First sample at or past `d` (the profile is in route order), by bisection: the nav log asks
+        // this for every 0.1 NM of the route.
+        func index(atOrAfter d: Double) -> Int {
+            var l = 0, r = terrain.count
+            while l < r {
+                let m = (l + r) / 2
+                if terrain[m].distanceNM < d { l = m + 1 } else { r = m }
+            }
+            return l
+        }
+        func elevation(at d: Double) -> Double {
+            let k = index(atOrAfter: d)
+            guard k < terrain.count else { return last.elevationFt }
+            guard k > 0 else { return terrain[0].elevationFt }
+            let p0 = terrain[k - 1], p1 = terrain[k]
+            let t = (d - p0.distanceNM) / max(0.0001, p1.distanceNM - p0.distanceNM)
+            return p0.elevationFt + (p1.elevationFt - p0.elevationFt) * t
+        }
+        var low = min(elevation(at: lo), elevation(at: hi)), high = max(elevation(at: lo), elevation(at: hi))
+        var k = index(atOrAfter: lo)
+        while k < terrain.count, terrain[k].distanceNM <= hi {
+            low = min(low, terrain[k].elevationFt); high = max(high, terrain[k].elevationFt)
+            k += 1
+        }
+        return low...high
+    }
+
     /// Highest terrain on each leg `k → k+1`; nil where no sample falls on the leg.
     static func legMaxTerrain(cumNM: [Double], terrain: [TerrainSample]) -> [Double?] {
         guard cumNM.count >= 2 else { return [] }

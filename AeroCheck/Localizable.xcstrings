@@ -5079,6 +5079,23 @@
         }
       }
     },
+    "export.verticalLimitUncertain": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "▸? and ?: the route may be in this airspace. Its limit is in ft AGL over terrain that could not be checked, or a flight level (the QNH is not known when planning). Verify."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "▸? et ? : la route est peut-être dans cet espace aérien. Sa limite est en ft AGL sur un relief qui n'a pas pu être vérifié, ou en niveau de vol (le QNH n'est pas connu à la planification). À vérifier."
+          }
+        }
+      }
+    },
     "export.waypointCount": {
       "extractionState": "manual",
       "localizations": {
@@ -16753,6 +16770,40 @@
           "stringUnit": {
             "state": "translated",
             "value": "Espace aérien"
+          }
+        }
+      }
+    },
+    "nav.airspaceMaybeAGL": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Limit in ft AGL, terrain not known here: the route may be inside. Verify."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Limite en ft AGL, relief inconnu ici : la route est peut-être dedans. À vérifier."
+          }
+        }
+      }
+    },
+    "nav.airspaceMaybeFL": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Limit is a flight level, QNH not known: the route may be inside. Verify."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Limite en niveau de vol, QNH inconnu : la route est peut-être dedans. À vérifier."
           }
         }
       }

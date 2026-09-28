@@ -54,6 +54,9 @@ struct FlightPlanMapBuilderView: View {
     @State private var airspacePolygons: [AirspacePolygon] = []
     @State private var airspaceTask: Task<Void, Never>?
     @State private var terrainData: [(distance: Double, elevation: Double)] = []
+    /// The route line `terrainData` was fetched for. The airspace check resolves limits in ft AGL
+    /// against the terrain only while it still belongs to the route on screen. (APP-11)
+    @State private var terrainRouteKey = ""
     @State private var terrainTask: Task<Void, Never>?
     @State private var windsAloftTask: Task<Void, Never>?
     @State private var minTerrainClearanceFt: Double?
@@ -1200,6 +1203,14 @@ struct FlightPlanMapBuilderView: View {
                 }
                 Text(a.typeDisplayString)
                     .font(.aero(size: 10)).foregroundColor(.secondaryText).lineLimit(1)
+                // Listed because the route MAY be inside: say which limit could not be pinned down.
+                // (APP-11)
+                ForEach(Self.uncertaintyNotes(airspaceBlocks.first { $0.id == a.id }?.verticalUncertainty ?? []),
+                        id: \.self) { note in
+                    Label(note, systemImage: "questionmark.diamond.fill")
+                        .font(.aero(size: 10, weight: .medium)).foregroundColor(.aviationAmber)
+                        .lineLimit(2).fixedSize(horizontal: false, vertical: true)
+                }
             }
             Spacer(minLength: 6)
             VStack(alignment: .trailing, spacing: 2) {
@@ -1223,18 +1234,30 @@ struct FlightPlanMapBuilderView: View {
                             onPressingChanged: { updateHold(a.id, pressing: $0) })
     }
 
+    /// What the conflict row says for a possible conflict, one line per limit that could not be
+    /// pinned down. (APP-11)
+    private static func uncertaintyNotes(_ why: Set<AirspaceVerticalUncertainty>) -> [String] {
+        [why.contains(.terrainUnknown) ? L10n.Nav.airspaceMaybeAGL : nil,
+         why.contains(.flightLevel) ? L10n.Nav.airspaceMaybeFL : nil].compactMap { $0 }
+    }
+
     /// Debounced recompute of the on-route airspace blocks (profile) + conflict subset (list + map). (#4)
     private func scheduleAirspaceUpdate() {
         airspaceTask?.cancel()
         let coords = waypoints.map { $0.coordinate }
         let alts = waypoints.map { $0.altitude }
         guard coords.count >= 2 else { airspaceBlocks = []; crossedAirspaces = []; airspacePolygons = []; return }
+        // Limits in ft AGL follow the ground: resolve them against the route's terrain, once it has
+        // been fetched for THIS line. Until then (or outside Switzerland, or offline) they can't
+        // clear the route, and show as possible conflicts. (APP-11)
+        let terrain = terrainRouteKey == Self.terrainKey(coords)
+            ? AltitudePlanner.samples(fromMetres: terrainData, routeNM: RouteAltitudeProfile(waypoints).totalNM) : []
         airspaceTask = Task {
             try? await Task.sleep(nanoseconds: 250_000_000)
             guard !Task.isCancelled else { return }
             await openAIPDataService.ensureLoaded()
             guard !Task.isCancelled else { return }
-            let blocks = openAIPDataService.airspaceProfileBlocks(coords, altitudesFt: alts)
+            let blocks = openAIPDataService.airspaceProfileBlocks(coords, altitudesFt: alts, terrain: terrain)
             let conflicts = blocks.filter { $0.isConflict }.map { $0.airspace }
             let polys: [AirspacePolygon] = conflicts.compactMap { airspace in
                 var mc = airspace.polygonCoordinates
@@ -1278,8 +1301,15 @@ struct FlightPlanMapBuilderView: View {
             let terrain = await elevationService.fetchRouteElevationsOptimized(waypoints: coords, spacingNM: 0.1)
             guard !Task.isCancelled else { return }
             terrainData = terrain
+            terrainRouteKey = Self.terrainKey(coords)
             minTerrainClearanceFt = Self.minClearanceFt(terrain: terrain, waypoints: wpts)
+            scheduleAirspaceUpdate()   // limits in ft AGL can now be resolved (APP-11)
         }
+    }
+
+    /// Identifies a route line (not its altitudes): the terrain under it only changes with it.
+    private static func terrainKey(_ coords: [CLLocationCoordinate2D]) -> String {
+        coords.map { String(format: "%.5f,%.5f", $0.latitude, $0.longitude) }.joined(separator: ";")
     }
 
     /// Lowest vertical gap (ft) between the extrapolated altitude profile and the terrain along the
@@ -2719,12 +2749,18 @@ private struct RouteProfileView: View {
         // airspace blocks (conflicts solid, context faded/dashed; the selected one emphasised)
         for b in blocks where b.floorFt <= g.yMax {
             let color = Color(red: b.airspace.mapColor.red, green: b.airspace.mapColor.green, blue: b.airspace.mapColor.blue)
-            let topY = g.py(min(b.ceilingFt, g.yMax))
-            let rect = CGRect(x: g.px(b.startNM), y: topY,
-                              width: max(2, g.px(b.endNM) - g.px(b.startNM)), height: g.py(b.floorFt) - topY)
-            let path = Path(rect)
+            let path = bandPath(b, g, outer: false)
             let sel = b.id == selectedId
-            if b.isConflict {
+            if b.isVerticallyUncertain {
+                // Possible conflict: only a limit in ft AGL over unknown terrain, or a flight level,
+                // stands between the route and the airspace. Amber dashed edge, and how far the
+                // airspace may really reach dotted around it. (APP-11)
+                ctx.fill(path, with: .color(color.opacity(sel ? 0.32 : 0.14)))
+                ctx.stroke(path, with: .color(Color.aviationAmber.opacity(sel ? 1.0 : 0.9)),
+                           style: StrokeStyle(lineWidth: sel ? 2.5 : 1.25, dash: [5, 3]))
+                ctx.stroke(bandPath(b, g, outer: true), with: .color(Color.aviationAmber.opacity(0.55)),
+                           style: StrokeStyle(lineWidth: 1, dash: [2, 3]))
+            } else if b.isConflict {
                 ctx.fill(path, with: .color(color.opacity(sel ? 0.42 : 0.22)))
                 ctx.stroke(path, with: .color(color.opacity(sel ? 1.0 : 0.85)), lineWidth: sel ? 2.5 : 1)
             } else {
@@ -2774,7 +2810,10 @@ private struct RouteProfileView: View {
         // conflicts, marked above the plot where they start: the rectangles below say how long and how
         // high, this says "here" at a glance. (planning proposal D2)
         for b in blocks where b.isConflict {
-            ctx.draw(Text("⚠").font(.aero(size: 10)).foregroundColor(.aviationAmber),
+            // "?" for a possible conflict (a limit in ft AGL or a flight level decides). (APP-11)
+            ctx.draw(Text(b.isVerticallyUncertain ? "?" : "⚠")
+                        .font(.aero(size: 10, weight: b.isVerticallyUncertain ? .bold : nil))
+                        .foregroundColor(.aviationAmber),
                      at: CGPoint(x: min(max(g.px((b.startNM + b.endNM) / 2), g.plot.minX + 6), g.plot.maxX - 6),
                                  y: g.plot.minY + 7), anchor: .center)
         }
@@ -2856,6 +2895,29 @@ private struct RouteProfileView: View {
             ctx.fill(Path(ellipseIn: CGRect(x: dot.x - 5, y: dot.y - 5, width: 10, height: 10)), with: .color(Self.magenta))
             drawReadout(ctx, g: g, at: dot, altitude: a)
         }
+    }
+
+    /// An airspace block's outline on the profile: its band sample by sample, so a limit in ft AGL
+    /// follows the ground instead of being drawn as a flat line; a plain rectangle when there is only
+    /// one sample. `outer` draws how far the band may really reach instead. (APP-11)
+    private func bandPath(_ b: AirspaceProfileBlock, _ g: Geometry, outer: Bool) -> Path {
+        let pts = b.outline
+        guard pts.count >= 2 else {
+            let top = g.py(min(outer ? b.outerCeilingFt : b.ceilingFt, g.yMax))
+            let bottom = g.py(outer ? b.outerFloorFt : b.floorFt)
+            return Path(CGRect(x: g.px(b.startNM), y: top,
+                               width: max(2, g.px(b.endNM) - g.px(b.startNM)), height: bottom - top))
+        }
+        var path = Path()
+        for (i, p) in pts.enumerated() {
+            let at = CGPoint(x: g.px(p.nm), y: g.py(min(outer ? p.outerCeilingFt : p.ceilingFt, g.yMax)))
+            if i == 0 { path.move(to: at) } else { path.addLine(to: at) }
+        }
+        for p in pts.reversed() {
+            path.addLine(to: CGPoint(x: g.px(p.nm), y: g.py(outer ? p.outerFloorFt : p.floorFt)))
+        }
+        path.closeSubpath()
+        return path
     }
 
     private func drawReadout(_ ctx: GraphicsContext, g: Geometry, at p: CGPoint, altitude a: Double) {

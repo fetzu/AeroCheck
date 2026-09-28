@@ -98,6 +98,11 @@ Owners and rules that aren't obvious from the names:
   panel (nearest 6 fields within 40 nm; OpenAIP first, OurAirports TWR as fallback) and `MapPreset`.
 - `FlightLauncher` is the ONE flight-start sequence (buttons, widget, deep link): checklist load →
   entitlement / permission / active-flight guards → start → GPS. Never start a flight around it.
+- Waypoint ATOs come from the GPS track (`WaypointPassage`: abeam within 2.5 NM, forward only).
+  `LocationManager.processLocation` catches the active plan up every 15 s in flight, whatever screen
+  is showing (`FlightPlanManager.catchUpWaypointPassages`); END FLIGHT backfills the rest. The departure
+  takes the takeoff time and the destination the landing time, never a proximity; nothing is marked
+  while diverting.
 - `WidgetBridge` publishes the owned-aircraft list to the widget through the App Group
   `group.com.fetzu.aerocheck`; the widget renders only those and launches through `FlightLauncher`.
   `Models/FlightActivityAttributes.swift` is compiled into the widget too (Live Activity).
@@ -130,8 +135,9 @@ Owners and rules that aren't obvious from the names:
 - Persisted models (`AppSettings`, `Flight`, `FlightPlan`) decode through hand-written `init(from:)`: a
   new field goes there as `decodeIfPresent … ?? default` (a synthesized non-optional field makes every
   older file fail to decode). Never delete a settings field: the ones retired in 6.0 (circuit mode, keep
-  screen on, step-by-step) are still decoded and synced for older builds. A settings field an older build
-  can't round-trip also bumps `AppSettings.currentSchemaVersion` and joins `preservingFieldsUnknownTo(_:)`.
+  screen on, step-by-step) and 6.0.1 (waypoint proximity) are still decoded and synced for older builds.
+  A settings field an older build can't round-trip also bumps `AppSettings.currentSchemaVersion` and
+  joins `preservingFieldsUnknownTo(_:)`.
 - `FlightPlan ==` compares ids only: never use it to detect an edit (it once silently dropped every
   saved-plan change).
 - iCloud sync (`SyncManager`, CKSyncEngine): inbound records are validated (unknown schema, oversized or

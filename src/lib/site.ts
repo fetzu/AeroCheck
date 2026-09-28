@@ -1,6 +1,6 @@
 import fs from 'node:fs';
 import path from 'node:path';
-import yaml from 'js-yaml';
+import { load } from 'js-yaml';
 
 export type Lang = 'en' | 'fr';
 
@@ -41,5 +41,5 @@ export interface SiteData {
 // Site copy lives in src/data/{lang}.yaml — edit those to change wording. Read at build time (SSG).
 export function loadSite(lang: Lang): SiteData {
   const file = path.resolve(process.cwd(), 'src/data', `${lang}.yaml`);
-  return yaml.load(fs.readFileSync(file, 'utf8')) as SiteData;
+  return load(fs.readFileSync(file, 'utf8')) as SiteData;
 }

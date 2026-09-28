@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<!--
+	  Privacy manifest of the widget extension (S9-32).
+
+	  The extension is a binary of its own, so the app's manifest does not cover it. It reads the
+	  App Group UserDefaults the app writes (the owned-aircraft list and the widget launch token,
+	  WidgetBridge / WidgetSharedData), which is a required-reason API:
+	    * 1C8F.1  — UserDefaults read only within this app's own App Group; nothing read there
+	                leaves the device.
+	  It collects nothing and sends nothing, so no data types, and no tracking.
+	-->
+	<key>NSPrivacyTracking</key>
+	<false/>
+	<key>NSPrivacyTrackingDomains</key>
+	<array/>
+	<key>NSPrivacyCollectedDataTypes</key>
+	<array/>
+	<key>NSPrivacyAccessedAPITypes</key>
+	<array>
+		<dict>
+			<key>NSPrivacyAccessedAPIType</key>
+			<string>NSPrivacyAccessedAPICategoryUserDefaults</string>
+			<key>NSPrivacyAccessedAPITypeReasons</key>
+			<array>
+				<string>1C8F.1</string>
+			</array>
+		</dict>
+	</array>
+</dict>
+</plist>

@@ -83,6 +83,13 @@ enum OpenAIPConfig {
     static let streamingMaxErrorBackoff: TimeInterval = 300
     /// Request timeout for streaming API calls (10 seconds)
     static let streamingRequestTimeout: TimeInterval = 10
+    /// Response ceiling for one streaming CTR page: at most `streamingFetchLimit` airspaces, a
+    /// few hundred kilobytes at worst. (S9-26)
+    static let streamingMaxResponseBytes = 8 * 1024 * 1024
+
+    /// Response ceiling for a single raster tile, on screen or in a bulk download: orders of
+    /// magnitude above a real PNG tile. (SEC-C34, S9-26)
+    static let maxTileBytes = 8 * 1024 * 1024
 
     /// Predefined country bounding boxes for tile downloads
     /// Format: (minLat, minLon, maxLat, maxLon)

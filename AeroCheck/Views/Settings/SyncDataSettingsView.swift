@@ -84,7 +84,7 @@ struct SyncDataSettingsView: View {
     private var iCloudFooterText: String {
         iCloudSyncEnabled
             ? "\(L10n.Settings.icloudFooter)\n\(L10n.Settings.flightLogsFooter)"
-            : L10n.Settings.icloudFooter
+            : "\(L10n.Settings.icloudFooter)\n\(L10n.Settings.icloudOffFooter)"
     }
 
     private func formatSyncDate(_ date: Date) -> String {

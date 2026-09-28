@@ -15944,6 +15944,23 @@
         }
       }
     },
+    "gps.simulatedPosition": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Simulated position (developer option): real GPS is ignored"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Position simulée (option développeur) : le GPS réel est ignoré"
+          }
+        }
+      }
+    },
     "gps.source.companion": {
       "extractionState": "manual",
       "localizations": {
@@ -22931,6 +22948,23 @@
           "stringUnit": {
             "state": "translated",
             "value": "Dernière synchro"
+          }
+        }
+      }
+    },
+    "settings.icloud.offKeepsLocal": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Off: your flights and settings stay on this device. What is already in iCloud Drive stays there."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Désactivé : vos vols et réglages restent sur cet appareil. Ce qui se trouve déjà dans iCloud Drive y reste."
           }
         }
       }

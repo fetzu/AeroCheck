@@ -1,3 +1,4 @@
+import StoreKit
 import XCTest
 @testable import AeroCheck
 
@@ -112,5 +113,28 @@ final class SubscriptionReconcileTests: XCTestCase {
 
         let credential = await sm.getAuthCredential()
         XCTAssertEqual(credential, "minted-token")
+    }
+
+    /// No session token, no Authorization header. The fallback sent the Apple
+    /// originalTransactionId, which the server refuses in every environment since v4. (S9-39)
+    func testWithoutASessionTokenNothingIsSentEvenWithAPurchase() async {
+        let sm = SubscriptionManager(defaults: makeTestDefaults(), keychain: makeTestKeychain(), deferLoadProducts: true)
+        sm.cachedUserID = "2000000123456789"   // stands in for a StoreKit transaction
+
+        let credential = await sm.getAuthCredential()
+
+        XCTAssertNil(credential, "the retired originalTransactionId must not go out as a Bearer")
+    }
+
+    /// The debug screen redacts both ids: for a lifetime purchase or a subscription's first
+    /// transaction, the transaction id IS the originalTransactionId. (S9-39)
+    func testTheTransactionDebugRowRedactsBothIds() {
+        let info = TransactionDebugInfo(
+            id: "2000000123456789", originalID: "2000000123456789", productID: "lifetime",
+            purchaseDate: Date(), expirationDate: nil, isUpgraded: false, revocationDate: nil,
+            revocationReason: nil, ownershipType: .purchased, environmentRaw: "Sandbox", isVerified: true)
+
+        XCTAssertEqual(info.displayedID, "****6789")
+        XCTAssertEqual(info.displayedOriginalID, "****6789")
     }
 }

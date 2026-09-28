@@ -397,7 +397,7 @@ struct FlightPlanMapBuilderView: View {
                 .environmentObject(airportDataService)
             }
             .sheet(item: $exportItem) { item in
-                ShareSheet(activityItems: [item.url])
+                ShareSheet(activityItems: [item.file])
             }
             .sheet(isPresented: $showSetAltitudes) {
                 if let plan {

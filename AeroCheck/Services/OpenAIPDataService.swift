@@ -552,28 +552,38 @@ class OpenAIPDataService: ObservableObject {
         await performStreamingFetch(from: coordinate)
     }
 
-    /// Perform the actual API call to fetch nearby CTRs
-    private func performStreamingFetch(from coordinate: CLLocationCoordinate2D) async {
-        let urlString = "\(OpenAIPConfig.coreAPIBaseURL)/airspaces?pos=\(coordinate.latitude),\(coordinate.longitude)&dist=\(OpenAIPConfig.streamingFetchRadiusMeters)&type=4&limit=\(OpenAIPConfig.streamingFetchLimit)"
-
-        guard let url = URL(string: urlString) else { return }
+    /// The CTRs-near-me request.
+    ///
+    /// The position is rounded to 2 decimals (about 1 km). It is the aircraft's live position, sent
+    /// to a third party once a minute at most while no airspace data is downloaded, and it went at
+    /// full precision. The query covers 20 NM around it and distances are worked out on the device
+    /// from the precise fix, so a kilometre changes nothing the pilot sees.
+    nonisolated static func streamingCTRRequest(near coordinate: CLLocationCoordinate2D) -> URLRequest? {
+        let position = String(format: "%.2f,%.2f", coordinate.latitude, coordinate.longitude)
+        let urlString = "\(OpenAIPConfig.coreAPIBaseURL)/airspaces?pos=\(position)&dist=\(OpenAIPConfig.streamingFetchRadiusMeters)&type=4&limit=\(OpenAIPConfig.streamingFetchLimit)"
+        guard let url = URL(string: urlString) else { return nil }
 
         var request = URLRequest(url: url)
-        request.setValue(OpenAIPConfig.apiKey, forHTTPHeaderField: "x-openaip-api-key")
+        request.setValue(OpenAIPConfig.apiKey, forHTTPHeaderField: OpenAIPConfig.apiKeyHeader)
         request.setValue("application/json", forHTTPHeaderField: "Accept")
         request.timeoutInterval = OpenAIPConfig.streamingRequestTimeout
+        return request
+    }
+
+    /// Perform the actual API call to fetch nearby CTRs
+    private func performStreamingFetch(from coordinate: CLLocationCoordinate2D) async {
+        guard let request = Self.streamingCTRRequest(near: coordinate) else { return }
 
         isStreamingFetchInProgress = true
         lastStreamingFetchAttempt = Date()
 
         do {
-            let (data, response) = try await URLSession.shared.data(for: request)
-
-            guard let httpResponse = response as? HTTPURLResponse else {
-                consecutiveStreamingErrors += 1
-                isStreamingFetchInProgress = false
-                return
-            }
+            // S9-26: through ExternalRequest, like every other request carrying the OpenAIP key, for
+            // the cross-host redirect header stripping (SEC-C33) and the streaming size ceiling
+            // (SEC-C32). This was a bare URLSession.shared call with neither. No retries here: this
+            // fetch backs off on its own (`consecutiveStreamingErrors`).
+            let (data, httpResponse) = try await ExternalRequest.data(
+                for: request, maxRetries: 0, maxResponseBytes: OpenAIPConfig.streamingMaxResponseBytes)
 
             if httpResponse.statusCode == 429 {
                 // Rate limited — force maximum backoff

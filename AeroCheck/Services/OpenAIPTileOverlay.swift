@@ -39,7 +39,7 @@ class OpenAIPTileOverlay: MKTileOverlay {
     private static let maxTileDimension = 2048
 
     /// Response ceiling for a single tile — orders of magnitude above a real PNG tile. (SEC-C34)
-    private static let maxTileBytes = 8 * 1024 * 1024
+    private static let maxTileBytes = OpenAIPConfig.maxTileBytes
 
     private static let transparentTilePNG: Data = {
         let size = CGSize(width: 256, height: 256)

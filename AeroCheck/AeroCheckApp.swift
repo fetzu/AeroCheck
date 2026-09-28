@@ -13,6 +13,10 @@ final class AeroCheckAppDelegate: NSObject, UIApplicationDelegate {
     func application(_ application: UIApplication,
                      didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]? = nil) -> Bool {
         NotificationService.shared.configure()
+        // Exports a previous run staged and never got to remove (a crash, a kill with a share sheet
+        // open), and the loose ones older builds left in tmp/. No sheet is open yet. (S9-06)
+        let launchedAt = Date()
+        Task.detached(priority: .utility) { ExportStaging.sweep(before: launchedAt) }
         return true
     }
 

@@ -33,6 +33,10 @@ class LocationManager: NSObject, ObservableObject {
     /// True when GPS is active but only WhenInUse authorization is granted, so the track may
     /// stop if the app is backgrounded. Drives an in-flight warning banner. (PERF-04)
     @Published var backgroundTrackingLimited: Bool = false
+    /// Where the "Simulate position" developer option holds the aircraft, while it is on. Kept here
+    /// rather than in the Settings page's own state, so the switch still shows it on after the page
+    /// is left, and the flight screens can say so. (S9-25)
+    @Published private(set) var simulatedPosition: CLLocation?
 
     // MARK: - Private Properties
 
@@ -287,6 +291,8 @@ class LocationManager: NSObject, ObservableObject {
         lastValidCourseTime = nil
         displaySmoothedSpeedMPS = 0
         lastDisplayedSpeedKnots = 0
+        // A simulated position serves one test flight, never the next one. (S9-25)
+        stopSimulatingPosition()
     }
 
     /// Switch between ground mode (modest 5 m distance filter, precise low-speed tracking)
@@ -688,6 +694,42 @@ class LocationManager: NSObject, ObservableObject {
 
         // Seed a flat vertical-speed reading so the VSI shows a value rather than "---".
         verticalSpeedFpm = 0
+    }
+
+    // MARK: - Simulated Position (developer option)
+
+    /// Whether real GPS is being ignored for a position held by the developer option.
+    var isSimulatingPosition: Bool { simulatedPosition != nil }
+
+    /// Holds a static fix at `location` and ignores real GPS, so the departure briefing can be
+    /// tried away from an airfield.
+    ///
+    /// S9-25: the developer option used to call the marketing injector as is, which also holds the
+    /// GPS status at GREEN, and only its switch turned it off again, a switch whose state the About
+    /// page forgot once left. A flight started later in the same run showed a static position at
+    /// Samedan under a healthy green GPS, and recorded no track. The status is now held at degraded
+    /// (orange, the instruments' failure flags up), the GPS panel and the cockpit's GPS label say it
+    /// is simulated, and ending a flight or leaving developer mode turns it off.
+    func startSimulatingPosition(at location: CLLocation) {
+        injectMarketingStaticFix(location)
+        gpsStatusOverride = .degraded
+        gpsSignalStatus = .degraded
+        simulatedPosition = location
+    }
+
+    /// Back to real GPS. A no-op when no position is simulated, so it never touches the marketing
+    /// scenes' own override.
+    func stopSimulatingPosition() {
+        guard simulatedPosition != nil else { return }
+        simulatedPosition = nil
+        clearGPSStatusOverride()
+        // The injector sets `isTracking`, as a recording flight would. With no flight, nothing is.
+        if appState == nil {
+            isTracking = false
+            gpsSignalStatus = .good
+        }
+        // Nothing may take the held position for a fix: a flight started now would begin there.
+        currentLocation = nil
     }
 
     // MARK: - Companion Shared GPS (v4.1)

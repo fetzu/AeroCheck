@@ -992,8 +992,10 @@ struct FlightView: View {
 
     /// The cockpit GPS label: "GPS", or "GPS · iPhone" when position is sourced from the paired
     /// companion. (Both verbatim — aviation abbreviation + brand — so no localization.) (shared-GPS)
+    /// "GPS · SIM" while the developer option holds a simulated position. (S9-25)
     private var gpsSourceLabel: String {
-        isBorrowingCompanionGPS ? "GPS · iPhone" : "GPS"
+        if locationManager.isSimulatingPosition { return "GPS · SIM" }
+        return isBorrowingCompanionGPS ? "GPS · iPhone" : "GPS"
     }
 
 }
@@ -2527,6 +2529,9 @@ struct GPSStatusContent: View {
         }
         if locationManager.accuracyAuthorization == .reducedAccuracy {
             return L10n.GPS.preciseOff
+        }
+        if locationManager.isSimulatingPosition {
+            return L10n.GPS.simulatedPosition
         }
         guard locationManager.isTracking else { return nil }
         switch locationManager.gpsSignalStatus {

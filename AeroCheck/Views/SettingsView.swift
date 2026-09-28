@@ -759,7 +759,7 @@ struct TransactionDebugRow: View {
                         .font(.aero(.caption2))
                         .foregroundColor(.secondary)
                     Spacer()
-                    Text(transaction.id)
+                    Text(transaction.displayedID)
                         .scaledFont(size: 10, design: .monospaced, relativeTo: .caption2)
                         .foregroundColor(.secondary)
                         .lineLimit(1)
@@ -770,13 +770,14 @@ struct TransactionDebugRow: View {
                 // RELEASE build (five taps on the version row). Printing it verbatim meant a
                 // subscriber could read out a string that unlocked the whole premium catalogue for
                 // anyone, on unlimited devices. It stays available for debugging, redacted to a
-                // suffix that is still enough to correlate with a server log line.
+                // suffix that is still enough to correlate with a server log line. The row above
+                // is redacted too: for a lifetime purchase it is the same value. (S9-39)
                 HStack {
                     Text("Original ID")
                         .font(.aero(.caption2))
                         .foregroundColor(.secondary)
                     Spacer()
-                    Text(SubscriptionManager.redactedIdentifier(transaction.originalID))
+                    Text(transaction.displayedOriginalID)
                         .scaledFont(size: 10, design: .monospaced, relativeTo: .caption2)
                         .foregroundColor(.secondary)
                         .lineLimit(1)

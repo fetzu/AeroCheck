@@ -47,6 +47,7 @@
 		A5000038111111110000002 /* NavLogExportTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A5000038111111110000001 /* NavLogExportTests.swift */; };
 		A5000037111111110000002 /* AltitudePlannerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A5000037111111110000001 /* AltitudePlannerTests.swift */; };
 		A5000036111111110000002 /* RouteRadioPlannerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A5000036111111110000001 /* RouteRadioPlannerTests.swift */; };
+		A50000A4111111110000002 /* AirspaceVerticalLimitsTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A50000A4111111110000001 /* AirspaceVerticalLimitsTests.swift */; };
 		A500002B111111110000002 /* OnboardingRegionTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A500002B111111110000001 /* OnboardingRegionTests.swift */; };
 		A500002E111111110000002 /* DisclaimerGateTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A500002E111111110000001 /* DisclaimerGateTests.swift */; };
 		A500002D111111110000002 /* AviationWeatherServiceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A500002D111111110000001 /* AviationWeatherServiceTests.swift */; };
@@ -338,6 +339,7 @@
 		A5000038111111110000001 /* NavLogExportTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NavLogExportTests.swift; sourceTree = "<group>"; };
 		A5000037111111110000001 /* AltitudePlannerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AltitudePlannerTests.swift; sourceTree = "<group>"; };
 		A5000036111111110000001 /* RouteRadioPlannerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RouteRadioPlannerTests.swift; sourceTree = "<group>"; };
+		A50000A4111111110000001 /* AirspaceVerticalLimitsTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AirspaceVerticalLimitsTests.swift; sourceTree = "<group>"; };
 		A500002B111111110000001 /* OnboardingRegionTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingRegionTests.swift; sourceTree = "<group>"; };
 		A500002E111111110000001 /* DisclaimerGateTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DisclaimerGateTests.swift; sourceTree = "<group>"; };
 		A500002D111111110000001 /* AviationWeatherServiceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AviationWeatherServiceTests.swift; sourceTree = "<group>"; };
@@ -614,6 +616,7 @@
 				A5000038111111110000001 /* NavLogExportTests.swift */,
 				A5000037111111110000001 /* AltitudePlannerTests.swift */,
 				A5000036111111110000001 /* RouteRadioPlannerTests.swift */,
+				A50000A4111111110000001 /* AirspaceVerticalLimitsTests.swift */,
 				A500002B111111110000001 /* OnboardingRegionTests.swift */,
 				A500002E111111110000001 /* DisclaimerGateTests.swift */,
 				A500002D111111110000001 /* AviationWeatherServiceTests.swift */,
@@ -1126,6 +1129,7 @@
 				A5000038111111110000002 /* NavLogExportTests.swift in Sources */,
 				A5000037111111110000002 /* AltitudePlannerTests.swift in Sources */,
 				A5000036111111110000002 /* RouteRadioPlannerTests.swift in Sources */,
+				A50000A4111111110000002 /* AirspaceVerticalLimitsTests.swift in Sources */,
 				A500002B111111110000002 /* OnboardingRegionTests.swift in Sources */,
 				A500002E111111110000002 /* DisclaimerGateTests.swift in Sources */,
 				A500002D111111110000002 /* AviationWeatherServiceTests.swift in Sources */,

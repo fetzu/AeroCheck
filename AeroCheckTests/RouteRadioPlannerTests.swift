@@ -25,9 +25,9 @@ final class RouteRadioPlannerTests: XCTestCase {
 
     private let zurichInfo = RouteRadioPlanner.Station(frequency: "124.700", callSign: "ZURICH INFO")
 
-    private func waypoints(frequencyOn index: Int? = nil) -> [FlightPlanWaypoint] {
+    private func waypoints(frequencyOn index: Int? = nil, cruise: Double = 5000) -> [FlightPlanWaypoint] {
         let lons = [7.0, 7.3, 7.6, 7.9, 8.2]
-        let alts: [Double] = [1500, 5000, 5000, 5000, 1500]
+        let alts: [Double] = [1500, cruise, cruise, cruise, 1500]
         let names = ["A", "B", "C", "D", "E"]
         var plan = FlightPlan(waypoints: lons.indices.map { i in
             FlightPlanWaypoint(name: names[i], coordinate: .init(latitude: 47.0, longitude: lons[i]),
@@ -62,11 +62,16 @@ final class RouteRadioPlannerTests: XCTestCase {
     private func plan(_ airspaces: [Airspace], waypoints wps: [FlightPlanWaypoint]? = nil,
                       departure: RouteRadioPlanner.Aerodrome? = nil,
                       destination: RouteRadioPlanner.Aerodrome? = nil,
-                      fis: RouteRadioPlanner.Station? = nil, tag: String = "NOTAM") -> RouteRadioPlanner.Plan {
+                      fis: RouteRadioPlanner.Station? = nil, tag: String = "NOTAM",
+                      groundFt: Double? = nil) -> RouteRadioPlanner.Plan {
         let fisStation = fis ?? zurichInfo
+        // Flat ground under the whole route (it is about 49 NM long), or none known.
+        let terrain: [AltitudePlanner.TerrainSample] = groundFt.map {
+            [.init(distanceNM: 0, elevationFt: $0), .init(distanceNM: 60, elevationFt: $0)]
+        } ?? []
         return RouteRadioPlanner.plan(.init(
             waypoints: wps ?? waypoints(), airspaces: airspaces, departure: departure, destination: destination,
-            fis: { _ in fisStation }, checkAreaTag: tag))
+            fis: { _ in fisStation }, checkAreaTag: tag, terrain: terrain))
     }
 
     // MARK: - Stations
@@ -143,6 +148,97 @@ final class RouteRadioPlannerTests: XCTestCase {
         XCTAssertEqual(rows[3].remarks.first, "▸ FIZ FOXTROT (RMZ) at D")
         XCTAssertEqual(rows[4].station?.callSign, "FOXTROT INFO")
         XCTAssertFalse(rows[4].changed)
+    }
+
+    // MARK: - Limits in ft AGL and flight levels
+
+    /// Like RMZ GRENCHEN, GND to 2000 ft AGL. Read as feet MSL, the ceiling put a route at 5000 ft
+    /// 3000 ft above the zone and the nav log said nothing; over ground higher than 3000 ft the
+    /// route is inside it. Without the terrain the planner cannot tell, so it must say so.
+    func testZoneWithAnAGLCeilingIsNotDroppedOverUnknownTerrain() {
+        let rmz = airspace("RMZ GOLF", type: 6, icaoClass: 6, lon: 7.35...7.55,
+                           ceiling: AltitudeLimit(value: 2000, unit: 1, referenceDatum: 0),
+                           frequency: ("120.105", "GOLF INFORMATION"))
+        let rows = plan([rmz]).rows
+        XCTAssertTrue(rows[2].remarks.contains { $0.hasPrefix("▸? RMZ GOLF +") }, rows[2].remarks.description)
+    }
+
+    /// FL75 is 7500 ft only at 1013 hPa; at 985 hPa it is about 6740 ft on the altimeter, and a
+    /// route at 7000 ft is inside the TMA. The nav log printed "below TMA HOTEL (7500)".
+    func testFlightLevelFloorIsNotReadAsFeet() {
+        let tma = airspace("TMA HOTEL", type: 7, icaoClass: 2, lon: 7.35...7.55,
+                           floor: AltitudeLimit(value: 75, unit: 6, referenceDatum: 2),
+                           ceiling: AltitudeLimit(value: 195, unit: 6, referenceDatum: 2),
+                           frequency: ("131.325", "HOTEL APPROACH"))
+        let rows = plan([tma], waypoints: waypoints(cruise: 7000)).rows
+        XCTAssertTrue(rows[2].remarks.contains { $0.hasPrefix("▸? TMA HOTEL (C) +") }, rows[2].remarks.description)
+        XCTAssertFalse(rows[2].remarks.contains("below TMA HOTEL (7500)"), rows[2].remarks.description)
+    }
+
+    private func golfRMZ() -> Airspace {
+        airspace("RMZ GOLF", type: 6, icaoClass: 6, lon: 7.35...7.55,
+                 ceiling: AltitudeLimit(value: 2000, unit: 1, referenceDatum: 0),
+                 frequency: ("120.105", "GOLF INFORMATION"))
+    }
+
+    /// A possible entry is printed with the unit's station but does not take the row's: that stays
+    /// what the planner is sure of. The Radio box says what "▸?" means.
+    func testPossibleEntryKeepsTheStationAndExplainsItself() {
+        let result = plan([golfRMZ()])
+        XCTAssertEqual(result.rows[2].station?.callSign, "ZURICH INFO")
+        XCTAssertTrue(result.rows[2].remarks.contains { $0.hasPrefix("▸? RMZ GOLF +2.") && $0.hasSuffix(" NM · GOLF INFO 120.105") },
+                      result.rows[2].remarks.description)
+        XCTAssertTrue(result.rows[2].remarks.contains("GND–2000 ft AGL"), result.rows[2].remarks.description)
+        XCTAssertTrue(result.notes.contains(L10n.Export.verticalLimitUncertain), result.notes.description)
+    }
+
+    /// Over 3500 ft of ground the ceiling is at 5500 ft and the route at 5000 ft is inside: a call.
+    func testAGLCeilingOverKnownTerrainSetsTheStation() {
+        let result = plan([golfRMZ()], groundFt: 3500)
+        XCTAssertEqual(result.rows[2].station?.callSign, "GOLF INFO")
+        XCTAssertFalse(result.rows.flatMap(\.remarks).contains { $0.hasPrefix("▸?") })
+        XCTAssertFalse(result.notes.contains(L10n.Export.verticalLimitUncertain))
+    }
+
+    /// Over 1000 ft of ground the ceiling is at 3000 ft: the route at 5000 ft is above it, surely.
+    func testAGLCeilingBelowTheRouteOverKnownTerrainIsNoCall() {
+        let result = plan([golfRMZ()], groundFt: 1000)
+        XCTAssertEqual(result.rows[2].station?.callSign, "ZURICH INFO")
+        XCTAssertFalse(result.rows.flatMap(\.remarks).contains { $0.contains("GOLF") })
+    }
+
+    /// Well inside a flight-level band there is no doubt: the unit's station, as before.
+    func testFlightLevelBandSurelyEnteredSetsTheStation() {
+        let tma = airspace("TMA HOTEL", type: 7, icaoClass: 2, lon: 7.35...7.55,
+                           floor: AltitudeLimit(value: 75, unit: 6, referenceDatum: 2),
+                           ceiling: AltitudeLimit(value: 195, unit: 6, referenceDatum: 2),
+                           frequency: ("131.325", "HOTEL APPROACH"))
+        let rows = plan([tma], waypoints: waypoints(cruise: 9500)).rows
+        XCTAssertEqual(rows[2].station?.callSign, "HOTEL APP")
+    }
+
+    /// Under a floor in ft AGL the "below" remark prints the limit as written, not a bare number
+    /// that reads as feet MSL.
+    func testBelowAnAGLFloorPrintsTheLimitAsWritten() {
+        let tma = airspace("TMA INDIA", type: 7, icaoClass: 3, lon: 7.35...7.55,
+                           floor: AltitudeLimit(value: 2000, unit: 1, referenceDatum: 0),
+                           ceiling: AltitudeLimit(value: 100, unit: 6, referenceDatum: 2),
+                           frequency: ("128.500", "INDIA APPROACH"))
+        let rows = plan([tma], waypoints: waypoints(cruise: 1700)).rows
+        XCTAssertTrue(rows[2].remarks.contains("below TMA INDIA (2000 ft AGL)"), rows[2].remarks.description)
+    }
+
+    /// An area to check that the route may enter is listed, marked "?".
+    func testAreaToCheckPossiblyEnteredIsListedWithAQuestionMark() {
+        let glider = airspace("LSR20 GRUYERES", type: 21, icaoClass: 8, lon: 7.35...7.45,
+                              floor: AltitudeLimit(value: 2000, unit: 1, referenceDatum: 0),
+                              ceiling: AltitudeLimit(value: 90, unit: 6, referenceDatum: 2))
+        let result = plan([glider], tag: "DABS")
+        XCTAssertTrue(result.rows[2].remarks.contains { $0.hasPrefix("? LS-R20 Gruyeres +2.") && $0.hasSuffix("· DABS") },
+                      result.rows[2].remarks.description)
+        XCTAssertEqual(result.checkAreas, ["LS-R20 Gruyeres"])
+        // Over 4000 ft of ground its floor is at 6000 ft, above the route at 5000 ft: not on the leg.
+        XCTAssertFalse(plan([glider], tag: "DABS", groundFt: 4000).rows[2].remarks.contains { $0.contains("Gruyeres") })
     }
 
     // MARK: - Aerodromes

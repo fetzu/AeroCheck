@@ -63,6 +63,9 @@ enum RouteRadioPlanner {
         var airspaceSource: String?
         /// Remark tag for areas to check before flight: "DABS" for Swiss routes, else "NOTAM".
         var checkAreaTag = "NOTAM"
+        /// Ground along the route (`AltitudePlanner` NM), for limits in ft AGL. Empty = unknown: an
+        /// AGL limit then cannot rule the route out, and is printed as a possible entry. (APP-11)
+        var terrain: [AltitudePlanner.TerrainSample] = []
         var sampleStepNM = 0.1
         /// Time before a boundary under which the call moves to the leg before.
         var leadTime: TimeInterval = 120
@@ -129,9 +132,17 @@ enum RouteRadioPlanner {
         }
 
         // Where the aircraft is inside each airspace, horizontally and at the planned altitude.
-        let tracks = ctx.airspaces.compactMap { track($0, samples: samples, profile: profile) }
+        let ground = samples.map {
+            AltitudePlanner.terrainRange(ctx.terrain, fromNM: $0.d - ctx.sampleStepNM / 2, toNM: $0.d + ctx.sampleStepNM / 2)
+        }
+        let tracks = ctx.airspaces.compactMap { track($0, samples: samples, profile: profile, ground: ground) }
         let units = tracks.filter { kind(of: $0.airspace) == .unit && $0.anyVertical }
-        let checks = tracks.filter { kind(of: $0.airspace) == .check && $0.anyVertical }
+        // Units the route may enter, if a limit in ft AGL or a flight level falls the wrong way. They
+        // don't set the station (that stays what the planner is sure of) but are printed with theirs,
+        // flagged "▸?" and explained in the Radio box. (APP-11)
+        let maybeUnits = tracks.filter { kind(of: $0.airspace) == .unit && $0.anyPossible }
+        let checks = tracks.filter { kind(of: $0.airspace) == .check && ($0.anyVertical || $0.anyPossible) }
+        var anyPossible = false
         let overhead = tracks.filter {
             kind(of: $0.airspace) == .unit
                 || (kind(of: $0.airspace) == .check && $0.airspace.airspaceType != .gliderSector)
@@ -227,19 +238,36 @@ enum RouteRadioPlanner {
                 }
             }
 
+            // Units the leg may enter: where a run of "maybe" starts, outside a stretch surely inside.
+            for t in maybeUnits {
+                guard let s = legRange.first(where: {
+                    t.possible[$0] && ($0 == 0 || !(t.possible[$0 - 1] || t.vertical[$0 - 1]))
+                }) else { continue }
+                let st = unitStation(t.airspace, among: ctx.airspaces)
+                remarks.append("▸? \(label(t.airspace)) \(offset(s)) · \(st.callSign) \(st.frequency)"
+                               + (st.isHX ? " · HX" : ""))
+                remarks.append("\(compactLimit(t.airspace.lowerCeiling))–\(compactLimit(t.airspace.upperCeiling))")
+                anyPossible = true
+            }
+
             // Airspace just above the leg (within 500 ft under its floor) — the route may never enter it.
             let below = overhead
-                .filter { t in legRange.contains { t.below[$0] } && !legRange.contains { t.vertical[$0] } }
+                .filter { t in legRange.contains { t.below[$0] }
+                    && !legRange.contains { t.vertical[$0] || t.possible[$0] } }
             remarks.append(contentsOf: belowRemarks(below.map {
                 (kind(of: $0.airspace) == .check ? checkAreaName($0.airspace) : cleanName($0.airspace.name),
-                 Int($0.airspace.lowerCeiling.asFeetMSL.rounded()))
+                 floorLabel($0.airspace.lowerCeiling))
             }))
 
             // Areas to check before flight, where the leg enters them.
             for t in checks {
-                guard let s = legRange.first(where: { t.vertical[$0] && ($0 == 0 || !t.vertical[$0 - 1]) }) else { continue }
-                var text = "\(checkAreaName(t.airspace)) " + String(format: "+%.1f NM", samples[s].d - legStart)
-                    + " · \(ctx.checkAreaTag)"
+                let touches = { (i: Int) in t.vertical[i] || t.possible[i] }
+                guard let s = legRange.first(where: { touches($0) && ($0 == 0 || !touches($0 - 1)) }) else { continue }
+                // Only maybe on this leg, an AGL or FL limit deciding: "?" in front, like the units' "▸?". (APP-11)
+                let maybe = !legRange.contains(where: { t.vertical[$0] })
+                if maybe { anyPossible = true }
+                var text = (maybe ? "? " : "") + "\(checkAreaName(t.airspace)) "
+                    + String(format: "+%.1f NM", samples[s].d - legStart) + " · \(ctx.checkAreaTag)"
                 if let f = t.airspace.primaryFrequency { text += " · \(Station.normalized(f.value))" }
                 remarks.append(text)
                 if !plan.checkAreas.contains(checkAreaName(t.airspace)) { plan.checkAreas.append(checkAreaName(t.airspace)) }
@@ -291,7 +319,7 @@ enum RouteRadioPlanner {
         }
 
         // HX airspace entered anywhere goes on the check list too.
-        for t in units where t.airspace.isMilitary {
+        for t in units + maybeUnits where t.airspace.isMilitary {
             let name = shortLabel(t.airspace) + " (HX)"
             if !plan.checkAreas.contains(name) { plan.checkAreas.append(name) }
         }
@@ -300,6 +328,7 @@ enum RouteRadioPlanner {
         markChanges(&plan.rows)
         plan.stations = listings(plan, departure: ctx.departure, destination: ctx.destination)
         plan.notes = notes(plan, ctx)
+        if anyPossible { plan.notes.append(L10n.Export.verticalLimitUncertain) }
         return plan
     }
 
@@ -400,28 +429,39 @@ enum RouteRadioPlanner {
         let airspace: Airspace
         /// Horizontally inside AND at the planned altitude.
         let vertical: [Bool]
+        /// Horizontally inside, and at the planned altitude only if a limit in ft AGL (terrain
+        /// unknown) or a flight level (QNH unknown) falls the wrong way. (APP-11)
+        let possible: [Bool]
         /// Horizontally inside, within 500 ft under the floor.
         let below: [Bool]
         var anyVertical: Bool { vertical.contains(true) }
+        var anyPossible: Bool { possible.contains(true) }
     }
 
-    private static func track(_ airspace: Airspace, samples: [Sample], profile: RouteAltitudeProfile) -> Track? {
-        let floor = airspace.lowerCeiling.asFeetMSL
-        let ceiling = airspace.upperCeiling.asFeetMSL
+    /// `ground`: lowest and highest terrain around each sample, nil where unknown.
+    private static func track(_ airspace: Airspace, samples: [Sample], profile: RouteAltitudeProfile,
+                              ground: [ClosedRange<Double>?]) -> Track? {
         var vertical = [Bool](repeating: false, count: samples.count)
+        var possible = [Bool](repeating: false, count: samples.count)
         var below = [Bool](repeating: false, count: samples.count)
         var any = false
         for (i, s) in samples.enumerated() where airspace.containsPoint(s.coordinate) {
             any = true
             // No altitude profile at all → a horizontal crossing counts (the builder's rule).
             guard let alt = profile.altitude(atNM: s.d) else { vertical[i] = true; continue }
-            if alt >= floor && alt <= ceiling {
+            let band = AirspaceVerticalBand(airspace, terrainFt: i < ground.count ? ground[i] : nil)
+            switch band.verdict(altitudeFt: alt) {
+            case .inside:
                 vertical[i] = true
-            } else if floor > 0, alt < floor, alt >= floor - 500 {
-                below[i] = true
+            case .possiblyInside(let why):
+                if why.isEmpty { vertical[i] = true } else { possible[i] = true }
+            case .outside:
+                // Under the lowest the floor can be: below it whatever the QNH or the ground.
+                let floor = band.floor.low
+                if floor > 0, alt < floor, alt >= floor - 500 { below[i] = true }
             }
         }
-        return any ? Track(airspace: airspace, vertical: vertical, below: below) : nil
+        return any ? Track(airspace: airspace, vertical: vertical, possible: possible, below: below) : nil
     }
 
     private static func distanceNM(_ a: CLLocationCoordinate2D, _ b: CLLocationCoordinate2D) -> Double {
@@ -534,9 +574,17 @@ enum RouteRadioPlanner {
         return "LS-\(letter)\(number) " + parts[1].capitalized
     }
 
+    /// A floor as the "below" remark prints it: "5500" for feet MSL as before, the limit as written
+    /// otherwise ("2000 ft AGL", "FL75"): a bare number reads as feet MSL, which those are not.
+    /// (APP-11)
+    static func floorLabel(_ limit: AltitudeLimit) -> String {
+        let isMSL = limit.unit != 6 && limit.referenceDatum == 1
+        return isMSL ? String(Int(limit.asFeetMSL.rounded())) : compactLimit(limit)
+    }
+
     /// "below TMA BERN 2 / 4 (5500)" — airspaces sharing a floor and a name stem are folded together.
-    static func belowRemarks(_ airspaces: [(name: String, floor: Int)]) -> [String] {
-        var byFloor: [(floor: Int, names: [String])] = []
+    static func belowRemarks(_ airspaces: [(name: String, floor: String)]) -> [String] {
+        var byFloor: [(floor: String, names: [String])] = []
         for (name, floor) in airspaces {
             if let i = byFloor.firstIndex(where: { $0.floor == floor }) {
                 if !byFloor[i].names.contains(name) { byFloor[i].names.append(name) }
@@ -613,8 +661,39 @@ extension RouteRadioPlanner {
             },
             missingAirspaceCountries: crossed.filter { !downloaded.contains($0) },
             airspaceSource: source,
-            checkAreaTag: crossed.contains("CH") ? "DABS" : "NOTAM")
+            checkAreaTag: crossed.contains("CH") ? "DABS" : "NOTAM",
+            terrain: await routeTerrain(coords, routeNM: RouteAltitudeProfile(wps).totalNM))
         return plan(ctx)
+    }
+
+    /// The last route whose terrain was fetched, so the editor's preview, which re-plans on every
+    /// altitude or frequency edit, does not fetch it again for the same line on the map.
+    @MainActor private static var terrainCache: (key: String, samples: [AltitudePlanner.TerrainSample])?
+
+    /// Longest the nav log waits for the terrain. Offline or on a poor link the fetch retries, and the
+    /// export is not held for it: without the terrain, AGL limits are printed as possible entries.
+    static let terrainTimeout: TimeInterval = 8
+
+    /// Ground along the route for the limits in ft AGL: swisstopo in Switzerland, Open-Meteo elsewhere
+    /// (`ElevationService.fetchRouteTerrain`, as Set altitudes). Empty when it can't be had in time.
+    /// (APP-11)
+    @MainActor
+    static func routeTerrain(_ coords: [CLLocationCoordinate2D], routeNM: Double) async -> [AltitudePlanner.TerrainSample] {
+        let key = coords.map { String(format: "%.5f,%.5f", $0.latitude, $0.longitude) }.joined(separator: ";")
+        if let cached = terrainCache, cached.key == key { return cached.samples }
+        let raw = await withTaskGroup(of: [(distance: Double, elevation: Double)]?.self) { group in
+            group.addTask { await ElevationService().fetchRouteTerrain(waypoints: coords, spacingNM: 0.1) }
+            group.addTask {
+                try? await Task.sleep(nanoseconds: UInt64(RouteRadioPlanner.terrainTimeout * 1_000_000_000))
+                return nil
+            }
+            let first = await group.next() ?? nil
+            group.cancelAll()
+            return first ?? []
+        }
+        let samples = AltitudePlanner.samples(fromMetres: raw, routeNM: routeNM)
+        if !samples.isEmpty { terrainCache = (key, samples) }  // a failure is tried again next time
+        return samples
     }
 
     /// Countries the route actually enters (no border buffer: a frontier skirted at 5 NM is not

@@ -272,10 +272,6 @@ struct NavigationMapView: View {
 
     @State private var showGPSStatusModal: Bool = false
     @State private var streamingCTRCheckTask: Task<Void, Never>?
-    /// Preview index for iPhone compact panel waypoint browsing (nil = showing real active waypoint)
-    @State private var compactPreviewIndex: Int? = nil
-    /// Last run of the track-based waypoint catch-up (throttled: it replays the whole track so far).
-    @State private var lastPassageCatchUp = Date.distantPast
     /// The Divert sheet, and the field it opens on when reached from an airport callout. (v5.1)
     @State private var showDivert = false
     @State private var divertPreselect: String?
@@ -549,26 +545,7 @@ struct NavigationMapView: View {
                 mapState.cameraHeading = course
             }
 
-            // Auto-advance waypoint when within proximity threshold. In flight only: parked near a
-            // waypoint with Plan › Map open, it recorded a time over it. (v6.0 review)
-            if appState.isFlightActive, let location = newLocation {
-                let clLocation = CLLocation(latitude: location.coordinate.latitude, longitude: location.coordinate.longitude)
-                let prevIndex = flightPlanManager.activeFlightPlan?.currentWaypointIndex
-                flightPlanManager.autoAdvanceWaypointIfNeeded(
-                    currentLocation: clLocation,
-                    threshold: appState.settings.waypointProximityThreshold
-                )
-                // Waypoints passed abeam, or before the map was opened, which the radius above
-                // never sees. Every 15 s is plenty: a waypoint is passed every few minutes.
-                if Date().timeIntervalSince(lastPassageCatchUp) >= 15, let flight = appState.currentFlight {
-                    lastPassageCatchUp = Date()
-                    flightPlanManager.catchUpWaypointPassages(track: flight.gpsTrack, takeoff: appState.lineUpTime)
-                }
-                // Reset compact preview when GPS auto-advances
-                if flightPlanManager.activeFlightPlan?.currentWaypointIndex != prevIndex {
-                    compactPreviewIndex = nil
-                }
-            }
+            // Waypoints passed (ATO) are marked in the GPS pipeline, `LocationManager`. (v6.0.1)
 
             // Debounced streaming CTR fetch (5s delay)
             if appState.settings.enableAirspaceStreaming && !openAIPDataService.isDataAvailable {

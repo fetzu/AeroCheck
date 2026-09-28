@@ -576,28 +576,6 @@ class FlightPlanManager: ObservableObject {
         saveActiveFlightPlan()
     }
 
-    /// Record the ATO of the current waypoint, without advancing to the next one.
-    ///
-    /// Nothing calls this yet: it waits for the planned GPS-proximity ATO wiring. Today's proximity
-    /// path is `autoAdvanceWaypointIfNeeded`, which records through `recordATO(forWaypointAt:)` and
-    /// advances in the same step.
-    func recordATOForCurrentWaypoint() {
-        guard var plan = activeFlightPlan else { return }
-        guard plan.currentWaypointIndex < plan.waypoints.count else { return }
-        // Only record if not already set
-        guard plan.waypoints[plan.currentWaypointIndex].actualTimeOver == nil else { return }
-
-        plan.waypoints[plan.currentWaypointIndex].actualTimeOver = Date()
-        activeFlightPlan = plan
-
-        if let index = flightPlans.firstIndex(where: { $0.id == plan.id }) {
-            flightPlans[index] = plan
-        }
-
-        saveFlightPlans()
-        saveActiveFlightPlan()
-    }
-
     /// Whether the active flight plan has been completed (all waypoints reached)
     var isFlightPlanCompleted: Bool {
         guard let plan = activeFlightPlan else { return false }
@@ -621,24 +599,8 @@ class FlightPlanManager: ObservableObject {
         saveActiveFlightPlan()
     }
 
-    /// Check if current location is within proximity of next waypoint
-    func checkWaypointProximity(currentLocation: CLLocation, threshold: Double) -> Bool {
-        guard let plan = activeFlightPlan,
-              plan.currentWaypointIndex < plan.waypoints.count else {
-            return false
-        }
-
-        let nextWaypoint = plan.waypoints[plan.currentWaypointIndex]
-        let waypointLocation = CLLocation(
-            latitude: nextWaypoint.latitude,
-            longitude: nextWaypoint.longitude
-        )
-
-        let distance = currentLocation.distance(from: waypointLocation)
-        return distance <= threshold
-    }
-
-    /// Record ATO for a specific waypoint by index (used for map tap/long-press and GPS proximity)
+    /// Record the ATO of a waypoint by index, now: MARK, a tap on the map, the companion's command.
+    /// The GPS track's passages go through `catchUpWaypointPassages` instead, at the time they happened.
     func recordATO(forWaypointAt index: Int) {
         guard var plan = activeFlightPlan,
               index >= 0, index < plan.waypoints.count,
@@ -666,15 +628,26 @@ class FlightPlanManager: ObservableObject {
         if advanced { resetChronometer() }
     }
 
-    /// Catch the active plan up with the waypoints already passed, from the track recorded so far.
+    /// Catch the active plan up with the waypoints already passed, from the track recorded so far:
+    /// the in-flight ATO. `LocationManager` runs it every 15 s through the flight, whatever screen is
+    /// showing. (v6.0.1)
     ///
-    /// The proximity trigger below only ever looks at the CURRENT waypoint, and only within its
-    /// radius. That starts at the departure aerodrome, so opening the map once airborne (outside the
-    /// radius) left the plan on waypoint 0 for the whole flight, with no ATO anywhere. This records
-    /// every passage `WaypointPassage` can establish (at the time it happened, not now) and moves the
-    /// current waypoint past the last one. Times already recorded are kept.
+    /// Records every passage `WaypointPassage` can establish (at the time it happened, not now) and
+    /// moves the current waypoint past the last one. Times already recorded are kept, and a waypoint
+    /// is only ever passed once, so a circuit flown past the same point again changes nothing. The
+    /// departure takes the takeoff time and the destination waits for the landing (END FLIGHT): being
+    /// parked on either is never a passage.
+    ///
+    /// It replaced a 500 m radius around the current waypoint, which fired on the ramp at the
+    /// departure before engine start, missed any waypoint passed abeam, and ran only while the nav
+    /// map was on screen.
+    ///
+    /// Nothing is recorded while diverting: the aircraft is flying away from the route, and a route
+    /// waypoint it happens to pass is not the one it is flying to. After `resumeRoute` the passages
+    /// are caught up from the track.
     func catchUpWaypointPassages(track: [GPSPoint], takeoff: Date?) {
-        guard var plan = activeFlightPlan, plan.currentWaypointIndex < plan.waypoints.count else { return }
+        guard var plan = activeFlightPlan, plan.diversion == nil,
+              plan.currentWaypointIndex < plan.waypoints.count else { return }
         let filled = plan.withActualTimesOver(fromTrack: track, takeoff: takeoff, landing: nil)
         guard let lastPassed = filled.waypoints.lastIndex(where: { $0.actualTimeOver != nil }),
               lastPassed >= plan.currentWaypointIndex else { return }
@@ -687,14 +660,6 @@ class FlightPlanManager: ObservableObject {
         saveFlightPlans()
         saveActiveFlightPlan()
         resetChronometer()
-    }
-
-    /// Auto-advance waypoint if within proximity (records ATO based on GPS position)
-    func autoAdvanceWaypointIfNeeded(currentLocation: CLLocation, threshold: Double) {
-        if checkWaypointProximity(currentLocation: currentLocation, threshold: threshold) {
-            guard let plan = activeFlightPlan else { return }
-            recordATO(forWaypointAt: plan.currentWaypointIndex)
-        }
     }
 
     // MARK: - Chronometer

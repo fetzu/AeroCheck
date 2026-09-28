@@ -1158,10 +1158,11 @@ class FlightThreadManager: ObservableObject {
 
     private func loadThreadsAsync() async {
         let loaded = await persistence.loadFlightThreadsOffMain()
-        let existingIds = Set(threads.map(\.id))
-        let merged = threads + loaded.filter { !existingIds.contains($0.id) }
-        threads = merged.sorted { $0.createdAt > $1.createdAt }
-        for thread in loaded where lastPersisted[thread.id] == nil {
+        threads = Self.mergedThreads(memory: threads, loaded: loaded)
+        // What this store holds on disk, whichever copy memory kept. After a move that is the new
+        // store's copy: a newer one kept in memory then differs from it, so the next save writes
+        // it into the store it now belongs to. (A load itself writes nothing.)
+        for thread in loaded {
             lastPersisted[thread.id] = thread
         }
         // A pointer to a thread that no longer exists would leave Home advertising nothing.
@@ -1181,6 +1182,40 @@ class FlightThreadManager: ObservableObject {
         let deferred = deferredCloseRequests
         deferredCloseRequests = []
         for threadId in deferred { markFlightPlanClosed(threadId: threadId) }
+    }
+
+    /// The threads after a load: those in memory and those the store holds, one per id. For a page
+    /// in both, the copy edited last (`updatedAt`, which every edit stamps) wins; a tie keeps memory's.
+    ///
+    /// Memory used to win outright. At launch that is harmless (memory holds only the pages created
+    /// while the load ran), but after "Sync to iCloud" moved the datastore, memory holds the old
+    /// store's copy and the new store may hold a newer one, edited on another device: the stale copy
+    /// stayed on screen, and the next edit of that page wrote it back over the newer one.
+    ///
+    /// One exception: a page being flown keeps memory's copy. The flight in progress is this
+    /// device's, and a copy from the other store (one that never saw the flight start) would take
+    /// its flight id off it, and with it the close-out at END FLIGHT.
+    ///
+    /// Nothing is dropped: a page deleted in one store comes back from the other one, even when it
+    /// was deleted here in this session. Deletion records (6.1, review design 94 §2.4) plug in here:
+    /// a copy not edited after its page's `deletedAt` leaves the union.
+    nonisolated static func mergedThreads(memory: [FlightThread], loaded: [FlightThread]) -> [FlightThread] {
+        var byId: [UUID: FlightThread] = [:]
+        for thread in memory where byId[thread.id] == nil {
+            byId[thread.id] = thread
+        }
+        for thread in loaded {
+            guard let kept = byId[thread.id] else {
+                byId[thread.id] = thread
+                continue
+            }
+            if kept.state != .flying, thread.updatedAt > kept.updatedAt {
+                byId[thread.id] = thread
+            }
+        }
+        return byId.values.sorted {
+            $0.createdAt != $1.createdAt ? $0.createdAt > $1.createdAt : $0.id.uuidString < $1.id.uuidString
+        }
     }
 
     private func saveCurrentThreadPointer() {

@@ -500,6 +500,140 @@ final class SyncSwitchDatastoreTests: XCTestCase {
         XCTAssertEqual(manager.trip(withId: shared)?.name, "edited here", "the newer copy, not memory's")
     }
 
+    // MARK: - Flight pages: the newer copy after a move
+
+    private func page(_ name: String, id: UUID = UUID(), updated: TimeInterval,
+                      state: FlightThreadState = .planned) -> FlightThread {
+        var page = FlightThread(routeLabel: "LSZQ → LSGY")
+        page.id = id
+        page.name = name
+        page.state = state
+        page.createdAt = base
+        page.updatedAt = base.addingTimeInterval(updated)
+        return page
+    }
+
+    /// Writes pages into a store's FlightThreads folder, their files stamped `modified`.
+    private func writePages(_ pages: [FlightThread], in store: URL, modified: Date) throws {
+        let folder = store.appendingPathComponent("FlightThreads", isDirectory: true)
+        try fm.createDirectory(at: folder, withIntermediateDirectories: true)
+        DataPersistenceManager.writeFlightThreadFiles(pages, to: folder)
+        for page in pages {
+            let url = folder.appendingPathComponent(DataPersistenceManager.flightThreadFilename(for: page))
+            try fm.setAttributes([.modificationDate: modified], ofItemAtPath: url.path)
+        }
+    }
+
+    private func pages(in store: URL) -> [UUID: FlightThread] {
+        let pages = DataPersistenceManager.decodeFlightThreads(in: store.appendingPathComponent("FlightThreads"))
+        return Dictionary(pages.map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
+    }
+
+    func testTheNewerPageWinsATieKeepsMemorysAndNothingIsDropped() {
+        let (shared, tied, onlyInMemory, onlyLoaded) = (UUID(), UUID(), UUID(), UUID())
+        let memory = [page("stale", id: shared, updated: 100), page("memory's", id: tied, updated: 50),
+                      page("only in memory", id: onlyInMemory, updated: 10)]
+        let loaded = [page("edited on the other device", id: shared, updated: 300),
+                      page("the store's", id: tied, updated: 50), page("only on disk", id: onlyLoaded, updated: 10)]
+
+        let merged = FlightThreadManager.mergedThreads(memory: memory, loaded: loaded)
+
+        XCTAssertEqual(Dictionary(uniqueKeysWithValues: merged.map { ($0.id, $0.name ?? "") }),
+                       [shared: "edited on the other device", tied: "memory's",
+                        onlyInMemory: "only in memory", onlyLoaded: "only on disk"])
+        XCTAssertEqual(FlightThreadManager.mergedThreads(memory: loaded, loaded: memory).first { $0.id == shared }?.name,
+                       "edited on the other device", "the newer copy, whichever side it is on")
+    }
+
+    /// Switching off: memory holds iCloud's copy of a page, the local store a newer one (edited
+    /// there during an earlier off period). Memory used to win.
+    func testAfterSwitchingOffTheManagerShowsTheNewerCopyOfAPage() async throws {
+        let store = datastore()
+        let (shared, onlyInICloud, onlyHere) = (UUID(), UUID(), UUID())
+        let long = Date(timeIntervalSinceNow: -86_400)
+        try writePages([page("stale in iCloud", id: shared, updated: 100),
+                        page("planned on the other device", id: onlyInICloud, updated: 50)], in: cloud, modified: long)
+        let manager = makeTestThreadManager(datastore: store)
+        try await waitUntil { manager.hasLoadedThreads }
+        XCTAssertEqual(manager.threads.count, 2)
+        try writePages([page("edited here while off", id: shared, updated: 300),
+                        page("planned here while off", id: onlyHere, updated: 50)], in: local, modified: Date())
+
+        store.setUsesICloudDrive(false)
+
+        try await waitUntil { manager.threads.count == 3 && manager.thread(withId: shared)?.name == "edited here while off" }
+        XCTAssertEqual(manager.thread(withId: shared)?.name, "edited here while off")
+        XCTAssertEqual(Set(manager.threads.map(\.id)), [shared, onlyInICloud, onlyHere], "a page on one side only stays")
+    }
+
+    /// Switching on: memory holds the local copy, iCloud Drive a newer one from another device.
+    func testAfterSwitchingOnTheManagerShowsTheNewerCopyOfAPage() async throws {
+        let store = datastore()
+        store.setUsesICloudDrive(false)
+        let (shared, onlyHere, onlyInICloud) = (UUID(), UUID(), UUID())
+        let long = Date(timeIntervalSinceNow: -86_400)
+        try writePages([page("stale here", id: shared, updated: 100),
+                        page("planned here while off", id: onlyHere, updated: 50)], in: local, modified: long)
+        let manager = makeTestThreadManager(datastore: store)
+        try await waitUntil { manager.hasLoadedThreads }
+        XCTAssertEqual(manager.threads.count, 2)
+        try writePages([page("edited on the other device", id: shared, updated: 300),
+                        page("planned on the other device", id: onlyInICloud, updated: 50)], in: cloud, modified: Date())
+
+        store.setUsesICloudDrive(true)
+
+        try await waitUntil { manager.threads.count == 3 && manager.thread(withId: shared)?.name == "edited on the other device" }
+        XCTAssertEqual(manager.thread(withId: shared)?.name, "edited on the other device")
+        XCTAssertEqual(Set(manager.threads.map(\.id)), [shared, onlyHere, onlyInICloud])
+        XCTAssertEqual(pages(in: local)[onlyHere]?.name, "planned here while off", "nothing leaves the local store")
+    }
+
+    /// The newer copy is memory's, the new store's file an older one: it stays on screen, and the
+    /// next save writes it into the store it now belongs to.
+    func testANewerCopyInMemoryReachesTheNewStoreWithTheNextSave() async throws {
+        let store = datastore()
+        let (shared, other, marker) = (UUID(), UUID(), UUID())
+        try writePages([page("edited on the other device", id: shared, updated: 300),
+                        page("another flight", id: other, updated: 10)], in: cloud, modified: Date(timeIntervalSinceNow: -86_400))
+        let manager = makeTestThreadManager(datastore: store)
+        try await waitUntil { manager.hasLoadedThreads }
+        try writePages([page("stale here", id: shared, updated: 100),
+                        page("only here", id: marker, updated: 10)], in: local, modified: Date())
+
+        store.setUsesICloudDrive(false)
+        try await waitUntil { manager.thread(withId: marker) != nil } // the reload has landed
+        XCTAssertEqual(manager.thread(withId: shared)?.name, "edited on the other device")
+        manager.renameFlight(other, to: "renamed")
+
+        try await waitUntil { self.pages(in: local)[shared]?.name == "edited on the other device" }
+        XCTAssertEqual(pages(in: local)[shared]?.name, "edited on the other device")
+    }
+
+    /// A page being flown keeps its copy: one from the other store never saw the flight start, and
+    /// would take the flight id (and the close-out at END FLIGHT) off it.
+    func testAPageBeingFlownKeepsItsCopy() async throws {
+        let store = datastore()
+        let manager = makeTestThreadManager(datastore: store)
+        try await waitUntil { manager.hasLoadedThreads }
+        let flying = manager.createThread(from: nil, routeLabel: "LSZQ → LSGY")
+        defer { manager.deleteThread(threadId: flying.id) }
+        let flightId = UUID()
+        manager.attachFlight(flightId, toThreadId: flying.id)
+        try await waitUntil { self.pages(in: self.cloud)[flying.id]?.state == .flying }
+        var elsewhere = flying
+        elsewhere.name = "planned on the other device"
+        elsewhere.updatedAt = Date().addingTimeInterval(3_600)
+        let marker = page("only here", updated: 10)
+        try writePages([elsewhere, marker], in: local, modified: Date().addingTimeInterval(3_600))
+
+        store.setUsesICloudDrive(false)
+        try await waitUntil { manager.thread(withId: marker.id) != nil } // the reload has landed
+
+        XCTAssertEqual(manager.thread(withId: flying.id)?.state, .flying)
+        XCTAssertEqual(manager.thread(withId: flying.id)?.flightId, flightId)
+        XCTAssertNil(manager.thread(withId: flying.id)?.name)
+    }
+
     // MARK: - Trips: legs pointing at a trip that is missing
 
     private func leg(_ label: String, trip tripId: UUID?, created: TimeInterval,

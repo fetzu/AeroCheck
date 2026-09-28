@@ -590,7 +590,7 @@ struct FlightLogView: View {
         let formatter = NumberFormatter()
         formatter.numberStyle = .decimal
         formatter.maximumFractionDigits = 0
-        return formatter.string(from: NSNumber(value: value)) ?? "\(Int(value.rounded()))"
+        return formatter.string(from: NSNumber(value: value)) ?? value.safeRoundedInt().map(String.init) ?? "—"
     }
 
     /// The right-hand detail pane in the 2-column layout (or a placeholder until a flight is picked).
@@ -1158,7 +1158,7 @@ struct FlightLogView: View {
 
     private func handleZipImport(data: Data) {
         do {
-            let entries = try extractZipEntries(from: data)
+            let entries = try Self.extractZipEntries(from: data)
             var successCount = 0
             var failCount = 0
 
@@ -1185,7 +1185,7 @@ struct FlightLogView: View {
     }
 
     /// Errors raised while unpacking an imported archive.
-    private enum ZipImportError: LocalizedError {
+    enum ZipImportError: LocalizedError, Equatable {
         case entryTooLarge, archiveTooLarge, tooManyEntries, sizeMismatch
 
         var errorDescription: String? {
@@ -1198,7 +1198,8 @@ struct FlightLogView: View {
         }
     }
 
-    private func extractZipEntries(from data: Data) throws -> [(filename: String, data: Data)] {
+    /// The `.gpx` and `.json` entries of a flight archive, within the SA-24 budgets.
+    nonisolated static func extractZipEntries(from data: Data) throws -> [(filename: String, data: Data)] {
         var entries: [(filename: String, data: Data)] = []
         var offset = 0
         // SA-24: decompression budgets. Without these a small deflate stream can expand to several
@@ -1308,16 +1309,27 @@ struct FlightLogView: View {
 
             // Handle compression (method 0 = uncompressed, method 8 = deflate)
             if compressionMethod == 8 {
-                // Decompress using zlib
-                fileData = try decompress(fileData, uncompressedSize: Int(uncompressedSize))
+                // The declared size is attacker-controlled, so it cannot bound memory by being
+                // checked: it bounds it by being ENFORCED. The entry is inflated a buffer at a time and
+                // abandoned the moment it outgrows its declaration. Checked after a whole-entry
+                // decompress, as it was, a header declaring 1 KB (or 0, which skipped the check)
+                // expanded 32 MB of zeros to 32 GB first and got the app killed. (S9-29)
+                let budget = min(Int(uncompressedSize),
+                                 FlightDataLimits.maxImportEntryBytes,
+                                 FlightDataLimits.maxImportTotalBytes - totalDecompressedBytes)
+                do {
+                    fileData = try inflate(fileData, limit: budget)
+                } catch is InflateLimitExceeded {
+                    throw ZipImportError.sizeMismatch
+                }
             }
 
-            // ...and verify the ACTUAL size against the declaration, because the declared value is
-            // attacker-controlled: a lying header would otherwise walk straight past the check above.
+            // ...and the entry must be exactly the size it declared, stored or inflated. A declared 0
+            // no longer waves an entry through.
             guard fileData.count <= FlightDataLimits.maxImportEntryBytes else {
                 throw ZipImportError.entryTooLarge
             }
-            guard uncompressedSize == 0 || fileData.count == Int(uncompressedSize) else {
+            guard fileData.count == Int(uncompressedSize) else {
                 throw ZipImportError.sizeMismatch
             }
             totalDecompressedBytes += fileData.count
@@ -1332,16 +1344,59 @@ struct FlightLogView: View {
         return entries
     }
 
-    /// Decompresses one deflate entry.
-    ///
-    /// `uncompressedSize` is the size the archive DECLARES. The caller checks it before calling
-    /// (cheap rejection) and re-checks the actual output afterwards (because the declaration is
-    /// attacker-controlled). It is not used here beyond documenting the contract — Foundation's
-    /// `decompressed(using:)` offers no output ceiling of its own. (SA-24)
-    private func decompress(_ data: Data, uncompressedSize: Int) throws -> Data {
-        // Use Swift's built-in decompression with DEFLATE algorithm
-        let decompressedData = try (data as NSData).decompressed(using: .zlib) as Data
-        return decompressedData
+    /// Thrown by `inflate` once the output passes its limit. `producedBytes` is how far it got: at
+    /// most one buffer past the limit.
+    struct InflateLimitExceeded: Error {
+        let producedBytes: Int
+    }
+
+    /// A malformed or truncated deflate stream.
+    struct InflateFailed: Error {}
+
+    /// Inflates one raw DEFLATE stream (a ZIP entry's method 8), stopping as soon as the output
+    /// passes `limit`. Foundation's `decompressed(using:)` has no ceiling of its own: it allocates
+    /// whatever the stream expands to, which is why SA-24's budget could only be checked after the
+    /// damage was done. (S9-29)
+    nonisolated static func inflate(_ data: Data, limit: Int, bufferSize: Int = 64 * 1024) throws -> Data {
+        guard !data.isEmpty else { throw InflateFailed() }
+        let stream = UnsafeMutablePointer<compression_stream>.allocate(capacity: 1)
+        defer { stream.deallocate() }
+        guard compression_stream_init(stream, COMPRESSION_STREAM_DECODE, COMPRESSION_ZLIB) == COMPRESSION_STATUS_OK else {
+            throw InflateFailed()
+        }
+        defer { compression_stream_destroy(stream) }
+        let buffer = UnsafeMutablePointer<UInt8>.allocate(capacity: bufferSize)
+        defer { buffer.deallocate() }
+
+        var output = Data()
+        try data.withUnsafeBytes { (raw: UnsafeRawBufferPointer) in
+            guard let source = raw.bindMemory(to: UInt8.self).baseAddress else { throw InflateFailed() }
+            stream.pointee.src_ptr = source
+            stream.pointee.src_size = raw.count
+            while true {
+                stream.pointee.dst_ptr = buffer
+                stream.pointee.dst_size = bufferSize
+                let inputBefore = stream.pointee.src_size
+                let status = compression_stream_process(stream, Int32(COMPRESSION_STREAM_FINALIZE.rawValue))
+                let produced = bufferSize - stream.pointee.dst_size
+                if produced > 0 {
+                    guard output.count + produced <= limit else {
+                        throw InflateLimitExceeded(producedBytes: output.count + produced)
+                    }
+                    output.append(buffer, count: produced)
+                }
+                switch status {
+                case COMPRESSION_STATUS_END:
+                    return
+                case COMPRESSION_STATUS_OK:
+                    // No output and no input consumed: the stream ended without its final block.
+                    if produced == 0 && stream.pointee.src_size == inputBefore { throw InflateFailed() }
+                default:
+                    throw InflateFailed()
+                }
+            }
+        }
+        return output
     }
 }
 
@@ -1507,7 +1562,7 @@ struct FlightLogStatsShareCard: View {
         let formatter = NumberFormatter()
         formatter.numberStyle = .decimal
         formatter.maximumFractionDigits = 0
-        return formatter.string(from: NSNumber(value: value)) ?? "\(Int(value.rounded()))"
+        return formatter.string(from: NSNumber(value: value)) ?? value.safeRoundedInt().map(String.init) ?? "—"
     }
 
     var body: some View {
@@ -1779,13 +1834,22 @@ struct FlightRowView: View {
     }
 
 
-    private var statsLine: String {
+    private var statsLine: String { Self.statsLine(for: flight, nauticalMiles: nauticalMiles) }
+
+    /// "HB-KFD · 3 ldg · 42 NM".
+    ///
+    /// `Int(distance.rounded())` trapped on a cached distance of 1e300 from an imported flight, and
+    /// the whole Logbook went down with the row: it could not even be swiped away. The number is
+    /// bounded on ingest and load now; the row stays safe for whatever reaches it. (S9-10)
+    nonisolated static func statsLine(for flight: Flight, nauticalMiles: Bool) -> String {
         var parts: [String] = [flight.aircraftRegistration ?? flight.airplane]
         if flight.totalLandings > 0 {
             parts.append("\(flight.totalLandings) ldg")
         }
         let distance = nauticalMiles ? flight.distanceKilometers * 0.539957 : flight.distanceKilometers
-        if distance >= 0.5 { parts.append("\(Int(distance.rounded())) \(nauticalMiles ? "NM" : "km")") }
+        if distance >= 0.5, let whole = distance.safeRoundedInt() {
+            parts.append("\(whole) \(nauticalMiles ? "NM" : "km")")
+        }
         return parts.joined(separator: " · ")
     }
 
@@ -2060,15 +2124,23 @@ struct FlightDetailView: View {
     }
 
     private var headerDistanceText: String {
-        let nm = appState.settings.distanceInNauticalMiles
-        let value = nm ? flight.distanceKilometers * 0.539957 : flight.distanceKilometers
-        return "\(Int(value.rounded())) \(nm ? "NM" : "km")"
+        Self.distanceText(for: flight, nauticalMiles: appState.settings.distanceInNauticalMiles)
     }
 
-    private var headerMaxAltText: String {
+    private var headerMaxAltText: String { Self.maxAltitudeText(for: flight) }
+
+    /// The header's distance chip. Safe for any value, like the Logbook row's. (S9-10, S9-16)
+    nonisolated static func distanceText(for flight: Flight, nauticalMiles nm: Bool) -> String {
+        let value = nm ? flight.distanceKilometers * 0.539957 : flight.distanceKilometers
+        guard let whole = value.safeRoundedInt() else { return "—" }
+        return "\(whole) \(nm ? "NM" : "km")"
+    }
+
+    /// The header's maximum altitude chip, in feet. Safe for any value. (S9-10, S9-16)
+    nonisolated static func maxAltitudeText(for flight: Flight) -> String {
         let meters = flight.cachedMaxAltitudeMeters ?? flight.gpsTrack.map { $0.altitude }.max()
-        guard let meters else { return "—" }
-        return "\(Int((meters * 3.28084).rounded())) ft"
+        guard let feet = meters.flatMap({ ($0 * 3.28084).safeRoundedInt() }) else { return "—" }
+        return "\(feet) ft"
     }
 
     /// Route hero + subtitle + the four stat chips (replaces the old details/route cards). (round 8)
@@ -2333,8 +2405,9 @@ struct FlightDetailView: View {
     private func planDeltaView(eto: Date?, ato: Date?) -> some View {
         if let eto, let ato {
             let delta = ato.timeIntervalSince(eto)   // positive = behind/late
-            let minutes = Int(abs(delta)) / 60
-            let seconds = Int(abs(delta)) % 60
+            let magnitude = abs(delta).safeInt(or: 0)
+            let minutes = magnitude / 60
+            let seconds = magnitude % 60
             let sign = delta > 0.5 ? "+" : (delta < -0.5 ? "-" : "")
             // Within a minute = on time (green); late = orange; early = blue.
             let color: Color = abs(delta) < 60 ? .aviationGreen : (delta > 0 ? .orange : .altimeterBlue)
@@ -2866,7 +2939,7 @@ struct AltitudeChartView: View {
                     .foregroundStyle(Color.aviationGold)
                     .symbolSize(100)
                     .annotation(position: .top, spacing: 8) {
-                        Text("\(Int(value)) \(mode.unit)")
+                        Text("\(value.safeInt.map(String.init) ?? "—") \(mode.unit)")
                             .scaledFont(size: 11, weight: .bold, design: .monospaced, relativeTo: .caption2)
                             .foregroundColor(.aviationGold)
                             .padding(.horizontal, 6)
@@ -2895,7 +2968,7 @@ struct AltitudeChartView: View {
                         .foregroundStyle(Color.dimText.opacity(0.3))
                     AxisValueLabel {
                         if let v = value.as(Double.self) {
-                            Text("\(Int(v)) \(mode.unit)")
+                            Text("\(v.safeInt.map(String.init) ?? "—") \(mode.unit)")
                                 .scaledFont(size: 10, relativeTo: .caption2)
                                 .foregroundStyle(Color.secondaryText)
                         }
@@ -4253,7 +4326,7 @@ struct FlightShareCard: View {
     /// Max altitude in feet from GPS track
     private var maxAltitudeFt: Int? {
         guard let maxAlt = flight.gpsTrack.map({ $0.altitude * 3.28084 }).max() else { return nil }
-        return Int(maxAlt)
+        return maxAlt.safeInt
     }
 
     /// Distance in nautical miles

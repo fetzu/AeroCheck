@@ -69,6 +69,14 @@ enum PlausibleRange {
     static let fuelLitres: ClosedRange<Double> = 0...5_000
     /// A fuel flow in litres per hour.
     static let fuelFlowLitresPerHour: ClosedRange<Double> = 0...500
+    /// An engine hour meter reading. A five-digit meter tops out at 99 999.9 h.
+    static let engineHours: ClosedRange<Double> = 0...100_000
+    /// A planned true airspeed in knots, as a route leg stores it.
+    static let plannedAirspeedKnots: ClosedRange<Double> = 1...1_000
+    /// A wind speed in knots, entered on a waypoint or forecast aloft.
+    static let windSpeedKnots: ClosedRange<Double> = 0...300
+    /// One route leg in nautical miles. No great-circle leg is longer than half the Earth.
+    static let legDistanceNM: ClosedRange<Double> = 0...10_800
 
     /// True when `value` is finite and inside `range`.
     static func isPlausible(_ value: Double, in range: ClosedRange<Double>) -> Bool {

@@ -52,6 +52,70 @@ final class FlightSummaryStatsTests: XCTestCase {
         XCTAssertEqual(decoded.cachedDistanceKm, flight.cachedDistanceKm)
     }
 
+    // MARK: - Stats from a file (S9-10, S9-16)
+
+    /// The review's case: a flight file whose cached distance, maximum altitude and engine hours are
+    /// 1e300. It must import, and the Logbook row and header must draw it. `Int(_:)` trapped on it.
+    @MainActor
+    func testA1e300FlightImportsAndItsStatsRenderWithoutTrapping() throws {
+        let start = Date(timeIntervalSince1970: 1_790_000_000)
+        var crafted = Flight(startTime: start, stopTime: start.addingTimeInterval(1800),
+                             gpsTrack: [point(47.0, 8.0, alt: 500), point(47.1, 8.1, alt: 1200)])
+        crafted.cachedDistanceKm = 1e300
+        crafted.cachedMaxAltitudeMeters = 1e300
+        crafted.engineHourStart = 1e300
+        crafted.engineHourEnd = 1e300
+        let file = try XCTUnwrap(crafted.toJSON())
+        XCTAssertTrue(String(decoding: file, as: UTF8.self).contains("e+300"), "precondition: the file carries 1e300")
+
+        let appState = makeTestAppState()
+        XCTAssertTrue(appState.importFlight(from: file), "the flight imports")
+        let imported = try XCTUnwrap(appState.flights.first)
+
+        let trackKm = Flight.computeDistanceKm(imported.gpsTrack)
+        XCTAssertEqual(imported.cachedDistanceKm ?? -1, trackKm, accuracy: 0.0001, "the distance comes from the track")
+        XCTAssertEqual(imported.cachedMaxAltitudeMeters, 1200, "so does the maximum altitude")
+        XCTAssertEqual(imported.cachedDurationSeconds ?? -1, 1800, accuracy: 0.0001)
+        XCTAssertNil(imported.engineHoursFlownFormatted, "impossible readings read as not logged")
+
+        XCTAssertEqual(FlightRowView.statsLine(for: imported, nauticalMiles: false),
+                       "wt9-dynamic · \(Int(trackKm.rounded())) km")
+        XCTAssertEqual(FlightDetailView.distanceText(for: imported, nauticalMiles: false),
+                       "\(Int(trackKm.rounded())) km")
+        XCTAssertEqual(FlightDetailView.maxAltitudeText(for: imported), "3937 ft")
+    }
+
+    /// A file's cached figures are a claim, the track is the evidence: a plausible but wrong distance
+    /// must not reach the Logbook's totals either.
+    func testAnImportedFlightTakesItsStatsFromItsTrackNotFromTheFile() throws {
+        var crafted = Flight(gpsTrack: [point(47.0, 8.0, alt: 500), point(47.1, 8.1, alt: 900)])
+        crafted.cachedDistanceKm = 4_000
+        crafted.cachedMaxAltitudeMeters = 3_000
+        let imported = try Flight.fromJSON(XCTUnwrap(crafted.toJSON()))
+
+        XCTAssertEqual(imported.cachedDistanceKm ?? -1, Flight.computeDistanceKm(imported.gpsTrack), accuracy: 0.0001)
+        XCTAssertEqual(imported.cachedMaxAltitudeMeters, 900)
+    }
+
+    /// Defence in depth: the row, the header and the hour formatter stay safe for a flight that never
+    /// went through ingest.
+    func testTheLogbookTextIsSafeForNumbersThatBypassedIngest() {
+        var raw = Flight(gpsTrack: [point(47.0, 8.0, alt: 500)])
+        raw.cachedDistanceKm = 1e300
+        raw.cachedMaxAltitudeMeters = -1e300
+        raw.touchAndGoCount = Int.max
+        raw.fullStopCount = 1
+
+        XCTAssertEqual(raw.totalLandings, Int.max, "saturates instead of trapping on overflow")
+        XCTAssertEqual(FlightRowView.statsLine(for: raw, nauticalMiles: true), "wt9-dynamic · \(Int.max) ldg")
+        XCTAssertEqual(FlightDetailView.distanceText(for: raw, nauticalMiles: false), "—")
+        XCTAssertEqual(FlightDetailView.maxAltitudeText(for: raw), "—")
+        XCTAssertEqual(Flight.formatHoursTime(1e300), "--:--")
+        XCTAssertEqual(Flight.formatHoursTime(.nan), "--:--")
+        XCTAssertEqual(Flight.formatHoursTime(-.infinity), "--:--")
+        XCTAssertEqual(Flight.formatHoursTime(1.5), "1:30", "an ordinary reading is unchanged")
+    }
+
     // MARK: - Nearest-point scrub lookup (PR-26)
 
     private func timedTrack() -> [GPSPoint] {

@@ -16,6 +16,13 @@ enum FlightDataLimits {
     static let maxGPSPoints = 100_000
     /// Max waypoints in an imported route.
     static let maxRouteWaypoints = 500
+    /// A leg's or a route's time in seconds: at most what `calculateRouteData` can compute from
+    /// bounded inputs (every leg of the longest route at the longest distance and the lowest planned
+    /// airspeed, plus the two 5-minute allowances). Absurd as a plan, and still far inside `Int`
+    /// for the minute and hour formatters. (S9-07)
+    static let routeTimeSeconds: ClosedRange<Double> =
+        0...(Double(maxRouteWaypoints) * PlausibleRange.legDistanceNM.upperBound
+             / PlausibleRange.plannedAirspeedKnots.lowerBound * 3600 + 600)
 
     // MARK: - ZIP import budgets (SA-24)
     //
@@ -37,6 +44,24 @@ enum FlightDataLimits {
     /// Generous enough to absorb ordinary clock drift and timezone confusion between devices,
     /// tight enough that a poisoned timestamp cannot win merges indefinitely. (SEC-C19)
     static let maxClockSkew: TimeInterval = 24 * 60 * 60
+
+    // MARK: - Plausible per-flight values (S9-10, S9-16)
+    //
+    // A flight file or CloudKit record carries numbers the Logbook formats, sums and converts to
+    // `Int`, and `Int(_:)` traps on anything past ±9.2e18. JSON cannot carry NaN or 1e400 (the
+    // decoder refuses both), but 1e300 is a finite Double that passes every `isFinite` check: an
+    // imported flight with that as its cached distance crashed the Logbook each time its row was
+    // drawn, on every device it synced to. Outside these bounds a value is dropped, or clamped for
+    // a count, on ingest and again on local load, which repairs a flight already stored that way.
+
+    /// Distance of one recorded track in km. More than once round the Earth is not a flight.
+    static let trackDistanceKm: ClosedRange<Double> = 0...50_000
+    /// Length of one flight record in seconds. A flight left running over a long weekend still fits.
+    static let recordDurationSeconds: ClosedRange<Double> = 0...(30 * 24 * 3600)
+    /// Landings (or go-arounds) of one kind on one flight.
+    static let maxLandingsPerFlight = 1_000
+    /// Minutes the pilot logs against one flight (night, IFR). A week.
+    static let maxLoggedMinutesPerFlight = 7 * 24 * 60
 }
 
 /// Pure flight-clock formatting, extracted from `AppState` so the timer/time-of-day rules are
@@ -353,6 +378,10 @@ struct Flight: Identifiable, Codable {
     /// is applied to local state. Returns nil when the record is structurally unsafe — a newer
     /// (unknown) schema, an unbounded point count, or any non-finite/out-of-range coordinate — so a
     /// corrupt or divergent-schema record can never silently overwrite or persist. (SEC-17)
+    ///
+    /// An accepted record comes back with its numbers bounded (`withPlausibleValues()`). Those are
+    /// dropped or clamped rather than rejected: rejecting would stop a legitimate old record from
+    /// syncing over one bad value, the lesson of RES-02. (S9-10, S9-16)
     func validatedForIngest() -> Flight? {
         guard schemaVersion <= Flight.currentSchemaVersion else { return nil }
         guard gpsTrack.count <= FlightDataLimits.maxGPSPoints else { return nil }
@@ -369,7 +398,7 @@ struct Flight: Identifiable, Codable {
                 return nil
             }
         }
-        return self
+        return withPlausibleValues()
     }
 
     /// Salvage a flight decoded from the app's OWN local datastore, dropping bad GPS points rather
@@ -415,12 +444,65 @@ struct Flight: Identifiable, Codable {
             salvaged.modifiedAt = ceiling
         }
 
-        return salvaged
+        // A flight imported or synced before the ingest gate bounded its numbers is stored as it
+        // came, and crashed the Logbook on every launch. Repair it here. (S9-10, S9-16)
+        return salvaged.withPlausibleValues()
+    }
+
+    /// The flight with every number the app formats, sums or converts to `Int` brought inside a
+    /// plausible envelope. Never rejects. (S9-10, S9-16)
+    ///
+    /// - A cached stat out of range becomes nil and is computed again from the track on demand.
+    /// - An engine hour reading out of range becomes nil and reads as not logged.
+    /// - Landing counts and the pilot's logbook minutes are clamped, so their sums cannot overflow.
+    /// - A track point at an impossible altitude is dropped, as `sanitizedForLocalLoad()` drops a
+    ///   point at an impossible position. An impossible speed or course becomes -1, CoreLocation's
+    ///   own "not known".
+    /// - The flight plan it carries is bounded the same way (`FlightPlan.salvagedForFlight()`).
+    func withPlausibleValues() -> Flight {
+        var bounded = self
+
+        if !gpsTrack.allSatisfy(\.hasPlausibleValues) {
+            let kept = gpsTrack.compactMap(\.plausibleCopy)
+            if kept.count != gpsTrack.count {
+                AppLog.general.debugLine(
+                    "Bounded flight \(id): dropped \(gpsTrack.count - kept.count) point(s) at an impossible altitude")
+            }
+            bounded.gpsTrack = kept
+        }
+
+        func inRange(_ value: Double?, _ range: ClosedRange<Double>) -> Double? {
+            value.flatMap { PlausibleRange.isPlausible($0, in: range) ? $0 : nil }
+        }
+        bounded.cachedDistanceKm = inRange(cachedDistanceKm, FlightDataLimits.trackDistanceKm)
+        bounded.cachedMaxAltitudeMeters = inRange(cachedMaxAltitudeMeters, PlausibleRange.altitudeMeters)
+        bounded.cachedDurationSeconds = inRange(cachedDurationSeconds, FlightDataLimits.recordDurationSeconds)
+        bounded.engineHourStart = inRange(engineHourStart, PlausibleRange.engineHours)
+        bounded.engineHourEnd = inRange(engineHourEnd, PlausibleRange.engineHours)
+
+        func clamped(_ value: Int, _ upper: Int) -> Int { min(max(0, value), upper) }
+        let maxLandings = FlightDataLimits.maxLandingsPerFlight
+        bounded.goAroundCount = clamped(goAroundCount, maxLandings)
+        bounded.touchAndGoCount = clamped(touchAndGoCount, maxLandings)
+        bounded.fullStopCount = clamped(fullStopCount, maxLandings)
+        if var overrides = logbook {
+            let maxMinutes = FlightDataLimits.maxLoggedMinutesPerFlight
+            overrides.nightMinutes = overrides.nightMinutes.map { clamped($0, maxMinutes) }
+            overrides.ifrMinutes = overrides.ifrMinutes.map { clamped($0, maxMinutes) }
+            overrides.landingsNight = overrides.landingsNight.map { clamped($0, maxLandings) }
+            bounded.logbook = overrides
+        }
+
+        bounded.flightPlan = flightPlan?.salvagedForFlight()
+        return bounded
     }
 
     /// Total landings (touch and go + full stops, which now includes the final landing)
     var totalLandings: Int {
-        return touchAndGoCount + fullStopCount
+        // Saturating: `+` traps on overflow, and the Logbook row reads this for every flight. The
+        // counts are bounded on ingest and load (`withPlausibleValues()`). (S9-10)
+        let (sum, overflow) = touchAndGoCount.addingReportingOverflow(fullStopCount)
+        return overflow ? (touchAndGoCount < 0 ? Int.min : Int.max) : sum
     }
     
     /// Display name: "Custom Name (Registration)" or just "Registration" if no name
@@ -543,7 +625,9 @@ struct Flight: Identifiable, Codable {
 
     /// Format engine hours as time string (e.g., "1234:30")
     static func formatHoursTime(_ hours: Double) -> String {
-        let wholePart = Int(hours)
+        // `Int(hours)` trapped on a reading imported from a file. The readings are bounded on ingest
+        // and load now; this stays safe for whatever reaches it anyway. (S9-10)
+        guard let wholePart = hours.safeInt else { return "--:--" }
         let minutesPart = Int(round((hours - Double(wholePart)) * 60))
         return String(format: "%d:%02d", wholePart, minutesPart)
     }
@@ -713,6 +797,29 @@ struct GPSPoint: Codable, Identifiable {
     
     var coordinate: CLLocationCoordinate2D {
         CLLocationCoordinate2D(latitude: latitude, longitude: longitude)
+    }
+
+    /// Altitude inside the envelope, and a speed and course that are real values or -1. (S9-10)
+    var hasPlausibleValues: Bool {
+        PlausibleRange.isPlausible(altitude, in: PlausibleRange.altitudeMeters)
+            && GPSPoint.plausibleOrUnknown(speed, in: PlausibleRange.speedMPS) == speed
+            && GPSPoint.plausibleOrUnknown(course, in: PlausibleRange.courseDegrees) == course
+    }
+
+    /// Nil when the altitude is impossible. Otherwise the point, with an impossible speed or course
+    /// replaced by -1: the Logbook's speed chart converted 1e300 m/s to `Int` and trapped.
+    var plausibleCopy: GPSPoint? {
+        guard PlausibleRange.isPlausible(altitude, in: PlausibleRange.altitudeMeters) else { return nil }
+        return GPSPoint(id: id, latitude: latitude, longitude: longitude, altitude: altitude,
+                        timestamp: timestamp,
+                        speed: GPSPoint.plausibleOrUnknown(speed, in: PlausibleRange.speedMPS),
+                        course: GPSPoint.plausibleOrUnknown(course, in: PlausibleRange.courseDegrees),
+                        horizontalAccuracy: horizontalAccuracy, baroAltitude: baroAltitude)
+    }
+
+    /// The value, or -1 (CoreLocation's "not known", which it records itself) when it is outside `range`.
+    private static func plausibleOrUnknown(_ value: Double, in range: ClosedRange<Double>) -> Double {
+        PlausibleRange.isPlausible(value, in: range) ? value : -1
     }
 }
 
@@ -1007,7 +1114,18 @@ extension Flight {
             AppLog.general.debugLine("Rejected flight import: failed ingest validation")
             throw ImportError.invalidCoordinates
         }
-        return validated
+        return validated.withSummaryStatsFromTrack()
+    }
+
+    /// A flight read from a file, with its distance, maximum altitude and duration computed from its
+    /// own track instead of taken from the file. The track is the evidence; the cached figures are a
+    /// claim anyone can edit, and they feed the Logbook's totals. A file without a track keeps the
+    /// figures it carries, already bounded by `validatedForIngest()`. (S9-10)
+    func withSummaryStatsFromTrack() -> Flight {
+        guard !gpsTrack.isEmpty else { return self }
+        var computed = self
+        computed.computeSummaryStats()
+        return computed
     }
 
     /// Import flight from JSON data (non-throwing version for backward compatibility)
@@ -1021,7 +1139,7 @@ extension Flight {
     static func fromGPX(_ data: Data) -> Flight? {
         let parser = GPXParser(data: data)
         // SEC-C18: same validator as every other ingest path.
-        return parser.parse()?.validatedForIngest()
+        return parser.parse()?.validatedForIngest()?.withSummaryStatsFromTrack()
     }
 }
 
@@ -1104,7 +1222,15 @@ class GPXParser: NSObject, XMLParserDelegate {
         self.data = data
         super.init()
     }
-    
+
+    /// An hour meter reading from the file, or nil when it is not one a meter can show.
+    static func engineHourReading(_ text: String) -> Double? {
+        guard let hours = Double(text), PlausibleRange.isPlausible(hours, in: PlausibleRange.engineHours) else {
+            return nil
+        }
+        return hours
+    }
+
     func parse() -> Flight? {
         let parser = XMLParser(data: data)
         parser.delegate = self
@@ -1206,10 +1332,12 @@ class GPXParser: NSObject, XMLParserDelegate {
             flight?.departureAirportIdent = text
         case "arrivalAirportIdent":
             flight?.arrivalAirportIdent = text
+        // `Double(_:)` reads "nan", "inf" and "1e300" as numbers, and `formatHoursTime` then trapped
+        // on them. A reading must be finite and one an hour meter can show. (S9-10)
         case "engineHourStart":
-            flight?.engineHourStart = Double(text)
+            flight?.engineHourStart = Self.engineHourReading(text)
         case "engineHourEnd":
-            flight?.engineHourEnd = Double(text)
+            flight?.engineHourEnd = Self.engineHourReading(text)
         case "goAroundCount":
             flight?.goAroundCount = Int(text) ?? 0
         case "goAroundTime":

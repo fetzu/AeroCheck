@@ -1,5 +1,6 @@
 import XCTest
 import CloudKit
+import CoreLocation
 @testable import AeroCheck
 
 /// Tests the CloudKit conflict-merge and ingest-validation logic that protect the pilot's logbook
@@ -148,6 +149,137 @@ final class FlightMergeValidationTests: XCTestCase {
         let salvaged = try XCTUnwrap(f.sanitizedForLocalLoad())
         XCTAssertEqual(salvaged.gpsTrack.count, 2)
         XCTAssertEqual(salvaged.modifiedAt, f.modifiedAt)
+    }
+
+    // MARK: - The numbers a flight carries (S9-10, S9-16)
+    //
+    // `Int(_:)` traps past ±9.2e18. JSON cannot carry NaN or 1e400 (the decoder refuses both), but
+    // 1e300 decodes to a finite Double: an imported or synced flight carrying it crashed the Logbook
+    // on every device the pilot owns.
+
+    /// Every number out of range, as a crafted file or record carries them.
+    private func poisonedFlight() -> Flight {
+        var f = flight(modifiedAt: Date(),
+                       track: [GPSPoint(latitude: 47, longitude: 8, altitude: 1000, speed: 1e300, course: 1e300),
+                               GPSPoint(latitude: 47.1, longitude: 8.1, altitude: 1e300),
+                               GPSPoint(latitude: 47.2, longitude: 8.2, altitude: 1200)],
+                       goAround: -5, touchAndGo: Int.max, fullStop: Int.max)
+        f.cachedDistanceKm = 1e300
+        f.cachedMaxAltitudeMeters = 1e300
+        f.cachedDurationSeconds = -1
+        f.engineHourStart = 1e300
+        f.engineHourEnd = -3
+        var overrides = LogbookOverrides()
+        overrides.nightMinutes = Int.max
+        overrides.ifrMinutes = -10
+        overrides.landingsNight = Int.min
+        f.logbook = overrides
+        return f
+    }
+
+    private func assertBounded(_ f: Flight, file: StaticString = #filePath, line: UInt = #line) {
+        XCTAssertNil(f.cachedDistanceKm, "recomputed from the track on demand", file: file, line: line)
+        XCTAssertNil(f.cachedMaxAltitudeMeters, file: file, line: line)
+        XCTAssertNil(f.cachedDurationSeconds, file: file, line: line)
+        XCTAssertNil(f.engineHourStart, "reads as not logged", file: file, line: line)
+        XCTAssertNil(f.engineHourEnd, file: file, line: line)
+        XCTAssertEqual(f.gpsTrack.map(\.altitude), [1000, 1200], "only the point at 1e300 m goes", file: file, line: line)
+        XCTAssertEqual(f.gpsTrack.first?.speed, -1, "CoreLocation's own 'not known'", file: file, line: line)
+        XCTAssertEqual(f.gpsTrack.first?.course, -1, file: file, line: line)
+        XCTAssertEqual(f.goAroundCount, 0, file: file, line: line)
+        XCTAssertEqual(f.touchAndGoCount, FlightDataLimits.maxLandingsPerFlight, file: file, line: line)
+        XCTAssertEqual(f.fullStopCount, FlightDataLimits.maxLandingsPerFlight, file: file, line: line)
+        XCTAssertEqual(f.logbook?.nightMinutes, FlightDataLimits.maxLoggedMinutesPerFlight, file: file, line: line)
+        XCTAssertEqual(f.logbook?.ifrMinutes, 0, file: file, line: line)
+        XCTAssertEqual(f.logbook?.landingsNight, 0, file: file, line: line)
+    }
+
+    func testIngestBoundsEveryNumberRatherThanRejectingTheFlight() throws {
+        // Rejecting would stop a legitimate old record from syncing over one bad value (RES-02).
+        let bounded = try XCTUnwrap(poisonedFlight().validatedForIngest())
+        assertBounded(bounded)
+    }
+
+    func testLocalLoadRepairsAFlightStoredBeforeTheBounds() throws {
+        let repaired = try XCTUnwrap(poisonedFlight().sanitizedForLocalLoad())
+        assertBounded(repaired)
+    }
+
+    /// The flight file an import wrote before this fix: it must still load, repaired.
+    func testAFlightFileCarrying1e300StillLoadsAndIsRepaired() throws {
+        let directory = makeTestDirectory()
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        let encoder = JSONEncoder()
+        encoder.dateEncodingStrategy = .iso8601
+        let file = try encoder.encode(poisonedFlight())
+        XCTAssertTrue(String(decoding: file, as: UTF8.self).contains("e+300"), "precondition: 1e300 is on disk")
+        try file.write(to: directory.appendingPathComponent("poisoned.json"))
+
+        let loaded = DataPersistenceManager.decodeFlights(in: directory)
+
+        XCTAssertEqual(loaded.count, 1, "an existing flight never fails to load")
+        assertBounded(try XCTUnwrap(loaded.first))
+    }
+
+    func testACloudKitRecordCarrying1e300IsBoundedOnArrival() throws {
+        let payload = try SyncManager.flightRecordPayload(poisonedFlight())
+        let received = try XCTUnwrap(SyncManager.flightFromPayload(inline: payload.inline, asset: payload.asset))
+        assertBounded(received)
+    }
+
+    func testPlausibleNumbersPassThroughUntouched() throws {
+        var f = flight(modifiedAt: Date(),
+                       track: [GPSPoint(latitude: 47, longitude: 8, altitude: 450, speed: -1, course: -1),
+                               GPSPoint(latitude: 47.1, longitude: 8.1, altitude: 2400, speed: 55, course: 245)],
+                       goAround: 1, touchAndGo: 6, fullStop: 1)
+        f.cachedDistanceKm = 13.4
+        f.cachedMaxAltitudeMeters = 2400
+        f.cachedDurationSeconds = 3600
+        f.engineHourStart = 1234.5
+        f.engineHourEnd = 1235.6
+        var overrides = LogbookOverrides()
+        overrides.nightMinutes = 35
+        f.logbook = overrides
+
+        let validated = try XCTUnwrap(f.validatedForIngest())
+
+        XCTAssertEqual(validated.cachedDistanceKm, 13.4)
+        XCTAssertEqual(validated.cachedMaxAltitudeMeters, 2400)
+        XCTAssertEqual(validated.cachedDurationSeconds, 3600)
+        XCTAssertEqual(validated.engineHourStart, 1234.5)
+        XCTAssertEqual(validated.engineHourEnd, 1235.6)
+        XCTAssertEqual(validated.gpsTrack.map(\.speed), [-1, 55])
+        XCTAssertEqual(validated.gpsTrack.map(\.course), [-1, 245])
+        XCTAssertEqual(validated.gpsTrack.map(\.id), f.gpsTrack.map(\.id))
+        XCTAssertEqual(validated.totalLandings, 7)
+        XCTAssertEqual(validated.logbook, overrides)
+    }
+
+    /// The plan a flight carries is shown in the Logbook (plan against actual, the nav log), so it
+    /// is bounded with the flight. A waypoint at an impossible position is dropped, not the plan.
+    func testTheFlightPlanAFlightCarriesIsBoundedWithIt() throws {
+        var plan = FlightPlan(name: "Carried")
+        plan.waypoints = [
+            FlightPlanWaypoint(name: "A", coordinate: CLLocationCoordinate2D(latitude: 47, longitude: 7),
+                               magneticCourse: 1e19, distance: 1e300, plannedGroundSpeed: Int.max,
+                               estimatedElapsedTime: 1e300, cumulativeEET: 1e300),
+            FlightPlanWaypoint(name: "X", coordinate: CLLocationCoordinate2D(latitude: 1e300, longitude: 7)),
+            FlightPlanWaypoint(name: "B", coordinate: CLLocationCoordinate2D(latitude: 47.5, longitude: 7.5)),
+        ]
+        var f = flight(modifiedAt: Date(), track: [point(47, 8)])
+        f.flightPlan = plan
+
+        let ingested = try XCTUnwrap(f.validatedForIngest())
+        let loaded = try XCTUnwrap(f.sanitizedForLocalLoad())
+        for bounded in [ingested, loaded] {
+            let carried = try XCTUnwrap(bounded.flightPlan, "the flight keeps its nav log")
+            XCTAssertEqual(carried.waypoints.map(\.name), ["A", "B"])
+            XCTAssertNil(carried.waypoints[0].magneticCourse)
+            XCTAssertNil(carried.waypoints[0].distance)
+            XCTAssertNil(carried.waypoints[0].plannedGroundSpeed)
+            XCTAssertNil(carried.waypoints[0].estimatedElapsedTime)
+            XCTAssertNil(carried.waypoints[0].cumulativeEET)
+        }
     }
 
     // MARK: - CloudKit record payload (PERF-13: large-track CKAsset offload)

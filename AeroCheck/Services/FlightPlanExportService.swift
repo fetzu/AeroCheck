@@ -528,7 +528,7 @@ class FlightPlanExportService {
                 return row
             }
             let from = wps[i - 1]
-            row.mc = from.magneticCourse.map { String(format: "%03d°", Int($0)) } ?? ""
+            row.mc = from.formattedMagneticCourse ?? ""
             row.dist = from.distance.map { String(format: "%.1f", $0) } ?? ""
             if let leg = plan.legPlanning(from: i - 1) {
                 row.gs = "\(leg.groundSpeedKt)"
@@ -536,9 +536,8 @@ class FlightPlanExportService {
             }
             // The +5 departure and +5 arrival allowances belong to the first and last legs.
             let extra = (i == 1 ? (wps[0].legEETExtra ?? 0) : 0) + (i == last ? (wp.legEETExtra ?? 0) : 0)
-            if let t = from.estimatedElapsedTime {
-                let minutes = Int((t / 60).rounded())
-                row.eet = extra > 0 ? "\(minutes) + \(Int((extra / 60).rounded()))" : "\(minutes)"
+            if let t = from.estimatedElapsedTime, let minutes = (t / 60).safeRoundedInt() {
+                row.eet = extra > 0 ? "\(minutes) + \((extra / 60).safeRoundedInt(or: 0))" : "\(minutes)"
             }
             row.eto = (i == last ? wp.formattedETO : from.formattedETO) ?? ""
             return row
@@ -548,9 +547,13 @@ class FlightPlanExportService {
     /// "240/15" — direction the wind blows FROM, degrees true, as forecasts give it.
     static func windText(_ wind: FlightPlan.WindAloft) -> String {
         guard wind.speedKt >= 0.5 else { return "calm" }
-        var dir = Int(wind.directionDegTrue.rounded()) % 360
-        if dir == 0 { dir = 360 }
-        return String(format: "%03d/%02d", dir, Int(wind.speedKt.rounded()))
+        // `safeRoundedInt`: a wind direction of 1e300 with a light wind passes `legWind`'s finiteness
+        // check and trapped the nav log export. (S9-07)
+        guard let direction = wind.directionDegTrue.safeRoundedInt(),
+              let speed = wind.speedKt.safeRoundedInt() else { return "" }
+        var dir = direction % 360
+        if dir <= 0 { dir += 360 }
+        return String(format: "%03d/%02d", dir, speed)
     }
 
     /// A copy with its route data recomputed, so the printed Wind and GS (read live from

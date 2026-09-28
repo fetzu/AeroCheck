@@ -1092,8 +1092,8 @@ struct ActiveFlightPlanRow: View {
                                 .lineLimit(1)
                         }
                         Spacer(minLength: 6)
-                        if let mc = nextWaypoint.magneticCourse {
-                            statColumn(L10n.Nav.mc, String(format: "%03d°", Int(mc)), .altimeterBlue)
+                        if let mc = nextWaypoint.formattedMagneticCourse {
+                            statColumn(L10n.Nav.mc, mc, .altimeterBlue)
                         }
                         if let distance = nextWaypoint.distance {
                             statColumn(L10n.Nav.dist, String(format: "%.0f NM", distance), .primaryText)

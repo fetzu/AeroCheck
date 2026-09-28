@@ -413,9 +413,31 @@ enum LogbookLineBuilder {
         return rows.joined(separator: "\n")
     }
 
-    private static func escapeCSV(_ value: String) -> String {
-        guard value.contains(",") || value.contains("\"") || value.contains("\n") else { return value }
-        return "\"\(value.replacingOccurrences(of: "\"", with: "\"\""))\""
+    static func escapeCSV(_ value: String) -> String {
+        let cell = neutralizingFormula(value)
+        guard cell.contains(",") || cell.contains("\"") || cell.contains("\n") || cell.contains("\r") else {
+            return cell
+        }
+        return "\"\(cell.replacingOccurrences(of: "\"", with: "\"\""))\""
+    }
+
+    /// First characters that make a spreadsheet read a cell as a formula (OWASP, CSV injection), plus
+    /// the line feed. Compared as Unicode scalars: as a `Character`, "=" followed by a combining mark
+    /// is not "=", and neither is "\r\n" "\r".
+    private static let formulaTriggers: Set<Unicode.Scalar> = ["=", "+", "-", "@", "\t", "\r", "\n"]
+
+    /// The cell, prefixed with `'` when a spreadsheet would read it as a formula.
+    ///
+    /// The PIC name comes from the plan's instructor field and the remarks from the pilot's
+    /// overrides, and a plan can arrive in a GPX file from anyone: `<instructor>=HYPERLINK(…)`
+    /// became a live formula in Excel, LibreOffice or Numbers when the pilot opened the exported
+    /// logbook. A plain signed number ("-3", "+1.5") is left as it is, since it is data. (S9-17)
+    static func neutralizingFormula(_ value: String) -> String {
+        guard let first = value.unicodeScalars.first, formulaTriggers.contains(first) else { return value }
+        if value.range(of: #"^[+-]?[0-9]+(\.[0-9]+)?$"#, options: .regularExpression) != nil {
+            return value
+        }
+        return "'" + value
     }
 
     /// A human-readable block for copying into a paper logbook or an email.

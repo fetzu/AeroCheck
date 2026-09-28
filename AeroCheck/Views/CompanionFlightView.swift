@@ -905,9 +905,11 @@ struct CompanionFlightView: View {
         let hasLeg = (wp.estimatedElapsedTime ?? 0) > 0
         let hasExtra = (wp.legEETExtra ?? 0) > 0
         if !hasLeg && !hasExtra { return "---" }
-        let minutes = hasLeg ? Int(wp.estimatedElapsedTime! / 60) : 0
+        // `safeInt`: the leg times come from the master's plan, and an EET of 1e19 in a shared route
+        // trapped the viewer. (S9-07)
+        let minutes = hasLeg ? (wp.estimatedElapsedTime! / 60).safeInt(or: 0) : 0
         if hasExtra {
-            let extra = Int(wp.legEETExtra! / 60)
+            let extra = (wp.legEETExtra! / 60).safeInt(or: 0)
             return hasLeg ? "\(minutes)+\(extra)" : "+\(extra)"
         }
         return "\(minutes)"

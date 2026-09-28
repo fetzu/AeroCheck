@@ -612,6 +612,34 @@ struct FlowLayout: Layout {
     }
 }
 
+// MARK: - Separate view (map stack overflow, 6.0.1)
+
+/// Builds `content` as a view of its own. SwiftUI evaluates it in that view's own update, after the body
+/// that holds it has returned, and that body's value keeps a closure (16 bytes) instead of the subtree.
+///
+/// Why: a `some View` helper returns its whole tree as a value, so a screen built from helpers is one
+/// value the size of all of them: the map's came to about 33 KB, the Cockpit's to 23 KB. SwiftUI's
+/// generic update code reserves room for a body's value several times over (a `GeometryReader` eight
+/// times), the runtime demangles its type (nested as deep as the tree) on the first render, and a
+/// Debug build also keeps every intermediate of the builder chain on the stack. With Xcode 27 on
+/// iOS 27, the map needed more than the 1 MB an iPhone or iPad gives its main thread (about 1.5 MB in
+/// Debug, a little over 1 MB in Release), and the app crashed on the stack guard (EXC_BAD_ACCESS,
+/// code=2) whenever a map appeared.
+///
+/// Wrap any large part of a screen (a `ViewThatFits` of several variants, a card, a panel) rather than
+/// building it inline. Layout and behaviour don't change: the closure reads the same `self`, @State
+/// through its storage, observed objects and @Observable state through their references.
+/// `ViewStackBudgetTests` keeps the map and the Cockpit under half the device's stack.
+struct SeparateView<Content: View>: View {
+    let content: () -> Content
+
+    init(@ViewBuilder _ content: @escaping () -> Content) {
+        self.content = content
+    }
+
+    var body: Content { content() }
+}
+
 private struct NightModeKey: EnvironmentKey {
     static let defaultValue = false
 }

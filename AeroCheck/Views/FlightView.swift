@@ -1031,7 +1031,10 @@ extension FlightView {
         VStack(spacing: 0) {
             // No padding under the header: the phase bar's segments are a full control tall, and the
             // room around the drawn bar is theirs to the touch. (v6.0 review, B1)
-            cockpitHeader(style: narrow ? .narrow : .wide)
+            // The header and the checklist are views of their own (`SeparateView`): inline, the
+            // Cockpit's value was 23 KB and its first render took 824 KB of the device's 1 MB
+            // main-thread stack in a Debug build.
+            SeparateView { cockpitHeader(style: narrow ? .narrow : .wide) }
                 .padding(.horizontal, narrow ? 16 : 20)
                 .padding(.top, 8)
                 .background(theme.panel)
@@ -1060,7 +1063,7 @@ extension FlightView {
                                 .padding(.horizontal, 12)
                                 .padding(.bottom, 4)
                         }
-                        cockpitChecklistPane(narrow: narrow)
+                        SeparateView { cockpitChecklistPane(narrow: narrow) }
                     }
                 case .map:
                     // The same map as the full-screen one, minus its top bar: its next-waypoint card,
@@ -1101,7 +1104,7 @@ extension FlightView {
                             .padding(.horizontal, 12)
                             .padding(.top, 8)
                     }
-                    cockpitChecklistPane(narrow: true, includesThumbBar: false)
+                    SeparateView { cockpitChecklistPane(narrow: true, includesThumbBar: false) }
                 }
             }
         case .map:
@@ -1146,7 +1149,7 @@ extension FlightView {
     /// MAP with V-SPEEDS, the strip.
     private var cockpitColumnHead: some View {
         VStack(spacing: 0) {
-            cockpitHeader(style: .narrow)
+            SeparateView { cockpitHeader(style: .narrow) }
                 .padding(.horizontal, 12)
                 .padding(.top, 4)
             phaseProgressBarView

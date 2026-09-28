@@ -2246,6 +2246,16 @@ class AppState {
         return saved
     }
 
+    /// Reload flights from disk after `saveSettings()` moves the datastore between the local and the
+    /// iCloud Drive store (the move can bring in flights). Decode runs off the main actor. (PR-24)
+    func reloadFlights() {
+        Task { [weak self] in
+            guard let self = self else { return }
+            await Task.yield()
+            self.flights = await self.persistence.loadFlightsOffMain()
+        }
+    }
+
     func saveSettings() {
         // The switch covers the iCloud Drive store too: move the datastore first, so the settings
         // land in the store they now belong to. A move brings in what the other store adds.

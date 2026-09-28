@@ -57,8 +57,7 @@ struct ThreadTaskPresentation {
                 // `unknownWarning` only when something in this rule actually IS unknown or
                 // disputed — a pilot reading "Official sources disagree" needs to be told what to
                 // do about it, and the rest of the time it is noise. (review F28)
-                if rule.customsAerodrome == .unknown || rule.priorNotification == .unknown
-                    || rule.customsAerodrome == .disputed || rule.priorNotification == .disputed {
+                if rule.hasOpenQuestion {
                     parts.append(L10n.Border.unknownWarning)
                 }
                 parts.append(L10n.Border.advisory)

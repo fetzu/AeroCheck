@@ -85,6 +85,7 @@ final class BorderCrossingTests: XCTestCase {
         // "required" would send pilots to airports they no longer need.
         let de = try! XCTUnwrap(BorderCrossingGuide.rule(for: "DE"))
         XCTAssertEqual(de.customsAerodrome, .disputed)
+        XCTAssertTrue(de.hasOpenQuestion, "a disputed fact is an open question, like an unknown one")
     }
 
     func testItalyRequiresACustomsAirportOutright() {
@@ -125,6 +126,22 @@ final class BorderCrossingTests: XCTestCase {
         let fr = try! XCTUnwrap(BorderCrossingGuide.rule(for: "FR"))
         XCTAssertEqual(fr.priorNotification, .notRequired)
         XCTAssertNil(fr.noticeLeadTime)
+    }
+
+    func testARuleWithAnUnknownIsFlaggedAsHavingAnOpenQuestion() {
+        let open = BorderCrossingRule(
+            country: "XX", countryName: "Test",
+            customsAerodrome: .unknown, priorNotification: .required, noticeLeadTime: "1 h",
+            officialURL: URL(string: "https://example.com")!, lastReviewed: "2026-09-01"
+        )
+        XCTAssertTrue(open.hasOpenQuestion)
+
+        let settled = BorderCrossingRule(
+            country: "XX", countryName: "Test",
+            customsAerodrome: .required, priorNotification: .required, noticeLeadTime: "1 h",
+            officialURL: URL(string: "https://example.com")!, lastReviewed: "2026-09-01"
+        )
+        XCTAssertFalse(settled.hasOpenQuestion)
     }
 
     // MARK: - A5 nav log

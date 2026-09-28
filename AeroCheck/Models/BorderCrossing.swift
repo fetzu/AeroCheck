@@ -62,6 +62,12 @@ struct BorderCrossingRule: Equatable, Sendable {
     /// When a human last read that page. Shown, because a rule nobody has re-checked in two years
     /// should be treated differently from one checked last month.
     let lastReviewed: String
+
+    /// Whether this rule has something a human still needs to settle — either nobody has established
+    /// the answer, or the country's own sources disagree about it.
+    var hasOpenQuestion: Bool {
+        [customsAerodrome, priorNotification].contains { $0 == .unknown || $0 == .disputed }
+    }
 }
 
 enum BorderCrossingGuide {

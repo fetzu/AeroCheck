@@ -34,9 +34,6 @@ class WindDataService: ObservableObject {
     // MARK: - Published Properties
 
     @Published var currentWindData: WindData?
-    @Published var lastFetchTime: Date?
-    @Published var fetchError: String?
-    @Published var isWithinSwitzerland: Bool = false
 
     // MARK: - Private Properties
 
@@ -106,7 +103,6 @@ class WindDataService: ObservableObject {
         fetchTimer?.invalidate()
         fetchTimer = nil
         currentWindData = nil
-        lastFetchTime = nil
     }
 
     /// Check if a coordinate is within Switzerland (with margin)
@@ -122,16 +118,10 @@ class WindDataService: ObservableObject {
 
     private func fetchWindData(for coordinate: CLLocationCoordinate2D?,
                                aircraftAltitudeMeters: Double?) async {
-        // Check if within Switzerland
-        let inSwitzerland = isInSwitzerland(coordinate)
-        await MainActor.run {
-            self.isWithinSwitzerland = inSwitzerland
-        }
-
-        guard inSwitzerland, let coordinate = coordinate else {
+        // MeteoSwiss stations only cover Switzerland: outside it (or without a fix) there is no wind.
+        guard isInSwitzerland(coordinate), let coordinate = coordinate else {
             await MainActor.run {
                 self.currentWindData = nil
-                self.fetchError = coordinate == nil ? "No GPS position" : "Outside Switzerland"
             }
             return
         }
@@ -154,15 +144,12 @@ class WindDataService: ObservableObject {
 
             await MainActor.run {
                 self.currentWindData = windData
-                self.lastFetchTime = Date()
-                self.fetchError = nil
             }
 
         } catch {
             await MainActor.run {
                 // Age out the last reading on a failed fetch so stale wind is never shown as live. (UX-04)
                 self.currentWindData = nil
-                self.fetchError = error.localizedDescription
             }
         }
     }

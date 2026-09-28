@@ -390,8 +390,39 @@ class DataPersistenceManager: ObservableObject {
     private func adoptSyncSwitchIfNeeded() {
         let adopted = preferences?.bool(forKey: Self.switchAdoptedKey) ?? memorySwitchAdopted
         guard !adopted else { return }
+        setAsidePreSwitchTrips()
         if !usesICloudDrive { pendingMerge = .toLocal }
         if let preferences { preferences.set(true, forKey: Self.switchAdoptedKey) } else { memorySwitchAdopted = true }
+    }
+
+    /// Where a local trips.json that predates the switch is kept (`setAsidePreSwitchTrips`).
+    nonisolated static let preSwitchTripsFileName = "trips.pre-switch.json"
+
+    /// Up to this build, a local trips.json was never the datastore's file while iCloud Drive was
+    /// available: it is the pre-5.0.1 one (trips lived there before they moved to iCloud Drive), or
+    /// one written in a session where iCloud could not be reached. The iCloud copy superseded both,
+    /// and nothing read them again. Left where it is, the switch would now merge it trip by trip into
+    /// the local store the first time it goes off, bringing back trips dissolved since.
+    ///
+    /// So, once per install and when iCloud Drive holds a readable trips.json, the local one is set
+    /// aside under another name: kept, not deleted, and read by nothing. When iCloud Drive holds none,
+    /// the local file stays: it is then the only copy of the trips, and `loadTripsOffMain` reads it.
+    private func setAsidePreSwitchTrips() {
+        guard let iCloudDocs = iCloudDocumentsURL else { return }
+        let fileManager = FileManager.default
+        let local = localAppDirectory.appendingPathComponent(Self.tripsFileName)
+        let cloud = iCloudDocs.appendingPathComponent(Self.tripsFileName)
+        let aside = localAppDirectory.appendingPathComponent(Self.preSwitchTripsFileName)
+        guard fileManager.fileExists(atPath: local.path), fileManager.fileExists(atPath: cloud.path),
+              Self.isLocallyMaterialized(cloud),
+              (try? Data(contentsOf: cloud)).flatMap(Self.decodeTrips) != nil,
+              !fileManager.fileExists(atPath: aside.path) else { return }
+        do {
+            try fileManager.moveItem(at: local, to: aside)
+            AppLog.general.debugLine("Set the pre-switch local trips.json aside")
+        } catch {
+            AppLog.general.debugLine("Could not set the pre-switch trips.json aside: \(error.localizedDescription)")
+        }
     }
 
     /// Runs the copy the switch owes, once iCloud Drive can be reached.
@@ -1222,6 +1253,14 @@ class DataPersistenceManager: ObservableObject {
     nonisolated static let tripsFileName = "trips.json"
 
     /// The pre-v5.0.1 location, read once so a trip built before the move is not orphaned.
+    ///
+    /// Since "Sync to iCloud" covers iCloud Drive, this is also the local store's own trips.json. The
+    /// fallback in `loadTripsOffMain` still only reads the pre-5.0.1 file: with the local store
+    /// active it is the same file as `tripsFileURL`, and with iCloud Drive active it is read only
+    /// when iCloud Drive has no trips.json at all (not even an evicted one). Turning the switch on
+    /// always leaves a copy there first (the merge), and a pre-switch local file was set aside when
+    /// iCloud Drive held one (`setAsidePreSwitchTrips`). What remains is the device whose trips never
+    /// reached iCloud Drive: the pre-5.0.1 upgrade.
     var legacyLocalTripsFileURL: URL {
         localAppDirectory.appendingPathComponent(Self.tripsFileName)
     }
@@ -1258,13 +1297,14 @@ class DataPersistenceManager: ObservableObject {
         return await Task.detached(priority: .utility) {
             // Evicted by iCloud: ask for it back, so a later load finds it. (Its legs are not lost
             // meanwhile: FlightThreadManager rebuilds a trip its legs point at.)
-            if !FileManager.default.fileExists(atPath: url.path),
-               FileManager.default.fileExists(atPath: Self.evictedPlaceholder(of: url).path) {
-                try? FileManager.default.startDownloadingUbiquitousItem(at: url)
-            }
+            let evicted = !FileManager.default.fileExists(atPath: url.path)
+                && FileManager.default.fileExists(atPath: Self.evictedPlaceholder(of: url).path)
+            if evicted { try? FileManager.default.startDownloadingUbiquitousItem(at: url) }
             // Migration: fall back to the old local path once, so trips built before the iCloud
-            // move survive the upgrade. The next `saveTrips` writes them to the new location.
-            let data = (try? Data(contentsOf: url)) ?? (try? Data(contentsOf: legacy))
+            // move survive the upgrade. The next `saveTrips` writes them to the new location. Never
+            // for an evicted file: its trips exist, and the local file (the local store's, since the
+            // switch) would stand in for them until a save wrote it over them.
+            let data = (try? Data(contentsOf: url)) ?? (evicted ? nil : try? Data(contentsOf: legacy))
             guard let data else { return [] }
             return Self.decodeTrips(data) ?? []
         }.value

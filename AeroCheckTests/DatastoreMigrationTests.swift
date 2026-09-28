@@ -343,6 +343,7 @@ final class SyncSwitchDatastoreTests: XCTestCase {
     }
 
     func testSwitchingOffMergesTheTripsTripByTrip() throws {
+        let store = datastore()
         let (shared, editedHere, onlyInICloud, onlyHere) = (UUID(), UUID(), UUID(), UUID())
         let cloudTrips = [trip("edited on the other device", id: shared, updated: 200),
                           trip("older in iCloud", id: editedHere, updated: 100),
@@ -352,7 +353,6 @@ final class SyncSwitchDatastoreTests: XCTestCase {
                         trip("edited here", id: editedHere, updated: 300),
                         trip("only here", id: onlyHere, updated: 50)],
                        in: local, modified: Date(timeIntervalSinceNow: -86_400))
-        let store = datastore()
 
         XCTAssertTrue(store.setUsesICloudDrive(false))
 
@@ -410,6 +410,7 @@ final class SyncSwitchDatastoreTests: XCTestCase {
 
     /// A trips file written by a build before trips had a name or a date merges like any other.
     func testATripsFileFromAnOlderBuildMerges() throws {
+        let store = datastore()
         let old = UUID()
         try write("""
             [{"id":"\(old.uuidString)","legIds":["\(UUID().uuidString)","\(UUID().uuidString)"],
@@ -418,7 +419,7 @@ final class SyncSwitchDatastoreTests: XCTestCase {
         let recent = trip("formed here", updated: 10)
         try writeTrips([recent], in: local)
 
-        datastore().setUsesICloudDrive(false)
+        store.setUsesICloudDrive(false)
 
         let names = try XCTUnwrap(tripNames(in: local))
         XCTAssertEqual(Set(names.keys), [old, recent.id])
@@ -427,11 +428,12 @@ final class SyncSwitchDatastoreTests: XCTestCase {
     /// An unreadable trips file (damaged, or from a build this one cannot read) never replaces a
     /// readable one, however new it is.
     func testAnUnreadableTripsFileNeverReplacesAReadableOne() throws {
+        let store = datastore()
         let kept = trip("formed here", updated: 10)
         try writeTrips([kept], in: local, modified: Date(timeIntervalSinceNow: -86_400))
         try write("not a trips file", "trips.json", in: cloud, modified: Date())
 
-        datastore().setUsesICloudDrive(false)
+        store.setUsesICloudDrive(false)
 
         XCTAssertEqual(tripNames(in: local), [kept.id: "formed here"])
     }
@@ -498,6 +500,50 @@ final class SyncSwitchDatastoreTests: XCTestCase {
         try await waitUntil { manager.trips.count == 3 && manager.trip(withId: shared)?.name == "edited here" }
         XCTAssertEqual(Set(manager.trips.map(\.id)), [shared, onlyInICloud, onlyHere])
         XCTAssertEqual(manager.trip(withId: shared)?.name, "edited here", "the newer copy, not memory's")
+    }
+
+    // MARK: - Trips: the local file from before the switch
+
+    /// A local trips.json from before the switch (the pre-5.0.1 one, or one written while iCloud
+    /// was unreachable) was superseded by the iCloud copy. Left in place, the first switch-off would
+    /// merge its trips into the local store, dissolved ones included. It is set aside, not deleted.
+    func testAPreSwitchLocalTripsFileIsSetAsideWhenICloudHoldsTheTrips() throws {
+        let dissolvedSince = trip("dissolved since 5.0.0", updated: 10)
+        let current = trip("the trip today", updated: 20)
+        try writeTrips([dissolvedSince], in: local)
+        try writeTrips([current], in: cloud)
+
+        let store = datastore()
+
+        XCTAssertNil(read("trips.json", in: local))
+        XCTAssertNotNil(read(DataPersistenceManager.preSwitchTripsFileName, in: local), "kept, under another name")
+        store.setUsesICloudDrive(false)
+        XCTAssertEqual(tripNames(in: local), [current.id: "the trip today"], "nothing comes back from before")
+    }
+
+    /// With no trips.json in iCloud Drive, the local one is the only copy (the pre-5.0.1 upgrade):
+    /// it stays, and the load reads it.
+    func testAPreSwitchLocalTripsFileStaysWhenICloudHasNone() async throws {
+        let only = trip("formed on 5.0.0", updated: 10)
+        try writeTrips([only], in: local)
+
+        let store = datastore()
+
+        XCTAssertNotNil(read("trips.json", in: local))
+        let loaded = await store.loadTripsOffMain()
+        XCTAssertEqual(loaded.map(\.id), [only.id])
+    }
+
+    /// An evicted iCloud trips.json has trips; the local store's file must not stand in for them
+    /// (the next save would have written it over them).
+    func testTheLocalTripsFileNeverStandsInForAnEvictedOne() async throws {
+        let store = datastore()
+        try writeTrips([trip("the local store's", updated: 10)], in: local)
+        try write("", ".trips.json.icloud", in: cloud)
+
+        let loaded = await store.loadTripsOffMain()
+
+        XCTAssertTrue(loaded.isEmpty)
     }
 
     // MARK: - Flight pages: the newer copy after a move

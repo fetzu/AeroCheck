@@ -165,26 +165,87 @@ extension CompanionFlightData {
         lineUpTime = try c.decodeIfPresent(Date.self, forKey: .lineUpTime)
         landingTime = try c.decodeIfPresent(Date.self, forKey: .landingTime)
         alwaysUseUTC = try c.decodeIfPresent(Bool.self, forKey: .alwaysUseUTC) ?? false
-        latitude = try c.decodeIfPresent(Double.self, forKey: .latitude)
-        longitude = try c.decodeIfPresent(Double.self, forKey: .longitude)
-        speedMPS = try c.decodeIfPresent(Double.self, forKey: .speedMPS)
-        altitudeFeet = try c.decodeIfPresent(Double.self, forKey: .altitudeFeet)
-        courseDegrees = try c.decodeIfPresent(Double.self, forKey: .courseDegrees)
+        // The position goes as a pair or not at all: half a coordinate is no position. Every number
+        // below is bounded at the wire, so the viewer only ever draws plausible values. (see
+        // CompanionWireLimits)
+        let lat = try c.decodeIfPresent(Double.self, forKey: .latitude)
+        let lon = try c.decodeIfPresent(Double.self, forKey: .longitude)
+        if let lat, let lon, CompanionWireLimits.isValidCoordinate(latitude: lat, longitude: lon) {
+            latitude = lat
+            longitude = lon
+        } else {
+            latitude = nil
+            longitude = nil
+        }
+        speedMPS = CompanionWireLimits.bounded(try c.decodeIfPresent(Double.self, forKey: .speedMPS),
+                                               in: PlausibleRange.speedMPS)
+        altitudeFeet = CompanionWireLimits.bounded(try c.decodeIfPresent(Double.self, forKey: .altitudeFeet),
+                                                   in: PlausibleRange.altitudeFeet)
+        courseDegrees = CompanionWireLimits.bounded(try c.decodeIfPresent(Double.self, forKey: .courseDegrees),
+                                                    in: PlausibleRange.courseDegrees)
         gpsSignalStatus = try c.decodeIfPresent(String.self, forKey: .gpsSignalStatus) ?? "unknown"
         // Default true: a pre-shared-GPS master is assumed to have its own fix, so a viewer won't try to
         // source GPS for it. (v4.1 shared-GPS — backward-compatible)
         ownGPSAvailable = try c.decodeIfPresent(Bool.self, forKey: .ownGPSAvailable) ?? true
         gpsSource = try c.decodeIfPresent(String.self, forKey: .gpsSource) ?? "own"
         cockpitThemeMode = try c.decodeIfPresent(String.self, forKey: .cockpitThemeMode) ?? "day"
-        // Clamp a peer-supplied index to >= 0 so it can never become a negative array subscript on
-        // the receiver (the upper bound is checked per-use against the actual waypoint count).
-        currentWaypointIndex = max(0, try c.decodeIfPresent(Int.self, forKey: .currentWaypointIndex) ?? 0)
+        // Clamp a peer-supplied index so it can never become a negative array subscript on the
+        // receiver, nor overflow when the viewer looks one waypoint ahead (`index + 1` on Int.max
+        // traps). The upper bound against the actual waypoint count is still checked per use.
+        currentWaypointIndex = CompanionWireLimits.index(
+            try c.decodeIfPresent(Int.self, forKey: .currentWaypointIndex) ?? 0)
         chronometerStartTime = try c.decodeIfPresent(Date.self, forKey: .chronometerStartTime)
-        chronometerElapsed = try c.decodeIfPresent(TimeInterval.self, forKey: .chronometerElapsed) ?? 0
+        chronometerElapsed = CompanionWireLimits.bounded(
+            try c.decodeIfPresent(TimeInterval.self, forKey: .chronometerElapsed),
+            in: CompanionWireLimits.elapsedSeconds) ?? 0
         aircraftRegistration = try c.decodeIfPresent(String.self, forKey: .aircraftRegistration) ?? ""
         aircraftType = try c.decodeIfPresent(String.self, forKey: .aircraftType) ?? ""
         // Absent timestamp -> distantPast so a malformed update reads as stale, never as "fresh now".
         timestamp = try c.decodeIfPresent(Date.self, forKey: .timestamp) ?? Date.distantPast
+    }
+}
+
+// MARK: - Wire bounds (Master -> Viewer)
+
+/// Bounds for the numbers the master streams to the viewer.
+///
+/// A paired peer is a trust boundary in this direction too. JSON carries no NaN, but 1e300 decodes
+/// to a finite Double and passes every `isFinite` check, and on the viewer such a value trapped in
+/// `Int(chronometerElapsed)`, spun the turn arrow's normalising loop forever on the main thread (a
+/// course of 1e300 minus 360 is still 1e300), and overflowed `currentWaypointIndex + 1`. The
+/// decoders of the master's snapshots bound every number here, at the wire, so the view code
+/// downstream only ever sees plausible values: an optional out of range reads as absent ("---" on
+/// screen), a required one falls back to its neutral value.
+///
+/// Lives here and not in `PlausibleRange` because these are companion-wire quantities (indices,
+/// chronometer seconds), not aviation ones; the aviation bounds are `PlausibleRange`'s own.
+enum CompanionWireLimits {
+    /// A waypoint or checklist index, and a count of either. No plan or phase comes anywhere near.
+    static let maxIndex = 10_000
+    /// A chronometer, a leg time or a route time, in seconds: a week.
+    static let elapsedSeconds: ClosedRange<Double> = 0...604_800
+    /// A leg or route distance in NM: a leg is under half the Earth, a route may go around it once.
+    static let distanceNM: ClosedRange<Double> = 0...25_000
+    /// A planned ground speed in knots, as a waypoint carries it and as the viewer may set it.
+    static let groundSpeedKnots: ClosedRange<Int> = 1...1_000
+
+    static func index(_ value: Int) -> Int {
+        min(max(0, value), maxIndex)
+    }
+
+    static func bounded(_ value: Double?, in range: ClosedRange<Double>) -> Double? {
+        guard let value, PlausibleRange.isPlausible(value, in: range) else { return nil }
+        return value
+    }
+
+    static func bounded(_ value: Int?, in range: ClosedRange<Int>) -> Int? {
+        guard let value, range.contains(value) else { return nil }
+        return value
+    }
+
+    static func isValidCoordinate(latitude: Double, longitude: Double) -> Bool {
+        latitude.isFinite && longitude.isFinite
+            && (-90.0...90.0).contains(latitude) && (-180.0...180.0).contains(longitude)
     }
 }
 
@@ -292,6 +353,12 @@ struct CompanionPeerGPS: Codable, Equatable {
 /// This is defence in depth, not a server gap: the paid content is legitimately on the paying
 /// device. A legitimate single user's iPhone shares the subscriber's Apple ID and reports
 /// `isSubscribed: true`, so the normal second-screen workflow is unaffected.
+///
+/// Since the 2026-09 review (S9-30) the claim alone no longer decides: a bare boolean the peer
+/// states about itself proves nothing, so the master also requires its OWN entitlement, and takes
+/// either this claim or the pilot's Allow for the connection (see
+/// `CompanionConnectivityManager.mayStreamItemText`). A master on 6.0 or older gates on the claim
+/// alone, so the viewer keeps sending it, truthfully.
 struct CompanionViewerHello: Codable, Equatable {
     /// Whether the viewer device itself holds a premium entitlement.
     let isSubscribed: Bool
@@ -407,6 +474,62 @@ struct CompanionWaypoint: Codable, Identifiable {
     let remarks: String
 }
 
+extension CompanionFlightPlanSnapshot {
+    /// The synthesised decoder's keys and strictness, with the numbers bounded (CompanionWireLimits).
+    /// Declared in an extension so the sender's memberwise initialiser is preserved.
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        planId = try c.decode(UUID.self, forKey: .planId)
+        planName = try c.decode(String.self, forKey: .planName)
+        waypoints = try c.decode([CompanionWaypoint].self, forKey: .waypoints)
+        currentWaypointIndex = CompanionWireLimits.index(try c.decode(Int.self, forKey: .currentWaypointIndex))
+        totalDistance = CompanionWireLimits.bounded(try c.decode(Double.self, forKey: .totalDistance),
+                                                    in: CompanionWireLimits.distanceNM) ?? 0
+        totalEET = CompanionWireLimits.bounded(try c.decode(TimeInterval.self, forKey: .totalEET),
+                                               in: CompanionWireLimits.elapsedSeconds) ?? 0
+        plannedDepartureTime = try c.decodeIfPresent(Date.self, forKey: .plannedDepartureTime)
+        chronometerStartTime = try c.decodeIfPresent(Date.self, forKey: .chronometerStartTime)
+        diversion = try c.decodeIfPresent(CompanionWaypoint.self, forKey: .diversion)
+    }
+}
+
+extension CompanionWaypoint {
+    /// Same keys and strictness as the synthesised decoder, numbers bounded (CompanionWireLimits).
+    ///
+    /// The coordinate is kept as sent: a waypoint cannot be dropped (the viewer sends indices back,
+    /// `recordATO(waypointIndex:)`), so `hasValidCoordinate` tells the view whether to trust it.
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        id = try c.decode(UUID.self, forKey: .id)
+        name = try c.decode(String.self, forKey: .name)
+        latitude = try c.decode(Double.self, forKey: .latitude)
+        longitude = try c.decode(Double.self, forKey: .longitude)
+        altitude = CompanionWireLimits.bounded(try c.decodeIfPresent(Double.self, forKey: .altitude),
+                                               in: PlausibleRange.altitudeFeet)
+        frequency = try c.decodeIfPresent(String.self, forKey: .frequency)
+        magneticCourse = CompanionWireLimits.bounded(try c.decodeIfPresent(Double.self, forKey: .magneticCourse),
+                                                     in: PlausibleRange.courseDegrees)
+        distance = CompanionWireLimits.bounded(try c.decodeIfPresent(Double.self, forKey: .distance),
+                                               in: CompanionWireLimits.distanceNM)
+        plannedGroundSpeed = CompanionWireLimits.bounded(try c.decodeIfPresent(Int.self, forKey: .plannedGroundSpeed),
+                                                         in: CompanionWireLimits.groundSpeedKnots)
+        estimatedElapsedTime = CompanionWireLimits.bounded(
+            try c.decodeIfPresent(TimeInterval.self, forKey: .estimatedElapsedTime), in: CompanionWireLimits.elapsedSeconds)
+        legEETExtra = CompanionWireLimits.bounded(
+            try c.decodeIfPresent(TimeInterval.self, forKey: .legEETExtra), in: CompanionWireLimits.elapsedSeconds)
+        cumulativeEET = CompanionWireLimits.bounded(
+            try c.decodeIfPresent(TimeInterval.self, forKey: .cumulativeEET), in: CompanionWireLimits.elapsedSeconds)
+        estimatedTimeOver = try c.decodeIfPresent(Date.self, forKey: .estimatedTimeOver)
+        actualTimeOver = try c.decodeIfPresent(Date.self, forKey: .actualTimeOver)
+        remarks = try c.decode(String.self, forKey: .remarks)
+    }
+
+    /// Whether the waypoint's coordinate can be navigated to (finite, in range).
+    var hasValidCoordinate: Bool {
+        CompanionWireLimits.isValidCoordinate(latitude: latitude, longitude: longitude)
+    }
+}
+
 // MARK: - Commands (Viewer -> Master)
 
 /// Commands sent from iPhone companion to iPad master
@@ -447,6 +570,20 @@ struct CompanionDeferredCheck: Codable, Equatable {
     let items: [CompanionChecklistItem]
     let highlightedIndex: Int
     let deferredItemIds: [String]
+}
+
+extension CompanionDeferredCheck {
+    /// Same keys and strictness as the synthesised decoder, the counts bounded (CompanionWireLimits).
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        phaseRawValue = try c.decode(Int.self, forKey: .phaseRawValue)
+        phaseTitle = try c.decode(String.self, forKey: .phaseTitle)
+        remaining = CompanionWireLimits.index(try c.decode(Int.self, forKey: .remaining))
+        total = CompanionWireLimits.index(try c.decode(Int.self, forKey: .total))
+        items = try c.decode([CompanionChecklistItem].self, forKey: .items)
+        highlightedIndex = CompanionWireLimits.index(try c.decode(Int.self, forKey: .highlightedIndex))
+        deferredItemIds = try c.decode([String].self, forKey: .deferredItemIds)
+    }
 }
 
 /// One phase's deferred items, for the viewer's deferred list. Sent only to a viewer entitled to the
@@ -518,21 +655,23 @@ struct CompanionChecklistSnapshot: Codable, Equatable {
     }
 
     /// Tolerant decoder: every field defaults so a field skew between independently-updated builds never
-    /// drops the checklist update. (ARCH — versioned contract)
+    /// drops the checklist update. (ARCH — versioned contract) The index and the counts are bounded
+    /// like the rest of the master's stream (CompanionWireLimits).
     init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
+        let index = CompanionWireLimits.index
         phaseTitle = try c.decodeIfPresent(String.self, forKey: .phaseTitle) ?? ""
         phaseRawValue = try c.decodeIfPresent(Int.self, forKey: .phaseRawValue) ?? 0
-        highlightedIndex = try c.decodeIfPresent(Int.self, forKey: .highlightedIndex) ?? 0
-        visibleCount = try c.decodeIfPresent(Int.self, forKey: .visibleCount) ?? 0
-        completedCount = try c.decodeIfPresent(Int.self, forKey: .completedCount) ?? 0
+        highlightedIndex = index(try c.decodeIfPresent(Int.self, forKey: .highlightedIndex) ?? 0)
+        visibleCount = index(try c.decodeIfPresent(Int.self, forKey: .visibleCount) ?? 0)
+        completedCount = index(try c.decodeIfPresent(Int.self, forKey: .completedCount) ?? 0)
         items = try c.decodeIfPresent([CompanionChecklistItem].self, forKey: .items) ?? []
-        hiddenItemCount = try c.decodeIfPresent(Int.self, forKey: .hiddenItemCount) ?? 0
+        hiddenItemCount = index(try c.decodeIfPresent(Int.self, forKey: .hiddenItemCount) ?? 0)
         // Absent from an iPad on 5.x or 6.0: nothing deferred, as that iPad knew no better.
         deferredItemIds = try c.decodeIfPresent([String].self, forKey: .deferredItemIds) ?? []
-        deferredItemCount = try c.decodeIfPresent(Int.self, forKey: .deferredItemCount) ?? 0
+        deferredItemCount = index(try c.decodeIfPresent(Int.self, forKey: .deferredItemCount) ?? 0)
         deferredGroups = try c.decodeIfPresent([CompanionDeferredGroup].self, forKey: .deferredGroups) ?? []
-        openItemCount = try c.decodeIfPresent(Int.self, forKey: .openItemCount) ?? 0
+        openItemCount = index(try c.decodeIfPresent(Int.self, forKey: .openItemCount) ?? 0)
         supportsDefer = try c.decodeIfPresent(Bool.self, forKey: .supportsDefer) ?? false
         deferredChecks = try c.decodeIfPresent([CompanionDeferredCheck].self, forKey: .deferredChecks) ?? []
     }

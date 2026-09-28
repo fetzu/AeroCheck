@@ -1,4 +1,5 @@
 import XCTest
+import CoreLocation
 @testable import AeroCheck
 
 /// Locks the Wi-Fi Aware companion service contract.
@@ -291,11 +292,231 @@ final class CompanionServiceContractTests: XCTestCase {
         XCTAssertEqual(full.deferredItemIds, [item.id])
     }
 
-    /// Who gets the words: an entitled viewer always, anyone for the bundled aircraft.
-    func testTheTextGateFollowsEntitlementForProAircraftOnly() {
-        XCTAssertFalse(CompanionConnectivityManager.mayStreamItemText(viewerIsEntitled: false, remoteAircraftSelected: true))
-        XCTAssertTrue(CompanionConnectivityManager.mayStreamItemText(viewerIsEntitled: true, remoteAircraftSelected: true))
-        XCTAssertTrue(CompanionConnectivityManager.mayStreamItemText(viewerIsEntitled: false, remoteAircraftSelected: false))
+    /// Who gets the words (S9-30): the bundled aircraft's always; a Pro aircraft's only from an
+    /// entitled iPad, and then to a viewer that says it is subscribed or that the pilot allowed.
+    func testTheTextGateNeedsTheMastersEntitlementAndAClaimOrConsent() {
+        func gate(master: Bool, claim: Bool, allowed: Bool, remote: Bool = true) -> Bool {
+            CompanionConnectivityManager.mayStreamItemText(masterIsEntitled: master, viewerClaimsEntitlement: claim,
+                                                           connectionAllowed: allowed, remoteAircraftSelected: remote)
+        }
+        XCTAssertFalse(gate(master: true, claim: false, allowed: false), "entitled iPad, unsubscribed phone, no consent")
+        XCTAssertTrue(gate(master: true, claim: false, allowed: true), "the pilot allowed this connection")
+        XCTAssertTrue(gate(master: true, claim: true, allowed: false), "the subscriber's own phone")
+        XCTAssertTrue(gate(master: true, claim: true, allowed: true))
+        for claim in [false, true] {
+            for allowed in [false, true] {
+                XCTAssertFalse(gate(master: false, claim: claim, allowed: allowed),
+                               "an unentitled iPad never streams Pro text (claim \(claim), allowed \(allowed))")
+                XCTAssertTrue(gate(master: false, claim: claim, allowed: allowed, remote: false), "the bundled aircraft always")
+            }
+        }
+    }
+
+    /// The same rule on a live connection: the text follows the hello and the pilot's answer, per
+    /// connection. (S9-30)
+    @MainActor
+    func testTheTextFollowsTheClaimOrThePilotsAnswerPerConnection() throws {
+        let manager = CompanionConnectivityManager(defaults: makeTestDefaults(), usesWiFiAware: false)
+        let appState = makeTestAppState()
+        appState.settings.selectedRemoteAircraftId = "pa28-181"
+        XCTAssertTrue(appState.settings.isRemoteAircraftSelected)
+        let location = LocationManager()
+        let plans = makeTestPlanManager()
+        manager.configure(appState: appState, locationManager: location, flightPlanManager: plans)
+        manager.currentRole = .master
+        addTeardownBlock { @MainActor in manager.disconnect() }
+        manager.entitlementProvider = { true }
+
+        func hello(_ subscribed: Bool) throws -> CompanionMessage {
+            CompanionMessage(type: .viewerHello, payload: try JSONEncoder().encode(CompanionViewerHello(isSubscribed: subscribed)))
+        }
+        let tap = CompanionMessage(type: .command, payload: try JSONEncoder().encode(CompanionCommand.advanceWaypoint))
+
+        // An unsubscribed phone on an entitled iPad: no text until the pilot allows the connection.
+        var gen = try XCTUnwrap(manager.adoptMasterConnection(identity: nil, send: { _ in }))
+        manager.handleReceivedMessage(try hello(false), generation: gen)
+        XCTAssertFalse(manager.streamsItemText, "no claim, no consent: no text")
+        manager.handleReceivedMessage(tap, generation: gen)
+        manager.answerAuthorization(try XCTUnwrap(manager.pendingAuthorization), allow: true)
+        XCTAssertTrue(manager.streamsItemText, "allowed: the text streams from now on")
+
+        // The consent was for that connection only.
+        gen = try XCTUnwrap(manager.adoptMasterConnection(identity: nil, send: { _ in }))
+        manager.handleReceivedMessage(try hello(false), generation: gen)
+        XCTAssertFalse(manager.streamsItemText, "a new connection starts without it")
+        manager.handleReceivedMessage(tap, generation: gen)
+        manager.answerAuthorization(try XCTUnwrap(manager.pendingAuthorization), allow: false)
+        XCTAssertFalse(manager.streamsItemText, "Don't Allow keeps the text off for the connection")
+
+        // The subscriber's own phone needs no prompt.
+        gen = try XCTUnwrap(manager.adoptMasterConnection(identity: nil, send: { _ in }))
+        manager.handleReceivedMessage(try hello(true), generation: gen)
+        XCTAssertTrue(manager.streamsItemText, "the claim lets it through on an entitled iPad")
+        XCTAssertNil(manager.pendingAuthorization, "and asks nothing")
+
+        // An iPad without a subscription: never, whatever the phone says or the pilot allows.
+        manager.entitlementProvider = { false }
+        XCTAssertFalse(manager.streamsItemText)
+        manager.handleReceivedMessage(tap, generation: gen)
+        manager.answerAuthorization(try XCTUnwrap(manager.pendingAuthorization), allow: true)
+        XCTAssertFalse(manager.streamsItemText, "claim and consent together are still not enough")
+
+        // The bundled aircraft: always.
+        appState.settings.selectedRemoteAircraftId = nil
+        XCTAssertTrue(manager.streamsItemText)
+    }
+
+    // MARK: - Wire bounds on the viewer (master -> viewer)
+    //
+    // 1e300 is finite, decodes from JSON, and passed every isFinite check. On the viewer it trapped in
+    // Int(chronometerElapsed), froze the phone in the arrow's normalising loop, and overflowed
+    // `currentWaypointIndex + 1`. The decoders now bound the master's numbers at the wire.
+
+    func testFlightDataNumbersAreBoundedAtTheWire() throws {
+        let json = #"""
+        {"isFlightActive":true,"latitude":1e300,"longitude":7.4,"speedMPS":1e300,"altitudeFeet":-1e300,
+         "courseDegrees":1e300,"chronometerElapsed":1e300,"currentWaypointIndex":9223372036854775807}
+        """#
+        let data = try JSONDecoder().decode(CompanionFlightData.self, from: Data(json.utf8))
+        XCTAssertNil(data.latitude, "no half position")
+        XCTAssertNil(data.longitude)
+        XCTAssertNil(data.speedMPS)
+        XCTAssertNil(data.altitudeFeet)
+        XCTAssertNil(data.courseDegrees)
+        XCTAssertEqual(data.chronometerElapsed, 0)
+        XCTAssertEqual(data.currentWaypointIndex, CompanionWireLimits.maxIndex)
+        XCTAssertEqual(data.currentWaypointIndex + 1, CompanionWireLimits.maxIndex + 1, "no overflow looking ahead")
+
+        let negative = try JSONDecoder().decode(CompanionFlightData.self,
+                                                from: Data(#"{"currentWaypointIndex":-4,"chronometerElapsed":-5}"#.utf8))
+        XCTAssertEqual(negative.currentWaypointIndex, 0)
+        XCTAssertEqual(negative.chronometerElapsed, 0)
+    }
+
+    func testRealFlightDataPassesTheWireUntouched() throws {
+        let json = #"""
+        {"latitude":46.9,"longitude":7.4,"speedMPS":55.5,"altitudeFeet":4500,"courseDegrees":270,
+         "chronometerElapsed":3725,"currentWaypointIndex":3}
+        """#
+        let data = try JSONDecoder().decode(CompanionFlightData.self, from: Data(json.utf8))
+        XCTAssertEqual(data.latitude, 46.9)
+        XCTAssertEqual(data.longitude, 7.4)
+        XCTAssertEqual(data.speedMPS, 55.5)
+        XCTAssertEqual(data.altitudeFeet, 4500)
+        XCTAssertEqual(data.courseDegrees, 270)
+        XCTAssertEqual(data.chronometerElapsed, 3725)
+        XCTAssertEqual(data.currentWaypointIndex, 3)
+    }
+
+    func testFlightPlanNumbersAreBoundedAtTheWire() throws {
+        let id = UUID()
+        let json = """
+        {"planId":"\(id.uuidString)","planName":"Test","currentWaypointIndex":9223372036854775807,
+         "totalDistance":1e300,"totalEET":-1,
+         "waypoints":[{"id":"\(UUID().uuidString)","name":"A","latitude":1e300,"longitude":7.4,"remarks":"",
+                       "magneticCourse":1e300,"distance":-5,"plannedGroundSpeed":100000,
+                       "estimatedElapsedTime":1e300,"legEETExtra":1e300,"cumulativeEET":1e300,"altitude":1e300},
+                      {"id":"\(UUID().uuidString)","name":"B","latitude":46.9,"longitude":7.4,"remarks":"",
+                       "magneticCourse":123,"distance":12.5,"plannedGroundSpeed":100,
+                       "estimatedElapsedTime":450,"legEETExtra":60,"cumulativeEET":900,"altitude":4500}]}
+        """
+        let plan = try JSONDecoder().decode(CompanionFlightPlanSnapshot.self, from: Data(json.utf8))
+        XCTAssertEqual(plan.planId, id)
+        XCTAssertEqual(plan.currentWaypointIndex, CompanionWireLimits.maxIndex)
+        XCTAssertEqual(plan.totalDistance, 0)
+        XCTAssertEqual(plan.totalEET, 0)
+        XCTAssertEqual(plan.waypoints.count, 2, "a waypoint is never dropped: indices go back to the iPad")
+
+        let bad = plan.waypoints[0]
+        XCTAssertFalse(bad.hasValidCoordinate)
+        XCTAssertNil(bad.magneticCourse)
+        XCTAssertNil(bad.distance)
+        XCTAssertNil(bad.plannedGroundSpeed)
+        XCTAssertNil(bad.estimatedElapsedTime)
+        XCTAssertNil(bad.legEETExtra)
+        XCTAssertNil(bad.cumulativeEET)
+        XCTAssertNil(bad.altitude)
+
+        let good = plan.waypoints[1]
+        XCTAssertTrue(good.hasValidCoordinate)
+        XCTAssertEqual(good.magneticCourse, 123)
+        XCTAssertEqual(good.distance, 12.5)
+        XCTAssertEqual(good.plannedGroundSpeed, 100)
+        XCTAssertEqual(good.estimatedElapsedTime, 450)
+        XCTAssertEqual(good.legEETExtra, 60)
+        XCTAssertEqual(good.cumulativeEET, 900)
+        XCTAssertEqual(good.altitude, 4500)
+    }
+
+    func testAFlightPlanSnapshotStillRoundTrips() throws {
+        let wp = CompanionWaypoint(id: UUID(), name: "LSGE", latitude: 46.96, longitude: 6.86, altitude: 1400,
+                                   frequency: "118.305", magneticCourse: 42, distance: 18.2, plannedGroundSpeed: 95,
+                                   estimatedElapsedTime: 690, legEETExtra: nil, cumulativeEET: 690,
+                                   estimatedTimeOver: nil, actualTimeOver: nil, remarks: "")
+        let plan = CompanionFlightPlanSnapshot(planId: UUID(), planName: "Round trip", waypoints: [wp],
+                                               currentWaypointIndex: 0, totalDistance: 18.2, totalEET: 690,
+                                               plannedDepartureTime: nil, chronometerStartTime: nil, diversion: wp)
+        let decoded = try JSONDecoder().decode(CompanionFlightPlanSnapshot.self, from: JSONEncoder().encode(plan))
+        XCTAssertEqual(decoded, plan)
+        XCTAssertEqual(decoded.waypoints.first?.frequency, "118.305")
+        XCTAssertEqual(decoded.diversion?.name, "LSGE")
+        XCTAssertEqual(decoded.totalEET, 690)
+    }
+
+    func testChecklistIndexAndCountsAreBoundedAtTheWire() throws {
+        let json = #"""
+        {"phaseTitle":"Taxi","highlightedIndex":-3,"visibleCount":9223372036854775807,"completedCount":-1,
+         "hiddenItemCount":-2,"deferredItemCount":9223372036854775807,"openItemCount":-9,
+         "deferredChecks":[{"phaseRawValue":1,"phaseTitle":"Preflight","remaining":-1,"total":9223372036854775807,
+                            "items":[],"highlightedIndex":-7,"deferredItemIds":[]}]}
+        """#
+        let checklist = try JSONDecoder().decode(CompanionChecklistSnapshot.self, from: Data(json.utf8))
+        XCTAssertEqual(checklist.highlightedIndex, 0)
+        XCTAssertEqual(checklist.visibleCount, CompanionWireLimits.maxIndex)
+        XCTAssertEqual(checklist.completedCount, 0)
+        XCTAssertEqual(checklist.hiddenItemCount, 0)
+        XCTAssertEqual(checklist.deferredItemCount, CompanionWireLimits.maxIndex)
+        XCTAssertEqual(checklist.openItemCount, 0)
+        let check = try XCTUnwrap(checklist.deferredChecks.first)
+        XCTAssertEqual(check.remaining, 0)
+        XCTAssertEqual(check.total, CompanionWireLimits.maxIndex)
+        XCTAssertEqual(check.highlightedIndex, 0)
+    }
+
+    /// The turn arrow's angle, folded in one step: the loop it replaces never ended on 1e300.
+    func testTheArrowAngleFoldsAnyValue() {
+        XCTAssertEqual(CompanionFlightView.signedAngle(190), -170)
+        XCTAssertEqual(CompanionFlightView.signedAngle(-190), 170)
+        XCTAssertEqual(CompanionFlightView.signedAngle(180), 180)
+        XCTAssertEqual(CompanionFlightView.signedAngle(-180), -180)
+        XCTAssertEqual(CompanionFlightView.signedAngle(725), 5)
+        XCTAssertEqual(CompanionFlightView.signedAngle(45), 45)
+        let huge = CompanionFlightView.signedAngle(1e300)
+        XCTAssertTrue((-180...180).contains(huge), "returns, and in range")
+        XCTAssertEqual(CompanionFlightView.signedAngle(.nan), 0)
+        XCTAssertEqual(CompanionFlightView.signedAngle(.infinity), 0)
+    }
+
+    /// A ground speed from the viewer goes into the leg calculation: an impossible one is refused.
+    @MainActor
+    func testAnImpossibleGroundSpeedFromTheViewerIsRefused() throws {
+        let plans = makeTestPlanManager()
+        let plan = FlightPlan(name: "GS", waypoints: [
+            FlightPlanWaypoint(name: "A", coordinate: CLLocationCoordinate2D(latitude: 46.9, longitude: 7.4)),
+            FlightPlanWaypoint(name: "B", coordinate: CLLocationCoordinate2D(latitude: 47.0, longitude: 7.5)),
+        ])
+        plans.activateFlightPlan(plan)
+        try XCTSkipIf(plans.activeFlightPlan == nil, "no active plan to edit")
+
+        CompanionConnectivityManager.apply(.updateGroundSpeed(waypointIndex: 1, newGS: Int.max),
+                                           appState: nil, flightPlanManager: plans)
+        XCTAssertNotEqual(plans.activeFlightPlan?.waypoints[1].plannedGroundSpeed, Int.max)
+        CompanionConnectivityManager.apply(.updateGroundSpeed(waypointIndex: 1, newGS: 0),
+                                           appState: nil, flightPlanManager: plans)
+        XCTAssertNotEqual(plans.activeFlightPlan?.waypoints[1].plannedGroundSpeed, 0)
+        CompanionConnectivityManager.apply(.updateGroundSpeed(waypointIndex: 1, newGS: 110),
+                                           appState: nil, flightPlanManager: plans)
+        XCTAssertEqual(plans.activeFlightPlan?.waypoints[1].plannedGroundSpeed, 110)
     }
 
     // MARK: - CHECK and DEFER from the viewer (v6.0 review, decision 2)

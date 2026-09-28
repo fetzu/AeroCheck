@@ -5992,18 +5992,19 @@ extension NavUndoOffer {
 /// on the map, and a waypoint the flight marked on its own on the map and the checklist pane.
 /// (v6.0 · C2, v6.0.1)
 struct NavUndoToast: View {
-    /// MARK's and the reset's UNDO are the pilot taking back their own tap, as in 6.0. The flight's own
-    /// mark is not the pilot's action, and its UNDO sits right above CHECK on the checklist pane for six
-    /// seconds: outlined, a secondary action that a thumb aiming for CHECK is less likely to take, at
-    /// the kneeboard sizes (20 pt, a 15 mm target).
+    /// MARK's and the leg-timer reset's UNDO take back the pilot's own tap: filled, as in 6.0. The
+    /// flight's own mark is not the pilot's action, and its UNDO sits right above CHECK on the checklist
+    /// pane for six seconds: outlined, a secondary action that a thumb aiming for CHECK is less likely
+    /// to take. Both at the kneeboard sizes below.
     enum Style {
         case filled
         case outlined
-
-        var messageSize: CGFloat { self == .filled ? 18 : CockpitType.label }
-        var buttonTextSize: CGFloat { self == .filled ? 19 : CockpitType.label }
-        var buttonHeight: CGFloat { self == .filled ? 56 : CockpitTarget.transient }
     }
+
+    /// The message and UNDO's label: the in-flight label size (20 pt on the iPad). (v6.0.1)
+    static var textSize: CGFloat { CockpitType.label }
+    /// UNDO's height: the 15 mm control (78 pt on the iPad, 92 on the phone). (v6.0.1)
+    static var buttonHeight: CGFloat { CockpitTarget.transient }
 
     @Environment(\.cockpitTheme) private var theme
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -6014,7 +6015,7 @@ struct NavUndoToast: View {
     var body: some View {
         HStack(spacing: 16) {
             Text(offer.message)
-                .font(.aero(size: offer.style.messageSize, weight: .semibold))
+                .font(.aero(size: Self.textSize, weight: .semibold))
                 .foregroundColor(theme.textPrimary)
                 .lineLimit(2)
             Spacer(minLength: 8)
@@ -6023,9 +6024,9 @@ struct NavUndoToast: View {
                 withAnimation(reduceMotion ? nil : .easeOut(duration: 0.2)) { onDismiss() }
             } label: {
                 Text(L10n.Nav.undo.uppercased())
-                    .font(.aero(size: offer.style.buttonTextSize, weight: .heavy))
+                    .font(.aero(size: Self.textSize, weight: .heavy))
                     .foregroundColor(offer.style == .filled ? theme.actionText : theme.action)
-                    .frame(minWidth: 104, minHeight: offer.style.buttonHeight)
+                    .frame(minWidth: 104, minHeight: Self.buttonHeight)
                     .background(buttonShape)
             }
         }

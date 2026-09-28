@@ -212,8 +212,9 @@ final class LegTimerTests: XCTestCase {
         XCTAssertEqual(manager.activeFlightPlan?.currentWaypointIndex, 2, "the next flight's to mark")
     }
 
-    /// The flight's own mark comes back with an outlined, secondary UNDO at the kneeboard sizes, one
-    /// offer per notice whichever screen shows it; MARK's and the reset's keep 6.0's filled one.
+    /// The flight's own mark comes back with an outlined, secondary UNDO, one offer per notice whichever
+    /// screen shows it; MARK's and the leg-timer reset's (both `NavUndoOffer`'s default) stay filled. All
+    /// of them at the kneeboard sizes: 20 pt text, a 15 mm UNDO.
     func testTheFlightsOwnMarkIsOfferedBackWithASecondaryUndo() throws {
         let manager = activePlan()
         let takeoff = Date().addingTimeInterval(-3600)
@@ -224,10 +225,12 @@ final class LegTimerTests: XCTestCase {
         XCTAssertEqual(offer.id, notice.id)
         XCTAssertEqual(offer.style, .outlined)
         XCTAssertTrue(offer.message.contains("LSGC"))
-        XCTAssertEqual(offer.style.messageSize, CockpitType.label)
-        XCTAssertEqual(offer.style.buttonHeight, CockpitTarget.transient)
-        XCTAssertGreaterThanOrEqual(CockpitTarget.transient, 78, "15 mm")
-        XCTAssertEqual(NavUndoOffer(message: "LSGC passed at 14:37", undo: {}).style, .filled)
+        XCTAssertEqual(NavUndoOffer(message: "LSGC passed at 14:37", undo: {}).style, .filled, "MARK")
+        XCTAssertEqual(NavUndoOffer(message: "Leg timer reset", undo: {}).style, .filled, "the reset")
+        XCTAssertEqual(NavUndoToast.textSize, CockpitType.label)
+        XCTAssertGreaterThanOrEqual(NavUndoToast.textSize, 17, "20 pt on the iPad, 17 on the phone")
+        XCTAssertEqual(NavUndoToast.buttonHeight, CockpitTarget.transient)
+        XCTAssertGreaterThanOrEqual(NavUndoToast.buttonHeight, 78, "15 mm")
     }
 
     // MARK: - Taken back, across a relaunch and at END FLIGHT (v6.0.1)

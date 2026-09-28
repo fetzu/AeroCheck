@@ -290,4 +290,44 @@ final class FlightPlanActivationTests: XCTestCase {
             }
         }
     }
+
+    /// ABANDON FLIGHT on circuits flown with a plan armed for a later flight: the plan stays armed,
+    /// exactly as it was. The same steps as the abandon alert in `FlightView`.
+    func testAbandoningCircuitsLeavesAPlanArmedForAnotherFlight() throws {
+        let datastore = makeTestDatastore()
+        let manager = makeTestPlanManager(datastore: datastore)
+        let appState = makeTestAppState(datastore: datastore)
+        let armed = plan()
+        manager.add(armed)
+        manager.activateFlightPlan(armed)
+        addTeardownBlock { @MainActor in manager.stopChronometer() }
+        let before = try encoded(manager.activeFlightPlan)
+        appState.startFlight(withAircraft: appState.settings.defaultAirplane, circuitMode: true)
+
+        let abandoned = appState.currentFlight
+        appState.cancelFlight()
+        manager.abandonFlownPlan(of: abandoned)
+
+        XCTAssertFalse(appState.isFlightActive)
+        XCTAssertEqual(try encoded(manager.activeFlightPlan), before, "still armed, exactly as it was")
+    }
+
+    /// ABANDON FLIGHT on a flight started with the plan ends its activation, as it always did.
+    func testAbandoningAFlightEndsTheActivationOfItsPlan() throws {
+        let datastore = makeTestDatastore()
+        let manager = makeTestPlanManager(datastore: datastore)
+        let appState = makeTestAppState(datastore: datastore)
+        let armed = plan()
+        manager.add(armed)
+        manager.activateFlightPlan(armed)
+        addTeardownBlock { @MainActor in manager.stopChronometer() }
+        appState.startFlight(withAircraft: appState.settings.defaultAirplane, flightPlanId: armed.id)
+
+        let abandoned = appState.currentFlight
+        appState.cancelFlight()
+        manager.abandonFlownPlan(of: abandoned)
+
+        XCTAssertNil(manager.activeFlightPlan)
+        XCTAssertEqual(manager.flightPlans.first { $0.id == armed.id }?.isActive, false)
+    }
 }

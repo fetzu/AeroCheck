@@ -303,12 +303,15 @@ struct FlightView: View {
                 // An abandoned flight did not happen: leaving it attached left the thread reading
                 // IN FLIGHT forever, its FLY chapter green, and its START FLIGHT button hidden —
                 // with no flight running. (device pass)
-                if let abandonedId = appState.currentFlight?.id {
+                let abandoned = appState.currentFlight
+                if let abandonedId = abandoned?.id {
                     threadManager.detachAbandonedFlight(abandonedId)
                 }
                 locationManager.stopTracking()
                 appState.cancelFlight()
-                flightPlanManager.deactivateFlightPlan()
+                // Only the plan this flight was started with: one left armed through circuits or a
+                // flight started without it stays armed. (v6.0.1)
+                flightPlanManager.abandonFlownPlan(of: abandoned)
             }
         } message: {
             Text(L10n.Alert.abandonFlightMessage)

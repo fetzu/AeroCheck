@@ -489,9 +489,23 @@ class FlightPlanManager: ObservableObject {
     /// flight it was armed for. (v6.0.1)
     func settleFlownPlan(_ flight: Flight, takeoff: Date?, landing: Date?,
                          landedAt field: TripPlanner.Aerodrome?) -> FlightPlan? {
-        guard let plan = activeFlightPlan, flight.flightPlanId == plan.id else { return nil }
+        guard let plan = plan(flownBy: flight) else { return nil }
         populateTimingFromFlight(plan.id, flight: flight, takeoff: takeoff, landing: landing, landedAt: field)
         return activeFlightPlan
+    }
+
+    /// ABANDON FLIGHT, the same rule as END FLIGHT: the plan the flight was started with ends its
+    /// activation, and any other armed plan stays armed, untouched. Nothing is written into either: an
+    /// abandoned flight did not happen. (v6.0.1)
+    func abandonFlownPlan(of flight: Flight?) {
+        guard plan(flownBy: flight) != nil else { return }
+        deactivateFlightPlan()
+    }
+
+    /// The active plan, when `flight` was started with it (`Flight.flightPlanId`).
+    private func plan(flownBy flight: Flight?) -> FlightPlan? {
+        guard let plan = activeFlightPlan, let flight, flight.flightPlanId == plan.id else { return nil }
+        return plan
     }
 
     /// Populate flight plan timing fields from a completed flight's data. Only the flight's own plan

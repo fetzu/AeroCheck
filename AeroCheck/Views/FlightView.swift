@@ -117,7 +117,8 @@ struct FlightView: View {
             metars: aviationWeatherService.ladderCandidates,
             station: windDataService.currentWindData,
             model: windsAloftService.surfaceCandidate(near: locationManager.getCurrentCoordinate()),
-            aircraftAltitudeM: locationManager.currentAltitudeMeters
+            aircraftAltitudeM: locationManager.currentAltitudeMeters,
+            now: Date()
         )
 
         // Get destination from flight plan if available (waypoint name is often the ICAO code)

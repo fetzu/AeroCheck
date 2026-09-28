@@ -68,9 +68,10 @@ struct BriefingWind: Equatable {
 
 /// Chooses the briefing wind from whatever sources happen to be available.
 ///
-/// Written as a pure rule over already-fetched candidates, with no networking and no clock, because
-/// this decides which of three differently-trustworthy numbers a pilot is shown before a departure
-/// or an approach. It is the kind of logic that should fail in a test rather than in a cockpit.
+/// Written as a pure rule over already-fetched candidates, with no networking and no clock of its own
+/// (the time comes in as `now`), because this decides which of three differently-trustworthy numbers
+/// a pilot is shown before a departure or an approach. It is the kind of logic that should fail in a
+/// test rather than in a cockpit.
 enum BriefingWindLadder {
 
     /// A METAR further than this is describing different air. Generous, because aerodromes are
@@ -83,6 +84,12 @@ enum BriefingWindLadder {
     /// Terrain, not distance, is what makes a nearby reading wrong in the Alps: a valley station
     /// and a ridge station 5 km apart report different winds. Applied to both measured sources.
     static let maxAltitudeDeltaM: Double = 500
+
+    /// A MeteoSwiss reading older than this is not the wind at the field any more: the feed is a
+    /// 10-minute mean republished every 10 minutes, so 20 minutes is two missed updates. The service
+    /// only dropped a reading when a fetch FAILED; one kept by a suspended timer, or an old
+    /// `reference_ts` in a successful fetch, was briefed as current. (UX-04)
+    static let maxStationAge: TimeInterval = 20 * 60
 
     /// A candidate observation from the aviation weather proxy.
     struct MetarCandidate: Equatable {
@@ -111,11 +118,13 @@ enum BriefingWindLadder {
     ///   - station: the MeteoSwiss reading, when one was fetched.
     ///   - model: Open-Meteo's surface wind, when the winds-aloft call returned one.
     ///   - aircraftAltitudeM: used to reject a reading taken at a very different elevation.
+    ///   - now: the time the briefing is for, to age the MeteoSwiss reading.
     static func select(
         metars: [MetarCandidate],
         station: WindData?,
         model: ModelCandidate?,
-        aircraftAltitudeM: Double?
+        aircraftAltitudeM: Double?,
+        now: Date = Date()
     ) -> BriefingWind? {
 
         // 1 — METAR. Nearest first, but only among reports that are close enough, plausibly at the
@@ -141,8 +150,11 @@ enum BriefingWindLadder {
         // 2 — MeteoSwiss. Denser than the METAR network over Switzerland, so it is a genuine
         // second rung rather than a formality: in the Alps the nearest station is routinely closer
         // and better matched than the nearest aerodrome.
+        // A stale reading is skipped like a distant one: the briefing falls to the next rung (or to
+        // "not available"), never shows an old wind as the current one. (UX-04)
         if let station,
            station.distanceMeters <= maxStationDistanceKm * 1000,
+           now.timeIntervalSince(station.timestamp) <= maxStationAge,
            altitudeIsPlausible(readingM: station.stationAltitudeMeters, aircraftM: aircraftAltitudeM) {
             return BriefingWind(
                 directionDeg: Int(station.directionDegrees.rounded()),

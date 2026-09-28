@@ -362,7 +362,7 @@ class AirportDataService: ObservableObject {
     ///     otherwise the closest fields float to the top (flight-plan builder feedback #2).
     ///   - types: when provided, only these airport types are returned. The builder passes
     ///     `AirportType.fixedWing` to drop heliports/seaplane/closed/balloon results (feedback #3 —
-    ///     see CLAUDE.md "Re-enabling heliports" to surface rotorcraft sites again).
+    ///     see `AirportType.fixedWing` to surface rotorcraft sites again).
     func searchAirports(
         query: String,
         limit: Int = 20,

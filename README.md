@@ -11,8 +11,7 @@ _NOTE: This app has been entirely vibe coded. If you hate that, feel free to clo
 
 An iPad-first application for students and licensed pilots. Works on both iPhone and iPad. This app guides pilots through all checklists during a flight, from preflight to shutdown, while recording GPS tracks and flight data.
 
-> **New in 4.0** — the biggest overhaul yet: a ground-up, iPad-first redesign with a cockpit-style in-flight HUD, a selectable theme engine (auto / day / sunlight / night), a map-first flight-plan builder, **Companion mode** (use an iPhone as a synced second screen for your iPad over Wi-Fi Aware, iOS 26+), an accessibility pass, and French localization of the main app UI (the widget, Live Activity, Watch
-app and the iOS permission prompts remain English-only). See the [4.0.0 release notes](https://github.com/fetzu/AeroCheck/releases/tag/4.0.0).
+> **New in 6.0** — the Cockpit now runs on iPad and iPhone alike (one screen, four fixed zones); a five-tab ground bar (Today · Plan · Logbook · Aircraft · Settings) replaces the old full-screen covers; a Flight Thread (PLAN → PREPARE → FLY → CLOSE) optionally brackets a flight with admin tasks. See the [6.0.0 release notes](https://github.com/fetzu/AeroCheck/releases/tag/6.0.0).
 
 ## Open Source with Premium Content
 
@@ -30,7 +29,8 @@ AéroCheck is open source under the MIT License. The app includes:
 ### Subscription Options
 
 - **Monthly**: Access to all premium aircraft checklists
-- **Yearly**: Same access with a 30% discount
+- **Yearly**: Same access at a discount over monthly (includes an introductory free-trial period)
+- **Lifetime**: One-time non-consumable purchase for permanent premium access, no recurring billing
 
 All subscription payments are handled securely through the Apple App Store. See the [API Server](../AeroCheck-server) for self-hosting options.
 
@@ -284,8 +284,7 @@ The app includes all 16 phases from the official checklists (same structure for 
 - Use "PREVIOUS" and "NEXT" buttons to navigate
 - Tap the phase indicator to jump to any checklist
 - Access speed reference anytime via "SPEEDS" button
-- **iPad**: Side panel shows all phases, flight times, and current status
-- **iPhone**: Tap the info button (i) to view flight info and phases in a sheet
+- Tap the labelled Menu button (header) to see flight info, recorded times, and END FLIGHT — the same sheet on iPad and iPhone
 
 ### Special Buttons
 
@@ -317,55 +316,10 @@ Tap on the briefing reminder text to open interactive briefings:
 
 ## File Structure
 
-```
-AeroCheck/
-├── AeroCheck.xcodeproj/
-│   └── project.pbxproj
-├── AeroCheck/
-│   ├── AeroCheckApp.swift           # App entry point
-│   ├── Info.plist                    # App configuration
-│   ├── Configuration.storekit        # StoreKit config for testing
-│   ├── Assets.xcassets/             # Images and colors
-│   ├── Models/
-│   │   ├── Aircraft.swift           # Bundled aircraft types & metadata
-│   │   ├── RemoteAircraft.swift     # Remote/API aircraft models
-│   │   ├── Flight.swift             # Flight data model & GPX
-│   │   ├── FlightPlan.swift         # Flight plan models
-│   │   ├── FlightPlanManager.swift  # Flight plan state (CRUD, route)
-│   │   ├── Checklist.swift          # Checklist phases & items
-│   │   ├── WT9ChecklistData.swift   # WT9 Dynamic checklist data (bundled)
-│   │   └── AppState.swift           # App state management (facade-decomposed)
-│   ├── Views/
-│   │   ├── ContentView.swift        # Root view
-│   │   ├── HomeView.swift           # Home (command rail + hero canvas + carousel)
-│   │   ├── FlightView.swift         # Active flight HUD
-│   │   ├── FlightLogView.swift      # Flight Log dashboard + detail
-│   │   ├── NavigationView.swift     # Full-screen navigation map + FREQ panel
-│   │   ├── FlightPlanningView.swift # Flight-plan list (master/detail)
-│   │   ├── FlightPlanMapBuilderView.swift # Map-first route builder
-│   │   ├── CompanionPairingView.swift / CompanionFlightView.swift # Companion mode
-│   │   ├── OnboardingView.swift     # First-run onboarding
-│   │   ├── SubscriptionView.swift   # Subscription / paywall
-│   │   ├── SettingsView.swift       # Settings hub
-│   │   └── Settings/                # 8 cockpit-styled settings sub-pages
-│   ├── Components/
-│   │   ├── DesignSystem.swift       # Theme engine, tokens, styles, Settings kit
-│   │   └── ChecklistView.swift      # Checklist display
-│   └── Services/
-│       ├── LocationManager.swift     # GPS tracking
-│       ├── OfflineMapManager.swift   # Offline ICAO/Segelflug chart caching
-│       ├── ElevationService.swift    # Terrain elevation (swisstopo CH + Open-Meteo)
-│       ├── AirspaceAnalyzer.swift    # On-route airspace/terrain conflict analysis
-│       ├── WindDataService.swift     # MeteoSwiss wind data (experimental)
-│       ├── CompanionConnectivityManager.swift # Companion mode (Wi-Fi Aware, iOS 26+)
-│       ├── SubscriptionManager.swift # StoreKit 2 subscription handling
-│       └── AircraftDataService.swift # Remote aircraft checklist API
-├── Shared/                          # Shared with Watch / Widget / Companion targets
-├── AeroCheckWidget/
-│   └── AeroCheckWidget.swift        # Home screen widgets
-├── AeroCheckWatch/                  # Apple Watch app
-└── README.md
-```
+See [CLAUDE.md → Project Structure](./CLAUDE.md#project-structure) for the layout: the directories
+and the files you would not find by name. The full tree is Xcode's project navigator; neither document
+keeps a copy of it any more, since every copy drifted (the last one predated the 6.0
+Cockpit/GroundView/Flight Thread rework and still listed files that no longer exist).
 
 ## Related Repositories
 
@@ -524,24 +478,8 @@ Target speeds vary by aircraft. Examples for WT9:
 
 ### Unit Tests
 
-```bash
-scripts/run-tests.sh                      # full suite
-scripts/run-tests.sh "iPhone 17"          # a different simulator, by name or UDID
-scripts/run-tests.sh "" ObstacleTests     # one test class
-scripts/run-tests.sh --keep-install       # don't reinstall the host app first
-```
-
-The script runs `xcodebuild build-for-testing`, then `test-without-building`, on one simulator, with a
-watchdog on each phase: a run ends with a verdict or a one-line reason, never an open-ended wait.
-Before the test phase it reinstalls the host app (keeping its data aside and putting it back). Two
-details cost time if you meet them cold:
-
-- Tests live on the **`AeroCheckTests`** scheme. The app scheme is **`AéroCheck`** (with the
-  accent) and has **no test action**, so a plain build never compiles the tests.
-- A run that seems to hang is one of two things. If the log stops during the build, the build service
-  has wedged: `killall SWBBuildService XCBBuildService` and retry. If it stops after "Testing started"
-  with no test case, the host app was launched without XCTest: `xcrun simctl uninstall` the app.
-  The script handles both; its header explains how to tell them apart.
+See CLAUDE.md → Build & Run for the full test-runner recipe and its two hang-diagnosis cases.
+Quick start: `scripts/run-tests.sh`.
 
 ### StoreKit Testing
 
@@ -557,14 +495,15 @@ The app includes a `Configuration.storekit` file for testing subscriptions local
 For testing against the development server:
 
 1. Run the server locally with Wrangler: `cd ../AeroCheck-server && npm run dev`
-2. Point the app at it by setting `API_BASE_URL` in `Secrets.xcconfig`:
+2. Point the app at it by setting `API_BASE_URL_SANDBOX` in `Secrets.xcconfig`:
    ```
-   API_BASE_URL = http://localhost:8787
+   API_BASE_URL_SANDBOX = http://localhost:8787
    ```
-   There is no URL to edit in `SubscriptionManager.swift` — it takes `APIConfig.baseURL`, which is
-   resolved from the `APIBaseURL` Info.plist key fed by that build setting. Editing the service
-   would also miss `AircraftDataService`, which resolves the same way. `APIConfig` allows
-   `localhost`/`127.0.0.1` over plain HTTP for exactly this.
+   A Debug build always takes the sandbox endpoint (`APIConfig.usesSandboxEndpoint`), so setting
+   `API_BASE_URL` alone changes nothing locally. There is no URL to edit in `SubscriptionManager.swift`
+   either: it takes `APIConfig.baseURL`, resolved from the `APIBaseURLSandbox` Info.plist key fed by
+   that build setting, and editing the service would also miss `AircraftDataService`, which resolves
+   the same way. `APIConfig` allows `localhost`/`127.0.0.1` over plain HTTP for exactly this.
 3. Test subscription verification and checklist fetching
 
 ## Privacy

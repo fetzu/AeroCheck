@@ -5,8 +5,14 @@
 # safe if it is maintained. Dependabot keeps the SHAs current (and annotates each bump with the
 # version it corresponds to) so pinning does not decay into running a stale, unpatched action.
 #
-# The app has no package-manager dependencies to track (no SPM, no CocoaPods, no vendored source —
-# a deliberate property worth keeping), so github-actions is the only ecosystem here.
+# The app (main) has no package-manager dependencies to track (no SPM, no CocoaPods, no vendored
+# source — a deliberate property worth keeping), so github-actions is the only ecosystem there.
+#
+# S9-31 / DP9-ACT-05/06/08: `website` is a different line of this same repo (the Astro marketing
+# site, built via `npm ci && npm run build` in its own deploy.yml) and was getting no Dependabot
+# coverage at all — neither its workflow's Actions nor its ~315-package npm tree. Dependabot only
+# scans a repo's default branch unless told otherwise, so both ecosystems need an explicit
+# `target-branch: website` entry here on main.
 version: 2
 updates:
   - package-ecosystem: "github-actions"
@@ -15,3 +21,25 @@ updates:
       interval: "weekly"
     commit-message:
       prefix: "ci"
+
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    target-branch: "website"
+    schedule:
+      interval: "weekly"
+    commit-message:
+      # website commits start with "website:" (repo convention)
+      prefix: "website"
+
+  - package-ecosystem: "npm"
+    directory: "/"
+    target-branch: "website"
+    schedule:
+      interval: "weekly"
+    groups:
+      astro:
+        patterns:
+          - "astro"
+          - "@astrojs/*"
+    commit-message:
+      prefix: "website"

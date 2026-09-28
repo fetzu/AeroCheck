@@ -11,6 +11,58 @@ enum SyncRecordType: String {
     case flightTrack = "FlightTrack"
 }
 
+/// The part of `CKSyncEngine` that `SyncManager` drives, so the switch's start and stop, and what
+/// it queues, can be tested without an iCloud account. `CKSyncEngine` is the only real one.
+protocol SyncEngineDriving: AnyObject, Sendable {
+    func queue(_ changes: [CKSyncEngine.PendingRecordZoneChange])
+    func unqueue(_ changes: [CKSyncEngine.PendingRecordZoneChange])
+    func queue(_ changes: [CKSyncEngine.PendingDatabaseChange])
+    func fetch() async throws
+    func send() async throws
+}
+
+extension CKSyncEngine: SyncEngineDriving {
+    func queue(_ changes: [CKSyncEngine.PendingRecordZoneChange]) { state.add(pendingRecordZoneChanges: changes) }
+    func unqueue(_ changes: [CKSyncEngine.PendingRecordZoneChange]) { state.remove(pendingRecordZoneChanges: changes) }
+    func queue(_ changes: [CKSyncEngine.PendingDatabaseChange]) { state.add(pendingDatabaseChanges: changes) }
+    func fetch() async throws { try await fetchChanges() }
+    func send() async throws { try await sendChanges() }
+}
+
+/// Where `SyncManager` gets its account status and its engine: CloudKit (`CloudKitSyncBackend`), or
+/// a stand-in in the tests.
+@MainActor
+protocol SyncBackend: AnyObject {
+    /// Throws when CloudKit is not configured (no entitlement, no container).
+    func accountStatus() async throws -> CKAccountStatus
+    /// An engine on the private database, resuming from `state`.
+    func makeEngine(state: CKSyncEngine.State.Serialization?, delegate: SyncEngineDelegate) -> SyncEngineDriving
+}
+
+/// The app's CloudKit container, created anew by each start: at launch with the switch on, when it
+/// turns on, after an iCloud account change.
+@MainActor
+final class CloudKitSyncBackend: SyncBackend {
+    private let identifier: String
+    private var container: CKContainer?
+
+    init(identifier: String) {
+        self.identifier = identifier
+    }
+
+    func accountStatus() async throws -> CKAccountStatus {
+        let container = CKContainer(identifier: identifier)
+        self.container = container
+        return try await container.accountStatus()
+    }
+
+    func makeEngine(state: CKSyncEngine.State.Serialization?, delegate: SyncEngineDelegate) -> SyncEngineDriving {
+        let container = self.container ?? CKContainer(identifier: identifier)
+        return CKSyncEngine(CKSyncEngine.Configuration(database: container.privateCloudDatabase,
+                                                       stateSerialization: state, delegate: delegate))
+    }
+}
+
 /// Manages iCloud sync using CKSyncEngine (iOS 17+)
 @MainActor
 class SyncManager: ObservableObject {
@@ -23,20 +75,26 @@ class SyncManager: ObservableObject {
     @Published private(set) var isSyncing: Bool = false
     @Published private(set) var lastSyncDate: Date?
     @Published private(set) var syncError: String?
+    /// The switch. AppState sets it on every settings save; only a change acts.
+    ///
+    /// On: CloudKit comes up right away. It used to wait for the next launch: the container was only
+    /// resolved at launch, and only with the switch already on, so a switch turned on mid-session
+    /// synced nothing until the app was relaunched. Off: the engine stops (`stopSync`).
     @Published var isSyncEnabled: Bool {
         didSet {
-            UserDefaults.standard.set(isSyncEnabled, forKey: syncEnabledKey)
+            defaults.set(isSyncEnabled, forKey: syncEnabledKey)
+            guard isSyncEnabled != oldValue else { return }
             if isSyncEnabled {
-                initializeSyncEngine()
+                startSync()
             } else {
-                shutdownSyncEngine()
+                stopSync()
             }
         }
     }
 
     // MARK: - CloudKit Configuration
 
-    private let containerIdentifier = "iCloud.com.fetzu.aerocheck"
+    private static let containerIdentifier = "iCloud.com.fetzu.aerocheck"
     private let zoneName = "AeroCheckZone"
     private let syncEnabledKey = "iCloudSyncEnabled"
     private let syncStateKey = "syncEngineState"
@@ -71,20 +129,34 @@ class SyncManager: ObservableObject {
 
     // MARK: - Private Properties
 
-    private var container: CKContainer?
-    private var database: CKDatabase?
-    private var syncEngine: CKSyncEngine?
+    /// Where this device keeps its sync state. `.standard` for the app; a suite of its own in tests,
+    /// since the test host IS the app and `.standard` holds its real change tokens and fingerprints.
+    private let defaults: UserDefaults
+    private let backend: SyncBackend
+    private var syncEngine: SyncEngineDriving?
     private var syncEngineDelegate: SyncEngineDelegate?
     private var recordZone: CKRecordZone?
 
-    /// Whether CloudKit is available (entitlements configured)
-    private var isCloudKitAvailable: Bool = false
+    /// The engine start in progress, so a second trigger (the switch, an account change) joins it
+    /// instead of building a second engine.
+    private var engineStart: Task<Void, Never>?
 
-    /// Callback when settings are updated from sync
-    var onSettingsUpdated: ((AppSettings) -> Void)?
+    /// Set when the engine came up but its first fetch failed: the catch-up (`queueWhatCloudKitLacks`)
+    /// waits for a fetch that succeeds, or it would re-upload records CloudKit already holds.
+    private var catchUpOwed = false
 
-    /// Callback when flights are updated from sync
-    var onFlightsUpdated: (([Flight]) -> Void)?
+    /// Callback when settings are updated from sync. Awaited, like `onFlightsUpdated`, so an event is
+    /// applied before the next one, and before the catch-up reads the settings.
+    var onSettingsUpdated: (@MainActor (AppSettings) async -> Void)?
+
+    /// Callback when flights are updated from sync. Awaited: the catch-up after the first fetch must
+    /// see the logbook with the fetched changes applied, or it would send back a flight another
+    /// device has just deleted or edited.
+    var onFlightsUpdated: (@MainActor ([Flight]) async -> Void)?
+
+    /// What this device holds, for the catch-up when the engine comes up: the logbook and the
+    /// settings as they are now. AppState provides it; nil queues nothing.
+    var localSnapshot: (@MainActor () async -> (flights: [Flight], settings: AppSettings)?)?
 
     /// Callback when a sync conflict was resolved (or could not be), so the UI can surface it
     /// instead of the conflict being silent. (ARCH-02)
@@ -109,186 +181,210 @@ class SyncManager: ObservableObject {
     /// Track whether the settings record has been created on the server
     var settingsRecordExists: Bool = false
     private var pendingFlights: [UUID: Flight] = [:]  // Map of flight ID to flight data
-    private var pendingFlightDeletions: Set<UUID> = []
+
+    private let owedFlightDeletionsKey = "owedFlightDeletions_v1"
+    private let settingsOwedKey = "settingsOwedToCloudKit_v1"
+
+    /// Flights deleted here that CloudKit has not confirmed deleting yet. Persisted, and sent again
+    /// whenever the engine comes up.
+    ///
+    /// A delete made while no engine was running (the seconds CloudKit takes to come up, a start
+    /// that failed) used to be dropped: the flight stayed in CloudKit and on every other device.
+    /// Deletes made while the switch is OFF are not recorded (AppState only calls with it on): the
+    /// file is still in iCloud Drive then, and this device would upload it again. They wait for
+    /// the deletion records (6.1, review design 94 §2.5), which will call this whatever the switch.
+    private(set) var owedFlightDeletions: Set<UUID> {
+        get { Set((defaults.stringArray(forKey: owedFlightDeletionsKey) ?? []).compactMap(UUID.init(uuidString:))) }
+        set {
+            if newValue.isEmpty {
+                defaults.removeObject(forKey: owedFlightDeletionsKey)
+            } else {
+                defaults.set(newValue.map(\.uuidString).sorted(), forKey: owedFlightDeletionsKey)
+            }
+        }
+    }
+
+    /// Settings saved here that CloudKit has not confirmed yet. `pendingSettingsChange` is memory
+    /// only, so a save made before the engine was up (turning the switch on is one) or not sent
+    /// before the app quit was never sent. The catch-up sends the settings as they are then.
+    private(set) var settingsOwed: Bool {
+        get { defaults.bool(forKey: settingsOwedKey) }
+        set { defaults.set(newValue, forKey: settingsOwedKey) }
+    }
 
     /// Cached settings record to preserve change tag for updates
     var cachedSettingsRecord: CKRecord? {
         get {
-            guard let data = UserDefaults.standard.data(forKey: settingsRecordKey) else { return nil }
+            guard let data = defaults.data(forKey: settingsRecordKey) else { return nil }
             return try? NSKeyedUnarchiver.unarchivedObject(ofClass: CKRecord.self, from: data)
         }
         set {
             if let record = newValue,
                let data = try? NSKeyedArchiver.archivedData(withRootObject: record, requiringSecureCoding: true) {
-                UserDefaults.standard.set(data, forKey: settingsRecordKey)
+                defaults.set(data, forKey: settingsRecordKey)
             }
         }
     }
 
     // MARK: - Initialization
 
-    private init() {
+    private convenience init() {
+        self.init(defaults: .standard, backend: CloudKitSyncBackend(identifier: Self.containerIdentifier))
         // SEC-C27: reclaim staged CKAsset payloads orphaned by a previous session (crash, or a
         // permanently-failed upload). Cheap, off the hot path, and bounded by an age cutoff so it
         // can never touch an upload in progress.
         Task.detached(priority: .utility) { SyncManager.sweepStagedFlightAssets() }
+    }
+
+    /// `defaults` and `backend` are injectable for the tests; the app uses `shared`.
+    init(defaults: UserDefaults, backend: SyncBackend) {
+        self.defaults = defaults
+        self.backend = backend
 
         // Load sync preference (default to enabled)
-        self.isSyncEnabled = UserDefaults.standard.object(forKey: syncEnabledKey) as? Bool ?? true
+        self.isSyncEnabled = defaults.object(forKey: syncEnabledKey) as? Bool ?? true
 
         // Load last sync date
-        self.lastSyncDate = UserDefaults.standard.object(forKey: lastSyncDateKey) as? Date
+        self.lastSyncDate = defaults.object(forKey: lastSyncDateKey) as? Date
 
         // Load whether settings record exists on server
-        self.settingsRecordExists = UserDefaults.standard.bool(forKey: settingsRecordExistsKey)
+        self.settingsRecordExists = defaults.bool(forKey: settingsRecordExistsKey)
 
         // Load the synced-flight fingerprint maps (skip-unchanged guards for the send side)
-        if let data = UserDefaults.standard.data(forKey: lastSyncedModifiedAtKey),
+        if let data = defaults.data(forKey: lastSyncedModifiedAtKey),
            let map = try? JSONDecoder().decode([String: Date].self, from: data) {
             self.lastSyncedModifiedAt = map
         }
-        if let data = UserDefaults.standard.data(forKey: lastSyncedTrackCountKey),
+        if let data = defaults.data(forKey: lastSyncedTrackCountKey),
            let map = try? JSONDecoder().decode([String: Int].self, from: data) {
             self.lastSyncedTrackCount = map
         }
         self.recordSystemFields =
-            UserDefaults.standard.dictionary(forKey: recordSystemFieldsKey) as? [String: Data] ?? [:]
+            defaults.dictionary(forKey: recordSystemFieldsKey) as? [String: Data] ?? [:]
 
-        // Defer CloudKit initialization to avoid blocking app startup
-        // Use detached task with low priority to not compete with UI rendering
-        if isSyncEnabled {
-            Task.detached(priority: .utility) { [weak self] in
-                await self?.initializeCloudKitWithTimeout()
-            }
+        // CloudKit comes up in a task of its own, so it never holds up the launch.
+        if isSyncEnabled { startSync() }
+    }
+
+    // MARK: - Sync Engine Lifecycle
+
+    /// Brings CloudKit up: at launch, when the switch turns on, after an iCloud sign-in. Joins a
+    /// start already under way; does nothing while an engine is running.
+    ///
+    /// The container and the account are resolved here every time, not once at launch: a switch
+    /// turned on mid-session (or a launch whose account check failed) found no container and never
+    /// started the engine before the next launch.
+    private func startSync() {
+        guard isSyncEnabled, syncEngine == nil, engineStart == nil else { return }
+        engineStart = Task(priority: .utility) { [weak self] in
+            await self?.initializeCloudKit()
+            // A start cancelled by `stopSync` leaves the field to whatever replaced it.
+            if !Task.isCancelled { self?.engineStart = nil }
         }
     }
 
-    /// Initialize CloudKit with a timeout to prevent blocking app startup
-    private func initializeCloudKitWithTimeout() async {
-        // Use a timeout to prevent indefinite blocking on poor network
-        let timeoutTask = Task {
-            try? await Task.sleep(nanoseconds: 10_000_000_000) // 10 seconds
-            return false
-        }
-
-        let initTask = Task { () -> Bool in
-            await initializeCloudKit()
-            return true
-        }
-
-        // Wait for whichever completes first
-        let completed = await withTaskGroup(of: Bool.self) { group in
-            group.addTask { await initTask.value }
-            group.addTask { await timeoutTask.value }
-
-            if let result = await group.next() {
-                group.cancelAll()
-                return result
-            }
-            return false
-        }
-
-        if !completed {
-            AppLog.sync.debugLine("CloudKit initialization timed out - will retry later")
-        }
+    /// Stops the engine: the switch went off. Cancels a start under way and the sync in flight,
+    /// and drops the engine, so nothing more is sent or fetched. The engine's saved state (change
+    /// tokens, its pending changes) is kept: turning the switch back on resumes from it, and
+    /// receives what other devices changed meanwhile.
+    private func stopSync() {
+        engineStart?.cancel()
+        engineStart = nil
+        inFlightSync?.cancel()
+        inFlightSync = nil
+        catchUpOwed = false
+        shutdownSyncEngine()
+        isSyncing = false
     }
 
-    /// Initialize CloudKit container safely
+    /// Checks the account, then starts the engine when it is available.
     private func initializeCloudKit() async {
         do {
-            // Try to create the container - this will fail if entitlements aren't configured
-            let testContainer = CKContainer(identifier: containerIdentifier)
-
-            // Check if we can access the account status (this validates the configuration)
-            let status = try await testContainer.accountStatus()
-
-            // If we get here, CloudKit is available
-            self.container = testContainer
-            self.database = testContainer.privateCloudDatabase
-            self.recordZone = CKRecordZone(zoneName: zoneName)
-            self.isCloudKitAvailable = true
-
+            let status = try await backend.accountStatus()
+            guard !Task.isCancelled, isSyncEnabled else { return }
             AppLog.sync.debugLine("CloudKit initialized successfully, account status: \(status)")
-
-            if status == .available {
-                initializeSyncEngine()
-            } else {
+            guard status == .available else {
                 syncError = "iCloud account not available"
                 AppLog.sync.debugLine("iCloud account not available: \(status)")
+                return
             }
+            await startEngine()
         } catch {
-            isCloudKitAvailable = false
             syncError = "CloudKit not configured"
             AppLog.sync.debugLine("CloudKit not available: \(error.localizedDescription)")
             AppLog.sync.debugLine("To enable iCloud sync, configure CloudKit in Xcode's Signing & Capabilities")
         }
     }
 
-    // MARK: - Sync Engine Lifecycle
+    /// Builds the engine from its saved state, then: the zone, the deletes still owed, the first
+    /// fetch, and the catch-up.
+    private func startEngine() async {
+        guard syncEngine == nil, isSyncEnabled, !Task.isCancelled else { return }
+        let zone = recordZone ?? CKRecordZone(zoneName: zoneName)
+        recordZone = zone
+        let engine = backend.makeEngine(state: loadSyncState(), delegate: createDelegate())
+        syncEngine = engine
+        syncError = nil
+        AppLog.sync.debugLine("Sync engine initialized")
 
-    private func initializeSyncEngine() {
-        guard syncEngine == nil, isCloudKitAvailable else { return }
-        guard let container = container, let database = database else {
-            AppLog.sync.debugLine("Cannot initialize sync engine: CloudKit not available")
-            return
+        engine.queue([.saveZone(zone)])
+        let owed = owedFlightDeletions
+        if !owed.isEmpty {
+            engine.queue(owed.sorted { $0.uuidString < $1.uuidString }.flatMap { deletions(for: $0, in: zone) })
+            AppLog.sync.debugLine("Re-queued \(owed.count) flight deletion(s) not confirmed yet")
         }
 
-        Task {
-            do {
-                // Check iCloud account status
-                let status = try await container.accountStatus()
-                guard status == .available else {
-                    syncError = "iCloud account not available"
-                    AppLog.sync.debugLine("iCloud account not available: \(status)")
-                    return
-                }
-
-                // Load persisted sync state
-                let state = loadSyncState()
-
-                // Create sync engine configuration
-                let configuration = CKSyncEngine.Configuration(
-                    database: database,
-                    stateSerialization: state,
-                    delegate: createDelegate()
-                )
-
-                // Initialize the sync engine
-                let engine = CKSyncEngine(configuration)
-                self.syncEngine = engine
-
-                AppLog.sync.debugLine("Sync engine initialized")
-
-                // Ensure zone exists
-                await ensureZoneExists()
-
-                // Pull existing records on launch. CKSyncEngine only auto-syncs to SEND pending local
-                // changes (and to fetch in response to a remote push); a fresh install has an empty
-                // local store and nothing to send, so without this explicit fetch the logbook stays
-                // empty until a push happens to arrive — or the user taps Sync Now. (fresh-install fix)
-                await performInitialFetch(using: engine)
-
-            } catch {
-                syncError = "Failed to initialize sync: \(error.localizedDescription)"
-                AppLog.sync.debugLine("Failed to initialize: \(error)")
-            }
+        // Pull existing records on launch. CKSyncEngine only auto-syncs to SEND pending local
+        // changes (and to fetch in response to a remote push); a fresh install has an empty
+        // local store and nothing to send, so without this explicit fetch the logbook stays
+        // empty until a push happens to arrive — or the user taps Sync Now. (fresh-install fix)
+        let fetched = await performInitialFetch(using: engine)
+        guard syncEngine === engine, isSyncEnabled, !Task.isCancelled else { return }
+        if fetched {
+            await queueWhatCloudKitLacks()
+        } else {
+            catchUpOwed = true
         }
     }
 
     /// One-shot fetch when the engine comes up, so records that already exist on the server (e.g. a
     /// logbook synced from another device, or this device's own pre-reinstall data) land without
     /// waiting for a remote push or a manual Sync Now. (fresh-install fix)
-    private func performInitialFetch(using engine: CKSyncEngine) async {
+    private func performInitialFetch(using engine: SyncEngineDriving) async -> Bool {
         isSyncing = true
         defer { isSyncing = false }
         do {
-            try await engine.fetchChanges()
+            try await engine.fetch()
             lastSyncDate = Date()
-            UserDefaults.standard.set(lastSyncDate, forKey: lastSyncDateKey)
+            defaults.set(lastSyncDate, forKey: lastSyncDateKey)
             AppLog.sync.debugLine("Initial fetch on launch completed")
+            return true
         } catch {
             AppLog.sync.debugLine("Initial fetch on launch failed: \(error)")
+            return false
         }
+    }
+
+    /// Queues what this device holds that CloudKit lacks: every flight not confirmed-sent as it is
+    /// now, and the settings when a save of them is still owed. Runs each time the engine comes up,
+    /// after its first fetch.
+    ///
+    /// Nothing else did it. `syncAllFlights` ran only on an import, so flights recorded while the
+    /// switch was off (or while CloudKit was down, or whose queued save was lost with the app: the
+    /// flight to send lives in memory) never reached CloudKit until edited.
+    ///
+    /// Nothing is sent twice: `syncAllFlights` skips a flight whose `modifiedAt` and track count
+    /// match what CloudKit confirmed, and the fetch before this marks every record it received
+    /// that way. Hence the order: the fetch's events are applied first (`eventsHandled`), or this
+    /// would send back what the fetch just brought, or a flight another device just deleted.
+    private func queueWhatCloudKitLacks() async {
+        catchUpOwed = false
+        await syncEngineDelegate?.eventsHandled()
+        guard isSyncEnabled, syncEngine != nil, let snapshot = await localSnapshot?() else { return }
+        // The switch may have gone off while the snapshot waited on the logbook load.
+        guard isSyncEnabled, syncEngine != nil else { return }
+        syncAllFlights(snapshot.flights)
+        if settingsOwed { syncSettings(snapshot.settings) }
     }
 
     private func shutdownSyncEngine() {
@@ -296,6 +392,18 @@ class SyncManager: ObservableObject {
         syncEngineDelegate = nil
         AppLog.sync.debugLine("Sync engine shutdown")
     }
+
+    /// Whether an engine is running. For the tests and the logs.
+    var isEngineRunning: Bool { syncEngine != nil }
+
+    /// Whether `delegate` is the running engine's. One delegate is built per engine.
+    func isCurrent(_ delegate: SyncEngineDelegate) -> Bool {
+        syncEngine != nil && syncEngineDelegate === delegate
+    }
+
+    /// The start under way, if any: the account check, the engine, its first fetch and the
+    /// catch-up. For the tests, which await it.
+    var engineStartTask: Task<Void, Never>? { engineStart }
 
     /// Discards every piece of account-scoped sync state. (RES-05)
     ///
@@ -307,13 +415,15 @@ class SyncManager: ObservableObject {
     /// fingerprints in particular would make `syncAllFlights` skip flights as "already synced" that
     /// the new account has never seen, so the pilot's logbook would silently never upload.
     private func clearAccountScopedState() {
-        UserDefaults.standard.removeObject(forKey: syncStateKey)
-        UserDefaults.standard.removeObject(forKey: settingsRecordKey)
-        UserDefaults.standard.removeObject(forKey: settingsRecordExistsKey)
-        UserDefaults.standard.removeObject(forKey: lastSyncedModifiedAtKey)
-        UserDefaults.standard.removeObject(forKey: lastSyncedTrackCountKey)
-        UserDefaults.standard.removeObject(forKey: recordSystemFieldsKey)
-        UserDefaults.standard.removeObject(forKey: lastSyncDateKey)
+        defaults.removeObject(forKey: syncStateKey)
+        defaults.removeObject(forKey: settingsRecordKey)
+        defaults.removeObject(forKey: settingsRecordExistsKey)
+        defaults.removeObject(forKey: lastSyncedModifiedAtKey)
+        defaults.removeObject(forKey: lastSyncedTrackCountKey)
+        defaults.removeObject(forKey: recordSystemFieldsKey)
+        defaults.removeObject(forKey: lastSyncDateKey)
+        // Deletes of the previous account's records: that account is not this one.
+        owedFlightDeletions = []
 
         settingsRecordExists = false
         lastSyncedModifiedAt = [:]
@@ -322,7 +432,6 @@ class SyncManager: ObservableObject {
         lastSyncDate = nil
         pendingSettingsChange = nil
         pendingFlights = [:]
-        pendingFlightDeletions = []
         AppLog.sync.debugLine("Cleared account-scoped sync state")
     }
 
@@ -332,19 +441,10 @@ class SyncManager: ObservableObject {
         return delegate
     }
 
-    // MARK: - Zone Management
-
-    private func ensureZoneExists() async {
-        guard let engine = syncEngine, let recordZone = recordZone else { return }
-
-        // Add pending zone creation
-        engine.state.add(pendingDatabaseChanges: [.saveZone(recordZone)])
-    }
-
     // MARK: - State Persistence
 
     private func loadSyncState() -> CKSyncEngine.State.Serialization? {
-        guard let data = UserDefaults.standard.data(forKey: syncStateKey) else {
+        guard let data = defaults.data(forKey: syncStateKey) else {
             return nil
         }
 
@@ -361,7 +461,7 @@ class SyncManager: ObservableObject {
     func saveSyncState(_ state: CKSyncEngine.State.Serialization) {
         do {
             let data = try JSONEncoder().encode(state)
-            UserDefaults.standard.set(data, forKey: syncStateKey)
+            defaults.set(data, forKey: syncStateKey)
         } catch {
             AppLog.sync.debugLine("Failed to save sync state: \(error)")
         }
@@ -369,14 +469,17 @@ class SyncManager: ObservableObject {
 
     // MARK: - Sync Operations
 
-    /// Sync settings to iCloud
+    /// Sync settings to iCloud. Owed (`settingsOwed`) until CloudKit confirms the record, so a save
+    /// made before the engine is up (turning the switch on is one) is sent once it is.
     func syncSettings(_ settings: AppSettings) {
-        guard isSyncEnabled, let engine = syncEngine, let recordZone = recordZone else { return }
+        guard isSyncEnabled else { return }
 
         pendingSettingsChange = settings
+        settingsOwed = true
+        guard let engine = syncEngine, let recordZone = recordZone else { return }
 
         let recordID = CKRecord.ID(recordName: "settings", zoneID: recordZone.zoneID)
-        engine.state.add(pendingRecordZoneChanges: [.saveRecord(recordID)])
+        engine.queue([.saveRecord(recordID)])
 
         AppLog.sync.debugLine("Queued settings for sync")
         
@@ -410,7 +513,7 @@ class SyncManager: ObservableObject {
 
         let changes = pendingChanges(for: flight, in: recordZone)
         guard !changes.isEmpty else { return }
-        engine.state.add(pendingRecordZoneChanges: changes)
+        engine.queue(changes)
         AppLog.sync.debugLine("Queued flight \(flight.id) for sync (\(changes.count) record(s))")
     }
 
@@ -425,26 +528,46 @@ class SyncManager: ObservableObject {
             changes.append(contentsOf: pendingChanges(for: flight, in: recordZone))
         }
         guard !changes.isEmpty else { return }
-        engine.state.add(pendingRecordZoneChanges: changes)
+        engine.queue(changes)
         AppLog.sync.debugLine("Queued \(changes.count) record(s) for \(flights.count) flights")
     }
 
-    /// Delete a flight from iCloud
+    /// Delete a flight from iCloud. Owed (`owedFlightDeletions`) until CloudKit confirms it: sent
+    /// now when the engine runs, and again whenever it comes up, so a delete made before it was up
+    /// is no longer dropped.
     func deleteFlight(_ flightId: UUID) {
-        guard isSyncEnabled, let engine = syncEngine, let recordZone = recordZone else { return }
+        guard isSyncEnabled else { return }
 
         unmarkFlightSynced(flightId)   // so a future flight reusing this id re-uploads
         // Drop the stored change tag too: once the delete lands the record no longer exists, and a
         // stale tag would make a later insert look like an update to something that is gone.
         forgetSystemFields(forFlight: flightId)
-        pendingFlightDeletions.insert(flightId)
+        // A save still queued for it would re-create the record the delete removes.
+        clearPendingFlight(flightId)
+        owedFlightDeletions.insert(flightId)
 
-        // Delete both the metadata record and its separate track record.
-        let metaID = CKRecord.ID(recordName: flightId.uuidString, zoneID: recordZone.zoneID)
-        let trackID = CKRecord.ID(recordName: Self.trackRecordName(flightId), zoneID: recordZone.zoneID)
-        engine.state.add(pendingRecordZoneChanges: [.deleteRecord(metaID), .deleteRecord(trackID)])
+        guard let engine = syncEngine, let recordZone = recordZone else {
+            AppLog.sync.debugLine("Flight \(flightId) deletion kept for when CloudKit is up")
+            return
+        }
+        engine.unqueue(saves(for: flightId, in: recordZone))
+        engine.queue(deletions(for: flightId, in: recordZone))
 
         AppLog.sync.debugLine("Queued flight \(flightId) (+ track) for deletion")
+    }
+
+    /// The two records of a flight: its metadata and its separate track.
+    private func recordIDs(for flightId: UUID, in zone: CKRecordZone) -> [CKRecord.ID] {
+        [CKRecord.ID(recordName: flightId.uuidString, zoneID: zone.zoneID),
+         CKRecord.ID(recordName: Self.trackRecordName(flightId), zoneID: zone.zoneID)]
+    }
+
+    private func deletions(for flightId: UUID, in zone: CKRecordZone) -> [CKSyncEngine.PendingRecordZoneChange] {
+        recordIDs(for: flightId, in: zone).map { .deleteRecord($0) }
+    }
+
+    private func saves(for flightId: UUID, in zone: CKRecordZone) -> [CKSyncEngine.PendingRecordZoneChange] {
+        recordIDs(for: flightId, in: zone).map { .saveRecord($0) }
     }
 
     /// The sync currently in flight, so concurrent callers join it instead of starting another. (CQ-06)
@@ -455,8 +578,11 @@ class SyncManager: ObservableObject {
     /// Local flights and settings are deliberately NOT deleted: signing out of iCloud must not cost
     /// a pilot their logbook. The data stays on device and re-uploads if they sign back in.
     func stopSyncForSignOut() {
+        engineStart?.cancel()
+        engineStart = nil
         inFlightSync?.cancel()
         inFlightSync = nil
+        catchUpOwed = false
         shutdownSyncEngine()
         clearAccountScopedState()
         isSyncing = false
@@ -468,15 +594,10 @@ class SyncManager: ObservableObject {
     /// cached token, change tag and fingerprint is stale. It is false for `.signIn`, which resumes
     /// the account the state already belongs to.
     func restartSyncForAccountChange(clearState: Bool) {
-        inFlightSync?.cancel()
-        inFlightSync = nil
-        shutdownSyncEngine()
+        stopSync()
         if clearState { clearAccountScopedState() }
-        isSyncing = false
-        guard isSyncEnabled else { return }
-        Task { [weak self] in
-            await self?.initializeCloudKit()
-        }
+        // The catch-up then sends the logbook to the new account: its fingerprints were cleared.
+        startSync()
     }
 
     /// Force a sync now.
@@ -514,10 +635,12 @@ class SyncManager: ObservableObject {
         syncError = nil
 
         do {
-            try await engine.fetchChanges()
-            try await engine.sendChanges()
+            try await engine.fetch()
+            // The engine came up but its first fetch failed: this one stands in for it.
+            if catchUpOwed { await queueWhatCloudKitLacks() }
+            try await engine.send()
             lastSyncDate = Date()
-            UserDefaults.standard.set(lastSyncDate, forKey: lastSyncDateKey)
+            defaults.set(lastSyncDate, forKey: lastSyncDateKey)
             AppLog.sync.debugLine("Manual sync completed")
         } catch {
             syncError = "Sync failed: \(error.localizedDescription)"
@@ -899,8 +1022,16 @@ class SyncManager: ObservableObject {
         return pendingSettingsChange
     }
 
+    /// The settings record was confirmed (or dropped): nothing is owed any more.
     func clearPendingSettings() {
         pendingSettingsChange = nil
+        settingsOwed = false
+    }
+
+    /// The server holds a settings record already (a conflict told us).
+    func markSettingsRecordExists() {
+        settingsRecordExists = true
+        defaults.set(true, forKey: settingsRecordExistsKey)
     }
 
     func getPendingFlight(for id: UUID) -> Flight? {
@@ -911,8 +1042,10 @@ class SyncManager: ObservableObject {
         pendingFlights.removeValue(forKey: id)
     }
 
+    /// CloudKit confirmed the delete, or the record is gone anyway.
     func clearPendingFlightDeletion(_ id: UUID) {
-        pendingFlightDeletions.remove(id)
+        guard owedFlightDeletions.contains(id) else { return }
+        owedFlightDeletions.remove(id)
     }
 
     /// Record a flight's confirmed-synced metadata fingerprint in memory (caller persists once per
@@ -937,23 +1070,23 @@ class SyncManager: ObservableObject {
 
     func persistSyncedFingerprints() {
         if let data = try? JSONEncoder().encode(lastSyncedModifiedAt) {
-            UserDefaults.standard.set(data, forKey: lastSyncedModifiedAtKey)
+            defaults.set(data, forKey: lastSyncedModifiedAtKey)
         }
         if let data = try? JSONEncoder().encode(lastSyncedTrackCount) {
-            UserDefaults.standard.set(data, forKey: lastSyncedTrackCountKey)
+            defaults.set(data, forKey: lastSyncedTrackCountKey)
         }
     }
 
     /// Applies a conflict-merged flight to local state and re-queues it so the cloud converges on
     /// the merged result. Best-effort CloudKit conflict resolution. (ARCH-02)
-    func resolveFlightConflict(_ merged: Flight) {
+    func resolveFlightConflict(_ merged: Flight) async {
         var flights = DataPersistenceManager.shared.loadFlights()
         if let index = flights.firstIndex(where: { $0.id == merged.id }) {
             flights[index] = merged
         } else {
             flights.append(merged)
         }
-        onFlightsUpdated?(flights)
+        await onFlightsUpdated?(flights)
         syncFlight(merged, allFlights: flights)
     }
 
@@ -983,13 +1116,13 @@ class SyncManager: ObservableObject {
     }
 
     private func persistRecordSystemFields() {
-        UserDefaults.standard.set(recordSystemFields, forKey: recordSystemFieldsKey)
+        defaults.set(recordSystemFields, forKey: recordSystemFieldsKey)
     }
 
     /// Update last sync date (called when sync operations complete)
     func updateLastSyncDate() {
         lastSyncDate = Date()
-        UserDefaults.standard.set(lastSyncDate, forKey: lastSyncDateKey)
+        defaults.set(lastSyncDate, forKey: lastSyncDateKey)
     }
 }
 
@@ -1004,14 +1137,40 @@ class SyncEngineDelegate: NSObject, CKSyncEngineDelegate {
         super.init()
     }
 
+    /// The last event handed to the main actor. Each event waits for the one before it.
+    ///
+    /// The engine delivers events in order, but each used to become an independent main-actor task,
+    /// and those interleave at every `await` (decoding a fetched batch awaits): a later event could
+    /// be applied before an earlier one, and nothing could tell when a fetch had been applied. The
+    /// catch-up after the first fetch needs exactly that (`eventsHandled`).
+    private nonisolated let eventLock = NSLock()
+    private nonisolated(unsafe) var lastEvent: Task<Void, Never>?
+
     nonisolated func handleEvent(_ event: CKSyncEngine.Event, syncEngine: CKSyncEngine) {
-        Task { @MainActor in
-            await handleEventAsync(event, syncEngine: syncEngine)
+        eventLock.withLock {
+            let previous = lastEvent
+            lastEvent = Task { @MainActor in
+                await previous?.value
+                await self.handleEventAsync(event, syncEngine: syncEngine)
+            }
         }
+    }
+
+    /// Returns once every event delivered so far has been handled.
+    func eventsHandled() async {
+        let last = eventLock.withLock { lastEvent }
+        await last?.value
     }
 
     @MainActor
     private func handleEventAsync(_ event: CKSyncEngine.Event, syncEngine: CKSyncEngine) async {
+        // An engine the switch (or an account change) has stopped may still deliver what it had
+        // under way. Its state and its changes belong to no running engine: the next one resumes
+        // from the state saved before, and fetches them again.
+        guard manager?.isCurrent(self) == true else {
+            AppLog.sync.debugLine("Ignoring an event from a stopped sync engine")
+            return
+        }
         switch event {
         case .stateUpdate(let stateUpdate):
             // Save the sync state for resuming later
@@ -1202,7 +1361,7 @@ class SyncEngineDelegate: NSObject, CKSyncEngineDelegate {
                 if let settings = manager?.settingsFromRecord(record) {
                     manager?.cachedSettingsRecord = record   // preserve the change tag
                     AppLog.sync.debugLine("Received settings update from cloud")
-                    manager?.onSettingsUpdated?(settings)
+                    await manager?.onSettingsUpdated?(settings)
                 }
             case SyncRecordType.flight.rawValue:
                 // The track-stripped metadata record. Pull the Sendable payload on the main actor;
@@ -1256,6 +1415,8 @@ class SyncEngineDelegate: NSObject, CKSyncEngineDelegate {
         // record are each resurrected by the same mechanism.
         for flightId in deletedFlightIds {
             manager?.clearPendingFlight(flightId)
+            // Deleted already: a delete this device still owes for it has nothing left to do.
+            manager?.clearPendingFlightDeletion(flightId)
             // The records are gone server-side: a later flight reusing this id must be a real insert.
             manager?.forgetSystemFields(forFlight: flightId)
             guard let zoneID = deletedZoneIDs[flightId] else { continue }
@@ -1296,7 +1457,7 @@ class SyncEngineDelegate: NSObject, CKSyncEngineDelegate {
             // Sort by start time (newest first)
             currentFlights.sort { ($0.startTime ?? .distantPast) > ($1.startTime ?? .distantPast) }
 
-            manager?.onFlightsUpdated?(currentFlights)
+            await manager?.onFlightsUpdated?(currentFlights)
 
             // Mark the just-received records as synced so the next syncAllFlights doesn't echo all of
             // them — including the large track records — back up to the server. Marking with the
@@ -1369,6 +1530,13 @@ class SyncEngineDelegate: NSObject, CKSyncEngineDelegate {
                 manager?.clearPendingFlightDeletion(flightId)
             }
         }
+        // A delete sent again (it was owed) for a record already gone has nothing left to do; any
+        // other failure keeps it owed, for the engine's own retry or the next start.
+        for (recordID, error) in changes.failedRecordDeletes where error.code == .unknownItem {
+            if let flightId = UUID(uuidString: recordID.recordName) {
+                manager?.clearPendingFlightDeletion(flightId)
+            }
+        }
 
         // Update last sync date if any changes were made
         if !changes.savedRecords.isEmpty || !changes.deletedRecordIDs.isEmpty {
@@ -1391,8 +1559,7 @@ class SyncEngineDelegate: NSObject, CKSyncEngineDelegate {
             case .settingsConflict:
                 // The record already exists server-side, which is fine — adopt its change tag.
                 AppLog.sync.debugLine("Settings record conflict detected. Updating cache from server record.")
-                manager?.settingsRecordExists = true
-                UserDefaults.standard.set(true, forKey: "settingsRecordExists")
+                manager?.markSettingsRecordExists()
 
                 if let serverRecord {
                     manager?.cachedSettingsRecord = serverRecord
@@ -1420,7 +1587,7 @@ class SyncEngineDelegate: NSObject, CKSyncEngineDelegate {
                    let serverFlight = await manager?.flightFromRecord(serverRecord),
                    let localFlight = manager?.getPendingFlight(for: flightId) {
                     let merged = Flight.merge(localFlight, serverFlight)
-                    manager?.resolveFlightConflict(merged)
+                    await manager?.resolveFlightConflict(merged)
                     manager?.onSyncConflict?("A flight edited on two devices was merged.")
                 } else {
                     // Can't merge — keep the cloud version rather than overwrite it, and surface

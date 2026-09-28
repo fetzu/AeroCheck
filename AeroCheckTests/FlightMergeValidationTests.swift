@@ -678,3 +678,343 @@ final class FlightRecordSystemFieldsTests: XCTestCase {
         XCTAssertEqual(record["flightId"] as? String, id.uuidString)
     }
 }
+
+// MARK: - The switch and the CloudKit engine
+
+/// Stands in for `CKSyncEngine`: records what it is asked to queue, fetch and send.
+final class StubSyncEngine: SyncEngineDriving, @unchecked Sendable {
+    private(set) var queued: [CKSyncEngine.PendingRecordZoneChange] = []
+    private(set) var unqueued: [CKSyncEngine.PendingRecordZoneChange] = []
+    private(set) var queuedDatabaseChanges: [CKSyncEngine.PendingDatabaseChange] = []
+    private(set) var fetches = 0
+    private(set) var sends = 0
+    var fetchError: Error?
+
+    func queue(_ changes: [CKSyncEngine.PendingRecordZoneChange]) { queued += changes }
+    func unqueue(_ changes: [CKSyncEngine.PendingRecordZoneChange]) { unqueued += changes }
+    func queue(_ changes: [CKSyncEngine.PendingDatabaseChange]) { queuedDatabaseChanges += changes }
+    func fetch() async throws {
+        fetches += 1
+        if let fetchError { throw fetchError }
+    }
+    func send() async throws { sends += 1 }
+
+    /// Record names queued for saving.
+    var saves: Set<String> {
+        Set(queued.compactMap { if case .saveRecord(let id) = $0 { return id.recordName } else { return nil } })
+    }
+
+    /// Record names queued for deleting.
+    var deletes: Set<String> {
+        Set(queued.compactMap { if case .deleteRecord(let id) = $0 { return id.recordName } else { return nil } })
+    }
+}
+
+/// Stands in for the CloudKit container. `holdsAccountCheck` parks the start on the account check
+/// until `release()`.
+@MainActor
+final class StubSyncBackend: SyncBackend {
+    var status: CKAccountStatus = .available
+    var fetchError: Error?
+    var holdsAccountCheck = false
+    private(set) var isHoldingAccountCheck = false
+    private var held: CheckedContinuation<Void, Never>?
+    private(set) var engines: [StubSyncEngine] = []
+
+    func accountStatus() async throws -> CKAccountStatus {
+        if holdsAccountCheck {
+            isHoldingAccountCheck = true
+            await withCheckedContinuation { held = $0 }
+        }
+        return status
+    }
+
+    func release() {
+        held?.resume()
+        held = nil
+    }
+
+    func makeEngine(state: CKSyncEngine.State.Serialization?, delegate: SyncEngineDelegate) -> SyncEngineDriving {
+        let engine = StubSyncEngine()
+        engine.fetchError = fetchError
+        engines.append(engine)
+        return engine
+    }
+}
+
+/// "Sync to iCloud" turned on mid-session started CloudKit only at the next launch: the container
+/// was resolved at launch, and only with the switch already on. Nothing queued the flights recorded
+/// while it was off either, and a delete made before the engine was up was dropped.
+///
+/// A `SyncManager` on its own defaults suite and a stand-in engine: `.standard` holds the simulator
+/// app's real change tokens and fingerprints.
+@MainActor
+final class SyncSwitchCloudKitTests: XCTestCase {
+
+    private var defaults: UserDefaults!
+    private var backend: StubSyncBackend!
+
+    override func setUpWithError() throws {
+        defaults = makeTestDefaults()
+        backend = StubSyncBackend()
+    }
+
+    /// A manager built with the switch as given (the key AppState and the datastore share).
+    private func manager(on: Bool) -> SyncManager {
+        defaults.set(on, forKey: DataPersistenceManager.syncPreferenceKey)
+        return SyncManager(defaults: defaults, backend: backend)
+    }
+
+    private func flight(_ minutesAgo: Double = 60) -> Flight {
+        Flight(airplane: "wt9-dynamic", startTime: Date(timeIntervalSinceNow: -minutesAgo * 60))
+    }
+
+    private func records(of flight: Flight) -> Set<String> {
+        [flight.id.uuidString, SyncManager.trackRecordName(flight.id)]
+    }
+
+    private func started(_ manager: SyncManager) async throws -> StubSyncEngine {
+        await manager.engineStartTask?.value
+        return try XCTUnwrap(backend.engines.last, "no engine was started")
+    }
+
+    // MARK: - On
+
+    func testTurningTheSwitchOnStartsTheEngineRightAway() async throws {
+        let manager = manager(on: false)
+        XCTAssertFalse(manager.isEngineRunning)
+
+        manager.isSyncEnabled = true
+        let engine = try await started(manager)
+
+        XCTAssertTrue(manager.isEngineRunning)
+        XCTAssertEqual(backend.engines.count, 1)
+        XCTAssertEqual(engine.fetches, 1, "the first fetch, as at launch")
+        XCTAssertEqual(engine.queuedDatabaseChanges.count, 1, "the zone")
+    }
+
+    /// Flights recorded while the switch was off go out; one CloudKit already has as it is doesn't.
+    func testTurningItOnQueuesTheFlightsCloudKitLacks() async throws {
+        let manager = manager(on: false)
+        let known = flight(120)
+        let recordedWhileOff = flight(30)
+        manager.markFlightSynced(known.id, modifiedAt: known.modifiedAt)
+        manager.markFlightTrackSynced(known.id, count: known.gpsTrack.count)
+        manager.localSnapshot = { ([known, recordedWhileOff], AppSettings()) }
+
+        manager.isSyncEnabled = true
+        let engine = try await started(manager)
+
+        XCTAssertEqual(engine.saves, records(of: recordedWhileOff), "sent once, and nothing CloudKit already has")
+    }
+
+    /// The same catch-up runs when CloudKit comes up at launch, for a flight whose queued save was
+    /// lost with the app (the flight to send lives in memory).
+    func testAtLaunchTheFlightsCloudKitLacksAreQueuedToo() async throws {
+        let unsent = flight()
+        let manager = manager(on: true)
+        manager.localSnapshot = { ([unsent], AppSettings()) }
+
+        let engine = try await started(manager)
+
+        XCTAssertEqual(engine.saves, records(of: unsent))
+    }
+
+    /// Turning the switch on saves the settings before the engine is up: they go once it is, as
+    /// they are then.
+    func testSettingsSavedBeforeTheEngineIsUpGoOutOnceItIs() async throws {
+        let manager = manager(on: false)
+        var current = AppSettings()
+        current.gpsRecordingInterval = 3
+        manager.localSnapshot = { ([], current) }
+
+        manager.isSyncEnabled = true
+        manager.syncSettings(AppSettings())
+        XCTAssertTrue(manager.settingsOwed)
+        let engine = try await started(manager)
+
+        XCTAssertTrue(engine.saves.contains("settings"))
+        XCTAssertEqual(manager.getPendingSettings(), current, "the settings as they are when it goes out")
+        manager.clearPendingSettings()
+        XCTAssertFalse(manager.settingsOwed, "confirmed: nothing owed")
+    }
+
+    /// Without a first fetch the catch-up would send records CloudKit already holds. It waits for a
+    /// fetch that succeeds (Sync Now, or the next start).
+    func testWhenTheFirstFetchFailsTheCatchUpWaitsForOneThatSucceeds() async throws {
+        let manager = manager(on: false)
+        let recordedWhileOff = flight()
+        manager.localSnapshot = { ([recordedWhileOff], AppSettings()) }
+        backend.fetchError = CKError(.networkUnavailable)
+
+        manager.isSyncEnabled = true
+        let engine = try await started(manager)
+        XCTAssertTrue(engine.saves.isEmpty)
+
+        engine.fetchError = nil
+        await manager.syncNow()
+
+        XCTAssertEqual(engine.saves, records(of: recordedWhileOff))
+    }
+
+    func testNoEngineWithoutAnICloudAccount() async throws {
+        backend.status = .noAccount
+        let manager = manager(on: false)
+
+        manager.isSyncEnabled = true
+        await manager.engineStartTask?.value
+
+        XCTAssertTrue(backend.engines.isEmpty)
+        XCTAssertFalse(manager.isEngineRunning)
+    }
+
+    /// AppState saves the settings on every change and sets the switch each time: only a change
+    /// starts anything.
+    func testSettingTheSameValueAgainStartsNothingMore() async throws {
+        let manager = manager(on: false)
+        manager.isSyncEnabled = true
+        _ = try await started(manager)
+
+        manager.isSyncEnabled = true
+        await manager.engineStartTask?.value
+
+        XCTAssertEqual(backend.engines.count, 1)
+    }
+
+    // MARK: - Off
+
+    func testTurningTheSwitchOffStopsTheEngine() async throws {
+        let manager = manager(on: true)
+        let engine = try await started(manager)
+        let before = engine.queued.count
+
+        manager.isSyncEnabled = false
+        manager.syncFlight(flight(), allFlights: [])
+        manager.syncSettings(AppSettings())
+
+        XCTAssertFalse(manager.isEngineRunning)
+        XCTAssertEqual(engine.queued.count, before, "nothing reaches the stopped engine")
+        XCTAssertFalse(defaults.bool(forKey: DataPersistenceManager.syncPreferenceKey))
+    }
+
+    /// Off while the start is still checking the account: no engine comes up afterwards.
+    func testTurnedOffDuringTheStartNoEngineComesUp() async throws {
+        backend.holdsAccountCheck = true
+        let manager = manager(on: false)
+        manager.isSyncEnabled = true
+        let start = try XCTUnwrap(manager.engineStartTask)
+        while !backend.isHoldingAccountCheck { await Task.yield() }
+
+        manager.isSyncEnabled = false
+        backend.release()
+        await start.value
+
+        XCTAssertTrue(backend.engines.isEmpty)
+        XCTAssertFalse(manager.isEngineRunning)
+    }
+
+    func testOffThenOnAgainStartsAFreshEngineAndCatchesUp() async throws {
+        let manager = manager(on: true)
+        _ = try await started(manager)
+        manager.isSyncEnabled = false
+        let recordedWhileOff = flight()
+        manager.localSnapshot = { ([recordedWhileOff], AppSettings()) }
+
+        manager.isSyncEnabled = true
+        let second = try await started(manager)
+
+        XCTAssertEqual(backend.engines.count, 2)
+        XCTAssertEqual(second.saves, records(of: recordedWhileOff))
+    }
+
+    // MARK: - Deletes owed to CloudKit
+
+    /// A delete made while no engine ran (CloudKit not up yet) used to be dropped: the flight stayed
+    /// in CloudKit and on every other device. It is kept, and sent when the engine comes up.
+    func testADeleteMadeBeforeTheEngineIsUpIsSentWhenItStarts() async throws {
+        backend.status = .noAccount
+        let first = manager(on: true)
+        await first.engineStartTask?.value
+        let deleted = UUID()
+
+        first.deleteFlight(deleted)
+        XCTAssertEqual(first.owedFlightDeletions, [deleted])
+
+        backend.status = .available
+        let relaunched = SyncManager(defaults: defaults, backend: backend)
+        let engine = try await started(relaunched)
+
+        XCTAssertEqual(engine.deletes, [deleted.uuidString, SyncManager.trackRecordName(deleted)])
+    }
+
+    func testADeleteWithTheEngineUpIsSentAndCancelsItsQueuedSave() async throws {
+        let manager = manager(on: true)
+        let engine = try await started(manager)
+        let doomed = flight()
+        manager.syncFlight(doomed, allFlights: [doomed])
+
+        manager.deleteFlight(doomed.id)
+
+        XCTAssertEqual(engine.deletes, records(of: doomed))
+        XCTAssertEqual(Set(engine.unqueued.compactMap { change -> String? in
+            if case .saveRecord(let id) = change { return id.recordName } else { return nil }
+        }), records(of: doomed))
+        XCTAssertNil(manager.getPendingFlight(for: doomed.id))
+    }
+
+    func testAConfirmedDeleteIsNotSentAgain() async throws {
+        let manager = manager(on: true)
+        _ = try await started(manager)
+        let deleted = UUID()
+        manager.deleteFlight(deleted)
+
+        manager.clearPendingFlightDeletion(deleted)
+
+        let relaunched = SyncManager(defaults: defaults, backend: backend)
+        let engine = try await started(relaunched)
+        XCTAssertTrue(engine.deletes.isEmpty)
+    }
+
+    /// With the switch off, AppState sends no delete, and nothing is kept: the file is still in
+    /// iCloud Drive then (deletion records, 6.1).
+    func testWithTheSwitchOffNoDeleteIsKept() {
+        let manager = manager(on: false)
+
+        manager.deleteFlight(UUID())
+
+        XCTAssertTrue(manager.owedFlightDeletions.isEmpty)
+    }
+
+    // MARK: - Through AppState
+
+    /// The whole path: flights recorded with the switch off, then the switch turned on in Settings.
+    /// The datastore moves to iCloud Drive, CloudKit starts at once, and the flights go out.
+    func testTurningTheSwitchOnInSettingsSendsTheFlightsRecordedWhileOff() async throws {
+        let base = makeTestDirectory()
+        let local = base.appendingPathComponent("AppSupport", isDirectory: true)
+        let cloud = base.appendingPathComponent("Container/Documents", isDirectory: true)
+        try FileManager.default.createDirectory(at: cloud, withIntermediateDirectories: true)
+        defaults.set(false, forKey: DataPersistenceManager.syncPreferenceKey)
+        let store = DataPersistenceManager(rootDirectory: local, iCloudDocumentsDirectory: cloud, preferences: defaults)
+        let manager = SyncManager(defaults: defaults, backend: backend)
+        let appState = makeTestAppState(datastore: store, syncManager: manager)
+        let recordedWhileOff = flight()
+        XCTAssertTrue(store.saveFlight(recordedWhileOff))
+        XCTAssertTrue(backend.engines.isEmpty)
+
+        appState.settings.iCloudSyncEnabled = true
+        appState.saveSettings()
+        let engine = try await started(manager)
+
+        XCTAssertTrue(store.isUsingICloudDrive)
+        XCTAssertTrue(manager.isEngineRunning)
+        XCTAssertTrue(engine.saves.isSuperset(of: records(of: recordedWhileOff)), "\(engine.saves)")
+        XCTAssertTrue(engine.saves.contains("settings"))
+
+        appState.settings.iCloudSyncEnabled = false
+        appState.saveSettings()
+
+        XCTAssertFalse(manager.isEngineRunning)
+        XCTAssertFalse(store.isUsingICloudDrive)
+    }
+}

@@ -212,6 +212,24 @@ final class LegTimerTests: XCTestCase {
         XCTAssertEqual(manager.activeFlightPlan?.currentWaypointIndex, 2, "the next flight's to mark")
     }
 
+    /// The flight's own mark comes back with an outlined, secondary UNDO at the kneeboard sizes, one
+    /// offer per notice whichever screen shows it; MARK's and the reset's keep 6.0's filled one.
+    func testTheFlightsOwnMarkIsOfferedBackWithASecondaryUndo() throws {
+        let manager = activePlan()
+        let takeoff = Date().addingTimeInterval(-3600)
+        catchUp(manager, pastLSGC(takeoff: takeoff).past, takeoff: takeoff)
+        let notice = try XCTUnwrap(manager.autoMarkNotice)
+
+        let offer = NavUndoOffer.autoMark(notice, in: manager)
+        XCTAssertEqual(offer.id, notice.id)
+        XCTAssertEqual(offer.style, .outlined)
+        XCTAssertTrue(offer.message.contains("LSGC"))
+        XCTAssertEqual(offer.style.messageSize, CockpitType.label)
+        XCTAssertEqual(offer.style.buttonHeight, CockpitTarget.transient)
+        XCTAssertGreaterThanOrEqual(CockpitTarget.transient, 78, "15 mm")
+        XCTAssertEqual(NavUndoOffer(message: "LSGC passed at 14:37", undo: {}).style, .filled)
+    }
+
     // MARK: - Taken back, across a relaunch and at END FLIGHT (v6.0.1)
 
     /// A take-back is kept on the plan: after a relaunch in flight (crash recovery) the catch-up still

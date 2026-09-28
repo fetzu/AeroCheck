@@ -1602,11 +1602,7 @@ extension FlightView {
             // A waypoint the flight marked on its own, offered back over the foot of the list: never
             // over the event buttons or the thumb bar, and never in the layout. The MAP pane shows it
             // on the map. (v6.0.1)
-            .overlay(alignment: .bottom) {
-                AutoMarkUndoToast()
-                    .padding(.horizontal, narrow ? 12 : 16)
-                    .padding(.bottom, 8)
-            }
+            .overlay(alignment: .bottom) { AutoMarkUndoToast(narrow: narrow) }
 
             // Hold-to-confirm GO-AROUND / T&G / LANDED in the phases they belong to.
             eventActionsRow(kneeboard: true)

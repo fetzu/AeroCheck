@@ -60,7 +60,6 @@ enum L10n {
         static let openAIPTilesName = String(localized: "OpenAIP map tiles")
         static let openAIPTilesDetail = String(localized: "OpenAIP · optional chart imagery — airspace data above is what powers warnings")
         static let openAIPAttribution = String(localized: "Airspace data from [OpenAIP.net](https://www.openaip.net) (© OpenAIP and contributors, CC BY-NC 4.0)")
-        static let checklistsName = String(localized: "Checklists")
         static let checklistsSection = String(localized: "Checklists")
         static let checklistsDetail = String(localized: "Auto-updating · aircraft checklists from aerocheck.app")
         static let noChecklists = String(localized: "No checklists cached yet")
@@ -169,18 +168,11 @@ enum L10n {
         // Plan new flight
         static let planNewFlight = String(localized: "Plan new flight")
         static let savedRoutes = String(localized: "Saved routes")
-        static let startFromRoute = String(localized: "Start from a saved route")
-        static let chooseRoute = String(localized: "Choose a route")
-        static func routeCopied(_ count: Int) -> String {
-            String(localized: "Copied with its \(count) waypoint(s), altitudes and fuel")
-        }
         static let createFlight = String(localized: "Create flight")
         static let circuits = String(localized: "Circuits")
         static let when = String(localized: "When")
-        static let knowWhen = String(localized: "I know when I am flying")
         static let whenHint = String(localized: "Used for the reminder the day before")
         static let aircraft = String(localized: "settings.aircraft")
-        static let fromTo = String(localized: "From → To")
         static let from = String(localized: "From")
         static let to = String(localized: "To")
         static let identPlaceholder = String(localized: "ICAO or name")
@@ -200,7 +192,6 @@ enum L10n {
         static func recheckForThisLeg(_ when: String) -> String {
             String(localized: "Checked \(when) — re-check for this leg")
         }
-        static let routeOptional = String(localized: "The route is optional — draw it on the map whenever you are ready")
 
         // Home
         static let homeExplainer = String(localized: "Follow a flight from planning to logbook — fuel, weather, customs, then the numbers")
@@ -395,7 +386,6 @@ enum L10n {
         static let openNotamBriefing = String(localized: "Open NOTAM briefing")
         static let exportNavLog = String(localized: "Export nav log")
         static let editRoute = String(localized: "View route")
-        static let editFuel = String(localized: "Fuel & times")
         static let openMeteoSwiss = String(localized: "Open MeteoSwiss")
         static let markFlightPlanClosed = String(localized: "Mark closed")
         static let callFIC = String(localized: "Call 0800 437 837")
@@ -565,9 +555,6 @@ enum L10n {
         static let abandonFlightButton = String(localized: "alert.abandonFlight.button")
         static let deleteCacheTitle = String(localized: "alert.deleteCache.title")
         static let deleteCacheMessage = String(localized: "alert.deleteCache.message")
-        static let deleteFlightTitle = String(localized: "alert.deleteFlight.title")
-        static let deleteFlightMessage = String(localized: "alert.deleteFlight.message")
-        static let checklistNotReadyTitle = String(localized: "alert.checklistNotReady.title")
         static let checklistNotReady = String(localized: "alert.checklistNotReady.message")
         static let cannotStartFlightTitle = String(localized: "alert.cannotStartFlight.title")
         static let proNotActiveTitle = String(localized: "alert.proNotActive.title")
@@ -655,7 +642,6 @@ enum L10n {
         static let notDetected = String(localized: "briefing.notDetected")
         static let notAvailable = String(localized: "briefing.notAvailable")
         static let goAroundProcedure = String(localized: "briefing.goAround.procedure")
-        static let brsConsider = String(localized: "briefing.brs.consider")
 
         // Departure procedure
         static let departureProcedure = String(localized: "briefing.departureProcedure")
@@ -703,9 +689,6 @@ enum L10n {
         // Subscription
         static let subscription = String(localized: "settings.subscription")
         static let aeroCheckPro = String(localized: "settings.subscription.aeroCheckPro")
-        static let subscriptionSubscribed = String(localized: "settings.subscription.subscribed")
-        static let subscriptionGracePeriod = String(localized: "settings.subscription.gracePeriod")
-        static let subscriptionUnlock = String(localized: "settings.subscription.unlock")
         static let subscriptionAccessAll = String(localized: "settings.subscription.accessAll")
         static let subscriptionLapsed = String(localized: "settings.subscription.lapsed")
         static let subscriptionUnlockText = String(localized: "settings.subscription.unlockText")
@@ -752,8 +735,6 @@ enum L10n {
 
         // Experimental
         static let experimental = String(localized: "settings.experimental")
-        static let experimentalFooter = String(localized: "settings.experimental.whenEnabled")
-        static let switzerlandOnly = String(localized: "settings.experimental.onlyInSwitzerland")
 
         // Flight Planning
         static let flightPlanning = String(localized: "settings.flightPlanning")
@@ -867,9 +848,6 @@ enum L10n {
         }
         static let downloadDataOnly = String(localized: "settings.openAIP.downloadDataOnly")
         static let downloadTilesAnyway = String(localized: "settings.openAIP.downloadTilesAnyway")
-        static func tileCountLabel(_ count: Int) -> String {
-            String(format: String(localized: "settings.openAIP.tileCount"), count)
-        }
         static let downloadingTiles = String(localized: "settings.openAIP.downloadingTiles")
         static let download = String(localized: "settings.openAIP.download")
         static let downloadAll = String(localized: "settings.openAIP.downloadAll")
@@ -929,7 +907,6 @@ enum L10n {
         static func version(_ v: String) -> String {
             String(format: String(localized: "settings.availableChecklists.version"), v)
         }
-        static let availableChecklistsFooter = String(localized: "settings.availableChecklists.cachedDesc")
 
         // Data
         static let data = String(localized: "settings.data")
@@ -970,16 +947,11 @@ enum L10n {
     enum Onboarding {
         static let welcomeTitle = String(localized: "onboarding.welcome.title")
         static let welcomeSubtitle = String(localized: "onboarding.welcome.subtitle")
-        static let checklistsTitle = String(localized: "onboarding.checklists.title")
-        static let checklistsBody = String(localized: "onboarding.checklists.body")
         static let navigationTitle = String(localized: "onboarding.navigation.title")
-        static let navigationBody = String(localized: "onboarding.navigation.body")
         static let downloadAirports = String(localized: "onboarding.navigation.downloadAirports")
         static let downloadCharts = String(localized: "onboarding.navigation.downloadCharts")
         static let downloading = String(localized: "onboarding.navigation.downloading")
         static let downloaded = String(localized: "onboarding.navigation.downloaded")
-        static let briefingsTitle = String(localized: "onboarding.briefings.title")
-        static let briefingsBody = String(localized: "onboarding.briefings.body")
         static let readyTitle = String(localized: "onboarding.ready.title")
         static let readyBody = String(localized: "onboarding.ready.body")
         static let readyButton = String(localized: "onboarding.ready.button")
@@ -1040,12 +1012,6 @@ enum L10n {
     enum FlightLog {
         static let title = String(localized: "flightLog.title")
         static let close = String(localized: "flightLog.close")
-        static let exportAllTitle = String(localized: "flightLog.exportAll.title")
-        static let exportAllGPX = String(localized: "flightLog.exportAll.gpx")
-        static let exportAllJSON = String(localized: "flightLog.exportAll.json")
-        static func exportAllMessage(_ count: Int) -> String {
-            String(format: String(localized: "flightLog.exportAll.message"), count)
-        }
         static let preparingExport = String(localized: "flightLog.preparingExport")
         static let importFlights = String(localized: "flightLog.import")
         static let importErrorTitle = String(localized: "flightLog.importError.title")
@@ -1850,7 +1816,6 @@ enum L10n {
         static let columnNow = String(localized: "altitudes.col.now")
         static let columnNew = String(localized: "altitudes.col.new")
         static let columnClearance = String(localized: "altitudes.col.clearance")
-        static let columnAirspace = String(localized: "altitudes.col.airspace")
         static func lowest(_ feet: String, _ from: String, _ to: String) -> String {
             String(format: String(localized: "altitudes.summary.lowest"), feet, from, to)
         }

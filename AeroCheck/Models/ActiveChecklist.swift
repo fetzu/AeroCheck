@@ -22,12 +22,6 @@ struct ActiveChecklist: Equatable {
     /// The default bundled aircraft checklist.
     static let bundledDefault = ActiveChecklist(source: .bundled(.wt9Dynamic))
 
-    /// Whether a usable checklist is resolved (false only for an unresolved premium selection).
-    var isResolved: Bool {
-        if case .unresolved = source { return false }
-        return true
-    }
-
     // MARK: - Items
 
     func items(for phase: ChecklistPhase) -> [ChecklistItem] {

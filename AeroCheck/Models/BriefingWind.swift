@@ -17,13 +17,6 @@ struct BriefingWind: Equatable {
         case meteoSwiss(station: String)
         /// Open-Meteo's 10 m model wind. NOT measured. Last resort, and labelled as such.
         case model
-
-        var isObservation: Bool {
-            switch self {
-            case .metar, .meteoSwiss: return true
-            case .model: return false
-            }
-        }
     }
 
     /// Nil means the report said VRB — direction is genuinely undefined, not missing. Never

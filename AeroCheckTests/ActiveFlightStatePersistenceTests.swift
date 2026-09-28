@@ -27,6 +27,11 @@ final class ActiveFlightStatePersistenceTests: XCTestCase {
         makeTestAppState(datastore: datastore, defaults: defaults)
     }
 
+    /// Whether this test's device holds a crash-recovery checkpoint.
+    private var hasCheckpoint: Bool {
+        FileManager.default.fileExists(atPath: datastore.activeFlightStateURL.path)
+    }
+
     private func makePoint(_ lat: Double, _ lon: Double, speed: Double = 50) -> GPSPoint {
         GPSPoint(latitude: lat, longitude: lon, altitude: 1500, speed: speed, course: 90)
     }
@@ -56,7 +61,7 @@ final class ActiveFlightStatePersistenceTests: XCTestCase {
         appState.recordEngineStart()          // checkpointActiveFlight(force:) → ASYNC write queued
         appState.cancelFlight()               // clear must flush the queue before deleting
         appState.flushPendingCheckpoint()     // drain anything that could still be in flight
-        XCTAssertFalse(appState.hasActiveFlightState,
+        XCTAssertFalse(hasCheckpoint,
                        "a queued checkpoint write must never resurrect a cleared checkpoint")
     }
 
@@ -145,7 +150,7 @@ final class ActiveFlightStatePersistenceTests: XCTestCase {
     func testCheckpointWrittenDuringFlightWithoutExplicitSave() throws {
         let source = launch()
         startWT9Flight(on: source)
-        XCTAssertFalse(source.hasActiveFlightState, "No checkpoint before any points")
+        XCTAssertFalse(hasCheckpoint, "No checkpoint before any points")
 
         // Enough points to cross the throttle threshold (20) at least once.
         for i in 0..<25 {
@@ -153,7 +158,7 @@ final class ActiveFlightStatePersistenceTests: XCTestCase {
         }
         // The throttled checkpoint write now runs off the main actor (PR-12); wait for it to land.
         source.flushPendingCheckpoint()
-        XCTAssertTrue(source.hasActiveFlightState,
+        XCTAssertTrue(hasCheckpoint,
                       "A checkpoint should exist mid-flight without any scenePhase/explicit save")
 
         source.clearActiveFlightState()
@@ -264,7 +269,7 @@ final class ActiveFlightStatePersistenceTests: XCTestCase {
         XCTAssertEqual(restored.settings.selectedRemoteAircraftId, "pa28-181")
         XCTAssertFalse(restored.isPremiumChecklistResolved,
                        "Restored premium flight must be unresolved, not silently WT9")
-        XCTAssertFalse(restored.activeChecklist.isResolved)
+        XCTAssertEqual(restored.activeChecklist.source, .unresolved)
 
         restored.clearActiveFlightState()
         restored.isFlightActive = false
@@ -278,6 +283,6 @@ final class ActiveFlightStatePersistenceTests: XCTestCase {
 
         let relaunched = launch()
         XCTAssertFalse(relaunched.isFlightActive, "A corrupt checkpoint must not start a phantom flight")
-        XCTAssertFalse(relaunched.hasActiveFlightState, "A corrupt checkpoint must be cleared")
+        XCTAssertFalse(hasCheckpoint, "A corrupt checkpoint must be cleared")
     }
 }

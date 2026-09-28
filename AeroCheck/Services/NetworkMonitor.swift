@@ -49,15 +49,6 @@ enum DataRefreshGate {
         if conditions.isExpensive && !cellularUpdatesEnabled { return false }  // cellular + toggle off
         return true
     }
-
-    /// A LARGE tile download (Swiss ICAO/Segelflug ~2 GB, OpenAIP imagery). Never silent or automatic.
-    /// On Wi-Fi it may proceed; on a metered path it proceeds only behind an explicit, size-shown user
-    /// confirmation (`userConfirmedCellular`). Low Data Mode keeps the same confirmation gate.
-    static func allowsTileDownload(_ conditions: NetworkConditions, userConfirmedCellular: Bool) -> Bool {
-        guard conditions.isConnected else { return false }
-        if conditions.isExpensive { return userConfirmedCellular }
-        return true
-    }
 }
 
 /// Observes network reachability + interface characteristics (Wi-Fi vs cellular, Low Data Mode) so the

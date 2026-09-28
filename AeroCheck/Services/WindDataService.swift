@@ -34,9 +34,6 @@ class WindDataService: ObservableObject {
     // MARK: - Published Properties
 
     @Published var currentWindData: WindData?
-    @Published var lastFetchTime: Date?
-    @Published var fetchError: String?
-    @Published var isWithinSwitzerland: Bool = false
 
     // MARK: - Private Properties
 
@@ -68,9 +65,6 @@ class WindDataService: ObservableObject {
     /// missing from the briefings with no error surfaced anywhere. If wind stops appearing again,
     /// check this URL FIRST.
     private let windDataURL = "https://data.geo.admin.ch/ch.meteoschweiz.messwerte-windgeschwindigkeit-kmh-10min/ch.meteoschweiz.messwerte-windgeschwindigkeit-kmh-10min_en.json"
-
-    /// Maximum age of a wind reading before it is considered stale and no longer shown. (UX-04)
-    private let maxWindAgeSeconds: TimeInterval = 20 * 60
 
     /// Reject stations further away than this. The network is dense enough in the lowlands that a
     /// nearest station beyond this radius means there is no representative observation — better to
@@ -109,7 +103,6 @@ class WindDataService: ObservableObject {
         fetchTimer?.invalidate()
         fetchTimer = nil
         currentWindData = nil
-        lastFetchTime = nil
     }
 
     /// Check if a coordinate is within Switzerland (with margin)
@@ -121,38 +114,14 @@ class WindDataService: ObservableObject {
                coordinate.longitude <= switzerlandBounds.maxLon
     }
 
-    /// Whether the current reading is fresh enough to show. (UX-04)
-    var hasFreshWind: Bool {
-        guard let w = currentWindData else { return false }
-        return Date().timeIntervalSince(w.timestamp) <= maxWindAgeSeconds
-    }
-
-    /// Age of the current wind reading in seconds, if any (for provenance display).
-    var windDataAgeSeconds: TimeInterval? {
-        guard let w = currentWindData else { return nil }
-        return Date().timeIntervalSince(w.timestamp)
-    }
-
-    /// True if we hold a wind reading that has aged past the usable window.
-    var isWindDataStale: Bool {
-        guard let age = windDataAgeSeconds else { return false }
-        return age > maxWindAgeSeconds
-    }
-
     // MARK: - Private Methods
 
     private func fetchWindData(for coordinate: CLLocationCoordinate2D?,
                                aircraftAltitudeMeters: Double?) async {
-        // Check if within Switzerland
-        let inSwitzerland = isInSwitzerland(coordinate)
-        await MainActor.run {
-            self.isWithinSwitzerland = inSwitzerland
-        }
-
-        guard inSwitzerland, let coordinate = coordinate else {
+        // MeteoSwiss stations only cover Switzerland: outside it (or without a fix) there is no wind.
+        guard isInSwitzerland(coordinate), let coordinate = coordinate else {
             await MainActor.run {
                 self.currentWindData = nil
-                self.fetchError = coordinate == nil ? "No GPS position" : "Outside Switzerland"
             }
             return
         }
@@ -175,15 +144,12 @@ class WindDataService: ObservableObject {
 
             await MainActor.run {
                 self.currentWindData = windData
-                self.lastFetchTime = Date()
-                self.fetchError = nil
             }
 
         } catch {
             await MainActor.run {
                 // Age out the last reading on a failed fetch so stale wind is never shown as live. (UX-04)
                 self.currentWindData = nil
-                self.fetchError = error.localizedDescription
             }
         }
     }

@@ -776,6 +776,20 @@ final class FlightThreadTests: XCTestCase {
         let swiss = ThreadTaskPresentation.links(for: task, touchesSwitzerland: true)
         XCTAssertTrue(swiss.contains { $0.label == L10n.Border.swissSide })
     }
+
+    /// The customs task warns exactly when the country's rule has an open question (review F28):
+    /// the German customs-airport dispute gets the warning, a settled rule does not.
+    func testTheCustomsHintWarnsExactlyWhenTheRuleHasAnOpenQuestion() {
+        for code in BorderCrossingGuide.rules.keys.sorted() {
+            let rule = try! XCTUnwrap(BorderCrossingGuide.rule(for: code))
+            let task = ThreadTask(key: .customsNotified, subject: code, kind: .check)
+            let hint = try! XCTUnwrap(ThreadTaskPresentation.make(for: task).hint)
+            XCTAssertEqual(hint.contains(L10n.Border.unknownWarning), rule.hasOpenQuestion, "\(code): \(hint)")
+        }
+        // Both sides of the rule must actually be exercised by the curated data.
+        XCTAssertTrue(try! XCTUnwrap(BorderCrossingGuide.rule(for: "DE")).hasOpenQuestion)
+        XCTAssertFalse(try! XCTUnwrap(BorderCrossingGuide.rule(for: "FR")).hasOpenQuestion)
+    }
 }
 
 

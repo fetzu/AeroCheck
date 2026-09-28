@@ -216,24 +216,6 @@ class FlightPlanManager: ObservableObject {
         updateFlightPlan(current)
     }
 
-    /// Delete flight plans at offsets
-    func deleteFlightPlans(at offsets: IndexSet) {
-        // Collect plans to delete for file cleanup
-        let plansToDelete = offsets.map { flightPlans[$0] }
-
-        for index in offsets {
-            if flightPlans[index].id == activeFlightPlan?.id {
-                deactivateFlightPlan()
-            }
-        }
-        flightPlans.remove(atOffsets: offsets)
-
-        // Delete files from iCloud
-        for plan in plansToDelete {
-            deleteFlightPlanFile(plan)
-        }
-    }
-
     /// Duplicate a flight plan
     func duplicateFlightPlan(_ plan: FlightPlan) -> FlightPlan {
         var newPlan = plan
@@ -594,7 +576,11 @@ class FlightPlanManager: ObservableObject {
         saveActiveFlightPlan()
     }
 
-    /// Record ATO for the current waypoint (called on GPS proximity detection)
+    /// Record the ATO of the current waypoint, without advancing to the next one.
+    ///
+    /// Nothing calls this yet: it waits for the planned GPS-proximity ATO wiring. Today's proximity
+    /// path is `autoAdvanceWaypointIfNeeded`, which records through `recordATO(forWaypointAt:)` and
+    /// advances in the same step.
     func recordATOForCurrentWaypoint() {
         guard var plan = activeFlightPlan else { return }
         guard plan.currentWaypointIndex < plan.waypoints.count else { return }

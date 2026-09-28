@@ -536,16 +536,6 @@ enum L10n {
         static let shutdown = String(localized: "time.shutdown")
     }
 
-    // MARK: - Flight Info
-    enum FlightInfo {
-        static let title = String(localized: "flightInfo.title")
-        static let gpsStatus = String(localized: "flightInfo.gpsStatus")
-        static let signal = String(localized: "flightInfo.signal")
-        static let pointsRecorded = String(localized: "flightInfo.pointsRecorded")
-        static let flightTimes = String(localized: "flightInfo.flightTimes")
-        static let flightPhases = String(localized: "flightInfo.flightPhases")
-    }
-
     // MARK: - Alerts
     enum Alert {
         static let endFlightTitle = String(localized: "alert.endFlight.title")
@@ -2298,16 +2288,6 @@ enum ChecklistLanguage: String, CaseIterable, Codable, Identifiable {
             return L10n.Language.de
         case .it:
             return L10n.Language.it
-        }
-    }
-
-    /// ISO 639-1 code (for API requests)
-    var isoCode: String? {
-        switch self {
-        case .auto:
-            return nil
-        default:
-            return rawValue
         }
     }
 

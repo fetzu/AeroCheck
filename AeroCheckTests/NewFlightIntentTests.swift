@@ -96,7 +96,7 @@ final class NewFlightIntentTests: XCTestCase {
         XCTAssertNil(plan.waypoints.last?.altitude)
     }
 
-    // MARK: - Labels and creatability
+    // MARK: - Labels
 
     func testCircuitsAreLabelledByTheirField() {
         XCTAssertEqual(intent(to: "", kind: .circuits).routeLabel, L10n.Flights.circuitsAt("LSZQ"))
@@ -106,11 +106,6 @@ final class NewFlightIntentTests: XCTestCase {
 
     func testACrossCountryLabelReadsFromArrowTo() {
         XCTAssertEqual(intent().routeLabel, "LSZQ → LSGY")
-    }
-
-    func testADepartureIsTheOnlyThingRequired() {
-        XCTAssertTrue(intent(to: "").isCreatable, "a route can arrive later")
-        XCTAssertFalse(intent(from: "  ").isCreatable)
     }
 
     // MARK: - Duplicate the intent, never the evidence

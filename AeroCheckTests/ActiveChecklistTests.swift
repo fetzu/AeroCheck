@@ -69,7 +69,6 @@ final class ActiveChecklistTests: XCTestCase {
     func testUnresolvedChecklistExposesNothing() {
         let active = ActiveChecklist(source: .unresolved)
 
-        XCTAssertFalse(active.isResolved)
         XCTAssertTrue(active.items(for: .preflight).isEmpty)
         XCTAssertTrue(active.speeds.isEmpty)
         XCTAssertEqual(active.stallSpeed, 0)
@@ -80,7 +79,6 @@ final class ActiveChecklistTests: XCTestCase {
     func testBundledChecklistExposesWT9Content() {
         let active = ActiveChecklist.bundledDefault
 
-        XCTAssertTrue(active.isResolved)
         XCTAssertEqual(active.stallSpeed, AircraftType.wt9Dynamic.stallSpeed)
         XCTAssertEqual(active.registration, "F-HVXA")
         XCTAssertFalse(active.items(for: .preflight).isEmpty)

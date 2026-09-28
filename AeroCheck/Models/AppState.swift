@@ -2246,15 +2246,6 @@ class AppState {
         return saved
     }
 
-    /// Reload flights from disk (called after sync updates). Decode runs off the main actor. (PR-24)
-    func reloadFlights() {
-        Task { [weak self] in
-            guard let self = self else { return }
-            await Task.yield()
-            self.flights = await self.persistence.loadFlightsOffMain()
-        }
-    }
-
     func saveSettings() {
         // The switch covers the iCloud Drive store too: move the datastore first, so the settings
         // land in the store they now belong to. A move brings in what the other store adds.
@@ -2546,33 +2537,13 @@ class AppState {
         // Every flight-end path funnels through here — retire the Live Activity with it. (UX-25)
         if !isFlightActive { liveActivity?.end() }
     }
-
-    /// Check if there is a saved active flight state.
-    var hasActiveFlightState: Bool {
-        persistence.hasActiveFlightStateFile
-    }
 }
 
 // MARK: - Computed Properties Extension
 
 extension AppState {
-    var canGoToPreviousPhase: Bool {
-        currentPhase != .preflight
-    }
-    
-    var canGoToNextPhase: Bool {
-        currentPhase != .hangar
-    }
-    
     var isLastPhase: Bool {
         currentPhase == .hangar
-    }
-    
-    /// Flight duration from engine start (or, before engine start, the session start) to now.
-    var flightDuration: String {
-        // Engine-start time wins; before that, fall back to the session start. Nil → placeholder.
-        guard let start = engineStartTime ?? currentFlight?.startTime else { return "--:--" }
-        return FlightClock.formattedDuration(seconds: Date().timeIntervalSince(start))
     }
     
     var formattedEngineStartTime: String? {

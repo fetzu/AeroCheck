@@ -202,12 +202,6 @@ struct LogbookTotals: Equatable, Sendable {
         )
     }
 
-    /// A kept logbook balances: the four function columns must add up to the total. Worth asserting
-    /// rather than assuming, since it is the first thing an auditor adds up.
-    var functionMinutesBalance: Bool {
-        picMinutes + coPilotMinutes + dualMinutes + instructorMinutes == totalMinutes
-    }
-
     /// `pilot` must be the SAME context the lines were built with. The page total and the lines
     /// above it disagreeing about which column a flight belongs in is exactly the arithmetic error
     /// an audit finds — and a student whose lines say Dual while the total says PIC is that error.

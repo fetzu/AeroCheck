@@ -44,10 +44,6 @@ enum BorderRequirement: String, Codable, Sendable {
         case .disputed:    return L10n.Border.disputed
         }
     }
-
-    /// Whether this should read as a warning rather than a fact. Everything except an established
-    /// "no" qualifies.
-    var isDemanding: Bool { self != .notRequired }
 }
 
 /// One country's rules for a private GA flight crossing to or from Switzerland.
@@ -190,7 +186,4 @@ enum BorderCrossingGuide {
     static func rule(for country: String) -> BorderCrossingRule? {
         rules[country.trimmingCharacters(in: .whitespaces).uppercased()]
     }
-
-    /// Countries with a curated rule, for tests and for the settings-style listing.
-    static var curatedCountries: [String] { rules.keys.sorted() }
 }

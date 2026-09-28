@@ -55,7 +55,6 @@ final class BriefingWindLadderTests: XCTestCase {
             metars: [], station: nil, model: model, aircraftAltitudeM: 400
         )
         XCTAssertEqual(wind?.source, .model)
-        XCTAssertFalse(wind?.source.isObservation ?? true)
     }
 
     /// Returning nil rather than a placeholder is the point — a briefing with no wind is honest,
@@ -212,7 +211,6 @@ final class BriefingWindLadderTests: XCTestCase {
                                 source: .model, distanceNm: nil, observedAt: nil)
         XCTAssertEqual(wind.provenance, L10n.Briefing.windModelForecast)
         XCTAssertFalse(wind.provenance.contains("nm"), "a grid cell has no station to be far from")
-        XCTAssertFalse(wind.source.isObservation)
     }
 
     func testStationProvenanceNamesTheStation() {

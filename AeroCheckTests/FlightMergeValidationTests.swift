@@ -427,6 +427,19 @@ final class FlightMergeValidationTests: XCTestCase {
         XCTAssertEqual(clamped.waypointProximityThreshold, 500)
     }
 
+    /// The waypoint-proximity radius lost its slider in 6.0.1 (waypoints are marked from the track),
+    /// but a 6.0 device still reads it from the synced record: it is decoded and written back as is.
+    func testTheRetiredProximityRadiusStillDecodesAndSyncs() throws {
+        let saved = #"{"waypointProximityThreshold":800,"gpsRecordingInterval":10,"schemaVersion":5}"#
+        let settings = try JSONDecoder().decode(AppSettings.self, from: Data(saved.utf8))
+        XCTAssertEqual(settings.waypointProximityThreshold, 800)
+        XCTAssertEqual(settings.gpsRecordingInterval, 10, "the rest of the file with it")
+
+        let written = try JSONSerialization.jsonObject(with: JSONEncoder().encode(settings)) as? [String: Any]
+        XCTAssertEqual(written?["waypointProximityThreshold"] as? Double, 800)
+        XCTAssertEqual(AppSettings().waypointProximityThreshold, 500, "a new install writes the old default")
+    }
+
     // MARK: - Theme preference persistence (UX-09 / v4 UI/UX Revamp)
 
     func testThemePreferenceDefaultsMigratesAndRoundTrips() throws {

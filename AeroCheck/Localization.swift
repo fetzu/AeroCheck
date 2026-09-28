@@ -739,10 +739,8 @@ enum L10n {
         static let pilotNameFooter = String(localized: "Used for the PIC column and the logbook PDF's holder line.")
         static let costTracking = String(localized: "Track flight costs")
         static let costTrackingFooter = String(localized: "Off hides the landing-fee tasks and the cost sheet. Your logbook line is unaffected.")
-        static let waypointProximity = String(localized: "settings.flightPlanning.waypointProximity")
         static let terrainAltitudeUnit = String(localized: "settings.flightPlanning.terrainAltitudeUnit")
         static let flightPlanningFooter = String(localized: "settings.flightPlanning.planFlightRoutes")
-        static let waypointProximityFooter = String(localized: "settings.flightPlanning.waypointProximityDesc")
         static let terrainUnitFooter = String(localized: "settings.flightPlanning.terrainUnitDesc")
 
         // Display

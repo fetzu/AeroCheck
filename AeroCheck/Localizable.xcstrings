@@ -22131,40 +22131,6 @@
         }
       }
     },
-    "settings.flightPlanning.waypointProximity": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Waypoint Proximity"
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Proximité des waypoints"
-          }
-        }
-      }
-    },
-    "settings.flightPlanning.waypointProximityDesc": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Waypoint Proximity: Distance at which waypoints auto-advance during flight."
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Proximité des waypoints : Distance à laquelle les waypoints avancent automatiquement pendant le vol."
-          }
-        }
-      }
-    },
     "settings.gps": {
       "extractionState": "manual",
       "localizations": {

@@ -15,10 +15,10 @@ final class WaypointPassageTests: XCTestCase {
         points.map { CLLocationCoordinate2D(latitude: $0.lat, longitude: $0.lon) }
     }
 
-    /// Fixes along `path` (lat, lon corners) at 100 kt from `t0`.
-    private func track(_ path: [(lat: Double, lon: Double)]) -> [WaypointPassage.Fix] {
+    /// Fixes along `path` (lat, lon corners) at 100 kt from `start` (default `t0`).
+    private func track(_ path: [(lat: Double, lon: Double)], from start: Date? = nil) -> [WaypointPassage.Fix] {
         var fixes: [WaypointPassage.Fix] = []
-        var t = t0
+        var t = start ?? t0
         let step = 100.0 / 3600 * 10   // NM per 10 s
         for k in 0..<(path.count - 1) {
             let a = path[k], b = path[k + 1]
@@ -122,5 +122,249 @@ final class WaypointPassageTests: XCTestCase {
         XCTAssertEqual(plan.estimatedTimeOver(at: 1), plan.waypoints[0].estimatedTimeOver)
         XCTAssertEqual(plan.estimatedTimeOver(at: 2), plan.waypoints[2].estimatedTimeOver)
         XCTAssertGreaterThan(plan.estimatedTimeOver(at: 2)!, plan.estimatedTimeOver(at: 1)!)
+    }
+
+    // MARK: - In flight: the live catch-up (v6.0.1)
+
+    /// A plan through `points`, active on a manager of its own.
+    @MainActor
+    private func activePlan(_ points: [(lat: Double, lon: Double)]) -> FlightPlanManager {
+        let manager = makeTestPlanManager()
+        let plan = FlightPlan(name: "Live", waypoints: points.enumerated().map { i, p in
+            FlightPlanWaypoint(name: "WP\(i)", coordinate: .init(latitude: p.lat, longitude: p.lon))
+        })
+        manager.add(plan)
+        manager.activateFlightPlan(plan)
+        addTeardownBlock { @MainActor in manager.stopChronometer() }
+        return manager
+    }
+
+    /// One run of the in-flight catch-up, for a flight started with the plan (off at `t0`).
+    @MainActor
+    private func catchUp(_ manager: FlightPlanManager, _ track: [GPSPoint]) {
+        manager.catchUpWaypointPassages(track: track, takeoff: t0, flightPlanId: manager.activeFlightPlan?.id)
+    }
+
+    private func gps(_ fixes: [WaypointPassage.Fix]) -> [GPSPoint] {
+        fixes.map {
+            GPSPoint(latitude: $0.coordinate.latitude, longitude: $0.coordinate.longitude, altitude: 1500,
+                     timestamp: $0.time, speed: $0.speed)
+        }
+    }
+
+    /// The core property of the move out of the nav map: runs every 15 s over the track so far end
+    /// exactly where one run over the whole flight does, and never step back.
+    @MainActor
+    func testCatchingUpAsTheTrackGrowsEndsWhereTheWholeTrackDoes() throws {
+        let route: [(lat: Double, lon: Double)] = [(47.0, 7.0), (47.0, 7.3), (47.05, 7.6), (47.0, 7.9)]
+        let flights: [(String, [WaypointPassage.Fix])] = [
+            ("a mile to the side", track([(47.0, 7.0), (47.0 + 1.0 / 60, 7.05), (47.0 + 1.0 / 60, 7.85), (47.0, 7.9)])),
+            ("the second turn missed by 3 NM", track([(47.0, 7.0), (47.0, 7.9)])),
+            ("corners cut", track([(47.0, 7.0), (47.0, 7.28), (47.04, 7.58), (47.0, 7.88), (47.0, 7.9)])),
+        ]
+        for (name, fixes) in flights {
+            let manager = activePlan(route)
+            let armed = try XCTUnwrap(manager.activeFlightPlan)
+            let points = gps(fixes)
+            var targets: [Int] = []
+            // A fix every 10 s: a run every second fix is the 15 s cadence at its slowest.
+            for end in stride(from: 2, through: points.count, by: 2) {
+                catchUp(manager, Array(points.prefix(end)))
+                targets.append(try XCTUnwrap(manager.activeFlightPlan).currentWaypointIndex)
+            }
+            catchUp(manager, points)
+
+            let live = try XCTUnwrap(manager.activeFlightPlan)
+            let batch = armed.withActualTimesOver(fromTrack: points, takeoff: t0, landing: nil)
+            XCTAssertEqual(live.waypoints.map(\.actualTimeOver), batch.waypoints.map(\.actualTimeOver), name)
+            XCTAssertEqual(targets, targets.sorted(), "\(name): only ever forward")
+            XCTAssertNil(live.waypoints[3].actualTimeOver, "\(name): the destination waits for the landing")
+            let lastPassed = try XCTUnwrap(batch.waypoints.lastIndex { $0.actualTimeOver != nil })
+            XCTAssertEqual(live.currentWaypointIndex, lastPassed + 1, "\(name): the next one is the target")
+        }
+    }
+
+    /// Circuits past the same reporting point: marked once, on the first pass, and the circuits after
+    /// it neither move the target nor restart the leg timer. The home field is the destination too,
+    /// overflown on every circuit, and stays open until the landing.
+    @MainActor
+    func testCircuitsPastAWaypointMarkItOnce() throws {
+        let field = (lat: 47.0, lon: 7.0), point = (lat: 47.03, lon: 7.0)   // 1.8 NM north
+        let manager = activePlan([field, point, field])
+        let lap: [(lat: Double, lon: Double)] = [field, (47.035, 7.0), (47.035, 7.03), (46.99, 7.03), (46.99, 7.0)]
+        let points = gps(track(Array(repeating: lap, count: 4).flatMap { $0 } + [field]))
+
+        var firstPass: Date?
+        var timerAfterFirstPass: FlightPlanManager.LegTimerSnapshot?
+        for end in stride(from: 2, through: points.count, by: 2) {
+            catchUp(manager, Array(points.prefix(end)))
+            let plan = try XCTUnwrap(manager.activeFlightPlan)
+            guard let passed = plan.waypoints[1].actualTimeOver else { continue }
+            if let firstPass {
+                XCTAssertEqual(passed, firstPass, "one ATO, the first pass")
+                XCTAssertEqual(manager.legTimerSnapshot, timerAfterFirstPass, "the leg timer runs on")
+            } else {
+                firstPass = passed
+                manager.restoreLegTimer(.init(accumulated: 42, startTime: nil))
+                timerAfterFirstPass = manager.legTimerSnapshot
+            }
+            XCTAssertEqual(plan.currentWaypointIndex, 2)
+            XCTAssertNil(plan.waypoints[2].actualTimeOver, "the home field waits for the landing")
+        }
+        let pass = try XCTUnwrap(firstPass)
+        XCTAssertEqual(pass.timeIntervalSince(t0), 1.8 / 100 * 3600, accuracy: 20, "on the first lap")
+        XCTAssertEqual(manager.activeFlightPlan?.waypoints[0].actualTimeOver, t0, "the departure = takeoff")
+    }
+
+    /// A diversion leaves the route: a route waypoint passed on the way to the other field is not the
+    /// one the aircraft is flying to. Back on the route, the track catches the plan up.
+    @MainActor
+    func testNothingIsMarkedWhileDiverting() throws {
+        let manager = activePlan([(47.0, 7.0), (47.0, 7.3), (47.0, 7.6), (47.0, 7.9)])
+        // Diverting to a field past the second waypoint, flying along the route to it.
+        let fixes = track([(47.0, 7.0), (47.0, 7.7), (46.95, 7.75)])
+        let points = gps(fixes)
+        let turn = points.firstIndex { $0.longitude >= 7.4 }!
+        catchUp(manager, Array(points.prefix(turn)))
+        XCTAssertEqual(manager.activeFlightPlan?.currentWaypointIndex, 2)
+
+        manager.divert(to: TripPlanner.Aerodrome(ident: "LSZX", name: "Elsewhere", latitude: 46.95, longitude: 7.75,
+                                                 elevationFeet: 1500, frequency: nil, isPPR: false))
+        for end in stride(from: turn + 2, through: points.count, by: 2) {
+            catchUp(manager, Array(points.prefix(end)))
+        }
+        var plan = try XCTUnwrap(manager.activeFlightPlan)
+        XCTAssertNil(plan.waypoints[2].actualTimeOver, "passed abeam, but while diverting")
+        XCTAssertEqual(plan.currentWaypointIndex, 2)
+
+        manager.resumeRoute()
+        catchUp(manager, points)
+        plan = try XCTUnwrap(manager.activeFlightPlan)
+        XCTAssertEqual(plan.waypoints[2].actualTimeOver?.timeIntervalSince(t0) ?? -1,
+                       seconds(from: 7.0, to: 7.6), accuracy: 20, "back on the route: caught up")
+        XCTAssertEqual(plan.currentWaypointIndex, 3)
+    }
+
+    /// END FLIGHT fills the times over from the track on the flight's own plan only: a plan left armed
+    /// through circuits, or a flight started without it, was not flown.
+    @MainActor
+    func testEndFlightFillsTheTimesOverOfTheFlightsOwnPlanOnly() throws {
+        let points = gps(track([(47.0, 7.0), (47.0, 7.6)]))
+        for linked in [true, false] {
+            let manager = activePlan([(47.0, 7.0), (47.0, 7.3), (47.0, 7.6)])
+            let planId = try XCTUnwrap(manager.activeFlightPlan?.id)
+            let flight = Flight(flightPlanId: linked ? planId : nil, gpsTrack: points)
+
+            manager.populateTimingFromFlight(planId, flight: flight, takeoff: t0, landing: points.last!.timestamp)
+
+            let plan = try XCTUnwrap(manager.flightPlans.first { $0.id == planId })
+            if linked {
+                XCTAssertEqual(plan.waypoints[0].actualTimeOver, t0)
+                XCTAssertNotNil(plan.waypoints[1].actualTimeOver)
+                XCTAssertEqual(plan.waypoints[2].actualTimeOver, points.last!.timestamp)
+            } else {
+                XCTAssertTrue(plan.waypoints.allSatisfy { $0.actualTimeOver == nil }, "not this flight's plan")
+            }
+        }
+    }
+
+    // MARK: - In flight: from the GPS pipeline (v6.0.1)
+
+    /// A flight under way with `planManager`'s plan, wired the way `FlightLauncher` wires it. Not
+    /// `linked`: circuits, or a flight started without the plan, which `FlightLauncher` starts with no
+    /// plan while the plan stays armed.
+    @MainActor
+    private func trackingFlight(planManager: FlightPlanManager, linked: Bool = true,
+                                circuits: Bool = false) -> (LocationManager, AppState) {
+        let appState = makeTestAppState()
+        appState.startFlight(withAircraft: appState.settings.defaultAirplane,
+                             flightPlanId: linked ? planManager.activeFlightPlan?.id : nil, circuitMode: circuits)
+        XCTAssertTrue(appState.isFlightActive, "the bundled aircraft starts a flight")
+        let locationManager = LocationManager()
+        locationManager.authorizationStatus = .authorizedAlways
+        locationManager.startTracking(appState: appState, interval: 5, flightPlanManager: planManager)
+        addTeardownBlock { @MainActor in locationManager.stopTracking() }
+        return (locationManager, appState)
+    }
+
+    /// Each fix as the GPS delivers it: received `age` seconds after it was taken.
+    @MainActor
+    private func fly(_ fixes: [WaypointPassage.Fix], through locationManager: LocationManager,
+                     accuracy: CLLocationAccuracy = 5, age: TimeInterval = 0) {
+        for fix in fixes {
+            let location = CLLocation(coordinate: fix.coordinate, altitude: 900, horizontalAccuracy: accuracy,
+                                      verticalAccuracy: 10, course: 90, speed: fix.speed, timestamp: fix.time)
+            locationManager.processLocation(location, isOwnFix: true, now: fix.time.addingTimeInterval(age))
+        }
+    }
+
+    /// Waypoint 0 is the departure aerodrome, where the aircraft sits through the whole preflight. The
+    /// 500 m radius marked it there before engine start, and moved on to waypoint 1.
+    @MainActor
+    func testParkedOnTheDepartureMarksNothingUntilTakeoff() throws {
+        let manager = activePlan([(47.0, 7.0), (47.0, 7.3), (47.0, 7.6)])
+        let (gpsPipeline, appState) = trackingFlight(planManager: manager)
+
+        // Ten minutes on the ramp, a fix every 10 s, on waypoint 0 itself.
+        let ramp = (0..<60).map {
+            WaypointPassage.Fix(time: t0.addingTimeInterval(-600 + 10 * Double($0)),
+                                coordinate: .init(latitude: 47.0, longitude: 7.0), speed: 0)
+        }
+        fly(ramp, through: gpsPipeline)
+        XCTAssertGreaterThan(appState.currentFlight?.gpsTrack.count ?? 0, 50, "the ramp is recorded")
+        XCTAssertNil(manager.activeFlightPlan?.waypoints[0].actualTimeOver, "parked is not a passage")
+        XCTAssertEqual(manager.activeFlightPlan?.currentWaypointIndex, 0)
+
+        appState.lineUpTime = t0
+        fly(track([(47.0, 7.0), (47.0, 7.6)]), through: gpsPipeline)
+
+        let plan = try XCTUnwrap(manager.activeFlightPlan)
+        XCTAssertEqual(plan.waypoints[0].actualTimeOver, t0, "the departure = takeoff")
+        XCTAssertEqual(plan.waypoints[1].actualTimeOver?.timeIntervalSince(t0) ?? -1,
+                       seconds(from: 7.0, to: 7.3), accuracy: 20)
+        XCTAssertNil(plan.waypoints[2].actualTimeOver, "the destination waits for the landing")
+        XCTAssertEqual(plan.currentWaypointIndex, 2)
+    }
+
+    /// A stale fix (CoreLocation hands out its cached one on start) or an invalid one is not recorded,
+    /// so however well placed, it marks nothing. The same positions, received fresh, do.
+    @MainActor
+    func testAStaleOrInvalidFixMarksNothing() throws {
+        let manager = activePlan([(47.0, 7.0), (47.0, 7.3), (47.0, 7.6)])
+        let (gpsPipeline, appState) = trackingFlight(planManager: manager)
+        appState.lineUpTime = t0
+        let fixes = track([(47.0, 7.0), (47.0, 7.6)])
+        let passage = t0.addingTimeInterval(seconds(from: 7.0, to: 7.3))
+
+        fly(fixes.filter { $0.time < passage.addingTimeInterval(-30) }, through: gpsPipeline)
+        XCTAssertEqual(manager.activeFlightPlan?.currentWaypointIndex, 1, "the departure is behind")
+
+        let beyond = Array(fixes.filter { $0.time > passage.addingTimeInterval(60) }.prefix(3))
+        fly(beyond, through: gpsPipeline, age: 30)
+        fly(beyond, through: gpsPipeline, accuracy: -1)
+        XCTAssertNil(manager.activeFlightPlan?.waypoints[1].actualTimeOver)
+        XCTAssertEqual(manager.activeFlightPlan?.currentWaypointIndex, 1)
+
+        fly(beyond, through: gpsPipeline)
+        XCTAssertEqual(manager.activeFlightPlan?.waypoints[1].actualTimeOver?.timeIntervalSince(passage) ?? -99,
+                       0, accuracy: 30)
+        XCTAssertEqual(manager.activeFlightPlan?.currentWaypointIndex, 2)
+    }
+
+    /// Only the flight's own plan is marked. A plan left armed through circuits, or through a flight
+    /// started without it, is not the one being flown, even flown right over.
+    @MainActor
+    func testAPlanLeftArmedIsNotMarkedByAnotherFlight() throws {
+        for circuits in [true, false] {
+            let manager = activePlan([(47.0, 7.0), (47.0, 7.3), (47.0, 7.6)])
+            let (gpsPipeline, appState) = trackingFlight(planManager: manager, linked: false, circuits: circuits)
+            appState.lineUpTime = t0
+
+            fly(track([(47.0, 7.0), (47.0, 7.6)]), through: gpsPipeline)
+
+            let plan = try XCTUnwrap(manager.activeFlightPlan)
+            XCTAssertTrue(plan.waypoints.allSatisfy { $0.actualTimeOver == nil }, circuits ? "circuits" : "flown without it")
+            XCTAssertEqual(plan.currentWaypointIndex, 0)
+        }
     }
 }

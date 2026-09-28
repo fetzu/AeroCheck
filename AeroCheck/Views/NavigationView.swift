@@ -272,10 +272,6 @@ struct NavigationMapView: View {
 
     @State private var showGPSStatusModal: Bool = false
     @State private var streamingCTRCheckTask: Task<Void, Never>?
-    /// Preview index for iPhone compact panel waypoint browsing (nil = showing real active waypoint)
-    @State private var compactPreviewIndex: Int? = nil
-    /// Last run of the track-based waypoint catch-up (throttled: it replays the whole track so far).
-    @State private var lastPassageCatchUp = Date.distantPast
     /// The Divert sheet, and the field it opens on when reached from an airport callout. (v5.1)
     @State private var showDivert = false
     @State private var divertPreselect: String?
@@ -549,26 +545,7 @@ struct NavigationMapView: View {
                 mapState.cameraHeading = course
             }
 
-            // Auto-advance waypoint when within proximity threshold. In flight only: parked near a
-            // waypoint with Plan › Map open, it recorded a time over it. (v6.0 review)
-            if appState.isFlightActive, let location = newLocation {
-                let clLocation = CLLocation(latitude: location.coordinate.latitude, longitude: location.coordinate.longitude)
-                let prevIndex = flightPlanManager.activeFlightPlan?.currentWaypointIndex
-                flightPlanManager.autoAdvanceWaypointIfNeeded(
-                    currentLocation: clLocation,
-                    threshold: appState.settings.waypointProximityThreshold
-                )
-                // Waypoints passed abeam, or before the map was opened, which the radius above
-                // never sees. Every 15 s is plenty: a waypoint is passed every few minutes.
-                if Date().timeIntervalSince(lastPassageCatchUp) >= 15, let flight = appState.currentFlight {
-                    lastPassageCatchUp = Date()
-                    flightPlanManager.catchUpWaypointPassages(track: flight.gpsTrack, takeoff: appState.lineUpTime)
-                }
-                // Reset compact preview when GPS auto-advances
-                if flightPlanManager.activeFlightPlan?.currentWaypointIndex != prevIndex {
-                    compactPreviewIndex = nil
-                }
-            }
+            // Waypoints passed (ATO) are marked in the GPS pipeline, `LocationManager`. (v6.0.1)
 
             // Debounced streaming CTR fetch (5s delay)
             if appState.settings.enableAirspaceStreaming && !openAIPDataService.isDataAvailable {
@@ -1494,7 +1471,7 @@ struct NavigationMapView: View {
             .padding(.horizontal, 16)
             .padding(.bottom, 8)
 
-            undoToast
+            MapUndoToast(undoOffer: $undoOffer)
                 .padding(.horizontal, 16)
                 .padding(.bottom, 8)
         }
@@ -2747,44 +2724,10 @@ struct NavigationMapView: View {
 
     /// A mis-tap in turbulence is taken back with one tap, for a few seconds.
     private func offerUndo(_ message: String, undo: @escaping () -> Void) {
+        // One undo at a time: this one is newer than a waypoint the flight marked on its own.
+        flightPlanManager.dismissAutoMarkNotice()
         withAnimation(reduceMotion ? nil : .easeOut(duration: 0.2)) {
             undoOffer = NavUndoOffer(message: message, undo: undo)
-        }
-        AccessibilityNotification.Announcement(message).post()
-    }
-
-    @ViewBuilder
-    private var undoToast: some View {
-        if let offer = undoOffer {
-            HStack(spacing: 16) {
-                Text(offer.message)
-                    .font(.aero(size: 18, weight: .semibold))
-                    .foregroundColor(theme.textPrimary)
-                    .lineLimit(2)
-                Spacer(minLength: 8)
-                Button {
-                    offer.undo()
-                    withAnimation(reduceMotion ? nil : .easeOut(duration: 0.2)) { undoOffer = nil }
-                } label: {
-                    Text(L10n.Nav.undo.uppercased())
-                        .font(.aero(size: 19, weight: .heavy))
-                        .foregroundColor(theme.actionText)
-                        .frame(minWidth: 104, minHeight: 56)
-                        .background(RoundedRectangle(cornerRadius: 12).fill(theme.action))
-                }
-            }
-            .padding(.leading, 18)
-            .padding(.trailing, 8)
-            .padding(.vertical, 8)
-            .background(RoundedRectangle(cornerRadius: 16).fill(theme.panel.opacity(0.97)))
-            .overlay(RoundedRectangle(cornerRadius: 16).stroke(theme.panelStroke, lineWidth: 1))
-            .transition(.move(edge: .bottom).combined(with: .opacity))
-            .task(id: offer.id) {
-                try? await Task.sleep(for: .seconds(6))
-                if undoOffer?.id == offer.id {
-                    withAnimation(reduceMotion ? nil : .easeOut(duration: 0.2)) { undoOffer = nil }
-                }
-            }
         }
     }
 
@@ -6023,9 +5966,145 @@ private struct FlightEventOverlayUnlessEmbedded: ViewModifier {
     }
 }
 
-/// A MARK or a leg-timer reset that can still be taken back. (v6.0 · C2)
+/// A MARK or a leg-timer reset that can still be taken back. (v6.0 · C2) Or a waypoint the flight
+/// marked on its own, whose offer is rebuilt on every render under the notice's id. (v6.0.1)
 struct NavUndoOffer: Identifiable {
-    let id = UUID()
+    var id = UUID()
     let message: String
+    var style: NavUndoToast.Style = .filled
     let undo: () -> Void
+}
+
+extension NavUndoOffer {
+    /// "LSGC marked automatically at 14:37", taken back like a MARK. (v6.0.1)
+    @MainActor
+    static func autoMark(_ notice: FlightPlanManager.AutoMarkNotice, in manager: FlightPlanManager) -> NavUndoOffer {
+        NavUndoOffer(id: notice.id,
+                     message: L10n.Nav.markedAutomaticallyAt(notice.waypointName,
+                                                             notice.passedAt.formatted(date: .omitted, time: .shortened)),
+                     style: .outlined) {
+            manager.undoAutoMark(notice)
+        }
+    }
+}
+
+/// The undo toast, over a pane and never in its layout, for six seconds: MARK and the leg-timer reset
+/// on the map, and a waypoint the flight marked on its own on the map and the checklist pane.
+/// (v6.0 · C2, v6.0.1)
+struct NavUndoToast: View {
+    /// MARK's and the leg-timer reset's UNDO take back the pilot's own tap: filled, as in 6.0. The
+    /// flight's own mark is not the pilot's action, and its UNDO sits right above CHECK on the checklist
+    /// pane for six seconds: outlined, a secondary action that a thumb aiming for CHECK is less likely
+    /// to take. Both at the kneeboard sizes below.
+    enum Style {
+        case filled
+        case outlined
+    }
+
+    /// The message and UNDO's label: the in-flight label size (20 pt on the iPad). (v6.0.1)
+    static var textSize: CGFloat { CockpitType.label }
+    /// UNDO's height: the 15 mm control (78 pt on the iPad, 92 on the phone). (v6.0.1)
+    static var buttonHeight: CGFloat { CockpitTarget.transient }
+
+    @Environment(\.cockpitTheme) private var theme
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    let offer: NavUndoOffer
+    /// Clears the offer: after UNDO, or when its six seconds are up.
+    let onDismiss: () -> Void
+
+    var body: some View {
+        HStack(spacing: 16) {
+            Text(offer.message)
+                .font(.aero(size: Self.textSize, weight: .semibold))
+                .foregroundColor(theme.textPrimary)
+                .lineLimit(2)
+            Spacer(minLength: 8)
+            Button {
+                offer.undo()
+                withAnimation(reduceMotion ? nil : .easeOut(duration: 0.2)) { onDismiss() }
+            } label: {
+                Text(L10n.Nav.undo.uppercased())
+                    .font(.aero(size: Self.textSize, weight: .heavy))
+                    .foregroundColor(offer.style == .filled ? theme.actionText : theme.action)
+                    .frame(minWidth: 104, minHeight: Self.buttonHeight)
+                    .background(buttonShape)
+            }
+        }
+        .padding(.leading, 18)
+        .padding(.trailing, 8)
+        .padding(.vertical, 8)
+        .background(RoundedRectangle(cornerRadius: 16).fill(theme.panel.opacity(0.97)))
+        .overlay(RoundedRectangle(cornerRadius: 16).stroke(theme.panelStroke, lineWidth: 1))
+        .transition(.move(edge: .bottom).combined(with: .opacity))
+        .task(id: offer.id) {
+            AccessibilityNotification.Announcement(offer.message).post()
+            try? await Task.sleep(for: .seconds(6))
+            guard !Task.isCancelled else { return }
+            withAnimation(reduceMotion ? nil : .easeOut(duration: 0.2)) { onDismiss() }
+        }
+    }
+
+    @ViewBuilder
+    private var buttonShape: some View {
+        let shape = RoundedRectangle(cornerRadius: 12)
+        switch offer.style {
+        case .filled: shape.fill(theme.action)
+        case .outlined: shape.strokeBorder(theme.action, lineWidth: 2)
+        }
+    }
+}
+
+/// The map's undo toast: its own MARK or leg-timer reset or, in flight, a waypoint the flight just
+/// marked on its own. Only one at a time: each withdraws the other. A view of its own rather than a
+/// part of the map's body, which is already as deep as the stack allows (see `SeparateView`). (v6.0.1)
+struct MapUndoToast: View {
+    @Binding var undoOffer: NavUndoOffer?
+    @Environment(AppState.self) private var appState
+    @EnvironmentObject private var flightPlanManager: FlightPlanManager
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    private var shown: NavUndoOffer? {
+        if appState.isFlightActive, let notice = flightPlanManager.autoMarkNotice {
+            return .autoMark(notice, in: flightPlanManager)
+        }
+        return undoOffer
+    }
+
+    var body: some View {
+        ZStack(alignment: .bottom) {
+            if let offer = shown {
+                NavUndoToast(offer: offer) {
+                    if offer.id == undoOffer?.id { undoOffer = nil }
+                    flightPlanManager.dismissAutoMarkNotice(offer.id)
+                }
+            }
+        }
+        .animation(reduceMotion ? nil : .easeOut(duration: 0.2), value: flightPlanManager.autoMarkNotice?.id)
+        // A waypoint the flight marked on its own supersedes the undo of an older MARK or reset.
+        .onChange(of: flightPlanManager.autoMarkNotice?.id) { _, id in
+            if id != nil { undoOffer = nil }
+        }
+    }
+}
+
+/// The Cockpit's checklist pane host for a waypoint the flight marked on its own: the map pane has
+/// its own, which also carries MARK's undo. (v6.0.1)
+struct AutoMarkUndoToast: View {
+    /// The phone's narrower margins.
+    var narrow = false
+    @EnvironmentObject var flightPlanManager: FlightPlanManager
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    var body: some View {
+        ZStack(alignment: .bottom) {
+            if let notice = flightPlanManager.autoMarkNotice {
+                NavUndoToast(offer: .autoMark(notice, in: flightPlanManager)) {
+                    flightPlanManager.dismissAutoMarkNotice(notice.id)
+                }
+                .padding(.horizontal, narrow ? 12 : 16)
+                .padding(.bottom, 8)
+            }
+        }
+        .animation(reduceMotion ? nil : .easeOut(duration: 0.2), value: flightPlanManager.autoMarkNotice?.id)
+    }
 }

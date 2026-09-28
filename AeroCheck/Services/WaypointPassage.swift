@@ -7,10 +7,11 @@ import CoreLocation
 ///
 /// A pilot rarely flies over a waypoint: the turn is started early, a CTR clearance moves the track,
 /// a reporting point is passed a mile to the side. So "passed" does not mean "came within a radius"
-/// (the in-flight 500 m trigger missed most of a real Bressaucourt–Samedan flight, and once it missed
-/// the departure it never advanced at all). It means the aircraft went ABEAM the waypoint: its
-/// progress along the planned route reached the waypoint's along-route distance, while it was within
-/// `toleranceNM` of the route. That is also the moment a pilot writes the ATO on the kneeboard.
+/// (the in-flight 500 m trigger, since removed, missed most of a real Bressaucourt–Samedan flight,
+/// and once it missed the departure it never advanced at all). It means the aircraft went ABEAM the
+/// waypoint: its progress along the planned route reached the waypoint's along-route distance, while
+/// it was within `toleranceNM` of the route. That is also the moment a pilot writes the ATO on the
+/// kneeboard.
 ///
 /// Progress only moves forward, and each GPS fix is matched against the leg it is on and the next
 /// two, so a later leg passing near an earlier waypoint cannot rewrite history. A waypoint the
@@ -100,7 +101,8 @@ enum WaypointPassage {
 
 extension FlightPlan {
     /// The plan with every waypoint that has no ATO given one from the flight's GPS track. A time
-    /// recorded in flight (a tap on the waypoint, the proximity trigger) is never replaced.
+    /// recorded in flight (MARK, a tap on the waypoint, the live catch-up) is never replaced, and a
+    /// waypoint the pilot took back from the catch-up (`takenBackWaypointIds`) gets none. (v6.0.1)
     func withActualTimesOver(fromTrack track: [GPSPoint], takeoff: Date?, landing: Date?) -> FlightPlan {
         let fixes = track.map {
             WaypointPassage.Fix(time: $0.timestamp,
@@ -110,7 +112,9 @@ extension FlightPlan {
         let times = WaypointPassage.timesOver(route: waypoints.map(\.coordinate), track: fixes,
                                               takeoff: takeoff, landing: landing)
         var plan = self
-        for i in plan.waypoints.indices where plan.waypoints[i].actualTimeOver == nil {
+        let takenBack = takenBackWaypointIds ?? []
+        for i in plan.waypoints.indices
+        where plan.waypoints[i].actualTimeOver == nil && !takenBack.contains(plan.waypoints[i].id) {
             plan.waypoints[i].actualTimeOver = times[i]
         }
         return plan

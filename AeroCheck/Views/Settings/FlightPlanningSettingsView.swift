@@ -13,7 +13,6 @@ struct FlightPlanningSettingsView: View {
     @State private var isStudentPilot = false
     @State private var instructorName: String = ""
     @State private var enableCostTracking: Bool = true
-    @State private var waypointProximityThreshold: Double = 500
     @State private var terrainAltitudeUnit: TerrainAltitudeUnit = .feet
     @State private var isLoadingSettings: Bool = false
 
@@ -33,7 +32,6 @@ struct FlightPlanningSettingsView: View {
         .onChange(of: isStudentPilot) { _, _ in if !isLoadingSettings { saveSettings() } }
         .onChange(of: instructorName) { _, _ in if !isLoadingSettings { saveSettings() } }
         .onChange(of: enableCostTracking) { _, _ in if !isLoadingSettings { saveSettings() } }
-        .onChange(of: waypointProximityThreshold) { _, _ in if !isLoadingSettings { saveSettings() } }
         .onChange(of: terrainAltitudeUnit) { _, _ in if !isLoadingSettings { saveSettings() } }
     }
 
@@ -105,33 +103,18 @@ struct FlightPlanningSettingsView: View {
         SettingsGroup(title: L10n.Settings.flightPlanning,
                       tint: tint,
                       footer: L10n.Settings.flightPlanningFooter) {
-            VStack(alignment: .leading, spacing: 9) {
-                    SettingsRowLabel(
-                        icon: "scope",
-                        title: L10n.Settings.waypointProximity,
-                        subtitle: L10n.Settings.waypointProximityFooter,
-                        tint: tint
-                    )
-                    HStack {
-                        Slider(value: $waypointProximityThreshold, in: 100...2000, step: 100)
-                            .tint(.aviationGold)
-                        Text("\(Int(waypointProximityThreshold)) m")
-                            .foregroundColor(.secondary)
-                    }
+            // The waypoint-proximity slider is gone: waypoints are marked from the GPS track, with
+            // no radius to set. (v6.0.1)
+            SettingsMenuRow(
+                icon: "mountain.2.fill",
+                title: L10n.Settings.terrainAltitudeUnit,
+                subtitle: L10n.Settings.terrainUnitFooter,
+                tint: tint,
+                selection: $terrainAltitudeUnit
+            ) {
+                ForEach(TerrainAltitudeUnit.allCases) { unit in
+                    Text(unit.rawValue).tag(unit)
                 }
-                .padding(.horizontal, 14)
-                .padding(.vertical, 11)
-
-                SettingsMenuRow(
-                    icon: "mountain.2.fill",
-                    title: L10n.Settings.terrainAltitudeUnit,
-                    subtitle: L10n.Settings.terrainUnitFooter,
-                    tint: tint,
-                    selection: $terrainAltitudeUnit
-                ) {
-                    ForEach(TerrainAltitudeUnit.allCases) { unit in
-                        Text(unit.rawValue).tag(unit)
-                    }
             }
         }
     }
@@ -144,7 +127,6 @@ struct FlightPlanningSettingsView: View {
         isStudentPilot = appState.settings.isStudentPilot
         instructorName = appState.settings.instructorName
         enableCostTracking = appState.settings.enableCostTracking
-        waypointProximityThreshold = appState.settings.waypointProximityThreshold
         terrainAltitudeUnit = appState.settings.terrainAltitudeUnit
         DispatchQueue.main.async {
             self.isLoadingSettings = false
@@ -156,7 +138,6 @@ struct FlightPlanningSettingsView: View {
         appState.settings.isStudentPilot = isStudentPilot
         appState.settings.instructorName = instructorName.trimmingCharacters(in: .whitespaces)
         appState.settings.enableCostTracking = enableCostTracking
-        appState.settings.waypointProximityThreshold = waypointProximityThreshold
         appState.settings.terrainAltitudeUnit = terrainAltitudeUnit
         appState.saveSettings()
     }

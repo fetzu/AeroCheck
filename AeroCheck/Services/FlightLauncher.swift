@@ -179,6 +179,7 @@ struct FlightLauncher {
             interval: appState.settings.gpsRecordingInterval,
             airportDataService: airportDataService,
             flightEventDetector: flightEventDetector,
+            flightPlanManager: flightPlanManager,
             activeChecklist: appState.activeChecklist
         )
         return .started

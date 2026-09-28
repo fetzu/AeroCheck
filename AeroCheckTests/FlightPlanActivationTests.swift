@@ -237,4 +237,97 @@ final class FlightPlanActivationTests: XCTestCase {
         XCTAssertEqual(decoded.activatedAt?.timeIntervalSince1970 ?? 0,
                        1_800_000_000, accuracy: 1)
     }
+
+    // MARK: - END FLIGHT and a plan left armed (v6.0.1)
+
+    private func encoded(_ plan: FlightPlan?) throws -> Data {
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = .sortedKeys
+        return try encoder.encode(try XCTUnwrap(plan))
+    }
+
+    /// Circuits flown with a plan armed for a later flight: END FLIGHT writes nothing into that plan,
+    /// attaches none to the circuits, and leaves it armed. The plan a flight was started with gets its
+    /// times and is attached, as before. The same steps as `FlightView.performEndFlight`.
+    func testEndFlightSettlesOnlyThePlanTheFlightWasStartedWith() throws {
+        for startedWithIt in [false, true] {
+            let datastore = makeTestDatastore()
+            let manager = makeTestPlanManager(datastore: datastore)
+            let appState = makeTestAppState(datastore: datastore)
+            let armed = plan()
+            manager.add(armed)
+            manager.activateFlightPlan(armed)
+            addTeardownBlock { @MainActor in manager.stopChronometer() }
+            let before = try encoded(manager.activeFlightPlan)
+
+            appState.startFlight(withAircraft: appState.settings.defaultAirplane,
+                                 flightPlanId: startedWithIt ? armed.id : nil, circuitMode: !startedWithIt)
+            let takeoff = Date(timeIntervalSinceNow: -1_800), landing = Date(timeIntervalSinceNow: -60)
+            appState.currentFlight?.gpsTrack = [
+                GPSPoint(latitude: 47.392, longitude: 7.030, altitude: 450, timestamp: takeoff, speed: 30),
+                GPSPoint(latitude: 46.914, longitude: 7.497, altitude: 510, timestamp: landing, speed: 0),
+            ]
+            appState.lineUpTime = takeoff
+            appState.landingTime = landing
+
+            let flight = try XCTUnwrap(appState.currentFlight)
+            let flown = manager.settleFlownPlan(flight, takeoff: takeoff, landing: landing, landedAt: nil)
+            appState.endFlight(withFlightPlan: flown)
+            if flown != nil { manager.deactivateFlightPlan() }
+
+            let logged = try XCTUnwrap(appState.flights.first { $0.id == flight.id })
+            if startedWithIt {
+                XCTAssertEqual(flown?.id, armed.id)
+                XCTAssertEqual(logged.flightPlan?.id, armed.id, "attached to its flight")
+                XCTAssertEqual(logged.flightPlan?.timeOff, takeoff)
+                XCTAssertNotNil(logged.flightPlan?.waypoints[0].actualTimeOver)
+                XCTAssertNil(manager.activeFlightPlan, "its activation ends with the flight")
+            } else {
+                XCTAssertNil(flown)
+                XCTAssertNil(logged.flightPlan, "no plan attached to the circuits")
+                XCTAssertEqual(try encoded(manager.activeFlightPlan), before, "still armed, exactly as it was")
+                XCTAssertEqual(try encoded(manager.flightPlans.first { $0.id == armed.id }), before)
+            }
+        }
+    }
+
+    /// ABANDON FLIGHT on circuits flown with a plan armed for a later flight: the plan stays armed,
+    /// exactly as it was. The same steps as the abandon alert in `FlightView`.
+    func testAbandoningCircuitsLeavesAPlanArmedForAnotherFlight() throws {
+        let datastore = makeTestDatastore()
+        let manager = makeTestPlanManager(datastore: datastore)
+        let appState = makeTestAppState(datastore: datastore)
+        let armed = plan()
+        manager.add(armed)
+        manager.activateFlightPlan(armed)
+        addTeardownBlock { @MainActor in manager.stopChronometer() }
+        let before = try encoded(manager.activeFlightPlan)
+        appState.startFlight(withAircraft: appState.settings.defaultAirplane, circuitMode: true)
+
+        let abandoned = appState.currentFlight
+        appState.cancelFlight()
+        manager.abandonFlownPlan(of: abandoned)
+
+        XCTAssertFalse(appState.isFlightActive)
+        XCTAssertEqual(try encoded(manager.activeFlightPlan), before, "still armed, exactly as it was")
+    }
+
+    /// ABANDON FLIGHT on a flight started with the plan ends its activation, as it always did.
+    func testAbandoningAFlightEndsTheActivationOfItsPlan() throws {
+        let datastore = makeTestDatastore()
+        let manager = makeTestPlanManager(datastore: datastore)
+        let appState = makeTestAppState(datastore: datastore)
+        let armed = plan()
+        manager.add(armed)
+        manager.activateFlightPlan(armed)
+        addTeardownBlock { @MainActor in manager.stopChronometer() }
+        appState.startFlight(withAircraft: appState.settings.defaultAirplane, flightPlanId: armed.id)
+
+        let abandoned = appState.currentFlight
+        appState.cancelFlight()
+        manager.abandonFlownPlan(of: abandoned)
+
+        XCTAssertNil(manager.activeFlightPlan)
+        XCTAssertEqual(manager.flightPlans.first { $0.id == armed.id }?.isActive, false)
+    }
 }

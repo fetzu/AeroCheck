@@ -66,9 +66,17 @@ class LocationManager: NSObject, ObservableObject {
     /// capped to at most this many seconds between fixes it processes. (PR-23)
     private static let detectionIntervalCapSeconds: TimeInterval = 5.0
     private var lastDetectionTime: Date?
+    /// How often the active plan is caught up with the waypoints passed. A waypoint is passed every
+    /// few minutes, and each run replays the whole track so far, so 15 s is plenty. (v6.0.1)
+    static let waypointPassageIntervalSeconds: TimeInterval = 15.0
+    private var lastWaypointPassageTime: Date?
     private weak var appState: AppState?
     private weak var airportDataService: AirportDataService?
     private weak var flightEventDetector: FlightEventDetector?
+    /// The plan whose waypoints the flight marks as it passes them (ATO + next waypoint). Here and
+    /// not in a view: the Cockpit shows the checklist for most of a flight, and a pilot may fly with
+    /// the app in the background, so a trigger living in the nav map missed most passages. (v6.0.1)
+    private weak var flightPlanManager: FlightPlanManager?
     /// Relative barometric altitude, started/stopped with GPS tracking. Recorded on every
     /// GPSPoint and fed to the flight-event detector as its preferred vertical reference.
     /// Inert on devices without a barometer (and on the simulator).
@@ -195,14 +203,16 @@ class LocationManager: NSObject, ObservableObject {
         locationManager.requestWhenInUseAuthorization()
     }
     
-    func startTracking(appState: AppState, interval: TimeInterval = 5.0, airportDataService: AirportDataService? = nil, flightEventDetector: FlightEventDetector? = nil, activeChecklist: ActiveChecklist? = nil) {
+    func startTracking(appState: AppState, interval: TimeInterval = 5.0, airportDataService: AirportDataService? = nil, flightEventDetector: FlightEventDetector? = nil, flightPlanManager: FlightPlanManager? = nil, activeChecklist: ActiveChecklist? = nil) {
         self.appState = appState
         self.airportDataService = airportDataService
         self.flightEventDetector = flightEventDetector
+        self.flightPlanManager = flightPlanManager
         self.activeChecklist = activeChecklist
         self.recordingInterval = interval
         self.lastRecordedTime = nil
         self.lastDetectionTime = nil
+        self.lastWaypointPassageTime = nil
         self.lastGoodSignalTime = Date()
         self.lastLocationUpdateTime = Date()
         self.gpsSignalStatus = .good
@@ -277,9 +287,11 @@ class LocationManager: NSObject, ObservableObject {
         airportDataService = nil
         flightEventDetector?.reset()
         flightEventDetector = nil
+        flightPlanManager = nil
         hasNotifiedTakeoffTime = false
         hasConfiguredDetector = false
         lastDetectionTime = nil
+        lastWaypointPassageTime = nil
         // Reset to ground mode for next flight
         isGroundMode = true
         locationManager.distanceFilter = groundModeDistanceFilter
@@ -767,12 +779,13 @@ class LocationManager: NSObject, ObservableObject {
     /// borrowed companion fixes (`isOwnFix == false`). Updates the displayed location, smoothed
     /// instruments, signal quality, the recorded track and event detection, so a borrowed fix is
     /// indistinguishable downstream from a real one. (shared-GPS, v4.1)
-    func processLocation(_ location: CLLocation, isOwnFix: Bool) {
+    ///
+    /// `now` is the receiving clock: the cadences and a fix's age are measured on it. Only a test
+    /// replaying a recorded flight passes one.
+    func processLocation(_ location: CLLocation, isOwnFix: Bool, now: Date = Date()) {
         // When marketing mode is active, ignore real GPS updates
         // (marketing location is injected directly via currentLocation property)
         guard !marketingModeActive else { return }
-
-        let now = Date()
 
         // Track own-fix liveness from real device fixes only, so companion borrowing can't flip it.
         // Require usable accuracy (not just a valid sign) so a coarse own fix doesn't suppress a better
@@ -822,7 +835,7 @@ class LocationManager: NSObject, ObservableObject {
         // A *borrowed* companion fix carries the peer device's clock, so its embedded timestamp can't be
         // compared to our clock — its freshness was already validated on the sender and re-checked by the
         // election before injection, so we treat it as fresh (age 0) to avoid spurious clock-skew rejection.
-        let fixAge = isOwnFix ? abs(location.timestamp.timeIntervalSinceNow) : 0
+        let fixAge = isOwnFix ? abs(location.timestamp.timeIntervalSince(now)) : 0
         let fixIsUsable = fixAge <= 10 && location.horizontalAccuracy >= 0
         if shouldRecord, fixIsUsable, let appState = appState {
             // A borrowed companion fix carries the peer device's clock; re-stamp it with our own clock
@@ -832,6 +845,19 @@ class LocationManager: NSObject, ObservableObject {
                                  baroAltitude: barometer.rawRelativeAltitudeM)
             appState.addGPSPoint(point, airportDataService: airportDataService)
             lastRecordedTime = now
+        }
+
+        // Waypoints passed: the ATO and the next waypoint, whichever screen is showing and with the
+        // app in the background. The track above is the evidence, so a stale or invalid fix, which
+        // it never records, doesn't trigger a run either. (v6.0.1)
+        let passageDue = lastWaypointPassageTime.map {
+            now.timeIntervalSince($0) >= Self.waypointPassageIntervalSeconds
+        } ?? true
+        if passageDue, fixIsUsable, let appState, appState.isFlightActive,
+           let flightPlanManager, let track = appState.currentFlight?.gpsTrack {
+            lastWaypointPassageTime = now
+            flightPlanManager.catchUpWaypointPassages(track: track, takeoff: appState.lineUpTime,
+                                                      flightPlanId: appState.currentFlight?.flightPlanId)
         }
 
         // Event detection runs independently of recording so it isn't starved at slow recording

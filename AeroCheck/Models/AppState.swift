@@ -145,7 +145,10 @@ struct AppSettings: Codable, Equatable {
     /// Whether the fee task and the cost half of the numbers sheet appear. Not every pilot tracks
     /// what a flight cost, and the logbook line stands on its own without it. (v5.0.0)
     var enableCostTracking: Bool = true
-    var waypointProximityThreshold: Double = 500 // meters, for auto-advancing waypoints
+    /// Retired in 6.0.1: the radius (metres) around the next waypoint that marked it as passed. The
+    /// GPS track's abeam passages replaced it (`catchUpWaypointPassages`), and the slider is gone. Still
+    /// decoded and synced, so an older build on another device keeps its value.
+    var waypointProximityThreshold: Double = 500
     var terrainAltitudeUnit: TerrainAltitudeUnit = .feet // feet, meters, or dual
 
     // Circuit mode
@@ -446,6 +449,7 @@ struct AppSettings: Codable, Equatable {
     func clampedForIngest() -> AppSettings {
         var result = self
         result.gpsRecordingInterval = result.gpsRecordingInterval.clamped(to: 1.0...300.0)
+        // Retired, but still carried to older builds that use it.
         result.waypointProximityThreshold = result.waypointProximityThreshold.clamped(to: 10.0...50_000.0)
         // SA-23: this used to clamp two numeric fields and validate NO string. The aircraft id is
         // applied verbatim and then spliced into a filesystem path component and a URL path

@@ -108,6 +108,9 @@ enum CockpitTarget {
     static var thumb: CGFloat { CockpitType.size(kneeboard: 104, phone: 92) }
     /// Controls over the map: Map, orientation, centre, zoom. Short enough to leave the map visible.
     static var control: CGFloat { CockpitType.size(kneeboard: 64, phone: 50) }
+    /// A control that comes and goes over a pane, UNDO on its toast: the 15 mm EFB control on both
+    /// devices, as the phone's thumb bar keeps it. (v6.0.1)
+    static var transient: CGFloat { CockpitType.size(kneeboard: 78, phone: 92) }
 }
 
 extension Font {

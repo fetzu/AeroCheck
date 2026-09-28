@@ -254,6 +254,7 @@ struct AeroCheckApp: App {
                                 interval: appState.settings.gpsRecordingInterval,
                                 airportDataService: airportDataService,
                                 flightEventDetector: flightEventDetector,
+                                flightPlanManager: flightPlanManager,
                                 activeChecklist: appState.activeChecklist
                             )
                             appState.flightRestoredNotice = L10n.Alert.flightRestored

@@ -13,6 +13,10 @@ class FlightPlanManager: ObservableObject {
     @Published var chronometerElapsed: TimeInterval = 0
     /// Set once at launch when an activation is retired by age; drives the notice banner. (v4.4.0)
     @Published var expiredActivation: ExpiredActivation?
+    /// The waypoint the flight just marked on its own (`catchUpWaypointPassages`), offered back by
+    /// whichever in-flight screen is showing. One at a time: any other leg action withdraws it, so
+    /// taking it back always restores what was there just before. (v6.0.1)
+    @Published private(set) var autoMarkNotice: AutoMarkNotice?
     /// Elapsed accumulated from completed run segments, so pause/resume preserves the leg time. (v4 UI/UX Revamp)
     private var chronometerAccumulated: TimeInterval = 0
 
@@ -370,8 +374,10 @@ class FlightPlanManager: ObservableObject {
         activePlan.currentWaypointIndex = 0
         activePlan.chronometerStartTime = nil
         activePlan.activatedAt = Date()
-        // A diversion belongs to the flight that made it.
+        // A diversion belongs to the flight that made it, and so do its automatic marks. (v6.0.1)
         activePlan.diversion = nil
+        activePlan.autoMarkedWaypointIds = nil
+        activePlan.takenBackWaypointIds = nil
 
         // Reset ATO values for all waypoints (fresh start for new flight)
         for i in 0..<activePlan.waypoints.count {
@@ -386,6 +392,7 @@ class FlightPlanManager: ObservableObject {
         activeFlightPlan = activePlan
         chronometerElapsed = 0
         chronometerAccumulated = 0
+        autoMarkNotice = nil
         saveFlightPlans()
         saveActiveFlightPlan()
     }
@@ -466,6 +473,7 @@ class FlightPlanManager: ObservableObject {
         activeFlightPlan = nil
         chronometerElapsed = 0
         chronometerAccumulated = 0
+        autoMarkNotice = nil
         stopChronometer()
         saveFlightPlans()
         clearActiveFlightPlan()
@@ -482,7 +490,34 @@ class FlightPlanManager: ObservableObject {
         updateFlightPlan(plan)
     }
 
-    /// Populate flight plan timing fields from a completed flight's data
+    /// END FLIGHT for the plan the flight flew: the active plan, and only when the flight was started
+    /// with it (`Flight.flightPlanId`). That plan gets the flight's times and comes back, to be attached
+    /// to the flight before its activation ends. A plan left armed through circuits, or through a flight
+    /// started without it, was not flown: it gets nothing, is not attached, and stays armed for the
+    /// flight it was armed for. (v6.0.1)
+    func settleFlownPlan(_ flight: Flight, takeoff: Date?, landing: Date?,
+                         landedAt field: TripPlanner.Aerodrome?) -> FlightPlan? {
+        guard let plan = plan(flownBy: flight) else { return nil }
+        populateTimingFromFlight(plan.id, flight: flight, takeoff: takeoff, landing: landing, landedAt: field)
+        return activeFlightPlan
+    }
+
+    /// ABANDON FLIGHT, the same rule as END FLIGHT: the plan the flight was started with ends its
+    /// activation, and any other armed plan stays armed, untouched. Nothing is written into either: an
+    /// abandoned flight did not happen. (v6.0.1)
+    func abandonFlownPlan(of flight: Flight?) {
+        guard plan(flownBy: flight) != nil else { return }
+        deactivateFlightPlan()
+    }
+
+    /// The active plan, when `flight` was started with it (`Flight.flightPlanId`).
+    private func plan(flownBy flight: Flight?) -> FlightPlan? {
+        guard let plan = activeFlightPlan, let flight, flight.flightPlanId == plan.id else { return nil }
+        return plan
+    }
+
+    /// Populate flight plan timing fields from a completed flight's data. Only the flight's own plan
+    /// (`Flight.flightPlanId`) is written to: any other is left as it was. (v6.0.1)
     /// - Parameters:
     ///   - planId: The ID of the flight plan to update
     ///   - flight: The completed flight with timing data
@@ -490,9 +525,13 @@ class FlightPlanManager: ObservableObject {
     ///     they still live on AppState: `endFlight` copies them onto the flight only afterwards.
     func populateTimingFromFlight(_ planId: UUID, flight: Flight, takeoff: Date? = nil, landing: Date? = nil,
                                   landedAt field: TripPlanner.Aerodrome? = nil) {
-        guard var plan = flightPlans.first(where: { $0.id == planId }) else { return }
+        // The active copy first: it is the one the flight wrote. After a relaunch in flight the list's
+        // copy comes from the plan file, which the last off-main write may not have reached. (v6.0.1)
+        guard flight.flightPlanId == planId,
+              var plan = activeFlightPlan.flatMap({ $0.id == planId ? $0 : nil })
+                ?? flightPlans.first(where: { $0.id == planId }) else { return }
 
-        // ATO for every waypoint the in-flight trigger did not record, from the GPS track: the
+        // ATO for every waypoint the in-flight catch-up did not record, from the GPS track: the
         // after-flight nav log is the one the times are written on.
         plan = plan.withActualTimesOver(fromTrack: flight.gpsTrack,
                                         takeoff: takeoff ?? flight.lineUpTime,
@@ -564,32 +603,11 @@ class FlightPlanManager: ObservableObject {
         guard plan.currentWaypointIndex < plan.waypoints.count else { return }
 
         plan.currentWaypointIndex += 1
+        autoMarkNotice = nil
 
         activeFlightPlan = plan
 
         // Update in plans list
-        if let index = flightPlans.firstIndex(where: { $0.id == plan.id }) {
-            flightPlans[index] = plan
-        }
-
-        saveFlightPlans()
-        saveActiveFlightPlan()
-    }
-
-    /// Record the ATO of the current waypoint, without advancing to the next one.
-    ///
-    /// Nothing calls this yet: it waits for the planned GPS-proximity ATO wiring. Today's proximity
-    /// path is `autoAdvanceWaypointIfNeeded`, which records through `recordATO(forWaypointAt:)` and
-    /// advances in the same step.
-    func recordATOForCurrentWaypoint() {
-        guard var plan = activeFlightPlan else { return }
-        guard plan.currentWaypointIndex < plan.waypoints.count else { return }
-        // Only record if not already set
-        guard plan.waypoints[plan.currentWaypointIndex].actualTimeOver == nil else { return }
-
-        plan.waypoints[plan.currentWaypointIndex].actualTimeOver = Date()
-        activeFlightPlan = plan
-
         if let index = flightPlans.firstIndex(where: { $0.id == plan.id }) {
             flightPlans[index] = plan
         }
@@ -610,6 +628,7 @@ class FlightPlanManager: ObservableObject {
         guard plan.currentWaypointIndex > 0 else { return }
 
         plan.currentWaypointIndex -= 1
+        autoMarkNotice = nil
         activeFlightPlan = plan
 
         // Update in plans list
@@ -621,30 +640,15 @@ class FlightPlanManager: ObservableObject {
         saveActiveFlightPlan()
     }
 
-    /// Check if current location is within proximity of next waypoint
-    func checkWaypointProximity(currentLocation: CLLocation, threshold: Double) -> Bool {
-        guard let plan = activeFlightPlan,
-              plan.currentWaypointIndex < plan.waypoints.count else {
-            return false
-        }
-
-        let nextWaypoint = plan.waypoints[plan.currentWaypointIndex]
-        let waypointLocation = CLLocation(
-            latitude: nextWaypoint.latitude,
-            longitude: nextWaypoint.longitude
-        )
-
-        let distance = currentLocation.distance(from: waypointLocation)
-        return distance <= threshold
-    }
-
-    /// Record ATO for a specific waypoint by index (used for map tap/long-press and GPS proximity)
+    /// Record the ATO of a waypoint by index, now: MARK, a tap on the map, the companion's command.
+    /// The GPS track's passages go through `catchUpWaypointPassages` instead, at the time they happened.
     func recordATO(forWaypointAt index: Int) {
         guard var plan = activeFlightPlan,
               index >= 0, index < plan.waypoints.count,
               plan.waypoints[index].actualTimeOver == nil else { return }
 
         plan.waypoints[index].actualTimeOver = Date()
+        autoMarkNotice = nil
 
         // If recording ATO for the current waypoint, also advance to next
         var advanced = false
@@ -666,35 +670,100 @@ class FlightPlanManager: ObservableObject {
         if advanced { resetChronometer() }
     }
 
-    /// Catch the active plan up with the waypoints already passed, from the track recorded so far.
+    /// Catch the active plan up with the waypoints already passed, from the track recorded so far:
+    /// the in-flight ATO. `LocationManager` runs it every 15 s through the flight, whatever screen is
+    /// showing. (v6.0.1)
     ///
-    /// The proximity trigger below only ever looks at the CURRENT waypoint, and only within its
-    /// radius. That starts at the departure aerodrome, so opening the map once airborne (outside the
-    /// radius) left the plan on waypoint 0 for the whole flight, with no ATO anywhere. This records
-    /// every passage `WaypointPassage` can establish (at the time it happened, not now) and moves the
-    /// current waypoint past the last one. Times already recorded are kept.
-    func catchUpWaypointPassages(track: [GPSPoint], takeoff: Date?) {
-        guard var plan = activeFlightPlan, plan.currentWaypointIndex < plan.waypoints.count else { return }
+    /// Records every passage `WaypointPassage` can establish (at the time it happened, not now) and
+    /// moves the current waypoint past the last one. Times already recorded are kept, and a waypoint
+    /// is only ever passed once, so a circuit flown past the same point again changes nothing. The
+    /// departure takes the takeoff time and the destination waits for the landing (END FLIGHT): being
+    /// parked on either is never a passage.
+    ///
+    /// It replaced a 500 m radius around the current waypoint, which fired on the ramp at the
+    /// departure before engine start, missed any waypoint passed abeam, and ran only while the nav
+    /// map was on screen.
+    ///
+    /// Nothing is recorded while diverting: the aircraft is flying away from the route, and a route
+    /// waypoint it happens to pass is not the one it is flying to. After `resumeRoute` the passages
+    /// are caught up from the track.
+    ///
+    /// Only the plan the flight was started with (`Flight.flightPlanId`) is marked: a plan left armed
+    /// through circuits, or through a flight started without it, is not the one being flown.
+    ///
+    /// The new leg starts at the last passage, not at this run, so the leg timer and the ATO agree.
+    ///
+    /// Every run that marks a waypoint past the departure raises `autoMarkNotice`, so the pilot sees
+    /// it happen and can take it back (`undoAutoMark`). A waypoint taken back is left to MARK. (v6.0.1)
+    func catchUpWaypointPassages(track: [GPSPoint], takeoff: Date?, flightPlanId: UUID?) {
+        guard var plan = activeFlightPlan, plan.id == flightPlanId, plan.diversion == nil,
+              plan.currentWaypointIndex < plan.waypoints.count else { return }
+        // Leaves the waypoints the pilot took back without a time (`takenBackWaypointIds`).
         let filled = plan.withActualTimesOver(fromTrack: track, takeoff: takeoff, landing: nil)
         guard let lastPassed = filled.waypoints.lastIndex(where: { $0.actualTimeOver != nil }),
               lastPassed >= plan.currentWaypointIndex else { return }
+        let before = (target: plan.currentWaypointIndex, timer: legTimerSnapshot)
+        var marked: [Int] = []
         for i in 0...lastPassed where plan.waypoints[i].actualTimeOver == nil {
             plan.waypoints[i].actualTimeOver = filled.waypoints[i].actualTimeOver
+            if plan.waypoints[i].actualTimeOver != nil { marked.append(i) }
         }
         plan.currentWaypointIndex = lastPassed + 1
+        plan.autoMarkedWaypointIds = (plan.autoMarkedWaypointIds ?? []).union(marked.map { plan.waypoints[$0].id })
         activeFlightPlan = plan
         if let index = flightPlans.firstIndex(where: { $0.id == plan.id }) { flightPlans[index] = plan }
         saveFlightPlans()
         saveActiveFlightPlan()
-        resetChronometer()
+        resetChronometer(from: plan.waypoints[lastPassed].actualTimeOver)
+
+        // Said out loud, except for the departure: its time is the takeoff the pilot set at LINE UP,
+        // not a passage to dispute, and a toast at the holding point would only sit over the
+        // checklist. Marked in the same run as later waypoints, it stays passed after an UNDO.
+        let undoable = marked.filter { $0 > 0 }
+        guard let timer = before.timer, let named = undoable.last,
+              let passedAt = plan.waypoints[named].actualTimeOver else { return }
+        let departure = marked.first == 0 ? plan.waypoints[0].actualTimeOver : nil
+        let name = plan.waypoints[named].name
+        autoMarkNotice = AutoMarkNotice(waypointName: name.isEmpty ? "WPT \(named + 1)" : name,
+                                        passedAt: passedAt,
+                                        previousTarget: departure == nil ? before.target : max(before.target, 1),
+                                        marked: undoable, timer: timer, departure: departure)
     }
 
-    /// Auto-advance waypoint if within proximity (records ATO based on GPS position)
-    func autoAdvanceWaypointIfNeeded(currentLocation: CLLocation, threshold: Double) {
-        if checkWaypointProximity(currentLocation: currentLocation, threshold: threshold) {
-            guard let plan = activeFlightPlan else { return }
-            recordATO(forWaypointAt: plan.currentWaypointIndex)
+    /// A waypoint the flight marked on its own, and what that changed. (v6.0.1)
+    struct AutoMarkNotice: Identifiable, Equatable {
+        let id = UUID()
+        /// The last waypoint passed, and when: its ATO, not the time the catch-up ran.
+        let waypointName: String
+        let passedAt: Date
+        /// The target before the catch-up, every waypoint past the departure it gave a time, and the
+        /// leg timer as it was.
+        let previousTarget: Int
+        let marked: [Int]
+        let timer: LegTimerSnapshot
+        /// The departure's time when the same run marked it: UNDO keeps it, and the leg from it.
+        var departure: Date?
+    }
+
+    /// Take back what the catch-up marked: the target, the times and the leg timer are what they were
+    /// before it, as for a MARK taken back, and those waypoints are left to the pilot's MARK.
+    func undoAutoMark(_ notice: AutoMarkNotice) {
+        guard notice.id == autoMarkNotice?.id, var plan = activeFlightPlan else { return }
+        // A waypoint behind the target (skipped by DIRECT TO, passed after all): resumeLeg won't reach it.
+        let behind = notice.marked.filter { $0 < notice.previousTarget && plan.waypoints.indices.contains($0) }
+        if !behind.isEmpty {
+            for i in behind { plan.waypoints[i].actualTimeOver = nil }
+            plan.takeBackAutoMarks(at: behind)
+            commitActive(plan)
         }
+        undoMark(ofWaypointAt: notice.previousTarget, timer: notice.timer)
+        if let departure = notice.departure { resetChronometer(from: departure) }
+    }
+
+    /// The notice was shown and left alone (or `id` is not the pending one any more: nothing to do).
+    func dismissAutoMarkNotice(_ id: UUID? = nil) {
+        guard let pending = autoMarkNotice, id == nil || id == pending.id else { return }
+        autoMarkNotice = nil
     }
 
     // MARK: - Chronometer
@@ -756,13 +825,16 @@ class FlightPlanManager: ObservableObject {
     }
 
     /// Reset the leg timer to zero, keeping the running/paused state. (v4 UI/UX Revamp)
-    func resetChronometer() {
+    ///
+    /// `legStart`: when the new leg began, if earlier than now (a passage the catch-up found after the
+    /// fact). A paused timer stays at zero. (v6.0.1)
+    func resetChronometer(from legStart: Date? = nil) {
         guard var plan = activeFlightPlan else { return }
 
         chronometerAccumulated = 0
-        if plan.chronometerStartTime != nil { plan.chronometerStartTime = Date() }
+        if plan.chronometerStartTime != nil { plan.chronometerStartTime = min(legStart ?? Date(), Date()) }
         activeFlightPlan = plan
-        chronometerElapsed = 0
+        updateChronometerElapsed()
 
         if let index = flightPlans.firstIndex(where: { $0.id == plan.id }) {
             flightPlans[index] = plan
@@ -820,6 +892,10 @@ class FlightPlanManager: ObservableObject {
     /// every later crossing (ATO), and restart the leg timer. (v4 UI/UX Revamp — go back a leg)
     func resumeLeg(at index: Int) {
         guard var plan = activeFlightPlan, index >= 0, index < plan.waypoints.count else { return }
+        // The catch-up's own marks among these would come back 15 s later, from the same track: the
+        // pilot took them back, so they are the pilot's to MARK. (v6.0.1)
+        plan.takeBackAutoMarks(at: index..<plan.waypoints.count)
+        autoMarkNotice = nil
         plan.currentWaypointIndex = index
         for i in index..<plan.waypoints.count { plan.waypoints[i].actualTimeOver = nil }
         activeFlightPlan = plan
@@ -988,6 +1064,7 @@ class FlightPlanManager: ObservableObject {
                                    latitude: field.latitude, longitude: field.longitude,
                                    elevationFeet: field.elevationFeet, frequency: field.frequency,
                                    startedAt: now, leftRouteAt: plan.currentWaypointIndex)
+        autoMarkNotice = nil
         commitActive(plan)
         resetChronometer()
     }
@@ -997,6 +1074,7 @@ class FlightPlanManager: ObservableObject {
     func resumeRoute() {
         guard var plan = activeFlightPlan, plan.diversion != nil else { return }
         plan.diversion = nil
+        autoMarkNotice = nil
         commitActive(plan)
         resetChronometer()
     }
@@ -1007,6 +1085,7 @@ class FlightPlanManager: ObservableObject {
         guard var plan = activeFlightPlan, plan.waypoints.indices.contains(index) else { return }
         plan.currentWaypointIndex = index
         plan.diversion = nil
+        autoMarkNotice = nil
         commitActive(plan)
         resetChronometer()
     }

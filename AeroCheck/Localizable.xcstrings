@@ -3792,6 +3792,23 @@
         }
       }
     },
+    "nav.markedAutomaticallyAt": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@ marked automatically at %2$@"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@ marqué automatiquement à %2$@"
+          }
+        }
+      }
+    },
     "deferred.back": {
       "extractionState": "manual",
       "localizations": {
@@ -22127,40 +22144,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Unité d'altitude du terrain : Unité pour afficher l'élévation du profil du terrain."
-          }
-        }
-      }
-    },
-    "settings.flightPlanning.waypointProximity": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Waypoint Proximity"
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Proximité des waypoints"
-          }
-        }
-      }
-    },
-    "settings.flightPlanning.waypointProximityDesc": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Waypoint Proximity: Distance at which waypoints auto-advance during flight."
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Proximité des waypoints : Distance à laquelle les waypoints avancent automatiquement pendant le vol."
           }
         }
       }

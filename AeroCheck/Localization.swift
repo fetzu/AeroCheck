@@ -739,10 +739,8 @@ enum L10n {
         static let pilotNameFooter = String(localized: "Used for the PIC column and the logbook PDF's holder line.")
         static let costTracking = String(localized: "Track flight costs")
         static let costTrackingFooter = String(localized: "Off hides the landing-fee tasks and the cost sheet. Your logbook line is unaffected.")
-        static let waypointProximity = String(localized: "settings.flightPlanning.waypointProximity")
         static let terrainAltitudeUnit = String(localized: "settings.flightPlanning.terrainAltitudeUnit")
         static let flightPlanningFooter = String(localized: "settings.flightPlanning.planFlightRoutes")
-        static let waypointProximityFooter = String(localized: "settings.flightPlanning.waypointProximityDesc")
         static let terrainUnitFooter = String(localized: "settings.flightPlanning.terrainUnitDesc")
 
         // Display
@@ -2083,6 +2081,10 @@ enum L10n {
         static let presetsHint = String(localized: "nav.presetsHint")
         static func markedAt(_ waypoint: String, _ time: String) -> String {
             String(format: String(localized: "nav.markedAt"), waypoint, time)
+        }
+        /// "LSGC marked automatically at 14:37": passed, from the GPS track. (v6.0.1)
+        static func markedAutomaticallyAt(_ waypoint: String, _ time: String) -> String {
+            String(format: String(localized: "nav.markedAutomaticallyAt"), waypoint, time)
         }
         static let wpt = String(localized: "nav.wpt")
 

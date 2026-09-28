@@ -98,6 +98,19 @@ Owners and rules that aren't obvious from the names:
   panel (nearest 6 fields within 40 nm; OpenAIP first, OurAirports TWR as fallback) and `MapPreset`.
 - `FlightLauncher` is the ONE flight-start sequence (buttons, widget, deep link): checklist load →
   entitlement / permission / active-flight guards → start → GPS. Never start a flight around it.
+- Waypoint ATOs come from the GPS track (`WaypointPassage`: abeam within 2.5 NM, forward only).
+  `LocationManager.processLocation` catches the active plan up every 15 s in flight, whatever screen
+  is showing (`FlightPlanManager.catchUpWaypointPassages`); END FLIGHT backfills the rest. Only the
+  flight's own plan (`Flight.flightPlanId`) gets times: never a plan left armed through circuits or a
+  flight started without it. END FLIGHT (`settleFlownPlan`) writes into, attaches and deactivates only
+  that plan, and ABANDON FLIGHT (`abandonFlownPlan`) deactivates only that plan; any other stays armed,
+  untouched. The departure takes the takeoff time and the destination the landing time, never a
+  proximity; nothing is marked while diverting; the new leg's timer starts at the passage. Each mark
+  past the departure raises `FlightPlanManager.autoMarkNotice`, offered back on the checklist pane and
+  on the map (`NavUndoToast`: outlined UNDO, where MARK's and the leg-timer reset's are filled; all
+  20 pt, 78 pt). A waypoint taken back (UNDO, RESUME LEG) is left to MARK:
+  `FlightPlan.takenBackWaypointIds` survives a relaunch, and no track fill (in flight, END FLIGHT, the
+  Flight Log) gives it a time. UNDO keeps a departure marked in the same run.
 - `WidgetBridge` publishes the owned-aircraft list to the widget through the App Group
   `group.com.fetzu.aerocheck`; the widget renders only those and launches through `FlightLauncher`.
   `Models/FlightActivityAttributes.swift` is compiled into the widget too (Live Activity).
@@ -130,8 +143,9 @@ Owners and rules that aren't obvious from the names:
 - Persisted models (`AppSettings`, `Flight`, `FlightPlan`) decode through hand-written `init(from:)`: a
   new field goes there as `decodeIfPresent … ?? default` (a synthesized non-optional field makes every
   older file fail to decode). Never delete a settings field: the ones retired in 6.0 (circuit mode, keep
-  screen on, step-by-step) are still decoded and synced for older builds. A settings field an older build
-  can't round-trip also bumps `AppSettings.currentSchemaVersion` and joins `preservingFieldsUnknownTo(_:)`.
+  screen on, step-by-step) and 6.0.1 (waypoint proximity) are still decoded and synced for older builds.
+  A settings field an older build can't round-trip also bumps `AppSettings.currentSchemaVersion` and
+  joins `preservingFieldsUnknownTo(_:)`.
 - `FlightPlan ==` compares ids only: never use it to detect an edit (it once silently dropped every
   saved-plan change).
 - iCloud sync (`SyncManager`, CKSyncEngine): inbound records are validated (unknown schema, oversized or

@@ -106,6 +106,9 @@ Owners and rules that aren't obvious from the names:
   that plan, and ABANDON FLIGHT (`abandonFlownPlan`) deactivates only that plan; any other stays armed,
   untouched. The departure takes the takeoff time and the destination the landing time, never a
   proximity; nothing is marked while diverting; the new leg's timer starts at the passage.
+  Each mark past the departure raises `FlightPlanManager.autoMarkNotice`, offered back with UNDO on
+  the checklist pane and on the map (`NavUndoToast`); a waypoint taken back (UNDO, RESUME LEG) is left
+  to MARK for the rest of the activation, in memory only.
 - `WidgetBridge` publishes the owned-aircraft list to the widget through the App Group
   `group.com.fetzu.aerocheck`; the widget renders only those and launches through `FlightLauncher`.
   `Models/FlightActivityAttributes.swift` is compiled into the widget too (Live Activity).

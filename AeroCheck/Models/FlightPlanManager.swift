@@ -492,11 +492,14 @@ class FlightPlanManager: ObservableObject {
                                   landedAt field: TripPlanner.Aerodrome? = nil) {
         guard var plan = flightPlans.first(where: { $0.id == planId }) else { return }
 
-        // ATO for every waypoint the in-flight trigger did not record, from the GPS track: the
-        // after-flight nav log is the one the times are written on.
-        plan = plan.withActualTimesOver(fromTrack: flight.gpsTrack,
-                                        takeoff: takeoff ?? flight.lineUpTime,
-                                        landing: landing ?? flight.landingTime)
+        // ATO for every waypoint the in-flight catch-up did not record, from the GPS track: the
+        // after-flight nav log is the one the times are written on. Only on the flight's own plan: a
+        // plan left armed through circuits or a flight started without it was not flown. (v6.0.1)
+        if flight.flightPlanId == planId {
+            plan = plan.withActualTimesOver(fromTrack: flight.gpsTrack,
+                                            takeoff: takeoff ?? flight.lineUpTime,
+                                            landing: landing ?? flight.landingTime)
+        }
         // Landed somewhere else than planned: record the diversion, pressed or not. (v5.1)
         plan = TripPlanner.settlingDiversion(plan, landedAt: field, landing: landing ?? flight.landingTime)
 
@@ -645,8 +648,11 @@ class FlightPlanManager: ObservableObject {
     /// Nothing is recorded while diverting: the aircraft is flying away from the route, and a route
     /// waypoint it happens to pass is not the one it is flying to. After `resumeRoute` the passages
     /// are caught up from the track.
-    func catchUpWaypointPassages(track: [GPSPoint], takeoff: Date?) {
-        guard var plan = activeFlightPlan, plan.diversion == nil,
+    ///
+    /// Only the plan the flight was started with (`Flight.flightPlanId`) is marked: a plan left armed
+    /// through circuits, or through a flight started without it, is not the one being flown.
+    func catchUpWaypointPassages(track: [GPSPoint], takeoff: Date?, flightPlanId: UUID?) {
+        guard var plan = activeFlightPlan, plan.id == flightPlanId, plan.diversion == nil,
               plan.currentWaypointIndex < plan.waypoints.count else { return }
         let filled = plan.withActualTimesOver(fromTrack: track, takeoff: takeoff, landing: nil)
         guard let lastPassed = filled.waypoints.lastIndex(where: { $0.actualTimeOver != nil }),

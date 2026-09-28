@@ -856,7 +856,8 @@ class LocationManager: NSObject, ObservableObject {
         if passageDue, fixIsUsable, let appState, appState.isFlightActive,
            let flightPlanManager, let track = appState.currentFlight?.gpsTrack {
             lastWaypointPassageTime = now
-            flightPlanManager.catchUpWaypointPassages(track: track, takeoff: appState.lineUpTime)
+            flightPlanManager.catchUpWaypointPassages(track: track, takeoff: appState.lineUpTime,
+                                                      flightPlanId: appState.currentFlight?.flightPlanId)
         }
 
         // Event detection runs independently of recording so it isn't starved at slow recording

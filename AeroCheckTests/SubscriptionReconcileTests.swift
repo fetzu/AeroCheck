@@ -126,6 +126,83 @@ final class SubscriptionReconcileTests: XCTestCase {
         XCTAssertNil(credential, "the retired originalTransactionId must not go out as a Bearer")
     }
 
+    // MARK: - The session token on /verify (KV write budget)
+
+    private let verifyURL = URL(string: "https://api-sandbox.aerocheck.app/api/v3/subscription/verify")!
+
+    /// A verify presents the token the device holds, so the server can hand it back instead of
+    /// minting (and writing) a new one.
+    func testTheVerifyRequestPresentsTheHeldSessionToken() {
+        let body = Data(#"{"jwsToken":"jws","userId":"2000000123456789"}"#.utf8)
+        let request = SubscriptionManager.makeVerifyRequest(url: verifyURL, body: body, sessionToken: "held-token")
+
+        XCTAssertEqual(request.value(forHTTPHeaderField: "Authorization"), "Bearer held-token")
+        XCTAssertEqual(request.httpMethod, "POST")
+        XCTAssertEqual(request.value(forHTTPHeaderField: "Content-Type"), "application/json")
+        XCTAssertEqual(request.httpBody, body)
+        XCTAssertEqual(request.timeoutInterval, 15)
+    }
+
+    /// Without a token nothing goes in the header, as before: the first verify of a purchase, and
+    /// every verify right after Restore Purchases (which drops the token on purpose).
+    func testTheVerifyRequestCarriesNoAuthorizationWithoutAToken() {
+        for token in [nil, ""] as [String?] {
+            let request = SubscriptionManager.makeVerifyRequest(url: verifyURL, body: Data(), sessionToken: token)
+            XCTAssertNil(request.value(forHTTPHeaderField: "Authorization"), String(describing: token))
+        }
+    }
+
+    /// The server handed back the token the device presented: nothing changes, nothing is written.
+    func testATokenHandedBackIsKept() async {
+        let keychain = makeTestKeychain()
+        keychain.set("held-token", for: .apiSessionToken)
+        let sm = SubscriptionManager(defaults: makeTestDefaults(), keychain: keychain, deferLoadProducts: true)
+
+        XCTAssertEqual(sm.adoptSessionToken("held-token"), .kept)
+        XCTAssertEqual(keychain.get(.apiSessionToken), "held-token")
+        let credential = await sm.getAuthCredential()
+        XCTAssertEqual(credential, "held-token")
+    }
+
+    /// A different token (the held one was too close to expiry, evicted, or of another purchase)
+    /// replaces it, in memory and in the Keychain.
+    func testANewTokenReplacesTheHeldOne() async {
+        let keychain = makeTestKeychain()
+        keychain.set("old-token", for: .apiSessionToken)
+        let sm = SubscriptionManager(defaults: makeTestDefaults(), keychain: keychain, deferLoadProducts: true)
+        _ = await sm.getAuthCredential()   // the old one is cached, as after any premium request
+
+        XCTAssertEqual(sm.adoptSessionToken("new-token"), .stored)
+        XCTAssertEqual(keychain.get(.apiSessionToken), "new-token")
+        let credential = await sm.getAuthCredential()
+        XCTAssertEqual(credential, "new-token")
+    }
+
+    /// No token back (nothing to authenticate, or the server refused the write): keep the held one.
+    func testNoTokenBackKeepsTheHeldOne() async {
+        let keychain = makeTestKeychain()
+        keychain.set("held-token", for: .apiSessionToken)
+        let sm = SubscriptionManager(defaults: makeTestDefaults(), keychain: keychain, deferLoadProducts: true)
+
+        XCTAssertEqual(sm.adoptSessionToken(nil), .noneReturned)
+        XCTAssertEqual(sm.adoptSessionToken(""), .noneReturned)
+        XCTAssertEqual(keychain.get(.apiSessionToken), "held-token")
+        let credential = await sm.getAuthCredential()
+        XCTAssertEqual(credential, "held-token")
+    }
+
+    /// "Kept" is decided against the Keychain, not the in-memory copy: a token that never made it
+    /// to the Keychain is stored the next time the server hands it back.
+    func testATokenMissingFromTheKeychainIsStoredWhenItComesBack() async {
+        let keychain = makeTestKeychain()
+        let sm = SubscriptionManager(defaults: makeTestDefaults(), keychain: keychain, deferLoadProducts: true)
+        XCTAssertEqual(sm.adoptSessionToken("minted-token"), .stored)
+        keychain.remove(.apiSessionToken)   // as if that write had been refused
+
+        XCTAssertEqual(sm.adoptSessionToken("minted-token"), .stored)
+        XCTAssertEqual(keychain.get(.apiSessionToken), "minted-token")
+    }
+
     /// The debug screen redacts both ids: for a lifetime purchase or a subscription's first
     /// transaction, the transaction id IS the originalTransactionId. (S9-39)
     func testTheTransactionDebugRowRedactsBothIds() {

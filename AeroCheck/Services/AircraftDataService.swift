@@ -18,7 +18,8 @@ protocol SubscriptionGating {
     /// none, whether or not a grace window is still running. A status still resolving is not this.
     /// Decides whether a server refusal is agreed with (lock the aircraft) or disputed (ask again).
     func holdsNoEntitlement() -> Bool
-    /// Has the server verify this device's entitlement again, which mints a fresh session token.
+    /// Has the server verify this device's entitlement again: a fresh session token, or the current
+    /// one handed back while the server still accepts it.
     func syncWithServer() async
     /// Whether StoreKit holds a verified Pro entitlement right now, however far the subscription
     /// status has resolved. Decides whether a locked aircraft list is disputed.

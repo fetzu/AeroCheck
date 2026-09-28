@@ -203,6 +203,8 @@ struct ReportingPointAerodrome: Equatable, Sendable {
 /// and ATC says), subtitle "LSGC Les Eplatures · on request", and a note only for what the remark
 /// adds ("MAX 3500"). The unofficial ident ("ELESE") is not part of it. Pure. (6.0.1)
 struct ReportingPointLabel: Equatable {
+    /// The point's own name, trimmed; nil when OpenAIP gives none.
+    let name: String?
     let title: String
     /// "On request" or "Compulsory".
     let status: String
@@ -210,11 +212,9 @@ struct ReportingPointLabel: Equatable {
     let aerodrome: ReportingPointAerodrome?
 
     init(point: ReportingPoint, aerodrome: ReportingPointAerodrome?) {
-        if let name = point.name?.trimmingCharacters(in: .whitespacesAndNewlines), !name.isEmpty {
-            title = name
-        } else {
-            title = String(localized: "Reporting point")
-        }
+        let trimmed = point.name?.trimmingCharacters(in: .whitespacesAndNewlines)
+        name = (trimmed?.isEmpty ?? true) ? nil : trimmed
+        title = name ?? String(localized: "Reporting point")
         status = point.compulsory ? L10n.Briefing.compulsory : L10n.Briefing.onRequest
         self.aerodrome = aerodrome
         note = ReportingPointRemarks.informativeNote(point.remarkNote, aerodromeName: aerodrome?.name)
@@ -225,6 +225,14 @@ struct ReportingPointLabel: Equatable {
         guard let aerodrome else { return status }
         return "\(aerodrome.displayLine) · \(status.localizedLowercase)"
     }
+
+    /// The waypoint's name in a route: the point's own name ("E", "WITZWIL"), nil for a point
+    /// without one. A short name qualified with its aerodrome ("E (LSGC)") was the planned route name,
+    /// but it does not fit the Cockpit's NEXT cell in iPad portrait (eight characters at 48 pt take
+    /// 250 pt of the cell's 193, so it shrinks to 37 pt and the label moves) nor the phone's
+    /// next-waypoint line (it cuts off the ETE), so it waits for a decision. Meanwhile the aerodrome
+    /// is in the callout, the briefing, the waypoint editor and the GPX description. (6.0.1)
+    var routeName: String? { name }
 
     /// The briefing row's value: "LSGC · On request". The section already sits under an aerodrome,
     /// so its name would repeat; its code still tells a neighbour's points apart.

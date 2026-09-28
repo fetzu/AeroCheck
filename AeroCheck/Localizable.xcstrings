@@ -3095,6 +3095,23 @@
         }
       }
     },
+    "nav.addToRoute": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Add to route"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ajouter à la route"
+          }
+        }
+      }
+    },
     "nav.mapSheet": {
       "extractionState": "manual",
       "localizations": {
@@ -3125,6 +3142,23 @@
           "stringUnit": {
             "state": "translated",
             "value": "Nord en haut"
+          }
+        }
+      }
+    },
+    "nav.pointIdent": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ident (OpenAIP, unofficial)"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ident (OpenAIP, non officiel)"
           }
         }
       }

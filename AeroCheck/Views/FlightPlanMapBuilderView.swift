@@ -467,7 +467,9 @@ struct FlightPlanMapBuilderView: View {
             focusToken: focusToken,
             fitRouteToken: fitRouteToken,
             region: $region,
-            onAirportTap: { airport in addAirport(airport) },
+            // "+" on an aerodrome, navaid or reporting point: a planning control, so never offered
+            // while flying (a builder left open under a flight started from the widget). (6.0.1)
+            onPointAdd: appState.isFlightActive ? nil : { point in addPoint(point) },
             onMoveWaypoint: { index, coord in moveWaypoint(at: index, to: coord) },
             onInsertWaypoint: { afterIndex, coord in insertRouteWaypoint(afterIndex: afterIndex, at: coord) },
             onAddWaypoint: { coord in smartAddWaypoint(at: coord) },
@@ -644,18 +646,18 @@ struct FlightPlanMapBuilderView: View {
         switch slot {
         case .from:
             if var wp = waypoints.first {
-                applyAirport(airport, to: &wp)
+                apply(.aerodrome(airport), to: &wp)
                 flightPlanManager.updateWaypoint(wp, in: planId)
             } else {
-                addAirport(airport)
+                addPoint(.aerodrome(airport))
             }
             fromText = airport.ident
         case .to:
             if waypoints.count >= 2, var wp = waypoints.last {
-                applyAirport(airport, to: &wp)
+                apply(.aerodrome(airport), to: &wp)
                 flightPlanManager.updateWaypoint(wp, in: planId)
             } else {
-                addAirport(airport) // appends → makes [from, to] (or the only point)
+                addPoint(.aerodrome(airport)) // appends → makes [from, to] (or the only point)
             }
             toText = airport.ident
         }
@@ -664,16 +666,17 @@ struct FlightPlanMapBuilderView: View {
         fitRouteToken += 1
     }
 
-    private func applyAirport(_ airport: Airport, to wp: inout FlightPlanWaypoint) {
-        wp.name = airport.ident
-        wp.coordinate = airport.coordinate
-        wp.callSign = airport.ident
-        // The field's CONTACT frequency (TWR › AFIS › INFO …) ahead of its listen-only ATIS, which the
-        // old pick preferred over AFIS: this value is printed as the station to call on the nav log.
-        wp.frequency = airportDataService.bestFieldFrequency(for: airport.ident)?.formattedFrequency
-        // Only fill field elevation when no altitude is set, so snapping/endpoint changes don't
-        // clobber a pilot's planned altitude (mirrors addAirport). (v4.0.0 review P2)
-        if wp.altitude == nil, isRouteEndpoint(wp), let elevation = airport.elevation { wp.altitude = Double(elevation) }
+    /// Makes an existing waypoint `point` (a snap, a new endpoint). Only fills an elevation when no
+    /// altitude is set, so a snap doesn't clobber a pilot's planned altitude. (v4.0.0 review P2)
+    private func apply(_ point: RoutePoint, to wp: inout FlightPlanWaypoint) {
+        point.apply(to: &wp, asEndpoint: isRouteEndpoint(wp), contactFrequency: contactFrequency(for: point))
+    }
+
+    /// An aerodrome's CONTACT frequency (TWR › AFIS › INFO …) ahead of its listen-only ATIS, which the
+    /// old pick preferred over AFIS: this value is printed as the station to call on the nav log.
+    private func contactFrequency(for point: RoutePoint) -> String? {
+        guard case .aerodrome(let airport) = point else { return nil }
+        return airportDataService.bestFieldFrequency(for: airport.ident)?.formattedFrequency
     }
 
     /// Ground elevation is a sensible altitude only where the aircraft is ON the ground: the departure
@@ -682,21 +685,17 @@ struct FlightPlanMapBuilderView: View {
         wp.id == waypoints.first?.id || wp.id == waypoints.last?.id
     }
 
-    /// Apply a navaid to a waypoint — name/callSign by ident, plus frequency + elevation. Mirrors
-    /// applyAirport; only fills altitude when unset so it doesn't clobber a planned altitude. (v4.1.0 navaid snap)
-    private func applyNavaid(_ navaid: Navaid, to wp: inout FlightPlanWaypoint) {
-        wp.name = navaid.identifier
-        wp.coordinate = navaid.coordinate
-        wp.callSign = navaid.identifier
-        if let frequency = navaid.frequencyValue { wp.frequency = frequency }
-        if wp.altitude == nil, isRouteEndpoint(wp), let elevation = navaid.elevationFeet { wp.altitude = Double(elevation) }
-    }
-
-    /// Name the waypoint after a VFR reporting point + adopt its position/elevation. (v4.1.0 ③)
-    private func applyReportingPoint(_ rp: ReportingPoint, to wp: inout FlightPlanWaypoint) {
-        if let name = rp.name, !name.isEmpty { wp.name = name }
-        wp.coordinate = rp.coordinate
-        if wp.altitude == nil, isRouteEndpoint(wp), let elevation = rp.elevationFeetMSL { wp.altitude = Double(elevation) }
+    /// What a point dropped or dragged at `coordinate` snaps to, if anything: one rule for the move,
+    /// the press-and-hold add and the drag off the route line (which used to snap to aerodromes
+    /// only). (6.0.1)
+    private func snapTarget(near coordinate: CLLocationCoordinate2D) -> RoutePoint? {
+        RoutePoint.snapTarget(
+            near: coordinate,
+            aerodrome: airportDataService.nearestAirport(to: coordinate, maxDistanceNm: snapRadiusNm,
+                                                          types: AirportType.fixedWing),
+            navaid: OpenAIPNavaidDataService.shared.nearestNavaid(to: coordinate, maxDistanceNm: snapRadiusNm),
+            reportingPoint: reportingPointSnapCandidate(near: coordinate)
+                .map { ($0, OpenAIPAirportDataService.shared.label(for: $0)) })
     }
 
     /// Nearest reporting point eligible for snap — only when the RP layer is shown, within a tighter
@@ -1541,81 +1540,50 @@ struct FlightPlanMapBuilderView: View {
 
     // MARK: - Actions
 
-    /// Add an airport as a waypoint, carrying its identifier as name + call sign and its contact
-    /// frequency (`bestFieldFrequency`). The manager appends + recalculates; we then set the radio fields
-    /// on the just-added waypoint.
-    private func addAirport(_ airport: Airport) {
-        flightPlanManager.addWaypoint(to: planId, coordinate: airport.coordinate, name: airport.ident)
-        guard let p = plan, var wp = p.waypoints.last else { return }
-        wp.callSign = airport.ident
-        wp.frequency = airportDataService.bestFieldFrequency(for: airport.ident)?.formattedFrequency
-        if let elevation = airport.elevation, wp.altitude == nil {
-            wp.altitude = Double(elevation)
-        }
-        flightPlanManager.updateWaypoint(wp, in: planId)
+    /// The "+" in an aerodrome's, navaid's or reporting point's callout: the point itself, never
+    /// snapped to a neighbour, on the leg it least lengthens. The departure and the destination stay
+    /// where From and To put them; only a route without a destination yet (fewer than two points)
+    /// gets the point appended. An aerodrome used to be appended after the destination, becoming it.
+    /// (6.0.1)
+    private func addPoint(_ point: RoutePoint) {
+        insert(point, at: FlightPlanManager.bestLegInsertionIndex(for: point.coordinate, in: waypoints),
+               droppedAt: point.coordinate)
+    }
+
+    /// Inserts `point`, or a plain waypoint at `coordinate` when there is none, at `index` in one
+    /// write. At either end it is an endpoint, so it takes the elevation when it has one.
+    private func insert(_ point: RoutePoint?, at index: Int, droppedAt coordinate: CLLocationCoordinate2D) {
+        let asEndpoint = index == 0 || index >= waypoints.count
+        let waypoint = point.map { $0.waypoint(asEndpoint: asEndpoint, contactFrequency: contactFrequency(for: $0)) }
+            ?? FlightPlanWaypoint(coordinate: coordinate, pointKind: .user)
+        flightPlanManager.insertWaypoint(waypoint, to: planId, at: index)
     }
 
     /// Snap radius for releasing a dragged waypoint onto a nearby airfield. (flight-plan revamp #3)
     private let snapRadiusNm: Double = 2.5
     private let rpSnapRadiusNm: Double = 1.2   // tighter — reporting points are dense (v4.1.0 ③)
 
-    /// Commit a live waypoint move: snap to a nearby airfield if released within `snapRadiusNm`
-    /// (carrying its ident + frequency + elevation), otherwise just reposition the point. (#3)
+    /// Commit a live waypoint move: snap to what is near the release (`snapTarget`), otherwise just
+    /// reposition the point, which is then the pilot's own. (#3)
     private func moveWaypoint(at index: Int, to coordinate: CLLocationCoordinate2D) {
         guard index < waypoints.count else { return }
         var wp = waypoints[index]
-        let airport = airportDataService.nearestAirport(to: coordinate, maxDistanceNm: snapRadiusNm, types: AirportType.fixedWing)
-        let navaid = OpenAIPNavaidDataService.shared.nearestNavaid(to: coordinate, maxDistanceNm: snapRadiusNm)
-        let rp = reportingPointSnapCandidate(near: coordinate)
-        // Priority airport > navaid > reporting point by TYPE (each candidate is already filtered to its
-        // own snap radius); airport wins a tie with a navaid by distance. A reporting point only snaps
-        // when there is no airfield/navaid in range — NOT just because it happens to be closer. (review #3)
-        if let airport, airport.distance(from: coordinate) <= (navaid?.distanceNM(from: coordinate) ?? .infinity) {
-            applyAirport(airport, to: &wp)
-        } else if let navaid {
-            applyNavaid(navaid, to: &wp)
-        } else if let rp {
-            applyReportingPoint(rp, to: &wp)
+        if let target = snapTarget(near: coordinate) {
+            apply(target, to: &wp)
         } else {
             wp.coordinate = coordinate
+            // No longer the aerodrome, navaid or point it was: its ident must not reach the GPX.
+            if wp.pointKind != nil { wp.pointKind = .user; wp.sourceId = nil; wp.code = nil }
         }
         flightPlanManager.updateWaypoint(wp, in: planId)
     }
 
     /// Commit a deliberate press-and-hold add: drop the waypoint at the cheapest-insertion position
-    /// (the leg it least lengthens, or an endpoint), snapping to a nearby airfield within
-    /// `snapRadiusNm`. (tap-add feedback + smart insertion)
+    /// (the leg it least lengthens, or an endpoint), snapped to what is near (`snapTarget`).
+    /// (tap-add feedback + smart insertion)
     private func smartAddWaypoint(at coordinate: CLLocationCoordinate2D) {
-        let index = FlightPlanManager.bestInsertionIndex(for: coordinate, in: waypoints)
-        let airport = airportDataService.nearestAirport(to: coordinate, maxDistanceNm: snapRadiusNm, types: AirportType.fixedWing)
-        let navaid = OpenAIPNavaidDataService.shared.nearestNavaid(to: coordinate, maxDistanceNm: snapRadiusNm)
-        let rp = reportingPointSnapCandidate(near: coordinate)
-        // Priority airport > navaid > reporting point by TYPE (each already filtered to its own radius);
-        // airport wins a navaid tie by distance; RP only when no airfield/navaid in range. (review #3)
-        if let airport, airport.distance(from: coordinate) <= (navaid?.distanceNM(from: coordinate) ?? .infinity) {
-            flightPlanManager.insertWaypoint(to: planId, at: index, coordinate: airport.coordinate, name: airport.ident)
-            if let p = plan, index < p.waypoints.count {
-                var wp = p.waypoints[index]
-                applyAirport(airport, to: &wp)
-                flightPlanManager.updateWaypoint(wp, in: planId)
-            }
-        } else if let navaid {
-            flightPlanManager.insertWaypoint(to: planId, at: index, coordinate: navaid.coordinate, name: navaid.identifier)
-            if let p = plan, index < p.waypoints.count {
-                var wp = p.waypoints[index]
-                applyNavaid(navaid, to: &wp)
-                flightPlanManager.updateWaypoint(wp, in: planId)
-            }
-        } else if let rp {
-            flightPlanManager.insertWaypoint(to: planId, at: index, coordinate: rp.coordinate, name: rp.name ?? "")
-            if let p = plan, index < p.waypoints.count {
-                var wp = p.waypoints[index]
-                applyReportingPoint(rp, to: &wp)
-                flightPlanManager.updateWaypoint(wp, in: planId)
-            }
-        } else {
-            flightPlanManager.insertWaypoint(to: planId, at: index, coordinate: coordinate)
-        }
+        insert(snapTarget(near: coordinate), at: FlightPlanManager.bestInsertionIndex(for: coordinate, in: waypoints),
+               droppedAt: coordinate)
     }
 
     /// Profile drag committed: set a waypoint's planned altitude. (R3)
@@ -1654,24 +1622,16 @@ struct FlightPlanMapBuilderView: View {
         return waypoints.count
     }
 
-    /// Commit a live mid-route insert after `afterIndex`, snapping to a nearby airfield if close. (#3)
+    /// Commit a live mid-route insert after `afterIndex`, snapped like the other two (`snapTarget`):
+    /// it used to snap to aerodromes only. (#3, 6.0.1)
     private func insertRouteWaypoint(afterIndex: Int, at coordinate: CLLocationCoordinate2D) {
-        let insertAt = afterIndex + 1
-        if let airport = airportDataService.nearestAirport(to: coordinate, maxDistanceNm: snapRadiusNm, types: AirportType.fixedWing) {
-            flightPlanManager.insertWaypoint(to: planId, at: insertAt, coordinate: airport.coordinate, name: airport.ident)
-            if let p = plan, insertAt < p.waypoints.count {
-                var wp = p.waypoints[insertAt]
-                applyAirport(airport, to: &wp)
-                flightPlanManager.updateWaypoint(wp, in: planId)
-            }
-        } else {
-            flightPlanManager.insertWaypoint(to: planId, at: insertAt, coordinate: coordinate)
-        }
+        insert(snapTarget(near: coordinate), at: afterIndex + 1, droppedAt: coordinate)
     }
 
     /// Export the route as an avionics-compatible GPX (Dynon / Garmin) via the shared service.
     private func exportGPX() {
-        guard let plan, let data = FlightPlanExportService.exportToAvionicsGPX(plan) else { return }
+        guard let plan, let data = FlightPlanExportService.exportToAvionicsGPX(
+            plan, pointDescriptions: FlightPlanExportService.gpxDescriptions(for: plan)) else { return }
         exportItem = FlightPlanExportItem(data: data, filename: plan.exportFilename, format: .gpx)
     }
 
@@ -1915,7 +1875,8 @@ struct RouteBuilderMapView: UIViewRepresentable {
     var focusToken: Int = 0
     var fitRouteToken: Int
     @Binding var region: MKCoordinateRegion
-    var onAirportTap: (Airport) -> Void
+    /// "+" in an aerodrome's, navaid's or reporting point's callout. nil ⇒ no "+". (6.0.1)
+    var onPointAdd: ((RoutePoint) -> Void)? = nil
     /// Live drag committed a waypoint move (index, new coordinate). nil ⇒ read-only map (no drag). (#3)
     var onMoveWaypoint: ((Int, CLLocationCoordinate2D) -> Void)? = nil
     /// Live drag committed a mid-route insert (afterIndex, coordinate). nil ⇒ read-only map. (#3)
@@ -2269,8 +2230,7 @@ struct RouteBuilderMapView: UIViewRepresentable {
                 }
                 view.canShowCallout = true
                 view.image = aeroMarkerSymbol("airplane", color: UIColor(red: 0.3, green: 0.6, blue: 1.0, alpha: 1.0), pointSize: 13, weight: .medium)
-                let addButton = UIButton(type: .contactAdd)
-                view.rightCalloutAccessoryView = addButton
+                view.rightCalloutAccessoryView = addButton(annotation)
                 return view
             }
 
@@ -2285,6 +2245,7 @@ struct RouteBuilderMapView: UIViewRepresentable {
                 }
                 navaidView.canShowCallout = true
                 navaidView.image = aeroMarkerSymbol("hexagon", color: UIColor(red: 1.0, green: 0.72, blue: 0.0, alpha: 1.0), pointSize: 13)
+                navaidView.rightCalloutAccessoryView = addButton(annotation)
                 return navaidView
             }
 
@@ -2299,6 +2260,7 @@ struct RouteBuilderMapView: UIViewRepresentable {
                 }
                 rpView.canShowCallout = true
                 rpView.detailCalloutAccessoryView = rpAnnotation.calloutDetailView()   // (6.0.1)
+                rpView.rightCalloutAccessoryView = addButton(annotation)
                 let symbol = rpAnnotation.point.compulsory ? "triangle.fill" : "triangle"
                 rpView.image = aeroMarkerSymbol(symbol, color: UIColor(red: 0.85, green: 0.2, blue: 0.6, alpha: 1.0), pointSize: 12)
                 return rpView
@@ -2321,11 +2283,27 @@ struct RouteBuilderMapView: UIViewRepresentable {
             return nil
         }
 
-        func mapView(_ mapView: MKMapView, annotationView view: MKAnnotationView, calloutAccessoryControlTapped control: UIControl) {
-            if let airport = (view.annotation as? AirportAnnotation)?.airport {
-                parent.onAirportTap(airport)
-                mapView.deselectAnnotation(view.annotation, animated: true)
+        /// The callout's "+": the builder adds the point. Planning only: nil without `onPointAdd`.
+        private func addButton(_ annotation: MKAnnotation) -> UIView? {
+            guard parent.onPointAdd != nil, routePoint(for: annotation) != nil else { return nil }
+            let button = UIButton(type: .contactAdd)
+            button.accessibilityLabel = L10n.Nav.addToRoute
+            return button
+        }
+
+        private func routePoint(for annotation: MKAnnotation?) -> RoutePoint? {
+            switch annotation {
+            case let airport as AirportAnnotation: return .aerodrome(airport.airport)
+            case let navaid as NavaidAnnotation: return .navaid(navaid.navaid)
+            case let point as ReportingPointAnnotation: return .reportingPoint(point.point, point.label)
+            default: return nil
             }
+        }
+
+        func mapView(_ mapView: MKMapView, annotationView view: MKAnnotationView, calloutAccessoryControlTapped control: UIControl) {
+            guard let point = routePoint(for: view.annotation) else { return }
+            parent.onPointAdd?(point)
+            mapView.deselectAnnotation(view.annotation, animated: true)
         }
 
         // Tap empty map → add a free waypoint. Taps on an annotation are handled by the callout.

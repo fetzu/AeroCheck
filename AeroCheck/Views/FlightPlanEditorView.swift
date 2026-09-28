@@ -1007,7 +1007,8 @@ struct FlightPlanEditorView: View {
         case .json:
             generatedData = FlightPlanExportService.exportToJSON(flightPlan)
         case .gpx:
-            generatedData = FlightPlanExportService.exportToAvionicsGPX(flightPlan)
+            generatedData = FlightPlanExportService.exportToAvionicsGPX(
+                flightPlan, pointDescriptions: FlightPlanExportService.gpxDescriptions(for: flightPlan))
         case .xlsx:
             generatedData = FlightPlanExportService.exportToXLSX(flightPlan, radio: radioPlan)
         case .pdf:

@@ -56,6 +56,8 @@ struct WaypointEditorSheet: View {
                             .foregroundColor(.primaryText)
                     }
 
+                    WaypointReportingPointRows(waypoint: waypoint, tint: tint)
+
                     HStack {
                         VStack(alignment: .leading, spacing: 4) {
                             Text(L10n.Nav.latitude)
@@ -426,9 +428,41 @@ struct WaypointEditorSheet: View {
         updatedWaypoint.plannedGroundSpeed = parsedSpeed
         updatedWaypoint.windDirection = parsedDirection
         updatedWaypoint.windSpeed = parsedWindSpeed
+        // Moved off the aerodrome, navaid or reporting point it was (more than 100 m): the pilot's
+        // own point now, so that point's ident no longer names it in the GPX. (6.0.1)
+        if updatedWaypoint.pointKind != nil,
+           CLLocation(latitude: lat, longitude: lon)
+            .distance(from: CLLocation(latitude: waypoint.latitude, longitude: waypoint.longitude)) > 100 {
+            updatedWaypoint.pointKind = .user
+            updatedWaypoint.sourceId = nil
+            updatedWaypoint.code = nil
+        }
 
         onSave(updatedWaypoint)
         dismiss()
+    }
+}
+
+// MARK: - Reporting point rows (6.0.1)
+
+/// For a waypoint made from a reporting point: whose point it is ("LSGC Les Eplatures") and the ident
+/// an OpenAIP remark gives it ("ELESE"), labelled unofficial. The only place the ident shows. Nothing
+/// for any other waypoint.
+struct WaypointReportingPointRows: View {
+    let waypoint: FlightPlanWaypoint
+    let tint: Color
+
+    var body: some View {
+        if waypoint.pointKind == .vrp {
+            let aerodrome = waypoint.sourceId
+                .flatMap { OpenAIPReportingPointDataService.shared.point(withId: $0) }
+                .flatMap { OpenAIPAirportDataService.shared.aerodrome(for: $0) }
+            SettingsValueRow(icon: "triangle", title: String(localized: "Reporting point"), tint: tint,
+                             value: aerodrome?.displayLine ?? "—")
+            if let code = waypoint.code, !code.isEmpty {
+                SettingsValueRow(title: L10n.Nav.pointIdent, tint: tint, value: code)
+            }
+        }
     }
 }
 

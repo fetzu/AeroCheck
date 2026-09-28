@@ -185,6 +185,12 @@ final class OpenAIPReportingPointDataService: ObservableObject {
             .map { $0.0 }
     }
 
+    /// The loaded point with this OpenAIP `_id` (a route waypoint's `sourceId`). A linear scan: it
+    /// serves an export or an editor, not a map update. (6.0.1)
+    func point(withId id: String) -> ReportingPoint? {
+        points.first { $0.id == id }
+    }
+
     func deleteData() {
         cache.deleteData()
         points = []

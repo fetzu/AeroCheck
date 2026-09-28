@@ -345,10 +345,21 @@ enum RouteRadioPlanner {
 
     private static func applyManual(_ wps: [FlightPlanWaypoint], to rows: inout [Row]) {
         for (i, wp) in wps.enumerated() where i < rows.count {
-            guard let f = wp.frequency?.trimmingCharacters(in: .whitespaces), !f.isEmpty else { continue }
+            guard let f = wp.frequency?.trimmingCharacters(in: .whitespaces), !f.isEmpty,
+                  isCallableFrequency(f) else { continue }
             rows[i].station = Station(frequency: f, callSign: wp.callSign ?? "")
             rows[i].isManual = true
         }
+    }
+
+    /// A waypoint frequency is a station to call only in the VHF air band's voice part, 118.000 to
+    /// 136.990 MHz. The builder used to put a snapped VOR's own frequency there (112.050; an NDB's in
+    /// kHz), which the nav log then printed as the station to call; plans saved that way print their
+    /// airspace station again, and the value stays on the waypoint. Text that isn't a number is left
+    /// to the pilot, as typed. (6.0.1)
+    static func isCallableFrequency(_ frequency: String) -> Bool {
+        guard let mhz = Double(frequency.trimmingCharacters(in: .whitespaces)) else { return true }
+        return (118.0...136.99).contains(mhz)
     }
 
     private static func markChanges(_ rows: inout [Row]) {

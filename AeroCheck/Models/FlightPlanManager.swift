@@ -651,6 +651,8 @@ class FlightPlanManager: ObservableObject {
     ///
     /// Only the plan the flight was started with (`Flight.flightPlanId`) is marked: a plan left armed
     /// through circuits, or through a flight started without it, is not the one being flown.
+    ///
+    /// The new leg starts at the last passage, not at this run, so the leg timer and the ATO agree.
     func catchUpWaypointPassages(track: [GPSPoint], takeoff: Date?, flightPlanId: UUID?) {
         guard var plan = activeFlightPlan, plan.id == flightPlanId, plan.diversion == nil,
               plan.currentWaypointIndex < plan.waypoints.count else { return }
@@ -665,7 +667,7 @@ class FlightPlanManager: ObservableObject {
         if let index = flightPlans.firstIndex(where: { $0.id == plan.id }) { flightPlans[index] = plan }
         saveFlightPlans()
         saveActiveFlightPlan()
-        resetChronometer()
+        resetChronometer(from: plan.waypoints[lastPassed].actualTimeOver)
     }
 
     // MARK: - Chronometer
@@ -727,13 +729,16 @@ class FlightPlanManager: ObservableObject {
     }
 
     /// Reset the leg timer to zero, keeping the running/paused state. (v4 UI/UX Revamp)
-    func resetChronometer() {
+    ///
+    /// `legStart`: when the new leg began, if earlier than now (a passage the catch-up found after the
+    /// fact). A paused timer stays at zero. (v6.0.1)
+    func resetChronometer(from legStart: Date? = nil) {
         guard var plan = activeFlightPlan else { return }
 
         chronometerAccumulated = 0
-        if plan.chronometerStartTime != nil { plan.chronometerStartTime = Date() }
+        if plan.chronometerStartTime != nil { plan.chronometerStartTime = min(legStart ?? Date(), Date()) }
         activeFlightPlan = plan
-        chronometerElapsed = 0
+        updateChronometerElapsed()
 
         if let index = flightPlans.firstIndex(where: { $0.id == plan.id }) {
             flightPlans[index] = plan

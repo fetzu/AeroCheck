@@ -1,4 +1,5 @@
 import XCTest
+import CoreLocation
 @testable import AeroCheck
 
 /// MARK and the leg timer, and taking either back: a mis-tap in turbulence is undone with one tap.
@@ -65,5 +66,73 @@ final class LegTimerTests: XCTestCase {
 
     func testNoActivePlanNoSnapshot() {
         XCTAssertNil(makeTestPlanManager().legTimerSnapshot)
+    }
+
+    // MARK: - The waypoints the flight marks on its own (v6.0.1)
+
+    private let lszq = CLLocationCoordinate2D(latitude: 47.392, longitude: 7.030)
+    private let lsgc = CLLocationCoordinate2D(latitude: 47.083, longitude: 6.793)
+    private let lsgn = CLLocationCoordinate2D(latitude: 46.958, longitude: 6.864)
+
+    /// A fix every 10 s at 100 kt along `corners`, from `start`.
+    private func flight(_ corners: [CLLocationCoordinate2D], from start: Date) -> [GPSPoint] {
+        var points: [GPSPoint] = []
+        var t = start
+        for (a, b) in zip(corners, corners.dropFirst()) {
+            let nm = CLLocation(latitude: a.latitude, longitude: a.longitude)
+                .distance(from: CLLocation(latitude: b.latitude, longitude: b.longitude)) / 1852
+            let steps = max(1, Int((nm / (100.0 / 360)).rounded(.up)))
+            for i in 0..<steps {
+                let f = Double(i) / Double(steps)
+                points.append(GPSPoint(latitude: a.latitude + (b.latitude - a.latitude) * f,
+                                       longitude: a.longitude + (b.longitude - a.longitude) * f,
+                                       altitude: 1500, timestamp: t, speed: 51))
+                t = t.addingTimeInterval(10)
+            }
+        }
+        return points
+    }
+
+    /// Off LSZQ, past LSGC and half way to LSGN; and the same flight cut short of LSGC.
+    private func pastLSGC(takeoff: Date) -> (short: [GPSPoint], past: [GPSPoint]) {
+        let halfWay = CLLocationCoordinate2D(latitude: (lsgc.latitude + lsgn.latitude) / 2,
+                                             longitude: (lsgc.longitude + lsgn.longitude) / 2)
+        let past = flight([lszq, lsgc, halfWay], from: takeoff)
+        let short = past.filter { $0.latitude > lsgc.latitude + 0.05 }
+        return (short, past)
+    }
+
+    /// One run of the in-flight catch-up, for a flight started with the plan.
+    private func catchUp(_ manager: FlightPlanManager, _ track: [GPSPoint], takeoff: Date) {
+        manager.catchUpWaypointPassages(track: track, takeoff: takeoff, flightPlanId: manager.activeFlightPlan?.id)
+    }
+
+    /// The catch-up finds a passage up to 15 s after it happened: the new leg starts at the passage,
+    /// so the leg timer reads the time since the waypoint, as its ATO does.
+    func testALegTheFlightStartsOnItsOwnIsTimedFromThePassage() throws {
+        let manager = activePlan()
+        let takeoff = Date().addingTimeInterval(-3600)
+        manager.startChronometer()
+
+        catchUp(manager, pastLSGC(takeoff: takeoff).past, takeoff: takeoff)
+
+        let plan = try XCTUnwrap(manager.activeFlightPlan)
+        let passed = try XCTUnwrap(plan.waypoints[1].actualTimeOver)
+        XCTAssertEqual(plan.currentWaypointIndex, 2)
+        XCTAssertEqual(plan.chronometerStartTime, passed)
+        XCTAssertEqual(manager.chronometerElapsed, Date().timeIntervalSince(passed), accuracy: 2)
+        XCTAssertTrue(manager.isChronometerRunning)
+    }
+
+    func testAPausedLegTimerStaysAtZero() {
+        let manager = activePlan()
+        let takeoff = Date().addingTimeInterval(-3600)
+        manager.restoreLegTimer(.init(accumulated: 125, startTime: nil))
+
+        catchUp(manager, pastLSGC(takeoff: takeoff).past, takeoff: takeoff)
+
+        XCTAssertEqual(manager.activeFlightPlan?.currentWaypointIndex, 2)
+        XCTAssertEqual(manager.chronometerElapsed, 0)
+        XCTAssertFalse(manager.isChronometerRunning)
     }
 }

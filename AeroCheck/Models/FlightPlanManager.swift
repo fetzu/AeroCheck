@@ -1080,12 +1080,6 @@ class FlightPlanManager: ObservableObject {
         }
     }
 
-    /// Save a single flight plan
-    private func saveFlightPlan(_ plan: FlightPlan) {
-        lastPersisted[plan.id] = Self.fingerprint(plan)
-        persistence.saveNavigationPlan(plan)
-    }
-
     private func loadFlightPlansAsync() async {
         defer { hasLoadedPlans = true }
         let loaded = await persistence.loadNavigationPlansOffMain()

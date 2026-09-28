@@ -78,22 +78,6 @@ struct FlightPlanWaypoint: Identifiable, Codable, Equatable {
         }
     }
 
-    /// Formatted coordinate string (e.g., "46°56'N 7°09'E")
-    var formattedCoordinate: String {
-        let latDirection = latitude >= 0 ? "N" : "S"
-        let lonDirection = longitude >= 0 ? "E" : "W"
-
-        let latDegrees = Int(abs(latitude))
-        let latMinutes = Int((abs(latitude) - Double(latDegrees)) * 60)
-
-        let lonDegrees = Int(abs(longitude))
-        let lonMinutes = Int((abs(longitude) - Double(lonDegrees)) * 60)
-
-        return String(format: "%d°%02d'%@ %d°%02d'%@",
-                     latDegrees, latMinutes, latDirection,
-                     lonDegrees, lonMinutes, lonDirection)
-    }
-
     /// Formatted EET string (e.g., "15" for 15 minutes, "15 + 5" for first/last waypoints)
     var formattedEET: String? {
         let hasLegEET = estimatedElapsedTime != nil && estimatedElapsedTime! > 0

@@ -286,11 +286,6 @@ class FlightThreadManager: ObservableObject {
         trip.legIds.compactMap { id in threads.first { $0.id == id } }
     }
 
-    /// Threads that are not a leg of anything — what the Flights list shows alongside trip rows.
-    var standaloneUnfinishedThreads: [FlightThread] {
-        unfinishedThreads.filter { $0.tripId == nil }
-    }
-
     /// Make `threads` into one trip, moving their trip-scoped tasks up to it.
     ///
     /// The shared tasks are taken from the FIRST leg and stripped from every leg, so a tick made
@@ -624,12 +619,6 @@ class FlightThreadManager: ObservableObject {
             if openFlightPlanNotice?.threadId == threadId { openFlightPlanNotice = nil }
         }
 
-        saveThreads()
-    }
-
-    func setTaskNote(_ note: String?, taskId: UUID, threadId: UUID) {
-        guard let index = threads.firstIndex(where: { $0.id == threadId }) else { return }
-        threads[index].setNote(note, forTaskWithId: taskId)
         saveThreads()
     }
 
@@ -1131,15 +1120,5 @@ class FlightThreadManager: ObservableObject {
     private func loadCurrentThreadPointer() {
         guard let raw = defaults.string(forKey: currentThreadKey) else { return }
         currentThreadId = UUID(uuidString: raw)
-    }
-}
-
-// MARK: - Helpers
-
-private extension Array where Element: Hashable {
-    /// Order-preserving de-duplication.
-    func uniqued() -> [Element] {
-        var seen = Set<Element>()
-        return filter { seen.insert($0).inserted }
     }
 }

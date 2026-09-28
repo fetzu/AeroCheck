@@ -88,12 +88,6 @@ struct FlightView: View {
         appState.effectiveLearningMode
     }
 
-    /// Current track (direction of travel) in degrees from GPS
-    /// Uses cached heading to prevent snapping to 0° during brief GPS gaps
-    private var currentTrackDegrees: Double {
-        locationManager.currentCourseDegrees ?? 0
-    }
-
     /// Build briefing context from current state
     private var briefingContext: BriefingContext {
         // Get speeds from current checklist
@@ -1921,43 +1915,6 @@ struct PhaseSelectorView: View {
         case .notStarted:
             return theme.textDim.opacity(0.3)
         }
-    }
-}
-
-// MARK: - Speed Reference Sheet
-
-struct SpeedReferenceSheet: View {
-    @Environment(\.cockpitTheme) private var theme
-    @Environment(AppState.self) private var appState
-    @Environment(\.dismiss) var dismiss
-
-    /// When presented as a custom overlay (HomeView's leading-edge slide-in), the host supplies a
-    /// close action; otherwise `nil` and the standard `@Environment(\.dismiss)` is used. (v4 UI/UX Revamp)
-    var onClose: (() -> Void)? = nil
-
-    private var isIPad: Bool {
-        UIDevice.current.userInterfaceIdiom == .pad
-    }
-
-    var body: some View {
-        NavigationStack {
-            ScrollView {
-                SpeedReferenceView(activeChecklist: appState.activeChecklist)
-                    .padding(.horizontal, 24)
-                    .padding(.bottom, 16)
-            }
-            .scrollDisabled(isIPad)
-            .background(theme.background)
-            .navigationTitle(L10n.Sheet.speedReference)
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button(L10n.Button.close) { if let onClose { onClose() } else { dismiss() } }
-                }
-            }
-        }
-        .presentationDetents(isIPad ? [.height(480)] : [.fraction(0.6)])
-        .preferredColorScheme(.dark)
     }
 }
 

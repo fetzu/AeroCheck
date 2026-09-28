@@ -31,8 +31,6 @@ class DataPersistenceManager: ObservableObject {
     /// Settings file name (in iCloud Documents root)
     private let settingsFileName = "settings.json"
 
-    /// Index file for tracking all navigation plans
-    private let plansIndexFileName = "plans_index.json"
     /// The index files that live beside flights and plans. Matched by name: the filter used to skip
     /// any file with "index" in its name, and plan files are named after their route, so a route
     /// called, say, "Index test" vanished at the next launch. (v6.0 review)
@@ -923,56 +921,6 @@ class DataPersistenceManager: ObservableObject {
     /// Instance convenience for existing call sites.
     func navigationPlanFilename(for plan: FlightPlan) -> String {
         Self.navigationPlanFilename(for: plan)
-    }
-
-    /// Save a single navigation plan to its own file
-    func saveNavigationPlan(_ plan: FlightPlan) {
-        let fileURL = navigationPlansDirectory.appendingPathComponent(navigationPlanFilename(for: plan))
-
-        do {
-            let encoder = JSONEncoder()
-            encoder.dateEncodingStrategy = .iso8601
-            encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
-            let data = try encoder.encode(plan)
-            try data.write(to: fileURL, options: Self.protectedWriteOptions)
-            
-            AppLog.general.debugLine("Navigation plan saved: \(navigationPlanFilename(for: plan))")
-        } catch {
-            AppLog.general.debugLine("Failed to save navigation plan: \(error.localizedDescription)")
-        }
-    }
-
-    /// Save all navigation plans (saves each to individual file and updates index)
-    func saveNavigationPlans(_ plans: [FlightPlan]) {
-        // Save each plan to its own file
-        for plan in plans {
-            saveNavigationPlan(plan)
-        }
-
-        // Save index file for tracking
-        saveNavigationPlansIndex(plans)
-    }
-
-    /// Save navigation plans index
-    private func saveNavigationPlansIndex(_ plans: [FlightPlan]) {
-        let index = plans.map { NavigationPlanIndexEntry(id: $0.id, filename: navigationPlanFilename(for: $0)) }
-        let fileURL = navigationPlansDirectory.appendingPathComponent(plansIndexFileName)
-
-        do {
-            let encoder = JSONEncoder()
-            encoder.outputFormatting = [.prettyPrinted]
-            let data = try encoder.encode(index)
-            try data.write(to: fileURL, options: Self.protectedWriteOptions)
-        } catch {
-            AppLog.general.debugLine("Failed to save navigation plans index: \(error.localizedDescription)")
-        }
-    }
-
-    /// Load all navigation plans from individual files.
-    /// Prefer `loadNavigationPlansOffMain()` — this synchronous variant reads iCloud-backed files
-    /// on the calling thread and must not run during launch. (PERF-25)
-    func loadNavigationPlans() -> [FlightPlan] {
-        Self.decodeNavigationPlans(in: navigationPlansDirectory)
     }
 
     /// Loads + decodes all navigation plans OFF the main actor (mirrors `loadFlightsOffMain`, PR-24):

@@ -167,9 +167,5 @@ final class FlightActivityController {
         }
         _ = done.wait(timeout: .now() + 2)
     }
-    #else
-    func sync(from appState: AppState) {}
-    func end() {}
-    func endAllBeforeTermination() {}
     #endif
 }

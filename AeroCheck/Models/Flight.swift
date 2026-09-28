@@ -600,18 +600,6 @@ struct Flight: Identifiable, Codable {
         return interval >= 0 ? interval : nil
     }
 
-    /// Block off location as CLLocationCoordinate2D
-    var blockOffLocation: CLLocationCoordinate2D? {
-        guard let lat = blockOffLatitude, let lon = blockOffLongitude else { return nil }
-        return CLLocationCoordinate2D(latitude: lat, longitude: lon)
-    }
-
-    /// Block on location as CLLocationCoordinate2D
-    var blockOnLocation: CLLocationCoordinate2D? {
-        guard let lat = blockOnLatitude, let lon = blockOnLongitude else { return nil }
-        return CLLocationCoordinate2D(latitude: lat, longitude: lon)
-    }
-
     /// Engine hours flown (difference between end and start readings)
     var engineHoursFlown: Double? {
         guard let start = engineHourStart, let end = engineHourEnd else { return nil }
@@ -699,13 +687,6 @@ struct Flight: Identifiable, Codable {
         if let start = startTime, let stop = stopTime {
             cachedDurationSeconds = stop.timeIntervalSince(start)
         }
-    }
-    
-    var formattedDistance: String {
-        if distanceKilometers < 0.1 {
-            return "< 0.1 km"
-        }
-        return String(format: "%.1f km", distanceKilometers)
     }
 
     /// Export filename in format: AeroCheck_YYYYMMDD_HHMM_FlightName (without extension)

@@ -17,8 +17,6 @@ class OpenAIPTileOverlay: MKTileOverlay {
     weak var cacheManager: OpenAIPCacheManager?
     let isStrictOfflineMode: Bool
 
-    /// Rotating subdomain index for load balancing
-    private var subdomainIndex = 0
     private let subdomains = OpenAIPConfig.tileSubdomains
 
     /// Processed tiles memoized by z/x/y. The per-pixel alpha-strip (processedTile) is expensive and

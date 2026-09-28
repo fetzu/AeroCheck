@@ -21,22 +21,6 @@ enum MarketingScenario: String, CaseIterable, Identifiable {
 
     var id: String { rawValue }
 
-    /// Starting position for the scenario
-    var startPosition: CLLocationCoordinate2D {
-        switch self {
-        case .lszqAlpineTour:
-            return CLLocationCoordinate2D(latitude: 47.3497, longitude: 7.0278) // LSZQ Bressaucourt
-        case .swissAlpsFlight:
-            return CLLocationCoordinate2D(latitude: 46.4547, longitude: 7.3514) // Interlaken area
-        case .lszjCircuit:
-            return CLLocationCoordinate2D(latitude: 47.0386, longitude: 7.1275) // LSZJ Courtelary
-        case .jurassicCrossing:
-            return CLLocationCoordinate2D(latitude: 47.0867, longitude: 6.8178) // La Chaux-de-Fonds
-        case .genevaToZurich:
-            return CLLocationCoordinate2D(latitude: 46.2381, longitude: 6.1090) // Geneva
-        }
-    }
-
     /// GPS track for the scenario
     var track: [MarketingGPSPoint] {
         switch self {
@@ -360,29 +344,6 @@ class MarketingLocationProvider: ObservableObject {
         }
     }
 
-    /// Jump to specific waypoint
-    func jumpToWaypoint(_ index: Int) {
-        let track = currentScenario.track
-        guard index >= 0 && index < track.count else { return }
-
-        // Rebuild path up to this point
-        previousPath = []
-        for i in 0..<index {
-            previousPath.append(track[i].coordinate)
-        }
-
-        currentIndex = index
-        interpolationProgress = 0
-        segmentStartTime = Date()
-
-        // Update heading
-        if currentIndex < track.count - 1 {
-            currentHeading = track[currentIndex].bearing(to: track[currentIndex + 1])
-        }
-
-        updateLocation()
-    }
-
     /// Set custom position for static screenshots
     func setCustomPosition(
         latitude: Double,
@@ -433,22 +394,6 @@ class MarketingLocationProvider: ObservableObject {
         currentHeading = headingDegrees
         // Re-assign to a fresh location each call so `.onChange(of: currentLocation)` always fires.
         currentLocation = point.toCLLocation(heading: headingDegrees)
-    }
-
-    /// Get current location for injection into LocationManager
-    func getCurrentLocation() -> CLLocation? {
-        if useCustomPosition, let pos = customPosition {
-            return CLLocation(
-                coordinate: pos,
-                altitude: customAltitude,
-                horizontalAccuracy: 5.0,
-                verticalAccuracy: 10.0,
-                course: customHeading,
-                speed: customSpeed * 0.514444,  // Convert knots to m/s
-                timestamp: Date()
-            )
-        }
-        return currentLocation
     }
 
     // MARK: - Private Methods
@@ -1369,21 +1314,6 @@ struct MarketingControlsView: View {
         let formatter = DateFormatter()
         formatter.dateFormat = "HH:mm:ss"
         lastInjected = "Injected: \(selectedScene.rawValue) @ \(formatter.string(from: Date()))"
-    }
-}
-
-// MARK: - Integration Helper
-
-/// Extension to inject marketing location into LocationManager
-extension LocationManager {
-    /// Call this in a marketing build to use fake locations
-    @MainActor func useMarketingLocation() {
-        let provider = MarketingLocationProvider.shared
-
-        // Override current location with marketing data
-        if let marketingLocation = provider.getCurrentLocation() {
-            self.currentLocation = marketingLocation
-        }
     }
 }
 

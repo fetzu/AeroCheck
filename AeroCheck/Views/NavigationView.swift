@@ -153,15 +153,6 @@ class SharedMapState: ObservableObject {
         pendingHeadingReset = true
         cameraHeading = 0
     }
-
-    var mapCameraPosition: MapCameraPosition {
-        .camera(MapCamera(
-            centerCoordinate: region.center,
-            distance: cameraDistance,
-            heading: cameraHeading,
-            pitch: 0
-        ))
-    }
 }
 
 // MARK: - Navigation Map View

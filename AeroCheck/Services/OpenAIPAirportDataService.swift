@@ -114,10 +114,6 @@ final class OpenAIPAirportDataService: ObservableObject {
         AppLog.airportData.debugLine("Released in-memory OpenAIP airport array after merge")
     }
 
-    func airportsInRegion(latRange: ClosedRange<Double>, lonRange: ClosedRange<Double>) -> [OpenAIPAirport] {
-        airports.filter { latRange.contains($0.latitude) && lonRange.contains($0.longitude) }
-    }
-
     func deleteData() {
         cache.deleteData()
         airports = []

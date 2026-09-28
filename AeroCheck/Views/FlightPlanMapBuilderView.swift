@@ -959,12 +959,6 @@ struct FlightPlanMapBuilderView: View {
         if terrainWarning || crossedAirspaces.contains(where: { $0.isRestrictive }) { return .aviationRed }
         return .aviationAmber
     }
-    /// Tab badge glyph: the hazard count, a green ✓ for a verified-clear route, or an amber "?" when
-    /// either the airspace or the terrain check did not run.
-    private var hazardBadge: String {
-        if hazardCount > 0 { return "\(hazardCount)" }
-        return routeFullyChecked ? "✓" : "?"
-    }
 
     /// Conflicts tab body — the hazard list, a genuine "clear" state, or a "not checked" state. The
     /// green all-clear is shown ONLY when BOTH the airspace and terrain checks actually ran; an empty

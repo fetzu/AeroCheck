@@ -135,4 +135,80 @@ final class LegTimerTests: XCTestCase {
         XCTAssertEqual(manager.chronometerElapsed, 0)
         XCTAssertFalse(manager.isChronometerRunning)
     }
+
+    /// The manual MARK's undo test, for the mark the flight made on its own: offered back, and taken
+    /// back to exactly what was there.
+    func testAWaypointMarkedOnItsOwnIsTakenBackLikeAMark() throws {
+        let manager = activePlan()
+        let takeoff = Date().addingTimeInterval(-3600)
+        let track = pastLSGC(takeoff: takeoff)
+
+        catchUp(manager, track.short, takeoff: takeoff)
+        XCTAssertEqual(manager.activeFlightPlan?.currentWaypointIndex, 1)
+        XCTAssertNil(manager.autoMarkNotice, "the departure is the takeoff, which LINE UP already said")
+        manager.startChronometer()
+        manager.restoreLegTimer(.init(accumulated: 0, startTime: Date().addingTimeInterval(-200)))
+        let before = try XCTUnwrap(manager.legTimerSnapshot)
+
+        catchUp(manager, track.past, takeoff: takeoff)   // LSGC, on its own
+        let notice = try XCTUnwrap(manager.autoMarkNotice)
+        XCTAssertEqual(notice.waypointName, "LSGC")
+        XCTAssertEqual(notice.passedAt, manager.activeFlightPlan?.waypoints[1].actualTimeOver,
+                       "the time it was passed, not the time the catch-up ran")
+        XCTAssertEqual(manager.activeFlightPlan?.currentWaypointIndex, 2)
+        XCTAssertEqual(manager.activeFlightPlan?.chronometerStartTime, notice.passedAt, "a new leg, from LSGC")
+
+        manager.undoAutoMark(notice)
+
+        let plan = try XCTUnwrap(manager.activeFlightPlan)
+        XCTAssertEqual(plan.currentWaypointIndex, 1, "LSGC is the target again")
+        XCTAssertNil(plan.waypoints[1].actualTimeOver)
+        XCTAssertEqual(plan.waypoints[0].actualTimeOver, takeoff, "the departure's time is kept")
+        XCTAssertEqual(manager.legTimerSnapshot, before)
+        XCTAssertEqual(manager.chronometerElapsed, 200, accuracy: 2, "the leg keeps its time")
+        XCTAssertTrue(manager.isChronometerRunning)
+        XCTAssertNil(manager.autoMarkNotice)
+
+        // The track still shows LSGC passed. Taken back, it is the pilot's to MARK.
+        catchUp(manager, track.past, takeoff: takeoff)
+        XCTAssertNil(manager.activeFlightPlan?.waypoints[1].actualTimeOver)
+        XCTAssertEqual(manager.activeFlightPlan?.currentWaypointIndex, 1)
+        manager.markWaypoint()
+        XCTAssertNotNil(manager.activeFlightPlan?.waypoints[1].actualTimeOver)
+        XCTAssertEqual(manager.activeFlightPlan?.currentWaypointIndex, 2)
+    }
+
+    /// Only the latest leg change can be taken back: a MARK after the flight's own withdraws its offer,
+    /// and the offer's UNDO then does nothing.
+    func testAnotherLegActionWithdrawsTheOffer() throws {
+        let manager = activePlan()
+        let takeoff = Date().addingTimeInterval(-3600)
+        catchUp(manager, pastLSGC(takeoff: takeoff).past, takeoff: takeoff)
+        let notice = try XCTUnwrap(manager.autoMarkNotice)
+
+        manager.markWaypoint()                                        // LSGN, by hand
+        XCTAssertNil(manager.autoMarkNotice)
+        manager.undoAutoMark(notice)
+        XCTAssertEqual(manager.activeFlightPlan?.currentWaypointIndex, 3, "the MARK stands")
+        XCTAssertNotNil(manager.activeFlightPlan?.waypoints[1].actualTimeOver)
+    }
+
+    /// RESUME LEG in the legs list on a waypoint the flight marked: without this, the next catch-up
+    /// put it straight back. A new activation starts clean.
+    func testResumingALegTheFlightMarkedSticks() throws {
+        let manager = activePlan()
+        let takeoff = Date().addingTimeInterval(-3600)
+        let track = pastLSGC(takeoff: takeoff).past
+        catchUp(manager, track, takeoff: takeoff)
+        XCTAssertEqual(manager.activeFlightPlan?.currentWaypointIndex, 2)
+
+        manager.resumeLeg(at: 1)
+        catchUp(manager, track, takeoff: takeoff)
+        XCTAssertEqual(manager.activeFlightPlan?.currentWaypointIndex, 1)
+        XCTAssertNil(manager.activeFlightPlan?.waypoints[1].actualTimeOver)
+
+        manager.activateFlightPlan(try XCTUnwrap(manager.activeFlightPlan))
+        catchUp(manager, track, takeoff: takeoff)
+        XCTAssertEqual(manager.activeFlightPlan?.currentWaypointIndex, 2, "the next flight's to mark")
+    }
 }

@@ -2082,6 +2082,10 @@ enum L10n {
         static func markedAt(_ waypoint: String, _ time: String) -> String {
             String(format: String(localized: "nav.markedAt"), waypoint, time)
         }
+        /// "LSGC marked automatically at 14:37": passed, from the GPS track. (v6.0.1)
+        static func markedAutomaticallyAt(_ waypoint: String, _ time: String) -> String {
+            String(format: String(localized: "nav.markedAutomaticallyAt"), waypoint, time)
+        }
         static let wpt = String(localized: "nav.wpt")
 
         // Offline/Cache

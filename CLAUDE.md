@@ -102,7 +102,8 @@ Owners and rules that aren't obvious from the names:
   `LocationManager.processLocation` catches the active plan up every 15 s in flight, whatever screen
   is showing (`FlightPlanManager.catchUpWaypointPassages`); END FLIGHT backfills the rest. Only the
   flight's own plan (`Flight.flightPlanId`) gets times: never a plan left armed through circuits or a
-  flight started without it. The departure takes the takeoff time and the destination the landing
+  flight started without it. END FLIGHT (`settleFlownPlan`) writes into, attaches and deactivates only
+  that plan; any other stays armed, untouched. The departure takes the takeoff time and the destination the landing
   time, never a proximity; nothing is marked while diverting; the new leg's timer starts at the passage.
 - `WidgetBridge` publishes the owned-aircraft list to the widget through the App Group
   `group.com.fetzu.aerocheck`; the widget renders only those and launches through `FlightLauncher`.

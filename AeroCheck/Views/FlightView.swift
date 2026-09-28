@@ -374,17 +374,15 @@ struct FlightView: View {
         // Block off, take-off and block on from the whole track, before the plan's times over
         // and the thread read them. (v5.2)
         appState.refineTimingFromTrack()
-        // Populate timing fields on the active flight plan from the current flight — and, when
-        // it landed somewhere other than planned, the diversion. (v5.1)
-        let plannedDestination = flightPlanManager.activeFlightPlan?.waypoints.last?.name
-        if let activePlan = flightPlanManager.activeFlightPlan,
-           let flight = appState.currentFlight {
-            flightPlanManager.populateTimingFromFlight(activePlan.id, flight: flight,
-                                                       takeoff: appState.lineUpTime,
-                                                       landing: appState.landingTime,
-                                                       landedAt: landedAerodrome(flight))
+        // The plan this flight flew gets its times (and, landed elsewhere, the diversion), is attached
+        // to it and ends its activation. Only the plan the flight was started with: one left armed
+        // through circuits or a flight started without it is left as it was, still armed. (v5.1, v6.0.1)
+        let flownPlan = appState.currentFlight.flatMap { flight in
+            flightPlanManager.settleFlownPlan(flight, takeoff: appState.lineUpTime, landing: appState.landingTime,
+                                              landedAt: landedAerodrome(flight))
         }
-        let landedDiversion = flightPlanManager.activeFlightPlan?.diversion
+        let plannedDestination = flownPlan?.waypoints.last?.name
+        let landedDiversion = flownPlan?.diversion
         // v5.0.0: resolve the followed thread BEFORE the plan is deactivated — afterwards
         // there is no plan left to resolve it from. A flight with no thread resolves to nil
         // and nothing below changes, which is what "start a flight without a thread" means.
@@ -395,8 +393,8 @@ struct FlightView: View {
             isCircuitMode: wasCircuits,
             isUnplanned: appState.flightIsUnplanned
         )
-        appState.endFlight(withFlightPlan: flightPlanManager.activeFlightPlan)
-        flightPlanManager.deactivateFlightPlan()
+        appState.endFlight(withFlightPlan: flownPlan)
+        if flownPlan != nil { flightPlanManager.deactivateFlightPlan() }
 
         // Move the thread into close-out. This is what raises the open-flight-plan banner and
         // arms the reminder, so it must run after the flight is actually over.

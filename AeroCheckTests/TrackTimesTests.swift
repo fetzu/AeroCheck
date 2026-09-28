@@ -262,7 +262,8 @@ final class TrackTimesTests: XCTestCase {
         let plan = FlightPlan(name: "Nav log")
         plans.add(plan)
         let takeoff = t0.addingTimeInterval(400), landing = t0.addingTimeInterval(1_800)
-        let flight = Flight(airplane: "wt9-dynamic", startTime: t0, engineStartTime: t0,
+        // Flown with the plan: END FLIGHT writes only into the plan a flight was started with. (v6.0.1)
+        let flight = Flight(airplane: "wt9-dynamic", flightPlanId: plan.id, startTime: t0, engineStartTime: t0,
                             engineShutdownTime: t0.addingTimeInterval(2_000))
 
         plans.populateTimingFromFlight(plan.id, flight: flight, takeoff: takeoff, landing: landing)

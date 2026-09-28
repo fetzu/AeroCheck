@@ -482,7 +482,20 @@ class FlightPlanManager: ObservableObject {
         updateFlightPlan(plan)
     }
 
-    /// Populate flight plan timing fields from a completed flight's data
+    /// END FLIGHT for the plan the flight flew: the active plan, and only when the flight was started
+    /// with it (`Flight.flightPlanId`). That plan gets the flight's times and comes back, to be attached
+    /// to the flight before its activation ends. A plan left armed through circuits, or through a flight
+    /// started without it, was not flown: it gets nothing, is not attached, and stays armed for the
+    /// flight it was armed for. (v6.0.1)
+    func settleFlownPlan(_ flight: Flight, takeoff: Date?, landing: Date?,
+                         landedAt field: TripPlanner.Aerodrome?) -> FlightPlan? {
+        guard let plan = activeFlightPlan, flight.flightPlanId == plan.id else { return nil }
+        populateTimingFromFlight(plan.id, flight: flight, takeoff: takeoff, landing: landing, landedAt: field)
+        return activeFlightPlan
+    }
+
+    /// Populate flight plan timing fields from a completed flight's data. Only the flight's own plan
+    /// (`Flight.flightPlanId`) is written to: any other is left as it was. (v6.0.1)
     /// - Parameters:
     ///   - planId: The ID of the flight plan to update
     ///   - flight: The completed flight with timing data
@@ -490,16 +503,14 @@ class FlightPlanManager: ObservableObject {
     ///     they still live on AppState: `endFlight` copies them onto the flight only afterwards.
     func populateTimingFromFlight(_ planId: UUID, flight: Flight, takeoff: Date? = nil, landing: Date? = nil,
                                   landedAt field: TripPlanner.Aerodrome? = nil) {
-        guard var plan = flightPlans.first(where: { $0.id == planId }) else { return }
+        guard flight.flightPlanId == planId,
+              var plan = flightPlans.first(where: { $0.id == planId }) else { return }
 
         // ATO for every waypoint the in-flight catch-up did not record, from the GPS track: the
-        // after-flight nav log is the one the times are written on. Only on the flight's own plan: a
-        // plan left armed through circuits or a flight started without it was not flown. (v6.0.1)
-        if flight.flightPlanId == planId {
-            plan = plan.withActualTimesOver(fromTrack: flight.gpsTrack,
-                                            takeoff: takeoff ?? flight.lineUpTime,
-                                            landing: landing ?? flight.landingTime)
-        }
+        // after-flight nav log is the one the times are written on.
+        plan = plan.withActualTimesOver(fromTrack: flight.gpsTrack,
+                                        takeoff: takeoff ?? flight.lineUpTime,
+                                        landing: landing ?? flight.landingTime)
         // Landed somewhere else than planned: record the diversion, pressed or not. (v5.1)
         plan = TripPlanner.settlingDiversion(plan, landedAt: field, landing: landing ?? flight.landingTime)
 

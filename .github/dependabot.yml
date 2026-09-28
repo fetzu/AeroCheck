@@ -28,12 +28,18 @@ updates:
     schedule:
       interval: "weekly"
     commit-message:
-      prefix: "ci"
+      # website commits start with "website:" (repo convention)
+      prefix: "website"
 
   - package-ecosystem: "npm"
     directory: "/"
     target-branch: "website"
     schedule:
       interval: "weekly"
+    groups:
+      astro:
+        patterns:
+          - "astro"
+          - "@astrojs/*"
     commit-message:
-      prefix: "chore"
+      prefix: "website"

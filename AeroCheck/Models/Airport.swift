@@ -33,10 +33,11 @@ enum AirportType: String, Codable, CaseIterable, Sendable {
         }
     }
 
-    /// Airport types relevant to fixed-wing flight planning. The flight-plan builder filters its map
-    /// and search results to this set so heliports, seaplane bases, balloonports and closed fields
-    /// don't clutter route building. To support rotorcraft later, add `.heliport` here (and to the
-    /// builder's map-type filter in `FlightPlanMapBuilderView`). See CLAUDE.md "Re-enabling heliports".
+    /// Airport types relevant to fixed-wing flight planning. The planning pickers (builder search and
+    /// map, snapping, stops, diverts) filter to this set so heliports, seaplane bases, balloonports and
+    /// closed fields don't clutter route building. To support rotorcraft later, add `.heliport` (and/or
+    /// `.seaplaneBase`) here: they all read this one set. The nav map's airport layer is separate, with
+    /// its own literal list in `NavigationView`.
     static let fixedWing: Set<AirportType> = [.largeAirport, .mediumAirport, .smallAirport]
 }
 

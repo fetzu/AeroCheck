@@ -1678,7 +1678,7 @@ struct FlightPlanMapBuilderView: View {
                 maxLat: r.center.latitude + halfLat,
                 minLon: r.center.longitude - halfLon,
                 maxLon: r.center.longitude + halfLon,
-                types: AirportType.fixedWing, // fixed-wing only (see CLAUDE.md "Re-enabling heliports")
+                types: AirportType.fixedWing, // fixed-wing only (its doc comment says how to re-enable heliports)
                 limit: 80
             )
             await MainActor.run { visibleAirports = airports }

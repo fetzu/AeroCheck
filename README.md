@@ -316,9 +316,10 @@ Tap on the briefing reminder text to open interactive briefings:
 
 ## File Structure
 
-See [CLAUDE.md → Project Structure](./CLAUDE.md#project-structure) for the current, maintained file
-tree. This README no longer keeps its own copy — the two had already drifted (this tree predated
-the 6.0 Cockpit/GroundView/Flight Thread rework and still listed files that no longer exist).
+See [CLAUDE.md → Project Structure](./CLAUDE.md#project-structure) for the layout: the directories
+and the files you would not find by name. The full tree is Xcode's project navigator; neither document
+keeps a copy of it any more, since every copy drifted (the last one predated the 6.0
+Cockpit/GroundView/Flight Thread rework and still listed files that no longer exist).
 
 ## Related Repositories
 
@@ -494,14 +495,15 @@ The app includes a `Configuration.storekit` file for testing subscriptions local
 For testing against the development server:
 
 1. Run the server locally with Wrangler: `cd ../AeroCheck-server && npm run dev`
-2. Point the app at it by setting `API_BASE_URL` in `Secrets.xcconfig`:
+2. Point the app at it by setting `API_BASE_URL_SANDBOX` in `Secrets.xcconfig`:
    ```
-   API_BASE_URL = http://localhost:8787
+   API_BASE_URL_SANDBOX = http://localhost:8787
    ```
-   There is no URL to edit in `SubscriptionManager.swift` — it takes `APIConfig.baseURL`, which is
-   resolved from the `APIBaseURL` Info.plist key fed by that build setting. Editing the service
-   would also miss `AircraftDataService`, which resolves the same way. `APIConfig` allows
-   `localhost`/`127.0.0.1` over plain HTTP for exactly this.
+   A Debug build always takes the sandbox endpoint (`APIConfig.usesSandboxEndpoint`), so setting
+   `API_BASE_URL` alone changes nothing locally. There is no URL to edit in `SubscriptionManager.swift`
+   either: it takes `APIConfig.baseURL`, resolved from the `APIBaseURLSandbox` Info.plist key fed by
+   that build setting, and editing the service would also miss `AircraftDataService`, which resolves
+   the same way. `APIConfig` allows `localhost`/`127.0.0.1` over plain HTTP for exactly this.
 3. Test subscription verification and checklist fetching
 
 ## Privacy

@@ -178,4 +178,38 @@ struct Trip: Codable, Identifiable, Equatable, Sendable {
     }
 
     mutating func touch() { updatedAt = Date() }
+
+    // MARK: - Two copies of the trips
+
+    /// The union of two sets of trips, by id. For a trip in both, the copy edited last (the later
+    /// `updatedAt`) wins, and a tie keeps `base`'s. Order: `base`'s, then the trips only `other`
+    /// holds, in its order.
+    ///
+    /// What "Sync to iCloud" does to `trips.json` when it moves the datastore, and what the thread
+    /// manager does when a load brings trips it already holds. Every edit of a trip stamps
+    /// `updatedAt` (`touch()`, `renameTrip`), so it is the trip's own content stamp.
+    ///
+    /// Nothing is ever dropped here: a trip dissolved in one copy comes back from the other. Deletion
+    /// records (6.1, review design 94 §2.3) plug in here: a trip whose record's `deletedAt` is not
+    /// earlier than its `updatedAt` leaves the union.
+    static func merged(_ base: [Trip], with other: [Trip]) -> [Trip] {
+        var result = base
+        var position: [UUID: Int] = [:]
+        for (index, trip) in result.enumerated() where position[trip.id] == nil {
+            position[trip.id] = index
+        }
+        for trip in other {
+            if let index = position[trip.id] {
+                if trip.updatedAt > result[index].updatedAt { result[index] = trip }
+            } else {
+                position[trip.id] = result.count
+                result.append(trip)
+            }
+        }
+        return result
+    }
+
+    /// The `updatedAt` of a trip rebuilt from its legs (`FlightThreadManager.rebuiltTrips`): older
+    /// than any real edit, so a surviving copy of the real trip replaces it wherever the two meet.
+    static let rebuiltStamp = Date(timeIntervalSince1970: 0)
 }

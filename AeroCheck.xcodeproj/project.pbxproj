@@ -23,6 +23,7 @@
 		A5000027111111110000002 /* ObstacleTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A5000027111111110000001 /* ObstacleTests.swift */; };
 		A5000028111111110000002 /* ReportingPointTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A5000028111111110000001 /* ReportingPointTests.swift */; };
 		A50000E1111111110000002 /* RoutePointTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A50000E1111111110000001 /* RoutePointTests.swift */; };
+		A50000E2111111110000002 /* RoutePointSearchTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A50000E2111111110000001 /* RoutePointSearchTests.swift */; };
 		A5000029111111110000002 /* RouteDataCalculatorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A5000029111111110000001 /* RouteDataCalculatorTests.swift */; };
 		A500002A111111110000002 /* OpenAIPAirportMergeTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A500002A111111110000001 /* OpenAIPAirportMergeTests.swift */; };
 		A500002F111111110000002 /* FlightThreadTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A500002F111111110000001 /* FlightThreadTests.swift */; };
@@ -323,6 +324,7 @@
 		A5000027111111110000001 /* ObstacleTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ObstacleTests.swift; sourceTree = "<group>"; };
 		A5000028111111110000001 /* ReportingPointTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReportingPointTests.swift; sourceTree = "<group>"; };
 		A50000E1111111110000001 /* RoutePointTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RoutePointTests.swift; sourceTree = "<group>"; };
+		A50000E2111111110000001 /* RoutePointSearchTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RoutePointSearchTests.swift; sourceTree = "<group>"; };
 		A5000029111111110000001 /* RouteDataCalculatorTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RouteDataCalculatorTests.swift; sourceTree = "<group>"; };
 		A500002A111111110000001 /* OpenAIPAirportMergeTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OpenAIPAirportMergeTests.swift; sourceTree = "<group>"; };
 		A500002F111111110000001 /* FlightThreadTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FlightThreadTests.swift; sourceTree = "<group>"; };
@@ -608,6 +610,7 @@
 				A5000027111111110000001 /* ObstacleTests.swift */,
 				A5000028111111110000001 /* ReportingPointTests.swift */,
 				A50000E1111111110000001 /* RoutePointTests.swift */,
+				A50000E2111111110000001 /* RoutePointSearchTests.swift */,
 				A5000029111111110000001 /* RouteDataCalculatorTests.swift */,
 				A500002A111111110000001 /* OpenAIPAirportMergeTests.swift */,
 				A500002F111111110000001 /* FlightThreadTests.swift */,
@@ -1132,6 +1135,7 @@
 				A5000027111111110000002 /* ObstacleTests.swift in Sources */,
 				A5000028111111110000002 /* ReportingPointTests.swift in Sources */,
 				A50000E1111111110000002 /* RoutePointTests.swift in Sources */,
+				A50000E2111111110000002 /* RoutePointSearchTests.swift in Sources */,
 				A5000029111111110000002 /* RouteDataCalculatorTests.swift in Sources */,
 				A500002A111111110000002 /* OpenAIPAirportMergeTests.swift in Sources */,
 				A500002F111111110000002 /* FlightThreadTests.swift in Sources */,

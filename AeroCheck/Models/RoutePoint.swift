@@ -237,3 +237,121 @@ extension FlightPlan {
         return name.isEmpty ? "WPT \(currentWaypointIndex + 1)" : name
     }
 }
+
+// MARK: - Search ("Via")
+
+/// The builder's "Via" search: reporting points and navaids by name, aerodrome or ident ("WITZWIL",
+/// "LSGC E", "ELESE", "CVA"), ranked, with their distance from the route. A linear scan over what is
+/// loaded (about 1 300 points for CH, FR, DE and AT, and their navaids): fine per keystroke, behind
+/// the field's debounce. Aerodromes are From and To's business, not this one's. Pure. (6.0.1)
+enum RoutePointSearch {
+
+    enum Kind: Equatable { case reportingPoint(compulsory: Bool), navaid }
+
+    struct Result: Identifiable {
+        let id: String
+        let point: RoutePoint
+        let kind: Kind
+        /// "E", "CVA".
+        let title: String
+        /// "LSGC Les Eplatures", "VOR/DME · CORVATSCH".
+        let subtitle: String?
+        /// From the route (the nearest leg), or from `reference` for a route of fewer than two points.
+        let distanceNM: Double?
+        /// 0 = the name (or navaid ident) itself, 1 = it starts so, 2 = by its aerodrome or navaid
+        /// name, 3 = by the unofficial ident, which is the least a pilot would type.
+        let tier: Int
+    }
+
+    static func search(_ query: String,
+                       reportingPoints: [ReportingPoint],
+                       aerodromes: [String: ReportingPointAerodrome],
+                       navaids: [Navaid],
+                       route: [CLLocationCoordinate2D],
+                       reference: CLLocationCoordinate2D? = nil,
+                       limit: Int = 8) -> [Result] {
+        let tokens = ReportingPointRemarks.folded(query).split(separator: " ").map(String.init)
+        guard !tokens.isEmpty else { return [] }
+        var results: [Result] = []
+
+        for point in reportingPoints {
+            let field = point.airports?.lazy.compactMap { aerodromes[$0] }.first
+            guard let tier = tier(tokens, name: point.name, qualifiers: [field?.icao, field?.name],
+                                  ident: point.code) else { continue }
+            let label = ReportingPointLabel(point: point, aerodrome: field)
+            results.append(Result(id: "rp:" + point.id, point: .reportingPoint(point, label),
+                                  kind: .reportingPoint(compulsory: point.compulsory), title: label.title,
+                                  subtitle: field?.displayLine,
+                                  distanceNM: distance(point.coordinate, route: route, reference: reference),
+                                  tier: tier))
+        }
+        for navaid in navaids {
+            guard let tier = tier(tokens, name: navaid.identifier, qualifiers: [navaid.name], ident: nil) else { continue }
+            results.append(Result(id: "nav:" + navaid.id, point: .navaid(navaid), kind: .navaid,
+                                  title: navaid.identifier, subtitle: "\(navaid.type.shortLabel) · \(navaid.name)",
+                                  distanceNM: distance(navaid.coordinate, route: route, reference: reference),
+                                  tier: tier))
+        }
+
+        return Array(results.sorted {
+            ($0.tier, $0.distanceNM ?? .infinity, $0.title) < ($1.tier, $1.distanceNM ?? .infinity, $1.title)
+        }.prefix(limit))
+    }
+
+    /// How well the tokens name the point, or nil when one of them fits nothing. Every token has to
+    /// fit: the name (exactly or as its start), a qualifier (the aerodrome's code, a word of the
+    /// aerodrome's or navaid's name) or the ident. Qualifiers and idents take three characters
+    /// before they match a start, so "E" doesn't bring up every point of Les Eplatures.
+    static func tier(_ tokens: [String], name: String?, qualifiers: [String?], ident: String?) -> Int? {
+        let folded = name.map(ReportingPointRemarks.folded) ?? ""
+        let qualifierWords = qualifiers.compactMap { $0 }.flatMap { ReportingPointRemarks.folded($0).split(separator: " ") }
+        let foldedIdent = ident.map(ReportingPointRemarks.folded)
+        var best = Int.max
+        for token in tokens {
+            if token == folded {
+                best = min(best, 0)
+            } else if folded.hasPrefix(token) {
+                best = min(best, 1)
+            } else if qualifierWords.contains(where: { $0 == token || (token.count >= 3 && $0.hasPrefix(token)) }) {
+                best = min(best, 2)
+            } else if let foldedIdent, foldedIdent == token || (token.count >= 3 && foldedIdent.hasPrefix(token)) {
+                best = min(best, 3)
+            } else if !folded.isEmpty, tokens.count > 1, folded == tokens.joined(separator: " ") {
+                // A name of several words ("ABM AVENCHES") typed whole.
+                return 0
+            } else {
+                return nil
+            }
+        }
+        // The best token decides: in "LSGC E" the aerodrome narrows and the name ranks.
+        return best
+    }
+
+    /// Nautical miles from the nearest leg of the route, or from `reference` when there is no leg.
+    static func distance(_ coordinate: CLLocationCoordinate2D, route: [CLLocationCoordinate2D],
+                         reference: CLLocationCoordinate2D?) -> Double? {
+        guard route.count >= 2 else {
+            let from = route.first ?? reference
+            return from.map { nm(coordinate, $0) }
+        }
+        return zip(route, route.dropFirst()).map { crossTrackNM(coordinate, $0, $1) }.min()
+    }
+
+    private static func nm(_ a: CLLocationCoordinate2D, _ b: CLLocationCoordinate2D) -> Double {
+        CLLocation(latitude: a.latitude, longitude: a.longitude)
+            .distance(from: CLLocation(latitude: b.latitude, longitude: b.longitude)) / 1852
+    }
+
+    /// Distance to the segment a–b on a local flat projection: good to a tenth of a mile over a leg.
+    private static func crossTrackNM(_ p: CLLocationCoordinate2D, _ a: CLLocationCoordinate2D,
+                                     _ b: CLLocationCoordinate2D) -> Double {
+        let k = cos(p.latitude * .pi / 180)
+        func xy(_ c: CLLocationCoordinate2D) -> (Double, Double) { (c.longitude * 60 * k, c.latitude * 60) }
+        let (px, py) = xy(p), (ax, ay) = xy(a), (bx, by) = xy(b)
+        let dx = bx - ax, dy = by - ay
+        let lengthSquared = dx * dx + dy * dy
+        let t = lengthSquared > 0 ? max(0, min(1, ((px - ax) * dx + (py - ay) * dy) / lengthSquared)) : 0
+        let cx = ax + t * dx - px, cy = ay + t * dy - py
+        return (cx * cx + cy * cy).squareRoot()
+    }
+}

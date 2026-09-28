@@ -46,6 +46,13 @@ struct FlightPlanMapBuilderView: View {
     @FocusState private var focusedEndpoint: RouteEndpoint?
     @State private var searchResults: [Airport] = []
     @State private var searchTask: Task<Void, Never>?
+    // "Via": a reporting point or navaid to put in the route (6.0.1)
+    @State private var viaText = ""
+    @FocusState private var viaFocused: Bool
+    @State private var viaResults: [RoutePointSearch.Result] = []
+    /// The query `viaResults` answer, so "no match" never shows for a query still being typed.
+    @State private var viaResultsQuery = ""
+    @State private var viaSearchTask: Task<Void, Never>?
     @State private var listEditMode: EditMode = .inactive
 
     // On-route hazards — airspace profile + terrain (#4 redesign: route-profile cross-section)
@@ -482,6 +489,15 @@ struct FlightPlanMapBuilderView: View {
         // drops over the map's top, under them, as does the missing-data banner (it covered them).
         .overlay(alignment: .top) { tripDataBanner }
         .overlay(alignment: .top) {
+            if viaFocused, !viaResultsQuery.isEmpty,
+               viaResultsQuery == viaText.trimmingCharacters(in: .whitespaces) {
+                ViaSearchResults(results: viaResults, query: viaResultsQuery) { pickVia($0) }
+                    .background(Color.panelBackground.opacity(0.96), in: RoundedRectangle(cornerRadius: 12))
+                    .padding(.horizontal, 12)
+                    .padding(.top, 6)
+            }
+        }
+        .overlay(alignment: .top) {
             if focusedEndpoint != nil && !searchResults.isEmpty {
                 airportResults { airport in
                     if let slot = focusedEndpoint { setEndpoint(slot, airport) }
@@ -524,8 +540,15 @@ struct FlightPlanMapBuilderView: View {
             }
             .padding(.horizontal, 12)
             .padding(.vertical, 8)
+            // Through where: once there is a destination to go via. (6.0.1)
+            if waypoints.count >= 2 {
+                ViaSearchField(text: $viaText, focused: $viaFocused)
+                    .padding(.horizontal, 12)
+                    .padding(.bottom, 8)
+            }
         }
         .background(Color.panelBackground)
+        .onChange(of: viaText) { _, q in scheduleViaSearch(q) }
         .onChange(of: fromText) { _, q in if focusedEndpoint == .from { scheduleSearch(q) } }
         .onChange(of: toText) { _, q in if focusedEndpoint == .to { scheduleSearch(q) } }
         .onChange(of: focusedEndpoint) { _, _ in searchTask?.cancel(); searchResults = [] }
@@ -624,6 +647,42 @@ struct FlightPlanMapBuilderView: View {
             guard !Task.isCancelled else { return }
             searchResults = results
         }
+    }
+
+    /// The "Via" search, debounced like the airfield search: reporting points and navaids by name,
+    /// aerodrome or ident, nearest the route first within a rank (`RoutePointSearch`). (6.0.1)
+    private func scheduleViaSearch(_ query: String) {
+        viaSearchTask?.cancel()
+        let trimmed = query.trimmingCharacters(in: .whitespaces)
+        guard !trimmed.isEmpty else { viaResults = []; viaResultsQuery = ""; return }
+        let route = waypoints.map(\.coordinate)
+        let reference = region.center
+        viaSearchTask = Task {
+            try? await Task.sleep(nanoseconds: 200_000_000)
+            guard !Task.isCancelled else { return }
+            await OpenAIPReportingPointDataService.shared.ensureLoaded()
+            await OpenAIPNavaidDataService.shared.ensureLoaded()
+            guard !Task.isCancelled else { return }
+            let results = RoutePointSearch.search(
+                trimmed,
+                reportingPoints: OpenAIPReportingPointDataService.shared.allLoadedPoints(),
+                aerodromes: OpenAIPAirportDataService.shared.aerodromesById,
+                navaids: OpenAIPNavaidDataService.shared.allLoadedNavaids(),
+                route: route, reference: reference)
+            guard !Task.isCancelled else { return }
+            viaResults = results
+            viaResultsQuery = trimmed
+        }
+    }
+
+    /// A "Via" result goes in like the callout's "+": itself, on the leg it least lengthens.
+    private func pickVia(_ result: RoutePointSearch.Result) {
+        addPoint(result.point)
+        viaSearchTask?.cancel()
+        viaText = ""
+        viaResults = []
+        viaResultsQuery = ""
+        viaFocused = false
     }
 
     /// Great-circle distance from a reference point to an airport, shown on each result row so the
@@ -1724,6 +1783,124 @@ struct FlightPlanMapBuilderView: View {
                 visibleReportingPoints = reportingPoints
                 visibleObstacles = obstacles
             }
+        }
+    }
+}
+
+// MARK: - Via search (6.0.1)
+
+/// The "Via" field under From and To: finds a reporting point or a navaid for the route. Its own view,
+/// so the builder's body doesn't grow (see `SeparateView`).
+private struct ViaSearchField: View {
+    @Binding var text: String
+    var focused: FocusState<Bool>.Binding
+
+    var body: some View {
+        HStack(spacing: 6) {
+            Text(L10n.Nav.via)
+                .font(.aero(size: 11, weight: .semibold)).tracking(0.6).foregroundColor(.dimText)
+            TextField(L10n.Nav.viaPlaceholder, text: $text)
+                .textInputAutocapitalization(.characters)
+                .autocorrectionDisabled()
+                .submitLabel(.search)
+                .font(.aero(size: 17, weight: .semibold, design: .monospaced))
+                .foregroundColor(.primaryText)
+                .focused(focused)
+            if !text.isEmpty {
+                Button { text = "" } label: {
+                    Image(systemName: "xmark.circle.fill")
+                        .font(.aero(size: 15))
+                        .foregroundColor(.dimText)
+                        .frame(width: 44, height: 44)
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel(L10n.Button.clear)
+            } else {
+                Image(systemName: "magnifyingglass")
+                    .font(.aero(size: 14))
+                    .foregroundColor(.dimText)
+                    .accessibilityHidden(true)
+            }
+        }
+        .padding(.leading, 12)
+        .padding(.trailing, text.isEmpty ? 12 : 0)
+        .frame(minHeight: 44)
+        .background(RoundedRectangle(cornerRadius: 8).fill(Color.subtleOverlay(0.06)))
+    }
+}
+
+/// What the "Via" search found: kind, name, aerodrome (or navaid) and distance from the route. A tap
+/// puts the point in the route.
+private struct ViaSearchResults: View {
+    let results: [RoutePointSearch.Result]
+    let query: String
+    let onPick: (RoutePointSearch.Result) -> Void
+
+    var body: some View {
+        VStack(spacing: 0) {
+            if results.isEmpty {
+                Text(L10n.Nav.viaNoMatch(query))
+                    .font(.aero(size: 13))
+                    .foregroundColor(.secondaryText)
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 12)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            }
+            ForEach(results) { result in
+                Button { onPick(result) } label: { row(result) }
+                    .buttonStyle(.plain)
+                    .accessibilityHint(L10n.Nav.addToRoute)
+                if result.id != results.last?.id {
+                    Divider().background(Color.subtleOverlay(0.06))
+                }
+            }
+        }
+    }
+
+    private func row(_ result: RoutePointSearch.Result) -> some View {
+        HStack(spacing: 10) {
+            Image(systemName: icon(result.kind))
+                .font(.aero(size: 13, weight: .semibold))
+                .foregroundColor(color(result.kind))
+                .frame(width: 22)
+                .accessibilityHidden(true)
+            Text(result.title)
+                .font(.aero(size: 14, weight: .bold, design: .monospaced))
+                .foregroundColor(.aviationGold)
+                .lineLimit(1)
+            if let subtitle = result.subtitle {
+                Text(subtitle)
+                    .font(.aero(size: 13))
+                    .foregroundColor(.primaryText)
+                    .lineLimit(1)
+            }
+            Spacer(minLength: 6)
+            if let distance = result.distanceNM {
+                Text(String(format: distance < 10 ? "%.1f NM" : "%.0f NM", distance))
+                    .font(.aero(size: 11, weight: .medium, design: .monospaced))
+                    .foregroundColor(.secondaryText)
+            }
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 9)
+        .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
+        .contentShape(Rectangle())
+        .accessibilityElement(children: .combine)
+    }
+
+    private func icon(_ kind: RoutePointSearch.Kind) -> String {
+        switch kind {
+        case .reportingPoint(let compulsory): return compulsory ? "triangle.fill" : "triangle"
+        case .navaid: return "hexagon"
+        }
+    }
+
+    /// The map's own marker colours, so a result reads as the marker it is.
+    private func color(_ kind: RoutePointSearch.Kind) -> Color {
+        switch kind {
+        case .reportingPoint: return Color(red: 0.85, green: 0.2, blue: 0.6)
+        case .navaid: return Color(red: 1.0, green: 0.72, blue: 0.0)
         }
     }
 }

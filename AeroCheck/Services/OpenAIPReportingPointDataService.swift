@@ -185,6 +185,9 @@ final class OpenAIPReportingPointDataService: ObservableObject {
             .map { $0.0 }
     }
 
+    /// Every loaded point, for the route builder's search (a linear scan). (6.0.1)
+    func allLoadedPoints() -> [ReportingPoint] { points }
+
     /// The loaded point with this OpenAIP `_id` (a route waypoint's `sourceId`). A linear scan: it
     /// serves an export or an editor, not a map update. (6.0.1)
     func point(withId id: String) -> ReportingPoint? {

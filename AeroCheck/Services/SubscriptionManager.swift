@@ -690,6 +690,54 @@ class SubscriptionManager: ObservableObject {
         return nil
     }
 
+    /// The `POST /subscription/verify` request. It carries the session token this device holds as
+    /// `Authorization: Bearer …`, and no Authorization header when it holds none.
+    ///
+    /// The server used to mint a new token on every verify, two KV writes each, and a subscriber
+    /// verifies about once a day: a few hundred of them spent the API's daily write budget, after
+    /// which every verify answered 503. Shown the token, the server returns it unchanged and writes
+    /// nothing while it is live, of this same purchase and account, with more than 30 days left;
+    /// otherwise it mints as before. The token proves nothing there (the JWS does), and a server
+    /// that predates this simply ignores the header. (KV write budget)
+    nonisolated static func makeVerifyRequest(url: URL, body: Data, sessionToken: String?) -> URLRequest {
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        if let sessionToken, !sessionToken.isEmpty {
+            request.setValue("Bearer \(sessionToken)", forHTTPHeaderField: "Authorization")
+        }
+        request.httpBody = body
+        request.timeoutInterval = 15 // Set timeout for poor network conditions
+        return request
+    }
+
+    /// What a verify's `sessionToken` did to the stored credential.
+    enum SessionTokenAdoption: Equatable {
+        /// None came back (nothing to authenticate, or the server's account guard refused the
+        /// write): the token already held stays. (S9-02)
+        case noneReturned
+        /// The one already in the Keychain came back: nothing to write.
+        case kept
+        /// A new one, now in the Keychain.
+        case stored
+        /// A new one the Keychain refused: used until the app quits.
+        case storedInMemoryOnly
+    }
+
+    /// Adopts the `sessionToken` of an entitled verify as the API credential. (SEC-C3)
+    ///
+    /// Used for this run either way: nothing else authenticates without it, since the server
+    /// stopped taking the originalTransactionId in v4 (S9-39). The Keychain is written only when the
+    /// token differs from what it holds, so a token the server handed back costs no write, and one
+    /// that only ever made it to memory is stored the next time it comes back.
+    @discardableResult
+    func adoptSessionToken(_ token: String?) -> SessionTokenAdoption {
+        guard let token, !token.isEmpty else { return .noneReturned }
+        cachedSessionToken = token
+        if keychain.get(.apiSessionToken) == token { return .kept }
+        return keychain.set(token, for: .apiSessionToken) ? .stored : .storedInMemoryOnly
+    }
+
     /// Whether StoreKit holds a verified Pro entitlement now, read from StoreKit itself rather than
     /// from `subscriptionStatus`, which is still `.unknown` early in a launch. The debug "not
     /// subscribed" switch wins, as it does everywhere else.
@@ -911,9 +959,6 @@ class SubscriptionManager: ObservableObject {
             debugLogger.log("Invalid verify URL", level: .error)
             return
         }
-        var request = URLRequest(url: url)
-        request.httpMethod = "POST"
-        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
 
         // Convert environment to a simple string (avoiding complex enum serialization)
         let environmentString = "\(transaction.environment)"
@@ -934,10 +979,15 @@ class SubscriptionManager: ObservableObject {
 
         do {
             let jsonData = try JSONEncoder().encode(requestBody)
-            request.httpBody = jsonData
-            request.timeoutInterval = 15 // Set timeout for poor network conditions
+            // The token this device already holds goes along, so the server can hand it back
+            // instead of minting (and paying KV writes for) a new one. (KV write budget)
+            let heldToken = await getAuthCredential()
+            let request = Self.makeVerifyRequest(url: url, body: jsonData, sessionToken: heldToken)
 
-            debugLogger.log("Sending JWS verification request to server", level: .info)
+            debugLogger.log(heldToken == nil
+                            ? "Sending JWS verification request to server (no session token yet)"
+                            : "Sending JWS verification request to server with the stored session token",
+                            level: .info)
 
             let (data, response) = try await URLSession.shared.data(for: request)
 
@@ -1006,16 +1056,16 @@ class SubscriptionManager: ObservableObject {
                 // the Bearer WAS the Apple originalTransactionId — a non-secret the app also
                 // displayed — so anyone given that string got the whole catalogue. Stored in the
                 // Keychain, never in UserDefaults/the App Group.
-                if let token = decoded?.data?.sessionToken, !token.isEmpty {
-                    // Used for this run either way. Nothing else authenticates without it: the
-                    // server stopped taking the originalTransactionId in v4. (S9-39)
-                    cachedSessionToken = token
-                    if keychain.set(token, for: .apiSessionToken) {
-                        debugLogger.log("Session token stored", level: .success)
-                    } else {
-                        debugLogger.log("Session token could not be stored in Keychain; it lasts until the app quits",
-                                        level: .warning)
-                    }
+                switch adoptSessionToken(decoded?.data?.sessionToken) {
+                case .kept:
+                    debugLogger.log("Session token kept (the server handed the same one back)", level: .success)
+                case .stored:
+                    debugLogger.log("Session token stored", level: .success)
+                case .storedInMemoryOnly:
+                    debugLogger.log("Session token could not be stored in Keychain; it lasts until the app quits",
+                                    level: .warning)
+                case .noneReturned:
+                    break
                 }
                 recordSuccessfulVerification()
                 debugLogger.log("Server verification: \(status)", level: .success)

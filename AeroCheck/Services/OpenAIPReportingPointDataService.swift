@@ -23,10 +23,19 @@ final class OpenAIPReportingPointDataService: ObservableObject {
     @Published var reportingPointCount = 0
     @Published var downloadedCountries: [String] = []
     @Published private(set) var isLoaded = false
+    /// The cache was written before points kept their aerodromes (`ReportingPoint.airports`), so the
+    /// maps can only label them the old way. The data hub marks the layer's format outdated, which
+    /// makes the foreground refresh fetch it again once, network permitting. (6.0.1)
+    @Published private(set) var cachePredatesAerodromes = false
+
+    /// 1: points keep OpenAIP's `airports`. (6.0.1)
+    nonisolated static let cacheFormat = 1
 
     private var points: [ReportingPoint] = [] {
-        didSet { rebuildSpatialGrid() }
+        didSet { rebuildSpatialGrid(); pointsRevision &+= 1 }
     }
+    /// Counts replacements of `points`, for the maps to relabel their markers.
+    private(set) var pointsRevision = 0
 
     private let cache = OpenAIPLayerCache<ReportingPoint>(
         directoryName: "OpenAIPReportingPointData",
@@ -34,6 +43,7 @@ final class OpenAIPReportingPointDataService: ObservableObject {
         endpointSuffix: "rpp",
         restPath: "reporting-points",
         logLabel: "Reporting-point",
+        formatVersion: OpenAIPReportingPointDataService.cacheFormat,
         parse: ReportingPoint.parse(geoJSON:))
 
     // MARK: - Spatial index (coarse 1° grid, mirrors OpenAIPNavaidDataService)
@@ -61,17 +71,28 @@ final class OpenAIPReportingPointDataService: ObservableObject {
             reportingPointCount = summary.totalCount
             lastUpdated = summary.lastUpdated
             isDataAvailable = summary.isDataAvailable
+            cachePredatesAerodromes = Self.predatesAerodromes(summary)
         }
     }
 
-    /// Stale once older than the shared aeronautical-data TTL (90 days).
-    var needsUpdate: Bool { cache.isStale(lastUpdated: lastUpdated) }
+    /// Stale once older than the shared aeronautical-data TTL (90 days), or written before points
+    /// kept their aerodromes.
+    var needsUpdate: Bool { cache.isStale(lastUpdated: lastUpdated) || cachePredatesAerodromes }
+
+    /// A downloaded cache in an older format than `cacheFormat`.
+    nonisolated static func predatesAerodromes(_ summary: OpenAIPLayerCache<ReportingPoint>.Summary) -> Bool {
+        summary.isDataAvailable && (summary.formatVersion ?? 0) < cacheFormat
+    }
 
     // MARK: - Load
 
     func ensureLoaded() async {
         guard !isLoaded else { return }
         guard let loaded = await cache.loadFromLocal() else { return }
+        // The aerodromes first: the maps label a point when they add it, and they add the points
+        // when `reportingPointCount` changes below.
+        await OpenAIPAirportDataService.shared.ensureAerodromeIndexLoaded()
+        guard !isLoaded else { return }
         points = loaded
         reportingPointCount = loaded.count
         isLoaded = true
@@ -87,7 +108,9 @@ final class OpenAIPReportingPointDataService: ObservableObject {
         defer { isDownloading = false }
 
         let result = await cache.downloadData(for: countries, skippingCached: skippingCached) { downloadProgress = $0 }
+        await OpenAIPAirportDataService.shared.ensureAerodromeIndexLoaded()
         points = result.features
+        cachePredatesAerodromes = Self.predatesAerodromes(result.summary)
         reportingPointCount = result.features.count
         downloadedCountries = result.summary.downloadedCountries
         lastUpdated = result.summary.lastUpdated
@@ -170,13 +193,16 @@ final class OpenAIPReportingPointDataService: ObservableObject {
         lastUpdated = nil
         isDataAvailable = false
         isLoaded = false
+        cachePredatesAerodromes = false
     }
 
     #if DEBUG
-    func seedForTesting(_ seeded: [ReportingPoint]) {
+    func seedForTesting(_ seeded: [ReportingPoint], cachePredatesAerodromes: Bool = false) {
         points = seeded
         reportingPointCount = seeded.count
         isLoaded = true
+        isDataAvailable = !seeded.isEmpty
+        self.cachePredatesAerodromes = cachePredatesAerodromes
     }
     #endif
 }

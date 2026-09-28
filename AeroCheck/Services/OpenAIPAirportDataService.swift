@@ -29,8 +29,19 @@ final class OpenAIPAirportDataService: ObservableObject {
             guard !airports.isEmpty else { return }
             pprIcaoCodes = Set(airports.filter(\.isPPR).compactMap(\.icaoCode).map { $0.uppercased() })
             hasPPRData = true
+            aerodromesById = Self.aerodromeIndex(airports)
         }
     }
+
+    /// Code and name of every OpenAIP aerodrome, by its OpenAIP `_id`: what a reporting point's
+    /// `airports` refers to. Survives `releaseLoadedAirports()`, like the PPR set, since the merged
+    /// `Airport` store keeps no OpenAIP id. (6.0.1)
+    private(set) var aerodromesById: [String: ReportingPointAerodrome] = [:] {
+        didSet { aerodromeIndexRevision &+= 1 }
+    }
+    /// Counts changes of `aerodromesById`, for the maps to relabel their reporting points.
+    private(set) var aerodromeIndexRevision = 0
+    private var aerodromeIndexTask: Task<Void, Never>?
 
     /// ICAO idents of the aerodromes OpenAIP flags as PPR. Survives `releaseLoadedAirports()`.
     private(set) var pprIcaoCodes: Set<String> = []
@@ -90,6 +101,38 @@ final class OpenAIPAirportDataService: ObservableObject {
         downloadError = result.failedCountries.isEmpty ? nil : result.failedCountries.joined(separator: ", ")
     }
 
+    // MARK: - Aerodromes of the reporting points (6.0.1)
+
+    /// Fill `aerodromesById` from the cache when the airport array has not been loaded (the merge
+    /// runs only once airports are needed). Decodes the files off the main actor and keeps only
+    /// codes and names; the array itself stays unloaded. Once per launch.
+    func ensureAerodromeIndexLoaded() async {
+        guard aerodromesById.isEmpty, isDataAvailable else { return }
+        if let running = aerodromeIndexTask { return await running.value }
+        let task = Task { @MainActor in
+            guard let loaded = await cache.loadFromLocal(), aerodromesById.isEmpty else { return }
+            aerodromesById = Self.aerodromeIndex(loaded)
+        }
+        aerodromeIndexTask = task
+        await task.value
+        aerodromeIndexTask = nil
+    }
+
+    /// The aerodrome a reporting point belongs to: the first of its `airports` that the downloaded
+    /// OpenAIP airports know. Nil for a point naming none, or before the airport layer is loaded.
+    func aerodrome(for point: ReportingPoint) -> ReportingPointAerodrome? {
+        point.airports?.lazy.compactMap { self.aerodromesById[$0] }.first
+    }
+
+    func label(for point: ReportingPoint) -> ReportingPointLabel {
+        ReportingPointLabel(point: point, aerodrome: aerodrome(for: point))
+    }
+
+    nonisolated static func aerodromeIndex(_ airports: [OpenAIPAirport]) -> [String: ReportingPointAerodrome] {
+        Dictionary(airports.map { ($0.id, ReportingPointAerodrome(icao: $0.icaoCode, name: $0.name)) },
+                   uniquingKeysWith: { first, _ in first })
+    }
+
     // MARK: - Queries
 
     /// All loaded OpenAIP airports — consumed by the merge engine. Call `ensureLoaded()` first.
@@ -117,6 +160,7 @@ final class OpenAIPAirportDataService: ObservableObject {
     func deleteData() {
         cache.deleteData()
         airports = []
+        aerodromesById = [:]
         airportCount = 0
         downloadedCountries = []
         lastUpdated = nil

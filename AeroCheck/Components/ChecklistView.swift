@@ -1248,8 +1248,7 @@ struct DepartureBriefingContent: View {
                     if !context.departureReportingPoints.isEmpty {
                         BriefingSection(title: L10n.Briefing.reportingPoints.uppercased()) {
                             ForEach(context.departureReportingPoints) { rp in
-                                BriefingItem(label: rp.name ?? "—",
-                                             value: rp.compulsory ? L10n.Briefing.compulsory : L10n.Briefing.onRequest)
+                                BriefingReportingPointRow(point: rp)
                             }
                         }
                     }
@@ -1336,8 +1335,7 @@ struct ApproachBriefingContent: View {
                     if !context.destinationReportingPoints.isEmpty {
                         BriefingSection(title: L10n.Briefing.reportingPoints.uppercased()) {
                             ForEach(context.destinationReportingPoints) { rp in
-                                BriefingItem(label: rp.name ?? "—",
-                                             value: rp.compulsory ? L10n.Briefing.compulsory : L10n.Briefing.onRequest)
+                                BriefingReportingPointRow(point: rp)
                             }
                         }
                     }
@@ -1640,6 +1638,26 @@ struct BriefingItem<Detail: View>: View {
             .font(.aero(size: CockpitType.row, weight: .semibold, design: .monospaced))
             .foregroundColor(theme.textPrimary)
             .fixedSize(horizontal: false, vertical: true)
+    }
+}
+
+/// A reporting point in the briefing: its name, then its aerodrome's code and status ("LSGC · On
+/// request"), since the 8 NM around a field often reach a neighbour's points; a remark the aerodrome
+/// doesn't already say ("MAX 3500") goes underneath. (6.0.1)
+struct BriefingReportingPointRow: View {
+    @Environment(\.cockpitTheme) private var theme
+    let point: ReportingPoint
+
+    var body: some View {
+        let label = OpenAIPAirportDataService.shared.label(for: point)
+        BriefingItem(label: label.title, value: label.briefingValue) {
+            if let note = label.note {
+                Text(note)
+                    .font(.aero(size: CockpitType.label))
+                    .foregroundColor(theme.textSecondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+        }
     }
 }
 

@@ -2060,13 +2060,8 @@ struct RouteBuilderMapView: UIViewRepresentable {
     }
 
     private func updateReportingPointAnnotations(_ mapView: MKMapView, context: Context) {
-        let existing = mapView.annotations.compactMap { $0 as? ReportingPointAnnotation }
-        let existingIds = Set(existing.map { $0.point.id })
-        let newIds = Set(reportingPoints.map { $0.id })
-        mapView.removeAnnotations(existing.filter { !newIds.contains($0.point.id) })
-        for point in reportingPoints where !existingIds.contains(point.id) {
-            mapView.addAnnotation(ReportingPointAnnotation(point: point))
-        }
+        ReportingPointAnnotation.sync(reportingPoints, on: mapView,
+                                      revision: &context.coordinator.reportingPointLabelRevision)
     }
 
     private func updateObstacleAnnotations(_ mapView: MKMapView, context: Context) {
@@ -2161,6 +2156,8 @@ struct RouteBuilderMapView: UIViewRepresentable {
         var lastSelectedLegKey = ""
         var lastFitToken = 0
         var lastFocusToken = 0
+        /// `ReportingPointAnnotation.labelRevision` the markers were labelled at. (6.0.1)
+        var reportingPointLabelRevision = -1
 
         // MARK: Live drag (flight-plan revamp #3)
         enum DragMode { case move(Int); case insert(Int); case append } // insert(afterIndex)
@@ -2301,6 +2298,7 @@ struct RouteBuilderMapView: UIViewRepresentable {
                     rpView = MKAnnotationView(annotation: annotation, reuseIdentifier: id)
                 }
                 rpView.canShowCallout = true
+                rpView.detailCalloutAccessoryView = rpAnnotation.calloutDetailView()   // (6.0.1)
                 let symbol = rpAnnotation.point.compulsory ? "triangle.fill" : "triangle"
                 rpView.image = aeroMarkerSymbol(symbol, color: UIColor(red: 0.85, green: 0.2, blue: 0.6, alpha: 1.0), pointSize: 12)
                 return rpView

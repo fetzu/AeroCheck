@@ -101,7 +101,8 @@ enum WaypointPassage {
 
 extension FlightPlan {
     /// The plan with every waypoint that has no ATO given one from the flight's GPS track. A time
-    /// recorded in flight (MARK, a tap on the waypoint, the live catch-up) is never replaced.
+    /// recorded in flight (MARK, a tap on the waypoint, the live catch-up) is never replaced, and a
+    /// waypoint the pilot took back from the catch-up (`takenBackWaypointIds`) gets none. (v6.0.1)
     func withActualTimesOver(fromTrack track: [GPSPoint], takeoff: Date?, landing: Date?) -> FlightPlan {
         let fixes = track.map {
             WaypointPassage.Fix(time: $0.timestamp,
@@ -111,7 +112,9 @@ extension FlightPlan {
         let times = WaypointPassage.timesOver(route: waypoints.map(\.coordinate), track: fixes,
                                               takeoff: takeoff, landing: landing)
         var plan = self
-        for i in plan.waypoints.indices where plan.waypoints[i].actualTimeOver == nil {
+        let takenBack = takenBackWaypointIds ?? []
+        for i in plan.waypoints.indices
+        where plan.waypoints[i].actualTimeOver == nil && !takenBack.contains(plan.waypoints[i].id) {
             plan.waypoints[i].actualTimeOver = times[i]
         }
         return plan

@@ -319,6 +319,14 @@ struct FlightPlan: Identifiable, Codable, Equatable {
     /// Set when the flight is going somewhere other than the end of its route. See `Diversion`.
     var diversion: Diversion?
 
+    /// The waypoints whose ATO the flight recorded on its own (`catchUpWaypointPassages`), and the
+    /// ones the pilot took back from it (UNDO, RESUME LEG). A waypoint taken back never gets a time
+    /// from the track again, in flight or at END FLIGHT: only a MARK gives it one. Kept with the plan
+    /// so a relaunch in flight remembers them; the next activation clears them. Optional, and nil
+    /// when empty: plans written before decode unchanged. (v6.0.1)
+    var autoMarkedWaypointIds: Set<UUID>?
+    var takenBackWaypointIds: Set<UUID>?
+
     // The route library (on-device review #4). Optional: plans written before decode unchanged.
 
     /// When the pilot archived this route: out of the Routes list, kept under Archived.
@@ -432,6 +440,7 @@ struct FlightPlan: Identifiable, Codable, Equatable {
         case isActive, currentWaypointIndex, chronometerStartTime, activatedAt
         case stopover, departureIsEstimate, diversion
         case archivedAt, flightOwned
+        case autoMarkedWaypointIds, takenBackWaypointIds
     }
 
     init(from decoder: Decoder) throws {
@@ -503,6 +512,8 @@ struct FlightPlan: Identifiable, Codable, Equatable {
         diversion = try container.decodeIfPresent(Diversion.self, forKey: .diversion)
         archivedAt = try container.decodeIfPresent(Date.self, forKey: .archivedAt)
         flightOwned = try container.decodeIfPresent(Bool.self, forKey: .flightOwned)
+        autoMarkedWaypointIds = try container.decodeIfPresent(Set<UUID>.self, forKey: .autoMarkedWaypointIds)
+        takenBackWaypointIds = try container.decodeIfPresent(Set<UUID>.self, forKey: .takenBackWaypointIds)
     }
 
     func encode(to encoder: Encoder) throws {
@@ -554,6 +565,19 @@ struct FlightPlan: Identifiable, Codable, Equatable {
         try container.encodeIfPresent(diversion, forKey: .diversion)
         try container.encodeIfPresent(archivedAt, forKey: .archivedAt)
         try container.encodeIfPresent(flightOwned, forKey: .flightOwned)
+        try container.encodeIfPresent(autoMarkedWaypointIds, forKey: .autoMarkedWaypointIds)
+        try container.encodeIfPresent(takenBackWaypointIds, forKey: .takenBackWaypointIds)
+    }
+
+    /// The flight's own marks among the waypoints at `indices` become the pilot's: taken back, left to
+    /// MARK. Their times are the caller's to clear. (v6.0.1)
+    mutating func takeBackAutoMarks<S: Sequence>(at indices: S) where S.Element == Int {
+        let ids = Set(indices.compactMap { waypoints.indices.contains($0) ? waypoints[$0].id : nil })
+            .intersection(autoMarkedWaypointIds ?? [])
+        guard !ids.isEmpty else { return }
+        let stillAutomatic = (autoMarkedWaypointIds ?? []).subtracting(ids)
+        autoMarkedWaypointIds = stillAutomatic.isEmpty ? nil : stillAutomatic
+        takenBackWaypointIds = (takenBackWaypointIds ?? []).union(ids)
     }
 
     /// The same plan under a new identity: everything the pilot planned, nothing about a flight.

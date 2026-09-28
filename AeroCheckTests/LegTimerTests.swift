@@ -7,8 +7,8 @@ import CoreLocation
 @MainActor
 final class LegTimerTests: XCTestCase {
 
-    private func activePlan() -> FlightPlanManager {
-        let manager = makeTestPlanManager()
+    private func activePlan(datastore: DataPersistenceManager? = nil, defaults: UserDefaults? = nil) -> FlightPlanManager {
+        let manager = makeTestPlanManager(datastore: datastore, defaults: defaults)
         let plan = FlightPlan(name: "Leg timer", waypoints: [
             FlightPlanWaypoint(name: "LSZQ", coordinate: .init(latitude: 47.392, longitude: 7.030)),
             FlightPlanWaypoint(name: "LSGC", coordinate: .init(latitude: 47.083, longitude: 6.793)),
@@ -210,5 +210,73 @@ final class LegTimerTests: XCTestCase {
         manager.activateFlightPlan(try XCTUnwrap(manager.activeFlightPlan))
         catchUp(manager, track, takeoff: takeoff)
         XCTAssertEqual(manager.activeFlightPlan?.currentWaypointIndex, 2, "the next flight's to mark")
+    }
+
+    // MARK: - Taken back, across a relaunch and at END FLIGHT (v6.0.1)
+
+    /// A take-back is kept on the plan: after a relaunch in flight (crash recovery) the catch-up still
+    /// leaves the waypoint alone, and at END FLIGHT it gets no time from the track, in the plan or in
+    /// the Flight Log, unless the pilot MARKed it later, whose time it keeps.
+    func testATakeBackSurvivesARelaunchAndEndFlight() async throws {
+        // The active plan is saved with whole-second dates (ISO 8601): so is the takeoff here.
+        func seconds(_ date: Date?) -> Double { date.map { $0.timeIntervalSince1970.rounded(.down) } ?? -1 }
+        for markedLater in [false, true] {
+            let datastore = makeTestDatastore()
+            let defaults = makeTestDefaults()
+            let takeoff = Date(timeIntervalSince1970: Date().timeIntervalSince1970.rounded(.down) - 3600)
+            let track = pastLSGC(takeoff: takeoff).past
+
+            // Off the ground and past LSGC before the first run: one run marks both, and UNDO takes back
+            // LSGC only. The departure's time is the takeoff.
+            let before = activePlan(datastore: datastore, defaults: defaults)
+            catchUp(before, track, takeoff: takeoff)
+            before.undoAutoMark(try XCTUnwrap(before.autoMarkNotice))
+            XCTAssertEqual(before.activeFlightPlan?.currentWaypointIndex, 1)
+            XCTAssertEqual(before.activeFlightPlan?.waypoints[0].actualTimeOver, takeoff)
+            if markedLater { before.markWaypoint() }
+            let planId = try XCTUnwrap(before.activeFlightPlan?.id)
+            let lsgcId = try XCTUnwrap(before.activeFlightPlan?.waypoints[1].id)
+            let markTime = before.activeFlightPlan?.waypoints[1].actualTimeOver
+            XCTAssertEqual(markTime != nil, markedLater)
+
+            // The app is killed mid-flight and relaunched.
+            let relaunched = makeTestPlanManager(datastore: datastore, defaults: defaults)
+            addTeardownBlock { @MainActor in relaunched.stopChronometer() }
+            XCTAssertEqual(relaunched.activeFlightPlan?.takenBackWaypointIds, [lsgcId])
+            catchUp(relaunched, track, takeoff: takeoff)
+            XCTAssertEqual(seconds(relaunched.activeFlightPlan?.waypoints[1].actualTimeOver), seconds(markTime),
+                           "not marked again")
+            XCTAssertEqual(relaunched.activeFlightPlan?.currentWaypointIndex, markedLater ? 2 : 1)
+            for _ in 0..<50 where !relaunched.hasLoadedPlans { try await Task.sleep(for: .milliseconds(100)) }
+
+            let landing = try XCTUnwrap(track.last?.timestamp)
+            let flight = Flight(flightPlanId: planId, lineUpTime: takeoff, landingTime: landing, gpsTrack: track)
+            relaunched.populateTimingFromFlight(planId, flight: flight, takeoff: takeoff, landing: landing)
+
+            let ended = try XCTUnwrap(relaunched.activeFlightPlan)
+            XCTAssertEqual(seconds(ended.waypoints[1].actualTimeOver), seconds(markTime),
+                           markedLater ? "the MARK's time" : "no time from the track")
+            XCTAssertEqual(ended.waypoints[0].actualTimeOver, takeoff, "the rest is filled as before")
+            XCTAssertEqual(seconds(ended.withActualTimesOver(from: flight).waypoints[1].actualTimeOver), seconds(markTime),
+                           "nor from the Flight Log's own fill")
+        }
+    }
+
+    /// RESUME LEG after a relaunch still knows which marks were the flight's own.
+    func testResumingALegTheFlightMarkedSticksAcrossARelaunch() throws {
+        let datastore = makeTestDatastore()
+        let defaults = makeTestDefaults()
+        let takeoff = Date().addingTimeInterval(-3600)
+        let track = pastLSGC(takeoff: takeoff).past
+        catchUp(activePlan(datastore: datastore, defaults: defaults), track, takeoff: takeoff)
+
+        let relaunched = makeTestPlanManager(datastore: datastore, defaults: defaults)
+        addTeardownBlock { @MainActor in relaunched.stopChronometer() }
+        XCTAssertEqual(relaunched.activeFlightPlan?.currentWaypointIndex, 2)
+        relaunched.resumeLeg(at: 1)
+        catchUp(relaunched, track, takeoff: takeoff)
+
+        XCTAssertEqual(relaunched.activeFlightPlan?.currentWaypointIndex, 1)
+        XCTAssertNil(relaunched.activeFlightPlan?.waypoints[1].actualTimeOver)
     }
 }

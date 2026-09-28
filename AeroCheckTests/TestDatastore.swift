@@ -56,9 +56,12 @@ extension XCTestCase {
         FlightThreadManager(defaults: makeTestDefaults(), persistence: datastore ?? makeTestDatastore())
     }
 
+    /// Pass the same `datastore` and `defaults` to a second one to model a relaunch: the active plan
+    /// lives in the defaults, the plans in the datastore.
     @MainActor
-    func makeTestPlanManager(datastore: DataPersistenceManager? = nil) -> FlightPlanManager {
-        FlightPlanManager(defaults: makeTestDefaults(), persistence: datastore ?? makeTestDatastore())
+    func makeTestPlanManager(datastore: DataPersistenceManager? = nil,
+                             defaults: UserDefaults? = nil) -> FlightPlanManager {
+        FlightPlanManager(defaults: defaults ?? makeTestDefaults(), persistence: datastore ?? makeTestDatastore())
     }
 
     /// An AppState on its own datastore and defaults suite, and therefore off CloudKit. Pass the same

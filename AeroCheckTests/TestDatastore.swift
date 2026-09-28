@@ -66,11 +66,16 @@ extension XCTestCase {
     ///
     /// On `.shared`, `AppState()` restored the simulator app's real in-progress flight (or deleted its
     /// checkpoint), wrote into its logbook and settings, and pushed test data to the pilot's iCloud.
+    ///
+    /// `syncManager`: one built on a stand-in engine (`SyncManager(defaults:backend:)`), for the
+    /// tests that drive "Sync to iCloud" through AppState. Never `SyncManager.shared`.
     @MainActor
     func makeTestAppState(datastore: DataPersistenceManager? = nil,
-                          defaults: UserDefaults? = nil) -> AppState {
+                          defaults: UserDefaults? = nil,
+                          syncManager: SyncManager? = nil) -> AppState {
         let appState = AppState(defaults: defaults ?? makeTestDefaults(),
-                                persistence: datastore ?? makeTestDatastore())
+                                persistence: datastore ?? makeTestDatastore(),
+                                syncManager: syncManager)
         // Registered after the datastore and the suite, so it runs before they are removed: a
         // checkpoint still queued would otherwise land afterwards and re-create the suite's plist.
         addTeardownBlock { @MainActor in appState.flushPendingCheckpoint() }

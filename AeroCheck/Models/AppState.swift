@@ -864,17 +864,25 @@ class AppState {
     private let syncManager: SyncManager?
     private let liveActivity: FlightActivityController?
 
+    /// The latest load of the logbook from disk (at launch, or after the switch moved the store).
+    /// CloudKit's catch-up waits for it: before it lands, `flights` is empty or the old store's.
+    @ObservationIgnored private var flightsLoad: Task<Void, Never>?
+
     // MARK: - Initialization
 
     /// `defaults` and `persistence` are injectable for the same reason as the plan and thread
     /// managers': the test host IS the app, so `.standard` and `.shared` are the simulator app's own.
     /// A test AppState restored the real in-progress flight, cleared the real crash-recovery
     /// checkpoint, and wrote its settings and flights into the real datastore.
-    init(defaults: UserDefaults = .standard, persistence: DataPersistenceManager? = nil) {
+    ///
+    /// `syncManager` is for the tests that drive the switch against a stand-in engine; left nil, the
+    /// app's AppState takes `SyncManager.shared` and a confined one takes none.
+    init(defaults: UserDefaults = .standard, persistence: DataPersistenceManager? = nil,
+         syncManager: SyncManager? = nil) {
         let persistence = persistence ?? DataPersistenceManager.shared
         self.persistence = persistence
         self.defaults = defaults
-        self.syncManager = persistence.followsICloud ? SyncManager.shared : nil
+        self.syncManager = syncManager ?? (persistence.followsICloud ? SyncManager.shared : nil)
         self.liveActivity = persistence.followsICloud ? FlightActivityController.shared : nil
 
         // Load settings synchronously (fast, needed for initial UI)
@@ -908,7 +916,7 @@ class AppState {
 
         // Load flights in background - iCloud file enumeration can be slow
         // and should not block the main thread during startup
-        Task { [weak self] in
+        flightsLoad = Task { [weak self] in
             guard let self = self else { return }
             await self.loadFlightsAsync()
         }
@@ -951,52 +959,58 @@ class AppState {
     private func setupSyncCallbacks() {
         guard let syncManager else { return }
 
-        syncManager.onSettingsUpdated = { [weak self] settings in
-            Task { @MainActor in
-                guard let self else { return }
-                // Preserve device-local, non-persisted fields. They aren't encoded (so the incoming record
-                // always has them at their defaults); a wholesale assign would reset them on every sync —
-                // which is why developer mode kept switching itself off when the paired device synced. (v4.1)
-                // Keep the device-local, non-persisted fields (they aren't encoded, so the incoming
-                // record always has them at their defaults) AND anything the writer's schema could
-                // not express — otherwise a device on an older build erases the pilot's mass &
-                // balance profiles and hourly rates for every device. (v4.1 + review F8)
-                var merged = self.settings.preservingFieldsUnknownTo(settings)
-                merged.developerMode = self.settings.developerMode
-                merged.marketingMode = self.settings.marketingMode
-                // Where this device keeps its data is its own choice, never another device's.
-                merged.iCloudSyncEnabled = self.settings.iCloudSyncEnabled
-                self.settings = merged
-                // Save synced settings to file for future loads
-                self.persistence.saveSettings(merged)
-                self.syncAircraftType()
-                AppLog.general.debugLine("Settings updated from iCloud sync")
-            }
+        // Both run inside the sync engine's event, which waits for them (see
+        // `SyncManager.queueWhatCloudKitLacks`).
+        syncManager.onSettingsUpdated = { @MainActor [weak self] settings in
+            guard let self else { return }
+            // Preserve device-local, non-persisted fields. They aren't encoded (so the incoming record
+            // always has them at their defaults); a wholesale assign would reset them on every sync —
+            // which is why developer mode kept switching itself off when the paired device synced. (v4.1)
+            // Keep the device-local, non-persisted fields (they aren't encoded, so the incoming
+            // record always has them at their defaults) AND anything the writer's schema could
+            // not express — otherwise a device on an older build erases the pilot's mass &
+            // balance profiles and hourly rates for every device. (v4.1 + review F8)
+            var merged = self.settings.preservingFieldsUnknownTo(settings)
+            merged.developerMode = self.settings.developerMode
+            merged.marketingMode = self.settings.marketingMode
+            // Where this device keeps its data is its own choice, never another device's.
+            merged.iCloudSyncEnabled = self.settings.iCloudSyncEnabled
+            self.settings = merged
+            // Save synced settings to file for future loads
+            self.persistence.saveSettings(merged)
+            self.syncAircraftType()
+            AppLog.general.debugLine("Settings updated from iCloud sync")
         }
 
-        syncManager.onFlightsUpdated = { [weak self] flights in
-            Task { @MainActor in
-                guard let self else { return }
-                // PR-09: persist only the flights whose content actually changed (by modifiedAt),
-                // instead of rewriting EVERY flight file. Batched OFF the main actor (was a per-flight
-                // saveFlight on the main actor — a visible hitch when a large initial sync landed).
-                let previousById = Dictionary(self.flights.map { ($0.id, $0) }, uniquingKeysWith: { a, _ in a })
-                self.flights = flights
-                // Sync delivered the logbook — clear the launch spinner in case the initial local
-                // load found nothing (e.g. a fresh install whose flights only exist in CloudKit). (fresh-install fix)
-                self.isLoadingFlights = false
-                let changed = flights.filter { previousById[$0.id]?.modifiedAt != $0.modifiedAt }
-                await self.persistence.saveFlightsOffMain(changed)
-                // Delete the local file for any flight the sync removed (a cloud-initiated delete from
-                // another device). Without this the orphaned *.json survives on disk, and because the
-                // logbook is rebuilt by enumerating the flights directory, the deleted flight resurrects
-                // on the next launch. (v4.1.0 pre-tag fix)
-                let incomingIds = Set(flights.map { $0.id })
-                for (id, previous) in previousById where !incomingIds.contains(id) {
-                    self.persistence.deleteFlight(previous)
-                }
-                AppLog.general.debugLine("Flights updated from iCloud sync")
+        syncManager.onFlightsUpdated = { @MainActor [weak self] flights in
+            guard let self else { return }
+            // PR-09: persist only the flights whose content actually changed (by modifiedAt),
+            // instead of rewriting EVERY flight file. Batched OFF the main actor (was a per-flight
+            // saveFlight on the main actor — a visible hitch when a large initial sync landed).
+            let previousById = Dictionary(self.flights.map { ($0.id, $0) }, uniquingKeysWith: { a, _ in a })
+            self.flights = flights
+            // Sync delivered the logbook — clear the launch spinner in case the initial local
+            // load found nothing (e.g. a fresh install whose flights only exist in CloudKit). (fresh-install fix)
+            self.isLoadingFlights = false
+            let changed = flights.filter { previousById[$0.id]?.modifiedAt != $0.modifiedAt }
+            await self.persistence.saveFlightsOffMain(changed)
+            // Delete the local file for any flight the sync removed (a cloud-initiated delete from
+            // another device). Without this the orphaned *.json survives on disk, and because the
+            // logbook is rebuilt by enumerating the flights directory, the deleted flight resurrects
+            // on the next launch. (v4.1.0 pre-tag fix)
+            let incomingIds = Set(flights.map { $0.id })
+            for (id, previous) in previousById where !incomingIds.contains(id) {
+                self.persistence.deleteFlight(previous)
             }
+            AppLog.general.debugLine("Flights updated from iCloud sync")
+        }
+
+        // What CloudKit may lack, read when its engine comes up: at launch, when the switch turns
+        // on, after an iCloud sign-in. The logbook as loaded from disk, so it waits for the load.
+        syncManager.localSnapshot = { @MainActor [weak self] in
+            guard let self else { return nil }
+            await self.flightsLoad?.value
+            return (self.flights, self.settings)
         }
 
         syncManager.onSyncConflict = { [weak self] message in
@@ -2249,7 +2263,7 @@ class AppState {
     /// Reload flights from disk after `saveSettings()` moves the datastore between the local and the
     /// iCloud Drive store (the move can bring in flights). Decode runs off the main actor. (PR-24)
     func reloadFlights() {
-        Task { [weak self] in
+        flightsLoad = Task { [weak self] in
             guard let self = self else { return }
             await Task.yield()
             self.flights = await self.persistence.loadFlightsOffMain()
@@ -2266,7 +2280,8 @@ class AppState {
         // Save to file-based storage
         persistence.saveSettings(settings)
 
-        // Update sync manager with current sync preference
+        // Update sync manager with current sync preference. Turning it on starts CloudKit now, and
+        // once it is up, the flights recorded while it was off and these settings go out.
         syncManager?.isSyncEnabled = settings.iCloudSyncEnabled
 
         // Sync settings to iCloud if enabled

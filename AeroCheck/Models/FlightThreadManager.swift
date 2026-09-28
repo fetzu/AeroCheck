@@ -591,11 +591,78 @@ class FlightThreadManager: ObservableObject {
     /// `trip(forThreadId:)` found nothing (no trip band) and `context.isLeg` stayed true (the
     /// trip-scoped rows filtered off the legs). The preparation existed in neither place, and
     /// `saveTrips` then made the truncated file permanent. (review F10)
+    ///
+    /// A trip held in memory AND on disk keeps the copy edited last. At launch the two never meet
+    /// (memory holds only trips formed during the load), but after "Sync to iCloud" moved the
+    /// datastore, memory holds the old store's copy, and the new store may hold a newer one from
+    /// another device: memory winning showed the stale copy, and the next `saveTrips` wrote it back
+    /// over the newer one.
     private func loadTrips() async {
         let loaded = await persistence.loadTripsOffMain()
-        let existingIds = Set(trips.map(\.id))
-        trips = trips + loaded.filter { !existingIds.contains($0.id) }
+        trips = Trip.merged(trips, with: loaded)
         hasLoadedTrips = true
+    }
+
+    /// Trips that legs point at but that do not exist, rebuilt from those legs.
+    ///
+    /// A leg whose trip is missing was in neither list: the flights list shows a leg under its trip
+    /// only (`tripId != nil`), and there was no trip. Its trip-scoped rows were not on it either,
+    /// since they live on the trip. So the flight simply vanished, with its preparation (review F9).
+    /// A trip can go missing when two devices write `trips.json` at once through iCloud Drive (the
+    /// file holds every trip, the last writer wins), when the file does not decode, or when iCloud
+    /// has evicted it. The legs, one file each, survive all three.
+    ///
+    /// The trip is rebuilt rather than its legs turned back into standalone flights, because the
+    /// rebuild is what a surviving copy can still replace: its `updatedAt` is `Trip.rebuiltStamp`,
+    /// older than any edit, so the real trip wins wherever it turns up (a later load, the switch's
+    /// merge). Standalone legs would have had their `tripId` cleared for good.
+    ///
+    /// - Legs go in the order they were created, the only order a leg records (the real order lived
+    ///   on the trip). A leg another trip lists stays with that trip.
+    /// - The shared preparation is lost with the trip: its rows come back unticked, for each thing
+    ///   any leg needs (DABS when one touches Switzerland), plus any trip-scoped row a leg still
+    ///   carries. The pilot re-ticks a weather briefing; nothing claims one was done.
+    /// - Built in memory only. Nothing is written at load: it reaches `trips.json` with the next trip
+    ///   save, so a load of an evicted file never writes over it.
+    nonisolated static func rebuiltTrips(threads: [FlightThread], trips: [Trip]) -> [Trip] {
+        let present = Set(trips.map(\.id))
+        let listed = Set(trips.flatMap(\.legIds))
+        var legsByTrip: [UUID: [FlightThread]] = [:]
+        for thread in threads {
+            guard let tripId = thread.tripId, !present.contains(tripId), !listed.contains(thread.id) else { continue }
+            legsByTrip[tripId, default: []].append(thread)
+        }
+        return legsByTrip.map { tripId, legs in
+            let ordered = legs.sorted { $0.createdAt < $1.createdAt }
+            var trip = Trip(id: tripId, legIds: ordered.map(\.id))
+            trip.createdAt = ordered.first?.createdAt ?? Trip.rebuiltStamp
+            trip.updatedAt = Trip.rebuiltStamp
+            trip.scheduledStart = ordered.first?.scheduledDeparture
+            trip.sharedTasks = rebuiltSharedTasks(for: ordered)
+            return trip
+        }
+        .sorted { $0.createdAt < $1.createdAt }
+    }
+
+    /// The trip-scoped rows a rebuilt trip needs: any a leg still carries (the most settled one per
+    /// row), then every other row the legs' own shapes call for, unticked.
+    private nonisolated static func rebuiltSharedTasks(for legs: [FlightThread]) -> [ThreadTask] {
+        var shared: [String: ThreadTask] = [:]
+        for leg in legs {
+            for task in leg.tasks where task.key.scope == .trip {
+                if let kept = shared[task.matchToken], kept.isSettled, !task.isSettled { continue }
+                shared[task.matchToken] = task
+            }
+        }
+        for leg in legs {
+            let context = context(for: nil, profile: leg.profile,
+                                  homeCountry: leg.homeCountry ?? deviceCountry(),
+                                  countries: leg.countries ?? [])
+            for task in ThreadTaskEngine.generate(context: context) where task.key.scope == .trip {
+                if shared[task.matchToken] == nil { shared[task.matchToken] = task }
+            }
+        }
+        return shared.values.sorted { $0.key.rawValue < $1.key.rawValue }
     }
 
     // MARK: - Task mutation
@@ -1091,10 +1158,11 @@ class FlightThreadManager: ObservableObject {
 
     private func loadThreadsAsync() async {
         let loaded = await persistence.loadFlightThreadsOffMain()
-        let existingIds = Set(threads.map(\.id))
-        let merged = threads + loaded.filter { !existingIds.contains($0.id) }
-        threads = merged.sorted { $0.createdAt > $1.createdAt }
-        for thread in loaded where lastPersisted[thread.id] == nil {
+        threads = Self.mergedThreads(memory: threads, loaded: loaded)
+        // What this store holds on disk, whichever copy memory kept. After a move that is the new
+        // store's copy: a newer one kept in memory then differs from it, so the next save writes
+        // it into the store it now belongs to. (A load itself writes nothing.)
+        for thread in loaded {
             lastPersisted[thread.id] = thread
         }
         // A pointer to a thread that no longer exists would leave Home advertising nothing.
@@ -1102,11 +1170,52 @@ class FlightThreadManager: ObservableObject {
             currentThreadId = nil
             saveCurrentThreadPointer()
         }
+        // Every caller has loaded the trips first, so a leg whose trip is still missing now points
+        // at one that does not exist here. Before `hasLoadedThreads`, so no list shows it vanished.
+        let rebuilt = Self.rebuiltTrips(threads: threads, trips: trips)
+        if !rebuilt.isEmpty {
+            AppLog.general.debugLine("Rebuilt \(rebuilt.count) trip(s) that their legs point at")
+            trips += rebuilt
+        }
         hasLoadedThreads = true
         // Replay anything the pilot confirmed while this load was still in flight.
         let deferred = deferredCloseRequests
         deferredCloseRequests = []
         for threadId in deferred { markFlightPlanClosed(threadId: threadId) }
+    }
+
+    /// The threads after a load: those in memory and those the store holds, one per id. For a page
+    /// in both, the copy edited last (`updatedAt`, which every edit stamps) wins; a tie keeps memory's.
+    ///
+    /// Memory used to win outright. At launch that is harmless (memory holds only the pages created
+    /// while the load ran), but after "Sync to iCloud" moved the datastore, memory holds the old
+    /// store's copy and the new store may hold a newer one, edited on another device: the stale copy
+    /// stayed on screen, and the next edit of that page wrote it back over the newer one.
+    ///
+    /// One exception: a page being flown keeps memory's copy. The flight in progress is this
+    /// device's, and a copy from the other store (one that never saw the flight start) would take
+    /// its flight id off it, and with it the close-out at END FLIGHT.
+    ///
+    /// Nothing is dropped: a page deleted in one store comes back from the other one, even when it
+    /// was deleted here in this session. Deletion records (6.1, review design 94 §2.4) plug in here:
+    /// a copy not edited after its page's `deletedAt` leaves the union.
+    nonisolated static func mergedThreads(memory: [FlightThread], loaded: [FlightThread]) -> [FlightThread] {
+        var byId: [UUID: FlightThread] = [:]
+        for thread in memory where byId[thread.id] == nil {
+            byId[thread.id] = thread
+        }
+        for thread in loaded {
+            guard let kept = byId[thread.id] else {
+                byId[thread.id] = thread
+                continue
+            }
+            if kept.state != .flying, thread.updatedAt > kept.updatedAt {
+                byId[thread.id] = thread
+            }
+        }
+        return byId.values.sorted {
+            $0.createdAt != $1.createdAt ? $0.createdAt > $1.createdAt : $0.id.uuidString < $1.id.uuidString
+        }
     }
 
     private func saveCurrentThreadPointer() {

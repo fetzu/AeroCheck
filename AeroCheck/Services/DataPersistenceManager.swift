@@ -390,8 +390,39 @@ class DataPersistenceManager: ObservableObject {
     private func adoptSyncSwitchIfNeeded() {
         let adopted = preferences?.bool(forKey: Self.switchAdoptedKey) ?? memorySwitchAdopted
         guard !adopted else { return }
+        setAsidePreSwitchTrips()
         if !usesICloudDrive { pendingMerge = .toLocal }
         if let preferences { preferences.set(true, forKey: Self.switchAdoptedKey) } else { memorySwitchAdopted = true }
+    }
+
+    /// Where a local trips.json that predates the switch is kept (`setAsidePreSwitchTrips`).
+    nonisolated static let preSwitchTripsFileName = "trips.pre-switch.json"
+
+    /// Up to this build, a local trips.json was never the datastore's file while iCloud Drive was
+    /// available: it is the pre-5.0.1 one (trips lived there before they moved to iCloud Drive), or
+    /// one written in a session where iCloud could not be reached. The iCloud copy superseded both,
+    /// and nothing read them again. Left where it is, the switch would now merge it trip by trip into
+    /// the local store the first time it goes off, bringing back trips dissolved since.
+    ///
+    /// So, once per install and when iCloud Drive holds a readable trips.json, the local one is set
+    /// aside under another name: kept, not deleted, and read by nothing. When iCloud Drive holds none,
+    /// the local file stays: it is then the only copy of the trips, and `loadTripsOffMain` reads it.
+    private func setAsidePreSwitchTrips() {
+        guard let iCloudDocs = iCloudDocumentsURL else { return }
+        let fileManager = FileManager.default
+        let local = localAppDirectory.appendingPathComponent(Self.tripsFileName)
+        let cloud = iCloudDocs.appendingPathComponent(Self.tripsFileName)
+        let aside = localAppDirectory.appendingPathComponent(Self.preSwitchTripsFileName)
+        guard fileManager.fileExists(atPath: local.path), fileManager.fileExists(atPath: cloud.path),
+              Self.isLocallyMaterialized(cloud),
+              (try? Data(contentsOf: cloud)).flatMap(Self.decodeTrips) != nil,
+              !fileManager.fileExists(atPath: aside.path) else { return }
+        do {
+            try fileManager.moveItem(at: local, to: aside)
+            AppLog.general.debugLine("Set the pre-switch local trips.json aside")
+        } catch {
+            AppLog.general.debugLine("Could not set the pre-switch trips.json aside: \(error.localizedDescription)")
+        }
     }
 
     /// Runs the copy the switch owes, once iCloud Drive can be reached.
@@ -428,10 +459,17 @@ class DataPersistenceManager: ObservableObject {
     /// it records the filename each plan was last written under IN THAT STORE, and the next plan
     /// save rewrites it for the store it lands in.
     nonisolated static let mergedFolders = ["Flights", "NavigationPlans", "FlightThreads"]
-    nonisolated static let mergedRootFiles = ["settings.json", "trips.json"]
+    nonisolated static let mergedRootFiles = ["settings.json", tripsFileName]
 
     /// Copies every datastore file of `source` that `destination` lacks, or holds an older copy of.
     /// Never deletes anything, on either side. Pure file work, so it is tested on plain directories.
+    ///
+    /// `trips.json` is the exception to "file by file": it holds every trip, so it is merged trip by
+    /// trip (`mergeTrips`).
+    ///
+    /// Deletion records (6.1, review design 94 §2.3) plug in here: a copy whose content stamp is not
+    /// later than its item's `deletedAt` is skipped in the source and retired in the destination.
+    /// Until then an item deleted in one store comes back from the other one.
     nonisolated static func mergeDatastore(from source: URL, into destination: URL,
                                            fileManager: FileManager) -> DatastoreMergeResult {
         var result = DatastoreMergeResult()
@@ -457,7 +495,10 @@ class DataPersistenceManager: ObservableObject {
         }
         for file in mergedRootFiles {
             let from = source.appendingPathComponent(file)
-            if fileManager.fileExists(atPath: from.path) {
+            if file == tripsFileName {
+                mergeTrips(from: from, into: destination.appendingPathComponent(file),
+                           fileManager: fileManager, result: &result)
+            } else if fileManager.fileExists(atPath: from.path) {
                 copyIfNewer(from, to: destination.appendingPathComponent(file), fileManager: fileManager, result: &result)
             } else {
                 let placeholder = source.appendingPathComponent(".\(file).icloud")
@@ -493,6 +534,59 @@ class DataPersistenceManager: ObservableObject {
             result.copied += 1
         } catch {
             AppLog.general.debugLine("Datastore merge: could not copy \(source.lastPathComponent): \(error.localizedDescription)")
+        }
+    }
+
+    /// The name iCloud gives a file it has evicted: ".<name>.icloud", beside where the file was.
+    private nonisolated static func evictedPlaceholder(of url: URL) -> URL {
+        url.deletingLastPathComponent().appendingPathComponent(".\(url.lastPathComponent).icloud")
+    }
+
+    /// Merges `trips.json` trip by trip: the union of both stores' trips, and for a trip in both,
+    /// the copy with the later `updatedAt` (`Trip.merged`).
+    ///
+    /// The file holds EVERY trip, so copying it whole (newer file wins, as #203 did) replaced the
+    /// other store's trips with this one's: a trip only the other store held (formed on another
+    /// device) was gone from it, while its legs, one file each, kept pointing at it.
+    ///
+    /// Both files must be downloaded and decode. A source that does not decode (damaged, or written
+    /// by a build this one cannot read) is left where it is and never replaces a readable file; a
+    /// destination that does not decode is replaced by a newer source, the whole-file rule of #203.
+    /// A side not downloaded yet keeps the merge owed, like any other file: writing a new trips.json
+    /// over an evicted one would make an iCloud conflict of it.
+    private nonisolated static func mergeTrips(from source: URL, into destination: URL,
+                                               fileManager: FileManager, result: inout DatastoreMergeResult) {
+        func owed(_ url: URL) {
+            try? fileManager.startDownloadingUbiquitousItem(at: url)
+            result.notDownloaded += 1
+        }
+        guard fileManager.fileExists(atPath: source.path) else {
+            if fileManager.fileExists(atPath: evictedPlaceholder(of: source).path) { owed(source) }
+            return
+        }
+        guard isLocallyMaterialized(source) else { return owed(source) }
+        guard fileManager.fileExists(atPath: destination.path) else {
+            if fileManager.fileExists(atPath: evictedPlaceholder(of: destination).path) { return owed(destination) }
+            // Nothing to merge with: the plain copy.
+            return copyIfNewer(source, to: destination, fileManager: fileManager, result: &result)
+        }
+        guard isLocallyMaterialized(destination) else { return owed(destination) }
+
+        guard let incoming = (try? Data(contentsOf: source)).flatMap(decodeTrips) else {
+            AppLog.general.debugLine("Datastore merge: the trips.json being left does not decode, not copied")
+            return
+        }
+        guard let present = (try? Data(contentsOf: destination)).flatMap(decodeTrips) else {
+            AppLog.general.debugLine("Datastore merge: trips.json does not decode here, keeping the newer file")
+            return copyIfNewer(source, to: destination, fileManager: fileManager, result: &result)
+        }
+        let merged = Trip.merged(present, with: incoming)
+        guard merged != present else { return }
+        do {
+            try encodeTrips(merged).write(to: destination, options: protectedWriteOptions)
+            result.copied += 1
+        } catch {
+            AppLog.general.debugLine("Datastore merge: could not write the merged trips: \(error.localizedDescription)")
         }
     }
 
@@ -1151,25 +1245,46 @@ class DataPersistenceManager: ObservableObject {
     /// `decodeFlightThreads` enumerates that folder and would try to read a trip as a thread.
     var tripsFileURL: URL {
         if let iCloudDocs = activeICloudDocumentsURL {
-            return iCloudDocs.appendingPathComponent("trips.json")
+            return iCloudDocs.appendingPathComponent(Self.tripsFileName)
         }
-        return localAppDirectory.appendingPathComponent("trips.json")
+        return localAppDirectory.appendingPathComponent(Self.tripsFileName)
     }
 
+    nonisolated static let tripsFileName = "trips.json"
+
     /// The pre-v5.0.1 location, read once so a trip built before the move is not orphaned.
+    ///
+    /// Since "Sync to iCloud" covers iCloud Drive, this is also the local store's own trips.json. The
+    /// fallback in `loadTripsOffMain` still only reads the pre-5.0.1 file: with the local store
+    /// active it is the same file as `tripsFileURL`, and with iCloud Drive active it is read only
+    /// when iCloud Drive has no trips.json at all (not even an evicted one). Turning the switch on
+    /// always leaves a copy there first (the merge), and a pre-switch local file was set aside when
+    /// iCloud Drive held one (`setAsidePreSwitchTrips`). What remains is the device whose trips never
+    /// reached iCloud Drive: the pre-5.0.1 upgrade.
     var legacyLocalTripsFileURL: URL {
-        localAppDirectory.appendingPathComponent("trips.json")
+        localAppDirectory.appendingPathComponent(Self.tripsFileName)
+    }
+
+    /// The one encoding of `trips.json`, shared by the save and the switch's merge.
+    nonisolated static func encodeTrips(_ trips: [Trip]) throws -> Data {
+        let encoder = JSONEncoder()
+        encoder.dateEncodingStrategy = .iso8601
+        encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
+        return try encoder.encode(trips)
+    }
+
+    /// Nil when the data is not a trips file this build can read.
+    nonisolated static func decodeTrips(_ data: Data) -> [Trip]? {
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .iso8601
+        return try? decoder.decode([Trip].self, from: data)
     }
 
     func saveTripsOffMain(_ trips: [Trip]) async {
         let url = tripsFileURL
         await Task.detached(priority: .utility) {
-            let encoder = JSONEncoder()
-            encoder.dateEncodingStrategy = .iso8601
-            encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
             do {
-                let data = try encoder.encode(trips)
-                try data.write(to: url, options: Self.protectedWriteOptions)
+                try Self.encodeTrips(trips).write(to: url, options: Self.protectedWriteOptions)
             } catch {
                 AppLog.general.debugLine("Failed to save trips: \(error.localizedDescription)")
             }
@@ -1180,13 +1295,18 @@ class DataPersistenceManager: ObservableObject {
         let url = tripsFileURL
         let legacy = legacyLocalTripsFileURL
         return await Task.detached(priority: .utility) {
-            let decoder = JSONDecoder()
-            decoder.dateDecodingStrategy = .iso8601
+            // Evicted by iCloud: ask for it back, so a later load finds it. (Its legs are not lost
+            // meanwhile: FlightThreadManager rebuilds a trip its legs point at.)
+            let evicted = !FileManager.default.fileExists(atPath: url.path)
+                && FileManager.default.fileExists(atPath: Self.evictedPlaceholder(of: url).path)
+            if evicted { try? FileManager.default.startDownloadingUbiquitousItem(at: url) }
             // Migration: fall back to the old local path once, so trips built before the iCloud
-            // move survive the upgrade. The next `saveTrips` writes them to the new location.
-            let data = (try? Data(contentsOf: url)) ?? (try? Data(contentsOf: legacy))
+            // move survive the upgrade. The next `saveTrips` writes them to the new location. Never
+            // for an evicted file: its trips exist, and the local file (the local store's, since the
+            // switch) would stand in for them until a save wrote it over them.
+            let data = (try? Data(contentsOf: url)) ?? (evicted ? nil : try? Data(contentsOf: legacy))
             guard let data else { return [] }
-            return (try? decoder.decode([Trip].self, from: data)) ?? []
+            return Self.decodeTrips(data) ?? []
         }.value
     }
 

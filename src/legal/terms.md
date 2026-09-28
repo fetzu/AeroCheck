@@ -109,4 +109,4 @@ These terms are governed by Swiss law, excluding its conflict-of-law rules and t
 
 Questions about these terms: open an issue on the [GitHub repository](https://github.com/fetzu/AeroCheck/issues).
 
-See also the [privacy policy](/privacy), which covers what the app does with your data. Short version: it stays on your device.
+See also the [privacy policy](/privacy), which covers what the app does with your data. Short version: your flights are kept on your device and, if you sync, in your own iCloud, and the policy lists every request that carries a position.

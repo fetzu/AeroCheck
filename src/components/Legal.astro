@@ -3,14 +3,15 @@ import type { Lang } from '../lib/site';
 type Doc = 'privacy' | 'terms';
 interface Props { lang: Lang; doc?: Doc; }
 const { lang, doc = 'privacy' } = Astro.props;
-// Both legal documents are authored in English only (see the FR note): the translation would have
-// to be maintained in lockstep to stay trustworthy, and a stale French safety notice is worse than
-// an English one. The heading and eyebrow are still localised so the page does not read as a
-// dead end to a French visitor.
+// The terms are authored in English only (see the FR note): the translation would have to be
+// maintained in lockstep to stay trustworthy, and a stale French safety notice is worse than an
+// English one. The heading and eyebrow are still localised so the page does not read as a dead end
+// to a French visitor. The privacy policy has a French twin (legal/privacy.fr.md), because it is
+// what a French-speaking pilot consents on: change both files in the same commit.
 const COPY = {
   privacy: {
     en: { eyebrow: 'Privacy', heading: 'Privacy policy', note: null as string | null },
-    fr: { eyebrow: 'Confidentialité', heading: 'Politique de confidentialité', note: 'Ce document est disponible en anglais.' },
+    fr: { eyebrow: 'Confidentialité', heading: 'Politique de confidentialité', note: null },
   },
   terms: {
     en: { eyebrow: 'Legal', heading: 'Terms of use', note: null as string | null },

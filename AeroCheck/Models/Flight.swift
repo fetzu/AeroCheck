@@ -507,6 +507,7 @@ struct Flight: Identifiable, Codable {
     
     /// Display name: "Custom Name (Registration)" or just "Registration" if no name
     /// Falls back to airplane ID if registration is not available (for backwards compatibility)
+    /// The Live Activity labels the aircraft with it. A flight's title is `title`, not this.
     var displayName: String {
         let displayIdentifier = aircraftRegistration ?? airplane
         if name.isEmpty {
@@ -567,6 +568,11 @@ struct Flight: Identifiable, Codable {
         case between(departure: String, arrival: String, withCircuits: Bool)
         /// Back where it started (or no arrival known), with touch-and-goes: a circuits session.
         case circuits(at: String)
+        /// Back where it started with no touch-and-go: a local or round flight. (v6.1)
+        case roundTrip(at: String)
+        /// One end known, the other not: an aerodrome the airport data lacks (an outlanding, a strip),
+        /// or a recording that started or stopped away from one. Exactly one of the two is set. (v6.1)
+        case oneEnd(departure: String?, arrival: String?)
         /// No aerodromes known.
         case unnamed
     }
@@ -575,13 +581,123 @@ struct Flight: Identifiable, Codable {
     /// somewhere else is common, and calling that "LSZQ circuits" hid that it went to LSZG. The
     /// arrival decides the shape; the touch-and-goes only add the tag.
     var routeShape: RouteShape {
-        let departure = departureAirportIdent, arrival = arrivalAirportIdent
+        let departure = departureAirportIdent.flatMap(Self.nonBlank)
+        let arrival = arrivalAirportIdent.flatMap(Self.nonBlank)
         if let departure, let arrival, departure != arrival {
             return .between(departure: departure, arrival: arrival, withCircuits: touchAndGoCount > 0)
         }
         if touchAndGoCount > 0, let at = departure ?? arrival { return .circuits(at: at) }
-        if let departure, let arrival { return .between(departure: departure, arrival: arrival, withCircuits: false) }
+        if let departure, arrival != nil { return .roundTrip(at: departure) }
+        if departure != nil || arrival != nil { return .oneEnd(departure: departure, arrival: arrival) }
         return .unnamed
+    }
+
+    // MARK: Title (v6.1)
+
+    /// What the flight is called wherever it is listed or shown: where it flew. The Logbook row, the
+    /// flight's own header, Today's last flight, the share card and the GPX all read this, so they
+    /// can no longer disagree.
+    ///
+    /// - Back where it started: "LSZQ" (circuits keep their "↻ circuits" treatment in the row).
+    /// - From one aerodrome to another: "LSZQ → LSGE".
+    /// - One end not found: "LSZQ → ?" or "? → LSGE". The arrow says the flight went somewhere;
+    ///   "LSZQ" alone would claim it came back.
+    /// - Neither end known: the pilot's name for the flight, else the registration.
+    ///
+    /// The pilot's name never replaces a route: it goes above it (`titleEyebrow`). Until 6.1 the
+    /// Logbook fell back to "name (registration)" whenever an aerodrome was missing, so renaming a
+    /// flight whose arrival had not been found looked like renaming its title.
+    var title: String {
+        switch routeShape {
+        case let .between(departure, arrival, _):
+            return "\(departure) → \(arrival)"
+        case let .circuits(at), let .roundTrip(at):
+            return at
+        case let .oneEnd(departure, arrival):
+            return "\(departure ?? Self.unknownAerodrome) → \(arrival ?? Self.unknownAerodrome)"
+        case .unnamed:
+            return Self.nonBlank(name) ?? aircraftRegistration ?? airplane
+        }
+    }
+
+    /// The pilot's own name for the flight, shown small ABOVE `title`. Nil when there is none, or when
+    /// it had to be the title because no aerodrome is known.
+    var titleEyebrow: String? {
+        guard routeShape != .unnamed else { return nil }
+        return Self.nonBlank(name)
+    }
+
+    /// The title on one line, where there is no room for an eyebrow above it (a GPX file's name).
+    var titleWithName: String {
+        titleEyebrow.map { "\($0) · \(title)" } ?? title
+    }
+
+    /// The end of a route that is not known.
+    static let unknownAerodrome = "?"
+
+    private static func nonBlank(_ text: String) -> String? {
+        text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? nil : text
+    }
+
+    // MARK: Departure and arrival aerodromes (v6.1)
+
+    /// How far the aerodrome may be from where the flight started or ended and still be the one it
+    /// started from or ended at. The live block-off and block-on detection, END FLIGHT and the
+    /// Logbook's repair of older flights all use it (`AirportDataService.aerodromeIdent(at:)`).
+    static let aerodromeRadiusNm = 5.0
+
+    /// Where the flight started: the block-off position, else the first fix of the track when the
+    /// aircraft was still on the ground there. A track that starts in the air says nothing.
+    var departurePosition: CLLocationCoordinate2D? {
+        Self.position(blockOffLatitude, blockOffLongitude) ?? gpsTrack.first.flatMap(Self.groundPosition)
+    }
+
+    /// Where the flight ended: the block-on position (measured from the whole track at END FLIGHT),
+    /// else the last fix of the track when the aircraft was back on the ground.
+    ///
+    /// Not the landing's position: without a block on, the landing is often a LANDED tap, which can
+    /// be anywhere, while the last fix on the ground is where the aircraft actually stopped. On every
+    /// recorded flight so far where both exist, they name the same aerodrome.
+    var arrivalPosition: CLLocationCoordinate2D? {
+        Self.position(blockOnLatitude, blockOnLongitude) ?? gpsTrack.last.flatMap(Self.groundPosition)
+    }
+
+    /// Whether the departure or the arrival is missing while there is a position to find it from.
+    var canFillAerodromes: Bool {
+        (departureAirportIdent == nil && departurePosition != nil)
+            || (arrivalAirportIdent == nil && arrivalPosition != nil)
+    }
+
+    /// Fill a missing departure or arrival from where the flight started or ended. An aerodrome that
+    /// is already set is never replaced, and one the resolver does not know stays missing.
+    /// - Returns: which ends were filled.
+    @discardableResult
+    mutating func fillMissingAerodromes(
+        nearestAerodrome: (CLLocationCoordinate2D) -> String?
+    ) -> (departure: Bool, arrival: Bool) {
+        var filled = (departure: false, arrival: false)
+        if departureAirportIdent == nil, let position = departurePosition, let ident = nearestAerodrome(position) {
+            departureAirportIdent = ident
+            filled.departure = true
+        }
+        if arrivalAirportIdent == nil, let position = arrivalPosition, let ident = nearestAerodrome(position) {
+            arrivalAirportIdent = ident
+            filled.arrival = true
+        }
+        return filled
+    }
+
+    private static func position(_ latitude: Double?, _ longitude: Double?) -> CLLocationCoordinate2D? {
+        guard let latitude, let longitude, GeoValidation.isValidLatLon(latitude, longitude) else { return nil }
+        return CLLocationCoordinate2D(latitude: latitude, longitude: longitude)
+    }
+
+    /// A fix's position when it was taken on the ground: slower than a take-off roll
+    /// (`TrackTimes.rollSpeedKt`). A negative speed is CoreLocation's "unknown", which it reports
+    /// for a device standing still.
+    private static func groundPosition(_ point: GPSPoint) -> CLLocationCoordinate2D? {
+        guard point.speed < TrackTimes.rollSpeedKt * 0.514444 else { return nil }
+        return position(point.latitude, point.longitude)
     }
 
     /// What the Flight Log sums: the logged block minutes, else the logged flight minutes, else the
@@ -816,7 +932,7 @@ extension Flight {
              xmlns:pc="http://aerocheck.app/gpx/1"
              xsi:schemaLocation="http://www.topografix.com/GPX/1/1 http://www.topografix.com/GPX/1/1/gpx.xsd">
           <metadata>
-            <name>\(displayName.xmlEscaped) - \(formattedDate)</name>
+            <name>\(titleWithName.xmlEscaped) - \(formattedDate)</name>
             <desc>Flight recorded with AéroCheck app</desc>
         """
 

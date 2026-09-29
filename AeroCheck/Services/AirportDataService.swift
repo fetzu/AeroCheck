@@ -471,6 +471,13 @@ class AirportDataService: ObservableObject {
         return Array(scored.prefix(limit).map { $0.airport })
     }
 
+    /// The aerodrome a flight was at when it stood at `coordinate`: the nearest one within
+    /// `Flight.aerodromeRadiusNm`, any type, as the block-off detection has always taken it. One rule
+    /// for the departure and the arrival, live and after the flight. (v6.1)
+    func aerodromeIdent(at coordinate: CLLocationCoordinate2D) -> String? {
+        nearestAirport(to: coordinate, maxDistanceNm: Flight.aerodromeRadiusNm)?.ident
+    }
+
     /// Nearest single airport within a distance cap — used by the flight-plan builder to snap a dragged
     /// waypoint to an airfield on release (flight-plan revamp #3). Returns nil if nothing qualifies.
     func nearestAirport(

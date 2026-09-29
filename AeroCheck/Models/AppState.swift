@@ -1,4 +1,5 @@
 import Foundation
+import CoreLocation
 import SwiftUI
 import Observation
 
@@ -1623,6 +1624,78 @@ class AppState {
         currentFlight = flight
     }
 
+    // MARK: - Departure and arrival aerodromes (v6.1)
+
+    /// END FLIGHT, right after `refineTimingFromTrack()`: find a departure or an arrival the live
+    /// detection missed, from the measured block-off and block-on positions.
+    ///
+    /// The live detection names the arrival only after two slow fixes at the final stop, and the 5 m
+    /// distance filter often records one before the engine stops (29 Sep 2026, LSZQ → LSGE: the
+    /// flight was saved with no arrival, and the Logbook titled it by its registration). The refit
+    /// always has a block on when the aircraft moved, so the arrival is found here. An aerodrome
+    /// already set is kept.
+    func fillMissingAerodromes(nearestAerodrome: (CLLocationCoordinate2D) -> String?) {
+        guard var flight = currentFlight else { return }
+        let filled = flight.fillMissingAerodromes(nearestAerodrome: nearestAerodrome)
+        guard filled.departure || filled.arrival else { return }
+        currentFlight = flight
+        let ends = [filled.departure ? "departure" : nil, filled.arrival ? "arrival" : nil].compactMap { $0 }
+        AppLog.general.publicLine("END FLIGHT found the \(ends.joined(separator: " and ")) from the track")
+    }
+
+    /// Flights the Logbook's repair tried with airport data loaded and could not place: their
+    /// aerodrome is not in the data. Remembered on this device so opening the Logbook does not load
+    /// the airport data again for them at every launch. They are tried again whenever the repair
+    /// runs for another flight.
+    private let unplacedAerodromeFlightsKey = "aerodromeRepairUnplacedFlightIds"
+
+    /// Whether the logbook holds a flight the repair has not tried yet: a departure or an arrival
+    /// missing, with a position to find it from. Waits for the logbook to load.
+    func hasFlightsAwaitingAerodromes() async -> Bool {
+        await flightsLoad?.value
+        let unplaced = Set(defaults.stringArray(forKey: unplacedAerodromeFlightsKey) ?? [])
+        return flights.contains { $0.canFillAerodromes && !unplaced.contains($0.id.uuidString) }
+    }
+
+    /// Fill the departure or the arrival of stored flights saved without one: before 6.1 an arrival was
+    /// found only by the live detection (see `fillMissingAerodromes(nearestAerodrome:)`), and the
+    /// oldest flights predate the detection altogether. Only a missing end is filled, from the
+    /// block-off or block-on position, else the first or last fix on the ground; a flight whose
+    /// aerodrome is not in the data stays as it is. Each filled flight is saved and synced like any
+    /// edit. Waits for the logbook to load; the caller loads the airport data.
+    ///
+    /// - Returns: the number of flights filled.
+    @discardableResult
+    func repairMissingAerodromes(nearestAerodrome: (CLLocationCoordinate2D) -> String?) async -> Int {
+        await flightsLoad?.value
+        var unplaced = Set(defaults.stringArray(forKey: unplacedAerodromeFlightsKey) ?? [])
+        var repaired = 0, departures = 0, arrivals = 0
+        for index in flights.indices where flights[index].canFillAerodromes {
+            var flight = flights[index]
+            let filled = flight.fillMissingAerodromes(nearestAerodrome: nearestAerodrome)
+            if filled.departure || filled.arrival {
+                flight.touch()
+                flights[index] = flight
+                saveFlight(flight)
+                repaired += 1
+                departures += filled.departure ? 1 : 0
+                arrivals += filled.arrival ? 1 : 0
+            }
+            if flight.canFillAerodromes {
+                unplaced.insert(flight.id.uuidString)
+            } else {
+                unplaced.remove(flight.id.uuidString)
+            }
+        }
+        // Forget flights that are gone, so the list only ever holds what the logbook still has.
+        unplaced.formIntersection(flights.map(\.id.uuidString))
+        defaults.set(unplaced.sorted(), forKey: unplacedAerodromeFlightsKey)
+        if repaired > 0 || !unplaced.isEmpty {
+            AppLog.general.publicLine("Aerodrome repair: \(repaired) flight(s) filled (\(departures) departure(s), \(arrivals) arrival(s)), \(unplaced.count) not in the airport data")
+        }
+        return repaired
+    }
+
     func recordLineUpTime() {
         // Adds 2 minutes to current time as specified
         lineUpTime = Date().addingTimeInterval(120)
@@ -1908,14 +1981,10 @@ class AppState {
                 currentFlight?.blockOffLatitude = start.latitude
                 currentFlight?.blockOffLongitude = start.longitude
 
-                // Find nearest airport
-                if let airportService = airportDataService {
-                    let coordinate = point.coordinate
-                    let nearestAirports = airportService.findNearestAirports(to: coordinate, limit: 1, maxDistanceNm: 5.0)
-                    if let nearest = nearestAirports.first {
-                        currentFlight?.departureAirportIdent = nearest.ident
-                        AppLog.general.debugLine("Block off detected at \(nearest.ident) (\(nearest.name))")
-                    }
+                // The aerodrome it left from
+                if let ident = airportDataService?.aerodromeIdent(at: point.coordinate) {
+                    currentFlight?.departureAirportIdent = ident
+                    AppLog.general.debugLine("Block off detected at \(ident)")
                 }
                 AppLog.general.debugLine("Block off time recorded (backdated to first moving fix): \(start.time)")
             }
@@ -1951,16 +2020,13 @@ class AppState {
                 currentFlight?.blockOnLongitude = start.longitude
                 AppLog.general.debugLine("Block on candidate (start of stillness run): \(start.time)")
 
-                // Find nearest airport (only if changed or not set)
-                if let airportService = airportDataService {
-                    let coordinate = point.coordinate
-                    let nearestAirports = airportService.findNearestAirports(to: coordinate, limit: 1, maxDistanceNm: 5.0)
-                    if let nearest = nearestAirports.first {
-                        if currentFlight?.arrivalAirportIdent != nearest.ident {
-                            currentFlight?.arrivalAirportIdent = nearest.ident
-                            AppLog.general.debugLine("Block on location updated: \(nearest.ident) (\(nearest.name))")
-                        }
-                    }
+                // The aerodrome it stopped at (only if changed or not set). Two slow fixes are often
+                // more than the 5 m distance filter lets through before shutdown; END FLIGHT then
+                // finds the arrival from the measured block on (`fillMissingAerodromes`).
+                if let ident = airportDataService?.aerodromeIdent(at: point.coordinate),
+                   currentFlight?.arrivalAirportIdent != ident {
+                    currentFlight?.arrivalAirportIdent = ident
+                    AppLog.general.debugLine("Block on location updated: \(ident)")
                 }
             }
         } else {

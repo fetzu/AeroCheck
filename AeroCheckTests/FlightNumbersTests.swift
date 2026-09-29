@@ -104,6 +104,79 @@ final class FlightNumbersTests: XCTestCase {
         XCTAssertEqual(unknown.routeShape, .circuits(at: "LSZQ"))
     }
 
+    // MARK: - The title every surface shows (v6.1)
+
+    /// 29 Sept 2026: three flights named by the pilot. The two with both aerodromes kept their route
+    /// as the title, the one saved without an arrival showed "Vol Solo #2.1 (F-HVXA)".
+    func testTheTitleIsTheRouteAndTheNameGoesAboveIt() {
+        var hop = flight()
+        hop.name = "Vol Solo #2.2"
+        XCTAssertEqual(hop.routeShape, .between(departure: "LSZQ", arrival: "LSGY", withCircuits: false))
+        XCTAssertEqual(hop.title, "LSZQ → LSGY")
+        XCTAssertEqual(hop.titleEyebrow, "Vol Solo #2.2")
+        XCTAssertEqual(hop.titleWithName, "Vol Solo #2.2 · LSZQ → LSGY")
+        XCTAssertTrue(hop.toGPX().contains("<name>Vol Solo #2.2 · LSZQ → LSGY - "), "the GPX is named the same way")
+
+        hop.name = ""
+        XCTAssertEqual(hop.title, "LSZQ → LSGY")
+        XCTAssertNil(hop.titleEyebrow)
+        XCTAssertEqual(hop.titleWithName, "LSZQ → LSGY")
+    }
+
+    func testAFlightBackWhereItStartedIsTitledByThatAerodromeAlone() {
+        // 28 Sept 2026: LSZQ → LSZQ, 81 NM, no touch-and-go. It read "LSZQ → LSZQ".
+        var round = flight()
+        round.arrivalAirportIdent = "LSZQ"
+        XCTAssertEqual(round.routeShape, .roundTrip(at: "LSZQ"))
+        XCTAssertEqual(round.title, "LSZQ")
+
+        // Circuits read the same; the Logbook row adds its "↻ circuits" to the shape, as before.
+        var circuits = flight(touchAndGo: 4)
+        circuits.arrivalAirportIdent = "LSZQ"
+        circuits.name = "Circuits de chauffe"
+        XCTAssertEqual(circuits.routeShape, .circuits(at: "LSZQ"))
+        XCTAssertEqual(circuits.title, "LSZQ")
+        XCTAssertEqual(circuits.titleEyebrow, "Circuits de chauffe")
+    }
+
+    func testAMissingEndReadsAsUnknownNeverAsARoundFlight() {
+        var noArrival = flight()
+        noArrival.arrivalAirportIdent = nil
+        noArrival.name = "Vol Solo #2.1"
+        XCTAssertEqual(noArrival.routeShape, .oneEnd(departure: "LSZQ", arrival: nil))
+        XCTAssertEqual(noArrival.title, "LSZQ → ?", "\"LSZQ\" alone would say it came back")
+        XCTAssertEqual(noArrival.titleEyebrow, "Vol Solo #2.1", "the name still never replaces the route")
+
+        var noDeparture = flight()
+        noDeparture.departureAirportIdent = ""
+        XCTAssertEqual(noDeparture.routeShape, .oneEnd(departure: nil, arrival: "LSGY"), "a blank ident is no ident")
+        XCTAssertEqual(noDeparture.title, "? → LSGY")
+
+        // With touch-and-goes, one known field is still a circuits session there (v5.2).
+        var session = flight(touchAndGo: 3)
+        session.arrivalAirportIdent = nil
+        XCTAssertEqual(session.title, "LSZQ")
+    }
+
+    func testWithNoAerodromeAtAllTheNameIsTheTitleElseTheRegistration() {
+        var unplaced = flight()
+        unplaced.departureAirportIdent = nil
+        unplaced.arrivalAirportIdent = nil
+        XCTAssertEqual(unplaced.routeShape, .unnamed)
+        XCTAssertEqual(unplaced.title, "HB-KFD")
+        XCTAssertNil(unplaced.titleEyebrow)
+
+        unplaced.name = "Vol Solo #2.1"
+        XCTAssertEqual(unplaced.title, "Vol Solo #2.1", "it read \"Vol Solo #2.1 (HB-KFD)\"")
+        XCTAssertNil(unplaced.titleEyebrow, "not the same name twice")
+        XCTAssertEqual(unplaced.titleWithName, "Vol Solo #2.1")
+
+        unplaced.name = "  "
+        XCTAssertEqual(unplaced.title, "HB-KFD", "a blank name is no name")
+        unplaced.aircraftRegistration = nil
+        XCTAssertEqual(unplaced.title, "dr400-140b")
+    }
+
     // MARK: - The line laid out as the form (v5.x)
 
     func testFormRowPutsEachValueUnderTheFormsOwnHeading() {

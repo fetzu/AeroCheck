@@ -117,10 +117,12 @@ final class RoutePointTests: XCTestCase {
     // MARK: - What the waypoint is
 
     /// The waypoint keeps the point's plain name ("E") and its aerodrome's code beside it, for the
-    /// surfaces with room to qualify it. Its ident and source come along; a radio from before goes.
+    /// surfaces with room to qualify it. Its ident and source come along; what an older build's
+    /// snap onto LSGC wrote (its call sign, one of its frequencies) goes.
     func testAReportingPointKeepsItsNameAndBringsItsIdentAndSource() throws {
         var wp = FlightPlanWaypoint(name: "LSGC", coordinate: lsgc.coordinate, frequency: "118.000", callSign: "LSGC")
-        try pointE().apply(to: &wp, asEndpoint: false)
+        let earlier = RoutePoint.aerodrome(lsgc).snapValues(aerodromeFrequencies: ["119.300", "118.000"])
+        try pointE().apply(to: &wp, asEndpoint: false, replacing: earlier)
         XCTAssertEqual(wp.name, "E")
         XCTAssertEqual(wp.aerodromeICAO, "LSGC")
         XCTAssertEqual(wp.pointKind, .vrp)
@@ -151,18 +153,98 @@ final class RoutePointTests: XCTestCase {
     }
 
     /// The bug: a waypoint snapped to a VOR carried 112.050 as its frequency, which the nav log
-    /// prints as the station to call.
-    func testANavaidIsNamedByItsIdentAndLeavesTheFrequencyEmpty() throws {
+    /// prints as the station to call. The navaid writes nothing in the radio fields now, and what an
+    /// older build's snap onto LSZQ wrote there goes.
+    func testANavaidIsNamedByItsIdentAndLeavesTheRadioEmpty() throws {
         let cva = try XCTUnwrap(navaids().first)
         var wp = FlightPlanWaypoint(name: "LSZQ", coordinate: lszq.coordinate, frequency: "122.050", callSign: "LSZQ")
-        RoutePoint.navaid(cva).apply(to: &wp, asEndpoint: false)
+        RoutePoint.navaid(cva).apply(to: &wp, asEndpoint: false,
+                                     replacing: RoutePoint.aerodrome(lszq).snapValues(aerodromeFrequencies: ["122.050"]))
         XCTAssertEqual(wp.name, "CVA")
-        XCTAssertEqual(wp.callSign, "CVA")
+        XCTAssertNil(wp.callSign)
         XCTAssertNil(wp.frequency)
         XCTAssertEqual(wp.pointKind, .navaid)
         XCTAssertEqual(wp.sourceId, "62616c96abdcc7f0ccbbe519")
         XCTAssertNil(wp.code)
         XCTAssertNil(wp.aerodromeICAO)
+
+        var fresh = FlightPlanWaypoint(name: "WPT", coordinate: coordinate(47.2, 7.21))
+        RoutePoint.navaid(cva).apply(to: &fresh, asEndpoint: false)
+        XCTAssertNil(fresh.frequency, "never the VOR's own frequency")
+        XCTAssertNil(fresh.callSign)
+    }
+
+    // MARK: - Snapping keeps what the pilot typed (author decision 2026-09-29)
+
+    /// A frequency and a call sign the pilot typed on their own point survive a snap onto a
+    /// reporting point or a navaid: no snap wrote them.
+    func testSnappingKeepsAFrequencyAndACallSignThePilotTyped() throws {
+        let cva = try XCTUnwrap(navaids().first)
+        let here = coordinate(47.137, 6.976)
+        for kind in [nil, WaypointPointKind.user] {
+            let typed = FlightPlanWaypoint(name: "WPT", coordinate: here, frequency: "124.700",
+                                           callSign: "ZURICH INFO", pointKind: kind)
+            let earlier = RoutePoint.origin(of: typed, among: [try pointE(), .navaid(cva), .aerodrome(lsgc)])
+            XCTAssertNil(earlier, "the pilot's own point was made from nothing on the chart")
+
+            var onE = typed
+            try pointE().apply(to: &onE, asEndpoint: false, replacing: .none)
+            XCTAssertEqual(onE.frequency, "124.700")
+            XCTAssertEqual(onE.callSign, "ZURICH INFO")
+            XCTAssertEqual(onE.name, "E")
+
+            var onCVA = typed
+            RoutePoint.navaid(cva).apply(to: &onCVA, asEndpoint: false, replacing: .none)
+            XCTAssertEqual(onCVA.frequency, "124.700")
+            XCTAssertEqual(onCVA.callSign, "ZURICH INFO")
+        }
+    }
+
+    /// An older build's snap onto a VOR left its NAV frequency and its ident as the call sign, and
+    /// recorded neither kind nor source: the VOR is found by name and position, and only what it
+    /// wrote goes. A call sign typed over it afterwards stays.
+    func testSnappingClearsWhatAnOlderBuildsNavaidSnapWrote() throws {
+        let cva = try XCTUnwrap(navaids().first)
+        let byOldBuild = FlightPlanWaypoint(name: "CVA", coordinate: cva.coordinate, frequency: "112.05", callSign: "CVA")
+        let origin = try XCTUnwrap(RoutePoint.origin(of: byOldBuild, among: [.aerodrome(lszq), .navaid(cva)]))
+        XCTAssertEqual(origin.sourceId, cva.id)
+        let earlier = origin.snapValues()
+        XCTAssertEqual(earlier, SnapValues(callSign: "CVA", frequencies: ["112.050"]))
+
+        var onE = byOldBuild
+        try pointE().apply(to: &onE, asEndpoint: false, replacing: earlier)
+        XCTAssertNil(onE.frequency, "112.05 is the 112.050 the old snap wrote")
+        XCTAssertNil(onE.callSign)
+
+        var retyped = byOldBuild
+        retyped.callSign = "GENEVA INFO"
+        try pointE().apply(to: &retyped, asEndpoint: false, replacing: earlier)
+        XCTAssertNil(retyped.frequency)
+        XCTAssertEqual(retyped.callSign, "GENEVA INFO", "typed by the pilot after the snap")
+
+        // Named after the VOR but not on it (moved in the editor): the pilot's point, nothing goes.
+        var moved = byOldBuild
+        moved.coordinate = coordinate(cva.latitude + 0.01, cva.longitude)
+        XCTAssertNil(RoutePoint.origin(of: moved, among: [.navaid(cva)]))
+    }
+
+    /// A waypoint this build snapped onto an aerodrome says so (kind and source): the aerodrome's
+    /// ident goes, and so does any of its frequencies, but a frequency the pilot typed stays.
+    func testSnappingAnAerodromeWaypointKeepsATypedFrequency() throws {
+        var wp = RoutePoint.aerodrome(lszq).waypoint(asEndpoint: false, contactFrequency: "122.050")
+        let origin = try XCTUnwrap(RoutePoint.origin(of: wp, among: [.aerodrome(lszq)]))
+        let earlier = origin.snapValues(aerodromeFrequencies: ["122.050", "120.400"])
+
+        var snapped = wp
+        try pointE().apply(to: &snapped, asEndpoint: false, replacing: earlier)
+        XCTAssertNil(snapped.frequency)
+        XCTAssertNil(snapped.callSign)
+
+        wp.frequency = "124.700"
+        try pointE().apply(to: &wp, asEndpoint: false, replacing: earlier)
+        XCTAssertEqual(wp.frequency, "124.700")
+        XCTAssertNil(wp.callSign, "LSZQ was the snap's")
+        XCTAssertNil(RoutePoint.origin(of: wp, among: [.aerodrome(lszq)]), "a reporting point wrote nothing")
     }
 
     /// Snap a VOR into a route: the nav log's row is named after it, and its radio column is no

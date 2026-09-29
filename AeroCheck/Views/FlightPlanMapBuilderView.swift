@@ -667,9 +667,27 @@ struct FlightPlanMapBuilderView: View {
     }
 
     /// Makes an existing waypoint `point` (a snap, a new endpoint). Only fills an elevation when no
-    /// altitude is set, so a snap doesn't clobber a pilot's planned altitude. (v4.0.0 review P2)
+    /// altitude is set, so a snap doesn't clobber a pilot's planned altitude (v4.0.0 review P2), and
+    /// only clears the radio an earlier snap wrote, so what the pilot typed stays (6.0.1).
     private func apply(_ point: RoutePoint, to wp: inout FlightPlanWaypoint) {
-        point.apply(to: &wp, asEndpoint: isRouteEndpoint(wp), contactFrequency: contactFrequency(for: point))
+        let asEndpoint = isRouteEndpoint(wp)
+        let earlier = earlierSnapValues(on: wp)
+        point.apply(to: &wp, asEndpoint: asEndpoint, contactFrequency: contactFrequency(for: point), replacing: earlier)
+    }
+
+    /// The call sign and frequencies the point `wp` was snapped to may have written, by this build or
+    /// an older one (which recorded no source: then the aerodrome or navaid it is named after and sits
+    /// on). Nothing for the pilot's own point. (6.0.1)
+    private func earlierSnapValues(on wp: FlightPlanWaypoint) -> SnapValues {
+        let here = wp.coordinate
+        let candidates: [RoutePoint] = [
+            airportDataService.nearestAirport(to: here, maxDistanceNm: RoutePoint.originToleranceNM).map { .aerodrome($0) },
+            OpenAIPNavaidDataService.shared.nearestNavaid(to: here, maxDistanceNm: RoutePoint.originToleranceNM).map { .navaid($0) },
+        ].compactMap { $0 }
+        guard let origin = RoutePoint.origin(of: wp, among: candidates) else { return .none }
+        guard case .aerodrome(let airport) = origin else { return origin.snapValues() }
+        return origin.snapValues(aerodromeFrequencies: airportDataService.getFrequencies(for: airport.ident)
+            .map(\.formattedFrequency))
     }
 
     /// An aerodrome's CONTACT frequency (TWR › AFIS › INFO …) ahead of its listen-only ATIS, which the

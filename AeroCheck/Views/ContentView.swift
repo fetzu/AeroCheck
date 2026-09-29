@@ -26,7 +26,11 @@ struct ContentView: View {
     var body: some View {
         GeometryReader { geometry in
             let isCompactDevice = horizontalSizeClass == .compact
-            let isLandscape = geometry.size.width > geometry.size.height
+            // Not `width > height`: the keyboard takes its height off this reader. An iPad in portrait
+            // read 820 x 811 pt with the keys up, landscape, and an iPhone SE typing is 12 pt away from
+            // the rotation prompt covering the field (less with a keyboard toolbar). (6.1.0)
+            let isLandscape = KeyboardProofOrientation.isLandscape(size: geometry.size,
+                                                                   bottomInset: geometry.safeAreaInsets.bottom)
 
             ZStack {
                 if appState.needsDisclaimerAcceptance {

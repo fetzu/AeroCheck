@@ -57,4 +57,23 @@ final class OrientationLayoutTests: XCTestCase {
         XCTAssertEqual(f.legs.minX, 685)
         XCTAssertEqual(f.legs.maxY, 714)
     }
+
+    // MARK: Screens that keep the keyboard's avoidance (Logbook, root)
+
+    func testAnIPadInPortraitIsNotLandscapeWithTheKeyboardUp() {
+        // The root reader, measured on an iPad Air 11" in portrait: keys down, then up.
+        XCTAssertFalse(KeyboardProofOrientation.isLandscape(size: CGSize(width: 820, height: 1128), bottomInset: 20))
+        XCTAssertFalse(KeyboardProofOrientation.isLandscape(size: CGSize(width: 820, height: 811), bottomInset: 337))
+    }
+
+    func testLandscapeStaysLandscapeWithTheKeyboardUp() {
+        XCTAssertTrue(KeyboardProofOrientation.isLandscape(size: CGSize(width: 1180, height: 768), bottomInset: 20))
+        XCTAssertTrue(KeyboardProofOrientation.isLandscape(size: CGSize(width: 1180, height: 400), bottomInset: 388))
+        XCTAssertTrue(KeyboardProofOrientation.isLandscape(size: CGSize(width: 667, height: 375), bottomInset: 0))
+    }
+
+    func testASmallPhoneTypingInPortraitIsNotAskedToRotate() {
+        // An iPhone SE with the keyboard, its suggestions and a keyboard toolbar: 343 pt left of 647.
+        XCTAssertFalse(KeyboardProofOrientation.isLandscape(size: CGSize(width: 375, height: 343), bottomInset: 304))
+    }
 }

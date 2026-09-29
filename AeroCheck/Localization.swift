@@ -1453,6 +1453,21 @@ enum L10n {
         static let sameAerodrome = String(localized: "planFlight.sameAerodrome")
     }
 
+    /// Where the pilot is based: Settings › Flight Planning and onboarding. (v6.1)
+    enum HomeAerodrome {
+        static let title = String(localized: "homeAerodrome.title")
+        static let basedAt = String(localized: "homeAerodrome.basedAt")
+        static let rowSubtitle = String(localized: "homeAerodrome.rowSubtitle")
+        static let onboardingSubtitle = String(localized: "homeAerodrome.onboardingSubtitle")
+        static let optionalNote = String(localized: "homeAerodrome.optionalNote")
+        static func use(_ ident: String) -> String {
+            String(format: String(localized: "homeAerodrome.use"), ident)
+        }
+        static let suggestionReason = String(localized: "homeAerodrome.suggestionReason")
+        static let noAirportData = String(localized: "homeAerodrome.noAirportData")
+        static let clear = String(localized: "homeAerodrome.clear")
+    }
+
     /// The flight sheet: nav log, fuel, times. (planning proposal A)
     enum FlightSheet {
         static let route = String(localized: "flightSheet.route")

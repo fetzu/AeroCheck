@@ -2262,7 +2262,13 @@ struct FlightDetailView: View {
     private var actionsRow: some View {
         HStack(spacing: 8) {
             if flight.flightPlan != nil {
-                detailActionButton(title: L10n.Nav.navLog, icon: "point.topleft.down.to.point.bottomright.curvepath", tint: .secondaryText) { showFlightPlan = true }
+                detailActionButton(title: L10n.Nav.navLog, icon: "point.topleft.down.to.point.bottomright.curvepath", tint: .secondaryText) {
+                    // The landings at base are placed with the airport data, which loads lazily. (v6.1)
+                    Task {
+                        await airportDataService.ensureLoaded()
+                        showFlightPlan = true
+                    }
+                }
             }
             // v5.0.0: cost + logbook line. Here as well as on the thread, because a flight flown
             // without a thread still has a cost and still produces a logbook line.
@@ -2293,8 +2299,12 @@ struct FlightDetailView: View {
         .sheet(isPresented: $showFlightPlan) {
             if let savedFlightPlan = flight.flightPlan {
                 // With the passing times the in-flight trigger missed, so the after-flight nav log
-                // has its ATO column. Flights logged before this change get them too.
-                FlightPlanEditorView(flightPlan: savedFlightPlan.withActualTimesOver(from: flight),
+                // has its ATO column. Flights logged before this change get them too. The landings are
+                // counted from the flight in the same way, at base against the home aerodrome. (v6.1)
+                let landings = airportDataService.landingTally(for: flight,
+                                                               home: appState.settings.homeAerodromeIdent)
+                FlightPlanEditorView(flightPlan: savedFlightPlan.withActualTimesOver(from: flight)
+                                        .showingLandings(landings),
                                      isViewingFromFlightLog: true)
                     .environment(appState)
                     .environmentObject(flightPlanManager)

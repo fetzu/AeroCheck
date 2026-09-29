@@ -39,6 +39,7 @@
 		A5000042111111110000002 /* TrackTimesTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A5000042111111110000001 /* TrackTimesTests.swift */; };
 		A5000043111111110000002 /* DeferredItemsTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A5000043111111110000001 /* DeferredItemsTests.swift */; };
 		A50000D7111111110000002 /* ViewStackBudgetTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A50000D7111111110000001 /* ViewStackBudgetTests.swift */; };
+		A50000F6111111110000002 /* OrientationLayoutTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A50000F6111111110000001 /* OrientationLayoutTests.swift */; };
 		A5000044111111110000002 /* LegTimerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A5000044111111110000001 /* LegTimerTests.swift */; };
 		A5000045111111110000002 /* MemoryTestSettingsTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A5000045111111110000001 /* MemoryTestSettingsTests.swift */; };
 		A5000046111111110000002 /* TypographyTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A5000046111111110000001 /* TypographyTests.swift */; };
@@ -340,6 +341,7 @@
 		A5000042111111110000001 /* TrackTimesTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TrackTimesTests.swift; sourceTree = "<group>"; };
 		A5000043111111110000001 /* DeferredItemsTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeferredItemsTests.swift; sourceTree = "<group>"; };
 		A50000D7111111110000001 /* ViewStackBudgetTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ViewStackBudgetTests.swift; sourceTree = "<group>"; };
+		A50000F6111111110000001 /* OrientationLayoutTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OrientationLayoutTests.swift; sourceTree = "<group>"; };
 		A5000044111111110000001 /* LegTimerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LegTimerTests.swift; sourceTree = "<group>"; };
 		A5000045111111110000001 /* MemoryTestSettingsTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MemoryTestSettingsTests.swift; sourceTree = "<group>"; };
 		A5000046111111110000001 /* TypographyTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TypographyTests.swift; sourceTree = "<group>"; };
@@ -626,6 +628,7 @@
 				A5000042111111110000001 /* TrackTimesTests.swift */,
 				A5000043111111110000001 /* DeferredItemsTests.swift */,
 				A50000D7111111110000001 /* ViewStackBudgetTests.swift */,
+				A50000F6111111110000001 /* OrientationLayoutTests.swift */,
 				A5000044111111110000001 /* LegTimerTests.swift */,
 				A5000045111111110000001 /* MemoryTestSettingsTests.swift */,
 				A5000046111111110000001 /* TypographyTests.swift */,
@@ -1151,6 +1154,7 @@
 				A5000042111111110000002 /* TrackTimesTests.swift in Sources */,
 				A5000043111111110000002 /* DeferredItemsTests.swift in Sources */,
 				A50000D7111111110000002 /* ViewStackBudgetTests.swift in Sources */,
+				A50000F6111111110000002 /* OrientationLayoutTests.swift in Sources */,
 				A5000044111111110000002 /* LegTimerTests.swift in Sources */,
 				A5000045111111110000002 /* MemoryTestSettingsTests.swift in Sources */,
 				A5000046111111110000002 /* TypographyTests.swift in Sources */,

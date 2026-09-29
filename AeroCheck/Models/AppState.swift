@@ -135,7 +135,13 @@ struct AppSettings: Codable, Equatable {
     var instructorName: String = ""
     /// Where this pilot is based (an ident, `HomeAerodrome.normalized`). The nav log's landings at
     /// base are counted there; nil = not set, and the count at base is then unknown. (v6.1)
-    var homeAerodromeIdent: String? = nil
+    var homeAerodromeIdent: String? {
+        get { HomeAerodrome.normalized(homeAerodromeCode) }
+        set { homeAerodromeCode = HomeAerodrome.normalized(newValue) ?? "" }
+    }
+    /// How it is stored: "" when not set, so the key is written either way. A record without the key
+    /// comes from a build that can't express it; one with "" was cleared on purpose.
+    var homeAerodromeCode: String = ""
 
     /// The logbook's view of who is writing it. Built here so the card, the PDF extract and the
     /// page totals all read the same settings.
@@ -205,38 +211,85 @@ struct AppSettings: Codable, Equatable {
     var schemaVersion: Int = AppSettings.currentSchemaVersion
 
     /// Bump whenever a stored property is added that an older build cannot round-trip, and add it
-    /// to `preservingFieldsUnknownTo(_:)` below.
+    /// to `protectedFields` below.
     static let currentSchemaVersion = 6
 
-    /// Merge an incoming settings record over `self`, keeping local values the writer could not have
-    /// carried. Same-or-newer writers are taken at their word, including deliberate clearings.
-    func preservingFieldsUnknownTo(_ incoming: AppSettings) -> AppSettings {
-        guard incoming.schemaVersion < AppSettings.currentSchemaVersion else { return incoming }
-        var merged = incoming
-        // Each block keeps only what writers OLDER than its schema can't carry: a writer one schema
-        // behind still carries everything before it, and its edits to those must win.
-        // Schema 2 (v5.0.0): none of these round-trip through a v4.x writer.
-        if incoming.schemaVersion < 2 {
-            merged.pilotName = pilotName
-            merged.isStudentPilot = isStudentPilot
-            merged.instructorName = instructorName
-            merged.sunlightBoost = sunlightBoost
-            merged.aircraftRates = aircraftRates
-            merged.weightBalanceProfiles = weightBalanceProfiles
-            merged.enableCostTracking = enableCostTracking
+    /// A field a settings schema protects: the schema that brought it (or changed what it means), its
+    /// key, and how to keep or compare this device's value. (review F8; one table since 6.1)
+    struct ProtectedField {
+        let schema: Int
+        let key: String
+        let keep: (inout AppSettings, AppSettings) -> Void
+        let differs: (AppSettings, AppSettings) -> Bool
+
+        init<Value: Equatable>(_ schema: Int, _ key: CodingKeys, _ path: WritableKeyPath<AppSettings, Value>) {
+            self.schema = schema
+            self.key = key.stringValue
+            keep = { merged, local in merged[keyPath: path] = local[keyPath: path] }
+            differs = { a, b in a[keyPath: path] != b[keyPath: path] }
         }
+    }
+
+    /// Every field an older build can't round-trip. A new one goes here, with `currentSchemaVersion`
+    /// bumped, and must be encoded whatever its value (no `nil` left out): a record without its key is
+    /// how an older build gives itself away when it relays a newer record.
+    static let protectedFields: [ProtectedField] = [
+        // Schema 2 (v5.0.0): none of these round-trip through a v4.x writer.
+        ProtectedField(2, .pilotName, \.pilotName),
+        ProtectedField(2, .isStudentPilot, \.isStudentPilot),
+        ProtectedField(2, .instructorName, \.instructorName),
+        ProtectedField(2, .sunlightBoost, \.sunlightBoost),
+        ProtectedField(2, .aircraftRates, \.aircraftRates),
+        ProtectedField(2, .weightBalanceProfiles, \.weightBalanceProfiles),
+        ProtectedField(2, .enableCostTracking, \.enableCostTracking),
         // Schema 3 (v6.0): before 6.0 `learningMode` defaulted to off, hiding memorisable checks, so
         // an older writer's value says nothing about what this pilot chose.
-        if incoming.schemaVersion < 3 { merged.learningMode = learningMode }
+        ProtectedField(3, .learningMode, \.learningMode),
         // Schema 4 (v6.0): step-by-step is how every checklist runs now (the Cockpit's CHECK), and
         // there is no switch left to turn it back on, so an older writer can't turn it off.
-        if incoming.schemaVersion < 4 { merged.stepByStepHighlighting = stepByStepHighlighting }
+        ProtectedField(4, .stepByStepHighlighting, \.stepByStepHighlighting),
         // Schema 5 (v6.0): the pilot's full-tanks figures. (on-device review #4, point 3)
-        if incoming.schemaVersion < 5 { merged.fullTanksLitres = fullTanksLitres }
+        ProtectedField(5, .fullTanksLitres, \.fullTanksLitres),
         // Schema 6 (v6.1): the home aerodrome.
-        if incoming.schemaVersion < 6 { merged.homeAerodromeIdent = homeAerodromeIdent }
+        ProtectedField(6, .homeAerodromeCode, \.homeAerodromeCode),
+    ]
+
+    /// Whether the writer of this record could not express `field`: its schema came before the field,
+    /// or the record doesn't carry the key. The second catches an older build relaying a newer record:
+    /// it keeps the stamp it read (so a 6.0 device sends "6" back) but writes only the keys it knows,
+    /// and taking that record whole erased the newer fields on every device. (6.1)
+    func couldNotExpress(_ field: ProtectedField) -> Bool {
+        schemaVersion < field.schema || carriedKeys.keys.map { !$0.contains(field.key) } ?? false
+    }
+
+    /// Merge an incoming settings record over `self`, keeping local values the writer could not have
+    /// carried. A writer that could is taken at its word, including deliberate clearings, and a writer
+    /// one schema behind still carries everything before it, so its edits to those win.
+    func preservingFieldsUnknownTo(_ incoming: AppSettings) -> AppSettings {
+        var merged = incoming
+        for field in AppSettings.protectedFields where incoming.couldNotExpress(field) {
+            field.keep(&merged, self)
+        }
+        // Our own stamp, whoever wrote the record: a newer record's stamp kept here would go out again
+        // with the next save, without the newer fields, and be taken whole by a newer device. (6.1)
         merged.schemaVersion = AppSettings.currentSchemaVersion
         return merged
+    }
+
+    /// Whether `preservingFieldsUnknownTo(incoming)` gave back a value `incoming` doesn't hold: the
+    /// record in CloudKit then lacks it, and this device sends the merged one back, so the next device
+    /// to fetch gets the newer record again. (6.1)
+    func restoresFields(missingFrom incoming: AppSettings) -> Bool {
+        AppSettings.protectedFields.contains { incoming.couldNotExpress($0) && $0.differs(self, incoming) }
+    }
+
+    /// The keys of the record this value was decoded from; nil for one built in code, which is taken
+    /// at its stamp. Not persisted, and no part of `==`: it only says what the writer could express.
+    var carriedKeys = CarriedKeys()
+
+    struct CarriedKeys: Equatable {
+        var keys: Set<String>?
+        static func == (lhs: CarriedKeys, rhs: CarriedKeys) -> Bool { true }
     }
 
     /// Settings a pre-6.0 build saved on this device, brought to the current schema. Local files
@@ -244,8 +297,9 @@ struct AppSettings: Codable, Equatable {
     /// - Schema 3: every check shown again, once. The old default hid memorisable checks, and most
     ///   pilots never chose it. A later "Memory test" choice sticks. (v6.0 · A7)
     /// - Schema 4: step-by-step on. The Cockpit's CHECK is that flow, and its switch is gone. (v6.0 · P7)
+    /// - A file a newer build wrote (after a downgrade) takes this build's stamp, as a synced one does.
     func migratedLocally() -> AppSettings {
-        guard schemaVersion < AppSettings.currentSchemaVersion else { return self }
+        guard schemaVersion != AppSettings.currentSchemaVersion else { return self }
         var migrated = self
         if schemaVersion < 3 { migrated.learningMode = true }
         if schemaVersion < 4 { migrated.stepByStepHighlighting = true }
@@ -352,7 +406,7 @@ struct AppSettings: Codable, Equatable {
         case fullTanksLitres
         case schemaVersion
         case isStudentPilot, instructorName
-        case homeAerodromeIdent
+        case homeAerodromeCode = "homeAerodromeIdent"
         // marketingMode and developerMode are intentionally excluded (non-persisted, reset each launch)
     }
 
@@ -368,6 +422,8 @@ struct AppSettings: Codable, Equatable {
     // Custom decoder for backward compatibility with new fields
     init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
+        // What the writer could express, for `preservingFieldsUnknownTo(_:)`. (6.1)
+        carriedKeys = CarriedKeys(keys: Set(container.allKeys.map(\.stringValue)))
 
         selectedAircraft = try container.decodeIfPresent(AircraftType.self, forKey: .selectedAircraft) ?? .wt9Dynamic
         selectedRemoteAircraftId = try container.decodeIfPresent(String.self, forKey: .selectedRemoteAircraftId)
@@ -431,8 +487,8 @@ struct AppSettings: Codable, Equatable {
         instructorName = try container.decodeIfPresent(String.self, forKey: .instructorName) ?? ""
         // New in 6.1: absent on every older save, which reads as "not set". `try?`: a value that isn't
         // a string must not throw the whole settings away (see the profiles below).
-        homeAerodromeIdent = HomeAerodrome.normalized(
-            (try? container.decodeIfPresent(String.self, forKey: .homeAerodromeIdent)) ?? nil)
+        homeAerodromeCode = HomeAerodrome.normalized(
+            (try? container.decodeIfPresent(String.self, forKey: .homeAerodromeCode)) ?? nil) ?? ""
         // A pilot who had picked the old `sunlight` mode wanted the bright palette, so the boost
         // starts on for them and their preference falls back to day.
         sunlightBoost = try container.decodeIfPresent(Bool.self, forKey: .sunlightBoost)
@@ -994,6 +1050,11 @@ class AppState {
             self.settings = merged
             // Save synced settings to file for future loads
             self.persistence.saveSettings(merged)
+            // The record lacked what we kept (an older build wrote it, or relayed a newer one): send
+            // the merged record back, or the next device to fetch takes the older one. (6.1)
+            if merged.restoresFields(missingFrom: settings) {
+                self.syncManager?.syncSettings(merged)
+            }
             self.syncAircraftType()
             AppLog.general.debugLine("Settings updated from iCloud sync")
         }

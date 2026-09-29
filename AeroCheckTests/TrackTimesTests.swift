@@ -280,18 +280,33 @@ final class TrackTimesTests: XCTestCase {
     private let lsge = CLLocationCoordinate2D(latitude: 46.755279, longitude: 7.075746)
     private let lsgn = CLLocationCoordinate2D(latitude: 46.957371, longitude: 6.864574)
 
-    /// The airport data's rule (`AirportDataService.aerodromeIdent(at:)`: the nearest within
-    /// `Flight.aerodromeRadiusNm`) over a few aerodromes. The test host's airport data is the
-    /// simulator app's own, so it is not loaded here.
+    private func airport(_ ident: String, _ at: CLLocationCoordinate2D, _ type: AirportType = .smallAirport) -> Airport {
+        Airport(id: abs(ident.hashValue % 100_000), ident: ident, type: type, name: ident,
+                latitude: at.latitude, longitude: at.longitude, elevation: 1500, continent: "EU",
+                isoCountry: "CH", isoRegion: "CH-JU", municipality: nil, scheduledService: false,
+                gpsCode: nil, iataCode: nil, localCode: nil)
+    }
+
+    /// The airport data's own rule (`AirportDataService.aerodromeIdent(at:among:)`) over a few
+    /// airfields. The test host's airport data is the simulator app's own, so it is not loaded here.
     private func resolver(_ aerodromes: [String: CLLocationCoordinate2D]) -> (CLLocationCoordinate2D) -> String? {
-        { position in
-            let here = CLLocation(latitude: position.latitude, longitude: position.longitude)
-            return aerodromes
-                .map { ident, point in
-                    (ident, here.distance(from: CLLocation(latitude: point.latitude, longitude: point.longitude)) / 1852)
-                }
-                .filter { $0.1 <= Flight.aerodromeRadiusNm }
-                .min { $0.1 < $1.1 }?.0
+        let airports = aerodromes.map { airport($0.key, $0.value) }
+        return { AirportDataService.aerodromeIdent(at: $0, among: airports) }
+    }
+
+    /// Fixed-wing aerodromes only, within 5 NM: a heliport or a closed strip nearer the stand than
+    /// the field's reference point is never where an aeroplane took off or landed.
+    func testTheAerodromeIsTheNearestFixedWingFieldWithinFiveMiles() {
+        let stand = CLLocationCoordinate2D(latitude: lsge.latitude + 0.004, longitude: lsge.longitude)
+        let heliport = airport("CH-0035", CLLocationCoordinate2D(latitude: stand.latitude, longitude: stand.longitude + 0.001), .heliport)
+        let closed = airport("CH-0099", stand, .closed)
+        let field = airport("LSGE", lsge)
+        XCTAssertEqual(AirportDataService.aerodromeIdent(at: stand, among: [heliport, closed, field]), "LSGE")
+        XCTAssertNil(AirportDataService.aerodromeIdent(at: stand, among: [heliport, closed]), "no aeroplane field near")
+        XCTAssertEqual(AirportDataService.aerodromeIdent(at: stand, among: [airport("LSGN", lsgn), field]), "LSGE")
+        XCTAssertNil(AirportDataService.aerodromeIdent(at: lszq, among: [field]), "LSGE is 38 NM from LSZQ")
+        for type in [AirportType.largeAirport, .mediumAirport, .smallAirport] {
+            XCTAssertEqual(AirportDataService.aerodromeIdent(at: stand, among: [airport("LSGE", lsge, type)]), "LSGE")
         }
     }
 
@@ -329,7 +344,7 @@ final class TrackTimesTests: XCTestCase {
         appState.refineTimingFromTrack()
         XCTAssertEqual(appState.currentFlight?.blockOnTime, parked.timestamp)
 
-        appState.fillMissingAerodromes(nearestAerodrome: aerodromes)
+        appState.settleAerodromesAtEndOfFlight(nearestAerodrome: aerodromes)
         XCTAssertEqual(appState.currentFlight?.arrivalAirportIdent, "LSGE")
         XCTAssertEqual(appState.currentFlight?.departureAirportIdent, "LSZQ")
 
@@ -337,6 +352,34 @@ final class TrackTimesTests: XCTestCase {
         let saved = try XCTUnwrap(appState.flights.first)
         XCTAssertEqual(saved.arrivalAirportIdent, "LSGE", "the saved flight has it")
         XCTAssertEqual(saved.title, "LSZQ → LSGE")
+    }
+
+    /// Two slow fixes at the holding point made the live detection name LSZQ; the one-fix stop at
+    /// LSGE never replaced it, and the flight would have read as a round flight. The measured block
+    /// on corrects it. With no aerodrome near the block on (an outlanding, or a phone left recording
+    /// in a car), the live arrival stays. The departure is never corrected, only filled.
+    @MainActor
+    func testEndFlightLetsTheMeasuredBlockOnCorrectALiveArrival() throws {
+        let appState = makeTestAppState()
+        var flight = savedWithoutArrival()
+        flight.arrivalAirportIdent = "LSZQ"                                // the holding point
+        flight.departureAirportIdent = "LSGN"                              // wrong on purpose: kept
+        appState.currentFlight = flight
+
+        appState.settleAerodromesAtEndOfFlight(nearestAerodrome: resolver(["LSZQ": lszq, "LSGE": lsge, "LSGN": lsgn]))
+        XCTAssertEqual(appState.currentFlight?.arrivalAirportIdent, "LSGE")
+        XCTAssertEqual(appState.currentFlight?.departureAirportIdent, "LSGN", "the departure is filled, never corrected")
+
+        flight.blockOnLatitude = 47.10                                     // a field, no aerodrome within 5 NM
+        flight.blockOnLongitude = 6.95
+        appState.currentFlight = flight
+        appState.settleAerodromesAtEndOfFlight(nearestAerodrome: resolver(["LSZQ": lszq, "LSGE": lsge, "LSGN": lsgn]))
+        XCTAssertEqual(appState.currentFlight?.arrivalAirportIdent, "LSZQ", "no aerodrome to correct toward")
+
+        var agreeing = savedWithoutArrival()
+        agreeing.arrivalAirportIdent = "LSGE"
+        let settled = agreeing.settleAerodromesAfterRefit(nearestAerodrome: resolver(["LSZQ": lszq, "LSGE": lsge]))
+        XCTAssertFalse(settled.arrival || settled.correctedArrival, "the same aerodrome is no change")
     }
 
     /// A flight like the 29 Sept 11:34 export: departure found, arrival missing, block on at LSGE.

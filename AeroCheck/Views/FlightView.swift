@@ -377,9 +377,9 @@ struct FlightView: View {
         // Block off, take-off and block on from the whole track, before the plan's times over
         // and the thread read them. (v5.2)
         appState.refineTimingFromTrack()
-        // Then a departure or an arrival the live detection missed, from those measured positions,
-        // before the plan reads where the flight landed. (v6.1)
-        appState.fillMissingAerodromes(nearestAerodrome: { airportDataService.aerodromeIdent(at: $0) })
+        // Then a departure or an arrival the live detection missed (or an arrival it left on an
+        // earlier stop), from those measured positions, before the plan reads where it landed. (v6.1)
+        appState.settleAerodromesAtEndOfFlight(nearestAerodrome: { airportDataService.aerodromeIdent(at: $0) })
         // The plan this flight flew gets its times (and, landed elsewhere, the diversion), is attached
         // to it and ends its activation. Only the plan the flight was started with: one left armed
         // through circuits or a flight started without it is left as it was, still armed. (v5.1, v6.0.1)

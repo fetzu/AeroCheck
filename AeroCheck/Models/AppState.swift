@@ -1627,20 +1627,21 @@ class AppState {
     // MARK: - Departure and arrival aerodromes (v6.1)
 
     /// END FLIGHT, right after `refineTimingFromTrack()`: find a departure or an arrival the live
-    /// detection missed, from the measured block-off and block-on positions.
+    /// detection missed, from the measured block-off and block-on positions, and let the measured
+    /// block on correct a live arrival that names another aerodrome (`settleAerodromesAfterRefit`).
     ///
     /// The live detection names the arrival only after two slow fixes at the final stop, and the 5 m
     /// distance filter often records one before the engine stops (29 Sep 2026, LSZQ → LSGE: the
     /// flight was saved with no arrival, and the Logbook titled it by its registration). The refit
-    /// always has a block on when the aircraft moved, so the arrival is found here. An aerodrome
-    /// already set is kept.
-    func fillMissingAerodromes(nearestAerodrome: (CLLocationCoordinate2D) -> String?) {
+    /// always has a block on when the aircraft moved, so the arrival is found here.
+    func settleAerodromesAtEndOfFlight(nearestAerodrome: (CLLocationCoordinate2D) -> String?) {
         guard var flight = currentFlight else { return }
-        let filled = flight.fillMissingAerodromes(nearestAerodrome: nearestAerodrome)
-        guard filled.departure || filled.arrival else { return }
+        let settled = flight.settleAerodromesAfterRefit(nearestAerodrome: nearestAerodrome)
+        guard settled.departure || settled.arrival else { return }
         currentFlight = flight
-        let ends = [filled.departure ? "departure" : nil, filled.arrival ? "arrival" : nil].compactMap { $0 }
-        AppLog.general.publicLine("END FLIGHT found the \(ends.joined(separator: " and ")) from the track")
+        let ends = [settled.departure ? "departure" : nil,
+                    settled.correctedArrival ? "arrival (corrected)" : settled.arrival ? "arrival" : nil].compactMap { $0 }
+        AppLog.general.publicLine("END FLIGHT set the \(ends.joined(separator: " and ")) from the track")
     }
 
     /// Flights the Logbook's repair tried with airport data loaded and could not place: their
@@ -1658,7 +1659,7 @@ class AppState {
     }
 
     /// Fill the departure or the arrival of stored flights saved without one: before 6.1 an arrival was
-    /// found only by the live detection (see `fillMissingAerodromes(nearestAerodrome:)`), and the
+    /// found only by the live detection (see `settleAerodromesAtEndOfFlight(nearestAerodrome:)`), and the
     /// oldest flights predate the detection altogether. Only a missing end is filled, from the
     /// block-off or block-on position, else the first or last fix on the ground; a flight whose
     /// aerodrome is not in the data stays as it is. Each filled flight is saved and synced like any
@@ -2022,7 +2023,7 @@ class AppState {
 
                 // The aerodrome it stopped at (only if changed or not set). Two slow fixes are often
                 // more than the 5 m distance filter lets through before shutdown; END FLIGHT then
-                // finds the arrival from the measured block on (`fillMissingAerodromes`).
+                // finds the arrival from the measured block on (`settleAerodromesAtEndOfFlight`).
                 if let ident = airportDataService?.aerodromeIdent(at: point.coordinate),
                    currentFlight?.arrivalAirportIdent != ident {
                     currentFlight?.arrivalAirportIdent = ident

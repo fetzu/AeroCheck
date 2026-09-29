@@ -687,6 +687,31 @@ struct Flight: Identifiable, Codable {
         return filled
     }
 
+    /// END FLIGHT, after the block-on refit: fill what is missing, then let the measured block on
+    /// correct a live arrival that names another aerodrome.
+    ///
+    /// The live detection keeps the aerodrome of the last stop of two slow fixes, and a one-fix stop
+    /// at the destination leaves it on an earlier stop (the holding point at the departure field, which
+    /// then reads as a round flight). The refit's block on is where the aircraft finally stopped. It
+    /// corrects only toward an aerodrome: with none near the block on, the live one stays.
+    ///
+    /// The departure has no such failure: the live detection takes it once, at the first movement,
+    /// which is the moment the refit's block off measures too, so there is no earlier stop to be stuck
+    /// on. It is only filled when missing.
+    /// - Returns: which ends were set, and whether the arrival replaced a live one.
+    @discardableResult
+    mutating func settleAerodromesAfterRefit(
+        nearestAerodrome: (CLLocationCoordinate2D) -> String?
+    ) -> (departure: Bool, arrival: Bool, correctedArrival: Bool) {
+        let filled = fillMissingAerodromes(nearestAerodrome: nearestAerodrome)
+        guard !filled.arrival, let live = arrivalAirportIdent,
+              let blockOn = Self.position(blockOnLatitude, blockOnLongitude),
+              let measured = nearestAerodrome(blockOn), measured != live
+        else { return (filled.departure, filled.arrival, false) }
+        arrivalAirportIdent = measured
+        return (filled.departure, true, true)
+    }
+
     private static func position(_ latitude: Double?, _ longitude: Double?) -> CLLocationCoordinate2D? {
         guard let latitude, let longitude, GeoValidation.isValidLatLon(latitude, longitude) else { return nil }
         return CLLocationCoordinate2D(latitude: latitude, longitude: longitude)

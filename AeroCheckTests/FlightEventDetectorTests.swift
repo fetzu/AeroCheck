@@ -332,6 +332,127 @@ final class FlightEventDetectorTests: XCTestCase {
         XCTAssertEqual(d.detector.emittedEvents, [], "A rejected takeoff must log nothing")
         XCTAssertNil(d.detector.pendingFullStop)
     }
+
+    // MARK: - The full-stop card and where it takes the Cockpit (6.1.0)
+
+    /// Take-off, circuit, touchdown, 10 s stopped: the detector's full stop, its card up. Returns
+    /// when the touchdown began.
+    @discardableResult
+    private func landAndStop(_ d: TrajectoryDriver) -> Date {
+        d.takeoffAndClimb()
+        d.fly(altFt: 300, speedKts: 70, count: 2)
+        d.fly(altFt: 150, speedKts: 65, count: 2)
+        d.fly(altFt: 40, speedKts: 55, count: 2)
+        let touchdown = d.now
+        d.fly(altFt: -20, speedKts: 40, count: 2)
+        d.fly(altFt: -20, speedKts: 3, count: 4)
+        return touchdown
+    }
+
+    /// The card waits (6.1.0): no 3-minute expiry for a full stop, however long the pilot takes on
+    /// the ground. The next take-off takes it away (dismissed, never confirmed), and what the
+    /// detector emitted doesn't change.
+    func testTheFullStopCardWaitsUntilTheNextTakeoff() {
+        let d = TrajectoryDriver(field: testField())
+        landAndStop(d)
+        let card = d.detector.pendingFullStop
+        XCTAssertNotNil(card)
+
+        d.fly(altFt: -20, speedKts: 0, count: 120)        // ten minutes stopped
+        d.fly(altFt: -20, speedKts: 10, count: 12)        // taxiing
+        XCTAssertEqual(d.detector.pendingFullStop?.id, card?.id, "the card is still up, the same one")
+
+        d.fly(altFt: -20, speedKts: 30, count: 1)
+        d.fly(altFt: -10, speedKts: 55, count: 2)         // rolling for take-off (stop-and-go)
+        XCTAssertNil(d.detector.pendingFullStop, "moot at the take-off, and never over the climb")
+        XCTAssertEqual(d.detector.emittedEvents.map(\.type), [.fullStop])
+    }
+
+    /// Only the full stop waits: the go-around and touch-and-go cards come up in the climb-out and
+    /// still go by themselves.
+    func testOnlyTheFullStopCardWaits() {
+        XCTAssertFalse(EventConfirmationView.dismissesByItself(.fullStop))
+        XCTAssertTrue(EventConfirmationView.dismissesByItself(.goAround))
+        XCTAssertTrue(EventConfirmationView.dismissesByItself(.touchAndGo))
+    }
+
+    /// The card's CONFIRM, on a flight that isn't circuits: AFTER LANDING, the checks kept, the
+    /// landing stamped at touchdown, and the Companion iPhone's next snapshot on AFTER LANDING too.
+    func testConfirmingTheCardOnAFlightGoesToAfterLanding() throws {
+        let d = TrajectoryDriver(field: testField())
+        let touchdown = landAndStop(d)
+        let event = try XCTUnwrap(d.detector.pendingFullStop)
+        let appState = wt9FlightOnLandingCheck(circuits: false)
+        let highlights = appState.currentHighlightedItem
+
+        FlightEventConfirmationOverlay.confirm(event, appState: appState, detector: d.detector)
+
+        XCTAssertEqual(appState.currentPhase, .afterLanding)
+        XCTAssertNil(d.detector.pendingFullStop, "the card goes")
+        for phase in ChecklistPhase.allCases where phase.rawValue < ChecklistPhase.landing.rawValue {
+            XCTAssertEqual(appState.phaseCompletionStatus[phase], .completed, "\(phase) kept")
+            XCTAssertEqual(appState.currentHighlightedItem[phase], highlights[phase], "\(phase) kept")
+        }
+        XCTAssertEqual(appState.currentFlight?.fullStopCount, 1)
+        XCTAssertEqual(appState.landingTime?.timeIntervalSince(touchdown) ?? 99, 0, accuracy: 6)
+        XCTAssertEqual(appState.currentFlight?.landingTime, appState.landingTime)
+        let snapshot = CompanionConnectivityManager.checklistSnapshot(of: appState, mayStreamItemText: false)
+        XCTAssertEqual(snapshot.phaseRawValue, ChecklistPhase.afterLanding.rawValue, "the Companion follows")
+    }
+
+    /// Circuits keep the stop-and-go: the same CONFIRM goes to TAXI with taxi…after landing reset,
+    /// and records the same landing.
+    func testConfirmingTheCardOnCircuitsGoesToTaxi() throws {
+        let d = TrajectoryDriver(field: testField())
+        let touchdown = landAndStop(d)
+        let event = try XCTUnwrap(d.detector.pendingFullStop)
+        let appState = wt9FlightOnLandingCheck(circuits: true)
+
+        FlightEventConfirmationOverlay.confirm(event, appState: appState, detector: d.detector)
+
+        XCTAssertEqual(appState.currentPhase, .taxi)
+        for phase in ChecklistPhase.allCases
+        where phase.rawValue >= ChecklistPhase.taxi.rawValue && phase.rawValue <= ChecklistPhase.afterLanding.rawValue {
+            XCTAssertNil(appState.phaseCompletionStatus[phase], "\(phase) starts again")
+            XCTAssertEqual(appState.currentHighlightedItem[phase], 0, "\(phase) starts again")
+        }
+        XCTAssertEqual(appState.currentFlight?.fullStopCount, 1)
+        XCTAssertEqual(appState.landingTime?.timeIntervalSince(touchdown) ?? 99, 0, accuracy: 6)
+    }
+
+    /// FULL STOP LANDING held on AFTER LANDING after the card was confirmed is the same landing: no
+    /// second count, no landing time moved to "now". The pilot lands right next to that button now.
+    func testFullStopLandingAfterTheCardIsTheSameLanding() throws {
+        let d = TrajectoryDriver(field: testField())
+        landAndStop(d)
+        let event = try XCTUnwrap(d.detector.pendingFullStop)
+        let appState = wt9FlightOnLandingCheck(circuits: false)
+        FlightEventConfirmationOverlay.confirm(event, appState: appState, detector: d.detector)
+        let landing = appState.landingTime
+        d.fly(altFt: -20, speedKts: 0, count: 24)         // two minutes later, still on the ground
+
+        // What FlightView's FULL STOP LANDING does.
+        let physical = d.detector.notifyManualEvent(.fullStop)
+        appState.recordLanding(at: physical)
+
+        XCTAssertEqual(physical, event.timestamp, "the landing already detected on this ground")
+        XCTAssertEqual(appState.currentFlight?.fullStopCount, 1, "one landing, counted once")
+        XCTAssertEqual(appState.landingTime, landing)
+        XCTAssertEqual(appState.currentPhase, .afterLanding)
+    }
+
+    /// A take-off since ends that landing: after a rejected take-off, back on the ground, a manual
+    /// full stop is not stamped with the earlier touchdown.
+    func testAManualFullStopAfterATakeoffIsNotTheEarlierLanding() {
+        let d = TrajectoryDriver(field: testField())
+        landAndStop(d)
+        d.fly(altFt: -20, speedKts: 30, count: 1)
+        d.fly(altFt: -15, speedKts: 55, count: 2)         // through Vr: a take-off roll…
+        d.fly(altFt: -20, speedKts: 10, count: 3)         // …rejected
+        d.fly(altFt: -20, speedKts: 0, count: 4)
+        XCTAssertEqual(d.detector.emittedEvents.map(\.type), [.fullStop])
+        XCTAssertNil(d.detector.notifyManualEvent(.fullStop))
+    }
 }
 
 private extension FlightEventType {

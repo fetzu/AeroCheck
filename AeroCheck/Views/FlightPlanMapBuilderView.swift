@@ -579,14 +579,19 @@ struct FlightPlanMapBuilderView: View {
                 .font(.aero(size: 11, weight: .semibold)).tracking(0.6).foregroundColor(.dimText)
                 .accessibilityHidden(true)   // the field carries the name
             // The label already says From or To: the empty field says what to type, as Plan new flight
-            // does. It read "From  From" and "To  To". (6.1.0)
-            TextField(L10n.Flights.identPlaceholder, text: slot == .from ? $fromText : $toText)
+            // does. It read "From  From" and "To  To". The field's own prompt stays empty: the
+            // placeholder is drawn over it so it can shrink on a phone instead of being cut. (6.1.0)
+            TextField(slot == .from ? L10n.Nav.from : L10n.Nav.to,
+                      text: slot == .from ? $fromText : $toText, prompt: Text(verbatim: ""))
                 .textInputAutocapitalization(.characters)
                 .autocorrectionDisabled()
                 .font(.aero(size: 17, weight: .semibold, design: .monospaced))
                 .foregroundColor(slot == .from ? .aviationGreen : .aviationGold)
                 .focused($focusedEndpoint, equals: slot)
-                .accessibilityLabel(slot == .from ? L10n.Nav.from : L10n.Nav.to)
+                .modifier(FittingPlaceholder(text: L10n.Flights.identPlaceholder,
+                                             isShown: (slot == .from ? fromText : toText).isEmpty,
+                                             font: .aero(size: 17, weight: .semibold, design: .monospaced)))
+                .accessibilityHint(L10n.Flights.identPlaceholder)
         }
         .padding(.horizontal, 12).frame(minHeight: 44)
         .background(RoundedRectangle(cornerRadius: 8).fill(Color.subtleOverlay(0.06)))
@@ -1535,24 +1540,23 @@ struct FlightPlanMapBuilderView: View {
     }
 
     /// Compact route summary for the system nav bar (replaces the dead title). (#4 Direction B)
+    /// One `Text`, so it shrinks as a whole: as separate texts in an HStack, the one given the least
+    /// room was cut on its own, and an iPhone SE read "8 WPT · 1… NM · 1:47". (6.1.0)
     private var toolbarSummary: some View {
-        HStack(spacing: 8) {
-            metricInline("\(waypoints.count)", "WPT", .primaryText)
-            Text("·").font(.aero(size: 12)).foregroundColor(.dimText)
-            metricInline(String(format: "%.0f", plan?.totalDistance ?? 0), "NM", .altimeterBlue)
-            Text("·").font(.aero(size: 12)).foregroundColor(.dimText)
-            metricInline(plan?.formattedTotalEET ?? "0:00", "", .aviationGold)
-        }
-        .lineLimit(1)
+        let separator = Text(verbatim: "  ·  ").font(.aero(size: 12)).foregroundColor(.dimText)
+        return (metricText("\(waypoints.count)", "WPT", .primaryText)
+                + separator
+                + metricText(String(format: "%.0f", plan?.totalDistance ?? 0), "NM", .altimeterBlue)
+                + separator
+                + metricText(plan?.formattedTotalEET ?? "0:00", "", .aviationGold))
+            .lineLimit(1)
+            .minimumScaleFactor(0.6)
     }
 
-    private func metricInline(_ value: String, _ unit: String, _ color: Color) -> some View {
-        HStack(spacing: 3) {
-            Text(value).font(.aero(size: 15, weight: .bold, design: .monospaced)).foregroundColor(color)
-            if !unit.isEmpty {
-                Text(unit).font(.aero(size: 10, weight: .semibold)).foregroundColor(.secondaryText)
-            }
-        }
+    private func metricText(_ value: String, _ unit: String, _ color: Color) -> Text {
+        let text = Text(value).font(.aero(size: 15, weight: .bold, design: .monospaced)).foregroundColor(color)
+        guard !unit.isEmpty else { return text }
+        return text + Text(" " + unit).font(.aero(size: 10, weight: .semibold)).foregroundColor(.secondaryText)
     }
 
     private var emptyRouteHint: some View {
@@ -1905,6 +1909,31 @@ struct RouteBuilderLayout: Layout {
     }
 }
 
+// MARK: - Placeholder that fits (6.1.0)
+
+/// A field's placeholder drawn over it, shrinking to fit (to 60 % at most) rather than being cut. The
+/// field's own prompt must be empty. On an iPhone, From and To leave it 80 to 100 pt: "ICAO or name" at
+/// 17 pt read "ICAO or…" on an iPhone 17.
+private struct FittingPlaceholder: ViewModifier {
+    let text: String
+    let isShown: Bool
+    let font: Font
+
+    func body(content: Content) -> some View {
+        content.overlay(alignment: .leading) {
+            if isShown {
+                Text(text)
+                    .font(font)
+                    .foregroundColor(Color(uiColor: .placeholderText))
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.6)
+                    .allowsHitTesting(false)
+                    .accessibilityHidden(true)
+            }
+        }
+    }
+}
+
 // MARK: - Via search (6.0.1)
 
 /// The "Via" field under From and To: finds a reporting point or a navaid for the route. Its own view,
@@ -2082,6 +2111,8 @@ private struct LegRow: View {
                                 .font(.aero(size: 11, design: .monospaced))
                                 .foregroundColor(.dimText)
                                 .lineLimit(1)
+                                // Smaller rather than cut: an iPhone SE read "194° · 12 NM · 7…".
+                                .minimumScaleFactor(0.7)
                         }
                     }
                     .frame(maxWidth: .infinity, alignment: .leading)

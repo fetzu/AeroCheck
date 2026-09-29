@@ -144,8 +144,10 @@ Owners and rules that aren't obvious from the names:
   new field goes there as `decodeIfPresent … ?? default` (a synthesized non-optional field makes every
   older file fail to decode). Never delete a settings field: the ones retired in 6.0 (circuit mode, keep
   screen on, step-by-step) and 6.0.1 (waypoint proximity) are still decoded and synced for older builds.
-  A settings field an older build can't round-trip also bumps `AppSettings.currentSchemaVersion` and
-  joins `preservingFieldsUnknownTo(_:)`.
+  A settings field an older build can't round-trip also bumps `AppSettings.currentSchemaVersion`,
+  joins `AppSettings.protectedFields`, and is encoded whatever its value (no `nil` left out). An older
+  build relays a newer record with the newer stamp, so ingest tells it apart by the missing key, and
+  sends the merged record back (`SettingsSyncTests`).
 - `FlightPlan ==` compares ids only: never use it to detect an edit (it once silently dropped every
   saved-plan change).
 - iCloud sync (`SyncManager`, CKSyncEngine): inbound records are validated (unknown schema, oversized or

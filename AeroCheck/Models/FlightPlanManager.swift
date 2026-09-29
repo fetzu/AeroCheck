@@ -600,11 +600,26 @@ class FlightPlanManager: ObservableObject {
     /// to the flight before its activation ends. A plan left armed through circuits, or through a flight
     /// started without it, was not flown: it gets nothing, is not attached, and stays armed for the
     /// flight it was armed for. (v6.0.1)
+    /// `landings`: the flight's landings counted against the home aerodrome (`AirportDataService.
+    /// landingTally(for:home:)`); nil counts the total only. (v6.1)
     func settleFlownPlan(_ flight: Flight, takeoff: Date?, landing: Date?,
-                         landedAt field: TripPlanner.Aerodrome?) -> FlightPlan? {
+                         landedAt field: TripPlanner.Aerodrome?, landings: LandingTally? = nil) -> FlightPlan? {
         guard let plan = plan(flownBy: flight) else { return nil }
-        populateTimingFromFlight(plan.id, flight: flight, takeoff: takeoff, landing: landing, landedAt: field)
+        populateTimingFromFlight(plan.id, flight: flight, takeoff: takeoff, landing: landing, landedAt: field,
+                                 landings: landings)
         return activeFlightPlan
+    }
+
+    /// The post-flight review changed the flight's landings after END FLIGHT had settled its plan (a
+    /// landing the track found and nobody confirmed in flight): the plan's counters follow, where they
+    /// still hold what END FLIGHT wrote (`previous`). Until 6.1 nothing did, and the plan kept the
+    /// "0 / 0" of a flight that had no landing yet at END FLIGHT. (v6.1)
+    func resettleLandings(of flight: Flight, previous: LandingTally, updated: LandingTally) {
+        guard previous != updated, let planId = flight.flightPlanId,
+              let plan = flightPlans.first(where: { $0.id == planId }) else { return }
+        let settled = plan.settlingLandings(updated, replacing: previous)
+        guard settled.totalLandings != plan.totalLandings || settled.landingsAtBase != plan.landingsAtBase else { return }
+        updateFlightPlan(settled)
     }
 
     /// ABANDON FLIGHT, the same rule as END FLIGHT: the plan the flight was started with ends its
@@ -628,8 +643,10 @@ class FlightPlanManager: ObservableObject {
     ///   - flight: The completed flight with timing data
     ///   - takeoff, landing: the flight's line-up and landing times. Passed in because at END FLIGHT
     ///     they still live on AppState: `endFlight` copies them onto the flight only afterwards.
+    ///   - landings: the landings counted against the home aerodrome; nil counts the total only, and
+    ///     leaves the count at base unknown. (v6.1)
     func populateTimingFromFlight(_ planId: UUID, flight: Flight, takeoff: Date? = nil, landing: Date? = nil,
-                                  landedAt field: TripPlanner.Aerodrome? = nil) {
+                                  landedAt field: TripPlanner.Aerodrome? = nil, landings: LandingTally? = nil) {
         // The active copy first: it is the one the flight wrote. After a relaunch in flight the list's
         // copy comes from the plan file, which the last off-main write may not have reached. (v6.0.1)
         guard flight.flightPlanId == planId,
@@ -686,30 +703,9 @@ class FlightPlanManager: ObservableObject {
             plan.counterStop = hourEnd
         }
 
-        // Total landings from flight
-        if plan.totalLandings == nil || plan.totalLandings == 0 {
-            plan.totalLandings = flight.totalLandings
-        }
-
-        // Landings at base = landings at departure airport
-        // Count full-stop landings and touch-and-gos that occurred near the departure airport
-        if plan.landingsAtBase == nil || plan.landingsAtBase == 0 {
-            if let depIdent = flight.departureAirportIdent, let arrIdent = flight.arrivalAirportIdent {
-                // If departure == arrival, all landings were at base
-                if depIdent == arrIdent {
-                    plan.landingsAtBase = flight.totalLandings
-                } else {
-                    // Different airports: only the final landing counts at arrival, not at base
-                    // Touch-and-gos and full stops during flight could be at various airports,
-                    // but for simplicity, assume circuits (T&Gs + full stops) were at departure
-                    let circuitLandings = flight.touchAndGoCount + flight.fullStopCount
-                    plan.landingsAtBase = circuitLandings
-                }
-            } else {
-                // No airport detection available, set total as base landings
-                plan.landingsAtBase = flight.totalLandings
-            }
-        }
+        // Landings: all of them, and those at the home aerodrome. The rule this replaced counted every
+        // landing at base (its branches all came to the total), a destination's included. (v6.1)
+        plan = plan.settlingLandings(landings ?? LandingTally(total: flight.totalLandings, atHome: nil))
 
         updateFlightPlan(plan)
     }

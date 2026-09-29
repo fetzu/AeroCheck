@@ -327,7 +327,18 @@ struct ContentView: View {
             if let result = appState.pendingReconciliation {
                 FlightReconciliationView(
                     result: result,
-                    onApply: { appState.applyReconciliation($0) },
+                    onApply: { reviewed in
+                        // The landings changed after END FLIGHT settled the flight's plan: its counters
+                        // follow, in the copy attached to the flight and in the plan list. (v6.1)
+                        let home = appState.settings.homeAerodromeIdent
+                        let counted = appState.applyReconciliation(reviewed) { flight in
+                            airportDataService.landingTally(for: flight, home: home)
+                        }
+                        if let counted, let flight = appState.flights.first(where: { $0.id == reviewed.flightId }) {
+                            flightPlanManager.resettleLandings(of: flight, previous: counted.previous,
+                                                               updated: counted.updated)
+                        }
+                    },
                     onKeep: { appState.keepRecordedReconciliation() }
                 )
                 .presentationDetents([.large])

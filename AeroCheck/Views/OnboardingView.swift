@@ -41,8 +41,9 @@ enum CountryNeighbors {
     ]
 }
 
-/// First-run onboarding (v4.1.0 revamp). Eight steps: welcome → location priming → maps & data
-/// downloads → checklists → your map → in flight & features → premium (AéroCheck Pro upsell) → ready.
+/// First-run onboarding (v4.1.0 revamp). Ten steps: welcome → location priming → maps & data
+/// downloads → checklists → flights → home aerodrome → your map → in flight & features → premium
+/// (AéroCheck Pro upsell) → ready.
 /// The three middle "config" steps fold a one-line intro into a header and let the pilot tune the
 /// default-off/on features up front; the toggles bind straight to `AppSettings` and persist when
 /// onboarding completes. Cockpit language: tinted page icons, gold primary actions, custom gold page
@@ -72,7 +73,7 @@ struct OnboardingView: View {
     /// Countries selected for the OpenAIP download — seeded with the home country, neighbours opt-in.
     @State private var selectedCountries: Set<String> = []
 
-    private let totalPages = 9
+    private let totalPages = 10
 
     /// Effective home country: the GPS-detected one if available, else the device region. (onboarding revamp)
     private var effectiveHome: String { detectedCountry ?? (Locale.current.region?.identifier ?? "US") }
@@ -123,10 +124,13 @@ struct OnboardingView: View {
                     // The four chapters, introduced right after the checklist that is chapter three.
                     // Without this page the app's spine is something a pilot has to discover. (v5.0.0)
                     flightsPage.tag(4)
-                    yourMapPage.tag(5)
-                    inFlightFeaturesPage.tag(6)
-                    premiumPage.tag(7)
-                    readyPage.tag(8)
+                    // Where the pilot is based, right after what a flight is: skippable, like the
+                    // pages around it. (v6.1)
+                    homeAerodromePage.tag(5)
+                    yourMapPage.tag(6)
+                    inFlightFeaturesPage.tag(7)
+                    premiumPage.tag(8)
+                    readyPage.tag(9)
                 }
                 .tabViewStyle(.page(indexDisplayMode: .never))
             }
@@ -153,7 +157,7 @@ struct OnboardingView: View {
         .onChange(of: subscriptionManager.subscriptionStatus) { _, status in
             if showSubscription && status.isSubscribed {
                 showSubscription = false
-                withAnimation { currentPage = 8 }
+                withAnimation { currentPage = 9 }
             }
         }
         // Advance off the Location step only AFTER the user answers the system prompt. (device-test feedback)
@@ -566,14 +570,37 @@ struct OnboardingView: View {
         .accessibilityElement(children: .combine)
     }
 
-    // MARK: - 6: Your map
+    // MARK: - 6: Home aerodrome (v6.1)
+
+    /// Where the pilot is based. Nothing to decide yet for a pilot who'd rather not: Continue leaves it
+    /// unset, and Settings › Flight Planning has it later. A pilot replaying onboarding with flights
+    /// already logged is offered the logbook's guess.
+    private var homeAerodromePage: some View {
+        configContainer(
+            icon: "house.fill", tint: .aviationGold,
+            title: L10n.HomeAerodrome.title,
+            subtitle: L10n.HomeAerodrome.onboardingSubtitle,
+            page: 5
+        ) {
+            VStack(alignment: .leading, spacing: 11) {
+                AerodromeIdentField(ident: Bindable(appState).settings.homeAerodromeIdent,
+                                    suggestion: HomeAerodrome.suggestion(from: appState.flights))
+                Text(L10n.HomeAerodrome.optionalNote)
+                    .scaledFont(size: 12, relativeTo: .caption)
+                    .foregroundColor(.dimText)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+        }
+    }
+
+    // MARK: - 7: Your map
 
     private var yourMapPage: some View {
         configContainer(
             icon: "map.fill", tint: .aviationGreen,
             title: String(localized: "Your map"),
             subtitle: String(localized: "Swiss & worldwide layers on the moving map — pick what's drawn."),
-            page: 5
+            page: 6
         ) {
             LazyVGrid(columns: toggleColumns, spacing: 11) {
                 toggleRow("shield.lefthalf.filled", .aviationGreen,
@@ -596,14 +623,14 @@ struct OnboardingView: View {
         }
     }
 
-    // MARK: - 6: In flight & features
+    // MARK: - 8: In flight & features
 
     private var inFlightFeaturesPage: some View {
         configContainer(
             icon: "airplane", tint: .aviationGold,
             title: String(localized: "In flight & features"),
             subtitle: String(localized: "How the app behaves in the air, plus the bigger features and your data."),
-            page: 6
+            page: 7
         ) {
             // Flight planning is no longer a toggle: it is the app's spine, introduced two pages
             // earlier as the first chapter of a flight. Offering to switch it off here would have
@@ -621,7 +648,7 @@ struct OnboardingView: View {
         }
     }
 
-    // MARK: - 7: Premium
+    // MARK: - 9: Premium
 
     private var premiumPage: some View {
         VStack(spacing: 20) {
@@ -633,13 +660,13 @@ struct OnboardingView: View {
             pageDots
             VStack(spacing: 10) {
                 primaryButton(String(localized: "See AéroCheck Pro"), icon: "sparkles") { showSubscription = true }
-                secondaryButton(String(localized: "Continue"), icon: "arrow.right") { withAnimation { currentPage = 8 } }
+                secondaryButton(String(localized: "Continue"), icon: "arrow.right") { withAnimation { currentPage = 9 } }
             }
             .padding(.bottom, 40)
         }
     }
 
-    // MARK: - 8: Ready
+    // MARK: - 10: Ready
 
     private var readyPage: some View {
         VStack(spacing: 22) {

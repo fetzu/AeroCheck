@@ -779,9 +779,8 @@ struct NavigationMapView: View {
     @ViewBuilder
     private var nextWaypointLine: some View {
         if let plan = flightPlanManager.activeFlightPlan, !flightPlanManager.isFlightPlanCompleted,
-           let next = plan.nextWaypoint {
+           plan.nextWaypoint != nil, let ident = plan.nextWaypointName(.phoneNextLine) {
             let diversion = plan.diversion
-            let ident = diversion?.ident ?? (next.name.isEmpty ? "WPT \(plan.currentWaypointIndex + 1)" : next.name)
             HStack(spacing: 12) {
                 Button(action: toggleLegsAndFrequencies) {
                     HStack(alignment: .firstTextBaseline, spacing: 10) {
@@ -1547,16 +1546,24 @@ struct NavigationMapView: View {
     @ViewBuilder
     private var nextWaypointCard: some View {
         if let plan = flightPlanManager.activeFlightPlan, !flightPlanManager.isFlightPlanCompleted,
-           let next = plan.nextWaypoint {
+           plan.nextWaypoint != nil, let ident = plan.nextWaypointName(.compact),
+           let fullIdent = plan.nextWaypointName(.mapCard) {
             let diversion = plan.diversion
             let filed = diversion != nil && (threadManager.thread(forPlanId: plan.id)?.hasOpenFlightPlan ?? false)
             VStack(alignment: .leading, spacing: 10) {
                 Button(action: toggleLegsAndFrequencies) {
-                    let ident = diversion?.ident ?? (next.name.isEmpty ? "WPT \(plan.currentWaypointIndex + 1)" : next.name)
                     // One row where it fits; in a narrow window (Slide Over), ETA goes first, then the
                     // ident takes a line above the figures. The phone uses the one-line version.
-                    // (iPhone pass, I4; round 6)
+                    // (iPhone pass, I4; round 6) A short reporting point is "E (LSGC)" only where that
+                    // fits beside every figure: the plain "E" comes before any figure gives way. (6.0.1)
                     ViewThatFits(in: .horizontal) {
+                        SeparateView {
+                            HStack(alignment: .center, spacing: 18) {
+                                nextWaypointIdent(fullIdent, diverting: diversion != nil)
+                                Spacer(minLength: 8)
+                                nextWaypointCells(withETA: true)
+                            }
+                        }
                         HStack(alignment: .center, spacing: 18) {
                             nextWaypointIdent(ident, diverting: diversion != nil)
                             Spacer(minLength: 8)
@@ -3388,15 +3395,9 @@ struct NativeMapViewUIKit: UIViewRepresentable {
     }
 
     private func updateReportingPointAnnotations(_ mapView: MKMapView, context: Context) {
-        let existing = mapView.annotations.compactMap { $0 as? ReportingPointAnnotation }
-        let existingIds = Set(existing.map { $0.point.id })
-        let newIds = Set(visibleReportingPoints.map { $0.id })
-        // Skip rebuilding when the visible set hasn't changed since the last update. (PERF-27)
-        guard existingIds != newIds else { return }
-        mapView.removeAnnotations(existing.filter { !newIds.contains($0.point.id) })
-        for point in visibleReportingPoints where !existingIds.contains(point.id) {
-            mapView.addAnnotation(ReportingPointAnnotation(point: point))
-        }
+        // Skips rebuilding when the visible set hasn't changed since the last update (PERF-27).
+        ReportingPointAnnotation.sync(visibleReportingPoints, on: mapView,
+                                      revision: &context.coordinator.reportingPointLabelRevision)
     }
 
     private func updateFlightPlanOverlay(_ mapView: MKMapView, context: Context) {
@@ -3557,6 +3558,8 @@ struct NativeMapViewUIKit: UIViewRepresentable {
         var isUserInteracting = false
         /// Signature of the last-rendered flight plan, so the overlay is rebuilt only on change. (PR-10)
         var lastFlightPlanSignature: String?
+        /// `ReportingPointAnnotation.labelRevision` the markers were labelled at. (6.0.1)
+        var reportingPointLabelRevision = -1
 
         init(_ parent: NativeMapViewUIKit) {
             self.parent = parent
@@ -3708,6 +3711,8 @@ struct NativeMapViewUIKit: UIViewRepresentable {
                     rpView = MKAnnotationView(annotation: reportingPointAnnotation, reuseIdentifier: id)
                 }
                 rpView.canShowCallout = true
+                // "LSGC Les Eplatures · on request", plus a remark's own line when it has one. (6.0.1)
+                rpView.detailCalloutAccessoryView = reportingPointAnnotation.calloutDetailView()
                 let symbol = reportingPointAnnotation.point.compulsory ? "triangle.fill" : "triangle"
                 rpView.image = aeroMarkerSymbol(symbol, color: UIColor(red: 0.85, green: 0.2, blue: 0.6, alpha: 1.0), pointSize: 12)
                 return rpView
@@ -4810,15 +4815,9 @@ struct SwissMapView: UIViewRepresentable {
     }
 
     private func updateReportingPointAnnotations(_ mapView: MKMapView, context: Context) {
-        let existing = mapView.annotations.compactMap { $0 as? ReportingPointAnnotation }
-        let existingIds = Set(existing.map { $0.point.id })
-        let newIds = Set(visibleReportingPoints.map { $0.id })
-        // Skip rebuilding when the visible set hasn't changed since the last update. (PERF-27)
-        guard existingIds != newIds else { return }
-        mapView.removeAnnotations(existing.filter { !newIds.contains($0.point.id) })
-        for point in visibleReportingPoints where !existingIds.contains(point.id) {
-            mapView.addAnnotation(ReportingPointAnnotation(point: point))
-        }
+        // Skips rebuilding when the visible set hasn't changed since the last update (PERF-27).
+        ReportingPointAnnotation.sync(visibleReportingPoints, on: mapView,
+                                      revision: &context.coordinator.reportingPointLabelRevision)
     }
 
     private func updateFlightPlanOverlay(_ mapView: MKMapView, context: Context) {
@@ -4996,6 +4995,8 @@ struct SwissMapView: UIViewRepresentable {
         var trackVectorGeometry: [Double] = []
         /// Signature of the last-rendered flight plan, so the overlay is rebuilt only on change. (PR-10)
         var lastFlightPlanSignature: String?
+        /// `ReportingPointAnnotation.labelRevision` the markers were labelled at. (6.0.1)
+        var reportingPointLabelRevision = -1
         var currentLayerType: MapLayerType?
         var currentForceICAO: Bool = false
         var offlineMapManager: OfflineMapManager?
@@ -5208,6 +5209,8 @@ struct SwissMapView: UIViewRepresentable {
                     rpView = MKAnnotationView(annotation: reportingPointAnnotation, reuseIdentifier: id)
                 }
                 rpView.canShowCallout = true
+                // "LSGC Les Eplatures · on request", plus a remark's own line when it has one. (6.0.1)
+                rpView.detailCalloutAccessoryView = reportingPointAnnotation.calloutDetailView()
                 let symbol = reportingPointAnnotation.point.compulsory ? "triangle.fill" : "triangle"
                 rpView.image = aeroMarkerSymbol(symbol, color: UIColor(red: 0.85, green: 0.2, blue: 0.6, alpha: 1.0), pointSize: 12)
                 return rpView

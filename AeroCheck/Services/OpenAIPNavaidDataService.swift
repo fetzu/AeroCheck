@@ -153,6 +153,9 @@ final class OpenAIPNavaidDataService: ObservableObject {
         return Array(result.prefix(limit))
     }
 
+    /// Every loaded navaid, for the route builder's search (a linear scan). (6.0.1)
+    func allLoadedNavaids() -> [Navaid] { navaids }
+
     func deleteData() {
         cache.deleteData()
         navaids = []

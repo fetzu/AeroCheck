@@ -10,6 +10,10 @@ import Foundation
 struct OpenAIPLayerCacheMetadata: Codable {
     var lastSyncDates: [String: Date] = [:]
     var counts: [String: Int] = [:]
+    /// The layer's `formatVersion` the files were written with; absent (nil) before a layer had one.
+    /// Optional, so older metadata decodes and a layer without a version still writes the same
+    /// bytes as before. (6.0.1)
+    var formatVersion: Int?
 }
 
 /// Shared cache + download lifecycle for the per-country OpenAIP GeoJSON-export layers.
@@ -34,12 +38,14 @@ final class OpenAIPLayerCache<Feature: Codable & Sendable> {
         let downloadedCountries: [String]
         let totalCount: Int
         let lastUpdated: Date?
+        let formatVersion: Int?
         var isDataAvailable: Bool { !downloadedCountries.isEmpty }
 
         init(metadata: OpenAIPLayerCacheMetadata) {
             downloadedCountries = metadata.counts.keys.sorted()
             totalCount = metadata.counts.values.reduce(0, +)
             lastUpdated = metadata.lastSyncDates.values.max()
+            formatVersion = metadata.formatVersion
         }
     }
 
@@ -58,6 +64,9 @@ final class OpenAIPLayerCache<Feature: Codable & Sendable> {
     private let restPath: String
     private let logLabel: String
     private let parse: (Data) throws -> [Feature]
+    private let formatVersion: Int?
+    /// Replaces both network sources, for tests: country in, features out.
+    private let fetchOverride: ((String) async throws -> [Feature])?
 
     /// - Parameters:
     ///   - directoryName: Application Support subdirectory (e.g. `"OpenAIPNavaidData"`).
@@ -68,18 +77,26 @@ final class OpenAIPLayerCache<Feature: Codable & Sendable> {
     ///   - logLabel: prefix for the per-country download-failure debug line (kept verbatim from
     ///     each service's previous message, e.g. `"Navaid"` / `"OpenAIP airport"`).
     ///   - parse: the layer's GeoJSON parser (e.g. `Navaid.parse(geoJSON:)`).
+    ///   - formatVersion: bumped when the cached features gain data an older file lacks. A cache
+    ///     written with another version is never reused by `skippingCached`, and the layer can offer
+    ///     it for a refresh (`Summary.formatVersion`). Nil for a layer that never changed.
+    ///   - fetch: tests only; replaces the export bucket and the core API.
     init(directoryName: String,
          filePrefix: String,
          endpointSuffix: String,
          restPath: String,
          logLabel: String,
-         parse: @escaping (Data) throws -> [Feature]) {
+         formatVersion: Int? = nil,
+         parse: @escaping (Data) throws -> [Feature],
+         fetch: ((String) async throws -> [Feature])? = nil) {
         self.directoryName = directoryName
         self.filePrefix = filePrefix
         self.endpointSuffix = endpointSuffix
         self.restPath = restPath
         self.logLabel = logLabel
+        self.formatVersion = formatVersion
         self.parse = parse
+        self.fetchOverride = fetch
     }
 
     // MARK: - Storage paths
@@ -152,10 +169,13 @@ final class OpenAIPLayerCache<Feature: Codable & Sendable> {
         var metadata = (try? Data(contentsOf: metadataFileURL))
             .flatMap { try? JSONDecoder().decode(OpenAIPLayerCacheMetadata.self, from: $0) } ?? OpenAIPLayerCacheMetadata()
         var allLoaded: [Feature] = []
+        // A cache in another format is fetched again even when asked to skip what is cached: reusing
+        // it would keep, say, reporting points without their aerodromes behind a fresh date. (6.0.1)
+        let cacheIsCurrentFormat = metadata.formatVersion == formatVersion
 
         var failed: [String] = []
         for (index, country) in countries.enumerated() {
-            if skippingCached, metadata.counts[country] != nil,
+            if skippingCached, cacheIsCurrentFormat, metadata.counts[country] != nil,
                fileManager.fileExists(atPath: featureFileURL(for: country).path) {
                 appendExistingCache(for: country, into: &allLoaded)
                 onProgress(Double(index + 1) / Double(countries.count))
@@ -164,7 +184,9 @@ final class OpenAIPLayerCache<Feature: Codable & Sendable> {
             do {
                 // Bucket first (one request), core API second (paged). See `fetchViaCoreAPI`.
                 let parsed: [Feature]
-                if let fromBucket = try await fetchViaExportBucket(country: country) {
+                if let fetchOverride {
+                    parsed = try await fetchOverride(country)
+                } else if let fromBucket = try await fetchViaExportBucket(country: country) {
                     parsed = fromBucket
                 } else {
                     parsed = try await fetchViaCoreAPI(country: country)
@@ -188,6 +210,8 @@ final class OpenAIPLayerCache<Feature: Codable & Sendable> {
         OpenAIPConfig.pruneDeselectedCountries(
             keeping: countries, counts: &metadata.counts, lastSyncDates: &metadata.lastSyncDates,
             fileURL: { featureFileURL(for: $0) }, fileManager: fileManager)
+        // Every file is now in the current format, unless a country kept an old file after failing.
+        if cacheIsCurrentFormat || failed.isEmpty { metadata.formatVersion = formatVersion }
         if let metaEncoded = try? JSONEncoder().encode(metadata) {
             try? metaEncoded.write(to: metadataFileURL, options: .atomic)
         }

@@ -22,12 +22,41 @@ class FlightPlanExportService {
     /// - Keeps waypoint names ≤20 characters (G3X limitation)
     /// - Uses standard elements only (no custom extensions)
     /// - Elevation in meters as per GPX standard
-    static func exportToAvionicsGPX(_ flightPlan: FlightPlan) -> Data? {
-        let gpx = generateAvionicsGPX(flightPlan)
+    /// - A reporting point with an ident from OpenAIP goes by the ident ("ELESE"): ten Swiss points
+    ///   are called "E", and an avionics user waypoint is one name. `pointDescriptions` (by waypoint
+    ///   id, see `gpxDescription(of:)`) say what it is ("E · LSGC Les Eplatures") in `<desc>`.
+    static func exportToAvionicsGPX(_ flightPlan: FlightPlan, pointDescriptions: [UUID: String] = [:]) -> Data? {
+        let gpx = generateAvionicsGPX(flightPlan, pointDescriptions: pointDescriptions)
         return gpx.data(using: .utf8)
     }
 
-    private static func generateAvionicsGPX(_ plan: FlightPlan) -> String {
+    /// The waypoint's `<name>` in the avionics GPX: a reporting point's unofficial ident when OpenAIP
+    /// has one, else the waypoint's name. No ident is ever made up for a point without one: it could
+    /// clash with a real one, so "E" stays "E". (6.0.1)
+    static func gpxName(of waypoint: FlightPlanWaypoint) -> String {
+        if waypoint.pointKind == .vrp, let code = waypoint.code, !code.isEmpty { return code }
+        return waypoint.name
+    }
+
+    /// What a reporting point is, for the GPX `<desc>`: "E · LSGC Les Eplatures", its name and
+    /// aerodrome. Nil for anything else, or without the aerodrome. (6.0.1)
+    @MainActor
+    static func gpxDescription(of waypoint: FlightPlanWaypoint) -> String? {
+        guard waypoint.pointKind == .vrp, let id = waypoint.sourceId,
+              let point = OpenAIPReportingPointDataService.shared.point(withId: id) else { return nil }
+        let label = OpenAIPAirportDataService.shared.label(for: point)
+        guard let aerodrome = label.aerodrome else { return nil }
+        return "\(label.title) · \(aerodrome.displayLine)"
+    }
+
+    /// `gpxDescription(of:)` for every waypoint that has one.
+    @MainActor
+    static func gpxDescriptions(for plan: FlightPlan) -> [UUID: String] {
+        Dictionary(plan.waypoints.compactMap { wp in gpxDescription(of: wp).map { (wp.id, $0) } },
+                   uniquingKeysWith: { first, _ in first })
+    }
+
+    private static func generateAvionicsGPX(_ plan: FlightPlan, pointDescriptions: [UUID: String]) -> String {
         // Limit to 99 waypoints (SkyView reads first 99 rtept in first rte)
         let waypoints = Array(plan.waypoints.prefix(99))
 
@@ -49,7 +78,7 @@ class FlightPlanExportService {
         // Add route points
         for waypoint in waypoints {
             // Truncate waypoint name to 20 chars (G3X limitation)
-            let waypointName = truncateName(waypoint.name, maxLength: 20)
+            let waypointName = truncateName(gpxName(of: waypoint), maxLength: 20)
 
             // SEC-C20: `String(format: "%.6f", .nan)` yields the literal "nan", which would be
             // written into a file loaded by a Dynon/Garmin. Skip a waypoint we cannot express
@@ -69,8 +98,14 @@ class FlightPlanExportService {
                 gpx += "      <ele>\(String(format: "%.1f", altitudeMeters))</ele>\n"
             }
 
-            // Add description with additional info if available
+            // Add description with additional info if available: what the point is when the name is
+            // its ident ("E · LSGC Les Eplatures", or at least "E"), then the radio.
             var descParts: [String] = []
+            if let description = pointDescriptions[waypoint.id] {
+                descParts.append(description)
+            } else if waypointName != truncateName(waypoint.name, maxLength: 20), !waypoint.name.isEmpty {
+                descParts.append(waypoint.name)
+            }
             if let freq = waypoint.frequency, !freq.isEmpty {
                 descParts.append("Freq: \(freq)")
             }
@@ -517,7 +552,7 @@ class FlightPlanExportService {
         return wps.indices.map { i in
             let wp = wps[i]
             let radioRow = i < radio.rows.count ? radio.rows[i] : RouteRadioPlanner.Row()
-            var row = NavLogRow(name: RouteRadioPlanner.displayName(wp, index: i), isDeparture: i == 0,
+            var row = NavLogRow(name: RouteRadioPlanner.displayName(wp, index: i, form: .navLog), isDeparture: i == 0,
                                 station: radioRow.station, stationChanged: radioRow.changed)
             row.alt = wp.altitude.map { String(format: "%.0f", $0) } ?? ""
             row.ato = wp.formattedATO ?? ""
@@ -1185,7 +1220,7 @@ class FlightPlanExportService {
             let attrs: [NSAttributedString.Key: Any] = [.font: fFoot, .foregroundColor: faintInk]
             var left: [String] = []
             if let first = plan.waypoints.first, let last = plan.waypoints.last, plan.waypoints.count >= 2 {
-                left.append("\(RouteRadioPlanner.displayName(first, index: 0)) → \(RouteRadioPlanner.displayName(last, index: plan.waypoints.count - 1))")
+                left.append("\(RouteRadioPlanner.displayName(first, index: 0, form: .navLog)) → \(RouteRadioPlanner.displayName(last, index: plan.waypoints.count - 1, form: .navLog))")
             }
             if !plan.aircraftRegistration.isEmpty { left.append(plan.aircraftRegistration) }
             if let date = plan.plannedDepartureTime { left.append(dateFmt.string(from: date)) }

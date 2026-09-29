@@ -287,6 +287,40 @@ class FlightPlanManager: ObservableObject {
         return bestIndex
     }
 
+    /// Where the builder's "+" (and its search) puts a point: on the leg it least lengthens, never
+    /// before the departure or after the destination, which only From and To change. A route of fewer
+    /// than two points has no destination yet, so the point is appended. The press-and-hold add keeps
+    /// `bestInsertionIndex`, which may extend the route at either end. (6.0.1)
+    nonisolated static func bestLegInsertionIndex(for coordinate: CLLocationCoordinate2D, in waypoints: [FlightPlanWaypoint]) -> Int {
+        guard waypoints.count >= 2 else { return waypoints.count }
+        func dist(_ a: CLLocationCoordinate2D, _ b: CLLocationCoordinate2D) -> Double {
+            CLLocation(latitude: a.latitude, longitude: a.longitude)
+                .distance(from: CLLocation(latitude: b.latitude, longitude: b.longitude))
+        }
+        let coords = waypoints.map { $0.coordinate }
+        var bestIndex = 1
+        var bestDetour = Double.infinity
+        for i in 0..<(coords.count - 1) {
+            let detour = dist(coords[i], coordinate) + dist(coordinate, coords[i + 1]) - dist(coords[i], coords[i + 1])
+            if detour < bestDetour { bestDetour = detour; bestIndex = i + 1 }
+        }
+        return bestIndex
+    }
+
+    /// Insert a waypoint built by the caller, in one write. Seeds the aircraft's cruise speed when the
+    /// waypoint has none, as the other inserts do.
+    func insertWaypoint(_ waypoint: FlightPlanWaypoint, to planId: UUID, at index: Int) {
+        guard var plan = flightPlans.first(where: { $0.id == planId }) else { return }
+        var waypoint = waypoint
+        if waypoint.name.isEmpty { waypoint.name = "WPT" }
+        if waypoint.plannedGroundSpeed == nil {
+            waypoint.plannedGroundSpeed = FlightPlan.defaultCruiseSpeed(for: plan.aircraftTypeId)
+        }
+        plan.waypoints.insert(waypoint, at: max(0, min(index, plan.waypoints.count)))
+        plan.calculateRouteData()
+        updateFlightPlan(plan)
+    }
+
     /// Insert a waypoint at a specific index
     func insertWaypoint(to planId: UUID, at index: Int, coordinate: CLLocationCoordinate2D, name: String = "") {
         guard var plan = flightPlans.first(where: { $0.id == planId }) else { return }

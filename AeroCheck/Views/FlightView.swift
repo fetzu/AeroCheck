@@ -1674,12 +1674,11 @@ extension FlightView {
         return items.indices.contains(index) ? items[index].challenge : nil
     }
 
-    /// The waypoint flown to, for the strip's NEXT cell: the diversion field when diverting.
+    /// The waypoint flown to, for the strip's NEXT cell: the diversion field when diverting. The plain
+    /// name ("E", not "E (LSGC)"): the cell has a fixed width. (6.0.1)
     private var cockpitNextWaypoint: String? {
         guard let plan = flightPlanManager.activeFlightPlan, !flightPlanManager.isFlightPlanCompleted else { return nil }
-        if let diversion = plan.diversion { return diversion.ident }
-        guard let next = plan.nextWaypoint else { return nil }
-        return next.name.isEmpty ? "WPT \(plan.currentWaypointIndex + 1)" : next.name
+        return plan.nextWaypointName(.cockpitNext)
     }
 }
 

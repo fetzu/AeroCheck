@@ -215,7 +215,7 @@ enum RouteRadioPlanner {
                 let entryNM = samples[entry.s].d - legStart
                 if k > 0, entryNM / speed < ctx.leadTime {
                     // Too close behind the waypoint to call on this leg: the call goes on the leg before.
-                    let wptName = displayName(wps[k], index: k)
+                    let wptName = displayName(wps[k], index: k, form: .navLog)
                     let at = entryNM < 0.5 ? "at \(wptName)" : String(format: "+%.1f NM after %@", entryNM, wptName)
                     let hx = station?.isHX == true ? " · HX" : ""
                     carried[k] = Pending(station: stationOf(unit: u), remark: "▸ \(label(units[u].airspace)) \(at)\(hx)")
@@ -302,7 +302,7 @@ enum RouteRadioPlanner {
         if let dest = ctx.destination, let contact = dest.contact, !unitRow[n - 1] {
             if n >= 3, legSeconds[lastLeg] < 3 * 60, !unitRow[n - 2] {
                 plan.rows[n - 2].station = contact
-                plan.rows[n - 2].remarks.insert("▸ call \(dest.ident) before \(displayName(wps[n - 2], index: n - 2))", at: 0)
+                plan.rows[n - 2].remarks.insert("▸ call \(dest.ident) before \(displayName(wps[n - 2], index: n - 2, form: .navLog))", at: 0)
             }
             plan.rows[n - 1].station = contact
         }
@@ -345,10 +345,21 @@ enum RouteRadioPlanner {
 
     private static func applyManual(_ wps: [FlightPlanWaypoint], to rows: inout [Row]) {
         for (i, wp) in wps.enumerated() where i < rows.count {
-            guard let f = wp.frequency?.trimmingCharacters(in: .whitespaces), !f.isEmpty else { continue }
+            guard let f = wp.frequency?.trimmingCharacters(in: .whitespaces), !f.isEmpty,
+                  isCallableFrequency(f) else { continue }
             rows[i].station = Station(frequency: f, callSign: wp.callSign ?? "")
             rows[i].isManual = true
         }
+    }
+
+    /// A waypoint frequency is a station to call only in the VHF air band's voice part, 118.000 to
+    /// 136.990 MHz. The builder used to put a snapped VOR's own frequency there (112.050; an NDB's in
+    /// kHz), which the nav log then printed as the station to call; plans saved that way print their
+    /// airspace station again, and the value stays on the waypoint. Text that isn't a number is left
+    /// to the pilot, as typed. (6.0.1)
+    static func isCallableFrequency(_ frequency: String) -> Bool {
+        guard let mhz = Double(frequency.trimmingCharacters(in: .whitespaces)) else { return true }
+        return (118.0...136.99).contains(mhz)
     }
 
     private static func markChanges(_ rows: inout [Row]) {
@@ -606,8 +617,9 @@ enum RouteRadioPlanner {
         return names.joined(separator: " / ")
     }
 
-    static func displayName(_ wp: FlightPlanWaypoint, index: Int) -> String {
-        wp.name.isEmpty ? "WP \(index + 1)" : wp.name
+    /// A waypoint's name in `form` ("E (LSGC)" in the nav log), "WP n" when it has none.
+    static func displayName(_ wp: FlightPlanWaypoint, index: Int, form: RouteNameForm) -> String {
+        wp.name.isEmpty ? "WP \(index + 1)" : wp.routeName(form)
     }
 
     // MARK: - Swiss FIS

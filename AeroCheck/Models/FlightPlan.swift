@@ -30,6 +30,21 @@ struct FlightPlanWaypoint: Identifiable, Codable, Equatable {
     var estimatedTimeOver: Date?             // ETO - estimated time over this waypoint
     var actualTimeOver: Date?                // ATO - actual time over (recorded during flight)
 
+    // What the waypoint was made from, when the builder knows (6.0.1). Optional, like every field
+    // added to a persisted model: an older file decodes with them nil, and an older build ignores
+    // the keys (and drops them if it saves the plan, keeping name and position).
+
+    /// An aerodrome, a navaid, a VFR reporting point, or the pilot's own point.
+    var pointKind: WaypointPointKind?
+    /// Where it came from: the aerodrome's ICAO code, or the OpenAIP `_id` of the navaid or point.
+    var sourceId: String?
+    /// A reporting point's unofficial ident from OpenAIP's remark ("ELESE"). Shown in the waypoint
+    /// editor and used as the avionics GPX name; never printed where ATC would read it.
+    var code: String?
+    /// The ICAO code of the aerodrome a reporting point belongs to ("LSGC"), which qualifies a short
+    /// name where there is room for it: "E (LSGC)" (`routeName(_:)`). The name itself stays "E".
+    var aerodromeICAO: String?
+
     init(
         id: UUID = UUID(),
         name: String = "",
@@ -47,7 +62,11 @@ struct FlightPlanWaypoint: Identifiable, Codable, Equatable {
         legEETExtra: TimeInterval? = nil,
         cumulativeEET: TimeInterval? = nil,
         estimatedTimeOver: Date? = nil,
-        actualTimeOver: Date? = nil
+        actualTimeOver: Date? = nil,
+        pointKind: WaypointPointKind? = nil,
+        sourceId: String? = nil,
+        code: String? = nil,
+        aerodromeICAO: String? = nil
     ) {
         self.id = id
         self.name = name
@@ -67,6 +86,10 @@ struct FlightPlanWaypoint: Identifiable, Codable, Equatable {
         self.cumulativeEET = cumulativeEET
         self.estimatedTimeOver = estimatedTimeOver
         self.actualTimeOver = actualTimeOver
+        self.pointKind = pointKind
+        self.sourceId = sourceId
+        self.code = code
+        self.aerodromeICAO = aerodromeICAO
     }
 
     /// CLLocationCoordinate2D representation
@@ -158,6 +181,19 @@ struct FlightPlanWaypoint: Identifiable, Codable, Equatable {
 
     static func == (lhs: FlightPlanWaypoint, rhs: FlightPlanWaypoint) -> Bool {
         lhs.id == rhs.id
+    }
+}
+
+// MARK: - Waypoint kind (6.0.1)
+
+/// What a route waypoint is. Stored as its raw value.
+enum WaypointPointKind: String, Codable, Sendable {
+    case aerodrome, navaid, vrp, user
+
+    /// A kind a newer build adds reads as `.user` here rather than failing the whole plan.
+    init(from decoder: Decoder) throws {
+        let raw = try decoder.singleValueContainer().decode(String.self)
+        self = WaypointPointKind(rawValue: raw) ?? .user
     }
 }
 

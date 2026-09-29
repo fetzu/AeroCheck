@@ -3095,6 +3095,23 @@
         }
       }
     },
+    "nav.addToRoute": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Add to route"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ajouter à la route"
+          }
+        }
+      }
+    },
     "nav.mapSheet": {
       "extractionState": "manual",
       "localizations": {
@@ -3125,6 +3142,23 @@
           "stringUnit": {
             "state": "translated",
             "value": "Nord en haut"
+          }
+        }
+      }
+    },
+    "nav.pointIdent": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ident (OpenAIP, unofficial)"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ident (OpenAIP, non officiel)"
           }
         }
       }
@@ -19487,6 +19521,57 @@
           "stringUnit": {
             "state": "translated",
             "value": "Utilisation des cartes en cache"
+          }
+        }
+      }
+    },
+    "nav.via": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Via"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Via"
+          }
+        }
+      }
+    },
+    "nav.viaNoMatch": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No reporting point or navaid matches “%@”."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aucun point de report ni balise ne correspond à « %@ »."
+          }
+        }
+      }
+    },
+    "nav.viaPlaceholder": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Reporting point or navaid"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Point de report ou balise"
           }
         }
       }

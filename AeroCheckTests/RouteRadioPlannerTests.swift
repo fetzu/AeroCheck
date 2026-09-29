@@ -267,6 +267,28 @@ final class RouteRadioPlannerTests: XCTestCase {
         XCTAssertTrue(rows[3].changed, "FIS again after the typed station")
     }
 
+    /// A plan saved while the builder put a snapped VOR's own frequency on the waypoint (fixed in
+    /// 6.0.1): 112.050 is no station to call, so the row gets its airspace station back. An NDB's kHz
+    /// likewise; text that isn't a number stays as typed.
+    func testANavaidFrequencyOnAWaypointIsNoStationToCall() {
+        var wps = waypoints()
+        wps[2].frequency = "112.050"
+        wps[2].callSign = "CVA"
+        wps[3].frequency = "375"
+        let rows = plan([], waypoints: wps).rows
+        XCTAssertEqual(rows[2].station?.callSign, "ZURICH INFO")
+        XCTAssertFalse(rows[2].isManual)
+        XCTAssertEqual(rows[3].station?.callSign, "ZURICH INFO")
+        XCTAssertNil(RouteRadioPlanner.manualOnly(wps).rows[2].station)
+
+        XCTAssertTrue(RouteRadioPlanner.isCallableFrequency("118.000"))
+        XCTAssertTrue(RouteRadioPlanner.isCallableFrequency("136.990"))
+        XCTAssertTrue(RouteRadioPlanner.isCallableFrequency(" 121.500 "))
+        XCTAssertTrue(RouteRadioPlanner.isCallableFrequency("121,5"), "not a number: the pilot's text")
+        XCTAssertFalse(RouteRadioPlanner.isCallableFrequency("117.950"))
+        XCTAssertFalse(RouteRadioPlanner.isCallableFrequency("108.000"))
+    }
+
     func testManualOnlyKeepsJustWhatWasTyped() {
         let result = RouteRadioPlanner.manualOnly(waypoints(frequencyOn: 1))
         XCTAssertEqual(result.rows.compactMap(\.station?.callSign), ["MY TWR"])

@@ -69,6 +69,10 @@ struct DataSet: Identifiable, Equatable {
     let sizeOnDisk: Int64?        // bytes; nil if unknown / not computed yet
     let coverage: [String]        // region/country codes; empty == global or n/a
     let isDownloaded: Bool
+    /// The cache on disk predates what the app now keeps from this source (reporting points before
+    /// their aerodromes). The foreground refresh fetches it like stale data, but it is not stale, so
+    /// the Home dot doesn't turn red over it. (6.0.1)
+    var formatOutdated: Bool = false
 }
 
 // MARK: - Home-dot health
@@ -284,7 +288,8 @@ final class DataStatusManager: ObservableObject {
         let stamp = now()
         for provider in providers {
             let set = provider.makeDataSet(now: stamp)
-            guard set.refreshPolicy == .smallSilentJSON, set.isDownloaded, set.freshness == .stale else { continue }
+            guard set.refreshPolicy == .smallSilentJSON, set.isDownloaded,
+                  set.freshness == .stale || set.formatOutdated else { continue }
             await provider.refresh()
         }
         recompute()
@@ -512,7 +517,10 @@ struct OpenAIPReportingPointProvider: DataSetProvider {
             freshness: FreshnessThresholds.aeronautical.freshness(lastUpdated: service.lastUpdated, now: now),
             sizeOnDisk: nil,
             coverage: service.downloadedCountries,
-            isDownloaded: service.isDataAvailable
+            isDownloaded: service.isDataAvailable,
+            // A cache from before points kept their aerodromes: the foreground refresh fetches it once
+            // more (a few KB per country). (6.0.1)
+            formatOutdated: service.cachePredatesAerodromes
         )
     }
 

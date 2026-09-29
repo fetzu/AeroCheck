@@ -2107,6 +2107,17 @@ enum L10n {
 
         // Waypoint Editor
         static let editWaypoint = String(localized: "nav.editWaypoint")
+        /// The "+" in a map callout: the aerodrome, navaid or reporting point goes into the route. (6.0.1)
+        static let addToRoute = String(localized: "nav.addToRoute")
+        /// The reporting point's ident from an OpenAIP remark ("ELESE"): not an official designator,
+        /// so it is labelled as such wherever it shows. (6.0.1)
+        static let pointIdent = String(localized: "nav.pointIdent")
+        /// The builder's search for a reporting point or navaid to put in the route, under From and To.
+        static let via = String(localized: "nav.via")
+        static let viaPlaceholder = String(localized: "nav.viaPlaceholder")
+        static func viaNoMatch(_ query: String) -> String {
+            String(format: String(localized: "nav.viaNoMatch"), query)
+        }
         static let deleteWaypoint = String(localized: "nav.deleteWaypoint")
         static let deleteWaypointConfirmation = String(localized: "nav.deleteWaypointConfirmation")
         static let selectOnMap = String(localized: "nav.selectOnMap")

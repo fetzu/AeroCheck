@@ -22,6 +22,8 @@
 		A5000026111111110000002 /* NavaidTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A5000026111111110000001 /* NavaidTests.swift */; };
 		A5000027111111110000002 /* ObstacleTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A5000027111111110000001 /* ObstacleTests.swift */; };
 		A5000028111111110000002 /* ReportingPointTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A5000028111111110000001 /* ReportingPointTests.swift */; };
+		A50000E1111111110000002 /* RoutePointTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A50000E1111111110000001 /* RoutePointTests.swift */; };
+		A50000E2111111110000002 /* RoutePointSearchTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A50000E2111111110000001 /* RoutePointSearchTests.swift */; };
 		A5000029111111110000002 /* RouteDataCalculatorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A5000029111111110000001 /* RouteDataCalculatorTests.swift */; };
 		A500002A111111110000002 /* OpenAIPAirportMergeTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A500002A111111110000001 /* OpenAIPAirportMergeTests.swift */; };
 		A500002F111111110000002 /* FlightThreadTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A500002F111111110000001 /* FlightThreadTests.swift */; };
@@ -206,6 +208,7 @@
 		E1000001211111110000020 /* Navaid.swift in Sources */ = {isa = PBXBuildFile; fileRef = E1000001111111110000020 /* Navaid.swift */; };
 		E1000001211111110000021 /* Obstacle.swift in Sources */ = {isa = PBXBuildFile; fileRef = E1000001111111110000021 /* Obstacle.swift */; };
 		E1000001211111110000022 /* ReportingPoint.swift in Sources */ = {isa = PBXBuildFile; fileRef = E1000001111111110000022 /* ReportingPoint.swift */; };
+		E1000001211111110000040 /* RoutePoint.swift in Sources */ = {isa = PBXBuildFile; fileRef = E1000001111111110000040 /* RoutePoint.swift */; };
 		E1000001211111110000023 /* OpenAIPAirport.swift in Sources */ = {isa = PBXBuildFile; fileRef = E1000001111111110000023 /* OpenAIPAirport.swift */; };
 		E1000001211111110000025 /* FlightThreadManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = E1000001111111110000025 /* FlightThreadManager.swift */; };
 		E1000001211111110000024 /* FlightThread.swift in Sources */ = {isa = PBXBuildFile; fileRef = E1000001111111110000024 /* FlightThread.swift */; };
@@ -320,6 +323,8 @@
 		A5000026111111110000001 /* NavaidTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NavaidTests.swift; sourceTree = "<group>"; };
 		A5000027111111110000001 /* ObstacleTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ObstacleTests.swift; sourceTree = "<group>"; };
 		A5000028111111110000001 /* ReportingPointTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReportingPointTests.swift; sourceTree = "<group>"; };
+		A50000E1111111110000001 /* RoutePointTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RoutePointTests.swift; sourceTree = "<group>"; };
+		A50000E2111111110000001 /* RoutePointSearchTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RoutePointSearchTests.swift; sourceTree = "<group>"; };
 		A5000029111111110000001 /* RouteDataCalculatorTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RouteDataCalculatorTests.swift; sourceTree = "<group>"; };
 		A500002A111111110000001 /* OpenAIPAirportMergeTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OpenAIPAirportMergeTests.swift; sourceTree = "<group>"; };
 		A500002F111111110000001 /* FlightThreadTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FlightThreadTests.swift; sourceTree = "<group>"; };
@@ -499,6 +504,7 @@
 		E1000001111111110000020 /* Navaid.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Navaid.swift; sourceTree = "<group>"; };
 		E1000001111111110000021 /* Obstacle.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Obstacle.swift; sourceTree = "<group>"; };
 		E1000001111111110000022 /* ReportingPoint.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReportingPoint.swift; sourceTree = "<group>"; };
+		E1000001111111110000040 /* RoutePoint.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RoutePoint.swift; sourceTree = "<group>"; };
 		E1000001111111110000023 /* OpenAIPAirport.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OpenAIPAirport.swift; sourceTree = "<group>"; };
 		E1000001111111110000025 /* FlightThreadManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FlightThreadManager.swift; sourceTree = "<group>"; };
 		E1000001111111110000024 /* FlightThread.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FlightThread.swift; sourceTree = "<group>"; };
@@ -603,6 +609,8 @@
 				A5000026111111110000001 /* NavaidTests.swift */,
 				A5000027111111110000001 /* ObstacleTests.swift */,
 				A5000028111111110000001 /* ReportingPointTests.swift */,
+				A50000E1111111110000001 /* RoutePointTests.swift */,
+				A50000E2111111110000001 /* RoutePointSearchTests.swift */,
 				A5000029111111110000001 /* RouteDataCalculatorTests.swift */,
 				A500002A111111110000001 /* OpenAIPAirportMergeTests.swift */,
 				A500002F111111110000001 /* FlightThreadTests.swift */,
@@ -791,6 +799,7 @@
 				E1000001111111110000020 /* Navaid.swift */,
 				E1000001111111110000021 /* Obstacle.swift */,
 				E1000001111111110000022 /* ReportingPoint.swift */,
+				E1000001111111110000040 /* RoutePoint.swift */,
 				E1000001111111110000023 /* OpenAIPAirport.swift */,
 				E1000001111111110000025 /* FlightThreadManager.swift */,
 				E1000001111111110000024 /* FlightThread.swift */,
@@ -1125,6 +1134,8 @@
 				A5000026111111110000002 /* NavaidTests.swift in Sources */,
 				A5000027111111110000002 /* ObstacleTests.swift in Sources */,
 				A5000028111111110000002 /* ReportingPointTests.swift in Sources */,
+				A50000E1111111110000002 /* RoutePointTests.swift in Sources */,
+				A50000E2111111110000002 /* RoutePointSearchTests.swift in Sources */,
 				A5000029111111110000002 /* RouteDataCalculatorTests.swift in Sources */,
 				A500002A111111110000002 /* OpenAIPAirportMergeTests.swift in Sources */,
 				A500002F111111110000002 /* FlightThreadTests.swift in Sources */,
@@ -1285,6 +1296,7 @@
 				E1000001211111110000020 /* Navaid.swift in Sources */,
 				E1000001211111110000021 /* Obstacle.swift in Sources */,
 				E1000001211111110000022 /* ReportingPoint.swift in Sources */,
+				E1000001211111110000040 /* RoutePoint.swift in Sources */,
 				E1000001211111110000023 /* OpenAIPAirport.swift in Sources */,
 				E1000001211111110000025 /* FlightThreadManager.swift in Sources */,
 				E1000001211111110000024 /* FlightThread.swift in Sources */,

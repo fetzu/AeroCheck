@@ -489,7 +489,7 @@ class FlightEventDetector: ObservableObject {
             type: .fullStop,
             timestamp: touch,
             airport: anchor,
-            message: fullStopMessage(airport: anchor)
+            message: Self.fullStopMessage(airport: anchor)
         )
         emittedEvents.append(EmittedFlightEvent(type: .fullStop, timestamp: touch, airportIdent: anchor?.ident))
         AppLog.flightEvents.debugLine("End-of-flight flush: full stop at \(touch) (\(anchor?.ident ?? "?"))")
@@ -751,12 +751,13 @@ class FlightEventDetector: ObservableObject {
             AppLog.flightEvents.debugLine("TOUCH-AND-GO at \(time) (\(airport?.ident ?? "?"))")
         case .fullStop:
             guard pendingFullStop == nil else { return }
-            pendingFullStop = DetectedFlightEvent(type: .fullStop, timestamp: time, airport: airport, message: fullStopMessage(airport: airport))
+            pendingFullStop = DetectedFlightEvent(type: .fullStop, timestamp: time, airport: airport, message: Self.fullStopMessage(airport: airport))
             AppLog.flightEvents.debugLine("FULL STOP at \(time) (\(airport?.ident ?? "?"))")
         }
     }
 
-    private func fullStopMessage(airport: Airport?) -> String {
+    /// The full-stop card's message. Not private: the DEBUG `landed` scene raises the same card. (6.1.0)
+    static func fullStopMessage(airport: Airport?) -> String {
         airport.map { String(localized: "Full-stop landing detected at \($0.name)") }
             ?? String(localized: "Full-stop landing detected")
     }

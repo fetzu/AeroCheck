@@ -133,6 +133,9 @@ struct AppSettings: Codable, Equatable {
     var isStudentPilot: Bool = false
     /// The usual instructor, so a dual flight does not need the name typed onto every plan.
     var instructorName: String = ""
+    /// Where this pilot is based (an ident, `HomeAerodrome.normalized`). The nav log's landings at
+    /// base are counted there; nil = not set, and the count at base is then unknown. (v6.1)
+    var homeAerodromeIdent: String? = nil
 
     /// The logbook's view of who is writing it. Built here so the card, the PDF extract and the
     /// page totals all read the same settings.
@@ -203,7 +206,7 @@ struct AppSettings: Codable, Equatable {
 
     /// Bump whenever a stored property is added that an older build cannot round-trip, and add it
     /// to `preservingFieldsUnknownTo(_:)` below.
-    static let currentSchemaVersion = 5
+    static let currentSchemaVersion = 6
 
     /// Merge an incoming settings record over `self`, keeping local values the writer could not have
     /// carried. Same-or-newer writers are taken at their word, including deliberate clearings.
@@ -230,6 +233,8 @@ struct AppSettings: Codable, Equatable {
         if incoming.schemaVersion < 4 { merged.stepByStepHighlighting = stepByStepHighlighting }
         // Schema 5 (v6.0): the pilot's full-tanks figures. (on-device review #4, point 3)
         if incoming.schemaVersion < 5 { merged.fullTanksLitres = fullTanksLitres }
+        // Schema 6 (v6.1): the home aerodrome.
+        if incoming.schemaVersion < 6 { merged.homeAerodromeIdent = homeAerodromeIdent }
         merged.schemaVersion = AppSettings.currentSchemaVersion
         return merged
     }
@@ -347,6 +352,7 @@ struct AppSettings: Codable, Equatable {
         case fullTanksLitres
         case schemaVersion
         case isStudentPilot, instructorName
+        case homeAerodromeIdent
         // marketingMode and developerMode are intentionally excluded (non-persisted, reset each launch)
     }
 
@@ -423,6 +429,10 @@ struct AppSettings: Codable, Equatable {
         pilotName = try container.decodeIfPresent(String.self, forKey: .pilotName) ?? ""
         isStudentPilot = try container.decodeIfPresent(Bool.self, forKey: .isStudentPilot) ?? false
         instructorName = try container.decodeIfPresent(String.self, forKey: .instructorName) ?? ""
+        // New in 6.1: absent on every older save, which reads as "not set". `try?`: a value that isn't
+        // a string must not throw the whole settings away (see the profiles below).
+        homeAerodromeIdent = HomeAerodrome.normalized(
+            (try? container.decodeIfPresent(String.self, forKey: .homeAerodromeIdent)) ?? nil)
         // A pilot who had picked the old `sunlight` mode wanted the bright palette, so the boost
         // starts on for them and their preference falls back to day.
         sunlightBoost = try container.decodeIfPresent(Bool.self, forKey: .sunlightBoost)
@@ -463,6 +473,8 @@ struct AppSettings: Codable, Equatable {
         }
         // A full-tanks figure is what Full tanks sets fuel on board to: drop one no tank holds.
         result.fullTanksLitres = result.fullTanksLitres.filter { FullTanks.isPlausible($0.value) }
+        // The home aerodrome is matched against idents and shown as text: drop what can't be one.
+        result.homeAerodromeIdent = HomeAerodrome.normalized(result.homeAerodromeIdent)
         return result
     }
 }
@@ -1790,15 +1802,27 @@ class AppState {
 
     /// Apply the reviewed diff to the just-saved flight: rewrite its events from the
     /// review rows, back-fill missing block times, refresh stats, persist and re-sync.
-    func applyReconciliation(_ result: FlightReconciliation.Result) {
+    ///
+    /// `landings` counts a flight's landings against the home aerodrome. The plan attached to the flight
+    /// takes the new count where it still holds END FLIGHT's (a landing confirmed only here used to leave
+    /// it at 0 / 0), and both counts come back so the plan list's copy can follow. (v6.1)
+    @discardableResult
+    func applyReconciliation(
+        _ result: FlightReconciliation.Result,
+        landings: (Flight) -> LandingTally = { LandingTally(total: $0.totalLandings, atHome: nil) }
+    ) -> (previous: LandingTally, updated: LandingTally)? {
         defer { pendingReconciliation = nil }
-        guard let index = flights.firstIndex(where: { $0.id == result.flightId }) else { return }
+        guard let index = flights.firstIndex(where: { $0.id == result.flightId }) else { return nil }
         var flight = flights[index]
+        let previous = landings(flight)
         FlightReconciliation.apply(result, to: &flight)
+        let updated = landings(flight)
+        flight.flightPlan = flight.flightPlan?.settlingLandings(updated, replacing: previous)
         flight.computeSummaryStats()
         flights[index] = flight
         _ = saveFlight(flight)
         AppLog.flightEvents.debugLine("Reconciliation applied to flight \(result.flightId): \(flight.fullStopCount) FS, \(flight.touchAndGoCount) TG, \(flight.goAroundCount) GA")
+        return (previous, updated)
     }
 
     /// "Keep as recorded": confirmed events stay untouched (D2). Missing block times are

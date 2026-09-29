@@ -380,9 +380,12 @@ struct FlightView: View {
         // The plan this flight flew gets its times (and, landed elsewhere, the diversion), is attached
         // to it and ends its activation. Only the plan the flight was started with: one left armed
         // through circuits or a flight started without it is left as it was, still armed. (v5.1, v6.0.1)
+        // Its landings are counted against the home aerodrome: the airport data is loaded at flight start.
         let flownPlan = appState.currentFlight.flatMap { flight in
             flightPlanManager.settleFlownPlan(flight, takeoff: appState.lineUpTime, landing: appState.landingTime,
-                                              landedAt: landedAerodrome(flight))
+                                              landedAt: landedAerodrome(flight),
+                                              landings: airportDataService.landingTally(
+                                                for: flight, home: appState.settings.homeAerodromeIdent))
         }
         let plannedDestination = flownPlan?.waypoints.last?.name
         let landedDiversion = flownPlan?.diversion

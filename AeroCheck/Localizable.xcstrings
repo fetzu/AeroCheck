@@ -103,6 +103,159 @@
         }
       }
     },
+    "homeAerodrome.title": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Home aerodrome"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aérodrome de base"
+          }
+        }
+      }
+    },
+    "homeAerodrome.basedAt": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Based at"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Basé à"
+          }
+        }
+      }
+    },
+    "homeAerodrome.rowSubtitle": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Landings made there count as landings at base on the nav log."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Les atterrissages faits là comptent comme atterrissages à la base sur le log de nav."
+          }
+        }
+      }
+    },
+    "homeAerodrome.onboardingSubtitle": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Where you're based: landings made there count as landings at base on the nav log."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Là où vous êtes basé : les atterrissages faits là comptent comme atterrissages à la base sur le log de nav."
+          }
+        }
+      }
+    },
+    "homeAerodrome.optionalNote": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Optional. Set or change it anytime in Settings → Flight Planning."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Facultatif. À définir ou modifier à tout moment dans Réglages → Planification de vol."
+          }
+        }
+      }
+    },
+    "homeAerodrome.use": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Use %@"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Utiliser %@"
+          }
+        }
+      }
+    },
+    "homeAerodrome.suggestionReason": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Where your flying days most often begin"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Là où vos journées de vol commencent le plus souvent"
+          }
+        }
+      }
+    },
+    "homeAerodrome.noAirportData": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The airport data isn't downloaded yet, so the code can't be checked."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Les données aéroports ne sont pas encore téléchargées : le code ne peut pas être vérifié."
+          }
+        }
+      }
+    },
+    "homeAerodrome.clear": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Clear the home aerodrome"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Effacer l'aérodrome de base"
+          }
+        }
+      }
+    },
     "Plan a flight from Today. You can always start flying without one.": {
       "localizations": {
         "fr": {

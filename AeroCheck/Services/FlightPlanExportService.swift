@@ -144,14 +144,19 @@ class FlightPlanExportService {
     /// Export flight plan to XLSX format
     /// Creates a simple XML-based Excel file matching the GVMP template. Same rows as the PDF (the leg
     /// ending at each waypoint), every waypoint (a sheet has no page limit), and the radio plan.
-    static func exportToXLSX(_ flightPlan: FlightPlan, radio: RouteRadioPlanner.Plan? = nil) -> Data? {
+    /// `homeIdent`: the home aerodrome, which names the landings' base column ("LSZQ / total", as on the
+    /// club's form); "Base / total" without one. (v6.1)
+    static func exportToXLSX(_ flightPlan: FlightPlan, radio: RouteRadioPlanner.Plan? = nil,
+                             homeIdent: String? = nil) -> Data? {
         // Create XML Spreadsheet 2003 format (simpler than full XLSX)
         let plan = recomputed(flightPlan)
-        let xml = generateExcelXML(plan, radio: radio ?? RouteRadioPlanner.manualOnly(plan.waypoints))
+        let xml = generateExcelXML(plan, radio: radio ?? RouteRadioPlanner.manualOnly(plan.waypoints),
+                                   homeIdent: homeIdent)
         return xml.data(using: .utf8)
     }
 
-    private static func generateExcelXML(_ plan: FlightPlan, radio: RouteRadioPlanner.Plan) -> String {
+    private static func generateExcelXML(_ plan: FlightPlan, radio: RouteRadioPlanner.Plan,
+                                         homeIdent: String?) -> String {
         let dateFormatter = DateFormatter()
         dateFormatter.dateFormat = "dd.MM.yyyy"
 
@@ -462,11 +467,11 @@ class FlightPlanExportService {
             <Cell ss:StyleID="Data" ss:MergeAcross="4" ss:MergeDown="2"><Data ss:Type="String">\(escapeXML(plan.remarks))</Data></Cell>
             <Cell ss:StyleID="Data"></Cell>
             <Cell ss:StyleID="Label"><Data ss:Type="String">Atterrissages</Data></Cell>
-            <Cell ss:StyleID="Data" ss:MergeAcross="3"><Data ss:Type="String">\(plan.landingsAtBase ?? 0) / \(plan.totalLandings ?? 0)</Data></Cell>
+            <Cell ss:StyleID="Data" ss:MergeAcross="3"><Data ss:Type="String">\(plan.landingsText)</Data></Cell>
         </Row>
         <Row ss:Height="16">
             <Cell ss:Index="7" ss:StyleID="Data"></Cell>
-            <Cell ss:StyleID="Label"><Data ss:Type="String">LSZQ / total</Data></Cell>
+            <Cell ss:StyleID="Label"><Data ss:Type="String">\(escapeXML(HomeAerodrome.normalized(homeIdent) ?? "Base")) / total</Data></Cell>
             <Cell ss:StyleID="Data" ss:MergeAcross="3"><Data ss:Type="String"></Data></Cell>
         </Row>
         <Row ss:Height="16">
@@ -1200,7 +1205,7 @@ class FlightPlanExportService {
             tcGroup(L10n.PDF.groupCounter)
             tcRow(L10n.PDF.counterStart, plan.counterStart.map { String(format: "%.1f", $0) } ?? "")
             tcRow(L10n.PDF.counterStop, plan.counterStop.map { String(format: "%.1f", $0) } ?? "")
-            tcRow(L10n.PDF.landings, "\(plan.landingsAtBase ?? 0) / \(plan.totalLandings ?? 0)")
+            tcRow(L10n.PDF.landings, plan.landingsText)
 
             y = panelTop + panelH
         }

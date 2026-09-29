@@ -21,6 +21,7 @@ struct FlightPlanningSettingsView: View {
     var body: some View {
         SettingsPage {
             pilotSection
+            homeAerodromeSection
             costSection
             flightPlanningSection
         }
@@ -82,6 +83,37 @@ struct FlightPlanningSettingsView: View {
             .padding(.horizontal, 14)
             .padding(.vertical, 11)
         }
+    }
+
+    // MARK: - Home aerodrome
+
+    /// Where the pilot is based: the nav log's landings at base are counted there. A pilot who logged
+    /// flights before it existed is offered the logbook's guess, here and never at launch. (v6.1)
+    private var homeAerodromeSection: some View {
+        SettingsGroup(title: L10n.HomeAerodrome.title, tint: tint) {
+            VStack(alignment: .leading, spacing: 9) {
+                SettingsRowLabel(icon: "house",
+                                 title: L10n.HomeAerodrome.basedAt,
+                                 subtitle: L10n.HomeAerodrome.rowSubtitle,
+                                 tint: tint)
+                AerodromeIdentField(ident: homeAerodrome,
+                                    suggestion: HomeAerodrome.suggestion(from: appState.flights))
+            }
+            .padding(.horizontal, 14)
+            .padding(.vertical, 11)
+        }
+    }
+
+    /// Saved as soon as it names an aerodrome, like the rest of this page.
+    private var homeAerodrome: Binding<String?> {
+        Binding(
+            get: { appState.settings.homeAerodromeIdent },
+            set: { ident in
+                guard ident != appState.settings.homeAerodromeIdent else { return }
+                appState.settings.homeAerodromeIdent = ident
+                appState.saveSettings()
+            }
+        )
     }
 
     // MARK: - Cost

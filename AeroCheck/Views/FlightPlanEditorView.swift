@@ -815,10 +815,9 @@ struct FlightPlanEditorView: View {
                 ), format: "%.1f")
             }
             pair {
-                IntFormField(label: L10n.Nav.ldgsAtBase, value: Binding(
-                    get: { flightPlan.landingsAtBase ?? 0 },
-                    set: { flightPlan.landingsAtBase = $0 }
-                ))
+                // Empty, not 0, when it isn't known (no home aerodrome set): 0 would say no landing
+                // was made there. (v6.1)
+                IntFormField(label: L10n.Nav.ldgsAtBase, optional: $flightPlan.landingsAtBase)
             } _: {
                 IntFormField(label: L10n.Nav.totalLdgs, value: Binding(
                     get: { calculatedTotalLandings },
@@ -990,8 +989,10 @@ struct FlightPlanEditorView: View {
             return totalLandings
         }
 
-        // Try to get from current flight
-        if let currentFlight = appState.currentFlight {
+        // The flight flying this plan, so far. Only that one: any other active flight's count showed on
+        // every plan opened while it flew, a logged flight's nav log included. (v6.1)
+        if !isViewingFromFlightLog, let currentFlight = appState.currentFlight,
+           currentFlight.flightPlanId == flightPlan.id {
             return currentFlight.totalLandings
         }
 
@@ -1010,7 +1011,8 @@ struct FlightPlanEditorView: View {
             generatedData = FlightPlanExportService.exportToAvionicsGPX(
                 flightPlan, pointDescriptions: FlightPlanExportService.gpxDescriptions(for: flightPlan))
         case .xlsx:
-            generatedData = FlightPlanExportService.exportToXLSX(flightPlan, radio: radioPlan)
+            generatedData = FlightPlanExportService.exportToXLSX(flightPlan, radio: radioPlan,
+                                                                 homeIdent: appState.settings.homeAerodromeIdent)
         case .pdf:
             generatedData = FlightPlanExportService.exportToPDF(flightPlan, paperSize: .a4, radio: radioPlan)
         case .pdfA5:
@@ -1381,34 +1383,52 @@ struct LedgerNumberField: View {
 
 struct IntFormField: View {
     let label: String
-    @Binding var value: Int
+    @Binding var value: Int?
+    /// A count where empty means 0. The optional one keeps empty apart from 0 (the landings at base,
+    /// unknown without a home aerodrome) and shows "–" for it. (v6.1)
+    private var isOptional = false
 
     @State private var text: String = ""
     @FocusState private var isEditing: Bool
+
+    init(label: String, value: Binding<Int>) {
+        self.label = label
+        _value = Binding(get: { value.wrappedValue }, set: { value.wrappedValue = $0 ?? 0 })
+    }
+
+    init(label: String, optional value: Binding<Int?>) {
+        self.label = label
+        _value = value
+        isOptional = true
+    }
+
+    private func display(_ value: Int?) -> String {
+        value.map(String.init) ?? ""
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 5) {
             FieldLabel(text: label)
 
-            TextField("", text: $text)
+            TextField(isOptional ? "–" : "", text: $text)
                 .scaledFont(size: 17, design: .monospaced, relativeTo: .body)
                 .textFieldStyle(.plain)
                 .keyboardType(.numberPad)
                 .focused($isEditing)
                 .fieldBox()
         }
-        .onAppear { text = String(value) }
+        .onAppear { text = display(value) }
         .onChange(of: text) { _, typed in
             let digits = typed.filter(\.isNumber)
             if digits != typed { text = digits; return }
-            value = Int(digits) ?? 0
+            value = Int(digits) ?? (isOptional ? nil : 0)
         }
         .onChange(of: isEditing) { _, editing in
-            if editing { if value == 0 { text = "" } }
-            else { text = String(value) }
+            if editing { if !isOptional, value == 0 { text = "" } }
+            else { text = display(value) }
         }
         .onChange(of: value) { _, updated in
-            if !isEditing { text = String(updated) }
+            if !isEditing { text = display(updated) }
         }
     }
 }

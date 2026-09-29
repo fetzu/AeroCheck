@@ -878,8 +878,9 @@ struct FlightPlan: Identifiable, Codable, Equatable {
     ///      been editable in `WaypointEditorSheet` all along but were never read by leg timing, so
     ///      entering a wind changed nothing. They are authoritative when present: a pilot copying
     ///      winds from a briefing outranks a model forecast.
-    ///   2. the injected winds-aloft forecast for the leg's start point and planned altitude, for the
-    ///      hour it is flown (`flownAt`).
+    ///   2. the forecast for the leg (`forecastWind`): at `coordinate` (the leg's midpoint), for the
+    ///      hour it is flown (`flownAt`), at the level it is flown at: the waypoint's altitude and
+    ///      `toAltitudeFt`, the next waypoint's (6.1).
     ///   3. the forecast the leg was last computed with (`planningWind`), when no forecast can be had
     ///      now: the cache is keyed by the hour and lives in memory, so a recompute at another hour or
     ///      after a relaunch found nothing and quietly timed every leg at zero wind (the 23 Sep plan
@@ -890,13 +891,15 @@ struct FlightPlan: Identifiable, Codable, Equatable {
     ///
     /// `readingForecasts: false` skips 2: the winds the plan already carries, and nothing else.
     static func legPlanningWind(for waypoint: FlightPlanWaypoint, at coordinate: CLLocationCoordinate2D,
-                                flownAt: Date? = nil,
+                                toAltitudeFt: Double? = nil, flownAt: Date? = nil,
                                 readingForecasts: Bool = true) -> FlightPlanWaypoint.PlanningWind? {
         if let direction = waypoint.windDirection, let speed = waypoint.windSpeed,
            direction.isFinite, speed.isFinite, speed >= 0 {
             return .init(directionDegTrue: direction, speedKt: speed, source: .pilot, validAt: nil)
         }
-        if readingForecasts, let forecast = windsAloftProvider?(coordinate, waypoint.altitude ?? 0, flownAt) {
+        if readingForecasts,
+           let forecast = forecastWind(at: coordinate, fromAltitudeFt: waypoint.altitude,
+                                       toAltitudeFt: toAltitudeFt, flownAt: flownAt) {
             return .init(directionDegTrue: forecast.directionDegTrue, speedKt: forecast.speedKt,
                          source: .forecast, validAt: forecast.validAt)
         }
@@ -905,6 +908,64 @@ struct FlightPlan: Identifiable, Codable, Equatable {
             return stored
         }
         return nil
+    }
+
+    /// The forecast wind a leg is flown in: the wind at the level it is flown at. (6.1)
+    ///
+    /// A level leg is flown at its level: the wind there. A leg whose ends are at different altitudes
+    /// is flown from one to the other (the route profile is a straight line between them), so its wind
+    /// is the VECTOR average of the winds at the two altitudes: east and north components averaged,
+    /// never the directions (the mean of 350° and 010° is 360°, not 180°). Both are read at the same
+    /// place and time, the leg's midpoint when it is flown, which is what the caller passes.
+    ///
+    /// Until 6.1 a leg took the wind at its FIRST waypoint's altitude, at that waypoint: the first leg
+    /// out of a departure at field elevation got the surface wind for a climb to cruise, and every
+    /// leg after a level change got the previous leg's level (the SkyDemon import and the nav log put
+    /// a leg's level on the waypoint where it ends).
+    ///
+    /// A waypoint without an altitude takes the other end's; with neither, the surface (0 ft), as
+    /// before.
+    static func forecastWind(at coordinate: CLLocationCoordinate2D, fromAltitudeFt: Double?, toAltitudeFt: Double?,
+                             flownAt: Date?) -> WindAloft? {
+        guard let provider = windsAloftProvider else { return nil }
+        let from = fromAltitudeFt ?? toAltitudeFt ?? 0
+        let to = toAltitudeFt ?? from
+        let atFrom = provider(coordinate, from, flownAt)
+        guard to != from else { return atFrom }
+        let atTo = provider(coordinate, to, flownAt)
+        switch (atFrom, atTo) {
+        case let (a?, b?): return vectorMean(a, b)
+        case let (a?, nil): return a
+        case let (nil, b?): return b
+        default: return nil
+        }
+    }
+
+    /// The mean of two winds as vectors. Direction FROM, degrees true, as the winds themselves. (6.1)
+    static func vectorMean(_ a: WindAloft, _ b: WindAloft) -> WindAloft {
+        // The air moves TOWARD the direction plus 180°: its east and north components.
+        func components(_ wind: WindAloft) -> (east: Double, north: Double) {
+            let toward = (wind.directionDegTrue + 180) * .pi / 180
+            return (wind.speedKt * sin(toward), wind.speedKt * cos(toward))
+        }
+        let (ae, an) = components(a), (be, bn) = components(b)
+        let east = (ae + be) / 2, north = (an + bn) / 2
+        let speed = hypot(east, north)
+        // Calm: no direction to speak of; keep the first one's rather than invent 000.
+        guard speed > 1e-9 else { return WindAloft(directionDegTrue: a.directionDegTrue, speedKt: 0, validAt: a.validAt) }
+        let from = (atan2(east, north) * 180 / .pi + 180).truncatingRemainder(dividingBy: 360)
+        return WindAloft(directionDegTrue: from < 0 ? from + 360 : from, speedKt: speed, validAt: a.validAt ?? b.validAt)
+    }
+
+    /// Halfway along the great circle from `a` to `b`.
+    static func midpoint(_ a: CLLocationCoordinate2D, _ b: CLLocationCoordinate2D) -> CLLocationCoordinate2D {
+        let lat1 = a.latitude * .pi / 180, lat2 = b.latitude * .pi / 180
+        let lon1 = a.longitude * .pi / 180, dLon = (b.longitude - a.longitude) * .pi / 180
+        let bx = cos(lat2) * cos(dLon), by = cos(lat2) * sin(dLon)
+        let lat = atan2(sin(lat1) + sin(lat2), sqrt((cos(lat1) + bx) * (cos(lat1) + bx) + by * by))
+        let lon = (lon1 + atan2(by, cos(lat1) + bx)) * 180 / .pi
+        return CLLocationCoordinate2D(latitude: lat * 180 / .pi,
+                                      longitude: (lon + 540).truncatingRemainder(dividingBy: 360) - 180)
     }
 
     /// `legPlanningWind` without its source: the wind alone.
@@ -979,7 +1040,7 @@ struct FlightPlan: Identifiable, Codable, Equatable {
     /// Falls back to the raw value when no wind is known, or when the wind makes the leg unflyable at
     /// that airspeed, rather than inventing a number.
     ///
-    /// `flownAt`: when the leg will be flown, for the forecast hour (`windsAloftProvider`).
+    /// `flownAt`: when the leg starts, for the forecast hour (`windsAloftProvider`).
     func legPlanning(from index: Int, flownAt: Date? = nil, readingForecasts: Bool = true) -> LegPlanning? {
         guard index >= 0, index < waypoints.count - 1 else { return nil }
         let from = waypoints[index].coordinate
@@ -993,7 +1054,12 @@ struct FlightPlan: Identifiable, Codable, Equatable {
         let magneticCourse = (trueCourse - declination + 360).truncatingRemainder(dividingBy: 360)
 
         let airspeed = waypoints[index].plannedGroundSpeed ?? FlightPlan.defaultCruiseSpeed(for: aircraftTypeId)
-        let wind = FlightPlan.legPlanningWind(for: waypoints[index], at: from, flownAt: flownAt,
+        // The wind at the level the leg is flown at (`forecastWind`), read at its midpoint, when the
+        // aircraft gets there: half the leg later at the planned airspeed (the ground speed is what is
+        // being computed). (6.1)
+        let halfway = flownAt.map { $0.addingTimeInterval(distanceNM / Double(max(1, airspeed)) * 1800) }
+        let wind = FlightPlan.legPlanningWind(for: waypoints[index], at: FlightPlan.midpoint(from, to),
+                                              toAltitudeFt: waypoints[index + 1].altitude, flownAt: halfway,
                                               readingForecasts: readingForecasts)
         let corrected = wind.flatMap {
             FlightPlan.windCorrectedGroundSpeed(trueAirspeedKt: Double(airspeed), trueCourseDeg: trueCourse, wind: $0.wind)

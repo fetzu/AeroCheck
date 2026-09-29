@@ -329,18 +329,20 @@ final class WindsAloftPlanningTests: XCTestCase {
 
     // MARK: - The forecast hour (6.1)
 
-    /// Each leg asks for the hour it is flown: the departure plus everything before it, the +5
-    /// departure allowance included.
+    /// Each leg asks for the time the aircraft is halfway along it: the departure plus everything
+    /// before the leg (the +5 departure allowance included), plus half the leg at the planned airspeed.
     func testEachLegAsksForTheTimeItIsFlown() {
         var asked: [Date?] = []
         FlightPlan.windsAloftProvider = { _, _, flownAt in asked.append(flownAt); return nil }
         var plan = route(departing: departure)
         plan.calculateRouteData()
 
-        let leg = plan.waypoints.map { $0.estimatedElapsedTime ?? 0 }
-        XCTAssertEqual(asked, [departure,
-                               departure.addingTimeInterval(leg[0] + 300),
-                               departure.addingTimeInterval(leg[0] + 300 + leg[1])])
+        let leg = plan.waypoints.map { $0.estimatedElapsedTime ?? 0 }   // at 100 kt: no wind
+        let expected = [departure.addingTimeInterval(leg[0] / 2),
+                        departure.addingTimeInterval(leg[0] + 300 + leg[1] / 2),
+                        departure.addingTimeInterval(leg[0] + 300 + leg[1] + leg[2] / 2)]
+        XCTAssertEqual(asked.count, 3, "level legs: one level each")
+        for (a, e) in zip(asked, expected) { XCTAssertEqual(a?.timeIntervalSince(e) ?? .nan, 0, accuracy: 0.01) }
     }
 
     /// Once the flight has a take-off, the legs are flown from it.
@@ -352,7 +354,8 @@ final class WindsAloftPlanningTests: XCTestCase {
         plan.etoAnchor = takeoff
         plan.calculateRouteData()
 
-        XCTAssertEqual(asked.first, takeoff)
+        let halfway = plan.waypoints[0].estimatedElapsedTime! / 2
+        XCTAssertEqual(asked.first??.timeIntervalSince(takeoff) ?? .nan, halfway, accuracy: 0.01)
     }
 
     func testARouteWithNoDateAsksForNoHour() {
@@ -412,5 +415,83 @@ final class WindsAloftPlanningTests: XCTestCase {
         let flownInThreeHours = service.wind(at: here, altitudeFt: 5000,
                                              flownAt: departure.addingTimeInterval(3 * 3600), now: now)
         XCTAssertEqual(flownInThreeHours?.directionDegTrue, 200, "no forecast for that hour: the current one, as before")
+    }
+
+    // MARK: - The level a leg is flown at (6.1)
+
+    /// A leg's wind is read where it is flown: at its midpoint, at its level.
+    func testALevelLegTakesTheWindAtItsLevelAtItsMidpoint() {
+        var asked: [(CLLocationCoordinate2D, Double)] = []
+        FlightPlan.windsAloftProvider = { coordinate, altitude, _ in
+            asked.append((coordinate, altitude)); return self.wind(240, 15)
+        }
+        var plan = route(departing: departure)
+        plan.calculateRouteData()
+
+        XCTAssertEqual(asked.count, 3, "one level, one lookup per leg")
+        XCTAssertEqual(asked[0].0.longitude, 7.15, accuracy: 0.001, "halfway between 7.0 and 7.3")
+        XCTAssertEqual(asked[0].1, 5000)
+        XCTAssertEqual(plan.waypoints[0].planningWind?.directionDegTrue, 240)
+    }
+
+    /// Climbing from the departure at field elevation to 5,000 ft: the vector average of the winds at
+    /// both, not the surface wind of the first waypoint's altitude. The stored planning wind is that
+    /// average.
+    func testALegBetweenTwoLevelsTakesTheVectorAverageOfTheirWinds() throws {
+        var asked: [Double] = []
+        FlightPlan.windsAloftProvider = { _, altitude, _ in
+            asked.append(altitude)
+            return altitude < 3000 ? self.wind(180, 10) : self.wind(270, 30)
+        }
+        var plan = route(departing: departure)
+        plan.waypoints[0].altitude = 1400
+        plan.calculateRouteData()
+
+        XCTAssertEqual(Array(asked.prefix(2)), [1400, 5000])
+        let stored = try XCTUnwrap(plan.waypoints[0].planningWind)
+        let mean = FlightPlan.vectorMean(wind(180, 10), wind(270, 30))
+        XCTAssertEqual(stored.directionDegTrue, mean.directionDegTrue, accuracy: 0.001)
+        XCTAssertEqual(stored.speedKt, mean.speedKt, accuracy: 0.001)
+        // Southerly 10 and westerly 30: from 252°, 15.8 kt.
+        XCTAssertEqual(mean.directionDegTrue, 251.57, accuracy: 0.1)
+        XCTAssertEqual(mean.speedKt, hypot(5, 15), accuracy: 0.01)
+        XCTAssertEqual(plan.waypoints[1].planningWind?.directionDegTrue, 270, "the next leg is level again")
+    }
+
+    func testWindsAreAveragedAsVectorsNotAsDirections() {
+        let north = FlightPlan.vectorMean(wind(350, 20), wind(10, 20))
+        XCTAssertEqual(north.directionDegTrue.truncatingRemainder(dividingBy: 360), 0, accuracy: 0.001,
+                       "the mean of 350 and 010 is north, not south")
+        XCTAssertEqual(north.speedKt, 20 * cos(10 * .pi / 180), accuracy: 0.001)
+        XCTAssertEqual(FlightPlan.vectorMean(wind(90, 20), wind(270, 20)).speedKt, 0, accuracy: 0.001,
+                       "opposite winds cancel")
+    }
+
+    func testAPilotWindStillOutranksTheLegsForecast() {
+        FlightPlan.windsAloftProvider = { _, _, _ in self.wind(90, 40) }
+        var plan = route(departing: departure)
+        plan.waypoints[1].altitude = 7000
+        plan.waypoints[0].windDirection = 300
+        plan.waypoints[0].windSpeed = 12
+        plan.calculateRouteData()
+        XCTAssertEqual(plan.waypoints[0].planningWind, .init(directionDegTrue: 300, speedKt: 12, source: .pilot))
+    }
+
+    /// A waypoint with no altitude: the leg is flown at the other end's.
+    func testAnEndWithoutAnAltitudeTakesTheOthersLevel() {
+        var asked: [Double] = []
+        FlightPlan.windsAloftProvider = { _, altitude, _ in asked.append(altitude); return nil }
+        var plan = route(departing: departure)
+        plan.waypoints[0].altitude = nil
+        plan.calculateRouteData()
+        XCTAssertEqual(asked.first, 5000)
+    }
+
+    func testTheMidpointIsHalfwayAlongTheGreatCircle() {
+        let mid = FlightPlan.midpoint(.init(latitude: 47, longitude: 7), .init(latitude: 47, longitude: 9))
+        XCTAssertEqual(mid.longitude, 8, accuracy: 1e-9)
+        XCTAssertGreaterThan(mid.latitude, 47, "a great circle bows towards the pole")
+        let across = FlightPlan.midpoint(.init(latitude: 0, longitude: 179), .init(latitude: 0, longitude: -179))
+        XCTAssertEqual(abs(across.longitude), 180, accuracy: 1e-9, "across the antimeridian, not through Greenwich")
     }
 }

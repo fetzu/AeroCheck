@@ -408,3 +408,185 @@ final class BlockTimeBackdatingTests: XCTestCase {
                        "A single noisy sample must not restart the block-on clock")
     }
 }
+
+// MARK: - Full-stop landings (6.1.0)
+
+private extension XCTestCase {
+    /// A WT9 flight on a confined datastore, flown up to its LANDING check: every check before it
+    /// worked through (cruise and descent skipped on circuits), the landing check untouched.
+    @MainActor
+    func wt9FlightOnLandingCheck(circuits: Bool) -> AppState {
+        let appState = makeTestAppState()
+        appState.settings.selectedRemoteAircraftId = nil
+        appState.settings.selectedAircraft = .wt9Dynamic
+        appState.settings.learningMode = true
+        appState.settings.stepByStepHighlighting = true
+        appState.startFlight(withAircraft: "F-HVXA", aircraftRegistration: "F-HVXA", aircraftType: "WT9",
+                             circuitMode: circuits)
+        addTeardownBlock { @MainActor in appState.cancelFlight() }
+        for phase in ChecklistPhase.allCases where phase.rawValue < ChecklistPhase.landing.rawValue {
+            let count = appState.activeChecklist.visibleItemCount(for: phase, learningMode: true)
+            appState.currentHighlightedItem[phase] = ChecklistHighlighting.lastItemComplete(visibleCount: count)
+            appState.phaseCompletionStatus[phase] = phase.isSkippedInCircuitMode(circuits) ? .skipped : .completed
+        }
+        appState.currentPhase = .landing
+        return appState
+    }
+}
+
+/// Where a full-stop landing takes the Cockpit (6.1.0, author decision): on circuits, TAXI for the
+/// next circuit (the stop-and-go, as before); on any other flight, AFTER LANDING with every check
+/// kept, never back to taxi. The landing itself is recorded the same way on both. The detector's
+/// card and FULL STOP LANDING are driven end to end in `FlightEventDetectorTests`.
+@MainActor
+final class FullStopLandingTests: XCTestCase {
+
+    private let touchdown = Date().addingTimeInterval(-40)
+
+    private func items(_ appState: AppState, _ phase: ChecklistPhase) -> [ChecklistItem] {
+        appState.activeChecklist.visibleItems(for: phase, learningMode: true).filter { !$0.isHeader }
+    }
+
+    func testAFullStopEndsOnAfterLandingWithTheChecksKept() throws {
+        let appState = wt9FlightOnLandingCheck(circuits: false)
+        let landing = items(appState, .landing)
+        try XCTSkipIf(landing.count < 2, "needs a landing check of two items or more")
+        appState.currentHighlightedItem[.landing] = 1               // one item ticked
+        let statuses = appState.phaseCompletionStatus
+        let highlights = appState.currentHighlightedItem
+
+        appState.recordFullStop(at: touchdown)
+
+        XCTAssertEqual(appState.currentPhase, .afterLanding)
+        for phase in ChecklistPhase.allCases where phase.rawValue < ChecklistPhase.landing.rawValue {
+            XCTAssertEqual(appState.phaseCompletionStatus[phase], statuses[phase], "\(phase) kept")
+            XCTAssertEqual(appState.currentHighlightedItem[phase], highlights[phase], "\(phase) kept")
+        }
+        XCTAssertEqual(appState.currentHighlightedItem[.landing], 1, "what was ticked stays ticked")
+        XCTAssertEqual(appState.phaseCompletionStatus[.landing], .skipped, "left part-way, as NEXT leaves it")
+        XCTAssertEqual(appState.deferredItems[.landing], landing.dropFirst().map(\.id), "the rest follows the pilot")
+        assertOneLandingAtTouchdown(appState)
+    }
+
+    func testCircuitsStillStopAndGoToTaxi() {
+        let appState = wt9FlightOnLandingCheck(circuits: true)
+        appState.currentHighlightedItem[.landing] = 1
+        appState.deferredItems[.approach] = ["x"]
+
+        appState.recordFullStop(at: touchdown)
+
+        XCTAssertEqual(appState.currentPhase, .taxi)
+        for phase in ChecklistPhase.allCases
+        where phase.rawValue >= ChecklistPhase.taxi.rawValue && phase.rawValue <= ChecklistPhase.afterLanding.rawValue {
+            XCTAssertNil(appState.phaseCompletionStatus[phase], "\(phase) starts again")
+            XCTAssertEqual(appState.currentHighlightedItem[phase], 0, "\(phase) starts again")
+            XCTAssertNil(appState.deferredItems[phase], "\(phase) starts again")
+        }
+        XCTAssertEqual(appState.phaseCompletionStatus[.preflight], .completed, "before taxi: kept")
+        assertOneLandingAtTouchdown(appState)
+    }
+
+    /// The phase is the only difference: count, times and the flight's own landing time match.
+    func testTheLandingIsRecordedTheSameOnEitherFlight() {
+        let flight = wt9FlightOnLandingCheck(circuits: false)
+        let circuits = wt9FlightOnLandingCheck(circuits: true)
+        flight.recordFullStop(at: touchdown)
+        circuits.recordFullStop(at: touchdown)
+        XCTAssertEqual(flight.currentFlight?.fullStopCount, circuits.currentFlight?.fullStopCount)
+        XCTAssertEqual(flight.currentFlight?.fullStopTimes, circuits.currentFlight?.fullStopTimes)
+        XCTAssertEqual(flight.currentFlight?.landingTime, circuits.currentFlight?.landingTime)
+        XCTAssertEqual(flight.landingTime, circuits.landingTime)
+        XCTAssertEqual(flight.currentFlight?.touchAndGoCount, circuits.currentFlight?.touchAndGoCount)
+    }
+
+    /// Forward only: a pilot already on AFTER LANDING, or past it, stays there with their progress.
+    func testAFullStopNeverTakesTheCockpitBack() {
+        for phase in [ChecklistPhase.afterLanding, .shutdown, .hangar] {
+            let appState = wt9FlightOnLandingCheck(circuits: false)
+            appState.currentPhase = phase
+            appState.currentHighlightedItem[phase] = 1
+            appState.recordFullStop(at: touchdown)
+            XCTAssertEqual(appState.currentPhase, phase)
+            XCTAssertEqual(appState.currentHighlightedItem[phase], 1, "\(phase)")
+            XCTAssertEqual(appState.currentFlight?.fullStopCount, 1, "\(phase)")
+        }
+    }
+
+    /// Checks never ticked on the way are deferred whole, as a jump on the phase bar defers them:
+    /// the detection never marks a check done.
+    func testChecksPassedOnTheWayAreDeferredNotDone() throws {
+        let appState = wt9FlightOnLandingCheck(circuits: false)
+        try XCTSkipIf(items(appState, .approach).isEmpty || items(appState, .landing).isEmpty)
+        appState.currentHighlightedItem[.approach] = 0
+        appState.phaseCompletionStatus[.approach] = nil
+        appState.currentPhase = .approach
+
+        appState.recordFullStop(at: touchdown)
+
+        XCTAssertEqual(appState.currentPhase, .afterLanding)
+        XCTAssertEqual(appState.deferredChecks, [.approach, .landing])
+        XCTAssertEqual(appState.phaseCompletionStatus[.approach], .skipped)
+        XCTAssertEqual(appState.phaseCompletionStatus[.landing], .skipped)
+    }
+
+    /// AFTER LANDING has its own "stopped, so landed" fallback. After a full stop it must leave the
+    /// landing alone: the phase change doesn't move the landing time or add a landing.
+    func testAfterLandingsStopFallbackKeepsTheLanding() {
+        let appState = wt9FlightOnLandingCheck(circuits: false)
+        appState.recordFullStop(at: touchdown)
+        var t = Date()
+        for _ in 0..<5 {
+            appState.addGPSPoint(GPSPoint(latitude: 47, longitude: 8, altitude: 500, timestamp: t, speed: 0))
+            t = t.addingTimeInterval(5)
+        }
+        assertOneLandingAtTouchdown(appState)
+    }
+
+    /// FULL STOP LANDING (the AFTER LANDING page's own button) records the landing and moves nothing,
+    /// on circuits as on any other flight.
+    func testFullStopLandingOnAfterLandingStaysThere() {
+        for circuits in [false, true] {
+            let appState = wt9FlightOnLandingCheck(circuits: circuits)
+            appState.currentPhase = .afterLanding
+            appState.currentHighlightedItem[.afterLanding] = 1
+            let statuses = appState.phaseCompletionStatus
+
+            appState.recordLanding(at: touchdown)
+
+            XCTAssertEqual(appState.currentPhase, .afterLanding, "circuits: \(circuits)")
+            XCTAssertEqual(appState.currentHighlightedItem[.afterLanding], 1, "circuits: \(circuits)")
+            XCTAssertEqual(appState.phaseCompletionStatus, statuses, "circuits: \(circuits)")
+            assertOneLandingAtTouchdown(appState)
+        }
+    }
+
+    /// A relaunch after a crash finds the flight where the full stop left it: on disk at once, not
+    /// at the next throttled checkpoint.
+    func testTheFullStopSurvivesACrash() throws {
+        let datastore = makeTestDatastore()
+        let defaults = makeTestDefaults()
+        let source = makeTestAppState(datastore: datastore, defaults: defaults)
+        source.settings.selectedRemoteAircraftId = nil
+        source.settings.selectedAircraft = .wt9Dynamic
+        source.startFlight(withAircraft: "F-HVXA", aircraftRegistration: "F-HVXA", aircraftType: "WT9")
+        source.currentPhase = .landing
+        source.recordFullStop(at: touchdown)
+        source.flushPendingCheckpoint()
+
+        let relaunched = makeTestAppState(datastore: datastore, defaults: defaults)
+        XCTAssertTrue(relaunched.restoreActiveFlightState())
+        XCTAssertEqual(relaunched.currentPhase, .afterLanding)
+        XCTAssertEqual(relaunched.currentFlight?.fullStopCount, 1)
+        XCTAssertEqual(relaunched.landingTime?.timeIntervalSince(touchdown) ?? 99, 0, accuracy: 1)
+        relaunched.cancelFlight()
+        source.cancelFlight()
+    }
+
+    private func assertOneLandingAtTouchdown(_ appState: AppState, file: StaticString = #filePath, line: UInt = #line) {
+        XCTAssertEqual(appState.currentFlight?.fullStopCount, 1, file: file, line: line)
+        XCTAssertEqual(appState.currentFlight?.fullStopTimes, [touchdown], file: file, line: line)
+        XCTAssertEqual(appState.landingTime, touchdown, file: file, line: line)
+        XCTAssertEqual(appState.currentFlight?.landingTime, touchdown, file: file, line: line)
+        XCTAssertTrue(appState.hasLandingBeenDetected, file: file, line: line)
+    }
+}

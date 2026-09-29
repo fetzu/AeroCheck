@@ -1747,11 +1747,19 @@ class AppState {
         currentPhase = .climb
     }
 
-    /// Record a full stop landing and return to taxi phase, resetting subsequent phases.
+    /// Record a full stop landing: the detector's card confirmed, or a manual stop-and-go.
     /// `time` is the physical TOUCHDOWN time when the detector knows it (v2 stamps full
     /// stops at touchdown, not at the end of the stillness dwell); "now" otherwise.
     /// Stop-and-gos count as full stops (decision D1) — the flight log labels every
     /// non-final full stop "stop-and-go" at display time.
+    ///
+    /// Where the Cockpit goes next depends on the flight (6.1.0, author decision):
+    /// - Circuits (`isCircuitMode`: started with CIRCUITS, or a local-profile thread) fly
+    ///   stop-and-gos: the next circuit starts at TAXI, taxi through after landing reset.
+    /// - Any other flight has landed: AFTER LANDING, every check kept as it stands. (Until
+    ///   6.1 it went to TAXI as well, a check already run, and the pilot had to go and find
+    ///   the after landing check.) The landing time, the count and the logbook are the same
+    ///   either way: only the checklist differs.
     func recordFullStop(at time: Date? = nil) {
         let fullStopTime = clampedToLineUp(time ?? Date())
         if isDuplicateLandingEvent(at: fullStopTime) {
@@ -1761,24 +1769,33 @@ class AppState {
         currentFlight?.fullStopCount += 1
         currentFlight?.fullStopTimes.append(fullStopTime)
         // A full stop is a landing: keep landingTime tracking the latest one (the final
-        // full stop of the flight is the flight's landing time).
+        // full stop of the flight is the flight's landing time). Set before the phase
+        // changes, so AFTER LANDING's own stop fallback (`addGPSPoint`) never re-stamps it.
         landingTime = fullStopTime
         currentFlight?.landingTime = fullStopTime
         hasLandingBeenDetected = true
 
-        // Reset phases from taxi onwards (taxi through afterLanding), deferred items included, as for
-        // a touch-and-go. (v6.0 review, confirmed rule)
-        for phase in ChecklistPhase.allCases {
-            if phase.rawValue >= ChecklistPhase.taxi.rawValue && phase.rawValue <= ChecklistPhase.afterLanding.rawValue {
-                phaseCompletionStatus[phase] = nil
-                currentHighlightedItem[phase] = 0
-                deferredItems[phase] = nil
-                deferredChecks.removeAll { $0 == phase }
+        if isCircuitMode {
+            // Reset phases from taxi onwards (taxi through afterLanding), deferred items included,
+            // as for a touch-and-go. (v6.0 review, confirmed rule)
+            for phase in ChecklistPhase.allCases {
+                if phase.rawValue >= ChecklistPhase.taxi.rawValue && phase.rawValue <= ChecklistPhase.afterLanding.rawValue {
+                    phaseCompletionStatus[phase] = nil
+                    currentHighlightedItem[phase] = 0
+                    deferredItems[phase] = nil
+                    deferredChecks.removeAll { $0 == phase }
+                }
             }
+            currentPhase = .taxi
+        } else if currentPhase.rawValue < ChecklistPhase.afterLanding.rawValue {
+            // Forward only, as a tap on AFTER LANDING in the phase bar would go: the check left
+            // keeps what was ticked and defers what wasn't, and a check passed over is deferred
+            // whole. The detection never marks a check done. A pilot already on AFTER LANDING or
+            // beyond stays where they are.
+            goToPhase(.afterLanding, skipped: .deferred)
         }
-
-        // Go to taxi phase
-        currentPhase = .taxi
+        // A landing is logbook data: on disk now, not at the next throttled checkpoint.
+        checkpointActiveFlight(force: true)
     }
 
     // MARK: - Post-flight reconciliation (D2)

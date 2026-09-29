@@ -2359,7 +2359,7 @@ struct FlightDetailView: View {
                         let notFlown = plan.diversion.map { index > 0 && index >= $0.leftRouteAt } ?? false
                             && waypoint.actualTimeOver == nil
                         HStack {
-                            Text(RouteRadioPlanner.displayName(waypoint, index: index)
+                            Text(RouteRadioPlanner.displayName(waypoint, index: index, form: .navLog)
                                  + (notFlown ? " · \(L10n.Trip.notFlown)" : ""))
                                 .scaledFont(size: 13, weight: .medium, design: .monospaced, relativeTo: .caption)
                                 .foregroundColor(notFlown ? .dimText : .primaryText)

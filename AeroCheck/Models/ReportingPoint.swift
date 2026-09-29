@@ -226,13 +226,24 @@ struct ReportingPointLabel: Equatable {
         return "\(aerodrome.displayLine) · \(status.localizedLowercase)"
     }
 
-    /// The waypoint's name in a route: the point's own name ("E", "WITZWIL"), nil for a point
-    /// without one. A short name qualified with its aerodrome ("E (LSGC)") was the planned route name,
-    /// but it does not fit the Cockpit's NEXT cell in iPad portrait (eight characters at 48 pt take
-    /// 250 pt of the cell's 193, so it shrinks to 37 pt and the label moves) nor the phone's
-    /// next-waypoint line (it cuts off the ETE), so it waits for a decision. Meanwhile the aerodrome
-    /// is in the callout, the briefing, the waypoint editor and the GPX description. (6.0.1)
-    var routeName: String? { name }
+    /// The point's name in a route, in the form a surface has room for (`RouteNameForm`); nil for a
+    /// point without a name.
+    func routeName(_ form: RouteNameForm) -> String? {
+        name.map { Self.routeName($0, aerodromeICAO: aerodrome?.icao, form: form) }
+    }
+
+    /// The one place that decides how a reporting point is named in a route. Ten Swiss points are
+    /// called "E", so a short name (one to three characters: "E", "NE") takes its aerodrome where
+    /// there is room: "E (LSGC)". A fixed in-flight slot keeps the plain name ("E (LSGC)" needs 250 pt
+    /// of the Cockpit's 192.6 pt NEXT cell in iPad portrait, and cuts off the ETE on the phone's
+    /// next-waypoint line). A named point is plain everywhere ("WITZWIL"), and so is a point whose
+    /// aerodrome has no ICAO code. (6.0.1, author decision 2026-09-29)
+    static func routeName(_ name: String, aerodromeICAO: String?, form: RouteNameForm) -> String {
+        let icao = aerodromeICAO?.trimmingCharacters(in: .whitespaces) ?? ""
+        let length = name.trimmingCharacters(in: .whitespaces).count
+        guard form == .full, !icao.isEmpty, (1...3).contains(length) else { return name }
+        return "\(name) (\(icao))"
+    }
 
     /// The briefing row's value: "LSGC · On request". The section already sits under an aerodrome,
     /// so its name would repeat; its code still tells a neighbour's points apart.

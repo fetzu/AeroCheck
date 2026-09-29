@@ -41,6 +41,9 @@ struct FlightPlanWaypoint: Identifiable, Codable, Equatable {
     /// A reporting point's unofficial ident from OpenAIP's remark ("ELESE"). Shown in the waypoint
     /// editor and used as the avionics GPX name; never printed where ATC would read it.
     var code: String?
+    /// The ICAO code of the aerodrome a reporting point belongs to ("LSGC"), which qualifies a short
+    /// name where there is room for it: "E (LSGC)" (`routeName(_:)`). The name itself stays "E".
+    var aerodromeICAO: String?
 
     init(
         id: UUID = UUID(),
@@ -62,7 +65,8 @@ struct FlightPlanWaypoint: Identifiable, Codable, Equatable {
         actualTimeOver: Date? = nil,
         pointKind: WaypointPointKind? = nil,
         sourceId: String? = nil,
-        code: String? = nil
+        code: String? = nil,
+        aerodromeICAO: String? = nil
     ) {
         self.id = id
         self.name = name
@@ -85,6 +89,7 @@ struct FlightPlanWaypoint: Identifiable, Codable, Equatable {
         self.pointKind = pointKind
         self.sourceId = sourceId
         self.code = code
+        self.aerodromeICAO = aerodromeICAO
     }
 
     /// CLLocationCoordinate2D representation

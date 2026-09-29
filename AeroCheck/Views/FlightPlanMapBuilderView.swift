@@ -1573,7 +1573,7 @@ struct FlightPlanMapBuilderView: View {
         } else {
             wp.coordinate = coordinate
             // No longer the aerodrome, navaid or point it was: its ident must not reach the GPX.
-            if wp.pointKind != nil { wp.pointKind = .user; wp.sourceId = nil; wp.code = nil }
+            if wp.pointKind != nil { wp.pointKind = .user; wp.sourceId = nil; wp.code = nil; wp.aerodromeICAO = nil }
         }
         flightPlanManager.updateWaypoint(wp, in: planId)
     }
@@ -1736,7 +1736,8 @@ private struct LegRow: View {
     @State private var altitudeText: String = ""
     @FocusState private var altitudeFocused: Bool
 
-    private var name: String { waypoint.name.isEmpty ? "WPT\(index + 1)" : waypoint.name }
+    /// "E (LSGC)" for a short reporting point: the list has the room. (6.0.1)
+    private var name: String { waypoint.name.isEmpty ? "WPT\(index + 1)" : waypoint.routeName(.routeList) }
 
     var body: some View {
         HStack(spacing: 0) {

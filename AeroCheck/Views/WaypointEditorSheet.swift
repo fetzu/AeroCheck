@@ -436,6 +436,7 @@ struct WaypointEditorSheet: View {
             updatedWaypoint.pointKind = .user
             updatedWaypoint.sourceId = nil
             updatedWaypoint.code = nil
+            updatedWaypoint.aerodromeICAO = nil
         }
 
         onSave(updatedWaypoint)
@@ -458,7 +459,7 @@ struct WaypointReportingPointRows: View {
                 .flatMap { OpenAIPReportingPointDataService.shared.point(withId: $0) }
                 .flatMap { OpenAIPAirportDataService.shared.aerodrome(for: $0) }
             SettingsValueRow(icon: "triangle", title: String(localized: "Reporting point"), tint: tint,
-                             value: aerodrome?.displayLine ?? "—")
+                             value: aerodrome?.displayLine ?? waypoint.aerodromeICAO ?? "—")
             if let code = waypoint.code, !code.isEmpty {
                 SettingsValueRow(title: L10n.Nav.pointIdent, tint: tint, value: code)
             }

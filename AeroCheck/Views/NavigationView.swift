@@ -779,9 +779,8 @@ struct NavigationMapView: View {
     @ViewBuilder
     private var nextWaypointLine: some View {
         if let plan = flightPlanManager.activeFlightPlan, !flightPlanManager.isFlightPlanCompleted,
-           let next = plan.nextWaypoint {
+           plan.nextWaypoint != nil, let ident = plan.nextWaypointName(.phoneNextLine) {
             let diversion = plan.diversion
-            let ident = diversion?.ident ?? (next.name.isEmpty ? "WPT \(plan.currentWaypointIndex + 1)" : next.name)
             HStack(spacing: 12) {
                 Button(action: toggleLegsAndFrequencies) {
                     HStack(alignment: .firstTextBaseline, spacing: 10) {
@@ -1547,16 +1546,24 @@ struct NavigationMapView: View {
     @ViewBuilder
     private var nextWaypointCard: some View {
         if let plan = flightPlanManager.activeFlightPlan, !flightPlanManager.isFlightPlanCompleted,
-           let next = plan.nextWaypoint {
+           plan.nextWaypoint != nil, let ident = plan.nextWaypointName(.compact),
+           let fullIdent = plan.nextWaypointName(.mapCard) {
             let diversion = plan.diversion
             let filed = diversion != nil && (threadManager.thread(forPlanId: plan.id)?.hasOpenFlightPlan ?? false)
             VStack(alignment: .leading, spacing: 10) {
                 Button(action: toggleLegsAndFrequencies) {
-                    let ident = diversion?.ident ?? (next.name.isEmpty ? "WPT \(plan.currentWaypointIndex + 1)" : next.name)
                     // One row where it fits; in a narrow window (Slide Over), ETA goes first, then the
                     // ident takes a line above the figures. The phone uses the one-line version.
-                    // (iPhone pass, I4; round 6)
+                    // (iPhone pass, I4; round 6) A short reporting point is "E (LSGC)" only where that
+                    // fits beside every figure: the plain "E" comes before any figure gives way. (6.0.1)
                     ViewThatFits(in: .horizontal) {
+                        SeparateView {
+                            HStack(alignment: .center, spacing: 18) {
+                                nextWaypointIdent(fullIdent, diverting: diversion != nil)
+                                Spacer(minLength: 8)
+                                nextWaypointCells(withETA: true)
+                            }
+                        }
                         HStack(alignment: .center, spacing: 18) {
                             nextWaypointIdent(ident, diverting: diversion != nil)
                             Spacer(minLength: 8)

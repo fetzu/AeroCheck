@@ -268,7 +268,7 @@ struct SetAltitudesSheet: View {
 
     // MARK: Data
 
-    private func name(_ i: Int) -> String { RouteRadioPlanner.displayName(waypoints[i], index: i) }
+    private func name(_ i: Int) -> String { RouteRadioPlanner.displayName(waypoints[i], index: i, form: .navLog) }
 
     private static func feet(_ value: Double?) -> String { value.map { String(Int($0.rounded())) } ?? "—" }
     private static func signed(_ value: Double) -> String { (value >= 0 ? "+" : "") + String(Int(value.rounded())) }

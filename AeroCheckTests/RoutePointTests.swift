@@ -116,12 +116,13 @@ final class RoutePointTests: XCTestCase {
 
     // MARK: - What the waypoint is
 
-    /// The reporting point's name, not qualified: "E (LSGC)" doesn't fit the Cockpit's NEXT cell (see
-    /// `ReportingPointLabel.routeName`). Its ident and source come along; a radio from before goes.
+    /// The waypoint keeps the point's plain name ("E") and its aerodrome's code beside it, for the
+    /// surfaces with room to qualify it. Its ident and source come along; a radio from before goes.
     func testAReportingPointKeepsItsNameAndBringsItsIdentAndSource() throws {
         var wp = FlightPlanWaypoint(name: "LSGC", coordinate: lsgc.coordinate, frequency: "118.000", callSign: "LSGC")
         try pointE().apply(to: &wp, asEndpoint: false)
         XCTAssertEqual(wp.name, "E")
+        XCTAssertEqual(wp.aerodromeICAO, "LSGC")
         XCTAssertEqual(wp.pointKind, .vrp)
         XCTAssertEqual(wp.sourceId, "629cc7abf4b4089a578e3c55")
         XCTAssertEqual(wp.code, "ELESE")
@@ -135,15 +136,18 @@ final class RoutePointTests: XCTestCase {
             .waypoint(asEndpoint: true)
         XCTAssertEqual(named.name, "WITZWIL")
         XCTAssertNil(named.code)
+        XCTAssertNil(named.aerodromeICAO)
         XCTAssertEqual(named.altitude, Double(Int((821 * 3.28084).rounded())), "an endpoint takes its elevation")
     }
 
     func testAPointWithoutANameKeepsTheWaypointsName() throws {
         let unnamed = try reportingPoint(name: nil, remarks: nil, id: "u")
         var wp = FlightPlanWaypoint(name: "WPT", coordinate: coordinate(47, 7))
-        RoutePoint.reportingPoint(unnamed, ReportingPointLabel(point: unnamed, aerodrome: nil)).apply(to: &wp, asEndpoint: false)
+        RoutePoint.reportingPoint(unnamed, ReportingPointLabel(point: unnamed, aerodrome: lesEplatures))
+            .apply(to: &wp, asEndpoint: false)
         XCTAssertEqual(wp.name, "WPT")
         XCTAssertEqual(wp.pointKind, .vrp)
+        XCTAssertEqual(wp.routeName(.full), "WPT", "no aerodrome for a name that isn't the point's")
     }
 
     /// The bug: a waypoint snapped to a VOR carried 112.050 as its frequency, which the nav log
@@ -158,6 +162,7 @@ final class RoutePointTests: XCTestCase {
         XCTAssertEqual(wp.pointKind, .navaid)
         XCTAssertEqual(wp.sourceId, "62616c96abdcc7f0ccbbe519")
         XCTAssertNil(wp.code)
+        XCTAssertNil(wp.aerodromeICAO)
     }
 
     /// Snap a VOR into a route: the nav log's row is named after it, and its radio column is no
@@ -213,6 +218,8 @@ final class RoutePointTests: XCTestCase {
         XCTAssertNil(wp.pointKind)
         XCTAssertNil(wp.sourceId)
         XCTAssertNil(wp.code)
+        XCTAssertNil(wp.aerodromeICAO)
+        XCTAssertEqual(wp.routeName(.full), "E")
     }
 
     func testTheNewFieldsRoundTripAndAnUnknownKindDoesNotFailThePlan() throws {
@@ -222,6 +229,7 @@ final class RoutePointTests: XCTestCase {
         XCTAssertEqual(decoded.waypoints.first?.pointKind, .vrp)
         XCTAssertEqual(decoded.waypoints.first?.code, "ELESE")
         XCTAssertEqual(decoded.waypoints.first?.sourceId, "629cc7abf4b4089a578e3c55")
+        XCTAssertEqual(decoded.waypoints.first?.aerodromeICAO, "LSGC")
 
         // A kind a later build adds ("ifr") reads as the pilot's own point, and the plan still loads.
         var object = try XCTUnwrap(JSONSerialization.jsonObject(with: JSONEncoder().encode(plan)) as? [String: Any])
@@ -290,15 +298,67 @@ final class RoutePointTests: XCTestCase {
         XCTAssertEqual(FlightPlanExportService.gpxName(of: moved), "E")
     }
 
-    /// The ident goes in the GPX only: the nav log (what a pilot reads out) keeps the name.
-    func testTheIdentNeverReachesTheNavLog() throws {
+    /// The ident goes in the GPX only: not in the nav log (what a pilot reads out), nor in the ATC
+    /// flight plan, whose route field takes the plain name as the chart prints it.
+    func testTheIdentNeverReachesTheNavLogOrTheATCFlightPlan() throws {
         var plan = FlightPlan(name: "Log", waypoints: [
             RoutePoint.aerodrome(lszq).waypoint(asEndpoint: true), try pointE().waypoint(asEndpoint: false),
             RoutePoint.aerodrome(lszb).waypoint(asEndpoint: true),
         ])
         plan.calculateRouteData()
         let rows = FlightPlanExportService.navLogRows(plan, radio: RouteRadioPlanner.manualOnly(plan.waypoints))
-        XCTAssertEqual(rows.map(\.name), ["LSZQ", "E", "LSZB"])
+        XCTAssertFalse(rows.map(\.name).contains { $0.contains("ELESE") })
         XCTAssertFalse(rows.flatMap(\.remarks).contains { $0.contains("ELESE") })
+
+        let atc = plan.toICAOFlightPlan()
+        XCTAssertTrue(atc.contains("DCT E DCT"), atc)
+        XCTAssertFalse(atc.contains("ELESE"))
+        XCTAssertFalse(atc.contains("(LSGC)"), "a bracket would end the ICAO message")
+    }
+
+    // MARK: - Route names (author decision 2026-09-29)
+
+    /// "E (LSGC)" where there is room: the nav log and its exports, the route list, the iPad map
+    /// card. "E" in the Cockpit's NEXT cell and on the phone's next-waypoint line.
+    func testAShortReportingPointIsQualifiedWhereThereIsRoom() throws {
+        var plan = FlightPlan(name: "Names", waypoints: [
+            RoutePoint.aerodrome(lszq).waypoint(asEndpoint: true), try pointE().waypoint(asEndpoint: false),
+            RoutePoint.aerodrome(lsgc).waypoint(asEndpoint: true),
+        ])
+        plan.calculateRouteData()
+        let rows = FlightPlanExportService.navLogRows(plan, radio: RouteRadioPlanner.manualOnly(plan.waypoints))
+        XCTAssertEqual(rows.map(\.name), ["LSZQ", "E (LSGC)", "LSGC"])
+        XCTAssertEqual(plan.waypoints[1].routeName(.routeList), "E (LSGC)")
+        XCTAssertEqual(RouteRadioPlanner.displayName(plan.waypoints[1], index: 1, form: .navLog), "E (LSGC)")
+        XCTAssertEqual(plan.waypoints[1].name, "E", "the stored name stays the point's own")
+
+        plan.currentWaypointIndex = 1
+        XCTAssertEqual(plan.nextWaypointName(.cockpitNext), "E")
+        XCTAssertEqual(plan.nextWaypointName(.phoneNextLine), "E")
+        XCTAssertEqual(plan.nextWaypointName(.mapCard), "E (LSGC)")
+        plan.diversion = Diversion(ident: "LSZG", name: "GRENCHEN", latitude: 47.18, longitude: 7.42, leftRouteAt: 1)
+        XCTAssertEqual(plan.nextWaypointName(.mapCard), "LSZG", "diverting: the field, as before")
+    }
+
+    func testOnlyAShortReportingPointNameTakesItsAerodrome() throws {
+        func name(_ name: String, kind: WaypointPointKind?, icao: String?) -> String {
+            FlightPlanWaypoint(name: name, coordinate: coordinate(47, 7), pointKind: kind, aerodromeICAO: icao)
+                .routeName(.full)
+        }
+        XCTAssertEqual(name("NE", kind: .vrp, icao: "LSGC"), "NE (LSGC)")
+        XCTAssertEqual(name("S1", kind: .vrp, icao: "LSZH"), "S1 (LSZH)")
+        XCTAssertEqual(name("WITZWIL", kind: .vrp, icao: "LSMP"), "WITZWIL", "a named point is plain")
+        XCTAssertEqual(name("ECHO", kind: .vrp, icao: "LSGC"), "ECHO")
+        XCTAssertEqual(name("E", kind: .vrp, icao: nil), "E", "an aerodrome without a code")
+        XCTAssertEqual(name("E", kind: .vrp, icao: " "), "E")
+        XCTAssertEqual(name("E", kind: .user, icao: "LSGC"), "E", "moved off the point: the pilot's")
+        XCTAssertEqual(name("WIL", kind: .navaid, icao: nil), "WIL")
+        XCTAssertEqual(name("LSZQ", kind: .aerodrome, icao: nil), "LSZQ")
+        XCTAssertEqual(name("E", kind: nil, icao: nil), "E", "a 6.0 waypoint")
+
+        let e = try reportingPoint(name: "E", remarks: nil)
+        XCTAssertEqual(ReportingPointLabel(point: e, aerodrome: lesEplatures).routeName(.full), "E (LSGC)")
+        XCTAssertEqual(ReportingPointLabel(point: e, aerodrome: lesEplatures).routeName(.compact), "E")
+        XCTAssertEqual(ReportingPointLabel(point: e, aerodrome: nil).routeName(.full), "E")
     }
 }

@@ -552,7 +552,7 @@ class FlightPlanExportService {
         return wps.indices.map { i in
             let wp = wps[i]
             let radioRow = i < radio.rows.count ? radio.rows[i] : RouteRadioPlanner.Row()
-            var row = NavLogRow(name: RouteRadioPlanner.displayName(wp, index: i), isDeparture: i == 0,
+            var row = NavLogRow(name: RouteRadioPlanner.displayName(wp, index: i, form: .navLog), isDeparture: i == 0,
                                 station: radioRow.station, stationChanged: radioRow.changed)
             row.alt = wp.altitude.map { String(format: "%.0f", $0) } ?? ""
             row.ato = wp.formattedATO ?? ""
@@ -1220,7 +1220,7 @@ class FlightPlanExportService {
             let attrs: [NSAttributedString.Key: Any] = [.font: fFoot, .foregroundColor: faintInk]
             var left: [String] = []
             if let first = plan.waypoints.first, let last = plan.waypoints.last, plan.waypoints.count >= 2 {
-                left.append("\(RouteRadioPlanner.displayName(first, index: 0)) → \(RouteRadioPlanner.displayName(last, index: plan.waypoints.count - 1))")
+                left.append("\(RouteRadioPlanner.displayName(first, index: 0, form: .navLog)) → \(RouteRadioPlanner.displayName(last, index: plan.waypoints.count - 1, form: .navLog))")
             }
             if !plan.aircraftRegistration.isEmpty { left.append(plan.aircraftRegistration) }
             if let date = plan.plannedDepartureTime { left.append(dateFmt.string(from: date)) }

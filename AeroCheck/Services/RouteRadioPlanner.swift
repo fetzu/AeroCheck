@@ -215,7 +215,7 @@ enum RouteRadioPlanner {
                 let entryNM = samples[entry.s].d - legStart
                 if k > 0, entryNM / speed < ctx.leadTime {
                     // Too close behind the waypoint to call on this leg: the call goes on the leg before.
-                    let wptName = displayName(wps[k], index: k)
+                    let wptName = displayName(wps[k], index: k, form: .navLog)
                     let at = entryNM < 0.5 ? "at \(wptName)" : String(format: "+%.1f NM after %@", entryNM, wptName)
                     let hx = station?.isHX == true ? " · HX" : ""
                     carried[k] = Pending(station: stationOf(unit: u), remark: "▸ \(label(units[u].airspace)) \(at)\(hx)")
@@ -302,7 +302,7 @@ enum RouteRadioPlanner {
         if let dest = ctx.destination, let contact = dest.contact, !unitRow[n - 1] {
             if n >= 3, legSeconds[lastLeg] < 3 * 60, !unitRow[n - 2] {
                 plan.rows[n - 2].station = contact
-                plan.rows[n - 2].remarks.insert("▸ call \(dest.ident) before \(displayName(wps[n - 2], index: n - 2))", at: 0)
+                plan.rows[n - 2].remarks.insert("▸ call \(dest.ident) before \(displayName(wps[n - 2], index: n - 2, form: .navLog))", at: 0)
             }
             plan.rows[n - 1].station = contact
         }
@@ -617,8 +617,9 @@ enum RouteRadioPlanner {
         return names.joined(separator: " / ")
     }
 
-    static func displayName(_ wp: FlightPlanWaypoint, index: Int) -> String {
-        wp.name.isEmpty ? "WP \(index + 1)" : wp.name
+    /// A waypoint's name in `form` ("E (LSGC)" in the nav log), "WP n" when it has none.
+    static func displayName(_ wp: FlightPlanWaypoint, index: Int, form: RouteNameForm) -> String {
+        wp.name.isEmpty ? "WP \(index + 1)" : wp.routeName(form)
     }
 
     // MARK: - Swiss FIS

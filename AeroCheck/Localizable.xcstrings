@@ -9307,6 +9307,281 @@
         }
       }
     },
+    "BLOCK TIME": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "TEMPS BLOC"
+          }
+        }
+      }
+    },
+    "ENGINE TIME": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "TEMPS MOTEUR"
+          }
+        }
+      }
+    },
+    "SESSION TIME": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "DURÉE DE SESSION"
+          }
+        }
+      }
+    },
+    "MAX ALT": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ALT. MAX"
+          }
+        }
+      }
+    },
+    "DISTANCE": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "DISTANCE"
+          }
+        }
+      }
+    },
+    "LANDINGS": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ATTERRISSAGES"
+          }
+        }
+      }
+    },
+    "TOUCH-AND-GO": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "POSÉ-DÉCOLLÉ"
+          }
+        }
+      }
+    },
+    "TOUCH-AND-GOES": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "POSÉS-DÉCOLLÉS"
+          }
+        }
+      }
+    },
+    "GO-AROUND": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "REMISE DE GAZ"
+          }
+        }
+      }
+    },
+    "GO-AROUNDS": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "REMISES DE GAZ"
+          }
+        }
+      }
+    },
+    "STOP-AND-GO": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ARRÊT-DÉCOLLÉ"
+          }
+        }
+      }
+    },
+    "STOP-AND-GOES": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ARRÊTS-DÉCOLLÉS"
+          }
+        }
+      }
+    },
+    "STOP": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ESCALE"
+          }
+        }
+      }
+    },
+    "STOPS": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ESCALES"
+          }
+        }
+      }
+    },
+    "LT": {
+      "comment": "Local time, beside a time of day on the flight share card (UTC is written UTC).",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "HL"
+          }
+        }
+      }
+    },
+    "PEAK %@": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "PIC %@"
+          }
+        }
+      }
+    },
+    "Map unavailable (offline?)": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Carte indisponible (hors ligne ?)"
+          }
+        }
+      }
+    },
+    "Chart © swisstopo / BAZL": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Carte © swisstopo / BAZL"
+          }
+        }
+      }
+    },
+    "Imagery © swisstopo": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Imagerie © swisstopo"
+          }
+        }
+      }
+    },
+    "Map: Apple Maps": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Carte : Plans d’Apple"
+          }
+        }
+      }
+    },
+    "Terrain © swisstopo": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Relief © swisstopo"
+          }
+        }
+      }
+    },
+    "Elevation: Open-Meteo": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Relief : Open-Meteo"
+          }
+        }
+      }
+    },
+    "Light": {
+      "comment": "A colour theme of the flight share card.",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Clair"
+          }
+        }
+      }
+    },
+    "Aviation": {
+      "comment": "A colour theme of the flight share card (aviation blue).",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aviation"
+          }
+        }
+      }
+    },
+    "Navy": {
+      "comment": "A colour theme of the flight share card (navy blue).",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Marine"
+          }
+        }
+      }
+    },
+    "Dark": {
+      "comment": "A colour theme of the flight share card (black).",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sombre"
+          }
+        }
+      }
+    },
+    "Glider chart": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Carte vol à voile"
+          }
+        }
+      }
+    },
     "FLT": {
       "comment": "A label displayed in the status strip.",
       "isCommentAutoGenerated": true
@@ -10111,18 +10386,6 @@
       "comment": "The text label for the PDF export option in the flight plan editor.",
       "isCommentAutoGenerated": true
     },
-    "PEAK %lld FT": {
-      "comment": "A label indicating the maximum altitude reached during a flight, displayed in feet. The argument is the maximum altitude in feet.",
-      "isCommentAutoGenerated": true,
-      "localizations": {
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "PIC %lld FT"
-          }
-        }
-      }
-    },
     "PLAN vs ACTUAL": {
       "comment": "A label displayed above the planned ETO vs actual ATO table.",
       "isCommentAutoGenerated": true
@@ -10195,7 +10458,15 @@
     },
     "ROUTE": {
       "comment": "A label displayed above the route strip in the flight share card.",
-      "isCommentAutoGenerated": true
+      "isCommentAutoGenerated": true,
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ROUTE"
+          }
+        }
+      }
     },
     "Recommended": {
       "localizations": {
@@ -10372,11 +10643,27 @@
     },
     "Share card": {
       "comment": "A button to share a card with the user.",
-      "isCommentAutoGenerated": true
+      "isCommentAutoGenerated": true,
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Carte de partage"
+          }
+        }
+      }
     },
     "Share stats card": {
       "comment": "A button that shares a summary of the current filter's stats.",
-      "isCommentAutoGenerated": true
+      "isCommentAutoGenerated": true,
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Partager une carte des statistiques"
+          }
+        }
+      }
     },
     "Show all": {
       "localizations": {
@@ -10631,7 +10918,16 @@
         }
       }
     },
-    "TERRAIN": {},
+    "TERRAIN": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "RELIEF"
+          }
+        }
+      }
+    },
     "TGT: %lld": {
       "comment": "A label indicating the target speed on an aviation instrument panel.",
       "isCommentAutoGenerated": true
@@ -16399,10 +16695,6 @@
           }
         }
       }
-    },
-    "https://aerocheck.app": {
-      "comment": "The website URL of the app.",
-      "isCommentAutoGenerated": true
     },
     "iCloud & Log": {
       "localizations": {

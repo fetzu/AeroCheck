@@ -1278,6 +1278,57 @@ enum L10n {
         static let export = String(localized: "flightDetail.export")
     }
 
+    // MARK: - Share card (6.1)
+    // Literal-keyed, EN and FR by hand in the catalog. Units (ft, NM, km), UTC and the data sources'
+    // names stay as they are.
+    enum ShareCard {
+        // The duration beside the title, named for what it is.
+        static let flightTime = String(localized: "FLIGHT TIME")
+        static let blockTime = String(localized: "BLOCK TIME")
+        static let engineTime = String(localized: "ENGINE TIME")
+        static let sessionTime = String(localized: "SESSION TIME")
+
+        // The figures under the map and the row of times and counts.
+        static let maxAltitude = String(localized: "MAX ALT")
+        static let distance = String(localized: "DISTANCE")
+        static let takeoff = String(localized: "TAKE-OFF")
+        static let landing = String(localized: "LANDING")
+        static func landings(_ count: Int) -> String {
+            count == 1 ? String(localized: "LANDING") : String(localized: "LANDINGS")
+        }
+        static func touchAndGoes(_ count: Int) -> String {
+            count == 1 ? String(localized: "TOUCH-AND-GO") : String(localized: "TOUCH-AND-GOES")
+        }
+        static func goArounds(_ count: Int) -> String {
+            count == 1 ? String(localized: "GO-AROUND") : String(localized: "GO-AROUNDS")
+        }
+        static func stopAndGoes(_ count: Int) -> String {
+            count == 1 ? String(localized: "STOP-AND-GO") : String(localized: "STOP-AND-GOES")
+        }
+        /// A full stop at another aerodrome, before the flight's last landing.
+        static func stops(_ count: Int) -> String {
+            count == 1 ? String(localized: "STOP") : String(localized: "STOPS")
+        }
+        /// Beside a time of day that is local, not UTC.
+        static let localTime = String(localized: "LT", comment: "Local time, beside a time of day on the flight share card (UTC is written UTC).")
+        static func peak(_ altitude: String) -> String { String(localized: "PEAK \(altitude)") }
+
+        // The map.
+        static let mapUnavailable = String(localized: "Map unavailable (offline?)")
+        static let creditChart = String(localized: "Chart © swisstopo / BAZL")
+        static let creditImagery = String(localized: "Imagery © swisstopo")
+        static let creditAppleMaps = String(localized: "Map: Apple Maps")
+        static let creditTerrainSwisstopo = String(localized: "Terrain © swisstopo")
+        static let creditTerrainOpenMeteo = String(localized: "Elevation: Open-Meteo")
+
+        // The customisation sheet.
+        static let themeLight = String(localized: "Light", comment: "A colour theme of the flight share card.")
+        static let themeAviation = String(localized: "Aviation", comment: "A colour theme of the flight share card (aviation blue).")
+        static let themeNavy = String(localized: "Navy", comment: "A colour theme of the flight share card (navy blue).")
+        static let themeDark = String(localized: "Dark", comment: "A colour theme of the flight share card (black).")
+        static let gliderChart = String(localized: "Glider chart")
+    }
+
     // MARK: - Event Confirmation
     enum EventConfirmation {
         static let dismiss = String(localized: "eventConfirmation.dismiss")

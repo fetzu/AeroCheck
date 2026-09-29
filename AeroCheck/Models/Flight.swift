@@ -635,7 +635,26 @@ struct Flight: Identifiable, Codable {
     /// The end of a route that is not known.
     static let unknownAerodrome = "?"
 
-    private static func nonBlank(_ text: String) -> String? {
+    /// The title as VoiceOver says it: "LSZQ to LSGE", "LSZQ to unknown aerodrome". Read aloud, the
+    /// glyphs were "right arrow" and "question mark". (v6.1)
+    var spokenTitle: String {
+        switch routeShape {
+        case let .between(departure, arrival, _):
+            return L10n.FlightTitle.spokenRoute(departure, arrival)
+        case let .oneEnd(departure, arrival):
+            return L10n.FlightTitle.spokenRoute(departure ?? L10n.FlightTitle.unknownAerodrome,
+                                                arrival ?? L10n.FlightTitle.unknownAerodrome)
+        case .circuits, .roundTrip, .unnamed:
+            return title
+        }
+    }
+
+    /// `spokenTitle` with the pilot's name before it, for a label that stands for the whole flight.
+    var spokenTitleWithName: String {
+        titleEyebrow.map { "\($0), \(spokenTitle)" } ?? spokenTitle
+    }
+
+    static func nonBlank(_ text: String) -> String? {
         text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? nil : text
     }
 

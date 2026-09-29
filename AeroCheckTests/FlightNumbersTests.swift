@@ -177,6 +177,42 @@ final class FlightNumbersTests: XCTestCase {
         XCTAssertEqual(unplaced.title, "dr400-140b")
     }
 
+    /// VoiceOver read "LSZQ right arrow question mark". The spoken title says the route.
+    func testTheSpokenTitleSaysUnknownAerodromeNotQuestionMark() {
+        var noArrival = flight()
+        noArrival.arrivalAirportIdent = nil
+        XCTAssertEqual(noArrival.spokenTitle,
+                       L10n.FlightTitle.spokenRoute("LSZQ", L10n.FlightTitle.unknownAerodrome))
+        XCTAssertFalse(noArrival.spokenTitle.contains("?"))
+        XCTAssertFalse(noArrival.spokenTitle.contains("→"))
+
+        var noDeparture = flight()
+        noDeparture.departureAirportIdent = nil
+        XCTAssertEqual(noDeparture.spokenTitle,
+                       L10n.FlightTitle.spokenRoute(L10n.FlightTitle.unknownAerodrome, "LSGY"))
+        XCTAssertEqual(flight().spokenTitle, L10n.FlightTitle.spokenRoute("LSZQ", "LSGY"))
+
+        var named = flight()
+        named.name = "Vol Solo #2.2"
+        XCTAssertEqual(named.spokenTitleWithName, "Vol Solo #2.2, \(L10n.FlightTitle.spokenRoute("LSZQ", "LSGY"))")
+        var round = flight()
+        round.arrivalAirportIdent = "LSZQ"
+        XCTAssertEqual(round.spokenTitle, "LSZQ")
+    }
+
+    /// The words VoiceOver says ship in English and French.
+    func testTheNewTitleStringsShipInEnglishAndFrench() throws {
+        for (localization, expected) in [("en", "unknown aerodrome"), ("fr", "aérodrome inconnu")] {
+            let path = try XCTUnwrap(Bundle.main.path(forResource: "Localizable", ofType: "strings",
+                                                      inDirectory: nil, forLocalization: localization))
+            let strings = try XCTUnwrap(NSDictionary(contentsOfFile: path) as? [String: String])
+            XCTAssertEqual(strings["flightTitle.unknownAerodrome"], expected)
+            for key in ["flightTitle.spokenRoute"] {
+                XCTAssertFalse((strings[key] ?? "").isEmpty, "\(key) in \(localization)")
+            }
+        }
+    }
+
     // MARK: - The line laid out as the form (v5.x)
 
     func testFormRowPutsEachValueUnderTheFormsOwnHeading() {

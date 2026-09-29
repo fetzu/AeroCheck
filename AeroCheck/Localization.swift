@@ -1026,6 +1026,16 @@ enum L10n {
         static let pts = String(localized: "flightLog.pts")
     }
 
+    // MARK: - Flight titles, read aloud (v6.1)
+    enum FlightTitle {
+        /// What VoiceOver says for the "?" end of a route.
+        static let unknownAerodrome = String(localized: "flightTitle.unknownAerodrome")
+        /// "LSZQ to LSGE", for VoiceOver.
+        static func spokenRoute(_ departure: String, _ arrival: String) -> String {
+            String(format: String(localized: "flightTitle.spokenRoute"), departure, arrival)
+        }
+    }
+
     // MARK: - Premium
     enum Premium {
         static let title = String(localized: "premium.title")

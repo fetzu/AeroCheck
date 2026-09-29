@@ -1,6 +1,40 @@
 {
   "sourceLanguage": "en",
   "strings": {
+    "flightTitle.spokenRoute": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@ to %2$@"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@ vers %2$@"
+          }
+        }
+      }
+    },
+    "flightTitle.unknownAerodrome": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "unknown aerodrome"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "aérodrome inconnu"
+          }
+        }
+      }
+    },
     "Plan a flight from Today. You can always start flying without one.": {
       "localizations": {
         "fr": {

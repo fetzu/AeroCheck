@@ -1814,8 +1814,25 @@ struct FlightRowView: View {
     ///
     /// The words are `Flight.title`'s; this only lays them out. A round flight reads "LSZQ", one end
     /// not found reads "LSZQ → ?" with the unknown end dimmed. (v6.1)
-    @ViewBuilder
     private var routeView: some View {
+        routeLine
+            // One element, read as the title is meant: "LSZQ to unknown aerodrome, circuits", not
+            // "LSZQ, right arrow, question mark". (v6.1)
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel(routeSpokenLabel)
+    }
+
+    private var routeSpokenLabel: String {
+        switch flight.routeShape {
+        case .between(_, _, withCircuits: true), .circuits:
+            return "\(flight.spokenTitle), \(L10n.Flights.circuits.lowercased())"
+        default:
+            return flight.spokenTitle
+        }
+    }
+
+    @ViewBuilder
+    private var routeLine: some View {
         switch flight.routeShape {
         case let .between(dep, arr, withCircuits):
             HStack(spacing: 6) {
@@ -2189,6 +2206,8 @@ struct FlightDetailView: View {
                     .foregroundColor(.primaryText)
                     .lineLimit(1)
                     .minimumScaleFactor(0.6)
+                    .accessibilityLabel(flight.spokenTitle)
+                    .accessibilityAddTraits(.isHeader)
             }
             Text(subtitleLine)
                 .scaledFont(size: 13, relativeTo: .caption)
@@ -4541,6 +4560,7 @@ struct FlightShareCard: View {
             HStack(alignment: .firstTextBaseline) {
                 // Title (route, flight name, or aircraft)
                 Text(displayTitle)
+                    .accessibilityLabel(flight.spokenTitle)
                     .font(.aero(size: 52, weight: .bold, design: .default))
                     .foregroundColor(colorScheme.primaryTextColor)
                     .lineLimit(1)

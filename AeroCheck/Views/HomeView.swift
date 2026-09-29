@@ -339,6 +339,15 @@ struct HomeView: View {
                     .navigationTitle(flight.title)
                     .navigationBarTitleDisplayMode(.inline)
                     .toolbar {
+                        // The same title, read as a route rather than as its glyphs. (v6.1)
+                        ToolbarItem(placement: .principal) {
+                            Text(flight.title)
+                                .font(.aero(size: 17, weight: .bold))   // the bar's own title font
+                                .foregroundColor(.primaryText)
+                                .lineLimit(1)
+                                .accessibilityLabel(flight.spokenTitle)
+                                .accessibilityAddTraits(.isHeader)
+                        }
                         ToolbarItem(placement: .topBarLeading) {
                             Button { lastFlightForDetail = nil } label: {
                                 Image(systemName: "chevron.left")
@@ -842,7 +851,7 @@ struct HomeView: View {
                 )
             }
             .buttonStyle(.plain)
-            .accessibilityLabel("\(L10n.Home.lastFlight), \(last.titleWithName), \(last.formattedDuration)")
+            .accessibilityLabel("\(L10n.Home.lastFlight), \(last.spokenTitleWithName), \(last.formattedDuration)")
         }
     }
 

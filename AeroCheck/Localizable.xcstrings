@@ -30,7 +30,7 @@
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "%@ : non confirmée"
+            "value": "%@ : à confirmer"
           }
         }
       }
@@ -98,7 +98,7 @@
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "%@, faite de mémoire"
+            "value": "%@ : fait de mémoire"
           }
         }
       }
@@ -115,7 +115,7 @@
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "%@ : FAITE"
+            "value": "%@ : FAIT"
           }
         }
       }
@@ -149,7 +149,7 @@
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "%@ : faite de mémoire"
+            "value": "%@ : fait de mémoire"
           }
         }
       }

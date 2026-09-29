@@ -176,12 +176,8 @@ enum L10n {
         static let from = String(localized: "From")
         static let to = String(localized: "To")
         static let identPlaceholder = String(localized: "ICAO or name")
-        static let addStop = String(localized: "Add stop")
         static func legCount(_ count: Int) -> String {
             String(localized: "\(count) legs")
-        }
-        static func legsExplainer(_ stops: Int, _ legs: Int) -> String {
-            String(localized: "\(stops) aerodromes · \(legs) legs, sharing one preparation")
         }
         static func legOf(_ index: Int, _ total: Int) -> String {
             String(localized: "Leg \(index) of \(total)")
@@ -1450,7 +1446,36 @@ enum L10n {
             String(format: String(localized: "planFlight.unknownInSummary"), idents)
         }
         static let noAirportData = String(localized: "planFlight.noAirportData")
-        static let sameAerodrome = String(localized: "planFlight.sameAerodrome")
+        /// "Back to LSZQ: a local flight, or add a stop to land on the way."
+        static func sameAerodrome(_ ident: String) -> String {
+            String(format: String(localized: "planFlight.sameAerodrome"), ident)
+        }
+        // Stops (6.1, trips proposal M1)
+        /// "Stop 1"
+        static func stopLabel(_ number: Int) -> String {
+            String(format: String(localized: "planFlight.stopLabel"), number)
+        }
+        static let addStopOnTheWay = String(localized: "planFlight.addStopOnTheWay")
+        static let removeStop = String(localized: "planFlight.removeStop")
+        /// "Bressaucourt · back home"
+        static func backHome(_ name: String) -> String {
+            String(format: String(localized: "planFlight.backHome"), name)
+        }
+        /// "80 NM direct · 1:18 flying"
+        static func legsTotal(_ distance: String, _ eet: String) -> String {
+            String(format: String(localized: "planFlight.legsTotal"), distance, eet)
+        }
+        /// "On the ground at LSGE"
+        static func onTheGroundAt(_ ident: String) -> String {
+            String(format: String(localized: "planFlight.onTheGroundAt"), ident)
+        }
+        /// "30 min"
+        static func groundMinutes(_ minutes: Int) -> String {
+            String(format: String(localized: "planFlight.groundMinutes"), minutes)
+        }
+        static let refuel = String(localized: "planFlight.refuel")
+        static let legsExplainer = String(localized: "planFlight.legsExplainer")
+        static let leg1Departure = String(localized: "planFlight.leg1Departure")
     }
 
     /// Where the pilot is based: Settings › Flight Planning and onboarding. (v6.1)

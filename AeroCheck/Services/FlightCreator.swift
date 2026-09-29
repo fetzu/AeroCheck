@@ -30,11 +30,7 @@ enum FlightCreator {
         if !intent.departureIdent.isEmpty {
             await airports.ensureLoaded()
         }
-        var plan = FlightPlan.from(intent: intent) { ident in
-            guard let airport = airports.findAirport(byIdent: ident) else { return nil }
-            return FlightPlan.ResolvedPlace(coordinate: airport.coordinate,
-                                            elevationFeet: airport.elevation.map(Double.init))
-        }
+        var plan = FlightPlan.from(intent: intent) { place($0, in: airports) }
         // The flight's own plan: it lives with the flight, not in the Routes list. (review #4, R1)
         plan.flightOwned = true
         plans.add(plan)
@@ -118,13 +114,27 @@ enum FlightCreator {
         return thread
     }
 
+    /// Where an ident is, for `FlightPlan.from(intent:)`: the aerodrome's position and field
+    /// elevation, or nil when the airport data doesn't know it. Plan new flight's legs preview resolves
+    /// with the same function, so it shows the legs this creates.
+    static func place(_ ident: String, in airports: AirportDataService) -> FlightPlan.ResolvedPlace? {
+        guard let airport = airports.findAirport(byIdent: ident) else { return nil }
+        return FlightPlan.ResolvedPlace(coordinate: airport.coordinate,
+                                        elevationFeet: airport.elevation.map(Double.init))
+    }
+
     /// Create a multi-leg trip from consecutive aerodromes: LSZQ → LFSB → LSGY is two legs.
     ///
     /// Each leg is created by the SAME `create` above, so a leg is in every way an ordinary flight —
     /// which is the whole premise. The trip is then formed from them, which lifts the shared
     /// preparation off the first leg rather than asking for it again.
+    ///
+    /// `stopovers[i]` is the stop at `idents[i + 1]` (blank idents dropped): the time on the ground and
+    /// the refuel Plan new flight asked for, on the leg that departs from there. A missing one is the
+    /// default stop, 30 minutes without fuel. (6.1)
     @discardableResult
     static func createTrip(idents: [String],
+                           stopovers: [Stopover] = [],
                            template: NewFlightIntent,
                            plans: FlightPlanManager,
                            threads: FlightThreadManager,
@@ -152,19 +162,21 @@ enum FlightCreator {
             legIds.append(thread.id)
         }
         let trip = threads.formTrip(from: legIds)
-        if trip != nil { seedLaterLegs(legIds, plans: plans, threads: threads) }
+        if trip != nil { seedLaterLegs(legIds, stopovers: stopovers, plans: plans, threads: threads) }
         return trip
     }
 
-    /// Give every leg after the first the stop in front of it: an estimated departure (the previous
-    /// leg's arrival plus the time on the ground) for its nav log's ETOs, and the fuel the previous
-    /// leg leaves. The estimate is never a firm time, so it arms no reminder. (v5.1)
-    private static func seedLaterLegs(_ legIds: [UUID], plans: FlightPlanManager, threads: FlightThreadManager) {
+    /// Give every leg after the first the stop in front of it (`stopovers[i]` for leg `i + 2`, else the
+    /// default): an estimated departure (the previous leg's arrival plus the time on the ground) for
+    /// its nav log's ETOs, and the fuel the previous leg leaves unless it refuels. The estimate is
+    /// never a firm time, so it arms no reminder. (v5.1; the pilot's stops since 6.1)
+    static func seedLaterLegs(_ legIds: [UUID], stopovers: [Stopover] = [],
+                              plans: FlightPlanManager, threads: FlightThreadManager) {
         let planIds = legIds.compactMap { threads.thread(withId: $0)?.flightPlanId }
-        for planId in planIds.dropFirst() {
+        for (leg, planId) in planIds.enumerated().dropFirst() {
             guard var plan = plans.flightPlans.first(where: { $0.id == planId }),
                   plan.stopover == nil, plan.firmDepartureTime == nil else { continue }
-            plan.stopover = Stopover()
+            plan.stopover = stopovers.indices.contains(leg - 1) ? stopovers[leg - 1] : Stopover()
             plan.departureIsEstimate = true
             plans.updateFlightPlan(plan)
         }

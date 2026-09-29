@@ -596,13 +596,183 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "The same aerodrome twice in a row makes a local flight: add a turning point to its route later."
+            "value": "Back to %@: a local flight, or add a stop to land on the way."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Deux fois le même aérodrome à la suite, c'est un vol local : ajoutez un point de virage à sa route plus tard."
+            "value": "Retour à %@ : un vol local, ou ajoutez une escale pour atterrir en chemin."
+          }
+        }
+      }
+    },
+    "planFlight.stopLabel": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Stop %lld"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Escale %lld"
+          }
+        }
+      }
+    },
+    "planFlight.addStopOnTheWay": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Add a stop on the way"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ajouter une escale en chemin"
+          }
+        }
+      }
+    },
+    "planFlight.removeStop": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Remove this stop"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Retirer cette escale"
+          }
+        }
+      }
+    },
+    "planFlight.backHome": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ · back home"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ · retour au départ"
+          }
+        }
+      }
+    },
+    "planFlight.legsTotal": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@ direct · %2$@ flying"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@ en direct · %2$@ de vol"
+          }
+        }
+      }
+    },
+    "planFlight.onTheGroundAt": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "On the ground at %@"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Au sol à %@"
+          }
+        }
+      }
+    },
+    "planFlight.groundMinutes": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld min"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld min"
+          }
+        }
+      }
+    },
+    "planFlight.refuel": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Refuel"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Faire le plein"
+          }
+        }
+      }
+    },
+    "planFlight.legsExplainer": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Each leg is its own flight: route (direct until you draw it), nav log, ATC flight plan and logbook line. Weather, NOTAM and DABS are prepared once for the trip."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chaque étape est un vol à part entière : route (directe tant que vous ne la tracez pas), log de navigation, plan de vol ATC et ligne de carnet de vol. Météo, NOTAM et DABS se préparent une seule fois pour le voyage."
+          }
+        }
+      }
+    },
+    "planFlight.leg1Departure": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Leg 1's departure"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Départ de l’étape 1"
           }
         }
       }
@@ -7611,26 +7781,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Passe à la palette à contraste élevé lorsque l'écran est proche de la luminosité maximale — l'app ne peut pas mesurer la lumière ambiante, la luminosité sert donc de signal."
-          }
-        }
-      }
-    },
-    "Add stop" : {
-      "localizations" : {
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Ajouter une escale"
-          }
-        }
-      }
-    },
-    "%1$lld aerodromes · %2$lld legs, sharing one preparation" : {
-      "localizations" : {
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "%1$lld aérodromes · %2$lld étapes, une seule préparation"
           }
         }
       }

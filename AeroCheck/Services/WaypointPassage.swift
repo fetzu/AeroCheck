@@ -110,9 +110,10 @@ extension FlightPlan {
     /// recorded in flight (MARK, a tap on the waypoint, the live catch-up) is never replaced, and a
     /// waypoint the pilot took back from the catch-up (`takenBackWaypointIds`) gets none. (v6.0.1)
     ///
-    /// Except the departure's, once the take-off is known: its time over IS the take-off, whatever the
-    /// flight recorded before it was known (the first fix at ~39 kt, LINE UP plus 2 minutes, a MARK),
-    /// so the nav log's ATO, its Time OFF and the logbook agree. (6.1)
+    /// Except the departure's and the destination's, once the take-off and the landing are known: their
+    /// times over ARE the take-off and the landing, whatever the flight recorded before (the first fix
+    /// at ~39 kt, LINE UP plus 2 minutes, a MARK), so the nav log's ATOs, its Time OFF and Time ON and
+    /// the logbook agree. (6.1)
     func withActualTimesOver(fromTrack track: [GPSPoint], takeoff: Date?, landing: Date?) -> FlightPlan {
         let fixes = track.map {
             WaypointPassage.Fix(time: $0.timestamp,
@@ -129,6 +130,9 @@ extension FlightPlan {
         }
         if takeoff != nil, let departed = times.first ?? nil {
             plan.waypoints[0].actualTimeOver = departed
+        }
+        if landing != nil, let arrived = times.last ?? nil {
+            plan.waypoints[plan.waypoints.count - 1].actualTimeOver = arrived
         }
         return plan
     }

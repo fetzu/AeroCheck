@@ -655,13 +655,14 @@ class FlightPlanManager: ObservableObject {
         // Time OFF = take-off, Time ON = landing (wheels off, wheels on). Never the engine: engine
         // start and shutdown are the checklist taps, kept on the flight and its hour meter. Until
         // 5.2 these two held the engine times, which made the nav log's air time the engine's. (v5.2)
-        // The take-off wins over whatever Time OFF held: this flight's, measured on the track at END
-        // FLIGHT (LINE UP's estimate when the track shows none), never an earlier flight's of the same
-        // route (activation keeps the times). (6.1)
+        // Measured times win for logging: Time OFF and Time ON are this flight's take-off and landing,
+        // measured on the track at END FLIGHT (the checklist's estimates when the track shows none),
+        // never an earlier flight's of the same route (activation keeps the times). A time the pilot
+        // types in the plan editor comes after END FLIGHT, so it stays. (6.1)
         if let takeoff = takeoff ?? flight.lineUpTime {
             plan.timeOff = takeoff
         }
-        if plan.timeOn == nil, let landing = landing ?? flight.landingTime {
+        if let landing = landing ?? flight.landingTime {
             plan.timeOn = landing
         }
 

@@ -112,8 +112,8 @@ final class WaypointPassageTests: XCTestCase {
         XCTAssertNotNil(filled.waypoints[2].actualTimeOver)
     }
 
-    /// The departure's time over is the take-off once it is known, whatever was recorded in flight;
-    /// without one, a recorded time stays. The Flight Log and the nav log of a past flight read it
+    /// The departure's time over is the take-off once it is known, whatever was recorded in flight,
+    /// and the destination's the landing; without them, a recorded time stays. The Flight Log and the nav log of a past flight read it
     /// like this (`withActualTimesOver(from:)`). (6.1)
     func testTheDeparturesTimeOverIsTheTakeoffOnceItIsKnown() {
         var plan = FlightPlan(name: "Departure")
@@ -142,6 +142,14 @@ final class WaypointPassageTests: XCTestCase {
         }
         XCTAssertEqual(plan.withActualTimesOver(fromTrack: elsewhere, takeoff: t0, landing: nil).waypoints[0].actualTimeOver,
                        firstFastFix)
+
+        // The destination likewise: its time over is the landing once it is known.
+        let marked = gps.last!.timestamp.addingTimeInterval(-40)
+        plan.waypoints[2].actualTimeOver = marked
+        XCTAssertEqual(plan.withActualTimesOver(fromTrack: gps, takeoff: t0, landing: nil).waypoints[2].actualTimeOver,
+                       marked)
+        XCTAssertEqual(plan.withActualTimesOver(fromTrack: gps, takeoff: t0, landing: gps.last!.timestamp)
+                        .waypoints[2].actualTimeOver, gps.last!.timestamp)
     }
 
     func testETOAtAWaypointIsTheArrivingLegs() {

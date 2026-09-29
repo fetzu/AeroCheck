@@ -584,12 +584,14 @@ final class FlightPlanActivationTests: XCTestCase {
                        "not LINE UP's estimate once the take-off is known")
     }
 
-    /// END FLIGHT: the departure's time over and Time OFF are the measured take-off, whatever the
-    /// flight recorded in flight or an earlier flight of the same route left in Time OFF.
-    func testEndFlightWritesTheMeasuredTakeoffAsTheDeparturesTimeOverAndTimeOff() throws {
+    /// END FLIGHT: the departure's time over and Time OFF are the measured take-off, the destination's
+    /// and Time ON the measured landing, whatever the flight recorded in flight (a MARK over the
+    /// destination) or an earlier flight of the same route left in Time OFF and Time ON.
+    func testEndFlightWritesTheMeasuredTakeoffAndLandingAsTheTimesOverAndTimeOffOn() throws {
         let manager = manager()
         var route = departingPlan()
         route.timeOff = plannedDeparture.addingTimeInterval(-86_400)          // flown yesterday
+        route.timeOn = plannedDeparture.addingTimeInterval(-84_600)
         manager.add(route)
         manager.activateFlightPlan(route)
         addTeardownBlock { @MainActor in manager.stopChronometer() }
@@ -599,13 +601,19 @@ final class FlightPlanActivationTests: XCTestCase {
         manager.catchUpWaypointPassages(track: early, takeoff: nil, flightPlanId: route.id)
         XCTAssertNotEqual(manager.activeFlightPlan?.waypoints[0].actualTimeOver, takeoff)
 
+        let landing = takeoff.addingTimeInterval(1_500)
+        manager.recordATO(forWaypointAt: 1)                                    // a MARK over LSZB, now
+        XCTAssertNotEqual(manager.activeFlightPlan?.waypoints[1].actualTimeOver, landing)
+
         var flight = Flight(airplane: "wt9-dynamic", flightPlanId: route.id, startTime: roll.addingTimeInterval(-900),
                             engineStartTime: roll.addingTimeInterval(-600))
         flight.gpsTrack = track(rollingAt: roll)
-        let settled = try XCTUnwrap(manager.settleFlownPlan(flight, takeoff: takeoff,
-                                                            landing: takeoff.addingTimeInterval(1_500), landedAt: nil))
+            + [GPSPoint(latitude: 46.914, longitude: 7.497, altitude: 500, timestamp: landing, speed: 20)]
+        let settled = try XCTUnwrap(manager.settleFlownPlan(flight, takeoff: takeoff, landing: landing, landedAt: nil))
 
         XCTAssertEqual(settled.waypoints[0].actualTimeOver, takeoff)
         XCTAssertEqual(settled.timeOff, takeoff)
+        XCTAssertEqual(settled.waypoints[1].actualTimeOver, landing)
+        XCTAssertEqual(settled.timeOn, landing)
     }
 }

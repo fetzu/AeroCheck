@@ -330,4 +330,213 @@ final class FlightPlanActivationTests: XCTestCase {
         XCTAssertNil(manager.activeFlightPlan)
         XCTAssertEqual(manager.flightPlans.first { $0.id == armed.id }?.isActive, false)
     }
+
+    // MARK: - ETOs from the take-off (6.1)
+
+    private let plannedDeparture = Date(timeIntervalSince1970: 1_790_000_000)
+    private let knot = 0.514444
+
+    /// LSZQ → LSZB, planned to leave at `plannedDeparture`, at 5,000 ft and 100 kt.
+    private func departingPlan() -> FlightPlan {
+        var p = plan()
+        p.plannedDepartureTime = plannedDeparture
+        for i in p.waypoints.indices {
+            p.waypoints[i].altitude = 5000
+            p.waypoints[i].plannedGroundSpeed = 100
+        }
+        p.calculateRouteData()
+        return p
+    }
+
+    /// A minute of taxi at LSZQ, then a roll starting at `roll` and a climb-out, one fix every 6 s.
+    /// `upTo`: the track so far, as it stands in flight.
+    private func track(rollingAt roll: Date, upTo end: Date = .distantFuture) -> [GPSPoint] {
+        var points: [GPSPoint] = []
+        var time = roll.addingTimeInterval(-66), north = 0.0, altitude = 430.0
+        func fix(_ speed: Double, climb: Double = 0) {
+            time = time.addingTimeInterval(6)
+            north += speed * 6
+            altitude += climb * 6
+            points.append(GPSPoint(latitude: 47.392 + north / 111_320, longitude: 7.030, altitude: altitude,
+                                   timestamp: time, speed: speed, horizontalAccuracy: 3.5))
+        }
+        for _ in 0..<10 { fix(4) }                     // taxi
+        fix(30 * knot); fix(48 * knot)                 // the roll
+        for _ in 0..<20 { fix(65 * knot, climb: 3.5) } // off and climbing, ~690 ft/min
+        return points.filter { $0.timestamp <= end }
+    }
+
+    private func measuredTakeoff(rollingAt roll: Date) throws -> Date {
+        try XCTUnwrap(TrackTimes.analyze(track: track(rollingAt: roll), engineStart: roll.addingTimeInterval(-600),
+                                         engineShutdown: nil).takeoff)
+    }
+
+    /// An activated plan and a manager, the flight started with it.
+    private func flying() -> (FlightPlanManager, FlightPlan) {
+        let manager = manager()
+        let p = departingPlan()
+        manager.add(p)
+        manager.activateFlightPlan(p)
+        addTeardownBlock { @MainActor in manager.stopChronometer() }
+        return (manager, p)
+    }
+
+    /// 29 Sep, three legs: LINE UP never tapped, the take-offs 11.5 to 18.6 minutes after the planned
+    /// departures, and the DEST ETO in flight 11 to 18 minutes before the landing. The ETOs count from
+    /// the take-off the track shows; the planned departure stays the pilot's.
+    func testWithoutLineUpTheETOsCountFromTheTakeoffTheTrackShows() throws {
+        let (manager, p) = flying()
+        let roll = plannedDeparture.addingTimeInterval(16 * 60)
+        let takeoff = try measuredTakeoff(rollingAt: roll)
+
+        manager.anchorETOsOnTakeoff(track: track(rollingAt: roll), engineStart: roll.addingTimeInterval(-600),
+                                    flightPlanId: p.id)
+
+        let active = try XCTUnwrap(manager.activeFlightPlan)
+        XCTAssertEqual(active.etoAnchor, takeoff)
+        XCTAssertEqual(active.waypoints.last?.estimatedTimeOver,
+                       takeoff.addingTimeInterval(p.waypoints.last!.cumulativeEET!), "the in-flight DEST row")
+        XCTAssertEqual(active.plannedDepartureTime, plannedDeparture, "the pilot's planned departure")
+        XCTAssertEqual(active.estimatedTimeOver(at: 0), plannedDeparture, "the departure row keeps it")
+        XCTAssertEqual(active.waypoints.map(\.estimatedElapsedTime), p.waypoints.map(\.estimatedElapsedTime))
+        XCTAssertEqual(manager.flightPlans.first { $0.id == p.id }?.etoAnchor, takeoff, "saved with the plan")
+    }
+
+    /// Still on the runway: nothing to count from yet.
+    func testTheETOsWaitForTheTakeoff() throws {
+        let (manager, p) = flying()
+        let roll = plannedDeparture.addingTimeInterval(16 * 60)
+
+        manager.anchorETOsOnTakeoff(track: track(rollingAt: roll, upTo: roll.addingTimeInterval(6)),
+                                    engineStart: roll.addingTimeInterval(-600), flightPlanId: p.id)
+
+        XCTAssertNil(manager.activeFlightPlan?.etoAnchor)
+        XCTAssertEqual(manager.activeFlightPlan?.waypoints.last?.estimatedTimeOver,
+                       p.waypoints.last?.estimatedTimeOver)
+    }
+
+    /// LINE UP tapped at the holding point: the tap plus 2 minutes is within a minute of the take-off,
+    /// and the pilot's own time stands.
+    func testLineUpWithinAMinuteOfTheTakeoffStands() throws {
+        let (manager, p) = flying()
+        let roll = plannedDeparture.addingTimeInterval(16 * 60)
+        let lineUp = try measuredTakeoff(rollingAt: roll).addingTimeInterval(-40)
+
+        manager.anchorETOsOnLineUp(lineUp)
+        manager.anchorETOsOnTakeoff(track: track(rollingAt: roll), engineStart: roll.addingTimeInterval(-600),
+                                    flightPlanId: p.id)
+
+        XCTAssertEqual(manager.activeFlightPlan?.etoAnchor, lineUp)
+        XCTAssertEqual(manager.activeFlightPlan?.plannedDepartureTime, plannedDeparture,
+                       "LINE UP no longer overwrites the planned departure")
+    }
+
+    /// LINE UP tapped long before the take-off (a queue at the holding point): the take-off wins, and
+    /// a LINE UP tapped after it moves nothing.
+    func testLineUpFarFromTheTakeoffGivesWayToIt() throws {
+        let (manager, p) = flying()
+        let roll = plannedDeparture.addingTimeInterval(16 * 60)
+        let takeoff = try measuredTakeoff(rollingAt: roll)
+
+        manager.anchorETOsOnLineUp(takeoff.addingTimeInterval(-5 * 60))
+        XCTAssertEqual(manager.activeFlightPlan?.etoAnchor, takeoff.addingTimeInterval(-5 * 60))
+        manager.anchorETOsOnTakeoff(track: track(rollingAt: roll), engineStart: roll.addingTimeInterval(-600),
+                                    flightPlanId: p.id)
+        XCTAssertEqual(manager.activeFlightPlan?.etoAnchor, takeoff)
+
+        manager.anchorETOsOnLineUp(takeoff.addingTimeInterval(3 * 60))
+        XCTAssertEqual(manager.activeFlightPlan?.etoAnchor, takeoff, "an estimate of what already happened")
+    }
+
+    /// Circuits flown with a plan armed for a later flight: not that plan's take-off.
+    func testOnlyThePlanTheFlightWasStartedWithCountsFromItsTakeoff() throws {
+        let (manager, _) = flying()
+        let before = try encoded(manager.activeFlightPlan)
+        let roll = plannedDeparture.addingTimeInterval(16 * 60)
+
+        manager.anchorETOsOnTakeoff(track: track(rollingAt: roll), engineStart: roll.addingTimeInterval(-600),
+                                    flightPlanId: nil)
+        manager.anchorETOsOnTakeoff(track: track(rollingAt: roll), engineStart: roll.addingTimeInterval(-600),
+                                    flightPlanId: UUID())
+
+        XCTAssertEqual(try encoded(manager.activeFlightPlan), before)
+    }
+
+    /// END FLIGHT counts the ETOs from the take-off it measured, to the second, even where LINE UP
+    /// stood within a minute of it in flight: the nav log printed after the flight is the record.
+    func testEndFlightCountsTheETOsFromTheMeasuredTakeoff() throws {
+        let (manager, p) = flying()
+        let roll = plannedDeparture.addingTimeInterval(16 * 60)
+        let takeoff = try measuredTakeoff(rollingAt: roll)
+        manager.anchorETOsOnLineUp(takeoff.addingTimeInterval(-40))
+
+        let landing = takeoff.addingTimeInterval(1_500)
+        var flight = Flight(airplane: "wt9-dynamic", flightPlanId: p.id, startTime: roll.addingTimeInterval(-900),
+                            engineStartTime: roll.addingTimeInterval(-600))
+        flight.gpsTrack = track(rollingAt: roll)
+        let settled = try XCTUnwrap(manager.settleFlownPlan(flight, takeoff: takeoff, landing: landing, landedAt: nil))
+
+        XCTAssertEqual(settled.etoAnchor, takeoff)
+        XCTAssertEqual(settled.timeOff, takeoff)
+        XCTAssertEqual(settled.waypoints.last?.estimatedTimeOver,
+                       takeoff.addingTimeInterval(p.waypoints.last!.cumulativeEET!))
+        XCTAssertEqual(settled.plannedDepartureTime, plannedDeparture)
+    }
+
+    /// The 23 Sep plan: planned with forecast winds, then LINE UP recomputed every leg with a cache
+    /// that had nothing for that hour, and all 25 legs came back at 100 kt. Moving the ETOs to the
+    /// take-off keeps the leg times, and the winds they were computed with.
+    func testCountingFromTheTakeoffKeepsTheLegTimesAndTheirWinds() throws {
+        FlightPlan.windsAloftProvider = { _, _, _ in FlightPlan.WindAloft(directionDegTrue: 200, speedKt: 25) }
+        addTeardownBlock { @MainActor in FlightPlan.windsAloftProvider = nil }
+        let (manager, p) = flying()
+        XCTAssertNotNil(p.waypoints[0].planningWind)
+        FlightPlan.windsAloftProvider = { _, _, _ in nil }                 // after a relaunch: empty
+
+        let roll = plannedDeparture.addingTimeInterval(16 * 60)
+        manager.anchorETOsOnLineUp(roll)
+        manager.anchorETOsOnTakeoff(track: track(rollingAt: roll), engineStart: roll.addingTimeInterval(-600),
+                                    flightPlanId: p.id)
+        let active = try XCTUnwrap(manager.activeFlightPlan)
+        XCTAssertEqual(active.waypoints.map(\.estimatedElapsedTime), p.waypoints.map(\.estimatedElapsedTime))
+        XCTAssertEqual(active.waypoints.map(\.planningWind), p.waypoints.map(\.planningWind))
+
+        // An edit in flight recomputes the legs: with no forecast to be had, the planned wind stays.
+        var edited = active
+        edited.waypoints[1].remarks = "Joining downwind"
+        edited.calculateRouteData()
+        XCTAssertEqual(edited.waypoints.map(\.estimatedElapsedTime), p.waypoints.map(\.estimatedElapsedTime))
+        XCTAssertEqual(edited.etoAnchor, active.etoAnchor)
+    }
+
+    /// A new activation is a new flight: the ETOs count from the planned departure again.
+    func testActivatingAgainCountsFromThePlannedDeparture() throws {
+        let (manager, p) = flying()
+        manager.anchorETOsOnLineUp(plannedDeparture.addingTimeInterval(600))
+        manager.deactivateFlightPlan()
+        let flown = try XCTUnwrap(manager.flightPlans.first { $0.id == p.id })
+        XCTAssertNotNil(flown.etoAnchor)
+
+        manager.activateFlightPlan(flown)
+
+        XCTAssertNil(manager.activeFlightPlan?.etoAnchor)
+        XCTAssertEqual(manager.activeFlightPlan?.waypoints.last?.estimatedTimeOver,
+                       p.waypoints.last?.estimatedTimeOver)
+    }
+
+    /// A route no flight follows loses the take-off of the flight flown on it with its date: it would
+    /// otherwise keep printing that flight's times.
+    func testTheSweepClearsATakeoffFromARouteNoFlightFollows() {
+        let plans = manager()
+        var route = departingPlan()
+        route.etoAnchor = plannedDeparture.addingTimeInterval(600)
+        route.retimeETOs()
+        plans.add(route)
+
+        plans.clearDatesFromUnflownRoutes(followedPlanIds: [])
+
+        let swept = plans.flightPlans.first { $0.id == route.id }
+        XCTAssertNil(swept?.etoAnchor)
+        XCTAssertTrue(swept?.waypoints.allSatisfy { $0.estimatedTimeOver == nil } ?? false)
+    }
 }

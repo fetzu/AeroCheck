@@ -106,9 +106,13 @@ class FlightPlanManager: ObservableObject {
 
         var changed = false
         for index in flightPlans.indices
-        where flightPlans[index].plannedDepartureTime != nil
-            && !followedPlanIds.contains(flightPlans[index].id) {
+        where !followedPlanIds.contains(flightPlans[index].id)
+            && (flightPlans[index].plannedDepartureTime != nil
+                // The take-off of a flight flown on the route is as much a date as the departure. Not
+                // on the active plan: a flight may be counting its ETOs from it right now. (6.1)
+                || (flightPlans[index].etoAnchor != nil && flightPlans[index].id != activeFlightPlan?.id)) {
             flightPlans[index].plannedDepartureTime = nil
+            if flightPlans[index].id != activeFlightPlan?.id { flightPlans[index].etoAnchor = nil }
             flightPlans[index].calculateRouteData()
             flightPlans[index].updatedAt = Date()
             changed = true
@@ -412,6 +416,10 @@ class FlightPlanManager: ObservableObject {
         activePlan.diversion = nil
         activePlan.autoMarkedWaypointIds = nil
         activePlan.takenBackWaypointIds = nil
+        // And its take-off: the ETOs count from the planned departure again. (6.1)
+        activePlan.etoAnchor = nil
+        activePlan.retimeETOs()
+        detectedTakeoff = nil
 
         // Reset ATO values for all waypoints (fresh start for new flight)
         for i in 0..<activePlan.waypoints.count {
@@ -508,20 +516,52 @@ class FlightPlanManager: ObservableObject {
         chronometerElapsed = 0
         chronometerAccumulated = 0
         autoMarkNotice = nil
+        detectedTakeoff = nil
         stopChronometer()
         saveFlightPlans()
         clearActiveFlightPlan()
     }
 
-    /// Update the departure time for the active flight plan
-    /// Called when the Line Up time is recorded from the checklist
-    func updateDepartureTimeFromLineUp(_ lineUpTime: Date) {
-        guard var plan = activeFlightPlan else { return }
-        plan.plannedDepartureTime = lineUpTime
-        // A real departure now: a trip leg's estimate is replaced by what happened.
-        plan.departureIsEstimate = nil
-        plan.calculateRouteData()
-        updateFlightPlan(plan)
+    // MARK: - ETOs from the take-off (6.1)
+
+    /// The take-off the track showed for the plan being flown, once found (see
+    /// `anchorETOsOnTakeoff`). Kept in memory only: after a relaunch the next pass finds it again.
+    private var detectedTakeoff: (planId: UUID, time: Date)?
+
+    /// LINE UP (the tap plus 2 minutes, `AppState.recordLineUpTime`): the active plan's ETOs count
+    /// from it until the track shows the take-off. A tap once the take-off is known moves nothing: it
+    /// is an estimate of what already happened.
+    ///
+    /// It used to overwrite the planned departure and recompute every leg. The recompute read the
+    /// winds-aloft cache for the hour of the tap, often empty, and timed every leg at zero wind (the
+    /// 23 Sep plan); the overwrite made the pilot's planned departure disappear from the plan, the
+    /// flight and the nav log. Now only the ETOs move, from the leg times already computed.
+    func anchorETOsOnLineUp(_ lineUpTime: Date) {
+        guard let plan = activeFlightPlan, detectedTakeoff?.planId != plan.id,
+              let anchored = plan.anchoringETOs(on: lineUpTime) else { return }
+        updateFlightPlan(anchored)
+    }
+
+    /// In flight, the take-off from the track recorded so far, found as END FLIGHT will measure it
+    /// (`TrackTimes`). Once it is known, the ETOs of the plan being flown count from it, unless LINE
+    /// UP was tapped within a minute of it (`FlightPlan.lineUpAnchorTolerance`). `LocationManager`
+    /// calls this with the waypoint catch-up, every 15 s; the track is searched until the take-off is
+    /// found, then the rule is only re-checked.
+    ///
+    /// Only the plan the flight was started with, like the times over: never a plan left armed through
+    /// circuits or a flight started without it. The DEST row, the companion's ETOs and a later trip
+    /// leg's estimated departure all read the stored ETOs, so they follow. (6.1)
+    func anchorETOsOnTakeoff(track: [GPSPoint], engineStart: Date?, flightPlanId: UUID?) {
+        guard let plan = activeFlightPlan, plan.id == flightPlanId else { return }
+        if detectedTakeoff?.planId != plan.id {
+            guard let takeoff = TrackTimes.analyze(track: track, engineStart: engineStart,
+                                                   engineShutdown: nil).takeoff else { return }
+            detectedTakeoff = (plan.id, takeoff)
+        }
+        guard let takeoff = detectedTakeoff?.time,
+              let anchored = plan.anchoringETOs(on: takeoff, tolerance: FlightPlan.lineUpAnchorTolerance)
+        else { return }
+        updateFlightPlan(anchored)
     }
 
     /// END FLIGHT for the plan the flight flew: the active plan, and only when the flight was started
@@ -572,6 +612,14 @@ class FlightPlanManager: ObservableObject {
                                         landing: landing ?? flight.landingTime)
         // Landed somewhere else than planned: record the diversion, pressed or not. (v5.1)
         plan = TripPlanner.settlingDiversion(plan, landedAt: field, landing: landing ?? flight.landingTime)
+
+        // The ETOs count from the take-off END FLIGHT measured, to the second: the nav log printed
+        // after the flight reads like a paper one, where the take-off is written in and every ETO
+        // follows. Usually the one found in flight already; not when LINE UP stood within a minute of
+        // it, or when the track in flight was too sparse to show it. (6.1)
+        if let takeoff = takeoff ?? flight.lineUpTime, let anchored = plan.anchoringETOs(on: takeoff) {
+            plan = anchored
+        }
 
         // Time OFF = take-off, Time ON = landing (wheels off, wheels on). Never the engine: engine
         // start and shutdown are the checklist taps, kept on the flight and its hour meter. Until

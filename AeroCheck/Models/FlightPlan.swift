@@ -45,6 +45,22 @@ struct FlightPlanWaypoint: Identifiable, Codable, Equatable {
     /// name where there is room for it: "E (LSGC)" (`routeName(_:)`). The name itself stays "E".
     var aerodromeICAO: String?
 
+    // The wind the leg LEAVING this waypoint was last computed with (6.1): what its EET, its ETOs and
+    // the printed nav log stand on. Written by `calculateRouteData` only, and nil when the leg was
+    // computed without a wind (or on the destination, which carries no leg). Four plain optionals
+    // rather than one nested value, like every field added to a persisted model: an older file
+    // decodes with them nil, an older build ignores the keys (and drops them if it saves the plan).
+    // Read them through `planningWind`.
+
+    /// Degrees TRUE the wind blows from.
+    var planningWindDirection: Double?
+    /// Knots.
+    var planningWindSpeed: Double?
+    /// Where it came from: the pilot's own wind on the waypoint, or the winds-aloft forecast.
+    var planningWindSource: PlanningWind.Source?
+    /// For a forecast, the hour it is valid for.
+    var planningWindValidAt: Date?
+
     init(
         id: UUID = UUID(),
         name: String = "",
@@ -98,6 +114,50 @@ struct FlightPlanWaypoint: Identifiable, Codable, Equatable {
         set {
             latitude = newValue.latitude
             longitude = newValue.longitude
+        }
+    }
+
+    /// The wind a leg was planned with, and where it came from. (6.1)
+    struct PlanningWind: Equatable, Sendable {
+        enum Source: String, Codable, Sendable {
+            /// The wind the pilot typed on the waypoint (`windDirection` / `windSpeed`).
+            case pilot
+            /// The winds-aloft forecast (`WindsAloftService`).
+            case forecast
+
+            /// A source a newer build adds reads as a forecast here rather than failing the whole
+            /// plan: it is not the pilot's wind, which is all this build needs to know about it.
+            init(from decoder: Decoder) throws {
+                let raw = try decoder.singleValueContainer().decode(String.self)
+                self = Source(rawValue: raw) ?? .forecast
+            }
+        }
+
+        var directionDegTrue: Double
+        var speedKt: Double
+        var source: Source
+        /// For a forecast, the hour it is valid for.
+        var validAt: Date?
+
+        var wind: FlightPlan.WindAloft {
+            FlightPlan.WindAloft(directionDegTrue: directionDegTrue, speedKt: speedKt, validAt: validAt)
+        }
+    }
+
+    /// The four stored `planningWind…` fields as one value; nil unless direction, speed and source
+    /// are all there.
+    var planningWind: PlanningWind? {
+        get {
+            guard let direction = planningWindDirection, let speed = planningWindSpeed,
+                  let source = planningWindSource else { return nil }
+            return PlanningWind(directionDegTrue: direction, speedKt: speed, source: source,
+                                validAt: planningWindValidAt)
+        }
+        set {
+            planningWindDirection = newValue?.directionDegTrue
+            planningWindSpeed = newValue?.speedKt
+            planningWindSource = newValue?.source
+            planningWindValidAt = newValue?.validAt
         }
     }
 
@@ -155,6 +215,8 @@ struct FlightPlanWaypoint: Identifiable, Codable, Equatable {
         }
         w.windDirection = inRange(windDirection, PlausibleRange.courseDegrees)
         w.windSpeed = inRange(windSpeed, PlausibleRange.windSpeedKnots)
+        w.planningWindDirection = inRange(planningWindDirection, PlausibleRange.courseDegrees)
+        w.planningWindSpeed = inRange(planningWindSpeed, PlausibleRange.windSpeedKnots)
         w.magneticCourse = inRange(magneticCourse, PlausibleRange.courseDegrees)
         w.distance = inRange(distance, PlausibleRange.legDistanceNM)
         w.estimatedElapsedTime = inRange(estimatedElapsedTime, FlightDataLimits.routeTimeSeconds)
@@ -363,6 +425,18 @@ struct FlightPlan: Identifiable, Codable, Equatable {
     var autoMarkedWaypointIds: Set<UUID>?
     var takenBackWaypointIds: Set<UUID>?
 
+    /// The take-off the ETOs count from once the flight has one, as on a paper nav log (ETO = the
+    /// take-off plus the cumulative EET): LINE UP's estimate (the tap plus 2 minutes), then the
+    /// take-off found in the track in flight, then the one END FLIGHT measures. Nil until then, and
+    /// the ETOs count from `plannedDepartureTime`. (6.1)
+    ///
+    /// Its own field so that the pilot's planned departure stays what the pilot planned: the plan
+    /// editor, the flight's subtitle, the preparation reminder, ICAO Item 13 and the nav log's
+    /// departure row keep showing it. Only the ETOs move. Belongs to the flight, like the times over:
+    /// `activateFlightPlan` clears it and `copy()` leaves it behind. Optional: plans written before
+    /// decode unchanged.
+    var etoAnchor: Date?
+
     // The route library (on-device review #4). Optional: plans written before decode unchanged.
 
     /// When the pilot archived this route: out of the Routes list, kept under Archived.
@@ -477,6 +551,7 @@ struct FlightPlan: Identifiable, Codable, Equatable {
         case stopover, departureIsEstimate, diversion
         case archivedAt, flightOwned
         case autoMarkedWaypointIds, takenBackWaypointIds
+        case etoAnchor
     }
 
     init(from decoder: Decoder) throws {
@@ -550,6 +625,7 @@ struct FlightPlan: Identifiable, Codable, Equatable {
         flightOwned = try container.decodeIfPresent(Bool.self, forKey: .flightOwned)
         autoMarkedWaypointIds = try container.decodeIfPresent(Set<UUID>.self, forKey: .autoMarkedWaypointIds)
         takenBackWaypointIds = try container.decodeIfPresent(Set<UUID>.self, forKey: .takenBackWaypointIds)
+        etoAnchor = try container.decodeIfPresent(Date.self, forKey: .etoAnchor)
     }
 
     func encode(to encoder: Encoder) throws {
@@ -603,6 +679,7 @@ struct FlightPlan: Identifiable, Codable, Equatable {
         try container.encodeIfPresent(flightOwned, forKey: .flightOwned)
         try container.encodeIfPresent(autoMarkedWaypointIds, forKey: .autoMarkedWaypointIds)
         try container.encodeIfPresent(takenBackWaypointIds, forKey: .takenBackWaypointIds)
+        try container.encodeIfPresent(etoAnchor, forKey: .etoAnchor)
     }
 
     /// The flight's own marks among the waypoints at `indices` become the pilot's: taken back, left to
@@ -772,23 +849,27 @@ struct FlightPlan: Identifiable, Codable, Equatable {
     /// the nearest navaid's `magneticDeclination`, or the fallback when unset / nothing in range. (v4.1.0)
     static var magneticDeclinationProvider: ((CLLocationCoordinate2D) -> Double)?
 
-    /// App-injected winds-aloft lookup for a position and planned altitude (feet AMSL), set at launch
-    /// from `WindsAloftService`. Returns the wind the leg will actually be flown in, or nil when no
-    /// forecast has been fetched for that area yet — in which case leg timing falls back to the
-    /// zero-wind assumption it has always used.
+    /// App-injected winds-aloft lookup for a position, a planned altitude (feet AMSL) and the time the
+    /// leg will be flown (nil: not known, a route with no date), set at launch from
+    /// `WindsAloftService`. Returns the forecast for the hour the leg is flown when it has one, else
+    /// the current hour's (unless that hour is already past), or nil when no forecast has been fetched
+    /// for that area yet: leg timing then falls back to the wind the leg was planned with, if any, and
+    /// to zero wind otherwise. (6.1: the time)
     ///
     /// This is a PLANNING input, deliberately: a forecast wind aloft is the right tool for computing
     /// a leg's ground speed and ETA on the ground beforehand, and the wrong tool for anything
     /// resembling a live instrument. (See `WindDataService` for the separate surface-wind briefing
     /// input, and `SpeedIndicatorView.annunciationState` for why the in-flight readout is ground
     /// speed only.)
-    static var windsAloftProvider: ((CLLocationCoordinate2D, Double) -> WindAloft?)?
+    static var windsAloftProvider: ((CLLocationCoordinate2D, Double, Date?) -> WindAloft?)?
 
     /// Forecast wind at a point and level.
     struct WindAloft: Equatable {
         /// Direction the wind blows FROM, in degrees TRUE (as forecasts and METARs give it).
         let directionDegTrue: Double
         let speedKt: Double
+        /// For a forecast, the hour it is valid for. Nil for a wind the pilot typed. (6.1)
+        var validAt: Date? = nil
     }
 
     /// The wind to plan a leg with, in precedence order:
@@ -797,15 +878,39 @@ struct FlightPlan: Identifiable, Codable, Equatable {
     ///      been editable in `WaypointEditorSheet` all along but were never read by leg timing, so
     ///      entering a wind changed nothing. They are authoritative when present: a pilot copying
     ///      winds from a briefing outranks a model forecast.
-    ///   2. the injected winds-aloft forecast for the leg's start point and planned altitude.
-    ///   3. nothing — the caller falls back to the zero-wind assumption.
-    static func legWind(for waypoint: FlightPlanWaypoint,
-                        at coordinate: CLLocationCoordinate2D) -> WindAloft? {
+    ///   2. the injected winds-aloft forecast for the leg's start point and planned altitude, for the
+    ///      hour it is flown (`flownAt`).
+    ///   3. the forecast the leg was last computed with (`planningWind`), when no forecast can be had
+    ///      now: the cache is keyed by the hour and lives in memory, so a recompute at another hour or
+    ///      after a relaunch found nothing and quietly timed every leg at zero wind (the 23 Sep plan
+    ///      had GS 100 on all 25 legs after LINE UP; its nav log printed before the flight had 96 and
+    ///      108). A stored PILOT wind is not reused: if the waypoint no longer has one, the pilot took
+    ///      it off. (6.1)
+    ///   4. nothing — the caller falls back to the zero-wind assumption.
+    ///
+    /// `readingForecasts: false` skips 2: the winds the plan already carries, and nothing else.
+    static func legPlanningWind(for waypoint: FlightPlanWaypoint, at coordinate: CLLocationCoordinate2D,
+                                flownAt: Date? = nil,
+                                readingForecasts: Bool = true) -> FlightPlanWaypoint.PlanningWind? {
         if let direction = waypoint.windDirection, let speed = waypoint.windSpeed,
            direction.isFinite, speed.isFinite, speed >= 0 {
-            return WindAloft(directionDegTrue: direction, speedKt: speed)
+            return .init(directionDegTrue: direction, speedKt: speed, source: .pilot, validAt: nil)
         }
-        return windsAloftProvider?(coordinate, waypoint.altitude ?? 0)
+        if readingForecasts, let forecast = windsAloftProvider?(coordinate, waypoint.altitude ?? 0, flownAt) {
+            return .init(directionDegTrue: forecast.directionDegTrue, speedKt: forecast.speedKt,
+                         source: .forecast, validAt: forecast.validAt)
+        }
+        if let stored = waypoint.planningWind, stored.source == .forecast,
+           stored.directionDegTrue.isFinite, stored.speedKt.isFinite, stored.speedKt >= 0 {
+            return stored
+        }
+        return nil
+    }
+
+    /// `legPlanningWind` without its source: the wind alone.
+    static func legWind(for waypoint: FlightPlanWaypoint, at coordinate: CLLocationCoordinate2D,
+                        flownAt: Date? = nil) -> WindAloft? {
+        legPlanningWind(for: waypoint, at: coordinate, flownAt: flownAt)?.wind
     }
 
     /// Solve the wind triangle for the ground speed actually achievable along a track.
@@ -840,18 +945,22 @@ struct FlightPlan: Identifiable, Codable, Equatable {
     }
 
     /// Everything the timing of one leg is computed from. `calculateRouteData` stores the results on
-    /// the waypoints; the printed nav log reads the wind and ground speed back from here, so its Wind
-    /// and GS columns show exactly what the EET beside them was computed with.
+    /// the waypoints, the wind included (`planningWind`), and the printed nav log reads them back
+    /// (`plannedLeg(from:)`), so its Wind and GS columns show exactly what the EET beside them was
+    /// computed with, whenever it is printed.
     struct LegPlanning: Equatable {
         let distanceNM: Double
         let trueCourse: Double
         let magneticCourse: Double
         /// The planned true airspeed (`plannedGroundSpeed`, or the aircraft's default cruise speed).
         let airspeedKt: Int
-        /// The wind the ground speed was corrected for. Nil when no wind is known, or when the wind
-        /// made the leg unflyable at that airspeed and timing fell back to the airspeed.
-        let wind: WindAloft?
+        /// The wind the ground speed was corrected for, and where it came from. Nil when no wind is
+        /// known, or when the wind made the leg unflyable at that airspeed and timing fell back to
+        /// the airspeed.
+        let planningWind: FlightPlanWaypoint.PlanningWind?
         let groundSpeedKt: Int
+
+        var wind: WindAloft? { planningWind?.wind }
 
         var legSeconds: TimeInterval {
             groundSpeedKt > 0 ? distanceNM / Double(groundSpeedKt) * 3600 : 0
@@ -869,7 +978,9 @@ struct FlightPlan: Identifiable, Codable, Equatable {
     ///
     /// Falls back to the raw value when no wind is known, or when the wind makes the leg unflyable at
     /// that airspeed, rather than inventing a number.
-    func legPlanning(from index: Int) -> LegPlanning? {
+    ///
+    /// `flownAt`: when the leg will be flown, for the forecast hour (`windsAloftProvider`).
+    func legPlanning(from index: Int, flownAt: Date? = nil, readingForecasts: Bool = true) -> LegPlanning? {
         guard index >= 0, index < waypoints.count - 1 else { return nil }
         let from = waypoints[index].coordinate
         let to = waypoints[index + 1].coordinate
@@ -882,20 +993,57 @@ struct FlightPlan: Identifiable, Codable, Equatable {
         let magneticCourse = (trueCourse - declination + 360).truncatingRemainder(dividingBy: 360)
 
         let airspeed = waypoints[index].plannedGroundSpeed ?? FlightPlan.defaultCruiseSpeed(for: aircraftTypeId)
-        let wind = FlightPlan.legWind(for: waypoints[index], at: from)
+        let wind = FlightPlan.legPlanningWind(for: waypoints[index], at: from, flownAt: flownAt,
+                                              readingForecasts: readingForecasts)
         let corrected = wind.flatMap {
-            FlightPlan.windCorrectedGroundSpeed(trueAirspeedKt: Double(airspeed), trueCourseDeg: trueCourse, wind: $0)
+            FlightPlan.windCorrectedGroundSpeed(trueAirspeedKt: Double(airspeed), trueCourseDeg: trueCourse, wind: $0.wind)
         }
         // `safeRoundedInt`: an airspeed near Int.max from a shared route made the corrected ground
         // speed 9.2e18, and `Int(_:)` trapped. Airspeeds are bounded on ingest now. (S9-07)
         let correctedKt = corrected.flatMap { $0.safeRoundedInt() }
         return LegPlanning(distanceNM: distanceNM, trueCourse: trueCourse, magneticCourse: magneticCourse,
-                           airspeedKt: airspeed, wind: correctedKt == nil ? nil : wind,
+                           airspeedKt: airspeed, planningWind: correctedKt == nil ? nil : wind,
                            groundSpeedKt: correctedKt ?? airspeed)
     }
 
+    /// The wind and ground speed the leg LEAVING the waypoint at `index` was planned with, read from
+    /// what the plan stores and never from a forecast: what the nav log prints beside the leg's EET,
+    /// whenever it is printed. Nil for the last waypoint and out-of-range indices. (6.1)
+    ///
+    /// The ground speed is the one the stored EET was computed with (distance over EET), so it is
+    /// right for a plan saved by any build. The wind is the stored planning wind; a plan saved before
+    /// 6.1 has none, and shows the pilot's own wind if the waypoint has one, else no wind (the EET
+    /// beside it may still have used a forecast: which one is not known any more).
+    ///
+    /// The export used to recompute the route with the forecast cached at export time instead, so a
+    /// nav log printed after the flight showed that day's winds beside another day's plan (the 23 Sep
+    /// "after" nav log, exported on 25 Sep, printed 25 Sep's winds).
+    func plannedLeg(from index: Int) -> (wind: WindAloft?, groundSpeedKt: Int)? {
+        guard index >= 0, index < waypoints.count - 1 else { return nil }
+        let waypoint = waypoints[index]
+        let airspeed = waypoint.plannedGroundSpeed ?? FlightPlan.defaultCruiseSpeed(for: aircraftTypeId)
+        var groundSpeed = airspeed
+        if let distance = waypoint.distance, let seconds = waypoint.estimatedElapsedTime,
+           distance > 0, seconds > 0, let kt = (distance / seconds * 3600).safeRoundedInt(), kt > 0 {
+            groundSpeed = kt
+        }
+        let wind: WindAloft?
+        if let stored = waypoint.planningWind {
+            wind = stored.wind
+        } else if let direction = waypoint.windDirection, let speed = waypoint.windSpeed,
+                  direction.isFinite, speed.isFinite, speed >= 0 {
+            wind = WindAloft(directionDegTrue: direction, speedKt: speed)
+        } else {
+            wind = nil
+        }
+        return (wind, groundSpeed)
+    }
+
     /// Calculate magnetic course and distance between consecutive waypoints
-    mutating func calculateRouteData() {
+    ///
+    /// `readingForecasts: false` computes with the winds the plan already carries (the pilot's, and
+    /// those the legs were planned with) and asks for no forecast. (6.1)
+    mutating func calculateRouteData(readingForecasts: Bool = true) {
         guard waypoints.count >= 2 else { return }
 
         // Extra time to add to first and last waypoint (5 minutes = 300 seconds)
@@ -904,10 +1052,15 @@ struct FlightPlan: Identifiable, Codable, Equatable {
         var cumulativeEETTotal: TimeInterval = 0
 
         for i in 0..<waypoints.count {
-            if i < waypoints.count - 1, let leg = legPlanning(from: i) {
+            // The leg is flown from the time it starts: the departure plus everything before it. The
+            // forecast is looked up for that hour (6.1), and the wind it used stays with the leg.
+            let flownAt = etoDeparture?.addingTimeInterval(cumulativeEETTotal)
+            if i < waypoints.count - 1,
+               let leg = legPlanning(from: i, flownAt: flownAt, readingForecasts: readingForecasts) {
                 waypoints[i].distance = leg.distanceNM
                 waypoints[i].magneticCourse = leg.magneticCourse
                 waypoints[i].estimatedElapsedTime = leg.legSeconds
+                waypoints[i].planningWind = leg.planningWind
                 let legEET = leg.legSeconds
 
                 // Add +5 minutes to first waypoint (departure)
@@ -925,17 +1078,19 @@ struct FlightPlan: Identifiable, Codable, Equatable {
                 waypoints[i].distance = nil
                 waypoints[i].magneticCourse = nil
                 waypoints[i].estimatedElapsedTime = nil
+                waypoints[i].planningWind = nil
 
                 // Add +5 minutes to last waypoint (arrival)
                 waypoints[i].legEETExtra = extraTimeForTerminalWaypoints
                 cumulativeEETTotal += extraTimeForTerminalWaypoints
                 waypoints[i].cumulativeEET = cumulativeEETTotal
             }
-
-            // ETO from the departure time, and none without one: a route whose date was cleared
-            // (`clearDatesFromUnflownRoutes`) otherwise kept printing the old flight's times.
-            waypoints[i].estimatedTimeOver = plannedDepartureTime?.addingTimeInterval(waypoints[i].cumulativeEET ?? 0)
         }
+
+        // ETOs from the departure (or the take-off, once there is one), and none without either: a
+        // route whose date was cleared (`clearDatesFromUnflownRoutes`) otherwise kept printing the old
+        // flight's times.
+        retimeETOs()
 
         // Calculate trip fuel based on total time
         if let flow = fuelFlow ?? FlightPlan.defaultFuelFlow(for: aircraftTypeId) as Double? {
@@ -946,11 +1101,51 @@ struct FlightPlan: Identifiable, Codable, Equatable {
         updatedAt = Date()
     }
 
+    // MARK: - ETOs and the take-off (6.1)
+
+    /// When the ETOs count from: the flight's take-off once it has one (`etoAnchor`), else the planned
+    /// departure.
+    var etoDeparture: Date? { etoAnchor ?? plannedDepartureTime }
+
+    /// How far LINE UP's estimate may sit from the take-off the track shows before the ETOs move to
+    /// the take-off. Tapped at the holding point, LINE UP plus 2 minutes is usually within it: the
+    /// pilot's own tap stands. Tapped long before (or long after), it does not.
+    static let lineUpAnchorTolerance: TimeInterval = 60
+
+    /// Every ETO again from `etoDeparture` and the cumulative EETs already computed: the stored leg
+    /// times (and the winds they were computed with) are left alone, as the pencil leaves them on a
+    /// paper nav log when the take-off is written in.
+    mutating func retimeETOs() {
+        let departure = etoDeparture
+        for i in waypoints.indices {
+            waypoints[i].estimatedTimeOver = departure?.addingTimeInterval(waypoints[i].cumulativeEET ?? 0)
+        }
+    }
+
+    /// The plan with its ETOs counted from `takeoff`, or nil when there is nothing to move: they
+    /// already count from a take-off within `tolerance` of it. Before any (only the planned departure
+    /// so far) they always move. (6.1)
+    ///
+    /// Until 6.1 only the LINE UP tap moved them, and it moved the planned departure itself. Without
+    /// the tap the ETOs stayed on the planned departure: on 29 Sep, three legs took off 11.5 to 18.6
+    /// minutes after it and the DEST ETO shown in flight was 11 to 18 minutes before the landing.
+    func anchoringETOs(on takeoff: Date, tolerance: TimeInterval = 0) -> FlightPlan? {
+        if let anchor = etoAnchor, abs(anchor.timeIntervalSince(takeoff)) <= tolerance { return nil }
+        var plan = self
+        plan.etoAnchor = takeoff
+        plan.retimeETOs()
+        return plan
+    }
+
     /// The ETO AT the waypoint at `index`: the departure time for the departure, otherwise the time
     /// at the end of the leg arriving there. That is stored on the leg's departure waypoint like the
     /// rest of the leg data (see `legArriving(at:)`), except for the destination, which carries the
     /// arrival allowance itself. Comparing a waypoint's own `estimatedTimeOver` with its ATO compares
     /// against the NEXT waypoint's time.
+    ///
+    /// The departure's is the PLANNED departure, even once the others count from the take-off: its
+    /// ATO beside it is the take-off, and the difference is how late the flight left, which is worth
+    /// seeing. (6.1)
     func estimatedTimeOver(at index: Int) -> Date? {
         guard waypoints.indices.contains(index) else { return nil }
         if index == 0 { return plannedDepartureTime }

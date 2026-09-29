@@ -856,6 +856,9 @@ class LocationManager: NSObject, ObservableObject {
         if passageDue, fixIsUsable, let appState, appState.isFlightActive,
            let flightPlanManager, let track = appState.currentFlight?.gpsTrack {
             lastWaypointPassageTime = now
+            // The ETOs count from the take-off once the track shows it, LINE UP tapped or not. (6.1)
+            flightPlanManager.anchorETOsOnTakeoff(track: track, engineStart: appState.engineStartTime,
+                                                  flightPlanId: appState.currentFlight?.flightPlanId)
             flightPlanManager.catchUpWaypointPassages(track: track, takeoff: appState.lineUpTime,
                                                       flightPlanId: appState.currentFlight?.flightPlanId)
         }

@@ -628,7 +628,7 @@ struct FlightView: View {
     private func performLineUp() {
         appState.recordLineUpTime()
         if let lineUpTime = appState.lineUpTime {
-            flightPlanManager.updateDepartureTimeFromLineUp(lineUpTime)
+            flightPlanManager.anchorETOsOnLineUp(lineUpTime)
         }
         pulseActionButton = false
         if allItemsChecked { triggerNextButtonPulse() }
@@ -636,7 +636,7 @@ struct FlightView: View {
     private func performLineUpUpdate() {
         appState.recordLineUpTime()
         if let lineUpTime = appState.lineUpTime {
-            flightPlanManager.updateDepartureTimeFromLineUp(lineUpTime)
+            flightPlanManager.anchorETOsOnLineUp(lineUpTime)
         }
     }
     private func performEngineShutdown() {

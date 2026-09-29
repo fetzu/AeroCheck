@@ -112,6 +112,38 @@ final class WaypointPassageTests: XCTestCase {
         XCTAssertNotNil(filled.waypoints[2].actualTimeOver)
     }
 
+    /// The departure's time over is the take-off once it is known, whatever was recorded in flight;
+    /// without one, a recorded time stays. The Flight Log and the nav log of a past flight read it
+    /// like this (`withActualTimesOver(from:)`). (6.1)
+    func testTheDeparturesTimeOverIsTheTakeoffOnceItIsKnown() {
+        var plan = FlightPlan(name: "Departure")
+        plan.waypoints = [(47.0, 7.0), (47.0, 7.3), (47.0, 7.6)].map {
+            FlightPlanWaypoint(coordinate: .init(latitude: $0.0, longitude: $0.1))
+        }
+        let firstFastFix = t0.addingTimeInterval(8)
+        plan.waypoints[0].actualTimeOver = firstFastFix
+        let gps = track([(47.0, 7.0), (47.0, 7.6)]).map {
+            GPSPoint(latitude: $0.coordinate.latitude, longitude: $0.coordinate.longitude, altitude: 1500,
+                     timestamp: $0.time, speed: $0.speed)
+        }
+
+        XCTAssertEqual(plan.withActualTimesOver(fromTrack: gps, takeoff: nil, landing: nil).waypoints[0].actualTimeOver,
+                       firstFastFix)
+        XCTAssertEqual(plan.withActualTimesOver(fromTrack: gps, takeoff: t0, landing: nil).waypoints[0].actualTimeOver,
+                       t0)
+        var flight = Flight(startTime: t0, lineUpTime: t0.addingTimeInterval(2))
+        flight.gpsTrack = gps
+        XCTAssertEqual(plan.withActualTimesOver(from: flight).waypoints[0].actualTimeOver, t0.addingTimeInterval(2))
+
+        // Taking off somewhere else than the departure is no time over it.
+        let elsewhere = track([(47.2, 7.3), (47.0, 7.6)]).map {
+            GPSPoint(latitude: $0.coordinate.latitude, longitude: $0.coordinate.longitude, altitude: 1500,
+                     timestamp: $0.time, speed: $0.speed)
+        }
+        XCTAssertEqual(plan.withActualTimesOver(fromTrack: elsewhere, takeoff: t0, landing: nil).waypoints[0].actualTimeOver,
+                       firstFastFix)
+    }
+
     func testETOAtAWaypointIsTheArrivingLegs() {
         var plan = FlightPlan(name: "ETO", plannedDepartureTime: t0)
         plan.waypoints = [(47.0, 7.0), (47.0, 7.3), (47.0, 7.6)].map {

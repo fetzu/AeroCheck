@@ -577,13 +577,16 @@ struct FlightPlanMapBuilderView: View {
         HStack(spacing: 6) {
             Text(slot == .from ? L10n.Nav.from : L10n.Nav.to)
                 .font(.aero(size: 11, weight: .semibold)).tracking(0.6).foregroundColor(.dimText)
-            TextField(slot == .from ? L10n.Nav.from : L10n.Nav.to,
-                      text: slot == .from ? $fromText : $toText)
+                .accessibilityHidden(true)   // the field carries the name
+            // The label already says From or To: the empty field says what to type, as Plan new flight
+            // does. It read "From  From" and "To  To". (6.1.0)
+            TextField(L10n.Flights.identPlaceholder, text: slot == .from ? $fromText : $toText)
                 .textInputAutocapitalization(.characters)
                 .autocorrectionDisabled()
                 .font(.aero(size: 17, weight: .semibold, design: .monospaced))
                 .foregroundColor(slot == .from ? .aviationGreen : .aviationGold)
                 .focused($focusedEndpoint, equals: slot)
+                .accessibilityLabel(slot == .from ? L10n.Nav.from : L10n.Nav.to)
         }
         .padding(.horizontal, 12).frame(minHeight: 44)
         .background(RoundedRectangle(cornerRadius: 8).fill(Color.subtleOverlay(0.06)))

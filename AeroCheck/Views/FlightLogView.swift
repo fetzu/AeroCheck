@@ -3100,12 +3100,11 @@ struct ShareSheet: UIViewControllerRepresentable {
 /// Present a UIActivityViewController for an image directly via UIKit,
 /// bypassing SwiftUI sheet timing issues that can cause grey/empty sheets on first invocation.
 @MainActor
-func presentImageShareSheet(image: UIImage) {
+func presentImageShareSheet(image: UIImage, filename: String) {
     guard let jpegData = image.jpegData(compressionQuality: 0.9) else { return }
     // A ShareFile rather than a bare temp URL: the share sheet holds it, and the staged image goes
     // with it once the sheet is closed. It used to stay in tmp/ for good. (S9-06)
-    let file = ShareFile(data: jpegData, filename: "AeroCheck_Flight_\(UUID().uuidString.prefix(8)).jpg",
-                         dataTypeIdentifier: UTType.jpeg.identifier)
+    let file = ShareFile(data: jpegData, filename: filename, dataTypeIdentifier: UTType.jpeg.identifier)
 
     let activityVC = UIActivityViewController(activityItems: [file], applicationActivities: nil)
 
@@ -3848,7 +3847,8 @@ struct ShareCardCustomizationView: View {
 
         // Present share sheet directly via UIKit — avoids SwiftUI's two-sheet
         // transition race condition that causes grey/empty sheets on first export
-        presentImageShareSheet(image: finalImage)
+        // Named like the flight's other exports, so a saved card is found beside them. (v6.1)
+        presentImageShareSheet(image: finalImage, filename: "\(flight.exportFilename).jpg")
     }
 
     /// Standalone map snapshot generator for the customization view
@@ -4343,7 +4343,7 @@ struct StatsShareCardCustomizationView: View {
 
         isGenerating = false
         guard let image = uiImage else { return }
-        presentImageShareSheet(image: image)
+        presentImageShareSheet(image: image, filename: "AeroCheck_Stats_\(UUID().uuidString.prefix(8)).jpg")
     }
 }
 

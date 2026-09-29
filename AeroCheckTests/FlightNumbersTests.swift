@@ -213,6 +213,59 @@ final class FlightNumbersTests: XCTestCase {
         }
     }
 
+    // MARK: - Export file names (v6.1)
+
+    /// `AeroCheck_20260929_1134_LSZQ-LSGE_F-HVXA`: the route, then the registration.
+    func testAnExportIsNamedByItsRouteAndRegistration() {
+        var hop = flight(registration: "F-HVXA")
+        hop.startTime = date("2026-09-06T11:00:00Z")                        // midday: the same date in any zone near UTC
+        XCTAssertTrue(hop.exportFilename.hasPrefix("AeroCheck_20260906_"), hop.exportFilename)
+        XCTAssertTrue(hop.exportFilename.hasSuffix("_LSZQ-LSGY_F-HVXA"), hop.exportFilename)
+        XCTAssertEqual(hop.exportFilename.split(separator: "_").count, 5, "AeroCheck, date, time, route, registration")
+
+        var named = hop
+        named.name = "Vol Solo #2.1"
+        XCTAssertTrue(named.exportFilename.hasSuffix("_LSZQ-LSGY_F-HVXA"), "the route, not the name")
+
+        var round = hop
+        round.arrivalAirportIdent = "LSZQ"
+        XCTAssertTrue(round.exportFilename.hasSuffix("_LSZQ_F-HVXA"), "a flight back where it started")
+        var circuits = flight(registration: "F-HVXA", touchAndGo: 4)
+        circuits.startTime = hop.startTime
+        circuits.arrivalAirportIdent = "LSZQ"
+        XCTAssertTrue(circuits.exportFilename.hasSuffix("_LSZQ_F-HVXA"))
+
+        var outlanding = hop
+        outlanding.arrivalAirportIdent = nil
+        XCTAssertTrue(outlanding.exportFilename.hasSuffix("_LSZQ-ZZZZ_F-HVXA"), "ICAO's indicator for none")
+        var fromUnknown = hop
+        fromUnknown.departureAirportIdent = nil
+        XCTAssertTrue(fromUnknown.exportFilename.hasSuffix("_ZZZZ-LSGY_F-HVXA"))
+
+        var unplaced = named
+        unplaced.departureAirportIdent = nil
+        unplaced.arrivalAirportIdent = nil
+        XCTAssertTrue(unplaced.exportFilename.hasSuffix("_Vol_Solo_2.1_F-HVXA"), "with no route, the name")
+        unplaced.name = ""
+        XCTAssertTrue(unplaced.exportFilename.hasSuffix("_F-HVXA"))
+        XCTAssertEqual(unplaced.exportFilename.split(separator: "_").count, 4, "nothing empty in between")
+    }
+
+    func testAFileNamePartIsSafeOnAnyFileSystem() {
+        XCTAssertEqual(Flight.fileSafe("Vol Solo #2.1"), "Vol_Solo_2.1")
+        XCTAssertEqual(Flight.fileSafe("Entraînement circuits"), "Entraînement_circuits")
+        XCTAssertEqual(Flight.fileSafe("a/b\\c:d*e?f\"g<h>i|j"), "a_b_c_d_e_f_g_h_i_j")
+        XCTAssertEqual(Flight.fileSafe("../..//etc"), "etc", "no path, no leading dot")
+        XCTAssertEqual(Flight.fileSafe(" ✈️ LSZQ → LSGE "), "LSZQ_LSGE")
+        XCTAssertEqual(Flight.fileSafe(String(repeating: "A", count: 90)).count, 60)
+        let forbidden = CharacterSet(charactersIn: "/\\:*?\"<>| ").union(.controlCharacters)
+        for name in ["Tour du Jura: LSZQ/LSGC", "Nuit\n\tvol", "..hidden", "A|B"] {
+            let safe = Flight.fileSafe(name)
+            XCTAssertNil(safe.rangeOfCharacter(from: forbidden), safe)
+            XCTAssertFalse(safe.hasPrefix("."), safe)
+        }
+    }
+
     // MARK: - The line laid out as the form (v5.x)
 
     func testFormRowPutsEachValueUnderTheFormsOwnHeading() {

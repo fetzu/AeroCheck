@@ -843,9 +843,12 @@ struct Flight: Identifiable, Codable {
         }
     }
 
-    /// Export filename in format: AeroCheck_YYYYMMDD_HHMM_FlightName (without extension)
-    /// Uses flight start date/time, or current date if unavailable
-    /// Includes time component to ensure uniqueness when multiple flights on same day
+    /// Export file name, without extension: `AeroCheck_YYYYMMDD_HHMM_<route>_<registration>`, e.g.
+    /// `AeroCheck_20260929_1134_LSZQ-LSGE_F-HVXA`. The date and time are the flight's start (local),
+    /// so two flights of a day never share a name. (v6.1: the route joins the registration)
+    ///
+    /// The route is `fileRoute`; a flight with no aerodrome known carries its name there instead, as
+    /// its title does, and one with neither goes by the registration alone.
     var exportFilename: String {
         let dateFormatter = DateFormatter()
         let timeFormatter = DateFormatter()
@@ -857,23 +860,44 @@ struct Flight: Identifiable, Codable {
         let dateStr = dateFormatter.string(from: flightDate)
         let timeStr = timeFormatter.string(from: flightDate)
 
-        // Use flight name if provided, otherwise use airplane name
-        let flightIdentifier: String
-        if name.isEmpty {
-            // Clean airplane name (remove spaces and special characters)
-            flightIdentifier = airplane
-                .replacingOccurrences(of: " ", with: "_")
-                .replacingOccurrences(of: "/", with: "-")
-                .replacingOccurrences(of: "\\", with: "-")
-        } else {
-            // Clean flight name (replace spaces with underscores, remove problematic chars)
-            flightIdentifier = name
-                .replacingOccurrences(of: " ", with: "_")
-                .replacingOccurrences(of: "/", with: "-")
-                .replacingOccurrences(of: "\\", with: "-")
-        }
+        let parts = [fileRoute ?? Self.nonBlank(name), aircraftRegistration ?? airplane]
+            .compactMap { $0.map(Self.fileSafe) }
+            .filter { !$0.isEmpty }
+        return (["AeroCheck", dateStr, timeStr] + parts).joined(separator: "_")
+    }
 
-        return "AeroCheck_\(dateStr)_\(timeStr)_\(flightIdentifier)"
+    /// The route as a file name carries it: "LSZQ-LSGE", "LSZQ" for a flight back where it started
+    /// (circuits included), "LSZQ-ZZZZ" with an end not found. ZZZZ is what an ICAO flight plan
+    /// writes for an aerodrome without an indicator; "?" is not safe in a file name. Nil with no
+    /// aerodrome known.
+    var fileRoute: String? {
+        switch routeShape {
+        case let .between(departure, arrival, _):
+            return "\(departure)-\(arrival)"
+        case let .circuits(at), let .roundTrip(at):
+            return at
+        case let .oneEnd(departure, arrival):
+            return "\(departure ?? "ZZZZ")-\(arrival ?? "ZZZZ")"
+        case .unnamed:
+            return nil
+        }
+    }
+
+    /// One file-name part that any file system and any archive tool takes: letters (accents
+    /// included), digits, "-" and "."; everything else, spaces and "/" among them, becomes "_", with
+    /// no run of them and none at either end, and at most 60 characters. "Vol Solo #2.1" becomes
+    /// "Vol_Solo_2.1".
+    static func fileSafe(_ text: String) -> String {
+        var result = ""
+        for character in text.precomposedStringWithCanonicalMapping {
+            if character.isLetter || character.isNumber || character == "-" || character == "." {
+                result.append(character)
+            } else if result.last != "_" {
+                result.append("_")
+            }
+        }
+        let trimmed = result.trimmingCharacters(in: CharacterSet(charactersIn: "_."))
+        return String(trimmed.prefix(60)).trimmingCharacters(in: CharacterSet(charactersIn: "_."))
     }
 }
 

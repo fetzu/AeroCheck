@@ -1,6 +1,278 @@
 {
   "sourceLanguage": "en",
   "strings": {
+    "a11y.phase.doneFromMemory": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "done from memory"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "faite de mémoire"
+          }
+        }
+      }
+    },
+    "deferred.notConfirmed": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ not confirmed"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ : non confirmée"
+          }
+        }
+      }
+    },
+    "deferred.memoryCheckNotConfirmed": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "A check flown from memory, its items hidden. Confirm it on the checklist, or leave it on the deferred list."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Une vérification faite de mémoire, ses éléments masqués. Confirmez-la sur la checklist, ou laissez-la dans les éléments reportés."
+          }
+        }
+      }
+    },
+    "deferred.continueNoteMemory": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The check moves to the deferred list, whole, and stays there until you confirm it."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "La vérification passe entière dans les éléments reportés, et y reste jusqu'à ce que vous la confirmiez."
+          }
+        }
+      }
+    },
+    "deferred.done": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Done"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "C'est fait"
+          }
+        }
+      }
+    },
+    "deferred.doneFromMemoryA11y": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@, done from memory"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@, faite de mémoire"
+          }
+        }
+      }
+    },
+    "cockpit.memoryCheckDone": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ DONE"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ : FAITE"
+          }
+        }
+      }
+    },
+    "cockpit.fromMemory": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "from memory"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "de mémoire"
+          }
+        }
+      }
+    },
+    "cockpit.doneFromMemoryToast": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ done from memory"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ : faite de mémoire"
+          }
+        }
+      }
+    },
+    "checkSlot.fromMemoryOneTap": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "from memory · one tap when done"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "de mémoire · un appui quand c'est fait"
+          }
+        }
+      }
+    },
+    "checkSlot.fromMemoryNothingToPress": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "from memory · nothing to press"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "de mémoire · rien à toucher"
+          }
+        }
+      }
+    },
+    "checkSlot.nothingToPress": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "nothing to press"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "rien à toucher"
+          }
+        }
+      }
+    },
+    "checkSlot.nextCheck": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "next check"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "vérification suivante"
+          }
+        }
+      }
+    },
+    "checkSlot.actionFirst": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ first"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "d'abord %@"
+          }
+        }
+      }
+    },
+    "checkSlot.confirmHint": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Records the check done from memory"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Enregistre la vérification faite de mémoire"
+          }
+        }
+      }
+    },
+    "checkSlot.showChecklistHint": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Opens the checklist"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ouvre la checklist"
+          }
+        }
+      }
+    },
     "homeAerodrome.title": {
       "extractionState": "manual",
       "localizations": {

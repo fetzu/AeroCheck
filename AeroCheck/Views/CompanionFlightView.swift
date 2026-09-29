@@ -25,6 +25,8 @@ struct CompanionFlightView: View {
     @State private var showDeferredList = false
     /// The deferred check being run from the list, by phase. (v6.0 review, J1)
     @State private var runningCheck: Int?
+    /// ✓ DONE just sent for a memory check, offered back for six seconds as on the iPad. (6.1)
+    @State private var memoryUndo: NavUndoOffer?
     private let tick = Timer.publish(every: 1, on: .main, in: .common).autoconnect()
 
     private var flightData: CompanionFlightData? { companionConnectivityManager.lastReceivedData }
@@ -491,10 +493,27 @@ struct CompanionFlightView: View {
     // source of truth and its snapshot redraws this. A tap on the list still checks, as on the phone
     // (I2). (v6.0 review, decision 2)
 
-    /// Everything on the list reached: CHECK gives way to NEXT, as on the Cockpit.
+    /// Everything on the list reached: CHECK gives way to NEXT, as on the Cockpit. A memory check, once
+    /// confirmed. (6.1)
     private var phaseComplete: Bool {
         guard let cl = checklist else { return false }
+        if awaitsMemoryConfirmation(cl) { return false }
         return cl.visibleCount == 0 || cl.completedCount >= cl.visibleCount
+    }
+
+    /// The iPad's current check is a memory check still to confirm, and it takes the confirmation from
+    /// here. An older iPad counts it done and says nothing: NEXT, as before. (6.1)
+    private func awaitsMemoryConfirmation(_ cl: CompanionChecklistSnapshot) -> Bool {
+        cl.supportsMemoryConfirm && cl.memoryCheck && !cl.memoryCheckDone
+    }
+
+    /// ✓ DONE: the iPad records it, and this screen offers it back for six seconds.
+    private func confirmMemoryCheck(_ cl: CompanionChecklistSnapshot, phaseRawValue: Int) {
+        companionConnectivityManager.sendCommand(.confirmMemoryCheck(phaseRawValue: phaseRawValue))
+        let title = ChecklistPhase(rawValue: phaseRawValue)?.shortTitle ?? cl.phaseTitle
+        memoryUndo = NavUndoOffer(message: L10n.Cockpit.doneFromMemoryToast(title), style: .outlined) {
+            companionConnectivityManager.sendCommand(.undoMemoryCheck(phaseRawValue: phaseRawValue))
+        }
     }
 
     private var checklistMode: some View {
@@ -533,13 +552,25 @@ struct CompanionFlightView: View {
                     }
                     // A tap on the list checks the highlighted item, as on the phone Cockpit (I2).
                     .contentShape(Rectangle())
-                    .onTapGesture { if !phaseComplete { companionConnectivityManager.sendCommand(.advanceChecklistItem) } }
+                    .onTapGesture {
+                        if !phaseComplete && !awaitsMemoryConfirmation(cl) {
+                            companionConnectivityManager.sendCommand(.advanceChecklistItem)
+                        }
+                    }
+                    .overlay(alignment: .bottom) {
+                        if let offer = memoryUndo {
+                            NavUndoToast(offer: offer) { memoryUndo = nil }
+                                .padding(.horizontal, 12)
+                                .padding(.bottom, 8)
+                        }
+                    }
 
                     thumbBar(cl)
                 }
                 .sheet(item: $openItemsReview) { review in
                     OpenItemsReviewSheet(
                         phase: review.phase, items: review.items, openCount: review.count,
+                        memoryCheck: review.memoryCheck,
                         onBack: { openItemsReview = nil },
                         onContinue: {
                             openItemsReview = nil
@@ -640,7 +671,8 @@ struct CompanionFlightView: View {
     /// the text); otherwise it only says how many, as the list would have nothing to show.
     @ViewBuilder
     private func deferredItemsEntry(_ cl: CompanionChecklistSnapshot) -> some View {
-        if cl.supportsDefer && (!cl.deferredGroups.isEmpty || cl.deferredChecks.contains { !$0.items.isEmpty }) {
+        if cl.supportsDefer && (!cl.deferredGroups.isEmpty || cl.deferredChecks.contains { !$0.items.isEmpty }
+                                || (cl.supportsMemoryConfirm && cl.deferredChecks.contains { $0.fromMemory })) {
             DeferredItemsChip(checks: cl.deferredChecks.count, count: cl.deferredItemCount) { showDeferredList = true }
                 .padding(.horizontal, 12).padding(.bottom, 4)
         } else {
@@ -676,12 +708,17 @@ struct CompanionFlightView: View {
                 onDefer: { companionConnectivityManager.sendCommand(.deferInDeferredCheck(phaseRawValue: raw)) },
                 onBack: { runningCheck = nil })
         } else {
+            let confirmsFromMemory = checklist?.supportsMemoryConfirm == true
             DeferredItemsList(
-                checks: checks.filter { !$0.items.isEmpty }.map {
-                    .init(phaseRawValue: $0.phaseRawValue, title: $0.phaseTitle, remaining: $0.remaining, total: $0.total)
+                checks: checks.filter { !$0.items.isEmpty || ($0.fromMemory && confirmsFromMemory) }.map {
+                    .init(phaseRawValue: $0.phaseRawValue, title: $0.phaseTitle, remaining: $0.remaining, total: $0.total,
+                          fromMemory: $0.fromMemory && confirmsFromMemory)
                 },
                 groups: deferredListGroups,
                 onRun: { runningCheck = $0 },
+                onConfirmFromMemory: { raw in
+                    companionConnectivityManager.sendCommand(.confirmMemoryCheck(phaseRawValue: raw))
+                },
                 onCheck: { id, phaseRawValue in
                     companionConnectivityManager.sendCommand(.checkDeferredItem(phaseRawValue: phaseRawValue, itemId: id))
                 },
@@ -701,7 +738,15 @@ struct CompanionFlightView: View {
     /// Cockpit. DEFER only when this iPad takes it: an older one would drop the command.
     private func thumbBar(_ cl: CompanionChecklistSnapshot) -> some View {
         HStack(spacing: 8) {
-            if !phaseComplete {
+            if awaitsMemoryConfirmation(cl) {
+                // As the iPad's: the memory check confirmed from memory, one tap. (6.1)
+                CockpitThumbButton(title: L10n.Cockpit.memoryCheckDone(
+                                        ChecklistPhase(rawValue: cl.phaseRawValue)?.shortTitle ?? cl.phaseTitle),
+                                   subtitle: L10n.Cockpit.fromMemory, icon: "checkmark",
+                                   style: .filled(fill: theme.action, text: theme.actionText)) {
+                    confirmMemoryCheck(cl, phaseRawValue: cl.phaseRawValue)
+                }
+            } else if !phaseComplete {
                 if cl.supportsDefer {
                     CockpitThumbButton(title: L10n.Cockpit.deferItem, subtitle: L10n.Cockpit.deferHint,
                                        style: .outlined(tint: theme.warning)) {
@@ -737,6 +782,11 @@ struct CompanionFlightView: View {
     /// NEXT: with items still open, list them before leaving the phase, as the iPad does (v6.0 · B2).
     /// A viewer without the items' text gets the count.
     private func requestNextPhase(_ cl: CompanionChecklistSnapshot) {
+        // A memory check not confirmed: reviewed, then deferred whole by the iPad, as there. (6.1)
+        if awaitsMemoryConfirmation(cl), let phase = ChecklistPhase(rawValue: cl.phaseRawValue) {
+            openItemsReview = CompanionOpenItemsReview(phase: phase, items: [], count: 0, memoryCheck: true)
+            return
+        }
         guard cl.openItemCount > 0, let phase = ChecklistPhase(rawValue: cl.phaseRawValue) else {
             companionConnectivityManager.sendCommand(.nextChecklistPhase)
             return
@@ -941,5 +991,7 @@ struct CompanionOpenItemsReview: Identifiable {
     let phase: ChecklistPhase
     let items: [ChecklistItem]
     let count: Int
+    /// A memory check left unconfirmed. (6.1)
+    var memoryCheck: Bool = false
     var id: Int { phase.rawValue }
 }

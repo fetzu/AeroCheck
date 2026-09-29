@@ -44,6 +44,8 @@
 		A5000046111111110000002 /* TypographyTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A5000046111111110000001 /* TypographyTests.swift */; };
 		A5000047111111110000002 /* MapPresetTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A5000047111111110000001 /* MapPresetTests.swift */; };
 		A5000048111111110000002 /* CockpitPaneRuleTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A5000048111111110000001 /* CockpitPaneRuleTests.swift */; };
+		C5107A010000000000000B2 /* CheckSlotTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C5107A010000000000000F2 /* CheckSlotTests.swift */; };
+		C5107A010000000000000B3 /* MemoryCheckTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C5107A010000000000000F3 /* MemoryCheckTests.swift */; };
 		A5000050111111110000002 /* VSpeedTableTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A5000050111111110000001 /* VSpeedTableTests.swift */; };
 		A5000052111111110000002 /* FuelOnBoardTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A5000052111111110000001 /* FuelOnBoardTests.swift */; };
 		A5000053111111110000002 /* RouteLibraryTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A5000053111111110000001 /* RouteLibraryTests.swift */; };
@@ -101,6 +103,7 @@
 		A1000001211111110000003 /* HomeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000001111111110000003 /* HomeView.swift */; };
 		A1000001211111110000926 /* GroundView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000001111111110000926 /* GroundView.swift */; };
 		A1000001211111110000927 /* Cockpit.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000001111111110000927 /* Cockpit.swift */; };
+		C5107A010000000000000B1 /* CheckSlot.swift in Sources */ = {isa = PBXBuildFile; fileRef = C5107A010000000000000F1 /* CheckSlot.swift */; };
 		A1000001211111110000004 /* FlightView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000001111111110000004 /* FlightView.swift */; };
 		A1000001211111110000005 /* FlightLogView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000001111111110000005 /* FlightLogView.swift */; };
 		A1000001211111110000006 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000001111111110000006 /* SettingsView.swift */; };
@@ -349,6 +352,8 @@
 		A5000046111111110000001 /* TypographyTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TypographyTests.swift; sourceTree = "<group>"; };
 		A5000047111111110000001 /* MapPresetTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MapPresetTests.swift; sourceTree = "<group>"; };
 		A5000048111111110000001 /* CockpitPaneRuleTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CockpitPaneRuleTests.swift; sourceTree = "<group>"; };
+		C5107A010000000000000F2 /* CheckSlotTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CheckSlotTests.swift; sourceTree = "<group>"; };
+		C5107A010000000000000F3 /* MemoryCheckTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MemoryCheckTests.swift; sourceTree = "<group>"; };
 		A5000050111111110000001 /* VSpeedTableTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VSpeedTableTests.swift; sourceTree = "<group>"; };
 		A5000052111111110000001 /* FuelOnBoardTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FuelOnBoardTests.swift; sourceTree = "<group>"; };
 		A5000053111111110000001 /* RouteLibraryTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RouteLibraryTests.swift; sourceTree = "<group>"; };
@@ -408,6 +413,7 @@
 		A1000001111111110000003 /* HomeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeView.swift; sourceTree = "<group>"; };
 		A1000001111111110000926 /* GroundView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GroundView.swift; sourceTree = "<group>"; };
 		A1000001111111110000927 /* Cockpit.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Cockpit.swift; sourceTree = "<group>"; };
+		C5107A010000000000000F1 /* CheckSlot.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CheckSlot.swift; sourceTree = "<group>"; };
 		A1000001111111110000062 /* AmbientCelebration.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AmbientCelebration.swift; sourceTree = "<group>"; };
 		A1000001111111110000072 /* DisclaimerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DisclaimerView.swift; sourceTree = "<group>"; };
 		A1000001111111110000909 /* SigmetViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SigmetViews.swift; sourceTree = "<group>"; };
@@ -639,6 +645,8 @@
 				A5000046111111110000001 /* TypographyTests.swift */,
 				A5000047111111110000001 /* MapPresetTests.swift */,
 				A5000048111111110000001 /* CockpitPaneRuleTests.swift */,
+				C5107A010000000000000F2 /* CheckSlotTests.swift */,
+				C5107A010000000000000F3 /* MemoryCheckTests.swift */,
 				A5000050111111110000001 /* VSpeedTableTests.swift */,
 				A5000052111111110000001 /* FuelOnBoardTests.swift */,
 				A5000053111111110000001 /* RouteLibraryTests.swift */,
@@ -754,6 +762,7 @@
 				A1000001111111110000003 /* HomeView.swift */,
 				A1000001111111110000926 /* GroundView.swift */,
 				A1000001111111110000927 /* Cockpit.swift */,
+				C5107A010000000000000F1 /* CheckSlot.swift */,
 				A1000001111111110000062 /* AmbientCelebration.swift */,
 				A1000001111111110000072 /* DisclaimerView.swift */,
 				A1000001111111110000909 /* SigmetViews.swift */,
@@ -1168,6 +1177,8 @@
 				A5000046111111110000002 /* TypographyTests.swift in Sources */,
 				A5000047111111110000002 /* MapPresetTests.swift in Sources */,
 				A5000048111111110000002 /* CockpitPaneRuleTests.swift in Sources */,
+				C5107A010000000000000B2 /* CheckSlotTests.swift in Sources */,
+				C5107A010000000000000B3 /* MemoryCheckTests.swift in Sources */,
 				A5000050111111110000002 /* VSpeedTableTests.swift in Sources */,
 				A5000052111111110000002 /* FuelOnBoardTests.swift in Sources */,
 				A5000053111111110000002 /* RouteLibraryTests.swift in Sources */,
@@ -1229,6 +1240,7 @@
 				A1000001211111110000003 /* HomeView.swift in Sources */,
 				A1000001211111110000926 /* GroundView.swift in Sources */,
 				A1000001211111110000927 /* Cockpit.swift in Sources */,
+				C5107A010000000000000B1 /* CheckSlot.swift in Sources */,
 				A1000001211111110000004 /* FlightView.swift in Sources */,
 				A1000001211111110000005 /* FlightLogView.swift in Sources */,
 				A1000001211111110000006 /* SettingsView.swift in Sources */,

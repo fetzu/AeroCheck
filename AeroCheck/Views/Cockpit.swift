@@ -29,10 +29,16 @@ enum CockpitPaneRule {
     /// The map in climb, cruise and descent once their checklist is worked through; the checklist
     /// everywhere else: on the ground, around take-off and landing, and whenever an en-route checklist
     /// is open, including a cruise check that has come due again.
-    static func defaultPane(phase: ChecklistPhase, checklistDone: Bool) -> CockpitPane {
+    ///
+    /// A memory check (`memoryCheck`: every item hidden by the Memory test) has no list to show: the
+    /// map, with the check slot to confirm it, in climb, cruise and descent as before, and since 6.1 in
+    /// approach, landing and after landing too, which were near-empty checklist pages (Q7).
+    static func defaultPane(phase: ChecklistPhase, checklistDone: Bool, memoryCheck: Bool = false) -> CockpitPane {
         switch phase {
         case .climb, .cruise, .descent:
-            return checklistDone ? .map : .checklist
+            return checklistDone || memoryCheck ? .map : .checklist
+        case .approach, .landing, .afterLanding:
+            return memoryCheck ? .map : .checklist
         default:
             return .checklist
         }

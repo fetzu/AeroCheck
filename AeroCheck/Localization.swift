@@ -1132,6 +1132,8 @@ enum L10n {
         static let phaseSkipped = String(localized: "a11y.phase.skipped")
         static let phaseMissingAction = String(localized: "a11y.phase.missingAction")
         static let phaseNothingToDo = String(localized: "a11y.phase.nothingToDo")
+        /// A memory check confirmed with one tap. (6.1)
+        static let phaseDoneFromMemory = String(localized: "a11y.phase.doneFromMemory")
         static let phaseNotStarted = String(localized: "a11y.phase.notStarted")
         static let phaseCruiseCheckDue = String(localized: "a11y.phase.cruiseCheckDue")
         static let previousPhase = String(localized: "a11y.previousPhase")
@@ -1678,6 +1680,17 @@ enum L10n {
         static let title = String(localized: "deferred.title")
         static let hint = String(localized: "deferred.hint")
         static let check = String(localized: "deferred.check")
+        /// A memory check left unconfirmed, reviewed before it is deferred whole. (6.1)
+        static func notConfirmed(_ check: String) -> String {
+            String(format: String(localized: "deferred.notConfirmed"), check)
+        }
+        static let memoryCheckNotConfirmed = String(localized: "deferred.memoryCheckNotConfirmed")
+        static let continueNoteMemory = String(localized: "deferred.continueNoteMemory")
+        /// DONE on a memory check in the deferred list: confirmed from memory. (6.1)
+        static let done = String(localized: "deferred.done")
+        static func doneFromMemoryA11y(_ check: String) -> String {
+            String(format: String(localized: "deferred.doneFromMemoryA11y"), check)
+        }
         static let review = String(localized: "deferred.review")
         static let deferredTag = String(localized: "deferred.tag")
     }
@@ -1695,6 +1708,15 @@ enum L10n {
             String(format: String(localized: "cockpit.nextPhaseA11y"), phase)
         }
         static let allChecked = String(localized: "cockpit.allChecked")
+        /// "CLIMB CHECK DONE", beside a ✓, on a memory check to confirm. (6.1)
+        static func memoryCheckDone(_ check: String) -> String {
+            String(format: String(localized: "cockpit.memoryCheckDone"), check)
+        }
+        static let fromMemory = String(localized: "cockpit.fromMemory")
+        /// The undo toast after a confirmation: "CLIMB CHECK done from memory". (6.1)
+        static func doneFromMemoryToast(_ check: String) -> String {
+            String(format: String(localized: "cockpit.doneFromMemoryToast"), check)
+        }
         /// A tap on a checked item opens it again, on its own (v6.0 review, K-C); on an open one, checks it.
         static let reopenHint = String(localized: "cockpit.stepBackHint")
         static let checkAgainHint = String(localized: "cockpit.checkAgainHint")
@@ -1702,6 +1724,22 @@ enum L10n {
         static let display = String(localized: "cockpit.display")
         static let options = String(localized: "cockpit.options")
         static let endFlightHint = String(localized: "cockpit.endFlightHint")
+    }
+
+    /// The check slot on the map, in flight. (6.1)
+    enum CheckSlot {
+        static let fromMemoryOneTap = String(localized: "checkSlot.fromMemoryOneTap")
+        static let fromMemoryNothingToPress = String(localized: "checkSlot.fromMemoryNothingToPress")
+        static let nothingToPress = String(localized: "checkSlot.nothingToPress")
+        /// "5 items"
+        static func items(_ count: Int) -> String { String(localized: "\(count) items") }
+        static let nextCheck = String(localized: "checkSlot.nextCheck")
+        /// "ENGINE START first"
+        static func actionFirst(_ action: String) -> String {
+            String(format: String(localized: "checkSlot.actionFirst"), action)
+        }
+        static let confirmHint = String(localized: "checkSlot.confirmHint")
+        static let showChecklistHint = String(localized: "checkSlot.showChecklistHint")
     }
 
     enum Trip {

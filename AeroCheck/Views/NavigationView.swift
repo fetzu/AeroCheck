@@ -231,6 +231,9 @@ struct NavigationMapView: View {
     /// Over the map's own chrome, at the top: the Cockpit's chips that come and go (BRIEFING, the
     /// cautions), on the phone.
     var mapTopAccessory: AnyView? = nil
+    /// The Cockpit's CHECKLIST pane, for the check slot's "N items". Given by the Cockpit only: with it,
+    /// in flight, the check slot leads the bottom row. (6.1)
+    var onShowChecklist: (() -> Void)? = nil
     @State private var selectedLayer: MapLayerType = .icao
     @State private var isFollowingAircraft: Bool = true
     /// iPad: base chart and overlays in one labelled sheet. (v6.0 · C1)
@@ -979,7 +982,7 @@ struct NavigationMapView: View {
                         SeparateView { nextWaypointCard }
                     }
                     if routesOnTop {
-                        routesButton
+                        routesButton()
                             .frame(maxWidth: .infinity, alignment: .leading)
                     }
                     if !compact {
@@ -1029,6 +1032,18 @@ struct NavigationMapView: View {
     private var phoneWithNoLegToFly: Bool {
         CockpitScale.current == .phone
             && (flightPlanManager.activeFlightPlan == nil || !appState.isFlightActive)
+            // In the Cockpit's flight the foot has the check slot, and Routes joins it there. (6.1)
+            && !showsCheckSlot
+    }
+
+    /// The Cockpit's map in flight: the check slot leads the bottom row, in the same place in every
+    /// phase. (6.1, check slot)
+    private var showsCheckSlot: Bool { appState.isFlightActive && onShowChecklist != nil }
+
+    /// Approach and landing: GO AROUND and TOUCH-AND-GO on either side of the slot, as on the checklist
+    /// pane, in place of the route's row (the destination is marked by the landing). (6.1, mockup M3)
+    private var showsEventButtons: Bool {
+        showsCheckSlot && (appState.currentPhase == .approach || appState.currentPhase == .landing)
     }
 
     private var routesOnTop: Bool { phoneWithNoLegToFly && onShowRoutes == nil }
@@ -1757,7 +1772,9 @@ struct NavigationMapView: View {
         }
     }
 
-    private func chromeButton(icon: String, title: String, prominent: Bool = false,
+    /// `height`: taller than a map control, in a row of the thumb bar's height (Routes beside the check
+    /// slot).
+    private func chromeButton(icon: String, title: String, prominent: Bool = false, height: CGFloat? = nil,
                               action: @escaping () -> Void) -> some View {
         Button(action: action) {
             HStack(spacing: 8) {
@@ -1769,7 +1786,7 @@ struct NavigationMapView: View {
             }
             .foregroundColor(prominent ? theme.actionText : theme.action)
             .padding(.horizontal, CockpitType.size(kneeboard: 16, phone: 12))
-            .frame(minHeight: CockpitTarget.control)
+            .frame(minHeight: height ?? CockpitTarget.control)
             .background(RoundedRectangle(cornerRadius: 14).fill(prominent ? theme.action : theme.panel))
             .overlay(RoundedRectangle(cornerRadius: 14).stroke(prominent ? Color.clear : theme.panelStroke, lineWidth: 1))
             .contentShape(Rectangle())
@@ -1913,13 +1930,24 @@ struct NavigationMapView: View {
     /// once airborne. On the ground the row is the way to the routes, as with no route. (v6.0 review)
     @ViewBuilder
     private var navThumbBar: some View {
-        if appState.isFlightActive, let plan = flightPlanManager.activeFlightPlan {
+        if showsEventButtons {
+            eventSlotRow
+                .padding(.horizontal, CockpitType.size(kneeboard: 16, phone: 12))
+                .padding(.vertical, CockpitType.size(kneeboard: 12, phone: 10))
+        } else if appState.isFlightActive, let plan = flightPlanManager.activeFlightPlan {
             TimelineView(.periodic(from: .now, by: 1)) { _ in
                 let state = legTimerState(plan)
                 HStack(spacing: CockpitType.size(kneeboard: 12, phone: 8)) {
-                    legTimerReadout(elapsed: state.elapsed, planned: state.planned, running: state.running,
-                                    started: state.started)
-                    navPrimaryButton(plan, started: state.started)
+                    if showsCheckSlot {
+                        // The slot first, sharing the room with MARK; the leg timer moves into MARK, the
+                        // button that ends the leg. Divert and More keep their places. (mockup M2)
+                        checkSlot()
+                        navPrimaryButton(plan, started: state.started, leg: state)
+                    } else {
+                        legTimerReadout(elapsed: state.elapsed, planned: state.planned, running: state.running,
+                                        started: state.started)
+                        navPrimaryButton(plan, started: state.started)
+                    }
                     if !flightPlanManager.isFlightPlanCompleted { divertThumbButton(plan) }
                     navMoreMenu(running: state.running, started: state.started)
                 }
@@ -1931,17 +1959,44 @@ struct NavigationMapView: View {
         }
     }
 
+    /// The check slot, when this map is the Cockpit's in flight. `prominent`: the wide one, beside
+    /// Routes. (6.1)
+    @ViewBuilder
+    private func checkSlot(prominent: Bool = false) -> some View {
+        if let onShowChecklist {
+            CockpitCheckSlot(onShowChecklist: onShowChecklist, prominent: prominent)
+        }
+    }
+
+    /// GO AROUND, the slot, TOUCH-AND-GO: approach and landing (mockup M3). Hold 1 s to confirm, or a
+    /// single tap in circuits, as on the checklist pane.
+    private var eventSlotRow: some View {
+        HStack(spacing: CockpitType.size(kneeboard: 12, phone: 8)) {
+            MapFlightEventButton(event: .goAround)
+                .frame(maxWidth: CockpitType.size(kneeboard: 220, phone: 112))
+            checkSlot()
+            MapFlightEventButton(event: .touchAndGo)
+                .frame(maxWidth: CockpitType.size(kneeboard: 220, phone: 112))
+        }
+    }
+
     /// The landscape phone's version, under the Cockpit's column: the leg timer, MARK, and Divert and
     /// More stacked, half height, so MARK keeps its width. (iPhone pass, I7)
     @ViewBuilder
     private var navThumbColumnCompact: some View {
-        if appState.isFlightActive, let plan = flightPlanManager.activeFlightPlan {
+        if showsEventButtons {
+            eventSlotRow
+        } else if appState.isFlightActive, let plan = flightPlanManager.activeFlightPlan {
             TimelineView(.periodic(from: .now, by: 1)) { _ in
                 let state = legTimerState(plan)
                 HStack(spacing: 8) {
-                    legTimerReadout(elapsed: state.elapsed, planned: state.planned, running: state.running,
-                                    started: state.started)
-                    navPrimaryButton(plan, started: state.started)
+                    if showsCheckSlot {
+                        checkSlot()
+                    } else {
+                        legTimerReadout(elapsed: state.elapsed, planned: state.planned, running: state.running,
+                                        started: state.started)
+                    }
+                    navPrimaryButton(plan, started: state.started, leg: showsCheckSlot ? state : nil)
                     VStack(spacing: 8) {
                         if !flightPlanManager.isFlightPlanCompleted { divertThumbButton(plan, stacked: true) }
                         navMoreMenu(running: state.running, started: state.started, stacked: true)
@@ -1957,7 +2012,31 @@ struct NavigationMapView: View {
     /// and Divert, then MARK with More beside it, where the thumb rests.
     @ViewBuilder
     private var navThumbColumn: some View {
-        if appState.isFlightActive, let plan = flightPlanManager.activeFlightPlan {
+        if showsEventButtons {
+            VStack(spacing: 12) {
+                checkSlot()
+                HStack(spacing: 12) {
+                    MapFlightEventButton(event: .goAround)
+                    MapFlightEventButton(event: .touchAndGo)
+                }
+            }
+        } else if showsCheckSlot, let plan = flightPlanManager.activeFlightPlan {
+            // The slot on top, where the leg timer and Divert were; the leg timer in MARK.
+            VStack(spacing: 12) {
+                checkSlot()
+                TimelineView(.periodic(from: .now, by: 1)) { _ in
+                    let state = legTimerState(plan)
+                    // Divert and More stacked, half height, so MARK keeps the width for its leg line.
+                    HStack(spacing: 12) {
+                        navPrimaryButton(plan, started: state.started, leg: state)
+                        VStack(spacing: 8) {
+                            if !flightPlanManager.isFlightPlanCompleted { divertThumbButton(plan, stacked: true) }
+                            navMoreMenu(running: state.running, started: state.started, stacked: true)
+                        }
+                    }
+                }
+            }
+        } else if appState.isFlightActive, let plan = flightPlanManager.activeFlightPlan {
             TimelineView(.periodic(from: .now, by: 1)) { _ in
                 let state = legTimerState(plan)
                 VStack(spacing: 12) {
@@ -1978,18 +2057,25 @@ struct NavigationMapView: View {
         }
     }
 
+    /// Routes alone on the ground (Plan › Map). In the Cockpit's flight, Routes then the check slot
+    /// filling the row, the thumb bar's height: the chart is as tall as with a route. (6.1)
     private var routesButtonRow: some View {
-        HStack {
-            routesButton
-            Spacer(minLength: 0)
+        HStack(spacing: CockpitType.size(kneeboard: 12, phone: 8)) {
+            if showsCheckSlot {
+                routesButton(height: CheckSlotButton.height)
+                checkSlot(prominent: true)
+            } else {
+                routesButton()
+                Spacer(minLength: 0)
+            }
         }
-        .padding(.horizontal, 16)
-        .padding(.vertical, 12)
+        .padding(.horizontal, showsCheckSlot ? CockpitType.size(kneeboard: 16, phone: 12) : 16)
+        .padding(.vertical, showsCheckSlot ? CockpitType.size(kneeboard: 12, phone: 10) : 12)
     }
 
-    private var routesButton: some View {
+    private func routesButton(height: CGFloat? = nil) -> some View {
         chromeButton(icon: "point.topleft.down.to.point.bottomright.curvepath",
-                     title: L10n.Ground.planRoutes) {
+                     title: L10n.Ground.planRoutes, height: height) {
             if let onShowRoutes { onShowRoutes() } else { showFlightPlanning = true }
         }
     }
@@ -2007,9 +2093,11 @@ struct NavigationMapView: View {
                       elapsed: flightPlanManager.chronometerElapsed)
     }
 
-    /// START LEG before the timer runs, then MARK named after the waypoint.
+    /// START LEG before the timer runs, then MARK named after the waypoint. `leg`: beside the check slot
+    /// the leg timer has no place of its own and becomes MARK's second line, "LEG 2:05 / 17:32" (the
+    /// phone: "LSGC · 2:05"). (6.1, mockup M2)
     @ViewBuilder
-    private func navPrimaryButton(_ plan: FlightPlan, started: Bool) -> some View {
+    private func navPrimaryButton(_ plan: FlightPlan, started: Bool, leg: LegTimerState? = nil) -> some View {
         if !started {
             thumbPrimaryButton(icon: "stopwatch", title: L10n.Nav.startLegTimer) {
                 flightPlanManager.startChronometer()
@@ -2019,19 +2107,29 @@ struct NavigationMapView: View {
             let name = plan.waypoints[index].name
             if CockpitScale.current == .phone {
                 // The phone: the waypoint under MARK, where "MARK LSGC" on one line had to shrink.
+                let parts = [name.isEmpty ? nil : name, leg.map { legTimeText($0, planned: false) }].compactMap { $0 }
                 thumbPrimaryButton(icon: "mappin.and.ellipse", title: L10n.Nav.mark,
-                                   subtitle: name.isEmpty ? nil : name) {
+                                   subtitle: parts.isEmpty ? nil : parts.joined(separator: " · ")) {
                     markWaypoint(at: index, in: plan)
                 }
             } else {
                 thumbPrimaryButton(icon: "mappin.and.ellipse",
-                                   title: name.isEmpty ? L10n.Nav.mark : "\(L10n.Nav.mark) \(name)") {
+                                   title: name.isEmpty ? L10n.Nav.mark : "\(L10n.Nav.mark) \(name)",
+                                   subtitle: leg.map { "\(L10n.Nav.leg) \(legTimeText($0, planned: true))" }) {
                     markWaypoint(at: index, in: plan)
                 }
             }
         } else {
             Spacer(minLength: 0)
         }
+    }
+
+    /// The leg time so far, against the planned one where there's room ("2:05 / 17:32"); paused, it says so.
+    private func legTimeText(_ state: LegTimerState, planned: Bool) -> String {
+        var text = formatClock(state.elapsed)
+        if planned, let plannedTime = state.planned { text += " / \(formatClock(plannedTime))" }
+        if !state.running { text += " ‖" }
+        return text
     }
 
     private func divertThumbButton(_ plan: FlightPlan, stacked: Bool = false) -> some View {
@@ -5991,6 +6089,28 @@ extension NavUndoOffer {
     }
 }
 
+extension NavUndoOffer {
+    /// "CLIMB CHECK done from memory", taken back with UNDO. Outlined: on the checklist pane it sits
+    /// right above NEXT, which took CHECK's place, and on the map right above the slot. (6.1)
+    @MainActor
+    static func memoryConfirmation(_ confirmation: AppState.MemoryConfirmation, in appState: AppState) -> NavUndoOffer {
+        NavUndoOffer(id: confirmation.id,
+                     message: L10n.Cockpit.doneFromMemoryToast(confirmation.phase.shortTitle),
+                     style: .outlined) {
+            appState.undoMemoryConfirmation(confirmation.id)
+        }
+    }
+}
+
+extension AppState {
+    /// The memory check confirmation still to offer back: within its six seconds. (6.1)
+    var memoryConfirmationToOffer: MemoryConfirmation? {
+        guard let confirmation = memoryConfirmation,
+              Date().timeIntervalSince(confirmation.confirmedAt) < Self.memoryConfirmationUndoWindow else { return nil }
+        return confirmation
+    }
+}
+
 /// The undo toast, over a pane and never in its layout, for six seconds: MARK and the leg-timer reset
 /// on the map, and a waypoint the flight marked on its own on the map and the checklist pane.
 /// (v6.0 · C2, v6.0.1)
@@ -6067,6 +6187,10 @@ struct MapUndoToast: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     private var shown: NavUndoOffer? {
+        // A memory check just confirmed from the slot (6.1): the pilot's latest tap on this pane.
+        if appState.isFlightActive, let confirmation = appState.memoryConfirmationToOffer {
+            return .memoryConfirmation(confirmation, in: appState)
+        }
         if appState.isFlightActive, let notice = flightPlanManager.autoMarkNotice {
             return .autoMark(notice, in: flightPlanManager)
         }
@@ -6079,35 +6203,52 @@ struct MapUndoToast: View {
                 NavUndoToast(offer: offer) {
                     if offer.id == undoOffer?.id { undoOffer = nil }
                     flightPlanManager.dismissAutoMarkNotice(offer.id)
+                    appState.dismissMemoryConfirmation(offer.id)
                 }
             }
         }
         .animation(reduceMotion ? nil : .easeOut(duration: 0.2), value: flightPlanManager.autoMarkNotice?.id)
-        // A waypoint the flight marked on its own supersedes the undo of an older MARK or reset.
+        .animation(reduceMotion ? nil : .easeOut(duration: 0.2), value: appState.memoryConfirmation?.id)
+        // A waypoint the flight marked on its own, or a check just confirmed, supersedes the undo of an
+        // older MARK or reset.
         .onChange(of: flightPlanManager.autoMarkNotice?.id) { _, id in
+            if id != nil { undoOffer = nil }
+        }
+        .onChange(of: appState.memoryConfirmation?.id) { _, id in
             if id != nil { undoOffer = nil }
         }
     }
 }
 
-/// The Cockpit's checklist pane host for a waypoint the flight marked on its own: the map pane has
-/// its own, which also carries MARK's undo. (v6.0.1)
+/// The Cockpit's checklist pane host for a waypoint the flight marked on its own, and for a memory
+/// check just confirmed with ✓ DONE (6.1): the map pane has its own, which also carries MARK's undo.
+/// (v6.0.1)
 struct AutoMarkUndoToast: View {
     /// The phone's narrower margins.
     var narrow = false
     @EnvironmentObject var flightPlanManager: FlightPlanManager
+    @Environment(AppState.self) private var appState
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    private var shown: NavUndoOffer? {
+        if let confirmation = appState.memoryConfirmationToOffer {
+            return .memoryConfirmation(confirmation, in: appState)
+        }
+        return flightPlanManager.autoMarkNotice.map { .autoMark($0, in: flightPlanManager) }
+    }
 
     var body: some View {
         ZStack(alignment: .bottom) {
-            if let notice = flightPlanManager.autoMarkNotice {
-                NavUndoToast(offer: .autoMark(notice, in: flightPlanManager)) {
-                    flightPlanManager.dismissAutoMarkNotice(notice.id)
+            if let offer = shown {
+                NavUndoToast(offer: offer) {
+                    flightPlanManager.dismissAutoMarkNotice(offer.id)
+                    appState.dismissMemoryConfirmation(offer.id)
                 }
                 .padding(.horizontal, narrow ? 12 : 16)
                 .padding(.bottom, 8)
             }
         }
         .animation(reduceMotion ? nil : .easeOut(duration: 0.2), value: flightPlanManager.autoMarkNotice?.id)
+        .animation(reduceMotion ? nil : .easeOut(duration: 0.2), value: appState.memoryConfirmation?.id)
     }
 }

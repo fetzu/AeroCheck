@@ -17,6 +17,9 @@ struct OpenItemsReviewSheet: View {
     /// How many are open, when the items themselves can't be listed: the Companion viewer that isn't
     /// entitled to the checklist's text. (v6.0 review, decision 2)
     var openCount: Int? = nil
+    /// A memory check left unconfirmed (6.1): its items are hidden, so the check itself is what is
+    /// owed; it goes to the deferred list whole.
+    var memoryCheck: Bool = false
     /// Stay on the phase, at the first open item.
     let onBack: () -> Void
     /// Leave the phase; the open items become deferred.
@@ -27,12 +30,14 @@ struct OpenItemsReviewSheet: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 20) {
             VStack(alignment: .leading, spacing: 6) {
-                Text(L10n.Deferred.notChecked(openCount ?? items.count))
+                Text(memoryCheck ? L10n.Deferred.notConfirmed(phase.shortTitle)
+                                 : L10n.Deferred.notChecked(openCount ?? items.count))
                     .font(.aero(size: 30, weight: .bold))
                     .foregroundColor(theme.textPrimary)
-                Text(phase.title)
+                Text(memoryCheck ? L10n.Deferred.memoryCheckNotConfirmed : phase.title)
                     .font(.aero(size: 20, weight: .medium))
                     .foregroundColor(theme.textSecondary)
+                    .fixedSize(horizontal: false, vertical: true)
             }
             .accessibilityElement(children: .combine)
             .accessibilityAddTraits(.isHeader)
@@ -64,7 +69,7 @@ struct OpenItemsReviewSheet: View {
                         .frame(maxWidth: .infinity, minHeight: 76)
                         .background(RoundedRectangle(cornerRadius: 16).stroke(theme.warning, lineWidth: 2))
                 }
-                Text(L10n.Deferred.continueNote)
+                Text(memoryCheck ? L10n.Deferred.continueNoteMemory : L10n.Deferred.continueNote)
                     .font(.aero(size: 17))
                     .foregroundColor(theme.textSecondary)
                     .fixedSize(horizontal: false, vertical: true)
@@ -140,13 +145,17 @@ struct DeferredItemsSheet: View {
         } else {
             DeferredItemsList(
                 checks: appState.deferredCheckList.map {
-                    .init(phaseRawValue: $0.phase.rawValue, title: $0.phase.title, remaining: $0.remaining, total: $0.total)
+                    .init(phaseRawValue: $0.phase.rawValue, title: $0.phase.title, remaining: $0.remaining, total: $0.total,
+                          fromMemory: appState.isMemoryCheck($0.phase, learningMode: appState.settings.learningMode))
                 },
                 groups: appState.deferredChecklist.map { group in
                     DeferredItemsList.Group(phaseRawValue: group.phase.rawValue, title: group.phase.title,
                                             items: group.items.map { .init(id: $0.id, item: $0) })
                 },
                 onRun: { raw in running = ChecklistPhase(rawValue: raw) },
+                onConfirmFromMemory: { raw in
+                    if let phase = ChecklistPhase(rawValue: raw) { appState.confirmMemoryCheck(phase) }
+                },
                 onCheck: { id, phaseRawValue in
                     if let phase = ChecklistPhase(rawValue: phaseRawValue) { appState.checkDeferredItem(id, in: phase) }
                 },
@@ -177,12 +186,16 @@ struct DeferredItemsList: View {
         let title: String
         let remaining: Int
         let total: Int
+        /// A memory check (its items hidden): DONE confirms it from memory, where a list would RUN. (6.1)
+        var fromMemory: Bool = false
         var id: Int { phaseRawValue }
     }
 
     var checks: [CheckRow] = []
     let groups: [Group]
     var onRun: (_ phaseRawValue: Int) -> Void = { _ in }
+    /// DONE on a memory check deferred whole: confirmed from memory. (6.1)
+    var onConfirmFromMemory: (_ phaseRawValue: Int) -> Void = { _ in }
     let onCheck: (_ id: String, _ phaseRawValue: Int) -> Void
     let onClose: () -> Void
 
@@ -223,21 +236,33 @@ struct DeferredItemsList: View {
                                         Text(check.title)
                                             .font(.aero(size: 22, weight: .semibold))
                                             .foregroundColor(theme.textPrimary)
-                                        Text(L10n.Deferred.checkRemaining(check.remaining, check.total))
+                                        Text(check.fromMemory ? L10n.Cockpit.fromMemory
+                                                              : L10n.Deferred.checkRemaining(check.remaining, check.total))
                                             .font(.aero(size: 20))
                                             .foregroundColor(theme.textSecondary)
                                     }
                                     .fixedSize(horizontal: false, vertical: true)
                                     .accessibilityElement(children: .combine)
                                     Spacer(minLength: 8)
-                                    Button { onRun(check.phaseRawValue) } label: {
-                                        Text(L10n.Deferred.run.uppercased())
-                                            .font(.aero(size: 20, weight: .heavy))
-                                            .foregroundColor(theme.actionText)
-                                            .frame(minWidth: 128, minHeight: 76)
-                                            .background(RoundedRectangle(cornerRadius: 14).fill(theme.action))
+                                    if check.fromMemory {
+                                        Button { onConfirmFromMemory(check.phaseRawValue) } label: {
+                                            Label(L10n.Deferred.done.uppercased(), systemImage: "checkmark")
+                                                .font(.aero(size: 20, weight: .heavy))
+                                                .foregroundColor(theme.actionText)
+                                                .frame(minWidth: 128, minHeight: 76)
+                                                .background(RoundedRectangle(cornerRadius: 14).fill(theme.action))
+                                        }
+                                        .accessibilityLabel(L10n.Deferred.doneFromMemoryA11y(check.title))
+                                    } else {
+                                        Button { onRun(check.phaseRawValue) } label: {
+                                            Text(L10n.Deferred.run.uppercased())
+                                                .font(.aero(size: 20, weight: .heavy))
+                                                .foregroundColor(theme.actionText)
+                                                .frame(minWidth: 128, minHeight: 76)
+                                                .background(RoundedRectangle(cornerRadius: 14).fill(theme.action))
+                                        }
+                                        .accessibilityLabel("\(L10n.Deferred.run) \(check.title)")
                                     }
-                                    .accessibilityLabel("\(L10n.Deferred.run) \(check.title)")
                                 }
                                 .padding(.vertical, 10)
                                 .overlay(alignment: .top) { Rectangle().fill(theme.panelStroke).frame(height: 1) }

@@ -288,6 +288,22 @@ struct ContentView: View {
                 companionConnectivityManager.showAsViewerOfOwnFlight(
                     appState: appState, locationManager: locationManager, flightPlanManager: flightPlanManager)
             }
+            // The in-flight scenes in another phase, with the Memory test on or off, for the check slot's
+            // captures: `SIMCTL_CHILD_AEROCHECK_PHASE=landing SIMCTL_CHILD_AEROCHECK_MEMORY_TEST=1`. The
+            // phases before it are left done, as the scene leaves them. (6.1)
+            let env = ProcessInfo.processInfo.environment
+            if let memoryTest = env["AEROCHECK_MEMORY_TEST"] {
+                appState.settings.learningMode = memoryTest != "1"
+            }
+            if appState.isFlightActive, let name = env["AEROCHECK_PHASE"]?.lowercased(),
+               let phase = ChecklistPhase.allCases.first(where: { "\($0)".lowercased() == name }) {
+                for earlier in ChecklistPhase.allCases where earlier.rawValue < phase.rawValue {
+                    appState.phaseCompletionStatus[earlier] = appState.phaseCompletionStatus[earlier] ?? .completed
+                }
+                appState.currentPhase = phase
+                appState.resetHighlightedItem(for: phase)
+                appState.phaseCompletionStatus[phase] = nil
+            }
         }
         #endif
         .onShake {

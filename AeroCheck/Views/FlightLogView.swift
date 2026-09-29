@@ -33,6 +33,15 @@ struct FlightLogView: View {
     @State private var showImportPicker = false
     @State private var importError: String?
     @State private var showImportError = false
+    /// A flight just imported whose file had no name for it: the Logbook offers to name it, and an
+    /// empty answer keeps the route as its only title. (v6.1)
+    @State private var namingImport: ImportNaming?
+    @State private var importedName = ""
+
+    struct ImportNaming: Identifiable, Equatable {
+        let id: UUID
+        let spokenTitle: String
+    }
     @State private var showExportAllSheet = false
     @State private var exportAllType: ExportAllType = .gpx
     /// The export bundle is built off the main actor (PERF-12); the share sheet presents only once
@@ -125,7 +134,9 @@ struct FlightLogView: View {
                     emptyState
                 } else {
                     GeometryReader { geo in
-                        if horizontalSizeClass == .regular && geo.size.width > geo.size.height {
+                        // The keyboard's inset counted back in: a text field raising it (the name
+                        // asked after an import) must not turn a portrait iPad into two columns. (v6.1)
+                        if horizontalSizeClass == .regular && geo.size.width > geo.size.height + geo.safeAreaInsets.bottom {
                             // iPad landscape: master (list) left + detail pane right, like the HUD. (v4 UI/UX Revamp)
                             HStack(spacing: 0) {
                                 flightList(twoColumn: true)
@@ -329,6 +340,16 @@ struct FlightLogView: View {
             Button(L10n.FlightLog.importErrorOK, role: .cancel) { }
         } message: {
             Text(importError ?? L10n.FlightLog.importErrorUnknown)
+        }
+        .alert(L10n.FlightLog.nameImportedTitle,
+               isPresented: Binding(get: { namingImport != nil }, set: { if !$0 { namingImport = nil } }),
+               presenting: namingImport) { naming in
+            TextField(L10n.FlightDetail.namePlaceholder, text: $importedName)
+            Button(L10n.FlightLog.nameImportedSave) { nameImportedFlight(naming.id) }
+            Button(L10n.FlightLog.nameImportedSkip, role: .cancel) { }
+        } message: { naming in
+            // The spoken form, "LSZQ to LSGE": it reads as well as it sounds.
+            Text(L10n.FlightLog.nameImportedMessage(naming.spokenTitle))
         }
     }
     
@@ -1153,9 +1174,10 @@ struct FlightLogView: View {
 
                 // Check if it's a ZIP file
                 if url.pathExtension.lowercased() == "zip" {
+                    // An archive is a batch: its flights keep what their files say, unasked.
                     handleZipImport(data: data)
-                } else if appState.importFlight(from: data) {
-                    // Success - no action needed
+                } else if let imported = appState.importedFlight(from: data) {
+                    Task { await placeAndOfferName(imported.flight.id, suggestion: imported.suggestedName) }
                 } else {
                     importError = L10n.FlightLog.importErrorParse
                     showImportError = true
@@ -1169,6 +1191,24 @@ struct FlightLogView: View {
             importError = error.localizedDescription
             showImportError = true
         }
+    }
+
+    /// After a single import: find the flight's aerodromes (a file from another app has none), then,
+    /// when the file had no name for it, offer one, never require it. A GPX from another app offers
+    /// its own track name. (v6.1)
+    private func placeAndOfferName(_ id: UUID, suggestion: String?) async {
+        await repairMissingAerodromes()
+        guard let flight = appState.flights.first(where: { $0.id == id }),
+              Flight.nonBlank(flight.name) == nil else { return }
+        importedName = suggestion ?? ""
+        namingImport = ImportNaming(id: id, spokenTitle: flight.spokenTitle)
+    }
+
+    /// The name typed after an import; empty keeps the route alone.
+    private func nameImportedFlight(_ id: UUID) {
+        guard let name = Flight.nonBlank(importedName),
+              let flight = appState.flights.first(where: { $0.id == id }) else { return }
+        appState.updateFlightName(flight, name: name.trimmingCharacters(in: .whitespacesAndNewlines))
     }
 
     private func handleZipImport(data: Data) {
@@ -1185,6 +1225,9 @@ struct FlightLogView: View {
                 }
             }
 
+            if successCount > 0 {
+                Task { await repairMissingAerodromes() }   // files from other apps carry no aerodromes
+            }
             if successCount == 0 {
                 importError = L10n.FlightLog.importErrorZipNoFiles
                 showImportError = true

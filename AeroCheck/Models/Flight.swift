@@ -1296,9 +1296,16 @@ extension Flight {
 
     /// Import flight from GPX data
     static func fromGPX(_ data: Data) -> Flight? {
+        fromGPXWithSuggestedName(data)?.flight
+    }
+
+    /// The flight, and the name a GPX from another app gives its track (nil for an AeroCheck file,
+    /// whose own name for the flight is restored as the flight's name). (v6.1)
+    static func fromGPXWithSuggestedName(_ data: Data) -> (flight: Flight, suggestedName: String?)? {
         let parser = GPXParser(data: data)
         // SEC-C18: same validator as every other ingest path.
-        return parser.parse()?.validatedForIngest()?.withSummaryStatsFromTrack()
+        guard let flight = parser.parse()?.validatedForIngest()?.withSummaryStatsFromTrack() else { return nil }
+        return (flight, parser.suggestedName)
     }
 }
 
@@ -1374,6 +1381,16 @@ class GPXParser: NSObject, XMLParserDelegate {
     private var goAroundTimes: [Date] = []
     private var touchAndGoTimes: [Date] = []
     private var fullStopTimes: [Date] = []
+    /// Whether the file is an AeroCheck export, which says what the flight was called (`pc:name`,
+    /// empty when the pilot named it nothing).
+    private var carriesAeroCheckName = false
+    /// The first name the track itself has: in an AeroCheck file the aircraft, in another app's the
+    /// only name there is.
+    private var trackName: String?
+
+    /// What another app called the track, for the pilot to take or leave; nil for an AeroCheck
+    /// file, whose name is restored as it was. (v6.1)
+    var suggestedName: String? { carriesAeroCheckName ? nil : trackName }
 
     private let dateFormatter = ISO8601DateFormatter()
     
@@ -1435,8 +1452,16 @@ class GPXParser: NSObject, XMLParserDelegate {
 
         switch elementKey {
         case "name":
-            if flight != nil && flight?.airplane == "F-HVXA" {
-                flight?.airplane = text
+            if elementName == "pc:name" {
+                // The flight's own name: restored, as a JSON import always did. Until 6.1 a GPX
+                // import dropped it, and the flight came back unnamed. (v6.1)
+                flight?.name = text
+                carriesAeroCheckName = true
+            } else if flight != nil {
+                if trackName == nil, !text.isEmpty { trackName = text }
+                if flight?.airplane == "F-HVXA" {
+                    flight?.airplane = text
+                }
             }
         case "airplane":
             flight?.airplane = text

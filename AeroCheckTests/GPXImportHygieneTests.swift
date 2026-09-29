@@ -58,6 +58,47 @@ final class GPXImportHygieneTests: XCTestCase {
         XCTAssertEqual(parsed?.gpsTrack.count, 2)
     }
 
+    // MARK: - The flight's name (v6.1)
+
+    /// A GPX import dropped the name: `pc:name` only ever reached `airplane`.
+    func testAnAeroCheckGPXBringsTheFlightsNameBack() throws {
+        var flight = sampleFlight()
+        flight.name = "Vol Solo #2.1 & co"
+        flight.airplane = "F-HVXA"
+        let imported = try XCTUnwrap(Flight.fromGPXWithSuggestedName(Data(flight.toGPX().utf8)))
+        XCTAssertEqual(imported.flight.name, "Vol Solo #2.1 & co")
+        XCTAssertEqual(imported.flight.airplane, "F-HVXA", "the track's name is still the aircraft")
+        XCTAssertNil(imported.suggestedName, "an AeroCheck file says what the flight was called")
+
+        flight.name = ""
+        let unnamed = try XCTUnwrap(Flight.fromGPXWithSuggestedName(Data(flight.toGPX().utf8)))
+        XCTAssertEqual(unnamed.flight.name, "")
+        XCTAssertNil(unnamed.suggestedName, "named nothing on purpose: the aircraft is no suggestion")
+    }
+
+    /// Another app's GPX has only its track's name: offered to the pilot, never taken for them.
+    func testAnotherAppsTrackNameIsOfferedNotTaken() throws {
+        let gpx = """
+        <?xml version="1.0" encoding="UTF-8"?>
+        <gpx version="1.1" creator="Some EFB" xmlns="http://www.topografix.com/GPX/1/1">
+          <metadata><name>Export 29.09.2026</name></metadata>
+          <trk><name>Morning hop to Ecuvillens</name><trkseg>
+            <trkpt lat="47.39" lon="7.03"><ele>570</ele><time>2026-09-29T09:39:19Z</time></trkpt>
+            <trkpt lat="46.76" lon="7.08"><ele>700</ele><time>2026-09-29T10:21:16Z</time></trkpt>
+          </trkseg></trk>
+        </gpx>
+        """
+        let imported = try XCTUnwrap(Flight.fromGPXWithSuggestedName(Data(gpx.utf8)))
+        XCTAssertEqual(imported.flight.name, "")
+        XCTAssertEqual(imported.suggestedName, "Morning hop to Ecuvillens", "the track's, not the file's")
+
+        let appState = makeTestAppState()
+        let viaLogbook = try XCTUnwrap(appState.importedFlight(from: Data(gpx.utf8)))
+        XCTAssertEqual(viaLogbook.suggestedName, "Morning hop to Ecuvillens")
+        XCTAssertEqual(appState.flights.first?.id, viaLogbook.flight.id, "in the logbook, unnamed until the pilot says")
+        XCTAssertEqual(appState.flights.first?.name, "")
+    }
+
     // MARK: - S9-10: engine hours
 
     /// `Double(_:)` reads "nan", "inf" and "1e300" as numbers, and the Logbook then trapped on them.

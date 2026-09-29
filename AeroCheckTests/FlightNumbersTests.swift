@@ -200,14 +200,15 @@ final class FlightNumbersTests: XCTestCase {
         XCTAssertEqual(round.spokenTitle, "LSZQ")
     }
 
-    /// The words VoiceOver says ship in English and French.
+    /// The words VoiceOver says, and the import prompt, ship in English and French.
     func testTheNewTitleStringsShipInEnglishAndFrench() throws {
         for (localization, expected) in [("en", "unknown aerodrome"), ("fr", "aérodrome inconnu")] {
             let path = try XCTUnwrap(Bundle.main.path(forResource: "Localizable", ofType: "strings",
                                                       inDirectory: nil, forLocalization: localization))
             let strings = try XCTUnwrap(NSDictionary(contentsOfFile: path) as? [String: String])
             XCTAssertEqual(strings["flightTitle.unknownAerodrome"], expected)
-            for key in ["flightTitle.spokenRoute"] {
+            for key in ["flightTitle.spokenRoute", "flightLog.nameImported.title", "flightLog.nameImported.message",
+                        "flightLog.nameImported.save", "flightLog.nameImported.skip"] {
                 XCTAssertFalse((strings[key] ?? "").isEmpty, "\(key) in \(localization)")
             }
         }

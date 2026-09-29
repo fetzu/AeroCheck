@@ -1024,6 +1024,13 @@ enum L10n {
         static let noFlightsMessage = String(localized: "flightLog.noFlights.message")
         static let importFlight = String(localized: "flightLog.importFlight")
         static let pts = String(localized: "flightLog.pts")
+        // Naming a flight just imported (v6.1)
+        static let nameImportedTitle = String(localized: "flightLog.nameImported.title")
+        static func nameImportedMessage(_ title: String) -> String {
+            String(format: String(localized: "flightLog.nameImported.message"), title)
+        }
+        static let nameImportedSave = String(localized: "flightLog.nameImported.save")
+        static let nameImportedSkip = String(localized: "flightLog.nameImported.skip")
     }
 
     // MARK: - Flight titles, read aloud (v6.1)

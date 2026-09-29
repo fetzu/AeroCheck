@@ -2245,18 +2245,26 @@ class AppState {
     }
     
     func importFlight(from data: Data) -> Bool {
+        importedFlight(from: data) != nil
+    }
+
+    /// Import one flight file into the logbook. Returns the flight and, for a GPX from another app
+    /// that has no AeroCheck name for it, the file's own track name, which the Logbook offers the
+    /// pilot when it asks for a name. (v6.1)
+    @discardableResult
+    func importedFlight(from data: Data) -> (flight: Flight, suggestedName: String?)? {
         // Try GPX first, then JSON
-        if let flight = Flight.fromGPX(data) {
-            flights.insert(flight, at: 0)
-            saveFlights()
-            return true
+        let imported: (flight: Flight, suggestedName: String?)
+        if let gpx = Flight.fromGPXWithSuggestedName(data) {
+            imported = gpx
+        } else if let flight = Flight.fromJSONOptional(data) {
+            imported = (flight, nil)
+        } else {
+            return nil
         }
-        if let flight = Flight.fromJSONOptional(data) {
-            flights.insert(flight, at: 0)
-            saveFlights()
-            return true
-        }
-        return false
+        flights.insert(imported.flight, at: 0)
+        saveFlights()
+        return imported
     }
     
     func updateFlightNotes(_ flight: Flight, notes: String) {

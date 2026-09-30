@@ -245,6 +245,7 @@ struct ContentView: View {
             switch key {
             case "home", "home2aircraft":       scene = .home2Aircraft
             case "cruise", "cruisehud":         scene = .cruiseHUD
+            case "landed", "landedcircuits":    scene = .cruiseHUD
             case "cruiseroute", "companion":    scene = .cruiseRoute
             case "cruisemap":                   scene = .cruiseMap
             case "nav", "navplanactive":        scene = .navPlanActive
@@ -291,6 +292,37 @@ struct ContentView: View {
                 appState.phaseCompletionStatus[.runup] = .skipped
                 companionConnectivityManager.showAsViewerOfOwnFlight(
                     appState: appState, locationManager: locationManager, flightPlanManager: flightPlanManager)
+            }
+            // Stopped on the runway at LSZQ on the LANDING check, the detector's full-stop card up
+            // and waiting: the card's device check, and where its CONFIRM goes (AFTER LANDING; TAXI
+            // with `landedcircuits`). (6.1.0)
+            if key == "landed" || key == "landedcircuits" {
+                appState.isCircuitMode = key == "landedcircuits"
+                for phase in ChecklistPhase.allCases where phase.rawValue < ChecklistPhase.landing.rawValue {
+                    let flown = !phase.isSkippedInCircuitMode(appState.isCircuitMode)
+                    appState.phaseCompletionStatus[phase] = flown ? .completed : .skipped
+                    let count = appState.activeChecklist.visibleItemCount(
+                        for: phase, learningMode: appState.settings.learningMode)
+                    appState.currentHighlightedItem[phase] = ChecklistHighlighting.lastItemComplete(visibleCount: count)
+                }
+                appState.highestCompletedPhase = .approach
+                appState.currentPhase = .landing
+                await airportDataService.ensureLoaded()
+                // After the cruise scene has held its own fix (it waits for the airports too).
+                try? await Task.sleep(nanoseconds: 1_000_000_000)
+                let provider = MarketingLocationProvider.shared
+                provider.holdStaticFix(latitude: 47.3497, longitude: 7.0278, altitudeMeters: 1860 / 3.28084,
+                                       speedKnots: 0, headingDegrees: 232)
+                if let fix = provider.currentLocation { locationManager.injectMarketingStaticFix(fix) }
+                // The airport list may still be downloading on a fresh simulator.
+                let field = airportDataService.findAirport(byIdent: "LSZQ") ?? Airport(
+                    id: 0, ident: "LSZQ", type: .smallAirport, name: "Bressaucourt",
+                    latitude: 47.3497, longitude: 7.0278, elevation: 1860, continent: "EU",
+                    isoCountry: "CH", isoRegion: "CH-JU", municipality: nil, scheduledService: false,
+                    gpsCode: nil, iataCode: nil, localCode: nil)
+                flightEventDetector.pendingFullStop = DetectedFlightEvent(
+                    type: .fullStop, timestamp: Date().addingTimeInterval(-45), airport: field,
+                    message: FlightEventDetector.fullStopMessage(airport: field))
             }
         }
         #endif

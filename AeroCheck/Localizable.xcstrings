@@ -6747,7 +6747,7 @@
         }
       }
     },
-    "%1$@ still has %2$lld item(s) open in Plan and Prepare." : {
+    "%@ still has %lld item(s) open in Plan and Prepare." : {
       "localizations" : {
         "fr" : {
           "stringUnit" : {
@@ -6847,7 +6847,7 @@
         }
       }
     },
-    "Next: %1$@ · %2$lld open in Plan and Prepare" : {
+    "Next: %@ · %lld open in Plan and Prepare" : {
       "localizations" : {
         "fr" : {
           "stringUnit" : {
@@ -7063,16 +7063,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Exporter le carnet en PDF"
-          }
-        }
-      }
-    },
-    "Page %1$lld of %2$lld" : {
-      "localizations" : {
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Page %1$lld sur %2$lld"
           }
         }
       }
@@ -8119,7 +8109,7 @@
         }
       }
     },
-    "%1$lld/%2$lld layers" : {
+    "%lld/%lld layers" : {
       "localizations" : {
         "fr" : {
           "stringUnit" : {
@@ -8159,7 +8149,7 @@
         }
       }
     },
-    "Leg %1$lld of %2$lld" : {
+    "Leg %lld of %lld" : {
       "localizations" : {
         "fr" : {
           "stringUnit" : {
@@ -8169,7 +8159,7 @@
         }
       }
     },
-    "TRIP · %1$lld of %2$lld" : {
+    "TRIP · %lld of %lld" : {
       "localizations" : {
         "fr" : {
           "stringUnit" : {

@@ -1,6 +1,191 @@
 {
   "sourceLanguage": "en",
   "strings": {
+    "Drawn on the glider chart, sharper at this scale": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Affiché sur la carte vol à voile, plus nette à cette échelle"
+          }
+        }
+      }
+    },
+    "MAX ALTITUDE": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ALTITUDE MAX"
+          }
+        }
+      }
+    },
+    "MAX GROUND SPEED": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "VITESSE SOL MAX"
+          }
+        }
+      }
+    },
+    "BLOCK OFF": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "BLOC OFF"
+          }
+        }
+      }
+    },
+    "BLOCK ON": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "BLOC ON"
+          }
+        }
+      }
+    },
+    "Local time · %@": {
+      "comment": "Under the times on the flight share card; the argument is the offset, UTC+2.",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Heure locale · %@"
+          }
+        }
+      }
+    },
+    "Times in UTC": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Heures en UTC"
+          }
+        }
+      }
+    },
+    "LOCAL TIME": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "HEURE LOCALE"
+          }
+        }
+      }
+    },
+    "National map © swisstopo": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Carte nationale © swisstopo"
+          }
+        }
+      }
+    },
+    "STYLE": {
+      "comment": "Share card sheet: the card's look, Standard or Full map.",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "STYLE"
+          }
+        }
+      }
+    },
+    "Standard": {
+      "comment": "Share card style: the tuned card.",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Standard"
+          }
+        }
+      }
+    },
+    "Full map": {
+      "comment": "Share card style: the chart edge to edge.",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pleine carte"
+          }
+        }
+      }
+    },
+    "FORMAT": {
+      "comment": "Share card sheet: 9:16 or 4:5.",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "FORMAT"
+          }
+        }
+      }
+    },
+    "Story, 9:16": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Story, 9:16"
+          }
+        }
+      }
+    },
+    "Feed post, 4:5": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Publication, 4:5"
+          }
+        }
+      }
+    },
+    "Hide where I parked": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Masquer où j’ai stationné"
+          }
+        }
+      }
+    },
+    "Leaves out the track's first and last 300 m": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Retire les 300 premiers et derniers mètres de la trace"
+          }
+        }
+      }
+    },
+    "Short flight: drawn on the national map, sharper at this scale": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vol court : affiché sur la carte nationale, plus nette à cette échelle"
+          }
+        }
+      }
+    },
     "a11y.phase.doneFromMemory": {
       "extractionState": "manual",
       "localizations": {
@@ -9971,17 +10156,6 @@
         }
       }
     },
-    "LT": {
-      "comment": "Local time, beside a time of day on the flight share card (UTC is written UTC).",
-      "localizations": {
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "HL"
-          }
-        }
-      }
-    },
     "PEAK %@": {
       "localizations": {
         "fr": {
@@ -10976,18 +11150,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Acheté"
-          }
-        }
-      }
-    },
-    "ROUTE": {
-      "comment": "A label displayed above the route strip in the flight share card.",
-      "isCommentAutoGenerated": true,
-      "localizations": {
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "ROUTE"
           }
         }
       }

@@ -1324,9 +1324,20 @@ enum L10n {
         static func stops(_ count: Int) -> String {
             count == 1 ? String(localized: "STOP") : String(localized: "STOPS")
         }
-        /// Beside a time of day that is local, not UTC.
-        static let localTime = String(localized: "LT", comment: "Local time, beside a time of day on the flight share card (UTC is written UTC).")
         static func peak(_ altitude: String) -> String { String(localized: "PEAK \(altitude)") }
+
+        // The tuned card (6.1): its tiles, its row of times and the note under it.
+        static let maxAltitudeTile = String(localized: "MAX ALTITUDE")
+        static let maxGroundSpeed = String(localized: "MAX GROUND SPEED")
+        static let blockOff = String(localized: "BLOCK OFF")
+        static let blockOn = String(localized: "BLOCK ON")
+        /// Under the row of times: "Local time · UTC+2".
+        static func localTimeNote(_ offset: String) -> String {
+            String(localized: "Local time · \(offset)", comment: "Under the times on the flight share card; the argument is the offset, UTC+2.")
+        }
+        static let timesInUTC = String(localized: "Times in UTC")
+        /// Under the take-off to landing span of the Full map style.
+        static let localTimeLabel = String(localized: "LOCAL TIME")
 
         // The map.
         static let mapUnavailable = String(localized: "Map unavailable (offline?)")
@@ -1335,6 +1346,8 @@ enum L10n {
         static let creditAppleMaps = String(localized: "Map: Apple Maps")
         static let creditTerrainSwisstopo = String(localized: "Terrain © swisstopo")
         static let creditTerrainOpenMeteo = String(localized: "Elevation: Open-Meteo")
+        /// A circuit or a short local flight, drawn on the national map instead of an aviation chart.
+        static let creditNationalMap = String(localized: "National map © swisstopo")
 
         // The customisation sheet.
         static let themeLight = String(localized: "Light", comment: "A colour theme of the flight share card.")
@@ -1342,6 +1355,18 @@ enum L10n {
         static let themeNavy = String(localized: "Navy", comment: "A colour theme of the flight share card (navy blue).")
         static let themeDark = String(localized: "Dark", comment: "A colour theme of the flight share card (black).")
         static let gliderChart = String(localized: "Glider chart")
+        static let style = String(localized: "STYLE", comment: "Share card sheet: the card's look, Standard or Full map.")
+        static let styleStandard = String(localized: "Standard", comment: "Share card style: the tuned card.")
+        static let styleFullMap = String(localized: "Full map", comment: "Share card style: the chart edge to edge.")
+        static let format = String(localized: "FORMAT", comment: "Share card sheet: 9:16 or 4:5.")
+        static let formatStory = String(localized: "Story, 9:16")
+        static let formatFeed = String(localized: "Feed post, 4:5")
+        static let hideParking = String(localized: "Hide where I parked")
+        static let hideParkingHint = String(localized: "Leaves out the track's first and last 300 m")
+        /// Under the map styles when an aviation chart gives way to the national map.
+        static let nationalMapNote = String(localized: "Short flight: drawn on the national map, sharper at this scale")
+        /// Under the map styles when the ICAO chart gives way to the glider chart.
+        static let gliderChartNote = String(localized: "Drawn on the glider chart, sharper at this scale")
     }
 
     // MARK: - Event Confirmation

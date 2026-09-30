@@ -216,6 +216,8 @@ enum RouteNameForm: Equatable {
     static let routeList = RouteNameForm.full
     /// The nav log, on screen (Flight Log, Set altitudes) and in its PDF and XLSX exports.
     static let navLog = RouteNameForm.full
+    /// The flight share card's route strip, where each name has its own column over its time. (6.1)
+    static let shareCard = RouteNameForm.full
 }
 
 extension FlightPlanWaypoint {

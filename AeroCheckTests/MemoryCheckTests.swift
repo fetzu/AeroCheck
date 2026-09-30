@@ -148,6 +148,99 @@ final class MemoryCheckTests: XCTestCase {
         XCTAssertTrue(appState.currentCheckIsDone)
     }
 
+    // MARK: One tap on the checklist pane: ✓ DONE · NEXT (6.1, author's decision)
+
+    func testOneTapConfirmsAndOpensTheNextCheck() throws {
+        let appState = flight()
+        try requireMemoryChecks(appState)
+        appState.currentPhase = .climb
+        XCTAssertEqual(appState.memoryConfirmationMovesTo, .cruise)
+        appState.confirmMemoryCheckAndAdvance()
+        XCTAssertEqual(appState.currentPhase, .cruise)
+        XCTAssertEqual(appState.phaseCompletionStatus[.climb], .doneFromMemory, "green, as confirmed")
+        XCTAssertTrue(appState.deferredChecks.isEmpty)
+        XCTAssertEqual(appState.memoryConfirmation?.phase, .climb, "the toast offers the climb back")
+    }
+
+    func testOneTapUndoPutsTheCheckBackExactlyAsItWas() throws {
+        let appState = flight()
+        try requireMemoryChecks(appState)
+        appState.currentPhase = .climb
+        let before = appState.checklistProgress
+        appState.confirmMemoryCheckAndAdvance()
+        appState.undoMemoryConfirmation(try XCTUnwrap(appState.memoryConfirmation?.id))
+        XCTAssertEqual(appState.checklistProgress, before, "phase, bar, highlights and deferred list as before the tap")
+        XCTAssertEqual(appState.currentPhase, .climb)
+        XCTAssertTrue(appState.currentCheckAwaitsConfirmation, "open again")
+        XCTAssertNil(appState.memoryConfirmation)
+    }
+
+    func testOneTapUndoKeepsWhatWasDoneSinceInTheNextCheck() throws {
+        let appState = flight()
+        try requireMemoryChecks(appState)
+        appState.currentPhase = .climb
+        appState.confirmMemoryCheckAndAdvance()
+        let id = try XCTUnwrap(appState.memoryConfirmation?.id)
+        // A CHECK on the cruise list within the six seconds (the primary is CHECK there now).
+        appState.advanceHighlightedItem(learningMode: appState.effectiveLearningMode)
+        appState.undoMemoryConfirmation(id)
+        XCTAssertEqual(appState.currentPhase, .climb, "back to the check confirmed")
+        XCTAssertTrue(appState.currentCheckAwaitsConfirmation)
+        XCTAssertNil(appState.phaseCompletionStatus[.climb])
+        XCTAssertEqual(appState.currentHighlightedItem[.cruise], 1, "the cruise item stays checked, as going back does")
+        XCTAssertNil(appState.phaseCompletionStatus[.cruise])
+    }
+
+    func testOneTapUndoAfterMovingOnFurtherDefersTheCheckWhole() throws {
+        let appState = flight()
+        try requireMemoryChecks(appState)
+        appState.currentPhase = .climb
+        appState.confirmMemoryCheckAndAdvance()
+        let id = try XCTUnwrap(appState.memoryConfirmation?.id)
+        appState.goToPhase(.descent)
+        appState.undoMemoryConfirmation(id)
+        XCTAssertEqual(appState.currentPhase, .descent, "no walking back two checks")
+        XCTAssertTrue(appState.deferredChecks.contains(.climb))
+        XCTAssertEqual(appState.phaseCompletionStatus[.climb], .skipped)
+    }
+
+    func testTheGroundMemoryChecksGetTheOneTapToo() throws {
+        let appState = flight()
+        try requireMemoryChecks(appState, [.taxi, .lineUp])
+        // After engine start is a memory check in the bundled JSON, not in the built-in fallback the
+        // tests fly: taken when it is one.
+        for (phase, next) in [(ChecklistPhase.afterEngineStart, ChecklistPhase.taxi), (.taxi, .runup), (.lineUp, .climb)]
+        where appState.isMemoryCheck(phase, learningMode: false) {
+            appState.currentPhase = phase
+            XCTAssertEqual(appState.memoryConfirmationMovesTo, next, "\(phase)")
+        }
+        appState.currentPhase = .lineUp
+        appState.confirmMemoryCheckAndAdvance()
+        XCTAssertEqual(appState.currentPhase, .climb)
+        XCTAssertEqual(appState.phaseCompletionStatus[.lineUp], .doneFromMemory)
+    }
+
+    func testInCircuitsTheOneTapSkipsCruiseAndDescent() throws {
+        let appState = flight()
+        try requireMemoryChecks(appState)
+        appState.isCircuitMode = true
+        appState.currentPhase = .climb
+        XCTAssertEqual(appState.memoryConfirmationMovesTo, .approach)
+    }
+
+    func testNoOneTapWhereThereIsNothingToConfirm() throws {
+        let appState = flight()
+        try requireMemoryChecks(appState)
+        appState.currentPhase = .cruise
+        XCTAssertNil(appState.memoryConfirmationMovesTo, "a read-do check: CHECK, then NEXT")
+        appState.confirmMemoryCheckAndAdvance()
+        XCTAssertEqual(appState.currentPhase, .cruise, "nothing confirmed, nowhere gone")
+
+        appState.currentPhase = .climb
+        appState.hiddenItemsRevealed = true
+        XCTAssertNil(appState.memoryConfirmationMovesTo, "revealed, it is a list")
+    }
+
     // MARK: Leaving without confirming
 
     func testLeavingUnconfirmedDefersTheCheckWholeNeverGrey() throws {
@@ -396,8 +489,45 @@ final class MemoryCheckTests: XCTestCase {
         XCTAssertFalse(old.supportsMemoryConfirm)
     }
 
+    func testTheCompanionsOneTapConfirmsAndMovesOn() throws {
+        let appState = flight()
+        try requireMemoryChecks(appState)
+        appState.currentPhase = .climb
+        let snapshot = CompanionConnectivityManager.checklistSnapshot(of: appState, mayStreamItemText: false)
+        XCTAssertEqual(snapshot.memoryCheckNextRawValue, ChecklistPhase.cruise.rawValue, "the phone names where it goes")
+
+        let plans = makeTestPlanManager()
+        CompanionConnectivityManager.apply(.confirmMemoryCheckAndNext(phaseRawValue: ChecklistPhase.lineUp.rawValue),
+                                           appState: appState, flightPlanManager: plans)
+        XCTAssertEqual(appState.currentPhase, .climb, "not the check flown: nothing")
+
+        CompanionConnectivityManager.apply(.confirmMemoryCheckAndNext(phaseRawValue: ChecklistPhase.climb.rawValue),
+                                           appState: appState, flightPlanManager: plans)
+        XCTAssertEqual(appState.currentPhase, .cruise)
+        XCTAssertEqual(appState.phaseCompletionStatus[.climb], .doneFromMemory)
+
+        CompanionConnectivityManager.apply(.undoMemoryCheck(phaseRawValue: ChecklistPhase.climb.rawValue),
+                                           appState: appState, flightPlanManager: plans)
+        XCTAssertEqual(appState.currentPhase, .climb, "taken back from the phone, both halves")
+        XCTAssertTrue(appState.currentCheckAwaitsConfirmation)
+    }
+
+    func testAnIPadWithoutTheOneTapNamesNoNextCheck() throws {
+        let appState = flight()
+        try requireMemoryChecks(appState)
+        appState.currentPhase = .climb
+        let current = CompanionConnectivityManager.checklistSnapshot(of: appState, mayStreamItemText: true)
+        var json = try XCTUnwrap(JSONSerialization.jsonObject(with: JSONEncoder().encode(current)) as? [String: Any])
+        json.removeValue(forKey: "memoryCheckNextRawValue")
+        let old = try JSONDecoder().decode(CompanionChecklistSnapshot.self,
+                                           from: JSONSerialization.data(withJSONObject: json))
+        XCTAssertTrue(old.supportsMemoryConfirm)
+        XCTAssertNil(old.memoryCheckNextRawValue, "the phone's ✓ DONE then only confirms")
+    }
+
     func testTheNewCommandsRoundTrip() throws {
-        for command in [CompanionCommand.confirmMemoryCheck(phaseRawValue: 8), .undoMemoryCheck(phaseRawValue: 8)] {
+        for command in [CompanionCommand.confirmMemoryCheck(phaseRawValue: 8), .undoMemoryCheck(phaseRawValue: 8),
+                        .confirmMemoryCheckAndNext(phaseRawValue: 7)] {
             let data = try JSONEncoder().encode(command)
             let decoded = try JSONDecoder().decode(CompanionCommand.self, from: data)
             XCTAssertEqual(String(describing: decoded), String(describing: command))

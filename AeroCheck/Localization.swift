@@ -1148,7 +1148,8 @@ enum L10n {
         /// A memory check confirmed with one tap. (6.1)
         static let phaseDoneFromMemory = String(localized: "a11y.phase.doneFromMemory")
         static let phaseNotStarted = String(localized: "a11y.phase.notStarted")
-        static let phaseCruiseCheckDue = String(localized: "a11y.phase.cruiseCheckDue")
+        /// The cruise segment, amber: FREDA is due. (6.1)
+        static let phaseFredaDue = String(localized: "a11y.phase.fredaDue")
         static let previousPhase = String(localized: "a11y.previousPhase")
         static let nextPhase = String(localized: "a11y.nextPhase")
         static let gpsGood = String(localized: "a11y.gps.good")
@@ -1806,6 +1807,10 @@ enum L10n {
             String(format: String(localized: "cockpit.memoryCheckDone"), check)
         }
         static let fromMemory = String(localized: "cockpit.fromMemory")
+        /// Under "✓ CLIMB CHECK DONE" when the same tap goes on: "NEXT: CRUISE CHECK · from memory". (6.1)
+        static func fromMemoryThenNext(_ next: String) -> String {
+            String(format: String(localized: "cockpit.fromMemoryThenNext"), next)
+        }
         /// The undo toast after a confirmation: "CLIMB CHECK done from memory". (6.1)
         static func doneFromMemoryToast(_ check: String) -> String {
             String(format: String(localized: "cockpit.doneFromMemoryToast"), check)
@@ -1871,6 +1876,37 @@ enum L10n {
         static let nextLeg = String(localized: "tripCard.nextLeg")
         /// A flown leg's tag: "Flown"
         static let flown = String(localized: "tripCard.flown")
+    }
+
+    /// FREDA in cruise (6.1, "Checks in flight" Q6). The acronym and its letters stay as they are in
+    /// French, like the other aviation terms.
+    enum Freda {
+        static let name = "FREDA"
+        static let flow = "F · R · E · D · A"
+        /// The phone's narrow places.
+        static let flowCompact = "F·R·E·D·A"
+        /// "CRUISE CHECK ✓ 14:24", "FREDA ✓ 14:34": what the count runs from.
+        static func ticked(_ what: String, _ time: String) -> String { "\(what) ✓ \(time)" }
+        /// The same on two lines, where the slot is narrow: "CRUISE CHECK", "✓ 14:24".
+        static func tickedStacked(_ what: String, _ time: String) -> String { "\(what)\n✓ \(time)" }
+        /// "FREDA in 6 min"
+        static func inMinutes(_ minutes: Int) -> String {
+            String(format: String(localized: "freda.inMinutes"), minutes)
+        }
+        /// "LSGC passed"
+        static func waypointPassed(_ waypoint: String) -> String {
+            String(format: String(localized: "freda.waypointPassed"), waypoint)
+        }
+        /// "F · R · E · D · A — LSGC passed"
+        static func flowAfterWaypoint(_ waypoint: String) -> String { "\(flow) — \(waypointPassed(waypoint))" }
+        /// The flow spelled out, for VoiceOver.
+        static let flowSpelledOut = String(localized: "freda.flowSpelledOut")
+        static let afterCruiseCheck = String(localized: "freda.afterCruiseCheck")
+        static let confirmHint = String(localized: "freda.confirmHint")
+        /// The undo toast: "FREDA done at 14:34".
+        static func doneToast(_ time: String) -> String {
+            String(format: String(localized: "freda.doneToast"), time)
+        }
     }
 
     enum Trip {
@@ -2204,12 +2240,8 @@ enum L10n {
         static let radioFrequencies = String(localized: "nav.radioFrequencies")
         static let allFrequencies = String(localized: "nav.allFrequencies")
         static let showLess = String(localized: "nav.showLess")
-        static let fredaCheck = String(localized: "nav.fredaCheck")
         static let trackVector = String(localized: "nav.trackVector")
         static let trackVectorDesc = String(localized: "nav.trackVectorDesc")
-        static let cruise = String(localized: "nav.cruise")
-        static let checkNow = String(localized: "nav.checkNow")
-        static let holdToReset = String(localized: "nav.holdToReset")
         static let freqCurrent = String(localized: "nav.freqCurrent")
         static let freqNext = String(localized: "nav.freqNext")
         static let mark = String(localized: "nav.mark")

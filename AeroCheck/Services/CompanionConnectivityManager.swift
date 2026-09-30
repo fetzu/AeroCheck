@@ -1241,6 +1241,12 @@ class CompanionConnectivityManager: NSObject, ObservableObject {
             guard let appState, let confirmation = appState.memoryConfirmation,
                   confirmation.phase.rawValue == phaseRawValue else { return }
             appState.undoMemoryConfirmation(confirmation.id)
+
+        // ✓ DONE · NEXT on the phone: the iPad's own one tap. Only on the check being flown, so a tap
+        // arriving after the iPad moved on does nothing. (6.1)
+        case .confirmMemoryCheckAndNext(let phaseRawValue):
+            guard let appState, appState.currentPhase.rawValue == phaseRawValue else { return }
+            appState.confirmMemoryCheckAndAdvance()
         }
     }
 
@@ -1456,7 +1462,8 @@ class CompanionConnectivityManager: NSObject, ObservableObject {
             },
             memoryCheck: appState.isMemoryCheck(phase),
             memoryCheckDone: appState.isMemoryCheck(phase) && appState.currentCheckIsDone,
-            supportsMemoryConfirm: true
+            supportsMemoryConfirm: true,
+            memoryCheckNextRawValue: appState.memoryConfirmationMovesTo?.rawValue
         )
     }
 

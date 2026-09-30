@@ -73,6 +73,43 @@ final class CheckSlotTests: XCTestCase {
         XCTAssertEqual(open.line, .items(3), "the list first, then the action")
     }
 
+    // MARK: FREDA in cruise (6.1, Q6)
+
+    func testFredaCountingShowsWhenItComes() {
+        let at = Date(timeIntervalSinceReferenceDate: 800_000_000)
+        let slot = CheckSlot.make(phase: .cruise, check: .list(open: 0), next: .descent,
+                                  freda: .counting(after: .cruiseCheck, at: at, minutesLeft: 6))
+        XCTAssertEqual(slot.title, .fredaCountsFrom(.cruiseCheck, at), "CRUISE CHECK ✓ 14:24")
+        XCTAssertEqual(slot.line, .fredaIn(minutes: 6))
+        XCTAssertEqual(slot.icon, .freda)
+        XCTAssertEqual(slot.tone, .idle, "nothing due: dark")
+        XCTAssertEqual(slot.action, .showChecklist, "where NEXT and the FREDA button are")
+        XCTAssertTrue(slot.titleText().hasPrefix("\(ChecklistPhase.cruise.shortTitle) ✓ "))
+        XCTAssertTrue(slot.titleText(stacked: true).hasPrefix("\(ChecklistPhase.cruise.shortTitle)\n✓ "),
+                      "beside MARK, the time under the check, so neither shrinks under 20 pt")
+    }
+
+    func testFredaDueIsOneTap() {
+        let slot = CheckSlot.make(phase: .cruise, check: .list(open: 0), next: .descent,
+                                  freda: .due(waypoint: "SEGNELÉGIER"))
+        XCTAssertEqual(slot.title, .freda)
+        XCTAssertEqual(slot.line, .fredaFlow(waypoint: "SEGNELÉGIER"))
+        XCTAssertEqual(slot.tone, .due)
+        XCTAssertEqual(slot.action, .confirmFreda, "a flow: no list to open")
+        XCTAssertEqual(CheckSlot.Line.fredaFlow(waypoint: "SEGNELÉGIER").shortText, L10n.Freda.flowCompact,
+                       "the phone's narrow slot keeps the letters")
+        XCTAssertEqual(CheckSlot.Line.fredaFlow(waypoint: "SEGNELÉGIER").stackedText, "F·R·E·D·A\nSEGNELÉGIER",
+                       "beside MARK on the iPad, the letters over the waypoint")
+        XCTAssertTrue(CheckSlot.Line.fredaFlow(waypoint: "SEGNELÉGIER").text.contains("SEGNELÉGIER"))
+    }
+
+    func testTheCruiseListStillOpenComesBeforeFreda() {
+        let slot = CheckSlot.make(phase: .cruise, check: .list(open: 5), next: .descent, freda: .due(waypoint: nil))
+        XCTAssertEqual(slot.line, .items(5))
+        XCTAssertEqual(slot.action, .showChecklist)
+        XCTAssertEqual(slot.title, .check)
+    }
+
     // MARK: The flight's timing (the cues come in a later PR)
 
     func testTheFlightsTimingColoursAnOpenCheck() {

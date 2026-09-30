@@ -36,7 +36,7 @@ struct FlightView: View {
     /// on iPad portrait / iPhone. nil = none. HUD Settings stays a sheet (Pattern A). (v4 UI/UX Revamp)
     @State private var activeReference: HUDReference? = nil
     /// The Cockpit pane the pilot picked, over the one the flight suggests. Dropped as soon as the
-    /// suggestion changes (next phase, checklist done, cruise check due). (v6.0 · P2)
+    /// suggestion changes (next phase, checklist done). (v6.0 · P2)
     @State private var paneOverride: CockpitPane?
     @State private var pulseNextButton = false
     @State private var pulseActionButton = false
@@ -49,10 +49,8 @@ struct FlightView: View {
 
     // Hour meter input modals
     @State private var showHourMeterStart = false
-    /// Stable periodic timer (created once) driving the cruise-check evaluation. (v4 UI/UX Revamp fix)
-    @State private var cruiseEvalTimer = Timer.publish(every: 5, on: .main, in: .common).autoconnect()
-    /// 0…1 fill of the CRUISE button while the pilot holds to reset (animates left→right over 1.5 s). (v4 UI/UX Revamp)
-    @State private var cruiseHoldProgress: CGFloat = 0
+    /// Stable periodic timer (created once) driving FREDA's evaluation. (v4 UI/UX Revamp fix; FREDA 6.1)
+    @State private var fredaEvalTimer = Timer.publish(every: 5, on: .main, in: .common).autoconnect()
     @State private var showHourMeterStop = false
     @State private var hourMeterStartInitialValue: String = ""
     @State private var hourMeterStopInitialValue: String = ""
@@ -185,7 +183,7 @@ struct FlightView: View {
             status: { appState.getPhaseStatus($0) },
             onSelect: { requestJump(to: $0) },
             isCircuitMode: appState.isCircuitMode,
-            cruiseCheckDue: appState.cruiseCheckDue
+            fredaDue: appState.fredaDue
         )
     }
 
@@ -334,8 +332,8 @@ struct FlightView: View {
         .onDisappear {
             windDataService.stopFetching()
         }
-        .onReceive(cruiseEvalTimer) { _ in
-            appState.evaluateCruiseCheck()
+        .onReceive(fredaEvalTimer) { _ in
+            evaluateFreda()
         }
         .onChange(of: appState.currentPhase) { _, phase in
             // A briefing phase is exactly when a stale observation matters most: an approach
@@ -343,7 +341,7 @@ struct FlightView: View {
             if phase.briefingType != nil { Task { await refreshAviationWeather() } }
         }
         .onChange(of: appState.currentPhase) { oldPhase, newPhase in
-            appState.evaluateCruiseCheck()
+            evaluateFreda()
             // Entering Engine Start asks for the hour meter, unless it was entered inline at the end of
             // Before engine start. The prompt coming up by itself is what stops it being forgotten.
             // (on-device review #1, C-03)
@@ -461,74 +459,11 @@ struct FlightView: View {
 
     // MARK: - Main Checklist Area
     
-    // MARK: - Cruise check (v4 UI/UX Revamp)
+    // MARK: - FREDA (6.1)
 
-    /// On the Cruise checklist page the CRUISE button shares the bottom bar 50/50 with NEXT, styled to
-    /// match it (large ⟳ icon + value). It shows the countdown to the next cruise check. Tap to start
-    /// (idle) or acknowledge + restart (when due); completing the Cruise checklist also auto-starts it.
-    /// Hold 1 s to reset/re-arm — the button fills left→right while held, so the hold is discoverable.
-    /// When due it turns amber + pulses and the Cruise checklist re-arms. Hidden outside cruise. (v4 UI/UX Revamp)
-    /// `height`: the Cockpit's thumb bar (`CockpitTarget.thumb`); nil keeps the iPhone bar's size.
-    @ViewBuilder
-    private func cruiseCheckButton(height: CGFloat? = nil) -> some View {
-        if appState.currentPhase == .cruise {
-            let due = appState.cruiseCheckDue
-            let started = appState.cruiseCheckStartTime != nil
-            let colors = cruiseCheckColors(due: due, started: started)
-            TimelineView(.periodic(from: .now, by: 1)) { context in
-                let remaining = appState.cruiseCheckRemaining(now: context.date)
-                HStack(spacing: 8) {
-                    Image(systemName: "arrow.triangle.2.circlepath")
-                    Text(due ? L10n.Nav.checkNow : cruiseTimeText(remaining)).monospacedDigit()
-                }
-                .font(.aero(size: height == nil ? 20 : CockpitType.row, weight: .bold))
-                .foregroundColor(colors.label)
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, height == nil ? 18 : 0)
-                .frame(minHeight: height)
-                .background(
-                    ZStack {
-                        RoundedRectangle(cornerRadius: 14).fill(colors.fill)
-                        // Hold-to-reset progress fill — grows left→right while held. (v4 UI/UX Revamp)
-                        RoundedRectangle(cornerRadius: 14)
-                            .fill(Color.white.opacity(0.20))
-                            .scaleEffect(x: cruiseHoldProgress, anchor: .leading)
-                        RoundedRectangle(cornerRadius: 14).stroke(colors.stroke, lineWidth: 1)
-                    }
-                    .clipShape(RoundedRectangle(cornerRadius: 14))
-                )
-            }
-            .contentShape(RoundedRectangle(cornerRadius: 14))
-            .onTapGesture { if due || !started { appState.armCruiseCheck() } }
-            .onLongPressGesture(minimumDuration: 1.0, maximumDistance: 60) {
-                appState.armCruiseCheck()
-                cruiseHoldProgress = 0
-            } onPressingChanged: { pressing in
-                if pressing {
-                    withAnimation(.linear(duration: 1.0)) { cruiseHoldProgress = 1 }
-                } else {
-                    withAnimation(.easeOut(duration: 0.2)) { cruiseHoldProgress = 0 }
-                }
-            }
-            .modifier(PulseModifier(isActive: due))
-            .sensoryFeedback(.impact(weight: .medium), trigger: appState.cruiseCheckStartTime)
-            .accessibilityElement(children: .combine)
-            .accessibilityLabel(L10n.Nav.cruise)
-            .accessibilityHint(L10n.Nav.holdToReset)
-        }
-    }
-
-    /// (label, fill, stroke) for the CRUISE button by state: due = amber, running = green, idle = dim.
-    private func cruiseCheckColors(due: Bool, started: Bool) -> (label: Color, fill: Color, stroke: Color) {
-        if due { return (.black, theme.warning, Color(red: 1.0, green: 0.81, blue: 0.52)) }
-        if started { return (theme.onTarget, theme.onTarget.opacity(0.14), theme.onTarget.opacity(0.5)) }
-        return (theme.textSecondary, .subtleOverlay(0.05), .subtleOverlay(0.12))
-    }
-
-    /// Countdown remaining as "M:SS". (v4 UI/UX Revamp)
-    private func cruiseTimeText(_ remaining: TimeInterval) -> String {
-        let s = Int(remaining.rounded())
-        return String(format: "%d:%02d", s / 60, s % 60)
+    /// FREDA comes due by the clock or at a waypoint the flight passed (the ATO catch-up, or MARK). (6.1)
+    private func evaluateFreda() {
+        appState.evaluateFreda(lastPassage: FredaWaypointPassage.latest(in: flightPlanManager.activeFlightPlan))
     }
 
     /// NEXT: with items still open, list them before leaving the phase. (v6.0 · B2) A memory check not
@@ -1164,7 +1099,7 @@ extension FlightView {
         appState.currentPhase.briefingType != nil
             || (cockpitPane == .checklist && !cockpitChecklistDone
                 && appState.currentPhase.nextNavigable(circuitMode: appState.isCircuitMode) != nil)
-            || (cockpitPane == .map && (appState.hasDeferredWork || appState.cruiseCheckDue))
+            || (cockpitPane == .map && appState.hasDeferredWork)
     }
 
     /// The landscape column's width: an iPhone 17's in portrait, so its rows lay out as they do there
@@ -1366,8 +1301,9 @@ extension FlightView {
 
     // MARK: Pane bar
 
-    /// CHECKLIST | MAP, then what can be opened from here: the cruise check when it's due (seen from
-    /// the map), V-SPEEDS, the briefing of the phase, and the next phase while items are still open.
+    /// CHECKLIST | MAP, then what can be opened from here: the deferred work (seen from the map),
+    /// V-SPEEDS, the briefing of the phase, and the next phase while items are still open. FREDA is in
+    /// the map's check slot, not here. (6.1)
     ///
     /// `narrow` (the phone): CHECKLIST | MAP across the width with V-SPEEDS beside it, as on its side.
     /// BRIEFING and NEXT go to the top of the list and the cautions over the chart, while they exist.
@@ -1433,18 +1369,13 @@ extension FlightView {
                                                   items: appState.deferredItemCount))
     }
 
-    /// Deferred items and a due cruise check follow the pilot onto the map, as cautions.
+    /// Deferred items follow the pilot onto the map, as a caution. (A due FREDA is in the check slot.)
     @ViewBuilder
     private var cockpitMapCautionChips: some View {
         // Deferred items follow the pilot onto the map too, as a caution: amber, with the count.
         // (The checklist pane lists them above the items.)
         if cockpitPane == .map && appState.hasDeferredWork {
             deferredMapChip
-        }
-        if cockpitPane == .map && appState.cruiseCheckDue {
-            CockpitChip(title: L10n.Nav.fredaCheck, icon: "arrow.triangle.2.circlepath", tint: theme.warning) {
-                paneOverride = nil
-            }
         }
     }
 
@@ -1456,11 +1387,6 @@ extension FlightView {
             // (The checklist pane lists them above the items.)
             if cockpitPane == .map && appState.hasDeferredWork {
                 deferredMapChip
-            }
-            if cockpitPane == .map && appState.cruiseCheckDue {
-                CockpitChip(title: L10n.Nav.fredaCheck, icon: "arrow.triangle.2.circlepath", tint: theme.warning) {
-                    paneOverride = nil
-                }
             }
             cockpitVSpeedsChip
             if let briefing = appState.currentPhase.briefingType {
@@ -1643,7 +1569,7 @@ extension FlightView {
         }
     }
 
-    /// The checklist's thumb bar. The phase's own action and the circuit or cruise buttons keep their
+    /// The checklist's thumb bar. The phase's own action and the circuit buttons or FREDA keep their
     /// width; CHECK takes the rest, in the same place for every item. (review B1) Narrower on the
     /// phone, where CHECK still gets the most. (iPhone pass)
     private func cockpitThumbBar(narrow: Bool) -> some View {
@@ -1652,7 +1578,8 @@ extension FlightView {
                 .frame(maxWidth: narrow ? 110 : 240)
             circuitQuickEventButtons()
                 .frame(maxWidth: narrow ? 170 : 320)
-            cruiseCheckButton(height: CockpitTarget.thumb)
+            // In cruise: FREDA, where the cruise countdown was, the same size. (6.1)
+            FredaThumbButton()
                 .frame(maxWidth: narrow ? 96 : 220)
             // A memory check has no item to put off: it is confirmed, or left for the review. (6.1)
             if !cockpitChecklistDone && !appState.currentCheckAwaitsConfirmation {
@@ -1669,14 +1596,25 @@ extension FlightView {
 
     /// CHECK while items are open; the next phase once they're all done (a different gesture, so
     /// finishing a list is never an accident); END FLIGHT at the end. A memory check (every item hidden)
-    /// is confirmed first: "✓ CLIMB CHECK DONE", from memory, with the undo toast. (6.1)
+    /// is confirmed and left in one tap: "✓ CLIMB CHECK DONE", "NEXT: CRUISE CHECK · from memory",
+    /// with the undo toast, which takes both back (6.1, author's decision). Where it can't go on (the
+    /// phase's own action still to press, the last check), it only confirms, and NEXT follows.
     @ViewBuilder
     private var cockpitPrimaryButton: some View {
         if appState.currentCheckAwaitsConfirmation {
+            let next = appState.memoryConfirmationMovesTo
             CockpitThumbButton(title: L10n.Cockpit.memoryCheckDone(appState.currentPhase.shortTitle),
-                               subtitle: L10n.Cockpit.fromMemory, icon: "checkmark",
+                               subtitle: next.map { L10n.Cockpit.fromMemoryThenNext($0.shortTitle) } ?? L10n.Cockpit.fromMemory,
+                               icon: "checkmark",
                                style: .filled(fill: theme.action, text: theme.actionText)) {
-                appState.confirmMemoryCheck()
+                if next != nil {
+                    pulseNextButton = false
+                    pulseActionButton = false
+                    allItemsChecked = false
+                    appState.confirmMemoryCheckAndAdvance()
+                } else {
+                    appState.confirmMemoryCheck()
+                }
             }
         } else if !cockpitChecklistDone {
             CockpitThumbButton(title: L10n.Cockpit.check, subtitle: currentItemChallenge, icon: "checkmark",
@@ -1746,8 +1684,8 @@ struct PhaseProgressBar: View {
     let status: (ChecklistPhase) -> PhaseCompletionStatus
     let onSelect: (ChecklistPhase) -> Void
     var isCircuitMode: Bool = false
-    /// When true, the Cruise segment turns amber to flag an (over)due FREDA cruise check. (v4 UI/UX Revamp)
-    var cruiseCheckDue: Bool = false
+    /// When true, the Cruise segment turns amber: FREDA is due. (v4 UI/UX Revamp; FREDA since 6.1)
+    var fredaDue: Bool = false
     /// How tall a segment is to the touch; the bar is drawn centred in it.
     var hitHeight: CGFloat = CockpitTarget.control
 
@@ -1850,8 +1788,8 @@ struct PhaseProgressBar: View {
     /// triple is the hardest possible palette. HIG: "Convey information with more than color
     /// alone." (UX-10)
     private func accessibilityStatus(for phase: ChecklistPhase) -> String {
-        if phase == .cruise && phase == currentPhase && cruiseCheckDue {
-            return L10n.Accessibility.phaseCruiseCheckDue
+        if phase == .cruise && phase == currentPhase && fredaDue {
+            return L10n.Accessibility.phaseFredaDue
         }
         switch status(phase) {
         case .completed:     return L10n.Accessibility.phaseCompleted
@@ -1864,7 +1802,7 @@ struct PhaseProgressBar: View {
     }
 
     private func color(for phase: ChecklistPhase, isCurrent: Bool) -> Color {
-        if phase == .cruise && isCurrent && cruiseCheckDue { return theme.warning }
+        if phase == .cruise && isCurrent && fredaDue { return theme.warning }
         if isCurrent { return theme.action }
         switch status(phase) {
         // Done from memory is done: green, as a check worked through. (6.1)

@@ -340,6 +340,18 @@ struct ContentView: View {
                 appState.resetHighlightedItem(for: phase)
                 appState.phaseCompletionStatus[phase] = nil
             }
+            // FREDA in cruise, for its captures (6.1): `AEROCHECK_FREDA=counting` (the cruise check done
+            // four minutes ago), `due` (the ten minutes up) or `waypoint` (due at a waypoint passed).
+            if let stage = env["AEROCHECK_FREDA"]?.lowercased(), appState.isFlightActive {
+                appState.currentPhase = .cruise
+                appState.markLastItemComplete(learningMode: appState.effectiveLearningMode)
+                let now = Date()
+                appState.startFredaForCapture(at: now.addingTimeInterval(stage == "counting" ? -4 * 60 : -11 * 60))
+                let passage = stage == "waypoint"
+                    ? FredaWaypointPassage(name: "SEGNELÉGIER", at: now.addingTimeInterval(-30)) : nil
+                if stage == "waypoint" { appState.startFredaForCapture(at: now.addingTimeInterval(-7 * 60)) }
+                appState.evaluateFreda(now: now, lastPassage: passage)
+            }
         }
         #endif
         .onShake {

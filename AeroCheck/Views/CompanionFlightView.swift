@@ -507,9 +507,11 @@ struct CompanionFlightView: View {
         cl.supportsMemoryConfirm && cl.memoryCheck && !cl.memoryCheckDone
     }
 
-    /// ✓ DONE: the iPad records it, and this screen offers it back for six seconds.
-    private func confirmMemoryCheck(_ cl: CompanionChecklistSnapshot, phaseRawValue: Int) {
-        companionConnectivityManager.sendCommand(.confirmMemoryCheck(phaseRawValue: phaseRawValue))
+    /// ✓ DONE: the iPad records it, and this screen offers it back for six seconds. `andNext`: the same
+    /// tap goes on to the next check, as on the iPad's checklist pane, and UNDO takes both back. (6.1)
+    private func confirmMemoryCheck(_ cl: CompanionChecklistSnapshot, phaseRawValue: Int, andNext: Bool = false) {
+        companionConnectivityManager.sendCommand(andNext ? .confirmMemoryCheckAndNext(phaseRawValue: phaseRawValue)
+                                                         : .confirmMemoryCheck(phaseRawValue: phaseRawValue))
         let title = ChecklistPhase(rawValue: phaseRawValue)?.shortTitle ?? cl.phaseTitle
         memoryUndo = NavUndoOffer(message: L10n.Cockpit.doneFromMemoryToast(title), style: .outlined) {
             companionConnectivityManager.sendCommand(.undoMemoryCheck(phaseRawValue: phaseRawValue))
@@ -739,12 +741,16 @@ struct CompanionFlightView: View {
     private func thumbBar(_ cl: CompanionChecklistSnapshot) -> some View {
         HStack(spacing: 8) {
             if awaitsMemoryConfirmation(cl) {
-                // As the iPad's: the memory check confirmed from memory, one tap. (6.1)
+                // As the iPad's: the memory check confirmed from memory and, where the iPad says it
+                // goes on, the next check opened, one tap. (6.1)
+                let next = cl.memoryCheckNextRawValue.flatMap { ChecklistPhase(rawValue: $0) }
                 CockpitThumbButton(title: L10n.Cockpit.memoryCheckDone(
                                         ChecklistPhase(rawValue: cl.phaseRawValue)?.shortTitle ?? cl.phaseTitle),
-                                   subtitle: L10n.Cockpit.fromMemory, icon: "checkmark",
+                                   subtitle: next.map { L10n.Cockpit.fromMemoryThenNext($0.shortTitle) }
+                                       ?? L10n.Cockpit.fromMemory,
+                                   icon: "checkmark",
                                    style: .filled(fill: theme.action, text: theme.actionText)) {
-                    confirmMemoryCheck(cl, phaseRawValue: cl.phaseRawValue)
+                    confirmMemoryCheck(cl, phaseRawValue: cl.phaseRawValue, andNext: next != nil)
                 }
             } else if !phaseComplete {
                 if cl.supportsDefer {

@@ -336,9 +336,18 @@ struct HomeView: View {
         .fullScreenCover(item: $lastFlightForDetail) { flight in
             NavigationStack {
                 FlightDetailView(flight: flight)
-                    .navigationTitle(lastFlightRoute(flight))
+                    .navigationTitle(flight.title)
                     .navigationBarTitleDisplayMode(.inline)
                     .toolbar {
+                        // The same title, read as a route rather than as its glyphs. (v6.1)
+                        ToolbarItem(placement: .principal) {
+                            Text(flight.title)
+                                .font(.aero(size: 17, weight: .bold))   // the bar's own title font
+                                .foregroundColor(.primaryText)
+                                .lineLimit(1)
+                                .accessibilityLabel(flight.spokenTitle)
+                                .accessibilityAddTraits(.isHeader)
+                        }
                         ToolbarItem(placement: .topBarLeading) {
                             Button { lastFlightForDetail = nil } label: {
                                 Image(systemName: "chevron.left")
@@ -800,10 +809,21 @@ struct HomeView: View {
             } label: {
                 HStack(spacing: 12) {
                     VStack(alignment: .leading, spacing: 2) {
-                        Text(L10n.Home.lastFlight)
-                            .scaledFont(size: 10, weight: .semibold, relativeTo: .caption2).tracking(0.5)
-                            .foregroundColor(.dimText)
-                        Text(lastFlightRoute(last))
+                        // The flight's own name rides on the label line, above the route, as in the
+                        // Logbook row. (v6.1)
+                        HStack(spacing: 4) {
+                            Text(L10n.Home.lastFlight)
+                                .scaledFont(size: 10, weight: .semibold, relativeTo: .caption2).tracking(0.5)
+                                .foregroundColor(.dimText)
+                                .layoutPriority(1)   // the name gives way first
+                            if let eyebrow = last.titleEyebrow {
+                                Text(verbatim: "· \(eyebrow)")
+                                    .scaledFont(size: 10, relativeTo: .caption2)
+                                    .foregroundColor(.dimText)
+                            }
+                        }
+                        .lineLimit(1)
+                        Text(last.title)
                             .scaledFont(size: 15, weight: .semibold, design: .monospaced, relativeTo: .subheadline)
                             .foregroundColor(.primaryText)
                             .lineLimit(1)
@@ -831,7 +851,7 @@ struct HomeView: View {
                 )
             }
             .buttonStyle(.plain)
-            .accessibilityLabel("\(L10n.Home.lastFlight), \(lastFlightRoute(last)), \(last.formattedDuration)")
+            .accessibilityLabel("\(L10n.Home.lastFlight), \(last.spokenTitleWithName), \(last.formattedDuration)")
         }
     }
 
@@ -1155,13 +1175,6 @@ struct HomeView: View {
         return plan.name.isEmpty ? (names.first ?? L10n.Nav.flightPlan) : plan.name
     }
 
-    private func lastFlightRoute(_ flight: Flight) -> String {
-        if let dep = flight.departureAirportIdent, let arr = flight.arrivalAirportIdent {
-            return "\(dep) → \(arr)"
-        }
-        if !flight.name.isEmpty { return flight.name }
-        return flight.aircraftRegistration ?? flight.airplane
-    }
 
     private func lastFlightWhen(_ flight: Flight) -> String? {
         guard let date = flight.startTime else { return nil }

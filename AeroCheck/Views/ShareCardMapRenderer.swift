@@ -15,6 +15,16 @@ struct ShareCardMapRequest {
     /// The track to draw, already trimmed when the pilot hides where they parked.
     var track: [CLLocationCoordinate2D]
     var waypoints: [ShareCardMapWaypoint] = []
+    /// Several legs instead of one track: the journey card. `track` is then every leg end to end,
+    /// which frames the map. (6.1)
+    var journey: ShareCardMapJourney?
+
+    /// The journey card's map: framed on every leg, drawn leg by leg. (6.1)
+    static func journey(_ journey: ShareCardMapJourney, frame: CGSize, clearTop: CGFloat = 0,
+                        clearBottom: CGFloat = 0, style: ShareCardMapStyle) -> ShareCardMapRequest {
+        ShareCardMapRequest(frame: frame, clearTop: clearTop, clearBottom: clearBottom, style: style,
+                            track: journey.allCoordinates, waypoints: [], journey: journey)
+    }
 }
 
 /// The map image and what it is made of, for the credit line and the sheet's note.
@@ -154,6 +164,10 @@ enum ShareCardMapRenderer {
     /// diamonds with their names, then the green start and the red end on top.
     private static func drawOverlay(in context: CGContext, request: ShareCardMapRequest, trackColor: UIColor,
                                     size: CGSize, project: (CLLocationCoordinate2D) -> CGPoint) {
+        if let journey = request.journey {
+            drawJourney(journey, in: context, style: request.style, trackColor: trackColor, size: size, project: project)
+            return
+        }
         let width = size.width, height = size.height
         let style = request.style
         let path = UIBezierPath()
@@ -235,6 +249,102 @@ enum ShareCardMapRenderer {
         if let last = request.track.last {
             drawMarker(at: project(last), color: UIColor(Color.aviationRed), style: style, in: context)
         }
+    }
+
+    // MARK: - The journey (6.1)
+
+    /// Each leg's track, the day's aerodromes (home in gold, or a green start and a red end; each stop
+    /// white, ringed in the track's colour) with their idents, and each leg's number in a disc of the
+    /// track's colour halfway along it (J1). Names that would cover a disc, a dot or another name move
+    /// to another side, or are left out.
+    private static func drawJourney(_ journey: ShareCardMapJourney, in context: CGContext, style: ShareCardMapStyle,
+                                    trackColor: UIColor, size: CGSize, project: (CLLocationCoordinate2D) -> CGPoint) {
+        let scale = ShareCardMapStyle.imagePointsPerCardPoint
+        context.setLineCap(.round)
+        context.setLineJoin(.round)
+        for leg in journey.legs {
+            let path = UIBezierPath()
+            for (index, coordinate) in leg.track.enumerated() {
+                let point = project(coordinate)
+                if index == 0 { path.move(to: point) } else { path.addLine(to: point) }
+            }
+            context.setStrokeColor(UIColor.black.withAlphaComponent(0.35).cgColor)
+            context.setLineWidth(style.trackWidth * 1.9)
+            context.addPath(path.cgPath)
+            context.strokePath()
+            context.setStrokeColor(trackColor.cgColor)
+            context.setLineWidth(style.trackWidth)
+            context.addPath(path.cgPath)
+            context.strokePath()
+        }
+
+        var taken: [CGRect] = []
+        let markerPoints = journey.markers.map { project($0.coordinate) }
+        for (marker, point) in zip(journey.markers, markerPoints) {
+            let diameter: CGFloat
+            switch marker.kind {
+            case .home: diameter = style.markerDiameter * 1.3
+            case .start, .end: diameter = style.markerDiameter
+            case .stop: diameter = 22 * scale
+            }
+            let rect = CGRect(x: point.x - diameter / 2, y: point.y - diameter / 2, width: diameter, height: diameter)
+            switch marker.kind {
+            case .home: drawDisc(rect, fill: UIColor(Color.aviationGold), rim: .white, rimWidth: style.markerRim, in: context)
+            case .start: drawDisc(rect, fill: UIColor(Color.aviationGreen), rim: .white, rimWidth: style.markerRim, in: context)
+            case .end: drawDisc(rect, fill: UIColor(Color.aviationRed), rim: .white, rimWidth: style.markerRim, in: context)
+            case .stop: drawDisc(rect, fill: .white, rim: trackColor, rimWidth: 4 * scale, in: context)
+            }
+            taken.append(rect)
+        }
+
+        // The numbers, on top of the tracks and the dots.
+        let badge = 46 * scale
+        let centers = ShareCardMapJourney.badgePoints(journey.legs, markers: markerPoints, clearance: badge * 1.1,
+                                                      project: project)
+        let numberFont = UIFont(name: AeroTypeface.bold, size: 26 * scale) ?? .boldSystemFont(ofSize: 26 * scale)
+        for (leg, center) in zip(journey.legs, centers) {
+            let rect = CGRect(x: center.x - badge / 2, y: center.y - badge / 2, width: badge, height: badge)
+            drawDisc(rect, fill: trackColor, rim: .white, rimWidth: 3.5 * scale, in: context)
+            let text = "\(leg.number)" as NSString
+            let textSize = text.size(withAttributes: [.font: numberFont])
+            text.draw(at: CGPoint(x: center.x - textSize.width / 2, y: center.y - textSize.height / 2),
+                      withAttributes: [.font: numberFont, .foregroundColor: UIColor.white])
+            taken.append(rect)
+        }
+
+        // The aerodromes' idents beside their dots.
+        let font = UIFont(name: AeroTypeface.monoBold, size: 22 * scale)
+            ?? .monospacedSystemFont(ofSize: 22 * scale, weight: .bold)
+        for (marker, point) in zip(journey.markers, markerPoints) {
+            guard let label = marker.label else { continue }
+            let text = label as NSString
+            let textWidth = text.size(withAttributes: [.font: font]).width
+            let offset = 20 * scale
+            let middle = point.y - font.lineHeight / 2
+            let candidates = [
+                CGPoint(x: point.x + offset, y: middle),
+                CGPoint(x: point.x - offset - textWidth, y: middle),
+                CGPoint(x: point.x - textWidth / 2, y: point.y - offset - font.lineHeight),
+                CGPoint(x: point.x - textWidth / 2, y: point.y + offset),
+            ].map { CGRect(origin: $0, size: CGSize(width: textWidth, height: font.lineHeight)) }
+            guard let frame = candidates.first(where: { frame in
+                frame.minX >= 4 && frame.maxX <= size.width - 4 && frame.minY >= 4 && frame.maxY <= size.height - 4
+                    && !taken.contains { $0.insetBy(dx: -4, dy: -2).intersects(frame) }
+            }) else { continue }
+            taken.append(frame)
+            text.draw(at: frame.origin, withAttributes: [
+                .font: font, .foregroundColor: halo, .strokeColor: halo, .strokeWidth: 6.0 / 22 * 100,
+            ])
+            text.draw(at: frame.origin, withAttributes: [.font: font, .foregroundColor: UIColor.white])
+        }
+    }
+
+    private static func drawDisc(_ rect: CGRect, fill: UIColor, rim: UIColor, rimWidth: CGFloat, in context: CGContext) {
+        context.setFillColor(fill.cgColor)
+        context.fillEllipse(in: rect)
+        context.setStrokeColor(rim.cgColor)
+        context.setLineWidth(rimWidth)
+        context.strokeEllipse(in: rect)
     }
 
     private static func drawMarker(at point: CGPoint, color: UIColor, style: ShareCardMapStyle, in context: CGContext) {

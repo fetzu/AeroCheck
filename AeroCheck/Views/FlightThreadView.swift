@@ -192,6 +192,8 @@ struct FlightThreadView: View {
     @State private var unfoldedDone: Set<ThreadChapter> = []
     /// "Start now" pressed on a flight planned for another day: the question before it starts.
     @State private var confirmingEarlyStart = false
+    /// The trip's flown legs, shared as one card from beside the leg strip. (6.1)
+    @State private var journeyShare: JourneyShareRequest?
 
     private var thread: FlightThread? { threadManager.thread(withId: threadId) }
 
@@ -302,6 +304,10 @@ struct FlightThreadView: View {
                     fuelSheetPlanId = nil
                 })
             }
+        }
+        .sheet(item: $journeyShare) { request in
+            JourneyShareCustomizationView(flights: request.flights, appState: appState,
+                                          airports: airportDataService, title: request.title)
         }
         .sheet(isPresented: $addingStop) {
             AddStopSheet(threadId: threadId) { _ in addingStop = false }
@@ -686,7 +692,42 @@ struct FlightThreadView: View {
     /// it here, so a pilot working through a trip does not have to go back to the list for each.
     private func legStrip(_ trip: Trip, current: FlightThread) -> some View {
         let legs = threadManager.legs(of: trip)
-        return ScrollView(.horizontal, showsIndicators: false) {
+        let flown = flownFlights(of: legs)
+        return HStack(spacing: 0) {
+            legChips(legs, current: current)
+            // Once two legs or more are flown: the trip as one card, the legs flown so far. (6.1)
+            if flown.count >= 2 {
+                Button {
+                    journeyShare = JourneyShareRequest(flights: flown, title: L10n.ShareCard.shareTrip)
+                } label: {
+                    HStack(spacing: 6) {
+                        Image(systemName: "square.and.arrow.up")
+                            .scaledFont(size: 13, weight: .semibold, relativeTo: .caption)
+                        Text(L10n.ShareCard.shareTrip)
+                            .scaledFont(size: 13, weight: .bold, relativeTo: .caption)
+                            .lineLimit(1)
+                    }
+                    .foregroundColor(.aviationGold)
+                    .padding(.horizontal, 12)
+                    .frame(minHeight: 44)
+                    .overlay(RoundedRectangle(cornerRadius: 10).strokeBorder(Color.aviationGold, lineWidth: 1.5))
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .fixedSize()
+                .padding(.trailing, 12)
+                .padding(.vertical, 4)
+            }
+        }
+    }
+
+    /// The legs' recorded flights, in the trip's order: a leg is in once END FLIGHT has saved it.
+    private func flownFlights(of legs: [FlightThread]) -> [Flight] {
+        legs.compactMap { leg in leg.flightId.flatMap { id in appState.flights.first { $0.id == id } } }
+    }
+
+    private func legChips(_ legs: [FlightThread], current: FlightThread) -> some View {
+        ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: 8) {
                 ForEach(Array(legs.enumerated()), id: \.element.id) { index, leg in
                     let isCurrent = leg.id == current.id

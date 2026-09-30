@@ -141,6 +141,24 @@ class FlightEventDetector: ObservableObject {
     /// Test / reconciliation seam: called on every emission, before the pending-event publish.
     var onEvent: ((FlightEventType, Date) -> Void)?
 
+    // MARK: - Flight cues (6.1)
+
+    /// The cues that time the check slot (FlightCues.swift): observed after each fix, never written
+    /// back into the landing state machine, so nothing below changes what it emits.
+    private var cueTracker = FlightCueTracker()
+
+    /// Every cue this flight, in order: what the corpus fixtures' `expectedCues` pin.
+    private(set) var cueEvents: [FlightCueEvent] = []
+
+    /// Called with each cue as it comes (the Cockpit's `AppState.noteFlightCue`).
+    var onCue: ((FlightCueEvent) -> Void)?
+
+    /// The destination of the route flown: the approach check is due 5 NM from it.
+    var cueDestination: CLLocationCoordinate2D? {
+        get { cueTracker.destination }
+        set { cueTracker.destination = newValue }
+    }
+
     // MARK: - Conversion Constants
 
     private let metersPerSecondToKnots = 1.94384
@@ -251,6 +269,8 @@ class FlightEventDetector: ObservableObject {
     ///     descend/climb tests when fresh (<3 s); GPS otherwise.
     func processLocation(_ location: CLLocation, nearbyAirports: [Airport], baroSample: BaroAltitudeSample? = nil) {
         let now = clock()
+        // The cues read the state this fix leaves, whichever way the function returns. (6.1)
+        defer { observeCues(location, nearbyAirports: nearbyAirports, now: now) }
 
         // PR-40: expire a pending event the pilot never confirmed/dismissed within a bounded
         // window, so a never-consumed confirmation can't block later events of that type.
@@ -306,6 +326,26 @@ class FlightEventDetector: ObservableObject {
         }
 
         trackPrevBaro(now: now)
+    }
+
+    /// One fix for the cues, with the landing state machine as the fix left it.
+    private func observeCues(_ location: CLLocation, nearbyAirports: [Airport], now: Date) {
+        let phase: FlightCueTracker.DetectorPhase
+        switch state {
+        case .ground: phase = .ground
+        case .climbout: phase = .climbout
+        case .airborne: phase = .airborne
+        case .approach: phase = .approach
+        case .rollout: phase = .rollout
+        }
+        let events = cueTracker.observe(phase: phase, anchor: anchor, altBiasFt: altBiasFt, now: now,
+                                        latitude: location.coordinate.latitude,
+                                        longitude: location.coordinate.longitude,
+                                        altitudeM: location.altitude, airports: nearbyAirports)
+        for event in events {
+            cueEvents.append(event)
+            onCue?(event)
+        }
     }
 
     // MARK: - State Handlers
@@ -528,6 +568,8 @@ class FlightEventDetector: ObservableObject {
         prevBaroTimestamp = nil
         lastManualLandingTime = nil
         lastManualGoAroundTime = nil
+        cueTracker = FlightCueTracker()
+        cueEvents = []
     }
 
     /// Dismiss pending go-around without recording
@@ -586,6 +628,7 @@ class FlightEventDetector: ObservableObject {
             if state == .rollout || state == .approach {
                 afterLiftoff(now: time)
             }
+            cueTracker.noteClimbAway()   // the cues start again, as the checks do (6.1)
             return physical
         case .goAround:
             pendingGoAround = nil
@@ -595,6 +638,7 @@ class FlightEventDetector: ObservableObject {
             if state == .rollout || state == .approach {
                 afterLiftoff(now: time)
             }
+            cueTracker.noteClimbAway()
             return physical
         }
     }

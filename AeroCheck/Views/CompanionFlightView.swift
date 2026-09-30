@@ -81,6 +81,8 @@ struct CompanionFlightView: View {
             }
         }
         .background(theme.background)
+        // The landed card, as on the iPad, answered from here too. (6.1, M4)
+        .overlay { landedCardOverlay }
         .preferredColorScheme(.dark)
         // Render the reused checklist hero/rows in the SAME theme as the iPad, not this device's theme.
         .environment(\.cockpitTheme, theme)
@@ -276,6 +278,60 @@ struct CompanionFlightView: View {
                 recordATOButton
             }
             .padding(.horizontal, 12).padding(.top, 4).padding(.bottom, 12)
+        }
+        // The iPad's check slot at the foot, where the thumb is, as on the iPad's map. (6.1, cues)
+        .safeAreaInset(edge: .bottom, spacing: 0) { companionCheckSlot }
+    }
+
+    /// The iPad's check slot, from its snapshot: the same name, line and colour, and its tap sent back.
+    /// Only from an iPad that sends it; nothing otherwise, as before 6.1.
+    @ViewBuilder
+    private var companionCheckSlot: some View {
+        if let cl = checklist, cl.supportsFlightCues, let data = cl.checkSlotData,
+           let slot = try? JSONDecoder().decode(CheckSlot.self, from: data) {
+            CheckSlotButton(slot: slot, prominent: true) { tapCheckSlot(slot) }
+                .padding(.horizontal, 12).padding(.vertical, 8)
+                .background(theme.background)
+                .overlay(alignment: .top) {
+                    if let offer = memoryUndo {
+                        NavUndoToast(offer: offer) { memoryUndo = nil }
+                            .padding(.horizontal, 12)
+                            .offset(y: -CockpitTarget.control - 8)
+                    }
+                }
+        }
+    }
+
+    /// The slot's tap: CHECKLIST is this phone's own mode; everything else is the iPad's, sent there. A
+    /// confirmation is offered back for six seconds, as on the iPad.
+    private func tapCheckSlot(_ slot: CheckSlot) {
+        if slot.action == .showChecklist {
+            userPickedMode = true
+            withAnimation(reduceMotion ? nil : .default) { mode = .checklist }
+            return
+        }
+        companionConnectivityManager.sendCommand(.checkSlotTap(phaseRawValue: slot.phase.rawValue,
+                                                               action: slot.action.rawValue))
+        if slot.action == .confirmFromMemory || slot.action == .advanceAndConfirm {
+            let raw = slot.phase.rawValue
+            memoryUndo = NavUndoOffer(message: L10n.Cockpit.doneFromMemoryToast(slot.phase.shortTitle), style: .outlined) {
+                companionConnectivityManager.sendCommand(.undoMemoryCheck(phaseRawValue: raw))
+            }
+        }
+    }
+
+    /// The landed card over the phone's screen while it is up on the iPad; an answer from here is the
+    /// iPad's. The backdrop ignores taps, as there.
+    @ViewBuilder
+    private var landedCardOverlay: some View {
+        if let cl = checklist, cl.supportsFlightCues, let card = cl.landedCard {
+            ZStack {
+                Color.black.opacity(0.5).ignoresSafeArea()
+                LandedCardView(aerodrome: card.aerodrome, time: formattedTime(card.touchdown),
+                               landingCheckSettled: card.landingCheckSettled) { answer in
+                    companionConnectivityManager.sendCommand(.answerLandedCard(cardId: card.id, answer: answer.rawValue))
+                }
+            }
         }
     }
 

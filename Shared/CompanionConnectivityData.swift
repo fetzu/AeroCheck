@@ -555,6 +555,22 @@ enum CompanionCommand: Codable {
     // iPad's checklist pane does it (6.1). `undoMemoryCheck` takes both back. Sent only to an iPad whose
     // snapshot names where it goes (`memoryCheckNextRawValue`); an older one drops it.
     case confirmMemoryCheckAndNext(phaseRawValue: Int)
+    // The check slot's tap, from the phone's NAV screen (6.1, cues from the flight): by the phase it names
+    // and what it does, so a tap arriving after the iPad's slot changed does nothing. Sent only to an iPad
+    // whose snapshot says `supportsFlightCues`; an older one drops it.
+    case checkSlotTap(phaseRawValue: Int, action: String)
+    // The landed card answered from the phone (6.1, M4): "yes", "notSure" or "next", for that card only.
+    case answerLandedCard(cardId: UUID, answer: String)
+}
+
+/// The landed card, as the phone shows it over its screen (6.1, M4). Plain values: the Watch compiles this
+/// file too.
+struct CompanionLandedCard: Codable, Equatable {
+    let id: UUID
+    let aerodrome: String?
+    let touchdown: Date
+    /// The landing check was done before touchdown: nothing to ask, only on to AFTER LANDING.
+    let landingCheckSettled: Bool
 }
 
 /// A check deferred whole (v6.0 review, J1): what the viewer's deferred list shows, and what it needs to
@@ -645,13 +661,21 @@ struct CompanionChecklistSnapshot: Codable, Equatable {
     /// `ChecklistPhase` raw value. Nil when it only confirms (the phase's own action still to press, the
     /// last check), and from an iPad that has no one-tap (it only takes `confirmMemoryCheck`). (6.1)
     let memoryCheckNextRawValue: Int?
+    /// The iPad's check slot, encoded (the app's `CheckSlot`; opaque here, since the Watch compiles this
+    /// file): the phone's NAV screen draws it and sends its tap. Nil outside a flight. (6.1, cues)
+    let checkSlotData: Data?
+    /// The landed card, while it is up on the iPad. (6.1, M4)
+    let landedCard: CompanionLandedCard?
+    /// This iPad takes `checkSlotTap` and `answerLandedCard`. False from an older iPad. (6.1)
+    let supportsFlightCues: Bool
 
     init(phaseTitle: String, phaseRawValue: Int, highlightedIndex: Int, visibleCount: Int,
          completedCount: Int, items: [CompanionChecklistItem], hiddenItemCount: Int,
          deferredItemIds: [String] = [], deferredItemCount: Int = 0,
          deferredGroups: [CompanionDeferredGroup] = [], openItemCount: Int = 0, supportsDefer: Bool = false,
          deferredChecks: [CompanionDeferredCheck] = [], memoryCheck: Bool = false, memoryCheckDone: Bool = false,
-         supportsMemoryConfirm: Bool = false, memoryCheckNextRawValue: Int? = nil) {
+         supportsMemoryConfirm: Bool = false, memoryCheckNextRawValue: Int? = nil,
+         checkSlotData: Data? = nil, landedCard: CompanionLandedCard? = nil, supportsFlightCues: Bool = false) {
         self.phaseTitle = phaseTitle
         self.phaseRawValue = phaseRawValue
         self.highlightedIndex = highlightedIndex
@@ -669,6 +693,9 @@ struct CompanionChecklistSnapshot: Codable, Equatable {
         self.memoryCheckDone = memoryCheckDone
         self.supportsMemoryConfirm = supportsMemoryConfirm
         self.memoryCheckNextRawValue = memoryCheckNextRawValue
+        self.checkSlotData = checkSlotData
+        self.landedCard = landedCard
+        self.supportsFlightCues = supportsFlightCues
     }
 
     /// Tolerant decoder: every field defaults so a field skew between independently-updated builds never
@@ -697,5 +724,10 @@ struct CompanionChecklistSnapshot: Codable, Equatable {
         supportsMemoryConfirm = try c.decodeIfPresent(Bool.self, forKey: .supportsMemoryConfirm) ?? false
         // Absent from a 6.1 iPad without the one tap: ✓ DONE only confirms, and NEXT follows.
         memoryCheckNextRawValue = try c.decodeIfPresent(Int.self, forKey: .memoryCheckNextRawValue)
+        // Absent from an iPad without the cues: no slot on the phone, no landed card. A card this build
+        // can't read is left out rather than losing the whole snapshot.
+        checkSlotData = try? c.decodeIfPresent(Data.self, forKey: .checkSlotData)
+        landedCard = try? c.decodeIfPresent(CompanionLandedCard.self, forKey: .landedCard)
+        supportsFlightCues = (try? c.decodeIfPresent(Bool.self, forKey: .supportsFlightCues)) ?? false
     }
 }

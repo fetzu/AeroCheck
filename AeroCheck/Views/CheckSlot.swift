@@ -11,8 +11,10 @@ import SwiftUI
 // Its colour says when: dark while nothing is due, amber (outlined) when the check is due, filled amber
 // once, when the flight moved on with it still open, and dashed grey in the landing phase, where there
 // is nothing to press until the runway is behind. Nothing pulses, nothing beeps, and it never changes
-// the pane on its own. In 6.1 "due" is simply the current check left open; the cues from the flight
-// (level-off, descent, approach) come later and set `CheckSlotTiming`.
+// the pane on its own. "Due" comes from the flight (FlightCues.swift): the climb check at 500 ft above the
+// field, the cruise check at the level-off, the descent check at the descent, the approach check near the
+// destination, and the landing check shown, dashed, from circuit height. Once the flight says so, the
+// next check comes to the slot too, with its one tap (the descent check in cruise, where FREDA was).
 //
 // In cruise, once the cruise check is done, the slot holds FREDA (Q6, Freda.swift): "CRUISE CHECK ✓
 // 14:24 · FREDA in 6 min" while it counts, amber "FREDA · F · R · E · D · A" when due, one tap done.
@@ -35,9 +37,9 @@ enum CheckSlotFreda: Equatable {
     case due(waypoint: String?)
 }
 
-/// When the flight says the current check is due. Without cues from the flight (6.1) an open check is
-/// due; the flight-event cues will hold it at `notYet` until their event, and escalate to `owed`, once,
-/// when the flight moves on with the check still open.
+/// When the flight says a check is due (FlightCueState): not yet until its cue, due from it, and owed,
+/// once, when the flight moved on with the check still open. With no cue source (no take-off detected
+/// yet), an open check is due, as before the cues.
 enum CheckSlotTiming: Equatable {
     case notYet
     case due
@@ -45,8 +47,9 @@ enum CheckSlotTiming: Equatable {
 }
 
 /// What the slot holds and how it looks. Pure, so every state is tested without a view.
-struct CheckSlot: Equatable {
-    enum Tone: Equatable {
+/// Codable: the Companion iPhone draws the iPad's slot from its snapshot. (6.1)
+struct CheckSlot: Equatable, Codable {
+    enum Tone: Equatable, Codable {
         /// Nothing due: dark, cyan text.
         case idle
         /// Due: amber outline on dark amber.
@@ -57,7 +60,7 @@ struct CheckSlot: Equatable {
         case quiet
     }
 
-    enum Action: Equatable {
+    enum Action: String, Equatable, Codable {
         /// Records the current memory check done from memory.
         case confirmFromMemory
         /// Shows the CHECKLIST pane; the map comes back after the last CHECK, by the pane rule.
@@ -66,10 +69,14 @@ struct CheckSlot: Equatable {
         case advance
         /// Records FREDA done. (6.1)
         case confirmFreda
+        /// Goes on to the next check and records it done from memory: the flight says it's due. (6.1)
+        case advanceAndConfirm
+        /// Goes on to the landing check, shown from circuit height. (6.1)
+        case goToLanding
     }
 
     /// What the first line names. (6.1)
-    enum Title: Equatable {
+    enum Title: Equatable, Codable {
         /// The check: `phase.shortTitle`.
         case check
         /// "FREDA"
@@ -78,7 +85,7 @@ struct CheckSlot: Equatable {
         case fredaCountsFrom(FredaSchedule.Since, Date)
     }
 
-    enum Line: Equatable {
+    enum Line: Equatable, Codable {
         /// "from memory · one tap when done"
         case fromMemory
         /// "from memory · nothing to press" (landing)
@@ -95,9 +102,13 @@ struct CheckSlot: Equatable {
         case fredaIn(minutes: Int)
         /// "F · R · E · D · A", and the waypoint passed that made it due. (6.1)
         case fredaFlow(waypoint: String?)
+        /// "owed · you levelled off with it open": the cue that passed it. (6.1)
+        case owed(FlightCue?)
+        /// "2 items · nothing to press": the landing check as a list, from circuit height. (6.1)
+        case itemsQuiet(Int)
     }
 
-    enum Icon: Equatable {
+    enum Icon: Equatable, Codable {
         case confirm
         case list
         case next
@@ -112,27 +123,44 @@ struct CheckSlot: Equatable {
     let action: Action
     var title: Title = .check
 
+    /// The next check, when the flight says it is due already: what it is, how due, and the cue that
+    /// made it owed. The slot then offers it, one tap, where it showed "next check". (6.1)
+    struct Upcoming: Equatable {
+        let check: CheckSlotCheck
+        let timing: CheckSlotTiming
+        var owedBy: FlightCue? = nil
+    }
+
     /// The slot for the current `phase`, its `check`, the phase after it (`nil` at the end), the phase's
-    /// own action if it is still to press, the flight's timing, and FREDA (cruise, its check done).
+    /// own action if it is still to press, the flight's timing (and the cue that made it owed), FREDA
+    /// (cruise, its check done), the next check once due (`upcoming`), and the landing check once shown
+    /// from circuit height (`landingShown`, its check).
     static func make(phase: ChecklistPhase, check: CheckSlotCheck, next: ChecklistPhase?,
-                     pendingAction: String? = nil, timing: CheckSlotTiming = .due,
-                     freda: CheckSlotFreda? = nil) -> CheckSlot {
-        // From final to the runway vacated there is nothing to press: the landing check is shown, never
-        // asked (research: AC 91-73B, single-pilot guidance). A tap still confirms it.
-        let quiet = phase == .landing
-        let openTone: Tone = quiet ? .quiet : {
-            switch timing {
-            case .notYet: return .idle
-            case .due: return .due
-            case .owed: return .owed
+                     pendingAction: String? = nil, timing: CheckSlotTiming = .due, owedBy: FlightCue? = nil,
+                     freda: CheckSlotFreda? = nil, upcoming: Upcoming? = nil,
+                     landingShown: CheckSlotCheck? = nil) -> CheckSlot {
+        // From circuit height to the runway vacated there is nothing to press: the landing check is shown,
+        // dashed, never asked, whatever was open before it (research: AC 91-73B; the proposal's part 4).
+        // A tap goes on to it.
+        if let landing = landingShown, phase != .landing {
+            switch landing {
+            case .list(let open) where open > 0:
+                return CheckSlot(phase: .landing, line: .itemsQuiet(open), icon: .list, tone: .quiet, action: .goToLanding)
+            default:
+                return CheckSlot(phase: .landing, line: .fromMemoryQuiet, icon: .confirm, tone: .quiet, action: .goToLanding)
             }
-        }()
+        }
+        // In the landing phase too: shown, never asked. A tap still confirms it.
+        let quiet = phase == .landing
+        let openTone: Tone = quiet ? .quiet : tone(timing)
+        let owedLine: Line? = timing == .owed && !quiet ? .owed(owedBy) : nil
         switch check {
         case .memory(done: false):
-            return CheckSlot(phase: phase, line: quiet ? .fromMemoryQuiet : .fromMemory, icon: .confirm,
+            return CheckSlot(phase: phase, line: owedLine ?? (quiet ? .fromMemoryQuiet : .fromMemory), icon: .confirm,
                              tone: openTone, action: .confirmFromMemory)
         case .list(let open) where open > 0:
-            return CheckSlot(phase: phase, line: .items(open), icon: .list, tone: openTone, action: .showChecklist)
+            return CheckSlot(phase: phase, line: owedLine ?? .items(open), icon: .list, tone: openTone,
+                             action: .showChecklist)
         default:
             // Done, or nothing to do. In cruise, FREDA: counting, a tap opens the checklist, where NEXT
             // and the FREDA button sit side by side; due, amber, a tap records it done. (6.1, Q6)
@@ -152,10 +180,33 @@ struct CheckSlot: Equatable {
                 return CheckSlot(phase: phase, line: .actionFirst(pendingAction), icon: .list, tone: .due,
                                  action: .showChecklist)
             }
+            // The next check, once the flight says it's due: one tap to it, and a memory check done with
+            // the same tap (the descent check in cruise). Not the landing check: nothing to press there.
+            if let next, next != .landing, let upcoming, upcoming.timing != .notYet {
+                let line: Line? = upcoming.timing == .owed ? .owed(upcoming.owedBy) : nil
+                switch upcoming.check {
+                case .memory(done: false):
+                    return CheckSlot(phase: next, line: line ?? .fromMemory, icon: .confirm,
+                                     tone: tone(upcoming.timing), action: .advanceAndConfirm)
+                case .list(let open) where open > 0:
+                    return CheckSlot(phase: next, line: line ?? .items(open), icon: .list,
+                                     tone: tone(upcoming.timing), action: .advance)
+                default:
+                    break
+                }
+            }
             if let next {
                 return CheckSlot(phase: next, line: .next, icon: .next, tone: .idle, action: .advance)
             }
             return CheckSlot(phase: phase, line: .allChecked, icon: .list, tone: .idle, action: .showChecklist)
+        }
+    }
+
+    private static func tone(_ timing: CheckSlotTiming) -> Tone {
+        switch timing {
+        case .notYet: return .idle
+        case .due: return .due
+        case .owed: return .owed
         }
     }
 }
@@ -192,6 +243,8 @@ extension CheckSlot.Line {
         case .fredaIn(let minutes): return L10n.Freda.inMinutes(minutes)
         case .fredaFlow(let waypoint):
             return waypoint.map { L10n.Freda.flowAfterWaypoint($0) } ?? L10n.Freda.flow
+        case .owed(let cue): return L10n.CheckSlot.owed(after: cue)
+        case .itemsQuiet(let count): return L10n.CheckSlot.itemsNothingToPress(count)
         }
     }
 
@@ -209,8 +262,9 @@ extension CheckSlot.Line {
     var shortText: String {
         switch self {
         case .fromMemory: return L10n.Cockpit.fromMemory
-        case .fromMemoryQuiet: return L10n.CheckSlot.nothingToPress
+        case .fromMemoryQuiet, .itemsQuiet: return L10n.CheckSlot.nothingToPress
         case .fredaFlow: return L10n.Freda.flowCompact
+        case .owed: return L10n.CheckSlot.owedShort
         default: return text
         }
     }
@@ -332,6 +386,8 @@ struct CheckSlotButton: View {
         case .showChecklist: return L10n.CheckSlot.showChecklistHint
         case .advance: return L10n.Cockpit.nextPhaseA11y(slot.phase.title)
         case .confirmFreda: return L10n.Freda.confirmHint
+        case .advanceAndConfirm: return L10n.CheckSlot.advanceAndConfirmHint
+        case .goToLanding: return L10n.CheckSlot.goToLandingHint
         }
     }
 }
@@ -358,24 +414,44 @@ struct CockpitCheckSlot: View {
 
     private func button(_ slot: CheckSlot) -> some View {
         CheckSlotButton(slot: slot, prominent: prominent) {
-            switch slot.action {
-            case .confirmFromMemory: appState.confirmMemoryCheck()
-            case .showChecklist: onShowChecklist()
-            case .advance: appState.nextPhase()
-            case .confirmFreda: appState.confirmFreda()
-            }
+            Self.perform(slot.action, appState: appState, onShowChecklist: onShowChecklist)
         }
         .sensoryFeedback(.impact(weight: .light), trigger: appState.memoryConfirmation?.id)
+    }
+
+    /// What the slot's tap does, on the iPad or sent from the Companion iPhone.
+    @MainActor
+    static func perform(_ action: CheckSlot.Action, appState: AppState, onShowChecklist: () -> Void) {
+        switch action {
+        case .confirmFromMemory: appState.confirmMemoryCheck()
+        case .showChecklist: onShowChecklist()
+        case .advance: appState.nextPhase()
+        case .confirmFreda: appState.confirmFreda()
+        case .advanceAndConfirm: appState.advanceAndConfirmMemoryCheck()
+        // Straight to it, as the phase bar's jump for one or two checks; from circuit height nothing
+        // should ask a question. (6.1)
+        case .goToLanding: appState.goToPhase(.landing)
+        }
     }
 
     /// The slot for the flight as it stands.
     @MainActor
     static func slot(for appState: AppState, now: Date = Date()) -> CheckSlot {
         let phase = appState.currentPhase
-        return CheckSlot.make(phase: phase, check: check(in: appState),
-                              next: phase.nextNavigable(circuitMode: appState.isCircuitMode),
+        let next = phase.nextNavigable(circuitMode: appState.isCircuitMode)
+        // The next check, when its cue came: offered in the slot as soon as this one is done. Only on the
+        // flight's word: on the ground, and before any take-off was detected, the slot shows the next check
+        // as it did before the cues. (6.1)
+        let upcoming = next.flatMap { next -> CheckSlot.Upcoming? in
+            guard appState.flightCues.cueHasCome(for: next, circuitMode: appState.isCircuitMode) else { return nil }
+            return CheckSlot.Upcoming(check: check(of: next, in: appState), timing: appState.cueTiming(for: next),
+                                      owedBy: appState.owedCue(for: next))
+        }
+        return CheckSlot.make(phase: phase, check: check(in: appState), next: next,
                               pendingAction: pendingAction(in: appState),
-                              freda: freda(in: appState, now: now))
+                              timing: appState.cueTiming(for: phase), owedBy: appState.owedCue(for: phase),
+                              freda: freda(in: appState, now: now), upcoming: upcoming,
+                              landingShown: appState.landingCheckShown ? check(of: .landing, in: appState) : nil)
     }
 
     /// FREDA while it runs (cruise, its check done). (6.1)
@@ -386,6 +462,21 @@ struct CockpitCheckSlot: View {
         if let due = schedule.due { return .due(waypoint: due.waypoint) }
         let remaining = schedule.remaining(now: now) ?? FredaSchedule.interval
         return .counting(after: schedule.since, at: anchor, minutesLeft: max(1, Int((remaining / 60).rounded(.up))))
+    }
+
+    /// A check the Cockpit isn't on (the next one, the landing check from circuit height), as it will be
+    /// shown there: its items with the Memory test's setting, none checked unless worked through.
+    @MainActor
+    static func check(of phase: ChecklistPhase, in appState: AppState) -> CheckSlotCheck {
+        guard phase != appState.currentPhase else { return check(in: appState) }
+        let learning = appState.settings.learningMode
+        if appState.isMemoryCheck(phase, learningMode: learning) {
+            return .memory(done: appState.getPhaseStatus(phase).isDone
+                || appState.getHighlightedItem(for: phase) >= appState.activeChecklist.visibleItemCount(for: phase, learningMode: true))
+        }
+        let visible = appState.activeChecklist.visibleItemCount(for: phase, learningMode: learning)
+        guard visible > 0 else { return .none }
+        return .list(open: max(0, appState.openItems(in: phase, learningMode: learning).count))
     }
 
     @MainActor

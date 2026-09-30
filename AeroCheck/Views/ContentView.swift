@@ -352,6 +352,24 @@ struct ContentView: View {
                 if stage == "waypoint" { appState.startFredaForCapture(at: now.addingTimeInterval(-7 * 60)) }
                 appState.evaluateFreda(now: now, lastPassage: passage)
             }
+            // The cues from the flight, for their captures (6.1): `AEROCHECK_CUES=takeoff,levelOff` fires
+            // them a minute apart as the detector would (a leg first), so a check open since an earlier
+            // cue turns owed as in flight; `AEROCHECK_OWED=climb:levelOff` makes one owed directly.
+            if appState.isFlightActive, let list = env["AEROCHECK_CUES"]?.lowercased() {
+                let cues = list.split(separator: ",").compactMap { name in
+                    FlightCue.allCases.first { $0.code.lowercased() == name }
+                }
+                var owed: [ChecklistPhase: FlightCue] = [:]
+                for pair in (env["AEROCHECK_OWED"] ?? "").lowercased().split(separator: ",") {
+                    let parts = pair.split(separator: ":").map(String.init)
+                    if parts.count == 2,
+                       let phase = ChecklistPhase.allCases.first(where: { "\($0)".lowercased() == parts[0] }),
+                       let cue = FlightCue.allCases.first(where: { $0.code.lowercased() == parts[1] }) {
+                        owed[phase] = cue
+                    }
+                }
+                appState.applyCuesForCapture(cues, owed: owed)
+            }
         }
         #endif
         .onShake {

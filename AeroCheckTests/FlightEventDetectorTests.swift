@@ -32,6 +32,14 @@ final class FlightEventDetectorTests: XCTestCase {
         let t: Double      // epoch seconds
     }
 
+    /// A cue the Python prototype observed (6.1): "leg", "takeoff" … "circuit", "descentWithdrawn".
+    private struct FixtureCue: Decodable {
+        let type: String
+        let t: Double
+        let implied: Bool
+        let at: String?
+    }
+
     private struct CorpusFixture: Decodable {
         let name: String
         let registration: String?
@@ -42,6 +50,7 @@ final class FlightEventDetectorTests: XCTestCase {
         let track: [[Double]]
         let expectedEvents: [FixtureEvent]
         let expectedTakeoffs: [Double]
+        let expectedCues: [FixtureCue]?
     }
 
     private func loadFixtures() throws -> [CorpusFixture] {
@@ -103,7 +112,8 @@ final class FlightEventDetectorTests: XCTestCase {
     /// just counts. 17 real flights: labels, circuits, and the ambiguity-band cases.
     func testCorpusFixturesReproduceValidatedEventSequences() throws {
         let fixtures = try loadFixtures()
-        XCTAssertEqual(fixtures.count, 17, "Expected the 17 committed corpus fixtures")
+        // 17 from the referee corpus, and the proposal's LSGN → LSZQ leg of 29.09.2026 for the cues (6.1).
+        XCTAssertEqual(fixtures.count, 18, "Expected the 18 committed corpus fixtures")
         for fixture in fixtures {
             let detector = replay(fixture)
             let got = detector.emittedEvents
@@ -135,6 +145,48 @@ final class FlightEventDetectorTests: XCTestCase {
         }
     }
 
+    // MARK: - Flight cues (6.1)
+
+    /// The cues, pinned to the Python prototype like the landing events: every fixture's full cue
+    /// sequence (kind, implied or not, the aerodrome), times within 30 s. They are observed alongside the
+    /// landing state machine and never written back into it: the event sequences above are unchanged.
+    func testCorpusFixturesReproduceTheCueSequences() throws {
+        for fixture in try loadFixtures() {
+            let expected = try XCTUnwrap(fixture.expectedCues, "\(fixture.name): no expectedCues")
+            assertCues(replay(fixture).cueEvents, expected, fixture.name)
+        }
+    }
+
+    private func assertCues(_ got: [FlightCueEvent], _ expected: [FixtureCue], _ name: String,
+                            file: StaticString = #filePath, line: UInt = #line) {
+        XCTAssertEqual(got.map(\.corpusCode), expected.map(\.type),
+                       "\(name): cue sequence diverges from the Python prototype", file: file, line: line)
+        for (cue, want) in zip(got, expected) where cue.corpusCode == want.type {
+            XCTAssertEqual(cue.implied, want.implied, "\(name): \(want.type) implied", file: file, line: line)
+            XCTAssertEqual(cue.aerodrome, want.at, "\(name): \(want.type) aerodrome", file: file, line: line)
+            XCTAssertEqual(cue.time.timeIntervalSince1970, want.t, accuracy: 30,
+                           "\(name): \(want.type) time", file: file, line: line)
+        }
+    }
+
+    /// The proposal's worked example ("When each cue fires", LSGN → LSZQ, 29.09.2026): the slot would
+    /// have turned at these moments, in this order, all before the touchdown at 14:44.
+    func testTheProposalsLegCuesInOrder() throws {
+        let fixture = try XCTUnwrap(try loadFixtures().first { $0.name.hasSuffix("20260929_1406_F-HVXA") })
+        let detector = replay(fixture)
+        let fired = detector.cueEvents.compactMap { event -> (FlightCue, Date)? in
+            if case .fired(let cue) = event.kind, !event.implied { return (cue, event.time) }
+            return nil
+        }
+        XCTAssertEqual(fired.map(\.0), [.takeoff, .levelOff, .descent, .approach, .circuit])
+        let touchdown = try XCTUnwrap(detector.emittedEvents.last?.timestamp)
+        let takeoff = try XCTUnwrap(detector.takeoffTimes.first)
+        XCTAssertLessThan(fired[0].1.timeIntervalSince(takeoff), 60, "climb check due within a minute of the take-off")
+        XCTAssertEqual(fired[3].1.timeIntervalSince(fired[2].1), 66, accuracy: 30, "approach a minute after the descent")
+        XCTAssertGreaterThan(touchdown.timeIntervalSince(fired[4].1), 6 * 60, "circuit height seven minutes out")
+        XCTAssertEqual(detector.cueEvents.filter { $0.kind == .fired(.approach) }.first?.aerodrome, "LSZQ")
+    }
+
     // MARK: - Full-corpus referee (dev machine only)
 
     /// Replays ALL 53 corpus flights against the Python referee's expected sequences.
@@ -162,6 +214,10 @@ final class FlightEventDetectorTests: XCTestCase {
             for (event, want) in zip(detector.emittedEvents, fixture.expectedEvents) {
                 XCTAssertEqual(event.timestamp.timeIntervalSince1970, want.t, accuracy: 90,
                                "\(fixture.name): \(want.type) timestamp diverges")
+            }
+            // And the cues, the same way (6.1). A corpus generated before them has none to compare.
+            if let cues = fixture.expectedCues {
+                assertCues(detector.cueEvents, cues, fixture.name)
             }
         }
     }
@@ -452,6 +508,17 @@ final class FlightEventDetectorTests: XCTestCase {
         d.fly(altFt: -20, speedKts: 0, count: 4)
         XCTAssertEqual(d.detector.emittedEvents.map(\.type), [.fullStop])
         XCTAssertNil(d.detector.notifyManualEvent(.fullStop))
+    }
+}
+
+private extension FlightCueEvent {
+    /// The prototype's name for it.
+    var corpusCode: String {
+        switch kind {
+        case .leg: return "leg"
+        case .fired(let cue): return cue.code
+        case .withdrawn(let cue): return cue.code + "Withdrawn"
+        }
     }
 }
 

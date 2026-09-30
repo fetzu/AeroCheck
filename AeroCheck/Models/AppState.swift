@@ -26,9 +26,29 @@ enum PhaseCompletionStatus: String, Codable {
     /// checkpoint, so the checkpoint writes it as `.completed` with a side list
     /// (`ActiveFlightState.memoryConfirmedPhases`) that this build reads back.
     case doneFromMemory
+    /// The landing check, "yes, it was done" on the landed card after a full-stop landing: settled, drawn
+    /// as a green OUTLINE on the phase bar, never solid green, since it was confirmed after the fact.
+    /// (6.1, cues from the flight)
+    case confirmedAfterLanding
+    /// The landing check, "not sure" on the landed card: settled too (it can't be flown any more), amber,
+    /// and on the flight for the debrief. (6.1)
+    case notSure
 
-    /// Whether the check counts as done: worked through, or confirmed from memory.
-    var isDone: Bool { self == .completed || self == .doneFromMemory }
+    /// Whether the check counts as done: worked through, confirmed from memory, or after the landing.
+    var isDone: Bool { self == .completed || self == .doneFromMemory || self == .confirmedAfterLanding }
+
+    /// Answered on the landed card: settled, and nothing reopens or defers it. (6.1)
+    var isAnsweredAfterLanding: Bool { self == .confirmedAfterLanding || self == .notSure }
+
+    /// What the crash checkpoint writes for a build that doesn't know the 6.1 statuses: done as done,
+    /// "not sure" as skipped (orange, to be looked at). The side lists put them back here.
+    var writtenForOlderBuilds: PhaseCompletionStatus {
+        switch self {
+        case .doneFromMemory, .confirmedAfterLanding: return .completed
+        case .notSure: return .skipped
+        default: return self
+        }
+    }
 }
 
 extension PhaseCompletionStatus {
@@ -633,6 +653,12 @@ struct ActiveFlightState: Codable {
     /// older build reads (green, as they are); this list turns them back into `.doneFromMemory` here.
     /// Optional so an older checkpoint still decodes. (6.1, check slot)
     let memoryConfirmedPhases: [ChecklistPhase]?
+    /// The landed card's answers (`.confirmedAfterLanding`, `.notSure`), which `phaseCompletionStatus`
+    /// carries as `.completed` and `.skipped` for an older build. Optional so an older checkpoint still
+    /// decodes. (6.1, cues from the flight)
+    let answeredAfterLanding: [ChecklistPhase: PhaseCompletionStatus]?
+    /// What the flight says is due and owed, this leg. Optional for the same reason. (6.1)
+    let flightCues: FlightCueState?
     let savedAt: Date
 
     /// Builds a snapshot from a **non-optional** flight, so a nil `currentFlight` can never
@@ -647,9 +673,12 @@ struct ActiveFlightState: Codable {
         self.engineShutdownTime = appState.engineShutdownTime
         // An older build can't decode `.doneFromMemory` and would drop the whole checkpoint: written
         // as `.completed`, with the list beside it.
-        self.phaseCompletionStatus = appState.phaseCompletionStatus.mapValues { $0 == .doneFromMemory ? .completed : $0 }
+        self.phaseCompletionStatus = appState.phaseCompletionStatus.mapValues(\.writtenForOlderBuilds)
         self.memoryConfirmedPhases = appState.phaseCompletionStatus
             .filter { $0.value == .doneFromMemory }.keys.sorted { $0.rawValue < $1.rawValue }
+        let answered = appState.phaseCompletionStatus.filter { $0.value.isAnsweredAfterLanding }
+        self.answeredAfterLanding = answered.isEmpty ? nil : answered
+        self.flightCues = appState.flightCues
         self.highestCompletedPhase = appState.highestCompletedPhase
         self.currentHighlightedItem = appState.currentHighlightedItem
         self.deferredItems = appState.deferredItems
@@ -676,7 +705,11 @@ struct ActiveFlightState: Codable {
         for phase in memoryConfirmedPhases ?? [] where statuses[phase] == .completed {
             statuses[phase] = .doneFromMemory
         }
+        for (phase, answer) in answeredAfterLanding ?? [:] where answer.isAnsweredAfterLanding {
+            statuses[phase] = answer
+        }
         appState.phaseCompletionStatus = statuses
+        appState.flightCues = flightCues ?? FlightCueState()
         appState.highestCompletedPhase = highestCompletedPhase
         appState.currentHighlightedItem = currentHighlightedItem
         appState.deferredItems = deferredItems ?? [:]
@@ -738,6 +771,15 @@ class AppState {
     var isFlightActive: Bool = false
     var currentFlight: Flight?
 
+    /// What the flight says is due, and what it has passed with the check still open, this leg: set by
+    /// the detector's cues (`noteFlightCue`), read by the check slot and the phase bar. (6.1, cues from
+    /// the flight)
+    var flightCues = FlightCueState()
+
+    /// The landed card, up after a full-stop landing on a flight that isn't circuits, until answered or
+    /// the next take-off roll. (6.1, M4)
+    private(set) var landedCard: LandedCard?
+
     // MARK: - FREDA in cruise (6.1, "Checks in flight" Q6)
     // The rules are `FredaSchedule`'s (Freda.swift); this is where the flight keeps and records them.
 
@@ -753,7 +795,7 @@ class AppState {
 
     /// The cruise check has just been done: FREDA's count starts, unless it runs already.
     private func startFredaAfterCruiseCheck(at date: Date = Date()) {
-        guard fredaApplies, !freda.isRunning else { return }
+        guard fredaApplies, !freda.isRunning, !flightCues.descentBegun else { return }
         freda.start(at: date, after: .cruiseCheck)
     }
 
@@ -761,7 +803,9 @@ class AppState {
     /// In cruise with its check done, FREDA runs (from now, if it didn't: back in cruise from descent,
     /// say) and comes due as `FredaSchedule` says. Anywhere else it is stopped.
     func evaluateFreda(now: Date = Date(), lastPassage: FredaWaypointPassage? = nil) {
-        guard fredaApplies else {
+        // Once the descent has begun, the slot holds the descent check instead (6.1, cues); a descent the
+        // flight climbs back from is withdrawn, and FREDA counts again from then.
+        guard fredaApplies, !flightCues.descentBegun else {
             stopFreda()
             return
         }
@@ -1377,6 +1421,8 @@ class AppState {
         memoryConfirmation = nil
         freda = FredaSchedule()
         fredaConfirmation = nil
+        flightCues = FlightCueState()
+        landedCard = nil
         deferredItems = [:]
         deferredChecks = []
         highestCompletedPhase = .preflight
@@ -1449,6 +1495,8 @@ class AppState {
         memoryConfirmation = nil
         freda = FredaSchedule()
         fredaConfirmation = nil
+        flightCues = FlightCueState()
+        landedCard = nil
         deferredItems = [:]
         deferredChecks = []
         currentPhase = .preflight
@@ -1473,6 +1521,8 @@ class AppState {
         // Nothing of an abandoned flight is kept, its FREDAs included.
         freda = FredaSchedule()
         fredaConfirmation = nil
+        flightCues = FlightCueState()
+        landedCard = nil
         currentFlight = nil
         isFlightActive = false
         isCircuitMode = false
@@ -1521,6 +1571,7 @@ class AppState {
         // The cruise check done starts FREDA's count: running the check is the trigger, so there is no
         // timer to remember to start. (v4 UI/UX Revamp; FREDA since 6.1)
         if currentPhase == .cruise { startFredaAfterCruiseCheck() }
+        settleOwedCheck(currentPhase, done: true)
     }
 
     /// Check if all items in current phase are completed. `learningMode` = effective mode.
@@ -1570,6 +1621,7 @@ class AppState {
         // A check still deferred whole has items left to run: it stays orange until it is run.
         if ids.isEmpty, phaseCompletionStatus[phase] == .skipped, !deferredChecks.contains(phase) {
             phaseCompletionStatus[phase] = .completed
+            settleOwedCheck(phase, done: true)
         }
         checkpointActiveFlight(force: true)
     }
@@ -1727,6 +1779,7 @@ class AppState {
         guard checkIsDone(phase) else { return }
         deferredChecks.removeAll { $0 == phase }
         phaseCompletionStatus[phase] = status(ofCheckRunIn: phase)
+        settleOwedCheck(phase, done: true)
     }
 
     private func status(ofCheckRunIn phase: ChecklistPhase) -> PhaseCompletionStatus {
@@ -1761,6 +1814,7 @@ class AppState {
             currentHighlightedItem[phase] = ChecklistHighlighting.lastItemComplete(visibleCount: items.count)
             deferredChecks.removeAll { $0 == phase }
             phaseCompletionStatus[phase] = status(ofCheckRunIn: phase)
+            settleOwedCheck(phase, done: true)
         case .deferred:
             guard !checkIsDone(phase) else { return }
             deferWhole(phase)
@@ -1777,6 +1831,9 @@ class AppState {
         phaseCompletionStatus[phase] = phase.hasMissingRequiredAction(
             engineStarted: engineStartTime != nil, linedUp: lineUpTime != nil,
             engineShutDown: engineShutdownTime != nil) ? .missingAction : .skipped
+        // Skipped explicitly: NEXT past it, a jump over it, the landed card's move on. (6.1)
+        recordSkipped(phase)
+        settleOwedCheck(phase, done: false)
     }
 
     // MARK: Memory checks (6.1, check slot)
@@ -1831,6 +1888,10 @@ class AppState {
         fileprivate let previousHighlight: Int?
         fileprivate let previousStatus: PhaseCompletionStatus?
         fileprivate let previousFreda: FredaSchedule
+        /// Owed before the tap, and the "done late" it recorded: UNDO puts the one back and takes the other
+        /// off the flight. (6.1, cues)
+        fileprivate var previousOwed: FlightCueState.Owed?
+        fileprivate var lateRecordId: UUID?
         /// Set when the same tap moved on to the next check (the checklist pane's ✓ DONE · NEXT).
         fileprivate var movedOn: MovedOn?
 
@@ -1855,11 +1916,15 @@ class AppState {
     func confirmMemoryCheck(_ phase: ChecklistPhase? = nil) {
         let phase = phase ?? currentPhase
         guard isMemoryCheck(phase, learningMode: settings.learningMode), !memoryCheckIsDone(phase) else { return }
-        let confirmation = MemoryConfirmation(id: UUID(), phase: phase, confirmedAt: Date(),
+        var confirmation = MemoryConfirmation(id: UUID(), phase: phase, confirmedAt: Date(),
                                               previousHighlight: currentHighlightedItem[phase],
                                               previousStatus: phaseCompletionStatus[phase],
-                                              previousFreda: freda)
+                                              previousFreda: freda,
+                                              previousOwed: flightCues.owed[phase])
         markDoneFromMemory(phase, stayingInPhase: phase == currentPhase)
+        if confirmation.previousOwed != nil {
+            confirmation.lateRecordId = currentFlight?.checkRecords?.last { $0.kind == .doneLate }?.id
+        }
         memoryConfirmation = confirmation
         // The cruise check done starts FREDA's count, however it was done.
         if phase == .cruise && phase == currentPhase { startFredaAfterCruiseCheck() }
@@ -1906,6 +1971,7 @@ class AppState {
         let actionMissing = phase.hasMissingRequiredAction(
             engineStarted: engineStartTime != nil, linedUp: lineUpTime != nil, engineShutDown: engineShutdownTime != nil)
         phaseCompletionStatus[phase] = actionMissing && !stayingInPhase ? .missingAction : .doneFromMemory
+        settleOwedCheck(phase, done: true)
     }
 
     /// UNDO on the confirmation's toast.
@@ -1920,6 +1986,11 @@ class AppState {
     func undoMemoryConfirmation(_ id: UUID) {
         guard let confirmation = memoryConfirmation, confirmation.id == id else { return }
         memoryConfirmation = nil
+        // Owed before the tap: owed again, and the "done late" goes. (6.1, cues)
+        if let owed = confirmation.previousOwed {
+            removeCheckRecord(confirmation.lateRecordId)
+            flightCues.restoreOwed(confirmation.phase, owed)
+        }
         if let movedOn = confirmation.movedOn, currentPhase == movedOn.to {
             if checklistProgress == movedOn.after {
                 checklistProgress = movedOn.before
@@ -1951,6 +2022,177 @@ class AppState {
     func dismissMemoryConfirmation(_ id: UUID) {
         if memoryConfirmation?.id == id { memoryConfirmation = nil }
     }
+
+    // MARK: Cues from the flight (6.1, "Checks in flight", build plan 4)
+    //
+    // The detector's cues (FlightCues.swift) say when a check is due: the slot turns amber then, and not
+    // before. A cue that passes a check still open turns it owed, once: filled amber until it is done or
+    // skipped explicitly. Detection never ticks an item and never changes the phase; the one exception is
+    // the landed card, whose answer takes the pilot on to AFTER LANDING.
+
+    /// A cue from the detector (`FlightEventDetector.onCue`).
+    func noteFlightCue(_ event: FlightCueEvent) {
+        guard isFlightActive else { return }
+        switch event.kind {
+        case .leg:
+            flightCues.startLeg()
+            // The next take-off roll takes an unanswered landed card away, as it does the full-stop card:
+            // the review at END FLIGHT offers that landing again.
+            landedCard = nil
+        case .fired(let cue):
+            let owed = flightCues.fire(cue, at: event.time, circuitMode: isCircuitMode, isOpen: checkIsOpen)
+            for phase in owed {
+                recordCheck(CheckRecord(phase: phase, kind: .owed, at: event.time, cue: cue))
+            }
+            // The descent: FREDA gives way to the descent check, and one due now is missed, as when cruise
+            // is left. (#234 decision 1)
+            if cue == .descent, !isCircuitMode, currentPhase == .cruise { stopFreda() }
+        case .withdrawn(let cue):
+            flightCues.withdraw(cue)
+        }
+        checkpointActiveFlight(force: true)
+    }
+
+    /// When the slot shows `phase`'s check: not yet, due, or owed.
+    func cueTiming(for phase: ChecklistPhase) -> CheckSlotTiming {
+        flightCues.timing(for: phase, circuitMode: isCircuitMode)
+    }
+
+    /// The flight is at circuit height near the field (circuits: on base), and the Cockpit not yet on
+    /// the landing check: the slot shows it, dashed, whatever was open before it. (6.1)
+    var landingCheckShown: Bool {
+        flightCues.landingShown(circuitMode: isCircuitMode)
+            && currentPhase.rawValue >= ChecklistPhase.climb.rawValue
+            && currentPhase.rawValue < ChecklistPhase.landing.rawValue
+    }
+
+    /// The cue that made `phase`'s check owed, if it is.
+    func owedCue(for phase: ChecklistPhase) -> FlightCue? {
+        flightCues.owed[phase]?.cue
+    }
+
+    /// A check still to do, not yet left behind: what a cue can find open.
+    private func checkIsOpen(_ phase: ChecklistPhase) -> Bool {
+        guard phase.rawValue >= currentPhase.rawValue, allItemCount(phase) > 0 else { return false }
+        if let status = phaseCompletionStatus[phase], status.isDone || status.isAnsweredAfterLanding { return false }
+        return phase == currentPhase ? !currentCheckIsDone : !checkIsDone(phase)
+    }
+
+    /// The check was done or skipped: owed no more. Done while owed, the flight records it done late.
+    private func settleOwedCheck(_ phase: ChecklistPhase, done: Bool) {
+        guard flightCues.resolve(phase) != nil, done else { return }
+        recordCheck(CheckRecord(phase: phase, kind: .doneLate, at: Date()))
+    }
+
+    /// Skipped explicitly, on the flight for the debrief: once per skip, not per path that sees it.
+    private func recordSkipped(_ phase: ChecklistPhase) {
+        guard isFlightActive, allItemCount(phase) > 0 else { return }
+        if let last = currentFlight?.checkRecords?.last(where: { $0.phaseRawValue == phase.rawValue }),
+           last.kind == .skipped { return }
+        recordCheck(CheckRecord(phase: phase, kind: .skipped, at: Date()))
+    }
+
+    /// On the flight, for the debrief (bounded, like the FREDAs).
+    private func recordCheck(_ record: CheckRecord) {
+        // Read before the write: `currentFlight?.x = f(currentFlight)` is an exclusivity violation.
+        guard let flight = currentFlight else { return }
+        let records = flight.checkRecords ?? []
+        guard records.count < CheckRecord.maxPerFlight else { return }
+        currentFlight?.checkRecords = records + [record]
+    }
+
+    private func removeCheckRecord(_ id: UUID?) {
+        guard let id, let flight = currentFlight, let records = flight.checkRecords else { return }
+        let kept = records.filter { $0.id != id }
+        currentFlight?.checkRecords = kept.isEmpty ? nil : kept
+    }
+
+    /// The slot's one tap to the next check once the flight says it is due (the descent check in cruise,
+    /// say): on to it, and a memory check recorded done from memory, in one tap. The toast's UNDO takes
+    /// both back. (6.1; #234 removed the slot's way to the descent check until this cue)
+    func advanceAndConfirmMemoryCheck() {
+        guard currentCheckIsDone, let next = currentPhase.nextNavigable(circuitMode: isCircuitMode) else { return }
+        let before = checklistProgress
+        nextPhase()
+        guard currentPhase == next, currentCheckAwaitsConfirmation else { return }
+        confirmMemoryCheck()
+        guard var confirmation = memoryConfirmation, confirmation.phase == next else { return }
+        confirmation.movedOn = .init(to: next, before: before, after: checklistProgress)
+        memoryConfirmation = confirmation
+        checkpointActiveFlight(force: true)
+    }
+
+    // MARK: The landed card (6.1, M4)
+
+    /// The detector's full stop on a flight that isn't circuits: the landed card, in place of the
+    /// full-stop card. Circuits keep that card and its stop-and-go to TAXI.
+    func presentLandedCard(touchdown: Date, aerodrome: String?) {
+        guard isFlightActive, !isCircuitMode, landedCard?.touchdown != touchdown else { return }
+        landedCard = LandedCard(touchdown: touchdown, aerodrome: aerodrome)
+    }
+
+    /// The detector's full stop, if it is the landed card's: a flight that isn't circuits. True when it
+    /// took it; the caller then lets the detector's own card go.
+    @discardableResult
+    func takeFullStopForLandedCard(_ event: DetectedFlightEvent?) -> Bool {
+        guard let event, event.type == .fullStop, isFlightActive, !isCircuitMode else { return false }
+        presentLandedCard(touchdown: event.timestamp, aerodrome: event.airport?.ident)
+        return true
+    }
+
+    /// The landing check was done before the touchdown (or has nothing to do): the card only takes the
+    /// pilot on, with nothing to ask.
+    var landingCheckSettled: Bool {
+        if let status = phaseCompletionStatus[.landing], status.isDone || status.isAnsweredAfterLanding { return true }
+        return allItemCount(.landing) == 0 || checkIsDone(.landing)
+    }
+
+    /// The pilot's answer. Yes: the landing check confirmed after landing (a green outline, never solid
+    /// green). Not sure: recorded for the debrief. Either way the landing is recorded as the full-stop
+    /// card's CONFIRM recorded it, and AFTER LANDING comes next.
+    func answerLandedCard(_ answer: LandedAnswer) {
+        guard let card = landedCard else { return }
+        landedCard = nil
+        if !landingCheckSettled {
+            switch answer {
+            case .yes: settleLandingCheckAfterTouchdown(.confirmedAfterLanding)
+            case .notSure: settleLandingCheckAfterTouchdown(.notSure)
+            case .next: break
+            }
+        }
+        recordFullStop(at: card.touchdown)
+    }
+
+    /// Nothing answered: the next take-off roll, or a landing recorded by hand.
+    func dismissLandedCard() {
+        landedCard = nil
+    }
+
+    private func settleLandingCheckAfterTouchdown(_ status: PhaseCompletionStatus) {
+        currentHighlightedItem[.landing] = ChecklistHighlighting.lastItemComplete(visibleCount: allItemCount(.landing))
+        deferredItems[.landing] = nil
+        deferredChecks.removeAll { $0 == .landing }
+        phaseCompletionStatus[.landing] = status
+        flightCues.resolve(.landing)
+        recordCheck(CheckRecord(phase: .landing, kind: status == .notSure ? .notSure : .confirmedAfterLanding, at: Date()))
+    }
+
+    #if DEBUG
+    /// DEV-ONLY (`AEROCHECK_CUES`, captures): the cues of a leg, and a check owed, without a detector.
+    func applyCuesForCapture(_ cues: [FlightCue], owed: [ChecklistPhase: FlightCue] = [:], at time: Date = Date()) {
+        noteFlightCue(FlightCueEvent(kind: .leg, time: time.addingTimeInterval(-600), implied: false, aerodrome: nil))
+        for (i, cue) in cues.enumerated() {
+            noteFlightCue(FlightCueEvent(kind: .fired(cue), time: time.addingTimeInterval(Double(i - cues.count) * 60),
+                                         implied: false, aerodrome: nil))
+        }
+        for (phase, cue) in owed { flightCues.owe(phase, cue: cue, at: time) }
+    }
+
+    /// DEV-ONLY (`AEROCHECK_SCENE=landed`): the landed card up.
+    func presentLandedCardForCapture(touchdown: Date, aerodrome: String) {
+        landedCard = LandedCard(touchdown: touchdown, aerodrome: aerodrome)
+    }
+    #endif
 
     /// The items of the current phase deferred with DEFER, for drawing them as deferred rather than done.
     var currentPhaseDeferredIds: Set<String> {
@@ -2493,6 +2735,12 @@ class AppState {
     /// unchecked items onto the deferred list. The two used to differ, and a jump dropped the open
     /// items on the floor: not checked, not deferred, never listed again. (v6.0 review, B1)
     private func leaveCurrentPhase() {
+        // The landing check answered on the landed card is settled: nothing it had is reopened or
+        // deferred on the way to AFTER LANDING. (6.1)
+        if let answered = phaseCompletionStatus[currentPhase], answered.isAnsweredAfterLanding {
+            if currentPhase.rawValue >= highestCompletedPhase.rawValue { highestCompletedPhase = currentPhase }
+            return
+        }
         // Advancing from the current phase: .missingAction if a required button wasn't pressed; else
         // .completed ONLY if the checklist was actually worked through (all step-by-step items reached),
         // otherwise .skipped. Since NEXT is tappable while a phase is still incomplete, pressing past an
@@ -2543,6 +2791,11 @@ class AppState {
             let confirmed = phaseCompletionStatus[currentPhase] == .doneFromMemory
             phaseCompletionStatus[currentPhase] = checklistWorkedThrough && !leftSomethingDeferred
                 ? (confirmed ? .doneFromMemory : .completed) : .skipped
+            // Left with items open: skipped explicitly (NEXT's review, or a jump). (6.1)
+            if phaseCompletionStatus[currentPhase] == .skipped {
+                recordSkipped(currentPhase)
+                settleOwedCheck(currentPhase, done: false)
+            }
         }
         
         // Update highest completed phase

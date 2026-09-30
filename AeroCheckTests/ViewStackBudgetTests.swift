@@ -112,6 +112,37 @@ final class ViewStackBudgetTests: XCTestCase {
         XCTAssertLessThan(used, Self.budget, "the Cockpit's checklist with the one tap used \(used / 1_024) KB of stack")
     }
 
+    /// The Cockpit on its map from circuit height (6.1, cues): the landing check shown in the slot, GO
+    /// AROUND and TOUCH-AND-GO beside it, from the approach phase.
+    func testCockpitMapFromCircuitHeightRendersWithinHalfTheDeviceStack() {
+        let services = makeServices()
+        startFlight(services.appState, stepByStep: true)
+        services.appState.settings.learningMode = false
+        services.appState.currentPhase = .approach
+        services.appState.noteFlightCue(FlightCueEvent(kind: .leg, time: Date().addingTimeInterval(-900), implied: false, aerodrome: nil))
+        services.appState.noteFlightCue(FlightCueEvent(kind: .fired(.circuit), time: Date(), implied: false, aerodrome: nil))
+        XCTAssertTrue(services.appState.landingCheckShown)
+
+        let used = StackProbe.bytesUsed {
+            render(FlightView(), services: services, size: CGSize(width: 820, height: 1_180))
+        }
+        XCTAssertLessThan(used, Self.budget, "the Cockpit's map from circuit height used \(used / 1_024) KB of stack")
+    }
+
+    /// The Cockpit with the landed card up over it (6.1, M4).
+    func testCockpitWithTheLandedCardRendersWithinHalfTheDeviceStack() {
+        let services = makeServices()
+        startFlight(services.appState, stepByStep: true)
+        services.appState.currentPhase = .landing
+        services.appState.presentLandedCard(touchdown: Date().addingTimeInterval(-40), aerodrome: "LSZQ")
+        XCTAssertNotNil(services.appState.landedCard)
+
+        let used = StackProbe.bytesUsed {
+            render(FlightView(), services: services, size: CGSize(width: 820, height: 1_180))
+        }
+        XCTAssertLessThan(used, Self.budget, "the Cockpit with the landed card used \(used / 1_024) KB of stack")
+    }
+
     // MARK: - Helpers
 
     /// What the map and the Cockpit read from the environment, on test storage.

@@ -23,7 +23,7 @@ struct FredaSchedule: Equatable {
     static let waypointFloor: TimeInterval = 5 * 60
 
     /// What the count runs from.
-    enum Since: Equatable {
+    enum Since: Equatable, Codable {
         case cruiseCheck
         case freda
     }

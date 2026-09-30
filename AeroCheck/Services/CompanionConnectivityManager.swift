@@ -1247,6 +1247,21 @@ class CompanionConnectivityManager: NSObject, ObservableObject {
         case .confirmMemoryCheckAndNext(let phaseRawValue):
             guard let appState, appState.currentPhase.rawValue == phaseRawValue else { return }
             appState.confirmMemoryCheckAndAdvance()
+
+        // The slot's tap from the phone: only while the iPad's slot still names that check and does that
+        // (a tap arriving after it changed does nothing). SHOW CHECKLIST is the phone's own mode. (6.1)
+        case .checkSlotTap(let phaseRawValue, let action):
+            guard let appState, appState.isFlightActive else { return }
+            let slot = CockpitCheckSlot.slot(for: appState)
+            guard slot.phase.rawValue == phaseRawValue, slot.action.rawValue == action,
+                  slot.action != .showChecklist else { return }
+            CockpitCheckSlot.perform(slot.action, appState: appState, onShowChecklist: {})
+
+        // The landed card answered from the phone: that card only. (6.1, M4)
+        case .answerLandedCard(let cardId, let answer):
+            guard let appState, appState.landedCard?.id == cardId,
+                  let answer = LandedAnswer(rawValue: answer) else { return }
+            appState.answerLandedCard(answer)
         }
     }
 
@@ -1463,7 +1478,15 @@ class CompanionConnectivityManager: NSObject, ObservableObject {
             memoryCheck: appState.isMemoryCheck(phase),
             memoryCheckDone: appState.isMemoryCheck(phase) && appState.currentCheckIsDone,
             supportsMemoryConfirm: true,
-            memoryCheckNextRawValue: appState.memoryConfirmationMovesTo?.rawValue
+            memoryCheckNextRawValue: appState.memoryConfirmationMovesTo?.rawValue,
+            // The slot and the landed card, drawn on the phone as here. No checklist text in either:
+            // check names, counts and times only. (6.1, cues)
+            checkSlotData: appState.isFlightActive ? try? JSONEncoder().encode(CockpitCheckSlot.slot(for: appState)) : nil,
+            landedCard: appState.landedCard.map {
+                CompanionLandedCard(id: $0.id, aerodrome: $0.aerodrome, touchdown: $0.touchdown,
+                                    landingCheckSettled: appState.landingCheckSettled)
+            },
+            supportsFlightCues: true
         )
     }
 

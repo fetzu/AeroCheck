@@ -192,6 +192,7 @@ struct FlightLogView: View {
                 if mode == .plan || (mode == .combined && segment == .upcoming) {
                     UpcomingFlightsList(threads: threadManager.unfinishedThreads,
                                         trips: threadManager.trips,
+                                        allThreads: threadManager.threads,
                                         onOpen: { threadToOpen = $0 },
                                         onPlanNew: { planningNewFlight = seedIntent() },
                                         // The Plan tab has its own Routes segment, one tap away.

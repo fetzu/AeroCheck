@@ -323,6 +323,13 @@ struct ContentView: View {
                 flightEventDetector.pendingFullStop = DetectedFlightEvent(
                     type: .fullStop, timestamp: Date().addingTimeInterval(-45), airport: field,
                     message: FlightEventDetector.fullStopMessage(airport: field))
+                // The landed card answered, for the captures of what follows (6.1):
+                // `AEROCHECK_LANDED_ANSWER=yes|notSure`.
+                if let answer = ProcessInfo.processInfo.environment["AEROCHECK_LANDED_ANSWER"].flatMap(LandedAnswer.init(rawValue:)),
+                   appState.takeFullStopForLandedCard(flightEventDetector.pendingFullStop) {
+                    flightEventDetector.dismissFullStop()
+                    appState.answerLandedCard(answer)
+                }
             }
             // The in-flight scenes in another phase, with the Memory test on or off, for the check slot's
             // captures: `SIMCTL_CHILD_AEROCHECK_PHASE=landing SIMCTL_CHILD_AEROCHECK_MEMORY_TEST=1`. The

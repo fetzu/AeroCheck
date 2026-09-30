@@ -1630,7 +1630,7 @@ private struct TodayTripCard: View {
         var parts = [L10n.TripCard.kind, L10n.Flights.legCount(trip.legCount), when]
         if let name = trip.name { parts.append(name) }
         for leg in trip.legs {
-            var line = L10n.TripCard.legOf(leg.number, trip.legCount) + ", " + leg.route
+            var line = L10n.Flights.legOf(leg.number, trip.legCount) + ", " + leg.route
             if leg.isFlown {
                 line += ", " + L10n.TripCard.flown
             } else if let time = chipTime(leg) {

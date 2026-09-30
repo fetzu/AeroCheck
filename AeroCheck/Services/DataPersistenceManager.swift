@@ -995,8 +995,20 @@ class DataPersistenceManager: ObservableObject {
 
     // MARK: - Navigation Plan Persistence (Individual Files)
 
-    /// Generate filename for a navigation plan: YYYYMMDD-HHMM_NAME.json
+    /// Filename for a navigation plan: YYYYMMDD-HHMM_NAME_<id8>.json.
+    ///
+    /// The id suffix, as threads have had from the start (6.1): legs split off one route in one pass
+    /// ("Land here", several stops at once) share the route's name and the minute they were made, so
+    /// without it every leg was written to the same file and only the last one survived a relaunch.
     nonisolated static func navigationPlanFilename(for plan: FlightPlan) -> String {
+        let base = legacyNavigationPlanFilename(for: plan).dropLast(".json".count)
+        return "\(base)_\(plan.id.uuidString.prefix(8)).json"
+    }
+
+    /// The name a plan was written under before 6.1: YYYYMMDD-HHMM_NAME.json. Still read (every file
+    /// in the folder is), and removed once the plan is written again or deleted, when it holds that
+    /// plan: two plans could share it.
+    nonisolated static func legacyNavigationPlanFilename(for plan: FlightPlan) -> String {
         let formatter = DateFormatter()
         formatter.dateFormat = "yyyyMMdd-HHmm"
         let dateStr = formatter.string(from: plan.createdAt)
@@ -1005,6 +1017,15 @@ class DataPersistenceManager: ObservableObject {
             .replacingOccurrences(of: "/", with: "-")
             .prefix(20)
         return "\(dateStr)_\(name).json"
+    }
+
+    /// Whether the plan file at `url` is the plan `id`: only then may it be removed under a name
+    /// another plan could share.
+    nonisolated static func planFile(at url: URL, holds id: UUID) -> Bool {
+        struct Identity: Decodable { let id: UUID }
+        guard let data = try? Data(contentsOf: url),
+              let identity = try? JSONDecoder().decode(Identity.self, from: data) else { return false }
+        return identity.id == id
     }
 
     /// Instance convenience for existing call sites.
@@ -1106,12 +1127,31 @@ class DataPersistenceManager: ObservableObject {
                 if let previous = previousFilenames[plan.id], previous != filename {
                     try? FileManager.default.removeItem(at: directory.appendingPathComponent(previous))
                 }
+                // Written before 6.1 under a name without its id, and not in the index (an indexed
+                // one went just above): gone, once it is this plan's.
+                if previousFilenames[plan.id] == nil {
+                    let legacy = directory.appendingPathComponent(legacyNavigationPlanFilename(for: plan))
+                    if planFile(at: legacy, holds: plan.id) { try? FileManager.default.removeItem(at: legacy) }
+                }
             } catch {
                 AppLog.general.debugLine(
                     "Failed to save navigation plan \(navigationPlanFilename(for: plan)): \(error.localizedDescription)")
             }
         }
-        let index = allPlans.map { NavigationPlanIndexEntry(id: $0.id, filename: navigationPlanFilename(for: $0)) }
+        // Where each plan's file is: a plan not written now keeps the file it had (one from before
+        // 6.1 has no id in its name), so deleting it later still finds it.
+        let rewritten = Set(written)
+        let index = allPlans.map { plan -> NavigationPlanIndexEntry in
+            if rewritten.contains(plan.id) {
+                return NavigationPlanIndexEntry(id: plan.id, filename: navigationPlanFilename(for: plan))
+            }
+            if let previous = previousFilenames[plan.id] {
+                return NavigationPlanIndexEntry(id: plan.id, filename: previous)
+            }
+            let legacy = legacyNavigationPlanFilename(for: plan)
+            let onDisk = planFile(at: directory.appendingPathComponent(legacy), holds: plan.id)
+            return NavigationPlanIndexEntry(id: plan.id, filename: onDisk ? legacy : navigationPlanFilename(for: plan))
+        }
         let indexEncoder = JSONEncoder()
         indexEncoder.outputFormatting = [.prettyPrinted]
         do {
@@ -1145,6 +1185,11 @@ class DataPersistenceManager: ObservableObject {
     nonisolated static func deleteNavigationPlanFiles(for plan: FlightPlan, in directory: URL) {
         var names: Set<String> = [navigationPlanFilename(for: plan)]
         if let indexed = navigationPlanIndex(in: directory)[plan.id] { names.insert(indexed) }
+        // A name from before 6.1 that no index recorded: removed only if it holds this plan.
+        let legacy = legacyNavigationPlanFilename(for: plan)
+        if !names.contains(legacy), planFile(at: directory.appendingPathComponent(legacy), holds: plan.id) {
+            names.insert(legacy)
+        }
         for name in names {
             let fileURL = directory.appendingPathComponent(name)
             do {

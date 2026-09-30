@@ -571,6 +571,8 @@ class FlightThreadManager: ObservableObject {
     /// Its first link is the launch load (set in `init`), so no write can reach the file before the
     /// load has read it.
     private var tripWriteChain: Task<Void, Never>?
+    /// The last thread write asked for: each waits for the one before it. (6.1)
+    private var threadWriteChain: Task<Void, Never>?
 
     private func saveTrips() {
         let previous = tripWriteChain
@@ -1143,7 +1145,12 @@ class FlightThreadManager: ObservableObject {
     private func saveThreads() {
         let changed = threads.filter { lastPersisted[$0.id] != $0 }
         guard !changed.isEmpty else { return }
-        Task { [weak self] in
+        // In the order they were asked for, like the trips: a leg created and put into its trip in
+        // the same breath was saved twice at once, and when the first write landed last the leg's
+        // file lost its trip id, so after a relaunch the leg showed on its own beside its trip. (6.1)
+        let previous = threadWriteChain
+        threadWriteChain = Task { [weak self] in
+            await previous?.value
             guard let self else { return }
             // Re-read on the main actor AFTER the hop: anything deleted in the meantime is dropped.
             let live = changed.filter { !self.deletedThreadIds.contains($0.id) }

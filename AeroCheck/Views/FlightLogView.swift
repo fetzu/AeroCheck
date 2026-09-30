@@ -272,7 +272,8 @@ struct FlightLogView: View {
                                                      settings: appState.settings,
                                                      canFly: aircraftDataService.canFly),
                     savedRoutes: RouteLibrary.activeRoutes(flightPlanManager.flightPlans, threads: threadManager.threads),
-                    onCreate: { stops, intent, route in
+                    homeAerodrome: appState.settings.homeAerodromeIdent,
+                    onCreate: { planned in
                         planningNewFlight = nil
                         // See HomeView.createFlight: the sheet stays hit-testable through its
                         // dismissal, and the creation suspends — so a double-tap made two flights.
@@ -282,29 +283,9 @@ struct FlightLogView: View {
                         Task { @MainActor in
                             defer { isCreatingFlight = false }
                             segment = .upcoming
-                            if let route {
-                                let thread = await FlightCreator.create(fromRoute: route,
-                                                                        intent: intent,
-                                                                        plans: flightPlanManager,
-                                                                        threads: threadManager)
-                                threadToOpen = thread.id
-                                return
-                            }
-                            if stops.idents.count > 2,
-                               let trip = await FlightCreator.createTrip(idents: stops.idents,
-                                                                         stopovers: stops.stopovers,
-                                                                         template: intent,
-                                                                         plans: flightPlanManager,
-                                                                         threads: threadManager,
-                                                                         airports: airportDataService) {
-                                threadToOpen = trip.legIds.first
-                                return
-                            }
-                            let thread = await FlightCreator.create(from: intent,
-                                                                    plans: flightPlanManager,
-                                                                    threads: threadManager,
-                                                                    airports: airportDataService)
-                            threadToOpen = thread.id
+                            threadToOpen = await FlightCreator.create(planned, plans: flightPlanManager,
+                                                                      threads: threadManager,
+                                                                      airports: airportDataService)
                         }
                     },
                     onCancel: { planningNewFlight = nil }

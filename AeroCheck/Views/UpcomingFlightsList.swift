@@ -19,6 +19,9 @@ struct UpcomingFlightsList: View {
     /// Trips whose legs appear in `threads`, so a multi-leg flight reads as one entry rather than
     /// as several unexplained ones. (v5.x)
     var trips: [Trip] = []
+    /// Every thread, finished ones included, so a trip's hero card still lists (and ticks) a leg that
+    /// is closed out. Nil reads `threads`. (6.1)
+    var allThreads: [FlightThread]? = nil
     let onOpen: (UUID) -> Void
     let onPlanNew: () -> Void
     /// Opens the saved-routes list. Optional so the view still previews without it. (v5.x)
@@ -139,7 +142,18 @@ struct UpcomingFlightsList: View {
 
     // MARK: - The next flight (proposal C1)
 
+    /// A trip gets its own card, with every leg on it; a flight keeps the card it had. (6.1)
+    @ViewBuilder
     private func heroCard(_ entry: UpcomingOrder.Entry, wide: Bool, compact: Bool = false) -> some View {
+        if case .trip(let trip) = entry, let overview = tripOverview(trip, focus: heroThread(entry).0) {
+            // Its own view value: this list's body already carries the flight's card.
+            SeparateView { tripHeroCard(overview, trip: trip, entry: entry, wide: wide, compact: compact) }
+        } else {
+            flightHeroCard(entry, wide: wide, compact: compact)
+        }
+    }
+
+    private func flightHeroCard(_ entry: UpcomingOrder.Entry, wide: Bool, compact: Bool = false) -> some View {
         let (thread, trip) = heroThread(entry)
         let plan = plan(for: thread)
         return Button { onOpen(thread.id) } label: {
@@ -355,6 +369,334 @@ struct UpcomingFlightsList: View {
         case .fly: return L10n.Thread.chapterFly
         case .close: return L10n.Thread.chapterClose
         }
+    }
+
+    // MARK: - A trip's card (6.1)
+    //
+    // It showed the first leg still to fly as if it were the whole trip: its map, its figures, and
+    // "TRIP · LEG 1 OF 3" in small print, with legs 2 and 3 nowhere on the page. The trip's map and
+    // figures now cover every leg, and the legs are listed under them, each opening its own page.
+
+    private func tripHeroCard(_ overview: TripOverview, trip: Trip, entry: UpcomingOrder.Entry,
+                              wide: Bool, compact: Bool) -> some View {
+        let legs = legs(of: trip)
+        let focus = legs.first { $0.id == overview.focusId }
+        let waypoints = tripWaypoints(legs)
+        return VStack(alignment: .leading, spacing: 14) {
+            // The top of the card opens the leg in focus, as the flight's card does.
+            Button { onOpen(overview.focusId) } label: {
+                VStack(alignment: .leading, spacing: 14) {
+                    ViewThatFits(in: .horizontal) {
+                        HStack(alignment: .firstTextBaseline, spacing: 12) {
+                            tripDay(entry)
+                            tripTime(overview)
+                            Spacer(minLength: 8)
+                            tripRelative(overview)
+                        }
+                        VStack(alignment: .leading, spacing: 4) {
+                            tripDay(entry)
+                            HStack(alignment: .firstTextBaseline, spacing: 12) {
+                                tripTime(overview)
+                                Spacer(minLength: 8)
+                                tripRelative(overview)
+                            }
+                        }
+                    }
+                    Text("\(L10n.TripCard.kind) · \(L10n.Flights.legCount(overview.legCount))".uppercased())
+                        .scaledFont(size: 12, weight: .bold, design: .monospaced, relativeTo: .caption2)
+                        .tracking(1)
+                        .foregroundColor(.aviationGold)
+
+                    if compact, waypoints.count >= 2 {
+                        RouteThumbnail(waypoints: waypoints)
+                            .frame(maxWidth: .infinity)
+                            .frame(height: 150)
+                            .clipShape(RoundedRectangle(cornerRadius: 12))
+                    }
+                    HStack(alignment: .top, spacing: 16) {
+                        if !compact, waypoints.count >= 2 {
+                            RouteThumbnail(waypoints: waypoints)
+                                .frame(width: wide ? 200 : 300, height: wide ? 140 : 180)
+                                .clipShape(RoundedRectangle(cornerRadius: 12))
+                        }
+                        VStack(alignment: .leading, spacing: 8) {
+                            Text(overview.name ?? overview.chain)
+                                .scaledFont(size: wide ? 22 : 26, weight: .bold, relativeTo: .title2)
+                                .foregroundColor(.primaryText)
+                                .lineLimit(3)
+                                .fixedSize(horizontal: false, vertical: true)
+                            if overview.name != nil {
+                                Text(overview.chain)
+                                    .scaledFont(size: 15, design: .monospaced, relativeTo: .subheadline)
+                                    .foregroundColor(.secondaryText)
+                                    .fixedSize(horizontal: false, vertical: true)
+                            }
+                            FlowLayout(spacing: 12) {
+                                if overview.totalDistance > 0 { fact("DIST", String(format: "%.0f NM", overview.totalDistance)) }
+                                if overview.totalEET > 0 { fact("EET", Self.duration(overview.totalEET)) }
+                                if let registration = focus?.aircraftRegistration, !registration.isEmpty {
+                                    fact("ACFT", registration)
+                                }
+                            }
+                            let borders = tripForeignCountries(legs)
+                            if !borders.isEmpty {
+                                FlowLayout(spacing: 8) {
+                                    ForEach(borders, id: \.self) { name in
+                                        Text(L10n.FlightsPage.border(name))
+                                            .scaledFont(size: 13, weight: .semibold, relativeTo: .caption)
+                                            .foregroundColor(.secondaryText)
+                                            .padding(.horizontal, 8)
+                                            .padding(.vertical, 4)
+                                            .overlay(RoundedRectangle(cornerRadius: 8).strokeBorder(Color.white.opacity(0.14), lineWidth: 1))
+                                    }
+                                }
+                            }
+                        }
+                        Spacer(minLength: 0)
+                    }
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .accessibilityElement(children: .combine)
+
+            // Every leg, each to its own page.
+            VStack(alignment: .leading, spacing: 8) {
+                Text(L10n.TripCard.legs.uppercased())
+                    .scaledFont(size: 12, weight: .bold, design: .monospaced, relativeTo: .caption2)
+                    .tracking(1.2)
+                    .foregroundColor(.secondaryText)
+                ForEach(overview.legs) { leg in
+                    tripLegRow(leg, in: overview)
+                }
+            }
+
+            // What's next, for the leg in focus.
+            if let next = overview.next {
+                tripNextRow(next, overview: overview)
+            }
+        }
+        .padding(16)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(
+            RoundedRectangle(cornerRadius: 16)
+                .fill(Color.cardBackground)
+                .overlay(RoundedRectangle(cornerRadius: 16).strokeBorder(Color.aviationGold.opacity(0.4), lineWidth: 1))
+        )
+    }
+
+    /// One leg: its number, route, when it leaves and its figures, and where it stands. At least
+    /// 56 pt tall, a ground target to the leg's page.
+    private func tripLegRow(_ leg: TripOverview.Leg, in overview: TripOverview) -> some View {
+        let isFocus = leg.id == overview.focusId
+        return Button { onOpen(leg.id) } label: {
+            HStack(spacing: 12) {
+                Text("\(leg.number)")
+                    .scaledFont(size: 15, weight: .bold, design: .monospaced, relativeTo: .subheadline)
+                    .foregroundColor(.aviationGold)
+                    .frame(minWidth: 18, alignment: .leading)
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(leg.displayName)
+                        .scaledFont(size: 17, weight: .semibold, relativeTo: .body)
+                        .foregroundColor(.primaryText)
+                        .lineLimit(1)
+                    Text(legFacts(leg))
+                        .scaledFont(size: 13, design: .monospaced, relativeTo: .caption)
+                        .foregroundColor(.secondaryText)
+                        .lineLimit(1)
+                }
+                Spacer(minLength: 8)
+                legStatus(leg, isFocus: isFocus)
+                Image(systemName: "chevron.right")
+                    .scaledFont(size: 13, weight: .semibold, relativeTo: .caption)
+                    .foregroundColor(.dimText)
+            }
+            .padding(.horizontal, 12)
+            .padding(.vertical, 10)
+            .frame(minHeight: 56)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(
+                RoundedRectangle(cornerRadius: 10)
+                    .fill(isFocus ? Color.aviationGold.opacity(0.10) : Color.cockpitBackground)
+                    .overlay(RoundedRectangle(cornerRadius: 10)
+                        .strokeBorder(isFocus ? Color.aviationGold.opacity(0.6) : Color.clear, lineWidth: 1))
+            )
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel(L10n.TripCard.legOf(leg.number, overview.legCount) + ", " + leg.displayName)
+        .accessibilityValue([legFacts(leg), legStatusText(leg, isFocus: isFocus)].compactMap { $0 }.joined(separator: ", "))
+    }
+
+    /// "10:00 · 52 NM · 0:31", "≈ 10:53 · 41 NM · 0:25"; a named leg says its route first.
+    private func legFacts(_ leg: TripOverview.Leg) -> String {
+        var parts: [String] = []
+        if leg.displayName != leg.route { parts.append(leg.route) }
+        if let departure = leg.departure {
+            parts.append((leg.departureIsEstimate ? "≈ " : "") + departure.formatted(date: .omitted, time: .shortened))
+        }
+        if leg.distance > 0 { parts.append(String(format: "%.0f NM", leg.distance)) }
+        if leg.eet > 0 { parts.append(Self.duration(leg.eet)) }
+        if parts.isEmpty { parts.append(L10n.FlightsPage.noRoute) }
+        return parts.joined(separator: " · ")
+    }
+
+    /// Flown, in the air, next, or how many of its own checks are done.
+    @ViewBuilder
+    private func legStatus(_ leg: TripOverview.Leg, isFocus: Bool) -> some View {
+        if leg.isFlown {
+            Label(L10n.TripCard.flown.uppercased(), systemImage: "checkmark")
+                .scaledFont(size: 11, weight: .bold, design: .monospaced, relativeTo: .caption2)
+                .foregroundColor(.aviationGreen)
+                .lineLimit(1)
+        } else if leg.state == .flying {
+            legTag(L10n.Thread.stateFlying, color: .altimeterBlue)
+        } else if isFocus {
+            legTag(L10n.TripCard.nextLeg.uppercased(), color: .aviationGold)
+        } else if leg.checksTotal > 0 {
+            Text(verbatim: "\(leg.checksDone)/\(leg.checksTotal)")
+                .scaledFont(size: 13, weight: .semibold, design: .monospaced, relativeTo: .caption)
+                .foregroundColor(.secondaryText)
+        }
+    }
+
+    private func legStatusText(_ leg: TripOverview.Leg, isFocus: Bool) -> String? {
+        if leg.isFlown { return L10n.TripCard.flown }
+        if leg.state == .flying { return L10n.Thread.stateFlying }
+        if isFocus { return L10n.TripCard.nextLeg }
+        return leg.checksTotal > 0 ? L10n.FlightsPage.progress(leg.checksDone, leg.checksTotal) : nil
+    }
+
+    private func legTag(_ text: String, color: Color) -> some View {
+        Text(text)
+            .scaledFont(size: 10, weight: .bold, design: .monospaced, relativeTo: .caption2)
+            .tracking(0.6)
+            .foregroundColor(color)
+            .padding(.horizontal, 7)
+            .padding(.vertical, 3)
+            .overlay(RoundedRectangle(cornerRadius: 4).stroke(color, lineWidth: 1))
+            .lineLimit(1)
+    }
+
+    /// The flight card's NEXT row, for the leg in focus: its own check, or the trip's once those are done.
+    private func tripNextRow(_ next: TripOverview.Next, overview: TripOverview) -> some View {
+        let (task, detail): (ThreadTask, String?) = {
+            switch next {
+            case .leg(let task):
+                let leg = overview.focus.map { L10n.TripCard.legOf($0.number, overview.legCount) }
+                return (task, [leg, task.detail].compactMap { $0 }.joined(separator: " · "))
+            case .trip(let task): return (task, L10n.TripCard.tripChecks(overview.sharedDone, overview.sharedTotal))
+            }
+        }()
+        return Button { onOpen(overview.focusId) } label: {
+            HStack(spacing: 12) {
+                Text(L10n.Thread.nextUp.uppercased())
+                    .scaledFont(size: 12, weight: .bold, design: .monospaced, relativeTo: .caption2)
+                    .tracking(1.2)
+                    .foregroundColor(.aviationGold)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(ThreadTaskPresentation.make(for: task).title)
+                        .scaledFont(size: 17, weight: .semibold, relativeTo: .body)
+                        .foregroundColor(.primaryText)
+                    if let detail, !detail.isEmpty {
+                        Text(detail)
+                            .scaledFont(size: 13, design: .monospaced, relativeTo: .caption)
+                            .foregroundColor(.secondaryText)
+                            .lineLimit(1)
+                    }
+                }
+                Spacer(minLength: 8)
+                HStack(spacing: 4) {
+                    Text(L10n.FlightsPage.openFlight)
+                    Image(systemName: "chevron.right")
+                }
+                .scaledFont(size: 15, weight: .semibold, relativeTo: .subheadline)
+                .foregroundColor(.altimeterBlue)
+            }
+            .padding(12)
+            .frame(minHeight: 44)
+            .background(RoundedRectangle(cornerRadius: 12).fill(Color.cockpitBackground))
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityElement(children: .combine)
+    }
+
+    private func tripDay(_ entry: UpcomingOrder.Entry) -> some View {
+        Text(dayLabel(date(of: entry)))
+            .scaledFont(size: 14, weight: .bold, design: .monospaced, relativeTo: .caption)
+            .tracking(1.2)
+            .foregroundColor(.aviationGold)
+            .fixedSize()
+    }
+
+    /// The leg in focus's time: its firm departure, or "≈ 10:53" for a later leg's estimate.
+    @ViewBuilder
+    private func tripTime(_ overview: TripOverview) -> some View {
+        if let focus = overview.focus, let departure = focus.departure {
+            Text((focus.departureIsEstimate ? "≈ " : "") + departure.formatted(date: .omitted, time: .shortened))
+                .scaledFont(size: 30, weight: .bold, design: .monospaced, relativeTo: .title)
+                .foregroundColor(.primaryText)
+                .fixedSize()
+        }
+    }
+
+    @ViewBuilder
+    private func tripRelative(_ overview: TripOverview) -> some View {
+        if let departure = overview.focus?.departure {
+            Text(Self.relative.localizedString(for: departure, relativeTo: Date()))
+                .scaledFont(size: 14, relativeTo: .subheadline)
+                .foregroundColor(.secondaryText)
+                .fixedSize()
+        }
+    }
+
+    /// The trip as Plan › Flights shows it, `focus` being the first leg still ahead. Nil when fewer
+    /// than two of its legs are found: the flight's card then shows what there is.
+    private func tripOverview(_ trip: Trip, focus: FlightThread) -> TripOverview? {
+        TripOverview(trip: trip, legs: legs(of: trip), focus: focus.id) { plan(for: $0) }
+    }
+
+    /// A trip's legs in flying order, the finished ones too.
+    private func legs(of trip: Trip) -> [FlightThread] {
+        let pool = allThreads ?? threads
+        return trip.legIds.compactMap { id in pool.first { $0.id == id } }
+    }
+
+    /// Every leg's route end to end, for one map of the whole trip. A leg's first point is the one
+    /// before's last, so it is dropped where they meet.
+    private func tripWaypoints(_ legs: [FlightThread]) -> [FlightPlanWaypoint] {
+        var points: [FlightPlanWaypoint] = []
+        for leg in legs {
+            guard let waypoints = plan(for: leg)?.waypoints, waypoints.count >= 2 else { continue }
+            if let last = points.last, let first = waypoints.first,
+               abs(last.coordinate.latitude - first.coordinate.latitude) < 1e-6,
+               abs(last.coordinate.longitude - first.coordinate.longitude) < 1e-6 {
+                points += waypoints.dropFirst()
+            } else {
+                points += waypoints
+            }
+        }
+        return points
+    }
+
+    /// The countries the trip crosses other than the one it leaves from. Measured against the first
+    /// leg's country, so the way home isn't a border into the pilot's own country.
+    private func tripForeignCountries(_ legs: [FlightThread]) -> [String] {
+        let home = legs.first?.homeCountry
+        var seen: [String] = []
+        for code in legs.flatMap({ $0.countries ?? [] }) where code != home && !seen.contains(code) {
+            seen.append(code)
+        }
+        return seen.map { Locale.current.localizedString(forRegionCode: $0) ?? $0 }
+    }
+
+    /// "1:20": a leg's EET, or the legs' added up, formatted as a plan's (`formattedTotalEET`).
+    private static func duration(_ interval: TimeInterval) -> String {
+        let seconds = interval.safeInt(or: 0)
+        return String(format: "%d:%02d", seconds / 3600, (seconds % 3600) / 60)
     }
 
     // MARK: - Later flights, by day (proposal C1)

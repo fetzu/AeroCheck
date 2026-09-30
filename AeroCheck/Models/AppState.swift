@@ -221,6 +221,9 @@ struct AppSettings: Codable, Equatable {
     /// Usable fuel with full tanks, in litres, per registration: the pilot's figure, used when the
     /// aircraft's data doesn't give one (`FullTanks.resolve`). (on-device review #4, point 3)
     var fullTanksLitres: [String: Double] = [:]
+    /// The pilot's own cruise speed per registration, knots indicated: it outranks what the flights
+    /// teach and the aircraft's data (`CruiseSpeed.resolve`). Empty until set in the Aircraft tab. (6.1)
+    var cruiseSpeedKIAS: [String: Int] = [:]
 
     /// Which generation of the settings schema wrote this blob.
     ///
@@ -234,7 +237,7 @@ struct AppSettings: Codable, Equatable {
 
     /// Bump whenever a stored property is added that an older build cannot round-trip, and add it
     /// to `protectedFields` below.
-    static let currentSchemaVersion = 6
+    static let currentSchemaVersion = 7
 
     /// A field a settings schema protects: the schema that brought it (or changed what it means), its
     /// key, and how to keep or compare this device's value. (review F8; one table since 6.1)
@@ -274,6 +277,8 @@ struct AppSettings: Codable, Equatable {
         ProtectedField(5, .fullTanksLitres, \.fullTanksLitres),
         // Schema 6 (v6.1): the home aerodrome.
         ProtectedField(6, .homeAerodromeCode, \.homeAerodromeCode),
+        // Schema 7 (v6.1): the pilot's cruise speeds.
+        ProtectedField(7, .cruiseSpeedKIAS, \.cruiseSpeedKIAS),
     ]
 
     /// Whether the writer of this record could not express `field`: its schema came before the field,
@@ -426,6 +431,7 @@ struct AppSettings: Codable, Equatable {
         case companionRole
         case pilotName, aircraftRates, weightBalanceProfiles, sunlightBoost
         case fullTanksLitres
+        case cruiseSpeedKIAS
         case schemaVersion
         case isStudentPilot, instructorName
         case homeAerodromeCode = "homeAerodromeIdent"
@@ -526,6 +532,7 @@ struct AppSettings: Codable, Equatable {
         aircraftRates = (try? container.decodeIfPresent([String: AircraftRateProfile].self, forKey: .aircraftRates)) ?? [:]
         weightBalanceProfiles = (try? container.decodeIfPresent([String: WeightBalanceProfile].self, forKey: .weightBalanceProfiles)) ?? [:]
         fullTanksLitres = (try? container.decodeIfPresent([String: Double].self, forKey: .fullTanksLitres)) ?? [:]
+        cruiseSpeedKIAS = (try? container.decodeIfPresent([String: Int].self, forKey: .cruiseSpeedKIAS)) ?? [:]
         // Absent means a writer from before the version existed, which is exactly schema 1.
         schemaVersion = try container.decodeIfPresent(Int.self, forKey: .schemaVersion) ?? 1
 
@@ -551,6 +558,8 @@ struct AppSettings: Codable, Equatable {
         }
         // A full-tanks figure is what Full tanks sets fuel on board to: drop one no tank holds.
         result.fullTanksLitres = result.fullTanksLitres.filter { FullTanks.isPlausible($0.value) }
+        // A cruise speed times every leg of the aircraft: drop one no aircraft cruises at.
+        result.cruiseSpeedKIAS = result.cruiseSpeedKIAS.filter { CruiseSpeedModel.plausibleKIAS.contains(Double($0.value)) }
         // The home aerodrome is matched against idents and shown as text: drop what can't be one.
         result.homeAerodromeIdent = HomeAerodrome.normalized(result.homeAerodromeIdent)
         return result
@@ -1026,6 +1035,10 @@ class AppState {
     /// device, overwrote the real flight's with its own content, or ended it.
     private let syncManager: SyncManager?
     private let liveActivity: FlightActivityController?
+    /// What the logbook teaches planning (allowances, cruise speeds), learned again as flights are
+    /// added. The app's AppState takes the shared store; a confined one (a test's) none, unless given
+    /// one: it must not overwrite what the app learned from the pilot's real logbook. (6.1)
+    @ObservationIgnored let eetCalibration: EETCalibrationStore?
 
     /// The latest load of the logbook from disk (at launch, or after the switch moved the store).
     /// CloudKit's catch-up waits for it: before it lands, `flights` is empty or the old store's.
@@ -1041,12 +1054,13 @@ class AppState {
     /// `syncManager` is for the tests that drive the switch against a stand-in engine; left nil, the
     /// app's AppState takes `SyncManager.shared` and a confined one takes none.
     init(defaults: UserDefaults = .standard, persistence: DataPersistenceManager? = nil,
-         syncManager: SyncManager? = nil) {
+         syncManager: SyncManager? = nil, eetCalibration: EETCalibrationStore? = nil) {
         let persistence = persistence ?? DataPersistenceManager.shared
         self.persistence = persistence
         self.defaults = defaults
         self.syncManager = syncManager ?? (persistence.followsICloud ? SyncManager.shared : nil)
         self.liveActivity = persistence.followsICloud ? FlightActivityController.shared : nil
+        self.eetCalibration = eetCalibration ?? (persistence.followsICloud ? EETCalibrationStore.shared : nil)
 
         // Load settings synchronously (fast, needed for initial UI)
         loadSettings()
@@ -1110,6 +1124,8 @@ class AppState {
 
         flights = await persistence.loadFlightsOffMain()
         isLoadingFlights = false
+        // First use, or a logbook changed since (a flight synced in while the app was closed). (6.1)
+        eetCalibration?.refresh(from: flights)
 
         // Auto-complete onboarding for existing users (they already know the app)
         if !settings.hasCompletedOnboarding && !flights.isEmpty {
@@ -1170,6 +1186,7 @@ class AppState {
             for (id, previous) in previousById where !incomingIds.contains(id) {
                 self.persistence.deleteFlight(previous)
             }
+            self.eetCalibration?.refresh(from: flights)
             AppLog.general.debugLine("Flights updated from iCloud sync")
         }
 
@@ -1412,6 +1429,8 @@ class AppState {
         flight.computeSummaryStats()
 
         flights.insert(flight, at: 0)
+        // What this flight teaches the next plans: its departure, its arrival, its cruise. (6.1)
+        eetCalibration?.refresh(from: flights, force: true)
         // PR-14: persist the just-finished flight with a CONFIRMED write before discarding the
         // crash-recovery checkpoint (active_flight.json) — the only durable copy of this flight.
         // PR-09: saveFlight persists + syncs ONLY this flight; loadFlights scans the directory, so

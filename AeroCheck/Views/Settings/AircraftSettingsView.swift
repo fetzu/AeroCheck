@@ -44,6 +44,11 @@ struct AircraftSettingsView: View {
                                   footer: L10n.FuelOnBoard.fullTanksRowFooter) {
                         FullTanksSettingRow(registration: selectedRegistration)
                     }
+                    // What every leg of this aircraft is timed with, and where it comes from. (6.1)
+                    SettingsGroup(title: L10n.EETPlanning.planningGroup, tint: .aviationGold,
+                                  footer: L10n.EETPlanning.cruiseRowFooter) {
+                        CruiseSpeedSettingRow(registration: selectedRegistration)
+                    }
                 }
                 tabLinks
             } else {
@@ -605,6 +610,142 @@ private struct FullTanksSettingRow: View {
             guard appState.settings.fullTanksLitres[key] != litres else { return }
             appState.settings.fullTanksLitres[key] = litres
         }
+        appState.saveSettings()
+    }
+}
+
+/// The selected aircraft's planning cruise speed (KIAS): the figure in use and where it comes from (the
+/// pilot's, learned from the flights, the aircraft's data, the default), with the pilot's own figure
+/// typed over it and a way back to the automatic one. Kept per registration, in knots. (6.1)
+private struct CruiseSpeedSettingRow: View {
+    let registration: String
+
+    @Environment(AppState.self) private var appState
+    @EnvironmentObject var aircraftDataService: AircraftDataService
+    @State private var text = ""
+    @FocusState private var focused: Bool
+
+    private var store: EETCalibrationStore { .shared }
+    private var key: String? { CruiseSpeed.key(for: registration) }
+
+    /// Without the pilot's figure: learned, the aircraft's data, or 100 kt.
+    private var automatic: CruiseSpeed {
+        _ = store.revision
+        let aircraftData = aircraftDataService.availableAircraft
+            .first { CruiseSpeed.key(for: $0.registration) == key }?.cruiseSpeedKIAS
+        return CruiseSpeed.resolve(manualKIAS: nil, aircraftDataKIAS: aircraftData,
+                                   learnedSamples: key.flatMap { store.snapshot.cruise[$0] } ?? [])
+    }
+
+    private var manual: Int? { key.flatMap { appState.settings.cruiseSpeedKIAS[$0] } }
+
+    private var inUse: CruiseSpeed {
+        manual.map { CruiseSpeed(kias: Double($0), source: .manual) } ?? automatic
+    }
+
+    private func sourceText(_ cruise: CruiseSpeed) -> String {
+        switch cruise.source {
+        case .manual: return L10n.EETPlanning.sourceManual(registration)
+        case .learned: return L10n.EETPlanning.sourceLearned(cruise.flights)
+        case .aircraftData: return L10n.EETPlanning.sourceAircraftData
+        case .standard: return L10n.EETPlanning.sourceStandard
+        }
+    }
+
+    var body: some View {
+        let inUse = self.inUse
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(spacing: 12) {
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(L10n.EETPlanning.cruiseRow)
+                        .font(.aero(.body))
+                        .foregroundColor(.primaryText)
+                    Text(sourceText(inUse))
+                        .font(.aero(.caption))
+                        .foregroundColor(inUse.source == .manual ? .aviationGold : .secondaryText)
+                        .fixedSize(horizontal: false, vertical: true)
+                    let tas = inUse.trueAirspeed(atAltitudeFt: CruiseSpeedModel.referenceAltitudeFt)
+                    Text(L10n.EETPlanning.trueAirspeedNote("\(tas.safeRoundedInt(or: inUse.roundedKIAS))"))
+                        .font(.aero(.caption2))
+                        .foregroundColor(.dimText)
+                }
+                Spacer(minLength: 8)
+                HStack(spacing: 6) {
+                    TextField("\(automatic.roundedKIAS)", text: $text)
+                        .keyboardType(.numberPad)
+                        .multilineTextAlignment(.trailing)
+                        .focused($focused)
+                        .font(.aero(.body, design: .monospaced))
+                        .onSubmit(commit)
+                        .accessibilityLabel(L10n.EETPlanning.cruiseRow)
+                        .accessibilityValue("\(inUse.roundedKIAS) KIAS, \(sourceText(inUse))")
+                    // Knots indicated: the app has no speed unit of its own to follow. (ICAO)
+                    Text("KIAS").foregroundColor(.secondaryText)
+                }
+                .padding(.horizontal, 10)
+                .frame(width: 132, height: 40)
+                .background(RoundedRectangle(cornerRadius: 9).fill(Color.cockpitBackground.opacity(0.6)))
+            }
+            if manual != nil {
+                Button(action: reset) {
+                    HStack(spacing: 6) {
+                        Image(systemName: "arrow.uturn.backward")
+                        Text("\(L10n.EETPlanning.useAutomatic) · \(automatic.roundedKIAS) KIAS")
+                    }
+                    .font(.aero(.subheadline))
+                    .foregroundColor(.altimeterBlue)
+                    .frame(minHeight: 44)
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .accessibilityHint(sourceText(automatic))
+            }
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 10)
+        .frame(minHeight: 56)
+        .onAppear(perform: load)
+        .onChange(of: registration) { _, _ in load() }
+        .onChange(of: manual) { _, _ in if !focused { load() } }
+        // Saved as soon as it reads as a cruise speed: the number pad has no return key, and on the
+        // iPad closing its popover leaves the field focused, so "saved when left" never came. Every
+        // figure a light aircraft cruises at has 2 or 3 digits and no shorter prefix in 40...250, so
+        // nothing half-typed is saved. Emptied, it goes back to the automatic figure when left.
+        .onChange(of: text) { _, typed in
+            if let kias = Int(typed.trimmingCharacters(in: .whitespaces)),
+               CruiseSpeedModel.plausibleKIAS.contains(Double(kias)) { save(kias) }
+        }
+        .onChange(of: focused) { _, isFocused in if !isFocused { commit() } }
+    }
+
+    /// The field shows the pilot's figure; empty, the automatic one stands (its placeholder).
+    private func load() {
+        text = manual.map(String.init) ?? ""
+    }
+
+    private func commit() {
+        let trimmed = text.trimmingCharacters(in: .whitespaces)
+        if trimmed.isEmpty {
+            reset()
+            return
+        }
+        guard let kias = Int(trimmed), CruiseSpeedModel.plausibleKIAS.contains(Double(kias)) else {
+            load()   // not a speed an aircraft cruises at: put back what was there
+            return
+        }
+        save(kias)
+    }
+
+    private func save(_ kias: Int) {
+        guard let key, appState.settings.cruiseSpeedKIAS[key] != kias else { return }
+        appState.settings.cruiseSpeedKIAS[key] = kias
+        appState.saveSettings()
+    }
+
+    private func reset() {
+        text = ""
+        guard let key, appState.settings.cruiseSpeedKIAS[key] != nil else { return }
+        appState.settings.cruiseSpeedKIAS[key] = nil
         appState.saveSettings()
     }
 }

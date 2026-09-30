@@ -15,6 +15,8 @@ struct RemoteAircraftRegistration: Codable, Identifiable, Equatable {
     /// Usable fuel with full tanks for this tail, in litres, when its checklist gives it.
     /// (on-device review #4, point 3)
     var usableFuelLitres: Double? = nil
+    /// This tail's planning cruise speed, KIAS (`RemoteAircraftMetadata.cruiseSpeedKIAS`). (6.1)
+    var cruiseSpeedKIAS: Double? = nil
 }
 
 /// Selection/cache token for a specific tail of a multi-registration aircraft: "id~REG".
@@ -90,6 +92,11 @@ struct RemoteAircraftMetadata: Codable, Identifiable, Equatable {
     /// sheet's Full tanks button sets. Nil for most aircraft (the pilot enters it). Additive.
     /// (on-device review #4, point 3)
     var usableFuelLitres: Double? = nil
+    /// The planning cruise speed, knots indicated at 65 % power and 5,000 ft, when the checklist gives
+    /// it (server PR #101): what the aircraft's legs are timed with until the pilot's flights teach
+    /// better (`CruiseSpeed.resolve`). Nil on older servers. Decoded as a Double, though the server only
+    /// sends whole knots: an `Int` field fails the WHOLE list on one fractional value. Additive. (6.1)
+    var cruiseSpeedKIAS: Double? = nil
 
     /// Whether this aircraft is bundled locally in the app
     var isBundled: Bool {
@@ -140,7 +147,8 @@ struct RemoteAircraftMetadata: Codable, Identifiable, Equatable {
                 hasAccess: hasAccess,
                 availableLanguages: reg.availableLanguages ?? availableLanguages,
                 registrations: nil,
-                usableFuelLitres: reg.usableFuelLitres
+                usableFuelLitres: reg.usableFuelLitres,
+                cruiseSpeedKIAS: reg.cruiseSpeedKIAS
             )
         }
     }

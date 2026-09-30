@@ -250,8 +250,7 @@ struct AddStopSheet: View {
     /// Time from departure at the plan's cruise speed, as H:MM. A guide for choosing, not a plan:
     /// the leg's own timing (wind, allowances) is computed when the split is made.
     private func duration(_ nm: Double) -> String {
-        let speed = Double(plan?.waypoints.first?.plannedGroundSpeed
-                           ?? FlightPlan.defaultCruiseSpeed(for: plan?.aircraftTypeId ?? ""))
+        let speed = Double(plan?.cruiseTrueAirspeed ?? Int(CruiseSpeedModel.standardKIAS))
         guard speed > 0 else { return "" }
         let minutes = Int((nm / speed * 60).rounded())
         return String(format: "%d:%02d", minutes / 60, minutes % 60)

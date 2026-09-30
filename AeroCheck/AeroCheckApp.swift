@@ -94,6 +94,11 @@ struct AeroCheckApp: App {
         FlightPlan.windsAloftProvider = { [weak windsAloft] coordinate, altitudeFt, flownAt in
             windsAloft?.wind(at: coordinate, altitudeFt: altitudeFt, flownAt: flownAt)
         }
+        // The aircraft's cruise speed and the allowances learned from the pilot's flights, for every
+        // plan's times. The store holds what it needs behind a lock: plans are computed anywhere. (6.1)
+        FlightPlan.planningCalibrationProvider = { plan in
+            EETCalibrationStore.shared.calibration(for: plan)
+        }
         let net = NetworkMonitor()
         _networkMonitor = StateObject(wrappedValue: net)
         _dataStatusManager = StateObject(wrappedValue: DataStatusManager(
@@ -139,6 +144,8 @@ struct AeroCheckApp: App {
                 .onOpenURL { url in
                     handleDeepLink(url)
                 }
+                .modifier(PlanningCalibrationFollower(flightPlanManager: flightPlanManager,
+                                                      store: EETCalibrationStore.shared))
                 .task {
                     // Perform deferred initialization in background after initial render
                     guard !isInitialized else { return }
@@ -165,6 +172,10 @@ struct AeroCheckApp: App {
                     FlightActivityController.shared.nextWaypointProvider = {
                         flightPlanManager.activeNextWaypointName
                     }
+
+                    // The pilot's cruise speeds (settings) and the aircraft's (metadata), copied into the
+                    // store the plans read, now and whenever they change. (6.1)
+                    EETCalibrationStore.shared.follow(appState: appState, aircraftDataService: aircraftDataService)
 
                     // Trip legs follow each other: a change to one leg's timing carries into the
                     // next leg's estimated departure. The plan manager knows plans, the thread
@@ -680,3 +691,21 @@ private struct DebugLandscape: ViewModifier {
     }
 }
 #endif
+
+/// A flight taught an allowance or a cruise speed, or the pilot set one: the flights still to fly are
+/// retimed (`FlightPlanManager.refreshPlanningCalibration`), once their plans are in. A view, so the
+/// store's revision is observed like any other state. (6.1)
+private struct PlanningCalibrationFollower: ViewModifier {
+    @ObservedObject var flightPlanManager: FlightPlanManager
+    let store: EETCalibrationStore
+
+    func body(content: Content) -> some View {
+        content
+            .onChange(of: store.revision) { _, _ in
+                flightPlanManager.refreshPlanningCalibration()
+            }
+            .onChange(of: flightPlanManager.hasLoadedPlans) { _, loaded in
+                if loaded { flightPlanManager.refreshPlanningCalibration() }
+            }
+    }
+}

@@ -28,6 +28,7 @@ final class SettingsSyncTests: XCTestCase {
         settings.stepByStepHighlighting = false
         settings.fullTanksLitres = ["F-HVXA": 100]
         settings.homeAerodromeIdent = "LSZQ"
+        settings.cruiseSpeedKIAS = ["F-HVXA": 97]
         return settings
     }
 

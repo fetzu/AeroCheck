@@ -1,6 +1,380 @@
 {
   "sourceLanguage": "en",
   "strings": {
+    "eet.departure": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "departure %1$@ at %2$@ (%3$@)"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "départ %1$@ à %2$@ (%3$@)"
+          }
+        }
+      }
+    },
+    "eet.departureAnywhere": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "departure %1$@ (%2$@)"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "départ %1$@ (%2$@)"
+          }
+        }
+      }
+    },
+    "eet.arrival": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "arrival %1$@ at %2$@ (%3$@)"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "arrivée %1$@ à %2$@ (%3$@)"
+          }
+        }
+      }
+    },
+    "eet.arrivalAnywhere": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "arrival %1$@ (%2$@)"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "arrivée %1$@ (%2$@)"
+          }
+        }
+      }
+    },
+    "eet.cruise": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "cruise %1$@ KIAS (%2$@)"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "croisière %1$@ KIAS (%2$@)"
+          }
+        }
+      }
+    },
+    "eet.flights": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%d flights"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%d vols"
+          }
+        }
+      }
+    },
+    "eet.allAerodromes": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "all aerodromes, %d flights"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "tous aérodromes, %d vols"
+          }
+        }
+      }
+    },
+    "eet.standard": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "default"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "par défaut"
+          }
+        }
+      }
+    },
+    "eet.cruiseManual": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "your figure"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "votre valeur"
+          }
+        }
+      }
+    },
+    "eet.cruiseLearned": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "learned, %d flights"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "appris, %d vols"
+          }
+        }
+      }
+    },
+    "eet.cruiseAircraftData": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "aircraft data"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "données de l'avion"
+          }
+        }
+      }
+    },
+    "eet.planningGroup": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Planning"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Préparation"
+          }
+        }
+      }
+    },
+    "eet.cruiseRow": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cruise speed"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vitesse de croisière"
+          }
+        }
+      }
+    },
+    "eet.cruiseRowFooter": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Indicated, at the power you cruise at. Every leg is timed with it, as a true airspeed at the leg's altitude. Your figure wins; otherwise what your flights in this aircraft show (from 5 flights), then the aircraft's data, then 100 kt."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Indiquée, à la puissance de croisière. Le temps de chaque branche en est calculé, en vitesse propre à l'altitude de la branche. Votre valeur prime ; sinon ce que montrent vos vols sur cet avion (dès 5 vols), puis les données de l'avion, puis 100 kt."
+          }
+        }
+      }
+    },
+    "eet.sourceManual": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Your figure for %@"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Votre valeur pour %@"
+          }
+        }
+      }
+    },
+    "eet.sourceLearned": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Learned from %d flights"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Appris de %d vols"
+          }
+        }
+      }
+    },
+    "eet.sourceAircraftData": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "From the aircraft's data"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Selon les données de l'avion"
+          }
+        }
+      }
+    },
+    "eet.sourceStandard": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Default: no figure for this aircraft"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Par défaut : aucune valeur pour cet avion"
+          }
+        }
+      }
+    },
+    "eet.useAutomatic": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Use the automatic figure"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Revenir à la valeur automatique"
+          }
+        }
+      }
+    },
+    "eet.trueAirspeedNote": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "≈ %@ kt TAS at 5,000 ft"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "≈ %@ kt TAS à 5000 ft"
+          }
+        }
+      }
+    },
+    "pdf.eetBasis": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "EET basis"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Base de l'EET"
+          }
+        }
+      }
+    },
+    "nav.airspeedFromAircraft": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Empty: the aircraft's cruise speed at this leg's altitude"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vide : la vitesse de croisière de l'avion à l'altitude de la branche"
+          }
+        }
+      }
+    },
     "a11y.phase.doneFromMemory": {
       "extractionState": "manual",
       "localizations": {

@@ -18,14 +18,15 @@ struct FlightPlanWaypoint: Identifiable, Codable, Equatable {
     var magneticCourse: Double?              // Computed MC to next waypoint (degrees)
     var distance: Double?                    // Distance to next waypoint in NM
     /// Planned TRUE AIRSPEED for this leg in knots, wind-corrected into a ground speed by
-    /// `calculateRouteData`. Seeded from the aircraft's cruise speed, which is an airspeed; the
-    /// property keeps its original name because it is a persisted Codable key and part of the
-    /// Companion wire contract.
+    /// `calculateRouteData`: the pilot's own figure, nil for the aircraft's cruise speed at the leg's
+    /// level (`FlightPlan.plannedAirspeed(ofLegFrom:)`). Until 6.1 every waypoint was seeded with 100 kt
+    /// (see `FlightPlan.typedAirspeedsOnly`). The property keeps its original name because it is a
+    /// persisted Codable key and part of the Companion wire contract.
     var plannedGroundSpeed: Int?
     var windDirection: Double?               // Wind direction (degrees, from)
     var windSpeed: Double?                   // Wind speed (knots)
     var estimatedElapsedTime: TimeInterval?  // EET - leg time to next waypoint (minutes)
-    var legEETExtra: TimeInterval?           // Extra time to add (+5 min for first/last waypoint)
+    var legEETExtra: TimeInterval?           // The departure allowance (first waypoint) or the arrival allowance (last); learned since 6.1
     var cumulativeEET: TimeInterval?         // Cumulative EET from departure to this waypoint
     var estimatedTimeOver: Date?             // ETO - estimated time over this waypoint
     var actualTimeOver: Date?                // ATO - actual time over (recorded during flight)
@@ -437,6 +438,24 @@ struct FlightPlan: Identifiable, Codable, Equatable {
     /// decode unchanged.
     var etoAnchor: Date?
 
+    // What the times were computed with besides the route (6.1): written by `calculateRouteData`, read
+    // by the editor and the nav log to say where the allowances and the speed come from. Optional:
+    // plans written before decode with nil and say "+5 / +5", as they were computed.
+
+    /// The departure allowance on the first leg (`legEETExtra` of the departure), and its source.
+    var departureAllowance: EETAllowance?
+    /// The arrival allowance at the destination (`legEETExtra` of the destination), and its source.
+    var arrivalAllowance: EETAllowance?
+    /// The aircraft's cruise speed the legs without an airspeed of their own were timed with.
+    var plannedCruise: CruiseSpeed?
+
+    /// True once every `plannedGroundSpeed` on the waypoints is one the pilot typed (6.1). Until 6.1
+    /// every new waypoint was seeded with the aircraft's 100 kt, so an older plan's 100 is the seed, not
+    /// a choice: decoding such a plan clears it, and the leg takes the aircraft's cruise speed like a
+    /// new one (`clearingSeededAirspeeds`). Encoded as true; an older build drops the key when it saves
+    /// the plan, and reseeds 100 through its waypoint editor, which the next decode clears again.
+    var typedAirspeedsOnly: Bool?
+
     // The route library (on-device review #4). Optional: plans written before decode unchanged.
 
     /// When the pilot archived this route: out of the Routes list, kept under Archived.
@@ -531,6 +550,7 @@ struct FlightPlan: Identifiable, Codable, Equatable {
         self.currentWaypointIndex = currentWaypointIndex
         self.chronometerStartTime = chronometerStartTime
         self.activatedAt = activatedAt
+        self.typedAirspeedsOnly = true
     }
 
     // MARK: - Codable Migration
@@ -552,6 +572,7 @@ struct FlightPlan: Identifiable, Codable, Equatable {
         case archivedAt, flightOwned
         case autoMarkedWaypointIds, takenBackWaypointIds
         case etoAnchor
+        case departureAllowance, arrivalAllowance, plannedCruise, typedAirspeedsOnly
     }
 
     init(from decoder: Decoder) throws {
@@ -626,6 +647,27 @@ struct FlightPlan: Identifiable, Codable, Equatable {
         autoMarkedWaypointIds = try container.decodeIfPresent(Set<UUID>.self, forKey: .autoMarkedWaypointIds)
         takenBackWaypointIds = try container.decodeIfPresent(Set<UUID>.self, forKey: .takenBackWaypointIds)
         etoAnchor = try container.decodeIfPresent(Date.self, forKey: .etoAnchor)
+        // `try?`: a value this build can't read costs the note of where a number came from, never the plan.
+        departureAllowance = try? container.decodeIfPresent(EETAllowance.self, forKey: .departureAllowance)
+        arrivalAllowance = try? container.decodeIfPresent(EETAllowance.self, forKey: .arrivalAllowance)
+        plannedCruise = try? container.decodeIfPresent(CruiseSpeed.self, forKey: .plannedCruise)
+        typedAirspeedsOnly = true
+        if (try? container.decodeIfPresent(Bool.self, forKey: .typedAirspeedsOnly)) != true {
+            waypoints = FlightPlan.clearingSeededAirspeeds(waypoints)
+        }
+    }
+
+    /// The airspeed every waypoint was seeded with until 6.1, whatever the aircraft.
+    static let legacySeededAirspeed = 100
+
+    /// The waypoints of a plan saved before 6.1 without the seeded 100 kt: that leg is timed with the
+    /// aircraft's cruise speed now. Any other figure is the pilot's and stays.
+    static func clearingSeededAirspeeds(_ waypoints: [FlightPlanWaypoint]) -> [FlightPlanWaypoint] {
+        waypoints.map { waypoint in
+            var cleared = waypoint
+            if cleared.plannedGroundSpeed == legacySeededAirspeed { cleared.plannedGroundSpeed = nil }
+            return cleared
+        }
     }
 
     func encode(to encoder: Encoder) throws {
@@ -680,6 +722,10 @@ struct FlightPlan: Identifiable, Codable, Equatable {
         try container.encodeIfPresent(autoMarkedWaypointIds, forKey: .autoMarkedWaypointIds)
         try container.encodeIfPresent(takenBackWaypointIds, forKey: .takenBackWaypointIds)
         try container.encodeIfPresent(etoAnchor, forKey: .etoAnchor)
+        try container.encodeIfPresent(departureAllowance, forKey: .departureAllowance)
+        try container.encodeIfPresent(arrivalAllowance, forKey: .arrivalAllowance)
+        try container.encodeIfPresent(plannedCruise, forKey: .plannedCruise)
+        try container.encode(true, forKey: .typedAirspeedsOnly)
     }
 
     /// The flight's own marks among the waypoints at `indices` become the pilot's: taken back, left to
@@ -714,6 +760,10 @@ struct FlightPlan: Identifiable, Codable, Equatable {
         )
         plan.stopover = stopover
         plan.departureIsEstimate = departureIsEstimate
+        // What the copied leg times were computed with. (6.1)
+        plan.departureAllowance = departureAllowance
+        plan.arrivalAllowance = arrivalAllowance
+        plan.plannedCruise = plannedCruise
         // A leg split off a flight's plan is that flight's too. Archiving isn't copied: a copy is
         // something new the pilot is about to use.
         plan.flightOwned = flightOwned
@@ -809,12 +859,99 @@ struct FlightPlan: Identifiable, Codable, Equatable {
         }
     }
 
-    /// Default cruise speed based on aircraft type ID
-    static func defaultCruiseSpeed(for aircraftTypeId: String) -> Int {
-        switch aircraftTypeId {
-        case "WT9": return 100  // knots
-        default: return 100  // knots - reasonable default
+    // MARK: - Cruise speed and allowances (6.1)
+
+    /// What a plan's times are computed with besides the route: the aircraft's cruise speed and the two
+    /// allowances.
+    struct PlanningCalibration: Equatable {
+        var cruise: CruiseSpeed
+        var departureAllowance: EETAllowance
+        var arrivalAllowance: EETAllowance
+
+        /// What every plan used before 6.1, and what a plan uses with no provider (the tests): 100 kt,
+        /// 5 minutes at each end.
+        static func standard(for plan: FlightPlan) -> PlanningCalibration {
+            PlanningCalibration(cruise: .standard,
+                                departureAllowance: .standard(at: plan.departureAerodromeIdent),
+                                arrivalAllowance: .standard(at: plan.destinationAerodromeIdent))
         }
+    }
+
+    /// App-injected: the aircraft's cruise speed (the pilot's, learned, its data, 100 kt) and the
+    /// allowances learned at the plan's two aerodromes (`EETCalibrationStore`). Set at launch; nil in
+    /// the tests, which then compute with `PlanningCalibration.standard`.
+    static var planningCalibrationProvider: ((FlightPlan) -> PlanningCalibration)?
+
+    /// What the plan's times are computed with now.
+    var planningCalibration: PlanningCalibration {
+        FlightPlan.planningCalibrationProvider?(self) ?? .standard(for: self)
+    }
+
+    /// Whether the times stored were computed with something else than what the plan would use now
+    /// (another flight taught something, the pilot set a cruise speed). A plan saved before 6.1 counts.
+    var planningCalibrationIsStale: Bool {
+        let now = planningCalibration
+        return departureAllowance != now.departureAllowance || arrivalAllowance != now.arrivalAllowance
+            || plannedCruise != now.cruise
+    }
+
+    /// The departure aerodrome's ident, when the route starts at one: the code it was picked by, else
+    /// a name that is an ICAO code.
+    var departureAerodromeIdent: String? { waypoints.first.flatMap(FlightPlan.aerodromeIdent) }
+
+    /// The destination's, by the same rule.
+    var destinationAerodromeIdent: String? {
+        waypoints.count >= 2 ? waypoints.last.flatMap(FlightPlan.aerodromeIdent) : nil
+    }
+
+    private static func aerodromeIdent(_ waypoint: FlightPlanWaypoint) -> String? {
+        if waypoint.pointKind == .aerodrome, let code = EETCalibration.aerodromeKey(waypoint.sourceId) { return code }
+        let name = waypoint.name.trimmingCharacters(in: .whitespaces).uppercased()
+        return ICAONaming.isICAO(name) ? name : nil
+    }
+
+    /// The level a leg is cruised at: the higher of its two ends (a route starts and ends at field
+    /// elevation, and the climb and the descent are the allowances' part), the reference 5,000 ft when
+    /// neither has an altitude.
+    func cruiseAltitude(ofLegFrom index: Int) -> Double {
+        let ends = [index, index + 1].compactMap { waypoints.indices.contains($0) ? waypoints[$0].altitude : nil }
+            .filter(\.isFinite)
+        return ends.max() ?? CruiseSpeedModel.referenceAltitudeFt
+    }
+
+    /// The true airspeed the leg LEAVING waypoint `index` is timed with: the airspeed the pilot typed on
+    /// it, else the aircraft's cruise speed at the leg's level.
+    func plannedAirspeed(ofLegFrom index: Int, cruise: CruiseSpeed? = nil) -> Int {
+        if waypoints.indices.contains(index), let typed = waypoints[index].plannedGroundSpeed { return typed }
+        return cruiseAirspeed(ofLegFrom: index, cruise: cruise)
+    }
+
+    /// The aircraft's cruise speed as a true airspeed at the level of the leg LEAVING waypoint `index`,
+    /// whatever the pilot typed on it.
+    func cruiseAirspeed(ofLegFrom index: Int, cruise: CruiseSpeed? = nil) -> Int {
+        let tas = (cruise ?? planningCalibration.cruise).trueAirspeed(atAltitudeFt: cruiseAltitude(ofLegFrom: index))
+        return tas.safeRoundedInt(or: Int(CruiseSpeedModel.standardKIAS))
+    }
+
+    /// The level the flight is planned at: the first en-route altitude, else the reference level.
+    var plannedCruiseAltitude: Double {
+        waypoints.dropFirst().dropLast().compactMap(\.altitude).first(where: \.isFinite)
+            ?? CruiseSpeedModel.referenceAltitudeFt
+    }
+
+    /// The true airspeed at the planned cruise level: what the flight is filed with (ICAO Item 15), and
+    /// what a guide to a leg's time (a stop, a diversion) is worked out with. The first airspeed the
+    /// pilot typed on a leg wins, as it always did for Item 15.
+    var cruiseTrueAirspeed: Int {
+        if let typed = waypoints.compactMap(\.plannedGroundSpeed).first { return typed }
+        return planningCalibration.cruise.trueAirspeed(atAltitudeFt: plannedCruiseAltitude)
+            .safeRoundedInt(or: Int(CruiseSpeedModel.standardKIAS))
+    }
+
+    /// Take-off to over the destination: the total EET without the arrival allowance. What ICAO Item 16
+    /// asks for a VFR flight (the landing is after it), where the plan's own total runs to the landing.
+    var eetToDestination: TimeInterval {
+        max(0, totalEET - (waypoints.count >= 2 ? (waypoints.last?.legEETExtra ?? 0) : 0))
     }
 
     /// Next waypoint (if any remain)
@@ -1013,7 +1150,8 @@ struct FlightPlan: Identifiable, Codable, Equatable {
         let distanceNM: Double
         let trueCourse: Double
         let magneticCourse: Double
-        /// The planned true airspeed (`plannedGroundSpeed`, or the aircraft's default cruise speed).
+        /// The planned true airspeed: the pilot's (`plannedGroundSpeed`), or the aircraft's cruise
+        /// speed at the leg's level (`plannedAirspeed(ofLegFrom:)`).
         let airspeedKt: Int
         /// The wind the ground speed was corrected for, and where it came from. Nil when no wind is
         /// known, or when the wind made the leg unflyable at that airspeed and timing fell back to
@@ -1031,17 +1169,18 @@ struct FlightPlan: Identifiable, Codable, Equatable {
     /// Course, distance, wind and ground speed for the leg LEAVING the waypoint at `index`, or nil
     /// for the last waypoint and out-of-range indices.
     ///
-    /// `plannedGroundSpeed` is treated as the leg's planned AIRSPEED and corrected for wind to get the
-    /// ground speed timing actually needs. That is what the value already is:
-    /// `FlightPlanManager.addWaypoint` seeds it from `defaultCruiseSpeed`, an airspeed. Dividing
-    /// distance by it directly silently assumed zero wind on every leg, which is exactly the error a
-    /// flight plan exists to avoid. On a 100 kt aircraft a 20 kt wind moves a leg's ETA by ±20%.
+    /// The leg's planned AIRSPEED (the pilot's `plannedGroundSpeed`, else the aircraft's cruise speed
+    /// at the leg's level, 6.1) is corrected for wind to get the ground speed timing actually needs.
+    /// Dividing distance by it directly silently assumed zero wind on every leg, which is exactly the
+    /// error a flight plan exists to avoid. On a 100 kt aircraft a 20 kt wind moves a leg's ETA by ±20%.
     ///
     /// Falls back to the raw value when no wind is known, or when the wind makes the leg unflyable at
     /// that airspeed, rather than inventing a number.
     ///
-    /// `flownAt`: when the leg starts, for the forecast hour (`windsAloftProvider`).
-    func legPlanning(from index: Int, flownAt: Date? = nil, readingForecasts: Bool = true) -> LegPlanning? {
+    /// `flownAt`: when the leg starts, for the forecast hour (`windsAloftProvider`). `cruise`: the
+    /// aircraft's cruise speed, when the caller already has it (`calculateRouteData` asks once).
+    func legPlanning(from index: Int, flownAt: Date? = nil, readingForecasts: Bool = true,
+                     cruise: CruiseSpeed? = nil) -> LegPlanning? {
         guard index >= 0, index < waypoints.count - 1 else { return nil }
         let from = waypoints[index].coordinate
         let to = waypoints[index + 1].coordinate
@@ -1053,7 +1192,7 @@ struct FlightPlan: Identifiable, Codable, Equatable {
         let declination = FlightPlan.magneticDeclinationProvider?(from) ?? FlightPlan.defaultMagneticDeclination
         let magneticCourse = (trueCourse - declination + 360).truncatingRemainder(dividingBy: 360)
 
-        let airspeed = waypoints[index].plannedGroundSpeed ?? FlightPlan.defaultCruiseSpeed(for: aircraftTypeId)
+        let airspeed = plannedAirspeed(ofLegFrom: index, cruise: cruise)
         // The wind at the level the leg is flown at (`forecastWind`), read at its midpoint, when the
         // aircraft gets there: half the leg later at the planned airspeed (the ground speed is what is
         // being computed). (6.1)
@@ -1087,8 +1226,7 @@ struct FlightPlan: Identifiable, Codable, Equatable {
     func plannedLeg(from index: Int) -> (wind: WindAloft?, groundSpeedKt: Int)? {
         guard index >= 0, index < waypoints.count - 1 else { return nil }
         let waypoint = waypoints[index]
-        let airspeed = waypoint.plannedGroundSpeed ?? FlightPlan.defaultCruiseSpeed(for: aircraftTypeId)
-        var groundSpeed = airspeed
+        var groundSpeed = plannedAirspeed(ofLegFrom: index, cruise: plannedCruise)
         if let distance = waypoint.distance, let seconds = waypoint.estimatedElapsedTime,
            distance > 0, seconds > 0, let kt = (distance / seconds * 3600).safeRoundedInt(), kt > 0 {
             groundSpeed = kt
@@ -1112,8 +1250,13 @@ struct FlightPlan: Identifiable, Codable, Equatable {
     mutating func calculateRouteData(readingForecasts: Bool = true) {
         guard waypoints.count >= 2 else { return }
 
-        // Extra time to add to first and last waypoint (5 minutes = 300 seconds)
-        let extraTimeForTerminalWaypoints: TimeInterval = 300
+        // The aircraft's cruise speed and the minutes added at each end: learned from the pilot's
+        // flights at these two aerodromes, 5 and 5 until there are enough of them (6.1). Kept with the
+        // plan, so the editor and the nav log can say where they come from.
+        let calibration = planningCalibration
+        departureAllowance = calibration.departureAllowance
+        arrivalAllowance = calibration.arrivalAllowance
+        plannedCruise = calibration.cruise
 
         var cumulativeEETTotal: TimeInterval = 0
 
@@ -1122,16 +1265,17 @@ struct FlightPlan: Identifiable, Codable, Equatable {
             // forecast is looked up for that hour (6.1), and the wind it used stays with the leg.
             let flownAt = etoDeparture?.addingTimeInterval(cumulativeEETTotal)
             if i < waypoints.count - 1,
-               let leg = legPlanning(from: i, flownAt: flownAt, readingForecasts: readingForecasts) {
+               let leg = legPlanning(from: i, flownAt: flownAt, readingForecasts: readingForecasts,
+                                     cruise: calibration.cruise) {
                 waypoints[i].distance = leg.distanceNM
                 waypoints[i].magneticCourse = leg.magneticCourse
                 waypoints[i].estimatedElapsedTime = leg.legSeconds
                 waypoints[i].planningWind = leg.planningWind
                 let legEET = leg.legSeconds
 
-                // Add +5 minutes to first waypoint (departure)
+                // The departure allowance on the first leg: take-off to the first waypoint, beyond the leg.
                 if i == 0 {
-                    waypoints[i].legEETExtra = extraTimeForTerminalWaypoints
+                    waypoints[i].legEETExtra = calibration.departureAllowance.seconds
                 } else {
                     waypoints[i].legEETExtra = nil
                 }
@@ -1146,9 +1290,9 @@ struct FlightPlan: Identifiable, Codable, Equatable {
                 waypoints[i].estimatedElapsedTime = nil
                 waypoints[i].planningWind = nil
 
-                // Add +5 minutes to last waypoint (arrival)
-                waypoints[i].legEETExtra = extraTimeForTerminalWaypoints
-                cumulativeEETTotal += extraTimeForTerminalWaypoints
+                // The arrival allowance at the destination: over it to the landing.
+                waypoints[i].legEETExtra = calibration.arrivalAllowance.seconds
+                cumulativeEETTotal += calibration.arrivalAllowance.seconds
                 waypoints[i].cumulativeEET = cumulativeEETTotal
             }
         }
@@ -1296,10 +1440,9 @@ extension FlightPlan {
         }
 
         // Field 15 - Cruising speed, level, and route
-        // Speed: "N" + 4-digit TAS in knots
-        let avgGS = waypoints.compactMap { $0.plannedGroundSpeed }.first
-            ?? FlightPlan.defaultCruiseSpeed(for: aircraftTypeId)
-        let speedStr = String(format: "N%04d", avgGS)
+        // Speed: "N" + 4-digit TAS in knots: the aircraft's cruise at the planned level, or the airspeed
+        // the pilot typed. (6.1)
+        let speedStr = String(format: "N%04d", cruiseTrueAirspeed)
 
         // Level: "VFR" or "A" + 3-digit altitude in hundreds of feet
         let levelStr: String
@@ -1333,8 +1476,10 @@ extension FlightPlan {
             destAerodrome = "ZZZZ"
         }
 
-        // EET in HHMM format
-        let totalSeconds = totalEET.safeInt(or: 0)
+        // Total EET in HHMM: for a VFR flight, take-off to over the destination (ICAO Doc 4444, Item
+        // 16), so without the arrival allowance. The app filed the plan's total, 5 minutes too long,
+        // until 6.1.
+        let totalSeconds = eetToDestination.safeInt(or: 0)
         let eetHours = totalSeconds / 3600
         let eetMinutes = (totalSeconds % 3600) / 60
         let eetStr = String(format: "%02d%02d", eetHours, eetMinutes)
@@ -1486,6 +1631,10 @@ extension FlightPlan {
         if let fob = fuelOnBoard {
             gpx += "\n        <ac:fuelOnBoard>\(fob)</ac:fuelOnBoard>"
         }
+
+        // The airspeeds below are the pilot's own (`typedAirspeedsOnly`): a file without this line
+        // comes from a build that seeded 100 kt on every waypoint. (6.1)
+        gpx += "\n        <ac:typedAirspeeds>true</ac:typedAirspeeds>"
 
         if !remarks.isEmpty {
             // PR-18 / SEC-C22: a literal "]]>" in the text terminates the CDATA section early,
@@ -1718,6 +1867,9 @@ class FlightPlanGPXParser: NSObject, XMLParserDelegate {
     private var eleFeet: [Double?] = []
     private var levelsFeet: [Double?] = []
     private var explicitAltitudes: [Double?] = []
+    /// The file says its airspeeds are the pilot's (6.1). Without it, an AeroCheck file's 100 kt is the
+    /// seed every waypoint got, and is cleared like a stored plan's (`clearingSeededAirspeeds`).
+    private var typedAirspeeds = false
 
     private let dateFormatter = ISO8601DateFormatter()
 
@@ -1856,6 +2008,8 @@ class FlightPlanGPXParser: NSObject, XMLParserDelegate {
             flightPlan?.fuelFlow = GeoValidation.finite(Double(text))
         case "fuelOnBoard":
             flightPlan?.fuelOnBoard = GeoValidation.finite(Double(text))
+        case "typedAirspeeds":
+            typedAirspeeds = text == "true"
         case "remarks":
             if currentWaypoint != nil {
                 currentWaypoint?.remarks = text
@@ -1914,7 +2068,7 @@ class FlightPlanGPXParser: NSObject, XMLParserDelegate {
             for (i, altitude) in resolveAltitudes().enumerated() {
                 waypoints[i].altitude = altitude
             }
-            flightPlan?.waypoints = waypoints
+            flightPlan?.waypoints = typedAirspeeds ? waypoints : FlightPlan.clearingSeededAirspeeds(waypoints)
             flightPlan?.calculateRouteData()
         case "time":
             if let date = dateFormatter.date(from: text) {

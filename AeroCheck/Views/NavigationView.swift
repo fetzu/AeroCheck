@@ -265,9 +265,9 @@ struct NavigationMapView: View {
     @State private var hasTrackVectorEMA = false
     /// Last known aircraft coordinate — keeps the track vector anchored across brief GPS gaps. (v4 UI/UX Revamp)
     @State private var lastKnownCoordinate: CLLocationCoordinate2D?
-    /// Stable periodic timer (created once via @State) for the cruise-check evaluation — an inline
-    /// Timer.publish recreated each render can stall, so the cruise check never fired. (v4 UI/UX Revamp fix)
-    @State private var cruiseEvalTimer = Timer.publish(every: 5, on: .main, in: .common).autoconnect()
+    /// Stable periodic timer (created once via @State) for FREDA's evaluation — an inline
+    /// Timer.publish recreated each render can stall, so the reminder never fired. (v4 UI/UX Revamp fix)
+    @State private var fredaEvalTimer = Timer.publish(every: 5, on: .main, in: .common).autoconnect()
     @State private var mapOrientationMode: MapOrientationMode = .northUp
     /// The last MARK or leg-timer reset, offered back for a few seconds. (v6.0 · C2)
     @State private var undoOffer: NavUndoOffer?
@@ -498,11 +498,11 @@ struct NavigationMapView: View {
         .onChange(of: appState.settings.showReportingPointsOnMap) { _, _ in recomputeMapSpatialContent(force: true) }
         .onChange(of: appState.currentPhase) { _, _ in
             recomputePhaseFrequencies()
-            appState.evaluateCruiseCheck()
+            appState.evaluateFreda(lastPassage: FredaWaypointPassage.latest(in: flightPlanManager.activeFlightPlan))
         }
         .onChange(of: flightPlanManager.activeFlightPlan?.currentWaypointIndex) { _, _ in recomputePhaseFrequencies() }
-        .onReceive(cruiseEvalTimer) { _ in
-            appState.evaluateCruiseCheck()
+        .onReceive(fredaEvalTimer) { _ in
+            appState.evaluateFreda(lastPassage: FredaWaypointPassage.latest(in: flightPlanManager.activeFlightPlan))
             // Re-prime the track-vector EMA each tick so a stationary device (no GPS *change*) keeps a
             // valid vector after a Nav→Checklist→Nav round trip. (v4 UI/UX Revamp fix)
             updateTrackVectorEMA()
@@ -1397,17 +1397,17 @@ struct NavigationMapView: View {
                         }
                         .foregroundColor(theme.textPrimary)   // data is white (v6.0 · P5)
 
-                        // Current phase, inline. When a cruise check is due it becomes a tappable amber
-                        // ⟳ FREDA badge (tap to acknowledge); otherwise a plain gold phase label —
-                        // a disabled Button was dimming the text. (v4 UI/UX Revamp — re-cruise)
+                        // Current phase, inline. When FREDA is due it becomes a tappable amber ⟳ FREDA
+                        // badge (tap: FREDA done); otherwise a plain gold phase label — a disabled
+                        // Button was dimming the text. (v4 UI/UX Revamp — re-cruise; FREDA 6.1)
                         if appState.isFlightActive {
                             Rectangle().fill(theme.textDim).frame(width: 1, height: 20)
-                            if appState.cruiseCheckDue {
-                                Button(action: { appState.acknowledgeCruiseCheck() }) {
+                            if appState.fredaDue {
+                                Button(action: { appState.confirmFreda() }) {
                                     HStack(spacing: 4) {
                                         Image(systemName: "arrow.triangle.2.circlepath")
                                             .font(.aero(size: 11, weight: .bold))
-                                        Text(L10n.Nav.fredaCheck)
+                                        Text(verbatim: "FREDA")
                                             .font(.aero(size: 13, weight: .semibold))
                                             .lineLimit(1)
                                     }
@@ -6102,12 +6102,49 @@ extension NavUndoOffer {
     }
 }
 
+extension NavUndoOffer {
+    /// "FREDA done at 14:34", taken back with UNDO. Outlined, as a memory check's. (6.1)
+    @MainActor
+    static func fredaConfirmation(_ confirmation: AppState.FredaConfirmation, in appState: AppState) -> NavUndoOffer {
+        NavUndoOffer(id: confirmation.id,
+                     message: L10n.Freda.doneToast(confirmation.doneAt.formatted(date: .omitted, time: .shortened)),
+                     style: .outlined) {
+            appState.undoFredaConfirmation(confirmation.id)
+        }
+    }
+
+    /// The check just confirmed, still to offer back: a memory check or a FREDA, the newer of the two
+    /// when both are. (6.1)
+    @MainActor
+    static func checkConfirmation(in appState: AppState) -> NavUndoOffer? {
+        let memory = appState.memoryConfirmationToOffer
+        let freda = appState.fredaConfirmationToOffer
+        if let freda, memory.map({ $0.confirmedAt <= freda.doneAt }) ?? true {
+            return .fredaConfirmation(freda, in: appState)
+        }
+        return memory.map { .memoryConfirmation($0, in: appState) }
+    }
+}
+
 extension AppState {
     /// The memory check confirmation still to offer back: within its six seconds. (6.1)
     var memoryConfirmationToOffer: MemoryConfirmation? {
         guard let confirmation = memoryConfirmation,
               Date().timeIntervalSince(confirmation.confirmedAt) < Self.memoryConfirmationUndoWindow else { return nil }
         return confirmation
+    }
+
+    /// FREDA done, still to offer back: within the same six seconds. (6.1)
+    var fredaConfirmationToOffer: FredaConfirmation? {
+        guard let confirmation = fredaConfirmation,
+              Date().timeIntervalSince(confirmation.doneAt) < Self.memoryConfirmationUndoWindow else { return nil }
+        return confirmation
+    }
+
+    /// Clears whichever check confirmation `id` is: the toast's six seconds are up.
+    func dismissCheckConfirmation(_ id: UUID) {
+        dismissMemoryConfirmation(id)
+        dismissFredaConfirmation(id)
     }
 }
 
@@ -6187,9 +6224,9 @@ struct MapUndoToast: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     private var shown: NavUndoOffer? {
-        // A memory check just confirmed from the slot (6.1): the pilot's latest tap on this pane.
-        if appState.isFlightActive, let confirmation = appState.memoryConfirmationToOffer {
-            return .memoryConfirmation(confirmation, in: appState)
+        // A memory check or a FREDA just confirmed from the slot (6.1): the pilot's latest tap here.
+        if appState.isFlightActive, let confirmation = NavUndoOffer.checkConfirmation(in: appState) {
+            return confirmation
         }
         if appState.isFlightActive, let notice = flightPlanManager.autoMarkNotice {
             return .autoMark(notice, in: flightPlanManager)
@@ -6203,12 +6240,13 @@ struct MapUndoToast: View {
                 NavUndoToast(offer: offer) {
                     if offer.id == undoOffer?.id { undoOffer = nil }
                     flightPlanManager.dismissAutoMarkNotice(offer.id)
-                    appState.dismissMemoryConfirmation(offer.id)
+                    appState.dismissCheckConfirmation(offer.id)
                 }
             }
         }
         .animation(reduceMotion ? nil : .easeOut(duration: 0.2), value: flightPlanManager.autoMarkNotice?.id)
         .animation(reduceMotion ? nil : .easeOut(duration: 0.2), value: appState.memoryConfirmation?.id)
+        .animation(reduceMotion ? nil : .easeOut(duration: 0.2), value: appState.fredaConfirmation?.id)
         // A waypoint the flight marked on its own, or a check just confirmed, supersedes the undo of an
         // older MARK or reset.
         .onChange(of: flightPlanManager.autoMarkNotice?.id) { _, id in
@@ -6217,12 +6255,15 @@ struct MapUndoToast: View {
         .onChange(of: appState.memoryConfirmation?.id) { _, id in
             if id != nil { undoOffer = nil }
         }
+        .onChange(of: appState.fredaConfirmation?.id) { _, id in
+            if id != nil { undoOffer = nil }
+        }
     }
 }
 
 /// The Cockpit's checklist pane host for a waypoint the flight marked on its own, and for a memory
-/// check just confirmed with ✓ DONE (6.1): the map pane has its own, which also carries MARK's undo.
-/// (v6.0.1)
+/// check just confirmed with ✓ DONE or a FREDA just done (6.1): the map pane has its own, which also
+/// carries MARK's undo. (v6.0.1)
 struct AutoMarkUndoToast: View {
     /// The phone's narrower margins.
     var narrow = false
@@ -6231,8 +6272,8 @@ struct AutoMarkUndoToast: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     private var shown: NavUndoOffer? {
-        if let confirmation = appState.memoryConfirmationToOffer {
-            return .memoryConfirmation(confirmation, in: appState)
+        if let confirmation = NavUndoOffer.checkConfirmation(in: appState) {
+            return confirmation
         }
         return flightPlanManager.autoMarkNotice.map { .autoMark($0, in: flightPlanManager) }
     }
@@ -6242,7 +6283,7 @@ struct AutoMarkUndoToast: View {
             if let offer = shown {
                 NavUndoToast(offer: offer) {
                     flightPlanManager.dismissAutoMarkNotice(offer.id)
-                    appState.dismissMemoryConfirmation(offer.id)
+                    appState.dismissCheckConfirmation(offer.id)
                 }
                 .padding(.horizontal, narrow ? 12 : 16)
                 .padding(.bottom, 8)
@@ -6250,5 +6291,6 @@ struct AutoMarkUndoToast: View {
         }
         .animation(reduceMotion ? nil : .easeOut(duration: 0.2), value: flightPlanManager.autoMarkNotice?.id)
         .animation(reduceMotion ? nil : .easeOut(duration: 0.2), value: appState.memoryConfirmation?.id)
+        .animation(reduceMotion ? nil : .easeOut(duration: 0.2), value: appState.fredaConfirmation?.id)
     }
 }

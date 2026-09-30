@@ -61,21 +61,171 @@ enum TripPlanner {
     }
 
     /// Split at several stops at once, in route order. Returns the legs in flying order.
+    ///
+    /// A refuel brings back the fuel the ROUTE was planned with, as it does for a single split: split
+    /// one after the other, a refuel at the second stop would otherwise bring back what the first leg
+    /// left in the tanks. (6.1)
     static func legs(of route: FlightPlan, stops: [(index: Int, stopover: Stopover, ident: String?, elevation: Double?)]) -> [FlightPlan] {
         var remaining = route
         var legs: [FlightPlan] = []
         var consumed = 0
         for stop in stops.sorted(by: { $0.index < $1.index }) {
             let local = stop.index - consumed
-            guard let (first, second) = split(remaining, at: local, stopover: stop.stopover,
-                                              stopIdent: stop.ident, fieldElevationFeet: stop.elevation)
+            guard let (first, rest) = split(remaining, at: local, stopover: stop.stopover,
+                                            stopIdent: stop.ident, fieldElevationFeet: stop.elevation)
             else { continue }
+            var second = rest
+            if stop.stopover.refuel { second.fuelOnBoard = route.fuelOnBoard }
             legs.append(first)
             remaining = second
             consumed += local
         }
         legs.append(remaining)
         return legs
+    }
+
+    // MARK: Several stops at once (6.1)
+
+    /// An aerodrome the pilot lands at, and the stop in front of the leg that leaves from it: ticked
+    /// in "Add a stop…", or switched on with "Land here" in Plan new flight.
+    struct Landing: Equatable {
+        let candidate: StopCandidate
+        var stopover: Stopover = Stopover()
+
+        var ident: String { candidate.aerodrome.ident }
+    }
+
+    /// The legs a flight becomes when it lands at `landings`, in flying order. The first leg keeps the
+    /// plan's identity (a followed flight keeps its thread), and every leg keeps its part of the route.
+    ///
+    /// A route (two waypoints or more) is split where it reaches each stop: at the waypoint that already
+    /// is the aerodrome, else at one inserted where it lengthens the route least, so the order is the
+    /// route's and not the order of `landings`. A local flight (one aerodrome, out and back) has no
+    /// route to follow: it flies out to the stops in the order of `landings`, and back to its field.
+    /// A stop that can't split the route (an end of it) makes no leg.
+    static func legs(of plan: FlightPlan, landingAt landings: [Landing]) -> [FlightPlan] {
+        guard !landings.isEmpty else { return [plan] }
+        if plan.waypoints.count == 1 { return localLegs(of: plan, landingAt: landings) }
+        let (route, stops) = routeStopping(at: landings.map(\.candidate), in: plan)
+        let stopovers = Dictionary(landings.map { ($0.ident, $0.stopover) }, uniquingKeysWith: { first, _ in first })
+        return legs(of: route, stops: stops.map { stop in
+            (index: stop.index, stopover: stopovers[stop.candidate.aerodrome.ident] ?? Stopover(),
+             ident: stop.candidate.aerodrome.ident, elevation: stop.candidate.aerodrome.elevationFeet)
+        })
+    }
+
+    /// The route with every aerodrome in `candidates` as a waypoint, and where each one is, in route
+    /// order. An aerodrome the route already visits is that waypoint; the others are inserted, in the
+    /// order they are reached, each where it lengthens the route least (`routeStopping(at:in:)`, one at
+    /// a time). An aerodrome listed twice, or two that are the same waypoint, stop the route once.
+    static func routeStopping(at candidates: [StopCandidate],
+                              in plan: FlightPlan) -> (plan: FlightPlan, stops: [(index: Int, candidate: StopCandidate)]) {
+        var updated = plan
+        // By waypoint id: the indices move as other stops are inserted.
+        var waypointIds: [(id: UUID, candidate: StopCandidate)] = []
+        func alreadyStops(_ id: UUID) -> Bool { waypointIds.contains { $0.id == id } }
+        for candidate in candidates {
+            guard let index = candidate.waypointIndex, plan.waypoints.indices.contains(index),
+                  !alreadyStops(plan.waypoints[index].id),
+                  !waypointIds.contains(where: { $0.candidate.aerodrome.ident == candidate.aerodrome.ident })
+            else { continue }
+            waypointIds.append((plan.waypoints[index].id, candidate))
+        }
+        var inserted = false
+        for candidate in candidates.sorted(by: { $0.alongNM < $1.alongNM })
+        where !waypointIds.contains(where: { $0.candidate.aerodrome.ident == candidate.aerodrome.ident }) {
+            guard updated.waypoints.count >= 2 else { break }
+            let index = max(1, min(updated.waypoints.count - 1,
+                                   FlightPlanManager.bestInsertionIndex(for: candidate.aerodrome.coordinate,
+                                                                        in: updated.waypoints)))
+            let waypoint = FlightPlanWaypoint(name: candidate.aerodrome.ident,
+                                              coordinate: candidate.aerodrome.coordinate,
+                                              altitude: candidate.aerodrome.elevationFeet,
+                                              plannedGroundSpeed: updated.waypoints[index - 1].plannedGroundSpeed)
+            updated.waypoints.insert(waypoint, at: index)
+            waypointIds.append((waypoint.id, candidate))
+            inserted = true
+        }
+        if inserted { updated.calculateRouteData() }
+        let stops = waypointIds.compactMap { entry -> (index: Int, candidate: StopCandidate)? in
+            guard let index = updated.waypoints.firstIndex(where: { $0.id == entry.id }) else { return nil }
+            return (index, entry.candidate)
+        }
+        return (updated, stops.sorted { $0.index < $1.index })
+    }
+
+    /// Within this of a local flight's field, the aerodromes "Add a stop…" lists. About 20 to 25
+    /// minutes out at the club fleet's cruise (a WT9 or a PA-28 at 100–110 kt), so a stop and the way
+    /// back fit an hour or so; around LSZQ it reaches LSGE (38 NM), the author's own round trip, and
+    /// lists about 40 fields. Further is one search away.
+    static let localStopRadiusNM: Double = 40
+
+    /// Aerodromes within `radiusNM` of a local flight's field, nearest first, the field itself left out.
+    /// `alongNM` and `offsetNM` are both the distance from the field: there is no route to measure along.
+    static func stopCandidates(around field: CLLocationCoordinate2D, aerodromes: [Aerodrome],
+                               radiusNM: Double = localStopRadiusNM) -> [StopCandidate] {
+        let geometry = RouteGeometry(route: [field])
+        return aerodromes.compactMap { aerodrome -> StopCandidate? in
+            let distance = geometry.distanceNM(field, aerodrome.coordinate)
+            // The same 1 NM a route's ends keep off the list: that is where the flight already is.
+            guard distance >= 1, distance <= radiusNM else { return nil }
+            return StopCandidate(aerodrome: aerodrome, alongNM: distance, offsetNM: distance, waypointIndex: nil)
+        }
+        .sorted { $0.alongNM < $1.alongNM }
+    }
+
+    /// A local flight's legs: out from its field to each stop in turn, and back. The route is direct
+    /// (the pilot draws each leg later, as for a trip typed in Plan new flight); the stops are landed
+    /// on at field elevation, and the way home ends at the field, as the flight did.
+    private static func localLegs(of plan: FlightPlan, landingAt landings: [Landing]) -> [FlightPlan] {
+        guard let home = plan.waypoints.first else { return [plan] }
+        var route = plan
+        let stops = landings.map { landing in
+            FlightPlanWaypoint(name: landing.ident, coordinate: landing.candidate.aerodrome.coordinate,
+                               altitude: landing.candidate.aerodrome.elevationFeet,
+                               plannedGroundSpeed: home.plannedGroundSpeed)
+        }
+        let back = FlightPlanWaypoint(name: home.name, coordinate: home.coordinate, altitude: home.altitude,
+                                      frequency: home.frequency, callSign: home.callSign,
+                                      plannedGroundSpeed: home.plannedGroundSpeed,
+                                      pointKind: home.pointKind, sourceId: home.sourceId,
+                                      code: home.code, aerodromeICAO: home.aerodromeICAO)
+        route.waypoints = [home] + stops + [back]
+        route.calculateRouteData()
+        return legs(of: route, stops: landings.enumerated().map { offset, landing in
+            (index: offset + 1, stopover: landing.stopover, ident: landing.ident,
+             elevation: landing.candidate.aerodrome.elevationFeet)
+        })
+    }
+
+    // MARK: Editing a stop after the trip exists (6.1)
+
+    /// A later leg with its stop changed on the leg page. A new time on the ground makes its departure
+    /// an estimate again (the previous leg's arrival plus that time), even one the pilot had chosen:
+    /// the last thing the pilot set is what counts, and this is the only way back to an estimate. A
+    /// refuel brings back `plannedFOB` (the trip's first leg's fuel, when known); without one the leg
+    /// starts with what the previous leg leaves, when that can be computed. A leg that has flown keeps
+    /// what it was planned with. Nil when nothing changes.
+    static func settingStopover(_ stopover: Stopover, on leg: FlightPlan, after previous: FlightPlan,
+                                plannedFOB: Double?) -> FlightPlan? {
+        guard leg.etoAnchor == nil, stopover != leg.stopover else { return nil }
+        var updated = leg
+        let groundTimeChanged = stopover.groundMinutes != leg.stopover?.groundMinutes
+        updated.stopover = stopover
+        // A chosen time gives way to an estimate only when there is one: with no time on the leg
+        // before, the pilot's own time is all this leg has.
+        let estimate = estimatedDeparture(after: previous, stopover: stopover)
+        if leg.departureIsEstimate == true || (groundTimeChanged && estimate != nil) {
+            updated.departureIsEstimate = true
+            updated.plannedDepartureTime = estimate
+        }
+        if stopover.refuel {
+            if let plannedFOB { updated.fuelOnBoard = plannedFOB }
+        } else if let carried = fuelOnBoard(after: previous, stopover: stopover, plannedFOB: nil) {
+            updated.fuelOnBoard = carried
+        }
+        updated.calculateRouteData()
+        return updated
     }
 
     /// Join a leg with the one after it: the reverse of `split`, for two legs neither of which has

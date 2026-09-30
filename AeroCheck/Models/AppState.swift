@@ -46,7 +46,8 @@ extension PhaseCompletionStatus {
 /// single `var checklistProgress` and exposes thin forwarding accessors, so the app-wide
 /// `appState.currentPhase` / `phaseCompletionStatus` / … call sites keep working and stay reactive.
 /// (Phase 4 — AppState decomposition: state extraction)
-struct ChecklistProgress {
+/// Equatable so a one-tap ✓ DONE · NEXT can tell, at UNDO, whether anything happened since. (6.1)
+struct ChecklistProgress: Equatable {
     var currentPhase: ChecklistPhase = .preflight
     var phaseCompletionStatus: [ChecklistPhase: PhaseCompletionStatus] = [:]
     var highestCompletedPhase: ChecklistPhase = .preflight
@@ -220,6 +221,9 @@ struct AppSettings: Codable, Equatable {
     /// Usable fuel with full tanks, in litres, per registration: the pilot's figure, used when the
     /// aircraft's data doesn't give one (`FullTanks.resolve`). (on-device review #4, point 3)
     var fullTanksLitres: [String: Double] = [:]
+    /// The pilot's own cruise speed per registration, knots indicated: it outranks what the flights
+    /// teach and the aircraft's data (`CruiseSpeed.resolve`). Empty until set in the Aircraft tab. (6.1)
+    var cruiseSpeedKIAS: [String: Int] = [:]
 
     /// Which generation of the settings schema wrote this blob.
     ///
@@ -233,7 +237,7 @@ struct AppSettings: Codable, Equatable {
 
     /// Bump whenever a stored property is added that an older build cannot round-trip, and add it
     /// to `protectedFields` below.
-    static let currentSchemaVersion = 6
+    static let currentSchemaVersion = 7
 
     /// A field a settings schema protects: the schema that brought it (or changed what it means), its
     /// key, and how to keep or compare this device's value. (review F8; one table since 6.1)
@@ -273,6 +277,8 @@ struct AppSettings: Codable, Equatable {
         ProtectedField(5, .fullTanksLitres, \.fullTanksLitres),
         // Schema 6 (v6.1): the home aerodrome.
         ProtectedField(6, .homeAerodromeCode, \.homeAerodromeCode),
+        // Schema 7 (v6.1): the pilot's cruise speeds.
+        ProtectedField(7, .cruiseSpeedKIAS, \.cruiseSpeedKIAS),
     ]
 
     /// Whether the writer of this record could not express `field`: its schema came before the field,
@@ -425,6 +431,7 @@ struct AppSettings: Codable, Equatable {
         case companionRole
         case pilotName, aircraftRates, weightBalanceProfiles, sunlightBoost
         case fullTanksLitres
+        case cruiseSpeedKIAS
         case schemaVersion
         case isStudentPilot, instructorName
         case homeAerodromeCode = "homeAerodromeIdent"
@@ -525,6 +532,7 @@ struct AppSettings: Codable, Equatable {
         aircraftRates = (try? container.decodeIfPresent([String: AircraftRateProfile].self, forKey: .aircraftRates)) ?? [:]
         weightBalanceProfiles = (try? container.decodeIfPresent([String: WeightBalanceProfile].self, forKey: .weightBalanceProfiles)) ?? [:]
         fullTanksLitres = (try? container.decodeIfPresent([String: Double].self, forKey: .fullTanksLitres)) ?? [:]
+        cruiseSpeedKIAS = (try? container.decodeIfPresent([String: Int].self, forKey: .cruiseSpeedKIAS)) ?? [:]
         // Absent means a writer from before the version existed, which is exactly schema 1.
         schemaVersion = try container.decodeIfPresent(Int.self, forKey: .schemaVersion) ?? 1
 
@@ -550,6 +558,8 @@ struct AppSettings: Codable, Equatable {
         }
         // A full-tanks figure is what Full tanks sets fuel on board to: drop one no tank holds.
         result.fullTanksLitres = result.fullTanksLitres.filter { FullTanks.isPlausible($0.value) }
+        // A cruise speed times every leg of the aircraft: drop one no aircraft cruises at.
+        result.cruiseSpeedKIAS = result.cruiseSpeedKIAS.filter { CruiseSpeedModel.plausibleKIAS.contains(Double($0.value)) }
         // The home aerodrome is matched against idents and shown as text: drop what can't be one.
         result.homeAerodromeIdent = HomeAerodrome.normalized(result.homeAerodromeIdent)
         return result
@@ -699,8 +709,12 @@ class AppState {
         set {
             // Changing phase clears any temporary hidden-items reveal (matches the per-phase reset the
             // checklist view used to own — now centralised so a companion-driven phase change resets too).
-            if checklistProgress.currentPhase != newValue { hiddenItemsRevealed = false }
+            let leaving = checklistProgress.currentPhase
+            if leaving != newValue { hiddenItemsRevealed = false }
             checklistProgress.currentPhase = newValue
+            // Leaving cruise stops FREDA, whichever way it is left; one due and not done is recorded
+            // missed. Here, where every phase change passes, rather than on a timer. (6.1)
+            if leaving == .cruise && newValue != .cruise { stopFreda() }
         }
     }
 
@@ -724,51 +738,104 @@ class AppState {
     var isFlightActive: Bool = false
     var currentFlight: Flight?
 
-    // MARK: - Cruise check (FREDA) reminder
-    /// Re-cruise (FREDA: Fuel, Radio, Engine, Direction, Altimeter) interval — standard VFR practice
-    /// is a check every 10–15 minutes in cruise. (v4 UI/UX Revamp)
-    static let cruiseCheckInterval: TimeInterval = 15 * 60 // standard VFR re-cruise check every ~15 min
-    /// True when a cruise check is due/overdue — drives the amber phase indicator + CRUISE button. (v4 UI/UX Revamp)
-    var cruiseCheckDue: Bool = false
-    /// When the countdown was started / last re-armed; nil = idle (NOT started). The countdown is
-    /// MANUAL — the pilot starts it from the CRUISE button on the Cruise checklist page, so a busy
-    /// pilot is never reminded for a check they haven't begun timing. (v4 UI/UX Revamp — manual start)
-    var cruiseCheckStartTime: Date?
+    // MARK: - FREDA in cruise (6.1, "Checks in flight" Q6)
+    // The rules are `FredaSchedule`'s (Freda.swift); this is where the flight keeps and records them.
 
-    /// Seconds remaining until the next cruise check is due — the full interval while idle. (v4 UI/UX Revamp)
-    func cruiseCheckRemaining(now: Date = Date()) -> TimeInterval {
-        guard let start = cruiseCheckStartTime else { return Self.cruiseCheckInterval }
-        return max(0, Self.cruiseCheckInterval - now.timeIntervalSince(start))
+    /// When FREDA is due. Runs in cruise once the cruise check is done; stopped by leaving cruise.
+    private(set) var freda = FredaSchedule()
+
+    /// FREDA is due: the slot and the thumb bar's FREDA button turn amber, and so does the cruise
+    /// segment of the phase bar. Nothing else: no pane change, no sound, no haptic.
+    var fredaDue: Bool { freda.due != nil }
+
+    /// FREDA runs in this flight's cruise: not in circuits, which have none.
+    private var fredaApplies: Bool { isFlightActive && currentPhase == .cruise && !isCircuitMode }
+
+    /// The cruise check has just been done: FREDA's count starts, unless it runs already.
+    private func startFredaAfterCruiseCheck(at date: Date = Date()) {
+        guard fredaApplies, !freda.isRunning else { return }
+        freda.start(at: date, after: .cruiseCheck)
     }
 
-    /// Re-evaluate whether a cruise check is due. The countdown only runs once the pilot has started
-    /// it (`cruiseCheckStartTime != nil`); leaving cruise clears + idles it. Call periodically while
-    /// in cruise. (v4 UI/UX Revamp)
-    func evaluateCruiseCheck(now: Date = Date()) {
-        guard currentPhase == .cruise else {
-            if cruiseCheckDue { cruiseCheckDue = false }
-            cruiseCheckStartTime = nil
+    /// Call periodically in flight (the Cockpit's 5 s timer) with the last waypoint the flight passed.
+    /// In cruise with its check done, FREDA runs (from now, if it didn't: back in cruise from descent,
+    /// say) and comes due as `FredaSchedule` says. Anywhere else it is stopped.
+    func evaluateFreda(now: Date = Date(), lastPassage: FredaWaypointPassage? = nil) {
+        guard fredaApplies else {
+            stopFreda()
             return
         }
-        guard let start = cruiseCheckStartTime else { return } // idle until the pilot starts it
-        if !cruiseCheckDue, now.timeIntervalSince(start) >= Self.cruiseCheckInterval {
-            cruiseCheckDue = true
-            // Re-arm the Cruise checklist so the pilot re-runs the check: reset its highlight to the
-            // first item and clear its completion status (items show undone again). (v4 UI/UX Revamp)
-            currentHighlightedItem[.cruise] = 0
-            phaseCompletionStatus[.cruise] = nil
+        guard currentCheckIsDone else { return }
+        if !freda.isRunning { freda.start(at: now, after: .cruiseCheck) }
+        freda.evaluate(now: now, lastPassage: lastPassage)
+    }
+
+    /// FREDA stops; one due and not done goes on the flight as missed.
+    private func stopFreda() {
+        guard freda.isRunning else { return }
+        if let missed = freda.stop() { recordFreda(.missed(missed)) }
+    }
+
+    private func recordFreda(_ check: FredaCheck) {
+        guard let flight = currentFlight else { return }
+        // Read before the write: with optional chaining, the right-hand side of `currentFlight?.x = …`
+        // is evaluated inside the write access to `currentFlight`, an exclusivity violation.
+        let checks = (flight.fredaChecks ?? []) + [check]
+        currentFlight?.fredaChecks = checks
+        checkpointActiveFlight(force: true)
+    }
+
+    /// A FREDA just done, offered back by the undo toast for six seconds, as a memory check is.
+    struct FredaConfirmation: Identifiable, Equatable {
+        let id: UUID
+        let doneAt: Date
+        fileprivate let previous: FredaSchedule
+        fileprivate let recordId: UUID
+    }
+
+    /// Set by FREDA done, cleared by its toast (UNDO, or the six seconds up).
+    private(set) var fredaConfirmation: FredaConfirmation?
+
+    /// FREDA done: the slot (when due), or the FREDA button (due, or early, at a turning point of the
+    /// pilot's own). Recorded on the flight, and the count starts again from now.
+    func confirmFreda(at date: Date = Date()) {
+        guard fredaApplies, freda.isRunning else { return }
+        let previous = freda
+        let record = FredaCheck.done(at: date, due: freda.due)
+        recordFreda(record)
+        freda.start(at: date, after: .freda)
+        fredaConfirmation = FredaConfirmation(id: UUID(), doneAt: date, previous: previous, recordId: record.id)
+    }
+
+    /// UNDO on FREDA's toast: the record goes, and the count is as it was. Cruise left since, a FREDA
+    /// that was due is missed after all.
+    func undoFredaConfirmation(_ id: UUID) {
+        guard let confirmation = fredaConfirmation, confirmation.id == id else { return }
+        fredaConfirmation = nil
+        if let flight = currentFlight {
+            let kept = (flight.fredaChecks ?? []).filter { $0.id != confirmation.recordId }
+            currentFlight?.fredaChecks = kept.isEmpty ? nil : kept
         }
+        if fredaApplies {
+            freda = confirmation.previous
+        } else if let due = confirmation.previous.due {
+            recordFreda(.missed(due))
+        }
+        checkpointActiveFlight(force: true)
     }
 
-    /// Start / re-arm the cruise-check countdown from the full interval. One method backs every gesture:
-    /// tap-to-start (idle), tap-to-acknowledge (due), and hold-to-reset (any time). (v4 UI/UX Revamp — manual start)
-    func armCruiseCheck() {
-        cruiseCheckStartTime = Date()
-        cruiseCheckDue = false
+    /// The toast's six seconds are up.
+    func dismissFredaConfirmation(_ id: UUID) {
+        if fredaConfirmation?.id == id { fredaConfirmation = nil }
     }
 
-    /// Acknowledge a due cruise check — identical to re-arming the countdown. (v4 UI/UX Revamp)
-    func acknowledgeCruiseCheck() { armCruiseCheck() }
+    #if DEBUG
+    /// DEV-ONLY (`AEROCHECK_FREDA`, captures): FREDA's count as if the cruise check was done at `date`.
+    func startFredaForCapture(at date: Date) {
+        guard fredaApplies else { return }
+        freda.start(at: date, after: .cruiseCheck)
+    }
+    #endif
     /// Set when a flight start is refused (e.g. a premium aircraft's checklist isn't loaded, or
     /// location permission is denied). Observed by the UI to show an explanatory alert. (ARCH-01/UX-13)
     var flightStartError: String?
@@ -968,6 +1035,10 @@ class AppState {
     /// device, overwrote the real flight's with its own content, or ended it.
     private let syncManager: SyncManager?
     private let liveActivity: FlightActivityController?
+    /// What the logbook teaches planning (allowances, cruise speeds), learned again as flights are
+    /// added. The app's AppState takes the shared store; a confined one (a test's) none, unless given
+    /// one: it must not overwrite what the app learned from the pilot's real logbook. (6.1)
+    @ObservationIgnored let eetCalibration: EETCalibrationStore?
 
     /// The latest load of the logbook from disk (at launch, or after the switch moved the store).
     /// CloudKit's catch-up waits for it: before it lands, `flights` is empty or the old store's.
@@ -983,12 +1054,13 @@ class AppState {
     /// `syncManager` is for the tests that drive the switch against a stand-in engine; left nil, the
     /// app's AppState takes `SyncManager.shared` and a confined one takes none.
     init(defaults: UserDefaults = .standard, persistence: DataPersistenceManager? = nil,
-         syncManager: SyncManager? = nil) {
+         syncManager: SyncManager? = nil, eetCalibration: EETCalibrationStore? = nil) {
         let persistence = persistence ?? DataPersistenceManager.shared
         self.persistence = persistence
         self.defaults = defaults
         self.syncManager = syncManager ?? (persistence.followsICloud ? SyncManager.shared : nil)
         self.liveActivity = persistence.followsICloud ? FlightActivityController.shared : nil
+        self.eetCalibration = eetCalibration ?? (persistence.followsICloud ? EETCalibrationStore.shared : nil)
 
         // Load settings synchronously (fast, needed for initial UI)
         loadSettings()
@@ -1052,6 +1124,8 @@ class AppState {
 
         flights = await persistence.loadFlightsOffMain()
         isLoadingFlights = false
+        // First use, or a logbook changed since (a flight synced in while the app was closed). (6.1)
+        eetCalibration?.refresh(from: flights)
 
         // Auto-complete onboarding for existing users (they already know the app)
         if !settings.hasCompletedOnboarding && !flights.isEmpty {
@@ -1112,6 +1186,7 @@ class AppState {
             for (id, previous) in previousById where !incomingIds.contains(id) {
                 self.persistence.deleteFlight(previous)
             }
+            self.eetCalibration?.refresh(from: flights)
             AppLog.general.debugLine("Flights updated from iCloud sync")
         }
 
@@ -1300,6 +1375,8 @@ class AppState {
         engineShutdownTime = nil
         phaseCompletionStatus = [:]
         memoryConfirmation = nil
+        freda = FredaSchedule()
+        fredaConfirmation = nil
         deferredItems = [:]
         deferredChecks = []
         highestCompletedPhase = .preflight
@@ -1318,6 +1395,8 @@ class AppState {
     func endFlight(withFlightPlan flightPlan: FlightPlan? = nil) {
         // Measured times first, whatever path ended the flight. (v5.2)
         refineTimingFromTrack()
+        // Ended in cruise with FREDA due: missed, on the flight before it is saved. (6.1)
+        stopFreda()
         guard var flight = currentFlight else { return }
 
         flight.stopTime = Date()
@@ -1350,6 +1429,8 @@ class AppState {
         flight.computeSummaryStats()
 
         flights.insert(flight, at: 0)
+        // What this flight teaches the next plans: its departure, its arrival, its cruise. (6.1)
+        eetCalibration?.refresh(from: flights, force: true)
         // PR-14: persist the just-finished flight with a CONFIRMED write before discarding the
         // crash-recovery checkpoint (active_flight.json) — the only durable copy of this flight.
         // PR-09: saveFlight persists + syncs ONLY this flight; loadFlights scans the directory, so
@@ -1366,6 +1447,8 @@ class AppState {
         engineShutdownTime = nil
         phaseCompletionStatus = [:]
         memoryConfirmation = nil
+        freda = FredaSchedule()
+        fredaConfirmation = nil
         deferredItems = [:]
         deferredChecks = []
         currentPhase = .preflight
@@ -1387,6 +1470,9 @@ class AppState {
     }
 
     func cancelFlight() {
+        // Nothing of an abandoned flight is kept, its FREDAs included.
+        freda = FredaSchedule()
+        fredaConfirmation = nil
         currentFlight = nil
         isFlightActive = false
         isCircuitMode = false
@@ -1432,9 +1518,9 @@ class AppState {
     func markLastItemComplete(learningMode: Bool) {
         let visibleCount = activeChecklist.visibleItemCount(for: currentPhase, learningMode: learningMode)
         currentHighlightedItem[currentPhase] = ChecklistHighlighting.lastItemComplete(visibleCount: visibleCount)
-        // Completing the Cruise checklist auto-starts the cruise-check countdown — running the check IS
-        // the trigger, so the pilot never has to remember to start the timer. (v4 UI/UX Revamp)
-        if currentPhase == .cruise { armCruiseCheck() }
+        // The cruise check done starts FREDA's count: running the check is the trigger, so there is no
+        // timer to remember to start. (v4 UI/UX Revamp; FREDA since 6.1)
+        if currentPhase == .cruise { startFredaAfterCruiseCheck() }
     }
 
     /// Check if all items in current phase are completed. `learningMode` = effective mode.
@@ -1744,8 +1830,17 @@ class AppState {
         let confirmedAt: Date
         fileprivate let previousHighlight: Int?
         fileprivate let previousStatus: PhaseCompletionStatus?
-        fileprivate let previousCruiseStart: Date?
-        fileprivate let previousCruiseDue: Bool
+        fileprivate let previousFreda: FredaSchedule
+        /// Set when the same tap moved on to the next check (the checklist pane's ✓ DONE · NEXT).
+        fileprivate var movedOn: MovedOn?
+
+        /// Where the tap went, and the checklist as it stood before it and right after it: UNDO puts
+        /// the "before" back when nothing has happened since. (6.1)
+        fileprivate struct MovedOn: Equatable {
+            let to: ChecklistPhase
+            let before: ChecklistProgress
+            let after: ChecklistProgress
+        }
     }
 
     /// Set by a confirmation, cleared by its toast (UNDO, or the six seconds up).
@@ -1763,12 +1858,42 @@ class AppState {
         let confirmation = MemoryConfirmation(id: UUID(), phase: phase, confirmedAt: Date(),
                                               previousHighlight: currentHighlightedItem[phase],
                                               previousStatus: phaseCompletionStatus[phase],
-                                              previousCruiseStart: cruiseCheckStartTime,
-                                              previousCruiseDue: cruiseCheckDue)
+                                              previousFreda: freda)
         markDoneFromMemory(phase, stayingInPhase: phase == currentPhase)
         memoryConfirmation = confirmation
-        // Running the cruise check starts the cruise reminder, however it was run.
-        if phase == .cruise && phase == currentPhase { armCruiseCheck() }
+        // The cruise check done starts FREDA's count, however it was done.
+        if phase == .cruise && phase == currentPhase { startFredaAfterCruiseCheck() }
+        checkpointActiveFlight(force: true)
+    }
+
+    /// Where the checklist pane's ✓ DONE moves on to, in the same tap: the next check. Nil when it only
+    /// confirms: no memory check to confirm, the last check, or the phase's own action (ENGINE START,
+    /// READY FOR LINE UP, ENGINE SHUTDOWN) still to press, since going on would record the check red.
+    /// (6.1, author's decision: one tap on the CHECKLIST page)
+    var memoryConfirmationMovesTo: ChecklistPhase? {
+        guard currentCheckAwaitsConfirmation,
+              !currentPhase.hasMissingRequiredAction(engineStarted: engineStartTime != nil,
+                                                    linedUp: lineUpTime != nil,
+                                                    engineShutDown: engineShutdownTime != nil) else { return nil }
+        return currentPhase.nextNavigable(circuitMode: isCircuitMode)
+    }
+
+    /// ✓ <CHECK> DONE · NEXT: <CHECK> on the checklist pane (and the Companion's): the memory check
+    /// recorded done from memory and the next check opened, in one tap. The toast's UNDO takes both back
+    /// (`undoMemoryConfirmation`). Where it can't move on (`memoryConfirmationMovesTo` is nil) it only
+    /// confirms. The map's check slot keeps its confirm that stays on the check.
+    func confirmMemoryCheckAndAdvance() {
+        guard memoryConfirmationMovesTo != nil else {
+            confirmMemoryCheck()
+            return
+        }
+        let phase = currentPhase
+        let before = checklistProgress
+        confirmMemoryCheck()
+        guard var confirmation = memoryConfirmation, confirmation.phase == phase else { return }
+        nextPhase()
+        confirmation.movedOn = .init(to: currentPhase, before: before, after: checklistProgress)
+        memoryConfirmation = confirmation
         checkpointActiveFlight(force: true)
     }
 
@@ -1783,18 +1908,39 @@ class AppState {
         phaseCompletionStatus[phase] = actionMissing && !stayingInPhase ? .missingAction : .doneFromMemory
     }
 
-    /// UNDO on the confirmation's toast. Still on that check: it is open again, as it was. Moved on
-    /// since (NEXT within the six seconds): it was left unconfirmed after all, so it is deferred whole.
+    /// UNDO on the confirmation's toast.
+    ///
+    /// - Still on that check: it is open again, as it was.
+    /// - The same tap moved on (✓ DONE · NEXT), and the pilot is still on the check it opened: back to
+    ///   the confirmed check, open again. Nothing done since, the checklist is exactly as before the tap
+    ///   (phase bar, deferred list, highlights). Something done since in the check moved to (a CHECK,
+    ///   say): that stays, as when going back on the phase bar, and the confirmed check is open again.
+    /// - Moved on further since (NEXT within the six seconds): it was left unconfirmed after all, so
+    ///   it is deferred whole.
     func undoMemoryConfirmation(_ id: UUID) {
         guard let confirmation = memoryConfirmation, confirmation.id == id else { return }
         memoryConfirmation = nil
+        if let movedOn = confirmation.movedOn, currentPhase == movedOn.to {
+            if checklistProgress == movedOn.after {
+                checklistProgress = movedOn.before
+            } else {
+                currentHighlightedItem[confirmation.phase] = confirmation.previousHighlight
+                phaseCompletionStatus[confirmation.phase] = confirmation.previousStatus
+                if highestCompletedPhase == confirmation.phase {
+                    highestCompletedPhase = movedOn.before.highestCompletedPhase
+                }
+                enterPhase(confirmation.phase)
+            }
+            hiddenItemsRevealed = false
+            if currentPhase != .cruise { stopFreda() }
+            if confirmation.phase == .cruise { freda = confirmation.previousFreda }
+            checkpointActiveFlight(force: true)
+            return
+        }
         currentHighlightedItem[confirmation.phase] = confirmation.previousHighlight
         if confirmation.phase == currentPhase {
             phaseCompletionStatus[confirmation.phase] = confirmation.previousStatus
-            if confirmation.phase == .cruise {
-                cruiseCheckStartTime = confirmation.previousCruiseStart
-                cruiseCheckDue = confirmation.previousCruiseDue
-            }
+            if confirmation.phase == .cruise { freda = confirmation.previousFreda }
         } else {
             deferWhole(confirmation.phase)
         }

@@ -186,6 +186,380 @@
         }
       }
     },
+    "eet.departure": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "departure %1$@ at %2$@ (%3$@)"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "départ %1$@ à %2$@ (%3$@)"
+          }
+        }
+      }
+    },
+    "eet.departureAnywhere": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "departure %1$@ (%2$@)"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "départ %1$@ (%2$@)"
+          }
+        }
+      }
+    },
+    "eet.arrival": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "arrival %1$@ at %2$@ (%3$@)"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "arrivée %1$@ à %2$@ (%3$@)"
+          }
+        }
+      }
+    },
+    "eet.arrivalAnywhere": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "arrival %1$@ (%2$@)"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "arrivée %1$@ (%2$@)"
+          }
+        }
+      }
+    },
+    "eet.cruise": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "cruise %1$@ KIAS (%2$@)"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "croisière %1$@ KIAS (%2$@)"
+          }
+        }
+      }
+    },
+    "eet.flights": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%d flights"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%d vols"
+          }
+        }
+      }
+    },
+    "eet.allAerodromes": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "all aerodromes, %d flights"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "tous aérodromes, %d vols"
+          }
+        }
+      }
+    },
+    "eet.standard": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "default"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "par défaut"
+          }
+        }
+      }
+    },
+    "eet.cruiseManual": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "your figure"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "votre valeur"
+          }
+        }
+      }
+    },
+    "eet.cruiseLearned": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "learned, %d flights"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "appris, %d vols"
+          }
+        }
+      }
+    },
+    "eet.cruiseAircraftData": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "aircraft data"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "données de l'avion"
+          }
+        }
+      }
+    },
+    "eet.planningGroup": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Planning"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Préparation"
+          }
+        }
+      }
+    },
+    "eet.cruiseRow": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cruise speed"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vitesse de croisière"
+          }
+        }
+      }
+    },
+    "eet.cruiseRowFooter": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Indicated, at the power you cruise at. Every leg is timed with it, as a true airspeed at the leg's altitude. Your figure wins; otherwise what your flights in this aircraft show (from 5 flights), then the aircraft's data, then 100 kt."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Indiquée, à la puissance de croisière. Le temps de chaque branche en est calculé, en vitesse propre à l'altitude de la branche. Votre valeur prime ; sinon ce que montrent vos vols sur cet avion (dès 5 vols), puis les données de l'avion, puis 100 kt."
+          }
+        }
+      }
+    },
+    "eet.sourceManual": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Your figure for %@"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Votre valeur pour %@"
+          }
+        }
+      }
+    },
+    "eet.sourceLearned": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Learned from %d flights"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Appris de %d vols"
+          }
+        }
+      }
+    },
+    "eet.sourceAircraftData": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "From the aircraft's data"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Selon les données de l'avion"
+          }
+        }
+      }
+    },
+    "eet.sourceStandard": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Default: no figure for this aircraft"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Par défaut : aucune valeur pour cet avion"
+          }
+        }
+      }
+    },
+    "eet.useAutomatic": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Use the automatic figure"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Revenir à la valeur automatique"
+          }
+        }
+      }
+    },
+    "eet.trueAirspeedNote": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "≈ %@ kt TAS at 5,000 ft"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "≈ %@ kt TAS à 5000 ft"
+          }
+        }
+      }
+    },
+    "pdf.eetBasis": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "EET basis"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Base de l'EET"
+          }
+        }
+      }
+    },
+    "nav.airspeedFromAircraft": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Empty: the aircraft's cruise speed at this leg's altitude"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vide : la vitesse de croisière de l'avion à l'altitude de la branche"
+          }
+        }
+      }
+    },
     "a11y.phase.doneFromMemory": {
       "extractionState": "manual",
       "localizations": {
@@ -454,6 +828,142 @@
           "stringUnit": {
             "state": "translated",
             "value": "Ouvre la checklist"
+          }
+        }
+      }
+    },
+    "a11y.phase.fredaDue": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "FREDA due"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "FREDA à faire"
+          }
+        }
+      }
+    },
+    "cockpit.fromMemoryThenNext": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "NEXT: %@ · from memory"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "SUIVANT : %@ · de mémoire"
+          }
+        }
+      }
+    },
+    "freda.afterCruiseCheck": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "FREDA, after the cruise check"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "FREDA, après la vérification de croisière"
+          }
+        }
+      }
+    },
+    "freda.confirmHint": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Records FREDA done"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Enregistre le FREDA fait"
+          }
+        }
+      }
+    },
+    "freda.doneToast": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "FREDA done at %@"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "FREDA fait à %@"
+          }
+        }
+      }
+    },
+    "freda.flowSpelledOut": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "FREDA: fuel, radio, engine, direction, altimeter"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "FREDA : carburant, radio, moteur, direction, altimètre"
+          }
+        }
+      }
+    },
+    "freda.inMinutes": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "FREDA in %lld min"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "FREDA dans %lld min"
+          }
+        }
+      }
+    },
+    "freda.waypointPassed": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ passed"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "après %@"
           }
         }
       }
@@ -1336,6 +1846,329 @@
         }
       }
     },
+    "planFlight.aerodromesOnRoute": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aerodromes on this route"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aérodromes sur cette route"
+          }
+        }
+      }
+    },
+    "planFlight.inFlyingOrder": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "in flying order"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "dans l’ordre du vol"
+          }
+        }
+      }
+    },
+    "planFlight.noAerodromesOnRoute": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No aerodrome within 5 NM of this route. Land somewhere else to split it."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aucun aérodrome à moins de 5 NM de cette route. Atterrissez ailleurs pour la diviser."
+          }
+        }
+      }
+    },
+    "planFlight.moreNearRoute": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Show %lld more within 5 NM"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Afficher %lld autres à moins de 5 NM"
+          }
+        }
+      }
+    },
+    "planFlight.landHere": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Land here"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Atterrir ici"
+          }
+        }
+      }
+    },
+    "planFlight.landAt": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Land at %@"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Atterrir à %@"
+          }
+        }
+      }
+    },
+    "planFlight.landElsewhere": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Land somewhere else…"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Atterrir ailleurs…"
+          }
+        }
+      }
+    },
+    "planFlight.splitFrom": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "split from “%@”"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "tirées de « %@ »"
+          }
+        }
+      }
+    },
+    "planFlight.routeLegsExplainer": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Each leg keeps its part of the route and is its own flight: nav log, ATC flight plan and logbook line. Weather, NOTAM and DABS are prepared once for the trip."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chaque étape garde sa part de la route et est un vol à part entière : log de navigation, plan de vol ATC et ligne de carnet de vol. Météo, NOTAM et DABS se préparent une seule fois pour le voyage."
+          }
+        }
+      }
+    },
+    "planFlight.routeLandingAt": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@, landing at %2$@"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@, avec escale à %2$@"
+          }
+        }
+      }
+    },
+    "planFlight.legsTotalRoute": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@ · %2$@ flying"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@ · %2$@ de vol"
+          }
+        }
+      }
+    },
+    "addStops.explainer": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Each stop you tick adds a leg: the flight becomes a trip, each leg with its own logbook line, ATC flight plan, nav log and close-out."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chaque escale cochée ajoute une étape : le vol devient un voyage, chaque étape avec sa ligne de carnet de vol, son plan de vol ATC, son log de navigation et sa clôture."
+          }
+        }
+      }
+    },
+    "addStops.localHint": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aerodromes within %1$lld NM of %2$@, nearest first. Tick them in the order you will land there."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aérodromes à moins de %1$lld NM de %2$@, les plus proches d’abord. Cochez-les dans l’ordre où vous y atterrirez."
+          }
+        }
+      }
+    },
+    "addStops.noLocalCandidates": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No aerodrome within %lld NM. Search for one above."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aucun aérodrome à moins de %lld NM. Recherchez-en un ci-dessus."
+          }
+        }
+      }
+    },
+    "addStops.tickStops": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tick the aerodromes to land at"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cochez les aérodromes où atterrir"
+          }
+        }
+      }
+    },
+    "addStops.splitInto": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Split into %lld legs"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Diviser en %lld étapes"
+          }
+        }
+      }
+    },
+    "addStops.stopAt": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Stop at %@"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Escale à %@"
+          }
+        }
+      }
+    },
+    "addStops.leavesEstimated": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Leaves ≈ %@, when the leg before lands plus the time on the ground."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Départ ≈ %@ : à l’atterrissage de l’étape précédente, plus le temps au sol."
+          }
+        }
+      }
+    },
+    "addStops.leavesChosen": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Leaves at %@, the time you chose. A new time on the ground estimates it again."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Départ à %@, l’heure que vous avez choisie. Un nouveau temps au sol la réestime."
+          }
+        }
+      }
+    },
     "home.otherDayTitle": {
       "extractionState": "manual",
       "localizations": {
@@ -1859,6 +2692,176 @@
           "stringUnit": {
             "state": "translated",
             "value": "Voyage · étape %1$d sur %2$d"
+          }
+        }
+      }
+    },
+    "tripCard.kind": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Trip"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Voyage"
+          }
+        }
+      }
+    },
+    "tripCard.nextForLeg": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Next: %1$@ for leg %2$d"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Suivant : %1$@ pour l'étape %2$d"
+          }
+        }
+      }
+    },
+    "tripCard.nextForTrip": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Next: %@ for the trip"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Suivant : %@ pour le voyage"
+          }
+        }
+      }
+    },
+    "tripCard.legAllTicked": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Leg %d: everything ticked"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Étape %d : tout est coché"
+          }
+        }
+      }
+    },
+    "tripCard.tripChecks": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$d/%2$d trip checks done"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$d/%2$d vérifications du voyage faites"
+          }
+        }
+      }
+    },
+    "tripCard.startLeg": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Leg %1$d · %2$@"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Étape %1$d · %2$@"
+          }
+        }
+      }
+    },
+    "tripCard.legOf": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Leg %1$d of %2$d"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Étape %1$d sur %2$d"
+          }
+        }
+      }
+    },
+    "tripCard.legs": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Legs"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Étapes"
+          }
+        }
+      }
+    },
+    "tripCard.nextLeg": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Next"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Prochaine"
+          }
+        }
+      }
+    },
+    "tripCard.flown": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Flown"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Volée"
           }
         }
       }
@@ -4958,23 +5961,6 @@
         }
       }
     },
-    "trip.routeStopsHint": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "A route makes one flight. Once it is created, use “Add a stop…” on the flight to land on the way."
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Une route crée un seul vol. Une fois créé, utilisez « Ajouter une escale… » sur le vol pour atterrir en chemin."
-          }
-        }
-      }
-    },
     "trip.landedAt": {
       "extractionState": "manual",
       "localizations": {
@@ -5468,23 +6454,6 @@
         }
       }
     },
-    "trip.addStopExplainer": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "A stop turns this flight into two legs of one trip, each with its own logbook line, ATC flight plan, nav log and close-out."
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Une escale transforme ce vol en deux étapes d’un même voyage, chacune avec sa ligne de carnet de vol, son plan de vol ATC, son log de navigation et sa clôture."
-          }
-        }
-      }
-    },
     "trip.searchAerodrome": {
       "extractionState": "manual",
       "localizations": {
@@ -5570,40 +6539,6 @@
         }
       }
     },
-    "trip.groundTime": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "On the ground: %lld min"
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Au sol : %lld min"
-          }
-        }
-      }
-    },
-    "trip.refuel": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Refuel at the stop"
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Faire le plein à l’escale"
-          }
-        }
-      }
-    },
     "trip.refuelHint": {
       "extractionState": "manual",
       "localizations": {
@@ -5617,23 +6552,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Sans plein, l’étape suivante part avec le carburant restant après celle-ci."
-          }
-        }
-      }
-    },
-    "trip.split": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Split into two legs"
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Diviser en deux étapes"
           }
         }
       }
@@ -6932,7 +7850,7 @@
         }
       }
     },
-    "%1$@ still has %2$lld item(s) open in Plan and Prepare." : {
+    "%@ still has %lld item(s) open in Plan and Prepare." : {
       "localizations" : {
         "fr" : {
           "stringUnit" : {
@@ -7032,7 +7950,7 @@
         }
       }
     },
-    "Next: %1$@ · %2$lld open in Plan and Prepare" : {
+    "Next: %@ · %lld open in Plan and Prepare" : {
       "localizations" : {
         "fr" : {
           "stringUnit" : {
@@ -7248,16 +8166,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Exporter le carnet en PDF"
-          }
-        }
-      }
-    },
-    "Page %1$lld of %2$lld" : {
-      "localizations" : {
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Page %1$lld sur %2$lld"
           }
         }
       }
@@ -8304,7 +9212,7 @@
         }
       }
     },
-    "%1$lld/%2$lld layers" : {
+    "%lld/%lld layers" : {
       "localizations" : {
         "fr" : {
           "stringUnit" : {
@@ -8344,7 +9252,7 @@
         }
       }
     },
-    "Leg %1$lld of %2$lld" : {
+    "Leg %lld of %lld" : {
       "localizations" : {
         "fr" : {
           "stringUnit" : {
@@ -8354,7 +9262,7 @@
         }
       }
     },
-    "TRIP · %1$lld of %2$lld" : {
+    "TRIP · %lld of %lld" : {
       "localizations" : {
         "fr" : {
           "stringUnit" : {
@@ -12133,23 +13041,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "effectuée"
-          }
-        }
-      }
-    },
-    "a11y.phase.cruiseCheckDue": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "cruise check due"
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "vérification de croisière à effectuer"
           }
         }
       }
@@ -17984,22 +18875,6 @@
         }
       }
     },
-    "nav.checkNow": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "CHECK NOW"
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "VÉRIFIER"
-          }
-        }
-      }
-    },
     "nav.collapseProfile": {
       "extractionState": "manual",
       "localizations": {
@@ -18097,22 +18972,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Horamètre fin"
-          }
-        }
-      }
-    },
-    "nav.cruise": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "CRUISE"
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "CROISIÈRE"
           }
         }
       }
@@ -18673,23 +19532,6 @@
         }
       }
     },
-    "nav.fredaCheck": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Cruise Check"
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Contrôle croisière"
-          }
-        }
-      }
-    },
     "nav.freq": {
       "extractionState": "manual",
       "localizations": {
@@ -18870,22 +19712,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Vitesse propre"
-          }
-        }
-      }
-    },
-    "nav.holdToReset": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "hold to reset"
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "maintenir pour réarmer"
           }
         }
       }

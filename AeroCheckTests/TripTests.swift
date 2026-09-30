@@ -694,6 +694,249 @@ extension TripTests {
         XCTAssertFalse(Stopover().refuel)
     }
 
+    // MARK: - Landing on the way, several stops at once, a leg's stop (6.1)
+
+    /// A saved route east along 47°N: LSZQ, a turning point, LSGE, a turning point, LSGN, a turning
+    /// point, LSZQ again (the positions are made up; the idents make it read like the author's trip).
+    @MainActor
+    private func savedLoop() -> FlightPlan {
+        var route = FlightPlan(name: "Tour du Jura", fuelFlow: 20, fuelOnBoard: 80)
+        route.waypoints = [("LSZQ", 7.0, 1400.0), ("W1", 7.3, 5000.0), ("LSGE", 7.6, 5000.0), ("W2", 7.9, 5000.0),
+                           ("LSGN", 8.2, 5000.0), ("W3", 8.5, 5000.0), ("LSZQ", 8.8, 1400.0)].map {
+            FlightPlanWaypoint(name: $0.0, coordinate: .init(latitude: 47.0, longitude: $0.1),
+                               altitude: $0.2, plannedGroundSpeed: 100)
+        }
+        route.calculateRouteData()
+        return route
+    }
+
+    @MainActor
+    private func field(_ ident: String, lon: Double, lat: Double = 47.0, elevation: Double = 1500) -> TripPlanner.Aerodrome {
+        TripPlanner.Aerodrome(ident: ident, name: ident, latitude: lat, longitude: lon,
+                              elevationFeet: elevation, frequency: nil, isPPR: false)
+    }
+
+    /// Plan new flight, a saved route, "Land here" at LSGE and LSGN: three legs, each keeping its part
+    /// of the route, leg 1 at the chosen time and the others estimated from their stops. The route
+    /// itself is not touched.
+    @MainActor
+    func testLandHereMakesATripFromASavedRoute() throws {
+        let datastore = makeTestDatastore()
+        let plans = makeTestPlanManager(datastore: datastore)
+        let m = makeTestThreadManager(datastore: datastore)
+        plans.nextLegPlanId = { m.nextLegPlanId(after: $0) }
+        let route = savedLoop()
+        plans.add(route)
+        var legIds: [UUID] = []
+        defer { legIds.forEach { m.deleteThread(threadId: $0) } }
+
+        let candidates = TripPlanner.stopCandidates(along: route.waypoints,
+                                                    aerodromes: [field("LSGE", lon: 7.6), field("LSGN", lon: 8.2)])
+        var landings = RouteLandings(candidates: candidates)
+        landings.setLanding(true, at: "LSGN")
+        landings.setLanding(true, at: "LSGE")
+        landings.setStopover(Stopover(groundMinutes: 45, refuel: true), at: "LSGE")
+        let departure = Date().addingTimeInterval(86_400)
+        let intent = typedTemplate(departure: departure)
+
+        let preview = TripPlanner.legs(of: FlightCreator.plan(fromRoute: route, intent: intent),
+                                       landingAt: landings.landings)
+        let trip = try XCTUnwrap(FlightCreator.formTrip(fromRoute: route, intent: intent,
+                                                        landings: landings.landings, plans: plans, threads: m))
+        legIds = trip.legIds
+        XCTAssertEqual(trip.legIds.count, 3)
+        XCTAssertEqual(m.currentThreadId, trip.legIds.first, "the trip starts with leg 1")
+        let legs = trip.legIds.compactMap { m.thread(withId: $0)?.flightPlanId }
+            .compactMap { id in plans.flightPlans.first { $0.id == id } }
+        XCTAssertEqual(legs.map { $0.waypoints.map(\.name) },
+                       [["LSZQ", "W1", "LSGE"], ["LSGE", "W2", "LSGN"], ["LSGN", "W3", "LSZQ"]])
+        XCTAssertEqual(trip.legIds.compactMap { m.thread(withId: $0)?.routeLabel },
+                       ["LSZQ → LSGE", "LSGE → LSGN", "LSGN → LSZQ"])
+        XCTAssertTrue(legs.allSatisfy { $0.flightOwned == true && $0.aircraftRegistration == "F-HVXA" })
+        XCTAssertEqual(legs[0].plannedDepartureTime, departure)
+        XCTAssertEqual(legs[1].stopover, Stopover(groundMinutes: 45, refuel: true))
+        XCTAssertEqual(legs[2].stopover, Stopover())
+        XCTAssertEqual(legs.map(\.plannedDepartureTime), preview.map(\.plannedDepartureTime),
+                       "the legs leave when the legs card said they would")
+        XCTAssertNil(m.thread(withId: trip.legIds[1])?.scheduledDeparture, "an estimate arms no reminder")
+        XCTAssertEqual(plans.flightPlans.first { $0.id == route.id }?.waypoints.count, 7, "the route stays whole")
+    }
+
+    @MainActor
+    func testWithEveryLandHereOffARouteMakesNoTrip() {
+        let datastore = makeTestDatastore()
+        let plans = makeTestPlanManager(datastore: datastore)
+        let m = makeTestThreadManager(datastore: datastore)
+        XCTAssertNil(FlightCreator.formTrip(fromRoute: savedLoop(), intent: typedTemplate(departure: nil),
+                                            landings: [], plans: plans, threads: m))
+        XCTAssertTrue(m.threads.isEmpty, "no leg made for nothing")
+        XCTAssertTrue(plans.flightPlans.isEmpty)
+    }
+
+    /// "Add a stop…" with two stops ticked, the later one first: one split, three legs in flying order,
+    /// the flight itself leg 1 and still the one followed.
+    @MainActor
+    func testSeveralStopsInOnePassMakeTheLegsInFlyingOrder() throws {
+        let datastore = makeTestDatastore()
+        let plans = makeTestPlanManager(datastore: datastore)
+        let m = makeTestThreadManager(datastore: datastore)
+        plans.nextLegPlanId = { m.nextLegPlanId(after: $0) }
+        var route = savedLoop()
+        route.plannedDepartureTime = Date().addingTimeInterval(86_400)
+        route.calculateRouteData()
+        plans.add(route)
+        let thread = m.createThread(from: route)
+        var threadIds = [thread.id]
+        defer { threadIds.forEach { m.deleteThread(threadId: $0) } }
+
+        let found = TripPlanner.stopCandidates(along: route.waypoints,
+                                               aerodromes: [field("LSGE", lon: 7.6), field("LSGN", lon: 8.2)])
+        let ticked = found.reversed().map { TripPlanner.Landing(candidate: $0) }
+        let added = FlightCreator.addStops(to: thread.id, landingAt: ticked, plans: plans, threads: m)
+        threadIds += added.map(\.id)
+
+        XCTAssertEqual(added.map(\.routeLabel), ["LSGE → LSGN", "LSGN → LSZQ"])
+        XCTAssertEqual(m.trip(forThreadId: thread.id)?.legIds, [thread.id] + added.map(\.id))
+        XCTAssertEqual(m.thread(withId: thread.id)?.routeLabel, "LSZQ → LSGE")
+        XCTAssertEqual(m.currentThreadId, thread.id, "the pilot is still on this flight")
+        let first = try XCTUnwrap(plans.flightPlans.first { $0.id == route.id })
+        XCTAssertEqual(first.waypoints.map(\.name), ["LSZQ", "W1", "LSGE"])
+        let last = try XCTUnwrap(plans.flightPlans.first { $0.id == added.last?.flightPlanId })
+        XCTAssertEqual(last.waypoints.map(\.name), ["LSGN", "W3", "LSZQ"])
+        XCTAssertNotNil(last.plannedDepartureTime, "estimated down the whole chain")
+    }
+
+    /// Stops added to leg 1 of a trip go between it and the leg that followed, which then leaves after
+    /// the last of them.
+    @MainActor
+    func testStopsAddedToALegGoBeforeTheNextLeg() throws {
+        // Timed without winds: a forecast in the cache would time the moved legs at another hour.
+        let winds = FlightPlan.windsAloftProvider
+        FlightPlan.windsAloftProvider = nil
+        defer { FlightPlan.windsAloftProvider = winds }
+        let datastore = makeTestDatastore()
+        let plans = makeTestPlanManager(datastore: datastore)
+        let m = makeTestThreadManager(datastore: datastore)
+        plans.nextLegPlanId = { m.nextLegPlanId(after: $0) }
+        var route = savedLoop()
+        route.plannedDepartureTime = Date().addingTimeInterval(86_400)
+        route.calculateRouteData()
+        plans.add(route)
+        let thread = m.createThread(from: route)
+        var threadIds = [thread.id]
+        defer { threadIds.forEach { m.deleteThread(threadId: $0) } }
+        // A trip already: LSZQ → … → LSGN, then LSGN → … → LSZQ.
+        let lsgn = try XCTUnwrap(TripPlanner.stopCandidates(along: route.waypoints,
+                                                            aerodromes: [field("LSGN", lon: 8.2)]).first)
+        let next = try XCTUnwrap(FlightCreator.addStop(to: thread.id, at: lsgn, stopover: Stopover(),
+                                                       plans: plans, threads: m))
+        threadIds.append(next.id)
+        let before = plans.flightPlans.first { $0.id == next.flightPlanId }?.plannedDepartureTime
+
+        let leg1 = try XCTUnwrap(plans.flightPlans.first { $0.id == route.id })
+        let lsge = try XCTUnwrap(TripPlanner.stopCandidates(along: leg1.waypoints,
+                                                            aerodromes: [field("LSGE", lon: 7.6)]).first)
+        let added = FlightCreator.addStops(to: thread.id,
+                                           landingAt: [TripPlanner.Landing(candidate: lsge,
+                                                                           stopover: Stopover(groundMinutes: 60))],
+                                           plans: plans, threads: m)
+        threadIds += added.map(\.id)
+        XCTAssertEqual(m.trip(forThreadId: thread.id)?.legIds, [thread.id] + added.map(\.id) + [next.id])
+        let after = plans.flightPlans.first { $0.id == next.flightPlanId }?.plannedDepartureTime
+        XCTAssertEqual(try XCTUnwrap(after).timeIntervalSince(try XCTUnwrap(before)), 60 * 60 + 5 * 60 * 2, accuracy: 1,
+                       "an hour on the ground at LSGE, and a landing and a take-off's allowances")
+    }
+
+    /// A local flight (LSZQ, out and back) takes stops: out to each in the order ticked, and home.
+    /// Circuits stay circuits.
+    @MainActor
+    func testALocalFlightTakesStopsOutAndBack() throws {
+        let datastore = makeTestDatastore()
+        let plans = makeTestPlanManager(datastore: datastore)
+        let m = makeTestThreadManager(datastore: datastore)
+        plans.nextLegPlanId = { m.nextLegPlanId(after: $0) }
+        var local = FlightPlan.from(intent: {
+            var intent = typedTemplate(departure: Date().addingTimeInterval(86_400))
+            intent.departureIdent = "LSZQ"
+            intent.arrivalIdent = "LSZQ"
+            return intent
+        }()) { self.typedFields[$0] }
+        local.flightOwned = true
+        XCTAssertEqual(local.waypoints.map(\.name), ["LSZQ"], "FROM = TO is one waypoint")
+        plans.add(local)
+        let thread = m.createThread(from: local)
+        var threadIds = [thread.id]
+        defer { threadIds.forEach { m.deleteThread(threadId: $0) } }
+        XCTAssertTrue(FlightCreator.canAddStop(to: thread, plans: plans), "a local flight can land on the way now")
+
+        let around = TripPlanner.stopCandidates(around: local.waypoints[0].coordinate, aerodromes: [
+            field("LSGE", lon: 7.0761, lat: 46.7550, elevation: 2293),
+            field("LSGN", lon: 6.8647, lat: 46.9575, elevation: 1439),
+        ])
+        XCTAssertEqual(around.map(\.aerodrome.ident), ["LSGN", "LSGE"], "nearest first: 26 NM, then 38 NM")
+        let lsge = try XCTUnwrap(around.first { $0.aerodrome.ident == "LSGE" })
+        let lsgn = try XCTUnwrap(around.first { $0.aerodrome.ident == "LSGN" })
+        let added = FlightCreator.addStops(to: thread.id,
+                                           landingAt: [TripPlanner.Landing(candidate: lsge),
+                                                       TripPlanner.Landing(candidate: lsgn)],
+                                           plans: plans, threads: m)
+        threadIds += added.map(\.id)
+        XCTAssertEqual(([thread.id] + added.map(\.id)).compactMap { m.thread(withId: $0)?.routeLabel },
+                       ["LSZQ → LSGE", "LSGE → LSGN", "LSGN → LSZQ"])
+        let home = try XCTUnwrap(plans.flightPlans.first { $0.id == added.last?.flightPlanId }?.waypoints.last)
+        XCTAssertEqual(home.name, "LSZQ")
+        XCTAssertEqual(home.altitude, 1417, "back on the field, at its elevation")
+
+        let circuits = local.copy()
+        plans.add(circuits)
+        let session = m.createThread(from: circuits, profile: .local)
+        threadIds.append(session.id)
+        XCTAssertFalse(FlightCreator.canAddStop(to: session, plans: plans), "circuits stay circuits")
+    }
+
+    /// A typed trip's stop, changed on leg 2's page: leg 2 leaves 30 minutes later, and so does leg 3,
+    /// through the chain; a refuel there brings back leg 1's fuel.
+    @MainActor
+    func testEditingALegsStopMovesItsDepartureAndTheLegsAfter() throws {
+        let datastore = makeTestDatastore()
+        let plans = makeTestPlanManager(datastore: datastore)
+        let m = makeTestThreadManager(datastore: datastore)
+        plans.nextLegPlanId = { m.nextLegPlanId(after: $0) }
+        let template = typedTemplate(departure: Date().addingTimeInterval(86_400))
+        var legIds: [UUID] = []
+        defer { legIds.forEach { m.deleteThread(threadId: $0) } }
+        for (index, (from, to)) in zip(typedIdents, typedIdents.dropFirst()).enumerated() {
+            var intent = template
+            intent.departureIdent = from
+            intent.arrivalIdent = to
+            intent.departureTime = index == 0 ? template.departureTime : nil
+            var plan = FlightPlan.from(intent: intent) { self.typedFields[$0] }
+            plan.flightOwned = true
+            if index == 0 { plan.fuelOnBoard = 70 }
+            plans.add(plan)
+            legIds.append(m.createThread(from: plan, routeLabel: intent.routeLabel).id)
+        }
+        XCTAssertNotNil(m.formTrip(from: legIds))
+        FlightCreator.seedLaterLegs(legIds, plans: plans, threads: m)
+        func leg(_ i: Int) -> FlightPlan? {
+            plans.flightPlans.first { $0.id == m.thread(withId: legIds[i])?.flightPlanId }
+        }
+        let before2 = try XCTUnwrap(leg(1)?.plannedDepartureTime)
+        let before3 = try XCTUnwrap(leg(2)?.plannedDepartureTime)
+
+        XCTAssertTrue(FlightCreator.setStopover(Stopover(groundMinutes: 60, refuel: true), onLeg: legIds[1],
+                                                plans: plans, threads: m))
+        XCTAssertEqual(leg(1)?.stopover, Stopover(groundMinutes: 60, refuel: true))
+        XCTAssertEqual(leg(1)?.plannedDepartureTime, before2.addingTimeInterval(30 * 60))
+        XCTAssertEqual(leg(2)?.plannedDepartureTime, before3.addingTimeInterval(30 * 60), "the chain carries it on")
+        XCTAssertEqual(leg(1)?.fuelOnBoard, 70, "a refuel brings back the fuel the trip set off with")
+
+        XCTAssertFalse(FlightCreator.setStopover(Stopover(), onLeg: legIds[0], plans: plans, threads: m),
+                       "leg 1 has no stop in front of it")
+        XCTAssertFalse(FlightCreator.setStopover(Stopover(groundMinutes: 60, refuel: true), onLeg: legIds[1],
+                                                 plans: plans, threads: m), "no change, no write")
+    }
+
     // MARK: - Continuing after a diversion (v5.1)
 
     @MainActor
@@ -979,6 +1222,199 @@ extension TripTests {
         let next = flight("M → N", on: 2)
         let threads = [landed, next]
         XCTAssertEqual(labels(UpcomingOrder.entries(threads: threads, trips: [], now: day0), threads), ["M → N"])
+    }
+
+    // MARK: - A trip on Today and in Plan › Flights (6.1)
+
+    private var noonToday: Date { Calendar.current.startOfDay(for: Date()).addingTimeInterval(12 * 3_600) }
+
+    /// A direct leg between two of `typedFields`, with figures.
+    private func tripLegPlan(_ from: String, _ to: String, departure: Date?, estimate: Bool = false) -> FlightPlan {
+        let fields = typedFields
+        var plan = FlightPlan(name: "\(from) → \(to)")
+        plan.waypoints = [from, to].map { ident in
+            FlightPlanWaypoint(name: ident, coordinate: fields[ident]!.coordinate,
+                               altitude: 4500, plannedGroundSpeed: 100)
+        }
+        plan.plannedDepartureTime = departure
+        if estimate { plan.departureIsEstimate = true }
+        plan.calculateRouteData()
+        return plan
+    }
+
+    /// LSZQ → LSGE → LSGN → LSZQ as Plan new flight makes it: leg 1 at noon today, the other two
+    /// estimated. The plans are the test's own, by id.
+    @MainActor
+    private func threeLegTrip(_ m: FlightThreadManager) -> (trip: Trip, legs: [FlightThread], plans: [UUID: FlightPlan]) {
+        let noon = noonToday
+        let specs: [(String, String, Date, Bool)] = [("LSZQ", "LSGE", noon, false),
+                                                     ("LSGE", "LSGN", noon.addingTimeInterval(53 * 60), true),
+                                                     ("LSGN", "LSZQ", noon.addingTimeInterval(107 * 60), true)]
+        var plans: [UUID: FlightPlan] = [:]
+        let legs = specs.map { from, to, departure, estimate -> FlightThread in
+            let plan = tripLegPlan(from, to, departure: departure, estimate: estimate)
+            plans[plan.id] = plan
+            return m.createThread(from: plan)
+        }
+        let trip = m.formTrip(from: legs.map(\.id))!
+        return (trip, legs, plans)
+    }
+
+    /// What Today builds for the card, `focus` being the leg it is about.
+    @MainActor
+    private func card(_ m: FlightThreadManager, focus: FlightThread?, plans: [UUID: FlightPlan]) -> TripOverview? {
+        guard let focus, let trip = m.trip(forThreadId: focus.id) else { return nil }
+        return TripOverview(trip: trip, legs: m.legs(of: trip), focus: focus.id) { leg in
+            leg.flightPlanId.flatMap { plans[$0] }
+        }
+    }
+
+    /// A flight on its own keeps its card, and START its words.
+    @MainActor
+    func testASingleFlightKeepsItsCardAndStartSaysStartThisFlight() {
+        let m = makeTestThreadManager()
+        let single = m.createThread(from: tripLegPlan("LSZQ", "LSGE", departure: noonToday))
+        defer { m.deleteThread(threadId: single.id) }
+
+        XCTAssertNil(card(m, focus: single, plans: [:]), "not in a trip")
+        XCTAssertNil(TripOverview(trip: Trip(legIds: [single.id]), legs: [single], focus: single.id) { _ in nil },
+                     "a trip of one leg is a flight")
+        XCTAssertEqual(m.startableFlightToday?.id, single.id)
+        XCTAssertEqual(StartFlightLabel.make(hero: m.startableFlightToday, trip: nil),
+                       StartFlightLabel(title: L10n.Home.startThisFlight, leg: nil))
+        XCTAssertEqual(StartFlightLabel.make(hero: nil, trip: nil),
+                       StartFlightLabel(title: L10n.Button.startFlight, leg: nil),
+                       "nothing planned today: START starts a flight of its own")
+    }
+
+    /// M3 before the first departure: three legs, the whole route, leg 1 in focus at its time and the
+    /// others estimated, the next check of leg 1 with the trip's count, and START naming leg 1.
+    @MainActor
+    func testTodayShowsTheWholeTripAtLegOne() throws {
+        let m = makeTestThreadManager()
+        let (trip, legs, plans) = threeLegTrip(m)
+        defer { legs.forEach { m.deleteThread(threadId: $0.id) } }
+
+        let hero = try XCTUnwrap(m.startableFlightToday)
+        XCTAssertEqual(hero.id, legs[0].id)
+        let today = try XCTUnwrap(card(m, focus: hero, plans: plans))
+        XCTAssertEqual(today.legCount, 3)
+        XCTAssertEqual(today.chain, "LSZQ → LSGE → LSGN → LSZQ")
+        XCTAssertEqual(today.legs.map(\.route), ["LSZQ → LSGE", "LSGE → LSGN", "LSGN → LSZQ"])
+        XCTAssertEqual(today.legs.map(\.number), [1, 2, 3])
+        XCTAssertEqual(today.focus?.number, 1)
+        XCTAssertEqual(today.legs.map(\.isFlown), [false, false, false])
+        XCTAssertEqual(today.legs.map(\.departureIsEstimate), [false, true, true])
+        XCTAssertEqual(today.legs.map(\.departure),
+                       legs.map { plans[$0.flightPlanId!]?.plannedDepartureTime },
+                       "leg 1 at its time, the others at their estimates")
+        XCTAssertTrue(today.legs.allSatisfy { $0.distance > 0 && $0.eet > 0 })
+        XCTAssertEqual(today.totalDistance, today.legs.map(\.distance).reduce(0, +), accuracy: 0.001)
+        XCTAssertEqual(today.totalEET, today.legs.map(\.eet).reduce(0, +), accuracy: 0.001)
+
+        // The leg's own next check, with the shared ones counted as the leg page's band counts them.
+        let first = try XCTUnwrap(m.thread(withId: legs[0].id)?.nextTask)
+        XCTAssertEqual(today.next, .leg(first))
+        XCTAssertGreaterThan(today.sharedTotal, 0)
+        XCTAssertEqual(today.sharedTotal, trip.sharedTasks.count)
+        XCTAssertEqual(today.sharedDone, 0)
+        XCTAssertEqual(today.nextLine,
+                       L10n.TripCard.nextForLeg(ThreadTaskPresentation.make(for: first).title, 1)
+                       + " · " + L10n.TripCard.tripChecks(0, today.sharedTotal))
+        let shared = try XCTUnwrap(m.trip(withId: trip.id)?.sharedTasks.first)
+        m.setSharedTaskState(.done, taskId: shared.id, tripId: trip.id, fromLegId: legs[0].id)
+        XCTAssertEqual(card(m, focus: hero, plans: plans)?.sharedDone, 1, "a tick in the trip band shows here")
+
+        XCTAssertEqual(StartFlightLabel.make(hero: hero, trip: today),
+                       StartFlightLabel(title: L10n.Button.startFlight,
+                                        leg: L10n.TripCard.startLeg(1, "LSZQ → LSGE")))
+    }
+
+    /// Mid-trip: leg 1 has landed, so leg 2 is today's flight. Its chip is the one in focus, leg 1's
+    /// is ticked, START names leg 2, and a leg closed out for good stays on the card.
+    @MainActor
+    func testAfterALandingTheNextLegMovesForward() throws {
+        let m = makeTestThreadManager()
+        let (_, legs, plans) = threeLegTrip(m)
+        defer { legs.forEach { m.deleteThread(threadId: $0.id) } }
+        fly(m, legs[0].id)
+
+        let hero = try XCTUnwrap(m.startableFlightToday)
+        XCTAssertEqual(hero.id, legs[1].id)
+        let today = try XCTUnwrap(card(m, focus: hero, plans: plans))
+        XCTAssertEqual(today.focus?.number, 2)
+        XCTAssertEqual(today.legs.map(\.isFlown), [true, false, false])
+        XCTAssertEqual(today.focus?.departureIsEstimate, true, "leg 2 leaves when leg 1 lands, plus the stop")
+        XCTAssertEqual(today.next, m.thread(withId: legs[1].id)?.nextTask.map(TripOverview.Next.leg))
+        XCTAssertEqual(StartFlightLabel.make(hero: hero, trip: today),
+                       StartFlightLabel(title: L10n.Button.startFlight,
+                                        leg: L10n.TripCard.startLeg(2, "LSGE → LSGN")))
+
+        m.finishThread(threadId: legs[0].id)
+        XCTAssertEqual(m.startableFlightToday?.id, legs[1].id)
+        XCTAssertEqual(card(m, focus: hero, plans: plans)?.legs.map(\.isFlown), [true, false, false],
+                       "a leg closed out for good is still on the card, ticked")
+    }
+
+    /// After the last leg nothing is left to fly: START names no leg, and the card is about the
+    /// close-out, every leg ticked.
+    @MainActor
+    func testAfterTheLastLegEveryLegIsTickedAndStartNamesNone() throws {
+        let m = makeTestThreadManager()
+        let (_, legs, plans) = threeLegTrip(m)
+        defer { legs.forEach { m.deleteThread(threadId: $0.id) } }
+        legs.forEach { fly(m, $0.id) }
+
+        XCTAssertNil(m.startableFlightToday, "nothing left to fly today")
+        XCTAssertEqual(StartFlightLabel.make(hero: m.startableFlightToday, trip: nil),
+                       StartFlightLabel(title: L10n.Button.startFlight, leg: nil))
+        let closing = try XCTUnwrap(m.threadAwaitingCloseOut)
+        let today = try XCTUnwrap(card(m, focus: closing, plans: plans))
+        XCTAssertEqual(today.legs.map(\.isFlown), [true, true, true])
+        XCTAssertEqual(today.focusId, closing.id)
+        XCTAssertEqual(today.next, closing.nextTask.map(TripOverview.Next.leg))
+    }
+
+    /// A leg in the air: START resumes it and still says which leg.
+    @MainActor
+    func testResumingALegStillNamesIt() throws {
+        let m = makeTestThreadManager()
+        let (_, legs, plans) = threeLegTrip(m)
+        defer { legs.forEach { m.deleteThread(threadId: $0.id) } }
+        m.attachFlight(UUID(), toThreadId: legs[0].id)
+
+        let hero = try XCTUnwrap(m.startableFlightToday)
+        XCTAssertEqual(hero.state, .flying)
+        XCTAssertEqual(StartFlightLabel.make(hero: hero, trip: card(m, focus: hero, plans: plans)),
+                       StartFlightLabel(title: L10n.Home.resumeThisFlight,
+                                        leg: L10n.TripCard.startLeg(1, "LSZQ → LSGE")))
+    }
+
+    /// With the leg's own checks done the card moves on to the trip's, in chapter order and not the
+    /// debrief before the flight; with those done too, it says the leg is ticked.
+    func testOnceTheLegIsTickedTheTripsChecksAreNext() throws {
+        var leg1 = FlightThread(routeLabel: "LSZQ → LSGE")
+        leg1.tasks = [ThreadTask(key: .fuelPlanned, kind: .check, state: .done)]
+        var leg2 = FlightThread(routeLabel: "LSGE → LSZQ")
+        var trip = Trip(legIds: [leg1.id, leg2.id])
+        leg1.tripId = trip.id
+        leg2.tripId = trip.id
+        trip.sharedTasks = [ThreadTask(key: .debriefWritten, kind: .check),
+                            ThreadTask(key: .weatherBriefed, kind: .check),
+                            ThreadTask(key: .aircraftReserved, kind: .check, state: .done)]
+
+        let before = try XCTUnwrap(TripOverview(trip: trip, legs: [leg1, leg2], focus: leg1.id) { _ in nil })
+        XCTAssertEqual(before.next, .trip(trip.sharedTasks[1]), "the briefing, not the debrief")
+        XCTAssertEqual(before.nextLine,
+                       L10n.TripCard.nextForTrip(ThreadTaskPresentation.make(for: trip.sharedTasks[1]).title)
+                       + " · " + L10n.TripCard.tripChecks(1, 3))
+
+        trip.sharedTasks[1].state = .done
+        let ready = try XCTUnwrap(TripOverview(trip: trip, legs: [leg1, leg2], focus: leg1.id) { _ in nil })
+        XCTAssertNil(ready.next)
+        XCTAssertEqual(ready.nextLine, L10n.TripCard.legAllTicked(1) + " · " + L10n.TripCard.tripChecks(2, 3))
+        XCTAssertNil(TripOverview(trip: trip, legs: [leg1, leg2], focus: UUID()) { _ in nil },
+                     "a focus that isn't one of the legs shows no trip")
     }
 
     // MARK: - Names (on-device review #4)

@@ -292,4 +292,91 @@ final class NewFlightIntentTests: XCTestCase {
         XCTAssertTrue(note.contains("LSZQ"))
         XCTAssertFalse(note.contains("%@"))
     }
+
+    // MARK: - Starting at home (6.1)
+
+    private var blank: NewFlightIntent { intent(from: "", to: "") }
+
+    /// Nothing seeds the sheet (Today, Plan › Flights): FROM is the home aerodrome, and TO is home
+    /// again, back home.
+    func testANewFlightStartsAndEndsAtHome() {
+        let stops = PlannedStops.opening(for: blank, home: "lszq ")
+        XCTAssertEqual(stops.rows.map(\.ident), ["LSZQ", "LSZQ"])
+        XCTAssertEqual(stops.legCount, 1, "one flight, local until a stop or another TO")
+        XCTAssertEqual(stops.repeatedIdent, "LSZQ", "the note offers the stop on the way")
+    }
+
+    /// "Plan this again" brings its own FROM and TO; so does a flight seeded with one end only.
+    func testASeededSheetKeepsItsOwnAerodromes() {
+        XCTAssertEqual(PlannedStops.opening(for: intent(from: "LSGG", to: "LSZS"), home: "LSZQ").rows.map(\.ident),
+                       ["LSGG", "LSZS"])
+        XCTAssertEqual(PlannedStops.opening(for: intent(from: "", to: "LSGE"), home: "LSZQ").rows.map(\.ident),
+                       ["", "LSGE"])
+        XCTAssertEqual(PlannedStops.opening(for: intent(from: "LSGN", to: ""), home: "LSZQ").rows.map(\.ident),
+                       ["LSGN", ""])
+    }
+
+    func testWithoutAHomeAerodromeTheSheetOpensEmpty() {
+        XCTAssertEqual(PlannedStops.opening(for: blank, home: nil).rows.map(\.ident), ["", ""])
+        XCTAssertEqual(PlannedStops.opening(for: blank, home: "  ").rows.map(\.ident), ["", ""])
+        XCTAssertEqual(PlannedStops.opening(for: blank, home: "L$ZQ").rows.map(\.ident), ["", ""],
+                       "a value no aerodrome code can have is not a home")
+    }
+
+    // MARK: - Landing on the way, from a saved route (6.1)
+
+    private func candidate(_ ident: String, along: Double, waypoint: Int? = nil) -> TripPlanner.StopCandidate {
+        TripPlanner.StopCandidate(
+            aerodrome: TripPlanner.Aerodrome(ident: ident, name: ident, latitude: 47, longitude: 7,
+                                             elevationFeet: nil, frequency: nil, isPPR: false),
+            alongNM: along, offsetNM: waypoint == nil ? 3 : 0, waypointIndex: waypoint)
+    }
+
+    /// Every switch off is one flight; each "Land here" adds a leg, listed in flying order whatever
+    /// order they were switched on in.
+    func testEachLandHereAddsALegInFlyingOrder() {
+        var landings = RouteLandings(candidates: [candidate("LSGN", along: 60, waypoint: 5),
+                                                  candidate("LSGE", along: 40, waypoint: 3),
+                                                  candidate("LSGC", along: 80)])
+        XCTAssertEqual(landings.candidates.map(\.aerodrome.ident), ["LSGE", "LSGN", "LSGC"])
+        XCTAssertEqual(landings.legCount, 1)
+        XCTAssertTrue(landings.landings.isEmpty)
+
+        landings.setLanding(true, at: "LSGN")
+        landings.setLanding(true, at: "LSGE")
+        XCTAssertEqual(landings.landings.map(\.ident), ["LSGE", "LSGN"])
+        XCTAssertEqual(landings.legCount, 3)
+
+        landings.setLanding(false, at: "LSGE")
+        XCTAssertEqual(landings.landings.map(\.ident), ["LSGN"])
+        landings.setLanding(true, at: "XXXX")
+        XCTAssertEqual(landings.legCount, 2, "only an aerodrome on the list can be landed at")
+    }
+
+    func testAStopsGroundTimeStaysWithItsLandingUntilSwitchedOff() {
+        var landings = RouteLandings(candidates: [candidate("LSGE", along: 40, waypoint: 3)])
+        landings.setStopover(Stopover(groundMinutes: 60), at: "LSGE")
+        XCTAssertTrue(landings.landings.isEmpty, "no stop where the flight doesn't land")
+        landings.setLanding(true, at: "LSGE")
+        XCTAssertEqual(landings.landings.first?.stopover, Stopover())
+        landings.setStopover(Stopover(groundMinutes: 60, refuel: true), at: "LSGE")
+        landings.setLanding(true, at: "LSGE")
+        XCTAssertEqual(landings.landings.first?.stopover, Stopover(groundMinutes: 60, refuel: true),
+                       "switching on what is on changes nothing")
+        landings.setLanding(false, at: "LSGE")
+        landings.setLanding(true, at: "LSGE")
+        XCTAssertEqual(landings.landings.first?.stopover, Stopover(), "switched off and on, it starts over")
+    }
+
+    /// "Land somewhere else…": the aerodrome joins the list in its place along the route, switched on.
+    func testLandingSomewhereElseJoinsTheListInItsPlace() {
+        var landings = RouteLandings(candidates: [candidate("LSGE", along: 40, waypoint: 3),
+                                                  candidate("LSGN", along: 60, waypoint: 5)])
+        landings.add(candidate("LSZG", along: 50))
+        XCTAssertEqual(landings.candidates.map(\.aerodrome.ident), ["LSGE", "LSZG", "LSGN"])
+        XCTAssertEqual(landings.landings.map(\.ident), ["LSZG"])
+        landings.add(candidate("LSGE", along: 40, waypoint: 3))
+        XCTAssertEqual(landings.candidates.count, 3, "one already listed is switched on, not listed twice")
+        XCTAssertEqual(landings.landings.map(\.ident), ["LSGE", "LSZG"])
+    }
 }

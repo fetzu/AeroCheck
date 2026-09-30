@@ -323,9 +323,10 @@ struct HomeView: View {
                     intent: seed,
                     aircraft: availableAircraft,
                     savedRoutes: RouteLibrary.activeRoutes(flightPlanManager.flightPlans, threads: threadManager.threads),
-                    onCreate: { stops, intent, route in
+                    homeAerodrome: appState.settings.homeAerodromeIdent,
+                    onCreate: { planned in
                         planningNewFlight = nil
-                        createFlight(stops: stops, from: intent, route: route)
+                        createFlight(planned)
                     },
                     onCancel: { planningNewFlight = nil }
                 )
@@ -521,38 +522,101 @@ struct HomeView: View {
             .accessibilityAddTraits(.isHeader)
     }
 
-    /// Today's flight, else the flight being followed (or closed out), else an offer to plan one.
+    /// Today's flight, else the flight being followed (or closed out), else an offer to plan one. A
+    /// leg of a trip shows the trip: its legs, where the pilot is in it, what is next. (6.1 · M3)
     @ViewBuilder
     private func nextFlightSlot(isCompact: Bool) -> some View {
         if let flight = heroFlight {
-            flightHeroCard(flight, isCompact: isCompact)
+            if let trip = tripOverview(for: flight) {
+                tripCard(trip, leg: flight, isCompact: isCompact)
+            } else {
+                flightHeroCard(flight, isCompact: isCompact)
+            }
         } else if let thread = homeThread {
-            flightThreadStripCard(thread, fillsHeight: false)
+            if let trip = tripOverview(for: thread) {
+                tripCard(trip, leg: thread, isCompact: isCompact)
+            } else {
+                flightThreadStripCard(thread, fillsHeight: false)
+            }
         } else {
             planNewFlightStripCard(fillsHeight: false)
         }
     }
 
     /// START, always here. It starts today's flight when there is one (asking first if its preparation
-    /// isn't finished), a flight with the selected aircraft otherwise.
+    /// isn't finished), a flight with the selected aircraft otherwise. For a trip's leg it names the
+    /// leg, under the action: "LEG 1 · LSZQ → LSGE". (6.1 · M3)
     private func startFlightButton(isCompact: Bool) -> some View {
-        let inFlight = heroFlight?.state == .flying
-        let label = heroFlight == nil ? L10n.Button.startFlight
-            : (inFlight ? L10n.Home.resumeThisFlight : L10n.Home.startThisFlight)
+        let label = StartFlightLabel.make(hero: heroFlight, trip: heroFlight.flatMap(tripOverview(for:)))
         return Button(action: startFlight) {
-            HStack(spacing: isCompact ? 10 : 14) {
-                Image(systemName: "play.fill")
-                    .scaledFont(size: isCompact ? 20 : 26, relativeTo: .title2)
-                Text(label)
-                    .scaledFont(size: isCompact ? 20 : 26, weight: .bold, relativeTo: .title2)
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.7)
+            VStack(spacing: 2) {
+                HStack(spacing: isCompact ? 10 : 14) {
+                    Image(systemName: "play.fill")
+                        .scaledFont(size: isCompact ? 20 : 26, relativeTo: .title2)
+                    Text(label.title)
+                        .scaledFont(size: isCompact ? 20 : 26, weight: .bold, relativeTo: .title2)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.7)
+                }
+                if let leg = label.leg {
+                    Text(leg)
+                        .scaledFont(size: isCompact ? 12 : 14, weight: .bold, design: .monospaced, relativeTo: .caption)
+                        .tracking(0.6)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.7)
+                        .opacity(0.8)
+                }
             }
             .frame(maxWidth: .infinity)
             .frame(height: isCompact ? 56 : 76)
         }
         .buttonStyle(PrimaryButtonStyle(color: .aviationGreen))
+        .accessibilityLabel([label.title, label.leg].compactMap { $0 }.joined(separator: ", "))
         .accessibilityHint(heroFlight?.displayName ?? "")
+    }
+
+    // MARK: - A trip on Today (6.1 · M3)
+
+    /// The trip `thread` is a leg of, as Today shows it, with that leg in focus. Nil for a flight that
+    /// is not in a trip, which keeps its own card.
+    private func tripOverview(for thread: FlightThread) -> TripOverview? {
+        guard thread.tripId != nil, let trip = threadManager.trip(forThreadId: thread.id) else { return nil }
+        let plans = flightPlanManager.flightPlans
+        return TripOverview(trip: trip, legs: threadManager.legs(of: trip), focus: thread.id) { leg in
+            leg.flightPlanId.flatMap { id in plans.first { $0.id == id } }
+        }
+    }
+
+    /// The trip card in the next-flight slot. Its own view, so Today's body stays small.
+    private func tripCard(_ trip: TripOverview, leg: FlightThread, isCompact: Bool) -> some View {
+        let isCloseOut = leg.state == .closeOut
+        // The strip's colours: the flight plan still open after landing is red, close-out amber, a
+        // flight in the air blue, the rest gold.
+        let accent: Color = leg.hasOpenFlightPlan && isCloseOut ? .aviationRed
+            : isCloseOut ? .aviationAmber
+            : leg.state == .flying ? .altimeterBlue : .aviationGold
+        return TodayTripCard(trip: trip,
+                             when: tripWhen(leg, trip),
+                             registration: leg.aircraftRegistration,
+                             accent: accent,
+                             isCompact: isCompact,
+                             onOpen: { threadToOpen = leg.id })
+    }
+
+    /// The card's time: "TODAY 10:00", "TODAY ≈ 10:53" for a later leg, "WED 30 SEP 10:00", or the
+    /// leg's state once it has left.
+    private func tripWhen(_ leg: FlightThread, _ trip: TripOverview) -> String {
+        if leg.state == .flying || leg.state == .closeOut { return threadBadge(leg).uppercased() }
+        guard let focus = trip.focus, let departure = focus.departure else {
+            return L10n.FlightsPage.notScheduled.uppercased()
+        }
+        let day = departure.formatted(.dateTime.weekday(.abbreviated).day().month(.abbreviated)).uppercased()
+        if UpcomingOrder.isPassed(departure) {
+            return L10n.FlightsPage.datePassed.uppercased() + " · " + day
+        }
+        let time = (focus.departureIsEstimate ? "≈ " : "") + departure.formatted(date: .omitted, time: .shortened)
+        if Calendar.current.isDateInToday(departure) { return "\(L10n.Home.today.uppercased()) \(time)" }
+        return "\(day) \(time)"
     }
 
     private func planFlightButton(isCompact: Bool) -> some View {
@@ -1319,14 +1383,13 @@ struct HomeView: View {
         )
     }
 
-    /// Turn an intent into a plan and the flight that follows it.
+    /// Turn what Plan new flight asked for into plans and the flights that follow them
+    /// (`FlightCreator.create(_:)`, shared with the Flights tab).
     ///
-    /// The airport layer is loaded on demand rather than at launch, so this awaits it before
+    /// The airport layer is loaded on demand rather than at launch, so the creator awaits it before
     /// resolving idents — otherwise a flight created on a cold start would silently get no waypoints,
     /// and with no coordinates there is no country detection and therefore no customs, DABS or GAFOR.
-    /// Three or more aerodromes is a trip, with the stops' ground times and refuels the pilot set; two
-    /// is the single flight this has always made.
-    private func createFlight(stops: PlannedStops, from intent: NewFlightIntent, route: FlightPlan? = nil) {
+    private func createFlight(_ planned: PlannedFlight) {
         // The creation awaits `ensureLoaded()` and the notification prompt, and the sheet stays
         // hit-testable through its dismissal animation — so a double-tap ran this body twice and
         // produced two plans and two threads, breaking the one-thread-per-plan invariant that
@@ -1335,31 +1398,8 @@ struct HomeView: View {
         isCreatingFlight = true
         Task { @MainActor in
             defer { isCreatingFlight = false }
-            // A saved route is copied whole — its waypoints, altitudes and fuel are the reason it
-            // was worth saving, and rebuilding from two idents would discard all of it.
-            if let route {
-                let thread = await FlightCreator.create(fromRoute: route,
-                                                        intent: intent,
-                                                        plans: flightPlanManager,
-                                                        threads: threadManager)
-                threadToOpen = thread.id
-                return
-            }
-            if stops.idents.count > 2,
-               let trip = await FlightCreator.createTrip(idents: stops.idents,
-                                                         stopovers: stops.stopovers,
-                                                         template: intent,
-                                                         plans: flightPlanManager,
-                                                         threads: threadManager,
-                                                         airports: airportDataService) {
-                threadToOpen = trip.legIds.first
-                return
-            }
-            let thread = await FlightCreator.create(from: intent,
-                                                    plans: flightPlanManager,
-                                                    threads: threadManager,
-                                                    airports: airportDataService)
-            threadToOpen = thread.id
+            threadToOpen = await FlightCreator.create(planned, plans: flightPlanManager,
+                                                      threads: threadManager, airports: airportDataService)
         }
     }
 
@@ -1441,6 +1481,166 @@ struct HomeView: View {
             threadManager: threadManager
         )
         Task { await launcher.begin(circuitMode: circuitMode, followedFlightId: followedFlightId, unplanned: unplanned) }
+    }
+}
+
+// MARK: - A trip on Today (6.1 · M3)
+
+/// Today's next-flight card when that flight is a leg of a trip: "Trip", how many legs, when, the
+/// whole route, one chip per leg (the one in focus highlighted, the flown ones ticked) and what is
+/// next. The whole card opens the leg in focus, as the single flight's card does; that page's own
+/// leg strip goes to the others.
+///
+/// A struct rather than a HomeView helper: Today's body is already the next one nearest the device's
+/// 1 MB main-thread stack, and a separate view keeps this tree out of it.
+private struct TodayTripCard: View {
+    let trip: TripOverview
+    let when: String
+    let registration: String?
+    let accent: Color
+    let isCompact: Bool
+    let onOpen: () -> Void
+
+    var body: some View {
+        Button(action: onOpen) {
+            VStack(alignment: .leading, spacing: isCompact ? 10 : 12) {
+                // The registration gives way first on a narrow card: the date is what tells trips apart.
+                ViewThatFits(in: .horizontal) {
+                    header(showsRegistration: true)
+                    header(showsRegistration: false)
+                }
+                title
+                FlowLayout(spacing: 8) {
+                    ForEach(trip.legs) { leg in
+                        chip(leg)
+                    }
+                }
+                Text(trip.nextLine)
+                    .scaledFont(size: isCompact ? 13 : 16, relativeTo: .footnote)
+                    .foregroundColor(.secondaryText)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .multilineTextAlignment(.leading)
+            }
+            .padding(isCompact ? 14 : 20)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(
+                RoundedRectangle(cornerRadius: 16)
+                    .fill(Color.cardBackground)
+                    .overlay(RoundedRectangle(cornerRadius: 16).strokeBorder(accent.opacity(0.45), lineWidth: 1))
+                    .overlay(alignment: .leading) {
+                        UnevenRoundedRectangle(topLeadingRadius: 16, bottomLeadingRadius: 16)
+                            .fill(accent)
+                            .frame(width: 4)
+                    }
+            )
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(accessibilityText)
+        .accessibilityAddTraits(.isButton)
+        .accessibilityHint(L10n.Home.reviewFlight)
+    }
+
+    private func header(showsRegistration: Bool) -> some View {
+        HStack(spacing: 8) {
+            Text(L10n.TripCard.kind)
+                .scaledFont(size: isCompact ? 15 : 17, weight: .bold, relativeTo: .headline)
+                .foregroundColor(accent)
+            Text(L10n.Flights.legCount(trip.legCount).uppercased())
+                .scaledFont(size: isCompact ? 11 : 12, weight: .bold, design: .monospaced, relativeTo: .caption2)
+                .foregroundColor(accent)
+                .padding(.horizontal, 6).padding(.vertical, 2)
+                .overlay(RoundedRectangle(cornerRadius: 4).strokeBorder(accent.opacity(0.7), lineWidth: 1))
+            Text(when)
+                .scaledFont(size: isCompact ? 12 : 14, weight: .semibold, design: .monospaced, relativeTo: .caption)
+                .foregroundColor(.secondaryText)
+            Spacer(minLength: 4)
+            if showsRegistration, let registration, !registration.isEmpty {
+                Text(registration)
+                    .scaledFont(size: isCompact ? 12 : 15, design: .monospaced, relativeTo: .caption)
+                    .foregroundColor(.secondaryText)
+            }
+            Image(systemName: "chevron.right")
+                .scaledFont(size: isCompact ? 14 : 17, weight: .semibold, relativeTo: .body)
+                .foregroundColor(.dimText)
+        }
+        .lineLimit(1)
+    }
+
+    /// The whole route, or the trip's name with the route under it.
+    @ViewBuilder
+    private var title: some View {
+        if let name = trip.name {
+            VStack(alignment: .leading, spacing: 2) {
+                Text(name)
+                    .scaledFont(size: isCompact ? 20 : 26, weight: .bold, relativeTo: .title2)
+                    .foregroundColor(.primaryText)
+                    .lineLimit(2)
+                Text(trip.chain)
+                    .scaledFont(size: isCompact ? 13 : 15, design: .monospaced, relativeTo: .subheadline)
+                    .foregroundColor(.secondaryText)
+                    .lineLimit(2)
+            }
+        } else {
+            Text(trip.chain)
+                .scaledFont(size: isCompact ? 20 : 26, weight: .bold, design: .monospaced, relativeTo: .title2)
+                .foregroundColor(.primaryText)
+                .lineLimit(2)
+                .minimumScaleFactor(0.7)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+    }
+
+    /// "1 LSZQ → LSGE 10:00": the leg in focus in the card's colour, a flown leg ticked. Sized so
+    /// three legs sit on one line in the iPad's 620 pt column; more wrap.
+    private func chip(_ leg: TripOverview.Leg) -> some View {
+        let isFocus = leg.id == trip.focusId
+        return HStack(spacing: 6) {
+            Text("\(leg.number)")
+                .scaledFont(size: isCompact ? 12 : 13, weight: .bold, design: .monospaced, relativeTo: .caption)
+                .foregroundColor(accent)
+            Text(leg.route)
+                .scaledFont(size: isCompact ? 12 : 13, weight: isFocus ? .bold : .regular, design: .monospaced, relativeTo: .caption)
+                .foregroundColor(isFocus ? .primaryText : .secondaryText)
+            if leg.isFlown {
+                Image(systemName: "checkmark")
+                    .scaledFont(size: isCompact ? 11 : 12, weight: .bold, relativeTo: .caption)
+                    .foregroundColor(.aviationGreen)
+            } else if let time = chipTime(leg) {
+                Text(time)
+                    .scaledFont(size: isCompact ? 12 : 13, design: .monospaced, relativeTo: .caption)
+                    .foregroundColor(.dimText)
+            }
+        }
+        .lineLimit(1)
+        .padding(.horizontal, isCompact ? 10 : 9)
+        .padding(.vertical, 6)
+        .background(Capsule().fill(isFocus ? accent.opacity(0.16) : Color.cockpitBackground))
+        .overlay(Capsule().strokeBorder(isFocus ? accent.opacity(0.6) : Color.clear, lineWidth: 1))
+    }
+
+    private func chipTime(_ leg: TripOverview.Leg) -> String? {
+        guard let departure = leg.departure else { return nil }
+        return (leg.departureIsEstimate ? "≈ " : "") + departure.formatted(date: .omitted, time: .shortened)
+    }
+
+    /// One sentence, in reading order: the chips are read as legs, not as a row of numbers.
+    private var accessibilityText: String {
+        var parts = [L10n.TripCard.kind, L10n.Flights.legCount(trip.legCount), when]
+        if let name = trip.name { parts.append(name) }
+        for leg in trip.legs {
+            var line = L10n.TripCard.legOf(leg.number, trip.legCount) + ", " + leg.route
+            if leg.isFlown {
+                line += ", " + L10n.TripCard.flown
+            } else if let time = chipTime(leg) {
+                line += ", " + time
+            }
+            if leg.id == trip.focusId, !leg.isFlown { line += ", " + L10n.TripCard.nextLeg }
+            parts.append(line)
+        }
+        parts.append(trip.nextLine)
+        return parts.joined(separator: ". ")
     }
 }
 

@@ -417,6 +417,9 @@ struct FlightPlanMapBuilderView: View {
                 WaypointEditorSheet(
                     waypoint: waypoint,
                     aircraftType: plan?.aircraftTypeId ?? "WT9",
+                    cruiseAirspeed: plan.flatMap { plan in
+                        plan.waypoints.firstIndex { $0.id == waypoint.id }.map { plan.cruiseAirspeed(ofLegFrom: $0) }
+                    } ?? Int(CruiseSpeedModel.standardKIAS),
                     onSave: { updated in flightPlanManager.updateWaypoint(updated, in: planId) },
                     onDelete: { flightPlanManager.removeWaypoint(waypoint, from: planId) }
                 )

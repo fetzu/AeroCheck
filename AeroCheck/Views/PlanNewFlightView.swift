@@ -19,6 +19,11 @@ import SwiftUI
 // the stops between them. "Add a stop on the way" always goes just before TO, stops drag into order,
 // and a legs card previews each leg and holds each stop's time on the ground and refuel, which a trip
 // typed here used to get as a fixed 30 minutes without fuel.
+//
+// Landing on the way from a saved route (6.1, trips proposal M2): once a route is picked, the
+// aerodromes on or near it are listed in flying order, each with a "Land here" switch, and the same
+// legs card previews the route split at the ones switched on. The sheet opens at the home aerodrome
+// (FROM, and TO back home) when Settings has one and nothing else seeds it.
 
 struct PlanNewFlightView: View {
 
@@ -30,10 +35,10 @@ struct PlanNewFlightView: View {
     /// The pilot's routes, offered as a starting point (not the plans flights made for themselves,
     /// nor archived ones: `RouteLibrary.activeRoutes`). (v5.x; review #4)
     private let savedRoutes: [FlightPlan]
-    /// The first argument is what was typed: FROM, the stops with their time on the ground and
-    /// refuel, and TO. The third is the saved route this flight was built from, when there was one —
-    /// the creator copies it wholesale rather than rebuilding from the two end idents.
-    private let onCreate: (PlannedStops, NewFlightIntent, FlightPlan?) -> Void
+    /// What to create: FROM, the stops with their time on the ground and refuel, and TO as typed; or
+    /// the saved route this flight is built from, which the creator copies wholesale rather than
+    /// rebuilding from the two end idents, and where to land on it.
+    private let onCreate: (PlannedFlight) -> Void
     private let onCancel: () -> Void
 
     /// The airport layer, for completing what the pilot types. Injected so this view stays testable
@@ -55,6 +60,20 @@ struct PlanNewFlightView: View {
     /// FROM, the stops, TO. Two aerodromes are a flight; three or more are a trip, and the button says
     /// so. (6.1)
     @State private var stops: PlannedStops
+    /// The rows the sheet opened with, which "Airports" comes back to after a saved route. (6.1)
+    private let openingStops: PlannedStops
+
+    /// The aerodromes the chosen route passes, and where it lands. (6.1, M2)
+    @State private var routeLandings = RouteLandings()
+    @State private var isLoadingRouteAerodromes = false
+    /// Every aerodrome near a long route, rather than those it was drawn through. (6.1)
+    @State private var showsAllRouteAerodromes = false
+    /// "Land somewhere else…": the search, open or not, and what it found.
+    @State private var isLandingElsewhere = false
+    @State private var elsewhereQuery = ""
+    @State private var elsewhereResults: [TripPlanner.StopCandidate] = []
+    @FocusState private var elsewhereFocused: Bool
+    private static let elsewhereAnchor = "aerocheck.plan.landElsewhere"
 
     /// The row being typed in, by id: rows move, and focus follows the row rather than a position.
     @FocusState private var focused: UUID?
@@ -68,10 +87,12 @@ struct PlanNewFlightView: View {
     /// Room for a stop's drag handle and remove button, kept on FROM and TO too so the fields line up.
     private static let stopControlsWidth: CGFloat = 80
 
+    /// `homeAerodrome` (Settings) opens the sheet at home when nothing else seeds it. (6.1)
     init(intent: NewFlightIntent,
          aircraft: [AircraftOption],
          savedRoutes: [FlightPlan] = [],
-         onCreate: @escaping (PlannedStops, NewFlightIntent, FlightPlan?) -> Void,
+         homeAerodrome: String? = nil,
+         onCreate: @escaping (PlannedFlight) -> Void,
          onCancel: @escaping () -> Void) {
         var seeded = intent
         // Already set, to tomorrow at 10:00: a date is what the preparation reminder counts back
@@ -79,7 +100,9 @@ struct PlanNewFlightView: View {
         // one tap away. (planning proposal B1)
         if seeded.departureTime == nil { seeded.departureTime = Self.defaultDeparture() }
         _intent = State(initialValue: seeded)
-        _stops = State(initialValue: PlannedStops(from: intent.departureIdent, to: intent.arrivalIdent))
+        let opening = PlannedStops.opening(for: intent, home: homeAerodrome)
+        _stops = State(initialValue: opening)
+        openingStops = opening
         _hasDepartureTime = State(initialValue: true)
         self.aircraft = aircraft
         self.savedRoutes = savedRoutes
@@ -127,6 +150,17 @@ struct PlanNewFlightView: View {
                             keepAddStopInView(proxy)
                         }
                     }
+                    // "Land somewhere else…" lists what it finds under its field: above the keys too.
+                    .onChange(of: elsewhereResults.map(\.aerodrome.ident)) { _, idents in
+                        guard !idents.isEmpty else { return }
+                        // Once the rows are laid out: scrolled at once, the list stayed under the bar.
+                        Task { @MainActor in
+                            try? await Task.sleep(for: .milliseconds(120))
+                            withAnimation(.easeOut(duration: 0.2)) {
+                                proxy.scrollTo(Self.elsewhereAnchor, anchor: .bottom)
+                            }
+                        }
+                    }
                 }
             }
             .scrollDismissesKeyboard(.interactively)
@@ -150,6 +184,8 @@ struct PlanNewFlightView: View {
             isLoadingAirports = false
             search()
         }
+        // The aerodromes a chosen route passes, listed once it is chosen. (6.1, M2)
+        .task(id: selectedRoute?.id) { await loadRouteAerodromes() }
     }
 
     // MARK: - Route (planning proposal B1)
@@ -165,6 +201,7 @@ struct PlanNewFlightView: View {
                 .onChange(of: fromSavedRoute) { _, saved in
                     if !saved { clearRoute() }
                     focused = nil
+                    elsewhereFocused = false
                 }
             }
             if fromSavedRoute {
@@ -317,6 +354,19 @@ struct PlanNewFlightView: View {
             default:
                 EmptyView()
             }
+            // Typing over an aerodrome already there (home, back home, "Plan this again") is one tap
+            // away rather than four backspaces. (6.1)
+            if focused == row.id, !row.ident.isEmpty {
+                Button { stops.setIdent("", for: row.id) } label: {
+                    Image(systemName: "xmark.circle.fill")
+                        .scaledFont(size: 16, relativeTo: .body)
+                        .foregroundColor(.dimText)
+                        .frame(width: 32, height: 44)
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel(L10n.Button.clear)
+            }
         }
         .padding(.horizontal, 12)
         .frame(minHeight: 48)
@@ -458,9 +508,11 @@ struct PlanNewFlightView: View {
         }
     }
 
-    // MARK: - Legs (6.1, trips proposal M1)
+    // MARK: - Legs (6.1, trips proposal M1, M2)
 
-    private var showsLegs: Bool { !fromSavedRoute && stops.legCount >= 2 }
+    private var showsLegs: Bool {
+        fromSavedRoute ? (selectedRoute != nil && !routeLandings.landings.isEmpty) : stops.legCount >= 2
+    }
 
     /// The legs Create will make, built as the creator builds them, so the times here are the times
     /// the legs get. Direct, as they are created: the pilot draws each route later.
@@ -470,172 +522,41 @@ struct PlanNewFlightView: View {
         }
     }
 
+    /// The chosen route split at its landings: the flight's copy of the route (`FlightCreator`'s), split
+    /// as `createTrip(fromRoute:)` splits it, so each leg shows its own waypoints and times.
+    private var previewRouteLegs: [FlightPlan] {
+        guard let selectedRoute else { return [] }
+        return TripPlanner.legs(of: FlightCreator.plan(fromRoute: selectedRoute, intent: normalised()),
+                                landingAt: routeLandings.landings)
+    }
+
     /// One row per leg, and between two legs the stop: how long on the ground, and whether to refuel.
-    /// This is where a typed trip's stops are set; they used to be a fixed 30 minutes without fuel,
+    /// This is where a trip's stops are set; a typed trip's used to be a fixed 30 minutes without fuel,
     /// with nowhere to change them.
+    @ViewBuilder
     private var legsSection: some View {
-        let legs = previewLegs
-        let filled = stops.filledRows
-        return card(L10n.Flights.legCount(legs.count), aside: legsTotal(legs)) {
-            VStack(alignment: .leading, spacing: 0) {
-                ForEach(Array(legs.enumerated()), id: \.offset) { index, leg in
-                    if filled.indices.contains(index + 1) {
-                        legRow(leg, number: index + 1,
-                               from: filled[index].normalisedIdent, to: filled[index + 1].normalisedIdent)
-                        if index < legs.count - 1 { groundRow(filled[index + 1]) }
-                    }
-                }
+        if fromSavedRoute {
+            let legs = previewRouteLegs
+            TripLegsCard(legs: legs,
+                         idents: TripLegsCard.idents(of: legs),
+                         stopovers: legs.dropFirst().map { $0.stopover ?? Stopover() },
+                         aside: selectedRoute.map { L10n.PlanFlight.splitFrom(routeTitle($0)) },
+                         showsWaypointCount: true,
+                         explainer: L10n.PlanFlight.routeLegsExplainer) { index, stopover in
+                let idents = TripLegsCard.idents(of: legs)
+                if idents.indices.contains(index + 1) { routeLandings.setStopover(stopover, at: idents[index + 1]) }
             }
-            Label(L10n.PlanFlight.legsExplainer, systemImage: "info.circle")
-                .scaledFont(size: 13, relativeTo: .footnote)
-                .foregroundColor(.secondaryText)
-                .fixedSize(horizontal: false, vertical: true)
-        }
-    }
-
-    private func legRow(_ leg: FlightPlan, number: Int, from: String, to: String) -> some View {
-        HStack(spacing: 10) {
-            Text("\(number)")
-                .scaledFont(size: 12, weight: .bold, design: .monospaced, relativeTo: .caption)
-                .foregroundColor(.primaryText)
-                .frame(width: 24, height: 24)
-                .background(Circle().fill(Color.white.opacity(0.12)))
-            Text("\(from) → \(to)")
-                .scaledFont(size: 16, weight: .bold, design: .monospaced, relativeTo: .body)
-                .foregroundColor(.primaryText)
-                .lineLimit(1)
-                .minimumScaleFactor(0.8)
-            Spacer(minLength: 8)
-            VStack(alignment: .trailing, spacing: 2) {
-                Text(legFacts(leg))
-                if let departure = legDeparture(leg, isFirst: number == 1) {
-                    Text(departure)
-                }
-            }
-            .scaledFont(size: 12.5, design: .monospaced, relativeTo: .caption)
-            .foregroundColor(.secondaryText)
-            .multilineTextAlignment(.trailing)
-        }
-        .padding(.vertical, 10)
-        .accessibilityElement(children: .combine)
-    }
-
-    /// "38 NM · 0:33", or a dash while an end can't be placed.
-    private func legFacts(_ leg: FlightPlan) -> String {
-        guard leg.waypoints.count >= 2 else { return "—" }
-        return String(format: "%.0f NM", leg.totalDistance) + " · " + leg.formattedTotalEET
-    }
-
-    /// Leg 1 leaves at the time chosen below; the others when the one before lands, plus the time on
-    /// the ground: an estimate, and marked as one.
-    private func legDeparture(_ leg: FlightPlan, isFirst: Bool) -> String? {
-        guard let departure = leg.plannedDepartureTime else { return nil }
-        let time = departure.formatted(date: .omitted, time: .shortened)
-        return isFirst ? time : "≈ " + time
-    }
-
-    /// "80 NM direct · 1:18 flying", once every leg can be measured.
-    private func legsTotal(_ legs: [FlightPlan]) -> String? {
-        guard !legs.isEmpty, legs.allSatisfy({ $0.waypoints.count >= 2 }) else { return nil }
-        let distance = legs.map(\.totalDistance).reduce(0, +)
-        let seconds = legs.map(\.totalEET).reduce(0, +).safeInt(or: 0)
-        return L10n.PlanFlight.legsTotal(String(format: "%.0f NM", distance),
-                                         String(format: "%d:%02d", seconds / 3600, (seconds % 3600) / 60))
-    }
-
-    private func groundRow(_ stop: PlannedStops.Row) -> some View {
-        // One line where it fits (iPad), two on a phone.
-        SeparateView { ViewThatFits(in: .horizontal) {
-            HStack(spacing: 10) {
-                groundLabel(stop)
-                    .padding(.leading, 34)
-                Spacer(minLength: 8)
-                groundStepper(stop)
-                refuelToggle(stop)
-            }
-            VStack(alignment: .leading, spacing: 2) {
-                groundLabel(stop)
-                HStack(spacing: 14) {
-                    groundStepper(stop)
-                    refuelToggle(stop)
-                    Spacer(minLength: 0)
-                }
-            }
-            .padding(.leading, 34)
-        } }
-        .padding(.vertical, 4)
-        .overlay(alignment: .top) { dashedRule }
-        .overlay(alignment: .bottom) { dashedRule }
-    }
-
-    private func groundLabel(_ stop: PlannedStops.Row) -> some View {
-        Text(L10n.PlanFlight.onTheGroundAt(stop.normalisedIdent))
-            .scaledFont(size: 13, relativeTo: .footnote)
-            .foregroundColor(.secondaryText)
-            .lineLimit(1)
-    }
-
-    /// − 30 min +, 0 to 12 hours in quarter hours, like "Add a stop…".
-    private func groundStepper(_ stop: PlannedStops.Row) -> some View {
-        let minutes = stop.stopover.groundMinutes
-        return HStack(spacing: 0) {
-            stepButton("minus", enabled: minutes > 0) { setGroundMinutes(minutes - 15, for: stop) }
-            Text(L10n.PlanFlight.groundMinutes(minutes))
-                .scaledFont(size: 13, weight: .semibold, design: .monospaced, relativeTo: .footnote)
-                .foregroundColor(.primaryText)
-                .lineLimit(1)
-                .frame(minWidth: 56)
-            stepButton("plus", enabled: minutes < 720) { setGroundMinutes(minutes + 15, for: stop) }
-        }
-        .background(RoundedRectangle(cornerRadius: 9).fill(Color.cardBackground).padding(.vertical, 4))
-        .accessibilityElement(children: .ignore)
-        .accessibilityLabel(L10n.PlanFlight.onTheGroundAt(stop.normalisedIdent))
-        .accessibilityValue(L10n.PlanFlight.groundMinutes(minutes))
-        .accessibilityAdjustableAction { direction in
-            switch direction {
-            case .increment: setGroundMinutes(minutes + 15, for: stop)
-            case .decrement: setGroundMinutes(minutes - 15, for: stop)
-            @unknown default: break
+        } else {
+            let legs = previewLegs
+            let filled = stops.filledRows
+            TripLegsCard(legs: legs,
+                         idents: filled.map(\.normalisedIdent),
+                         stopovers: stops.stopovers,
+                         aside: TripLegsCard.total(legs, direct: true),
+                         explainer: L10n.PlanFlight.legsExplainer) { index, stopover in
+                if filled.indices.contains(index + 1) { stops.setStopover(stopover, for: filled[index + 1].id) }
             }
         }
-    }
-
-    private func stepButton(_ symbol: String, enabled: Bool, action: @escaping () -> Void) -> some View {
-        Button(action: action) {
-            Image(systemName: symbol)
-                .scaledFont(size: 13, weight: .bold, relativeTo: .footnote)
-                .foregroundColor(enabled ? .aviationGold : .dimText.opacity(0.5))
-                .frame(width: 44, height: 44)
-                .contentShape(Rectangle())
-        }
-        .buttonStyle(.plain)
-        .disabled(!enabled)
-    }
-
-    private func setGroundMinutes(_ minutes: Int, for stop: PlannedStops.Row) {
-        var stopover = stop.stopover
-        stopover.groundMinutes = min(720, max(0, minutes))
-        stops.setStopover(stopover, for: stop.id)
-    }
-
-    private func refuelToggle(_ stop: PlannedStops.Row) -> some View {
-        Toggle(isOn: Binding(
-            get: { stop.stopover.refuel },
-            set: { refuel in
-                var stopover = stop.stopover
-                stopover.refuel = refuel
-                stops.setStopover(stopover, for: stop.id)
-            }
-        )) {
-            Text(L10n.PlanFlight.refuel)
-        }
-        .toggleStyle(CheckboxToggleStyle())
-    }
-
-    private var dashedRule: some View {
-        HorizontalRule()
-            .stroke(Color.white.opacity(0.12), style: StrokeStyle(lineWidth: 1, dash: [3, 3]))
-            .frame(height: 1)
     }
 
     /// The pilot's routes, searchable, with their maps; one tap chooses. Start from a route already
@@ -694,13 +615,241 @@ struct PlanNewFlightView: View {
                 .buttonStyle(.plain)
             }
             if selectedRoute != nil {
-                // A saved route makes one flight; its stops are added from the flight. (v5.1)
-                Text(L10n.Trip.routeStopsHint)
-                    .scaledFont(size: 12, relativeTo: .caption)
-                    .foregroundColor(.dimText)
-                    .fixedSize(horizontal: false, vertical: true)
+                routeLandingsList
             }
         }
+    }
+
+    // MARK: - Landing on the way (6.1, trips proposal M2)
+
+    /// The aerodromes on or near the chosen route, in flying order, each with "Land here"; then "Land
+    /// somewhere else…". It used to be a 12 pt line pointing to "Add a stop…" once the flight existed.
+    private var routeLandingsList: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(alignment: .firstTextBaseline) {
+                Text(L10n.PlanFlight.aerodromesOnRoute)
+                    .scaledFont(size: 13, weight: .semibold, relativeTo: .footnote)
+                    .foregroundColor(.secondaryText)
+                Spacer(minLength: 8)
+                Text(L10n.PlanFlight.inFlyingOrder)
+                    .scaledFont(size: 12, relativeTo: .caption)
+                    .foregroundColor(.dimText)
+                    .lineLimit(1)
+            }
+            .padding(.top, 6)
+            if isLoadingRouteAerodromes {
+                ProgressView().frame(maxWidth: .infinity).padding(.vertical, 6)
+            } else if routeLandings.candidates.isEmpty {
+                Text(L10n.PlanFlight.noAerodromesOnRoute)
+                    .scaledFont(size: 13, relativeTo: .footnote)
+                    .foregroundColor(.secondaryText)
+                    .fixedSize(horizontal: false, vertical: true)
+            } else {
+                VStack(spacing: 0) {
+                    let shown = shownRouteCandidates
+                    ForEach(Array(shown.enumerated()), id: \.element.aerodrome.ident) { index, candidate in
+                        landHereRow(candidate)
+                        if index < shown.count - 1 {
+                            Divider().overlay(Color.white.opacity(0.06))
+                        }
+                    }
+                }
+                .padding(.horizontal, 12)
+                .background(RoundedRectangle(cornerRadius: 10).fill(Color.cardBackground))
+                let hidden = routeLandings.candidates.count - shownRouteCandidates.count
+                if hidden > 0 {
+                    Button {
+                        withAnimation(.easeInOut(duration: 0.15)) { showsAllRouteAerodromes = true }
+                    } label: {
+                        Text(L10n.PlanFlight.moreNearRoute(hidden))
+                            .scaledFont(size: 14, weight: .semibold, relativeTo: .subheadline)
+                            .foregroundColor(.altimeterBlue)
+                            .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
+                            .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+            landElsewhere
+        }
+    }
+
+    /// Up to six, all of them; beyond, the ones on the route (drawn through it, or right under it) and
+    /// the ones landed at, with the rest one tap away: a long route passes dozens of fields within
+    /// 5 NM, and the list pushed When and Aircraft out of sight.
+    private var shownRouteCandidates: [TripPlanner.StopCandidate] {
+        let all = routeLandings.candidates
+        guard !showsAllRouteAerodromes, all.count > 6 else { return all }
+        return all.filter {
+            $0.waypointIndex != nil || $0.offsetNM < TripPlanner.onRouteNM
+                || routeLandings.isLanding(at: $0.aerodrome.ident)
+        }
+    }
+
+    private func landHereRow(_ candidate: TripPlanner.StopCandidate) -> some View {
+        let ident = candidate.aerodrome.ident
+        return HStack(spacing: 10) {
+            VStack(alignment: .leading, spacing: 2) {
+                HStack(spacing: 6) {
+                    Text(ident)
+                        .scaledFont(size: 15, weight: .bold, design: .monospaced, relativeTo: .body)
+                        .foregroundColor(.primaryText)
+                    if candidate.aerodrome.isPPR { PPRChip() }
+                }
+                // Two lines on a phone, where one cut "on route" off.
+                Text("\(candidate.aerodrome.name) · \(StopPlacement.text(candidate))")
+                    .scaledFont(size: 12, relativeTo: .caption)
+                    .foregroundColor(.secondaryText)
+                    .lineLimit(2)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            Spacer(minLength: 8)
+            Toggle(isOn: Binding(
+                get: { routeLandings.isLanding(at: ident) },
+                set: { on in
+                    withAnimation(.easeInOut(duration: 0.15)) { routeLandings.setLanding(on, at: ident) }
+                }
+            )) {
+                Text(L10n.PlanFlight.landHere)
+                    .scaledFont(size: 13, relativeTo: .footnote)
+                    .foregroundColor(.secondaryText)
+                    .lineLimit(1)
+            }
+            .toggleStyle(.switch)
+            .tint(.aviationGreen)
+            .fixedSize()
+            .accessibilityLabel(L10n.PlanFlight.landAt(ident))
+        }
+        .padding(.vertical, 6)
+        .frame(minHeight: 52)
+        // The whole row is the switch's target, not just its 51 pt.
+        .contentShape(Rectangle())
+        .onTapGesture {
+            let landing = !routeLandings.isLanding(at: ident)
+            withAnimation(.easeInOut(duration: 0.15)) { routeLandings.setLanding(landing, at: ident) }
+        }
+    }
+
+    /// "Land somewhere else…": any aerodrome, placed where it lengthens the route least.
+    @ViewBuilder
+    private var landElsewhere: some View {
+        if isLandingElsewhere {
+            VStack(alignment: .leading, spacing: 6) {
+                HStack(spacing: 8) {
+                    Image(systemName: "magnifyingglass").foregroundColor(.dimText)
+                    TextField(L10n.Trip.searchAerodrome, text: $elsewhereQuery)
+                        .textInputAutocapitalization(.characters)
+                        .autocorrectionDisabled()
+                        .focused($elsewhereFocused)
+                        .foregroundColor(.primaryText)
+                    Button {
+                        closeLandElsewhere()
+                    } label: {
+                        Image(systemName: "xmark.circle.fill")
+                            .foregroundColor(.dimText)
+                            .frame(width: 32, height: 44)
+                            .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel(L10n.Button.close)
+                }
+                .scaledFont(size: 16, relativeTo: .body)
+                .padding(.horizontal, 12)
+                .frame(minHeight: 44)
+                .background(RoundedRectangle(cornerRadius: 10).fill(Color.cardBackground))
+                if !elsewhereResults.isEmpty {
+                    VStack(spacing: 0) {
+                        ForEach(elsewhereResults.prefix(5), id: \.aerodrome.ident) { candidate in
+                            Button {
+                                withAnimation(.easeInOut(duration: 0.15)) { routeLandings.add(candidate) }
+                                closeLandElsewhere()
+                            } label: {
+                                HStack(spacing: 8) {
+                                    Text(candidate.aerodrome.ident)
+                                        .font(.aero(size: 14, weight: .semibold, design: .monospaced))
+                                        .foregroundColor(.aviationGold)
+                                        .frame(width: 52, alignment: .leading)
+                                    Text("\(candidate.aerodrome.name) · \(StopPlacement.text(candidate))")
+                                        .scaledFont(size: 14, relativeTo: .footnote)
+                                        .foregroundColor(.primaryText)
+                                        .lineLimit(1)
+                                    Spacer(minLength: 0)
+                                }
+                                .frame(minHeight: 44)
+                                .contentShape(Rectangle())
+                            }
+                            .buttonStyle(.plain)
+                            if candidate.aerodrome.ident != elsewhereResults.prefix(5).last?.aerodrome.ident {
+                                Divider().overlay(Color.white.opacity(0.06))
+                            }
+                        }
+                    }
+                    .padding(.horizontal, 10)
+                    .background(RoundedRectangle(cornerRadius: 10).fill(Color.cardBackground))
+                }
+            }
+            .id(Self.elsewhereAnchor)
+            .onChange(of: elsewhereQuery) { _, _ in searchElsewhere() }
+        } else {
+            Button {
+                withAnimation(.easeInOut(duration: 0.15)) { isLandingElsewhere = true }
+                elsewhereFocused = true
+            } label: {
+                HStack(spacing: 8) {
+                    Image(systemName: "plus.circle")
+                    Text(L10n.PlanFlight.landElsewhere)
+                }
+                .scaledFont(size: 15, weight: .semibold, relativeTo: .subheadline)
+                .foregroundColor(.altimeterBlue)
+                .padding(.horizontal, 12)
+                .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
+                .overlay(RoundedRectangle(cornerRadius: 10)
+                    .strokeBorder(Color.altimeterBlue.opacity(0.45), style: StrokeStyle(lineWidth: 1.5, dash: [5, 4])))
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .disabled(selectedRoute.map { $0.waypoints.count < 2 } ?? true)
+        }
+    }
+
+    private func closeLandElsewhere() {
+        elsewhereFocused = false
+        elsewhereQuery = ""
+        elsewhereResults = []
+        withAnimation(.easeInOut(duration: 0.15)) { isLandingElsewhere = false }
+    }
+
+    /// Any fixed-wing landing site by code or name, nearest the route's departure first, placed along
+    /// the route. One behind the departure or past the destination can't be a stop on the way.
+    private func searchElsewhere() {
+        let term = elsewhereQuery.trimmingCharacters(in: .whitespaces)
+        guard term.count >= 2, let route = selectedRoute, route.waypoints.count >= 2 else {
+            elsewhereResults = []
+            return
+        }
+        let found = airports.searchAirports(query: term, limit: 8, near: route.waypoints.first?.coordinate,
+                                            types: AirportType.fixedWing)
+            .filter(AirportDataService.isPlanningLandingSite)
+            .map(airports.planningAerodrome)
+        elsewhereResults = TripPlanner.stopCandidates(along: route.waypoints, aerodromes: found,
+                                                      corridorNM: .greatestFiniteMagnitude)
+    }
+
+    /// The aerodromes within the corridor "Add a stop…" uses (5 NM), for the route just chosen.
+    private func loadRouteAerodromes() async {
+        showsAllRouteAerodromes = false
+        closeLandElsewhere()
+        guard let route = selectedRoute, route.waypoints.count >= 2 else {
+            routeLandings = RouteLandings()
+            return
+        }
+        isLoadingRouteAerodromes = true
+        defer { isLoadingRouteAerodromes = false }
+        await airports.ensureLoaded()
+        guard selectedRoute?.id == route.id else { return }
+        let aerodromes = airports.planningAerodromes(around: route.waypoints.map(\.coordinate), marginNM: 6)
+        routeLandings = RouteLandings(candidates: TripPlanner.stopCandidates(along: route.waypoints,
+                                                                             aerodromes: aerodromes))
     }
 
     // MARK: - When (planning proposal B1)
@@ -815,7 +964,8 @@ struct PlanNewFlightView: View {
                     .minimumScaleFactor(0.8)
             }
             Button {
-                onCreate(stops, normalised(), selectedRoute)
+                onCreate(PlannedFlight(stops: stops, intent: normalised(), route: selectedRoute,
+                                       landings: selectedRoute == nil ? [] : routeLandings.landings))
             } label: {
                 // Several stops make a trip (one flight per leg); say "trip", not "N flights", which
                 // read as N separate outings. (v5.2)
@@ -831,11 +981,18 @@ struct PlanNewFlightView: View {
         .background(Color.panelBackground.shadow(.drop(color: .black.opacity(0.4), radius: 8, y: -2)))
     }
 
-    /// "LSZS → LFLI · Mon 28 Sep, 10:00 · F-HVXA"
+    /// "LSZS → LFLI · Mon 28 Sep, 10:00 · F-HVXA"; "Tour du Jura, landing at LSGE and LSGN · …"
     private var summary: String {
         var parts: [String] = []
         if let selectedRoute {
-            parts.append(routeTitle(selectedRoute))
+            let landings = routeLandings.landings.map(\.ident)
+            parts.append(landings.isEmpty
+                         ? routeTitle(selectedRoute)
+                         : L10n.PlanFlight.routeLandingAt(routeTitle(selectedRoute),
+                                                          ListFormatter.localizedString(byJoining: landings)))
+        } else if fromSavedRoute {
+            // Not the airports rows (the home field, say) while no route is chosen.
+            parts.append(L10n.PlanFlight.noRouteYet)
         } else {
             let clean = stops.idents
             parts.append(clean.isEmpty ? L10n.PlanFlight.noRouteYet : clean.joined(separator: " → "))
@@ -874,9 +1031,10 @@ struct PlanNewFlightView: View {
     ///
     /// The ENDS only. Every named waypoint used to land in this list, so a 26-point route showed
     /// "Create 24 flights" and "24 legs, sharing one preparation" while creating one flight — the app
-    /// describing a trip it was not making. Stops on a route are added to the flight, where the rest
-    /// of the route is known. (v5.1)
+    /// describing a trip it was not making. A landing on the way is the pilot's "Land here", below the
+    /// route. (v5.1; 6.1)
     private func choose(_ route: FlightPlan) {
+        if selectedRoute?.id != route.id { routeLandings = RouteLandings() }
         selectedRoute = route
         let idents = route.waypoints.map(\.name).filter { !$0.isEmpty }
         stops = PlannedStops(from: idents.first ?? "", to: idents.count >= 2 ? idents[idents.count - 1] : "")
@@ -884,16 +1042,19 @@ struct PlanNewFlightView: View {
         suggestions = []
     }
 
+    /// Back to Airports: the rows the sheet opened with (home, or what "Plan this again" brought).
     private func clearRoute() {
         selectedRoute = nil
-        stops = PlannedStops()
+        routeLandings = RouteLandings()
+        stops = openingStops
     }
 
     /// Two aerodromes make one leg, three make two. A trip needs at least two legs.
     private var legCount: Int {
         // A saved route is ONE flight, whatever it passes through: its waypoints are not stops.
-        // Counting them as legs is how a 17-waypoint route read "Create 17 flights". (v5.2)
-        if fromSavedRoute { return selectedRoute == nil ? 0 : 1 }
+        // Counting them as legs is how a 17-waypoint route read "Create 17 flights". Each "Land here"
+        // switched on adds a leg. (v5.2; 6.1)
+        if fromSavedRoute { return selectedRoute == nil ? 0 : routeLandings.legCount }
         return stops.legCount
     }
 
@@ -1026,9 +1187,247 @@ struct PlanNewFlightView: View {
 
 // MARK: - Pieces for the legs card (6.1)
 
+/// The legs a trip will be made of, and between two legs the stop: how long on the ground, and
+/// whether to refuel. Plan new flight shows it for typed stops and for a saved route landed on the way,
+/// and "Add a stop…" for the stops ticked there, so the three read (and set their stops) the same way.
+struct TripLegsCard: View {
+    let legs: [FlightPlan]
+    /// FROM, each stop, TO: where the legs start and end, as typed or as the route names them.
+    let idents: [String]
+    /// The stop in front of each leg after the first: `stopovers[i]` is at `idents[i + 1]`.
+    let stopovers: [Stopover]
+    var aside: String? = nil
+    /// "4 wpt · 52 NM · 0:31" for legs that keep a route; direct legs read "38 NM · 0:33".
+    var showsWaypointCount = false
+    let explainer: String
+    /// A stop's time on the ground or refuel changed: the stop's index in `stopovers`, and its value.
+    let onStopover: (Int, Stopover) -> Void
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack(alignment: .firstTextBaseline) {
+                Text(L10n.Flights.legCount(legs.count).uppercased())
+                    .scaledFont(size: 13, weight: .bold, design: .monospaced, relativeTo: .caption)
+                    .tracking(1.2)
+                    .foregroundColor(.aviationGold)
+                Spacer(minLength: 8)
+                if let aside {
+                    Text(aside)
+                        .scaledFont(size: 12, relativeTo: .caption)
+                        .foregroundColor(.dimText)
+                        .lineLimit(1)
+                }
+            }
+            VStack(alignment: .leading, spacing: 0) {
+                ForEach(Array(legs.enumerated()), id: \.offset) { index, leg in
+                    if idents.indices.contains(index + 1) {
+                        legRow(leg, number: index + 1, from: idents[index], to: idents[index + 1])
+                        if index < legs.count - 1, stopovers.indices.contains(index) {
+                            StopoverRow(label: L10n.PlanFlight.onTheGroundAt(idents[index + 1]),
+                                        stopover: stopovers[index]) { onStopover(index, $0) }
+                                .padding(.vertical, 4)
+                                .overlay(alignment: .top) { DashedRule() }
+                                .overlay(alignment: .bottom) { DashedRule() }
+                        }
+                    }
+                }
+            }
+            Label(explainer, systemImage: "info.circle")
+                .scaledFont(size: 13, relativeTo: .footnote)
+                .foregroundColor(.secondaryText)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(14)
+        .background(RoundedRectangle(cornerRadius: 14).fill(Color.panelBackground))
+    }
+
+    private func legRow(_ leg: FlightPlan, number: Int, from: String, to: String) -> some View {
+        HStack(spacing: 10) {
+            Text("\(number)")
+                .scaledFont(size: 12, weight: .bold, design: .monospaced, relativeTo: .caption)
+                .foregroundColor(.primaryText)
+                .frame(width: 24, height: 24)
+                .background(Circle().fill(Color.white.opacity(0.12)))
+            Text("\(from) → \(to)")
+                .scaledFont(size: 16, weight: .bold, design: .monospaced, relativeTo: .body)
+                .foregroundColor(.primaryText)
+                .lineLimit(1)
+                .minimumScaleFactor(0.8)
+            Spacer(minLength: 8)
+            VStack(alignment: .trailing, spacing: 2) {
+                Text(facts(leg))
+                if let departure = departure(leg) {
+                    Text(departure)
+                }
+            }
+            .scaledFont(size: 12.5, design: .monospaced, relativeTo: .caption)
+            .foregroundColor(.secondaryText)
+            .multilineTextAlignment(.trailing)
+        }
+        .padding(.vertical, 10)
+        .accessibilityElement(children: .combine)
+    }
+
+    /// "38 NM · 0:33" (or "4 wpt · 52 NM · 0:31"), or a dash while an end can't be placed.
+    private func facts(_ leg: FlightPlan) -> String {
+        guard leg.waypoints.count >= 2 else { return "—" }
+        var parts: [String] = []
+        if showsWaypointCount { parts.append("\(leg.waypoints.count) wpt") }
+        parts.append(String(format: "%.0f NM", leg.totalDistance))
+        parts.append(leg.formattedTotalEET)
+        return parts.joined(separator: " · ")
+    }
+
+    /// A chosen time as it is; an estimate (the leg before lands, plus the time on the ground) marked
+    /// as one, the first leg's too when the flight split is itself a later leg of a trip.
+    private func departure(_ leg: FlightPlan) -> String? {
+        guard let departure = leg.plannedDepartureTime else { return nil }
+        let time = departure.formatted(date: .omitted, time: .shortened)
+        return leg.departureIsEstimate == true ? "≈ " + time : time
+    }
+
+    /// The ends of `legs` in order, as their routes name them.
+    static func idents(of legs: [FlightPlan]) -> [String] {
+        guard let first = legs.first?.waypoints.first?.name else { return [] }
+        return [first] + legs.map { $0.waypoints.last?.name ?? "" }
+    }
+
+    /// "80 NM direct · 1:18 flying" (or without "direct", for legs that keep a route), once every leg
+    /// can be measured.
+    static func total(_ legs: [FlightPlan], direct: Bool) -> String? {
+        guard !legs.isEmpty, legs.allSatisfy({ $0.waypoints.count >= 2 }) else { return nil }
+        let distance = String(format: "%.0f NM", legs.map(\.totalDistance).reduce(0, +))
+        let seconds = legs.map(\.totalEET).reduce(0, +).safeInt(or: 0)
+        let eet = String(format: "%d:%02d", seconds / 3600, (seconds % 3600) / 60)
+        return direct ? L10n.PlanFlight.legsTotal(distance, eet) : L10n.PlanFlight.legsTotalRoute(distance, eet)
+    }
+}
+
+/// A stop between two legs: "On the ground at LSGE  − 30 min +  ☐ Refuel". On one line where it fits
+/// (iPad), two on a phone. The legs card and a leg's page use the same row. (6.1)
+struct StopoverRow: View {
+    let label: String
+    let stopover: Stopover
+    /// Nil shows the stop without controls: a leg that has flown keeps what it was planned with.
+    let onChange: ((Stopover) -> Void)?
+    var indent: CGFloat = 34
+    /// Behind the stepper: a shade apart from the card the row sits on.
+    var stepperFill: Color = .cardBackground
+
+    init(label: String, stopover: Stopover, indent: CGFloat = 34, stepperFill: Color = .cardBackground,
+         onChange: ((Stopover) -> Void)?) {
+        self.label = label
+        self.stopover = stopover
+        self.indent = indent
+        self.stepperFill = stepperFill
+        self.onChange = onChange
+    }
+
+    var body: some View {
+        if onChange == nil {
+            Text(readOnly)
+                .scaledFont(size: 13, relativeTo: .footnote)
+                .foregroundColor(.secondaryText)
+                .padding(.leading, indent)
+                .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
+        } else {
+            ViewThatFits(in: .horizontal) {
+                HStack(spacing: 10) {
+                    labelText
+                        .padding(.leading, indent)
+                    Spacer(minLength: 8)
+                    stepper
+                    refuelToggle
+                }
+                VStack(alignment: .leading, spacing: 2) {
+                    labelText
+                    HStack(spacing: 14) {
+                        stepper
+                        refuelToggle
+                        Spacer(minLength: 0)
+                    }
+                }
+                .padding(.leading, indent)
+            }
+        }
+    }
+
+    /// "On the ground at LSGE: 30 min · refuel"
+    private var readOnly: String {
+        var text = label + ": " + L10n.PlanFlight.groundMinutes(stopover.groundMinutes)
+        if stopover.refuel { text += " · " + L10n.PlanFlight.refuel.lowercased() }
+        return text
+    }
+
+    private var labelText: some View {
+        Text(label)
+            .scaledFont(size: 13, relativeTo: .footnote)
+            .foregroundColor(.secondaryText)
+            .lineLimit(1)
+    }
+
+    /// − 30 min +, 0 to 12 hours in quarter hours, like "Add a stop…" always had.
+    private var stepper: some View {
+        let minutes = stopover.groundMinutes
+        return HStack(spacing: 0) {
+            stepButton("minus", enabled: minutes > 0) { setGroundMinutes(minutes - 15) }
+            Text(L10n.PlanFlight.groundMinutes(minutes))
+                .scaledFont(size: 13, weight: .semibold, design: .monospaced, relativeTo: .footnote)
+                .foregroundColor(.primaryText)
+                .lineLimit(1)
+                .frame(minWidth: 56)
+            stepButton("plus", enabled: minutes < 720) { setGroundMinutes(minutes + 15) }
+        }
+        .background(RoundedRectangle(cornerRadius: 9).fill(stepperFill).padding(.vertical, 4))
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(label)
+        .accessibilityValue(L10n.PlanFlight.groundMinutes(minutes))
+        .accessibilityAdjustableAction { direction in
+            switch direction {
+            case .increment: setGroundMinutes(minutes + 15)
+            case .decrement: setGroundMinutes(minutes - 15)
+            @unknown default: break
+            }
+        }
+    }
+
+    private func stepButton(_ symbol: String, enabled: Bool, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Image(systemName: symbol)
+                .scaledFont(size: 13, weight: .bold, relativeTo: .footnote)
+                .foregroundColor(enabled ? .aviationGold : .dimText.opacity(0.5))
+                .frame(width: 44, height: 44)
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .disabled(!enabled)
+    }
+
+    private func setGroundMinutes(_ minutes: Int) {
+        var updated = stopover
+        updated.groundMinutes = min(720, max(0, minutes))
+        onChange?(updated)
+    }
+
+    private var refuelToggle: some View {
+        Toggle(isOn: Binding(
+            get: { stopover.refuel },
+            set: { refuel in
+                var updated = stopover
+                updated.refuel = refuel
+                onChange?(updated)
+            }
+        )) {
+            Text(L10n.PlanFlight.refuel)
+        }
+        .toggleStyle(CheckboxToggleStyle())
+    }
+}
+
 /// A tick box: the stop's refuel. A switch per stop row was too much furniture for a yes/no that is
 /// mostly no. VoiceOver reads it as the toggle it is.
-private struct CheckboxToggleStyle: ToggleStyle {
+struct CheckboxToggleStyle: ToggleStyle {
     func makeBody(configuration: Configuration) -> some View {
         Button { configuration.isOn.toggle() } label: {
             HStack(spacing: 6) {
@@ -1047,6 +1446,37 @@ private struct CheckboxToggleStyle: ToggleStyle {
         .accessibilityRepresentation {
             Toggle(isOn: configuration.$isOn) { configuration.label }
         }
+    }
+}
+
+/// The amber PPR tag beside an aerodrome that asks for prior permission.
+struct PPRChip: View {
+    var body: some View {
+        Text("PPR")
+            .font(.aero(size: 10, weight: .bold))
+            .tracking(0.5)
+            .foregroundColor(.aviationAmber)
+            .padding(.horizontal, 6)
+            .padding(.vertical, 2)
+            .overlay(RoundedRectangle(cornerRadius: 4).stroke(Color.aviationAmber, lineWidth: 1))
+    }
+}
+
+/// Where an aerodrome sits against a route: "on route", or "3.1 NM off".
+enum StopPlacement {
+    static func text(_ candidate: TripPlanner.StopCandidate) -> String {
+        candidate.waypointIndex != nil || candidate.offsetNM < TripPlanner.onRouteNM
+            ? L10n.Trip.onRoute
+            : L10n.Trip.offRoute(String(format: "%.1f", candidate.offsetNM))
+    }
+}
+
+/// A dashed line across the top or bottom of a stop row.
+private struct DashedRule: View {
+    var body: some View {
+        HorizontalRule()
+            .stroke(Color.white.opacity(0.12), style: StrokeStyle(lineWidth: 1, dash: [3, 3]))
+            .frame(height: 1)
     }
 }
 

@@ -7,14 +7,20 @@ struct WaypointEditorSheet: View {
 
     @State private var waypoint: FlightPlanWaypoint
     let aircraftTypeId: String
+    /// The true airspeed the leg leaving this waypoint takes when none is typed: the aircraft's cruise
+    /// speed at the leg's level (`FlightPlan.cruiseAirspeed(ofLegFrom:)`). Shown as the placeholder. (6.1)
+    let cruiseAirspeed: Int
     let onSave: (FlightPlanWaypoint) -> Void
     let onDelete: (() -> Void)?
 
     private let elevationService = ElevationService()
 
-    init(waypoint: FlightPlanWaypoint, aircraftType aircraftTypeId: String, onSave: @escaping (FlightPlanWaypoint) -> Void, onDelete: (() -> Void)? = nil) {
+    init(waypoint: FlightPlanWaypoint, aircraftType aircraftTypeId: String,
+         cruiseAirspeed: Int = Int(CruiseSpeedModel.standardKIAS),
+         onSave: @escaping (FlightPlanWaypoint) -> Void, onDelete: (() -> Void)? = nil) {
         _waypoint = State(initialValue: waypoint)
         self.aircraftTypeId = aircraftTypeId
+        self.cruiseAirspeed = cruiseAirspeed
         self.onSave = onSave
         self.onDelete = onDelete
     }
@@ -146,10 +152,15 @@ struct WaypointEditorSheet: View {
                             Text(L10n.Nav.groundSpeed)
                                 .scaledFont(size: 11, relativeTo: .caption2)
                                 .foregroundColor(.secondaryText)
-                            TextField("\(FlightPlan.defaultCruiseSpeed(for: aircraftTypeId))", text: $groundSpeedString)
+                            TextField("\(cruiseAirspeed)", text: $groundSpeedString)
                                 .keyboardType(.numberPad)
                                 .scaledFont(size: 14, design: .monospaced, relativeTo: .subheadline)
                                 .foregroundColor(.primaryText)
+                            // Empty is an answer: the aircraft's cruise, which follows what it learns.
+                            Text(L10n.Nav.airspeedFromAircraft)
+                                .scaledFont(size: 11, relativeTo: .caption2)
+                                .foregroundColor(.dimText)
+                                .fixedSize(horizontal: false, vertical: true)
                         }
 
                         Text(L10n.Unit.kt)
@@ -326,7 +337,9 @@ struct WaypointEditorSheet: View {
         frequency = waypoint.frequency ?? ""
         callSign = waypoint.callSign ?? ""
         remarks = waypoint.remarks
-        groundSpeedString = waypoint.plannedGroundSpeed.map { "\($0)" } ?? "\(FlightPlan.defaultCruiseSpeed(for: aircraftTypeId))"
+        // Only the pilot's own figure: an empty field leaves the leg to the aircraft's cruise speed. It
+        // used to be filled with 100, which saving then stored as if the pilot had typed it. (6.1)
+        groundSpeedString = waypoint.plannedGroundSpeed.map { "\($0)" } ?? ""
         windDirectionString = waypoint.windDirection.map { String(format: "%.0f", $0) } ?? ""
         windSpeedString = waypoint.windSpeed.map { String(format: "%.0f", $0) } ?? ""
     }

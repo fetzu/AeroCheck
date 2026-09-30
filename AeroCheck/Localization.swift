@@ -1148,7 +1148,8 @@ enum L10n {
         /// A memory check confirmed with one tap. (6.1)
         static let phaseDoneFromMemory = String(localized: "a11y.phase.doneFromMemory")
         static let phaseNotStarted = String(localized: "a11y.phase.notStarted")
-        static let phaseCruiseCheckDue = String(localized: "a11y.phase.cruiseCheckDue")
+        /// The cruise segment, amber: FREDA is due. (6.1)
+        static let phaseFredaDue = String(localized: "a11y.phase.fredaDue")
         static let previousPhase = String(localized: "a11y.previousPhase")
         static let nextPhase = String(localized: "a11y.nextPhase")
         static let gpsGood = String(localized: "a11y.gps.good")
@@ -1571,6 +1572,64 @@ enum L10n {
         static let refuel = String(localized: "planFlight.refuel")
         static let legsExplainer = String(localized: "planFlight.legsExplainer")
         static let leg1Departure = String(localized: "planFlight.leg1Departure")
+        // Landing on the way from a saved route (6.1, trips proposal M2)
+        static let aerodromesOnRoute = String(localized: "planFlight.aerodromesOnRoute")
+        static let inFlyingOrder = String(localized: "planFlight.inFlyingOrder")
+        static let noAerodromesOnRoute = String(localized: "planFlight.noAerodromesOnRoute")
+        /// "Show 14 more within 5 NM"
+        static func moreNearRoute(_ count: Int) -> String {
+            String(format: String(localized: "planFlight.moreNearRoute"), count)
+        }
+        static let landHere = String(localized: "planFlight.landHere")
+        /// "Land at LSGE" (VoiceOver)
+        static func landAt(_ ident: String) -> String {
+            String(format: String(localized: "planFlight.landAt"), ident)
+        }
+        static let landElsewhere = String(localized: "planFlight.landElsewhere")
+        /// "split from “Tour du Jura”"
+        static func splitFrom(_ route: String) -> String {
+            String(format: String(localized: "planFlight.splitFrom"), route)
+        }
+        static let routeLegsExplainer = String(localized: "planFlight.routeLegsExplainer")
+        /// "Tour du Jura, landing at LSGE and LSGN"
+        static func routeLandingAt(_ route: String, _ idents: String) -> String {
+            String(format: String(localized: "planFlight.routeLandingAt"), route, idents)
+        }
+        /// "131 NM · 1:22 flying"
+        static func legsTotalRoute(_ distance: String, _ eet: String) -> String {
+            String(format: String(localized: "planFlight.legsTotalRoute"), distance, eet)
+        }
+    }
+
+    /// "Add a stop…" with several stops at once, and on a local flight; a leg's stop, edited on its
+    /// page. (6.1)
+    enum AddStops {
+        static let explainer = String(localized: "addStops.explainer")
+        /// "Aerodromes within 40 NM of LSZQ, nearest first. Tick them in the order you will land."
+        static func localHint(_ radiusNM: Int, _ ident: String) -> String {
+            String(format: String(localized: "addStops.localHint"), radiusNM, ident)
+        }
+        /// "No aerodrome within 40 NM. Search for one above."
+        static func noLocalCandidates(_ radiusNM: Int) -> String {
+            String(format: String(localized: "addStops.noLocalCandidates"), radiusNM)
+        }
+        static let tickStops = String(localized: "addStops.tickStops")
+        /// "Split into 3 legs"
+        static func splitInto(_ legs: Int) -> String {
+            String(format: String(localized: "addStops.splitInto"), legs)
+        }
+        /// "Stop at LSGE"
+        static func stopAt(_ ident: String) -> String {
+            String(format: String(localized: "addStops.stopAt"), ident)
+        }
+        /// "Leaves ≈ 10:53, when the leg before lands plus the time on the ground."
+        static func leavesEstimated(_ time: String) -> String {
+            String(format: String(localized: "addStops.leavesEstimated"), time)
+        }
+        /// "Leaves at 11:30, the time you chose. A new time on the ground estimates it again."
+        static func leavesChosen(_ time: String) -> String {
+            String(format: String(localized: "addStops.leavesChosen"), time)
+        }
     }
 
     /// Where the pilot is based: Settings › Flight Planning and onboarding. (v6.1)
@@ -1677,6 +1736,53 @@ enum L10n {
     }
 
     /// The fuel-on-board sheet and the full-tanks figure. (on-device review #4, point 3)
+    /// Where a plan's EET comes from: the allowances and the cruise speed. (6.1)
+    enum EETPlanning {
+        /// "departure +1 at LSZQ (6 flights)"
+        static func departure(_ minutes: String, at aerodrome: String?, _ source: String) -> String {
+            guard let aerodrome else { return String(format: String(localized: "eet.departureAnywhere"), minutes, source) }
+            return String(format: String(localized: "eet.departure"), minutes, aerodrome, source)
+        }
+        /// "arrival +8 at LSGN (default)"
+        static func arrival(_ minutes: String, at aerodrome: String?, _ source: String) -> String {
+            guard let aerodrome else { return String(format: String(localized: "eet.arrivalAnywhere"), minutes, source) }
+            return String(format: String(localized: "eet.arrival"), minutes, aerodrome, source)
+        }
+        /// "cruise 97 KIAS (aircraft data)"
+        static func cruise(_ kias: String, _ source: String) -> String {
+            String(format: String(localized: "eet.cruise"), kias, source)
+        }
+        static func flights(_ count: Int) -> String {
+            String(format: String(localized: "eet.flights"), count)
+        }
+        static func allAerodromes(_ count: Int) -> String {
+            String(format: String(localized: "eet.allAerodromes"), count)
+        }
+        static let standard = String(localized: "eet.standard")
+        static let cruiseManual = String(localized: "eet.cruiseManual")
+        static func cruiseLearned(_ count: Int) -> String {
+            String(format: String(localized: "eet.cruiseLearned"), count)
+        }
+        static let cruiseAircraftData = String(localized: "eet.cruiseAircraftData")
+
+        // The Aircraft tab
+        static let planningGroup = String(localized: "eet.planningGroup")
+        static let cruiseRow = String(localized: "eet.cruiseRow")
+        static let cruiseRowFooter = String(localized: "eet.cruiseRowFooter")
+        static func sourceManual(_ registration: String) -> String {
+            String(format: String(localized: "eet.sourceManual"), registration)
+        }
+        static func sourceLearned(_ count: Int) -> String {
+            String(format: String(localized: "eet.sourceLearned"), count)
+        }
+        static let sourceAircraftData = String(localized: "eet.sourceAircraftData")
+        static let sourceStandard = String(localized: "eet.sourceStandard")
+        static let useAutomatic = String(localized: "eet.useAutomatic")
+        static func trueAirspeedNote(_ knots: String) -> String {
+            String(format: String(localized: "eet.trueAirspeedNote"), knots)
+        }
+    }
+
     enum FuelOnBoard {
         static let title = String(localized: "fuelOnBoard.title")
         static let required = String(localized: "fuelOnBoard.required")
@@ -1831,6 +1937,10 @@ enum L10n {
             String(format: String(localized: "cockpit.memoryCheckDone"), check)
         }
         static let fromMemory = String(localized: "cockpit.fromMemory")
+        /// Under "✓ CLIMB CHECK DONE" when the same tap goes on: "NEXT: CRUISE CHECK · from memory". (6.1)
+        static func fromMemoryThenNext(_ next: String) -> String {
+            String(format: String(localized: "cockpit.fromMemoryThenNext"), next)
+        }
         /// The undo toast after a confirmation: "CLIMB CHECK done from memory". (6.1)
         static func doneFromMemoryToast(_ check: String) -> String {
             String(format: String(localized: "cockpit.doneFromMemoryToast"), check)
@@ -1860,11 +1970,79 @@ enum L10n {
         static let showChecklistHint = String(localized: "checkSlot.showChecklistHint")
     }
 
+    /// A trip on Today and in Plan › Flights: the card that says "Trip" and lists its legs. (6.1)
+    enum TripCard {
+        /// The card's kind, where a single flight's card has its date: "Trip".
+        static let kind = String(localized: "tripCard.kind")
+        /// "Next: Fuel plan for leg 1"
+        static func nextForLeg(_ task: String, _ leg: Int) -> String {
+            String(format: String(localized: "tripCard.nextForLeg"), task, leg)
+        }
+        /// "Next: Weather briefing for the trip"
+        static func nextForTrip(_ task: String) -> String {
+            String(format: String(localized: "tripCard.nextForTrip"), task)
+        }
+        /// "Leg 2: everything ticked"
+        static func legAllTicked(_ leg: Int) -> String {
+            String(format: String(localized: "tripCard.legAllTicked"), leg)
+        }
+        /// "1/6 trip checks done"
+        static func tripChecks(_ done: Int, _ total: Int) -> String {
+            String(format: String(localized: "tripCard.tripChecks"), done, total)
+        }
+        /// Under START FLIGHT: "Leg 1 · LSZQ → LSGE"
+        static func startLeg(_ leg: Int, _ route: String) -> String {
+            String(format: String(localized: "tripCard.startLeg"), leg, route)
+        }
+        /// "Leg 2 of 3". Its own key: the literal "Leg \(index) of \(total)" (`L10n.Flights.legOf`)
+        /// is looked up as "Leg %lld of %lld", which the catalog has only in its positional form,
+        /// so it stays English in French.
+        static func legOf(_ leg: Int, _ count: Int) -> String {
+            String(format: String(localized: "tripCard.legOf"), leg, count)
+        }
+        /// Plan › Flights, the legs' heading: "Legs"
+        static let legs = String(localized: "tripCard.legs")
+        /// A leg row's tag for the leg the card is about: "Next"
+        static let nextLeg = String(localized: "tripCard.nextLeg")
+        /// A flown leg's tag: "Flown"
+        static let flown = String(localized: "tripCard.flown")
+    }
+
+    /// FREDA in cruise (6.1, "Checks in flight" Q6). The acronym and its letters stay as they are in
+    /// French, like the other aviation terms.
+    enum Freda {
+        static let name = "FREDA"
+        static let flow = "F · R · E · D · A"
+        /// The phone's narrow places.
+        static let flowCompact = "F·R·E·D·A"
+        /// "CRUISE CHECK ✓ 14:24", "FREDA ✓ 14:34": what the count runs from.
+        static func ticked(_ what: String, _ time: String) -> String { "\(what) ✓ \(time)" }
+        /// The same on two lines, where the slot is narrow: "CRUISE CHECK", "✓ 14:24".
+        static func tickedStacked(_ what: String, _ time: String) -> String { "\(what)\n✓ \(time)" }
+        /// "FREDA in 6 min"
+        static func inMinutes(_ minutes: Int) -> String {
+            String(format: String(localized: "freda.inMinutes"), minutes)
+        }
+        /// "LSGC passed"
+        static func waypointPassed(_ waypoint: String) -> String {
+            String(format: String(localized: "freda.waypointPassed"), waypoint)
+        }
+        /// "F · R · E · D · A — LSGC passed"
+        static func flowAfterWaypoint(_ waypoint: String) -> String { "\(flow) — \(waypointPassed(waypoint))" }
+        /// The flow spelled out, for VoiceOver.
+        static let flowSpelledOut = String(localized: "freda.flowSpelledOut")
+        static let afterCruiseCheck = String(localized: "freda.afterCruiseCheck")
+        static let confirmHint = String(localized: "freda.confirmHint")
+        /// The undo toast: "FREDA done at 14:34".
+        static func doneToast(_ time: String) -> String {
+            String(format: String(localized: "freda.doneToast"), time)
+        }
+    }
+
     enum Trip {
         static let addStop = String(localized: "trip.addStop")
         static let addStopTitle = String(localized: "trip.addStopTitle")
         static let addStopHint = String(localized: "trip.addStopHint")
-        static let addStopExplainer = String(localized: "trip.addStopExplainer")
         static let searchAerodrome = String(localized: "trip.searchAerodrome")
         static let onRoute = String(localized: "trip.onRoute")
         /// "3.6 NM off"
@@ -1873,20 +2051,13 @@ enum L10n {
         }
         static let noFrequency = String(localized: "trip.noFrequency")
         static let noCandidates = String(localized: "trip.noCandidates")
-        /// "On the ground: 30 min"
-        static func groundTime(_ minutes: Int) -> String {
-            String(format: String(localized: "trip.groundTime"), minutes)
-        }
-        static let refuel = String(localized: "trip.refuel")
         static let refuelHint = String(localized: "trip.refuelHint")
-        static let split = String(localized: "trip.split")
         static let joinNextLeg = String(localized: "trip.joinNextLeg")
         /// "≈ 15:10 (est.)"
         static func estimated(_ time: String) -> String {
             String(format: String(localized: "trip.estimated"), time)
         }
         static let stops = String(localized: "trip.stops")
-        static let routeStopsHint = String(localized: "trip.routeStopsHint")
         /// "Create trip · 3 legs"
         static func createTrip(_ legs: Int) -> String {
             String(format: String(localized: "trip.createTrip"), legs)
@@ -2003,6 +2174,8 @@ enum L10n {
         static let pilot = String(localized: "pdf.pilot")
         static let aircraft = String(localized: "pdf.aircraft")
         static let totalEET = String(localized: "pdf.totalEET")
+        /// What the total EET is made of: the allowances and the cruise speed, and where they come from. (6.1)
+        static let eetBasis = String(localized: "pdf.eetBasis")
         static let endurance = String(localized: "pdf.endurance")
         static let runwayInUse = String(localized: "pdf.runwayInUse")
         static let instructor = String(localized: "pdf.instructor")
@@ -2191,12 +2364,8 @@ enum L10n {
         static let radioFrequencies = String(localized: "nav.radioFrequencies")
         static let allFrequencies = String(localized: "nav.allFrequencies")
         static let showLess = String(localized: "nav.showLess")
-        static let fredaCheck = String(localized: "nav.fredaCheck")
         static let trackVector = String(localized: "nav.trackVector")
         static let trackVectorDesc = String(localized: "nav.trackVectorDesc")
-        static let cruise = String(localized: "nav.cruise")
-        static let checkNow = String(localized: "nav.checkNow")
-        static let holdToReset = String(localized: "nav.holdToReset")
         static let freqCurrent = String(localized: "nav.freqCurrent")
         static let freqNext = String(localized: "nav.freqNext")
         static let mark = String(localized: "nav.mark")
@@ -2305,6 +2474,8 @@ enum L10n {
         static let magneticCourse = String(localized: "nav.magneticCourse")
         static let distanceToNext = String(localized: "nav.distanceToNext")
         static let navigationHelp = String(localized: "nav.navigationHelp")
+        /// Under the true airspeed of a waypoint: what an empty field means. (6.1)
+        static let airspeedFromAircraft = String(localized: "nav.airspeedFromAircraft")
         static let radio = String(localized: "nav.radio")
         static let callsign = String(localized: "nav.callsign")
         static let eetFromDeparture = String(localized: "nav.eetFromDeparture")

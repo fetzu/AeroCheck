@@ -551,6 +551,10 @@ enum CompanionCommand: Codable {
     // phase, so a tap arriving after the iPad moved on confirms nothing else.
     case confirmMemoryCheck(phaseRawValue: Int)
     case undoMemoryCheck(phaseRawValue: Int)
+    // ✓ DONE · NEXT: the current memory check confirmed and the next one opened, in one tap, as the
+    // iPad's checklist pane does it (6.1). `undoMemoryCheck` takes both back. Sent only to an iPad whose
+    // snapshot names where it goes (`memoryCheckNextRawValue`); an older one drops it.
+    case confirmMemoryCheckAndNext(phaseRawValue: Int)
 }
 
 /// A check deferred whole (v6.0 review, J1): what the viewer's deferred list shows, and what it needs to
@@ -637,13 +641,17 @@ struct CompanionChecklistSnapshot: Codable, Equatable {
     let memoryCheckDone: Bool
     /// This iPad takes `confirmMemoryCheck` and `undoMemoryCheck`. False from an older iPad. (6.1)
     let supportsMemoryConfirm: Bool
+    /// Where the iPad's ✓ DONE goes on to in the same tap (`confirmMemoryCheckAndNext`), as a
+    /// `ChecklistPhase` raw value. Nil when it only confirms (the phase's own action still to press, the
+    /// last check), and from an iPad that has no one-tap (it only takes `confirmMemoryCheck`). (6.1)
+    let memoryCheckNextRawValue: Int?
 
     init(phaseTitle: String, phaseRawValue: Int, highlightedIndex: Int, visibleCount: Int,
          completedCount: Int, items: [CompanionChecklistItem], hiddenItemCount: Int,
          deferredItemIds: [String] = [], deferredItemCount: Int = 0,
          deferredGroups: [CompanionDeferredGroup] = [], openItemCount: Int = 0, supportsDefer: Bool = false,
          deferredChecks: [CompanionDeferredCheck] = [], memoryCheck: Bool = false, memoryCheckDone: Bool = false,
-         supportsMemoryConfirm: Bool = false) {
+         supportsMemoryConfirm: Bool = false, memoryCheckNextRawValue: Int? = nil) {
         self.phaseTitle = phaseTitle
         self.phaseRawValue = phaseRawValue
         self.highlightedIndex = highlightedIndex
@@ -660,6 +668,7 @@ struct CompanionChecklistSnapshot: Codable, Equatable {
         self.memoryCheck = memoryCheck
         self.memoryCheckDone = memoryCheckDone
         self.supportsMemoryConfirm = supportsMemoryConfirm
+        self.memoryCheckNextRawValue = memoryCheckNextRawValue
     }
 
     /// Tolerant decoder: every field defaults so a field skew between independently-updated builds never
@@ -686,5 +695,7 @@ struct CompanionChecklistSnapshot: Codable, Equatable {
         memoryCheck = try c.decodeIfPresent(Bool.self, forKey: .memoryCheck) ?? false
         memoryCheckDone = try c.decodeIfPresent(Bool.self, forKey: .memoryCheckDone) ?? false
         supportsMemoryConfirm = try c.decodeIfPresent(Bool.self, forKey: .supportsMemoryConfirm) ?? false
+        // Absent from a 6.1 iPad without the one tap: ✓ DONE only confirms, and NEXT follows.
+        memoryCheckNextRawValue = try c.decodeIfPresent(Int.self, forKey: .memoryCheckNextRawValue)
     }
 }

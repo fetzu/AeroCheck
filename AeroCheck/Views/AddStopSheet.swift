@@ -1,17 +1,20 @@
 import SwiftUI
 import CoreLocation
 
-// MARK: - Add a stop (v5.1)
+// MARK: - Add a stop (v5.1; several at once since 6.1)
 
-/// Add a stop to a flight that has not flown: pick an aerodrome along the route, say how long the
-/// aircraft stays and whether it refuels, and the flight becomes two legs of one trip.
+/// Add stops to a flight that has not flown: tick the aerodromes to land at, say how long the aircraft
+/// stays at each and whether it refuels, and the flight becomes one leg per stretch between them, in
+/// one pass. A second stop used to mean opening the new leg and adding it there.
 ///
 /// A ground screen, so it can afford detail: every aerodrome within 5 NM of the route in the order it
 /// is reached, with its distance and time from departure, its contact frequency and a PPR chip. A
-/// field further away is one search away.
+/// field further away is one search away. A local flight (one aerodrome, out and back) has no route
+/// to follow: it lists the aerodromes around its field, nearest first, and flies out to the ones
+/// ticked, in the order ticked, and back. (6.1)
 struct AddStopSheet: View {
     let threadId: UUID
-    /// Called with the new leg's thread id, or nil when the pilot cancelled.
+    /// Called with the first new leg's thread id, or nil when the pilot cancelled.
     let onDone: (UUID?) -> Void
 
     @EnvironmentObject var threadManager: FlightThreadManager
@@ -21,9 +24,9 @@ struct AddStopSheet: View {
     @State private var candidates: [TripPlanner.StopCandidate] = []
     @State private var searchResults: [TripPlanner.StopCandidate] = []
     @State private var query = ""
-    @State private var selected: TripPlanner.StopCandidate?
-    @State private var groundMinutes = Stopover.defaultGroundMinutes
-    @State private var refuel = false
+    /// The stops ticked, each with its time on the ground and refuel, in the order ticked: a local
+    /// flight lands in that order; a route, in its own.
+    @State private var ticked: [TripPlanner.Landing] = []
     @State private var isLoading = true
 
     private var plan: FlightPlan? {
@@ -31,11 +34,14 @@ struct AddStopSheet: View {
         return flightPlanManager.flightPlans.first { $0.id == planId }
     }
 
+    /// One aerodrome, out and back: no route to stop along, so the stops are the fields around it.
+    private var isLocal: Bool { plan?.waypoints.count == 1 }
+
     var body: some View {
         NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: 16) {
-                    Text(L10n.Trip.addStopExplainer)
+                    Text(L10n.AddStops.explainer)
                         .scaledFont(size: 13, relativeTo: .footnote)
                         .foregroundColor(.secondaryText)
                         .fixedSize(horizontal: false, vertical: true)
@@ -44,8 +50,7 @@ struct AddStopSheet: View {
                         list(searchResults)
                     }
                     candidatesSection
-                    if selected != nil { stopoverCard }
-                    splitButton
+                    if !ticked.isEmpty { SeparateView { legsCard } }
                 }
                 .padding()
                 .frame(maxWidth: 640)
@@ -53,6 +58,8 @@ struct AddStopSheet: View {
             }
             .scrollDismissesKeyboard(.interactively)
             .background(Color.cockpitBackground)
+            // Split, always in reach, with the legs it will make: it sat below a long list. (6.1)
+            .safeAreaInset(edge: .bottom, spacing: 0) { splitBar }
             .navigationTitle(L10n.Trip.addStopTitle)
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -84,20 +91,35 @@ struct AddStopSheet: View {
     @ViewBuilder
     private var candidatesSection: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text(L10n.Trip.addStopHint)
+            Text(hint)
                 .scaledFont(size: 12, relativeTo: .caption)
                 .foregroundColor(.dimText)
+                .fixedSize(horizontal: false, vertical: true)
             if isLoading {
                 ProgressView().frame(maxWidth: .infinity).padding()
-            } else if candidates.isEmpty {
-                Text(L10n.Trip.noCandidates)
+            } else if listed.isEmpty {
+                Text(isLocal ? L10n.AddStops.noLocalCandidates(Int(TripPlanner.localStopRadiusNM)) : L10n.Trip.noCandidates)
                     .scaledFont(size: 13, relativeTo: .footnote)
                     .foregroundColor(.secondaryText)
                     .padding(.vertical, 8)
             } else {
-                list(candidates)
+                list(listed)
             }
         }
+    }
+
+    private var hint: String {
+        guard isLocal else { return L10n.Trip.addStopHint }
+        return L10n.AddStops.localHint(Int(TripPlanner.localStopRadiusNM), plan?.waypoints.first?.name ?? "")
+    }
+
+    /// The list, and any aerodrome ticked from the search, in their place: along the route, or by
+    /// distance from a local flight's field.
+    private var listed: [TripPlanner.StopCandidate] {
+        let extra = ticked.map(\.candidate).filter { stop in
+            !candidates.contains { $0.aerodrome.ident == stop.aerodrome.ident }
+        }
+        return (candidates + extra).sorted { $0.alongNM < $1.alongNM }
     }
 
     private func list(_ items: [TripPlanner.StopCandidate]) -> some View {
@@ -112,23 +134,23 @@ struct AddStopSheet: View {
         .background(RoundedRectangle(cornerRadius: 12).fill(Color.cardBackground))
     }
 
+    /// A tick box that shows the stop's number once ticked: where it comes in the trip.
     private func row(_ candidate: TripPlanner.StopCandidate) -> some View {
-        let isSelected = selected?.aerodrome.ident == candidate.aerodrome.ident
+        let ident = candidate.aerodrome.ident
+        let number = stopNumber(of: ident)
         return Button {
-            selected = candidate
+            toggle(candidate)
         } label: {
             HStack(alignment: .top, spacing: 12) {
-                Image(systemName: isSelected ? "largecircle.fill.circle" : "circle")
-                    .scaledFont(size: 18, relativeTo: .body)
-                    .foregroundColor(isSelected ? .aviationGold : .dimText)
+                tickBox(number)
                 VStack(alignment: .leading, spacing: 3) {
                     HStack(spacing: 6) {
-                        Text(candidate.aerodrome.ident)
+                        Text(ident)
                             .font(.aero(size: 15, weight: .semibold, design: .monospaced))
                             .foregroundColor(.primaryText)
-                        if candidate.aerodrome.isPPR { chip("PPR") }
+                        if candidate.aerodrome.isPPR { PPRChip() }
                     }
-                    Text("\(candidate.aerodrome.name) · \(placement(candidate))")
+                    Text(isLocal ? candidate.aerodrome.name : "\(candidate.aerodrome.name) · \(placement(candidate))")
                         .scaledFont(size: 12, relativeTo: .caption)
                         .foregroundColor(.secondaryText)
                         .lineLimit(1)
@@ -149,77 +171,75 @@ struct AddStopSheet: View {
             .padding(.horizontal, 12)
             .padding(.vertical, 10)
             .frame(minHeight: 56)
-            .background(isSelected ? Color.aviationGold.opacity(0.08) : Color.clear)
+            .background(number != nil ? Color.aviationGold.opacity(0.08) : Color.clear)
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
-        .accessibilityAddTraits(isSelected ? .isSelected : [])
+        .accessibilityAddTraits(number != nil ? .isSelected : [])
+        .accessibilityValue(number.map(L10n.PlanFlight.stopLabel) ?? "")
     }
 
-    private var stopoverCard: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Stepper(value: $groundMinutes, in: 0...720, step: 15) {
-                Text(L10n.Trip.groundTime(groundMinutes))
-                    .scaledFont(size: 15, relativeTo: .body)
-                    .foregroundColor(.primaryText)
-            }
-            Toggle(isOn: $refuel) {
-                Text(L10n.Trip.refuel)
-                    .scaledFont(size: 15, relativeTo: .body)
-                    .foregroundColor(.primaryText)
-            }
-            .tint(.aviationGold)
-            if !refuel {
-                Text(L10n.Trip.refuelHint)
-                    .scaledFont(size: 12, relativeTo: .caption)
-                    .foregroundColor(.dimText)
-                    .fixedSize(horizontal: false, vertical: true)
-            }
-            if let preview {
-                VStack(alignment: .leading, spacing: 4) {
-                    legLine(preview.first)
-                    legLine(preview.second)
-                }
-                .padding(10)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .background(RoundedRectangle(cornerRadius: 8).fill(Color.cockpitBackground))
+    private func tickBox(_ number: Int?) -> some View {
+        ZStack {
+            RoundedRectangle(cornerRadius: 5)
+                .fill(number == nil ? Color.clear : Color.aviationGold)
+            RoundedRectangle(cornerRadius: 5)
+                .strokeBorder(number == nil ? Color.dimText : Color.aviationGold, lineWidth: 1.5)
+            if let number {
+                Text("\(number)")
+                    .font(.aero(size: 12, weight: .bold, design: .monospaced))
+                    .foregroundColor(.onAccent)
             }
         }
-        .padding(14)
-        .background(RoundedRectangle(cornerRadius: 12).fill(Color.panelBackground))
+        .frame(width: 22, height: 22)
+        .padding(.top, 1)
+        .accessibilityHidden(true)
     }
 
-    private var splitButton: some View {
-        Button {
-            guard let selected else { return }
-            let leg = FlightCreator.addStop(to: threadId, at: selected,
-                                            stopover: Stopover(groundMinutes: groundMinutes, refuel: refuel),
-                                            plans: flightPlanManager, threads: threadManager)
-            onDone(leg?.id)
-        } label: {
-            Text(L10n.Trip.split).frame(maxWidth: .infinity)
+    /// The legs the ticked stops make, with each stop's time on the ground and refuel.
+    private var legsCard: some View {
+        let legs = previewLegs
+        let idents = TripLegsCard.idents(of: legs)
+        return TripLegsCard(legs: legs,
+                            idents: idents,
+                            stopovers: legs.dropFirst().map { $0.stopover ?? Stopover() },
+                            aside: TripLegsCard.total(legs, direct: isLocal),
+                            showsWaypointCount: !isLocal,
+                            explainer: L10n.Trip.refuelHint) { index, stopover in
+            guard idents.indices.contains(index + 1),
+                  let at = ticked.firstIndex(where: { $0.ident == idents[index + 1] }) else { return }
+            ticked[at].stopover = stopover
         }
-        .buttonStyle(PrimaryButtonStyle())
-        .disabled(selected == nil)
+    }
+
+    /// What the split will make, then the button.
+    private var splitBar: some View {
+        let legs = previewLegs
+        return VStack(spacing: 8) {
+            Text(ticked.isEmpty ? L10n.AddStops.tickStops : TripLegsCard.idents(of: legs).joined(separator: " → "))
+                .scaledFont(size: 14, relativeTo: .subheadline)
+                .foregroundColor(.secondaryText)
+                .lineLimit(1)
+                .minimumScaleFactor(0.8)
+            Button {
+                let added = FlightCreator.addStops(to: threadId, landingAt: ticked,
+                                                   plans: flightPlanManager, threads: threadManager)
+                onDone(added.first?.id)
+            } label: {
+                Text(L10n.AddStops.splitInto(max(2, legs.count))).frame(maxWidth: .infinity)
+            }
+            .buttonStyle(PrimaryButtonStyle())
+            .disabled(ticked.isEmpty || legs.count < 2)
+        }
+        .padding(.horizontal, 16)
+        .padding(.top, 10)
+        .padding(.bottom, 12)
+        .frame(maxWidth: 640)
+        .frame(maxWidth: .infinity)
+        .background(Color.panelBackground.shadow(.drop(color: .black.opacity(0.4), radius: 8, y: -2)))
     }
 
     // MARK: - Pieces
-
-    private func chip(_ text: String) -> some View {
-        Text(text)
-            .font(.aero(size: 10, weight: .bold))
-            .tracking(0.5)
-            .foregroundColor(.aviationAmber)
-            .padding(.horizontal, 6)
-            .padding(.vertical, 2)
-            .overlay(RoundedRectangle(cornerRadius: 4).stroke(Color.aviationAmber, lineWidth: 1))
-    }
-
-    private func legLine(_ leg: FlightPlan) -> some View {
-        Text("\(FlightThreadManager.routeLabel(for: leg)) · \(String(format: "%.1f NM", leg.totalDistance)) · \(leg.formattedTotalEET)")
-            .font(.aero(size: 13, design: .monospaced))
-            .foregroundColor(.primaryText)
-    }
 
     private func placement(_ candidate: TripPlanner.StopCandidate) -> String {
         candidate.waypointIndex != nil || candidate.offsetNM < TripPlanner.onRouteNM
@@ -230,21 +250,37 @@ struct AddStopSheet: View {
     /// Time from departure at the plan's cruise speed, as H:MM. A guide for choosing, not a plan:
     /// the leg's own timing (wind, allowances) is computed when the split is made.
     private func duration(_ nm: Double) -> String {
-        let speed = Double(plan?.waypoints.first?.plannedGroundSpeed
-                           ?? FlightPlan.defaultCruiseSpeed(for: plan?.aircraftTypeId ?? ""))
+        let speed = Double(plan?.cruiseTrueAirspeed ?? Int(CruiseSpeedModel.standardKIAS))
         guard speed > 0 else { return "" }
         let minutes = Int((nm / speed * 60).rounded())
         return String(format: "%d:%02d", minutes / 60, minutes % 60)
     }
 
-    /// The two legs the current choice would make.
-    private var preview: (first: FlightPlan, second: FlightPlan)? {
-        guard let plan, let selected else { return nil }
-        let (route, index) = TripPlanner.routeStopping(at: selected, in: plan)
-        return TripPlanner.split(route, at: index,
-                                 stopover: Stopover(groundMinutes: groundMinutes, refuel: refuel),
-                                 stopIdent: selected.aerodrome.ident,
-                                 fieldElevationFeet: selected.aerodrome.elevationFeet)
+    // MARK: - Choosing
+
+    /// The legs the ticked stops would make, as the split makes them.
+    private var previewLegs: [FlightPlan] {
+        guard let plan, !ticked.isEmpty else { return plan.map { [$0] } ?? [] }
+        return TripPlanner.legs(of: plan, landingAt: ticked)
+    }
+
+    /// Where a ticked aerodrome comes among the stops, from 1: its place in the legs.
+    private func stopNumber(of ident: String) -> Int? {
+        guard ticked.contains(where: { $0.ident == ident }) else { return nil }
+        // A slice keeps the indices of the whole list, where the stops start at 1.
+        return TripLegsCard.idents(of: previewLegs).dropFirst().dropLast().firstIndex(of: ident)
+    }
+
+    private func toggle(_ candidate: TripPlanner.StopCandidate) {
+        if let index = ticked.firstIndex(where: { $0.ident == candidate.aerodrome.ident }) {
+            ticked.remove(at: index)
+        } else {
+            ticked.append(TripPlanner.Landing(candidate: candidate))
+            // A field found by name joins the list in its place; the search has done its job.
+            if searchResults.contains(where: { $0.aerodrome.ident == candidate.aerodrome.ident }) {
+                query = ""
+            }
+        }
     }
 
     // MARK: - Data
@@ -252,21 +288,30 @@ struct AddStopSheet: View {
     private func load() async {
         await airportDataService.ensureLoaded()
         defer { isLoading = false }
-        guard let plan, plan.waypoints.count >= 2 else { return }
-        let aerodromes = airportDataService.planningAerodromes(around: plan.waypoints.map(\.coordinate),
-                                                               marginNM: 6)
-        candidates = TripPlanner.stopCandidates(along: plan.waypoints, aerodromes: aerodromes)
+        guard let plan else { return }
+        if plan.waypoints.count >= 2 {
+            let aerodromes = airportDataService.planningAerodromes(around: plan.waypoints.map(\.coordinate),
+                                                                   marginNM: 6)
+            candidates = TripPlanner.stopCandidates(along: plan.waypoints, aerodromes: aerodromes)
+        } else if let field = plan.waypoints.first {
+            let aerodromes = airportDataService.planningAerodromes(around: [field.coordinate],
+                                                                   marginNM: TripPlanner.localStopRadiusNM + 1)
+            candidates = TripPlanner.stopCandidates(around: field.coordinate, aerodromes: aerodromes)
+        }
     }
 
     private func search() {
         let term = query.trimmingCharacters(in: .whitespaces)
-        guard term.count >= 2, let plan else { searchResults = []; return }
+        guard term.count >= 2, let plan, let departure = plan.waypoints.first else { searchResults = []; return }
         let found = airportDataService.searchAirports(query: term, limit: 8,
-                                                      near: plan.waypoints.first?.coordinate,
+                                                      near: departure.coordinate,
                                                       types: AirportType.fixedWing)
             .filter(AirportDataService.isPlanningLandingSite)
             .map(airportDataService.planningAerodrome)
-        searchResults = TripPlanner.stopCandidates(along: plan.waypoints, aerodromes: found,
-                                                   corridorNM: .greatestFiniteMagnitude)
+        searchResults = isLocal
+            ? TripPlanner.stopCandidates(around: departure.coordinate, aerodromes: found,
+                                         radiusNM: .greatestFiniteMagnitude)
+            : TripPlanner.stopCandidates(along: plan.waypoints, aerodromes: found,
+                                         corridorNM: .greatestFiniteMagnitude)
     }
 }

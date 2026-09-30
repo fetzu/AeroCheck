@@ -172,6 +172,7 @@ struct FlightPlanEditorView: View {
         .pageSizedSheet()
         // Live: non-route edits auto-commit (debounced) — no Save, no snapshot of the route. (#5)
         .onChange(of: flightPlan) { _, _ in scheduleCommit() }
+        .onAppear(perform: retimeIfCalibrationChanged)
         .onDisappear { flushCommit() }
         // Frequencies depend on the route and its altitudes only; notes and fuel don't move them.
         // (Waypoint equality is by id, so the key spells out what matters.)
@@ -261,6 +262,15 @@ struct FlightPlanEditorView: View {
                         .foregroundColor(.secondaryText)
                         .lineLimit(1)
                         .minimumScaleFactor(0.75)
+                    // What the EET is made of besides the legs, and where each part comes from: the
+                    // allowances learned at these aerodromes, the aircraft's cruise speed. (6.1)
+                    if let provenance = flightPlan.eetProvenance {
+                        Text(provenance)
+                            .scaledFont(size: 12, relativeTo: .caption)
+                            .foregroundColor(.dimText)
+                            .fixedSize(horizontal: false, vertical: true)
+                            .accessibilityLabel("EET: \(provenance)")
+                    }
                 }
                 Spacer(minLength: 8)
                 if !isCompactWidth { editRouteButton }
@@ -470,6 +480,16 @@ struct FlightPlanEditorView: View {
         commitWork?.cancel()
         guard !isViewingFromFlightLog else { return }
         flightPlanManager.updateFlightPlan(flightPlan)
+    }
+
+    /// Opened after a flight taught an allowance or a cruise speed, or after the pilot set one: the
+    /// times are computed again, as an edit would, so the EET shown is the one the plan would now use.
+    /// Never a plan being flown, nor one opened from the logbook. (6.1)
+    private func retimeIfCalibrationChanged() {
+        guard !isViewingFromFlightLog, !flightPlan.isActive, flightPlan.waypoints.count >= 2,
+              flightPlan.waypoints.allSatisfy({ $0.actualTimeOver == nil }),
+              flightPlan.planningCalibrationIsStale else { return }
+        flightPlan.calculateRouteData(readingForecasts: false)
     }
 
     /// Whether a flight follows this plan. A plan nobody flies is a ROUTE — timeless, reusable, and

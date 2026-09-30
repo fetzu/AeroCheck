@@ -82,6 +82,36 @@ final class ViewStackBudgetTests: XCTestCase {
         XCTAssertLessThan(used, Self.budget, "the Cockpit's map with the check slot used \(used / 1_024) KB of stack")
     }
 
+    /// The Cockpit on its map in cruise with FREDA due: the check slot's FREDA, and the map as flown in
+    /// cruise. (6.1)
+    func testCockpitMapWithFredaDueRendersWithinHalfTheDeviceStack() {
+        let services = makeServices()
+        startFlight(services.appState, stepByStep: true)
+        services.appState.currentPhase = .cruise
+        services.appState.markLastItemComplete(learningMode: services.appState.effectiveLearningMode)
+        services.appState.evaluateFreda(now: Date().addingTimeInterval(FredaSchedule.interval + 1))
+        XCTAssertTrue(services.appState.fredaDue)
+
+        let used = StackProbe.bytesUsed {
+            render(FlightView(), services: services, size: CGSize(width: 820, height: 1_180))
+        }
+        XCTAssertLessThan(used, Self.budget, "the Cockpit's map with FREDA due used \(used / 1_024) KB of stack")
+    }
+
+    /// The Cockpit on its checklist at line up with the Memory test on: ✓ DONE · NEXT in the thumb bar. (6.1)
+    func testCockpitChecklistWithTheOneTapRendersWithinHalfTheDeviceStack() {
+        let services = makeServices()
+        startFlight(services.appState, stepByStep: true)
+        services.appState.settings.learningMode = false
+        services.appState.currentPhase = .lineUp
+        XCTAssertNotNil(services.appState.memoryConfirmationMovesTo, "the WT9 lines up from memory")
+
+        let used = StackProbe.bytesUsed {
+            render(FlightView(), services: services, size: CGSize(width: 820, height: 1_180))
+        }
+        XCTAssertLessThan(used, Self.budget, "the Cockpit's checklist with the one tap used \(used / 1_024) KB of stack")
+    }
+
     // MARK: - Helpers
 
     /// What the map and the Cockpit read from the environment, on test storage.

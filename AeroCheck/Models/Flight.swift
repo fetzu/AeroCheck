@@ -169,6 +169,11 @@ struct Flight: Identifiable, Codable {
     /// means "use what the flight says", so the line stays correct after a reconciliation. (v5.0.0)
     var logbook: LogbookOverrides?
 
+    /// Each FREDA of the cruise, done or missed, for the debrief (6.1). Nil on a flight that never had
+    /// one (every flight before 6.1). Append-only once recorded, like the landings, so `merge` keeps the
+    /// longer list and a copy stripped by an older build can't erase it: no schema bump needed.
+    var fredaChecks: [FredaCheck]?
+
     /// Current flight record schema version. Records claiming a higher version come from a newer
     /// app build and are rejected on ingest rather than mis-applied.
     /// Bumped to 2 in v5.0.0 for `costEntry` and `logbook`. Left at 1, a v5 flight was
@@ -195,6 +200,7 @@ struct Flight: Identifiable, Codable {
         case cachedDistanceKm, cachedMaxAltitudeMeters, cachedDurationSeconds
         case isFavorite
         case costEntry, logbook
+        case fredaChecks
     }
 
     // MARK: - Custom Decodable for backward compatibility
@@ -266,6 +272,9 @@ struct Flight: Identifiable, Codable {
         // New in v5.0.0 — nil on every existing record, which reads as "nothing recorded".
         costEntry = try container.decodeIfPresent(FlightCostEntry.self, forKey: .costEntry)
         logbook = try container.decodeIfPresent(LogbookOverrides.self, forKey: .logbook)
+
+        // New in 6.1 — nil on every existing record.
+        fredaChecks = try container.decodeIfPresent([FredaCheck].self, forKey: .fredaChecks)
     }
 
     init(
@@ -370,6 +379,7 @@ struct Flight: Identifiable, Codable {
         result.goAroundTimes = a.goAroundTimes.count >= b.goAroundTimes.count ? a.goAroundTimes : b.goAroundTimes
         result.touchAndGoTimes = a.touchAndGoTimes.count >= b.touchAndGoTimes.count ? a.touchAndGoTimes : b.touchAndGoTimes
         result.fullStopTimes = a.fullStopTimes.count >= b.fullStopTimes.count ? a.fullStopTimes : b.fullStopTimes
+        result.fredaChecks = (a.fredaChecks?.count ?? 0) >= (b.fredaChecks?.count ?? 0) ? a.fredaChecks : b.fredaChecks
         result.modifiedAt = max(a.modifiedAt, b.modifiedAt)
         return result
     }
@@ -494,6 +504,9 @@ struct Flight: Identifiable, Codable {
         }
 
         bounded.flightPlan = flightPlan?.salvagedForFlight()
+        if let checks = fredaChecks, checks.count > FredaCheck.maxPerFlight {
+            bounded.fredaChecks = Array(checks.prefix(FredaCheck.maxPerFlight))
+        }
         return bounded
     }
 

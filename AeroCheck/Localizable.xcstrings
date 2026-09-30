@@ -273,6 +273,142 @@
         }
       }
     },
+    "a11y.phase.fredaDue": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "FREDA due"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "FREDA à faire"
+          }
+        }
+      }
+    },
+    "cockpit.fromMemoryThenNext": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "NEXT: %@ · from memory"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "SUIVANT : %@ · de mémoire"
+          }
+        }
+      }
+    },
+    "freda.afterCruiseCheck": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "FREDA, after the cruise check"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "FREDA, après la vérification de croisière"
+          }
+        }
+      }
+    },
+    "freda.confirmHint": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Records FREDA done"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Enregistre le FREDA fait"
+          }
+        }
+      }
+    },
+    "freda.doneToast": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "FREDA done at %@"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "FREDA fait à %@"
+          }
+        }
+      }
+    },
+    "freda.flowSpelledOut": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "FREDA: fuel, radio, engine, direction, altimeter"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "FREDA : carburant, radio, moteur, direction, altimètre"
+          }
+        }
+      }
+    },
+    "freda.inMinutes": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "FREDA in %lld min"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "FREDA dans %lld min"
+          }
+        }
+      }
+    },
+    "freda.waypointPassed": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ passed"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "après %@"
+          }
+        }
+      }
+    },
     "flightLog.nameImported.message": {
       "extractionState": "manual",
       "localizations": {
@@ -11975,23 +12111,6 @@
         }
       }
     },
-    "a11y.phase.cruiseCheckDue": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "cruise check due"
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "vérification de croisière à effectuer"
-          }
-        }
-      }
-    },
     "a11y.phase.missingAction": {
       "extractionState": "manual",
       "localizations": {
@@ -17822,22 +17941,6 @@
         }
       }
     },
-    "nav.checkNow": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "CHECK NOW"
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "VÉRIFIER"
-          }
-        }
-      }
-    },
     "nav.collapseProfile": {
       "extractionState": "manual",
       "localizations": {
@@ -17935,22 +18038,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Horamètre fin"
-          }
-        }
-      }
-    },
-    "nav.cruise": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "CRUISE"
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "CROISIÈRE"
           }
         }
       }
@@ -18511,23 +18598,6 @@
         }
       }
     },
-    "nav.fredaCheck": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Cruise Check"
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Contrôle croisière"
-          }
-        }
-      }
-    },
     "nav.freq": {
       "extractionState": "manual",
       "localizations": {
@@ -18708,22 +18778,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Vitesse propre"
-          }
-        }
-      }
-    },
-    "nav.holdToReset": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "hold to reset"
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "maintenir pour réarmer"
           }
         }
       }

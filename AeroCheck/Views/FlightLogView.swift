@@ -134,9 +134,13 @@ struct FlightLogView: View {
                     emptyState
                 } else {
                     GeometryReader { geo in
-                        // The keyboard's inset counted back in: a text field raising it (the name
-                        // asked after an import) must not turn a portrait iPad into two columns. (v6.1)
-                        if horizontalSizeClass == .regular && geo.size.width > geo.size.height + geo.safeAreaInsets.bottom {
+                        // Keyboard or not: the keyboard of a sheet over the Logbook ("Plan this
+                        // again", or the name asked after an import) made this reader wider than tall
+                        // in portrait, and the list behind it went to two columns. Not
+                        // `.ignoresSafeArea(.keyboard)`: in two columns the detail's name and notes
+                        // still need the keyboard's avoidance. (6.1.0)
+                        if horizontalSizeClass == .regular,
+                           KeyboardProofOrientation.isLandscape(size: geo.size, bottomInset: geo.safeAreaInsets.bottom) {
                             // iPad landscape: master (list) left + detail pane right, like the HUD. (v4 UI/UX Revamp)
                             HStack(spacing: 0) {
                                 flightList(twoColumn: true)

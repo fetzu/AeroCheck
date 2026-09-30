@@ -59,9 +59,7 @@ enum WaypointPassage {
         let cum = geometry.cumulative
 
         // Departure and destination: where the aircraft was at takeoff and landing.
-        if let at = fix(nearest: start, in: fixes), geometry.distanceNM(at.coordinate, route[0]) <= toleranceNM {
-            times[0] = start
-        }
+        times[0] = departure(route: route, track: fixes, at: start, toleranceNM: toleranceNM)
         if let landing, let at = fix(nearest: landing, in: fixes),
            geometry.distanceNM(at.coordinate, route[route.count - 1]) <= toleranceNM {
             times[route.count - 1] = landing
@@ -92,6 +90,14 @@ enum WaypointPassage {
         return times
     }
 
+    /// `takeoff` when the aircraft took off from the route's departure (within `toleranceNM` of it
+    /// then), else nil: the departure's time over IS the take-off. (6.1: shared with the plan)
+    static func departure(route: [CLLocationCoordinate2D], track: [Fix], at takeoff: Date,
+                          toleranceNM: Double = toleranceNM) -> Date? {
+        guard let first = route.first, let at = fix(nearest: takeoff, in: track) else { return nil }
+        return RouteGeometry(route: route).distanceNM(at.coordinate, first) <= toleranceNM ? takeoff : nil
+    }
+
     private static func fix(nearest time: Date, in fixes: [Fix]) -> Fix? {
         fixes.min { abs($0.time.timeIntervalSince(time)) < abs($1.time.timeIntervalSince(time)) }
     }
@@ -103,6 +109,11 @@ extension FlightPlan {
     /// The plan with every waypoint that has no ATO given one from the flight's GPS track. A time
     /// recorded in flight (MARK, a tap on the waypoint, the live catch-up) is never replaced, and a
     /// waypoint the pilot took back from the catch-up (`takenBackWaypointIds`) gets none. (v6.0.1)
+    ///
+    /// Except the departure's and the destination's, once the take-off and the landing are known: their
+    /// times over ARE the take-off and the landing, whatever the flight recorded before (the first fix
+    /// at ~39 kt, LINE UP plus 2 minutes, a MARK), so the nav log's ATOs, its Time OFF and Time ON and
+    /// the logbook agree. (6.1)
     func withActualTimesOver(fromTrack track: [GPSPoint], takeoff: Date?, landing: Date?) -> FlightPlan {
         let fixes = track.map {
             WaypointPassage.Fix(time: $0.timestamp,
@@ -116,6 +127,12 @@ extension FlightPlan {
         for i in plan.waypoints.indices
         where plan.waypoints[i].actualTimeOver == nil && !takenBack.contains(plan.waypoints[i].id) {
             plan.waypoints[i].actualTimeOver = times[i]
+        }
+        if takeoff != nil, let departed = times.first ?? nil {
+            plan.waypoints[0].actualTimeOver = departed
+        }
+        if landing != nil, let arrived = times.last ?? nil {
+            plan.waypoints[plan.waypoints.count - 1].actualTimeOver = arrived
         }
         return plan
     }

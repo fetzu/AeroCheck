@@ -106,9 +106,13 @@ class FlightPlanManager: ObservableObject {
 
         var changed = false
         for index in flightPlans.indices
-        where flightPlans[index].plannedDepartureTime != nil
-            && !followedPlanIds.contains(flightPlans[index].id) {
+        where !followedPlanIds.contains(flightPlans[index].id)
+            && (flightPlans[index].plannedDepartureTime != nil
+                // The take-off of a flight flown on the route is as much a date as the departure. Not
+                // on the active plan: a flight may be counting its ETOs from it right now. (6.1)
+                || (flightPlans[index].etoAnchor != nil && flightPlans[index].id != activeFlightPlan?.id)) {
             flightPlans[index].plannedDepartureTime = nil
+            if flightPlans[index].id != activeFlightPlan?.id { flightPlans[index].etoAnchor = nil }
             flightPlans[index].calculateRouteData()
             flightPlans[index].updatedAt = Date()
             changed = true
@@ -412,6 +416,10 @@ class FlightPlanManager: ObservableObject {
         activePlan.diversion = nil
         activePlan.autoMarkedWaypointIds = nil
         activePlan.takenBackWaypointIds = nil
+        // And its take-off: the ETOs count from the planned departure again. (6.1)
+        activePlan.etoAnchor = nil
+        activePlan.retimeETOs()
+        detectedTakeoff = nil
 
         // Reset ATO values for all waypoints (fresh start for new flight)
         for i in 0..<activePlan.waypoints.count {
@@ -508,20 +516,83 @@ class FlightPlanManager: ObservableObject {
         chronometerElapsed = 0
         chronometerAccumulated = 0
         autoMarkNotice = nil
+        detectedTakeoff = nil
         stopChronometer()
         saveFlightPlans()
         clearActiveFlightPlan()
     }
 
-    /// Update the departure time for the active flight plan
-    /// Called when the Line Up time is recorded from the checklist
-    func updateDepartureTimeFromLineUp(_ lineUpTime: Date) {
-        guard var plan = activeFlightPlan else { return }
-        plan.plannedDepartureTime = lineUpTime
-        // A real departure now: a trip leg's estimate is replaced by what happened.
-        plan.departureIsEstimate = nil
-        plan.calculateRouteData()
+    // MARK: - ETOs from the take-off (6.1)
+
+    /// The take-off the track showed for the plan being flown, once found (see
+    /// `followTakeoff`). Kept in memory only: after a relaunch the next pass finds it again.
+    private var detectedTakeoff: (planId: UUID, time: Date)?
+
+    /// LINE UP (the tap plus 2 minutes, `AppState.recordLineUpTime`): the active plan's ETOs count
+    /// from it until the track shows the take-off. A tap once the take-off is known moves nothing: it
+    /// is an estimate of what already happened.
+    ///
+    /// It used to overwrite the planned departure and recompute every leg. The recompute read the
+    /// winds-aloft cache for the hour of the tap, often empty, and timed every leg at zero wind (the
+    /// 23 Sep plan); the overwrite made the pilot's planned departure disappear from the plan, the
+    /// flight and the nav log. Now only the ETOs move, from the leg times already computed.
+    func anchorETOsOnLineUp(_ lineUpTime: Date) {
+        guard let plan = activeFlightPlan, detectedTakeoff?.planId != plan.id,
+              let anchored = plan.anchoringETOs(on: lineUpTime) else { return }
+        updateFlightPlan(anchored)
+    }
+
+    /// In flight, the take-off from the track recorded so far, found as END FLIGHT will measure it
+    /// (`TrackTimes`). `LocationManager` calls this with the waypoint catch-up, every 15 s; the track
+    /// is searched until the take-off is found, then the rules are only re-checked. Once it is known:
+    ///
+    /// - the ETOs of the plan being flown count from it, unless LINE UP was tapped within a minute of
+    ///   it (`FlightPlan.lineUpAnchorTolerance`). The DEST row, the companion's ETOs and a later trip
+    ///   leg's estimated departure all read the stored ETOs, so they follow;
+    /// - the departure's time over is the take-off, replacing what the catch-up recorded before it
+    ///   was known (LINE UP plus 2 minutes, or the first fix at ~39 kt), and the first leg's timer
+    ///   starts from it. The catch-up that follows uses it too (`catchUpWaypointPassages`).
+    ///
+    /// Only the plan the flight was started with, like the times over: never a plan left armed through
+    /// circuits or a flight started without it. (6.1)
+    func followTakeoff(track: [GPSPoint], engineStart: Date?, flightPlanId: UUID?) {
+        guard var plan = activeFlightPlan, plan.id == flightPlanId else { return }
+        if detectedTakeoff?.planId != plan.id {
+            guard let takeoff = TrackTimes.analyze(track: track, engineStart: engineStart,
+                                                   engineShutdown: nil).takeoff else { return }
+            detectedTakeoff = (plan.id, takeoff)
+        }
+        guard let takeoff = detectedTakeoff?.time else { return }
+        var changed = false
+        if let anchored = plan.anchoringETOs(on: takeoff, tolerance: FlightPlan.lineUpAnchorTolerance) {
+            plan = anchored
+            changed = true
+        }
+        // Only a departure already marked: an unmarked one is marked by the catch-up, with the rest.
+        let departureMoved = plan.waypoints.first.map { $0.actualTimeOver != nil && $0.actualTimeOver != takeoff } == true
+            && departed(plan, from: track, at: takeoff)
+        if departureMoved {
+            plan.waypoints[0].actualTimeOver = takeoff
+            changed = true
+        }
+        guard changed else { return }
         updateFlightPlan(plan)
+        if departureMoved, plan.currentWaypointIndex == 1 { resetChronometer(from: takeoff) }
+    }
+
+    /// Whether the aircraft took off from the plan's departure (`WaypointPassage.departure`).
+    private func departed(_ plan: FlightPlan, from track: [GPSPoint], at takeoff: Date) -> Bool {
+        let fixes = track.map {
+            WaypointPassage.Fix(time: $0.timestamp, coordinate: CLLocationCoordinate2D(latitude: $0.latitude,
+                                                                                         longitude: $0.longitude),
+                                speed: $0.speed)
+        }
+        return WaypointPassage.departure(route: plan.waypoints.map(\.coordinate), track: fixes, at: takeoff) != nil
+    }
+
+    /// The take-off found in flight for the plan being flown, if it has been.
+    private func detectedTakeoff(of plan: FlightPlan) -> Date? {
+        detectedTakeoff.flatMap { $0.planId == plan.id ? $0.time : nil }
     }
 
     /// END FLIGHT for the plan the flight flew: the active plan, and only when the flight was started
@@ -590,13 +661,25 @@ class FlightPlanManager: ObservableObject {
         // Landed somewhere else than planned: record the diversion, pressed or not. (v5.1)
         plan = TripPlanner.settlingDiversion(plan, landedAt: field, landing: landing ?? flight.landingTime)
 
+        // The ETOs count from the take-off END FLIGHT measured, to the second: the nav log printed
+        // after the flight reads like a paper one, where the take-off is written in and every ETO
+        // follows. Usually the one found in flight already; not when LINE UP stood within a minute of
+        // it, or when the track in flight was too sparse to show it. (6.1)
+        if let takeoff = takeoff ?? flight.lineUpTime, let anchored = plan.anchoringETOs(on: takeoff) {
+            plan = anchored
+        }
+
         // Time OFF = take-off, Time ON = landing (wheels off, wheels on). Never the engine: engine
         // start and shutdown are the checklist taps, kept on the flight and its hour meter. Until
         // 5.2 these two held the engine times, which made the nav log's air time the engine's. (v5.2)
-        if plan.timeOff == nil, let takeoff = takeoff ?? flight.lineUpTime {
+        // Measured times win for logging: Time OFF and Time ON are this flight's take-off and landing,
+        // measured on the track at END FLIGHT (the checklist's estimates when the track shows none),
+        // never an earlier flight's of the same route (activation keeps the times). A time the pilot
+        // types in the plan editor comes after END FLIGHT, so it stays. (6.1)
+        if let takeoff = takeoff ?? flight.lineUpTime {
             plan.timeOff = takeoff
         }
-        if plan.timeOn == nil, let landing = landing ?? flight.landingTime {
+        if let landing = landing ?? flight.landingTime {
             plan.timeOn = landing
         }
 
@@ -728,8 +811,10 @@ class FlightPlanManager: ObservableObject {
     func catchUpWaypointPassages(track: [GPSPoint], takeoff: Date?, flightPlanId: UUID?) {
         guard var plan = activeFlightPlan, plan.id == flightPlanId, plan.diversion == nil,
               plan.currentWaypointIndex < plan.waypoints.count else { return }
-        // Leaves the waypoints the pilot took back without a time (`takenBackWaypointIds`).
-        let filled = plan.withActualTimesOver(fromTrack: track, takeoff: takeoff, landing: nil)
+        // Leaves the waypoints the pilot took back without a time (`takenBackWaypointIds`). The take-off
+        // found in the track, once it is, before LINE UP's estimate. (6.1)
+        let filled = plan.withActualTimesOver(fromTrack: track, takeoff: detectedTakeoff(of: plan) ?? takeoff,
+                                              landing: nil)
         guard let lastPassed = filled.waypoints.lastIndex(where: { $0.actualTimeOver != nil }),
               lastPassed >= plan.currentWaypointIndex else { return }
         let before = (target: plan.currentWaypointIndex, timer: legTimerSnapshot)
@@ -746,8 +831,8 @@ class FlightPlanManager: ObservableObject {
         saveActiveFlightPlan()
         resetChronometer(from: plan.waypoints[lastPassed].actualTimeOver)
 
-        // Said out loud, except for the departure: its time is the takeoff the pilot set at LINE UP,
-        // not a passage to dispute, and a toast at the holding point would only sit over the
+        // Said out loud, except for the departure: its time is the take-off (LINE UP's estimate until
+        // the track shows it, `followTakeoff`), not a passage to dispute, and a toast at the holding point would only sit over the
         // checklist. Marked in the same run as later waypoints, it stays passed after an UNDO.
         let undoable = marked.filter { $0 > 0 }
         guard let timer = before.timer, let named = undoable.last,

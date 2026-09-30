@@ -290,7 +290,7 @@ struct DivertSheet: View {
                 ?? airportDataService.nearestAirport(to: last.coordinate, maxDistanceNm: 1).map(airportDataService.planningAerodrome)
         }
         let altitudeFeet = location.altitude * 3.28084
-        let wind = FlightPlan.windsAloftProvider?(position, altitudeFeet)
+        let wind = FlightPlan.windsAloftProvider?(position, altitudeFeet, Date())
         let countries = CountryBoundaries.shared.countries(near: position, bufferNm: 0)
         sections = DivertPlanner.sections(
             from: position,

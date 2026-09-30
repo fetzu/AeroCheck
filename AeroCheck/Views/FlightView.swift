@@ -208,6 +208,13 @@ struct FlightView: View {
                                            vSpeedsMaxHeight: geometry.size.height * (layout == .wide ? 0.75 : layout.drawerHeightFraction))
                 }
         }
+        // Laid out without the keyboard. The Cockpit has no field of its own, but the routes it opens
+        // from the map (a cover, with a search field and the route builder) do, and their keyboard
+        // reaches the Cockpit behind: on an iPad in landscape it left it under the 500 pt of
+        // `.columns`, a Cockpit with a map of its own, and the cover opened from the old map closed
+        // as the search field was tapped. The map pane's own switch (1.2 : 1) is kept out of it the
+        // same way. (6.1.0)
+        .ignoresSafeArea(.keyboard)
         .background(theme.background)
         .sheet(isPresented: $showPhaseSelector, onDismiss: {
             if let phase = pendingJump {
@@ -634,7 +641,7 @@ struct FlightView: View {
     private func performLineUp() {
         appState.recordLineUpTime()
         if let lineUpTime = appState.lineUpTime {
-            flightPlanManager.updateDepartureTimeFromLineUp(lineUpTime)
+            flightPlanManager.anchorETOsOnLineUp(lineUpTime)
         }
         pulseActionButton = false
         if allItemsChecked { triggerNextButtonPulse() }
@@ -642,7 +649,7 @@ struct FlightView: View {
     private func performLineUpUpdate() {
         appState.recordLineUpTime()
         if let lineUpTime = appState.lineUpTime {
-            flightPlanManager.updateDepartureTimeFromLineUp(lineUpTime)
+            flightPlanManager.anchorETOsOnLineUp(lineUpTime)
         }
     }
     private func performEngineShutdown() {

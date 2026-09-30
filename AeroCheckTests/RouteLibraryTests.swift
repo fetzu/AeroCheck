@@ -138,6 +138,58 @@ final class RouteLibraryTests: XCTestCase {
         XCTAssertEqual(left, [])
     }
 
+    /// Legs split off one route in one pass share its name and the minute: each keeps its own file.
+    /// Before 6.1 they shared one, and only the last leg written came back after a relaunch.
+    func testPlansWithTheSameNameAndMinuteKeepTheirOwnFiles() throws {
+        let directory = makeTestDirectory()
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        let minute = Date(timeIntervalSince1970: 1_790_000_000)
+        let legs = [plan("Tour du Jura", created: minute), plan("Tour du Jura", created: minute),
+                    plan("Tour du Jura", created: minute)]
+        DataPersistenceManager.writeNavigationPlanFiles(legs, index: legs, to: directory)
+        let loaded = DataPersistenceManager.decodeNavigationPlans(in: directory)
+        XCTAssertEqual(Set(loaded.map(\.id)), Set(legs.map(\.id)))
+
+        DataPersistenceManager.deleteNavigationPlanFiles(for: legs[1], in: directory)
+        XCTAssertEqual(Set(DataPersistenceManager.decodeNavigationPlans(in: directory).map(\.id)),
+                       [legs[0].id, legs[2].id], "deleting one leaves the others")
+    }
+
+    /// A plan written before 6.1 (no id in its file name) moves to its new name when written again,
+    /// and a plan still under its old name is deleted from it, but never a file holding another plan.
+    func testAPlanFromBeforeTheIdSuffixMovesAndDeletesCleanly() throws {
+        let directory = makeTestDirectory()
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        let encoder = JSONEncoder()
+        encoder.dateEncodingStrategy = .iso8601
+        let old = plan("Alpha")
+        try encoder.encode(old).write(to: directory.appendingPathComponent(
+            DataPersistenceManager.legacyNavigationPlanFilename(for: old)))
+        let untouched = plan("Beta")
+        try encoder.encode(untouched).write(to: directory.appendingPathComponent(
+            DataPersistenceManager.legacyNavigationPlanFilename(for: untouched)))
+        let jsons = { try Set(FileManager.default.contentsOfDirectory(atPath: directory.path)
+            .filter { $0.hasSuffix(".json") && $0 != "plans_index.json" }) }
+
+        DataPersistenceManager.writeNavigationPlanFiles([old], index: [old, untouched], to: directory)
+        XCTAssertEqual(try jsons(), [DataPersistenceManager.navigationPlanFilename(for: old),
+                                     DataPersistenceManager.legacyNavigationPlanFilename(for: untouched)])
+        XCTAssertEqual(DataPersistenceManager.navigationPlanIndex(in: directory)[untouched.id],
+                       DataPersistenceManager.legacyNavigationPlanFilename(for: untouched),
+                       "the index says where a plan not written now still is")
+
+        DataPersistenceManager.deleteNavigationPlanFiles(for: untouched, in: directory)
+        XCTAssertEqual(try jsons(), [DataPersistenceManager.navigationPlanFilename(for: old)])
+
+        // Another plan under the same old name is not this one's to delete.
+        let other = plan("Gamma")
+        let twin = plan("Gamma", created: other.createdAt)
+        try encoder.encode(other).write(to: directory.appendingPathComponent(
+            DataPersistenceManager.legacyNavigationPlanFilename(for: twin)))
+        DataPersistenceManager.deleteNavigationPlanFiles(for: twin, in: directory)
+        XCTAssertTrue(try jsons().contains(DataPersistenceManager.legacyNavigationPlanFilename(for: other)))
+    }
+
     // MARK: - SkyDemon import: ICAO codes for place names
 
     /// The shape of SkyDemon's export: aerodromes named after their place, the code in `<sym>`;

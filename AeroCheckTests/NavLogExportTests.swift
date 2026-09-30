@@ -55,8 +55,8 @@ final class NavLogExportTests: XCTestCase {
     }
 
     func testWindAndGroundSpeedAreWhatTheEETUsed() {
-        FlightPlan.windsAloftProvider = { _, _ in FlightPlan.WindAloft(directionDegTrue: 90, speedKt: 20) }
-        let p = FlightPlanExportService.recomputed(plan(3))
+        FlightPlan.windsAloftProvider = { _, _, _ in FlightPlan.WindAloft(directionDegTrue: 90, speedKt: 20) }
+        let p = FlightPlanExportService.asPlanned(plan(3))
         let rows = FlightPlanExportService.navLogRows(p, radio: RouteRadioPlanner.manualOnly(p.waypoints))
         let leg = try! XCTUnwrap(p.legPlanning(from: 1))
 
@@ -64,6 +64,85 @@ final class NavLogExportTests: XCTestCase {
         XCTAssertEqual(rows[2].gs, "\(leg.groundSpeedKt)")
         XCTAssertLessThan(leg.groundSpeedKt, 100, "an easterly slows an eastbound leg")
         XCTAssertEqual(rows[2].eet, "\(Int((leg.distanceNM / Double(leg.groundSpeedKt) * 60).rounded())) + 5")
+    }
+
+    // MARK: - Printed as planned (6.1)
+
+    private func rows(_ plan: FlightPlan) -> [FlightPlanExportService.NavLogRow] {
+        let p = FlightPlanExportService.asPlanned(plan)
+        return FlightPlanExportService.navLogRows(p, radio: RouteRadioPlanner.manualOnly(p.waypoints))
+    }
+
+    /// The 23 Sep "after" nav log, exported on 25 Sep, printed 25 Sep's winds: the export recomputed
+    /// the route with whatever the cache held that day. It prints what the plan was computed with.
+    func testANavLogPrintedAnotherDayShowsTheWindsItWasPlannedWith() {
+        FlightPlan.windsAloftProvider = { _, _, _ in FlightPlan.WindAloft(directionDegTrue: 90, speedKt: 20) }
+        let planned = plan(3)
+        let before = rows(planned)
+
+        for exportDay in [{ (_: CLLocationCoordinate2D, _: Double, _: Date?) -> FlightPlan.WindAloft? in
+                              FlightPlan.WindAloft(directionDegTrue: 270, speedKt: 35) },
+                          { (_: CLLocationCoordinate2D, _: Double, _: Date?) -> FlightPlan.WindAloft? in nil }] {
+            FlightPlan.windsAloftProvider = exportDay
+            let after = rows(planned)
+            XCTAssertEqual(after.map(\.wind), before.map(\.wind))
+            XCTAssertEqual(after.map(\.gs), before.map(\.gs))
+            XCTAssertEqual(after.map(\.eet), before.map(\.eet))
+            XCTAssertEqual(after.map(\.eto), before.map(\.eto))
+        }
+        XCTAssertEqual(before[1].wind, "090/20")
+    }
+
+    /// A plan saved before 6.1 carries no planning wind, but its leg times were computed with one:
+    /// the ground speeds they stand for are printed, not the airspeed or the day's forecast.
+    func testAPlanSavedBeforeThePlanningWindPrintsTheGroundSpeedsOfItsOwnLegTimes() {
+        FlightPlan.windsAloftProvider = { _, _, _ in FlightPlan.WindAloft(directionDegTrue: 90, speedKt: 20) }
+        var older = plan(3)
+        let planned = older.legPlanning(from: 0)!.groundSpeedKt
+        for i in older.waypoints.indices { older.waypoints[i].planningWind = nil }
+        FlightPlan.windsAloftProvider = { _, _, _ in FlightPlan.WindAloft(directionDegTrue: 270, speedKt: 35) }
+
+        let printed = rows(older)
+        XCTAssertEqual(printed[1].gs, "\(planned)")
+        XCTAssertLessThan(planned, 100)
+        XCTAssertEqual(printed[1].wind, "", "which wind it was is not known any more")
+    }
+
+    /// Flown: the departure row keeps the planned departure (the take-off is its ATO beside it), and
+    /// every other ETO counts from the take-off, as on paper.
+    func testAfterTheTakeoffTheETOsCountFromItAndTheDepartureRowKeepsThePlan() {
+        let takeoff = departure.addingTimeInterval(16 * 60 + 17)
+        let flown = plan(3).anchoringETOs(on: takeoff)!
+        let printed = rows(flown)
+
+        XCTAssertEqual(printed[0].eto, DateFormatter.hhmm.string(from: departure))
+        XCTAssertEqual(printed[2].eto,
+                       DateFormatter.hhmm.string(from: takeoff.addingTimeInterval(flown.waypoints[2].cumulativeEET! + 30)))
+    }
+
+    /// Writes a nav log with planning winds, flown and re-anchored, to `AEROCHECK_NAVLOG_DUMP` when that
+    /// variable is set, to look at it: layout defects pass every assertion. Set it in the
+    /// AeroCheckTests scheme's test environment (`TEST_RUNNER_…` on the command line does not reach
+    /// the test process here, and the test just skips).
+    func testDumpANavLogWithPlanningWindsForVisualInspection() throws {
+        let path = ProcessInfo.processInfo.environment["AEROCHECK_NAVLOG_DUMP"]
+        try XCTSkipIf(path == nil, "set AEROCHECK_NAVLOG_DUMP in the scheme to write a sample")
+
+        FlightPlan.windsAloftProvider = { coordinate, altitude, _ in
+            FlightPlan.WindAloft(directionDegTrue: altitude > 3000 ? 240 : 200, speedKt: altitude > 3000 ? 22 : 8)
+        }
+        var p = plan(8)
+        p.name = "Nav log with planning winds"
+        p.waypoints[3].windDirection = 310
+        p.waypoints[3].windSpeed = 12
+        p.calculateRouteData()
+        FlightPlan.windsAloftProvider = nil
+        p = p.anchoringETOs(on: departure.addingTimeInterval(16 * 60 + 17))!
+        for i in 0..<5 { p.waypoints[i].actualTimeOver = p.estimatedTimeOver(at: i)?.addingTimeInterval(-90) }
+        p.waypoints[0].actualTimeOver = p.etoAnchor
+        p.timeOff = p.etoAnchor
+        let data = try XCTUnwrap(FlightPlanExportService.exportToPDF(p))
+        try data.write(to: URL(fileURLWithPath: path!))
     }
 
     func testCalmLegsPrintTheAirspeedAsGroundSpeedAndNoWind() {

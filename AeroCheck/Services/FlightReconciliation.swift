@@ -232,7 +232,19 @@ enum FlightReconciliation {
         flight.touchAndGoCount = flight.touchAndGoTimes.count
         flight.fullStopCount = flight.fullStopTimes.count
         if let finalStop = flight.fullStopTimes.max() {
-            flight.landingTime = finalStop
+            // The final landing is the touchdown the track shows, as END FLIGHT measured it
+            // (`TrackTimes`, `AppState.refineTimingFromTrack`), whenever that is this landing. The
+            // rows carry the detector's stamp, the first fix on the runway, 3 to 10 s after the
+            // touchdown: taking it back undid the measurement, and could move the logged minute. (6.1)
+            let measured = TrackTimes.analyze(track: flight.gpsTrack, engineStart: flight.engineStartTime,
+                                              engineShutdown: flight.engineShutdownTime).landing
+            if let measured, abs(measured.timeIntervalSince(finalStop)) < matchWindow,
+               let index = flight.fullStopTimes.firstIndex(of: finalStop) {
+                flight.fullStopTimes[index] = measured
+                flight.landingTime = measured
+            } else {
+                flight.landingTime = finalStop
+            }
         }
         backfillBlockTimes(result, to: &flight)
         flight.modifiedAt = Date()

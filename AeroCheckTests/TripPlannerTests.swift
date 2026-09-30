@@ -116,6 +116,44 @@ final class TripPlannerTests: XCTestCase {
         XCTAssertNil(TripPlanner.refreshed(second, after: first))
     }
 
+    /// The first leg took off 16 minutes late, LINE UP tapped or not: its ETOs count from the take-off,
+    /// and the next leg's estimated departure follows its arrival. (6.1)
+    func testTheNextLegsEstimateFollowsTheFirstLegsTakeoff() {
+        let plan = route(["AAAA", "BBBB", "CCCC"], lons: [7.0, 7.3, 7.6])
+        let (first, second) = TripPlanner.split(plan, at: 1)!
+        let flying = first.anchoringETOs(on: t0.addingTimeInterval(16 * 60))!
+        XCTAssertEqual(flying.plannedDepartureTime, t0, "the planned departure stays the plan")
+
+        let moved = TripPlanner.refreshed(second, after: flying)
+        XCTAssertEqual(moved?.plannedDepartureTime, second.plannedDepartureTime?.addingTimeInterval(16 * 60))
+    }
+
+    /// A leg that has flown keeps its estimate and its fuel when the leg before it changes later: they
+    /// are what it was planned with. (LINE UP used to stop the chain by making the estimate a chosen
+    /// departure; it no longer touches the departure.) (6.1)
+    func testALegThatHasFlownIsNotReestimated() {
+        let plan = route(["AAAA", "BBBB", "CCCC"], lons: [7.0, 7.3, 7.6])
+        var (first, second) = TripPlanner.split(plan, at: 1)!
+        second = second.anchoringETOs(on: t0.addingTimeInterval(2 * 3600))!
+        first.plannedDepartureTime = t0.addingTimeInterval(3600)
+        first.calculateRouteData()
+        XCTAssertNil(TripPlanner.refreshed(second, after: first))
+    }
+
+    /// The stop carried the wind of the leg leaving it; after the split that leg is the second leg's
+    /// first, and the wind goes with it. (6.1)
+    func testSplittingKeepsTheWindTheSecondLegWasPlannedWith() {
+        FlightPlan.windsAloftProvider = { _, _, _ in FlightPlan.WindAloft(directionDegTrue: 90, speedKt: 20) }
+        defer { FlightPlan.windsAloftProvider = nil }
+        let plan = route(["AAAA", "BBBB", "CCCC"], lons: [7.0, 7.3, 7.6])
+        FlightPlan.windsAloftProvider = nil
+
+        let (_, second) = TripPlanner.split(plan, at: 1)!
+        XCTAssertEqual(second.waypoints[0].planningWind, plan.waypoints[1].planningWind)
+        XCTAssertEqual(second.waypoints[0].estimatedElapsedTime ?? 0, plan.waypoints[1].estimatedElapsedTime ?? 0,
+                       accuracy: 1, "still timed against the easterly, with no forecast in the cache")
+    }
+
     // MARK: - Aerodromes along the route
 
     func testStopCandidatesAreOrderedAlongTheRouteWithinTheCorridor() {

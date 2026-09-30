@@ -1835,6 +1835,44 @@ enum L10n {
         static let showChecklistHint = String(localized: "checkSlot.showChecklistHint")
     }
 
+    /// A trip on Today and in Plan › Flights: the card that says "Trip" and lists its legs. (6.1)
+    enum TripCard {
+        /// The card's kind, where a single flight's card has its date: "Trip".
+        static let kind = String(localized: "tripCard.kind")
+        /// "Next: Fuel plan for leg 1"
+        static func nextForLeg(_ task: String, _ leg: Int) -> String {
+            String(format: String(localized: "tripCard.nextForLeg"), task, leg)
+        }
+        /// "Next: Weather briefing for the trip"
+        static func nextForTrip(_ task: String) -> String {
+            String(format: String(localized: "tripCard.nextForTrip"), task)
+        }
+        /// "Leg 2: everything ticked"
+        static func legAllTicked(_ leg: Int) -> String {
+            String(format: String(localized: "tripCard.legAllTicked"), leg)
+        }
+        /// "1/6 trip checks done"
+        static func tripChecks(_ done: Int, _ total: Int) -> String {
+            String(format: String(localized: "tripCard.tripChecks"), done, total)
+        }
+        /// Under START FLIGHT: "Leg 1 · LSZQ → LSGE"
+        static func startLeg(_ leg: Int, _ route: String) -> String {
+            String(format: String(localized: "tripCard.startLeg"), leg, route)
+        }
+        /// "Leg 2 of 3". Its own key: the literal "Leg \(index) of \(total)" (`L10n.Flights.legOf`)
+        /// is looked up as "Leg %lld of %lld", which the catalog has only in its positional form,
+        /// so it stays English in French.
+        static func legOf(_ leg: Int, _ count: Int) -> String {
+            String(format: String(localized: "tripCard.legOf"), leg, count)
+        }
+        /// Plan › Flights, the legs' heading: "Legs"
+        static let legs = String(localized: "tripCard.legs")
+        /// A leg row's tag for the leg the card is about: "Next"
+        static let nextLeg = String(localized: "tripCard.nextLeg")
+        /// A flown leg's tag: "Flown"
+        static let flown = String(localized: "tripCard.flown")
+    }
+
     enum Trip {
         static let addStop = String(localized: "trip.addStop")
         static let addStopTitle = String(localized: "trip.addStopTitle")

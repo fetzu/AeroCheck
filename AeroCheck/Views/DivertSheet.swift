@@ -269,6 +269,12 @@ struct DivertSheet: View {
 
     // MARK: - Data
 
+    /// The plan's aircraft's cruise speed as a true airspeed where it flies now (100 kt indicated
+    /// without a plan). (6.1)
+    private func cruiseTrueAirspeed(atAltitudeFt altitudeFt: Double) -> Double {
+        (plan?.planningCalibration.cruise ?? .standard).trueAirspeed(atAltitudeFt: altitudeFt)
+    }
+
     private func load() async {
         await airportDataService.ensureLoaded()
         guard let location = locationManager.currentLocation else { sections = .init(ahead: [], behind: []); return }
@@ -296,7 +302,7 @@ struct DivertSheet: View {
             from: position,
             track: locationManager.currentCourseDegrees,
             groundSpeedKt: locationManager.currentSpeedKnots,
-            cruiseKt: Double(plan.map { FlightPlan.defaultCruiseSpeed(for: $0.aircraftTypeId) } ?? 100),
+            cruiseKt: cruiseTrueAirspeed(atAltitudeFt: altitudeFeet),
             wind: wind,
             aerodromes: nearby,
             destination: destination,

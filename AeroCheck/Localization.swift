@@ -1652,6 +1652,53 @@ enum L10n {
     }
 
     /// The fuel-on-board sheet and the full-tanks figure. (on-device review #4, point 3)
+    /// Where a plan's EET comes from: the allowances and the cruise speed. (6.1)
+    enum EETPlanning {
+        /// "departure +1 at LSZQ (6 flights)"
+        static func departure(_ minutes: String, at aerodrome: String?, _ source: String) -> String {
+            guard let aerodrome else { return String(format: String(localized: "eet.departureAnywhere"), minutes, source) }
+            return String(format: String(localized: "eet.departure"), minutes, aerodrome, source)
+        }
+        /// "arrival +8 at LSGN (default)"
+        static func arrival(_ minutes: String, at aerodrome: String?, _ source: String) -> String {
+            guard let aerodrome else { return String(format: String(localized: "eet.arrivalAnywhere"), minutes, source) }
+            return String(format: String(localized: "eet.arrival"), minutes, aerodrome, source)
+        }
+        /// "cruise 97 KIAS (aircraft data)"
+        static func cruise(_ kias: String, _ source: String) -> String {
+            String(format: String(localized: "eet.cruise"), kias, source)
+        }
+        static func flights(_ count: Int) -> String {
+            String(format: String(localized: "eet.flights"), count)
+        }
+        static func allAerodromes(_ count: Int) -> String {
+            String(format: String(localized: "eet.allAerodromes"), count)
+        }
+        static let standard = String(localized: "eet.standard")
+        static let cruiseManual = String(localized: "eet.cruiseManual")
+        static func cruiseLearned(_ count: Int) -> String {
+            String(format: String(localized: "eet.cruiseLearned"), count)
+        }
+        static let cruiseAircraftData = String(localized: "eet.cruiseAircraftData")
+
+        // The Aircraft tab
+        static let planningGroup = String(localized: "eet.planningGroup")
+        static let cruiseRow = String(localized: "eet.cruiseRow")
+        static let cruiseRowFooter = String(localized: "eet.cruiseRowFooter")
+        static func sourceManual(_ registration: String) -> String {
+            String(format: String(localized: "eet.sourceManual"), registration)
+        }
+        static func sourceLearned(_ count: Int) -> String {
+            String(format: String(localized: "eet.sourceLearned"), count)
+        }
+        static let sourceAircraftData = String(localized: "eet.sourceAircraftData")
+        static let sourceStandard = String(localized: "eet.sourceStandard")
+        static let useAutomatic = String(localized: "eet.useAutomatic")
+        static func trueAirspeedNote(_ knots: String) -> String {
+            String(format: String(localized: "eet.trueAirspeedNote"), knots)
+        }
+    }
+
     enum FuelOnBoard {
         static let title = String(localized: "fuelOnBoard.title")
         static let required = String(localized: "fuelOnBoard.required")
@@ -1978,6 +2025,8 @@ enum L10n {
         static let pilot = String(localized: "pdf.pilot")
         static let aircraft = String(localized: "pdf.aircraft")
         static let totalEET = String(localized: "pdf.totalEET")
+        /// What the total EET is made of: the allowances and the cruise speed, and where they come from. (6.1)
+        static let eetBasis = String(localized: "pdf.eetBasis")
         static let endurance = String(localized: "pdf.endurance")
         static let runwayInUse = String(localized: "pdf.runwayInUse")
         static let instructor = String(localized: "pdf.instructor")
@@ -2280,6 +2329,8 @@ enum L10n {
         static let magneticCourse = String(localized: "nav.magneticCourse")
         static let distanceToNext = String(localized: "nav.distanceToNext")
         static let navigationHelp = String(localized: "nav.navigationHelp")
+        /// Under the true airspeed of a waypoint: what an empty field means. (6.1)
+        static let airspeedFromAircraft = String(localized: "nav.airspeedFromAircraft")
         static let radio = String(localized: "nav.radio")
         static let callsign = String(localized: "nav.callsign")
         static let eetFromDeparture = String(localized: "nav.eetFromDeparture")

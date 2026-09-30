@@ -18,11 +18,12 @@ enum FlightDataLimits {
     static let maxRouteWaypoints = 500
     /// A leg's or a route's time in seconds: at most what `calculateRouteData` can compute from
     /// bounded inputs (every leg of the longest route at the longest distance and the lowest planned
-    /// airspeed, plus the two 5-minute allowances). Absurd as a plan, and still far inside `Int`
-    /// for the minute and hour formatters. (S9-07)
+    /// airspeed, plus the two allowances at their longest: 6 and 15 minutes since they are learned,
+    /// 6.1). Absurd as a plan, and still far inside `Int` for the minute and hour formatters. (S9-07)
     static let routeTimeSeconds: ClosedRange<Double> =
         0...(Double(maxRouteWaypoints) * PlausibleRange.legDistanceNM.upperBound
-             / PlausibleRange.plannedAirspeedKnots.lowerBound * 3600 + 600)
+             / PlausibleRange.plannedAirspeedKnots.lowerBound * 3600
+             + (EETCalibration.departureMinutes.upperBound + EETCalibration.arrivalMinutes.upperBound) * 60)
 
     // MARK: - ZIP import budgets (SA-24)
     //

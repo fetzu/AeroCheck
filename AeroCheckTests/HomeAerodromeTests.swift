@@ -299,7 +299,7 @@ final class HomeAerodromeTests: XCTestCase {
         var tampered = AppSettings()
         tampered.homeAerodromeIdent = "LSZQ/../x"
         XCTAssertNil(tampered.clampedForIngest().homeAerodromeIdent)
-        XCTAssertEqual(AppSettings.currentSchemaVersion, 6)
+        XCTAssertGreaterThanOrEqual(AppSettings.currentSchemaVersion, 6, "the home aerodrome came with schema 6")
     }
 
     // MARK: - The suggestion

@@ -110,7 +110,7 @@ final class RoutePointTests: XCTestCase {
         XCTAssertEqual(mid?.callSign, "LSZG")
         XCTAssertEqual(mid?.pointKind, .aerodrome)
         XCTAssertEqual(mid?.sourceId, "LSZG")
-        XCTAssertNotNil(mid?.plannedGroundSpeed, "the cruise speed is seeded")
+        XCTAssertNil(mid?.plannedGroundSpeed, "no airspeed of its own: its leg takes the aircraft's cruise speed (6.1)")
         XCTAssertEqual(saved?.waypoints.first?.altitude, 1_690, "an endpoint takes the elevation")
     }
 

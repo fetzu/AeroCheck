@@ -294,6 +294,15 @@ class FlightPlanExportService {
         </Row>
         """
 
+        // Header section - Row 4: what the total EET is made of besides the legs (the allowances, the
+        // cruise speed) and where each part comes from. (6.1)
+        xml += """
+        <Row ss:Height="20">
+            <Cell ss:StyleID="Label" ss:MergeAcross="1"><Data ss:Type="String">\(escapeXML(L10n.PDF.eetBasis))</Data></Cell>
+            <Cell ss:StyleID="Data" ss:MergeAcross="9"><Data ss:Type="String">\(escapeXML(plan.eetProvenance ?? ""))</Data></Cell>
+        </Row>
+        """
+
         // Route table header - Row 1 with merged cells for Freq, C/S, Waypoint, Wind, Remarks
         xml += """
         <Row ss:Height="16">
@@ -695,7 +704,7 @@ class FlightPlanExportService {
         static let margin: CGFloat = 24
         static let pageHeight: CGFloat = 842
         static var bottom: CGFloat { pageHeight - margin }
-        static let firstTop: CGFloat = 106        // title + rule + 3 header rows
+        static let firstTop: CGFloat = 120        // title + rule + 3 header rows + the EET basis (6.1)
         static let continuationTop: CGFloat = 68  // title + rule + 1 running header row
         static let gap: CGFloat = 4
         static let sectionLabel: CGFloat = 13
@@ -1023,6 +1032,14 @@ class FlightPlanExportService {
             headerRow(L10n.PDF.totalEET, plan.formattedTotalEET, L10n.PDF.endurance, plan.formattedEndurance ?? "--:--",
                       L10n.PDF.runwayInUse, plan.runwayInUse ?? "")
             headerRow(L10n.PDF.instructor, plan.instructor ?? "", L10n.PDF.noticeDate, annDate, L10n.PDF.noticeTime, annTime)
+            // What the total EET is made of besides the legs, and where each part comes from: one line
+            // under the header, in the label's size, so the form keeps its rows. (6.1)
+            let basisRow: CGFloat = 14
+            cell(CGRect(x: tableX, y: y, width: lw1, height: basisRow), L10n.PDF.eetBasis, font: fLabel, fill: shLabel,
+                 color: labelInk)
+            cell(CGRect(x: tableX + lw1, y: y, width: tableWidth - lw1, height: basisRow), plan.eetProvenance ?? "",
+                 font: fLabel, fitWidth: true)
+            y += basisRow
         }
 
         private func drawRoute(_ range: Range<Int>, continuation: Bool, continues: Bool, y: inout CGFloat) {

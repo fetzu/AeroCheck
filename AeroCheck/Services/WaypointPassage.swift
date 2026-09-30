@@ -46,8 +46,12 @@ enum WaypointPassage {
     /// - Parameters:
     ///   - takeoff: the takeoff time (the app records line-up); nil → first fix at `airborneSpeed`.
     ///   - landing: the final landing, or nil while still flying (then the destination stays nil).
+    ///   - includingDestination: the destination is passed like an en-route waypoint too, when the
+    ///     progress along the route reaches it: the moment the aircraft is over it before joining the
+    ///     circuit, which the arrival allowance is measured from (`EETCalibration`). Not the rule for
+    ///     the plan's own times over, where the destination's is the landing. (6.1)
     static func timesOver(route: [CLLocationCoordinate2D], track: [Fix], takeoff: Date?, landing: Date?,
-                          toleranceNM: Double = toleranceNM) -> [Date?] {
+                          toleranceNM: Double = toleranceNM, includingDestination: Bool = false) -> [Date?] {
         var times = [Date?](repeating: nil, count: route.count)
         guard route.count >= 2, !track.isEmpty else { return times }
 
@@ -79,7 +83,8 @@ enum WaypointPassage {
             leg = max(leg, match.leg)
             let s = max(previous?.s ?? match.s, match.s)
             if let prev = previous, s > prev.s {
-                for i in 1..<(route.count - 1) where times[i] == nil && prev.s < cum[i] && cum[i] <= s {
+                let passable = includingDestination ? route.count : route.count - 1
+                for i in 1..<passable where times[i] == nil && prev.s < cum[i] && cum[i] <= s {
                     guard match.offset <= toleranceNM else { continue }
                     let fraction = (cum[i] - prev.s) / (s - prev.s)
                     times[i] = prev.time.addingTimeInterval(fix.time.timeIntervalSince(prev.time) * fraction)

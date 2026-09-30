@@ -256,10 +256,12 @@ class FlightPlanManager: ObservableObject {
     func addWaypoint(to planId: UUID, coordinate: CLLocationCoordinate2D, name: String = "") {
         guard var plan = flightPlans.first(where: { $0.id == planId }) else { return }
 
+        // No airspeed of its own: its leg takes the aircraft's cruise speed at the leg's level, whatever
+        // the aircraft learns or the pilot sets later. Until 6.1 every waypoint was seeded with 100 kt,
+        // which then looked like the pilot's figure. (6.1)
         let waypoint = FlightPlanWaypoint(
             name: name.isEmpty ? "WPT\(plan.waypoints.count + 1)" : name,
-            coordinate: coordinate,
-            plannedGroundSpeed: FlightPlan.defaultCruiseSpeed(for: plan.aircraftTypeId)
+            coordinate: coordinate
         )
 
         plan.waypoints.append(waypoint)
@@ -311,15 +313,12 @@ class FlightPlanManager: ObservableObject {
         return bestIndex
     }
 
-    /// Insert a waypoint built by the caller, in one write. Seeds the aircraft's cruise speed when the
-    /// waypoint has none, as the other inserts do.
+    /// Insert a waypoint built by the caller, in one write. A waypoint without an airspeed keeps none:
+    /// its leg takes the aircraft's cruise speed. (6.1)
     func insertWaypoint(_ waypoint: FlightPlanWaypoint, to planId: UUID, at index: Int) {
         guard var plan = flightPlans.first(where: { $0.id == planId }) else { return }
         var waypoint = waypoint
         if waypoint.name.isEmpty { waypoint.name = "WPT" }
-        if waypoint.plannedGroundSpeed == nil {
-            waypoint.plannedGroundSpeed = FlightPlan.defaultCruiseSpeed(for: plan.aircraftTypeId)
-        }
         plan.waypoints.insert(waypoint, at: max(0, min(index, plan.waypoints.count)))
         plan.calculateRouteData()
         updateFlightPlan(plan)
@@ -329,11 +328,7 @@ class FlightPlanManager: ObservableObject {
     func insertWaypoint(to planId: UUID, at index: Int, coordinate: CLLocationCoordinate2D, name: String = "") {
         guard var plan = flightPlans.first(where: { $0.id == planId }) else { return }
 
-        let waypoint = FlightPlanWaypoint(
-            name: name.isEmpty ? "WPT" : name,
-            coordinate: coordinate,
-            plannedGroundSpeed: FlightPlan.defaultCruiseSpeed(for: plan.aircraftTypeId)
-        )
+        let waypoint = FlightPlanWaypoint(name: name.isEmpty ? "WPT" : name, coordinate: coordinate)
 
         plan.waypoints.insert(waypoint, at: min(index, plan.waypoints.count))
         plan.calculateRouteData()
@@ -347,6 +342,34 @@ class FlightPlanManager: ObservableObject {
         guard var plan = activeFlightPlan else { return }
         plan.calculateRouteData()
         updateFlightPlan(plan)
+    }
+
+    /// The planned flights still to fly get their times again when what those are computed with has
+    /// changed: a flight taught an allowance or a cruise speed (END FLIGHT), the pilot set a cruise
+    /// speed, the aircraft's data arrived. Today and the nav log then show the new EET without the plan
+    /// being opened. (6.1)
+    ///
+    /// Only the plan of a flight still to fly: a flight's own plan (`flightOwned`), or a route a flight
+    /// follows, which is the one kind of route with a date (`clearDatesFromUnflownRoutes`); not armed,
+    /// never flown (no time over) and not departed by its plan. A route in the library is recomputed
+    /// when it is next edited or used, and a flight's past times are never rewritten. The winds are the
+    /// ones the legs were computed with (no forecast is read): only the speed and the allowances change.
+    func refreshPlanningCalibration(now: Date = Date()) {
+        let due = flightPlans.filter { plan in
+            let departsLater = plan.plannedDepartureTime.map { $0 > now }
+            return (plan.flightOwned == true || departsLater == true) && departsLater != false
+                && !plan.isActive && plan.id != activeFlightPlan?.id
+                && plan.waypoints.count >= 2 && plan.waypoints.allSatisfy { $0.actualTimeOver == nil }
+                && plan.planningCalibrationIsStale
+        }
+        // Read again each time: retiming a trip's leg carries into the next one's estimated departure
+        // (`carryIntoNextLeg`), and a copy taken before would put the old one back.
+        for id in due.map(\.id) {
+            guard var plan = flightPlans.first(where: { $0.id == id }), plan.planningCalibrationIsStale else { continue }
+            plan.calculateRouteData(readingForecasts: false)
+            updateFlightPlan(plan)
+        }
+        if !due.isEmpty { AppLog.general.publicLine("Retimed \(due.count) planned flight(s) with the new calibration") }
     }
 
     /// Set many planned altitudes in one write (the builder's "Set altitudes"), so the route is

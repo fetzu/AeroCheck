@@ -546,6 +546,11 @@ enum CompanionCommand: Codable {
     /// Reopens a checked item of the current phase alone, or checks it again. By id and phase, so a tap
     /// on a row the iPad has since moved past does nothing rather than toggle another item.
     case toggleChecklistItem(phaseRawValue: Int, itemId: String)
+    // A memory check confirmed from the phone, or taken back within its six seconds (6.1). An older iPad
+    // drops them, so the viewer only offers them when the snapshot says `supportsMemoryConfirm`. By
+    // phase, so a tap arriving after the iPad moved on confirms nothing else.
+    case confirmMemoryCheck(phaseRawValue: Int)
+    case undoMemoryCheck(phaseRawValue: Int)
 }
 
 /// A check deferred whole (v6.0 review, J1): what the viewer's deferred list shows, and what it needs to
@@ -559,6 +564,9 @@ struct CompanionDeferredCheck: Codable, Equatable {
     let items: [CompanionChecklistItem]
     let highlightedIndex: Int
     let deferredItemIds: [String]
+    /// A memory check (its items hidden): confirmed from memory with DONE, where a list is RUN. False
+    /// from an older iPad. (6.1)
+    var fromMemory: Bool = false
 }
 
 extension CompanionDeferredCheck {
@@ -572,6 +580,7 @@ extension CompanionDeferredCheck {
         items = try c.decode([CompanionChecklistItem].self, forKey: .items)
         highlightedIndex = CompanionWireLimits.index(try c.decode(Int.self, forKey: .highlightedIndex))
         deferredItemIds = try c.decode([String].self, forKey: .deferredItemIds)
+        fromMemory = try c.decodeIfPresent(Bool.self, forKey: .fromMemory) ?? false
     }
 }
 
@@ -622,12 +631,19 @@ struct CompanionChecklistSnapshot: Codable, Equatable {
     let supportsDefer: Bool
     /// Checks deferred whole, in flight order. (v6.0 review, J1)
     let deferredChecks: [CompanionDeferredCheck]
+    /// The current check is a memory check as the iPad shows it (every item hidden, none revealed), and
+    /// whether it is confirmed yet. The viewer's thumb bar then reads ✓ <CHECK> DONE, as the iPad's. (6.1)
+    let memoryCheck: Bool
+    let memoryCheckDone: Bool
+    /// This iPad takes `confirmMemoryCheck` and `undoMemoryCheck`. False from an older iPad. (6.1)
+    let supportsMemoryConfirm: Bool
 
     init(phaseTitle: String, phaseRawValue: Int, highlightedIndex: Int, visibleCount: Int,
          completedCount: Int, items: [CompanionChecklistItem], hiddenItemCount: Int,
          deferredItemIds: [String] = [], deferredItemCount: Int = 0,
          deferredGroups: [CompanionDeferredGroup] = [], openItemCount: Int = 0, supportsDefer: Bool = false,
-         deferredChecks: [CompanionDeferredCheck] = []) {
+         deferredChecks: [CompanionDeferredCheck] = [], memoryCheck: Bool = false, memoryCheckDone: Bool = false,
+         supportsMemoryConfirm: Bool = false) {
         self.phaseTitle = phaseTitle
         self.phaseRawValue = phaseRawValue
         self.highlightedIndex = highlightedIndex
@@ -641,6 +657,9 @@ struct CompanionChecklistSnapshot: Codable, Equatable {
         self.openItemCount = openItemCount
         self.supportsDefer = supportsDefer
         self.deferredChecks = deferredChecks
+        self.memoryCheck = memoryCheck
+        self.memoryCheckDone = memoryCheckDone
+        self.supportsMemoryConfirm = supportsMemoryConfirm
     }
 
     /// Tolerant decoder: every field defaults so a field skew between independently-updated builds never
@@ -663,5 +682,9 @@ struct CompanionChecklistSnapshot: Codable, Equatable {
         openItemCount = index(try c.decodeIfPresent(Int.self, forKey: .openItemCount) ?? 0)
         supportsDefer = try c.decodeIfPresent(Bool.self, forKey: .supportsDefer) ?? false
         deferredChecks = try c.decodeIfPresent([CompanionDeferredCheck].self, forKey: .deferredChecks) ?? []
+        // Absent from an iPad before 6.1: no memory check to confirm, as that iPad counted it done.
+        memoryCheck = try c.decodeIfPresent(Bool.self, forKey: .memoryCheck) ?? false
+        memoryCheckDone = try c.decodeIfPresent(Bool.self, forKey: .memoryCheckDone) ?? false
+        supportsMemoryConfirm = try c.decodeIfPresent(Bool.self, forKey: .supportsMemoryConfirm) ?? false
     }
 }

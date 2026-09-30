@@ -251,6 +251,9 @@ struct ChecklistView: View {
     /// row above the highlight reopens that item alone, or checks it again (`onToggleItem`). (v6.0 · P2,
     /// v6.0 review K-C)
     var onToggleItem: ((Int) -> Void)? = nil
+    /// Every item hidden (a memory check) and not confirmed yet: the completion line stays dim, where
+    /// "0 of 0 checked" drew it green on arrival. (6.1)
+    var awaitsMemoryConfirmation: Bool = false
     /// Owned by the parent so tap-to-advance / completion include revealed items. (v4 UI/UX Revamp)
     @Binding var hiddenItemsRevealed: Bool
 
@@ -320,6 +323,7 @@ struct ChecklistView: View {
          promptsEngineHours: Bool = false,
          deferredItemIds: Set<String> = [],
          onToggleItem: ((Int) -> Void)? = nil,
+         awaitsMemoryConfirmation: Bool = false,
          hiddenItemsRevealed: Binding<Bool> = .constant(false)) {
         self.phase = phase
         self.activeChecklist = activeChecklist
@@ -360,6 +364,7 @@ struct ChecklistView: View {
         self.onEditEngineHourEnd = onEditEngineHourEnd
         self.deferredItemIds = deferredItemIds
         self.onToggleItem = onToggleItem
+        self.awaitsMemoryConfirmation = awaitsMemoryConfirmation
         self._hiddenItemsRevealed = hiddenItemsRevealed
     }
     
@@ -509,7 +514,7 @@ struct ChecklistView: View {
             // it is true: drawn green from the start, it claimed a phase done before any item was.
             // (v6.0 · B3)
             if !phase.completionText.isEmpty {
-                let isDone = stepByStepEnabled && highlightedItemIndex >= visibleItems.count
+                let isDone = stepByStepEnabled && highlightedItemIndex >= visibleItems.count && !awaitsMemoryConfirmation
                 AviationDivider(color: theme.panelStroke)   // no gold in flight (v6.0 review)
                     .padding(.vertical, 12)
                 

@@ -67,6 +67,21 @@ final class ViewStackBudgetTests: XCTestCase {
         XCTAssertLessThan(used, Self.budget, "the Cockpit's map used \(used / 1_024) KB of stack")
     }
 
+    /// The Cockpit on its map in landing with the Memory test on: the check slot between GO AROUND and
+    /// TOUCH-AND-GO in the map's bottom row. (6.1)
+    func testCockpitMapWithTheCheckSlotRendersWithinHalfTheDeviceStack() {
+        let services = makeServices()
+        startFlight(services.appState, stepByStep: true)
+        services.appState.settings.learningMode = false
+        services.appState.currentPhase = .landing
+        XCTAssertTrue(services.appState.isMemoryCheck(.landing), "the WT9 lands from memory")
+
+        let used = StackProbe.bytesUsed {
+            render(FlightView(), services: services, size: CGSize(width: 820, height: 1_180))
+        }
+        XCTAssertLessThan(used, Self.budget, "the Cockpit's map with the check slot used \(used / 1_024) KB of stack")
+    }
+
     // MARK: - Helpers
 
     /// What the map and the Cockpit read from the environment, on test storage.

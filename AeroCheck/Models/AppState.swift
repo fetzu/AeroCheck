@@ -18,6 +18,26 @@ enum PhaseCompletionStatus: String, Codable {
     /// every item both produce a visible count of 0. Showing a pilot a green phase they never
     /// touched is the defect; the fix is a state that says "nothing here", not one that claims done.
     case empty
+    /// A memory check (every item hidden by the Memory test) that the pilot confirmed with one tap:
+    /// done, green, as a check worked through. Such a check used to be recorded `.empty` whatever
+    /// happened, since nothing was on screen. (6.1, check slot)
+    ///
+    /// Older builds don't know this value, and one reading it would drop the whole crash-recovery
+    /// checkpoint, so the checkpoint writes it as `.completed` with a side list
+    /// (`ActiveFlightState.memoryConfirmedPhases`) that this build reads back.
+    case doneFromMemory
+
+    /// Whether the check counts as done: worked through, or confirmed from memory.
+    var isDone: Bool { self == .completed || self == .doneFromMemory }
+}
+
+extension PhaseCompletionStatus {
+    /// A value this build doesn't know (written by a newer one) reads as `.skipped`, orange: owed, to
+    /// be looked at, rather than a decode error that loses the whole checkpoint. (6.1)
+    init(from decoder: Decoder) throws {
+        let raw = try decoder.singleValueContainer().decode(String.self)
+        self = PhaseCompletionStatus(rawValue: raw) ?? .skipped
+    }
 }
 
 /// The pilot's progress through the checklist, grouped as one cohesive value extracted from four
@@ -599,6 +619,10 @@ struct ActiveFlightState: Codable {
     /// "not this one" silently cleared, and close-out then adopted the flight they avoided.
     /// Optional so an older checkpoint still decodes. (review F3)
     let flightIsUnplanned: Bool?
+    /// The checks confirmed from memory. `phaseCompletionStatus` carries them as `.completed`, which an
+    /// older build reads (green, as they are); this list turns them back into `.doneFromMemory` here.
+    /// Optional so an older checkpoint still decodes. (6.1, check slot)
+    let memoryConfirmedPhases: [ChecklistPhase]?
     let savedAt: Date
 
     /// Builds a snapshot from a **non-optional** flight, so a nil `currentFlight` can never
@@ -611,7 +635,11 @@ struct ActiveFlightState: Codable {
         self.lineUpTime = appState.lineUpTime
         self.landingTime = appState.landingTime
         self.engineShutdownTime = appState.engineShutdownTime
-        self.phaseCompletionStatus = appState.phaseCompletionStatus
+        // An older build can't decode `.doneFromMemory` and would drop the whole checkpoint: written
+        // as `.completed`, with the list beside it.
+        self.phaseCompletionStatus = appState.phaseCompletionStatus.mapValues { $0 == .doneFromMemory ? .completed : $0 }
+        self.memoryConfirmedPhases = appState.phaseCompletionStatus
+            .filter { $0.value == .doneFromMemory }.keys.sorted { $0.rawValue < $1.rawValue }
         self.highestCompletedPhase = appState.highestCompletedPhase
         self.currentHighlightedItem = appState.currentHighlightedItem
         self.deferredItems = appState.deferredItems
@@ -634,7 +662,11 @@ struct ActiveFlightState: Codable {
         appState.lineUpTime = lineUpTime
         appState.landingTime = landingTime
         appState.engineShutdownTime = engineShutdownTime
-        appState.phaseCompletionStatus = phaseCompletionStatus
+        var statuses = phaseCompletionStatus
+        for phase in memoryConfirmedPhases ?? [] where statuses[phase] == .completed {
+            statuses[phase] = .doneFromMemory
+        }
+        appState.phaseCompletionStatus = statuses
         appState.highestCompletedPhase = highestCompletedPhase
         appState.currentHighlightedItem = currentHighlightedItem
         appState.deferredItems = deferredItems ?? [:]
@@ -1267,6 +1299,7 @@ class AppState {
         landingTime = nil
         engineShutdownTime = nil
         phaseCompletionStatus = [:]
+        memoryConfirmation = nil
         deferredItems = [:]
         deferredChecks = []
         highestCompletedPhase = .preflight
@@ -1332,6 +1365,7 @@ class AppState {
         landingTime = nil
         engineShutdownTime = nil
         phaseCompletionStatus = [:]
+        memoryConfirmation = nil
         deferredItems = [:]
         deferredChecks = []
         currentPhase = .preflight
@@ -1362,6 +1396,7 @@ class AppState {
         landingTime = nil
         engineShutdownTime = nil
         phaseCompletionStatus = [:]
+        memoryConfirmation = nil
         deferredItems = [:]
         deferredChecks = []
         currentPhase = .preflight
@@ -1534,7 +1569,7 @@ class AppState {
     /// check to do, not some of its items.
     func checkIsUntouched(_ phase: ChecklistPhase) -> Bool {
         (currentHighlightedItem[phase] ?? 0) == 0 && (deferredItems[phase] ?? []).isEmpty
-            && !checkItems(phase).isEmpty
+            && (!checkItems(phase).isEmpty || isMemoryCheck(phase, learningMode: settings.learningMode))
     }
 
     /// The items a deferred check runs through: those on screen when the phase is shown (hidden
@@ -1544,6 +1579,8 @@ class AppState {
     }
 
     private func checkIsDone(_ phase: ChecklistPhase) -> Bool {
+        // A memory check has nothing on screen, and is done once confirmed (or run with its items shown).
+        if isMemoryCheck(phase, learningMode: settings.learningMode) { return memoryCheckIsDone(phase) }
         let items = checkItems(phase)
         return items.isEmpty || (currentHighlightedItem[phase] ?? 0) >= items.count
     }
@@ -1564,6 +1601,12 @@ class AppState {
     /// CHECK while running a deferred check: the item highlighted in THAT phase is done.
     func checkItem(inDeferredCheck phase: ChecklistPhase) {
         guard deferredChecks.contains(phase) else { return }
+        // A memory check has no item to step through: CHECK confirms it, as its DONE does. (An older
+        // Companion shows it with RUN and sends this.)
+        if isMemoryCheck(phase, learningMode: settings.learningMode) {
+            confirmMemoryCheck(phase)
+            return
+        }
         let count = checkItems(phase).count
         let index = currentHighlightedItem[phase] ?? 0
         currentHighlightedItem[phase] = index >= count - 1
@@ -1610,6 +1653,18 @@ class AppState {
 
     /// A check jumped over, or left untouched: deferred whole, or done, as the pilot said.
     private func conclude(passedCheck phase: ChecklistPhase, as skipped: SkippedChecks) {
+        // A memory check passed over is owed like any other, never grey: deferred whole, or, when the
+        // pilot says it was done, done from memory. (6.1)
+        if isMemoryCheck(phase, learningMode: settings.learningMode) {
+            switch skipped {
+            case .alreadyDone:
+                markDoneFromMemory(phase)
+            case .deferred:
+                guard !memoryCheckIsDone(phase) else { return }
+                deferWhole(phase)
+            }
+            return
+        }
         let items = checkItems(phase)
         guard !items.isEmpty else {
             if phaseCompletionStatus[phase] == nil { phaseCompletionStatus[phase] = .empty }
@@ -1622,14 +1677,133 @@ class AppState {
             phaseCompletionStatus[phase] = status(ofCheckRunIn: phase)
         case .deferred:
             guard !checkIsDone(phase) else { return }
-            if !deferredChecks.contains(phase) {
-                deferredChecks.append(phase)
-                deferredChecks.sort { $0.rawValue < $1.rawValue }
-            }
-            phaseCompletionStatus[phase] = phase.hasMissingRequiredAction(
-                engineStarted: engineStartTime != nil, linedUp: lineUpTime != nil,
-                engineShutDown: engineShutdownTime != nil) ? .missingAction : .skipped
+            deferWhole(phase)
         }
+    }
+
+    /// The check joins the deferred checks, whole, in flight order: orange, or red when its phase's
+    /// own action was never pressed.
+    private func deferWhole(_ phase: ChecklistPhase) {
+        if !deferredChecks.contains(phase) {
+            deferredChecks.append(phase)
+            deferredChecks.sort { $0.rawValue < $1.rawValue }
+        }
+        phaseCompletionStatus[phase] = phase.hasMissingRequiredAction(
+            engineStarted: engineStartTime != nil, linedUp: lineUpTime != nil,
+            engineShutDown: engineShutdownTime != nil) ? .missingAction : .skipped
+    }
+
+    // MARK: Memory checks (6.1, check slot)
+    //
+    // A check the Memory test hides whole (its phase configured `learningModeVisibleCount = 0`) is
+    // flown from memory. It used to count as done on arrival, since nothing was on screen to tick, and
+    // was recorded grey, "nothing to do" (SEC-C36): the app never showed green for a check nobody
+    // touched, but it never asked either, and one left undone looked the same as one done. It is now
+    // confirmed with one tap, done from memory (green), with six seconds to take it back. Left
+    // unconfirmed, it is owed like a check left untouched: listed for review, then deferred whole.
+    // Research: memory flows keep their redundancy when confirmed; skipping has to be explicit; the
+    // app records, it never ticks by itself (proposal "Checks in flight", principles 1, 4 and 5).
+
+    /// A check with items to do, every one of them hidden: shown in `learningMode` (the current phase's
+    /// by default, so a hold-to-reveal makes it a list to work through again).
+    func isMemoryCheck(_ phase: ChecklistPhase, learningMode: Bool? = nil) -> Bool {
+        guard settings.stepByStepHighlighting else { return false }
+        let mode = learningMode ?? (phase == currentPhase ? effectiveLearningMode : settings.learningMode)
+        guard !mode, activeChecklist.visibleItemCount(for: phase, learningMode: false) == 0 else { return false }
+        return activeChecklist.items(for: phase).contains { !$0.isHeader }
+    }
+
+    /// Every item of the check, hidden or not: what "done from memory" stands for.
+    private func allItemCount(_ phase: ChecklistPhase) -> Int {
+        activeChecklist.visibleItemCount(for: phase, learningMode: true)
+    }
+
+    /// A memory check is done once confirmed, or once its items were revealed and worked through: both
+    /// leave the highlight past the last item.
+    private func memoryCheckIsDone(_ phase: ChecklistPhase) -> Bool {
+        (currentHighlightedItem[phase] ?? 0) >= allItemCount(phase)
+    }
+
+    /// The current check is done: its items on screen worked through, or, for a memory check, confirmed.
+    /// What CHECK gives way to NEXT on, what the pane rule and the check slot read.
+    var currentCheckIsDone: Bool {
+        guard settings.stepByStepHighlighting else { return true }
+        if isMemoryCheck(currentPhase) { return memoryCheckIsDone(currentPhase) }
+        return areAllItemsCompleted(learningMode: effectiveLearningMode)
+    }
+
+    /// The current check is a memory check still to confirm: the thumb bar's ✓ DONE and the slot's.
+    var currentCheckAwaitsConfirmation: Bool {
+        isMemoryCheck(currentPhase) && !memoryCheckIsDone(currentPhase)
+    }
+
+    /// The last confirmation, offered back for six seconds by the undo toast on either pane.
+    struct MemoryConfirmation: Identifiable, Equatable {
+        let id: UUID
+        let phase: ChecklistPhase
+        let confirmedAt: Date
+        fileprivate let previousHighlight: Int?
+        fileprivate let previousStatus: PhaseCompletionStatus?
+        fileprivate let previousCruiseStart: Date?
+        fileprivate let previousCruiseDue: Bool
+    }
+
+    /// Set by a confirmation, cleared by its toast (UNDO, or the six seconds up).
+    private(set) var memoryConfirmation: MemoryConfirmation?
+
+    /// How long a confirmation can be taken back: the undo toast's six seconds.
+    static let memoryConfirmationUndoWindow: TimeInterval = 6
+
+    /// ✓ DONE on a memory check: the current one (the thumb bar, the slot, the Companion) or one
+    /// deferred whole (the deferred list). Recorded done from memory, green; the deferred list lets go
+    /// of it. Nothing happens to a check that isn't a memory check or is already done.
+    func confirmMemoryCheck(_ phase: ChecklistPhase? = nil) {
+        let phase = phase ?? currentPhase
+        guard isMemoryCheck(phase, learningMode: settings.learningMode), !memoryCheckIsDone(phase) else { return }
+        let confirmation = MemoryConfirmation(id: UUID(), phase: phase, confirmedAt: Date(),
+                                              previousHighlight: currentHighlightedItem[phase],
+                                              previousStatus: phaseCompletionStatus[phase],
+                                              previousCruiseStart: cruiseCheckStartTime,
+                                              previousCruiseDue: cruiseCheckDue)
+        markDoneFromMemory(phase, stayingInPhase: phase == currentPhase)
+        memoryConfirmation = confirmation
+        // Running the cruise check starts the cruise reminder, however it was run.
+        if phase == .cruise && phase == currentPhase { armCruiseCheck() }
+        checkpointActiveFlight(force: true)
+    }
+
+    /// Done from memory: every item reached, off the deferred list, green. `stayingInPhase`: the check
+    /// being flown keeps `.doneFromMemory` until it is left, where a phase action still unpressed turns
+    /// it red, as for any check; one left behind is red at once.
+    private func markDoneFromMemory(_ phase: ChecklistPhase, stayingInPhase: Bool = false) {
+        currentHighlightedItem[phase] = ChecklistHighlighting.lastItemComplete(visibleCount: allItemCount(phase))
+        deferredChecks.removeAll { $0 == phase }
+        let actionMissing = phase.hasMissingRequiredAction(
+            engineStarted: engineStartTime != nil, linedUp: lineUpTime != nil, engineShutDown: engineShutdownTime != nil)
+        phaseCompletionStatus[phase] = actionMissing && !stayingInPhase ? .missingAction : .doneFromMemory
+    }
+
+    /// UNDO on the confirmation's toast. Still on that check: it is open again, as it was. Moved on
+    /// since (NEXT within the six seconds): it was left unconfirmed after all, so it is deferred whole.
+    func undoMemoryConfirmation(_ id: UUID) {
+        guard let confirmation = memoryConfirmation, confirmation.id == id else { return }
+        memoryConfirmation = nil
+        currentHighlightedItem[confirmation.phase] = confirmation.previousHighlight
+        if confirmation.phase == currentPhase {
+            phaseCompletionStatus[confirmation.phase] = confirmation.previousStatus
+            if confirmation.phase == .cruise {
+                cruiseCheckStartTime = confirmation.previousCruiseStart
+                cruiseCheckDue = confirmation.previousCruiseDue
+            }
+        } else {
+            deferWhole(confirmation.phase)
+        }
+        checkpointActiveFlight(force: true)
+    }
+
+    /// The toast's six seconds are up.
+    func dismissMemoryConfirmation(_ id: UUID) {
+        if memoryConfirmation?.id == id { memoryConfirmation = nil }
     }
 
     /// The items of the current phase deferred with DEFER, for drawing them as deferred rather than done.
@@ -2191,19 +2365,38 @@ class AppState {
             deferredItems[currentPhase] = order.filter(all.contains)
         }
         let leftSomethingDeferred = !(deferredItems[currentPhase] ?? []).isEmpty
-        if currentPhase.hasMissingRequiredAction(
+        let actionMissing = currentPhase.hasMissingRequiredAction(
             engineStarted: engineStartTime != nil,
             linedUp: lineUpTime != nil,
-            engineShutDown: engineShutdownTime != nil) {
+            engineShutDown: engineShutdownTime != nil)
+        if isMemoryCheck(currentPhase) {
+            // A memory check, its items hidden: done once confirmed (6.1). Left unconfirmed, it is owed
+            // whole, never grey: the Cockpit listed it for review before this.
+            if !memoryCheckIsDone(currentPhase) {
+                deferWhole(currentPhase)
+            } else if actionMissing {
+                phaseCompletionStatus[currentPhase] = .missingAction
+            } else if leftSomethingDeferred {
+                phaseCompletionStatus[currentPhase] = .skipped
+            } else if phaseCompletionStatus[currentPhase] != .completed {
+                // Worked through with its items revealed, then flown again hidden: stays `.completed`.
+                phaseCompletionStatus[currentPhase] = .doneFromMemory
+            }
+        } else if actionMissing {
             phaseCompletionStatus[currentPhase] = .missingAction
-        } else if currentPhaseHasNoVisibleItems(learningMode: settings.learningMode) {
+        } else if currentPhaseHasNoVisibleItems(learningMode: effectiveLearningMode) {
             // SEC-C36: nothing was displayed, so nothing was worked through. Report that honestly
-            // instead of inheriting `.completed` from the 0 >= 0 comparison.
+            // instead of inheriting `.completed` from the 0 >= 0 comparison. Since 6.1 that is a phase
+            // with no items at all (or a checklist not loaded): a memory check is handled above.
             phaseCompletionStatus[currentPhase] = .empty
         } else {
             // Every item reached, but one of them deferred: not done yet. It turns green once the last
-            // deferred item is checked (`checkDeferredItem`).
-            phaseCompletionStatus[currentPhase] = checklistWorkedThrough && !leftSomethingDeferred ? .completed : .skipped
+            // deferred item is checked (`checkDeferredItem`). A memory check whose items were revealed
+            // and worked through is a check like any other, green. Confirmed from memory, then revealed
+            // (every item then shows ticked), it keeps what it was.
+            let confirmed = phaseCompletionStatus[currentPhase] == .doneFromMemory
+            phaseCompletionStatus[currentPhase] = checklistWorkedThrough && !leftSomethingDeferred
+                ? (confirmed ? .doneFromMemory : .completed) : .skipped
         }
         
         // Update highest completed phase

@@ -78,8 +78,7 @@ struct FlightView: View {
     /// mode) and any required timestamp action recorded. Drives the NEXT button's ready/greyed look; the
     /// button stays tappable either way so a phase can still be skipped. (v4 UI/UX Revamp feedback)
     private var nextButtonReady: Bool {
-        let itemsDone = !appState.settings.stepByStepHighlighting || appState.areAllItemsCompleted(learningMode: effectiveLearningMode)
-        return itemsDone && !currentPhaseNeedsAction
+        appState.currentCheckIsDone && !currentPhaseNeedsAction
     }
 
     /// Learning mode OR temporarily-revealed hidden items — the set of items the checklist is showing,
@@ -237,6 +236,7 @@ struct FlightView: View {
             OpenItemsReviewSheet(
                 phase: review.phase,
                 items: review.items,
+                memoryCheck: review.memoryCheck,
                 // The highlight is already on the first open item.
                 onBack: { openItemsReview = nil },
                 onContinue: {
@@ -531,8 +531,13 @@ struct FlightView: View {
         return String(format: "%d:%02d", s / 60, s % 60)
     }
 
-    /// NEXT: with items still open, list them before leaving the phase. (v6.0 · B2)
+    /// NEXT: with items still open, list them before leaving the phase. (v6.0 · B2) A memory check not
+    /// confirmed is reviewed the same way, then deferred whole. (6.1)
     private func requestNextPhase() {
+        if appState.currentCheckAwaitsConfirmation {
+            openItemsReview = OpenItemsReview(phase: appState.currentPhase, items: [], memoryCheck: true)
+            return
+        }
         let open = appState.openItems(in: appState.currentPhase)
         if open.isEmpty {
             advanceToNextPhase()
@@ -1017,12 +1022,17 @@ extension FlightView {
 
     /// The pane the flight suggests right now.
     private var cockpitDefaultPane: CockpitPane {
-        let done = !appState.settings.stepByStepHighlighting
-            || appState.areAllItemsCompleted(learningMode: effectiveLearningMode)
-        return CockpitPaneRule.defaultPane(phase: appState.currentPhase, checklistDone: done)
+        CockpitPaneRule.defaultPane(phase: appState.currentPhase, checklistDone: appState.currentCheckIsDone,
+                                    memoryCheck: appState.isMemoryCheck(appState.currentPhase))
     }
 
     private var cockpitPane: CockpitPane { paneOverride ?? cockpitDefaultPane }
+
+    /// The check slot's way to a list still to check: the CHECKLIST pane, as a tap on the picker picks
+    /// it; the map comes back after the last CHECK, when the default pane changes. (6.1)
+    private func showChecklistPane() {
+        cockpitPaneBinding.wrappedValue = .checklist
+    }
 
     private var cockpitPaneBinding: Binding<CockpitPane> {
         Binding(get: { cockpitPane },
@@ -1084,7 +1094,8 @@ extension FlightView {
                     // controls, frequencies and MARK thumb bar fill the pane. On the phone the chips
                     // that come and go sit over the chart.
                     NavigationMapView(isPresented: .constant(true), showsCloseButton: false, isInCockpit: true,
-                                      mapTopAccessory: narrow ? cockpitMapChips : nil)
+                                      mapTopAccessory: narrow ? cockpitMapChips : nil,
+                                      onShowChecklist: showChecklistPane)
                 }
             }
             .frame(maxHeight: .infinity)
@@ -1125,7 +1136,8 @@ extension FlightView {
             NavigationMapView(isPresented: .constant(true), showsCloseButton: false, isInCockpit: true,
                               leadingColumn: AnyView(cockpitColumnHead),
                               leadingColumnWidth: Self.cockpitColumnWidth,
-                              mapTopAccessory: cockpitMapChips)
+                              mapTopAccessory: cockpitMapChips,
+                              onShowChecklist: showChecklistPane)
         }
     }
 
@@ -1470,9 +1482,9 @@ extension FlightView {
 
     // MARK: Checklist pane
 
+    /// The check worked through, or, a memory check, confirmed. (6.1)
     private var cockpitChecklistDone: Bool {
-        !appState.settings.stepByStepHighlighting
-            || appState.areAllItemsCompleted(learningMode: effectiveLearningMode)
+        appState.currentCheckIsDone
     }
 
     /// A tap on the list checks the item too, on the phone, as it always did there; CHECK is the same
@@ -1596,6 +1608,7 @@ extension FlightView {
             deferredItemIds: appState.currentPhaseDeferredIds,
             onToggleItem: appState.settings.stepByStepHighlighting
                 ? { appState.toggleItem(at: $0) } : nil,
+            awaitsMemoryConfirmation: appState.currentCheckAwaitsConfirmation,
             hiddenItemsRevealed: hiddenItemsRevealed
         )
                     .padding(narrow ? 14 : 24)
@@ -1641,7 +1654,8 @@ extension FlightView {
                 .frame(maxWidth: narrow ? 170 : 320)
             cruiseCheckButton(height: CockpitTarget.thumb)
                 .frame(maxWidth: narrow ? 96 : 220)
-            if !cockpitChecklistDone {
+            // A memory check has no item to put off: it is confirmed, or left for the review. (6.1)
+            if !cockpitChecklistDone && !appState.currentCheckAwaitsConfirmation {
                 CockpitThumbButton(title: L10n.Cockpit.deferItem, subtitle: L10n.Cockpit.deferHint,
                                    style: .outlined(tint: theme.warning)) {
                     appState.deferHighlightedItem()
@@ -1654,10 +1668,17 @@ extension FlightView {
     }
 
     /// CHECK while items are open; the next phase once they're all done (a different gesture, so
-    /// finishing a list is never an accident); END FLIGHT at the end.
+    /// finishing a list is never an accident); END FLIGHT at the end. A memory check (every item hidden)
+    /// is confirmed first: "✓ CLIMB CHECK DONE", from memory, with the undo toast. (6.1)
     @ViewBuilder
     private var cockpitPrimaryButton: some View {
-        if !cockpitChecklistDone {
+        if appState.currentCheckAwaitsConfirmation {
+            CockpitThumbButton(title: L10n.Cockpit.memoryCheckDone(appState.currentPhase.shortTitle),
+                               subtitle: L10n.Cockpit.fromMemory, icon: "checkmark",
+                               style: .filled(fill: theme.action, text: theme.actionText)) {
+                appState.confirmMemoryCheck()
+            }
+        } else if !cockpitChecklistDone {
             CockpitThumbButton(title: L10n.Cockpit.check, subtitle: currentItemChallenge, icon: "checkmark",
                                style: .filled(fill: theme.action, text: theme.actionText)) {
                 checkCurrentItem()
@@ -1834,6 +1855,7 @@ struct PhaseProgressBar: View {
         }
         switch status(phase) {
         case .completed:     return L10n.Accessibility.phaseCompleted
+        case .doneFromMemory: return L10n.Accessibility.phaseDoneFromMemory
         case .skipped:       return L10n.Accessibility.phaseSkipped
         case .missingAction: return L10n.Accessibility.phaseMissingAction
         case .empty:         return L10n.Accessibility.phaseNothingToDo
@@ -1845,7 +1867,8 @@ struct PhaseProgressBar: View {
         if phase == .cruise && isCurrent && cruiseCheckDue { return theme.warning }
         if isCurrent { return theme.action }
         switch status(phase) {
-        case .completed: return theme.onTarget
+        // Done from memory is done: green, as a check worked through. (6.1)
+        case .completed, .doneFromMemory: return theme.onTarget
         case .skipped: return .orange
         case .missingAction: return theme.danger
         // SEC-C36: a phase with nothing to display is NOT "done" — render it as neutral/inactive
@@ -1924,7 +1947,7 @@ struct PhaseSelectorView: View {
             return theme.action
         }
         switch appState.getPhaseStatus(phase) {
-        case .completed:
+        case .completed, .doneFromMemory:
             return theme.onTarget
         case .skipped:
             return .orange
@@ -1955,6 +1978,10 @@ struct HoldToConfirmButton: View {
     /// The Cockpit: kneeboard sizes, the label in the tint (a cyan control), 88 pt tall.
     /// (on-device review #1, L-02)
     var kneeboard: Bool = false
+    /// Another height than the kneeboard's 88 pt: the map's bottom row, at the thumb bar's. (6.1)
+    var height: CGFloat? = nil
+    /// The words only, "Hold to confirm" under the title, no icon: a narrow button (the phone's map row).
+    var stacked: Bool = false
     let action: () -> Void
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -1977,12 +2004,14 @@ struct HoldToConfirmButton: View {
             RoundedRectangle(cornerRadius: corner).strokeBorder(tint, lineWidth: kneeboard ? 1.5 : 2)
 
             HStack(spacing: kneeboard ? 12 : 8) {
-                Image(systemName: systemImage).font(.aero(size: kneeboard ? CockpitType.row : 16, weight: .bold))
-                VStack(alignment: .leading, spacing: kneeboard ? 2 : 0) {
+                if !stacked {
+                    Image(systemName: systemImage).font(.aero(size: kneeboard ? CockpitType.row : 16, weight: .bold))
+                }
+                VStack(alignment: stacked ? .center : .leading, spacing: kneeboard ? 2 : 0) {
                     Text(title)
                         .font(.aero(size: kneeboard ? CockpitType.row : 14, weight: .bold))
                         .lineLimit(1)
-                        .minimumScaleFactor(0.7)
+                        .minimumScaleFactor(stacked ? 0.55 : 0.7)
                     Text(L10n.ChecklistAction.holdToConfirm)
                         .font(.aero(size: kneeboard ? CockpitType.label : 9, weight: .semibold))
                         .foregroundColor(theme.textSecondary)
@@ -1995,9 +2024,9 @@ struct HoldToConfirmButton: View {
                 }
             }
             .foregroundColor(kneeboard ? tint : theme.textPrimary)
-            .padding(.horizontal, kneeboard ? 16 : 12)
+            .padding(.horizontal, stacked ? 8 : (kneeboard ? 16 : 12))
         }
-        .frame(height: kneeboard ? 88 : 54)
+        .frame(height: height ?? (kneeboard ? 88 : 54))
         .frame(maxWidth: .infinity)
         .contentShape(RoundedRectangle(cornerRadius: 12))
         .onLongPressGesture(minimumDuration: holdDuration, maximumDistance: 60) {
@@ -3052,4 +3081,6 @@ struct OpenItemsReview: Identifiable {
     let id = UUID()
     let phase: ChecklistPhase
     let items: [ChecklistItem]
+    /// A memory check left unconfirmed: nothing to list, the check itself is owed. (6.1)
+    var memoryCheck: Bool = false
 }

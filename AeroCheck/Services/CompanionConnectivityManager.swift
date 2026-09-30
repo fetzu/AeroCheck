@@ -1230,6 +1230,17 @@ class CompanionConnectivityManager: NSObject, ObservableObject {
             if let index = items.firstIndex(where: { $0.id == itemId }) {
                 appState.toggleItem(at: index)
             }
+
+        // ✓ DONE on the phone: the current memory check, or one deferred whole, as the iPad's own. (6.1)
+        case .confirmMemoryCheck(let phaseRawValue):
+            guard let appState, let phase = ChecklistPhase(rawValue: phaseRawValue),
+                  phase == appState.currentPhase || appState.deferredChecks.contains(phase) else { return }
+            appState.confirmMemoryCheck(phase)
+
+        case .undoMemoryCheck(let phaseRawValue):
+            guard let appState, let confirmation = appState.memoryConfirmation,
+                  confirmation.phase.rawValue == phaseRawValue else { return }
+            appState.undoMemoryConfirmation(confirmation.id)
         }
     }
 
@@ -1440,8 +1451,12 @@ class CompanionConnectivityManager: NSObject, ObservableObject {
                         CompanionChecklistItem(id: $0.id, challenge: $0.challenge, response: $0.response, isHeader: $0.isHeader)
                     } : [],
                     highlightedIndex: appState.getHighlightedItem(for: check.phase),
-                    deferredItemIds: mayStreamItemText ? (appState.deferredItems[check.phase] ?? []) : [])
-            }
+                    deferredItemIds: mayStreamItemText ? (appState.deferredItems[check.phase] ?? []) : [],
+                    fromMemory: appState.isMemoryCheck(check.phase, learningMode: appState.settings.learningMode))
+            },
+            memoryCheck: appState.isMemoryCheck(phase),
+            memoryCheckDone: appState.isMemoryCheck(phase) && appState.currentCheckIsDone,
+            supportsMemoryConfirm: true
         )
     }
 

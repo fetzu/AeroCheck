@@ -110,7 +110,12 @@ struct FlightLogView: View {
                     emptyState
                 } else {
                     GeometryReader { geo in
-                        if horizontalSizeClass == .regular && geo.size.width > geo.size.height {
+                        // Keyboard or not: the keyboard of a sheet over the Logbook ("Plan this
+                        // again") made this reader wider than tall in portrait, and the list behind
+                        // it went to two columns. Not `.ignoresSafeArea(.keyboard)`: in two columns
+                        // the detail's name and notes still need the keyboard's avoidance. (6.1.0)
+                        if horizontalSizeClass == .regular,
+                           KeyboardProofOrientation.isLandscape(size: geo.size, bottomInset: geo.safeAreaInsets.bottom) {
                             // iPad landscape: master (list) left + detail pane right, like the HUD. (v4 UI/UX Revamp)
                             HStack(spacing: 0) {
                                 flightList(twoColumn: true)

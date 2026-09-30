@@ -69,9 +69,26 @@ enum FlightCreator {
                        threads: FlightThreadManager,
                        notifications: NotificationService? = nil) async -> FlightThread {
         let notifications = notifications ?? NotificationService.shared
+        let plan = plan(fromRoute: route, intent: intent)
+        plans.add(plan)
 
-        // A fresh plan carrying the route's own work: waypoints, fuel figures, remarks. `id` is a
-        // `let`, so this is a new value rather than a mutated copy — which is the point.
+        // Before `createThread`, for the reason given in `create(from:)` above. (review F16)
+        await notifications.requestAuthorization()
+
+        let thread = threads.createThread(
+            from: plan,
+            profile: intent.kind.profile,
+            routeLabel: FlightThreadManager.routeLabel(for: plan),
+            aircraftRegistration: intent.aircraftRegistration
+        )
+        return thread
+    }
+
+    /// The flight's own copy of a saved route: a fresh plan carrying the route's work (waypoints,
+    /// fuel figures, remarks) with the flight's aircraft and date. Plan new flight previews a trip
+    /// split from a route with the same copy it creates. (6.1)
+    static func plan(fromRoute route: FlightPlan, intent: NewFlightIntent) -> FlightPlan {
+        // `id` is a `let`, so this is a new value rather than a mutated copy — which is the point.
         var plan = FlightPlan(
             name: route.name,
             waypoints: route.waypoints,
@@ -100,18 +117,77 @@ enum FlightCreator {
             plan.waypoints[index].actualTimeOver = nil
         }
         plan.calculateRouteData()
-        plans.add(plan)
+        return plan
+    }
 
-        // Before `createThread`, for the reason given in `create(from:)` above. (review F16)
+    /// A saved route flown as a trip, landing at the aerodromes switched on with "Land here": one leg
+    /// per stretch between two landings, each keeping its part of the route (waypoints, altitudes),
+    /// split as "Add a stop…" splits a flight. Nil when no landing splits the route. (6.1, M2)
+    @discardableResult
+    static func createTrip(fromRoute route: FlightPlan,
+                           intent: NewFlightIntent,
+                           landings: [TripPlanner.Landing],
+                           plans: FlightPlanManager,
+                           threads: FlightThreadManager,
+                           notifications: NotificationService? = nil) async -> Trip? {
+        let notifications = notifications ?? NotificationService.shared
+        // Before any `createThread`, for the reason given in `create(from:)` above. (review F16)
         await notifications.requestAuthorization()
+        return formTrip(fromRoute: route, intent: intent, landings: landings, plans: plans, threads: threads)
+    }
 
-        let thread = threads.createThread(
-            from: plan,
-            profile: intent.kind.profile,
-            routeLabel: FlightThreadManager.routeLabel(for: plan),
-            aircraftRegistration: intent.aircraftRegistration
-        )
-        return thread
+    /// `createTrip(fromRoute:)` without the notification prompt, which a test can't answer.
+    @discardableResult
+    static func formTrip(fromRoute route: FlightPlan,
+                         intent: NewFlightIntent,
+                         landings: [TripPlanner.Landing],
+                         plans: FlightPlanManager,
+                         threads: FlightThreadManager) -> Trip? {
+        let legs = TripPlanner.legs(of: plan(fromRoute: route, intent: intent), landingAt: landings)
+        guard legs.count >= 2 else { return nil }
+        var legIds: [UUID] = []
+        for var leg in legs {
+            leg.flightOwned = true
+            plans.add(leg)
+            legIds.append(threads.createThread(from: leg,
+                                               profile: intent.kind.profile,
+                                               routeLabel: FlightThreadManager.routeLabel(for: leg),
+                                               aircraftRegistration: intent.aircraftRegistration).id)
+        }
+        guard let trip = threads.formTrip(from: legIds) else { return nil }
+        // `createThread` made each leg the current flight in turn; the trip starts with leg 1.
+        threads.setCurrentThread(legIds[0])
+        // The legs came out of the split already estimated; one update of leg 1 runs the chain the
+        // plan manager keeps from now on.
+        if let first = plans.flightPlans.first(where: { $0.id == legs[0].id }) { plans.updateFlightPlan(first) }
+        return trip
+    }
+
+    /// What Plan new flight asked for, created: a flight from a saved route, that route split into a
+    /// trip at its landings, a trip from typed stops, or a flight from two aerodromes. Returns the flight
+    /// to open (a trip's first leg). Home and the Flights tab both create through here, so the two can't
+    /// drift apart. (6.1)
+    static func create(_ planned: PlannedFlight,
+                       plans: FlightPlanManager,
+                       threads: FlightThreadManager,
+                       airports: AirportDataService) async -> UUID? {
+        // A saved route is copied whole — its waypoints, altitudes and fuel are the reason it was worth
+        // saving, and rebuilding from two idents would discard all of it.
+        if let route = planned.route {
+            if !planned.landings.isEmpty,
+               let trip = await createTrip(fromRoute: route, intent: planned.intent, landings: planned.landings,
+                                           plans: plans, threads: threads) {
+                return trip.legIds.first
+            }
+            return await create(fromRoute: route, intent: planned.intent, plans: plans, threads: threads).id
+        }
+        if planned.stops.idents.count > 2,
+           let trip = await createTrip(idents: planned.stops.idents, stopovers: planned.stops.stopovers,
+                                       template: planned.intent, plans: plans, threads: threads,
+                                       airports: airports) {
+            return trip.legIds.first
+        }
+        return await create(from: planned.intent, plans: plans, threads: threads, airports: airports).id
     }
 
     /// Where an ident is, for `FlightPlan.from(intent:)`: the aerodrome's position and field
@@ -189,49 +265,95 @@ enum FlightCreator {
     // MARK: - Stops (v5.1)
 
     /// Add a stop to a flight that has not flown yet: it becomes two legs of one trip.
-    ///
-    /// The flight keeps its identity (plan, thread, every tick) as the leg that ends at the stop; the
-    /// rest of the route becomes a new leg after it, with its own plan, nav log and leg-scoped tasks.
-    /// A flight already in a trip gets the new leg inserted right after it, so a stop can be added to
-    /// any leg of a journey.
     @discardableResult
     static func addStop(to threadId: UUID,
                         at candidate: TripPlanner.StopCandidate,
                         stopover: Stopover,
                         plans: FlightPlanManager,
                         threads: FlightThreadManager) -> FlightThread? {
-        guard let thread = threads.thread(withId: threadId), thread.flightId == nil,
+        addStops(to: threadId, landingAt: [TripPlanner.Landing(candidate: candidate, stopover: stopover)],
+                 plans: plans, threads: threads).first
+    }
+
+    /// Add several stops to a flight that has not flown yet, in one pass: it becomes one leg per
+    /// stretch between them, in flying order (`TripPlanner.legs(of:landingAt:)`). Returns the new
+    /// legs, in order.
+    ///
+    /// The flight keeps its identity (plan, thread, every tick) as the leg that ends at the first stop;
+    /// the rest of the route becomes new legs after it, each with its own plan, nav log and leg-scoped
+    /// tasks. A flight already in a trip gets the new legs inserted right after it, so stops can be
+    /// added to any leg of a journey. A local flight (one aerodrome) flies out to the stops and back.
+    /// (v5.1; several stops, and local flights, since 6.1)
+    @discardableResult
+    static func addStops(to threadId: UUID,
+                         landingAt landings: [TripPlanner.Landing],
+                         plans: FlightPlanManager,
+                         threads: FlightThreadManager) -> [FlightThread] {
+        guard !landings.isEmpty,
+              let thread = threads.thread(withId: threadId), thread.flightId == nil,
               let planId = thread.flightPlanId,
               let plan = plans.flightPlans.first(where: { $0.id == planId })
-        else { return nil }
-        let (route, index) = TripPlanner.routeStopping(at: candidate, in: plan)
-        guard let (first, second) = TripPlanner.split(route, at: index, stopover: stopover,
-                                                      stopIdent: candidate.aerodrome.ident,
-                                                      fieldElevationFeet: candidate.aerodrome.elevationFeet)
-        else { return nil }
+        else { return [] }
+        let legs = TripPlanner.legs(of: plan, landingAt: landings)
+        guard legs.count >= 2, let first = legs.first else { return [] }
 
-        // The new leg first, so the trip exists when the first leg's update carries its timing
+        // The new legs first, so the trip exists when the first leg's update carries its timing
         // forward (`updateFlightPlan` → the next leg's estimate).
-        plans.add(second)
         let followedBefore = threads.currentThreadId
-        let leg = threads.createThread(from: second,
-                                       profile: thread.profile,
-                                       routeLabel: FlightThreadManager.routeLabel(for: second),
-                                       aircraftRegistration: thread.aircraftRegistration)
-        // `createThread` makes the new flight the current one; the pilot is still on this one.
+        var anchor = threadId
+        var added: [UUID] = []
+        for leg in legs.dropFirst() {
+            plans.add(leg)
+            let created = threads.createThread(from: leg,
+                                               profile: thread.profile,
+                                               routeLabel: FlightThreadManager.routeLabel(for: leg),
+                                               aircraftRegistration: thread.aircraftRegistration)
+            threads.insertLeg(created.id, after: anchor)
+            anchor = created.id
+            added.append(created.id)
+        }
+        // `createThread` makes each new flight the current one; the pilot is still on this one.
         threads.setCurrentThread(followedBefore)
-        threads.insertLeg(leg.id, after: threadId)
 
         plans.updateFlightPlan(first)
-        // A leg that already followed this one now departs after the new leg: pass the new leg
-        // through the same update, which carries its arrival into that leg's estimate.
-        if let placed = plans.flightPlans.first(where: { $0.id == second.id }) {
-            plans.updateFlightPlan(placed)
+        // A leg that already followed this one now departs after the last new leg: pass the new legs
+        // through the same update, which carries each arrival into the next leg's estimate.
+        for leg in legs.dropFirst() {
+            if let placed = plans.flightPlans.first(where: { $0.id == leg.id }) { plans.updateFlightPlan(placed) }
         }
         threads.updateRouteLabel(FlightThreadManager.routeLabel(for: first), threadId: threadId)
         // The destination changed: PPR, fees and customs are re-derived for it.
         threads.regenerateTasks(threadId: threadId, plan: first)
-        return threads.thread(withId: leg.id)
+        return added.compactMap { threads.thread(withId: $0) }
+    }
+
+    /// A later leg's stop, changed on its page: the time on the ground and the refuel. Its estimated
+    /// departure follows (`TripPlanner.settingStopover`), and so, through the plan manager's chain,
+    /// does every leg after it. A leg that has flown, or the first leg, has no stop to change. (6.1)
+    @discardableResult
+    static func setStopover(_ stopover: Stopover,
+                            onLeg threadId: UUID,
+                            plans: FlightPlanManager,
+                            threads: FlightThreadManager) -> Bool {
+        guard let thread = threads.thread(withId: threadId), thread.flightId == nil,
+              let trip = threads.trip(forThreadId: threadId),
+              let position = trip.legIds.firstIndex(of: threadId), position > 0,
+              let planId = thread.flightPlanId,
+              let leg = plans.flightPlans.first(where: { $0.id == planId }),
+              let previousPlanId = threads.thread(withId: trip.legIds[position - 1])?.flightPlanId,
+              let previous = plans.flightPlans.first(where: { $0.id == previousPlanId })
+        else { return false }
+        // A refuel brings back the fuel the trip set off with.
+        let firstPlanId = threads.thread(withId: trip.legIds[0])?.flightPlanId
+        let plannedFOB = plans.flightPlans.first(where: { $0.id == firstPlanId })?.fuelOnBoard
+        guard let updated = TripPlanner.settingStopover(stopover, on: leg, after: previous, plannedFOB: plannedFOB)
+        else { return false }
+        plans.updateFlightPlan(updated)
+        // A departure that became an estimate again no longer arms a reminder or claims a day.
+        if updated.firmDepartureTime != leg.firmDepartureTime {
+            threads.regenerateTasks(threadId: threadId, plan: updated)
+        }
+        return true
     }
 
     /// Undo a stop: join a leg with the one after it, while neither has flown. The first leg keeps its
@@ -290,10 +412,12 @@ enum FlightCreator {
         return threads.thread(withId: leg.id)
     }
 
-    /// Whether a flight can take a stop: it has not flown and has a route with somewhere to stop.
+    /// Whether a flight can take a stop: it has not flown, and has a route with somewhere to stop, or
+    /// is a local flight (one aerodrome, out and back), which can fly out to stops and back. Circuits
+    /// stay circuits. (a local flight since 6.1)
     static func canAddStop(to thread: FlightThread, plans: FlightPlanManager) -> Bool {
         guard thread.flightId == nil, let planId = thread.flightPlanId,
               let plan = plans.flightPlans.first(where: { $0.id == planId }) else { return false }
-        return plan.waypoints.count >= 2
+        return plan.waypoints.count >= 2 || (plan.waypoints.count == 1 && thread.profile == .full)
     }
 }

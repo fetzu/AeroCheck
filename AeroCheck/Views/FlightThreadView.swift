@@ -636,6 +636,7 @@ struct FlightThreadView: View {
             .background(Color.panelBackground)
 
             legStrip(trip, current: leg)
+            stopoverLine(leg, in: trip)
 
             ForEach(tasks) { task in
                 let presentation = ThreadTaskPresentation.make(for: task)
@@ -720,6 +721,49 @@ struct FlightThreadView: View {
             .padding(.horizontal, 14)
             .padding(.vertical, 8)
         }
+    }
+
+    /// This leg's stop, before it leaves: "Stop at LSGE", the time on the ground and the refuel,
+    /// editable until the leg flies, and when the leg leaves as a result. A trip typed in Plan new
+    /// flight could not change these after creation. Legs 2 and on; not a leg planned after a
+    /// diversion, which has no stop, only a field it landed at. (6.1)
+    @ViewBuilder
+    private func stopoverLine(_ leg: FlightThread, in trip: Trip) -> some View {
+        if let position = trip.legIds.firstIndex(of: leg.id), position > 0,
+           let plan = plan(for: leg), let stopover = plan.stopover {
+            let ident = plan.waypoints.first?.name ?? ""
+            let editable = leg.flightId == nil && (leg.state == .planned || leg.state == .ready)
+            VStack(alignment: .leading, spacing: 0) {
+                Divider().overlay(Color.white.opacity(0.06))
+                SeparateView {
+                    StopoverRow(label: L10n.AddStops.stopAt(ident), stopover: stopover, indent: 0,
+                                stepperFill: .cockpitBackground,
+                                onChange: editable ? { changed in
+                                    _ = FlightCreator.setStopover(changed, onLeg: leg.id,
+                                                              plans: flightPlanManager, threads: threadManager)
+                                } : nil)
+                }
+                if editable, let caption = stopoverDeparture(plan) {
+                    Text(caption)
+                        .scaledFont(size: 12, relativeTo: .caption)
+                        .foregroundColor(.dimText)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .padding(.bottom, 8)
+                }
+                Divider().overlay(Color.white.opacity(0.06))
+            }
+            .padding(.horizontal, 14)
+        }
+    }
+
+    /// When the leg leaves: estimated from the stop, or the time the pilot chose, which a new time on
+    /// the ground turns back into an estimate.
+    private func stopoverDeparture(_ plan: FlightPlan) -> String? {
+        guard let departure = plan.plannedDepartureTime else { return nil }
+        let time = departure.formatted(date: .omitted, time: .shortened)
+        return plan.departureIsEstimate == true
+            ? L10n.AddStops.leavesEstimated(time)
+            : L10n.AddStops.leavesChosen(time)
     }
 
     /// Add a stop to this flight, or join it back with the next leg — both only before either has

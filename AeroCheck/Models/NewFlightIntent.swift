@@ -97,6 +97,19 @@ struct PlannedStops: Equatable {
         rows = [Row(ident: from), Row(ident: to)]
     }
 
+    /// The rows Plan new flight opens with: what the sheet was seeded with ("Plan this again" brings
+    /// its flight's FROM and TO), else the home aerodrome as FROM and as TO, back home, when Settings
+    /// has one. A pilot mostly flies from where they are based, and mostly back to it; adding a stop
+    /// then makes the round trip, and typing over TO a flight elsewhere. (6.1)
+    static func opening(for intent: NewFlightIntent, home: String?) -> PlannedStops {
+        let seeded = !intent.departureIdent.trimmingCharacters(in: .whitespaces).isEmpty
+            || !intent.arrivalIdent.trimmingCharacters(in: .whitespaces).isEmpty
+        guard !seeded, let home = HomeAerodrome.normalized(home) else {
+            return PlannedStops(from: intent.departureIdent, to: intent.arrivalIdent)
+        }
+        return PlannedStops(from: home, to: home)
+    }
+
     /// The indices of the stops in `rows`: everything between FROM and TO.
     var stopIndices: Range<Int> { 1..<(rows.count - 1) }
 
@@ -163,6 +176,71 @@ struct PlannedStops: Equatable {
         let clean = idents
         return zip(clean, clean.dropFirst()).first { $0 == $1 }?.0
     }
+}
+
+// MARK: - Landing on the way, from a saved route (6.1)
+//
+// A saved route passes aerodromes: the ones it was drawn through, and others near it. Plan new flight
+// lists them in flying order, each with a "Land here" switch, and the route is split at the ones
+// switched on, each leg keeping its part of the route. With every switch off it stays one flight: a
+// landing is a decision for one day's flight, so it is never stored on the route. (trips proposal, M2)
+
+struct RouteLandings: Equatable {
+
+    /// On the route or within its corridor, in flying order, and any aerodrome added with "Land
+    /// somewhere else…", placed along the route like the others.
+    private(set) var candidates: [TripPlanner.StopCandidate] = []
+    /// The aerodromes switched on, by ident, with the stop there: the time on the ground and the refuel.
+    private(set) var stopovers: [String: Stopover] = [:]
+
+    init(candidates: [TripPlanner.StopCandidate] = []) {
+        self.candidates = candidates.sorted { $0.alongNM < $1.alongNM }
+    }
+
+    func isLanding(at ident: String) -> Bool { stopovers[ident] != nil }
+
+    /// "Land here" on or off. Switched off and on again, a stop starts over from the default.
+    mutating func setLanding(_ landing: Bool, at ident: String) {
+        guard candidates.contains(where: { $0.aerodrome.ident == ident }) else { return }
+        stopovers[ident] = landing ? (stopovers[ident] ?? Stopover()) : nil
+    }
+
+    /// "Land somewhere else…": the aerodrome joins the list in its place along the route, switched on.
+    mutating func add(_ candidate: TripPlanner.StopCandidate) {
+        if !candidates.contains(where: { $0.aerodrome.ident == candidate.aerodrome.ident }) {
+            candidates.append(candidate)
+            candidates.sort { $0.alongNM < $1.alongNM }
+        }
+        setLanding(true, at: candidate.aerodrome.ident)
+    }
+
+    mutating func setStopover(_ stopover: Stopover, at ident: String) {
+        guard isLanding(at: ident) else { return }
+        stopovers[ident] = stopover
+    }
+
+    /// The landings, in flying order, for `TripPlanner.legs(of:landingAt:)`.
+    var landings: [TripPlanner.Landing] {
+        candidates.compactMap { candidate in
+            stopovers[candidate.aerodrome.ident].map { TripPlanner.Landing(candidate: candidate, stopover: $0) }
+        }
+    }
+
+    /// One flight with no landing; each landing adds a leg.
+    var legCount: Int { landings.count + 1 }
+}
+
+// MARK: - What Plan new flight creates (6.1)
+
+/// What the pilot asked for in Plan new flight, for `FlightCreator.create(_:)`: the typed aerodromes,
+/// the intent (when, which aircraft), and, from a saved route, the route and where to land on it.
+struct PlannedFlight {
+    var stops: PlannedStops
+    var intent: NewFlightIntent
+    /// The saved route the flight is copied from; nil when the aerodromes were typed.
+    var route: FlightPlan?
+    /// Where the route is landed at on the way, in flying order: none keeps it one flight.
+    var landings: [TripPlanner.Landing] = []
 }
 
 // MARK: - Building a plan from an intent

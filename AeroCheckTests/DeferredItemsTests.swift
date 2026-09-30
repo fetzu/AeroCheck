@@ -325,7 +325,8 @@ final class DeferredItemsTests: XCTestCase {
     }
 
     /// The rule the author confirmed: a new circuit clears what was deferred in the phases it repeats,
-    /// and only those, for all three ways a circuit ends.
+    /// and only those, for all three ways a circuit ends. On circuits: a full stop on any other flight
+    /// is the landing and clears nothing (`FullStopLandingTests`).
     func testEachNewCircuitClearsOnlyTheRepeatedPhases() {
         let repeated: [(String, ChecklistPhase, (AppState) -> Void)] = [
             ("go-around", .climb, { $0.recordGoAround(at: Date()) }),
@@ -334,6 +335,7 @@ final class DeferredItemsTests: XCTestCase {
         ]
         for (name, first, event) in repeated {
             let appState = flight()
+            appState.isCircuitMode = true
             for phase in ChecklistPhase.allCases { appState.deferredItems[phase] = ["x"] }
             appState.deferredChecks = ChecklistPhase.allCases
             event(appState)

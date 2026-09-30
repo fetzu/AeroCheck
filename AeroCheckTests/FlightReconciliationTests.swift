@@ -196,6 +196,49 @@ final class FlightReconciliationTests: XCTestCase {
                        fixture.expectedEvents.filter { $0.type != "GA" }.count)
     }
 
+    /// Applying the review keeps the final landing END FLIGHT measured on the track. The rows carry
+    /// the detector's stamp, the first fix on the runway, seconds after the touchdown: taking it back
+    /// undid the measurement, and could move the logged minute. (6.1)
+    func testApplyingTheReviewKeepsTheMeasuredTouchdown() throws {
+        let knot = 0.514444, t0 = Date(timeIntervalSince1970: 1_790_000_000)
+        var points: [GPSPoint] = []
+        var time = t0
+        func at(_ heightFt: Double, _ kt: Double) {
+            time = time.addingTimeInterval(6)
+            points.append(GPSPoint(latitude: 47 + Double(points.count) * 0.002, longitude: 7,
+                                   altitude: 500 + heightFt * 0.3048, timestamp: time, speed: kt * knot,
+                                   horizontalAccuracy: 3.5))
+        }
+        for height in [0.0, 0, 50, 300, 600, 600, 300, 240, 180, 120, 60, 11] { at(height, 60) }
+        at(1, 40)
+        let detectorStamp = time                                   // the first fix on the runway
+        for kt in [30.0, 15, 6] { at(0, kt) }
+        let measured = try XCTUnwrap(TrackTimes.analyze(track: points, engineStart: nil, engineShutdown: nil).landing)
+        XCTAssertLessThan(measured, detectorStamp)
+
+        var flight = Flight(startTime: t0, landingTime: measured)
+        flight.gpsTrack = points
+        flight.fullStopTimes = [measured]
+        flight.fullStopCount = 1
+        let missed = t0.addingTimeInterval(30)
+        let result = FlightReconciliation.Result(
+            flightId: flight.id,
+            events: [.init(type: .goAround, timestamp: missed, airportIdent: nil, source: .detectedOnly),
+                     .init(type: .fullStop, timestamp: detectorStamp, airportIdent: nil, source: .confirmed)],
+            trackBlockOff: nil, trackBlockOn: nil, backfillsBlockOff: false, backfillsBlockOn: false)
+
+        FlightReconciliation.apply(result, to: &flight)
+
+        XCTAssertEqual(flight.goAroundTimes, [missed], "the review itself is applied")
+        XCTAssertEqual(flight.landingTime, measured)
+        XCTAssertEqual(flight.fullStopTimes, [measured], "one landing, one time")
+
+        // Without a touchdown in the track, the row's time is all there is.
+        var sparse = Flight(startTime: t0)
+        FlightReconciliation.apply(result, to: &sparse)
+        XCTAssertEqual(sparse.landingTime, detectorStamp)
+    }
+
     // MARK: - Block-time back-fill
 
     /// 19 of 53 corpus flights had no block off (engine checklist never tapped) — the

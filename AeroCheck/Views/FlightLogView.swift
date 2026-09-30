@@ -33,6 +33,15 @@ struct FlightLogView: View {
     @State private var showImportPicker = false
     @State private var importError: String?
     @State private var showImportError = false
+    /// A flight just imported whose file had no name for it: the Logbook offers to name it, and an
+    /// empty answer keeps the route as its only title. (v6.1)
+    @State private var namingImport: ImportNaming?
+    @State private var importedName = ""
+
+    struct ImportNaming: Identifiable, Equatable {
+        let id: UUID
+        let spokenTitle: String
+    }
     @State private var showExportAllSheet = false
     @State private var exportAllType: ExportAllType = .gpx
     /// The export bundle is built off the main actor (PERF-12); the share sheet presents only once
@@ -96,8 +105,23 @@ struct FlightLogView: View {
     }
 
     /// Everything this screen was before the merge: flown flights, their stats and their export.
-    @ViewBuilder
     private var pastContent: some View {
+        pastFlights
+            .task { await repairMissingAerodromes() }
+    }
+
+    /// Flights saved without a departure or an arrival get theirs here, so the list reads by route.
+    /// Airport data is lazy, and nothing else here needs it: it is loaded only when a flight not yet
+    /// tried is waiting, and only when there is data on the device to load. (v6.1)
+    private func repairMissingAerodromes() async {
+        guard airportDataService.isDataAvailable, await appState.hasFlightsAwaitingAerodromes() else { return }
+        await airportDataService.ensureLoaded()
+        guard airportDataService.airportCount > 0 else { return }
+        await appState.repairMissingAerodromes(nearestAerodrome: { airportDataService.aerodromeIdent(at: $0) })
+    }
+
+    @ViewBuilder
+    private var pastFlights: some View {
                 if appState.isLoadingFlights {
                     VStack(spacing: 16) {
                         ProgressView()
@@ -110,7 +134,13 @@ struct FlightLogView: View {
                     emptyState
                 } else {
                     GeometryReader { geo in
-                        if horizontalSizeClass == .regular && geo.size.width > geo.size.height {
+                        // Keyboard or not: the keyboard of a sheet over the Logbook ("Plan this
+                        // again", or the name asked after an import) made this reader wider than tall
+                        // in portrait, and the list behind it went to two columns. Not
+                        // `.ignoresSafeArea(.keyboard)`: in two columns the detail's name and notes
+                        // still need the keyboard's avoidance. (6.1.0)
+                        if horizontalSizeClass == .regular,
+                           KeyboardProofOrientation.isLandscape(size: geo.size, bottomInset: geo.safeAreaInsets.bottom) {
                             // iPad landscape: master (list) left + detail pane right, like the HUD. (v4 UI/UX Revamp)
                             HStack(spacing: 0) {
                                 flightList(twoColumn: true)
@@ -314,6 +344,16 @@ struct FlightLogView: View {
             Button(L10n.FlightLog.importErrorOK, role: .cancel) { }
         } message: {
             Text(importError ?? L10n.FlightLog.importErrorUnknown)
+        }
+        .alert(L10n.FlightLog.nameImportedTitle,
+               isPresented: Binding(get: { namingImport != nil }, set: { if !$0 { namingImport = nil } }),
+               presenting: namingImport) { naming in
+            TextField(L10n.FlightDetail.namePlaceholder, text: $importedName)
+            Button(L10n.FlightLog.nameImportedSave) { nameImportedFlight(naming.id) }
+            Button(L10n.FlightLog.nameImportedSkip, role: .cancel) { }
+        } message: { naming in
+            // The spoken form, "LSZQ to LSGE": it reads as well as it sounds.
+            Text(L10n.FlightLog.nameImportedMessage(naming.spokenTitle))
         }
     }
     
@@ -1138,9 +1178,10 @@ struct FlightLogView: View {
 
                 // Check if it's a ZIP file
                 if url.pathExtension.lowercased() == "zip" {
+                    // An archive is a batch: its flights keep what their files say, unasked.
                     handleZipImport(data: data)
-                } else if appState.importFlight(from: data) {
-                    // Success - no action needed
+                } else if let imported = appState.importedFlight(from: data) {
+                    Task { await placeAndOfferName(imported.flight.id, suggestion: imported.suggestedName) }
                 } else {
                     importError = L10n.FlightLog.importErrorParse
                     showImportError = true
@@ -1154,6 +1195,24 @@ struct FlightLogView: View {
             importError = error.localizedDescription
             showImportError = true
         }
+    }
+
+    /// After a single import: find the flight's aerodromes (a file from another app has none), then,
+    /// when the file had no name for it, offer one, never require it. A GPX from another app offers
+    /// its own track name. (v6.1)
+    private func placeAndOfferName(_ id: UUID, suggestion: String?) async {
+        await repairMissingAerodromes()
+        guard let flight = appState.flights.first(where: { $0.id == id }),
+              Flight.nonBlank(flight.name) == nil else { return }
+        importedName = suggestion ?? ""
+        namingImport = ImportNaming(id: id, spokenTitle: flight.spokenTitle)
+    }
+
+    /// The name typed after an import; empty keeps the route alone.
+    private func nameImportedFlight(_ id: UUID) {
+        guard let name = Flight.nonBlank(importedName),
+              let flight = appState.flights.first(where: { $0.id == id }) else { return }
+        appState.updateFlightName(flight, name: name.trimmingCharacters(in: .whitespacesAndNewlines))
     }
 
     private func handleZipImport(data: Data) {
@@ -1170,6 +1229,9 @@ struct FlightLogView: View {
                 }
             }
 
+            if successCount > 0 {
+                Task { await repairMissingAerodromes() }   // files from other apps carry no aerodromes
+            }
             if successCount == 0 {
                 importError = L10n.FlightLog.importErrorZipNoFiles
                 showImportError = true
@@ -1719,8 +1781,9 @@ struct FlightRowView: View {
 
             VStack(alignment: .leading, spacing: 3) {
                 // Custom name (if set) above the route, small/grey like the stats line. (round 7)
-                if !flight.name.isEmpty {
-                    Text(flight.name)
+                // Never in place of the route: with no aerodrome known it is the title itself. (v6.1)
+                if let eyebrow = flight.titleEyebrow {
+                    Text(eyebrow)
                         .scaledFont(size: 11, relativeTo: .caption2)
                         .foregroundColor(.dimText)
                         .lineLimit(1)
@@ -1795,15 +1858,43 @@ struct FlightRowView: View {
     /// Touch-and-goes alone do not make a flight "circuits": warming up with a few at home before
     /// flying somewhere else is common, and showing only the departure hid where the flight went.
     /// The destination decides the shape; the touch-and-goes add the tag. (v5.2)
-    @ViewBuilder
+    ///
+    /// The words are `Flight.title`'s; this only lays them out. A round flight reads "LSZQ", one end
+    /// not found reads "LSZQ → ?" with the unknown end dimmed. (v6.1)
     private var routeView: some View {
+        routeLine
+            // One element, read as the title is meant: "LSZQ to unknown aerodrome, circuits", not
+            // "LSZQ, right arrow, question mark". (v6.1)
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel(routeSpokenLabel)
+    }
+
+    private var routeSpokenLabel: String {
+        switch flight.routeShape {
+        case .between(_, _, withCircuits: true), .circuits:
+            return "\(flight.spokenTitle), \(L10n.Flights.circuits.lowercased())"
+        default:
+            return flight.spokenTitle
+        }
+    }
+
+    @ViewBuilder
+    private var routeLine: some View {
         switch flight.routeShape {
         case let .between(dep, arr, withCircuits):
             HStack(spacing: 6) {
-                Text(dep).scaledFont(size: 18, weight: .bold, design: .monospaced, relativeTo: .title3).foregroundColor(.primaryText)
-                Image(systemName: "arrow.right").scaledFont(size: 12, weight: .semibold, relativeTo: .caption).foregroundColor(.dimText)
-                Text(arr).scaledFont(size: 18, weight: .bold, design: .monospaced, relativeTo: .title3).foregroundColor(.primaryText)
+                routeIdent(dep)
+                routeArrow
+                routeIdent(arr)
                 if withCircuits { circuitsTag }
+            }
+        case let .roundTrip(at):
+            routeIdent(at)
+        case let .oneEnd(dep, arr):
+            HStack(spacing: 6) {
+                routeIdent(dep)
+                routeArrow
+                routeIdent(arr)
             }
         case let .circuits(at):
             HStack(spacing: 7) {
@@ -1816,11 +1907,22 @@ struct FlightRowView: View {
                 circuitsTag
             }
         case .unnamed:
-            Text(flight.displayName)
+            Text(flight.title)
                 .scaledFont(size: 17, weight: .bold, design: .monospaced, relativeTo: .body)
                 .foregroundColor(.primaryText)
                 .lineLimit(1)
         }
+    }
+
+    /// One end of the route; nil is the end that is not known, drawn as a dim "?".
+    private func routeIdent(_ ident: String?) -> some View {
+        Text(ident ?? Flight.unknownAerodrome)
+            .scaledFont(size: 18, weight: .bold, design: .monospaced, relativeTo: .title3)
+            .foregroundColor(ident == nil ? .dimText : .primaryText)
+    }
+
+    private var routeArrow: some View {
+        Image(systemName: "arrow.right").scaledFont(size: 12, weight: .semibold, relativeTo: .caption).foregroundColor(.dimText)
     }
 
     private var circuitsTag: some View {
@@ -2104,13 +2206,7 @@ struct FlightDetailView: View {
 
     // MARK: - Redesigned detail sections (round 8)
 
-    private var routeTitle: String {
-        if let dep = flight.departureAirportIdent, let arr = flight.arrivalAirportIdent {
-            return "\(dep) → \(arr)"
-        }
-        return flight.displayName
-    }
-
+    /// Date and aircraft. The pilot's name for the flight sits above the title, as in the row. (v6.1)
     private var subtitleLine: String {
         var parts: [String] = []
         if let date = flight.startTime {
@@ -2119,7 +2215,6 @@ struct FlightDetailView: View {
             parts.append(formatter.string(from: date))
         }
         parts.append(flight.aircraftRegistration ?? flight.airplane)
-        if !flight.name.isEmpty { parts.append(flight.name) }
         return parts.joined(separator: " · ")
     }
 
@@ -2146,11 +2241,21 @@ struct FlightDetailView: View {
     /// Route hero + subtitle + the four stat chips (replaces the old details/route cards). (round 8)
     private var flightHeader: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text(routeTitle)
-                .scaledFont(size: 26, weight: .bold, design: .monospaced, relativeTo: .title2)
-                .foregroundColor(.primaryText)
-                .lineLimit(1)
-                .minimumScaleFactor(0.6)
+            VStack(alignment: .leading, spacing: 4) {
+                if let eyebrow = flight.titleEyebrow {
+                    Text(eyebrow)
+                        .scaledFont(size: 13, weight: .semibold, relativeTo: .caption)
+                        .foregroundColor(.secondaryText)
+                        .lineLimit(1)
+                }
+                Text(flight.title)
+                    .scaledFont(size: 26, weight: .bold, design: .monospaced, relativeTo: .title2)
+                    .foregroundColor(.primaryText)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.6)
+                    .accessibilityLabel(flight.spokenTitle)
+                    .accessibilityAddTraits(.isHeader)
+            }
             Text(subtitleLine)
                 .scaledFont(size: 13, relativeTo: .caption)
                 .foregroundColor(.secondaryText)
@@ -3052,9 +3157,9 @@ struct ShareSheet: UIViewControllerRepresentable {
 /// Present a UIActivityViewController for an image directly via UIKit,
 /// bypassing SwiftUI sheet timing issues that can cause grey/empty sheets on first invocation.
 @MainActor
-func presentImageShareSheet(image: UIImage) {
+func presentImageShareSheet(image: UIImage, filename: String) {
     guard let jpegData = image.jpegData(compressionQuality: shareImageJPEGQuality) else { return }
-    presentImageShareSheet(jpegData: jpegData)
+    presentImageShareSheet(jpegData: jpegData, filename: filename)
 }
 
 /// The one JPEG pass a shared image goes through. The flight card used to be encoded twice (0.85,
@@ -3063,11 +3168,10 @@ let shareImageJPEGQuality: CGFloat = 0.9
 
 /// The same, for an image already encoded once (off the main thread).
 @MainActor
-func presentImageShareSheet(jpegData: Data) {
+func presentImageShareSheet(jpegData: Data, filename: String) {
     // A ShareFile rather than a bare temp URL: the share sheet holds it, and the staged image goes
     // with it once the sheet is closed. It used to stay in tmp/ for good. (S9-06)
-    let file = ShareFile(data: jpegData, filename: "AeroCheck_Flight_\(UUID().uuidString.prefix(8)).jpg",
-                         dataTypeIdentifier: UTType.jpeg.identifier)
+    let file = ShareFile(data: jpegData, filename: filename, dataTypeIdentifier: UTType.jpeg.identifier)
 
     let activityVC = UIActivityViewController(activityItems: [file], applicationActivities: nil)
 
@@ -3850,7 +3954,8 @@ struct ShareCardCustomizationView: View {
 
         // Present share sheet directly via UIKit — avoids SwiftUI's two-sheet
         // transition race condition that causes grey/empty sheets on first export
-        presentImageShareSheet(jpegData: jpegData)
+        // Named like the flight's other exports, so a saved card is found beside them. (v6.1)
+        presentImageShareSheet(jpegData: jpegData, filename: "\(flight.exportFilename).jpg")
     }
 
     /// Standalone map snapshot generator for the customization view
@@ -4355,7 +4460,7 @@ struct StatsShareCardCustomizationView: View {
 
         isGenerating = false
         guard let image = uiImage else { return }
-        presentImageShareSheet(image: image)
+        presentImageShareSheet(image: image, filename: "AeroCheck_Stats_\(UUID().uuidString.prefix(8)).jpg")
     }
 }
 
@@ -4393,23 +4498,9 @@ struct FlightShareCard: View {
         flight.aircraftType
     }
 
-    /// Route string: "LSGG → LSZB" or nil if no airports
-    private var routeString: String? {
-        guard let dep = flight.departureAirportIdent, let arr = flight.arrivalAirportIdent else {
-            return nil
-        }
-        return "\(dep) → \(arr)"
-    }
-
-    /// Display title: route, flight name, or aircraft identifier
-    private var displayTitle: String {
-        if let route = routeString {
-            return route
-        } else if !flight.name.isEmpty {
-            return flight.name
-        }
-        return aircraftIdentifier
-    }
+    /// The title every other surface shows (`Flight.title`): "LSZQ → LSGE", "LSZQ" for a flight back
+    /// where it started (circuits included), else the flight's name or the registration. (v6.1)
+    private var displayTitle: String { flight.title }
 
     /// Every figure on the card: the minute rule, one number format, the pilot's units, the time
     /// zone and the counts. (6.1)
@@ -4564,6 +4655,7 @@ struct FlightShareCard: View {
             HStack(alignment: .firstTextBaseline) {
                 // Title (route, flight name, or aircraft)
                 Text(displayTitle)
+                    .accessibilityLabel(flight.spokenTitle)
                     .font(.aero(size: 52, weight: .bold, design: .default))
                     .foregroundColor(colorScheme.primaryTextColor)
                     .lineLimit(1)
@@ -4581,8 +4673,8 @@ struct FlightShareCard: View {
             // FLIGHT TIME label aligned right
             HStack {
                 // Show flight name below if route is the main title
-                if routeString != nil && !flight.name.isEmpty {
-                    Text(flight.name)
+                if let name = flight.titleEyebrow {
+                    Text(name)
                         .font(.aero(size: 22, weight: .medium))
                         .foregroundColor(colorScheme.tertiaryTextColor)
                         .lineLimit(1)

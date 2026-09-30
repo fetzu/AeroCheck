@@ -104,6 +104,169 @@ final class FlightNumbersTests: XCTestCase {
         XCTAssertEqual(unknown.routeShape, .circuits(at: "LSZQ"))
     }
 
+    // MARK: - The title every surface shows (v6.1)
+
+    /// 29 Sept 2026: three flights named by the pilot. The two with both aerodromes kept their route
+    /// as the title, the one saved without an arrival showed "Vol Solo #2.1 (F-HVXA)".
+    func testTheTitleIsTheRouteAndTheNameGoesAboveIt() {
+        var hop = flight()
+        hop.name = "Vol Solo #2.2"
+        XCTAssertEqual(hop.routeShape, .between(departure: "LSZQ", arrival: "LSGY", withCircuits: false))
+        XCTAssertEqual(hop.title, "LSZQ → LSGY")
+        XCTAssertEqual(hop.titleEyebrow, "Vol Solo #2.2")
+        XCTAssertEqual(hop.titleWithName, "Vol Solo #2.2 · LSZQ → LSGY")
+        XCTAssertTrue(hop.toGPX().contains("<name>Vol Solo #2.2 · LSZQ → LSGY - "), "the GPX is named the same way")
+
+        hop.name = ""
+        XCTAssertEqual(hop.title, "LSZQ → LSGY")
+        XCTAssertNil(hop.titleEyebrow)
+        XCTAssertEqual(hop.titleWithName, "LSZQ → LSGY")
+    }
+
+    func testAFlightBackWhereItStartedIsTitledByThatAerodromeAlone() {
+        // 28 Sept 2026: LSZQ → LSZQ, 81 NM, no touch-and-go. It read "LSZQ → LSZQ".
+        var round = flight()
+        round.arrivalAirportIdent = "LSZQ"
+        XCTAssertEqual(round.routeShape, .roundTrip(at: "LSZQ"))
+        XCTAssertEqual(round.title, "LSZQ")
+
+        // Circuits read the same; the Logbook row adds its "↻ circuits" to the shape, as before.
+        var circuits = flight(touchAndGo: 4)
+        circuits.arrivalAirportIdent = "LSZQ"
+        circuits.name = "Circuits de chauffe"
+        XCTAssertEqual(circuits.routeShape, .circuits(at: "LSZQ"))
+        XCTAssertEqual(circuits.title, "LSZQ")
+        XCTAssertEqual(circuits.titleEyebrow, "Circuits de chauffe")
+    }
+
+    func testAMissingEndReadsAsUnknownNeverAsARoundFlight() {
+        var noArrival = flight()
+        noArrival.arrivalAirportIdent = nil
+        noArrival.name = "Vol Solo #2.1"
+        XCTAssertEqual(noArrival.routeShape, .oneEnd(departure: "LSZQ", arrival: nil))
+        XCTAssertEqual(noArrival.title, "LSZQ → ?", "\"LSZQ\" alone would say it came back")
+        XCTAssertEqual(noArrival.titleEyebrow, "Vol Solo #2.1", "the name still never replaces the route")
+
+        var noDeparture = flight()
+        noDeparture.departureAirportIdent = ""
+        XCTAssertEqual(noDeparture.routeShape, .oneEnd(departure: nil, arrival: "LSGY"), "a blank ident is no ident")
+        XCTAssertEqual(noDeparture.title, "? → LSGY")
+
+        // With touch-and-goes, one known field is still a circuits session there (v5.2).
+        var session = flight(touchAndGo: 3)
+        session.arrivalAirportIdent = nil
+        XCTAssertEqual(session.title, "LSZQ")
+    }
+
+    func testWithNoAerodromeAtAllTheNameIsTheTitleElseTheRegistration() {
+        var unplaced = flight()
+        unplaced.departureAirportIdent = nil
+        unplaced.arrivalAirportIdent = nil
+        XCTAssertEqual(unplaced.routeShape, .unnamed)
+        XCTAssertEqual(unplaced.title, "HB-KFD")
+        XCTAssertNil(unplaced.titleEyebrow)
+
+        unplaced.name = "Vol Solo #2.1"
+        XCTAssertEqual(unplaced.title, "Vol Solo #2.1", "it read \"Vol Solo #2.1 (HB-KFD)\"")
+        XCTAssertNil(unplaced.titleEyebrow, "not the same name twice")
+        XCTAssertEqual(unplaced.titleWithName, "Vol Solo #2.1")
+
+        unplaced.name = "  "
+        XCTAssertEqual(unplaced.title, "HB-KFD", "a blank name is no name")
+        unplaced.aircraftRegistration = nil
+        XCTAssertEqual(unplaced.title, "dr400-140b")
+    }
+
+    /// VoiceOver read "LSZQ right arrow question mark". The spoken title says the route.
+    func testTheSpokenTitleSaysUnknownAerodromeNotQuestionMark() {
+        var noArrival = flight()
+        noArrival.arrivalAirportIdent = nil
+        XCTAssertEqual(noArrival.spokenTitle,
+                       L10n.FlightTitle.spokenRoute("LSZQ", L10n.FlightTitle.unknownAerodrome))
+        XCTAssertFalse(noArrival.spokenTitle.contains("?"))
+        XCTAssertFalse(noArrival.spokenTitle.contains("→"))
+
+        var noDeparture = flight()
+        noDeparture.departureAirportIdent = nil
+        XCTAssertEqual(noDeparture.spokenTitle,
+                       L10n.FlightTitle.spokenRoute(L10n.FlightTitle.unknownAerodrome, "LSGY"))
+        XCTAssertEqual(flight().spokenTitle, L10n.FlightTitle.spokenRoute("LSZQ", "LSGY"))
+
+        var named = flight()
+        named.name = "Vol Solo #2.2"
+        XCTAssertEqual(named.spokenTitleWithName, "Vol Solo #2.2, \(L10n.FlightTitle.spokenRoute("LSZQ", "LSGY"))")
+        var round = flight()
+        round.arrivalAirportIdent = "LSZQ"
+        XCTAssertEqual(round.spokenTitle, "LSZQ")
+    }
+
+    /// The words VoiceOver says, and the import prompt, ship in English and French.
+    func testTheNewTitleStringsShipInEnglishAndFrench() throws {
+        for (localization, expected) in [("en", "unknown aerodrome"), ("fr", "aérodrome inconnu")] {
+            let path = try XCTUnwrap(Bundle.main.path(forResource: "Localizable", ofType: "strings",
+                                                      inDirectory: nil, forLocalization: localization))
+            let strings = try XCTUnwrap(NSDictionary(contentsOfFile: path) as? [String: String])
+            XCTAssertEqual(strings["flightTitle.unknownAerodrome"], expected)
+            for key in ["flightTitle.spokenRoute", "flightLog.nameImported.title", "flightLog.nameImported.message",
+                        "flightLog.nameImported.save", "flightLog.nameImported.skip"] {
+                XCTAssertFalse((strings[key] ?? "").isEmpty, "\(key) in \(localization)")
+            }
+        }
+    }
+
+    // MARK: - Export file names (v6.1)
+
+    /// `AeroCheck_20260929_1134_LSZQ-LSGE_F-HVXA`: the route, then the registration.
+    func testAnExportIsNamedByItsRouteAndRegistration() {
+        var hop = flight(registration: "F-HVXA")
+        hop.startTime = date("2026-09-06T11:00:00Z")                        // midday: the same date in any zone near UTC
+        XCTAssertTrue(hop.exportFilename.hasPrefix("AeroCheck_20260906_"), hop.exportFilename)
+        XCTAssertTrue(hop.exportFilename.hasSuffix("_LSZQ-LSGY_F-HVXA"), hop.exportFilename)
+        XCTAssertEqual(hop.exportFilename.split(separator: "_").count, 5, "AeroCheck, date, time, route, registration")
+
+        var named = hop
+        named.name = "Vol Solo #2.1"
+        XCTAssertTrue(named.exportFilename.hasSuffix("_LSZQ-LSGY_F-HVXA"), "the route, not the name")
+
+        var round = hop
+        round.arrivalAirportIdent = "LSZQ"
+        XCTAssertTrue(round.exportFilename.hasSuffix("_LSZQ_F-HVXA"), "a flight back where it started")
+        var circuits = flight(registration: "F-HVXA", touchAndGo: 4)
+        circuits.startTime = hop.startTime
+        circuits.arrivalAirportIdent = "LSZQ"
+        XCTAssertTrue(circuits.exportFilename.hasSuffix("_LSZQ_F-HVXA"))
+
+        var outlanding = hop
+        outlanding.arrivalAirportIdent = nil
+        XCTAssertTrue(outlanding.exportFilename.hasSuffix("_LSZQ-ZZZZ_F-HVXA"), "ICAO's indicator for none")
+        var fromUnknown = hop
+        fromUnknown.departureAirportIdent = nil
+        XCTAssertTrue(fromUnknown.exportFilename.hasSuffix("_ZZZZ-LSGY_F-HVXA"))
+
+        var unplaced = named
+        unplaced.departureAirportIdent = nil
+        unplaced.arrivalAirportIdent = nil
+        XCTAssertTrue(unplaced.exportFilename.hasSuffix("_Vol_Solo_2.1_F-HVXA"), "with no route, the name")
+        unplaced.name = ""
+        XCTAssertTrue(unplaced.exportFilename.hasSuffix("_F-HVXA"))
+        XCTAssertEqual(unplaced.exportFilename.split(separator: "_").count, 4, "nothing empty in between")
+    }
+
+    func testAFileNamePartIsSafeOnAnyFileSystem() {
+        XCTAssertEqual(Flight.fileSafe("Vol Solo #2.1"), "Vol_Solo_2.1")
+        XCTAssertEqual(Flight.fileSafe("Entraînement circuits"), "Entraînement_circuits")
+        XCTAssertEqual(Flight.fileSafe("a/b\\c:d*e?f\"g<h>i|j"), "a_b_c_d_e_f_g_h_i_j")
+        XCTAssertEqual(Flight.fileSafe("../..//etc"), "etc", "no path, no leading dot")
+        XCTAssertEqual(Flight.fileSafe(" ✈️ LSZQ → LSGE "), "LSZQ_LSGE")
+        XCTAssertEqual(Flight.fileSafe(String(repeating: "A", count: 90)).count, 60)
+        let forbidden = CharacterSet(charactersIn: "/\\:*?\"<>| ").union(.controlCharacters)
+        for name in ["Tour du Jura: LSZQ/LSGC", "Nuit\n\tvol", "..hidden", "A|B"] {
+            let safe = Flight.fileSafe(name)
+            XCTAssertNil(safe.rangeOfCharacter(from: forbidden), safe)
+            XCTAssertFalse(safe.hasPrefix("."), safe)
+        }
+    }
+
     // MARK: - The line laid out as the form (v5.x)
 
     func testFormRowPutsEachValueUnderTheFormsOwnHeading() {

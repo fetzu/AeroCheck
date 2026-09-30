@@ -272,4 +272,224 @@ final class TrackTimesTests: XCTestCase {
         XCTAssertEqual(filled?.timeOff, takeoff, "Time OFF is wheels off")
         XCTAssertEqual(filled?.timeOn, landing, "Time ON is wheels on")
     }
+
+    // MARK: - Where the flight started and ended (v6.1)
+
+    /// Aerodrome reference points (OurAirports).
+    private let lszq = CLLocationCoordinate2D(latitude: 47.392408, longitude: 7.028956)
+    private let lsge = CLLocationCoordinate2D(latitude: 46.755279, longitude: 7.075746)
+    private let lsgn = CLLocationCoordinate2D(latitude: 46.957371, longitude: 6.864574)
+
+    private func airport(_ ident: String, _ at: CLLocationCoordinate2D, _ type: AirportType = .smallAirport) -> Airport {
+        Airport(id: abs(ident.hashValue % 100_000), ident: ident, type: type, name: ident,
+                latitude: at.latitude, longitude: at.longitude, elevation: 1500, continent: "EU",
+                isoCountry: "CH", isoRegion: "CH-JU", municipality: nil, scheduledService: false,
+                gpsCode: nil, iataCode: nil, localCode: nil)
+    }
+
+    /// The airport data's own rule (`AirportDataService.aerodromeIdent(at:among:)`) over a few
+    /// airfields. The test host's airport data is the simulator app's own, so it is not loaded here.
+    private func resolver(_ aerodromes: [String: CLLocationCoordinate2D]) -> (CLLocationCoordinate2D) -> String? {
+        let airports = aerodromes.map { airport($0.key, $0.value) }
+        return { AirportDataService.aerodromeIdent(at: $0, among: airports) }
+    }
+
+    /// Fixed-wing aerodromes only, within 5 NM: a heliport or a closed strip nearer the stand than
+    /// the field's reference point is never where an aeroplane took off or landed.
+    func testTheAerodromeIsTheNearestFixedWingFieldWithinFiveMiles() {
+        let stand = CLLocationCoordinate2D(latitude: lsge.latitude + 0.004, longitude: lsge.longitude)
+        let heliport = airport("CH-0035", CLLocationCoordinate2D(latitude: stand.latitude, longitude: stand.longitude + 0.001), .heliport)
+        let closed = airport("CH-0099", stand, .closed)
+        let field = airport("LSGE", lsge)
+        XCTAssertEqual(AirportDataService.aerodromeIdent(at: stand, among: [heliport, closed, field]), "LSGE")
+        XCTAssertNil(AirportDataService.aerodromeIdent(at: stand, among: [heliport, closed]), "no aeroplane field near")
+        XCTAssertEqual(AirportDataService.aerodromeIdent(at: stand, among: [airport("LSGN", lsgn), field]), "LSGE")
+        XCTAssertNil(AirportDataService.aerodromeIdent(at: lszq, among: [field]), "LSGE is 38 NM from LSZQ")
+        for type in [AirportType.largeAirport, .mediumAirport, .smallAirport] {
+            XCTAssertEqual(AirportDataService.aerodromeIdent(at: stand, among: [airport("LSGE", lsge, type)]), "LSGE")
+        }
+    }
+
+    /// 29 Sept 2026, LSZQ → LSGE: the taxi to the parking spot at 3 to 6 kt, a single fix under 4 kt
+    /// (the live detection wants two), then no fix until the engine stopped. The flight was saved with
+    /// no arrival, and the Logbook titled it "F-HVXA".
+    @MainActor
+    func testEndFlightFindsTheArrivalTheLiveDetectionMissed() throws {
+        let appState = makeTestAppState()
+        appState.settings.selectedRemoteAircraftId = nil
+        appState.settings.selectedAircraft = .wt9Dynamic
+        appState.startFlight(withAircraft: "F-HVXA", aircraftRegistration: "F-HVXA", aircraftType: "WT9",
+                             checklistVersion: nil, flightPlanId: nil, circuitMode: false)
+        appState.engineStartTime = t0
+        appState.currentFlight?.engineStartTime = t0
+
+        var track = Track(time: t0.addingTimeInterval(120))
+        track.move(60, speed: 4)                                           // taxi out
+        for height in [0.0, 0, 50, 300, 600, 900] { track.at(height, speed: 55 * knot) }
+        track.move(900, speed: 55)                                         // ~50 km north
+        _ = approach(into: &track)
+        track.move(60, speed: 3)                                           // taxi in, 6 kt
+        track.move(6, speed: 1.5)                                          // one fix under 4 kt
+        track.stand(34)                                                    // parked, engine running
+        for point in track.points { appState.addGPSPoint(point) }
+        appState.currentFlight?.departureAirportIdent = "LSZQ"             // found live at block off
+        XCTAssertNil(appState.currentFlight?.blockOnTime, "one slow fix: no block on before shutdown")
+
+        let start = try XCTUnwrap(track.points.first), parked = try XCTUnwrap(track.points.last)
+        let aerodromes = resolver([
+            "LSZQ": CLLocationCoordinate2D(latitude: start.latitude, longitude: start.longitude + 0.004),
+            "LSGE": CLLocationCoordinate2D(latitude: parked.latitude - 0.004, longitude: parked.longitude),
+        ])
+        appState.recordEngineShutdown()
+        appState.refineTimingFromTrack()
+        XCTAssertEqual(appState.currentFlight?.blockOnTime, parked.timestamp)
+
+        appState.settleAerodromesAtEndOfFlight(nearestAerodrome: aerodromes)
+        XCTAssertEqual(appState.currentFlight?.arrivalAirportIdent, "LSGE")
+        XCTAssertEqual(appState.currentFlight?.departureAirportIdent, "LSZQ")
+
+        appState.endFlight()
+        let saved = try XCTUnwrap(appState.flights.first)
+        XCTAssertEqual(saved.arrivalAirportIdent, "LSGE", "the saved flight has it")
+        XCTAssertEqual(saved.title, "LSZQ → LSGE")
+    }
+
+    /// Two slow fixes at the holding point made the live detection name LSZQ; the one-fix stop at
+    /// LSGE never replaced it, and the flight would have read as a round flight. The measured block
+    /// on corrects it. With no aerodrome near the block on (an outlanding, or a phone left recording
+    /// in a car), the live arrival stays. The departure is never corrected, only filled.
+    @MainActor
+    func testEndFlightLetsTheMeasuredBlockOnCorrectALiveArrival() throws {
+        let appState = makeTestAppState()
+        var flight = savedWithoutArrival()
+        flight.arrivalAirportIdent = "LSZQ"                                // the holding point
+        flight.departureAirportIdent = "LSGN"                              // wrong on purpose: kept
+        appState.currentFlight = flight
+
+        appState.settleAerodromesAtEndOfFlight(nearestAerodrome: resolver(["LSZQ": lszq, "LSGE": lsge, "LSGN": lsgn]))
+        XCTAssertEqual(appState.currentFlight?.arrivalAirportIdent, "LSGE")
+        XCTAssertEqual(appState.currentFlight?.departureAirportIdent, "LSGN", "the departure is filled, never corrected")
+
+        flight.blockOnLatitude = 47.10                                     // a field, no aerodrome within 5 NM
+        flight.blockOnLongitude = 6.95
+        appState.currentFlight = flight
+        appState.settleAerodromesAtEndOfFlight(nearestAerodrome: resolver(["LSZQ": lszq, "LSGE": lsge, "LSGN": lsgn]))
+        XCTAssertEqual(appState.currentFlight?.arrivalAirportIdent, "LSZQ", "no aerodrome to correct toward")
+
+        var agreeing = savedWithoutArrival()
+        agreeing.arrivalAirportIdent = "LSGE"
+        let settled = agreeing.settleAerodromesAfterRefit(nearestAerodrome: resolver(["LSZQ": lszq, "LSGE": lsge]))
+        XCTAssertFalse(settled.arrival || settled.correctedArrival, "the same aerodrome is no change")
+    }
+
+    /// A flight like the 29 Sept 11:34 export: departure found, arrival missing, block on at LSGE.
+    private func savedWithoutArrival(name: String = "") -> Flight {
+        var flight = Flight(name: name, airplane: "F-HVXA", aircraftRegistration: "F-HVXA", aircraftType: "WT9",
+                            startTime: t0, blockOffTime: t0.addingTimeInterval(275),
+                            blockOffLatitude: 47.393744, blockOffLongitude: 7.031860,
+                            blockOnTime: t0.addingTimeInterval(2_792),
+                            blockOnLatitude: 46.754692, blockOnLongitude: 7.076037,
+                            departureAirportIdent: "LSZQ")
+        flight.modifiedAt = t0.addingTimeInterval(2_864)
+        return flight
+    }
+
+    @MainActor
+    func testTheLogbookFindsTheArrivalOfAFlightSavedWithoutOne() async throws {
+        let datastore = makeTestDatastore(), defaults = makeTestDefaults()
+        let flight = savedWithoutArrival(name: "Vol Solo #2.1")
+        XCTAssertTrue(datastore.saveFlight(flight))
+        let appState = makeTestAppState(datastore: datastore, defaults: defaults)
+        let hasWaiting = await appState.hasFlightsAwaitingAerodromes()
+        XCTAssertTrue(hasWaiting)
+        XCTAssertEqual(appState.flights.first?.title, "LSZQ → ?")
+
+        let repaired = await appState.repairMissingAerodromes(
+            nearestAerodrome: resolver(["LSZQ": lszq, "LSGE": lsge, "LSGN": lsgn]))
+
+        XCTAssertEqual(repaired, 1)
+        let fixed = try XCTUnwrap(appState.flights.first)
+        XCTAssertEqual(fixed.arrivalAirportIdent, "LSGE")
+        XCTAssertEqual(fixed.departureAirportIdent, "LSZQ")
+        XCTAssertEqual(fixed.title, "LSZQ → LSGE")
+        XCTAssertEqual(fixed.titleEyebrow, "Vol Solo #2.1")
+        XCTAssertGreaterThan(fixed.modifiedAt, flight.modifiedAt, "stamped, so the fill wins the sync merge")
+        let stillWaiting = await appState.hasFlightsAwaitingAerodromes()
+        XCTAssertFalse(stillWaiting)
+
+        let relaunched = makeTestAppState(datastore: datastore, defaults: defaults)
+        let reloaded = await relaunched.hasFlightsAwaitingAerodromes()
+        XCTAssertFalse(reloaded)
+        XCTAssertEqual(relaunched.flights.first?.arrivalAirportIdent, "LSGE", "saved, not only shown")
+    }
+
+    @MainActor
+    func testTheLogbookNeverReplacesAnAerodromeAlreadySet() async throws {
+        let datastore = makeTestDatastore()
+        var flight = savedWithoutArrival()
+        flight.arrivalAirportIdent = "LSGN"                                 // block on at LSGE all the same
+        XCTAssertTrue(datastore.saveFlight(flight))
+        let appState = makeTestAppState(datastore: datastore)
+        let hasWaiting = await appState.hasFlightsAwaitingAerodromes()
+        XCTAssertFalse(hasWaiting, "nothing to find: no airport data loaded for it")
+
+        let repaired = await appState.repairMissingAerodromes(
+            nearestAerodrome: resolver(["LSZQ": lszq, "LSGE": lsge, "LSGN": lsgn]))
+
+        XCTAssertEqual(repaired, 0)
+        XCTAssertEqual(appState.flights.first?.arrivalAirportIdent, "LSGN")
+        XCTAssertEqual(appState.flights.first?.modifiedAt, flight.modifiedAt, "untouched")
+    }
+
+    @MainActor
+    func testAnAerodromeTheDataLacksStaysUnknownAndIsNotLoadedForAgain() async throws {
+        let datastore = makeTestDatastore(), defaults = makeTestDefaults()
+        let flight = savedWithoutArrival()
+        XCTAssertTrue(datastore.saveFlight(flight))
+        let appState = makeTestAppState(datastore: datastore, defaults: defaults)
+
+        let repaired = await appState.repairMissingAerodromes(nearestAerodrome: resolver(["LSZQ": lszq, "LSGN": lsgn]))
+
+        XCTAssertEqual(repaired, 0)
+        XCTAssertNil(appState.flights.first?.arrivalAirportIdent)
+        XCTAssertEqual(appState.flights.first?.title, "LSZQ → ?")
+        XCTAssertEqual(appState.flights.first?.modifiedAt, flight.modifiedAt)
+        let relaunched = makeTestAppState(datastore: datastore, defaults: defaults)
+        let hasWaiting = await relaunched.hasFlightsAwaitingAerodromes()
+        XCTAssertFalse(hasWaiting, "tried once with the data: the Logbook does not load it again for this one")
+
+        // Another flight saved without its arrival is tried, and the first one with it.
+        XCTAssertTrue(datastore.saveFlight(savedWithoutArrival(name: "Next")))
+        let withNext = makeTestAppState(datastore: datastore, defaults: defaults)
+        let nextWaiting = await withNext.hasFlightsAwaitingAerodromes()
+        XCTAssertTrue(nextWaiting)
+    }
+
+    /// Flights from before the block-off and block-on detection (December 2025 to February 2026)
+    /// have a track and no block position: the first and last fixes, on the ground, place them. A
+    /// recording that stopped in the air places nothing.
+    @MainActor
+    func testFlightsBeforeTheDetectionArePlacedByTheirTrackOnTheGround() async throws {
+        let datastore = makeTestDatastore()
+        func fix(_ at: CLLocationCoordinate2D, speed: Double) -> GPSPoint {
+            GPSPoint(latitude: at.latitude + 0.002, longitude: at.longitude, altitude: 500, timestamp: t0, speed: speed)
+        }
+        var old = Flight(name: "Vol 2.1", airplane: "F-HVXA", startTime: t0)
+        old.gpsTrack = [fix(lszq, speed: -1), fix(lsgn, speed: 40), fix(lszq, speed: 1)]
+        var cutShort = Flight(name: "Vol 5.2", airplane: "F-HVXA", startTime: t0.addingTimeInterval(-86_400))
+        cutShort.gpsTrack = [fix(lszq, speed: 0), fix(lsge, speed: 55)]   // stopped recording on final
+        XCTAssertTrue(datastore.saveFlight(old))
+        XCTAssertTrue(datastore.saveFlight(cutShort))
+        let appState = makeTestAppState(datastore: datastore)
+
+        await appState.repairMissingAerodromes(nearestAerodrome: resolver(["LSZQ": lszq, "LSGE": lsge, "LSGN": lsgn]))
+
+        let placed = try XCTUnwrap(appState.flights.first { $0.id == old.id })
+        XCTAssertEqual(placed.title, "LSZQ", "out and back: a round flight")
+        XCTAssertEqual(placed.titleEyebrow, "Vol 2.1")
+        let partial = try XCTUnwrap(appState.flights.first { $0.id == cutShort.id })
+        XCTAssertEqual(partial.departureAirportIdent, "LSZQ")
+        XCTAssertNil(partial.arrivalAirportIdent, "55 m/s over LSGE is not a landing there")
+        XCTAssertEqual(partial.title, "LSZQ → ?")
+    }
 }

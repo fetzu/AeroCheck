@@ -1,109 +1,106 @@
 import SwiftUI
 
-/// View for confirming detected flight events (go-arounds, touch-and-gos)
+/// The card that asks the pilot to confirm a detected flight event (go-around, touch-and-go,
+/// full stop). It sits over the Cockpit, so it is sized like the Cockpit (6.1.0): text in the
+/// in-flight type scale, 20 pt at the least on the iPad, and the answers as thumb-bar buttons,
+/// 104 pt on the kneeboard (92 on the phone), in the in-flight colours.
 struct EventConfirmationView: View {
     let event: DetectedFlightEvent
     let onConfirm: () -> Void
     let onDismiss: () -> Void
 
+    @Environment(\.cockpitTheme) private var theme
     @State private var autoDismissTask: Task<Void, Never>?
     @State private var countdownTask: Task<Void, Never>?
-    @State private var secondsRemaining: Int = 20
+    @State private var secondsRemaining: Int = Self.autoDismissSeconds
+
+    /// How long a card that goes by itself stays up.
+    static let autoDismissSeconds = 20
+
+    /// Whether the card goes by itself. A go-around or touch-and-go card comes up in the climb-out,
+    /// where it must not cover the Cockpit for long: dismissed after 20 s, never confirmed (PR-06).
+    /// The full-stop card comes up on the ground, while the pilot vacates the runway and talks on
+    /// the radio: it waits for an answer (6.1.0). The detector takes it away at the next take-off.
+    static func dismissesByItself(_ type: FlightEventType) -> Bool {
+        type != .fullStop
+    }
 
     var body: some View {
-        VStack(spacing: 24) {
+        VStack(spacing: CockpitType.size(kneeboard: 24, phone: 18)) {
             // Event icon and type
             VStack(spacing: 12) {
                 Image(systemName: iconName)
-                    .font(.aero(size: 30))
+                    .font(.aero(size: CockpitType.button, weight: .bold))
                     .foregroundColor(iconColor)
-                    .frame(width: 64, height: 64)
+                    .frame(width: CockpitTarget.control, height: CockpitTarget.control)
                     .background(Circle().fill(iconColor.opacity(0.16)))
                     .accessibilityHidden(true)
 
                 Text(event.type.rawValue)
-                    .font(.aero(.title2))
-                    .fontWeight(.bold)
-                    .foregroundColor(.primaryText)
+                    .font(.aero(size: CockpitType.button, weight: .bold))
+                    .foregroundColor(theme.textPrimary)
             }
 
             // Event details
             VStack(spacing: 8) {
                 Text(event.message)
-                    .font(.aero(.body))
-                    .foregroundColor(.primaryText)
+                    .font(.aero(size: CockpitType.row, weight: .medium))
+                    .foregroundColor(theme.textPrimary)
                     .multilineTextAlignment(.center)
+                    .fixedSize(horizontal: false, vertical: true)
 
                 if let airport = event.airport {
                     Text(airport.ident)
-                        .font(.aero(.caption))
-                        .foregroundColor(.secondaryText)
+                        .font(.aero(size: CockpitType.label, weight: .semibold))
+                        .foregroundColor(theme.textSecondary)
                 }
 
                 Text(formattedTime)
-                    .font(.aero(.caption))
-                    .foregroundColor(.dimText)
+                    .font(.aero(size: CockpitType.label, design: .monospaced))
+                    .foregroundColor(theme.textSecondary)
             }
 
-            // Action buttons
-            HStack(spacing: 16) {
-                Button(action: {
+            // The answers, as the Cockpit's thumb bar draws them: cyan, the colour of what can be
+            // touched; CONFIRM filled, the one that records something.
+            HStack(spacing: CockpitType.size(kneeboard: 16, phone: 12)) {
+                CockpitThumbButton(title: L10n.EventConfirmation.dismiss, style: .outlined(tint: theme.action)) {
                     cancelTimers()
                     onDismiss()
-                }) {
-                    Text(L10n.EventConfirmation.dismiss)
-                        .font(.aero(.headline))
-                        .foregroundColor(.secondaryText)
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 14)
-                        .background(
-                            RoundedRectangle(cornerRadius: 12)
-                                .fill(Color.white.opacity(0.06))
-                                .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(Color.white.opacity(0.14), lineWidth: 1))
-                        )
                 }
-
-                Button(action: {
+                CockpitThumbButton(title: L10n.EventConfirmation.confirm,
+                                   style: .filled(fill: theme.action, text: theme.actionText)) {
                     cancelTimers()
                     onConfirm()
-                }) {
-                    Text(L10n.EventConfirmation.confirm)
-                        .font(.aero(.headline))
-                        .foregroundColor(.black)
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 14)
-                        .background(RoundedRectangle(cornerRadius: 12).fill(confirmButtonColor))
                 }
             }
-            .padding(.horizontal)
 
             // Auto-dismiss countdown + progress (PR-06: unattended events are dismissed, not confirmed)
-            VStack(spacing: 6) {
-                Text(L10n.EventConfirmation.autoDismiss(secondsRemaining))
-                    .font(.aero(.caption2))
-                    .foregroundColor(.dimText)
-                GeometryReader { geo in
-                    ZStack(alignment: .leading) {
-                        Capsule().fill(Color.white.opacity(0.08))
-                        Capsule().fill(iconColor)
-                            .frame(width: geo.size.width * CGFloat(max(0, secondsRemaining)) / 20.0)
+            if Self.dismissesByItself(event.type) {
+                VStack(spacing: 6) {
+                    Text(L10n.EventConfirmation.autoDismiss(secondsRemaining))
+                        .font(.aero(size: CockpitType.label))
+                        .foregroundColor(theme.textDim)
+                    GeometryReader { geo in
+                        ZStack(alignment: .leading) {
+                            Capsule().fill(theme.glassFill)
+                            Capsule().fill(iconColor)
+                                .frame(width: geo.size.width * CGFloat(max(0, secondsRemaining))
+                                       / CGFloat(Self.autoDismissSeconds))
+                        }
                     }
+                    .frame(height: 4)
+                    .padding(.horizontal, 4)
                 }
-                .frame(height: 3)
-                .padding(.horizontal, 4)
             }
         }
-        .padding(24)
-        .background(
-            RoundedRectangle(cornerRadius: 20)
-                .fill(Color.cardBackground)
-        )
-        .overlay(
-            RoundedRectangle(cornerRadius: 20)
-                .stroke(borderColor, lineWidth: 2)
-        )
-        .padding(.horizontal, 32)
+        .padding(CockpitType.size(kneeboard: 28, phone: 20))
+        .frame(maxWidth: 720)
+        .background(RoundedRectangle(cornerRadius: 24).fill(theme.card))
+        .overlay(RoundedRectangle(cornerRadius: 24).stroke(theme.panelStroke, lineWidth: 1.5))
+        .shadow(color: .black.opacity(0.5), radius: 24, y: 12)
+        .padding(.horizontal, CockpitType.size(kneeboard: 24, phone: 16))
         .onAppear {
+            guard Self.dismissesByItself(event.type) else { return }
             startAutoDismissTimer()
             startCountdown()
         }
@@ -125,36 +122,16 @@ struct EventConfirmationView: View {
         }
     }
 
+    /// Only the icon is coloured, by the in-flight contract: a go-around is a caution (amber),
+    /// a touch-and-go keeps its blue, a full stop is the normal end of a flight (green).
     private var iconColor: Color {
         switch event.type {
         case .goAround:
-            return .orange
+            return theme.warning
         case .touchAndGo:
-            return .blue
+            return theme.info
         case .fullStop:
-            return .aviationAmber
-        }
-    }
-
-    private var confirmButtonColor: Color {
-        switch event.type {
-        case .goAround:
-            return .orange
-        case .touchAndGo:
-            return .blue
-        case .fullStop:
-            return .aviationAmber
-        }
-    }
-
-    private var borderColor: Color {
-        switch event.type {
-        case .goAround:
-            return .orange.opacity(0.5)
-        case .touchAndGo:
-            return .blue.opacity(0.5)
-        case .fullStop:
-            return Color.aviationAmber.opacity(0.5)
+            return theme.onTarget
         }
     }
 
@@ -173,7 +150,7 @@ struct EventConfirmationView: View {
     /// manually if it was real.
     private func startAutoDismissTimer() {
         autoDismissTask = Task {
-            try? await Task.sleep(for: .seconds(20))
+            try? await Task.sleep(for: .seconds(Self.autoDismissSeconds))
             if !Task.isCancelled {
                 await MainActor.run {
                     onDismiss()
@@ -214,33 +191,52 @@ struct FlightEventConfirmationOverlay: ViewModifier {
 
     func body(content: Content) -> some View {
         content
-            .overlay { overlay(for: flightEventDetector.pendingGoAround,
-                               record: appState.recordGoAround(at:),
-                               dismiss: flightEventDetector.dismissGoAround) }
-            .overlay { overlay(for: flightEventDetector.pendingTouchAndGo,
-                               record: appState.recordTouchAndGo(at:),
-                               dismiss: flightEventDetector.dismissTouchAndGo) }
-            .overlay { overlay(for: flightEventDetector.pendingFullStop,
-                               record: appState.recordFullStop(at:),
-                               dismiss: flightEventDetector.dismissFullStop) }
+            .overlay { overlay(for: flightEventDetector.pendingGoAround) }
+            .overlay { overlay(for: flightEventDetector.pendingTouchAndGo) }
+            .overlay { overlay(for: flightEventDetector.pendingFullStop) }
+    }
+
+    /// CONFIRM: the event recorded at its PHYSICAL timestamp (touchdown / approach low point), not
+    /// the confirmation tap's wall time, then the card goes. Static so the tests run exactly what the
+    /// card runs. (6.1.0)
+    @MainActor
+    static func confirm(_ event: DetectedFlightEvent, appState: AppState, detector: FlightEventDetector) {
+        switch event.type {
+        case .goAround: appState.recordGoAround(at: event.timestamp)
+        case .touchAndGo: appState.recordTouchAndGo(at: event.timestamp)
+        case .fullStop: appState.recordFullStop(at: event.timestamp)
+        }
+        dismiss(event.type, detector: detector)
+    }
+
+    /// DISMISS: the card goes and nothing is recorded; the pilot can still record the event by hand.
+    @MainActor
+    static func dismiss(_ type: FlightEventType, detector: FlightEventDetector) {
+        switch type {
+        case .goAround: detector.dismissGoAround()
+        case .touchAndGo: detector.dismissTouchAndGo()
+        case .fullStop: detector.dismissFullStop()
+        }
     }
 
     @ViewBuilder
-    private func overlay(for event: DetectedFlightEvent?,
-                         record: @escaping (Date?) -> Void,
-                         dismiss: @escaping () -> Void) -> some View {
+    private func overlay(for event: DetectedFlightEvent?) -> some View {
         if let event {
+            let dismiss = { Self.dismiss(event.type, detector: flightEventDetector) }
             Color.black.opacity(0.5)
                 .ignoresSafeArea()
-                .onTapGesture { dismiss() } // Tap outside dismisses
+                // A tap outside dismisses a card that goes by itself anyway. One that waits is answered
+                // with its buttons only: on a kneeboard, a knee or a sleeve on the backdrop is not an
+                // answer. (6.1.0)
+                .onTapGesture {
+                    if EventConfirmationView.dismissesByItself(event.type) { dismiss() }
+                }
                 // VoiceOver: the two-finger-scrub escape gesture dismisses the dialog. (UX-24)
                 .accessibilityAction(.escape) { dismiss() }
             EventConfirmationView(
                 event: event,
-                // The confirmed record carries the event's PHYSICAL timestamp (touchdown /
-                // approach low point), not the confirmation tap's wall time.
-                onConfirm: { record(event.timestamp); dismiss() },
-                onDismiss: { dismiss() }
+                onConfirm: { Self.confirm(event, appState: appState, detector: flightEventDetector) },
+                onDismiss: dismiss
             )
         }
     }
@@ -262,10 +258,10 @@ extension View {
 
         EventConfirmationView(
             event: DetectedFlightEvent(
-                type: .touchAndGo,
+                type: .fullStop,
                 timestamp: Date(),
                 airport: nil,
-                message: "Touch-and-go detected"
+                message: "Full-stop landing detected"
             ),
             onConfirm: { },
             onDismiss: { }

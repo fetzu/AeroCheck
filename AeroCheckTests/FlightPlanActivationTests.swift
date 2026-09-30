@@ -616,4 +616,44 @@ final class FlightPlanActivationTests: XCTestCase {
         XCTAssertEqual(settled.waypoints[1].actualTimeOver, landing)
         XCTAssertEqual(settled.timeOn, landing)
     }
+
+    /// END FLIGHT, the same rule for block off and on and the hour meter: this flight's, over what an
+    /// earlier flight of the same route left (activation keeps it, and only an empty field used to be
+    /// filled). A figure the pilot types after the flight stays: nothing after END FLIGHT writes them. (6.1)
+    func testEndFlightWritesThisFlightsBlockTimesAndHourMeterOverAnEarlierFlights() throws {
+        let manager = manager()
+        var route = departingPlan()
+        let yesterday = plannedDeparture.addingTimeInterval(-86_400)
+        route.blockOff = yesterday
+        route.blockOn = yesterday.addingTimeInterval(3_000)
+        route.counterStart = 1_200.0
+        route.counterStop = 1_200.9
+        manager.add(route)
+        manager.activateFlightPlan(route)
+        addTeardownBlock { @MainActor in manager.stopChronometer() }
+        let roll = plannedDeparture.addingTimeInterval(16 * 60)
+        let takeoff = try measuredTakeoff(rollingAt: roll)
+        let landing = takeoff.addingTimeInterval(1_500)
+
+        var flight = Flight(airplane: "wt9-dynamic", flightPlanId: route.id, startTime: roll.addingTimeInterval(-900),
+                            engineStartTime: roll.addingTimeInterval(-600),
+                            blockOffTime: roll.addingTimeInterval(-420), blockOnTime: landing.addingTimeInterval(240),
+                            engineHourStart: 1_234.5, engineHourEnd: 1_235.1)
+        flight.gpsTrack = track(rollingAt: roll)
+        let settled = try XCTUnwrap(manager.settleFlownPlan(flight, takeoff: takeoff, landing: landing, landedAt: nil))
+
+        XCTAssertEqual(settled.blockOff, roll.addingTimeInterval(-420))
+        XCTAssertEqual(settled.blockOn, landing.addingTimeInterval(240))
+        XCTAssertEqual(settled.counterStart, 1_234.5)
+        XCTAssertEqual(settled.counterStop, 1_235.1)
+
+        // Typed after the flight: the post-flight review's landing count leaves it alone.
+        manager.deactivateFlightPlan()
+        var typed = try XCTUnwrap(manager.flightPlans.first { $0.id == route.id })
+        typed.blockOn = landing.addingTimeInterval(300)
+        manager.updateFlightPlan(typed)
+        manager.resettleLandings(of: flight, previous: LandingTally(total: 0, atHome: nil),
+                                 updated: LandingTally(total: 1, atHome: nil))
+        XCTAssertEqual(manager.flightPlans.first { $0.id == route.id }?.blockOn, landing.addingTimeInterval(300))
+    }
 }

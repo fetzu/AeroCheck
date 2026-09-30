@@ -683,23 +683,20 @@ class FlightPlanManager: ObservableObject {
             plan.timeOn = landing
         }
 
-        // Block OFF = Auto-detected first movement (from Flight model)
-        if plan.blockOff == nil, let blockOff = flight.blockOffTime {
+        // Block OFF and ON (measured on the track) and the hour meter at engine start and stop, by the
+        // same rule: this flight's, never an earlier flight's of the same route, which activation keeps
+        // and which used to stay because only an empty field was filled. A figure the pilot types in the
+        // plan editor comes after END FLIGHT, so it stays. (6.1)
+        if let blockOff = flight.blockOffTime {
             plan.blockOff = blockOff
         }
-
-        // Block ON = Auto-detected final stop (from Flight model)
-        if plan.blockOn == nil, let blockOn = flight.blockOnTime {
+        if let blockOn = flight.blockOnTime {
             plan.blockOn = blockOn
         }
-
-        // Counter Start = Engine hour meter at start
-        if plan.counterStart == nil, let hourStart = flight.engineHourStart {
+        if let hourStart = flight.engineHourStart {
             plan.counterStart = hourStart
         }
-
-        // Counter Stop = Engine hour meter at end
-        if plan.counterStop == nil, let hourEnd = flight.engineHourEnd {
+        if let hourEnd = flight.engineHourEnd {
             plan.counterStop = hourEnd
         }
 

@@ -576,6 +576,124 @@ extension TripTests {
         XCTAssertEqual(m.thread(withId: thread.id)?.routeLabel, "LSZS → LSZQ")
     }
 
+    // MARK: - A trip typed in Plan new flight (6.1)
+
+    private var typedFields: [String: FlightPlan.ResolvedPlace] {
+        [
+            "LSZQ": .init(coordinate: .init(latitude: 47.3906, longitude: 7.0325), elevationFeet: 1417),
+            "LSGE": .init(coordinate: .init(latitude: 46.7550, longitude: 7.0761), elevationFeet: 2293),
+            "LSGN": .init(coordinate: .init(latitude: 46.9575, longitude: 6.8647), elevationFeet: 1439),
+        ]
+    }
+
+    private func typedTemplate(departure: Date?) -> NewFlightIntent {
+        NewFlightIntent(departureTime: departure, aircraftTypeId: "wt9-dynamic",
+                        aircraftRegistration: "F-HVXA", aircraftModelName: "WT9 Dynamic")
+    }
+
+    /// LSZQ → LSGE → LSGN → LSZQ, 45 min and fuel at LSGE, a touch-and-go-length stop at LSGN.
+    private var typedIdents: [String] { ["LSZQ", "LSGE", "LSGN", "LSZQ"] }
+    private var typedStopovers: [Stopover] { [Stopover(groundMinutes: 45, refuel: true), Stopover(groundMinutes: 0)] }
+
+    /// The preview's numbers: direct legs, leg 1 at the chosen time, each later leg when the one
+    /// before lands plus its time on the ground.
+    @MainActor
+    func testTheLegsPreviewChainsEachStopsGroundTime() throws {
+        let departure = Date(timeIntervalSince1970: 1_790_000_000)
+        let legs = TripPlanner.typedLegs(idents: typedIdents, stopovers: typedStopovers,
+                                         template: typedTemplate(departure: departure)) { self.typedFields[$0] }
+        XCTAssertEqual(legs.map { $0.waypoints.map(\.name) }, [["LSZQ", "LSGE"], ["LSGE", "LSGN"], ["LSGN", "LSZQ"]])
+        XCTAssertEqual(legs[0].plannedDepartureTime, departure)
+        XCTAssertNil(legs[0].stopover)
+        XCTAssertNotEqual(legs[0].departureIsEstimate, true, "leg 1 leaves at the time the pilot chose")
+        XCTAssertTrue(legs.allSatisfy { $0.totalDistance > 10 && $0.totalEET > 0 })
+
+        for (index, stopover) in typedStopovers.enumerated() {
+            let leg = legs[index + 1], previous = legs[index]
+            XCTAssertEqual(leg.stopover, stopover)
+            XCTAssertEqual(leg.departureIsEstimate, true)
+            let arrival = try XCTUnwrap(previous.waypoints.last?.estimatedTimeOver)
+            XCTAssertEqual(leg.plannedDepartureTime, arrival.addingTimeInterval(TimeInterval(stopover.groundMinutes * 60)),
+                           "leg \(index + 2) leaves when leg \(index + 1) lands, plus the time on the ground")
+        }
+    }
+
+    @MainActor
+    func testWithNoDateNoLegHasATime() {
+        let legs = TripPlanner.typedLegs(idents: typedIdents, stopovers: typedStopovers,
+                                         template: typedTemplate(departure: nil)) { self.typedFields[$0] }
+        XCTAssertEqual(legs.count, 3)
+        XCTAssertTrue(legs.allSatisfy { $0.plannedDepartureTime == nil })
+        XCTAssertEqual(legs.dropFirst().map(\.stopover), typedStopovers, "the stops are kept for when a date comes")
+    }
+
+    /// The stops set in the legs card reach the legs `createTrip` makes, and the times the preview
+    /// showed are the times the legs get. This builds the legs as `createTrip` does (`FlightPlan.from`
+    /// per pair, the date on leg 1) and then makes its two calls, `formTrip` and `seedLaterLegs`; its
+    /// own loop also asks for notification permission, which a test can't answer.
+    @MainActor
+    func testTheStopsSetInPlanNewFlightReachEachLeg() {
+        let datastore = makeTestDatastore()
+        let plans = makeTestPlanManager(datastore: datastore)
+        let m = makeTestThreadManager(datastore: datastore)
+        plans.nextLegPlanId = { m.nextLegPlanId(after: $0) }
+        let template = typedTemplate(departure: Date().addingTimeInterval(86_400))
+
+        var legIds: [UUID] = []
+        defer { legIds.forEach { m.deleteThread(threadId: $0) } }
+        for (index, (from, to)) in zip(typedIdents, typedIdents.dropFirst()).enumerated() {
+            var intent = template
+            intent.departureIdent = from
+            intent.arrivalIdent = to
+            intent.departureTime = index == 0 ? template.departureTime : nil
+            var plan = FlightPlan.from(intent: intent) { self.typedFields[$0] }
+            plan.flightOwned = true
+            plans.add(plan)
+            legIds.append(m.createThread(from: plan, routeLabel: intent.routeLabel).id)
+        }
+        XCTAssertNotNil(m.formTrip(from: legIds))
+        FlightCreator.seedLaterLegs(legIds, stopovers: typedStopovers, plans: plans, threads: m)
+
+        let created = legIds.compactMap { m.thread(withId: $0)?.flightPlanId }
+            .compactMap { id in plans.flightPlans.first { $0.id == id } }
+        XCTAssertEqual(created.count, 3)
+        XCTAssertNil(created[0].stopover)
+        XCTAssertEqual(created.dropFirst().map(\.stopover), typedStopovers)
+        XCTAssertEqual(created.dropFirst().map(\.departureIsEstimate), [true, true])
+
+        let preview = TripPlanner.typedLegs(idents: typedIdents, stopovers: typedStopovers,
+                                            template: template) { self.typedFields[$0] }
+        XCTAssertEqual(created.map(\.plannedDepartureTime), preview.map(\.plannedDepartureTime),
+                       "the legs leave when the preview said they would")
+        XCTAssertNil(m.thread(withId: legIds[1])?.scheduledDeparture, "an estimate arms no reminder")
+    }
+
+    /// A caller that passes no stops (and every trip before 6.1) gets the default one on every leg.
+    @MainActor
+    func testWithoutStopsEachLegGetsTheDefaultStop() {
+        let datastore = makeTestDatastore()
+        let plans = makeTestPlanManager(datastore: datastore)
+        let m = makeTestThreadManager(datastore: datastore)
+        plans.nextLegPlanId = { m.nextLegPlanId(after: $0) }
+        let legs = TripPlanner.typedLegs(idents: typedIdents, stopovers: [],
+                                         template: typedTemplate(departure: nil)) { self.typedFields[$0] }
+        var legIds: [UUID] = []
+        defer { legIds.forEach { m.deleteThread(threadId: $0) } }
+        for var leg in legs {
+            leg.stopover = nil
+            leg.departureIsEstimate = nil
+            plans.add(leg)
+            legIds.append(m.createThread(from: leg).id)
+        }
+        XCTAssertNotNil(m.formTrip(from: legIds))
+        FlightCreator.seedLaterLegs(legIds, plans: plans, threads: m)
+        let stopovers = legIds.dropFirst().compactMap { m.thread(withId: $0)?.flightPlanId }
+            .map { id in plans.flightPlans.first { $0.id == id }?.stopover }
+        XCTAssertEqual(stopovers, [Stopover(), Stopover()])
+        XCTAssertEqual(Stopover().groundMinutes, 30)
+        XCTAssertFalse(Stopover().refuel)
+    }
+
     // MARK: - Continuing after a diversion (v5.1)
 
     @MainActor

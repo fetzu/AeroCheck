@@ -89,6 +89,42 @@ enum TripPlanner {
         return joined
     }
 
+    // MARK: A trip typed in Plan new flight (6.1)
+
+    /// A later leg of a trip typed in Plan new flight, as it is seeded: the stop in front of it, and a
+    /// departure estimated from the leg before (its arrival plus the time on the ground).
+    static func seeded(_ leg: FlightPlan, after previous: FlightPlan, stopover: Stopover) -> FlightPlan {
+        var leg = leg
+        leg.stopover = stopover
+        leg.departureIsEstimate = true
+        return refreshed(leg, after: previous) ?? leg
+    }
+
+    /// The legs Plan new flight will create from typed aerodromes, for its preview.
+    ///
+    /// Built the way `FlightCreator.createTrip` builds them: `FlightPlan.from(intent:)` for each pair,
+    /// direct, with the chosen departure on the first leg only; then each later leg seeded with its
+    /// stop, which is what the plan manager's chain does to the created legs. So the times shown before
+    /// Create are the times the legs get. `stopovers[i]` is the stop in front of leg `i + 2`; a missing
+    /// one is the default stop.
+    static func typedLegs(idents: [String], stopovers: [Stopover], template: NewFlightIntent,
+                          resolve: (String) -> FlightPlan.ResolvedPlace?) -> [FlightPlan] {
+        var legs: [FlightPlan] = []
+        for (index, (from, to)) in zip(idents, idents.dropFirst()).enumerated() {
+            var intent = template
+            intent.departureIdent = from
+            intent.arrivalIdent = to
+            intent.departureTime = index == 0 ? template.departureTime : nil
+            var leg = FlightPlan.from(intent: intent, resolve: resolve)
+            if let previous = legs.last {
+                let stopover = stopovers.indices.contains(index - 1) ? stopovers[index - 1] : Stopover()
+                leg = seeded(leg, after: previous, stopover: stopover)
+            }
+            legs.append(leg)
+        }
+        return legs
+    }
+
     // MARK: Numbers that follow from the previous leg
 
     /// When a leg after a stop departs: the previous leg's arrival (its ETO at the destination, which

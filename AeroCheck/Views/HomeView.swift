@@ -1324,8 +1324,9 @@ struct HomeView: View {
     /// The airport layer is loaded on demand rather than at launch, so this awaits it before
     /// resolving idents — otherwise a flight created on a cold start would silently get no waypoints,
     /// and with no coordinates there is no country detection and therefore no customs, DABS or GAFOR.
-    /// Three or more stops is a trip; two is the single flight this has always made.
-    private func createFlight(stops: [String], from intent: NewFlightIntent, route: FlightPlan? = nil) {
+    /// Three or more aerodromes is a trip, with the stops' ground times and refuels the pilot set; two
+    /// is the single flight this has always made.
+    private func createFlight(stops: PlannedStops, from intent: NewFlightIntent, route: FlightPlan? = nil) {
         // The creation awaits `ensureLoaded()` and the notification prompt, and the sheet stays
         // hit-testable through its dismissal animation — so a double-tap ran this body twice and
         // produced two plans and two threads, breaking the one-thread-per-plan invariant that
@@ -1344,8 +1345,9 @@ struct HomeView: View {
                 threadToOpen = thread.id
                 return
             }
-            if stops.count > 2,
-               let trip = await FlightCreator.createTrip(idents: stops,
+            if stops.idents.count > 2,
+               let trip = await FlightCreator.createTrip(idents: stops.idents,
+                                                         stopovers: stops.stopovers,
                                                          template: intent,
                                                          plans: flightPlanManager,
                                                          threads: threadManager,

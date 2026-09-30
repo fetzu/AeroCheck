@@ -289,8 +289,9 @@ struct FlightLogView: View {
                                 threadToOpen = thread.id
                                 return
                             }
-                            if stops.count > 2,
-                               let trip = await FlightCreator.createTrip(idents: stops,
+                            if stops.idents.count > 2,
+                               let trip = await FlightCreator.createTrip(idents: stops.idents,
+                                                                         stopovers: stops.stopovers,
                                                                          template: intent,
                                                                          plans: flightPlanManager,
                                                                          threads: threadManager,

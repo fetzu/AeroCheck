@@ -111,6 +111,13 @@ Owners and rules that aren't obvious from the names:
   20 pt, 78 pt). A waypoint taken back (UNDO, RESUME LEG) is left to MARK:
   `FlightPlan.takenBackWaypointIds` survives a relaunch, and no track fill (in flight, END FLIGHT, the
   Flight Log) gives it a time. UNDO keeps a departure marked in the same run.
+- `FlightEventDetector` (take-off, touch-and-go, go-around, full stop) is a port of the Python prototype in
+  `../CLAUDE/review/flight-events/` and pinned to it by `AeroCheckTests/FlightEventFixtures/` and
+  `testFullCorpusMatchesPythonReferee`: change the prototype first, run `cue_referee.py` / `make_fixtures.py`,
+  then port. The cues that time the check slot (`Models/FlightCues.swift`: 500 ft, level-off, descent,
+  approach, circuit) only read its state and never write to it; they never tick an item or change the phase.
+  A detected landing moves the Cockpit only on the pilot's answer: the landed card to AFTER LANDING, the
+  circuits' full-stop card to TAXI.
 - `WidgetBridge` publishes the owned-aircraft list to the widget through the App Group
   `group.com.fetzu.aerocheck`; the widget renders only those and launches through `FlightLauncher`.
   `Models/FlightActivityAttributes.swift` is compiled into the widget too (Live Activity).

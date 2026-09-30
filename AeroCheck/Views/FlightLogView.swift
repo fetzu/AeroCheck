@@ -3158,7 +3158,17 @@ struct ShareSheet: UIViewControllerRepresentable {
 /// bypassing SwiftUI sheet timing issues that can cause grey/empty sheets on first invocation.
 @MainActor
 func presentImageShareSheet(image: UIImage, filename: String) {
-    guard let jpegData = image.jpegData(compressionQuality: 0.9) else { return }
+    guard let jpegData = image.jpegData(compressionQuality: shareImageJPEGQuality) else { return }
+    presentImageShareSheet(jpegData: jpegData, filename: filename)
+}
+
+/// The one JPEG pass a shared image goes through. The flight card used to be encoded twice (0.85,
+/// then 0.9 here), which only cost quality. (6.1)
+let shareImageJPEGQuality: CGFloat = 0.9
+
+/// The same, for an image already encoded once (off the main thread).
+@MainActor
+func presentImageShareSheet(jpegData: Data, filename: String) {
     // A ShareFile rather than a bare temp URL: the share sheet holds it, and the staged image goes
     // with it once the sheet is closed. It used to stay in tmp/ for good. (S9-06)
     let file = ShareFile(data: jpegData, filename: filename, dataTypeIdentifier: UTType.jpeg.identifier)
@@ -3304,10 +3314,10 @@ enum ShareCardColorScheme: String, Codable, CaseIterable, Identifiable {
 
     var displayName: String {
         switch self {
-        case .light: return "Light"
-        case .lightBlue: return "Aviation"
-        case .darkBlue: return "Navy"
-        case .dark: return "Dark"
+        case .light: return L10n.ShareCard.themeLight
+        case .lightBlue: return L10n.ShareCard.themeAviation
+        case .darkBlue: return L10n.ShareCard.themeNavy
+        case .dark: return L10n.ShareCard.themeDark
         }
     }
 
@@ -3455,13 +3465,14 @@ enum ShareCardMapLayer: String, Codable, CaseIterable, Identifiable {
 
     var id: String { rawValue }
 
+    /// The nav map's names for the same layers, so the two pickers agree. (6.1)
     var displayName: String {
         switch self {
-        case .standard: return "Standard"
-        case .satellite: return "Satellite"
-        case .icao: return "ICAO Chart"
-        case .segelflugkarte: return "Segelflugkarte"
-        case .swissimage: return "SWISSIMAGE"
+        case .standard: return L10n.MapLayer.standard
+        case .satellite: return L10n.MapLayer.satellite
+        case .icao: return L10n.MapLayer.icao
+        case .segelflugkarte: return L10n.ShareCard.gliderChart
+        case .swissimage: return L10n.MapLayer.swissimage
         }
     }
 
@@ -3535,7 +3546,15 @@ struct ShareCardCustomizationView: View {
     @State private var terrainData: [(time: Date, elevationFeet: Double)] = []
     @State private var isLoadingTerrain = false
     @State private var previewMapImage: UIImage?
+    /// The layer `previewMapImage` came from. The credit line names this one, never a layer still
+    /// loading. (6.1)
+    @State private var previewMapLayer: ShareCardMapLayer?
+    @State private var mapPlaceholder: ShareCardMapPlaceholder = .loading
     @State private var isLoadingMap = false
+    /// Bumped by every map load: a load that ends after a newer one started is dropped, so a quick
+    /// run through the layers ends on the last one picked. (6.1)
+    @State private var mapLoadGeneration = 0
+    @State private var terrainSource: ElevationService.TrackTerrainSource?
     @State private var isGeneratingShare = false
 
     private let elevationService = ElevationService()
@@ -3622,13 +3641,7 @@ struct ShareCardCustomizationView: View {
             let previewHeight = previewWidth / cardAspect
 
             ZStack {
-                FlightShareCard(
-                    flight: flight,
-                    mapImage: previewMapImage,
-                    useUTC: appState.settings.alwaysUseUTC,
-                    colorScheme: selectedScheme,
-                    terrainData: showTerrain ? terrainData : []
-                )
+                shareCard(mapImage: previewMapImage)
                 .scaleEffect(previewWidth / 1080.0)
                 .frame(width: previewWidth, height: previewHeight)
                 .clipShape(RoundedRectangle(cornerRadius: 16))
@@ -3640,11 +3653,44 @@ struct ShareCardCustomizationView: View {
                     ProgressView()
                         .tint(.white)
                         .scaleEffect(1.5)
+                } else if mapPlaceholder == .unavailable && previewMapImage == nil {
+                    // Over the map's place on the card: back online, one tap loads it. (6.1)
+                    Button(L10n.Button.retry) {
+                        Task { await loadMapPreview() }
+                    }
+                    .scaledFont(size: 14, weight: .semibold, relativeTo: .subheadline)
+                    .foregroundColor(.black)
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 10)
+                    .background(Capsule().fill(Color.aviationGold))
+                    .position(x: previewWidth / 2, y: previewHeight * 0.47)
+                    .frame(width: previewWidth, height: previewHeight)
                 }
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
     }
+
+    /// The card as it is shared, for the preview and for the render: one place, so the two can't
+    /// drift apart.
+    private func shareCard(mapImage: UIImage?) -> FlightShareCard {
+        FlightShareCard(
+            flight: flight,
+            mapImage: mapImage,
+            useUTC: appState.settings.alwaysUseUTC,
+            colorScheme: selectedScheme,
+            terrainData: shownTerrain,
+            nauticalMiles: appState.settings.distanceInNauticalMiles,
+            mapPlaceholder: mapPlaceholder,
+            credit: ShareCardFigures.credit(mapLayer: mapImage == nil ? nil : previewMapLayer,
+                                            terrain: shownTerrain.isEmpty ? nil : terrainSource)
+        )
+    }
+
+    private var shownTerrain: [(time: Date, elevationFeet: Double)] { showTerrain ? terrainData : [] }
+
+    /// Share waits for the map and the terrain: an early tap used to share the card without them.
+    private var canShare: Bool { !isGeneratingShare && !isLoadingMap && !isLoadingTerrain }
 
     // MARK: - Map Layer Picker
 
@@ -3808,23 +3854,40 @@ struct ShareCardCustomizationView: View {
                     .fill(Color.aviationGold)
             )
             .foregroundColor(.black)
+            .opacity(canShare || isGeneratingShare ? 1 : 0.5)
         }
-        .disabled(isGeneratingShare)
+        .disabled(!canShare)
     }
 
     // MARK: - Helpers
 
+    /// The map for the selected layer and scheme. Without a track there is nothing to load; a map
+    /// that doesn't come is said to be unavailable, not missing its GPS data. (6.1)
+    @MainActor
     private func loadMapPreview() async {
+        mapLoadGeneration += 1
+        let generation = mapLoadGeneration
+        let layer = selectedMapLayer
+        guard flight.gpsTrack.count >= 2 else {
+            previewMapImage = nil
+            previewMapLayer = nil
+            mapPlaceholder = .noTrack
+            isLoadingMap = false
+            return
+        }
         isLoadingMap = true
+        if previewMapImage == nil { mapPlaceholder = .loading }
         let image = await generateMapSnapshotForCustomization(
             flight: flight,
-            mapLayer: selectedMapLayer,
+            mapLayer: layer,
             cardColorScheme: selectedScheme
         )
-        await MainActor.run {
-            previewMapImage = image
-            isLoadingMap = false
-        }
+        guard generation == mapLoadGeneration else { return }
+        previewMapImage = image
+        previewMapLayer = image == nil ? nil : layer
+        // With an image the placeholder is not drawn; `.loading` keeps the next load's spinner clean.
+        mapPlaceholder = image == nil ? .unavailable : .loading
+        isLoadingMap = false
     }
 
     private func loadTerrainData() async {
@@ -3840,6 +3903,10 @@ struct ShareCardCustomizationView: View {
         )
 
         await MainActor.run {
+            // The service the profile came from, for the credit line. (6.1)
+            if let first = trackPoints.first, let last = trackPoints.last {
+                terrainSource = ElevationService.trackTerrainSource(first: first.coordinate, last: last.coordinate)
+            }
             // Convert meters to feet
             terrainData = results.map { (time: $0.time, elevationFeet: $0.elevationMeters * 3.28084) }
             isLoadingTerrain = false
@@ -3855,22 +3922,7 @@ struct ShareCardCustomizationView: View {
         isGeneratingShare = true
 
         // Reuse the already-loaded preview map image to avoid re-downloading tiles
-        let mapImage = previewMapImage
-        let scheme = selectedScheme
-        let currentTerrainData = showTerrain ? terrainData : []
-        let utc = appState.settings.alwaysUseUTC
-        let flightData = flight
-
-        // Render the share card image
-        // ImageRenderer must run on MainActor but we capture all values first
-        let shareCard = FlightShareCard(
-            flight: flightData,
-            mapImage: mapImage,
-            useUTC: utc,
-            colorScheme: scheme,
-            terrainData: currentTerrainData
-        )
-        let renderer = ImageRenderer(content: shareCard)
+        let renderer = ImageRenderer(content: shareCard(mapImage: previewMapImage))
         renderer.scale = 2.0
         // Propose explicit size to help ImageRenderer resolve the layout
         renderer.proposedSize = ProposedViewSize(width: 1080, height: 1920)
@@ -3891,21 +3943,19 @@ struct ShareCardCustomizationView: View {
             return
         }
 
-        // Compress to JPEG on a background thread to not block UI
-        let finalImage: UIImage = await Task.detached(priority: .userInitiated) {
-            if let jpegData = renderedImage.jpegData(compressionQuality: 0.85),
-               let compressed = UIImage(data: jpegData) {
-                return compressed
-            }
-            return renderedImage
+        // The one JPEG pass, on a background thread to not block UI. It used to be encoded here and
+        // again by the share sheet. (6.1)
+        let jpegData: Data? = await Task.detached(priority: .userInitiated) {
+            renderedImage.jpegData(compressionQuality: shareImageJPEGQuality)
         }.value
 
         isGeneratingShare = false
+        guard let jpegData else { return }
 
         // Present share sheet directly via UIKit — avoids SwiftUI's two-sheet
         // transition race condition that causes grey/empty sheets on first export
         // Named like the flight's other exports, so a saved card is found beside them. (v6.1)
-        presentImageShareSheet(image: finalImage, filename: "\(flight.exportFilename).jpg")
+        presentImageShareSheet(jpegData: jpegData, filename: "\(flight.exportFilename).jpg")
     }
 
     /// Standalone map snapshot generator for the customization view
@@ -3920,8 +3970,8 @@ struct ShareCardCustomizationView: View {
         let polyline = MKPolyline(coordinates: coordinates, count: coordinates.count)
         let mapRect = polyline.boundingMapRect
 
-        let targetWidth: CGFloat = 2032
-        let targetHeight: CGFloat = 1500
+        let targetWidth = ShareCardMapStyle.size.width
+        let targetHeight = ShareCardMapStyle.size.height
         let targetAspectRatio = targetWidth / targetHeight
 
         let paddingFactor = 0.15
@@ -3961,7 +4011,8 @@ struct ShareCardCustomizationView: View {
         let options = MKMapSnapshotter.Options()
         options.mapRect = paddedRect
         options.size = CGSize(width: targetWidth, height: targetHeight)
-        options.scale = UITraitCollection.current.displayScale
+        // A fixed scale, not the screen's: the same image on every device. (6.1)
+        options.scale = ShareCardMapStyle.renderScale
         options.traitCollection = UITraitCollection(userInterfaceStyle: cardColorScheme.mapTraitStyle)
         options.mapType = mapLayer == .satellite ? .satellite : .standard
 
@@ -3981,13 +4032,15 @@ struct ShareCardCustomizationView: View {
     }
 
     private func drawRouteOnSnapshotStandalone(snapshot: MKMapSnapshotter.Snapshot, coordinates: [CLLocationCoordinate2D], accentColor: Color) -> UIImage {
-        let renderer = UIGraphicsImageRenderer(size: snapshot.image.size)
+        let renderer = UIGraphicsImageRenderer(size: snapshot.image.size, format: Self.mapRendererFormat)
         return renderer.image { rendererContext in
             snapshot.image.draw(at: .zero)
             let context = rendererContext.cgContext
 
+            // Widths in the image's points, the same as on the Swiss layers. They were multiplied by
+            // the screen scale, so a 3× iPhone drew a 9 pt track and 30 pt dots on the card. (6.1)
             context.setStrokeColor(UIColor(accentColor).cgColor)
-            context.setLineWidth(6 * UITraitCollection.current.displayScale)
+            context.setLineWidth(ShareCardMapStyle.trackWidth)
             context.setLineCap(.round)
             context.setLineJoin(.round)
 
@@ -4005,13 +4058,20 @@ struct ShareCardCustomizationView: View {
 
             if let firstCoord = coordinates.first {
                 let startPoint = snapshot.point(for: firstCoord)
-                drawMarkerStandalone(at: startPoint, color: UIColor(Color.aviationGreen), in: context, scale: UITraitCollection.current.displayScale)
+                drawMarkerStandalone(at: startPoint, color: UIColor(Color.aviationGreen), in: context)
             }
             if let lastCoord = coordinates.last {
                 let endPoint = snapshot.point(for: lastCoord)
-                drawMarkerStandalone(at: endPoint, color: UIColor(Color.aviationRed), in: context, scale: UITraitCollection.current.displayScale)
+                drawMarkerStandalone(at: endPoint, color: UIColor(Color.aviationRed), in: context)
             }
         }
+    }
+
+    /// Renders the map at `ShareCardMapStyle.renderScale`, not at the screen's scale.
+    private static var mapRendererFormat: UIGraphicsImageRendererFormat {
+        let format = UIGraphicsImageRendererFormat()
+        format.scale = ShareCardMapStyle.renderScale
+        return format
     }
 
     private func generateSwissLayerSnapshotStandalone(
@@ -4099,7 +4159,7 @@ struct ShareCardCustomizationView: View {
         let offsetX = -cropFracXStart * compositeWidth * scaleX
         let offsetY = -cropFracYStart * compositeHeight * scaleY
 
-        let finalRenderer = UIGraphicsImageRenderer(size: targetSize)
+        let finalRenderer = UIGraphicsImageRenderer(size: targetSize, format: Self.mapRendererFormat)
         return finalRenderer.image { ctx in
             let context = ctx.cgContext
 
@@ -4125,7 +4185,7 @@ struct ShareCardCustomizationView: View {
             }
 
             context.setStrokeColor(UIColor(accentColor).cgColor)
-            context.setLineWidth(14)
+            context.setLineWidth(ShareCardMapStyle.trackWidth)
             context.setLineCap(.round)
             context.setLineJoin(.round)
 
@@ -4139,21 +4199,21 @@ struct ShareCardCustomizationView: View {
             context.strokePath()
 
             if let firstCoord = coordinates.first {
-                drawMarkerStandalone(at: geoToPoint(firstCoord), color: UIColor(Color.aviationGreen), in: context, scale: 2.0)
+                drawMarkerStandalone(at: geoToPoint(firstCoord), color: UIColor(Color.aviationGreen), in: context)
             }
             if let lastCoord = coordinates.last {
-                drawMarkerStandalone(at: geoToPoint(lastCoord), color: UIColor(Color.aviationRed), in: context, scale: 2.0)
+                drawMarkerStandalone(at: geoToPoint(lastCoord), color: UIColor(Color.aviationRed), in: context)
             }
         }
     }
 
-    private func drawMarkerStandalone(at point: CGPoint, color: UIColor, in context: CGContext, scale: CGFloat) {
-        let markerSize: CGFloat = 20 * scale
+    private func drawMarkerStandalone(at point: CGPoint, color: UIColor, in context: CGContext) {
+        let markerSize = ShareCardMapStyle.markerDiameter
         let rect = CGRect(x: point.x - markerSize / 2, y: point.y - markerSize / 2, width: markerSize, height: markerSize)
         context.setFillColor(color.cgColor)
         context.fillEllipse(in: rect)
         context.setStrokeColor(UIColor.white.cgColor)
-        context.setLineWidth(2 * scale)
+        context.setLineWidth(ShareCardMapStyle.markerRim)
         context.strokeEllipse(in: rect)
     }
 }
@@ -4415,6 +4475,12 @@ struct FlightShareCard: View {
     let useUTC: Bool
     var colorScheme: ShareCardColorScheme = .darkBlue
     var terrainData: [(time: Date, elevationFeet: Double)] = []
+    /// Distances in NM, else km: the pilot's Settings choice. (6.1)
+    var nauticalMiles: Bool = true
+    /// What stands in the map's place without a map image. (6.1)
+    var mapPlaceholder: ShareCardMapPlaceholder = .noTrack
+    /// The small print naming the map and the terrain on the card (`ShareCardFigures.credit`). (6.1)
+    var credit: String?
 
     // Card dimensions (9:16 aspect ratio for Instagram/WhatsApp/Signal stories)
     private let cardWidth: CGFloat = 1080
@@ -4436,46 +4502,18 @@ struct FlightShareCard: View {
     /// where it started (circuits included), else the flight's name or the registration. (v6.1)
     private var displayTitle: String { flight.title }
 
-    /// Flight time between takeoff and landing, with fallback times.
-    private var exportFlightTime: TimeInterval? {
-        let takeoff = flight.lineUpTime ?? flight.blockOffTime ?? flight.engineStartTime ?? flight.startTime
-        let landing = flight.landingTime ?? flight.blockOnTime ?? flight.engineShutdownTime ?? flight.stopTime
-        guard let t = takeoff, let l = landing else { return nil }
-        return l.timeIntervalSince(t)
+    /// Every figure on the card: the minute rule, one number format, the pilot's units, the time
+    /// zone and the counts. (6.1)
+    private var figures: ShareCardFigures {
+        ShareCardFigures(flight: flight, nauticalMiles: nauticalMiles, useUTC: useUTC)
     }
 
-    private var formattedExportFlightTime: String {
-        guard let ft = exportFlightTime else { return "--:--" }
-        let hours = Int(ft) / 3600
-        let minutes = (Int(ft) % 3600) / 60
-        return String(format: "%dh%02d", hours, minutes)
-    }
-
-    /// Max altitude in feet from GPS track
-    private var maxAltitudeFt: Int? {
-        guard let maxAlt = flight.gpsTrack.map({ $0.altitude * 3.28084 }).max() else { return nil }
-        return maxAlt.safeInt
-    }
-
-    /// Distance in nautical miles
-    private var distanceNM: String {
-        let nm = flight.distanceKilometers / 1.852
-        if nm < 1 {
-            return String(format: "%.1f NM", nm)
-        }
-        return String(format: "%.0f NM", nm)
-    }
-
-    /// Total landings count
-    private var landingsCount: Int {
-        flight.totalLandings
-    }
-
-    /// Formatted flight date
+    /// Formatted flight date, in the zone of the times below it
     private var formattedDate: String {
         guard let start = flight.startTime else { return "" }
         let formatter = DateFormatter()
         formatter.dateFormat = "d MMM yyyy"
+        if useUTC { formatter.timeZone = TimeZone(identifier: "UTC") }
         return formatter.string(from: start).uppercased()
     }
 
@@ -4625,8 +4663,8 @@ struct FlightShareCard: View {
 
                 Spacer(minLength: 16)
 
-                // Flight time
-                Text(formattedExportFlightTime)
+                // Flight time, or the interval that stands in for it (named below)
+                Text(figures.headlineValue)
                     .font(.aero(size: 46, weight: .bold, design: .monospaced))
                     .foregroundColor(colorScheme.accentColor)
                     .lineLimit(1)
@@ -4644,7 +4682,7 @@ struct FlightShareCard: View {
 
                 Spacer()
 
-                Text("FLIGHT TIME")
+                Text(figures.headlineLabel)
                     .font(.aero(size: 14, weight: .bold))
                     .foregroundColor(colorScheme.tertiaryTextColor)
                     .tracking(2)
@@ -4748,16 +4786,21 @@ struct FlightShareCard: View {
                 RoundedRectangle(cornerRadius: 24)
                     .fill(colorScheme.cardOverlayColor)
                     .frame(height: 750)
-                    .overlay(
-                        VStack(spacing: 16) {
-                            Image(systemName: "map")
-                                .font(.aero(size: 60))
-                                .foregroundColor(colorScheme.tertiaryTextColor)
-                            Text(L10n.FlightDetail.noGPSData)
-                                .font(.aero(size: 24))
-                                .foregroundColor(colorScheme.tertiaryTextColor)
+                    .overlay {
+                        // Nothing while loading (the sheet shows its spinner); an honest word otherwise.
+                        // A failed download used to read "No GPS data recorded" over a flight with a
+                        // track. (6.1)
+                        if mapPlaceholder != .loading {
+                            VStack(spacing: 16) {
+                                Image(systemName: mapPlaceholder == .unavailable ? "wifi.slash" : "map")
+                                    .font(.aero(size: 60))
+                                    .foregroundColor(colorScheme.tertiaryTextColor)
+                                Text(mapPlaceholder == .unavailable ? L10n.ShareCard.mapUnavailable : L10n.FlightDetail.noGPSData)
+                                    .font(.aero(size: 24))
+                                    .foregroundColor(colorScheme.tertiaryTextColor)
+                            }
                         }
-                    )
+                    }
             }
         }
     }
@@ -4765,13 +4808,15 @@ struct FlightShareCard: View {
     // MARK: - Stat Pills Row (below the map)
 
     private var statPillsRow: some View {
-        HStack(spacing: 12) {
-            mapStatPill(icon: "arrow.up.to.line", value: maxAltitudeFt.map { "\($0) ft" } ?? "—", label: "MAX ALT")
+        let figures = self.figures
+        let landings = figures.counts.landings
+        return HStack(spacing: 12) {
+            mapStatPill(icon: "arrow.up.to.line", value: figures.maxAltitude ?? "—", label: L10n.ShareCard.maxAltitude)
 
-            mapStatPill(icon: "point.topleft.down.to.point.bottomright.curvepath.fill", value: distanceNM, label: "DISTANCE")
+            mapStatPill(icon: "point.topleft.down.to.point.bottomright.curvepath.fill", value: figures.distance, label: L10n.ShareCard.distance)
 
-            if landingsCount > 0 {
-                mapStatPill(icon: "airplane.arrival", value: "\(landingsCount)", label: landingsCount == 1 ? "LANDING" : "LANDINGS")
+            if landings > 0 {
+                mapStatPill(icon: "airplane.arrival", value: figures.number(landings), label: L10n.ShareCard.landings(landings))
             }
         }
     }
@@ -4792,6 +4837,8 @@ struct FlightShareCard: View {
                 .font(.aero(size: 11, weight: .bold))
                 .foregroundColor(colorScheme.secondaryTextColor)
                 .tracking(1)
+                .lineLimit(1)
+                .minimumScaleFactor(0.7)
         }
         .frame(maxWidth: .infinity)
         .padding(.vertical, 12)
@@ -4818,8 +4865,8 @@ struct FlightShareCard: View {
 
                 Spacer()
 
-                if let maxAlt = maxAltitudeFt {
-                    Text("PEAK \(maxAlt) FT")
+                if let maxAltitude = figures.maxAltitude {
+                    Text(L10n.ShareCard.peak(maxAltitude))
                         .font(.aero(size: 13, weight: .bold, design: .monospaced))
                         .foregroundColor(colorScheme.sparklineColor.opacity(0.7))
                 }
@@ -4841,53 +4888,68 @@ struct FlightShareCard: View {
     // MARK: - Bottom Stats Row
 
     private var bottomStatsRow: some View {
-        HStack(spacing: 0) {
-            // Takeoff time
+        let figures = self.figures
+        let counts = figures.counts
+        return HStack(spacing: 0) {
+            // Take-off and landing, with the zone they are in (LT or UTC) (6.1)
             if let takeoff = flight.lineUpTime {
                 bottomStatItem(
                     icon: "airplane.departure",
-                    value: formatTime(takeoff),
-                    label: "TAKEOFF",
+                    value: figures.time(takeoff),
+                    suffix: figures.timeZoneLabel,
+                    label: L10n.ShareCard.takeoff,
                     color: .aviationGreen
                 )
             }
 
-            // Landing time
             if let landing = flight.landingTime {
                 bottomStatItem(
                     icon: "airplane.arrival",
-                    value: formatTime(landing),
-                    label: "LANDING",
+                    value: figures.time(landing),
+                    suffix: figures.timeZoneLabel,
+                    label: L10n.ShareCard.landing,
                     color: .aviationAmber
                 )
             }
 
-            // Activity count (go-arounds or touch-and-gos)
-            if flight.goAroundCount > 0 {
-                bottomStatItem(
-                    icon: "arrow.up.right.circle.fill",
-                    value: "\(flight.goAroundCount)",
-                    label: "GO-AROUNDS",
-                    color: .aviationRed
-                )
-            } else if flight.touchAndGoCount > 0 {
+            // Touch-and-goes and go-arounds side by side: a go-around used to hide the
+            // touch-and-goes. (6.1)
+            if counts.touchAndGoes > 0 {
                 bottomStatItem(
                     icon: "arrow.triangle.2.circlepath",
-                    value: "\(flight.touchAndGoCount)",
-                    label: "TOUCH & GO",
+                    value: figures.number(counts.touchAndGoes),
+                    label: L10n.ShareCard.touchAndGoes(counts.touchAndGoes),
                     color: .altimeterBlue
                 )
             }
 
-            // Stop-and-gos (decision D1): every non-final full stop is a stop-and-go — the
-            // aircraft stopped ≥10 s on the runway and took off again (another landing can
-            // only follow after flying again). They COUNT as full stops for EASA currency;
-            // the label preserves the intent in the log detail.
-            if flight.fullStopCount > 1 {
+            if counts.goArounds > 0 {
+                bottomStatItem(
+                    icon: "arrow.up.right.circle.fill",
+                    value: figures.number(counts.goArounds),
+                    label: L10n.ShareCard.goArounds(counts.goArounds),
+                    color: .aviationRed
+                )
+            }
+
+            // Stop-and-goes (decision D1): a full stop before the last, back at an aerodrome of the
+            // flight. They COUNT as full stops for EASA currency; the label preserves the intent.
+            // One at another aerodrome is a stop, not a stop-and-go
+            // (`ShareCardFigures.intermediateFullStops` has the rule). (6.1)
+            if counts.stopAndGoes > 0 {
                 bottomStatItem(
                     icon: "stop.circle",
-                    value: "\(flight.fullStopCount - 1)",
-                    label: "STOP & GO",
+                    value: figures.number(counts.stopAndGoes),
+                    label: L10n.ShareCard.stopAndGoes(counts.stopAndGoes),
+                    color: .aviationAmber
+                )
+            }
+
+            if counts.stops > 0 {
+                bottomStatItem(
+                    icon: "mappin.and.ellipse",
+                    value: figures.number(counts.stops),
+                    label: L10n.ShareCard.stops(counts.stops),
                     color: .aviationAmber
                 )
             }
@@ -4904,22 +4966,34 @@ struct FlightShareCard: View {
         )
     }
 
-    private func bottomStatItem(icon: String, value: String, label: String, color: Color) -> some View {
+    private func bottomStatItem(icon: String, value: String, suffix: String? = nil, label: String, color: Color) -> some View {
         VStack(spacing: 6) {
             Image(systemName: icon)
                 .font(.aero(size: 20))
                 .foregroundColor(color)
 
-            Text(value)
-                .font(.aero(size: 22, weight: .bold, design: .monospaced))
-                .foregroundColor(colorScheme.primaryTextColor)
-                .lineLimit(1)
-                .minimumScaleFactor(0.7)
+            HStack(alignment: .firstTextBaseline, spacing: 5) {
+                Text(value)
+                    .font(.aero(size: 22, weight: .bold, design: .monospaced))
+                    .foregroundColor(colorScheme.primaryTextColor)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.7)
+                // The time zone, like a unit (6.1)
+                if let suffix {
+                    Text(suffix)
+                        .font(.aero(size: 13, weight: .bold))
+                        .foregroundColor(colorScheme.tertiaryTextColor)
+                        .lineLimit(1)
+                        .fixedSize()
+                }
+            }
 
             Text(label)
                 .font(.aero(size: 11, weight: .bold))
                 .foregroundColor(colorScheme.tertiaryTextColor)
                 .tracking(1)
+                .lineLimit(1)
+                .minimumScaleFactor(0.6)
         }
         .frame(maxWidth: .infinity)
     }
@@ -4927,8 +5001,19 @@ struct FlightShareCard: View {
     // MARK: - Footer Section
 
     private var footerSection: some View {
-        HStack {
-            Spacer()
+        HStack(alignment: .bottom) {
+            // The sources the map and the terrain came from, where the README says they must be
+            // credited (6.1)
+            if let credit {
+                Text(credit)
+                    .font(.aero(size: 13, weight: .medium))
+                    .foregroundColor(colorScheme.tertiaryTextColor)
+                    .lineLimit(2)
+                    .minimumScaleFactor(0.8)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+
+            Spacer(minLength: 24)
 
             // App branding
             VStack(alignment: .trailing, spacing: 4) {
@@ -4942,22 +5027,13 @@ struct FlightShareCard: View {
                         .foregroundColor(colorScheme.footerTextColor)
                 }
 
-                Text("https://aerocheck.app")
+                // Verbatim: as a localized key it became a link and took the link blue, whatever
+                // the theme. (6.1)
+                Text(verbatim: "https://aerocheck.app")
                     .font(.aero(size: 13, weight: .medium))
                     .foregroundColor(colorScheme.footerUrlColor)
             }
         }
-    }
-
-    // MARK: - Helpers
-
-    private func formatTime(_ date: Date) -> String {
-        let formatter = DateFormatter()
-        formatter.dateFormat = "HH:mm"
-        if useUTC {
-            formatter.timeZone = TimeZone(identifier: "UTC")
-        }
-        return formatter.string(from: date)
     }
 }
 

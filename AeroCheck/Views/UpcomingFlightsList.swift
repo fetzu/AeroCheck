@@ -526,7 +526,7 @@ struct UpcomingFlightsList: View {
         }
         .buttonStyle(.plain)
         .accessibilityElement(children: .combine)
-        .accessibilityLabel(L10n.TripCard.legOf(leg.number, overview.legCount) + ", " + leg.displayName)
+        .accessibilityLabel(L10n.Flights.legOf(leg.number, overview.legCount) + ", " + leg.displayName)
         .accessibilityValue([legFacts(leg), legStatusText(leg, isFocus: isFocus)].compactMap { $0 }.joined(separator: ", "))
     }
 
@@ -585,7 +585,7 @@ struct UpcomingFlightsList: View {
         let (task, detail): (ThreadTask, String?) = {
             switch next {
             case .leg(let task):
-                let leg = overview.focus.map { L10n.TripCard.legOf($0.number, overview.legCount) }
+                let leg = overview.focus.map { L10n.Flights.legOf($0.number, overview.legCount) }
                 return (task, [leg, task.detail].compactMap { $0 }.joined(separator: " · "))
             case .trip(let task): return (task, L10n.TripCard.tripChecks(overview.sharedDone, overview.sharedTotal))
             }

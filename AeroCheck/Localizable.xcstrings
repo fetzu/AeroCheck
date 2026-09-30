@@ -2798,23 +2798,6 @@
         }
       }
     },
-    "tripCard.legOf": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Leg %1$d of %2$d"
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Étape %1$d sur %2$d"
-          }
-        }
-      }
-    },
     "tripCard.legs": {
       "extractionState": "manual",
       "localizations": {

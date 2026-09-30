@@ -1994,12 +1994,6 @@ enum L10n {
         static func startLeg(_ leg: Int, _ route: String) -> String {
             String(format: String(localized: "tripCard.startLeg"), leg, route)
         }
-        /// "Leg 2 of 3". Its own key: the literal "Leg \(index) of \(total)" (`L10n.Flights.legOf`)
-        /// is looked up as "Leg %lld of %lld", which the catalog has only in its positional form,
-        /// so it stays English in French.
-        static func legOf(_ leg: Int, _ count: Int) -> String {
-            String(format: String(localized: "tripCard.legOf"), leg, count)
-        }
         /// Plan › Flights, the legs' heading: "Legs"
         static let legs = String(localized: "tripCard.legs")
         /// A leg row's tag for the leg the card is about: "Next"

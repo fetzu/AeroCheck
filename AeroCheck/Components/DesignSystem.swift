@@ -640,6 +640,27 @@ struct SeparateView<Content: View>: View {
     var body: Content { content() }
 }
 
+// MARK: - Landscape, whatever the keyboard does (6.1.0)
+
+/// Width against height, for a layout switch that must hold while the on-screen keyboard is up.
+///
+/// The keyboard is a bottom safe-area inset: a `GeometryReader` that runs to the bottom of the screen
+/// loses its height, and its `safeAreaInsets.bottom` gains as much. An iPad in portrait read 820 x 757
+/// pt with the keyboard up (820 x 1074 without), so a screen testing `width > height` went to its
+/// landscape layout as soon as a field was focused, on it or in a sheet or a cover over it. Height plus
+/// the bottom inset is the distance to the bottom of the screen, keyboard or not. It counts the home
+/// indicator either way (20 pt on an iPad), which moves the switch by that much for a window that is
+/// nearly square, and for nothing else.
+///
+/// For a screen with no field low enough to need the keyboard's avoidance, `.ignoresSafeArea(.keyboard)`
+/// on its reader does the same, to the point (the route builder, the Cockpit). This is for the screens
+/// that keep the avoidance: the Logbook, whose flight detail has its notes at the bottom, and the root.
+enum KeyboardProofOrientation {
+    static func isLandscape(size: CGSize, bottomInset: CGFloat) -> Bool {
+        size.width > size.height + bottomInset
+    }
+}
+
 private struct NightModeKey: EnvironmentKey {
     static let defaultValue = false
 }

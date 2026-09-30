@@ -575,10 +575,8 @@ struct FlightNumbersView: View {
     }
 
     private func exportCSV(_ line: LogbookLine, flight: Flight) {
-        csvFilename = "AeroCheck_logbook_"
-            + LogbookLineBuilder.formatDate(flight.blockOffTime ?? flight.startTime)
-                .replacingOccurrences(of: ".", with: "-")
-            + ".csv"
+        // The flight's own export name, route and registration included, as its GPX and JSON. (v6.1)
+        csvFilename = "\(flight.exportFilename)_logbook.csv"
         exportedCSV = Data(LogbookLineBuilder.csv(for: [line]).utf8)
     }
 

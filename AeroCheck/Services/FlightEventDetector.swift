@@ -339,6 +339,11 @@ class FlightEventDetector: ObservableObject {
                 state = .climbout
                 firstFastSample = nil
                 accelRun = 0
+                // A full-stop card still waiting is moot once the aircraft is rolling for take-off
+                // (a stop-and-go the pilot never answered), and it must not cover the Cockpit in the
+                // climb. Dismissed, never confirmed (PR-06): the review diff at END FLIGHT offers
+                // the landing again. No effect on what the detector emits.
+                pendingFullStop = nil
                 AppLog.flightEvents.debugLine("Takeoff detected at \(anchor?.ident ?? "?") (liftoff \(liftoff))")
             }
         } else {
@@ -484,7 +489,7 @@ class FlightEventDetector: ObservableObject {
             type: .fullStop,
             timestamp: touch,
             airport: anchor,
-            message: fullStopMessage(airport: anchor)
+            message: Self.fullStopMessage(airport: anchor)
         )
         emittedEvents.append(EmittedFlightEvent(type: .fullStop, timestamp: touch, airportIdent: anchor?.ident))
         AppLog.flightEvents.debugLine("End-of-flight flush: full stop at \(touch) (\(anchor?.ident ?? "?"))")
@@ -536,6 +541,10 @@ class FlightEventDetector: ObservableObject {
 
     /// PR-40: clear pending events older than the expiry window so a never-consumed
     /// confirmation can't block all future detections of that type.
+    /// The full stop is the exception (6.1.0): its card waits for the pilot, who is busy
+    /// vacating the runway and talking on the radio, however long that takes. It goes at the
+    /// next take-off instead (`handleGround`), which is also the only way to another full
+    /// stop, so it still can't block one.
     private static let pendingEventExpirySeconds: TimeInterval = 180
     private func expireStalePendingEvents(now: Date) {
         if let e = pendingGoAround, now.timeIntervalSince(e.timestamp) > Self.pendingEventExpirySeconds {
@@ -543,9 +552,6 @@ class FlightEventDetector: ObservableObject {
         }
         if let e = pendingTouchAndGo, now.timeIntervalSince(e.timestamp) > Self.pendingEventExpirySeconds {
             pendingTouchAndGo = nil
-        }
-        if let e = pendingFullStop, now.timeIntervalSince(e.timestamp) > Self.pendingEventExpirySeconds {
-            pendingFullStop = nil
         }
     }
 
@@ -557,6 +563,8 @@ class FlightEventDetector: ObservableObject {
     /// Returns the detector's best physical timestamp for the event — the touchdown time
     /// if a rollout is in progress, the approach minimum for a go-around — so the manual
     /// record can carry the real time instead of "now" (replaces backDatedStopTime()).
+    /// For a full stop once stopped, that is the full stop already detected on this ground
+    /// (`landingSinceLastTakeoff`).
     @discardableResult
     func notifyManualEvent(_ type: FlightEventType, at explicitTime: Date? = nil) -> Date? {
         let time = explicitTime ?? clock()
@@ -564,7 +572,7 @@ class FlightEventDetector: ObservableObject {
         case .fullStop:
             pendingFullStop = nil
             lastManualLandingTime = time
-            let physical = (state == .rollout) ? touchdownTime : nil
+            let physical = (state == .rollout) ? touchdownTime : landingSinceLastTakeoff
             hasFlown = false
             state = .ground
             zeroBaroReference(now: time)
@@ -589,6 +597,17 @@ class FlightEventDetector: ObservableObject {
             }
             return physical
         }
+    }
+
+    /// The touchdown of the full stop the detector emitted on this ground, if nothing has
+    /// taken off since. FULL STOP LANDING held after the card's CONFIRM is that same landing:
+    /// stamped at its touchdown, it falls inside AppState's duplicate window instead of
+    /// counting a second landing at "now" (the card comes a minute or so after touchdown,
+    /// and the pilot now lands on AFTER LANDING, right next to that button). (6.1.0)
+    private var landingSinceLastTakeoff: Date? {
+        guard state == .ground, let last = emittedEvents.last, last.type == .fullStop,
+              last.timestamp >= (takeoffTimes.last ?? .distantPast) else { return nil }
+        return last.timestamp
     }
 
     // MARK: - Helpers (state machine)
@@ -732,12 +751,13 @@ class FlightEventDetector: ObservableObject {
             AppLog.flightEvents.debugLine("TOUCH-AND-GO at \(time) (\(airport?.ident ?? "?"))")
         case .fullStop:
             guard pendingFullStop == nil else { return }
-            pendingFullStop = DetectedFlightEvent(type: .fullStop, timestamp: time, airport: airport, message: fullStopMessage(airport: airport))
+            pendingFullStop = DetectedFlightEvent(type: .fullStop, timestamp: time, airport: airport, message: Self.fullStopMessage(airport: airport))
             AppLog.flightEvents.debugLine("FULL STOP at \(time) (\(airport?.ident ?? "?"))")
         }
     }
 
-    private func fullStopMessage(airport: Airport?) -> String {
+    /// The full-stop card's message. Not private: the DEBUG `landed` scene raises the same card. (6.1.0)
+    static func fullStopMessage(airport: Airport?) -> String {
         airport.map { String(localized: "Full-stop landing detected at \($0.name)") }
             ?? String(localized: "Full-stop landing detected")
     }

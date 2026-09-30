@@ -41,11 +41,14 @@ enum TripPlanner {
         var second = plan.copy()
         // A new identity for the stop's second appearance: waypoint ids are unique within a plan and
         // are what the map and the ATO record key on.
-        let departure = FlightPlanWaypoint(
+        var departure = FlightPlanWaypoint(
             name: stop.name, coordinate: stop.coordinate, altitude: stop.altitude,
             frequency: stop.frequency, callSign: stop.callSign, remarks: stop.remarks,
             plannedGroundSpeed: stop.plannedGroundSpeed
         )
+        // The stop carried the leg leaving it, which is now this leg's first: so does the wind it was
+        // planned with, for a recompute that finds no forecast. (6.1)
+        departure.planningWind = plan.waypoints[index].planningWind
         second.waypoints = [departure] + Array(plan.waypoints[(index + 1)...])
         for i in second.waypoints.indices { second.waypoints[i].actualTimeOver = nil }
         second.runwayInUse = nil
@@ -86,6 +89,42 @@ enum TripPlanner {
         return joined
     }
 
+    // MARK: A trip typed in Plan new flight (6.1)
+
+    /// A later leg of a trip typed in Plan new flight, as it is seeded: the stop in front of it, and a
+    /// departure estimated from the leg before (its arrival plus the time on the ground).
+    static func seeded(_ leg: FlightPlan, after previous: FlightPlan, stopover: Stopover) -> FlightPlan {
+        var leg = leg
+        leg.stopover = stopover
+        leg.departureIsEstimate = true
+        return refreshed(leg, after: previous) ?? leg
+    }
+
+    /// The legs Plan new flight will create from typed aerodromes, for its preview.
+    ///
+    /// Built the way `FlightCreator.createTrip` builds them: `FlightPlan.from(intent:)` for each pair,
+    /// direct, with the chosen departure on the first leg only; then each later leg seeded with its
+    /// stop, which is what the plan manager's chain does to the created legs. So the times shown before
+    /// Create are the times the legs get. `stopovers[i]` is the stop in front of leg `i + 2`; a missing
+    /// one is the default stop.
+    static func typedLegs(idents: [String], stopovers: [Stopover], template: NewFlightIntent,
+                          resolve: (String) -> FlightPlan.ResolvedPlace?) -> [FlightPlan] {
+        var legs: [FlightPlan] = []
+        for (index, (from, to)) in zip(idents, idents.dropFirst()).enumerated() {
+            var intent = template
+            intent.departureIdent = from
+            intent.arrivalIdent = to
+            intent.departureTime = index == 0 ? template.departureTime : nil
+            var leg = FlightPlan.from(intent: intent, resolve: resolve)
+            if let previous = legs.last {
+                let stopover = stopovers.indices.contains(index - 1) ? stopovers[index - 1] : Stopover()
+                leg = seeded(leg, after: previous, stopover: stopover)
+            }
+            legs.append(leg)
+        }
+        return legs
+    }
+
     // MARK: Numbers that follow from the previous leg
 
     /// When a leg after a stop departs: the previous leg's arrival (its ETO at the destination, which
@@ -107,9 +146,12 @@ enum TripPlanner {
 
     /// Re-derive a later leg's estimated departure (and so its ETOs) and, without a refuel, its fuel on
     /// board from the leg before it. Returns nil when nothing changed, so callers write only real
-    /// changes. A departure the pilot chose (`departureIsEstimate != true`) is never touched.
+    /// changes. A departure the pilot chose (`departureIsEstimate != true`) is never touched, and
+    /// neither is a leg that has flown: its ETOs count from its own take-off (`etoAnchor`), and its
+    /// estimate and fuel are what it was planned with. (Until 6.1, LINE UP made the estimate a chosen
+    /// departure, which stopped the chain there; it no longer touches the departure.)
     static func refreshed(_ leg: FlightPlan, after previous: FlightPlan) -> FlightPlan? {
-        guard leg.departureIsEstimate == true, let stopover = leg.stopover else { return nil }
+        guard leg.departureIsEstimate == true, leg.etoAnchor == nil, let stopover = leg.stopover else { return nil }
         var updated = leg
         updated.plannedDepartureTime = estimatedDeparture(after: previous, stopover: stopover)
         // Only when it can be computed: a leg whose previous leg has no fuel figures keeps whatever

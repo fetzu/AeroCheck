@@ -54,6 +54,10 @@ struct FlightPlanMapBuilderView: View {
     @State private var viaResultsQuery = ""
     @State private var viaSearchTask: Task<Void, Never>?
     @State private var listEditMode: EditMode = .inactive
+    /// The leg whose altitude is being typed, and how much of the builder the keyboard leaves: while
+    /// both hold, the builder slides up so the legs sit on the keys. (6.1.0)
+    @State private var altitudeEditingId: UUID?
+    @State private var heightAboveKeyboard: CGFloat = 0
 
     // On-route hazards — airspace profile + terrain (#4 redesign: route-profile cross-section)
     @State private var airspaceBlocks: [AirspaceProfileBlock] = []
@@ -275,44 +279,57 @@ struct FlightPlanMapBuilderView: View {
 
     var body: some View {
         NavigationStack {
-            GeometryReader { geo in
-                let twoColumn = horizontalSizeClass == .regular && geo.size.width > geo.size.height
-                Group {
-                    if twoColumn {
-                        // Landscape: the map on the left; From/To, the profile and the legs in a column
-                        // on the right, like the navigation map. (planning proposal D1)
-                        HStack(spacing: 0) {
-                            mapArea
-                                .frame(width: geo.size.width * 0.58)
-                            Rectangle().fill(Color.subtleOverlay(0.08)).frame(width: 1)
-                            VStack(spacing: 0) {
-                                fromToBar
-                                if waypoints.count >= 2 {
-                                    Rectangle().fill(Color.subtleOverlay(0.08)).frame(height: 1)
-                                    routeProfileStrip
-                                }
-                                Rectangle().fill(Color.subtleOverlay(0.08)).frame(height: 1)
-                                tablePanel
-                            }
-                            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            ZStack(alignment: .top) {
+                // How much of the builder the keyboard leaves: measured here, never laid out against.
+                GeometryReader { visible in
+                    Color.clear
+                        .onChange(of: visible.size.height, initial: true) { _, height in
+                            heightAboveKeyboard = height
                         }
-                    } else {
-                        // Portrait: From/To above the map rather than over it, the profile under it,
-                        // then the legs, about ten of them in view. (planning proposal D1)
-                        VStack(spacing: 0) {
-                            fromToBar
-                            mapArea
-                                .frame(height: max(240, geo.size.height * (waypoints.count >= 2 ? 0.40 : 0.62)))
-                            if waypoints.count >= 2 {
-                                Rectangle().fill(Color.subtleOverlay(0.08)).frame(height: 1)
-                                routeProfileStrip
-                            }
-                            Rectangle().fill(Color.subtleOverlay(0.08)).frame(height: 1)
-                            tablePanel
-                                .frame(maxWidth: .infinity, maxHeight: .infinity)
-                        }
-                    }
                 }
+                GeometryReader { geo in
+                    // An altitude in the legs is typed where the keys would cover it (on a phone, and
+                    // on an iPad whenever the system gives the field its full keyboard rather than the
+                    // small pad beside it): everything slides up by what the keyboard covers, so the
+                    // legs sit on the keys, and back down when it goes. Nothing resizes. (6.1.0)
+                    let lift = altitudeEditingId != nil && heightAboveKeyboard > 0
+                        ? max(0, geo.size.height - heightAboveKeyboard) : 0
+                    // Landscape: the map on the left; From/To, the profile and the legs in a column on
+                    // the right, like the navigation map. Portrait: From/To above the map rather than
+                    // over it, the profile under it, then the legs, about ten of them in view. (planning
+                    // proposal D1) One layout for both, so turning the iPad moves the parts instead of
+                    // building them again: a field being typed in keeps its text and its keyboard.
+                    RouteBuilderLayout(twoColumn: RouteBuilderLayout.isTwoColumn(
+                                           regularWidth: horizontalSizeClass == .regular, size: geo.size),
+                                       hasRoute: waypoints.count >= 2, lift: lift) {
+                        fromToBar
+                            .layoutValue(key: RouteBuilderLayout.PartKey.self, value: .fromTo)
+                        mapArea
+                            .layoutValue(key: RouteBuilderLayout.PartKey.self, value: .map)
+                        if waypoints.count >= 2 {
+                            routeProfileStrip
+                                .layoutValue(key: RouteBuilderLayout.PartKey.self, value: .profile)
+                        }
+                        tablePanel
+                            .frame(maxWidth: .infinity, maxHeight: .infinity)
+                            .background(Color.cockpitBackground)
+                            .layoutValue(key: RouteBuilderLayout.PartKey.self, value: .legs)
+                    }
+                    // The 1 pt gaps the layout leaves between the parts are the dividers.
+                    .background(Color.subtleOverlay(0.08))
+                    .animation(reduceMotion ? nil : .easeOut(duration: 0.25), value: lift)
+                    // Slid up, what passes the top edge is cut there rather than drawn under the bar.
+                    // Not otherwise: the map runs on under the home indicator in two columns.
+                    .clipShape(Rectangle().inset(by: lift > 0 ? 0 : -100))
+                }
+                // The keyboard is not part of the size read above. With it up, an iPad in portrait
+                // read 820 x 757 pt, wider than tall, and the builder switched to its landscape columns
+                // as soon as From, To or Via was focused (a phone sized its map from what the keys
+                // left). The layout is decided, and the portrait parts sized, on the screen the pilot
+                // holds: From, To and Via sit at the top and their results drop over the map, and the
+                // keys cover the bottom of the legs. The waypoint editor is a sheet with its own
+                // keyboard avoidance. (6.1.0)
+                .ignoresSafeArea(.keyboard)
             }
             .background(Color.cockpitBackground)
             .animation(reduceMotion ? nil : .easeInOut(duration: 0.2), value: tripNeededCountries.isEmpty) // (UX-18)
@@ -560,13 +577,21 @@ struct FlightPlanMapBuilderView: View {
         HStack(spacing: 6) {
             Text(slot == .from ? L10n.Nav.from : L10n.Nav.to)
                 .font(.aero(size: 11, weight: .semibold)).tracking(0.6).foregroundColor(.dimText)
+                .accessibilityHidden(true)   // the field carries the name
+            // The label already says From or To: the empty field says what to type, as Plan new flight
+            // does. It read "From  From" and "To  To". The field's own prompt stays empty: the
+            // placeholder is drawn over it so it can shrink on a phone instead of being cut. (6.1.0)
             TextField(slot == .from ? L10n.Nav.from : L10n.Nav.to,
-                      text: slot == .from ? $fromText : $toText)
+                      text: slot == .from ? $fromText : $toText, prompt: Text(verbatim: ""))
                 .textInputAutocapitalization(.characters)
                 .autocorrectionDisabled()
                 .font(.aero(size: 17, weight: .semibold, design: .monospaced))
                 .foregroundColor(slot == .from ? .aviationGreen : .aviationGold)
                 .focused($focusedEndpoint, equals: slot)
+                .modifier(FittingPlaceholder(text: L10n.Flights.identPlaceholder,
+                                             isShown: (slot == .from ? fromText : toText).isEmpty,
+                                             font: .aero(size: 17, weight: .semibold, design: .monospaced)))
+                .accessibilityHint(L10n.Flights.identPlaceholder)
         }
         .padding(.horizontal, 12).frame(minHeight: 44)
         .background(RoundedRectangle(cornerRadius: 8).fill(Color.subtleOverlay(0.06)))
@@ -1515,24 +1540,23 @@ struct FlightPlanMapBuilderView: View {
     }
 
     /// Compact route summary for the system nav bar (replaces the dead title). (#4 Direction B)
+    /// One `Text`, so it shrinks as a whole: as separate texts in an HStack, the one given the least
+    /// room was cut on its own, and an iPhone SE read "8 WPT · 1… NM · 1:47". (6.1.0)
     private var toolbarSummary: some View {
-        HStack(spacing: 8) {
-            metricInline("\(waypoints.count)", "WPT", .primaryText)
-            Text("·").font(.aero(size: 12)).foregroundColor(.dimText)
-            metricInline(String(format: "%.0f", plan?.totalDistance ?? 0), "NM", .altimeterBlue)
-            Text("·").font(.aero(size: 12)).foregroundColor(.dimText)
-            metricInline(plan?.formattedTotalEET ?? "0:00", "", .aviationGold)
-        }
-        .lineLimit(1)
+        let separator = Text(verbatim: "  ·  ").font(.aero(size: 12)).foregroundColor(.dimText)
+        return (metricText("\(waypoints.count)", "WPT", .primaryText)
+                + separator
+                + metricText(String(format: "%.0f", plan?.totalDistance ?? 0), "NM", .altimeterBlue)
+                + separator
+                + metricText(plan?.formattedTotalEET ?? "0:00", "", .aviationGold))
+            .lineLimit(1)
+            .minimumScaleFactor(0.6)
     }
 
-    private func metricInline(_ value: String, _ unit: String, _ color: Color) -> some View {
-        HStack(spacing: 3) {
-            Text(value).font(.aero(size: 15, weight: .bold, design: .monospaced)).foregroundColor(color)
-            if !unit.isEmpty {
-                Text(unit).font(.aero(size: 10, weight: .semibold)).foregroundColor(.secondaryText)
-            }
-        }
+    private func metricText(_ value: String, _ unit: String, _ color: Color) -> Text {
+        let text = Text(value).font(.aero(size: 15, weight: .bold, design: .monospaced)).foregroundColor(color)
+        guard !unit.isEmpty else { return text }
+        return text + Text(" " + unit).font(.aero(size: 10, weight: .semibold)).foregroundColor(.secondaryText)
     }
 
     private var emptyRouteHint: some View {
@@ -1576,6 +1600,15 @@ struct FlightPlanMapBuilderView: View {
                             selectLeg(index)
                             if let first = conflicts[index]?.first {
                                 withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.15)) { selectedConflictId = first }
+                            }
+                        },
+                        // By id: moving from one altitude to the next reports the new one before the
+                        // old one lets go.
+                        onAltitudeFocus: { focused in
+                            if focused {
+                                altitudeEditingId = waypoint.id
+                            } else if altitudeEditingId == waypoint.id {
+                                altitudeEditingId = nil
                             }
                         }
                     )
@@ -1787,6 +1820,120 @@ struct FlightPlanMapBuilderView: View {
     }
 }
 
+// MARK: - Layout (6.1.0)
+
+/// Where the route builder's parts go: From/To (with Via), the map, the route profile (once there is a
+/// destination) and the legs. Portrait stacks them, the map at 40 % of the height (62 % before there is
+/// a route); two columns put the map on the left at 58 % of the width and the rest down the right.
+///
+/// It is one `Layout` for both, not an `HStack` swapped for a `VStack`: a swap builds every part again,
+/// so turning the iPad while typing in From dropped the text and the keyboard, and reloaded the map.
+/// Here the parts stay the same views and only move. The 1 pt gaps between them are the dividers (the
+/// builder paints them behind). `frames` is pure, so the proportions are tested without a view.
+struct RouteBuilderLayout: Layout {
+    enum Part { case fromTo, map, profile, legs }
+
+    struct PartKey: LayoutValueKey {
+        static let defaultValue: Part = .legs
+    }
+
+    var twoColumn: Bool
+    var hasRoute: Bool
+    /// Everything moves up by this much, sizes unchanged (an altitude typed above the keyboard).
+    var lift: CGFloat = 0
+
+    static let landscapeMapShare: CGFloat = 0.58
+    static let divider: CGFloat = 1
+
+    /// Two columns on a regular width wider than tall. `size` must not lose the keyboard's height (the
+    /// builder's reader ignores it): with the keys up, an iPad in portrait is wider than it is tall.
+    static func isTwoColumn(regularWidth: Bool, size: CGSize) -> Bool {
+        regularWidth && size.width > size.height
+    }
+
+    struct Frames: Equatable {
+        var fromTo: CGRect
+        var map: CGRect
+        var profile: CGRect
+        var legs: CGRect
+    }
+
+    /// Every part's frame in `size`, given the heights From/To and the profile ask for. Without a route
+    /// the profile is `.zero` and the legs take its place.
+    static func frames(in size: CGSize, twoColumn: Bool, hasRoute: Bool,
+                       fromToHeight: CGFloat, profileHeight: CGFloat) -> Frames {
+        let profileHeight = hasRoute ? profileHeight : 0
+        if twoColumn {
+            let mapWidth = (size.width * landscapeMapShare).rounded()
+            let x = mapWidth + divider
+            let width = max(0, size.width - x)
+            let fromTo = CGRect(x: x, y: 0, width: width, height: fromToHeight)
+            let profile = hasRoute
+                ? CGRect(x: x, y: fromTo.maxY + divider, width: width, height: profileHeight) : .zero
+            let legsY = (hasRoute ? profile.maxY : fromTo.maxY) + divider
+            return Frames(fromTo: fromTo,
+                          map: CGRect(x: 0, y: 0, width: mapWidth, height: size.height),
+                          profile: profile,
+                          legs: CGRect(x: x, y: legsY, width: width, height: max(0, size.height - legsY)))
+        }
+        let fromTo = CGRect(x: 0, y: 0, width: size.width, height: fromToHeight)
+        let map = CGRect(x: 0, y: fromTo.maxY, width: size.width,
+                         height: max(240, size.height * (hasRoute ? 0.40 : 0.62)))
+        let profile = hasRoute
+            ? CGRect(x: 0, y: map.maxY + divider, width: size.width, height: profileHeight) : .zero
+        let legsY = (hasRoute ? profile.maxY : map.maxY) + divider
+        return Frames(fromTo: fromTo, map: map, profile: profile,
+                      legs: CGRect(x: 0, y: legsY, width: size.width, height: max(0, size.height - legsY)))
+    }
+
+    func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
+        proposal.replacingUnspecifiedDimensions()
+    }
+
+    func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) {
+        let part = { (kind: Part) in subviews.first { $0[PartKey.self] == kind } }
+        // From/To and the profile keep their own height, at the width they get.
+        let columnWidth = twoColumn
+            ? max(0, bounds.width - (bounds.width * Self.landscapeMapShare).rounded() - Self.divider)
+            : bounds.width
+        let height = { (kind: Part) -> CGFloat in
+            part(kind)?.sizeThatFits(ProposedViewSize(width: columnWidth, height: nil)).height ?? 0
+        }
+        let frames = Self.frames(in: bounds.size, twoColumn: twoColumn, hasRoute: hasRoute,
+                                 fromToHeight: height(.fromTo), profileHeight: height(.profile))
+        for (kind, frame) in [(Part.fromTo, frames.fromTo), (.map, frames.map),
+                              (.profile, frames.profile), (.legs, frames.legs)] {
+            part(kind)?.place(at: CGPoint(x: bounds.minX + frame.minX, y: bounds.minY + frame.minY - lift),
+                              proposal: ProposedViewSize(frame.size))
+        }
+    }
+}
+
+// MARK: - Placeholder that fits (6.1.0)
+
+/// A field's placeholder drawn over it, shrinking to fit (to 60 % at most) rather than being cut. The
+/// field's own prompt must be empty. On an iPhone, From and To leave it 80 to 100 pt: "ICAO or name" at
+/// 17 pt read "ICAO or…" on an iPhone 17.
+private struct FittingPlaceholder: ViewModifier {
+    let text: String
+    let isShown: Bool
+    let font: Font
+
+    func body(content: Content) -> some View {
+        content.overlay(alignment: .leading) {
+            if isShown {
+                Text(text)
+                    .font(font)
+                    .foregroundColor(Color(uiColor: .placeholderText))
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.6)
+                    .allowsHitTesting(false)
+                    .accessibilityHidden(true)
+            }
+        }
+    }
+}
+
 // MARK: - Via search (6.0.1)
 
 /// The "Via" field under From and To: finds a reporting point or a navaid for the route. Its own view,
@@ -1927,6 +2074,8 @@ private struct LegRow: View {
     let onEditAltitude: (Double?) -> Void
     let onTap: () -> Void
     let onConflictTap: () -> Void
+    /// The altitude field took or lost the keyboard, for the builder to lift the legs above it.
+    let onAltitudeFocus: (Bool) -> Void
 
     @State private var altitudeText: String = ""
     @FocusState private var altitudeFocused: Bool
@@ -1962,6 +2111,8 @@ private struct LegRow: View {
                                 .font(.aero(size: 11, design: .monospaced))
                                 .foregroundColor(.dimText)
                                 .lineLimit(1)
+                                // Smaller rather than cut: an iPhone SE read "194° · 12 NM · 7…".
+                                .minimumScaleFactor(0.7)
                         }
                     }
                     .frame(maxWidth: .infinity, alignment: .leading)
@@ -2018,6 +2169,7 @@ private struct LegRow: View {
         .onAppear { altitudeText = waypoint.altitude.map { String(Int($0)) } ?? "" }
         .onChange(of: altitudeFocused) { _, focused in
             if !focused { commitAltitude() }
+            onAltitudeFocus(focused)
         }
         // Follow altitudes set elsewhere ("Set altitudes", a profile drag): rows are reused by id, so
         // onAppear alone left the field showing the old value.

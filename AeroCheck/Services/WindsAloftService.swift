@@ -93,18 +93,67 @@ final class WindsAloftService: ObservableObject {
 
     // MARK: - Lookup
 
+    /// The forecasts a leg flown at `flownAt` may read, best first, as (cache key, the hour it stands
+    /// for): the hour the leg is flown, then the current hour, as before, unless the leg's hour is
+    /// already past (the forecast for now describes other weather than the one it was flown in).
+    /// Without a time (a route with no date), the current hour. PURE. (6.1)
+    ///
+    /// The worker serves the current hour only, so the leg's own hour is there when the app fetched
+    /// during it: planning on the day, or in flight.
+    nonisolated static func forecastCandidates(lat: Double, lon: Double, flownAt: Date?,
+                                               now: Date = Date()) -> [(key: String, hour: Date)] {
+        let current = (key: cacheKey(lat: lat, lon: lon, now: now), hour: hourStart(now))
+        guard let flownAt else { return [current] }
+        let flown = (key: cacheKey(lat: lat, lon: lon, now: flownAt), hour: hourStart(flownAt))
+        if flown.key == current.key { return [current] }
+        return flown.hour < current.hour ? [flown] : [flown, current]
+    }
+
+    /// The start of the UTC hour `date` falls in.
+    nonisolated static func hourStart(_ date: Date) -> Date {
+        Date(timeIntervalSince1970: (date.timeIntervalSince1970 / 3600).rounded(.down) * 3600)
+    }
+
+    /// The forecast's own "valid at" ("2026-09-29T09:00Z", as the worker writes it), when it reads.
+    nonisolated static func validDate(_ forecast: Forecast) -> Date? {
+        for format in ["yyyy-MM-dd'T'HH:mm'Z'", "yyyy-MM-dd'T'HH:mm:ss'Z'"] {
+            let formatter = DateFormatter()
+            formatter.dateFormat = format
+            formatter.timeZone = TimeZone(identifier: "UTC")
+            formatter.locale = Locale(identifier: "en_US_POSIX")
+            if let date = formatter.date(from: forecast.validAt) { return date }
+        }
+        return nil
+    }
+
     /// Synchronous read used by `FlightPlan.windsAloftProvider`. Returns only what is already
     /// cached — route recalculation happens on every drag and must never block on the network.
-    /// A miss schedules a fetch and returns nil, so the leg falls back to zero-wind until the
-    /// forecast lands and the plan is recalculated.
-    func wind(at coordinate: CLLocationCoordinate2D, altitudeFt: Double) -> FlightPlan.WindAloft? {
-        let key = Self.cacheKey(lat: coordinate.latitude, lon: coordinate.longitude)
-        guard let forecast = cache[key] else {
-            Task { await prefetch(coordinate) }
+    /// A miss schedules a fetch of the current hour and returns nil, so the leg keeps the wind it was
+    /// planned with (zero wind if it has none) until the forecast lands and the plan is recalculated.
+    ///
+    /// `flownAt`: when the leg is flown, for the forecast of that hour (`forecastCandidates`). (6.1)
+    func wind(at coordinate: CLLocationCoordinate2D, altitudeFt: Double, flownAt: Date? = nil,
+              now: Date = Date()) -> FlightPlan.WindAloft? {
+        let candidates = Self.forecastCandidates(lat: coordinate.latitude, lon: coordinate.longitude,
+                                                 flownAt: flownAt, now: now)
+        guard let (hour, forecast) = candidates.lazy.compactMap({ c in self.cache[c.key].map { (c.hour, $0) } }).first
+        else {
+            // Only the current hour can be fetched, and a leg flown in an hour already past has no
+            // use for it.
+            if candidates.contains(where: { $0.hour == Self.hourStart(now) }) {
+                Task { await prefetch(coordinate) }
+            }
             return nil
         }
         guard let level = Self.nearestLevel(in: forecast, toAltitudeFt: altitudeFt) else { return nil }
-        return FlightPlan.WindAloft(directionDegTrue: level.directionDeg, speedKt: level.speedKt)
+        return FlightPlan.WindAloft(directionDegTrue: level.directionDeg, speedKt: level.speedKt,
+                                    validAt: Self.validDate(forecast) ?? hour)
+    }
+
+    /// Put a forecast in the cache as a fetch during `hour` would. For the tests: the cache is
+    /// otherwise only filled from the network.
+    func seed(_ forecast: Forecast, at coordinate: CLLocationCoordinate2D, hour: Date) {
+        cache[Self.cacheKey(lat: coordinate.latitude, lon: coordinate.longitude, now: hour)] = forecast
     }
 
     /// The level whose geopotential height is closest to the planned altitude.

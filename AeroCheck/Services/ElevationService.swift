@@ -5,7 +5,7 @@ import CoreLocation
 /// Uses swisstopo API for locations within Switzerland
 actor ElevationService {
     // Swiss boundaries (approximate)
-    private let swissBounds = (
+    private static let swissBounds = (
         minLat: 45.8,
         maxLat: 47.9,
         minLon: 5.9,
@@ -46,6 +46,10 @@ actor ElevationService {
 
     /// Check if a coordinate is within Switzerland
     func isInSwitzerland(_ coordinate: CLLocationCoordinate2D) -> Bool {
+        Self.isInSwissBounds(coordinate)
+    }
+
+    nonisolated private static func isInSwissBounds(_ coordinate: CLLocationCoordinate2D) -> Bool {
         return coordinate.latitude >= swissBounds.minLat &&
                coordinate.latitude <= swissBounds.maxLat &&
                coordinate.longitude >= swissBounds.minLon &&
@@ -275,16 +279,24 @@ actor ElevationService {
     ) async -> [(time: Date, elevationMeters: Double)] {
         guard gpsTrack.count >= 2 else { return [] }
 
-        // Determine if flight is in Switzerland by checking first and last points
-        let firstCoord = gpsTrack.first!.coordinate
-        let lastCoord = gpsTrack.last!.coordinate
-        let flightIsSwiss = isInSwitzerland(firstCoord) && isInSwitzerland(lastCoord)
-
-        if flightIsSwiss {
+        switch Self.trackTerrainSource(first: gpsTrack.first!.coordinate, last: gpsTrack.last!.coordinate) {
+        case .swisstopo:
             return await fetchTrackTerrainViaSwisstopo(gpsTrack: gpsTrack, targetSamples: targetSamples)
-        } else {
+        case .openMeteo:
             return await fetchTrackTerrainViaOpenMeteo(gpsTrack: gpsTrack, targetSamples: targetSamples)
         }
+    }
+
+    /// Where a track's terrain comes from. The share card credits it by name. (6.1)
+    enum TrackTerrainSource: Equatable, Sendable {
+        case swisstopo, openMeteo
+    }
+
+    /// swisstopo when the track starts and ends in Switzerland, Open-Meteo otherwise: the service
+    /// `fetchTrackTerrainProfile` asks, with no fallback from one to the other.
+    nonisolated static func trackTerrainSource(first: CLLocationCoordinate2D,
+                                               last: CLLocationCoordinate2D) -> TrackTerrainSource {
+        isInSwissBounds(first) && isInSwissBounds(last) ? .swisstopo : .openMeteo
     }
 
     // MARK: - Swisstopo Track Terrain (POST with multi-coordinate LineString)

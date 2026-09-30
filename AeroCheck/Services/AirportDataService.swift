@@ -66,7 +66,7 @@ class AirportDataService: ObservableObject {
     }
 
     /// Great-circle distance in nautical miles (haversine on stored doubles, no allocation).
-    private static func haversineNm(lat1: Double, lon1: Double, lat2: Double, lon2: Double) -> Double {
+    nonisolated private static func haversineNm(lat1: Double, lon1: Double, lat2: Double, lon2: Double) -> Double {
         let earthRadiusNm = 3440.065
         let dLat = (lat2 - lat1) * .pi / 180
         let dLon = (lon2 - lon1) * .pi / 180
@@ -469,6 +469,27 @@ class AirportDataService: ObservableObject {
             scored = scored.filter { $0.distance <= maxDist }
         }
         return Array(scored.prefix(limit).map { $0.airport })
+    }
+
+    /// The aerodrome a flight was at when it stood at `coordinate`. One rule for the departure and the
+    /// arrival, live and after the flight. (v6.1)
+    func aerodromeIdent(at coordinate: CLLocationCoordinate2D) -> String? {
+        Self.aerodromeIdent(at: coordinate,
+                            among: findNearestAirports(to: coordinate, limit: 20, maxDistanceNm: Flight.aerodromeRadiusNm))
+    }
+
+    /// The nearest fixed-wing aerodrome (`AirportType.fixedWing`) within `Flight.aerodromeRadiusNm`.
+    ///
+    /// Fixed-wing only, like the diversion check and the reconciliation: a heliport, a closed strip or
+    /// a seaplane base nearer the stand than the field's reference point is never where an aeroplane
+    /// took off or landed. Until 6.1 the block-off detection took any type.
+    nonisolated static func aerodromeIdent(at coordinate: CLLocationCoordinate2D, among airports: [Airport]) -> String? {
+        airports
+            .filter { AirportType.fixedWing.contains($0.type) }
+            .map { ($0.ident, haversineNm(lat1: coordinate.latitude, lon1: coordinate.longitude,
+                                           lat2: $0.latitude, lon2: $0.longitude)) }
+            .filter { $0.1 <= Flight.aerodromeRadiusNm }
+            .min { $0.1 < $1.1 }?.0
     }
 
     /// Nearest single airport within a distance cap — used by the flight-plan builder to snap a dragged

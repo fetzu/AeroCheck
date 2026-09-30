@@ -175,4 +175,121 @@ final class NewFlightIntentTests: XCTestCase {
         XCTAssertEqual(FlightKind.circuits.profile, .local)
         XCTAssertEqual(FlightKind.crossCountry.profile, .full)
     }
+
+    // MARK: - Stops in Plan new flight (6.1)
+
+    private func typed(_ stops: inout PlannedStops, _ idents: [String]) {
+        for (row, ident) in zip(stops.rows, idents) { stops.setIdent(ident, for: row.id) }
+    }
+
+    func testTheTwoRowsAreFromAndTo() {
+        let stops = PlannedStops(from: "LSZQ", to: "LSGE")
+        XCTAssertEqual(stops.rows.indices.map(stops.role(at:)), [.from, .to])
+        XCTAssertTrue(stops.stopIndices.isEmpty)
+        XCTAssertEqual(stops.idents, ["LSZQ", "LSGE"])
+        XCTAssertEqual(stops.legCount, 1)
+        XCTAssertEqual(stops.stopovers, [], "two aerodromes are one flight: no stop")
+    }
+
+    /// The author's move: LSZQ, LSZQ in the two rows, then "Add a stop on the way". It used to append
+    /// the stop after the destination (LSZQ → LSZQ → LSGE); it goes before TO.
+    func testAStopAddedAfterLSZQLSZQGoesBetweenThem() {
+        var stops = PlannedStops(from: "LSZQ", to: "LSZQ")
+        XCTAssertEqual(stops.repeatedIdent, "LSZQ", "on its own, the same field twice is a local flight")
+        let added = stops.addStop()
+        XCTAssertEqual(stops.index(of: added), 1, "the new stop sits just before TO")
+        stops.setIdent("lsge ", for: added)
+        XCTAssertEqual(stops.idents, ["LSZQ", "LSGE", "LSZQ"])
+        XCTAssertEqual(stops.rows.indices.map(stops.role(at:)), [.from, .stop(1), .to])
+        XCTAssertEqual(stops.legCount, 2)
+        XCTAssertNil(stops.repeatedIdent, "a round trip with a stop is not a local flight")
+    }
+
+    func testEveryNewStopGoesJustBeforeTo() {
+        var stops = PlannedStops(from: "LSZQ", to: "LSZQ")
+        stops.setIdent("LSGE", for: stops.addStop())
+        stops.setIdent("LSGN", for: stops.addStop())
+        XCTAssertEqual(stops.idents, ["LSZQ", "LSGE", "LSGN", "LSZQ"])
+        XCTAssertEqual(stops.rows.indices.map(stops.role(at:)), [.from, .stop(1), .stop(2), .to])
+        XCTAssertEqual(stops.stopIndices, 1..<3)
+    }
+
+    func testFromAndToCanBeClearedButNotRemoved() {
+        var stops = PlannedStops(from: "LSZQ", to: "LSGN")
+        let stop = stops.addStop()
+        stops.removeStop(stops.rows[0].id)
+        stops.removeStop(stops.rows[2].id)
+        XCTAssertEqual(stops.rows.count, 3, "FROM and TO are the flight itself")
+        stops.removeStop(stop)
+        XCTAssertEqual(stops.rows.count, 2)
+        stops.setIdent("", for: stops.rows[0].id)
+        XCTAssertEqual(stops.rows.count, 2, "clearing FROM keeps its row")
+        XCTAssertEqual(stops.idents, ["LSGN"])
+        XCTAssertEqual(stops.legCount, 0)
+    }
+
+    func testStopsReorderAmongThemselvesAndTheEndsStayPut() {
+        var stops = PlannedStops()
+        _ = stops.addStop(); _ = stops.addStop(); _ = stops.addStop()
+        typed(&stops, ["LSZQ", "LSGN", "LSGE", "LSGC", "LSZQ"])
+        let from = stops.rows[0].id, to = stops.rows[4].id
+        let lsge = stops.rows[2].id
+
+        stops.moveStop(lsge, to: 1)
+        XCTAssertEqual(stops.idents, ["LSZQ", "LSGE", "LSGN", "LSGC", "LSZQ"])
+
+        stops.moveStop(lsge, to: 0)
+        XCTAssertEqual(stops.index(of: lsge), 1, "a stop can't go before FROM")
+        stops.moveStop(lsge, to: 4)
+        XCTAssertEqual(stops.index(of: lsge), 3, "nor after TO")
+        XCTAssertEqual(stops.idents, ["LSZQ", "LSGN", "LSGC", "LSGE", "LSZQ"])
+
+        stops.moveStop(from, to: 2)
+        stops.moveStop(to, to: 1)
+        XCTAssertEqual(stops.rows.first?.id, from, "FROM doesn't move")
+        XCTAssertEqual(stops.rows.last?.id, to, "TO doesn't move")
+    }
+
+    /// Each stop's time on the ground and refuel belong to the aerodrome, so they move with it.
+    func testAStopsGroundTimeAndRefuelFollowItsAerodrome() {
+        var stops = PlannedStops(from: "LSZQ", to: "LSZQ")
+        let lsge = stops.addStop(), lsgn = stops.addStop()
+        stops.setIdent("LSGE", for: lsge)
+        stops.setIdent("LSGN", for: lsgn)
+        XCTAssertEqual(stops.stopovers, [Stopover(), Stopover()], "the default stop until the pilot sets one")
+
+        stops.setStopover(Stopover(groundMinutes: 45, refuel: true), for: lsge)
+        stops.setStopover(Stopover(groundMinutes: 0, refuel: false), for: lsgn)
+        XCTAssertEqual(stops.stopovers, [Stopover(groundMinutes: 45, refuel: true),
+                                         Stopover(groundMinutes: 0, refuel: false)])
+
+        stops.moveStop(lsgn, to: 1)
+        XCTAssertEqual(stops.idents, ["LSZQ", "LSGN", "LSGE", "LSZQ"])
+        XCTAssertEqual(stops.stopovers, [Stopover(groundMinutes: 0, refuel: false),
+                                         Stopover(groundMinutes: 45, refuel: true)])
+    }
+
+    func testAnEmptyStopIsNotALegToNowhere() {
+        var stops = PlannedStops(from: "LSZQ", to: "LSGE")
+        let blank = stops.addStop()
+        stops.setStopover(Stopover(groundMinutes: 90, refuel: true), for: blank)
+        stops.setIdent("  ", for: blank)
+        XCTAssertEqual(stops.idents, ["LSZQ", "LSGE"])
+        XCTAssertEqual(stops.legCount, 1)
+        XCTAssertEqual(stops.stopovers, [], "a blank row's stop goes with it")
+    }
+
+    /// The note under the fields names the field and offers the stop, rather than steering to a
+    /// turning point.
+    func testTheSameFieldTwiceNamesTheField() {
+        XCTAssertEqual(PlannedStops(from: "lszq", to: "LSZQ").repeatedIdent, "LSZQ")
+        XCTAssertNil(PlannedStops(from: "LSZQ", to: "LSGE").repeatedIdent)
+        var stops = PlannedStops(from: "LSZQ", to: "LSZQ")
+        stops.setIdent("LSZQ", for: stops.addStop())
+        XCTAssertEqual(stops.repeatedIdent, "LSZQ", "a stop at the field just left is a local flight too")
+
+        let note = L10n.PlanFlight.sameAerodrome("LSZQ")
+        XCTAssertTrue(note.contains("LSZQ"))
+        XCTAssertFalse(note.contains("%@"))
+    }
 }

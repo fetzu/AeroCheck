@@ -149,7 +149,7 @@ class FlightPlanExportService {
     static func exportToXLSX(_ flightPlan: FlightPlan, radio: RouteRadioPlanner.Plan? = nil,
                              homeIdent: String? = nil) -> Data? {
         // Create XML Spreadsheet 2003 format (simpler than full XLSX)
-        let plan = recomputed(flightPlan)
+        let plan = asPlanned(flightPlan)
         let xml = generateExcelXML(plan, radio: radio ?? RouteRadioPlanner.manualOnly(plan.waypoints),
                                    homeIdent: homeIdent)
         return xml.data(using: .utf8)
@@ -520,8 +520,8 @@ class FlightPlanExportService {
         var isDiversion = false
     }
 
-    /// Rows for the plan as given; the export entry points recompute the route first (see
-    /// `recomputed(_:)`), so Wind/GS/EET/ETO all come from one calculation.
+    /// Rows for the plan as given; the export entry points take it as planned first (see
+    /// `asPlanned(_:)`), so Wind/GS/EET/ETO all come from one calculation.
     static func navLogRows(_ plan: FlightPlan, radio: RouteRadioPlanner.Plan) -> [NavLogRow] {
         let timeFmt = DateFormatter()
         timeFmt.dateFormat = "HH:mm"
@@ -570,7 +570,8 @@ class FlightPlanExportService {
             let from = wps[i - 1]
             row.mc = from.formattedMagneticCourse ?? ""
             row.dist = from.distance.map { String(format: "%.1f", $0) } ?? ""
-            if let leg = plan.legPlanning(from: i - 1) {
+            // What the leg was planned with, never the forecast of the day it is printed. (6.1)
+            if let leg = plan.plannedLeg(from: i - 1) {
                 row.gs = "\(leg.groundSpeedKt)"
                 row.wind = leg.wind.map(windText) ?? ""
             }
@@ -596,12 +597,18 @@ class FlightPlanExportService {
         return String(format: "%03d/%02d", dir, speed)
     }
 
-    /// A copy with its route data recomputed, so the printed Wind and GS (read live from
-    /// `legPlanning`) and the stored EET/ETO beside them come from the same calculation even if the
-    /// wind cache moved since the plan was last edited.
-    static func recomputed(_ plan: FlightPlan) -> FlightPlan {
+    /// The plan as it will be printed: as planned. Its leg data is what `calculateRouteData` stored,
+    /// the wind each leg was computed with included, so the Wind and GS columns (`plannedLeg(from:)`)
+    /// and the EET and ETO beside them agree however long after it is printed. Only a plan whose legs
+    /// were never computed is computed here, with the winds it already carries and no forecast. (6.1)
+    ///
+    /// It used to recompute every leg with the forecast cached at export time: a nav log printed after
+    /// the flight showed that day's winds and ground speeds beside another day's flight.
+    static func asPlanned(_ plan: FlightPlan) -> FlightPlan {
+        let computed = plan.waypoints.dropLast().allSatisfy { $0.distance != nil && $0.cumulativeEET != nil }
+        guard !computed else { return plan }
         var copy = plan
-        copy.calculateRouteData()
+        copy.calculateRouteData(readingForecasts: false)
         return copy
     }
 
@@ -640,7 +647,7 @@ class FlightPlanExportService {
     /// proportions a pilot already knows from the A4 sheet. The cost is smaller type: about 71 % of A4.
     static func exportToPDF(_ flightPlan: FlightPlan, paperSize: PaperSize = .a4,
                             radio: RouteRadioPlanner.Plan? = nil) -> Data? {
-        let plan = recomputed(flightPlan)
+        let plan = asPlanned(flightPlan)
         let radioPlan = radio ?? RouteRadioPlanner.manualOnly(plan.waypoints)
         let rows = navLogRows(plan, radio: radioPlan)
         let a4 = PaperSize.a4.bounds
@@ -667,7 +674,7 @@ class FlightPlanExportService {
 
     /// How many sheets `exportToPDF` will produce — shown on the export menu before anything is shared.
     static func navLogPageCount(_ flightPlan: FlightPlan, radio: RouteRadioPlanner.Plan?) -> Int {
-        let plan = recomputed(flightPlan)
+        let plan = asPlanned(flightPlan)
         let radioPlan = radio ?? RouteRadioPlanner.manualOnly(plan.waypoints)
         let painter = NavLogPainter(plan: plan, rows: navLogRows(plan, radio: radioPlan),
                                     radio: radioPlan, isFallback: radio == nil)

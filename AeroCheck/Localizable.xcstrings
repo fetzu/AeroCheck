@@ -273,6 +273,108 @@
         }
       }
     },
+    "flightLog.nameImported.message": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ is in the Logbook. A name goes above its route; leave it empty to keep the route alone."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ est dans le carnet de vol. Un nom s'affiche au-dessus de sa route ; laissez vide pour garder la route seule."
+          }
+        }
+      }
+    },
+    "flightLog.nameImported.save": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Save"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Enregistrer"
+          }
+        }
+      }
+    },
+    "flightLog.nameImported.skip": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Skip"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Passer"
+          }
+        }
+      }
+    },
+    "flightLog.nameImported.title": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Name this flight?"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nommer ce vol ?"
+          }
+        }
+      }
+    },
+    "flightTitle.spokenRoute": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@ to %2$@"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@ vers %2$@"
+          }
+        }
+      }
+    },
+    "flightTitle.unknownAerodrome": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "unknown aerodrome"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "aérodrome inconnu"
+          }
+        }
+      }
+    },
     "homeAerodrome.title": {
       "extractionState": "manual",
       "localizations": {
@@ -868,13 +970,183 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "The same aerodrome twice in a row makes a local flight: add a turning point to its route later."
+            "value": "Back to %@: a local flight, or add a stop to land on the way."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Deux fois le même aérodrome à la suite, c'est un vol local : ajoutez un point de virage à sa route plus tard."
+            "value": "Retour à %@ : un vol local, ou ajoutez une escale pour atterrir en chemin."
+          }
+        }
+      }
+    },
+    "planFlight.stopLabel": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Stop %lld"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Escale %lld"
+          }
+        }
+      }
+    },
+    "planFlight.addStopOnTheWay": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Add a stop on the way"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ajouter une escale en chemin"
+          }
+        }
+      }
+    },
+    "planFlight.removeStop": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Remove this stop"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Retirer cette escale"
+          }
+        }
+      }
+    },
+    "planFlight.backHome": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ · back home"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ · retour au départ"
+          }
+        }
+      }
+    },
+    "planFlight.legsTotal": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@ direct · %2$@ flying"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@ en direct · %2$@ de vol"
+          }
+        }
+      }
+    },
+    "planFlight.onTheGroundAt": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "On the ground at %@"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Au sol à %@"
+          }
+        }
+      }
+    },
+    "planFlight.groundMinutes": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld min"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld min"
+          }
+        }
+      }
+    },
+    "planFlight.refuel": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Refuel"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Faire le plein"
+          }
+        }
+      }
+    },
+    "planFlight.legsExplainer": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Each leg is its own flight: route (direct until you draw it), nav log, ATC flight plan and logbook line. Weather, NOTAM and DABS are prepared once for the trip."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chaque étape est un vol à part entière : route (directe tant que vous ne la tracez pas), log de navigation, plan de vol ATC et ligne de carnet de vol. Météo, NOTAM et DABS se préparent une seule fois pour le voyage."
+          }
+        }
+      }
+    },
+    "planFlight.leg1Departure": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Leg 1's departure"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Départ de l’étape 1"
           }
         }
       }
@@ -7887,26 +8159,6 @@
         }
       }
     },
-    "Add stop" : {
-      "localizations" : {
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Ajouter une escale"
-          }
-        }
-      }
-    },
-    "%1$lld aerodromes · %2$lld legs, sharing one preparation" : {
-      "localizations" : {
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "%1$lld aérodromes · %2$lld étapes, une seule préparation"
-          }
-        }
-      }
-    },
     "Leg %1$lld of %2$lld" : {
       "localizations" : {
         "fr" : {
@@ -9579,6 +9831,281 @@
         }
       }
     },
+    "BLOCK TIME": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "TEMPS BLOC"
+          }
+        }
+      }
+    },
+    "ENGINE TIME": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "TEMPS MOTEUR"
+          }
+        }
+      }
+    },
+    "SESSION TIME": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "DURÉE DE SESSION"
+          }
+        }
+      }
+    },
+    "MAX ALT": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ALT. MAX"
+          }
+        }
+      }
+    },
+    "DISTANCE": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "DISTANCE"
+          }
+        }
+      }
+    },
+    "LANDINGS": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ATTERRISSAGES"
+          }
+        }
+      }
+    },
+    "TOUCH-AND-GO": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "POSÉ-DÉCOLLÉ"
+          }
+        }
+      }
+    },
+    "TOUCH-AND-GOES": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "POSÉS-DÉCOLLÉS"
+          }
+        }
+      }
+    },
+    "GO-AROUND": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "REMISE DE GAZ"
+          }
+        }
+      }
+    },
+    "GO-AROUNDS": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "REMISES DE GAZ"
+          }
+        }
+      }
+    },
+    "STOP-AND-GO": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ARRÊT-DÉCOLLÉ"
+          }
+        }
+      }
+    },
+    "STOP-AND-GOES": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ARRÊTS-DÉCOLLÉS"
+          }
+        }
+      }
+    },
+    "STOP": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ESCALE"
+          }
+        }
+      }
+    },
+    "STOPS": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ESCALES"
+          }
+        }
+      }
+    },
+    "LT": {
+      "comment": "Local time, beside a time of day on the flight share card (UTC is written UTC).",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "HL"
+          }
+        }
+      }
+    },
+    "PEAK %@": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "PIC %@"
+          }
+        }
+      }
+    },
+    "Map unavailable (offline?)": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Carte indisponible (hors ligne ?)"
+          }
+        }
+      }
+    },
+    "Chart © swisstopo / BAZL": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Carte © swisstopo / BAZL"
+          }
+        }
+      }
+    },
+    "Imagery © swisstopo": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Imagerie © swisstopo"
+          }
+        }
+      }
+    },
+    "Map: Apple Maps": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Carte : Plans d’Apple"
+          }
+        }
+      }
+    },
+    "Terrain © swisstopo": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Relief © swisstopo"
+          }
+        }
+      }
+    },
+    "Elevation: Open-Meteo": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Relief : Open-Meteo"
+          }
+        }
+      }
+    },
+    "Light": {
+      "comment": "A colour theme of the flight share card.",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Clair"
+          }
+        }
+      }
+    },
+    "Aviation": {
+      "comment": "A colour theme of the flight share card (aviation blue).",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aviation"
+          }
+        }
+      }
+    },
+    "Navy": {
+      "comment": "A colour theme of the flight share card (navy blue).",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Marine"
+          }
+        }
+      }
+    },
+    "Dark": {
+      "comment": "A colour theme of the flight share card (black).",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sombre"
+          }
+        }
+      }
+    },
+    "Glider chart": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Carte vol à voile"
+          }
+        }
+      }
+    },
     "FLT": {
       "comment": "A label displayed in the status strip.",
       "isCommentAutoGenerated": true
@@ -10383,18 +10910,6 @@
       "comment": "The text label for the PDF export option in the flight plan editor.",
       "isCommentAutoGenerated": true
     },
-    "PEAK %lld FT": {
-      "comment": "A label indicating the maximum altitude reached during a flight, displayed in feet. The argument is the maximum altitude in feet.",
-      "isCommentAutoGenerated": true,
-      "localizations": {
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "PIC %lld FT"
-          }
-        }
-      }
-    },
     "PLAN vs ACTUAL": {
       "comment": "A label displayed above the planned ETO vs actual ATO table.",
       "isCommentAutoGenerated": true
@@ -10467,7 +10982,15 @@
     },
     "ROUTE": {
       "comment": "A label displayed above the route strip in the flight share card.",
-      "isCommentAutoGenerated": true
+      "isCommentAutoGenerated": true,
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ROUTE"
+          }
+        }
+      }
     },
     "Recommended": {
       "localizations": {
@@ -10644,11 +11167,27 @@
     },
     "Share card": {
       "comment": "A button to share a card with the user.",
-      "isCommentAutoGenerated": true
+      "isCommentAutoGenerated": true,
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Carte de partage"
+          }
+        }
+      }
     },
     "Share stats card": {
       "comment": "A button that shares a summary of the current filter's stats.",
-      "isCommentAutoGenerated": true
+      "isCommentAutoGenerated": true,
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Partager une carte des statistiques"
+          }
+        }
+      }
     },
     "Show all": {
       "localizations": {
@@ -10903,7 +11442,16 @@
         }
       }
     },
-    "TERRAIN": {},
+    "TERRAIN": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "RELIEF"
+          }
+        }
+      }
+    },
     "TGT: %lld": {
       "comment": "A label indicating the target speed on an aviation instrument panel.",
       "isCommentAutoGenerated": true
@@ -16671,10 +17219,6 @@
           }
         }
       }
-    },
-    "https://aerocheck.app": {
-      "comment": "The website URL of the app.",
-      "isCommentAutoGenerated": true
     },
     "iCloud & Log": {
       "localizations": {

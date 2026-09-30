@@ -53,6 +53,118 @@ struct NewFlightIntent: Equatable, Sendable {
     }
 }
 
+// MARK: - Stops in Plan new flight (6.1)
+//
+// The aerodromes the pilot types, in flying order. FROM is first and TO is last, always: they are the
+// flight itself, so they can be cleared but not removed, and they never move. Every row between them
+// is a STOP, an aerodrome the aircraft lands at, which makes the flight a trip with one leg per pair.
+//
+// "Add a stop on the way" puts the new stop just before TO. It used to append a row after the last
+// one, so a pilot who typed LSZQ, LSZQ (the two empty rows read as From and To) and then added LSGE
+// got LSZQ → LSZQ → LSGE: a local flight, then a leg away from home. Now it is LSZQ → LSGE → LSZQ,
+// the round trip they meant. (trips proposal, M1)
+
+struct PlannedStops: Equatable {
+
+    struct Row: Identifiable, Equatable {
+        let id: UUID
+        var ident: String
+        /// The time on the ground here and whether the aircraft refuels, before the next leg. Only a
+        /// stop's is used: nothing waits at FROM, and the trip ends at TO.
+        var stopover: Stopover
+
+        init(id: UUID = UUID(), ident: String = "", stopover: Stopover = Stopover()) {
+            self.id = id
+            self.ident = ident
+            self.stopover = stopover
+        }
+
+        /// Typed by hand, so trimmed and upper-cased once here rather than at every comparison.
+        var normalisedIdent: String { ident.trimmingCharacters(in: .whitespaces).uppercased() }
+    }
+
+    enum Role: Equatable {
+        case from
+        /// The stop's number, from 1.
+        case stop(Int)
+        case to
+    }
+
+    /// FROM, the stops, TO. Never fewer than two rows.
+    private(set) var rows: [Row]
+
+    init(from: String = "", to: String = "") {
+        rows = [Row(ident: from), Row(ident: to)]
+    }
+
+    /// The indices of the stops in `rows`: everything between FROM and TO.
+    var stopIndices: Range<Int> { 1..<(rows.count - 1) }
+
+    func role(at index: Int) -> Role {
+        if index == 0 { return .from }
+        if index == rows.count - 1 { return .to }
+        return .stop(index)
+    }
+
+    func index(of id: UUID) -> Int? { rows.firstIndex { $0.id == id } }
+
+    /// A new, empty stop just before TO; its id, so the sheet can focus it.
+    @discardableResult
+    mutating func addStop() -> UUID {
+        let row = Row()
+        rows.insert(row, at: rows.count - 1)
+        return row.id
+    }
+
+    /// Take a stop away. FROM and TO are the flight itself: they can be cleared, not removed.
+    mutating func removeStop(_ id: UUID) {
+        guard let index = index(of: id), stopIndices.contains(index) else { return }
+        rows.remove(at: index)
+    }
+
+    /// Move a stop to `destination` (an index in `rows`), kept among the stops: FROM and TO don't move.
+    mutating func moveStop(_ id: UUID, to destination: Int) {
+        guard let from = index(of: id), stopIndices.contains(from) else { return }
+        let target = min(max(destination, stopIndices.lowerBound), stopIndices.upperBound - 1)
+        guard target != from else { return }
+        rows.insert(rows.remove(at: from), at: target)
+    }
+
+    mutating func setIdent(_ ident: String, for id: UUID) {
+        guard let index = index(of: id) else { return }
+        rows[index].ident = ident
+    }
+
+    mutating func setStopover(_ stopover: Stopover, for id: UUID) {
+        guard let index = index(of: id) else { return }
+        rows[index].stopover = stopover
+    }
+
+    /// The rows with an aerodrome typed in, in order. Blank rows are left out everywhere: a stop the
+    /// pilot added and did not fill in must not become a leg to nowhere.
+    var filledRows: [Row] { rows.filter { !$0.normalisedIdent.isEmpty } }
+
+    /// The aerodromes in flying order, trimmed and upper-cased.
+    var idents: [String] { filledRows.map(\.normalisedIdent) }
+
+    /// The stop at each aerodrome between the first and the last of `idents`, in order: `stopovers[i]`
+    /// is the stop in front of leg `i + 2`, as `FlightCreator.createTrip` takes them.
+    var stopovers: [Stopover] {
+        let filled = filledRows
+        guard filled.count > 2 else { return [] }
+        return filled.dropFirst().dropLast().map(\.stopover)
+    }
+
+    /// Two aerodromes make one leg, and each stop one more.
+    var legCount: Int { max(0, idents.count - 1) }
+
+    /// The aerodrome typed twice in a row, if one is: FROM = TO with no stop between is a local flight.
+    var repeatedIdent: String? {
+        let clean = idents
+        return zip(clean, clean.dropFirst()).first { $0 == $1 }?.0
+    }
+}
+
 // MARK: - Building a plan from an intent
 
 extension FlightPlan {

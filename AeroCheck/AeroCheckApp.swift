@@ -85,13 +85,14 @@ struct AeroCheckApp: App {
         FlightPlan.magneticDeclinationProvider = { [weak navaids] coordinate in
             navaids?.nearestNavaid(to: coordinate, maxDistanceNm: 250)?.magneticDeclination ?? FlightPlan.defaultMagneticDeclination
         }
-        // Forecast winds aloft for per-leg ground speed and ETA. Reads cache only — route
-        // recalculation runs on every waypoint drag and must not block on the network — so a cold
-        // cell returns nil and the leg keeps its zero-wind timing until the forecast lands.
+        // Forecast winds aloft for per-leg ground speed and ETA, for the hour each leg is flown. Reads
+        // cache only — route recalculation runs on every waypoint drag and must not block on the
+        // network — so a cold cell returns nil and the leg keeps the wind it was planned with (zero
+        // wind if it has none) until the forecast lands.
         let windsAloft = WindsAloftService()
         _windsAloftService = StateObject(wrappedValue: windsAloft)
-        FlightPlan.windsAloftProvider = { [weak windsAloft] coordinate, altitudeFt in
-            windsAloft?.wind(at: coordinate, altitudeFt: altitudeFt)
+        FlightPlan.windsAloftProvider = { [weak windsAloft] coordinate, altitudeFt, flownAt in
+            windsAloft?.wind(at: coordinate, altitudeFt: altitudeFt, flownAt: flownAt)
         }
         let net = NetworkMonitor()
         _networkMonitor = StateObject(wrappedValue: net)

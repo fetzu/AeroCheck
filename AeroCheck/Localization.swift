@@ -176,12 +176,8 @@ enum L10n {
         static let from = String(localized: "From")
         static let to = String(localized: "To")
         static let identPlaceholder = String(localized: "ICAO or name")
-        static let addStop = String(localized: "Add stop")
         static func legCount(_ count: Int) -> String {
             String(localized: "\(count) legs")
-        }
-        static func legsExplainer(_ stops: Int, _ legs: Int) -> String {
-            String(localized: "\(stops) aerodromes · \(legs) legs, sharing one preparation")
         }
         static func legOf(_ index: Int, _ total: Int) -> String {
             String(localized: "Leg \(index) of \(total)")
@@ -1024,6 +1020,23 @@ enum L10n {
         static let noFlightsMessage = String(localized: "flightLog.noFlights.message")
         static let importFlight = String(localized: "flightLog.importFlight")
         static let pts = String(localized: "flightLog.pts")
+        // Naming a flight just imported (v6.1)
+        static let nameImportedTitle = String(localized: "flightLog.nameImported.title")
+        static func nameImportedMessage(_ title: String) -> String {
+            String(format: String(localized: "flightLog.nameImported.message"), title)
+        }
+        static let nameImportedSave = String(localized: "flightLog.nameImported.save")
+        static let nameImportedSkip = String(localized: "flightLog.nameImported.skip")
+    }
+
+    // MARK: - Flight titles, read aloud (v6.1)
+    enum FlightTitle {
+        /// What VoiceOver says for the "?" end of a route.
+        static let unknownAerodrome = String(localized: "flightTitle.unknownAerodrome")
+        /// "LSZQ to LSGE", for VoiceOver.
+        static func spokenRoute(_ departure: String, _ arrival: String) -> String {
+            String(format: String(localized: "flightTitle.spokenRoute"), departure, arrival)
+        }
     }
 
     // MARK: - Premium
@@ -1280,6 +1293,57 @@ enum L10n {
         static let export = String(localized: "flightDetail.export")
     }
 
+    // MARK: - Share card (6.1)
+    // Literal-keyed, EN and FR by hand in the catalog. Units (ft, NM, km), UTC and the data sources'
+    // names stay as they are.
+    enum ShareCard {
+        // The duration beside the title, named for what it is.
+        static let flightTime = String(localized: "FLIGHT TIME")
+        static let blockTime = String(localized: "BLOCK TIME")
+        static let engineTime = String(localized: "ENGINE TIME")
+        static let sessionTime = String(localized: "SESSION TIME")
+
+        // The figures under the map and the row of times and counts.
+        static let maxAltitude = String(localized: "MAX ALT")
+        static let distance = String(localized: "DISTANCE")
+        static let takeoff = String(localized: "TAKE-OFF")
+        static let landing = String(localized: "LANDING")
+        static func landings(_ count: Int) -> String {
+            count == 1 ? String(localized: "LANDING") : String(localized: "LANDINGS")
+        }
+        static func touchAndGoes(_ count: Int) -> String {
+            count == 1 ? String(localized: "TOUCH-AND-GO") : String(localized: "TOUCH-AND-GOES")
+        }
+        static func goArounds(_ count: Int) -> String {
+            count == 1 ? String(localized: "GO-AROUND") : String(localized: "GO-AROUNDS")
+        }
+        static func stopAndGoes(_ count: Int) -> String {
+            count == 1 ? String(localized: "STOP-AND-GO") : String(localized: "STOP-AND-GOES")
+        }
+        /// A full stop at another aerodrome, before the flight's last landing.
+        static func stops(_ count: Int) -> String {
+            count == 1 ? String(localized: "STOP") : String(localized: "STOPS")
+        }
+        /// Beside a time of day that is local, not UTC.
+        static let localTime = String(localized: "LT", comment: "Local time, beside a time of day on the flight share card (UTC is written UTC).")
+        static func peak(_ altitude: String) -> String { String(localized: "PEAK \(altitude)") }
+
+        // The map.
+        static let mapUnavailable = String(localized: "Map unavailable (offline?)")
+        static let creditChart = String(localized: "Chart © swisstopo / BAZL")
+        static let creditImagery = String(localized: "Imagery © swisstopo")
+        static let creditAppleMaps = String(localized: "Map: Apple Maps")
+        static let creditTerrainSwisstopo = String(localized: "Terrain © swisstopo")
+        static let creditTerrainOpenMeteo = String(localized: "Elevation: Open-Meteo")
+
+        // The customisation sheet.
+        static let themeLight = String(localized: "Light", comment: "A colour theme of the flight share card.")
+        static let themeAviation = String(localized: "Aviation", comment: "A colour theme of the flight share card (aviation blue).")
+        static let themeNavy = String(localized: "Navy", comment: "A colour theme of the flight share card (navy blue).")
+        static let themeDark = String(localized: "Dark", comment: "A colour theme of the flight share card (black).")
+        static let gliderChart = String(localized: "Glider chart")
+    }
+
     // MARK: - Event Confirmation
     enum EventConfirmation {
         static let dismiss = String(localized: "eventConfirmation.dismiss")
@@ -1452,7 +1516,36 @@ enum L10n {
             String(format: String(localized: "planFlight.unknownInSummary"), idents)
         }
         static let noAirportData = String(localized: "planFlight.noAirportData")
-        static let sameAerodrome = String(localized: "planFlight.sameAerodrome")
+        /// "Back to LSZQ: a local flight, or add a stop to land on the way."
+        static func sameAerodrome(_ ident: String) -> String {
+            String(format: String(localized: "planFlight.sameAerodrome"), ident)
+        }
+        // Stops (6.1, trips proposal M1)
+        /// "Stop 1"
+        static func stopLabel(_ number: Int) -> String {
+            String(format: String(localized: "planFlight.stopLabel"), number)
+        }
+        static let addStopOnTheWay = String(localized: "planFlight.addStopOnTheWay")
+        static let removeStop = String(localized: "planFlight.removeStop")
+        /// "Bressaucourt · back home"
+        static func backHome(_ name: String) -> String {
+            String(format: String(localized: "planFlight.backHome"), name)
+        }
+        /// "80 NM direct · 1:18 flying"
+        static func legsTotal(_ distance: String, _ eet: String) -> String {
+            String(format: String(localized: "planFlight.legsTotal"), distance, eet)
+        }
+        /// "On the ground at LSGE"
+        static func onTheGroundAt(_ ident: String) -> String {
+            String(format: String(localized: "planFlight.onTheGroundAt"), ident)
+        }
+        /// "30 min"
+        static func groundMinutes(_ minutes: Int) -> String {
+            String(format: String(localized: "planFlight.groundMinutes"), minutes)
+        }
+        static let refuel = String(localized: "planFlight.refuel")
+        static let legsExplainer = String(localized: "planFlight.legsExplainer")
+        static let leg1Departure = String(localized: "planFlight.leg1Departure")
     }
 
     /// Where the pilot is based: Settings › Flight Planning and onboarding. (v6.1)

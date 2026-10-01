@@ -174,6 +174,10 @@ class FlightPlanManager: ObservableObject {
     /// trip. Nil outside a trip. (v5.1)
     var nextLegPlanId: (@MainActor (UUID) -> UUID?)?
 
+    /// Wired at launch: whether a flight is under way. Nil until then, which decides nothing. A plan
+    /// deleted on another device is not taken off a flight in progress (`dropDeletedPlans`). (6.1)
+    var isFlightInProgress: (@MainActor () -> Bool)?
+
     /// A later trip leg departs when the one before it lands, so moving leg 1's departure, or
     /// changing its route, moves leg 2's estimated departure and ETOs, and its fuel when it does not
     /// refuel. Each updated leg carries on into the next one through `updateFlightPlan`; the chain ends
@@ -187,6 +191,7 @@ class FlightPlanManager: ObservableObject {
 
     /// Delete a flight plan
     func deleteFlightPlan(_ plan: FlightPlan) {
+        let stamp = flightPlans.first { $0.id == plan.id }?.updatedAt ?? plan.updatedAt
         flightPlans.removeAll { $0.id == plan.id }
 
         // Deactivate if this was the active plan
@@ -194,6 +199,8 @@ class FlightPlanManager: ObservableObject {
             deactivateFlightPlan()
         }
 
+        // Recorded before the file goes, so the other store's copy stays deleted too. (6.1)
+        persistence.recordDeletion(.plan, id: plan.id, stamp: stamp)
         // Delete the file from iCloud
         deleteFlightPlanFile(plan)
     }
@@ -1283,6 +1290,8 @@ class FlightPlanManager: ObservableObject {
     private func loadFlightPlansAsync() async {
         defer { hasLoadedPlans = true }
         let loaded = await persistence.loadNavigationPlansOffMain()
+        let ledger = await persistence.deletionLedgerOffMain(kinds: [.plan])
+        dropDeletedPlans(ledger)
         // The async load can finish long after launch (an iCloud download on a slow network).
         // Plans created/edited in the meantime win by id; loaded plans only fill the gaps.
         let existingIds = Set(flightPlans.map(\.id))
@@ -1291,6 +1300,51 @@ class FlightPlanManager: ObservableObject {
         for plan in loaded where lastPersisted[plan.id] == nil {
             lastPersisted[plan.id] = Self.fingerprint(plan)
         }
+        settleDeletedActivePlan(ledger)
+    }
+
+    /// The plans in memory that the store's deletion records say are dead (deleted, and not edited
+    /// since) leave memory, with their `lastPersisted`. After "Sync to iCloud" moved the datastore,
+    /// memory holds the old store's plans: one deleted in the new store (on another device, or here
+    /// before an earlier switch) stayed on screen, and its next save wrote it back. The loader has
+    /// already left out the new store's own dead files. The plan being flown stays
+    /// (`settleDeletedActivePlan`). (6.1)
+    private func dropDeletedPlans(_ ledger: DeletionLedger) {
+        guard ledger.contains(.plan) else { return }
+        let flown = isFlightInProgress?() == true ? activeFlightPlan?.id : nil
+        var dropped: [UUID] = []
+        flightPlans.removeAll { plan in
+            guard plan.id != flown, ledger.isDead(.plan, id: plan.id, stamp: plan.updatedAt) else { return false }
+            dropped.append(plan.id)
+            return true
+        }
+        for id in dropped { lastPersisted[id] = nil }
+        if !dropped.isEmpty {
+            AppLog.general.publicLine("Dropped \(dropped.count) plan(s) deleted in this store")
+        }
+    }
+
+    /// The active plan is a device-local copy. When the records say it was deleted and no live copy
+    /// is left, it comes off the map, except during a flight: the flight is using it, which makes it
+    /// an edit later than the deletion, so it is stamped as one and written back. Before the app has
+    /// said whether a flight is under way (early at launch), nothing is decided.
+    private func settleDeletedActivePlan(_ ledger: DeletionLedger) {
+        guard let active = activeFlightPlan,
+              ledger.isDead(.plan, id: active.id, stamp: active.updatedAt),
+              !flightPlans.contains(where: { $0.id == active.id && !ledger.isDead(.plan, id: $0.id, stamp: $0.updatedAt) }),
+              let flying = isFlightInProgress?() else { return }
+        guard flying else {
+            deactivateFlightPlan()
+            return
+        }
+        var kept = active
+        kept.updatedAt = DeletionRecords.stamp(after: ledger.mark(.plan, id: active.id)?.deletedAt)
+        if let index = flightPlans.firstIndex(where: { $0.id == kept.id }) {
+            flightPlans[index] = kept
+        } else {
+            flightPlans.insert(kept, at: 0)
+        }
+        commitActive(kept)
     }
 
     /// Delete a flight plan file

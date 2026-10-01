@@ -214,6 +214,9 @@ class DataPersistenceManager: ObservableObject {
         createDirectoryStructure()
 
         observeUbiquityIdentityChanges()
+
+        // After the owed merge, which reads the records.
+        Task { [weak self] in await self?.pruneDeletionRecordsOffMain() }
     }
 
     /// Re-resolves the ubiquity container when the iCloud account changes. (RES-03)
@@ -368,10 +371,11 @@ class DataPersistenceManager: ObservableObject {
 
     /// Turns the iCloud Drive store on or off with the switch. Returns whether the store moved.
     ///
-    /// Nothing is deleted on either side: what is in iCloud Drive stays there when the switch goes
-    /// off, and the local files stay when it goes back on. The store being left is copied into the
-    /// one taken up (files missing there, or newer), so nothing the pilot saw disappears. Observers
-    /// of `.datastoreLocationDidChange` then load what the new store adds.
+    /// The store being left is not touched: what is in iCloud Drive stays there when the switch goes
+    /// off, and the local files stay when it goes back on. It is copied into the one taken up (files
+    /// missing there, or newer), so nothing the pilot saw disappears, except what the pilot deleted:
+    /// the deletion records keep it out, and a stale copy of it in the store taken up is retired
+    /// (6.1). Observers of `.datastoreLocationDidChange` then load what the new store adds.
     @discardableResult
     func setUsesICloudDrive(_ enabled: Bool) -> Bool {
         preferences?.set(enabled, forKey: Self.syncPreferenceKey)
@@ -440,19 +444,28 @@ class DataPersistenceManager: ObservableObject {
         let result: DatastoreMergeResult
         switch direction {
         case .toLocal:
-            result = Self.mergeDatastore(from: iCloudDocs, into: localAppDirectory, fileManager: .default)
+            result = Self.mergeDatastore(from: iCloudDocs, into: localAppDirectory,
+                                         retiringInto: retiredDirectory, fileManager: .default)
         case .toICloud:
-            result = Self.mergeDatastore(from: localAppDirectory, into: iCloudDocs, fileManager: .default)
+            result = Self.mergeDatastore(from: localAppDirectory, into: iCloudDocs,
+                                         retiringInto: retiredDirectory, fileManager: .default)
         }
-        AppLog.general.debugLine(
-            "Datastore merge \(direction.rawValue): copied \(result.copied), waiting on \(result.notDownloaded) download(s)")
+        AppLog.general.publicLine(
+            "Datastore merge \(direction.rawValue): copied \(result.copied), retired \(result.retired), "
+                + "\(result.records) deletion record(s), waiting on \(result.notDownloaded) download(s)")
         if result.notDownloaded == 0 { pendingMerge = nil }
     }
 
-    /// What a merge copied, and how many source files were not downloaded yet.
+    /// What a merge copied, retired and owes.
     struct DatastoreMergeResult: Equatable {
         var copied = 0
+        /// Files (and trips) left behind because they are not downloaded yet, or because only a
+        /// deletion record not downloaded yet could decide them: the merge stays owed.
         var notDownloaded = 0
+        /// Dead copies in the destination moved to `Retired/` (trips: dropped from `trips.json`).
+        var retired = 0
+        /// Deletion records copied across.
+        var records = 0
     }
 
     /// The folders and root files the switch moves between the stores. The plans index is left out:
@@ -461,21 +474,42 @@ class DataPersistenceManager: ObservableObject {
     nonisolated static let mergedFolders = ["Flights", "NavigationPlans", "FlightThreads"]
     nonisolated static let mergedRootFiles = ["settings.json", tripsFileName]
 
+    /// The kind of item each merged folder holds, for its deletion records.
+    nonisolated static func deletionKind(ofFolder folder: String) -> DeletionRecord.Kind {
+        switch folder {
+        case "Flights": return .flight
+        case "NavigationPlans": return .plan
+        default: return .thread
+        }
+    }
+
     /// Copies every datastore file of `source` that `destination` lacks, or holds an older copy of.
-    /// Never deletes anything, on either side. Pure file work, so it is tested on plain directories.
+    /// Pure file work, so it is tested on plain directories.
     ///
     /// `trips.json` is the exception to "file by file": it holds every trip, so it is merged trip by
     /// trip (`mergeTrips`).
     ///
-    /// Deletion records (6.1, review design 94 §2.3) plug in here: a copy whose content stamp is not
-    /// later than its item's `deletedAt` is skipped in the source and retired in the destination.
-    /// Until then an item deleted in one store comes back from the other one.
-    nonisolated static func mergeDatastore(from source: URL, into destination: URL,
-                                           fileManager: FileManager) -> DatastoreMergeResult {
+    /// Deletion records (6.1): the records of both stores together say which copies are dead (not
+    /// edited since their item's deletion). A dead copy in the source is not copied, a dead copy in
+    /// the destination is retired (copied to `retired`, local and never synced, then removed), and
+    /// the records follow the store. Without a record of a kind, that kind takes #203's path
+    /// unchanged. The store being left is not touched, as in #203.
+    nonisolated static func mergeDatastore(from source: URL, into destination: URL, retiringInto retired: URL,
+                                           now: Date = Date(), fileManager: FileManager) -> DatastoreMergeResult {
         var result = DatastoreMergeResult()
+        let ledger = DeletionRecords.read(storeRoot: source, now: now, fileManager: fileManager)
+            .merging(DeletionRecords.read(storeRoot: destination, now: now, fileManager: fileManager))
         for folder in mergedFolders {
             let from = source.appendingPathComponent(folder, isDirectory: true)
             let to = destination.appendingPathComponent(folder, isDirectory: true)
+            let kind = deletionKind(ofFolder: folder)
+            let recorded = ledger.idPrefixes(of: kind)
+            // The destination's dead copies first, so a live copy from the source can take their place
+            // whatever the two files' dates.
+            if !recorded.isEmpty {
+                retireDeadCopies(in: to, kind: kind, ledger: ledger, recorded: recorded, retiringInto: retired,
+                                 now: now, fileManager: fileManager, result: &result)
+            }
             guard let entries = try? fileManager.contentsOfDirectory(
                 at: from, includingPropertiesForKeys: [.contentModificationDateKey, .ubiquitousItemDownloadingStatusKey])
             else { continue }
@@ -490,14 +524,26 @@ class DataPersistenceManager: ObservableObject {
                     continue
                 }
                 guard entry.pathExtension == "json", !indexFileNames.contains(name) else { continue }
+                if !recorded.isEmpty, DeletionRecords.needsProbe(name, prefixes: recorded), isLocallyMaterialized(entry),
+                   let copy = DeletionRecords.probe(entry, kind: kind) {
+                    switch ledger.verdict(kind, id: copy.id, stamp: copy.stamp) {
+                    case .dead:
+                        continue
+                    case .unknown:
+                        result.notDownloaded += 1
+                        continue
+                    case .alive:
+                        break
+                    }
+                }
                 copyIfNewer(entry, to: to.appendingPathComponent(name), fileManager: fileManager, result: &result)
             }
         }
         for file in mergedRootFiles {
             let from = source.appendingPathComponent(file)
             if file == tripsFileName {
-                mergeTrips(from: from, into: destination.appendingPathComponent(file),
-                           fileManager: fileManager, result: &result)
+                mergeTrips(from: from, into: destination.appendingPathComponent(file), ledger: ledger,
+                           retiringInto: retired, now: now, fileManager: fileManager, result: &result)
             } else if fileManager.fileExists(atPath: from.path) {
                 copyIfNewer(from, to: destination.appendingPathComponent(file), fileManager: fileManager, result: &result)
             } else {
@@ -508,7 +554,72 @@ class DataPersistenceManager: ObservableObject {
                 }
             }
         }
+        copyDeletionRecords(from: source, into: destination, now: now, fileManager: fileManager, result: &result)
         return result
+    }
+
+    /// Retires every copy in `folder` that the records say is dead. Never a file iCloud has not
+    /// downloaded (the loaders judge it once it is here), never one only an undated record covers.
+    private nonisolated static func retireDeadCopies(in folder: URL, kind: DeletionRecord.Kind, ledger: DeletionLedger,
+                                                     recorded: Set<String>, retiringInto retired: URL, now: Date,
+                                                     fileManager: FileManager, result: inout DatastoreMergeResult) {
+        guard let entries = try? fileManager.contentsOfDirectory(at: folder, includingPropertiesForKeys: nil) else { return }
+        for entry in entries where entry.pathExtension == "json" && !indexFileNames.contains(entry.lastPathComponent) {
+            guard DeletionRecords.needsProbe(entry.lastPathComponent, prefixes: recorded),
+                  isLocallyMaterialized(entry),
+                  let copy = DeletionRecords.probe(entry, kind: kind),
+                  ledger.isDead(kind, id: copy.id, stamp: copy.stamp) else { continue }
+            if DeletionRecords.retire(entry, kind: kind, retiredRoot: retired, now: now, fileManager: fileManager) {
+                result.retired += 1
+            }
+        }
+    }
+
+    /// The records follow the store: each one the destination lacks, or holds an older date of, is
+    /// copied there. One not downloaded on either side keeps the merge owed (never written next to
+    /// an evicted file, which would make an iCloud conflict of it). An unreadable one is not spread.
+    private nonisolated static func copyDeletionRecords(from source: URL, into destination: URL, now: Date,
+                                                        fileManager: FileManager, result: inout DatastoreMergeResult) {
+        let from = DeletionRecords.folder(in: source)
+        let to = DeletionRecords.folder(in: destination)
+        guard let names = try? fileManager.contentsOfDirectory(atPath: from.path) else { return }
+        for name in names {
+            if name.hasPrefix("."), name.hasSuffix(".icloud") {
+                let real = String(name.dropFirst().dropLast(".icloud".count))
+                guard DeletionRecords.parseFileName(real) != nil else { continue }
+                try? fileManager.startDownloadingUbiquitousItem(at: from.appendingPathComponent(real))
+                result.notDownloaded += 1
+                continue
+            }
+            guard DeletionRecords.parseFileName(name) != nil else { continue }
+            let url = from.appendingPathComponent(name)
+            guard isLocallyMaterialized(url) else {
+                try? fileManager.startDownloadingUbiquitousItem(at: url)
+                result.notDownloaded += 1
+                continue
+            }
+            guard let record = DeletionRecords.readRecord(at: url, now: now) else { continue }
+            let target = to.appendingPathComponent(name)
+            if fileManager.fileExists(atPath: evictedPlaceholder(of: target).path)
+                || (fileManager.fileExists(atPath: target.path) && !isLocallyMaterialized(target)) {
+                try? fileManager.startDownloadingUbiquitousItem(at: target)
+                result.notDownloaded += 1
+                continue
+            }
+            if let present = DeletionRecords.readRecord(at: target, now: now), present.deletedAt >= record.deletedAt {
+                continue
+            }
+            do {
+                try fileManager.createDirectory(at: to, withIntermediateDirectories: true)
+                if fileManager.fileExists(atPath: target.path) { try fileManager.removeItem(at: target) }
+                try fileManager.copyItem(at: url, to: target)
+                try? fileManager.setAttributes([.protectionKey: FileProtectionType.completeUntilFirstUserAuthentication],
+                                               ofItemAtPath: target.path)
+                result.records += 1
+            } catch {
+                AppLog.general.debugLine("Datastore merge: could not copy a deletion record: \(error.localizedDescription)")
+            }
+        }
     }
 
     /// Copies `source` over `destination` when the destination is missing or older.
@@ -554,40 +665,148 @@ class DataPersistenceManager: ObservableObject {
     /// destination that does not decode is replaced by a newer source, the whole-file rule of #203.
     /// A side not downloaded yet keeps the merge owed, like any other file: writing a new trips.json
     /// over an evicted one would make an iCloud conflict of it.
-    private nonisolated static func mergeTrips(from source: URL, into destination: URL,
-                                               fileManager: FileManager, result: inout DatastoreMergeResult) {
+    ///
+    /// Deletion records: a dissolved trip (dead, `Trip.updatedAt` not later than its record) is not
+    /// brought in, and leaves the destination's file, whose previous version is parked in
+    /// `Retired/trip/` first. A trip only an undated record covers is not brought in either, and the
+    /// merge stays owed.
+    private nonisolated static func mergeTrips(from source: URL, into destination: URL, ledger: DeletionLedger,
+                                               retiringInto retired: URL, now: Date, fileManager: FileManager,
+                                               result: inout DatastoreMergeResult) {
         func owed(_ url: URL) {
             try? fileManager.startDownloadingUbiquitousItem(at: url)
             result.notDownloaded += 1
         }
-        guard fileManager.fileExists(atPath: source.path) else {
-            if fileManager.fileExists(atPath: evictedPlaceholder(of: source).path) { owed(source) }
-            return
+        func write(_ trips: [Trip]) -> Bool {
+            do {
+                try encodeTrips(trips).write(to: destination, options: protectedWriteOptions)
+                return true
+            } catch {
+                AppLog.general.debugLine("Datastore merge: could not write the merged trips: \(error.localizedDescription)")
+                return false
+            }
         }
-        guard isLocallyMaterialized(source) else { return owed(source) }
+        /// The trips that may come in: the dead ones never do, nor (owed) one only an undated record covers.
+        func incomingLive(_ trips: [Trip]) -> [Trip] {
+            trips.filter { trip in
+                switch ledger.verdict(.trip, id: trip.id, stamp: trip.updatedAt) {
+                case .alive: return true
+                case .dead: return false
+                case .unknown:
+                    result.notDownloaded += 1
+                    return false
+                }
+            }
+        }
+        let sourceExists = fileManager.fileExists(atPath: source.path)
+        if !sourceExists, fileManager.fileExists(atPath: evictedPlaceholder(of: source).path) { return owed(source) }
+        if sourceExists, !isLocallyMaterialized(source) { return owed(source) }
+        // Nothing to bring in, and no record that could take a trip out of the destination.
+        guard sourceExists || ledger.contains(.trip) else { return }
+
         guard fileManager.fileExists(atPath: destination.path) else {
+            guard sourceExists else { return }
             if fileManager.fileExists(atPath: evictedPlaceholder(of: destination).path) { return owed(destination) }
-            // Nothing to merge with: the plain copy.
+            // Nothing to merge with: the plain copy, without the trips dissolved since.
+            if ledger.contains(.trip), let incoming = (try? Data(contentsOf: source)).flatMap(decodeTrips) {
+                let live = incomingLive(incoming)
+                if live.count < incoming.count {
+                    if write(live) { result.copied += 1 }
+                    return
+                }
+            }
             return copyIfNewer(source, to: destination, fileManager: fileManager, result: &result)
         }
-        guard isLocallyMaterialized(destination) else { return owed(destination) }
+        guard isLocallyMaterialized(destination) else { return sourceExists ? owed(destination) : () }
 
-        guard let incoming = (try? Data(contentsOf: source)).flatMap(decodeTrips) else {
+        let incoming = sourceExists ? (try? Data(contentsOf: source)).flatMap(decodeTrips) : []
+        if incoming == nil {
             AppLog.general.debugLine("Datastore merge: the trips.json being left does not decode, not copied")
-            return
         }
         guard let present = (try? Data(contentsOf: destination)).flatMap(decodeTrips) else {
+            guard sourceExists, incoming != nil else { return }
             AppLog.general.debugLine("Datastore merge: trips.json does not decode here, keeping the newer file")
             return copyIfNewer(source, to: destination, fileManager: fileManager, result: &result)
         }
-        let merged = Trip.merged(present, with: incoming)
+        // An unreadable source brings nothing, and replaces nothing.
+        let arriving = incomingLive(incoming ?? [])
+        let staying = present.filter { !ledger.isDead(.trip, id: $0.id, stamp: $0.updatedAt) }
+        let merged = Trip.merged(staying, with: arriving)
         guard merged != present else { return }
-        do {
-            try encodeTrips(merged).write(to: destination, options: protectedWriteOptions)
-            result.copied += 1
-        } catch {
-            AppLog.general.debugLine("Datastore merge: could not write the merged trips: \(error.localizedDescription)")
+        let dropped = present.count - staying.count
+        if dropped > 0 {
+            guard DeletionRecords.park(destination, kind: .trip, retiredRoot: retired, now: now,
+                                       fileManager: fileManager) else { return }
         }
+        guard write(merged) else { return }
+        result.retired += dropped
+        if merged != staying { result.copied += 1 }
+    }
+
+    // MARK: - Deletion records (6.1)
+
+    /// The root of the store in use: iCloud Drive's Documents, or the local Application Support folder.
+    var activeStoreRoot: URL {
+        activeICloudDocumentsURL ?? localAppDirectory
+    }
+
+    /// Where dead copies are retired: in the local store, never synced, purged after 30 days.
+    var retiredDirectory: URL {
+        localAppDirectory.appendingPathComponent(DeletionRecords.retiredFolderName, isDirectory: true)
+    }
+
+    /// The pilot deleted `id`: recorded in the store in use, so the other store's copy, or one a
+    /// plain copy puts back, stays deleted. Called where the deletion is the pilot's intent (the
+    /// Logbook, Routes, "Cancel flight", joining legs, a dissolved trip), never by the file deletes
+    /// that tidy up after a rename or by the CloudKit ingest: those remove files of items that live
+    /// on, and a record there would later kill the real copy in the other store.
+    ///
+    /// `stamp` is the content stamp of the copy being deleted: a copy stamped ahead of this device's
+    /// clock (another device's clock runs ahead) is still covered, within the clock skew a record
+    /// may carry.
+    func recordDeletion(_ kind: DeletionRecord.Kind, id: UUID, stamp: Date? = nil, at now: Date = Date()) {
+        let ceiling = now.addingTimeInterval(FlightDataLimits.maxClockSkew)
+        let deletedAt = min(max(now, stamp ?? now), ceiling)
+        DeletionRecords.write(kind, id: id, deletedAt: deletedAt, storeRoot: activeStoreRoot)
+    }
+
+    /// The active store's records of the given kinds, read off the main actor.
+    func deletionLedgerOffMain(kinds: Set<DeletionRecord.Kind>) async -> DeletionLedger {
+        let root = activeStoreRoot
+        return await Task.detached(priority: .utility) {
+            DeletionRecords.read(storeRoot: root, kinds: kinds)
+        }.value
+    }
+
+    /// The record of one item in either store. The other store too: a flight deleted with the switch
+    /// on and imported back with it off has its record in iCloud Drive only, and the next switch-on
+    /// would take the imported copy for the deleted one.
+    func deletionMark(_ kind: DeletionRecord.Kind, id: UUID) -> DeletionLedger.Mark? {
+        let roots = [localAppDirectory, iCloudDocumentsURL].compactMap { $0 }
+        var found: DeletionLedger.Mark?
+        for root in roots {
+            guard let mark = DeletionRecords.mark(kind, id: id, storeRoot: root) else { continue }
+            var combined = found ?? DeletionLedger.Mark()
+            if let deletedAt = mark.deletedAt { combined.deletedAt = max(combined.deletedAt ?? deletedAt, deletedAt) }
+            combined.undated = combined.undated || mark.undated
+            found = combined
+        }
+        return found
+    }
+
+    /// The active store's records past their lifetime, and the retired copies past theirs. At launch,
+    /// after the owed merge, off the main thread; the store not in use is left alone.
+    @discardableResult
+    func pruneDeletionRecordsOffMain(now: Date = Date()) async -> (records: Int, retired: Int) {
+        let root = activeStoreRoot
+        let retired = retiredDirectory
+        let pruned = await Task.detached(priority: .background) {
+            DeletionRecords.prune(storeRoot: root, retiredRoot: retired, now: now)
+        }.value
+        if pruned.records + pruned.retired > 0 {
+            AppLog.general.publicLine("Pruned \(pruned.records) deletion record(s) and \(pruned.retired) retired file(s)")
+        }
+        return pruned
     }
 
     // MARK: - Directory Management
@@ -902,7 +1121,9 @@ class DataPersistenceManager: ObservableObject {
 
     /// Load all flights from individual files
     func loadFlights() -> [Flight] {
-        Self.decodeFlights(in: flightsDirectory)
+        Self.decodeFlights(in: flightsDirectory,
+                           deletions: DeletionFilter.reading(storeRoot: activeStoreRoot, retiredRoot: retiredDirectory,
+                                                             kinds: [.flight]))
     }
 
     /// Loads + decodes all flights OFF the main actor, then returns to the caller. The directory URL
@@ -911,15 +1132,21 @@ class DataPersistenceManager: ObservableObject {
     /// executor so a large logbook never stalls the main thread at launch / reload. (PR-24)
     func loadFlightsOffMain() async -> [Flight] {
         let directory = flightsDirectory
+        let (root, retired) = (activeStoreRoot, retiredDirectory)
         return await Task.detached(priority: .utility) {
             // Kick downloads for any evicted flights so a later reload/relaunch picks them up. (PERF-25)
             Self.requestICloudDownloads(in: directory)
-            return Self.decodeFlights(in: directory)
+            return Self.decodeFlights(
+                in: directory, deletions: DeletionFilter.reading(storeRoot: root, retiredRoot: retired, kinds: [.flight]))
         }.value
     }
 
     /// Pure directory-enumerate + decode, with no main-actor state, so it can run on any executor.
-    nonisolated static func decodeFlights(in directory: URL) -> [Flight] {
+    ///
+    /// `deletions`: the active store's records. A flight deleted on purpose and not edited since is
+    /// left out and its file retired: a plain copy (an older build switching, a restore) can put
+    /// such a file back, and this is what makes every device converge.
+    nonisolated static func decodeFlights(in directory: URL, deletions: DeletionFilter? = nil) -> [Flight] {
         var flights: [Flight] = []
         let fileManager = FileManager.default
 
@@ -939,6 +1166,10 @@ class DataPersistenceManager: ObservableObject {
                 do {
                     let data = try Data(contentsOf: fileURL)
                     let flight = try decoder.decode(Flight.self, from: data)
+                    if let deletions, deletions.isDead(.flight, id: flight.id, stamp: flight.modifiedAt) {
+                        deletions.retire(fileURL, kind: .flight)
+                        continue
+                    }
                     // SEC-C23: this directory resolves to the iCloud Documents container — the one
                     // the user sees as iCloud/AéroCheck/Flights — so its contents are editable
                     // outside the app's own import flow and must be checked, not trusted blindly.
@@ -1038,14 +1269,16 @@ class DataPersistenceManager: ObservableObject {
     /// synchronously inside `FlightPlanManager.init()` during launch. (PERF-25)
     func loadNavigationPlansOffMain() async -> [FlightPlan] {
         let directory = navigationPlansDirectory
+        let (root, retired) = (activeStoreRoot, retiredDirectory)
         return await Task.detached(priority: .utility) {
             Self.requestICloudDownloads(in: directory)
-            return Self.decodeNavigationPlans(in: directory)
+            return Self.decodeNavigationPlans(
+                in: directory, deletions: DeletionFilter.reading(storeRoot: root, retiredRoot: retired, kinds: [.plan]))
         }.value
     }
 
-    /// Pure directory-enumerate + decode, no main-actor state.
-    nonisolated static func decodeNavigationPlans(in directory: URL) -> [FlightPlan] {
+    /// Pure directory-enumerate + decode, no main-actor state. `deletions` as for the flights.
+    nonisolated static func decodeNavigationPlans(in directory: URL, deletions: DeletionFilter? = nil) -> [FlightPlan] {
         var plans: [FlightPlan] = []
         let fileManager = FileManager.default
 
@@ -1065,6 +1298,10 @@ class DataPersistenceManager: ObservableObject {
                 do {
                     let data = try Data(contentsOf: fileURL)
                     let plan = try decoder.decode(FlightPlan.self, from: data)
+                    if let deletions, deletions.isDead(.plan, id: plan.id, stamp: plan.updatedAt) {
+                        deletions.retire(fileURL, kind: .plan)
+                        continue
+                    }
                     // SEC-C23: same reasoning as flights above, and it matters more here — an
                     // unvalidated plan can be ACTIVATED, drawn on the map, and used for the route
                     // profile and fuel figures.
@@ -1325,48 +1562,65 @@ class DataPersistenceManager: ObservableObject {
         return try? decoder.decode([Trip].self, from: data)
     }
 
+    /// Writes the whole array, without the trips the store's records say were dissolved: a device
+    /// that has not reloaded since another one dissolved a trip still holds it, and its next trip save
+    /// wrote it back with the rest. A trip edited after its record is alive, and written.
     func saveTripsOffMain(_ trips: [Trip]) async {
         let url = tripsFileURL
+        let root = activeStoreRoot
         await Task.detached(priority: .utility) {
+            let ledger = DeletionRecords.read(storeRoot: root, kinds: [.trip])
+            let live = ledger.isEmpty ? trips : trips.filter { !ledger.isDead(.trip, id: $0.id, stamp: $0.updatedAt) }
             do {
-                try Self.encodeTrips(trips).write(to: url, options: Self.protectedWriteOptions)
+                try Self.encodeTrips(live).write(to: url, options: Self.protectedWriteOptions)
             } catch {
                 AppLog.general.debugLine("Failed to save trips: \(error.localizedDescription)")
             }
         }.value
     }
 
+    /// The trips of the store in use, without the dissolved ones (deletion records). Those stay in
+    /// the file until the next trip save writes what is live: a load writes nothing.
     func loadTripsOffMain() async -> [Trip] {
         let url = tripsFileURL
         let legacy = legacyLocalTripsFileURL
+        let root = activeStoreRoot
         return await Task.detached(priority: .utility) {
-            // Evicted by iCloud: ask for it back, so a later load finds it. (Its legs are not lost
-            // meanwhile: FlightThreadManager rebuilds a trip its legs point at.)
-            let evicted = !FileManager.default.fileExists(atPath: url.path)
-                && FileManager.default.fileExists(atPath: Self.evictedPlaceholder(of: url).path)
-            if evicted { try? FileManager.default.startDownloadingUbiquitousItem(at: url) }
-            // Migration: fall back to the old local path once, so trips built before the iCloud
-            // move survive the upgrade. The next `saveTrips` writes them to the new location. Never
-            // for an evicted file: its trips exist, and the local file (the local store's, since the
-            // switch) would stand in for them until a save wrote it over them.
-            let data = (try? Data(contentsOf: url)) ?? (evicted ? nil : try? Data(contentsOf: legacy))
-            guard let data else { return [] }
-            return Self.decodeTrips(data) ?? []
+            let trips = Self.readTrips(at: url, legacy: legacy)
+            let ledger = DeletionRecords.read(storeRoot: root, kinds: [.trip])
+            return ledger.isEmpty ? trips : trips.filter { !ledger.isDead(.trip, id: $0.id, stamp: $0.updatedAt) }
         }.value
+    }
+
+    private nonisolated static func readTrips(at url: URL, legacy: URL) -> [Trip] {
+        // Evicted by iCloud: ask for it back, so a later load finds it. (Its legs are not lost
+        // meanwhile: FlightThreadManager rebuilds a trip its legs point at.)
+        let evicted = !FileManager.default.fileExists(atPath: url.path)
+            && FileManager.default.fileExists(atPath: Self.evictedPlaceholder(of: url).path)
+        if evicted { try? FileManager.default.startDownloadingUbiquitousItem(at: url) }
+        // Migration: fall back to the old local path once, so trips built before the iCloud
+        // move survive the upgrade. The next `saveTrips` writes them to the new location. Never
+        // for an evicted file: its trips exist, and the local file (the local store's, since the
+        // switch) would stand in for them until a save wrote it over them.
+        let data = (try? Data(contentsOf: url)) ?? (evicted ? nil : try? Data(contentsOf: legacy))
+        guard let data else { return [] }
+        return Self.decodeTrips(data) ?? []
     }
 
     /// Loads + decodes all threads OFF the main actor (same reasoning as plans and flights: the
     /// directory sits in iCloud and can stall during launch).
     func loadFlightThreadsOffMain() async -> [FlightThread] {
         let directory = flightThreadsDirectory
+        let (root, retired) = (activeStoreRoot, retiredDirectory)
         return await Task.detached(priority: .utility) {
             Self.requestICloudDownloads(in: directory)
-            return Self.decodeFlightThreads(in: directory)
+            return Self.decodeFlightThreads(
+                in: directory, deletions: DeletionFilter.reading(storeRoot: root, retiredRoot: retired, kinds: [.thread]))
         }.value
     }
 
-    /// Pure directory-enumerate + decode, no main-actor state.
-    nonisolated static func decodeFlightThreads(in directory: URL) -> [FlightThread] {
+    /// Pure directory-enumerate + decode, no main-actor state. `deletions` as for the flights.
+    nonisolated static func decodeFlightThreads(in directory: URL, deletions: DeletionFilter? = nil) -> [FlightThread] {
         var threads: [FlightThread] = []
         let fileManager = FileManager.default
 
@@ -1382,7 +1636,12 @@ class DataPersistenceManager: ObservableObject {
             for fileURL in jsonFiles {
                 do {
                     let data = try Data(contentsOf: fileURL)
-                    threads.append(try decoder.decode(FlightThread.self, from: data))
+                    let thread = try decoder.decode(FlightThread.self, from: data)
+                    if let deletions, deletions.isDead(.thread, id: thread.id, stamp: thread.updatedAt) {
+                        deletions.retire(fileURL, kind: .thread)
+                        continue
+                    }
+                    threads.append(thread)
                 } catch {
                     AppLog.general.debugLine(
                         "Failed to load flight thread \(fileURL.lastPathComponent): \(error.localizedDescription)")

@@ -554,6 +554,8 @@ class FlightThreadManager: ObservableObject {
                 threads[index].tasks.append(contentsOf: shared)
                 threads[index].touch()
             }
+            // Dissolved: recorded, so the other store's trips.json does not bring it back. (6.1)
+            persistence.recordDeletion(.trip, id: trips[tripIndex].id, stamp: trips[tripIndex].updatedAt)
             trips.remove(at: tripIndex)
             saveThreads()
         } else {
@@ -599,9 +601,16 @@ class FlightThreadManager: ObservableObject {
     /// datastore, memory holds the old store's copy, and the new store may hold a newer one from
     /// another device: memory winning showed the stale copy, and the next `saveTrips` wrote it back
     /// over the newer one.
+    ///
+    /// For the same reason, a trip in memory that the new store's deletion records say was dissolved
+    /// leaves memory (the loader has already left it out of the file's). (6.1)
     private func loadTrips() async {
         let loaded = await persistence.loadTripsOffMain()
-        trips = Trip.merged(trips, with: loaded)
+        let ledger = await persistence.deletionLedgerOffMain(kinds: [.trip])
+        let live = ledger.contains(.trip)
+            ? trips.filter { !ledger.isDead(.trip, id: $0.id, stamp: $0.updatedAt) }
+            : trips
+        trips = Trip.merged(live, with: loaded)
         hasLoadedTrips = true
     }
 
@@ -998,6 +1007,8 @@ class FlightThreadManager: ObservableObject {
         threads.remove(at: index)
         lastPersisted[threadId] = nil
         deletedThreadIds.insert(threadId)
+        // Recorded before the file goes, so the other store's copy stays deleted too. (6.1)
+        persistence.recordDeletion(.thread, id: threadId, stamp: thread.updatedAt)
         persistence.deleteFlightThread(thread)
         notifications.cancelAll(threadId: threadId)
         if currentThreadId == threadId {
@@ -1165,7 +1176,9 @@ class FlightThreadManager: ObservableObject {
 
     private func loadThreadsAsync() async {
         let loaded = await persistence.loadFlightThreadsOffMain()
-        threads = Self.mergedThreads(memory: threads, loaded: loaded)
+        let ledger = await persistence.deletionLedgerOffMain(kinds: [.thread])
+        let (memory, stampedFlown) = liveThreads(given: ledger)
+        threads = Self.mergedThreads(memory: memory, loaded: loaded)
         // What this store holds on disk, whichever copy memory kept. After a move that is the new
         // store's copy: a newer one kept in memory then differs from it, so the next save writes
         // it into the store it now belongs to. (A load itself writes nothing.)
@@ -1185,10 +1198,45 @@ class FlightThreadManager: ObservableObject {
             trips += rebuilt
         }
         hasLoadedThreads = true
+        if stampedFlown { saveThreads() }
         // Replay anything the pilot confirmed while this load was still in flight.
         let deferred = deferredCloseRequests
         deferredCloseRequests = []
         for threadId in deferred { markFlightPlanClosed(threadId: threadId) }
+    }
+
+    /// The pages in memory without those the store's deletion records say are dead (deleted, and
+    /// not edited since). After "Sync to iCloud" moved the datastore, memory holds the old store's
+    /// pages: one deleted in the new store stayed on screen, and its next edit wrote it back. A page
+    /// leaving memory takes its `lastPersisted` and its reminders with it.
+    ///
+    /// A page being flown stays, stamped as an edit later than the deletion: the flight in progress is
+    /// this device's, and the page carries its close-out. Returns whether one was stamped (it is then
+    /// saved). (6.1)
+    private func liveThreads(given ledger: DeletionLedger) -> (threads: [FlightThread], stampedFlown: Bool) {
+        guard ledger.contains(.thread) else { return (threads, false) }
+        var live: [FlightThread] = []
+        var stamped = false
+        for var thread in threads {
+            guard ledger.isDead(.thread, id: thread.id, stamp: thread.updatedAt) else {
+                live.append(thread)
+                continue
+            }
+            if thread.state == .flying {
+                thread.updatedAt = DeletionRecords.stamp(after: ledger.mark(.thread, id: thread.id)?.deletedAt)
+                live.append(thread)
+                stamped = true
+            } else {
+                lastPersisted[thread.id] = nil
+                notifications.cancelAll(threadId: thread.id)
+                if openFlightPlanNotice?.threadId == thread.id { openFlightPlanNotice = nil }
+            }
+        }
+        let dropped = threads.count - live.count
+        if dropped > 0 {
+            AppLog.general.publicLine("Dropped \(dropped) flight page(s) deleted in this store")
+        }
+        return (live, stamped)
     }
 
     /// The threads after a load: those in memory and those the store holds, one per id. For a page
@@ -1203,9 +1251,9 @@ class FlightThreadManager: ObservableObject {
     /// device's, and a copy from the other store (one that never saw the flight start) would take
     /// its flight id off it, and with it the close-out at END FLIGHT.
     ///
-    /// Nothing is dropped: a page deleted in one store comes back from the other one, even when it
-    /// was deleted here in this session. Deletion records (6.1, review design 94 §2.4) plug in here:
-    /// a copy not edited after its page's `deletedAt` leaves the union.
+    /// Nothing is dropped here. The deletion records (6.1) take the dead pages out of both sides
+    /// before they meet: the loader leaves out the store's dead files, and `liveThreads(given:)` the
+    /// dead pages in memory.
     nonisolated static func mergedThreads(memory: [FlightThread], loaded: [FlightThread]) -> [FlightThread] {
         var byId: [UUID: FlightThread] = [:]
         for thread in memory where byId[thread.id] == nil {

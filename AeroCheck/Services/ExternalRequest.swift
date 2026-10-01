@@ -36,36 +36,22 @@ enum ExternalRequest {
         }
     }
 
-    /// Cancels a task as soon as the response headers declare a body over the limit, and strips
-    /// sensitive headers across a cross-host redirect.
-    ///
-    /// SEC-C32: the declared-length check alone was NOT a size ceiling. It only fires when
-    /// `Content-Length` is present and honest; for a chunked response (the norm on many CDNs) or a
-    /// lying small one, the entire body was buffered and the cap applied only afterwards — the
-    /// file's own comment conceded it "cannot prevent the allocation". `data(for:)` now streams and
-    /// counts, so this delegate is the cheap early-out rather than the whole defence.
+    /// Strips sensitive headers across a cross-host redirect.
     ///
     /// SEC-C33: CFNetwork strips `Authorization` automatically on a cross-origin redirect, but not
-    /// a CUSTOM header — so `x-openaip-api-key` would have been replayed to whatever host a 3xx
+    /// a CUSTOM header, so `x-openaip-api-key` would have been replayed to whatever host a 3xx
     /// pointed at. Nothing in the app implemented `willPerformHTTPRedirection` at all.
-    private final class SizeLimitingDelegate: NSObject, URLSessionDataDelegate, URLSessionTaskDelegate, @unchecked Sendable {
-        let limit: Int
-        init(limit: Int) { self.limit = limit }
-
+    ///
+    /// This delegate used to carry the declared-length early-out as well (SEC-C32), in
+    /// `urlSession(_:dataTask:didReceive:)`. That callback is never delivered to the task delegate
+    /// of `bytes(for:delegate:)` (nor of `data(for:delegate:)`): the async APIs consume the data-task
+    /// callbacks themselves and pass on only the task-level ones (redirects, challenges, metrics).
+    /// Probed 1 Oct 2026 on a real swisstopo tile: the response arrived, the method never ran. The
+    /// check now runs on the response `bytes(for:)` returns, in `data(for:)`, which is just as early
+    /// (see there).
+    private final class RequestGuardDelegate: NSObject, URLSessionTaskDelegate, @unchecked Sendable {
         /// Headers that must never survive a redirect to a different host.
         private static let sensitiveHeaders = ["Authorization", OpenAIPConfig.apiKeyHeader]
-
-        func urlSession(
-            _ session: URLSession,
-            dataTask: URLSessionDataTask,
-            didReceive response: URLResponse
-        ) async -> URLSession.ResponseDisposition {
-            if response.expectedContentLength != NSURLSessionTransferSizeUnknown,
-               response.expectedContentLength > Int64(limit) {
-                return .cancel
-            }
-            return .allow
-        }
 
         func urlSession(
             _ session: URLSession,
@@ -132,6 +118,12 @@ enum ExternalRequest {
         return base * jitter
     }
 
+    /// Whether a response's declared `Content-Length` is over `limit`. An unknown length (no header,
+    /// or a chunked body) is never over: the streaming count is the cap for those.
+    static func declaresTooLarge(_ expectedContentLength: Int64, limit: Int) -> Bool {
+        expectedContentLength != NSURLSessionTransferSizeUnknown && expectedContentLength > Int64(limit)
+    }
+
     // MARK: - Requests
 
     /// GET a URL with retry/backoff. Returns the final `(data, response)` (success or the last
@@ -149,8 +141,9 @@ enum ExternalRequest {
 
     /// Perform a request with retry/backoff on 429/5xx and transient `URLError`s.
     ///
-    /// The response body is size-bounded (SA-32): an oversized declared length is cancelled before
-    /// the body is buffered, and an oversized actual body is refused after the fact.
+    /// The response body is size-bounded (SA-32): a declared length over the limit is refused as
+    /// soon as the response arrives, before a byte of the body is read, and a body with no declared
+    /// length (or a lying one) is refused while it streams, the moment it passes the limit.
     static func data(
         for request: URLRequest,
         session: URLSession = session,
@@ -158,26 +151,45 @@ enum ExternalRequest {
         maxResponseBytes: Int = maxResponseBytes
     ) async throws -> (Data, HTTPURLResponse) {
         var attempt = 0
-        let sizeLimiter = SizeLimitingDelegate(limit: maxResponseBytes)
+        let requestGuard = RequestGuardDelegate()
         while true {
             try Task.checkCancellation()
             do {
                 // SEC-C32: stream and count, so the cap bounds what is ALLOCATED rather than
                 // being applied to an already-buffered body. This is what makes the ceiling real
                 // for a chunked or Content-Length-less response.
-                let (byteStream, response) = try await session.bytes(for: request, delegate: sizeLimiter)
+                let (byteStream, response) = try await session.bytes(for: request, delegate: requestGuard)
                 guard let http = response as? HTTPURLResponse else {
+                    byteStream.task.cancel()
                     throw URLError(.badServerResponse)
                 }
 
+                // The early-out, before a byte of the body is read. URLSession hands the response
+                // over only once the first 512 bytes of the body are in (its content-sniffing
+                // buffer, whatever the Content-Type; the whole body when shorter), never at the
+                // headers: probed 1 Oct 2026, `bytes(for:)` and a data delegate alike waited for a
+                // server holding its body back. `bytes(for:)` returns right then, so cancelling here
+                // stops the transfer after that first chunk. This check used to sit in a delegate
+                // method the async API never calls, so it never ran.
+                let declared = http.expectedContentLength
+                if declaresTooLarge(declared, limit: maxResponseBytes) {
+                    byteStream.task.cancel()
+                    AppLog.general.publicLine("Refused a response declaring \(declared) bytes (limit \(maxResponseBytes))")
+                    throw SizeError.tooLarge(declared: declared, limit: maxResponseBytes)
+                }
+
+                // The backstop: counting while it streams caps a body with no declared length or
+                // a lying one.
                 var data = Data()
-                if http.expectedContentLength > 0, http.expectedContentLength <= Int64(maxResponseBytes) {
-                    data.reserveCapacity(Int(http.expectedContentLength))
+                if declared > 0 {
+                    data.reserveCapacity(Int(declared))
                 }
                 for try await byte in byteStream {
                     data.append(byte)
                     if data.count > maxResponseBytes {
-                        throw SizeError.tooLarge(declared: http.expectedContentLength, limit: maxResponseBytes)
+                        byteStream.task.cancel()
+                        AppLog.general.publicLine("Refused a response body past \(maxResponseBytes) bytes")
+                        throw SizeError.tooLarge(declared: declared >= 0 ? declared : nil, limit: maxResponseBytes)
                     }
                 }
                 if shouldRetry(status: http.statusCode, attempt: attempt, maxRetries: maxRetries) {

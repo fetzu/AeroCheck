@@ -181,6 +181,12 @@ struct Flight: Identifiable, Codable {
     /// so no schema bump is needed.
     var checkRecords: [CheckRecord]?
 
+    /// The phase bar as the flight ended, one status per check, for the debrief (6.1): what lets the Flight
+    /// Log say "All checks done", tell done from done from memory or nothing to do, and tell a 6.1 flight
+    /// with nothing to report from one recorded before. Nil on a flight recorded before it was kept. Written
+    /// once, at END FLIGHT, so `merge` keeps whichever side has it; no schema bump is needed.
+    var checkOutcomes: [CheckOutcome]?
+
     /// Current flight record schema version. Records claiming a higher version come from a newer
     /// app build and are rejected on ingest rather than mis-applied.
     /// Bumped to 2 in v5.0.0 for `costEntry` and `logbook`. Left at 1, a v5 flight was
@@ -209,6 +215,7 @@ struct Flight: Identifiable, Codable {
         case costEntry, logbook
         case fredaChecks
         case checkRecords
+        case checkOutcomes
     }
 
     // MARK: - Custom Decodable for backward compatibility
@@ -284,6 +291,7 @@ struct Flight: Identifiable, Codable {
         // New in 6.1 — nil on every existing record.
         fredaChecks = try container.decodeIfPresent([FredaCheck].self, forKey: .fredaChecks)
         checkRecords = try container.decodeIfPresent([CheckRecord].self, forKey: .checkRecords)
+        checkOutcomes = try container.decodeIfPresent([CheckOutcome].self, forKey: .checkOutcomes)
     }
 
     init(
@@ -390,6 +398,7 @@ struct Flight: Identifiable, Codable {
         result.fullStopTimes = a.fullStopTimes.count >= b.fullStopTimes.count ? a.fullStopTimes : b.fullStopTimes
         result.fredaChecks = (a.fredaChecks?.count ?? 0) >= (b.fredaChecks?.count ?? 0) ? a.fredaChecks : b.fredaChecks
         result.checkRecords = (a.checkRecords?.count ?? 0) >= (b.checkRecords?.count ?? 0) ? a.checkRecords : b.checkRecords
+        result.checkOutcomes = (a.checkOutcomes?.count ?? 0) >= (b.checkOutcomes?.count ?? 0) ? a.checkOutcomes : b.checkOutcomes
         result.modifiedAt = max(a.modifiedAt, b.modifiedAt)
         return result
     }
@@ -519,6 +528,9 @@ struct Flight: Identifiable, Codable {
         }
         if let checks = fredaChecks, checks.count > FredaCheck.maxPerFlight {
             bounded.fredaChecks = Array(checks.prefix(FredaCheck.maxPerFlight))
+        }
+        if let outcomes = checkOutcomes, outcomes.count > CheckOutcome.maxPerFlight {
+            bounded.checkOutcomes = Array(outcomes.prefix(CheckOutcome.maxPerFlight))
         }
         return bounded
     }

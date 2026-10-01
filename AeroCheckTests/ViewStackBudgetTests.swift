@@ -143,6 +143,35 @@ final class ViewStackBudgetTests: XCTestCase {
         XCTAssertLessThan(used, Self.budget, "the Cockpit with the landed card used \(used / 1_024) KB of stack")
     }
 
+    /// A flight's page in the Flight Log with its checks (6.1, the debrief): an owed climb, a landing
+    /// "not sure", FREDA missed once. (The Logbook's trend card sits in a `List` row, which `ImageRenderer`
+    /// can't host: it traps tearing the list down, whatever the content.)
+    func testFlightDetailWithItsChecksRendersWithinHalfTheDeviceStack() {
+        let services = makeServices()
+        let flight = Self.debriefedFlight(start: Date().addingTimeInterval(-7_200))
+
+        let used = StackProbe.bytesUsed {
+            render(FlightDetailView(flight: flight), services: services, size: CGSize(width: 820, height: 1_180))
+        }
+        XCTAssertLessThan(used, Self.budget, "the flight's page with its checks used \(used / 1_024) KB of stack")
+    }
+
+    private static func debriefedFlight(start: Date) -> Flight {
+        var flight = Flight(airplane: "F-HVXA", aircraftRegistration: "F-HVXA", aircraftType: "WT9",
+                            startTime: start, stopTime: start.addingTimeInterval(3_600))
+        flight.checkOutcomes = ChecklistPhase.allCases.map { phase in
+            CheckOutcome(phase: phase, status: phase == .climb ? .skipped : phase == .landing ? .notSure : .done)
+        }
+        flight.checkRecords = [
+            CheckRecord(phase: .climb, kind: .owed, at: start.addingTimeInterval(900), cue: .levelOff),
+            CheckRecord(phase: .climb, kind: .skipped, at: start.addingTimeInterval(1_000)),
+            CheckRecord(phase: .landing, kind: .notSure, at: start.addingTimeInterval(3_300)),
+        ]
+        flight.fredaChecks = [.done(at: start.addingTimeInterval(1_600), due: nil),
+                              .missed(FredaSchedule.Due(since: start.addingTimeInterval(2_200), waypoint: "SEGNELÉGIER"))]
+        return flight
+    }
+
     // MARK: - Helpers
 
     /// What the map and the Cockpit read from the environment, on test storage.

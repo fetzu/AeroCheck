@@ -872,7 +872,8 @@ struct FlightLogView: View {
     // MARK: - Dashboard (v4 UI/UX Revamp Flight Log revamp)
 
     private var dashboardHeader: some View {
-        let stats = aggregateStats(filteredFlights)
+        let flights = filteredFlights
+        let stats = aggregateStats(flights)
         return VStack(spacing: 14) {
             // Title + year selector + export (concept header)
             HStack(alignment: .center) {
@@ -905,6 +906,12 @@ struct FlightLogView: View {
             }
 
             spendRow
+
+            // What keeps coming back in the checks, over the last flights listed. Nothing without a
+            // pattern. (6.1)
+            if let trend = CheckTrend.make(flights) {
+                ChecksTrendCard(trend: trend)
+            }
 
             // List header: count + aircraft filter.
             HStack {
@@ -2128,6 +2135,7 @@ struct FlightDetailView: View {
             mapSection
             altitudeGraphSection
             timelineCard
+            checksSection
             engineHoursCard
             planVsActualSection
             nameField
@@ -2408,6 +2416,14 @@ struct FlightDetailView: View {
                 }
             }
             .cardStyle()
+        }
+    }
+
+    /// The flight's checks, for the debrief (6.1). Nothing on a flight from before 6.1, which recorded none.
+    @ViewBuilder
+    private var checksSection: some View {
+        if let debrief = CheckDebrief.make(for: flight) {
+            FlightChecksSection(debrief: debrief, useUTC: appState.settings.alwaysUseUTC)
         }
     }
 

@@ -377,6 +377,13 @@ struct ContentView: View {
                 }
                 appState.applyCuesForCapture(cues, owed: owed)
             }
+            // A ground tab, for captures that can't tap one (the Logbook's checks trend, 6.1):
+            // `AEROCHECK_TAB=logbook`.
+            if !appState.isFlightActive, let name = env["AEROCHECK_TAB"]?.lowercased() {
+                let tabs: [String: GroundTab] = ["today": .today, "plan": .plan, "logbook": .logbook,
+                                                 "aircraft": .aircraft, "settings": .settings]
+                if let tab = tabs[name] { appState.groundTab = tab }
+            }
         }
         #endif
         .onShake {

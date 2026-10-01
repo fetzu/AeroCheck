@@ -2038,6 +2038,93 @@ enum L10n {
         static let notSureHint = String(localized: "landedCard.notSureHint")
     }
 
+    /// The checks in the debrief: the flight's page in the Flight Log, and the trend in the Logbook. (6.1)
+    enum Debrief {
+        static let title = String(localized: "debrief.title")
+        static let allDone = String(localized: "debrief.allDone")
+        /// Under "All checks done": "LANDING CHECK confirmed after landing".
+        static func confirmedAfterLanding(_ check: String) -> String {
+            String(format: String(localized: "debrief.confirmedAfterLanding"), check)
+        }
+        static let showEach = String(localized: "debrief.showEach")
+        static let hideEach = String(localized: "debrief.hideEach")
+        /// "12 other checks done"
+        static func othersDone(_ count: Int) -> String {
+            count == 1 ? String(localized: "debrief.otherDone")
+                : String(format: String(localized: "debrief.othersDone"), count)
+        }
+
+        static func status(_ status: CheckDebrief.Status) -> String {
+            switch status {
+            case .done: return String(localized: "debrief.status.done")
+            case .doneFromMemory: return String(localized: "debrief.status.doneFromMemory")
+            case .confirmedAfterLanding: return String(localized: "debrief.status.confirmedAfterLanding")
+            case .doneLate: return String(localized: "debrief.status.doneLate")
+            case .owed: return String(localized: "debrief.status.owed")
+            case .notSure: return String(localized: "debrief.status.notSure")
+            case .skipped: return String(localized: "debrief.status.skipped")
+            case .actionMissing: return String(localized: "debrief.status.actionMissing")
+            case .nothingToDo: return String(localized: "debrief.status.nothingToDo")
+            case .open: return String(localized: "debrief.status.open")
+            case .notReached: return String(localized: "debrief.status.notReached")
+            }
+        }
+
+        /// The moment of the flight that passed a check open: "you levelled off with it open".
+        static func cue(_ cue: FlightCue?) -> String {
+            switch cue {
+            case .takeoff: return String(localized: "debrief.cue.takeoff")
+            case .levelOff: return String(localized: "debrief.cue.levelOff")
+            case .descent: return String(localized: "debrief.cue.descent")
+            case .approach: return String(localized: "debrief.cue.approach")
+            case .circuit: return String(localized: "debrief.cue.circuit")
+            case nil: return String(localized: "debrief.cue.unknown")
+            }
+        }
+        /// Circuits: "owed 3 times"
+        static func owedTimes(_ count: Int) -> String {
+            String(format: String(localized: "debrief.owedTimes"), count)
+        }
+        /// "done 14:26"
+        static func doneAt(_ time: String) -> String { String(format: String(localized: "debrief.doneAt"), time) }
+        /// "skipped 14:30"
+        static func skippedAt(_ time: String) -> String { String(format: String(localized: "debrief.skippedAt"), time) }
+        /// "answered 14:45"
+        static func answeredAt(_ time: String) -> String { String(format: String(localized: "debrief.answeredAt"), time) }
+
+        /// FREDA: "done 3×", "missed 1×", and the same spoken: "done 3 times".
+        static func fredaDone(_ count: Int) -> String { String(format: String(localized: "debrief.freda.done"), count) }
+        static func fredaMissed(_ count: Int) -> String { String(format: String(localized: "debrief.freda.missed"), count) }
+        static func fredaDoneSpoken(_ count: Int) -> String {
+            String(format: String(localized: "debrief.freda.doneSpoken"), count)
+        }
+        static func fredaMissedSpoken(_ count: Int) -> String {
+            String(format: String(localized: "debrief.freda.missedSpoken"), count)
+        }
+        /// A FREDA missed, by the time it came due: "✕ due 14:41".
+        static func fredaMissedDue(_ time: String) -> String {
+            String(format: String(localized: "debrief.freda.missedDue"), time)
+        }
+        static func fredaMissedDueSpoken(_ time: String) -> String {
+            String(format: String(localized: "debrief.freda.missedDueSpoken"), time)
+        }
+
+        /// The Logbook's trend: "CHECKS · LAST 10 FLIGHTS".
+        static func trendTitle(_ flights: Int) -> String {
+            String(format: String(localized: "debrief.trend.title"), flights)
+        }
+        /// "owed on 4 of 10 flights"
+        static func trend(_ kind: CheckTrend.Kind, _ count: Int, of flights: Int) -> String {
+            let format: String
+            switch kind {
+            case .owed: format = String(localized: "debrief.trend.owed")
+            case .skipped: format = String(localized: "debrief.trend.skipped")
+            case .notSure: format = String(localized: "debrief.trend.notSure")
+            }
+            return String(format: format, count, flights)
+        }
+    }
+
     /// A trip on Today and in Plan › Flights: the card that says "Trip" and lists its legs. (6.1)
     enum TripCard {
         /// The card's kind, where a single flight's card has its date: "Trip".

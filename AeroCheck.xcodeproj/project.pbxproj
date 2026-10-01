@@ -112,6 +112,9 @@
 		A1000001211111110000927 /* Cockpit.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000001111111110000927 /* Cockpit.swift */; };
 		C5107A010000000000000B1 /* CheckSlot.swift in Sources */ = {isa = PBXBuildFile; fileRef = C5107A010000000000000F1 /* CheckSlot.swift */; };
 		FEDA0A010000000000000B1 /* Freda.swift in Sources */ = {isa = PBXBuildFile; fileRef = FEDA0A010000000000000F1 /* Freda.swift */; };
+		DEB71EF00000000000000B1 /* CheckDebrief.swift in Sources */ = {isa = PBXBuildFile; fileRef = DEB71EF00000000000000F1 /* CheckDebrief.swift */; };
+		DEB71EF00000000000000B2 /* FlightChecksViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = DEB71EF00000000000000F2 /* FlightChecksViews.swift */; };
+		DEB71EF00000000000000B3 /* CheckDebriefTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = DEB71EF00000000000000F3 /* CheckDebriefTests.swift */; };
 		C0E50A010000000000000B1 /* FlightCues.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0E50A010000000000000F1 /* FlightCues.swift */; };
 		A1000001211111110000004 /* FlightView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000001111111110000004 /* FlightView.swift */; };
 		A1000001211111110000005 /* FlightLogView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000001111111110000005 /* FlightLogView.swift */; };
@@ -447,6 +450,9 @@
 		A1000001111111110000006 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
 		A1000001111111110000007 /* Flight.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Flight.swift; sourceTree = "<group>"; };
 		FEDA0A010000000000000F1 /* Freda.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Freda.swift; sourceTree = "<group>"; };
+		DEB71EF00000000000000F1 /* CheckDebrief.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CheckDebrief.swift; sourceTree = "<group>"; };
+		DEB71EF00000000000000F2 /* FlightChecksViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FlightChecksViews.swift; sourceTree = "<group>"; };
+		DEB71EF00000000000000F3 /* CheckDebriefTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CheckDebriefTests.swift; sourceTree = "<group>"; };
 		C0E50A010000000000000F1 /* FlightCues.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FlightCues.swift; sourceTree = "<group>"; };
 		A1000001111111110000008 /* Checklist.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Checklist.swift; sourceTree = "<group>"; };
 		A1000001111111110000097 /* ActiveChecklist.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ActiveChecklist.swift; sourceTree = "<group>"; };
@@ -688,6 +694,7 @@
 				C5107A010000000000000F2 /* CheckSlotTests.swift */,
 				C5107A010000000000000F3 /* MemoryCheckTests.swift */,
 				FEDA0A010000000000000F2 /* FredaTests.swift */,
+				DEB71EF00000000000000F3 /* CheckDebriefTests.swift */,
 				C0E50A010000000000000F2 /* FlightCueTests.swift */,
 				A5000050111111110000001 /* VSpeedTableTests.swift */,
 				A5000052111111110000001 /* FuelOnBoardTests.swift */,
@@ -806,6 +813,7 @@
 				A1000001111111110000926 /* GroundView.swift */,
 				A1000001111111110000927 /* Cockpit.swift */,
 				C5107A010000000000000F1 /* CheckSlot.swift */,
+				DEB71EF00000000000000F2 /* FlightChecksViews.swift */,
 				A1000001111111110000062 /* AmbientCelebration.swift */,
 				A1000001111111110000072 /* DisclaimerView.swift */,
 				A1000001111111110000909 /* SigmetViews.swift */,
@@ -885,6 +893,7 @@
 				A1000001111111110000910 /* SigmetRelevance.swift */,
 				A1000001111111110000007 /* Flight.swift */,
 				FEDA0A010000000000000F1 /* Freda.swift */,
+				DEB71EF00000000000000F1 /* CheckDebrief.swift */,
 				C0E50A010000000000000F1 /* FlightCues.swift */,
 				04F1C6F02EF9CD5100192A14 /* FlightPlan.swift */,
 				04F1C6F22EF9CD5A00192A14 /* FlightPlanManager.swift */,
@@ -1238,6 +1247,7 @@
 				C5107A010000000000000B2 /* CheckSlotTests.swift in Sources */,
 				C5107A010000000000000B3 /* MemoryCheckTests.swift in Sources */,
 				FEDA0A010000000000000B2 /* FredaTests.swift in Sources */,
+				DEB71EF00000000000000B3 /* CheckDebriefTests.swift in Sources */,
 				C0E50A010000000000000B2 /* FlightCueTests.swift in Sources */,
 				A5000050111111110000002 /* VSpeedTableTests.swift in Sources */,
 				A5000052111111110000002 /* FuelOnBoardTests.swift in Sources */,
@@ -1302,11 +1312,13 @@
 				A1000001211111110000926 /* GroundView.swift in Sources */,
 				A1000001211111110000927 /* Cockpit.swift in Sources */,
 				C5107A010000000000000B1 /* CheckSlot.swift in Sources */,
+				DEB71EF00000000000000B2 /* FlightChecksViews.swift in Sources */,
 				A1000001211111110000004 /* FlightView.swift in Sources */,
 				A1000001211111110000005 /* FlightLogView.swift in Sources */,
 				A1000001211111110000006 /* SettingsView.swift in Sources */,
 				A1000001211111110000007 /* Flight.swift in Sources */,
 				FEDA0A010000000000000B1 /* Freda.swift in Sources */,
+				DEB71EF00000000000000B1 /* CheckDebrief.swift in Sources */,
 				C0E50A010000000000000B1 /* FlightCues.swift in Sources */,
 				A1000001211111110000008 /* Checklist.swift in Sources */,
 				A1000001211111110000097 /* ActiveChecklist.swift in Sources */,

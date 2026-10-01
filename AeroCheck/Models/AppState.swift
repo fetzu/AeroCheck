@@ -1446,6 +1446,8 @@ class AppState {
         guard var flight = currentFlight else { return }
 
         flight.stopTime = Date()
+        // The phase bar as it ends, for the Flight Log's checks. (6.1)
+        flight.checkOutcomes = checkOutcomesAtEndOfFlight()
         flight.engineStartTime = engineStartTime
         flight.lineUpTime = lineUpTime
         flight.landingTime = landingTime
@@ -2120,6 +2122,46 @@ class AppState {
         confirmation.movedOn = .init(to: next, before: before, after: checklistProgress)
         memoryConfirmation = confirmation
         checkpointActiveFlight(force: true)
+    }
+
+    // MARK: The checks in the debrief (6.1, "Checks in flight", build plan 6)
+
+    /// The phase bar as the flight ends, kept on the flight for the Flight Log: each check flown, as it was
+    /// recorded; the one the flight ends on, as it stands (done, or still open); those after it, not
+    /// reached. Circuits fly no cruise and no descent, so those have none.
+    func checkOutcomesAtEndOfFlight() -> [CheckOutcome] {
+        ChecklistPhase.allCases.compactMap { phase in
+            guard !phase.isSkippedInCircuitMode(isCircuitMode) else { return nil }
+            if phase == currentPhase { return CheckOutcome(phase: phase, status: outcomeOfCurrentCheck()) }
+            if phase.rawValue > currentPhase.rawValue {
+                // Gone back to an earlier check: what was recorded further on stays as recorded.
+                guard let recorded = phaseCompletionStatus[phase], recorded != .notStarted else {
+                    return CheckOutcome(phase: phase, status: .notReached)
+                }
+                return CheckOutcome(phase: phase, recorded: recorded)
+            }
+            return CheckOutcome(phase: phase, recorded: getPhaseStatus(phase))
+        }
+    }
+
+    /// The check the flight ends on, as NEXT would have recorded it, without leaving it: END FLIGHT is
+    /// pressed on the last check, which has no NEXT, or from the Menu on any check.
+    private func outcomeOfCurrentCheck() -> CheckOutcome.Status {
+        let phase = currentPhase
+        if let answered = phaseCompletionStatus[phase], answered.isAnsweredAfterLanding {
+            return answered == .notSure ? .notSure : .confirmedAfterLanding
+        }
+        if phase.hasMissingRequiredAction(engineStarted: engineStartTime != nil, linedUp: lineUpTime != nil,
+                                          engineShutDown: engineShutdownTime != nil) {
+            return .actionMissing
+        }
+        if allItemCount(phase) == 0
+            || (!isMemoryCheck(phase) && currentPhaseHasNoVisibleItems(learningMode: effectiveLearningMode)) {
+            return .nothingToDo
+        }
+        guard currentCheckIsDone else { return .open }
+        if !(deferredItems[phase] ?? []).isEmpty { return .skipped }
+        return phaseCompletionStatus[phase] == .doneFromMemory ? .doneFromMemory : .done
     }
 
     // MARK: The landed card (6.1, M4)

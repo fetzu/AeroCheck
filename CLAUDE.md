@@ -227,6 +227,10 @@ appearance and Auto resolved to night in daylight.
   `CockpitTarget` (thumb 104, control 64 on the kneeboard; smaller on the phone via `CockpitScale`).
   Ground screens use `.scaledFont(size:weight:design:relativeTo:)` for Dynamic Type; in-flight
   instrumentation keeps fixed sizes on purpose (UX-24). 44 pt minimum targets elsewhere.
+- The bundled B612 Mono is PATCHED: upstream draws `: ; . , ' ·` at the left of the cell ("00: 44"),
+  ours centres them with the advances unchanged (`scripts/center-b612-mono-punctuation.py`, recorded
+  in `Resources/FONTLOG-B612.txt`). An upstream file dropped in as-is brings the bug back
+  (`TypographyTests` catches it); run the script on it. Never fix it per call site.
 - Settings UI: always the Settings kit (`SettingsPage` / `SettingsGroup` / `Settings*Row`).
 - A custom `ButtonStyle` must read `@Environment(\.isEnabled)` itself to dim when `.disabled()`.
 - Accessibility (VoiceOver labels, Dynamic Type, WCAG contrast, 44 pt targets, Reduce Motion) is

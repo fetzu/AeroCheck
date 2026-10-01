@@ -224,10 +224,12 @@ final class OpenAIPLayerCache<Feature: Codable & Sendable> {
     /// The keyless per-country GeoJSON export. Returns nil — rather than throwing — when the bucket
     /// refuses the request, so the caller moves on to the core API instead of recording a failure.
     private func fetchViaExportBucket(country: String) async throws -> [Feature]? {
-        let cc = country.lowercased()
-        guard let url = URL(string: "\(OpenAIPConfig.geoJSONExportBaseURL)/\(cc)_\(endpointSuffix).geojson") else { return nil }
+        guard let url = OpenAIPConfig.geoJSONExportURL(country: country, layerSuffix: endpointSuffix) else { return nil }
         do {
-            let (data, response) = try await ExternalRequest.data(from: url)
+            // Pinned to the export host: a redirect elsewhere is refused, not followed.
+            let (data, response) = try await ExternalRequest.data(
+                from: url, session: OpenAIPConfig.geoJSONExportSession,
+                allowedHosts: [OpenAIPConfig.geoJSONExportHost])
             guard response.statusCode == 200 else {
                 AppLog.openAIP.debugLine("\(logLabel) export bucket returned \(response.statusCode) for \(country); trying core API")
                 return nil
@@ -241,11 +243,11 @@ final class OpenAIPLayerCache<Feature: Codable & Sendable> {
 
     /// The authenticated core REST API, paged, reshaped into the export's FeatureCollection form.
     ///
-    /// This exists because the export bucket went Requester Pays in July 2026 and now 400s every
-    /// anonymous read (see `OpenAIPConfig.geoJSONExportBaseURL`) — which silently took navaids,
-    /// obstacles, reporting points and OpenAIP airports out of the app while airspace, alone in coming
-    /// from the REST API, kept working. That asymmetry is what made "Download data" spin for ten
-    /// seconds and leave the banner up.
+    /// This exists because the first export bucket went Requester Pays in July 2026 and 400ed every
+    /// anonymous read — which silently took navaids, obstacles, reporting points and OpenAIP airports
+    /// out of the app while airspace, alone in coming from the REST API, kept working. The exports are
+    /// keyless again on a new, rate-limited host (`OpenAIPConfig.geoJSONExportHost`, 6.2); this stays
+    /// as the fallback when that host throttles or fails.
     ///
     /// No new parsers: a core-API item is a GeoJSON feature turned inside out — the same property keys
     /// at the top level, with `geometry` beside them instead of wrapping them. Rebuilding the

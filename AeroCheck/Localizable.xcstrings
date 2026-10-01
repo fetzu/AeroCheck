@@ -832,6 +832,386 @@
         }
       }
     },
+    "a11y.phase.owed": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Owed"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "En retard"
+          }
+        }
+      }
+    },
+    "a11y.phase.confirmedAfterLanding": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Confirmed after landing"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Confirmée après l'atterrissage"
+          }
+        }
+      }
+    },
+    "a11y.phase.notSure": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Not sure"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pas sûr"
+          }
+        }
+      }
+    },
+    "checkSlot.owed.takeoff": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "owed · you took off with it open"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "en retard · après le décollage"
+          }
+        }
+      }
+    },
+    "checkSlot.owed.levelOff": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "owed · you levelled off with it open"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "en retard · mise en palier"
+          }
+        }
+      }
+    },
+    "checkSlot.owed.descent": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "owed · the descent began with it open"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "en retard · début de la descente"
+          }
+        }
+      }
+    },
+    "checkSlot.owed.approach": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "owed · the approach began with it open"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "en retard · début de l'approche"
+          }
+        }
+      }
+    },
+    "checkSlot.owed.circuit": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "owed · you reached the circuit with it open"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "en retard · entrée dans le circuit"
+          }
+        }
+      }
+    },
+    "checkSlot.owedShort": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "owed"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "en retard"
+          }
+        }
+      }
+    },
+    "checkSlot.advanceAndConfirmHint": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Goes on to this check and records it done from memory"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Passe à cette vérification et l'enregistre faite de mémoire"
+          }
+        }
+      }
+    },
+    "checkSlot.goToLandingHint": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Goes on to the landing check"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Passe à la vérification d'atterrissage"
+          }
+        }
+      }
+    },
+    "landedCard.title": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "LANDED · %@ · %@"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "POSÉ · %@ · %@"
+          }
+        }
+      }
+    },
+    "landedCard.titleNoAerodrome": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "LANDED · %@"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "POSÉ · %@"
+          }
+        }
+      }
+    },
+    "landedCard.question": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Was the landing check done before touchdown?"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "La vérification d'atterrissage était-elle faite avant le toucher ?"
+          }
+        }
+      }
+    },
+    "landedCard.yes": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "YES, IT WAS DONE"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "OUI, C'ÉTAIT FAIT"
+          }
+        }
+      }
+    },
+    "landedCard.notSure": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "NOT SURE"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "PAS SÛR"
+          }
+        }
+      }
+    },
+    "landedCard.explanation": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Yes records it as confirmed after landing. Not sure adds it to the debrief. Either way the after landing check comes next."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Oui l'enregistre comme confirmée après l'atterrissage. Pas sûr l'ajoute au débriefing. Dans les deux cas, la vérification après l'atterrissage suit."
+          }
+        }
+      }
+    },
+    "landedCard.landingCheckDone": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Landing check done before touchdown."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vérification d'atterrissage faite avant le toucher."
+          }
+        }
+      }
+    },
+    "landedCard.yesHint": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Records the landing check as confirmed after landing, then opens the after landing check"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Enregistre la vérification d'atterrissage comme confirmée après l'atterrissage, puis ouvre la vérification après l'atterrissage"
+          }
+        }
+      }
+    },
+    "landedCard.notSureHint": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Records the landing check for the debrief, then opens the after landing check"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Enregistre la vérification d'atterrissage pour le débriefing, puis ouvre la vérification après l'atterrissage"
+          }
+        }
+      }
+    },
+    "%lld items · nothing to press": {
+      "localizations": {
+        "en": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld item · nothing to press"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld items · nothing to press"
+                }
+              }
+            }
+          }
+        },
+        "fr": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld élément · rien à toucher"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld éléments · rien à toucher"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "a11y.phase.fredaDue": {
       "extractionState": "manual",
       "localizations": {

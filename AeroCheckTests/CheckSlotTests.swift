@@ -110,7 +110,7 @@ final class CheckSlotTests: XCTestCase {
         XCTAssertEqual(slot.title, .check)
     }
 
-    // MARK: The flight's timing (the cues come in a later PR)
+    // MARK: The flight's timing (6.1, cues from the flight)
 
     func testTheFlightsTimingColoursAnOpenCheck() {
         XCTAssertEqual(CheckSlot.make(phase: .climb, check: .memory(done: false), next: .cruise, timing: .notYet).tone, .idle)
@@ -122,6 +122,81 @@ final class CheckSlotTests: XCTestCase {
     func testTheTimingNeverColoursTheNextCheck() {
         let slot = CheckSlot.make(phase: .climb, check: .memory(done: true), next: .cruise, timing: .owed)
         XCTAssertEqual(slot.tone, .idle)
+    }
+
+    func testAnOwedCheckNamesTheMomentThatPassedIt() {
+        let memory = CheckSlot.make(phase: .climb, check: .memory(done: false), next: .cruise, timing: .owed, owedBy: .levelOff)
+        XCTAssertEqual(memory.line, .owed(.levelOff))
+        XCTAssertEqual(memory.tone, .owed)
+        XCTAssertEqual(memory.action, .confirmFromMemory, "one tap, done late")
+        let list = CheckSlot.make(phase: .cruise, check: .list(open: 5), next: .descent, timing: .owed, owedBy: .descent)
+        XCTAssertEqual(list.line, .owed(.descent))
+        XCTAssertEqual(list.action, .showChecklist)
+        XCTAssertNotEqual(CheckSlot.Line.owed(.levelOff).text, CheckSlot.Line.owed(.descent).text)
+        XCTAssertEqual(CheckSlot.Line.owed(.levelOff).shortText, L10n.CheckSlot.owedShort)
+    }
+
+    func testTheNextCheckComesToTheSlotOnceItsCueCame() {
+        let memory = CheckSlot.make(phase: .cruise, check: .list(open: 0), next: .descent,
+                                    upcoming: .init(check: .memory(done: false), timing: .due))
+        XCTAssertEqual(memory.phase, .descent)
+        XCTAssertEqual(memory.line, .fromMemory)
+        XCTAssertEqual(memory.tone, .due)
+        XCTAssertEqual(memory.action, .advanceAndConfirm, "on to it and done from memory, one tap")
+
+        let list = CheckSlot.make(phase: .climb, check: .memory(done: true), next: .cruise,
+                                  upcoming: .init(check: .list(open: 5), timing: .due))
+        XCTAssertEqual(list.line, .items(5))
+        XCTAssertEqual(list.action, .advance)
+
+        let owed = CheckSlot.make(phase: .cruise, check: .list(open: 0), next: .descent,
+                                  upcoming: .init(check: .memory(done: false), timing: .owed, owedBy: .approach))
+        XCTAssertEqual(owed.line, .owed(.approach))
+        XCTAssertEqual(owed.tone, .owed)
+
+        let notYet = CheckSlot.make(phase: .cruise, check: .list(open: 0), next: .descent,
+                                    upcoming: .init(check: .memory(done: false), timing: .notYet))
+        XCTAssertEqual(notYet.line, .next)
+        XCTAssertEqual(notYet.tone, .idle)
+    }
+
+    func testFredaRunningComesBeforeTheNextCheck() {
+        // AppState stops FREDA at the descent cue; while it runs, the slot is FREDA's.
+        let slot = CheckSlot.make(phase: .cruise, check: .list(open: 0), next: .descent,
+                                  freda: .counting(after: .cruiseCheck, at: Date(), minutesLeft: 6),
+                                  upcoming: .init(check: .memory(done: false), timing: .due))
+        XCTAssertEqual(slot.icon, .freda)
+    }
+
+    func testTheLandingCheckIsNeverOfferedAsTheNextCheck() {
+        let slot = CheckSlot.make(phase: .approach, check: .memory(done: true), next: .landing,
+                                  upcoming: .init(check: .memory(done: false), timing: .due))
+        XCTAssertEqual(slot.line, .next, "nothing to press: only the circuit shows it, dashed")
+    }
+
+    func testFromCircuitHeightTheLandingCheckIsShownDashed() {
+        let memory = CheckSlot.make(phase: .approach, check: .memory(done: false), next: .landing,
+                                    timing: .owed, landingShown: .memory(done: false))
+        XCTAssertEqual(memory.phase, .landing)
+        XCTAssertEqual(memory.tone, .quiet, "whatever was open before it")
+        XCTAssertEqual(memory.line, .fromMemoryQuiet)
+        XCTAssertEqual(memory.action, .goToLanding)
+        let list = CheckSlot.make(phase: .descent, check: .memory(done: true), next: .approach,
+                                  landingShown: .list(open: 2))
+        XCTAssertEqual(list.line, .itemsQuiet(2))
+        XCTAssertEqual(list.action, .goToLanding)
+        let inLanding = CheckSlot.make(phase: .landing, check: .memory(done: false), next: .afterLanding,
+                                       landingShown: .memory(done: false))
+        XCTAssertEqual(inLanding.action, .confirmFromMemory, "on the landing check, a tap still confirms it")
+    }
+
+    func testTheSlotTravelsToTheCompanion() throws {
+        for slot in [CheckSlot.make(phase: .cruise, check: .list(open: 0), next: .descent,
+                                    freda: .counting(after: .freda, at: Date(timeIntervalSince1970: 60), minutesLeft: 4)),
+                     CheckSlot.make(phase: .climb, check: .memory(done: false), next: .cruise, timing: .owed, owedBy: .levelOff),
+                     CheckSlot.make(phase: .cruise, check: .list(open: 0), next: .descent, freda: .due(waypoint: "LSGC"))] {
+            XCTAssertEqual(try JSONDecoder().decode(CheckSlot.self, from: JSONEncoder().encode(slot)), slot)
+        }
     }
 
     // MARK: Read off a flight

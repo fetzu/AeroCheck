@@ -178,6 +178,95 @@ struct EventConfirmationView: View {
     }
 }
 
+// MARK: - The landed card (6.1, M4)
+
+/// After a full-stop landing on a flight that isn't circuits, once slow for 10 s: one question, two 104 pt
+/// answers. "YES, IT WAS DONE" records the landing check confirmed after landing (a green outline on the
+/// phase bar, never solid green); "NOT SURE" records it for the debrief. Either way the after landing check
+/// comes next. It replaces the detector's "Full stop" card there (circuits keep theirs), waits for an answer
+/// and never times out; a tap beside it is not an answer. A landing check done before touchdown needs no
+/// question: the card only takes the pilot on.
+///
+/// Drawn from values, so the Companion iPhone shows the same card from its snapshot.
+struct LandedCardView: View {
+    let aerodrome: String?
+    /// The touchdown, as the Cockpit writes times (local or UTC, the pilot's setting).
+    let time: String
+    /// The landing check was done before touchdown (or has nothing to do): nothing to ask.
+    let landingCheckSettled: Bool
+    let onAnswer: (LandedAnswer) -> Void
+
+    @Environment(\.cockpitTheme) private var theme
+
+    var body: some View {
+        let phone = CockpitScale.current == .phone
+        VStack(spacing: CockpitType.size(kneeboard: 22, phone: 16)) {
+            VStack(spacing: 10) {
+                Image(systemName: "airplane.arrival")
+                    .font(.aero(size: CockpitType.button, weight: .bold))
+                    .foregroundColor(theme.onTarget)
+                    .frame(width: CockpitTarget.control, height: CockpitTarget.control)
+                    .background(Circle().fill(theme.onTarget.opacity(0.16)))
+                    .accessibilityHidden(true)
+                Text(L10n.LandedCard.title(aerodrome: aerodrome, time: time))
+                    .font(.aero(size: CockpitType.button, weight: .bold))
+                    .foregroundColor(theme.textPrimary)
+                    .multilineTextAlignment(.center)
+                    .lineLimit(2)
+                    .minimumScaleFactor(0.7)
+                Text(landingCheckSettled ? L10n.LandedCard.landingCheckDone : L10n.LandedCard.question)
+                    .font(.aero(size: CockpitType.row, weight: .medium))
+                    .foregroundColor(theme.textPrimary)
+                    .multilineTextAlignment(.center)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            if landingCheckSettled {
+                CockpitThumbButton(title: L10n.Cockpit.next(ChecklistPhase.afterLanding.shortTitle), icon: "chevron.right",
+                                   style: .filled(fill: theme.action, text: theme.actionText)) { onAnswer(.next) }
+            } else {
+                // Side by side on the kneeboard; one over the other on the phone, so neither label shrinks.
+                let layout = phone ? AnyLayout(VStackLayout(spacing: 12)) : AnyLayout(HStackLayout(spacing: 16))
+                layout {
+                    CockpitThumbButton(title: L10n.LandedCard.yes, icon: phone ? nil : "checkmark",
+                                       style: .filled(fill: theme.action, text: theme.actionText)) { onAnswer(.yes) }
+                        .accessibilityHint(L10n.LandedCard.yesHint)
+                    CockpitThumbButton(title: L10n.LandedCard.notSure,
+                                       style: .outlined(tint: theme.action)) { onAnswer(.notSure) }
+                        .accessibilityHint(L10n.LandedCard.notSureHint)
+                }
+                Text(L10n.LandedCard.explanation)
+                    .font(.aero(size: CockpitType.label))
+                    .foregroundColor(theme.textSecondary)
+                    .multilineTextAlignment(.center)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+        }
+        .padding(CockpitType.size(kneeboard: 28, phone: 20))
+        .frame(maxWidth: 720)
+        .background(RoundedRectangle(cornerRadius: 24).fill(theme.card))
+        .overlay(RoundedRectangle(cornerRadius: 24).stroke(theme.panelStroke, lineWidth: 1.5))
+        .shadow(color: .black.opacity(0.5), radius: 24, y: 12)
+        .padding(.horizontal, CockpitType.size(kneeboard: 24, phone: 16))
+        .accessibilityElement(children: .contain)
+    }
+}
+
+/// The landed card over the Cockpit, from `AppState`: the dimmed backdrop ignores taps (a knee or a
+/// sleeve on a kneeboard is not an answer), VoiceOver's escape leaves it up (it asks, it doesn't dismiss).
+struct LandedCardOverlay: View {
+    @Environment(AppState.self) private var appState
+
+    var body: some View {
+        if let card = appState.landedCard {
+            ZStack {
+                Color.black.opacity(0.5).ignoresSafeArea()
+                LandedCardView(aerodrome: card.aerodrome, time: appState.formatTime(card.touchdown),
+                               landingCheckSettled: appState.landingCheckSettled) { appState.answerLandedCard($0) }
+            }
+        }
+    }
+}
+
 // MARK: - Reusable Overlay
 
 /// The detected-event confirmation overlays (go-around / touch-and-go / full-stop), extracted into
@@ -194,6 +283,20 @@ struct FlightEventConfirmationOverlay: ViewModifier {
             .overlay { overlay(for: flightEventDetector.pendingGoAround) }
             .overlay { overlay(for: flightEventDetector.pendingTouchAndGo) }
             .overlay { overlay(for: flightEventDetector.pendingFullStop) }
+            // The landed card (6.1): the full stop on a flight that isn't circuits.
+            .overlay { LandedCardOverlay() }
+            .onAppear { Self.handOver(flightEventDetector.pendingFullStop, appState: appState, detector: flightEventDetector) }
+            .onChange(of: flightEventDetector.pendingFullStop?.id) {
+                Self.handOver(flightEventDetector.pendingFullStop, appState: appState, detector: flightEventDetector)
+            }
+    }
+
+    /// A full stop on a flight that isn't circuits is the landed card's (6.1): the detector's card goes and
+    /// the card takes the touchdown. LocationManager hands it over as the detector emits it; this catches
+    /// one raised any other way (a scene, a test). Circuits keep the full-stop card and its stop-and-go.
+    @MainActor
+    static func handOver(_ event: DetectedFlightEvent?, appState: AppState, detector: FlightEventDetector) {
+        if appState.takeFullStopForLandedCard(event) { detector.dismissFullStop() }
     }
 
     /// CONFIRM: the event recorded at its PHYSICAL timestamp (touchdown / approach low point), not
@@ -221,7 +324,7 @@ struct FlightEventConfirmationOverlay: ViewModifier {
 
     @ViewBuilder
     private func overlay(for event: DetectedFlightEvent?) -> some View {
-        if let event {
+        if let event, !(event.type == .fullStop && appState.isFlightActive && !appState.isCircuitMode) {
             let dismiss = { Self.dismiss(event.type, detector: flightEventDetector) }
             Color.black.opacity(0.5)
                 .ignoresSafeArea()

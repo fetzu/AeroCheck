@@ -323,6 +323,13 @@ struct ContentView: View {
                 flightEventDetector.pendingFullStop = DetectedFlightEvent(
                     type: .fullStop, timestamp: Date().addingTimeInterval(-45), airport: field,
                     message: FlightEventDetector.fullStopMessage(airport: field))
+                // The landed card answered, for the captures of what follows (6.1):
+                // `AEROCHECK_LANDED_ANSWER=yes|notSure`.
+                if let answer = ProcessInfo.processInfo.environment["AEROCHECK_LANDED_ANSWER"].flatMap(LandedAnswer.init(rawValue:)),
+                   appState.takeFullStopForLandedCard(flightEventDetector.pendingFullStop) {
+                    flightEventDetector.dismissFullStop()
+                    appState.answerLandedCard(answer)
+                }
             }
             // The in-flight scenes in another phase, with the Memory test on or off, for the check slot's
             // captures: `SIMCTL_CHILD_AEROCHECK_PHASE=landing SIMCTL_CHILD_AEROCHECK_MEMORY_TEST=1`. The
@@ -351,6 +358,24 @@ struct ContentView: View {
                     ? FredaWaypointPassage(name: "SEGNELÉGIER", at: now.addingTimeInterval(-30)) : nil
                 if stage == "waypoint" { appState.startFredaForCapture(at: now.addingTimeInterval(-7 * 60)) }
                 appState.evaluateFreda(now: now, lastPassage: passage)
+            }
+            // The cues from the flight, for their captures (6.1): `AEROCHECK_CUES=takeoff,levelOff` fires
+            // them a minute apart as the detector would (a leg first), so a check open since an earlier
+            // cue turns owed as in flight; `AEROCHECK_OWED=climb:levelOff` makes one owed directly.
+            if appState.isFlightActive, let list = env["AEROCHECK_CUES"]?.lowercased() {
+                let cues = list.split(separator: ",").compactMap { name in
+                    FlightCue.allCases.first { $0.code.lowercased() == name }
+                }
+                var owed: [ChecklistPhase: FlightCue] = [:]
+                for pair in (env["AEROCHECK_OWED"] ?? "").lowercased().split(separator: ",") {
+                    let parts = pair.split(separator: ":").map(String.init)
+                    if parts.count == 2,
+                       let phase = ChecklistPhase.allCases.first(where: { "\($0)".lowercased() == parts[0] }),
+                       let cue = FlightCue.allCases.first(where: { $0.code.lowercased() == parts[1] }) {
+                        owed[phase] = cue
+                    }
+                }
+                appState.applyCuesForCapture(cues, owed: owed)
             }
         }
         #endif

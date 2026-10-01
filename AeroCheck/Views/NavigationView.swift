@@ -1042,8 +1042,10 @@ struct NavigationMapView: View {
 
     /// Approach and landing: GO AROUND and TOUCH-AND-GO on either side of the slot, as on the checklist
     /// pane, in place of the route's row (the destination is marked by the landing). (6.1, mockup M3)
+    /// From circuit height too, where the slot shows the landing check: the proposal's "circuit / final".
     private var showsEventButtons: Bool {
-        showsCheckSlot && (appState.currentPhase == .approach || appState.currentPhase == .landing)
+        showsCheckSlot && (appState.currentPhase == .approach || appState.currentPhase == .landing
+                           || appState.landingCheckShown)
     }
 
     private var routesOnTop: Bool { phoneWithNoLegToFly && onShowRoutes == nil }

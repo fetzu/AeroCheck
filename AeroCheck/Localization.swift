@@ -1150,6 +1150,12 @@ enum L10n {
         static let phaseNotStarted = String(localized: "a11y.phase.notStarted")
         /// The cruise segment, amber: FREDA is due. (6.1)
         static let phaseFredaDue = String(localized: "a11y.phase.fredaDue")
+        /// The current check, owed: the flight moved past it open. (6.1)
+        static let phaseOwed = String(localized: "a11y.phase.owed")
+        /// The landing check, "yes, it was done" on the landed card. (6.1)
+        static let phaseConfirmedAfterLanding = String(localized: "a11y.phase.confirmedAfterLanding")
+        /// The landing check, "not sure" on the landed card. (6.1)
+        static let phaseNotSure = String(localized: "a11y.phase.notSure")
         static let previousPhase = String(localized: "a11y.previousPhase")
         static let nextPhase = String(localized: "a11y.nextPhase")
         static let gpsGood = String(localized: "a11y.gps.good")
@@ -1968,6 +1974,41 @@ enum L10n {
         }
         static let confirmHint = String(localized: "checkSlot.confirmHint")
         static let showChecklistHint = String(localized: "checkSlot.showChecklistHint")
+        /// "2 items · nothing to press": the landing check as a list, from circuit height. (6.1)
+        static func itemsNothingToPress(_ count: Int) -> String { String(localized: "\(count) items · nothing to press") }
+        /// "owed · you levelled off with it open": the moment of the flight that passed the check. (6.1)
+        static func owed(after cue: FlightCue?) -> String {
+            switch cue {
+            case .takeoff: return String(localized: "checkSlot.owed.takeoff")
+            case .levelOff: return String(localized: "checkSlot.owed.levelOff")
+            case .descent: return String(localized: "checkSlot.owed.descent")
+            case .approach: return String(localized: "checkSlot.owed.approach")
+            case .circuit: return String(localized: "checkSlot.owed.circuit")
+            case nil: return owedShort
+            }
+        }
+        /// "owed", where the slot is narrow (the phone's shared row).
+        static let owedShort = String(localized: "checkSlot.owedShort")
+        static let advanceAndConfirmHint = String(localized: "checkSlot.advanceAndConfirmHint")
+        static let goToLandingHint = String(localized: "checkSlot.goToLandingHint")
+    }
+
+    /// The landed card, after a full-stop landing on a flight that isn't circuits. (6.1, M4)
+    enum LandedCard {
+        /// "LANDED · LSZQ · 14:44", or "LANDED · 14:44" when the aerodrome isn't known.
+        static func title(aerodrome: String?, time: String) -> String {
+            guard let aerodrome, !aerodrome.isEmpty else {
+                return String(format: String(localized: "landedCard.titleNoAerodrome"), time)
+            }
+            return String(format: String(localized: "landedCard.title"), aerodrome, time)
+        }
+        static let question = String(localized: "landedCard.question")
+        static let yes = String(localized: "landedCard.yes")
+        static let notSure = String(localized: "landedCard.notSure")
+        static let explanation = String(localized: "landedCard.explanation")
+        static let landingCheckDone = String(localized: "landedCard.landingCheckDone")
+        static let yesHint = String(localized: "landedCard.yesHint")
+        static let notSureHint = String(localized: "landedCard.notSureHint")
     }
 
     /// A trip on Today and in Plan › Flights: the card that says "Trip" and lists its legs. (6.1)

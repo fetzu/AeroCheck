@@ -183,7 +183,8 @@ struct FlightView: View {
             status: { appState.getPhaseStatus($0) },
             onSelect: { requestJump(to: $0) },
             isCircuitMode: appState.isCircuitMode,
-            fredaDue: appState.fredaDue
+            fredaDue: appState.fredaDue,
+            currentOwed: appState.cueTiming(for: appState.currentPhase) == .owed
         )
     }
 
@@ -1686,6 +1687,8 @@ struct PhaseProgressBar: View {
     var isCircuitMode: Bool = false
     /// When true, the Cruise segment turns amber: FREDA is due. (v4 UI/UX Revamp; FREDA since 6.1)
     var fredaDue: Bool = false
+    /// The current check is owed (the flight moved past it open): its segment amber, as FREDA due. (6.1)
+    var currentOwed: Bool = false
     /// How tall a segment is to the touch; the bar is drawn centred in it.
     var hitHeight: CGFloat = CockpitTarget.control
 
@@ -1705,8 +1708,7 @@ struct PhaseProgressBar: View {
             ForEach(phases, id: \.self) { phase in
                 let isCurrent = phase == currentPhase
                 Button { onSelect(phase) } label: {
-                    RoundedRectangle(cornerRadius: 2)
-                        .fill(color(for: phase, isCurrent: isCurrent))
+                    segment(for: phase, isCurrent: isCurrent)
                         .frame(height: isCurrent ? 8 : 5)
                         .frame(maxWidth: .infinity)
                         // The bar DRAWS at 5–8 pt; its segments are a full Cockpit control tall
@@ -1791,6 +1793,7 @@ struct PhaseProgressBar: View {
         if phase == .cruise && phase == currentPhase && fredaDue {
             return L10n.Accessibility.phaseFredaDue
         }
+        if phase == currentPhase && currentOwed { return L10n.Accessibility.phaseOwed }
         switch status(phase) {
         case .completed:     return L10n.Accessibility.phaseCompleted
         case .doneFromMemory: return L10n.Accessibility.phaseDoneFromMemory
@@ -1798,15 +1801,35 @@ struct PhaseProgressBar: View {
         case .missingAction: return L10n.Accessibility.phaseMissingAction
         case .empty:         return L10n.Accessibility.phaseNothingToDo
         case .notStarted:    return L10n.Accessibility.phaseNotStarted
+        case .confirmedAfterLanding: return L10n.Accessibility.phaseConfirmedAfterLanding
+        case .notSure:       return L10n.Accessibility.phaseNotSure
+        }
+    }
+
+    /// A segment: filled in its status's colour, or, for a landing check confirmed after the landing, a
+    /// green OUTLINE: done, but never the solid green of a check flown before touchdown. (6.1)
+    @ViewBuilder
+    private func segment(for phase: ChecklistPhase, isCurrent: Bool) -> some View {
+        let shape = RoundedRectangle(cornerRadius: 2)
+        if !isCurrent && status(phase) == .confirmedAfterLanding {
+            shape.fill(theme.panel).overlay(shape.strokeBorder(theme.onTarget, lineWidth: 1.5))
+        } else {
+            shape.fill(color(for: phase, isCurrent: isCurrent))
         }
     }
 
     private func color(for phase: ChecklistPhase, isCurrent: Bool) -> Color {
         if phase == .cruise && isCurrent && fredaDue { return theme.warning }
+        // Owed: amber, as FREDA due, until done or skipped. (6.1)
+        if isCurrent && currentOwed { return theme.warning }
         if isCurrent { return theme.action }
         switch status(phase) {
         // Done from memory is done: green, as a check worked through. (6.1)
         case .completed, .doneFromMemory: return theme.onTarget
+        // Confirmed after landing is drawn as an outline (`segment`); here for anything else that asks.
+        case .confirmedAfterLanding: return theme.onTarget
+        // "Not sure" on the landed card: amber, with owed, for the debrief. (6.1)
+        case .notSure: return theme.warning
         case .skipped: return .orange
         case .missingAction: return theme.danger
         // SEC-C36: a phase with nothing to display is NOT "done" — render it as neutral/inactive
@@ -1885,8 +1908,10 @@ struct PhaseSelectorView: View {
             return theme.action
         }
         switch appState.getPhaseStatus(phase) {
-        case .completed, .doneFromMemory:
+        case .completed, .doneFromMemory, .confirmedAfterLanding:
             return theme.onTarget
+        case .notSure:
+            return theme.warning
         case .skipped:
             return .orange
         case .missingAction:

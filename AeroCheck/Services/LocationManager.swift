@@ -207,6 +207,8 @@ class LocationManager: NSObject, ObservableObject {
         self.appState = appState
         self.airportDataService = airportDataService
         self.flightEventDetector = flightEventDetector
+        // The cues from the flight time the check slot: each one straight to the Cockpit. (6.1)
+        flightEventDetector?.onCue = { [weak appState] event in appState?.noteFlightCue(event) }
         self.flightPlanManager = flightPlanManager
         self.activeChecklist = activeChecklist
         self.recordingInterval = interval
@@ -898,7 +900,14 @@ class LocationManager: NSObject, ObservableObject {
                 maxDistanceNm: 5.0,
                 types: AirportType.fixedWing
             )
+            // The approach check is due 5 NM from where the flight is going: its own route's end, or the
+            // aerodrome it diverted to. Only the flight's own plan, as for the ATOs. (6.1, cues)
+            let plan = flightPlanManager?.activeFlightPlan
+            detector.cueDestination = plan?.id == appState.currentFlight?.flightPlanId ? plan?.cueDestination : nil
             detector.processLocation(location, nearbyAirports: nearbyAirports, baroSample: barometer.currentSample)
+            // A full stop on a flight that isn't circuits is the landed card's, whatever screen is up:
+            // the Companion shows it from the iPad's snapshot. (6.1, M4)
+            if appState.takeFullStopForLandedCard(detector.pendingFullStop) { detector.dismissFullStop() }
         }
     }
 }

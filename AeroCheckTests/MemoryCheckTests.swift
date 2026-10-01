@@ -406,8 +406,9 @@ final class MemoryCheckTests: XCTestCase {
                        [.doneFromMemory])
         XCTAssertEqual(try decoder.decode([PhaseCompletionStatus].self, from: Data(#"["completed","empty"]"#.utf8)),
                        [.completed, .empty])
-        // A value from a newer build: owed, orange, rather than a checkpoint lost.
-        XCTAssertEqual(try decoder.decode([PhaseCompletionStatus].self, from: Data(#"["confirmedAfterLanding"]"#.utf8)),
+        // A value from a newer build: owed, orange, rather than a checkpoint lost. (`confirmedAfterLanding`,
+        // the example here until the landed card brought it, is known since the cues from the flight.)
+        XCTAssertEqual(try decoder.decode([PhaseCompletionStatus].self, from: Data(#"["confirmedLater"]"#.utf8)),
                        [.skipped])
         let encoded = try XCTUnwrap(String(data: JSONEncoder().encode([PhaseCompletionStatus.doneFromMemory]), encoding: .utf8))
         XCTAssertEqual(encoded, #"["doneFromMemory"]"#)

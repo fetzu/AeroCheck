@@ -150,14 +150,10 @@ class AirportDataService: ObservableObject {
 
         // OpenAIP-primary frequencies: UNION per airport — OpenAIP wins on a frequency-type conflict, but
         // OurAirports-only types (e.g. GND/ATIS the export omits) are kept rather than dropped. (review #2)
-        let openAIPFreqsByIdent = Dictionary(grouping: AirportDataMergeEngine.openAIPFrequencies(from: oaip)) {
-            $0.airportIdent
-        }
-        for (ident, openAIPFreqs) in openAIPFreqsByIdent {
-            let openAIPTypes = Set(openAIPFreqs.map { $0.type })
-            let keptOurAirports = (frequenciesByAirport[ident] ?? []).filter { !openAIPTypes.contains($0.type) }
-            frequenciesByAirport[ident] = openAIPFreqs + keptOurAirports
-        }
+        // Only for the OpenAIP records the merge folded in, like the runways below. (6.2.0)
+        let openAIPFreqsByIdent = AirportDataMergeEngine.mergedFrequencies(
+            ourFrequenciesByIdent: frequenciesByAirport, openAIP: oaip, foldedOpenAIPIds: outcome.foldedOpenAIPIds)
+        frequenciesByAirport.merge(openAIPFreqsByIdent) { _, fromMerge in fromMerge }
 
         // OpenAIP-primary runways: UNION per airport, one runway per physical strip. A runway both sources
         // list (even under other designators, LSGC 05/23 vs 06/24) becomes one, with OpenAIP's PCN and

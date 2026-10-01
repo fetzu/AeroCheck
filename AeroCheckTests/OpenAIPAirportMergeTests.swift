@@ -650,6 +650,42 @@ final class OpenAIPAirportMergeTests: XCTestCase {
                        ["08/26"])
     }
 
+    /// The frequencies follow the airports: a same-ICAO OpenAIP field more than 1 NM away keeps its
+    /// frequencies to itself (they were joined by ident before); a matched one is unioned, OpenAIP winning
+    /// a type both list; an appended one brings its own.
+    func testAirportsFarApartDoNotShareFrequencies() throws {
+        let field = { (lon: Double, lat: Double) -> [OpenAIPAirport] in
+            try OpenAIPAirport.parse(geoJSON: Data("""
+            {"type":"FeatureCollection","features":[{"type":"Feature",
+              "properties":{"_id":"oaip-lszb","name":"BERN-BELP","icaoCode":"LSZB","type":3,"country":"CH",
+                "frequencies":[{"name":"BERN TOWER","value":"121.030","type":14}]},
+              "geometry":{"type":"Point","coordinates":[\(lon),\(lat)]}}]}
+            """.utf8))
+        }
+        let ourBern = [ourAirport(id: 100, ident: "LSZB", lat: 46.914, lon: 7.497, name: "Bern Belp")]
+        let ourFreqs = ["LSZB": [
+            AirportFrequency(id: 1, airportRef: 100, airportIdent: "LSZB", type: "TWR", description: "BERN TOWER", frequencyMhz: 121.025),
+            AirportFrequency(id: 2, airportRef: 100, airportIdent: "LSZB", type: "GND", description: "BERN GROUND", frequencyMhz: 121.755),
+        ]]
+
+        let far = try field(9.5, 48.5)
+        let farOutcome = AirportDataMergeEngine.mergeOutcome(ourAirports: ourBern, openAIP: far)
+        XCTAssertNil(AirportDataMergeEngine.mergedFrequencies(
+            ourFrequenciesByIdent: ourFreqs, openAIP: far, foldedOpenAIPIds: farOutcome.foldedOpenAIPIds)["LSZB"])
+
+        let near = try field(7.4971, 46.9141)
+        let nearOutcome = AirportDataMergeEngine.mergeOutcome(ourAirports: ourBern, openAIP: near)
+        let merged = try XCTUnwrap(AirportDataMergeEngine.mergedFrequencies(
+            ourFrequenciesByIdent: ourFreqs, openAIP: near, foldedOpenAIPIds: nearOutcome.foldedOpenAIPIds)["LSZB"])
+        XCTAssertEqual(merged.map(\.type), ["TWR", "GND"])
+        XCTAssertEqual(merged[0].frequencyMhz, 121.030, accuracy: 0.0005, "OpenAIP wins the TWR")
+
+        let alone = AirportDataMergeEngine.mergeOutcome(ourAirports: [], openAIP: far)
+        XCTAssertEqual(AirportDataMergeEngine.mergedFrequencies(
+            ourFrequenciesByIdent: [:], openAIP: far, foldedOpenAIPIds: alone.foldedOpenAIPIds)["LSZB"]?.map(\.type),
+                       ["TWR"])
+    }
+
     /// The readers see one LSGC runway: the wind pick, the planning summary and the editor's runway ends
     /// (which offered 05, 06, 23 and 24 before).
     func testSuggestRunwayAndSummarySeeOneLSGCRunway() throws {

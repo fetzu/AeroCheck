@@ -146,6 +146,9 @@
 		5C0A0001211111110000001 /* ShareCardFigures.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5C0A0001111111110000001 /* ShareCardFigures.swift */; };
 		5C0A0061211111110000001 /* FlightShareCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5C0A0061111111110000001 /* FlightShareCard.swift */; };
 		5C0A0061211111110000002 /* ShareCardMapRenderer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5C0A0061111111110000002 /* ShareCardMapRenderer.swift */; };
+		JC0A0001211111110000001 /* ShareCardJourney.swift in Sources */ = {isa = PBXBuildFile; fileRef = JC0A0001111111110000001 /* ShareCardJourney.swift */; };
+		JC0A0001211111110000002 /* JourneyShareCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = JC0A0001111111110000002 /* JourneyShareCard.swift */; };
+		JC0A0001211111110000003 /* ShareCardSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = JC0A0001111111110000003 /* ShareCardSheet.swift */; };
 		A1000001211111110000922 /* DivertSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000001111111110000922 /* DivertSheet.swift */; };
 		A1000001211111110000924 /* DeferredItemsViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000001111111110000924 /* DeferredItemsViews.swift */; };
 		A1000001211111110000916 /* AltitudePlanner.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000001111111110000916 /* AltitudePlanner.swift */; };
@@ -473,6 +476,9 @@
 		5C0A0001111111110000001 /* ShareCardFigures.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShareCardFigures.swift; sourceTree = "<group>"; };
 		5C0A0061111111110000001 /* FlightShareCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FlightShareCard.swift; sourceTree = "<group>"; };
 		5C0A0061111111110000002 /* ShareCardMapRenderer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShareCardMapRenderer.swift; sourceTree = "<group>"; };
+		JC0A0001111111110000001 /* ShareCardJourney.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShareCardJourney.swift; sourceTree = "<group>"; };
+		JC0A0001111111110000002 /* JourneyShareCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = JourneyShareCard.swift; sourceTree = "<group>"; };
+		JC0A0001111111110000003 /* ShareCardSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShareCardSheet.swift; sourceTree = "<group>"; };
 		A1000001111111110000922 /* DivertSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DivertSheet.swift; sourceTree = "<group>"; };
 		A1000001111111110000924 /* DeferredItemsViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeferredItemsViews.swift; sourceTree = "<group>"; };
 		A1000001111111110000916 /* AltitudePlanner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AltitudePlanner.swift; sourceTree = "<group>"; };
@@ -819,6 +825,9 @@
 				5C0A0001111111110000001 /* ShareCardFigures.swift */,
 				5C0A0061111111110000001 /* FlightShareCard.swift */,
 				5C0A0061111111110000002 /* ShareCardMapRenderer.swift */,
+				JC0A0001111111110000001 /* ShareCardJourney.swift */,
+				JC0A0001111111110000002 /* JourneyShareCard.swift */,
+				JC0A0001111111110000003 /* ShareCardSheet.swift */,
 				A1000001111111110000922 /* DivertSheet.swift */,
 				A1000001111111110000924 /* DeferredItemsViews.swift */,
 				B3000001111111110000004 /* SubscriptionView.swift */,
@@ -1326,6 +1335,9 @@
 				5C0A0001211111110000001 /* ShareCardFigures.swift in Sources */,
 				5C0A0061211111110000001 /* FlightShareCard.swift in Sources */,
 				5C0A0061211111110000002 /* ShareCardMapRenderer.swift in Sources */,
+				JC0A0001211111110000001 /* ShareCardJourney.swift in Sources */,
+				JC0A0001211111110000002 /* JourneyShareCard.swift in Sources */,
+				JC0A0001211111110000003 /* ShareCardSheet.swift in Sources */,
 				A1000001211111110000922 /* DivertSheet.swift in Sources */,
 				A1000001211111110000924 /* DeferredItemsViews.swift in Sources */,
 				A1000001211111110000916 /* AltitudePlanner.swift in Sources */,

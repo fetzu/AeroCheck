@@ -1374,6 +1374,33 @@ enum L10n {
         static let nationalMapNote = String(localized: "Short flight: drawn on the national map, sharper at this scale")
         /// Under the map styles when the ICAO chart gives way to the glider chart.
         static let gliderChartNote = String(localized: "Drawn on the glider chart, sharper at this scale")
+
+        // The journey card (6.1): a day of the Logbook or a trip's legs on one card.
+        /// "3 flights": a day with circuits or a local flight in it, and the Logbook's day header.
+        static func flightCount(_ count: Int) -> String { String(localized: "\(count) flights") }
+        /// The Logbook's day header: "1:26 flying".
+        static func flying(_ duration: String) -> String {
+            String(localized: "\(duration) flying", comment: "Logbook day header: the day's flight time, 1:26.")
+        }
+        /// A leg recorded without a track.
+        static let noTrack = String(localized: "no track")
+        /// Over the timeline: the day, or a trip over several days.
+        static let theDay = String(localized: "THE DAY")
+        static let theTrip = String(localized: "THE TRIP")
+        /// Over the profile of the legs in the air, joined by the stops.
+        static let altitudeInTheAir = String(localized: "ALTITUDE, IN THE AIR")
+        /// A stop between two legs: "24 min on the ground".
+        static func onTheGround(_ duration: String) -> String {
+            String(localized: "\(duration) on the ground", comment: "Journey card: a stop between two legs; the argument is 24 min.")
+        }
+        static let shareDay = String(localized: "Share day")
+        static let shareTrip = String(localized: "Share trip")
+        static let eachLeg = String(localized: "Add each leg's card")
+        static func eachLegHint(_ images: Int) -> String {
+            String(localized: "\(images) images: this card first, then each leg's own")
+        }
+        /// "Hide where I parked" on a journey: the day's first departure and last arrival only.
+        static let hideParkingJourneyHint = String(localized: "Leaves out the first leg's first 300 m and the last leg's last 300 m")
     }
 
     // MARK: - Event Confirmation

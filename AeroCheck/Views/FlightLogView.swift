@@ -86,6 +86,8 @@ struct FlightLogView: View {
     /// The saved-routes list, reachable from Upcoming. (v5.x)
     @State private var showFlightPlanning = false
     @State private var threadToOpen: UUID?
+    /// A day of two flights or more, shared as one card from its header. (6.1)
+    @State private var journeyShare: JourneyShareRequest?
 
     enum FlightsSegment: String, CaseIterable {
         // Past first: it is the half with data in it, it is what this screen has always opened on,
@@ -241,6 +243,10 @@ struct FlightLogView: View {
         }
         .sheet(item: $statsShareData) { data in
             StatsShareCardCustomizationView(data: data, appState: appState)
+        }
+        .sheet(item: $journeyShare) { request in
+            JourneyShareCustomizationView(flights: request.flights, appState: appState,
+                                          airports: airportDataService, title: request.title)
         }
         .fullScreenCover(isPresented: Binding(
             get: { threadToOpen != nil },
@@ -670,12 +676,30 @@ struct FlightLogView: View {
                 }
 
                 // Grouped into logbook "pages" by month, newest first. (round 7, option B)
+                // Within a month, a day of two flights or more opens on its header, with its totals
+                // and "Share day"; a day of one flight reads as it always did. The header counts and
+                // shares the whole day in the filter, favourites included. (6.1)
+                let days = Dictionary(LogbookDay.days(filteredFlights).map { ($0.id, $0) }, uniquingKeysWith: { a, _ in a })
                 ForEach(monthGroups) { group in
                     Section {
-                        ForEach(group.flights) { flight in
+                        ForEach(group.days) { day in
+                            if let whole = days[day.id], whole.hasHeader {
+                                LogbookDayHeader(day: whole, nauticalMiles: appState.settings.distanceInNauticalMiles) {
+                                    journeyShare = JourneyShareRequest(flights: whole.flights, title: L10n.ShareCard.shareDay)
+                                }
+                                .listRowBackground(Color.clear)
+                                .listRowSeparator(.hidden)
+                                .listRowInsets(EdgeInsets(top: 6, leading: 12, bottom: 4, trailing: 12))
+                            }
+                            ForEach(day.flights) { flight in
+                                flightRow(flight, twoColumn: twoColumn)
+                            }
+                            .onDelete { offsets in stageDeletion(day.flights, at: offsets) }
+                        }
+                        ForEach(group.undated) { flight in
                             flightRow(flight, twoColumn: twoColumn)
                         }
-                        .onDelete { offsets in stageDeletion(group.flights, at: offsets) }
+                        .onDelete { offsets in stageDeletion(group.undated, at: offsets) }
                     } header: {
                         monthHeader(group)
                     }
@@ -797,6 +821,10 @@ struct FlightLogView: View {
         let label: String
         let flights: [Flight]
         let totalHours: Double
+
+        /// The month's flights by day, newest first; flights without a date in `undated`. (6.1)
+        var days: [LogbookDay] { LogbookDay.days(flights) }
+        var undated: [Flight] { flights.filter { $0.startTime == nil } }
     }
 
     /// `filteredFlights` grouped by month (newest first; flights already sorted newest-first).
@@ -1949,6 +1977,82 @@ struct FlightRowView: View {
         return (0..<target).map { track[Int((Double($0) * step).rounded())].altitude * 3.28084 }
     }
     
+}
+
+// MARK: - Logbook day header (6.1)
+
+/// Over a day of two flights or more: "TUE 29 SEP · 3 flights · 1:26 flying · 132 NM" and "Share
+/// day", which makes one card of the whole day (the journey card). One line where it fits, the
+/// totals under the date where it does not (the iPhone, the two-column list).
+struct LogbookDayHeader: View {
+    let day: LogbookDay
+    let nauticalMiles: Bool
+    let onShare: () -> Void
+
+    var body: some View {
+        let label = day.label()
+        let summary = day.summary(nauticalMiles: nauticalMiles)
+        HStack(spacing: 12) {
+            ViewThatFits(in: .horizontal) {
+                HStack(spacing: 10) {
+                    dateText(label)
+                    summaryText(summary)
+                }
+                VStack(alignment: .leading, spacing: 3) {
+                    dateText(label)
+                    // Two lines where one is not enough ("Partager la journée" on a phone).
+                    Text(verbatim: summary)
+                        .scaledFont(size: 14, relativeTo: .caption)
+                        .foregroundColor(.secondaryText)
+                        .lineLimit(2)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+            }
+            .accessibilityElement(children: .combine)
+
+            Spacer(minLength: 8)
+
+            Button(action: onShare) {
+                HStack(spacing: 7) {
+                    Image(systemName: "square.and.arrow.up")
+                        .scaledFont(size: 14, weight: .semibold, relativeTo: .subheadline)
+                    Text(L10n.ShareCard.shareDay)
+                        .scaledFont(size: 14, weight: .bold, relativeTo: .subheadline)
+                        .lineLimit(1)
+                }
+                .foregroundColor(.aviationGold)
+                .padding(.horizontal, 12)
+                .frame(minHeight: 44)
+                .overlay(RoundedRectangle(cornerRadius: 10).strokeBorder(Color.aviationGold, lineWidth: 1.5))
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .fixedSize()
+        }
+        .padding(.leading, 14)
+        .padding(.trailing, 10)
+        .padding(.vertical, 8)
+        .background(RoundedRectangle(cornerRadius: 12).fill(Color.panelBackground))
+        .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(Color.white.opacity(0.06), lineWidth: 1))
+    }
+
+    private func dateText(_ label: String) -> some View {
+        Text(verbatim: label)
+            .scaledFont(size: 14, weight: .bold, design: .monospaced, relativeTo: .subheadline)
+            .tracking(0.8)
+            .foregroundColor(.primaryText)
+            .lineLimit(1)
+            .fixedSize()
+    }
+
+    /// In proportional B612: B612 Mono sets "1: 26" (the colon at the left of its space).
+    private func summaryText(_ summary: String) -> some View {
+        Text(verbatim: summary)
+            .scaledFont(size: 14, relativeTo: .caption)
+            .foregroundColor(.secondaryText)
+            .lineLimit(1)
+            .fixedSize()
+    }
 }
 
 // MARK: - Flight Detail View
@@ -3115,11 +3219,18 @@ let shareImageJPEGQuality: CGFloat = 0.9
 /// The same, for an image already encoded once (off the main thread).
 @MainActor
 func presentImageShareSheet(jpegData: Data, filename: String) {
+    presentImageShareSheet(files: [(jpegData, filename)])
+}
+
+/// Several images in one share, in order: the journey card, then each leg's. Most apps show them as
+/// a set. (6.1)
+@MainActor
+func presentImageShareSheet(files: [(data: Data, filename: String)]) {
     // A ShareFile rather than a bare temp URL: the share sheet holds it, and the staged image goes
     // with it once the sheet is closed. It used to stay in tmp/ for good. (S9-06)
-    let file = ShareFile(data: jpegData, filename: filename, dataTypeIdentifier: UTType.jpeg.identifier)
+    let items = files.map { ShareFile(data: $0.data, filename: $0.filename, dataTypeIdentifier: UTType.jpeg.identifier) }
 
-    let activityVC = UIActivityViewController(activityItems: [file], applicationActivities: nil)
+    let activityVC = UIActivityViewController(activityItems: items, applicationActivities: nil)
 
     // Find the topmost presented view controller
     guard let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
@@ -3516,12 +3627,9 @@ struct ShareCardCustomizationView: View {
                     Spacer(minLength: 16)
 
                     // Style and format (6.1)
-                    HStack(alignment: .top, spacing: 16) {
-                        stylePicker
-                        formatPicker
-                    }
-                    .padding(.horizontal, 20)
-                    .padding(.bottom, 14)
+                    ShareCardStyleFormatPickers(style: $selectedStyle, format: $selectedFormat)
+                        .padding(.horizontal, 20)
+                        .padding(.bottom, 14)
 
                     // Map layer picker
                     mapLayerPicker
@@ -3568,6 +3676,7 @@ struct ShareCardCustomizationView: View {
             }
         }
         .preferredColorScheme(.dark)
+        .shareCardSheetSizing()
         .task {
             await loadMapPreview()
         }
@@ -3600,42 +3709,10 @@ struct ShareCardCustomizationView: View {
     // MARK: - Card Preview
 
     private var cardPreview: some View {
-        GeometryReader { geometry in
-            let canvas = selectedFormat.size
-            let maxWidth = geometry.size.width
-            let maxHeight = geometry.size.height
-            let cardAspect: CGFloat = canvas.width / canvas.height
-            let previewWidth = min(maxWidth, maxHeight * cardAspect)
-            let previewHeight = previewWidth / cardAspect
-
-            ZStack {
-                shareCard(mapImage: previewMapImage)
-                .scaleEffect(previewWidth / canvas.width)
-                .frame(width: previewWidth, height: previewHeight)
-                .clipShape(RoundedRectangle(cornerRadius: 16))
-
-                if isLoadingMap {
-                    RoundedRectangle(cornerRadius: 16)
-                        .fill(Color.black.opacity(0.4))
-                        .frame(width: previewWidth, height: previewHeight)
-                    ProgressView()
-                        .tint(.white)
-                        .scaleEffect(1.5)
-                } else if mapPlaceholder == .unavailable && previewMapImage == nil {
-                    // Over the map's place on the card: back online, one tap loads it. (6.1)
-                    Button(L10n.Button.retry) {
-                        Task { await loadMapPreview() }
-                    }
-                    .scaledFont(size: 14, weight: .semibold, relativeTo: .subheadline)
-                    .foregroundColor(.black)
-                    .padding(.horizontal, 16)
-                    .padding(.vertical, 10)
-                    .background(Capsule().fill(Color.aviationGold))
-                    .position(x: previewWidth / 2, y: previewHeight * 0.47)
-                    .frame(width: previewWidth, height: previewHeight)
-                }
-            }
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
+        ShareCardPreviewFrame(canvas: selectedFormat.size, isLoadingMap: isLoadingMap,
+                              showsRetry: mapPlaceholder == .unavailable && previewMapImage == nil,
+                              onRetry: { Task { await loadMapPreview() } }) {
+            shareCard(mapImage: previewMapImage)
         }
     }
 
@@ -3673,224 +3750,38 @@ struct ShareCardCustomizationView: View {
     /// without them.
     private var canShare: Bool { !isGeneratingShare && !isLoadingMap && !isLoadingTerrain && !isLoadingNames }
 
-    // MARK: - Style, format and parking (6.1)
-
-    private var stylePicker: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            sectionLabel(L10n.ShareCard.style)
-            Picker(L10n.ShareCard.style, selection: $selectedStyle) {
-                ForEach(ShareCardStyle.allCases) { style in
-                    Text(style.displayName).tag(style)
-                }
-            }
-            .pickerStyle(.segmented)
-        }
-        .frame(maxWidth: .infinity)
-    }
-
-    private var formatPicker: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            sectionLabel(L10n.ShareCard.format)
-            Picker(L10n.ShareCard.format, selection: $selectedFormat) {
-                ForEach(ShareCardFormat.allCases) { format in
-                    Text(verbatim: format.ratioLabel)
-                        .accessibilityLabel(format.accessibilityName)
-                        .tag(format)
-                }
-            }
-            .pickerStyle(.segmented)
-        }
-        .frame(maxWidth: 140)
-    }
+    // MARK: - The controls (6.1: shared with the journey's sheet, `ShareCardSheet.swift`)
 
     /// Off by default: the whole track, as recorded. On, the first and last 300 m go, so the dots no
     /// longer mark where the aircraft is kept. (approved Q7)
     private var hideParkingToggle: some View {
-        Toggle(isOn: $hideParking) {
-            VStack(alignment: .leading, spacing: 2) {
-                Text(L10n.ShareCard.hideParking)
-                    .scaledFont(size: 15, weight: .semibold, relativeTo: .subheadline)
-                    .foregroundColor(.primaryText)
-                Text(L10n.ShareCard.hideParkingHint)
-                    .scaledFont(size: 12, relativeTo: .caption)
-                    .foregroundColor(.secondaryText)
-            }
-        }
-        .tint(.aviationGold)
+        ShareCardSwitch(isOn: $hideParking, title: L10n.ShareCard.hideParking, hint: L10n.ShareCard.hideParkingHint)
     }
-
-    private func sectionLabel(_ text: String) -> some View {
-        Text(text)
-            .scaledFont(size: 12, weight: .bold, relativeTo: .caption)
-            .foregroundColor(.secondaryText)
-            .tracking(1.5)
-    }
-
-    // MARK: - Map Layer Picker
 
     private var mapLayerPicker: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Text("MAP STYLE")
-                .scaledFont(size: 12, weight: .bold, relativeTo: .caption)
-                .foregroundColor(.secondaryText)
-                .tracking(1.5)
-
-            ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 10) {
-                    ForEach(ShareCardMapLayer.allCases) { layer in
-                        Button(action: {
-                            withAnimation(.easeInOut(duration: 0.2)) {
-                                selectedMapLayer = layer
-                                appState.settings.shareCardMapLayer = layer
-                                appState.saveSettings()
-                            }
-                        }) {
-                            HStack(spacing: 6) {
-                                Image(systemName: layer.icon)
-                                    .scaledFont(size: 13, weight: .medium, relativeTo: .caption)
-
-                                Text(layer.displayName)
-                                    .scaledFont(size: 13, weight: .semibold, relativeTo: .caption)
-                            }
-                            .padding(.horizontal, 14)
-                            .padding(.vertical, 10)
-                            .background(
-                                Capsule()
-                                    .fill(selectedMapLayer == layer ? Color.aviationGold : Color.cardBackground)
-                            )
-                            .foregroundColor(selectedMapLayer == layer ? .black : .white)
-                        }
-                    }
-                }
-            }
+        ShareCardLayerPicker(selection: selectedMapLayer) { layer in
+            selectedMapLayer = layer
+            appState.settings.shareCardMapLayer = layer
+            appState.saveSettings()
         }
     }
-
-    // MARK: - Color Scheme Picker
 
     private var colorSchemePicker: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Text("COLOR THEME")
-                .scaledFont(size: 12, weight: .bold, relativeTo: .caption)
-                .foregroundColor(.secondaryText)
-                .tracking(1.5)
-
-            HStack(spacing: 12) {
-                ForEach(ShareCardColorScheme.allCases) { scheme in
-                    Button(action: {
-                        withAnimation(.easeInOut(duration: 0.2)) {
-                            selectedScheme = scheme
-                            appState.settings.shareCardColorScheme = scheme
-                            appState.saveSettings()
-                        }
-                    }) {
-                        VStack(spacing: 6) {
-                            ZStack {
-                                Circle()
-                                    .fill(scheme.dotColor)
-                                    .frame(width: 32, height: 32)
-                                    .overlay(
-                                        Circle()
-                                            .stroke(
-                                                scheme == .dark || scheme == .darkBlue ? Color.white.opacity(0.2) : Color.black.opacity(0.1),
-                                                lineWidth: 1
-                                            )
-                                    )
-
-                                if selectedScheme == scheme {
-                                    Circle()
-                                        .stroke(Color.aviationGold, lineWidth: 2.5)
-                                        .frame(width: 40, height: 40)
-                                }
-                            }
-                            .frame(width: 44, height: 44)
-
-                            Text(scheme.displayName)
-                                .scaledFont(size: 11, weight: .medium, relativeTo: .caption2)
-                                .foregroundColor(selectedScheme == scheme ? .aviationGold : .secondaryText)
-                                .lineLimit(1)
-                                .fixedSize()
-                        }
-                    }
-                }
-            }
+        ShareCardThemePicker(selection: selectedScheme) { scheme in
+            selectedScheme = scheme
+            appState.settings.shareCardColorScheme = scheme
+            appState.saveSettings()
         }
     }
-
-    // MARK: - Terrain Toggle
 
     private var terrainToggle: some View {
-        VStack(alignment: .center, spacing: 8) {
-            Text("TERRAIN")
-                .scaledFont(size: 12, weight: .bold, relativeTo: .caption)
-                .foregroundColor(.secondaryText)
-                .tracking(1.5)
-
-            Button(action: {
-                withAnimation(.easeInOut(duration: 0.2)) {
-                    showTerrain.toggle()
-                }
-            }) {
-                VStack(spacing: 6) {
-                    ZStack {
-                        RoundedRectangle(cornerRadius: 8)
-                            .fill(showTerrain ? Color(red: 0.45, green: 0.32, blue: 0.18) : Color.cardBackground)
-                            .frame(width: 32, height: 32)
-                            .overlay(
-                                Group {
-                                    if isLoadingTerrain {
-                                        ProgressView()
-                                            .scaleEffect(0.7)
-                                            .tint(.white)
-                                    } else {
-                                        Image(systemName: "mountain.2.fill")
-                                            .scaledFont(size: 14, weight: .semibold, relativeTo: .subheadline)
-                                            .foregroundColor(showTerrain ? .white : .secondaryText)
-                                    }
-                                }
-                            )
-                            .overlay(
-                                RoundedRectangle(cornerRadius: 8)
-                                    .stroke(showTerrain ? Color(red: 0.45, green: 0.32, blue: 0.18) : Color.white.opacity(0.2), lineWidth: showTerrain ? 2.5 : 1)
-                            )
-                    }
-                    .frame(width: 44, height: 44)
-
-                    Text(isLoadingTerrain ? "..." : (showTerrain ? "On" : "Off"))
-                        .scaledFont(size: 11, weight: .medium, relativeTo: .caption2)
-                        .foregroundColor(showTerrain ? Color(red: 0.65, green: 0.48, blue: 0.28) : .secondaryText)
-                }
-            }
-            .disabled(isLoadingTerrain)
-        }
+        ShareCardTerrainToggle(isOn: $showTerrain, isLoading: isLoadingTerrain)
     }
 
-    // MARK: - Share Button
-
     private var shareButton: some View {
-        Button(action: {
+        ShareCardShareButton(canShare: canShare, isWorking: isGeneratingShare) {
             Task { await generateAndShare() }
-        }) {
-            HStack(spacing: 8) {
-                if isGeneratingShare {
-                    ProgressView()
-                        .tint(.black)
-                } else {
-                    Image(systemName: "square.and.arrow.up")
-                }
-                Text("Share")
-                    .scaledFont(size: 18, weight: .bold, relativeTo: .title3)
-            }
-            .frame(maxWidth: .infinity)
-            .padding(.vertical, 16)
-            .background(
-                RoundedRectangle(cornerRadius: 14)
-                    .fill(Color.aviationGold)
-            )
-            .foregroundColor(.black)
-            .opacity(canShare || isGeneratingShare ? 1 : 0.5)
         }
-        .disabled(!canShare)
     }
 
     // MARK: - Helpers
@@ -3989,33 +3880,9 @@ struct ShareCardCustomizationView: View {
     private func generateAndShare() async {
         isGeneratingShare = true
 
-        // Reuse the already-loaded preview map image to avoid re-downloading tiles
-        let renderer = ImageRenderer(content: shareCard(mapImage: previewMapImage))
-        renderer.scale = 2.0
-        // Propose explicit size to help ImageRenderer resolve the layout
-        renderer.proposedSize = ProposedViewSize(selectedFormat.size)
-
-        // ImageRenderer can return nil on first invocation for complex views.
-        // Retry up to 3 times with brief yields to let the rendering pipeline warm up.
-        var uiImage: UIImage?
-        for attempt in 0..<3 {
-            uiImage = renderer.uiImage
-            if uiImage != nil { break }
-            if attempt < 2 {
-                try? await Task.sleep(nanoseconds: 200_000_000) // 200ms
-            }
-        }
-
-        guard let renderedImage = uiImage else {
-            isGeneratingShare = false
-            return
-        }
-
-        // The one JPEG pass, on a background thread to not block UI. It used to be encoded here and
-        // again by the share sheet. (6.1)
-        let jpegData: Data? = await Task.detached(priority: .userInitiated) {
-            renderedImage.jpegData(compressionQuality: shareImageJPEGQuality)
-        }.value
+        // Reuse the already-loaded preview map image to avoid re-downloading tiles. The one JPEG
+        // pass, off the main thread: it used to be encoded here and again by the share sheet. (6.1)
+        let jpegData = await ShareCardExport.jpeg(shareCard(mapImage: previewMapImage), size: selectedFormat.size)
 
         isGeneratingShare = false
         guard let jpegData else { return }

@@ -1,6 +1,128 @@
 {
   "sourceLanguage": "en",
   "strings": {
+    "%lld flights": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld vols"
+          }
+        }
+      }
+    },
+    "%@ flying": {
+      "comment": "Logbook day header: the day's flight time, 1:26.",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ de vol"
+          }
+        }
+      }
+    },
+    "no track": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "sans trace"
+          }
+        }
+      }
+    },
+    "THE DAY": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "LA JOURNÉE"
+          }
+        }
+      }
+    },
+    "THE TRIP": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "LE VOYAGE"
+          }
+        }
+      }
+    },
+    "ALTITUDE, IN THE AIR": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ALTITUDE, EN VOL"
+          }
+        }
+      }
+    },
+    "%@ on the ground": {
+      "comment": "Journey card: a stop between two legs; the argument is 24 min.",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ au sol"
+          }
+        }
+      }
+    },
+    "Share day": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Partager la journée"
+          }
+        }
+      }
+    },
+    "Share trip": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Partager le voyage"
+          }
+        }
+      }
+    },
+    "Add each leg's card": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ajouter la carte de chaque étape"
+          }
+        }
+      }
+    },
+    "%lld images: this card first, then each leg's own": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld images : cette carte d’abord, puis celle de chaque étape"
+          }
+        }
+      }
+    },
+    "Leaves out the first leg's first 300 m and the last leg's last 300 m": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Retire les 300 premiers mètres de la première étape et les 300 derniers de la dernière"
+          }
+        }
+      }
+    },
     "Drawn on the glider chart, sharper at this scale": {
       "localizations": {
         "fr": {

@@ -214,64 +214,15 @@ struct FlightShareCard: View {
     }
 
     private func panelFigure(_ value: String, _ label: String, size: CGFloat) -> some View {
-        VStack(alignment: .leading, spacing: 4) {
-            Text(value)
-                .font(.aero(size: size, weight: .bold))
-                .foregroundColor(colorScheme.primaryTextColor)
-                .lineLimit(1)
-                .minimumScaleFactor(0.6)
-            Text(label)
-                .font(.aero(size: 13, weight: .bold))
-                .foregroundColor(colorScheme.secondaryTextColor)
-                .tracking(1.4)
-                .lineLimit(1)
-                .minimumScaleFactor(0.6)
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
+        ShareCardPanelFigure(value: value, label: label, size: size, scheme: colorScheme)
     }
 
     // MARK: - Top bar
 
     private func topBar(_ layout: ShareCardLayout) -> some View {
-        HStack(spacing: 16) {
-            HStack(spacing: 12) {
-                Text(formattedDate)
-                    .font(.aero(size: 22, weight: .semibold))
-                    .foregroundColor(colorScheme.secondaryTextColor)
-                    .tracking(2)
-                    .fixedSize()
-                // The pilot's own name for the flight, which goes above the route everywhere else.
-                if let name = flight.titleEyebrow {
-                    Text(name)
-                        .font(.aero(size: 20))
-                        .foregroundColor(colorScheme.tertiaryTextColor)
-                        .lineLimit(1)
-                }
-            }
-
-            Spacer(minLength: 16)
-
-            HStack(spacing: 10) {
-                if let model = figures.aircraftModel {
-                    Text(model)
-                        .font(.aero(size: 18, weight: .medium))
-                        .foregroundColor(colorScheme.secondaryTextColor)
-                        .lineLimit(1)
-                }
-                Text(flight.aircraftRegistration ?? flight.airplane)
-                    .font(.aero(size: 20, weight: .bold, design: .monospaced))
-                    .foregroundColor(colorScheme.accentColor)
-                    .lineLimit(1)
-            }
-            .fixedSize()
-            .padding(.horizontal, 18)
-            .padding(.vertical, 8)
-            .background(
-                Capsule()
-                    .fill(colorScheme.accentColor.opacity(0.15))
-                    .overlay(Capsule().stroke(colorScheme.accentColor.opacity(0.3), lineWidth: 1))
-            )
-        }
+        // The pilot's own name for the flight, which goes above the route everywhere else.
+        ShareCardTopBar(date: formattedDate, name: flight.titleEyebrow, model: figures.aircraftModel,
+                        registration: flight.aircraftRegistration ?? flight.airplane, scheme: colorScheme)
     }
 
     /// The date, in the zone of the times on the card.
@@ -324,36 +275,8 @@ struct FlightShareCard: View {
     // MARK: - Map
 
     private func mapView(size: CGSize, cornerRadius: CGFloat) -> some View {
-        Group {
-            if let mapImage {
-                Image(uiImage: mapImage)
-                    .resizable()
-                    .aspectRatio(contentMode: .fill)
-                    .frame(width: size.width, height: size.height)
-                    .clipShape(RoundedRectangle(cornerRadius: cornerRadius))
-            } else {
-                RoundedRectangle(cornerRadius: cornerRadius)
-                    .fill(colorScheme.cardOverlayColor)
-                    .frame(width: size.width, height: size.height)
-                    .overlay {
-                        // Nothing while loading (the sheet shows its spinner); an honest word otherwise.
-                        if mapPlaceholder != .loading {
-                            VStack(spacing: 16) {
-                                Image(systemName: mapPlaceholder == .unavailable ? "wifi.slash" : "map")
-                                    .font(.aero(size: 60))
-                                    .foregroundColor(colorScheme.tertiaryTextColor)
-                                Text(mapPlaceholder == .unavailable ? L10n.ShareCard.mapUnavailable : L10n.FlightDetail.noGPSData)
-                                    .font(.aero(size: 24))
-                                    .foregroundColor(colorScheme.tertiaryTextColor)
-                            }
-                        }
-                    }
-            }
-        }
-        .overlay(
-            RoundedRectangle(cornerRadius: cornerRadius)
-                .stroke(cornerRadius > 0 ? colorScheme.mapBorderColor : .clear, lineWidth: 1)
-        )
+        ShareCardMapBox(image: mapImage, placeholder: mapPlaceholder, size: size, cornerRadius: cornerRadius,
+                        scheme: colorScheme)
     }
 
     // MARK: - Tiles
@@ -371,32 +294,11 @@ struct FlightShareCard: View {
     }
 
     private func tile(icon: String, value: String, label: String, _ layout: ShareCardLayout) -> some View {
-        VStack(spacing: layout.format == .story ? 8 : 6) {
-            Image(systemName: icon)
-                .font(.aero(size: layout.format == .story ? 20 : 17, weight: .medium))
-                .foregroundColor(colorScheme.accentColor)
-            Text(value)
-                .font(.aero(size: layout.tileValueFont, weight: .bold))
-                .foregroundColor(colorScheme.primaryTextColor)
-                .lineLimit(1)
-                .minimumScaleFactor(0.6)
-            Text(label)
-                .font(.aero(size: layout.format == .story ? 12 : 11, weight: .bold))
-                .foregroundColor(colorScheme.secondaryTextColor)
-                .tracking(1.4)
-                .lineLimit(1)
-                .minimumScaleFactor(0.6)
-        }
-        .padding(.horizontal, 8)
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(box)
+        ShareCardTile(icon: icon, value: value, label: label, format: layout.format,
+                      valueFont: layout.tileValueFont, scheme: colorScheme)
     }
 
-    private var box: some View {
-        RoundedRectangle(cornerRadius: 14)
-            .fill(colorScheme.cardOverlayColor)
-            .overlay(RoundedRectangle(cornerRadius: 14).stroke(colorScheme.cardBorderColor, lineWidth: 1))
-    }
+    private var box: some View { ShareCardBox(scheme: colorScheme) }
 
     // MARK: - Profile
 
@@ -531,14 +433,183 @@ struct FlightShareCard: View {
 
     // MARK: - Footer
 
-    private var footer: some View {
+    private var footer: some View { ShareCardFooter(credit: credit, scheme: colorScheme) }
+}
+
+// MARK: - The pieces both cards are made of (6.1)
+
+/// The date and the pilot's name for the flight on the left, the aircraft on the right in a capsule.
+struct ShareCardTopBar: View {
+    let date: String
+    var name: String?
+    var model: String?
+    let registration: String
+    let scheme: ShareCardColorScheme
+
+    var body: some View {
+        HStack(spacing: 16) {
+            HStack(spacing: 12) {
+                Text(date)
+                    .font(.aero(size: 22, weight: .semibold))
+                    .foregroundColor(scheme.secondaryTextColor)
+                    .tracking(2)
+                    .fixedSize()
+                if let name {
+                    Text(name)
+                        .font(.aero(size: 20))
+                        .foregroundColor(scheme.tertiaryTextColor)
+                        .lineLimit(1)
+                }
+            }
+
+            Spacer(minLength: 16)
+
+            HStack(spacing: 10) {
+                if let model {
+                    Text(model)
+                        .font(.aero(size: 18, weight: .medium))
+                        .foregroundColor(scheme.secondaryTextColor)
+                        .lineLimit(1)
+                }
+                Text(registration)
+                    .font(.aero(size: 20, weight: .bold, design: .monospaced))
+                    .foregroundColor(scheme.accentColor)
+                    .lineLimit(1)
+            }
+            .fixedSize()
+            .padding(.horizontal, 18)
+            .padding(.vertical, 8)
+            .background(
+                Capsule()
+                    .fill(scheme.accentColor.opacity(0.15))
+                    .overlay(Capsule().stroke(scheme.accentColor.opacity(0.3), lineWidth: 1))
+            )
+        }
+    }
+}
+
+/// The map image in its frame, or what stands in its place: nothing while it loads (the sheet shows
+/// its spinner), an honest word otherwise.
+struct ShareCardMapBox: View {
+    let image: UIImage?
+    let placeholder: ShareCardMapPlaceholder
+    let size: CGSize
+    let cornerRadius: CGFloat
+    let scheme: ShareCardColorScheme
+
+    var body: some View {
+        Group {
+            if let image {
+                Image(uiImage: image)
+                    .resizable()
+                    .aspectRatio(contentMode: .fill)
+                    .frame(width: size.width, height: size.height)
+                    .clipShape(RoundedRectangle(cornerRadius: cornerRadius))
+            } else {
+                RoundedRectangle(cornerRadius: cornerRadius)
+                    .fill(scheme.cardOverlayColor)
+                    .frame(width: size.width, height: size.height)
+                    .overlay {
+                        if placeholder != .loading {
+                            VStack(spacing: 16) {
+                                Image(systemName: placeholder == .unavailable ? "wifi.slash" : "map")
+                                    .font(.aero(size: 60))
+                                    .foregroundColor(scheme.tertiaryTextColor)
+                                Text(placeholder == .unavailable ? L10n.ShareCard.mapUnavailable : L10n.FlightDetail.noGPSData)
+                                    .font(.aero(size: 24))
+                                    .foregroundColor(scheme.tertiaryTextColor)
+                            }
+                        }
+                    }
+            }
+        }
+        .overlay(
+            RoundedRectangle(cornerRadius: cornerRadius)
+                .stroke(cornerRadius > 0 ? scheme.mapBorderColor : .clear, lineWidth: 1)
+        )
+    }
+}
+
+/// One figure in a box: an icon, the value, its label.
+struct ShareCardTile: View {
+    let icon: String
+    let value: String
+    let label: String
+    let format: ShareCardFormat
+    let valueFont: CGFloat
+    let scheme: ShareCardColorScheme
+
+    var body: some View {
+        VStack(spacing: format == .story ? 8 : 6) {
+            Image(systemName: icon)
+                .font(.aero(size: format == .story ? 20 : 17, weight: .medium))
+                .foregroundColor(scheme.accentColor)
+            Text(value)
+                .font(.aero(size: valueFont, weight: .bold))
+                .foregroundColor(scheme.primaryTextColor)
+                .lineLimit(1)
+                .minimumScaleFactor(0.6)
+            Text(label)
+                .font(.aero(size: format == .story ? 12 : 11, weight: .bold))
+                .foregroundColor(scheme.secondaryTextColor)
+                .tracking(1.4)
+                .lineLimit(1)
+                .minimumScaleFactor(0.6)
+        }
+        .padding(.horizontal, 8)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background(ShareCardBox(scheme: scheme))
+    }
+}
+
+/// The boxes' faint fill and edge.
+struct ShareCardBox: View {
+    let scheme: ShareCardColorScheme
+
+    var body: some View {
+        RoundedRectangle(cornerRadius: 14)
+            .fill(scheme.cardOverlayColor)
+            .overlay(RoundedRectangle(cornerRadius: 14).stroke(scheme.cardBorderColor, lineWidth: 1))
+    }
+}
+
+/// A figure of the Full map style's panel: the value over its label, left-aligned.
+struct ShareCardPanelFigure: View {
+    let value: String
+    let label: String
+    let size: CGFloat
+    let scheme: ShareCardColorScheme
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text(value)
+                .font(.aero(size: size, weight: .bold))
+                .foregroundColor(scheme.primaryTextColor)
+                .lineLimit(1)
+                .minimumScaleFactor(0.6)
+            Text(label)
+                .font(.aero(size: 13, weight: .bold))
+                .foregroundColor(scheme.secondaryTextColor)
+                .tracking(1.4)
+                .lineLimit(1)
+                .minimumScaleFactor(0.6)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+}
+
+/// The credit for the sources on the card, where the README says they must be credited, and the
+/// brand. (6.1)
+struct ShareCardFooter: View {
+    let credit: String?
+    let scheme: ShareCardColorScheme
+
+    var body: some View {
         HStack(alignment: .bottom) {
-            // The sources the map and the terrain came from, where the README says they must be
-            // credited (6.1)
             if let credit {
                 Text(credit)
                     .font(.aero(size: 13, weight: .medium))
-                    .foregroundColor(colorScheme.tertiaryTextColor)
+                    .foregroundColor(scheme.tertiaryTextColor)
                     .lineLimit(2)
                     .minimumScaleFactor(0.8)
                     .fixedSize(horizontal: false, vertical: true)
@@ -548,15 +619,15 @@ struct FlightShareCard: View {
                 HStack(spacing: 8) {
                     Image(systemName: "airplane.circle.fill")
                         .font(.aero(size: 26))
-                        .foregroundColor(colorScheme.footerIconColor)
+                        .foregroundColor(scheme.footerIconColor)
                     Text("AéroCheck")
                         .font(.aero(size: 22, weight: .semibold))
-                        .foregroundColor(colorScheme.footerTextColor)
+                        .foregroundColor(scheme.footerTextColor)
                 }
                 // Verbatim: as a localized key it became a link and took the link blue. (6.1)
                 Text(verbatim: "aerocheck.app")
                     .font(.aero(size: 13, weight: .medium))
-                    .foregroundColor(colorScheme.footerUrlColor)
+                    .foregroundColor(scheme.footerUrlColor)
             }
         }
     }
@@ -672,11 +743,37 @@ struct ShareCardProfile: View {
     var labelSize: CGFloat = 13
     var axisSize: CGFloat = 15
 
+    /// One leg of a journey, in the air: its track, its terrain, its take-off and landing. (6.1)
+    struct Segment {
+        let track: [GPSPoint]
+        var terrain: [(time: Date, elevationFeet: Double)] = []
+        var takeoff: Mark?
+        var landing: Mark?
+    }
+
+    /// What a gap between two segments says: the stop, "LSGE", over its time on the ground, "24 min".
+    struct Gap {
+        let title: String
+        let detail: String?
+    }
+
+    /// The journey card's legs side by side on one altitude scale, each as wide as its time in the
+    /// air, with a gap for each stop (J1). Empty for the single card, which draws `track`. (6.1)
+    var segments: [Segment] = []
+    /// One per pair of segments, nil for a gap that says nothing.
+    var gaps: [Gap?] = []
+    /// A gap's width, less when many legs would leave the segments too little room.
+    var gapWidth: CGFloat = 86
+
     private static let terrainColor = Color(red: 0.45, green: 0.32, blue: 0.18)
 
     var body: some View {
         Canvas { context, size in
-            draw(in: &context, size: size)
+            if segments.isEmpty {
+                draw(in: &context, size: size)
+            } else {
+                drawSegments(in: &context, size: size)
+            }
         }
     }
 
@@ -771,8 +868,130 @@ struct ShareCardProfile: View {
         }
     }
 
+    // MARK: The journey's segments (6.1)
+
+    private func drawSegments(in context: inout GraphicsContext, size: CGSize) {
+        let drawn = segments.filter { $0.track.count >= 2 }
+        guard !drawn.isEmpty else { return }
+        let hasAxis = drawn.contains { $0.takeoff != nil || $0.landing != nil }
+        let top: CGFloat = 12
+        let bottom: CGFloat = hasAxis ? axisSize + 19 : 8
+        let plot = CGRect(x: 14, y: top, width: size.width - 28, height: max(10, size.height - top - bottom))
+
+        // Each segment as wide as its time in the air, the gaps shrunk when there are many.
+        let spans = drawn.map { max(1, $0.track.last!.timestamp.timeIntervalSince($0.track.first!.timestamp)) }
+        let gapCount = CGFloat(drawn.count - 1)
+        let gap = gapCount > 0 ? min(gapWidth, plot.width * 0.3 / gapCount) : 0
+        let widths = spans.map { CGFloat($0 / spans.reduce(0, +)) * (plot.width - gap * gapCount) }
+
+        let values = drawn.flatMap { segment in
+            segment.track.map { $0.altitude * 3.28084 } + segment.terrain.map(\.elevationFeet)
+        }
+        let low = max(0, ((values.min() ?? 0) - 200) / 100).rounded(.down) * 100
+        let high = max(low + 500, (((values.max() ?? 1000) + 300) / 100).rounded(.up) * 100)
+        func y(_ feet: Double) -> CGFloat { plot.maxY - plot.height * CGFloat((feet - low) / (high - low)) }
+
+        var level = (low / 1000).rounded(.down) * 1000 + 1000
+        while level < high {
+            var line = Path()
+            line.move(to: CGPoint(x: plot.minX, y: y(level)))
+            line.addLine(to: CGPoint(x: plot.maxX, y: y(level)))
+            context.stroke(line, with: .color(textColor.opacity(0.06)), lineWidth: 1)
+            level += 1000
+        }
+        let gradient = { (colors: [Color]) in
+            GraphicsContext.Shading.linearGradient(Gradient(colors: colors), startPoint: CGPoint(x: 0, y: plot.minY),
+                                                   endPoint: CGPoint(x: 0, y: plot.maxY))
+        }
+
+        var left = plot.minX
+        var lastAxisEnd = -CGFloat.infinity
+        for (index, segment) in drawn.enumerated() {
+            let track = segment.track
+            let first = track.first!.timestamp, last = track.last!.timestamp
+            let span = max(1, last.timeIntervalSince(first))
+            let slot = CGRect(x: left, y: plot.minY, width: widths[index], height: plot.height)
+            func x(_ time: Date) -> CGFloat { slot.minX + slot.width * CGFloat(time.timeIntervalSince(first) / span) }
+            let altitudes = track.map { $0.altitude * 3.28084 }
+            func area(_ series: [Double]) -> Path {
+                var path = Path()
+                path.move(to: CGPoint(x: x(first), y: plot.maxY))
+                for (point, feet) in zip(track, series) { path.addLine(to: CGPoint(x: x(point.timestamp), y: y(feet))) }
+                path.addLine(to: CGPoint(x: x(last), y: plot.maxY))
+                path.closeSubpath()
+                return path
+            }
+            func line(_ series: [Double]) -> Path {
+                var path = Path()
+                for (offset, (point, feet)) in zip(track, series).enumerated() {
+                    let p = CGPoint(x: x(point.timestamp), y: y(feet))
+                    if offset == 0 { path.move(to: p) } else { path.addLine(to: p) }
+                }
+                return path
+            }
+            context.fill(area(altitudes), with: gradient([color.opacity(0.45), color.opacity(0.05)]))
+            if !segment.terrain.isEmpty {
+                let ground = track.map { Self.elevation(in: segment.terrain, at: $0.timestamp) ?? low }
+                context.fill(area(ground), with: gradient([Self.terrainColor.opacity(0.95), Self.terrainColor.opacity(0.6)]))
+                context.stroke(line(ground), with: .color(Self.terrainColor), lineWidth: 1.5)
+            }
+            context.stroke(line(altitudes), with: .color(color.opacity(0.9)),
+                           style: StrokeStyle(lineWidth: 2.6, lineJoin: .round))
+
+            // Take-off and landing on the axis; a time that would run into the last one is left out.
+            for (mark, dot, leading) in [(segment.takeoff, Color.aviationGreen, true), (segment.landing, Color.aviationAmber, false)] {
+                guard let mark, mark.time >= first.addingTimeInterval(-60), mark.time <= last.addingTimeInterval(60) else { continue }
+                let mx = min(max(x(mark.time), slot.minX), slot.maxX)
+                context.fill(Path(ellipseIn: CGRect(x: mx - 5, y: plot.maxY - 5, width: 10, height: 10)), with: .color(dot))
+                let text = context.resolve(Text(mark.label)
+                    .font(.custom(AeroTypeface.bold, fixedSize: axisSize))
+                    .foregroundColor(textColor.opacity(0.7)))
+                let width = text.measure(in: size).width
+                let minX = leading ? min(mx, size.width - width) : max(mx - width, 0)
+                guard minX >= lastAxisEnd + 8 else { continue }
+                context.draw(text, at: CGPoint(x: minX, y: size.height - 6), anchor: .bottomLeading)
+                lastAxisEnd = minX + width
+            }
+
+            left += widths[index]
+            // The stop after it, in the gap: a dotted line, its ident and its time on the ground.
+            if index < drawn.count - 1 {
+                let center = left + gap / 2
+                var dots = Path()
+                dots.move(to: CGPoint(x: center, y: plot.minY + 10))
+                dots.addLine(to: CGPoint(x: center, y: plot.maxY))
+                context.stroke(dots, with: .color(textColor.opacity(0.18)), style: StrokeStyle(lineWidth: 1, dash: [2, 6]))
+                if index < gaps.count, let words = gaps[index] {
+                    let title = context.resolve(Text(words.title)
+                        .font(.custom(AeroTypeface.monoBold, fixedSize: labelSize + 1))
+                        .foregroundColor(textColor.opacity(0.7)))
+                    let titleWidth = title.measure(in: size).width
+                    if titleWidth <= gap + 40 {
+                        context.draw(title, at: CGPoint(x: center, y: plot.minY + 14), anchor: .top)
+                        if let detail = words.detail {
+                            let detailText = context.resolve(Text(detail)
+                                .font(.custom(AeroTypeface.regular, fixedSize: labelSize))
+                                .foregroundColor(textColor.opacity(0.5)))
+                            context.draw(detailText, at: CGPoint(x: center, y: plot.minY + 16 + labelSize * 1.4), anchor: .top)
+                        }
+                    }
+                }
+                left += gap
+            }
+        }
+
+        var baseline = Path()
+        baseline.move(to: CGPoint(x: plot.minX, y: plot.maxY))
+        baseline.addLine(to: CGPoint(x: plot.maxX, y: plot.maxY))
+        context.stroke(baseline, with: .color(textColor.opacity(0.12)), lineWidth: 1)
+    }
+
     /// The terrain under a fix, interpolated between the fetched samples; nil without terrain.
     private func terrainElevation(at time: Date) -> Double? {
+        Self.elevation(in: terrain, at: time)
+    }
+
+    private static func elevation(in terrain: [(time: Date, elevationFeet: Double)], at time: Date) -> Double? {
         guard let firstSample = terrain.first else { return nil }
         guard terrain.count >= 2 else { return firstSample.elevationFeet }
         if time <= firstSample.time { return firstSample.elevationFeet }

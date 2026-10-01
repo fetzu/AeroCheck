@@ -100,8 +100,11 @@ struct ShareCardFigures {
     var maxAltitude: String? { maxAltitudeFeet.map { "\(number($0)) ft" } }
 
     /// The track's length in the unit chosen in Settings: "52 NM", "96 km", a tenth under 1.
-    var distance: String {
-        let kilometers = flight.distanceKilometers
+    var distance: String { distance(kilometers: flight.distanceKilometers) }
+
+    /// A length in the unit chosen in Settings, as `distance` writes it: the journey card's total
+    /// goes through here too. (6.1)
+    func distance(kilometers: Double) -> String {
         let value = nauticalMiles ? kilometers / 1.852 : kilometers
         guard value.isFinite, value >= 0 else { return "—" }
         let unit = nauticalMiles ? "NM" : "km"
@@ -225,7 +228,8 @@ struct ShareCardFigures {
         var short = name.trimmingCharacters(in: .whitespaces)
         for suffix in [" Airfield", " Airport", " Aerodrome", " Airstrip", " Aeródromo", " Flugplatz"]
         where short.count > suffix.count && short.hasSuffix(suffix) {
-            short = String(short.dropLast(suffix.count))
+            // "La Gruyère  Airport" (two spaces, OurAirports) kept one of them. (6.1)
+            short = String(short.dropLast(suffix.count)).trimmingCharacters(in: .whitespaces)
             break
         }
         if short == short.uppercased(), short.contains(where: \.isLetter) {
@@ -332,6 +336,12 @@ struct ShareCardFigures {
     /// The credit for the map actually drawn, which is not always the layer picked: a circuit on
     /// an aviation chart is drawn on the national map (`ShareCardMapZoom.choice`). (6.1)
     static func credit(map: ShareCardMapCredit?, terrain: ElevationService.TrackTerrainSource?) -> String? {
+        credit(map: map, terrains: terrain.map { [$0] } ?? [])
+    }
+
+    /// The same for several tracks' terrain (the journey card): each source named once, swisstopo
+    /// first. (6.1)
+    static func credit(map: ShareCardMapCredit?, terrains: [ElevationService.TrackTerrainSource]) -> String? {
         var parts: [String] = []
         switch map {
         case .chart?: parts.append(L10n.ShareCard.creditChart)
@@ -340,11 +350,8 @@ struct ShareCardFigures {
         case .appleMaps?: parts.append(L10n.ShareCard.creditAppleMaps)
         case nil: break
         }
-        switch terrain {
-        case .swisstopo?: parts.append(L10n.ShareCard.creditTerrainSwisstopo)
-        case .openMeteo?: parts.append(L10n.ShareCard.creditTerrainOpenMeteo)
-        case nil: break
-        }
+        if terrains.contains(.swisstopo) { parts.append(L10n.ShareCard.creditTerrainSwisstopo) }
+        if terrains.contains(.openMeteo) { parts.append(L10n.ShareCard.creditTerrainOpenMeteo) }
         return parts.isEmpty ? nil : parts.joined(separator: " · ")
     }
 }
@@ -923,13 +930,21 @@ enum ShareCardPrivacy {
     /// aircraft's stand. The cuts are interpolated between fixes. Empty when the track never got
     /// that far from either end: then all of it is "where I parked".
     static func trimmingParking(_ track: [GPSPoint], meters: Double = parkingTrimMeters) -> [GPSPoint] {
+        trimmingParking(track, meters: meters, start: true, end: true)
+    }
+
+    /// The same, at one end only: a journey hides where the day started and where it ended, not the
+    /// stops between its legs, so its first leg loses its start and its last leg its end. (6.1)
+    static func trimmingParking(_ track: [GPSPoint], meters: Double = parkingTrimMeters,
+                                start trimsStart: Bool, end trimsEnd: Bool) -> [GPSPoint] {
+        guard trimsStart || trimsEnd else { return track }
         guard track.count >= 2, let start = track.first, let end = track.last else { return track }
         func distance(_ a: GPSPoint, _ b: GPSPoint) -> Double {
             Flight.haversineMeters(a.latitude, a.longitude, b.latitude, b.longitude)
         }
-        guard let firstOut = track.firstIndex(where: { distance($0, start) >= meters }),
-              let lastOut = track.lastIndex(where: { distance($0, end) >= meters }),
-              firstOut <= lastOut else { return [] }
+        let firstOut = trimsStart ? track.firstIndex(where: { distance($0, start) >= meters }) : 0
+        let lastOut = trimsEnd ? track.lastIndex(where: { distance($0, end) >= meters }) : track.count - 1
+        guard let firstOut, let lastOut, firstOut <= lastOut else { return [] }
 
         func crossing(from inside: GPSPoint, to outside: GPSPoint, anchor: GPSPoint) -> GPSPoint {
             let d0 = distance(inside, anchor), d1 = distance(outside, anchor)

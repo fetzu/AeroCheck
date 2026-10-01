@@ -421,6 +421,21 @@ final class ShareCardTests: XCTestCase {
         "Glider chart": "Carte vol à voile",
         "Share card": "Carte de partage",
         "Share stats card": "Partager une carte des statistiques",
+        // The journey card (6.1)
+        "%lld flights": "%lld vols",
+        "%@ flying": "%@ de vol",
+        "no track": "sans trace",
+        "THE DAY": "LA JOURNÉE",
+        "THE TRIP": "LE VOYAGE",
+        "ALTITUDE, IN THE AIR": "ALTITUDE, EN VOL",
+        "%@ on the ground": "%@ au sol",
+        "Share day": "Partager la journée",
+        "Share trip": "Partager le voyage",
+        "Add each leg's card": "Ajouter la carte de chaque étape",
+        "%lld images: this card first, then each leg's own": "%lld images : cette carte d’abord, puis celle de chaque étape",
+        "Leaves out the first leg's first 300 m and the last leg's last 300 m":
+            "Retire les 300 premiers mètres de la première étape et les 300 derniers de la dernière",
+        "%lld legs": "%lld étapes",
     ]
 
     func testEveryShareCardLabelHasItsFrench() throws {
@@ -892,5 +907,432 @@ final class ShareCardTests: XCTestCase {
         var other = leg1()
         other.flightPlan!.aircraftRegistration = "HB-PFA"
         XCTAssertEqual(figures(other).aircraftModel, "WT9", "another aircraft's plan: the flight's own type")
+    }
+
+    // MARK: - The journey card (6.1, part 3, J1)
+
+    private let lszq = CLLocationCoordinate2D(latitude: 47.392, longitude: 7.029)
+    private let lsge = CLLocationCoordinate2D(latitude: 46.755, longitude: 7.076)
+    private let lsgn = CLLocationCoordinate2D(latitude: 46.958, longitude: 6.864)
+
+    /// A leg flown in a straight line, a fix every 30 s from block off to block on, climbing to
+    /// `peak` ft halfway; the distance as the Logbook caches it.
+    private func journeyLeg(_ departure: String?, _ arrival: String?, from: CLLocationCoordinate2D,
+                            to: CLLocationCoordinate2D, off: String, takeoff: String, landing: String, on: String,
+                            nm: Double, peak: Double = 5000, registration: String = "F-HVXA") -> Flight {
+        var flight = Flight(airplane: "wt9-dynamic", aircraftRegistration: registration, aircraftType: "WT9")
+        flight.departureAirportIdent = departure
+        flight.arrivalAirportIdent = arrival
+        flight.blockOffTime = date(off)
+        flight.lineUpTime = date(takeoff)
+        flight.landingTime = date(landing)
+        flight.blockOnTime = date(on)
+        flight.startTime = date(off).addingTimeInterval(-300)
+        flight.stopTime = date(on).addingTimeInterval(60)
+        flight.fullStopCount = 1
+        flight.fullStopTimes = [date(landing)]
+        flight.cachedDistanceKm = nm * 1.852
+        let span = date(on).timeIntervalSince(date(off))
+        let count = Int(span / 30) + 1
+        flight.gpsTrack = (0..<count).map { index in
+            let f = Double(index) / Double(count - 1)
+            return GPSPoint(latitude: from.latitude + (to.latitude - from.latitude) * f,
+                            longitude: from.longitude + (to.longitude - from.longitude) * f,
+                            altitude: (450 + (peak - 450) * sin(f * .pi)) / 3.28084,
+                            timestamp: date(off).addingTimeInterval(Double(index) * 30))
+        }
+        flight.cachedMaxAltitudeMeters = peak / 3.28084
+        return flight
+    }
+
+    /// 29 Sep 2026 as recorded (UTC; 11:39–14:45 local): leg 1's arrival never found, as it was
+    /// saved before the back-fill.
+    private func day29() -> [Flight] {
+        [journeyLeg("LSZQ", nil, from: lszq, to: lsge, off: "2026-09-29T09:39:19Z", takeoff: "2026-09-29T09:46:17Z",
+                    landing: "2026-09-29T10:19:59Z", on: "2026-09-29T10:21:16Z", nm: 51.6, peak: 5688),
+         journeyLeg("LSGE", "LSGN", from: lsge, to: lsgn, off: "2026-09-29T10:45:10Z", takeoff: "2026-09-29T10:51:40Z",
+                    landing: "2026-09-29T11:18:05Z", on: "2026-09-29T11:20:30Z", nm: 41.2, peak: 4034),
+         journeyLeg("LSGN", "LSZQ", from: lsgn, to: lszq, off: "2026-09-29T12:11:05Z", takeoff: "2026-09-29T12:18:33Z",
+                    landing: "2026-09-29T12:44:17Z", on: "2026-09-29T12:45:40Z", nm: 38.8, peak: 5749)]
+    }
+
+    private func journey(_ flights: [Flight], nauticalMiles: Bool = true, useUTC: Bool = false) -> ShareCardJourney {
+        ShareCardJourney(flights: flights, nauticalMiles: nauticalMiles, useUTC: useUTC, locale: swiss,
+                         localTimeZone: zurich)
+    }
+
+    /// The totals are each leg's logged figures summed: 0:33 + 0:27 + 0:26 = 1:26, not the exact
+    /// 85 min 51 s floored to 1:25; block 0:42 + 0:35 + 0:34 = 1:51. The distance is the tracks'
+    /// total, rounded once; the landings are the Logbook's.
+    func testTheJourneysTotalsAreEachLegsLoggedFiguresSummed() {
+        let journey = journey(day29())
+        XCTAssertEqual(journey.legs.map(\.flightMinutes), [33, 27, 26])
+        XCTAssertEqual(journey.flightMinutes, 86)
+        XCTAssertEqual(journey.flightTime, "1:26")
+        let exact = day29().reduce(0.0) { $0 + $1.landingTime!.timeIntervalSince($1.lineUpTime!) }
+        XCTAssertEqual(Int(exact / 60), 85, "the exact total would have said 1:25")
+        XCTAssertEqual(journey.blockMinutes, 111)
+        XCTAssertEqual(journey.blockTime, "1:51")
+        XCTAssertEqual(journey.distance, "132 NM")
+        XCTAssertEqual(self.journey(day29(), nauticalMiles: false).distance, "244 km")
+        XCTAssertEqual(journey.landings, 3)
+        XCTAssertEqual(journey.maxAltitude, "5\(mark)749 ft")
+    }
+
+    /// A leg without its times adds nothing to the total, as it adds nothing to a logbook.
+    func testALegWithoutItsTimesAddsNothingToTheTotals() {
+        var legs = day29()
+        legs[1].lineUpTime = nil
+        XCTAssertEqual(journey(legs).flightMinutes, 59)
+        XCTAssertEqual(journey(legs).blockMinutes, 111)
+        legs = legs.map { var flight = $0; flight.lineUpTime = nil; return flight }
+        XCTAssertNil(journey(legs).flightMinutes)
+        XCTAssertEqual(journey(legs).flightTime, "--:--")
+    }
+
+    /// The Logbook lists the newest first; the card goes in the order flown.
+    func testTheLegsGoInTheOrderFlown() {
+        let journey = journey(day29().reversed())
+        XCTAssertEqual(journey.legs.map(\.departureAirportIdent), ["LSZQ", "LSGE", "LSGN"])
+        XCTAssertEqual(journey.span(ofLeg: 0), "11:46 – 12:19")
+        XCTAssertEqual(journey.span(ofLeg: 2), "14:18 – 14:44")
+    }
+
+    /// The chain from where each leg left and landed; leg 1's missing arrival is where leg 2 left
+    /// from, so the chain does not break on it.
+    func testTheChainGoesThroughEveryAerodromeOnce() {
+        let journey = journey(day29())
+        XCTAssertEqual(journey.chain, [.aerodrome("LSZQ"), .aerodrome("LSGE"), .aerodrome("LSGN"), .aerodrome("LSZQ")])
+        XCTAssertEqual(journey.chainText(), "LSZQ → LSGE → LSGN → LSZQ")
+        XCTAssertEqual(journey.route(ofLeg: 0), "LSZQ → LSGE")
+        XCTAssertEqual(journey.aerodromes, ["LSZQ", "LSGE", "LSGN"])
+        XCTAssertTrue(journey.isAllLegs)
+        let names = ["LSZQ": "Bressaucourt Airfield", "LSGE": "Ecuvillens Airport", "LSGN": "Neuchatel Airport"]
+        XCTAssertEqual(journey.subtitle { names[$0] }, "\(L10n.Flights.legCount(3)) · Bressaucourt · Ecuvillens · Neuchatel")
+        XCTAssertEqual(journey.subtitle { _ in nil }, "\(L10n.Flights.legCount(3)) · LSZQ · LSGE · LSGN")
+        XCTAssertTrue(journey.endsWhereItStarted)
+    }
+
+    /// A leg that leaves from somewhere else than the last landed (a flight not recorded) is not
+    /// joined to it: "…" says something is missing.
+    func testAGapInTheChainIsShown() {
+        var legs = day29()
+        legs[0].arrivalAirportIdent = "LSGE"
+        legs.remove(at: 1)
+        let journey = journey(legs)
+        XCTAssertEqual(journey.chainText(), "LSZQ → LSGE … LSGN → LSZQ")
+        XCTAssertEqual(journey.groundStops.map(\.ident), ["LSGE"], "the stop is where leg 1 landed")
+    }
+
+    /// A long chain folds its middle, as the route strip does: as many as fit from both ends.
+    func testALongChainFoldsItsMiddle() {
+        let idents = ["LSZQ", "LSGY", "LSGL", "LSGT", "LSGE", "LSGN", "LSGC", "LSZG", "LSZQ"]
+        let items = idents.map { ShareCardJourney.ChainItem.aerodrome($0) }
+        XCTAssertEqual(ShareCardJourney.chainText(items) { _ in true }, idents.joined(separator: " → "))
+        let folded = ShareCardJourney.chainText(items) { $0.count <= 45 }
+        XCTAssertEqual(folded, "LSZQ → LSGY → LSGL → ··· +4 → LSZG → LSZQ")
+        XCTAssertEqual(ShareCardJourney.chainText(items) { _ in false }, "LSZQ → ··· +7 → LSZQ")
+    }
+
+    /// Each stop's time on the ground: block on to the next block off, each time to the minute, as
+    /// the Logbook writes them.
+    func testEachStopIsBlockOnToTheNextBlockOff() {
+        let stops = journey(day29()).groundStops
+        XCTAssertEqual(stops, [.init(afterLeg: 0, ident: "LSGE", minutes: 24), .init(afterLeg: 1, ident: "LSGN", minutes: 51)])
+        XCTAssertEqual(ShareCardJourney.groundDuration(minutes: 24), "24 min")
+        XCTAssertEqual(ShareCardJourney.groundDuration(minutes: 65), "1 h 05")
+        XCTAssertEqual(ShareCardJourney.groundDuration(minutes: 1100), "18 h 20")
+        XCTAssertEqual(L10n.ShareCard.onTheGround("24 min"), "24 min on the ground")
+    }
+
+    /// The day's timeline: taxi, air and ground in order, from the first block off to the last
+    /// block on; the profile's gaps name each stop.
+    func testTheTimelineRunsFromTheFirstBlockOffToTheLastBlockOn() throws {
+        let journey = journey(day29())
+        let timeline = try XCTUnwrap(journey.timeline)
+        XCTAssertEqual(journey.figures(journey.legs[0]).time(timeline.start), "11:39")
+        XCTAssertEqual(journey.figures(journey.legs[0]).time(timeline.end), "14:45")
+        XCTAssertEqual(timeline.segments.map(\.kind), [.taxi, .air(leg: 1), .taxi, .ground(stop: 0),
+                                                       .taxi, .air(leg: 2), .taxi, .ground(stop: 1),
+                                                       .taxi, .air(leg: 3), .taxi])
+        XCTAssertEqual(journey.profileSegments.map(\.leg), [1, 2, 3])
+        XCTAssertEqual(journey.profileGaps.map { $0?.ident }, ["LSGE", "LSGN"])
+        XCTAssertEqual(journey.profileGaps.map { $0?.detail }, ["24 min", "51 min"])
+        XCTAssertEqual(journey.timeNote, L10n.ShareCard.localTimeNote("UTC+2"))
+        XCTAssertEqual(self.journey(day29(), useUTC: true).timeNote, L10n.ShareCard.timesInUTC)
+    }
+
+    /// Circuits among cross-countries: its own row ("LSZQ · circuits"), nothing added to the chain
+    /// at the field the aircraft was already at, its touch-and-goes in the landings, and "flights"
+    /// rather than "legs".
+    func testCircuitsAmongCrossCountries() {
+        var circuits = journeyLeg("LSZQ", "LSZQ", from: lszq, to: lszq, off: "2026-09-29T07:00:00Z",
+                                  takeoff: "2026-09-29T07:05:00Z", landing: "2026-09-29T07:40:00Z",
+                                  on: "2026-09-29T07:42:00Z", nm: 30)
+        circuits.touchAndGoCount = 4
+        let journey = journey([circuits] + day29())
+        XCTAssertEqual(journey.chainText(), "LSZQ → LSGE → LSGN → LSZQ")
+        XCTAssertEqual(journey.route(ofLeg: 0), "LSZQ · \(L10n.Flights.circuits.localizedLowercase)")
+        XCTAssertEqual(journey.landings, 8)
+        XCTAssertFalse(journey.isAllLegs)
+        XCTAssertTrue(journey.subtitle { _ in nil }.hasPrefix(L10n.ShareCard.flightCount(4)))
+        XCTAssertEqual(journey.groundStops.first?.ident, "LSZQ")
+    }
+
+    /// A day on two aircraft: both registrations in the badge (no model), and each leg's row names
+    /// its own. Three or more: the first and how many others.
+    func testADayOnTwoAircraft() {
+        var legs = day29()
+        XCTAssertEqual(journey(legs).badge, "F-HVXA")
+        XCTAssertFalse(journey(legs).namesAircraftPerLeg)
+        legs[2].aircraftRegistration = "HB-PFA"
+        XCTAssertEqual(journey(legs).badge, "F-HVXA · HB-PFA")
+        XCTAssertNil(journey(legs).aircraftModel)
+        XCTAssertTrue(journey(legs).namesAircraftPerLeg)
+        legs[1].aircraftRegistration = "HB-KFD"
+        XCTAssertEqual(journey(legs).badge, "F-HVXA +2")
+    }
+
+    /// A leg recorded without a track keeps its row, its times and its minutes; it has no line on
+    /// the map and no segment in the profile, and the gap around it says nothing.
+    func testALegWithoutATrack() {
+        var legs = day29()
+        legs[1].gpsTrack = []
+        let journey = journey(legs)
+        XCTAssertEqual(journey.flightMinutes, 86)
+        XCTAssertEqual(journey.figuresLine(ofLeg: 1), "0:27 · \(L10n.ShareCard.noTrack)")
+        XCTAssertEqual(journey.profileSegments.map(\.leg), [1, 3])
+        XCTAssertEqual(journey.profileGaps.count, 1)
+        XCTAssertNil(journey.profileGaps[0], "legs 1 and 3 are not one stop apart")
+        XCTAssertEqual(journey.mapJourney(hideParking: false).legs.map(\.number), [1, 3])
+    }
+
+    /// Past midnight: the day it started in the Logbook, a date range on the card, and no timeline
+    /// for a trip over two days (it would be a night on the ground).
+    func testLegsAcrossMidnight() {
+        let late = journeyLeg("LSZQ", "LSGE", from: lszq, to: lsge, off: "2026-09-29T21:40:00Z",
+                              takeoff: "2026-09-29T21:45:00Z", landing: "2026-09-29T22:20:00Z",
+                              on: "2026-09-29T22:22:00Z", nm: 50)
+        let next = journeyLeg("LSGE", "LSZQ", from: lsge, to: lszq, off: "2026-09-30T08:00:00Z",
+                              takeoff: "2026-09-30T08:05:00Z", landing: "2026-09-30T08:40:00Z",
+                              on: "2026-09-30T08:42:00Z", nm: 50)
+        let journey = journey([late, next])
+        XCTAssertTrue(journey.spansDays)
+        XCTAssertEqual(journey.dateText, "29–30 SEP 2026")
+        XCTAssertNil(journey.timeline, "a night on the ground")
+        XCTAssertEqual(journey.groundStops.first?.minutes, 578)
+        var lunch = next
+        lunch.blockOffTime = date("2026-09-29T23:40:00Z")
+        lunch.lineUpTime = date("2026-09-29T23:45:00Z")
+        lunch.landingTime = date("2026-09-30T00:20:00Z")
+        lunch.blockOnTime = date("2026-09-30T00:22:00Z")
+        XCTAssertNotNil(self.journey([late, lunch]).timeline, "a flight past midnight keeps its timeline")
+        XCTAssertEqual(self.journey(day29()).dateText, "29 SEP 2026")
+        XCTAssertFalse(self.journey(day29()).spansDays)
+
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = zurich
+        var night = late
+        night.startTime = date("2026-09-29T21:55:00Z")   // 23:55 local, landing after midnight
+        XCTAssertEqual(LogbookDay.days([night], calendar: calendar).map(\.id), ["2026-09-29"])
+    }
+
+    /// Summer time ends on a night journey: both offsets are said.
+    func testTheTimeNoteSaysBothOffsetsAcrossAChangeOfSummerTime() {
+        let before = journeyLeg("LSZQ", "LSGE", from: lszq, to: lsge, off: "2026-10-24T22:00:00Z",
+                                takeoff: "2026-10-24T22:05:00Z", landing: "2026-10-24T22:40:00Z",
+                                on: "2026-10-24T22:42:00Z", nm: 50)
+        let after = journeyLeg("LSGE", "LSZQ", from: lsge, to: lszq, off: "2026-10-25T01:10:00Z",
+                               takeoff: "2026-10-25T01:15:00Z", landing: "2026-10-25T01:50:00Z",
+                               on: "2026-10-25T01:52:00Z", nm: 50)
+        XCTAssertEqual(journey([before, after]).timeNote, L10n.ShareCard.localTimeNote("UTC+2 → UTC+1"))
+    }
+
+    /// The leg list beside the map: every leg in full while they fit, compact next, then the first
+    /// legs and the last with the middle folded.
+    func testTheLegListFoldsPastWhatFits() {
+        let layout = ShareCardJourneyLayout(format: .story, hasTimeline: true)
+        let heights = layout.listHeights
+        let height = layout.mapFrame.height
+        let three = ShareCardJourneyList.rows(legCount: 3, height: height, heights: heights)
+        XCTAssertEqual(three.rows, [.leg(0), .ground(0), .leg(1), .ground(1), .leg(2)])
+        XCTAssertFalse(three.compact)
+        let five = ShareCardJourneyList.rows(legCount: 5, height: height, heights: heights)
+        XCTAssertTrue(five.compact)
+        XCTAssertEqual(five.rows.filter { if case .leg = $0 { return true }; return false }.count, 5)
+        let twelve = ShareCardJourneyList.rows(legCount: 12, height: height, heights: heights)
+        XCTAssertTrue(twelve.compact)
+        XCTAssertEqual(twelve.rows.last, .leg(11), "the last leg is always shown")
+        XCTAssertEqual(twelve.rows.first, .leg(0))
+        guard case let .more(hidden)? = twelve.rows.first(where: { if case .more = $0 { return true }; return false }) else {
+            return XCTFail("the middle folds")
+        }
+        let shown = twelve.rows.filter { if case .leg = $0 { return true }; return false }.count
+        XCTAssertEqual(shown + hidden, 12)
+        let total = twelve.rows.reduce(CGFloat(0)) { sum, row in
+            switch row {
+            case .leg: return sum + heights.compactLeg
+            case .ground: return sum + heights.compactGround
+            case .more: return sum + heights.more
+            }
+        }
+        XCTAssertLessThanOrEqual(total, height)
+    }
+
+    /// Like the single card, every block has its height and the map takes the rest: nothing left
+    /// empty above the footer, in both formats, with or without a timeline.
+    func testTheJourneyMapTakesWhatIsLeft() {
+        for format in ShareCardFormat.allCases {
+            for hasTimeline in [true, false] {
+                for arrangement in [ShareCardJourneyLayout.Arrangement.beside, .under] {
+                    let layout = ShareCardJourneyLayout(format: format, hasTimeline: hasTimeline,
+                                                        arrangement: arrangement, legCount: 4)
+                    var used = layout.topPadding + layout.topBarHeight + layout.titleGap + layout.titleBlockHeight
+                    used += layout.tilesGap + layout.tileHeight + layout.mapGap + layout.mapFrame.height
+                    if arrangement == .under { used += layout.gridGap + layout.gridHeight }
+                    if hasTimeline { used += layout.sectionGap + layout.sectionHeaderHeight + layout.sectionHeaderGap + layout.timelineHeight }
+                    used += layout.sectionGap + layout.sectionHeaderHeight + layout.sectionHeaderGap + layout.profileHeight
+                    used += layout.footerGap + layout.footerHeight + layout.bottomPadding
+                    XCTAssertEqual(used, format.size.height, accuracy: 0.5, "\(format) \(arrangement) \(hasTimeline)")
+                    let beside = layout.listGap + layout.listWidth
+                    XCTAssertEqual(layout.mapFrame.width + (arrangement == .beside ? beside : 0) + 2 * layout.boxMargin,
+                                   format.size.width, accuracy: 0.5)
+                }
+            }
+        }
+        XCTAssertEqual(ShareCardJourneyLayout(format: .story, hasTimeline: true).mapFrame.width, 640)
+        // 29 Sep's three legs fit beside the map in full, in both formats.
+        for format in ShareCardFormat.allCases {
+            let layout = ShareCardJourneyLayout(format: format, hasTimeline: true)
+            XCTAssertFalse(ShareCardJourneyList.rows(legCount: 3, height: layout.mapFrame.height,
+                                                     heights: layout.listHeights).compact)
+        }
+    }
+
+    /// "Hide where I parked" cuts where the day started and where it ended, never the stops between.
+    func testHidingWhereIParkedCutsOnlyTheDaysEnds() {
+        let journey = journey(day29())
+        let whole = journey.mapTracks(hideParking: false)
+        let hidden = journey.mapTracks(hideParking: true)
+        XCTAssertEqual(meters(hidden[0].first!, whole[0].first!), 300, accuracy: 1, "the day's departure")
+        XCTAssertEqual(meters(hidden[0].last!, whole[0].last!), 0, accuracy: 0.1, "the stand at LSGE stays")
+        XCTAssertEqual(meters(hidden[1].first!, whole[1].first!), 0, accuracy: 0.1)
+        XCTAssertEqual(meters(hidden[1].last!, whole[1].last!), 0, accuracy: 0.1)
+        XCTAssertEqual(meters(hidden[2].first!, whole[2].first!), 0, accuracy: 0.1)
+        XCTAssertEqual(meters(hidden[2].last!, whole[2].last!), 300, accuracy: 1, "the day's arrival")
+
+        let track = straightTrack(meters: 5000, step: 40)
+        XCTAssertEqual(ShareCardPrivacy.trimmingParking(track, start: false, end: false).map(\.timestamp),
+                       track.map(\.timestamp))
+        let startOnly = ShareCardPrivacy.trimmingParking(track, start: true, end: false)
+        XCTAssertEqual(meters(startOnly.first!, track.first!), 300, accuracy: 1)
+        XCTAssertEqual(startOnly.last?.timestamp, track.last?.timestamp)
+    }
+
+    /// The map names the day's aerodromes: home once when the day came back, each stop once, or a
+    /// start and an end.
+    func testTheMapMarksHomeAndEachStop() {
+        let round = journey(day29())
+        let markers = round.mapMarkers(tracks: round.mapTracks(hideParking: false))
+        XCTAssertEqual(markers.map(\.kind), [.home, .stop, .stop])
+        XCTAssertEqual(markers.map(\.label), ["LSZQ", "LSGE", "LSGN"])
+        XCTAssertEqual(round.mapJourney(hideParking: false).legs.map(\.number), [1, 2, 3])
+
+        let oneWay = journey(Array(day29().prefix(2)))
+        XCTAssertEqual(oneWay.mapMarkers(tracks: oneWay.mapTracks(hideParking: false)).map(\.kind), [.start, .stop, .end])
+        XCTAssertEqual(oneWay.mapMarkers(tracks: oneWay.mapTracks(hideParking: false)).map(\.label), ["LSZQ", "LSGE", "LSGN"])
+    }
+
+    /// A journey that runs east–west gets the card's width for its map and its legs two by two under
+    /// it; 29 Sep, north–south, keeps J1's list beside the map. The grid folds past its rows.
+    func testAnEastWestJourneyPutsItsLegsUnderTheMap() {
+        XCTAssertEqual(journey(day29()).arrangement, .beside)
+        let lszs = CLLocationCoordinate2D(latitude: 46.534, longitude: 9.884)
+        let lsze = CLLocationCoordinate2D(latitude: 47.008, longitude: 9.496)
+        let east = [journeyLeg("LSZQ", "LSZS", from: lszq, to: lszs, off: "2026-09-23T08:40:00Z",
+                               takeoff: "2026-09-23T08:46:51Z", landing: "2026-09-23T10:26:06Z",
+                               on: "2026-09-23T10:28:00Z", nm: 177),
+                    journeyLeg("LSZS", "LSZE", from: lszs, to: lsze, off: "2026-09-23T12:02:00Z",
+                               takeoff: "2026-09-23T12:10:00Z", landing: "2026-09-23T12:50:00Z",
+                               on: "2026-09-23T12:51:00Z", nm: 60),
+                    journeyLeg("LSZE", "LSZQ", from: lsze, to: lszq, off: "2026-09-23T13:40:00Z",
+                               takeoff: "2026-09-23T13:42:00Z", landing: "2026-09-23T14:50:00Z",
+                               on: "2026-09-23T14:52:00Z", nm: 120)]
+        let journey = journey(east)
+        XCTAssertGreaterThan(journey.trackAspect ?? 0, ShareCardJourney.wideAspect)
+        XCTAssertEqual(journey.arrangement, .under)
+        let layout = ShareCardJourneyLayout.make(for: journey, format: .story)
+        XCTAssertEqual(layout.mapFrame.width, 1016)
+        XCTAssertEqual(layout.gridRows, 2)
+        XCTAssertGreaterThan(layout.mapFrame.width / layout.mapFrame.height, 1)
+        XCTAssertEqual(journey.gridLine(ofLeg: 0), "10:46 – 12:26 · 1:40")
+
+        XCTAssertEqual(ShareCardJourneyList.grid(legCount: 3, capacity: 8), [.leg(0), .leg(1), .leg(2)])
+        XCTAssertEqual(ShareCardJourneyList.grid(legCount: 11, capacity: 8),
+                       [.leg(0), .leg(1), .leg(2), .leg(3), .leg(4), .leg(5), .more(4), .leg(10)])
+    }
+
+    /// The share: the journey card alone, or with "Add each leg's card" the journey first and each
+    /// leg's own card after it in the order flown; the parking cut on the day's two ends only.
+    func testTheShareIsTheJourneyThenEachLeg() {
+        let journey = journey(day29().reversed())
+        XCTAssertEqual(journey.shareItems(eachLeg: false, hideParking: false).map(\.kind), [.journey])
+        let all = journey.shareItems(eachLeg: true, hideParking: true)
+        XCTAssertEqual(all.map(\.kind), [.journey, .leg(0), .leg(1), .leg(2)])
+        XCTAssertEqual(all.map(\.trimsStart), [true, true, false, false])
+        XCTAssertEqual(all.map(\.trimsEnd), [true, false, false, true])
+        XCTAssertEqual(all.dropFirst().map(\.filename), journey.legs.map(\.exportFilename))
+        XCTAssertTrue(all[0].filename.hasSuffix("_LSZQ-LSGE-LSGN-LSZQ_F-HVXA"), all[0].filename)
+        XCTAssertTrue(all[0].filename.hasPrefix("AeroCheck_20260929_"), all[0].filename)
+        let open = journey.shareItems(eachLeg: true, hideParking: false)
+        XCTAssertFalse(open.contains { $0.trimsStart || $0.trimsEnd })
+        XCTAssertEqual(L10n.ShareCard.eachLegHint(4), "4 images: this card first, then each leg's own")
+    }
+
+    /// The Logbook's days: grouped by the local day each flight started, in the list's order, a
+    /// header only for two flights or more, its totals the journey's.
+    func testTheLogbookGroupsFlightsByDay() {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = zurich
+        let single = journeyLeg("LSZQ", "LSZG", from: lszq, to: lsge, off: "2026-09-28T12:00:00Z",
+                                takeoff: "2026-09-28T12:05:00Z", landing: "2026-09-28T12:40:00Z",
+                                on: "2026-09-28T12:42:00Z", nm: 30)
+        let newestFirst = day29().reversed() + [single]
+        let days = LogbookDay.days(newestFirst, calendar: calendar)
+        XCTAssertEqual(days.map(\.id), ["2026-09-29", "2026-09-28"])
+        XCTAssertEqual(days[0].flights.map(\.departureAirportIdent), ["LSGN", "LSGE", "LSZQ"], "the list's order")
+        XCTAssertTrue(days[0].hasHeader)
+        XCTAssertFalse(days[1].hasHeader, "a day of one flight reads as it always did")
+        XCTAssertEqual(days[0].summary(nauticalMiles: true, locale: swiss),
+                       "\(L10n.ShareCard.flightCount(3)) · \(L10n.ShareCard.flying("1:26")) · 132 NM")
+        XCTAssertEqual(days[0].label(locale: Locale(identifier: "en_GB"), timeZone: zurich), "TUE 29 SEP")
+        XCTAssertEqual(days[0].label(locale: swiss, timeZone: zurich), "TUE 29 SEP")
+        XCTAssertEqual(days[0].label(locale: Locale(identifier: "fr_CH"), timeZone: zurich), "MAR. 29 SEPT.")
+
+        var undated = single
+        undated.startTime = nil
+        XCTAssertEqual(LogbookDay.days([undated], calendar: calendar).count, 0, "an undated flight has no day")
+    }
+
+    /// The credit names every terrain source once, whatever the legs used.
+    func testTheJourneysCreditNamesEachTerrainSourceOnce() {
+        XCTAssertEqual(ShareCardFigures.credit(map: .chart, terrains: [.swisstopo, .swisstopo, .openMeteo]),
+                       "\(L10n.ShareCard.creditChart) · \(L10n.ShareCard.creditTerrainSwisstopo) · \(L10n.ShareCard.creditTerrainOpenMeteo)")
+        XCTAssertEqual(ShareCardFigures.credit(map: .chart, terrains: []), L10n.ShareCard.creditChart)
+        XCTAssertEqual(ShareCardFigures.credit(map: .chart, terrain: .swisstopo),
+                       ShareCardFigures.credit(map: .chart, terrains: [.swisstopo]))
+    }
+
+    /// The numbers go halfway along each leg, moved along it when that spot is taken.
+    func testEachLegsNumberGoesHalfwayAlongIt() {
+        let legs = [ShareCardMapJourney.Leg(number: 1, track: [CLLocationCoordinate2D(latitude: 0, longitude: 0),
+                                                                 CLLocationCoordinate2D(latitude: 0, longitude: 100)]),
+                    ShareCardMapJourney.Leg(number: 2, track: [CLLocationCoordinate2D(latitude: 0, longitude: 100),
+                                                                 CLLocationCoordinate2D(latitude: 0, longitude: 0)])]
+        let points = ShareCardMapJourney.badgePoints(legs, markers: [], clearance: 20) {
+            CGPoint(x: $0.longitude, y: $0.latitude)
+        }
+        XCTAssertEqual(points[0].x, 50, accuracy: 0.01)
+        XCTAssertEqual(points[1].x, 72, accuracy: 0.01, "the same way back: moved along, clear of number 1")
     }
 }

@@ -536,8 +536,8 @@ final class OpenAIPAirportMergeTests: XCTestCase {
         XCTAssertTrue(runways[2].closed)
     }
 
-    /// LSZN: OurAirports has a grass 09L/27R that OpenAIP doesn't (its second "09"/"27" pair is deduped
-    /// as before). The lone OurAirports runway is kept beside the merged asphalt.
+    /// LSZN: OurAirports has a grass 09L/27R that OpenAIP doesn't (OpenAIP's second "09"/"27" pair, the
+    /// grass, gives way to the main one). The lone OurAirports runway is kept beside the merged asphalt.
     func testLoneOurAirportsRunwayIsKept() throws {
         let runways = try merged("LSZN")
         XCTAssertEqual(runways.map(\.identifier), ["09/27", "09L/27R"])
@@ -548,6 +548,52 @@ final class OpenAIPAirportMergeTests: XCTestCase {
         XCTAssertEqual(runways[1].leLatitude, 47.238992)
         XCTAssertEqual(runways[1].heDisplacedThresholdFt, 644)
         XCTAssertNil(runways[1].pcn)
+    }
+
+    /// LSZG: OpenAIP lists "06"/"24" twice, the 700 m grass strip (its 06R/24L again) before the 1000 m
+    /// main asphalt. The main entry is kept, whatever the order, so Grenchen's main runway is no longer
+    /// the grass strip; with neither marked main, the longer one is.
+    func testRepeatedOpenAIPDesignatorKeepsTheMainRunway() throws {
+        let grass06 = #"{"designator": "06", "trueHeading": 64, "mainRunway": false, "surface": {"mainComposite": 2}, "dimension": {"length": {"value": 700, "unit": 0}, "width": {"value": 30, "unit": 0}}, "declaredDistance": {"tora": {"value": 618, "unit": 0}, "lda": {"value": 618, "unit": 0}}}"#
+        let grass24 = #"{"designator": "24", "trueHeading": 244, "mainRunway": false, "surface": {"mainComposite": 2}, "dimension": {"length": {"value": 700, "unit": 0}, "width": {"value": 30, "unit": 0}}, "declaredDistance": {"tora": {"value": 618, "unit": 0}, "lda": {"value": 618, "unit": 0}}}"#
+        let main06 = #"{"designator": "06", "trueHeading": 64, "mainRunway": true, "surface": {"mainComposite": 0, "pcn": "44/F/C/X/T"}, "dimension": {"length": {"value": 1000, "unit": 0}, "width": {"value": 23, "unit": 0}}, "declaredDistance": {"tora": {"value": 865, "unit": 0}, "lda": {"value": 865, "unit": 0}}}"#
+        let main24 = #"{"designator": "24", "trueHeading": 244, "mainRunway": true, "surface": {"mainComposite": 0, "pcn": "44/F/C/X/T"}, "dimension": {"length": {"value": 1000, "unit": 0}, "width": {"value": 23, "unit": 0}}, "declaredDistance": {"tora": {"value": 865, "unit": 0}, "lda": {"value": 865, "unit": 0}}}"#
+        let grenchen = { (runways: [String]) throws -> OpenAIPAirport in
+            let json = """
+            { "type": "FeatureCollection", "features": [ { "type": "Feature",
+              "properties": { "_id": "6261519b5e9ded5710452fa2", "name": "GRENCHEN", "icaoCode": "LSZG", "type": 0, "country": "CH",
+                "runways": [ \(runways.joined(separator: ", ")) ] },
+              "geometry": { "type": "Point", "coordinates": [7.4172, 47.18163] } } ] }
+            """
+            return try XCTUnwrap(try OpenAIPAirport.parse(geoJSON: Data(json.utf8)).first)
+        }
+
+        // The export's order: the grass first.
+        let field = try grenchen([grass06, grass24, main06, main24])
+        let openAIP = AirportDataMergeEngine.openAIPRunways(from: [field])
+        XCTAssertEqual(openAIP.map(\.identifier), ["06/24"])
+        XCTAssertEqual(openAIP.first?.lengthFt, feet(1000))
+        XCTAssertEqual(openAIP.first?.surface, "Asphalt")
+        XCTAssertEqual(openAIP.first?.pcn, "44/F/C/X/T")
+        XCTAssertEqual(openAIP.first?.leToraFt, feet(865))
+
+        // Merged with OurAirports' asphalt 06/24: its thresholds on the main runway's data.
+        let ourCSV = """
+        "id","airport_ref","airport_ident","length_ft","width_ft","surface","lighted","closed","le_ident","le_latitude_deg","le_longitude_deg","le_elevation_ft","le_heading_degT","le_displaced_threshold_ft","he_ident","he_latitude_deg","he_longitude_deg","he_elevation_ft","he_heading_degT","he_displaced_threshold_ft"
+        239130,4504,"LSZG",3281,75,"ASP",1,0,"06",47.179846,7.411427,1407,64,370,"24",47.183485,7.423203,1405,244,
+        """
+        let merged = AirportDataMergeEngine.unionRunways(our: AirportDataService.parseRunwaysCSV(ourCSV), openAIP: openAIP)
+        XCTAssertEqual(merged.map(\.identifier), ["06/24"])
+        XCTAssertEqual(merged.first?.lengthFt, feet(1000))
+        XCTAssertEqual(merged.first?.surface, "Asphalt")
+        XCTAssertEqual(merged.first?.leDisplacedThresholdFt, 370)
+
+        // The main entry wins in either order; with no main entry, the longer one does.
+        XCTAssertEqual(AirportDataMergeEngine.openAIPRunways(from: [try grenchen([main06, main24, grass06, grass24])])
+                        .first?.lengthFt, feet(1000))
+        let unmarked = [main06, main24].map { $0.replacingOccurrences(of: #""mainRunway": true"#, with: #""mainRunway": false"#) }
+        XCTAssertEqual(AirportDataMergeEngine.openAIPRunways(from: [try grenchen([grass06, grass24] + unmarked)])
+                        .first?.lengthFt, feet(1000))
     }
 
     /// LSPM: OpenAIP lists "10" and "27", not 18 apart, so they don't pair by designator; their true

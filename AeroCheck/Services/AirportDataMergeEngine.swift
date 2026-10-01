@@ -145,7 +145,8 @@ enum AirportDataMergeEngine {
     /// `Runway`, carrying OpenAIP's richer data (PCN + per-direction declared distances). A direction whose
     /// designated reciprocal is missing pairs with a lone direction on the reciprocal true heading instead
     /// (LSPM lists "10" and "27", a typo for 28); one with no partner at all becomes an LE-only runway.
-    /// A repeated designator keeps its first entry. Skips airports without an ICAO. (v4.1.0 runway merge)
+    /// A repeated designator keeps one entry (`preferredDuplicate`). Skips airports without an ICAO.
+    /// (v4.1.0 runway merge)
     static func openAIPRunways(from airports: [OpenAIPAirport]) -> [Runway] {
         var result: [Runway] = []
         for apt in airports {
@@ -159,8 +160,11 @@ enum AirportDataMergeEngine {
             for rwy in apt.runways {
                 guard let (num, suffix) = parseDesignator(rwy.designator) else { continue }
                 let key = "\(num)\(suffix)"
-                if byKey[key] == nil {
-                    byKey[key] = OpenAIPDirection(entry: rwy, number: num, suffix: suffix)
+                let direction = OpenAIPDirection(entry: rwy, number: num, suffix: suffix)
+                if let kept = byKey[key] {
+                    if preferredDuplicate(rwy, over: kept.entry) { byKey[key] = direction }
+                } else {
+                    byKey[key] = direction
                     order.append(key)
                 }
             }
@@ -184,6 +188,14 @@ enum AirportDataMergeEngine {
             }
         }
         return result
+    }
+
+    /// Which of two entries under the same designator to keep: the main runway, else the longer one, else
+    /// the first. LSZG lists "06"/"24" twice, a 700 m grass strip (OpenAIP's 06R/24L again) before the
+    /// 1000 m main asphalt, and first-wins made Grenchen's main runway that grass strip.
+    private static func preferredDuplicate(_ candidate: OpenAIPRunway, over kept: OpenAIPRunway) -> Bool {
+        if candidate.mainRunway != kept.mainRunway { return candidate.mainRunway }
+        return (candidate.lengthFeet ?? 0) > (kept.lengthFeet ?? 0)
     }
 
     /// One OpenAIP runway direction with its parsed designator.

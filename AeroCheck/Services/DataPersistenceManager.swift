@@ -770,6 +770,17 @@ class DataPersistenceManager: ObservableObject {
         DeletionRecords.write(kind, id: id, deletedAt: deletedAt, storeRoot: activeStoreRoot)
     }
 
+    /// CloudKit says another device deleted `id`: recorded in the store in use too, unless a record
+    /// of it is there already (downloaded or not). The deleting device's own record, when it arrives
+    /// through iCloud Drive, carries the real date; this one is for a device that deleted with
+    /// CloudKit but without iCloud Drive. `deletedAt` is the receipt (`now`), raised to the stamp of
+    /// the copy this device held, as `recordDeletion` does. Create-if-absent keeps the two channels
+    /// idempotent: whichever arrives first, the file removal and the record converge.
+    func recordDeletionIfAbsent(_ kind: DeletionRecord.Kind, id: UUID, stamp: Date? = nil, at now: Date = Date()) {
+        guard DeletionRecords.mark(kind, id: id, storeRoot: activeStoreRoot, now: now) == nil else { return }
+        recordDeletion(kind, id: id, stamp: stamp, at: now)
+    }
+
     /// The active store's records of the given kinds, read off the main actor.
     func deletionLedgerOffMain(kinds: Set<DeletionRecord.Kind>) async -> DeletionLedger {
         let root = activeStoreRoot

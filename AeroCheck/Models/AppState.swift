@@ -1242,6 +1242,21 @@ class AppState {
             return (self.flights, self.settings)
         }
 
+        // The deletion records of the store in use (6.1): what CloudKit is owed when it comes up (a
+        // flight deleted with the switch off), and what a fetch must not bring back.
+        syncManager.flightDeletionRecords = { @MainActor [weak self] in
+            await self?.persistence.deletionLedgerOffMain(kinds: [.flight]) ?? .empty
+        }
+
+        // Another device deleted these through CloudKit: recorded here too, unless its own record
+        // is here already (6.1). Never from the "missing from incoming" loop above.
+        syncManager.onFlightsDeletedInCloudKit = { @MainActor [weak self] deleted in
+            guard let self else { return }
+            for flight in deleted {
+                self.persistence.recordDeletionIfAbsent(.flight, id: flight.id, stamp: flight.stamp)
+            }
+        }
+
         syncManager.onSyncConflict = { [weak self] message in
             Task { @MainActor in
                 self?.syncConflictNotice = message
@@ -2957,7 +2972,8 @@ class AppState {
         // Delete the individual flight file from iCloud
         persistence.deleteFlight(flight)
 
-        // Sync deletion to iCloud (CloudKit)
+        // Sync deletion to iCloud (CloudKit). With the switch off, the record above stands for it:
+        // CloudKit is owed the delete when it comes up (`SyncManager.queueWhatCloudKitLacks`).
         if settings.iCloudSyncEnabled {
             syncManager?.deleteFlight(flight.id)
         }

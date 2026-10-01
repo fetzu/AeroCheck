@@ -988,8 +988,9 @@ final class SyncSwitchCloudKitTests: XCTestCase {
         XCTAssertTrue(engine.deletes.isEmpty)
     }
 
-    /// With the switch off, AppState sends no delete, and nothing is kept: the file is still in
-    /// iCloud Drive then (deletion records, 6.1).
+    /// With the switch off, AppState sends no delete, and nothing is kept here: the deletion record
+    /// stands for it, and becomes an owed delete when CloudKit comes up, after its first fetch
+    /// (`CloudKitDeletionRecordsTests`).
     func testWithTheSwitchOffNoDeleteIsKept() {
         let manager = manager(on: false)
 

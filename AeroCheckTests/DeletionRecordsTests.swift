@@ -554,3 +554,305 @@ final class DeletionRecordsTests: XCTestCase {
         XCTAssertTrue(retiredFiles(.flight).isEmpty)
     }
 }
+
+// MARK: - CloudKit
+
+/// Deletion records (6.1) on CloudKit's side. A flight deleted with the switch off was never sent to
+/// CloudKit: it stayed there and on every other device. Now its record becomes a delete owed to
+/// CloudKit when it comes up, a fetch cannot bring a deleted flight back, and a delete received from
+/// CloudKit leaves a record of its own. A later edit still beats an older delete.
+///
+/// A `SyncManager` on a defaults suite of its own and the stand-in engine (`StubSyncBackend`), never
+/// `.standard` and never real CloudKit; the stores are plain directories.
+@MainActor
+final class CloudKitDeletionRecordsTests: XCTestCase {
+
+    private let fm = FileManager.default
+    private var local: URL!
+    private var cloud: URL!
+    private var defaults: UserDefaults!
+    private var backend: StubSyncBackend!
+
+    /// Whole seconds, as the files store them.
+    private let base = Date(timeIntervalSince1970: 1_780_000_000)
+
+    override func setUpWithError() throws {
+        let root = makeTestDirectory()
+        local = root.appendingPathComponent("AppSupport", isDirectory: true)
+        cloud = root.appendingPathComponent("Container/Documents", isDirectory: true)
+        defaults = makeTestDefaults()
+        backend = StubSyncBackend()
+        try fm.createDirectory(at: cloud, withIntermediateDirectories: true)
+    }
+
+    private func manager(on: Bool) -> SyncManager {
+        defaults.set(on, forKey: DataPersistenceManager.syncPreferenceKey)
+        return SyncManager(defaults: defaults, backend: backend)
+    }
+
+    private func started(_ manager: SyncManager) async throws -> StubSyncEngine {
+        await manager.engineStartTask?.value
+        return try XCTUnwrap(backend.engines.last, "no engine was started")
+    }
+
+    private func flight(modified: TimeInterval) -> Flight {
+        var flight = Flight(airplane: "wt9-dynamic", startTime: base.addingTimeInterval(-3_600),
+                            stopTime: base.addingTimeInterval(-600))
+        flight.modifiedAt = base.addingTimeInterval(modified)
+        return flight
+    }
+
+    private func records(of id: UUID) -> Set<String> {
+        [id.uuidString, SyncManager.trackRecordName(id)]
+    }
+
+    /// Flights deleted at the given dates (nil: a record iCloud has not downloaded yet).
+    private func ledger(_ entries: [(UUID, Date?)]) -> DeletionLedger {
+        var ledger = DeletionLedger()
+        for (id, deletedAt) in entries { ledger.note(.flight, id: id, deletedAt: deletedAt) }
+        return ledger
+    }
+
+    /// Record names whose queued delete was taken back.
+    private func withdrawnDeletes(_ engine: StubSyncEngine) -> Set<String> {
+        Set(engine.unqueued.compactMap { if case .deleteRecord(let id) = $0 { return id.recordName } else { return nil } })
+    }
+
+    /// Fails when the condition never holds, so an assertion after it never passes for the wrong reason.
+    private func waitUntil(_ condition: @MainActor () -> Bool, timeout: TimeInterval = 5,
+                           file: StaticString = #filePath, line: UInt = #line) async throws {
+        let deadline = Date().addingTimeInterval(timeout)
+        while !condition(), Date() < deadline { try await Task.sleep(nanoseconds: 20_000_000) }
+        if !condition() { XCTFail("timed out waiting", file: file, line: line) }
+    }
+
+    // MARK: The inbound filter
+
+    /// Deleted here with the switch off, its delete not sent yet: a fetch brings the copy CloudKit
+    /// still holds, and it is dropped before the merge. The same second as the deletion counts as
+    /// before it, as on disk.
+    func testAFetchedCopyNotEditedSinceItsDeletionIsDropped() {
+        let deleted = flight(modified: 0)
+        let sameSecond = flight(modified: 60.4)
+        let unrelated = flight(modified: -600)
+        let deletions = ledger([(deleted.id, base.addingTimeInterval(60)), (sameSecond.id, base.addingTimeInterval(60))])
+
+        let result = SyncManager.filterInboundFlights([deleted, sameSecond, unrelated], local: [], deletions: deletions)
+
+        XCTAssertEqual(result.live.map(\.id), [unrelated.id])
+        XCTAssertEqual(result.dead, [deleted.id, sameSecond.id])
+        XCTAssertTrue(result.revived.isEmpty)
+    }
+
+    /// An edit made elsewhere after the deletion, by a device that did not know yet: it wins.
+    func testAnEditMadeAfterTheDeletionStillComesThrough() {
+        let edited = flight(modified: 61)
+        let deletions = ledger([(edited.id, base.addingTimeInterval(60))])
+
+        let result = SyncManager.filterInboundFlights([edited], local: [], deletions: deletions)
+
+        XCTAssertEqual(result.live.map(\.id), [edited.id])
+        XCTAssertTrue(result.dead.isEmpty)
+        XCTAssertEqual(result.revived, [edited.id])
+    }
+
+    /// The track record decodes to a flight too, stamped when the track was last sent: a metadata
+    /// edit after the deletion keeps the track with it, and a live copy here keeps the flight.
+    func testTheTrackRecordFollowsItsFlightAndALiveCopyHereKeepsIt() {
+        let metadata = flight(modified: 120)
+        var track = metadata
+        track.modifiedAt = base
+        let elsewhere = flight(modified: 0)
+        var liveHere = elsewhere
+        liveHere.modifiedAt = base.addingTimeInterval(120)
+        let deletions = ledger([(metadata.id, base.addingTimeInterval(60)), (elsewhere.id, base.addingTimeInterval(60))])
+
+        let result = SyncManager.filterInboundFlights([metadata, track, elsewhere], local: [liveHere], deletions: deletions)
+
+        XCTAssertEqual(result.live.count, 3)
+        XCTAssertTrue(result.dead.isEmpty)
+    }
+
+    /// A record iCloud has not downloaded yet decides nothing: an item may come back, never vanish.
+    func testARecordNotDownloadedYetDropsNothing() {
+        let copy = flight(modified: 0)
+
+        let result = SyncManager.filterInboundFlights([copy], local: [], deletions: ledger([(copy.id, nil)]))
+
+        XCTAssertEqual(result.live.map(\.id), [copy.id])
+        XCTAssertTrue(result.dead.isEmpty)
+        XCTAssertTrue(result.revived.isEmpty)
+    }
+
+    /// Through the manager: the dropped copy is still in CloudKit, which is owed its delete; a copy
+    /// brought back by a later edit withdraws the delete owed for it, before it is sent.
+    func testAFetchApplyingTheRecordsOwesTheDeadAndWithdrawsTheRevived() async throws {
+        let manager = manager(on: true)
+        let (dead, revived) = (flight(modified: 0), flight(modified: 120))
+        let deletions = ledger([(dead.id, base.addingTimeInterval(60)), (revived.id, base.addingTimeInterval(60))])
+        manager.flightDeletionRecords = { deletions }
+        let engine = try await started(manager)
+        manager.deleteFlight(revived.id)
+        XCTAssertEqual(manager.owedFlightDeletions, [revived.id])
+
+        let result = await manager.applyingDeletionRecords(toInbound: [dead, revived], local: [])
+
+        XCTAssertEqual(result.live.map(\.id), [revived.id])
+        XCTAssertEqual(manager.owedFlightDeletions, [dead.id])
+        XCTAssertTrue(engine.deletes.isSuperset(of: records(of: dead.id)))
+        XCTAssertEqual(withdrawnDeletes(engine), records(of: revived.id))
+    }
+
+    /// The flight comes back (the import of its export, stamped after the record): its save
+    /// replaces the delete still owed for it, never goes out in the same batch with it.
+    func testASaveOfAFlightOwedADeleteReplacesTheDelete() async throws {
+        let manager = manager(on: true)
+        let engine = try await started(manager)
+        let reimported = flight(modified: 120)
+        manager.deleteFlight(reimported.id)
+
+        manager.syncFlight(reimported, allFlights: [reimported])
+
+        XCTAssertTrue(manager.owedFlightDeletions.isEmpty)
+        XCTAssertEqual(withdrawnDeletes(engine), records(of: reimported.id))
+        XCTAssertEqual(engine.saves, records(of: reimported.id))
+    }
+
+    // MARK: Deletes owed when CloudKit comes up
+
+    /// The whole path: a flight CloudKit holds, deleted with the switch off, then the switch back on.
+    /// CloudKit gets the delete, and the copy iCloud Drive kept while off is never sent back.
+    func testAFlightDeletedWhileOffIsDeletedFromCloudKitWhenTheSwitchComesOn() async throws {
+        defaults.set(true, forKey: DataPersistenceManager.syncPreferenceKey)
+        let store = DataPersistenceManager(rootDirectory: local, iCloudDocumentsDirectory: cloud, preferences: defaults)
+        let doomed = flight(modified: 0)
+        XCTAssertTrue(store.saveFlight(doomed))
+        let manager = SyncManager(defaults: defaults, backend: backend)
+        // Sent with the switch on, and confirmed.
+        manager.markFlightSynced(doomed.id, modifiedAt: doomed.modifiedAt)
+        manager.markFlightTrackSynced(doomed.id, count: doomed.gpsTrack.count)
+        let appState = makeTestAppState(datastore: store, syncManager: manager)
+        _ = try await started(manager)
+        try await waitUntil { appState.flights.contains { $0.id == doomed.id } }
+
+        appState.settings.iCloudSyncEnabled = false
+        appState.saveSettings()
+        appState.deleteFlight(doomed)
+        XCTAssertTrue(manager.owedFlightDeletions.isEmpty, "off: CloudKit is not touched")
+        let cloudCopy = cloud.appendingPathComponent("Flights").appendingPathComponent(DataPersistenceManager.flightFilename(for: doomed))
+        XCTAssertTrue(fm.fileExists(atPath: cloudCopy.path), "iCloud Drive keeps its copy while off")
+
+        appState.settings.iCloudSyncEnabled = true
+        appState.saveSettings()
+        let engine = try await started(manager)
+
+        XCTAssertEqual(backend.engines.count, 2)
+        XCTAssertEqual(engine.deletes, records(of: doomed.id))
+        XCTAssertTrue(engine.saves.isDisjoint(with: records(of: doomed.id)), "never sent back: \(engine.saves)")
+        XCTAssertEqual(manager.owedFlightDeletions, [doomed.id])
+        XCTAssertNotNil(DeletionRecords.mark(.flight, id: doomed.id, storeRoot: cloud), "the record followed the store")
+        XCTAssertFalse(appState.flights.contains { $0.id == doomed.id })
+    }
+
+    /// Owed until CloudKit confirms it: a relaunch sends it again, a confirmation ends it, and the
+    /// record, which stays, never makes it owed again.
+    func testTheOwedDeleteOutlivesARelaunchAndDrainsOnConfirmation() async throws {
+        let doomed = flight(modified: 0)
+        let deletions = ledger([(doomed.id, base.addingTimeInterval(60))])
+        func launch() -> SyncManager {
+            let manager = SyncManager(defaults: defaults, backend: backend)
+            manager.flightDeletionRecords = { deletions }
+            manager.localSnapshot = { ([], AppSettings()) }
+            return manager
+        }
+        defaults.set(true, forKey: DataPersistenceManager.syncPreferenceKey)
+        let first = launch()
+        first.markFlightSynced(doomed.id, modifiedAt: doomed.modifiedAt)
+        first.persistSyncedFingerprints()
+        let firstEngine = try await started(first)
+        XCTAssertEqual(firstEngine.deletes, records(of: doomed.id))
+
+        let second = launch()
+        XCTAssertEqual(second.owedFlightDeletions, [doomed.id], "persisted")
+        let secondEngine = try await started(second)
+        XCTAssertEqual(secondEngine.deletes, records(of: doomed.id), "sent again: not confirmed yet")
+        second.clearPendingFlightDeletion(doomed.id)   // CloudKit confirmed it (or answered unknownItem)
+
+        let third = launch()
+        let thirdEngine = try await started(third)
+        XCTAssertTrue(third.owedFlightDeletions.isEmpty)
+        XCTAssertTrue(thirdEngine.deletes.isEmpty, "drained: \(thirdEngine.deletes)")
+    }
+
+    /// Owed only for a copy CloudKit still holds as it was deleted: never for a flight it never
+    /// held, a later edit it holds (fetched before the decision), a record not downloaded yet, or a
+    /// flight the logbook holds alive again (sent instead).
+    func testOnlyWhatCloudKitStillHoldsAsItWasDeletedIsOwed() async throws {
+        let deletedAt = base.addingTimeInterval(60)
+        let held = UUID(), trackOnly = UUID(), neverHeld = UUID(), editedLater = UUID(), undated = UUID()
+        let reimported = flight(modified: 120)
+        let manager = manager(on: true)
+        manager.markFlightSynced(held, modifiedAt: base)
+        manager.markFlightTrackSynced(trackOnly, count: 12)
+        manager.markFlightSynced(editedLater, modifiedAt: base.addingTimeInterval(61))
+        manager.markFlightSynced(undated, modifiedAt: base)
+        manager.markFlightSynced(reimported.id, modifiedAt: base)
+        let deletions = ledger([(held, deletedAt), (trackOnly, deletedAt), (neverHeld, deletedAt),
+                                (editedLater, deletedAt), (undated, nil), (reimported.id, deletedAt)])
+        manager.flightDeletionRecords = { deletions }
+        manager.localSnapshot = { ([reimported], AppSettings()) }
+
+        let engine = try await started(manager)
+
+        XCTAssertEqual(engine.deletes, records(of: held).union(records(of: trackOnly)))
+        XCTAssertEqual(manager.owedFlightDeletions, [held, trackOnly])
+        XCTAssertEqual(engine.saves, records(of: reimported.id))
+    }
+
+    /// The catch-up sends what CloudKit lacks, never a flight the records say is dead (a copy still
+    /// in memory, say).
+    func testTheCatchUpNeverSendsADeadFlight() async throws {
+        let (dead, alive) = (flight(modified: 0), flight(modified: 0))
+        let manager = manager(on: true)
+        let deletions = ledger([(dead.id, base.addingTimeInterval(60))])
+        manager.flightDeletionRecords = { deletions }
+        manager.localSnapshot = { ([dead, alive], AppSettings()) }
+
+        let engine = try await started(manager)
+
+        XCTAssertEqual(engine.saves, records(of: alive.id))
+        XCTAssertTrue(engine.deletes.isEmpty, "CloudKit never held it")
+    }
+
+    // MARK: Deletes received from CloudKit
+
+    /// Another device deleted through CloudKit, maybe without iCloud Drive: this device records it,
+    /// dated on receipt (or the copy's own stamp, when ahead), unless a record of it is here already,
+    /// downloaded or not.
+    func testADeleteReceivedFromCloudKitLeavesARecordUnlessOneIsHere() async throws {
+        defaults.set(true, forKey: DataPersistenceManager.syncPreferenceKey)
+        let store = DataPersistenceManager(rootDirectory: local, iCloudDocumentsDirectory: cloud, preferences: defaults)
+        let sync = SyncManager(defaults: defaults, backend: backend)
+        _ = makeTestAppState(datastore: store, syncManager: sync)
+        let (received, ahead, recorded, evicted) = (UUID(), UUID(), UUID(), UUID())
+        DeletionRecords.write(.flight, id: recorded, deletedAt: base, storeRoot: cloud)
+        let folder = DeletionRecords.folder(in: cloud)
+        let placeholder = folder.appendingPathComponent(".\(DeletionRecords.fileName(.flight, id: evicted)).icloud")
+        XCTAssertTrue(fm.createFile(atPath: placeholder.path, contents: Data()))
+        let aheadStamp = Date().addingTimeInterval(3_600)
+        let before = Date(timeIntervalSince1970: Date().timeIntervalSince1970.rounded(.down))
+
+        let deleted: [(id: UUID, stamp: Date?)] = [(received, base), (ahead, aheadStamp), (recorded, nil), (evicted, nil)]
+        let notify = try XCTUnwrap(sync.onFlightsDeletedInCloudKit, "AppState records them")
+        notify(deleted)
+
+        let receipt = try XCTUnwrap(DeletionRecords.mark(.flight, id: received, storeRoot: cloud)?.deletedAt)
+        XCTAssertGreaterThanOrEqual(receipt, before)
+        XCTAssertLessThanOrEqual(receipt, Date())
+        let raised = try XCTUnwrap(DeletionRecords.mark(.flight, id: ahead, storeRoot: cloud)?.deletedAt)
+        XCTAssertEqual(raised.timeIntervalSince1970, aheadStamp.timeIntervalSince1970.rounded(.down))
+        XCTAssertEqual(DeletionRecords.mark(.flight, id: recorded, storeRoot: cloud)?.deletedAt, base, "the real date stays")
+        XCTAssertFalse(fm.fileExists(atPath: folder.appendingPathComponent(DeletionRecords.fileName(.flight, id: evicted)).path))
+        XCTAssertNil(DeletionRecords.mark(.flight, id: received, storeRoot: local), "the store in use only")
+    }
+}

@@ -158,6 +158,15 @@ class SyncManager: ObservableObject {
     /// settings as they are now. AppState provides it; nil queues nothing.
     var localSnapshot: (@MainActor () async -> (flights: [Flight], settings: AppSettings)?)?
 
+    /// The flight deletion records of the store in use (6.1), read when the engine comes up and with
+    /// each fetch that brings flights. AppState provides it; nil reads none.
+    var flightDeletionRecords: (@MainActor () async -> DeletionLedger)?
+
+    /// CloudKit deleted these flights: another device did. Each comes with the content stamp of this
+    /// device's copy, when it held one. AppState records them (6.1), so a copy in the other store, or
+    /// one put back by an older build, stays deleted too.
+    var onFlightsDeletedInCloudKit: (@MainActor ([(id: UUID, stamp: Date?)]) -> Void)?
+
     /// Callback when a sync conflict was resolved (or could not be), so the UI can surface it
     /// instead of the conflict being silent. (ARCH-02)
     var onSyncConflict: ((String) -> Void)?
@@ -190,9 +199,12 @@ class SyncManager: ObservableObject {
     ///
     /// A delete made while no engine was running (the seconds CloudKit takes to come up, a start
     /// that failed) used to be dropped: the flight stayed in CloudKit and on every other device.
-    /// Deletes made while the switch is OFF are not recorded (AppState only calls with it on): the
-    /// file is still in iCloud Drive then, and this device would upload it again. They wait for
-    /// the deletion records (6.1, review design 94 §2.5), which will call this whatever the switch.
+    ///
+    /// A delete made while the switch is OFF does not come here at once (AppState calls with it on
+    /// only): it leaves its deletion record (6.1), and the catch-up turns the record into a delete
+    /// owed here when CloudKit comes up, after the first fetch (`flightDeletionsOwed`). Deciding
+    /// after the fetch is what lets an edit made elsewhere after the deletion win, rather than be
+    /// deleted from CloudKit unseen. A fetched copy the records say is dead becomes one too.
     private(set) var owedFlightDeletions: Set<UUID> {
         get { Set((defaults.stringArray(forKey: owedFlightDeletionsKey) ?? []).compactMap(UUID.init(uuidString:))) }
         set {
@@ -377,14 +389,62 @@ class SyncManager: ObservableObject {
     /// match what CloudKit confirmed, and the fetch before this marks every record it received
     /// that way. Hence the order: the fetch's events are applied first (`eventsHandled`), or this
     /// would send back what the fetch just brought, or a flight another device just deleted.
+    ///
+    /// Deletion records (6.1): the flights deleted here that CloudKit still holds become deletes
+    /// owed (a delete made with the switch off reaches CloudKit this way), and no flight the records
+    /// say is dead is sent.
     private func queueWhatCloudKitLacks() async {
         catchUpOwed = false
         await syncEngineDelegate?.eventsHandled()
         guard isSyncEnabled, syncEngine != nil, let snapshot = await localSnapshot?() else { return }
+        let deletions = await flightDeletionRecords?() ?? .empty
         // The switch may have gone off while the snapshot waited on the logbook load.
         guard isSyncEnabled, syncEngine != nil else { return }
-        syncAllFlights(snapshot.flights)
+        let owed = Self.flightDeletionsOwed(deletions: deletions, cloudKitStamps: cloudKitStamps(of: deletions),
+                                            logbook: snapshot.flights, alreadyOwed: owedFlightDeletions)
+        for id in owed.sorted(by: { $0.uuidString < $1.uuidString }) { deleteFlight(id) }
+        if !owed.isEmpty {
+            AppLog.sync.publicLine("Owed \(owed.count) flight deletion(s) from the deletion records")
+        }
+        syncAllFlights(snapshot.flights.filter { !deletions.isDead(.flight, id: $0.id, stamp: $0.modifiedAt) })
         if settingsOwed { syncSettings(snapshot.settings) }
+    }
+
+    /// The flights whose deletion records here CloudKit may still hold a copy of, with that copy's
+    /// stamp as far as this device knows: the `modifiedAt` last confirmed sent or received. A flight
+    /// known by its track or its record's identity only stamps `.distantPast`.
+    private func cloudKitStamps(of deletions: DeletionLedger) -> [UUID: Date] {
+        var stamps: [UUID: Date] = [:]
+        for key in deletions.marks.keys where key.kind == .flight {
+            let name = key.id.uuidString
+            if let stamp = lastSyncedModifiedAt[name] {
+                stamps[key.id] = stamp
+            } else if lastSyncedTrackCount[name] != nil || recordSystemFields[name] != nil
+                        || recordSystemFields[Self.trackRecordName(key.id)] != nil {
+                stamps[key.id] = .distantPast
+            }
+        }
+        return stamps
+    }
+
+    /// The deletes CloudKit is owed from the deletion records (6.1). Pure, like `classifySendFailure`.
+    ///
+    /// A flight is owed one when this device deleted it (or received its deletion through iCloud
+    /// Drive), CloudKit still holds a copy (`cloudKitStamps`: confirmed sent or received, and not
+    /// deleted since), that copy is dead by the rule (not edited after the deletion), and the
+    /// logbook holds no live copy (one there is sent instead, and replaces it). A record not
+    /// downloaded yet decides nothing.
+    nonisolated static func flightDeletionsOwed(deletions: DeletionLedger, cloudKitStamps: [UUID: Date],
+                                                logbook: [Flight], alreadyOwed: Set<UUID>) -> Set<UUID> {
+        guard deletions.contains(.flight) else { return [] }
+        let live = Set(logbook.lazy.filter { !deletions.isDead(.flight, id: $0.id, stamp: $0.modifiedAt) }.map(\.id))
+        var owed = Set<UUID>()
+        for key in deletions.marks.keys where key.kind == .flight {
+            guard !alreadyOwed.contains(key.id), !live.contains(key.id), let stamp = cloudKitStamps[key.id],
+                  deletions.isDead(.flight, id: key.id, stamp: stamp) else { continue }
+            owed.insert(key.id)
+        }
+        return owed
     }
 
     private func shutdownSyncEngine() {
@@ -503,7 +563,12 @@ class SyncManager: ObservableObject {
         if lastSyncedTrackCount[idStr] != flight.gpsTrack.count {
             changes.append(.saveRecord(CKRecord.ID(recordName: Self.trackRecordName(flight.id), zoneID: zone.zoneID)))
         }
-        if !changes.isEmpty { pendingFlights[flight.id] = flight }
+        if !changes.isEmpty {
+            pendingFlights[flight.id] = flight
+            // The logbook holds it again (an import of its export, an edit made elsewhere after the
+            // deletion): the save replaces the delete, never goes out in the same batch with it.
+            retractFlightDeletion(flight.id)
+        }
         return changes
     }
 
@@ -534,7 +599,8 @@ class SyncManager: ObservableObject {
 
     /// Delete a flight from iCloud. Owed (`owedFlightDeletions`) until CloudKit confirms it: sent
     /// now when the engine runs, and again whenever it comes up, so a delete made before it was up
-    /// is no longer dropped.
+    /// is no longer dropped. With the switch off, nothing: the deletion record stands for it, and
+    /// becomes this call when CloudKit comes up (`queueWhatCloudKitLacks`).
     func deleteFlight(_ flightId: UUID) {
         guard isSyncEnabled else { return }
 
@@ -554,6 +620,75 @@ class SyncManager: ObservableObject {
         engine.queue(deletions(for: flightId, in: recordZone))
 
         AppLog.sync.debugLine("Queued flight \(flightId) (+ track) for deletion")
+    }
+
+    /// A flight owed a delete is alive again: a copy edited after its deletion came back (a later
+    /// edit beats an older delete, 6.1). The delete, if not sent yet, would remove that edit from
+    /// CloudKit and from every other device.
+    func retractFlightDeletion(_ flightId: UUID) {
+        guard owedFlightDeletions.contains(flightId) else { return }
+        owedFlightDeletions.remove(flightId)
+        if let engine = syncEngine, let recordZone {
+            engine.unqueue(deletions(for: flightId, in: recordZone))
+        }
+        AppLog.sync.debugLine("Flight \(flightId) is alive again: its owed deletion is withdrawn")
+    }
+
+    /// What a fetch brings in, against this device's deletion records (6.1).
+    struct InboundFlights {
+        /// The copies to merge.
+        var live: [Flight]
+        /// Flights deleted here whose fetched copy is not later than the deletion: dropped, so the
+        /// fetch cannot bring them back.
+        var dead: Set<UUID> = []
+        /// Flights deleted here that an edit made after the deletion brings back.
+        var revived: Set<UUID> = []
+    }
+
+    /// Sorts the flights a fetch decoded by the deletion records here. Pure, like
+    /// `classifySendFailure`, so the rule is tested without a live `CKSyncEngine`.
+    ///
+    /// The rule is #242's: a copy is dead when its stamp is not later than the record's `deletedAt`.
+    /// It is decided per flight, on the latest stamp among its fetched copies (the metadata record
+    /// and the track record both decode to a flight, and a metadata edit leaves the track record's
+    /// stamp behind) and the copy in `local`, so a live flight never loses its track. A record not
+    /// downloaded yet drops nothing.
+    nonisolated static func filterInboundFlights(_ inbound: [Flight], local: [Flight],
+                                                 deletions: DeletionLedger) -> InboundFlights {
+        guard !inbound.isEmpty, deletions.contains(.flight) else { return InboundFlights(live: inbound) }
+        var stamps: [UUID: Date] = [:]
+        for flight in inbound { stamps[flight.id] = max(stamps[flight.id] ?? flight.modifiedAt, flight.modifiedAt) }
+        for flight in local {
+            if let stamp = stamps[flight.id] { stamps[flight.id] = max(stamp, flight.modifiedAt) }
+        }
+        var result = InboundFlights(live: [])
+        for (id, stamp) in stamps {
+            switch deletions.verdict(.flight, id: id, stamp: stamp) {
+            case .dead:
+                result.dead.insert(id)
+            case .alive where deletions.mark(.flight, id: id)?.deletedAt != nil:
+                result.revived.insert(id)
+            case .alive, .unknown:
+                break
+            }
+        }
+        result.live = inbound.filter { !result.dead.contains($0.id) }
+        return result
+    }
+
+    /// Applies the deletion records here to what a fetch brought (6.1), before it is merged: a dead
+    /// copy is dropped, and CloudKit, which still holds it, is owed its delete; a flight brought back
+    /// by a later edit has its owed delete withdrawn.
+    func applyingDeletionRecords(toInbound inbound: [Flight], local: [Flight]) async -> InboundFlights {
+        guard !inbound.isEmpty, let flightDeletionRecords else { return InboundFlights(live: inbound) }
+        let result = Self.filterInboundFlights(inbound, local: local, deletions: await flightDeletionRecords())
+        for id in result.revived { retractFlightDeletion(id) }
+        let owed = owedFlightDeletions
+        for id in result.dead.subtracting(owed).sorted(by: { $0.uuidString < $1.uuidString }) { deleteFlight(id) }
+        if !result.dead.isEmpty {
+            AppLog.sync.publicLine("Dropped \(result.dead.count) deleted flight(s) from a fetch")
+        }
+        return result
     }
 
     /// The two records of a flight: its metadata and its separate track.
@@ -1385,7 +1520,7 @@ class SyncEngineDelegate: NSObject, CKSyncEngineDelegate {
         }
 
         // Decode the inbound flights concurrently off the main actor (asset read + track JSON decode).
-        let updatedFlights: [Flight] = await withTaskGroup(of: Flight?.self) { group in
+        let decodedFlights: [Flight] = await withTaskGroup(of: Flight?.self) { group in
             for payload in flightPayloads {
                 group.addTask {
                     var assetData: Data?
@@ -1417,8 +1552,10 @@ class SyncEngineDelegate: NSObject, CKSyncEngineDelegate {
             manager?.clearPendingFlight(flightId)
             // Deleted already: a delete this device still owes for it has nothing left to do.
             manager?.clearPendingFlightDeletion(flightId)
-            // The records are gone server-side: a later flight reusing this id must be a real insert.
+            // The records are gone server-side: a later flight reusing this id must be a real insert,
+            // and CloudKit no longer holds a copy for a deletion record to delete (6.1).
             manager?.forgetSystemFields(forFlight: flightId)
+            manager?.unmarkFlightSynced(flightId)
             guard let zoneID = deletedZoneIDs[flightId] else { continue }
             syncEngine.state.remove(pendingRecordZoneChanges: [
                 .saveRecord(CKRecord.ID(recordName: flightId.uuidString, zoneID: zoneID)),
@@ -1427,11 +1564,22 @@ class SyncEngineDelegate: NSObject, CKSyncEngineDelegate {
         }
 
         // Notify about flight updates
-        if !updatedFlights.isEmpty || !deletedFlightIds.isEmpty {
+        if !decodedFlights.isEmpty || !deletedFlightIds.isEmpty {
             // Load the current set OFF the main actor (decoding a 50-flight logbook is heavy); merge on
             // the main actor where the conflict callback runs. The persistence write is batched off-main
             // in the onFlightsUpdated handler, not per-flight on the main actor.
             var currentFlights = await DataPersistenceManager.shared.loadFlightsOffMain()
+
+            // Deletion records (6.1), before the merge: a copy of a flight deleted here and not edited
+            // since (deleted with the switch off, its delete not sent yet) is dropped, or the fetch
+            // would bring it back. An edit made after the deletion still comes through.
+            let inbound = await manager?.applyingDeletionRecords(toInbound: decodedFlights, local: currentFlights)
+                ?? SyncManager.InboundFlights(live: decodedFlights)
+            let updatedFlights = inbound.live
+            // The copies CloudKit deleted, with this device's stamp, for their deletion records.
+            let deletedHere = deletedFlightIds.map { id in
+                (id: id, stamp: currentFlights.first { $0.id == id }?.modifiedAt)
+            }
 
             // Apply updates. Merge rather than blindly overwrite, so a concurrent local edit (or a
             // longer locally-recorded track) is never silently dropped by an inbound record. (ARCH-02)
@@ -1459,10 +1607,17 @@ class SyncEngineDelegate: NSObject, CKSyncEngineDelegate {
 
             await manager?.onFlightsUpdated?(currentFlights)
 
+            // A device that deleted with CloudKit but no iCloud Drive leaves no record here: one is
+            // written now, unless the deleting device's own record came first (6.1).
+            if !deletedHere.isEmpty { manager?.onFlightsDeletedInCloudKit?(deletedHere) }
+
             // Mark the just-received records as synced so the next syncAllFlights doesn't echo all of
             // them — including the large track records — back up to the server. Marking with the
             // SERVER's fingerprints is safe: if a local copy is actually richer (merge kept a longer
             // local track), its count/modifiedAt won't match and it still re-uploads. (sync optimization)
+            // A dropped dead copy is not marked: its delete is owed, and the fingerprint is gone with it.
+            receivedMeta = receivedMeta.filter { !inbound.dead.contains($0.key) }
+            receivedTrack = receivedTrack.filter { !inbound.dead.contains($0.key) }
             if !receivedMeta.isEmpty || !receivedTrack.isEmpty {
                 for (id, m) in receivedMeta { manager?.markFlightSynced(id, modifiedAt: m) }
                 for (id, c) in receivedTrack { manager?.markFlightTrackSynced(id, count: c) }
@@ -1528,6 +1683,9 @@ class SyncEngineDelegate: NSObject, CKSyncEngineDelegate {
         for recordID in changes.deletedRecordIDs {
             if let flightId = UUID(uuidString: recordID.recordName) {
                 manager?.clearPendingFlightDeletion(flightId)
+                // CloudKit holds no copy any more. Unmarked when the delete was queued already; a copy
+                // a later edit brought back meanwhile is then sent again by the next catch-up (6.1).
+                manager?.unmarkFlightSynced(flightId)
             }
         }
         // A delete sent again (it was owed) for a record already gone has nothing left to do; any

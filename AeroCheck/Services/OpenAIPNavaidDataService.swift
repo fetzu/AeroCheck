@@ -2,7 +2,7 @@ import Foundation
 import CoreLocation
 
 /// Manages OpenAIP NAVAID data via the keyless, per-country GeoJSON exports
-/// (`storage.googleapis.com/.../{cc}_nav.geojson`) — a sibling to `OpenAIPDataService`, mirroring its
+/// (`s3.openaip.net/openaip-system-exports/{cc}_nav.geojson`) — a sibling to `OpenAIPDataService`, mirroring its
 /// lazy-load + atomic per-country cache, but without the REST pagination / API key. Provides a
 /// nearest-navaid query (the flight-plan builder snap + the declination fix) and a region query (map
 /// markers). New OpenAIP layer for v4.1.0; additive — it does not touch the working airspace path.

@@ -262,18 +262,33 @@ enum OpenAIPConfig {
         Locale.current.localizedString(forRegionCode: code) ?? code
     }
 
-    /// Public GeoJSON exports bucket (per-country `{cc}_<layer>.geojson`) for the structured layers
+    /// The keyless per-country GeoJSON exports (`{cc}_<layer>.geojson`) for the structured layers
     /// (airports / navaids / obstacles / reporting points). One request per country, no API key.
-    /// (v4.1.0)
+    /// (v4.1.0; host moved in 6.2)
     ///
-    /// ⚠️ **Not currently readable.** OpenAIP switched this bucket to Google Cloud Storage
-    /// "Requester Pays" on ~21 July 2026, so every anonymous read now returns HTTP 400
-    /// `UserProjectMissing`. It was a deliberate, announced measure against egress abuse and is
-    /// described by OpenAIP as an interim state (openAIP/openaip#468, #469) — so the URL stays as the
-    /// preferred path and `OpenAIPLayerCache` falls back to the authenticated core REST API, which
-    /// serves the same objects. Delete the fallback only once the bucket is public again AND you have
-    /// verified an anonymous `curl` of one of these files returns 200.
-    static let geoJSONExportBaseURL = "https://storage.googleapis.com/29f98e10-a489-4c82-ae5e-489dbcd4912f"
+    /// OpenAIP's first export bucket (`storage.googleapis.com/29f98e10-…`) went Google Cloud
+    /// "Requester Pays" on ~21 July 2026 and refused every anonymous read with HTTP 400
+    /// (openAIP/openaip#468). OpenAIP then opened this public, rate-limited host (20 requests/s,
+    /// openAIP/openaip#469): an anonymous `curl` of every layer for CH answered 200 on 1 Oct 2026, with
+    /// no redirect. The authenticated core-API fallback in `OpenAIPLayerCache` stays, for the rate
+    /// limit and any future change of heart.
+    static let geoJSONExportHost = "s3.openaip.net"
+    static let geoJSONExportBaseURL = "https://\(geoJSONExportHost)/openaip-system-exports"
+
+    /// The export URL of one layer for one country (lowercased ISO-2 code, as the host names them).
+    static func geoJSONExportURL(country: String, layerSuffix: String) -> URL? {
+        URL(string: "\(geoJSONExportBaseURL)/\(country.lowercased())_\(layerSuffix).geojson")
+    }
+
+    /// Session for the exports: the shared User-Agent, but room for the largest files. Germany's
+    /// obstacles are ~21.6 MB, which a slow hotspot can't deliver in `ExternalRequest`'s 60 s.
+    static let geoJSONExportSession: URLSession = {
+        let config = URLSessionConfiguration.default
+        config.httpAdditionalHeaders = ["User-Agent": ExternalRequest.userAgent]
+        config.timeoutIntervalForRequest = 30
+        config.timeoutIntervalForResource = 300
+        return URLSession(configuration: config)
+    }()
 
     /// Page size for the core-API fallback. 1000 is the server's ceiling (2000 is rejected).
     static let layerPageLimit = 1000

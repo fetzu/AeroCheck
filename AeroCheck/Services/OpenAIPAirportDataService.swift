@@ -2,7 +2,7 @@ import Foundation
 import CoreLocation
 
 /// Manages OpenAIP AIRPORT data via the keyless, per-country GeoJSON exports
-/// (`storage.googleapis.com/.../{cc}_apt.geojson`) — a sibling to the other OpenAIP layer services.
+/// (`s3.openaip.net/openaip-system-exports/{cc}_apt.geojson`) — a sibling to the other OpenAIP layer services.
 /// Feeds `AirportDataMergeEngine` (OpenAIP is the primary airport source; OurAirports gap-fills). When
 /// no OpenAIP airport data is downloaded, the merge is a no-op and OurAirports remains the backbone. (v4.1.0)
 ///

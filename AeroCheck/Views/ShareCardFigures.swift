@@ -822,7 +822,7 @@ struct ShareCardTileSource: Equatable {
                                                  minZoom: 7, maxZoom: 18, credit: .nationalMap, isAviationChart: false)
 
     func url(z: Int, x: Int, y: Int) -> URL? {
-        URL(string: "https://wmts.geo.admin.ch/1.0.0/\(layerIdentifier)/default/current/3857/\(z)/\(x)/\(y).\(fileExtension)")
+        SwisstopoTiles.url(layer: layerIdentifier, z: z, x: x, y: y, fileExtension: fileExtension)
     }
 }
 

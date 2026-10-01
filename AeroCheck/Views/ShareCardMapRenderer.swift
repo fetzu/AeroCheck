@@ -121,9 +121,11 @@ enum ShareCardMapRenderer {
                 for y in minY...maxY {
                     group.addTask {
                         let key = "\(x)-\(y)"
+                        // Through ExternalRequest like the nav map's tiles: the tile ceiling, the
+                        // timeout, the host allow-list. (6.1)
                         guard let url = source.url(z: zoom, x: x, y: y),
-                              let (data, response) = try? await URLSession.shared.data(from: url),
-                              (response as? HTTPURLResponse)?.statusCode == 200,
+                              let (data, response) = try? await SwisstopoTiles.fetch(url),
+                              response.statusCode == 200,
                               let image = UIImage(data: data) else { return (key, nil) }
                         return (key, image)
                     }

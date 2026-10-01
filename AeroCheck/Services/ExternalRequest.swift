@@ -36,7 +36,15 @@ enum ExternalRequest {
         }
     }
 
-    /// Strips sensitive headers across a cross-host redirect.
+    /// Raised when a request, or a redirect it was sent, leaves the caller's host allow-list.
+    enum HostError: LocalizedError {
+        case notAllowed
+
+        var errorDescription: String? { "Request to a host outside the allow-list" }
+    }
+
+    /// Strips sensitive headers across a cross-host redirect, and refuses a redirect that leaves the
+    /// caller's host allow-list when there is one.
     ///
     /// SEC-C33: CFNetwork strips `Authorization` automatically on a cross-origin redirect, but not
     /// a CUSTOM header, so `x-openaip-api-key` would have been replayed to whatever host a 3xx
@@ -50,6 +58,9 @@ enum ExternalRequest {
     /// check now runs on the response `bytes(for:)` returns, in `data(for:)`, which is just as early
     /// (see there).
     private final class RequestGuardDelegate: NSObject, URLSessionTaskDelegate, @unchecked Sendable {
+        let allowedHosts: Set<String>?
+        init(allowedHosts: Set<String>?) { self.allowedHosts = allowedHosts }
+
         /// Headers that must never survive a redirect to a different host.
         private static let sensitiveHeaders = ["Authorization", OpenAIPConfig.apiKeyHeader]
 
@@ -59,6 +70,12 @@ enum ExternalRequest {
             willPerformHTTPRedirection response: HTTPURLResponse,
             newRequest request: URLRequest
         ) async -> URLRequest? {
+            if let allowedHosts, !ExternalRequest.isAllowed(request.url, hosts: allowedHosts) {
+                // Not followed: the 3xx itself becomes the final response, and the callers with a
+                // list (the swisstopo tiles) take nothing but a 200.
+                AppLog.general.publicLine("Refused a redirect outside the request's host allow-list")
+                return nil
+            }
             guard let originalHost = task.originalRequest?.url?.host,
                   let newHost = request.url?.host,
                   originalHost.caseInsensitiveCompare(newHost) != .orderedSame
@@ -124,6 +141,13 @@ enum ExternalRequest {
         expectedContentLength != NSURLSessionTransferSizeUnknown && expectedContentLength > Int64(limit)
     }
 
+    /// Whether `url` may be fetched under a host allow-list: HTTPS, on one of `hosts` exactly
+    /// (case-insensitive). No subdomain matching: a list names every host it allows.
+    static func isAllowed(_ url: URL?, hosts: Set<String>) -> Bool {
+        guard let url, url.scheme?.lowercased() == "https", let host = url.host?.lowercased() else { return false }
+        return hosts.contains(host)
+    }
+
     // MARK: - Requests
 
     /// GET a URL with retry/backoff. Returns the final `(data, response)` (success or the last
@@ -133,10 +157,11 @@ enum ExternalRequest {
         from url: URL,
         session: URLSession = session,
         maxRetries: Int = maxRetries,
-        maxResponseBytes: Int = maxResponseBytes
+        maxResponseBytes: Int = maxResponseBytes,
+        allowedHosts: Set<String>? = nil
     ) async throws -> (Data, HTTPURLResponse) {
         try await data(for: URLRequest(url: url), session: session, maxRetries: maxRetries,
-                       maxResponseBytes: maxResponseBytes)
+                       maxResponseBytes: maxResponseBytes, allowedHosts: allowedHosts)
     }
 
     /// Perform a request with retry/backoff on 429/5xx and transient `URLError`s.
@@ -144,14 +169,23 @@ enum ExternalRequest {
     /// The response body is size-bounded (SA-32): a declared length over the limit is refused as
     /// soon as the response arrives, before a byte of the body is read, and a body with no declared
     /// length (or a lying one) is refused while it streams, the moment it passes the limit.
+    ///
+    /// `allowedHosts`, when given, is a host allow-list: a request outside it is refused before
+    /// anything is sent, and so is a redirect that leaves it. Callers without one (the default) keep
+    /// following redirects anywhere, with the credential headers stripped (SEC-C33).
     static func data(
         for request: URLRequest,
         session: URLSession = session,
         maxRetries: Int = maxRetries,
-        maxResponseBytes: Int = maxResponseBytes
+        maxResponseBytes: Int = maxResponseBytes,
+        allowedHosts: Set<String>? = nil
     ) async throws -> (Data, HTTPURLResponse) {
+        if let allowedHosts, !isAllowed(request.url, hosts: allowedHosts) {
+            AppLog.general.publicLine("Refused a request outside its host allow-list")
+            throw HostError.notAllowed
+        }
         var attempt = 0
-        let requestGuard = RequestGuardDelegate()
+        let requestGuard = RequestGuardDelegate(allowedHosts: allowedHosts)
         while true {
             try Task.checkCancellation()
             do {

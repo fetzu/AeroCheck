@@ -183,6 +183,8 @@ struct AeroCheckApp: App {
                     flightPlanManager.nextLegPlanId = { planId in
                         flightThreadManager.nextLegPlanId(after: planId)
                     }
+                    // A plan deleted on another device stays on a flight in progress. (6.1)
+                    flightPlanManager.isFlightInProgress = { appState.isFlightActive }
 
                     // The delegate and its category are registered in `AeroCheckAppDelegate` before
                     // launch finishes; only the handlers are wired here, because they need the

@@ -1,3 +1,4 @@
+import CoreLocation
 import XCTest
 @testable import AeroCheck
 
@@ -104,6 +105,9 @@ final class SyncSwitchDatastoreTests: XCTestCase {
     private func datastore() -> DataPersistenceManager {
         DataPersistenceManager(rootDirectory: local, iCloudDocumentsDirectory: cloud, preferences: preferences)
     }
+
+    /// Where dead copies go: the local store's `Retired/`.
+    private var retired: URL { local.appendingPathComponent(DeletionRecords.retiredFolderName, isDirectory: true) }
 
     @discardableResult
     private func write(_ text: String, _ path: String, in base: URL, modified: Date? = nil) throws -> URL {
@@ -456,8 +460,8 @@ final class SyncSwitchDatastoreTests: XCTestCase {
         try writeTrips([trip("one", updated: 10)], in: local)
         try writeTrips([trip("two", updated: 10)], in: cloud)
 
-        let first = DataPersistenceManager.mergeDatastore(from: local, into: cloud, fileManager: fm)
-        let second = DataPersistenceManager.mergeDatastore(from: local, into: cloud, fileManager: fm)
+        let first = DataPersistenceManager.mergeDatastore(from: local, into: cloud, retiringInto: retired, fileManager: fm)
+        let second = DataPersistenceManager.mergeDatastore(from: local, into: cloud, retiringInto: retired, fileManager: fm)
 
         XCTAssertEqual(first.copied, 1)
         XCTAssertEqual(second.copied, 0)
@@ -773,5 +777,320 @@ final class SyncSwitchDatastoreTests: XCTestCase {
 
         XCTAssertEqual(rebuilt.id, id)
         XCTAssertEqual(rebuilt.legIds, [only.id])
+    }
+
+    // MARK: - Deletion records through the switch (6.1)
+    //
+    // Two gaps #203 left: a deletion made while the switch is off came back when it went on (the file
+    // was still in iCloud Drive), and a flight deleted while on came back from the stale local copy at
+    // the next switch-off. The records close both: a dead copy in the store being left is not copied,
+    // a dead copy in the store taken up is retired, and a copy edited after the deletion lives.
+
+    /// Real model files: the merge reads their ids and content stamps. Stamps in whole seconds.
+    private func flight(_ name: String = "", modified: TimeInterval, id: UUID = UUID()) -> Flight {
+        var flight = Flight(id: id, name: name, airplane: "wt9-dynamic",
+                            startTime: base.addingTimeInterval(-3_600), stopTime: base.addingTimeInterval(-600))
+        flight.modifiedAt = base.addingTimeInterval(modified)
+        return flight
+    }
+
+    private func flightName(_ flight: Flight) -> String { DataPersistenceManager.flightFilename(for: flight) }
+
+    private func writeFlights(_ flights: [Flight], in store: URL, modified: Date? = nil) throws {
+        let folder = store.appendingPathComponent("Flights", isDirectory: true)
+        try fm.createDirectory(at: folder, withIntermediateDirectories: true)
+        DataPersistenceManager.writeFlightFiles(flights, to: folder)
+        if let modified {
+            for flight in flights {
+                try fm.setAttributes([.modificationDate: modified],
+                                     ofItemAtPath: folder.appendingPathComponent(flightName(flight)).path)
+            }
+        }
+    }
+
+    private func flights(in store: URL) -> [UUID: Flight] {
+        let flights = DataPersistenceManager.decodeFlights(in: store.appendingPathComponent("Flights"))
+        return Dictionary(flights.map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
+    }
+
+    private func routePlan(_ name: String, id: UUID = UUID(), updated: TimeInterval) -> FlightPlan {
+        FlightPlan(id: id, name: name,
+                   waypoints: [FlightPlanWaypoint(name: "LSZQ", coordinate: CLLocationCoordinate2D(latitude: 46.6, longitude: 7.3)),
+                               FlightPlanWaypoint(name: "LSGY", coordinate: CLLocationCoordinate2D(latitude: 46.8, longitude: 6.6))],
+                   createdAt: base, updatedAt: base.addingTimeInterval(updated))
+    }
+
+    /// Writes plan files the way a build of the time named them.
+    private func writePlan(_ plan: FlightPlan, named name: String, in store: URL) throws {
+        let folder = store.appendingPathComponent("NavigationPlans", isDirectory: true)
+        try fm.createDirectory(at: folder, withIntermediateDirectories: true)
+        let encoder = JSONEncoder()
+        encoder.dateEncodingStrategy = .iso8601
+        try encoder.encode(plan).write(to: folder.appendingPathComponent(name))
+    }
+
+    private func record(_ kind: DeletionRecord.Kind, _ id: UUID, at deleted: TimeInterval, in store: URL) {
+        DeletionRecords.write(kind, id: id, deletedAt: base.addingTimeInterval(deleted), storeRoot: store)
+    }
+
+    private func recordNames(in store: URL) -> Set<String> {
+        Set((try? fm.contentsOfDirectory(atPath: DeletionRecords.folder(in: store).path)) ?? [])
+    }
+
+    private func retiredFiles(_ kind: DeletionRecord.Kind) -> [String] {
+        ((try? fm.contentsOfDirectory(atPath: retired.appendingPathComponent(kind.rawValue).path)) ?? []).sorted()
+    }
+
+    /// Gap 1: deleted while off, the flight came back when the switch went on.
+    func testADeletionWhileOffStaysDeletedWhenTheSwitchGoesOn() throws {
+        let store = datastore()
+        let (deleted, kept) = (flight(modified: 0), flight(modified: 0))
+        XCTAssertTrue(store.saveFlight(deleted))
+        XCTAssertTrue(store.saveFlight(kept))
+        store.setUsesICloudDrive(false)
+        let keptInICloud = read("Flights/\(flightName(kept))", in: cloud)
+
+        store.recordDeletion(.flight, id: deleted.id, stamp: deleted.modifiedAt)
+        store.deleteFlight(deleted)
+        XCTAssertTrue(store.setUsesICloudDrive(true))
+
+        XCTAssertEqual(files(in: "Flights", of: cloud), [flightName(kept)])
+        XCTAssertEqual(retiredFiles(.flight), [flightName(deleted)], "retired, not deleted")
+        XCTAssertEqual(recordNames(in: cloud), ["flight_\(deleted.id.uuidString).json"], "the record follows the store")
+        XCTAssertEqual(read("Flights/\(flightName(kept))", in: cloud), keptInICloud, "nothing else moves")
+        XCTAssertEqual(files(in: "Flights", of: local), [flightName(kept)], "the store being left is not touched")
+        XCTAssertEqual(recordNames(in: local), ["flight_\(deleted.id.uuidString).json"])
+    }
+
+    /// Gap 2: deleted while on, the flight came back from the stale local copy at the next switch-off.
+    func testADeletionWhileOnStaysDeletedWhenTheSwitchGoesOff() async throws {
+        let store = datastore()
+        let (deleted, kept) = (flight(modified: 0), flight(modified: 0))
+        XCTAssertTrue(store.saveFlight(deleted))
+        XCTAssertTrue(store.saveFlight(kept))
+        store.setUsesICloudDrive(false)
+        store.setUsesICloudDrive(true) // the local store now holds a copy of both
+        let appState = makeTestAppState(datastore: store)
+        try await waitUntil { appState.flights.count == 2 }
+        appState.deleteFlight(try XCTUnwrap(appState.flights.first { $0.id == deleted.id }))
+        let marker = flight("only here", modified: 0)
+        try writeFlights([marker], in: local)
+
+        appState.settings.iCloudSyncEnabled = false
+        appState.saveSettings()
+
+        try await waitUntil { appState.flights.contains { $0.id == marker.id } } // the reload has landed
+        XCTAssertEqual(Set(appState.flights.map(\.id)), [kept.id, marker.id])
+        XCTAssertEqual(retiredFiles(.flight), [flightName(deleted)])
+        XCTAssertNil(flights(in: local)[deleted.id])
+    }
+
+    /// A later edit beats an older delete: a copy edited after the deletion (on a device that did not
+    /// know yet) is copied, and kept where it is, in both directions.
+    func testACopyEditedAfterTheDeletionIsCopiedAndKept() throws {
+        let store = datastore()
+        let (editedInICloud, editedHere, deadInICloud) = (UUID(), UUID(), UUID())
+        try writeFlights([flight("edited in iCloud Drive", modified: 120, id: editedInICloud),
+                          flight("stale", modified: 0, id: deadInICloud)], in: cloud)
+        for id in [editedInICloud, editedHere, deadInICloud] { record(.flight, id, at: 60, in: local) }
+
+        store.setUsesICloudDrive(false) // iCloud Drive → local
+
+        XCTAssertEqual(flights(in: local)[editedInICloud]?.name, "edited in iCloud Drive", "copied")
+        XCTAssertNil(flights(in: local)[deadInICloud], "not copied")
+
+        try writeFlights([flight("edited here", modified: 120, id: editedHere)], in: local)
+        try writeFlights([flight("stale", modified: 0, id: editedHere)], in: cloud, modified: Date().addingTimeInterval(3_600))
+
+        store.setUsesICloudDrive(true) // local → iCloud Drive
+
+        XCTAssertEqual(flights(in: cloud)[editedHere]?.name, "edited here",
+                       "the dead copy gave way to the live one, whatever the files' dates")
+        XCTAssertEqual(flights(in: cloud)[editedInICloud]?.name, "edited in iCloud Drive", "kept")
+        XCTAssertNil(flights(in: cloud)[deadInICloud], "retired")
+        XCTAssertEqual(retiredFiles(.flight).count, 2)
+    }
+
+    /// Another device deleted the flight in iCloud Drive while this one was off: its record alone
+    /// keeps this device's stale copy out.
+    func testARecordOnlyInTheDestinationStopsTheSourceCopy() throws {
+        let store = datastore()
+        store.setUsesICloudDrive(false)
+        let stale = flight(modified: 0)
+        try writeFlights([stale], in: local)
+        record(.flight, stale.id, at: 60, in: cloud)
+
+        store.setUsesICloudDrive(true)
+
+        XCTAssertNil(flights(in: cloud)[stale.id])
+        XCTAssertNotNil(flights(in: local)[stale.id], "the store being left is not touched")
+        XCTAssertTrue(recordNames(in: local).isEmpty)
+    }
+
+    /// iCloud evicted the record: its date is unknown, so the copy is neither copied nor retired,
+    /// and the merge stays owed until a later launch reads the record.
+    func testAnEvictedRecordSkipsRetiresNothingAndKeepsTheMergeOwed() throws {
+        let store = datastore()
+        store.setUsesICloudDrive(false)
+        let id = UUID()
+        try writeFlights([flight("this device's", modified: 0, id: id)], in: local)
+        try writeFlights([flight("iCloud Drive's", modified: 0, id: id)], in: cloud, modified: Date(timeIntervalSinceNow: -86_400))
+        let folder = DeletionRecords.folder(in: cloud)
+        try fm.createDirectory(at: folder, withIntermediateDirectories: true)
+        let placeholder = folder.appendingPathComponent(".flight_\(id.uuidString).json.icloud")
+        try Data().write(to: placeholder)
+
+        store.setUsesICloudDrive(true)
+
+        XCTAssertEqual(flights(in: cloud)[id]?.name, "iCloud Drive's", "not copied over, not retired")
+        XCTAssertTrue(retiredFiles(.flight).isEmpty)
+        XCTAssertNotNil(preferences.string(forKey: DataPersistenceManager.pendingMergeKey), "still owed")
+
+        // Downloaded since.
+        try fm.removeItem(at: placeholder)
+        record(.flight, id, at: 60, in: cloud)
+        _ = datastore() // relaunch
+
+        XCTAssertNil(flights(in: cloud)[id])
+        XCTAssertEqual(retiredFiles(.flight).count, 1)
+        XCTAssertNil(preferences.string(forKey: DataPersistenceManager.pendingMergeKey))
+    }
+
+    /// A flight file from before PR-19 has no id in its name, and a plan renamed between the stores
+    /// has a different name in each (and none of its id before 6.1): both are matched by the id
+    /// inside, never by the name.
+    func testCopiesAreMatchedByTheIdInsideNotByTheirNames() throws {
+        let store = datastore()
+        store.setUsesICloudDrive(false)
+        let oldFlight = flight(modified: 0)
+        try writeFlights([oldFlight], in: local)
+        let encoder = JSONEncoder()
+        encoder.dateEncodingStrategy = .iso8601
+        try fm.createDirectory(at: cloud.appendingPathComponent("Flights"), withIntermediateDirectories: true)
+        let legacyFlightName = "20260101-1000_HB-KFD.json"
+        try encoder.encode(oldFlight).write(to: cloud.appendingPathComponent("Flights/\(legacyFlightName)"))
+        let planId = UUID()
+        let renamed = routePlan("Renamed here", id: planId, updated: 0)
+        try writePlan(renamed, named: DataPersistenceManager.navigationPlanFilename(for: renamed), in: local)
+        let original = routePlan("Bern Sion", id: planId, updated: 0)
+        let legacyPlanName = DataPersistenceManager.legacyNavigationPlanFilename(for: original)
+        try writePlan(original, named: legacyPlanName, in: cloud)
+        let alive = routePlan("Another route", updated: 0)
+        try writePlan(alive, named: "20260101-1000_Another.json", in: cloud)
+        record(.flight, oldFlight.id, at: 60, in: local)
+        record(.plan, planId, at: 60, in: local)
+
+        store.setUsesICloudDrive(true)
+
+        XCTAssertTrue(files(in: "Flights", of: cloud).isEmpty, "\(files(in: "Flights", of: cloud))")
+        XCTAssertEqual(files(in: "NavigationPlans", of: cloud), ["20260101-1000_Another.json"])
+        XCTAssertEqual(retiredFiles(.flight), [legacyFlightName])
+        XCTAssertEqual(retiredFiles(.plan), [legacyPlanName])
+    }
+
+    // MARK: Trips
+
+    /// A trip dissolved in one store: dropped from the other store's file, whose previous version is
+    /// parked in Retired/, and never brought in. One edited after its record stays.
+    func testADissolvedTripLeavesTheDestinationAndIsNeverBroughtIn() throws {
+        let store = datastore()
+        let (dissolvedThere, dissolvedHere, editedSince, onlyThere, onlyHere) = (UUID(), UUID(), UUID(), UUID(), UUID())
+        try writeTrips([trip("dissolved on the iPad", id: dissolvedThere, updated: 0),
+                        trip("edited since", id: editedSince, updated: 120),
+                        trip("formed on the iPad", id: onlyThere, updated: 0)], in: cloud)
+        try writeTrips([trip("stale copy", id: dissolvedThere, updated: 0),
+                        trip("dissolved here", id: dissolvedHere, updated: 0),
+                        trip("formed here", id: onlyHere, updated: 0)], in: local)
+        let previousLocal = read("trips.json", in: local)
+        record(.trip, dissolvedThere, at: 60, in: cloud)
+        record(.trip, editedSince, at: 60, in: cloud)
+        record(.trip, dissolvedHere, at: 60, in: local)
+        // The iPad's copy of the trip dissolved here, still in iCloud Drive's file.
+        let cloudTrips = try XCTUnwrap(DataPersistenceManager.decodeTrips(Data(contentsOf: cloud.appendingPathComponent("trips.json"))))
+        try writeTrips(cloudTrips + [trip("dissolved here", id: dissolvedHere, updated: 0)], in: cloud)
+
+        store.setUsesICloudDrive(false)
+
+        XCTAssertEqual(tripNames(in: local), [editedSince: "edited since", onlyThere: "formed on the iPad",
+                                              onlyHere: "formed here"])
+        XCTAssertEqual(retiredFiles(.trip), ["trips.json"])
+        XCTAssertEqual(read("trip/trips.json", in: retired), previousLocal, "the previous file, parked")
+        XCTAssertEqual(tripNames(in: cloud)?.count, 4, "the store being left is not touched")
+    }
+
+    /// No trips.json in the destination: the source's is copied without its dissolved trips.
+    func testATripsFileCopiedWholeLeavesTheDissolvedTripsOut() throws {
+        let store = datastore()
+        let (dissolved, kept) = (UUID(), UUID())
+        try writeTrips([trip("dissolved", id: dissolved, updated: 0), trip("kept", id: kept, updated: 0)], in: cloud)
+        record(.trip, dissolved, at: 60, in: local)
+
+        store.setUsesICloudDrive(false)
+
+        XCTAssertEqual(tripNames(in: local), [kept: "kept"])
+    }
+
+    /// An unreadable source brings nothing and still lets the destination drop its dissolved trips;
+    /// an unreadable destination keeps #203's newer-file rule (the loader leaves the dissolved trips
+    /// out of what it shows).
+    func testAnUnreadableTripsFileFallsBack() async throws {
+        let store = datastore()
+        let (dissolved, kept) = (UUID(), UUID())
+        try write("not a trips file", "trips.json", in: cloud, modified: Date())
+        try writeTrips([trip("dissolved", id: dissolved, updated: 0), trip("kept", id: kept, updated: 0)], in: local,
+                       modified: Date(timeIntervalSinceNow: -86_400))
+        record(.trip, dissolved, at: 60, in: cloud)
+
+        store.setUsesICloudDrive(false)
+
+        XCTAssertEqual(tripNames(in: local), [kept: "kept"])
+
+        try writeTrips([trip("dissolved", id: dissolved, updated: 0), trip("kept", id: kept, updated: 0)], in: local,
+                       modified: Date())
+        try write("not a trips file", "trips.json", in: cloud, modified: Date(timeIntervalSinceNow: -86_400))
+
+        store.setUsesICloudDrive(true)
+
+        XCTAssertEqual(tripNames(in: cloud)?.count, 2, "copied whole, as #203 did")
+        let shown = await store.loadTripsOffMain()
+        XCTAssertEqual(shown.map(\.id), [kept])
+    }
+
+    // MARK: Idempotence
+
+    func testTheMergeTwiceAndOffOnOffConverge() throws {
+        let store = datastore()
+        store.setUsesICloudDrive(false)
+        let (deletedHere, deletedThere, kept) = (flight(modified: 0), flight(modified: 0), flight(modified: 0))
+        try writeFlights([deletedThere, kept], in: local)
+        try writeFlights([deletedHere, deletedThere, kept], in: cloud)
+        record(.flight, deletedHere.id, at: 60, in: local)
+        record(.flight, deletedThere.id, at: 60, in: cloud)
+        let (dissolved, tripKept) = (UUID(), UUID())
+        try writeTrips([trip("dissolved", id: dissolved, updated: 0), trip("kept", id: tripKept, updated: 0)], in: cloud)
+        try writeTrips([trip("kept", id: tripKept, updated: 0)], in: local)
+        record(.trip, dissolved, at: 60, in: local)
+
+        let first = DataPersistenceManager.mergeDatastore(from: local, into: cloud, retiringInto: retired, fileManager: fm)
+        let second = DataPersistenceManager.mergeDatastore(from: local, into: cloud, retiringInto: retired, fileManager: fm)
+
+        XCTAssertEqual(first.retired, 3, "both dead flight files in iCloud Drive, and the dissolved trip")
+        XCTAssertEqual(first.records, 2)
+        XCTAssertEqual(second, DataPersistenceManager.DatastoreMergeResult(), "nothing left to do")
+
+        store.setUsesICloudDrive(true)
+        store.setUsesICloudDrive(false)
+        store.setUsesICloudDrive(true)
+        let retiredAfterOneRound = retiredFiles(.flight)
+        store.setUsesICloudDrive(false)
+        store.setUsesICloudDrive(true)
+
+        XCTAssertEqual(Set(flights(in: cloud).keys), [kept.id])
+        XCTAssertEqual(Set(flights(in: local).keys), [kept.id])
+        XCTAssertEqual(tripNames(in: cloud), [tripKept: "kept"])
+        XCTAssertEqual(tripNames(in: local), [tripKept: "kept"])
+        XCTAssertEqual(recordNames(in: cloud), recordNames(in: local))
+        XCTAssertEqual(recordNames(in: cloud).count, 3)
+        XCTAssertEqual(retiredFiles(.flight), retiredAfterOneRound, "a second round retires nothing more")
     }
 }

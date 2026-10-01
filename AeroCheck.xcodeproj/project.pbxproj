@@ -67,6 +67,7 @@
 		A5000025111111110000002 /* DataStatusManagerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A5000025111111110000001 /* DataStatusManagerTests.swift */; };
 		A5000024111111110000002 /* NetworkMonitorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A5000024111111110000001 /* NetworkMonitorTests.swift */; };
 		A5000010111111110000002 /* DatastoreMigrationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A5000010111111110000001 /* DatastoreMigrationTests.swift */; };
+		DR0A0001211111110000001 /* DeletionRecordsTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = DR0A0001111111110000001 /* DeletionRecordsTests.swift */; };
 		A5000011111111110000002 /* FlightMergeValidationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A5000011111111110000001 /* FlightMergeValidationTests.swift */; };
 		A5000012111111110000002 /* AircraftDataServiceSeamTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A5000012111111110000001 /* AircraftDataServiceSeamTests.swift */; };
 		A5000013111111110000002 /* ElevationParseTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A5000013111111110000001 /* ElevationParseTests.swift */; };
@@ -104,6 +105,7 @@
 		A1000001211111110000060 /* FlightPlanMapBuilderView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000001111111110000060 /* FlightPlanMapBuilderView.swift */; };
 		04F1C7002EFACEEE00192A14 /* FlightPlanExportService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 04F1C7012EFACEEE00192A14 /* FlightPlanExportService.swift */; };
 		04F1C7022F0A111100192A14 /* DataPersistenceManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 04F1C7032F0A111100192A14 /* DataPersistenceManager.swift */; };
+		DR0B0001211111110000001 /* DeletionRecords.swift in Sources */ = {isa = PBXBuildFile; fileRef = DR0B0001111111110000001 /* DeletionRecords.swift */; };
 		04F1C7042F0A111100192A14 /* SyncManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 04F1C7052F0A111100192A14 /* SyncManager.swift */; };
 		A1000001211111110000001 /* AeroCheckApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000001111111110000001 /* AeroCheckApp.swift */; };
 		A1000001211111110000002 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000001111111110000002 /* ContentView.swift */; };
@@ -393,6 +395,7 @@
 		A5000025111111110000001 /* DataStatusManagerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DataStatusManagerTests.swift; sourceTree = "<group>"; };
 		A5000024111111110000001 /* NetworkMonitorTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NetworkMonitorTests.swift; sourceTree = "<group>"; };
 		A5000010111111110000001 /* DatastoreMigrationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DatastoreMigrationTests.swift; sourceTree = "<group>"; };
+		DR0A0001111111110000001 /* DeletionRecordsTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeletionRecordsTests.swift; sourceTree = "<group>"; };
 		A5000011111111110000001 /* FlightMergeValidationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FlightMergeValidationTests.swift; sourceTree = "<group>"; };
 		A5000012111111110000001 /* AircraftDataServiceSeamTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AircraftDataServiceSeamTests.swift; sourceTree = "<group>"; };
 		A5000013111111110000001 /* ElevationParseTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ElevationParseTests.swift; sourceTree = "<group>"; };
@@ -431,6 +434,7 @@
 		04F1C6FA2EF9CD9D00192A14 /* WaypointEditorSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WaypointEditorSheet.swift; sourceTree = "<group>"; };
 		04F1C7012EFACEEE00192A14 /* FlightPlanExportService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FlightPlanExportService.swift; sourceTree = "<group>"; };
 		04F1C7032F0A111100192A14 /* DataPersistenceManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DataPersistenceManager.swift; sourceTree = "<group>"; };
+		DR0B0001111111110000001 /* DeletionRecords.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeletionRecords.swift; sourceTree = "<group>"; };
 		04F1C7052F0A111100192A14 /* SyncManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SyncManager.swift; sourceTree = "<group>"; };
 		A1000001111111110000000 /* AeroCheck.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = AeroCheck.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		A1000001111111110000001 /* AeroCheckApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AeroCheckApp.swift; sourceTree = "<group>"; };
@@ -704,6 +708,7 @@
 				A5000025111111110000001 /* DataStatusManagerTests.swift */,
 				A5000024111111110000001 /* NetworkMonitorTests.swift */,
 				A5000010111111110000001 /* DatastoreMigrationTests.swift */,
+				DR0A0001111111110000001 /* DeletionRecordsTests.swift */,
 				A5000011111111110000001 /* FlightMergeValidationTests.swift */,
 				A5000012111111110000001 /* AircraftDataServiceSeamTests.swift */,
 				A5000013111111110000001 /* ElevationParseTests.swift */,
@@ -944,6 +949,7 @@
 				04F1C6F42EF9CD6F00192A14 /* ElevationService.swift */,
 				04F1C7012EFACEEE00192A14 /* FlightPlanExportService.swift */,
 				04F1C7032F0A111100192A14 /* DataPersistenceManager.swift */,
+				DR0B0001111111110000001 /* DeletionRecords.swift */,
 				04F1C7052F0A111100192A14 /* SyncManager.swift */,
 				A3000001111111110000001 /* WatchConnectivityManager.swift */,
 				92A08F72FE734613BD614D58 /* CompanionConnectivityManager.swift */,
@@ -1254,6 +1260,7 @@
 				A5000025111111110000002 /* DataStatusManagerTests.swift in Sources */,
 				A5000024111111110000002 /* NetworkMonitorTests.swift in Sources */,
 				A5000010111111110000002 /* DatastoreMigrationTests.swift in Sources */,
+				DR0A0001211111110000001 /* DeletionRecordsTests.swift in Sources */,
 				A5000011111111110000002 /* FlightMergeValidationTests.swift in Sources */,
 				A5000012111111110000002 /* AircraftDataServiceSeamTests.swift in Sources */,
 				A5000013111111110000002 /* ElevationParseTests.swift in Sources */,
@@ -1296,6 +1303,7 @@
 				A1000001211111110000060 /* FlightPlanMapBuilderView.swift in Sources */,
 				04F1C7002EFACEEE00192A14 /* FlightPlanExportService.swift in Sources */,
 				04F1C7022F0A111100192A14 /* DataPersistenceManager.swift in Sources */,
+				DR0B0001211111110000001 /* DeletionRecords.swift in Sources */,
 				04F1C7042F0A111100192A14 /* SyncManager.swift in Sources */,
 				A1000001211111110000002 /* ContentView.swift in Sources */,
 				A1000001211111110000003 /* HomeView.swift in Sources */,

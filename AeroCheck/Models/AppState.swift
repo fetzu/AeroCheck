@@ -2910,6 +2910,8 @@ class AppState {
     func deleteFlight(_ flight: Flight) {
         flights.removeAll { $0.id == flight.id }
 
+        // Recorded before the file goes: the other store's copy stays deleted too. (6.1)
+        persistence.recordDeletion(.flight, id: flight.id, stamp: flight.modifiedAt)
         // Delete the individual flight file from iCloud
         persistence.deleteFlight(flight)
 
@@ -2925,8 +2927,9 @@ class AppState {
 
         flights.remove(atOffsets: indexSet)
 
-        // Delete individual flight files from iCloud
+        // Delete individual flight files from iCloud, each recorded first (6.1)
         for flight in flightsToDelete {
+            persistence.recordDeletion(.flight, id: flight.id, stamp: flight.modifiedAt)
             persistence.deleteFlight(flight)
         }
 
@@ -2948,13 +2951,19 @@ class AppState {
     @discardableResult
     func importedFlight(from data: Data) -> (flight: Flight, suggestedName: String?)? {
         // Try GPX first, then JSON
-        let imported: (flight: Flight, suggestedName: String?)
+        var imported: (flight: Flight, suggestedName: String?)
         if let gpx = Flight.fromGPXWithSuggestedName(data) {
             imported = gpx
         } else if let flight = Flight.fromJSONOptional(data) {
             imported = (flight, nil)
         } else {
             return nil
+        }
+        // A JSON export keeps the flight's id and `modifiedAt`: the export of a deleted flight,
+        // imported back, would be dead to its deletion record at the next load. An import is an edit,
+        // so it is stamped as one, after the record. (6.1)
+        if let mark = persistence.deletionMark(.flight, id: imported.flight.id) {
+            imported.flight.modifiedAt = DeletionRecords.stamp(after: mark.deletedAt)
         }
         flights.insert(imported.flight, at: 0)
         saveFlights()

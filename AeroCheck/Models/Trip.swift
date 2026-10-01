@@ -189,9 +189,10 @@ struct Trip: Codable, Identifiable, Equatable, Sendable {
     /// manager does when a load brings trips it already holds. Every edit of a trip stamps
     /// `updatedAt` (`touch()`, `renameTrip`), so it is the trip's own content stamp.
     ///
-    /// Nothing is ever dropped here: a trip dissolved in one copy comes back from the other. Deletion
-    /// records (6.1, review design 94 §2.3) plug in here: a trip whose record's `deletedAt` is not
-    /// earlier than its `updatedAt` leaves the union.
+    /// Nothing is dropped here. The deletion records (6.1) take the dissolved trips (a record whose
+    /// `deletedAt` is not earlier than the trip's `updatedAt`) out of both sides before they meet:
+    /// the switch's merge (`DataPersistenceManager.mergeTrips`), the loader, and the thread manager's
+    /// memory after a move (`FlightThreadManager.loadTrips`).
     static func merged(_ base: [Trip], with other: [Trip]) -> [Trip] {
         var result = base
         var position: [UUID: Int] = [:]

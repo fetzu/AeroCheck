@@ -1,0 +1,27 @@
+FONTLOG for the B612 fonts served by aerocheck.app
+
+The five files are subsets (217 glyphs) of B612 1.008 (https://github.com/polarsys/b612, tag 1.008)
+and are licensed under the SIL Open Font License 1.1 (OFL.txt, next to this file).
+
+b612-regular.woff2, b612-bold.woff2, b612-italic.woff2
+  Unmodified subsets.
+
+b612-mono-regular.woff2, b612-mono-bold.woff2
+  Modified (2026-10-01), as the app's B612 Mono is (AeroCheck PR #246). B612 Mono draws the colon,
+  semicolon, period, comma, apostrophe and middle dot at the left of their monospaced cell (upstream
+  issue #31), so numbers read "00: 44" and "122. 050". Those glyphs, and the right single quote (a few
+  units off), were moved sideways until their ink is centred in the cell. Nothing else changed: every
+  advance is still 1300 units, the outlines keep their shape, the character map and the family and
+  PostScript names are the original ones (the licence declares no Reserved Font Name). The name table
+  records the change in the version string ("Version 1.008; AeroCheck: punctuation centred"), the
+  unique id and the description.
+
+  To reproduce, run scripts/center-b612-mono-punctuation.py (fontTools with brotli) on the subsets:
+
+    before  b612-mono-regular.woff2  sha256 36625fd3471c28b27ecbff1e3c1ed80e6b4bb62df800542df521e9cd7825ea3b
+    before  b612-mono-bold.woff2     sha256 76dc8f1668f8ccfd2d3a4360133ec65c51644914b56f8e1b20527b4a24b75a38
+    after   b612-mono-regular.woff2  sha256 bf1b8b344cc4a6d21851c963c70103f6ddae0efffe8ca45e68a02acd983e49d3
+    after   b612-mono-bold.woff2     sha256 f9e09d7f9d658ae4f6cbcbd3fcc173fb9d126f60542f48e099e708ade543e9be
+
+  (The patched hashes were made with fontTools 4.66.1; another version may lay the tables out
+  differently while drawing the same glyphs.)

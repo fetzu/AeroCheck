@@ -91,9 +91,6 @@ class OfflineMapManager: ObservableObject {
         maxLon: 10.49   // Eastern border
     )
 
-    /// Base URL for swisstopo WMTS
-    private let baseURL = "https://wmts.geo.admin.ch/1.0.0"
-
     /// UserDefaults keys
     private let icaoCacheDateKey = "offlineMapCacheDate"
     private let segelflugCacheDateKey = "offlineMapSegelflugCacheDate"
@@ -542,9 +539,8 @@ class OfflineMapManager: ObservableObject {
     }
 
     private func downloadTile(layer: CacheableLayer, z: Int, x: Int, y: Int, session: URLSession) async -> Bool {
-        let urlString = "\(baseURL)/\(layer.swisstopoIdentifier)/default/current/3857/\(z)/\(x)/\(y).png"
-
-        guard let url = URL(string: urlString) else { return false }
+        guard let url = SwisstopoTiles.url(layer: layer.swisstopoIdentifier, z: z, x: x, y: y,
+                                           fileExtension: "png") else { return false }
 
         // Retry transient 429/5xx with exponential backoff + jitter, honoring Retry-After, instead
         // of silently dropping a throttled tile as a "normal" failure. (PERF-23)
@@ -552,8 +548,11 @@ class OfflineMapManager: ObservableObject {
         while true {
             if Task.isCancelled { return false }
             do {
-                let (data, response) = try await session.data(from: url)
-                guard let httpResponse = response as? HTTPURLResponse else { return false }
+                // Through ExternalRequest on the bulk session (its timeouts, no URL cache): the tile
+                // ceiling and the host allow-list, which `session.data(from:)` had neither of. No
+                // retries in there: this loop keeps them, so a 429 still raises
+                // `downloadWasThrottled`. A refused tile fails like any other. (6.1)
+                let (data, httpResponse) = try await SwisstopoTiles.fetch(url, session: session, maxRetries: 0)
 
                 if httpResponse.statusCode == 429 {
                     downloadWasThrottled = true

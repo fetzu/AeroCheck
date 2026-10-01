@@ -130,7 +130,7 @@ class AirportDataService: ObservableObject {
     }
 
     /// OpenAIP is the primary airport source: whenever OpenAIP airport data is downloaded, fold it into
-    /// the loaded backbone (identity + position + frequencies; OpenAIP wins on ICAO match within
+    /// the loaded backbone (identity + position + frequencies + runways; OpenAIP wins on ICAO match within
     /// tolerance, OurAirports gap-fills). No-op when OpenAIP airport data isn't downloaded → OurAirports
     /// is the fallback. Re-sets `airports` (didSet rebuilds the spatial grid). Idempotent. (v4.1.0)
     func applyOpenAIPMergeIfAvailable() async {
@@ -142,7 +142,8 @@ class AirportDataService: ObservableObject {
         await OpenAIPAirportDataService.shared.ensureLoaded()
         let oaip = OpenAIPAirportDataService.shared.allLoadedAirports()
         guard !oaip.isEmpty else { return }
-        let merged = AirportDataMergeEngine.merge(ourAirports: airports, openAIP: oaip)
+        let outcome = AirportDataMergeEngine.mergeOutcome(ourAirports: airports, openAIP: oaip)
+        let merged = outcome.airports
         airports = merged   // didSet rebuilds the spatial grid
         airportsByIdent = Dictionary(merged.map { ($0.ident, $0) }, uniquingKeysWith: { first, _ in first })
         airportCount = merged.count
@@ -158,22 +159,22 @@ class AirportDataService: ObservableObject {
             frequenciesByAirport[ident] = openAIPFreqs + keptOurAirports
         }
 
-        // OpenAIP-primary runways: UNION per airport — OpenAIP wins on a runway-identifier match (e.g.
-        // "10/28"), but OurAirports-only runways (the ~62% of airports OpenAIP lacks) are kept. Mirrors
-        // the frequency merge, so no runway data is ever lost. (v4.1.0 runway merge)
-        let openAIPRwysByIdent = Dictionary(grouping: AirportDataMergeEngine.openAIPRunways(from: oaip)) {
-            $0.airportIdent
-        }
-        for (ident, openAIPRwys) in openAIPRwysByIdent {
-            runwaysByAirport[ident] = AirportDataMergeEngine.unionRunways(
-                our: runwaysByAirport[ident] ?? [], openAIP: openAIPRwys)
-        }
+        // OpenAIP-primary runways: UNION per airport, one runway per physical strip. A runway both sources
+        // list (even under other designators, LSGC 05/23 vs 06/24) becomes one, with OpenAIP's PCN and
+        // declared distances and OurAirports' thresholds and, where the two differ, designators;
+        // OurAirports-only runways (the ~62% of airports OpenAIP lacks, the parallel grass strips it omits)
+        // are kept. Only the OpenAIP records the merge folded in count: a same-ICAO field it kept apart
+        // (> 1 NM) is another field, with other runways. (v4.1.0 runway merge; 6.2.0)
+        let openAIPRunwaysByIdent = AirportDataMergeEngine.mergedRunways(
+            ourRunwaysByIdent: runwaysByAirport, openAIP: oaip, foldedOpenAIPIds: outcome.foldedOpenAIPIds)
+        runwaysByAirport.merge(openAIPRunwaysByIdent) { _, fromMerge in fromMerge }
+
         // Queryable data now exists, whatever its source. Every frequency/airport surface in the app
         // gates on this flag, and it used to be set only by OurAirports — so even once the merge
         // above ran, an OpenAIP-only dataset stayed invisible to the UI.
         if !merged.isEmpty { isDataAvailable = true }
 
-        AppLog.airportData.debugLine("OpenAIP-primary merge applied: \(merged.count) airports, \(openAIPFreqsByIdent.count) airports got OpenAIP frequencies, \(openAIPRwysByIdent.count) got OpenAIP runways")
+        AppLog.airportData.debugLine("OpenAIP-primary merge applied: \(merged.count) airports, \(openAIPFreqsByIdent.count) airports got OpenAIP frequencies, \(openAIPRunwaysByIdent.count) got OpenAIP runways")
 
         // The raw OpenAIP array has now been folded into `airports`, `frequenciesByAirport` and
         // `runwaysByAirport`, and nothing reads it again — so drop it instead of keeping a second
@@ -257,6 +258,7 @@ class AirportDataService: ObservableObject {
             self.airportsByIdent = Dictionary(parsedAirports.map { ($0.ident, $0) }, uniquingKeysWith: { first, _ in first })
             self.frequenciesByAirport = Dictionary(grouping: parsedFrequencies) { $0.airportIdent }
             self.runwaysByAirport = Dictionary(grouping: parsedRunways) { $0.airportIdent }
+            applyRunwayDesignatorOverrides()
             self.airportCount = parsedAirports.count
             self.lastUpdated = Date()
             self.isDataAvailable = true
@@ -320,11 +322,21 @@ class AirportDataService: ObservableObject {
             self.airportsByIdent = Dictionary(loaded.airports.map { ($0.ident, $0) }, uniquingKeysWith: { first, _ in first })
             self.frequenciesByAirport = Dictionary(grouping: loaded.frequencies) { $0.airportIdent }
             self.runwaysByAirport = Dictionary(grouping: loaded.runways) { $0.airportIdent }
+            applyRunwayDesignatorOverrides()
             self.airportCount = loaded.airports.count
             self.isDataAvailable = true
             AppLog.airportData.debugLine("Loaded from cache: \(loaded.airports.count) airports")
         }
         self.isLoaded = true
+    }
+
+    /// The hand-set designators (`RunwayDesignatorOverrides`) on OurAirports' runways as loaded, so they
+    /// hold without OpenAIP too; the OpenAIP merge applies them again to what it rebuilds. Idempotent.
+    private func applyRunwayDesignatorOverrides() {
+        for ident in RunwayDesignatorOverrides.idents {
+            guard let runways = runwaysByAirport[ident] else { continue }
+            runwaysByAirport[ident] = RunwayDesignatorOverrides.apply(to: runways, ident: ident)
+        }
     }
 
     /// Delete all cached data
@@ -538,8 +550,13 @@ class AirportDataService: ObservableObject {
     /// Suggest the best runway based on wind direction
     func suggestRunway(for airport: Airport?, windDirection: Double?) -> Runway? {
         guard let airport = airport else { return nil }
+        return Self.suggestRunway(among: getRunways(for: airport.ident), windDirection: windDirection)
+    }
 
-        let runways = getRunways(for: airport.ident).filter { !$0.closed }
+    /// Pure pick (no I/O, unit-testable): the open runway whose end best faces the wind, or the longest
+    /// one when the wind is unknown.
+    nonisolated static func suggestRunway(among allRunways: [Runway], windDirection: Double?) -> Runway? {
+        let runways = allRunways.filter { !$0.closed }
 
         guard !runways.isEmpty else { return nil }
 
@@ -815,7 +832,12 @@ extension AirportDataService {
 
     /// The longest open runway, as a pilot reads it: "12/30 · 620 m · Asphalt". Nil when unknown.
     func runwaySummary(for ident: String) -> String? {
-        guard let runway = getRunways(for: ident).filter({ !$0.closed })
+        Self.runwaySummary(of: getRunways(for: ident))
+    }
+
+    /// Pure form of `runwaySummary(for:)`, over an airport's runway list (unit-testable).
+    nonisolated static func runwaySummary(of runways: [Runway]) -> String? {
+        guard let runway = runways.filter({ !$0.closed })
                 .max(by: { ($0.lengthFt ?? 0) < ($1.lengthFt ?? 0) }) else { return nil }
         var parts = [runway.identifier]
         if let length = runway.lengthMeters { parts.append("\(length) m") }

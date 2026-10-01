@@ -349,7 +349,8 @@ enum AirportDataMergeEngine {
     /// Whether two lined-up ends can be the same strip: L meets L and R meets R; no suffix and C are the
     /// same thing (a lone runway is the centre one). OurAirports' "G" (grass, not an ICAO suffix: LSGS
     /// 07G/25G is OpenAIP's 07L/25R) meets any; the exact-key pass runs first, so it never steals a runway
-    /// that has its own name.
+    /// that has its own name. It matches, but never names the runway when another source offers an ICAO
+    /// form (`majorityDesignators`).
     private static func suffixesCompatible(_ lhs: String, _ rhs: String) -> Bool {
         let left = lhs == "C" ? "" : lhs
         let right = rhs == "C" ? "" : rhs
@@ -381,7 +382,8 @@ enum AirportDataMergeEngine {
     }
 
     /// One runway out of a matched pair, ends lined up by `straight`. Designators: the vote of
-    /// `majorityDesignators` (two sources that differ are a tie, which OurAirports wins); an end the winner
+    /// `majorityDesignators` (two sources that differ are a tie, which OurAirports wins unless its
+    /// designators aren't reciprocal or use a suffix ICAO doesn't have); an end the winner
     /// leaves unnamed takes the other source's name only when the two agree. Per end, the geometry
     /// (threshold position, elevation, displaced threshold) is OurAirports' (OpenAIP publishes none), the
     /// true heading OpenAIP's when it has one, TORA/LDA OpenAIP's. Shared: length/width/surface from
@@ -447,12 +449,15 @@ enum AirportDataMergeEngine {
 
     /// The designators a physical runway shows: those of the most sources (compared by
     /// `designatorVoteKey`, so "9/27" agrees with "09/27" and "27/09"); on a tie, the earliest source in
-    /// `RunwayDesignatorSource` order among the tied groups. A pair whose ends aren't reciprocal (OpenAIP's
-    /// LSPM "10/27") only votes when no source offers a reciprocal one. Returns the winning group's
-    /// earliest vote, nil for no votes.
+    /// `RunwayDesignatorSource` order among the tied groups. Two kinds of vote only count when nothing
+    /// better is on offer, whatever the order: a pair whose ends aren't reciprocal (OpenAIP's LSPM
+    /// "10/27"), then one with a suffix ICAO doesn't have (OurAirports' "G" for grass: LSGS's grass strip
+    /// is OpenAIP's 07L/25R, not "07G/25G"). Returns the winning group's earliest vote, nil for no votes.
     static func majorityDesignators(_ votes: [RunwayDesignatorVote]) -> RunwayDesignatorVote? {
         let reciprocal = votes.filter { isReciprocal($0) }
-        let voters = reciprocal.isEmpty ? votes : reciprocal
+        let wellFormed = reciprocal.isEmpty ? votes : reciprocal
+        let icaoForm = wellFormed.filter { hasICAOSuffixes($0) }
+        let voters = icaoForm.isEmpty ? wellFormed : icaoForm
         var best: (size: Int, first: RunwayDesignatorVote)?
         for group in Dictionary(grouping: voters, by: { designatorVoteKey($0) }).values {
             guard let first = group.min(by: { $0.source.rawValue < $1.source.rawValue }) else { continue }
@@ -491,6 +496,13 @@ enum AirportDataMergeEngine {
             return true
         default:
             return false
+        }
+    }
+
+    /// Whether every end the vote names carries an ICAO suffix: none, L, C or R.
+    private static func hasICAOSuffixes(_ vote: RunwayDesignatorVote) -> Bool {
+        [vote.leIdent, vote.heIdent].compactMap { $0 }.allSatisfy { ident in
+            parseDesignator(ident).map { ["", "L", "C", "R"].contains($0.suffix) } ?? false
         }
     }
 

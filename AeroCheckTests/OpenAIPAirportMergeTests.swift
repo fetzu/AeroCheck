@@ -523,10 +523,11 @@ final class OpenAIPAirportMergeTests: XCTestCase {
 
     /// LSGS: OurAirports marks its grass strip "07G/25G" (G for grass, not an ICAO suffix), OpenAIP
     /// "07L/25R". The G meets any suffix once the asphalt has its exact match, so the grass is one
-    /// runway; the closed helipad stays as it was.
+    /// runway, and it takes OpenAIP's ICAO name over the G whatever the tie-break; the closed helipad
+    /// stays as it was.
     func testLSGSOurAirportsGrassMarkerMeetsOpenAIPParallel() throws {
         let runways = try merged("LSGS")
-        XCTAssertEqual(runways.map(\.identifier), ["07/25", "07G/25G", "HEL/?"])
+        XCTAssertEqual(runways.map(\.identifier), ["07/25", "07L/25R", "HEL/?"])
         let grass = runways[1]
         XCTAssertEqual(grass.surface, "Grass")
         XCTAssertEqual(grass.lengthFt, feet(660))
@@ -716,6 +717,10 @@ final class OpenAIPAirportMergeTests: XCTestCase {
         XCTAssertEqual(pick([our("07", nil), openAIP("07", "25"), ofm("08", "26")]), our("07", nil))
         XCTAssertEqual(pick([our("11", "29"), openAIP("10", "27"), ofm("10", "27")]), our("11", "29"))
         XCTAssertEqual(pick([openAIP("10", "27")]), openAIP("10", "27"))
+        // A suffix ICAO doesn't have (OurAirports' G for grass) loses to an ICAO form, even outnumbering it.
+        XCTAssertEqual(pick([our("07G", "25G"), openAIP("07L", "25R")]), openAIP("07L", "25R"))
+        XCTAssertEqual(pick([our("07G", "25G"), openAIP("07L", "25R"), ofm("07G", "25G")]), openAIP("07L", "25R"))
+        XCTAssertEqual(pick([our("07G", "25G")]), our("07G", "25G"))
         XCTAssertNil(pick([]))
     }
 

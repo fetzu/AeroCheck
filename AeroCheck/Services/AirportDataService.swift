@@ -97,6 +97,10 @@ class AirportDataService: ObservableObject {
     /// Whether in-memory data has been loaded from disk
     private var isLoaded = false
 
+    /// Whether OurAirports itself is on disk. `isDataAvailable` also counts the OpenAIP aerodromes,
+    /// which have their own Data & Storage row since 6.2.0. (6.2.0)
+    var isOurAirportsDownloaded: Bool { fileManager.fileExists(atPath: airportsFileURL.path) }
+
     /// The last queued load, merge or download pass. Each pass waits for the one before it, so two
     /// never interleave across their suspension points: a merge that had read the old airports could
     /// otherwise land after a download had replaced them, and put the old ones back. (6.2.0)

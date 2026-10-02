@@ -343,6 +343,8 @@ final class DataStatusManagerTests: XCTestCase {
         let manager = DataStatusManager(providers: [OpenAIPAirportProvider(service: layer), OurAirportsProvider(service: store)],
                                         networkMonitor: NetworkMonitor(stub: .disconnected), userDefaults: makeTestDefaults())
         XCTAssertTrue(try row("openaip.airports", in: manager).isDownloaded)
+        XCTAssertTrue(store.isDataAvailable, "the store serves the aerodromes")
+        XCTAssertFalse(try row("ourairports.airports", in: manager).isDownloaded, "but OurAirports isn't downloaded")
         manager.removeAll()
         await store.waitForPendingPasses()
 

@@ -370,7 +370,9 @@ struct OurAirportsProvider: DataSetProvider {
             freshness: FreshnessThresholds.airports.freshness(lastUpdated: service.lastUpdated, now: now),
             sizeOnDisk: nil,
             coverage: [],
-            isDownloaded: service.isDataAvailable,
+            // OurAirports alone: the OpenAIP aerodromes the store also serves have their own row. With
+            // them downloaded, this row read "Not downloaded · Coverage: Worldwide" and offered a delete.
+            isDownloaded: service.isOurAirportsDownloaded,
             updateFailure: service.downloadError == nil ? nil : DataSetUpdateFailure(countries: [])
         )
     }

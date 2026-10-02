@@ -1,0 +1,633 @@
+{
+  "v": 1,
+  "generated": "2026-10-02T00:15:33Z",
+  "regions": {
+    "CH": {
+      "airac": "2610",
+      "validFrom": "2026-10-01",
+      "validTo": "2026-10-29",
+      "url": "https://aerocheck.app/data/ofm/v1/ch.json",
+      "sha256": "d28f537af1b4bb03dd598821752838df67bb325d44269d104be2db7ad6c3223f",
+      "bytes": 97197,
+      "sourceEtag": "\"0a7610c06f7aaac8f3585b1ef4e71769\"",
+      "procedures": 241,
+      "points": 91,
+      "flags": [
+        {
+          "type": "altitude-implausible",
+          "ad": "LSZC",
+          "id": "aec8d3b0-7954-ef31-5a4f-943ae8e39ddd",
+          "name": "TC ACT >5.7 TO",
+          "detail": "4000 ft is +2525 ft above the aerodrome (1475 ft); not shown"
+        },
+        {
+          "type": "duplicate-dropped",
+          "ad": "LSGR",
+          "id": "dd2c4bb7-ad21-ed9a-3820-67a976690793",
+          "name": "TC MULTI 3700",
+          "detail": "same path and altitude as \"TC MULTI\"; dropped",
+          "with": "fe731546-989c-258b-218b-dba8b8aa3ff4"
+        },
+        {
+          "type": "duplicate-dropped",
+          "ad": "LSZQ",
+          "id": "cdac5ab1-3b95-99ee-c5a1-2d386a78dba4",
+          "name": "NEW PROCEDURE",
+          "detail": "same path and altitude as \"TC\"; dropped",
+          "with": "f2fbd4ca-1edb-354d-414d-28863037c1ea"
+        },
+        {
+          "type": "approx-geometry",
+          "ad": "LSGP",
+          "id": "ac6ea63a-d293-f76b-9097-71fc1b3498c5",
+          "name": "DEP04",
+          "detail": "no curve published; drawn from the straight skeleton"
+        },
+        {
+          "type": "approx-geometry",
+          "ad": "LSGY",
+          "id": "b6db820a-1704-ef14-438b-26826b64cf09",
+          "name": "ARR SECTOR SOUTH 3500",
+          "detail": "no curve published; drawn from the straight skeleton"
+        },
+        {
+          "type": "approx-geometry",
+          "ad": "LSTO",
+          "id": "e73f63ff-a611-b572-ebd7-9db9ede9eb9f",
+          "name": "ARR SECTOR SOUTH",
+          "detail": "no curve published; drawn from the straight skeleton"
+        },
+        {
+          "type": "approx-geometry",
+          "ad": "LSGB",
+          "id": "9364aaed-40a5-f0a7-8deb-c2b97ccf94c0",
+          "name": "APP SECTOR NORTH",
+          "detail": "no curve published; drawn from the straight skeleton"
+        },
+        {
+          "type": "approx-geometry",
+          "ad": "LSGE",
+          "id": "a0764343-e967-4732-8ce4-ff7957fe3a43",
+          "name": "ARR SECTOR SOUTH",
+          "detail": "no curve published; drawn from the straight skeleton"
+        },
+        {
+          "type": "approx-geometry",
+          "ad": "LSZB",
+          "id": "ffd483fd-5820-e96d-a340-68c851d0eede",
+          "name": "S-32",
+          "detail": "no curve published; drawn from the straight skeleton"
+        },
+        {
+          "type": "approx-geometry",
+          "ad": "LSGR",
+          "id": "f46e5f76-3574-8f04-fb24-5d880c9f67ab",
+          "name": "ARR SECTOR N",
+          "detail": "no curve published; drawn from the straight skeleton"
+        },
+        {
+          "type": "approx-geometry",
+          "ad": "LSZO",
+          "id": "1928d3ab-df5c-4d97-e3af-e0495808c471",
+          "name": "ARR SECTOR WEST",
+          "detail": "no curve published; drawn from the straight skeleton"
+        },
+        {
+          "type": "approx-geometry",
+          "ad": "LSZF",
+          "id": "be07659e-57b1-fb27-4e3a-bfeb75c063ea",
+          "name": "ARR W 26",
+          "detail": "no curve published; drawn from the straight skeleton"
+        },
+        {
+          "type": "approx-geometry",
+          "ad": "LSZC",
+          "id": "07dd7266-440d-06af-bcad-f4b441aeb5c3",
+          "name": "DEP TC RW 06 ACFT < 5.7T DIREKTION GISWIL",
+          "detail": "no curve published; drawn from the straight skeleton"
+        },
+        {
+          "type": "approx-geometry",
+          "ad": "LSZC",
+          "id": "93d552a5-5b47-08a3-f5ee-1b36ff9548d1",
+          "name": "ARR RW 24 ACFT < 5.7T FROM GISWIL",
+          "detail": "no curve published; drawn from the straight skeleton"
+        },
+        {
+          "type": "approx-geometry",
+          "ad": "LSZC",
+          "id": "85bece56-dd7e-583c-20d2-fa394559989c",
+          "name": "ARR RW 24 FROM NW",
+          "detail": "no curve published; drawn from the straight skeleton"
+        },
+        {
+          "type": "approx-geometry",
+          "ad": "LSZC",
+          "id": "1db15698-7b7e-6e0c-a738-f2d39ca0ad1b",
+          "name": "ARR RW 24 FROM RISCH",
+          "detail": "no curve published; drawn from the straight skeleton"
+        },
+        {
+          "type": "approx-geometry",
+          "ad": "LSZC",
+          "id": "c90a6b11-c258-fd2b-e947-5ce4cca8fa3f",
+          "name": "DEP 06 TO RISCH",
+          "detail": "no curve published; drawn from the straight skeleton"
+        },
+        {
+          "type": "approx-geometry",
+          "ad": "LSZO",
+          "id": "c8fb0b93-e7f3-4bb1-1794-839343110c7e",
+          "name": "DEP 15 TO EAST",
+          "detail": "no curve published; drawn from the straight skeleton"
+        },
+        {
+          "type": "approx-geometry",
+          "ad": "LSZU",
+          "id": "694253b4-56a0-b09d-2b46-9fde33cc1bcc",
+          "name": "ARR SECTOR EAST",
+          "detail": "no curve published; drawn from the straight skeleton"
+        },
+        {
+          "type": "approx-geometry",
+          "ad": "LSZU",
+          "id": "26feb57c-2183-5a19-5026-eec2e4d75270",
+          "name": "ARR SECTOR WEST",
+          "detail": "no curve published; drawn from the straight skeleton"
+        },
+        {
+          "type": "approx-geometry",
+          "ad": "LSZF",
+          "id": "19edaf0e-d90d-8d42-b7a8-61a962bed49d",
+          "name": "SECTOR S RWY 26",
+          "detail": "no curve published; drawn from the straight skeleton"
+        },
+        {
+          "type": "approx-geometry",
+          "ad": "LSZF",
+          "id": "7f5e25cc-bc6a-0d4a-5efa-011bd6aee507",
+          "name": "ECHO 08",
+          "detail": "no curve published; drawn from the straight skeleton"
+        },
+        {
+          "type": "approx-geometry",
+          "ad": "LSZK",
+          "id": "f79697d1-00dc-c582-6b3c-62da1894341d",
+          "name": "ARR SECTOR EAST RW 30",
+          "detail": "no curve published; drawn from the straight skeleton"
+        },
+        {
+          "type": "approx-geometry",
+          "ad": "LSZK",
+          "id": "6ba6c5bd-07df-d5ae-ceb1-9ecefa27ebc2",
+          "name": "ARR SECTOR WEST OUTSIDE DÜBENDORF OP HR",
+          "detail": "no curve published; drawn from the straight skeleton"
+        },
+        {
+          "type": "approx-geometry",
+          "ad": "LSPH",
+          "id": "2c5e078b-e2f8-328a-720a-2cedd104ffb1",
+          "name": "DEP 01 TO EAST",
+          "detail": "no curve published; drawn from the straight skeleton"
+        },
+        {
+          "type": "approx-geometry",
+          "ad": "LSZV",
+          "id": "8a159d61-e09d-969d-66ff-c48103d9a283",
+          "name": "ARR SECKTOR SOUTH",
+          "detail": "no curve published; drawn from the straight skeleton"
+        },
+        {
+          "type": "approx-geometry",
+          "ad": "LSZE",
+          "id": "f497a06b-571f-d60a-b304-d86a77e9ea57",
+          "name": "ARR SECTOR EAST",
+          "detail": "no curve published; drawn from the straight skeleton"
+        },
+        {
+          "type": "point-position",
+          "ad": null,
+          "id": "91de2ee4-4dc0-80d6-a512-1650d3e457c1",
+          "name": "YVONAND",
+          "detail": "OpenAIP has \"YVONAND\" 0.64 NM away"
+        },
+        {
+          "type": "point-position",
+          "ad": null,
+          "id": "27ae9ba0-0794-c438-6e7c-f9bae0bb61c0",
+          "name": "CHATONNAYE",
+          "detail": "OpenAIP has \"CHATONNAYE\" 0.91 NM away"
+        },
+        {
+          "type": "point-position",
+          "ad": null,
+          "id": "7893a4f8-90a8-04cb-5f65-7304f2169135",
+          "name": "GRANGES",
+          "detail": "OpenAIP has \"GRANGES\" 0.81 NM away"
+        },
+        {
+          "type": "point-position",
+          "ad": null,
+          "id": "831a2f50-11af-b1f9-a580-6daea1712f4e",
+          "name": "ABM AVENCHES",
+          "detail": "OpenAIP has \"ABM AVENCHES\" 0.74 NM away"
+        },
+        {
+          "type": "point-position",
+          "ad": null,
+          "id": "d9ba5787-c040-996c-7acf-a7303dbf53df",
+          "name": "MURTEN",
+          "detail": "OpenAIP has \"MURTEN\" 0.55 NM away"
+        },
+        {
+          "type": "point-position",
+          "ad": "LSZR",
+          "id": "6b9d1f55-a68f-657f-d38d-46140ea55a86",
+          "name": "V",
+          "detail": "OpenAIP has \"V\" 0.75 NM away"
+        }
+      ]
+    },
+    "AT": {
+      "airac": "2610",
+      "validFrom": "2026-10-01",
+      "validTo": "2026-10-29",
+      "url": "https://aerocheck.app/data/ofm/v1/at.json",
+      "sha256": "7ec9a830541cec1554101ecdda220496dbdf2e35701d4631b34c3dfe33f4ed5c",
+      "bytes": 101046,
+      "sourceEtag": "\"ef35f9b041c29964062428c3b15e0665\"",
+      "procedures": 187,
+      "points": 322,
+      "flags": [
+        {
+          "type": "altitude-implausible",
+          "ad": "LOAA",
+          "id": "3418e5fb-a9b9-7c48-1e9c-d72691635667",
+          "name": "TFC",
+          "detail": "2900 ft is +30 ft above the aerodrome (2870 ft); not shown"
+        },
+        {
+          "type": "duplicate-dropped",
+          "ad": "LOMS",
+          "id": "15e9194a-2739-7580-1bc9-ccb1403ddc26",
+          "name": "SÜD04",
+          "detail": "same path and altitude as \"NORD04\"; dropped",
+          "with": "ea6e7f00-6ce1-8913-d2af-c4495b970967"
+        },
+        {
+          "type": "duplicate-dropped",
+          "ad": "LOKA",
+          "id": "80582119-36f6-c58d-9df0-ab27c6a094b9",
+          "name": "NORDOST10",
+          "detail": "same path and altitude as \"NORD10\"; dropped",
+          "with": "67805d52-6d6f-58bb-d1f4-9e81711f3b27"
+        },
+        {
+          "type": "duplicate-dropped",
+          "ad": "LOKU",
+          "id": "da7ea254-5383-3e5f-b366-8e9b93e4ab30",
+          "name": "NORDOST09",
+          "detail": "same path and altitude as \"NORD09\"; dropped",
+          "with": "1d2f87fa-aaf5-5339-20e9-f4e2af27b143"
+        },
+        {
+          "type": "twin-altitudes",
+          "ad": "LOGG",
+          "id": "193a49b9-fecf-027a-2872-da8b69e5fcc9",
+          "name": "TFC B (MULTI ENGINE OR > 2000KG)",
+          "detail": "same path as \"TFC A\" but 2500 ft vs 2000 ft; both kept",
+          "with": "937ff3de-fc4d-883d-0f97-4fbd61d69fdb"
+        },
+        {
+          "type": "approx-geometry",
+          "ad": "LOWI",
+          "id": "ae44ebe1-6cd2-cdf9-522c-ebae080f05c3",
+          "name": "08 INDIA NOVEMBER2",
+          "detail": "no curve published; drawn from the straight skeleton"
+        },
+        {
+          "type": "approx-geometry",
+          "ad": "LOWZ",
+          "id": "2d4c6fd3-9d59-5cbd-bfc8-57bf5d7824b8",
+          "name": "WEST",
+          "detail": "no curve published; drawn from the straight skeleton"
+        },
+        {
+          "type": "approx-geometry",
+          "ad": "LOLE",
+          "id": "06efbea8-4d84-4a3c-d097-327f190ffc94",
+          "name": "NORTH",
+          "detail": "no curve published; drawn from the straight skeleton"
+        },
+        {
+          "type": "point-position",
+          "ad": "LOXN",
+          "id": "c027e499-c284-a008-7993-6cab5bec5e41",
+          "name": "BERNDORF",
+          "detail": "OpenAIP has \"BERNDORF\" 0.85 NM away"
+        },
+        {
+          "type": "point-position",
+          "ad": "LOAN",
+          "id": "554722b8-0b28-8c7c-b202-11b58466a10e",
+          "name": "MIKE",
+          "detail": "OpenAIP has \"M\" 0.56 NM away"
+        }
+      ]
+    },
+    "DE": {
+      "airac": "2610",
+      "validFrom": "2026-10-01",
+      "validTo": "2026-10-29",
+      "url": "https://aerocheck.app/data/ofm/v1/de.json",
+      "sha256": "987c8fac1f8002aa76ec2ed7357efaf489cd028b4b1a9119b775c0af962cd92c",
+      "bytes": 566123,
+      "sourceEtag": "\"36aed1959065e356fb608dc96c7e08da\"",
+      "procedures": 1642,
+      "points": 405,
+      "flags": [
+        {
+          "type": "altitude-implausible",
+          "ad": "EDRJ",
+          "id": "f6700a86-adad-8b51-55fb-86e98320171d",
+          "name": "UL",
+          "detail": "1500 ft is +381 ft above the aerodrome (1119 ft); not shown"
+        },
+        {
+          "type": "altitude-implausible",
+          "ad": "EDVW",
+          "id": "d599fd20-2124-fa92-4878-bb31257d0ba3",
+          "name": "UL",
+          "detail": "1200 ft is +23 ft above the aerodrome (1177 ft); not shown"
+        },
+        {
+          "type": "altitude-implausible",
+          "ad": "EDST",
+          "id": "0d29dc86-7f1f-b6ec-2500-060ca1580e06",
+          "name": "TFC 06-24",
+          "detail": "1800 ft is +94 ft above the aerodrome (1706 ft); not shown"
+        },
+        {
+          "type": "altitude-implausible",
+          "ad": "EDST",
+          "id": "38fb6167-f73b-4da3-e9af-a0a90f00541a",
+          "name": "TFC 13-31",
+          "detail": "1800 ft is +94 ft above the aerodrome (1706 ft); not shown"
+        },
+        {
+          "type": "altitude-implausible",
+          "ad": "EDPJ",
+          "id": "72e90567-0b35-11d0-7e04-59cdfe31ae60",
+          "name": "UL",
+          "detail": "2700 ft is +266 ft above the aerodrome (2434 ft); not shown"
+        },
+        {
+          "type": "altitude-unchecked",
+          "ad": "EDQY",
+          "id": "4656ee11-be91-b783-83fa-680e492f85a9",
+          "name": "TFC",
+          "detail": "2000 ft, but the aerodrome has no elevation in OFM; not shown"
+        },
+        {
+          "type": "altitude-unchecked",
+          "ad": "EDQY",
+          "id": "9ef143b0-72a1-5358-0d66-21ed009a5807",
+          "name": "UL SOUTH",
+          "detail": "1700 ft, but the aerodrome has no elevation in OFM; not shown"
+        },
+        {
+          "type": "altitude-unchecked",
+          "ad": "EDQY",
+          "id": "ec5a692d-20f5-a049-411a-c992935863fd",
+          "name": "UL NORTH",
+          "detail": "1700 ft, but the aerodrome has no elevation in OFM; not shown"
+        },
+        {
+          "type": "duplicate-dropped",
+          "ad": "EDGU",
+          "id": "31a7aa87-de01-5608-a40b-df6c0090f23e",
+          "name": "26-WEST-NORTH",
+          "detail": "same path and altitude as \"27-WEST-NORTH\"; dropped",
+          "with": "e030ec1e-e05d-121d-df25-3f51447a592e"
+        },
+        {
+          "type": "duplicate-dropped",
+          "ad": "EDGU",
+          "id": "39bf00cf-4bf5-42a3-f6df-870f458a7cc1",
+          "name": "08-EAST-SOUTH",
+          "detail": "same path and altitude as \"09-EAST-SOUTH\"; dropped",
+          "with": "71537cbc-ec9b-302a-23de-9e0517399432"
+        },
+        {
+          "type": "duplicate-dropped",
+          "ad": "EDCM",
+          "id": "07f25009-2319-ae75-0ea0-04af0481e87e",
+          "name": "UL-03",
+          "detail": "same path and altitude as \"UL-03X\"; dropped",
+          "with": "b8503aa5-54f6-6e01-587f-4cf288fea167"
+        },
+        {
+          "type": "approx-geometry",
+          "ad": "EDRB",
+          "id": "4a97aff3-359c-5dc4-9dbf-f88c595c4917",
+          "name": "06-NORTHWEST",
+          "detail": "no curve published; drawn from the straight skeleton"
+        },
+        {
+          "type": "approx-geometry",
+          "ad": "EDWET",
+          "id": "ad3979ce-d1a9-7f1e-418c-d30d3ec1f908",
+          "name": "WEST",
+          "detail": "no curve published; drawn from the straight skeleton"
+        },
+        {
+          "type": "approx-geometry",
+          "ad": "EDKB",
+          "id": "da3f6dc7-d790-fb09-646a-ec040635f273",
+          "name": "11-SOUTHEAST",
+          "detail": "no curve published; drawn from the straight skeleton"
+        },
+        {
+          "type": "approx-geometry",
+          "ad": "EDWY",
+          "id": "43e497b5-d7ec-8340-9e07-b071949694f5",
+          "name": "08-SOUTH",
+          "detail": "no curve published; drawn from the straight skeleton"
+        },
+        {
+          "type": "approx-geometry",
+          "ad": "EDWY",
+          "id": "8b9bcfde-c375-2ff2-5f05-3e57c310d448",
+          "name": "08-EAST",
+          "detail": "no curve published; drawn from the straight skeleton"
+        },
+        {
+          "type": "approx-geometry",
+          "ad": "EDFC",
+          "id": "33843a16-3e9d-9772-ac96-5168353f96f3",
+          "name": "08-SE",
+          "detail": "no curve published; drawn from the straight skeleton"
+        },
+        {
+          "type": "approx-geometry",
+          "ad": "ETHL",
+          "id": "aee03e36-c713-ffb8-37fe-f000d3aed9c4",
+          "name": "W-27",
+          "detail": "no curve published; drawn from the straight skeleton"
+        },
+        {
+          "type": "approx-geometry",
+          "ad": "EDNE",
+          "id": "00857331-2cbc-e5cd-dc24-00ed13953f54",
+          "name": "03-EAST",
+          "detail": "no curve published; drawn from the straight skeleton"
+        },
+        {
+          "type": "approx-geometry",
+          "ad": "EDNE",
+          "id": "f09ca17a-df50-5605-7e39-8dea594ba21e",
+          "name": "SOUTH-UL TFC",
+          "detail": "no curve published; drawn from the straight skeleton"
+        },
+        {
+          "type": "approx-geometry",
+          "ad": "EDVC",
+          "id": "f902e0d7-e6d5-877c-57e7-f52865b05383",
+          "name": "04- SOUTHWEST",
+          "detail": "no curve published; drawn from the straight skeleton"
+        },
+        {
+          "type": "approx-geometry",
+          "ad": "EDNG",
+          "id": "6081e0af-6a71-bad9-9ad3-ba2bb271e5f7",
+          "name": "NORTH-35",
+          "detail": "no curve published; drawn from the straight skeleton"
+        },
+        {
+          "type": "approx-geometry",
+          "ad": "EDPA",
+          "id": "8ef1b79a-57ad-0e5f-8c9f-e4bc83549c81",
+          "name": "NORTHWEST -TFC",
+          "detail": "no curve published; drawn from the straight skeleton"
+        },
+        {
+          "type": "approx-geometry",
+          "ad": "EDQH",
+          "id": "1b624e6c-56f7-8f53-1495-98737481a29a",
+          "name": "08-NORTHEAST",
+          "detail": "no curve published; drawn from the straight skeleton"
+        },
+        {
+          "type": "approx-geometry",
+          "ad": "EDNV",
+          "id": "51b0008a-a9ad-751a-add0-7ffc1243a42f",
+          "name": "NORTH-24",
+          "detail": "no curve published; drawn from the straight skeleton"
+        },
+        {
+          "type": "approx-geometry",
+          "ad": "EDNV",
+          "id": "551c06a8-5753-2441-0798-b474f1c6dfa5",
+          "name": "WEST-24",
+          "detail": "no curve published; drawn from the straight skeleton"
+        },
+        {
+          "type": "approx-geometry",
+          "ad": "EDNB",
+          "id": "61085fce-977c-d248-e7b2-9704e4a649c1",
+          "name": "GLIDER TOWING TFC-SOUTH",
+          "detail": "no curve published; drawn from the straight skeleton"
+        },
+        {
+          "type": "approx-geometry",
+          "ad": "EDNB",
+          "id": "0713d0b7-816e-d1c5-adb3-67bfe9c8f825",
+          "name": "GLIDER TOWING TFC-SOUTHEAST",
+          "detail": "no curve published; drawn from the straight skeleton"
+        },
+        {
+          "type": "approx-geometry",
+          "ad": "EDBZ",
+          "id": "0875a98e-ec97-0588-e22f-9c82efe90474",
+          "name": "25",
+          "detail": "no curve published; drawn from the straight skeleton"
+        },
+        {
+          "type": "approx-geometry",
+          "ad": "EDCM",
+          "id": "b10cc191-5a6e-6174-2d7e-05581282e889",
+          "name": "21",
+          "detail": "no curve published; drawn from the straight skeleton"
+        },
+        {
+          "type": "approx-geometry",
+          "ad": "EDCM",
+          "id": "b8503aa5-54f6-6e01-587f-4cf288fea167",
+          "name": "UL-03X",
+          "detail": "no curve published; drawn from the straight skeleton"
+        },
+        {
+          "type": "point-position",
+          "ad": "ETHC",
+          "id": "a25cdd52-be72-955a-719f-ef0df219f2ab",
+          "name": "NOVEMBER1",
+          "detail": "OpenAIP has \"NOVEMBER1\" 0.66 NM away"
+        },
+        {
+          "type": "point-position",
+          "ad": "ETHC",
+          "id": "0eabff73-a26e-36eb-2409-848762798603",
+          "name": "NOVEMBER2",
+          "detail": "OpenAIP has \"NOVEMBER2\" 0.75 NM away"
+        },
+        {
+          "type": "point-position",
+          "ad": "ETHC",
+          "id": "9ac70731-0941-9bce-90c1-18906c2a97cc",
+          "name": "SIERRA2",
+          "detail": "OpenAIP has \"SIERRA2\" 0.61 NM away"
+        }
+      ]
+    },
+    "CZ": {
+      "airac": "2610",
+      "validFrom": "2026-10-01",
+      "validTo": "2026-10-29",
+      "url": "https://aerocheck.app/data/ofm/v1/cz.json",
+      "sha256": "6a6f48d5d121f8a3bd6c396a80ba0b2368c2c5ec9592a43777b11720551caab9",
+      "bytes": 107746,
+      "sourceEtag": "\"ec044d9f43befb41070486c97b676cc3\"",
+      "procedures": 280,
+      "points": 114,
+      "flags": [
+        {
+          "type": "altitude-implausible",
+          "ad": "LKKAPL",
+          "id": "756ddc79-138e-8b1f-abc7-ebef2cd6777f",
+          "name": "TC",
+          "detail": "2460 ft is +360 ft above the aerodrome (2100 ft); not shown"
+        },
+        {
+          "type": "altitude-implausible",
+          "ad": "LKVP",
+          "id": "199c7308-6310-ac3c-9ee1-b1d6cc7591e1",
+          "name": "TC",
+          "detail": "1326 ft is +0 ft above the aerodrome (1326 ft); not shown"
+        },
+        {
+          "type": "point-position",
+          "ad": "LKKV",
+          "id": "19c4d254-ff71-7f79-01f2-9b547ac81518",
+          "name": "BRAVO",
+          "detail": "OpenAIP has \"BRAVO\" 0.61 NM away"
+        }
+      ]
+    }
+  },
+  "attribution": "© open flightmaps association (openflightmaps.org)",
+  "reportForm": {
+    "url": "https://docs.google.com/forms/d/e/1FAIpQLSeBiqRbqioUaAp6H-FUtYMFduLGQmzOm1G3Dxyh2XALl5r3Nw/viewform",
+    "field": "entry.284686808"
+  },
+  "reportMail": "info@openflightmaps.org"
+}

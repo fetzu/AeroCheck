@@ -295,6 +295,10 @@ struct AeroCheckApp: App {
                     await OpenAIPObstacleDataService.shared.ensureLoaded()
                     // v4.1.0: preload reporting points so the nav-map markers have data in memory.
                     await OpenAIPReportingPointDataService.shared.ensureLoaded()
+                    // 6.2.0: the aerodrome procedures, only when a map shows them (off by default).
+                    if VFRLayerSelection(settings: appState.settings).isAnyOn {
+                        await OFMDataService.shared.ensureLoaded()
+                    }
 
                     // Check for yearly map update reminder (after main content loads)
                     if offlineMapManager.shouldShowUpdateReminder {

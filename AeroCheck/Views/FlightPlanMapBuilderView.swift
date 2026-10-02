@@ -25,6 +25,8 @@ struct FlightPlanMapBuilderView: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    /// For the aerodrome procedures' palette (night: no white casing). (6.2.0)
+    @Environment(\.cockpitTheme) private var theme
 
     let planId: UUID
 
@@ -38,6 +40,8 @@ struct FlightPlanMapBuilderView: View {
     @State private var visibleNavaids: [Navaid] = []
     @State private var visibleReportingPoints: [ReportingPoint] = []   // v4.1.0 ③
     @State private var visibleObstacles: [Obstacle] = []               // v4.1.0 ③
+    /// Traffic circuits, VFR routes and sectors around the map's region. (6.2.0)
+    @State private var vfrContent: VFRMapContent = .empty()
     @State private var navaidUpdateTask: Task<Void, Never>?
     @State private var fitRouteToken = 0
     @State private var didInitialFit = false
@@ -446,6 +450,10 @@ struct FlightPlanMapBuilderView: View {
         }
         .onChange(of: region.center.latitude) { _, _ in scheduleAirportUpdate(); scheduleNavaidUpdate() }
         .onChange(of: region.center.longitude) { _, _ in scheduleAirportUpdate(); scheduleNavaidUpdate() }
+        // The procedures depend on the zoom (40 NM, labels 20 NM), the data and the palette. (6.2.0)
+        .onChange(of: region.span.latitudeDelta) { _, _ in scheduleNavaidUpdate() }
+        .onChange(of: vfrProcedureService.revision) { _, _ in scheduleNavaidUpdate() }
+        .onChange(of: theme.mode) { _, _ in scheduleNavaidUpdate() }
         // Recompute on-route hazards (airspace + terrain) whenever the route geometry changes (#4).
         .onChange(of: routeGeometryKey) { _, _ in
             selectedConflictId = nil; scheduleAirspaceUpdate(); scheduleTerrainUpdate(); scheduleWindsAloftUpdate()
@@ -493,7 +501,8 @@ struct FlightPlanMapBuilderView: View {
             onAddWaypoint: { coord in smartAddWaypoint(at: coord) },
             selectedLeg: selectedLeg,
             conflictLegs: Set(legConflicts.keys),
-            onSelectWaypoint: { index in selectLeg(index) }
+            onSelectWaypoint: { index in selectLeg(index) },
+            vfrContent: vfrContent
         )
         .ignoresSafeArea(edges: .bottom)
         // From and To sit above the map now, not over it (planning proposal D1); what they find
@@ -843,6 +852,12 @@ struct FlightPlanMapBuilderView: View {
             Toggle(L10n.DataStorage.navaidsName, isOn: dataLayerBinding(\.showNavaidsOnMap))
             Toggle(L10n.DataStorage.reportingPointsName, isOn: dataLayerBinding(\.showReportingPointsOnMap))
             Toggle(L10n.DataStorage.obstaclesName, isOn: dataLayerBinding(\.showObstaclesOnMap))
+            // The aerodrome procedures (6.2.0), as in the Map sheet.
+            Section(L10n.VFRMap.aerodromeProcedures) {
+                Toggle(L10n.VFRMap.showCircuits, isOn: dataLayerBinding(\.showVFRCircuitsOnMap))
+                Toggle(L10n.VFRMap.showRoutes, isOn: dataLayerBinding(\.showVFRRoutesOnMap))
+                Toggle(L10n.VFRMap.showNonPowered, isOn: dataLayerBinding(\.showNonPoweredCircuitsOnMap))
+            }
         } label: {
             Image(systemName: "square.stack.3d.up")
                 .font(.aero(size: 16, weight: .semibold))
@@ -1784,6 +1799,8 @@ struct FlightPlanMapBuilderView: View {
         let showRP = appState.settings.showReportingPointsOnMap
         let showNonPoweredRP = appState.settings.showsNonPoweredReportingPoints
         let showObstacles = appState.settings.showObstaclesOnMap
+        let vfrSelection = VFRLayerSelection(settings: appState.settings)
+        let vfrPalette = VFRMapPalette(theme: theme)
         navaidUpdateTask = Task {
             try? await Task.sleep(nanoseconds: 300_000_000) // 300 ms debounce
             guard !Task.isCancelled else { return }
@@ -1809,13 +1826,33 @@ struct FlightPlanMapBuilderView: View {
                 await OpenAIPObstacleDataService.shared.ensureLoaded()
                 obstacles = OpenAIPObstacleDataService.shared.obstaclesInRegion(latRange: latRange, lonRange: lonRange)
             }
+            // Traffic circuits, VFR routes and sectors: loaded the first time a switch needs them, then
+            // gated by the span and capped as on the navigation map. (6.2.0)
+            if vfrSelection.isAnyOn, OFMDataService.shared.isDataAvailable {
+                await OFMDataService.shared.ensureLoaded()
+            }
             guard !Task.isCancelled else { return }
             await MainActor.run {
                 visibleNavaids = navaids
                 visibleReportingPoints = reportingPoints
                 visibleObstacles = obstacles
+                vfrContent = makeVFRContent(for: r, selection: vfrSelection, palette: vfrPalette)
             }
         }
+    }
+
+    /// The aerodrome procedures for `region`, the plan's destination and departure first. (6.2.0)
+    private func makeVFRContent(for region: MKCoordinateRegion, selection: VFRLayerSelection,
+                            palette: VFRMapPalette) -> VFRMapContent {
+        let service = OFMDataService.shared
+        guard selection.isAnyOn, service.isLoaded, VFRMapDensity.showsProcedures(in: region) else {
+            return .empty(palette)
+        }
+        return VFRMapContent.make(
+            candidates: service.procedures(in: region), region: region, selection: selection, palette: palette,
+            firstAerodromes: VFRMapDensity.endpointAerodromes(of: plan),
+            fieldPosition: { airportDataService.findAirport(byIdent: $0)?.coordinate },
+            cycle: { (service.cycles[$0]?.airac, service.region(forCountry: $0)) })
     }
 }
 
@@ -2237,6 +2274,8 @@ struct RouteBuilderMapView: UIViewRepresentable {
     var conflictLegs: Set<Int> = []
     /// A tap on a waypoint's pin selects it, and its row in the table. (planning proposal D3)
     var onSelectWaypoint: ((Int) -> Void)? = nil
+    /// Traffic circuits, VFR routes and sectors, under the route. (6.2.0)
+    var vfrContent: VFRMapContent = .empty()
 
     func makeUIView(context: Context) -> MKMapView {
         let mapView = MKMapView()
@@ -2282,6 +2321,7 @@ struct RouteBuilderMapView: UIViewRepresentable {
         applyAirspaceSelection(mapView)
         updateRoute(mapView, context: context)
         updateSelectedLeg(mapView, context: context)
+        VFRMapLayer.sync(vfrContent, on: mapView, state: context.coordinator.vfrLayer)
 
         if context.coordinator.lastFitToken != fitRouteToken {
             context.coordinator.lastFitToken = fitRouteToken
@@ -2417,14 +2457,26 @@ struct RouteBuilderMapView: UIViewRepresentable {
         // Replace the route polyline. Draw a black casing under a magenta core, matching the in-flight
         // navigation map so the plan previews exactly how the route reads in flight, and so it stays
         // visible on every tile layer (feedback #6 — gold washed out on some charts).
-        mapView.removeOverlays(mapView.overlays.filter { $0 is MKPolyline })
+        Self.removeRouteOverlays(from: mapView)
         if waypoints.count >= 2 {
             let coords = waypoints.map { $0.coordinate }
             let casing = RouteCasingPolyline(coordinates: coords, count: coords.count)
             mapView.addOverlay(casing, level: .aboveLabels)
-            let polyline = MKPolyline(coordinates: coords, count: coords.count)
+            let polyline = RouteLinePolyline(coordinates: coords, count: coords.count)
             mapView.addOverlay(polyline, level: .aboveLabels)
         }
+    }
+
+    /// The route's own lines: its core, its casing and the selected leg's halo. The three redraws take
+    /// off only these; they used to take off every `MKPolyline`, which would have taken the traffic
+    /// circuits and VFR routes with them. (6.2.0)
+    static func isRouteOverlay(_ overlay: MKOverlay) -> Bool {
+        overlay is RouteLinePolyline || overlay is RouteCasingPolyline || overlay is SelectedLegPolyline
+    }
+
+    static func removeRouteOverlays(from mapView: MKMapView) {
+        let route = mapView.overlays.filter(isRouteOverlay)
+        if !route.isEmpty { mapView.removeOverlays(route) }
     }
 
     /// A white halo under the selected leg, drawn below the route so the magenta line reads through
@@ -2466,6 +2518,8 @@ struct RouteBuilderMapView: UIViewRepresentable {
         var lastFocusToken = 0
         /// `ReportingPointAnnotation.labelRevision` the markers were labelled at. (6.0.1)
         var reportingPointLabelRevision = -1
+        /// The aerodrome procedures drawn, and their palette. (6.2.0)
+        let vfrLayer = VFRMapLayer.State()
 
         // MARK: Live drag (flight-plan revamp #3)
         enum DragMode { case move(Int); case insert(Int); case append } // insert(afterIndex)
@@ -2501,6 +2555,11 @@ struct RouteBuilderMapView: UIViewRepresentable {
             if let tile = overlay as? MKTileOverlay {
                 return MKTileOverlayRenderer(tileOverlay: tile)
             }
+            // Traffic circuits, VFR routes and sectors: before the generic MKPolyline branch below, which
+            // would draw them magenta, as the route. (6.2.0)
+            if let renderer = VFRMapLayer.renderer(for: overlay, palette: vfrLayer.palette) {
+                return renderer
+            }
             // Crossed-airspace highlight (translucent fill + colored stroke). (#4)
             if let airspace = overlay as? AirspacePolygon {
                 let renderer = MKPolygonRenderer(polygon: airspace)
@@ -2528,6 +2587,7 @@ struct RouteBuilderMapView: UIViewRepresentable {
                 renderer.lineCap = .round
                 return renderer
             }
+            // The route's core (`RouteLinePolyline`).
             if let polyline = overlay as? MKPolyline {
                 let renderer = MKPolylineRenderer(polyline: polyline)
                 renderer.strokeColor = UIColor(red: 1.0, green: 0.0, blue: 0.8, alpha: 1.0) // navigation magenta
@@ -2564,6 +2624,11 @@ struct RouteBuilderMapView: UIViewRepresentable {
                 view.displayPriority = .required
                 view.canShowCallout = true
                 return view
+            }
+
+            // A traffic circuit's altitude or a VFR route's name, and its callout. (6.2.0)
+            if let label = VFRMapLayer.annotationView(for: annotation, on: mapView, palette: vfrLayer.palette) {
+                return label
             }
 
             if annotation is AirportAnnotation {
@@ -2807,11 +2872,11 @@ struct RouteBuilderMapView: UIViewRepresentable {
 
         /// Redraw the magenta route from the live working geometry (move/insert preview).
         private func redrawDragRoute(_ mapView: MKMapView) {
-            mapView.removeOverlays(mapView.overlays.filter { $0 is MKPolyline })
+            RouteBuilderMapView.removeRouteOverlays(from: mapView)
             guard dragCoords.count >= 2 else { return }
             let casing = RouteCasingPolyline(coordinates: dragCoords, count: dragCoords.count)
             mapView.addOverlay(casing, level: .aboveLabels)
-            let line = MKPolyline(coordinates: dragCoords, count: dragCoords.count)
+            let line = RouteLinePolyline(coordinates: dragCoords, count: dragCoords.count)
             mapView.addOverlay(line, level: .aboveLabels)
         }
 
@@ -2819,7 +2884,7 @@ struct RouteBuilderMapView: UIViewRepresentable {
         private func redrawCommittedRoute(_ mapView: MKMapView) {
             let old = mapView.annotations.compactMap { $0 as? RouteWaypointAnnotation }
             mapView.removeAnnotations(old)
-            mapView.removeOverlays(mapView.overlays.filter { $0 is MKPolyline })
+            RouteBuilderMapView.removeRouteOverlays(from: mapView)
             let wpts = parent.waypoints
             for (i, w) in wpts.enumerated() {
                 mapView.addAnnotation(RouteWaypointAnnotation(coordinate: w.coordinate, index: i, name: w.name))
@@ -2827,7 +2892,7 @@ struct RouteBuilderMapView: UIViewRepresentable {
             if wpts.count >= 2 {
                 let coords = wpts.map { $0.coordinate }
                 mapView.addOverlay(RouteCasingPolyline(coordinates: coords, count: coords.count), level: .aboveLabels)
-                mapView.addOverlay(MKPolyline(coordinates: coords, count: coords.count), level: .aboveLabels)
+                mapView.addOverlay(RouteLinePolyline(coordinates: coords, count: coords.count), level: .aboveLabels)
             }
             lastRouteSignature = wpts.map { "\($0.id.uuidString)\($0.latitude),\($0.longitude)" }.joined(separator: "|")
         }
@@ -2889,6 +2954,9 @@ struct RouteBuilderMapView: UIViewRepresentable {
 /// Black casing drawn underneath the magenta route core (a distinct subclass so the renderer can tell
 /// the two `MKPolyline`s apart). Mirrors the in-flight navigation map's route styling.
 final class RouteCasingPolyline: MKPolyline {}
+/// The route's magenta core. Its own class, so the redraws take off the route and nothing else on the
+/// map that is a polyline (the traffic circuits and VFR routes). (6.2.0)
+final class RouteLinePolyline: MKPolyline {}
 /// The halo under the leg selected in the route editor. (planning proposal D3)
 final class SelectedLegPolyline: MKPolyline {}
 

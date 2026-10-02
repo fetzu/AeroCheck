@@ -117,7 +117,93 @@ struct CompanionAuthorizationRequest: Identifiable, Equatable {
     let generation: Int
     /// The peer's name as Wi-Fi Aware gives it; nil and the prompt says "a paired device".
     let deviceName: String?
+    /// Whether an answer can outlive this connection: only for a peer Wi-Fi Aware identified, since
+    /// one it will not name cannot be recognised when it comes back. False: Allow holds for this
+    /// connection only, and the prompt offers no Always Allow. (6.1.0)
+    var canRemember = true
     var id: Int { generation }
+}
+
+/// What the pilot answers to "Allow companion control?". (6.1.0)
+///
+/// Asking at every connection made the prompt come back after each Wi-Fi Aware drop, several times a
+/// flight. The answer now holds longer, but never further than the pilot chose: Allow for this flight,
+/// or Always Allow on this iPad for a phone they own. Don't Allow still holds for the connection only.
+enum CompanionAuthorizationAnswer: Equatable {
+    /// For this flight, reconnections included (for this connection only when the peer is not
+    /// identified). Given before a flight starts, it holds for the next one.
+    case allow
+    /// Without asking again, on this iPad, until the pilot forgets the device or stops it in Settings.
+    case alwaysAllow
+    case deny
+}
+
+/// The phones allowed for this flight (Allow). In memory only: kept across reconnections while the
+/// flight lasts, gone when it ends, and gone with the app. Given with no flight in progress, it holds
+/// for the next flight started, and ends with that one. (6.1.0)
+struct CompanionFlightAllowance: Equatable {
+    private(set) var deviceIDs: Set<UInt64> = []
+    /// The flight the allowance belongs to; nil while none was in progress since it was given.
+    private(set) var flightID: UUID?
+
+    func allows(_ deviceID: UInt64) -> Bool { deviceIDs.contains(deviceID) }
+
+    /// Keep in step with the flight in progress (nil: none). A different flight, or none after one,
+    /// ends the allowance; the devices it held are returned.
+    @discardableResult
+    mutating func follow(flightID current: UUID?) -> Set<UInt64> {
+        guard let flightID else {
+            self.flightID = current   // given before a flight: it is this one's now
+            return []
+        }
+        guard current != flightID else { return [] }
+        let ended = deviceIDs
+        deviceIDs = []
+        self.flightID = current
+        return ended
+    }
+
+    mutating func allow(_ deviceID: UInt64, flightID current: UUID?) {
+        follow(flightID: current)
+        deviceIDs.insert(deviceID)
+    }
+
+    mutating func remove(_ ids: [UInt64]) {
+        deviceIDs.subtract(ids)
+    }
+}
+
+/// The phones the pilot always allows on this iPad (Always Allow). Kept in this device's defaults,
+/// never synced: a phone allowed on the pilot's own iPad is not allowed on the club's. Forget and
+/// "Ask Each Flight" in Settings take a device off. Stored by `WAPairedDevice.ID`, as strings, like
+/// `CompanionForgottenDevices`. (6.1.0)
+struct CompanionAlwaysAllowedDevices {
+    static let defaultsKey = "companionAlwaysAllowedDeviceIDs"
+
+    private let defaults: UserDefaults
+    private(set) var ids: Set<UInt64>
+
+    init(defaults: UserDefaults) {
+        self.defaults = defaults
+        ids = Set((defaults.stringArray(forKey: Self.defaultsKey) ?? []).compactMap { UInt64($0) })
+    }
+
+    func contains(_ id: UInt64) -> Bool { ids.contains(id) }
+
+    mutating func allow(_ id: UInt64) {
+        ids.insert(id)
+        save()
+    }
+
+    mutating func remove(_ removedIDs: [UInt64]) {
+        guard !ids.isDisjoint(with: removedIDs) else { return }
+        ids.subtract(removedIDs)
+        save()
+    }
+
+    private func save() {
+        defaults.set(ids.sorted().map(String.init), forKey: Self.defaultsKey)
+    }
 }
 
 /// When the pairing screen has done its job. (6.1.0)
@@ -300,9 +386,9 @@ class CompanionConnectivityManager: NSObject, ObservableObject {
     /// pairing at any point in the past can connect. That is a realistic precondition in this app's
     /// actual market: shared aeroclub/rental iPads that many student pilots pair their personal
     /// phones to over time. So a peer may drive the checklist or waypoints, or feed its position into
-    /// the flight, only once the person holding the master allowed it, and only for that connection:
-    /// a stale pairing from a previous user gets nothing, and saying yes does not persist. (SEC-C40,
-    /// S9-09)
+    /// the flight, only once the person holding the master allowed it: a stale pairing from a previous
+    /// user gets nothing. Each link starts undecided; only the pilot's Allow for this flight, or Always
+    /// Allow, given earlier for this very phone, decides it at once. (SEC-C40, S9-09; 6.1.0)
     @Published private(set) var peerLink: CompanionPeerLink?
 
     /// The question awaiting the pilot's answer, for the prompt to show. (SEC-C40)
@@ -314,6 +400,15 @@ class CompanionConnectivityManager: NSObject, ObservableObject {
 
     /// The devices the pilot forgot (S9-09): refused on the iPad, skipped by the iPhone.
     @Published private(set) var forgottenDevices: CompanionForgottenDevices
+
+    /// The phones this iPad always allows (Always Allow), kept on this device. (6.1.0)
+    @Published private(set) var alwaysAllowedDevices: CompanionAlwaysAllowedDevices
+
+    /// The phones allowed for this flight (Allow), in memory. (6.1.0)
+    private(set) var flightAllowance = CompanionFlightAllowance()
+
+    /// Which `configure` the flight watch belongs to: a watch left from an earlier one stops.
+    private var flightWatchToken = 0
 
     private weak var locationManager: LocationManager?
     private weak var flightPlanManager: FlightPlanManager?
@@ -329,6 +424,7 @@ class CompanionConnectivityManager: NSObject, ObservableObject {
     /// `usesWiFiAware: false` and a defaults suite of its own for tests; the app has `shared`.
     init(defaults: UserDefaults, usesWiFiAware: Bool) {
         forgottenDevices = CompanionForgottenDevices(defaults: defaults)
+        alwaysAllowedDevices = CompanionAlwaysAllowedDevices(defaults: defaults)
         self.usesWiFiAware = usesWiFiAware
         super.init()
         guard usesWiFiAware else { return }
@@ -452,6 +548,9 @@ class CompanionConnectivityManager: NSObject, ObservableObject {
     /// device connected right now, the link ends here. (S9-09)
     func forget(_ device: CompanionPairedDevice) {
         forgottenDevices.forget(device.deviceIDs)
+        // Allowed again later, it starts from nothing: asked before it acts. (6.1.0)
+        alwaysAllowedDevices.remove(device.deviceIDs)
+        flightAllowance.remove(device.deviceIDs)
         diag("Forgot \(device.displayName ?? "a device"): it can no longer connect")
         rebrowseIfLooking()
         guard let connected = peerLink?.identity?.deviceID, device.deviceIDs.contains(connected) else { return }
@@ -473,6 +572,26 @@ class CompanionConnectivityManager: NSObject, ObservableObject {
         diag("Allowed \(device.displayName ?? "a device") again")
         rebrowseIfLooking()
         autoConnectIfReady()
+    }
+
+    // MARK: - Always Allow (6.1.0)
+
+    /// Whether the pilot always allows this device on this iPad: any record behind the row.
+    func isAlwaysAllowed(_ device: CompanionPairedDevice) -> Bool {
+        device.deviceIDs.contains(where: alwaysAllowedDevices.contains)
+    }
+
+    /// "Ask Each Flight" in Settings: the device is asked again before it acts, from its next action
+    /// on, the connection up now included. Its Allow for this flight goes too: the pilot asked for
+    /// the question back.
+    func stopAlwaysAllowing(_ device: CompanionPairedDevice) {
+        alwaysAllowedDevices.remove(device.deviceIDs)
+        flightAllowance.remove(device.deviceIDs)
+        diag("Stopped always allowing \(device.displayName ?? "a device")")
+        if let connected = peerLink?.identity?.deviceID, device.deviceIDs.contains(connected),
+           peerLink?.authorization == .allowed {
+            askAgain("Master: the phone is no longer always allowed, it is asked before it acts")
+        }
     }
 
     /// Viewer: a browse already running took the forgotten list as it was when it started. Start it
@@ -671,6 +790,11 @@ class CompanionConnectivityManager: NSObject, ObservableObject {
         connectionGeneration += 1
         resetPeerTrust()   // before anything is streamed to this peer
         peerLink = CompanionPeerLink(generation: connectionGeneration, identity: identity)
+        // The same phone coming back: the pilot's Allow for this flight, or Always Allow, holds. (6.1.0)
+        if let identity, let standing = standingAllowance(for: identity.deviceID) {
+            peerLink?.authorization = .allowed
+            lifecycle("Master: the phone is \(standing), not asked again", detail: identity.name)
+        }
         sendHandler = send
         connectionState = .connected
         connectedDeviceName = identity?.name ?? L10n.Companion.companionDevice
@@ -742,9 +866,14 @@ class CompanionConnectivityManager: NSObject, ObservableObject {
     /// Wire the data sources (idempotent, no timer). Needed on BOTH roles, so the viewer can read its
     /// own GPS to stream upstream when the master has none. (shared-GPS)
     func configure(appState: AppState, locationManager: LocationManager, flightPlanManager: FlightPlanManager) {
+        let isNewAppState = self.appState !== appState
         self.appState = appState
         self.locationManager = locationManager
         self.flightPlanManager = flightPlanManager
+        if isNewAppState {
+            flightWatchToken += 1
+            watchFlight(of: appState, token: flightWatchToken)
+        }
     }
 
     /// Wire data sources + ensure the master is streaming if already connected. The 1 Hz stream now
@@ -1340,24 +1469,89 @@ class CompanionConnectivityManager: NSObject, ObservableObject {
         peerLink = link
         if ask {
             pendingAuthorization = CompanionAuthorizationRequest(generation: link.generation,
-                                                                 deviceName: link.identity?.name)
+                                                                 deviceName: link.identity?.name,
+                                                                 canRemember: link.identity != nil)
             diag("Master: \(link.identity?.name ?? "unnamed peer") asked to act on the flight, awaiting the pilot")
         }
         return admitted
     }
 
     /// The pilot's answer, for the connection it was asked about only. A connection that has since
-    /// ended or been replaced gets nothing from it, the new one in particular. (S9-28)
-    func answerAuthorization(_ request: CompanionAuthorizationRequest, allow: Bool) {
+    /// ended or been replaced gets nothing from it, the new one in particular (S9-28); and what is
+    /// remembered is remembered for that connection's own device, never for whichever phone is
+    /// connected when the answer lands. (6.1.0)
+    func answerAuthorization(_ request: CompanionAuthorizationRequest, _ answer: CompanionAuthorizationAnswer) {
         if pendingAuthorization == request { pendingAuthorization = nil }
         guard var link = peerLink, link.generation == request.generation else {
             diag("Master: answer for a connection that has ended, ignored")
             return
         }
-        link.authorization = allow ? .allowed : .denied
+        link.authorization = answer == .deny ? .denied : .allowed
         peerLink = link
-        diag("Master: pilot \(allow ? "allowed" : "did not allow") \(link.identity?.name ?? "the peer") for this connection")
+        // A peer Wi-Fi Aware did not identify is never remembered: Allow holds for this connection.
+        let deviceID = link.identity?.deviceID
+        switch (answer, deviceID) {
+        case (.allow, let id?):
+            flightAllowance.allow(id, flightID: currentFlightID)
+            lifecycle("Master: the pilot allowed the phone for this flight", detail: link.identity?.name)
+        case (.alwaysAllow, let id?):
+            alwaysAllowedDevices.allow(id)
+            lifecycle("Master: the pilot always allows the phone on this iPad", detail: link.identity?.name)
+        case (.allow, nil), (.alwaysAllow, nil):
+            lifecycle("Master: the pilot allowed a peer not identified, for this connection only")
+        case (.deny, _):
+            diag("Master: pilot did not allow \(link.identity?.name ?? "the peer") for this connection")
+        }
         // An Allow also lets the checklist text through (S9-30): send it now, not on the next tick.
+        sendChecklistSnapshot()
+    }
+
+    /// What lets this phone act without being asked, for the log; nil when it has to be asked.
+    private func standingAllowance(for deviceID: UInt64) -> String? {
+        if alwaysAllowedDevices.contains(deviceID) { return "always allowed" }
+        syncFlightAllowance()
+        return flightAllowance.allows(deviceID) ? "allowed for this flight" : nil
+    }
+
+    /// The flight in progress, as the Allow for this flight counts flights.
+    private var currentFlightID: UUID? {
+        guard let appState, appState.isFlightActive else { return nil }
+        return appState.currentFlight?.id
+    }
+
+    /// Follow flight starts and ends as they happen, not only when a phone next connects: an Allow
+    /// for a flight that started and ended while the phone was away must not carry into the next.
+    private func watchFlight(of appState: AppState, token: Int) {
+        guard token == flightWatchToken else { return }
+        withObservationTracking {
+            _ = appState.isFlightActive
+        } onChange: { [weak self, weak appState] in
+            Task { @MainActor in
+                guard let self, let appState else { return }
+                self.watchFlight(of: appState, token: token)
+            }
+        }
+        syncFlightAllowance()
+    }
+
+    /// Bring the Allow for this flight in line with the flight in progress. When it ends, a phone
+    /// connected now on its strength is asked again before it acts on the next flight.
+    private func syncFlightAllowance() {
+        let ended = flightAllowance.follow(flightID: currentFlightID)
+        guard let id = peerLink?.identity?.deviceID, ended.contains(id),
+              !alwaysAllowedDevices.contains(id), peerLink?.authorization == .allowed else { return }
+        askAgain("Master: the flight the phone was allowed for has ended, it is asked before it acts")
+    }
+
+    /// The connected peer goes back to undecided: its next action asks the pilot.
+    private func askAgain(_ event: String) {
+        guard var link = peerLink else { return }
+        link.authorization = .undecided
+        link.hasAsked = false
+        peerLink = link
+        if pendingAuthorization?.generation == link.generation { pendingAuthorization = nil }
+        lifecycle(event, detail: link.identity?.name)
+        // Without the Allow, the checklist text may not go any more (S9-30).
         sendChecklistSnapshot()
     }
 

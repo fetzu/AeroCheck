@@ -15935,19 +15935,36 @@
         }
       }
     },
+    "companion.allowControlForFlight": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Allow for This Flight"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Autoriser pour ce vol"
+          }
+        }
+      }
+    },
     "companion.allowControlMessage": {
       "extractionState": "manual",
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "“%@” wants to control this flight's checklist and waypoints, or to supply its GPS position. Allow it for this connection only?"
+            "value": "“%@” wants to control this flight's checklist and waypoints, or to supply its GPS position. Allow it for this flight, or always on this iPad?"
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "« %@ » veut contrôler la checklist et les points de cheminement de ce vol, ou lui fournir sa position GPS. Autoriser pour cette connexion uniquement ?"
+            "value": "« %@ » veut contrôler la checklist et les points de cheminement de ce vol, ou lui fournir sa position GPS. L’autoriser pour ce vol, ou toujours sur cet iPad ?"
           }
         }
       }
@@ -15965,6 +15982,23 @@
           "stringUnit": {
             "state": "translated",
             "value": "Un appareil appairé veut contrôler la checklist et les points de cheminement de ce vol, ou lui fournir sa position GPS. Autoriser pour cette connexion uniquement ?"
+          }
+        }
+      }
+    },
+    "companion.allowControlMessageUnnamedDevice": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "A paired device wants to control this flight's checklist and waypoints, or to supply its GPS position. Allow it for this flight, or always on this iPad?"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Un appareil appairé veut contrôler la checklist et les points de cheminement de ce vol, ou lui fournir sa position GPS. L’autoriser pour ce vol, ou toujours sur cet iPad ?"
           }
         }
       }
@@ -16016,6 +16050,57 @@
           "stringUnit": {
             "state": "translated",
             "value": "Réautoriser %@"
+          }
+        }
+      }
+    },
+    "companion.alwaysAllowControl": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Always Allow"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Toujours autoriser"
+          }
+        }
+      }
+    },
+    "companion.askEachFlight": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ask Each Flight"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Demander à chaque vol"
+          }
+        }
+      }
+    },
+    "companion.askEachFlightAccessibility": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Stop always allowing %@"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ne plus toujours autoriser %@"
           }
         }
       }
@@ -16254,6 +16339,23 @@
           "stringUnit": {
             "state": "translated",
             "value": "Ne pas autoriser"
+          }
+        }
+      }
+    },
+    "companion.deviceAlwaysAllowed": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Always allowed to control flights"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Toujours autorisé à contrôler les vols"
           }
         }
       }

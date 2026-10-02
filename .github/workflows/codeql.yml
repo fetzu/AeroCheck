@@ -1,10 +1,24 @@
 name: "CodeQL"
 
+# Push and PR runs only when something CodeQL analyses can change: Swift sources, the Xcode project, the
+# build settings, or this file. A docs- or workflow-only PR has nothing to analyse, and the Swift build
+# takes a macOS runner. The weekly run still scans the whole tree. (If this check is ever made required,
+# drop the path filters: GitHub leaves a path-skipped required check pending, which blocks the merge.)
 on:
   push:
     branches: [main]
+    paths:
+      - '**/*.swift'
+      - 'AeroCheck.xcodeproj/**'
+      - '**/*.xcconfig'
+      - '.github/workflows/codeql.yml'
   pull_request:
     branches: [main]
+    paths:
+      - '**/*.swift'
+      - 'AeroCheck.xcodeproj/**'
+      - '**/*.xcconfig'
+      - '.github/workflows/codeql.yml'
   schedule:
     - cron: '0 6 * * 1'  # Weekly on Monday at 06:00 UTC
 

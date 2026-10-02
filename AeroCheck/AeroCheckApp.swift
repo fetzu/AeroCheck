@@ -299,6 +299,9 @@ struct AeroCheckApp: App {
                     if VFRLayerSelection(settings: appState.settings).isAnyOn {
                         await OFMDataService.shared.ensureLoaded()
                     }
+                    // 6.2.0: where each country keeps its official charts (12 KB, weekly, from the
+                    // disk when fresh). Not awaited: nothing at launch waits for a link.
+                    Task { await OfficialChartService.shared.refreshIfNeeded() }
 
                     // Check for yearly map update reminder (after main content loads)
                     if offlineMapManager.shouldShowUpdateReminder {
@@ -318,6 +321,8 @@ struct AeroCheckApp: App {
                     guard phase == .active else { return }
                     dataStatusManager.recompute()
                     Task { await dataStatusManager.autoRefreshIfNeeded(cellularUpdatesEnabled: true) }
+                    // The chart registry when a week old, or a new AIRAC cycle's French folder. (6.2.0)
+                    Task { await OfficialChartService.shared.refreshIfNeeded() }
                     // Re-establish the companion link on foreground (e.g. after the peer relaunched). (v4.1)
                     companionConnectivityManager.autoConnectIfReady()
                 }

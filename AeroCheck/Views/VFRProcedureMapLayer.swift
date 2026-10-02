@@ -913,8 +913,12 @@ enum VFRMapLayer {
     }
 
     /// A label's view, with its callout; nil for any other annotation.
+    /// - Parameters:
+    ///   - metrics: the callout's buttons, the Cockpit's sizes in flight.
+    ///   - openChart: opens the aerodrome's official chart; nil leaves the button out. (6.2.0)
     static func annotationView(for annotation: MKAnnotation, on mapView: MKMapView,
-                               palette: VFRMapPalette) -> MKAnnotationView? {
+                               palette: VFRMapPalette, metrics: CalloutMetrics = .ground,
+                               openChart: ((URL) -> Void)? = nil) -> MKAnnotationView? {
         guard let label = annotation as? VFRProcedureAnnotation else { return nil }
         let id = "VFRProcedureLabel"
         let view = mapView.dequeueReusableAnnotationView(withIdentifier: id)
@@ -928,7 +932,8 @@ enum VFRMapLayer {
         view.displayPriority = .defaultHigh
         view.collisionMode = .rectangle
         view.detailCalloutAccessoryView = VFRProcedureCallout.detailView(for: label.item, at: label.coordinate,
-                                                                         palette: palette)
+                                                                         palette: palette, metrics: metrics,
+                                                                         openChart: openChart)
         view.leftCalloutAccessoryView = nil
         view.rightCalloutAccessoryView = nil
         view.isAccessibilityElement = true
@@ -962,7 +967,8 @@ enum VFRProcedureCallout {
 
     @MainActor
     static func detailView(for item: VFRMapItem, at coordinate: CLLocationCoordinate2D,
-                           palette: VFRMapPalette = .day) -> UIView {
+                           palette: VFRMapPalette = .day, metrics: CalloutMetrics = .ground,
+                           openChart: ((URL) -> Void)? = nil) -> UIView {
         let summaryLabel = UILabel()
         summaryLabel.text = summary(for: item)
         summaryLabel.font = UIFont.aero(size: CockpitType.size(kneeboard: 17, phone: 15), weight: .semibold)
@@ -975,13 +981,20 @@ enum VFRProcedureCallout {
         }
         rows.append(captionLabel(sourceLine(for: item)))
 
-        // Official chart (6.2.0 PR 8): its button goes FIRST in this row, before Report an error, and
-        // opens `OfficialChartService`'s link for `item.procedure.aerodrome`.
+        // The aerodrome's official chart first (what "check the official chart" asks for), then Report an
+        // error. One above the other: side by side they are wider than the callout.
         let actions = UIStackView()
         actions.axis = .horizontal
         actions.spacing = 12
         actions.alignment = .center
-        actions.addArrangedSubview(reportButton(for: item, at: coordinate, palette: palette))
+        if let openChart, let link = OfficialChartService.shared.link(for: item.procedure.aerodrome, type: nil) {
+            actions.axis = .vertical
+            actions.spacing = 8
+            actions.alignment = .fill
+            actions.addArrangedSubview(OfficialChartControl.action(link: link, metrics: metrics, tint: palette.action,
+                                                                   open: openChart))
+        }
+        actions.addArrangedSubview(reportButton(for: item, at: coordinate, palette: palette, metrics: metrics))
         rows.append(actions)
 
         let stack = UIStackView(arrangedSubviews: rows)
@@ -1004,7 +1017,7 @@ enum VFRProcedureCallout {
 
     @MainActor
     private static func reportButton(for item: VFRMapItem, at coordinate: CLLocationCoordinate2D,
-                                     palette: VFRMapPalette) -> UIButton {
+                                     palette: VFRMapPalette, metrics: CalloutMetrics) -> UIButton {
         var configuration = UIButton.Configuration.tinted()
         configuration.title = L10n.VFRMap.reportError
         configuration.image = UIImage(systemName: "exclamationmark.bubble")
@@ -1012,13 +1025,13 @@ enum VFRProcedureCallout {
         configuration.baseForegroundColor = palette.action
         configuration.titleTextAttributesTransformer = UIConfigurationTextAttributesTransformer { attributes in
             var attributes = attributes
-            attributes.font = UIFont.aero(size: 15, weight: .semibold)
+            attributes.font = UIFont.aero(size: metrics.fontSize, weight: .semibold)
             return attributes
         }
         let button = UIButton(configuration: configuration, primaryAction: UIAction { _ in
             openReport(for: item, at: coordinate)
         })
-        button.heightAnchor.constraint(greaterThanOrEqualToConstant: 44).isActive = true
+        button.heightAnchor.constraint(greaterThanOrEqualToConstant: metrics.target).isActive = true
         return button
     }
 

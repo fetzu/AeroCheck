@@ -2410,6 +2410,22 @@ enum L10n {
         static let reportError = String(localized: "Report an error")
     }
 
+    /// An aerodrome's official chart, opened in the browser: DFS BasicVFR, the SIA VAC, SkyBriefing's
+    /// VFR Manual, Austro Control's eAIP. (6.2.0)
+    enum OfficialChart {
+        static let title = String(localized: "Official chart")
+        /// A publisher behind a login: "SkyBriefing (subscription)".
+        static func subscription(_ publisher: String) -> String {
+            String(localized: "\(publisher) (subscription)")
+        }
+        /// Under the symbol of an airport callout's accessory, where "Official chart" doesn't fit.
+        static let short = String(localized: "Chart")
+        /// VoiceOver's hint: "Opens SkyBriefing in the browser".
+        static func opens(_ publisher: String) -> String {
+            String(localized: "Opens \(publisher) in the browser")
+        }
+    }
+
     enum Nav {
         static let sigmetOverhead = String(localized: "nav.sigmet.overhead")
         static let sigmetOnRoute = String(localized: "nav.sigmet.onRoute")

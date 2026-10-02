@@ -16,6 +16,8 @@ struct FlightPlanMapBuilderView: View {
     @EnvironmentObject var openAIPDataService: OpenAIPDataService
     @EnvironmentObject var locationManager: LocationManager
     @EnvironmentObject var windsAloftService: WindsAloftService
+    /// An aerodrome's official chart, from its callout, opens in the browser. (6.2.0)
+    @Environment(\.openURL) private var openURL
     // Observe the per-country layer singletons so the trip-prefetch banner reacts to download
     // completions (their @Published downloadedCountries) rather than only to airspace changes. (review #8)
     @ObservedObject private var navaidService = OpenAIPNavaidDataService.shared
@@ -502,7 +504,8 @@ struct FlightPlanMapBuilderView: View {
             selectedLeg: selectedLeg,
             conflictLegs: Set(legConflicts.keys),
             onSelectWaypoint: { index in selectLeg(index) },
-            vfrContent: vfrContent
+            vfrContent: vfrContent,
+            onOpenOfficialChart: { openURL($0) }
         )
         .ignoresSafeArea(edges: .bottom)
         // From and To sit above the map now, not over it (planning proposal D1); what they find
@@ -2276,6 +2279,8 @@ struct RouteBuilderMapView: UIViewRepresentable {
     var onSelectWaypoint: ((Int) -> Void)? = nil
     /// Traffic circuits, VFR routes and sectors, under the route. (6.2.0)
     var vfrContent: VFRMapContent = .empty()
+    /// Opens an aerodrome's official chart from its callout (the browser); nil: no chart. (6.2.0)
+    var onOpenOfficialChart: ((URL) -> Void)? = nil
 
     func makeUIView(context: Context) -> MKMapView {
         let mapView = MKMapView()
@@ -2627,11 +2632,12 @@ struct RouteBuilderMapView: UIViewRepresentable {
             }
 
             // A traffic circuit's altitude or a VFR route's name, and its callout. (6.2.0)
-            if let label = VFRMapLayer.annotationView(for: annotation, on: mapView, palette: vfrLayer.palette) {
+            if let label = VFRMapLayer.annotationView(for: annotation, on: mapView, palette: vfrLayer.palette,
+                                                      openChart: parent.onOpenOfficialChart) {
                 return label
             }
 
-            if annotation is AirportAnnotation {
+            if let airport = annotation as? AirportAnnotation {
                 let id = "BuilderAirport"
                 let view: MKAnnotationView
                 if let reused = mapView.dequeueReusableAnnotationView(withIdentifier: id) {
@@ -2642,6 +2648,11 @@ struct RouteBuilderMapView: UIViewRepresentable {
                 }
                 view.canShowCallout = true
                 view.image = aeroMarkerSymbol("airplane", color: UIColor(red: 0.3, green: 0.6, blue: 1.0, alpha: 1.0), pointSize: 13, weight: .medium)
+                // The field's official chart on the left, "+" on the right. (6.2.0)
+                view.leftCalloutAccessoryView = parent.onOpenOfficialChart == nil ? nil
+                    : OfficialChartService.shared.link(for: airport.airport).map {
+                        OfficialChartControl.accessory(link: $0, metrics: .ground, tint: vfrLayer.palette.action)
+                    }
                 view.rightCalloutAccessoryView = addButton(annotation)
                 return view
             }
@@ -2713,6 +2724,11 @@ struct RouteBuilderMapView: UIViewRepresentable {
         }
 
         func mapView(_ mapView: MKMapView, annotationView view: MKAnnotationView, calloutAccessoryControlTapped control: UIControl) {
+            // The official chart opens in the browser and adds nothing. (6.2.0)
+            if let chart = control as? OfficialChartControl, let link = chart.link {
+                parent.onOpenOfficialChart?(link.url)
+                return
+            }
             guard let point = routePoint(for: view.annotation) else { return }
             parent.onPointAdd?(point)
             mapView.deselectAnnotation(view.annotation, animated: true)

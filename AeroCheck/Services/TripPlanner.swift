@@ -330,6 +330,8 @@ enum TripPlanner {
         var country: String? = nil
         /// The longest open runway, as a pilot reads it ("12/30 · 620 m asphalt").
         var runway: String? = nil
+        /// OurAirports' type, for the official chart (France has a VAC for aerodromes only). (6.2.0)
+        var type: AirportType? = nil
 
         var coordinate: CLLocationCoordinate2D {
             CLLocationCoordinate2D(latitude: latitude, longitude: longitude)

@@ -1,6 +1,46 @@
 {
   "sourceLanguage": "en",
   "strings": {
+    "Official chart": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Carte officielle"
+          }
+        }
+      }
+    },
+    "%@ (subscription)": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ (abonnement)"
+          }
+        }
+      }
+    },
+    "Chart": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Carte"
+          }
+        }
+      }
+    },
+    "Opens %@ in the browser": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ouvre %@ dans le navigateur"
+          }
+        }
+      }
+    },
     "Helicopter reporting point": {
       "localizations": {
         "fr": {

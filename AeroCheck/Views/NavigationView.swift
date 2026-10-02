@@ -213,6 +213,8 @@ struct NavigationMapView: View {
     @EnvironmentObject var threadManager: FlightThreadManager
     @ObservedObject private var marketingProvider = MarketingLocationProvider.shared
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    /// The callouts' official chart opens in the browser. (6.2.0)
+    @Environment(\.openURL) private var openURL
 
     @Binding var isPresented: Bool
     /// False in the Plan tab, where the map is a section of the screen rather than a cover to close.
@@ -1277,7 +1279,9 @@ struct NavigationMapView: View {
                 onWaypointATOTap: { index in
                     flightPlanManager.recordATO(forWaypointAt: index)
                 },
-                onAirportDivert: airportDivert
+                onAirportDivert: airportDivert,
+                onOpenOfficialChart: { openURL($0) },
+                isInFlight: appState.isFlightActive
             )
         } else {
             // Use UIKit-wrapped MKMapView for standard/satellite to avoid gesture issues
@@ -1306,7 +1310,9 @@ struct NavigationMapView: View {
                 onWaypointATOTap: { index in
                     flightPlanManager.recordATO(forWaypointAt: index)
                 },
-                onAirportDivert: airportDivert
+                onAirportDivert: airportDivert,
+                onOpenOfficialChart: { openURL($0) },
+                isInFlight: appState.isFlightActive
             )
         }
     }
@@ -3340,6 +3346,10 @@ struct NativeMapViewUIKit: UIViewRepresentable {
     var vfrContent: VFRMapContent = .empty()  // Traffic circuits, VFR routes and sectors (6.2.0)
     var onWaypointATOTap: ((Int) -> Void)?  // Callback when user taps/long-presses a waypoint to set ATO
     var onAirportDivert: ((String) -> Void)?  // "Divert here" from an airport callout (v5.1)
+    /// Opens an aerodrome's official chart from its callout (the browser); nil: no chart in the callouts. (6.2.0)
+    var onOpenOfficialChart: ((URL) -> Void)?
+    /// In flight the callouts' controls take the Cockpit's sizes. (6.2.0)
+    var isInFlight: Bool = false
 
     func makeUIView(context: Context) -> MKMapView {
         let mapView = MKMapView()
@@ -3822,7 +3832,9 @@ struct NativeMapViewUIKit: UIViewRepresentable {
             }
 
             // A traffic circuit's altitude or a VFR route's name, and its callout. (6.2.0)
-            if let label = VFRMapLayer.annotationView(for: annotation, on: mapView, palette: vfrLayer.palette) {
+            if let label = VFRMapLayer.annotationView(for: annotation, on: mapView, palette: vfrLayer.palette,
+                                                      metrics: .metrics(inFlight: parent.isInFlight),
+                                                      openChart: parent.onOpenOfficialChart) {
                 return label
             }
 
@@ -4033,19 +4045,15 @@ struct NativeMapViewUIKit: UIViewRepresentable {
 
             annotationView.image = aeroMarkerSymbol(iconName, color: color, pointSize: size, weight: .medium)
 
+            // The callout's controls: the field's official chart on the left (6.2.0), and "Divert here"
+            // on the right, in flight with a route to divert from (v5.1).
+            AirportCalloutControls.configure(
+                annotationView,
+                chart: parent.onOpenOfficialChart == nil ? nil : OfficialChartService.shared.link(for: annotation.airport),
+                divert: parent.activeFlightPlan != nil && parent.onAirportDivert != nil,
+                metrics: .metrics(inFlight: parent.isInFlight), tint: vfrLayer.palette.action)
+
             // Configure callout with multi-line frequency detail
-            annotationView.rightCalloutAccessoryView = nil
-            annotationView.leftCalloutAccessoryView = nil
-            // "Divert here", with a route to divert from. Opens the Divert sheet on this field, where the
-            // time, runway and the big button are. (v5.1)
-            if parent.activeFlightPlan != nil, parent.onAirportDivert != nil {
-                let button = UIButton(type: .system)
-                button.setImage(UIImage(systemName: "arrow.triangle.turn.up.right.diamond.fill"), for: .normal)
-                button.tintColor = UIColor(red: 0.898, green: 0.655, blue: 0.227, alpha: 1.0)
-                button.frame = CGRect(x: 0, y: 0, width: 44, height: 44)
-                button.accessibilityLabel = L10n.Trip.divert
-                annotationView.rightCalloutAccessoryView = button
-            }
 
             if let freqLines = annotation.frequencyLines {
                 let detailLabel = UILabel()
@@ -4074,13 +4082,16 @@ struct NativeMapViewUIKit: UIViewRepresentable {
             return annotationView
         }
 
-        // MARK: - Divert from an airport callout (v5.1)
+        // MARK: - An airport callout's controls: the official chart (6.2.0), Divert (v5.1)
 
         func mapView(_ mapView: MKMapView, annotationView view: MKAnnotationView,
                      calloutAccessoryControlTapped control: UIControl) {
             guard let airport = view.annotation as? AirportAnnotation else { return }
             mapView.deselectAnnotation(airport, animated: true)
-            parent.onAirportDivert?(airport.airport.ident)
+            switch AirportCalloutControls.action(for: control, airport: airport.airport) {
+            case .officialChart(let url): parent.onOpenOfficialChart?(url)
+            case .divert(let ident): parent.onAirportDivert?(ident)
+            }
         }
 
         // MARK: - Waypoint ATO Tap/Long-Press
@@ -4694,6 +4705,10 @@ struct SwissMapView: UIViewRepresentable {
     var vfrContent: VFRMapContent = .empty()  // Traffic circuits, VFR routes and sectors (6.2.0)
     var onWaypointATOTap: ((Int) -> Void)?  // Callback when user taps/long-presses a waypoint to set ATO
     var onAirportDivert: ((String) -> Void)?  // "Divert here" from an airport callout (v5.1)
+    /// Opens an aerodrome's official chart from its callout (the browser); nil: no chart in the callouts. (6.2.0)
+    var onOpenOfficialChart: ((URL) -> Void)?
+    /// In flight the callouts' controls take the Cockpit's sizes. (6.2.0)
+    var isInFlight: Bool = false
 
     /// Get the camera zoom range for the current layer
     /// This locks the map view to only allow zooming within the valid tile range
@@ -5443,7 +5458,9 @@ struct SwissMapView: UIViewRepresentable {
             }
 
             // A traffic circuit's altitude or a VFR route's name, and its callout. (6.2.0)
-            if let label = VFRMapLayer.annotationView(for: annotation, on: mapView, palette: vfrLayer.palette) {
+            if let label = VFRMapLayer.annotationView(for: annotation, on: mapView, palette: vfrLayer.palette,
+                                                      metrics: .metrics(inFlight: parent.isInFlight),
+                                                      openChart: parent.onOpenOfficialChart) {
                 return label
             }
 
@@ -5656,19 +5673,15 @@ struct SwissMapView: UIViewRepresentable {
 
             annotationView.image = aeroMarkerSymbol(iconName, color: color, pointSize: size, weight: .medium)
 
+            // The callout's controls: the field's official chart on the left (6.2.0), and "Divert here"
+            // on the right, in flight with a route to divert from (v5.1).
+            AirportCalloutControls.configure(
+                annotationView,
+                chart: parent.onOpenOfficialChart == nil ? nil : OfficialChartService.shared.link(for: annotation.airport),
+                divert: parent.activeFlightPlan != nil && parent.onAirportDivert != nil,
+                metrics: .metrics(inFlight: parent.isInFlight), tint: vfrLayer.palette.action)
+
             // Configure callout with multi-line frequency detail
-            annotationView.rightCalloutAccessoryView = nil
-            annotationView.leftCalloutAccessoryView = nil
-            // "Divert here", with a route to divert from. Opens the Divert sheet on this field, where the
-            // time, runway and the big button are. (v5.1)
-            if parent.activeFlightPlan != nil, parent.onAirportDivert != nil {
-                let button = UIButton(type: .system)
-                button.setImage(UIImage(systemName: "arrow.triangle.turn.up.right.diamond.fill"), for: .normal)
-                button.tintColor = UIColor(red: 0.898, green: 0.655, blue: 0.227, alpha: 1.0)
-                button.frame = CGRect(x: 0, y: 0, width: 44, height: 44)
-                button.accessibilityLabel = L10n.Trip.divert
-                annotationView.rightCalloutAccessoryView = button
-            }
 
             if let freqLines = annotation.frequencyLines {
                 let detailLabel = UILabel()
@@ -5697,13 +5710,16 @@ struct SwissMapView: UIViewRepresentable {
             return annotationView
         }
 
-        // MARK: - Divert from an airport callout (v5.1)
+        // MARK: - An airport callout's controls: the official chart (6.2.0), Divert (v5.1)
 
         func mapView(_ mapView: MKMapView, annotationView view: MKAnnotationView,
                      calloutAccessoryControlTapped control: UIControl) {
             guard let airport = view.annotation as? AirportAnnotation else { return }
             mapView.deselectAnnotation(airport, animated: true)
-            parent.onAirportDivert?(airport.airport.ident)
+            switch AirportCalloutControls.action(for: control, airport: airport.airport) {
+            case .officialChart(let url): parent.onOpenOfficialChart?(url)
+            case .divert(let ident): parent.onAirportDivert?(ident)
+            }
         }
 
         // MARK: - Waypoint ATO Tap/Long-Press

@@ -920,7 +920,8 @@ extension AirportDataService {
             frequency: contact.map { "\($0.type) \($0.formattedFrequency)" },
             isPPR: openAIPAirports.pprIcaoCodes.contains(airport.ident.uppercased()),
             country: airport.isoCountry.isEmpty ? nil : airport.isoCountry,
-            runway: runwaySummary(for: airport.ident)
+            runway: runwaySummary(for: airport.ident),
+            type: airport.type
         )
     }
 

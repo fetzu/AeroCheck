@@ -453,6 +453,67 @@ final class OfficialChartTests: XCTestCase {
         XCTAssertEqual(charts.count, 1)
     }
 
+    // MARK: - Callouts and the chrome over the chart
+
+    private func waitUntil(_ condition: () -> Bool, timeout: TimeInterval = 3) -> Bool {
+        let deadline = Date().addingTimeInterval(timeout)
+        while !condition() && Date() < deadline {
+            RunLoop.main.run(until: Date().addingTimeInterval(0.05))
+        }
+        return condition()
+    }
+
+    /// While a callout is open, the scale bar and the off-screen route pill step aside (they covered the
+    /// callout's title and its first button on the phone's Cockpit MAP), and come back when it closes.
+    /// The coordinators keep the flag from MapKit's selection, on both navigation maps.
+    func testAnOpenCalloutIsTrackedForTheChrome() throws {
+        let lszq = AirportAnnotation(airport: airport("LSZQ", lat: 47.40, lon: 7.03))
+        let withCallout = MKAnnotationView(annotation: lszq, reuseIdentifier: nil)
+        withCallout.canShowCallout = true
+        let waypoint = FlightPlanWaypointAnnotation(coordinate: lszq.coordinate, name: "LSZQ", index: 0, currentIndex: 0)
+        let withoutCallout = MKAnnotationView(annotation: waypoint, reuseIdentifier: nil)
+        XCTAssertTrue(MapCallout.isOpen(selected: [lszq], view: { _ in withCallout }))
+        XCTAssertFalse(MapCallout.isOpen(selected: [waypoint], view: { _ in withoutCallout }), "a marker without a callout")
+        XCTAssertFalse(MapCallout.isOpen(selected: [lszq], view: { _ in nil }), "no view on the map, nothing open")
+        XCTAssertFalse(MapCallout.isOpen(selected: [], view: { _ in withCallout }))
+
+        let makers: [(String, (SharedMapState) -> MKMapViewDelegate)] = [
+            ("NativeMapViewUIKit", { NativeMapViewUIKit(selectedLayer: .standard, mapState: $0, currentLocation: nil, gpsTrack: [],
+                                                        isFollowingAircraft: .constant(true)).makeCoordinator() }),
+            ("SwissMapView", { SwissMapView(layerType: .icao, mapState: $0, currentLocation: nil, gpsTrack: [],
+                                            isFollowingAircraft: .constant(true), forceICAOLayer: false).makeCoordinator() }),
+        ]
+        for (name, make) in makers {
+            let state = SharedMapState()
+            let coordinator = make(state)
+            let window = UIWindow(frame: CGRect(x: 0, y: 0, width: 820, height: 1_180))
+            window.isHidden = false
+            defer { window.isHidden = true }
+            let map = MKMapView(frame: window.bounds)
+            map.delegate = coordinator
+            window.addSubview(map)
+            map.setRegion(MKCoordinateRegion(center: lszq.coordinate,
+                                             span: MKCoordinateSpan(latitudeDelta: 0.2, longitudeDelta: 0.2)), animated: false)
+            map.addAnnotation(lszq)
+            XCTAssertTrue(waitUntil { map.view(for: lszq) != nil }, "\(name): the marker is on the map")
+            XCTAssertFalse(state.isCalloutOpen, name)
+
+            map.selectAnnotation(lszq, animated: false)
+            XCTAssertTrue(waitUntil { state.isCalloutOpen }, "\(name): the aerodrome's callout is open")
+            map.deselectAnnotation(lszq, animated: false)
+            XCTAssertTrue(waitUntil { !state.isCalloutOpen }, "\(name): closed, the chrome comes back")
+
+            // Taken off the map while open (the region moved past it): MapKit says nothing, the next
+            // region change reads the selection again.
+            map.selectAnnotation(lszq, animated: false)
+            XCTAssertTrue(waitUntil { state.isCalloutOpen }, name)
+            map.removeAnnotation(lszq)
+            coordinator.mapView?(map, regionDidChangeAnimated: false)
+            XCTAssertTrue(waitUntil { !state.isCalloutOpen }, "\(name): nothing selected any more")
+            map.removeFromSuperview()
+        }
+    }
+
     // MARK: - The VFR procedure callout
 
     private func circuitAtLSZQ() throws -> VFRMapItem {

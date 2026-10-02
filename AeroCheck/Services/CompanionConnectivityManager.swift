@@ -677,8 +677,26 @@ class CompanionConnectivityManager: NSObject, ObservableObject {
     /// Wait until `task` has ended (true), or `limit` has passed (false). A cancelled listener's task
     /// ends once its run and its connections let go; nothing here depends on it ever doing so.
     nonisolated static func waitForEnd(of task: Task<Void, any Error>, upTo limit: Duration) async -> Bool {
+        await waitFor(upTo: limit) { _ = await task.result }
+    }
+
+    /// Send `goodbye` on `send`, then close `connection` (cancel its task): once the goodbye went out
+    /// (true), or after `limit` (false). The connection is closed either way. (6.1.0)
+    nonisolated static func sayGoodbye(_ goodbye: CompanionMessage,
+                                       on send: @escaping @Sendable (CompanionMessage) async throws -> Void,
+                                       thenClose connection: Task<Void, any Error>,
+                                       upTo limit: Duration) async -> Bool {
+        let sent = await waitFor(upTo: limit) { _ = try? await send(goodbye) }
+        connection.cancel()
+        return sent
+    }
+
+    /// Run `work` and wait until it is done (true), or `limit` has passed (false): what is left of it
+    /// then carries on alone. For waits that must not hang the caller on a send or a task that never
+    /// ends.
+    nonisolated static func waitFor(upTo limit: Duration, _ work: @escaping @Sendable () async -> Void) async -> Bool {
         let ended = CompanionTaskEnd()
-        Task { _ = await task.result; await ended.mark() }
+        Task { await work(); await ended.mark() }
         let deadline = ContinuousClock.now + limit
         while ContinuousClock.now < deadline {
             if await ended.value { return true }
@@ -1300,9 +1318,22 @@ class CompanionConnectivityManager: NSObject, ObservableObject {
         connectionGeneration += 1
 
         // Send graceful disconnect message
-        if connectionState == .connected, sendHandler != nil {
-            let message = CompanionMessage(type: .disconnect, payload: Data())
-            sendMessage(message)
+        if connectionState == .connected, let send = sendHandler {
+            let goodbye = CompanionMessage(type: .disconnect, payload: Data())
+            if currentRole == .viewer, let connection = browserTask {
+                // The phone's connection lives in its browse task, and cancelling that task here, as
+                // this did, closed the connection before the goodbye (queued in the outbox) went out: the
+                // iPad heard nothing, kept a dead link and only let it go after 10 s of silence (6.1.0
+                // final-fixes capture, 23:06). The goodbye now goes out on its own, and the connection
+                // closes once it has, or after half a second at most. (6.1.0)
+                browserTask = nil
+                Task {
+                    let sent = await Self.sayGoodbye(goodbye, on: send, thenClose: connection, upTo: .milliseconds(500))
+                    if !sent { AppLog.companion.publicNotice("Viewer: the goodbye did not go out within 0.5 s") }
+                }
+            } else {
+                sendMessage(goodbye)
+            }
         }
 
         cleanupConnection()   // also releases the GPS provider + clears peer-fix state (shared-GPS)

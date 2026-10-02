@@ -391,7 +391,7 @@ enum CompanionTiming {
     /// Master: an unchanged plan or checklist snapshot goes again this often. Both are sent when they
     /// change, and a datagram lost over UDP is not resent: the phone kept a stale check or plan until
     /// the next change. (6.1.0)
-    static let snapshotRefresh: TimeInterval = 5
+    static let snapshotRefresh: TimeInterval = 3
 
     /// Viewer: how long the Companion screen stays up after the link dropped, its "connection lost"
     /// banner on, while the phone looks for the iPad again. Looking again used to show the phone's

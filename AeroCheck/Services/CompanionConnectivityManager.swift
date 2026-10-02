@@ -206,7 +206,15 @@ class CompanionConnectivityManager: NSObject, ObservableObject {
     /// UDP (matching the `._udp` Wi-Fi Aware service + Apple's sample), so we hand it a `CompanionMessage`
     /// and the Coder frames/encodes it — no manual length-prefix framing. (v4.1 — was TLS/TCP, which
     /// never carried data over the UDP datapath.)
-    private var sendHandler: (@Sendable (CompanionMessage) async throws -> Void)?
+    private var sendHandler: (@Sendable (CompanionMessage) async throws -> Void)? {
+        didSet { replaceOutbox() }
+    }
+    /// The current connection's outbox: its messages go out one at a time, in the order they were sent.
+    /// Each used to go on a task of its own, and two could reach the connection in either order (the
+    /// tests caught an older plan landing after a newer one): an older checklist or plan overtaking a
+    /// newer one then stayed on the phone until the next change. A new send handler starts a new outbox;
+    /// the old one is finished, so what it still holds (a goodbye) goes out. (6.1.0)
+    private var outbox: AsyncStream<(CompanionMessage, Int)>.Continuation?
     private var updateTimer: Timer?
     /// The plan snapshot last streamed, and when. A change goes on the next tick, whatever it is: an ETO
     /// anchored on READY FOR LINE UP or retimed on the measured take-off, a time over marked, auto-marked
@@ -219,8 +227,11 @@ class CompanionConnectivityManager: NSObject, ObservableObject {
     private var lastPlanSentAt: Date?
     /// The last checklist snapshot actually streamed, so the 1 Hz timer only re-encodes/sends when the
     /// phase/highlight/items change instead of every tick (a phase is static for seconds-to-minutes).
-    /// Cleared on teardown so a fresh connection re-sends. (efficiency)
+    /// Cleared on teardown so a fresh connection re-sends. (efficiency) And sent again every
+    /// `CompanionTiming.snapshotRefresh` unchanged: a lost datagram left the phone on the check before
+    /// until the next change, a memory check shown as the list of the check before it. (6.1.0)
     private var lastSentChecklist: CompanionChecklistSnapshot?
+    private var lastChecklistSentAt: Date?
 
     /// Connection-health watchdog (v4.1): without it, a peer that quit/backgrounded leaves the other side
     /// showing "Connected" for minutes (the TCP/Wi-Fi Aware drop is slow to surface). Either side treats
@@ -534,9 +545,6 @@ class CompanionConnectivityManager: NSObject, ObservableObject {
                         self.adoptMasterConnection(identity: identity, send: send)
                     }) else { return }
 
-                    // Send initial flight data and plan
-                    await self.sendInitialData(send: send)
-
                     // Receive typed messages until the connection ends (the Coder decodes each one).
                     do {
                         var pending = firstFrame
@@ -651,6 +659,10 @@ class CompanionConnectivityManager: NSObject, ObservableObject {
         lastReceivedAt = Date()
         startSendTimer()              // stream state 1 Hz while connected (flight or not)
         startConnectionHealthTimer()
+        // The state as it is now, at once, through the stream itself. A separate first send used to go
+        // out on tasks of its own beside the stream's, so an older checklist could land after a newer
+        // one, and the stream, not knowing what it had sent, never corrected it. (6.1.0)
+        streamTick()
         lifecycle(identity == nil ? "Master: link up, peer not identified" : "Master: link up",
                   detail: identity?.name)
         return connectionGeneration
@@ -736,7 +748,7 @@ class CompanionConnectivityManager: NSObject, ObservableObject {
     func streamTick(now: Date = Date()) {
         guard connectionState == .connected, currentRole == .master else { return }
         sendFlightData()
-        sendChecklistSnapshot()
+        sendChecklistSnapshot(now: now)
         sendFlightPlanSnapshotIfChanged(now: now)
     }
 
@@ -1274,6 +1286,7 @@ class CompanionConnectivityManager: NSObject, ObservableObject {
         sendFailingSince = nil
         idleSince = nil
         lastSentChecklist = nil
+        lastChecklistSentAt = nil
         lastSentPlan = nil
         lastPlanSentAt = nil
         // Reset the shared-GPS state on EVERY teardown (graceful or not), so a stale peer fix can't keep
@@ -1341,15 +1354,27 @@ class CompanionConnectivityManager: NSObject, ObservableObject {
     // MARK: - Message Sending (Length-Prefixed JSON)
 
     private func sendMessage(_ message: CompanionMessage) {
-        guard let sendHandler else { return }
-        let gen = connectionGeneration
-        Task {
-            do {
-                try await sendHandler(message)   // the Coder encodes/frames it
-                await MainActor.run { self.sendFailingSince = nil }
-            } catch {
-                // Failing sends may mean the peer is gone: surface them instead of swallowing. (v4.1)
-                await MainActor.run { self.noteSendFailure(generation: gen, error: error) }
+        guard sendHandler != nil else { return }
+        outbox?.yield((message, connectionGeneration))
+    }
+
+    /// See `outbox`.
+    private func replaceOutbox() {
+        outbox?.finish()
+        outbox = nil
+        guard let send = sendHandler else { return }
+        let (stream, continuation) = AsyncStream.makeStream(of: (CompanionMessage, Int).self,
+                                                            bufferingPolicy: .bufferingNewest(64))
+        outbox = continuation
+        Task { [weak self] in
+            for await (message, generation) in stream {
+                do {
+                    try await send(message)   // the Coder encodes/frames it
+                    if generation == self?.connectionGeneration { self?.sendFailingSince = nil }
+                } catch {
+                    // Failing sends may mean the peer is gone: surface them instead of swallowing. (v4.1)
+                    self?.noteSendFailure(generation: generation, error: error)
+                }
             }
         }
     }
@@ -1493,6 +1518,13 @@ class CompanionConnectivityManager: NSObject, ObservableObject {
         // SEC-C40: being paired is not authorisation to control this flight.
         guard peerIsAuthorised(), let flightPlanManager else { return }
 
+        // A memory check shown on the phone as a list (6.1.0 device check): one way that happens is a
+        // hold on the phone's hidden-items placeholder, which reveals on both devices until the next
+        // check. Logged, so a capture can tell it from a lost update.
+        if case .revealHiddenItems = command {
+            lifecycle("Master: the phone revealed the hidden items of the current check")
+        }
+
         Self.apply(command, appState: appState, flightPlanManager: flightPlanManager)
     }
 
@@ -1620,26 +1652,6 @@ class CompanionConnectivityManager: NSObject, ObservableObject {
 
     // MARK: - Data Sending (Master)
 
-    /// Send initial flight data, plan, and checklist when a companion first connects
-    private nonisolated func sendInitialData(send: @Sendable (CompanionMessage) async throws -> Void) async {
-        // Create snapshots on main actor
-        let (flightData, planSnapshot, checklist) = await MainActor.run { [weak self] () -> (CompanionFlightData?, CompanionFlightPlanSnapshot?, CompanionChecklistSnapshot?) in
-            guard let self else { return (nil, nil, nil) }
-            return (self.createCurrentFlightData(), self.createCurrentFlightPlanSnapshot(), self.createChecklistSnapshot())
-        }
-
-        // Send flight plan snapshot first, then checklist, then current flight data (the Coder encodes each).
-        if let planSnapshot, let payload = try? JSONEncoder().encode(planSnapshot) {
-            try? await send(CompanionMessage(type: .flightPlanUpdate, payload: payload))
-        }
-        if let checklist, let payload = try? JSONEncoder().encode(checklist) {
-            try? await send(CompanionMessage(type: .checklistUpdate, payload: payload))
-        }
-        if let flightData, let payload = try? JSONEncoder().encode(flightData) {
-            try? await send(CompanionMessage(type: .flightData, payload: payload))
-        }
-    }
-
     private func sendFlightData() {
         guard sendHandler != nil, connectionState == .connected,
               let appState, let locationManager, let flightPlanManager else { return }
@@ -1680,20 +1692,6 @@ class CompanionConnectivityManager: NSObject, ObservableObject {
 
     // MARK: - Data Creation Helpers
 
-    private func createCurrentFlightData() -> CompanionFlightData? {
-        guard let appState, let locationManager, let flightPlanManager else { return nil }
-        return createCompanionFlightData(
-            appState: appState,
-            locationManager: locationManager,
-            flightPlanManager: flightPlanManager
-        )
-    }
-
-    private func createCurrentFlightPlanSnapshot() -> CompanionFlightPlanSnapshot? {
-        guard let flightPlanManager, let plan = flightPlanManager.activeFlightPlan else { return nil }
-        return createFlightPlanSnapshot(plan)
-    }
-
     #if DEBUG
     private var debugLoopback = false
 
@@ -1719,6 +1717,12 @@ class CompanionConnectivityManager: NSObject, ObservableObject {
         }
     }
     #endif
+
+    private static let sortedKeysEncoder: JSONEncoder = {
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = .sortedKeys
+        return encoder
+    }()
 
     /// Master: snapshot the current checklist phase + its visible items + highlight, for the viewer to
     /// show and drive. (companion v2 — synced checklist)
@@ -1826,7 +1830,9 @@ class CompanionConnectivityManager: NSObject, ObservableObject {
             memoryCheckNextRawValue: appState.memoryConfirmationMovesTo?.rawValue,
             // The slot and the landed card, drawn on the phone as here. No checklist text in either:
             // check names, counts and times only. (6.1, cues)
-            checkSlotData: appState.isFlightActive ? try? JSONEncoder().encode(CockpitCheckSlot.slot(for: appState)) : nil,
+            // Sorted keys: JSONEncoder's key order changes from one encode to the next, so the same slot
+            // gave different bytes, and every snapshot in flight looked changed. (6.1.0)
+            checkSlotData: appState.isFlightActive ? try? Self.sortedKeysEncoder.encode(CockpitCheckSlot.slot(for: appState)) : nil,
             landedCard: appState.landedCard.map {
                 CompanionLandedCard(id: $0.id, aerodrome: $0.aerodrome, touchdown: $0.touchdown,
                                     landingCheckSettled: appState.landingCheckSettled)
@@ -1836,17 +1842,20 @@ class CompanionConnectivityManager: NSObject, ObservableObject {
     }
 
     /// Master: stream the current checklist to the viewer (sent each tick alongside flight data — the
-    /// payload is small and the viewer needs it to stay in sync as items/phase advance).
-    private func sendChecklistSnapshot() {
+    /// payload is small and the viewer needs it to stay in sync as items/phase advance), when it changed
+    /// or is due again (see `lastSentChecklist`).
+    private func sendChecklistSnapshot(now: Date = Date()) {
         guard sendHandler != nil, connectionState == .connected, currentRole == .master,
               let snapshot = createChecklistSnapshot() else { return }
         // Skip the encode + radio send when nothing changed since the last send (CompanionChecklistSnapshot
-        // is Equatable). (efficiency)
-        guard snapshot != lastSentChecklist else { return }
+        // is Equatable) and the refresh is not due. (efficiency)
+        let due = lastChecklistSentAt.map { now.timeIntervalSince($0) >= CompanionTiming.snapshotRefresh } ?? true
+        guard snapshot != lastSentChecklist || due else { return }
         do {
             let payload = try JSONEncoder().encode(snapshot)
             sendMessage(CompanionMessage(type: .checklistUpdate, payload: payload))
             lastSentChecklist = snapshot
+            lastChecklistSentAt = now
         } catch {
             AppLog.companion.debugLine("Failed to encode checklist: \(error)")
         }

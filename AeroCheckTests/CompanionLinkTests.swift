@@ -450,6 +450,80 @@ final class CompanionLinkTests: XCTestCase {
         XCTAssertNotEqual(snapshot(eto: t, ato: t), snapshot(eto: t, ato: nil), "so is a time over taken back")
     }
 
+    // MARK: - The checklist reaches the phone (6.1.0)
+
+    /// The last checklist the phone was sent, decoded as the phone decodes it.
+    private func lastChecklist(_ sent: SentMessages) throws -> CompanionChecklistSnapshot? {
+        try sent.of(.checklistUpdate).last.map {
+            try JSONDecoder().decode(CompanionChecklistSnapshot.self, from: $0.payload)
+        }
+    }
+
+    /// A flight on the WT9 with the Memory test on: its TAXI is a memory check, the check before it a list.
+    private func memoryTestFlight(_ appState: AppState) throws {
+        appState.settings.selectedRemoteAircraftId = nil
+        appState.settings.selectedAircraft = .wt9Dynamic
+        appState.settings.learningMode = false
+        appState.settings.stepByStepHighlighting = true
+        appState.startFlight()
+        try XCTSkipUnless(appState.isMemoryCheck(.taxi), "needs the WT9's memory checks")
+        XCTAssertFalse(appState.isMemoryCheck(.afterEngineStart))
+    }
+
+    /// The check slot rides in the checklist snapshot as JSON, and JSONEncoder's key order changes from
+    /// one encode to the next: every snapshot in flight differed from the last, so the "only when it
+    /// changed" check never held there. Sorted keys, the same bytes.
+    func testTheCheckSlotEncodesTheSameEveryTime() throws {
+        let companion = makeCompanion(role: .master)
+        try memoryTestFlight(companion.appState)
+        companion.appState.currentPhase = .taxi
+        let snapshots = (0..<20).map { _ in
+            CompanionConnectivityManager.checklistSnapshot(of: companion.appState, mayStreamItemText: true)
+        }
+        XCTAssertNotNil(snapshots[0].checkSlotData)
+        XCTAssertTrue(snapshots.allSatisfy { $0 == snapshots[0] })
+    }
+
+    /// The state goes at once when the phone connects, through the stream itself.
+    func testThePhoneGetsTheStateTheMomentItConnects() async throws {
+        let sent = SentMessages()
+        _ = try connectedMaster(sent: sent)
+        let both = try await eventually { !sent.of(.checklistUpdate).isEmpty && !sent.of(.flightData).isEmpty }
+        XCTAssertTrue(both, "no tick needed")
+    }
+
+    /// The first memory check after the start showed on the phone as a list to tick. Likely: the phone
+    /// still had the check before it, the update that moved on lost on the way, and an unchanged
+    /// checklist was never sent again. It now is, every few seconds.
+    func testAMemoryCheckReachesThePhoneEvenWhenItsFirstUpdateIsLost() async throws {
+        let sent = SentMessages()
+        let (companion, _) = try connectedMaster(sent: sent)
+        try memoryTestFlight(companion.appState)
+        let now = Date().addingTimeInterval(100)   // ahead of the stream's own timer
+        companion.appState.currentPhase = .afterEngineStart
+        companion.manager.streamTick(now: now)
+
+        companion.appState.currentPhase = .taxi
+        companion.manager.streamTick(now: now.addingTimeInterval(1))
+        let moved = try await eventually { (try? self.lastChecklist(sent))??.memoryCheck == true }
+        XCTAssertTrue(moved, "the move goes on the tick after it")
+        sent.clear()   // ... and is lost on the way
+
+        companion.manager.streamTick(now: now.addingTimeInterval(2))
+        try await Task.sleep(for: .milliseconds(200))
+        XCTAssertTrue(sent.of(.checklistUpdate).isEmpty, "unchanged: not every second")
+
+        companion.manager.streamTick(now: now.addingTimeInterval(1 + CompanionTiming.snapshotRefresh))
+        let healed = try await eventually { (try? self.lastChecklist(sent)) != nil }
+        XCTAssertTrue(healed, "sent again")
+        let checklist = try XCTUnwrap(try lastChecklist(sent))
+        XCTAssertEqual(checklist.phaseRawValue, ChecklistPhase.taxi.rawValue)
+        XCTAssertTrue(checklist.memoryCheck, "a memory check, which the phone confirms with ✓ DONE")
+        XCTAssertTrue(checklist.supportsMemoryConfirm)
+        XCTAssertFalse(checklist.memoryCheckDone)
+        XCTAssertTrue(checklist.items.isEmpty, "nothing to tick")
+    }
+
     func testTheLinkEndsAreLoggedAsFixedText() {
         let ends: [CompanionConnectivityManager.LinkEnd] = [.peerLeft, .silence(12), .noFirstFrame, .sendFailing,
                                                             .receiveEnded, .idle(minutes: 10), .forgotten]

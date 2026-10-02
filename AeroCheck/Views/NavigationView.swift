@@ -2055,8 +2055,8 @@ struct NavigationMapView: View {
                                         started: state.started)
                         navPrimaryButton(plan, started: state.started)
                     }
-                    if !flightPlanManager.isFlightPlanCompleted { divertThumbButton(plan) }
-                    navMoreMenu(running: state.running, started: state.started)
+                    divertAndMore(plan, leg: state, axis: .horizontal,
+                                  spacing: CockpitType.size(kneeboard: 12, phone: 8))
                 }
             }
             .padding(.horizontal, CockpitType.size(kneeboard: 16, phone: 12))
@@ -2104,10 +2104,7 @@ struct NavigationMapView: View {
                                         started: state.started)
                     }
                     navPrimaryButton(plan, started: state.started, leg: showsCheckSlot ? state : nil)
-                    VStack(spacing: 8) {
-                        if !flightPlanManager.isFlightPlanCompleted { divertThumbButton(plan, stacked: true) }
-                        navMoreMenu(running: state.running, started: state.started, stacked: true)
-                    }
+                    divertAndMore(plan, leg: state, axis: .vertical, stacked: true)
                 }
             }
         } else {
@@ -2141,10 +2138,7 @@ struct NavigationMapView: View {
                         // Divert and More stacked, half height, so MARK keeps the width for its leg line.
                         HStack(spacing: 12) {
                             navPrimaryButton(plan, started: state.started, leg: state)
-                            VStack(spacing: 8) {
-                                if !flightPlanManager.isFlightPlanCompleted { divertThumbButton(plan, stacked: true) }
-                                navMoreMenu(running: state.running, started: state.started, stacked: true)
-                            }
+                            divertAndMore(plan, leg: state, axis: .vertical, stacked: true)
                         }
                     }
                 }
@@ -2166,21 +2160,18 @@ struct NavigationMapView: View {
     }
 
     /// The landscape column in flight without the check slot: the leg timer and Divert, then MARK with
-    /// More beside it.
+    /// More beside it. Divert over More, so the two share a width.
     private func legTimerOverMark(_ plan: FlightPlan) -> some View {
         TimelineView(.periodic(from: .now, by: 1)) { _ in
             let state = legTimerState(plan)
-            VStack(spacing: 12) {
-                HStack(spacing: 12) {
+            HStack(alignment: .bottom, spacing: 12) {
+                VStack(alignment: .leading, spacing: 12) {
                     legTimerReadout(elapsed: state.elapsed, planned: state.planned, running: state.running,
                                     started: state.started)
-                    Spacer(minLength: 0)
-                    if !flightPlanManager.isFlightPlanCompleted { divertThumbButton(plan) }
-                }
-                HStack(spacing: 12) {
+                        .frame(maxWidth: .infinity, minHeight: CockpitTarget.thumb, alignment: .leading)
                     navPrimaryButton(plan, started: state.started)
-                    navMoreMenu(running: state.running, started: state.started)
                 }
+                divertAndMore(plan, leg: state, axis: .vertical, spacing: 12)
             }
         }
     }
@@ -2263,6 +2254,16 @@ struct NavigationMapView: View {
         return text
     }
 
+    /// Divert (while the route has a leg to fly) and More, one width for both: side by side in the thumb
+    /// bar, one above the other in the landscape columns (`stacked`: half height each, beside MARK).
+    private func divertAndMore(_ plan: FlightPlan, leg state: LegTimerState, axis: Axis, stacked: Bool = false,
+                               spacing: CGFloat = 8) -> some View {
+        EqualWidthStack(axis: axis, spacing: spacing) {
+            if !flightPlanManager.isFlightPlanCompleted { divertThumbButton(plan, stacked: stacked) }
+            navMoreMenu(running: state.running, started: state.started, stacked: stacked)
+        }
+    }
+
     private func divertThumbButton(_ plan: FlightPlan, stacked: Bool = false) -> some View {
         thumbSecondaryButton(icon: "arrow.triangle.turn.up.right.diamond.fill",
                              title: L10n.Trip.divert,
@@ -2338,7 +2339,8 @@ struct NavigationMapView: View {
     }
 
     /// `stacked`: half height, icon beside the word, for two buttons one above the other (the landscape
-    /// phone). Narrower on the phone, where MARK needs the width. (iPhone pass)
+    /// phone). Narrower on the phone, where MARK needs the width. (iPhone pass) It fills the width it is
+    /// offered, so `divertAndMore` can give Divert and More one width.
     @ViewBuilder
     private func thumbSecondaryLabel(icon: String, title: String, tint: Color, stacked: Bool = false) -> some View {
         Group {
@@ -2351,7 +2353,7 @@ struct NavigationMapView: View {
                         .minimumScaleFactor(0.7)
                 }
                 .padding(.horizontal, 10)
-                .frame(minWidth: 96, minHeight: (CockpitTarget.thumb - 8) / 2)
+                .frame(minWidth: 96, maxWidth: .infinity, minHeight: (CockpitTarget.thumb - 8) / 2)
             } else {
                 VStack(spacing: 6) {
                     Image(systemName: icon).font(.aero(size: CockpitType.response, weight: .semibold))
@@ -2361,7 +2363,8 @@ struct NavigationMapView: View {
                         .minimumScaleFactor(0.7)
                 }
                 .padding(.horizontal, CockpitType.size(kneeboard: 12, phone: 8))
-                .frame(minWidth: CockpitType.size(kneeboard: 120, phone: 64), minHeight: CockpitTarget.thumb)
+                .frame(minWidth: CockpitType.size(kneeboard: 120, phone: 64), maxWidth: .infinity,
+                       minHeight: CockpitTarget.thumb)
             }
         }
         .foregroundColor(tint)
@@ -6202,6 +6205,62 @@ private struct NavClockText: View {
 private struct LegsPanelHeightKey: PreferenceKey {
     static let defaultValue: CGFloat = 0
     static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) { value = max(value, nextValue()) }
+}
+
+/// Buttons side by side or one above the other, all one width: Divert and More, in the thumb bar and
+/// beside MARK in the landscape columns. More is a `Menu`, which sizes to its label, so it came out
+/// narrower than Divert, and much narrower in French ("Plus" beside "Déroutement"). (6.1, device check)
+///
+/// The pair takes the room the two buttons want, so MARK and the check slot beside it keep theirs:
+/// one above the other, the wider one's width, as a stack of the two took; side by side, half of
+/// both, the longer word a little smaller (its label scales down to 0.7) and the shorter one's button
+/// wider. As wide as the wider side by side, the pair left MARK and the slot about 55 pt each on a
+/// phone in French. Each button must fill the width it is offered (`maxWidth: .infinity`); the pair
+/// keeps its width whatever it is offered, and MARK gives.
+struct EqualWidthStack: Layout {
+    var axis: Axis = .vertical
+    var spacing: CGFloat = 8
+
+    /// The one width, from what each button wants.
+    static func buttonWidth(ideals: [CGFloat], axis: Axis) -> CGFloat {
+        guard !ideals.isEmpty else { return 0 }
+        switch axis {
+        case .vertical: return ideals.max() ?? 0
+        case .horizontal: return ideals.reduce(0, +) / CGFloat(ideals.count)
+        }
+    }
+
+    func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
+        guard !subviews.isEmpty else { return .zero }
+        let width = buttonWidth(subviews)
+        let heights = subviews.map { $0.sizeThatFits(ProposedViewSize(width: width, height: nil)).height }
+        let gaps = spacing * CGFloat(subviews.count - 1)
+        switch axis {
+        case .vertical:
+            return CGSize(width: width, height: heights.reduce(0, +) + gaps)
+        case .horizontal:
+            return CGSize(width: width * CGFloat(subviews.count) + gaps, height: heights.max() ?? 0)
+        }
+    }
+
+    func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) {
+        let width = buttonWidth(subviews)
+        var origin = bounds.origin
+        for subview in subviews {
+            let height = axis == .horizontal
+                ? bounds.height
+                : subview.sizeThatFits(ProposedViewSize(width: width, height: nil)).height
+            subview.place(at: origin, proposal: ProposedViewSize(width: width, height: height))
+            switch axis {
+            case .vertical: origin.y += height + spacing
+            case .horizontal: origin.x += width + spacing
+            }
+        }
+    }
+
+    private func buttonWidth(_ subviews: Subviews) -> CGFloat {
+        Self.buttonWidth(ideals: subviews.map { $0.sizeThatFits(.unspecified).width }, axis: axis)
+    }
 }
 
 /// The flight-event overlay, except where the map is embedded in a view that already has one.

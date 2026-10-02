@@ -1,10 +1,11 @@
+import SwiftUI
 import XCTest
 @testable import AeroCheck
 
 /// The layouts a screen picks from the size it is given (the route builder's portrait and two columns,
-/// the Logbook's list and detail, the root's rotation prompt, the map's landscape legs panel), and the
-/// on-screen keyboard, which takes its height off that size. With the keys up, an iPad in portrait is
-/// wider than it is tall. (6.1.0)
+/// the Logbook's list and detail, the root's rotation prompt, the map's landscape legs panel and its
+/// thumb buttons), and the on-screen keyboard, which takes its height off that size. With the keys up,
+/// an iPad in portrait is wider than it is tall. (6.1.0)
 final class OrientationLayoutTests: XCTestCase {
 
     // MARK: Route builder
@@ -91,5 +92,36 @@ final class OrientationLayoutTests: XCTestCase {
             XCTAssertGreaterThan(panel, mapHeight / 3, "still a panel at \(mapHeight) pt")
         }
         XCTAssertEqual(NavigationMapView.landscapeLegsMaxHeight(mapHeight: 40), 0, "never negative")
+    }
+
+    func testDivertAndMoreShareOneWidthWithoutTakingMARKsRoom() {
+        // What the two want on a phone in French: "Déroutement" 121 pt, "Plus" its 64 pt minimum.
+        let ideals: [CGFloat] = [121, 64]
+        // Side by side (the thumb bar): half of both, so the pair takes what the two want.
+        XCTAssertEqual(EqualWidthStack.buttonWidth(ideals: ideals, axis: .horizontal), 92.5)
+        // One above the other (beside MARK on its side): the wider one's, the width the stack had.
+        XCTAssertEqual(EqualWidthStack.buttonWidth(ideals: ideals, axis: .vertical), 121)
+        // Divert gone (the route flown): More alone keeps its own.
+        XCTAssertEqual(EqualWidthStack.buttonWidth(ideals: [64], axis: .horizontal), 64)
+        XCTAssertEqual(EqualWidthStack.buttonWidth(ideals: [], axis: .vertical), 0)
+    }
+
+    @MainActor
+    func testTheButtonsAreLaidOutAtTheirOneWidth() {
+        // Two buttons that fill what they are offered, one wanting 60 pt and the other 100.
+        func pair(_ axis: Axis) -> some View {
+            EqualWidthStack(axis: axis, spacing: 8) {
+                Color.clear.frame(idealWidth: 60, maxWidth: .infinity, idealHeight: 48)
+                Color.clear.frame(idealWidth: 100, maxWidth: .infinity, idealHeight: 48)
+            }
+        }
+        let room = CGSize(width: 1_000, height: 1_000)
+        XCTAssertEqual(UIHostingController(rootView: pair(.horizontal)).sizeThatFits(in: room),
+                       CGSize(width: 2 * 80 + 8, height: 48), "side by side, 80 pt each")
+        XCTAssertEqual(UIHostingController(rootView: pair(.vertical)).sizeThatFits(in: room),
+                       CGSize(width: 100, height: 2 * 48 + 8), "one above the other, 100 pt each")
+        // Short of room, the pair keeps its width, as the buttons did: MARK beside it gives way.
+        let tight = CGSize(width: 120, height: 1_000)
+        XCTAssertEqual(UIHostingController(rootView: pair(.horizontal)).sizeThatFits(in: tight).width, 168)
     }
 }

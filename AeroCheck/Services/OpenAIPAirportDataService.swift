@@ -31,8 +31,27 @@ final class OpenAIPAirportDataService: ObservableObject {
             guard !airports.isEmpty else { return }
             pprIcaoCodes = Set(airports.filter(\.isPPR).compactMap(\.icaoCode).map { $0.uppercased() })
             hasPPRData = true
+            fuelTypesByIcao = Self.fuelIndex(airports)
             aerodromesById = Self.aerodromeIndex(airports)
         }
+    }
+
+    /// Fuel grades by uppercased ICAO ident, for the flight thread's fuel row. Kept when the array is
+    /// released after the merge, like the PPR set: read from the array, the destination's grades were
+    /// gone a few seconds after launch, so the fuel row almost never named them. (6.2.0)
+    private(set) var fuelTypesByIcao: [String: [OpenAIPFuelType]] = [:]
+
+    /// The fuel grades OpenAIP lists for `icao`; empty when it lists none or doesn't know the field.
+    func fuelTypes(forICAO icao: String) -> [OpenAIPFuelType] {
+        fuelTypesByIcao[icao.uppercased()] ?? []
+    }
+
+    nonisolated static func fuelIndex(_ airports: [OpenAIPAirport]) -> [String: [OpenAIPFuelType]] {
+        Dictionary(airports.compactMap { airport -> (String, [OpenAIPFuelType])? in
+            guard let icao = airport.icaoCode?.uppercased(), !icao.isEmpty else { return nil }
+            let fuels = airport.fuelTypes
+            return fuels.isEmpty ? nil : (icao, fuels)
+        }, uniquingKeysWith: { first, _ in first })
     }
 
     /// Code and name of every OpenAIP aerodrome, by its OpenAIP `_id`: what a reporting point's
@@ -183,6 +202,7 @@ final class OpenAIPAirportDataService: ObservableObject {
         aerodromesById = [:]
         pprIcaoCodes = []
         hasPPRData = false
+        fuelTypesByIcao = [:]
         airportCount = 0
         downloadedCountries = []
         failedCountries = []

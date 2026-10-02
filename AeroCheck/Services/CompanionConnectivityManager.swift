@@ -120,6 +120,20 @@ struct CompanionAuthorizationRequest: Identifiable, Equatable {
     var id: Int { generation }
 }
 
+/// When the pairing screen has done its job. (6.1.0)
+enum CompanionPairingCompletion {
+    /// A pairing finished: a system pairing record is there that was not when the screen opened.
+    ///
+    /// Not "one more row", which is what closed the screen before: pairing again a device already
+    /// listed adds a record the list folds into that device's row (or replaces the old record), so the
+    /// count did not move and the screen stayed up over a pairing that had worked. Not "any change"
+    /// either: an old record removed while the screen is up must not close it before the new one lands,
+    /// which on iOS 27 can cancel the pairing in progress.
+    static func isComplete(baseline: Set<UInt64>, current: Set<UInt64>) -> Bool {
+        !current.subtracting(baseline).isEmpty
+    }
+}
+
 /// The paired devices the pilot told AéroCheck to forget. (S9-09)
 ///
 /// Wi-Fi Aware has no API to remove a system pairing (`WAPairedDevice` only lists them), so this is
@@ -404,8 +418,10 @@ class CompanionConnectivityManager: NSObject, ObservableObject {
                     let mapped = rows.values.sorted { ($0.displayName ?? "", $0.id) < ($1.displayName ?? "", $1.id) }
                     await MainActor.run {
                         guard let self else { return }
-                        if self.pairedDevices.count != mapped.count {
+                        let ids = Set(mapped.flatMap(\.deviceIDs))
+                        if ids != self.pairedDeviceIDs {
                             self.diag("Paired devices: \(mapped.count) (\(mapped.compactMap(\.name).joined(separator: ", ")))")
+                            self.lifecycle("Paired devices: \(mapped.count), \(ids.count) system record(s)")
                         }
                         self.pairedDevices = mapped
                     }
@@ -415,6 +431,10 @@ class CompanionConnectivityManager: NSObject, ObservableObject {
             }
         }
     }
+
+    /// Every system pairing record behind the list, forgotten ones included: what the pairing screen
+    /// watches to know a pairing finished (`CompanionPairingCompletion`).
+    var pairedDeviceIDs: Set<UInt64> { Set(pairedDevices.flatMap(\.deviceIDs)) }
 
     /// Whether any device is paired for companion mode and not forgotten: one the app will connect to.
     var hasPairedDevices: Bool {

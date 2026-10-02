@@ -367,13 +367,37 @@ struct CompanionViewerHello: Codable, Equatable {
 
 // MARK: - Companion stream timing
 
-/// One knob for the ~1 Hz companion stream's freshness/liveness window (seconds). The three uses are
-/// intentionally coupled to that cadence so they can't drift apart: a borrowed peer GPS fix older than
-/// this is stale (GPSSourceElection.maxFixAge), the link is treated as dropped if no traffic arrives
-/// within it (CompanionConnectivityManager.receiveStaleAfter), and the viewer shows frozen-data once the
-/// last flight-data is this old (CompanionFlightView.isDataStale). (companion v2)
+/// The companion link's clocks, in seconds.
 enum CompanionTiming {
+    /// The ~1 Hz stream's freshness window. Its two uses are coupled to that cadence so they can't drift
+    /// apart: a borrowed peer GPS fix older than this is stale (GPSSourceElection.maxFixAge), and the
+    /// viewer shows frozen data once the last flight data is this old (CompanionFlightView.isDataStale).
+    /// (companion v2)
     static let streamStaleAfter: TimeInterval = 5
+
+    /// Either side ends the link after this long without a frame from the peer. It was the stale window
+    /// above, 5 s: with the viewer's keep-alive every 2 s, two datagrams lost or late in a row (UDP over
+    /// a radio shared with the infrastructure Wi-Fi, a busy main thread on the iPad) dropped the link,
+    /// and each drop costs a new browse and connection while the phone shows the link lost. The stale
+    /// banner still comes at 5 s; the link goes at 10. (6.1.0)
+    static let linkSilenceLimit: TimeInterval = 10
+
+    /// Viewer: a new connection that has heard nothing from the iPad within this is given up and the
+    /// phone looks again. The iPad streams from the moment it takes a connection, so one that stays
+    /// silent this long went to a listener that is gone (the phone's browse can find the publish the
+    /// iPad is tearing down). (6.1.0)
+    static let firstFrameLimit: TimeInterval = 5
+
+    /// Master: an unchanged plan or checklist snapshot goes again this often. Both are sent when they
+    /// change, and a datagram lost over UDP is not resent: the phone kept a stale check or plan until
+    /// the next change. (6.1.0)
+    static let snapshotRefresh: TimeInterval = 3
+
+    /// Viewer: how long the Companion screen stays up after the link dropped, its "connection lost"
+    /// banner on, while the phone looks for the iPad again. Looking again used to show the phone's
+    /// ground screen for the length of the browse, which flashed on every short drop. Past this the
+    /// phone goes back to its own screens and keeps looking. (6.1.0)
+    static let reconnectGrace: TimeInterval = 30
 }
 
 // MARK: - GPS source election — shared-GPS
@@ -436,16 +460,13 @@ struct CompanionFlightPlanSnapshot: Codable, Equatable {
     /// build ignores it and a snapshot from an older master decodes as "no diversion". (v5.1)
     var diversion: CompanionWaypoint? = nil
 
-    static func == (lhs: CompanionFlightPlanSnapshot, rhs: CompanionFlightPlanSnapshot) -> Bool {
-        lhs.planId == rhs.planId &&
-        lhs.waypoints.count == rhs.waypoints.count &&
-        lhs.currentWaypointIndex == rhs.currentWaypointIndex &&
-        lhs.diversion?.name == rhs.diversion?.name
-    }
+    // `==` compares everything, ETOs and times over included: the master sends a snapshot when it
+    // differs from the last one sent. It compared the plan id, the waypoint count, the current index
+    // and the diversion only, the same trap as `FlightPlan ==`. (6.1.0)
 }
 
 /// A waypoint in the companion flight plan snapshot
-struct CompanionWaypoint: Codable, Identifiable {
+struct CompanionWaypoint: Codable, Identifiable, Equatable {
     let id: UUID
     let name: String
     let latitude: Double

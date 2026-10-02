@@ -78,6 +78,17 @@ struct CompanionPairingView: View {
             .accessibilityHidden(true)
     }
 
+    /// What the screen does to the link, and when it goes away: the link is paused while it is up
+    /// (pairing mode), and it closes by itself once a pairing record lands, pairing again a device
+    /// already listed included. Without it, re-pairing read as stuck, then worked "somehow". (6.1.0)
+    private var pairingPausesLinkNote: some View {
+        Text(L10n.Companion.pairingPausesLink)
+            .font(.aero(.footnote))
+            .foregroundColor(.secondaryText)
+            .multilineTextAlignment(.center)
+            .padding(.horizontal, 40)
+    }
+
     /// "Wi-Fi Aware · iOS 26+" footnote shown under the pairing prompts.
     private var wifiAwareFootnote: some View {
         Label(L10n.Companion.wifiAwareRequirement, systemImage: "wifi")
@@ -137,6 +148,8 @@ struct CompanionPairingView: View {
                 wifiAwareUnavailableContent
             }
 
+            pairingPausesLinkNote
+
             wifiAwareFootnote
 
             Spacer()
@@ -170,6 +183,8 @@ struct CompanionPairingView: View {
             CompanionPickerButton()
                 .equatable()
                 .padding(.top, 6)
+
+            pairingPausesLinkNote
 
             wifiAwareFootnote
 

@@ -120,6 +120,20 @@ struct CompanionAuthorizationRequest: Identifiable, Equatable {
     var id: Int { generation }
 }
 
+/// When the pairing screen has done its job. (6.1.0)
+enum CompanionPairingCompletion {
+    /// A pairing finished: a system pairing record is there that was not when the screen opened.
+    ///
+    /// Not "one more row", which is what closed the screen before: pairing again a device already
+    /// listed adds a record the list folds into that device's row (or replaces the old record), so the
+    /// count did not move and the screen stayed up over a pairing that had worked. Not "any change"
+    /// either: an old record removed while the screen is up must not close it before the new one lands,
+    /// which on iOS 27 can cancel the pairing in progress.
+    static func isComplete(baseline: Set<UInt64>, current: Set<UInt64>) -> Bool {
+        !current.subtracting(baseline).isEmpty
+    }
+}
+
 /// The paired devices the pilot told AéroCheck to forget. (S9-09)
 ///
 /// Wi-Fi Aware has no API to remove a system pairing (`WAPairedDevice` only lists them), so this is
@@ -206,37 +220,71 @@ class CompanionConnectivityManager: NSObject, ObservableObject {
     /// UDP (matching the `._udp` Wi-Fi Aware service + Apple's sample), so we hand it a `CompanionMessage`
     /// and the Coder frames/encodes it — no manual length-prefix framing. (v4.1 — was TLS/TCP, which
     /// never carried data over the UDP datapath.)
-    private var sendHandler: (@Sendable (CompanionMessage) async throws -> Void)?
+    private var sendHandler: (@Sendable (CompanionMessage) async throws -> Void)? {
+        didSet { replaceOutbox() }
+    }
+    /// The current connection's outbox: its messages go out one at a time, in the order they were sent.
+    /// Each used to go on a task of its own, and two could reach the connection in either order (the
+    /// tests caught an older plan landing after a newer one): an older checklist or plan overtaking a
+    /// newer one then stayed on the phone until the next change. A new send handler starts a new outbox;
+    /// the old one is finished, so what it still holds (a goodbye) goes out. (6.1.0)
+    private var outbox: AsyncStream<(CompanionMessage, Int)>.Continuation?
     private var updateTimer: Timer?
-    private var lastSentFlightPlanId: UUID?
-    /// The diversion the viewer was last told about, so a Divert / Resume reaches it at once. (v5.1)
-    private var lastSentDiversionIdent: String?
+    /// The plan snapshot last streamed, and when. A change goes on the next tick, whatever it is: an ETO
+    /// anchored on READY FOR LINE UP or retimed on the measured take-off, a time over marked, auto-marked
+    /// or taken back, a Divert / Resume, the plan swapped. It used to go only for a new plan, a
+    /// diversion, or once any waypoint had a time over (and then every second), so the ETOs anchored
+    /// before the take-off reached the phone only with the next full snapshot, after a reconnect. An
+    /// unchanged one goes again every `CompanionTiming.snapshotRefresh`, since a datagram lost over UDP
+    /// is not resent. Cleared on teardown. (6.1.0)
+    private var lastSentPlan: CompanionFlightPlanSnapshot?
+    private var lastPlanSentAt: Date?
     /// The last checklist snapshot actually streamed, so the 1 Hz timer only re-encodes/sends when the
     /// phase/highlight/items change instead of every tick (a phase is static for seconds-to-minutes).
-    /// Cleared on teardown so a fresh connection re-sends. (efficiency)
+    /// Cleared on teardown so a fresh connection re-sends. (efficiency) And sent again every
+    /// `CompanionTiming.snapshotRefresh` unchanged: a lost datagram left the phone on the check before
+    /// until the next change, a memory check shown as the list of the check before it. (6.1.0)
     private var lastSentChecklist: CompanionChecklistSnapshot?
+    private var lastChecklistSentAt: Date?
 
     /// Connection-health watchdog (v4.1): without it, a peer that quit/backgrounded leaves the other side
-    /// showing "Connected" for minutes (the TCP/Wi-Fi Aware drop is slow to surface). The viewer treats a
-    /// gap in the master's ~1 Hz stream as a drop; the master treats repeated send failures as a drop.
+    /// showing "Connected" for minutes (the TCP/Wi-Fi Aware drop is slow to surface). Either side treats
+    /// a silence from the peer as a drop (`CompanionTiming.linkSilenceLimit`), and sends that keep failing.
     private var connectionHealthTimer: Timer?
     private var lastReceivedAt: Date?
-    private var sendFailureCount = 0
-    private static let receiveStaleAfter: TimeInterval = CompanionTiming.streamStaleAfter
-    private static let maxConsecutiveSendFailures = 3
+    /// When the sends started failing, nil while they go through. The link ends on sends failing for
+    /// `linkSilenceLimit`, no longer on three failures in a row: the iPad sends two or three datagrams a
+    /// second (flight data, checklist, plan), so three were one bad second of radio. (6.1.0)
+    private var sendFailingSince: Date?
+    /// Viewer: whether the current connection has heard from the iPad yet (`firstFrameLimit`).
+    private var viewerHeardFromIPad = false
+    /// Viewer: when the live link dropped, while the Companion screen stays up and the phone looks for
+    /// the iPad again (`CompanionTiming.reconnectGrace`). Nil otherwise. (6.1.0)
+    private var viewerLinkLostAt: Date?
+    /// The app went to the background since it was last active (`appBecameActive`).
+    private var wasInBackground = false
 
-    /// Battery: drop the hot Wi-Fi Aware link if it's been connected with NO active flight for a while
-    /// (e.g. companion left on in the hangar). It re-establishes automatically on flight start or when
-    /// the user opens the Companion screen — but a passive foreground/launch won't silently re-arm it.
+    /// Battery: drop the hot Wi-Fi Aware link (the 1 Hz stream, the realtime radio mode) once it has
+    /// been up for a while with NO flight, e.g. companion left on in the hangar. The phone is told and
+    /// stays off until it is used again (its app back in the foreground, Companion mode turned on
+    /// there); the iPad keeps listening, so that brings the link back without touching the iPad. It
+    /// used to stop listening too, and then only the iPad (a flight start, its Companion screen) could.
+    /// (6.1.0)
     private var idleSince: Date?
-    private var idleDisconnected = false
     private static let idleDisconnectAfter: TimeInterval = 600   // 10 min connected + no flight
+
+    /// Master: listener failures in a row, for the retry's back-off. Reset by an accepted connection.
+    private var listenerFailures = 0
+    /// How many times a listener (master) or a browse (viewer) was started: the diagnostics' count,
+    /// and what the tests read, since a test manager starts nothing real.
+    private(set) var listenerStarts = 0
+    private(set) var browseStarts = 0
 
     /// Monotonic token identifying the current connection attempt. Each new connect/accept bumps it
     /// and captures the value; a stale connection's teardown (its receive loop ending *after* a
     /// newer connection has already taken over) carries an older token and is ignored — so it can't
     /// clobber the live connection's state or schedule a duplicate reconnect. (PR-15)
-    private var connectionGeneration: Int = 0
+    private(set) var connectionGeneration: Int = 0
 
     // Task management
     private var listenerTask: Task<Void, any Error>?
@@ -314,16 +362,38 @@ class CompanionConnectivityManager: NSObject, ObservableObject {
     /// Record a companion lifecycle event for the dev diagnostics panel (newest first) and the log.
     /// `isPublic` only for a fixed state message with no device name in it (SA-20).
     private func diag(_ message: String, isPublic: Bool = false) {
-        let line = "\(Self.diagTimeFormatter.string(from: Date()))  \(message)"
-        diagnostics.insert(line, at: 0)
-        if diagnostics.count > Self.diagnosticsCap {
-            diagnostics.removeLast(diagnostics.count - Self.diagnosticsCap)
-        }
+        appendDiagnostic(message)
         if isPublic {
             AppLog.companion.publicLine(message)
         } else {
             AppLog.companion.debugLine(message)
         }
+    }
+
+    /// A link lifecycle event (up, down and why, a listener re-armed, a reconnect attempt): in the
+    /// diagnostics panel with `detail`, and in the device log in the clear at a level a `log collect`
+    /// archive keeps, without `detail`. So a USB capture taken after a field report shows why a link
+    /// dropped. `event` is fixed text and numbers only; a device name goes in `detail`, which the
+    /// device log keeps private. (6.1.0, SA-20)
+    private func lifecycle(_ event: String, detail: String? = nil) {
+        appendDiagnostic(detail.map { "\(event) (\($0))" } ?? event)
+        AppLog.companion.publicNotice(event)
+        if let detail { AppLog.companion.debugLine("\(event): \(detail)") }
+    }
+
+    private func appendDiagnostic(_ message: String) {
+        let line = "\(Self.diagTimeFormatter.string(from: Date()))  \(message)"
+        diagnostics.insert(line, at: 0)
+        if diagnostics.count > Self.diagnosticsCap {
+            diagnostics.removeLast(diagnostics.count - Self.diagnosticsCap)
+        }
+    }
+
+    /// An error as fixed text for the public log: its domain and code, never its description, which
+    /// can carry an endpoint or a device name.
+    nonisolated static func errorCode(_ error: any Error) -> String {
+        let ns = error as NSError
+        return "\(ns.domain) \(ns.code)"
     }
 
     // MARK: - Paired Device Monitoring
@@ -348,8 +418,10 @@ class CompanionConnectivityManager: NSObject, ObservableObject {
                     let mapped = rows.values.sorted { ($0.displayName ?? "", $0.id) < ($1.displayName ?? "", $1.id) }
                     await MainActor.run {
                         guard let self else { return }
-                        if self.pairedDevices.count != mapped.count {
+                        let ids = Set(mapped.flatMap(\.deviceIDs))
+                        if ids != self.pairedDeviceIDs {
                             self.diag("Paired devices: \(mapped.count) (\(mapped.compactMap(\.name).joined(separator: ", ")))")
+                            self.lifecycle("Paired devices: \(mapped.count), \(ids.count) system record(s)")
                         }
                         self.pairedDevices = mapped
                     }
@@ -359,6 +431,10 @@ class CompanionConnectivityManager: NSObject, ObservableObject {
             }
         }
     }
+
+    /// Every system pairing record behind the list, forgotten ones included: what the pairing screen
+    /// watches to know a pairing finished (`CompanionPairingCompletion`).
+    var pairedDeviceIDs: Set<UInt64> { Set(pairedDevices.flatMap(\.deviceIDs)) }
 
     /// Whether any device is paired for companion mode and not forgotten: one the app will connect to.
     var hasPairedDevices: Bool {
@@ -383,7 +459,7 @@ class CompanionConnectivityManager: NSObject, ObservableObject {
         case .master:
             // Tell the viewer, then drop it and listen again: the next connection it makes is refused.
             sendMessage(CompanionMessage(type: .disconnect, payload: Data()))
-            handleDisconnection(generation: connectionGeneration)
+            handleDisconnection(generation: connectionGeneration, reason: .forgotten)
         case .viewer:
             disconnect()
         case .none:
@@ -396,7 +472,7 @@ class CompanionConnectivityManager: NSObject, ObservableObject {
         forgottenDevices.allow(device.deviceIDs)
         diag("Allowed \(device.displayName ?? "a device") again")
         rebrowseIfLooking()
-        autoConnectIfReady(force: true)
+        autoConnectIfReady()
     }
 
     /// Viewer: a browse already running took the forgotten list as it was when it started. Start it
@@ -431,12 +507,11 @@ class CompanionConnectivityManager: NSObject, ObservableObject {
 
         currentRole = .master
         connectionState = .connecting
+        listenerStarts += 1
         diag("Master: start listening (advertising '\(serviceName)')")
 
-        guard usesWiFiAware else {
-            connectionState = .disconnected
-            return
-        }
+        // A test manager: "listening" with nothing to hear, the state the iPad is in while it waits.
+        guard usesWiFiAware else { return }
         // Wi-Fi Aware listening requires iOS 26+. Below that, stay inert. (ARCH-09)
         guard #available(iOS 26.0, *) else {
             connectionState = .disconnected
@@ -490,9 +565,6 @@ class CompanionConnectivityManager: NSObject, ObservableObject {
                         self.adoptMasterConnection(identity: identity, send: send)
                     }) else { return }
 
-                    // Send initial flight data and plan
-                    await self.sendInitialData(send: send)
-
                     // Receive typed messages until the connection ends (the Coder decodes each one).
                     do {
                         var pending = firstFrame
@@ -521,7 +593,7 @@ class CompanionConnectivityManager: NSObject, ObservableObject {
 
                     // Connection ended
                     await MainActor.run {
-                        self.handleDisconnection(generation: myGeneration)
+                        self.handleDisconnection(generation: myGeneration, reason: .receiveEnded)
                     }
                 }
             }
@@ -538,10 +610,9 @@ class CompanionConnectivityManager: NSObject, ObservableObject {
                 }
             }
 
-            diag("Master: listener started, awaiting companion")
+            lifecycle("Master: listener up, waiting for the phone")
         } catch {
-            diag("Master: listener FAILED — \(error.localizedDescription)")
-            connectionState = .disconnected
+            listenerFailed(error)
         }
     }
 
@@ -551,14 +622,34 @@ class CompanionConnectivityManager: NSObject, ObservableObject {
         listenerTask = nil
     }
 
-    /// Master: the listener stopped on an error. Still waiting for the viewer means nothing listens
-    /// any more, so go back to disconnected: the next auto-connect (foreground, flight start, the
-    /// Companion screen, the end of a pairing) or Start Listening starts a fresh one. A live
-    /// connection is left to its own teardown.
-    private func listenerFailed(_ error: any Error) {
-        diag("Master: listener stopped on an error, \(error.localizedDescription)")
-        guard currentRole == .master, connectionState == .connecting else { return }
-        connectionState = .disconnected
+    /// Master: the listener stopped on an error of its own, or could not be made. Still waiting for a
+    /// phone means nothing listens any more, so start another after a pause that doubles up to 30 s,
+    /// for as long as nothing else took over (a connection, Disconnect, pairing mode). The iPad used to
+    /// go "disconnected" here and stay so until it was touched (a flight start, its Companion screen),
+    /// whatever the phone did; and a re-arm right after a drop can fail this way while the previous
+    /// publish of the service is still being torn down (Wi-Fi Aware takes one publisher per service).
+    /// A live connection is left to its own teardown. (6.1.0)
+    func listenerFailed(_ error: any Error) {
+        guard currentRole == .master, connectionState == .connecting else {
+            diag("Master: a listener stopped on an error under a live link, \(Self.errorCode(error))", isPublic: true)
+            return
+        }
+        listenerFailures += 1
+        let delay = Self.listenerRetryDelay(afterFailures: listenerFailures)
+        lifecycle("Master: listener stopped on an error (\(Self.errorCode(error))), "
+                  + "retry \(listenerFailures) in \(Int(delay)) s")
+        let generation = connectionGeneration
+        Task { @MainActor [weak self] in
+            try? await Task.sleep(for: .seconds(delay))
+            guard let self, self.connectionGeneration == generation,
+                  self.currentRole == .master, self.connectionState == .connecting else { return }
+            self.startListening()
+        }
+    }
+
+    /// 2, 4, 8, 16, then every 30 s.
+    nonisolated static func listenerRetryDelay(afterFailures failures: Int) -> TimeInterval {
+        min(30, 2 * pow(2, Double(max(0, failures - 1))))
     }
 
     /// Master: take an accepted connection as the current one, or refuse it (nil) when it comes from
@@ -573,7 +664,8 @@ class CompanionConnectivityManager: NSObject, ObservableObject {
             return nil
         }
         if Self.refusesPeer(identity, forgotten: forgottenDevices.ids) {
-            diag("Master: refused \(identity?.name ?? "an unnamed device"), forgotten on this iPad")
+            lifecycle(identity == nil ? "Master: refused a peer not identified, a device is forgotten on this iPad"
+                                      : "Master: refused a device forgotten on this iPad", detail: identity?.name)
             return nil
         }
         connectionGeneration += 1
@@ -582,11 +674,17 @@ class CompanionConnectivityManager: NSObject, ObservableObject {
         sendHandler = send
         connectionState = .connected
         connectedDeviceName = identity?.name ?? L10n.Companion.companionDevice
-        sendFailureCount = 0
+        sendFailingSince = nil
+        listenerFailures = 0
         lastReceivedAt = Date()
         startSendTimer()              // stream state 1 Hz while connected (flight or not)
         startConnectionHealthTimer()
-        diag("Master: companion connected (\(identity?.name ?? "unnamed device"))")
+        // The state as it is now, at once, through the stream itself. A separate first send used to go
+        // out on tasks of its own beside the stream's, so an older checklist could land after a newer
+        // one, and the stream, not knowing what it had sent, never corrected it. (6.1.0)
+        streamTick()
+        lifecycle(identity == nil ? "Master: link up, peer not identified" : "Master: link up",
+                  detail: identity?.name)
         return connectionGeneration
     }
 
@@ -661,13 +759,17 @@ class CompanionConnectivityManager: NSObject, ObservableObject {
     private func startSendTimer() {
         stopUpdates()
         updateTimer = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { [weak self] _ in
-            Task { @MainActor in
-                guard let self, self.connectionState == .connected, self.currentRole == .master else { return }
-                self.sendFlightData()
-                self.sendChecklistSnapshot()
-                self.checkForFlightPlanChanges()
-            }
+            Task { @MainActor in self?.streamTick() }
         }
+    }
+
+    /// Master: one tick of the stream: the flight data, and the checklist and the plan when they
+    /// changed (or are due again). Internal, with `now`, for the tests; the timer passes the clock.
+    func streamTick(now: Date = Date()) {
+        guard connectionState == .connected, currentRole == .master else { return }
+        sendFlightData()
+        sendChecklistSnapshot(now: now)
+        sendFlightPlanSnapshotIfChanged(now: now)
     }
 
     /// Stop sending updates
@@ -684,16 +786,15 @@ class CompanionConnectivityManager: NSObject, ObservableObject {
     /// enabling companion mode, and after pairing. (v4.1 companion UX)
     ///
     /// A no-op while a pairing screen is up (`isPairing`), whoever calls; `endPairing()` calls it again.
-    func autoConnectIfReady(force: Bool = false) {
+    ///
+    /// Nothing else holds it back since 6.1.0: the idle saving no longer stops the iPad's listener, so
+    /// there is no idle state for a "forced" call to clear.
+    func autoConnectIfReady() {
         guard #available(iOS 26.0, *) else { return }
         guard !isPairing else {
             AppLog.companion.publicLine("Auto-connect held, pairing in progress")
             return
         }
-        // `force` (flight start, or the user opening the Companion screen) clears an idle-disconnect; a
-        // passive foreground/launch (force == false) leaves it dropped so the battery saving sticks.
-        if force { idleDisconnected = false }
-        guard !idleDisconnected else { return }
         guard let appState, appState.settings.enableCompanionMode, hasPairedDevices else { return }
         guard connectionState == .disconnected else { return }
         switch CompanionRole.automatic(for: UIDevice.current.userInterfaceIdiom) {
@@ -741,7 +842,7 @@ class CompanionConnectivityManager: NSObject, ObservableObject {
     func endPairing() {
         guard isPairing else { return }
         isPairing = false
-        autoConnectIfReady(force: true)
+        autoConnectIfReady()
         diag("Pairing mode off: \(sessionOnTheService.map { "\($0) resumed" } ?? "nothing to resume")",
              isPublic: true)
     }
@@ -774,25 +875,35 @@ class CompanionConnectivityManager: NSObject, ObservableObject {
     /// Bidirectional heartbeat + staleness, every 2 s. UDP is connectionless, so (a) the viewer must keep
     /// sending or the master's flow goes idle and it can't tell we're alive, and (b) send-failure can't
     /// detect a drop (UDP sends never fail). So: the viewer pings each tick (the master streams 1 Hz the
-    /// other way), and EITHER side drops the link if the peer's traffic goes silent for >5 s. (v4.1)
-    private func checkConnectionHealth() {
+    /// other way), and EITHER side drops the link if the peer's traffic goes silent for too long. (v4.1)
+    ///
+    /// `now` for the tests; the timer passes the clock.
+    func checkConnectionHealth(now: Date = Date()) {
         guard connectionState == .connected else { stopConnectionHealthTimer(); return }
         if currentRole == .viewer {
             sendPing()          // keep the UDP flow open + prove liveness to the master
             sendViewerHello()   // report entitlement so the master knows what it may stream (SA-26)
         }
-        if let last = lastReceivedAt, Date().timeIntervalSince(last) > Self.receiveStaleAfter {
-            diag("\(currentRole == .master ? "Master" : "Viewer"): no data for \(Int(Date().timeIntervalSince(last)))s — dropping")
-            handleDisconnection(generation: connectionGeneration)
+        // A viewer's new connection that has not heard from the iPad yet gets less: see `firstFrameLimit`.
+        let limit = currentRole == .viewer && !viewerHeardFromIPad
+            ? CompanionTiming.firstFrameLimit : CompanionTiming.linkSilenceLimit
+        if let last = lastReceivedAt, now.timeIntervalSince(last) > limit {
+            handleDisconnection(generation: connectionGeneration,
+                                reason: viewerHeardFromIPad || currentRole != .viewer
+                                    ? .silence(Int(now.timeIntervalSince(last))) : .noFirstFrame)
             return
         }
-        // Battery: master drops the hot link after a long idle stretch with no active flight. (v4.1)
+        // Battery: master drops the hot link after a long idle stretch with no active flight, and
+        // listens on. (v4.1; listening on since 6.1.0)
         if currentRole == .master, let appState, !appState.isFlightActive {
-            if idleSince == nil { idleSince = Date() }
-            else if Date().timeIntervalSince(idleSince!) > Self.idleDisconnectAfter {
-                diag("Master: idle \(Int(Self.idleDisconnectAfter/60)) min with no flight — disconnecting (battery)")
-                idleDisconnected = true
-                disconnect()
+            if let idleSince {
+                if now.timeIntervalSince(idleSince) > Self.idleDisconnectAfter {
+                    sendMessage(CompanionMessage(type: .disconnect, payload: Data()))   // the phone stops retrying
+                    handleDisconnection(generation: connectionGeneration,
+                                        reason: .idle(minutes: Int(Self.idleDisconnectAfter / 60)))
+                }
+            } else {
+                idleSince = now
             }
         } else {
             idleSince = nil
@@ -815,14 +926,17 @@ class CompanionConnectivityManager: NSObject, ObservableObject {
         sendMessage(CompanionMessage(type: .viewerHello, payload: payload))
     }
 
-    /// Master/viewer: repeated send failures mean the peer is gone — drop the connection.
-    private func noteSendFailure(generation: Int) {
+    /// Master/viewer: sends that keep failing mean the peer is gone: the link ends once they have
+    /// failed for `linkSilenceLimit`. Internal, with `now`, for the tests.
+    func noteSendFailure(generation: Int, error: any Error, now: Date = Date()) {
         guard generation == connectionGeneration, connectionState == .connected else { return }
-        sendFailureCount += 1
-        if sendFailureCount >= Self.maxConsecutiveSendFailures {
-            diag("\(currentRole == .master ? "Master" : "Viewer"): send failing — dropping connection")
-            sendFailureCount = 0
-            handleDisconnection(generation: generation)
+        guard let since = sendFailingSince else {
+            sendFailingSince = now
+            lifecycle("\(currentRole == .master ? "Master" : "Viewer"): a send failed (\(Self.errorCode(error)))")
+            return
+        }
+        if now.timeIntervalSince(since) > CompanionTiming.linkSilenceLimit {
+            handleDisconnection(generation: generation, reason: .sendFailing)
         }
     }
 
@@ -843,13 +957,14 @@ class CompanionConnectivityManager: NSObject, ObservableObject {
         let myGeneration = connectionGeneration
 
         currentRole = .viewer
-        connectionState = .connecting
-        diag("Viewer: browsing for iPad ('\(serviceName)')")
+        // `.reconnecting` (the Companion screen) within the grace after a drop, `.connecting` (the
+        // phone's own screens) otherwise. (6.1.0)
+        connectionState = Self.viewerLookingState(linkLostAt: viewerLinkLostAt, now: Date())
+        browseStarts += 1
+        lifecycle("Viewer: looking for the iPad")
 
-        guard usesWiFiAware else {
-            connectionState = .disconnected
-            return
-        }
+        // A test manager: looking, and finding nothing, the state the phone is in until the iPad answers.
+        guard usesWiFiAware else { return }
         // Wi-Fi Aware browsing requires iOS 26+. Below that, stay inert. (ARCH-09)
         guard #available(iOS 26.0, *) else {
             connectionState = .disconnected
@@ -892,29 +1007,9 @@ class CompanionConnectivityManager: NSObject, ObservableObject {
                     try await connection.send(msg)
                 }
 
-                // Re-check the generation BEFORE adopting this connection. `browser.run`/connection
-                // establishment can suspend for a long time; if disconnect()/a newer connect() superseded
-                // this attempt during that suspension (bumping connectionGeneration + cancelling browserTask),
-                // adopting it here would resurrect a link the user just tore down — re-arming the send
-                // handler/health timer and flipping the UI back to .connected. Every sibling branch already
-                // guards on `myGeneration`; this one didn't. (v4.1.0 pre-tag fix — M2)
+                // Adopted only if this browse is still the current one (see `adoptViewerConnection`).
                 let stillCurrent = await MainActor.run { () -> Bool in
-                    guard let self, self.connectionGeneration == myGeneration else { return false }
-                    self.sendHandler = send
-                    self.peerLink = CompanionPeerLink(generation: myGeneration, identity: identity)
-                    self.connectionState = .connected
-                    self.connectedDeviceName = identity.name ?? L10n.Companion.masterDevice
-                    self.sendFailureCount = 0
-                    self.lastReceivedAt = Date()
-                    self.startConnectionHealthTimer()
-                    // Open the UDP flow immediately — until the master receives a datagram from us, its
-                    // listener never accepts and it never streams back. (v4.1)
-                    self.sendPing()
-                    // And say at once what we may be sent, rather than on the first health tick 2 s
-                    // later, as the hello's own comment already promised. (v6.0 review, security)
-                    self.sendViewerHello()
-                    self.diag("Viewer: connected to iPad")
-                    return true
+                    self?.adoptViewerConnection(identity: identity, generation: myGeneration, send: send) ?? false
                 }
                 // Superseded mid-establish — drop this stale connection instead of entering its receive
                 // loop (which would keep feeding the manager messages from a connection the user dropped).
@@ -937,17 +1032,19 @@ class CompanionConnectivityManager: NSObject, ObservableObject {
 
                 // Connection ended
                 await MainActor.run {
-                    self?.handleDisconnection(generation: myGeneration)
+                    self?.handleDisconnection(generation: myGeneration, reason: .receiveEnded)
                 }
             } catch {
                 await MainActor.run {
                     guard let self, self.connectionGeneration == myGeneration else { return }
-                    self.diag("Viewer: browse/connect error — \(error.localizedDescription); retrying")
-                    self.connectionState = .reconnecting
+                    self.lifecycle("Viewer: browse failed (\(Self.errorCode(error))), retry in 3 s")
+                    // Still looking: the Companion screen only within the grace after a drop. A first
+                    // browse that failed used to swap the root to the Companion screen. (6.1.0)
+                    self.connectionState = Self.viewerLookingState(linkLostAt: self.viewerLinkLostAt, now: Date())
                     // Auto-retry after delay, only while this attempt is still the current one. (PR-15)
                     Task { @MainActor in
                         try? await Task.sleep(for: .seconds(3))
-                        if self.connectionState == .reconnecting,
+                        if self.connectionState != .disconnected, self.connectionState != .connected,
                            self.connectionGeneration == myGeneration {
                             self.connectToPairedDevice()
                         }
@@ -957,6 +1054,33 @@ class CompanionConnectivityManager: NSObject, ObservableObject {
         }
 
         AppLog.companion.debugLine("Browsing for paired master device...")
+    }
+
+    /// Viewer: take the connection a browse made as the current one, unless that browse was superseded
+    /// while it ran (`generation` no longer current): false, and the connection is dropped. Re-checked
+    /// here, BEFORE adopting: `browser.run` and the connection's set-up can suspend for a long time, and
+    /// adopting a connection after disconnect() or a newer browse would resurrect a link the user just
+    /// tore down, re-arming the send handler and the health timer and flipping the UI back to
+    /// .connected. (v4.1.0 pre-tag fix, M2)
+    func adoptViewerConnection(identity: CompanionPeerIdentity, generation: Int,
+                               send: @escaping @Sendable (CompanionMessage) async throws -> Void) -> Bool {
+        guard connectionGeneration == generation, currentRole == .viewer else { return false }
+        sendHandler = send
+        peerLink = CompanionPeerLink(generation: generation, identity: identity)
+        connectionState = .connected
+        connectedDeviceName = identity.name ?? L10n.Companion.masterDevice
+        sendFailingSince = nil
+        viewerHeardFromIPad = false
+        lastReceivedAt = Date()
+        startConnectionHealthTimer()
+        // Open the UDP flow immediately — until the master receives a datagram from us, its listener
+        // never accepts and it never streams back. (v4.1)
+        sendPing()
+        // And say at once what we may be sent, rather than on the first health tick 2 s later, as the
+        // hello's own comment already promised. (v6.0 review, security)
+        sendViewerHello()
+        lifecycle("Viewer: link up", detail: identity.name)
+        return true
     }
 
     /// Send a command to the master device
@@ -985,7 +1109,7 @@ class CompanionConnectivityManager: NSObject, ObservableObject {
     /// Disconnect from the current companion
     func disconnect() {
         endSession()
-        diag("Disconnected (user)")
+        lifecycle("Disconnected by the user")
     }
 
     /// End whatever runs: the connection (the peer is told), the iPad's listener, the iPhone's browse,
@@ -1002,6 +1126,8 @@ class CompanionConnectivityManager: NSObject, ObservableObject {
         }
 
         cleanupConnection()   // also releases the GPS provider + clears peer-fix state (shared-GPS)
+        listenerFailures = 0
+        viewerLinkLostAt = nil
         stopListening()
         stopUpdates()
         browserTask?.cancel()
@@ -1025,10 +1151,104 @@ class CompanionConnectivityManager: NSObject, ObservableObject {
 
     // MARK: - Connection Lifecycle
 
-    private func handleDisconnection(generation: Int) {
-        // Ignore teardown from a connection that has already been superseded by a newer connect or
-        // an explicit disconnect — otherwise a stale receive loop ending would clobber the live
-        // connection's state and spawn a duplicate reconnect. (PR-15)
+    /// Viewer: the link dropped. The Companion screen stays up (`.reconnecting`) for
+    /// `CompanionTiming.reconnectGrace` while the phone looks again, then the phone goes back to its own
+    /// screens and keeps looking. (6.1.0)
+    private func startViewerGrace() {
+        let lostAt = Date()
+        viewerLinkLostAt = lostAt
+        Task { @MainActor [weak self] in
+            try? await Task.sleep(for: .seconds(CompanionTiming.reconnectGrace))
+            guard let self, self.viewerLinkLostAt == lostAt else { return }
+            self.viewerLinkLostAt = nil
+            guard self.currentRole == .viewer, self.connectionState == .reconnecting else { return }
+            self.connectionState = .connecting
+            self.lifecycle("Viewer: no iPad for \(Int(CompanionTiming.reconnectGrace)) s, "
+                           + "back to the phone's own screens, still looking")
+        }
+    }
+
+    /// What the viewer's state reads while it looks for the iPad: `.reconnecting` within the grace after
+    /// a drop, which the root shows the Companion screen for, `.connecting` otherwise.
+    nonisolated static func viewerLookingState(linkLostAt: Date?, now: Date) -> CompanionConnectionState {
+        guard let linkLostAt, now.timeIntervalSince(linkLostAt) < CompanionTiming.reconnectGrace else {
+            return .connecting
+        }
+        return .reconnecting
+    }
+
+    // MARK: - Foreground and background (6.1.0)
+
+    /// The app went to the background: coming back checks the link (`appBecameActive`).
+    func appWentToBackground() {
+        wasInBackground = true
+    }
+
+    /// The app is active again: at launch, back from the background, or a system sheet gone. With
+    /// nothing running, auto-connect, as always. Back from the background, also: a live link is checked
+    /// at once rather than at the next tick, and a listener or a browse that was running is started
+    /// afresh, since one left over a suspension can be dead without saying so.
+    func appBecameActive() {
+        let fromBackground = wasInBackground
+        wasInBackground = false
+        switch connectionState {
+        case .disconnected:
+            autoConnectIfReady()
+        case .connected:
+            if fromBackground { checkConnectionHealth() }
+        case .connecting, .reconnecting:
+            guard fromBackground, !isPairing else { return }
+            switch currentRole {
+            case .master:
+                lifecycle("Master: back from the background, listening afresh")
+                startListening()
+            case .viewer:
+                lifecycle("Viewer: back from the background, looking afresh")
+                connectToPairedDevice()
+            case .none:
+                break
+            }
+        case .pairing:
+            break
+        }
+    }
+
+    /// Why a link ended, for the log: fixed text, never a device name.
+    enum LinkEnd: Equatable {
+        /// The peer said goodbye (`.disconnect`): Companion mode off or Disconnect there, its idle
+        /// saving, a pairing, a Forget.
+        case peerLeft
+        /// Nothing heard from the peer for that many seconds.
+        case silence(Int)
+        /// Viewer: a new connection that never heard from the iPad (`firstFrameLimit`).
+        case noFirstFrame
+        case sendFailing
+        /// The connection's receive loop ended (closed, cancelled or failed).
+        case receiveEnded
+        /// Master: up that long with no flight (battery).
+        case idle(minutes: Int)
+        /// Master: the pilot forgot the connected device.
+        case forgotten
+
+        var text: String {
+            switch self {
+            case .peerLeft: return "the peer left"
+            case .silence(let seconds): return "nothing heard for \(seconds) s"
+            case .noFirstFrame: return "the iPad never answered"
+            case .sendFailing: return "sends failing"
+            case .receiveEnded: return "the connection closed"
+            case .idle(let minutes): return "idle \(minutes) min with no flight"
+            case .forgotten: return "the device was forgotten"
+            }
+        }
+    }
+
+    /// A link ended without the user asking: the viewer reconnects, the master listens again.
+    ///
+    /// Internal for the tests. A teardown from a connection already superseded (by a newer connection,
+    /// a Disconnect, a pairing) is ignored, or a stale receive loop ending would clobber the live
+    /// connection's state and spawn a duplicate reconnect. (PR-15)
+    func handleDisconnection(generation: Int, reason: LinkEnd) {
         guard generation == connectionGeneration else {
             AppLog.companion.debugLine("Ignoring teardown from stale connection (gen \(generation))")
             return
@@ -1037,24 +1257,42 @@ class CompanionConnectivityManager: NSObject, ObservableObject {
         cleanupConnection()
 
         if currentRole == .viewer && connectionState != .disconnected {
-            connectionState = .reconnecting
+            lifecycle("Viewer: link down, \(reason.text); looking for the iPad again in 2 s")
+            // The Companion screen stays up, its "connection lost" banner on, while the phone looks
+            // again: within the grace, the browse keeps `.reconnecting`, which the root shows it for.
+            // (6.1.0)
+            // A connection that never heard from the iPad was no link: it keeps the grace it was made
+            // in, if any, rather than start one.
+            if reason != .noFirstFrame { startViewerGrace() }
+            connectionState = Self.viewerLookingState(linkLostAt: viewerLinkLostAt, now: Date())
             // Auto-reconnect, only while this connection is still the current one. (PR-15)
             Task { @MainActor in
                 try? await Task.sleep(for: .seconds(2))
-                if connectionState == .reconnecting, connectionGeneration == generation {
+                if connectionState != .disconnected, connectionState != .connected,
+                   currentRole == .viewer, connectionGeneration == generation {
                     connectToPairedDevice()
                 }
             }
         } else if currentRole == .master {
+            // A new generation: the ended connection's frames, and its receive loop's own teardown when
+            // the listener below is replaced, are stale from here. That teardown carried the still-current
+            // generation and re-armed a second time, cancelling the fresh listener just after it started,
+            // and a listener started while the previous publish is still going can fail (one publisher per
+            // service). (6.1.0)
+            connectionGeneration += 1
+            let rearm = connectionGeneration
             connectionState = .connecting
             connectedDeviceName = nil
             // Re-arm a FRESH listener. Keeping the old one running wedges it — after a drop it won't
             // accept the viewer's reconnect (observed on device: only an iPad app restart recovered).
-            // startListening() cancels + recreates the listener; deferred a tick so we don't cancel the
-            // listener task from inside its own teardown. (v4.1)
-            diag("Master: re-arming listener after drop")
+            // startListening() cancels + recreates the listener, after a short pause: it is not cancelled
+            // from inside its own teardown, a goodbye just queued still goes out, and the old publish has
+            // a moment to go. (v4.1; the pause 6.1.0)
+            lifecycle("Master: link down, \(reason.text); listening again")
             Task { @MainActor in
-                guard self.currentRole == .master, self.connectionState == .connecting else { return }
+                try? await Task.sleep(for: .milliseconds(500))
+                guard self.connectionGeneration == rearm, self.currentRole == .master,
+                      self.connectionState == .connecting else { return }
                 self.startListening()
             }
         }
@@ -1065,9 +1303,12 @@ class CompanionConnectivityManager: NSObject, ObservableObject {
         resetPeerTrust()
         stopConnectionHealthTimer()
         stopUpdates()
-        sendFailureCount = 0
+        sendFailingSince = nil
         idleSince = nil
         lastSentChecklist = nil
+        lastChecklistSentAt = nil
+        lastSentPlan = nil
+        lastPlanSentAt = nil
         // Reset the shared-GPS state on EVERY teardown (graceful or not), so a stale peer fix can't keep
         // the source election pinned to .peer, can't masquerade as a usable fix to the flight-start guard
         // (hasUsablePeerFix), and the viewer's background GPS provider isn't stranded. (shared-GPS)
@@ -1133,15 +1374,27 @@ class CompanionConnectivityManager: NSObject, ObservableObject {
     // MARK: - Message Sending (Length-Prefixed JSON)
 
     private func sendMessage(_ message: CompanionMessage) {
-        guard let sendHandler else { return }
-        let gen = connectionGeneration
-        Task {
-            do {
-                try await sendHandler(message)   // the Coder encodes/frames it
-                await MainActor.run { self.sendFailureCount = 0 }
-            } catch {
-                // A failing send means the peer is gone — surface it instead of swallowing. (v4.1)
-                await MainActor.run { self.noteSendFailure(generation: gen) }
+        guard sendHandler != nil else { return }
+        outbox?.yield((message, connectionGeneration))
+    }
+
+    /// See `outbox`.
+    private func replaceOutbox() {
+        outbox?.finish()
+        outbox = nil
+        guard let send = sendHandler else { return }
+        let (stream, continuation) = AsyncStream.makeStream(of: (CompanionMessage, Int).self,
+                                                            bufferingPolicy: .bufferingNewest(64))
+        outbox = continuation
+        Task { [weak self] in
+            for await (message, generation) in stream {
+                do {
+                    try await send(message)   // the Coder encodes/frames it
+                    if generation == self?.connectionGeneration { self?.sendFailingSince = nil }
+                } catch {
+                    // Failing sends may mean the peer is gone: surface them instead of swallowing. (v4.1)
+                    self?.noteSendFailure(generation: generation, error: error)
+                }
             }
         }
     }
@@ -1151,7 +1404,8 @@ class CompanionConnectivityManager: NSObject, ObservableObject {
     /// Handle one frame from the connection of `generation`. False, and the frame dropped, when that
     /// connection is no longer the current one: its frames used to be processed as if they came from
     /// the current peer (commands under the current peer's authorisation, a stray `.disconnect`
-    /// kicking the legitimate viewer). The receive loop stops on false. (S9-28)
+    /// kicking the legitimate viewer). The receive loop stops on false. (S9-28) False too after the
+    /// peer's goodbye (`.disconnect`), whose connection is done. (6.1.0)
     @discardableResult
     func handleReceivedMessage(_ message: CompanionMessage, generation: Int) -> Bool {
         guard generation == connectionGeneration else {
@@ -1159,6 +1413,10 @@ class CompanionConnectivityManager: NSObject, ObservableObject {
             return false
         }
         lastReceivedAt = Date()   // any inbound traffic = the link is alive (connection-health watchdog)
+        if currentRole == .viewer, !viewerHeardFromIPad {
+            viewerHeardFromIPad = true
+            viewerLinkLostAt = nil   // the iPad answers: back, the grace is over
+        }
         switch message.type {
         case .flightData:
             if let flightData = try? JSONDecoder().decode(CompanionFlightData.self, from: message.payload) {
@@ -1235,12 +1493,38 @@ class CompanionConnectivityManager: NSObject, ObservableObject {
             }
 
         case .disconnect:
-            AppLog.companion.debugLine("Received disconnect message")
-            cleanupConnection()
-            connectionState = .disconnected
-            connectedDeviceName = nil
+            switch currentRole {
+            case .master:
+                // The phone left (Companion mode turned off there, its Disconnect, its app closing):
+                // its connection goes and the iPad listens again at once, so turning Companion mode back
+                // on on the phone reconnects. The iPad used to go "disconnected" here, its old listener
+                // still up but never taking the phone's next connection, until Companion mode was
+                // toggled on the iPad. (6.1.0)
+                handleDisconnection(generation: generation, reason: .peerLeft)
+            case .viewer:
+                viewerLinkEndedByIPad()
+            case .none:
+                break
+            }
+            // Stop reading the connection that said goodbye.
+            return false
         }
         return true
+    }
+
+    /// Viewer: the iPad ended the link (Companion mode off or Disconnect there, its idle saving, a
+    /// pairing, a Forget). The phone stops, and comes back when it is used: its app back in the
+    /// foreground, Companion mode turned on, its Companion screen. Its browse and connection end here
+    /// too, rather than stay open under the next one. (6.1.0)
+    private func viewerLinkEndedByIPad() {
+        connectionGeneration += 1   // the connection's own teardown is stale from here
+        cleanupConnection()
+        viewerLinkLostAt = nil
+        browserTask?.cancel()
+        browserTask = nil
+        connectionState = .disconnected
+        connectedDeviceName = nil
+        lifecycle("Viewer: link down, the iPad ended it; waiting to be used again")
     }
 
     private func handleCommand(_ command: CompanionCommand) {
@@ -1253,6 +1537,13 @@ class CompanionConnectivityManager: NSObject, ObservableObject {
 
         // SEC-C40: being paired is not authorisation to control this flight.
         guard peerIsAuthorised(), let flightPlanManager else { return }
+
+        // A memory check shown on the phone as a list (6.1.0 device check): one way that happens is a
+        // hold on the phone's hidden-items placeholder, which reveals on both devices until the next
+        // check. Logged, so a capture can tell it from a lost update.
+        if case .revealHiddenItems = command {
+            lifecycle("Master: the phone revealed the hidden items of the current check")
+        }
 
         Self.apply(command, appState: appState, flightPlanManager: flightPlanManager)
     }
@@ -1381,26 +1672,6 @@ class CompanionConnectivityManager: NSObject, ObservableObject {
 
     // MARK: - Data Sending (Master)
 
-    /// Send initial flight data, plan, and checklist when a companion first connects
-    private nonisolated func sendInitialData(send: @Sendable (CompanionMessage) async throws -> Void) async {
-        // Create snapshots on main actor
-        let (flightData, planSnapshot, checklist) = await MainActor.run { [weak self] () -> (CompanionFlightData?, CompanionFlightPlanSnapshot?, CompanionChecklistSnapshot?) in
-            guard let self else { return (nil, nil, nil) }
-            return (self.createCurrentFlightData(), self.createCurrentFlightPlanSnapshot(), self.createChecklistSnapshot())
-        }
-
-        // Send flight plan snapshot first, then checklist, then current flight data (the Coder encodes each).
-        if let planSnapshot, let payload = try? JSONEncoder().encode(planSnapshot) {
-            try? await send(CompanionMessage(type: .flightPlanUpdate, payload: payload))
-        }
-        if let checklist, let payload = try? JSONEncoder().encode(checklist) {
-            try? await send(CompanionMessage(type: .checklistUpdate, payload: payload))
-        }
-        if let flightData, let payload = try? JSONEncoder().encode(flightData) {
-            try? await send(CompanionMessage(type: .flightData, payload: payload))
-        }
-    }
-
     private func sendFlightData() {
         guard sendHandler != nil, connectionState == .connected,
               let appState, let locationManager, let flightPlanManager else { return }
@@ -1421,47 +1692,25 @@ class CompanionConnectivityManager: NSObject, ObservableObject {
         }
     }
 
-    private func sendFlightPlanSnapshot() {
+    /// Master: the active plan, when it differs from the one last sent or that one is due again (see
+    /// `lastSentPlan`).
+    private func sendFlightPlanSnapshotIfChanged(now: Date) {
         guard sendHandler != nil, connectionState == .connected,
-              let flightPlanManager, let plan = flightPlanManager.activeFlightPlan else { return }
-
+              let plan = flightPlanManager?.activeFlightPlan else { return }
         let snapshot = createFlightPlanSnapshot(plan)
-
+        let due = lastPlanSentAt.map { now.timeIntervalSince($0) >= CompanionTiming.snapshotRefresh } ?? true
+        guard snapshot != lastSentPlan || due else { return }
         do {
             let payload = try JSONEncoder().encode(snapshot)
-            let message = CompanionMessage(type: .flightPlanUpdate, payload: payload)
-            sendMessage(message)
-            lastSentFlightPlanId = plan.id
-            lastSentDiversionIdent = plan.diversion?.ident
+            sendMessage(CompanionMessage(type: .flightPlanUpdate, payload: payload))
+            lastSentPlan = snapshot
+            lastPlanSentAt = now
         } catch {
             AppLog.companion.debugLine("Failed to encode flight plan: \(error)")
         }
     }
 
-    private func checkForFlightPlanChanges() {
-        guard let flightPlanManager, let plan = flightPlanManager.activeFlightPlan else { return }
-
-        if plan.id != lastSentFlightPlanId || plan.diversion?.ident != lastSentDiversionIdent
-            || plan.waypoints.contains(where: { $0.actualTimeOver != nil }) {
-            sendFlightPlanSnapshot()
-        }
-    }
-
     // MARK: - Data Creation Helpers
-
-    private func createCurrentFlightData() -> CompanionFlightData? {
-        guard let appState, let locationManager, let flightPlanManager else { return nil }
-        return createCompanionFlightData(
-            appState: appState,
-            locationManager: locationManager,
-            flightPlanManager: flightPlanManager
-        )
-    }
-
-    private func createCurrentFlightPlanSnapshot() -> CompanionFlightPlanSnapshot? {
-        guard let flightPlanManager, let plan = flightPlanManager.activeFlightPlan else { return nil }
-        return createFlightPlanSnapshot(plan)
-    }
 
     #if DEBUG
     private var debugLoopback = false
@@ -1488,6 +1737,12 @@ class CompanionConnectivityManager: NSObject, ObservableObject {
         }
     }
     #endif
+
+    private static let sortedKeysEncoder: JSONEncoder = {
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = .sortedKeys
+        return encoder
+    }()
 
     /// Master: snapshot the current checklist phase + its visible items + highlight, for the viewer to
     /// show and drive. (companion v2 — synced checklist)
@@ -1595,7 +1850,9 @@ class CompanionConnectivityManager: NSObject, ObservableObject {
             memoryCheckNextRawValue: appState.memoryConfirmationMovesTo?.rawValue,
             // The slot and the landed card, drawn on the phone as here. No checklist text in either:
             // check names, counts and times only. (6.1, cues)
-            checkSlotData: appState.isFlightActive ? try? JSONEncoder().encode(CockpitCheckSlot.slot(for: appState)) : nil,
+            // Sorted keys: JSONEncoder's key order changes from one encode to the next, so the same slot
+            // gave different bytes, and every snapshot in flight looked changed. (6.1.0)
+            checkSlotData: appState.isFlightActive ? try? Self.sortedKeysEncoder.encode(CockpitCheckSlot.slot(for: appState)) : nil,
             landedCard: appState.landedCard.map {
                 CompanionLandedCard(id: $0.id, aerodrome: $0.aerodrome, touchdown: $0.touchdown,
                                     landingCheckSettled: appState.landingCheckSettled)
@@ -1605,17 +1862,20 @@ class CompanionConnectivityManager: NSObject, ObservableObject {
     }
 
     /// Master: stream the current checklist to the viewer (sent each tick alongside flight data — the
-    /// payload is small and the viewer needs it to stay in sync as items/phase advance).
-    private func sendChecklistSnapshot() {
+    /// payload is small and the viewer needs it to stay in sync as items/phase advance), when it changed
+    /// or is due again (see `lastSentChecklist`).
+    private func sendChecklistSnapshot(now: Date = Date()) {
         guard sendHandler != nil, connectionState == .connected, currentRole == .master,
               let snapshot = createChecklistSnapshot() else { return }
         // Skip the encode + radio send when nothing changed since the last send (CompanionChecklistSnapshot
-        // is Equatable). Mirrors the flight-plan path's lastSentFlightPlanId guard. (efficiency)
-        guard snapshot != lastSentChecklist else { return }
+        // is Equatable) and the refresh is not due. (efficiency)
+        let due = lastChecklistSentAt.map { now.timeIntervalSince($0) >= CompanionTiming.snapshotRefresh } ?? true
+        guard snapshot != lastSentChecklist || due else { return }
         do {
             let payload = try JSONEncoder().encode(snapshot)
             sendMessage(CompanionMessage(type: .checklistUpdate, payload: payload))
             lastSentChecklist = snapshot
+            lastChecklistSentAt = now
         } catch {
             AppLog.companion.debugLine("Failed to encode checklist: \(error)")
         }

@@ -306,11 +306,13 @@ struct AeroCheckApp: App {
                 // v4.1.0 Data Freshness: foreground-only refresh — recompute the status and silently
                 // refresh any STALE small data the network gate permits. No background tasks.
                 .onChange(of: scenePhase) { _, phase in
+                    if phase == .background { companionConnectivityManager.appWentToBackground() }
                     guard phase == .active else { return }
                     dataStatusManager.recompute()
                     Task { await dataStatusManager.autoRefreshIfNeeded(cellularUpdatesEnabled: true) }
-                    // Re-establish the companion link on foreground (e.g. after the peer relaunched). (v4.1)
-                    companionConnectivityManager.autoConnectIfReady()
+                    // Re-establish the companion link on foreground (e.g. after the peer relaunched), and
+                    // back from the background, check it or look afresh. (v4.1; 6.1.0)
+                    companionConnectivityManager.appBecameActive()
                 }
             }
         }
@@ -405,9 +407,8 @@ struct AeroCheckApp: App {
             // Ensure the companion link is up (no-op if already connected). The connection is now tied to
             // companion-mode-enabled + paired, NOT to the flight — it's a persistent second screen that
             // shows the flight when one is running and an idle state otherwise. The master streams on
-            // connect, so starting a flight just changes WHAT is streamed. force:true re-arms it even if
-            // an idle auto-disconnect had dropped the link for battery. (v4.1 companion)
-            companionConnectivityManager.autoConnectIfReady(force: true)
+            // connect, so starting a flight just changes WHAT is streamed. (v4.1 companion)
+            companionConnectivityManager.autoConnectIfReady()
         } else {
             // Notify Watch that flight has ended
             watchConnectivityManager.notifyFlightEnded()

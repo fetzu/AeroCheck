@@ -17091,6 +17091,23 @@
         }
       }
     },
+    "companion.pairingPausesLink": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "While this screen is open, the companion link is paused. Once the devices are paired, or paired again, the screen closes by itself and the link comes back on its own."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tant que cet écran est ouvert, le lien avec le compagnon est en pause. Une fois les appareils appairés, ou appairés à nouveau, l’écran se ferme de lui-même et le lien revient tout seul."
+          }
+        }
+      }
+    },
     "companion.pairingViewerDescription": {
       "extractionState": "manual",
       "localizations": {

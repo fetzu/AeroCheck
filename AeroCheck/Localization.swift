@@ -2728,6 +2728,8 @@ enum L10n {
         // sheet up while the iPhone scans. Both buttons have to be tapped, in that order. (6.1.0)
         static let pairingMasterDescription = String(localized: "companion.pairingMasterDescription")
         static let pairingViewerDescription = String(localized: "companion.pairingViewerDescription")
+        /// The link is paused while the pairing screen is up, which closes by itself once paired. (6.1.0)
+        static let pairingPausesLink = String(localized: "companion.pairingPausesLink")
 
         // Pairing guidance (role is automatic by device type)
         static let pairingGuidanceMaster = String(localized: "companion.pairingGuidanceMaster")

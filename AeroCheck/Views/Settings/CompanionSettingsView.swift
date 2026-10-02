@@ -13,6 +13,8 @@ struct CompanionSettingsView: View {
     @State private var enableCompanionMode: Bool = false
     @State private var isLoadingSettings: Bool = false
     @State private var showPairingSheet: Bool = false
+    /// The system pairing records when the pairing screen opened (`CompanionPairingCompletion`).
+    @State private var pairingBaseline: Set<UInt64> = []
 
     private let tint: Color = .aviationGold
 
@@ -37,20 +39,24 @@ struct CompanionSettingsView: View {
         .navigationBarTitleDisplayMode(.inline)
         .onAppear {
             loadSettings()
-            companionConnectivityManager.autoConnectIfReady(force: true)   // opening the screen = user wants it on
+            companionConnectivityManager.autoConnectIfReady()   // opening the screen = user wants it on
         }
         .onChange(of: appState.settings) { loadSettings() }
         .onChange(of: enableCompanionMode) { _, on in
             guard !isLoadingSettings else { return }
             saveSettings()
             // Connect automatically when turned on; tear down when turned off. (v4.1 companion UX)
-            if on { companionConnectivityManager.autoConnectIfReady(force: true) }
+            if on { companionConnectivityManager.autoConnectIfReady() }
             else { companionConnectivityManager.disconnect() }
         }
-        // Auto-close the pairing modal once pairing succeeds (a new paired device appears), returning to
-        // this screen instead of leaving the user stranded on the system "paired" sheet. (v4.1)
-        .onChange(of: companionConnectivityManager.pairedDevices.count) { old, new in
-            if new > old && showPairingSheet { showPairingSheet = false }
+        // Auto-close the pairing modal once pairing succeeds, returning to this screen instead of leaving
+        // the user stranded on the system "paired" sheet. (v4.1) Succeeds = a system pairing record that
+        // was not there when it opened, so pairing again a device already listed closes it too. (6.1.0)
+        .onChange(of: companionConnectivityManager.pairedDeviceIDs) { _, ids in
+            guard showPairingSheet,
+                  CompanionPairingCompletion.isComplete(baseline: pairingBaseline, current: ids) else { return }
+            companionConnectivityManager.logPairing("Pairing: a new pairing record, closing the pairing screen")
+            showPairingSheet = false
         }
         // Full-screen modal per Apple's DevicePicker hosting rule, and so the pairing UI lives in its own
         // presentation that a settings re-render can't tear down / restart mid-discovery. (v4.1 pairing fix)
@@ -94,7 +100,10 @@ struct CompanionSettingsView: View {
 
             SettingsButtonRow(icon: "plus.circle", title: L10n.Companion.pairNewDevice,
                               tint: tint, showsChevron: false,
-                              action: { showPairingSheet = true })
+                              action: {
+                                  pairingBaseline = companionConnectivityManager.pairedDeviceIDs
+                                  showPairingSheet = true
+                              })
                 .disabled(!companionConnectivityManager.isWiFiAwareSupported)
         }
     }

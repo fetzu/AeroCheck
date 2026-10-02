@@ -104,7 +104,6 @@ final class CompanionServiceContractTests: XCTestCase {
 
         // Launch, foreground, flight start, the Companion screen.
         manager.autoConnectIfReady()
-        manager.autoConnectIfReady(force: true)
         // The master's re-arm after a drop, the viewer's retry, and the Companion screen's buttons.
         manager.startListening()
         manager.connectToPairedDevice()
@@ -183,7 +182,7 @@ final class CompanionServiceContractTests: XCTestCase {
         // A second begin (the cover re-appearing) keeps the hold; one end lifts it.
         manager.beginPairing()
         manager.beginPairing()
-        manager.autoConnectIfReady(force: true)
+        manager.autoConnectIfReady()
         XCTAssertEqual(manager.currentRole, .none)
         manager.endPairing()
         XCTAssertFalse(manager.isPairing)
@@ -201,6 +200,38 @@ final class CompanionServiceContractTests: XCTestCase {
         let line = manager.diagnostics.first ?? ""
         XCTAssertTrue(line.contains("Pairing mode on: background listener stopped"), line)
         XCTAssertFalse(line.contains("Pilot"), "logged in the clear, so never a device name")
+    }
+
+    // MARK: - Pairing completion: the screen closes on a new pairing record (6.1.0)
+
+    func testANewPairingClosesThePairingScreen() {
+        XCTAssertTrue(CompanionPairingCompletion.isComplete(baseline: [], current: [7]), "a first device")
+        XCTAssertTrue(CompanionPairingCompletion.isComplete(baseline: [7], current: [7, 8]), "another device")
+    }
+
+    /// Pairing again a device already listed: the screen used to close on one more row, and stayed up.
+    func testPairingAgainADeviceAlreadyListedClosesIt() {
+        let before = [CompanionPairedDevice(name: "Club iPad", pairingName: nil, deviceIDs: [7])]
+        let after = [CompanionPairedDevice(name: "Club iPad", pairingName: nil, deviceIDs: [7, 9])]
+        XCTAssertEqual(before.count, after.count, "one row either way: what closed it before never moved")
+        XCTAssertTrue(CompanionPairingCompletion.isComplete(baseline: Set(before.flatMap(\.deviceIDs)),
+                                                            current: Set(after.flatMap(\.deviceIDs))))
+        XCTAssertTrue(CompanionPairingCompletion.isComplete(baseline: [7], current: [9]), "the old record replaced")
+    }
+
+    func testARecordGoingAwayDoesNotCloseIt() {
+        // A pairing in progress can replace a record; closing on its removal could cancel the pairing.
+        XCTAssertFalse(CompanionPairingCompletion.isComplete(baseline: [7, 9], current: [7]))
+        XCTAssertFalse(CompanionPairingCompletion.isComplete(baseline: [7], current: [7]))
+    }
+
+    @MainActor
+    func testThePairingScreenWatchesEverySystemRecord() {
+        let manager = CompanionConnectivityManager(defaults: makeTestDefaults(), usesWiFiAware: false)
+        manager.pairedDevices = [CompanionPairedDevice(name: "Club iPad", pairingName: nil, deviceIDs: [7, 9]),
+                                 CompanionPairedDevice(name: "Old iPad", pairingName: nil, deviceIDs: [8])]
+        manager.forget(manager.pairedDevices[1])
+        XCTAssertEqual(manager.pairedDeviceIDs, [7, 8, 9], "forgotten ones included: they are system records too")
     }
 
     // MARK: - Shared GPS: source election (v4.1)

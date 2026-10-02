@@ -104,7 +104,6 @@ final class CompanionServiceContractTests: XCTestCase {
 
         // Launch, foreground, flight start, the Companion screen.
         manager.autoConnectIfReady()
-        manager.autoConnectIfReady(force: true)
         // The master's re-arm after a drop, the viewer's retry, and the Companion screen's buttons.
         manager.startListening()
         manager.connectToPairedDevice()
@@ -183,7 +182,7 @@ final class CompanionServiceContractTests: XCTestCase {
         // A second begin (the cover re-appearing) keeps the hold; one end lifts it.
         manager.beginPairing()
         manager.beginPairing()
-        manager.autoConnectIfReady(force: true)
+        manager.autoConnectIfReady()
         XCTAssertEqual(manager.currentRole, .none)
         manager.endPairing()
         XCTAssertFalse(manager.isPairing)

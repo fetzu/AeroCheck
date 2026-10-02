@@ -2085,7 +2085,7 @@ struct FlightInfoSheet: View {
                                 set: { on in
                                     appState.settings.enableCompanionMode = on
                                     appState.saveSettings()
-                                    if on { CompanionConnectivityManager.shared.autoConnectIfReady(force: true) }
+                                    if on { CompanionConnectivityManager.shared.autoConnectIfReady() }
                                     else { CompanionConnectivityManager.shared.disconnect() }
                                 }
                             ))

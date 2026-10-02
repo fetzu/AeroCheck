@@ -405,9 +405,8 @@ struct AeroCheckApp: App {
             // Ensure the companion link is up (no-op if already connected). The connection is now tied to
             // companion-mode-enabled + paired, NOT to the flight — it's a persistent second screen that
             // shows the flight when one is running and an idle state otherwise. The master streams on
-            // connect, so starting a flight just changes WHAT is streamed. force:true re-arms it even if
-            // an idle auto-disconnect had dropped the link for battery. (v4.1 companion)
-            companionConnectivityManager.autoConnectIfReady(force: true)
+            // connect, so starting a flight just changes WHAT is streamed. (v4.1 companion)
+            companionConnectivityManager.autoConnectIfReady()
         } else {
             // Notify Watch that flight has ended
             watchConnectivityManager.notifyFlightEnded()

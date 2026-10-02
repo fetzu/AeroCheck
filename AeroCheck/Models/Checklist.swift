@@ -86,8 +86,11 @@ enum ChecklistPhase: Int, CaseIterable, Identifiable, Codable {
         self == .engineStart
     }
     
-    /// Whether this phase shows the "Ready for Line Up" button
-    var showsLineUpButton: Bool {
+    /// Whether going on from this check is READY FOR LINE UP: the check before departure, whose NEXT
+    /// reads so and records the take-off estimate on the way to the line up check
+    /// (`AppState.nextPhase`). Since 6.2 there is no button of its own to forget, so the check is never
+    /// recorded red for it.
+    var readiesForLineUp: Bool {
         self == .beforeDeparture
     }
     
@@ -163,13 +166,13 @@ extension ChecklistPhase {
         return nil
     }
 
-    /// Whether a required action button on this phase was left unpressed (engine start / line up /
-    /// shutdown). Such a phase is marked `.missingAction`; the completed-vs-skipped distinction for
-    /// the non-missing case is the caller's (advancing → completed, jumped over → skipped). Single
-    /// source of truth, previously duplicated in AppState's nextPhase and goToPhase.
-    func hasMissingRequiredAction(engineStarted: Bool, linedUp: Bool, engineShutDown: Bool) -> Bool {
+    /// Whether a required action button on this phase was left unpressed (engine start / shutdown).
+    /// Such a phase is marked `.missingAction`; the completed-vs-skipped distinction for the
+    /// non-missing case is the caller's (advancing → completed, jumped over → skipped). Single source
+    /// of truth, previously duplicated in AppState's nextPhase and goToPhase. READY FOR LINE UP is no
+    /// longer one (6.2): it is the check before departure's NEXT. Flights recorded before keep their red.
+    func hasMissingRequiredAction(engineStarted: Bool, engineShutDown: Bool) -> Bool {
         (showsEngineStartButton && !engineStarted)
-            || (showsLineUpButton && !linedUp)
             || (showsEngineShutdownButton && !engineShutDown)
     }
 }

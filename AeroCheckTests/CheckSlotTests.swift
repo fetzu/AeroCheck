@@ -73,6 +73,34 @@ final class CheckSlotTests: XCTestCase {
         XCTAssertEqual(open.line, .items(3), "the list first, then the action")
     }
 
+    /// Out of the check before departure, the advance is READY FOR LINE UP, then the line up check, as on
+    /// the thumb bar: no "first" any more, the tap is the ready moment. Read off the slot, so the
+    /// Companion's snapshot keeps its shape. (6.2)
+    func testTheCheckBeforeDepartureDoneOffersReadyForLineUp() throws {
+        let slot = CheckSlot.make(phase: .beforeDeparture, check: .list(open: 0), next: .lineUp)
+        XCTAssertEqual(slot.phase, .lineUp)
+        XCTAssertEqual(slot.line, .next)
+        XCTAssertEqual(slot.action, .advance)
+        XCTAssertEqual(slot.tone, .idle)
+        XCTAssertTrue(slot.readiesForLineUp)
+        XCTAssertEqual(slot.titleText(), L10n.ChecklistAction.readyForLineUp)
+        XCTAssertEqual(slot.titleText(stacked: true), L10n.ChecklistAction.readyForLineUp)
+        let then = L10n.Cockpit.thenCheck(ChecklistPhase.lineUp.shortTitle)
+        XCTAssertEqual(slot.lineText(), then)
+        XCTAssertEqual(slot.lineText(narrow: true), then)
+        XCTAssertEqual(slot.lineText(stacked: true), then)
+        XCTAssertEqual(slot.lineAccessibilityText, then)
+        XCTAssertEqual(try JSONDecoder().decode(CheckSlot.self, from: JSONEncoder().encode(slot)), slot,
+                       "the same shape on the wire as any advance")
+
+        let climb = CheckSlot.make(phase: .climb, check: .list(open: 0), next: .cruise)
+        XCTAssertFalse(climb.readiesForLineUp)
+        XCTAssertEqual(climb.titleText(), ChecklistPhase.cruise.shortTitle)
+        XCTAssertEqual(climb.lineText(), L10n.CheckSlot.nextCheck)
+        XCTAssertFalse(CheckSlot.make(phase: .beforeDeparture, check: .list(open: 3), next: .lineUp).readiesForLineUp,
+                       "the list first")
+    }
+
     // MARK: FREDA in cruise (6.1, Q6)
 
     func testFredaCountingShowsWhenItComes() {
@@ -250,5 +278,27 @@ final class CheckSlotTests: XCTestCase {
         XCTAssertNotNil(CockpitCheckSlot.pendingAction(in: appState))
         appState.recordEngineStart()
         XCTAssertNil(CockpitCheckSlot.pendingAction(in: appState))
+    }
+
+    /// The check before departure, every item checked: the slot offers READY FOR LINE UP, never "READY
+    /// FOR LINE UP first", and its tap records the take-off estimate on the way to the line up check. (6.2)
+    @MainActor
+    func testTheSlotOutOfTheCheckBeforeDepartureIsReadyForLineUp() throws {
+        let appState = flight(memoryTest: false)
+        try XCTSkipIf(appState.checkItems(.beforeDeparture).isEmpty)
+        appState.currentPhase = .beforeDeparture
+        XCTAssertNil(CockpitCheckSlot.pendingAction(in: appState), "nothing to press first")
+        XCTAssertEqual(CockpitCheckSlot.slot(for: appState).action, .showChecklist, "the list first")
+
+        appState.markLastItemComplete(learningMode: appState.effectiveLearningMode)
+        let slot = CockpitCheckSlot.slot(for: appState)
+        XCTAssertTrue(slot.readiesForLineUp)
+        XCTAssertEqual(slot.action, .advance)
+        XCTAssertEqual(slot.titleText(), L10n.ChecklistAction.readyForLineUp)
+
+        CockpitCheckSlot.perform(slot.action, appState: appState, onShowChecklist: {})
+        XCTAssertEqual(appState.currentPhase, .lineUp)
+        XCTAssertNotNil(appState.lineUpTime)
+        XCTAssertEqual(appState.phaseCompletionStatus[.beforeDeparture], .completed)
     }
 }

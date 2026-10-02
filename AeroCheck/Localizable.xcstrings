@@ -6009,6 +6009,40 @@
         }
       }
     },
+    "cockpit.thenCheck": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "then %@"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "puis %@"
+          }
+        }
+      }
+    },
+    "cockpit.readyForLineUpHint": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Goes on to the line up check. The first time, it also records the take-off time, two minutes from now."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Passe à la vérification d'alignement. La première fois, enregistre aussi l'heure de décollage, dans deux minutes."
+          }
+        }
+      }
+    },
     "cockpit.stepBackHint": {
       "extractionState": "manual",
       "localizations": {
@@ -15706,23 +15740,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Atterrissage"
-          }
-        }
-      }
-    },
-    "checklist.lineUp": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Line Up"
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Alignement"
           }
         }
       }

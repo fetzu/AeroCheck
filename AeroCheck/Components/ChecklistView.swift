@@ -202,8 +202,6 @@ struct ChecklistView: View {
     var activeChecklist: ActiveChecklist = .bundledDefault
     var onEngineStart: (() -> Void)?
     var onEngineStartUpdate: (() -> Void)?
-    var onLineUp: (() -> Void)?
-    var onLineUpUpdate: (() -> Void)?
     var onEngineShutdown: (() -> Void)?
     var onEngineShutdownUpdate: (() -> Void)?
     var onGoAround: (() -> Void)?
@@ -215,7 +213,6 @@ struct ChecklistView: View {
     var onTapToAdvance: (() -> Void)?
     var onAllItemsCompleted: (() -> Void)?
     var engineStartTime: String?
-    var lineUpTime: String?
     var landingTime: String?
     var engineShutdownTime: String?
     var goAroundCount: Int = 0
@@ -288,8 +285,6 @@ struct ChecklistView: View {
          activeChecklist: ActiveChecklist = .bundledDefault,
          onEngineStart: (() -> Void)? = nil,
          onEngineStartUpdate: (() -> Void)? = nil,
-         onLineUp: (() -> Void)? = nil,
-         onLineUpUpdate: (() -> Void)? = nil,
          onEngineShutdown: (() -> Void)? = nil,
          onEngineShutdownUpdate: (() -> Void)? = nil,
          onGoAround: (() -> Void)? = nil,
@@ -301,7 +296,6 @@ struct ChecklistView: View {
          onTapToAdvance: (() -> Void)? = nil,
          onAllItemsCompleted: (() -> Void)? = nil,
          engineStartTime: String? = nil,
-         lineUpTime: String? = nil,
          landingTime: String? = nil,
          engineShutdownTime: String? = nil,
          goAroundCount: Int = 0,
@@ -329,8 +323,6 @@ struct ChecklistView: View {
         self.activeChecklist = activeChecklist
         self.onEngineStart = onEngineStart
         self.onEngineStartUpdate = onEngineStartUpdate
-        self.onLineUp = onLineUp
-        self.onLineUpUpdate = onLineUpUpdate
         self.onEngineShutdown = onEngineShutdown
         self.onEngineShutdownUpdate = onEngineShutdownUpdate
         self.onGoAround = onGoAround
@@ -342,7 +334,6 @@ struct ChecklistView: View {
         self.onTapToAdvance = onTapToAdvance
         self.onAllItemsCompleted = onAllItemsCompleted
         self.engineStartTime = engineStartTime
-        self.lineUpTime = lineUpTime
         self.landingTime = landingTime
         self.engineShutdownTime = engineShutdownTime
         self.goAroundCount = goAroundCount
@@ -559,9 +550,9 @@ struct ChecklistView: View {
                 }
             }
 
-            // Special buttons (engine-start / ready-for-line-up / shutdown). In HUD mode these move to
-            // the bottom bar next to NEXT, so they're hidden here.
-            if !hudMode, phase.showsEngineStartButton || phase.showsLineUpButton || phase.showsEngineShutdownButton {
+            // Special buttons (engine-start / shutdown). In HUD mode these move to the bottom bar next to
+            // NEXT, so they're hidden here. READY FOR LINE UP is the check before departure's NEXT (6.2).
+            if !hudMode, phase.showsEngineStartButton || phase.showsEngineShutdownButton {
                 Spacer().frame(height: 24)
 
                 HStack {
@@ -577,21 +568,6 @@ struct ChecklistView: View {
                             isPulsing: pulseActionButton,
                             onFirstPress: { onEngineStart?() },
                             onUpdateTime: { onEngineStartUpdate?() }
-                        )
-                        .id("actionButton")
-                    }
-
-                    if phase.showsLineUpButton {
-                        TimestampActionButton(
-                            title: L10n.ChecklistAction.readyForLineUp(language: checklistLanguage),
-                            icon: "airplane.departure",
-                            color: theme.warning,
-                            timestamp: lineUpTime,
-                            timestampLabel: L10n.ChecklistAction.lineUp(language: checklistLanguage),
-                            timestampSuffix: " (+2 min)",
-                            isPulsing: pulseActionButton,
-                            onFirstPress: { onLineUp?() },
-                            onUpdateTime: { onLineUpUpdate?() }
                         )
                         .id("actionButton")
                     }

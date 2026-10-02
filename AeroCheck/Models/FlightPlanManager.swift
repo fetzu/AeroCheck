@@ -558,9 +558,10 @@ class FlightPlanManager: ObservableObject {
     /// `followTakeoff`). Kept in memory only: after a relaunch the next pass finds it again.
     private var detectedTakeoff: (planId: UUID, time: Date)?
 
-    /// LINE UP (the tap plus 2 minutes, `AppState.recordLineUpTime`): the active plan's ETOs count
-    /// from it until the track shows the take-off. A tap once the take-off is known moves nothing: it
-    /// is an estimate of what already happened.
+    /// LINE UP (READY FOR LINE UP plus 2 minutes, `AppState.recordLineUpTime`; reached through
+    /// `AppState.anchorETOsOnLineUp` since 6.2): the active plan's ETOs count from it until the track
+    /// shows the take-off. A tap once the take-off is known moves nothing: it is an estimate of what
+    /// already happened.
     ///
     /// It used to overwrite the planned departure and recompute every leg. The recompute read the
     /// winds-aloft cache for the hour of the tap, often empty, and timed every leg at zero wind (the

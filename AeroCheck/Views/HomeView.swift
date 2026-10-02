@@ -571,6 +571,7 @@ struct HomeView: View {
             .frame(height: isCompact ? 56 : 76)
         }
         .buttonStyle(PrimaryButtonStyle(color: .aviationGreen))
+        .accessibilityIdentifier("home.startFlight")
         .accessibilityLabel([label.title, label.leg].compactMap { $0 }.joined(separator: ", "))
         .accessibilityHint(heroFlight?.displayName ?? "")
     }
@@ -740,6 +741,7 @@ struct HomeView: View {
         }
         .buttonStyle(SecondaryButtonStyle(color: .aviationGreen, isLarge: false))
         .opacity(0.75)
+        .accessibilityIdentifier("home.flyWithoutPlan")
     }
 
     private func circuitsButton(isCompact: Bool) -> some View {
@@ -756,6 +758,7 @@ struct HomeView: View {
             .frame(height: Self.shortcutLabelHeight)
         }
         .buttonStyle(SecondaryButtonStyle(color: .aviationAmber, isLarge: false))
+        .accessibilityIdentifier("home.circuits")
     }
 
     /// The aircraft, in the strip the flight vacated. Taps into the carousel's own screen.

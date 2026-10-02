@@ -62,6 +62,7 @@ struct OpenItemsReviewSheet: View {
                         .frame(maxWidth: .infinity, minHeight: 80)
                         .background(RoundedRectangle(cornerRadius: 16).fill(theme.action))
                 }
+                .accessibilityIdentifier("review.back")
                 Button(action: onContinue) {
                     Text(L10n.Deferred.continueLater.uppercased())
                         .font(.aero(size: 20, weight: .bold))
@@ -69,6 +70,7 @@ struct OpenItemsReviewSheet: View {
                         .frame(maxWidth: .infinity, minHeight: 76)
                         .background(RoundedRectangle(cornerRadius: 16).stroke(theme.warning, lineWidth: 2))
                 }
+                .accessibilityIdentifier("review.continue")
                 Text(memoryCheck ? L10n.Deferred.continueNoteMemory : L10n.Deferred.continueNote)
                     .font(.aero(size: 17))
                     .foregroundColor(theme.textSecondary)

@@ -352,6 +352,8 @@ struct CheckSlotButton: View {
         }
         .buttonStyle(.plain)
         .accessibilityElement(children: .combine)
+        // The state for a UI test, which reads no colour: "checkSlot.due.confirmFromMemory". Never read out.
+        .accessibilityIdentifier("checkSlot.\(slot.tone).\(slot.action.rawValue)")
         .accessibilityLabel("\(slot.titleText()), \(slot.lineAccessibilityText)")
         .accessibilityHint(accessibilityHint)
     }
@@ -576,15 +578,18 @@ struct MapFlightEventButton: View {
         let title = event == .goAround ? L10n.ChecklistAction.goAround(language: language)
                                        : L10n.ChecklistAction.touchAndGo(language: language)
         let icon = event == .goAround ? "arrow.up.right.circle.fill" : "arrow.triangle.2.circlepath"
+        let identifier = event == .goAround ? "map.goAround" : "map.touchAndGo"
         if appState.isCircuitMode {
             CockpitThumbButton(title: title, icon: narrow ? nil : icon,
                                style: .outlined(tint: theme.action), action: perform)
+                .accessibilityIdentifier(identifier)
         } else {
             HoldToConfirmButton(title: title, systemImage: icon, tint: theme.action,
                                 count: event == .goAround ? appState.currentFlight?.goAroundCount ?? 0
                                                           : appState.currentFlight?.touchAndGoCount ?? 0,
                                 kneeboard: true, height: CockpitTarget.thumb,
                                 stacked: narrow, action: perform)
+                .accessibilityIdentifier(identifier)
         }
     }
 
@@ -614,6 +619,15 @@ struct FredaThumbButton: View {
         case waiting
         case counting(TimeInterval)
         case due
+
+        /// For the accessibility identifier a UI test reads.
+        var testName: String {
+            switch self {
+            case .waiting: return "waiting"
+            case .counting: return "counting"
+            case .due: return "due"
+            }
+        }
     }
 
     var body: some View {
@@ -657,6 +671,7 @@ struct FredaThumbButton: View {
         .buttonStyle(.plain)
         .disabled(stage == .waiting)
         .accessibilityElement(children: .combine)
+        .accessibilityIdentifier("cockpit.freda.\(stage.testName)")
         .accessibilityLabel(accessibilityLabel(stage))
         .accessibilityHint(stage == .waiting ? "" : L10n.Freda.confirmHint)
     }

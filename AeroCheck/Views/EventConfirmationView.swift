@@ -39,6 +39,7 @@ struct EventConfirmationView: View {
                 Text(event.type.rawValue)
                     .font(.aero(size: CockpitType.button, weight: .bold))
                     .foregroundColor(theme.textPrimary)
+                    .accessibilityIdentifier("eventCard.\(event.type)")
             }
 
             // Event details
@@ -67,11 +68,13 @@ struct EventConfirmationView: View {
                     cancelTimers()
                     onDismiss()
                 }
+                .accessibilityIdentifier("eventCard.dismiss")
                 CockpitThumbButton(title: L10n.EventConfirmation.confirm,
                                    style: .filled(fill: theme.action, text: theme.actionText)) {
                     cancelTimers()
                     onConfirm()
                 }
+                .accessibilityIdentifier("eventCard.confirm")
             }
 
             // Auto-dismiss countdown + progress (PR-06: unattended events are dismissed, not confirmed)
@@ -209,6 +212,7 @@ struct LandedCardView: View {
                     .background(Circle().fill(theme.onTarget.opacity(0.16)))
                     .accessibilityHidden(true)
                 Text(L10n.LandedCard.title(aerodrome: aerodrome, time: time))
+                    .accessibilityIdentifier("landedCard.title")
                     .font(.aero(size: CockpitType.button, weight: .bold))
                     .foregroundColor(theme.textPrimary)
                     .multilineTextAlignment(.center)
@@ -223,15 +227,18 @@ struct LandedCardView: View {
             if landingCheckSettled {
                 CockpitThumbButton(title: L10n.Cockpit.next(ChecklistPhase.afterLanding.shortTitle), icon: "chevron.right",
                                    style: .filled(fill: theme.action, text: theme.actionText)) { onAnswer(.next) }
+                    .accessibilityIdentifier("landedCard.next")
             } else {
                 // Side by side on the kneeboard; one over the other on the phone, so neither label shrinks.
                 let layout = phone ? AnyLayout(VStackLayout(spacing: 12)) : AnyLayout(HStackLayout(spacing: 16))
                 layout {
                     CockpitThumbButton(title: L10n.LandedCard.yes, icon: phone ? nil : "checkmark",
                                        style: .filled(fill: theme.action, text: theme.actionText)) { onAnswer(.yes) }
+                        .accessibilityIdentifier("landedCard.yes")
                         .accessibilityHint(L10n.LandedCard.yesHint)
                     CockpitThumbButton(title: L10n.LandedCard.notSure,
                                        style: .outlined(tint: theme.action)) { onAnswer(.notSure) }
+                        .accessibilityIdentifier("landedCard.notSure")
                         .accessibilityHint(L10n.LandedCard.notSureHint)
                 }
                 Text(L10n.LandedCard.explanation)

@@ -2192,12 +2192,14 @@ struct NavigationMapView: View {
                                    subtitle: parts.isEmpty ? nil : parts.joined(separator: " · ")) {
                     markWaypoint(at: index, in: plan)
                 }
+                .accessibilityIdentifier("map.mark")
             } else {
                 thumbPrimaryButton(icon: "mappin.and.ellipse",
                                    title: name.isEmpty ? L10n.Nav.mark : "\(L10n.Nav.mark) \(name)",
                                    subtitle: leg.map { "\(L10n.Nav.leg) \(legTimeText($0, planned: true))" }) {
                     markWaypoint(at: index, in: plan)
                 }
+                .accessibilityIdentifier("map.mark")
             }
         } else {
             Spacer(minLength: 0)
@@ -2765,6 +2767,7 @@ struct NavigationMapView: View {
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
+        .accessibilityIdentifier("legRow.\(index).\(isPast ? "passed" : isCurrent ? "next" : "ahead")")
     }
 
     /// Actual time flown on the leg arriving at `index`: the live timer for the current leg, ATO-to-ATO
@@ -6273,6 +6276,7 @@ struct NavUndoToast: View {
                 .font(.aero(size: Self.textSize, weight: .semibold))
                 .foregroundColor(theme.textPrimary)
                 .lineLimit(2)
+                .accessibilityIdentifier("undoToast.message")
             Spacer(minLength: 8)
             Button {
                 offer.undo()
@@ -6284,6 +6288,7 @@ struct NavUndoToast: View {
                     .frame(minWidth: 104, minHeight: Self.buttonHeight)
                     .background(buttonShape)
             }
+            .accessibilityIdentifier("undoToast.undo")
         }
         .padding(.leading, 18)
         .padding(.trailing, 8)

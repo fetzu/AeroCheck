@@ -330,7 +330,7 @@ final class GroundReplay {
         return true
     }
 
-    private static func airport(_ row: GroundReplayScenario.Aerodrome) -> Airport {
+    static func airport(_ row: GroundReplayScenario.Aerodrome) -> Airport {
         // A stable id: the replay's aerodromes are never saved, but the same on every launch.
         let id = row.ident.unicodeScalars.reduce(7) { ($0 &* 31 &+ Int($1.value)) % 100_000_000 }
         return Airport(id: id, ident: row.ident,
@@ -343,7 +343,7 @@ final class GroundReplay {
 
     /// The scenario's route, made and armed as a pilot's: a plan for today, activated, so START FLIGHT
     /// takes it.
-    private static func arm(_ route: GroundReplayScenario.Route, name: String, in manager: FlightPlanManager) {
+    static func arm(_ route: GroundReplayScenario.Route, name: String, in manager: FlightPlanManager) {
         let waypoints = route.waypoints.map { point in
             FlightPlanWaypoint(name: point.name, coordinate: CLLocationCoordinate2D(latitude: point.lat, longitude: point.lon),
                                altitude: point.altitude,

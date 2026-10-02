@@ -7,6 +7,8 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		C7A0000A211111110000001 /* GroundReplayTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C7A0000A111111110000001 /* GroundReplayTests.swift */; };
+		C7A00009211111110000002 /* Scenarios in Resources */ = {isa = PBXBuildFile; fileRef = C7A00009111111110000001 /* Scenarios */; };
 		C7A00008211111110000001 /* CockpitPilot.swift in Sources */ = {isa = PBXBuildFile; fileRef = C7A00008111111110000001 /* CockpitPilot.swift */; };
 		C7A00008211111110000002 /* ChecksInFlightUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C7A00008111111110000002 /* ChecksInFlightUITests.swift */; };
 		C7A00008211111110000003 /* CircuitsUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C7A00008111111110000003 /* CircuitsUITests.swift */; };
@@ -353,6 +355,7 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
+		C7A0000A111111110000001 /* GroundReplayTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GroundReplayTests.swift; sourceTree = "<group>"; };
 		C7A00001111111110000000 /* AeroCheckUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = AeroCheckUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		C7A00008111111110000001 /* CockpitPilot.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CockpitPilot.swift; sourceTree = "<group>"; };
 		C7A00008111111110000002 /* ChecksInFlightUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChecksInFlightUITests.swift; sourceTree = "<group>"; };
@@ -790,6 +793,7 @@
 				HB0A0001111111110000004 /* SettingsSyncTests.swift */,
 				A1000001111111110000912 /* OpenAIPCoreAPIFallbackTests.swift */,
 				A5000021111111110000001 /* LocationManagerTests.swift */,
+				C7A0000A111111110000001 /* GroundReplayTests.swift */,
 			);
 			path = AeroCheckTests;
 			sourceTree = "<group>";
@@ -1244,6 +1248,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				FEF00001211111110000001 /* FlightEventFixtures in Resources */,
+				C7A00009211111110000002 /* Scenarios in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -1303,6 +1308,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				C7A0000A211111110000001 /* GroundReplayTests.swift in Sources */,
 				A5000008111111110000002 /* GeoValidationTests.swift in Sources */,
 				A5000008111111110000906 /* SafeNumericTests.swift in Sources */,
 				A5000008111111110000006 /* WindDataServiceTests.swift in Sources */,

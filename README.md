@@ -149,7 +149,7 @@ Checklists, speeds and limits adapt automatically to the selected aircraft. Some
 - All times recorded chronologically:
   1. Session Start
   2. Engine Start
-  3. Take-off (Line Up +2 min)
+  3. Take-off (READY FOR LINE UP + 2 min; at END FLIGHT, the take-off the GPS track shows, when it shows one)
   4. Landing (auto-detected)
   5. Engine Shutdown
   6. Session End
@@ -218,7 +218,7 @@ The app includes all 16 phases from the official checklists (same structure for 
 4. **Check After Engine Start** (Page 2)
 5. **Taxi Check** (Page 2)
 6. **Runup** (Page 2)
-7. **Check Before Departure** (Page 2) - with "Ready for Line Up" button
+7. **Check Before Departure** (Page 2) - its NEXT reads "Ready for Line Up"
 8. **Line Up Check** (Page 3)
 9. **Climb Check** (Page 3)
 10. **Cruise Check** (Page 3)
@@ -289,7 +289,7 @@ The app includes all 16 phases from the official checklists (same structure for 
 ### Special Buttons
 
 - **ENGINE START**: Records the engine start time (shown on Engine Start phase)
-- **READY FOR LINE UP**: Adds 2 minutes to current time for take-off time (shown on Check Before Departure phase)
+- **READY FOR LINE UP**: The NEXT of Check Before Departure once every item is checked (the map's check slot and the Companion iPhone's NEXT say and do the same). It opens the Line Up Check and, the first time in the flight, records the take-off as now + 2 minutes; a later circuit keeps the first one
 - **ENGINE SHUTDOWN**: Records the engine shutdown time (shown on Engine Shutdown phase)
 
 ### Briefing Modals

@@ -420,4 +420,51 @@ enum FlightCreator {
               let plan = plans.flightPlans.first(where: { $0.id == planId }) else { return false }
         return plan.waypoints.count >= 2 || (plan.waypoints.count == 1 && thread.profile == .full)
     }
+
+    // MARK: - Cancelling (6.1)
+
+    /// "Cancel flight": the page, its tasks and reminders, its place in a trip, and the copy of the
+    /// route made for it (`FlightThreadManager.planToDelete`). Both cancels come through here, so a
+    /// trip cancelled whole leaves exactly what cancelling its legs one by one would: the same
+    /// deletion records, the same reminders gone.
+    ///
+    /// `logbookPlanIds`: the plans the logbook's flights point at, which stay.
+    static func cancelLeg(_ threadId: UUID,
+                          plans: FlightPlanManager,
+                          threads: FlightThreadManager,
+                          logbookPlanIds: Set<UUID>) {
+        let ownPlan = FlightThreadManager.planToDelete(
+            withThread: threadId, threads: threads.threads, plans: plans.flightPlans,
+            logbookPlanIds: logbookPlanIds)
+        // `removeLeg`, not `deleteThread`: this is the app's ONLY delete affordance and it
+        // is shown on trip legs too. `deleteThread` knows nothing about trips, so cancelling
+        // a leg left its id dangling in `Trip.legIds` — "Leg 3 of 3" on the second of two, a
+        // degenerate trip never dissolved, and the survivor stuck with `tripId` set so its
+        // trip-scoped rows never came back. `removeLeg` delegates to `deleteThread` for a
+        // thread that is not in a trip, so it is a safe drop-in. (review F14)
+        threads.removeLeg(threadId: threadId)
+        if let ownPlan { plans.deleteFlightPlan(ownPlan) }
+    }
+
+    /// "Cancel trip": every leg neither flown nor flying (`FlightThreadManager.legsToCancel`), each
+    /// cancelled by `cancelLeg`. Returns the legs removed.
+    ///
+    /// The legs that flew stay, with their flights in the logbook. Two or more of them left keep the
+    /// trip, as the record of what was flown; one left is a flight of its own again, with the trip's
+    /// preparation, as `removeLeg` decides for any leg. A leg in the air is never removed, whatever
+    /// the caller offered (`flyingPlanId`: the plan of the flight under way).
+    @discardableResult
+    static func cancelTrip(_ tripId: UUID,
+                           plans: FlightPlanManager,
+                           threads: FlightThreadManager,
+                           logbookPlanIds: Set<UUID>,
+                           flyingPlanId: UUID? = nil) -> [UUID] {
+        guard let trip = threads.trip(withId: tripId) else { return [] }
+        let legs = FlightThreadManager.legsToCancel(in: trip, threads: threads.threads,
+                                                    flyingPlanId: flyingPlanId)
+        for leg in legs {
+            cancelLeg(leg.id, plans: plans, threads: threads, logbookPlanIds: logbookPlanIds)
+        }
+        return legs.map(\.id)
+    }
 }

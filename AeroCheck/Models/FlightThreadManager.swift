@@ -1033,6 +1033,48 @@ class FlightThreadManager: ObservableObject {
         return plan
     }
 
+    // MARK: - Cancelling a trip (6.1)
+
+    /// Whether a leg is in the air: its page is in FLY, or its plan is the plan of the flight under
+    /// way (`flyingPlanId`) even though its page never heard of that flight. Deleting that plan would
+    /// take the route off the map in flight.
+    nonisolated static func isFlying(_ leg: FlightThread, flyingPlanId: UUID? = nil) -> Bool {
+        if leg.state == .flying { return true }
+        guard let flyingPlanId else { return false }
+        return leg.flightPlanId == flyingPlanId
+    }
+
+    /// Whether "Cancel trip" leaves a leg alone: it has flown, or it is flying.
+    ///
+    /// Flown means a flight is attached to it (`flightId`, set at START FLIGHT and kept through
+    /// close-out), or its page is past READY (FLY, CLOSE, finished). Its flight is in the logbook or on
+    /// its way there, and its page still carries the close-out: the flight plan to close, the logbook
+    /// line. Only a leg still PLANNED or READY, with no flight, is one the pilot can cancel.
+    nonisolated static func isFlownOrFlying(_ leg: FlightThread, flyingPlanId: UUID? = nil) -> Bool {
+        if leg.flightId != nil || isFlying(leg, flyingPlanId: flyingPlanId) { return true }
+        switch leg.state {
+        case .planned, .ready: return false
+        case .flying, .closeOut, .done: return true
+        }
+    }
+
+    /// The legs "Cancel trip" removes, in flying order: every leg neither flown nor flying.
+    nonisolated static func legsToCancel(in trip: Trip, threads: [FlightThread],
+                                         flyingPlanId: UUID? = nil) -> [FlightThread] {
+        trip.legIds
+            .compactMap { id in threads.first { $0.id == id } }
+            .filter { !isFlownOrFlying($0, flyingPlanId: flyingPlanId) }
+    }
+
+    /// Whether a trip offers "Cancel trip": a leg is left to cancel, and none of its legs is in the
+    /// air. A trip is changed on the ground: in flight the action is not offered at all, and the
+    /// rest of the trip can be cancelled once the leg has landed. (6.1)
+    nonisolated static func canCancel(_ trip: Trip, threads: [FlightThread], flyingPlanId: UUID? = nil) -> Bool {
+        let legs = trip.legIds.compactMap { id in threads.first { $0.id == id } }
+        guard !legs.contains(where: { isFlying($0, flyingPlanId: flyingPlanId) }) else { return false }
+        return !legsToCancel(in: trip, threads: threads, flyingPlanId: flyingPlanId).isEmpty
+    }
+
     func setCurrentThread(_ threadId: UUID?) {
         currentThreadId = threadId
         saveCurrentThreadPointer()

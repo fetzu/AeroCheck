@@ -163,6 +163,8 @@ struct FlightThreadView: View {
     @State private var copiedFPL = false
     /// Cancel flight's question is showing. (v6.0 review, B4)
     @State private var confirmingCancel = false
+    /// Cancel trip's question is showing. (6.1)
+    @State private var confirmingTripCancel = false
     /// The nav log rendered to a file and shown in Quick Look, where it can be read, printed,
     /// marked up, saved or shared. (A bare share sheet offered none of the first three on iPad.)
     /// Staged for this preview only, and removed once it closes. (S9-06)
@@ -642,6 +644,7 @@ struct FlightThreadView: View {
             .background(Color.panelBackground)
 
             legStrip(trip, current: leg)
+            cancelTripRow(trip, leg: leg)
             stopoverLine(leg, in: trip)
 
             ForEach(tasks) { task in
@@ -762,6 +765,54 @@ struct FlightThreadView: View {
             .padding(.horizontal, 14)
             .padding(.vertical, 8)
         }
+    }
+
+    /// "Cancel trip", under the legs it names: every leg not flown yet goes, each as "Cancel flight"
+    /// takes one (`FlightCreator.cancelTrip`). Offered while a leg is left to cancel and none is in
+    /// the air (`FlightThreadManager.canCancel`). Quiet red text, as "Cancel flight" at the foot of
+    /// the page, and it asks first, naming the legs that go. (6.1)
+    @ViewBuilder
+    private func cancelTripRow(_ trip: Trip, leg: FlightThread) -> some View {
+        if FlightThreadManager.canCancel(trip, threads: threadManager.threads, flyingPlanId: flyingPlanId) {
+            HStack {
+                Spacer(minLength: 0)
+                Button(role: .destructive) {
+                    confirmingTripCancel = true
+                } label: {
+                    HStack(spacing: 5) {
+                        Image(systemName: "xmark.circle")
+                            .scaledFont(size: 12, weight: .semibold, relativeTo: .footnote)
+                            .accessibilityHidden(true)
+                        Text(L10n.Trip.cancelTrip)
+                            .scaledFont(size: 13, relativeTo: .footnote)
+                    }
+                    .foregroundColor(.aviationRed.opacity(0.9))
+                    .frame(minHeight: 44)
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .confirmationDialog(L10n.Trip.cancelConfirmTitle, isPresented: $confirmingTripCancel,
+                                    titleVisibility: .visible) {
+                    Button(L10n.Trip.cancelTrip, role: .destructive) { cancelTrip(trip.id, from: leg) }
+                    Button(L10n.Trip.keepTrip, role: .cancel) { }
+                } message: {
+                    Text(cancelTripMessage(trip))
+                }
+            }
+            .padding(.horizontal, 14)
+        }
+    }
+
+    /// The legs that go, one a line ("Leg 2 · LSGE → LSGN", numbered as the strip numbers them), and
+    /// what stays: the legs already flown, with their flights in the logbook.
+    private func cancelTripMessage(_ trip: Trip) -> String {
+        let legs = threadManager.legs(of: trip)
+        let lines = legs.enumerated()
+            .filter { !FlightThreadManager.isFlownOrFlying($0.element, flyingPlanId: flyingPlanId) }
+            .map { L10n.Trip.cancelConfirmLeg($0.offset + 1, $0.element.displayName) }
+            .joined(separator: "\n")
+        let keepsFlown = legs.contains { FlightThreadManager.isFlownOrFlying($0, flyingPlanId: flyingPlanId) }
+        return L10n.Trip.cancelConfirmMessage(lines, keepsFlown: keepsFlown)
     }
 
     /// This leg's stop, before it leaves: "Stop at LSGE", the time on the ground and the refuel,
@@ -1270,18 +1321,25 @@ struct FlightThreadView: View {
     }
 
     private func cancelFlight(_ thread: FlightThread) {
-        let ownPlan = FlightThreadManager.planToDelete(
-            withThread: thread.id, threads: threadManager.threads, plans: flightPlanManager.flightPlans,
-            logbookPlanIds: Set(appState.flights.compactMap(\.flightPlanId)))
-        // `removeLeg`, not `deleteThread`: this is the app's ONLY delete affordance and it
-        // is shown on trip legs too. `deleteThread` knows nothing about trips, so cancelling
-        // a leg left its id dangling in `Trip.legIds` — "Leg 3 of 3" on the second of two, a
-        // degenerate trip never dissolved, and the survivor stuck with `tripId` set so its
-        // trip-scoped rows never came back. `removeLeg` delegates to `deleteThread` for a
-        // thread that is not in a trip, so it is a safe drop-in. (review F14)
-        threadManager.removeLeg(threadId: thread.id)
-        if let ownPlan { flightPlanManager.deleteFlightPlan(ownPlan) }
+        FlightCreator.cancelLeg(thread.id, plans: flightPlanManager, threads: threadManager,
+                                logbookPlanIds: logbookPlanIds)
         close()
+    }
+
+    /// Every leg not flown yet, each as `cancelFlight` takes one. The page closes when this leg went
+    /// with them; on a leg that flew, it stays, without the legs that are gone. (6.1)
+    private func cancelTrip(_ tripId: UUID, from leg: FlightThread) {
+        let removed = FlightCreator.cancelTrip(tripId, plans: flightPlanManager, threads: threadManager,
+                                               logbookPlanIds: logbookPlanIds, flyingPlanId: flyingPlanId)
+        if removed.contains(leg.id) { close() }
+    }
+
+    /// The plans the logbook's flights point at: a cancel never deletes one.
+    private var logbookPlanIds: Set<UUID> { Set(appState.flights.compactMap(\.flightPlanId)) }
+
+    /// The plan of the flight under way, if any: its leg is never cancelled.
+    private var flyingPlanId: UUID? {
+        appState.isFlightActive ? appState.currentFlight?.flightPlanId : nil
     }
 
     // MARK: - Actions

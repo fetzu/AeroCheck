@@ -2201,6 +2201,22 @@ enum L10n {
         static let noCandidates = String(localized: "trip.noCandidates")
         static let refuelHint = String(localized: "trip.refuelHint")
         static let joinNextLeg = String(localized: "trip.joinNextLeg")
+
+        // Cancel trip (6.1)
+        static let cancelTrip = String(localized: "trip.cancel")
+        static let cancelConfirmTitle = String(localized: "trip.cancelConfirm.title")
+        static let keepTrip = String(localized: "trip.cancelConfirm.keep")
+        /// "Leg 2 · LSGE → LSGN"
+        static func cancelConfirmLeg(_ number: Int, _ label: String) -> String {
+            String(format: String(localized: "trip.cancelConfirm.leg"), number, label)
+        }
+        /// The legs that go, one a line, then what stays: the legs already flown, when there are any.
+        static func cancelConfirmMessage(_ legs: String, keepsFlown: Bool) -> String {
+            let format = keepsFlown
+                ? String(localized: "trip.cancelConfirm.messageKeepsFlown")
+                : String(localized: "trip.cancelConfirm.message")
+            return String(format: format, legs)
+        }
         /// "≈ 15:10 (est.)"
         static func estimated(_ time: String) -> String {
             String(format: String(localized: "trip.estimated"), time)

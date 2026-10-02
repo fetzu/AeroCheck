@@ -359,6 +359,10 @@ class GateTests(unittest.TestCase):
         problems = extract_ofm.check_gates({"procedures": [], "points": [{}] * 50}, b"{}", self.documents(5, 50))
         self.assertTrue(any("no procedures" in p for p in problems))
 
+    def test_odd_openaip_features_are_skipped(self):
+        data = b'{"features": [{"geometry": {"coordinates": [7, 46]}, "properties": null}, {"geometry": null}, {}]}'
+        self.assertEqual(extract_ofm.parse_openaip(data), [("", 7.0, 46.0)])
+
     def test_parse_errors(self):
         with self.assertRaises(extract_ofm.ExtractError):
             extract_ofm.parse_snapshot(io.BytesIO(SNAPSHOT[: len(SNAPSHOT) // 2]))
@@ -476,6 +480,17 @@ class RunTests(unittest.TestCase):
         self.assertEqual(self.read("ch.json"), data)
         self.assertEqual(self.run_extractor(FakeOFM(etag='"changed"'), "2026-10-08", "--allow-drop"), 0)
         self.assertNotEqual(self.read("ch.json"), data)
+
+    def test_a_bug_in_one_region_is_a_stop_too(self):
+        fake = FakeOFM()
+
+        def broken(url, etag=None):
+            if "openaip" in url:
+                raise RuntimeError("a bug")
+            return fake(url, etag)
+
+        self.assertEqual(self.run_extractor(broken), 1)
+        self.assertFalse(os.path.exists(os.path.join(self.out, "ch.json")))
 
     def test_openaip_failure_is_a_stop(self):
         self.assertEqual(self.run_extractor(FakeOFM(openaip=None)), 1)

@@ -32,6 +32,7 @@ import math
 import os
 import re
 import sys
+import traceback
 import unicodedata
 import xml.etree.ElementTree as ET
 from collections import Counter, defaultdict
@@ -536,8 +537,8 @@ def parse_openaip(data):
     for feature in features:
         try:
             lon, lat = feature["geometry"]["coordinates"][:2]
-            out.append((feature["properties"].get("name") or "", float(lon), float(lat)))
-        except (KeyError, TypeError, ValueError):
+            out.append(((feature.get("properties") or {}).get("name") or "", float(lon), float(lat)))
+        except (KeyError, TypeError, ValueError, AttributeError):
             continue
     return out
 
@@ -761,7 +762,12 @@ def main(argv=None, fetch=http_get):
             say(f"{country} {status}: {message}")
             if new_entry:
                 regions[country] = new_entry
-        except (ExtractError, OSError) as error:
+        except Exception as error:
+            # An ExtractError is a reasoned stop; anything else is a bug or a surprise, so show where it came
+            # from. Either way the other regions go on and the index stays true to the files on disk.
+            if not isinstance(error, (ExtractError, OSError)):
+                traceback.print_exc()
+                error = f"{type(error).__name__}: {error}"
             stops.append(f"{country}: {error}")
             print(f"{country} STOPPED: {error}" + (f" (keeping the published AIRAC {entry['airac']} file)"
                                                    if entry else " (nothing published for it yet)"),

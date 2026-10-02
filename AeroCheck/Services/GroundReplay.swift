@@ -40,7 +40,7 @@ struct GroundReplayScenario: Decodable {
 
     /// Wait at `t` (seconds into the track) until `until` holds: `engineStart`, `lineUp` (LINE UP
     /// tapped, or the LINE UP check reached), `phase:<name>` (that check or a later one reached),
-    /// `flightActive`.
+    /// `phaseIs:<name>` (that check exactly: the line-up again after a stop-and-go), `flightActive`.
     struct Hold: Decodable {
         let t: Double
         let until: String
@@ -154,19 +154,29 @@ struct GroundReplayCursor: Equatable {
         case engineStart
         case lineUp
         case phase(ChecklistPhase)
+        /// That check exactly, not a later one: after a stop-and-go the Cockpit is past the line-up
+        /// already, and goes back to TAXI on the card's CONFIRM.
+        case phaseIs(ChecklistPhase)
         case flightActive
 
         init?(_ text: String) {
             let lower = text.lowercased()
+            func phase(after prefix: String) -> ChecklistPhase? {
+                guard lower.hasPrefix(prefix) else { return nil }
+                return ChecklistPhase.allCases.first { "\($0)".lowercased() == lower.dropFirst(prefix.count) }
+            }
             switch lower {
             case "enginestart": self = .engineStart
             case "lineup": self = .lineUp
             case "flightactive": self = .flightActive
             default:
-                guard lower.hasPrefix("phase:"),
-                      let phase = ChecklistPhase.allCases.first(where: { "\($0)".lowercased() == lower.dropFirst(6) })
-                else { return nil }
-                self = .phase(phase)
+                if let exact = phase(after: "phaseis:") {
+                    self = .phaseIs(exact)
+                } else if let reached = phase(after: "phase:") {
+                    self = .phase(reached)
+                } else {
+                    return nil
+                }
             }
         }
     }
@@ -183,6 +193,7 @@ struct GroundReplayCursor: Equatable {
             case .engineStart: return isFlightActive && engineStarted
             case .lineUp: return isFlightActive && (linedUp || phase.rawValue >= ChecklistPhase.lineUp.rawValue)
             case .phase(let target): return isFlightActive && phase.rawValue >= target.rawValue
+            case .phaseIs(let target): return isFlightActive && phase == target
             case .flightActive: return isFlightActive
             }
         }

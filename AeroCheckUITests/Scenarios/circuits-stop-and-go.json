@@ -57,6 +57,10 @@
   {
    "t": 117,
    "until": "lineUp"
+  },
+  {
+   "t": 982,
+   "until": "phaseIs:lineUp"
   }
  ],
  "expected": {
@@ -233,7 +237,7 @@
     "at": "LSZQ"
    }
   ],
-  "referee": "detector_v2.py + FlightCues, fed one fix every 5 s of the replay clock, holds engineStart 120 s, lineUp 150 s"
+  "referee": "detector_v2.py + FlightCues, fed one fix every 5 s of the replay clock, holds engineStart 120 s, lineUp 150 s, phaseIs:lineUp 150 s"
  },
  "airports": [
   {

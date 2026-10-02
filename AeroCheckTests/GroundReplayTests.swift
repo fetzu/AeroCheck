@@ -78,6 +78,23 @@ final class GroundReplayTests: XCTestCase {
         XCTAssertNil(GroundReplayCursor.Condition("whenever"))
     }
 
+    /// A stop-and-go waits for the line-up check itself: the Cockpit is past it already (on the landing
+    /// check), and the card's CONFIRM takes it back to TAXI.
+    func testAStopAndGoWaitsForTheLineUpCheckItself() {
+        XCTAssertEqual(GroundReplayCursor.Condition("phaseIs:lineUp"), .phaseIs(.lineUp))
+        var cursor = GroundReplayCursor(duration: 600, holds: [.init(t: 100, condition: .phaseIs(.lineUp))])
+        var flight = GroundReplayCursor.FlightState(isFlightActive: true, engineStarted: true, linedUp: true,
+                                                    phase: .landing)
+        cursor.advance(by: 150, flight: flight)
+        XCTAssertEqual(cursor.t, 100, "on the landing check, past the line-up: still waiting")
+        flight.phase = .taxi
+        cursor.advance(by: 10, flight: flight)
+        XCTAssertEqual(cursor.t, 100, "CONFIRM: TAXI, still waiting")
+        flight.phase = .lineUp
+        cursor.advance(by: 10, flight: flight)
+        XCTAssertEqual(cursor.t, 110, "the line-up check again: away")
+    }
+
     // MARK: - Whole flights through the chain
 
     /// LSZQ → INS → LSGC, every check done as it comes due: the detector, its cues and the check slot

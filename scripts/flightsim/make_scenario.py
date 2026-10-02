@@ -266,9 +266,11 @@ class Flight:
             self.mark('levelOff')
 
     # -- the circuit
-    def circuit(self, field, ending, join_alt=None, stop_seconds=20, upwind=False):
+    def circuit(self, field, ending, join_alt=None, stop_seconds=20, upwind=False, hold_at_stop=None):
         """Downwind, base, final and the landing: 'fullStop' (stop, then the exit), 'touchAndGo', 'stopAndGo'.
-        `upwind`: fly the crosswind first (after a take-off from this field)."""
+        `upwind`: fly the crosswind first (after a take-off from this field). `hold_at_stop`: the replay
+        waits on the runway, stopped, until that holds (a stop-and-go's card answered and the checks done
+        again: at 10x its 20 s stop leaves the pilot two seconds)."""
         tpa = join_alt or field.tpa
         if upwind:
             self.go_to(field.circuit_point('crosswind'), self.ac['vy'], alt=tpa, vs_fpm=650)
@@ -305,6 +307,8 @@ class Flight:
             self.step(0, accel=3.0, target_hdg=field.rwy)
         self.spd = 0
         self.mark('stopped')
+        if hold_at_stop:
+            self.hold(hold_at_stop)
         self.park(stop_seconds)
         if ending == 'stopAndGo':
             self.mark('takeoffRoll')
@@ -377,8 +381,9 @@ def scenario_xc(name, seed, dep, dest, waypoints, cruise_ft, *, description, lev
                    circuits=False)
 
 
-def scenario_local(name, seed, field_id, *, description, laps, cruise_ft=None, circuits=True):
-    """Circuits (`laps`: the endings, the last a full stop), or with `cruise_ft` a short local flight first."""
+def scenario_local(name, seed, field_id, *, description, laps, cruise_ft=None, circuits=True, hold_first_stop=None):
+    """Circuits (`laps`: the endings, the last a full stop), or with `cruise_ft` a short local flight first.
+    `hold_first_stop`: the first stop-and-go waits for it (`Flight.circuit`'s `hold_at_stop`)."""
     fld = Field(field_id)
     f = Flight(seed, fld)
     f.hold('engineStart', at=0)
@@ -398,9 +403,11 @@ def scenario_local(name, seed, field_id, *, description, laps, cruise_ft=None, c
     else:
         f.line_up_and_take_off(fld, fld.elev + 500, fld.point(fld.length / 2 + 2 * NM))
         first_upwind = True
+    first_stop = laps.index('stopAndGo') if 'stopAndGo' in laps else None
     for i, ending in enumerate(laps):
         f.mark(f'lap{i + 1}')
-        f.circuit(fld, ending, upwind=first_upwind or i > 0)
+        f.circuit(fld, ending, upwind=first_upwind or i > 0,
+                  hold_at_stop=hold_first_stop if i == first_stop else None)
         if ending == 'fullStop' and i < len(laps) - 1:
             # Off the runway, back to the holding point (the landed card left unanswered), and away again.
             f.taxi_to(fld.holding_point())
@@ -442,7 +449,10 @@ def build(name):
         return scenario_local(name, 105, 'LSZQ', laps=['fullStop', 'fullStop'], cruise_ft=4000, circuits=False,
                               description='Local flight at LSZQ: full stop, card left unanswered, taxi, away again, full stop')
     if name == 'circuits-stop-and-go':
+        # The first stop-and-go waits for its card to be answered and the checks to the line-up done again
+        # (circuits-2); the second goes on unanswered, its card gone on the roll (circuits-3).
         return scenario_local(name, 106, 'LSZQ', laps=['touchAndGo', 'stopAndGo', 'stopAndGo', 'fullStop'],
+                              hold_first_stop='phaseIs:lineUp',
                               description='Circuits at LSZQ: a touch-and-go, two stop-and-goes, a full stop')
     if name == 'route-vrps':
         # LSGN → E (LSGC) → LSZQ: reporting points on the way, the waypoint marking of 6.0.1.
@@ -504,7 +514,7 @@ def nearby_aerodromes(rows, extra):
 
 
 # Nominal holds for the referee: how long the pilot keeps the replay waiting, in replay seconds.
-NOMINAL_HOLD = {'engineStart': 120, 'lineUp': 150}
+NOMINAL_HOLD = {'engineStart': 120, 'lineUp': 150, 'phaseIs:lineUp': 150}
 
 
 def referee(track, holds, airports, aircraft, destination_point, circuits):
@@ -567,7 +577,8 @@ def referee(track, holds, airports, aircraft, destination_point, circuits):
     cues = [dict(type=k, t=track_time(tt), implied=imp, at=ident) for (tt, k, imp, ident) in det.cues.events]
     return dict(events=events, takeoffs=takeoffs, cues=cues,
                 referee='detector_v2.py + FlightCues, fed one fix every 5 s of the replay clock, holds '
-                        + ', '.join(f'{k} {v} s' for k, v in NOMINAL_HOLD.items()))
+                        + ', '.join(f'{k} {v} s' for k, v in NOMINAL_HOLD.items()
+                                    if k in ('engineStart', 'lineUp') or any(h['until'] == k for h in holds)))
 
 
 def make(name, previous=None):

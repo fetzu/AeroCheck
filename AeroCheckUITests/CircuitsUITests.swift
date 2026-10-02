@@ -56,8 +56,10 @@ final class CircuitsUITests: XCTestCase {
         pilot.tap("eventCard.confirm")
         pilot.check("circuits-2", pilot.waitUntil(timeout: 4) { pilot.currentPhase == "taxi" }, "CONFIRM: \(pilot.currentPhase ?? "?")")
         pilot.shot("circuits-2", "taxi")
-        // And the next circuit: the checks to the climb again.
+        // And the next circuit: the checks to the climb again. The replay waits on the runway, stopped,
+        // until the line-up check is reached again (the scenario's phaseIs:lineUp hold).
         pilot.workChecks(until: "lineUp")
+        if let hold = s.holds.first(where: { $0.until == "phaseIs:lineUp" }) { pilot.noteRelease(atTrack: hold.t) }
         if pilot.memoryDone.waitForExistence(timeout: 3) { pilot.tapNow(pilot.memoryDone) }
         pilot.check("circuits-2", pilot.waitUntil(timeout: 5) { pilot.currentPhase == "climb" }, "the next circuit: \(pilot.currentPhase ?? "?")")
 

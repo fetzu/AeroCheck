@@ -517,15 +517,15 @@ final class CompanionServiceContractTests: XCTestCase {
         manager.handleReceivedMessage(try hello(false), generation: gen)
         XCTAssertFalse(manager.streamsItemText, "no claim, no consent: no text")
         manager.handleReceivedMessage(tap, generation: gen)
-        manager.answerAuthorization(try XCTUnwrap(manager.pendingAuthorization), allow: true)
+        manager.answerAuthorization(try XCTUnwrap(manager.pendingAuthorization), .allow)
         XCTAssertTrue(manager.streamsItemText, "allowed: the text streams from now on")
 
-        // The consent was for that connection only.
+        // The consent was for that connection only: a peer not identified is never remembered.
         gen = try XCTUnwrap(manager.adoptMasterConnection(identity: nil, send: { _ in }))
         manager.handleReceivedMessage(try hello(false), generation: gen)
         XCTAssertFalse(manager.streamsItemText, "a new connection starts without it")
         manager.handleReceivedMessage(tap, generation: gen)
-        manager.answerAuthorization(try XCTUnwrap(manager.pendingAuthorization), allow: false)
+        manager.answerAuthorization(try XCTUnwrap(manager.pendingAuthorization), .deny)
         XCTAssertFalse(manager.streamsItemText, "Don't Allow keeps the text off for the connection")
 
         // The subscriber's own phone needs no prompt.
@@ -538,7 +538,7 @@ final class CompanionServiceContractTests: XCTestCase {
         manager.entitlementProvider = { false }
         XCTAssertFalse(manager.streamsItemText)
         manager.handleReceivedMessage(tap, generation: gen)
-        manager.answerAuthorization(try XCTUnwrap(manager.pendingAuthorization), allow: true)
+        manager.answerAuthorization(try XCTUnwrap(manager.pendingAuthorization), .allow)
         XCTAssertFalse(manager.streamsItemText, "claim and consent together are still not enough")
 
         // The bundled aircraft: always.

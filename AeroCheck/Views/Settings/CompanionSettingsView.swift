@@ -65,7 +65,8 @@ struct CompanionSettingsView: View {
         }
         // SEC-C40: a paired peer asked to drive checklist/waypoint state. Being paired is not
         // authorisation — on a shared cockpit iPad the pairing may belong to a previous user —
-        // so the person holding the master confirms it, once, for this connection only.
+        // so the person holding the master confirms it: for this flight, or always for a phone
+        // of their own. (6.1.0)
         .modifier(CompanionCommandAuthorizationAlert(manager: companionConnectivityManager))
     }
 
@@ -108,7 +109,8 @@ struct CompanionSettingsView: View {
         }
     }
 
-    /// A paired device, with Forget, or Allow Again once forgotten. (S9-09)
+    /// A paired device, with Forget, or Allow Again once forgotten (S9-09); and, for a phone the iPad
+    /// always allows, Ask Each Flight. (6.1.0)
     ///
     /// Single line: `name` and `pairingName` are usually identical, so showing both is redundant.
     /// Prefer whichever is present. (v4.1) Wi-Fi Aware has no API to undo a system pairing, so
@@ -117,12 +119,27 @@ struct CompanionSettingsView: View {
     private func pairedDeviceRow(_ device: CompanionPairedDevice) -> some View {
         let name = device.displayName ?? L10n.Companion.unknownDevice
         let forgotten = companionConnectivityManager.isForgotten(device)
+        let alwaysAllowed = !forgotten && companionConnectivityManager.isAlwaysAllowed(device)
         return HStack(spacing: 10) {
             SettingsRowLabel(icon: forgotten ? "nosign" : "checkmark.circle.fill",
                              title: name,
-                             subtitle: forgotten ? L10n.Companion.deviceForgotten : nil,
+                             subtitle: forgotten ? L10n.Companion.deviceForgotten
+                                : alwaysAllowed ? L10n.Companion.deviceAlwaysAllowed : nil,
                              tint: forgotten ? .secondaryText : .aviationGreen,
                              titleColor: forgotten ? .secondaryText : .primaryText)
+            if alwaysAllowed {
+                Button {
+                    companionConnectivityManager.stopAlwaysAllowing(device)
+                } label: {
+                    Text(L10n.Companion.askEachFlight)
+                        .font(.aero(.subheadline).weight(.semibold))
+                        .foregroundColor(tint)
+                        .frame(minHeight: 44)
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel(L10n.Companion.askEachFlightAccessibility(name))
+            }
             Button {
                 if forgotten {
                     companionConnectivityManager.allowAgain(device)
@@ -328,8 +345,11 @@ struct CompanionSettingsView: View {
 /// Presents the peer-command authorisation prompt. Mounted in TWO places on purpose — see the call
 /// site in `ContentView` for why. Internal (not private) so the root can mount it too.
 ///
-/// The answer is bound to the connection that asked (the request carries its generation) and holds
-/// for that connection: Don't Allow is remembered, not asked again 2 s later. (S9-08, S9-28)
+/// The answer is bound to the connection that asked (the request carries its generation). Allow holds
+/// for this flight, reconnections included, and Always Allow on this iPad until the pilot forgets the
+/// phone or chooses Ask Each Flight; a peer Wi-Fi Aware did not identify gets Allow for this
+/// connection only, and no Always. Don't Allow holds for the connection, not asked again 2 s later.
+/// (S9-08, S9-28; 6.1.0)
 struct CompanionCommandAuthorizationAlert: ViewModifier {
     @ObservedObject var manager: CompanionConnectivityManager
 
@@ -347,14 +367,23 @@ struct CompanionCommandAuthorizationAlert: ViewModifier {
     func body(content: Content) -> some View {
         content.alert(L10n.Companion.allowControlTitle, isPresented: isPresented,
                       presenting: manager.pendingAuthorization) { request in
-            Button(L10n.Companion.allowControl) {
-                manager.answerAuthorization(request, allow: true)
+            if request.canRemember {
+                Button(L10n.Companion.allowControlForFlight) {
+                    manager.answerAuthorization(request, .allow)
+                }
+                Button(L10n.Companion.alwaysAllowControl) {
+                    manager.answerAuthorization(request, .alwaysAllow)
+                }
+            } else {
+                Button(L10n.Companion.allowControl) {
+                    manager.answerAuthorization(request, .allow)
+                }
             }
             Button(L10n.Companion.denyControl, role: .cancel) {
-                manager.answerAuthorization(request, allow: false)
+                manager.answerAuthorization(request, .deny)
             }
         } message: { request in
-            Text(L10n.Companion.allowControlMessage(request.deviceName))
+            Text(L10n.Companion.allowControlMessage(request.deviceName, canRemember: request.canRemember))
         }
     }
 }

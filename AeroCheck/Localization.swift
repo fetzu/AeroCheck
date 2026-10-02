@@ -2664,13 +2664,25 @@ enum L10n {
     enum Companion {
         // Companion command authorisation (SEC-C40)
         static let allowControlTitle = String(localized: "companion.allowControlTitle")
+        /// For a peer Wi-Fi Aware did not identify: this connection only.
         static let allowControl = String(localized: "companion.allowControl")
+        static let allowControlForFlight = String(localized: "companion.allowControlForFlight")
+        static let alwaysAllowControl = String(localized: "companion.alwaysAllowControl")
         static let denyControl = String(localized: "companion.denyControl")
-        /// Nil when Wi-Fi Aware did not name the peer: the prompt then says "a paired device" rather
-        /// than guess one from the paired list. (S9-28)
-        static func allowControlMessage(_ device: String?) -> String {
-            guard let device else { return String(localized: "companion.allowControlMessageUnnamed") }
+        /// `device` nil when Wi-Fi Aware did not name the peer: the prompt then says "a paired device"
+        /// rather than guess one from the paired list (S9-28). `canRemember` false for a peer it did not
+        /// identify, which is asked about this connection only. (6.1.0)
+        static func allowControlMessage(_ device: String?, canRemember: Bool) -> String {
+            guard canRemember else { return String(localized: "companion.allowControlMessageUnnamed") }
+            guard let device else { return String(localized: "companion.allowControlMessageUnnamedDevice") }
             return String(format: String(localized: "companion.allowControlMessage"), device)
+        }
+
+        // Always Allow (6.1.0)
+        static let deviceAlwaysAllowed = String(localized: "companion.deviceAlwaysAllowed")
+        static let askEachFlight = String(localized: "companion.askEachFlight")
+        static func askEachFlightAccessibility(_ device: String) -> String {
+            String(format: String(localized: "companion.askEachFlightAccessibility"), device)
         }
 
         // Forget device (S9-09)

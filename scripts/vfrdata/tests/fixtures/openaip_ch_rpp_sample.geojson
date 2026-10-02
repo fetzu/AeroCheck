@@ -1,0 +1,58 @@
+{
+ "type": "FeatureCollection",
+ "name": "Synthetic stand-in for OpenAIP's ch_rpp.geojson (made up for the tests, not OpenAIP data)",
+ "features": [
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     7.49861,
+     46.84806
+    ]
+   },
+   "properties": {
+    "name": "S"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     5.91841,
+     46.12194
+    ]
+   },
+   "properties": {
+    "name": "SW"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     7.87883,
+     46.65289
+    ]
+   },
+   "properties": {
+    "name": "INTERLAKEN SUED"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     8.5,
+     47.0
+    ]
+   },
+   "properties": {
+    "name": "ZETA"
+   }
+  }
+ ]
+}

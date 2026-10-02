@@ -388,6 +388,11 @@ enum CompanionTiming {
     /// iPad is tearing down). (6.1.0)
     static let firstFrameLimit: TimeInterval = 5
 
+    /// Master: an unchanged plan or checklist snapshot goes again this often. Both are sent when they
+    /// change, and a datagram lost over UDP is not resent: the phone kept a stale check or plan until
+    /// the next change. (6.1.0)
+    static let snapshotRefresh: TimeInterval = 5
+
     /// Viewer: how long the Companion screen stays up after the link dropped, its "connection lost"
     /// banner on, while the phone looks for the iPad again. Looking again used to show the phone's
     /// ground screen for the length of the browse, which flashed on every short drop. Past this the
@@ -455,16 +460,13 @@ struct CompanionFlightPlanSnapshot: Codable, Equatable {
     /// build ignores it and a snapshot from an older master decodes as "no diversion". (v5.1)
     var diversion: CompanionWaypoint? = nil
 
-    static func == (lhs: CompanionFlightPlanSnapshot, rhs: CompanionFlightPlanSnapshot) -> Bool {
-        lhs.planId == rhs.planId &&
-        lhs.waypoints.count == rhs.waypoints.count &&
-        lhs.currentWaypointIndex == rhs.currentWaypointIndex &&
-        lhs.diversion?.name == rhs.diversion?.name
-    }
+    // `==` compares everything, ETOs and times over included: the master sends a snapshot when it
+    // differs from the last one sent. It compared the plan id, the waypoint count, the current index
+    // and the diversion only, the same trap as `FlightPlan ==`. (6.1.0)
 }
 
 /// A waypoint in the companion flight plan snapshot
-struct CompanionWaypoint: Codable, Identifiable {
+struct CompanionWaypoint: Codable, Identifiable, Equatable {
     let id: UUID
     let name: String
     let latitude: Double

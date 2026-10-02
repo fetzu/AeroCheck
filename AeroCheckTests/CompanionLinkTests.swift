@@ -335,6 +335,121 @@ final class CompanionLinkTests: XCTestCase {
         XCTAssertNotEqual(manager.connectionState, .disconnected, "auto-connect started a listener or a browse")
     }
 
+    // MARK: - The plan reaches the phone (6.1.0)
+
+    /// LSZQ → LSZB at 5,000 ft and 100 kt, leaving in an hour: ETOs to anchor.
+    private func armedPlan(on plans: FlightPlanManager) -> FlightPlan {
+        var plan = FlightPlan(name: "LSZQ → LSZB", waypoints: [
+            FlightPlanWaypoint(name: "LSZQ", coordinate: .init(latitude: 47.392, longitude: 7.030)),
+            FlightPlanWaypoint(name: "LSZB", coordinate: .init(latitude: 46.914, longitude: 7.497)),
+        ])
+        plan.plannedDepartureTime = Date().addingTimeInterval(3_600)
+        for i in plan.waypoints.indices {
+            plan.waypoints[i].altitude = 5_000
+            plan.waypoints[i].plannedGroundSpeed = 100
+        }
+        plan.calculateRouteData()
+        plans.add(plan)
+        plans.activateFlightPlan(plan)
+        addTeardownBlock { @MainActor in plans.stopChronometer() }
+        return plan
+    }
+
+    /// The last plan the phone was sent, decoded as the phone decodes it.
+    private func lastPlan(_ sent: SentMessages) throws -> CompanionFlightPlanSnapshot? {
+        try sent.of(.flightPlanUpdate).last.map {
+            try JSONDecoder().decode(CompanionFlightPlanSnapshot.self, from: $0.payload)
+        }
+    }
+
+    /// READY FOR LINE UP anchors the ETOs on the iPad. The phone showed --:-- until a reconnect sent it
+    /// the whole plan again: the iPad resent the plan only for a new plan, a diversion, or once a
+    /// waypoint had a time over.
+    func testETOsAnchoredBeforeTheTakeoffReachThePhoneOnTheNextTick() async throws {
+        let sent = SentMessages()
+        let (companion, _) = try connectedMaster(sent: sent)
+        let plan = armedPlan(on: companion.plans)
+        let now = Date()
+        companion.manager.streamTick(now: now)
+        let first = try await eventually { !sent.of(.flightPlanUpdate).isEmpty }
+        XCTAssertTrue(first)
+
+        let lineUp = now.addingTimeInterval(120)
+        companion.plans.anchorETOsOnLineUp(lineUp)
+        let anchored = try XCTUnwrap(companion.plans.activeFlightPlan?.waypoints.last?.estimatedTimeOver)
+        XCTAssertNotEqual(anchored, plan.waypoints.last?.estimatedTimeOver, "the anchor moved the ETOs")
+        XCTAssertNil(companion.plans.activeFlightPlan?.waypoints.first { $0.actualTimeOver != nil },
+                     "no time over yet: what kept the old check from sending")
+
+        companion.manager.streamTick(now: now.addingTimeInterval(1))
+        let arrived = try await eventually { (try? self.lastPlan(sent))??.waypoints.last?.estimatedTimeOver == anchored }
+        XCTAssertTrue(arrived, "the anchored ETO goes on the next tick")
+    }
+
+    func testATimeOverTakenBackReachesThePhone() async throws {
+        let sent = SentMessages()
+        let (companion, _) = try connectedMaster(sent: sent)
+        _ = armedPlan(on: companion.plans)
+        var now = Date()
+        companion.manager.streamTick(now: now)
+
+        var marked = try XCTUnwrap(companion.plans.activeFlightPlan)
+        marked.waypoints[0].actualTimeOver = now
+        companion.plans.updateFlightPlan(marked)
+        now += 1
+        companion.manager.streamTick(now: now)
+        let markSent = try await eventually { (try? self.lastPlan(sent))??.waypoints.first?.actualTimeOver != nil }
+        XCTAssertTrue(markSent)
+
+        // UNDO: no time over left anywhere, which the old check took for "nothing to send".
+        var undone = marked
+        undone.waypoints[0].actualTimeOver = nil
+        companion.plans.updateFlightPlan(undone)
+        now += 1
+        companion.manager.streamTick(now: now)
+        let undoSent = try await eventually {
+            let plan = (try? self.lastPlan(sent)) ?? nil
+            return plan != nil && plan?.waypoints.first?.actualTimeOver == nil
+        }
+        XCTAssertTrue(undoSent, "the phone sees the time over go")
+    }
+
+    func testAnUnchangedPlanIsSentAgainEveryFewSeconds() async throws {
+        let sent = SentMessages()
+        let (companion, _) = try connectedMaster(sent: sent)
+        _ = armedPlan(on: companion.plans)
+        let now = Date().addingTimeInterval(100)   // ahead of the stream's own timer
+        companion.manager.streamTick(now: now)
+        let first = try await eventually { sent.of(.flightPlanUpdate).count == 1 }
+        XCTAssertTrue(first)
+
+        companion.manager.streamTick(now: now.addingTimeInterval(1))
+        try await Task.sleep(for: .milliseconds(200))
+        XCTAssertEqual(sent.of(.flightPlanUpdate).count, 1, "unchanged and not due: not sent")
+
+        companion.manager.streamTick(now: now.addingTimeInterval(CompanionTiming.snapshotRefresh))
+        let again = try await eventually { sent.of(.flightPlanUpdate).count == 2 }
+        XCTAssertTrue(again, "due again: a datagram lost over UDP is not resent otherwise")
+    }
+
+    func testPlanSnapshotsDifferOnTheirTimes() {
+        func snapshot(eto: Date?, ato: Date?) -> CompanionFlightPlanSnapshot {
+            let id = UUID(uuidString: "00000000-0000-0000-0000-000000000001")!
+            let wp = CompanionWaypoint(id: id, name: "LSZB", latitude: 46.9, longitude: 7.5, altitude: 1_700,
+                                       frequency: nil, magneticCourse: 140, distance: 22, plannedGroundSpeed: 100,
+                                       estimatedElapsedTime: 800, legEETExtra: nil, cumulativeEET: 800,
+                                       estimatedTimeOver: eto, actualTimeOver: ato, remarks: "")
+            return CompanionFlightPlanSnapshot(planId: id, planName: "Plan", waypoints: [wp], currentWaypointIndex: 0,
+                                               totalDistance: 22, totalEET: 800, plannedDepartureTime: nil,
+                                               chronometerStartTime: nil)
+        }
+        let t = Date(timeIntervalSince1970: 1_790_000_000)
+        XCTAssertEqual(snapshot(eto: t, ato: nil), snapshot(eto: t, ato: nil))
+        XCTAssertNotEqual(snapshot(eto: nil, ato: nil), snapshot(eto: t, ato: nil), "an ETO is a change")
+        XCTAssertNotEqual(snapshot(eto: t, ato: nil), snapshot(eto: t.addingTimeInterval(60), ato: nil))
+        XCTAssertNotEqual(snapshot(eto: t, ato: t), snapshot(eto: t, ato: nil), "so is a time over taken back")
+    }
+
     func testTheLinkEndsAreLoggedAsFixedText() {
         let ends: [CompanionConnectivityManager.LinkEnd] = [.peerLeft, .silence(12), .noFirstFrame, .sendFailing,
                                                             .receiveEnded, .idle(minutes: 10), .forgotten]

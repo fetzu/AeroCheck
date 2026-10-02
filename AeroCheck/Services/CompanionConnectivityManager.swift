@@ -208,9 +208,15 @@ class CompanionConnectivityManager: NSObject, ObservableObject {
     /// never carried data over the UDP datapath.)
     private var sendHandler: (@Sendable (CompanionMessage) async throws -> Void)?
     private var updateTimer: Timer?
-    private var lastSentFlightPlanId: UUID?
-    /// The diversion the viewer was last told about, so a Divert / Resume reaches it at once. (v5.1)
-    private var lastSentDiversionIdent: String?
+    /// The plan snapshot last streamed, and when. A change goes on the next tick, whatever it is: an ETO
+    /// anchored on READY FOR LINE UP or retimed on the measured take-off, a time over marked, auto-marked
+    /// or taken back, a Divert / Resume, the plan swapped. It used to go only for a new plan, a
+    /// diversion, or once any waypoint had a time over (and then every second), so the ETOs anchored
+    /// before the take-off reached the phone only with the next full snapshot, after a reconnect. An
+    /// unchanged one goes again every `CompanionTiming.snapshotRefresh`, since a datagram lost over UDP
+    /// is not resent. Cleared on teardown. (6.1.0)
+    private var lastSentPlan: CompanionFlightPlanSnapshot?
+    private var lastPlanSentAt: Date?
     /// The last checklist snapshot actually streamed, so the 1 Hz timer only re-encodes/sends when the
     /// phase/highlight/items change instead of every tick (a phase is static for seconds-to-minutes).
     /// Cleared on teardown so a fresh connection re-sends. (efficiency)
@@ -721,13 +727,17 @@ class CompanionConnectivityManager: NSObject, ObservableObject {
     private func startSendTimer() {
         stopUpdates()
         updateTimer = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { [weak self] _ in
-            Task { @MainActor in
-                guard let self, self.connectionState == .connected, self.currentRole == .master else { return }
-                self.sendFlightData()
-                self.sendChecklistSnapshot()
-                self.checkForFlightPlanChanges()
-            }
+            Task { @MainActor in self?.streamTick() }
         }
+    }
+
+    /// Master: one tick of the stream: the flight data, and the checklist and the plan when they
+    /// changed (or are due again). Internal, with `now`, for the tests; the timer passes the clock.
+    func streamTick(now: Date = Date()) {
+        guard connectionState == .connected, currentRole == .master else { return }
+        sendFlightData()
+        sendChecklistSnapshot()
+        sendFlightPlanSnapshotIfChanged(now: now)
     }
 
     /// Stop sending updates
@@ -1264,6 +1274,8 @@ class CompanionConnectivityManager: NSObject, ObservableObject {
         sendFailingSince = nil
         idleSince = nil
         lastSentChecklist = nil
+        lastSentPlan = nil
+        lastPlanSentAt = nil
         // Reset the shared-GPS state on EVERY teardown (graceful or not), so a stale peer fix can't keep
         // the source election pinned to .peer, can't masquerade as a usable fix to the flight-start guard
         // (hasUsablePeerFix), and the viewer's background GPS provider isn't stranded. (shared-GPS)
@@ -1648,29 +1660,21 @@ class CompanionConnectivityManager: NSObject, ObservableObject {
         }
     }
 
-    private func sendFlightPlanSnapshot() {
+    /// Master: the active plan, when it differs from the one last sent or that one is due again (see
+    /// `lastSentPlan`).
+    private func sendFlightPlanSnapshotIfChanged(now: Date) {
         guard sendHandler != nil, connectionState == .connected,
-              let flightPlanManager, let plan = flightPlanManager.activeFlightPlan else { return }
-
+              let plan = flightPlanManager?.activeFlightPlan else { return }
         let snapshot = createFlightPlanSnapshot(plan)
-
+        let due = lastPlanSentAt.map { now.timeIntervalSince($0) >= CompanionTiming.snapshotRefresh } ?? true
+        guard snapshot != lastSentPlan || due else { return }
         do {
             let payload = try JSONEncoder().encode(snapshot)
-            let message = CompanionMessage(type: .flightPlanUpdate, payload: payload)
-            sendMessage(message)
-            lastSentFlightPlanId = plan.id
-            lastSentDiversionIdent = plan.diversion?.ident
+            sendMessage(CompanionMessage(type: .flightPlanUpdate, payload: payload))
+            lastSentPlan = snapshot
+            lastPlanSentAt = now
         } catch {
             AppLog.companion.debugLine("Failed to encode flight plan: \(error)")
-        }
-    }
-
-    private func checkForFlightPlanChanges() {
-        guard let flightPlanManager, let plan = flightPlanManager.activeFlightPlan else { return }
-
-        if plan.id != lastSentFlightPlanId || plan.diversion?.ident != lastSentDiversionIdent
-            || plan.waypoints.contains(where: { $0.actualTimeOver != nil }) {
-            sendFlightPlanSnapshot()
         }
     }
 
@@ -1837,7 +1841,7 @@ class CompanionConnectivityManager: NSObject, ObservableObject {
         guard sendHandler != nil, connectionState == .connected, currentRole == .master,
               let snapshot = createChecklistSnapshot() else { return }
         // Skip the encode + radio send when nothing changed since the last send (CompanionChecklistSnapshot
-        // is Equatable). Mirrors the flight-plan path's lastSentFlightPlanId guard. (efficiency)
+        // is Equatable). (efficiency)
         guard snapshot != lastSentChecklist else { return }
         do {
             let payload = try JSONEncoder().encode(snapshot)

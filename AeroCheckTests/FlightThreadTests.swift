@@ -661,6 +661,44 @@ final class FlightThreadTests: XCTestCase {
         XCTAssertEqual(fuel?.detail, "REQ 54 L · FOB 80 L", "absent data is not 'no fuel available'")
     }
 
+    /// The merge releases the OpenAIP airport array right after reading it at launch; the fuel row
+    /// read that array, so it almost never named the destination's grades. The kept index survives
+    /// the release, follows a new download, and goes with a delete. (6.2.0)
+    @MainActor
+    func testTheDestinationFuelsSurviveTheMergeReleasingTheAirports() async throws {
+        var fuelCodes = [1, 3]
+        let layer = makeTestOpenAIPAirportLayer { _ in
+            let json = """
+            {"features":[{"type":"Feature","properties":{
+              "_id":"lsgy","name":"YVERDON","icaoCode":"LSGY","type":2,"country":"CH",
+              "services":{"fuelTypes":\(fuelCodes)},"frequencies":[],"runways":[]
+            },"geometry":{"type":"Point","coordinates":[6.61,46.76]}}]}
+            """
+            return try OpenAIPAirport.parse(geoJSON: Data(json.utf8))
+        }
+        let store = makeTestAirportStore(openAIPAirports: layer)
+        store.followOpenAIPAirports()
+        var plan = FlightPlan(name: "To Yverdon")
+        plan.waypoints = [("LSZQ", 7.03), ("LSGY", 6.61)].map {
+            FlightPlanWaypoint(name: $0.0, coordinate: .init(latitude: 47.0, longitude: $0.1),
+                               altitude: 4000, plannedGroundSpeed: 100)
+        }
+
+        await layer.downloadData(for: ["CH"])
+        await store.waitForPendingPasses()
+        XCTAssertFalse(layer.isLoaded, "the merge released the array")
+        XCTAssertTrue(layer.allLoadedAirports().isEmpty)
+        XCTAssertEqual(FlightThreadManager.destinationFuels(on: plan, aerodromes: layer), ["AVGAS", "Jet A1"])
+
+        fuelCodes = [6]
+        await layer.downloadData(for: ["CH"])
+        await store.waitForPendingPasses()
+        XCTAssertEqual(FlightThreadManager.destinationFuels(on: plan, aerodromes: layer), ["UL91"])
+
+        layer.deleteData()
+        XCTAssertEqual(FlightThreadManager.destinationFuels(on: plan, aerodromes: layer), [])
+    }
+
     // MARK: - OpenAIP operational flags (v5.0.0)
 
     /// Shaped from a real `api.core.openaip.net` response for LSGY (Yverdon), which genuinely is

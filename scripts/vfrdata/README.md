@@ -85,24 +85,24 @@ Where the official chart of an aerodrome lives, by country. Links only: nothing 
 ```
 public/data/charts/v1/charts.json  { v, generated, countries: {
                                        DE: { kind: "dfs-basicvfr", base, pages: { <ICAO>: <id> } },
-                                       FR: { kind: "sia-vac", template, airac },
+                                       FR: { kind: "sia-vac", template, airac, codes? },
                                        CH: { kind: "skybriefing-vfr-manual", url, login: true },
                                        AT: { kind: "eaip", url } },
                                      flags[] }
 ```
 
 - DE: DFS BasicVFR permalinks, `base + id + ".html"` (free, no login, amendment-proof). The ICAO → id table is DFS's own public `config.js` (the BasicVFR search box), read once a run; the pages themselves are never crawled.
-- FR: SIA eAIP Atlas-VAC PDF, `template` with `{icao}` replaced. The folder is named after the AIRAC date (`eAIP_01_OCT_2026`), checked on LFGA; while the new cycle's folder isn't online, the previous one is used.
+- FR: SIA eAIP Atlas-VAC PDF, `template` with `{icao}` replaced. The folder is named after the AIRAC date (`eAIP_01_OCT_2026`), checked on LFGA; while the new cycle's folder isn't online, the previous one is used. `codes` lists the aerodromes that have a VAC in that folder (419 in 2610), read from `Atlas-VAC/Javascript/AeroArraysVac.js`, the list behind the atlas's own search box: a code that isn't in it answers 404 (most of the French air bases, for one). It is optional: when the list is unavailable or looks wrong (fewer than 300 codes, or LFGA missing), FR is published without it and flagged, and the app falls back to its own rule (an LF code of an aerodrome type); last week's list is kept while the folder is the same.
 - CH: skyguide's eVFR Manual on SkyBriefing, one URL for every aerodrome, behind a login and a subscription.
 - AT: Austro Control's eAIP start page (the amendment folders have no stable alias).
 - IT: none. ENAV's terms forbid deep links.
 
-Every run HEAD-checks a sample (three DFS pages spread over the alphabet, the French sample, both start pages). A failed DFS page is left out; a country whose sample fails entirely is left out of `countries` and listed in `flags`, and the run exits 1. If `config.js` itself is unavailable, last week's table is re-checked and kept if its sample still answers.
+Every run HEAD-checks a sample (three DFS pages spread over the alphabet, the French sample, both start pages) and reads SIA's code list once. A failed DFS page is left out; a country whose sample fails entirely is left out of `countries` and listed in `flags`, and the run exits 1. If `config.js` itself is unavailable, last week's table is re-checked and kept if its sample still answers.
 
 ## Notes
 
 - OFM's procedure element (`Prc`) is not in the public OFMX schema, and the underscore elements (`_beztrajectory`, `_sceletonPath`) are OFM internals: the format can change without notice. The gates catch the loud failures; a quiet change (a renamed field) shows up as missing circuits or areas in the counts the job prints.
-- The tests use elements cut from the real AIRAC 2610 Swiss snapshot (`tests/fixtures/ofmx_ls_2610_sample.xml`) and a made-up OpenAIP stand-in; they never touch the network.
+- The tests use elements cut from the real AIRAC 2610 Swiss snapshot (`tests/fixtures/ofmx_ls_2610_sample.xml`), a made-up OpenAIP stand-in and a made-up excerpt in the shape of SIA's code list (`tests/fixtures/sia_aeroarraysvac_sample.js`); they never touch the network.
 - Licence of the data: the open flightmaps General Users' License asks that open flightmaps always be credited as the source and that errors found be reported back. Every file carries the attribution, `index.json` carries the report form, and the app shows both. Ask OFMA (info@openflightmaps.org) before 6.2.0 ships.
 
 ## Credits

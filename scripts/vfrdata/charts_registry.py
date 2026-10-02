@@ -7,7 +7,8 @@ official aerodrome chart. Links only: no chart is ever downloaded, copied or rep
   DE  DFS BasicVFR permalinks (free, no login). The ICAO -> page id table is DFS's own public config.js, read
       once; the page URL is base + id + ".html", and it follows amendments by itself.
   FR  SIA eAIP Atlas-VAC PDFs (free, no login). The folder is named after the AIRAC date, so the template is
-      rebuilt every cycle; the app replaces {icao}.
+      rebuilt every cycle; the app replaces {icao}. The codes that have a VAC come from the atlas's own search
+      box (AeroArraysVac.js in the same folder): a code without one answers 404.
   CH  skyguide's eVFR Manual on SkyBriefing (login and a subscription): one URL for every aerodrome.
   AT  Austro Control's eAIP start page (its own folders change with every amendment and have no alias).
   IT  none: ENAV's terms forbid deep links.
@@ -45,6 +46,8 @@ DFSSAMPLE = 3                    # pages HEAD-checked each run, spread over the 
 SIATEMPLATE = ("https://www.sia.aviation-civile.gouv.fr/media/dvd/eAIP_{folder}/Atlas-VAC/PDF_AIPparSSection/"
                "VAC/AD/AD-2.{{icao}}.pdf")
 SIASAMPLE = "LFGA"               # Colmar-Houssen: one aerodrome to prove the cycle's folder is online
+SIACODES = "https://www.sia.aviation-civile.gouv.fr/media/dvd/eAIP_{folder}/Atlas-VAC/Javascript/AeroArraysVac.js"
+SIAMINCODES = 300                # fewer VACs than this (420 in 2610) means the list's format changed
 MONTHS = ["JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"]
 
 SKYBRIEFINGVFRMANUAL = "https://www.skybriefing.com/en/evfr-manual"
@@ -136,7 +139,46 @@ def sia_folder(airac):
     return f"{start.day:02d}_{MONTHS[start.month - 1]}_{start.year}"
 
 
-def build_france(airac, check, flags):
+def parse_sia_codes(source):
+    """
+    Reads the ICAO codes out of SIA's AeroArraysVac.js, the list behind the Atlas-VAC search box:
+    var vaerosoussection =new Array("LFOI","LFBA",...), next to the names (vaeroportlong) in the same order.
+    """
+    match = re.search(r"vaerosoussection\s*=\s*new\s+Array\s*\(([^)]*)\)", source)
+    if not match:
+        return []
+    return sorted(set(re.findall(r'"([A-Z]{4})"', match.group(1))))
+
+
+def france_codes(cycle, fetch, flags):
+    """
+    The codes that have a VAC in the cycle's folder, or None (FR is then published without them and the app
+    falls back to its own rule). A list that looks wrong is flagged rather than published.
+    """
+    url = SIACODES.format(folder=sia_folder(cycle))
+    try:
+        response = fetch(url)
+    except OSError as error:
+        flags.append({"country": "FR", "url": url, "status": 0, "detail": f"VAC code list unreachable ({error})"})
+        return None
+    if response.status != 200:
+        response.close()
+        flags.append({"country": "FR", "url": url, "status": response.status, "detail": "VAC code list unavailable"})
+        return None
+    try:
+        codes = parse_sia_codes(response.stream.read().decode("utf-8", errors="replace"))
+    finally:
+        response.close()
+    if len(codes) < SIAMINCODES or SIASAMPLE not in codes:
+        missing = "" if SIASAMPLE in codes else f", {SIASAMPLE} not among them"
+        flags.append({"country": "FR", "url": url, "status": 200,
+                      "detail": f"VAC code list has {len(codes)} codes{missing} (format change?)"})
+        return None
+    debug(f"FR: {len(codes)} codes with a VAC")
+    return codes
+
+
+def build_france(airac, previous, fetch, check, flags):
     for cycle in (airac, airac.previous()):
         template = SIATEMPLATE.format(folder=sia_folder(cycle))
         url = template.replace("{icao}", SIASAMPLE)
@@ -144,7 +186,16 @@ def build_france(airac, check, flags):
         if ok:
             if cycle != airac:
                 say(f"FR: the AIRAC {airac.ident} folder isn't online yet, publishing {cycle.ident}'s")
-            return {"kind": "sia-vac", "template": template, "airac": cycle.ident}
+            entry = {"kind": "sia-vac", "template": template, "airac": cycle.ident}
+            # From the same folder as the template, so a code and its PDF are of the same cycle
+            codes = france_codes(cycle, fetch, flags)
+            if codes is None and (previous or {}).get("template") == template and (previous or {}).get("codes"):
+                # Last week's list is still the right one while the folder is the same
+                codes = previous["codes"]
+                say("FR: VAC code list unusable, keeping last week's (same folder)")
+            if codes:
+                entry["codes"] = codes
+            return entry
         debug(f"FR: AIRAC {cycle.ident} sample answered {status}")
     flags.append({"country": "FR", "url": url, "status": status,
                   "detail": f"neither the AIRAC {airac.ident} nor the {airac.previous().ident} VAC folder answers"})
@@ -169,7 +220,7 @@ def build_registry(airac, previous, fetch=http_get, check=http_status):
     germany = build_germany(previous_countries.get("DE"), fetch, check, flags)
     if germany:
         countries["DE"] = germany
-    france = build_france(airac, check, flags)
+    france = build_france(airac, previous_countries.get("FR"), fetch, check, flags)
     if france:
         countries["FR"] = france
     switzerland = build_single("CH", {"kind": "skybriefing-vfr-manual", "url": SKYBRIEFINGVFRMANUAL, "login": True},
@@ -195,7 +246,12 @@ def main(argv=None, fetch=http_get, check=http_status):
     previous = vfrcommon.read_json(arguments.out)
     countries, flags = build_registry(airac, previous, fetch=fetch, check=check)
     for country, entry in countries.items():
-        detail = f"{len(entry['pages'])} aerodromes" if "pages" in entry else entry.get("template") or entry.get("url")
+        if "pages" in entry:
+            detail = f"{len(entry['pages'])} aerodromes"
+        elif "codes" in entry:
+            detail = f"{entry['template']} ({len(entry['codes'])} codes)"
+        else:
+            detail = entry.get("template") or entry.get("url")
         say(f"{country} {entry['kind']}: {detail}")
 
     registry = {"v": SCHEMA, "generated": None, "countries": countries, "flags": flags}

@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit
 #if canImport(DeviceDiscoveryUI)
 import DeviceDiscoveryUI
 #endif
@@ -6,7 +7,7 @@ import WiFiAware
 
 /// Device pairing sheet for companion mode using Wi-Fi Aware.
 ///
-/// Both roles present a TAPPABLE button (DevicePairingView on the iPad, DevicePicker on the iPhone) —
+/// Both roles present a TAPPABLE button (the system pairing screen on the iPad, DevicePicker on the iPhone):
 /// the button's label is what presents Apple's system pairing/picker sheet. The user must tap it on
 /// BOTH devices so each starts advertising/browsing; then they discover each other and confirm a code.
 /// (A passive "waiting" label that the user never taps means that side never advertises — which is
@@ -84,10 +85,10 @@ struct CompanionPairingView: View {
             .foregroundColor(.dimText)
     }
 
-    /// The gold pill that serves as the DevicePairingView/DevicePicker LABEL. Tapping it is what
-    /// presents Apple's system pairing/picker sheet (and starts advertising/browsing) — so it must read
-    /// as an obvious button on both roles, not a passive status line.
-    private func pairButtonLabel(icon: String, title: String) -> some View {
+    /// The gold pill of both roles' pairing button (the iPad's Make discoverable, the iPhone's DevicePicker
+    /// label). Tapping it is what presents Apple's system pairing/picker screen (and starts
+    /// advertising/browsing), so it must read as an obvious button, not a passive status line.
+    static func pairButtonLabel(icon: String, title: String) -> some View {
         HStack(spacing: 8) {
             Image(systemName: icon)
             Text(title)
@@ -102,8 +103,8 @@ struct CompanionPairingView: View {
     #if canImport(DeviceDiscoveryUI)
     // MARK: - Master (iPad) Pairing
 
-    /// iPad shows DevicePairingView — its LABEL is a tappable button; tapping it presents the system
-    /// pairing sheet and starts advertising. The user must tap it (and the matching button on the iPhone).
+    /// iPad: a "Make discoverable" button that presents the system pairing screen and starts
+    /// advertising. The user must tap it (and the matching button on the iPhone).
     @available(iOS 26.0, *)
     private var masterPairingContent: some View {
         VStack(spacing: 18) {
@@ -122,16 +123,19 @@ struct CompanionPairingView: View {
                 .multilineTextAlignment(.center)
                 .padding(.horizontal, 40)
 
-            // `.userSpecifiedDevices` = pair a NEW device via the system UI. The label below is the
-            // tappable button that presents that system pairing sheet (and begins advertising).
-            DevicePairingView(
-                .wifiAware(.connecting(to: .aerocheck, from: .userSpecifiedDevices))
-            ) {
-                pairButtonLabel(icon: "antenna.radiowaves.left.and.right", title: L10n.Companion.makeDiscoverable)
-            } fallback: {
+            // The system pairing screen as one UIKit controller, made on the tap and presented from
+            // UIKit, not SwiftUI's DevicePairingView: see `CompanionAdvertiserPresenter`. (6.1.0)
+            if CompanionAdvertiserPresenter.isSupported {
+                Button {
+                    CompanionAdvertiserPresenter.present()
+                } label: {
+                    Self.pairButtonLabel(icon: "antenna.radiowaves.left.and.right", title: L10n.Companion.makeDiscoverable)
+                }
+                .buttonStyle(.plain)
+                .padding(.top, 6)
+            } else {
                 wifiAwareUnavailableContent
             }
-            .padding(.top, 6)
 
             wifiAwareFootnote
 
@@ -162,22 +166,10 @@ struct CompanionPairingView: View {
                 .multilineTextAlignment(.center)
                 .padding(.horizontal, 40)
 
-            DevicePicker(
-                // `.userSpecifiedDevices` = browse for a NEW device to pair (the pairing flow). The label
-                // below is the tappable button that presents the system picker (and begins browsing).
-                .wifiAware(.connecting(to: .userSpecifiedDevices, from: .aerocheck))
-            ) { _ in
-                // A device was picked, which is not the same as paired: iOS 27 can report the pick and
-                // then run the pairing (code and approval), and dismissing here can cancel that. So the
-                // cover stays up; CompanionSettingsView closes it once the new pairing shows in
-                // `pairedDevices`, and Cancel is there otherwise. (6.1.0)
-                companionConnectivityManager.logPairing("Pairing: iPhone picked a device, waiting for the pairing to finish")
-            } label: {
-                pairButtonLabel(icon: "magnifyingglass", title: L10n.Companion.scanForDevices)
-            } fallback: {
-                wifiAwareUnavailableContent
-            }
-            .padding(.top, 6)
+            // In its own sub-view that SwiftUI skips when this screen redraws: see `CompanionPickerButton`.
+            CompanionPickerButton()
+                .equatable()
+                .padding(.top, 6)
 
             wifiAwareFootnote
 
@@ -190,7 +182,10 @@ struct CompanionPairingView: View {
 
     // MARK: - Fallback Content
 
-    private var wifiAwareUnavailableContent: some View {
+    private var wifiAwareUnavailableContent: some View { Self.unavailableContent }
+
+    /// Wi-Fi Aware unavailable here (the simulator, older hardware). Static so the picker's sub-view can show it.
+    static var unavailableContent: some View {
         VStack(spacing: 16) {
             Spacer()
 
@@ -218,3 +213,91 @@ struct CompanionPairingView: View {
     }
     #endif
 }
+
+#if canImport(DeviceDiscoveryUI)
+/// The iPhone's "Scan for Devices": SwiftUI's `DevicePicker`, alone in a view that compares equal to itself,
+/// so a redraw of the pairing screen above it (state the manager publishes, the system picker taking the
+/// foreground) doesn't rebuild the picker. Its browser provider IS the live Wi-Fi Aware subscribe, and on
+/// iOS 27 a rebuild restarts the system picker's scene (seen in the 2 Oct 2026 device logs), which a
+/// pairing in progress doesn't survive. There is no UIKit picker for Wi-Fi Aware to use instead
+/// (`DDDevicePickerViewController` takes an `NWBrowser.Descriptor`, which has no Wi-Fi Aware case). (6.1.0)
+@available(iOS 26.0, *)
+private struct CompanionPickerButton: View, Equatable {
+    nonisolated static func == (lhs: Self, rhs: Self) -> Bool { true }
+
+    var body: some View {
+        DevicePicker(
+            // `.userSpecifiedDevices` = browse for a NEW device to pair (the pairing flow). The label
+            // below is the tappable button that presents the system picker (and begins browsing).
+            .wifiAware(.connecting(to: .userSpecifiedDevices, from: .aerocheck))
+        ) { _ in
+            // A device was picked, which is not the same as paired: iOS 27 can report the pick and
+            // then run the pairing (code and approval), and dismissing here can cancel that. So the
+            // cover stays up; CompanionSettingsView closes it once the new pairing shows in
+            // `pairedDevices`, and Cancel is there otherwise. (6.1.0)
+            CompanionConnectivityManager.shared.logPairing("Pairing: iPhone picked a device, waiting for the pairing to finish")
+        } label: {
+            CompanionPairingView.pairButtonLabel(icon: "magnifyingglass", title: L10n.Companion.scanForDevices)
+        } fallback: {
+            CompanionPairingView.unavailableContent
+        }
+    }
+}
+
+/// Presents the iPad's system pairing screen ("Make discoverable") as ONE `DDDevicePairingViewController`,
+/// made on the tap and presented from UIKit.
+///
+/// Why not SwiftUI's `DevicePairingView`: on iPadOS 27 it built the system screen twice within ~40 ms of
+/// the tap (two hosted scenes). Starting the second cancelled the first's discovery ("Invalidating existing
+/// discovery before starting new one"), and tearing the first scene down then invalidated the second's, so
+/// the `_aerocheck._udp` publish lived a few milliseconds ("Terminating NANPublish … because its client was
+/// invalidated") and the iPhone found no device. Seen in both devices' system logs, 2 Oct 2026 (6.1.0 device
+/// check). A view controller we create once has no SwiftUI update to rebuild it.
+///
+/// Presented as a form sheet so the pairing cover underneath stays in the hierarchy: it keeps pairing mode
+/// on (`beginPairing()` / `endPairing()` hang on the cover's appear/disappear), and closing the cover once
+/// the new device shows in `pairedDevices` takes this sheet down with it.
+@available(iOS 26.0, *)
+@MainActor
+enum CompanionAdvertiserPresenter {
+    /// A NEW device, chosen in the system UI (`.userSpecifiedDevices`), on our publishable service.
+    private static var listener: WAPublisherListener {
+        .wifiAware(.connecting(to: .aerocheck, from: .userSpecifiedDevices))
+    }
+
+    /// False where Wi-Fi Aware isn't available (the simulator, older hardware): the cover shows its
+    /// unavailable state instead of the button.
+    static var isSupported: Bool { DDDevicePairingViewController.isSupported(listener) }
+
+    /// The screen on show, so a second tap doesn't stack another one (UIKit holds it while presented).
+    private static weak var current: DDDevicePairingViewController?
+
+    static func present() {
+        let manager = CompanionConnectivityManager.shared
+        if let current, current.presentingViewController != nil {
+            manager.logPairing("Pairing: iPad pairing screen already up")
+            return
+        }
+        guard let presenter = topViewController() else {
+            manager.logPairing("Pairing: no screen to present the iPad pairing screen from")
+            return
+        }
+        let controller = DDDevicePairingViewController(listenerProvider: listener, access: .default)
+        controller.modalPresentationStyle = .formSheet
+        current = controller
+        manager.logPairing("Pairing: iPad discoverable, system pairing screen up")
+        presenter.present(controller, animated: true)
+    }
+
+    /// The front-most view controller of the key window: the pairing cover's, while it is up.
+    private static func topViewController() -> UIViewController? {
+        let scenes = UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }
+        let window = scenes.flatMap(\.windows).first(where: \.isKeyWindow) ?? scenes.first?.windows.first
+        var top = window?.rootViewController
+        while let presented = top?.presentedViewController, !presented.isBeingDismissed {
+            top = presented
+        }
+        return top
+    }
+}
+#endif

@@ -26,8 +26,13 @@ struct CompanionSettingsView: View {
     var body: some View {
         SettingsPage {
             enableSection
-            if enableCompanionMode {
+            // The paired devices whatever the toggle: pairing, pairing again and Forget need no link.
+            // Shown only with Companion mode on, they were hard to reach on the iPhone, where turning it
+            // on connects at once and the Companion screen takes over this page. (6.1.0)
+            if enableCompanionMode || companionConnectivityManager.isWiFiAwareSupported {
                 pairingSection
+            }
+            if enableCompanionMode {
                 connectionSection
             }
             infoSection

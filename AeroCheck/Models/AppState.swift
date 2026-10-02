@@ -2080,6 +2080,14 @@ class AppState {
         checkpointActiveFlight(force: true)
     }
 
+    /// The detector has a field near the aircraft to anchor the take-off to: from now on the cued checks
+    /// wait for their cue, the first take-off's included (`FlightCueState.hasCueSource`). Called on every
+    /// detected fix; writes once. (6.1.0)
+    func noteCueSourceReady() {
+        guard isFlightActive, !flightCues.hasCueSource else { return }
+        flightCues.noteCueSource()
+    }
+
     /// When the slot shows `phase`'s check: not yet, due, or owed.
     func cueTiming(for phase: ChecklistPhase) -> CheckSlotTiming {
         flightCues.timing(for: phase, circuitMode: isCircuitMode)

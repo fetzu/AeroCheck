@@ -228,6 +228,28 @@ final class FlightCueStateTests: XCTestCase {
         XCTAssertEqual(state.timing(for: .taxi, circuitMode: false), .due)
     }
 
+    func testWithAFieldToAnchorTheTakeoffTheClimbCheckWaitsForItsCue() {
+        var state = FlightCueState()
+        state.noteCueSource()
+        XCTAssertTrue(state.hasCueSource)
+        XCTAssertEqual(state.timing(for: .climb, circuitMode: false), .notYet, "on the runway, before the roll")
+        XCTAssertEqual(state.timing(for: .beforeDeparture, circuitMode: false), .due, "not a cued check")
+        state.startLeg()
+        XCTAssertEqual(state.timing(for: .climb, circuitMode: false), .notYet, "the roll: still not yet")
+        _ = state.fire(.takeoff, at: t0, circuitMode: false) { _ in true }
+        XCTAssertEqual(state.timing(for: .climb, circuitMode: false), .due, "500 ft")
+    }
+
+    func testACheckpointFromBeforeTheCueSourceStillDecodes() throws {
+        // A 6.1 build's checkpoint has no `cueSource` key, as a state without one encodes today: a
+        // flight restored from one decodes as before.
+        let old = try JSONEncoder().encode(FlightCueState())
+        XCTAssertFalse(String(decoding: old, as: UTF8.self).contains("cueSource"))
+        let decoded = try JSONDecoder().decode(FlightCueState.self, from: old)
+        XCTAssertFalse(decoded.hasCueSource)
+        XCTAssertEqual(decoded.timing(for: .climb, circuitMode: false), .due)
+    }
+
     func testACheckIsNotYetDueUntilItsCue() {
         var state = FlightCueState()
         state.startLeg()
@@ -311,6 +333,10 @@ final class FlightCueStateTests: XCTestCase {
         _ = state.fire(.levelOff, at: t0 + 60, circuitMode: false) { _ in true }
         let decoded = try JSONDecoder().decode(FlightCueState.self, from: JSONEncoder().encode(state))
         XCTAssertEqual(decoded, state)
+
+        var armed = FlightCueState()
+        armed.noteCueSource()
+        XCTAssertTrue(try JSONDecoder().decode(FlightCueState.self, from: JSONEncoder().encode(armed)).hasCueSource)
     }
 }
 
@@ -377,6 +403,27 @@ final class FlightCueCockpitTests: XCTestCase {
         cues(appState, [.takeoff], leg: false)
         XCTAssertEqual(slot(appState).tone, .due)
         XCTAssertEqual(slot(appState).line, .fromMemory)
+    }
+
+    func testWithAFieldNearbyTheClimbCheckIsNotAmberOnTheRunway() throws {
+        // READY FOR LINE UP's one tap puts the Cockpit on CLIMB, on the runway. (6.1.0 ground replay, flight-3)
+        let appState = flight()
+        try requireMemory(appState, [.climb])
+        onPhase(appState, .climb)
+        appState.noteCueSourceReady()   // the detector's first fix near the departure field
+        XCTAssertEqual(slot(appState).tone, .idle, "lined up: not yet")
+        cues(appState, [])
+        XCTAssertEqual(slot(appState).tone, .idle, "the roll: still not yet, no flicker")
+        cues(appState, [.takeoff], leg: false)
+        XCTAssertEqual(slot(appState).tone, .due, "500 ft")
+    }
+
+    func testANewFlightStartsWithoutACueSource() {
+        let appState = flight()
+        appState.noteCueSourceReady()
+        appState.cancelFlight()
+        appState.startFlight(withAircraft: "F-HVXA", aircraftRegistration: "F-HVXA", aircraftType: "WT9")
+        XCTAssertFalse(appState.flightCues.hasCueSource)
     }
 
     // MARK: Owed

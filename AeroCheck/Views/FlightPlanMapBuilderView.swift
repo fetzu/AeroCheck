@@ -2503,7 +2503,7 @@ struct RouteBuilderMapView: UIViewRepresentable {
 
         func mapView(_ mapView: MKMapView, rendererFor overlay: MKOverlay) -> MKOverlayRenderer {
             if let tile = overlay as? MKTileOverlay {
-                return MKTileOverlayRenderer(tileOverlay: tile)
+                return LateTileRedraw.renderer(for: tile)
             }
             // Crossed-airspace highlight (translucent fill + colored stroke). (#4)
             if let airspace = overlay as? AirspacePolygon {

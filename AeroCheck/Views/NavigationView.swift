@@ -3696,7 +3696,7 @@ struct NativeMapViewUIKit: UIViewRepresentable {
         func mapView(_ mapView: MKMapView, rendererFor overlay: MKOverlay) -> MKOverlayRenderer {
             // OpenAIP tile overlay
             if let tileOverlay = overlay as? OpenAIPTileOverlay {
-                return MKTileOverlayRenderer(tileOverlay: tileOverlay)
+                return LateTileRedraw.renderer(for: tileOverlay)
             }
 
             // Airspace polygon overlay
@@ -4629,25 +4629,33 @@ struct SwissMapView: UIViewRepresentable {
 
             // Now switch back to ICAO configuration
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
+                // The layer the map shows NOW, as the coordinator last set it, not the one this view
+                // was made with: Plan › Map and the Cockpit's MAP pane are made on ICAO and switched
+                // to the pilot's layer by the first update, before this runs. Re-adding the make-time
+                // ICAO chart under SWISSIMAGE or the national map left it past its last tile level,
+                // blank, and the coordinator (still on the pilot's layer) never put it right. (6.1.0)
+                let coordinator = context.coordinator
+                let layer = coordinator.currentLayerType ?? self.layerType
+
                 // Set correct zoom range
-                mapView.cameraZoomRange = zoomRange
+                mapView.cameraZoomRange = cameraZoomRange(for: layer, forceICAO: coordinator.currentForceICAO)
 
                 // Re-add the overlay
-                if self.layerType == .icao {
+                if layer == .icao {
                     let overlay = ICAOSegelflugkarteTileOverlay(
-                        forceICAO: self.forceICAOLayer,
-                        offlineMapManager: self.offlineMapManager,
-                        isStrictOfflineMode: self.isStrictOfflineMode,
-                        hasSegelflugCache: self.hasSegelflugCache
+                        forceICAO: coordinator.currentForceICAO,
+                        offlineMapManager: coordinator.offlineMapManager,
+                        isStrictOfflineMode: coordinator.isStrictOfflineMode,
+                        hasSegelflugCache: coordinator.hasSegelflugCache
                     )
                     overlay.canReplaceMapContent = true
                     insertTileBelowShapes(overlay, on: mapView)
-                } else if let layerId = self.layerType.swisstopoLayerIdentifier {
+                } else if let layerId = layer.swisstopoLayerIdentifier {
                     let overlay = SwisstopoTileOverlay(
                         layerIdentifier: layerId,
-                        tileExtension: self.layerType.tileExtension,
-                        minimumZ: self.layerType.minimumZoom,
-                        maximumZ: self.layerType.maximumZoom
+                        tileExtension: layer.tileExtension,
+                        minimumZ: layer.minimumZoom,
+                        maximumZ: layer.maximumZoom
                     )
                     overlay.canReplaceMapContent = true
                     insertTileBelowShapes(overlay, on: mapView)
@@ -4657,7 +4665,7 @@ struct SwissMapView: UIViewRepresentable {
                 if self.showOpenAIPTiles {
                     let openAIPOverlay = OpenAIPTileOverlay(
                         cacheManager: self.openAIPCacheManager,
-                        isStrictOfflineMode: self.isStrictOfflineMode
+                        isStrictOfflineMode: coordinator.isStrictOfflineMode
                     )
                     insertTileBelowShapes(openAIPOverlay, on: mapView)
                 }
@@ -5198,8 +5206,7 @@ struct SwissMapView: UIViewRepresentable {
             }
 
             if let tileOverlay = overlay as? MKTileOverlay {
-                let renderer = MKTileOverlayRenderer(tileOverlay: tileOverlay)
-                return renderer
+                return LateTileRedraw.renderer(for: tileOverlay)
             }
 
             // Flight plan route (magenta - high visibility on aviation charts)

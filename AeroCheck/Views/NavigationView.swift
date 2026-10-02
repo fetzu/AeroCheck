@@ -5198,8 +5198,7 @@ struct SwissMapView: UIViewRepresentable {
             }
 
             if let tileOverlay = overlay as? MKTileOverlay {
-                let renderer = MKTileOverlayRenderer(tileOverlay: tileOverlay)
-                return renderer
+                return LateTileRedraw.renderer(for: tileOverlay)
             }
 
             // Flight plan route (magenta - high visibility on aviation charts)

@@ -740,6 +740,7 @@ struct FlightLogView: View {
                     .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
+            .accessibilityIdentifier("logbook.flight")
             .listRowBackground(effectiveSelectionID == flight.id ? Color.aviationGold.opacity(0.12) : Color.cardBackground)
             .swipeActions(edge: .leading, allowsFullSwipe: true) {
                 favoriteSwipeButton(flight)
@@ -753,6 +754,7 @@ struct FlightLogView: View {
                     .contentShape(Rectangle())   // whole row tappable, not just the text
             }
             .buttonStyle(.plain)
+            .accessibilityIdentifier("logbook.flight")
             .listRowBackground(Color.cardBackground)
             .swipeActions(edge: .leading, allowsFullSwipe: true) {
                 favoriteSwipeButton(flight)

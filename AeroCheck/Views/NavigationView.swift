@@ -975,6 +975,7 @@ struct NavigationMapView: View {
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
+        .accessibilityIdentifier("map.legsToggle")
         // A hint, not a label: a label replaced the station and frequency, so VoiceOver never read the
         // NOW and NEXT frequencies at all. (v6.0 review)
         .accessibilityHint(L10n.Nav.legsAndFrequencies)
@@ -1923,6 +1924,7 @@ struct NavigationMapView: View {
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
+        .accessibilityIdentifier("map.legsToggle")
         // A hint, not a label: a label replaced the station and frequency, so VoiceOver never read the
         // NOW and NEXT frequencies at all. (v6.0 review)
         .accessibilityHint(L10n.Nav.legsAndFrequencies)
@@ -2182,6 +2184,7 @@ struct NavigationMapView: View {
             thumbPrimaryButton(icon: "stopwatch", title: L10n.Nav.startLegTimer) {
                 flightPlanManager.startChronometer()
             }
+            .accessibilityIdentifier("map.startLeg")
         } else if plan.currentWaypointIndex < plan.waypoints.count {
             let index = plan.currentWaypointIndex
             let name = plan.waypoints[index].name
@@ -2767,7 +2770,8 @@ struct NavigationMapView: View {
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
-        .accessibilityIdentifier("legRow.\(index).\(isPast ? "passed" : isCurrent ? "next" : "ahead")")
+        // Its place and whether it has a time over, for a UI test: "legRow.1.passed.ato".
+        .accessibilityIdentifier("legRow.\(index).\(isPast ? "passed" : isCurrent ? "next" : "ahead")\(wpt.actualTimeOver == nil ? "" : ".ato")")
     }
 
     /// Actual time flown on the leg arriving at `index`: the live timer for the current leg, ATO-to-ATO
@@ -2884,6 +2888,7 @@ struct NavigationMapView: View {
                     Text("ETA \(eta.formatted(date: .omitted, time: .shortened))")
                         .font(.aero(size: CockpitType.label, design: .monospaced))
                         .foregroundColor(theme.textSecondary)
+                        .accessibilityIdentifier("legs.destinationETA")
                 }
             }
             .lineLimit(1)

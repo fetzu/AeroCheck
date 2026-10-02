@@ -95,6 +95,22 @@ enum L10n {
         static let showReportingPointsOnMap = String(localized: "Show reporting points on map")
         static let openAIPAirportsName = String(localized: "Aerodromes")
         static let openAIPAirportsDetail = String(localized: "OpenAIP · runways, frequencies & PPR · primary source")
+        // open flightmaps VFR procedures (6.2.0)
+        static let vfrProceduresName = String(localized: "VFR procedures (open flightmaps)")
+        static let vfrProceduresDetail = String(localized: "open flightmaps · traffic circuits, VFR arrival & departure routes, sectors")
+        static let vfrProceduresAttribution = String(localized: "© open flightmaps association · not for primary navigation")
+        /// "AIRAC 2610 · valid Oct 1 – 28, 2026": the cycle on disk while it is current.
+        static func vfrCycleValid(_ airac: String, _ days: String) -> String {
+            String(localized: "AIRAC \(airac) · valid \(days)")
+        }
+        /// The cycle has ended and OFM hasn't published the next one yet.
+        static func vfrCycleNotPublished(_ airac: String) -> String {
+            String(localized: "AIRAC \(airac) · a newer cycle isn't published yet")
+        }
+        /// The cycle has ended and the next one is out (the update hasn't run, or failed).
+        static func vfrCycleAvailable(_ airac: String, _ newer: String) -> String {
+            String(localized: "AIRAC \(airac) · AIRAC \(newer) is available")
+        }
         /// Under a data row, and in Navigation & Maps, after an update that did not complete: the
         /// countries that kept their old data, or none for a dataset that isn't per-country. (6.2.0)
         static func updateFailed(_ countries: [String]) -> String {
@@ -114,6 +130,7 @@ enum L10n {
             case .navaids: return navaidsName.lowercased()
             case .obstacles: return obstaclesName.lowercased()
             case .reportingPoints: return reportingPointsName.lowercased()
+            case .vfrProcedures: return String(localized: "VFR procedures")
             }
         }
         static let tripSection = String(localized: "Trip data")
@@ -878,6 +895,10 @@ enum L10n {
         static let downloadAirspaceOnly = String(localized: "settings.openAIP.downloadAirspaceOnly")
         static let downloadWithTiles = String(localized: "Download data + map tiles")   // v4.1.0 (literal-keyed; FR in pass)
         static let openAIPDownloadHint = String(localized: "Data (airspace, navaids, obstacles, reporting points, airports) is small. Map tiles add raster chart imagery and are much larger.")
+        /// Under the selection: the countries that also get open flightmaps' circuits and VFR routes. (6.2.0)
+        static func vfrProceduresIncluded(_ countries: String) -> String {
+            String(localized: "VFR procedures (open flightmaps): \(countries)")
+        }
         static let openAIPSelectionChanged = String(localized: "settings.openAIP.selectionChanged")
         static func openAIPCountriesSelected(_ count: Int) -> String {
             String(format: String(localized: "settings.openAIP.countriesSelected"), count)

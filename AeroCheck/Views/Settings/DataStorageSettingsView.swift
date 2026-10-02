@@ -183,12 +183,26 @@ struct DataStorageSettingsView: View {
                     .font(.aero(.caption2))
                     .foregroundColor(.dimText)
                     .fixedSize(horizontal: false, vertical: true)
+                // The AIRAC cycle and its validity, for open flightmaps. (6.2.0)
+                if let cycle = dataSet.cycleDetail {
+                    Text(cycle)
+                        .font(.aero(.caption2))
+                        .foregroundColor(.dimText)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
                 Text(subtitle(for: dataSet, statusLabel: statusLabel))
                     .font(.aero(.caption))
                     .foregroundColor(.secondaryText)
                     .fixedSize(horizontal: false, vertical: true)
                 if let failure = dataSet.updateFailure {
                     updateFailureLine(failure)
+                }
+                if let attribution = dataSet.attribution {
+                    Text(attribution)
+                        .font(.aero(.caption2))
+                        .foregroundColor(.dimText)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .padding(.top, 2)
                 }
             }
             Spacer(minLength: 8)
@@ -486,6 +500,7 @@ struct DataStorageSettingsView: View {
         "openaip.reportingpoints": "OpenAIPReportingPointData",
         "openaip.airports": OpenAIPAirportDataService.directoryName,
         "ourairports.airports": "AirportData",
+        "ofm.procedures": OFMDataService.directoryName,
     ]
 
     private func recomputeSizes() {

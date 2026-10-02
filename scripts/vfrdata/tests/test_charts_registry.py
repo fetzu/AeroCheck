@@ -23,17 +23,35 @@ CONFIGJS = '''\t\tconst rootUrl = "https://aip.dfs.de/BasicVFR/";
 {label:"Freiburg i. Br. EDTF",value:"C019C9"},{label:"Laupheim ETHL",value:"C01A0A"},{label:"Zell am See",value:"C01B99"},
 {label:"Zweibruecken EDRZ",value:"C01A99"}];'''
 
+# SIA's AeroArraysVac.js, the list behind the Atlas-VAC search box (a made-up excerpt in its shape: codes, then
+# names in the same order, one code twice; SIA serves it with CRLF line ends, git stores it with LF)
+FIXTURES = os.path.join(os.path.dirname(os.path.abspath(__file__)), "fixtures")
+with open(os.path.join(FIXTURES, "sia_aeroarraysvac_sample.js"), encoding="utf-8") as handle:
+    SIAJS = handle.read()
+SIACODES = ["LFAB", "LFBA", "LFGA", "LFOI", "LFSB"]
+
 
 class FakeWeb:
-    """config.js plus a HEAD answer per URL (200 unless told otherwise)."""
+    """config.js and SIA's code list, plus a HEAD answer per URL (200 unless told otherwise)."""
 
-    def __init__(self, config=CONFIGJS, config_status=200, failing=()):
+    def __init__(self, config=CONFIGJS, config_status=200, failing=(), sia=SIAJS, sia_status=200, sia_raises=False):
         self.config = config
         self.config_status = config_status
         self.failing = set(failing)
+        self.sia = sia
+        self.sia_status = sia_status
+        self.sia_raises = sia_raises
         self.checked = []
+        self.fetched = []
 
     def fetch(self, url, etag=None):
+        self.fetched.append(url)
+        if "AeroArraysVac" in url:
+            if self.sia_raises:
+                raise OSError("connection reset")
+            if self.sia_status != 200:
+                return Response(self.sia_status, {})
+            return Response(200, {}, io.BytesIO(self.sia.encode()))
         if self.config_status != 200:
             return Response(self.config_status, {})
         return Response(200, {}, io.BytesIO(self.config.encode()))
@@ -46,11 +64,12 @@ class FakeWeb:
 class RegistryTests(unittest.TestCase):
 
     def setUp(self):
-        self.minimum = charts_registry.DFSMINPAGES
+        self.minimum = (charts_registry.DFSMINPAGES, charts_registry.SIAMINCODES)
         charts_registry.DFSMINPAGES = 3
+        charts_registry.SIAMINCODES = 3
 
     def tearDown(self):
-        charts_registry.DFSMINPAGES = self.minimum
+        charts_registry.DFSMINPAGES, charts_registry.SIAMINCODES = self.minimum
 
     def build(self, web, day=date(2026, 10, 2), previous=None):
         with contextlib.redirect_stdout(io.StringIO()):
@@ -79,7 +98,10 @@ class RegistryTests(unittest.TestCase):
         self.assertEqual(countries["FR"], {
             "kind": "sia-vac", "airac": "2610",
             "template": "https://www.sia.aviation-civile.gouv.fr/media/dvd/eAIP_01_OCT_2026/Atlas-VAC/"
-                        "PDF_AIPparSSection/VAC/AD/AD-2.{icao}.pdf"})
+                        "PDF_AIPparSSection/VAC/AD/AD-2.{icao}.pdf",
+            "codes": SIACODES})
+        self.assertIn("https://www.sia.aviation-civile.gouv.fr/media/dvd/eAIP_01_OCT_2026/Atlas-VAC/Javascript/"
+                      "AeroArraysVac.js", web.fetched)
         self.assertEqual(countries["CH"]["login"], True)
         self.assertEqual(countries["AT"]["url"], "https://eaip.austrocontrol.at/")
         self.assertNotIn("IT", countries)
@@ -88,10 +110,48 @@ class RegistryTests(unittest.TestCase):
         self.assertIn("https://aip.dfs.de/BasicVFR/pages/C019C9.html", web.checked)
 
     def test_france_falls_back_to_the_previous_cycle(self):
-        countries, flags = self.build(FakeWeb(failing={"eAIP_29_OCT_2026"}), day=date(2026, 10, 29))
+        web = FakeWeb(failing={"eAIP_29_OCT_2026"})
+        countries, flags = self.build(web, day=date(2026, 10, 29))
         self.assertEqual(countries["FR"]["airac"], "2610")
         self.assertIn("eAIP_01_OCT_2026", countries["FR"]["template"])
         self.assertEqual(flags, [])
+        # The codes come from the folder the template names
+        self.assertEqual([url for url in web.fetched if "AeroArraysVac" in url],
+                         ["https://www.sia.aviation-civile.gouv.fr/media/dvd/eAIP_01_OCT_2026/Atlas-VAC/Javascript/"
+                          "AeroArraysVac.js"])
+
+    def test_sia_codes(self):
+        # Sorted, each once, only the codes (not the names)
+        self.assertEqual(charts_registry.parse_sia_codes(SIAJS), SIACODES)
+        self.assertEqual(charts_registry.parse_sia_codes("var vaeroportlong =new Array(\"LFGA\");"), [])
+        self.assertEqual(charts_registry.parse_sia_codes(""), [])
+
+    def test_france_without_codes_when_the_list_is_unavailable(self):
+        for web in (FakeWeb(sia_status=404), FakeWeb(sia_raises=True)):
+            countries, flags = self.build(web)
+            self.assertNotIn("codes", countries["FR"], "the app falls back to its own rule")
+            self.assertEqual(countries["FR"]["airac"], "2610")
+            self.assertEqual([f["country"] for f in flags], ["FR"])
+            self.assertIn("VAC code list", flags[0]["detail"])
+
+    def test_france_without_codes_when_the_list_looks_wrong(self):
+        countries, flags = self.build(FakeWeb(sia='var vaerosoussection =new Array("LFOI","LFBA","LFSB");'))
+        self.assertNotIn("codes", countries["FR"])
+        self.assertIn("LFGA not among them", flags[0]["detail"])
+        charts_registry.SIAMINCODES = 6
+        countries, flags = self.build(FakeWeb())
+        self.assertNotIn("codes", countries["FR"])
+        self.assertIn("5 codes", flags[0]["detail"])
+
+    def test_last_weeks_codes_while_the_folder_is_the_same(self):
+        template = charts_registry.SIATEMPLATE.format(folder="01_OCT_2026")
+        previous = {"countries": {"FR": {"kind": "sia-vac", "template": template, "airac": "2610", "codes": ["LFGA", "LFSB"]}}}
+        countries, flags = self.build(FakeWeb(sia_status=503), previous=previous)
+        self.assertEqual(countries["FR"]["codes"], ["LFGA", "LFSB"])
+        self.assertEqual([f["country"] for f in flags], ["FR"], "still flagged, so someone looks")
+        # A new cycle's folder: last cycle's list is not its list
+        countries, flags = self.build(FakeWeb(sia_status=503), day=date(2026, 10, 29), previous=previous)
+        self.assertNotIn("codes", countries["FR"])
 
     def test_france_left_out_when_no_folder_answers(self):
         countries, flags = self.build(FakeWeb(failing={"sia.aviation-civile"}))
@@ -130,13 +190,14 @@ class RegistryTests(unittest.TestCase):
 class MainTests(unittest.TestCase):
 
     def setUp(self):
-        self.minimum = charts_registry.DFSMINPAGES
+        self.minimum = (charts_registry.DFSMINPAGES, charts_registry.SIAMINCODES)
         charts_registry.DFSMINPAGES = 3
+        charts_registry.SIAMINCODES = 3
         self.directory = tempfile.TemporaryDirectory()
         self.out = os.path.join(self.directory.name, "charts.json")
 
     def tearDown(self):
-        charts_registry.DFSMINPAGES = self.minimum
+        charts_registry.DFSMINPAGES, charts_registry.SIAMINCODES = self.minimum
         self.directory.cleanup()
 
     def run_registry(self, web):
@@ -149,6 +210,7 @@ class MainTests(unittest.TestCase):
             first = handle.read()
         registry = json.loads(first)
         self.assertEqual((registry["v"], registry["flags"]), (1, []))
+        self.assertEqual(registry["countries"]["FR"]["codes"], SIACODES)
         self.assertEqual(self.run_registry(FakeWeb()), 0)
         with open(self.out, "rb") as handle:
             self.assertEqual(handle.read(), first)

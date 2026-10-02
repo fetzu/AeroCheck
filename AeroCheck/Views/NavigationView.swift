@@ -3796,11 +3796,16 @@ final class LegsBandDriver {
     /// against the tiles there are). In the band's shorter map that distance is a coarser chart than the
     /// pilot had: the closest zoom comes down as far as gives the same chart scale, so the same tiles,
     /// while the band is up.
+    /// Only for a map at least 2 % shorter than the pilot's, and changed only by more than 2 %: setting
+    /// the range again for the measures' rounding (the landscape band, as tall as the map) left holes in
+    /// the chart.
     private func allowPilotsZoom(on mapView: MKMapView, scalePerMetre: Double) {
         guard let range = zoomRangeBeforeBand, let pilot = pilotScalePerMetre, scalePerMetre > 0 else { return }
-        let closest = min(range.minCenterCoordinateDistance,
-                          range.minCenterCoordinateDistance * pilot.value / scalePerMetre)
-        guard abs(mapView.cameraZoomRange.minCenterCoordinateDistance - closest) > 1,
+        let base = range.minCenterCoordinateDistance
+        var closest = base * pilot.value / scalePerMetre
+        if closest > base * 0.98 { closest = base }
+        let current = mapView.cameraZoomRange.minCenterCoordinateDistance
+        guard abs(current - closest) > max(1, closest * 0.02),
               let band = MKMapView.CameraZoomRange(minCenterCoordinateDistance: closest,
                                                    maxCenterCoordinateDistance: range.maxCenterCoordinateDistance)
         else { return }

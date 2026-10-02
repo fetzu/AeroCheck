@@ -1823,8 +1823,8 @@ private struct FlightDurationText: View {
     let color: Color
 
     var body: some View {
-        TimelineView(.periodic(from: .now, by: 1)) { context in
-            Text(startTime.map { FlightClock.formattedDuration(seconds: context.date.timeIntervalSince($0)) } ?? "--:--")
+        TimelineView(.periodic(from: .now, by: 1)) { _ in
+            Text(startTime.map { FlightClock.formattedDuration(seconds: FlightClock.now.timeIntervalSince($0)) } ?? "--:--")
                 .font(font)
                 .foregroundColor(color)
         }
@@ -2485,7 +2485,7 @@ struct GPSStatusContent: View {
             return "Weak signal"
         case .lost:
             if let ts = locationManager.currentLocation?.timestamp {
-                return "No position update for \(Int(Date().timeIntervalSince(ts).rounded())) s"
+                return "No position update for \(Int(FlightClock.now.timeIntervalSince(ts).rounded())) s"
             }
             return "No position fix"
         }

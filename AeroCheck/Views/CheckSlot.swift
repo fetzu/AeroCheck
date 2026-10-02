@@ -427,8 +427,8 @@ struct CockpitCheckSlot: View {
     var body: some View {
         // FREDA counting shows its minutes: redrawn as they pass. Due, the next evaluation redraws it.
         if appState.freda.isRunning && !appState.fredaDue {
-            TimelineView(.periodic(from: .now, by: 5)) { context in
-                button(Self.slot(for: appState, now: context.date))
+            TimelineView(.periodic(from: .now, by: 5)) { _ in
+                button(Self.slot(for: appState, now: FlightClock.now))
             }
         } else {
             button(Self.slot(for: appState))
@@ -459,7 +459,7 @@ struct CockpitCheckSlot: View {
 
     /// The slot for the flight as it stands.
     @MainActor
-    static func slot(for appState: AppState, now: Date = Date()) -> CheckSlot {
+    static func slot(for appState: AppState, now: Date = FlightClock.now) -> CheckSlot {
         let phase = appState.currentPhase
         let next = phase.nextNavigable(circuitMode: appState.isCircuitMode)
         // The next check, when its cue came: offered in the slot as soon as this one is done. Only on the
@@ -479,7 +479,7 @@ struct CockpitCheckSlot: View {
 
     /// FREDA while it runs (cruise, its check done). (6.1)
     @MainActor
-    static func freda(in appState: AppState, now: Date = Date()) -> CheckSlotFreda? {
+    static func freda(in appState: AppState, now: Date = FlightClock.now) -> CheckSlotFreda? {
         let schedule = appState.freda
         guard appState.currentPhase == .cruise, let anchor = schedule.anchor else { return nil }
         if let due = schedule.due { return .due(waypoint: due.waypoint) }
@@ -619,8 +619,8 @@ struct FredaThumbButton: View {
     var body: some View {
         if appState.currentPhase == .cruise && !appState.isCircuitMode {
             if appState.freda.isRunning && !appState.fredaDue {
-                TimelineView(.periodic(from: .now, by: 1)) { context in
-                    button(.counting(appState.freda.remaining(now: context.date) ?? FredaSchedule.interval))
+                TimelineView(.periodic(from: .now, by: 1)) { _ in
+                    button(.counting(appState.freda.remaining(now: FlightClock.now) ?? FredaSchedule.interval))
                 }
             } else {
                 button(appState.fredaDue ? .due : .waiting)

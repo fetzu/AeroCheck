@@ -215,8 +215,8 @@ class LocationManager: NSObject, ObservableObject {
         self.lastRecordedTime = nil
         self.lastDetectionTime = nil
         self.lastWaypointPassageTime = nil
-        self.lastGoodSignalTime = Date()
-        self.lastLocationUpdateTime = Date()
+        self.lastGoodSignalTime = FlightClock.now
+        self.lastLocationUpdateTime = FlightClock.now
         self.gpsSignalStatus = .good
 
         guard authorizationStatus == .authorizedWhenInUse ||
@@ -343,7 +343,7 @@ class LocationManager: NSObject, ObservableObject {
         }
 
         locationManager.startUpdatingLocation()
-        lastLocationUpdateTime = Date()
+        lastLocationUpdateTime = FlightClock.now
         gpsSignalStatus = .good
         isLocationUpdatesActive = true
         startSignalCheckTimer()
@@ -384,7 +384,7 @@ class LocationManager: NSObject, ObservableObject {
         // Arm background updates so the feed keeps going when the viewer is backgrounded (needs Always).
         locationManager.allowsBackgroundLocationUpdates = true
         locationManager.startUpdatingLocation()
-        lastLocationUpdateTime = Date()
+        lastLocationUpdateTime = FlightClock.now
         gpsSignalStatus = .good
         startSignalCheckTimer()
         // Upgrade WhenInUse → Always so the feed isn't suspended the moment the viewer backgrounds.
@@ -476,7 +476,7 @@ class LocationManager: NSObject, ObservableObject {
             return
         }
 
-        let now = Date()
+        let now = FlightClock.now
         let timeSinceLastUpdate = now.timeIntervalSince(lastUpdate)
         let computed = Self.signalStatus(
             timeSinceLastUpdate: timeSinceLastUpdate,
@@ -518,7 +518,7 @@ class LocationManager: NSObject, ObservableObject {
     /// Update smoothed speed (EMA) and cached heading from a new location update.
     /// Invalid values (speed/course = -1) are skipped, preserving the last valid reading.
     private func updateSmoothedValues(from location: CLLocation) {
-        let now = Date()
+        let now = FlightClock.now
 
         // Speed: apply exponential moving average, skip invalid (-1) readings
         if location.speed >= 0 {
@@ -558,7 +558,7 @@ class LocationManager: NSObject, ObservableObject {
             return
         }
 
-        let now = Date()
+        let now = FlightClock.now
         let accuracy = location.horizontalAccuracy
 
         // Always update the last location update time and accuracy when we receive any location
@@ -600,7 +600,7 @@ class LocationManager: NSObject, ObservableObject {
     /// Falls back to raw CLLocation speed, then 0.
     var currentSpeedMPS: Double {
         if let lastTime = lastValidSpeedTime,
-           Date().timeIntervalSince(lastTime) < cachedValueStalenessLimit {
+           FlightClock.now.timeIntervalSince(lastTime) < cachedValueStalenessLimit {
             return smoothedSpeedMPS
         }
         // Stale or no valid reading yet: try raw current location
@@ -619,7 +619,7 @@ class LocationManager: NSObject, ObservableObject {
     /// Returns nil if no valid course is available (consumer can fall back to 0 or "---").
     var currentCourseDegrees: Double? {
         if let course = lastValidCourse, let lastTime = lastValidCourseTime,
-           Date().timeIntervalSince(lastTime) < cachedValueStalenessLimit {
+           FlightClock.now.timeIntervalSince(lastTime) < cachedValueStalenessLimit {
             return course
         }
         if let course = currentLocation?.course, course >= 0 { return course }
@@ -640,7 +640,7 @@ class LocationManager: NSObject, ObservableObject {
     /// altitude is noisy, so the value is averaged across the window and EMA-smoothed; nil until there
     /// are at least two samples spanning ≥2 s. (v4 UI/UX Revamp — instrument strip VSI)
     private func updateVerticalSpeed(altitudeFt: Double) {
-        let now = Date()
+        let now = FlightClock.now
         altitudeSamples.append((now, altitudeFt))
         let cutoff = now.addingTimeInterval(-verticalSpeedWindow)
         altitudeSamples.removeAll { $0.time < cutoff }
@@ -753,7 +753,7 @@ class LocationManager: NSObject, ObservableObject {
     /// the master broadcasts (so borrowing never flips it back) and gates borrowing. (shared-GPS)
     var ownFixIsLive: Bool {
         guard let t = lastOwnFixTime else { return false }
-        return Date().timeIntervalSince(t) <= ownFixStaleAfter
+        return FlightClock.now.timeIntervalSince(t) <= ownFixStaleAfter
     }
 
     /// Whether there's a usable fix to START a flight from: GPS is actively running and we hold a valid
@@ -784,7 +784,7 @@ class LocationManager: NSObject, ObservableObject {
     ///
     /// `now` is the receiving clock: the cadences and a fix's age are measured on it. Only a test
     /// replaying a recorded flight passes one.
-    func processLocation(_ location: CLLocation, isOwnFix: Bool, now: Date = Date()) {
+    func processLocation(_ location: CLLocation, isOwnFix: Bool, now: Date = FlightClock.now) {
         // When marketing mode is active, ignore real GPS updates
         // (marketing location is injected directly via currentLocation property)
         guard !marketingModeActive else { return }
@@ -995,7 +995,7 @@ extension LocationManager: CLLocationManagerDelegate {
                 ) == .resume {
                     self.wasStoppedByRevocation = false
                     self.locationManager.startUpdatingLocation()
-                    self.lastLocationUpdateTime = Date()
+                    self.lastLocationUpdateTime = FlightClock.now
                     self.gpsSignalStatus = .good
                     self.startSignalCheckTimer()
                 }

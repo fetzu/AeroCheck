@@ -89,6 +89,50 @@ enum FlightClock {
     }
 }
 
+// MARK: - The flight's "now"
+
+extension FlightClock {
+    /// Now, for everything a flight times: the track and its fixes' age, the detector and its cues, the
+    /// check slot, FREDA, the landed card, the leg timer, the times over and the logbook's times. A
+    /// Release build reads the wall clock, always. A DEBUG ground replay (`GroundReplay`) runs it faster,
+    /// so a recorded flight replays on the simulator in minutes with all of those on one clock.
+    static var now: Date {
+        #if DEBUG
+        if let virtual { return virtual.now }
+        #endif
+        return Date()
+    }
+
+    /// The pilot's seconds since `date`, a time on this clock: what an undo toast's six seconds are
+    /// counted in, whatever pace a replay runs the flight at. Release: `Date().timeIntervalSince(date)`.
+    static func pilotSeconds(since date: Date) -> TimeInterval {
+        #if DEBUG
+        if let virtual { return virtual.now.timeIntervalSince(date) / max(virtual.rate, 1) }
+        #endif
+        return Date().timeIntervalSince(date)
+    }
+
+    #if DEBUG
+    /// DEV-ONLY: a clock that runs `rate` times faster than the wall clock from its anchor (a test may
+    /// stop it with 0).
+    struct Virtual: Equatable {
+        /// The wall clock and the virtual one at the same instant.
+        let wallAnchor: Date
+        let virtualAnchor: Date
+        let rate: Double
+
+        var now: Date { virtual(at: Date()) }
+
+        func virtual(at wall: Date) -> Date {
+            virtualAnchor.addingTimeInterval(wall.timeIntervalSince(wallAnchor) * rate)
+        }
+    }
+
+    /// DEV-ONLY: the replay's clock, nil for the wall clock.
+    nonisolated(unsafe) static var virtual: Virtual? = nil
+    #endif
+}
+
 /// The live flight's timing milestones, grouped as one cohesive value extracted from AppState's
 /// four formerly-loose @Published timestamps. Distinct from `Flight`'s own (persisted) timing
 /// fields of the same names — this is the in-progress session state. AppState owns it via a single

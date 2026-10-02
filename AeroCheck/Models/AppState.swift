@@ -794,7 +794,7 @@ class AppState {
     private var fredaApplies: Bool { isFlightActive && currentPhase == .cruise && !isCircuitMode }
 
     /// The cruise check has just been done: FREDA's count starts, unless it runs already.
-    private func startFredaAfterCruiseCheck(at date: Date = Date()) {
+    private func startFredaAfterCruiseCheck(at date: Date = FlightClock.now) {
         guard fredaApplies, !freda.isRunning, !flightCues.descentBegun else { return }
         freda.start(at: date, after: .cruiseCheck)
     }
@@ -802,7 +802,7 @@ class AppState {
     /// Call periodically in flight (the Cockpit's 5 s timer) with the last waypoint the flight passed.
     /// In cruise with its check done, FREDA runs (from now, if it didn't: back in cruise from descent,
     /// say) and comes due as `FredaSchedule` says. Anywhere else it is stopped.
-    func evaluateFreda(now: Date = Date(), lastPassage: FredaWaypointPassage? = nil) {
+    func evaluateFreda(now: Date = FlightClock.now, lastPassage: FredaWaypointPassage? = nil) {
         // Once the descent has begun, the slot holds the descent check instead (6.1, cues); a descent the
         // flight climbs back from is withdrawn, and FREDA counts again from then.
         guard fredaApplies, !flightCues.descentBegun else {
@@ -842,7 +842,7 @@ class AppState {
 
     /// FREDA done: the slot (when due), or the FREDA button (due, or early, at a turning point of the
     /// pilot's own). Recorded on the flight, and the count starts again from now.
-    func confirmFreda(at date: Date = Date()) {
+    func confirmFreda(at date: Date = FlightClock.now) {
         guard fredaApplies, freda.isRunning else { return }
         let previous = freda
         let record = FredaCheck.done(at: date, due: freda.due)
@@ -1422,7 +1422,7 @@ class AppState {
             aircraftType: aircraftType,
             checklistVersion: checklistVersion,
             flightPlanId: flightPlanId,
-            startTime: Date()
+            startTime: FlightClock.now
         )
         currentPhase = .preflight
         isFlightActive = true
@@ -1460,7 +1460,7 @@ class AppState {
         stopFreda()
         guard var flight = currentFlight else { return }
 
-        flight.stopTime = Date()
+        flight.stopTime = FlightClock.now
         // The phase bar as it ends, for the Flight Log's checks. (6.1)
         flight.checkOutcomes = checkOutcomesAtEndOfFlight()
         flight.engineStartTime = engineStartTime
@@ -1935,7 +1935,7 @@ class AppState {
     func confirmMemoryCheck(_ phase: ChecklistPhase? = nil) {
         let phase = phase ?? currentPhase
         guard isMemoryCheck(phase, learningMode: settings.learningMode), !memoryCheckIsDone(phase) else { return }
-        var confirmation = MemoryConfirmation(id: UUID(), phase: phase, confirmedAt: Date(),
+        var confirmation = MemoryConfirmation(id: UUID(), phase: phase, confirmedAt: FlightClock.now,
                                               previousHighlight: currentHighlightedItem[phase],
                                               previousStatus: phaseCompletionStatus[phase],
                                               previousFreda: freda,
@@ -2108,7 +2108,7 @@ class AppState {
     /// The check was done or skipped: owed no more. Done while owed, the flight records it done late.
     private func settleOwedCheck(_ phase: ChecklistPhase, done: Bool) {
         guard flightCues.resolve(phase) != nil, done else { return }
-        recordCheck(CheckRecord(phase: phase, kind: .doneLate, at: Date()))
+        recordCheck(CheckRecord(phase: phase, kind: .doneLate, at: FlightClock.now))
     }
 
     /// Skipped explicitly, on the flight for the debrief: once per skip, not per path that sees it.
@@ -2116,7 +2116,7 @@ class AppState {
         guard isFlightActive, allItemCount(phase) > 0 else { return }
         if let last = currentFlight?.checkRecords?.last(where: { $0.phaseRawValue == phase.rawValue }),
            last.kind == .skipped { return }
-        recordCheck(CheckRecord(phase: phase, kind: .skipped, at: Date()))
+        recordCheck(CheckRecord(phase: phase, kind: .skipped, at: FlightClock.now))
     }
 
     /// On the flight, for the debrief (bounded, like the FREDAs).
@@ -2243,7 +2243,7 @@ class AppState {
         deferredChecks.removeAll { $0 == .landing }
         phaseCompletionStatus[.landing] = status
         flightCues.resolve(.landing)
-        recordCheck(CheckRecord(phase: .landing, kind: status == .notSure ? .notSure : .confirmedAfterLanding, at: Date()))
+        recordCheck(CheckRecord(phase: .landing, kind: status == .notSure ? .notSure : .confirmedAfterLanding, at: FlightClock.now))
     }
 
     #if DEBUG
@@ -2279,7 +2279,7 @@ class AppState {
     }
     
     func recordEngineStart() {
-        engineStartTime = Date()
+        engineStartTime = FlightClock.now
         currentFlight?.engineStartTime = engineStartTime
         checkpointActiveFlight(force: true)
     }
@@ -2403,7 +2403,7 @@ class AppState {
 
     func recordLineUpTime() {
         // Adds 2 minutes to current time as specified
-        lineUpTime = Date().addingTimeInterval(120)
+        lineUpTime = FlightClock.now.addingTimeInterval(120)
         currentFlight?.lineUpTime = lineUpTime
         checkpointActiveFlight(force: true)
     }
@@ -2431,7 +2431,7 @@ class AppState {
     /// stamps full stops at the actual touchdown, and the post-flight reconciliation
     /// (PR-B) corrects purely-manual entries.
     func recordLanding(at time: Date? = nil) {
-        let landing = clampedToLineUp(time ?? Date())
+        let landing = clampedToLineUp(time ?? FlightClock.now)
         landingTime = landing
         currentFlight?.landingTime = landing
         hasLandingBeenDetected = true
@@ -2447,7 +2447,7 @@ class AppState {
 
     /// Update landing time (long-press update): "now", since there is no detector context here.
     func updateLandingTime() {
-        landingTime = clampedToLineUp(Date())
+        landingTime = clampedToLineUp(FlightClock.now)
         currentFlight?.landingTime = landingTime
     }
 
@@ -2471,7 +2471,7 @@ class AppState {
     }
     
     func recordEngineShutdown() {
-        engineShutdownTime = Date()
+        engineShutdownTime = FlightClock.now
         currentFlight?.engineShutdownTime = engineShutdownTime
 
         // Fallback: if no block on was detected but block off exists, use engine shutdown time
@@ -2491,7 +2491,7 @@ class AppState {
     /// `time` is the physical timestamp (the approach's lowest point, decision D4) when
     /// the detector knows it; "now" for a purely manual entry.
     func recordGoAround(at time: Date? = nil) {
-        let goAroundTime = time ?? Date()
+        let goAroundTime = time ?? FlightClock.now
         // Duplicate guard: a second go-around within a minute is the same physical event.
         if let last = currentFlight?.goAroundTimes.last,
            abs(goAroundTime.timeIntervalSince(last)) < landingDedupeWindow {
@@ -2519,7 +2519,7 @@ class AppState {
     /// Record a touch-and-go and return to climb phase, resetting subsequent phases.
     /// `time` is the physical touchdown time when the detector knows it; "now" otherwise.
     func recordTouchAndGo(at time: Date? = nil) {
-        let touchAndGoTime = time ?? Date()
+        let touchAndGoTime = time ?? FlightClock.now
         if isDuplicateLandingEvent(at: touchAndGoTime) {
             AppLog.flightEvents.debugLine("Touch-and-go ignored (duplicate landing within \(Int(landingDedupeWindow)) s)")
             return
@@ -2556,7 +2556,7 @@ class AppState {
     ///   the after landing check.) The landing time, the count and the logbook are the same
     ///   either way: only the checklist differs.
     func recordFullStop(at time: Date? = nil) {
-        let fullStopTime = clampedToLineUp(time ?? Date())
+        let fullStopTime = clampedToLineUp(time ?? FlightClock.now)
         if isDuplicateLandingEvent(at: fullStopTime) {
             AppLog.flightEvents.debugLine("Full stop ignored (duplicate landing within \(Int(landingDedupeWindow)) s)")
             return
@@ -2708,7 +2708,7 @@ class AppState {
             if consecutiveLowSpeedReadings >= requiredLowSpeedReadings {
                 // Plane has stopped — record landing time (the detector's confirmed full
                 // stop carries the real touchdown time and supersedes this fallback)
-                landingTime = clampedToLineUp(Date())
+                landingTime = clampedToLineUp(FlightClock.now)
                 currentFlight?.landingTime = landingTime
                 hasLandingBeenDetected = true
             }

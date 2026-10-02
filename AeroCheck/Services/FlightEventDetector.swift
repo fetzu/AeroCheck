@@ -125,10 +125,11 @@ class FlightEventDetector: ObservableObject {
 
     // MARK: - Clock Seam
 
-    /// Injectable clock. Defaults to wall-clock; scripted-trajectory tests substitute a synthetic
+    /// Injectable clock. Defaults to the flight's clock (`FlightClock.now`: the wall clock in a Release
+    /// build, a ground replay's in DEBUG); scripted-trajectory tests substitute a synthetic
     /// clock so the time-based suppression / stillness / pending-expiry logic is exercised
     /// deterministically without real-time sleeps. Behaviour in production is identical. (PR-34)
-    var clock: () -> Date = { Date() }
+    var clock: () -> Date = { FlightClock.now }
 
     // MARK: - Event Record
 

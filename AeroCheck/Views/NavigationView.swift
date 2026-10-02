@@ -1754,7 +1754,7 @@ struct NavigationMapView: View {
         guard let loc = locationManager.currentLocation else { return nil }
         let gs = locationManager.currentSpeedKnots
         guard gs >= 30, let ete = flightPlanManager.etaToNextWaypoint(from: loc, groundSpeedKnots: gs) else { return nil }
-        return (ete, Date().addingTimeInterval(ete))
+        return (ete, FlightClock.now.addingTimeInterval(ete))
     }
 
     /// ETE in minutes, "13 min", or "1:07 h" past the hour. As "13:07" beside an ETA of "13:58" it
@@ -2846,7 +2846,7 @@ struct NavigationMapView: View {
                 return (diversion.ident, 0, nil)
             }
             let gs = locationManager.currentSpeedKnots
-            return (diversion.ident, d, gs > 30 ? Date().addingTimeInterval(d / gs * 3600) : nil)
+            return (diversion.ident, d, gs > 30 ? FlightClock.now.addingTimeInterval(d / gs * 3600) : nil)
         }
         var remaining = 0.0
         if let loc = locationManager.currentLocation,
@@ -2894,7 +2894,7 @@ struct NavigationMapView: View {
         flightPlanManager.markWaypoint()
         guard let timer else { return }
         let name = plan.waypoints[index].name.isEmpty ? "WPT \(index + 1)" : plan.waypoints[index].name
-        offerUndo(L10n.Nav.markedAt(name, Date().formatted(date: .omitted, time: .shortened))) {
+        offerUndo(L10n.Nav.markedAt(name, FlightClock.now.formatted(date: .omitted, time: .shortened))) {
             flightPlanManager.undoMark(ofWaypointAt: index, timer: timer)
         }
     }
@@ -6098,7 +6098,8 @@ class AirspacePolygon: MKPolygon {
 
 // MARK: - Self-timing clock / chronometer (PR-10)
 
-/// A wall-clock HH:mm:ss display that ticks itself once per second via `TimelineView` instead of the
+/// A clock HH:mm:ss display (the flight's clock, `FlightClock.now`: the wall clock outside a DEBUG
+/// ground replay) that ticks itself once per second via `TimelineView` instead of the
 /// old `.id(UUID())` hack driven by a top-level 1 Hz timer. The hack changed top-level `@State`
 /// every second, re-evaluating the entire ~2000-line map body; this scopes the per-second redraw to
 /// just this small subview. The `DateFormatter` is cached (was rebuilt per render). (PR-10)
@@ -6119,8 +6120,8 @@ private struct NavClockText: View {
     }
 
     var body: some View {
-        TimelineView(.periodic(from: .now, by: 1)) { context in
-            Text(Self.string(for: context.date, useUTC: useUTC))
+        TimelineView(.periodic(from: .now, by: 1)) { _ in
+            Text(Self.string(for: FlightClock.now, useUTC: useUTC))
                 .font(font)
                 .foregroundColor(color)
         }
@@ -6224,14 +6225,14 @@ extension AppState {
     /// The memory check confirmation still to offer back: within its six seconds. (6.1)
     var memoryConfirmationToOffer: MemoryConfirmation? {
         guard let confirmation = memoryConfirmation,
-              Date().timeIntervalSince(confirmation.confirmedAt) < Self.memoryConfirmationUndoWindow else { return nil }
+              FlightClock.pilotSeconds(since: confirmation.confirmedAt) < Self.memoryConfirmationUndoWindow else { return nil }
         return confirmation
     }
 
     /// FREDA done, still to offer back: within the same six seconds. (6.1)
     var fredaConfirmationToOffer: FredaConfirmation? {
         guard let confirmation = fredaConfirmation,
-              Date().timeIntervalSince(confirmation.doneAt) < Self.memoryConfirmationUndoWindow else { return nil }
+              FlightClock.pilotSeconds(since: confirmation.doneAt) < Self.memoryConfirmationUndoWindow else { return nil }
         return confirmation
     }
 

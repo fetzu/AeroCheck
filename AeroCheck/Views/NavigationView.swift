@@ -120,6 +120,10 @@ class SharedMapState: ObservableObject {
     /// knows it. Deriving a camera distance from the route's extent framed a 200 NM east–west route
     /// as if it were 20 NM tall and zoomed into the middle of it. (v4.4.0)
     var pendingFitCoordinates: [CLLocationCoordinate2D]?
+    /// What the map shows while the legs panel's band has the camera, for the airports and airspace
+    /// drawn on it. The band never writes `region`, `cameraDistance` or `cameraHeading`: they keep the
+    /// map the pilot left, which closing the panel puts back. nil with the panel closed. (6.1, option C)
+    @Published var bandRegion: MKCoordinateRegion?
 
     init() {
         // Default to Switzerland center
@@ -145,6 +149,20 @@ class SharedMapState: ObservableObject {
             DispatchQueue.main.async { [weak self] in
                 self?.cameraHeading = camera.heading
             }
+        }
+    }
+
+    /// The band's map moved. Deferred, as `updateFromRegion` is.
+    func updateBandRegion(_ region: MKCoordinateRegion) {
+        DispatchQueue.main.async { [weak self] in
+            self?.bandRegion = region
+        }
+    }
+
+    /// The panel closed and the map is back where it was.
+    func endBand() {
+        DispatchQueue.main.async { [weak self] in
+            self?.bandRegion = nil
         }
     }
 
@@ -240,6 +258,14 @@ struct NavigationMapView: View {
     @State private var showMapSheet: Bool = false
     /// Measured height of the open legs-and-frequencies panel, so it hugs its content up to its limit.
     @State private var legsPanelContentHeight: CGFloat = 0
+    /// Emergency, pinned to the open panel's foot: its height, and the frequency column it lines up
+    /// with (in the panel's space). (6.1, option C)
+    @State private var emergencyFooterHeight: CGFloat = 0
+    @State private var freqColumnFrame: CGRect?
+    /// The chart's measures, for the band the open panel leaves between the card and itself.
+    @State private var chartGeometry = ChartGeometry()
+    /// The map as the panel found it, put back when it closes. (6.1, option C)
+    @State private var cameraBeforeLegs: LegsPanelMap.SavedCamera?
     @State private var showCacheInfoModal: Bool = false
     @State private var showSigmets: Bool = false
     @State private var showFlightPlanning: Bool = false
@@ -492,6 +518,13 @@ struct NavigationMapView: View {
         .onReceive(mapState.$region) { _ in
             recomputeMapSpatialContent()
         }
+        // The band's chart, while the legs panel is open. (6.1, option C)
+        .onReceive(mapState.$bandRegion) { _ in
+            recomputeMapSpatialContent()
+        }
+        .onChange(of: navSheetExpanded) { _, open in
+            if open { legsPanelOpened() } else { legsPanelClosed() }
+        }
         .onChange(of: appState.settings.showAirportsOnMap) { _, _ in recomputeMapSpatialContent(force: true) }
         .onChange(of: appState.settings.showNavaidsOnMap) { _, _ in recomputeMapSpatialContent(force: true) }
         .onChange(of: appState.settings.showObstaclesOnMap) { _, _ in recomputeMapSpatialContent(force: true) }
@@ -531,7 +564,9 @@ struct NavigationMapView: View {
             locationUpdateCounter += 1
             updateTrackVectorEMA()
 
-            if isFollowingAircraft, let location = newLocation {
+            // Not with the legs panel open: its band follows the aircraft itself, and leaves the shared
+            // state as the pilot had it for the panel to put back. (6.1, option C)
+            if isFollowingAircraft, !navSheetExpanded, let location = newLocation {
                 if !hasInitiallyCentered {
                     // First fix after opening (no position was available at open) — snap to a tight,
                     // centered view rather than re-centering at whatever stale zoom was left. (v4 UI/UX Revamp)
@@ -684,7 +719,7 @@ struct NavigationMapView: View {
                 HStack(spacing: 0) {
                     SeparateView {
                         mapArea(bottomPanel: EmptyView?.none,
-                                footerClearance: navSheetExpanded ? min(legsPanelContentHeight, legsMaxHeight) : 0)
+                                footerClearance: navSheetExpanded ? legsPanelHeight(maxHeight: legsMaxHeight) : 0)
                     }
                     .overlay(alignment: .bottom) {
                         if navSheetExpanded {
@@ -760,8 +795,10 @@ struct NavigationMapView: View {
                 nextWaypointLine
                 VStack(alignment: .leading, spacing: 8) {
                     SigmetChip(hazards: rankedSigmets) { showSigmets = true }
-                    routeOffScreenPill
-                        .animation(reduceMotion ? nil : .easeInOut(duration: 0.25), value: routeOffScreenHint) // (UX-18)
+                    if chrome.showsRouteOffScreenPill {
+                        routeOffScreenPill
+                            .animation(reduceMotion ? nil : .easeInOut(duration: 0.25), value: routeOffScreenHint) // (UX-18)
+                    }
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
             }
@@ -771,9 +808,12 @@ struct NavigationMapView: View {
                 MapUndoToast(undoOffer: $undoOffer)
                     .padding(.horizontal, 16)
                 // The controls at the foot of the chart, by the thumb, leaving the top (what's
-                // ahead, in Track up) clear, and the scale and the chart's source beside them.
-                SeparateView { columnsMapFoot }
-                    .padding(.horizontal, 10)
+                // ahead, in Track up) clear, and the scale and the chart's source beside them. Not with
+                // the legs open: the band is a view. (6.1, option C)
+                if chrome.showsMapControls || chrome.showsMapStatus {
+                    SeparateView { columnsMapFoot }
+                        .padding(.horizontal, 10)
+                }
             }
             .padding(.bottom, 8)
             .sheet(isPresented: $showCacheInfoModal) { cacheInfoSheet })
@@ -783,7 +823,7 @@ struct NavigationMapView: View {
                 freqLine
                 if navSheetExpanded {
                     Rectangle().fill(theme.panelStroke).frame(height: 1)
-                    legsScroll(maxHeight: legsMaxHeight)
+                    SeparateView { legsPanelContent(maxHeight: legsMaxHeight) }
                 }
             }
             .background(theme.panel.ignoresSafeArea(edges: .bottom))
@@ -1045,7 +1085,8 @@ struct NavigationMapView: View {
                         routesButton()
                             .frame(maxWidth: .infinity, alignment: .leading)
                     }
-                    if !compact {
+                    // Not with the legs open: the band under the card is a view. (6.1, option C)
+                    if !compact && chrome.showsMapControls {
                         SeparateView { mapControlsRow }
                             .frame(maxWidth: .infinity, alignment: .trailing)
                     }
@@ -1053,21 +1094,24 @@ struct NavigationMapView: View {
                     // always present stops being read.
                     SigmetChip(hazards: rankedSigmets) { showSigmets = true }
                         .frame(maxWidth: .infinity, alignment: .leading)
-                    routeOffScreenPill
-                        .animation(reduceMotion ? nil : .easeInOut(duration: 0.25), value: routeOffScreenHint) // (UX-18)
+                    if chrome.showsRouteOffScreenPill {
+                        routeOffScreenPill
+                            .animation(reduceMotion ? nil : .easeInOut(duration: 0.25), value: routeOffScreenHint) // (UX-18)
+                    }
                 }
                 .padding(.horizontal, compact ? 10 : 16)
                 .padding(.top, compact ? 8 : 10)
             },
             bottom: VStack(spacing: 8) {
                 mapFooter
-                if compact {
+                if compact && chrome.showsMapControls {
                     SeparateView { mapControlsBottomRow }
                         .frame(maxWidth: .infinity, alignment: .trailing)
                         .padding(.horizontal, 10)
                 }
             }
-            .padding(.bottom, (compact ? 8 : 0) + footerClearance))
+            .padding(.bottom, (compact ? 8 : 0) + footerClearance),
+            panelInset: footerClearance)
 
             if let bottomPanel { bottomPanel }
         }
@@ -1076,12 +1120,109 @@ struct NavigationMapView: View {
     /// The chart, its chrome laid over it: over, not stacked, so the chrome never makes the pane taller
     /// than its room. Stacked, the card, the controls and the route pill pushed the thumb bar half off
     /// a phone in climb. (round 6, I-06)
-    private func chartWithChrome<Top: View, Bottom: View>(top: Top, bottom: Bottom) -> some View {
+    ///
+    /// With the legs and frequencies open, the chart left between the top chrome and the panel is the
+    /// band (`legsBand`): measured here, in the chart's own space, as the map view runs under a safe
+    /// area where the chart doesn't. `panelInset`: how much of the chart's foot the panel lies over (in
+    /// landscape; elsewhere it is under the chart). (6.1, option C)
+    private func chartWithChrome<Top: View, Bottom: View>(top: Top, bottom: Bottom,
+                                                         panelInset: CGFloat = 0) -> some View {
         Color.clear
-            .overlay(alignment: .top) { top }
+            // Under the chrome, so the card and the undo stay live.
+            .overlay { if chrome.bandClosesPanel { legsBandCover } }
+            .overlay(alignment: .top) {
+                top.background(GeometryReader { proxy in
+                    Color.clear.preference(key: ChartChromeBottomKey.self,
+                                           value: proxy.frame(in: .named(Self.chartSpace)).maxY)
+                })
+            }
             .overlay(alignment: .bottom) { bottom }
             .clipped()
-            .background { mapContent.ignoresSafeArea() }
+            .background {
+                mapContent.ignoresSafeArea()
+                    .background(GeometryReader { proxy in
+                        Color.clear.preference(key: ChartMapFrameKey.self,
+                                               value: proxy.frame(in: .named(Self.chartSpace)))
+                    })
+            }
+            .background(GeometryReader { proxy in
+                Color.clear
+                    .preference(key: ChartSizeKey.self, value: proxy.size)
+                    .preference(key: ChartPanelInsetKey.self, value: panelInset)
+                    .preference(key: ChartMeasuredOpenKey.self, value: chrome.bandClosesPanel)
+            })
+            .coordinateSpace(name: Self.chartSpace)
+            .onPreferenceChange(ChartSizeKey.self) { chartGeometry.chartSize = $0 }
+            .onPreferenceChange(ChartChromeBottomKey.self) { chartGeometry.chromeBottom = $0 }
+            .onPreferenceChange(ChartMapFrameKey.self) { chartGeometry.mapFrame = $0 }
+            .onPreferenceChange(ChartPanelInsetKey.self) { chartGeometry.panelInset = $0 }
+            .onPreferenceChange(ChartMeasuredOpenKey.self) { chartGeometry.measuredOpen = $0 }
+    }
+
+    private static let chartSpace = "navChart"
+
+    /// The band, with the legs open: a tap on it closes the panel as the chevron does, and the map
+    /// under it takes no pan, pinch, rotation or marker tap. VoiceOver gets the same as a named action
+    /// (the map hides its markers from VoiceOver meanwhile). (6.1, option C)
+    private var legsBandCover: some View {
+        Color.clear
+            .contentShape(Rectangle())
+            .onTapGesture { toggleLegsAndFrequencies() }
+            .accessibilityElement()
+            .accessibilityLabel(L10n.Nav.mapSheet)
+            .accessibilityAction(named: L10n.Nav.closeLegsAndFrequencies) { toggleLegsAndFrequencies() }
+    }
+
+    /// The map's chrome for the panel's state: with the legs open, the map's controls go and the band is
+    /// a view. (6.1, option C)
+    private var chrome: LegsPanelMap.Chrome { .forPanel(open: navSheetExpanded) }
+
+    /// The band the open legs panel leaves, as the map views take it; nil with the panel closed. It
+    /// frames the waypoint previewed from the leg table while there is one, else the navigation target
+    /// (the next waypoint, or the diversion field).
+    private var legsBand: LegsPanelMap.Band? {
+        guard navSheetExpanded else { return nil }
+        let geometry = chartGeometry
+        var waypoint: CLLocationCoordinate2D?
+        if let plan = flightPlanManager.activeFlightPlan, !flightPlanManager.isFlightPlanCompleted {
+            if let index = previewWaypointIndex, plan.waypoints.indices.contains(index) {
+                waypoint = plan.waypoints[index].coordinate
+            } else {
+                waypoint = plan.navigationTarget?.coordinate
+            }
+        }
+        return LegsPanelMap.Band(
+            rect: geometry.measuredOpen
+                ? LegsPanelMap.bandRect(chartSize: geometry.chartSize, chromeBottom: geometry.chromeBottom,
+                                        mapFrame: geometry.mapFrame, panelInset: geometry.panelInset)
+                : nil,
+            viewSize: geometry.mapFrame.size,
+            aircraft: locationManager.currentLocation?.coordinate,
+            waypoint: waypoint,
+            heading: mapOrientationMode == .trackUp
+                ? (locationManager.currentCourseDegrees ?? mapState.cameraHeading) : 0)
+    }
+
+    /// The panel opened: keep the map as it is, to put it back on closing.
+    private func legsPanelOpened() {
+        cameraBeforeLegs = LegsPanelMap.SavedCamera(
+            center: mapState.region.center, span: mapState.region.span, distance: mapState.cameraDistance,
+            heading: mapState.cameraHeading, following: isFollowingAircraft)
+    }
+
+    /// The panel closed: the map as it was (following the aircraft, or where the pilot had panned to).
+    /// The shared state gets it here; the map view puts its camera there once the panel is gone.
+    private func legsPanelClosed() {
+        previewWaypointIndex = nil
+        guard let saved = cameraBeforeLegs else { return }
+        cameraBeforeLegs = nil
+        let camera = LegsPanelMap.restored(
+            saved, aircraft: locationManager.currentLocation?.coordinate,
+            trackUpCourse: mapOrientationMode == .trackUp ? locationManager.currentCourseDegrees : nil)
+        mapState.region = MKCoordinateRegion(center: camera.center, span: camera.span)
+        mapState.cameraDistance = camera.distance
+        mapState.cameraHeading = camera.heading
+        isFollowingAircraft = camera.following
     }
 
     /// The phone with no leg to fly, so the thumb bar would only hold Routes: no route on the map, or
@@ -1155,7 +1296,7 @@ struct NavigationMapView: View {
     /// Recompute the cached spatial map content. Skips work when the region hasn't moved past the
     /// quantization threshold, unless `force` (a toggled setting / newly-available data). (PR-11)
     private func recomputeMapSpatialContent(force: Bool = false) {
-        let region = mapState.region
+        let region = mapState.bandRegion ?? mapState.region
         if !force, let last = lastSpatialRegion, !Self.regionMovedSignificantly(from: last, to: region) {
             return
         }
@@ -1300,7 +1441,8 @@ struct NavigationMapView: View {
                 onWaypointATOTap: { index in
                     flightPlanManager.recordATO(forWaypointAt: index)
                 },
-                onAirportDivert: airportDivert
+                onAirportDivert: airportDivert,
+                legsBand: legsBand
             )
         } else {
             // Use UIKit-wrapped MKMapView for standard/satellite to avoid gesture issues
@@ -1328,7 +1470,8 @@ struct NavigationMapView: View {
                 onWaypointATOTap: { index in
                     flightPlanManager.recordATO(forWaypointAt: index)
                 },
-                onAirportDivert: airportDivert
+                onAirportDivert: airportDivert,
+                legsBand: legsBand
             )
         }
     }
@@ -1518,12 +1661,15 @@ struct NavigationMapView: View {
     /// landscape phone has them in the controls' band instead: `columnsMapFoot`.)
     private var mapFooter: some View {
         VStack(spacing: 0) {
-            HStack(alignment: .bottom) {
-                mapStatus
-                Spacer()
+            // Not with the legs open: the band is a view, the undo stays. (6.1, option C)
+            if chrome.showsMapStatus {
+                HStack(alignment: .bottom) {
+                    mapStatus
+                    Spacer()
+                }
+                .padding(.horizontal, 16)
+                .padding(.bottom, 8)
             }
-            .padding(.horizontal, 16)
-            .padding(.bottom, 8)
 
             MapUndoToast(undoOffer: $undoOffer)
                 .padding(.horizontal, 16)
@@ -1569,7 +1715,7 @@ struct NavigationMapView: View {
             freqCard
             if navSheetExpanded {
                 Rectangle().fill(theme.panelStroke).frame(height: 1)
-                legsScroll(maxHeight: legsMaxHeight)
+                SeparateView { legsPanelContent(maxHeight: legsMaxHeight) }
             }
             if includesThumbBar && !phoneWithNoLegToFly {
                 Rectangle().fill(theme.panelStroke).frame(height: 1)
@@ -1624,9 +1770,54 @@ struct NavigationMapView: View {
     /// waypoint, the map's controls and the aircraft stay in view (`landscapeLegsMaxHeight`). The same
     /// chevron closes it.
     private func landscapeLegsPanel(maxHeight: CGFloat) -> some View {
-        legsScroll(maxHeight: maxHeight)
+        legsPanelContent(maxHeight: maxHeight)
             .background(theme.panel.ignoresSafeArea(edges: .bottom))
             .overlay(alignment: .top) { Rectangle().fill(theme.panelStroke).frame(height: 1) }
+    }
+
+    /// The open panel's content, at most `maxHeight`: the legs and every frequency in a scroll view as
+    /// tall as they are, and Emergency pinned under it, outside the scroll, always whole. At the foot of
+    /// the list it was half cut in portrait, and about 20 pt short in landscape, until scrolled.
+    /// (6.1, option C)
+    private func legsPanelContent(maxHeight: CGFloat) -> some View {
+        VStack(spacing: 0) {
+            legsScroll(maxHeight: max(0, maxHeight - emergencyFooterHeight))
+            emergencyFooter
+                .background(GeometryReader { proxy in
+                    Color.clear.preference(key: EmergencyFooterHeightKey.self, value: proxy.size.height)
+                })
+        }
+        .coordinateSpace(name: Self.legsPanelSpace)
+        .onPreferenceChange(EmergencyFooterHeightKey.self) { emergencyFooterHeight = $0 }
+        .onPreferenceChange(FreqColumnFrameKey.self) { freqColumnFrame = $0 }
+    }
+
+    /// The open panel's height for at most `maxHeight`, Emergency included: what the landscape panel
+    /// covers of the chart's foot.
+    private func legsPanelHeight(maxHeight: CGFloat) -> CGFloat {
+        min(legsPanelContentHeight, max(0, maxHeight - emergencyFooterHeight)) + emergencyFooterHeight
+    }
+
+    private static let legsPanelSpace = "legsPanel"
+
+    /// Emergency, at the panel's foot, lined up with the frequency column above it: its right-hand
+    /// column beside the legs, the panel's width under them or with no route. A hairline over it, as the
+    /// list scrolls under it.
+    @ViewBuilder
+    private var emergencyFooter: some View {
+        let emergency = phaseFreqItems.filter(\.isEmergency)
+        if !emergency.isEmpty {
+            let column = freqColumnFrame
+            VStack(spacing: 0) {
+                Rectangle().fill(theme.panelStroke).frame(height: 1)
+                ForEach(emergency) { freqRow($0, large: true) }
+            }
+            .frame(width: column.map { max(0, $0.width) })
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.leading, column.map { max(0, $0.minX) } ?? 16)
+            .padding(.trailing, column == nil ? 16 : 0)
+            .padding(.bottom, 4)
+        }
     }
 
     /// The legs and every frequency in a scroll view as tall as they are, up to `maxHeight`.
@@ -2641,11 +2832,11 @@ struct NavigationMapView: View {
         return CLLocationCoordinate2D(latitude: lat2 * 180 / .pi, longitude: lon2 * 180 / .pi)
     }
 
-    /// The frequency column — by default just CURRENT + NEXT (what a VFR pilot needs to hand) plus
-    /// EMERGENCY; "All Frequencies" reveals every station along the journey in order. (v4 UI/UX Revamp — current/next)
+    /// The frequency column — by default just CURRENT + NEXT (what a VFR pilot needs to hand); "All
+    /// Frequencies" reveals every station along the journey in order. (v4 UI/UX Revamp — current/next)
+    /// EMERGENCY is pinned under the scroll, lined up with this column (`emergencyFooter`). (6.1, option C)
     private func freqColumn(large: Bool) -> some View {
         let nonEmergency = phaseFreqItems.filter { !$0.isEmergency }
-        let emergency = phaseFreqItems.filter { $0.isEmergency }
         let essentials = nonEmergency.filter { $0.role == .current || $0.role == .next }
         let hasMore = nonEmergency.count > essentials.count
         let visible = showAllFreqs ? nonEmergency : essentials
@@ -2678,8 +2869,11 @@ struct NavigationMapView: View {
                 }
                 .padding(.vertical, 3)
             }
-            ForEach(emergency) { freqRow($0, large: large) }
         }
+        .background(GeometryReader { proxy in
+            Color.clear.preference(key: FreqColumnFrameKey.self,
+                                   value: proxy.frame(in: .named(Self.legsPanelSpace)))
+        })
     }
 
     /// A short CURRENT/NEXT tag + its colour, or nil for other rows. (v4 UI/UX Revamp)
@@ -2756,7 +2950,9 @@ struct NavigationMapView: View {
                 Button {
                     flightPlanManager.directTo(waypointAt: index)
                     previewWaypointIndex = nil
-                    centerOnAircraft()
+                    // It re-centred the map on the aircraft. The band now frames the new leg, and the
+                    // map follows the aircraft once the panel closes. (6.1, option C)
+                    cameraBeforeLegs?.following = true
                 } label: {
                     Text(L10n.Trip.directToWaypoint)
                         .font(.aero(size: large ? CockpitType.label : 12, weight: .bold))
@@ -2863,17 +3059,16 @@ struct NavigationMapView: View {
         }
     }
 
-    /// Tap a waypoint to preview (centre the map on it); tap the active/previewed one to return.
+    /// Tap a waypoint to preview it; tap the active/previewed one to return. The leg table only shows in
+    /// the open panel, whose band frames the aircraft and the previewed waypoint in place of the next
+    /// one. The map the pilot left isn't touched, so closing the panel still puts it back. (It centred the
+    /// map on the waypoint, under the panel; 6.1, option C)
     private func previewWaypoint(index: Int, plan: FlightPlan) {
         guard plan.waypoints.indices.contains(index) else { return }
         if previewWaypointIndex == index || index == plan.currentWaypointIndex {
             previewWaypointIndex = nil
-            centerOnAircraft()
         } else {
             previewWaypointIndex = index
-            isFollowingAircraft = false
-            let wpt = plan.waypoints[index]
-            mapState.updateFromRegion(MKCoordinateRegion(center: wpt.coordinate, span: mapState.region.span))
         }
     }
 
@@ -3422,6 +3617,236 @@ private func updateAirspaceOverlays(on mapView: MKMapView, polygons: [AirspacePo
     }
 }
 
+/// The open legs panel's band on a map view, for both representables: one implementation, as
+/// `updateAirspaceOverlays` is, since two copies drift. (6.1, option C)
+///
+/// While the panel is open the band has the camera: it frames the aircraft and the next waypoint
+/// (`LegsPanelMap.place`) on every update, so it follows the aircraft, and the map takes no pan, pinch,
+/// rotation or marker tap. The shared state is left alone meanwhile (the coordinators send what the band
+/// shows to `SharedMapState.bandRegion` instead), so it still holds the map the pilot left, or, once the
+/// panel closes, what `NavigationMapView` puts back.
+final class LegsBandDriver {
+    /// The panel is open, or its camera is still being put back: the update pass leaves its own camera
+    /// sync out, and the coordinator doesn't write the band's region into the shared state.
+    private(set) var ownsCamera = false
+    private var isOpen = false
+    /// The last pass's framing, which `routeAhead` keeps, and the waypoint it framed.
+    private var framing: LegsPanelMap.Framing?
+    private var framedWaypoint: CLLocationCoordinate2D?
+    private var lastCamera: MKMapCamera?
+    /// The pilot's zoom, in map points per screen point, as last seen with the panel closed: the zoom
+    /// the band frames at, whatever the panel does to the map view's size.
+    private var pilotScale: Double?
+    /// Zoom per metre of camera distance with the map at rest, and the map's height then, last with the
+    /// panel closed and last of all. MapKit's field of view is set by the map's height: the same camera
+    /// distance is a coarser chart in a shorter map (twice as coarse with the panel open in portrait).
+    /// Read at rest: during an animated move the camera already says where it is going, the map still
+    /// shows where it was.
+    private var pilotScalePerMetre: (value: Double, height: CGFloat)?
+    private var scalePerMetre: (value: Double, height: CGFloat)?
+    /// The map's zoom range as the panel found it, put back on closing.
+    private var zoomRangeBeforeBand: MKMapView.CameraZoomRange?
+    /// Bumped on every open and close, so a restore queued by a close doesn't land on a reopened band.
+    private var generation = 0
+    /// The band has moved the camera somewhere the map wasn't, and the chart there is to be redrawn
+    /// once the camera is at rest.
+    private var redrawsTilesAtRest = false
+
+    /// The map came to rest (the coordinator's `regionDidChange`): note its zoom, the pilot's when the
+    /// band doesn't have the camera.
+    func mapCameToRest(_ mapView: MKMapView) {
+        let distance = mapView.camera.centerCoordinateDistance
+        guard let scale = Self.scale(of: mapView), distance > 0 else { return }
+        scalePerMetre = (scale / distance, mapView.bounds.height)
+        if let restoring, abs(mapView.bounds.height - restoring.height) < 1 {
+            // Back to its height: now the pilot's camera, exactly.
+            finishRestore(mapView, mapState: restoring.mapState)
+            return
+        }
+        if redrawsTilesAtRest {
+            redrawsTilesAtRest = false
+            Self.redrawTiles(on: mapView)
+        }
+        guard !ownsCamera else { return }
+        pilotScale = scale
+        pilotScalePerMetre = scalePerMetre
+    }
+
+    /// One update pass. True while the band has the camera.
+    func update(_ mapView: MKMapView, band: LegsPanelMap.Band?, mapState: SharedMapState) -> Bool {
+        guard let band else {
+            if isOpen { close(mapView, mapState: mapState) }
+            return ownsCamera
+        }
+        if !isOpen { open(mapView) }
+        frame(mapView, band: band)
+        return true
+    }
+
+    private func open(_ mapView: MKMapView) {
+        // A map that hasn't moved since it was made: its zoom as it stands.
+        if pilotScale == nil { mapCameToRest(mapView) }
+        // Unless a restore is still on its way: then the range it will put back.
+        if !ownsCamera { zoomRangeBeforeBand = mapView.cameraZoomRange }
+        isOpen = true
+        ownsCamera = true
+        generation += 1
+        restoring = nil
+        framing = nil
+        framedWaypoint = nil
+        lastCamera = nil
+        mapView.isScrollEnabled = false
+        mapView.isZoomEnabled = false
+        mapView.isRotateEnabled = false
+        // An open callout would sit on the band with nothing to close it.
+        for annotation in mapView.selectedAnnotations { mapView.deselectAnnotation(annotation, animated: false) }
+        // VoiceOver reaches the band through its own element, which closes the panel.
+        mapView.accessibilityElementsHidden = true
+    }
+
+    private func frame(_ mapView: MKMapView, band: LegsPanelMap.Band) {
+        // No position: the camera stays where it is. Not measured with the panel open yet: wait for it.
+        guard let aircraft = band.aircraft, CLLocationCoordinate2DIsValid(aircraft), let rect = band.rect,
+              band.viewSize.height > 0, let pilotScale, let measured = scalePerMetre else { return }
+        if !Self.same(band.waypoint, framedWaypoint) {
+            // Another waypoint (MARK, a pass, Direct to, a preview): decide afresh how far is far.
+            framing = nil
+            framedWaypoint = band.waypoint
+        }
+        // MapKit centres the camera in the map's safe area, not in the view: on a map running under the
+        // home indicator, or under the status bar, the middle is that much off.
+        let safe = mapView.safeAreaInsets
+        let cameraPoint = CGPoint(x: safe.left + (band.viewSize.width - safe.left - safe.right) / 2,
+                                  y: safe.top + (band.viewSize.height - safe.top - safe.bottom) / 2)
+        let placement = LegsPanelMap.place(aircraft: MKMapPoint(aircraft), waypoint: band.waypoint.map(MKMapPoint.init),
+                                           heading: band.heading, band: rect, viewSize: band.viewSize,
+                                           cameraPoint: cameraPoint, scale: pilotScale, previous: framing)
+        framing = placement.framing
+        // The camera distance that gives that zoom in the map as laid out with the panel open, from the
+        // last zoom per metre measured at rest, taken to the band's height (MapKit's field of view is
+        // set by the map's height). Measured at that height already once the map has settled there.
+        let perMetre = Double(measured.value) * Double(measured.height) / Double(band.viewSize.height)
+        allowPilotsZoom(on: mapView, scalePerMetre: perMetre)
+        let camera = MKMapCamera(lookingAtCenter: placement.center.coordinate,
+                                 fromDistance: pilotScale * placement.zoomOut / perMetre,
+                                 pitch: 0, heading: band.heading)
+        if let last = lastCamera, Self.isSame(last, camera, scale: pilotScale * placement.zoomOut) { return }
+        // The first framing moves the camera, and in portrait the map's size: the chart's tiles are
+        // redrawn once it is at rest. Later ones follow the aircraft, as following it does.
+        if lastCamera == nil { redrawsTilesAtRest = true }
+        lastCamera = camera
+        mapView.setCamera(camera, animated: !UIAccessibility.isReduceMotionEnabled)
+    }
+
+    private func close(_ mapView: MKMapView, mapState: SharedMapState) {
+        isOpen = false
+        generation += 1
+        let closing = generation
+        mapView.isScrollEnabled = true
+        mapView.isZoomEnabled = true
+        mapView.isRotateEnabled = true
+        mapView.accessibilityElementsHidden = false
+        // Back to the shared state's camera (NavigationMapView writes what the map returns to as the
+        // panel closes), on the next turn of the run loop and once the map view has its size back. In
+        // portrait it grows back as the panel closes, and MapKit keeps the chart's scale as it grows,
+        // not the camera distance: set at the band's size, the pilot's distance came back about twice
+        // as far out. So the camera goes back at the pilot's zoom for the size the map has now, grows
+        // with it, and is put back exactly once the map is as tall as the pilot left it.
+        DispatchQueue.main.async { [weak self, weak mapView] in
+            guard let self, let mapView, self.generation == closing else { return }
+            let height = self.pilotScalePerMetre?.height ?? mapView.bounds.height
+            guard abs(mapView.bounds.height - height) >= 1 else {
+                self.finishRestore(mapView, mapState: mapState)
+                return
+            }
+            self.restoring = (mapState, height)
+            mapView.setCamera(Self.camera(of: mapState, distanceTimes: mapView.bounds.height / height), animated: false)
+            // Should the map not come back to that height (it turned meanwhile), as it stands.
+            DispatchQueue.main.asyncAfter(deadline: .now() + 1) { [weak self, weak mapView] in
+                guard let self, let mapView, self.generation == closing, self.restoring != nil else { return }
+                self.finishRestore(mapView, mapState: mapState)
+            }
+        }
+    }
+
+    /// The map closing back to the pilot's camera, and the height it will have then.
+    private var restoring: (mapState: SharedMapState, height: CGFloat)?
+
+    private func finishRestore(_ mapView: MKMapView, mapState: SharedMapState) {
+        restoring = nil
+        if let range = zoomRangeBeforeBand { mapView.cameraZoomRange = range }
+        zoomRangeBeforeBand = nil
+        // Not animated, and the shared state then synced to what the map shows, as for "Show" on the
+        // route pill: nothing may observe a camera half way back and write it into the state.
+        mapView.setCamera(Self.camera(of: mapState), animated: false)
+        ownsCamera = false
+        lastCamera = nil
+        Self.redrawTiles(on: mapView)
+        mapState.updateFromRegion(mapView.region)
+        mapState.endBand()
+    }
+
+    /// The shared state's camera; `distanceTimes`: as far, times that.
+    private static func camera(of mapState: SharedMapState, distanceTimes: Double = 1) -> MKMapCamera {
+        MKMapCamera(lookingAtCenter: mapState.region.center, fromDistance: mapState.cameraDistance * distanceTimes,
+                    pitch: 0, heading: mapState.cameraHeading)
+    }
+
+    /// The swisstopo charts stop zooming in at a camera distance (`SwissMapView.cameraZoomRange`, tuned
+    /// against the tiles there are). In the band's shorter map that distance is a coarser chart than the
+    /// pilot had: the closest zoom comes down as far as gives the same chart scale, so the same tiles,
+    /// while the band is up.
+    private func allowPilotsZoom(on mapView: MKMapView, scalePerMetre: Double) {
+        guard let range = zoomRangeBeforeBand, let pilot = pilotScalePerMetre, scalePerMetre > 0 else { return }
+        let closest = min(range.minCenterCoordinateDistance,
+                          range.minCenterCoordinateDistance * pilot.value / scalePerMetre)
+        guard abs(mapView.cameraZoomRange.minCenterCoordinateDistance - closest) > 1,
+              let band = MKMapView.CameraZoomRange(minCenterCoordinateDistance: closest,
+                                                   maxCenterCoordinateDistance: range.maxCenterCoordinateDistance)
+        else { return }
+        mapView.cameraZoomRange = band
+    }
+
+    /// MapKit draws only some of the tiles it is handed while a still map settles, and sometimes stops
+    /// asking for them at all (`LateTileRedraw`): a band that doesn't move (on the ground, in Plan ›
+    /// Map, on the simulator's fixed position) showed the chart with holes, or none, until the panel
+    /// closed, one opening in three. Once the band's camera is at rest, the overlays' own redraw, and
+    /// their reload if the redraw goes unanswered.
+    private static func redrawTiles(on mapView: MKMapView) {
+        for case let tiles as LateTileRedrawing in mapView.overlays {
+            tiles.redraw.tileArrived()
+        }
+    }
+
+    /// Map points per screen point, across the middle of the map.
+    static func scale(of mapView: MKMapView) -> Double? {
+        let bounds = mapView.bounds
+        guard bounds.width > 100, bounds.height > 1 else { return nil }
+        let a = MKMapPoint(mapView.convert(CGPoint(x: bounds.midX - 50, y: bounds.midY), toCoordinateFrom: mapView))
+        let b = MKMapPoint(mapView.convert(CGPoint(x: bounds.midX + 50, y: bounds.midY), toCoordinateFrom: mapView))
+        let scale = hypot(b.x - a.x, b.y - a.y) / 100
+        return scale.isFinite && scale > 0 ? scale : nil
+    }
+
+    /// Within half a point, half a percent of zoom and half a degree: not worth moving the camera for.
+    private static func isSame(_ a: MKMapCamera, _ b: MKMapCamera, scale: Double) -> Bool {
+        let moved = hypot(MKMapPoint(a.centerCoordinate).x - MKMapPoint(b.centerCoordinate).x,
+                          MKMapPoint(a.centerCoordinate).y - MKMapPoint(b.centerCoordinate).y) / scale
+        let turned = abs(a.heading - b.heading).truncatingRemainder(dividingBy: 360)
+        return moved < 0.5
+            && abs(a.centerCoordinateDistance / b.centerCoordinateDistance - 1) < 0.005
+            && min(turned, 360 - turned) < 0.5
+    }
+
+    private static func same(_ a: CLLocationCoordinate2D?, _ b: CLLocationCoordinate2D?) -> Bool {
+        switch (a, b) {
+        case (nil, nil): return true
+        case let (a?, b?): return a.latitude == b.latitude && a.longitude == b.longitude
+        default: return false
+        }
+    }
+}
+
 /// UIViewRepresentable wrapper for MKMapView - used for Apple Maps layers
 /// This avoids the gesture conflict issues that occur with SwiftUI Map
 struct NativeMapViewUIKit: UIViewRepresentable {
@@ -3447,6 +3872,8 @@ struct NativeMapViewUIKit: UIViewRepresentable {
     var trackVectorEnabled: Bool = false  // Keep a valid vector across transient empties; remove only when off
     var onWaypointATOTap: ((Int) -> Void)?  // Callback when user taps/long-presses a waypoint to set ATO
     var onAirportDivert: ((String) -> Void)?  // "Divert here" from an airport callout (v5.1)
+    /// The open legs panel's band, which then has the camera (`LegsBandDriver`). (6.1, option C)
+    var legsBand: LegsPanelMap.Band? = nil
 
     func makeUIView(context: Context) -> MKMapView {
         let mapView = MKMapView()
@@ -3510,8 +3937,12 @@ struct NativeMapViewUIKit: UIViewRepresentable {
             }
         }
 
+        // The open legs panel's band has the camera, and the map takes no gesture, until the panel has
+        // closed and the camera is back where the pilot left it. (6.1, option C)
+        let bandOwnsCamera = context.coordinator.legsBand.update(mapView, band: legsBand, mapState: mapState)
+
         // Handle heading reset request (user tapped compass)
-        if mapState.pendingHeadingReset {
+        if !bandOwnsCamera, mapState.pendingHeadingReset {
             mapState.pendingHeadingReset = false
             let camera = MKMapCamera(
                 lookingAtCenter: mapView.camera.centerCoordinate,
@@ -3525,7 +3956,7 @@ struct NativeMapViewUIKit: UIViewRepresentable {
 
         // Frame the whole active route ("Show" on the off-screen route pill). MapKit does the
         // aspect-ratio maths; the top inset clears the floating chrome, as the builder's fit does.
-        if let fit = mapState.pendingFitCoordinates, !fit.isEmpty {
+        if !bandOwnsCamera, let fit = mapState.pendingFitCoordinates, !fit.isEmpty {
             mapState.pendingFitCoordinates = nil
             let rects = fit.map { MKMapRect(origin: MKMapPoint($0), size: MKMapSize(width: 0, height: 0)) }
             let union = rects.dropFirst().reduce(rects[0]) { $0.union($1) }
@@ -3549,7 +3980,7 @@ struct NativeMapViewUIKit: UIViewRepresentable {
 
         // Update camera from shared state if significantly different (preserves heading)
         let regionChanged = !context.coordinator.regionsAreEqual(mapView.region, mapState.region)
-        if regionChanged && !context.coordinator.isUserInteracting {
+        if !bandOwnsCamera && regionChanged && !context.coordinator.isUserInteracting {
             let camera = MKMapCamera(
                 lookingAtCenter: mapState.region.center,
                 fromDistance: mapState.cameraDistance,
@@ -3561,7 +3992,7 @@ struct NativeMapViewUIKit: UIViewRepresentable {
 
         // Apply heading changes independently of region (for track-up mode).
         // When only heading changed but not region, the above block won't fire.
-        if !regionChanged && !context.coordinator.isUserInteracting {
+        if !bandOwnsCamera && !regionChanged && !context.coordinator.isUserInteracting {
             let headingDelta = abs(mapView.camera.heading - mapState.cameraHeading)
             let normalizedDelta = min(headingDelta, 360.0 - headingDelta)
             if normalizedDelta > 0.5 {
@@ -3806,6 +4237,8 @@ struct NativeMapViewUIKit: UIViewRepresentable {
         var lastFlightPlanSignature: String?
         /// `ReportingPointAnnotation.labelRevision` the markers were labelled at. (6.0.1)
         var reportingPointLabelRevision = -1
+        /// The open legs panel's band. (6.1, option C)
+        let legsBand = LegsBandDriver()
 
         init(_ parent: NativeMapViewUIKit) {
             self.parent = parent
@@ -3820,6 +4253,8 @@ struct NativeMapViewUIKit: UIViewRepresentable {
         }
 
         func mapView(_ mapView: MKMapView, regionWillChangeAnimated animated: Bool) {
+            // The band moves the camera itself; the map takes no gesture meanwhile.
+            guard !legsBand.ownsCamera else { return }
             // Check if user is interacting
             if let gestureRecognizers = mapView.subviews.first?.gestureRecognizers {
                 for recognizer in gestureRecognizers {
@@ -3834,6 +4269,13 @@ struct NativeMapViewUIKit: UIViewRepresentable {
 
         func mapView(_ mapView: MKMapView, regionDidChangeAnimated animated: Bool) {
             isUserInteracting = false
+            // Its zoom at rest, for the legs panel's band: the pilot's, unless the band has the camera.
+            legsBand.mapCameToRest(mapView)
+            // The band's camera is not the pilot's: the shared state keeps theirs, to go back to.
+            if legsBand.ownsCamera {
+                parent.mapState.updateBandRegion(mapView.region)
+                return
+            }
             parent.mapState.updateFromRegion(mapView.region)
             // Sync camera distance and heading so they're preserved when switching layers
             parent.mapState.updateFromCamera(mapView.camera)
@@ -4176,6 +4618,11 @@ struct NativeMapViewUIKit: UIViewRepresentable {
         // MARK: - Waypoint ATO Tap/Long-Press
 
         func mapView(_ mapView: MKMapView, didSelect annotation: MKAnnotation) {
+            // Nothing on the band answers a tap: no callout, no time over a waypoint. (6.1, option C)
+            if legsBand.ownsCamera {
+                mapView.deselectAnnotation(annotation, animated: false)
+                return
+            }
             guard let waypointAnnotation = annotation as? FlightPlanWaypointAnnotation else { return }
             mapView.deselectAnnotation(annotation, animated: false)
             parent.onWaypointATOTap?(waypointAnnotation.waypointIndex)
@@ -4189,7 +4636,7 @@ struct NativeMapViewUIKit: UIViewRepresentable {
         }
 
         @objc private func handleWaypointLongPress(_ gesture: UILongPressGestureRecognizer) {
-            guard gesture.state == .began,
+            guard gesture.state == .began, !legsBand.ownsCamera,
                   let annotationView = gesture.view as? MKAnnotationView,
                   let waypointAnnotation = annotationView.annotation as? FlightPlanWaypointAnnotation else { return }
             parent.onWaypointATOTap?(waypointAnnotation.waypointIndex)
@@ -4681,6 +5128,8 @@ struct SwissMapView: UIViewRepresentable {
     var cachedHeading: Double?  // Cached course from LocationManager (survives GPS gaps)
     var onWaypointATOTap: ((Int) -> Void)?  // Callback when user taps/long-presses a waypoint to set ATO
     var onAirportDivert: ((String) -> Void)?  // "Divert here" from an airport callout (v5.1)
+    /// The open legs panel's band, which then has the camera (`LegsBandDriver`). (6.1, option C)
+    var legsBand: LegsPanelMap.Band? = nil
 
     /// Get the camera zoom range for the current layer
     /// This locks the map view to only allow zooming within the valid tile range
@@ -4847,8 +5296,12 @@ struct SwissMapView: UIViewRepresentable {
     }
 
     func updateUIView(_ mapView: MKMapView, context: Context) {
+        // The open legs panel's band has the camera, and the map takes no gesture, until the panel has
+        // closed and the camera is back where the pilot left it. (6.1, option C)
+        let bandOwnsCamera = context.coordinator.legsBand.update(mapView, band: legsBand, mapState: mapState)
+
         // Handle heading reset request (user tapped compass)
-        if mapState.pendingHeadingReset {
+        if !bandOwnsCamera, mapState.pendingHeadingReset {
             mapState.pendingHeadingReset = false
             let camera = MKMapCamera(
                 lookingAtCenter: mapView.camera.centerCoordinate,
@@ -4862,7 +5315,7 @@ struct SwissMapView: UIViewRepresentable {
 
         // Frame the whole active route ("Show" on the off-screen route pill). MapKit does the
         // aspect-ratio maths; the top inset clears the floating chrome, as the builder's fit does.
-        if let fit = mapState.pendingFitCoordinates, !fit.isEmpty {
+        if !bandOwnsCamera, let fit = mapState.pendingFitCoordinates, !fit.isEmpty {
             mapState.pendingFitCoordinates = nil
             let rects = fit.map { MKMapRect(origin: MKMapPoint($0), size: MKMapSize(width: 0, height: 0)) }
             let union = rects.dropFirst().reduce(rects[0]) { $0.union($1) }
@@ -4896,7 +5349,8 @@ struct SwissMapView: UIViewRepresentable {
         // Always update zoom range to ensure it matches current settings
         // This is important when forceICAOLayer changes from Settings
         let newZoomRange = cameraZoomRange(for: layerType, forceICAO: forceICAOLayer)
-        if mapView.cameraZoomRange != newZoomRange {
+        // Not while the legs panel's band holds a closer one (`LegsBandDriver`). (6.1, option C)
+        if !bandOwnsCamera, mapView.cameraZoomRange != newZoomRange {
             mapView.cameraZoomRange = newZoomRange
         }
 
@@ -4946,7 +5400,7 @@ struct SwissMapView: UIViewRepresentable {
 
         // Update camera from shared state (preserves heading)
         let regionChanged = !context.coordinator.regionsAreEqual(mapView.region, mapState.region)
-        if overlayChanged {
+        if overlayChanged && !bandOwnsCamera {
             // Always reposition camera on overlay change (layer switch)
             let camera = MKMapCamera(
                 lookingAtCenter: mapState.region.center,
@@ -4970,7 +5424,7 @@ struct SwissMapView: UIViewRepresentable {
                     mapView.setCamera(camera, animated: false)
                 }
             }
-        } else if regionChanged && !context.coordinator.isUserInteracting {
+        } else if !bandOwnsCamera && regionChanged && !context.coordinator.isUserInteracting {
             // Only reposition camera when NOT user-driven (matches NativeMapViewUIKit pattern)
             let camera = MKMapCamera(
                 lookingAtCenter: mapState.region.center,
@@ -4983,7 +5437,7 @@ struct SwissMapView: UIViewRepresentable {
 
         // Apply heading changes independently of region (for track-up mode).
         // When only heading changed but not region/overlay, the above block won't fire.
-        if !regionChanged && !overlayChanged && !context.coordinator.isUserInteracting {
+        if !bandOwnsCamera && !regionChanged && !overlayChanged && !context.coordinator.isUserInteracting {
             let headingDelta = abs(mapView.camera.heading - mapState.cameraHeading)
             let normalizedDelta = min(headingDelta, 360.0 - headingDelta)
             if normalizedDelta > 0.5 {
@@ -5258,6 +5712,8 @@ struct SwissMapView: UIViewRepresentable {
         var hasSegelflugCache: Bool = false
         private var isUpdatingRegion = false
         var isUserInteracting = false
+        /// The open legs panel's band. (6.1, option C)
+        let legsBand = LegsBandDriver()
 
         init(_ parent: SwissMapView) {
             self.parent = parent
@@ -5314,6 +5770,8 @@ struct SwissMapView: UIViewRepresentable {
         }
 
         func mapView(_ mapView: MKMapView, regionWillChangeAnimated animated: Bool) {
+            // The band moves the camera itself; the map takes no gesture meanwhile.
+            guard !legsBand.ownsCamera else { return }
             // Check if user is interacting via gesture recognizers
             if let gestureRecognizers = mapView.subviews.first?.gestureRecognizers {
                 for recognizer in gestureRecognizers {
@@ -5329,6 +5787,13 @@ struct SwissMapView: UIViewRepresentable {
         // Sync region changes back to shared state
         func mapView(_ mapView: MKMapView, regionDidChangeAnimated animated: Bool) {
             isUserInteracting = false
+            // Its zoom at rest, for the legs panel's band: the pilot's, unless the band has the camera.
+            legsBand.mapCameToRest(mapView)
+            // The band's camera is not the pilot's: the shared state keeps theirs, to go back to.
+            if legsBand.ownsCamera {
+                parent.mapState.updateBandRegion(mapView.region)
+                return
+            }
             guard !isUpdatingRegion else { return }
             isUpdatingRegion = true
             parent.mapState.updateFromRegion(mapView.region)
@@ -5683,6 +6148,11 @@ struct SwissMapView: UIViewRepresentable {
         // MARK: - Waypoint ATO Tap/Long-Press
 
         func mapView(_ mapView: MKMapView, didSelect annotation: MKAnnotation) {
+            // Nothing on the band answers a tap: no callout, no time over a waypoint. (6.1, option C)
+            if legsBand.ownsCamera {
+                mapView.deselectAnnotation(annotation, animated: false)
+                return
+            }
             guard let waypointAnnotation = annotation as? FlightPlanWaypointAnnotation else { return }
             // Deselect so user can tap again later
             mapView.deselectAnnotation(annotation, animated: false)
@@ -5701,7 +6171,7 @@ struct SwissMapView: UIViewRepresentable {
         }
 
         @objc private func handleWaypointLongPress(_ gesture: UILongPressGestureRecognizer) {
-            guard gesture.state == .began,
+            guard gesture.state == .began, !legsBand.ownsCamera,
                   let annotationView = gesture.view as? MKAnnotationView,
                   let waypointAnnotation = annotationView.annotation as? FlightPlanWaypointAnnotation else { return }
             parent.onWaypointATOTap?(waypointAnnotation.waypointIndex)
@@ -6203,6 +6673,67 @@ private struct NavClockText: View {
 
 /// The open legs-and-frequencies panel's natural height, measured inside its scroll view.
 private struct LegsPanelHeightKey: PreferenceKey {
+    static let defaultValue: CGFloat = 0
+    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) { value = max(value, nextValue()) }
+}
+
+/// The height of Emergency, pinned to the open panel's foot. (6.1, option C)
+private struct EmergencyFooterHeightKey: PreferenceKey {
+    static let defaultValue: CGFloat = 0
+    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) { value = max(value, nextValue()) }
+}
+
+/// Where the frequency column sits in the open panel, for Emergency to line up under it. Only the
+/// layout `ViewThatFits` shows reports it.
+private struct FreqColumnFrameKey: PreferenceKey {
+    static let defaultValue: CGRect? = nil
+    static func reduce(value: inout CGRect?, nextValue: () -> CGRect?) { value = nextValue() ?? value }
+}
+
+/// What the chart measures of itself, in its own space, for the band the open legs panel leaves
+/// (`LegsPanelMap.bandRect`). (6.1, option C)
+private struct ChartGeometry: Equatable {
+    var chartSize: CGSize = .zero
+    /// The bottom of the chrome over the chart's top: the next-waypoint card, and what comes and goes
+    /// with it (the cautions, a hazard).
+    var chromeBottom: CGFloat = 0
+    /// The map view's frame, which runs past the chart under a safe area.
+    var mapFrame: CGRect = .zero
+    /// How much of the chart's foot the panel lies over: in landscape, where it opens over the chart.
+    var panelInset: CGFloat = 0
+    /// Whether these are the measures with the panel open. The pass that opens it still has the closed
+    /// chart's (the map's controls under the card, in portrait a taller chart).
+    var measuredOpen = false
+}
+
+/// One reader each, but the views beside it hand in the default too: a reader's value is never zero.
+private struct ChartSizeKey: PreferenceKey {
+    static let defaultValue: CGSize = .zero
+    static func reduce(value: inout CGSize, nextValue: () -> CGSize) {
+        let next = nextValue()
+        if next != .zero { value = next }
+    }
+}
+
+private struct ChartChromeBottomKey: PreferenceKey {
+    static let defaultValue: CGFloat = 0
+    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) { value = max(value, nextValue()) }
+}
+
+private struct ChartMapFrameKey: PreferenceKey {
+    static let defaultValue: CGRect = .zero
+    static func reduce(value: inout CGRect, nextValue: () -> CGRect) {
+        let next = nextValue()
+        if next != .zero { value = next }
+    }
+}
+
+private struct ChartMeasuredOpenKey: PreferenceKey {
+    static let defaultValue = false
+    static func reduce(value: inout Bool, nextValue: () -> Bool) { value = value || nextValue() }
+}
+
+private struct ChartPanelInsetKey: PreferenceKey {
     static let defaultValue: CGFloat = 0
     static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) { value = max(value, nextValue()) }
 }

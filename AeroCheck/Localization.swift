@@ -2407,7 +2407,14 @@ enum L10n {
         static func sourceWithCycle(_ airac: String) -> String {
             String(localized: "open flightmaps · AIRAC \(airac) · indicative, check the official chart")
         }
+        /// The same on one line, where the official chart's button is right under it (the phone's Cockpit).
+        static let sourceShort = String(localized: "open flightmaps · indicative")
+        static func sourceShortWithCycle(_ airac: String) -> String {
+            String(localized: "open flightmaps · AIRAC \(airac) · indicative")
+        }
         static let reportError = String(localized: "Report an error")
+        /// Report an error, where the phone's Cockpit puts it beside the official chart.
+        static let reportShort = String(localized: "Report")
     }
 
     /// An aerodrome's official chart, opened in the browser: DFS BasicVFR, the SIA VAC, SkyBriefing's
@@ -2420,6 +2427,8 @@ enum L10n {
         }
         /// Under the symbol of an airport callout's accessory, where "Official chart" doesn't fit.
         static let short = String(localized: "Chart")
+        /// Under "Chart" on the phone's Cockpit, where "SkyBriefing (subscription)" doesn't fit.
+        static let subscriptionShort = String(localized: "Subscription")
         /// VoiceOver's hint: "Opens SkyBriefing in the browser".
         static func opens(_ publisher: String) -> String {
             String(localized: "Opens \(publisher) in the browser")

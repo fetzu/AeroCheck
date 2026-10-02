@@ -49,7 +49,8 @@ struct OfficialChartRegistry: Codable, Equatable, Sendable {
 
     /// One country's entry. `kind` says which fields it uses:
     /// - `dfs-basicvfr`: `base` + `pages[ICAO]` + `.html` (DE);
-    /// - `sia-vac`: `template` with `{icao}`, in the folder of AIRAC `airac` (FR);
+    /// - `sia-vac`: `template` with `{icao}`, in the folder of AIRAC `airac`, and `codes`, the aerodromes
+    ///   that have a VAC there (FR; `codes` since the registry of 2 October 2026, optional);
     /// - `skybriefing-vfr-manual`: one `url` for every aerodrome, `login` (CH);
     /// - `eaip`: one `url`, the eAIP's start page (AT).
     struct Country: Codable, Equatable, Sendable {
@@ -60,9 +61,11 @@ struct OfficialChartRegistry: Codable, Equatable, Sendable {
         var airac: String?
         var url: String?
         var login: Bool?
+        /// The codes that have a chart behind the template (FR: SIA's own list of the atlas).
+        var codes: [String]?
 
         init(kind: String, base: String? = nil, pages: [String: String]? = nil, template: String? = nil,
-             airac: String? = nil, url: String? = nil, login: Bool? = nil) {
+             airac: String? = nil, url: String? = nil, login: Bool? = nil, codes: [String]? = nil) {
             self.kind = kind
             self.base = base
             self.pages = pages
@@ -70,6 +73,7 @@ struct OfficialChartRegistry: Codable, Equatable, Sendable {
             self.airac = airac
             self.url = url
             self.login = login
+            self.codes = codes
         }
 
         init(from decoder: Decoder) throws {
@@ -81,6 +85,7 @@ struct OfficialChartRegistry: Codable, Equatable, Sendable {
             airac = try? container.decodeIfPresent(String.self, forKey: .airac)
             url = try? container.decodeIfPresent(String.self, forKey: .url)
             login = try? container.decodeIfPresent(Bool.self, forKey: .login)
+            codes = try? container.decodeIfPresent([String].self, forKey: .codes)
         }
     }
 
@@ -143,9 +148,9 @@ struct OfficialChartRegistry: Codable, Equatable, Sendable {
     /// is never in the file), a code that isn't four letters, a closed field, a link off its
     /// publisher's site, or a French one that can't be trusted to exist.
     ///
-    /// - Parameter type: the field's type, when known. France needs it: the SIA atlas has a VAC for
-    ///   aerodromes, not for heliports or seaplane bases, and a code without one answers 404. The
-    ///   registry doesn't list the atlas's codes, so a French link needs an aerodrome type.
+    /// - Parameter type: the field's type, when known. France needs it when the registry has no list of
+    ///   the atlas's codes (`codes`): the atlas has a VAC for aerodromes, not for heliports or seaplane
+    ///   bases, and a code without one answers 404. With the list, the list decides.
     func link(for icao: String, type: AirportType?, now: Date) -> OfficialChartLink? {
         let code = icao.trimmingCharacters(in: .whitespaces).uppercased()
         guard Self.isICAOCode(code), type != .closed else { return nil }
@@ -165,7 +170,7 @@ struct OfficialChartRegistry: Codable, Equatable, Sendable {
             guard let base = entry.base, let page = entry.pages?[code], Self.isPageId(page) else { return nil }
             return Self.publisherURL(base + page + ".html", country: country)
         case Kind.siaVAC:
-            guard prefixes.contains(where: code.hasPrefix), let type, AirportType.fixedWing.contains(type),
+            guard prefixes.contains(where: code.hasPrefix), Self.hasVAC(code, codes: entry.codes, type: type),
                   let template = entry.template, template.contains("{icao}"),
                   Self.folderIsCurrent(airac: entry.airac, generated: generated, now: now) else { return nil }
             return Self.publisherURL(template.replacingOccurrences(of: "{icao}", with: code), country: country)
@@ -175,6 +180,14 @@ struct OfficialChartRegistry: Codable, Equatable, Sendable {
         default:
             return nil
         }
+    }
+
+    /// Whether the SIA atlas has a VAC for `code`: in its list when the registry has one (419 codes in
+    /// 2610, most air bases not among them), else an aerodrome of a type the atlas covers.
+    static func hasVAC(_ code: String, codes: [String]?, type: AirportType?) -> Bool {
+        if let codes, !codes.isEmpty { return codes.contains(code) }
+        guard let type else { return false }
+        return AirportType.fixedWing.contains(type)
     }
 
     /// Whether a link that names an AIRAC folder still exists. SIA takes a cycle's folder down when

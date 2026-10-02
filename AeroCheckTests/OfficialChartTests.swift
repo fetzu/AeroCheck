@@ -108,6 +108,31 @@ final class OfficialChartTests: XCTestCase {
         XCTAssertNil(charts.link(for: "FR-0098", type: .smallAirport, now: october2))
     }
 
+    /// The registry of 2 October 2026 on: SIA's own list of the atlas (419 codes in 2610). With it the list
+    /// decides, whatever the type; without it (an older file, or the list unavailable that week), the type.
+    func testFranceFollowsTheAtlassListWhenTheRegistryHasOne() throws {
+        let withCodes = try registry(registryJSON.replacingOccurrences(
+            of: "\"airac\": \"2610\" },", with: "\"airac\": \"2610\", \"codes\": [\"LFGA\", \"LFSB\", \"LFXX\"] },"))
+        XCTAssertEqual(withCodes.countries["FR"]?.codes, ["LFGA", "LFSB", "LFXX"])
+        XCTAssertNotNil(withCodes.link(for: "LFGA", type: .smallAirport, now: october2))
+        XCTAssertNotNil(withCodes.link(for: "LFSB", type: nil, now: october2), "the list needs no type")
+        XCTAssertNotNil(withCodes.link(for: "LFXX", type: .heliport, now: october2), "the list decides")
+        XCTAssertNil(withCodes.link(for: "LFBM", type: .mediumAirport, now: october2),
+                     "an air base OurAirports calls an airport, without a VAC: the 404 the type rule let through")
+        XCTAssertNil(withCodes.link(for: "LFGA", type: .closed, now: october2))
+        XCTAssertNil(withCodes.link(for: "LFGA", type: nil, now: utc(2026, 10, 29, 3)), "the folder still has to be current")
+
+        // An empty list is no list.
+        XCTAssertTrue(OfficialChartRegistry.hasVAC("LFBM", codes: [], type: .mediumAirport))
+        XCTAssertFalse(OfficialChartRegistry.hasVAC("LFBM", codes: nil, type: nil))
+        // A list that isn't a list of strings is no list either: the type rule.
+        let broken = try registry(registryJSON.replacingOccurrences(
+            of: "\"airac\": \"2610\" },", with: "\"airac\": \"2610\", \"codes\": [1, 2] },"))
+        XCTAssertNil(broken.countries["FR"]?.codes)
+        XCTAssertNotNil(broken.link(for: "LFBM", type: .mediumAirport, now: october2))
+        XCTAssertNil(broken.link(for: "LFGA", type: nil, now: october2))
+    }
+
     /// SIA takes a cycle's folder down when the next one starts: a template of an older cycle is only
     /// used when the job checked it during the cycle in force.
     func testFranceDropsAFolderOfAPastCycle() throws {
@@ -477,9 +502,63 @@ final class OfficialChartTests: XCTestCase {
         // button's title (which cut 14 pt off Report an error in flight).
         XCTAssertTrue(view.forLastBaselineLayout === view)
 
+        XCTAssertFalse(CalloutMetrics.flight(.kneeboard).sideBySide, "the iPad keeps them stacked")
+        XCTAssertEqual(CalloutMetrics.flight(.kneeboard).target, 64)
+
         // Without a way to open it (and so in #258's tests), the callout is as it was.
         let plain = VFRProcedureCallout.detailView(for: lszq, at: lszq.labelAnchor.coordinate)
         XCTAssertEqual(allSubviews(of: plain).compactMap { ($0 as? UIButton)?.configuration?.title }, [L10n.VFRMap.reportError])
+    }
+
+    /// On the phone's Cockpit MAP, the two buttons side by side, a symbol and a short word each, at least
+    /// 50 pt tall and within the callout's width; VoiceOver still reads the whole titles.
+    func testOnThePhoneInFlightTheCalloutsButtonsSitSideBySide() throws {
+        let lszq = try circuitAtLSZQ()
+        let phone = CalloutMetrics.flight(.phone)
+        XCTAssertTrue(phone.sideBySide)
+        XCTAssertEqual(phone.target, 50)
+        XCTAssertEqual(phone.fontSize, 17)
+        XCTAssertFalse(CalloutMetrics.ground.sideBySide, "Plan › Map on the phone has the room")
+        var opened: [URL] = []
+        let view = VFRProcedureCallout.detailView(for: lszq, at: lszq.labelAnchor.coordinate,
+                                                  metrics: phone, openChart: { opened.append($0) })
+        let buttons = allSubviews(of: view).compactMap { $0 as? UIButton }
+        XCTAssertEqual(buttons.compactMap { $0.configuration?.title }, [L10n.OfficialChart.short, L10n.VFRMap.reportShort])
+        XCTAssertEqual(buttons.first?.configuration?.subtitle, "Subscription", "the subscription still says so, short")
+        // The source on one line: the advice to check the official chart is the button under it.
+        let texts = allSubviews(of: view).compactMap { ($0 as? UILabel)?.text }
+        XCTAssertTrue(texts.contains("open flightmaps · AIRAC 2610 · indicative"), "\(texts)")
+        XCTAssertFalse(texts.contains { $0.contains("check the official chart") })
+        XCTAssertEqual(buttons.map(\.accessibilityLabel), ["Official chart · SkyBriefing (subscription)", "Report an error"])
+        let row = try XCTUnwrap(buttons.first?.superview as? UIStackView)
+        XCTAssertEqual(row.axis, .horizontal)
+
+        let size = view.systemLayoutSizeFitting(CGSize(width: 300, height: 0),
+                                                withHorizontalFittingPriority: .fittingSizeLevel,
+                                                verticalFittingPriority: .fittingSizeLevel)
+        view.frame = CGRect(origin: .zero, size: size)
+        view.layoutIfNeeded()
+        XCTAssertLessThanOrEqual(size.width, 300)
+        let chart = try XCTUnwrap(buttons.first), report = try XCTUnwrap(buttons.last)
+        for button in buttons {
+            XCTAssertGreaterThanOrEqual(button.frame.height, 50 - 0.5)
+        }
+        XCTAssertEqual(chart.frame.width, report.frame.width, accuracy: 1, "two equal halves")
+        XCTAssertEqual(chart.frame.minY, report.frame.minY, accuracy: 0.5, "on one line")
+        XCTAssertLessThan(chart.frame.maxX, report.frame.minX)
+        // Shorter than the stacked callout of the iPad's sizes, which hid half the phone's chart.
+        let stacked = VFRProcedureCallout.detailView(for: lszq, at: lszq.labelAnchor.coordinate,
+                                                     metrics: .flight(.kneeboard), openChart: { _ in })
+        XCTAssertLessThan(size.height, stacked.systemLayoutSizeFitting(CGSize(width: 300, height: 0),
+                                                                       withHorizontalFittingPriority: .fittingSizeLevel,
+                                                                       verticalFittingPriority: .fittingSizeLevel).height - 40)
+        (chart as? OfficialChartControl)?.sendActions(for: .primaryActionTriggered)
+        XCTAssertEqual(opened.map(\.host), ["www.skybriefing.com"])
+
+        // Alone (no chart for the field), Report an error keeps its whole title, and the source its advice.
+        let alone = VFRProcedureCallout.detailView(for: lszq, at: lszq.labelAnchor.coordinate, metrics: phone)
+        XCTAssertEqual(allSubviews(of: alone).compactMap { ($0 as? UIButton)?.configuration?.title }, [L10n.VFRMap.reportError])
+        XCTAssertTrue(allSubviews(of: alone).contains { ($0 as? UILabel)?.text == VFRProcedureCallout.sourceLine(for: lszq) })
     }
 
     // MARK: - The flight thread
@@ -518,6 +597,10 @@ final class OfficialChartTests: XCTestCase {
             "%@ (subscription)": "%@ (abonnement)",
             "Chart": "Carte",
             "Opens %@ in the browser": "Ouvre %@ dans le navigateur",
+            "Report": "Signaler",
+            "Subscription": "Abonnement",
+            "open flightmaps · indicative": "open flightmaps · indicatif",
+            "open flightmaps · AIRAC %@ · indicative": "open flightmaps · AIRAC %@ · indicatif",
         ]
         for (key, value) in expected {
             XCTAssertEqual(french.localizedString(forKey: key, value: missing, table: nil), value, key)

@@ -960,9 +960,11 @@ enum VFRProcedureCallout {
         return parts.joined(separator: " · ")
     }
 
-    /// "open flightmaps · AIRAC 2610 · indicative, check the official chart".
-    static func sourceLine(for item: VFRMapItem) -> String {
-        item.airac.map(L10n.VFRMap.sourceWithCycle) ?? L10n.VFRMap.source
+    /// "open flightmaps · AIRAC 2610 · indicative, check the official chart"; `short`, without the advice,
+    /// on one line, where the official chart's button is right under it.
+    static func sourceLine(for item: VFRMapItem, short: Bool = false) -> String {
+        if short { return item.airac.map(L10n.VFRMap.sourceShortWithCycle) ?? L10n.VFRMap.sourceShort }
+        return item.airac.map(L10n.VFRMap.sourceWithCycle) ?? L10n.VFRMap.source
     }
 
     @MainActor
@@ -975,26 +977,33 @@ enum VFRProcedureCallout {
         summaryLabel.textColor = .label
         summaryLabel.numberOfLines = 0
 
+        // The aerodrome's official chart first (what "check the official chart" asks for), then Report an
+        // error. One above the other: side by side, with their whole titles, they are wider than the
+        // callout. On the phone in flight, side by side with short titles, and the source on one line:
+        // stacked at the Cockpit's size, the callout was about as tall as the phone's chart.
+        let chart = openChart == nil ? nil : OfficialChartService.shared.link(for: item.procedure.aerodrome, type: nil)
+        let spansCallout = metrics.sideBySide && chart != nil
+
         var rows: [UIView] = [summaryLabel]
         if item.procedure.isApproximate {
             rows.append(captionLabel(L10n.VFRMap.approximateShape))
         }
-        rows.append(captionLabel(sourceLine(for: item)))
+        rows.append(captionLabel(sourceLine(for: item, short: spansCallout)))
 
-        // The aerodrome's official chart first (what "check the official chart" asks for), then Report an
-        // error. One above the other: side by side they are wider than the callout.
         let actions = UIStackView()
         actions.axis = .horizontal
         actions.spacing = 12
         actions.alignment = .center
-        if let openChart, let link = OfficialChartService.shared.link(for: item.procedure.aerodrome, type: nil) {
-            actions.axis = .vertical
+        if let openChart, let chart {
+            actions.axis = spansCallout ? .horizontal : .vertical
+            actions.distribution = spansCallout ? .fillEqually : .fill
             actions.spacing = 8
             actions.alignment = .fill
-            actions.addArrangedSubview(OfficialChartControl.action(link: link, metrics: metrics, tint: palette.action,
+            actions.addArrangedSubview(OfficialChartControl.action(link: chart, metrics: metrics, tint: palette.action,
                                                                    open: openChart))
         }
-        actions.addArrangedSubview(reportButton(for: item, at: coordinate, palette: palette, metrics: metrics))
+        actions.addArrangedSubview(reportButton(for: item, at: coordinate, palette: palette, metrics: metrics,
+                                                short: spansCallout))
         rows.append(actions)
 
         let stack = UIStackView(arrangedSubviews: rows)
@@ -1003,6 +1012,10 @@ enum VFRProcedureCallout {
         stack.spacing = 6
         stack.translatesAutoresizingMaskIntoConstraints = false
         stack.widthAnchor.constraint(lessThanOrEqualToConstant: 300).isActive = true
+        if spansCallout {
+            // Two equal halves of the callout's width, the largest targets it has room for.
+            actions.widthAnchor.constraint(equalTo: stack.widthAnchor).isActive = true
+        }
 
         // MapKit ends the callout at its detail view's last baseline, and a stack's is the title of its
         // last button, so the bottom of that button was cut off (14 pt of the 64 pt one in flight, the
@@ -1046,9 +1059,9 @@ enum VFRProcedureCallout {
 
     @MainActor
     private static func reportButton(for item: VFRMapItem, at coordinate: CLLocationCoordinate2D,
-                                     palette: VFRMapPalette, metrics: CalloutMetrics) -> UIButton {
+                                     palette: VFRMapPalette, metrics: CalloutMetrics, short: Bool) -> UIButton {
         var configuration = UIButton.Configuration.tinted()
-        configuration.title = L10n.VFRMap.reportError
+        configuration.title = short ? L10n.VFRMap.reportShort : L10n.VFRMap.reportError
         configuration.image = UIImage(systemName: "exclamationmark.bubble")
         configuration.imagePadding = 6
         configuration.baseForegroundColor = palette.action
@@ -1061,6 +1074,7 @@ enum VFRProcedureCallout {
             openReport(for: item, at: coordinate)
         })
         button.heightAnchor.constraint(greaterThanOrEqualToConstant: metrics.target).isActive = true
+        button.accessibilityLabel = L10n.VFRMap.reportError
         return button
     }
 

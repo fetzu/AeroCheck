@@ -14,10 +14,16 @@ struct CalloutMetrics: Equatable {
     let fontSize: CGFloat
     /// The word under an accessory's symbol.
     let captionSize: CGFloat
+    /// A callout's buttons side by side, each a symbol and a short word, rather than one above the other:
+    /// on the phone's Cockpit MAP the stacked ones made the callout about as tall as the chart.
+    var sideBySide = false
 
     static let ground = CalloutMetrics(target: 44, fontSize: 15, captionSize: 11)
-    static var flight: CalloutMetrics {
-        CalloutMetrics(target: CockpitTarget.control, fontSize: CockpitType.label, captionSize: CockpitType.label)
+    static var flight: CalloutMetrics { flight(.current) }
+
+    static func flight(_ scale: CockpitScale) -> CalloutMetrics {
+        CalloutMetrics(target: CockpitTarget.control(scale), fontSize: CockpitType.label(scale),
+                       captionSize: CockpitType.label(scale), sideBySide: scale == .phone)
     }
 
     static func metrics(inFlight: Bool) -> CalloutMetrics { inFlight ? .flight : .ground }
@@ -59,11 +65,13 @@ final class OfficialChartControl: UIButton {
 
     /// A row of a callout's detail (the VFR procedure's): "Official chart" with its symbol, and the
     /// subscription under it for SkyBriefing, at least `metrics.target` tall. It opens `link` itself.
+    /// Side by side (`metrics.sideBySide`), its title is the short "Chart" over "Subscription" for
+    /// SkyBriefing (the symbol is a lock); VoiceOver still reads the whole title.
     static func action(link: OfficialChartLink, metrics: CalloutMetrics, tint: UIColor,
                        open: @escaping (URL) -> Void) -> OfficialChartControl {
         var configuration = UIButton.Configuration.tinted()
-        configuration.title = L10n.OfficialChart.title
-        configuration.subtitle = link.note
+        configuration.title = metrics.sideBySide ? L10n.OfficialChart.short : L10n.OfficialChart.title
+        configuration.subtitle = metrics.sideBySide && link.requiresLogin ? L10n.OfficialChart.subscriptionShort : link.note
         configuration.image = UIImage(systemName: link.symbolName)
         configuration.imagePadding = 6
         configuration.baseForegroundColor = tint

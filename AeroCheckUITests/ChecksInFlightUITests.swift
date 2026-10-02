@@ -45,12 +45,12 @@ final class ChecksInFlightUITests: XCTestCase {
 
         // Taxi, run-up, before departure; READY FOR LINE UP lets the replay go from the holding point.
         pilot.workChecks(until: "beforeDeparture")
-        pilot.checkAllItems()
-        pilot.tap("cockpit.readyForLineUp")
-        pilot.noteRelease(atTrack: s.holds[1].t)
-        pilot.completeCurrentCheckAndGoOn()
+        let lineUp = pilot.readyForLineUp()
 
-        // flight-2: at line-up, the same one tap, to CLIMB on the map.
+        // flight-2: at line-up, the same one tap, to CLIMB on the map. (Before it, since 6.2: the check
+        // before departure's NEXT reads READY FOR LINE UP and leaves it completed.)
+        pilot.check("flight-2", lineUp.next.contains("READY FOR LINE UP") && lineUp.beforeDeparture == "completed",
+                    "the check before departure's NEXT: \"\(lineUp.next)\", then \(lineUp.beforeDeparture ?? "?")")
         pilot.check("flight-2", pilot.currentPhase == "lineUp" && pilot.memoryDone.exists,
                     "on \(pilot.currentPhase ?? "?"), ✓ DONE \(pilot.memoryDone.exists ? "shown" : "missing")")
         pilot.shot("flight-2", "line-up")

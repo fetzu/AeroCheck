@@ -304,9 +304,9 @@ final class CockpitPilot {
         return from
     }
 
-    /// Works the checks up to (not including) `phase`, pressing ENGINE START / READY FOR LINE UP on the
-    /// way when `pressActions` says so.
-    func workChecks(until phase: String, pressEngineStart: Bool = true, pressLineUp: Bool = true, maxSteps: Int = 16) {
+    /// Works the checks up to (not including) `phase`, pressing ENGINE START (when `pressEngineStart`) and
+    /// ENGINE SHUTDOWN on the way. At the check before departure its NEXT is READY FOR LINE UP (6.2).
+    func workChecks(until phase: String, pressEngineStart: Bool = true, maxSteps: Int = 16) {
         for _ in 0..<maxSteps {
             skipHourMeterIfAsked()
             guard let current = currentPhase, current != phase else { return }
@@ -320,11 +320,6 @@ final class CockpitPilot {
                 checkAllItems()
                 element("cockpit.engineShutdown").tap()
                 skipHourMeterIfAsked()
-            }
-            if current == "beforeDeparture", pressLineUp, element("cockpit.readyForLineUp").exists,
-               (element("cockpit.readyForLineUp").value as? String)?.lowercased().contains("not recorded") ?? true {
-                checkAllItems()
-                element("cockpit.readyForLineUp").tap()
             }
             completeCurrentCheckAndGoOn()
         }
@@ -466,14 +461,19 @@ final class CockpitPilot {
 
     // MARK: The usual departure
 
-    /// Before Departure, the pilot's way: its items CHECKed, then READY FOR LINE UP, which lets the replay
-    /// go from the holding point; then on to the LINE UP check. The one place that knows how the 6.1.0
-    /// Cockpit asks for the line-up.
-    func readyForLineUp() {
+    /// Before Departure, the pilot's way: its items CHECKed, then the thumb bar's NEXT, which reads
+    /// READY FOR LINE UP there (6.2): it records the line-up, lets the replay go from the holding point
+    /// and opens the LINE UP check. The one place that knows how the Cockpit asks for the line-up.
+    /// Returns what NEXT read, and the check before departure's status once left.
+    @discardableResult
+    func readyForLineUp() -> (next: String, beforeDeparture: String?) {
         checkAllItems()
-        tap("cockpit.readyForLineUp", timeout: 5)
+        let next = element("cockpit.next")
+        let label = next.waitForExistence(timeout: 5) ? next.label : ""
+        next.tap()
         if let hold = scenario.holds.first(where: { $0.until == "lineUp" }) { noteRelease(atTrack: hold.t) }
-        completeCurrentCheckAndGoOn()
+        _ = waitUntil(timeout: 4) { self.currentPhase == "lineUp" }
+        return (label, phaseStatus("beforeDeparture"))
     }
 
     /// From Today to the runway: START FLIGHT (or CIRCUITS), the ground checks, ENGINE START (the replay

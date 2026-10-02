@@ -340,13 +340,13 @@ private final class HeadlessFlight {
         }
     }
 
-    /// Before Departure to the climb check: READY FOR LINE UP, then LINE UP's one tap. The one place that
-    /// knows how the 6.1.0 Cockpit asks for the line-up.
+    /// Before Departure to the climb check: its NEXT, READY FOR LINE UP since 6.2 (which records the
+    /// line-up), then LINE UP's one tap. The one place that knows how the Cockpit asks for the line-up.
     private func departure() {
         workGroundChecks(until: .beforeDeparture)
         completeCurrentCheck()
-        appState.recordLineUpTime()
         appState.nextPhase()
+        XCTAssertNotNil(appState.lineUpTime, "READY FOR LINE UP records the line-up")
         appState.confirmMemoryCheckAndAdvance()
     }
 

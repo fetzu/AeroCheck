@@ -17,7 +17,9 @@ struct CompanionFlightView: View {
     @State private var mode: Mode = .checklist
     @State private var userPickedMode = false
     @State private var showFullPlan = false
-    @State private var isHoldingExit = false
+    /// The hold on the COMPANION tag that leaves Companion mode, 0 to 1: the tag fills red from the left
+    /// for as long as the hold takes, as END FLIGHT's button does, and empties if released early. (6.1.0)
+    @State private var exitHoldProgress: CGFloat = 0
     @State private var showExitConfirm = false
     @State private var now = Date()
     /// NEXT's review of the items still open, as on the Cockpit. (v6.0 review, decision 2)
@@ -100,6 +102,9 @@ struct CompanionFlightView: View {
         }
     }
 
+    /// How long the COMPANION tag is held to leave Companion mode.
+    private static let exitHoldDuration: TimeInterval = 1.0
+
     private func applyAutoMode() {
         guard !userPickedMode else { return }
         let target: Mode = isAirborne ? .nav : .checklist
@@ -115,14 +120,25 @@ struct CompanionFlightView: View {
                     .font(.aero(size: CockpitType.label, weight: .bold, design: .monospaced))
                     .foregroundColor(theme.actionText)
                     .padding(.horizontal, 6).padding(.vertical, 2)
-                    .background(theme.action)
+                    .background {
+                        theme.action
+                            .overlay(alignment: .leading) {
+                                GeometryReader { geo in
+                                    theme.danger.frame(width: geo.size.width * exitHoldProgress)
+                                }
+                            }
+                    }
                     .clipShape(RoundedRectangle(cornerRadius: 3))
-                    .scaleEffect(isHoldingExit ? 0.9 : 1.0)
-                    .opacity(isHoldingExit ? 0.6 : 1.0)
-                    .onLongPressGesture(minimumDuration: 1.0, pressing: { p in
-                        withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.15)) { isHoldingExit = p } // (UX-18)
+                    .onLongPressGesture(minimumDuration: Self.exitHoldDuration, pressing: { pressing in
+                        if reduceMotion {
+                            exitHoldProgress = pressing ? 1 : 0   // no sweep; the hold is still required (UX-18)
+                        } else {
+                            withAnimation(.linear(duration: pressing ? Self.exitHoldDuration : 0.2)) {
+                                exitHoldProgress = pressing ? 1 : 0
+                            }
+                        }
                     }, perform: {
-                        isHoldingExit = false
+                        exitHoldProgress = 0
                         showExitConfirm = true
                     })
                     .accessibilityLabel(L10n.Companion.companionMode)

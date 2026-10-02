@@ -518,21 +518,30 @@ For testing against the development server:
   100 m before they leave the device, and nothing identifying you is attached. No terrain profile
   means no transmission.
 - Map, airspace and airport data are fetched by area, not by your position.
+- The VFR procedures and the official-chart registry are static files on aerocheck.app (GitHub
+  Pages), fetched by country, never by position. An official chart, or an error report to open
+  flightmaps, opens in your browser only when you tap it; the report's pre-filled text names the
+  procedure and where its label sits on the map, nothing about you.
 - Checklist data cached locally after initial download
 - Export only when explicitly requested by user
 
 ## Data Sources & Licences
 
-AéroCheck displays third-party geographic, aeronautical and weather data. These sources require visible attribution (shown in-app on the navigation map's layer panel) and their terms govern your use:
+AéroCheck displays third-party geographic, aeronautical and weather data. These sources require visible attribution, and their terms govern your use. The app credits every one of them in Settings › About › Data sources; the Map sheet credits open flightmaps (with the AIRAC cycle on the device) and OpenAIP, Data & Storage credits open flightmaps under its row, and a share card credits the map and the terrain it shows.
 
 | Data | Source | Attribution |
 |------|--------|-------------|
 | ICAO / Segelflug / Landeskarte / SwissImage chart tiles | **swisstopo / BAZL** (geo.admin.ch) | © swisstopo / BAZL |
 | Terrain elevation (Switzerland) | **swisstopo** profile API | © swisstopo |
-| Terrain elevation (worldwide) | **Open-Meteo** elevation API | Elevation: Open-Meteo |
+| Terrain elevation (worldwide), winds aloft | **Open-Meteo** (CC BY 4.0) | Elevation: Open-Meteo |
 | Wind (experimental, Switzerland) | **MeteoSwiss** Open Data (geo.admin.ch) | © MeteoSwiss |
-| Airspace / airports | **OpenAIP** | Aeronautical data © OpenAIP contributors |
+| METAR / TAF / SIGMET | **NOAA Aviation Weather Center** (public domain), through wx.aerocheck.app | NOAA Aviation Weather Center |
+| Airspace, aerodromes, navaids, obstacles, reporting points | **OpenAIP** (CC BY-NC 4.0) | © OpenAIP and contributors |
 | Airport / runway / frequency data | **OurAirports** (public domain) | OurAirports |
+| Traffic circuits, VFR arrival and departure routes with their sectors, the reporting points OpenAIP lacks (CH, AT, DE, CZ) | **open flightmaps** (General Users' License: free, commercial use included, as long as the data is credited and users can report errors back; never a primary source of navigation) | © open flightmaps association |
+| Official chart links, per aerodrome | A registry of links to **DFS** BasicVFR (DE), the **SIA** VAC atlas (FR), **skyguide**'s eVFR Manual on SkyBriefing (CH, subscription) and the **Austro Control** eAIP (AT). Links only: the app never downloads or shows a chart | The publisher's terms, on its own site |
+
+The VFR procedures and the chart registry come from aerocheck.app, never from open flightmaps or the publishers directly. A weekly GitHub Actions job (`.github/workflows/vfr-data.yml` on `main`, Thursdays at 05:00 UTC, the day an AIRAC cycle takes effect) checks out the `website` branch and runs `scripts/vfrdata/`: `extract_ofm.py` turns open flightmaps' files for the cycle in force into one small JSON file per country under `public/data/ofm/v1/`, and `charts_registry.py` writes `public/data/charts/v1/charts.json` (HEAD-checking a sample per country). A change is committed to `website` and the site redeployed; the app reads `https://aerocheck.app/data/`. When something looks off (a parse error, a big drop, an oversized file) the job keeps the last good file and opens a "VFR data job failed" issue. Schema and rules: `scripts/vfrdata/README.md` on the `website` branch.
 
 > **Offline chart caching:** the offline ICAO/Segelflug chart download is a bulk extraction of BAZL aeronautical chart products. Shipping that feature requires an explicit licence/agreement with swisstopo/BAZL (tracked separately as SEC-09); until then it is a release blocker for the offline-cache feature.
 

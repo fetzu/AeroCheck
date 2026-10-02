@@ -817,6 +817,7 @@ struct NavigationMapView: View {
                     .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
+                .accessibilityIdentifier("map.nextLine")
                 .accessibilityHint(L10n.Nav.legsAndFrequencies)
                 if diversion != nil {
                     Button { flightPlanManager.resumeRoute() } label: {

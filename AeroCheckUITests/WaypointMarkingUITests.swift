@@ -141,7 +141,9 @@ final class WaypointMarkingUITests: XCTestCase {
         // two catch-ups (every 15 s of flight) and more.
         _ = pilot.waitUntil(timeout: 9) { pilot.snap(pilot.undo) == nil }
         pilot.openLegs()
-        pilot.tap("legRow.4.passed.ato", timeout: 3)
+        // The row's own tap, which scrolls it into view: at its point it may sit under the thumb bar
+        // (the phone), and a tap there would land on the slot.
+        if let row = pilot.waitFor("legRow.4.passed.ato", timeout: 3) { row.tap() }
         let resume = pilot.app.buttons["Resume leg"].firstMatch
         let asked = resume.waitForExistence(timeout: 3)
         pilot.shot("undo-7", "resume-leg-asked")
@@ -330,6 +332,35 @@ extension WaypointMarkingUITests {
 }
 
 extension WaypointMarkingUITests {
+    /// rp-9 on the phone (`scripts/ground-replay.sh --iphone --only WaypointMarkingUITests/testReportingPointOnThePhone`):
+    /// with E (LSGC) next, the phone's line over the chart reads "E", without its aerodrome; with the legs
+    /// open too. (The iPad's NEXT cell and map card are testRouteWithReportingPoints'.)
+    func testReportingPointOnThePhone() {
+        let pilot = CockpitPilot(self, scenario: "route-vrps", page: "601")
+        defer { pilot.attachResults(testName: name) }
+        let s = pilot.scenario
+        pilot.launch()
+        guard pilot.departToClimb() else { return XCTFail("could not get to the climb check") }
+        pilot.showPane("map")
+        // The line over the chart: "→ E  172° · 2.4 NM · 1 min", the button that opens the legs.
+        func line() -> String? { pilot.label("map.nextLine") }
+        func readsE(_ label: String?) -> Bool {
+            (label ?? "").components(separatedBy: ", ").contains("E")
+        }
+        let next = pilot.waitUntil(timeout: pilot.wallUntil(track: s.mark("wp1") + 40, margin: 10)) {
+            readsE(line())
+        }
+        let seen = line()
+        let cell = pilot.snap("strip.next")?.value as? String
+        pilot.shot("rp-9", "phone-line")
+        pilot.check("rp-9", next && !(seen ?? "").contains("LSGC"),
+                    "with E next (track \(Int(pilot.trackNow)) s, N at \(Int(s.mark("wp1"))) s), the line reads \"\(seen ?? "nothing")\"; NEXT cell \(cell ?? "none on this layout")")
+        pilot.openLegs()
+        pilot.shot("rp-9", "phone-line-legs-open")
+        pilot.observed("rp-9", "on the phone, nothing shrinks or moves, the legs open: see the two screenshots")
+        pilot.endFlight()
+    }
+
     /// undo-5: the app killed and relaunched mid-flight: the Cockpit back ("Flight Restored"), and the
     /// waypoint taken back (`how`) at `index` still without a time, still the target.
     static func relaunchAndCheckTakenBack(_ pilot: CockpitPilot, index: Int, name: String, how: String,
@@ -353,10 +384,10 @@ extension WaypointMarkingUITests {
 }
 
 extension CockpitPilot {
-    /// "MARK E LEG 2:05 / 17:32" → 125 (the leg so far).
+    /// "MARK E LEG 2:05 / 17:32" (the phone: "MARK E · 2:05") → 125 (the leg so far).
     static func legSeconds(in text: String) -> Int? {
-        guard let range = text.range(of: #"LEG (\d+):(\d\d)"#, options: .regularExpression) else { return nil }
-        let parts = text[range].dropFirst(4).split(separator: ":").compactMap { Int($0) }
+        guard let range = text.range(of: #"(LEG|·) (\d+):(\d\d)"#, options: .regularExpression) else { return nil }
+        let parts = text[range].split(separator: " ").last?.split(separator: ":").compactMap { Int($0) } ?? []
         return parts.count == 2 ? parts[0] * 60 + parts[1] : nil
     }
 

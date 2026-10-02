@@ -10,7 +10,7 @@
 #
 # usage: scripts/ground-replay.sh [--iphone] [--only <Class/testMethod>]... [--out <dir>] [--keep-simulator]
 #   --only    a subset, e.g. --only ChecksInFlightUITests/testCrossCountryEveryCheckOnTime (repeatable)
-#   --iphone  an iPhone 17 instead of the iPad Air 11-inch (M4)
+#   --iphone  an iPhone 17 instead of the iPad Air 11-inch (M4); without --only, the phone's own steps
 #   --out     default: $TMPDIR/aerocheck-ground-replay/<date-time>
 #
 # The simulator is created for the run ("AeroCheck Tmp replay-<n> <date>") and deleted after it. Never
@@ -40,7 +40,13 @@ OUT=${OUT:-"${TMPDIR:-/tmp}/aerocheck-ground-replay/$STAMP"}
 mkdir -p "$OUT/screenshots" "$OUT/logs"
 DD="$OUT/DerivedData"
 
-# All of them, in the order of priority, when no --only.
+# All of them, in the order of priority, when no --only. On the phone, the steps that are the phone's
+# (the kneeboard ones assume the iPad's layout).
+if [ ${#ONLY[@]} -eq 0 ] && [ "$DEVICE_TYPE" = "iPhone 17" ]; then
+    ONLY=(
+        WaypointMarkingUITests/testReportingPointOnThePhone
+    )
+fi
 if [ ${#ONLY[@]} -eq 0 ]; then
     ONLY=(
         ChecksInFlightUITests/testCrossCountryEveryCheckOnTime

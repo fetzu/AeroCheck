@@ -451,9 +451,9 @@ class CompanionConnectivityManager: NSObject, ObservableObject {
     /// Log a pairing-phase event from the DeviceDiscoveryUI pairing views, which run as system UI
     /// outside this manager — so the diagnostics panel shows the pairing attempt, not just connection. (v4.1)
     ///
-    /// Logged in the clear, so a Console capture of a failed pairing shows the steps (6.1.0): callers
-    /// pass fixed text only, never a device name.
-    func logPairing(_ message: String) { diag(message, isPublic: true) }
+    /// Logged in the clear at `.notice`, which a device capture keeps (`.info` it drops), so a capture of
+    /// a failed pairing shows the steps (6.1.0): callers pass fixed text only, never a device name.
+    func logPairing(_ message: String) { lifecycle(message) }
 
     /// Record a companion lifecycle event for the dev diagnostics panel (newest first) and the log.
     /// `isPublic` only for a fixed state message with no device name in it (SA-20).
@@ -518,6 +518,9 @@ class CompanionConnectivityManager: NSObject, ObservableObject {
                         if ids != self.pairedDeviceIDs {
                             self.diag("Paired devices: \(mapped.count) (\(mapped.compactMap(\.name).joined(separator: ", ")))")
                             self.lifecycle("Paired devices: \(mapped.count), \(ids.count) system record(s)")
+                        } else if self.isPairing {
+                            // Whether pairing again a device already paired tells the app anything. (6.1.0)
+                            self.lifecycle("Paired devices: an update during pairing, the same \(ids.count) record(s)")
                         }
                         self.pairedDevices = mapped
                     }
@@ -962,8 +965,7 @@ class CompanionConnectivityManager: NSObject, ObservableObject {
         isPairing = true
         let running = sessionOnTheService
         endSession()
-        diag("Pairing mode on: \(running.map { "\($0) stopped" } ?? "nothing of ours was running"), auto-connect on hold",
-             isPublic: true)
+        lifecycle("Pairing mode on: \(running.map { "\($0) stopped" } ?? "nothing of ours was running"), auto-connect on hold")
     }
 
     /// The pairing screen went away (paired, cancelled or torn down): auto-connect resumes, as the
@@ -972,8 +974,7 @@ class CompanionConnectivityManager: NSObject, ObservableObject {
         guard isPairing else { return }
         isPairing = false
         autoConnectIfReady()
-        diag("Pairing mode off: \(sessionOnTheService.map { "\($0) resumed" } ?? "nothing to resume")",
-             isPublic: true)
+        lifecycle("Pairing mode off: \(sessionOnTheService.map { "\($0) resumed" } ?? "nothing to resume")")
     }
 
     /// What of ours holds the Wi-Fi Aware service right now, for the pairing log. Fixed text.

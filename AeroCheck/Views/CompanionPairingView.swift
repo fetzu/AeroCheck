@@ -63,9 +63,60 @@ struct CompanionPairingView: View {
         }
         // Pairing mode for as long as this cover is up, both roles: the background listener/browser
         // stops here and auto-connect comes back when it closes (paired, cancelled, or torn down).
-        .onAppear { companionConnectivityManager.beginPairing() }
+        .onAppear {
+            CompanionPairingSession.devicePicked = false
+            companionConnectivityManager.beginPairing()
+        }
         .onDisappear { companionConnectivityManager.endPairing() }
+        .task { await closeWhenTheSystemScreenIsDone() }
         .preferredColorScheme(.dark)
+    }
+
+    /// Close this cover once the system pairing screen it opened has come and gone: the pairing is then
+    /// over, done or cancelled, and closing ends pairing mode, which brings the link back.
+    ///
+    /// Pairing again two devices already paired adds no new pairing record on iOS 27, so the record rule
+    /// (`CompanionPairingCompletion`, in CompanionSettingsView) never fired. Both covers stayed up and the
+    /// iPad kept the link paused until Companion mode was toggled there (6.1.0 device check, 2 Oct 2026).
+    /// The iPhone closes only after a device was picked: a picker dismissed without a pick leaves the
+    /// cover up for another try. The system screen is whatever is presented over this cover; if the
+    /// system shows it outside the app's windows, nothing is seen and Cancel remains. (6.1.0)
+    private func closeWhenTheSystemScreenIsDone() async {
+        var cover: UIViewController?
+        var systemScreenSeen = false
+        while !Task.isCancelled {
+            try? await Task.sleep(for: .milliseconds(500))
+            guard let top = Self.frontViewController(), !top.isBeingPresented else { continue }
+            guard let cover else {
+                cover = top   // the first settled look: the cover itself, nothing over it yet
+                continue
+            }
+            let systemScreenUp = top !== cover
+            if systemScreenUp, !systemScreenSeen {
+                systemScreenSeen = true
+                companionConnectivityManager.logPairing("Pairing: the system pairing screen is up")
+            } else if !systemScreenUp, systemScreenSeen {
+                systemScreenSeen = false
+                guard role == .master || CompanionPairingSession.devicePicked else {
+                    companionConnectivityManager.logPairing("Pairing: the picker closed with no device picked")
+                    continue
+                }
+                companionConnectivityManager.logPairing("Pairing: the system pairing screen closed, closing the pairing screen")
+                dismiss()
+                return
+            }
+        }
+    }
+
+    /// The front-most view controller of the key window: this cover's, or whatever is presented over it.
+    static func frontViewController() -> UIViewController? {
+        let scenes = UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }
+        let window = scenes.flatMap(\.windows).first(where: \.isKeyWindow) ?? scenes.first?.windows.first
+        var top = window?.rootViewController
+        while let presented = top?.presentedViewController, !presented.isBeingDismissed {
+            top = presented
+        }
+        return top
     }
 
     /// A tinted rounded-square companion icon (cockpit language).
@@ -229,6 +280,14 @@ struct CompanionPairingView: View {
     #endif
 }
 
+/// What the pairing screen needs to know of the system picker it hosts. Not observed: the cover's body must
+/// not redraw on it (see `CompanionPairingView`). (6.1.0)
+@MainActor
+enum CompanionPairingSession {
+    /// The iPhone picked a device in the system picker since the pairing screen opened.
+    static var devicePicked = false
+}
+
 #if canImport(DeviceDiscoveryUI)
 /// The iPhone's "Scan for Devices": SwiftUI's `DevicePicker`, alone in a view that compares equal to itself,
 /// so a redraw of the pairing screen above it (state the manager publishes, the system picker taking the
@@ -248,8 +307,10 @@ private struct CompanionPickerButton: View, Equatable {
         ) { _ in
             // A device was picked, which is not the same as paired: iOS 27 can report the pick and
             // then run the pairing (code and approval), and dismissing here can cancel that. So the
-            // cover stays up; CompanionSettingsView closes it once the new pairing shows in
-            // `pairedDevices`, and Cancel is there otherwise. (6.1.0)
+            // cover stays up; it closes once the new pairing shows in `pairedDevices`
+            // (CompanionSettingsView) or once the system picker has closed after this pick
+            // (`closeWhenTheSystemScreenIsDone`), and Cancel is there otherwise. (6.1.0)
+            CompanionPairingSession.devicePicked = true
             CompanionConnectivityManager.shared.logPairing("Pairing: iPhone picked a device, waiting for the pairing to finish")
         } label: {
             CompanionPairingView.pairButtonLabel(icon: "magnifyingglass", title: L10n.Companion.scanForDevices)
@@ -293,7 +354,7 @@ enum CompanionAdvertiserPresenter {
             manager.logPairing("Pairing: iPad pairing screen already up")
             return
         }
-        guard let presenter = topViewController() else {
+        guard let presenter = CompanionPairingView.frontViewController() else {
             manager.logPairing("Pairing: no screen to present the iPad pairing screen from")
             return
         }
@@ -302,17 +363,6 @@ enum CompanionAdvertiserPresenter {
         current = controller
         manager.logPairing("Pairing: iPad discoverable, system pairing screen up")
         presenter.present(controller, animated: true)
-    }
-
-    /// The front-most view controller of the key window: the pairing cover's, while it is up.
-    private static func topViewController() -> UIViewController? {
-        let scenes = UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }
-        let window = scenes.flatMap(\.windows).first(where: \.isKeyWindow) ?? scenes.first?.windows.first
-        var top = window?.rootViewController
-        while let presented = top?.presentedViewController, !presented.isBeingDismissed {
-            top = presented
-        }
-        return top
     }
 }
 #endif

@@ -53,6 +53,7 @@ if [ ${#ONLY[@]} -eq 0 ]; then
         FlightTimingUITests/testPhaseBarJumpLetsTheTakeoffAnchorTheETOs
         WaypointMarkingUITests/testRouteWithReportingPoints
         WaypointMarkingUITests/testCircuitsLeaveTheArmedRouteAlone
+        WaypointMarkingUITests/testDivertThenResumeRoute
     )
 fi
 

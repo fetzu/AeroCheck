@@ -127,11 +127,11 @@ final class CockpitPilot {
         // A flight planned for today with its preparation open asks first: started anyway, as a pilot
         // who prepared on paper would.
         let anyway = app.buttons["Start anyway"]
-        if anyway.waitForExistence(timeout: 3) { anyway.tap() }
+        if anyway.waitForExistence(timeout: 3) { tapNow(anyway) }
         if element("cockpit.check").waitForExistence(timeout: 20) { return true }
         // A start refused while GPS warms up says so in an alert: once more.
         let ok = app.alerts.buttons.firstMatch
-        if ok.exists { ok.tap(); tap(button, timeout: 5) }
+        if tapNow(ok) { tap(button, timeout: 5) }
         if element("cockpit.check").waitForExistence(timeout: 20) { return true }
         shot("setup", "no-cockpit")
         dumpTree("no-cockpit")
@@ -159,10 +159,64 @@ final class CockpitPilot {
             .matching(NSPredicate(format: "identifier BEGINSWITH %@", prefix)).firstMatch
     }
 
+    /// The element as it is now, in one query, or nil when it isn't there. Every read goes through it:
+    /// `exists` then `label` is two queries, and a toast or a card gone between them fails the test
+    /// ("Failed to get matching snapshot").
+    func snap(_ e: XCUIElement) -> XCUIElementSnapshot? {
+        try? e.snapshot()
+    }
+
+    func snap(_ identifier: String) -> XCUIElementSnapshot? {
+        snap(element(identifier))
+    }
+
+    /// The label of `identifier`, if it is on screen.
+    func label(_ identifier: String) -> String? {
+        snap(identifier)?.label
+    }
+
+    /// Whatever is on screen, in one query, in reading order: for reads over many elements (the phase
+    /// bar, the Flight Log's tables), where a query per element is seconds of flight at 10x.
+    func screen() -> [XCUIElementSnapshot] {
+        guard let root = snap(app) else { return [] }
+        var out: [XCUIElementSnapshot] = []
+        func walk(_ s: XCUIElementSnapshot) {
+            out.append(s)
+            s.children.forEach(walk)
+        }
+        walk(root)
+        return out
+    }
+
     @discardableResult
     func waitFor(_ identifier: String, timeout: TimeInterval = 10) -> XCUIElement? {
         let e = element(identifier)
         return e.waitForExistence(timeout: timeout) ? e : nil
+    }
+
+    /// Taps the element where it is now, if it is there: false when it isn't. A tap on an element gone
+    /// since the last look (the toast's UNDO after six seconds, NEXT when the phase moved on) would fail
+    /// the test, so the tap goes to the point it was seen at. Off screen (a row scrolled away), the
+    /// usual tap, which scrolls it into view.
+    @discardableResult
+    func tapNow(_ e: XCUIElement) -> Bool {
+        guard let s = snap(e), !s.frame.isEmpty else { return false }
+        let centre = CGPoint(x: s.frame.midX, y: s.frame.midY)
+        if windowFrame.contains(centre) {
+            app.coordinate(withNormalizedOffset: .zero).withOffset(CGVector(dx: centre.x, dy: centre.y)).tap()
+        } else {
+            e.tap()
+        }
+        return true
+    }
+
+    /// The app's window, read once it can be (a test never turns the device).
+    private var windowFrameRead: CGRect?
+    private var windowFrame: CGRect {
+        if let windowFrameRead { return windowFrameRead }
+        guard let frame = snap(app)?.frame, !frame.isEmpty else { return .zero }
+        windowFrameRead = frame
+        return frame
     }
 
     /// Polls `condition` every 0.25 s for up to `timeout` wall seconds.
@@ -176,19 +230,19 @@ final class CockpitPilot {
         return condition()
     }
 
-    /// Taps `identifier` once it exists. False when it never came.
+    /// Taps `identifier` once it exists. False when it never came (or went before the tap).
     @discardableResult
     func tap(_ identifier: String, timeout: TimeInterval = 10) -> Bool {
         guard let e = waitFor(identifier, timeout: timeout) else { return false }
-        e.tap()
-        return true
+        return tapNow(e)
     }
 
     /// Holds a hold-to-confirm button (1 s) down.
     @discardableResult
     func hold(_ identifier: String, seconds: TimeInterval = 1.6, timeout: TimeInterval = 10) -> Bool {
-        guard let e = waitFor(identifier, timeout: timeout) else { return false }
-        e.press(forDuration: seconds)
+        guard let e = waitFor(identifier, timeout: timeout), let s = snap(e) else { return false }
+        app.coordinate(withNormalizedOffset: .zero)
+            .withOffset(CGVector(dx: s.frame.midX, dy: s.frame.midY)).press(forDuration: seconds)
         return true
     }
 
@@ -203,8 +257,7 @@ final class CockpitPilot {
 
     /// The check slot on the MAP pane, as drawn now: tone and action from its identifier, its words.
     var slot: Slot? {
-        let e = element(prefix: "checkSlot.")
-        guard e.exists else { return nil }
+        guard let e = snap(element(prefix: "checkSlot.")) else { return nil }
         let parts = e.identifier.split(separator: ".").map(String.init)
         return Slot(tone: parts.count > 1 ? parts[1] : "", action: parts.count > 2 ? parts[2] : "", label: e.label)
     }
@@ -222,23 +275,21 @@ final class CockpitPilot {
 
     /// The phase bar's word for a check: "completed", "done from memory", "Owed", "skipped"...
     func phaseStatus(_ phase: String) -> String? {
-        let e = element("phaseBar.\(phase)")
-        return e.exists ? (e.value as? String) : nil
+        snap("phaseBar.\(phase)")?.value as? String
     }
 
     /// The phase the Cockpit is on: the selected segment.
     var currentPhase: String? {
         let segments = app.descendants(matching: .any)
             .matching(NSPredicate(format: "identifier BEGINSWITH 'phaseBar.' AND selected == true"))
-        let e = segments.firstMatch
-        return e.exists ? String(e.identifier.dropFirst("phaseBar.".count)) : nil
+        return snap(segments.firstMatch).map { String($0.identifier.dropFirst("phaseBar.".count)) }
     }
 
     /// The pane CHECKLIST | MAP shows. One query: at 10x every query is flight time.
     var paneShown: String? {
         let e = app.descendants(matching: .any)
             .matching(NSPredicate(format: "identifier BEGINSWITH 'pane.' AND selected == true")).firstMatch
-        return e.exists ? String(e.identifier.dropFirst("pane.".count)) : nil
+        return snap(e).map { String($0.identifier.dropFirst("pane.".count)) }
     }
 
     func showPane(_ pane: String) {
@@ -274,18 +325,16 @@ final class CockpitPilot {
     /// The hour meter asks at ENGINE START when the reading is logged (the default): skipped here.
     func skipHourMeterIfAsked() {
         let b = app.buttons.matching(NSPredicate(format: "label IN {'Skip', 'SKIP', 'Cancel'}")).firstMatch
-        if b.exists && b.isHittable { b.tap() }
+        if let s = snap(b), s.isEnabled { tapNow(b) }
     }
 
-    /// CHECK through the current list (at most `max` items), until CHECK gives way. Two queries a
-    /// CHECK: under load each is up to a few seconds, tens of seconds of flight at 10x.
+    /// CHECK through the current list (at most `max` items), until CHECK gives way. One query a CHECK:
+    /// under load each is up to a few seconds, tens of seconds of flight at 10x.
     func checkAllItems(max: Int = 30) {
         showPane("checklist")
         skipHourMeterIfAsked()
         for _ in 0..<max {
-            let check = element("cockpit.check")
-            guard check.exists else { return }
-            check.tap()
+            guard tapNow(element("cockpit.check")) else { return }
         }
     }
 
@@ -297,14 +346,13 @@ final class CockpitPilot {
         let from = currentPhase
         skipHourMeterIfAsked()
         showPane("checklist")
-        if element("cockpit.memoryDone").exists {
-            element("cockpit.memoryDone").tap()
+        if tapNow(element("cockpit.memoryDone")) {
             // The one tap goes on, unless it only confirms (the phase's own action, the last check).
-            waitUntil(timeout: 3) { self.currentPhase != from || self.element("cockpit.next").exists }
-            if currentPhase == from, element("cockpit.next").exists { element("cockpit.next").tap() }
+            waitUntil(timeout: 3) { self.currentPhase != from || self.snap("cockpit.next") != nil }
+            if currentPhase == from { tapNow(element("cockpit.next")) }
         } else {
             checkAllItems()
-            if element("cockpit.next").waitForExistence(timeout: 3) { element("cockpit.next").tap() }
+            if element("cockpit.next").waitForExistence(timeout: 3) { tapNow(element("cockpit.next")) }
         }
         waitUntil(timeout: 5) { self.currentPhase != from }
         return from
@@ -313,18 +361,20 @@ final class CockpitPilot {
     /// Works the checks up to (not including) `phase`, pressing ENGINE START (when `pressEngineStart`) and
     /// ENGINE SHUTDOWN on the way. At the check before departure its NEXT is READY FOR LINE UP (6.2).
     func workChecks(until phase: String, pressEngineStart: Bool = true, maxSteps: Int = 16) {
+        func notRecorded(_ identifier: String) -> Bool {
+            guard let s = snap(identifier) else { return false }
+            return (s.value as? String)?.lowercased().contains("not recorded") ?? true
+        }
         for _ in 0..<maxSteps {
             skipHourMeterIfAsked()
             guard let current = currentPhase, current != phase else { return }
-            if current == "engineStart", pressEngineStart, element("cockpit.engineStart").exists,
-               (element("cockpit.engineStart").value as? String)?.lowercased().contains("not recorded") ?? true {
-                element("cockpit.engineStart").tap()
+            if current == "engineStart", pressEngineStart, notRecorded("cockpit.engineStart") {
+                tap("cockpit.engineStart", timeout: 1)
                 skipHourMeterIfAsked()
             }
-            if current == "shutdown", element("cockpit.engineShutdown").exists,
-               (element("cockpit.engineShutdown").value as? String)?.lowercased().contains("not recorded") ?? true {
+            if current == "shutdown", notRecorded("cockpit.engineShutdown") {
                 checkAllItems()
-                element("cockpit.engineShutdown").tap()
+                tap("cockpit.engineShutdown", timeout: 1)
                 skipHourMeterIfAsked()
             }
             completeCurrentCheckAndGoOn()
@@ -336,17 +386,14 @@ final class CockpitPilot {
     var memoryDone: XCUIElement { element("cockpit.memoryDone") }
     var undo: XCUIElement { element("undoToast.undo") }
     var toastMessage: String? {
-        let e = element("undoToast.message")
-        return e.exists ? e.label : nil
+        label("undoToast.message")
     }
 
     /// The phase bar, segment by segment: phase → its spoken status.
     func phaseBar() -> [String: String] {
         var out: [String: String] = [:]
-        let segments = app.descendants(matching: .any).matching(NSPredicate(format: "identifier BEGINSWITH 'phaseBar.'"))
-        for i in 0..<segments.count {
-            let e = segments.element(boundBy: i)
-            out[String(e.identifier.dropFirst("phaseBar.".count))] = (e.value as? String) ?? ""
+        for s in screen() where s.identifier.hasPrefix("phaseBar.") {
+            out[String(s.identifier.dropFirst("phaseBar.".count))] = (s.value as? String) ?? ""
         }
         return out
     }
@@ -354,14 +401,13 @@ final class CockpitPilot {
     /// The strip's altitude, feet (nil when not shown or no GPS).
     var altitudeFeet: Int? {
         let e = app.descendants(matching: .any).matching(NSPredicate(format: "label == 'Altitude'")).firstMatch
-        guard e.exists, let value = e.value as? String else { return nil }
+        guard let value = snap(e)?.value as? String else { return nil }
         return Int(value.components(separatedBy: CharacterSet.decimalDigits.inverted).joined())
     }
 
     /// The landed card's title ("LANDED · LSGC · 14:37"), when it is up.
     var landedCardTitle: String? {
-        let e = element("landedCard.title")
-        return e.exists ? e.label : nil
+        label("landedCard.title")
     }
 
     /// A tap on the backdrop, away from any button: the top left corner, under the status bar.
@@ -371,15 +417,14 @@ final class CockpitPilot {
 
     /// The text of every static text on screen containing `fragment`.
     func texts(containing fragment: String) -> [String] {
-        let q = app.staticTexts.matching(NSPredicate(format: "label CONTAINS %@", fragment))
-        return (0..<q.count).map { q.element(boundBy: $0).label }
+        screen().filter { $0.elementType == .staticText && $0.label.contains(fragment) }.map(\.label)
     }
 
     /// The check slot's one tap (on the MAP pane, where it is).
     func tapSlot() {
         showPane("map")
         let e = element(prefix: "checkSlot.")
-        if e.waitForExistence(timeout: 5) { e.tap() }
+        if e.waitForExistence(timeout: 5) { tapNow(e) }
     }
 
     /// "FREDA in 6 min" → 6.
@@ -393,7 +438,7 @@ final class CockpitPilot {
     /// The legs list open on the MAP pane (it stays open).
     func openLegs() {
         showPane("map")
-        if !element(prefix: "legRow.").exists { tap("map.legsToggle", timeout: 5) }
+        if snap(element(prefix: "legRow.")) == nil { tap("map.legsToggle", timeout: 5) }
         _ = element(prefix: "legRow.").waitForExistence(timeout: 3)
     }
 
@@ -401,13 +446,12 @@ final class CockpitPilot {
     func destinationETA() -> String? {
         openLegs()
         let e = element("legs.destinationETA")
-        return e.waitForExistence(timeout: 3) ? e.label : nil
+        return e.waitForExistence(timeout: 3) ? snap(e)?.label : nil
     }
 
     /// A row of the legs list: "next", "passed", "ahead", and whether it has a time over.
     func leg(_ index: Int) -> (state: String, hasATO: Bool)? {
-        let e = element(prefix: "legRow.\(index).")
-        guard e.exists else { return nil }
+        guard let e = snap(element(prefix: "legRow.\(index).")) else { return nil }
         let parts = e.identifier.split(separator: ".").map(String.init)
         return (parts.count > 2 ? parts[2] : "?", parts.last == "ato")
     }
@@ -417,16 +461,35 @@ final class CockpitPilot {
     /// END FLIGHT from the thumb bar (the last check) or from the Menu, confirmed.
     func endFlight() {
         let notTheButtons = NSPredicate(format: "label ==[c] 'END FLIGHT' AND NOT (identifier IN {'menu.endFlight', 'cockpit.endFlight'})")
-        if element("cockpit.endFlight").exists {
-            element("cockpit.endFlight").tap()
-        } else {
+        if !tapNow(element("cockpit.endFlight")) {
             tap("cockpit.menu")
             tap("menu.endFlight")
         }
         // The alert's (thumb bar) or the confirmation dialog's (Menu) END FLIGHT.
         let confirm = app.buttons.matching(notTheButtons).firstMatch
-        if confirm.waitForExistence(timeout: 5) { confirm.tap() }
+        if confirm.waitForExistence(timeout: 5) { tapNow(confirm) }
         dismissAfterFlightSheets()
+    }
+
+    /// ABANDON FLIGHT: the aircraft's name in the Cockpit's header held 1.5 s, then the alert's
+    /// Abandon Flight. True when the Cockpit gave way to Today.
+    @discardableResult
+    func abandonFlight(registration: String = "F-HVXA") -> Bool {
+        showPane("checklist")
+        let name = app.staticTexts[registration].firstMatch
+        guard name.waitForExistence(timeout: 5), let s = snap(name) else { return false }
+        app.coordinate(withNormalizedOffset: .zero)
+            .withOffset(CGVector(dx: s.frame.midX, dy: s.frame.midY)).press(forDuration: 2.2)
+        let abandon = app.alerts.buttons["Abandon Flight"].firstMatch
+        guard abandon.waitForExistence(timeout: 5) else { return false }
+        abandon.tap()
+        return element("home.startFlight").waitForExistence(timeout: 10)
+    }
+
+    /// Today's card for the route on the map ("ON THE MAP", its route), when one is armed.
+    var armedRouteOnToday: String? {
+        // The card is one button: "Flight plan, ON THE MAP, LSGN → LSZQ, …".
+        screen().first { $0.label.contains("ON THE MAP") }?.label
     }
 
     /// The reconciliation review (keep as recorded) and the circuits' close-out, if either comes up.
@@ -450,6 +513,61 @@ final class CockpitPilot {
         return true
     }
 
+    /// One row of the flight page's PLAN vs ACTUAL: the waypoint, its ETO and ATO ("—" when none).
+    struct PlanRow: CustomStringConvertible {
+        let name: String
+        let eto: String
+        let ato: String
+        var description: String { "\(name) ETO \(eto) ATO \(ato)" }
+    }
+
+    /// The flight page's PLAN vs ACTUAL, read in one query (empty when the page has none).
+    func planVsActual() -> [PlanRow] {
+        let texts = screen().filter { $0.elementType == .staticText }.map(\.label)
+        guard let start = texts.firstIndex(of: "PLAN vs ACTUAL"),
+              let header = texts[start...].firstIndex(of: "Δ") else { return [] }
+        let time = #"^(\d{1,2}:\d\d|—)$"#
+        let delta = #"^([+-]?\d+:\d\d|—)$"#
+        var rows: [PlanRow] = []
+        var i = header + 1
+        while i + 3 < texts.count, texts[i + 1].range(of: time, options: .regularExpression) != nil,
+              texts[i + 2].range(of: time, options: .regularExpression) != nil,
+              texts[i + 3].range(of: delta, options: .regularExpression) != nil {
+            rows.append(PlanRow(name: texts[i], eto: texts[i + 1], ato: texts[i + 2]))
+            i += 4
+        }
+        return rows
+    }
+
+    /// A time of the flight page's TIMELINE ("Take-off", "Landing"), as shown.
+    func timelineTime(_ label: String) -> String? {
+        let texts = screen().filter { $0.elementType == .staticText }.map(\.label)
+        guard let i = texts.firstIndex(of: label), i + 1 < texts.count else { return nil }
+        return texts[i + 1]
+    }
+
+    /// Scrolls the page until the static text `label` is on screen (at most `swipes` swipes).
+    func scrollTo(_ label: String, swipes: Int = 8) {
+        let text = app.staticTexts[label].firstMatch
+        let height = snap(app)?.frame.height ?? 1000
+        // By its frame: a SwiftUI scroll view's rows below the fold still say they are hittable.
+        for _ in 0..<swipes {
+            guard let frame = snap(text)?.frame else { return }
+            if frame.minY > 80 && frame.minY < height * 0.45 { return }
+            if frame.minY <= 80 { app.swipeDown() } else { app.swipeUp() }
+        }
+    }
+
+    /// Minutes from "hh:mm" `a` to `b` (nil when either is not a time).
+    static func minutes(from a: String, to b: String) -> Int? {
+        func value(_ s: String) -> Int? {
+            let parts = s.split(separator: ":").compactMap { Int($0) }
+            return parts.count == 2 ? parts[0] * 60 + parts[1] : nil
+        }
+        guard let x = value(a), let y = value(b) else { return nil }
+        return ((y - x) % 1440 + 1440 + 720) % 1440 - 720
+    }
+
     // MARK: Development
 
     /// `TEST_RUNNER_REPLAY_STOP_AFTER=<step id>` stops a test after that step, to work on one part.
@@ -459,7 +577,10 @@ final class CockpitPilot {
 
     /// The accessibility tree as the test sees it, attached (to find an element).
     func dumpTree(_ name: String) {
-        let attachment = XCTAttachment(string: app.debugDescription)
+        // The tree, and each element's attributes (its traits among them), for what a person reads off it.
+        let attributes = screen().filter { !$0.label.isEmpty }
+            .map { "\($0.elementType.rawValue) \"\($0.label)\" \($0.dictionaryRepresentation.filter { "\($0.key)".lowercased().contains("trait") })" }
+        let attachment = XCTAttachment(string: app.debugDescription + "\n\n" + attributes.joined(separator: "\n"))
         attachment.name = "tree-\(name)"
         attachment.lifetime = .keepAlways
         test.add(attachment)
@@ -475,8 +596,8 @@ final class CockpitPilot {
     func readyForLineUp() -> (next: String, beforeDeparture: String?) {
         checkAllItems()
         let next = element("cockpit.next")
-        let label = next.waitForExistence(timeout: 5) ? next.label : ""
-        if next.exists { next.tap() }
+        let label = next.waitForExistence(timeout: 5) ? (snap(next)?.label ?? "") : ""
+        tapNow(next)
         if let hold = scenario.holds.first(where: { $0.until == "lineUp" }) { noteRelease(atTrack: hold.t) }
         _ = waitUntil(timeout: 4) { self.currentPhase == "lineUp" }
         return (label, phaseStatus("beforeDeparture"))
@@ -491,7 +612,7 @@ final class CockpitPilot {
         noteRelease(atTrack: 0)
         workChecks(until: "beforeDeparture")
         readyForLineUp()
-        if memoryDone.waitForExistence(timeout: 3) { memoryDone.tap() }
+        if memoryDone.waitForExistence(timeout: 3) { tapNow(memoryDone) }
         return waitUntil(timeout: 5) { self.currentPhase == "climb" }
     }
 
@@ -534,13 +655,11 @@ final class CockpitPilot {
 
     /// The flight page's checks section, scrolled to and opened ("Show each check").
     func revealChecks() {
-        for _ in 0..<6 {
-            if app.staticTexts["CHECKS"].exists && app.staticTexts["CHECKS"].isHittable { break }
-            app.swipeUp()
-        }
+        _ = app.staticTexts["CHECKS"].waitForExistence(timeout: 5)
+        scrollTo("CHECKS")
         let each = app.buttons["Show each check"]
-        if each.exists { each.tap() }
-        app.swipeUp()
+        tapNow(each)
+        scrollTo("CHECKS")
     }
 
     // MARK: Recording
@@ -559,6 +678,15 @@ final class CockpitPilot {
             steps.append(StepResult(id: step, status: .observed, notes: [], screenshots: [name]))
         }
         return name
+    }
+
+    /// A screenshot taken for another step that shows this one too.
+    func cite(_ step: String, _ screenshot: String) {
+        if let i = steps.firstIndex(where: { $0.id == step }) {
+            steps[i].screenshots.append(screenshot)
+        } else {
+            steps.append(StepResult(id: step, status: .observed, notes: [], screenshots: [screenshot]))
+        }
     }
 
     /// Records `step` as passed or failed on `condition`, with what was seen; a failure fails the test

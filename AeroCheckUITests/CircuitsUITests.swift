@@ -58,7 +58,7 @@ final class CircuitsUITests: XCTestCase {
         pilot.shot("circuits-2", "taxi")
         // And the next circuit: the checks to the climb again.
         pilot.workChecks(until: "lineUp")
-        if pilot.memoryDone.waitForExistence(timeout: 3) { pilot.memoryDone.tap() }
+        if pilot.memoryDone.waitForExistence(timeout: 3) { pilot.tapNow(pilot.memoryDone) }
         pilot.check("circuits-2", pilot.waitUntil(timeout: 5) { pilot.currentPhase == "climb" }, "the next circuit: \(pilot.currentPhase ?? "?")")
 
         // Lap 3, ending in the second stop-and-go: circuits-3, the card left alone goes on the take-off roll.

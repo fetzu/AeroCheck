@@ -473,6 +473,10 @@ final class OfficialChartTests: XCTestCase {
             XCTAssertGreaterThanOrEqual(button.frame.height, CockpitTarget.control - 0.5, "in flight, the Cockpit's size")
         }
 
+        // MapKit ends the bubble at the detail view's last baseline: the view's bottom, never the last
+        // button's title (which cut 14 pt off Report an error in flight).
+        XCTAssertTrue(view.forLastBaselineLayout === view)
+
         // Without a way to open it (and so in #258's tests), the callout is as it was.
         let plain = VFRProcedureCallout.detailView(for: lszq, at: lszq.labelAnchor.coordinate)
         XCTAssertEqual(allSubviews(of: plain).compactMap { ($0 as? UIButton)?.configuration?.title }, [L10n.VFRMap.reportError])

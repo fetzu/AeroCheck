@@ -1003,7 +1003,36 @@ enum VFRProcedureCallout {
         stack.spacing = 6
         stack.translatesAutoresizingMaskIntoConstraints = false
         stack.widthAnchor.constraint(lessThanOrEqualToConstant: 300).isActive = true
-        return stack
+
+        // MapKit ends the callout at its detail view's last baseline, and a stack's is the title of its
+        // last button, so the bottom of that button was cut off (14 pt of the 64 pt one in flight, the
+        // rounded corners at 44 pt). The container's last baseline is its bottom.
+        let container = CalloutDetailContainer(content: stack)
+        container.addSubview(stack)
+        NSLayoutConstraint.activate([
+            stack.topAnchor.constraint(equalTo: container.topAnchor),
+            stack.leadingAnchor.constraint(equalTo: container.leadingAnchor),
+            stack.trailingAnchor.constraint(equalTo: container.trailingAnchor),
+            stack.bottomAnchor.constraint(equalTo: container.bottomAnchor),
+        ])
+        return container
+    }
+
+    /// A callout's detail: hung from its content's first baseline, as the stack was, and ending at its
+    /// own bottom rather than at a button's title.
+    private final class CalloutDetailContainer: UIView {
+        private let content: UIView
+
+        init(content: UIView) {
+            self.content = content
+            super.init(frame: .zero)
+            translatesAutoresizingMaskIntoConstraints = false
+        }
+
+        required init?(coder: NSCoder) { nil }
+
+        override var forFirstBaselineLayout: UIView { content.forFirstBaselineLayout }
+        override var forLastBaselineLayout: UIView { self }
     }
 
     private static func captionLabel(_ text: String) -> UILabel {

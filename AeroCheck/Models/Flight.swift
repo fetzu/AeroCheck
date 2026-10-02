@@ -128,8 +128,9 @@ extension FlightClock {
         }
     }
 
-    /// DEV-ONLY: the replay's clock, nil for the wall clock.
-    nonisolated(unsafe) static var virtual: Virtual? = nil
+    /// DEV-ONLY: the replay's clock, nil for the wall clock. Read first from the launch environment
+    /// (`GroundReplay.clockAtLaunch`), so a replay's flight restored at launch never sees the wall clock.
+    nonisolated(unsafe) static var virtual: Virtual? = GroundReplay.clockAtLaunch()
     #endif
 }
 

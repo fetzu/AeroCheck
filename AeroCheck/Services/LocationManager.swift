@@ -123,6 +123,11 @@ class LocationManager: NSObject, ObservableObject {
     // Marketing mode flag - when true, ignores real GPS updates
     private var marketingModeActive: Bool = false
 
+    #if DEBUG
+    /// DEV-ONLY: a ground replay feeds the fixes (`feedReplayFix`); the device's own are ignored.
+    private var isReplaying = false
+    #endif
+
     // Dynamic distance filter: ground mode uses no filter for precise low-speed tracking,
     // flight mode uses 50m filter for battery efficiency
     private var isGroundMode: Bool = true
@@ -777,6 +782,19 @@ class LocationManager: NSObject, ObservableObject {
         processLocation(location, isOwnFix: false)
     }
 
+    #if DEBUG
+    /// DEV-ONLY (ground replays, `GroundReplay`): one fix of a recorded flight, through the device's own
+    /// path at the replay's clock, with its barometric altitude when the flight had one. From the first,
+    /// the device's own fixes are ignored. Nothing else is bypassed: no GPS status override, no
+    /// marketing mode.
+    func feedReplayFix(_ location: CLLocation, baroRelativeAltitudeM: Double? = nil) {
+        isReplaying = true
+        let now = FlightClock.now
+        if let baroRelativeAltitudeM { barometer.ingest(relativeAltitudeM: baroRelativeAltitudeM, at: now) }
+        processLocation(location, isOwnFix: true, now: now)
+    }
+    #endif
+
     /// The single GPS-processing pipeline, shared by real device fixes (`isOwnFix == true`) and
     /// borrowed companion fixes (`isOwnFix == false`). Updates the displayed location, smoothed
     /// instruments, signal quality, the recorded track and event detection, so a borrowed fix is
@@ -918,6 +936,9 @@ extension LocationManager: CLLocationManagerDelegate {
     nonisolated func locationManager(_ manager: CLLocationManager, didUpdateLocations locations: [CLLocation]) {
         guard let location = locations.last else { return }
         Task { @MainActor in
+            #if DEBUG
+            if self.isReplaying { return }
+            #endif
             self.processLocation(location, isOwnFix: true)
         }
     }

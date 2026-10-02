@@ -240,6 +240,10 @@ struct ContentView: View {
             // DEV-ONLY: auto-inject a marketing scene at launch for deterministic screenshot capture,
             // e.g. `SIMCTL_CHILD_AEROCHECK_SCENE=cruiseHUD xcrun simctl launch <dev> com.fetzu.aerocheck`.
             // Compiled out of release builds entirely (this whole block is #if DEBUG).
+            // A ground replay instead (`AEROCHECK_REPLAY`, GroundReplay.swift): never with a scene.
+            if GroundReplay.startIfRequested(appState: appState, locationManager: locationManager,
+                                             airportDataService: airportDataService,
+                                             flightPlanManager: flightPlanManager) { return }
             guard let key = ProcessInfo.processInfo.environment["AEROCHECK_SCENE"]?.lowercased() else { return }
             let scene: MarketingScene?
             switch key {

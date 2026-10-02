@@ -1,6 +1,186 @@
 {
   "sourceLanguage": "en",
   "strings": {
+    "Aerodrome procedures": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Procédures d’aérodrome"
+          }
+        }
+      }
+    },
+    "Traffic circuits": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tours de piste"
+          }
+        }
+      }
+    },
+    "Arrival & departure routes (with sectors)": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Routes d’arrivée et de départ (avec secteurs)"
+          }
+        }
+      }
+    },
+    "Glider, UL & helicopter circuits": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tours de piste planeurs, ULM et hélicoptères"
+          }
+        }
+      }
+    },
+    "From open flightmaps, for the countries in Data & Storage. Indicative only: always check the official chart.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Issues d’open flightmaps, pour les pays de Données et stockage. Indicatives seulement : vérifiez toujours la carte officielle."
+          }
+        }
+      }
+    },
+    "Download VFR procedures for %@ in Data & Storage": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Téléchargez les procédures VFR pour %@ dans Données et stockage"
+          }
+        }
+      }
+    },
+    "Circuits & VFR routes © open flightmaps · indicative": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tours de piste et routes VFR © open flightmaps · indicatif"
+          }
+        }
+      }
+    },
+    "Circuits & VFR routes © open flightmaps · AIRAC %@ · indicative": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tours de piste et routes VFR © open flightmaps · AIRAC %@ · indicatif"
+          }
+        }
+      }
+    },
+    "Traffic circuit": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tour de piste"
+          }
+        }
+      }
+    },
+    "VFR arrival": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Arrivée VFR"
+          }
+        }
+      }
+    },
+    "VFR departure": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Départ VFR"
+          }
+        }
+      }
+    },
+    "Sector": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Secteur"
+          }
+        }
+      }
+    },
+    "Noise abatement area": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Zone de moindre bruit"
+          }
+        }
+      }
+    },
+    "Alt: see chart": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Alt. : voir carte"
+          }
+        }
+      }
+    },
+    "Approximate shape": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tracé approximatif"
+          }
+        }
+      }
+    },
+    "open flightmaps · indicative, check the official chart": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "open flightmaps · indicatif, vérifiez la carte officielle"
+          }
+        }
+      }
+    },
+    "open flightmaps · AIRAC %@ · indicative, check the official chart": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "open flightmaps · AIRAC %@ · indicatif, vérifiez la carte officielle"
+          }
+        }
+      }
+    },
+    "Report an error": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Signaler une erreur"
+          }
+        }
+      }
+    },
     "VFR procedures (open flightmaps)": {
       "localizations": {
         "fr": {

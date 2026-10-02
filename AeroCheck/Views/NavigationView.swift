@@ -195,6 +195,8 @@ struct NavigationMapView: View {
     @ObservedObject private var openAIPNavaidDataService = OpenAIPNavaidDataService.shared
     @ObservedObject private var openAIPObstacleDataService = OpenAIPObstacleDataService.shared
     @ObservedObject private var openAIPReportingPointDataService = OpenAIPReportingPointDataService.shared
+    /// The aerodrome procedures (6.2.0): its `revision` redraws them when a download or the first load lands.
+    @ObservedObject private var vfrProcedureService = OFMDataService.shared
 
     /// True when the downloaded OpenAIP airspace data is aging/stale, or the developer "simulate stale
     /// data" toggle is on — drives the on-map staleness cue (v4.1.0 Data Freshness), so stale airspace
@@ -496,6 +498,8 @@ struct NavigationMapView: View {
         .onChange(of: appState.settings.showNavaidsOnMap) { _, _ in recomputeMapSpatialContent(force: true) }
         .onChange(of: appState.settings.showObstaclesOnMap) { _, _ in recomputeMapSpatialContent(force: true) }
         .onChange(of: appState.settings.showReportingPointsOnMap) { _, _ in recomputeMapSpatialContent(force: true) }
+        // The aerodrome procedures: their switches, their data, the palette and the plan's ends. (6.2.0)
+        .modifier(VFRLayerFollower(key: vfrLayerKey) { recomputeMapSpatialContent(force: true) })
         .onChange(of: appState.currentPhase) { _, _ in
             recomputePhaseFrequencies()
             appState.evaluateFreda(lastPassage: FredaWaypointPassage.latest(in: flightPlanManager.activeFlightPlan))
@@ -861,7 +865,7 @@ struct NavigationMapView: View {
             }
         }
         .sheet(isPresented: $showMapSheet) {
-            MapSheet(selectedLayer: $selectedLayer, isOfflineMode: isOfflineMode)
+            MapSheet(selectedLayer: $selectedLayer, isOfflineMode: isOfflineMode, mapCenter: mapState.region.center)
                 .environment(appState)
                 .environment(\.cockpitTheme, theme)
                 .environmentObject(openAIPDataService)
@@ -1076,7 +1080,16 @@ struct NavigationMapView: View {
     @State private var visibleReportingPoints: [ReportingPoint] = []
     @State private var airportFrequencyLines: [String: String] = [:]
     @State private var visibleAirspacePolygons: [AirspacePolygon] = []
+    /// The traffic circuits, VFR routes and sectors drawn for the region. (6.2.0)
+    @State private var vfrContent: VFRMapContent = .empty()
     @State private var lastSpatialRegion: MKCoordinateRegion?
+
+    /// What redraws the aerodrome procedures besides the region. (6.2.0)
+    private var vfrLayerKey: VFRLayerFollower.Key {
+        VFRLayerFollower.Key(selection: VFRLayerSelection(settings: appState.settings),
+                             revision: vfrProcedureService.revision, palette: VFRMapPalette(theme: theme),
+                             firstAerodromes: VFRMapDensity.endpointAerodromes(of: flightPlanManager.activeFlightPlan))
+    }
 
     /// Region-quantization threshold (degrees) below which a region change skips re-querying. (PR-11)
     private static let spatialRequeryThresholdDegrees: Double = 0.01
@@ -1185,6 +1198,25 @@ struct NavigationMapView: View {
         } else {
             visibleAirspacePolygons = []
         }
+
+        recomputeVFRContent(region: region)
+    }
+
+    /// The aerodrome procedures for `region`: nothing past 40 NM across, labels within 20 NM, at most 80,
+    /// the flight's destination and departure first (`VFRMapContent.make`). (6.2.0)
+    private func recomputeVFRContent(region: MKCoordinateRegion) {
+        let palette = VFRMapPalette(theme: theme)
+        let selection = VFRLayerSelection(settings: appState.settings)
+        let service = OFMDataService.shared
+        guard selection.isAnyOn, service.isLoaded, VFRMapDensity.showsProcedures(in: region) else {
+            vfrContent = .empty(palette)
+            return
+        }
+        vfrContent = VFRMapContent.make(
+            candidates: service.procedures(in: region), region: region, selection: selection, palette: palette,
+            firstAerodromes: VFRMapDensity.endpointAerodromes(of: flightPlanManager.activeFlightPlan),
+            fieldPosition: { airportDataService.findAirport(byIdent: $0)?.coordinate },
+            cycle: { (service.cycles[$0]?.airac, service.region(forCountry: $0)) })
     }
 
     /// Pick the most relevant frequency from a list (TWR > ATIS > APP > first available)
@@ -1237,6 +1269,7 @@ struct NavigationMapView: View {
                 visibleReportingPoints: visibleReportingPoints,
                 airportFrequencyLines: airportFrequencyLines,
                 cachedHeading: locationManager.currentCourseDegrees,
+                vfrContent: vfrContent,
                 onWaypointATOTap: { index in
                     flightPlanManager.recordATO(forWaypointAt: index)
                 },
@@ -1265,6 +1298,7 @@ struct NavigationMapView: View {
                 airspacePolygons: visibleAirspacePolygons,
                 trackVectorOverlays: trackVectorOverlays,
                 trackVectorEnabled: appState.settings.showTrackVector,
+                vfrContent: vfrContent,
                 onWaypointATOTap: { index in
                     flightPlanManager.recordATO(forWaypointAt: index)
                 },
@@ -1733,7 +1767,7 @@ struct NavigationMapView: View {
             mapControls(withZoom: false, orientationSegments: false)
         }
         .sheet(isPresented: $showMapSheet) {
-            MapSheet(selectedLayer: $selectedLayer, isOfflineMode: isOfflineMode)
+            MapSheet(selectedLayer: $selectedLayer, isOfflineMode: isOfflineMode, mapCenter: mapState.region.center)
                 .environment(appState)
                 .environment(\.cockpitTheme, theme)
                 .environmentObject(openAIPDataService)
@@ -3299,6 +3333,7 @@ struct NativeMapViewUIKit: UIViewRepresentable {
     var airspacePolygons: [AirspacePolygon] = []  // Airspace overlays to display
     var trackVectorOverlays: [MKPolyline] = []  // Ground-track trend vector (line + ticks)
     var trackVectorEnabled: Bool = false  // Keep a valid vector across transient empties; remove only when off
+    var vfrContent: VFRMapContent = .empty()  // Traffic circuits, VFR routes and sectors (6.2.0)
     var onWaypointATOTap: ((Int) -> Void)?  // Callback when user taps/long-presses a waypoint to set ATO
     var onAirportDivert: ((String) -> Void)?  // "Divert here" from an airport callout (v5.1)
 
@@ -3437,6 +3472,10 @@ struct NativeMapViewUIKit: UIViewRepresentable {
 
         // Update flight plan overlay
         updateFlightPlanOverlay(mapView, context: context)
+
+        // Traffic circuits, VFR routes and sectors, under the route: nothing while the content is the
+        // one drawn, which is every GPS tick. (6.2.0)
+        VFRMapLayer.sync(vfrContent, on: mapView, state: context.coordinator.vfrLayer)
 
         // Update airport annotations
         updateAirportAnnotations(mapView, context: context)
@@ -3660,6 +3699,8 @@ struct NativeMapViewUIKit: UIViewRepresentable {
         var lastFlightPlanSignature: String?
         /// `ReportingPointAnnotation.labelRevision` the markers were labelled at. (6.0.1)
         var reportingPointLabelRevision = -1
+        /// The aerodrome procedures drawn, and their palette. (6.2.0)
+        let vfrLayer = VFRMapLayer.State()
 
         init(_ parent: NativeMapViewUIKit) {
             self.parent = parent
@@ -3697,6 +3738,12 @@ struct NativeMapViewUIKit: UIViewRepresentable {
             // OpenAIP tile overlay
             if let tileOverlay = overlay as? OpenAIPTileOverlay {
                 return MKTileOverlayRenderer(tileOverlay: tileOverlay)
+            }
+
+            // Traffic circuits, VFR routes and sectors: their own classes, before the generic MKPolyline
+            // branch below, which would draw them as the flown track. (6.2.0)
+            if let renderer = VFRMapLayer.renderer(for: overlay, palette: vfrLayer.palette) {
+                return renderer
             }
 
             // Airspace polygon overlay
@@ -3768,6 +3815,11 @@ struct NativeMapViewUIKit: UIViewRepresentable {
             // Handle airport annotation
             if let airportAnnotation = annotation as? AirportAnnotation {
                 return createAirportAnnotationView(mapView, annotation: airportAnnotation)
+            }
+
+            // A traffic circuit's altitude or a VFR route's name, and its callout. (6.2.0)
+            if let label = VFRMapLayer.annotationView(for: annotation, on: mapView, palette: vfrLayer.palette) {
+                return label
             }
 
             // Handle navaid annotation (v4.1.0)
@@ -4065,6 +4117,8 @@ struct MapSheet: View {
     @EnvironmentObject var offlineMapManager: OfflineMapManager
     @Binding var selectedLayer: MapLayerType
     let isOfflineMode: Bool
+    /// Where the map is, for the aerodrome procedures' missing-data hint. (6.2.0)
+    var mapCenter: CLLocationCoordinate2D? = nil
     @State private var showCacheInfo = false
 
     /// Aeronautical first: the chart a VFR pilot navigates on, then the swisstopo maps, then Apple's.
@@ -4076,7 +4130,8 @@ struct MapSheet: View {
                 VStack(spacing: 20) {
                     baseChartSection
                     presetsSection
-                    OverlaysSections()
+                    OverlaysSections(mapCenter: mapCenter)
+                    MapDataCredits()
                 }
                 .padding(.vertical, 16)
             }
@@ -4228,12 +4283,16 @@ struct MapSheet: View {
 
 /// What the map shows for a phase of flight, in one tap. Airspace is on in every preset: it is the
 /// layer that keeps a VFR flight legal. (v6.0 · P3)
+///
+/// Approach and Everything also show the aerodrome procedures (traffic circuits, VFR routes and
+/// sectors); Cruise doesn't. The glider, UL and helicopter circuits are left as the pilot set them: an
+/// opt-in no preset turns on. (6.2.0)
 enum MapPreset: CaseIterable {
     /// Airspace and reporting points: what to avoid and where to call.
     case cruise
-    /// Adds the airports and the obstacles around them.
+    /// Adds the airports, the obstacles around them, and their circuits and VFR routes.
     case approach
-    /// Every marker.
+    /// Every marker, and the circuits and VFR routes.
     case everything
 
     var title: String {
@@ -4244,12 +4303,13 @@ enum MapPreset: CaseIterable {
         }
     }
 
-    /// airspace, airports, navaids, reporting points, obstacles
-    private var flags: (airspace: Bool, airports: Bool, navaids: Bool, reportingPoints: Bool, obstacles: Bool) {
+    /// airspace, airports, navaids, reporting points, obstacles, traffic circuits, VFR routes
+    private var flags: (airspace: Bool, airports: Bool, navaids: Bool, reportingPoints: Bool, obstacles: Bool,
+                        circuits: Bool, vfrRoutes: Bool) {
         switch self {
-        case .cruise: return (true, false, false, true, false)
-        case .approach: return (true, true, false, true, true)
-        case .everything: return (true, true, true, true, true)
+        case .cruise: return (true, false, false, true, false, false, false)
+        case .approach: return (true, true, false, true, true, true, true)
+        case .everything: return (true, true, true, true, true, true, true)
         }
     }
 
@@ -4260,6 +4320,8 @@ enum MapPreset: CaseIterable {
         settings.showNavaidsOnMap = f.navaids
         settings.showReportingPointsOnMap = f.reportingPoints
         settings.showObstaclesOnMap = f.obstacles
+        settings.showVFRCircuitsOnMap = f.circuits
+        settings.showVFRRoutesOnMap = f.vfrRoutes
     }
 
     func matches(_ settings: AppSettings) -> Bool {
@@ -4269,6 +4331,8 @@ enum MapPreset: CaseIterable {
             && settings.showNavaidsOnMap == f.navaids
             && settings.showReportingPointsOnMap == f.reportingPoints
             && settings.showObstaclesOnMap == f.obstacles
+            && settings.showVFRCircuitsOnMap == f.circuits
+            && settings.showVFRRoutesOnMap == f.vfrRoutes
     }
 }
 
@@ -4282,8 +4346,11 @@ struct OverlaysSections: View {
     @ObservedObject private var obstacleService = OpenAIPObstacleDataService.shared
     @ObservedObject private var reportingPointService = OpenAIPReportingPointDataService.shared
     @ObservedObject private var vfrProcedureService = OFMDataService.shared
-    /// Presents Settings at Navigation & Maps for the no-data download flow. (v4.2 UX fix)
-    @State private var showDataSettings = false
+    /// Where the map is: the aerodrome procedures' hint names the country there when its data is missing.
+    var mapCenter: CLLocationCoordinate2D? = nil
+    /// Settings, opened at Navigation & Maps for the no-data download flow (v4.2 UX fix), or at Data &
+    /// Storage for the VFR procedures (6.2.0).
+    @State private var settingsSection: SettingsView.Section?
 
     private var anyMarkerOn: Bool {
         appState.settings.showAirportsOnMap || appState.settings.showNavaidsOnMap ||
@@ -4332,7 +4399,7 @@ struct OverlaysSections: View {
                                 .fixedSize(horizontal: false, vertical: true)
                         }
                         Button {
-                            showDataSettings = true
+                            settingsSection = .navigation
                         } label: {
                             Text(L10n.Nav.downloadAirspaceData)
                                 .font(.aero(.caption).weight(.semibold))
@@ -4384,17 +4451,74 @@ struct OverlaysSections: View {
                 .padding(.horizontal, 16)
             }
 
+            aerodromeProceduresCard
+
             groupCard(L10n.Nav.flightSection) {
                 toggleRow(icon: "location.north.line", title: L10n.Nav.trackVector, isOn: appState.settings.showTrackVector) {
                     appState.settings.showTrackVector.toggle(); appState.saveSettings()
                 }
             }
         }
-        .sheet(isPresented: $showDataSettings) {
-            // Settings opened at Navigation & Maps (same deep-link mechanism as Home's data chip),
-            // where country selection + the download flow live. (v4.2 UX fix)
-            SettingsView(initialSection: .navigation)
+        .sheet(item: $settingsSection) { section in
+            // Settings opened at a section (same deep-link mechanism as Home's data chip): Navigation &
+            // Maps, where country selection + the download flow live (v4.2 UX fix), or Data & Storage.
+            SettingsView(initialSection: section)
         }
+    }
+
+    // MARK: Aerodrome procedures (6.2.0)
+
+    /// Traffic circuits, VFR arrival and departure routes with their sectors, and the glider, UL and
+    /// helicopter circuits, from open flightmaps. All off by default; Approach and Everything turn the
+    /// first two on.
+    private var aerodromeProceduresCard: some View {
+        groupCard(L10n.VFRMap.aerodromeProcedures) {
+            toggleRow(icon: "arrow.triangle.capsulepath", title: L10n.VFRMap.showCircuits,
+                      isOn: appState.settings.showVFRCircuitsOnMap) {
+                appState.settings.showVFRCircuitsOnMap.toggle(); appState.saveSettings()
+            }
+            Divider().padding(.leading, 56)
+            toggleRow(icon: "arrow.triangle.merge", title: L10n.VFRMap.showRoutes,
+                      isOn: appState.settings.showVFRRoutesOnMap) {
+                appState.settings.showVFRRoutesOnMap.toggle(); appState.saveSettings()
+            }
+            Divider().padding(.leading, 56)
+            toggleRow(icon: "wind", title: L10n.VFRMap.showNonPowered,
+                      isOn: appState.settings.showNonPoweredCircuitsOnMap) {
+                appState.settings.showNonPoweredCircuitsOnMap.toggle(); appState.saveSettings()
+            }
+            if let country = vfrCountryWithoutData {
+                Divider().padding(.leading, 56)
+                Button { settingsSection = .dataStorage } label: {
+                    HStack(alignment: .firstTextBaseline, spacing: 8) {
+                        Image(systemName: "arrow.down.circle")
+                            .foregroundColor(theme.action)
+                            .accessibilityHidden(true)
+                        Text(L10n.VFRMap.downloadHint(country))
+                            .font(.aero(size: 15))
+                            .foregroundColor(theme.textSecondary)
+                            .fixedSize(horizontal: false, vertical: true)
+                        Spacer(minLength: 0)
+                    }
+                    .padding(.horizontal, 16)
+                    .frame(minHeight: 48)
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+            }
+        }
+    }
+
+    /// The country under the map when a procedures switch is on, open flightmaps publishes it, and none
+    /// of it is on this device: what the hint asks to download.
+    private var vfrCountryWithoutData: String? {
+        guard VFRLayerSelection(settings: appState.settings).isAnyOn, let mapCenter,
+              !vfrProcedureService.isDownloading else { return nil }
+        let supported = Set(vfrProcedureService.supportedCountries)
+        let downloaded = Set(vfrProcedureService.downloadedCountries)
+        return CountryBoundaries.shared.countries(near: mapCenter, bufferNm: 0)
+            .filter { supported.contains($0) && !downloaded.contains($0) }
+            .sorted().first
     }
 
     private func setAllMarkers(_ on: Bool) {
@@ -4511,6 +4635,31 @@ struct OverlaysSections: View {
     }
 }
 
+/// The Map sheet's credits: open flightmaps for the circuits and VFR routes, with the cycle on disk,
+/// and OpenAIP for the airspace and the markers. (6.2.0; the README said the sheet credited OpenAIP, and
+/// it didn't.)
+struct MapDataCredits: View {
+    @Environment(\.cockpitTheme) private var theme
+    @ObservedObject private var vfrProcedureService = OFMDataService.shared
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text(VFRMapStrings.credit(cycles: vfrProcedureService.cycles.values.map(\.airac)))
+            if let attributed = try? AttributedString(markdown: L10n.DataStorage.openAIPAttribution) {
+                Text(attributed)
+            } else {
+                Text(L10n.DataStorage.openAIPAttribution)
+            }
+        }
+        .font(.aero(size: 13))
+        .foregroundColor(theme.textSecondary)
+        .tint(theme.action)
+        .fixedSize(horizontal: false, vertical: true)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(.horizontal, 20)
+    }
+}
+
 // MARK: - Swiss Map View (UIKit Wrapper)
 
 struct SwissMapView: UIViewRepresentable {
@@ -4538,6 +4687,7 @@ struct SwissMapView: UIViewRepresentable {
     var visibleReportingPoints: [ReportingPoint] = []  // VFR reporting points to display on map (v4.1.0)
     var airportFrequencyLines: [String: String] = [:]  // ICAO -> all frequencies (newline-separated)
     var cachedHeading: Double?  // Cached course from LocationManager (survives GPS gaps)
+    var vfrContent: VFRMapContent = .empty()  // Traffic circuits, VFR routes and sectors (6.2.0)
     var onWaypointATOTap: ((Int) -> Void)?  // Callback when user taps/long-presses a waypoint to set ATO
     var onAirportDivert: ((String) -> Void)?  // "Divert here" from an airport callout (v5.1)
 
@@ -4853,12 +5003,7 @@ struct SwissMapView: UIViewRepresentable {
 
         // When layer changes, force-refresh track overlay so the renderer uses the correct color
         if overlayChanged {
-            let existingTrackPolylines = mapView.overlays.compactMap { overlay -> MKPolyline? in
-                // Exclude the track vector too — a Swiss layer switch must not strip it. (v4 UI/UX Revamp fix)
-                if overlay is FlightPlanRoutePolyline || overlay is MKTileOverlay || overlay is TrackVectorPolyline { return nil }
-                return overlay as? MKPolyline
-            }
-            mapView.removeOverlays(existingTrackPolylines)
+            Self.removeTrackForRecolour(on: mapView)
         }
 
         // Update track overlay
@@ -4866,6 +5011,10 @@ struct SwissMapView: UIViewRepresentable {
 
         // Update flight plan overlay
         updateFlightPlanOverlay(mapView, context: context)
+
+        // Traffic circuits, VFR routes and sectors, under the route: nothing while the content is the
+        // one drawn, which is every GPS tick. (6.2.0)
+        VFRMapLayer.sync(vfrContent, on: mapView, state: context.coordinator.vfrLayer)
 
         // Update airport annotations
         updateAirportAnnotations(mapView, context: context)
@@ -4893,6 +5042,14 @@ struct SwissMapView: UIViewRepresentable {
             let annotation = AirportAnnotation(airport: airport, frequencyLines: airportFrequencyLines[airport.ident])
             mapView.addAnnotation(annotation)
         }
+    }
+
+    /// A layer switch takes the flown track off, so it comes back in the colour of the new layer (magenta
+    /// on the ICAO chart). Only the track: this removed every `MKPolyline` but the route, the tiles and
+    /// the track vector, which would have taken the aerodrome procedures with it. (6.2.0)
+    static func removeTrackForRecolour(on mapView: MKMapView) {
+        let track = mapView.overlays.filter { $0 is GPSTrackPolyline }
+        if !track.isEmpty { mapView.removeOverlays(track) }
     }
 
     private func updateNavaidAnnotations(_ mapView: MKMapView, context: Context) {
@@ -5109,6 +5266,8 @@ struct SwissMapView: UIViewRepresentable {
         var hasSegelflugCache: Bool = false
         private var isUpdatingRegion = false
         var isUserInteracting = false
+        /// The aerodrome procedures drawn, and their palette. (6.2.0)
+        let vfrLayer = VFRMapLayer.State()
 
         init(_ parent: SwissMapView) {
             self.parent = parent
@@ -5189,6 +5348,12 @@ struct SwissMapView: UIViewRepresentable {
         }
 
         func mapView(_ mapView: MKMapView, rendererFor overlay: MKOverlay) -> MKOverlayRenderer {
+            // Traffic circuits, VFR routes and sectors: their own classes, before the generic MKPolyline
+            // branch below, which would draw them in the flown track's colour. (6.2.0)
+            if let renderer = VFRMapLayer.renderer(for: overlay, palette: vfrLayer.palette) {
+                return renderer
+            }
+
             // Airspace polygon overlay (check before generic MKTileOverlay)
             if let airspacePolygon = overlay as? AirspacePolygon {
                 let renderer = MKPolygonRenderer(polygon: airspacePolygon)
@@ -5271,6 +5436,11 @@ struct SwissMapView: UIViewRepresentable {
             // Handle airport annotation
             if let airportAnnotation = annotation as? AirportAnnotation {
                 return createAirportAnnotationView(mapView, annotation: airportAnnotation)
+            }
+
+            // A traffic circuit's altitude or a VFR route's name, and its callout. (6.2.0)
+            if let label = VFRMapLayer.annotationView(for: annotation, on: mapView, palette: vfrLayer.palette) {
+                return label
             }
 
             // Handle navaid annotation (v4.1.0)
@@ -6071,6 +6241,38 @@ private struct FlightEventOverlayUnlessEmbedded: ViewModifier {
         } else {
             content.flightEventConfirmationOverlay(detector: detector, appState: appState)
         }
+    }
+}
+
+/// Redraws the aerodrome procedures when what they depend on changes, other than the region: the three
+/// switches, the data (a download, the first load), the palette, the plan's ends (drawn first). Loads
+/// the data when a switch is on. One modifier rather than five `onChange`s on the map's long body.
+/// (6.2.0)
+struct VFRLayerFollower: ViewModifier {
+    struct Key: Equatable {
+        let selection: VFRLayerSelection
+        let revision: Int
+        let palette: VFRMapPalette
+        let firstAerodromes: [String]
+    }
+
+    let key: Key
+    let onChange: () -> Void
+
+    func body(content: Content) -> some View {
+        content
+            .onAppear { loadIfNeeded(key.selection) }
+            .onChange(of: key) { _, new in
+                loadIfNeeded(new.selection)
+                onChange()
+            }
+    }
+
+    /// The procedures are decoded on demand, the first time a layer needs them: never at launch with
+    /// every switch off.
+    private func loadIfNeeded(_ selection: VFRLayerSelection) {
+        guard selection.isAnyOn, !OFMDataService.shared.isLoaded else { return }
+        Task { await OFMDataService.shared.ensureLoaded() }
     }
 }
 

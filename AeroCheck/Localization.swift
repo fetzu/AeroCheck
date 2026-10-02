@@ -2376,6 +2376,38 @@ enum L10n {
         }
     }
 
+    /// Aerodrome procedures from open flightmaps on the maps: the switches, the labels, the callout and
+    /// the credit. (6.2.0)
+    enum VFRMap {
+        static let aerodromeProcedures = String(localized: "Aerodrome procedures")
+        static let showCircuits = String(localized: "Traffic circuits")
+        static let showRoutes = String(localized: "Arrival & departure routes (with sectors)")
+        static let showNonPowered = String(localized: "Glider, UL & helicopter circuits")
+        /// Navigation & Maps, under the three switches.
+        static let settingsFooter = String(localized: "From open flightmaps, for the countries in Data & Storage. Indicative only: always check the official chart.")
+        /// The Map sheet, when a switch is on and the country under the map has none downloaded.
+        static func downloadHint(_ country: String) -> String {
+            String(localized: "Download VFR procedures for \(country) in Data & Storage")
+        }
+        static let credit = String(localized: "Circuits & VFR routes © open flightmaps · indicative")
+        static func creditWithCycle(_ airac: String) -> String {
+            String(localized: "Circuits & VFR routes © open flightmaps · AIRAC \(airac) · indicative")
+        }
+        static let trafficCircuit = String(localized: "Traffic circuit")
+        static let arrival = String(localized: "VFR arrival")
+        static let departure = String(localized: "VFR departure")
+        static let sector = String(localized: "Sector")
+        static let noiseArea = String(localized: "Noise abatement area")
+        /// A circuit's label when open flightmaps has no usable altitude for it.
+        static let altitudeSeeChart = String(localized: "Alt: see chart")
+        static let approximateShape = String(localized: "Approximate shape")
+        static let source = String(localized: "open flightmaps · indicative, check the official chart")
+        static func sourceWithCycle(_ airac: String) -> String {
+            String(localized: "open flightmaps · AIRAC \(airac) · indicative, check the official chart")
+        }
+        static let reportError = String(localized: "Report an error")
+    }
+
     enum Nav {
         static let sigmetOverhead = String(localized: "nav.sigmet.overhead")
         static let sigmetOnRoute = String(localized: "nav.sigmet.onRoute")

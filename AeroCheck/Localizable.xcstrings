@@ -7806,6 +7806,57 @@
         }
       }
     },
+    "trip.cancelThisLeg": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cancel this leg"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Annuler cette étape"
+          }
+        }
+      }
+    },
+    "trip.cancelWholeTrip": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cancel whole trip (%lld legs)"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Annuler tout le voyage (%lld étapes)"
+          }
+        }
+      }
+    },
+    "trip.cancelWholeTripOneLeg": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cancel whole trip (1 leg)"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Annuler tout le voyage (1 étape)"
+          }
+        }
+      }
+    },
     "trip.cancelConfirm.title": {
       "extractionState": "manual",
       "localizations": {

@@ -644,7 +644,6 @@ struct FlightThreadView: View {
             .background(Color.panelBackground)
 
             legStrip(trip, current: leg)
-            cancelTripRow(trip, leg: leg)
             stopoverLine(leg, in: trip)
 
             ForEach(tasks) { task in
@@ -767,40 +766,33 @@ struct FlightThreadView: View {
         }
     }
 
-    /// "Cancel trip", under the legs it names: every leg not flown yet goes, each as "Cancel flight"
-    /// takes one (`FlightCreator.cancelTrip`). Offered while a leg is left to cancel and none is in
-    /// the air (`FlightThreadManager.canCancel`). Quiet red text, as "Cancel flight" at the foot of
-    /// the page, and it asks first, naming the legs that go. (6.1)
-    @ViewBuilder
-    private func cancelTripRow(_ trip: Trip, leg: FlightThread) -> some View {
-        if FlightThreadManager.canCancel(trip, threads: threadManager.threads, flyingPlanId: flyingPlanId) {
-            HStack {
-                Spacer(minLength: 0)
-                Button(role: .destructive) {
-                    confirmingTripCancel = true
-                } label: {
-                    HStack(spacing: 5) {
-                        Image(systemName: "xmark.circle")
-                            .scaledFont(size: 12, weight: .semibold, relativeTo: .footnote)
-                            .accessibilityHidden(true)
-                        Text(L10n.Trip.cancelTrip)
-                            .scaledFont(size: 13, relativeTo: .footnote)
-                    }
-                    .foregroundColor(.aviationRed.opacity(0.9))
-                    .frame(minHeight: 44)
-                    .contentShape(Rectangle())
-                }
-                .buttonStyle(.plain)
-                .confirmationDialog(L10n.Trip.cancelConfirmTitle, isPresented: $confirmingTripCancel,
-                                    titleVisibility: .visible) {
-                    Button(L10n.Trip.cancelTrip, role: .destructive) { cancelTrip(trip.id, from: leg) }
-                    Button(L10n.Trip.keepTrip, role: .cancel) { }
-                } message: {
-                    Text(cancelTripMessage(trip))
-                }
-            }
-            .padding(.horizontal, 14)
+    /// "Cancel whole trip (n legs)", beside "Cancel this leg" at the foot of the page: every leg not
+    /// flown yet goes, each as "Cancel this leg" takes one (`FlightCreator.cancelTrip`). Offered while
+    /// a leg is left to cancel and none is in the air (`FlightThreadManager.canCancel`), and only when
+    /// it takes more than this leg. It sat under the leg strip, where it read as this leg's own
+    /// cancel (6.1.0 device check): both now sit at the foot, each naming what it takes, and the one
+    /// at the foot that every flight has still takes the one leg. It asks first, naming the legs. (6.1)
+    private func tripLegsToCancel(_ thread: FlightThread) -> (trip: Trip, legs: [FlightThread])? {
+        guard let trip = threadManager.trip(forThreadId: thread.id),
+              FlightThreadManager.canCancel(trip, threads: threadManager.threads, flyingPlanId: flyingPlanId)
+        else { return nil }
+        let legs = FlightThreadManager.legsToCancel(in: trip, threads: threadManager.threads,
+                                                    flyingPlanId: flyingPlanId)
+        guard legs.map(\.id) != [thread.id] else { return nil }
+        return (trip, legs)
+    }
+
+    /// Quiet red text, as the leg's own cancel beside it.
+    private func cancelButton(_ title: String, action: @escaping () -> Void) -> some View {
+        Button(role: .destructive, action: action) {
+            Text(title)
+                .scaledFont(size: 13, relativeTo: .footnote)
+                .foregroundColor(.aviationRed.opacity(0.9))
+                .multilineTextAlignment(.center)
+                .frame(minHeight: 44)
+                .contentShape(Rectangle())
         }
+        .buttonStyle(.plain)
     }
 
     /// The legs that go, one a line ("Leg 2 · LSGE → LSGN", numbered as the strip numbers them), and
@@ -1300,24 +1292,45 @@ struct FlightThreadView: View {
             }
             // Asks first: the page, its tasks and the route copied for it go for good, and one tap
             // did it, the only delete on the ground screens without a question. (v6.0 review, B4)
-            Button(role: .destructive) {
-                confirmingCancel = true
-            } label: {
-                Text(L10n.Thread.deleteThread)
-                    .scaledFont(size: 13, relativeTo: .footnote)
-                    .foregroundColor(.aviationRed.opacity(0.9))
-                    .frame(minHeight: 44)
+            // A leg of a trip says it is the leg, beside the whole trip's cancel. (6.1.0)
+            let inTrip = threadManager.trip(forThreadId: thread.id) != nil
+            let legTitle = inTrip ? L10n.Trip.cancelThisLeg : L10n.Thread.deleteThread
+            let tripCancel = tripLegsToCancel(thread)
+            ViewThatFits(in: .horizontal) {
+                HStack(spacing: 28) { cancelButtons(thread, legTitle: legTitle, trip: tripCancel) }
+                VStack(spacing: 0) { cancelButtons(thread, legTitle: legTitle, trip: tripCancel) }
             }
-            .buttonStyle(.plain)
             .confirmationDialog(L10n.Thread.cancelConfirmTitle, isPresented: $confirmingCancel,
                                 titleVisibility: .visible) {
-                Button(L10n.Thread.deleteThread, role: .destructive) { cancelFlight(thread) }
+                Button(legTitle, role: .destructive) { cancelFlight(thread) }
                 Button(L10n.Thread.keepFlight, role: .cancel) { }
             } message: {
                 Text(L10n.Thread.cancelConfirmMessage)
             }
+            .background {
+                // On a view of its own: two dialogs on one view, and only one of them presents.
+                Color.clear
+                    .confirmationDialog(L10n.Trip.cancelConfirmTitle, isPresented: $confirmingTripCancel,
+                                        titleVisibility: .visible) {
+                        if let tripCancel {
+                            Button(L10n.Trip.cancelTrip, role: .destructive) { cancelTrip(tripCancel.trip.id, from: thread) }
+                        }
+                        Button(L10n.Trip.keepTrip, role: .cancel) { }
+                    } message: {
+                        if let tripCancel { Text(cancelTripMessage(tripCancel.trip)) }
+                    }
+            }
         }
         .padding(.top, 4)
+    }
+
+    @ViewBuilder
+    private func cancelButtons(_ thread: FlightThread, legTitle: String,
+                               trip: (trip: Trip, legs: [FlightThread])?) -> some View {
+        cancelButton(legTitle) { confirmingCancel = true }
+        if let trip {
+            cancelButton(L10n.Trip.cancelWholeTrip(legs: trip.legs.count)) { confirmingTripCancel = true }
+        }
     }
 
     private func cancelFlight(_ thread: FlightThread) {

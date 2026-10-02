@@ -531,4 +531,23 @@ final class CompanionLinkTests: XCTestCase {
                                           "sends failing", "the connection closed", "idle 10 min with no flight",
                                           "the device was forgotten"])
     }
+
+    // MARK: - A listener restart waits for the old one (6.1.0)
+
+    func testARestartWaitsForTheOldListenerToEnd() async {
+        let quick = Task<Void, any Error> { try await Task.sleep(for: .milliseconds(200)) }
+        let start = ContinuousClock.now
+        let ended = await CompanionConnectivityManager.waitForEnd(of: quick, upTo: .seconds(3))
+        XCTAssertTrue(ended)
+        XCTAssertLessThan(ContinuousClock.now - start, .seconds(2), "no longer than the old listener takes")
+    }
+
+    func testARestartDoesNotWaitForeverForAListenerThatHangs() async {
+        let hung = Task<Void, any Error> { try? await Task.sleep(for: .seconds(60)) }
+        defer { hung.cancel() }
+        let start = ContinuousClock.now
+        let ended = await CompanionConnectivityManager.waitForEnd(of: hung, upTo: .milliseconds(500))
+        XCTAssertFalse(ended)
+        XCTAssertLessThan(ContinuousClock.now - start, .seconds(2), "the limit holds")
+    }
 }

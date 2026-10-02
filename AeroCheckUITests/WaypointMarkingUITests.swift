@@ -107,7 +107,9 @@ final class WaypointMarkingUITests: XCTestCase {
         pilot.shot("undo-3", "taken-back")
 
         // undo-5: killed and relaunched: "Flight Restored", the taken-back waypoint still not marked, and
-        // the replay goes on where it was.
+        // the replay goes on where it was. Killed a few seconds after the UNDO, not within the second:
+        // the plan is written to the defaults as a pilot's would be.
+        Thread.sleep(forTimeInterval: 3)
         pilot.terminate()
         pilot.launch(resume: true)
         let restored = pilot.element("cockpit.menu").waitForExistence(timeout: 30)

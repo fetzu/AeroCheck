@@ -17,7 +17,8 @@ import Foundation
 //   further hold the scenario names (at the holding point until LINE UP, say), re-sending the fix
 //   about once a virtual second, so the UI test sets the pace of the ground work.
 // - The aerodromes come with the scenario (a fresh simulator has none), and so does the route, armed
-//   as a pilot arms one, so START FLIGHT flies it.
+//   as a pilot arms one, so START FLIGHT flies it: a route, or with `planned` a flight planned for today
+//   (its own copy of the route, followed by a flight thread, as Plan new flight makes it).
 //
 // Launched by the environment (`ContentView`'s DEBUG task):
 //   AEROCHECK_REPLAY=<path of the scenario JSON>   AEROCHECK_REPLAY_SPEED=10
@@ -63,6 +64,9 @@ struct GroundReplayScenario: Decodable {
         let waypoints: [RoutePoint]
         /// The planned departure, minutes after the replay starts.
         let departureInMinutes: Double?
+        /// A flight planned for today on the route (Plan new flight), rather than the route alone, which
+        /// has no date (a route's departure time is swept at launch).
+        let planned: Bool?
     }
 
     let name: String
@@ -271,11 +275,13 @@ final class GroundReplay {
     }
 
     /// Starts the replay `AEROCHECK_REPLAY` names, if any: true when it did. A fresh replay abandons a
-    /// flight left over from an earlier run and any route armed, and arms the scenario's own.
+    /// flight left over from an earlier run and any route armed, and arms the scenario's own once the
+    /// plans and the flights have loaded.
     @discardableResult
     static func startIfRequested(appState: AppState, locationManager: LocationManager,
                                  airportDataService: AirportDataService,
-                                 flightPlanManager: FlightPlanManager) -> Bool {
+                                 flightPlanManager: FlightPlanManager,
+                                 threadManager: FlightThreadManager) async -> Bool {
         guard current == nil, let path = environment["AEROCHECK_REPLAY"], !path.isEmpty,
               FlightClock.virtual != nil else { return false }
         let scenario: GroundReplayScenario
@@ -317,7 +323,6 @@ final class GroundReplay {
                 flightPlanManager.abandonFlownPlan(of: leftOver)
             }
             if flightPlanManager.activeFlightPlan != nil { flightPlanManager.deactivateFlightPlan() }
-            if let route = scenario.route { arm(route, name: scenario.name, in: flightPlanManager) }
         }
 
         let replay = GroundReplay(path: path, scenario: scenario, fixes: fixes, cursor: cursor,
@@ -327,6 +332,17 @@ final class GroundReplay {
         locationManager.startLocationUpdates()
         replay.start()
         AppLog.general.debugLine("Ground replay: \(scenario.name), \(fixes.count) fixes, x\(FlightClock.virtual?.rate ?? 1)")
+
+        // The route, once the stores have loaded (an earlier write would be overwritten by the load).
+        guard resumed?.scenarioPath != path, let route = scenario.route else { return true }
+        for _ in 0..<100 where !(threadManager.hasLoadedThreads && flightPlanManager.hasLoadedPlans) {
+            try? await Task.sleep(nanoseconds: 100_000_000)
+        }
+        if route.planned == true {
+            await armPlannedFlight(route, name: scenario.name, plans: flightPlanManager, threads: threadManager)
+        } else {
+            arm(route, name: scenario.name, in: flightPlanManager)
+        }
         return true
     }
 
@@ -341,9 +357,32 @@ final class GroundReplay {
                 iataCode: nil, localCode: nil)
     }
 
-    /// The scenario's route, made and armed as a pilot's: a plan for today, activated, so START FLIGHT
-    /// takes it.
+    /// The scenario's route, made and armed as a pilot's, so START FLIGHT takes it. (Its departure time
+    /// is the route's until the launch's sweep clears it: a route has no date, a flight has.)
     static func arm(_ route: GroundReplayScenario.Route, name: String, in manager: FlightPlanManager) {
+        let plan = plan(of: route, name: name)
+        manager.add(plan)
+        manager.activateFlightPlan(plan)
+    }
+
+    /// A flight planned for today on the scenario's route, as Plan new flight makes one from a saved
+    /// route (`FlightCreator`), its plan armed: START FLIGHT on Today starts it.
+    static func armPlannedFlight(_ route: GroundReplayScenario.Route, name: String, plans: FlightPlanManager,
+                                 threads: FlightThreadManager) async {
+        let template = plan(of: route, name: name)
+        let intent = NewFlightIntent(departureIdent: route.waypoints.first?.name ?? "",
+                                     arrivalIdent: route.waypoints.last?.name ?? "",
+                                     departureTime: template.plannedDepartureTime,
+                                     aircraftTypeId: template.aircraftTypeId,
+                                     aircraftRegistration: template.aircraftRegistration,
+                                     aircraftModelName: template.aircraftModelName)
+        let thread = await FlightCreator.create(fromRoute: template, intent: intent, plans: plans, threads: threads)
+        if let planId = thread.flightPlanId, let plan = plans.flightPlans.first(where: { $0.id == planId }) {
+            plans.activateFlightPlan(plan)
+        }
+    }
+
+    private static func plan(of route: GroundReplayScenario.Route, name: String) -> FlightPlan {
         let waypoints = route.waypoints.map { point in
             FlightPlanWaypoint(name: point.name, coordinate: CLLocationCoordinate2D(latitude: point.lat, longitude: point.lon),
                                altitude: point.altitude,
@@ -354,8 +393,7 @@ final class GroundReplay {
         var plan = FlightPlan(name: route.name ?? name, waypoints: waypoints,
                               plannedDepartureTime: FlightClock.now.addingTimeInterval((route.departureInMinutes ?? 10) * 60))
         plan.calculateRouteData()
-        manager.add(plan)
-        manager.activateFlightPlan(plan)
+        return plan
     }
 
     // MARK: Running

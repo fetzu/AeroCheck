@@ -118,11 +118,16 @@ final class CockpitPilot {
     /// attached, to tell a harness problem from the app's.
     @discardableResult
     func startFlight(_ button: String = "home.startFlight") -> Bool {
+        dismissSystemAlerts()
         guard tap(button, timeout: 30) else {
             shot("setup", "no-start-button")
             dumpTree("no-start-button")
             return false
         }
+        // A flight planned for today with its preparation open asks first: started anyway, as a pilot
+        // who prepared on paper would.
+        let anyway = app.buttons["Start anyway"]
+        if anyway.waitForExistence(timeout: 3) { anyway.tap() }
         if element("cockpit.check").waitForExistence(timeout: 20) { return true }
         // A start refused while GPS warms up says so in an alert: once more.
         let ok = app.alerts.buttons.firstMatch
@@ -275,6 +280,7 @@ final class CockpitPilot {
 
     /// CHECK through the current list (at most `max` items), until CHECK gives way.
     func checkAllItems(max: Int = 30) {
+        showPane("checklist")
         for _ in 0..<max {
             skipHourMeterIfAsked()
             let check = element("cockpit.check")

@@ -324,10 +324,10 @@ class Flight:
 # ---------------------------------------------------------------------------------------------------
 # The scenarios
 
-def scenario_xc(name, seed, dep, dest, waypoints, cruise_ft, *, description, freda_plan=None, descent_plan=None,
-                level_dip=None):
+def scenario_xc(name, seed, dep, dest, waypoints, cruise_ft, *, description, level_dip=None, planned=False):
     """A cross-country flight with a route: dep → waypoints → dest. `waypoints`: [(name, lat, lon, kind, aerodrome)].
-    `level_dip`: (after_waypoint_index, seconds_into_leg) to start down 600 ft, level, and climb back."""
+    `level_dip`: (after_waypoint_index, seconds_into_leg) to start down 600 ft, level, and climb back.
+    `planned`: the route is a flight planned for today (Plan new flight), not a route alone."""
     d, a = Field(dep), Field(dest)
     f = Flight(seed, d)
     f.hold('engineStart', at=0)
@@ -371,6 +371,8 @@ def scenario_xc(name, seed, dep, dest, waypoints, cruise_ft, *, description, fre
         + [dict(name=w[0], lat=w[1], lon=w[2], altitude=cruise_ft, kind=w[3], **({'aerodrome': w[4]} if w[4] else {}))
            for w in waypoints]
         + [dict(name=dest, lat=a.lat, lon=a.lon, kind='aerodrome')]))
+    if planned:
+        route_json['planned'] = True
     return f, dict(name=name, description=description, departure=dep, destination=dest, route=route_json,
                    circuits=False)
 
@@ -418,6 +420,11 @@ def build(name):
         return scenario_xc(name, 101, 'LSZQ', 'LSGC',
                            [('LIGERZ', 47.0730, 7.1480, 'user', None)], 5500,
                            description='Cross-country LSZQ → LIGERZ → LSGC, every check on time')
+    if name == 'xc-planned':
+        # The same flight as xc-all-checks, planned for an hour after the replay starts: the ETOs.
+        return scenario_xc(name, 101, 'LSZQ', 'LSGC',
+                           [('LIGERZ', 47.0730, 7.1480, 'user', None)], 5500, planned=True,
+                           description='LSZQ → LIGERZ → LSGC planned for today, an hour on: the ETOs from the plan, then the take-off')
     if name == 'xc-climb-owed':
         return scenario_xc(name, 102, 'LSZQ', 'LSGC',
                            [('LIGERZ', 47.0730, 7.1480, 'user', None)], 5500,
@@ -448,7 +455,7 @@ def build(name):
     raise SystemExit(f'unknown scenario {name}')
 
 
-ALL = ['xc-all-checks', 'xc-climb-owed', 'xc-freda-missed', 'xc-descent-abandoned', 'local-landed-unanswered',
+ALL = ['xc-all-checks', 'xc-planned', 'xc-climb-owed', 'xc-freda-missed', 'xc-descent-abandoned', 'local-landed-unanswered',
        'circuits-stop-and-go', 'route-vrps']
 
 

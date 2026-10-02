@@ -241,9 +241,10 @@ struct ContentView: View {
             // e.g. `SIMCTL_CHILD_AEROCHECK_SCENE=cruiseHUD xcrun simctl launch <dev> com.fetzu.aerocheck`.
             // Compiled out of release builds entirely (this whole block is #if DEBUG).
             // A ground replay instead (`AEROCHECK_REPLAY`, GroundReplay.swift): never with a scene.
-            if GroundReplay.startIfRequested(appState: appState, locationManager: locationManager,
-                                             airportDataService: airportDataService,
-                                             flightPlanManager: flightPlanManager) { return }
+            if await GroundReplay.startIfRequested(appState: appState, locationManager: locationManager,
+                                                   airportDataService: airportDataService,
+                                                   flightPlanManager: flightPlanManager,
+                                                   threadManager: threadManager) { return }
             guard let key = ProcessInfo.processInfo.environment["AEROCHECK_SCENE"]?.lowercased() else { return }
             let scene: MarketingScene?
             switch key {

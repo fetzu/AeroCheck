@@ -1,8 +1,8 @@
 import XCTest
 
-/// The 6.1.0 page's ETOs (eet-3, eet-4), flown as ground replays on the LSZQ → LIGERZ → LSGC route,
-/// armed for an hour after the replay starts (the plan's departure): READY FOR LINE UP at the holding
-/// point, or a jump on the phase bar past it.
+/// The 6.1.0 page's ETOs (eet-3, eet-4), flown as ground replays: LSZQ → LIGERZ → LSGC planned for today,
+/// an hour after the replay starts (Plan new flight's flight, its route armed), started with START FLIGHT
+/// and "Start anyway"; then READY FOR LINE UP at the holding point, or a jump on the phase bar past it.
 final class FlightTimingUITests: XCTestCase {
     override func setUp() {
         continueAfterFailure = true
@@ -11,7 +11,7 @@ final class FlightTimingUITests: XCTestCase {
     /// eet-4: READY FOR LINE UP at the holding point: the ETOs count from it plus 2 min, and stay there in
     /// flight (the take-off comes within a minute of that estimate).
     func testReadyForLineUpAnchorsTheETOs() {
-        let pilot = CockpitPilot(self, scenario: "xc-all-checks")
+        let pilot = CockpitPilot(self, scenario: "xc-planned")
         defer { pilot.attachResults(testName: name) }
         let s = pilot.scenario
         pilot.launch()
@@ -38,7 +38,7 @@ final class FlightTimingUITests: XCTestCase {
     /// eet-3, as 6.2 has it: no READY FOR LINE UP (a jump on the phase bar from the check before departure
     /// to the line-up): within ~30 s of lift-off the destination's ETA jumps to the take-off plus the EET.
     func testPhaseBarJumpLetsTheTakeoffAnchorTheETOs() {
-        let pilot = CockpitPilot(self, scenario: "xc-all-checks")
+        let pilot = CockpitPilot(self, scenario: "xc-planned")
         defer { pilot.attachResults(testName: name) }
         let s = pilot.scenario
         pilot.launch()

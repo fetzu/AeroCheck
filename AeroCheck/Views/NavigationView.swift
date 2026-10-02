@@ -748,14 +748,15 @@ struct NavigationMapView: View {
             .padding(.horizontal, 10)
             .padding(.top, 8),
             bottom: VStack(spacing: 8) {
-                mapFooter
+                MapUndoToast(undoOffer: $undoOffer)
+                    .padding(.horizontal, 16)
                 // The controls at the foot of the chart, by the thumb, leaving the top (what's
-                // ahead, in Track up) clear. Labelled where the row has room, icons where not.
-                SeparateView { mapControlsBottomRow }
-                    .frame(maxWidth: .infinity, alignment: .trailing)
+                // ahead, in Track up) clear, and the scale and the chart's source beside them.
+                SeparateView { columnsMapFoot }
                     .padding(.horizontal, 10)
             }
-            .padding(.bottom, 8))
+            .padding(.bottom, 8)
+            .sheet(isPresented: $showCacheInfoModal) { cacheInfoSheet })
 
             // The frequencies, and the legs when opened, under the chart rather than over it.
             VStack(spacing: 0) {
@@ -844,30 +845,75 @@ struct NavigationMapView: View {
     /// with their names for VoiceOver when they don't (French runs longer). Zoom is a pinch.
     private var mapControlsBottomRow: some View {
         ViewThatFits(in: .horizontal) {
-            HStack(spacing: 8) {
-                mapSheetButton(labelled: true)
-                orientationButton
-                chromeButton(icon: isFollowingAircraft ? "location.fill" : "location",
-                             title: L10n.Nav.centre, prominent: !isFollowingAircraft) { centerOnAircraft() }
+            mapControlsLabelled
+            mapControlsIcons
+        }
+        .sheet(isPresented: $showMapSheet) { mapSheet }
+    }
+
+    /// The landscape phone's foot of the chart: the chart's source and the scale bar at the left of
+    /// the controls, in their band. Stacked over the controls, they reached the middle of a chart about
+    /// 340 pt tall, by the aircraft. The controls keep their labels where all fits (a Pro Max), else go
+    /// to their icons, the fallback French already took; on a phone too narrow even for that (an iPhone
+    /// SE), the source and the scale go back over the controls. The portrait phone and the iPad keep
+    /// theirs over the chart's bottom left corner: there it is a corner. (6.1, device check)
+    private var columnsMapFoot: some View {
+        ViewThatFits(in: .horizontal) {
+            HStack(alignment: .bottom, spacing: 0) {
+                columnsMapStatus
+                Spacer(minLength: 8)
+                mapControlsLabelled
             }
-            HStack(spacing: 8) {
-                mapSheetButton(labelled: false)
-                chromeIconButton(icon: mapOrientationMode == .northUp ? "location.north.line" : "location.north.line.fill",
-                                 label: mapOrientationMode == .northUp ? L10n.Nav.northUp : L10n.Nav.trackUp) {
-                    toggleOrientation()
-                }
-                chromeIconButton(icon: isFollowingAircraft ? "location.fill" : "location", label: L10n.Nav.centre,
-                                 prominent: !isFollowingAircraft) { centerOnAircraft() }
+            HStack(alignment: .bottom, spacing: 0) {
+                columnsMapStatus
+                Spacer(minLength: 8)
+                mapControlsIcons
+            }
+            VStack(alignment: .leading, spacing: 8) {
+                columnsMapStatus
+                mapControlsIcons
+                    .frame(maxWidth: .infinity, alignment: .trailing)
             }
         }
-        .sheet(isPresented: $showMapSheet) {
-            MapSheet(selectedLayer: $selectedLayer, isOfflineMode: isOfflineMode)
-                .environment(appState)
-                .environment(\.cockpitTheme, theme)
-                .environmentObject(openAIPDataService)
-                .environmentObject(dataStatusManager)
-                .environmentObject(offlineMapManager)
+        .sheet(isPresented: $showMapSheet) { mapSheet }
+    }
+
+    /// The source and the scale in the landscape phone's band, as wide whatever the zoom: the scale bar
+    /// runs 60 to 100 pt, and a band that changed its mind with every pinch would move the controls.
+    private var columnsMapStatus: some View {
+        mapStatus
+            .frame(minWidth: 100, alignment: .bottomLeading)
+            .fixedSize()
+    }
+
+    private var mapControlsLabelled: some View {
+        HStack(spacing: 8) {
+            mapSheetButton(labelled: true)
+            orientationButton
+            chromeButton(icon: isFollowingAircraft ? "location.fill" : "location",
+                         title: L10n.Nav.centre, prominent: !isFollowingAircraft) { centerOnAircraft() }
         }
+    }
+
+    private var mapControlsIcons: some View {
+        HStack(spacing: 8) {
+            mapSheetButton(labelled: false)
+            chromeIconButton(icon: mapOrientationMode == .northUp ? "location.north.line" : "location.north.line.fill",
+                             label: mapOrientationMode == .northUp ? L10n.Nav.northUp : L10n.Nav.trackUp) {
+                toggleOrientation()
+            }
+            chromeIconButton(icon: isFollowingAircraft ? "location.fill" : "location", label: L10n.Nav.centre,
+                             prominent: !isFollowingAircraft) { centerOnAircraft() }
+        }
+    }
+
+    private var mapSheet: some View {
+        MapSheet(selectedLayer: $selectedLayer, isOfflineMode: isOfflineMode)
+            .environment(appState)
+            .environment(\.cockpitTheme, theme)
+            .environmentObject(openAIPDataService)
+            .environmentObject(dataStatusManager)
+            .environmentObject(offlineMapManager)
     }
 
     /// Map, with the stale-airspace cue on it.
@@ -1454,34 +1500,12 @@ struct NavigationMapView: View {
 
     // MARK: - Bottom Controls
 
-    /// The scale bar and the offline/cache badge, bottom left over the map, and the undo toast.
+    /// The scale bar and the offline/cache badge, bottom left over the map, and the undo toast. (The
+    /// landscape phone has them in the controls' band instead: `columnsMapFoot`.)
     private var mapFooter: some View {
         VStack(spacing: 0) {
             HStack(alignment: .bottom) {
-                VStack(alignment: .leading, spacing: 8) {
-                    if isOfflineMode || isCachedMode {
-                        Button(action: { showCacheInfoModal = true }) {
-                            HStack(spacing: 6) {
-                                Image(systemName: "internaldrive.fill")
-                                Text(isOfflineMode ? L10n.Nav.offline : L10n.Nav.cached)
-                            }
-                            .font(.aero(size: 12, weight: .bold))
-                            .foregroundColor(.white)
-                            .padding(.horizontal, 12)
-                            .padding(.vertical, 8)
-                            .background(
-                                RoundedRectangle(cornerRadius: 8)
-                                    .fill(isOfflineMode ? theme.danger.opacity(0.9) : theme.action.opacity(0.9))
-                            )
-                        }
-                        .sheet(isPresented: $showCacheInfoModal) {
-                            CacheInfoSheet(isOfflineMode: isOfflineMode)
-                                .environment(appState)
-                                .environmentObject(offlineMapManager)
-                        }
-                    }
-                    SwissScaleBar(region: mapState.region, mapWidth: mapWidth, nauticalMiles: appState.settings.distanceInNauticalMiles)
-                }
+                mapStatus
                 Spacer()
             }
             .padding(.horizontal, 16)
@@ -1491,6 +1515,36 @@ struct NavigationMapView: View {
                 .padding(.horizontal, 16)
                 .padding(.bottom, 8)
         }
+        .sheet(isPresented: $showCacheInfoModal) { cacheInfoSheet }
+    }
+
+    /// The offline/cache badge over the scale bar. A tap on the badge says where the chart comes from.
+    private var mapStatus: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            if isOfflineMode || isCachedMode {
+                Button(action: { showCacheInfoModal = true }) {
+                    HStack(spacing: 6) {
+                        Image(systemName: "internaldrive.fill")
+                        Text(isOfflineMode ? L10n.Nav.offline : L10n.Nav.cached)
+                    }
+                    .font(.aero(size: 12, weight: .bold))
+                    .foregroundColor(.white)
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 8)
+                    .background(
+                        RoundedRectangle(cornerRadius: 8)
+                            .fill(isOfflineMode ? theme.danger.opacity(0.9) : theme.action.opacity(0.9))
+                    )
+                }
+            }
+            SwissScaleBar(region: mapState.region, mapWidth: mapWidth, nauticalMiles: appState.settings.distanceInNauticalMiles)
+        }
+    }
+
+    private var cacheInfoSheet: some View {
+        CacheInfoSheet(isOfflineMode: isOfflineMode)
+            .environment(appState)
+            .environmentObject(offlineMapManager)
     }
 
     /// Portrait: opaque, pinned to the bottom edge — the frequencies to hand, the legs and every
@@ -1775,9 +1829,9 @@ struct NavigationMapView: View {
     }
 
     /// `height`: taller than a map control, in a row of the thumb bar's height (Routes beside the check
-    /// slot).
+    /// slot). `fillsWidth`: the row's width (Routes under the slot in the landscape column).
     private func chromeButton(icon: String, title: String, prominent: Bool = false, height: CGFloat? = nil,
-                              action: @escaping () -> Void) -> some View {
+                              fillsWidth: Bool = false, action: @escaping () -> Void) -> some View {
         Button(action: action) {
             HStack(spacing: 8) {
                 Image(systemName: icon).font(.aero(size: CockpitType.label, weight: .semibold))
@@ -1788,7 +1842,7 @@ struct NavigationMapView: View {
             }
             .foregroundColor(prominent ? theme.actionText : theme.action)
             .padding(.horizontal, CockpitType.size(kneeboard: 16, phone: 12))
-            .frame(minHeight: height ?? CockpitTarget.control)
+            .frame(maxWidth: fillsWidth ? .infinity : nil, minHeight: height ?? CockpitTarget.control)
             .background(RoundedRectangle(cornerRadius: 14).fill(prominent ? theme.action : theme.panel))
             .overlay(RoundedRectangle(cornerRadius: 14).stroke(prominent ? Color.clear : theme.panelStroke, lineWidth: 1))
             .contentShape(Rectangle())
@@ -1957,7 +2011,7 @@ struct NavigationMapView: View {
             .padding(.horizontal, CockpitType.size(kneeboard: 16, phone: 12))
             .padding(.vertical, CockpitType.size(kneeboard: 12, phone: 10))
         } else {
-            routesButtonRow
+            routesButtonRow()
         }
     }
 
@@ -2006,62 +2060,85 @@ struct NavigationMapView: View {
                 }
             }
         } else {
-            routesButtonRow
+            routesButtonRow(padded: false)
         }
     }
 
     /// The landscape side column's version, in two rows so the legs keep room above it: the leg timer
-    /// and Divert, then MARK with More beside it, where the thumb rests.
+    /// and Divert, then MARK with More beside it, where the thumb rests. In the Cockpit's flight the
+    /// check slot heads them, the column's width, whatever the row under it (`MapThumbColumn`).
     @ViewBuilder
     private var navThumbColumn: some View {
-        if showsEventButtons {
+        let plan = flightPlanManager.activeFlightPlan
+        switch MapThumbColumn.make(showsCheckSlot: showsCheckSlot, showsEventButtons: showsEventButtons,
+                                   hasRoute: plan != nil, flightActive: appState.isFlightActive) {
+        case .slotOverFlightEvents:
             VStack(spacing: 12) {
                 checkSlot()
                 HStack(spacing: 12) {
-                    MapFlightEventButton(event: .goAround)
-                    MapFlightEventButton(event: .touchAndGo)
+                    MapFlightEventButton(event: .goAround, narrow: true)
+                    MapFlightEventButton(event: .touchAndGo, narrow: true)
                 }
             }
-        } else if showsCheckSlot, let plan = flightPlanManager.activeFlightPlan {
+        case .slotOverMark:
             // The slot on top, where the leg timer and Divert were; the leg timer in MARK.
-            VStack(spacing: 12) {
-                checkSlot()
-                TimelineView(.periodic(from: .now, by: 1)) { _ in
-                    let state = legTimerState(plan)
-                    // Divert and More stacked, half height, so MARK keeps the width for its leg line.
-                    HStack(spacing: 12) {
-                        navPrimaryButton(plan, started: state.started, leg: state)
-                        VStack(spacing: 8) {
-                            if !flightPlanManager.isFlightPlanCompleted { divertThumbButton(plan, stacked: true) }
-                            navMoreMenu(running: state.running, started: state.started, stacked: true)
+            if let plan {
+                VStack(spacing: 12) {
+                    checkSlot()
+                    TimelineView(.periodic(from: .now, by: 1)) { _ in
+                        let state = legTimerState(plan)
+                        // Divert and More stacked, half height, so MARK keeps the width for its leg line.
+                        HStack(spacing: 12) {
+                            navPrimaryButton(plan, started: state.started, leg: state)
+                            VStack(spacing: 8) {
+                                if !flightPlanManager.isFlightPlanCompleted { divertThumbButton(plan, stacked: true) }
+                                navMoreMenu(running: state.running, started: state.started, stacked: true)
+                            }
                         }
                     }
                 }
             }
-        } else if appState.isFlightActive, let plan = flightPlanManager.activeFlightPlan {
-            TimelineView(.periodic(from: .now, by: 1)) { _ in
-                let state = legTimerState(plan)
-                VStack(spacing: 12) {
-                    HStack(spacing: 12) {
-                        legTimerReadout(elapsed: state.elapsed, planned: state.planned, running: state.running,
-                                        started: state.started)
-                        Spacer(minLength: 0)
-                        if !flightPlanManager.isFlightPlanCompleted { divertThumbButton(plan) }
-                    }
-                    HStack(spacing: 12) {
-                        navPrimaryButton(plan, started: state.started)
-                        navMoreMenu(running: state.running, started: state.started)
-                    }
+        case .slotOverRoutes:
+            // No route: the slot as with one, and Routes where MARK would be, as tall, so the slot
+            // doesn't move when a route is armed. (6.1)
+            VStack(spacing: 12) {
+                checkSlot()
+                routesButton(height: CheckSlotButton.height, fillsWidth: true)
+            }
+        case .legTimerOverMark:
+            if let plan {
+                legTimerOverMark(plan)
+            }
+        case .routes:
+            routesButtonRow()
+        }
+    }
+
+    /// The landscape column in flight without the check slot: the leg timer and Divert, then MARK with
+    /// More beside it.
+    private func legTimerOverMark(_ plan: FlightPlan) -> some View {
+        TimelineView(.periodic(from: .now, by: 1)) { _ in
+            let state = legTimerState(plan)
+            VStack(spacing: 12) {
+                HStack(spacing: 12) {
+                    legTimerReadout(elapsed: state.elapsed, planned: state.planned, running: state.running,
+                                    started: state.started)
+                    Spacer(minLength: 0)
+                    if !flightPlanManager.isFlightPlanCompleted { divertThumbButton(plan) }
+                }
+                HStack(spacing: 12) {
+                    navPrimaryButton(plan, started: state.started)
+                    navMoreMenu(running: state.running, started: state.started)
                 }
             }
-        } else {
-            routesButtonRow
         }
     }
 
     /// Routes alone on the ground (Plan › Map). In the Cockpit's flight, Routes then the check slot
     /// filling the row, the thumb bar's height: the chart is as tall as with a route. (6.1)
-    private var routesButtonRow: some View {
+    /// `padded`: false under the landscape phone's column, which pads its thumb row itself; padded twice,
+    /// the row ran 20 pt taller than with a route and the slot's foot went off the screen.
+    private func routesButtonRow(padded: Bool = true) -> some View {
         HStack(spacing: CockpitType.size(kneeboard: 12, phone: 8)) {
             if showsCheckSlot {
                 routesButton(height: CheckSlotButton.height)
@@ -2071,13 +2148,14 @@ struct NavigationMapView: View {
                 Spacer(minLength: 0)
             }
         }
-        .padding(.horizontal, showsCheckSlot ? CockpitType.size(kneeboard: 16, phone: 12) : 16)
-        .padding(.vertical, showsCheckSlot ? CockpitType.size(kneeboard: 12, phone: 10) : 12)
+        .padding(.horizontal, !padded ? 0 : showsCheckSlot ? CockpitType.size(kneeboard: 16, phone: 12) : 16)
+        .padding(.vertical, !padded ? 0 : showsCheckSlot ? CockpitType.size(kneeboard: 12, phone: 10) : 12)
     }
 
-    private func routesButton(height: CGFloat? = nil) -> some View {
+    /// `fillsWidth`: a row of its own, under the check slot in the landscape column.
+    private func routesButton(height: CGFloat? = nil, fillsWidth: Bool = false) -> some View {
         chromeButton(icon: "point.topleft.down.to.point.bottomright.curvepath",
-                     title: L10n.Ground.planRoutes, height: height) {
+                     title: L10n.Ground.planRoutes, height: height, fillsWidth: fillsWidth) {
             if let onShowRoutes { onShowRoutes() } else { showFlightPlanning = true }
         }
     }
@@ -3141,43 +3219,50 @@ struct SwissScaleBar: View {
     }
 
     var body: some View {
-        GeometryReader { geometry in
-            // Get the actual screen width to estimate map width
-            // The scale bar is in the bottom left, so we use the full container width
-            let mapWidthEstimate = mapWidth > 0 ? mapWidth : geometry.size.width
-            let info = scaleInfo(mapWidthPoints: mapWidthEstimate)
-
-            VStack(alignment: .leading, spacing: 2) {
-                // Scale text
-                Text(info.text)
-                    .font(.aero(size: 11, weight: .medium))
-                    .foregroundColor(.white)
-
-                // Scale bar (L-shaped like SwissTopo)
-                HStack(spacing: 0) {
-                    // Vertical tick on left
-                    Rectangle()
-                        .fill(Color.white)
-                        .frame(width: 2, height: 8)
-
-                    // Horizontal line
-                    Rectangle()
-                        .fill(Color.white)
-                        .frame(width: info.width, height: 2)
-
-                    // Vertical tick on right
-                    Rectangle()
-                        .fill(Color.white)
-                        .frame(width: 2, height: 8)
-                }
+        // With the map's width known, the bar is as wide as it draws, so it can share a row (the
+        // landscape phone's foot of the chart). Until then, the container's width stands in for it.
+        if mapWidth > 0 {
+            card(mapWidthPoints: mapWidth)
+                .frame(height: 50, alignment: .topLeading)
+        } else {
+            GeometryReader { geometry in
+                card(mapWidthPoints: geometry.size.width)
             }
-            .padding(8)
-            .background(
-                RoundedRectangle(cornerRadius: 6)
-                    .fill(Color.black.opacity(0.5))
-            )
+            .frame(height: 50)  // Fixed height for the scale bar container
         }
-        .frame(height: 50)  // Fixed height for the scale bar container
+    }
+
+    private func card(mapWidthPoints: CGFloat) -> some View {
+        let info = scaleInfo(mapWidthPoints: mapWidthPoints)
+        return VStack(alignment: .leading, spacing: 2) {
+            // Scale text
+            Text(info.text)
+                .font(.aero(size: 11, weight: .medium))
+                .foregroundColor(.white)
+
+            // Scale bar (L-shaped like SwissTopo)
+            HStack(spacing: 0) {
+                // Vertical tick on left
+                Rectangle()
+                    .fill(Color.white)
+                    .frame(width: 2, height: 8)
+
+                // Horizontal line
+                Rectangle()
+                    .fill(Color.white)
+                    .frame(width: info.width, height: 2)
+
+                // Vertical tick on right
+                Rectangle()
+                    .fill(Color.white)
+                    .frame(width: 2, height: 8)
+            }
+        }
+        .padding(8)
+        .background(
+            RoundedRectangle(cornerRadius: 6)
+                .fill(Color.black.opacity(0.5))
+        )
     }
 }
 

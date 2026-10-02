@@ -1,5 +1,5 @@
 **Last updated**
-August 2026
+October 2026
 
 
 These terms govern your use of AéroCheck, an open-source flight checklist and situational-awareness application for pilots. By installing or using the app, you accept them. If you do not accept them, do not use the app.
@@ -25,9 +25,9 @@ Compare any checklist in this app against the aircraft's approved checklist befo
 
 ### 1.3 Not a navigation system
 
-The moving map, airspace, terrain, obstacles, navaids, reporting points, airport data, frequencies and flight-planning features are for situational awareness only. AéroCheck must **not** be used as a primary means of navigation, and must not be used for IFR navigation at all.
+The moving map, airspace, terrain, obstacles, navaids, reporting points, traffic circuits and VFR routes, airport data, frequencies and flight-planning features are for situational awareness only. AéroCheck must **not** be used as a primary means of navigation, and must not be used for IFR navigation at all.
 
-Aeronautical data comes from third parties (swisstopo, OpenAIP, OurAirports, Natural Earth, and others credited in the app). It is not guaranteed to be current, complete or accurate, and it is not a substitute for the official AIP, NOTAM, or a proper pre-flight briefing. Airspace structures, frequencies and obstacles change; the copy on your device may be months old.
+Aeronautical data comes from third parties (swisstopo, OpenAIP, open flightmaps, OurAirports, Natural Earth, and others credited in the app). It is not guaranteed to be current, complete or accurate, and it is not a substitute for the official AIP, NOTAM, or a proper pre-flight briefing. Airspace structures, frequencies and obstacles change; the copy on your device may be months old. Traffic circuits and VFR arrival and departure routes come from open flightmaps, a community source, and are only indicative: the aerodrome's official chart prevails, and the app links to it rather than showing it.
 
 ### 1.4 Weather is an observation, not a forecast for your flight
 

@@ -30,6 +30,15 @@ Images are real captures from the DEBUG scene injector (see `SCREENSHOTS.md`) un
 no placeholder set active. Swap the paths in `shots.ts` to point at new captures — nothing else
 changes.
 
+## App data (`public/data/`)
+
+`public/data/ofm/v1/` (VFR procedures from open flightmaps, © open flightmaps association) and
+`public/data/charts/v1/charts.json` (official chart links) are what the app downloads from
+`aerocheck.app/data/`. They are generated, never edited by hand: the weekly `vfr-data.yml` job on
+`main` runs `scripts/vfrdata/` on this branch, commits what changed ("website: VFR data AIRAC …") and
+dispatches the deploy. Astro copies them as they are, outside the sitemap. Sources, schema and
+validation gates: `scripts/vfrdata/README.md`; tests: `cd scripts/vfrdata && python3 -m unittest`.
+
 ## Design
 
 Dark "glass cockpit" palette + editorial feature rows (see `src/styles/global.css` for tokens:

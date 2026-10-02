@@ -284,6 +284,7 @@ struct NavigationMapsSettingsView: View {
                 .font(.aero(.caption))
                 .foregroundColor(.aviationRed)
                 .fixedSize(horizontal: false, vertical: true)
+            Spacer(minLength: 0)
         }
         .padding(.horizontal, 14)
         .padding(.vertical, 11)

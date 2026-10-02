@@ -78,6 +78,8 @@ enum L10n {
         static let dataSourcesTitle = String(localized: "Data sources")
         static let sourceCharts = String(localized: "Aeronautical charts · © swisstopo / BAZL")
         static let sourceAirspace = String(localized: "Airspace · © OpenAIP and contributors, CC BY-NC 4.0")
+        /// open flightmaps' licence asks for the credit, and its data is never a primary source. (6.2.0)
+        static let sourceVFRProcedures = String(localized: "Traffic circuits, VFR routes & reporting points · © open flightmaps association · indicative, not for primary navigation")
         static let sourceAirports = String(localized: "Airport database · public domain")
         static let sourceWind = String(localized: "Surface wind (Switzerland) · © MeteoSwiss")
         static let sourceElevation = String(localized: "Terrain elevation & winds aloft · Open-Meteo (CC BY 4.0), © swisstopo")

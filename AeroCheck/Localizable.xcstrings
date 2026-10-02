@@ -1,6 +1,16 @@
 {
   "sourceLanguage": "en",
   "strings": {
+    "Traffic circuits, VFR routes & reporting points · © open flightmaps association · indicative, not for primary navigation": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tours de piste, routes VFR et points de report · © open flightmaps association · indicatif, non destiné à la navigation primaire"
+          }
+        }
+      }
+    },
     "Official chart": {
       "localizations": {
         "fr": {

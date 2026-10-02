@@ -2199,6 +2199,10 @@ enum L10n {
         }
         static let noFrequency = String(localized: "trip.noFrequency")
         static let noCandidates = String(localized: "trip.noCandidates")
+        /// A searched aerodrome that is this flight's own end, so no stop (6.1).
+        static let leavesHere = String(localized: "trip.leavesHere")
+        static let landsHere = String(localized: "trip.landsHere")
+        static let leavesAndLandsHere = String(localized: "trip.leavesAndLandsHere")
         static let refuelHint = String(localized: "trip.refuelHint")
         static let joinNextLeg = String(localized: "trip.joinNextLeg")
 

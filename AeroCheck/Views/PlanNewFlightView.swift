@@ -71,7 +71,7 @@ struct PlanNewFlightView: View {
     /// "Land somewhere else…": the search, open or not, and what it found.
     @State private var isLandingElsewhere = false
     @State private var elsewhereQuery = ""
-    @State private var elsewhereResults: [TripPlanner.StopCandidate] = []
+    @State private var elsewhereResults: [TripPlanner.SearchedStop] = []
     @FocusState private var elsewhereFocused: Bool
     private static let elsewhereAnchor = "aerocheck.plan.landElsewhere"
 
@@ -180,7 +180,7 @@ struct PlanNewFlightView: View {
             // Loaded on demand, so completion works even on a cold start — without this the field
             // silently offers nothing and the pilot concludes the aerodrome is unknown.
             isLoadingAirports = true
-            await airports.ensureLoaded()
+            await airports.prepareSearch()
             isLoadingAirports = false
             search()
         }
@@ -759,27 +759,44 @@ struct PlanNewFlightView: View {
                 .background(RoundedRectangle(cornerRadius: 10).fill(Color.cardBackground))
                 if !elsewhereResults.isEmpty {
                     VStack(spacing: 0) {
-                        ForEach(elsewhereResults.prefix(5), id: \.aerodrome.ident) { candidate in
-                            Button {
-                                withAnimation(.easeInOut(duration: 0.15)) { routeLandings.add(candidate) }
-                                closeLandElsewhere()
-                            } label: {
+                        ForEach(elsewhereResults.prefix(5), id: \.aerodrome.ident) { result in
+                            if result.isStop {
+                                Button {
+                                    withAnimation(.easeInOut(duration: 0.15)) { routeLandings.add(result.candidate) }
+                                    closeLandElsewhere()
+                                } label: {
+                                    HStack(spacing: 8) {
+                                        Text(result.aerodrome.ident)
+                                            .font(.aero(size: 14, weight: .semibold, design: .monospaced))
+                                            .foregroundColor(.aviationGold)
+                                            .frame(width: 52, alignment: .leading)
+                                        Text("\(result.aerodrome.name) · \(StopPlacement.text(result.candidate))")
+                                            .scaledFont(size: 14, relativeTo: .footnote)
+                                            .foregroundColor(.primaryText)
+                                            .lineLimit(1)
+                                        Spacer(minLength: 0)
+                                    }
+                                    .frame(minHeight: 44)
+                                    .contentShape(Rectangle())
+                                }
+                                .buttonStyle(.plain)
+                            } else {
+                                // The route's own departure or destination: said, not offered. (6.1)
                                 HStack(spacing: 8) {
-                                    Text(candidate.aerodrome.ident)
+                                    Text(result.aerodrome.ident)
                                         .font(.aero(size: 14, weight: .semibold, design: .monospaced))
-                                        .foregroundColor(.aviationGold)
+                                        .foregroundColor(.secondaryText)
                                         .frame(width: 52, alignment: .leading)
-                                    Text("\(candidate.aerodrome.name) · \(StopPlacement.text(candidate))")
+                                    Text("\(result.aerodrome.name) · \(StopPlacement.text(result.role))")
                                         .scaledFont(size: 14, relativeTo: .footnote)
-                                        .foregroundColor(.primaryText)
+                                        .foregroundColor(.dimText)
                                         .lineLimit(1)
                                     Spacer(minLength: 0)
                                 }
                                 .frame(minHeight: 44)
-                                .contentShape(Rectangle())
+                                .accessibilityElement(children: .combine)
                             }
-                            .buttonStyle(.plain)
-                            if candidate.aerodrome.ident != elsewhereResults.prefix(5).last?.aerodrome.ident {
+                            if result.aerodrome.ident != elsewhereResults.prefix(5).last?.aerodrome.ident {
                                 Divider().overlay(Color.white.opacity(0.06))
                             }
                         }
@@ -819,8 +836,10 @@ struct PlanNewFlightView: View {
         withAnimation(.easeInOut(duration: 0.15)) { isLandingElsewhere = false }
     }
 
-    /// Any fixed-wing landing site by code or name, nearest the route's departure first, placed along
-    /// the route. One behind the departure or past the destination can't be a stop on the way.
+    /// Any fixed-wing landing site by code or name, nearest the route's departure first after an exact
+    /// ident, placed along the route. Kept wherever it lies (behind the departure, past the
+    /// destination): a field the pilot asked for. Until 6.1 those were dropped, so the search looked
+    /// as if the data didn't know them. The route's own ends are listed, marked. (6.1)
     private func searchElsewhere() {
         let term = elsewhereQuery.trimmingCharacters(in: .whitespaces)
         guard term.count >= 2, let route = selectedRoute, route.waypoints.count >= 2 else {
@@ -831,8 +850,7 @@ struct PlanNewFlightView: View {
                                             types: AirportType.fixedWing)
             .filter(AirportDataService.isPlanningLandingSite)
             .map(airports.planningAerodrome)
-        elsewhereResults = TripPlanner.stopCandidates(along: route.waypoints, aerodromes: found,
-                                                      corridorNM: .greatestFiniteMagnitude)
+        elsewhereResults = TripPlanner.searchedStops(along: route.waypoints, found: found)
     }
 
     /// The aerodromes within the corridor "Add a stop…" uses (5 NM), for the route just chosen.
@@ -1100,10 +1118,8 @@ struct PlanNewFlightView: View {
         guard let index = stops.index(of: id), stopState(stops.rows[index].ident) == .unknown else { return }
         let typed = stops.rows[index].ident.trimmingCharacters(in: .whitespaces)
         let hits = airports.searchAirports(query: typed, limit: 5, types: AirportType.fixedWing)
-        if hits.count == 1 {
-            stops.setIdent(hits[0].ident, for: id)
-        } else if let exact = hits.first(where: { $0.name.compare(typed, options: [.caseInsensitive, .diacriticInsensitive]) == .orderedSame }) {
-            stops.setIdent(exact.ident, for: id)
+        if let named = AirportDataService.aerodrome(named: typed, among: hits) {
+            stops.setIdent(named.ident, for: id)
         }
     }
 
@@ -1119,8 +1135,9 @@ struct PlanNewFlightView: View {
     }
 
     /// Completion is by ICAO **or name**, because a pilot heading somewhere new knows "Grenchen"
-    /// long before they know "LSZG". `searchAirports` already matches ident, IATA, name and
-    /// municipality, and ranks exact-ident matches first, so typing a code still wins.
+    /// long before they know "LSZG". `searchAirports` matches ident, other codes, name, municipality
+    /// and keywords whatever the accents ("Genève", "Genf"), and ranks exact-ident matches first, so
+    /// typing a code still wins.
     private func search() {
         guard let focused, let index = stops.index(of: focused) else { suggestions = []; return }
         let typed = stops.rows[index].ident.trimmingCharacters(in: .whitespaces)
@@ -1468,6 +1485,16 @@ enum StopPlacement {
         candidate.waypointIndex != nil || candidate.offsetNM < TripPlanner.onRouteNM
             ? L10n.Trip.onRoute
             : L10n.Trip.offRoute(String(format: "%.1f", candidate.offsetNM))
+    }
+
+    /// What a searched aerodrome is to the flight, when it is one of its own ends. (6.1)
+    static func text(_ role: TripPlanner.SearchedStop.Role) -> String {
+        switch role {
+        case .stop: return ""
+        case .departure: return L10n.Trip.leavesHere
+        case .destination: return L10n.Trip.landsHere
+        case .departureAndDestination: return L10n.Trip.leavesAndLandsHere
+        }
     }
 }
 

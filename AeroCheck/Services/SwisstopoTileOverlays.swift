@@ -157,7 +157,7 @@ final class LateTileRedraw {
     }
 
     /// A renderer for `overlay`, hooked to its redraw when it has one. Every map delegate that draws a
-    /// swisstopo overlay makes its tile renderers here.
+    /// swisstopo or OpenAIP overlay makes its tile renderers here.
     static func renderer(for overlay: MKTileOverlay) -> MKTileOverlayRenderer {
         let renderer = MKTileOverlayRenderer(tileOverlay: overlay)
         (overlay as? LateTileRedrawing)?.redraw.renderer = renderer

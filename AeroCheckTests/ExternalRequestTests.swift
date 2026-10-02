@@ -1,4 +1,5 @@
 import MapKit
+import UIKit
 import XCTest
 @testable import AeroCheck
 
@@ -337,7 +338,7 @@ final class SwisstopoTileRequestTests: XCTestCase {
 }
 
 /// MapKit drops some tiles handed over after `loadTile` returned and asks for them again only on a
-/// redraw. The swisstopo overlays redraw once per burst of network tiles, never for a tile that came
+/// redraw. The swisstopo and OpenAIP overlays redraw once per burst of network tiles, never for a tile that came
 /// back empty nor for the tiles that answer a redraw, reload when a redraw goes unanswered, and stop
 /// at `LateTileRedraw.maxRedraws` per window. (6.1.0)
 @MainActor
@@ -492,8 +493,74 @@ final class LateTileRedrawTests: XCTestCase {
         let swissimage = SwisstopoTileOverlay(layerIdentifier: "ch.swisstopo.swissimage", tileExtension: "jpeg")
         let swissimageRenderer = LateTileRedraw.renderer(for: swissimage)
         XCTAssertTrue(swissimage.redraw.renderer === swissimageRenderer)
+        let openAIP = OpenAIPTileOverlay()
+        let openAIPRenderer = LateTileRedraw.renderer(for: openAIP)
+        XCTAssertTrue(openAIP.redraw.renderer === openAIPRenderer)
         // Any other tile overlay still gets a plain renderer.
-        XCTAssertNotNil(LateTileRedraw.renderer(for: OpenAIPTileOverlay()))
+        XCTAssertNotNil(LateTileRedraw.renderer(for: MKTileOverlay(urlTemplate: nil)))
+    }
+
+    // MARK: OpenAIP
+
+    /// A 256 px PNG with a black square in it: something `processedTile` keeps.
+    private let openAIPTile: Data = {
+        let image = UIGraphicsImageRenderer(size: CGSize(width: 256, height: 256)).image { context in
+            UIColor.black.setFill()
+            context.fill(CGRect(x: 96, y: 96, width: 64, height: 64))
+        }
+        return image.pngData()!
+    }()
+
+    /// An OpenAIP overlay on the stub, its tiles at z 9, x 268 to 279 answered, with a counting renderer.
+    private func openAIPOverlay(followUp: TimeInterval = 10) -> (OpenAIPTileOverlay, CountingRenderer) {
+        for x in 268...279 {
+            ExternalRequestStub.reply(.init(declaredLength: openAIPTile.count, body: openAIPTile),
+                                      at: "/api/data/openaip/9/\(x)/179.png")
+        }
+        let overlay = OpenAIPTileOverlay()
+        overlay.tileSession = session
+        overlay.redraw.settleDelay = 0.05
+        overlay.redraw.followUpDelay = followUp
+        let renderer = CountingRenderer(tileOverlay: overlay)
+        overlay.redraw.renderer = renderer
+        return (overlay, renderer)
+    }
+
+    func testABurstOfOpenAIPTilesRedrawsOnce() async {
+        let (overlay, renderer) = openAIPOverlay()
+
+        let answers = await loadTiles(overlay, paths(268...271))
+
+        XCTAssertEqual(answers.count, 4)
+        XCTAssertTrue(answers.allSatisfy { $0 != nil }, "MapKit gets every processed tile, once")
+        await wait(0.3)
+        XCTAssertEqual(renderer.redraws, 1, "one redraw for the whole burst")
+        XCTAssertEqual(renderer.reloads, 0)
+    }
+
+    func testTheOpenAIPTilesAnsweringARedrawCallForNoOther() async {
+        let (overlay, renderer) = openAIPOverlay(followUp: 0.3)
+        _ = await loadTiles(overlay, paths(268...271))
+        await waitUntil { renderer.redraws == 1 }
+
+        // MapKit's answer, tiles not fetched yet (the ones it had come from the overlay's memo).
+        _ = await loadTiles(overlay, paths(272...273))
+
+        await wait(0.6)
+        XCTAssertEqual(renderer.redraws, 1, "an answer must not call for the next redraw")
+        XCTAssertEqual(renderer.reloads, 0, "an answered redraw needs no reload")
+    }
+
+    func testAFailedOpenAIPTileRedrawsNothing() async {
+        let (overlay, renderer) = openAIPOverlay()
+
+        // Nothing stubbed at x 300: a 404, and MapKit gets the transparent tile.
+        let answers = await loadTiles(overlay, paths(300...300))
+
+        XCTAssertEqual(answers.count, 1)
+        XCTAssertNotNil(answers[0], "the transparent tile, as before")
+        await wait(0.3)
+        XCTAssertEqual(renderer.redraws, 0, "a redraw would only fetch the failure again")
     }
 
     func testATileAnswersARedrawOnlyRightAfterIt() {

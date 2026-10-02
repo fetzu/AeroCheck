@@ -3696,7 +3696,7 @@ struct NativeMapViewUIKit: UIViewRepresentable {
         func mapView(_ mapView: MKMapView, rendererFor overlay: MKOverlay) -> MKOverlayRenderer {
             // OpenAIP tile overlay
             if let tileOverlay = overlay as? OpenAIPTileOverlay {
-                return MKTileOverlayRenderer(tileOverlay: tileOverlay)
+                return LateTileRedraw.renderer(for: tileOverlay)
             }
 
             // Airspace polygon overlay

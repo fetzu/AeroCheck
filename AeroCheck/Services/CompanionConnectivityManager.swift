@@ -254,6 +254,12 @@ struct CompanionForgottenDevices {
     }
 }
 
+/// Whether a task ended, set from another task (`CompanionConnectivityManager.waitForEnd`).
+actor CompanionTaskEnd {
+    private(set) var value = false
+    func mark() { value = true }
+}
+
 /// Manages companion device connectivity using Wi-Fi Aware (iOS 26+)
 /// iPad acts as Master (publisher/listener), iPhone acts as Viewer (subscriber/browser)
 ///
@@ -365,6 +371,9 @@ class CompanionConnectivityManager: NSObject, ObservableObject {
     /// and what the tests read, since a test manager starts nothing real.
     private(set) var listenerStarts = 0
     private(set) var browseStarts = 0
+    /// Master: bumped by every start and stop of the listener, so a start still waiting for the
+    /// previous listener to let go (`startListening`) does nothing once something newer happened.
+    private var listenerToken = 0
 
     /// Monotonic token identifying the current connection attempt. Each new connect/accept bumps it
     /// and captures the value; a stale connection's teardown (its receive loop ending *after* a
@@ -625,6 +634,7 @@ class CompanionConnectivityManager: NSObject, ObservableObject {
             AppLog.companion.publicLine("Master: listener held, pairing in progress")
             return
         }
+        let previous = listenerTask
         stopListening()
 
         currentRole = .master
@@ -641,6 +651,45 @@ class CompanionConnectivityManager: NSObject, ObservableObject {
             return
         }
 
+        // A listener still running holds the service until its task has ended, and Wi-Fi Aware takes
+        // one publisher per service. The re-arm after a drop cancelled the old listener and published
+        // again in the same instant; toggling Companion mode on the iPad, which left a second or more
+        // between the two, was what brought the phone back (6.1.0 device check, link-6: an awake iPad
+        // after its idle drop, the phone "looking for the iPad" until the toggle). So a restart waits
+        // for the old listener to end, up to 3 s, then a second more. (6.1.0)
+        guard let previous else {
+            makeListener()
+            return
+        }
+        listenerToken += 1
+        let token = listenerToken
+        Task { @MainActor [weak self] in
+            let ended = await Self.waitForEnd(of: previous, upTo: .seconds(3))
+            try? await Task.sleep(for: .seconds(1))
+            guard let self, self.listenerToken == token, self.currentRole == .master,
+                  self.connectionState == .connecting, !self.isPairing else { return }
+            self.lifecycle(ended ? "Master: the previous listener has ended, starting the next"
+                                 : "Master: the previous listener did not end within 3 s, starting the next")
+            self.makeListener()
+        }
+    }
+
+    /// Wait until `task` has ended (true), or `limit` has passed (false). A cancelled listener's task
+    /// ends once its run and its connections let go; nothing here depends on it ever doing so.
+    nonisolated static func waitForEnd(of task: Task<Void, any Error>, upTo limit: Duration) async -> Bool {
+        let ended = CompanionTaskEnd()
+        Task { _ = await task.result; await ended.mark() }
+        let deadline = ContinuousClock.now + limit
+        while ContinuousClock.now < deadline {
+            if await ended.value { return true }
+            try? await Task.sleep(for: .milliseconds(100))
+        }
+        return await ended.value
+    }
+
+    /// The listener itself, made and run. (`startListening` decides when.)
+    @available(iOS 26.0, *)
+    private func makeListener() {
         do {
             let listener = try NetworkListener(
                 // Accept connections from any already-paired device — the connection phase uses
@@ -740,6 +789,7 @@ class CompanionConnectivityManager: NSObject, ObservableObject {
 
     /// Stop listening for connections
     func stopListening() {
+        listenerToken += 1   // a start still waiting for the previous listener is off
         listenerTask?.cancel()
         listenerTask = nil
     }

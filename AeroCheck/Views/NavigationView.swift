@@ -4281,6 +4281,7 @@ struct OverlaysSections: View {
     @ObservedObject private var navaidService = OpenAIPNavaidDataService.shared
     @ObservedObject private var obstacleService = OpenAIPObstacleDataService.shared
     @ObservedObject private var reportingPointService = OpenAIPReportingPointDataService.shared
+    @ObservedObject private var vfrProcedureService = OFMDataService.shared
     /// Presents Settings at Navigation & Maps for the no-data download flow. (v4.2 UX fix)
     @State private var showDataSettings = false
 
@@ -4301,6 +4302,7 @@ struct OverlaysSections: View {
     private var isUpdatingAeroData: Bool {
         openAIPDataService.isDownloading || navaidService.isDownloading
             || obstacleService.isDownloading || reportingPointService.isDownloading
+            || vfrProcedureService.isDownloading
     }
 
     var body: some View {
@@ -4405,7 +4407,7 @@ struct OverlaysSections: View {
 
     /// Worded stale-data warning + inline update, so the Layers-button badge isn't cryptic on its own.
     /// Update re-downloads all OpenAIP layers (airspace + navaids + obstacles + reporting points) for the
-    /// cached countries, since they age together. (v4.1 follow-up)
+    /// cached countries, since they age together, and open flightmaps' VFR procedures. (v4.1 follow-up)
     private var staleDataBanner: some View {
         VStack(alignment: .leading, spacing: 9) {
             HStack(alignment: .top, spacing: 10) {
@@ -4462,13 +4464,16 @@ struct OverlaysSections: View {
         let countries = Array(Set(openAIPDataService.downloadedCountries)
             .union(navaidService.downloadedCountries)
             .union(obstacleService.downloadedCountries)
-            .union(reportingPointService.downloadedCountries))
+            .union(reportingPointService.downloadedCountries)
+            .union(vfrProcedureService.downloadedCountries))
         guard !countries.isEmpty else { return }
         Task {
             await openAIPDataService.downloadData(for: countries)
             await navaidService.downloadData(for: countries)
             await obstacleService.downloadData(for: countries)
             await reportingPointService.downloadData(for: countries)
+            // The circuits and VFR routes of the countries OFM covers, new cycle included. (6.2.0)
+            await vfrProcedureService.downloadData(for: countries)
             dataStatusManager.recompute()
         }
     }

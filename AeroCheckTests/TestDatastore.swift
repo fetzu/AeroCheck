@@ -115,6 +115,16 @@ extension XCTestCase {
             rootDirectory: root ?? makeTestDirectory()))
     }
 
+    /// An open flightmaps service caching in `root` (a fresh temporary directory by default) and fetching
+    /// through `fetch`, never the network, on `now`'s clock. `OFMDataService.shared` holds the simulator
+    /// app's own files: downloading over them or deleting them is the real data. (6.2.0)
+    @MainActor
+    func makeTestOFMService(root: URL? = nil, now: @escaping () -> Date = Date.init,
+                            fetch: @escaping (URL) async throws -> Data) -> OFMDataService {
+        OFMDataService(rootDirectory: root ?? makeTestDirectory(), baseURL: OFMConfig.defaultBaseURL,
+                       allowedHosts: OFMConfig.allowedHosts(override: nil), fetch: fetch, now: now)
+    }
+
     /// An airport store whose OurAirports files live in `root` (a fresh temporary directory by default),
     /// folding in `openAIPAirports`. The app's store reads and deletes the real `AirportData`. (6.2.0)
     @MainActor

@@ -1,6 +1,86 @@
 {
   "sourceLanguage": "en",
   "strings": {
+    "VFR procedures (open flightmaps)": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Procédures VFR (open flightmaps)"
+          }
+        }
+      }
+    },
+    "open flightmaps · traffic circuits, VFR arrival & departure routes, sectors": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "open flightmaps · tours de piste, routes d’arrivée et de départ VFR, secteurs"
+          }
+        }
+      }
+    },
+    "© open flightmaps association · not for primary navigation": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "© open flightmaps association · non destiné à la navigation primaire"
+          }
+        }
+      }
+    },
+    "AIRAC %@ · valid %@": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "AIRAC %@ · en vigueur %@"
+          }
+        }
+      }
+    },
+    "AIRAC %@ · a newer cycle isn't published yet": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "AIRAC %@ · le cycle suivant n’est pas encore publié"
+          }
+        }
+      }
+    },
+    "AIRAC %@ · AIRAC %@ is available": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "AIRAC %@ · AIRAC %@ disponible"
+          }
+        }
+      }
+    },
+    "VFR procedures": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "procédures VFR"
+          }
+        }
+      }
+    },
+    "VFR procedures (open flightmaps): %@": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Procédures VFR (open flightmaps) : %@"
+          }
+        }
+      }
+    },
     "Aerodromes": {
       "localizations": {
         "fr": {

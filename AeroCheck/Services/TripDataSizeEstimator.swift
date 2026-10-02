@@ -15,22 +15,28 @@ import Foundation
 ///
 /// Counts come from the provider (`totalCount` on a `limit=1` query — four small requests per
 /// country); bytes come from multiplying those by measured per-record constants. That makes it an
-/// estimate, and it is labelled as one.
+/// estimate, and it is labelled as one. The VFR procedures are the exception: their `index.json` says
+/// exactly what each country's file weighs, and the file is stored as published. (6.2.0)
 enum TripDataSizeEstimator {
 
-    /// The per-country layers a trip prefetch downloads, with the core-API collection each maps to.
+    /// The per-country layers a trip prefetch downloads (`DataSetProvider.tripLayer`), with the
+    /// core-API collection each OpenAIP one maps to.
     ///
     /// The OpenAIP *airport* layer is deliberately absent, matching the prefetch itself: it ships with
     /// the full Navigation & Maps country bundle, not this lightweight route top-up.
     enum Layer: String, CaseIterable {
         case airspace, navaids, obstacles, reportingPoints
+        /// open flightmaps circuits and VFR routes, sized from `index.json`. (6.2.0)
+        case vfrProcedures
 
-        var apiPath: String {
+        /// The OpenAIP core-API collection; nil for a layer that isn't OpenAIP's.
+        var apiPath: String? {
             switch self {
             case .airspace: return "airspaces"
             case .navaids: return "navaids"
             case .obstacles: return "obstacles"
             case .reportingPoints: return "reporting-points"
+            case .vfrProcedures: return nil
             }
         }
 
@@ -47,9 +53,13 @@ enum TripDataSizeEstimator {
             case .navaids: return 250
             case .obstacles: return 136
             case .reportingPoints: return 162
+            case .vfrProcedures: return 0   // sized from the index, never counted
             }
         }
     }
+
+    /// A published file's size and what it holds, from the open flightmaps index.
+    typealias PublishedSize = (bytes: Int64, procedures: Int)
 
     struct Estimate: Equatable {
         /// Estimated bytes added on disk across every requested layer/country.
@@ -68,7 +78,12 @@ enum TripDataSizeEstimator {
     ///
     /// `countriesByLayer` is per-layer because coverage is per-layer: a device can hold Swiss airspace
     /// and no Swiss obstacles, and quoting the size of data it already has would overstate the cost.
-    static func estimate(countriesByLayer: [Layer: [String]]) async -> Estimate {
+    ///
+    /// `vfrSize` gives a country's VFR-procedure file from the index (the shared service's by default).
+    @MainActor
+    static func estimate(countriesByLayer: [Layer: [String]],
+                         vfrSize: ((String) async -> PublishedSize?)? = nil) async -> Estimate {
+        let vfrSize = vfrSize ?? { await OFMDataService.shared.publishedSize(for: $0) }
         var bytes: Int64 = 0
         var records: [String: Int] = [:]
         var partial = false
@@ -76,6 +91,12 @@ enum TripDataSizeEstimator {
         for layer in Layer.allCases {
             guard let countries = countriesByLayer[layer], !countries.isEmpty else { continue }
             for country in countries {
+                if layer == .vfrProcedures {
+                    guard let size = await vfrSize(country) else { partial = true; continue }
+                    records[layer.rawValue, default: 0] += size.procedures
+                    bytes += size.bytes
+                    continue
+                }
                 guard let count = await recordCount(layer: layer, country: country) else {
                     partial = true
                     continue
@@ -90,7 +111,8 @@ enum TripDataSizeEstimator {
     /// `totalCount` for one layer/country. nil on any failure — the caller marks the estimate partial
     /// rather than treating a network error as "zero records", which would advertise a free download.
     private static func recordCount(layer: Layer, country: String) async -> Int? {
-        let urlString = "\(OpenAIPConfig.coreAPIBaseURL)/\(layer.apiPath)?country=\(country)&limit=1"
+        guard let apiPath = layer.apiPath else { return nil }
+        let urlString = "\(OpenAIPConfig.coreAPIBaseURL)/\(apiPath)?country=\(country)&limit=1"
         guard let url = URL(string: urlString) else { return nil }
         var request = URLRequest(url: url)
         request.setValue(OpenAIPConfig.apiKey, forHTTPHeaderField: OpenAIPConfig.apiKeyHeader)

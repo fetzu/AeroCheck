@@ -111,6 +111,10 @@ struct AeroCheckApp: App {
                 OpenAIPReportingPointProvider(service: OpenAIPReportingPointDataService.shared),
                 OpenAIPAirportProvider(service: OpenAIPAirportDataService.shared),
                 OurAirportsProvider(service: airports),
+                // Circuits and VFR routes (6.2.0). A Refresh before the first download takes the
+                // countries the airspace layer keeps.
+                OFMProceduresProvider(service: OFMDataService.shared,
+                                      offlineCountries: { openAIP.downloadedCountries }),
                 SwissChartsProvider(manager: offline),
                 OpenAIPTilesProvider(manager: openAIPCache),
             ],

@@ -632,6 +632,13 @@ struct NavigationMapView: View {
     /// The map keeps 760 pt, enough for the next-waypoint card and the controls row. (review #1, R-01)
     private static let sideColumnWidth: CGFloat = 420
 
+    /// The landscape legs panel's height, at most: the chart's lower half, less the aircraft's half
+    /// symbol and a margin. The map centres the aircraft when it follows it, so the aircraft, the next
+    /// waypoint and the map's controls stay in view with the panel open; past that it scrolls. (6.1)
+    static func landscapeLegsMaxHeight(mapHeight: CGFloat) -> CGFloat {
+        max(0, mapHeight / 2 - 36)
+    }
+
     private func standardLayoutBody(geometry: GeometryProxy) -> some View {
         // Landscape: the map takes the full height and the frequencies, legs and thumb controls move
         // to a column on the right. A 104 pt bar across a 820 pt-tall screen left the map a letterbox.
@@ -670,8 +677,21 @@ struct NavigationMapView: View {
                     SeparateView { columnsMapArea(legsMaxHeight: height * 0.5) }
                 }
             } else if landscape {
+                // The legs and every frequency open over the chart's foot, beside the column, rather than
+                // in it: in the column they had the room its controls left, a strip that showed a row and
+                // a half. (6.1, device check) The map's footer rides above them, the undo toast with it.
+                let legsMaxHeight = Self.landscapeLegsMaxHeight(mapHeight: height)
                 HStack(spacing: 0) {
-                    SeparateView { mapArea(bottomPanel: EmptyView?.none) }
+                    SeparateView {
+                        mapArea(bottomPanel: EmptyView?.none,
+                                footerClearance: navSheetExpanded ? min(legsPanelContentHeight, legsMaxHeight) : 0)
+                    }
+                    .overlay(alignment: .bottom) {
+                        if navSheetExpanded {
+                            SeparateView { landscapeLegsPanel(maxHeight: legsMaxHeight) }
+                                .transition(.move(edge: .bottom))
+                        }
+                    }
                     SeparateView { sideColumn }
                         .frame(width: Self.sideColumnWidth)
                 }
@@ -763,14 +783,7 @@ struct NavigationMapView: View {
                 freqLine
                 if navSheetExpanded {
                     Rectangle().fill(theme.panelStroke).frame(height: 1)
-                    ScrollView {
-                        SeparateView { legsAndFrequencies }
-                            .background(GeometryReader { proxy in
-                                Color.clear.preference(key: LegsPanelHeightKey.self, value: proxy.size.height)
-                            })
-                    }
-                    .frame(height: min(legsPanelContentHeight, legsMaxHeight))
-                    .onPreferenceChange(LegsPanelHeightKey.self) { legsPanelContentHeight = $0 }
+                    legsScroll(maxHeight: legsMaxHeight)
                 }
             }
             .background(theme.panel.ignoresSafeArea(edges: .bottom))
@@ -1001,8 +1014,9 @@ struct NavigationMapView: View {
 
     /// The map with its chrome: the top bar (full-screen only), the next-waypoint card and the map's
     /// controls on top, the scale bar and the undo toast at the bottom, and — in portrait — the
-    /// bottom panel.
-    private func mapArea<Panel: View>(bottomPanel: Panel?) -> some View {
+    /// bottom panel. `footerClearance`: room kept under the scale bar and the undo toast, for the
+    /// landscape legs panel laid over the chart's foot.
+    private func mapArea<Panel: View>(bottomPanel: Panel?, footerClearance: CGFloat = 0) -> some View {
         // The phone: the next waypoint on one line and the controls at the foot of the chart, as on
         // its side. With the card and a row of controls on top, a phone in cruise had about 150 pt
         // of chart left, the aircraft under the controls. (round 6, I-06)
@@ -1053,7 +1067,7 @@ struct NavigationMapView: View {
                         .padding(.horizontal, 10)
                 }
             }
-            .padding(.bottom, compact ? 8 : 0))
+            .padding(.bottom, (compact ? 8 : 0) + footerClearance))
 
             if let bottomPanel { bottomPanel }
         }
@@ -1555,14 +1569,7 @@ struct NavigationMapView: View {
             freqCard
             if navSheetExpanded {
                 Rectangle().fill(theme.panelStroke).frame(height: 1)
-                ScrollView {
-                    SeparateView { legsAndFrequencies }
-                        .background(GeometryReader { proxy in
-                            Color.clear.preference(key: LegsPanelHeightKey.self, value: proxy.size.height)
-                        })
-                }
-                .frame(height: min(legsPanelContentHeight, legsMaxHeight))
-                .onPreferenceChange(LegsPanelHeightKey.self) { legsPanelContentHeight = $0 }
+                legsScroll(maxHeight: legsMaxHeight)
             }
             if includesThumbBar && !phoneWithNoLegToFly {
                 Rectangle().fill(theme.panelStroke).frame(height: 1)
@@ -1575,27 +1582,33 @@ struct NavigationMapView: View {
         }
     }
 
-    /// Landscape: the same content as the bottom panel, as a column. NOW and NEXT on top, the legs and
-    /// every frequency always open in the middle (scrolling), the thumb controls at the bottom, where
-    /// the hand rests. (on-device review #1, R-01)
+    /// Landscape: the bottom panel's content as a column. NOW and NEXT on top, with the chevron that
+    /// opens the legs and every frequency (`landscapeLegsPanel`, over the chart beside the column), and
+    /// the thumb controls at the bottom, where the hand rests. (on-device review #1, R-01)
+    ///
+    /// The column used to keep the legs and frequencies open between the two, in the room the
+    /// controls left it: once the check slot took a row of its own, a strip with its title cut and a
+    /// row and a half to scroll. (6.1, device check)
     private var sideColumn: some View {
         VStack(spacing: 0) {
-            VStack(alignment: .leading, spacing: 12) {
-                freqCell(tag: L10n.Nav.freqCurrent, tint: theme.onTarget,
-                         item: phaseFreqItems.first { $0.role == .current })
-                freqCell(tag: L10n.Nav.freqNext, tint: theme.info,
-                         item: phaseFreqItems.first { $0.role == .next })
-            }
-            .padding(16)
-            Rectangle().fill(theme.panelStroke).frame(height: 1)
-            ScrollView {
-                VStack(alignment: .leading, spacing: 16) {
-                    legsColumn
-                    freqColumn(large: true)
+            Button(action: toggleLegsAndFrequencies) {
+                HStack(spacing: 12) {
+                    VStack(alignment: .leading, spacing: 12) {
+                        freqCell(tag: L10n.Nav.freqCurrent, tint: theme.onTarget,
+                                 item: phaseFreqItems.first { $0.role == .current })
+                        freqCell(tag: L10n.Nav.freqNext, tint: theme.info,
+                                 item: phaseFreqItems.first { $0.role == .next })
+                    }
+                    legsChevron
                 }
                 .padding(16)
+                .contentShape(Rectangle())
             }
+            .buttonStyle(.plain)
+            // A hint, not a label, as on the portrait card: VoiceOver still reads NOW and NEXT.
+            .accessibilityHint(L10n.Nav.legsAndFrequencies)
             Rectangle().fill(theme.panelStroke).frame(height: 1)
+            Spacer(minLength: 0)
             navThumbColumn
                 .padding(16)
         }
@@ -1603,6 +1616,40 @@ struct NavigationMapView: View {
         .overlay(alignment: .leading) {
             Rectangle().fill(theme.panelStroke).frame(width: 1)
         }
+    }
+
+    /// Landscape, opened from the column's NOW / NEXT (or the next-waypoint card, or More): the legs
+    /// and every frequency, opaque over the chart's foot, from the column to the left edge. Over the
+    /// chart, so nothing in the column moves; at its foot, as the portrait panel opens, so the next
+    /// waypoint, the map's controls and the aircraft stay in view (`landscapeLegsMaxHeight`). The same
+    /// chevron closes it.
+    private func landscapeLegsPanel(maxHeight: CGFloat) -> some View {
+        legsScroll(maxHeight: maxHeight)
+            .background(theme.panel.ignoresSafeArea(edges: .bottom))
+            .overlay(alignment: .top) { Rectangle().fill(theme.panelStroke).frame(height: 1) }
+    }
+
+    /// The legs and every frequency in a scroll view as tall as they are, up to `maxHeight`.
+    private func legsScroll(maxHeight: CGFloat) -> some View {
+        ScrollView {
+            SeparateView { legsAndFrequencies }
+                .background(GeometryReader { proxy in
+                    Color.clear.preference(key: LegsPanelHeightKey.self, value: proxy.size.height)
+                })
+        }
+        .frame(height: min(legsPanelContentHeight, maxHeight))
+        .onPreferenceChange(LegsPanelHeightKey.self) { legsPanelContentHeight = $0 }
+    }
+
+    /// The chevron of the NOW / NEXT card (portrait) and of the column's NOW / NEXT (landscape): up to
+    /// open the legs and every frequency, which rise from the foot of the map in both, down to close.
+    private var legsChevron: some View {
+        Image(systemName: navSheetExpanded ? "chevron.down" : "chevron.up")
+            .font(.aero(size: CockpitType.label, weight: .bold))
+            .foregroundColor(theme.action)
+            .frame(width: CockpitType.size(kneeboard: 52, phone: 44),
+                   height: CockpitType.size(kneeboard: 52, phone: 44))
+            .background(Circle().fill(theme.action.opacity(0.14)))
     }
 
     // MARK: - Kneeboard chrome, iPad (v6.0 · P3)
@@ -1911,12 +1958,7 @@ struct NavigationMapView: View {
                 freqCell(tag: L10n.Nav.freqCurrent, tint: theme.onTarget, item: current)
                 Rectangle().fill(theme.panelStroke).frame(width: 1, height: 52)
                 freqCell(tag: L10n.Nav.freqNext, tint: theme.info, item: next)
-                Image(systemName: navSheetExpanded ? "chevron.down" : "chevron.up")
-                    .font(.aero(size: CockpitType.label, weight: .bold))
-                    .foregroundColor(theme.action)
-                    .frame(width: CockpitType.size(kneeboard: 52, phone: 44),
-                           height: CockpitType.size(kneeboard: 52, phone: 44))
-                    .background(Circle().fill(theme.action.opacity(0.14)))
+                legsChevron
             }
             .padding(.horizontal, CockpitType.size(kneeboard: 16, phone: 12))
             .padding(.vertical, 10)

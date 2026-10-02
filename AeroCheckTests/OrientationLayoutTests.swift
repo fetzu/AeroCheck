@@ -2,8 +2,9 @@ import XCTest
 @testable import AeroCheck
 
 /// The layouts a screen picks from the size it is given (the route builder's portrait and two columns,
-/// the Logbook's list and detail, the root's rotation prompt), and the on-screen keyboard, which takes
-/// its height off that size. With the keys up, an iPad in portrait is wider than it is tall. (6.1.0)
+/// the Logbook's list and detail, the root's rotation prompt, the map's landscape legs panel), and the
+/// on-screen keyboard, which takes its height off that size. With the keys up, an iPad in portrait is
+/// wider than it is tall. (6.1.0)
 final class OrientationLayoutTests: XCTestCase {
 
     // MARK: Route builder
@@ -75,5 +76,20 @@ final class OrientationLayoutTests: XCTestCase {
     func testASmallPhoneTypingInPortraitIsNotAskedToRotate() {
         // An iPhone SE with the keyboard, its suggestions and a keyboard toolbar: 343 pt left of 647.
         XCTAssertFalse(KeyboardProofOrientation.isLandscape(size: CGSize(width: 375, height: 343), bottomInset: 304))
+    }
+
+    // MARK: The map on an iPad on its side (6.1)
+
+    func testTheLandscapeLegsPanelStopsBelowTheAircraft() {
+        // The Cockpit's map pane on an iPad Air 11" on its side, under the instrument strip, and Plan ›
+        // Map, which has no strip.
+        for mapHeight: CGFloat in [478, 640] {
+            let panel = NavigationMapView.landscapeLegsMaxHeight(mapHeight: mapHeight)
+            let panelTop = mapHeight - panel
+            // The map centres the aircraft; its symbol is about 28 pt across.
+            XCTAssertGreaterThanOrEqual(panelTop, mapHeight / 2 + 20, "the aircraft stays in view at \(mapHeight) pt")
+            XCTAssertGreaterThan(panel, mapHeight / 3, "still a panel at \(mapHeight) pt")
+        }
+        XCTAssertEqual(NavigationMapView.landscapeLegsMaxHeight(mapHeight: 40), 0, "never negative")
     }
 }

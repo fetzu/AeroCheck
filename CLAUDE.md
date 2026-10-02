@@ -327,6 +327,27 @@ Aware (Publish + Subscribe) for Companion, `aps-environment`.
   `FlightPlanManager`, `AircraftDataService` or `SubscriptionManager` only through the
   `TestDatastore.swift` helpers (`makeTestDatastore()`, `makeTestDefaults()`, …).
 
+Ground replays (the in-flight checks without flying): `scripts/ground-replay.sh [--only
+ChecksInFlightUITests/testCrossCountryEveryCheckOnTime] [--iphone]` creates a throwaway simulator, runs
+the `AeroCheckUITests` scheme and writes `results.json` (each device-check step id: pass, fail, or
+observed when only a person can judge it) and the screenshots `<page>-<step id>-<short>.png` to
+`$TMPDIR/aerocheck-ground-replay/<date>`, then deletes the simulator. The screenshots show checklist
+text: never attach them to anything public.
+
+- How: DEBUG `Services/GroundReplay.swift`, launched by `AEROCHECK_REPLAY=<scenario JSON>`
+  (`AEROCHECK_REPLAY_SPEED`, default 10; `AEROCHECK_REPLAY_RESUME=1` after a relaunch), feeds the track
+  through `LocationManager.feedReplayFix` (the device's own path) on a virtual clock, waits at the
+  scenario's holds (ENGINE START, READY FOR LINE UP) for the UI test, injects the scenario's aerodromes
+  and arms its route. Release builds compile none of it.
+- Anything a flight times reads `FlightClock.now`, never `Date()`, or a replay puts it on another clock
+  than the track, the detector and the slot. Undo windows count `FlightClock.pilotSeconds(since:)`.
+- A UI test reads accessibility identifiers, never colours or words that change with the language: the
+  check slot's identifier carries its tone and action (`checkSlot.due.confirmFromMemory`).
+- Scenarios: `scripts/flightsim/make_scenario.py` (Python, standard library) generates them into
+  `AeroCheckUITests/Scenarios` and writes what the detector's referee (`../CLAUDE/review/flight-events`,
+  or `AEROCHECK_REFEREE=<dir>`) expects of each. Regenerate them after a change to the detector or the
+  cues. `GroundReplayTests` replays the same flights through the whole chain without a view, in a second.
+
 ## Secrets / API keys (OpenAIP key and client secrets)
 
 - No secret in tracked source, ever, and never print one. The values live in the untracked

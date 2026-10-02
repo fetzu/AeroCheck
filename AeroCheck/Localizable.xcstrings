@@ -51,12 +51,12 @@
         }
       }
     },
-    "Glider, UL & helicopter circuits": {
+    "Glider, UL & helicopter": {
       "localizations": {
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Tours de piste planeurs, ULM et hélicoptères"
+            "value": "Planeurs, ULM et hélicoptères"
           }
         }
       }

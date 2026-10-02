@@ -499,6 +499,7 @@ struct NavigationMapView: View {
         .onChange(of: appState.settings.showObstaclesOnMap) { _, _ in recomputeMapSpatialContent(force: true) }
         .onChange(of: appState.settings.showReportingPointsOnMap) { _, _ in recomputeMapSpatialContent(force: true) }
         // The aerodrome procedures: their switches, their data, the palette and the plan's ends. (6.2.0)
+        // The third switch also brings open flightmaps' helicopter and glider reporting points.
         .modifier(VFRLayerFollower(key: vfrLayerKey) { recomputeMapSpatialContent(force: true) })
         .onChange(of: appState.currentPhase) { _, _ in
             recomputePhaseFrequencies()
@@ -4472,8 +4473,8 @@ struct OverlaysSections: View {
     // MARK: Aerodrome procedures (6.2.0)
 
     /// Traffic circuits, VFR arrival and departure routes with their sectors, and the glider, UL and
-    /// helicopter circuits, from open flightmaps. All off by default; Approach and Everything turn the
-    /// first two on.
+    /// helicopter circuits (and reporting points), from open flightmaps. All off by default; Approach and
+    /// Everything turn the first two on.
     private var aerodromeProceduresCard: some View {
         groupCard(L10n.VFRMap.aerodromeProcedures) {
             toggleRow(icon: "arrow.triangle.capsulepath", title: L10n.VFRMap.showCircuits,

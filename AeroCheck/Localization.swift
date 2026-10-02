@@ -2382,7 +2382,9 @@ enum L10n {
         static let aerodromeProcedures = String(localized: "Aerodrome procedures")
         static let showCircuits = String(localized: "Traffic circuits")
         static let showRoutes = String(localized: "Arrival & departure routes (with sectors)")
-        static let showNonPowered = String(localized: "Glider, UL & helicopter circuits")
+        /// The third switch: the glider, UL, gyro and helicopter circuits (with the routes, the helicopter
+        /// routes), and open flightmaps' helicopter and glider reporting points. (6.2.0)
+        static let showNonPowered = String(localized: "Glider, UL & helicopter")
         /// Navigation & Maps, under the three switches.
         static let settingsFooter = String(localized: "From open flightmaps, for the countries in Data & Storage. Indicative only: always check the official chart.")
         /// The Map sheet, when a switch is on and the country under the map has none downloaded.

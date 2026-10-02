@@ -154,12 +154,18 @@ final class ReportingPointCatalog: ObservableObject {
     /// what "E (LSGC)" needs.
     func aerodrome(for point: ReportingPoint) -> ReportingPointAerodrome? {
         if let joined = aerodromes.aerodrome(for: point) { return joined }
-        guard let icao = point.aerodromeICAO, !icao.isEmpty else { return nil }
-        return aerodromes.aerodrome(forICAO: icao) ?? ReportingPointAerodrome(icao: icao, name: "")
+        return aerodrome(forICAO: point.aerodromeICAO)
     }
 
     func label(for point: ReportingPoint) -> ReportingPointLabel {
         ReportingPointLabel(point: point, aerodrome: aerodrome(for: point))
+    }
+
+    /// An aerodrome by its ICAO code: OpenAIP's name when its airport layer has the field, the code
+    /// alone otherwise; nil without a code.
+    func aerodrome(forICAO icao: String?) -> ReportingPointAerodrome? {
+        guard let icao = icao?.trimmingCharacters(in: .whitespaces), !icao.isEmpty else { return nil }
+        return aerodromes.aerodrome(forICAO: icao) ?? ReportingPointAerodrome(icao: icao.uppercased(), name: "")
     }
 
     /// The aerodrome of the point a waypoint was made from, by its `sourceId`.
@@ -428,8 +434,6 @@ private extension Character {
 
 extension AppSettings {
     /// Whether open flightmaps' helicopter and glider reporting points join the others: the map's
-    /// "Glider, UL & helicopter" switch, `showNonPoweredCircuitsOnMap`, which the map-layers PR adds.
-    /// Until that switch exists on this branch the points stay off; when both are in, this returns it.
-    /// (6.2.0)
-    var showsNonPoweredReportingPoints: Bool { false }
+    /// "Glider, UL & helicopter" switch, the one that shows those circuits. (6.2.0)
+    var showsNonPoweredReportingPoints: Bool { showNonPoweredCircuitsOnMap }
 }

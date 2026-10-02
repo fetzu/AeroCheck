@@ -587,7 +587,7 @@ final class VFRMapLayerTests: XCTestCase {
             "Aerodrome procedures": "Procédures d’aérodrome",
             "Traffic circuits": "Tours de piste",
             "Arrival & departure routes (with sectors)": "Routes d’arrivée et de départ (avec secteurs)",
-            "Glider, UL & helicopter circuits": "Tours de piste planeurs, ULM et hélicoptères",
+            "Glider, UL & helicopter": "Planeurs, ULM et hélicoptères",
             "Download VFR procedures for %@ in Data & Storage": "Téléchargez les procédures VFR pour %@ dans Données et stockage",
             "Circuits & VFR routes © open flightmaps · AIRAC %@ · indicative":
                 "Tours de piste et routes VFR © open flightmaps · AIRAC %@ · indicatif",

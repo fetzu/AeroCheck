@@ -615,6 +615,9 @@ final class ReportingPointTests: XCTestCase {
     @MainActor
     func testHelicopterAndGliderPointsNeedTheSwitch() async throws {
         XCTAssertFalse(AppSettings().showsNonPoweredReportingPoints, "off until the map's switch is on")
+        var withSwitch = AppSettings()
+        withSwitch.showNonPoweredCircuitsOnMap = true
+        XCTAssertTrue(withSwitch.showsNonPoweredReportingPoints, "the \"Glider, UL & helicopter\" switch brings them")
         let (catalog, _) = try await makeCatalog()
         XCTAssertTrue(Set(ofmOnlyNonPowered).isDisjoint(with: catalog.allPoints(includingNonPowered: false).map(tag)))
         XCTAssertTrue(Set(ofmOnlyNonPowered).isSubset(of: catalog.allPoints(includingNonPowered: true).map(tag)))
@@ -819,6 +822,34 @@ final class ReportingPointTests: XCTestCase {
         XCTAssertEqual(Set(catalog.allPoints(includingNonPowered: false).filter { $0.source == .openFlightmaps }.map(tag)),
                        Set(ofmOnlyFixed))
         XCTAssertNotEqual(catalog.labelRevision, 0)
+    }
+
+    /// The GPX `<desc>` of a waypoint made from an open flightmaps point, right after launch (nothing
+    /// has loaded them yet): the name and the aerodrome the waypoint stored. Loaded, from the point.
+    @MainActor
+    func testTheGPXDescriptionOfAnOFMWaypointNeedsNoLoadedPoints() async throws {
+        let (catalog, ofm) = try await makeCatalog(loadOFM: false)
+        XCTAssertFalse(ofm.isLoaded)
+        var sion = FlightPlanWaypoint(name: "S", coordinate: CLLocationCoordinate2D(latitude: 46.205, longitude: 7.30611))
+        sion.pointKind = .vrp
+        sion.sourceId = "ofm:0e240688-94ed-b81d-cb06-9977f09ae188"
+        sion.aerodromeICAO = "LSGS"
+        XCTAssertEqual(FlightPlanExportService.gpxDescription(of: sion, catalog: catalog), "S · LSGS Sion")
+        var unassociated = sion
+        unassociated.aerodromeICAO = nil
+        XCTAssertNil(FlightPlanExportService.gpxDescription(of: unassociated, catalog: catalog), "no aerodrome, no description")
+        var gone = sion
+        gone.sourceId = "629cc7abf4b4089a578e3c99"
+        XCTAssertNil(FlightPlanExportService.gpxDescription(of: gone, catalog: catalog), "an OpenAIP id it doesn't know: as before")
+
+        await ofm.ensureLoaded()
+        XCTAssertEqual(FlightPlanExportService.gpxDescription(of: sion, catalog: catalog), "S · LSGS Sion")
+        var e = FlightPlanWaypoint(name: "E", coordinate: CLLocationCoordinate2D(latitude: 47.13717, longitude: 6.97583))
+        e.pointKind = .vrp
+        e.sourceId = "629cc7abf4b4089a578e3c55"
+        let plan = FlightPlan(name: "GPX", waypoints: [sion, e])
+        XCTAssertEqual(FlightPlanExportService.gpxDescriptions(for: plan, catalog: catalog),
+                       [sion.id: "S · LSGS Sion", e.id: "E · LSGC Les Eplatures"])
     }
 
     func testTheNewStringsHaveTheirFrench() throws {

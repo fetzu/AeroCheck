@@ -14,6 +14,9 @@ class OpenAIPDataService: ObservableObject {
     @Published var isDownloading = false
     @Published var downloadProgress: Double = 0
     @Published var downloadError: String?
+    /// Countries the last download could not update (their old file, if any, is kept), like the other
+    /// OpenAIP layers. Shown in Navigation & Maps and in Data & Storage. (6.2.0)
+    @Published var failedCountries: [String] = []
     @Published var lastUpdated: Date?
     @Published var isDataAvailable: Bool = false
     @Published var airspaceCount: Int = 0
@@ -175,6 +178,7 @@ class OpenAIPDataService: ObservableObject {
         isDownloading = true
         downloadProgress = 0
         downloadError = nil
+        failedCountries = []
 
         do {
             try fileManager.createDirectory(at: dataDirectory, withIntermediateDirectories: true)
@@ -227,6 +231,7 @@ class OpenAIPDataService: ObservableObject {
             } catch {
                 AppLog.openAIP.debugLine("Failed to download airspaces for \(country): \(error)")
                 downloadError = "Failed to download data for \(OpenAIPConfig.countryName(for: country)): \(error.localizedDescription)"
+                failedCountries.append(country)
                 // PR-30: fall back to the existing on-disk file for this country so a failed refresh
                 // doesn't drop its airspaces from memory (the data is still valid on disk). Its
                 // metadata entry is preserved (we don't overwrite lastSyncDates on failure).
@@ -262,7 +267,9 @@ class OpenAIPDataService: ObservableObject {
             airspaceCount = allAirspaces.count
         }
         downloadedCountries = metadata.lastSyncDates.keys.sorted()
-        lastUpdated = Date()
+        // The newest country's sync, as at launch. `Date()` called a refresh that failed everywhere
+        // "up to date", right above the line saying it had failed. (6.2.0)
+        lastUpdated = metadata.lastSyncDates.values.max()
         isDataAvailable = !allAirspaces.isEmpty
         isLoaded = true
 
@@ -679,6 +686,7 @@ class OpenAIPDataService: ObservableObject {
             airspaces = []
             airspaceCount = 0
             downloadedCountries = []
+            failedCountries = []
             lastUpdated = nil
             isDataAvailable = false
             isLoaded = false

@@ -8,6 +8,10 @@ struct NavigationMapsSettingsView: View {
     @EnvironmentObject var openAIPCacheManager: OpenAIPCacheManager
     @EnvironmentObject var openAIPDataService: OpenAIPDataService
     @EnvironmentObject var openAIPNavaidDataService: OpenAIPNavaidDataService
+    // Read for their failed downloads only; the download page fetches them with the others. (6.2.0)
+    @ObservedObject private var obstacleService = OpenAIPObstacleDataService.shared
+    @ObservedObject private var reportingPointService = OpenAIPReportingPointDataService.shared
+    @ObservedObject private var openAIPAirportService = OpenAIPAirportDataService.shared
 
     @State private var forceICAOChartLayer: Bool = false
     @State private var offlineMode: Bool = false
@@ -249,19 +253,40 @@ struct NavigationMapsSettingsView: View {
                                   showsChevron: false, destructive: true, action: { showOpenAIPDeleteConfirmation = true })
             }
 
-            if let error = openAIPDataService.downloadError ?? openAIPCacheManager.downloadError {
-                // Error row: warning glyph + red caption, housed with the row container insets.
-                HStack {
-                    Image(systemName: "exclamationmark.triangle.fill")
-                        .foregroundColor(.aviationRed)
-                    Text(error)
-                        .font(.aero(.caption))
-                        .foregroundColor(.aviationRed)
-                }
-                .padding(.horizontal, 14)
-                .padding(.vertical, 11)
+            // The countries any OpenAIP data layer could not update, in one line. Navaids, obstacles,
+            // reporting points and aerodromes reported theirs to no screen at all, and airspace's
+            // came as an English sentence per country. (6.2.0)
+            if !failedOpenAIPCountries.isEmpty {
+                errorRow(L10n.DataStorage.updateFailed(failedOpenAIPCountries))
+            }
+            // Failures that name no country: airspace's own (a cache that could not be written) and the tiles'.
+            if let error = (openAIPDataService.failedCountries.isEmpty ? openAIPDataService.downloadError : nil)
+                ?? openAIPCacheManager.downloadError {
+                errorRow(error)
             }
         }
+    }
+
+    /// Every OpenAIP data layer's failed countries from the last download, once each.
+    private var failedOpenAIPCountries: [String] {
+        Set(openAIPDataService.failedCountries + openAIPNavaidDataService.failedCountries
+            + obstacleService.failedCountries + reportingPointService.failedCountries
+            + openAIPAirportService.failedCountries).sorted()
+    }
+
+    /// Error row: warning glyph + red caption, housed with the row container insets.
+    private func errorRow(_ message: String) -> some View {
+        HStack {
+            Image(systemName: "exclamationmark.triangle.fill")
+                .foregroundColor(.aviationRed)
+                .accessibilityHidden(true)
+            Text(message)
+                .font(.aero(.caption))
+                .foregroundColor(.aviationRed)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 11)
     }
 
     // MARK: - Airport Data Section
@@ -322,16 +347,7 @@ struct NavigationMapsSettingsView: View {
             }
 
             if let error = airportDataService.downloadError {
-                // Error row: warning glyph + red caption, housed with the row container insets.
-                HStack {
-                    Image(systemName: "exclamationmark.triangle.fill")
-                        .foregroundColor(.aviationRed)
-                    Text(error)
-                        .font(.aero(.caption))
-                        .foregroundColor(.aviationRed)
-                }
-                .padding(.horizontal, 14)
-                .padding(.vertical, 11)
+                errorRow(error)
             }
         }
     }

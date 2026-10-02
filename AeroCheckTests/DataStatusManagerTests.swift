@@ -257,4 +257,169 @@ final class DataStatusManagerTests: XCTestCase {
         XCTAssertFalse(missing.isDownloaded)
         XCTAssertEqual(missing.freshness, .missing)
     }
+
+    // MARK: - OpenAIP aerodromes (6.2.0)
+
+    /// One aerodrome per country, as the fake export serves it: Bern for CH, Friedrichshafen for DE.
+    private func aerodromes() -> (String) throws -> [OpenAIPAirport] {
+        { country in
+            let json = """
+            { "type": "FeatureCollection", "features": [
+              { "type": "Feature", "properties": { "_id": "\(country)-1", "name": "FIELD \(country)",
+                  "icaoCode": "\(country == "CH" ? "LSZB" : "EDNY")", "type": 3, "country": "\(country)" },
+                "geometry": { "type": "Point", "coordinates": [\(country == "CH" ? "7.4971, 46.9141" : "9.5113, 47.6713")] } }
+            ] }
+            """
+            return try OpenAIPAirport.parse(geoJSON: Data(json.utf8))
+        }
+    }
+
+    private func row(_ id: String, in manager: DataStatusManager) throws -> DataSet {
+        try XCTUnwrap(manager.dataSets.first { $0.id == id })
+    }
+
+    /// Like the other OpenAIP layers: primary data, the aeronautical thresholds, silent refresh; its
+    /// countries in the row. Not in the trip prefetch (see `OpenAIPAirportProvider.perCountryCoverage`).
+    func testTheAerodromeRowFollowsTheAeronauticalThresholds() {
+        let layer = makeTestOpenAIPAirportLayer { _ in [] }
+        let provider = OpenAIPAirportProvider(service: layer)
+        let missing = provider.makeDataSet(now: now)
+        XCTAssertEqual(missing.freshness, .missing)
+        XCTAssertFalse(missing.isDownloaded)
+
+        layer.isDataAvailable = true
+        layer.downloadedCountries = ["CH", "DE"]
+        for (age, expected) in [(1.0, DataFreshness.fresh), (40, .aging), (100, .stale)] {
+            layer.lastUpdated = now.addingTimeInterval(-age * day)
+            XCTAssertEqual(provider.makeDataSet(now: now).freshness, expected, "\(age) days")
+        }
+        let set = provider.makeDataSet(now: now)
+        XCTAssertEqual(set.id, "openaip.airports")
+        XCTAssertEqual(set.displayName, L10n.DataStorage.openAIPAirportsName)
+        XCTAssertEqual(set.urgency, .primary)
+        XCTAssertEqual(set.provenance, .community)
+        XCTAssertEqual(set.refreshPolicy, .smallSilentJSON)
+        XCTAssertEqual(set.coverage, ["CH", "DE"])
+        XCTAssertTrue(set.isDownloaded)
+        XCTAssertNil(set.updateFailure)
+
+        XCTAssertNil(provider.perCountryCoverage, "kept out of the trip prefetch")
+        let manager = DataStatusManager(providers: [provider], networkMonitor: NetworkMonitor(stub: .disconnected),
+                                        now: { self.now }, userDefaults: makeTestDefaults())
+        XCTAssertEqual(manager.tripCountriesNeedingData(routeCountries: ["CH", "FR"]), [])
+        XCTAssertEqual(manager.overallHealth, .urgent, "stale aerodromes turn the dot red like any primary data")
+    }
+
+    /// Stale aerodromes are fetched again by the foreground refresh, which they never were without a
+    /// provider.
+    func testTheForegroundRefreshUpdatesStaleAerodromes() async throws {
+        var fetched: [String] = []
+        let serve = aerodromes()
+        let layer = makeTestOpenAIPAirportLayer { fetched.append($0); return try serve($0) }
+        await layer.downloadData(for: ["CH"])
+        layer.lastUpdated = Date().addingTimeInterval(-100 * day)
+        let wifi = NetworkConditions(isConnected: true, isWiFi: true, isExpensive: false, isConstrained: false)
+        let manager = DataStatusManager(providers: [OpenAIPAirportProvider(service: layer)],
+                                        networkMonitor: NetworkMonitor(stub: wifi), userDefaults: makeTestDefaults())
+        XCTAssertEqual(try row("openaip.airports", in: manager).freshness, .stale)
+
+        await manager.autoRefreshIfNeeded(cellularUpdatesEnabled: true)
+        XCTAssertEqual(fetched, ["CH", "CH"])
+        XCTAssertEqual(try row("openaip.airports", in: manager).freshness, .fresh)
+    }
+
+    /// "Remove all downloads" removes the aerodromes, on disk and from the merged airport store.
+    func testRemoveAllIncludesTheAerodromes() async throws {
+        let root = makeTestDirectory()
+        let layer = makeTestOpenAIPAirportLayer(root: root, fetch: aerodromes())
+        let store = makeTestAirportStore(openAIPAirports: layer)
+        store.followOpenAIPAirports()
+        await layer.downloadData(for: ["CH"])
+        await store.waitForPendingPasses()
+        XCTAssertNotNil(store.findAirport(byIdent: "LSZB"))
+        let directory = root.appendingPathComponent(OpenAIPAirportDataService.directoryName).path
+        XCTAssertTrue(FileManager.default.fileExists(atPath: directory))
+
+        let manager = DataStatusManager(providers: [OpenAIPAirportProvider(service: layer), OurAirportsProvider(service: store)],
+                                        networkMonitor: NetworkMonitor(stub: .disconnected), userDefaults: makeTestDefaults())
+        XCTAssertTrue(try row("openaip.airports", in: manager).isDownloaded)
+        manager.removeAll()
+        await store.waitForPendingPasses()
+
+        XCTAssertEqual(try row("openaip.airports", in: manager).freshness, .missing)
+        XCTAssertFalse(FileManager.default.fileExists(atPath: directory))
+        XCTAssertNil(store.findAirport(byIdent: "LSZB"), "the merged store let go of them too")
+        XCTAssertFalse(store.isDataAvailable)
+        XCTAssertFalse(layer.hasPPRData)
+    }
+
+    /// A refresh that leaves a country behind says so under the row, and the next one that completes
+    /// clears it.
+    func testAFailedUpdateShowsUnderTheRowUntilOneCompletes() async throws {
+        var failing: Set<String> = []
+        let serve = aerodromes()
+        let layer = makeTestOpenAIPAirportLayer { country in
+            if failing.contains(country) { throw URLError(.timedOut) }
+            return try serve(country)
+        }
+        await layer.downloadData(for: ["CH", "DE"])
+        let manager = DataStatusManager(providers: [OpenAIPAirportProvider(service: layer)],
+                                        networkMonitor: NetworkMonitor(stub: .disconnected), userDefaults: makeTestDefaults())
+        XCTAssertNil(try row("openaip.airports", in: manager).updateFailure)
+
+        failing = ["DE"]
+        await manager.refresh(try row("openaip.airports", in: manager))
+        let failed = try row("openaip.airports", in: manager)
+        XCTAssertEqual(failed.updateFailure?.countries, ["DE"])
+        XCTAssertEqual(failed.coverage, ["CH", "DE"], "DE keeps its old file")
+        XCTAssertTrue(L10n.DataStorage.updateFailed(["DE"]).contains("DE"))
+
+        failing = []
+        await manager.refresh(try row("openaip.airports", in: manager))
+        XCTAssertNil(try row("openaip.airports", in: manager).updateFailure)
+    }
+
+    /// Every data row reads its layer's failure: the OpenAIP layers by country, OurAirports without.
+    func testEveryDataRowShowsItsFailedUpdate() {
+        let airspace = OpenAIPDataService()
+        let navaids = OpenAIPNavaidDataService()
+        let obstacles = OpenAIPObstacleDataService()
+        let points = OpenAIPReportingPointDataService()
+        let store = makeTestAirportStore(openAIPAirports: makeTestOpenAIPAirportLayer { _ in [] })
+        airspace.failedCountries = ["CH"]
+        navaids.failedCountries = ["DE"]
+        obstacles.failedCountries = ["AT"]
+        points.failedCountries = ["FR"]
+        store.downloadError = "The request timed out."
+        let providers: [DataSetProvider] = [
+            OpenAIPAirspaceProvider(service: airspace), OpenAIPNavaidProvider(service: navaids),
+            OpenAIPObstacleProvider(service: obstacles), OpenAIPReportingPointProvider(service: points),
+            OurAirportsProvider(service: store),
+        ]
+        XCTAssertEqual(providers.map { $0.makeDataSet(now: now).updateFailure?.countries },
+                       [["CH"], ["DE"], ["AT"], ["FR"], []])
+
+        airspace.failedCountries = []
+        navaids.failedCountries = []
+        obstacles.failedCountries = []
+        points.failedCountries = []
+        store.downloadError = nil
+        XCTAssertTrue(providers.allSatisfy { $0.makeDataSet(now: now).updateFailure == nil })
+    }
+
+    /// The line is short, names the countries, says what to do, and has its French.
+    func testTheFailureLineInEnglishAndFrench() throws {
+        let path = try XCTUnwrap(Bundle.main.path(forResource: "fr", ofType: "lproj"))
+        let french = try XCTUnwrap(Bundle(path: path))
+        let missing = "\u{1}missing"
+        XCTAssertEqual(french.localizedString(forKey: "Couldn't update %@. Try again on Wi-Fi.", value: missing, table: nil),
+                       "Mise à jour impossible : %@. Réessayez en Wi-Fi.")
+        XCTAssertEqual(french.localizedString(forKey: "Couldn't update. Try again on Wi-Fi.", value: missing, table: nil),
+                       "Mise à jour impossible. Réessayez en Wi-Fi.")
+        XCTAssertEqual(french.localizedString(forKey: "Aerodromes", value: missing, table: nil), "Aérodromes")
+        XCTAssertNotEqual(french.localizedString(forKey: "OpenAIP · runways, frequencies & PPR · primary source",
+                                                 value: missing, table: nil), missing)
+        XCTAssertTrue(L10n.DataStorage.updateFailed(["CH", "DE"]).contains("CH, DE"))
+        XCTAssertNotEqual(L10n.DataStorage.updateFailed([]), L10n.DataStorage.updateFailed(["CH"]))
+    }
 }

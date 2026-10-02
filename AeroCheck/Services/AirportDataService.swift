@@ -25,7 +25,7 @@ class AirportDataService: ObservableObject {
 
     /// When true, assigning `airports` does NOT rebuild the spatial grid — so a load-then-merge sequence
     /// that re-assigns `airports` twice rebuilds the ~40K-entry grid once, not twice, on `@MainActor`.
-    /// Callers MUST rebuild once when clearing it (see `ensureLoaded`'s `defer`). (v4.1.0 pre-tag fix)
+    /// Callers MUST rebuild once when clearing it (see `rebuildStore`'s `defer`). (v4.1.0 pre-tag fix)
     private var suppressGridRebuild = false
     private var airports: [Airport] = [] {
         didSet { if !suppressGridRebuild { rebuildSpatialGrid() } }
@@ -77,8 +77,11 @@ class AirportDataService: ObservableObject {
 
     // File storage
     private let fileManager = FileManager.default
+    /// Holds `AirportData`: Application Support, or a test's own directory.
+    private let rootDirectory: URL?
     private var dataDirectory: URL {
-        let appSupport = fileManager.urls(for: .applicationSupportDirectory, in: .userDomainMask).first
+        let appSupport = rootDirectory
+            ?? fileManager.urls(for: .applicationSupportDirectory, in: .userDomainMask).first
             ?? URL(fileURLWithPath: NSHomeDirectory()).appendingPathComponent("Library/Application Support")
         return appSupport.appendingPathComponent("AirportData", isDirectory: true)
     }
@@ -88,12 +91,28 @@ class AirportDataService: ObservableObject {
     private var runwaysFileURL: URL { dataDirectory.appendingPathComponent("runways.json") }
     private var metadataFileURL: URL { dataDirectory.appendingPathComponent("metadata.json") }
 
+    /// The OpenAIP aerodromes folded into the store: `.shared` in the app.
+    private let openAIPAirports: OpenAIPAirportDataService
+
     /// Whether in-memory data has been loaded from disk
     private var isLoaded = false
 
+    /// The last queued load, merge or download pass. Each pass waits for the one before it, so two
+    /// never interleave across their suspension points: a merge that had read the old airports could
+    /// otherwise land after a download had replaced them, and put the old ones back. (6.2.0)
+    private var lastPass: Task<Void, Never>?
+    /// Bumped by `deleteData()`, which clears the store outside the queue: a pass that was still
+    /// reading the files when they went away drops what it read instead of bringing them back.
+    private var storeGeneration = 0
+
     // MARK: - Initialization
 
-    init() {
+    /// - Parameters:
+    ///   - openAIPAirports: tests only; the app folds in `OpenAIPAirportDataService.shared`.
+    ///   - rootDirectory: tests only; holds the `AirportData` cache instead of Application Support.
+    init(openAIPAirports: OpenAIPAirportDataService? = nil, rootDirectory: URL? = nil) {
+        self.openAIPAirports = openAIPAirports ?? .shared
+        self.rootDirectory = rootDirectory
         // Defer loading until data is actually needed (flight start or map overlay)
         // to save ~20-30MB of memory at app startup.
         // Callers use ensureLoaded() to trigger loading on demand.
@@ -103,48 +122,186 @@ class AirportDataService: ObservableObject {
         // OpenAIP alone is a valid dataset: report data as available when EITHER source has something
         // on disk, so the UI offers its surfaces (and triggers `ensureLoaded`) rather than behaving as
         // if there were no airport data at all.
-        if OpenAIPAirportDataService.shared.isDataAvailable {
+        if self.openAIPAirports.isDataAvailable {
             isDataAvailable = true
         }
 
         if fileManager.fileExists(atPath: airportsFileURL.path) {
             isDataAvailable = true
-            if let metadataData = try? Data(contentsOf: metadataFileURL),
-               let metadata = try? JSONDecoder().decode(AirportDataMetadata.self, from: metadataData) {
+            if let metadata = storedMetadata {
                 lastUpdated = metadata.lastUpdated
                 airportCount = metadata.airportCount
             }
         }
     }
 
-    /// Load airport data into memory if not already loaded.
+    /// Load airport data into memory if not already loaded: OurAirports from disk, OpenAIP folded in.
     /// Called automatically by query methods that need the data.
     func ensureLoaded() async {
         guard !isLoaded else { return }
+        await enqueuePass { [self] in
+            guard !isLoaded else { return }   // a pass queued before this one loaded it
+            await rebuildStore(from: .disk)
+        }.value
+    }
+
+    /// OpenAIP is the primary airport source: (re)build the store with whatever OpenAIP airport data is
+    /// downloaded folded into the backbone (identity + position + frequencies + runways; OpenAIP wins on
+    /// ICAO match within tolerance, OurAirports gap-fills). The backbone is OurAirports from disk once the
+    /// store is loaded, and nothing before that (an OpenAIP-only store until `ensureLoaded`).
+    ///
+    /// Rebuilt from the backbone, not merged on top of the last merge: a field, runway or frequency
+    /// OpenAIP has since dropped goes with it, and deleting the OpenAIP data takes its fields out. Queued
+    /// behind any load, download or merge already running. (v4.1.0; 6.2.0)
+    func applyOpenAIPMergeIfAvailable() async {
+        await scheduleOpenAIPMerge().value
+    }
+
+    /// Queues the merge (`applyOpenAIPMergeIfAvailable`) and returns at once.
+    @discardableResult
+    func scheduleOpenAIPMerge() -> Task<Void, Never> {
+        enqueuePass { [self] in await rebuildStore(from: isLoaded ? .disk : .notLoaded) }
+    }
+
+    /// Re-runs the merge whenever the OpenAIP aerodromes change, from whichever screen downloaded or
+    /// deleted them: their runways and frequencies used to wait for the next launch. The app calls it
+    /// once, for its own store. (6.2.0)
+    func followOpenAIPAirports() {
+        openAIPAirports.onAirportsChanged = { [weak self] in self?.scheduleOpenAIPMerge() }
+    }
+
+    /// Returns once every queued pass has run. For tests, after an action that only queues one.
+    func waitForPendingPasses() async {
+        while let pass = lastPass {
+            await pass.value
+            if lastPass == pass { return }
+        }
+    }
+
+    // MARK: - Store passes (6.2.0)
+
+    /// Runs `pass` after every pass queued before it. Internal for the ordering test; the store's own
+    /// passes are the only other callers.
+    @discardableResult
+    func enqueuePass(_ pass: @escaping @MainActor () async -> Void) -> Task<Void, Never> {
+        let previous = lastPass
+        let task = Task { @MainActor in
+            await previous?.value
+            await pass()
+        }
+        lastPass = task
+        return task
+    }
+
+    /// Where a pass takes OurAirports from: nowhere (the lazy store, not loaded yet), the files on
+    /// disk, or a download in hand.
+    private enum Backbone {
+        case notLoaded, disk
+        case downloaded(AirportCacheLoad)
+    }
+
+    /// One pass: the backbone in place of the store's contents, then OpenAIP folded in. OpenAIP is
+    /// read first, so nothing suspends between the backbone landing and the merge: a query never sees
+    /// OurAirports without OpenAIP in between. One spatial-grid rebuild for the whole pass.
+    private func rebuildStore(from source: Backbone) async {
+        let generation = storeGeneration
+        await openAIPAirports.ensureLoaded()
+        let backbone: AirportCacheLoad?
+        switch source {
+        case .notLoaded: backbone = nil
+        case .disk: backbone = await readBackbone()
+        case .downloaded(let load): backbone = load
+        }
+        guard storeGeneration == generation else { return }   // deleted while this pass was reading
+
         // Suppress the per-assignment grid rebuild across the load+merge, then rebuild exactly once on
         // exit (defer covers every path). Avoids building the full grid twice. (v4.1.0 pre-tag fix)
         suppressGridRebuild = true
         defer { suppressGridRebuild = false; rebuildSpatialGrid() }
-        await loadFromLocal()
-        await applyOpenAIPMergeIfAvailable()
+        install(backbone ?? .empty)
+        if case .notLoaded = source {
+            // Not loaded: the count stays what is on disk, as at launch, unless OpenAIP fills the store.
+            airportCount = storedMetadata?.airportCount ?? 0
+        } else {
+            isLoaded = true
+        }
+        mergeLoadedOpenAIP()
+
+        // Queryable data exists whatever its source: every frequency/airport surface in the app gates on
+        // this flag, and an OpenAIP-only dataset used to stay invisible because only OurAirports set it.
+        isDataAvailable = !airports.isEmpty || fileManager.fileExists(atPath: airportsFileURL.path)
+            || openAIPAirports.isDataAvailable
     }
 
-    /// OpenAIP is the primary airport source: whenever OpenAIP airport data is downloaded, fold it into
-    /// the loaded backbone (identity + position + frequencies + runways; OpenAIP wins on ICAO match within
-    /// tolerance, OurAirports gap-fills). No-op when OpenAIP airport data isn't downloaded → OurAirports
-    /// is the fallback. Re-sets `airports` (didSet rebuilds the spatial grid). Idempotent. (v4.1.0)
-    func applyOpenAIPMergeIfAvailable() async {
+    /// OurAirports from disk, read and decoded off the main actor (PERF-07); nil when there is no file
+    /// or it can't be read.
+    private func readBackbone() async -> AirportCacheLoad? {
+        guard fileManager.fileExists(atPath: airportsFileURL.path) else {
+            AppLog.airportData.debugLine("No local data found")
+            return nil
+        }
+        let airportsURL = airportsFileURL
+        let frequenciesURL = frequenciesFileURL
+        let runwaysURL = runwaysFileURL
+        let metadataURL = metadataFileURL
+
+        let loaded: AirportCacheLoad? = await Task.detached(priority: .userInitiated) {
+            do {
+                let lastUpdated = (try? Data(contentsOf: metadataURL))
+                    .flatMap { try? JSONDecoder().decode(AirportDataMetadata.self, from: $0) }?
+                    .lastUpdated
+
+                let airportsData = try Data(contentsOf: airportsURL)
+                let airports = try JSONDecoder().decode([Airport].self, from: airportsData)
+
+                let frequencies = (try? Data(contentsOf: frequenciesURL))
+                    .flatMap { try? JSONDecoder().decode([AirportFrequency].self, from: $0) } ?? []
+                let runways = (try? Data(contentsOf: runwaysURL))
+                    .flatMap { try? JSONDecoder().decode([Runway].self, from: $0) } ?? []
+
+                return AirportCacheLoad(
+                    airports: airports, frequencies: frequencies,
+                    runways: runways, lastUpdated: lastUpdated
+                )
+            } catch {
+                AppLog.airportData.debugLine("Failed to load from cache: \(error)")
+                return nil
+            }
+        }.value
+        if let loaded { AppLog.airportData.debugLine("Loaded from cache: \(loaded.airports.count) airports") }
+        return loaded
+    }
+
+    /// The backbone in place of the store's contents. The pass merges OpenAIP next.
+    private func install(_ backbone: AirportCacheLoad) {
+        if let lastUpdated = backbone.lastUpdated { self.lastUpdated = lastUpdated }
+        airports = backbone.airports
+        // Tolerate duplicate idents in source data (keep first) rather than trapping.
+        airportsByIdent = Dictionary(backbone.airports.map { ($0.ident, $0) }, uniquingKeysWith: { first, _ in first })
+        frequenciesByAirport = Dictionary(grouping: backbone.frequencies) { $0.airportIdent }
+        runwaysByAirport = Dictionary(grouping: backbone.runways) { $0.airportIdent }
+        applyRunwayDesignatorOverrides()
+        airportCount = backbone.airports.count
+    }
+
+    /// OurAirports' metadata, read without loading the airports.
+    private var storedMetadata: AirportDataMetadata? {
+        (try? Data(contentsOf: metadataFileURL)).flatMap { try? JSONDecoder().decode(AirportDataMetadata.self, from: $0) }
+    }
+
+    /// Folds the loaded OpenAIP airports into the store (a no-op without any). Synchronous: the pass
+    /// has loaded them already. Re-sets `airports`.
+    private func mergeLoadedOpenAIP() {
         // NOT guarded on `!airports.isEmpty`. It used to be, which made OpenAIP unusable on its own:
         // with OurAirports absent this returned immediately, so a pilot who had downloaded OpenAIP
         // data for their country — and nothing else — got no airports and no frequencies at all,
         // silently. The merge engine has always appended OpenAIP-only airports (see its `else`
         // branch); it simply never ran. OurAirports is a backbone when present, not a precondition.
-        await OpenAIPAirportDataService.shared.ensureLoaded()
-        let oaip = OpenAIPAirportDataService.shared.allLoadedAirports()
+        let oaip = openAIPAirports.allLoadedAirports()
         guard !oaip.isEmpty else { return }
         let outcome = AirportDataMergeEngine.mergeOutcome(ourAirports: airports, openAIP: oaip)
         let merged = outcome.airports
-        airports = merged   // didSet rebuilds the spatial grid
+        airports = merged
         airportsByIdent = Dictionary(merged.map { ($0.ident, $0) }, uniquingKeysWith: { first, _ in first })
         airportCount = merged.count
 
@@ -165,17 +322,12 @@ class AirportDataService: ObservableObject {
             ourRunwaysByIdent: runwaysByAirport, openAIP: oaip, foldedOpenAIPIds: outcome.foldedOpenAIPIds)
         runwaysByAirport.merge(openAIPRunwaysByIdent) { _, fromMerge in fromMerge }
 
-        // Queryable data now exists, whatever its source. Every frequency/airport surface in the app
-        // gates on this flag, and it used to be set only by OurAirports — so even once the merge
-        // above ran, an OpenAIP-only dataset stayed invisible to the UI.
-        if !merged.isEmpty { isDataAvailable = true }
-
         AppLog.airportData.debugLine("OpenAIP-primary merge applied: \(merged.count) airports, \(openAIPFreqsByIdent.count) airports got OpenAIP frequencies, \(openAIPRunwaysByIdent.count) got OpenAIP runways")
 
         // The raw OpenAIP array has now been folded into `airports`, `frequenciesByAirport` and
         // `runwaysByAirport`, and nothing reads it again — so drop it instead of keeping a second
         // full copy of the country dataset resident for the process lifetime. (APP-16)
-        OpenAIPAirportDataService.shared.releaseLoadedAirports()
+        openAIPAirports.releaseLoadedAirports()
     }
 
     // MARK: - Public Methods
@@ -248,22 +400,13 @@ class AirportDataService: ObservableObject {
             try await saveToLocal(airports: parsedAirports, frequencies: parsedFrequencies, runways: parsedRunways)
             downloadProgress = 0.95
 
-            // Update in-memory data
-            self.airports = parsedAirports
-            // Tolerate duplicate idents in source data (keep first) rather than trapping.
-            self.airportsByIdent = Dictionary(parsedAirports.map { ($0.ident, $0) }, uniquingKeysWith: { first, _ in first })
-            self.frequenciesByAirport = Dictionary(grouping: parsedFrequencies) { $0.airportIdent }
-            self.runwaysByAirport = Dictionary(grouping: parsedRunways) { $0.airportIdent }
-            applyRunwayDesignatorOverrides()
-            self.airportCount = parsedAirports.count
-            self.lastUpdated = Date()
-            self.isDataAvailable = true
-            self.isLoaded = true
+            // Update in-memory data, OpenAIP folded in, in one pass behind any load or merge running.
+            let downloaded = AirportCacheLoad(airports: parsedAirports, frequencies: parsedFrequencies,
+                                              runways: parsedRunways, lastUpdated: Date())
+            await enqueuePass { [self] in await rebuildStore(from: .downloaded(downloaded)) }.value
 
             downloadProgress = 1.0
             AppLog.airportData.debugLine("Download complete. \(parsedAirports.count) airports, \(parsedFrequencies.count) frequencies, \(parsedRunways.count) runways")
-
-            await applyOpenAIPMergeIfAvailable()
 
         } catch {
             downloadError = error.localizedDescription
@@ -271,59 +414,6 @@ class AirportDataService: ObservableObject {
         }
 
         isDownloading = false
-    }
-
-    /// Load data from local cache
-    func loadFromLocal() async {
-        guard fileManager.fileExists(atPath: airportsFileURL.path) else {
-            AppLog.airportData.debugLine("No local data found")
-            isLoaded = true // Mark as attempted to avoid repeated checks
-            return
-        }
-
-        // Read + JSON-decode the ~40K-row cache off the main actor; only the decoded value-type
-        // results hop back for assignment. (PERF-07)
-        let airportsURL = airportsFileURL
-        let frequenciesURL = frequenciesFileURL
-        let runwaysURL = runwaysFileURL
-        let metadataURL = metadataFileURL
-
-        let loaded: AirportCacheLoad? = await Task.detached(priority: .userInitiated) {
-            do {
-                let lastUpdated = (try? Data(contentsOf: metadataURL))
-                    .flatMap { try? JSONDecoder().decode(AirportDataMetadata.self, from: $0) }?
-                    .lastUpdated
-
-                let airportsData = try Data(contentsOf: airportsURL)
-                let airports = try JSONDecoder().decode([Airport].self, from: airportsData)
-
-                let frequencies = (try? Data(contentsOf: frequenciesURL))
-                    .flatMap { try? JSONDecoder().decode([AirportFrequency].self, from: $0) } ?? []
-                let runways = (try? Data(contentsOf: runwaysURL))
-                    .flatMap { try? JSONDecoder().decode([Runway].self, from: $0) } ?? []
-
-                return AirportCacheLoad(
-                    airports: airports, frequencies: frequencies,
-                    runways: runways, lastUpdated: lastUpdated
-                )
-            } catch {
-                AppLog.airportData.debugLine("Failed to load from cache: \(error)")
-                return nil
-            }
-        }.value
-
-        if let loaded {
-            if let lastUpdated = loaded.lastUpdated { self.lastUpdated = lastUpdated }
-            self.airports = loaded.airports
-            self.airportsByIdent = Dictionary(loaded.airports.map { ($0.ident, $0) }, uniquingKeysWith: { first, _ in first })
-            self.frequenciesByAirport = Dictionary(grouping: loaded.frequencies) { $0.airportIdent }
-            self.runwaysByAirport = Dictionary(grouping: loaded.runways) { $0.airportIdent }
-            applyRunwayDesignatorOverrides()
-            self.airportCount = loaded.airports.count
-            self.isDataAvailable = true
-            AppLog.airportData.debugLine("Loaded from cache: \(loaded.airports.count) airports")
-        }
-        self.isLoaded = true
     }
 
     /// The hand-set designators (`RunwayDesignatorOverrides`) on OurAirports' runways as loaded, so they
@@ -349,6 +439,7 @@ class AirportDataService: ObservableObject {
             lastUpdated = nil
             isDataAvailable = false
             isLoaded = false
+            storeGeneration &+= 1
             AppLog.airportData.debugLine("Data deleted")
         } catch {
             AppLog.airportData.debugLine("Failed to delete data: \(error)")
@@ -785,6 +876,9 @@ private struct AirportCacheLoad: Sendable {
     let frequencies: [AirportFrequency]
     let runways: [Runway]
     let lastUpdated: Date?
+
+    /// No backbone: the store holds OpenAIP's fields only.
+    static let empty = AirportCacheLoad(airports: [], frequencies: [], runways: [], lastUpdated: nil)
 }
 
 // MARK: - Metadata
@@ -820,7 +914,7 @@ extension AirportDataService {
             longitude: airport.longitude,
             elevationFeet: airport.elevation.map(Double.init),
             frequency: contact.map { "\($0.type) \($0.formattedFrequency)" },
-            isPPR: OpenAIPAirportDataService.shared.pprIcaoCodes.contains(airport.ident.uppercased()),
+            isPPR: openAIPAirports.pprIcaoCodes.contains(airport.ident.uppercased()),
             country: airport.isoCountry.isEmpty ? nil : airport.isoCountry,
             runway: runwaySummary(for: airport.ident)
         )

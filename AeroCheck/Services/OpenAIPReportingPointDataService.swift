@@ -17,7 +17,9 @@ final class OpenAIPReportingPointDataService: ObservableObject {
 
     @Published var isDownloading = false
     @Published var downloadProgress: Double = 0
-    @Published var downloadError: String?
+    /// Countries the last download could not update (their old file, if any, is kept). Empty after a
+    /// download that served every country. Shown in Navigation & Maps and in Data & Storage. (6.2.0)
+    @Published var failedCountries: [String] = []
     @Published var lastUpdated: Date?
     @Published var isDataAvailable = false
     @Published var reportingPointCount = 0
@@ -104,7 +106,7 @@ final class OpenAIPReportingPointDataService: ObservableObject {
         guard !isDownloading, !countries.isEmpty else { return }
         isDownloading = true
         downloadProgress = 0
-        downloadError = nil
+        failedCountries = []
         defer { isDownloading = false }
 
         let result = await cache.downloadData(for: countries, skippingCached: skippingCached) { downloadProgress = $0 }
@@ -119,7 +121,7 @@ final class OpenAIPReportingPointDataService: ObservableObject {
         // A country no source could serve is reported, not swallowed. Silence here is what let the
         // trip-prefetch banner re-offer a download that had just failed, with nothing on screen to
         // say so. (device-test feedback, v4.4.0)
-        downloadError = result.failedCountries.isEmpty ? nil : result.failedCountries.joined(separator: ", ")
+        failedCountries = result.failedCountries
     }
 
     // MARK: - Queries
@@ -199,6 +201,7 @@ final class OpenAIPReportingPointDataService: ObservableObject {
         points = []
         reportingPointCount = 0
         downloadedCountries = []
+        failedCountries = []
         lastUpdated = nil
         isDataAvailable = false
         isLoaded = false

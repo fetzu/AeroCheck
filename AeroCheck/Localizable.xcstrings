@@ -1,6 +1,46 @@
 {
   "sourceLanguage": "en",
   "strings": {
+    "Aerodromes": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aérodromes"
+          }
+        }
+      }
+    },
+    "OpenAIP · runways, frequencies & PPR · primary source": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "OpenAIP · pistes, fréquences et PPR · source principale"
+          }
+        }
+      }
+    },
+    "Couldn't update. Try again on Wi-Fi.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mise à jour impossible. Réessayez en Wi-Fi."
+          }
+        }
+      }
+    },
+    "Couldn't update %@. Try again on Wi-Fi.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mise à jour impossible : %@. Réessayez en Wi-Fi."
+          }
+        }
+      }
+    },
     "%lld flights": {
       "localizations": {
         "fr": {

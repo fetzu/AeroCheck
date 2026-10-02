@@ -16785,23 +16785,6 @@
         }
       }
     },
-    "companion.pairBothDevices": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Do this on both devices: tap below, then select each other and confirm the code shown."
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "À faire sur les deux appareils : touchez ci-dessous, puis sélectionnez-vous mutuellement et confirmez le code affiché."
-          }
-        }
-      }
-    },
     "companion.pairDevice": {
       "extractionState": "manual",
       "localizations": {
@@ -16944,13 +16927,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "This iPad will be the main screen. On your iPhone, open AéroCheck → Companion and tap Connect."
+            "value": "This iPad is the main screen. To pair, start here: \"Pair New Device\", then \"Make discoverable\", and keep that sheet open while the iPhone scans for it."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Cet iPad sera l’écran principal. Sur votre iPhone, ouvrez AéroCheck → Compagnon et touchez Connecter."
+            "value": "Cet iPad est l’écran principal. Pour appairer, commencez ici : « Appairer un nouvel appareil », puis « Rendre détectable », et gardez cette fenêtre ouverte pendant que l’iPhone le recherche."
           }
         }
       }
@@ -16961,13 +16944,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "This iPhone connects to your iPad. Open AéroCheck → Companion on the iPad first, then tap Connect below."
+            "value": "This iPhone connects to your iPad. To pair, start on the iPad: \"Pair New Device\", then \"Make discoverable\", and keep that sheet open. Then, here: \"Pair New Device\", then \"Scan for Devices\"."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Cet iPhone se connecte à votre iPad. Ouvrez d’abord AéroCheck → Compagnon sur l’iPad, puis touchez Connecter ci-dessous."
+            "value": "Cet iPhone se connecte à votre iPad. Pour appairer, commencez sur l’iPad : « Appairer un nouvel appareil », puis « Rendre détectable », et gardez cette fenêtre ouverte. Ensuite, ici : « Appairer un nouvel appareil », puis « Rechercher des appareils »."
           }
         }
       }
@@ -16978,13 +16961,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Open the companion settings on your iPhone and tap \"Scan for Devices\" to find this iPad."
+            "value": "Start here: tap \"Make discoverable\" and keep the sheet that opens on screen. Then, on the iPhone, tap \"Pair New Device\", then \"Scan for Devices\", choose this iPad and confirm the code on both."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Ouvrez les réglages compagnon sur votre iPhone et appuyez sur « Rechercher des appareils » pour trouver cet iPad."
+            "value": "Commencez ici : touchez « Rendre détectable » et gardez à l’écran la fenêtre qui s’ouvre. Ensuite, sur l’iPhone, touchez « Appairer un nouvel appareil », puis « Rechercher des appareils », choisissez cet iPad et confirmez le code sur les deux appareils."
           }
         }
       }
@@ -16995,13 +16978,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Make sure companion mode is enabled on your iPad and tap the button below to find it."
+            "value": "Start on the iPad: \"Pair New Device\", then \"Make discoverable\", and keep that sheet open. Then tap \"Scan for Devices\" below, choose the iPad and confirm the code on both."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Assurez-vous que le mode compagnon est activé sur votre iPad et appuyez sur le bouton ci-dessous pour le trouver."
+            "value": "Commencez sur l’iPad : « Appairer un nouvel appareil », puis « Rendre détectable », et gardez cette fenêtre ouverte. Touchez ensuite « Rechercher des appareils » ci-dessous, choisissez l’iPad et confirmez le code sur les deux appareils."
           }
         }
       }

@@ -306,16 +306,24 @@ class CompanionConnectivityManager: NSObject, ObservableObject {
 
     /// Log a pairing-phase event from the DeviceDiscoveryUI pairing views, which run as system UI
     /// outside this manager — so the diagnostics panel shows the pairing attempt, not just connection. (v4.1)
-    func logPairing(_ message: String) { diag(message) }
+    ///
+    /// Logged in the clear, so a Console capture of a failed pairing shows the steps (6.1.0): callers
+    /// pass fixed text only, never a device name.
+    func logPairing(_ message: String) { diag(message, isPublic: true) }
 
     /// Record a companion lifecycle event for the dev diagnostics panel (newest first) and the log.
-    private func diag(_ message: String) {
+    /// `isPublic` only for a fixed state message with no device name in it (SA-20).
+    private func diag(_ message: String, isPublic: Bool = false) {
         let line = "\(Self.diagTimeFormatter.string(from: Date()))  \(message)"
         diagnostics.insert(line, at: 0)
         if diagnostics.count > Self.diagnosticsCap {
             diagnostics.removeLast(diagnostics.count - Self.diagnosticsCap)
         }
-        AppLog.companion.debugLine(message)
+        if isPublic {
+            AppLog.companion.publicLine(message)
+        } else {
+            AppLog.companion.debugLine(message)
+        }
     }
 
     // MARK: - Paired Device Monitoring
@@ -413,6 +421,12 @@ class CompanionConnectivityManager: NSObject, ObservableObject {
 
     /// Start listening for incoming companion connections via Wi-Fi Aware
     func startListening() {
+        // The pairing screen publishes the service itself (see `isPairing`). This also covers the
+        // re-arm after a drop and the Companion screen's Start Listening button.
+        guard !isPairing else {
+            AppLog.companion.publicLine("Master: listener held, pairing in progress")
+            return
+        }
         stopListening()
 
         currentRole = .master
@@ -512,6 +526,18 @@ class CompanionConnectivityManager: NSObject, ObservableObject {
                 }
             }
 
+            // A listener that stops on an error of its own (not a cancel) used to leave the iPad on
+            // "Connecting" with nothing listening, and nothing in the diagnostics. Wi-Fi Aware takes one
+            // publisher per service, so a listener started while the system's pairing session still
+            // holds it (right after the pairing screen closes) could end that way. (6.1.0)
+            if let listenerTask {
+                Task { [weak self] in
+                    guard case .failure(let error) = await listenerTask.result,
+                          !listenerTask.isCancelled else { return }
+                    self?.listenerFailed(error)
+                }
+            }
+
             diag("Master: listener started, awaiting companion")
         } catch {
             diag("Master: listener FAILED — \(error.localizedDescription)")
@@ -525,11 +551,27 @@ class CompanionConnectivityManager: NSObject, ObservableObject {
         listenerTask = nil
     }
 
+    /// Master: the listener stopped on an error. Still waiting for the viewer means nothing listens
+    /// any more, so go back to disconnected: the next auto-connect (foreground, flight start, the
+    /// Companion screen, the end of a pairing) or Start Listening starts a fresh one. A live
+    /// connection is left to its own teardown.
+    private func listenerFailed(_ error: any Error) {
+        diag("Master: listener stopped on an error, \(error.localizedDescription)")
+        guard currentRole == .master, connectionState == .connecting else { return }
+        connectionState = .disconnected
+    }
+
     /// Master: take an accepted connection as the current one, or refuse it (nil) when it comes from
     /// a device the pilot forgot. Trust starts from nothing: the new peer has to be allowed before it
     /// can act, whatever the previous one was allowed. (SEC-C40, S9-09, S9-28)
     func adoptMasterConnection(identity: CompanionPeerIdentity?,
                                send: @escaping @Sendable (CompanionMessage) async throws -> Void) -> Int? {
+        // A connection the listener accepted just before `beginPairing()` cancelled it: closed, so
+        // the pairing screen keeps the service to itself.
+        if isPairing {
+            diag("Master: a connection arrived while pairing, closed", isPublic: true)
+            return nil
+        }
         if Self.refusesPeer(identity, forgotten: forgottenDevices.ids) {
             diag("Master: refused \(identity?.name ?? "an unnamed device"), forgotten on this iPad")
             return nil
@@ -640,8 +682,14 @@ class CompanionConnectivityManager: NSObject, ObservableObject {
     /// has to start it on BOTH devices. The iPad listens (always ready), the iPhone connects. Idempotent:
     /// a no-op unless currently disconnected with a paired device. Call at launch, on foreground, on
     /// enabling companion mode, and after pairing. (v4.1 companion UX)
+    ///
+    /// A no-op while a pairing screen is up (`isPairing`), whoever calls; `endPairing()` calls it again.
     func autoConnectIfReady(force: Bool = false) {
         guard #available(iOS 26.0, *) else { return }
+        guard !isPairing else {
+            AppLog.companion.publicLine("Auto-connect held, pairing in progress")
+            return
+        }
         // `force` (flight start, or the user opening the Companion screen) clears an idle-disconnect; a
         // passive foreground/launch (force == false) leaves it dropped so the battery saving sticks.
         if force { idleDisconnected = false }
@@ -652,6 +700,59 @@ class CompanionConnectivityManager: NSObject, ObservableObject {
         case .master: startListening()
         case .viewer: connectToPairedDevice()
         case .none: break
+        }
+    }
+
+    // MARK: - Pairing mode (6.1.0)
+
+    /// True while a pairing screen is up (`CompanionPairingView`, either role).
+    ///
+    /// The pairing views publish (`DevicePairingView`, iPad) or subscribe (`DevicePicker`, iPhone)
+    /// `_aerocheck._udp` themselves, and Wi-Fi Aware takes one publisher and one subscriber per service
+    /// on a device (`serviceAlreadyPublishing` / `serviceAlreadySubscribing`). With a device already
+    /// paired, auto-connect kept our own listener or browser on that service under the pairing screen.
+    /// The 6.1.0 device check fits that: the iPhone saw the iPad, the iPad never got the request (the
+    /// daemon skips a pairing session when "pairing mode is not active"). And an iPhone whose browse
+    /// fails goes `.reconnecting`, which swaps the root to `CompanionFlightView` and takes Settings and
+    /// the pairing screen down with it. The June pairing started with nothing paired, so nothing of
+    /// ours ran then.
+    ///
+    /// So while this is set nothing of ours holds the service: `beginPairing()` ends the session, and
+    /// `autoConnectIfReady`, `startListening`, `connectToPairedDevice` and `adoptMasterConnection`
+    /// start nothing (which covers launch, foreground, flight start, the Companion screen, the re-arm
+    /// after a drop and the viewer's retries). `endPairing()` hands back to auto-connect.
+    ///
+    /// Not `@Published`: no view shows it, so none has to re-render for it.
+    private(set) var isPairing = false
+
+    /// The pairing screen appeared: stop whatever of ours runs on the service and hold auto-connect.
+    /// A connected peer is told, as on Disconnect, and comes back on its own next auto-connect.
+    func beginPairing() {
+        guard !isPairing else { return }
+        isPairing = true
+        let running = sessionOnTheService
+        endSession()
+        diag("Pairing mode on: \(running.map { "\($0) stopped" } ?? "nothing of ours was running"), auto-connect on hold",
+             isPublic: true)
+    }
+
+    /// The pairing screen went away (paired, cancelled or torn down): auto-connect resumes, as the
+    /// Companion screen it returns to does on appear.
+    func endPairing() {
+        guard isPairing else { return }
+        isPairing = false
+        autoConnectIfReady(force: true)
+        diag("Pairing mode off: \(sessionOnTheService.map { "\($0) resumed" } ?? "nothing to resume")",
+             isPublic: true)
+    }
+
+    /// What of ours holds the Wi-Fi Aware service right now, for the pairing log. Fixed text.
+    private var sessionOnTheService: String? {
+        guard connectionState != .disconnected else { return nil }
+        switch currentRole {
+        case .master: return "background listener"
+        case .viewer: return "background browser"
+        case .none: return nil
         }
     }
 
@@ -729,6 +830,12 @@ class CompanionConnectivityManager: NSObject, ObservableObject {
 
     /// Connect to a paired master device via Wi-Fi Aware
     func connectToPairedDevice() {
+        // The pairing screen subscribes to the service itself (see `isPairing`). This also covers the
+        // retry after a failed browse and the Companion screen's Connect to iPad button.
+        guard !isPairing else {
+            AppLog.companion.publicLine("Viewer: browse held, pairing in progress")
+            return
+        }
         browserTask?.cancel()
 
         // Supersede any prior attempt so its in-flight teardown/retry can't race this one. (PR-15)
@@ -877,6 +984,14 @@ class CompanionConnectivityManager: NSObject, ObservableObject {
 
     /// Disconnect from the current companion
     func disconnect() {
+        endSession()
+        diag("Disconnected (user)")
+    }
+
+    /// End whatever runs: the connection (the peer is told), the iPad's listener, the iPhone's browse,
+    /// and any re-arm or retry still pending (each checks the generation bumped here). Disconnect, and
+    /// the start of a pairing.
+    private func endSession() {
         // Supersede the current connection so any in-flight teardown/reconnect is invalidated. (PR-15)
         connectionGeneration += 1
 
@@ -897,7 +1012,6 @@ class CompanionConnectivityManager: NSObject, ObservableObject {
         lastReceivedData = nil
         lastFlightPlanSnapshot = nil
         lastReceivedChecklist = nil
-        diag("Disconnected (user)")
     }
 
     /// Leave companion mode entirely: turn the setting OFF (so auto-connect can't re-arm it seconds

@@ -2705,14 +2705,14 @@ enum L10n {
         static let masterDevice = String(localized: "companion.masterDevice")
         static let pairDeviceFirst = String(localized: "companion.pairDeviceFirst")
         static let waitingForPairing = String(localized: "companion.waitingForPairing")
-        static let pairingMasterDescription = String(localized: "companion.pairingMasterDescription")
         static let pairWithiPad = String(localized: "companion.pairWithiPad")
         static let pairWithiPhone = String(localized: "companion.pairWithiPhone")
-        static let pairingViewerDescription = String(localized: "companion.pairingViewerDescription")
         static let scanForDevices = String(localized: "companion.scanForDevices")
         static let makeDiscoverable = String(localized: "companion.makeDiscoverable")
-        // Shared pairing guidance: the user must tap the button on BOTH devices for discovery to work.
-        static let pairBothDevices = String(localized: "companion.pairBothDevices")
+        // The pairing screen's steps, per role: the iPad taps Make discoverable FIRST and keeps that
+        // sheet up while the iPhone scans. Both buttons have to be tapped, in that order. (6.1.0)
+        static let pairingMasterDescription = String(localized: "companion.pairingMasterDescription")
+        static let pairingViewerDescription = String(localized: "companion.pairingViewerDescription")
 
         // Pairing guidance (role is automatic by device type)
         static let pairingGuidanceMaster = String(localized: "companion.pairingGuidanceMaster")

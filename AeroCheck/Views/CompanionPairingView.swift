@@ -11,6 +11,11 @@ import WiFiAware
 /// BOTH devices so each starts advertising/browsing; then they discover each other and confirm a code.
 /// (A passive "waiting" label that the user never taps means that side never advertises — which is
 /// exactly why pairing silently found nothing. Matches Apple's "Building peer-to-peer apps" sample.)
+///
+/// The order matters: the iPad taps Make discoverable first and keeps that sheet up while the iPhone
+/// scans and picks it, and the copy on both screens says so. While this screen is up the manager is in
+/// pairing mode (`beginPairing()` / `endPairing()`), so AéroCheck's own listener or browser leaves the
+/// Wi-Fi Aware service to the pairing session. (6.1.0)
 struct CompanionPairingView: View {
     @Environment(\.dismiss) var dismiss
 
@@ -55,6 +60,10 @@ struct CompanionPairingView: View {
                 }
             }
         }
+        // Pairing mode for as long as this cover is up, both roles: the background listener/browser
+        // stops here and auto-connect comes back when it closes (paired, cancelled, or torn down).
+        .onAppear { companionConnectivityManager.beginPairing() }
+        .onDisappear { companionConnectivityManager.endPairing() }
         .preferredColorScheme(.dark)
     }
 
@@ -106,7 +115,8 @@ struct CompanionPairingView: View {
                 .font(.aero(.title3).weight(.semibold))
                 .foregroundColor(.primaryText)
 
-            Text(L10n.Companion.pairBothDevices)
+            // The iPad goes first: Make discoverable, sheet kept up while the iPhone scans.
+            Text(L10n.Companion.pairingMasterDescription)
                 .font(.aero(.subheadline))
                 .foregroundColor(.secondaryText)
                 .multilineTextAlignment(.center)
@@ -145,7 +155,8 @@ struct CompanionPairingView: View {
                 .font(.aero(.title3).weight(.semibold))
                 .foregroundColor(.primaryText)
 
-            Text(L10n.Companion.pairBothDevices)
+            // The iPhone goes second: the iPad must already be discoverable.
+            Text(L10n.Companion.pairingViewerDescription)
                 .font(.aero(.subheadline))
                 .foregroundColor(.secondaryText)
                 .multilineTextAlignment(.center)
@@ -155,11 +166,12 @@ struct CompanionPairingView: View {
                 // `.userSpecifiedDevices` = browse for a NEW device to pair (the pairing flow). The label
                 // below is the tappable button that presents the system picker (and begins browsing).
                 .wifiAware(.connecting(to: .userSpecifiedDevices, from: .aerocheck))
-            ) { endpoint in
-                // Pairing complete — dismiss the sheet
-                // The paired device is now remembered by the system
-                companionConnectivityManager.logPairing("Pairing: iPhone paired with a device")
-                dismiss()
+            ) { _ in
+                // A device was picked, which is not the same as paired: iOS 27 can report the pick and
+                // then run the pairing (code and approval), and dismissing here can cancel that. So the
+                // cover stays up; CompanionSettingsView closes it once the new pairing shows in
+                // `pairedDevices`, and Cancel is there otherwise. (6.1.0)
+                companionConnectivityManager.logPairing("Pairing: iPhone picked a device, waiting for the pairing to finish")
             } label: {
                 pairButtonLabel(icon: "magnifyingglass", title: L10n.Companion.scanForDevices)
             } fallback: {

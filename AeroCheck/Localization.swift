@@ -2588,6 +2588,8 @@ enum L10n {
         static let leg = String(localized: "nav.leg")
         static let startLegTimer = String(localized: "nav.startLegTimer")
         static let legsAndFrequencies = String(localized: "nav.legsAndFrequencies")
+        /// VoiceOver's action on the map left above the open legs panel, which a tap closes. (6.1)
+        static let closeLegsAndFrequencies = String(localized: "nav.closeLegsAndFrequencies")
         static let baseChart = String(localized: "nav.baseChart")
         static let presets = String(localized: "nav.presets")
         static let presetCruise = String(localized: "nav.presetCruise")

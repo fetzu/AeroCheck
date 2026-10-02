@@ -6298,6 +6298,23 @@
         }
       }
     },
+    "nav.closeLegsAndFrequencies": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Close legs and frequencies"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Fermer les branches et fréquences"
+          }
+        }
+      }
+    },
     "nav.legsAndFrequencies": {
       "extractionState": "manual",
       "localizations": {

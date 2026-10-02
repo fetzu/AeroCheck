@@ -1775,9 +1775,9 @@ struct NavigationMapView: View {
     }
 
     /// `height`: taller than a map control, in a row of the thumb bar's height (Routes beside the check
-    /// slot).
+    /// slot). `fillsWidth`: the row's width (Routes under the slot in the landscape column).
     private func chromeButton(icon: String, title: String, prominent: Bool = false, height: CGFloat? = nil,
-                              action: @escaping () -> Void) -> some View {
+                              fillsWidth: Bool = false, action: @escaping () -> Void) -> some View {
         Button(action: action) {
             HStack(spacing: 8) {
                 Image(systemName: icon).font(.aero(size: CockpitType.label, weight: .semibold))
@@ -1788,7 +1788,7 @@ struct NavigationMapView: View {
             }
             .foregroundColor(prominent ? theme.actionText : theme.action)
             .padding(.horizontal, CockpitType.size(kneeboard: 16, phone: 12))
-            .frame(minHeight: height ?? CockpitTarget.control)
+            .frame(maxWidth: fillsWidth ? .infinity : nil, minHeight: height ?? CockpitTarget.control)
             .background(RoundedRectangle(cornerRadius: 14).fill(prominent ? theme.action : theme.panel))
             .overlay(RoundedRectangle(cornerRadius: 14).stroke(prominent ? Color.clear : theme.panelStroke, lineWidth: 1))
             .contentShape(Rectangle())
@@ -1957,7 +1957,7 @@ struct NavigationMapView: View {
             .padding(.horizontal, CockpitType.size(kneeboard: 16, phone: 12))
             .padding(.vertical, CockpitType.size(kneeboard: 12, phone: 10))
         } else {
-            routesButtonRow
+            routesButtonRow()
         }
     }
 
@@ -2006,62 +2006,85 @@ struct NavigationMapView: View {
                 }
             }
         } else {
-            routesButtonRow
+            routesButtonRow(padded: false)
         }
     }
 
     /// The landscape side column's version, in two rows so the legs keep room above it: the leg timer
-    /// and Divert, then MARK with More beside it, where the thumb rests.
+    /// and Divert, then MARK with More beside it, where the thumb rests. In the Cockpit's flight the
+    /// check slot heads them, the column's width, whatever the row under it (`MapThumbColumn`).
     @ViewBuilder
     private var navThumbColumn: some View {
-        if showsEventButtons {
+        let plan = flightPlanManager.activeFlightPlan
+        switch MapThumbColumn.make(showsCheckSlot: showsCheckSlot, showsEventButtons: showsEventButtons,
+                                   hasRoute: plan != nil, flightActive: appState.isFlightActive) {
+        case .slotOverFlightEvents:
             VStack(spacing: 12) {
                 checkSlot()
                 HStack(spacing: 12) {
-                    MapFlightEventButton(event: .goAround)
-                    MapFlightEventButton(event: .touchAndGo)
+                    MapFlightEventButton(event: .goAround, narrow: true)
+                    MapFlightEventButton(event: .touchAndGo, narrow: true)
                 }
             }
-        } else if showsCheckSlot, let plan = flightPlanManager.activeFlightPlan {
+        case .slotOverMark:
             // The slot on top, where the leg timer and Divert were; the leg timer in MARK.
-            VStack(spacing: 12) {
-                checkSlot()
-                TimelineView(.periodic(from: .now, by: 1)) { _ in
-                    let state = legTimerState(plan)
-                    // Divert and More stacked, half height, so MARK keeps the width for its leg line.
-                    HStack(spacing: 12) {
-                        navPrimaryButton(plan, started: state.started, leg: state)
-                        VStack(spacing: 8) {
-                            if !flightPlanManager.isFlightPlanCompleted { divertThumbButton(plan, stacked: true) }
-                            navMoreMenu(running: state.running, started: state.started, stacked: true)
+            if let plan {
+                VStack(spacing: 12) {
+                    checkSlot()
+                    TimelineView(.periodic(from: .now, by: 1)) { _ in
+                        let state = legTimerState(plan)
+                        // Divert and More stacked, half height, so MARK keeps the width for its leg line.
+                        HStack(spacing: 12) {
+                            navPrimaryButton(plan, started: state.started, leg: state)
+                            VStack(spacing: 8) {
+                                if !flightPlanManager.isFlightPlanCompleted { divertThumbButton(plan, stacked: true) }
+                                navMoreMenu(running: state.running, started: state.started, stacked: true)
+                            }
                         }
                     }
                 }
             }
-        } else if appState.isFlightActive, let plan = flightPlanManager.activeFlightPlan {
-            TimelineView(.periodic(from: .now, by: 1)) { _ in
-                let state = legTimerState(plan)
-                VStack(spacing: 12) {
-                    HStack(spacing: 12) {
-                        legTimerReadout(elapsed: state.elapsed, planned: state.planned, running: state.running,
-                                        started: state.started)
-                        Spacer(minLength: 0)
-                        if !flightPlanManager.isFlightPlanCompleted { divertThumbButton(plan) }
-                    }
-                    HStack(spacing: 12) {
-                        navPrimaryButton(plan, started: state.started)
-                        navMoreMenu(running: state.running, started: state.started)
-                    }
+        case .slotOverRoutes:
+            // No route: the slot as with one, and Routes where MARK would be, as tall, so the slot
+            // doesn't move when a route is armed. (6.1)
+            VStack(spacing: 12) {
+                checkSlot()
+                routesButton(height: CheckSlotButton.height, fillsWidth: true)
+            }
+        case .legTimerOverMark:
+            if let plan {
+                legTimerOverMark(plan)
+            }
+        case .routes:
+            routesButtonRow()
+        }
+    }
+
+    /// The landscape column in flight without the check slot: the leg timer and Divert, then MARK with
+    /// More beside it.
+    private func legTimerOverMark(_ plan: FlightPlan) -> some View {
+        TimelineView(.periodic(from: .now, by: 1)) { _ in
+            let state = legTimerState(plan)
+            VStack(spacing: 12) {
+                HStack(spacing: 12) {
+                    legTimerReadout(elapsed: state.elapsed, planned: state.planned, running: state.running,
+                                    started: state.started)
+                    Spacer(minLength: 0)
+                    if !flightPlanManager.isFlightPlanCompleted { divertThumbButton(plan) }
+                }
+                HStack(spacing: 12) {
+                    navPrimaryButton(plan, started: state.started)
+                    navMoreMenu(running: state.running, started: state.started)
                 }
             }
-        } else {
-            routesButtonRow
         }
     }
 
     /// Routes alone on the ground (Plan › Map). In the Cockpit's flight, Routes then the check slot
     /// filling the row, the thumb bar's height: the chart is as tall as with a route. (6.1)
-    private var routesButtonRow: some View {
+    /// `padded`: false under the landscape phone's column, which pads its thumb row itself; padded twice,
+    /// the row ran 20 pt taller than with a route and the slot's foot went off the screen.
+    private func routesButtonRow(padded: Bool = true) -> some View {
         HStack(spacing: CockpitType.size(kneeboard: 12, phone: 8)) {
             if showsCheckSlot {
                 routesButton(height: CheckSlotButton.height)
@@ -2071,13 +2094,14 @@ struct NavigationMapView: View {
                 Spacer(minLength: 0)
             }
         }
-        .padding(.horizontal, showsCheckSlot ? CockpitType.size(kneeboard: 16, phone: 12) : 16)
-        .padding(.vertical, showsCheckSlot ? CockpitType.size(kneeboard: 12, phone: 10) : 12)
+        .padding(.horizontal, !padded ? 0 : showsCheckSlot ? CockpitType.size(kneeboard: 16, phone: 12) : 16)
+        .padding(.vertical, !padded ? 0 : showsCheckSlot ? CockpitType.size(kneeboard: 12, phone: 10) : 12)
     }
 
-    private func routesButton(height: CGFloat? = nil) -> some View {
+    /// `fillsWidth`: a row of its own, under the check slot in the landscape column.
+    private func routesButton(height: CGFloat? = nil, fillsWidth: Bool = false) -> some View {
         chromeButton(icon: "point.topleft.down.to.point.bottomright.curvepath",
-                     title: L10n.Ground.planRoutes, height: height) {
+                     title: L10n.Ground.planRoutes, height: height, fillsWidth: fillsWidth) {
             if let onShowRoutes { onShowRoutes() } else { showFlightPlanning = true }
         }
     }

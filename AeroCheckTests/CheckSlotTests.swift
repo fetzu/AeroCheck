@@ -218,6 +218,35 @@ final class CheckSlotTests: XCTestCase {
         XCTAssertEqual(inLanding.action, .confirmFromMemory, "on the landing check, a tap still confirms it")
     }
 
+    // MARK: Where it sits
+
+    /// The iPad on its side: the slot heads the map's thumb controls on a row of its own in every phase,
+    /// route or not. Beside Routes it showed "CRUISE CH…" over "FREDA in 6…". (6.1, device check)
+    func testInTheLandscapeColumnTheSlotAlwaysHasARowOfItsOwn() {
+        for events in [false, true] {
+            for route in [false, true] {
+                let column = MapThumbColumn.make(showsCheckSlot: true, showsEventButtons: events,
+                                                 hasRoute: route, flightActive: true)
+                XCTAssertTrue(column.slotHasOwnRow, "events \(events), route \(route): \(column)")
+            }
+        }
+        XCTAssertEqual(MapThumbColumn.make(showsCheckSlot: true, showsEventButtons: false, hasRoute: false,
+                                           flightActive: true), .slotOverRoutes, "Routes where MARK would be")
+        XCTAssertEqual(MapThumbColumn.make(showsCheckSlot: true, showsEventButtons: false, hasRoute: true,
+                                           flightActive: true), .slotOverMark)
+        XCTAssertEqual(MapThumbColumn.make(showsCheckSlot: true, showsEventButtons: true, hasRoute: true,
+                                           flightActive: true), .slotOverFlightEvents, "GO AROUND in place of MARK")
+    }
+
+    func testWithoutTheSlotTheLandscapeColumnIsAsBefore() {
+        XCTAssertEqual(MapThumbColumn.make(showsCheckSlot: false, showsEventButtons: false, hasRoute: true,
+                                           flightActive: true), .legTimerOverMark)
+        XCTAssertEqual(MapThumbColumn.make(showsCheckSlot: false, showsEventButtons: false, hasRoute: true,
+                                           flightActive: false), .routes, "Plan › Map: no MARK before the flight")
+        XCTAssertEqual(MapThumbColumn.make(showsCheckSlot: false, showsEventButtons: false, hasRoute: false,
+                                           flightActive: true), .routes)
+    }
+
     func testTheSlotTravelsToTheCompanion() throws {
         for slot in [CheckSlot.make(phase: .cruise, check: .list(open: 0), next: .descent,
                                     freda: .counting(after: .freda, at: Date(timeIntervalSince1970: 60), minutesLeft: 4)),

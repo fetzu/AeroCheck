@@ -525,12 +525,47 @@ struct CockpitCheckSlot: View {
     }
 }
 
+/// The map's thumb controls in the iPad's landscape column, top to bottom. The check slot always heads
+/// them on a row of its own, the column's width, in the same place in every phase. Beside Routes, with
+/// no route, it had about 150 pt for its words and showed "CRUISE CH…" over "FREDA in 6…". Pure, so it
+/// is tested without a view. (6.1)
+enum MapThumbColumn: Equatable {
+    /// Approach and landing: the slot, then GO AROUND and TOUCH-AND-GO.
+    case slotOverFlightEvents
+    /// A route to fly: the slot, then MARK with Divert and More.
+    case slotOverMark
+    /// No route: the slot, then Routes at the thumb bar's height, where MARK would be.
+    case slotOverRoutes
+    /// In flight with no slot: the leg timer and Divert, then MARK and More.
+    case legTimerOverMark
+    /// Not in flight (Plan › Map): Routes alone.
+    case routes
+
+    static func make(showsCheckSlot: Bool, showsEventButtons: Bool, hasRoute: Bool, flightActive: Bool) -> MapThumbColumn {
+        if showsEventButtons { return .slotOverFlightEvents }
+        if showsCheckSlot { return hasRoute ? .slotOverMark : .slotOverRoutes }
+        if flightActive && hasRoute { return .legTimerOverMark }
+        return .routes
+    }
+
+    /// Whether the slot has a row of its own.
+    var slotHasOwnRow: Bool {
+        switch self {
+        case .slotOverFlightEvents, .slotOverMark, .slotOverRoutes: return true
+        case .legTimerOverMark, .routes: return false
+        }
+    }
+}
+
 /// GO AROUND or TOUCH-AND-GO in the map's bottom row, in approach and landing (mockup M3): what the
 /// checklist pane's buttons do, at the thumb bar's height. Hold 1 s to confirm, as there; a single tap in
 /// circuits, as the checklist's thumb bar has them, for a quick correction of a missed detection. (6.1)
 struct MapFlightEventButton: View {
     enum Event { case goAround, touchAndGo }
     let event: Event
+    /// The words only, no icon: on the phone, and two to a row in the iPad's landscape column, where
+    /// the icon left "TOUCH-AND…" about 120 pt. (6.1)
+    var narrow: Bool = CockpitScale.current == .phone
 
     @Environment(AppState.self) private var appState
     @Environment(\.cockpitTheme) private var theme
@@ -542,14 +577,14 @@ struct MapFlightEventButton: View {
                                        : L10n.ChecklistAction.touchAndGo(language: language)
         let icon = event == .goAround ? "arrow.up.right.circle.fill" : "arrow.triangle.2.circlepath"
         if appState.isCircuitMode {
-            CockpitThumbButton(title: title, icon: CockpitScale.current == .phone ? nil : icon,
+            CockpitThumbButton(title: title, icon: narrow ? nil : icon,
                                style: .outlined(tint: theme.action), action: perform)
         } else {
             HoldToConfirmButton(title: title, systemImage: icon, tint: theme.action,
                                 count: event == .goAround ? appState.currentFlight?.goAroundCount ?? 0
                                                           : appState.currentFlight?.touchAndGoCount ?? 0,
                                 kneeboard: true, height: CockpitTarget.thumb,
-                                stacked: CockpitScale.current == .phone, action: perform)
+                                stacked: narrow, action: perform)
         }
     }
 

@@ -2204,6 +2204,13 @@ enum L10n {
 
         // Cancel trip (6.1)
         static let cancelTrip = String(localized: "trip.cancel")
+        /// At the foot of a trip's leg, beside the whole trip's cancel. (6.1.0)
+        static let cancelThisLeg = String(localized: "trip.cancelThisLeg")
+        /// The legs it takes: those not flown yet.
+        static func cancelWholeTrip(legs: Int) -> String {
+            legs == 1 ? String(localized: "trip.cancelWholeTripOneLeg")
+                      : String(format: String(localized: "trip.cancelWholeTrip"), legs)
+        }
         static let cancelConfirmTitle = String(localized: "trip.cancelConfirm.title")
         static let keepTrip = String(localized: "trip.cancelConfirm.keep")
         /// "Leg 2 · LSGE → LSGN"

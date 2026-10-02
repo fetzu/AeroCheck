@@ -1,6 +1,46 @@
 {
   "sourceLanguage": "en",
   "strings": {
+    "Subscription": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Abonnement"
+          }
+        }
+      }
+    },
+    "open flightmaps · indicative": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "open flightmaps · indicatif"
+          }
+        }
+      }
+    },
+    "open flightmaps · AIRAC %@ · indicative": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "open flightmaps · AIRAC %@ · indicatif"
+          }
+        }
+      }
+    },
+    "Report": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Signaler"
+          }
+        }
+      }
+    },
     "Traffic circuits, VFR routes & reporting points · © open flightmaps association · indicative, not for primary navigation": {
       "localizations": {
         "fr": {

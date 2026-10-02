@@ -120,6 +120,10 @@ class SharedMapState: ObservableObject {
     /// knows it. Deriving a camera distance from the route's extent framed a 200 NM east–west route
     /// as if it were 20 NM tall and zoomed into the middle of it. (v4.4.0)
     var pendingFitCoordinates: [CLLocationCoordinate2D]?
+    /// An annotation's callout is open (an aerodrome, a reporting point, a procedure's label): the chrome
+    /// laid over the chart where a callout opens, the scale bar and the off-screen route pill, steps aside
+    /// until it closes. Kept by the representables' coordinators from MapKit's selection. (6.2.0)
+    @Published private(set) var isCalloutOpen = false
 
     init() {
         // Default to Switzerland center
@@ -145,6 +149,18 @@ class SharedMapState: ObservableObject {
             DispatchQueue.main.async { [weak self] in
                 self?.cameraHeading = camera.heading
             }
+        }
+    }
+
+    /// Re-reads `mapView`'s selection after the current update: MapKit's delegate calls and `makeUIView`
+    /// come during one, where publishing is not allowed. Read when it runs, so a marker tapped while
+    /// another's callout is open (a deselect, then a select) doesn't flash the chrome back. (6.2.0)
+    @MainActor
+    func noteCalloutSelection(on mapView: MKMapView) {
+        DispatchQueue.main.async { [weak self, weak mapView] in
+            guard let self else { return }
+            let open = mapView.map { MapCallout.isOpen(selected: $0.selectedAnnotations, view: $0.view(for:)) } ?? false
+            if open != self.isCalloutOpen { self.isCalloutOpen = open }
         }
     }
 
@@ -749,6 +765,7 @@ struct NavigationMapView: View {
                     SigmetChip(hazards: rankedSigmets) { showSigmets = true }
                     routeOffScreenPill
                         .animation(reduceMotion ? nil : .easeInOut(duration: 0.25), value: routeOffScreenHint) // (UX-18)
+                        .modifier(StepsAsideForCallout(isHidden: mapState.isCalloutOpen, reduceMotion: reduceMotion))
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
             }
@@ -1002,6 +1019,7 @@ struct NavigationMapView: View {
                         .frame(maxWidth: .infinity, alignment: .leading)
                     routeOffScreenPill
                         .animation(reduceMotion ? nil : .easeInOut(duration: 0.25), value: routeOffScreenHint) // (UX-18)
+                        .modifier(StepsAsideForCallout(isHidden: mapState.isCalloutOpen, reduceMotion: reduceMotion))
                 }
                 .padding(.horizontal, compact ? 10 : 16)
                 .padding(.top, compact ? 8 : 10)
@@ -1525,6 +1543,7 @@ struct NavigationMapView: View {
                         }
                     }
                     SwissScaleBar(region: mapState.region, mapWidth: mapWidth, nauticalMiles: appState.settings.distanceInNauticalMiles)
+                        .modifier(StepsAsideForCallout(isHidden: mapState.isCalloutOpen, reduceMotion: reduceMotion))
                 }
                 Spacer()
             }
@@ -3112,6 +3131,34 @@ struct SwissAirspaceSectors {
     }
 }
 
+// MARK: - Callouts and the chrome over the chart (6.2.0)
+
+/// Whether a map shows an annotation's callout: something selected whose view has one (a waypoint
+/// marker is deselected as soon as it is tapped, and has none).
+enum MapCallout {
+    @MainActor
+    static func isOpen(selected: [MKAnnotation], view: (MKAnnotation) -> MKAnnotationView?) -> Bool {
+        selected.contains { !($0 is MKUserLocation) && view($0)?.canShowCallout == true }
+    }
+}
+
+/// Chrome laid over the chart that steps aside while a callout is open, the callout being what the
+/// pilot asked to read: faded out rather than removed, so nothing else moves, and neither touchable nor
+/// read while hidden. The off-screen route pill covered a callout's title, the scale bar its first
+/// button, on the phone's Cockpit MAP.
+struct StepsAsideForCallout: ViewModifier {
+    let isHidden: Bool
+    let reduceMotion: Bool
+
+    func body(content: Content) -> some View {
+        content
+            .opacity(isHidden ? 0 : 1)
+            .allowsHitTesting(!isHidden)
+            .accessibilityHidden(isHidden)
+            .animation(reduceMotion ? nil : .easeInOut(duration: 0.2), value: isHidden)
+    }
+}
+
 // MARK: - Swiss Scale Bar (mimics SwissTopo style)
 
 struct SwissScaleBar: View {
@@ -3354,6 +3401,7 @@ struct NativeMapViewUIKit: UIViewRepresentable {
     func makeUIView(context: Context) -> MKMapView {
         let mapView = MKMapView()
         mapView.delegate = context.coordinator
+        mapState.noteCalloutSelection(on: mapView)   // a new map has no callout open (6.2.0)
         mapView.showsCompass = false  // Disabled - compass was appearing in wrong position
         mapView.isRotateEnabled = true
         mapView.isPitchEnabled = false
@@ -3743,6 +3791,8 @@ struct NativeMapViewUIKit: UIViewRepresentable {
 
         func mapView(_ mapView: MKMapView, regionDidChangeAnimated animated: Bool) {
             isUserInteracting = false
+            // A marker the move took off the map leaves no deselect behind. (6.2.0)
+            parent.mapState.noteCalloutSelection(on: mapView)
             parent.mapState.updateFromRegion(mapView.region)
             // Sync camera distance and heading so they're preserved when switching layers
             parent.mapState.updateFromCamera(mapView.camera)
@@ -4097,9 +4147,14 @@ struct NativeMapViewUIKit: UIViewRepresentable {
         // MARK: - Waypoint ATO Tap/Long-Press
 
         func mapView(_ mapView: MKMapView, didSelect annotation: MKAnnotation) {
+            parent.mapState.noteCalloutSelection(on: mapView)   // the chrome steps aside (6.2.0)
             guard let waypointAnnotation = annotation as? FlightPlanWaypointAnnotation else { return }
             mapView.deselectAnnotation(annotation, animated: false)
             parent.onWaypointATOTap?(waypointAnnotation.waypointIndex)
+        }
+
+        func mapView(_ mapView: MKMapView, didDeselect annotation: MKAnnotation) {
+            parent.mapState.noteCalloutSelection(on: mapView)   // and comes back (6.2.0)
         }
 
         func addLongPressToWaypointView(_ annotationView: MKAnnotationView) {
@@ -4766,6 +4821,7 @@ struct SwissMapView: UIViewRepresentable {
     func makeUIView(context: Context) -> MKMapView {
         let mapView = MKMapView()
         mapView.delegate = context.coordinator
+        mapState.noteCalloutSelection(on: mapView)   // a new map has no callout open (6.2.0)
         mapView.showsCompass = false  // Disabled - compass was appearing in wrong position
         mapView.isRotateEnabled = true
         mapView.isPitchEnabled = false
@@ -5358,6 +5414,8 @@ struct SwissMapView: UIViewRepresentable {
         // Sync region changes back to shared state
         func mapView(_ mapView: MKMapView, regionDidChangeAnimated animated: Bool) {
             isUserInteracting = false
+            // A marker the move took off the map leaves no deselect behind. (6.2.0)
+            parent.mapState.noteCalloutSelection(on: mapView)
             guard !isUpdatingRegion else { return }
             isUpdatingRegion = true
             parent.mapState.updateFromRegion(mapView.region)
@@ -5724,7 +5782,12 @@ struct SwissMapView: UIViewRepresentable {
 
         // MARK: - Waypoint ATO Tap/Long-Press
 
+        func mapView(_ mapView: MKMapView, didDeselect annotation: MKAnnotation) {
+            parent.mapState.noteCalloutSelection(on: mapView)   // the chrome comes back (6.2.0)
+        }
+
         func mapView(_ mapView: MKMapView, didSelect annotation: MKAnnotation) {
+            parent.mapState.noteCalloutSelection(on: mapView)   // the chrome steps aside (6.2.0)
             guard let waypointAnnotation = annotation as? FlightPlanWaypointAnnotation else { return }
             // Deselect so user can tap again later
             mapView.deselectAnnotation(annotation, animated: false)

@@ -468,9 +468,7 @@ struct WaypointReportingPointRows: View {
 
     var body: some View {
         if waypoint.pointKind == .vrp {
-            let aerodrome = waypoint.sourceId
-                .flatMap { OpenAIPReportingPointDataService.shared.point(withId: $0) }
-                .flatMap { OpenAIPAirportDataService.shared.aerodrome(for: $0) }
+            let aerodrome = waypoint.sourceId.flatMap { ReportingPointCatalog.shared.aerodrome(forSourceId: $0) }
             SettingsValueRow(icon: "triangle", title: String(localized: "Reporting point"), tint: tint,
                              value: aerodrome?.displayLine ?? waypoint.aerodromeICAO ?? "—")
             if let code = waypoint.code, !code.isEmpty {

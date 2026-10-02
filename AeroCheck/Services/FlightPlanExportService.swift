@@ -42,9 +42,10 @@ class FlightPlanExportService {
     /// aerodrome. Nil for anything else, or without the aerodrome. (6.0.1)
     @MainActor
     static func gpxDescription(of waypoint: FlightPlanWaypoint) -> String? {
+        let catalog = ReportingPointCatalog.shared
         guard waypoint.pointKind == .vrp, let id = waypoint.sourceId,
-              let point = OpenAIPReportingPointDataService.shared.point(withId: id) else { return nil }
-        let label = OpenAIPAirportDataService.shared.label(for: point)
+              let point = catalog.point(withId: id) else { return nil }
+        let label = catalog.label(for: point)
         guard let aerodrome = label.aerodrome else { return nil }
         return "\(label.title) · \(aerodrome.displayLine)"
     }

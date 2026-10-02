@@ -194,7 +194,7 @@ struct NavigationMapView: View {
     // first-load lands (these services are singletons, not environment objects). (v4.2 fix)
     @ObservedObject private var openAIPNavaidDataService = OpenAIPNavaidDataService.shared
     @ObservedObject private var openAIPObstacleDataService = OpenAIPObstacleDataService.shared
-    @ObservedObject private var openAIPReportingPointDataService = OpenAIPReportingPointDataService.shared
+    @ObservedObject private var reportingPointCatalog = ReportingPointCatalog.shared   // OpenAIP + open flightmaps (6.2.0)
 
     /// True when the downloaded OpenAIP airspace data is aging/stale, or the developer "simulate stale
     /// data" toggle is on — drives the on-map staleness cue (v4.1.0 Data Freshness), so stale airspace
@@ -496,6 +496,7 @@ struct NavigationMapView: View {
         .onChange(of: appState.settings.showNavaidsOnMap) { _, _ in recomputeMapSpatialContent(force: true) }
         .onChange(of: appState.settings.showObstaclesOnMap) { _, _ in recomputeMapSpatialContent(force: true) }
         .onChange(of: appState.settings.showReportingPointsOnMap) { _, _ in recomputeMapSpatialContent(force: true) }
+        .onChange(of: appState.settings.showsNonPoweredReportingPoints) { _, _ in recomputeMapSpatialContent(force: true) }
         .onChange(of: appState.currentPhase) { _, _ in
             recomputePhaseFrequencies()
             appState.evaluateFreda(lastPassage: FredaWaypointPassage.latest(in: flightPlanManager.activeFlightPlan))
@@ -525,7 +526,7 @@ struct NavigationMapView: View {
         .onChange(of: openAIPDataService.airspaceCount) { _, _ in recomputeMapSpatialContent(force: true) }
         .onChange(of: openAIPNavaidDataService.navaidCount) { _, _ in recomputeMapSpatialContent(force: true) }
         .onChange(of: openAIPObstacleDataService.obstacleCount) { _, _ in recomputeMapSpatialContent(force: true) }
-        .onChange(of: openAIPReportingPointDataService.reportingPointCount) { _, _ in recomputeMapSpatialContent(force: true) }
+        .onChange(of: reportingPointCatalog.revision) { _, _ in recomputeMapSpatialContent(force: true) }
         .onChange(of: locationManager.currentLocation) { _, newLocation in
             // Increment counter to force map view updates (ensures aircraft annotation moves)
             locationUpdateCounter += 1
@@ -1146,13 +1147,16 @@ struct NavigationMapView: View {
         }
 
         // VFR reporting points — independent layer, controlled solely by its toggle (v4.1.0; decoupled).
+        // OpenAIP's and the open flightmaps points it lacks, loaded when first shown (6.2.0).
         if appState.settings.showReportingPointsOnMap,
-           OpenAIPReportingPointDataService.shared.isDataAvailable {
+           ReportingPointCatalog.shared.isDataAvailable {
             let rpHalfLat = region.span.latitudeDelta / 2
             let rpHalfLon = region.span.longitudeDelta / 2
-            visibleReportingPoints = OpenAIPReportingPointDataService.shared.reportingPointsInRegion(
+            ReportingPointCatalog.shared.loadIfNeeded()
+            visibleReportingPoints = ReportingPointCatalog.shared.points(
                 latRange: (region.center.latitude - rpHalfLat)...(region.center.latitude + rpHalfLat),
-                lonRange: (region.center.longitude - rpHalfLon)...(region.center.longitude + rpHalfLon))
+                lonRange: (region.center.longitude - rpHalfLon)...(region.center.longitude + rpHalfLon),
+                includingNonPowered: appState.settings.showsNonPoweredReportingPoints)
         } else {
             visibleReportingPoints = []
         }

@@ -676,16 +676,18 @@ struct FlightPlanMapBuilderView: View {
         guard !trimmed.isEmpty else { viaResults = []; viaResultsQuery = ""; return }
         let route = waypoints.map(\.coordinate)
         let reference = region.center
+        let nonPowered = appState.settings.showsNonPoweredReportingPoints
         viaSearchTask = Task {
             try? await Task.sleep(nanoseconds: 200_000_000)
             guard !Task.isCancelled else { return }
-            await OpenAIPReportingPointDataService.shared.ensureLoaded()
+            let catalog = ReportingPointCatalog.shared
+            await catalog.ensureLoaded()
             await OpenAIPNavaidDataService.shared.ensureLoaded()
             guard !Task.isCancelled else { return }
             let results = RoutePointSearch.search(
                 trimmed,
-                reportingPoints: OpenAIPReportingPointDataService.shared.allLoadedPoints(),
-                aerodromes: OpenAIPAirportDataService.shared.aerodromesById,
+                reportingPoints: catalog.allPoints(includingNonPowered: nonPowered),
+                aerodrome: catalog.aerodrome(for:),
                 navaids: OpenAIPNavaidDataService.shared.allLoadedNavaids(),
                 route: route, reference: reference)
             guard !Task.isCancelled else { return }
@@ -791,15 +793,16 @@ struct FlightPlanMapBuilderView: View {
                                                           types: AirportType.fixedWing),
             navaid: OpenAIPNavaidDataService.shared.nearestNavaid(to: coordinate, maxDistanceNm: snapRadiusNm),
             reportingPoint: reportingPointSnapCandidate(near: coordinate)
-                .map { ($0, OpenAIPAirportDataService.shared.label(for: $0)) })
+                .map { ($0, ReportingPointCatalog.shared.label(for: $0)) })
     }
 
     /// Nearest reporting point eligible for snap — only when the RP layer is shown, within a tighter
     /// radius than airports/navaids (they're dense, so snap should be deliberate). (v4.1.0 ③)
     private func reportingPointSnapCandidate(near coordinate: CLLocationCoordinate2D) -> ReportingPoint? {
         guard appState.settings.showReportingPointsOnMap else { return nil }
-        return OpenAIPReportingPointDataService.shared
-            .reportingPointsNear(to: coordinate, maxDistanceNm: rpSnapRadiusNm, limit: 1).first
+        return ReportingPointCatalog.shared
+            .pointsNear(to: coordinate, maxDistanceNm: rpSnapRadiusNm, limit: 1,
+                        includingNonPowered: appState.settings.showsNonPoweredReportingPoints).first
     }
 
     private func swapEndpoints() {
@@ -1779,6 +1782,7 @@ struct FlightPlanMapBuilderView: View {
         navaidUpdateTask?.cancel()
         let showNavaids = appState.settings.showNavaidsOnMap
         let showRP = appState.settings.showReportingPointsOnMap
+        let showNonPoweredRP = appState.settings.showsNonPoweredReportingPoints
         let showObstacles = appState.settings.showObstaclesOnMap
         navaidUpdateTask = Task {
             try? await Task.sleep(nanoseconds: 300_000_000) // 300 ms debounce
@@ -1795,9 +1799,10 @@ struct FlightPlanMapBuilderView: View {
                 navaids = OpenAIPNavaidDataService.shared.navaidsInRegion(latRange: latRange, lonRange: lonRange)
             }
             var reportingPoints: [ReportingPoint] = []
-            if showRP, OpenAIPReportingPointDataService.shared.isDataAvailable {
-                await OpenAIPReportingPointDataService.shared.ensureLoaded()
-                reportingPoints = OpenAIPReportingPointDataService.shared.reportingPointsInRegion(latRange: latRange, lonRange: lonRange)
+            if showRP, ReportingPointCatalog.shared.isDataAvailable {
+                await ReportingPointCatalog.shared.ensureLoaded()
+                reportingPoints = ReportingPointCatalog.shared.points(latRange: latRange, lonRange: lonRange,
+                                                                     includingNonPowered: showNonPoweredRP)
             }
             var obstacles: [Obstacle] = []
             if showObstacles, OpenAIPObstacleDataService.shared.isDataAvailable {

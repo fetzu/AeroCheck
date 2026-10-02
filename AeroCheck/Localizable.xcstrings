@@ -1,6 +1,26 @@
 {
   "sourceLanguage": "en",
   "strings": {
+    "Helicopter reporting point": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Point de report pour hélicoptères"
+          }
+        }
+      }
+    },
+    "Glider reporting point": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Point de report pour planeurs"
+          }
+        }
+      }
+    },
     "VFR procedures (open flightmaps)": {
       "localizations": {
         "fr": {

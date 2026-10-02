@@ -156,6 +156,14 @@ final class OFMDataService: ObservableObject {
         let validTo: Date
     }
 
+    /// One loaded country file's reporting points, with its cycle: what `ReportingPointCatalog` merges
+    /// into OpenAIP's. (6.2.0)
+    struct PointSet: Sendable {
+        let country: String
+        let airac: String
+        let points: [VFRPoint]
+    }
+
     @Published private(set) var isDownloading = false
     @Published private(set) var downloadProgress: Double = 0
     /// Countries the last download could not update (their old file, if any, is kept): the row's error
@@ -188,6 +196,8 @@ final class OFMDataService: ObservableObject {
 
     private var procedures: [VFRProcedure] = []
     private var points: [VFRPoint] = []
+    /// The loaded reporting points, per country file, in country order. Empty until `ensureLoaded()`.
+    private(set) var pointSets: [PointSet] = []
     private var runways: [String: [String]] = [:]
     private var procedureGrid: [GridKey: [Int]] = [:]
     private var pointGrid: [GridKey: [Int]] = [:]
@@ -484,6 +494,7 @@ final class OFMDataService: ObservableObject {
         let sorted = files.sorted { $0.country < $1.country }
         procedures = sorted.flatMap(\.procedures)
         points = sorted.flatMap(\.points)
+        pointSets = sorted.map { PointSet(country: $0.country, airac: $0.airac, points: $0.points) }
         runways = sorted.reduce(into: [:]) { result, file in
             result.merge(file.runways) { first, _ in first }
         }

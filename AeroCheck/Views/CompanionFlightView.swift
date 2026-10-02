@@ -275,12 +275,27 @@ struct CompanionFlightView: View {
                 }
                 planSection
                 freqChronoRow
-                recordATOButton
             }
             .padding(.horizontal, 12).padding(.top, 4).padding(.bottom, 12)
         }
-        // The iPad's check slot at the foot, where the thumb is, as on the iPad's map. (6.1, cues)
-        .safeAreaInset(edge: .bottom, spacing: 0) { companionCheckSlot }
+        // RECORD ATO and the iPad's check slot at the foot, where the thumb is, as MARK and the slot on
+        // the iPad's map: always whole, the plan above them scrolls. RECORD ATO in the scroll went under
+        // the slot, cut on an iPhone 17 Pro and out of sight on an iPhone SE. (6.1)
+        .safeAreaInset(edge: .bottom, spacing: 0) { navFoot }
+    }
+
+    private var navFoot: some View {
+        VStack(spacing: 8) {
+            // ✓ DONE's UNDO, for its six seconds: on top of the foot, over the plan, never over RECORD
+            // ATO or the slot, which stay where they are.
+            if let offer = memoryUndo {
+                NavUndoToast(offer: offer) { memoryUndo = nil }
+            }
+            recordATOButton
+            companionCheckSlot
+        }
+        .padding(.horizontal, 12).padding(.vertical, 8)
+        .background(theme.background)
     }
 
     /// The iPad's check slot, from its snapshot: the same name, line and colour, and its tap sent back.
@@ -290,15 +305,6 @@ struct CompanionFlightView: View {
         if let cl = checklist, cl.supportsFlightCues, let data = cl.checkSlotData,
            let slot = try? JSONDecoder().decode(CheckSlot.self, from: data) {
             CheckSlotButton(slot: slot, prominent: true) { tapCheckSlot(slot) }
-                .padding(.horizontal, 12).padding(.vertical, 8)
-                .background(theme.background)
-                .overlay(alignment: .top) {
-                    if let offer = memoryUndo {
-                        NavUndoToast(offer: offer) { memoryUndo = nil }
-                            .padding(.horizontal, 12)
-                            .offset(y: -CockpitTarget.control - 8)
-                    }
-                }
         }
     }
 

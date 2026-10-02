@@ -632,6 +632,13 @@ struct NavigationMapView: View {
     /// The map keeps 760 pt, enough for the next-waypoint card and the controls row. (review #1, R-01)
     private static let sideColumnWidth: CGFloat = 420
 
+    /// The landscape legs panel's height, at most: the chart's lower half, less the aircraft's half
+    /// symbol and a margin. The map centres the aircraft when it follows it, so the aircraft, the next
+    /// waypoint and the map's controls stay in view with the panel open; past that it scrolls. (6.1)
+    static func landscapeLegsMaxHeight(mapHeight: CGFloat) -> CGFloat {
+        max(0, mapHeight / 2 - 36)
+    }
+
     private func standardLayoutBody(geometry: GeometryProxy) -> some View {
         // Landscape: the map takes the full height and the frequencies, legs and thumb controls move
         // to a column on the right. A 104 pt bar across a 820 pt-tall screen left the map a letterbox.
@@ -670,8 +677,21 @@ struct NavigationMapView: View {
                     SeparateView { columnsMapArea(legsMaxHeight: height * 0.5) }
                 }
             } else if landscape {
+                // The legs and every frequency open over the chart's foot, beside the column, rather than
+                // in it: in the column they had the room its controls left, a strip that showed a row and
+                // a half. (6.1, device check) The map's footer rides above them, the undo toast with it.
+                let legsMaxHeight = Self.landscapeLegsMaxHeight(mapHeight: height)
                 HStack(spacing: 0) {
-                    SeparateView { mapArea(bottomPanel: EmptyView?.none) }
+                    SeparateView {
+                        mapArea(bottomPanel: EmptyView?.none,
+                                footerClearance: navSheetExpanded ? min(legsPanelContentHeight, legsMaxHeight) : 0)
+                    }
+                    .overlay(alignment: .bottom) {
+                        if navSheetExpanded {
+                            SeparateView { landscapeLegsPanel(maxHeight: legsMaxHeight) }
+                                .transition(.move(edge: .bottom))
+                        }
+                    }
                     SeparateView { sideColumn }
                         .frame(width: Self.sideColumnWidth)
                 }
@@ -763,14 +783,7 @@ struct NavigationMapView: View {
                 freqLine
                 if navSheetExpanded {
                     Rectangle().fill(theme.panelStroke).frame(height: 1)
-                    ScrollView {
-                        SeparateView { legsAndFrequencies }
-                            .background(GeometryReader { proxy in
-                                Color.clear.preference(key: LegsPanelHeightKey.self, value: proxy.size.height)
-                            })
-                    }
-                    .frame(height: min(legsPanelContentHeight, legsMaxHeight))
-                    .onPreferenceChange(LegsPanelHeightKey.self) { legsPanelContentHeight = $0 }
+                    legsScroll(maxHeight: legsMaxHeight)
                 }
             }
             .background(theme.panel.ignoresSafeArea(edges: .bottom))
@@ -1001,8 +1014,9 @@ struct NavigationMapView: View {
 
     /// The map with its chrome: the top bar (full-screen only), the next-waypoint card and the map's
     /// controls on top, the scale bar and the undo toast at the bottom, and — in portrait — the
-    /// bottom panel.
-    private func mapArea<Panel: View>(bottomPanel: Panel?) -> some View {
+    /// bottom panel. `footerClearance`: room kept under the scale bar and the undo toast, for the
+    /// landscape legs panel laid over the chart's foot.
+    private func mapArea<Panel: View>(bottomPanel: Panel?, footerClearance: CGFloat = 0) -> some View {
         // The phone: the next waypoint on one line and the controls at the foot of the chart, as on
         // its side. With the card and a row of controls on top, a phone in cruise had about 150 pt
         // of chart left, the aircraft under the controls. (round 6, I-06)
@@ -1053,7 +1067,7 @@ struct NavigationMapView: View {
                         .padding(.horizontal, 10)
                 }
             }
-            .padding(.bottom, compact ? 8 : 0))
+            .padding(.bottom, (compact ? 8 : 0) + footerClearance))
 
             if let bottomPanel { bottomPanel }
         }
@@ -1555,14 +1569,7 @@ struct NavigationMapView: View {
             freqCard
             if navSheetExpanded {
                 Rectangle().fill(theme.panelStroke).frame(height: 1)
-                ScrollView {
-                    SeparateView { legsAndFrequencies }
-                        .background(GeometryReader { proxy in
-                            Color.clear.preference(key: LegsPanelHeightKey.self, value: proxy.size.height)
-                        })
-                }
-                .frame(height: min(legsPanelContentHeight, legsMaxHeight))
-                .onPreferenceChange(LegsPanelHeightKey.self) { legsPanelContentHeight = $0 }
+                legsScroll(maxHeight: legsMaxHeight)
             }
             if includesThumbBar && !phoneWithNoLegToFly {
                 Rectangle().fill(theme.panelStroke).frame(height: 1)
@@ -1575,27 +1582,33 @@ struct NavigationMapView: View {
         }
     }
 
-    /// Landscape: the same content as the bottom panel, as a column. NOW and NEXT on top, the legs and
-    /// every frequency always open in the middle (scrolling), the thumb controls at the bottom, where
-    /// the hand rests. (on-device review #1, R-01)
+    /// Landscape: the bottom panel's content as a column. NOW and NEXT on top, with the chevron that
+    /// opens the legs and every frequency (`landscapeLegsPanel`, over the chart beside the column), and
+    /// the thumb controls at the bottom, where the hand rests. (on-device review #1, R-01)
+    ///
+    /// The column used to keep the legs and frequencies open between the two, in the room the
+    /// controls left it: once the check slot took a row of its own, a strip with its title cut and a
+    /// row and a half to scroll. (6.1, device check)
     private var sideColumn: some View {
         VStack(spacing: 0) {
-            VStack(alignment: .leading, spacing: 12) {
-                freqCell(tag: L10n.Nav.freqCurrent, tint: theme.onTarget,
-                         item: phaseFreqItems.first { $0.role == .current })
-                freqCell(tag: L10n.Nav.freqNext, tint: theme.info,
-                         item: phaseFreqItems.first { $0.role == .next })
-            }
-            .padding(16)
-            Rectangle().fill(theme.panelStroke).frame(height: 1)
-            ScrollView {
-                VStack(alignment: .leading, spacing: 16) {
-                    legsColumn
-                    freqColumn(large: true)
+            Button(action: toggleLegsAndFrequencies) {
+                HStack(spacing: 12) {
+                    VStack(alignment: .leading, spacing: 12) {
+                        freqCell(tag: L10n.Nav.freqCurrent, tint: theme.onTarget,
+                                 item: phaseFreqItems.first { $0.role == .current })
+                        freqCell(tag: L10n.Nav.freqNext, tint: theme.info,
+                                 item: phaseFreqItems.first { $0.role == .next })
+                    }
+                    legsChevron
                 }
                 .padding(16)
+                .contentShape(Rectangle())
             }
+            .buttonStyle(.plain)
+            // A hint, not a label, as on the portrait card: VoiceOver still reads NOW and NEXT.
+            .accessibilityHint(L10n.Nav.legsAndFrequencies)
             Rectangle().fill(theme.panelStroke).frame(height: 1)
+            Spacer(minLength: 0)
             navThumbColumn
                 .padding(16)
         }
@@ -1603,6 +1616,40 @@ struct NavigationMapView: View {
         .overlay(alignment: .leading) {
             Rectangle().fill(theme.panelStroke).frame(width: 1)
         }
+    }
+
+    /// Landscape, opened from the column's NOW / NEXT (or the next-waypoint card, or More): the legs
+    /// and every frequency, opaque over the chart's foot, from the column to the left edge. Over the
+    /// chart, so nothing in the column moves; at its foot, as the portrait panel opens, so the next
+    /// waypoint, the map's controls and the aircraft stay in view (`landscapeLegsMaxHeight`). The same
+    /// chevron closes it.
+    private func landscapeLegsPanel(maxHeight: CGFloat) -> some View {
+        legsScroll(maxHeight: maxHeight)
+            .background(theme.panel.ignoresSafeArea(edges: .bottom))
+            .overlay(alignment: .top) { Rectangle().fill(theme.panelStroke).frame(height: 1) }
+    }
+
+    /// The legs and every frequency in a scroll view as tall as they are, up to `maxHeight`.
+    private func legsScroll(maxHeight: CGFloat) -> some View {
+        ScrollView {
+            SeparateView { legsAndFrequencies }
+                .background(GeometryReader { proxy in
+                    Color.clear.preference(key: LegsPanelHeightKey.self, value: proxy.size.height)
+                })
+        }
+        .frame(height: min(legsPanelContentHeight, maxHeight))
+        .onPreferenceChange(LegsPanelHeightKey.self) { legsPanelContentHeight = $0 }
+    }
+
+    /// The chevron of the NOW / NEXT card (portrait) and of the column's NOW / NEXT (landscape): up to
+    /// open the legs and every frequency, which rise from the foot of the map in both, down to close.
+    private var legsChevron: some View {
+        Image(systemName: navSheetExpanded ? "chevron.down" : "chevron.up")
+            .font(.aero(size: CockpitType.label, weight: .bold))
+            .foregroundColor(theme.action)
+            .frame(width: CockpitType.size(kneeboard: 52, phone: 44),
+                   height: CockpitType.size(kneeboard: 52, phone: 44))
+            .background(Circle().fill(theme.action.opacity(0.14)))
     }
 
     // MARK: - Kneeboard chrome, iPad (v6.0 · P3)
@@ -1911,12 +1958,7 @@ struct NavigationMapView: View {
                 freqCell(tag: L10n.Nav.freqCurrent, tint: theme.onTarget, item: current)
                 Rectangle().fill(theme.panelStroke).frame(width: 1, height: 52)
                 freqCell(tag: L10n.Nav.freqNext, tint: theme.info, item: next)
-                Image(systemName: navSheetExpanded ? "chevron.down" : "chevron.up")
-                    .font(.aero(size: CockpitType.label, weight: .bold))
-                    .foregroundColor(theme.action)
-                    .frame(width: CockpitType.size(kneeboard: 52, phone: 44),
-                           height: CockpitType.size(kneeboard: 52, phone: 44))
-                    .background(Circle().fill(theme.action.opacity(0.14)))
+                legsChevron
             }
             .padding(.horizontal, CockpitType.size(kneeboard: 16, phone: 12))
             .padding(.vertical, 10)
@@ -1948,18 +1990,27 @@ struct NavigationMapView: View {
     }
 
     /// Every leg (planned, flown, ahead or over) and every frequency, opened from either card.
-    /// Side by side; stacked when the width runs out.
+    /// Side by side; stacked when the width runs out. With no route, the frequencies alone, the width
+    /// of the panel from its left edge: the side-by-side version, its legs empty, left them 300 pt
+    /// wide in the middle of the panel, where "130.355" wrapped. (6.1, device check)
     private var legsAndFrequencies: some View {
-        ViewThatFits(in: .horizontal) {
-            HStack(alignment: .top, spacing: 24) {
-                legsColumn
-                freqColumn(large: true).frame(width: 300)
-            }
-            VStack(alignment: .leading, spacing: 16) {
-                legsColumn
+        Group {
+            if flightPlanManager.activeFlightPlan != nil {
+                ViewThatFits(in: .horizontal) {
+                    HStack(alignment: .top, spacing: 24) {
+                        legsColumn
+                        freqColumn(large: true).frame(width: 300)
+                    }
+                    VStack(alignment: .leading, spacing: 16) {
+                        legsColumn
+                        freqColumn(large: true)
+                    }
+                }
+            } else {
                 freqColumn(large: true)
             }
         }
+        .frame(maxWidth: .infinity, alignment: .leading)
         .padding(.horizontal, 16)
         .padding(.vertical, 12)
     }
@@ -2004,8 +2055,8 @@ struct NavigationMapView: View {
                                         started: state.started)
                         navPrimaryButton(plan, started: state.started)
                     }
-                    if !flightPlanManager.isFlightPlanCompleted { divertThumbButton(plan) }
-                    navMoreMenu(running: state.running, started: state.started)
+                    divertAndMore(plan, leg: state, axis: .horizontal,
+                                  spacing: CockpitType.size(kneeboard: 12, phone: 8))
                 }
             }
             .padding(.horizontal, CockpitType.size(kneeboard: 16, phone: 12))
@@ -2053,10 +2104,7 @@ struct NavigationMapView: View {
                                         started: state.started)
                     }
                     navPrimaryButton(plan, started: state.started, leg: showsCheckSlot ? state : nil)
-                    VStack(spacing: 8) {
-                        if !flightPlanManager.isFlightPlanCompleted { divertThumbButton(plan, stacked: true) }
-                        navMoreMenu(running: state.running, started: state.started, stacked: true)
-                    }
+                    divertAndMore(plan, leg: state, axis: .vertical, stacked: true)
                 }
             }
         } else {
@@ -2090,10 +2138,7 @@ struct NavigationMapView: View {
                         // Divert and More stacked, half height, so MARK keeps the width for its leg line.
                         HStack(spacing: 12) {
                             navPrimaryButton(plan, started: state.started, leg: state)
-                            VStack(spacing: 8) {
-                                if !flightPlanManager.isFlightPlanCompleted { divertThumbButton(plan, stacked: true) }
-                                navMoreMenu(running: state.running, started: state.started, stacked: true)
-                            }
+                            divertAndMore(plan, leg: state, axis: .vertical, stacked: true)
                         }
                     }
                 }
@@ -2115,21 +2160,18 @@ struct NavigationMapView: View {
     }
 
     /// The landscape column in flight without the check slot: the leg timer and Divert, then MARK with
-    /// More beside it.
+    /// More beside it. Divert over More, so the two share a width.
     private func legTimerOverMark(_ plan: FlightPlan) -> some View {
         TimelineView(.periodic(from: .now, by: 1)) { _ in
             let state = legTimerState(plan)
-            VStack(spacing: 12) {
-                HStack(spacing: 12) {
+            HStack(alignment: .bottom, spacing: 12) {
+                VStack(alignment: .leading, spacing: 12) {
                     legTimerReadout(elapsed: state.elapsed, planned: state.planned, running: state.running,
                                     started: state.started)
-                    Spacer(minLength: 0)
-                    if !flightPlanManager.isFlightPlanCompleted { divertThumbButton(plan) }
-                }
-                HStack(spacing: 12) {
+                        .frame(maxWidth: .infinity, minHeight: CockpitTarget.thumb, alignment: .leading)
                     navPrimaryButton(plan, started: state.started)
-                    navMoreMenu(running: state.running, started: state.started)
                 }
+                divertAndMore(plan, leg: state, axis: .vertical, spacing: 12)
             }
         }
     }
@@ -2212,6 +2254,16 @@ struct NavigationMapView: View {
         return text
     }
 
+    /// Divert (while the route has a leg to fly) and More, one width for both: side by side in the thumb
+    /// bar, one above the other in the landscape columns (`stacked`: half height each, beside MARK).
+    private func divertAndMore(_ plan: FlightPlan, leg state: LegTimerState, axis: Axis, stacked: Bool = false,
+                               spacing: CGFloat = 8) -> some View {
+        EqualWidthStack(axis: axis, spacing: spacing) {
+            if !flightPlanManager.isFlightPlanCompleted { divertThumbButton(plan, stacked: stacked) }
+            navMoreMenu(running: state.running, started: state.started, stacked: stacked)
+        }
+    }
+
     private func divertThumbButton(_ plan: FlightPlan, stacked: Bool = false) -> some View {
         thumbSecondaryButton(icon: "arrow.triangle.turn.up.right.diamond.fill",
                              title: L10n.Trip.divert,
@@ -2287,7 +2339,8 @@ struct NavigationMapView: View {
     }
 
     /// `stacked`: half height, icon beside the word, for two buttons one above the other (the landscape
-    /// phone). Narrower on the phone, where MARK needs the width. (iPhone pass)
+    /// phone). Narrower on the phone, where MARK needs the width. (iPhone pass) It fills the width it is
+    /// offered, so `divertAndMore` can give Divert and More one width.
     @ViewBuilder
     private func thumbSecondaryLabel(icon: String, title: String, tint: Color, stacked: Bool = false) -> some View {
         Group {
@@ -2300,7 +2353,7 @@ struct NavigationMapView: View {
                         .minimumScaleFactor(0.7)
                 }
                 .padding(.horizontal, 10)
-                .frame(minWidth: 96, minHeight: (CockpitTarget.thumb - 8) / 2)
+                .frame(minWidth: 96, maxWidth: .infinity, minHeight: (CockpitTarget.thumb - 8) / 2)
             } else {
                 VStack(spacing: 6) {
                     Image(systemName: icon).font(.aero(size: CockpitType.response, weight: .semibold))
@@ -2310,7 +2363,8 @@ struct NavigationMapView: View {
                         .minimumScaleFactor(0.7)
                 }
                 .padding(.horizontal, CockpitType.size(kneeboard: 12, phone: 8))
-                .frame(minWidth: CockpitType.size(kneeboard: 120, phone: 64), minHeight: CockpitTarget.thumb)
+                .frame(minWidth: CockpitType.size(kneeboard: 120, phone: 64), maxWidth: .infinity,
+                       minHeight: CockpitTarget.thumb)
             }
         }
         .foregroundColor(tint)
@@ -2637,12 +2691,17 @@ struct NavigationMapView: View {
         }
     }
 
+    /// A station and its frequency. The frequency is dialled as read, so it keeps one line and every
+    /// digit, whatever the width: the station gives way, smaller, then cut. Without that, beside a long
+    /// name it wrapped as "130.35" over "5". (6.1, device check)
     private func freqRow(_ item: PhaseFrequency, large: Bool = false) -> some View {
         HStack(spacing: large ? 10 : 6) {
             if let tag = roleTag(item.role) {
                 Text(tag.0)
                     .font(.aero(size: large ? 16 : 8, weight: .bold)).tracking(0.3)
                     .foregroundColor(tag.1)
+                    .lineLimit(1)
+                    .fixedSize()
                     .padding(.horizontal, 4).padding(.vertical, 1)
                     .background(tag.1.opacity(0.16), in: RoundedRectangle(cornerRadius: 3))
             }
@@ -2656,6 +2715,8 @@ struct NavigationMapView: View {
                 .font(.aero(size: large ? CockpitType.row : 13, weight: item.highlighted ? .bold : .regular, design: .monospaced))
                 // Frequencies are data: white in flight on the kneeboard panel. (v6.0 · P5)
                 .foregroundColor(item.highlighted && !large ? theme.onTarget : theme.textPrimary)
+                .lineLimit(1)
+                .fixedSize()
         }
         .padding(.vertical, large ? 8 : 3)
     }
@@ -6144,6 +6205,62 @@ private struct NavClockText: View {
 private struct LegsPanelHeightKey: PreferenceKey {
     static let defaultValue: CGFloat = 0
     static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) { value = max(value, nextValue()) }
+}
+
+/// Buttons side by side or one above the other, all one width: Divert and More, in the thumb bar and
+/// beside MARK in the landscape columns. More is a `Menu`, which sizes to its label, so it came out
+/// narrower than Divert, and much narrower in French ("Plus" beside "Déroutement"). (6.1, device check)
+///
+/// The pair takes the room the two buttons want, so MARK and the check slot beside it keep theirs:
+/// one above the other, the wider one's width, as a stack of the two took; side by side, half of
+/// both, the longer word a little smaller (its label scales down to 0.7) and the shorter one's button
+/// wider. As wide as the wider side by side, the pair left MARK and the slot about 55 pt each on a
+/// phone in French. Each button must fill the width it is offered (`maxWidth: .infinity`); the pair
+/// keeps its width whatever it is offered, and MARK gives.
+struct EqualWidthStack: Layout {
+    var axis: Axis = .vertical
+    var spacing: CGFloat = 8
+
+    /// The one width, from what each button wants.
+    static func buttonWidth(ideals: [CGFloat], axis: Axis) -> CGFloat {
+        guard !ideals.isEmpty else { return 0 }
+        switch axis {
+        case .vertical: return ideals.max() ?? 0
+        case .horizontal: return ideals.reduce(0, +) / CGFloat(ideals.count)
+        }
+    }
+
+    func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
+        guard !subviews.isEmpty else { return .zero }
+        let width = buttonWidth(subviews)
+        let heights = subviews.map { $0.sizeThatFits(ProposedViewSize(width: width, height: nil)).height }
+        let gaps = spacing * CGFloat(subviews.count - 1)
+        switch axis {
+        case .vertical:
+            return CGSize(width: width, height: heights.reduce(0, +) + gaps)
+        case .horizontal:
+            return CGSize(width: width * CGFloat(subviews.count) + gaps, height: heights.max() ?? 0)
+        }
+    }
+
+    func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) {
+        let width = buttonWidth(subviews)
+        var origin = bounds.origin
+        for subview in subviews {
+            let height = axis == .horizontal
+                ? bounds.height
+                : subview.sizeThatFits(ProposedViewSize(width: width, height: nil)).height
+            subview.place(at: origin, proposal: ProposedViewSize(width: width, height: height))
+            switch axis {
+            case .vertical: origin.y += height + spacing
+            case .horizontal: origin.x += width + spacing
+            }
+        }
+    }
+
+    private func buttonWidth(_ subviews: Subviews) -> CGFloat {
+        Self.buttonWidth(ideals: subviews.map { $0.sizeThatFits(.unspecified).width }, axis: axis)
+    }
 }
 
 /// The flight-event overlay, except where the map is embedded in a view that already has one.

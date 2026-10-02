@@ -441,14 +441,20 @@ final class OFMDataService: ObservableObject {
         }
     }
 
-    /// The cycle's days, first to last, in UTC (the last day is the one before the next cycle).
+    /// The cycle's days, first to last, in UTC (the last day is the one before the next cycle):
+    /// "1 Oct – 28 Oct 2026". Two `DateFormatter`s rather than a `DateIntervalFormatter`, whose patterns
+    /// didn't follow the locale the row's "Data as of" date uses.
     nonisolated static func validityRange(_ cycle: Cycle) -> String {
-        let formatter = DateIntervalFormatter()
-        formatter.dateStyle = .medium
-        formatter.timeStyle = .none
-        formatter.timeZone = TimeZone(identifier: "UTC")
-        let lastDay = cycle.validTo.addingTimeInterval(-24 * 60 * 60)
-        return formatter.string(from: cycle.validFrom, to: max(cycle.validFrom, lastDay))
+        let utc = TimeZone(identifier: "UTC")
+        let first = DateFormatter()
+        first.timeZone = utc
+        first.setLocalizedDateFormatFromTemplate("dMMM")
+        let last = DateFormatter()
+        last.timeZone = utc
+        last.dateStyle = .medium
+        last.timeStyle = .none
+        let lastDay = max(cycle.validFrom, cycle.validTo.addingTimeInterval(-24 * 60 * 60))
+        return "\(first.string(from: cycle.validFrom)) – \(last.string(from: lastDay))"
     }
 
     // MARK: Load

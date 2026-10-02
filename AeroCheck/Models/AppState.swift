@@ -1790,7 +1790,7 @@ class AppState {
     }
 
     /// Run to the end: the check leaves the list. Green when nothing in it was put off; orange, with
-    /// the items listed, when something was; red when its phase's own action (ENGINE START, LINE UP,
+    /// the items listed, when something was; red when its phase's own action (ENGINE START, ENGINE
     /// SHUTDOWN) was never pressed.
     private func concludeDeferredCheckIfRun(_ phase: ChecklistPhase) {
         guard checkIsDone(phase) else { return }
@@ -1800,7 +1800,7 @@ class AppState {
     }
 
     private func status(ofCheckRunIn phase: ChecklistPhase) -> PhaseCompletionStatus {
-        if phase.hasMissingRequiredAction(engineStarted: engineStartTime != nil, linedUp: lineUpTime != nil,
+        if phase.hasMissingRequiredAction(engineStarted: engineStartTime != nil,
                                           engineShutDown: engineShutdownTime != nil) {
             return .missingAction
         }
@@ -1846,7 +1846,7 @@ class AppState {
             deferredChecks.sort { $0.rawValue < $1.rawValue }
         }
         phaseCompletionStatus[phase] = phase.hasMissingRequiredAction(
-            engineStarted: engineStartTime != nil, linedUp: lineUpTime != nil,
+            engineStarted: engineStartTime != nil,
             engineShutDown: engineShutdownTime != nil) ? .missingAction : .skipped
         // Skipped explicitly: NEXT past it, a jump over it, the landed card's move on. (6.1)
         recordSkipped(phase)
@@ -1918,6 +1918,8 @@ class AppState {
             let to: ChecklistPhase
             let before: ChecklistProgress
             let after: ChecklistProgress
+            /// The move was READY FOR LINE UP and recorded the take-off estimate: UNDO forgets it. (6.2)
+            var recordedLineUp = false
         }
     }
 
@@ -1950,12 +1952,12 @@ class AppState {
 
     /// Where the checklist pane's ✓ DONE moves on to, in the same tap: the next check. Nil when it only
     /// confirms: no memory check to confirm, the last check, or the phase's own action (ENGINE START,
-    /// READY FOR LINE UP, ENGINE SHUTDOWN) still to press, since going on would record the check red.
-    /// (6.1, author's decision: one tap on the CHECKLIST page)
+    /// ENGINE SHUTDOWN) still to press, since going on would record the check red. Out of the check
+    /// before departure, the tap is READY FOR LINE UP too (`nextPhase`). (6.1, author's decision: one
+    /// tap on the CHECKLIST page)
     var memoryConfirmationMovesTo: ChecklistPhase? {
         guard currentCheckAwaitsConfirmation,
               !currentPhase.hasMissingRequiredAction(engineStarted: engineStartTime != nil,
-                                                    linedUp: lineUpTime != nil,
                                                     engineShutDown: engineShutdownTime != nil) else { return nil }
         return currentPhase.nextNavigable(circuitMode: isCircuitMode)
     }
@@ -1971,10 +1973,12 @@ class AppState {
         }
         let phase = currentPhase
         let before = checklistProgress
+        let lineUpBefore = lineUpTime
         confirmMemoryCheck()
         guard var confirmation = memoryConfirmation, confirmation.phase == phase else { return }
         nextPhase()
-        confirmation.movedOn = .init(to: currentPhase, before: before, after: checklistProgress)
+        confirmation.movedOn = .init(to: currentPhase, before: before, after: checklistProgress,
+                                     recordedLineUp: lineUpBefore == nil && lineUpTime != nil)
         memoryConfirmation = confirmation
         checkpointActiveFlight(force: true)
     }
@@ -1986,7 +1990,7 @@ class AppState {
         currentHighlightedItem[phase] = ChecklistHighlighting.lastItemComplete(visibleCount: allItemCount(phase))
         deferredChecks.removeAll { $0 == phase }
         let actionMissing = phase.hasMissingRequiredAction(
-            engineStarted: engineStartTime != nil, linedUp: lineUpTime != nil, engineShutDown: engineShutdownTime != nil)
+            engineStarted: engineStartTime != nil, engineShutDown: engineShutdownTime != nil)
         phaseCompletionStatus[phase] = actionMissing && !stayingInPhase ? .missingAction : .doneFromMemory
         settleOwedCheck(phase, done: true)
     }
@@ -2009,6 +2013,12 @@ class AppState {
             flightCues.restoreOwed(confirmation.phase, owed)
         }
         if let movedOn = confirmation.movedOn, currentPhase == movedOn.to {
+            // The same tap was READY FOR LINE UP: the estimate goes with it, and the NEXT that follows
+            // makes it again, ETOs included. (6.2)
+            if movedOn.recordedLineUp {
+                lineUpTime = nil
+                currentFlight?.lineUpTime = nil
+            }
             if checklistProgress == movedOn.after {
                 checklistProgress = movedOn.before
             } else {
@@ -2130,11 +2140,13 @@ class AppState {
     func advanceAndConfirmMemoryCheck() {
         guard currentCheckIsDone, let next = currentPhase.nextNavigable(circuitMode: isCircuitMode) else { return }
         let before = checklistProgress
+        let lineUpBefore = lineUpTime
         nextPhase()
         guard currentPhase == next, currentCheckAwaitsConfirmation else { return }
         confirmMemoryCheck()
         guard var confirmation = memoryConfirmation, confirmation.phase == next else { return }
-        confirmation.movedOn = .init(to: next, before: before, after: checklistProgress)
+        confirmation.movedOn = .init(to: next, before: before, after: checklistProgress,
+                                     recordedLineUp: lineUpBefore == nil && lineUpTime != nil)
         memoryConfirmation = confirmation
         checkpointActiveFlight(force: true)
     }
@@ -2166,7 +2178,7 @@ class AppState {
         if let answered = phaseCompletionStatus[phase], answered.isAnsweredAfterLanding {
             return answered == .notSure ? .notSure : .confirmedAfterLanding
         }
-        if phase.hasMissingRequiredAction(engineStarted: engineStartTime != nil, linedUp: lineUpTime != nil,
+        if phase.hasMissingRequiredAction(engineStarted: engineStartTime != nil,
                                           engineShutDown: engineShutdownTime != nil) {
             return .actionMissing
         }
@@ -2394,6 +2406,23 @@ class AppState {
         lineUpTime = Date().addingTimeInterval(120)
         currentFlight?.lineUpTime = lineUpTime
         checkpointActiveFlight(force: true)
+    }
+
+    /// Wired at launch to the plan manager's `anchorETOsOnLineUp`: AppState has no reference to it, and
+    /// READY FOR LINE UP moves the active plan's ETOs. Nil until then (and in the tests that don't set
+    /// it), which moves nothing. (6.2)
+    @ObservationIgnored var anchorETOsOnLineUp: (@MainActor (Date) -> Void)?
+
+    /// READY FOR LINE UP: the pilot going on from the check before departure, whichever way (the thumb
+    /// bar, the NEXT chip and its review, the check slot, the one-tap memory confirmation, the
+    /// Companion's NEXT). The take-off is estimated two minutes from now and the plan's ETOs count from
+    /// it, as the button did before 6.2. The first time only: a later circuit, or the check flown again,
+    /// keeps the first take-off, which the flight time and the logbook's Time OFF read. A jump on the
+    /// phase bar records nothing (END FLIGHT measures the take-off from the track anyway).
+    private func recordReadyForLineUp() {
+        guard isFlightActive, currentPhase.readiesForLineUp, lineUpTime == nil else { return }
+        recordLineUpTime()
+        if let lineUpTime { anchorETOsOnLineUp?(lineUpTime) }
     }
 
     /// Record the (final) landing. `time` is the physical touchdown time when the caller
@@ -2768,6 +2797,8 @@ class AppState {
         guard let currentIndex = ChecklistPhase.allCases.firstIndex(of: currentPhase),
               currentIndex + 1 < ChecklistPhase.allCases.count else { return }
 
+        // Every NEXT goes through here: out of the check before departure, it is READY FOR LINE UP.
+        recordReadyForLineUp()
         leaveCurrentPhase()
 
         // Calculate the next phase, skipping CRUISE and DESCENT in circuit mode (marking each
@@ -2818,7 +2849,6 @@ class AppState {
         let leftSomethingDeferred = !(deferredItems[currentPhase] ?? []).isEmpty
         let actionMissing = currentPhase.hasMissingRequiredAction(
             engineStarted: engineStartTime != nil,
-            linedUp: lineUpTime != nil,
             engineShutDown: engineShutdownTime != nil)
         if isMemoryCheck(currentPhase) {
             // A memory check, its items hidden: done once confirmed (6.1). Left unconfirmed, it is owed
@@ -2920,7 +2950,6 @@ class AppState {
                 if phaseCompletionStatus[skippedPhase] == nil {
                     phaseCompletionStatus[skippedPhase] = skippedPhase.hasMissingRequiredAction(
                         engineStarted: engineStartTime != nil,
-                        linedUp: lineUpTime != nil,
                         engineShutDown: engineShutdownTime != nil) ? .missingAction : .skipped
                 }
             }
@@ -2950,8 +2979,6 @@ class AppState {
         if phase.rawValue < currentPhase.rawValue {
             // Check if this phase had a required action
             if phase.showsEngineStartButton && engineStartTime == nil {
-                return .missingAction
-            } else if phase.showsLineUpButton && lineUpTime == nil {
                 return .missingAction
             } else if phase.showsEngineShutdownButton && engineShutdownTime == nil {
                 return .missingAction

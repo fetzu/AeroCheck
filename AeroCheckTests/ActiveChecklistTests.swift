@@ -128,14 +128,22 @@ final class ActiveChecklistTests: XCTestCase {
 
     func testMissingRequiredActionOnlyForUnpressedButtonPhases() {
         // engineStart requires the engine-start button.
-        XCTAssertTrue(ChecklistPhase.engineStart.hasMissingRequiredAction(engineStarted: false, linedUp: true, engineShutDown: true))
-        XCTAssertFalse(ChecklistPhase.engineStart.hasMissingRequiredAction(engineStarted: true, linedUp: true, engineShutDown: true))
-        // beforeDeparture requires the line-up button; shutdown requires the shutdown button.
-        XCTAssertTrue(ChecklistPhase.beforeDeparture.hasMissingRequiredAction(engineStarted: true, linedUp: false, engineShutDown: true))
-        XCTAssertTrue(ChecklistPhase.shutdown.hasMissingRequiredAction(engineStarted: true, linedUp: true, engineShutDown: false))
+        XCTAssertTrue(ChecklistPhase.engineStart.hasMissingRequiredAction(engineStarted: false, engineShutDown: true))
+        XCTAssertFalse(ChecklistPhase.engineStart.hasMissingRequiredAction(engineStarted: true, engineShutDown: true))
+        // shutdown requires the shutdown button.
+        XCTAssertTrue(ChecklistPhase.shutdown.hasMissingRequiredAction(engineStarted: true, engineShutDown: false))
+        XCTAssertFalse(ChecklistPhase.shutdown.hasMissingRequiredAction(engineStarted: true, engineShutDown: true))
         // A phase with no required button is never .missingAction, whatever the action flags.
-        XCTAssertFalse(ChecklistPhase.preflight.hasMissingRequiredAction(engineStarted: false, linedUp: false, engineShutDown: false))
-        XCTAssertFalse(ChecklistPhase.climb.hasMissingRequiredAction(engineStarted: false, linedUp: false, engineShutDown: false))
+        XCTAssertFalse(ChecklistPhase.preflight.hasMissingRequiredAction(engineStarted: false, engineShutDown: false))
+        XCTAssertFalse(ChecklistPhase.climb.hasMissingRequiredAction(engineStarted: false, engineShutDown: false))
+    }
+
+    /// READY FOR LINE UP is the check before departure's NEXT since 6.2, not a button of its own: the
+    /// check is never red for it, and it is the only check that goes on that way.
+    func testTheCheckBeforeDepartureHasNoRequiredActionAndReadiesForLineUp() {
+        XCTAssertFalse(ChecklistPhase.beforeDeparture.hasMissingRequiredAction(engineStarted: true, engineShutDown: true))
+        XCTAssertFalse(ChecklistPhase.beforeDeparture.hasMissingRequiredAction(engineStarted: false, engineShutDown: false))
+        XCTAssertEqual(ChecklistPhase.allCases.filter(\.readiesForLineUp), [.beforeDeparture])
     }
 }
 

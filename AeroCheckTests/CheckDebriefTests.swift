@@ -287,10 +287,10 @@ final class CheckOutcomeAtEndOfFlightTests: XCTestCase {
     }
 
     /// The current check done: its action pressed, then a memory check confirmed or the list worked through.
+    /// (The check before departure has none since 6.2: its NEXT is READY FOR LINE UP.)
     private func complete(_ appState: AppState) {
         switch appState.currentPhase {
         case .engineStart: appState.recordEngineStart()
-        case .beforeDeparture: appState.recordLineUpTime()
         case .shutdown: appState.recordEngineShutdown()
         default: break
         }

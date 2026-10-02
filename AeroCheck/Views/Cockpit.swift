@@ -317,6 +317,32 @@ enum VSpeedTable {
     private static let rangePattern = try! NSRegularExpression(pattern: #"(\d)\s*[-–]\s*(\d)"#)
 }
 
+/// What the thumb bar's primary says once the check is done: "NEXT: TAXI CHECK" over "All checked" (or
+/// what was deferred). Out of the check before departure it is "READY FOR LINE UP" over "then LINE UP
+/// CHECK": the radio call the tap stands for, and the moment the take-off is estimated from
+/// (`AppState.nextPhase`). The Cockpit's and the Companion iPhone's, so both say the same. (6.2)
+struct CockpitNextLabel: Equatable {
+    let title: String
+    let subtitle: String
+    let icon: String
+    /// VoiceOver: what the tap does besides going on, when it does more.
+    let accessibilityHint: String?
+
+    init(leaving phase: ChecklistPhase?, to next: ChecklistPhase?, deferred: Int) {
+        if phase?.readiesForLineUp == true, let next {
+            title = L10n.ChecklistAction.readyForLineUp
+            subtitle = L10n.Cockpit.thenCheck(next.shortTitle)
+            icon = "airplane.departure"
+            accessibilityHint = L10n.Cockpit.readyForLineUpHint
+        } else {
+            title = next.map { L10n.Cockpit.next($0.shortTitle) } ?? L10n.Button.next
+            subtitle = deferred > 0 ? L10n.Deferred.count(deferred) : L10n.Cockpit.allChecked
+            icon = "chevron.right"
+            accessibilityHint = nil
+        }
+    }
+}
+
 /// A thumb-bar button: what it does, in `CockpitType.button`, and what it does it to, underneath.
 /// Always `CockpitTarget.thumb` tall.
 struct CockpitThumbButton: View {

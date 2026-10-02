@@ -56,13 +56,12 @@ struct FlightView: View {
     @State private var hourMeterStopInitialValue: String = ""
 
 
-    /// Check if current phase has an action button that hasn't been pressed yet
+    /// Check if current phase has an action button that hasn't been pressed yet. Not the check before
+    /// departure since 6.2: READY FOR LINE UP is its NEXT.
     private var currentPhaseNeedsAction: Bool {
         switch appState.currentPhase {
         case .engineStart:
             return appState.engineStartTime == nil
-        case .beforeDeparture:
-            return appState.lineUpTime == nil
         case .afterLanding:
             return appState.landingTime == nil
         case .shutdown:
@@ -517,9 +516,10 @@ struct FlightView: View {
         }
     }
 
-    /// The phase's timestamp action (engine-start / ready-for-line-up / shutdown) shown next to NEXT in
-    /// the HUD bottom bar — moved out of the checklist scroll so it's always reachable, not scrolled
-    /// away. Mutually exclusive per phase; empty otherwise. (v4 UI/UX Revamp)
+    /// The phase's timestamp action (engine-start / shutdown) shown next to NEXT in the HUD bottom bar —
+    /// moved out of the checklist scroll so it's always reachable, not scrolled away. Mutually exclusive
+    /// per phase; empty otherwise. (v4 UI/UX Revamp) READY FOR LINE UP is the check before departure's
+    /// NEXT since 6.2 (`cockpitPrimaryButton`).
     @ViewBuilder
     private func hudPhaseActionButton(height: CGFloat? = nil) -> some View {
         let phase = appState.currentPhase
@@ -536,20 +536,6 @@ struct FlightView: View {
                 minHeight: height,
                 onFirstPress: { performEngineStart() },
                 onUpdateTime: { performEngineStartUpdate() }
-            )
-        } else if phase.showsLineUpButton {
-            TimestampActionButton(
-                title: L10n.ChecklistAction.readyForLineUp(language: lang),
-                icon: "airplane.departure",
-                color: theme.warning,
-                timestamp: appState.formattedLineUpTime,
-                timestampLabel: L10n.ChecklistAction.lineUp(language: lang),
-                timestampSuffix: " (+2 min)",
-                isPulsing: pulseActionButton,
-                compact: true,
-                minHeight: height,
-                onFirstPress: { performLineUp() },
-                onUpdateTime: { performLineUpUpdate() }
             )
         } else if phase.showsEngineShutdownButton {
             TimestampActionButton(
@@ -578,20 +564,6 @@ struct FlightView: View {
     }
     private func performEngineStartUpdate() {
         appState.recordEngineStart()
-    }
-    private func performLineUp() {
-        appState.recordLineUpTime()
-        if let lineUpTime = appState.lineUpTime {
-            flightPlanManager.anchorETOsOnLineUp(lineUpTime)
-        }
-        pulseActionButton = false
-        if allItemsChecked { triggerNextButtonPulse() }
-    }
-    private func performLineUpUpdate() {
-        appState.recordLineUpTime()
-        if let lineUpTime = appState.lineUpTime {
-            flightPlanManager.anchorETOsOnLineUp(lineUpTime)
-        }
     }
     private func performEngineShutdown() {
         appState.recordEngineShutdown()
@@ -724,7 +696,7 @@ struct FlightView: View {
 
     /// CHECK: the highlighted item is done. Shared by the iPhone's tap-to-advance and the Cockpit's
     /// CHECK button. Returns true when that finished the list with the phase's own action (ENGINE
-    /// START, LINE UP, SHUTDOWN) still to press.
+    /// START, SHUTDOWN) still to press.
     @discardableResult
     private func checkCurrentItem() -> Bool {
         // Use the EFFECTIVE learning mode so revealed / learning-mode items are part of the step-through.
@@ -1434,8 +1406,6 @@ extension FlightView {
             activeChecklist: appState.activeChecklist,
             onEngineStart: { performEngineStart() },
             onEngineStartUpdate: { performEngineStartUpdate() },
-            onLineUp: { performLineUp() },
-            onLineUpUpdate: { performLineUpUpdate() },
             onEngineShutdown: { performEngineShutdown() },
             onEngineShutdownUpdate: { performEngineShutdownUpdate() },
             onGoAround: {
@@ -1493,7 +1463,6 @@ extension FlightView {
             // CHECK in the thumb bar advances; the list itself only reads. (v6.0 · P2, B1)
             onTapToAdvance: nil,
             engineStartTime: appState.formattedEngineStartTime,
-            lineUpTime: appState.formattedLineUpTime,
             landingTime: appState.formattedLandingTime,
             engineShutdownTime: appState.formattedEngineShutdownTime,
             goAroundCount: appState.currentFlight?.goAroundCount ?? 0,
@@ -1599,7 +1568,8 @@ extension FlightView {
     /// finishing a list is never an accident); END FLIGHT at the end. A memory check (every item hidden)
     /// is confirmed and left in one tap: "✓ CLIMB CHECK DONE", "NEXT: CRUISE CHECK · from memory",
     /// with the undo toast, which takes both back (6.1, author's decision). Where it can't go on (the
-    /// phase's own action still to press, the last check), it only confirms, and NEXT follows.
+    /// phase's own action still to press, the last check), it only confirms, and NEXT follows. Out of
+    /// the check before departure, NEXT reads READY FOR LINE UP (`CockpitNextLabel`, 6.2).
     @ViewBuilder
     private var cockpitPrimaryButton: some View {
         if appState.currentCheckAwaitsConfirmation {
@@ -1628,14 +1598,15 @@ extension FlightView {
                 showEndFlightAlert = true
             }
         } else {
-            let deferred = appState.currentPhaseDeferredIds.count
-            let next = appState.currentPhase.nextNavigable(circuitMode: appState.isCircuitMode)
-            CockpitThumbButton(title: L10n.Cockpit.next(next?.shortTitle ?? ""),
-                               subtitle: deferred > 0 ? L10n.Deferred.count(deferred) : L10n.Cockpit.allChecked,
-                               icon: "chevron.right",
+            let label = CockpitNextLabel(
+                leaving: appState.currentPhase,
+                to: appState.currentPhase.nextNavigable(circuitMode: appState.isCircuitMode),
+                deferred: appState.currentPhaseDeferredIds.count)
+            CockpitThumbButton(title: label.title, subtitle: label.subtitle, icon: label.icon,
                                style: .filled(fill: theme.action, text: theme.actionText)) {
                 requestNextPhase()
             }
+            .accessibilityHint(label.accessibilityHint ?? "")
             .modifier(PulseModifier(isActive: nextButtonReady))
         }
     }

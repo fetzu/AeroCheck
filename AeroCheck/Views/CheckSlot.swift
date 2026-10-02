@@ -212,11 +212,20 @@ struct CheckSlot: Equatable, Codable {
 }
 
 extension CheckSlot {
+    /// The advance out of the check before departure (the only way on to the line up check): it reads
+    /// READY FOR LINE UP, then the line up check, as the thumb bar's NEXT does, and the tap is the same
+    /// (`AppState.nextPhase` records it). Read off the slot rather than carried in it, so the Companion's
+    /// snapshot keeps its shape: an older iPhone still shows the line up check, and its tap does the
+    /// same on the iPad. (6.2)
+    var readiesForLineUp: Bool {
+        action == .advance && phase == .lineUp
+    }
+
     /// The first line. `stacked`: a slot sharing its row on the iPad (beside MARK, in the landscape
     /// column), where "CRUISE CHECK ✓ 14:24" on one line would shrink under 20 pt: the time goes under.
     func titleText(stacked: Bool = false) -> String {
         switch title {
-        case .check: return phase.shortTitle
+        case .check: return readiesForLineUp ? L10n.ChecklistAction.readyForLineUp : phase.shortTitle
         case .freda: return L10n.Freda.name
         case .fredaCountsFrom(let since, let at):
             let what = since == .cruiseCheck ? ChecklistPhase.cruise.shortTitle : L10n.Freda.name
@@ -228,6 +237,18 @@ extension CheckSlot {
     /// Whether the title may take two lines: on the phone, and a stacked FREDA title. (6.1)
     func titleWraps(phone: Bool, stacked: Bool) -> Bool {
         phone || (stacked && title != .check)
+    }
+
+    /// The second line, as the button shows it: `narrow` (the phone's shared row) and `stacked` (the
+    /// iPad's shared row) pick the line's shorter forms; under READY FOR LINE UP, "then LINE UP CHECK".
+    func lineText(narrow: Bool = false, stacked: Bool = false) -> String {
+        if readiesForLineUp { return L10n.Cockpit.thenCheck(phase.shortTitle) }
+        return narrow ? line.shortText : stacked ? line.stackedText : line.text
+    }
+
+    /// What VoiceOver reads for the second line.
+    var lineAccessibilityText: String {
+        readiesForLineUp ? lineText() : line.accessibilityText
     }
 }
 
@@ -315,7 +336,7 @@ struct CheckSlotButton: View {
                         .minimumScaleFactor(0.6)
                     // Two lines where the slot shares the row (beside MARK, between the hold
                     // buttons): "from memory · one tap when done" is the line that matters.
-                    Text(narrow ? slot.line.shortText : stacked ? slot.line.stackedText : slot.line.text)
+                    Text(slot.lineText(narrow: narrow, stacked: stacked))
                         .font(.aero(size: CockpitType.label, weight: .medium))
                         .foregroundColor(lineColor)
                         .lineLimit(prominent && !phone ? 1 : 2)
@@ -331,11 +352,12 @@ struct CheckSlotButton: View {
         }
         .buttonStyle(.plain)
         .accessibilityElement(children: .combine)
-        .accessibilityLabel("\(slot.titleText()), \(slot.line.accessibilityText)")
+        .accessibilityLabel("\(slot.titleText()), \(slot.lineAccessibilityText)")
         .accessibilityHint(accessibilityHint)
     }
 
     private var iconName: String {
+        if slot.readiesForLineUp { return "airplane.departure" }
         switch slot.icon {
         case .confirm: return "checkmark.circle"
         case .list: return "list.bullet"
@@ -384,7 +406,8 @@ struct CheckSlotButton: View {
         switch slot.action {
         case .confirmFromMemory: return L10n.CheckSlot.confirmHint
         case .showChecklist: return L10n.CheckSlot.showChecklistHint
-        case .advance: return L10n.Cockpit.nextPhaseA11y(slot.phase.title)
+        case .advance:
+            return slot.readiesForLineUp ? L10n.Cockpit.readyForLineUpHint : L10n.Cockpit.nextPhaseA11y(slot.phase.title)
         case .confirmFreda: return L10n.Freda.confirmHint
         case .advanceAndConfirm: return L10n.CheckSlot.advanceAndConfirmHint
         case .goToLanding: return L10n.CheckSlot.goToLandingHint
@@ -489,17 +512,15 @@ struct CockpitCheckSlot: View {
         return .list(open: max(1, appState.openItems(in: phase).count))
     }
 
-    /// ENGINE START, READY FOR LINE UP or ENGINE SHUTDOWN, while unpressed in their phase: the ones a
-    /// phase is recorded red without.
+    /// ENGINE START or ENGINE SHUTDOWN, while unpressed in their phase: the ones a phase is recorded red
+    /// without. (READY FOR LINE UP is the slot's advance out of the check before departure since 6.2.)
     @MainActor
     static func pendingAction(in appState: AppState) -> String? {
         let phase = appState.currentPhase
         guard phase.hasMissingRequiredAction(engineStarted: appState.engineStartTime != nil,
-                                             linedUp: appState.lineUpTime != nil,
                                              engineShutDown: appState.engineShutdownTime != nil) else { return nil }
         let language = appState.settings.checklistLanguage.resolvedLanguage
         if phase.showsEngineStartButton { return L10n.ChecklistAction.engineStart(language: language) }
-        if phase.showsLineUpButton { return L10n.ChecklistAction.readyForLineUp(language: language) }
         return L10n.ChecklistAction.engineShutdown(language: language)
     }
 }

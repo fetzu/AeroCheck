@@ -49,6 +49,7 @@
 		A5000047111111110000002 /* MapPresetTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A5000047111111110000001 /* MapPresetTests.swift */; };
 		A5000048111111110000002 /* CockpitPaneRuleTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A5000048111111110000001 /* CockpitPaneRuleTests.swift */; };
 		C5107A010000000000000B2 /* CheckSlotTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C5107A010000000000000F2 /* CheckSlotTests.swift */; };
+		11E0F0A1000000000000B001 /* ReadyForLineUpTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 11E0F0A1000000000000F001 /* ReadyForLineUpTests.swift */; };
 		C5107A010000000000000B3 /* MemoryCheckTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C5107A010000000000000F3 /* MemoryCheckTests.swift */; };
 		FEDA0A010000000000000B2 /* FredaTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = FEDA0A010000000000000F2 /* FredaTests.swift */; };
 		C0E50A010000000000000B2 /* FlightCueTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0E50A010000000000000F2 /* FlightCueTests.swift */; };
@@ -380,6 +381,7 @@
 		A5000047111111110000001 /* MapPresetTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MapPresetTests.swift; sourceTree = "<group>"; };
 		A5000048111111110000001 /* CockpitPaneRuleTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CockpitPaneRuleTests.swift; sourceTree = "<group>"; };
 		C5107A010000000000000F2 /* CheckSlotTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CheckSlotTests.swift; sourceTree = "<group>"; };
+		11E0F0A1000000000000F001 /* ReadyForLineUpTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReadyForLineUpTests.swift; sourceTree = "<group>"; };
 		C5107A010000000000000F3 /* MemoryCheckTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MemoryCheckTests.swift; sourceTree = "<group>"; };
 		FEDA0A010000000000000F2 /* FredaTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FredaTests.swift; sourceTree = "<group>"; };
 		C0E50A010000000000000F2 /* FlightCueTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FlightCueTests.swift; sourceTree = "<group>"; };
@@ -696,6 +698,7 @@
 				A5000047111111110000001 /* MapPresetTests.swift */,
 				A5000048111111110000001 /* CockpitPaneRuleTests.swift */,
 				C5107A010000000000000F2 /* CheckSlotTests.swift */,
+				11E0F0A1000000000000F001 /* ReadyForLineUpTests.swift */,
 				C5107A010000000000000F3 /* MemoryCheckTests.swift */,
 				FEDA0A010000000000000F2 /* FredaTests.swift */,
 				DEB71EF00000000000000F3 /* CheckDebriefTests.swift */,
@@ -1251,6 +1254,7 @@
 				A5000047111111110000002 /* MapPresetTests.swift in Sources */,
 				A5000048111111110000002 /* CockpitPaneRuleTests.swift in Sources */,
 				C5107A010000000000000B2 /* CheckSlotTests.swift in Sources */,
+				11E0F0A1000000000000B001 /* ReadyForLineUpTests.swift in Sources */,
 				C5107A010000000000000B3 /* MemoryCheckTests.swift in Sources */,
 				FEDA0A010000000000000B2 /* FredaTests.swift in Sources */,
 				DEB71EF00000000000000B3 /* CheckDebriefTests.swift in Sources */,

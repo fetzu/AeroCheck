@@ -185,6 +185,9 @@ struct AeroCheckApp: App {
                     }
                     // A plan deleted on another device stays on a flight in progress. (6.1)
                     flightPlanManager.isFlightInProgress = { appState.isFlightActive }
+                    // READY FOR LINE UP, whichever NEXT made it (the Cockpit's, the slot's, the
+                    // Companion's), moves the active plan's ETOs. (6.2)
+                    appState.anchorETOsOnLineUp = { flightPlanManager.anchorETOsOnLineUp($0) }
 
                     // The delegate and its category are registered in `AeroCheckAppDelegate` before
                     // launch finishes; only the handlers are wired here, because they need the

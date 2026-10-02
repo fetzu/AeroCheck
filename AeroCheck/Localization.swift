@@ -1168,8 +1168,9 @@ enum L10n {
         static let notRecorded = String(localized: "a11y.notRecorded")
         static let engineStart = String(localized: "checklist.engineStart")
         static let started = String(localized: "checklist.started")
+        /// The check before departure's NEXT, on the Cockpit, the map's check slot and the Companion. In
+        /// the app's language, like the CHECK and NEXT it stands for. (6.2)
         static let readyForLineUp = String(localized: "checklist.readyForLineUp")
-        static let lineUp = String(localized: "checklist.lineUp")
         static let engineShutdown = String(localized: "checklist.engineShutdown")
         static let shutdown = String(localized: "checklist.shutdown")
         static let goAround = String(localized: "checklist.goAround")
@@ -1186,14 +1187,6 @@ enum L10n {
 
         static func started(language: String) -> String {
             localizedString(key: "checklist.started", language: language, defaultValue: "Started")
-        }
-
-        static func readyForLineUp(language: String) -> String {
-            localizedString(key: "checklist.readyForLineUp", language: language, defaultValue: "READY FOR LINE UP")
-        }
-
-        static func lineUp(language: String) -> String {
-            localizedString(key: "checklist.lineUp", language: language, defaultValue: "Line Up")
         }
 
         static func engineShutdown(language: String) -> String {
@@ -1965,6 +1958,12 @@ enum L10n {
             String(format: String(localized: "cockpit.nextPhaseA11y"), phase)
         }
         static let allChecked = String(localized: "cockpit.allChecked")
+        /// Under READY FOR LINE UP: "then LINE UP CHECK". (6.2)
+        static func thenCheck(_ check: String) -> String {
+            String(format: String(localized: "cockpit.thenCheck"), check)
+        }
+        /// VoiceOver, on READY FOR LINE UP: what the tap does besides going on. (6.2)
+        static let readyForLineUpHint = String(localized: "cockpit.readyForLineUpHint")
         /// "CLIMB CHECK DONE", beside a ✓, on a memory check to confirm. (6.1)
         static func memoryCheckDone(_ check: String) -> String {
             String(format: String(localized: "cockpit.memoryCheckDone"), check)

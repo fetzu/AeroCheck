@@ -821,14 +821,18 @@ struct CompanionFlightView: View {
                     companionConnectivityManager.sendCommand(.advanceChecklistItem)
                 }
             } else {
-                let deferred = cl.deferredItemIds.count
-                let next = ChecklistPhase(rawValue: cl.phaseRawValue)?.nextNavigable(circuitMode: flightData?.isCircuitMode == true)
-                CockpitThumbButton(title: next.map { L10n.Cockpit.next($0.shortTitle) } ?? L10n.Button.next,
-                                   subtitle: deferred > 0 ? L10n.Deferred.count(deferred) : L10n.Cockpit.allChecked,
-                                   icon: "chevron.right",
+                // Out of the check before departure: READY FOR LINE UP, which the iPad records on this
+                // NEXT, as on its own. (6.2)
+                let phase = ChecklistPhase(rawValue: cl.phaseRawValue)
+                let label = CockpitNextLabel(
+                    leaving: phase,
+                    to: phase?.nextNavigable(circuitMode: flightData?.isCircuitMode == true),
+                    deferred: cl.deferredItemIds.count)
+                CockpitThumbButton(title: label.title, subtitle: label.subtitle, icon: label.icon,
                                    style: .filled(fill: theme.action, text: theme.actionText)) {
                     requestNextPhase(cl)
                 }
+                .accessibilityHint(label.accessibilityHint ?? "")
                 .modifier(PulseModifier(isActive: phaseComplete))
             }
         }

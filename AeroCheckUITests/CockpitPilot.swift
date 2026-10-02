@@ -550,11 +550,16 @@ final class CockpitPilot {
     func scrollTo(_ label: String, swipes: Int = 8) {
         let text = app.staticTexts[label].firstMatch
         let height = snap(app)?.frame.height ?? 1000
-        // By its frame: a SwiftUI scroll view's rows below the fold still say they are hittable.
+        // By its frame: a SwiftUI scroll view's rows below the fold still say they are hittable. Dragged
+        // along the left margin, not swiped in the middle, where the flight page's track map takes the
+        // gesture and pans instead.
         for _ in 0..<swipes {
             guard let frame = snap(text)?.frame else { return }
             if frame.minY > 80 && frame.minY < height * 0.45 { return }
-            if frame.minY <= 80 { app.swipeDown() } else { app.swipeUp() }
+            let up = frame.minY > 80
+            let from = app.coordinate(withNormalizedOffset: CGVector(dx: 0.012, dy: up ? 0.8 : 0.3))
+            let to = app.coordinate(withNormalizedOffset: CGVector(dx: 0.012, dy: up ? 0.35 : 0.75))
+            from.press(forDuration: 0.05, thenDragTo: to)
         }
     }
 

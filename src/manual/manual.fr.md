@@ -127,7 +127,7 @@ En bas de la page, **Annuler le vol** demande d'abord (« Annuler ce vol ? ») :
 
 - **Météo consultée**. Sur les routes qui touchent la Suisse, **DABS consulté** (**Ouvrir le DABS**) et **GAFOR consulté** (**Ouvrir MeteoSwiss**). **NOTAM consultés** (**Ouvrir le briefing NOTAM**).
 - **Plan de vol ATC déposé** : **Copier le plan de vol ATC** place un message de plan de vol OACI complet dans le presse-papiers (champs 7 à 19, avec votre route, votre autonomie et les personnes à bord), et **Ouvrir skybriefing** vous emmène le déposer. Cocher cette tâche est ce qui arme le rappel de clôture après l'atterrissage.
-- **PPR** : proposée pour un aérodrome de votre route qu'openAIP signale comme soumis à autorisation préalable, pour que vous appeliez avant de partir. N'apparaît que si les données d'aérodromes sont téléchargées.
+- **PPR** : proposée pour un aérodrome de votre route qu'openAIP signale comme soumis à autorisation préalable, pour que vous appeliez avant de partir. Sa puce **Carte officielle** ouvre la carte de l'aérodrome (voir [Carte officielle](#carte-officielle)), où se trouvent en général le numéro et les horaires. N'apparaît que si les données d'aérodromes sont téléchargées.
 - **Passage de frontière** : une tâche par pays étranger traversé, avec la **fiche frontière** du pays : aérodrome douanier obligatoire ou non, annonce préalable requise ou non, et son délai, pour CH, FR, DE, AT, IT et GB. Chacune vient avec **Règles officielles** (et **Côté suisse** quand le vol touche la Suisse) et la date de vérification. Un pays non encore documenté le dit et vous renvoie à l'AIP. Quand les sources officielles se contredisent, la tâche le dit aussi. **Considérez une exigence non établie comme applicable jusqu'à vérification.** C'est un rappel, pas une autorisation.
 - **Log de nav prêt** : **Exporter le log de nav** ouvre le log de navigation en PDF A4, à lire, imprimer, annoter ou partager. Le menu **Exporter** de la fiche du vol le propose aussi en A5, le format planchette.
 
@@ -148,7 +148,7 @@ Après **TERMINER LE VOL**, le vol passe en CLÔTURE.
 
 - **Clôturer le plan de vol ATC** : seulement si vous avez coché **Plan de vol ATC déposé**. C'est la seule tâche avec une conséquence de recherche et sauvetage : s'il n'a pas été clôturé à l'arrivée, le RCC de Zurich est alerté 30 minutes après votre ETA. La page du vol s'ouvre donc sur un encart rouge, **Clôturez votre plan de vol ATC**, avec **Appeler 0800 437 837** et **Marquer clôturé** ; l'onglet Aujourd'hui porte une pastille ; et une notification arrive environ deux minutes après TERMINER LE VOL (ou 15 minutes après un atterrissage complet détecté, si vous n'avez pas terminé le vol). Si vous vous êtes posé ailleurs que prévu, l'encart vous dit quel aérodrome annoncer au FIC.
 - **Écriture carnet de vol** : **Ligne de carnet de vol** ouvre **Carnet et coûts** pour le vol enregistré ; voir [Carnet et coûts](#carnet-et-coûts).
-- **Taxes** : la taxe d'atterrissage, quand votre destination en a une. **Coût du vol** ouvre le coût du vol, et **Tarif de l'exploitant** la page tarifaire de l'exploitant, lorsque AéroCheck la connaît. N'apparaît que si le suivi des coûts est activé.
+- **Taxes** : la taxe d'atterrissage, quand votre destination en a une. **Coût du vol** ouvre le coût du vol, **Tarif de l'exploitant** la page tarifaire de l'exploitant, lorsque AéroCheck la connaît, et **Carte officielle** la carte de l'aérodrome. N'apparaît que si le suivi des coûts est activé.
 - **Débriefing** : une note pour vous-même.
 
 **Terminez** le vol quand vous en avez fini ; ce qui reste ouvert cesse simplement de réclamer. Un vol terminé quitte Planifier › Vols et reste dans le carnet de vol.
@@ -219,7 +219,7 @@ Pour voler une route un jour donné, planifiez un vol à partir d'elle : **Plani
 L'éditeur de route est une carte avec **De** et **À** au-dessus, le profil de la route en dessous, et les branches.
 
 - Saisissez le départ et la destination dans **De** et **À** (code OACI ou nom ; les résultats sont triés par distance). Les flèches entre les deux les inversent.
-- Sur la carte, **glissez un point** pour le déplacer, **glissez la ligne de route** pour insérer un point, ou faites un **appui long** sur un endroit vide pour en ajouter un là où il allonge le moins la route. Un point relâché à moins de 2,5 NM d'un aérodrome ou d'une balise (ou à moins de 1,2 NM d'un point de report, quand ils sont affichés) en prend le nom, la fréquence et la position.
+- Sur la carte, **glissez un point** pour le déplacer, **glissez la ligne de route** pour insérer un point, ou faites un **appui long** sur un endroit vide pour en ajouter un là où il allonge le moins la route. Un point relâché à moins de 2,5 NM d'un aérodrome ou d'une balise (ou à moins de 1,2 NM d'un point de report, quand ils sont affichés) en prend le nom, la fréquence et la position. Touchez un aérodrome pour sa bulle : **+** l'ajoute à la route, **Carte** ouvre sa [carte officielle](#carte-officielle).
 - **Les branches** forment un tableau aux colonnes du log de navigation : **#**, **POINT** (avec son indicatif quand il diffère), **Rm**, **NM**, **EET**, **ALT FT** (modifiable sur place) et ⚠. Les chiffres sont ceux de la branche *qui part* du point ; la dernière ligne est la destination. Sur l'iPhone, les chiffres passent sous le nom.
 - **Une seule sélection** pour la carte, le profil et les branches : touchez une branche pour la sélectionner, et elle est mise en évidence dans le tableau, sur la carte et sur le profil, chacun à sa place. Touchez à nouveau la ligne sélectionnée pour ouvrir le point ; touchez une épingle pour sélectionner sa ligne.
 - **Définir les altitudes…** règle plusieurs points d'un coup : une **Altitude fixe**, ou une marge **Au-dessus du relief**, avec un aperçu de la marge la plus faible sur chaque branche et des espaces aériens que le nouveau profil traverse. Le départ et la destination gardent la leur. Une route sans altitudes prévues (souvent un GPX importé) le signale : **Aucune altitude prévue**.
@@ -401,12 +401,33 @@ En vol, un point est passé automatiquement quand vous arrivez à la distance de
 **Carte** ouvre tout ce qui règle l'apparence de la carte, en une seule feuille :
 
 - **Fond de carte** : **Carte OACI** (la carte aéronautique suisse au 1:500 000, qui devient la carte de vol à voile, la Segelflugkarte au 1:300 000, quand vous zoomez, sauf si **Forcer la couche OACI** est activé), **Carte nationale**, **SWISSIMAGE aérien**, **Satellite** et **Carte standard**. Les couches suisses sont disponibles en Suisse et à proximité. En mode hors ligne, la carte OACI en cache est la seule.
-- **Préréglages** : **Croisière** affiche les espaces aériens et les points de report ; **Approche** y ajoute les aérodromes et les obstacles ; **Tout** affiche tous les repères. Les espaces aériens restent affichés dans les trois.
+- **Préréglages** : **Croisière** affiche les espaces aériens et les points de report ; **Approche** y ajoute les aérodromes, les obstacles, les tours de piste et les routes d'arrivée et de départ ; **Tout** affiche tous les repères, et les tours de piste et les routes aussi. Les espaces aériens restent affichés dans les trois.
 - **Espace aérien et cartes** : **Espace aérien** (les espaces aériens OpenAIP, en superposition vectorielle) et **Tuiles de carte** (les tuiles raster d'OpenAIP, désactivées par défaut). Quand les espaces aériens sont activés sans données téléchargées, la feuille le dit et propose **Télécharger les données…**.
 - **Repères de carte**, issus des données OpenAIP téléchargées (voir [Données aéronautiques et stockage](#données-aéronautiques-et-stockage)) : **Aéroports** (avec fréquences au toucher), **Aides à la navigation** (VOR, DME, NDB), **Points de report** et **Obstacles** (pylônes, mâts, éoliennes ; désactivés par défaut, ils sont denses). **Tout afficher** ou **Tout masquer**.
+- **Procédures d'aérodrome**, issues d'open flightmaps : **Tours de piste**, **Routes d'arrivée et de départ (avec secteurs)** et **Planeurs, ULM et hélicoptères**. Les trois interrupteurs sont désactivés par défaut, et aucun préréglage n'active le troisième. Voir [Tours de piste et routes VFR](#tours-de-piste-et-routes-vfr).
 - **Vol** : **Vecteur de route**.
 
+Le pied de la feuille cite les sources de ce qu'elle dessine : open flightmaps (avec le cycle AIRAC présent sur l'appareil) et OpenAIP.
+
 Quand les espaces aériens téléchargés vieillissent, une marque ambre apparaît sur le bouton **Carte**, et la feuille l'explique (« Données d'espace aérien obsolètes ») avec **Mettre à jour**, pour que vous sachiez que ce qui est dessiné peut ne pas refléter des changements récents.
+
+### Tours de piste et routes VFR
+
+Avec **Tours de piste** ou **Routes d'arrivée et de départ** activé, la carte dessine les procédures d'aérodrome qu'open flightmaps publie pour la Suisse, l'Autriche, l'Allemagne et la Tchéquie : dans Planifier › Carte, dans la CARTE du cockpit et dans l'éditeur de route (son bouton des calques porte les trois mêmes interrupteurs, tout comme **Réglages › Navigation & Cartes**). Elles sont **indicatives** : open flightmaps est une source communautaire, et la carte officielle de l'aérodrome l'emporte toujours (elle est à un toucher, voir plus bas).
+
+- **Un tour de piste** est une ligne continue bleu foncé bordée de blanc, avec son altitude sur la branche vent arrière (« 2900 ft », ou « Alt. : voir carte » quand open flightmaps n'en donne pas). Un terrain qui en a plusieurs (par piste, ou par type d'avion) les montre tous.
+- **Une arrivée ou un départ** est une ligne bleue en tirets, avec son nom à mi-parcours et une pointe de flèche vers le terrain (arrivée) ou qui s'en éloigne (départ). **Un secteur** est une zone bleu clair au contour en tirets ; les zones de moindre bruit autrichiennes ont un contour hachuré gris.
+- **Les tours de piste planeurs et ULM** sont en tirets, **les procédures hélicoptères** en pointillés. Une forme qu'open flightmaps ne connaît qu'approximativement est dessinée plus fine et plus pâle. De nuit, le bleu s'éclaircit et la bordure devient sombre, pour que rien ne brille en blanc sur la carte.
+
+**Planeurs, ULM et hélicoptères** fonctionne seul : un vélivole peut afficher les tours de piste planeurs sans ceux des avions à moteur. Il affiche aussi les routes hélicoptères (avec **Routes d'arrivée et de départ** activé) et les points de report destinés aux planeurs et aux hélicoptères.
+
+Touchez une étiquette pour sa bulle : le nom de la procédure, ce qu'elle est (« Tour de piste · 2900 ft · LSZQ »), sa source et son cycle (« open flightmaps · AIRAC 2610 · indicatif, vérifiez la carte officielle »), puis **Carte officielle** (voir [Carte officielle](#carte-officielle)) et **Signaler une erreur**. Signaler une erreur ouvre dans le navigateur le formulaire de signalement d'open flightmaps, avec la région, le cycle, l'aérodrome et la procédure déjà remplis (rien sur vous) ; sans formulaire, le même texte vient sous forme d'e-mail, que vous envoyez ou non.
+
+Pour garder la carte lisible, les procédures ne sont dessinées que lorsque la carte montre 40 NM de large ou moins (sur son petit côté), et leurs étiquettes (donc leurs bulles) à partir de 20 NM. Au plus 80 à la fois : celles de votre destination d'abord, puis celles de votre départ, puis les plus proches.
+
+Les procédures viennent avec les données aéronautiques de chaque pays (voir [Télécharger des données](#télécharger-des-données)). Quand un interrupteur est activé et que le pays sous la carte n'en a aucune sur l'appareil, l'encart le dit (« Téléchargez les procédures VFR pour CZ dans Données et stockage ») et un toucher vous y emmène.
+
+Avec **Points de report** activé, la carte montre aussi les quelques points de report qui manquent à OpenAIP, issus d'open flightmaps. Ils ressemblent aux autres ; leur bulle ajoute d'où ils viennent (« open flightmaps · AIRAC 2610 »), tout comme la recherche de l'éditeur de route.
 
 ### Les commandes de la carte
 
@@ -431,9 +452,20 @@ Au sol, et dans Planifier › Carte, la barre d'actions porte **Routes** à la p
 
 ### Déroutement
 
-**Déroutement** (en vol, dans la barre d'actions) répond à « où aller à la place ? » en deux touchers et sans rien saisir. Il liste les aérodromes autour de vous, **Devant · le plus proche d'abord** et **Derrière · demi-tour**, avec la destination et le dégagement ; touchez-en un pour le voir, puis **DÉROUTER VERS** lui. Toucher la destination elle-même donne **DIRECT VERS**, pas un déroutement. Les glaciers et altisurfaces, les héliports et les terrains fermés ne sont pas listés. Avec une route sur la carte, la bulle d'un aérodrome sur la carte propose aussi le déroutement.
+**Déroutement** (en vol, dans la barre d'actions) répond à « où aller à la place ? » en deux touchers et sans rien saisir. Il liste les aérodromes autour de vous, **Devant · le plus proche d'abord** et **Derrière · demi-tour**, avec la destination et le dégagement ; touchez-en un pour le voir (avec sa piste, son altitude et sa **Carte officielle**), puis **DÉROUTER VERS** lui. Toucher la destination elle-même donne **DIRECT VERS**, pas un déroutement. Les glaciers et altisurfaces, les héliports et les terrains fermés ne sont pas listés. Avec une route sur la carte, la bulle d'un aérodrome sur la carte propose aussi le déroutement, à droite (**Carte**, à gauche, ouvre la carte officielle).
 
 Un déroutement change l'endroit vers lequel vous naviguez, et rien d'autre : le prochain point affiche **DÉROUTEMENT** et le terrain, les fréquences le suivent, et **Reprendre la route** vous ramène à la route d'un seul toucher. Avec un plan de vol ATC déposé, l'encart de l'iPad vous rappelle de l'annoncer au FIS (« Plan de vol ATC déposé : annoncez votre déroutement vers … »). Rien d'administratif ne bouge avant le sol ; pour ce que la page du vol propose après l'atterrissage, voir [Voyages et escales](#voyages-et-escales).
+
+### Carte officielle
+
+**Carte officielle** ouvre la carte de l'aérodrome sur le site de son éditeur, dans le navigateur. AéroCheck ne télécharge ni n'affiche jamais la carte elle-même : vous lisez la version en vigueur de l'éditeur, amendements compris.
+
+- **Allemagne** : la page de l'aérodrome dans la BasicVFR de la DFS.
+- **France** : la carte VAC (PDF) de l'aérodrome, publiée par le SIA, pour le cycle AIRAC en vigueur.
+- **Suisse** : le VFR Manual de skyguide sur SkyBriefing, une seule page pour tous les aérodromes, derrière une connexion et un abonnement ; le bouton le dit (**Carte officielle · SkyBriefing (abonnement)**), pour qu'une page de connexion ne surprenne personne.
+- **Autriche** : la page d'accueil de l'eAIP d'Austro Control.
+
+L'Italie n'en a pas (les conditions de l'ENAV interdisent les liens directs vers ses cartes), les autres pays non plus. Le lien se trouve dans la bulle d'un aérodrome sur la carte (**Carte**, à gauche), dans la bulle d'aérodrome de l'éditeur de route, dans la liste Déroutement, dans les briefings de départ et d'approche, dans les tâches PPR et Taxes de la page d'un vol, et dans la bulle d'un tour de piste ou d'une route VFR.
 
 ### Vecteur de route
 
@@ -480,7 +512,7 @@ Le prochain point tient sur une ligne (son nom en magenta, puis BRG, DIST et ETE
 
 Avant le départ, un briefing dynamique présente :
 
-- **Aérodrome** et **altitude** (détectés d'après votre position GPS)
+- **Aérodrome** et **altitude** (détectés d'après votre position GPS), avec la **Carte officielle** de l'aérodrome en dessous (voir [Carte officielle](#carte-officielle))
 - **Piste** (détectée ou choisie manuellement)
 - **Procédure de départ** — sens du premier virage et altitude de palier (à briefer oralement par le pilote)
 - **Vent** — depuis une station de surface MétéoSuisse en Suisse, depuis les vents de modèle ailleurs
@@ -492,7 +524,7 @@ METAR et TAF rejoignent le briefing, et les SIGMET sont affichés sur la carte a
 
 ### Briefing d'approche
 
-Avant l'approche, un briefing similaire couvre l'**aérodrome** et son **altitude**, la **piste**, le **vent**, les **vitesses d'approche** (initiale, finale et décrochage), les **points de report** proches et la **procédure de remise de gaz**. Quand le vent n'est pas disponible, il vous rappelle de consulter la manche à air : calme, vent de travers, de face ou arrière.
+Avant l'approche, un briefing similaire couvre l'**aérodrome** et son **altitude** (avec la **Carte officielle**), la **piste**, le **vent**, les **vitesses d'approche** (initiale, finale et décrochage), les **points de report** proches et la **procédure de remise de gaz**. Quand le vent n'est pas disponible, il vous rappelle de consulter la manche à air : calme, vent de travers, de face ou arrière.
 
 ---
 
@@ -598,15 +630,19 @@ AéroCheck s'appuie sur plusieurs jeux de données externes pour que la navigati
 
 ### Quelles données AéroCheck utilise
 
-- **Aérodromes et fréquences** — OurAirports et OpenAIP (positions, pistes, grades de carburant, indicateurs PPR et fréquences radio)
-- **Espaces aériens** — espaces contrôlés et réglementés OpenAIP, avec limites verticales et fréquences
-- **Balises, obstacles et points de report** — couches OpenAIP (voir [La feuille Carte](#la-feuille-carte))
-- **Cartes** — cartes OACI, nationales et de vol à voile suisses de swisstopo
-- **Sources de taxes d'atterrissage** — l'endroit où chaque aérodrome publie son propre tarif (liens et dates, jamais de montants), depuis le service AéroCheck
+- **Aérodromes et fréquences** : OurAirports et OpenAIP (positions, pistes, grades de carburant, indicateurs PPR et fréquences radio). Une piste n'apparaît qu'une fois, même quand les deux sources la numérotent différemment : elle prend les numéros sur lesquels la plupart des sources s'accordent, et une courte liste, vérifiée à la main, corrige les rares erreurs qu'elles font.
+- **Espaces aériens** : espaces contrôlés et réglementés OpenAIP, avec limites verticales et fréquences.
+- **Balises, obstacles et points de report** : couches OpenAIP (voir [La feuille Carte](#la-feuille-carte)), plus les quelques points de report qui manquent à OpenAIP, issus d'open flightmaps.
+- **Tours de piste et routes VFR** : les tours de piste d'open flightmaps (avec leur altitude), les routes d'arrivée et de départ VFR et leurs secteurs, pour la Suisse, l'Autriche, l'Allemagne et la Tchéquie. Indicatifs seulement : open flightmaps est une source communautaire, non destinée à la navigation primaire. Ils suivent le cycle AIRAC (un nouveau tous les 28 jours) et se gardent hors ligne comme le reste (voir [Tours de piste et routes VFR](#tours-de-piste-et-routes-vfr)).
+- **Cartes** : cartes OACI, nationales et de vol à voile suisses de swisstopo.
+- **Cartes officielles** : un lien vers la carte de chaque aérodrome sur le site de son éditeur (DFS, SIA, skyguide sur SkyBriefing, Austro Control), jamais la carte elle-même ; voir [Carte officielle](#carte-officielle).
+- **Sources de taxes d'atterrissage** : l'endroit où chaque aérodrome publie son propre tarif (liens et dates, jamais de montants), depuis le service AéroCheck.
 
 ### Télécharger des données
 
-Téléchargez les données aéronautiques **par pays ou par continent** depuis **Réglages › Données et stockage** (ou **Navigation & Cartes**). L'accueil propose un ensemble recommandé pour votre région et ses voisins, pour être couvert dès le premier vol. Espaces aériens, balises, obstacles et points de report se téléchargent ensemble par pays.
+Téléchargez les données aéronautiques **par pays ou par continent** depuis **Réglages › Données et stockage** (ou **Navigation & Cartes**). L'accueil propose un ensemble recommandé pour votre région et ses voisins, pour être couvert dès le premier vol. Espaces aériens, balises, obstacles, points de report et aérodromes se téléchargent ensemble par pays, tout comme les procédures VFR, pour les pays que couvre open flightmaps (la page de téléchargement indique lesquels des vôtres les reçoivent).
+
+Si vous utilisiez AéroCheck avant la 6.2.0, vos pays sont là, mais pas encore leurs procédures VFR : **Actualiser** sur la ligne **Procédures VFR (open flightmaps)** de Données et stockage les récupère pour vos pays (un nouveau téléchargement depuis Navigation & Cartes aussi).
 
 ### Garder les données à jour
 
@@ -616,14 +652,17 @@ Les données aéronautiques changent régulièrement ; AéroCheck affiche donc l
 - Un **rappel** reportable quand un jeu de données est périmé
 - La marque ambre sur le bouton **Carte** de la carte quand les espaces aériens téléchargés vieillissent (voir [La feuille Carte](#la-feuille-carte))
 - Le **préchargement selon la route** — quand une route traverse un pays non téléchargé, AéroCheck propose de récupérer ces données, et ne récupère que ce qui manque
+- Une ligne rouge sous un jeu de données dont la dernière mise à jour a échoué (« Mise à jour impossible : CH, DE. Réessayez en Wi-Fi. »), dans Données et stockage et dans Navigation & Cartes ; la prochaine mise à jour réussie l'efface
 
 Les données se rafraîchissent quand l'app revient au premier plan (aucun téléchargement en arrière-plan) : les mises à jour se font pendant que vous utilisez l'app, pas sur batterie dans votre poche.
+
+Les procédures VFR vieillissent au rythme du cycle AIRAC plutôt que de leur date. Leur ligne dans Données et stockage donne le cycle présent sur l'appareil et sa validité (« AIRAC 2610 · en vigueur 1 oct. – 28 oct. 2026 »). Elle recommande une mise à jour dès le jour où le cycle suivant entre en vigueur, et précise quand open flightmaps ne l'a pas encore publié (« AIRAC 2610 · le cycle suivant n'est pas encore publié ») ; les données sont périmées quatre semaines plus tard. AéroCheck récupère le nouveau cycle dès que les données vieillissent, au prochain retour de l'app au premier plan.
 
 > Même à jour, les données sont indicatives. Vérifiez toujours avec les cartes officielles et les NOTAM.
 
 ### Cartes hors ligne et stockage
 
-Mettez en cache la carte OACI suisse et la Segelflugkarte pour un usage hors ligne (~100 à 250 Mo). **Données et stockage** liste chaque jeu de données avec sa taille et sa fraîcheur, et permet de mettre à jour ou de supprimer les données en cache pour libérer de l'espace.
+Mettez en cache la carte OACI suisse et la Segelflugkarte pour un usage hors ligne (~100 à 250 Mo). **Données et stockage** liste chaque jeu de données avec ses pays, sa taille et sa fraîcheur (**Espace aérien**, **Aides à la navigation**, **Obstacles**, **Points de report**, **Aérodromes** d'OpenAIP, **Aéroports** d'OurAirports, et **Procédures VFR (open flightmaps)**), et permet de mettre à jour ou de supprimer les données en cache pour libérer de l'espace. Les nouvelles données d'aérodromes (pistes, fréquences) s'affichent dès leur téléchargement, sans redémarrer l'app.
 
 ---
 
@@ -641,7 +680,7 @@ Les réglages forment un onglet à part, organisé en pages dédiées. Trois anc
 
 ### Navigation & Cartes
 
-**Forcer la couche OACI** et le **Vecteur de route** ; **Cartes hors ligne** (mode hors ligne, cache des cartes, mise à jour, suppression, téléchargement) ; la superposition d'espaces aériens OpenAIP, les couches de balises, d'obstacles et de points de report, et **Données aéronautiques en ligne** (les zones de contrôle proches, récupérées en ligne quand aucun espace aérien n'est téléchargé) ; les données d'aérodromes.
+**Forcer la couche OACI** et le **Vecteur de route** ; **Cartes hors ligne** (mode hors ligne, cache des cartes, mise à jour, suppression, téléchargement) ; la superposition d'espaces aériens OpenAIP, les couches de balises, d'obstacles et de points de report, et **Données aéronautiques en ligne** (les zones de contrôle proches, récupérées en ligne quand aucun espace aérien n'est téléchargé) ; les interrupteurs des **Procédures d'aérodrome** (comme dans la feuille Carte) ; les données d'aérodromes ; les pays que vous téléchargez, avec une ligne rouge quand une mise à jour a échoué.
 
 ### Planification de vol
 
@@ -653,7 +692,7 @@ Les réglages forment un onglet à part, organisé en pages dédiées. Trois anc
 
 ### Données et stockage
 
-Fraîcheur des données aéronautiques, téléchargements par pays et par continent, cache de cartes hors ligne et gestion du stockage. Voir [Données aéronautiques et stockage](#données-aéronautiques-et-stockage).
+Fraîcheur des données aéronautiques (une ligne par jeu de données, les procédures VFR avec leur cycle AIRAC), téléchargements par pays et par continent, cache de cartes hors ligne et gestion du stockage. Voir [Données aéronautiques et stockage](#données-aéronautiques-et-stockage).
 
 ### Mode compagnon
 

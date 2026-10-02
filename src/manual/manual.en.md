@@ -127,7 +127,7 @@ At the bottom of the page, **Cancel flight** asks first ("Cancel this flight?"):
 
 - **Weather briefed**. On routes that touch Switzerland, **DABS checked** (**Open DABS**) and **GAFOR checked** (**Open MeteoSwiss**). **NOTAMs checked** (**Open NOTAM briefing**).
 - **ATC flight plan filed**: **Copy ATC flight plan** puts a complete ICAO flight plan message on the clipboard (fields 7 to 19, with your route, endurance and persons on board), and **Open skybriefing** takes you to file it. Ticking this task is what arms the close-out reminder after landing.
-- **PPR**: raised for an aerodrome on your route that openAIP flags as prior permission required, so you call before you go. It appears only when the airfield data is downloaded.
+- **PPR**: raised for an aerodrome on your route that openAIP flags as prior permission required, so you call before you go. Its **Official chart** chip opens the aerodrome's chart (see [Official Chart](#official-chart)), which is usually where the number and the hours are. It appears only when the airfield data is downloaded.
 - **Border crossing**: one task per foreign country the route crosses, with the country's **border pack**: whether a customs aerodrome is required, whether prior notification is required, and the lead time, for CH, FR, DE, AT, IT and GB. Each comes with **Official rules** (and **Swiss side** when the flight touches Switzerland) and the date it was checked. A country not yet curated says so and points you to the AIP. Where official sources disagree, the task says that too. **Treat an unestablished requirement as one that applies until you have checked.** This is a reminder, not a clearance.
 - **Nav log ready**: **Export nav log** opens the nav log as an A4 PDF, to read, print, mark up or share. The flight sheet's **Export** menu has it in A5 as well, the kneeboard size.
 
@@ -148,7 +148,7 @@ After **END FLIGHT**, the flight moves to CLOSE-OUT.
 
 - **Close the ATC flight plan**: only if you ticked **ATC flight plan filed**. It is the one task with a search-and-rescue consequence: if the plan was not closed on arrival, Zurich RCC is alerted 30 minutes after your ETA. So the flight's page opens on a red card, **Close your ATC flight plan**, with **Call 0800 437 837** and **Mark closed**; the Today tab shows a badge; and a notification comes about two minutes after END FLIGHT (or 15 minutes after a detected full-stop landing, if you have not ended the flight). If you landed somewhere other than planned, the card tells you which aerodrome to give the FIC.
 - **Logbook entry**: **Logbook line** opens **Logbook & costs** for the recorded flight; see [Logbook & Costs](#logbook--costs).
-- **Fees**: the landing fee, when your destination has one. **Flight cost** opens the cost of the flight, and **Operator's tariff** the operator's own tariff page, where AéroCheck knows it. It appears only when cost tracking is on.
+- **Fees**: the landing fee, when your destination has one. **Flight cost** opens the cost of the flight, **Operator's tariff** the operator's own tariff page, where AéroCheck knows it, and **Official chart** the aerodrome's chart. It appears only when cost tracking is on.
 - **Debrief**: a note to yourself.
 
 **Finish** the flight when you are done; anything still open simply stops asking. A finished flight leaves Plan › Flights and stays in the Logbook.
@@ -219,7 +219,7 @@ To fly a route on a given day, plan a flight from it: **Plan new flight › A sa
 The route editor is a map with **From** and **To** above it, the route profile under it, and the legs.
 
 - Type the departure and the destination in **From** and **To** (ICAO code or name; the results are sorted by distance). The arrows between the two swap them.
-- On the map, **drag a waypoint** to move it, **drag the route line** to insert a waypoint, or **touch and hold** an empty spot to add one where it lengthens the route least. A waypoint released within 2.5 NM of an aerodrome or a navaid (or 1.2 NM of a reporting point, when they are shown) takes its name, frequency and position.
+- On the map, **drag a waypoint** to move it, **drag the route line** to insert a waypoint, or **touch and hold** an empty spot to add one where it lengthens the route least. A waypoint released within 2.5 NM of an aerodrome or a navaid (or 1.2 NM of a reporting point, when they are shown) takes its name, frequency and position. Tap an aerodrome for its callout: **+** adds it to the route, **Chart** opens its [official chart](#official-chart).
 - **The legs** are a table in the nav log's columns: **#**, **WAYPOINT** (with its call sign when it differs), **MC**, **NM**, **EET**, **ALT FT** (edit it in place) and ⚠. The figures are those of the leg *from* the waypoint; the last row is the destination. On the iPhone, the figures go under the name.
 - **One selection** across map, profile and legs: tap a leg to select it, and it is highlighted in the table, on the map and on the profile, where each stands. Tap the selected row again to open the waypoint; tap a pin to select its row.
 - **Set altitudes…** sets many waypoints at once: a **Fixed altitude**, or a clearance **Above terrain**, with a preview of the lowest clearance on each leg and of the airspace the new profile runs into. The departure and the destination keep theirs. A route with no planned altitudes (often an imported GPX) says so: **No planned altitudes**.
@@ -401,12 +401,33 @@ In flight, a waypoint is passed automatically when you come within the waypoint 
 **Map** opens everything about how the map looks, in one sheet:
 
 - **Base chart**: **ICAO chart** (the Swiss aeronautical chart 1:500,000, which becomes the glider chart, the Segelflugkarte 1:300,000, when you zoom in, unless **Force ICAO Chart Layer** is on), **National map**, **SWISSIMAGE aerial**, **Satellite** and **Standard map**. The Swiss layers are available within and near Switzerland. In offline mode, the cached ICAO chart is the only one.
-- **Presets**: **Cruise** shows airspace and reporting points; **Approach** adds airports and obstacles; **Everything** shows every marker. Airspace stays on in all three.
+- **Presets**: **Cruise** shows airspace and reporting points; **Approach** adds airports, obstacles, the traffic circuits and the arrival and departure routes; **Everything** shows every marker, and the circuits and routes too. Airspace stays on in all three.
 - **Airspace & charts**: **Airspace** (the OpenAIP airspace, drawn as a vector overlay) and **Map tiles** (OpenAIP's raster tiles, off by default). When the airspace is on and no data is downloaded, the sheet says so and offers **Download data…**.
 - **Map markers**, from the downloaded OpenAIP data (see [Aeronautical Data and Storage](#aeronautical-data-and-storage)): **Airports** (with frequencies on tap), **Navaids** (VOR, DME, NDB), **Reporting points** and **Obstacles** (towers, masts, wind turbines; off by default, they are dense). **Show all** or **Hide all**.
+- **Aerodrome procedures**, from open flightmaps: **Traffic circuits**, **Arrival & departure routes (with sectors)** and **Glider, UL & helicopter**. All three are off by default, and no preset turns on the third. See [Traffic Circuits and VFR Routes](#traffic-circuits-and-vfr-routes).
 - **Flight**: **Track vector**.
 
+The foot of the sheet credits the sources it draws from: open flightmaps (with the AIRAC cycle on the device) and OpenAIP.
+
 When the downloaded airspace is aging, an amber mark sits on the **Map** button, and the sheet explains it ("Airspace data is out of date") with **Update**, so you know that what is drawn may not reflect recent changes.
+
+### Traffic Circuits and VFR Routes
+
+With **Traffic circuits** or **Arrival & departure routes** on, the map draws the aerodrome procedures that open flightmaps publishes for Switzerland, Austria, Germany and the Czech Republic: in Plan › Map, in the Cockpit's MAP, and in the route editor (its layers button has the same three switches, as does **Settings › Navigation & Maps**). They are **indicative**: open flightmaps is a community source, and the aerodrome's official chart always prevails (it is one tap away, see below).
+
+- **A traffic circuit** is a solid dark-blue line with a white edge, with its altitude on the downwind ("2900 ft", or "Alt: see chart" when open flightmaps gives none). A field with several circuits (by runway, or by type of aircraft) shows each of them.
+- **An arrival or a departure** is a dashed blue line with its name halfway along, and an arrowhead toward the field (arrival) or away from it (departure). **A sector** is a light blue area with a dashed outline; Austria's noise-abatement areas are a grey hatched outline.
+- **Glider and UL circuits** are dashed, **helicopter** procedures dotted. A shape open flightmaps only has roughly is drawn thinner and lighter. At night, the blue gets lighter and the edge dark, so nothing on the chart glows white.
+
+**Glider, UL & helicopter** works on its own: a glider pilot can show the glider circuits without the powered ones. It also shows the helicopter routes (with **Arrival & departure routes** on) and the reporting points meant for gliders and helicopters.
+
+Tap a label for its callout: the procedure's name, what it is ("Traffic circuit · 2900 ft · LSZQ"), its source and cycle ("open flightmaps · AIRAC 2610 · indicative, check the official chart"), then **Official chart** (see [Official Chart](#official-chart)) and **Report an error**. Report an error opens open flightmaps' error form in the browser, with the region, the cycle, the aerodrome and the procedure already filled in (nothing about you); without a form, the same text comes as an e-mail, which you send or not.
+
+To keep the chart readable, the procedures are drawn only when the map shows 40 NM or less across (on its shorter side), and their labels (and so their callouts) from 20 NM. At most 80 are drawn at once: your destination's first, then your departure's, then the nearest.
+
+The procedures come with the aeronautical data of each country (see [Downloading Data](#downloading-data)). When a switch is on and the country under the map has none on the device, the card says so ("Download VFR procedures for CZ in Data & Storage"), and a tap takes you there.
+
+With **Reporting points** on, the map also shows the few reporting points OpenAIP lacks, from open flightmaps. They look like the others; their callout adds where they come from ("open flightmaps · AIRAC 2610"), and so does the route editor's search.
 
 ### Map Controls
 
@@ -431,9 +452,20 @@ On the ground, and in Plan › Map, the thumb bar holds **Routes** instead: noth
 
 ### Divert
 
-**Divert** (in flight, in the thumb bar) answers "where do I go instead?" in two taps and no typing. It lists the aerodromes around you, **Ahead · soonest first** and **Behind · turn back**, with the destination and the alternate; tap one to see it, then **DIVERT TO** it. Tapping the destination itself is **DIRECT TO**, not a diversion. Glacier and mountain landing sites, heliports and closed fields are not listed. With a route on the map, an airport's callout on the map offers the diversion too.
+**Divert** (in flight, in the thumb bar) answers "where do I go instead?" in two taps and no typing. It lists the aerodromes around you, **Ahead · soonest first** and **Behind · turn back**, with the destination and the alternate; tap one to see it (with its runway, elevation and **Official chart**), then **DIVERT TO** it. Tapping the destination itself is **DIRECT TO**, not a diversion. Glacier and mountain landing sites, heliports and closed fields are not listed. With a route on the map, an airport's callout on the map offers the diversion too, on its right (**Chart**, on its left, opens the official chart).
 
 A diversion changes where you navigate to and nothing else: the next waypoint shows **DIVERT** and the field, the frequencies follow it, and **Resume route** takes you back to the route in one tap. With an ATC flight plan filed, the iPad's card reminds you to tell FIS ("ATC flight plan filed: tell FIS you are diverting to …"). Nothing administrative moves until you are on the ground; for what the flight's page offers after the landing, see [Trips and Stops](#trips-and-stops).
+
+### Official Chart
+
+**Official chart** opens the aerodrome's chart on its publisher's site, in the browser. AéroCheck never downloads or shows the chart itself, so what you read is the publisher's current version, amendments included.
+
+- **Germany**: the aerodrome's page in DFS BasicVFR.
+- **France**: the aerodrome's VAC (PDF) from the SIA, for the AIRAC cycle in force.
+- **Switzerland**: skyguide's VFR Manual on SkyBriefing, one page for every aerodrome, behind a login and a subscription; the button says so (**Official chart · SkyBriefing (subscription)**), so a sign-in page comes as no surprise.
+- **Austria**: Austro Control's eAIP start page.
+
+Italy has none (ENAV's terms forbid deep links to its charts), and neither do the other countries. The link is in the airport callout on the map (**Chart**, on the left), the route editor's airport callout, the Divert list, the departure and approach briefings, the PPR and Fees tasks of a flight's page, and the callout of a traffic circuit or a VFR route.
 
 ### Track Vector
 
@@ -480,7 +512,7 @@ On its side, the phone shows two columns. On the left, the Cockpit's controls: t
 
 Before departure, a dynamic briefing shows:
 
-- **Airport** and **elevation** (detected from your GPS position)
+- **Airport** and **elevation** (detected from your GPS position), with the aerodrome's **Official chart** under them (see [Official Chart](#official-chart))
 - **Runway** (detected or manually selected)
 - **Departure procedure** — first turn direction and level-off altitude (to be briefed verbally by the pilot)
 - **Wind** — from a MeteoSwiss surface station in Switzerland, from model winds elsewhere
@@ -492,7 +524,7 @@ METAR and TAF join the briefing, and SIGMETs are shown on the map with their dis
 
 ### Approach Briefing
 
-Before approach, a similar briefing covers the **airport** and **elevation**, **runway**, **wind**, **approach speeds** (initial, final, and stall), nearby **reporting points**, and the **go-around procedure**. When wind data is unavailable, it reminds you to check the windsock for calm, crosswind, headwind, or tailwind conditions.
+Before approach, a similar briefing covers the **airport** and **elevation** (with the **Official chart**), **runway**, **wind**, **approach speeds** (initial, final, and stall), nearby **reporting points**, and the **go-around procedure**. When wind data is unavailable, it reminds you to check the windsock for calm, crosswind, headwind, or tailwind conditions.
 
 ---
 
@@ -598,15 +630,19 @@ AéroCheck draws on several external datasets so navigation works wherever you f
 
 ### What Data AéroCheck Uses
 
-- **Airports and frequencies** — from OurAirports and OpenAIP (positions, runways, fuel grades, PPR flags and radio frequencies)
-- **Airspace** — OpenAIP controlled and restricted airspace, with vertical limits and frequencies
-- **Navaids, obstacles, and reporting points** — OpenAIP map layers (see [The Map Sheet](#the-map-sheet))
-- **Charts** — Swiss ICAO, national map, and Segelflug charts from swisstopo
-- **Landing-fee sources** — where each aerodrome publishes its own tariff (links and dates, never amounts), from the AéroCheck service
+- **Airports and frequencies**: from OurAirports and OpenAIP (positions, runways, fuel grades, PPR flags and radio frequencies). A runway shows once, even when the two sources number it differently: it takes the numbers most sources agree on, and a short list, checked by hand, corrects the few they get wrong.
+- **Airspace**: OpenAIP controlled and restricted airspace, with vertical limits and frequencies.
+- **Navaids, obstacles, and reporting points**: OpenAIP map layers (see [The Map Sheet](#the-map-sheet)), plus the few reporting points OpenAIP lacks, from open flightmaps.
+- **Traffic circuits and VFR routes**: open flightmaps' traffic circuits (with their altitude), VFR arrival and departure routes and their sectors, for Switzerland, Austria, Germany and the Czech Republic. Indicative only: open flightmaps is a community source, not for primary navigation. They follow the AIRAC cycle (a new one every 28 days) and are kept offline like the rest (see [Traffic Circuits and VFR Routes](#traffic-circuits-and-vfr-routes)).
+- **Charts**: Swiss ICAO, national map, and Segelflug charts from swisstopo.
+- **Official charts**: a link to each aerodrome's chart on its publisher's site (DFS, the SIA, skyguide on SkyBriefing, Austro Control), never the chart itself; see [Official Chart](#official-chart).
+- **Landing-fee sources**: where each aerodrome publishes its own tariff (links and dates, never amounts), from the AéroCheck service.
 
 ### Downloading Data
 
-Download aeronautical data **by country or continent** from **Settings › Data & Storage** (or **Navigation & Maps**). Onboarding offers a recommended set for your region and its neighbours so you are covered from the first flight. Airspace, navaids, obstacles, and reporting points download together per country.
+Download aeronautical data **by country or continent** from **Settings › Data & Storage** (or **Navigation & Maps**). Onboarding offers a recommended set for your region and its neighbours so you are covered from the first flight. Airspace, navaids, obstacles, reporting points and aerodromes download together per country, and so do the VFR procedures, for the countries open flightmaps covers (the download page says which of yours get them).
+
+If you used AéroCheck before 6.2.0, your countries are there but their VFR procedures are not yet: **Refresh** on the **VFR procedures (open flightmaps)** row of Data & Storage fetches them for the countries you have (so does a new download from Navigation & Maps).
 
 ### Keeping Data Current
 
@@ -616,14 +652,17 @@ Aeronautical data changes regularly, so AéroCheck surfaces its freshness in sev
 - A snoozable **nudge** when a dataset is out of date
 - The amber mark on the map's **Map** button when downloaded airspace is aging (see [The Map Sheet](#the-map-sheet))
 - **Route-aware prefetch** — when a route crosses a country you haven't downloaded, AéroCheck offers to fetch that data, and fetches only what is missing
+- A red line under a dataset whose last update failed ("Couldn't update CH, DE. Try again on Wi-Fi."), in Data & Storage and in Navigation & Maps; the next update that completes clears it
 
 Data refreshes when you bring the app to the foreground (there is no background download), so updates happen while you're using the app, not on battery in your pocket.
+
+The VFR procedures age by AIRAC cycle rather than by date. Their row in Data & Storage gives the cycle on the device and its validity ("AIRAC 2610 · valid 1 Oct – 28 Oct 2026"). It turns aging the day the next cycle takes effect (and tells you when open flightmaps has not published that cycle yet: "AIRAC 2610 · a newer cycle isn't published yet"), and stale four weeks later. AéroCheck fetches the new cycle as soon as the data is aging, the next time you bring the app to the foreground.
 
 > Even current data is advisory. Always cross-check against official charts and NOTAMs.
 
 ### Offline Maps and Storage
 
-Cache the Swiss ICAO Chart and Segelflugkarte for offline use (~100–250 MB). **Data & Storage** lists each dataset with its size and currency, and lets you update or delete cached data to reclaim space.
+Cache the Swiss ICAO Chart and Segelflugkarte for offline use (~100–250 MB). **Data & Storage** lists each dataset with its countries, size and currency (**Airspace**, **Navaids**, **Obstacles**, **Reporting points**, **Aerodromes** from OpenAIP, **Airports** from OurAirports, and **VFR procedures (open flightmaps)**), and lets you update or delete cached data to reclaim space. New aerodrome data (runways, frequencies) shows as soon as it is downloaded, without restarting the app.
 
 ---
 
@@ -641,7 +680,7 @@ Settings is a tab of its own, organized into dedicated pages. Three former setti
 
 ### Navigation & Maps
 
-**Force ICAO Chart Layer** and the **Track vector**; **Offline Maps** (offline mode, chart cache, update, delete, download); the OpenAIP airspace overlay, the navaid, obstacle and reporting-point layers, and **Online Airspace Data** (nearby control zones fetched online when no airspace is downloaded); airport data.
+**Force ICAO Chart Layer** and the **Track vector**; **Offline Maps** (offline mode, chart cache, update, delete, download); the OpenAIP airspace overlay, the navaid, obstacle and reporting-point layers, and **Online Airspace Data** (nearby control zones fetched online when no airspace is downloaded); the **Aerodrome procedures** switches (as in the Map sheet); airport data; the countries you download, with a red line when an update failed.
 
 ### Flight Planning
 
@@ -653,7 +692,7 @@ Your **pilot name** (for the PIC column and the logbook PDF), **Student pilot** 
 
 ### Data & Storage
 
-Aeronautical-data currency, per-country and continent downloads, offline chart cache, and storage management. See [Aeronautical Data and Storage](#aeronautical-data-and-storage).
+Aeronautical-data currency (one row per dataset, the VFR procedures with their AIRAC cycle), per-country and continent downloads, offline chart cache, and storage management. See [Aeronautical Data and Storage](#aeronautical-data-and-storage).
 
 ### Companion Mode
 

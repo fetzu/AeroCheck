@@ -7738,6 +7738,108 @@
         }
       }
     },
+    "trip.cancel": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cancel trip"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Annuler le voyage"
+          }
+        }
+      }
+    },
+    "trip.cancelConfirm.title": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cancel this trip?"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Annuler ce voyage ?"
+          }
+        }
+      }
+    },
+    "trip.cancelConfirm.keep": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Keep trip"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Garder le voyage"
+          }
+        }
+      }
+    },
+    "trip.cancelConfirm.leg": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Leg %1$lld · %2$@"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Étape %1$lld · %2$@"
+          }
+        }
+      }
+    },
+    "trip.cancelConfirm.message": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Its legs are deleted, with their pages, tasks and the copies of the route made for them:\n\n%@\n\nYour routes and the logbook are not touched. This can't be undone."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ses étapes sont supprimées, avec leurs pages, leurs tâches et les copies de la route faites pour elles :\n\n%@\n\nVos routes et le carnet de vol ne sont pas touchés. Cette action est irréversible."
+          }
+        }
+      }
+    },
+    "trip.cancelConfirm.messageKeepsFlown": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The legs not flown yet are deleted, with their pages, tasks and the copies of the route made for them:\n\n%@\n\nThe legs already flown stay, with their flights in the logbook. Your routes are not touched. This can't be undone."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Les étapes pas encore volées sont supprimées, avec leurs pages, leurs tâches et les copies de la route faites pour elles :\n\n%@\n\nLes étapes déjà volées restent, avec leurs vols dans le carnet de vol. Vos routes ne sont pas touchées. Cette action est irréversible."
+          }
+        }
+      }
+    },
     "trip.estimated": {
       "extractionState": "manual",
       "localizations": {

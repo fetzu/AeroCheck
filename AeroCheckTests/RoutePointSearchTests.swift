@@ -73,6 +73,15 @@ final class RoutePointSearchTests: XCTestCase {
         XCTAssertEqual(ids(search("abm avenches")), ["abm"], "a name of two words, typed whole")
     }
 
+    /// OpenAIP files the aerodrome under one language: "BERN-BELP". Its other names find its points
+    /// too. (6.1)
+    func testTheAerodromeByItsOtherNames() {
+        XCTAssertEqual(ids(search("Berne E")), ["e-lszb"])
+        XCTAssertEqual(RoutePointSearch.tier(["genf", "e"], name: "E", qualifiers: ["LSGG", "GENEVA"], ident: nil), 0)
+        XCTAssertEqual(RoutePointSearch.tier(["geneve"], name: "E", qualifiers: ["LSGG", "GENEVA"], ident: nil), 2)
+        XCTAssertNil(RoutePointSearch.tier(["genf"], name: "E", qualifiers: ["LSGC", "LES EPLATURES"], ident: nil))
+    }
+
     func testTheAerodromeNarrowsAShortName() {
         XCTAssertEqual(ids(search("LSGC E")).first, "e-lsgc")
         XCTAssertFalse(ids(search("LSGC E")).contains("e-lszb"), "Bern's E is not Les Eplatures'")

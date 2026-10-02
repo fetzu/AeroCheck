@@ -90,8 +90,10 @@ struct AerodromeIdentField: View {
         .task {
             // Loaded on demand, like Plan new flight: without it the field silently offers nothing
             isLoading = true
-            await airports.ensureLoaded()
+            await airports.prepareSearch()
             isLoading = false
+            // Typed while it was loading: that search had nothing to search.
+            search()
         }
     }
 
@@ -219,8 +221,7 @@ struct AerodromeIdentField: View {
         }
         // A name: only when it names one aerodrome, or one exactly
         let hits = airports.searchAirports(query: typed, limit: 5, types: AirportType.fixedWing)
-        let exact = hits.first { $0.name.compare(typed, options: [.caseInsensitive, .diacriticInsensitive]) == .orderedSame }
-        if let hit = hits.count == 1 ? hits.first : exact {
+        if let hit = AirportDataService.aerodrome(named: typed, among: hits) {
             take(hit.ident)
         } else {
             text = ident ?? ""

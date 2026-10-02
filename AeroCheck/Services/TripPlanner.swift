@@ -135,9 +135,10 @@ enum TripPlanner {
         for candidate in candidates.sorted(by: { $0.alongNM < $1.alongNM })
         where !waypointIds.contains(where: { $0.candidate.aerodrome.ident == candidate.aerodrome.ident }) {
             guard updated.waypoints.count >= 2 else { break }
-            let index = max(1, min(updated.waypoints.count - 1,
-                                   FlightPlanManager.bestInsertionIndex(for: candidate.aerodrome.coordinate,
-                                                                        in: updated.waypoints)))
+            // On the leg it lengthens least, never before the departure or after the destination: a
+            // field found by search may lie beyond either. (6.1)
+            let index = FlightPlanManager.bestLegInsertionIndex(for: candidate.aerodrome.coordinate,
+                                                                in: updated.waypoints)
             let waypoint = FlightPlanWaypoint(name: candidate.aerodrome.ident,
                                               coordinate: candidate.aerodrome.coordinate,
                                               altitude: candidate.aerodrome.elevationFeet,
@@ -372,14 +373,86 @@ enum TripPlanner {
         return result.sorted { $0.alongNM < $1.alongNM }
     }
 
+    // MARK: Aerodromes found by search (6.1)
+
+    /// An aerodrome the pilot searched for, and what it is to this flight. A searched field is one the
+    /// pilot asked for: it is kept wherever it lies, behind the departure, past the destination, or
+    /// 40 NM off the route. Until 6.1 the search went through the corridor's rule, which drops what
+    /// doesn't project between the two ends: on LSZQ → LSGC, Ecuvillens (south of Les Éplatures) and
+    /// Geneva were never found, by code or by name.
+    struct SearchedStop: Equatable {
+        enum Role: Equatable {
+            /// A stop the flight can make.
+            case stop
+            /// Where this flight leaves from, or lands: already on it, so not a stop.
+            case departure
+            case destination
+            /// A local flight's field, or a round trip's: it leaves from it and comes back.
+            case departureAndDestination
+        }
+
+        let candidate: StopCandidate
+        let role: Role
+
+        var aerodrome: Aerodrome { candidate.aerodrome }
+        var isStop: Bool { role == .stop }
+    }
+
+    /// The aerodromes `found` by a search, placed along the route, in the order the search ranked them
+    /// (an exact ident first). The flight's own departure and destination come back marked, so that
+    /// searching for them says where they went instead of finding nothing.
+    static func searchedStops(along route: [FlightPlanWaypoint], found: [Aerodrome]) -> [SearchedStop] {
+        guard let first = route.first, let last = route.last else { return [] }
+        guard route.count >= 2 else { return searchedStops(around: first, found: found) }
+        let geometry = RouteGeometry(route: route.map(\.coordinate))
+        return found.compactMap { aerodrome -> SearchedStop? in
+            let leaves = isAerodrome(aerodrome, at: first, geometry)
+            let lands = isAerodrome(aerodrome, at: last, geometry)
+            guard let (along, offset) = geometry.locate(aerodrome.coordinate) else { return nil }
+            let onRoute = route.indices.dropFirst().dropLast().first { i in
+                geometry.distanceNM(route[i].coordinate, aerodrome.coordinate) <= onRouteNM
+            }
+            let candidate = StopCandidate(aerodrome: aerodrome, alongNM: along, offsetNM: offset,
+                                          waypointIndex: leaves || lands ? nil : onRoute)
+            return SearchedStop(candidate: candidate, role: role(leaves: leaves, lands: lands))
+        }
+    }
+
+    /// A local flight's search: every aerodrome found, by its distance from the field, and the field
+    /// itself marked.
+    static func searchedStops(around field: FlightPlanWaypoint, found: [Aerodrome]) -> [SearchedStop] {
+        let geometry = RouteGeometry(route: [field.coordinate])
+        return found.map { aerodrome in
+            let distance = geometry.distanceNM(field.coordinate, aerodrome.coordinate)
+            let home = isAerodrome(aerodrome, at: field, geometry)
+            return SearchedStop(candidate: StopCandidate(aerodrome: aerodrome, alongNM: distance, offsetNM: distance,
+                                                         waypointIndex: nil),
+                                role: home ? .departureAndDestination : .stop)
+        }
+    }
+
+    /// Whether `waypoint` is `aerodrome`: named by its ident, or within `onRouteNM` of it.
+    private static func isAerodrome(_ aerodrome: Aerodrome, at waypoint: FlightPlanWaypoint, _ geometry: RouteGeometry) -> Bool {
+        let ident = aerodrome.ident.uppercased()
+        return waypoint.name.uppercased() == ident || waypoint.aerodromeICAO?.uppercased() == ident
+            || geometry.distanceNM(waypoint.coordinate, aerodrome.coordinate) <= onRouteNM
+    }
+
+    private static func role(leaves: Bool, lands: Bool) -> SearchedStop.Role {
+        switch (leaves, lands) {
+        case (true, true): return .departureAndDestination
+        case (true, false): return .departure
+        case (false, true): return .destination
+        case (false, false): return .stop
+        }
+    }
+
     /// The route with `aerodrome` as a waypoint, and that waypoint's index: the waypoint that already
     /// is the aerodrome, or a new one inserted where it lengthens the route least.
     static func routeStopping(at candidate: StopCandidate, in plan: FlightPlan) -> (plan: FlightPlan, index: Int) {
         if let index = candidate.waypointIndex { return (plan, index) }
         var updated = plan
-        let index = max(1, min(plan.waypoints.count - 1,
-                               FlightPlanManager.bestInsertionIndex(for: candidate.aerodrome.coordinate,
-                                                                    in: plan.waypoints)))
+        let index = FlightPlanManager.bestLegInsertionIndex(for: candidate.aerodrome.coordinate, in: plan.waypoints)
         let neighbour = plan.waypoints[index - 1]
         updated.waypoints.insert(FlightPlanWaypoint(name: candidate.aerodrome.ident,
                                                     coordinate: candidate.aerodrome.coordinate,

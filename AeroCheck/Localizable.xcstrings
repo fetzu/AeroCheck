@@ -7670,6 +7670,57 @@
         }
       }
     },
+    "trip.leavesHere": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This flight leaves from here"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ce vol part d’ici"
+          }
+        }
+      }
+    },
+    "trip.landsHere": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This flight lands here"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ce vol atterrit ici"
+          }
+        }
+      }
+    },
+    "trip.leavesAndLandsHere": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This flight leaves and lands here"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ce vol part et atterrit ici"
+          }
+        }
+      }
+    },
     "trip.noFrequency": {
       "extractionState": "manual",
       "localizations": {

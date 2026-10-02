@@ -306,11 +306,13 @@ struct AeroCheckApp: App {
                 // v4.1.0 Data Freshness: foreground-only refresh — recompute the status and silently
                 // refresh any STALE small data the network gate permits. No background tasks.
                 .onChange(of: scenePhase) { _, phase in
+                    if phase == .background { companionConnectivityManager.appWentToBackground() }
                     guard phase == .active else { return }
                     dataStatusManager.recompute()
                     Task { await dataStatusManager.autoRefreshIfNeeded(cellularUpdatesEnabled: true) }
-                    // Re-establish the companion link on foreground (e.g. after the peer relaunched). (v4.1)
-                    companionConnectivityManager.autoConnectIfReady()
+                    // Re-establish the companion link on foreground (e.g. after the peer relaunched), and
+                    // back from the background, check it or look afresh. (v4.1; 6.1.0)
+                    companionConnectivityManager.appBecameActive()
                 }
             }
         }

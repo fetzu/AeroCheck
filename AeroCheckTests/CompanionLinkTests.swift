@@ -220,11 +220,126 @@ final class CompanionLinkTests: XCTestCase {
         XCTAssertEqual(manager.browseStarts, browses, "nothing looks for the iPad until the phone is used")
     }
 
+    // MARK: - Riding out a short drop (6.1.0)
+
+    /// Any frame from the iPad, as the phone hears it.
+    private var aFrameFromTheIPad: CompanionMessage {
+        CompanionMessage(type: .checklistUpdate, payload: Data(#"{"phaseTitle":"Taxi"}"#.utf8))
+    }
+
+    /// Two keep-alives lost in a row (5 s) ended the link; the stale banner still comes at 5 s, the
+    /// link goes at 10.
+    func testASilenceOfAFewSecondsKeepsTheLink() throws {
+        let (companion, _) = try connectedMaster()
+        let manager = companion.manager
+        manager.checkConnectionHealth(now: Date().addingTimeInterval(6))
+        XCTAssertEqual(manager.connectionState, .connected)
+        XCTAssertEqual(CompanionTiming.streamStaleAfter, 5, "the banner's window is unchanged")
+        manager.checkConnectionHealth(now: Date().addingTimeInterval(CompanionTiming.linkSilenceLimit + 1))
+        XCTAssertEqual(manager.connectionState, .connecting, "ten seconds of silence: the link goes")
+    }
+
+    func testAFewFailedSendsDoNotEndTheLink() throws {
+        let (companion, generation) = try connectedMaster()
+        let manager = companion.manager
+        let now = Date()
+        // One bad second: the flight data, the checklist and the plan.
+        for offset in [0.0, 0.3, 0.9] {
+            manager.noteSendFailure(generation: generation, error: CocoaError(.featureUnsupported),
+                                    now: now.addingTimeInterval(offset))
+        }
+        XCTAssertEqual(manager.connectionState, .connected, "three failures in a row ended the link")
+        manager.noteSendFailure(generation: generation, error: CocoaError(.featureUnsupported),
+                                now: now.addingTimeInterval(CompanionTiming.linkSilenceLimit + 1))
+        XCTAssertEqual(manager.connectionState, .connecting, "failing for ten seconds does")
+    }
+
+    /// The phone looking for the iPad again after a drop used to read `.connecting`, which the root
+    /// shows the phone's ground screen for: it flashed on every short drop.
+    func testAShortDropKeepsTheCompanionScreenUp() async throws {
+        let (companion, generation) = try connectedViewer()
+        let manager = companion.manager
+        manager.handleReceivedMessage(aFrameFromTheIPad, generation: generation)
+        let browses = manager.browseStarts
+
+        manager.checkConnectionHealth(now: Date().addingTimeInterval(CompanionTiming.linkSilenceLimit + 1))
+        XCTAssertEqual(manager.connectionState, .reconnecting, "the Companion screen, its banner on")
+        XCTAssertEqual(manager.currentRole, .viewer)
+
+        let lookedAgain = try await eventually { manager.browseStarts == browses + 1 }
+        XCTAssertTrue(lookedAgain, "looking for the iPad again")
+        XCTAssertEqual(manager.connectionState, .reconnecting, "and still on the Companion screen while it does")
+
+        // The iPad answers: back.
+        XCTAssertTrue(manager.adoptViewerConnection(identity: CompanionPeerIdentity(deviceID: 3, name: nil),
+                                                    generation: manager.connectionGeneration, send: { _ in }))
+        manager.handleReceivedMessage(aFrameFromTheIPad, generation: manager.connectionGeneration)
+        XCTAssertEqual(manager.connectionState, .connected)
+    }
+
+    func testTheCompanionScreenGivesWayAfterTheGrace() {
+        let now = Date()
+        XCTAssertEqual(CompanionTiming.reconnectGrace, 30)
+        XCTAssertEqual(CompanionConnectivityManager.viewerLookingState(linkLostAt: now.addingTimeInterval(-29), now: now),
+                       .reconnecting)
+        XCTAssertEqual(CompanionConnectivityManager.viewerLookingState(linkLostAt: now.addingTimeInterval(-31), now: now),
+                       .connecting, "past the grace: the phone's own screens, still looking")
+        XCTAssertEqual(CompanionConnectivityManager.viewerLookingState(linkLostAt: nil, now: now), .connecting,
+                       "no drop (a first connection): the phone's own screens")
+    }
+
+    /// A connection that never hears from the iPad went to a listener that is gone: given up after 5 s,
+    /// and, never having been a link, it does not hold the Companion screen up.
+    func testAConnectionTheIPadNeverAnswersIsGivenUpSooner() throws {
+        let (companion, _) = try connectedViewer()
+        let manager = companion.manager
+        manager.checkConnectionHealth(now: Date().addingTimeInterval(CompanionTiming.firstFrameLimit - 1))
+        XCTAssertEqual(manager.connectionState, .connected)
+        manager.checkConnectionHealth(now: Date().addingTimeInterval(CompanionTiming.firstFrameLimit + 1))
+        XCTAssertEqual(manager.connectionState, .connecting)
+    }
+
+    // MARK: - Back from the background (6.1.0)
+
+    func testBackFromTheBackgroundTheIPadListensAfresh() {
+        let companion = makeCompanion(role: .master)
+        let manager = companion.manager
+        manager.startListening()
+        let starts = manager.listenerStarts
+
+        manager.appBecameActive()
+        XCTAssertEqual(manager.listenerStarts, starts, "a system sheet gone: nothing restarted")
+        manager.appWentToBackground()
+        manager.appBecameActive()
+        XCTAssertEqual(manager.listenerStarts, starts + 1, "a listener left over a suspension is started afresh")
+        XCTAssertEqual(manager.connectionState, .connecting)
+    }
+
+    func testBackFromTheBackgroundThePhoneLooksAfresh() {
+        let companion = makeCompanion(role: .viewer)
+        let manager = companion.manager
+        manager.connectToPairedDevice()
+        let browses = manager.browseStarts
+        manager.appWentToBackground()
+        manager.appBecameActive()
+        XCTAssertEqual(manager.browseStarts, browses + 1)
+    }
+
+    func testBackInTheForegroundWithNothingRunningAutoConnects() {
+        // How a phone the iPad said goodbye to comes back: when it is used.
+        let companion = makeCompanion(role: .viewer)
+        let manager = companion.manager
+        XCTAssertEqual(manager.connectionState, .disconnected)
+        manager.appWentToBackground()
+        manager.appBecameActive()
+        XCTAssertNotEqual(manager.connectionState, .disconnected, "auto-connect started a listener or a browse")
+    }
+
     func testTheLinkEndsAreLoggedAsFixedText() {
-        let ends: [CompanionConnectivityManager.LinkEnd] = [.peerLeft, .silence(12), .sendFailing, .receiveEnded,
-                                                            .idle(minutes: 10), .forgotten]
-        XCTAssertEqual(ends.map(\.text), ["the peer left", "nothing heard for 12 s", "sends failing",
-                                          "the connection closed", "idle 10 min with no flight",
+        let ends: [CompanionConnectivityManager.LinkEnd] = [.peerLeft, .silence(12), .noFirstFrame, .sendFailing,
+                                                            .receiveEnded, .idle(minutes: 10), .forgotten]
+        XCTAssertEqual(ends.map(\.text), ["the peer left", "nothing heard for 12 s", "the iPad never answered",
+                                          "sends failing", "the connection closed", "idle 10 min with no flight",
                                           "the device was forgotten"])
     }
 }

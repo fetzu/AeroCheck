@@ -1990,18 +1990,27 @@ struct NavigationMapView: View {
     }
 
     /// Every leg (planned, flown, ahead or over) and every frequency, opened from either card.
-    /// Side by side; stacked when the width runs out.
+    /// Side by side; stacked when the width runs out. With no route, the frequencies alone, the width
+    /// of the panel from its left edge: the side-by-side version, its legs empty, left them 300 pt
+    /// wide in the middle of the panel, where "130.355" wrapped. (6.1, device check)
     private var legsAndFrequencies: some View {
-        ViewThatFits(in: .horizontal) {
-            HStack(alignment: .top, spacing: 24) {
-                legsColumn
-                freqColumn(large: true).frame(width: 300)
-            }
-            VStack(alignment: .leading, spacing: 16) {
-                legsColumn
+        Group {
+            if flightPlanManager.activeFlightPlan != nil {
+                ViewThatFits(in: .horizontal) {
+                    HStack(alignment: .top, spacing: 24) {
+                        legsColumn
+                        freqColumn(large: true).frame(width: 300)
+                    }
+                    VStack(alignment: .leading, spacing: 16) {
+                        legsColumn
+                        freqColumn(large: true)
+                    }
+                }
+            } else {
                 freqColumn(large: true)
             }
         }
+        .frame(maxWidth: .infinity, alignment: .leading)
         .padding(.horizontal, 16)
         .padding(.vertical, 12)
     }
@@ -2679,12 +2688,17 @@ struct NavigationMapView: View {
         }
     }
 
+    /// A station and its frequency. The frequency is dialled as read, so it keeps one line and every
+    /// digit, whatever the width: the station gives way, smaller, then cut. Without that, beside a long
+    /// name it wrapped as "130.35" over "5". (6.1, device check)
     private func freqRow(_ item: PhaseFrequency, large: Bool = false) -> some View {
         HStack(spacing: large ? 10 : 6) {
             if let tag = roleTag(item.role) {
                 Text(tag.0)
                     .font(.aero(size: large ? 16 : 8, weight: .bold)).tracking(0.3)
                     .foregroundColor(tag.1)
+                    .lineLimit(1)
+                    .fixedSize()
                     .padding(.horizontal, 4).padding(.vertical, 1)
                     .background(tag.1.opacity(0.16), in: RoundedRectangle(cornerRadius: 3))
             }
@@ -2698,6 +2712,8 @@ struct NavigationMapView: View {
                 .font(.aero(size: large ? CockpitType.row : 13, weight: item.highlighted ? .bold : .regular, design: .monospaced))
                 // Frequencies are data: white in flight on the kneeboard panel. (v6.0 · P5)
                 .foregroundColor(item.highlighted && !large ? theme.onTarget : theme.textPrimary)
+                .lineLimit(1)
+                .fixedSize()
         }
         .padding(.vertical, large ? 8 : 3)
     }

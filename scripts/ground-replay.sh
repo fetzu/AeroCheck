@@ -131,7 +131,7 @@ for d in sorted(glob.glob(os.path.join(out, 'attachments', '*'))):
 for log in sorted(glob.glob(os.path.join(out, 'logs', '*.log'))):
     for line in open(log, errors='replace').read().splitlines():
         if line.startswith("Test Case '-[") and (' passed (' in line or ' failed (' in line):
-            name_ = line.split("'")[1]
+            name_ = line.split("'")[1].replace('[AeroCheckUITests.', '[')
             for t in tests:
                 if t['test'] == name_:
                     t['result'] = 'passed' if ' passed (' in line else 'failed'

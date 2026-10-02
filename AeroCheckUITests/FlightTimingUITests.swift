@@ -1,6 +1,6 @@
 import XCTest
 
-/// The 6.1.0 page's ETOs (eet-3, eet-4), flown as ground replays: LSZQ → LIGERZ → LSGC planned for today,
+/// The 6.1.0 page's ETOs (eet-3, eet-4), flown as ground replays: LSZQ → INS → LSGC planned for today,
 /// an hour after the replay starts (Plan new flight's flight, its route armed), started with START FLIGHT
 /// and "Start anyway"; then READY FOR LINE UP at the holding point, or a jump on the phase bar past it.
 final class FlightTimingUITests: XCTestCase {

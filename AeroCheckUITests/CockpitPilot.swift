@@ -234,10 +234,11 @@ final class CockpitPilot {
         return e.exists ? String(e.identifier.dropFirst("phaseBar.".count)) : nil
     }
 
+    /// The pane CHECKLIST | MAP shows. One query: at 10x every query is flight time.
     var paneShown: String? {
-        if element("pane.map").exists && element("pane.map").isSelected { return "map" }
-        if element("pane.checklist").exists && element("pane.checklist").isSelected { return "checklist" }
-        return nil
+        let e = app.descendants(matching: .any)
+            .matching(NSPredicate(format: "identifier BEGINSWITH 'pane.' AND selected == true")).firstMatch
+        return e.exists ? String(e.identifier.dropFirst("pane.".count)) : nil
     }
 
     func showPane(_ pane: String) {
@@ -272,17 +273,16 @@ final class CockpitPilot {
 
     /// The hour meter asks at ENGINE START when the reading is logged (the default): skipped here.
     func skipHourMeterIfAsked() {
-        for label in ["Skip", "SKIP", "Cancel"] {
-            let b = app.buttons[label]
-            if b.exists && b.isHittable { b.tap(); return }
-        }
+        let b = app.buttons.matching(NSPredicate(format: "label IN {'Skip', 'SKIP', 'Cancel'}")).firstMatch
+        if b.exists && b.isHittable { b.tap() }
     }
 
-    /// CHECK through the current list (at most `max` items), until CHECK gives way.
+    /// CHECK through the current list (at most `max` items), until CHECK gives way. Two queries a
+    /// CHECK: under load each is up to a few seconds, tens of seconds of flight at 10x.
     func checkAllItems(max: Int = 30) {
         showPane("checklist")
+        skipHourMeterIfAsked()
         for _ in 0..<max {
-            skipHourMeterIfAsked()
             let check = element("cockpit.check")
             guard check.exists else { return }
             check.tap()
@@ -476,7 +476,7 @@ final class CockpitPilot {
         checkAllItems()
         let next = element("cockpit.next")
         let label = next.waitForExistence(timeout: 5) ? next.label : ""
-        next.tap()
+        if next.exists { next.tap() }
         if let hold = scenario.holds.first(where: { $0.until == "lineUp" }) { noteRelease(atTrack: hold.t) }
         _ = waitUntil(timeout: 4) { self.currentPhase == "lineUp" }
         return (label, phaseStatus("beforeDeparture"))

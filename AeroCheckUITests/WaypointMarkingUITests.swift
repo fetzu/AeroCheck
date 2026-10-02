@@ -82,13 +82,14 @@ final class WaypointMarkingUITests: XCTestCase {
         pilot.check("undo-2", e, "toast: \(pilot.toastMessage ?? "none")")
         _ = pilot.waitUntil(timeout: 9) { !pilot.undo.exists }
         let markSaigne = pilot.element("map.mark")
-        pilot.check("undo-2", markSaigne.label.contains("MARK SAIGNELEGIER"), "MARK: \(markSaigne.label)")
-        markSaigne.tap()
+        pilot.check("undo-2", markSaigne.exists && markSaigne.label.contains("MARK SAIGNELEGIER"),
+                    "MARK: \(markSaigne.exists ? markSaigne.label : "missing")")
+        if markSaigne.exists { markSaigne.tap() }
         pilot.check("undo-2", pilot.undo.waitForExistence(timeout: 3) && (pilot.toastMessage ?? "").contains("SAIGNELEGIER passed at"),
                     "MARK's toast: \(pilot.toastMessage ?? "none")")
         pilot.shot("undo-2", "mark-undo")
         pilot.observed("undo-2", "MARK's UNDO filled, the same size (20 pt, 78 pt): see the screenshots")
-        pilot.undo.tap()
+        if pilot.undo.exists { pilot.undo.tap() }
         pilot.check("undo-2", pilot.waitUntil(timeout: 4) { pilot.leg(3)?.state == "next" && pilot.leg(3)?.hasATO == false },
                     "MARK taken back: SAIGNELEGIER \(pilot.leg(3).map { "\($0)" } ?? "?")")
 

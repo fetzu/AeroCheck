@@ -418,17 +418,17 @@ def build(name):
     if name == 'xc-all-checks':
         # LSZQ → LSGC by a turning point 7 min after the level-off (FREDA at a waypoint), then 11 min on.
         return scenario_xc(name, 101, 'LSZQ', 'LSGC',
-                           [('LIGERZ', 47.0730, 7.1480, 'user', None)], 5500,
-                           description='Cross-country LSZQ → LIGERZ → LSGC, every check on time')
+                           [('INS', 47.0240, 7.1620, 'user', None)], 5500,
+                           description='Cross-country LSZQ → INS → LSGC, every check on time')
     if name == 'xc-planned':
         # The same flight as xc-all-checks, planned for an hour after the replay starts: the ETOs.
         return scenario_xc(name, 101, 'LSZQ', 'LSGC',
-                           [('LIGERZ', 47.0730, 7.1480, 'user', None)], 5500, planned=True,
-                           description='LSZQ → LIGERZ → LSGC planned for today, an hour on: the ETOs from the plan, then the take-off')
+                           [('INS', 47.0240, 7.1620, 'user', None)], 5500, planned=True,
+                           description='LSZQ → INS → LSGC planned for today, an hour on: the ETOs from the plan, then the take-off')
     if name == 'xc-climb-owed':
         return scenario_xc(name, 102, 'LSZQ', 'LSGC',
-                           [('LIGERZ', 47.0730, 7.1480, 'user', None)], 5500,
-                           description='Cross-country LSZQ → LIGERZ → LSGC: the climb check left open through the level-off')
+                           [('INS', 47.0240, 7.1620, 'user', None)], 5500,
+                           description='Cross-country LSZQ → INS → LSGC: the climb check left open through the level-off')
     if name == 'xc-freda-missed':
         # Long enough in cruise for FREDA to come due by the clock (10 min) before the descent.
         return scenario_xc(name, 103, 'LSZQ', 'LSGC',
@@ -436,8 +436,8 @@ def build(name):
                            description='Cross-country LSZQ → BIEL → LSGC: FREDA due, cruise left without it')
     if name == 'xc-descent-abandoned':
         return scenario_xc(name, 104, 'LSZQ', 'LSGC',
-                           [('LIGERZ', 47.0730, 7.1480, 'user', None)], 5500, level_dip=(0, 60),
-                           description='Cross-country LSZQ → LIGERZ → LSGC: a descent started, levelled, climbed back')
+                           [('INS', 47.0240, 7.1620, 'user', None)], 5500, level_dip=(0, 60),
+                           description='Cross-country LSZQ → INS → LSGC: a descent started, levelled, climbed back')
     if name == 'local-landed-unanswered':
         return scenario_local(name, 105, 'LSZQ', laps=['fullStop', 'fullStop'], cruise_ft=4000, circuits=False,
                               description='Local flight at LSZQ: full stop, card left unanswered, taxi, away again, full stop')

@@ -339,7 +339,7 @@ final class GroundReplay {
             try? await Task.sleep(nanoseconds: 100_000_000)
         }
         if route.planned == true {
-            await armPlannedFlight(route, name: scenario.name, plans: flightPlanManager, threads: threadManager)
+            armPlannedFlight(route, name: scenario.name, plans: flightPlanManager, threads: threadManager)
         } else {
             arm(route, name: scenario.name, in: flightPlanManager)
         }
@@ -366,9 +366,11 @@ final class GroundReplay {
     }
 
     /// A flight planned for today on the scenario's route, as Plan new flight makes one from a saved
-    /// route (`FlightCreator`), its plan armed: START FLIGHT on Today starts it.
+    /// route, its plan armed: START FLIGHT on Today starts it. `FlightCreator.create(fromRoute:)` without
+    /// its notification request: on a fresh install that waits on a system alert, between the plan and
+    /// its flight, long enough for the launch's sweep to take the date of a plan no flight follows yet.
     static func armPlannedFlight(_ route: GroundReplayScenario.Route, name: String, plans: FlightPlanManager,
-                                 threads: FlightThreadManager) async {
+                                 threads: FlightThreadManager) {
         let template = plan(of: route, name: name)
         let intent = NewFlightIntent(departureIdent: route.waypoints.first?.name ?? "",
                                      arrivalIdent: route.waypoints.last?.name ?? "",
@@ -376,10 +378,12 @@ final class GroundReplay {
                                      aircraftTypeId: template.aircraftTypeId,
                                      aircraftRegistration: template.aircraftRegistration,
                                      aircraftModelName: template.aircraftModelName)
-        let thread = await FlightCreator.create(fromRoute: template, intent: intent, plans: plans, threads: threads)
-        if let planId = thread.flightPlanId, let plan = plans.flightPlans.first(where: { $0.id == planId }) {
-            plans.activateFlightPlan(plan)
-        }
+        let plan = FlightCreator.plan(fromRoute: template, intent: intent)
+        plans.add(plan)
+        threads.createThread(from: plan, profile: intent.kind.profile,
+                             routeLabel: FlightThreadManager.routeLabel(for: plan),
+                             aircraftRegistration: intent.aircraftRegistration)
+        plans.activateFlightPlan(plan)
     }
 
     private static func plan(of route: GroundReplayScenario.Route, name: String) -> FlightPlan {

@@ -9,7 +9,7 @@ final class ChecksInFlightUITests: XCTestCase {
 
     // MARK: - (1) Cross-country, every check on time
 
-    /// LSZQ → LIGERZ → LSGC: flight 1-3, 5-9, 11, 12, 14, 16; debrief 1.
+    /// LSZQ → INS → LSGC: flight 1-3, 5-9, 11, 12, 14, 16; debrief 1.
     func testCrossCountryEveryCheckOnTime() {
         let pilot = CockpitPilot(self, scenario: "xc-all-checks")
         defer { pilot.attachResults(testName: name) }
@@ -28,17 +28,18 @@ final class ChecksInFlightUITests: XCTestCase {
                     "thumb bar reads \"\(done.label)\"")
         pilot.shot("flight-1", "thumb-bar")
         let barBefore = pilot.phaseBar()
+        guard done.exists else { return pilot.check("flight-1", false, "no ✓ DONE after engine start") }
         done.tap()
         pilot.check("flight-1", pilot.waitUntil(timeout: 3) { pilot.currentPhase == "taxi" },
                     "one tap opens \(pilot.currentPhase ?? "?")")
         pilot.check("flight-1", pilot.undo.waitForExistence(timeout: 2), "the toast offers UNDO: \(pilot.toastMessage ?? "none")")
         pilot.shot("flight-1", "undo-toast")
-        pilot.undo.tap()
+        if pilot.undo.exists { pilot.undo.tap() }
         pilot.check("flight-1", pilot.waitUntil(timeout: 3) { pilot.currentPhase == "afterEngineStart" },
                     "UNDO goes back to \(pilot.currentPhase ?? "?")")
         let barAfter = pilot.phaseBar()
         pilot.check("flight-1", barAfter == barBefore, "the phase bar as it was: \(barAfter == barBefore ? "same" : "\(barBefore) → \(barAfter)")")
-        pilot.memoryDone.tap()
+        if pilot.memoryDone.exists { pilot.memoryDone.tap() }
         pilot.check("flight-1", pilot.waitUntil(timeout: 3) { pilot.currentPhase == "taxi" }, "open again: \(pilot.currentPhase ?? "?")")
         pilot.shot("flight-1", "taxi-again")
         if pilot.stopsAfter("flight-1") { return }
@@ -54,7 +55,7 @@ final class ChecksInFlightUITests: XCTestCase {
         pilot.check("flight-2", pilot.currentPhase == "lineUp" && pilot.memoryDone.exists,
                     "on \(pilot.currentPhase ?? "?"), ✓ DONE \(pilot.memoryDone.exists ? "shown" : "missing")")
         pilot.shot("flight-2", "line-up")
-        pilot.memoryDone.tap()
+        if pilot.memoryDone.exists { pilot.memoryDone.tap() }
         pilot.check("flight-2", pilot.waitUntil(timeout: 4) { pilot.currentPhase == "climb" && pilot.paneShown == "map" },
                     "after the tap: \(pilot.currentPhase ?? "?") on the \(pilot.paneShown ?? "?") pane")
         pilot.shot("flight-2", "climb-on-map")
@@ -123,8 +124,8 @@ final class ChecksInFlightUITests: XCTestCase {
             $0.tone == "due" && $0.action == "confirmFreda"
         }
         pilot.shot("flight-7", "freda-due")
-        pilot.check("flight-7", freda.ok && (freda.slot?.label.contains("LIGERZ") ?? false),
-                    "slot at LIGERZ (track \(Int(s.mark("wp1"))) s): \(freda.slot?.description ?? "none")")
+        pilot.check("flight-7", freda.ok && (freda.slot?.label.contains("INS") ?? false),
+                    "slot at INS (track \(Int(s.mark("wp1"))) s): \(freda.slot?.description ?? "none")")
         pilot.check("flight-7", pilot.phaseStatus("cruise") == "FREDA due", "cruise segment: \(pilot.phaseStatus("cruise") ?? "?")")
         pilot.tapSlot()
         pilot.check("flight-7", pilot.undo.waitForExistence(timeout: 3), "toast: \(pilot.toastMessage ?? "none")")
@@ -138,8 +139,8 @@ final class ChecksInFlightUITests: XCTestCase {
         let button = pilot.element("cockpit.freda.counting")
         pilot.check("flight-8", button.waitForExistence(timeout: 4), "FREDA counting beside NEXT: \(button.exists ? button.label : "missing")")
         pilot.shot("flight-8", "freda-button")
-        let before = button.label
-        button.tap()
+        let before = button.exists ? button.label : "missing"
+        if button.exists { button.tap() }
         pilot.check("flight-8", pilot.undo.waitForExistence(timeout: 3) && (pilot.toastMessage ?? "").contains("FREDA done"),
                     "recorded: \(pilot.toastMessage ?? "no toast")")
         let after = pilot.element("cockpit.freda.counting")
@@ -157,10 +158,10 @@ final class ChecksInFlightUITests: XCTestCase {
         let slotFrame = pilot.element(prefix: "checkSlot.").frame
         pilot.check("flight-16", slotFrame.minX < mark.frame.minX, "the slot first (x \(Int(slotFrame.minX)) < \(Int(mark.frame.minX)))")
         pilot.shot("flight-16", "bottom-row")
-        mark.tap()
+        if mark.exists { mark.tap() }
         pilot.check("flight-16", pilot.undo.waitForExistence(timeout: 3), "MARK offers UNDO: \(pilot.toastMessage ?? "no toast")")
         pilot.shot("flight-16", "mark-undo")
-        pilot.undo.tap()
+        if pilot.undo.exists { pilot.undo.tap() }
         pilot.check("flight-16", pilot.waitUntil(timeout: 3) { pilot.element("map.mark").label.contains("LSGC") },
                     "UNDO: \(pilot.element("map.mark").label)")
         pilot.observed("flight-16", "Divert and More in place: see the screenshot")
@@ -255,7 +256,7 @@ final class ChecksInFlightUITests: XCTestCase {
 
     // MARK: - (2) The climb check left open, NEXT past it, NOT SURE on the landed card
 
-    /// LSZQ → LIGERZ → LSGC: flight-4 (owed at the level-off), flight-15 (the review, CHECK LATER),
+    /// LSZQ → INS → LSGC: flight-4 (owed at the level-off), flight-15 (the review, CHECK LATER),
     /// flight-13 (NOT SURE), debrief-2.
     func testClimbCheckLeftOpenThenNotSure() {
         let pilot = CockpitPilot(self, scenario: "xc-climb-owed")
@@ -365,7 +366,7 @@ final class ChecksInFlightUITests: XCTestCase {
 
     // MARK: - (4) A descent started, levelled, and climbed back
 
-    /// LSZQ → LIGERZ → LSGC with a 600 ft dip after LIGERZ: flight-10; and flight-15 in full (the
+    /// LSZQ → INS → LSGC with a 600 ft dip after INS: flight-10; and flight-15 in full (the
     /// climb check deferred at the level-off, then Review › ✓ DONE).
     func testDescentAbandoned() {
         let pilot = CockpitPilot(self, scenario: "xc-descent-abandoned")
@@ -387,11 +388,11 @@ final class ChecksInFlightUITests: XCTestCase {
         pilot.showPane("checklist")
         pilot.check("flight-15", chip.waitForExistence(timeout: 4), "deferred: \(chip.exists ? chip.label : "no chip")")
         pilot.check("flight-15", pilot.phaseStatus("climb") == "skipped", "climb (orange): \(pilot.phaseStatus("climb") ?? "?")")
-        chip.tap()
+        if chip.exists { chip.tap() }
         let done = pilot.app.buttons["CLIMB CHECK, done from memory"]
         pilot.check("flight-15", done.waitForExistence(timeout: 4), "Review › ✓ DONE offered")
         pilot.shot("flight-15", "review-done")
-        done.tap()
+        if done.exists { done.tap() }
         let close = pilot.app.buttons["Done"].firstMatch
         if close.waitForExistence(timeout: 2) { close.tap() }
         pilot.check("flight-15", pilot.waitUntil(timeout: 4) { pilot.phaseStatus("climb") == "done from memory" },
@@ -399,9 +400,9 @@ final class ChecksInFlightUITests: XCTestCase {
         pilot.shot("flight-15", "green")
         pilot.showPane("map")
 
-        // FREDA at LIGERZ, confirmed: it counts.
+        // FREDA at INS, confirmed: it counts.
         if pilot.slotDue("FREDA", by: s.mark("wp1"), tap: true) == nil {
-            pilot.observed("flight-10", "FREDA did not come due at LIGERZ before the dip")
+            pilot.observed("flight-10", "FREDA did not come due at INS before the dip")
         }
 
         // flight-10: down 600 ft: the descent check due, FREDA gone; level, climb back 300 ft: withdrawn,

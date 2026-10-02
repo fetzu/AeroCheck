@@ -80,7 +80,7 @@ final class GroundReplayTests: XCTestCase {
 
     // MARK: - Whole flights through the chain
 
-    /// LSZQ → LIGERZ → LSGC, every check done as it comes due: the detector, its cues and the check slot
+    /// LSZQ → INS → LSGC, every check done as it comes due: the detector, its cues and the check slot
     /// agree with the referee; the landed card at LSGC, YES; the flight ends with one landing and every
     /// check done.
     func testCrossCountryEveryCheckOnTimeThroughTheWholeChain() throws {
@@ -102,7 +102,7 @@ final class GroundReplayTests: XCTestCase {
         flight.assertSlot(.landing, tone: .quiet, near: expected.cue("circuit"))
         let fredaAtLigerz = flight.slots.first { $0.slot.action == .confirmFreda }
         XCTAssertEqual(fredaAtLigerz.map { $0.t } ?? 0, flight.scenario.marks["wp1"]!, accuracy: 20,
-                       "FREDA due at LIGERZ, passed more than 5 min after the cruise check")
+                       "FREDA due at INS, passed more than 5 min after the cruise check")
         XCTAssertEqual(flight.landedCards.map(\.aerodrome), ["LSGC"])
 
         let saved = try XCTUnwrap(flight.endedFlight)

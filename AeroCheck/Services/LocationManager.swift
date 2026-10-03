@@ -16,8 +16,10 @@ struct GPSFixDigest {
     private(set) var borrowed = 0
     private(set) var minAccuracy: Double?
     private(set) var maxAccuracy: Double?
-    /// Fixes with a speed accuracy: from the satellites (`LocationManager.isSatelliteFix`).
+    /// Fixes from the satellites (`LocationManager.isSatelliteFix`), an external receiver's included.
     private(set) var withSpeedAccuracy = 0
+    /// Of those, fixes an external receiver produced (`CLLocationSourceInformation`). (6.1.1)
+    private(set) var fromAccessory = 0
     /// Fixes with a course.
     private(set) var withCourse = 0
     /// Fixes identical to the one before (position, altitude, accuracy): the same estimate again.
@@ -38,7 +40,8 @@ struct GPSFixDigest {
             minAccuracy = min(minAccuracy ?? accuracy, accuracy)
             maxAccuracy = max(maxAccuracy ?? accuracy, accuracy)
         }
-        if fix.speedAccuracy >= 0 { withSpeedAccuracy += 1 }
+        if LocationManager.isSatelliteFix(fix) { withSpeedAccuracy += 1 }
+        if fix.sourceInformation?.isProducedByAccessory == true { fromAccessory += 1 }
         if fix.course >= 0 { withCourse += 1 }
         if !isBorrowed { oldestAge = max(oldestAge, now.timeIntervalSince(fix.timestamp)) }
         if let previous {
@@ -74,7 +77,8 @@ struct GPSFixDigest {
             range = "no accuracy"
         }
         return "GPS \(seconds) s: \(fixes) fixes" + (borrowed > 0 ? " (\(borrowed) from the companion)" : "")
-            + ", \(range), satellite \(withSpeedAccuracy), course on \(withCourse)"
+            + ", \(range), satellite \(withSpeedAccuracy)"
+            + (fromAccessory > 0 ? " (\(fromAccessory) from an accessory)" : "") + ", course on \(withCourse)"
             + ", same as previous \(sameAsPrevious), moved \(String(format: "%.1f", movedMetres)) m"
             + ", oldest \(Int(oldestAge.rounded())) s, unavailable \(unavailable), stationary \(stationary)"
             + "; status \(status.description)"
@@ -134,6 +138,15 @@ class LocationManager: NSObject, ObservableObject {
     /// GPSSourceElection.maxAccuracy, so a coarse own fix (e.g. 500 m) doesn't masquerade as live and
     /// starve a better borrowed peer fix. (shared-GPS, v4.1)
     private let ownFixMaxAccuracy: Double = 100
+
+    /// Whether an own fix keeps this device's GPS "live" for Companion: within `ownFixMaxAccuracy`, and
+    /// from the satellites (`isSatelliteFix`). A Wi-Fi iPad near a hotspot gets Wi-Fi positions at a few
+    /// tens of metres; counted as live, they kept the iPhone's GPS out of the flight and told the iPhone
+    /// to stop sending it. (6.1.1, Wi-Fi iPads)
+    private func countsAsLiveOwnFix(_ location: CLLocation) -> Bool {
+        location.horizontalAccuracy >= 0 && location.horizontalAccuracy <= ownFixMaxAccuracy
+            && Self.isSatelliteFix(location)
+    }
 
     /// Rolling (time, altitude-ft) samples over the last ~12 s, for the smoothed vertical speed.
     private var altitudeSamples: [(time: Date, altFt: Double)] = []
@@ -950,7 +963,7 @@ class LocationManager: NSObject, ObservableObject {
             return
         }
         // Held back from the pipeline: still a fix, for the own-GPS liveness and the status.
-        if location.horizontalAccuracy >= 0 && location.horizontalAccuracy <= ownFixMaxAccuracy {
+        if countsAsLiveOwnFix(location) {
             lastOwnFixTime = now
         }
         updateSignalQuality(from: location, now: now)
@@ -965,9 +978,14 @@ class LocationManager: NSObject, ObservableObject {
     /// receiver on and reporting no fix, while Core Location handed the app Wi-Fi positions at ± 14–78 m,
     /// each with no speed accuracy: the GPS indicator stayed green. (6.1.0)
     ///
+    /// A fix from an external receiver (an MFi GPS such as those many pilots pair with a Wi-Fi iPad)
+    /// counts too: Core Location marks it `isProducedByAccessory`, and whether it carries a speed
+    /// accuracy is up to the accessory. (6.1.1, Wi-Fi iPads)
+    ///
     /// The simulator has no satellites: its simulated positions stand for them, except under the tests.
     nonisolated static func isSatelliteFix(_ location: CLLocation) -> Bool {
         if everyFixIsSatellite { return true }
+        if location.sourceInformation?.isProducedByAccessory == true { return true }
         return location.speedAccuracy >= 0
     }
 
@@ -1002,8 +1020,9 @@ class LocationManager: NSObject, ObservableObject {
 
         // Track own-fix liveness from real device fixes only, so companion borrowing can't flip it.
         // Require usable accuracy (not just a valid sign) so a coarse own fix doesn't suppress a better
-        // borrowed peer fix — matches the election's accuracy bar. (shared-GPS)
-        if isOwnFix && location.horizontalAccuracy >= 0 && location.horizontalAccuracy <= ownFixMaxAccuracy {
+        // borrowed peer fix — matches the election's accuracy bar (shared-GPS) — and a satellite fix, so
+        // a Wi-Fi position doesn't either (`countsAsLiveOwnFix`, 6.1.1).
+        if isOwnFix && countsAsLiveOwnFix(location) {
             lastOwnFixTime = now
         }
 

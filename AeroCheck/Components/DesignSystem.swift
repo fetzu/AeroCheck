@@ -416,13 +416,12 @@ struct SpeedIndicatorView: View {
     /// mis-stated speed/state on a safety instrument is the main risk of accessibility text. (UX-10)
     static func accessibilityValue(displaySpeed: Int, targetSpeed: Int, state: SpeedState,
                                    gpsLost: Bool) -> String {
-        if gpsLost { return "GPS signal lost" }
-        let stateText: String
+        if gpsLost { return L10n.Accessibility.instrumentGPSLost }
+        // One whole sentence per state, so the French can word each one. (6.2)
         switch state {
-        case .onTarget: stateText = "on target"
-        case .offTarget: stateText = "off target"
+        case .onTarget: return L10n.Accessibility.groundSpeedOnTarget(displaySpeed, target: targetSpeed)
+        case .offTarget: return L10n.Accessibility.groundSpeedOffTarget(displaySpeed, target: targetSpeed)
         }
-        return "\(displaySpeed) knots ground speed, \(stateText). Target \(targetSpeed) knots"
     }
 
     /// Pure, unit-testable speed-state computation shared by the iPad `SpeedIndicatorView` and the
@@ -887,7 +886,7 @@ struct AltimeterView: View {
 
     /// Composes the VoiceOver value string (pure + static, unit-tested). (UX-10)
     static func accessibilityValue(altitudeFeet: Int, gpsLost: Bool) -> String {
-        gpsLost ? "GPS signal lost" : "\(altitudeFeet) feet M S L"
+        gpsLost ? L10n.Accessibility.instrumentGPSLost : L10n.Accessibility.altitudeMSL(altitudeFeet)
     }
 }
 
@@ -1400,7 +1399,7 @@ struct CockpitInstrumentStrip: View {
         .accessibilityElement(children: .ignore)
         .accessibilityLabel("Ground speed")
         .accessibilityValue(targetSpeed == nil && gpsSignalStatus != .lost
-            ? "\(Int(max(0, displaySpeed))) knots ground speed"
+            ? L10n.Accessibility.groundSpeed(Int(max(0, displaySpeed)))
             : SpeedIndicatorView.accessibilityValue(
                 displaySpeed: Int(displaySpeed), targetSpeed: targetSpeed ?? 0, state: speedState,
                 gpsLost: gpsSignalStatus == .lost))
@@ -1447,7 +1446,8 @@ struct CockpitInstrumentStrip: View {
         }
         .accessibilityElement(children: .ignore)
         .accessibilityLabel("Heading")
-        .accessibilityValue(headingDegrees.map { "\((Int($0.rounded()) % 360 + 360) % 360) degrees track" } ?? "unknown")
+        .accessibilityValue(headingDegrees.map { L10n.Accessibility.track((Int($0.rounded()) % 360 + 360) % 360) }
+            ?? L10n.Accessibility.trackUnknown)
     }
 
     /// The next waypoint: the active route, so magenta.

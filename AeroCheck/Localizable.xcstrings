@@ -7854,6 +7854,23 @@
         }
       }
     },
+    "act.divert": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Divert"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dérouter"
+          }
+        }
+      }
+    },
     "trip.divert": {
       "extractionState": "manual",
       "localizations": {

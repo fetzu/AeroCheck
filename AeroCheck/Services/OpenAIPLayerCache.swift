@@ -67,6 +67,8 @@ final class OpenAIPLayerCache<Feature: Codable & Sendable> {
     private let formatVersion: Int?
     /// Replaces both network sources, for tests: country in, features out.
     private let fetchOverride: ((String) async throws -> [Feature])?
+    /// Where `directoryName` lives: Application Support, or a test's own directory.
+    private let rootDirectory: URL?
 
     /// - Parameters:
     ///   - directoryName: Application Support subdirectory (e.g. `"OpenAIPNavaidData"`).
@@ -81,6 +83,8 @@ final class OpenAIPLayerCache<Feature: Codable & Sendable> {
     ///     written with another version is never reused by `skippingCached`, and the layer can offer
     ///     it for a refresh (`Summary.formatVersion`). Nil for a layer that never changed.
     ///   - fetch: tests only; replaces the export bucket and the core API.
+    ///   - rootDirectory: tests only; holds `directoryName` instead of Application Support, so a test
+    ///     never reads or deletes the app's own cache.
     init(directoryName: String,
          filePrefix: String,
          endpointSuffix: String,
@@ -88,7 +92,8 @@ final class OpenAIPLayerCache<Feature: Codable & Sendable> {
          logLabel: String,
          formatVersion: Int? = nil,
          parse: @escaping (Data) throws -> [Feature],
-         fetch: ((String) async throws -> [Feature])? = nil) {
+         fetch: ((String) async throws -> [Feature])? = nil,
+         rootDirectory: URL? = nil) {
         self.directoryName = directoryName
         self.filePrefix = filePrefix
         self.endpointSuffix = endpointSuffix
@@ -97,12 +102,14 @@ final class OpenAIPLayerCache<Feature: Codable & Sendable> {
         self.formatVersion = formatVersion
         self.parse = parse
         self.fetchOverride = fetch
+        self.rootDirectory = rootDirectory
     }
 
     // MARK: - Storage paths
 
     private var dataDirectory: URL {
-        let base = fileManager.urls(for: .applicationSupportDirectory, in: .userDomainMask).first
+        let base = rootDirectory
+            ?? fileManager.urls(for: .applicationSupportDirectory, in: .userDomainMask).first
             ?? URL(fileURLWithPath: NSHomeDirectory()).appendingPathComponent("Library/Application Support")
         return base.appendingPathComponent(directoryName, isDirectory: true)
     }

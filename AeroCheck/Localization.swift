@@ -93,6 +93,15 @@ enum L10n {
         static let reportingPointsName = String(localized: "Reporting points")
         static let reportingPointsDetail = String(localized: "OpenAIP · VFR reporting points")
         static let showReportingPointsOnMap = String(localized: "Show reporting points on map")
+        static let openAIPAirportsName = String(localized: "Aerodromes")
+        static let openAIPAirportsDetail = String(localized: "OpenAIP · runways, frequencies & PPR · primary source")
+        /// Under a data row, and in Navigation & Maps, after an update that did not complete: the
+        /// countries that kept their old data, or none for a dataset that isn't per-country. (6.2.0)
+        static func updateFailed(_ countries: [String]) -> String {
+            countries.isEmpty
+                ? String(localized: "Couldn't update. Try again on Wi-Fi.")
+                : String(localized: "Couldn't update \(countries.joined(separator: ", ")). Try again on Wi-Fi.")
+        }
         /// Lower-case layer name for the trip-size breakdown ("29 841 obstacles · 152 navaids").
         ///
         /// Reuses the row titles, which are already plural and read correctly after a count in both

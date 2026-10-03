@@ -84,6 +84,49 @@ final class LocationManagerTests: XCTestCase {
         XCTAssertTrue(lm.currentLocation === moved)
     }
 
+    // MARK: A fix counts from when it was determined (6.1.0)
+
+    @MainActor
+    func testALateFixDoesNotMakeTheSignalGood() {
+        // Core Location "sometimes returns cached events": a fix determined a minute ago, delivered now,
+        // is not a fresh one. It used to set the status good and restart the seconds.
+        let lm = LocationManager()
+        lm.receiveDeviceFix(groundFix(north: 0, accuracy: 200))
+        XCTAssertEqual(lm.gpsSignalStatus, .degraded)
+        let late = CLLocation(coordinate: CLLocationCoordinate2D(latitude: 47, longitude: 8), altitude: 430,
+                              horizontalAccuracy: 8, verticalAccuracy: 10, course: -1, speed: 0,
+                              timestamp: Date(timeIntervalSinceNow: -60))
+        lm.receiveDeviceFix(late)
+        XCTAssertEqual(lm.gpsSignalStatus, .degraded, "a minute-old fix doesn't turn it green")
+        let fresh = groundFix(north: 0, accuracy: 8)
+        lm.receiveDeviceFix(fresh)
+        XCTAssertEqual(lm.gpsSignalStatus, .good)
+        XCTAssertEqual(lm.lastLocationUpdateTime?.timeIntervalSince(fresh.timestamp) ?? 99, 0, accuracy: 0.001,
+                       "the seconds count from when the fix was determined")
+    }
+
+    func testTheLogLineSaysWhatTheFixesCarried() {
+        var digest = GPSFixDigest()
+        let now = Date()
+        func fix(_ north: Double, accuracy: Double, speedAccuracy: Double, age: TimeInterval = 0) -> CLLocation {
+            CLLocation(coordinate: CLLocationCoordinate2D(latitude: 47 + north / 111_195, longitude: 8), altitude: 430,
+                       horizontalAccuracy: accuracy, verticalAccuracy: 10, course: -1, courseAccuracy: -1,
+                       speed: 0, speedAccuracy: speedAccuracy, timestamp: now.addingTimeInterval(-age))
+        }
+        digest.add(fix(0, accuracy: 9, speedAccuracy: 0.5), borrowed: false, now: now)
+        digest.add(fix(0, accuracy: 9, speedAccuracy: 0.5), borrowed: false, now: now)
+        digest.add(fix(2, accuracy: 7, speedAccuracy: -1, age: 3), borrowed: false, now: now)
+        digest.noteDiagnostics(unavailable: true, stationary: false)
+        let line = digest.line(seconds: 10, status: .good)
+        XCTAssertEqual(line, "GPS 10 s: 3 fixes, ± 7–9 m, speed accuracy on 2, course on 0, same as previous 1, "
+                       + "moved 2.0 m, oldest 3 s, unavailable 1, stationary 0; status good")
+        XCTAssertFalse(line.contains("47"), "never a position")
+        digest.startNextStretch()
+        digest.add(fix(2, accuracy: 7, speedAccuracy: -1), borrowed: false, now: now)
+        XCTAssertEqual(digest.sameAsPrevious, 1, "the next stretch still compares with the last fix")
+        XCTAssertEqual(digest.fixes, 1)
+    }
+
     func testEscalationsOnlyFireFromGood() {
         // A non-good status is preserved (not re-escalated) in the 10–45 s band.
         XCTAssertEqual(status(25, accuracy: 10, current: .degraded), .degraded)

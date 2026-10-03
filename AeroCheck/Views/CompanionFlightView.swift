@@ -313,7 +313,13 @@ struct CompanionFlightView: View {
             if let offer = memoryUndo {
                 NavUndoToast(offer: offer) { memoryUndo = nil }
             }
-            recordATOButton
+            // Divert beside RECORD ATO, as on the iPad's thumb bar, from an iPad that takes it. (6.2.0)
+            HStack(spacing: 8) {
+                recordATOButton
+                if CompanionDivertButton.isOffered(plan: flightPlan, currentWaypointIndex: flightData?.currentWaypointIndex) {
+                    CompanionDivertButton()
+                }
+            }
             companionCheckSlot
         }
         .padding(.horizontal, 12).padding(.vertical, 8)

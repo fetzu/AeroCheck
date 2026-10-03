@@ -135,6 +135,83 @@ final class CompanionPeerAuthorizationTests: XCTestCase {
         XCTAssertNil(master.manager.pendingAuthorization)
     }
 
+    // MARK: - Divert from the phone (6.2.0)
+
+    /// A flight in progress on a route, W1 next: what a divert needs.
+    private func startFlightOnARoute(_ master: Master) throws {
+        master.appState.settings.selectedRemoteAircraftId = nil
+        master.appState.settings.selectedAircraft = .wt9Dynamic
+        master.appState.startFlight(withAircraft: "F-HVXA", aircraftRegistration: "F-HVXA", aircraftType: "WT9")
+        addTeardownBlock { @MainActor in master.appState.cancelFlight() }
+        master.plans.activateFlightPlan(FlightPlan(name: "Route", waypoints: [
+            FlightPlanWaypoint(name: "LSZQ", coordinate: CLLocationCoordinate2D(latitude: 47.39, longitude: 7.03)),
+            FlightPlanWaypoint(name: "W1", coordinate: CLLocationCoordinate2D(latitude: 47.2, longitude: 7.2)),
+            FlightPlanWaypoint(name: "LSGC", coordinate: CLLocationCoordinate2D(latitude: 47.08, longitude: 6.79)),
+        ]))
+        try XCTSkipIf(master.plans.activeFlightPlan == nil, "no active plan")
+        master.plans.advanceToNextWaypoint()
+    }
+
+    /// Divert is a navigation command like MARK and START LEG: asked about once, dropped until the pilot
+    /// allows it, never applied silently. The phone sends it again until its plan shows it, so the send
+    /// after the Allow diverts.
+    func testADivertFromThePhoneWaitsForTheAllow() throws {
+        let master = makeMaster()
+        try startFlightOnARoute(master)
+        let gen = try connect(master.manager, name: "Pilot's iPhone")
+        let divert = command(.divert(field: CompanionDivertField(ident: "LSZB", name: "Bern-Belp", latitude: 46.9141,
+                                                                 longitude: 7.4971, elevationFeet: 1_674,
+                                                                 frequency: nil)))
+
+        XCTAssertTrue(master.manager.handleReceivedMessage(divert, generation: gen))
+        let request = try XCTUnwrap(master.manager.pendingAuthorization, "the first divert asks")
+        XCTAssertEqual(request.deviceName, "Pilot's iPhone")
+        XCTAssertNil(master.plans.activeFlightPlan?.diversion, "not before the pilot answers")
+        for _ in 0..<3 { master.manager.handleReceivedMessage(divert, generation: gen) }
+        XCTAssertEqual(master.manager.pendingAuthorization, request, "asked once, the sends again dropped")
+        XCTAssertNil(master.plans.activeFlightPlan?.diversion)
+
+        master.manager.answerAuthorization(request, .allow)
+        master.manager.handleReceivedMessage(divert, generation: gen)
+        XCTAssertEqual(master.plans.activeFlightPlan?.diversion?.ident, "LSZB")
+        XCTAssertEqual(master.plans.activeFlightPlan?.navigationTarget?.isDiversion, true)
+        XCTAssertNil(master.manager.pendingAuthorization)
+
+        master.manager.handleReceivedMessage(command(.resumeRoute), generation: gen)
+        XCTAssertNil(master.plans.activeFlightPlan?.diversion, "and back onto the route")
+        XCTAssertEqual(master.plans.activeFlightPlan?.navigationTarget?.name, "W1")
+    }
+
+    func testADivertAfterDontAllowIsDropped() throws {
+        let master = makeMaster()
+        try startFlightOnARoute(master)
+        let gen = try connect(master.manager)
+        let divert = command(.divert(field: CompanionDivertField(ident: "LSZB", name: "Bern-Belp", latitude: 46.9141,
+                                                                 longitude: 7.4971, elevationFeet: nil,
+                                                                 frequency: nil)))
+        master.manager.handleReceivedMessage(divert, generation: gen)
+        master.manager.answerAuthorization(try XCTUnwrap(master.manager.pendingAuthorization), .deny)
+
+        for _ in 0..<5 { master.manager.handleReceivedMessage(divert, generation: gen) }
+        XCTAssertNil(master.plans.activeFlightPlan?.diversion)
+        XCTAssertNil(master.manager.pendingAuthorization, "Don't Allow holds: no second prompt")
+    }
+
+    /// What an iPad does with a command it does not know, as a 6.1 iPad does with Divert: dropped, nothing
+    /// asked, and the connection read on.
+    func testAnUnknownCommandIsDroppedAndTheLinkStays() throws {
+        let master = makeMaster()
+        let gen = try connect(master.manager)
+        let future = CompanionMessage(type: .command, payload: Data(#"{"someFutureCommand":{"field":{"x":1}}}"#.utf8))
+
+        XCTAssertTrue(master.manager.handleReceivedMessage(future, generation: gen), "the loop reads on")
+        XCTAssertNil(master.manager.pendingAuthorization, "nothing to ask about")
+        XCTAssertEqual(master.manager.peerLink?.hasAsked, false)
+        XCTAssertEqual(master.manager.peerLink?.generation, gen)
+        XCTAssertEqual(master.manager.connectionState, .connected)
+        XCTAssertTrue(master.manager.handleReceivedMessage(command(.ping), generation: gen), "and the next frame read")
+    }
+
     func testAPromptLostWithoutAnAnswerMayAskAgain() throws {
         // SwiftUI can drop an alert it cannot present; the connection must not stay silently
         // ignored for good.

@@ -81,6 +81,16 @@ struct PhaseBadge: View {
     }
 }
 
+/// The Watch's words that are not a `Text` literal, from the Watch's own String Catalog (EN, FR). The
+/// FREQ badges say what the phone's FREQ panel says: ACT and SUIV in French. (6.2)
+enum WatchText {
+    static let freqNow = String(localized: "freq.now", defaultValue: "NOW",
+                                comment: "Frequency badge: the station to talk to now.")
+    static let freqNext = String(localized: "freq.next", defaultValue: "NEXT",
+                                 comment: "Frequency badge and row: the next station.")
+    static let localTime = String(localized: "LOCAL", comment: "Under the clock when it shows local time, not UTC.")
+}
+
 /// Prominent "stale data" indicator shown over live screens when the phone link drops. (UX-05)
 struct StaleBanner: View {
     var body: some View {
@@ -133,7 +143,7 @@ struct StandbyScreen: View {
                     .fill(connectivityManager.isConnected ? Color.aviationGreen : Color.gray)
                     .frame(width: 8, height: 8)
 
-                Text(connectivityManager.isConnected ? "Connected" : "Waiting...")
+                (connectivityManager.isConnected ? Text("Connected") : Text("Waiting..."))
                     .font(.system(size: 12))
                     .foregroundColor(.secondary)
             }
@@ -361,7 +371,7 @@ struct FrequenciesScreen: View {
                     FrequencyRow(name: "WPT", frequency: freq, isActive: true)
                 }
                 if let nextFreq = connectivityManager.flightData.nextWaypointFrequency {
-                    FrequencyRow(name: "NEXT", frequency: nextFreq, isActive: false)
+                    FrequencyRow(name: WatchText.freqNext, frequency: nextFreq, isActive: false)
                 }
                 if let commonFreqs = connectivityManager.flightData.commonFrequencies?.prefix(4) {
                     ForEach(Array(commonFreqs)) { freq in
@@ -441,9 +451,9 @@ struct FreqPanelRow: View {
     var body: some View {
         HStack(spacing: 5) {
             if freq.role == .now {
-                badge("NOW", .aviationGold)
+                badge(WatchText.freqNow, .aviationGold)
             } else if freq.role == .next {
-                badge("NEXT", .altimeterBlue)
+                badge(WatchText.freqNext, .altimeterBlue)
             }
             Text(freq.name)
                 .font(.system(size: 11))
@@ -528,7 +538,7 @@ struct TimeDisplayView: View {
                     .foregroundColor(.white.opacity(0.7))
             }
 
-            Text(useUTC ? "UTC" : "LOCAL")
+            Text(useUTC ? "UTC" : WatchText.localTime)
                 .font(.system(size: 10, weight: .medium))
                 .foregroundColor(useUTC ? .aviationAmber : .secondary)
         }

@@ -192,6 +192,9 @@ struct AeroCheckApp: App {
                     }
                     // A plan deleted on another device stays on a flight in progress. (6.1)
                     flightPlanManager.isFlightInProgress = { appState.isFlightActive }
+                    // READY FOR LINE UP, whichever NEXT made it (the Cockpit's, the slot's, the
+                    // Companion's), moves the active plan's ETOs. (6.2)
+                    appState.anchorETOsOnLineUp = { flightPlanManager.anchorETOsOnLineUp($0) }
 
                     // The delegate and its category are registered in `AeroCheckAppDelegate` before
                     // launch finishes; only the handlers are wired here, because they need the
@@ -251,10 +254,9 @@ struct AeroCheckApp: App {
 
                     // If a flight was restored from a crash-recovery checkpoint, re-resolve its
                     // checklist now that aircraft data is loaded — a restored premium flight
-                    // reloads its own checklist instead of showing unresolved content. (ARCH-08)
-                    if appState.isFlightActive && appState.resolvedRemoteChecklist == nil {
-                        await appState.loadRemoteChecklistIfNeeded(aircraftDataService: aircraftDataService)
-                    }
+                    // reloads its own checklist instead of showing unresolved content. Its own
+                    // aircraft, not the selection, which another device may have changed. (ARCH-08)
+                    await appState.loadFlightChecklistIfNeeded(aircraftDataService: aircraftDataService)
 
                     // PR-01: a flight restored from the crash-recovery checkpoint comes back "live"
                     // (running clock, restored checklist/track) but with GPS tracking OFF —
@@ -315,11 +317,13 @@ struct AeroCheckApp: App {
                 // v4.1.0 Data Freshness: foreground-only refresh — recompute the status and silently
                 // refresh any STALE small data the network gate permits. No background tasks.
                 .onChange(of: scenePhase) { _, phase in
+                    if phase == .background { companionConnectivityManager.appWentToBackground() }
                     guard phase == .active else { return }
                     dataStatusManager.recompute()
                     Task { await dataStatusManager.autoRefreshIfNeeded(cellularUpdatesEnabled: true) }
-                    // Re-establish the companion link on foreground (e.g. after the peer relaunched). (v4.1)
-                    companionConnectivityManager.autoConnectIfReady()
+                    // Re-establish the companion link on foreground (e.g. after the peer relaunched), and
+                    // back from the background, check it or look afresh. (v4.1; 6.1.0)
+                    companionConnectivityManager.appBecameActive()
                 }
             }
         }
@@ -414,9 +418,8 @@ struct AeroCheckApp: App {
             // Ensure the companion link is up (no-op if already connected). The connection is now tied to
             // companion-mode-enabled + paired, NOT to the flight — it's a persistent second screen that
             // shows the flight when one is running and an idle state otherwise. The master streams on
-            // connect, so starting a flight just changes WHAT is streamed. force:true re-arms it even if
-            // an idle auto-disconnect had dropped the link for battery. (v4.1 companion)
-            companionConnectivityManager.autoConnectIfReady(force: true)
+            // connect, so starting a flight just changes WHAT is streamed. (v4.1 companion)
+            companionConnectivityManager.autoConnectIfReady()
         } else {
             // Notify Watch that flight has ended
             watchConnectivityManager.notifyFlightEnded()

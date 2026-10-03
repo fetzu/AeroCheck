@@ -254,10 +254,18 @@ final class MemoryCheckTests: XCTestCase {
         XCTAssertEqual(appState.deferredCheckList.first?.phase, .climb)
     }
 
-    func testAPhaseWithNothingToDoStaysGrey() {
-        let appState = flight()
-        // A premium aircraft whose checklist hasn't arrived shows nothing at all: still "nothing to do".
-        appState.settings.selectedRemoteAircraftId = "not-loaded"
+    func testAPhaseWithNothingToDoStaysGrey() async throws {
+        // A premium flight restored before its checklist is back shows nothing at all: still "nothing
+        // to do". (A selection changed in flight no longer reaches the checklist being flown.)
+        let source = makeTestAppState()
+        try await resolvePA28(source)
+        source.startFlight(withAircraft: "HB-PFA", aircraftRegistration: "HB-PFA", aircraftType: "PA28")
+        let appState = makeTestAppState()
+        appState.settings.learningMode = false
+        appState.settings.stepByStepHighlighting = true
+        ActiveFlightState(flight: try XCTUnwrap(source.currentFlight), from: source).restore(to: appState)
+        addTeardownBlock { @MainActor in appState.cancelFlight(); source.cancelFlight() }
+        XCTAssertEqual(appState.activeChecklist.source, .unresolved, "Precondition: the checklist isn't back")
         XCTAssertFalse(appState.isMemoryCheck(.climb))
         appState.currentPhase = .climb
         appState.nextPhase()

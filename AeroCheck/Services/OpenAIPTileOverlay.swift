@@ -13,9 +13,14 @@ import CoreGraphics
 /// to avoid visual grid artifacts (different tiles have different fill opacities
 /// creating a visible checkerboard pattern). Only high-contrast features like
 /// labels, lines, and symbols are preserved.
-class OpenAIPTileOverlay: MKTileOverlay {
+class OpenAIPTileOverlay: MKTileOverlay, LateTileRedrawing {
     weak var cacheManager: OpenAIPCacheManager?
     let isStrictOfflineMode: Bool
+    /// MapKit drops some tiles that arrive after `loadTile` returned, as it does the swisstopo
+    /// charts': redraw after a burst from the network (`LateTileRedraw`). (6.1.0)
+    let redraw = LateTileRedraw()
+    /// The session network tiles come over; a stub in tests.
+    var tileSession = ExternalRequest.session
 
     private let subdomains = OpenAIPConfig.tileSubdomains
 
@@ -86,6 +91,7 @@ class OpenAIPTileOverlay: MKTileOverlay {
     /// Cache-first tile loading: check disk cache before making network requests.
     /// All tiles are processed to remove low-alpha airspace fills before display.
     override func loadTile(at path: MKTileOverlayPath, result: @escaping (Data?, Error?) -> Void) {
+        let answersRedraw = redraw.tileAsked()
         let z = path.z
 
         // If zoom is outside our supported range, return a transparent tile
@@ -129,6 +135,10 @@ class OpenAIPTileOverlay: MKTileOverlay {
         }
 
         let transparentPNG = Self.transparentTilePNG
+        // Only a real tile asks for the redraw: the transparent one stands for a failure, and a
+        // redraw would only fetch it again. (6.1.0)
+        let handOver = redraw.handingOver(result, answering: answersRedraw)
+        let session = tileSession
         // SEC-C34: go through ExternalRequest so tiles get the shared streaming size ceiling and
         // the cross-host redirect header stripping. This used a bare URLSession.shared dataTask,
         // which had neither.
@@ -138,6 +148,7 @@ class OpenAIPTileOverlay: MKTileOverlay {
             do {
                 (data, httpResponse) = try await ExternalRequest.data(
                     for: request,
+                    session: session,
                     maxResponseBytes: Self.maxTileBytes
                 )
             } catch {
@@ -152,7 +163,7 @@ class OpenAIPTileOverlay: MKTileOverlay {
 
             let processed = Self.processedTile(from: data)
             self?.processedTileCache.setObject(processed as NSData, forKey: memoKey)
-            result(processed, nil)
+            handOver(processed, nil)
         }
     }
 

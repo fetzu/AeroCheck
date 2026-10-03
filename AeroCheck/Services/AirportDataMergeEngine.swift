@@ -74,7 +74,7 @@ enum AirportDataMergeEngine {
     }
 
     /// Build an `Airport` from an OpenAIP record, preserving OurAirports-only fields (IATA, region,
-    /// municipality, continent, the stable OurAirports id) when a matched record is supplied.
+    /// municipality, continent, the stable OurAirports id, its keywords) when a matched record is supplied.
     private static func makeAirport(from oa: OpenAIPAirport, preserving our: Airport?) -> Airport {
         Airport(
             id: our?.id ?? stableNegativeID(oa.id),
@@ -93,8 +93,20 @@ enum AirportDataMergeEngine {
             scheduledService: our?.scheduledService ?? false,
             gpsCode: our?.gpsCode ?? oa.icaoCode,
             iataCode: our?.iataCode,            // OurAirports wins on IATA (the export rarely has it)
-            localCode: our?.localCode
+            localCode: our?.localCode,
+            // OpenAIP's name wins on display ("ZUERICH"); the one it replaced still finds the field
+            // ("Zürich Airport"), and so do OurAirports' keywords. (6.1)
+            keywords: searchKeywords(replacedName: our?.name, keeping: our?.keywords, besides: oa.name)
         )
+    }
+
+    /// OurAirports' keywords, and its name when OpenAIP's differs from it.
+    private static func searchKeywords(replacedName: String?, keeping keywords: String?, besides name: String) -> String? {
+        let replaced = replacedName.flatMap {
+            $0.compare(name, options: [.caseInsensitive, .diacriticInsensitive]) == .orderedSame ? nil : $0
+        }
+        let joined = [replaced, keywords].compactMap { $0 }.joined(separator: ", ")
+        return joined.isEmpty ? nil : joined
     }
 
     /// Convert OpenAIP airport frequencies into the app's `AirportFrequency` rows, keyed by ICAO (the

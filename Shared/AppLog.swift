@@ -52,4 +52,12 @@ extension Logger {
     func publicLine(_ message: String) {
         self.info("\(message, privacy: .public)")
     }
+
+    /// `publicLine` at the `.notice` level, which the device keeps: `.info` lines are not persisted,
+    /// so a `log collect` archive taken after the fact never shows them. For the few lifecycle events
+    /// worth reading back after a field report (a Companion link coming up or going down, and why),
+    /// not for chatter. Same rule as `publicLine`: fixed text and numbers only. (SA-20)
+    func publicNotice(_ message: String) {
+        self.notice("\(message, privacy: .public)")
+    }
 }

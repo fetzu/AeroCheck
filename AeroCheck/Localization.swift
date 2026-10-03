@@ -530,6 +530,24 @@ enum L10n {
         static let simulatedPosition = String(localized: "gps.simulatedPosition")
         static let points = String(localized: "gps.points")
         static let pointsRecorded = String(localized: "gps.pointsRecorded")
+        // The GPS Status drawer: why the signal is degraded or lost, and the fix tiles (6.2: English
+        // in French until then).
+        static func reasonReducedAccuracy(_ metres: Int) -> String {
+            String(format: String(localized: "gps.reason.reducedAccuracy"), metres)
+        }
+        static func reasonNoUpdate(_ seconds: Int) -> String {
+            String(format: String(localized: "gps.reason.noUpdate"), seconds)
+        }
+        static func reasonNetworkPosition(_ metres: Int) -> String {
+            String(format: String(localized: "gps.reason.networkPosition"), metres)
+        }
+        static let reasonWeakSignal = String(localized: "gps.reason.weakSignal")
+        static let reasonNoFix = String(localized: "gps.reason.noFix")
+        static let fixAccuracy = String(localized: "gps.fix.accuracy")
+        static let fixVertical = String(localized: "gps.fix.vertical")
+        static let fixTime = String(localized: "gps.fix.time")
+        static let fixAltitude = String(localized: "gps.fix.altitudeMSL")
+        static let fixPosition = String(localized: "gps.fix.position")
 
         // GPS Status Modal
         static let statusTitle = String(localized: "gps.status.title")
@@ -556,6 +574,19 @@ enum L10n {
         static let takeoff = String(localized: "time.takeoff")
         static let landing = String(localized: "time.landing")
         static let shutdown = String(localized: "time.shutdown")
+
+        /// "4 mo ago", "in 3 hr"; "il y a 4 m.", "dans 3 h". One style for every relative time: the
+        /// abbreviated one is CLDR's narrow form, which French writes "-4 m." and "-13 s". (6.2)
+        static func relative(_ date: Date, to now: Date = Date()) -> String {
+            relativeFormatter.localizedString(for: date, relativeTo: now)
+        }
+        static func makeRelativeFormatter(locale: Locale) -> RelativeDateTimeFormatter {
+            let formatter = RelativeDateTimeFormatter()
+            formatter.unitsStyle = .short
+            formatter.locale = locale
+            return formatter
+        }
+        private static let relativeFormatter = makeRelativeFormatter(locale: .current)
     }
 
     // MARK: - Alerts
@@ -1050,6 +1081,12 @@ enum L10n {
         static let noFlightsMessage = String(localized: "flightLog.noFlights.message")
         static let importFlight = String(localized: "flightLog.importFlight")
         static let pts = String(localized: "flightLog.pts")
+        /// The year menu, closed, when no year is picked: "All". (6.2)
+        static let allYears = String(localized: "flightLog.allYears")
+        /// A row's landings: "3 ldg". `String(format:)` keeps the number ungrouped, like the distance beside it.
+        static func landingCount(_ count: Int) -> String {
+            String(format: String(localized: "flightLog.landingCount"), count)
+        }
         // Naming a flight just imported (v6.1)
         static let nameImportedTitle = String(localized: "flightLog.nameImported.title")
         static func nameImportedMessage(_ title: String) -> String {
@@ -1057,6 +1094,18 @@ enum L10n {
         }
         static let nameImportedSave = String(localized: "flightLog.nameImported.save")
         static let nameImportedSkip = String(localized: "flightLog.nameImported.skip")
+
+        // The dashboard and the list (6.2: English in French until then)
+        static let hours = String(localized: "Hours", comment: "Logbook metric card: the hours flown in the period.")
+        static let flights = String(localized: "Flights")
+        static let landings = String(localized: "Landings", comment: "Logbook metric card: the landings in the period.")
+        static let filter = String(localized: "Filter", comment: "Logbook list: the aircraft filter, before an aircraft is picked.")
+        /// Over the list: "1 FLIGHT", "12 FLIGHTS". The plural is the catalog's (`ShareCard.flightCount`).
+        static func listHeader(_ count: Int) -> String { L10n.ShareCard.flightCount(count).uppercased() }
+        /// A month's line: "1 flight · 1.9 h".
+        static func monthSummary(_ count: Int, hours: Double) -> String {
+            "\(L10n.ShareCard.flightCount(count)) · \(String(format: "%.1f", hours)) h"
+        }
     }
 
     // MARK: - Flight titles, read aloud (v6.1)
@@ -1192,14 +1241,42 @@ enum L10n {
         static let gpsDegraded = String(localized: "a11y.gps.degraded")
         static let gpsLost = String(localized: "a11y.gps.lost")
         static let gpsUnknown = String(localized: "a11y.gps.unknown")
+
+        // The instruments' values: the Cockpit strip and the boxed instruments (6.2: English in French
+        // until then). Their labels, "Ground speed", "Altitude" and "Heading", are keys in the views.
+        /// The speed and the altitude read nothing else with the GPS lost.
+        static let instrumentGPSLost = String(localized: "GPS signal lost")
+        /// A phase without a target speed (taxi, run-up): "12 knots ground speed".
+        static func groundSpeed(_ knots: Int) -> String {
+            String(localized: "\(knots) knots ground speed")
+        }
+        /// "55 knots ground speed, on target. Target 55 knots": the state in words, never colour alone.
+        static func groundSpeedOnTarget(_ knots: Int, target: Int) -> String {
+            String(localized: "\(knots) knots ground speed, on target. Target \(target) knots")
+        }
+        static func groundSpeedOffTarget(_ knots: Int, target: Int) -> String {
+            String(localized: "\(knots) knots ground speed, off target. Target \(target) knots")
+        }
+        /// "3500 feet M S L". Formatted apart, so the figure stays ungrouped as it always was: interpolated,
+        /// `String(localized:)` writes "3'500" in a Swiss region.
+        static func altitudeMSL(_ feet: Int) -> String {
+            String(format: String(localized: "%lld feet M S L"), feet)
+        }
+        /// The GPS track under the strip's TRK: "270 degrees track".
+        static func track(_ degrees: Int) -> String {
+            String(localized: "\(degrees) degrees track")
+        }
+        /// No valid GPS course to read.
+        static let trackUnknown = String(localized: "unknown")
     }
 
     enum ChecklistAction {
         static let notRecorded = String(localized: "a11y.notRecorded")
         static let engineStart = String(localized: "checklist.engineStart")
         static let started = String(localized: "checklist.started")
+        /// The check before departure's NEXT, on the Cockpit, the map's check slot and the Companion. In
+        /// the app's language, like the CHECK and NEXT it stands for. (6.2)
         static let readyForLineUp = String(localized: "checklist.readyForLineUp")
-        static let lineUp = String(localized: "checklist.lineUp")
         static let engineShutdown = String(localized: "checklist.engineShutdown")
         static let shutdown = String(localized: "checklist.shutdown")
         static let goAround = String(localized: "checklist.goAround")
@@ -1216,14 +1293,6 @@ enum L10n {
 
         static func started(language: String) -> String {
             localizedString(key: "checklist.started", language: language, defaultValue: "Started")
-        }
-
-        static func readyForLineUp(language: String) -> String {
-            localizedString(key: "checklist.readyForLineUp", language: language, defaultValue: "READY FOR LINE UP")
-        }
-
-        static func lineUp(language: String) -> String {
-            localizedString(key: "checklist.lineUp", language: language, defaultValue: "Line Up")
         }
 
         static func engineShutdown(language: String) -> String {
@@ -1302,6 +1371,8 @@ enum L10n {
         static let noGPSData = String(localized: "flightDetail.noGPSData")
         static let noAltitudeData = String(localized: "flightDetail.noAltitudeData")
         static let altitudeFtMSL = String(localized: "flightDetail.altitudeFtMSL")
+        /// The header chip over the landings: "LDG". (6.2)
+        static let landingsChip = String(localized: "flightDetail.landingsChip")
 
         // Times
         static let sessionStart = String(localized: "flightDetail.sessionStart")
@@ -1320,6 +1391,14 @@ enum L10n {
         // Block Times
         static let blockOff = String(localized: "flightDetail.blockOff")
         static let blockOn = String(localized: "flightDetail.blockOn")
+
+        // The header, the track and the chart (6.2: English in French until then)
+        static let time = String(localized: "flightDetail.time")
+        static let timeline = String(localized: "TIMELINE")
+        static let trackStart = String(localized: "flightDetail.trackStart")
+        static let trackEnd = String(localized: "flightDetail.trackEnd")
+        static let chartAltitude = String(localized: "Altitude")
+        static let chartSpeed = String(localized: "Speed")
 
         // Name/Notes
         static let flightName = String(localized: "flightDetail.flightName")
@@ -1405,8 +1484,26 @@ enum L10n {
         /// Under the map styles when the ICAO chart gives way to the glider chart.
         static let gliderChartNote = String(localized: "Drawn on the glider chart, sharper at this scale")
 
+        // The Logbook's stats sheet (6.2: English in French until then). Its section labels, toggles,
+        // accents and layouts took a `String`, which `Text` shows as it is, so the lookup happens here.
+        static let shareStats = String(localized: "Share Stats")
+        static let colorTheme = String(localized: "COLOR THEME")
+        static let accent = String(localized: "ACCENT", comment: "Logbook stats sheet: the card's accent colour.")
+        static let accentGold = String(localized: "Gold", comment: "An accent colour of the Logbook stats card.")
+        static let accentBlue = String(localized: "Blue", comment: "An accent colour of the Logbook stats card.")
+        static let accentGreen = String(localized: "Green", comment: "An accent colour of the Logbook stats card.")
+        static let accentOrange = String(localized: "Orange", comment: "An accent colour of the Logbook stats card.")
+        static let accentRed = String(localized: "Red", comment: "An accent colour of the Logbook stats card.")
+        static let layout = String(localized: "LAYOUT", comment: "Logbook stats sheet: Tiles or Hero.")
+        static let layoutTiles = String(localized: "Tiles", comment: "Logbook stats card layout: four equal tiles in a row.")
+        static let layoutHero = String(localized: "Hero", comment: "Logbook stats card layout: the hours in big, then three smaller tiles.")
+        static let content = String(localized: "CONTENT", comment: "Logbook stats sheet: what the card shows.")
+        static let showHoursByAircraft = String(localized: "Hours by aircraft", comment: "Logbook stats sheet: a toggle for the card's hours per aircraft.")
+        static let showPeriodTitle = String(localized: "Period title", comment: "Logbook stats sheet: a toggle for the period under the card's title, 2026 or All time.")
+
         // The journey card (6.1): a day of the Logbook or a trip's legs on one card.
-        /// "3 flights": a day with circuits or a local flight in it, and the Logbook's day header.
+        /// "3 flights", "1 flight": a day with circuits or a local flight in it, and the Logbook's day
+        /// header, list header and month lines. A plural in the catalog, in both languages.
         static func flightCount(_ count: Int) -> String { String(localized: "\(count) flights") }
         /// The Logbook's day header: "1:26 flying".
         static func flying(_ duration: String) -> String {
@@ -1431,6 +1528,14 @@ enum L10n {
         }
         /// "Hide where I parked" on a journey: the day's first departure and last arrival only.
         static let hideParkingJourneyHint = String(localized: "Leaves out the first leg's first 300 m and the last leg's last 300 m")
+
+        // The Logbook's stats card (6.2: English in French until then). Its tiles take a `String`, which
+        // `Text` shows as it is, so the lookup happens here.
+        static let statsTitle = String(localized: "FLIGHT LOG")
+        static let statsHours = String(localized: "HOURS")
+        static let statsFlights = String(localized: "FLIGHTS")
+        static let statsLandings = String(localized: "LANDINGS")
+        static let statsHoursByAircraft = String(localized: "HOURS BY AIRCRAFT")
     }
 
     // MARK: - Event Confirmation
@@ -1443,6 +1548,10 @@ enum L10n {
         static func autoDismiss(_ seconds: Int) -> String {
             String(format: String(localized: "eventConfirmation.autoDismiss"), seconds)
         }
+        // The event's name: the card's title and the post-flight review's type menu. (6.2)
+        static let goAround = String(localized: "flightEvent.goAround")
+        static let touchAndGo = String(localized: "flightEvent.touchAndGo")
+        static let fullStop = String(localized: "flightEvent.fullStop")
     }
 
     // MARK: - Post-Flight Reconciliation
@@ -1994,7 +2103,15 @@ enum L10n {
         static func nextPhaseA11y(_ phase: String) -> String {
             String(format: String(localized: "cockpit.nextPhaseA11y"), phase)
         }
+        /// The strip's column over the next waypoint, on the iPad: "NEXT". (6.2)
+        static let nextColumn = String(localized: "cockpit.nextColumn")
         static let allChecked = String(localized: "cockpit.allChecked")
+        /// Under READY FOR LINE UP: "then LINE UP CHECK". (6.2)
+        static func thenCheck(_ check: String) -> String {
+            String(format: String(localized: "cockpit.thenCheck"), check)
+        }
+        /// VoiceOver, on READY FOR LINE UP: what the tap does besides going on. (6.2)
+        static let readyForLineUpHint = String(localized: "cockpit.readyForLineUpHint")
         /// "CLIMB CHECK DONE", beside a ✓, on a memory check to confirm. (6.1)
         static func memoryCheckDone(_ check: String) -> String {
             String(format: String(localized: "cockpit.memoryCheckDone"), check)
@@ -2230,8 +2347,35 @@ enum L10n {
         }
         static let noFrequency = String(localized: "trip.noFrequency")
         static let noCandidates = String(localized: "trip.noCandidates")
+        /// A searched aerodrome that is this flight's own end, so no stop (6.1).
+        static let leavesHere = String(localized: "trip.leavesHere")
+        static let landsHere = String(localized: "trip.landsHere")
+        static let leavesAndLandsHere = String(localized: "trip.leavesAndLandsHere")
         static let refuelHint = String(localized: "trip.refuelHint")
         static let joinNextLeg = String(localized: "trip.joinNextLeg")
+
+        // Cancel trip (6.1)
+        static let cancelTrip = String(localized: "trip.cancel")
+        /// At the foot of a trip's leg, beside the whole trip's cancel. (6.1.0)
+        static let cancelThisLeg = String(localized: "trip.cancelThisLeg")
+        /// The legs it takes: those not flown yet.
+        static func cancelWholeTrip(legs: Int) -> String {
+            legs == 1 ? String(localized: "trip.cancelWholeTripOneLeg")
+                      : String(format: String(localized: "trip.cancelWholeTrip"), legs)
+        }
+        static let cancelConfirmTitle = String(localized: "trip.cancelConfirm.title")
+        static let keepTrip = String(localized: "trip.cancelConfirm.keep")
+        /// "Leg 2 · LSGE → LSGN"
+        static func cancelConfirmLeg(_ number: Int, _ label: String) -> String {
+            String(format: String(localized: "trip.cancelConfirm.leg"), number, label)
+        }
+        /// The legs that go, one a line, then what stays: the legs already flown, when there are any.
+        static func cancelConfirmMessage(_ legs: String, keepsFlown: Bool) -> String {
+            let format = keepsFlown
+                ? String(localized: "trip.cancelConfirm.messageKeepsFlown")
+                : String(localized: "trip.cancelConfirm.message")
+            return String(format: format, legs)
+        }
         /// "≈ 15:10 (est.)"
         static func estimated(_ time: String) -> String {
             String(format: String(localized: "trip.estimated"), time)
@@ -2581,6 +2725,8 @@ enum L10n {
         static let trackVectorDesc = String(localized: "nav.trackVectorDesc")
         static let freqCurrent = String(localized: "nav.freqCurrent")
         static let freqNext = String(localized: "nav.freqNext")
+        /// 121.500, last in the FREQ panel. (6.2)
+        static let freqEmergency = String(localized: "nav.freqEmergency")
         static let mark = String(localized: "nav.mark")
         static let overlays = String(localized: "nav.overlays")
         static let airspace = String(localized: "nav.airspace")
@@ -2626,6 +2772,8 @@ enum L10n {
         static let leg = String(localized: "nav.leg")
         static let startLegTimer = String(localized: "nav.startLegTimer")
         static let legsAndFrequencies = String(localized: "nav.legsAndFrequencies")
+        /// VoiceOver's action on the map left above the open legs panel, which a tap closes. (6.1)
+        static let closeLegsAndFrequencies = String(localized: "nav.closeLegsAndFrequencies")
         static let baseChart = String(localized: "nav.baseChart")
         static let presets = String(localized: "nav.presets")
         static let presetCruise = String(localized: "nav.presetCruise")
@@ -2717,13 +2865,25 @@ enum L10n {
     enum Companion {
         // Companion command authorisation (SEC-C40)
         static let allowControlTitle = String(localized: "companion.allowControlTitle")
+        /// For a peer Wi-Fi Aware did not identify: this connection only.
         static let allowControl = String(localized: "companion.allowControl")
+        static let allowControlForFlight = String(localized: "companion.allowControlForFlight")
+        static let alwaysAllowControl = String(localized: "companion.alwaysAllowControl")
         static let denyControl = String(localized: "companion.denyControl")
-        /// Nil when Wi-Fi Aware did not name the peer: the prompt then says "a paired device" rather
-        /// than guess one from the paired list. (S9-28)
-        static func allowControlMessage(_ device: String?) -> String {
-            guard let device else { return String(localized: "companion.allowControlMessageUnnamed") }
+        /// `device` nil when Wi-Fi Aware did not name the peer: the prompt then says "a paired device"
+        /// rather than guess one from the paired list (S9-28). `canRemember` false for a peer it did not
+        /// identify, which is asked about this connection only. (6.1.0)
+        static func allowControlMessage(_ device: String?, canRemember: Bool) -> String {
+            guard canRemember else { return String(localized: "companion.allowControlMessageUnnamed") }
+            guard let device else { return String(localized: "companion.allowControlMessageUnnamedDevice") }
             return String(format: String(localized: "companion.allowControlMessage"), device)
+        }
+
+        // Always Allow (6.1.0)
+        static let deviceAlwaysAllowed = String(localized: "companion.deviceAlwaysAllowed")
+        static let askEachFlight = String(localized: "companion.askEachFlight")
+        static func askEachFlightAccessibility(_ device: String) -> String {
+            String(format: String(localized: "companion.askEachFlightAccessibility"), device)
         }
 
         // Forget device (S9-09)
@@ -2773,14 +2933,16 @@ enum L10n {
         static let masterDevice = String(localized: "companion.masterDevice")
         static let pairDeviceFirst = String(localized: "companion.pairDeviceFirst")
         static let waitingForPairing = String(localized: "companion.waitingForPairing")
-        static let pairingMasterDescription = String(localized: "companion.pairingMasterDescription")
         static let pairWithiPad = String(localized: "companion.pairWithiPad")
         static let pairWithiPhone = String(localized: "companion.pairWithiPhone")
-        static let pairingViewerDescription = String(localized: "companion.pairingViewerDescription")
         static let scanForDevices = String(localized: "companion.scanForDevices")
         static let makeDiscoverable = String(localized: "companion.makeDiscoverable")
-        // Shared pairing guidance: the user must tap the button on BOTH devices for discovery to work.
-        static let pairBothDevices = String(localized: "companion.pairBothDevices")
+        // The pairing screen's steps, per role: the iPad taps Make discoverable FIRST and keeps that
+        // sheet up while the iPhone scans. Both buttons have to be tapped, in that order. (6.1.0)
+        static let pairingMasterDescription = String(localized: "companion.pairingMasterDescription")
+        static let pairingViewerDescription = String(localized: "companion.pairingViewerDescription")
+        /// The link is paused while the pairing screen is up, which closes by itself once paired. (6.1.0)
+        static let pairingPausesLink = String(localized: "companion.pairingPausesLink")
 
         // Pairing guidance (role is automatic by device type)
         static let pairingGuidanceMaster = String(localized: "companion.pairingGuidanceMaster")

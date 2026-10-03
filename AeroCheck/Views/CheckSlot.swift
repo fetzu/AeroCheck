@@ -212,11 +212,20 @@ struct CheckSlot: Equatable, Codable {
 }
 
 extension CheckSlot {
+    /// The advance out of the check before departure (the only way on to the line up check): it reads
+    /// READY FOR LINE UP, then the line up check, as the thumb bar's NEXT does, and the tap is the same
+    /// (`AppState.nextPhase` records it). Read off the slot rather than carried in it, so the Companion's
+    /// snapshot keeps its shape: an older iPhone still shows the line up check, and its tap does the
+    /// same on the iPad. (6.2)
+    var readiesForLineUp: Bool {
+        action == .advance && phase == .lineUp
+    }
+
     /// The first line. `stacked`: a slot sharing its row on the iPad (beside MARK, in the landscape
     /// column), where "CRUISE CHECK ✓ 14:24" on one line would shrink under 20 pt: the time goes under.
     func titleText(stacked: Bool = false) -> String {
         switch title {
-        case .check: return phase.shortTitle
+        case .check: return readiesForLineUp ? L10n.ChecklistAction.readyForLineUp : phase.shortTitle
         case .freda: return L10n.Freda.name
         case .fredaCountsFrom(let since, let at):
             let what = since == .cruiseCheck ? ChecklistPhase.cruise.shortTitle : L10n.Freda.name
@@ -228,6 +237,72 @@ extension CheckSlot {
     /// Whether the title may take two lines: on the phone, and a stacked FREDA title. (6.1)
     func titleWraps(phone: Bool, stacked: Bool) -> Bool {
         phone || (stacked && title != .check)
+    }
+
+    /// How many lines the second line may take: two where the slot shares its row, one in the wide slot
+    /// on the iPad. One too under FREDA's tick on the iPad, which takes two lines itself ("CRUISE CHECK"
+    /// over "✓ 14:24"): four lines don't fit its 104 pt, and "FREDA in 10 min" scales a little to one
+    /// line. The room kept is what the state takes, up to that (`lineRoom`). (6.1, stability)
+    func lineLines(phone: Bool, prominent: Bool) -> Int {
+        if phone { return 2 }
+        if prominent { return 1 }
+        if case .fredaCountsFrom = title { return 1 }
+        return 2
+    }
+
+    /// How far the second line may shrink: a little, or a little more on the one line under FREDA's tick,
+    /// where "FREDA dans 10 min" needs about three quarters of its size beside "Déroutement".
+    func lineMinimumScale(phone: Bool, prominent: Bool) -> CGFloat {
+        !phone && !prominent && lineLines(phone: phone, prominent: prominent) == 1 ? 0.7 : 0.8
+    }
+
+    /// The second line, as the button shows it: `narrow` (the phone's shared row) and `stacked` (the
+    /// iPad's shared row) pick the line's shorter forms; under READY FOR LINE UP, "then LINE UP CHECK".
+    func lineText(narrow: Bool = false, stacked: Bool = false) -> String {
+        if readiesForLineUp { return L10n.Cockpit.thenCheck(phase.shortTitle) }
+        return narrow ? line.shortText : stacked ? line.stackedText : line.text
+    }
+
+    /// What VoiceOver reads for the second line.
+    var lineAccessibilityText: String {
+        readiesForLineUp ? lineText() : line.accessibilityText
+    }
+
+    /// The room the first line keeps: its words, the time at its widest, "CRUISE CHECK ✓ 00:00", so the
+    /// time it reads changes nothing. (6.1, the slot's text centred)
+    func titleRoom(stacked: Bool = false) -> String {
+        Self.widestFigures(titleText(stacked: stacked), atLeast: 2)
+    }
+
+    /// The room the second line keeps: the state's words, FREDA's minutes at the 10 they count down from
+    /// ("FREDA in 10 min"), so 10 turning 9 keeps the same room, and a count with as many figures as it
+    /// has, in its plural. Only a change of state changes it. A count kept at two figures could take two
+    /// lines where "5 items" takes one, and leave the empty line this is about: a list going from ten
+    /// items to nine is the one tick that can change the room. (6.1, the slot's text centred)
+    func lineRoom(narrow: Bool = false, stacked: Bool = false) -> String {
+        let widest = CheckSlot(phase: phase, line: line.widest, icon: icon, tone: tone, action: action, title: title)
+        return Self.widestFigures(widest.lineText(narrow: narrow, stacked: stacked), atLeast: 1)
+    }
+
+    /// `text` with every figure a zero, and every number at least `atLeast` figures: with 2, "✓ 9:05"
+    /// reads "✓ 00:00". B612's figures are all one width, so no number is wider than its zeros.
+    static func widestFigures(_ text: String, atLeast minimum: Int) -> String {
+        var result = ""
+        var figures = 0
+        func flush() {
+            if figures > 0 { result += String(repeating: "0", count: max(minimum, figures)) }
+            figures = 0
+        }
+        for character in text {
+            if character.wholeNumberValue != nil {
+                figures += 1
+            } else {
+                flush()
+                result.append(character)
+            }
+        }
+        flush()
+        return result
     }
 }
 
@@ -277,6 +352,17 @@ extension CheckSlot.Line {
         default: return text
         }
     }
+
+    /// The same line at its widest for the state: FREDA's minutes at the 10 they count down from, a
+    /// count in its plural ("2 items", where "1 item" is shorter).
+    var widest: CheckSlot.Line {
+        switch self {
+        case .items(let count): return .items(max(count, 2))
+        case .itemsQuiet(let count): return .itemsQuiet(max(count, 2))
+        case .fredaIn(let minutes): return .fredaIn(minutes: max(minutes, 10))
+        default: return self
+        }
+    }
 }
 
 /// The slot's button: the check's name, what a tap does under it, the icon on the left, in the tone's
@@ -294,12 +380,11 @@ struct CheckSlotButton: View {
 
     var body: some View {
         let phone = CockpitScale.current == .phone
-        // The phone's slot beside MARK or between the hold buttons is about 100 pt wide: no icon (the
+        // The phone's slot beside MARK or the hold buttons is about 100 pt wide: no icon (the
         // colour and the frame say the state), the name on two lines, the short line.
         let narrow = phone && !prominent
-        // The iPad's slot sharing its row (beside MARK, the landscape column): about 160 pt of text.
-        let stacked = !phone && !prominent
         Button(action: action) {
+            // The name and its line in the middle of the slot's height, the icon beside them.
             HStack(spacing: phone ? 8 : 16) {
                 if !narrow {
                     Image(systemName: iconName)
@@ -307,21 +392,8 @@ struct CheckSlotButton: View {
                                                     : CockpitType.size(kneeboard: 32, phone: 24),
                                     weight: .semibold))
                 }
-                VStack(alignment: .leading, spacing: 4) {
-                    Text(slot.titleText(stacked: stacked || narrow))
-                        .font(.aero(size: prominent ? CockpitType.button : CockpitType.size(kneeboard: 25, phone: 19),
-                                    weight: .bold))
-                        .lineLimit(slot.titleWraps(phone: phone, stacked: stacked) ? 2 : 1)
-                        .minimumScaleFactor(0.6)
-                    // Two lines where the slot shares the row (beside MARK, between the hold
-                    // buttons): "from memory · one tap when done" is the line that matters.
-                    Text(narrow ? slot.line.shortText : stacked ? slot.line.stackedText : slot.line.text)
-                        .font(.aero(size: CockpitType.label, weight: .medium))
-                        .foregroundColor(lineColor)
-                        .lineLimit(prominent && !phone ? 1 : 2)
-                        .minimumScaleFactor(0.8)
-                }
-                .frame(maxWidth: .infinity, alignment: .leading)
+                CheckSlotLabel(slot: slot, prominent: prominent, lineColor: lineColor)
+                    .frame(maxWidth: .infinity, alignment: .leading)
             }
             .foregroundColor(textColor)
             .padding(.horizontal, phone ? 10 : 22)
@@ -331,11 +403,12 @@ struct CheckSlotButton: View {
         }
         .buttonStyle(.plain)
         .accessibilityElement(children: .combine)
-        .accessibilityLabel("\(slot.titleText()), \(slot.line.accessibilityText)")
+        .accessibilityLabel("\(slot.titleText()), \(slot.lineAccessibilityText)")
         .accessibilityHint(accessibilityHint)
     }
 
     private var iconName: String {
+        if slot.readiesForLineUp { return "airplane.departure" }
         switch slot.icon {
         case .confirm: return "checkmark.circle"
         case .list: return "list.bullet"
@@ -384,11 +457,68 @@ struct CheckSlotButton: View {
         switch slot.action {
         case .confirmFromMemory: return L10n.CheckSlot.confirmHint
         case .showChecklist: return L10n.CheckSlot.showChecklistHint
-        case .advance: return L10n.Cockpit.nextPhaseA11y(slot.phase.title)
+        case .advance:
+            return slot.readiesForLineUp ? L10n.Cockpit.readyForLineUpHint : L10n.Cockpit.nextPhaseA11y(slot.phase.title)
         case .confirmFreda: return L10n.Freda.confirmHint
         case .advanceAndConfirm: return L10n.CheckSlot.advanceAndConfirmHint
         case .goToLanding: return L10n.CheckSlot.goToLandingHint
         }
+    }
+}
+
+/// The slot's name and the line under it, which the button centres in its height. Each keeps the room
+/// its state takes at its widest (`CheckSlot.titleRoom`, `lineRoom`), laid out as the text is, filled or
+/// not: "FREDA in 10 min" turning "9 min", a time, or a line shrinking to fit never moves the name. The room
+/// changes with the state alone (a check coming due, done, owed), and the two lines then centre again
+/// in the same frame. Until 6.1.0 the room for two lines was kept in every state, and a one-line
+/// "5 items" sat high in the slot over an empty line. (6.1, the slot's text centred)
+struct CheckSlotLabel: View {
+    let slot: CheckSlot
+    var prominent: Bool = false
+    var lineColor: Color = .secondary
+    /// The device's; the tests lay the phone's out on an iPad.
+    var scale: CockpitScale = .current
+
+    var body: some View {
+        let phone = scale == .phone
+        let narrow = phone && !prominent
+        // The iPad's slot sharing its row (beside MARK, the landscape column): about 160 pt of text.
+        let stacked = !phone && !prominent
+        let titleFont = Font.aero(size: prominent ? CockpitType.button(for: scale)
+                                                  : CockpitType.size(kneeboard: 25, phone: 19, scale: scale),
+                                  weight: .bold)
+        let lineFont = Font.aero(size: CockpitType.label(for: scale), weight: .medium)
+        VStack(alignment: .leading, spacing: 4) {
+            Self.text(slot.titleText(stacked: stacked || narrow), room: slot.titleRoom(stacked: stacked || narrow),
+                      font: titleFont, lines: slot.titleWraps(phone: phone, stacked: stacked) ? 2 : 1,
+                      minimumScale: 0.6)
+            // Two lines where the slot shares the row (beside MARK, beside the hold buttons):
+            // "from memory · one tap when done" is the line that matters.
+            Self.text(slot.lineText(narrow: narrow, stacked: stacked), room: slot.lineRoom(narrow: narrow, stacked: stacked),
+                      font: lineFont, lines: slot.lineLines(phone: phone, prominent: prominent),
+                      minimumScale: slot.lineMinimumScale(phone: phone, prominent: prominent))
+                .foregroundColor(lineColor)
+        }
+    }
+
+    /// `text` from the top of the room `room` takes, laid out as `text` is (in at most `lines` lines,
+    /// shrinking as far as `minimumScale` to fit). The text is drawn within that room and never sizes
+    /// it: as wide or narrower than the room's, it fits it, shrinking a little more if it must.
+    private static func text(_ text: String, room: String, font: Font, lines: Int,
+                             minimumScale: CGFloat) -> some View {
+        Text(verbatim: room)
+            .font(font)
+            .lineLimit(lines)
+            .minimumScaleFactor(minimumScale)
+            .hidden()
+            .accessibilityHidden(true)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .overlay(alignment: .topLeading) {
+                Text(verbatim: text)
+                    .font(font)
+                    .lineLimit(lines)
+                    .minimumScaleFactor(minimumScale)
+            }
     }
 }
 
@@ -489,18 +619,81 @@ struct CockpitCheckSlot: View {
         return .list(open: max(1, appState.openItems(in: phase).count))
     }
 
-    /// ENGINE START, READY FOR LINE UP or ENGINE SHUTDOWN, while unpressed in their phase: the ones a
-    /// phase is recorded red without.
+    /// ENGINE START or ENGINE SHUTDOWN, while unpressed in their phase: the ones a phase is recorded red
+    /// without. (READY FOR LINE UP is the slot's advance out of the check before departure since 6.2.)
     @MainActor
     static func pendingAction(in appState: AppState) -> String? {
         let phase = appState.currentPhase
         guard phase.hasMissingRequiredAction(engineStarted: appState.engineStartTime != nil,
-                                             linedUp: appState.lineUpTime != nil,
                                              engineShutDown: appState.engineShutdownTime != nil) else { return nil }
         let language = appState.settings.checklistLanguage.resolvedLanguage
         if phase.showsEngineStartButton { return L10n.ChecklistAction.engineStart(language: language) }
-        if phase.showsLineUpButton { return L10n.ChecklistAction.readyForLineUp(language: language) }
         return L10n.ChecklistAction.engineShutdown(language: language)
+    }
+}
+
+/// The map's thumb controls in the iPad's landscape column, top to bottom. The check slot always heads
+/// them on a row of its own, the column's width, in the same place in every phase. Beside Routes, with
+/// no route, it had about 150 pt for its words and showed "CRUISE CH…" over "FREDA in 6…". Pure, so it
+/// is tested without a view. (6.1)
+enum MapThumbColumn: Equatable {
+    /// Approach and landing: the slot, then GO AROUND and TOUCH-AND-GO.
+    case slotOverFlightEvents
+    /// A route to fly: the slot, then MARK with Divert and More.
+    case slotOverMark
+    /// No route: the slot, then Routes at the thumb bar's height, where MARK would be.
+    case slotOverRoutes
+    /// In flight with no slot: the leg timer and Divert, then MARK and More.
+    case legTimerOverMark
+    /// Not in flight (Plan › Map): Routes alone.
+    case routes
+
+    static func make(showsCheckSlot: Bool, showsEventButtons: Bool, hasRoute: Bool, flightActive: Bool) -> MapThumbColumn {
+        if showsEventButtons { return .slotOverFlightEvents }
+        if showsCheckSlot { return hasRoute ? .slotOverMark : .slotOverRoutes }
+        if flightActive && hasRoute { return .legTimerOverMark }
+        return .routes
+    }
+
+    /// Whether the slot has a row of its own.
+    var slotHasOwnRow: Bool {
+        switch self {
+        case .slotOverFlightEvents, .slotOverMark, .slotOverRoutes: return true
+        case .legTimerOverMark, .routes: return false
+        }
+    }
+}
+
+/// The map's bottom row in flight, left to right: in portrait, and under the phone's column on its side.
+/// With the check slot, the slot leads it, in one frame whatever follows it (`CheckSlotRowLayout`), as the
+/// landscape column keeps it on top: from circuit height, GO AROUND and TOUCH-AND-GO take the place of
+/// MARK, Divert and More (or of Routes), never the slot's. They used to frame it, every lap in circuits.
+/// Pure, so it is tested without a view. (6.1, the author's call: the slot stays left)
+enum MapThumbRow: Equatable {
+    /// Approach and landing, and from circuit height: the slot, GO AROUND, TOUCH-AND-GO.
+    case slotThenFlightEvents
+    /// A route to fly: the slot, MARK, Divert and More.
+    case slotThenMark
+    /// No route: the slot, then Routes where MARK, Divert and More would be.
+    case slotThenRoutes
+    /// In flight with no slot: the leg timer, MARK, Divert and More.
+    case legTimerThenMark
+    /// Not in flight (Plan › Map): Routes alone.
+    case routes
+
+    static func make(showsCheckSlot: Bool, showsEventButtons: Bool, hasRoute: Bool, flightActive: Bool) -> MapThumbRow {
+        if showsEventButtons { return .slotThenFlightEvents }
+        if showsCheckSlot { return hasRoute ? .slotThenMark : .slotThenRoutes }
+        if flightActive && hasRoute { return .legTimerThenMark }
+        return .routes
+    }
+
+    /// Whether the check slot comes first, in its one frame.
+    var slotLeads: Bool {
+        switch self {
+        case .slotThenFlightEvents, .slotThenMark, .slotThenRoutes: return true
+        case .legTimerThenMark, .routes: return false
+        }
     }
 }
 
@@ -510,6 +703,9 @@ struct CockpitCheckSlot: View {
 struct MapFlightEventButton: View {
     enum Event { case goAround, touchAndGo }
     let event: Event
+    /// The words only, no icon: on the phone, and two to a row in the iPad's landscape column, where
+    /// the icon left "TOUCH-AND…" about 120 pt. (6.1)
+    var narrow: Bool = CockpitScale.current == .phone
 
     @Environment(AppState.self) private var appState
     @Environment(\.cockpitTheme) private var theme
@@ -521,14 +717,14 @@ struct MapFlightEventButton: View {
                                        : L10n.ChecklistAction.touchAndGo(language: language)
         let icon = event == .goAround ? "arrow.up.right.circle.fill" : "arrow.triangle.2.circlepath"
         if appState.isCircuitMode {
-            CockpitThumbButton(title: title, icon: CockpitScale.current == .phone ? nil : icon,
+            CockpitThumbButton(title: title, icon: narrow ? nil : icon,
                                style: .outlined(tint: theme.action), action: perform)
         } else {
             HoldToConfirmButton(title: title, systemImage: icon, tint: theme.action,
                                 count: event == .goAround ? appState.currentFlight?.goAroundCount ?? 0
                                                           : appState.currentFlight?.touchAndGoCount ?? 0,
                                 kneeboard: true, height: CockpitTarget.thumb,
-                                stacked: CockpitScale.current == .phone, action: perform)
+                                stacked: narrow, action: perform)
         }
     }
 

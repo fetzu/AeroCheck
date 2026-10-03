@@ -41,6 +41,14 @@ final class InstrumentAccessibilityTests: XCTestCase {
         XCTAssertEqual(AltimeterView.accessibilityValue(altitudeFeet: 3500, gpsLost: true), "GPS signal lost")
     }
 
+    /// The Cockpit strip's own values: the speed in a phase without a target, and the GPS track. Their
+    /// French is in `LocalizationCatalogTests`. (6.2)
+    func testStripSpeedWithoutTargetAndTrackValues() {
+        XCTAssertEqual(L10n.Accessibility.groundSpeed(12), "12 knots ground speed")
+        XCTAssertEqual(L10n.Accessibility.track(270), "270 degrees track")
+        XCTAssertEqual(L10n.Accessibility.trackUnknown, "unknown")
+    }
+
     func testStatusAccessibilityText() {
         XCTAssertEqual(StatusIndicator.Status.active.accessibilityText, "active")
         XCTAssertEqual(StatusIndicator.Status.inactive.accessibilityText, "inactive")

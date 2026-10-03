@@ -436,7 +436,8 @@ struct FlightPlanMapBuilderView: View {
         .preferredColorScheme(.dark)
         .onAppear {
             Task {
-                await airportDataService.ensureLoaded()
+                // The airports, and the index the airfield search reads, built off the main actor. (6.1)
+                await airportDataService.prepareSearch()
                 scheduleAirportUpdate()
                 await OpenAIPNavaidDataService.shared.ensureLoaded()
                 scheduleNavaidUpdate()
@@ -658,10 +659,10 @@ struct FlightPlanMapBuilderView: View {
         }
     }
 
-    /// Debounced, distance-aware, fixed-wing-only airport search. Debouncing keeps each keystroke off
-    /// the ~40K-airport scan (feedback #1 perf); `near:`/`types:` apply the distance sort + heliport
-    /// filter (feedback #2/#3). Runs on the main actor (the service is `@MainActor`); the sleep simply
-    /// coalesces bursts of typing into one scan.
+    /// Debounced, distance-aware, fixed-wing-only airport search. Debouncing coalesces bursts of
+    /// typing into one search (feedback #1 perf; since 6.1 a search is a few milliseconds over the
+    /// folded index); `near:`/`types:` apply the distance sort + heliport filter (feedback #2/#3). Runs
+    /// on the main actor (the service is `@MainActor`).
     private func scheduleSearch(_ query: String) {
         searchTask?.cancel()
         let trimmed = query.trimmingCharacters(in: .whitespaces)
@@ -2553,7 +2554,7 @@ struct RouteBuilderMapView: UIViewRepresentable {
 
         func mapView(_ mapView: MKMapView, rendererFor overlay: MKOverlay) -> MKOverlayRenderer {
             if let tile = overlay as? MKTileOverlay {
-                return MKTileOverlayRenderer(tileOverlay: tile)
+                return LateTileRedraw.renderer(for: tile)
             }
             // Traffic circuits, VFR routes and sectors: before the generic MKPolyline branch below, which
             // would draw them magenta, as the route. (6.2.0)

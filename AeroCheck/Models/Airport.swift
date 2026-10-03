@@ -60,6 +60,11 @@ struct Airport: Codable, Identifiable, Equatable, Sendable {
     let gpsCode: String?
     let iataCode: String?
     let localCode: String?
+    /// Other names the field goes by, comma-separated, for the search only: OurAirports' keywords
+    /// ("Cointrin Airport", "Flugplatz Hegmatten"), its ICAO code when the ident is not it (CH-0002 is
+    /// LSYQ), and, once OpenAIP's name has replaced it, the OurAirports name. Optional, so a cache
+    /// written before 6.1 decodes with none, until the next download. (6.1)
+    var keywords: String? = nil
 
     /// CLLocationCoordinate2D for MapKit
     var coordinate: CLLocationCoordinate2D {
@@ -221,7 +226,7 @@ struct Runway: Codable, Identifiable, Equatable, Sendable {
 
 extension Airport {
     /// Parse from OurAirports CSV row
-    /// Expected columns: id,ident,type,name,latitude_deg,longitude_deg,elevation_ft,continent,iso_country,iso_region,municipality,scheduled_service,gps_code,iata_code,local_code,home_link,wikipedia_link,keywords
+    /// Expected columns: id,ident,type,name,latitude_deg,longitude_deg,elevation_ft,continent,iso_country,iso_region,municipality,scheduled_service,icao_code,iata_code,gps_code,local_code,home_link,wikipedia_link,keywords
     init?(csvRow: [String: String]) {
         guard let idStr = csvRow["id"], let id = Int(idStr),
               let ident = csvRow["ident"],
@@ -255,6 +260,14 @@ extension Airport {
         self.gpsCode = csvRow["gps_code"]
         self.iataCode = csvRow["iata_code"]
         self.localCode = csvRow["local_code"]
+        // The file now gives the ICAO code a column of its own. It only adds something where neither
+        // the ident nor the GPS or local code is already it (89 airports, two Swiss altiports among them).
+        let known = [ident, csvRow["gps_code"], csvRow["local_code"]]
+        let icao = csvRow["icao_code"].flatMap { code in
+            known.contains { $0?.caseInsensitiveCompare(code) == .orderedSame } ? nil : code
+        }
+        let keywords = [csvRow["keywords"], icao].compactMap { $0 }.joined(separator: ", ")
+        self.keywords = keywords.isEmpty ? nil : keywords
     }
 }
 

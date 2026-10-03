@@ -120,6 +120,10 @@ class SharedMapState: ObservableObject {
     /// knows it. Deriving a camera distance from the route's extent framed a 200 NM east–west route
     /// as if it were 20 NM tall and zoomed into the middle of it. (v4.4.0)
     var pendingFitCoordinates: [CLLocationCoordinate2D]?
+    /// What the map shows while the legs panel's band has the camera, for the airports and airspace
+    /// drawn on it. The band never writes `region`, `cameraDistance` or `cameraHeading`: they keep the
+    /// map the pilot left, which closing the panel puts back. nil with the panel closed. (6.1, option C)
+    @Published var bandRegion: MKCoordinateRegion?
 
     init() {
         // Default to Switzerland center
@@ -145,6 +149,20 @@ class SharedMapState: ObservableObject {
             DispatchQueue.main.async { [weak self] in
                 self?.cameraHeading = camera.heading
             }
+        }
+    }
+
+    /// The band's map moved. Deferred, as `updateFromRegion` is.
+    func updateBandRegion(_ region: MKCoordinateRegion) {
+        DispatchQueue.main.async { [weak self] in
+            self?.bandRegion = region
+        }
+    }
+
+    /// The panel closed and the map is back where it was.
+    func endBand() {
+        DispatchQueue.main.async { [weak self] in
+            self?.bandRegion = nil
         }
     }
 
@@ -230,8 +248,8 @@ struct NavigationMapView: View {
     /// left that also takes the thumb bar, with the map at full height beside it. (iPhone pass)
     var leadingColumn: AnyView? = nil
     var leadingColumnWidth: CGFloat = 340
-    /// Over the map's own chrome, at the top: the Cockpit's chips that come and go (BRIEFING, the
-    /// cautions), on the phone.
+    /// Over the chart, under the next waypoint: the Cockpit's chips that come and go (BRIEFING, the
+    /// cautions), on the phone. Over it, they pushed the next waypoint down as they came. (6.1)
     var mapTopAccessory: AnyView? = nil
     /// The Cockpit's CHECKLIST pane, for the check slot's "N items". Given by the Cockpit only: with it,
     /// in flight, the check slot leads the bottom row. (6.1)
@@ -242,8 +260,18 @@ struct NavigationMapView: View {
     @State private var showMapSheet: Bool = false
     /// Measured height of the open legs-and-frequencies panel, so it hugs its content up to its limit.
     @State private var legsPanelContentHeight: CGFloat = 0
+    /// Emergency, pinned to the open panel's foot: its height. (6.1, option C)
+    @State private var emergencyFooterHeight: CGFloat = 0
+    /// The panel just opened: its scroll is to bring the leg being flown into view, once measured.
+    @State private var legsRevealPending = false
+    /// The chart's measures, for the band the open panel leaves between the card and itself.
+    @State private var chartGeometry = ChartGeometry()
+    /// The map as the panel found it, put back when it closes. (6.1, option C)
+    @State private var cameraBeforeLegs: LegsPanelMap.SavedCamera?
     @State private var showCacheInfoModal: Bool = false
     @State private var showSigmets: Bool = false
+    /// The Cockpit's chips over the chart, as last measured: the room kept for them. (6.1)
+    @State private var mapAccessoryHeight: CGFloat?
     @State private var showFlightPlanning: Bool = false
     /// Whether the flight-plan sheet (bottom bar) is expanded to show the full plan detail. (v4 UI/UX Revamp — inc C)
     @State private var navSheetExpanded: Bool = false
@@ -409,6 +437,15 @@ struct NavigationMapView: View {
     }
 
     var body: some View {
+        // The handlers in two expressions of their own (`mapLifecycle`, `mapDataRefresh`), and the longer
+        // ones in methods. Chained here, all of it was one expression, and from #278 on the compiler of
+        // Xcode 26, which the CodeQL job builds with, gave up type-checking it: "unable to type-check this
+        // expression in reasonable time". (6.1.0)
+        mapDataRefresh(mapLifecycle(mapWithPresentations))
+    }
+
+    /// The map and what it presents.
+    private var mapWithPresentations: some View {
         // One layout on both devices: the phone's own map chrome went with the iPhone pass (I4).
         GeometryReader { geometry in
             standardLayoutBody(geometry: geometry)
@@ -433,66 +470,26 @@ struct NavigationMapView: View {
                 .environmentObject(locationManager)
                 .presentationDetents([.large])
         }
-        .onAppear {
-            // Restore map settings from session state
-            selectedLayer = appState.navigationMapState.selectedLayer
-            mapOrientationMode = appState.navigationMapState.orientationMode
-            // Start GPS updates when navigation view opens
-            locationManager.startLocationUpdates()
-            // Center on aircraft location immediately (synchronous, not via async dispatch)
-            // so the map renders at the correct position from the first frame
-            if let location = locationManager.currentLocation {
-                mapState.region = MKCoordinateRegion(center: location.coordinate, span: initialSpan)
-                mapState.cameraDistance = initialCameraDistance
-                if mapOrientationMode == .trackUp, let course = locationManager.currentCourseDegrees {
-                    mapState.cameraHeading = course
-                }
-                hasInitiallyCentered = true
-            }
-            // Default to centered & following the aircraft. (v4 UI/UX Revamp — center on position by default)
-            isFollowingAircraft = true
-            // Ensure airport data is loaded — needed both for the map overlay AND for the phase-aware
-            // frequencies (nearest-airport lookup), so load it regardless of the overlay setting, then
-            // refresh the cached phase frequencies once it's available. (v4 UI/UX Revamp fix)
-            Task {
-                await airportDataService.ensureLoaded()
-                // ensureLoaded() only loads an existing cache — it never downloads. The frequency
-                // feature (nearest airfield + airfield auto-complete) needs the DB, so fetch it once
-                // on demand if it was never downloaded. (v4 UI/UX Revamp fix)
-                if !airportDataService.isDataAvailable && !airportDataService.isDownloading {
-                    await airportDataService.downloadData()
-                }
-                recomputePhaseFrequencies()
-            }
-            // Ensure OpenAIP airspace data is loaded for FREQ panel CTR queries
-            if openAIPDataService.isDataAvailable {
-                Task { await openAIPDataService.ensureLoaded() }
-            }
-            // Trigger streaming CTR fetch if enabled and no downloaded data
-            if appState.settings.enableAirspaceStreaming && !openAIPDataService.isDataAvailable,
-               let coord = locationManager.currentLocation?.coordinate {
-                Task { await openAIPDataService.fetchStreamingCTRsIfNeeded(from: coord) }
-            }
-            // Seed the cached spatial map content for the initial region. (PR-11)
-            recomputeMapSpatialContent(force: true)
-            // Prime the track-vector EMA from the last known fix so the vector appears immediately on
-            // (re)open — even on a stationary device with no fresh location *change* to trigger it. (v4 UI/UX Revamp fix)
-            updateTrackVectorEMA()
-        }
-        .onDisappear {
-            // Keep the zoom for next time. (v6.0 · P2)
-            appState.navigationMapState.cameraDistance = mapState.cameraDistance
-            appState.navigationMapState.latitudeDelta = mapState.region.span.latitudeDelta
-            // Stop GPS updates when navigation view closes (if not in a flight)
-            locationManager.stopLocationUpdates()
-            streamingCTRCheckTask?.cancel()
-            streamingCTRCheckTask = nil
-        }
+    }
+
+    /// Opening and closing the map, its region, the panel, the overlay settings, the phase, the leg and
+    /// the FREDA tick.
+    private func mapLifecycle(_ content: some View) -> some View {
+        content
+        .onAppear { handleAppear() }
+        .onDisappear { handleDisappear() }
         // PR-11: recompute the visible airports/airspace only when the region moves past the
         // quantization threshold (the function early-returns otherwise), instead of on every body
         // re-eval. A toggled overlay setting or newly-available data forces an immediate recompute.
         .onReceive(mapState.$region) { _ in
             recomputeMapSpatialContent()
+        }
+        // The band's chart, while the legs panel is open. (6.1, option C)
+        .onReceive(mapState.$bandRegion) { _ in
+            recomputeMapSpatialContent()
+        }
+        .onChange(of: navSheetExpanded) { _, open in
+            if open { legsPanelOpened() } else { legsPanelClosed() }
         }
         .onChange(of: appState.settings.showAirportsOnMap) { _, _ in recomputeMapSpatialContent(force: true) }
         .onChange(of: appState.settings.showNavaidsOnMap) { _, _ in recomputeMapSpatialContent(force: true) }
@@ -512,6 +509,11 @@ struct NavigationMapView: View {
             // valid vector after a Nav→Checklist→Nav round trip. (v4 UI/UX Revamp fix)
             updateTrackVectorEMA()
         }
+    }
+
+    /// The map's content as its data and settings change, the aircraft as it moves, the layer as chosen.
+    private func mapDataRefresh(_ content: some View) -> some View {
+        content
         .onChange(of: appState.settings.showOpenAIPOverlay) { _, _ in recomputeMapSpatialContent(force: true) }
         .onChange(of: airportDataService.isDataAvailable) { _, available in
             recomputeMapSpatialContent(force: true)
@@ -531,58 +533,121 @@ struct NavigationMapView: View {
         .onChange(of: openAIPNavaidDataService.navaidCount) { _, _ in recomputeMapSpatialContent(force: true) }
         .onChange(of: openAIPObstacleDataService.obstacleCount) { _, _ in recomputeMapSpatialContent(force: true) }
         .onChange(of: reportingPointCatalog.revision) { _, _ in recomputeMapSpatialContent(force: true) }
-        .onChange(of: locationManager.currentLocation) { _, newLocation in
-            // Increment counter to force map view updates (ensures aircraft annotation moves)
-            locationUpdateCounter += 1
-            updateTrackVectorEMA()
+        .onChange(of: locationManager.currentLocation) { _, newLocation in handleLocationChange(newLocation) }
+        .onChange(of: selectedLayer) { _, newLayer in handleLayerChange(to: newLayer) }
+    }
 
-            if isFollowingAircraft, let location = newLocation {
-                if !hasInitiallyCentered {
-                    // First fix after opening (no position was available at open) — snap to a tight,
-                    // centered view rather than re-centering at whatever stale zoom was left. (v4 UI/UX Revamp)
-                    mapState.region = MKCoordinateRegion(center: location.coordinate, span: initialSpan)
-                    mapState.cameraDistance = initialCameraDistance
-                    hasInitiallyCentered = true
-                } else {
-                    updateMapStateForLocation(location)
-                }
-            }
-
-            // In track-up mode, update heading to match course (using cached heading)
+    private func handleAppear() {
+        // Restore map settings from session state
+        selectedLayer = appState.navigationMapState.selectedLayer
+        mapOrientationMode = appState.navigationMapState.orientationMode
+        // Start GPS updates when navigation view opens
+        locationManager.startLocationUpdates()
+        // Center on aircraft location immediately (synchronous, not via async dispatch)
+        // so the map renders at the correct position from the first frame
+        if let location = locationManager.currentLocation {
+            mapState.region = MKCoordinateRegion(center: location.coordinate, span: initialSpan)
+            mapState.cameraDistance = initialCameraDistance
             if mapOrientationMode == .trackUp, let course = locationManager.currentCourseDegrees {
                 mapState.cameraHeading = course
             }
+            hasInitiallyCentered = true
+        }
+        // Default to centered & following the aircraft. (v4 UI/UX Revamp — center on position by default)
+        isFollowingAircraft = true
+        // Ensure airport data is loaded — needed both for the map overlay AND for the phase-aware
+        // frequencies (nearest-airport lookup), so load it regardless of the overlay setting, then
+        // refresh the cached phase frequencies once it's available. (v4 UI/UX Revamp fix)
+        Task {
+            await airportDataService.ensureLoaded()
+            // ensureLoaded() only loads an existing cache — it never downloads. The frequency
+            // feature (nearest airfield + airfield auto-complete) needs the DB, so fetch it once
+            // on demand if it was never downloaded. (v4 UI/UX Revamp fix)
+            if !airportDataService.isDataAvailable && !airportDataService.isDownloading {
+                await airportDataService.downloadData()
+            }
+            recomputePhaseFrequencies()
+        }
+        // Ensure OpenAIP airspace data is loaded for FREQ panel CTR queries
+        if openAIPDataService.isDataAvailable {
+            Task { await openAIPDataService.ensureLoaded() }
+        }
+        // Trigger streaming CTR fetch if enabled and no downloaded data
+        if appState.settings.enableAirspaceStreaming && !openAIPDataService.isDataAvailable,
+           let coord = locationManager.currentLocation?.coordinate {
+            Task { await openAIPDataService.fetchStreamingCTRsIfNeeded(from: coord) }
+        }
+        // Seed the cached spatial map content for the initial region. (PR-11)
+        recomputeMapSpatialContent(force: true)
+        // Prime the track-vector EMA from the last known fix so the vector appears immediately on
+        // (re)open — even on a stationary device with no fresh location *change* to trigger it. (v4 UI/UX Revamp fix)
+        updateTrackVectorEMA()
+    }
 
-            // Waypoints passed (ATO) are marked in the GPS pipeline, `LocationManager`. (v6.0.1)
+    private func handleDisappear() {
+        // Keep the zoom for next time. (v6.0 · P2)
+        appState.navigationMapState.cameraDistance = mapState.cameraDistance
+        appState.navigationMapState.latitudeDelta = mapState.region.span.latitudeDelta
+        // Stop GPS updates when navigation view closes (if not in a flight)
+        locationManager.stopLocationUpdates()
+        streamingCTRCheckTask?.cancel()
+        streamingCTRCheckTask = nil
+    }
 
-            // Debounced streaming CTR fetch (5s delay)
-            if appState.settings.enableAirspaceStreaming && !openAIPDataService.isDataAvailable {
-                streamingCTRCheckTask?.cancel()
-                streamingCTRCheckTask = Task {
-                    try? await Task.sleep(for: .seconds(5))
-                    guard !Task.isCancelled, let coord = newLocation?.coordinate else { return }
-                    await openAIPDataService.fetchStreamingCTRsIfNeeded(from: coord)
-                }
+    private func handleLocationChange(_ newLocation: CLLocation?) {
+        // Increment counter to force map view updates (ensures aircraft annotation moves)
+        locationUpdateCounter += 1
+        updateTrackVectorEMA()
+
+        // Not with the legs panel open: its band follows the aircraft itself, and leaves the shared
+        // state as the pilot had it for the panel to put back. (6.1, option C)
+        if isFollowingAircraft, !navSheetExpanded, let location = newLocation {
+            if !hasInitiallyCentered {
+                // First fix after opening (no position was available at open) — snap to a tight,
+                // centered view rather than re-centering at whatever stale zoom was left. (v4 UI/UX Revamp)
+                mapState.region = MKCoordinateRegion(center: location.coordinate, span: initialSpan)
+                mapState.cameraDistance = initialCameraDistance
+                hasInitiallyCentered = true
+            } else {
+                updateMapStateForLocation(location)
             }
         }
-        .onChange(of: selectedLayer) { oldLayer, newLayer in
-            // Save to session state
-            appState.navigationMapState.selectedLayer = newLayer
-            // When switching layers, force a tile refresh for Swiss layers
-            if newLayer.isSwissLayer {
-                // Trigger a small region update to force tile loading
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-                    let currentRegion = mapState.region
-                    mapState.region = MKCoordinateRegion(
-                        center: currentRegion.center,
-                        span: MKCoordinateSpan(
-                            latitudeDelta: currentRegion.span.latitudeDelta * 1.001,
-                            longitudeDelta: currentRegion.span.longitudeDelta * 1.001
-                        )
+
+        // In track-up mode, update heading to match course (using cached heading)
+        if mapOrientationMode == .trackUp, let course = locationManager.currentCourseDegrees {
+            mapState.cameraHeading = course
+        }
+
+        // Waypoints passed (ATO) are marked in the GPS pipeline, `LocationManager`. (v6.0.1)
+
+        // Debounced streaming CTR fetch (5s delay)
+        if appState.settings.enableAirspaceStreaming && !openAIPDataService.isDataAvailable {
+            streamingCTRCheckTask?.cancel()
+            streamingCTRCheckTask = Task {
+                try? await Task.sleep(for: .seconds(5))
+                guard !Task.isCancelled, let coord = newLocation?.coordinate else { return }
+                await openAIPDataService.fetchStreamingCTRsIfNeeded(from: coord)
+            }
+        }
+    }
+
+    private func handleLayerChange(to newLayer: MapLayerType) {
+        // Save to session state
+        appState.navigationMapState.selectedLayer = newLayer
+        // When switching layers, force a tile refresh for Swiss layers
+        if newLayer.isSwissLayer {
+            // Trigger a small region update to force tile loading
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                let currentRegion = mapState.region
+                mapState.region = MKCoordinateRegion(
+                    center: currentRegion.center,
+                    span: MKCoordinateSpan(
+                        latitudeDelta: currentRegion.span.latitudeDelta * 1.001,
+                        longitudeDelta: currentRegion.span.longitudeDelta * 1.001
                     )
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-                        mapState.region = currentRegion
-                    }
+                )
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                    mapState.region = currentRegion
                 }
             }
         }
@@ -637,6 +702,13 @@ struct NavigationMapView: View {
     /// The map keeps 760 pt, enough for the next-waypoint card and the controls row. (review #1, R-01)
     private static let sideColumnWidth: CGFloat = 420
 
+    /// The landscape legs panel's height, at most: the chart's lower half, less the aircraft's half
+    /// symbol and a margin. The map centres the aircraft when it follows it, so the aircraft, the next
+    /// waypoint and the map's controls stay in view with the panel open; past that it scrolls. (6.1)
+    static func landscapeLegsMaxHeight(mapHeight: CGFloat) -> CGFloat {
+        max(0, mapHeight / 2 - 36)
+    }
+
     private func standardLayoutBody(geometry: GeometryProxy) -> some View {
         // Landscape: the map takes the full height and the frequencies, legs and thumb controls move
         // to a column on the right. A 104 pt bar across a 820 pt-tall screen left the map a letterbox.
@@ -665,8 +737,12 @@ struct NavigationMapView: View {
                     VStack(spacing: 0) {
                         leadingColumn
                         Spacer(minLength: 0)
+                        // 6 pt under the strip: the column is to fit a 6.1" phone's 369 pt over the home
+                        // indicator, the thumb row whole. (6.1, device check)
                         navThumbColumnCompact
-                            .padding(12)
+                            .padding(.horizontal, 12)
+                            .padding(.top, 6)
+                            .padding(.bottom, 12)
                     }
                     .frame(width: leadingColumnWidth)
                     .background(theme.panel.ignoresSafeArea())
@@ -675,8 +751,21 @@ struct NavigationMapView: View {
                     SeparateView { columnsMapArea(legsMaxHeight: height * 0.5) }
                 }
             } else if landscape {
+                // The legs and every frequency open over the chart's foot, beside the column, rather than
+                // in it: in the column they had the room its controls left, a strip that showed a row and
+                // a half. (6.1, device check) The map's footer rides above them, the undo toast with it.
+                let legsMaxHeight = Self.landscapeLegsMaxHeight(mapHeight: height)
                 HStack(spacing: 0) {
-                    SeparateView { mapArea(bottomPanel: EmptyView?.none) }
+                    SeparateView {
+                        mapArea(bottomPanel: EmptyView?.none,
+                                footerClearance: navSheetExpanded ? legsPanelHeight(maxHeight: legsMaxHeight) : 0)
+                    }
+                    .overlay(alignment: .bottom) {
+                        if navSheetExpanded {
+                            SeparateView { landscapeLegsPanel(maxHeight: legsMaxHeight) }
+                                .transition(.move(edge: .bottom))
+                        }
+                    }
                     SeparateView { sideColumn }
                         .frame(width: Self.sideColumnWidth)
                 }
@@ -738,43 +827,31 @@ struct NavigationMapView: View {
     private func columnsMapArea(legsMaxHeight: CGFloat) -> some View {
         VStack(spacing: 0) {
             chartWithChrome(top: VStack(spacing: 8) {
-                if let mapTopAccessory {
-                    mapTopAccessory
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                }
                 nextWaypointLine
-                VStack(alignment: .leading, spacing: 8) {
-                    SigmetChip(hazards: rankedSigmets) { showSigmets = true }
-                    routeOffScreenPill
-                        .animation(reduceMotion ? nil : .easeInOut(duration: 0.25), value: routeOffScreenHint) // (UX-18)
-                }
-                .frame(maxWidth: .infinity, alignment: .leading)
+                SeparateView { occasionalChips(pillLeading: true) }
             }
             .padding(.horizontal, 10)
             .padding(.top, 8),
             bottom: VStack(spacing: 8) {
-                mapFooter
+                MapUndoToast(undoOffer: $undoOffer)
+                    .padding(.horizontal, 16)
                 // The controls at the foot of the chart, by the thumb, leaving the top (what's
-                // ahead, in Track up) clear. Labelled where the row has room, icons where not.
-                SeparateView { mapControlsBottomRow }
-                    .frame(maxWidth: .infinity, alignment: .trailing)
-                    .padding(.horizontal, 10)
+                // ahead, in Track up) clear, and the scale and the chart's source beside them. Not with
+                // the legs open: the band is a view. (6.1, option C)
+                if chrome.showsMapControls || chrome.showsMapStatus {
+                    SeparateView { columnsMapFoot }
+                        .padding(.horizontal, 10)
+                }
             }
-            .padding(.bottom, 8))
+            .padding(.bottom, 8)
+            .sheet(isPresented: $showCacheInfoModal) { cacheInfoSheet })
 
             // The frequencies, and the legs when opened, under the chart rather than over it.
             VStack(spacing: 0) {
                 freqLine
                 if navSheetExpanded {
                     Rectangle().fill(theme.panelStroke).frame(height: 1)
-                    ScrollView {
-                        SeparateView { legsAndFrequencies }
-                            .background(GeometryReader { proxy in
-                                Color.clear.preference(key: LegsPanelHeightKey.self, value: proxy.size.height)
-                            })
-                    }
-                    .frame(height: min(legsPanelContentHeight, legsMaxHeight))
-                    .onPreferenceChange(LegsPanelHeightKey.self) { legsPanelContentHeight = $0 }
+                    SeparateView { legsPanelContent(maxHeight: legsMaxHeight) }
                 }
             }
             .background(theme.panel.ignoresSafeArea(edges: .bottom))
@@ -809,10 +886,11 @@ struct NavigationMapView: View {
                             .lineLimit(1)
                             .minimumScaleFactor(0.6)
                         Spacer(minLength: 6)
-                        Text([liveBearingText,
-                              nextWaypointDistanceValue.map { "\($0) NM" },
-                              nextLegLive.map { "\(eteValue($0.ete)) \(eteUnit($0.ete))" }]
-                                .compactMap { $0 }.joined(separator: " · "))
+                        // One length whatever the figures: each in a field as wide as its widest, "—"
+                        // while there is none, so they hold still and the ident keeps its size. (6.1)
+                        Text(NextWaypointReadout.phoneLine(bearing: liveBearingText,
+                                                           distance: nextWaypointDistanceValue,
+                                                           ete: nextLegLive?.ete))
                             .font(.aero(size: CockpitType.label, weight: .bold, design: .monospaced))
                             .foregroundColor(theme.textPrimary)
                             .lineLimit(1)
@@ -849,30 +927,75 @@ struct NavigationMapView: View {
     /// with their names for VoiceOver when they don't (French runs longer). Zoom is a pinch.
     private var mapControlsBottomRow: some View {
         ViewThatFits(in: .horizontal) {
-            HStack(spacing: 8) {
-                mapSheetButton(labelled: true)
-                orientationButton
-                chromeButton(icon: isFollowingAircraft ? "location.fill" : "location",
-                             title: L10n.Nav.centre, prominent: !isFollowingAircraft) { centerOnAircraft() }
+            mapControlsLabelled
+            mapControlsIcons
+        }
+        .sheet(isPresented: $showMapSheet) { mapSheet }
+    }
+
+    /// The landscape phone's foot of the chart: the chart's source and the scale bar at the left of
+    /// the controls, in their band. Stacked over the controls, they reached the middle of a chart about
+    /// 340 pt tall, by the aircraft. The controls keep their labels where all fits (a Pro Max), else go
+    /// to their icons, the fallback French already took; on a phone too narrow even for that (an iPhone
+    /// SE), the source and the scale go back over the controls. The portrait phone and the iPad keep
+    /// theirs over the chart's bottom left corner: there it is a corner. (6.1, device check)
+    private var columnsMapFoot: some View {
+        ViewThatFits(in: .horizontal) {
+            HStack(alignment: .bottom, spacing: 0) {
+                columnsMapStatus
+                Spacer(minLength: 8)
+                mapControlsLabelled
             }
-            HStack(spacing: 8) {
-                mapSheetButton(labelled: false)
-                chromeIconButton(icon: mapOrientationMode == .northUp ? "location.north.line" : "location.north.line.fill",
-                                 label: mapOrientationMode == .northUp ? L10n.Nav.northUp : L10n.Nav.trackUp) {
-                    toggleOrientation()
-                }
-                chromeIconButton(icon: isFollowingAircraft ? "location.fill" : "location", label: L10n.Nav.centre,
-                                 prominent: !isFollowingAircraft) { centerOnAircraft() }
+            HStack(alignment: .bottom, spacing: 0) {
+                columnsMapStatus
+                Spacer(minLength: 8)
+                mapControlsIcons
+            }
+            VStack(alignment: .leading, spacing: 8) {
+                columnsMapStatus
+                mapControlsIcons
+                    .frame(maxWidth: .infinity, alignment: .trailing)
             }
         }
-        .sheet(isPresented: $showMapSheet) {
-            MapSheet(selectedLayer: $selectedLayer, isOfflineMode: isOfflineMode, mapCenter: mapState.region.center)
-                .environment(appState)
-                .environment(\.cockpitTheme, theme)
-                .environmentObject(openAIPDataService)
-                .environmentObject(dataStatusManager)
-                .environmentObject(offlineMapManager)
+        .sheet(isPresented: $showMapSheet) { mapSheet }
+    }
+
+    /// The source and the scale in the landscape phone's band, as wide whatever the zoom: the scale bar
+    /// runs 60 to 100 pt, and a band that changed its mind with every pinch would move the controls.
+    private var columnsMapStatus: some View {
+        mapStatus
+            .frame(minWidth: 100, alignment: .bottomLeading)
+            .fixedSize()
+    }
+
+    private var mapControlsLabelled: some View {
+        HStack(spacing: 8) {
+            mapSheetButton(labelled: true)
+            orientationButton
+            chromeButton(icon: isFollowingAircraft ? "location.fill" : "location",
+                         title: L10n.Nav.centre, prominent: !isFollowingAircraft) { centerOnAircraft() }
         }
+    }
+
+    private var mapControlsIcons: some View {
+        HStack(spacing: 8) {
+            mapSheetButton(labelled: false)
+            chromeIconButton(icon: mapOrientationMode == .northUp ? "location.north.line" : "location.north.line.fill",
+                             label: mapOrientationMode == .northUp ? L10n.Nav.northUp : L10n.Nav.trackUp) {
+                toggleOrientation()
+            }
+            chromeIconButton(icon: isFollowingAircraft ? "location.fill" : "location", label: L10n.Nav.centre,
+                             prominent: !isFollowingAircraft) { centerOnAircraft() }
+        }
+    }
+
+    private var mapSheet: some View {
+        MapSheet(selectedLayer: $selectedLayer, isOfflineMode: isOfflineMode, mapCenter: mapState.region.center)
+            .environment(appState)
+            .environment(\.cockpitTheme, theme)
+            .environmentObject(openAIPDataService)
+            .environmentObject(dataStatusManager)
+            .environmentObject(offlineMapManager)
     }
 
     /// Map, with the stale-airspace cue on it.
@@ -950,9 +1073,9 @@ struct NavigationMapView: View {
                     .foregroundColor(theme.textSecondary)
                     .lineLimit(1)
             }
-            Text(item?.freq ?? "—")
-                .font(.aero(size: CockpitType.label, weight: .bold, design: .monospaced))
-                .foregroundColor(theme.textPrimary)
+            FrequencyLineText(text: item?.freq ?? "—",
+                              font: .aero(size: CockpitType.label, weight: .bold, design: .monospaced),
+                              color: theme.textPrimary)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .accessibilityElement(children: .combine)
@@ -960,8 +1083,9 @@ struct NavigationMapView: View {
 
     /// The map with its chrome: the top bar (full-screen only), the next-waypoint card and the map's
     /// controls on top, the scale bar and the undo toast at the bottom, and — in portrait — the
-    /// bottom panel.
-    private func mapArea<Panel: View>(bottomPanel: Panel?) -> some View {
+    /// bottom panel. `footerClearance`: room kept under the scale bar and the undo toast, for the
+    /// landscape legs panel laid over the chart's foot.
+    private func mapArea<Panel: View>(bottomPanel: Panel?, footerClearance: CGFloat = 0) -> some View {
         // The phone: the next waypoint on one line and the controls at the foot of the chart, as on
         // its side. With the card and a row of controls on top, a phone in cruise had about 150 pt
         // of chart left, the aircraft under the controls. (round 6, I-06)
@@ -975,12 +1099,9 @@ struct NavigationMapView: View {
                 }
 
                 // What a pilot reads most, big and on top: the next waypoint. Then the map's own
-                // controls, labelled. (v6.0 · P3)
+                // controls, labelled. (v6.0 · P3) What comes and goes sits under them, so it never
+                // moves them. (6.1)
                 VStack(spacing: compact ? 8 : 10) {
-                    if let mapTopAccessory {
-                        mapTopAccessory
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                    }
                     if compact {
                         nextWaypointLine
                     } else {
@@ -990,29 +1111,26 @@ struct NavigationMapView: View {
                         routesButton()
                             .frame(maxWidth: .infinity, alignment: .leading)
                     }
-                    if !compact {
+                    // Not with the legs open: the band under the card is a view. (6.1, option C)
+                    if !compact && chrome.showsMapControls {
                         SeparateView { mapControlsRow }
                             .frame(maxWidth: .infinity, alignment: .trailing)
                     }
-                    // Hazard chip. Only exists when a hazard is actually in range — a chip that is
-                    // always present stops being read.
-                    SigmetChip(hazards: rankedSigmets) { showSigmets = true }
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                    routeOffScreenPill
-                        .animation(reduceMotion ? nil : .easeInOut(duration: 0.25), value: routeOffScreenHint) // (UX-18)
+                    SeparateView { occasionalChips(pillLeading: false) }
                 }
                 .padding(.horizontal, compact ? 10 : 16)
                 .padding(.top, compact ? 8 : 10)
             },
             bottom: VStack(spacing: 8) {
                 mapFooter
-                if compact {
+                if compact && chrome.showsMapControls {
                     SeparateView { mapControlsBottomRow }
                         .frame(maxWidth: .infinity, alignment: .trailing)
                         .padding(.horizontal, 10)
                 }
             }
-            .padding(.bottom, compact ? 8 : 0))
+            .padding(.bottom, (compact ? 8 : 0) + footerClearance),
+            panelInset: footerClearance)
 
             if let bottomPanel { bottomPanel }
         }
@@ -1021,12 +1139,170 @@ struct NavigationMapView: View {
     /// The chart, its chrome laid over it: over, not stacked, so the chrome never makes the pane taller
     /// than its room. Stacked, the card, the controls and the route pill pushed the thumb bar half off
     /// a phone in climb. (round 6, I-06)
-    private func chartWithChrome<Top: View, Bottom: View>(top: Top, bottom: Bottom) -> some View {
+    ///
+    /// With the legs and frequencies open, the chart left between the top chrome and the panel is the
+    /// band (`legsBand`): measured here, in the chart's own space, as the map view runs under a safe
+    /// area where the chart doesn't. `panelInset`: how much of the chart's foot the panel lies over (in
+    /// landscape; elsewhere it is under the chart). (6.1, option C)
+    private func chartWithChrome<Top: View, Bottom: View>(top: Top, bottom: Bottom,
+                                                         panelInset: CGFloat = 0) -> some View {
         Color.clear
-            .overlay(alignment: .top) { top }
+            // Under the chrome, so the card and the undo stay live.
+            .overlay { if chrome.bandClosesPanel { legsBandCover } }
+            .overlay(alignment: .top) {
+                top.background(GeometryReader { proxy in
+                    Color.clear.preference(key: ChartChromeBottomKey.self,
+                                           value: proxy.frame(in: .named(Self.chartSpace)).maxY)
+                })
+            }
             .overlay(alignment: .bottom) { bottom }
             .clipped()
-            .background { mapContent.ignoresSafeArea() }
+            .background {
+                mapContent.ignoresSafeArea()
+                    .background(GeometryReader { proxy in
+                        Color.clear.preference(key: ChartMapFrameKey.self,
+                                               value: proxy.frame(in: .named(Self.chartSpace)))
+                    })
+            }
+            .background(GeometryReader { proxy in
+                Color.clear
+                    .preference(key: ChartSizeKey.self, value: proxy.size)
+                    .preference(key: ChartPanelInsetKey.self, value: panelInset)
+                    .preference(key: ChartMeasuredOpenKey.self, value: chrome.bandClosesPanel)
+            })
+            .coordinateSpace(name: Self.chartSpace)
+            .onPreferenceChange(ChartSizeKey.self) { chartGeometry.chartSize = $0 }
+            .onPreferenceChange(ChartChromeBottomKey.self) { chartGeometry.chromeBottom = $0 }
+            .onPreferenceChange(ChartMapFrameKey.self) { chartGeometry.mapFrame = $0 }
+            .onPreferenceChange(ChartPanelInsetKey.self) { chartGeometry.panelInset = $0 }
+            .onPreferenceChange(ChartMeasuredOpenKey.self) { chartGeometry.measuredOpen = $0 }
+    }
+
+    private static let chartSpace = "navChart"
+
+    /// What comes and goes over the chart, under the next waypoint and the map's controls: the Cockpit's
+    /// chips (BRIEFING, the deferred count; on the phone) and the SIGMET chip (only with a hazard in
+    /// range: a chip always there stops being read) on one row, then the off-screen route's pill. None of
+    /// them moves another. The chips keep the row's left and the SIGMET chip its right, so either comes
+    /// without moving the other (on the iPad, which has no chips, the SIGMET chip keeps the left); and
+    /// while the pill shows, the row above it keeps its full height, empty or not. The chips used to sit
+    /// over the next waypoint and push it down 54 pt on the phone, and a SIGMET after a data refresh moved
+    /// the pill down 38 pt. (6.1, stability)
+    ///
+    /// Laid out by the caller's stack, one view each. `pillLeading`: the pill at the left edge rather
+    /// than in the middle.
+    @ViewBuilder
+    private func occasionalChips(pillLeading: Bool) -> some View {
+        let sigmets = rankedSigmets
+        let showsPill = chrome.showsRouteOffScreenPill && routeOffScreenHint != nil
+        // The phone's Cockpit is where the chips come; elsewhere, once they have come.
+        let sharesRow = (CockpitScale.current == .phone && onShowChecklist != nil) || mapAccessoryHeight != nil
+        let chipsHeight = sharesRow ? (mapAccessoryHeight ?? Self.cockpitChipsHeight) : 0
+        if mapTopAccessory != nil || !sigmets.isEmpty || showsPill {
+            HStack(alignment: .top, spacing: 8) {
+                if let mapTopAccessory {
+                    mapTopAccessory
+                        .background(GeometryReader { proxy in
+                            Color.clear.preference(key: MapAccessoryHeightKey.self, value: proxy.size.height)
+                        })
+                }
+                if sharesRow { Spacer(minLength: 0) }
+                ZStack(alignment: .topLeading) {
+                    if showsPill {
+                        // The chip's own height, kept for the pill under it.
+                        SigmetChip(hazards: Self.sigmetChipMeasure) {}
+                            .hidden()
+                            .accessibilityHidden(true)
+                    }
+                    SigmetChip(hazards: sigmets) { showSigmets = true }
+                }
+                if !sharesRow { Spacer(minLength: 0) }
+            }
+            .frame(minHeight: showsPill ? chipsHeight : 0, alignment: .top)
+            .onPreferenceChange(MapAccessoryHeightKey.self) { height in
+                if height > 0 { mapAccessoryHeight = height }
+            }
+        }
+        if chrome.showsRouteOffScreenPill {
+            routeOffScreenPill(leading: pillLeading)
+                .animation(reduceMotion ? nil : .easeInOut(duration: 0.25), value: routeOffScreenHint) // (UX-18)
+        }
+    }
+
+    /// The Cockpit's chips over the chart before they have been measured: a chip (`CockpitChip`) in the
+    /// 6 pt panel the Cockpit puts them on.
+    private static var cockpitChipsHeight: CGFloat { CockpitType.size(kneeboard: 52, phone: 46) + 12 }
+
+    /// A hazard to measure the SIGMET chip by, never shown.
+    private static let sigmetChipMeasure = [SigmetHazardItem(
+        sigmet: AviationWeatherService.Sigmet(firId: nil, firName: nil, hazard: "TS", qualifier: nil, baseFt: nil,
+                                              topFt: nil, validFrom: nil, validTo: nil, distanceNm: 0,
+                                              containsPoint: false, coords: [], raw: nil),
+        assessment: nil)]
+
+    /// The band, with the legs open: a tap on it closes the panel as the chevron does, and the map
+    /// under it takes no pan, pinch, rotation or marker tap. VoiceOver gets the same as a named action
+    /// (the map hides its markers from VoiceOver meanwhile). (6.1, option C)
+    private var legsBandCover: some View {
+        Color.clear
+            .contentShape(Rectangle())
+            .onTapGesture { toggleLegsAndFrequencies() }
+            .accessibilityElement()
+            .accessibilityLabel(L10n.Nav.mapSheet)
+            .accessibilityAction(named: L10n.Nav.closeLegsAndFrequencies) { toggleLegsAndFrequencies() }
+    }
+
+    /// The map's chrome for the panel's state: with the legs open, the map's controls go and the band is
+    /// a view. (6.1, option C)
+    private var chrome: LegsPanelMap.Chrome { .forPanel(open: navSheetExpanded) }
+
+    /// The band the open legs panel leaves, as the map views take it; nil with the panel closed. It
+    /// frames the waypoint previewed from the leg table while there is one, else the navigation target
+    /// (the next waypoint, or the diversion field).
+    private var legsBand: LegsPanelMap.Band? {
+        guard navSheetExpanded else { return nil }
+        let geometry = chartGeometry
+        var waypoint: CLLocationCoordinate2D?
+        if let plan = flightPlanManager.activeFlightPlan, !flightPlanManager.isFlightPlanCompleted {
+            if let index = previewWaypointIndex, plan.waypoints.indices.contains(index) {
+                waypoint = plan.waypoints[index].coordinate
+            } else {
+                waypoint = plan.navigationTarget?.coordinate
+            }
+        }
+        return LegsPanelMap.Band(
+            rect: geometry.measuredOpen
+                ? LegsPanelMap.bandRect(chartSize: geometry.chartSize, chromeBottom: geometry.chromeBottom,
+                                        mapFrame: geometry.mapFrame, panelInset: geometry.panelInset)
+                : nil,
+            viewSize: geometry.mapFrame.size,
+            aircraft: locationManager.currentLocation?.coordinate,
+            waypoint: waypoint,
+            heading: mapOrientationMode == .trackUp
+                ? (locationManager.currentCourseDegrees ?? mapState.cameraHeading) : 0)
+    }
+
+    /// The panel opened: keep the map as it is, to put it back on closing, and show the leg being flown.
+    private func legsPanelOpened() {
+        legsRevealPending = true
+        cameraBeforeLegs = LegsPanelMap.SavedCamera(
+            center: mapState.region.center, span: mapState.region.span, distance: mapState.cameraDistance,
+            heading: mapState.cameraHeading, following: isFollowingAircraft)
+    }
+
+    /// The panel closed: the map as it was (following the aircraft, or where the pilot had panned to).
+    /// The shared state gets it here; the map view puts its camera there once the panel is gone.
+    private func legsPanelClosed() {
+        previewWaypointIndex = nil
+        guard let saved = cameraBeforeLegs else { return }
+        cameraBeforeLegs = nil
+        let camera = LegsPanelMap.restored(
+            saved, aircraft: locationManager.currentLocation?.coordinate,
+            trackUpCourse: mapOrientationMode == .trackUp ? locationManager.currentCourseDegrees : nil)
+        mapState.region = MKCoordinateRegion(center: camera.center, span: camera.span)
+        mapState.cameraDistance = camera.distance
+        mapState.cameraHeading = camera.heading
+        isFollowingAircraft = camera.following
     }
 
     /// The phone with no leg to fly, so the thumb bar would only hold Routes: no route on the map, or
@@ -1045,9 +1321,10 @@ struct NavigationMapView: View {
     /// phase. (6.1, check slot)
     private var showsCheckSlot: Bool { appState.isFlightActive && onShowChecklist != nil }
 
-    /// Approach and landing: GO AROUND and TOUCH-AND-GO on either side of the slot, as on the checklist
-    /// pane, in place of the route's row (the destination is marked by the landing). (6.1, mockup M3)
-    /// From circuit height too, where the slot shows the landing check: the proposal's "circuit / final".
+    /// Approach and landing: GO AROUND and TOUCH-AND-GO after the slot, as on the checklist pane, in
+    /// place of the route's buttons (the destination is marked by the landing). (6.1, mockup M3) From
+    /// circuit height too, where the slot shows the landing check: the proposal's "circuit / final".
+    /// The slot doesn't move for them (`MapThumbRow`).
     private var showsEventButtons: Bool {
         showsCheckSlot && (appState.currentPhase == .approach || appState.currentPhase == .landing
                            || appState.landingCheckShown)
@@ -1109,7 +1386,7 @@ struct NavigationMapView: View {
     /// Recompute the cached spatial map content. Skips work when the region hasn't moved past the
     /// quantization threshold, unless `force` (a toggled setting / newly-available data). (PR-11)
     private func recomputeMapSpatialContent(force: Bool = false) {
-        let region = mapState.region
+        let region = mapState.bandRegion ?? mapState.region
         if !force, let last = lastSpatialRegion, !Self.regionMovedSignificantly(from: last, to: region) {
             return
         }
@@ -1277,7 +1554,8 @@ struct NavigationMapView: View {
                 onWaypointATOTap: { index in
                     flightPlanManager.recordATO(forWaypointAt: index)
                 },
-                onAirportDivert: airportDivert
+                onAirportDivert: airportDivert,
+                legsBand: legsBand
             )
         } else {
             // Use UIKit-wrapped MKMapView for standard/satellite to avoid gesture issues
@@ -1306,7 +1584,8 @@ struct NavigationMapView: View {
                 onWaypointATOTap: { index in
                     flightPlanManager.recordATO(forWaypointAt: index)
                 },
-                onAirportDivert: airportDivert
+                onAirportDivert: airportDivert,
+                legsBand: legsBand
             )
         }
     }
@@ -1492,43 +1771,60 @@ struct NavigationMapView: View {
 
     // MARK: - Bottom Controls
 
-    /// The scale bar and the offline/cache badge, bottom left over the map, and the undo toast.
+    /// The scale bar and the offline/cache badge, bottom left over the map, and the undo toast over
+    /// them. (The landscape phone has them in the controls' band instead: `columnsMapFoot`.)
+    ///
+    /// The toast lies over the corner rather than under it: stacked, its six seconds after every MARK
+    /// and every waypoint the flight marked lifted the scale and the badge, a button, by 100 pt. Now
+    /// nothing moves; the scale and the badge are under the toast meanwhile. (6.1, stability)
     private var mapFooter: some View {
-        VStack(spacing: 0) {
-            HStack(alignment: .bottom) {
-                VStack(alignment: .leading, spacing: 8) {
-                    if isOfflineMode || isCachedMode {
-                        Button(action: { showCacheInfoModal = true }) {
-                            HStack(spacing: 6) {
-                                Image(systemName: "internaldrive.fill")
-                                Text(isOfflineMode ? L10n.Nav.offline : L10n.Nav.cached)
-                            }
-                            .font(.aero(size: 12, weight: .bold))
-                            .foregroundColor(.white)
-                            .padding(.horizontal, 12)
-                            .padding(.vertical, 8)
-                            .background(
-                                RoundedRectangle(cornerRadius: 8)
-                                    .fill(isOfflineMode ? theme.danger.opacity(0.9) : theme.action.opacity(0.9))
-                            )
-                        }
-                        .sheet(isPresented: $showCacheInfoModal) {
-                            CacheInfoSheet(isOfflineMode: isOfflineMode)
-                                .environment(appState)
-                                .environmentObject(offlineMapManager)
-                        }
-                    }
-                    SwissScaleBar(region: mapState.region, mapWidth: mapWidth, nauticalMiles: appState.settings.distanceInNauticalMiles)
+        ZStack(alignment: .bottom) {
+            // Not with the legs open: the band is a view, the undo stays. (6.1, option C)
+            if chrome.showsMapStatus {
+                HStack(alignment: .bottom) {
+                    mapStatus
+                    Spacer()
                 }
-                Spacer()
+                .padding(.horizontal, 16)
+                .padding(.bottom, 16)
             }
-            .padding(.horizontal, 16)
-            .padding(.bottom, 8)
 
             MapUndoToast(undoOffer: $undoOffer)
                 .padding(.horizontal, 16)
                 .padding(.bottom, 8)
         }
+        .sheet(isPresented: $showCacheInfoModal) { cacheInfoSheet }
+    }
+
+    /// The offline/cache badge over the scale bar. A tap on the badge says where the chart comes from.
+    private var mapStatus: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            if isOfflineMode || isCachedMode {
+                Button(action: { showCacheInfoModal = true }) {
+                    HStack(spacing: 6) {
+                        Image(systemName: "internaldrive.fill")
+                        Text(isOfflineMode ? L10n.Nav.offline : L10n.Nav.cached)
+                    }
+                    .font(.aero(size: 12, weight: .bold))
+                    .foregroundColor(.white)
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 8)
+                    .background(
+                        RoundedRectangle(cornerRadius: 8)
+                            .fill(isOfflineMode ? theme.danger.opacity(0.9) : theme.action.opacity(0.9))
+                    )
+                }
+            }
+            SwissScaleBar(region: mapState.region, mapWidth: mapWidth, nauticalMiles: appState.settings.distanceInNauticalMiles)
+                // Never in a tap's way: on a phone's short chart the route's pill can reach it. (6.1)
+                .allowsHitTesting(false)
+        }
+    }
+
+    private var cacheInfoSheet: some View {
+        CacheInfoSheet(isOfflineMode: isOfflineMode)
+            .environment(appState)
+            .environmentObject(offlineMapManager)
     }
 
     /// Portrait: opaque, pinned to the bottom edge — the frequencies to hand, the legs and every
@@ -1539,14 +1835,7 @@ struct NavigationMapView: View {
             freqCard
             if navSheetExpanded {
                 Rectangle().fill(theme.panelStroke).frame(height: 1)
-                ScrollView {
-                    SeparateView { legsAndFrequencies }
-                        .background(GeometryReader { proxy in
-                            Color.clear.preference(key: LegsPanelHeightKey.self, value: proxy.size.height)
-                        })
-                }
-                .frame(height: min(legsPanelContentHeight, legsMaxHeight))
-                .onPreferenceChange(LegsPanelHeightKey.self) { legsPanelContentHeight = $0 }
+                SeparateView { legsPanelContent(maxHeight: legsMaxHeight) }
             }
             if includesThumbBar && !phoneWithNoLegToFly {
                 Rectangle().fill(theme.panelStroke).frame(height: 1)
@@ -1559,27 +1848,33 @@ struct NavigationMapView: View {
         }
     }
 
-    /// Landscape: the same content as the bottom panel, as a column. NOW and NEXT on top, the legs and
-    /// every frequency always open in the middle (scrolling), the thumb controls at the bottom, where
-    /// the hand rests. (on-device review #1, R-01)
+    /// Landscape: the bottom panel's content as a column. NOW and NEXT on top, with the chevron that
+    /// opens the legs and every frequency (`landscapeLegsPanel`, over the chart beside the column), and
+    /// the thumb controls at the bottom, where the hand rests. (on-device review #1, R-01)
+    ///
+    /// The column used to keep the legs and frequencies open between the two, in the room the
+    /// controls left it: once the check slot took a row of its own, a strip with its title cut and a
+    /// row and a half to scroll. (6.1, device check)
     private var sideColumn: some View {
         VStack(spacing: 0) {
-            VStack(alignment: .leading, spacing: 12) {
-                freqCell(tag: L10n.Nav.freqCurrent, tint: theme.onTarget,
-                         item: phaseFreqItems.first { $0.role == .current })
-                freqCell(tag: L10n.Nav.freqNext, tint: theme.info,
-                         item: phaseFreqItems.first { $0.role == .next })
-            }
-            .padding(16)
-            Rectangle().fill(theme.panelStroke).frame(height: 1)
-            ScrollView {
-                VStack(alignment: .leading, spacing: 16) {
-                    legsColumn
-                    freqColumn(large: true)
+            Button(action: toggleLegsAndFrequencies) {
+                HStack(spacing: 12) {
+                    VStack(alignment: .leading, spacing: 12) {
+                        freqCell(tag: L10n.Nav.freqCurrent, tint: theme.onTarget,
+                                 item: phaseFreqItems.first { $0.role == .current })
+                        freqCell(tag: L10n.Nav.freqNext, tint: theme.info,
+                                 item: phaseFreqItems.first { $0.role == .next })
+                    }
+                    legsChevron
                 }
                 .padding(16)
+                .contentShape(Rectangle())
             }
+            .buttonStyle(.plain)
+            // A hint, not a label, as on the portrait card: VoiceOver still reads NOW and NEXT.
+            .accessibilityHint(L10n.Nav.legsAndFrequencies)
             Rectangle().fill(theme.panelStroke).frame(height: 1)
+            Spacer(minLength: 0)
             navThumbColumn
                 .padding(16)
         }
@@ -1587,6 +1882,103 @@ struct NavigationMapView: View {
         .overlay(alignment: .leading) {
             Rectangle().fill(theme.panelStroke).frame(width: 1)
         }
+    }
+
+    /// Landscape, opened from the column's NOW / NEXT (or the next-waypoint card, or More): the legs
+    /// and every frequency, opaque over the chart's foot, from the column to the left edge. Over the
+    /// chart, so nothing in the column moves; at its foot, as the portrait panel opens, so the next
+    /// waypoint, the map's controls and the aircraft stay in view (`landscapeLegsMaxHeight`). The same
+    /// chevron closes it.
+    private func landscapeLegsPanel(maxHeight: CGFloat) -> some View {
+        legsPanelContent(maxHeight: maxHeight)
+            .background(theme.panel.ignoresSafeArea(edges: .bottom))
+            .overlay(alignment: .top) { Rectangle().fill(theme.panelStroke).frame(height: 1) }
+    }
+
+    /// The open panel's content, at most `maxHeight`: the legs and every frequency in a scroll view as
+    /// tall as they are, and Emergency pinned under it, outside the scroll, always whole. At the foot of
+    /// the list it was half cut in portrait, and about 20 pt short in landscape, until scrolled.
+    /// (6.1, option C)
+    private func legsPanelContent(maxHeight: CGFloat) -> some View {
+        VStack(spacing: 0) {
+            legsScroll(maxHeight: max(0, maxHeight - emergencyFooterHeight))
+            emergencyFooter
+                .background(GeometryReader { proxy in
+                    Color.clear.preference(key: EmergencyFooterHeightKey.self, value: proxy.size.height)
+                })
+        }
+        .onPreferenceChange(EmergencyFooterHeightKey.self) { emergencyFooterHeight = $0 }
+    }
+
+    /// The open panel's height for at most `maxHeight`, Emergency included: what the landscape panel
+    /// covers of the chart's foot.
+    private func legsPanelHeight(maxHeight: CGFloat) -> CGFloat {
+        min(legsPanelContentHeight, max(0, maxHeight - emergencyFooterHeight)) + emergencyFooterHeight
+    }
+
+    /// Emergency, at the panel's foot, lined up with the frequency column above it: its right-hand
+    /// column beside the legs, the panel's width under them or with no route. A hairline over it, as the
+    /// list scrolls under it.
+    ///
+    /// Placed by the same rule as the column (`LegsPanelColumns`), not by the column's measured frame:
+    /// a frequency typed for a waypoint made the column wider than its 300 pt, Emergency took that width,
+    /// and the panel, then the whole map pane, came out wider than the screen and moved right. (6.1,
+    /// device check)
+    @ViewBuilder
+    private var emergencyFooter: some View {
+        let emergency = phaseFreqItems.filter(\.isEmergency)
+        if !emergency.isEmpty {
+            LegsPanelColumns(content: .frequencyFoot(hasLegs: flightPlanManager.activeFlightPlan != nil)) {
+                VStack(spacing: 0) {
+                    Rectangle().fill(theme.panelStroke).frame(height: 1)
+                    ForEach(emergency) { freqRow($0, large: true) }
+                }
+            }
+            .padding(.horizontal, 16)
+            .padding(.bottom, 4)
+        }
+    }
+
+    /// The legs and every frequency in a scroll view as tall as they are, up to `maxHeight`: the panel's
+    /// one scroll, nothing inside it scrolls on its own. Opened, it brings the leg being flown into view
+    /// when it is below the fold (`LegsPanelReveal`). (6.1, device check)
+    private func legsScroll(maxHeight: CGFloat) -> some View {
+        ScrollViewReader { reader in
+            ScrollView {
+                SeparateView { legsAndFrequencies }
+                    .background(GeometryReader { proxy in
+                        Color.clear.preference(key: LegsPanelHeightKey.self, value: proxy.size.height)
+                    })
+            }
+            .frame(height: min(legsPanelContentHeight, maxHeight))
+            .onPreferenceChange(LegsPanelHeightKey.self) { height in
+                legsPanelContentHeight = height
+                // Once the scroll has its height: on the next turn, after the frame above takes it.
+                guard legsRevealPending, height > 0 else { return }
+                legsRevealPending = false
+                DispatchQueue.main.async { revealLegBeingFlown(reader) }
+            }
+        }
+    }
+
+    /// The leg being flown, in the open panel's scroll, scrolling only as far as it needs: not at all
+    /// when it is in view.
+    private func revealLegBeingFlown(_ reader: ScrollViewProxy) {
+        guard let plan = flightPlanManager.activeFlightPlan,
+              let row = LegsPanelReveal.row(currentWaypointIndex: plan.currentWaypointIndex,
+                                            waypointCount: plan.waypoints.count) else { return }
+        reader.scrollTo(LegsPanelReveal.RowID(index: row), anchor: nil)
+    }
+
+    /// The chevron of the NOW / NEXT card (portrait) and of the column's NOW / NEXT (landscape): up to
+    /// open the legs and every frequency, which rise from the foot of the map in both, down to close.
+    private var legsChevron: some View {
+        Image(systemName: navSheetExpanded ? "chevron.down" : "chevron.up")
+            .font(.aero(size: CockpitType.label, weight: .bold))
+            .foregroundColor(theme.action)
+            .frame(width: CockpitType.size(kneeboard: 52, phone: 44),
+                   height: CockpitType.size(kneeboard: 52, phone: 44))
+            .background(Circle().fill(theme.action.opacity(0.14)))
     }
 
     // MARK: - Kneeboard chrome, iPad (v6.0 · P3)
@@ -1693,43 +2085,30 @@ struct NavigationMapView: View {
         }
     }
 
+    /// Each cell as wide as the widest value its format gives (`NavValueCell`), so the card's layout
+    /// depends on the waypoint's name only, which changes at a passage, not with every fix.
     @ViewBuilder
     private func nextWaypointCells(withETA: Bool) -> some View {
-        navValueCell("BRG", liveBearingText ?? "—")
-        navValueCell("DIST", nextWaypointDistanceValue ?? "—", unit: "NM")
-        navValueCell("ETE", nextLegLive.map { eteValue($0.ete) } ?? "—",
-                     unit: nextLegLive.map { eteUnit($0.ete) })
+        let live = nextLegLive
+        NavValueCell(label: "BRG", reading: .init(liveBearingText ?? "—"),
+                     widest: .init(NextWaypointReadout.widestBearing))
+        NavValueCell(label: "DIST", reading: .init(nextWaypointDistanceValue ?? "—", unit: "NM"),
+                     widest: .init(NextWaypointReadout.widestDistance, unit: "NM"))
+        NavValueCell(label: "ETE",
+                     reading: live.map { .init(NextWaypointReadout.eteValue($0.ete), unit: NextWaypointReadout.eteUnit($0.ete)) }
+                        ?? .init("—"),
+                     widest: NextWaypointReadout.widestMinutes, orWidest: NextWaypointReadout.widestHours)
         if withETA {
-            navValueCell("ETA", nextLegLive.map { $0.eta.formatted(date: .omitted, time: .shortened) } ?? "—")
+            NavValueCell(label: "ETA", reading: .init(live.map { NextWaypointReadout.eta($0.eta) } ?? "—"),
+                         widest: .init(NextWaypointReadout.widestETA))
         }
-    }
-
-    /// A label over a value, for the next-waypoint card.
-    private func navValueCell(_ label: String, _ value: String, unit: String? = nil) -> some View {
-        VStack(alignment: .leading, spacing: 2) {
-            Text(label)
-                .font(.aero(size: CockpitType.label, weight: .semibold))
-                .foregroundColor(theme.textSecondary)
-            HStack(alignment: .firstTextBaseline, spacing: 4) {
-                Text(value)
-                    .font(.aero(size: CockpitType.response, weight: .bold, design: .monospaced))
-                    .foregroundColor(theme.textPrimary)
-                if let unit {
-                    Text(unit)
-                        .font(.aero(size: CockpitType.label))
-                        .foregroundColor(theme.textSecondary)
-                }
-            }
-        }
-        .fixedSize()
-        .accessibilityElement(children: .combine)
     }
 
     /// Distance to the next waypoint, without its unit.
     private var nextWaypointDistanceValue: String? {
         guard let loc = locationManager.currentLocation,
               let dist = flightPlanManager.distanceToNextWaypoint(from: loc) else { return nil }
-        return String(format: "%.1f", dist)
+        return NextWaypointReadout.distance(dist)
     }
 
     /// Time and clock time to the next waypoint at the current ground speed. Nothing below 30 kt:
@@ -1739,17 +2118,6 @@ struct NavigationMapView: View {
         let gs = locationManager.currentSpeedKnots
         guard gs >= 30, let ete = flightPlanManager.etaToNextWaypoint(from: loc, groundSpeedKnots: gs) else { return nil }
         return (ete, Date().addingTimeInterval(ete))
-    }
-
-    /// ETE in minutes, "13 min", or "1:07 h" past the hour. As "13:07" beside an ETA of "13:58" it
-    /// read as a clock time.
-    private func eteValue(_ ete: TimeInterval) -> String {
-        let minutes = Int((ete / 60).rounded())
-        return minutes < 60 ? "\(minutes)" : String(format: "%d:%02d", minutes / 60, minutes % 60)
-    }
-
-    private func eteUnit(_ ete: TimeInterval) -> String {
-        Int((ete / 60).rounded()) < 60 ? "min" : "h"
     }
 
     private func toggleLegsAndFrequencies() {
@@ -1813,9 +2181,9 @@ struct NavigationMapView: View {
     }
 
     /// `height`: taller than a map control, in a row of the thumb bar's height (Routes beside the check
-    /// slot).
+    /// slot). `fillsWidth`: the row's width (Routes under the slot in the landscape column).
     private func chromeButton(icon: String, title: String, prominent: Bool = false, height: CGFloat? = nil,
-                              action: @escaping () -> Void) -> some View {
+                              fillsWidth: Bool = false, action: @escaping () -> Void) -> some View {
         Button(action: action) {
             HStack(spacing: 8) {
                 Image(systemName: icon).font(.aero(size: CockpitType.label, weight: .semibold))
@@ -1826,7 +2194,7 @@ struct NavigationMapView: View {
             }
             .foregroundColor(prominent ? theme.actionText : theme.action)
             .padding(.horizontal, CockpitType.size(kneeboard: 16, phone: 12))
-            .frame(minHeight: height ?? CockpitTarget.control)
+            .frame(maxWidth: fillsWidth ? .infinity : nil, minHeight: height ?? CockpitTarget.control)
             .background(RoundedRectangle(cornerRadius: 14).fill(prominent ? theme.action : theme.panel))
             .overlay(RoundedRectangle(cornerRadius: 14).stroke(prominent ? Color.clear : theme.panelStroke, lineWidth: 1))
             .contentShape(Rectangle())
@@ -1895,12 +2263,7 @@ struct NavigationMapView: View {
                 freqCell(tag: L10n.Nav.freqCurrent, tint: theme.onTarget, item: current)
                 Rectangle().fill(theme.panelStroke).frame(width: 1, height: 52)
                 freqCell(tag: L10n.Nav.freqNext, tint: theme.info, item: next)
-                Image(systemName: navSheetExpanded ? "chevron.down" : "chevron.up")
-                    .font(.aero(size: CockpitType.label, weight: .bold))
-                    .foregroundColor(theme.action)
-                    .frame(width: CockpitType.size(kneeboard: 52, phone: 44),
-                           height: CockpitType.size(kneeboard: 52, phone: 44))
-                    .background(Circle().fill(theme.action.opacity(0.14)))
+                legsChevron
             }
             .padding(.horizontal, CockpitType.size(kneeboard: 16, phone: 12))
             .padding(.vertical, 10)
@@ -1923,27 +2286,32 @@ struct NavigationMapView: View {
                     .foregroundColor(theme.textSecondary)
                     .lineLimit(1)
             }
-            Text(item?.freq ?? "—")
-                .font(.aero(size: CockpitType.response, weight: .bold, design: .monospaced))
-                .foregroundColor(theme.textPrimary)
+            // One line, whatever was typed for a waypoint: a second line made the card taller. (6.1)
+            FrequencyLineText(text: item?.freq ?? "—",
+                              font: .aero(size: CockpitType.response, weight: .bold, design: .monospaced),
+                              color: theme.textPrimary)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .accessibilityElement(children: .combine)
     }
 
     /// Every leg (planned, flown, ahead or over) and every frequency, opened from either card.
-    /// Side by side; stacked when the width runs out.
+    /// Side by side on an iPad, one above the other on a phone (`LegsPanelColumns`). With no route, the
+    /// frequencies alone, the width of the panel from its left edge: the side-by-side version, its legs
+    /// empty, left them 300 pt wide in the middle of the panel, where "130.355" wrapped. (6.1, device
+    /// check)
     private var legsAndFrequencies: some View {
-        ViewThatFits(in: .horizontal) {
-            HStack(alignment: .top, spacing: 24) {
-                legsColumn
-                freqColumn(large: true).frame(width: 300)
-            }
-            VStack(alignment: .leading, spacing: 16) {
-                legsColumn
+        Group {
+            if flightPlanManager.activeFlightPlan != nil {
+                LegsPanelColumns {
+                    legsColumn
+                    freqColumn(large: true)
+                }
+            } else {
                 freqColumn(large: true)
             }
         }
+        .frame(maxWidth: .infinity, alignment: .leading)
         .padding(.horizontal, 16)
         .padding(.vertical, 12)
     }
@@ -1968,154 +2336,231 @@ struct NavigationMapView: View {
     /// route armed it offered START LEG, MARK and DIVERT: a tap recorded a time over a waypoint and
     /// advanced the leg before the flight existed, so the leg timer and the nav log's times were wrong
     /// once airborne. On the ground the row is the way to the routes, as with no route. (v6.0 review)
+    ///
+    /// In the Cockpit's flight the check slot leads the row, in one frame whatever follows it: MARK with
+    /// Divert and More, GO AROUND and TOUCH-AND-GO, or Routes (`MapThumbRow`). (6.1)
     @ViewBuilder
     private var navThumbBar: some View {
-        if showsEventButtons {
-            eventSlotRow
-                .padding(.horizontal, CockpitType.size(kneeboard: 16, phone: 12))
-                .padding(.vertical, CockpitType.size(kneeboard: 12, phone: 10))
-        } else if appState.isFlightActive, let plan = flightPlanManager.activeFlightPlan {
-            TimelineView(.periodic(from: .now, by: 1)) { _ in
-                let state = legTimerState(plan)
-                HStack(spacing: CockpitType.size(kneeboard: 12, phone: 8)) {
-                    if showsCheckSlot {
-                        // The slot first, sharing the room with MARK; the leg timer moves into MARK, the
-                        // button that ends the leg. Divert and More keep their places. (mockup M2)
-                        checkSlot()
-                        navPrimaryButton(plan, started: state.started, leg: state)
-                    } else {
-                        legTimerReadout(elapsed: state.elapsed, planned: state.planned, running: state.running,
-                                        started: state.started)
-                        navPrimaryButton(plan, started: state.started)
+        let spacing = CockpitType.size(kneeboard: 12, phone: 8)
+        if thumbRow == .routes {
+            routesButtonRow()
+        } else {
+            Group {
+                switch thumbRow {
+                case .slotThenFlightEvents:
+                    slotRow(spacing: spacing, divertAndMoreAxis: .horizontal) { flightEventButtons(spacing: spacing) }
+                case .slotThenMark:
+                    if let plan = flightPlanManager.activeFlightPlan {
+                        TimelineView(.periodic(from: .now, by: 1)) { _ in
+                            let state = legTimerState(plan)
+                            // The leg timer moves into MARK, the button that ends the leg. (mockup M2)
+                            slotRow(spacing: spacing, divertAndMoreAxis: .horizontal) {
+                                HStack(spacing: spacing) {
+                                    navPrimaryButton(plan, started: state.started, leg: state)
+                                    divertAndMore(plan, leg: state, axis: .horizontal, spacing: spacing)
+                                }
+                            }
+                        }
                     }
-                    if !flightPlanManager.isFlightPlanCompleted { divertThumbButton(plan) }
-                    navMoreMenu(running: state.running, started: state.started)
+                case .slotThenRoutes:
+                    slotRow(spacing: spacing, divertAndMoreAxis: .horizontal) {
+                        routesButton(height: CheckSlotButton.height, fillsWidth: true)
+                    }
+                case .legTimerThenMark:
+                    if let plan = flightPlanManager.activeFlightPlan {
+                        TimelineView(.periodic(from: .now, by: 1)) { _ in
+                            let state = legTimerState(plan)
+                            HStack(spacing: spacing) {
+                                legTimerReadout(elapsed: state.elapsed, planned: state.planned, running: state.running,
+                                                started: state.started)
+                                navPrimaryButton(plan, started: state.started)
+                                divertAndMore(plan, leg: state, axis: .horizontal, spacing: spacing)
+                            }
+                        }
+                    }
+                case .routes:
+                    EmptyView()
                 }
             }
             .padding(.horizontal, CockpitType.size(kneeboard: 16, phone: 12))
             .padding(.vertical, CockpitType.size(kneeboard: 12, phone: 10))
-        } else {
-            routesButtonRow
         }
     }
 
-    /// The check slot, when this map is the Cockpit's in flight. `prominent`: the wide one, beside
-    /// Routes. (6.1)
+    /// The bottom row for the flight as it stands (portrait, and the phone on its side).
+    private var thumbRow: MapThumbRow {
+        MapThumbRow.make(showsCheckSlot: showsCheckSlot, showsEventButtons: showsEventButtons,
+                         hasRoute: flightPlanManager.activeFlightPlan != nil, flightActive: appState.isFlightActive)
+    }
+
+    /// The check slot, when this map is the Cockpit's in flight. (6.1)
     @ViewBuilder
-    private func checkSlot(prominent: Bool = false) -> some View {
+    private func checkSlot() -> some View {
         if let onShowChecklist {
-            CockpitCheckSlot(onShowChecklist: onShowChecklist, prominent: prominent)
+            CockpitCheckSlot(onShowChecklist: onShowChecklist)
         }
     }
 
-    /// GO AROUND, the slot, TOUCH-AND-GO: approach and landing (mockup M3). Hold 1 s to confirm, or a
-    /// single tap in circuits, as on the checklist pane.
-    private var eventSlotRow: some View {
-        HStack(spacing: CockpitType.size(kneeboard: 12, phone: 8)) {
-            MapFlightEventButton(event: .goAround)
-                .frame(maxWidth: CockpitType.size(kneeboard: 220, phone: 112))
+    /// The check slot, then `rest` in the room it leaves: the slot as wide as MARK beside Divert and More,
+    /// whatever `rest` is, so it holds still when the row changes round it (`CheckSlotRowLayout`).
+    /// `divertAndMoreAxis`: Divert and More side by side (the thumb bar) or one above the other (the
+    /// phone on its side), as the row with MARK has them.
+    private func slotRow<Rest: View>(spacing: CGFloat, divertAndMoreAxis: Axis,
+                                     @ViewBuilder rest: () -> Rest) -> some View {
+        CheckSlotRowLayout(spacing: spacing) {
             checkSlot()
-            MapFlightEventButton(event: .touchAndGo)
-                .frame(maxWidth: CockpitType.size(kneeboard: 220, phone: 112))
+            divertAndMoreMeasure(axis: divertAndMoreAxis, spacing: divertAndMoreAxis == .horizontal ? spacing : 8)
+            rest()
         }
     }
 
-    /// The landscape phone's version, under the Cockpit's column: the leg timer, MARK, and Divert and
-    /// More stacked, half height, so MARK keeps its width. (iPhone pass, I7)
+    /// Divert and More as `divertAndMore` lays them out, unseen: what the slot's width is measured by.
+    private func divertAndMoreMeasure(axis: Axis, spacing: CGFloat) -> some View {
+        let stacked = axis == .vertical
+        return EqualWidthStack(axis: axis, spacing: spacing) {
+            if !flightPlanManager.isFlightPlanCompleted {
+                thumbSecondaryLabel(icon: "arrow.triangle.turn.up.right.diamond.fill", title: L10n.Trip.divert,
+                                    tint: theme.action, stacked: stacked)
+            }
+            thumbSecondaryLabel(icon: "ellipsis.circle", title: L10n.Nav.more, tint: theme.action, stacked: stacked)
+        }
+        .hidden()
+        .accessibilityHidden(true)
+    }
+
+    /// GO AROUND and TOUCH-AND-GO after the slot, sharing what it leaves: approach and landing (mockup
+    /// M3), and from circuit height. Hold 1 s to confirm, or a single tap in circuits, as on the
+    /// checklist pane.
+    private func flightEventButtons(spacing: CGFloat) -> some View {
+        HStack(spacing: spacing) {
+            MapFlightEventButton(event: .goAround)
+                .frame(maxWidth: .infinity)
+            MapFlightEventButton(event: .touchAndGo)
+                .frame(maxWidth: .infinity)
+        }
+    }
+
+    /// The landscape phone's version, under the Cockpit's column: the slot (or the leg timer), MARK, and
+    /// Divert and More stacked, half height, so MARK keeps its width. (iPhone pass, I7)
     @ViewBuilder
     private var navThumbColumnCompact: some View {
-        if showsEventButtons {
-            eventSlotRow
-        } else if appState.isFlightActive, let plan = flightPlanManager.activeFlightPlan {
-            TimelineView(.periodic(from: .now, by: 1)) { _ in
-                let state = legTimerState(plan)
-                HStack(spacing: 8) {
-                    if showsCheckSlot {
-                        checkSlot()
-                    } else {
-                        legTimerReadout(elapsed: state.elapsed, planned: state.planned, running: state.running,
-                                        started: state.started)
-                    }
-                    navPrimaryButton(plan, started: state.started, leg: showsCheckSlot ? state : nil)
-                    VStack(spacing: 8) {
-                        if !flightPlanManager.isFlightPlanCompleted { divertThumbButton(plan, stacked: true) }
-                        navMoreMenu(running: state.running, started: state.started, stacked: true)
-                    }
-                }
-            }
-        } else {
-            routesButtonRow
-        }
-    }
-
-    /// The landscape side column's version, in two rows so the legs keep room above it: the leg timer
-    /// and Divert, then MARK with More beside it, where the thumb rests.
-    @ViewBuilder
-    private var navThumbColumn: some View {
-        if showsEventButtons {
-            VStack(spacing: 12) {
-                checkSlot()
-                HStack(spacing: 12) {
-                    MapFlightEventButton(event: .goAround)
-                    MapFlightEventButton(event: .touchAndGo)
-                }
-            }
-        } else if showsCheckSlot, let plan = flightPlanManager.activeFlightPlan {
-            // The slot on top, where the leg timer and Divert were; the leg timer in MARK.
-            VStack(spacing: 12) {
-                checkSlot()
+        switch thumbRow {
+        case .slotThenFlightEvents:
+            slotRow(spacing: 8, divertAndMoreAxis: .vertical) { flightEventButtons(spacing: 8) }
+        case .slotThenMark:
+            if let plan = flightPlanManager.activeFlightPlan {
                 TimelineView(.periodic(from: .now, by: 1)) { _ in
                     let state = legTimerState(plan)
-                    // Divert and More stacked, half height, so MARK keeps the width for its leg line.
-                    HStack(spacing: 12) {
-                        navPrimaryButton(plan, started: state.started, leg: state)
-                        VStack(spacing: 8) {
-                            if !flightPlanManager.isFlightPlanCompleted { divertThumbButton(plan, stacked: true) }
-                            navMoreMenu(running: state.running, started: state.started, stacked: true)
+                    slotRow(spacing: 8, divertAndMoreAxis: .vertical) {
+                        HStack(spacing: 8) {
+                            navPrimaryButton(plan, started: state.started, leg: state)
+                            divertAndMore(plan, leg: state, axis: .vertical, stacked: true)
                         }
                     }
                 }
             }
-        } else if appState.isFlightActive, let plan = flightPlanManager.activeFlightPlan {
-            TimelineView(.periodic(from: .now, by: 1)) { _ in
-                let state = legTimerState(plan)
-                VStack(spacing: 12) {
-                    HStack(spacing: 12) {
+        case .slotThenRoutes:
+            slotRow(spacing: 8, divertAndMoreAxis: .vertical) {
+                routesButton(height: CheckSlotButton.height, fillsWidth: true)
+            }
+        case .legTimerThenMark:
+            if let plan = flightPlanManager.activeFlightPlan {
+                TimelineView(.periodic(from: .now, by: 1)) { _ in
+                    let state = legTimerState(plan)
+                    HStack(spacing: 8) {
                         legTimerReadout(elapsed: state.elapsed, planned: state.planned, running: state.running,
                                         started: state.started)
-                        Spacer(minLength: 0)
-                        if !flightPlanManager.isFlightPlanCompleted { divertThumbButton(plan) }
-                    }
-                    HStack(spacing: 12) {
                         navPrimaryButton(plan, started: state.started)
-                        navMoreMenu(running: state.running, started: state.started)
+                        divertAndMore(plan, leg: state, axis: .vertical, stacked: true)
                     }
                 }
             }
-        } else {
-            routesButtonRow
+        case .routes:
+            routesButtonRow(padded: false)
         }
     }
 
-    /// Routes alone on the ground (Plan › Map). In the Cockpit's flight, Routes then the check slot
-    /// filling the row, the thumb bar's height: the chart is as tall as with a route. (6.1)
-    private var routesButtonRow: some View {
-        HStack(spacing: CockpitType.size(kneeboard: 12, phone: 8)) {
-            if showsCheckSlot {
-                routesButton(height: CheckSlotButton.height)
-                checkSlot(prominent: true)
-            } else {
-                routesButton()
-                Spacer(minLength: 0)
+    /// The landscape side column's version, in two rows so the legs keep room above it: the leg timer
+    /// and Divert, then MARK with More beside it, where the thumb rests. In the Cockpit's flight the
+    /// check slot heads them, the column's width, whatever the row under it (`MapThumbColumn`).
+    @ViewBuilder
+    private var navThumbColumn: some View {
+        let plan = flightPlanManager.activeFlightPlan
+        switch MapThumbColumn.make(showsCheckSlot: showsCheckSlot, showsEventButtons: showsEventButtons,
+                                   hasRoute: plan != nil, flightActive: appState.isFlightActive) {
+        case .slotOverFlightEvents:
+            VStack(spacing: 12) {
+                checkSlot()
+                HStack(spacing: 12) {
+                    MapFlightEventButton(event: .goAround, narrow: true)
+                    MapFlightEventButton(event: .touchAndGo, narrow: true)
+                }
+            }
+        case .slotOverMark:
+            // The slot on top, where the leg timer and Divert were; the leg timer in MARK.
+            if let plan {
+                VStack(spacing: 12) {
+                    checkSlot()
+                    TimelineView(.periodic(from: .now, by: 1)) { _ in
+                        let state = legTimerState(plan)
+                        // Divert and More stacked, half height, so MARK keeps the width for its leg line.
+                        HStack(spacing: 12) {
+                            navPrimaryButton(plan, started: state.started, leg: state)
+                            divertAndMore(plan, leg: state, axis: .vertical, stacked: true)
+                        }
+                    }
+                }
+            }
+        case .slotOverRoutes:
+            // No route: the slot as with one, and Routes where MARK would be, as tall, so the slot
+            // doesn't move when a route is armed. (6.1)
+            VStack(spacing: 12) {
+                checkSlot()
+                routesButton(height: CheckSlotButton.height, fillsWidth: true)
+            }
+        case .legTimerOverMark:
+            if let plan {
+                legTimerOverMark(plan)
+            }
+        case .routes:
+            routesButtonRow()
+        }
+    }
+
+    /// The landscape column in flight without the check slot: the leg timer and Divert, then MARK with
+    /// More beside it. Divert over More, so the two share a width.
+    private func legTimerOverMark(_ plan: FlightPlan) -> some View {
+        TimelineView(.periodic(from: .now, by: 1)) { _ in
+            let state = legTimerState(plan)
+            HStack(alignment: .bottom, spacing: 12) {
+                VStack(alignment: .leading, spacing: 12) {
+                    legTimerReadout(elapsed: state.elapsed, planned: state.planned, running: state.running,
+                                    started: state.started)
+                        .frame(maxWidth: .infinity, minHeight: CockpitTarget.thumb, alignment: .leading)
+                    navPrimaryButton(plan, started: state.started)
+                }
+                divertAndMore(plan, leg: state, axis: .vertical, spacing: 12)
             }
         }
-        .padding(.horizontal, showsCheckSlot ? CockpitType.size(kneeboard: 16, phone: 12) : 16)
-        .padding(.vertical, showsCheckSlot ? CockpitType.size(kneeboard: 12, phone: 10) : 12)
     }
 
-    private func routesButton(height: CGFloat? = nil) -> some View {
+    /// Routes alone on the ground (Plan › Map). (In the Cockpit's flight with no route, Routes follows
+    /// the check slot: `MapThumbRow.slotThenRoutes`.) `padded`: false under the landscape phone's column,
+    /// which pads its thumb row itself.
+    private func routesButtonRow(padded: Bool = true) -> some View {
+        HStack(spacing: CockpitType.size(kneeboard: 12, phone: 8)) {
+            routesButton()
+            Spacer(minLength: 0)
+        }
+        .padding(.horizontal, padded ? 16 : 0)
+        .padding(.vertical, padded ? 12 : 0)
+    }
+
+    /// `fillsWidth`: the rest of the row after the check slot, or a row of its own under it in the
+    /// landscape column.
+    private func routesButton(height: CGFloat? = nil, fillsWidth: Bool = false) -> some View {
         chromeButton(icon: "point.topleft.down.to.point.bottomright.curvepath",
-                     title: L10n.Ground.planRoutes, height: height) {
+                     title: L10n.Ground.planRoutes, height: height, fillsWidth: fillsWidth) {
             if let onShowRoutes { onShowRoutes() } else { showFlightPlanning = true }
         }
     }
@@ -2170,6 +2615,16 @@ struct NavigationMapView: View {
         if planned, let plannedTime = state.planned { text += " / \(formatClock(plannedTime))" }
         if !state.running { text += " ‖" }
         return text
+    }
+
+    /// Divert (while the route has a leg to fly) and More, one width for both: side by side in the thumb
+    /// bar, one above the other in the landscape columns (`stacked`: half height each, beside MARK).
+    private func divertAndMore(_ plan: FlightPlan, leg state: LegTimerState, axis: Axis, stacked: Bool = false,
+                               spacing: CGFloat = 8) -> some View {
+        EqualWidthStack(axis: axis, spacing: spacing) {
+            if !flightPlanManager.isFlightPlanCompleted { divertThumbButton(plan, stacked: stacked) }
+            navMoreMenu(running: state.running, started: state.started, stacked: stacked)
+        }
     }
 
     private func divertThumbButton(_ plan: FlightPlan, stacked: Bool = false) -> some View {
@@ -2247,7 +2702,8 @@ struct NavigationMapView: View {
     }
 
     /// `stacked`: half height, icon beside the word, for two buttons one above the other (the landscape
-    /// phone). Narrower on the phone, where MARK needs the width. (iPhone pass)
+    /// phone). Narrower on the phone, where MARK needs the width. (iPhone pass) It fills the width it is
+    /// offered, so `divertAndMore` can give Divert and More one width.
     @ViewBuilder
     private func thumbSecondaryLabel(icon: String, title: String, tint: Color, stacked: Bool = false) -> some View {
         Group {
@@ -2260,7 +2716,7 @@ struct NavigationMapView: View {
                         .minimumScaleFactor(0.7)
                 }
                 .padding(.horizontal, 10)
-                .frame(minWidth: 96, minHeight: (CockpitTarget.thumb - 8) / 2)
+                .frame(minWidth: 96, maxWidth: .infinity, minHeight: (CockpitTarget.thumb - 8) / 2)
             } else {
                 VStack(spacing: 6) {
                     Image(systemName: icon).font(.aero(size: CockpitType.response, weight: .semibold))
@@ -2270,7 +2726,8 @@ struct NavigationMapView: View {
                         .minimumScaleFactor(0.7)
                 }
                 .padding(.horizontal, CockpitType.size(kneeboard: 12, phone: 8))
-                .frame(minWidth: CockpitType.size(kneeboard: 120, phone: 64), minHeight: CockpitTarget.thumb)
+                .frame(minWidth: CockpitType.size(kneeboard: 120, phone: 64), maxWidth: .infinity,
+                       minHeight: CockpitTarget.thumb)
             }
         }
         .foregroundColor(tint)
@@ -2309,7 +2766,7 @@ struct NavigationMapView: View {
     private var liveBearingText: String? {
         guard let loc = locationManager.currentLocation,
               let brg = flightPlanManager.bearingToNextWaypoint(from: loc) else { return nil }
-        return String(format: "%03d°", Int(brg))
+        return NextWaypointReadout.bearing(brg)
     }
 
     // MARK: - Phase-aware frequencies (v4 UI/UX Revamp C2)
@@ -2547,11 +3004,13 @@ struct NavigationMapView: View {
         return CLLocationCoordinate2D(latitude: lat2 * 180 / .pi, longitude: lon2 * 180 / .pi)
     }
 
-    /// The frequency column — by default just CURRENT + NEXT (what a VFR pilot needs to hand) plus
-    /// EMERGENCY; "All Frequencies" reveals every station along the journey in order. (v4 UI/UX Revamp — current/next)
+    /// The frequency column — by default just CURRENT + NEXT (what a VFR pilot needs to hand); "All
+    /// Frequencies" reveals every station along the journey in order. (v4 UI/UX Revamp — current/next)
+    /// EMERGENCY is pinned under the scroll, lined up with this column (`emergencyFooter`). (6.1, option C)
+    /// Every station whole, in the panel's one scroll: past five, they had a scroll of their own inside
+    /// it. (6.1, device check)
     private func freqColumn(large: Bool) -> some View {
         let nonEmergency = phaseFreqItems.filter { !$0.isEmergency }
-        let emergency = phaseFreqItems.filter { $0.isEmergency }
         let essentials = nonEmergency.filter { $0.role == .current || $0.role == .next }
         let hasMore = nonEmergency.count > essentials.count
         let visible = showAllFreqs ? nonEmergency : essentials
@@ -2561,15 +3020,7 @@ struct NavigationMapView: View {
                 .foregroundColor(theme.info)
                 .lineLimit(1)
                 .padding(.bottom, 4)
-            if large && visible.count > 5 {
-                // "All frequencies" can list a dozen stations; keep the panel's height in check.
-                ScrollView {
-                    VStack(spacing: 0) { ForEach(visible) { freqRow($0, large: true) } }
-                }
-                .frame(height: 5 * 44)
-            } else {
-                ForEach(visible) { freqRow($0, large: large) }
-            }
+            ForEach(visible) { freqRow($0, large: large) }
             if hasMore {
                 // No animated expand/collapse under Reduce Motion (UX-18)
                 Button(action: { withAnimation(reduceMotion ? nil : .default) { showAllFreqs.toggle() } }) {
@@ -2584,58 +3035,29 @@ struct NavigationMapView: View {
                 }
                 .padding(.vertical, 3)
             }
-            ForEach(emergency) { freqRow($0, large: large) }
         }
     }
 
-    /// A short CURRENT/NEXT tag + its colour, or nil for other rows. (v4 UI/UX Revamp)
-    private func roleTag(_ role: FreqRole) -> (String, Color)? {
-        switch role {
-        case .current: return (L10n.Nav.freqCurrent, theme.onTarget)
-        case .next: return (L10n.Nav.freqNext, theme.info)
-        default: return nil
-        }
-    }
-
+    /// A station and its frequency (`FrequencyRow`).
     private func freqRow(_ item: PhaseFrequency, large: Bool = false) -> some View {
-        HStack(spacing: large ? 10 : 6) {
-            if let tag = roleTag(item.role) {
-                Text(tag.0)
-                    .font(.aero(size: large ? 16 : 8, weight: .bold)).tracking(0.3)
-                    .foregroundColor(tag.1)
-                    .padding(.horizontal, 4).padding(.vertical, 1)
-                    .background(tag.1.opacity(0.16), in: RoundedRectangle(cornerRadius: 3))
-            }
-            Text(item.station)
-                .font(.aero(size: large ? CockpitType.label : 11, weight: item.highlighted ? .semibold : .regular))
-                .foregroundColor(item.isEmergency ? theme.danger : theme.textSecondary)
-                .lineLimit(1)
-                .minimumScaleFactor(large ? 0.7 : 1)
-            Spacer(minLength: 6)
-            Text(item.freq)
-                .font(.aero(size: large ? CockpitType.row : 13, weight: item.highlighted ? .bold : .regular, design: .monospaced))
-                // Frequencies are data: white in flight on the kneeboard panel. (v6.0 · P5)
-                .foregroundColor(item.highlighted && !large ? theme.onTarget : theme.textPrimary)
-        }
-        .padding(.vertical, large ? 8 : 3)
+        FrequencyRow(item: item, large: large)
     }
 
     /// `large`: the iPad kneeboard panel (v6.0 · P6). Rows read at 20–24 pt; heading and distance
     /// drop out, since the next-waypoint card already shows them live for the leg being flown.
+    ///
+    /// Every leg, whole, in the panel's one scroll (`legsScroll`). It had a scroll of its own, five rows
+    /// tall, inside the panel's: the legs scrolled, then the whole panel did. (6.1, device check)
     private func waypointList(plan: FlightPlan, compact: Bool = false, large: Bool = false) -> some View {
-        // Deterministic height (content for ≤5 waypoints, scroll beyond) — a greedy ScrollView made
-        // the whole sheet balloon to fill the screen. Keep the sheet as short as the content. (v4 UI/UX Revamp fix)
-        ScrollView {
-            VStack(spacing: 0) {
-                ForEach(Array(plan.waypoints.enumerated()), id: \.element.id) { index, wpt in
-                    waypointRow(plan: plan, index: index, wpt: wpt, compact: compact, large: large)
-                    if index < plan.waypoints.count - 1 {
-                        Rectangle().fill(Color.white.opacity(0.05)).frame(height: 0.5)
-                    }
+        VStack(spacing: 0) {
+            ForEach(Array(plan.waypoints.enumerated()), id: \.element.id) { index, wpt in
+                waypointRow(plan: plan, index: index, wpt: wpt, compact: compact, large: large)
+                    .id(LegsPanelReveal.RowID(index: index))
+                if index < plan.waypoints.count - 1 {
+                    Rectangle().fill(Color.white.opacity(0.05)).frame(height: 0.5)
                 }
             }
         }
-        .frame(height: CGFloat(min(max(plan.waypoints.count, 1), 5)) * (large ? 52 : 36))
     }
 
     private func waypointRow(plan: FlightPlan, index: Int, wpt: FlightPlanWaypoint, compact: Bool = false,
@@ -2648,38 +3070,46 @@ struct NavigationMapView: View {
         // A previewed waypoint ahead can be flown to straight away, skipping the ones before it —
         // and a waypoint of the route is where a diversion can rejoin it. (v5.1)
         let offersDirect = isPreview && (index > plan.currentWaypointIndex || plan.diversion != nil)
-        return HStack(spacing: 6) {
-            waypointRowButton(plan: plan, index: index, wpt: wpt, compact: compact, large: large,
-                              isCurrent: isCurrent, isPast: isPast, isPreview: isPreview, leg: leg, actual: actual)
-            if offersDirect {
-                Button {
-                    flightPlanManager.directTo(waypointAt: index)
-                    previewWaypointIndex = nil
-                    centerOnAircraft()
-                } label: {
-                    Text(L10n.Trip.directToWaypoint)
-                        .font(.aero(size: large ? CockpitType.label : 12, weight: .bold))
-                        .foregroundColor(theme.actionText)
-                        .padding(.horizontal, 10)
-                        .frame(minHeight: large ? 44 : 36)
-                        .background(theme.action, in: Capsule())
+        // DIRECT over the row's ACT and Δ, empty on a waypoint ahead, rather than beside the row: beside
+        // it, it took its width from the name, all of it beside the frequencies. (6.1, device check)
+        let actualAndDelta = large ? LegRowMetrics.actualAndDeltaWidth : 44 + 6 + 52
+        return waypointRowButton(plan: plan, index: index, wpt: wpt, compact: compact, large: large,
+                                 isCurrent: isCurrent, isPast: isPast, isPreview: isPreview, leg: leg, actual: actual)
+            .overlay(alignment: .trailing) {
+                if offersDirect {
+                    Button {
+                        flightPlanManager.directTo(waypointAt: index)
+                        previewWaypointIndex = nil
+                        // It re-centred the map on the aircraft. The band now frames the new leg, and the
+                        // map follows the aircraft once the panel closes. (6.1, option C)
+                        cameraBeforeLegs?.following = true
+                    } label: {
+                        Text(L10n.Trip.directToWaypoint)
+                            .font(.aero(size: large ? CockpitType.label : 12, weight: .bold))
+                            .foregroundColor(theme.actionText)
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.8)
+                            .padding(.horizontal, 10)
+                            .frame(minHeight: large ? 44 : 36)
+                            .background(theme.action, in: Capsule())
+                    }
+                    .buttonStyle(.plain)
+                    .frame(width: actualAndDelta, alignment: .trailing)
+                    .padding(.trailing, LegRowMetrics.horizontalPadding)
                 }
-                .buttonStyle(.plain)
             }
-        }
     }
 
     private func waypointRowButton(plan: FlightPlan, index: Int, wpt: FlightPlanWaypoint, compact: Bool,
                                    large: Bool = false,
                                    isCurrent: Bool, isPast: Bool, isPreview: Bool,
                                    leg: FlightPlanWaypoint?, actual: TimeInterval?) -> some View {
-        // Column widths follow the type: B612 Mono is about 0.6 em wide, so at 20 pt "17:32" needs 60 pt
-        // and "▲15:15" about 72. Exact rather than scaled, so the row fits the landscape side column.
-        let indexWidth: CGFloat = large ? 26 : 16
-        let timeWidth: CGFloat = large ? 68 : 44
-        let deltaWidth: CGFloat = large ? 82 : 52
+        // Column widths follow the type (`LegRowMetrics`).
+        let indexWidth: CGFloat = large ? LegRowMetrics.indexWidth : 16
+        let timeWidth: CGFloat = large ? LegRowMetrics.timeWidth : 44
+        let deltaWidth: CGFloat = large ? LegRowMetrics.deltaWidth : 52
         return Button(action: { handleWaypointTap(index: index, plan: plan, isPast: isPast) }) {
-            HStack(spacing: 8) {
+            HStack(spacing: LegRowMetrics.spacing) {
                 // Sequence number — matches the numbered disc on the map. (v4 UI/UX Revamp)
                 Text("\(index + 1)")
                     .font(.aero(size: large ? CockpitType.label : 11, weight: .bold, design: .monospaced))
@@ -2695,10 +3125,10 @@ struct NavigationMapView: View {
                     .foregroundColor(isCurrent ? theme.route : theme.textPrimary)
                     .lineLimit(1)
                     .minimumScaleFactor(large ? 0.8 : 1)
-                Spacer(minLength: 6)
+                Spacer(minLength: LegRowMetrics.nameGap)
                 // Fixed-width columns so every row's heading / distance / PLAN / ACT / Δ line up,
                 // whether or not a leg has been flown yet. (v4 UI/UX Revamp — column alignment)
-                HStack(spacing: 6) {
+                HStack(spacing: LegRowMetrics.timeSpacing) {
                     // Heading + distance kept on iPad; dropped on the narrow iPhone table. (v4 UI/UX Revamp)
                     if !compact && !large {
                         Text(leg?.formattedMagneticCourse ?? "")
@@ -2718,7 +3148,7 @@ struct NavigationMapView: View {
                 .lineLimit(1)
                 .minimumScaleFactor(large ? 0.8 : 1)   // shrink a little rather than cut a time short
             }
-            .padding(.horizontal, 8).padding(.vertical, large ? 9 : 7)
+            .padding(.horizontal, LegRowMetrics.horizontalPadding).padding(.vertical, large ? 9 : 7)
             .background(isPreview ? theme.info.opacity(0.14)
                         : (isCurrent ? theme.route.opacity(0.10) : Color.clear))
             .clipShape(RoundedRectangle(cornerRadius: 6))
@@ -2762,17 +3192,16 @@ struct NavigationMapView: View {
         }
     }
 
-    /// Tap a waypoint to preview (centre the map on it); tap the active/previewed one to return.
+    /// Tap a waypoint to preview it; tap the active/previewed one to return. The leg table only shows in
+    /// the open panel, whose band frames the aircraft and the previewed waypoint in place of the next
+    /// one. The map the pilot left isn't touched, so closing the panel still puts it back. (It centred the
+    /// map on the waypoint, under the panel; 6.1, option C)
     private func previewWaypoint(index: Int, plan: FlightPlan) {
         guard plan.waypoints.indices.contains(index) else { return }
         if previewWaypointIndex == index || index == plan.currentWaypointIndex {
             previewWaypointIndex = nil
-            centerOnAircraft()
         } else {
             previewWaypointIndex = index
-            isFollowingAircraft = false
-            let wpt = plan.waypoints[index]
-            mapState.updateFromRegion(MKCoordinateRegion(center: wpt.coordinate, span: mapState.region.span))
         }
     }
 
@@ -2914,9 +3343,9 @@ struct NavigationMapView: View {
 
     /// The pill itself. Shared by both layouts — the map opening on the aircraft with the route
     /// somewhere else is not an iPhone-only situation, it is just far more common there because the
-    /// viewport is smaller. (v4.4.0 device-test feedback)
+    /// viewport is smaller. (v4.4.0 device-test feedback) `leading`: at the left edge, under the chips.
     @ViewBuilder
-    private var routeOffScreenPill: some View {
+    private func routeOffScreenPill(leading: Bool) -> some View {
         if let hint = routeOffScreenHint {
             Button { fitActiveRoute() } label: {
                 HStack(spacing: 8) {
@@ -2940,6 +3369,7 @@ struct NavigationMapView: View {
                 .contentShape(Capsule())
             }
             .buttonStyle(.plain)
+            .frame(maxWidth: leading ? .infinity : nil, alignment: .leading)
             .transition(.opacity.combined(with: .move(edge: .top)))
         }
     }
@@ -3037,7 +3467,7 @@ enum SwissCommonFrequency: CaseIterable {
         case .fisWest: return "FIS West"
         case .zurichInfo: return "Zurich Info"
         case .fisEast: return "FIS East"
-        case .emergency: return "Emergency"
+        case .emergency: return L10n.Nav.freqEmergency
         }
     }
 
@@ -3179,43 +3609,50 @@ struct SwissScaleBar: View {
     }
 
     var body: some View {
-        GeometryReader { geometry in
-            // Get the actual screen width to estimate map width
-            // The scale bar is in the bottom left, so we use the full container width
-            let mapWidthEstimate = mapWidth > 0 ? mapWidth : geometry.size.width
-            let info = scaleInfo(mapWidthPoints: mapWidthEstimate)
-
-            VStack(alignment: .leading, spacing: 2) {
-                // Scale text
-                Text(info.text)
-                    .font(.aero(size: 11, weight: .medium))
-                    .foregroundColor(.white)
-
-                // Scale bar (L-shaped like SwissTopo)
-                HStack(spacing: 0) {
-                    // Vertical tick on left
-                    Rectangle()
-                        .fill(Color.white)
-                        .frame(width: 2, height: 8)
-
-                    // Horizontal line
-                    Rectangle()
-                        .fill(Color.white)
-                        .frame(width: info.width, height: 2)
-
-                    // Vertical tick on right
-                    Rectangle()
-                        .fill(Color.white)
-                        .frame(width: 2, height: 8)
-                }
+        // With the map's width known, the bar is as wide as it draws, so it can share a row (the
+        // landscape phone's foot of the chart). Until then, the container's width stands in for it.
+        if mapWidth > 0 {
+            card(mapWidthPoints: mapWidth)
+                .frame(height: 50, alignment: .topLeading)
+        } else {
+            GeometryReader { geometry in
+                card(mapWidthPoints: geometry.size.width)
             }
-            .padding(8)
-            .background(
-                RoundedRectangle(cornerRadius: 6)
-                    .fill(Color.black.opacity(0.5))
-            )
+            .frame(height: 50)  // Fixed height for the scale bar container
         }
-        .frame(height: 50)  // Fixed height for the scale bar container
+    }
+
+    private func card(mapWidthPoints: CGFloat) -> some View {
+        let info = scaleInfo(mapWidthPoints: mapWidthPoints)
+        return VStack(alignment: .leading, spacing: 2) {
+            // Scale text
+            Text(info.text)
+                .font(.aero(size: 11, weight: .medium))
+                .foregroundColor(.white)
+
+            // Scale bar (L-shaped like SwissTopo)
+            HStack(spacing: 0) {
+                // Vertical tick on left
+                Rectangle()
+                    .fill(Color.white)
+                    .frame(width: 2, height: 8)
+
+                // Horizontal line
+                Rectangle()
+                    .fill(Color.white)
+                    .frame(width: info.width, height: 2)
+
+                // Vertical tick on right
+                Rectangle()
+                    .fill(Color.white)
+                    .frame(width: 2, height: 8)
+            }
+        }
+        .padding(8)
+        .background(
+            RoundedRectangle(cornerRadius: 6)
+                .fill(Color.black.opacity(0.5))
+        )
     }
 }
 
@@ -3314,6 +3751,241 @@ private func updateAirspaceOverlays(on mapView: MKMapView, polygons: [AirspacePo
     }
 }
 
+/// The open legs panel's band on a map view, for both representables: one implementation, as
+/// `updateAirspaceOverlays` is, since two copies drift. (6.1, option C)
+///
+/// While the panel is open the band has the camera: it frames the aircraft and the next waypoint
+/// (`LegsPanelMap.place`) on every update, so it follows the aircraft, and the map takes no pan, pinch,
+/// rotation or marker tap. The shared state is left alone meanwhile (the coordinators send what the band
+/// shows to `SharedMapState.bandRegion` instead), so it still holds the map the pilot left, or, once the
+/// panel closes, what `NavigationMapView` puts back.
+final class LegsBandDriver {
+    /// The panel is open, or its camera is still being put back: the update pass leaves its own camera
+    /// sync out, and the coordinator doesn't write the band's region into the shared state.
+    private(set) var ownsCamera = false
+    private var isOpen = false
+    /// The last pass's framing, which `routeAhead` keeps, and the waypoint it framed.
+    private var framing: LegsPanelMap.Framing?
+    private var framedWaypoint: CLLocationCoordinate2D?
+    private var lastCamera: MKMapCamera?
+    /// The pilot's zoom, in map points per screen point, as last seen with the panel closed: the zoom
+    /// the band frames at, whatever the panel does to the map view's size.
+    private var pilotScale: Double?
+    /// Zoom per metre of camera distance with the map at rest, and the map's height then, last with the
+    /// panel closed and last of all. MapKit's field of view is set by the map's height: the same camera
+    /// distance is a coarser chart in a shorter map (twice as coarse with the panel open in portrait).
+    /// Read at rest: during an animated move the camera already says where it is going, the map still
+    /// shows where it was.
+    private var pilotScalePerMetre: (value: Double, height: CGFloat)?
+    private var scalePerMetre: (value: Double, height: CGFloat)?
+    /// The map's zoom range as the panel found it, put back on closing.
+    private var zoomRangeBeforeBand: MKMapView.CameraZoomRange?
+    /// Bumped on every open and close, so a restore queued by a close doesn't land on a reopened band.
+    private var generation = 0
+    /// The band has moved the camera somewhere the map wasn't, and the chart there is to be redrawn
+    /// once the camera is at rest.
+    private var redrawsTilesAtRest = false
+
+    /// The map came to rest (the coordinator's `regionDidChange`): note its zoom, the pilot's when the
+    /// band doesn't have the camera.
+    func mapCameToRest(_ mapView: MKMapView) {
+        let distance = mapView.camera.centerCoordinateDistance
+        guard let scale = Self.scale(of: mapView), distance > 0 else { return }
+        scalePerMetre = (scale / distance, mapView.bounds.height)
+        if let restoring, abs(mapView.bounds.height - restoring.height) < 1 {
+            // Back to its height: now the pilot's camera, exactly.
+            finishRestore(mapView, mapState: restoring.mapState)
+            return
+        }
+        if redrawsTilesAtRest {
+            redrawsTilesAtRest = false
+            Self.redrawTiles(on: mapView)
+        }
+        guard !ownsCamera else { return }
+        pilotScale = scale
+        pilotScalePerMetre = scalePerMetre
+    }
+
+    /// One update pass. True while the band has the camera.
+    func update(_ mapView: MKMapView, band: LegsPanelMap.Band?, mapState: SharedMapState) -> Bool {
+        guard let band else {
+            if isOpen { close(mapView, mapState: mapState) }
+            return ownsCamera
+        }
+        if !isOpen { open(mapView) }
+        frame(mapView, band: band)
+        return true
+    }
+
+    private func open(_ mapView: MKMapView) {
+        // A map that hasn't moved since it was made: its zoom as it stands.
+        if pilotScale == nil { mapCameToRest(mapView) }
+        // Unless a restore is still on its way: then the range it will put back.
+        if !ownsCamera { zoomRangeBeforeBand = mapView.cameraZoomRange }
+        isOpen = true
+        ownsCamera = true
+        generation += 1
+        restoring = nil
+        framing = nil
+        framedWaypoint = nil
+        lastCamera = nil
+        mapView.isScrollEnabled = false
+        mapView.isZoomEnabled = false
+        mapView.isRotateEnabled = false
+        // An open callout would sit on the band with nothing to close it.
+        for annotation in mapView.selectedAnnotations { mapView.deselectAnnotation(annotation, animated: false) }
+        // VoiceOver reaches the band through its own element, which closes the panel.
+        mapView.accessibilityElementsHidden = true
+    }
+
+    private func frame(_ mapView: MKMapView, band: LegsPanelMap.Band) {
+        // No position: the camera stays where it is. Not measured with the panel open yet: wait for it.
+        guard let aircraft = band.aircraft, CLLocationCoordinate2DIsValid(aircraft), let rect = band.rect,
+              band.viewSize.height > 0, let pilotScale, let measured = scalePerMetre else { return }
+        if !Self.same(band.waypoint, framedWaypoint) {
+            // Another waypoint (MARK, a pass, Direct to, a preview): decide afresh how far is far.
+            framing = nil
+            framedWaypoint = band.waypoint
+        }
+        // MapKit centres the camera in the map's safe area, not in the view: on a map running under the
+        // home indicator, or under the status bar, the middle is that much off.
+        let safe = mapView.safeAreaInsets
+        let cameraPoint = CGPoint(x: safe.left + (band.viewSize.width - safe.left - safe.right) / 2,
+                                  y: safe.top + (band.viewSize.height - safe.top - safe.bottom) / 2)
+        let placement = LegsPanelMap.place(aircraft: MKMapPoint(aircraft), waypoint: band.waypoint.map(MKMapPoint.init),
+                                           heading: band.heading, band: rect, viewSize: band.viewSize,
+                                           cameraPoint: cameraPoint, scale: pilotScale, previous: framing)
+        framing = placement.framing
+        // The camera distance that gives that zoom in the map as laid out with the panel open, from the
+        // last zoom per metre measured at rest, taken to the band's height (MapKit's field of view is
+        // set by the map's height). Measured at that height already once the map has settled there.
+        let perMetre = Double(measured.value) * Double(measured.height) / Double(band.viewSize.height)
+        allowPilotsZoom(on: mapView, scalePerMetre: perMetre)
+        let camera = MKMapCamera(lookingAtCenter: placement.center.coordinate,
+                                 fromDistance: pilotScale * placement.zoomOut / perMetre,
+                                 pitch: 0, heading: band.heading)
+        if let last = lastCamera, Self.isSame(last, camera, scale: pilotScale * placement.zoomOut) { return }
+        // The first framing moves the camera, and in portrait the map's size: the chart's tiles are
+        // redrawn once it is at rest. Later ones follow the aircraft, as following it does.
+        if lastCamera == nil { redrawsTilesAtRest = true }
+        lastCamera = camera
+        mapView.setCamera(camera, animated: !UIAccessibility.isReduceMotionEnabled)
+    }
+
+    private func close(_ mapView: MKMapView, mapState: SharedMapState) {
+        isOpen = false
+        generation += 1
+        let closing = generation
+        mapView.isScrollEnabled = true
+        mapView.isZoomEnabled = true
+        mapView.isRotateEnabled = true
+        mapView.accessibilityElementsHidden = false
+        // Back to the shared state's camera (NavigationMapView writes what the map returns to as the
+        // panel closes), on the next turn of the run loop and once the map view has its size back. In
+        // portrait it grows back as the panel closes, and MapKit keeps the chart's scale as it grows,
+        // not the camera distance: set at the band's size, the pilot's distance came back about twice
+        // as far out. So the camera goes back at the pilot's zoom for the size the map has now, grows
+        // with it, and is put back exactly once the map is as tall as the pilot left it.
+        DispatchQueue.main.async { [weak self, weak mapView] in
+            guard let self, let mapView, self.generation == closing else { return }
+            let height = self.pilotScalePerMetre?.height ?? mapView.bounds.height
+            guard abs(mapView.bounds.height - height) >= 1 else {
+                self.finishRestore(mapView, mapState: mapState)
+                return
+            }
+            self.restoring = (mapState, height)
+            mapView.setCamera(Self.camera(of: mapState, distanceTimes: mapView.bounds.height / height), animated: false)
+            // Should the map not come back to that height (it turned meanwhile), as it stands.
+            DispatchQueue.main.asyncAfter(deadline: .now() + 1) { [weak self, weak mapView] in
+                guard let self, let mapView, self.generation == closing, self.restoring != nil else { return }
+                self.finishRestore(mapView, mapState: mapState)
+            }
+        }
+    }
+
+    /// The map closing back to the pilot's camera, and the height it will have then.
+    private var restoring: (mapState: SharedMapState, height: CGFloat)?
+
+    private func finishRestore(_ mapView: MKMapView, mapState: SharedMapState) {
+        restoring = nil
+        if let range = zoomRangeBeforeBand { mapView.cameraZoomRange = range }
+        zoomRangeBeforeBand = nil
+        // Not animated, and the shared state then synced to what the map shows, as for "Show" on the
+        // route pill: nothing may observe a camera half way back and write it into the state.
+        mapView.setCamera(Self.camera(of: mapState), animated: false)
+        ownsCamera = false
+        lastCamera = nil
+        Self.redrawTiles(on: mapView)
+        mapState.updateFromRegion(mapView.region)
+        mapState.endBand()
+    }
+
+    /// The shared state's camera; `distanceTimes`: as far, times that.
+    private static func camera(of mapState: SharedMapState, distanceTimes: Double = 1) -> MKMapCamera {
+        MKMapCamera(lookingAtCenter: mapState.region.center, fromDistance: mapState.cameraDistance * distanceTimes,
+                    pitch: 0, heading: mapState.cameraHeading)
+    }
+
+    /// The swisstopo charts stop zooming in at a camera distance (`SwissMapView.cameraZoomRange`, tuned
+    /// against the tiles there are). In the band's shorter map that distance is a coarser chart than the
+    /// pilot had: the closest zoom comes down as far as gives the same chart scale, so the same tiles,
+    /// while the band is up.
+    /// Only for a map at least 2 % shorter than the pilot's, and changed only by more than 2 %: setting
+    /// the range again for the measures' rounding (the landscape band, as tall as the map) left holes in
+    /// the chart.
+    private func allowPilotsZoom(on mapView: MKMapView, scalePerMetre: Double) {
+        guard let range = zoomRangeBeforeBand, let pilot = pilotScalePerMetre, scalePerMetre > 0 else { return }
+        let base = range.minCenterCoordinateDistance
+        var closest = base * pilot.value / scalePerMetre
+        if closest > base * 0.98 { closest = base }
+        let current = mapView.cameraZoomRange.minCenterCoordinateDistance
+        guard abs(current - closest) > max(1, closest * 0.02),
+              let band = MKMapView.CameraZoomRange(minCenterCoordinateDistance: closest,
+                                                   maxCenterCoordinateDistance: range.maxCenterCoordinateDistance)
+        else { return }
+        mapView.cameraZoomRange = band
+    }
+
+    /// MapKit draws only some of the tiles it is handed while a still map settles, and sometimes stops
+    /// asking for them at all (`LateTileRedraw`): a band that doesn't move (on the ground, in Plan ›
+    /// Map, on the simulator's fixed position) showed the chart with holes, or none, until the panel
+    /// closed, one opening in three. Once the band's camera is at rest, the overlays' own redraw, and
+    /// their reload if the redraw goes unanswered.
+    private static func redrawTiles(on mapView: MKMapView) {
+        for case let tiles as LateTileRedrawing in mapView.overlays {
+            tiles.redraw.tileArrived()
+        }
+    }
+
+    /// Map points per screen point, across the middle of the map.
+    static func scale(of mapView: MKMapView) -> Double? {
+        let bounds = mapView.bounds
+        guard bounds.width > 100, bounds.height > 1 else { return nil }
+        let a = MKMapPoint(mapView.convert(CGPoint(x: bounds.midX - 50, y: bounds.midY), toCoordinateFrom: mapView))
+        let b = MKMapPoint(mapView.convert(CGPoint(x: bounds.midX + 50, y: bounds.midY), toCoordinateFrom: mapView))
+        let scale = hypot(b.x - a.x, b.y - a.y) / 100
+        return scale.isFinite && scale > 0 ? scale : nil
+    }
+
+    /// Within half a point, half a percent of zoom and half a degree: not worth moving the camera for.
+    private static func isSame(_ a: MKMapCamera, _ b: MKMapCamera, scale: Double) -> Bool {
+        let moved = hypot(MKMapPoint(a.centerCoordinate).x - MKMapPoint(b.centerCoordinate).x,
+                          MKMapPoint(a.centerCoordinate).y - MKMapPoint(b.centerCoordinate).y) / scale
+        let turned = abs(a.heading - b.heading).truncatingRemainder(dividingBy: 360)
+        return moved < 0.5
+            && abs(a.centerCoordinateDistance / b.centerCoordinateDistance - 1) < 0.005
+            && min(turned, 360 - turned) < 0.5
+    }
+
+    private static func same(_ a: CLLocationCoordinate2D?, _ b: CLLocationCoordinate2D?) -> Bool {
+        switch (a, b) {
+        case (nil, nil): return true
+        case let (a?, b?): return a.latitude == b.latitude && a.longitude == b.longitude
+        default: return false
+        }
+    }
+}
+
 /// UIViewRepresentable wrapper for MKMapView - used for Apple Maps layers
 /// This avoids the gesture conflict issues that occur with SwiftUI Map
 struct NativeMapViewUIKit: UIViewRepresentable {
@@ -3340,6 +4012,8 @@ struct NativeMapViewUIKit: UIViewRepresentable {
     var vfrContent: VFRMapContent = .empty()  // Traffic circuits, VFR routes and sectors (6.2.0)
     var onWaypointATOTap: ((Int) -> Void)?  // Callback when user taps/long-presses a waypoint to set ATO
     var onAirportDivert: ((String) -> Void)?  // "Divert here" from an airport callout (v5.1)
+    /// The open legs panel's band, which then has the camera (`LegsBandDriver`). (6.1, option C)
+    var legsBand: LegsPanelMap.Band? = nil
 
     func makeUIView(context: Context) -> MKMapView {
         let mapView = MKMapView()
@@ -3403,8 +4077,12 @@ struct NativeMapViewUIKit: UIViewRepresentable {
             }
         }
 
+        // The open legs panel's band has the camera, and the map takes no gesture, until the panel has
+        // closed and the camera is back where the pilot left it. (6.1, option C)
+        let bandOwnsCamera = context.coordinator.legsBand.update(mapView, band: legsBand, mapState: mapState)
+
         // Handle heading reset request (user tapped compass)
-        if mapState.pendingHeadingReset {
+        if !bandOwnsCamera, mapState.pendingHeadingReset {
             mapState.pendingHeadingReset = false
             let camera = MKMapCamera(
                 lookingAtCenter: mapView.camera.centerCoordinate,
@@ -3418,7 +4096,7 @@ struct NativeMapViewUIKit: UIViewRepresentable {
 
         // Frame the whole active route ("Show" on the off-screen route pill). MapKit does the
         // aspect-ratio maths; the top inset clears the floating chrome, as the builder's fit does.
-        if let fit = mapState.pendingFitCoordinates, !fit.isEmpty {
+        if !bandOwnsCamera, let fit = mapState.pendingFitCoordinates, !fit.isEmpty {
             mapState.pendingFitCoordinates = nil
             let rects = fit.map { MKMapRect(origin: MKMapPoint($0), size: MKMapSize(width: 0, height: 0)) }
             let union = rects.dropFirst().reduce(rects[0]) { $0.union($1) }
@@ -3442,7 +4120,7 @@ struct NativeMapViewUIKit: UIViewRepresentable {
 
         // Update camera from shared state if significantly different (preserves heading)
         let regionChanged = !context.coordinator.regionsAreEqual(mapView.region, mapState.region)
-        if regionChanged && !context.coordinator.isUserInteracting {
+        if !bandOwnsCamera && regionChanged && !context.coordinator.isUserInteracting {
             let camera = MKMapCamera(
                 lookingAtCenter: mapState.region.center,
                 fromDistance: mapState.cameraDistance,
@@ -3454,7 +4132,7 @@ struct NativeMapViewUIKit: UIViewRepresentable {
 
         // Apply heading changes independently of region (for track-up mode).
         // When only heading changed but not region, the above block won't fire.
-        if !regionChanged && !context.coordinator.isUserInteracting {
+        if !bandOwnsCamera && !regionChanged && !context.coordinator.isUserInteracting {
             let headingDelta = abs(mapView.camera.heading - mapState.cameraHeading)
             let normalizedDelta = min(headingDelta, 360.0 - headingDelta)
             if normalizedDelta > 0.5 {
@@ -3703,6 +4381,8 @@ struct NativeMapViewUIKit: UIViewRepresentable {
         var lastFlightPlanSignature: String?
         /// `ReportingPointAnnotation.labelRevision` the markers were labelled at. (6.0.1)
         var reportingPointLabelRevision = -1
+        /// The open legs panel's band. (6.1, option C)
+        let legsBand = LegsBandDriver()
         /// The aerodrome procedures drawn, and their palette. (6.2.0)
         let vfrLayer = VFRMapLayer.State()
 
@@ -3719,6 +4399,8 @@ struct NativeMapViewUIKit: UIViewRepresentable {
         }
 
         func mapView(_ mapView: MKMapView, regionWillChangeAnimated animated: Bool) {
+            // The band moves the camera itself; the map takes no gesture meanwhile.
+            guard !legsBand.ownsCamera else { return }
             // Check if user is interacting
             if let gestureRecognizers = mapView.subviews.first?.gestureRecognizers {
                 for recognizer in gestureRecognizers {
@@ -3733,6 +4415,13 @@ struct NativeMapViewUIKit: UIViewRepresentable {
 
         func mapView(_ mapView: MKMapView, regionDidChangeAnimated animated: Bool) {
             isUserInteracting = false
+            // Its zoom at rest, for the legs panel's band: the pilot's, unless the band has the camera.
+            legsBand.mapCameToRest(mapView)
+            // The band's camera is not the pilot's: the shared state keeps theirs, to go back to.
+            if legsBand.ownsCamera {
+                parent.mapState.updateBandRegion(mapView.region)
+                return
+            }
             parent.mapState.updateFromRegion(mapView.region)
             // Sync camera distance and heading so they're preserved when switching layers
             parent.mapState.updateFromCamera(mapView.camera)
@@ -3741,7 +4430,7 @@ struct NativeMapViewUIKit: UIViewRepresentable {
         func mapView(_ mapView: MKMapView, rendererFor overlay: MKOverlay) -> MKOverlayRenderer {
             // OpenAIP tile overlay
             if let tileOverlay = overlay as? OpenAIPTileOverlay {
-                return MKTileOverlayRenderer(tileOverlay: tileOverlay)
+                return LateTileRedraw.renderer(for: tileOverlay)
             }
 
             // Traffic circuits, VFR routes and sectors: their own classes, before the generic MKPolyline
@@ -4086,6 +4775,11 @@ struct NativeMapViewUIKit: UIViewRepresentable {
         // MARK: - Waypoint ATO Tap/Long-Press
 
         func mapView(_ mapView: MKMapView, didSelect annotation: MKAnnotation) {
+            // Nothing on the band answers a tap: no callout, no time over a waypoint. (6.1, option C)
+            if legsBand.ownsCamera {
+                mapView.deselectAnnotation(annotation, animated: false)
+                return
+            }
             guard let waypointAnnotation = annotation as? FlightPlanWaypointAnnotation else { return }
             mapView.deselectAnnotation(annotation, animated: false)
             parent.onWaypointATOTap?(waypointAnnotation.waypointIndex)
@@ -4099,7 +4793,7 @@ struct NativeMapViewUIKit: UIViewRepresentable {
         }
 
         @objc private func handleWaypointLongPress(_ gesture: UILongPressGestureRecognizer) {
-            guard gesture.state == .began,
+            guard gesture.state == .began, !legsBand.ownsCamera,
                   let annotationView = gesture.view as? MKAnnotationView,
                   let waypointAnnotation = annotationView.annotation as? FlightPlanWaypointAnnotation else { return }
             parent.onWaypointATOTap?(waypointAnnotation.waypointIndex)
@@ -4694,6 +5388,8 @@ struct SwissMapView: UIViewRepresentable {
     var vfrContent: VFRMapContent = .empty()  // Traffic circuits, VFR routes and sectors (6.2.0)
     var onWaypointATOTap: ((Int) -> Void)?  // Callback when user taps/long-presses a waypoint to set ATO
     var onAirportDivert: ((String) -> Void)?  // "Divert here" from an airport callout (v5.1)
+    /// The open legs panel's band, which then has the camera (`LegsBandDriver`). (6.1, option C)
+    var legsBand: LegsPanelMap.Band? = nil
 
     /// Get the camera zoom range for the current layer
     /// This locks the map view to only allow zooming within the valid tile range
@@ -4788,25 +5484,33 @@ struct SwissMapView: UIViewRepresentable {
 
             // Now switch back to ICAO configuration
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
+                // The layer the map shows NOW, as the coordinator last set it, not the one this view
+                // was made with: Plan › Map and the Cockpit's MAP pane are made on ICAO and switched
+                // to the pilot's layer by the first update, before this runs. Re-adding the make-time
+                // ICAO chart under SWISSIMAGE or the national map left it past its last tile level,
+                // blank, and the coordinator (still on the pilot's layer) never put it right. (6.1.0)
+                let coordinator = context.coordinator
+                let layer = coordinator.currentLayerType ?? self.layerType
+
                 // Set correct zoom range
-                mapView.cameraZoomRange = zoomRange
+                mapView.cameraZoomRange = cameraZoomRange(for: layer, forceICAO: coordinator.currentForceICAO)
 
                 // Re-add the overlay
-                if self.layerType == .icao {
+                if layer == .icao {
                     let overlay = ICAOSegelflugkarteTileOverlay(
-                        forceICAO: self.forceICAOLayer,
-                        offlineMapManager: self.offlineMapManager,
-                        isStrictOfflineMode: self.isStrictOfflineMode,
-                        hasSegelflugCache: self.hasSegelflugCache
+                        forceICAO: coordinator.currentForceICAO,
+                        offlineMapManager: coordinator.offlineMapManager,
+                        isStrictOfflineMode: coordinator.isStrictOfflineMode,
+                        hasSegelflugCache: coordinator.hasSegelflugCache
                     )
                     overlay.canReplaceMapContent = true
                     insertTileBelowShapes(overlay, on: mapView)
-                } else if let layerId = self.layerType.swisstopoLayerIdentifier {
+                } else if let layerId = layer.swisstopoLayerIdentifier {
                     let overlay = SwisstopoTileOverlay(
                         layerIdentifier: layerId,
-                        tileExtension: self.layerType.tileExtension,
-                        minimumZ: self.layerType.minimumZoom,
-                        maximumZ: self.layerType.maximumZoom
+                        tileExtension: layer.tileExtension,
+                        minimumZ: layer.minimumZoom,
+                        maximumZ: layer.maximumZoom
                     )
                     overlay.canReplaceMapContent = true
                     insertTileBelowShapes(overlay, on: mapView)
@@ -4816,7 +5520,7 @@ struct SwissMapView: UIViewRepresentable {
                 if self.showOpenAIPTiles {
                     let openAIPOverlay = OpenAIPTileOverlay(
                         cacheManager: self.openAIPCacheManager,
-                        isStrictOfflineMode: self.isStrictOfflineMode
+                        isStrictOfflineMode: coordinator.isStrictOfflineMode
                     )
                     insertTileBelowShapes(openAIPOverlay, on: mapView)
                 }
@@ -4852,8 +5556,12 @@ struct SwissMapView: UIViewRepresentable {
     }
 
     func updateUIView(_ mapView: MKMapView, context: Context) {
+        // The open legs panel's band has the camera, and the map takes no gesture, until the panel has
+        // closed and the camera is back where the pilot left it. (6.1, option C)
+        let bandOwnsCamera = context.coordinator.legsBand.update(mapView, band: legsBand, mapState: mapState)
+
         // Handle heading reset request (user tapped compass)
-        if mapState.pendingHeadingReset {
+        if !bandOwnsCamera, mapState.pendingHeadingReset {
             mapState.pendingHeadingReset = false
             let camera = MKMapCamera(
                 lookingAtCenter: mapView.camera.centerCoordinate,
@@ -4867,7 +5575,7 @@ struct SwissMapView: UIViewRepresentable {
 
         // Frame the whole active route ("Show" on the off-screen route pill). MapKit does the
         // aspect-ratio maths; the top inset clears the floating chrome, as the builder's fit does.
-        if let fit = mapState.pendingFitCoordinates, !fit.isEmpty {
+        if !bandOwnsCamera, let fit = mapState.pendingFitCoordinates, !fit.isEmpty {
             mapState.pendingFitCoordinates = nil
             let rects = fit.map { MKMapRect(origin: MKMapPoint($0), size: MKMapSize(width: 0, height: 0)) }
             let union = rects.dropFirst().reduce(rects[0]) { $0.union($1) }
@@ -4901,7 +5609,8 @@ struct SwissMapView: UIViewRepresentable {
         // Always update zoom range to ensure it matches current settings
         // This is important when forceICAOLayer changes from Settings
         let newZoomRange = cameraZoomRange(for: layerType, forceICAO: forceICAOLayer)
-        if mapView.cameraZoomRange != newZoomRange {
+        // Not while the legs panel's band holds a closer one (`LegsBandDriver`). (6.1, option C)
+        if !bandOwnsCamera, mapView.cameraZoomRange != newZoomRange {
             mapView.cameraZoomRange = newZoomRange
         }
 
@@ -4951,7 +5660,7 @@ struct SwissMapView: UIViewRepresentable {
 
         // Update camera from shared state (preserves heading)
         let regionChanged = !context.coordinator.regionsAreEqual(mapView.region, mapState.region)
-        if overlayChanged {
+        if overlayChanged && !bandOwnsCamera {
             // Always reposition camera on overlay change (layer switch)
             let camera = MKMapCamera(
                 lookingAtCenter: mapState.region.center,
@@ -4975,7 +5684,7 @@ struct SwissMapView: UIViewRepresentable {
                     mapView.setCamera(camera, animated: false)
                 }
             }
-        } else if regionChanged && !context.coordinator.isUserInteracting {
+        } else if !bandOwnsCamera && regionChanged && !context.coordinator.isUserInteracting {
             // Only reposition camera when NOT user-driven (matches NativeMapViewUIKit pattern)
             let camera = MKMapCamera(
                 lookingAtCenter: mapState.region.center,
@@ -4988,7 +5697,7 @@ struct SwissMapView: UIViewRepresentable {
 
         // Apply heading changes independently of region (for track-up mode).
         // When only heading changed but not region/overlay, the above block won't fire.
-        if !regionChanged && !overlayChanged && !context.coordinator.isUserInteracting {
+        if !bandOwnsCamera && !regionChanged && !overlayChanged && !context.coordinator.isUserInteracting {
             let headingDelta = abs(mapView.camera.heading - mapState.cameraHeading)
             let normalizedDelta = min(headingDelta, 360.0 - headingDelta)
             if normalizedDelta > 0.5 {
@@ -5270,6 +5979,8 @@ struct SwissMapView: UIViewRepresentable {
         var hasSegelflugCache: Bool = false
         private var isUpdatingRegion = false
         var isUserInteracting = false
+        /// The open legs panel's band. (6.1, option C)
+        let legsBand = LegsBandDriver()
         /// The aerodrome procedures drawn, and their palette. (6.2.0)
         let vfrLayer = VFRMapLayer.State()
 
@@ -5328,6 +6039,8 @@ struct SwissMapView: UIViewRepresentable {
         }
 
         func mapView(_ mapView: MKMapView, regionWillChangeAnimated animated: Bool) {
+            // The band moves the camera itself; the map takes no gesture meanwhile.
+            guard !legsBand.ownsCamera else { return }
             // Check if user is interacting via gesture recognizers
             if let gestureRecognizers = mapView.subviews.first?.gestureRecognizers {
                 for recognizer in gestureRecognizers {
@@ -5343,6 +6056,13 @@ struct SwissMapView: UIViewRepresentable {
         // Sync region changes back to shared state
         func mapView(_ mapView: MKMapView, regionDidChangeAnimated animated: Bool) {
             isUserInteracting = false
+            // Its zoom at rest, for the legs panel's band: the pilot's, unless the band has the camera.
+            legsBand.mapCameToRest(mapView)
+            // The band's camera is not the pilot's: the shared state keeps theirs, to go back to.
+            if legsBand.ownsCamera {
+                parent.mapState.updateBandRegion(mapView.region)
+                return
+            }
             guard !isUpdatingRegion else { return }
             isUpdatingRegion = true
             parent.mapState.updateFromRegion(mapView.region)
@@ -5372,8 +6092,7 @@ struct SwissMapView: UIViewRepresentable {
             }
 
             if let tileOverlay = overlay as? MKTileOverlay {
-                let renderer = MKTileOverlayRenderer(tileOverlay: tileOverlay)
-                return renderer
+                return LateTileRedraw.renderer(for: tileOverlay)
             }
 
             // Flight plan route (magenta - high visibility on aviation charts)
@@ -5709,6 +6428,11 @@ struct SwissMapView: UIViewRepresentable {
         // MARK: - Waypoint ATO Tap/Long-Press
 
         func mapView(_ mapView: MKMapView, didSelect annotation: MKAnnotation) {
+            // Nothing on the band answers a tap: no callout, no time over a waypoint. (6.1, option C)
+            if legsBand.ownsCamera {
+                mapView.deselectAnnotation(annotation, animated: false)
+                return
+            }
             guard let waypointAnnotation = annotation as? FlightPlanWaypointAnnotation else { return }
             // Deselect so user can tap again later
             mapView.deselectAnnotation(annotation, animated: false)
@@ -5727,7 +6451,7 @@ struct SwissMapView: UIViewRepresentable {
         }
 
         @objc private func handleWaypointLongPress(_ gesture: UILongPressGestureRecognizer) {
-            guard gesture.state == .began,
+            guard gesture.state == .began, !legsBand.ownsCamera,
                   let annotationView = gesture.view as? MKAnnotationView,
                   let waypointAnnotation = annotationView.annotation as? FlightPlanWaypointAnnotation else { return }
             parent.onWaypointATOTap?(waypointAnnotation.waypointIndex)
@@ -6231,6 +6955,591 @@ private struct NavClockText: View {
 private struct LegsPanelHeightKey: PreferenceKey {
     static let defaultValue: CGFloat = 0
     static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) { value = max(value, nextValue()) }
+}
+
+/// The height of Emergency, pinned to the open panel's foot. (6.1, option C)
+private struct EmergencyFooterHeightKey: PreferenceKey {
+    static let defaultValue: CGFloat = 0
+    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) { value = max(value, nextValue()) }
+}
+
+/// What the chart measures of itself, in its own space, for the band the open legs panel leaves
+/// (`LegsPanelMap.bandRect`). (6.1, option C)
+private struct ChartGeometry: Equatable {
+    var chartSize: CGSize = .zero
+    /// The bottom of the chrome over the chart's top: the next-waypoint card, and what comes and goes
+    /// with it (the cautions, a hazard).
+    var chromeBottom: CGFloat = 0
+    /// The map view's frame, which runs past the chart under a safe area.
+    var mapFrame: CGRect = .zero
+    /// How much of the chart's foot the panel lies over: in landscape, where it opens over the chart.
+    var panelInset: CGFloat = 0
+    /// Whether these are the measures with the panel open. The pass that opens it still has the closed
+    /// chart's (the map's controls under the card, in portrait a taller chart).
+    var measuredOpen = false
+}
+
+/// One reader each, but the views beside it hand in the default too: a reader's value is never zero.
+private struct ChartSizeKey: PreferenceKey {
+    static let defaultValue: CGSize = .zero
+    static func reduce(value: inout CGSize, nextValue: () -> CGSize) {
+        let next = nextValue()
+        if next != .zero { value = next }
+    }
+}
+
+private struct MapAccessoryHeightKey: PreferenceKey {
+    static let defaultValue: CGFloat = 0
+    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) { value = max(value, nextValue()) }
+}
+
+private struct ChartChromeBottomKey: PreferenceKey {
+    static let defaultValue: CGFloat = 0
+    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) { value = max(value, nextValue()) }
+}
+
+private struct ChartMapFrameKey: PreferenceKey {
+    static let defaultValue: CGRect = .zero
+    static func reduce(value: inout CGRect, nextValue: () -> CGRect) {
+        let next = nextValue()
+        if next != .zero { value = next }
+    }
+}
+
+private struct ChartMeasuredOpenKey: PreferenceKey {
+    static let defaultValue = false
+    static func reduce(value: inout Bool, nextValue: () -> Bool) { value = value || nextValue() }
+}
+
+private struct ChartPanelInsetKey: PreferenceKey {
+    static let defaultValue: CGFloat = 0
+    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) { value = max(value, nextValue()) }
+}
+
+/// Buttons side by side or one above the other, all one width: Divert and More, in the thumb bar and
+/// beside MARK in the landscape columns. More is a `Menu`, which sizes to its label, so it came out
+/// narrower than Divert, and much narrower in French ("Plus" beside "Déroutement"). (6.1, device check)
+///
+/// The pair takes the room the two buttons want, so MARK and the check slot beside it keep theirs:
+/// one above the other, the wider one's width, as a stack of the two took; side by side, half of
+/// both, the longer word a little smaller (its label scales down to 0.7) and the shorter one's button
+/// wider. As wide as the wider side by side, the pair left MARK and the slot about 55 pt each on a
+/// phone in French. Each button must fill the width it is offered (`maxWidth: .infinity`); the pair
+/// keeps its width whatever it is offered, and MARK gives.
+struct EqualWidthStack: Layout {
+    var axis: Axis = .vertical
+    var spacing: CGFloat = 8
+
+    /// The one width, from what each button wants.
+    static func buttonWidth(ideals: [CGFloat], axis: Axis) -> CGFloat {
+        guard !ideals.isEmpty else { return 0 }
+        switch axis {
+        case .vertical: return ideals.max() ?? 0
+        case .horizontal: return ideals.reduce(0, +) / CGFloat(ideals.count)
+        }
+    }
+
+    func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
+        guard !subviews.isEmpty else { return .zero }
+        let width = buttonWidth(subviews)
+        let heights = subviews.map { $0.sizeThatFits(ProposedViewSize(width: width, height: nil)).height }
+        let gaps = spacing * CGFloat(subviews.count - 1)
+        switch axis {
+        case .vertical:
+            return CGSize(width: width, height: heights.reduce(0, +) + gaps)
+        case .horizontal:
+            return CGSize(width: width * CGFloat(subviews.count) + gaps, height: heights.max() ?? 0)
+        }
+    }
+
+    func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) {
+        let width = buttonWidth(subviews)
+        var origin = bounds.origin
+        for subview in subviews {
+            let height = axis == .horizontal
+                ? bounds.height
+                : subview.sizeThatFits(ProposedViewSize(width: width, height: nil)).height
+            subview.place(at: origin, proposal: ProposedViewSize(width: width, height: height))
+            switch axis {
+            case .vertical: origin.y += height + spacing
+            case .horizontal: origin.x += width + spacing
+            }
+        }
+    }
+
+    private func buttonWidth(_ subviews: Subviews) -> CGFloat {
+        Self.buttonWidth(ideals: subviews.map { $0.sizeThatFits(.unspecified).width }, axis: axis)
+    }
+}
+
+/// The map's bottom row in flight with the check slot: the slot, then the rest of the row (MARK with
+/// Divert and More; GO AROUND and TOUCH-AND-GO; Routes). The slot keeps one frame whatever follows it,
+/// as wide as MARK beside Divert and More: half of what Divert and More leave. In circuits the row
+/// changes every lap, at circuit height and again on the runway, and the slot moved to the middle of it
+/// each time. (6.1, the author's call: the slot stays left)
+///
+/// Three subviews: the slot, Divert and More as a hidden measure (`reference`, laid out but never seen),
+/// and the rest of the row, which takes the width the slot leaves.
+struct CheckSlotRowLayout: Layout {
+    var spacing: CGFloat
+
+    /// The slot's width in a row `rowWidth` wide, beside Divert and More `reference` wide.
+    static func slotWidth(rowWidth: CGFloat, reference: CGFloat, spacing: CGFloat) -> CGFloat {
+        max(0, (rowWidth - reference - 2 * spacing) / 2)
+    }
+
+    func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
+        guard subviews.count == 3 else { return .zero }
+        let width = rowWidth(proposal, subviews)
+        let slot = Self.slotWidth(rowWidth: width, reference: referenceWidth(subviews), spacing: spacing)
+        let rest = max(0, width - slot - spacing)
+        let height = max(subviews[0].sizeThatFits(ProposedViewSize(width: slot, height: proposal.height)).height,
+                         subviews[2].sizeThatFits(ProposedViewSize(width: rest, height: proposal.height)).height)
+        return CGSize(width: width, height: height)
+    }
+
+    func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) {
+        guard subviews.count == 3 else { return }
+        let slot = Self.slotWidth(rowWidth: bounds.width, reference: referenceWidth(subviews), spacing: spacing)
+        subviews[0].place(at: CGPoint(x: bounds.minX, y: bounds.midY), anchor: .leading,
+                          proposal: ProposedViewSize(width: slot, height: bounds.height))
+        // Hidden: it only measures.
+        subviews[1].place(at: bounds.origin, proposal: .unspecified)
+        subviews[2].place(at: CGPoint(x: bounds.minX + slot + spacing, y: bounds.midY), anchor: .leading,
+                          proposal: ProposedViewSize(width: max(0, bounds.width - slot - spacing), height: bounds.height))
+    }
+
+    private func referenceWidth(_ subviews: Subviews) -> CGFloat {
+        subviews[1].sizeThatFits(.unspecified).width
+    }
+
+    /// The width offered, or with none (or no bound), what the row wants: a slot as wide as the rest's.
+    private func rowWidth(_ proposal: ProposedViewSize, _ subviews: Subviews) -> CGFloat {
+        if let width = proposal.width, width.isFinite { return width }
+        let reference = referenceWidth(subviews)
+        let slot = subviews[0].sizeThatFits(.unspecified).width
+        return 2 * slot + reference + 2 * spacing
+    }
+}
+
+/// The next waypoint's figures, as the card and the phone's line show them, and the widest value each
+/// format gives. B612 Mono draws every character the same width, so the widest is the longest. (6.1,
+/// stability)
+enum NextWaypointReadout {
+    /// "206°"
+    static func bearing(_ degrees: Double) -> String { String(format: "%03d°", Int(degrees)) }
+
+    /// "9.9", without its unit.
+    static func distance(_ nauticalMiles: Double) -> String { String(format: "%.1f", nauticalMiles) }
+
+    /// ETE in minutes, "13 min", or "1:07 h" past the hour. As "13:07" beside an ETA of "13:58" it
+    /// read as a clock time.
+    static func eteValue(_ ete: TimeInterval) -> String {
+        let minutes = Int((ete / 60).rounded())
+        return minutes < 60 ? "\(minutes)" : String(format: "%d:%02d", minutes / 60, minutes % 60)
+    }
+
+    static func eteUnit(_ ete: TimeInterval) -> String {
+        Int((ete / 60).rounded()) < 60 ? "min" : "h"
+    }
+
+    /// The clock time, as the device writes it.
+    static func eta(_ date: Date) -> String {
+        date.formatted(date: .omitted, time: .shortened)
+    }
+
+    static let widestBearing = "000°"
+    /// Up to 999.9 NM: further away than that, the cell's value shrinks rather than widening it.
+    static let widestDistance = "000.0"
+    /// The ETE's two forms: up to 59 min, then up to 9:59 h.
+    static let widestMinutes = NavValueCell.Reading("00", unit: "min")
+    static let widestHours = NavValueCell.Reading("0:00", unit: "h")
+
+    /// A clock time with two digits to its hour (and AM or PM where the device writes them).
+    static var widestETA: String {
+        var components = DateComponents()
+        components.year = 2026
+        components.month = 1
+        components.day = 1
+        components.hour = 22
+        components.minute = 58
+        return Calendar.current.date(from: components).map(eta) ?? "00:00"
+    }
+
+    /// The phone's line, "206° ·  9.9 NM · 12 min": every figure right-aligned in a field as long as its
+    /// widest, and "—" where there is none yet (no fix; under 30 kt, no ETE), so the line keeps one
+    /// length. Dropping a missing figure, as the line did, moved the others at the take-off. The
+    /// distance's field holds 99.9 NM; a farther waypoint lengthens it by a character.
+    static func phoneLine(bearing: String?, distance: String?, ete: TimeInterval?) -> String {
+        let eteText = ete.map { "\(eteValue($0)) \(eteUnit($0))" }
+        return [padded(bearing ?? "—", to: 4),
+                padded(distance ?? "—", to: 4) + " NM",
+                padded(eteText ?? "—", to: 6)].joined(separator: " · ")
+    }
+
+    private static func padded(_ text: String, to length: Int) -> String {
+        String(repeating: " ", count: max(0, length - text.count)) + text
+    }
+}
+
+/// A label over a value, for the next-waypoint card. As wide as the widest value its format gives
+/// (`widest`, and `orWidest` for a format with two forms), whatever it shows now: each cell took its
+/// value's width, so 10.0 → 9.9 NM, 59 min → 1:00 h or a figure → "—" slid the cells to its left, and
+/// could flip the card to another of its layouts, as much as 59 pt taller. (6.1, stability)
+struct NavValueCell: View {
+    struct Reading: Equatable {
+        let value: String
+        var unit: String?
+
+        init(_ value: String, unit: String? = nil) {
+            self.value = value
+            self.unit = unit
+        }
+    }
+
+    let label: String
+    let reading: Reading
+    let widest: Reading
+    var orWidest: Reading?
+
+    @Environment(\.cockpitTheme) private var theme
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 2) {
+            Text(label)
+                .font(.aero(size: CockpitType.label, weight: .semibold))
+                .foregroundColor(theme.textSecondary)
+            // The widest, unseen, sizes the cell; the value sits over it, from its left edge.
+            ZStack(alignment: .leading) {
+                line(widest)
+                if let orWidest { line(orWidest) }
+            }
+            .hidden()
+            .accessibilityHidden(true)
+            .overlay(alignment: .leading) {
+                line(reading)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.5)
+            }
+        }
+        .fixedSize()
+        .accessibilityElement(children: .combine)
+    }
+
+    private func line(_ reading: Reading) -> some View {
+        HStack(alignment: .firstTextBaseline, spacing: 4) {
+            Text(reading.value)
+                .font(.aero(size: CockpitType.response, weight: .bold, design: .monospaced))
+                .foregroundColor(theme.textPrimary)
+            if let unit = reading.unit {
+                Text(unit)
+                    .font(.aero(size: CockpitType.label))
+                    .foregroundColor(theme.textSecondary)
+            }
+        }
+    }
+}
+
+/// A frequency on one line, at its size or a little under, never wrapped. What a pilot typed for a
+/// waypoint can be long ("119.175 Bern Information"); it wrapped and made the NOW / NEXT card a line
+/// taller (29 pt on the phone). Past the scaling, the words go, not the frequency: cut at the end, or at
+/// the start where the frequency ends the text. (6.1, stability)
+struct FrequencyLineText: View {
+    let text: String
+    let font: Font
+    let color: Color
+
+    var body: some View {
+        ZStack(alignment: .leading) {
+            // A line's height at full size: scaled, the text alone came out 5 pt shorter, the card too.
+            Text(verbatim: "0")
+                .font(font)
+                .hidden()
+                .accessibilityHidden(true)
+            let parts = FrequencyRow.parts(of: text)
+            if parts.count > 1 {
+                // Several frequencies typed ("Info 124.705 / Tower 118.125 / Ground 121.900"): all of them
+                // if they fit, else the first one whole and a sign there are more, which the open panel
+                // lists. Cut at its start, the text read "….125 / Ground 121.900": the first frequency
+                // gone and the second cut in its digits. (6.1.0 device check)
+                ViewThatFits(in: .horizontal) {
+                    line(text)
+                    line(Self.firstOfSeveral(parts))
+                    line(parts[0])
+                }
+                .accessibilityLabel(text)
+            } else {
+                line(text)
+            }
+        }
+    }
+
+    private func line(_ shown: String) -> some View {
+        Text(shown)
+            .font(font)
+            .foregroundColor(color)
+            .lineLimit(1)
+            .minimumScaleFactor(0.85)
+            .truncationMode(Self.cutsAtStart(shown) ? .head : .tail)
+    }
+
+    /// The first of several typed frequencies, and a sign that more follow.
+    static func firstOfSeveral(_ parts: [String]) -> String {
+        parts.count > 1 ? parts[0] + " / …" : parts.first ?? ""
+    }
+
+    /// Whether the text ends with a frequency after some words ("Bern Info 120.100"): then the words are
+    /// cut at the start, so the digits stay.
+    static func cutsAtStart(_ text: String) -> Bool {
+        let trimmed = text.trimmingCharacters(in: .whitespaces)
+        guard let range = trimmed.range(of: #"[0-9]{3}[.,][0-9]{1,3}$"#, options: .regularExpression) else {
+            return false
+        }
+        return range.lowerBound != trimmed.startIndex
+    }
+}
+
+/// A station and its frequency in the open panel's list. The frequency is dialled as read: it keeps one
+/// line and every digit, and the station gives way, smaller, then cut. Beside a long name it wrapped as
+/// "130.35" over "5". (6.1, device check)
+///
+/// What a pilot typed for a waypoint can be any length ("Info 124.705 / Tower 118.125 / Ground
+/// 121.900"). Where it leaves the station less than a few letters, it goes under the station, at the
+/// right, one part per line, split at "/". Each part keeps one line: a little smaller (down to the label
+/// size), then cut, never wrapped. On the station's line at its full width, it squeezed the station to
+/// nothing and made the row, the frequency column, then Emergency lined up under it, and so the whole
+/// panel wider than the screen: the map pane moved right and the frequencies ran off it. The row is
+/// never wider than it is offered. (6.1, device check)
+struct FrequencyRow: View {
+    let item: PhaseFrequency
+    /// The kneeboard panel's sizes (v6.0 · P6); the small ones are the old sheet's.
+    var large = true
+
+    @Environment(\.cockpitTheme) private var theme
+
+    var body: some View {
+        ViewThatFits(in: .horizontal) {
+            oneLine
+            underTheStation
+        }
+        .padding(.vertical, large ? 8 : 3)
+    }
+
+    /// The parts of what was typed, one per line under the station: split at "/", each trimmed.
+    static func parts(of text: String) -> [String] {
+        let parts = text.split(separator: "/")
+            .map { $0.trimmingCharacters(in: .whitespaces) }
+            .filter { !$0.isEmpty }
+        return parts.isEmpty ? [text] : parts
+    }
+
+    /// What the station keeps, at the least, for its frequency to stay on its line: about four capitals.
+    static func stationRoom(large: Bool) -> CGFloat {
+        3 * (large ? CockpitType.label : 11)
+    }
+
+    /// The station, then the frequency at the far end: every "130.355", as it always was. Measured with
+    /// the station at its room, so a long name gives way rather than send its frequency under it.
+    private var oneLine: some View {
+        HStack(spacing: large ? 10 : 6) {
+            tag
+            station
+                .frame(idealWidth: Self.stationRoom(large: large))
+            Spacer(minLength: 6)
+            Text(item.freq)
+                .font(frequencyFont)
+                .foregroundColor(frequencyColor)
+                .lineLimit(1)
+                .fixedSize()
+        }
+    }
+
+    /// The station on its line, then each part of what was typed on its own, at the right.
+    private var underTheStation: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            HStack(spacing: large ? 10 : 6) {
+                tag
+                station
+            }
+            ForEach(Array(Self.parts(of: item.freq).enumerated()), id: \.offset) { _, part in
+                FrequencyLineText(text: part, font: frequencyFont, color: frequencyColor)
+                    .frame(maxWidth: .infinity, alignment: .trailing)
+            }
+        }
+    }
+
+    /// A short NOW / NEXT tag in its colour; nothing on the other rows. (v4 UI/UX Revamp)
+    @ViewBuilder
+    private var tag: some View {
+        if let roleTag {
+            Text(roleTag.title)
+                .font(.aero(size: large ? 16 : 8, weight: .bold)).tracking(0.3)
+                .foregroundColor(roleTag.tint)
+                .lineLimit(1)
+                .fixedSize()
+                .padding(.horizontal, 4).padding(.vertical, 1)
+                .background(roleTag.tint.opacity(0.16), in: RoundedRectangle(cornerRadius: 3))
+        }
+    }
+
+    private var roleTag: (title: String, tint: Color)? {
+        switch item.role {
+        case .current: return (L10n.Nav.freqCurrent, theme.onTarget)
+        case .next: return (L10n.Nav.freqNext, theme.info)
+        default: return nil
+        }
+    }
+
+    private var station: some View {
+        Text(item.station)
+            .font(.aero(size: large ? CockpitType.label : 11, weight: item.highlighted ? .semibold : .regular))
+            .foregroundColor(item.isEmergency ? theme.danger : theme.textSecondary)
+            .lineLimit(1)
+            .minimumScaleFactor(large ? 0.7 : 1)
+    }
+
+    private var frequencyFont: Font {
+        .aero(size: large ? CockpitType.row : 13, weight: item.highlighted ? .bold : .regular, design: .monospaced)
+    }
+
+    /// Frequencies are data: white in flight on the kneeboard panel. (v6.0 · P5)
+    private var frequencyColor: Color {
+        item.highlighted && !large ? theme.onTarget : theme.textPrimary
+    }
+}
+
+/// The leg table's columns in the open panel, at the kneeboard sizes the phone uses too. Each time column
+/// is as wide as its widest value: B612 Mono is about 0.6 em wide, so at 20 pt "17:32" needs 60 pt and
+/// "▲15:15" about 72. Exact rather than scaled, so the times stay whole wherever the legs are laid out;
+/// the name takes what they leave, a little smaller, then cut.
+enum LegRowMetrics {
+    static let horizontalPadding: CGFloat = 8
+    static let spacing: CGFloat = 8
+    static let indexWidth: CGFloat = 26
+    /// The dot, the arrow or the circle before the name, at most. Each keeps its own width (on a phone on
+    /// its side, "LSZQ" has no point to spare).
+    static let iconWidth: CGFloat = 18
+    /// The least room between the name and the times.
+    static let nameGap: CGFloat = 6
+    static let timeSpacing: CGFloat = 6
+    static let timeWidth: CGFloat = 68
+    static let deltaWidth: CGFloat = 82
+
+    /// A row without its name.
+    static var fixedWidth: CGFloat {
+        2 * horizontalPadding + indexWidth + iconWidth + 4 * spacing + nameGap
+            + 2 * timeWidth + deltaWidth + 2 * timeSpacing
+    }
+
+    /// ACT and Δ, both empty on a waypoint ahead: where DIRECT goes on a previewed one.
+    static var actualAndDeltaWidth: CGFloat { timeWidth + timeSpacing + deltaWidth }
+
+    /// The least of a name the legs keep beside the frequencies: an ICAO code, four characters of B612
+    /// Mono at 20 pt.
+    static let shortNameWidth: CGFloat = 48
+}
+
+/// The open panel's two columns, the legs and then the frequencies: side by side wherever the legs keep
+/// their times whole and a short name beside the frequencies' 300 pt (every iPad in portrait, the mini's
+/// 744 pt included, and the iPad's panel on its side), one above the other on a phone. Decided on the
+/// width alone. `ViewThatFits` decided on the legs' ideal width, every name and the DEST line at full
+/// size: a route with one long name (SAIGNELÉGIER) put the frequencies under the legs, out of view until
+/// scrolled. Beside the frequencies, the names give way instead. (6.1, device check)
+///
+/// Never wider than it is offered, whatever is inside. `frequencyFoot` places its content (Emergency,
+/// pinned under the scroll) where the frequency column runs above it.
+struct LegsPanelColumns: Layout {
+    enum Content: Equatable {
+        /// Two subviews: the legs, then the frequencies.
+        case legsAndFrequencies
+        /// The frequency column's foot, under the column: beside the legs when there are any, else the
+        /// panel's width.
+        case frequencyFoot(hasLegs: Bool)
+    }
+
+    var content: Content = .legsAndFrequencies
+
+    static let frequencyWidth: CGFloat = 300
+    static let columnSpacing: CGFloat = 24
+    static let stackSpacing: CGFloat = 16
+
+    /// The narrowest width that has the legs beside the frequencies.
+    static var sideBySideWidth: CGFloat {
+        LegRowMetrics.fixedWidth + LegRowMetrics.shortNameWidth + columnSpacing + frequencyWidth
+    }
+
+    static func isSideBySide(width: CGFloat) -> Bool {
+        width >= sideBySideWidth
+    }
+
+    /// Where the frequency column runs across `width`.
+    static func frequencyColumn(width: CGFloat, hasLegs: Bool) -> (minX: CGFloat, width: CGFloat) {
+        hasLegs && isSideBySide(width: width) ? (width - frequencyWidth, frequencyWidth) : (0, width)
+    }
+
+    func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
+        let width = width(for: proposal, subviews: subviews)
+        return CGSize(width: width, height: frames(width: width, subviews: subviews).map(\.maxY).max() ?? 0)
+    }
+
+    func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) {
+        for (subview, frame) in zip(subviews, frames(width: bounds.width, subviews: subviews)) {
+            subview.place(at: CGPoint(x: bounds.minX + frame.minX, y: bounds.minY + frame.minY),
+                          proposal: ProposedViewSize(width: frame.width, height: frame.height))
+        }
+    }
+
+    /// The width offered; asked for an ideal size, the widest subview's.
+    private func width(for proposal: ProposedViewSize, subviews: Subviews) -> CGFloat {
+        if let width = proposal.width, width.isFinite { return width }
+        return subviews.map { $0.sizeThatFits(.unspecified).width }.max() ?? 0
+    }
+
+    private func frames(width: CGFloat, subviews: Subviews) -> [CGRect] {
+        func height(_ index: Int, _ width: CGFloat) -> CGFloat {
+            subviews[index].sizeThatFits(ProposedViewSize(width: width, height: nil)).height
+        }
+        switch content {
+        case .legsAndFrequencies where subviews.count == 2 && Self.isSideBySide(width: width):
+            let column = Self.frequencyColumn(width: width, hasLegs: true)
+            let legsWidth = column.minX - Self.columnSpacing
+            return [CGRect(x: 0, y: 0, width: legsWidth, height: height(0, legsWidth)),
+                    CGRect(x: column.minX, y: 0, width: column.width, height: height(1, column.width))]
+        case .legsAndFrequencies:
+            return stacked(x: 0, width: width, spacing: Self.stackSpacing, subviews: subviews)
+        case .frequencyFoot(let hasLegs):
+            let column = Self.frequencyColumn(width: width, hasLegs: hasLegs)
+            return stacked(x: column.minX, width: column.width, spacing: 0, subviews: subviews)
+        }
+    }
+
+    /// One above the other, each `width` wide from `x`.
+    private func stacked(x: CGFloat, width: CGFloat, spacing: CGFloat, subviews: Subviews) -> [CGRect] {
+        var frames: [CGRect] = []
+        var y: CGFloat = 0
+        for subview in subviews {
+            let height = subview.sizeThatFits(ProposedViewSize(width: width, height: nil)).height
+            frames.append(CGRect(x: x, y: y, width: width, height: height))
+            y += height + spacing
+        }
+        return frames
+    }
+}
+
+/// What the open legs panel brings into view when it is below the fold: the leg being flown, the row
+/// of the waypoint flown to. On a long route, a leg far down it opened out of view. Pure, so it is
+/// tested without a view. (6.1, device check)
+enum LegsPanelReveal {
+    /// A leg's row in the panel's scroll.
+    struct RowID: Hashable {
+        let index: Int
+    }
+
+    /// The row of the leg being flown; once the route is flown, its last row. None without legs.
+    static func row(currentWaypointIndex: Int, waypointCount: Int) -> Int? {
+        guard waypointCount > 0 else { return nil }
+        return min(max(currentWaypointIndex, 0), waypointCount - 1)
+    }
 }
 
 /// The flight-event overlay, except where the map is embedded in a view that already has one.

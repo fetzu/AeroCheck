@@ -81,12 +81,12 @@ struct FlightReconciliationView: View {
                         Button {
                             row.wrappedValue.type = type
                         } label: {
-                            Label(type.rawValue, systemImage: icon(for: type))
+                            Label(type.title, systemImage: icon(for: type))
                         }
                     }
                 } label: {
                     HStack(spacing: 5) {
-                        Text(value.type.rawValue)
+                        Text(value.type.title)
                             .font(.aero(size: 16, weight: .semibold))
                             .foregroundColor(.primaryText)
                         Image(systemName: "chevron.up.chevron.down")
@@ -141,7 +141,7 @@ struct FlightReconciliationView: View {
         case .detectedOnly:
             badgeLabel(L10n.Reconciliation.badgeDetected, color: .aviationAmber)
         case .typeMismatch(let recorded):
-            badgeLabel(L10n.Reconciliation.badgeWas(recorded.rawValue), color: .orange)
+            badgeLabel(L10n.Reconciliation.badgeWas(recorded.title), color: .orange)
         }
     }
 

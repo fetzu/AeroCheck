@@ -22,7 +22,8 @@ struct CheckOutcome: Codable, Equatable {
         case notSure
         /// Left with items open, or deferred whole and never run.
         case skipped
-        /// Its phase's own action (ENGINE START, READY FOR LINE UP, ENGINE SHUTDOWN) never pressed.
+        /// Its phase's own action (ENGINE START, ENGINE SHUTDOWN; READY FOR LINE UP on a flight recorded
+        /// before 6.2) never pressed.
         case actionMissing
         /// Nothing in it to do, or no checklist loaded.
         case nothingToDo

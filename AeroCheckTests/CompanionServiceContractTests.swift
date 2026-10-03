@@ -54,6 +54,186 @@ final class CompanionServiceContractTests: XCTestCase {
         XCTAssertEqual(CompanionRole.automatic(for: .phone), .viewer, "iPhone connects / browses")
     }
 
+    // MARK: - Pairing mode: the pairing screen has the service to itself (6.1.0)
+
+    // Wi-Fi Aware takes one publisher and one subscriber per service on a device, and the pairing
+    // views publish/subscribe `_aerocheck._udp` themselves. With a device already paired, auto-connect
+    // kept our own listener (iPad) or browser (iPhone) on it under the pairing screen, and pairing
+    // never reached the iPad. A test manager never touches Wi-Fi Aware, so an attempt to start shows
+    // as the role it takes (`currentRole`), even though it then ends disconnected.
+
+    private struct PairedCompanion {
+        let manager: CompanionConnectivityManager
+        /// Held here: the manager keeps its data sources weakly.
+        let appState: AppState
+        let location: LocationManager
+        let plans: FlightPlanManager
+    }
+
+    /// Companion mode on and a device paired: what auto-connect needs to start something.
+    @MainActor
+    private func makePairedCompanion() -> PairedCompanion {
+        let manager = CompanionConnectivityManager(defaults: makeTestDefaults(), usesWiFiAware: false)
+        let appState = makeTestAppState()
+        appState.settings.enableCompanionMode = true
+        let location = LocationManager()
+        let plans = makeTestPlanManager()
+        manager.configure(appState: appState, locationManager: location, flightPlanManager: plans)
+        manager.pairedDevices = [CompanionPairedDevice(name: "Other device", pairingName: nil, deviceIDs: [7])]
+        addTeardownBlock { @MainActor in
+            manager.endPairing()
+            manager.disconnect()
+        }
+        return PairedCompanion(manager: manager, appState: appState, location: location, plans: plans)
+    }
+
+    @MainActor
+    func testAutoConnectStartsSomethingOutsidePairing() {
+        // The baseline the tests below rely on: without a pairing screen, auto-connect does start.
+        let companion = makePairedCompanion()
+        companion.manager.autoConnectIfReady()
+        XCTAssertNotEqual(companion.manager.currentRole, .none, "auto-connect started a listener or a browse")
+    }
+
+    @MainActor
+    func testAutoConnectIsHeldWhilePairing() {
+        let companion = makePairedCompanion()
+        let manager = companion.manager
+        manager.beginPairing()
+        XCTAssertTrue(manager.isPairing)
+
+        // Launch, foreground, flight start, the Companion screen.
+        manager.autoConnectIfReady()
+        // The master's re-arm after a drop, the viewer's retry, and the Companion screen's buttons.
+        manager.startListening()
+        manager.connectToPairedDevice()
+
+        XCTAssertEqual(manager.currentRole, .none, "nothing of ours started on the service")
+        XCTAssertEqual(manager.connectionState, .disconnected)
+    }
+
+    @MainActor
+    func testPairingStopsTheIPadsSession() throws {
+        let companion = makePairedCompanion()
+        let manager = companion.manager
+        // The iPad listening, with a phone connected through it.
+        manager.currentRole = .master
+        let gen = try XCTUnwrap(manager.adoptMasterConnection(identity: CompanionPeerIdentity(deviceID: 7, name: nil),
+                                                              send: { _ in }))
+        XCTAssertEqual(manager.connectionState, .connected)
+
+        manager.beginPairing()
+        XCTAssertEqual(manager.connectionState, .disconnected)
+        XCTAssertEqual(manager.currentRole, .none)
+        XCTAssertNil(manager.peerLink)
+
+        let ping = CompanionMessage(type: .command, payload: try JSONEncoder().encode(CompanionCommand.ping))
+        XCTAssertFalse(manager.handleReceivedMessage(ping, generation: gen), "the old connection no longer counts")
+        XCTAssertNil(manager.adoptMasterConnection(identity: CompanionPeerIdentity(deviceID: 7, name: nil),
+                                                   send: { _ in }),
+                     "a connection the listener had already accepted is closed, not adopted")
+        XCTAssertEqual(manager.connectionState, .disconnected)
+    }
+
+    @MainActor
+    func testPairingStopsTheIPhonesRetriesAndKeepsItOffTheCompanionScreen() {
+        let companion = makePairedCompanion()
+        let manager = companion.manager
+        // A browse that failed and is retrying: the root showed CompanionFlightView over Settings.
+        manager.currentRole = .viewer
+        manager.connectionState = .reconnecting
+
+        manager.beginPairing()
+        XCTAssertEqual(manager.connectionState, .disconnected)
+        XCTAssertEqual(manager.currentRole, .none, "ContentView needs .viewer to swap the root")
+
+        manager.connectToPairedDevice()   // what the 3 s retry calls
+        XCTAssertEqual(manager.currentRole, .none)
+        XCTAssertEqual(manager.connectionState, .disconnected)
+    }
+
+    @MainActor
+    func testLeavingPairingResumesAutoConnect() {
+        let companion = makePairedCompanion()
+        let manager = companion.manager
+        manager.beginPairing()
+        manager.endPairing()
+        XCTAssertFalse(manager.isPairing)
+        XCTAssertNotEqual(manager.currentRole, .none, "auto-connect started again")
+    }
+
+    @MainActor
+    func testLeavingPairingStartsNothingWhenCompanionModeIsOff() {
+        let companion = makePairedCompanion()
+        companion.appState.settings.enableCompanionMode = false
+        companion.manager.beginPairing()
+        companion.manager.endPairing()
+        XCTAssertEqual(companion.manager.currentRole, .none)
+    }
+
+    @MainActor
+    func testPairingModeIsOnlyLeftOnce() {
+        let companion = makePairedCompanion()
+        let manager = companion.manager
+        // A stray end without a begin starts nothing (only the cover's own disappear resumes).
+        manager.endPairing()
+        XCTAssertEqual(manager.currentRole, .none)
+
+        // A second begin (the cover re-appearing) keeps the hold; one end lifts it.
+        manager.beginPairing()
+        manager.beginPairing()
+        manager.autoConnectIfReady()
+        XCTAssertEqual(manager.currentRole, .none)
+        manager.endPairing()
+        XCTAssertFalse(manager.isPairing)
+        XCTAssertNotEqual(manager.currentRole, .none)
+    }
+
+    @MainActor
+    func testPairingModeIsLoggedWithoutDeviceNames() {
+        let companion = makePairedCompanion()
+        let manager = companion.manager
+        manager.currentRole = .master
+        _ = manager.adoptMasterConnection(identity: CompanionPeerIdentity(deviceID: 7, name: "Pilot's iPhone"),
+                                          send: { _ in })
+        manager.beginPairing()
+        let line = manager.diagnostics.first ?? ""
+        XCTAssertTrue(line.contains("Pairing mode on: background listener stopped"), line)
+        XCTAssertFalse(line.contains("Pilot"), "logged in the clear, so never a device name")
+    }
+
+    // MARK: - Pairing completion: the screen closes on a new pairing record (6.1.0)
+
+    func testANewPairingClosesThePairingScreen() {
+        XCTAssertTrue(CompanionPairingCompletion.isComplete(baseline: [], current: [7]), "a first device")
+        XCTAssertTrue(CompanionPairingCompletion.isComplete(baseline: [7], current: [7, 8]), "another device")
+    }
+
+    /// Pairing again a device already listed: the screen used to close on one more row, and stayed up.
+    func testPairingAgainADeviceAlreadyListedClosesIt() {
+        let before = [CompanionPairedDevice(name: "Club iPad", pairingName: nil, deviceIDs: [7])]
+        let after = [CompanionPairedDevice(name: "Club iPad", pairingName: nil, deviceIDs: [7, 9])]
+        XCTAssertEqual(before.count, after.count, "one row either way: what closed it before never moved")
+        XCTAssertTrue(CompanionPairingCompletion.isComplete(baseline: Set(before.flatMap(\.deviceIDs)),
+                                                            current: Set(after.flatMap(\.deviceIDs))))
+        XCTAssertTrue(CompanionPairingCompletion.isComplete(baseline: [7], current: [9]), "the old record replaced")
+    }
+
+    func testARecordGoingAwayDoesNotCloseIt() {
+        // A pairing in progress can replace a record; closing on its removal could cancel the pairing.
+        XCTAssertFalse(CompanionPairingCompletion.isComplete(baseline: [7, 9], current: [7]))
+        XCTAssertFalse(CompanionPairingCompletion.isComplete(baseline: [7], current: [7]))
+    }
+
+    @MainActor
+    func testThePairingScreenWatchesEverySystemRecord() {
+        let manager = CompanionConnectivityManager(defaults: makeTestDefaults(), usesWiFiAware: false)
+        manager.pairedDevices = [CompanionPairedDevice(name: "Club iPad", pairingName: nil, deviceIDs: [7, 9]),
+                                 CompanionPairedDevice(name: "Old iPad", pairingName: nil, deviceIDs: [8])]
+        manager.forget(manager.pairedDevices[1])
+        XCTAssertEqual(manager.pairedDeviceIDs, [7, 8, 9], "forgotten ones included: they are system records too")
+    }
+
     // MARK: - Shared GPS: source election (v4.1)
 
     func testElectionPrefersOwnGPS() {
@@ -337,15 +517,15 @@ final class CompanionServiceContractTests: XCTestCase {
         manager.handleReceivedMessage(try hello(false), generation: gen)
         XCTAssertFalse(manager.streamsItemText, "no claim, no consent: no text")
         manager.handleReceivedMessage(tap, generation: gen)
-        manager.answerAuthorization(try XCTUnwrap(manager.pendingAuthorization), allow: true)
+        manager.answerAuthorization(try XCTUnwrap(manager.pendingAuthorization), .allow)
         XCTAssertTrue(manager.streamsItemText, "allowed: the text streams from now on")
 
-        // The consent was for that connection only.
+        // The consent was for that connection only: a peer not identified is never remembered.
         gen = try XCTUnwrap(manager.adoptMasterConnection(identity: nil, send: { _ in }))
         manager.handleReceivedMessage(try hello(false), generation: gen)
         XCTAssertFalse(manager.streamsItemText, "a new connection starts without it")
         manager.handleReceivedMessage(tap, generation: gen)
-        manager.answerAuthorization(try XCTUnwrap(manager.pendingAuthorization), allow: false)
+        manager.answerAuthorization(try XCTUnwrap(manager.pendingAuthorization), .deny)
         XCTAssertFalse(manager.streamsItemText, "Don't Allow keeps the text off for the connection")
 
         // The subscriber's own phone needs no prompt.
@@ -358,7 +538,7 @@ final class CompanionServiceContractTests: XCTestCase {
         manager.entitlementProvider = { false }
         XCTAssertFalse(manager.streamsItemText)
         manager.handleReceivedMessage(tap, generation: gen)
-        manager.answerAuthorization(try XCTUnwrap(manager.pendingAuthorization), allow: true)
+        manager.answerAuthorization(try XCTUnwrap(manager.pendingAuthorization), .allow)
         XCTAssertFalse(manager.streamsItemText, "claim and consent together are still not enough")
 
         // The bundled aircraft: always.

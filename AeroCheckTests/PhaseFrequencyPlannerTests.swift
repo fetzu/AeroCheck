@@ -33,10 +33,29 @@ final class PhaseFrequencyPlannerTests: XCTestCase {
         // Grenchen, E, Les Eplatures, Bressaucourt, flying to E: the next field after it.
         let toE = PhaseFrequencyPlanner.plan(position: Self.enRoute, plan: Self.route(next: 1), sources: Self.world.sources)
         XCTAssertEqual(toE.next, .init(station: "LSGC AFIS", freq: "120.350"))
-        // As the map always had it: the field AFTER the waypoint flown to, so flying to Les Eplatures,
-        // more than 10 NM out, NEXT is already Bressaucourt (Les Eplatures becomes NOW within 10 NM).
+        // Flying to Les Eplatures, more than 10 NM out: Les Eplatures itself. Until 6.2 the field flown
+        // to was passed over and NEXT already read Bressaucourt.
         let toLSGC = PhaseFrequencyPlanner.plan(position: Self.enRoute, plan: Self.route(next: 2), sources: Self.world.sources)
-        XCTAssertEqual(toLSGC.next, .init(station: "LSZQ A/G", freq: "123.575"))
+        XCTAssertEqual(toLSGC.current, .init(station: "Geneva Info", freq: "126.350"))
+        XCTAssertEqual(toLSGC.next, .init(station: "LSGC AFIS", freq: "120.350"))
+    }
+
+    func testOnceTheFieldFlownToIsNowNextIsTheFieldAfterIt() {
+        // Within 10 NM of Les Eplatures, still flying to it: it is NOW, Bressaucourt NEXT.
+        let plan = PhaseFrequencyPlanner.plan(position: Self.nearLesEplatures, plan: Self.route(next: 2),
+                                              sources: Self.world.sources)
+        XCTAssertEqual(plan.current, .init(station: "LSGC AFIS", freq: "120.350"))
+        XCTAssertEqual(plan.next, .init(station: "LSZQ A/G", freq: "123.575"))
+    }
+
+    func testOnTheLastLegTheDestinationIsNextUntilItIsNow() {
+        let lastLeg = Self.route(next: 3)
+        XCTAssertEqual(PhaseFrequencyPlanner.plan(position: Self.enRoute, plan: lastLeg, sources: Self.world.sources).next,
+                       .init(station: "LSZQ A/G", freq: "123.575"))
+        // Within its 10 NM: NOW, and NEXT the area's Info as before (no CTR around), never the field twice.
+        let near = PhaseFrequencyPlanner.plan(position: Self.nearBressaucourt, plan: lastLeg, sources: Self.world.sources)
+        XCTAssertEqual(near.current, .init(station: "LSZQ A/G", freq: "123.575"))
+        XCTAssertNotEqual(near.next, near.current)
     }
 
     func testDivertingNextIsTheFieldDivertedTo() {
@@ -254,6 +273,10 @@ final class PhaseFrequencyPlannerTests: XCTestCase {
     private static let nearGrenchen = CLLocationCoordinate2D(latitude: 47.170, longitude: 7.460)
     /// Between Grenchen and Les Eplatures, more than 10 NM from either, Geneva's side.
     private static let enRoute = CLLocationCoordinate2D(latitude: 47.05, longitude: 7.15)
+    /// About 4 NM east of Les Eplatures.
+    private static let nearLesEplatures = CLLocationCoordinate2D(latitude: 47.10, longitude: 6.88)
+    /// About 3 NM south of Bressaucourt.
+    private static let nearBressaucourt = CLLocationCoordinate2D(latitude: 47.34, longitude: 7.03)
 
     private static func moved(_ point: CLLocationCoordinate2D, by degrees: Double) -> CLLocationCoordinate2D {
         CLLocationCoordinate2D(latitude: point.latitude + degrees, longitude: point.longitude)

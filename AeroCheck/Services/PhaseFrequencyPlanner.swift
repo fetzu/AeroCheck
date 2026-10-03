@@ -195,7 +195,14 @@ enum PhaseFrequencyPlanner {
             }
             if next == nil, plan?.diversion == nil, let plan {
                 let index = plan.currentWaypointIndex
-                if let ahead = plan.waypoints.indices.first(where: {
+                // The field flown to is the next call, until it is NOW (within its 10 NM); then the field
+                // after it. Until 6.2 the field flown to was always passed over: 15 NM out from Les
+                // Eplatures, NEXT read Bressaucourt.
+                if plan.waypoints.indices.contains(index),
+                   let flownTo = PhaseFrequencyPlanner.contact(waypointFrequencies(plan.waypoints[index])),
+                   flownTo != current {
+                    next = flownTo
+                } else if let ahead = plan.waypoints.indices.first(where: {
                     $0 > index && !waypointFrequencies(plan.waypoints[$0]).isEmpty
                 }) {
                     next = PhaseFrequencyPlanner.contact(waypointFrequencies(plan.waypoints[ahead]))

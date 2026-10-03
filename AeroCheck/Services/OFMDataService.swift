@@ -135,7 +135,7 @@ struct OFMCacheMetadata: Codable, Equatable {
 /// Traffic circuits, VFR arrival and departure routes with their sectors, reporting points and runway
 /// designators from open flightmaps, for the countries the pilot keeps offline that OFM covers (CH, AT,
 /// DE, CZ in 2610). Downloaded with the other aeronautical data, kept per country, current for one
-/// AIRAC cycle. No map draws it yet (6.2.0 PR 7 will).
+/// AIRAC cycle. The maps draw it through `VFRMapLayer`, and `ReportingPointCatalog` merges its points.
 ///
 /// A download reads `index.json`, then fetches only the countries whose SHA-256 changed and checks the
 /// SHA-256 of what arrived. Files are stored byte for byte as published, in

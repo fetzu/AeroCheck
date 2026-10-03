@@ -142,6 +142,48 @@ Owners and rules that aren't obvious from the names:
   closed fields out of the planning pickers (builder search and map, snapping, stops, diverts). The nav
   map's airport layer has its own literal list in `NavigationView`.
 
+## Aeronautical data
+
+Community sources, credited in About › Data sources, never presented as official: OpenAIP is primary,
+OurAirports the fallback, open flightmaps (OFM) fills gaps and is always "indicative" next to a link to
+the official chart.
+
+- OpenAIP's keyless per-country exports come from `s3.openaip.net` (`OpenAIPConfig.geoJSONExportHost`),
+  pinned (a redirect elsewhere is refused), in their own session (300 s: Germany's obstacles are
+  ~21.6 MB). The old `storage.googleapis.com/29f98e10-…` bucket is Requester Pays and refuses anonymous
+  reads; don't go back to it. The keyed core API stays as the fallback (the host allows 20 requests/s).
+- `RunwayDesignatorOverrides`: designators set by hand (LSGC 05/23, LSPM 10/28), applied after the
+  OurAirports/OpenAIP merge. The merge never joins on designators: it matches runways physically, takes
+  the majority, OurAirports breaks ties. Checked each quarter with the landing-fee links: re-read each
+  entry's source, bump `checked`, drop the entries both sources have caught up with. Each entry has a
+  test in `OpenAIPAirportMergeTests`.
+- `OFMDataService`: circuits, VFR arrival/departure routes and sectors, reporting points and runway
+  designators, read from `aerocheck.app/data/ofm/v1/` only (allow-list, 4 MB per file, SHA-256 from
+  `index.json`). The app never calls OFM: the files come from the weekly `vfr-data.yml` job on `main`,
+  which runs `scripts/vfrdata/` on the `website` branch, so a schema change starts there (additive
+  within v1). Stale by AIRAC cycle, not by age (`DataSet.refreshWhenAging`). OFM ids aren't unique: a
+  procedure's `id` is `<country>:<kind>:<OFM id>`, `ofmId` keeps OFM's for the error report.
+- `VFRProcedureMapLayer.swift` (`VFRMapLayer`) is the one implementation for all three maps (both nav
+  representables and the route builder): don't fork it per map. Overlays are their own classes
+  (`VFRCircuitOverlay`, `VFRRouteOverlay`, `VFRDashOverlay`, `VFRSectorOverlay`), never a bare
+  `MKPolyline`, and each map asks `VFRMapLayer.renderer(for:palette:)` before its generic `MKPolyline`
+  branch. Removals are narrowed to their own class: the builder's route is `RouteLinePolyline`
+  (`RouteBuilderMapView.removeRouteOverlays`), the Swiss map's layer switch removes only the track
+  (`SwissMapView.removeTrackForRecolour`); a blanket "remove every `MKPolyline`" wipes the procedures.
+  `sync` diffs by id and returns early on an unchanged signature (every GPS tick). No `lineDashPattern`
+  and no renderer that draws its own tiles: MapKit rasterizes both and magnifies them past its last
+  tile level, so dashes and arrowheads are cut per zoom (`VFRMapLayer.Zoom`).
+- `ReportingPointCatalog` is the only reader of reporting points (maps, builder search and snap,
+  briefing, the `sourceId` lookups): OpenAIP first and unchanged, plus the OFM points that neither the
+  extractor nor the device's own OpenAIP data match. OFM ids are `ofm:<OFM id>`; an OpenAIP `_id` saved
+  by any build must keep resolving. Outside the catalog, `OpenAIPReportingPointDataService` is for
+  downloads only.
+- `OfficialChartService` reads `aerocheck.app/data/charts/v1/charts.json` (same job,
+  `charts_registry.py`) the way `AirfieldTariffService` reads the tariffs: disk cache, a week, silent
+  failure. A link, never a chart: the app downloads and shows none. A link opens only on its
+  publisher's domain (`OfficialChartRegistry.publisherDomains`), so a new country or a publisher's new
+  domain needs an app release. No Italy: ENAV forbids deep links.
+
 ## Architecture
 
 - `AppState` is `@MainActor @Observable`, NOT an `ObservableObject`: views read it with

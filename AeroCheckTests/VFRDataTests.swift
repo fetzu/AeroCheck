@@ -626,6 +626,9 @@ final class VFRDataTests: XCTestCase {
             "AIRAC %@ · AIRAC %@ is available": "AIRAC %@ · AIRAC %@ disponible",
             "VFR procedures": "procédures VFR",
             "VFR procedures (open flightmaps): %@": "Procédures VFR (open flightmaps) : %@",
+            // About › Data sources (6.2.0 docs)
+            "Traffic circuits, VFR routes & reporting points · © open flightmaps association · indicative, not for primary navigation":
+                "Tours de piste, routes VFR et points de report · © open flightmaps association · indicatif, non destiné à la navigation primaire",
         ]
         for (key, value) in expected {
             XCTAssertEqual(french.localizedString(forKey: key, value: missing, table: nil), value, key)

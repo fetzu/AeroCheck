@@ -233,7 +233,11 @@ class AirportDataService: ObservableObject {
         // exit (defer covers every path). Avoids building the full grid twice. (v4.1.0 pre-tag fix)
         suppressGridRebuild = true
         defer { suppressGridRebuild = false; rebuildSpatialGrid() }
+        #if DEBUG
+        install(replayBackbone ?? backbone ?? .empty)
+        #else
         install(backbone ?? .empty)
+        #endif
         if case .notLoaded = source {
             // Not loaded: the count stays what is on disk, as at launch, unless OpenAIP fills the store.
             airportCount = storedMetadata?.airportCount ?? 0
@@ -359,9 +363,22 @@ class AirportDataService: ObservableObject {
     }
 
     #if DEBUG
+    /// DEV-ONLY (ground replays): the aerodromes `injectForReplay` put in, kept for the store passes.
+    private var replayAirports: [Airport]?
+
+    /// The replay's aerodromes as the backbone of every later pass. Since 6.2.0 a pass rebuilds the
+    /// store from its backbone rather than merging on top of it, so the launch's OpenAIP merge, queued
+    /// in the app's task and run after the replay's injection, emptied the store again on a fresh
+    /// simulator: the detector had no field, and the climb check showed due on the runway.
+    private var replayBackbone: AirportCacheLoad? {
+        replayAirports.map { AirportCacheLoad(airports: $0, frequencies: [], runways: [], lastUpdated: nil) }
+    }
+
     /// DEV-ONLY (ground replays, `GroundReplay`): these aerodromes, in place of the cache or a download,
-    /// so the detector anchors on the replay's fields on a fresh simulator.
+    /// so the detector anchors on the replay's fields on a fresh simulator. They stay through every
+    /// later store pass (`replayBackbone`).
     func injectForReplay(_ list: [Airport]) {
+        replayAirports = list
         airports = list
         airportsByIdent = Dictionary(list.map { ($0.ident, $0) }, uniquingKeysWith: { first, _ in first })
         frequenciesByAirport = [:]

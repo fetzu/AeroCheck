@@ -1376,26 +1376,22 @@ struct CockpitInstrumentStrip: View {
     private var speedCell: some View {
         // GS, not SPD: it is ground speed, the app has no airspeed source. (v6.0 · P2)
         cell(label: kneeboard ? "GS kt" : "SPD kt") {
-            ZStack {
-                // Every line keeps its room whatever it shows: the target bar in a phase without a target
-                // speed, the value under the GPS failure flag. Lines that came and went resized the strip,
-                // and moved everything under it, in flight. (6.1.0)
-                VStack(spacing: 0) {
-                    Text("\(Int(max(0, displaySpeed)))")
-                        .font(.aero(size: kneeboard ? CockpitType.value : 30, weight: .medium, design: .monospaced))
-                        .foregroundColor(speedColor)
-                        .minimumScaleFactor(0.6).lineLimit(1)
-                    InstrumentTargetBar(
-                        fraction: targetSpeed.map {
-                            SpeedIndicatorView.targetBarFraction(displaySpeed: displaySpeed, targetSpeed: $0)
-                        } ?? 0,
-                        state: SpeedIndicatorView.barState(for: speedState)
-                    )
-                    .frame(maxWidth: kneeboard ? 110 : 72).padding(.top, 3)
-                    .opacity(targetSpeed == nil ? 0 : 1)
-                }
-                .opacity(gpsSignalStatus == .lost ? 0 : 1)
-                .overlay { failureFlagOverlay }
+            // Every line keeps its room whatever it shows: the target bar in a phase without a target
+            // speed, the value under the GPS failure flag. Lines that came and went resized the strip,
+            // and moved everything under it, in flight. (6.1.0)
+            VStack(spacing: 0) {
+                flagged(Text("\(Int(max(0, displaySpeed)))")
+                    .font(.aero(size: kneeboard ? CockpitType.value : 30, weight: .medium, design: .monospaced))
+                    .foregroundColor(speedColor)
+                    .minimumScaleFactor(0.6).lineLimit(1))
+                InstrumentTargetBar(
+                    fraction: targetSpeed.map {
+                        SpeedIndicatorView.targetBarFraction(displaySpeed: displaySpeed, targetSpeed: $0)
+                    } ?? 0,
+                    state: SpeedIndicatorView.barState(for: speedState)
+                )
+                .frame(maxWidth: kneeboard ? 110 : 72).padding(.top, 3)
+                .opacity(targetSpeed == nil || gpsSignalStatus == .lost ? 0 : 1)
             }
         }
         .accessibilityElement(children: .ignore)
@@ -1410,23 +1406,20 @@ struct CockpitInstrumentStrip: View {
 
     private var altitudeCell: some View {
         cell(label: "ALT ft") {
-            ZStack {
-                // The vertical speed's line is always there, empty in level flight: appearing at ±50 fpm it
-                // pushed the strip, and the map under it, down a line and back up, in flight. The value
-                // keeps its room under the GPS failure flag too. (6.1.0)
-                VStack(spacing: 1) {
-                    Text("\(Int(max(0, altitudeFeet)))")
-                        .font(.aero(size: valueSize, weight: .medium, design: .monospaced))
-                        .foregroundColor(theme.textPrimary)
-                        .minimumScaleFactor(0.5).lineLimit(1)
-                    Text(verticalSpeedDisplay?.text ?? "↑000")
-                        .font(.aero(size: labelSize, weight: .semibold, design: .monospaced))
-                        .foregroundColor(verticalSpeedDisplay?.color ?? .clear)
-                        .lineLimit(1)
-                        .opacity(verticalSpeedDisplay == nil ? 0 : 1)
-                }
-                .opacity(gpsSignalStatus == .lost ? 0 : 1)
-                .overlay { failureFlagOverlay }
+            // The vertical speed's line is always there, empty in level flight: appearing at ±50 fpm it
+            // pushed the strip, and the map under it, down a line and back up, in flight. The value
+            // keeps its room under the GPS failure flag too. (6.1.0)
+            VStack(spacing: 1) {
+                flagged(Text("\(Int(max(0, altitudeFeet)))")
+                    .font(.aero(size: valueSize, weight: .medium, design: .monospaced))
+                    .foregroundColor(theme.textPrimary)
+                    .minimumScaleFactor(0.5).lineLimit(1))
+                // Empty with GPS lost (`verticalSpeedDisplay`).
+                Text(verticalSpeedDisplay?.text ?? "↑000")
+                    .font(.aero(size: labelSize, weight: .semibold, design: .monospaced))
+                    .foregroundColor(verticalSpeedDisplay?.color ?? .clear)
+                    .lineLimit(1)
+                    .opacity(verticalSpeedDisplay == nil ? 0 : 1)
             }
         }
         .accessibilityElement(children: .ignore)
@@ -1467,10 +1460,20 @@ struct CockpitInstrumentStrip: View {
         .accessibilityValue(ident)
     }
 
-    /// The GPS failure flag over a cell's values, never larger than they are: it sat beside them in the
+    /// A cell's value, across the cell, hidden with GPS lost, and the failure flag over it. The flag is
+    /// centred on the value's line, not on the cell: the ALT cell carries the vertical speed's line under
+    /// its value, and over the whole cell its flag sat lower than the one over GS. (6.1.0)
+    private func flagged<Value: View>(_ value: Value) -> some View {
+        value
+            .opacity(gpsSignalStatus == .lost ? 0 : 1)
+            .frame(maxWidth: .infinity)
+            .overlay { failureFlagOverlay }
+    }
+
+    /// The GPS failure flag over a cell's value, never larger than it is: it sat beside the values in the
     /// layout, and at 110 × 54 it was taller than a phone's value line and wider than a narrow phone's
     /// cell, so the strip grew and its neighbours moved whenever GPS degraded, every 45 s on a parked
-    /// aircraft. Over the values it takes their room and nothing else. (6.1.0)
+    /// aircraft. Over the value it takes its room and nothing else. (6.1.0)
     private var failureFlagOverlay: some View {
         GeometryReader { geo in
             if showFailureFlag {

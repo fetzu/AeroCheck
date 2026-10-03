@@ -435,6 +435,15 @@ struct NavigationMapView: View {
     }
 
     var body: some View {
+        // The handlers in two expressions of their own (`mapLifecycle`, `mapDataRefresh`), and the longer
+        // ones in methods. Chained here, all of it was one expression, and from #278 on the compiler of
+        // Xcode 26, which the CodeQL job builds with, gave up type-checking it: "unable to type-check this
+        // expression in reasonable time". (6.1.0)
+        mapDataRefresh(mapLifecycle(mapWithPresentations))
+    }
+
+    /// The map and what it presents.
+    private var mapWithPresentations: some View {
         // One layout on both devices: the phone's own map chrome went with the iPhone pass (I4).
         GeometryReader { geometry in
             standardLayoutBody(geometry: geometry)
@@ -459,61 +468,14 @@ struct NavigationMapView: View {
                 .environmentObject(locationManager)
                 .presentationDetents([.large])
         }
-        .onAppear {
-            // Restore map settings from session state
-            selectedLayer = appState.navigationMapState.selectedLayer
-            mapOrientationMode = appState.navigationMapState.orientationMode
-            // Start GPS updates when navigation view opens
-            locationManager.startLocationUpdates()
-            // Center on aircraft location immediately (synchronous, not via async dispatch)
-            // so the map renders at the correct position from the first frame
-            if let location = locationManager.currentLocation {
-                mapState.region = MKCoordinateRegion(center: location.coordinate, span: initialSpan)
-                mapState.cameraDistance = initialCameraDistance
-                if mapOrientationMode == .trackUp, let course = locationManager.currentCourseDegrees {
-                    mapState.cameraHeading = course
-                }
-                hasInitiallyCentered = true
-            }
-            // Default to centered & following the aircraft. (v4 UI/UX Revamp — center on position by default)
-            isFollowingAircraft = true
-            // Ensure airport data is loaded — needed both for the map overlay AND for the phase-aware
-            // frequencies (nearest-airport lookup), so load it regardless of the overlay setting, then
-            // refresh the cached phase frequencies once it's available. (v4 UI/UX Revamp fix)
-            Task {
-                await airportDataService.ensureLoaded()
-                // ensureLoaded() only loads an existing cache — it never downloads. The frequency
-                // feature (nearest airfield + airfield auto-complete) needs the DB, so fetch it once
-                // on demand if it was never downloaded. (v4 UI/UX Revamp fix)
-                if !airportDataService.isDataAvailable && !airportDataService.isDownloading {
-                    await airportDataService.downloadData()
-                }
-                recomputePhaseFrequencies()
-            }
-            // Ensure OpenAIP airspace data is loaded for FREQ panel CTR queries
-            if openAIPDataService.isDataAvailable {
-                Task { await openAIPDataService.ensureLoaded() }
-            }
-            // Trigger streaming CTR fetch if enabled and no downloaded data
-            if appState.settings.enableAirspaceStreaming && !openAIPDataService.isDataAvailable,
-               let coord = locationManager.currentLocation?.coordinate {
-                Task { await openAIPDataService.fetchStreamingCTRsIfNeeded(from: coord) }
-            }
-            // Seed the cached spatial map content for the initial region. (PR-11)
-            recomputeMapSpatialContent(force: true)
-            // Prime the track-vector EMA from the last known fix so the vector appears immediately on
-            // (re)open — even on a stationary device with no fresh location *change* to trigger it. (v4 UI/UX Revamp fix)
-            updateTrackVectorEMA()
-        }
-        .onDisappear {
-            // Keep the zoom for next time. (v6.0 · P2)
-            appState.navigationMapState.cameraDistance = mapState.cameraDistance
-            appState.navigationMapState.latitudeDelta = mapState.region.span.latitudeDelta
-            // Stop GPS updates when navigation view closes (if not in a flight)
-            locationManager.stopLocationUpdates()
-            streamingCTRCheckTask?.cancel()
-            streamingCTRCheckTask = nil
-        }
+    }
+
+    /// Opening and closing the map, its region, the panel, the overlay settings, the phase, the leg and
+    /// the FREDA tick.
+    private func mapLifecycle(_ content: some View) -> some View {
+        content
+        .onAppear { handleAppear() }
+        .onDisappear { handleDisappear() }
         // PR-11: recompute the visible airports/airspace only when the region moves past the
         // quantization threshold (the function early-returns otherwise), instead of on every body
         // re-eval. A toggled overlay setting or newly-available data forces an immediate recompute.
@@ -542,6 +504,11 @@ struct NavigationMapView: View {
             // valid vector after a Nav→Checklist→Nav round trip. (v4 UI/UX Revamp fix)
             updateTrackVectorEMA()
         }
+    }
+
+    /// The map's content as its data and settings change, the aircraft as it moves, the layer as chosen.
+    private func mapDataRefresh(_ content: some View) -> some View {
+        content
         .onChange(of: appState.settings.showOpenAIPOverlay) { _, _ in recomputeMapSpatialContent(force: true) }
         .onChange(of: airportDataService.isDataAvailable) { _, available in
             recomputeMapSpatialContent(force: true)
@@ -561,60 +528,121 @@ struct NavigationMapView: View {
         .onChange(of: openAIPNavaidDataService.navaidCount) { _, _ in recomputeMapSpatialContent(force: true) }
         .onChange(of: openAIPObstacleDataService.obstacleCount) { _, _ in recomputeMapSpatialContent(force: true) }
         .onChange(of: openAIPReportingPointDataService.reportingPointCount) { _, _ in recomputeMapSpatialContent(force: true) }
-        .onChange(of: locationManager.currentLocation) { _, newLocation in
-            // Increment counter to force map view updates (ensures aircraft annotation moves)
-            locationUpdateCounter += 1
-            updateTrackVectorEMA()
+        .onChange(of: locationManager.currentLocation) { _, newLocation in handleLocationChange(newLocation) }
+        .onChange(of: selectedLayer) { _, newLayer in handleLayerChange(to: newLayer) }
+    }
 
-            // Not with the legs panel open: its band follows the aircraft itself, and leaves the shared
-            // state as the pilot had it for the panel to put back. (6.1, option C)
-            if isFollowingAircraft, !navSheetExpanded, let location = newLocation {
-                if !hasInitiallyCentered {
-                    // First fix after opening (no position was available at open) — snap to a tight,
-                    // centered view rather than re-centering at whatever stale zoom was left. (v4 UI/UX Revamp)
-                    mapState.region = MKCoordinateRegion(center: location.coordinate, span: initialSpan)
-                    mapState.cameraDistance = initialCameraDistance
-                    hasInitiallyCentered = true
-                } else {
-                    updateMapStateForLocation(location)
-                }
-            }
-
-            // In track-up mode, update heading to match course (using cached heading)
+    private func handleAppear() {
+        // Restore map settings from session state
+        selectedLayer = appState.navigationMapState.selectedLayer
+        mapOrientationMode = appState.navigationMapState.orientationMode
+        // Start GPS updates when navigation view opens
+        locationManager.startLocationUpdates()
+        // Center on aircraft location immediately (synchronous, not via async dispatch)
+        // so the map renders at the correct position from the first frame
+        if let location = locationManager.currentLocation {
+            mapState.region = MKCoordinateRegion(center: location.coordinate, span: initialSpan)
+            mapState.cameraDistance = initialCameraDistance
             if mapOrientationMode == .trackUp, let course = locationManager.currentCourseDegrees {
                 mapState.cameraHeading = course
             }
+            hasInitiallyCentered = true
+        }
+        // Default to centered & following the aircraft. (v4 UI/UX Revamp — center on position by default)
+        isFollowingAircraft = true
+        // Ensure airport data is loaded — needed both for the map overlay AND for the phase-aware
+        // frequencies (nearest-airport lookup), so load it regardless of the overlay setting, then
+        // refresh the cached phase frequencies once it's available. (v4 UI/UX Revamp fix)
+        Task {
+            await airportDataService.ensureLoaded()
+            // ensureLoaded() only loads an existing cache — it never downloads. The frequency
+            // feature (nearest airfield + airfield auto-complete) needs the DB, so fetch it once
+            // on demand if it was never downloaded. (v4 UI/UX Revamp fix)
+            if !airportDataService.isDataAvailable && !airportDataService.isDownloading {
+                await airportDataService.downloadData()
+            }
+            recomputePhaseFrequencies()
+        }
+        // Ensure OpenAIP airspace data is loaded for FREQ panel CTR queries
+        if openAIPDataService.isDataAvailable {
+            Task { await openAIPDataService.ensureLoaded() }
+        }
+        // Trigger streaming CTR fetch if enabled and no downloaded data
+        if appState.settings.enableAirspaceStreaming && !openAIPDataService.isDataAvailable,
+           let coord = locationManager.currentLocation?.coordinate {
+            Task { await openAIPDataService.fetchStreamingCTRsIfNeeded(from: coord) }
+        }
+        // Seed the cached spatial map content for the initial region. (PR-11)
+        recomputeMapSpatialContent(force: true)
+        // Prime the track-vector EMA from the last known fix so the vector appears immediately on
+        // (re)open — even on a stationary device with no fresh location *change* to trigger it. (v4 UI/UX Revamp fix)
+        updateTrackVectorEMA()
+    }
 
-            // Waypoints passed (ATO) are marked in the GPS pipeline, `LocationManager`. (v6.0.1)
+    private func handleDisappear() {
+        // Keep the zoom for next time. (v6.0 · P2)
+        appState.navigationMapState.cameraDistance = mapState.cameraDistance
+        appState.navigationMapState.latitudeDelta = mapState.region.span.latitudeDelta
+        // Stop GPS updates when navigation view closes (if not in a flight)
+        locationManager.stopLocationUpdates()
+        streamingCTRCheckTask?.cancel()
+        streamingCTRCheckTask = nil
+    }
 
-            // Debounced streaming CTR fetch (5s delay)
-            if appState.settings.enableAirspaceStreaming && !openAIPDataService.isDataAvailable {
-                streamingCTRCheckTask?.cancel()
-                streamingCTRCheckTask = Task {
-                    try? await Task.sleep(for: .seconds(5))
-                    guard !Task.isCancelled, let coord = newLocation?.coordinate else { return }
-                    await openAIPDataService.fetchStreamingCTRsIfNeeded(from: coord)
-                }
+    private func handleLocationChange(_ newLocation: CLLocation?) {
+        // Increment counter to force map view updates (ensures aircraft annotation moves)
+        locationUpdateCounter += 1
+        updateTrackVectorEMA()
+
+        // Not with the legs panel open: its band follows the aircraft itself, and leaves the shared
+        // state as the pilot had it for the panel to put back. (6.1, option C)
+        if isFollowingAircraft, !navSheetExpanded, let location = newLocation {
+            if !hasInitiallyCentered {
+                // First fix after opening (no position was available at open) — snap to a tight,
+                // centered view rather than re-centering at whatever stale zoom was left. (v4 UI/UX Revamp)
+                mapState.region = MKCoordinateRegion(center: location.coordinate, span: initialSpan)
+                mapState.cameraDistance = initialCameraDistance
+                hasInitiallyCentered = true
+            } else {
+                updateMapStateForLocation(location)
             }
         }
-        .onChange(of: selectedLayer) { oldLayer, newLayer in
-            // Save to session state
-            appState.navigationMapState.selectedLayer = newLayer
-            // When switching layers, force a tile refresh for Swiss layers
-            if newLayer.isSwissLayer {
-                // Trigger a small region update to force tile loading
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-                    let currentRegion = mapState.region
-                    mapState.region = MKCoordinateRegion(
-                        center: currentRegion.center,
-                        span: MKCoordinateSpan(
-                            latitudeDelta: currentRegion.span.latitudeDelta * 1.001,
-                            longitudeDelta: currentRegion.span.longitudeDelta * 1.001
-                        )
+
+        // In track-up mode, update heading to match course (using cached heading)
+        if mapOrientationMode == .trackUp, let course = locationManager.currentCourseDegrees {
+            mapState.cameraHeading = course
+        }
+
+        // Waypoints passed (ATO) are marked in the GPS pipeline, `LocationManager`. (v6.0.1)
+
+        // Debounced streaming CTR fetch (5s delay)
+        if appState.settings.enableAirspaceStreaming && !openAIPDataService.isDataAvailable {
+            streamingCTRCheckTask?.cancel()
+            streamingCTRCheckTask = Task {
+                try? await Task.sleep(for: .seconds(5))
+                guard !Task.isCancelled, let coord = newLocation?.coordinate else { return }
+                await openAIPDataService.fetchStreamingCTRsIfNeeded(from: coord)
+            }
+        }
+    }
+
+    private func handleLayerChange(to newLayer: MapLayerType) {
+        // Save to session state
+        appState.navigationMapState.selectedLayer = newLayer
+        // When switching layers, force a tile refresh for Swiss layers
+        if newLayer.isSwissLayer {
+            // Trigger a small region update to force tile loading
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                let currentRegion = mapState.region
+                mapState.region = MKCoordinateRegion(
+                    center: currentRegion.center,
+                    span: MKCoordinateSpan(
+                        latitudeDelta: currentRegion.span.latitudeDelta * 1.001,
+                        longitudeDelta: currentRegion.span.longitudeDelta * 1.001
                     )
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-                        mapState.region = currentRegion
-                    }
+                )
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                    mapState.region = currentRegion
                 }
             }
         }

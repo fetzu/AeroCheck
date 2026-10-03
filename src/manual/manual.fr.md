@@ -13,6 +13,7 @@ Le tout premier écran est un **avis de sécurité** à accepter avant toute cho
 - **Cartes et données** : les données aéronautiques de votre pays (détecté d'après la région de l'appareil ou, si disponible, une position GPS) et de ses voisins, la base mondiale des aérodromes et, au choix, les cartes suisses. Voir [Données aéronautiques et stockage](#données-aéronautiques-et-stockage).
 - **Listes de vérification** : le **Test de mémoire** et la langue des checklists.
 - **Vols** : les quatre chapitres par lesquels AéroCheck suit un vol : Planifier, Préparer, Voler, Clôturer. Voir [Suivre un vol](#suivre-un-vol).
+- **Aérodrome de base** (facultatif) : là où vous êtes basé. Planifier un vol part de lui, et les atterrissages que vous y faites comptent comme atterrissages à la base sur le log de nav. À définir ou modifier plus tard sous **Réglages › Planification de vol**.
 - **Votre carte** et **En vol et fonctionnalités** : ce que la carte dessine (espaces aériens, vecteur de trajectoire, obstacles, carte OACI à tous les zooms), le relevé des heures moteur et la synchronisation iCloud.
 
 Vous pouvez rejouer tout le parcours à tout moment depuis **Réglages › À propos › Revoir l'intégration**.
@@ -35,16 +36,16 @@ Au sol, AéroCheck a cinq onglets en bas de l'écran : **Aujourd'hui**, **Planif
 - **Aujourd'hui** : le prochain vol, les boutons qui en démarrent un, votre avion et votre dernier vol. Une pastille sur l'onglet signale un plan de vol ATC encore ouvert après l'atterrissage.
 - **Planifier** : trois sections, **Vols** (les vols que vous préparez), **Routes** (les routes que vous gardez) et **Carte** (la carte, pour regarder les espaces aériens avant l'un ou l'autre). Voir [Suivre un vol](#suivre-un-vol) et [Routes](#routes).
 - **Carnet de vol** : les vols que vous avez effectués. Voir [Journal de vol](#journal-de-vol).
-- **Avions** : l'avion que vous pilotez, ses vitesses et son carburant utilisable avec les pleins.
+- **Avions** : l'avion que vous pilotez, ses vitesses, son carburant utilisable avec les pleins et sa vitesse de croisière.
 - **Réglages** : voir [Référence des réglages](#référence-des-réglages).
 
 ### Aujourd'hui
 
 Aujourd'hui garde les mêmes emplacements aux mêmes endroits chaque jour, remplis ou non.
 
-- En haut, deux puces : **Données** (la fraîcheur de vos données aéronautiques ; touchez-la pour Données et stockage) et l'état du GPS.
-- **PROCHAIN VOL** : le vol dont parle le bouton de démarrage, dans un encart avec son heure, son avion, son nom et ce qu'il reste à faire (« Suivant : Météo consultée · 2 ouvert(s) dans Planifier et Préparer », ou « Tout est coché — prêt à voler »). C'est le vol du jour, un vol que vous avez laissé en l'air, ou l'étape suivante d'un voyage une fois posé à une escale. Touchez l'encart pour ouvrir le vol. Sans un tel vol, l'emplacement montre un vol que vous suivez ou qu'il reste à clôturer, ou **Planifier un vol**.
-- Le bouton vert de démarrage, toujours au même endroit : **DÉMARRER CE VOL** quand un vol est prévu aujourd'hui (**REPRENDRE CE VOL** une fois en l'air), **DÉMARRER LE VOL** sinon.
+- En haut, deux puces : **Données** (la fraîcheur de vos données aéronautiques ; touchez-la pour Données et stockage) et **GPS Prêt** quand l'accès à la localisation est accordé (le signal lui-même s'affiche en vol, voir [Indicateurs GPS](#indicateurs-gps)).
+- **PROCHAIN VOL** : le vol dont parle le bouton de démarrage, dans un encart avec son heure, son avion, son nom et ce qu'il reste à faire (« Suivant : Météo consultée · 2 ouvert(s) dans Planifier et Préparer », ou « Tout est coché — prêt à voler »). C'est le vol du jour, un vol que vous avez laissé en l'air, ou l'étape suivante d'un voyage une fois posé à une escale. Un voyage tient dans un seul encart : son nombre d'étapes (**3 ÉTAPES**), toute la route (« LSZQ → LSGE → LSZQ »), et une puce par étape avec son heure (✓ une fois volée). Touchez l'encart pour ouvrir le vol. Sans un tel vol, l'emplacement montre un vol que vous suivez ou qu'il reste à clôturer, ou **Planifier un vol**.
+- Le bouton vert de démarrage, toujours au même endroit : **DÉMARRER CE VOL** quand un vol est prévu aujourd'hui (**REPRENDRE CE VOL** une fois en l'air), **DÉMARRER LE VOL** sinon. Pour une étape d'un voyage, il indique **DÉMARRER LE VOL** et nomme l'étape en dessous (« ÉTAPE 1 · LSZQ → LSGE »).
 - En dessous, **TOURS DE PISTE**, toujours proposé, à côté de **VOLER SANS PLAN** quand un vol est prévu aujourd'hui, ou de **PLANIFIER UN VOL** sinon.
 - **AVION ET DERNIER VOL** : l'avion que vous pilotez (touchez-le pour en changer, voir ci-dessous) et votre dernier vol (touchez-le pour ses détails). Quand rien n'est prévu, une route que vous avez mise sur la carte s'affiche aussi ici ; touchez-la pour ouvrir **Planifier › Routes**.
 
@@ -52,7 +53,7 @@ Aujourd'hui garde les mêmes emplacements aux mêmes endroits chaque jour, rempl
 
 Touchez l'avion sur Aujourd'hui pour la liste de tous les avions que vous pouvez piloter : le WT9 Dynamic gratuit, et chaque avion premium débloqué par AéroCheck Pro que vous n'avez pas masqué. Choisissez-en un pour en changer ; **Vitesses et détails** ouvre l'onglet **Avions**.
 
-L'onglet **Avions** liste les mêmes avions sous **VOS AVIONS**. Sous la liste viennent la **RÉFÉRENCE DES VITESSES** de l'avion sélectionné, son **CARBURANT** (le carburant utilisable avec les pleins, voir [Carburant à bord](#carburant-à-bord)), un lien vers **AéroCheck Pro**, et **Visibilité des avions**, qui ouvre les Réglages pour afficher ou masquer les avions un par un ou par aéroclub.
+L'onglet **Avions** liste les mêmes avions sous **VOS AVIONS**. Sous la liste viennent la **RÉFÉRENCE DES VITESSES** de l'avion sélectionné, son **CARBURANT** (le carburant utilisable avec les pleins, voir [Carburant à bord](#carburant-à-bord)), sa **PRÉPARATION** (la **Vitesse de croisière** que suivent vos plans, voir [Vitesse de croisière et marges d'EET](#vitesse-de-croisière-et-marges-deet)), un lien vers **AéroCheck Pro**, et **Visibilité des avions**, qui ouvre les Réglages pour afficher ou masquer les avions un par un ou par aéroclub.
 
 Sélectionner un avion premium charge sa checklist en arrière-plan, pour qu'elle soit prête avant le départ.
 
@@ -87,7 +88,7 @@ Un vol dans AéroCheck a quatre chapitres : **Planifier**, **Préparer**, **Vole
 Les vols que vous préparez, dans l'ordre où ils seront volés. En haut, le compte (**À VENIR · 3**) et **Planifier un vol**.
 
 - Un vol qui attend sa clôture vient en premier, sous **À TRAITER**.
-- Le prochain vol a droit à un encart : son jour, son heure et le temps qui reste ; sa carte, sa distance (DIST), sa durée (EET), ses points (WPT) et son avion (ACFT) ; les frontières qu'il traverse ; son avancement chapitre par chapitre ; et sa prochaine tâche. Touchez-le pour ouvrir le vol. Pour un voyage, l'encart montre l'étape suivante.
+- Le prochain vol a droit à un encart : son jour, son heure et le temps qui reste ; sa carte, sa distance (DIST), sa durée (EET), ses points (WPT) et son avion (ACFT) ; les frontières qu'il traverse ; son avancement chapitre par chapitre ; et sa prochaine tâche. Touchez-le pour ouvrir le vol. Un voyage a un seul encart (**VOYAGE · 3 ÉTAPES**) : toute la route, ses totaux, et ses **ÉTAPES**, chacune avec son heure, sa distance et son état (**VOLÉE**, **PROCHAINE**).
 - Les vols suivants viennent ensuite, une ligne chacun, sous leur jour (« DEMAIN · DIM. 27 SEPT. »). Les vols sans date viennent en dernier, sous **SANS DATE**.
 - Un vol dont le jour est passé sans qu'il ait été volé passe après les autres, sous **DATE PASSÉE**, où vous pouvez encore le voler, le déplacer ou l'annuler.
 
@@ -95,8 +96,10 @@ Les vols que vous préparez, dans l'ordre où ils seront volés. En haut, le com
 
 **Planifier un vol** (sur Aujourd'hui ou dans Planifier › Vols) ouvre une seule feuille, la route d'abord :
 
-- **Route** : **Aérodromes**, où vous saisissez le code OACI ou le nom de chaque aérodrome, avec complétion (le nom de l'aérodrome s'affiche à côté d'un code connu), ou **Une route enregistrée**, avec recherche, chacune avec sa carte. **Ajouter une escale** insère un aérodrome entre les deux ; trois aérodromes ou plus forment un [voyage](#voyages-et-escales). Une route enregistrée donne un seul vol, construit à partir d'une **copie** de la route (ses points, altitudes et chiffres carburant) ; les escales en chemin s'ajoutent ensuite, sur le vol.
-- **Quand** : déjà réglé sur demain à 10:00, car le rappel de préparation se compte à partir de là. Changez-le, ou choisissez **Pas encore de date**.
+- **Route**, avec **Aérodromes** : une ligne **De** et une ligne **Vers** où vous saisissez le code OACI ou le nom de chaque aérodrome, avec complétion (le nom de l'aérodrome s'affiche à côté d'un code connu). **Ajouter une escale en chemin** ajoute une ligne juste avant Vers ; trois aérodromes ou plus forment un [voyage](#voyages-et-escales) (LSZQ, LSGE, puis LSZQ donne LSZQ → LSGE → LSZQ). Glissez une escale pour la déplacer, ou retirez-la. Le même aérodrome dans De et Vers est un vol local (« Retour à LSZQ : un vol local, ou ajoutez une escale pour atterrir en chemin. »). Avec un [aérodrome de base](#planification-de-vol) défini, la feuille part de lui dans les deux lignes.
+- **Route**, avec **Une route enregistrée** (proposé dès que vous gardez des routes) : les routes, avec recherche, chacune avec sa carte. Le vol est construit à partir d'une **copie** de la route (ses points, altitudes et chiffres carburant). En dessous, **Aérodromes sur cette route** liste ceux qui sont sur la route ou à moins de 5 NM, dans l'ordre du vol, chacun avec un interrupteur **Atterrir ici** : chaque interrupteur activé ajoute une étape, et chaque étape garde sa part de la route. **Atterrir ailleurs…** cherche n'importe quel aérodrome.
+- **Les étapes**, dès qu'il y a une escale (**2 étapes**) : chaque étape avec sa distance, sa durée et son départ (« ≈ » quand il est estimé), et entre deux étapes le temps **Au sol** (30 min tant que vous ne le changez pas) et une case **Faire le plein** (décochée, l'étape suivante part avec le carburant que celle-ci laisse dans les réservoirs).
+- **Quand** : déjà réglé sur demain à 10:00, car le rappel de préparation se compte à partir de là (pour un voyage, c'est le départ de l'étape 1). Changez-le, ou choisissez **Pas encore de date**.
 - **Aéronef** : vos avions en puces, d'un seul toucher.
 
 La barre du bas dit ce qui sera créé (la route, le jour et l'heure, l'avion) au-dessus de **Créer le vol**, ou de **Créer le voyage · 3 étapes**. Le nouveau vol s'ouvre sur sa page.
@@ -157,8 +160,8 @@ Après **TERMINER LE VOL**, le vol passe en CLÔTURE.
 
 Touchez le nom d'un vol sur sa page pour la fiche du vol : les données du log de navigation, dans l'ordre où l'on planifie un vol. Son titre est le nom du vol (touchez-le pour renommer le vol), avec la date, l'avion et le type de vol en dessous. Les modifications s'enregistrent au fil de la saisie.
 
-- **ROUTE** : la carte, les points, la distance et l'EET, et **Modifier la route**.
-- **DÉPART** : **Date et heure** (heure locale ; l'ETO de chaque point en découle), **Piste** (à choisir parmi les pistes de l'aérodrome de départ, ou à saisir) et **Type de vol**.
+- **ROUTE** : la carte, les points, la distance et l'EET, avec ce sur quoi l'EET repose (voir [Vitesse de croisière et marges d'EET](#vitesse-de-croisière-et-marges-deet)), et **Modifier la route**.
+- **DÉPART** : **Date et heure** (heure locale ; l'ETO de chaque point en découle jusqu'au décollage, puis se compte depuis le décollage lui-même, voir [La barre d'actions](#la-barre-dactions)), **Piste** (à choisir parmi les pistes de l'aérodrome de départ, ou à saisir) et **Type de vol**.
 - **ÉQUIPAGE ET AVION** : **Pilote** (repris des Réglages quand il est vide), **Instructeur**, et l'avion, qui est celui du vol.
 - **CARBURANT**, tel que le log de navigation papier l'additionne : **Débit carburant**, **Étape** (l'EET de la route à ce débit), + **Dégagement**, + **Réserve finale 45′**, + **Supplément**, = **Requis** ; puis **À bord**, avec **Pleins** et **= Requis**, la **Marge** (en litres et en minutes, en vert ; ou manquante, en ambre) et l'**Autonomie**. **PAR DÉFAUT** signale ce que l'app a rempli (le débit et la réserve de 45 minutes), pour que vous le vérifiiez.
 - **APRÈS LE VOL** (temps bloc et de vol, compteurs, atterrissages), **NOTES** et **DÉTAILS DU PLAN DE VOL ATC** (type, turbulence, équipement, dégagement, POB, couleur) restent repliés sur une ligne tant qu'ils sont vides.
@@ -177,6 +180,17 @@ Un toucher sur la tâche Plan carburant ouvre **Carburant à bord** :
 
 **Pleins** correspond au carburant utilisable de l'avion avec les pleins. Il vient des données de l'avion quand sa checklist le donne ; sinon AéroCheck vous le demande une fois, pour cette immatriculation, d'après le manuel de vol, et le conserve. Modifiez votre valeur ici (**Modifier**) ou dans l'onglet **Avions**, sous **CARBURANT**. Un champ vide signifie « non saisi » ; 0 est une réponse (réservoirs vides) et se lit comme un manque.
 
+### Vitesse de croisière et marges d'EET
+
+L'EET d'une branche, c'est sa distance à la vitesse de croisière de l'avion, volée en vitesse propre à l'altitude de la branche et avec le vent du plan, plus une marge à chaque bout pour le départ et l'arrivée. Les deux viennent de vos propres vols dès qu'il y en a assez.
+
+- **Vitesse de croisière** : à régler dans l'onglet **Avions**, sous **PRÉPARATION** (**Vitesse de croisière**, en KIAS, à la puissance de croisière). Votre valeur prime ; sinon ce que montrent vos vols sur cet avion (dès 5 vols), puis les données de l'avion, puis 100 kt. La ligne dit laquelle elle utilise (« Appris de 7 vols ») et la vitesse propre que cela donne à 5000 ft. Une branche dont vous avez saisi la vitesse garde la vôtre.
+- **Marges** : +5 minutes à chaque bout par défaut. Dès 3 vols sur un aérodrome, la valeur est apprise de vos vols là-bas ; avant cela, dès 5 vols en tout, de vos vols sur tous les aérodromes.
+
+La fiche du vol dit sur quoi l'EET repose, sous la route (« départ +4 à LSZQ (4 vols) · arrivée +5 à LFSB (tous aérodromes, 14 vols) · croisière 95 KIAS (votre valeur) »), et le log de navigation l'imprime comme **Base de l'EET**. L'EET totale du plan de vol ATC s'arrête à la verticale de la destination, sans la marge d'arrivée.
+
+Un plan garde le vent avec lequel il a été planifié, pris au niveau où chaque branche est volée : une relance de l'app en vol ne le ramène pas à zéro, et le log de navigation imprime les vents du plan, pas ceux du jour où vous l'exportez.
+
 ### Nommer un vol ou un voyage
 
 Un vol peut porter un nom à lui, quelles que soient ses extrémités : touchez le crayon à côté de son titre (ou le titre de la fiche du vol). Le nom devient le titre et la route passe sur la ligne en dessous ; un nom vide réaffiche la route. Un voyage se nomme de la même façon, avec le crayon à côté de ses aérodromes sur chaque étape ; chaque étape garde son propre nom.
@@ -185,9 +199,13 @@ Un vol peut porter un nom à lui, quelles que soient ses extrémités : touchez 
 
 Plusieurs aérodromes dans Planifier un vol forment un **voyage** : un vol par étape, présenté comme une seule entrée dans Planifier › Vols. Seule la première étape a une heure de départ ; les suivantes affichent une estimation (« ≈ 15:10 (est.) »), puisque chacune part quand la précédente atterrit.
 
-**Ajouter une escale…**, sur un vol qui n'a pas encore volé, le transforme en deux étapes d'un même voyage, chacune avec sa ligne de carnet de vol, son plan de vol ATC, son log de navigation et sa clôture. Choisissez un aérodrome à moins de 5 NM de la route (listés dans l'ordre où vous les atteignez, avec la fréquence et une marque PPR) ou **Rechercher un aérodrome**, réglez le temps **Au sol**, choisissez de **Faire le plein à l'escale** ou non (sans plein, l'étape suivante part avec le carburant restant après celle-ci), puis **Diviser en deux étapes**. **Fusionner avec l'étape suivante** réunit en un seul vol deux étapes qui n'ont pas volé.
+**Ajouter une escale…**, sur un vol qui n'a pas encore volé, le transforme en étapes d'un même voyage, chacune avec sa ligne de carnet de vol, son plan de vol ATC, son log de navigation et sa clôture. Il liste les aérodromes à moins de 5 NM de la route, dans l'ordre où vous les atteignez, avec la fréquence et une marque PPR ; pour un vol local, ceux à moins de 40 NM, les plus proches d'abord. Cochez chaque aérodrome où vous atterrirez (dans l'ordre où vous y atterrirez), ou **Rechercher un aérodrome** ; chaque escale cochée ajoute une étape. Réglez le temps **Au sol** à chaque escale et sa case **Faire le plein** (sans plein, l'étape suivante part avec le carburant restant après celle-ci), puis **Diviser en 3 étapes**. **Fusionner avec l'étape suivante** réunit en un seul vol deux étapes qui n'ont pas volé.
+
+Une escale se modifie tant que l'étape qui la suit n'a pas volé : la page de cette étape porte **Escale à LSGE**, avec son temps au sol et sa case Faire le plein, et les départs estimés après elle suivent (« Départ ≈ 15:10 : à l'atterrissage de l'étape précédente, plus le temps au sol »).
 
 La page de chaque étape montre le voyage (**VOYAGE · 2 sur 6**, les tâches partagées faites), ses étapes (touchez-en une pour l'ouvrir) et la préparation que les étapes partagent : **Avion réservé**, **Météo consultée**, **DABS consulté**, **GAFOR consulté**, **NOTAM consultés** et **Débriefing** se cochent une fois pour tout le voyage. Une coche de briefing **se périme** quand elle ne couvre plus l'étape suivante (un autre jour, ou plus de six heures avant son départ), pour que le briefing NOTAM d'hier n'apparaisse jamais comme fait sur l'étape d'aujourd'hui ; la ligne indique alors quand il a été consulté. Tout le reste (route, carburant, masse et centrage, plan de vol ATC, PPR, douane, log de navigation, taxes, carnet de vol) appartient à chaque étape.
+
+En bas de la page d'une étape, **Annuler cette étape** et **Annuler tout le voyage (3 étapes)** se tiennent côte à côte. La question du voyage (« Annuler ce voyage ? ») liste les étapes qu'il supprime ; les étapes déjà volées restent, avec leurs vols dans le carnet de vol.
 
 Si vous vous posez ailleurs que prévu, la page du vol le dit (« Atterri à LSZE ») et propose **Continuer vers** la destination prévue comme étape suivante du voyage, ou **Terminer ici**. Météo et NOTAM reviennent non cochés sur cette étape suivante : vous vous êtes dérouté pour une raison.
 
@@ -272,13 +290,13 @@ Les couleurs gardent un seul sens en vol : cyan pour ce qui se touche, magenta p
 - **L'immatriculation**, avec « (tours de piste) » et le nombre de posés-décollés et de remises de gaz en mode tours de piste. Un appui long dessus abandonne le vol (voir [Terminer ou abandonner un vol](#terminer-ou-abandonner-un-vol)).
 - **La phase** et sa place (« CROISIÈRE 10/16 »). Touchez-la pour **Sélectionner la phase**, la liste des 16 phases avec leur état et la page de chacune dans la checklist papier.
 - **Le temps de vol**, compté depuis DÉMARRAGE MOTEUR.
-- **GPS**, dans la couleur de son état : vert bon, orange dégradé, rouge perdu ou sans enregistrement. Touchez-le pour le tiroir **Statut GPS** : le signal et la raison d'une dégradation ou d'une perte, la précision, l'heure de la position, l'altitude, la position (touchez-la pour la copier) et les points enregistrés. Quand l'accès à la localisation est limité à « Lorsque l'app est active », le tiroir le signale.
+- **GPS**, dans la couleur de son état : vert bon, orange dégradé, rouge perdu ou sans enregistrement (voir [Indicateurs GPS](#indicateurs-gps)). Touchez-le pour le tiroir **Statut GPS** : le signal et la raison d'une dégradation ou d'une perte, la précision, l'heure de la position, l'altitude, la position (touchez-la pour la copier) et les points enregistrés. Quand l'accès à la localisation est limité à « Lorsque l'app est active », le tiroir le signale. Sur le GPS de l'iPhone compagnon, il indique **GPS · iPhone**.
 - **Menu** : voir [Le menu](#le-menu).
 - Une icône d'iPhone apparaît tant qu'un compagnon est connecté.
 
 ### La barre de phases
 
-Sous l'en-tête, un segment par phase : la phase en cours plus haute, les autres colorées selon leur état (vert faite, orange ignorée, rouge quand DÉMARRAGE MOTEUR, PRÊT POUR L'ALIGNEMENT ou ARRÊT MOTEUR n'a pas été pressé, ambre pour une vérification de croisière à faire, gris non commencée). Touchez un segment pour aller à cette phase. Un saut en avant quitte les phases laissées derrière comme le fait SUIVANT : elles passent à l'orange, et leurs éléments non cochés vont dans la [liste des éléments reportés](#éléments-reportés-et-suivant). Revenir à une phase retire à nouveau ses éléments ouverts de cette liste. En mode tours de piste, une accolade marquée ↻ signale les phases qui se répètent à chaque tour (de Montée à Atterrissage), et Croisière et Descente sont écartées.
+Sous l'en-tête, un segment par phase : la phase en cours plus haute, les autres colorées selon leur état (vert faite, ou entourée de vert pour une vérification d'atterrissage confirmée après l'atterrissage ; orange ignorée ; rouge quand DÉMARRAGE MOTEUR ou ARRÊT MOTEUR n'a pas été pressé ; ambre pour une vérification en retard, pour Croisière tant que le FREDA est à faire, ou pour une vérification d'atterrissage dont vous n'étiez pas sûr ; gris non commencée). Touchez un segment pour aller à cette phase. Un saut en avant quitte les phases laissées derrière comme le fait SUIVANT : elles passent à l'orange, et leurs éléments non cochés vont dans la [liste des éléments reportés](#éléments-reportés-et-suivant). Revenir à une phase retire à nouveau ses éléments ouverts de cette liste. En mode tours de piste, une accolade marquée ↻ signale les phases qui se répètent à chaque tour (de Montée à Atterrissage), et Croisière et Descente sont écartées.
 
 ### La bande d'instruments
 
@@ -289,13 +307,13 @@ De Roulage à Après atterrissage, dès que l'avion se déplace, la bande affich
 - **TRK** : la route GPS suivie.
 - **NEXT** (iPad) : le prochain point de la route affichée sur la carte, en magenta, ou le terrain de déroutement.
 
-La vitesse sol n'est pas la vitesse indiquée de votre tableau de bord (un vent de face ou arrière la décale), et l'app n'a ni source anémométrique ni angle d'attaque : elle n'affiche donc délibérément **ni vitesse air estimée ni alerte de décrochage**. Pilotez à l'anémomètre certifié de l'avion. Quand le GPS se dégrade, un drapeau de panne recouvre les valeurs ; quand il est perdu (aucune position depuis plus de 90 secondes), il ne reste que le drapeau, pour qu'une coupure silencieuse ne soit jamais prise pour une mesure valide.
+La vitesse sol n'est pas la vitesse indiquée de votre tableau de bord (un vent de face ou arrière la décale), et l'app n'a ni source anémométrique ni angle d'attaque : elle n'affiche donc délibérément **ni vitesse air estimée ni alerte de décrochage**. Pilotez à l'anémomètre certifié de l'avion. Quand le GPS se dégrade, un drapeau de panne recouvre les valeurs ; quand il est perdu (aucune position depuis 45 secondes), il ne reste que le drapeau, pour qu'une coupure silencieuse ne soit jamais prise pour une mesure valide.
 
 ### Checklist ou carte
 
-**CHECKLIST | CARTE** change le volet. Le volet suit aussi le vol de lui-même : la checklist au sol, autour du décollage et de l'atterrissage, et chaque fois qu'une checklist est ouverte ; la carte en Montée, Croisière et Descente une fois la checklist de la phase déroulée. Une vérification de croisière qui arrive à échéance ramène la checklist. Un toucher sur CHECKLIST ou CARTE l'emporte jusqu'à ce que le vol avance : la phase suivante, la liste déroulée, ou une vérification de croisière à échéance.
+**CHECKLIST | CARTE** change le volet. Le volet suit aussi le vol de lui-même : la checklist au sol, autour du décollage et de l'atterrissage, et chaque fois qu'une checklist est ouverte ; la carte en Montée, Croisière et Descente une fois la checklist de la phase déroulée. Une vérification de mémoire (voir [Test de mémoire](#test-de-mémoire)) n'a pas de liste à montrer : elle s'ouvre donc sur la carte, où l'[emplacement de vérification](#lemplacement-de-vérification) la prend en charge, en Montée, Croisière et Descente, et aussi en Approche, Atterrissage et Après atterrissage. Une vérification qui arrive à échéance ne change jamais le volet. Un toucher sur CHECKLIST ou CARTE l'emporte jusqu'à ce que le vol avance : la phase suivante, ou la vérification faite ou rouverte.
 
-À côté du sélecteur : **V-SPEEDS** toujours, **BRIEFING** en Avant départ et en Descente, et **SUIVANT** tant que la liste a des éléments ouverts (on sort alors par la revue, voir plus bas). Sur la carte, des puces ambre vous suivent : le nombre d'éléments reportés, et **Contrôle croisière** quand une vérification est due (touchez-la pour revenir à la checklist).
+À côté du sélecteur : **V-SPEEDS** toujours, **BRIEFING** en Avant départ et en Descente, et **SUIVANT** tant que la liste a des éléments ouverts (on sort alors par la revue, voir plus bas). Sur la carte, une puce ambre avec le nombre d'éléments reportés vous suit.
 
 ### Dérouler la checklist
 
@@ -307,19 +325,62 @@ La checklist se déroule pas à pas, comme sur papier avec le doigt sur la ligne
 
 Sur l'iPad, la liste se lit seulement, et COCHER est la façon de cocher. Sur l'iPhone, un toucher sur la liste coche aussi.
 
-Quand le dernier élément est coché, la ligne de clôture de la checklist (« … TERMINÉ ») passe au vert, et le grand bouton devient **SUIVANT : <phase>**, avec « Tout est coché » (ou le nombre d'éléments reportés) en dessous. Si la phase a encore son propre bouton à presser (DÉMARRAGE MOTEUR, PRÊT POUR L'ALIGNEMENT, ARRÊT MOTEUR), c'est lui qui pulse d'abord.
+Quand le dernier élément est coché, la ligne de clôture de la checklist (« … TERMINÉ ») passe au vert, et le grand bouton devient **SUIVANT : <phase>**, avec « Tout est coché » (ou le nombre d'éléments reportés) en dessous ; à la fin d'Avant départ, il indique **PRÊT POUR L'ALIGNEMENT** (voir [La barre d'actions](#la-barre-dactions)). Si la phase a encore son propre bouton à presser (DÉMARRAGE MOTEUR, ARRÊT MOTEUR), c'est lui qui pulse d'abord.
 
 ### Éléments reportés et SUIVANT
 
 SUIVANT avec des éléments encore ouverts les liste d'abord (« 3 éléments non cochés », avec la phase) : **RETOUR À LA CHECKLIST** reste sur la phase, au premier élément ouvert ; **CONTINUER, COCHER PLUS TARD** la quitte, et les éléments non cochés deviennent des éléments reportés. La phase passe à l'orange.
 
-Les éléments reportés vous suivent jusqu'à ce que vous les cochiez. Une ligne ambre en haut de la checklist (« 2 éléments reportés », **Revoir**) ouvre **Éléments reportés**, phase par phase, chacun avec son propre **COCHER**. Sur la carte, la puce ambre avec le compte ouvre la même liste. Une phase ignorée passe au vert dès que son dernier élément reporté est coché ; une phase à laquelle il manque DÉMARRAGE MOTEUR, PRÊT POUR L'ALIGNEMENT ou ARRÊT MOTEUR reste rouge.
+Les éléments reportés vous suivent jusqu'à ce que vous les cochiez. Une ligne ambre en haut de la checklist (« 2 éléments reportés », **Revoir**) ouvre **Éléments reportés**, phase par phase, chacun avec son propre **COCHER**. Sur la carte, la puce ambre avec le compte ouvre la même liste. Une phase ignorée passe au vert dès que son dernier élément reporté est coché ; une phase à laquelle il manque DÉMARRAGE MOTEUR ou ARRÊT MOTEUR reste rouge.
 
 En mode tours de piste, une remise de gaz, un posé-décollé ou un atterrissage complet repart à neuf sur les phases qui se répètent, leurs éléments reportés compris : ce que vous avez remis à plus tard au tour précédent est redemandé à ce tour-ci.
 
+### Quand une vérification est à faire
+
+Le vol dit quand chaque vérification arrive à échéance, sans clignoter, sans bip et sans changer de volet. Avant son moment, une vérification reste sombre (vous pouvez tout de même la faire en avance) ; à son moment, elle passe à l'ambre.
+
+- **Montée** : à 500 ft au-dessus du terrain, après le décollage, pas pendant la course au décollage.
+- **Croisière** : à la mise en palier.
+- **Descente** : quand l'avion descend vraiment. Un creux dont vous remontez l'annule.
+- **Approche** : à 5 NM de la destination ; sans route, quand vous descendez près d'un aérodrome.
+- **Atterrissage** : à hauteur du circuit près de l'aérodrome que vous approchez. Elle est montrée, jamais demandée : de là jusqu'à la piste, il n'y a rien à toucher.
+
+Les autres vérifications (au sol, après l'atterrissage) sont à faire dès qu'elles arrivent, de même que toutes les vérifications quand l'appareil n'a pas de données d'aérodromes.
+
+Une vérification que le vol dépasse alors qu'elle est encore ouverte passe **en retard**, une fois : remplie d'ambre, avec ce qui l'a dépassée (« en retard · mise en palier »), jusqu'à ce que vous la fassiez (elle compte alors comme faite en retard) ou l'ignoriez. Le débriefing du vol la liste (voir [Vérifications](#vérifications)).
+
+### L'emplacement de vérification
+
+Sur la carte, l'**emplacement de vérification** porte la vérification en cours, en premier dans la rangée du bas, sur l'iPad comme sur l'iPhone (sur un iPad à l'horizontale, en haut de la colonne latérale). Il nomme la vérification et ce qu'elle demande, et un toucher s'en charge :
+
+- Une vérification avec une liste : « CROISIÈRE · 5 éléments ». Le toucher ouvre la checklist, et la carte revient après le dernier COCHER.
+- Une vérification de mémoire : « de mémoire · un appui quand c'est fait ». Le toucher l'enregistre faite.
+- Une vérification en retard : sa raison (« en retard · début de la descente »), et le même toucher.
+- Une fois une vérification faite, l'emplacement propose la suivante (« vérification suivante »), sombre jusqu'à son moment, puis ambre ; un toucher y passe (et l'enregistre faite, pour une vérification de mémoire).
+- Un bouton de phase encore à presser : « d'abord DÉMARRAGE MOTEUR », qui ouvre la checklist. Une fois la vérification avant départ faite : **PRÊT POUR L'ALIGNEMENT**, « puis ALIGNEMENT ».
+- Dès la hauteur du circuit : la vérification d'atterrissage, en pointillé, « rien à toucher ».
+
+En Approche et en Atterrissage, et dès la hauteur du circuit, **REMISE DE GAZ** et **POSÉ-DÉCOLLÉ** se placent à côté de l'emplacement, à la place de MARQUER, Déroutement et Plus (voir [La barre d'actions](#la-barre-dactions) pour leur fonctionnement).
+
+### FREDA
+
+En croisière, une fois la vérification de croisière faite, le **FREDA** (carburant, radio, moteur, direction, altimètre) prend le relais. Il est à faire toutes les 10 minutes, ou à un point passé 5 minutes ou plus après le dernier, selon ce qui arrive en premier.
+
+L'emplacement de vérification dit quand le dernier a été fait (« FREDA ✓ 14:34 », l'heure de la vérification de croisière au début) et décompte jusqu'au suivant (« FREDA dans 6 min » ; un toucher ouvre la checklist). Quand le FREDA est à faire, l'emplacement passe à l'ambre (**F·R·E·D·A**, avec le nom du point sur l'iPad), le segment Croisière de la barre de phases aussi : un toucher l'enregistre, et un message (« FREDA fait à 14:34 ») propose **ANNULER** pendant six secondes. Sur le volet checklist, le bouton FREDA de la barre d'actions fait de même : atténué tant que la vérification de croisière n'est pas faite, puis en décompte, ambre à échéance, et un toucher enregistre le FREDA (en avance, si vous voulez). La liste de croisière elle-même n'est pas remise à zéro.
+
+Le FREDA s'arrête à la descente ; un FREDA dû et non fait est consigné comme manqué. Il n'y a pas de FREDA en mode tours de piste.
+
+### L'encart Posé
+
+Après un atterrissage complet (hors mode tours de piste), l'encart **POSÉ** s'affiche par-dessus le cockpit : « POSÉ · LSZQ · 14:44 · La vérification d'atterrissage était-elle faite avant le toucher ? », avec **OUI, C'ÉTAIT FAIT** et **PAS SÛR**. Oui enregistre la vérification d'atterrissage comme confirmée après l'atterrissage (entourée de vert sur la barre de phases) ; Pas sûr l'ajoute au débriefing, en ambre. Dans les deux cas, l'atterrissage complet est consigné au toucher et la checklist passe à Après atterrissage. Quand la vérification d'atterrissage était faite avant le toucher, l'encart le dit et propose **SUIVANT : APRÈS ATTERRISSAGE**.
+
+L'encart attend une réponse, quel que soit le temps que prend le dégagement de la piste, et ne s'en va de lui-même qu'à la course au décollage suivante. L'iPhone compagnon peut aussi y répondre. En mode tours de piste, un atterrissage complet affiche à la place l'encart d'atterrissage complet (voir [Mode tours de piste](#mode-tours-de-piste)).
+
 ### Test de mémoire
 
-Toutes les vérifications sont affichées par défaut. Activez le **Test de mémoire** (dans le Menu, sous **Réglages › Checklist & Vol**, ou pendant l'accueil) pour masquer les vérifications à connaître par cœur, afin de les réciter de mémoire. Un bandeau **TEST DE MÉMOIRE** en fin de liste indique combien sont masquées ; maintenez-le pour les afficher pour la phase en cours. Le Test de mémoire remplace l'ancien mode apprentissage.
+Toutes les vérifications sont affichées par défaut. Activez le **Test de mémoire** (dans le Menu, sous **Réglages › Checklist & Vol**, ou pendant l'accueil) pour masquer les vérifications à connaître par cœur, afin de les réciter de mémoire. Un bandeau **TEST DE MÉMOIRE** en fin de liste indique combien sont masquées ; maintenez-le pour les afficher pour la phase en cours.
+
+Une vérification dont tous les éléments sont masqués se fait d'un seul toucher. Sur le volet checklist, **✓ MONTÉE : FAIT** (avec « SUIVANT : CROISIÈRE · de mémoire » en dessous) l'enregistre faite de mémoire, en vert, et ouvre la vérification suivante ; dans l'[emplacement de vérification](#lemplacement-de-vérification), un toucher l'enregistre. Un message (« MONTÉE : fait de mémoire ») propose **ANNULER** pendant six secondes, qui reprend les deux. Le Test de mémoire remplace l'ancien mode apprentissage.
 
 ### V-SPEEDS et BRIEFING
 
@@ -331,8 +392,9 @@ Toutes les vérifications sont affichées par défaut. Activez le **Test de mém
 
 Outre COCHER, REPORTER et SUIVANT, la barre d'actions porte les boutons propres à chaque phase, dans la langue de la checklist :
 
-- **DÉMARRAGE MOTEUR** (Démarrage moteur), **PRÊT POUR L'ALIGNEMENT** (Avant départ) et **ARRÊT MOTEUR** (Arrêt moteur) : un toucher enregistre l'heure. Une fois l'heure enregistrée, maintenez le bouton 1,5 s pour la changer ; AéroCheck demande d'abord.
-- Le **chrono de vérification de croisière** (Croisière) : ⟳ et le temps restant. Il démarre de lui-même quand vous terminez la checklist Croisière, ou d'un toucher, et décompte 15 minutes. À échéance, il passe à l'ambre et pulse (**VÉRIFIER**), le segment Croisière de la barre de phases passe à l'ambre, et la checklist Croisière repart du début, si bien que le volet y revient. Un toucher relance le décompte ; maintenez-le 1 s pour le réarmer à tout moment.
+- **DÉMARRAGE MOTEUR** (Démarrage moteur) et **ARRÊT MOTEUR** (Arrêt moteur) : un toucher enregistre l'heure. Une fois l'heure enregistrée, maintenez le bouton 1,5 s pour la changer ; AéroCheck demande d'abord.
+- **PRÊT POUR L'ALIGNEMENT** est le SUIVANT d'Avant départ : une fois tous les éléments cochés, le grand bouton indique PRÊT POUR L'ALIGNEMENT, avec « puis ALIGNEMENT » en dessous. Le toucher enregistre l'heure d'alignement et passe à Alignement. Les ETO comptent depuis l'alignement jusqu'à ce que le décollage apparaisse dans la trace (environ 30 secondes après l'envol), puis depuis le décollage.
+- **FREDA** (Croisière) : voir [FREDA](#freda).
 - En **Atterrissage**, **REMISE DE GAZ** et **POSÉ-DÉCOLLÉ** se trouvent au-dessus de la barre d'actions, et en **Après atterrissage**, **ATTERRISSAGE**. Chacun demande un appui d'une seconde (**Maintenir pour confirmer**), pour qu'un toucher involontaire ne le déclenche pas, et affiche son compte. Une remise de gaz ou un posé-décollé ramène la checklist en Montée.
 - En mode tours de piste, **REMISE DE GAZ** et **POSÉ-DÉCOLLÉ** deviennent des boutons à simple toucher dans la barre d'actions, pour corriger aussitôt une détection manquée.
 - **TERMINER LE VOL** prend la place de SUIVANT une fois la dernière phase cochée.
@@ -390,11 +452,11 @@ La carte est la même à deux endroits : le volet **CARTE** du cockpit, et **Pla
 
 ### Le prochain point
 
-Avec une route sur la carte, le prochain point s'affiche en haut : son nom en magenta, puis **BRG**, **DIST** (NM), **ETE** et **ETA**. L'ETE est en minutes (« 13 min », ou « 1:07 h » au-delà de l'heure), pour ne pas se lire comme une heure ; ETE et ETA n'apparaissent qu'au-dessus de 30 kt, pour qu'un roulage à 8 kt ne promette pas une heure et demie jusqu'au premier point. Sur l'iPad, c'est un encart ; sur l'iPhone, une ligne. Touchez-le pour toutes les branches et toutes les fréquences.
+Avec une route sur la carte, le prochain point s'affiche en haut : son nom en magenta, puis **BRG**, **DIST** (NM), **ETE** et **ETA**. L'ETE est en minutes (« 13 min », ou « 1:07 h » au-delà de l'heure), pour ne pas se lire comme une heure ; ETE et ETA n'apparaissent qu'au-dessus de 30 kt, pour qu'un roulage à 8 kt ne promette pas une heure et demie jusqu'au premier point. Sur l'iPad, c'est un encart ; sur l'iPhone, une ligne. Touchez-le pour toutes les branches et toutes les fréquences : le panneau s'ouvre sous la carte, qui retire ses commandes et cadre l'avion et le prochain point. Un toucher sur la carte ferme le panneau et remet la carte comme elle était.
 
 Les branches listent chaque point avec son temps prévu, le temps volé et votre avance (▲) ou votre retard (▼), puis la destination avec la distance restante et l'ETA. Touchez un point à venir pour le regarder sur la carte, puis **Direct vers** pour y aller tout droit. Touchez un point déjà passé pour revenir à cette branche (« Revenir à cette étape ? ») : son passage et les suivants sont effacés, et le chrono de branche repart.
 
-En vol, un point est passé automatiquement quand vous arrivez à la distance de proximité des waypoints (**Réglages › Planification de vol**), et aussi quand vous le passez par le travers. Si rien de la route n'est à l'écran, une pastille indique où elle se trouve (« Route à 12 NM · 045° ») ; **Afficher** la cadre.
+En vol, un point est passé automatiquement, d'après la trace GPS, au moment où vous le passez (par le travers compris), quel que soit le volet affiché. Un message (« VRP1 marqué automatiquement à 10:42 ») propose **ANNULER** pendant six secondes ; un point repris attend MARQUER. Si rien de la route n'est à l'écran, une pastille indique où elle se trouve (« Route à 12 NM · 045° ») ; **Afficher** la cadre.
 
 ### La feuille Carte
 
@@ -435,16 +497,18 @@ Sous le prochain point sur l'iPad, et au pied de la carte sur l'iPhone : **Carte
 
 ### Fréquences
 
-En bas de la carte, les deux fréquences à avoir affichées : **ACT**, celle à qui parler maintenant (à moins d'environ 10 NM d'un aérodrome, sa fréquence de contact ; en route, le FIS de la région), et **SUIV**, la prochaine dont vous aurez besoin (le prochain aérodrome de la route, sinon la zone de contrôle la plus proche devant, sinon le passage entre FIS et aérodrome ; en déroutement, le terrain de déroutement). Touchez-les pour les branches et les **FRÉQUENCES RADIO** : ACT et SUIV, **Toutes les fréquences** du parcours (l'aérodrome le plus proche, les points de la route, le FIS de la région, les zones de contrôle proches) et la fréquence de détresse, toujours en dernier.
+En bas de la carte, les deux fréquences à avoir affichées : **ACT**, celle à qui parler maintenant (à moins d'environ 10 NM d'un aérodrome, sa fréquence de contact ; en route, le FIS de la région), et **SUIV**, la prochaine dont vous aurez besoin (le prochain aérodrome de la route, sinon la zone de contrôle la plus proche devant, sinon le passage entre FIS et aérodrome ; en déroutement, le terrain de déroutement). Touchez-les pour les branches et les **FRÉQUENCES RADIO** : ACT et SUIV, **Toutes les fréquences** du parcours (l'aérodrome le plus proche, les points de la route, le FIS de la région, les zones de contrôle proches) et la fréquence de détresse, 121.500, toujours en bas.
 
 ### Chrono de branche et MARQUER
 
 En vol, avec une route sur la carte, la barre d'actions sous la carte porte :
 
-- **BRANCHE** : le temps sur la branche en cours, le temps prévu (iPad), et votre avance (▲, en vert) ou votre retard (▼, en ambre).
-- **TOP CHRONO** démarre le chrono de branche. Le grand bouton devient ensuite **MARQUER** avec le nom du point : touchez-le au passage du point pour enregistrer son heure et commencer la branche suivante.
+- **L'emplacement de vérification**, en premier ; voir [L'emplacement de vérification](#lemplacement-de-vérification).
+- **TOP CHRONO** démarre le chrono de branche. Le grand bouton devient ensuite **MARQUER** avec le nom du point, et le chrono de branche en dessous (sur l'iPad, « BRANCHE 2:05 / 17:32 » : le temps sur la branche en cours et le temps prévu ; ‖ en pause) : touchez-le au passage du point pour enregistrer son heure et commencer la branche suivante.
 - **Déroutement** : voir plus bas.
 - **Plus** : mettre en pause ou démarrer le chronomètre, **Réinitialiser le chronomètre**, **Branches et fréquences**, et **Routes**.
+
+Sans route sur la carte, **Routes** suit l'emplacement de vérification. En Approche et en Atterrissage, **REMISE DE GAZ** et **POSÉ-DÉCOLLÉ** prennent la place de MARQUER, Déroutement et Plus.
 
 Pendant six secondes après un MARQUER ou une réinitialisation, un message (« LSGC passé à 10:42 », « Chronomètre réinitialisé ») propose **ANNULER** : un toucher de travers dans la turbulence se rattrape d'un seul toucher.
 
@@ -473,7 +537,13 @@ Le vecteur de route projette votre route sol lissée 5 minutes en avant, avec de
 
 ### Indicateurs GPS
 
-Le bouton GPS de l'en-tête du cockpit montre le signal par sa couleur ; touchez-le pour le tiroir Statut GPS (voir [L'en-tête](#len-tête)). Si la position cesse de se mettre à jour en vol (aucune position depuis plus de 90 secondes), l'état indique **Perdu** et la bande d'instruments affiche un drapeau de panne au lieu de chiffres figés. Si l'accès à la localisation est limité à « Lorsque l'app est active », le tiroir Statut GPS le signale (« GPS limité … »), pour que vous accordiez « Toujours » et que la trace continue à s'enregistrer en arrière-plan.
+Le bouton GPS de l'en-tête du cockpit montre le signal par sa couleur ; touchez-le pour le tiroir Statut GPS (voir [L'en-tête](#len-tête)).
+
+- **Vert** (**Bon**) demande une position satellite précise à 100 m près, reçue au cours des 20 dernières secondes. Un avion à l'arrêt reste vert tant que le récepteur a une position.
+- **Orange** (**Dégradé**) : la position est moins précise que 100 m, rien n'est arrivé depuis 20 secondes, ou les positions ne viennent que du Wi-Fi ou du réseau mobile (le tiroir l'indique : aucune position satellite, position réseau) ; un iPad à l'intérieur sur Wi-Fi n'est donc pas vert. Le tiroir dit depuis combien de temps la dernière position est arrivée.
+- **Rouge** (**Perdu**) : aucune position depuis 45 secondes, ou pas d'accès à la localisation. En vol, la bande d'instruments affiche alors un drapeau de panne au lieu de chiffres figés.
+
+Les positions d'un récepteur GPS externe comptent comme satellite. Si l'accès à la localisation est limité à « Lorsque l'app est active », le tiroir Statut GPS le signale (« GPS limité … »), pour que vous accordiez « Toujours » et que la trace continue à s'enregistrer en arrière-plan.
 
 ### Cartes hors ligne
 
@@ -496,11 +566,11 @@ L'iPhone vole avec le même cockpit que l'iPad : les mêmes zones, dans le même
 
 ### La carte sur le téléphone
 
-Le prochain point tient sur une ligne (son nom en magenta, puis BRG, DIST et ETE), et les commandes se trouvent au pied de la carte : **Carte**, un seul bouton qui montre l'orientation (**Nord en haut** ou **Route en haut** ; un toucher la change) et **Centrer**. Pincez pour zoomer. ACT et SUIV, et la barre d'actions (BRANCHE, MARQUER avec le nom du point sous le mot, Déroutement, Plus), sont sous la carte. En vol sans route sur la carte, **Routes** prend la place du prochain point.
+Le prochain point tient sur une ligne (son nom en magenta, puis BRG, DIST et ETE), et les commandes se trouvent au pied de la carte : **Carte**, un seul bouton qui montre l'orientation (**Nord en haut** ou **Route en haut** ; un toucher la change) et **Centrer**. Pincez pour zoomer. ACT et SUIV, et la barre d'actions (l'emplacement de vérification, MARQUER avec le nom du point et le temps de branche sous le mot, Déroutement, Plus), sont sous la carte. En vol sans route sur la carte, **Routes** prend la place du prochain point.
 
 ### Le téléphone à l'horizontale
 
-À l'horizontale, le téléphone affiche deux colonnes. À gauche, les commandes du cockpit : l'en-tête, la barre de phases, CHECKLIST | CARTE avec V-SPEEDS, la bande, et la barre d'actions en bas, là où se trouve le pouce. À droite, le volet sur toute la hauteur. Sur la carte, les fréquences courent en bas de la carte sur deux lignes, et Déroutement et Plus s'empilent dans la barre d'actions pour que MARQUER garde sa largeur.
+À l'horizontale, le téléphone affiche deux colonnes. À gauche, les commandes du cockpit : l'en-tête, le bouton de phase (la phase et sa place, avec la progression dessinée à l'intérieur ; un toucher ouvre **Sélectionner la phase**), CHECKLIST | CARTE avec V-SPEEDS, la bande, et la barre d'actions en bas, là où se trouve le pouce. À droite, le volet sur toute la hauteur. Sur la carte, les fréquences courent en bas de la carte sur deux lignes, et le bas de la colonne porte l'emplacement de vérification et MARQUER, avec Déroutement et Plus empilés pour que MARQUER garde sa largeur.
 
 ---
 
@@ -540,11 +610,11 @@ AéroCheck enregistre automatiquement les heures clés de votre vol :
 
 ### Événements de vol
 
-L'app détecte et consigne automatiquement les **décollages**, **remises de gaz**, **touch-and-go**, **stop-and-go** et **atterrissages complets**, à partir de l'altitude et de la vitesse GPS et, sur les appareils dotés d'un baromètre, de l'altitude pression relative. Les événements détectés sont confirmés par un bref appui long (avec une courte annulation possible), pour qu'une détection automatique ne soit jamais consignée contre votre volonté.
+L'app détecte les **décollages**, **remises de gaz**, **posés-décollés** et **atterrissages complets** à partir de l'altitude et de la vitesse GPS et, sur les appareils dotés d'un baromètre, de l'altitude pression relative. Un décollage est consigné sans question. Une remise de gaz ou un posé-décollé s'affiche dans un encart (« Remise de gaz détectée à LSZQ ») avec **Ignorer** et **Confirmer** ; il disparaît de lui-même après 20 secondes et ne se confirme jamais tout seul, pour qu'une détection ne soit jamais consignée contre votre volonté. Un atterrissage complet affiche [l'encart Posé](#lencart-posé), ou en mode tours de piste l'encart d'atterrissage complet, dont **Confirmer** en fait un arrêt-décollé (voir [Mode tours de piste](#mode-tours-de-piste)).
 
 ### Revue post-vol
 
-Les invites de confirmation disparaissent d'elles-mêmes, et en tour de piste vous en manquerez certaines. À la fin du vol, toute la trace est réanalysée ; lorsqu'elle contredit ce que vous avez confirmé, une **feuille de revue** montre la différence — appliquez la lecture de la trace d'un geste, corrigez le type d'un événement, ou gardez le journal exactement tel que vous l'avez enregistré. Les événements confirmés ne sont jamais modifiés en silence.
+Les encarts de remise de gaz et de posé-décollé disparaissent d'eux-mêmes, et en tour de piste vous en manquerez certains. Après TERMINER LE VOL, toute la trace est réanalysée ; lorsqu'elle contredit ce que vous avez confirmé, **Revue du vol** montre la différence : changez le type d'un événement, incluez ou écartez ce qui a seulement été détecté, puis **Appliquer au carnet**, ou **Conserver tel quel**. Rien ne change sans votre accord, et le décompte des atterrissages du log de navigation suit ce que vous appliquez.
 
 ### Heures moteur
 
@@ -552,16 +622,22 @@ Si **Heures moteur** est activé sous **Réglages › Checklist & Vol**, l'app d
 
 ### Consulter l'historique des vols
 
-Ouvrez l'onglet **Carnet de vol** pour revoir vos vols ; chaque entrée indique la date, la durée, l'avion et la distance. Touchez un vol pour sa **vue détaillée** :
+Ouvrez l'onglet **Carnet de vol** pour revoir vos vols. Chacun porte sa route pour titre (« LSZQ → LSGE » ; « LSZQ » pour un vol qui revient à son départ ; « LSZQ → ? » quand un bout est inconnu ; « LSZQ ↻ » pour des tours de piste), avec l'avion, les atterrissages, la distance et la durée. Les vols sont groupés par mois, et un jour de deux vols ou plus a un en-tête avec ses totaux et **Partager la journée** (voir [Exporter et partager](#exporter-et-partager)). Touchez un vol pour sa **vue détaillée** :
 
-- Une carte interactive de votre trace
+- **TRACE DE VOL** : une carte interactive de votre trace
 - Un profil d'altitude (et de vitesse)
-- Les informations de route (départ et arrivée)
-- Une chronologie de tous les événements
-- Les heures moteur (si relevées) et les notes de vol
-- **Carnet et coûts** — voir ci-dessous
+- **TIMELINE** : chaque événement, dans l'ordre
+- **VÉRIFICATIONS** : le débriefing, voir [Vérifications](#vérifications)
+- Les heures moteur (si relevées), **PLAN vs ACTUAL**, le nom du vol et ses notes
+- **Log de nav**, **Carnet et coûts** (voir ci-dessous), **Exporter** et **Carte de partage**
 
-Le carnet de vol se filtre par année (réglez-le sur **All time** pour voir tous les vols), en UTC comme toute date imprimée, et vos vols se synchronisent entre vos appareils via iCloud.
+Le carnet de vol se filtre par année (réglez-le sur **Toutes les années** pour voir tous les vols), en UTC comme toute date imprimée, et vos vols se synchronisent entre vos appareils via iCloud.
+
+### Vérifications
+
+La section **VÉRIFICATIONS** d'un vol est son débriefing. Un vol sans accroc affiche « Toutes les vérifications faites ». Sinon, chaque exception a sa ligne, dans l'ordre du vol : **en retard, jamais fait** (avec le moment qui l'a dépassée, « mise en palier, 14:26 »), **fait en retard**, **pas sûr**, **confirmé après l'atterrissage**, **ignoré**, ou ouvert à la fin du vol. Les vérifications faites à temps suivent en un compte (« 9 autres vérifications faites »), et **Afficher chaque vérification** les liste. Le FREDA a sa propre ligne (« fait 3× · manqué 1× »), avec les heures. Les vols d'avant 6.1 n'ont pas de section Vérifications.
+
+Le carnet de vol repère une tendance : dès trois vols avec vérifications, **VÉRIFICATIONS · 10 DERNIERS VOLS** liste ce qui revient (« MONTÉE en retard sur 4 des 10 vols », « FREDA manqué 3× »), le plus fréquent d'abord. Une tendance, c'est la même vérification en retard, ignorée ou « pas sûr » sur deux vols ou plus ; sans tendance, pas d'encart. Il suit les filtres d'année et d'avion.
 
 ### Carnet et coûts
 
@@ -583,7 +659,11 @@ Si vous volez avec un instructeur, activez **Élève pilote** sous **Réglages �
 
 ### Exporter et partager
 
-Depuis la vue détaillée, touchez **Exporter** pour enregistrer un vol en **GPX** (échange GPS standard) ou **JSON** (données complètes, événements et métadonnées compris) ; plusieurs vols peuvent être exportés ensemble en **ZIP**. Vous pouvez aussi générer une **carte de partage** — un résumé visuel à publier ou à envoyer.
+Depuis la vue détaillée, touchez **Exporter** pour enregistrer un vol en **GPX** (échange GPS standard) ou **JSON** (données complètes, événements et métadonnées compris). Le menu **Export** du carnet de vol exporte les vols listés, ou tous, ensemble en **ZIP**, ainsi que le carnet en PDF. Les fichiers portent le titre du vol, et un import GPX ramène ce nom.
+
+**Carte de partage** fait du vol une image à publier ou à envoyer : la route telle que volée, avec l'heure de passage de chaque point, sur la carte OACI (la carte vol à voile ou la carte nationale pour un vol court, plus nettes à cette échelle) ; le temps bloc, la distance, l'altitude max et la vitesse sol max ; et les heures marquées « Heure locale · UTC+2 ». Deux styles (**Standard**, **Pleine carte**) et deux formats (**9:16**, **4:5**). **Masquer où j'ai stationné** (désactivé par défaut) retire les 300 premiers et derniers mètres de la trace. La distance suit les NM ou km du carnet de vol.
+
+La **carte de la journée** met une journée ou un voyage sur une seule image : **Partager la journée** dans le carnet de vol, sur un jour de deux vols ou plus, ou **Partager le voyage** sur une étape d'un voyage, dès que deux étapes ont volé. Elle montre toute la route (« LSZQ → LSGE → LSGN → LSZQ »), les totaux, chaque étape numérotée sur la carte et le temps au sol à chaque escale. **Ajouter la carte de chaque étape** envoie ensuite les cartes des étapes.
 
 ---
 
@@ -593,22 +673,38 @@ AéroCheck peut afficher votre vol en direct sur un second écran.
 
 ### Apple Watch
 
-L'**app Apple Watch** affiche la phase en cours, la vitesse sol et l'altitude à votre poignet, mises à jour en temps réel depuis votre iPhone (y compris la bonne phase suivante en mode tours de piste). Si la montre cesse de recevoir des données fraîches — hors de portée du téléphone, par exemple — une bannière **« NO DATA »** apparaît pour que des valeurs figées ne soient jamais prises pour des valeurs en direct.
+L'**app Apple Watch** suit le vol depuis votre iPhone ; ses libellés sont en anglais. Avant un vol, elle affiche l'heure et si elle est connectée au téléphone (« Start flight on iPhone »).
+
+En vol, la **page du vol** affiche la phase (dans la couleur de sa partie du vol) et la suivante (la bonne en mode tours de piste, qui saute Croisière et Descente), l'heure (**LOCAL**, ou **UTC** avec **Toujours utiliser l'heure UTC**) et le **FLIGHT TIME**, de l'alignement à l'atterrissage. Avec une route sur la carte, la montre a trois pages, de haut en bas la **navigation**, la page du vol et les **fréquences**, et s'ouvre sur la première ; tournez la Digital Crown ou balayez vers le haut et le bas pour passer de l'une à l'autre :
+
+- **Navigation** : le prochain point (ou le terrain de déroutement) et sa place dans la route (« 3/7 ») ; le chrono de branche (**CHRONO**) avec trois boutons, marquer, pause ou départ, et remise à zéro, qui commandent le chrono de branche de l'iPhone comme ceux du cockpit (marquer enregistre l'heure de passage et commence la branche suivante) ; puis **HDG** (le relèvement du point), **DIST** (NM) et **EET** (le temps jusqu'au point à la vitesse sol du moment).
+- **Fréquences** (**FREQUENCIES**) : les fréquences de la liste de la carte, NOW et NEXT d'abord, puis les autres.
+
+Quand la montre n'a rien reçu du téléphone depuis cinq secondes (hors de portée, par exemple), ses valeurs s'atténuent sous une bannière **NO DATA**, pour que des valeurs figées ne soient jamais prises pour des valeurs en direct.
 
 ### Mode compagnon
 
-Le **mode compagnon** apparie un iPad et un iPhone par une liaison Wi-Fi directe (Wi-Fi Aware ; nécessite **iOS 26 sur les deux appareils**) pour faire du second appareil un écran **équipier** synchronisé. Appariez les deux appareils une fois sous **Réglages › Mode compagnon** ; ensuite ils se connectent automatiquement dès qu'ils sont proches et prêts.
+Le **mode compagnon** apparie un iPad et un iPhone par une liaison Wi-Fi directe (Wi-Fi Aware ; nécessite **iOS 26 sur les deux appareils**) pour faire du second appareil un écran **équipier** synchronisé. Appariez les deux appareils une fois sous **Réglages › Mode compagnon** (**Appairer un nouvel appareil** s'affiche même mode désactivé) ; ensuite ils se connectent automatiquement dès qu'ils sont proches et prêts.
 
-L'afficheur compagnon propose deux écrans entre lesquels balayer, et il bascule automatiquement avec la phase de vol :
+La première fois qu'un téléphone veut piloter le vol de l'iPad (sa checklist et ses points, ou sa position GPS), l'iPad demande : **Autoriser le contrôle du compagnon ?**, avec **Autoriser pour ce vol**, **Toujours autoriser** (sur cet iPad, tant que vous ne touchez pas **Oublier** ou **Demander à chaque vol** dans les Réglages) et **Ne pas autoriser**.
 
-- **NAV** — une vue du prochain point, route en haut, avec la route affichée sur la carte
-- **CHECKLIST** — un miroir de la checklist de l'appareil principal
+L'afficheur compagnon a deux écrans, **NAV** et **CHECKLIST**. Il montre la checklist au sol et NAV une fois en l'air, jusqu'à ce que vous en touchiez un :
 
-Le contrôle est **bidirectionnel** : avancer dans la checklist ou révéler les vérifications que masque le Test de mémoire sur l'un des appareils met à jour les deux, et les deux écrans suivent le thème de l'appareil principal. Une **puce GPS** indique quel appareil fournit le GPS.
+- **NAV** : une vue du prochain point, route en haut, avec la route affichée sur la carte, **ENREG. ATO** (l'heure de passage du point en cours, enregistrée sur l'iPad) et en dessous l'[emplacement de vérification](#lemplacement-de-vérification), qui prend le même toucher unique que sur l'iPad.
+- **CHECKLIST** : un miroir de la checklist de l'appareil principal.
 
-**GPS partagé.** Si l'iPad n'a pas de GPS (modèle Wi-Fi seul), il peut effectuer tout le vol avec le **GPS de l'iPhone** — l'iPhone partage sa position sur la liaison, et l'iPad enregistre la trace et anime le cockpit comme si la position était la sienne (le GPS de l'en-tête indique alors **GPS · iPhone**).
+Le contrôle est **bidirectionnel** : avancer dans la checklist ou révéler les vérifications que masque le Test de mémoire sur l'un des appareils met à jour les deux, et les deux écrans suivent le thème de l'appareil principal. Le téléphone peut aussi répondre à [l'encart Posé](#lencart-posé). Une **puce GPS** indique quel appareil fournit le GPS (**GPS iPad** ou **GPS iPhone**). Pour quitter, maintenez **COMPANION** sur le téléphone jusqu'à ce qu'il se remplisse de rouge.
 
-Si la connexion tombe ou que les données se périment, le compagnon affiche une bannière **« Données obsolètes — valeurs possiblement figées »** ou **« Connexion perdue »**. La règle est simple : une bannière d'ancienneté ou de déconnexion signifie *ne plus faire confiance aux chiffres de cet écran* jusqu'à la reconnexion. Pour économiser la batterie, une liaison inactive se déconnecte d'elle-même.
+Quand les données se périment (rien depuis cinq secondes), le compagnon affiche **« Données obsolètes — valeurs possiblement figées »** ; quand la liaison tombe (après 10 secondes sans rien), **« Connexion perdue »**, avec **Mode autonome**. La règle est simple : une bannière d'ancienneté ou de déconnexion signifie *ne plus faire confiance aux chiffres de cet écran* jusqu'à la reconnexion. Pour économiser la batterie, l'iPad met fin à une liaison inactive depuis 10 minutes sans vol, et reste à l'écoute.
+
+### iPad Wi-Fi sans GPS
+
+Un iPad sans GPS (un modèle Wi-Fi seul) installe AéroCheck et vole avec, sur une position venue d'ailleurs :
+
+- **Le GPS de l'iPhone, par le mode compagnon** (iOS 26 sur les deux appareils). Une fois le téléphone autorisé, l'iPad effectue tout le vol avec lui : l'iPhone partage ses positions satellite sur la liaison (jamais une position Wi-Fi), et l'iPad enregistre la trace et anime le cockpit comme si la position était la sienne ; le GPS de l'en-tête indique **GPS · iPhone**. Dans un hangar ou un club-house, les positions Wi-Fi de l'iPad lui-même n'écartent pas le GPS de l'iPhone.
+- **Un récepteur GPS externe**, connecté à l'iPad : rien à régler. Ses positions comptent comme des positions satellite, si bien que l'indicateur GPS reste vert avec lui.
+
+DÉMARRER LE VOL attend jusqu'à cinq secondes une position. Sans position, il le dit (« En attente d'un signal GPS. Une fois le GPS acquis, réessayez. »).
 
 ---
 
@@ -616,9 +712,10 @@ Si la connexion tombe ou que les données se périment, le compagnon affiche une
 
 Le mode tours de piste est conçu pour l'**entraînement en circuit** (touch-and-go). Lancez-le avec **TOURS DE PISTE** sur Aujourd'hui, où il est toujours proposé. Lorsqu'il est actif :
 
-- La checklist saute les phases **Croisière** et **Descente**
-- Une remise de gaz ou un posé-décollé ramène la checklist en **Montée** pour le tour suivant, et un atterrissage complet confirmé en **Roulage**
-- Les **atterrissages complets** sont comptés automatiquement
+- La checklist saute les phases **Croisière** et **Descente**, et donc le FREDA
+- La vérification d'approche est à faire à la mise en palier, et la vérification d'atterrissage s'affiche (rien à toucher) dès que vous commencez à descendre
+- **REMISE DE GAZ** et **POSÉ-DÉCOLLÉ** se font d'un simple toucher, et l'un comme l'autre ramène la checklist en **Montée** pour le tour suivant
+- Les **atterrissages complets** sont détectés : l'encart d'atterrissage complet (« Atterrissage complet détecté à LSZQ ») attend **Confirmer**, qui consigne un arrêt-décollé et ramène la checklist en **Roulage**, ou **Ignorer**. Hors mode tours de piste, un atterrissage complet mène à Après atterrissage (voir [L'encart Posé](#lencart-posé))
 
 Les tours de piste se démarrent sur l'instant (une séance de tours de piste planifiée n'existe pas), et une séance n'adopte donc jamais un vol que vous avez planifié. À la fin, AéroCheck **propose** de la clôturer : une version allégée de CLÔTURER avec seulement la ligne de carnet et un débriefing. Refuser la proposition est une réponse complète.
 
@@ -668,7 +765,7 @@ Mettez en cache la carte OACI suisse et la Segelflugkarte pour un usage hors lig
 
 ## Référence des réglages
 
-Les réglages forment un onglet à part, organisé en pages dédiées. Trois anciens réglages sont désormais simplement la façon dont l'app fonctionne : **TOURS DE PISTE** est toujours proposé sur Aujourd'hui, l'écran reste allumé pendant un vol (et seulement pendant un vol), et chaque checklist se déroule pas à pas. Deux choses vivent hors des Réglages : l'avion que vous pilotez se choisit sur Aujourd'hui ou dans l'onglet **Avions**, qui garde aussi le carburant utilisable avec les pleins de chaque avion ; et le **Menu** du cockpit reprend les options d'affichage en vol.
+Les réglages forment un onglet à part, organisé en pages dédiées. Trois anciens réglages sont désormais simplement la façon dont l'app fonctionne : **TOURS DE PISTE** est toujours proposé sur Aujourd'hui, l'écran reste allumé pendant un vol (et seulement pendant un vol), et chaque checklist se déroule pas à pas. Deux choses vivent hors des Réglages : l'avion que vous pilotez se choisit sur Aujourd'hui ou dans l'onglet **Avions**, qui garde aussi le carburant utilisable avec les pleins et la vitesse de croisière de chaque avion ; et le **Menu** du cockpit reprend les options d'affichage en vol.
 
 ### Avions & Abonnement
 
@@ -684,7 +781,7 @@ Les réglages forment un onglet à part, organisé en pages dédiées. Trois anc
 
 ### Planification de vol
 
-**Votre nom** (pour la colonne PIC et le PDF du carnet), **Élève pilote** avec le nom de votre instructeur, **Suivre les coûts de vol** activé ou non, la **Proximité des waypoints**, distance à laquelle un point est passé en vol, et l'**Unité d'altitude du terrain** du profil de route.
+**Votre nom** (pour la colonne PIC et le PDF du carnet), **Élève pilote** avec le nom de votre instructeur, votre **Aérodrome de base** (**Basé à** : Planifier un vol part de lui, et les atterrissages faits à moins de 5 NM de lui comptent comme atterrissages à la base sur le log de nav, qui imprime « – / 1 » sans aérodrome de base), **Suivre les coûts de vol** activé ou non, et l'**Unité d'altitude du terrain** du profil de route.
 
 ### iCloud et journal
 
@@ -696,7 +793,7 @@ Fraîcheur des données aéronautiques (une ligne par jeu de données, les proc�
 
 ### Mode compagnon
 
-Appariez un iPhone et un iPad comme second écran synchronisé (Wi-Fi Aware ; nécessite iOS 26 sur les deux appareils).
+Appariez un iPhone et un iPad comme second écran synchronisé (Wi-Fi Aware ; nécessite iOS 26 sur les deux appareils) : **Activer le mode compagnon**, puis **Appareils appairés**, avec **Appairer un nouvel appareil** (affiché même mode désactivé), **Oublier** pour chaque appareil, et **Demander à chaque vol** pour un téléphone toujours autorisé. Voir [Mode compagnon](#mode-compagnon).
 
 ### À propos
 

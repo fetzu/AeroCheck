@@ -39,6 +39,7 @@ struct NavigationMapsSettingsView: View {
         SettingsPage {
             navigationSection
             openAIPSection
+            aerodromeProceduresSection
             offlineMapsSection
             airportDataSection
         }
@@ -266,6 +267,30 @@ struct NavigationMapsSettingsView: View {
                 errorRow(error)
             }
         }
+    }
+
+    // MARK: - Aerodrome procedures (6.2.0)
+
+    /// The Map sheet's three switches: open flightmaps' traffic circuits, VFR routes with their sectors,
+    /// and the glider, UL and helicopter circuits. Off by default.
+    private var aerodromeProceduresSection: some View {
+        SettingsGroup(title: L10n.VFRMap.aerodromeProcedures, tint: tint, footer: L10n.VFRMap.settingsFooter) {
+            SettingsToggleRow(icon: "arrow.triangle.capsulepath", title: L10n.VFRMap.showCircuits, tint: tint,
+                              isOn: settingBinding(\.showVFRCircuitsOnMap))
+            SettingsToggleRow(icon: "arrow.triangle.merge", title: L10n.VFRMap.showRoutes, tint: tint,
+                              isOn: settingBinding(\.showVFRRoutesOnMap))
+            SettingsToggleRow(icon: "wind", title: L10n.VFRMap.showNonPowered, tint: tint,
+                              isOn: settingBinding(\.showNonPoweredCircuitsOnMap))
+        }
+    }
+
+    /// A switch saved as it is flipped, straight into the settings: the map views load the procedures
+    /// when one is on.
+    private func settingBinding(_ keyPath: WritableKeyPath<AppSettings, Bool>) -> Binding<Bool> {
+        Binding(
+            get: { appState.settings[keyPath: keyPath] },
+            set: { appState.settings[keyPath: keyPath] = $0; appState.saveSettings() }
+        )
     }
 
     /// Every data layer's failed countries from the last download, once each: the five OpenAIP layers

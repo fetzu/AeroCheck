@@ -29,6 +29,9 @@ final class SettingsSyncTests: XCTestCase {
         settings.fullTanksLitres = ["F-HVXA": 100]
         settings.homeAerodromeIdent = "LSZQ"
         settings.cruiseSpeedKIAS = ["F-HVXA": 97]
+        settings.showVFRCircuitsOnMap = true
+        settings.showVFRRoutesOnMap = true
+        settings.showNonPoweredCircuitsOnMap = true
         return settings
     }
 
@@ -79,6 +82,29 @@ final class SettingsSyncTests: XCTestCase {
         for field in AppSettings.protectedFields {
             XCTAssertNotNil(written[field.key], "\(field.key) is left out when empty")
         }
+    }
+
+    /// Schema 8 (6.2): a 6.1 device relays a record without the aerodrome procedures' switches; the ones
+    /// this pilot turned on stay on. And a settings file from before 6.2 reads them as off.
+    func testTheAerodromeProceduresSwitchesSurviveAnOlderRecord() throws {
+        XCTAssertEqual(AppSettings.currentSchemaVersion, 8)
+        let keys = ["showVFRCircuitsOnMap", "showVFRRoutesOnMap", "showNonPoweredCircuitsOnMap"]
+        XCTAssertTrue(keys.allSatisfy { key in AppSettings.protectedFields.contains { $0.key == key } })
+
+        var remote = local()
+        remote.alwaysUseUTC = true
+        let relayed = try record(remote, dropping: keys, stamp: 7)
+        XCTAssertFalse(relayed.showVFRCircuitsOnMap, "an older record reads them as off")
+        let merged = local().preservingFieldsUnknownTo(relayed)
+        XCTAssertTrue(merged.showVFRCircuitsOnMap)
+        XCTAssertTrue(merged.showVFRRoutesOnMap)
+        XCTAssertTrue(merged.showNonPoweredCircuitsOnMap)
+        XCTAssertTrue(merged.alwaysUseUTC)
+
+        // A wrong type doesn't throw the whole settings away.
+        let odd = try record(local(), extra: ["showVFRRoutesOnMap": "yes"])
+        XCTAssertFalse(odd.showVFRRoutesOnMap)
+        XCTAssertEqual(odd.homeAerodromeIdent, "LSZQ")
     }
 
     /// A writer stamped with an older schema is still caught by its stamp (F8), keys or not.

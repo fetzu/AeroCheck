@@ -29,6 +29,21 @@ final class ViewStackBudgetTests: XCTestCase {
         XCTAssertLessThan(used, Self.budget, "Plan › Map used \(used / 1_024) KB of stack")
     }
 
+    /// Plan › Map with the aerodrome procedures on (6.2.0): their follower on the map's body, and the
+    /// content passed to the representable.
+    func testPlanMapWithTheAerodromeProceduresRendersWithinHalfTheDeviceStack() {
+        let services = makeServices()
+        services.appState.settings.showVFRCircuitsOnMap = true
+        services.appState.settings.showVFRRoutesOnMap = true
+        services.appState.settings.showNonPoweredCircuitsOnMap = true
+        let used = StackProbe.bytesUsed {
+            render(NavigationMapView(isPresented: .constant(true), showsCloseButton: false, isInCockpit: true,
+                                     onShowRoutes: {}),
+                   services: services, size: CGSize(width: 820, height: 1_180))
+        }
+        XCTAssertLessThan(used, Self.budget, "Plan › Map with the procedures used \(used / 1_024) KB of stack")
+    }
+
     /// The same map in landscape: the side column instead of the bottom panel.
     func testLandscapeMapRendersWithinHalfTheDeviceStack() {
         let services = makeServices()

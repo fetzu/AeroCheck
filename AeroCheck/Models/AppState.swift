@@ -223,6 +223,11 @@ struct AppSettings: Codable, Equatable {
     var showObstaclesOnMap: Bool = false // When true, shows obstacles (towers/masts/turbines) on navigation map (requires obstacle data download) — OFF by default to avoid clutter (v4.1.0)
     var showReportingPointsOnMap: Bool = true // When true, shows VFR reporting points on navigation map (requires reporting-point data download) — ON by default (v4.1.0)
     var showTrackVector: Bool = true // When true, draws a ground-track trend vector ahead of the aircraft (v4 UI/UX Revamp) — ON by default
+    // Aerodrome procedures from open flightmaps (6.2.0): indicative, so OFF by default; the Approach and
+    // Everything presets turn on the first two. Glider, UL and helicopter procedures are their own opt-in.
+    var showVFRCircuitsOnMap: Bool = false // Powered traffic circuits, with their altitude
+    var showVFRRoutesOnMap: Bool = false // VFR arrival and departure routes, with their sectors
+    var showNonPoweredCircuitsOnMap: Bool = false // Glider, UL and helicopter circuits (and helicopter routes with the routes)
 
     // OpenAIP aviation data overlay
     var showOpenAIPOverlay: Bool = true // When true, draws OpenAIP airspace (vector CTRs from downloaded data) on the nav map — ON by default
@@ -257,7 +262,7 @@ struct AppSettings: Codable, Equatable {
 
     /// Bump whenever a stored property is added that an older build cannot round-trip, and add it
     /// to `protectedFields` below.
-    static let currentSchemaVersion = 7
+    static let currentSchemaVersion = 8
 
     /// A field a settings schema protects: the schema that brought it (or changed what it means), its
     /// key, and how to keep or compare this device's value. (review F8; one table since 6.1)
@@ -299,6 +304,11 @@ struct AppSettings: Codable, Equatable {
         ProtectedField(6, .homeAerodromeCode, \.homeAerodromeCode),
         // Schema 7 (v6.1): the pilot's cruise speeds.
         ProtectedField(7, .cruiseSpeedKIAS, \.cruiseSpeedKIAS),
+        // Schema 8 (v6.2): the aerodrome procedures' switches. An older build would write them back
+        // off, and a preset there (which doesn't know them) can't say what the pilot chose.
+        ProtectedField(8, .showVFRCircuitsOnMap, \.showVFRCircuitsOnMap),
+        ProtectedField(8, .showVFRRoutesOnMap, \.showVFRRoutesOnMap),
+        ProtectedField(8, .showNonPoweredCircuitsOnMap, \.showNonPoweredCircuitsOnMap),
     ]
 
     /// Whether the writer of this record could not express `field`: its schema came before the field,
@@ -438,6 +448,7 @@ struct AppSettings: Codable, Equatable {
         case showObstaclesOnMap
         case showReportingPointsOnMap
         case showTrackVector
+        case showVFRCircuitsOnMap, showVFRRoutesOnMap, showNonPoweredCircuitsOnMap
         case logEngineHours
         case hasCompletedOnboarding
         case gpsPriority
@@ -516,6 +527,11 @@ struct AppSettings: Codable, Equatable {
         showObstaclesOnMap = try container.decodeIfPresent(Bool.self, forKey: .showObstaclesOnMap) ?? false
         showReportingPointsOnMap = try container.decodeIfPresent(Bool.self, forKey: .showReportingPointsOnMap) ?? true
         showTrackVector = try container.decodeIfPresent(Bool.self, forKey: .showTrackVector) ?? false
+        // New in 6.2: absent on every older save, which reads as off, the default. `try?`: a value that
+        // isn't a Bool must not throw the whole settings away.
+        showVFRCircuitsOnMap = (try? container.decodeIfPresent(Bool.self, forKey: .showVFRCircuitsOnMap)) ?? false
+        showVFRRoutesOnMap = (try? container.decodeIfPresent(Bool.self, forKey: .showVFRRoutesOnMap)) ?? false
+        showNonPoweredCircuitsOnMap = (try? container.decodeIfPresent(Bool.self, forKey: .showNonPoweredCircuitsOnMap)) ?? false
         logEngineHours = try container.decodeIfPresent(Bool.self, forKey: .logEngineHours) ?? true
         hasCompletedOnboarding = try container.decodeIfPresent(Bool.self, forKey: .hasCompletedOnboarding) ?? false
         gpsPriority = try container.decodeIfPresent(GPSPriority.self, forKey: .gpsPriority) ?? .precision

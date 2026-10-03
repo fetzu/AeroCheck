@@ -3,8 +3,9 @@ import XCTest
 @testable import AeroCheck
 
 /// The layouts a screen picks from the size it is given (the route builder's portrait and two columns,
-/// the Logbook's list and detail, the root's rotation prompt, the map's landscape legs panel and its
-/// thumb buttons), and the on-screen keyboard, which takes its height off that size. With the keys up,
+/// the Logbook's list and detail, the root's rotation prompt, the map's landscape legs panel, its thumb
+/// buttons, and the legs beside or above the frequencies), and the on-screen keyboard, which takes its
+/// height off that size. With the keys up,
 /// an iPad in portrait is wider than it is tall. (6.1.0)
 final class OrientationLayoutTests: XCTestCase {
 
@@ -167,4 +168,130 @@ final class OrientationLayoutTests: XCTestCase {
         XCTAssertEqual(flightEvents, mark, "GO AROUND and TOUCH-AND-GO after it")
         XCTAssertEqual(routes, mark, "Routes after it")
     }
+
+    // MARK: The legs and frequencies, open (6.1)
+
+    /// The panel's content width: the screen's, less 16 pt each side. The iPad on its side has the
+    /// panel beside its 420 pt column.
+    private enum PanelWidth {
+        static let iPadAir11Portrait: CGFloat = 820 - 32
+        static let iPadMiniPortrait: CGFloat = 744 - 32
+        static let iPadAir11OnItsSide: CGFloat = 1180 - 420 - 32
+        static let iPhone17Pro: CGFloat = 402 - 32
+        static let iPhone17ProMax: CGFloat = 440 - 32
+        /// A Pro Max on its side, beside the Cockpit's 402 pt column.
+        static let iPhone17ProMaxOnItsSide: CGFloat = 956 - 402 - 32
+    }
+
+    func testTheLegsAndFrequenciesSitSideBySideOnEveryIPadInPortrait() {
+        XCTAssertTrue(LegsPanelColumns.isSideBySide(width: PanelWidth.iPadAir11Portrait))
+        XCTAssertTrue(LegsPanelColumns.isSideBySide(width: PanelWidth.iPadMiniPortrait))
+        XCTAssertTrue(LegsPanelColumns.isSideBySide(width: PanelWidth.iPadAir11OnItsSide))
+    }
+
+    func testThePhoneKeepsThemOneAboveTheOther() {
+        XCTAssertFalse(LegsPanelColumns.isSideBySide(width: PanelWidth.iPhone17Pro))
+        XCTAssertFalse(LegsPanelColumns.isSideBySide(width: PanelWidth.iPhone17ProMax))
+        XCTAssertFalse(LegsPanelColumns.isSideBySide(width: PanelWidth.iPhone17ProMaxOnItsSide))
+    }
+
+    func testBesideTheFrequenciesTheLegsKeepTheirTimesAndAShortName() {
+        for width in [PanelWidth.iPadAir11Portrait, PanelWidth.iPadMiniPortrait, PanelWidth.iPadAir11OnItsSide] {
+            let legs = LegsPanelColumns.frequencyColumn(width: width, hasLegs: true).minX - LegsPanelColumns.columnSpacing
+            XCTAssertGreaterThanOrEqual(legs - LegRowMetrics.fixedWidth, LegRowMetrics.shortNameWidth,
+                                        "the times and \"LSZQ\" at \(width) pt")
+        }
+        // PLAN, ACT and Δ, the index, the icon, the gaps and the row's padding.
+        XCTAssertEqual(LegRowMetrics.fixedWidth, 328)
+    }
+
+    @MainActor
+    func testEveryLegIconFitsItsColumn() {
+        let room = CGSize(width: 1_000, height: 1_000)
+        for symbol in ["circle.fill", "location.fill", "circle"] {
+            let icon = Image(systemName: symbol).font(.aero(size: 14))
+            XCTAssertLessThanOrEqual(UIHostingController(rootView: icon).sizeThatFits(in: room).width,
+                                     LegRowMetrics.iconWidth, symbol)
+        }
+    }
+
+    /// Where the legs and the frequencies land, with legs that want more than the room beside the
+    /// frequencies: a long name, SAIGNELÉGIER, at full size. They stacked on an iPad in portrait, the
+    /// frequencies out of view.
+    @MainActor
+    private func columnFrames(width: CGFloat) -> (legs: CGRect, frequencies: CGRect, size: CGSize) {
+        final class Box { var legs: CGRect = .zero; var frequencies: CGRect = .zero }
+        let box = Box()
+        let columns = LegsPanelColumns {
+            GeometryReader { proxy in
+                let _ = { box.legs = proxy.frame(in: .named("panel")) }()
+                Color.clear
+            }
+            .frame(idealWidth: 700, maxWidth: .infinity)
+            .frame(height: 200)
+            GeometryReader { proxy in
+                let _ = { box.frequencies = proxy.frame(in: .named("panel")) }()
+                Color.clear
+            }
+            .frame(height: 120)
+        }
+        let panel = columns.frame(width: width).coordinateSpace(name: "panel")
+        _ = ImageRenderer(content: panel).uiImage
+        let size = UIHostingController(rootView: columns).sizeThatFits(in: CGSize(width: width, height: 2_000))
+        return (box.legs, box.frequencies, size)
+    }
+
+    @MainActor
+    func testTheLegsGiveWayBesideTheFrequencies() {
+        let iPad = columnFrames(width: PanelWidth.iPadAir11Portrait)
+        XCTAssertEqual(iPad.legs, CGRect(x: 0, y: 0, width: 464, height: 200), "the legs take what is left")
+        XCTAssertEqual(iPad.frequencies, CGRect(x: 488, y: 0, width: 300, height: 120), "300 pt at the right")
+        XCTAssertEqual(iPad.size, CGSize(width: PanelWidth.iPadAir11Portrait, height: 200))
+
+        let phone = columnFrames(width: PanelWidth.iPhone17Pro)
+        XCTAssertEqual(phone.legs, CGRect(x: 0, y: 0, width: 370, height: 200))
+        XCTAssertEqual(phone.frequencies, CGRect(x: 0, y: 216, width: 370, height: 120), "under the legs")
+        XCTAssertEqual(phone.size, CGSize(width: PanelWidth.iPhone17Pro, height: 336))
+    }
+
+    @MainActor
+    func testThePanelIsNeverWiderThanItIsOffered() {
+        let offered = CGSize(width: PanelWidth.iPadAir11Portrait, height: 2_000)
+        // What a row too wide for its column would report: the legs and the frequencies both.
+        let columns = LegsPanelColumns {
+            Color.clear.frame(width: 1_200, height: 50)
+            Color.clear.frame(width: 900, height: 50)
+        }
+        XCTAssertEqual(UIHostingController(rootView: columns).sizeThatFits(in: offered).width, offered.width)
+        let foot = LegsPanelColumns(content: .frequencyFoot(hasLegs: true)) {
+            Color.clear.frame(width: 900, height: 50)
+        }
+        XCTAssertEqual(UIHostingController(rootView: foot).sizeThatFits(in: offered).width, offered.width)
+    }
+
+    @MainActor
+    func testEmergencyLinesUpWithTheFrequencyColumn() {
+        final class Box { var frame: CGRect = .zero }
+        func footFrame(width: CGFloat, hasLegs: Bool) -> CGRect {
+            let box = Box()
+            let foot = LegsPanelColumns(content: .frequencyFoot(hasLegs: hasLegs)) {
+                GeometryReader { proxy in
+                    let _ = { box.frame = proxy.frame(in: .named("panel")) }()
+                    Color.clear
+                }
+                .frame(height: 44)
+            }
+            _ = ImageRenderer(content: foot.frame(width: width).coordinateSpace(name: "panel")).uiImage
+            return box.frame
+        }
+        let column = columnFrames(width: PanelWidth.iPadAir11Portrait).frequencies
+        XCTAssertEqual(footFrame(width: PanelWidth.iPadAir11Portrait, hasLegs: true),
+                       CGRect(x: column.minX, y: 0, width: column.width, height: 44),
+                       "under the frequency column, beside the legs")
+        XCTAssertEqual(footFrame(width: PanelWidth.iPadAir11Portrait, hasLegs: false),
+                       CGRect(x: 0, y: 0, width: PanelWidth.iPadAir11Portrait, height: 44), "no route: the width")
+        XCTAssertEqual(footFrame(width: PanelWidth.iPhone17Pro, hasLegs: true),
+                       CGRect(x: 0, y: 0, width: PanelWidth.iPhone17Pro, height: 44), "a phone: the width")
+    }
 }
+

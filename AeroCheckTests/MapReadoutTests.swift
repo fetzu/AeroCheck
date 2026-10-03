@@ -3,7 +3,8 @@ import XCTest
 @testable import AeroCheck
 
 /// The map's readouts in flight hold still as their values change (6.1): the next-waypoint card's
-/// figures, its one-line version on the phone, and the NOW / NEXT frequencies.
+/// figures, its one-line version on the phone, the NOW / NEXT frequencies, and the open panel's list of
+/// frequencies, whatever a pilot typed for a waypoint.
 @MainActor
 final class MapReadoutTests: XCTestCase {
 
@@ -107,11 +108,144 @@ final class MapReadoutTests: XCTestCase {
         }
     }
 
+    /// Several typed frequencies too long for the card: the first one whole, not the end of the text cut
+    /// in its digits ("….125 / Ground 121.900"). (6.1.0 device check)
+    func testSeveralTypedFrequenciesShowTheFirstWhole() {
+        XCTAssertEqual(FrequencyLineText.firstOfSeveral(FrequencyRow.parts(of: "Info 124.705 / Tower 118.125 / Ground 121.900")),
+                       "Info 124.705 / …")
+        XCTAssertEqual(FrequencyLineText.firstOfSeveral(FrequencyRow.parts(of: "119.175")), "119.175")
+        let font = Font.aero(size: CockpitType.response, weight: .bold, design: .monospaced)
+        let typed = "Info 124.705 / Tower 118.125 / Ground 121.900"
+        let first = size(Text("Info 124.705 / …").font(font).fixedSize()).width
+        let room = first + 10
+        XCTAssertGreaterThan(size(Text(typed).font(font).fixedSize()).width, room, "the whole text doesn't fit")
+        let card = size(FrequencyLineText(text: typed, font: font, color: .white), width: room)
+        XCTAssertEqual(card.width, first, accuracy: 1, "the first frequency and the sign, at full size")
+    }
+
     func testTheWordsGiveWayBeforeTheDigits() {
         XCTAssertFalse(FrequencyLineText.cutsAtStart("119.175 Bern Info"), "cut at the end: the digits lead")
         XCTAssertTrue(FrequencyLineText.cutsAtStart("Bern Info 119.175"), "cut at the start: the digits end it")
         XCTAssertTrue(FrequencyLineText.cutsAtStart("Info 121,5 "))
         XCTAssertFalse(FrequencyLineText.cutsAtStart("119.175"))
         XCTAssertFalse(FrequencyLineText.cutsAtStart("Bern Info"))
+    }
+
+    // MARK: The open panel's frequencies (6.1)
+
+    private let typed = "Info 124.705 / Tower 118.125 / Ground 121.900"
+
+    private func row(_ station: String, _ freq: String, role: FreqRole = .other) -> FrequencyRow {
+        FrequencyRow(item: PhaseFrequency(station: station, freq: freq, highlighted: role == .current,
+                                          isEmergency: role == .emergency, role: role))
+    }
+
+    /// The frequency column beside the legs.
+    private let column: CGFloat = 300
+
+    func testATypedFrequencyNeverWidensItsRow() {
+        // The frequency at its full width made the row, the column, Emergency under it and the panel
+        // wider than the screen: the map pane moved right.
+        for role in [FreqRole.other, .current, .next] {
+            for freq in [typed, "Bern Information 119.175 call on the ground", "LSZQ Home 123.456 / Tower 118.125"] {
+                XCTAssertLessThanOrEqual(size(row("LSZQ", freq, role: role), width: column).width, column,
+                                         "\(role) \"\(freq)\"")
+            }
+        }
+    }
+
+    func testATypedTextGoesUnderTheStationOnePartALine() {
+        let oneLine = size(row("LSZB ATIS", "125.130"), width: column).height
+        // Too long for the station's line, all three: one part, two, three.
+        let heights = ["Bern Information 119.175", "Info 124.705 / Tower 118.125", typed].map {
+            size(row("LSZQ", $0), width: column).height
+        }
+        XCTAssertGreaterThan(heights[0], oneLine, "under the station, a line of its own")
+        XCTAssertGreaterThan(heights[1] - heights[0], 0)
+        XCTAssertEqual(heights[2] - heights[1], heights[1] - heights[0], accuracy: 0.5, "one line a part")
+    }
+
+    func testEachPartKeepsOneLineHoweverNarrow() {
+        // A little smaller, then cut: never "121." over "900".
+        let wide = size(row("LSZQ", typed, role: .next), width: column).height
+        for width: CGFloat in [220, 160] {
+            XCTAssertEqual(size(row("LSZQ", typed, role: .next), width: width).height, wide, "at \(width) pt")
+        }
+    }
+
+    func testWhatFitsBesideTheStationStaysOnItsLine() {
+        let oneLine = size(row("LSZB ATIS", "125.130"), width: column).height
+        XCTAssertEqual(size(row("LSZQ", "Info 124.705"), width: column).height, oneLine)
+        // A long station gives way to its frequency rather than send it under itself.
+        XCTAssertEqual(size(row("Zurich Information East Sector", "124.700", role: .next), width: column).height,
+                       oneLine)
+    }
+
+    func testTypedTextSplitsAtTheSlashes() {
+        XCTAssertEqual(FrequencyRow.parts(of: typed), ["Info 124.705", "Tower 118.125", "Ground 121.900"])
+        XCTAssertEqual(FrequencyRow.parts(of: "Bern Information 119.175"), ["Bern Information 119.175"])
+        XCTAssertEqual(FrequencyRow.parts(of: "118.125/121.900"), ["118.125", "121.900"])
+        XCTAssertEqual(FrequencyRow.parts(of: "Tower 118.125 / "), ["Tower 118.125"])
+        XCTAssertEqual(FrequencyRow.parts(of: " / "), [" / "], "nothing to split: as typed")
+    }
+
+    /// "130.355" and its kind look exactly as they did: the row is drawn the same, pixel for pixel.
+    func testAStationAndItsFrequencyLookAsTheyDid() throws {
+        func pixels(_ view: some View) throws -> Data {
+            let renderer = ImageRenderer(content: view.frame(width: column).background(Color.black))
+            renderer.scale = 2
+            return try XCTUnwrap(renderer.uiImage?.pngData())
+        }
+        let items = [
+            PhaseFrequency(station: "LSZQ AFIS", freq: "122.050", highlighted: true, isEmergency: false, role: .current),
+            PhaseFrequency(station: "LSGN AFIS", freq: "123.605", highlighted: false, isEmergency: false, role: .next),
+            PhaseFrequency(station: "LSZB ATIS", freq: "125.130", highlighted: false, isEmergency: false),
+            PhaseFrequency(station: "Emergency", freq: "121.500", highlighted: false, isEmergency: true, role: .emergency),
+            PhaseFrequency(station: "Zurich Information East Sector", freq: "130.355", highlighted: false,
+                           isEmergency: false, role: .next),
+        ]
+        for item in items {
+            XCTAssertEqual(try pixels(FrequencyRow(item: item)), try pixels(RowAsItWas(item: item)), item.station)
+        }
+    }
+}
+
+/// The frequency row as 6.1 drew it, for `testAStationAndItsFrequencyLookAsTheyDid`.
+private struct RowAsItWas: View {
+    let item: PhaseFrequency
+    @Environment(\.cockpitTheme) private var theme
+
+    private var tag: (String, Color)? {
+        switch item.role {
+        case .current: return (L10n.Nav.freqCurrent, theme.onTarget)
+        case .next: return (L10n.Nav.freqNext, theme.info)
+        default: return nil
+        }
+    }
+
+    var body: some View {
+        HStack(spacing: 10) {
+            if let tag {
+                Text(tag.0)
+                    .font(.aero(size: 16, weight: .bold)).tracking(0.3)
+                    .foregroundColor(tag.1)
+                    .lineLimit(1)
+                    .fixedSize()
+                    .padding(.horizontal, 4).padding(.vertical, 1)
+                    .background(tag.1.opacity(0.16), in: RoundedRectangle(cornerRadius: 3))
+            }
+            Text(item.station)
+                .font(.aero(size: CockpitType.label, weight: item.highlighted ? .semibold : .regular))
+                .foregroundColor(item.isEmergency ? theme.danger : theme.textSecondary)
+                .lineLimit(1)
+                .minimumScaleFactor(0.7)
+            Spacer(minLength: 6)
+            Text(item.freq)
+                .font(.aero(size: CockpitType.row, weight: item.highlighted ? .bold : .regular, design: .monospaced))
+                .foregroundColor(theme.textPrimary)
+                .lineLimit(1)
+                .fixedSize()
+        }
+        .padding(.vertical, 8)
     }
 }

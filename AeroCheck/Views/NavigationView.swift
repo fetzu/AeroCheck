@@ -258,10 +258,8 @@ struct NavigationMapView: View {
     @State private var showMapSheet: Bool = false
     /// Measured height of the open legs-and-frequencies panel, so it hugs its content up to its limit.
     @State private var legsPanelContentHeight: CGFloat = 0
-    /// Emergency, pinned to the open panel's foot: its height, and the frequency column it lines up
-    /// with (in the panel's space). (6.1, option C)
+    /// Emergency, pinned to the open panel's foot: its height. (6.1, option C)
     @State private var emergencyFooterHeight: CGFloat = 0
-    @State private var freqColumnFrame: CGRect?
     /// The chart's measures, for the band the open panel leaves between the card and itself.
     @State private var chartGeometry = ChartGeometry()
     /// The map as the panel found it, put back when it closes. (6.1, option C)
@@ -1864,9 +1862,7 @@ struct NavigationMapView: View {
                     Color.clear.preference(key: EmergencyFooterHeightKey.self, value: proxy.size.height)
                 })
         }
-        .coordinateSpace(name: Self.legsPanelSpace)
         .onPreferenceChange(EmergencyFooterHeightKey.self) { emergencyFooterHeight = $0 }
-        .onPreferenceChange(FreqColumnFrameKey.self) { freqColumnFrame = $0 }
     }
 
     /// The open panel's height for at most `maxHeight`, Emergency included: what the landscape panel
@@ -1875,24 +1871,25 @@ struct NavigationMapView: View {
         min(legsPanelContentHeight, max(0, maxHeight - emergencyFooterHeight)) + emergencyFooterHeight
     }
 
-    private static let legsPanelSpace = "legsPanel"
-
     /// Emergency, at the panel's foot, lined up with the frequency column above it: its right-hand
     /// column beside the legs, the panel's width under them or with no route. A hairline over it, as the
     /// list scrolls under it.
+    ///
+    /// Placed by the same rule as the column (`LegsPanelColumns`), not by the column's measured frame:
+    /// a frequency typed for a waypoint made the column wider than its 300 pt, Emergency took that width,
+    /// and the panel, then the whole map pane, came out wider than the screen and moved right. (6.1,
+    /// device check)
     @ViewBuilder
     private var emergencyFooter: some View {
         let emergency = phaseFreqItems.filter(\.isEmergency)
         if !emergency.isEmpty {
-            let column = freqColumnFrame
-            VStack(spacing: 0) {
-                Rectangle().fill(theme.panelStroke).frame(height: 1)
-                ForEach(emergency) { freqRow($0, large: true) }
+            LegsPanelColumns(content: .frequencyFoot(hasLegs: flightPlanManager.activeFlightPlan != nil)) {
+                VStack(spacing: 0) {
+                    Rectangle().fill(theme.panelStroke).frame(height: 1)
+                    ForEach(emergency) { freqRow($0, large: true) }
+                }
             }
-            .frame(width: column.map { max(0, $0.width) })
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .padding(.leading, column.map { max(0, $0.minX) } ?? 16)
-            .padding(.trailing, column == nil ? 16 : 0)
+            .padding(.horizontal, 16)
             .padding(.bottom, 4)
         }
     }
@@ -2235,21 +2232,16 @@ struct NavigationMapView: View {
     }
 
     /// Every leg (planned, flown, ahead or over) and every frequency, opened from either card.
-    /// Side by side; stacked when the width runs out. With no route, the frequencies alone, the width
-    /// of the panel from its left edge: the side-by-side version, its legs empty, left them 300 pt
-    /// wide in the middle of the panel, where "130.355" wrapped. (6.1, device check)
+    /// Side by side on an iPad, one above the other on a phone (`LegsPanelColumns`). With no route, the
+    /// frequencies alone, the width of the panel from its left edge: the side-by-side version, its legs
+    /// empty, left them 300 pt wide in the middle of the panel, where "130.355" wrapped. (6.1, device
+    /// check)
     private var legsAndFrequencies: some View {
         Group {
             if flightPlanManager.activeFlightPlan != nil {
-                ViewThatFits(in: .horizontal) {
-                    HStack(alignment: .top, spacing: 24) {
-                        legsColumn
-                        freqColumn(large: true).frame(width: 300)
-                    }
-                    VStack(alignment: .leading, spacing: 16) {
-                        legsColumn
-                        freqColumn(large: true)
-                    }
+                LegsPanelColumns {
+                    legsColumn
+                    freqColumn(large: true)
                 }
             } else {
                 freqColumn(large: true)
@@ -2986,49 +2978,11 @@ struct NavigationMapView: View {
                 .padding(.vertical, 3)
             }
         }
-        .background(GeometryReader { proxy in
-            Color.clear.preference(key: FreqColumnFrameKey.self,
-                                   value: proxy.frame(in: .named(Self.legsPanelSpace)))
-        })
     }
 
-    /// A short CURRENT/NEXT tag + its colour, or nil for other rows. (v4 UI/UX Revamp)
-    private func roleTag(_ role: FreqRole) -> (String, Color)? {
-        switch role {
-        case .current: return (L10n.Nav.freqCurrent, theme.onTarget)
-        case .next: return (L10n.Nav.freqNext, theme.info)
-        default: return nil
-        }
-    }
-
-    /// A station and its frequency. The frequency is dialled as read, so it keeps one line and every
-    /// digit, whatever the width: the station gives way, smaller, then cut. Without that, beside a long
-    /// name it wrapped as "130.35" over "5". (6.1, device check)
+    /// A station and its frequency (`FrequencyRow`).
     private func freqRow(_ item: PhaseFrequency, large: Bool = false) -> some View {
-        HStack(spacing: large ? 10 : 6) {
-            if let tag = roleTag(item.role) {
-                Text(tag.0)
-                    .font(.aero(size: large ? 16 : 8, weight: .bold)).tracking(0.3)
-                    .foregroundColor(tag.1)
-                    .lineLimit(1)
-                    .fixedSize()
-                    .padding(.horizontal, 4).padding(.vertical, 1)
-                    .background(tag.1.opacity(0.16), in: RoundedRectangle(cornerRadius: 3))
-            }
-            Text(item.station)
-                .font(.aero(size: large ? CockpitType.label : 11, weight: item.highlighted ? .semibold : .regular))
-                .foregroundColor(item.isEmergency ? theme.danger : theme.textSecondary)
-                .lineLimit(1)
-                .minimumScaleFactor(large ? 0.7 : 1)
-            Spacer(minLength: 6)
-            Text(item.freq)
-                .font(.aero(size: large ? CockpitType.row : 13, weight: item.highlighted ? .bold : .regular, design: .monospaced))
-                // Frequencies are data: white in flight on the kneeboard panel. (v6.0 · P5)
-                .foregroundColor(item.highlighted && !large ? theme.onTarget : theme.textPrimary)
-                .lineLimit(1)
-                .fixedSize()
-        }
-        .padding(.vertical, large ? 8 : 3)
+        FrequencyRow(item: item, large: large)
     }
 
     /// `large`: the iPad kneeboard panel (v6.0 · P6). Rows read at 20–24 pt; heading and distance
@@ -3059,40 +3013,46 @@ struct NavigationMapView: View {
         // A previewed waypoint ahead can be flown to straight away, skipping the ones before it —
         // and a waypoint of the route is where a diversion can rejoin it. (v5.1)
         let offersDirect = isPreview && (index > plan.currentWaypointIndex || plan.diversion != nil)
-        return HStack(spacing: 6) {
-            waypointRowButton(plan: plan, index: index, wpt: wpt, compact: compact, large: large,
-                              isCurrent: isCurrent, isPast: isPast, isPreview: isPreview, leg: leg, actual: actual)
-            if offersDirect {
-                Button {
-                    flightPlanManager.directTo(waypointAt: index)
-                    previewWaypointIndex = nil
-                    // It re-centred the map on the aircraft. The band now frames the new leg, and the
-                    // map follows the aircraft once the panel closes. (6.1, option C)
-                    cameraBeforeLegs?.following = true
-                } label: {
-                    Text(L10n.Trip.directToWaypoint)
-                        .font(.aero(size: large ? CockpitType.label : 12, weight: .bold))
-                        .foregroundColor(theme.actionText)
-                        .padding(.horizontal, 10)
-                        .frame(minHeight: large ? 44 : 36)
-                        .background(theme.action, in: Capsule())
+        // DIRECT over the row's ACT and Δ, empty on a waypoint ahead, rather than beside the row: beside
+        // it, it took its width from the name, all of it beside the frequencies. (6.1, device check)
+        let actualAndDelta = large ? LegRowMetrics.actualAndDeltaWidth : 44 + 6 + 52
+        return waypointRowButton(plan: plan, index: index, wpt: wpt, compact: compact, large: large,
+                                 isCurrent: isCurrent, isPast: isPast, isPreview: isPreview, leg: leg, actual: actual)
+            .overlay(alignment: .trailing) {
+                if offersDirect {
+                    Button {
+                        flightPlanManager.directTo(waypointAt: index)
+                        previewWaypointIndex = nil
+                        // It re-centred the map on the aircraft. The band now frames the new leg, and the
+                        // map follows the aircraft once the panel closes. (6.1, option C)
+                        cameraBeforeLegs?.following = true
+                    } label: {
+                        Text(L10n.Trip.directToWaypoint)
+                            .font(.aero(size: large ? CockpitType.label : 12, weight: .bold))
+                            .foregroundColor(theme.actionText)
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.8)
+                            .padding(.horizontal, 10)
+                            .frame(minHeight: large ? 44 : 36)
+                            .background(theme.action, in: Capsule())
+                    }
+                    .buttonStyle(.plain)
+                    .frame(width: actualAndDelta, alignment: .trailing)
+                    .padding(.trailing, LegRowMetrics.horizontalPadding)
                 }
-                .buttonStyle(.plain)
             }
-        }
     }
 
     private func waypointRowButton(plan: FlightPlan, index: Int, wpt: FlightPlanWaypoint, compact: Bool,
                                    large: Bool = false,
                                    isCurrent: Bool, isPast: Bool, isPreview: Bool,
                                    leg: FlightPlanWaypoint?, actual: TimeInterval?) -> some View {
-        // Column widths follow the type: B612 Mono is about 0.6 em wide, so at 20 pt "17:32" needs 60 pt
-        // and "▲15:15" about 72. Exact rather than scaled, so the row fits the landscape side column.
-        let indexWidth: CGFloat = large ? 26 : 16
-        let timeWidth: CGFloat = large ? 68 : 44
-        let deltaWidth: CGFloat = large ? 82 : 52
+        // Column widths follow the type (`LegRowMetrics`).
+        let indexWidth: CGFloat = large ? LegRowMetrics.indexWidth : 16
+        let timeWidth: CGFloat = large ? LegRowMetrics.timeWidth : 44
+        let deltaWidth: CGFloat = large ? LegRowMetrics.deltaWidth : 52
         return Button(action: { handleWaypointTap(index: index, plan: plan, isPast: isPast) }) {
-            HStack(spacing: 8) {
+            HStack(spacing: LegRowMetrics.spacing) {
                 // Sequence number — matches the numbered disc on the map. (v4 UI/UX Revamp)
                 Text("\(index + 1)")
                     .font(.aero(size: large ? CockpitType.label : 11, weight: .bold, design: .monospaced))
@@ -3108,10 +3068,10 @@ struct NavigationMapView: View {
                     .foregroundColor(isCurrent ? theme.route : theme.textPrimary)
                     .lineLimit(1)
                     .minimumScaleFactor(large ? 0.8 : 1)
-                Spacer(minLength: 6)
+                Spacer(minLength: LegRowMetrics.nameGap)
                 // Fixed-width columns so every row's heading / distance / PLAN / ACT / Δ line up,
                 // whether or not a leg has been flown yet. (v4 UI/UX Revamp — column alignment)
-                HStack(spacing: 6) {
+                HStack(spacing: LegRowMetrics.timeSpacing) {
                     // Heading + distance kept on iPad; dropped on the narrow iPhone table. (v4 UI/UX Revamp)
                     if !compact && !large {
                         Text(leg?.formattedMagneticCourse ?? "")
@@ -3131,7 +3091,7 @@ struct NavigationMapView: View {
                 .lineLimit(1)
                 .minimumScaleFactor(large ? 0.8 : 1)   // shrink a little rather than cut a time short
             }
-            .padding(.horizontal, 8).padding(.vertical, large ? 9 : 7)
+            .padding(.horizontal, LegRowMetrics.horizontalPadding).padding(.vertical, large ? 9 : 7)
             .background(isPreview ? theme.info.opacity(0.14)
                         : (isCurrent ? theme.route.opacity(0.10) : Color.clear))
             .clipShape(RoundedRectangle(cornerRadius: 6))
@@ -6805,13 +6765,6 @@ private struct EmergencyFooterHeightKey: PreferenceKey {
     static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) { value = max(value, nextValue()) }
 }
 
-/// Where the frequency column sits in the open panel, for Emergency to line up under it. Only the
-/// layout `ViewThatFits` shows reports it.
-private struct FreqColumnFrameKey: PreferenceKey {
-    static let defaultValue: CGRect? = nil
-    static func reduce(value: inout CGRect?, nextValue: () -> CGRect?) { value = nextValue() ?? value }
-}
-
 /// What the chart measures of itself, in its own space, for the band the open legs panel leaves
 /// (`LegsPanelMap.bandRect`). (6.1, option C)
 private struct ChartGeometry: Equatable {
@@ -7105,13 +7058,36 @@ struct FrequencyLineText: View {
                 .font(font)
                 .hidden()
                 .accessibilityHidden(true)
-            Text(text)
-                .font(font)
-                .foregroundColor(color)
-                .lineLimit(1)
-                .minimumScaleFactor(0.85)
-                .truncationMode(Self.cutsAtStart(text) ? .head : .tail)
+            let parts = FrequencyRow.parts(of: text)
+            if parts.count > 1 {
+                // Several frequencies typed ("Info 124.705 / Tower 118.125 / Ground 121.900"): all of them
+                // if they fit, else the first one whole and a sign there are more, which the open panel
+                // lists. Cut at its start, the text read "….125 / Ground 121.900": the first frequency
+                // gone and the second cut in its digits. (6.1.0 device check)
+                ViewThatFits(in: .horizontal) {
+                    line(text)
+                    line(Self.firstOfSeveral(parts))
+                    line(parts[0])
+                }
+                .accessibilityLabel(text)
+            } else {
+                line(text)
+            }
         }
+    }
+
+    private func line(_ shown: String) -> some View {
+        Text(shown)
+            .font(font)
+            .foregroundColor(color)
+            .lineLimit(1)
+            .minimumScaleFactor(0.85)
+            .truncationMode(Self.cutsAtStart(shown) ? .head : .tail)
+    }
+
+    /// The first of several typed frequencies, and a sign that more follow.
+    static func firstOfSeveral(_ parts: [String]) -> String {
+        parts.count > 1 ? parts[0] + " / …" : parts.first ?? ""
     }
 
     /// Whether the text ends with a frequency after some words ("Bern Info 120.100"): then the words are
@@ -7122,6 +7098,233 @@ struct FrequencyLineText: View {
             return false
         }
         return range.lowerBound != trimmed.startIndex
+    }
+}
+
+/// A station and its frequency in the open panel's list. The frequency is dialled as read: it keeps one
+/// line and every digit, and the station gives way, smaller, then cut. Beside a long name it wrapped as
+/// "130.35" over "5". (6.1, device check)
+///
+/// What a pilot typed for a waypoint can be any length ("Info 124.705 / Tower 118.125 / Ground
+/// 121.900"). Where it leaves the station less than a few letters, it goes under the station, at the
+/// right, one part per line, split at "/". Each part keeps one line: a little smaller (down to the label
+/// size), then cut, never wrapped. On the station's line at its full width, it squeezed the station to
+/// nothing and made the row, the frequency column, then Emergency lined up under it, and so the whole
+/// panel wider than the screen: the map pane moved right and the frequencies ran off it. The row is
+/// never wider than it is offered. (6.1, device check)
+struct FrequencyRow: View {
+    let item: PhaseFrequency
+    /// The kneeboard panel's sizes (v6.0 · P6); the small ones are the old sheet's.
+    var large = true
+
+    @Environment(\.cockpitTheme) private var theme
+
+    var body: some View {
+        ViewThatFits(in: .horizontal) {
+            oneLine
+            underTheStation
+        }
+        .padding(.vertical, large ? 8 : 3)
+    }
+
+    /// The parts of what was typed, one per line under the station: split at "/", each trimmed.
+    static func parts(of text: String) -> [String] {
+        let parts = text.split(separator: "/")
+            .map { $0.trimmingCharacters(in: .whitespaces) }
+            .filter { !$0.isEmpty }
+        return parts.isEmpty ? [text] : parts
+    }
+
+    /// What the station keeps, at the least, for its frequency to stay on its line: about four capitals.
+    static func stationRoom(large: Bool) -> CGFloat {
+        3 * (large ? CockpitType.label : 11)
+    }
+
+    /// The station, then the frequency at the far end: every "130.355", as it always was. Measured with
+    /// the station at its room, so a long name gives way rather than send its frequency under it.
+    private var oneLine: some View {
+        HStack(spacing: large ? 10 : 6) {
+            tag
+            station
+                .frame(idealWidth: Self.stationRoom(large: large))
+            Spacer(minLength: 6)
+            Text(item.freq)
+                .font(frequencyFont)
+                .foregroundColor(frequencyColor)
+                .lineLimit(1)
+                .fixedSize()
+        }
+    }
+
+    /// The station on its line, then each part of what was typed on its own, at the right.
+    private var underTheStation: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            HStack(spacing: large ? 10 : 6) {
+                tag
+                station
+            }
+            ForEach(Array(Self.parts(of: item.freq).enumerated()), id: \.offset) { _, part in
+                FrequencyLineText(text: part, font: frequencyFont, color: frequencyColor)
+                    .frame(maxWidth: .infinity, alignment: .trailing)
+            }
+        }
+    }
+
+    /// A short NOW / NEXT tag in its colour; nothing on the other rows. (v4 UI/UX Revamp)
+    @ViewBuilder
+    private var tag: some View {
+        if let roleTag {
+            Text(roleTag.title)
+                .font(.aero(size: large ? 16 : 8, weight: .bold)).tracking(0.3)
+                .foregroundColor(roleTag.tint)
+                .lineLimit(1)
+                .fixedSize()
+                .padding(.horizontal, 4).padding(.vertical, 1)
+                .background(roleTag.tint.opacity(0.16), in: RoundedRectangle(cornerRadius: 3))
+        }
+    }
+
+    private var roleTag: (title: String, tint: Color)? {
+        switch item.role {
+        case .current: return (L10n.Nav.freqCurrent, theme.onTarget)
+        case .next: return (L10n.Nav.freqNext, theme.info)
+        default: return nil
+        }
+    }
+
+    private var station: some View {
+        Text(item.station)
+            .font(.aero(size: large ? CockpitType.label : 11, weight: item.highlighted ? .semibold : .regular))
+            .foregroundColor(item.isEmergency ? theme.danger : theme.textSecondary)
+            .lineLimit(1)
+            .minimumScaleFactor(large ? 0.7 : 1)
+    }
+
+    private var frequencyFont: Font {
+        .aero(size: large ? CockpitType.row : 13, weight: item.highlighted ? .bold : .regular, design: .monospaced)
+    }
+
+    /// Frequencies are data: white in flight on the kneeboard panel. (v6.0 · P5)
+    private var frequencyColor: Color {
+        item.highlighted && !large ? theme.onTarget : theme.textPrimary
+    }
+}
+
+/// The leg table's columns in the open panel, at the kneeboard sizes the phone uses too. Each time column
+/// is as wide as its widest value: B612 Mono is about 0.6 em wide, so at 20 pt "17:32" needs 60 pt and
+/// "▲15:15" about 72. Exact rather than scaled, so the times stay whole wherever the legs are laid out;
+/// the name takes what they leave, a little smaller, then cut.
+enum LegRowMetrics {
+    static let horizontalPadding: CGFloat = 8
+    static let spacing: CGFloat = 8
+    static let indexWidth: CGFloat = 26
+    /// The dot, the arrow or the circle before the name, at most. Each keeps its own width (on a phone on
+    /// its side, "LSZQ" has no point to spare).
+    static let iconWidth: CGFloat = 18
+    /// The least room between the name and the times.
+    static let nameGap: CGFloat = 6
+    static let timeSpacing: CGFloat = 6
+    static let timeWidth: CGFloat = 68
+    static let deltaWidth: CGFloat = 82
+
+    /// A row without its name.
+    static var fixedWidth: CGFloat {
+        2 * horizontalPadding + indexWidth + iconWidth + 4 * spacing + nameGap
+            + 2 * timeWidth + deltaWidth + 2 * timeSpacing
+    }
+
+    /// ACT and Δ, both empty on a waypoint ahead: where DIRECT goes on a previewed one.
+    static var actualAndDeltaWidth: CGFloat { timeWidth + timeSpacing + deltaWidth }
+
+    /// The least of a name the legs keep beside the frequencies: an ICAO code, four characters of B612
+    /// Mono at 20 pt.
+    static let shortNameWidth: CGFloat = 48
+}
+
+/// The open panel's two columns, the legs and then the frequencies: side by side wherever the legs keep
+/// their times whole and a short name beside the frequencies' 300 pt (every iPad in portrait, the mini's
+/// 744 pt included, and the iPad's panel on its side), one above the other on a phone. Decided on the
+/// width alone. `ViewThatFits` decided on the legs' ideal width, every name and the DEST line at full
+/// size: a route with one long name (SAIGNELÉGIER) put the frequencies under the legs, out of view until
+/// scrolled. Beside the frequencies, the names give way instead. (6.1, device check)
+///
+/// Never wider than it is offered, whatever is inside. `frequencyFoot` places its content (Emergency,
+/// pinned under the scroll) where the frequency column runs above it.
+struct LegsPanelColumns: Layout {
+    enum Content: Equatable {
+        /// Two subviews: the legs, then the frequencies.
+        case legsAndFrequencies
+        /// The frequency column's foot, under the column: beside the legs when there are any, else the
+        /// panel's width.
+        case frequencyFoot(hasLegs: Bool)
+    }
+
+    var content: Content = .legsAndFrequencies
+
+    static let frequencyWidth: CGFloat = 300
+    static let columnSpacing: CGFloat = 24
+    static let stackSpacing: CGFloat = 16
+
+    /// The narrowest width that has the legs beside the frequencies.
+    static var sideBySideWidth: CGFloat {
+        LegRowMetrics.fixedWidth + LegRowMetrics.shortNameWidth + columnSpacing + frequencyWidth
+    }
+
+    static func isSideBySide(width: CGFloat) -> Bool {
+        width >= sideBySideWidth
+    }
+
+    /// Where the frequency column runs across `width`.
+    static func frequencyColumn(width: CGFloat, hasLegs: Bool) -> (minX: CGFloat, width: CGFloat) {
+        hasLegs && isSideBySide(width: width) ? (width - frequencyWidth, frequencyWidth) : (0, width)
+    }
+
+    func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
+        let width = width(for: proposal, subviews: subviews)
+        return CGSize(width: width, height: frames(width: width, subviews: subviews).map(\.maxY).max() ?? 0)
+    }
+
+    func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) {
+        for (subview, frame) in zip(subviews, frames(width: bounds.width, subviews: subviews)) {
+            subview.place(at: CGPoint(x: bounds.minX + frame.minX, y: bounds.minY + frame.minY),
+                          proposal: ProposedViewSize(width: frame.width, height: frame.height))
+        }
+    }
+
+    /// The width offered; asked for an ideal size, the widest subview's.
+    private func width(for proposal: ProposedViewSize, subviews: Subviews) -> CGFloat {
+        if let width = proposal.width, width.isFinite { return width }
+        return subviews.map { $0.sizeThatFits(.unspecified).width }.max() ?? 0
+    }
+
+    private func frames(width: CGFloat, subviews: Subviews) -> [CGRect] {
+        func height(_ index: Int, _ width: CGFloat) -> CGFloat {
+            subviews[index].sizeThatFits(ProposedViewSize(width: width, height: nil)).height
+        }
+        switch content {
+        case .legsAndFrequencies where subviews.count == 2 && Self.isSideBySide(width: width):
+            let column = Self.frequencyColumn(width: width, hasLegs: true)
+            let legsWidth = column.minX - Self.columnSpacing
+            return [CGRect(x: 0, y: 0, width: legsWidth, height: height(0, legsWidth)),
+                    CGRect(x: column.minX, y: 0, width: column.width, height: height(1, column.width))]
+        case .legsAndFrequencies:
+            return stacked(x: 0, width: width, spacing: Self.stackSpacing, subviews: subviews)
+        case .frequencyFoot(let hasLegs):
+            let column = Self.frequencyColumn(width: width, hasLegs: hasLegs)
+            return stacked(x: column.minX, width: column.width, spacing: 0, subviews: subviews)
+        }
+    }
+
+    /// One above the other, each `width` wide from `x`.
+    private func stacked(x: CGFloat, width: CGFloat, spacing: CGFloat, subviews: Subviews) -> [CGRect] {
+        var frames: [CGRect] = []
+        var y: CGFloat = 0
+        for subview in subviews {
+            let height = subview.sizeThatFits(ProposedViewSize(width: width, height: nil)).height
+            frames.append(CGRect(x: x, y: y, width: width, height: height))
+            y += height + spacing
+        }
+        return frames
     }
 }
 

@@ -221,53 +221,31 @@ final class CheckSlotTests: XCTestCase {
 
     // MARK: Where it sits
 
-    /// The iPad on its side: the slot heads the map's thumb controls on a row of its own in every phase,
-    /// route or not. Beside Routes it showed "CRUISE CH…" over "FREDA in 6…". (6.1, device check)
-    func testInTheLandscapeColumnTheSlotAlwaysHasARowOfItsOwn() {
-        for events in [false, true] {
+    /// The slot is the act band's first, in one frame on every page (6.2): on MAP in every phase, route or
+    /// not, circuits or not; on CHECKLIST wherever the phase has no action of its own and isn't cruise
+    /// (Q11). From circuit height GO AROUND and TOUCH-AND-GO take the places after it, never its own.
+    /// Before the band, the landscape column and the bottom row each had their rule (`MapThumbColumn`,
+    /// `MapThumbRow`). (6.1, the author's call: the slot stays left)
+    func testTheSlotIsTheActBandsFirst() {
+        for phase in ChecklistPhase.allCases {
             for route in [false, true] {
-                let column = MapThumbColumn.make(showsCheckSlot: true, showsEventButtons: events,
-                                                 hasRoute: route, flightActive: true)
-                XCTAssertTrue(column.slotHasOwnRow, "events \(events), route \(route): \(column)")
+                for circuits in [false, true] {
+                    for landingShown in [false, true] {
+                        let map = ActBandRoles.make(page: .map, phase: phase, hasRoute: route, circuits: circuits,
+                                                    landingShown: landingShown)
+                        XCTAssertEqual(map.first, .checkSlot, "\(phase), route \(route), circuits \(circuits)")
+                        XCTAssertEqual(map.filter { $0 == .checkSlot }.count, 1)
+                    }
+                }
             }
+            let checklist = ActBandRoles.make(page: .checklist, phase: phase, hasRoute: true)
+            let ownSlot = !phase.showsEngineStartButton && !phase.showsEngineShutdownButton && phase != .cruise
+            XCTAssertEqual(checklist.first == .checkSlot, ownSlot, "\(phase) on CHECKLIST")
         }
-        XCTAssertEqual(MapThumbColumn.make(showsCheckSlot: true, showsEventButtons: false, hasRoute: false,
-                                           flightActive: true), .slotOverRoutes, "Routes where MARK would be")
-        XCTAssertEqual(MapThumbColumn.make(showsCheckSlot: true, showsEventButtons: false, hasRoute: true,
-                                           flightActive: true), .slotOverMark)
-        XCTAssertEqual(MapThumbColumn.make(showsCheckSlot: true, showsEventButtons: true, hasRoute: true,
-                                           flightActive: true), .slotOverFlightEvents, "GO AROUND in place of MARK")
-    }
-
-    /// Portrait, and the phone on its side: the slot leads the row in every phase, route or not. From
-    /// circuit height GO AROUND and TOUCH-AND-GO take the place of MARK, Divert and More (or Routes), and
-    /// the slot keeps its own; it moved to the middle between them, every lap. (6.1, the author's call)
-    func testInTheBottomRowTheSlotAlwaysLeads() {
-        for events in [false, true] {
-            for route in [false, true] {
-                let row = MapThumbRow.make(showsCheckSlot: true, showsEventButtons: events, hasRoute: route,
-                                           flightActive: true)
-                XCTAssertTrue(row.slotLeads, "events \(events), route \(route): \(row)")
-            }
-        }
-        XCTAssertEqual(MapThumbRow.make(showsCheckSlot: true, showsEventButtons: true, hasRoute: false,
-                                        flightActive: true), .slotThenFlightEvents, "circuits: slot, GO AROUND, TOUCH-AND-GO")
-        XCTAssertEqual(MapThumbRow.make(showsCheckSlot: true, showsEventButtons: true, hasRoute: true,
-                                        flightActive: true), .slotThenFlightEvents)
-        XCTAssertEqual(MapThumbRow.make(showsCheckSlot: true, showsEventButtons: false, hasRoute: true,
-                                        flightActive: true), .slotThenMark)
-        XCTAssertEqual(MapThumbRow.make(showsCheckSlot: true, showsEventButtons: false, hasRoute: false,
-                                        flightActive: true), .slotThenRoutes, "Routes after the slot, not before it")
-    }
-
-    func testWithoutTheSlotTheBottomRowIsAsBefore() {
-        XCTAssertEqual(MapThumbRow.make(showsCheckSlot: false, showsEventButtons: false, hasRoute: true,
-                                        flightActive: true), .legTimerThenMark)
-        XCTAssertFalse(MapThumbRow.legTimerThenMark.slotLeads)
-        XCTAssertEqual(MapThumbRow.make(showsCheckSlot: false, showsEventButtons: false, hasRoute: true,
-                                        flightActive: false), .routes, "Plan › Map: no MARK before the flight")
-        XCTAssertEqual(MapThumbRow.make(showsCheckSlot: false, showsEventButtons: false, hasRoute: false,
-                                        flightActive: true), .routes)
+        XCTAssertEqual(ActBandRoles.make(page: .map, phase: .approach, hasRoute: false, circuits: true, landingShown: true),
+                       [.checkSlot, .goAround, .touchAndGo, .more(withDivert: false)], "circuits: slot, GO AROUND, TOUCH-AND-GO")
+        XCTAssertEqual(ActBandRoles.make(page: .map, phase: .cruise, hasRoute: false)[1], .routes,
+                       "Routes after the slot, not before it")
     }
 
     // MARK: Its lines hold still
@@ -296,15 +274,6 @@ final class CheckSlotTests: XCTestCase {
                         .lineLines(phone: false, prominent: false), 2, "the letters over the waypoint")
         XCTAssertEqual(due.lineLines(phone: false, prominent: true), 1, "the wide slot on the iPad")
         XCTAssertEqual(due.lineLines(phone: true, prominent: true), 2)
-    }
-
-    func testWithoutTheSlotTheLandscapeColumnIsAsBefore() {
-        XCTAssertEqual(MapThumbColumn.make(showsCheckSlot: false, showsEventButtons: false, hasRoute: true,
-                                           flightActive: true), .legTimerOverMark)
-        XCTAssertEqual(MapThumbColumn.make(showsCheckSlot: false, showsEventButtons: false, hasRoute: true,
-                                           flightActive: false), .routes, "Plan › Map: no MARK before the flight")
-        XCTAssertEqual(MapThumbColumn.make(showsCheckSlot: false, showsEventButtons: false, hasRoute: false,
-                                           flightActive: true), .routes)
     }
 
     func testTheSlotTravelsToTheCompanion() throws {

@@ -117,4 +117,34 @@ final class LocalizationCatalogTests: XCTestCase {
         }
         XCTAssertTrue(L10n.Time.relative(past[0], to: now).hasSuffix(" ago"))
     }
+
+    /// The Watch app had no localization at all. It has its own catalog (AeroCheckWatch/), read here
+    /// from the Watch app the phone app embeds. The FREQ badges say what the phone's panel says.
+    func testTheWatchAppShipsFrench() throws {
+        let watchApp = Bundle.main.bundleURL.appendingPathComponent("Watch/AeroCheckWatch.app")
+        let french = try XCTUnwrap(Bundle(url: watchApp.appendingPathComponent("fr.lproj")), "the Watch app ships French")
+        let english = try XCTUnwrap(Bundle(url: watchApp.appendingPathComponent("en.lproj")))
+        let missing = "\u{1}missing"
+        let phone = try frenchBundle()
+        let expected = [
+            "NO DATA": "AUCUNE DONNÉE",
+            "Connected": "Connecté",
+            "Waiting...": "En attente…",
+            "Start flight on iPhone": "Démarrez le vol sur l’iPhone",
+            "FLIGHT TIME": "TEMPS DE VOL",
+            "NEXT": "SUIVANT",
+            "CHRONO": "CHRONO",
+            "FREQUENCIES": "FRÉQUENCES",
+            "LOCAL": "HEURE LOCALE",
+            "freq.now": phone.localizedString(forKey: "nav.freqCurrent", value: missing, table: nil),
+            "freq.next": phone.localizedString(forKey: "nav.freqNext", value: missing, table: nil),
+        ]
+        XCTAssertEqual(expected["freq.now"], "ACT")
+        XCTAssertEqual(expected["freq.next"], "SUIV")
+        for (key, value) in expected {
+            XCTAssertEqual(french.localizedString(forKey: key, value: missing, table: nil), value, key)
+        }
+        XCTAssertEqual(english.localizedString(forKey: "freq.now", value: missing, table: nil), "NOW")
+        XCTAssertEqual(english.localizedString(forKey: "freq.next", value: missing, table: nil), "NEXT")
+    }
 }

@@ -1,0 +1,148 @@
+{
+  "sourceLanguage" : "en",
+  "strings" : {
+    "%lld/%lld" : {
+      "comment" : "Navigation screen: the waypoint's place in the route, 2/5.",
+      "shouldTranslate" : false
+    },
+    "AeroCheck" : {
+      "comment" : "The brand, over the clock while no flight runs.",
+      "shouldTranslate" : false
+    },
+    "CHRONO" : {
+      "comment" : "Navigation screen: the leg timer.",
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "CHRONO"
+          }
+        }
+      }
+    },
+    "Connected" : {
+      "comment" : "Standby: the phone is reachable.",
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Connecté"
+          }
+        }
+      }
+    },
+    "FLIGHT TIME" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "TEMPS DE VOL"
+          }
+        }
+      }
+    },
+    "FREQUENCIES" : {
+      "comment" : "The frequencies screen's title.",
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "FRÉQUENCES"
+          }
+        }
+      }
+    },
+    "LOCAL" : {
+      "comment" : "Under the clock when it shows local time, not UTC.",
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "HEURE LOCALE"
+          }
+        }
+      }
+    },
+    "NEXT" : {
+      "comment" : "Flight screen: before the next phase, NEXT  CLIMB.",
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "SUIVANT"
+          }
+        }
+      }
+    },
+    "NO DATA" : {
+      "comment" : "Banner over the screens when the phone's data stopped arriving.",
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "AUCUNE DONNÉE"
+          }
+        }
+      }
+    },
+    "Start flight on iPhone" : {
+      "comment" : "Standby: flights start on the phone.",
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Démarrez le vol sur l’iPhone"
+          }
+        }
+      }
+    },
+    "Waiting..." : {
+      "comment" : "Standby: waiting for the phone.",
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "En attente…"
+          }
+        }
+      }
+    },
+    "freq.next" : {
+      "comment" : "Frequency badge and row: the next station.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "NEXT"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "SUIV"
+          }
+        }
+      }
+    },
+    "freq.now" : {
+      "comment" : "Frequency badge: the station to talk to now.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "NOW"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ACT"
+          }
+        }
+      }
+    }
+  },
+  "version" : "1.1"
+}

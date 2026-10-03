@@ -71,8 +71,8 @@ struct CompanionFlightView: View {
                                   onShowNav: { pick(.nav) })
                     .opacity(isDataStale ? 0.4 : 1)
                     // A mid-flight link drop keeps the last (frozen) flight data, so isFlightActive stays
-                    // true. Surface the "connection lost / switch to standalone" escape here too — not only
-                    // on the not-flying screen — falling back to the amber stale banner when merely
+                    // true. Surface the "connection lost / switch to standalone" escape here too (not only
+                    // on the not-flying screen), falling back to the amber stale banner when merely
                     // connected-but-stale. Over the read band, not above it: in the layout, each gap in the
                     // stream pushed everything under it down 37–60 pt and back. What it covers is what is
                     // frozen while it shows. (6.1.0; over the read band 6.2.0)

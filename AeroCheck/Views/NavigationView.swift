@@ -917,6 +917,7 @@ struct NavigationMapView: View {
                     .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
+                .accessibilityIdentifier("map.nextLine")
                 .accessibilityHint(L10n.Nav.legsAndFrequencies)
                 if diversion != nil {
                     Button { flightPlanManager.resumeRoute() } label: {
@@ -1075,6 +1076,7 @@ struct NavigationMapView: View {
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
+        .accessibilityIdentifier("map.legsToggle")
         // A hint, not a label: a label replaced the station and frequency, so VoiceOver never read the
         // NOW and NEXT frequencies at all. (v6.0 review)
         .accessibilityHint(L10n.Nav.legsAndFrequencies)
@@ -2141,7 +2143,7 @@ struct NavigationMapView: View {
         guard let loc = locationManager.currentLocation else { return nil }
         let gs = locationManager.currentSpeedKnots
         guard gs >= 30, let ete = flightPlanManager.etaToNextWaypoint(from: loc, groundSpeedKnots: gs) else { return nil }
-        return (ete, Date().addingTimeInterval(ete))
+        return (ete, FlightClock.now.addingTimeInterval(ete))
     }
 
     private func toggleLegsAndFrequencies() {
@@ -2294,6 +2296,7 @@ struct NavigationMapView: View {
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
+        .accessibilityIdentifier("map.legsToggle")
         // A hint, not a label: a label replaced the station and frequency, so VoiceOver never read the
         // NOW and NEXT frequencies at all. (v6.0 review)
         .accessibilityHint(L10n.Nav.legsAndFrequencies)
@@ -2611,6 +2614,7 @@ struct NavigationMapView: View {
             thumbPrimaryButton(icon: "stopwatch", title: L10n.Nav.startLegTimer) {
                 flightPlanManager.startChronometer()
             }
+            .accessibilityIdentifier("map.startLeg")
         } else if plan.currentWaypointIndex < plan.waypoints.count {
             let index = plan.currentWaypointIndex
             let name = plan.waypoints[index].name
@@ -2621,12 +2625,14 @@ struct NavigationMapView: View {
                                    subtitle: parts.isEmpty ? nil : parts.joined(separator: " · ")) {
                     markWaypoint(at: index, in: plan)
                 }
+                .accessibilityIdentifier("map.mark")
             } else {
                 thumbPrimaryButton(icon: "mappin.and.ellipse",
                                    title: name.isEmpty ? L10n.Nav.mark : "\(L10n.Nav.mark) \(name)",
                                    subtitle: leg.map { "\(L10n.Nav.leg) \(legTimeText($0, planned: true))" }) {
                     markWaypoint(at: index, in: plan)
                 }
+                .accessibilityIdentifier("map.mark")
             }
         } else {
             Spacer(minLength: 0)
@@ -3179,6 +3185,8 @@ struct NavigationMapView: View {
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
+        // Its place and whether it has a time over, for a UI test: "legRow.1.passed.ato".
+        .accessibilityIdentifier("legRow.\(index).\(isPast ? "passed" : isCurrent ? "next" : "ahead")\(wpt.actualTimeOver == nil ? "" : ".ato")")
     }
 
     /// Actual time flown on the leg arriving at `index`: the live timer for the current leg, ATO-to-ATO
@@ -3259,7 +3267,7 @@ struct NavigationMapView: View {
                 return (diversion.ident, 0, nil)
             }
             let gs = locationManager.currentSpeedKnots
-            return (diversion.ident, d, gs > 30 ? Date().addingTimeInterval(d / gs * 3600) : nil)
+            return (diversion.ident, d, gs > 30 ? FlightClock.now.addingTimeInterval(d / gs * 3600) : nil)
         }
         var remaining = 0.0
         if let loc = locationManager.currentLocation,
@@ -3294,6 +3302,7 @@ struct NavigationMapView: View {
                     Text("ETA \(eta.formatted(date: .omitted, time: .shortened))")
                         .font(.aero(size: CockpitType.label, design: .monospaced))
                         .foregroundColor(theme.textSecondary)
+                        .accessibilityIdentifier("legs.destinationETA")
                 }
             }
             .lineLimit(1)
@@ -3307,7 +3316,7 @@ struct NavigationMapView: View {
         flightPlanManager.markWaypoint()
         guard let timer else { return }
         let name = plan.waypoints[index].name.isEmpty ? "WPT \(index + 1)" : plan.waypoints[index].name
-        offerUndo(L10n.Nav.markedAt(name, Date().formatted(date: .omitted, time: .shortened))) {
+        offerUndo(L10n.Nav.markedAt(name, FlightClock.now.formatted(date: .omitted, time: .shortened))) {
             flightPlanManager.undoMark(ofWaypointAt: index, timer: timer)
         }
     }
@@ -6987,7 +6996,8 @@ class AirspacePolygon: MKPolygon {
 
 // MARK: - Self-timing clock / chronometer (PR-10)
 
-/// A wall-clock HH:mm:ss display that ticks itself once per second via `TimelineView` instead of the
+/// A clock HH:mm:ss display (the flight's clock, `FlightClock.now`: the wall clock outside a DEBUG
+/// ground replay) that ticks itself once per second via `TimelineView` instead of the
 /// old `.id(UUID())` hack driven by a top-level 1 Hz timer. The hack changed top-level `@State`
 /// every second, re-evaluating the entire ~2000-line map body; this scopes the per-second redraw to
 /// just this small subview. The `DateFormatter` is cached (was rebuilt per render). (PR-10)
@@ -7008,8 +7018,8 @@ private struct NavClockText: View {
     }
 
     var body: some View {
-        TimelineView(.periodic(from: .now, by: 1)) { context in
-            Text(Self.string(for: context.date, useUTC: useUTC))
+        TimelineView(.periodic(from: .now, by: 1)) { _ in
+            Text(Self.string(for: FlightClock.now, useUTC: useUTC))
                 .font(font)
                 .foregroundColor(color)
         }
@@ -7730,14 +7740,14 @@ extension AppState {
     /// The memory check confirmation still to offer back: within its six seconds. (6.1)
     var memoryConfirmationToOffer: MemoryConfirmation? {
         guard let confirmation = memoryConfirmation,
-              Date().timeIntervalSince(confirmation.confirmedAt) < Self.memoryConfirmationUndoWindow else { return nil }
+              FlightClock.pilotSeconds(since: confirmation.confirmedAt) < Self.memoryConfirmationUndoWindow else { return nil }
         return confirmation
     }
 
     /// FREDA done, still to offer back: within the same six seconds. (6.1)
     var fredaConfirmationToOffer: FredaConfirmation? {
         guard let confirmation = fredaConfirmation,
-              Date().timeIntervalSince(confirmation.doneAt) < Self.memoryConfirmationUndoWindow else { return nil }
+              FlightClock.pilotSeconds(since: confirmation.doneAt) < Self.memoryConfirmationUndoWindow else { return nil }
         return confirmation
     }
 
@@ -7778,6 +7788,7 @@ struct NavUndoToast: View {
                 .font(.aero(size: Self.textSize, weight: .semibold))
                 .foregroundColor(theme.textPrimary)
                 .lineLimit(2)
+                .accessibilityIdentifier("undoToast.message")
             Spacer(minLength: 8)
             Button {
                 offer.undo()
@@ -7789,6 +7800,7 @@ struct NavUndoToast: View {
                     .frame(minWidth: 104, minHeight: Self.buttonHeight)
                     .background(buttonShape)
             }
+            .accessibilityIdentifier("undoToast.undo")
         }
         .padding(.leading, 18)
         .padding(.trailing, 8)

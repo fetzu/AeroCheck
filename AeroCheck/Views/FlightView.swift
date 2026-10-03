@@ -544,6 +544,7 @@ struct FlightView: View {
                 onFirstPress: { performEngineStart() },
                 onUpdateTime: { performEngineStartUpdate() }
             )
+            .accessibilityIdentifier("cockpit.engineStart")
         } else if phase.showsEngineShutdownButton {
             TimestampActionButton(
                 title: L10n.ChecklistAction.engineShutdown(language: lang),
@@ -557,6 +558,7 @@ struct FlightView: View {
                 onFirstPress: { performEngineShutdown() },
                 onUpdateTime: { performEngineShutdownUpdate() }
             )
+            .accessibilityIdentifier("cockpit.engineShutdown")
         }
     }
 
@@ -613,6 +615,7 @@ struct FlightView: View {
                         kneeboard: kneeboard,
                         action: performGoAround
                     )
+                    .accessibilityIdentifier("cockpit.goAround")
                     HoldToConfirmButton(
                         title: L10n.ChecklistAction.touchAndGo(language: language),
                         systemImage: "arrow.triangle.2.circlepath",
@@ -621,6 +624,7 @@ struct FlightView: View {
                         kneeboard: kneeboard,
                         action: performTouchAndGo
                     )
+                    .accessibilityIdentifier("cockpit.touchAndGo")
                 }
                 if phase.showsLandedButton {
                     HoldToConfirmButton(
@@ -631,6 +635,7 @@ struct FlightView: View {
                         kneeboard: kneeboard,
                         action: performLanded
                     )
+                    .accessibilityIdentifier("cockpit.fullStop")
                 }
             }
             .padding(.horizontal, 16)
@@ -652,9 +657,11 @@ struct FlightView: View {
                 CockpitThumbButton(title: L10n.ChecklistAction.goAround(language: language),
                                    icon: "arrow.up.right.circle.fill",
                                    style: .outlined(tint: theme.action), action: performGoAround)
+                    .accessibilityIdentifier("cockpit.goAround")
                 CockpitThumbButton(title: L10n.ChecklistAction.touchAndGo(language: language),
                                    icon: "arrow.triangle.2.circlepath",
                                    style: .outlined(tint: theme.action), action: performTouchAndGo)
+                    .accessibilityIdentifier("cockpit.touchAndGo")
             }
             .frame(maxWidth: .infinity)
         }
@@ -1309,6 +1316,7 @@ extension FlightView {
         }
         .buttonStyle(.plain)
         .fixedSize()
+        .accessibilityIdentifier("cockpit.menu")
         .accessibilityLabel(L10n.Cockpit.menu)
     }
 
@@ -1378,6 +1386,7 @@ extension FlightView {
             // Just NEXT: phase titles run to "CHECK BEFORE ENGINE START". The name is on the big
             // NEXT button once the list is done, and in the VoiceOver label here.
             CockpitChip(title: L10n.Button.next, icon: "forward.end") { requestNextPhase() }
+                .accessibilityIdentifier("cockpit.nextChip")
                 .accessibilityLabel(L10n.Cockpit.nextPhaseA11y(next.title))
         }
     }
@@ -1424,6 +1433,7 @@ extension FlightView {
                 // Just NEXT: phase titles run to "CHECK BEFORE ENGINE START". The name is on the big
                 // NEXT button once the list is done, and in the VoiceOver label here.
                 CockpitChip(title: L10n.Button.next, icon: "forward.end") { requestNextPhase() }
+                    .accessibilityIdentifier("cockpit.nextChip")
                     .accessibilityLabel(L10n.Cockpit.nextPhaseA11y(next.title))
             }
         }
@@ -1607,6 +1617,7 @@ extension FlightView {
                                    style: .outlined(tint: theme.warning)) {
                     appState.deferHighlightedItem()
                 }
+                .accessibilityIdentifier("cockpit.defer")
                 .frame(maxWidth: narrow ? 112 : 200)
             }
             cockpitPrimaryButton
@@ -1637,16 +1648,19 @@ extension FlightView {
                     appState.confirmMemoryCheck()
                 }
             }
+            .accessibilityIdentifier("cockpit.memoryDone")
         } else if !cockpitChecklistDone {
             CockpitThumbButton(title: L10n.Cockpit.check, subtitle: currentItemChallenge, icon: "checkmark",
                                style: .filled(fill: theme.action, text: theme.actionText)) {
                 checkCurrentItem()
             }
+            .accessibilityIdentifier("cockpit.check")
         } else if appState.isLastPhase {
             CockpitThumbButton(title: L10n.Button.endFlight, icon: "flag.checkered",
                                style: .filled(fill: theme.danger, text: .white)) {
                 showEndFlightAlert = true
             }
+            .accessibilityIdentifier("cockpit.endFlight")
         } else {
             let label = CockpitNextLabel(
                 leaving: appState.currentPhase,
@@ -1656,6 +1670,7 @@ extension FlightView {
                                style: .filled(fill: theme.action, text: theme.actionText)) {
                 requestNextPhase()
             }
+            .accessibilityIdentifier("cockpit.next")
             .accessibilityHint(label.accessibilityHint ?? "")
             .modifier(PulseModifier(isActive: nextButtonReady))
         }
@@ -1779,6 +1794,7 @@ struct PhaseProgressBar: View {
                         .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
+                .accessibilityIdentifier("phaseBar.\(phase)")
                 .accessibilityLabel(phase.shortTitle)
                 .accessibilityValue(accessibilityStatus(for: phase))
                 .accessibilityAddTraits(isCurrent ? [.isButton, .isSelected] : .isButton)
@@ -1901,8 +1917,8 @@ private struct FlightDurationText: View {
     let color: Color
 
     var body: some View {
-        TimelineView(.periodic(from: .now, by: 1)) { context in
-            Text(startTime.map { FlightClock.formattedDuration(seconds: context.date.timeIntervalSince($0)) } ?? "--:--")
+        TimelineView(.periodic(from: .now, by: 1)) { _ in
+            Text(startTime.map { FlightClock.formattedDuration(seconds: FlightClock.now.timeIntervalSince($0)) } ?? "--:--")
                 .font(font)
                 .foregroundColor(color)
         }
@@ -2233,6 +2249,7 @@ struct FlightInfoSheet: View {
                             .contentShape(Rectangle())
                         }
                         .buttonStyle(.plain)
+                        .accessibilityIdentifier("menu.endFlight")
                         .padding(.top, 8)
                         .confirmationDialog(L10n.Alert.endFlightTitle, isPresented: $confirmEndFlight,
                                             titleVisibility: .visible) {
@@ -2563,7 +2580,7 @@ struct GPSStatusContent: View {
                 if fix.horizontalAccuracy > 100 {
                     return L10n.GPS.reasonReducedAccuracy(Int(fix.horizontalAccuracy.rounded()))
                 }
-                let age = Int(Date().timeIntervalSince(fix.timestamp).rounded())
+                let age = Int(FlightClock.now.timeIntervalSince(fix.timestamp).rounded())
                 if fix.horizontalAccuracy >= 0 && age >= 10 { return L10n.GPS.reasonNoUpdate(age) }
                 // Positions keep coming, from Wi-Fi or cell towers, not the satellites. (6.1.0)
                 if fix.horizontalAccuracy >= 0 && !LocationManager.isSatelliteFix(fix) {
@@ -2573,7 +2590,7 @@ struct GPSStatusContent: View {
             return L10n.GPS.reasonWeakSignal
         case .lost:
             if let ts = fix?.timestamp {
-                return L10n.GPS.reasonNoUpdate(Int(Date().timeIntervalSince(ts).rounded()))
+                return L10n.GPS.reasonNoUpdate(Int(FlightClock.now.timeIntervalSince(ts).rounded()))
             }
             return L10n.GPS.reasonNoFix
         }

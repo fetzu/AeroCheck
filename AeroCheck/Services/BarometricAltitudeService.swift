@@ -93,7 +93,7 @@ final class BarometricAltitudeService {
     }
 
     /// Test seam: inject a sample as if delivered by CMAltimeter.
-    func ingest(relativeAltitudeM: Double, at time: Date = Date()) {
+    func ingest(relativeAltitudeM: Double, at time: Date = FlightClock.now) {
         rawRelativeAltitudeM = relativeAltitudeM
         let ft = relativeAltitudeM * metersToFeet
         window.append((ft, time))

@@ -221,6 +221,11 @@ class LocationManager: NSObject, ObservableObject {
     // Marketing mode flag - when true, ignores real GPS updates
     private var marketingModeActive: Bool = false
 
+    #if DEBUG
+    /// DEV-ONLY: a ground replay feeds the fixes (`feedReplayFix`); the device's own are ignored.
+    private var isReplaying = false
+    #endif
+
     // Dynamic distance filter: on the ground the hardware takes every fix and the flight's pipeline
     // takes them 5 m apart (`groundModeDistanceFilter`); in flight a 50 m filter, for battery.
     private var isGroundMode: Bool = true
@@ -320,9 +325,9 @@ class LocationManager: NSObject, ObservableObject {
         self.lastRecordedTime = nil
         self.lastDetectionTime = nil
         self.lastWaypointPassageTime = nil
-        self.lastGoodSignalTime = Date()
-        self.lastLocationUpdateTime = Date()
-        self.lastSatelliteFixTime = Date()   // a session starts counting the 20 s too
+        self.lastGoodSignalTime = FlightClock.now
+        self.lastLocationUpdateTime = FlightClock.now
+        self.lastSatelliteFixTime = FlightClock.now   // a session starts counting the 20 s too
         self.gpsSignalStatus = .good
 
         guard authorizationStatus == .authorizedWhenInUse ||
@@ -450,8 +455,8 @@ class LocationManager: NSObject, ObservableObject {
         }
 
         locationManager.startUpdatingLocation()
-        lastLocationUpdateTime = Date()
-        lastSatelliteFixTime = Date()   // a session starts counting the 20 s too
+        lastLocationUpdateTime = FlightClock.now
+        lastSatelliteFixTime = FlightClock.now   // a session starts counting the 20 s too
         gpsSignalStatus = .good
         isLocationUpdatesActive = true
         startSignalCheckTimer()
@@ -492,8 +497,8 @@ class LocationManager: NSObject, ObservableObject {
         // Arm background updates so the feed keeps going when the viewer is backgrounded (needs Always).
         locationManager.allowsBackgroundLocationUpdates = true
         locationManager.startUpdatingLocation()
-        lastLocationUpdateTime = Date()
-        lastSatelliteFixTime = Date()   // a session starts counting the 20 s too
+        lastLocationUpdateTime = FlightClock.now
+        lastSatelliteFixTime = FlightClock.now   // a session starts counting the 20 s too
         gpsSignalStatus = .good
         startSignalCheckTimer()
         // Upgrade WhenInUse → Always so the feed isn't suspended the moment the viewer backgrounds.
@@ -650,7 +655,7 @@ class LocationManager: NSObject, ObservableObject {
             return
         }
 
-        let now = Date()
+        let now = FlightClock.now
         let timeSinceLastUpdate = now.timeIntervalSince(lastUpdate)
         let computed = Self.signalStatus(
             timeSinceLastUpdate: timeSinceLastUpdate,
@@ -672,7 +677,7 @@ class LocationManager: NSObject, ObservableObject {
     /// Update smoothed speed (EMA) and cached heading from a new location update.
     /// Invalid values (speed/course = -1) are skipped, preserving the last valid reading.
     private func updateSmoothedValues(from location: CLLocation) {
-        let now = Date()
+        let now = FlightClock.now
 
         // Speed: apply exponential moving average, skip invalid (-1) readings
         if location.speed >= 0 {
@@ -706,7 +711,7 @@ class LocationManager: NSObject, ObservableObject {
         }
     }
 
-    private func updateSignalQuality(from location: CLLocation, isOwnFix: Bool = true, now: Date = Date()) {
+    private func updateSignalQuality(from location: CLLocation, isOwnFix: Bool = true, now: Date = FlightClock.now) {
         // If GPS status is overridden (marketing mode), don't update from real signal
         if gpsStatusOverride != nil {
             return
@@ -770,7 +775,7 @@ class LocationManager: NSObject, ObservableObject {
     /// Falls back to raw CLLocation speed, then 0.
     var currentSpeedMPS: Double {
         if let lastTime = lastValidSpeedTime,
-           Date().timeIntervalSince(lastTime) < cachedValueStalenessLimit {
+           FlightClock.now.timeIntervalSince(lastTime) < cachedValueStalenessLimit {
             return smoothedSpeedMPS
         }
         // Stale or no valid reading yet: try raw current location
@@ -789,7 +794,7 @@ class LocationManager: NSObject, ObservableObject {
     /// Returns nil if no valid course is available (consumer can fall back to 0 or "---").
     var currentCourseDegrees: Double? {
         if let course = lastValidCourse, let lastTime = lastValidCourseTime,
-           Date().timeIntervalSince(lastTime) < cachedValueStalenessLimit {
+           FlightClock.now.timeIntervalSince(lastTime) < cachedValueStalenessLimit {
             return course
         }
         if let course = currentLocation?.course, course >= 0 { return course }
@@ -810,7 +815,7 @@ class LocationManager: NSObject, ObservableObject {
     /// altitude is noisy, so the value is averaged across the window and EMA-smoothed; nil until there
     /// are at least two samples spanning ≥2 s. (v4 UI/UX Revamp — instrument strip VSI)
     private func updateVerticalSpeed(altitudeFt: Double) {
-        let now = Date()
+        let now = FlightClock.now
         altitudeSamples.append((now, altitudeFt))
         let cutoff = now.addingTimeInterval(-verticalSpeedWindow)
         altitudeSamples.removeAll { $0.time < cutoff }
@@ -925,7 +930,7 @@ class LocationManager: NSObject, ObservableObject {
     /// the master broadcasts (so borrowing never flips it back) and gates borrowing. (shared-GPS)
     var ownFixIsLive: Bool {
         guard let t = lastOwnFixTime else { return false }
-        return Date().timeIntervalSince(t) <= ownFixStaleAfter
+        return FlightClock.now.timeIntervalSince(t) <= ownFixStaleAfter
     }
 
     /// Whether there's a usable fix to START a flight from: GPS is actively running and we hold a valid
@@ -954,7 +959,7 @@ class LocationManager: NSObject, ObservableObject {
     /// what CoreLocation's distance filter gave it before 6.1.0. (`groundModeDistanceFilter`)
     ///
     /// `now` for the tests; the delegate passes the clock.
-    func receiveDeviceFix(_ location: CLLocation, now: Date = Date()) {
+    func receiveDeviceFix(_ location: CLLocation, now: Date = FlightClock.now) {
         guard !marketingModeActive else { return }
         if Self.passesGroundFilter(location, lastPassed: lastFilteredFix, groundMode: isGroundMode,
                                    filter: groundModeDistanceFilter) {
@@ -1006,6 +1011,19 @@ class LocationManager: NSObject, ObservableObject {
         return location.distance(from: lastPassed) >= filter
     }
 
+    #if DEBUG
+    /// DEV-ONLY (ground replays, `GroundReplay`): one fix of a recorded flight, through the device's own
+    /// path at the replay's clock, with its barometric altitude when the flight had one. From the first,
+    /// the device's own fixes are ignored. Nothing else is bypassed: no GPS status override, no
+    /// marketing mode.
+    func feedReplayFix(_ location: CLLocation, baroRelativeAltitudeM: Double? = nil) {
+        isReplaying = true
+        let now = FlightClock.now
+        if let baroRelativeAltitudeM { barometer.ingest(relativeAltitudeM: baroRelativeAltitudeM, at: now) }
+        processLocation(location, isOwnFix: true, now: now)
+    }
+    #endif
+
     /// The single GPS-processing pipeline, shared by real device fixes (`isOwnFix == true`) and
     /// borrowed companion fixes (`isOwnFix == false`). Updates the displayed location, smoothed
     /// instruments, signal quality, the recorded track and event detection, so a borrowed fix is
@@ -1013,7 +1031,7 @@ class LocationManager: NSObject, ObservableObject {
     ///
     /// `now` is the receiving clock: the cadences and a fix's age are measured on it. Only a test
     /// replaying a recorded flight passes one.
-    func processLocation(_ location: CLLocation, isOwnFix: Bool, now: Date = Date()) {
+    func processLocation(_ location: CLLocation, isOwnFix: Bool, now: Date = FlightClock.now) {
         // When marketing mode is active, ignore real GPS updates
         // (marketing location is injected directly via currentLocation property)
         guard !marketingModeActive else { return }
@@ -1151,6 +1169,9 @@ extension LocationManager: CLLocationManagerDelegate {
     nonisolated func locationManager(_ manager: CLLocationManager, didUpdateLocations locations: [CLLocation]) {
         guard let location = locations.last else { return }
         Task { @MainActor in
+            #if DEBUG
+            if self.isReplaying { return }
+            #endif
             self.receiveDeviceFix(location)
         }
     }
@@ -1228,8 +1249,8 @@ extension LocationManager: CLLocationManagerDelegate {
                 ) == .resume {
                     self.wasStoppedByRevocation = false
                     self.locationManager.startUpdatingLocation()
-                    self.lastLocationUpdateTime = Date()
-                    self.lastSatelliteFixTime = Date()   // a session starts counting the 20 s too
+                    self.lastLocationUpdateTime = FlightClock.now
+                    self.lastSatelliteFixTime = FlightClock.now   // a session starts counting the 20 s too
                     self.gpsSignalStatus = .good
                     self.startSignalCheckTimer()
                 }

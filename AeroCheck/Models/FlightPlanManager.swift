@@ -788,7 +788,7 @@ class FlightPlanManager: ObservableObject {
               index >= 0, index < plan.waypoints.count,
               plan.waypoints[index].actualTimeOver == nil else { return }
 
-        plan.waypoints[index].actualTimeOver = Date()
+        plan.waypoints[index].actualTimeOver = FlightClock.now
         autoMarkNotice = nil
 
         // If recording ATO for the current waypoint, also advance to next
@@ -915,7 +915,7 @@ class FlightPlanManager: ObservableObject {
     func startChronometer() {
         guard var plan = activeFlightPlan, plan.chronometerStartTime == nil else { return }
 
-        plan.chronometerStartTime = Date()
+        plan.chronometerStartTime = FlightClock.now
         activeFlightPlan = plan
 
         if let index = flightPlans.firstIndex(where: { $0.id == plan.id }) {
@@ -947,7 +947,7 @@ class FlightPlanManager: ObservableObject {
     /// Pause the leg timer, freezing the elapsed time (resume with startChronometer). (v4 UI/UX Revamp)
     func pauseChronometer() {
         guard var plan = activeFlightPlan, let start = plan.chronometerStartTime else { return }
-        chronometerAccumulated += Date().timeIntervalSince(start)
+        chronometerAccumulated += FlightClock.now.timeIntervalSince(start)
         plan.chronometerStartTime = nil
         activeFlightPlan = plan
 
@@ -975,7 +975,7 @@ class FlightPlanManager: ObservableObject {
         guard var plan = activeFlightPlan else { return }
 
         chronometerAccumulated = 0
-        if plan.chronometerStartTime != nil { plan.chronometerStartTime = min(legStart ?? Date(), Date()) }
+        if plan.chronometerStartTime != nil { plan.chronometerStartTime = min(legStart ?? FlightClock.now, FlightClock.now) }
         activeFlightPlan = plan
         updateChronometerElapsed()
 
@@ -1062,7 +1062,7 @@ class FlightPlanManager: ObservableObject {
             chronometerElapsed = chronometerAccumulated  // paused — frozen at the accumulated value
             return
         }
-        chronometerElapsed = chronometerAccumulated + Date().timeIntervalSince(startTime)
+        chronometerElapsed = chronometerAccumulated + FlightClock.now.timeIntervalSince(startTime)
     }
 
     private func startChronometerIfNeeded() {
@@ -1201,7 +1201,7 @@ class FlightPlanManager: ObservableObject {
     /// Go to `field` instead of the rest of the route. One decision, nothing else: the route stays as
     /// planned (so `resumeRoute` is one tap and the nav log shows what was planned), no task, reminder
     /// or thread changes. Everything administrative waits for the ground.
-    func divert(to field: TripPlanner.Aerodrome, now: Date = Date()) {
+    func divert(to field: TripPlanner.Aerodrome, now: Date = FlightClock.now) {
         guard var plan = activeFlightPlan else { return }
         plan.diversion = Diversion(ident: field.ident, name: field.name,
                                    latitude: field.latitude, longitude: field.longitude,

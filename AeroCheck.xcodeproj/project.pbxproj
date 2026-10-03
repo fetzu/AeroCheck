@@ -7,6 +7,14 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		C7A0000A211111110000001 /* GroundReplayTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C7A0000A111111110000001 /* GroundReplayTests.swift */; };
+		C7A00009211111110000002 /* Scenarios in Resources */ = {isa = PBXBuildFile; fileRef = C7A00009111111110000001 /* Scenarios */; };
+		C7A00008211111110000001 /* CockpitPilot.swift in Sources */ = {isa = PBXBuildFile; fileRef = C7A00008111111110000001 /* CockpitPilot.swift */; };
+		C7A00008211111110000002 /* ChecksInFlightUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C7A00008111111110000002 /* ChecksInFlightUITests.swift */; };
+		C7A00008211111110000003 /* CircuitsUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C7A00008111111110000003 /* CircuitsUITests.swift */; };
+		C7A00008211111110000004 /* FlightTimingUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C7A00008111111110000004 /* FlightTimingUITests.swift */; };
+		C7A00008211111110000005 /* WaypointMarkingUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C7A00008111111110000005 /* WaypointMarkingUITests.swift */; };
+		C7A00009211111110000001 /* Scenarios in Resources */ = {isa = PBXBuildFile; fileRef = C7A00009111111110000001 /* Scenarios */; };
 		A5000008111111110000002 /* GeoValidationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A5000008111111110000001 /* GeoValidationTests.swift */; };
 		A5000008111111110000906 /* SafeNumericTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A5000008111111110000905 /* SafeNumericTests.swift */; };
 		A5000008111111110000006 /* WindDataServiceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A5000008111111110000005 /* WindDataServiceTests.swift */; };
@@ -135,6 +143,7 @@
 		A1000001211111110000009 /* AppState.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000001111111110000009 /* AppState.swift */; };
 		A1000001211111110000010 /* LocationManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000001111111110000010 /* LocationManager.swift */; };
 		A1000001211111110000099 /* FlightLauncher.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000001111111110000099 /* FlightLauncher.swift */; };
+		A1000001211111110000E01 /* GroundReplay.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000001111111110000E01 /* GroundReplay.swift */; };
 		A1000001211111110000050 /* ExternalRequest.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000001111111110000050 /* ExternalRequest.swift */; };
 		A1000001211111110000A06 /* ExportStaging.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000001111111110000A06 /* ExportStaging.swift */; };
 		A1000001211111110000065 /* OpenAIPNavaidDataService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000001111111110000065 /* OpenAIPNavaidDataService.swift */; };
@@ -306,6 +315,13 @@
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
+		C7A00007111111110000001 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = A1000006111111110000001 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = A1000004111111110000001;
+			remoteInfo = "AéroCheck";
+		};
 		A5000007111111110000001 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = A1000006111111110000001 /* Project object */;
@@ -355,6 +371,14 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
+		C7A0000A111111110000001 /* GroundReplayTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GroundReplayTests.swift; sourceTree = "<group>"; };
+		C7A00001111111110000000 /* AeroCheckUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = AeroCheckUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		C7A00008111111110000001 /* CockpitPilot.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CockpitPilot.swift; sourceTree = "<group>"; };
+		C7A00008111111110000002 /* ChecksInFlightUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChecksInFlightUITests.swift; sourceTree = "<group>"; };
+		C7A00008111111110000003 /* CircuitsUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CircuitsUITests.swift; sourceTree = "<group>"; };
+		C7A00008111111110000004 /* FlightTimingUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FlightTimingUITests.swift; sourceTree = "<group>"; };
+		C7A00008111111110000005 /* WaypointMarkingUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WaypointMarkingUITests.swift; sourceTree = "<group>"; };
+		C7A00009111111110000001 /* Scenarios */ = {isa = PBXFileReference; lastKnownFileType = folder; path = Scenarios; sourceTree = "<group>"; };
 		A5000001111111110000000 /* AeroCheckTests.xctest */ = {isa = PBXFileReference; explicitFileType = "wrapper.cfbundle"; includeInIndex = 0; path = AeroCheckTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		A5000008111111110000001 /* GeoValidationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GeoValidationTests.swift; sourceTree = "<group>"; };
 		A5000008111111110000905 /* SafeNumericTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SafeNumericTests.swift; sourceTree = "<group>"; };
@@ -489,6 +513,7 @@
 		A1000001111111110000009 /* AppState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppState.swift; sourceTree = "<group>"; };
 		A1000001111111110000010 /* LocationManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocationManager.swift; sourceTree = "<group>"; };
 		A1000001111111110000099 /* FlightLauncher.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FlightLauncher.swift; sourceTree = "<group>"; };
+		A1000001111111110000E01 /* GroundReplay.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GroundReplay.swift; sourceTree = "<group>"; };
 		A1000001111111110000050 /* ExternalRequest.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExternalRequest.swift; sourceTree = "<group>"; };
 		A1000001111111110000A06 /* ExportStaging.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExportStaging.swift; sourceTree = "<group>"; };
 		A1000001111111110000065 /* OpenAIPNavaidDataService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OpenAIPNavaidDataService.swift; sourceTree = "<group>"; };
@@ -651,6 +676,13 @@
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
+		C7A00002111111110000001 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		A5000002111111110000001 /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
@@ -685,6 +717,19 @@
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
+		C7A00003111111110000001 /* AeroCheckUITests */ = {
+			isa = PBXGroup;
+			children = (
+				C7A00009111111110000001 /* Scenarios */,
+				C7A00008111111110000001 /* CockpitPilot.swift */,
+				C7A00008111111110000002 /* ChecksInFlightUITests.swift */,
+				C7A00008111111110000003 /* CircuitsUITests.swift */,
+				C7A00008111111110000004 /* FlightTimingUITests.swift */,
+				C7A00008111111110000005 /* WaypointMarkingUITests.swift */,
+			);
+			path = AeroCheckUITests;
+			sourceTree = "<group>";
+		};
 		A5000003111111110000001 /* AeroCheckTests */ = {
 			isa = PBXGroup;
 			children = (
@@ -786,6 +831,7 @@
 				HB0A0001111111110000004 /* SettingsSyncTests.swift */,
 				A1000001111111110000912 /* OpenAIPCoreAPIFallbackTests.swift */,
 				A5000021111111110000001 /* LocationManagerTests.swift */,
+				C7A0000A111111110000001 /* GroundReplayTests.swift */,
 			);
 			path = AeroCheckTests;
 			sourceTree = "<group>";
@@ -799,6 +845,7 @@
 				AB000001111111110000002 /* Secrets.example.xcconfig */,
 				A1000003111111110000002 /* AeroCheck */,
 				A5000003111111110000001 /* AeroCheckTests */,
+				C7A00003111111110000001 /* AeroCheckUITests */,
 				A3000003111111110000001 /* Shared */,
 				A4000003111111110000002 /* AeroCheckWatch */,
 				A2000003111111110000002 /* AeroCheckWidget */,
@@ -847,6 +894,7 @@
 			children = (
 				A1000001111111110000000 /* AeroCheck.app */,
 				A5000001111111110000000 /* AeroCheckTests.xctest */,
+				C7A00001111111110000000 /* AeroCheckUITests.xctest */,
 				A2000001111111110000000 /* AeroCheckWidgetExtension.appex */,
 				A4000001111111110000000 /* AeroCheckWatch.app */,
 			);
@@ -965,6 +1013,7 @@
 			children = (
 				A1000001111111110000010 /* LocationManager.swift */,
 				A1000001111111110000099 /* FlightLauncher.swift */,
+				A1000001111111110000E01 /* GroundReplay.swift */,
 				A1000001111111110000050 /* ExternalRequest.swift */,
 				A1000001111111110000A06 /* ExportStaging.swift */,
 				A1000001111111110000071 /* OpenAIPLayerCache.swift */,
@@ -1090,6 +1139,24 @@
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
+		C7A00004111111110000001 /* AeroCheckUITests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = C7A00005111111110000001 /* Build configuration list for PBXNativeTarget "AeroCheckUITests" */;
+			buildPhases = (
+				C7A00004111111110000002 /* Sources */,
+				C7A00002111111110000001 /* Frameworks */,
+				C7A00004111111110000003 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				C7A00006111111110000001 /* PBXTargetDependency */,
+			);
+			name = AeroCheckUITests;
+			productName = AeroCheckUITests;
+			productReference = C7A00001111111110000000 /* AeroCheckUITests.xctest */;
+			productType = "com.apple.product-type.bundle.ui-testing";
+		};
 		A5000004111111110000001 /* AeroCheckTests */ = {
 			isa = PBXNativeTarget;
 			buildConfigurationList = A5000005111111110000001 /* Build configuration list for PBXNativeTarget "AeroCheckTests" */;
@@ -1180,6 +1247,10 @@
 						CreatedOnToolsVersion = 15.0;
 						TestTargetID = A1000004111111110000001;
 					};
+					C7A00004111111110000001 = {
+						CreatedOnToolsVersion = 27.0;
+						TestTargetID = A1000004111111110000001;
+					};
 					A2000004111111110000001 = {
 						CreatedOnToolsVersion = 15.0;
 					};
@@ -1203,6 +1274,7 @@
 			projectRoot = "";
 			targets = (
 				A5000004111111110000001 /* AeroCheckTests */,
+				C7A00004111111110000001 /* AeroCheckUITests */,
 				A1000004111111110000001 /* AéroCheck */,
 				A2000004111111110000001 /* AéroCheckWidgetExtension */,
 				A4000004111111110000001 /* AéroCheckWatch */,
@@ -1211,11 +1283,20 @@
 /* End PBXProject section */
 
 /* Begin PBXResourcesBuildPhase section */
+		C7A00004111111110000003 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				C7A00009211111110000001 /* Scenarios in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		A5000004111111110000003 /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
 				FEF00001211111110000001 /* FlightEventFixtures in Resources */,
+				C7A00009211111110000002 /* Scenarios in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -1260,10 +1341,23 @@
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
+		C7A00004111111110000002 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				C7A00008211111110000001 /* CockpitPilot.swift in Sources */,
+				C7A00008211111110000002 /* ChecksInFlightUITests.swift in Sources */,
+				C7A00008211111110000003 /* CircuitsUITests.swift in Sources */,
+				C7A00008211111110000004 /* FlightTimingUITests.swift in Sources */,
+				C7A00008211111110000005 /* WaypointMarkingUITests.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		A5000004111111110000002 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				C7A0000A211111110000001 /* GroundReplayTests.swift in Sources */,
 				A5000008111111110000002 /* GeoValidationTests.swift in Sources */,
 				A5000008111111110000906 /* SafeNumericTests.swift in Sources */,
 				A5000008111111110000006 /* WindDataServiceTests.swift in Sources */,
@@ -1396,6 +1490,7 @@
 				A1000001211111110000009 /* AppState.swift in Sources */,
 				A1000001211111110000010 /* LocationManager.swift in Sources */,
 				A1000001211111110000099 /* FlightLauncher.swift in Sources */,
+				A1000001211111110000E01 /* GroundReplay.swift in Sources */,
 				A1000001211111110000050 /* ExternalRequest.swift in Sources */,
 				A1000001211111110000A06 /* ExportStaging.swift in Sources */,
 				A1000001211111110000071 /* OpenAIPLayerCache.swift in Sources */,
@@ -1563,6 +1658,11 @@
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
+		C7A00006111111110000001 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = A1000004111111110000001 /* AéroCheck */;
+			targetProxy = C7A00007111111110000001 /* PBXContainerItemProxy */;
+		};
 		A5000006111111110000001 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
 			target = A1000004111111110000001 /* AéroCheck */;
@@ -1581,6 +1681,40 @@
 /* End PBXTargetDependency section */
 
 /* Begin XCBuildConfiguration section */
+		C7A00005111111110000002 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				DEVELOPMENT_TEAM = H2N329D9U8;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.fetzu.aerocheck.uitests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_TARGET_NAME = "AéroCheck";
+			};
+			name = Debug;
+		};
+		C7A00005111111110000003 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				DEVELOPMENT_TEAM = H2N329D9U8;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.fetzu.aerocheck.uitests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_TARGET_NAME = "AéroCheck";
+			};
+			name = Release;
+		};
 		A5000005111111110000002 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
@@ -1982,6 +2116,15 @@
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
+		C7A00005111111110000001 /* Build configuration list for PBXNativeTarget "AeroCheckUITests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				C7A00005111111110000002 /* Debug */,
+				C7A00005111111110000003 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
 		A5000005111111110000001 /* Build configuration list for PBXNativeTarget "AeroCheckTests" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (

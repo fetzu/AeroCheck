@@ -440,6 +440,7 @@ struct CockpitPanePicker: View {
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
+        .accessibilityIdentifier(pane == .checklist ? "pane.checklist" : "pane.map")
         .accessibilityAddTraits(selected ? .isSelected : [])
     }
 }

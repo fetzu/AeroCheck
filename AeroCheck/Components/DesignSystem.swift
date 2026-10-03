@@ -1459,6 +1459,7 @@ struct CockpitInstrumentStrip: View {
                 .minimumScaleFactor(0.4).lineLimit(1)
         }
         .accessibilityElement(children: .ignore)
+        .accessibilityIdentifier("strip.next")
         .accessibilityLabel(L10n.Nav.next)
         .accessibilityValue(ident)
     }

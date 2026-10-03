@@ -403,6 +403,8 @@ struct CheckSlotButton: View {
         }
         .buttonStyle(.plain)
         .accessibilityElement(children: .combine)
+        // The state for a UI test, which reads no colour: "checkSlot.due.confirmFromMemory". Never read out.
+        .accessibilityIdentifier("checkSlot.\(slot.tone).\(slot.action.rawValue)")
         .accessibilityLabel("\(slot.titleText()), \(slot.lineAccessibilityText)")
         .accessibilityHint(accessibilityHint)
     }
@@ -534,8 +536,8 @@ struct CockpitCheckSlot: View {
     var body: some View {
         // FREDA counting shows its minutes: redrawn as they pass. Due, the next evaluation redraws it.
         if appState.freda.isRunning && !appState.fredaDue {
-            TimelineView(.periodic(from: .now, by: 5)) { context in
-                button(Self.slot(for: appState, now: context.date))
+            TimelineView(.periodic(from: .now, by: 5)) { _ in
+                button(Self.slot(for: appState, now: FlightClock.now))
             }
         } else {
             button(Self.slot(for: appState))
@@ -566,7 +568,7 @@ struct CockpitCheckSlot: View {
 
     /// The slot for the flight as it stands.
     @MainActor
-    static func slot(for appState: AppState, now: Date = Date()) -> CheckSlot {
+    static func slot(for appState: AppState, now: Date = FlightClock.now) -> CheckSlot {
         let phase = appState.currentPhase
         let next = phase.nextNavigable(circuitMode: appState.isCircuitMode)
         // The next check, when its cue came: offered in the slot as soon as this one is done. Only on the
@@ -586,7 +588,7 @@ struct CockpitCheckSlot: View {
 
     /// FREDA while it runs (cruise, its check done). (6.1)
     @MainActor
-    static func freda(in appState: AppState, now: Date = Date()) -> CheckSlotFreda? {
+    static func freda(in appState: AppState, now: Date = FlightClock.now) -> CheckSlotFreda? {
         let schedule = appState.freda
         guard appState.currentPhase == .cruise, let anchor = schedule.anchor else { return nil }
         if let due = schedule.due { return .due(waypoint: due.waypoint) }
@@ -716,15 +718,18 @@ struct MapFlightEventButton: View {
         let title = event == .goAround ? L10n.ChecklistAction.goAround(language: language)
                                        : L10n.ChecklistAction.touchAndGo(language: language)
         let icon = event == .goAround ? "arrow.up.right.circle.fill" : "arrow.triangle.2.circlepath"
+        let identifier = event == .goAround ? "map.goAround" : "map.touchAndGo"
         if appState.isCircuitMode {
             CockpitThumbButton(title: title, icon: narrow ? nil : icon,
                                style: .outlined(tint: theme.action), action: perform)
+                .accessibilityIdentifier(identifier)
         } else {
             HoldToConfirmButton(title: title, systemImage: icon, tint: theme.action,
                                 count: event == .goAround ? appState.currentFlight?.goAroundCount ?? 0
                                                           : appState.currentFlight?.touchAndGoCount ?? 0,
                                 kneeboard: true, height: CockpitTarget.thumb,
                                 stacked: narrow, action: perform)
+                .accessibilityIdentifier(identifier)
         }
     }
 
@@ -754,13 +759,22 @@ struct FredaThumbButton: View {
         case waiting
         case counting(TimeInterval)
         case due
+
+        /// For the accessibility identifier a UI test reads.
+        var testName: String {
+            switch self {
+            case .waiting: return "waiting"
+            case .counting: return "counting"
+            case .due: return "due"
+            }
+        }
     }
 
     var body: some View {
         if appState.currentPhase == .cruise && !appState.isCircuitMode {
             if appState.freda.isRunning && !appState.fredaDue {
-                TimelineView(.periodic(from: .now, by: 1)) { context in
-                    button(.counting(appState.freda.remaining(now: context.date) ?? FredaSchedule.interval))
+                TimelineView(.periodic(from: .now, by: 1)) { _ in
+                    button(.counting(appState.freda.remaining(now: FlightClock.now) ?? FredaSchedule.interval))
                 }
             } else {
                 button(appState.fredaDue ? .due : .waiting)
@@ -797,6 +811,7 @@ struct FredaThumbButton: View {
         .buttonStyle(.plain)
         .disabled(stage == .waiting)
         .accessibilityElement(children: .combine)
+        .accessibilityIdentifier("cockpit.freda.\(stage.testName)")
         .accessibilityLabel(accessibilityLabel(stage))
         .accessibilityHint(stage == .waiting ? "" : L10n.Freda.confirmHint)
     }

@@ -358,6 +358,20 @@ class AirportDataService: ObservableObject {
         openAIPAirports.releaseLoadedAirports()
     }
 
+    #if DEBUG
+    /// DEV-ONLY (ground replays, `GroundReplay`): these aerodromes, in place of the cache or a download,
+    /// so the detector anchors on the replay's fields on a fresh simulator.
+    func injectForReplay(_ list: [Airport]) {
+        airports = list
+        airportsByIdent = Dictionary(list.map { ($0.ident, $0) }, uniquingKeysWith: { first, _ in first })
+        frequenciesByAirport = [:]
+        runwaysByAirport = [:]
+        airportCount = list.count
+        isDataAvailable = !list.isEmpty
+        isLoaded = true
+    }
+    #endif
+
     // MARK: - Public Methods
 
     /// Check if data needs updating (older than 90 days)

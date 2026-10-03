@@ -2093,6 +2093,12 @@ enum L10n {
         static let deferredTag = String(localized: "deferred.tag")
     }
 
+    /// The Cockpit's act band, the four slots under every page. (6.2)
+    enum Act {
+        /// The button: a verb ("Dérouter"), where the Divert sheet's title is the noun ("Déroutement").
+        static let divert = String(localized: "act.divert")
+    }
+
     /// The in-flight Cockpit on iPad. (v6.0 · P2)
     enum Cockpit {
         static let checklist = String(localized: "cockpit.checklist")

@@ -152,7 +152,7 @@ final class ChecksInFlightUITests: XCTestCase {
         pilot.observed("flight-8", "no hold-to-re-arm: the tap alone recorded it (see the screenshots)")
         pilot.showPane("map")
 
-        // flight-16: the bottom row with a route: the slot first, "MARK LSGC" with "LEG m:ss / m:ss" under
+        // flight-16: the act band with a route: the slot first, "MARK LSGC" with "LEG m:ss / m:ss" under
         // it, Divert and More in place; MARK still marks and offers UNDO.
         let mark = pilot.element("map.mark")
         let markLabel = mark.waitForExistence(timeout: 4) ? (pilot.snap(mark)?.label ?? "") : ""
@@ -160,6 +160,11 @@ final class ChecksInFlightUITests: XCTestCase {
                     "MARK: \((pilot.snap(mark)?.label ?? "missing"))")
         let slotFrame = pilot.element(prefix: "checkSlot.").frame
         pilot.check("flight-16", slotFrame.minX < mark.frame.minX, "the slot first (x \(Int(slotFrame.minX)) < \(Int(mark.frame.minX)))")
+        // The four slots in their order, one band (6.2): slot, MARK, Divert, More, their tops level.
+        let band = [slotFrame, mark.frame, pilot.element("act.divert").frame, pilot.element("act.more").frame]
+        pilot.check("flight-16", band.allSatisfy { !$0.isEmpty } && zip(band, band.dropFirst()).allSatisfy { $0.maxX <= $1.minX }
+                        && Set(band.map { Int($0.minY.rounded()) }).count == 1,
+                    "slot · MARK · Divert · More: \(band.map { "x \(Int($0.minX))-\(Int($0.maxX)) y \(Int($0.minY))" })")
         pilot.shot("flight-16", "bottom-row")
         pilot.tapNow(mark)
         pilot.check("flight-16", pilot.undo.waitForExistence(timeout: 3), "MARK offers UNDO: \(pilot.toastMessage ?? "no toast")")
@@ -167,7 +172,7 @@ final class ChecksInFlightUITests: XCTestCase {
         pilot.tapNow(pilot.undo)
         pilot.check("flight-16", pilot.waitUntil(timeout: 3) { (pilot.label("map.mark") ?? "").contains("LSGC") },
                     "UNDO: \(pilot.label("map.mark") ?? "no MARK")")
-        pilot.observed("flight-16", "Divert and More in place: see the screenshot")
+
         if pilot.stopsAfter("flight-8") { return }
 
         // flight-9: the descent: within about 40 s "✓ DESCENT CHECK", FREDA gone; one tap: DESCENT, with UNDO.

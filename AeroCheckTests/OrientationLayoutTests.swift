@@ -3,9 +3,9 @@ import XCTest
 @testable import AeroCheck
 
 /// The layouts a screen picks from the size it is given (the route builder's portrait and two columns,
-/// the Logbook's list and detail, the root's rotation prompt, the map's landscape legs panel, its thumb
-/// buttons, and the legs beside or above the frequencies), and the on-screen keyboard, which takes its
-/// height off that size. With the keys up,
+/// the Logbook's list and detail, the root's rotation prompt, the map's landscape legs panel, the
+/// Cockpit's act band, and the legs beside or above the frequencies), and the on-screen keyboard, which
+/// takes its height off that size. With the keys up,
 /// an iPad in portrait is wider than it is tall. (6.1.0)
 final class OrientationLayoutTests: XCTestCase {
 
@@ -95,78 +95,45 @@ final class OrientationLayoutTests: XCTestCase {
         XCTAssertEqual(NavigationMapView.landscapeLegsMaxHeight(mapHeight: 40), 0, "never negative")
     }
 
-    func testDivertAndMoreShareOneWidthWithoutTakingMARKsRoom() {
-        // What the two want on a phone in French: "Déroutement" 121 pt, "Plus" its 64 pt minimum.
-        let ideals: [CGFloat] = [121, 64]
-        // Side by side (the thumb bar): half of both, so the pair takes what the two want.
-        XCTAssertEqual(EqualWidthStack.buttonWidth(ideals: ideals, axis: .horizontal), 92.5)
-        // One above the other (beside MARK on its side): the wider one's, the width the stack had.
-        XCTAssertEqual(EqualWidthStack.buttonWidth(ideals: ideals, axis: .vertical), 121)
-        // Divert gone (the route flown): More alone keeps its own.
-        XCTAssertEqual(EqualWidthStack.buttonWidth(ideals: [64], axis: .horizontal), 64)
-        XCTAssertEqual(EqualWidthStack.buttonWidth(ideals: [], axis: .vertical), 0)
+    // MARK: The act band (6.2)
+
+    /// The iPad on its side has the portrait frame, wider: the act band under the page, its narrow slots
+    /// as wide as in portrait, its wide ones wider. Until 6.2 the Cockpit's map moved its controls to a
+    /// side column there, and the checklist kept its own thumb bar.
+    func testTheIPadOnItsSideHasThePortraitBandWider() {
+        let metrics = ActBandMetrics.make(layout: .wide, scale: .kneeboard)
+        let portrait = ActBandLayout.frames(width: 820 - 32, metrics: metrics)
+        let side = ActBandLayout.frames(width: 1180 - 32, metrics: metrics)
+        XCTAssertEqual(portrait[2].width, side[2].width)
+        XCTAssertEqual(portrait[3].width, side[3].width)
+        XCTAssertEqual(side[0].width - portrait[0].width, (1180 - 820) / 2, accuracy: 0.001, "S1 and S2 share the room")
+        XCTAssertEqual(portrait.map(\.height), side.map(\.height))
+        XCTAssertEqual(ActBandLayout.frames(width: 40, metrics: metrics).allSatisfy { $0.width >= 0 }, true, "never negative")
     }
 
+    /// The slots keep their frames whatever they hold: a button that wants more room or less, two lines
+    /// or one. The checklist's thumb bar laid itself out again as its buttons came and went, and CHECK
+    /// moved with them.
     @MainActor
-    func testTheButtonsAreLaidOutAtTheirOneWidth() {
-        // Two buttons that fill what they are offered, one wanting 60 pt and the other 100.
-        func pair(_ axis: Axis) -> some View {
-            EqualWidthStack(axis: axis, spacing: 8) {
-                Color.clear.frame(idealWidth: 60, maxWidth: .infinity, idealHeight: 48)
-                Color.clear.frame(idealWidth: 100, maxWidth: .infinity, idealHeight: 48)
-            }
-        }
-        let room = CGSize(width: 1_000, height: 1_000)
-        XCTAssertEqual(UIHostingController(rootView: pair(.horizontal)).sizeThatFits(in: room),
-                       CGSize(width: 2 * 80 + 8, height: 48), "side by side, 80 pt each")
-        XCTAssertEqual(UIHostingController(rootView: pair(.vertical)).sizeThatFits(in: room),
-                       CGSize(width: 100, height: 2 * 48 + 8), "one above the other, 100 pt each")
-        // Short of room, the pair keeps its width, as the buttons did: MARK beside it gives way.
-        let tight = CGSize(width: 120, height: 1_000)
-        XCTAssertEqual(UIHostingController(rootView: pair(.horizontal)).sizeThatFits(in: tight).width, 168)
-    }
-
-    // MARK: The check slot's row (6.1)
-
-    func testTheCheckSlotIsAsWideAsMARKBesideDivertAndMore() {
-        // An iPad in portrait: 788 pt of row, Divert and More 252 pt, 12 pt between buttons.
-        XCTAssertEqual(CheckSlotRowLayout.slotWidth(rowWidth: 788, reference: 252, spacing: 12), 256)
-        XCTAssertEqual(CheckSlotRowLayout.slotWidth(rowWidth: 200, reference: 252, spacing: 12), 0, "never negative")
-    }
-
-    /// The slot keeps one frame whatever follows it: MARK with Divert and More, GO AROUND and
-    /// TOUCH-AND-GO from circuit height, or Routes with no route. It moved to the middle every lap.
-    @MainActor
-    func testTheCheckSlotKeepsItsFrameWhateverFollowsIt() {
-        final class Box { var frame: CGRect = .zero }
-        func slotFrame(_ rest: some View) -> CGRect {
+    func testTheBandsSlotsKeepTheirFramesWhateverTheyHold() {
+        final class Box { var frames: [Int: CGRect] = [:] }
+        let metrics = ActBandMetrics.make(layout: .wide, scale: .kneeboard)
+        func frames(_ widths: [CGFloat]) -> [CGRect] {
             let box = Box()
-            let row = CheckSlotRowLayout(spacing: 12) {
-                GeometryReader { proxy in
-                    let _ = { box.frame = proxy.frame(in: .named("row")) }()
-                    Color.clear
+            let band = ActBandLayout(metrics: metrics, onPlace: { box.frames[$0] = $1 }) {
+                ForEach(widths.indices, id: \.self) { i in
+                    Color.clear.frame(idealWidth: widths[i], maxWidth: .infinity, idealHeight: 40, maxHeight: .infinity)
                 }
-                .frame(height: 104)
-                Color.clear.frame(width: 252, height: 10)   // Divert and More, measured, unseen
-                rest
             }
-            .frame(width: 788)
-            .coordinateSpace(name: "row")
-            _ = ImageRenderer(content: row).uiImage
-            return box.frame
+            _ = ImageRenderer(content: band.frame(width: 788)).uiImage
+            return (0..<4).map { box.frames[$0] ?? .zero }
         }
-        let mark = slotFrame(HStack(spacing: 12) {
-            Color.blue.frame(maxWidth: .infinity).frame(height: 104)
-            Color.green.frame(width: 252, height: 104)
-        })
-        let flightEvents = slotFrame(HStack(spacing: 12) {
-            Color.red.frame(maxWidth: .infinity).frame(height: 104)
-            Color.red.frame(maxWidth: .infinity).frame(height: 104)
-        })
-        let routes = slotFrame(Color.gray.frame(maxWidth: .infinity).frame(height: 104))
-        XCTAssertEqual(mark, CGRect(x: 0, y: 0, width: 256, height: 104), "the slot first, MARK's width")
-        XCTAssertEqual(flightEvents, mark, "GO AROUND and TOUCH-AND-GO after it")
-        XCTAssertEqual(routes, mark, "Routes after it")
+        let expected = ActBandLayout.frames(width: 788, metrics: metrics)
+        XCTAssertEqual(frames([60, 600, 30, 300]), expected)
+        XCTAssertEqual(frames([400, 10, 200, 10]), expected)
+        let layout = ActBandLayout(metrics: metrics)
+        XCTAssertEqual(UIHostingController(rootView: layout { Color.red }).sizeThatFits(in: CGSize(width: 788, height: 1_000)),
+                       CGSize(width: 788, height: 104), "the thumb's height, the row's width")
     }
 
     // MARK: The legs and frequencies, open (6.1)

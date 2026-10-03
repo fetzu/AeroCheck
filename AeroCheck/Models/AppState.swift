@@ -1266,12 +1266,19 @@ class AppState {
     }
 
     /// Reconcile the resolved checklist with the current selection.
-    /// Drops any resolved remote checklist when no remote aircraft is selected, so the active
-    /// checklist falls back to the bundled aircraft until a (language-specific) checklist loads.
+    /// Drops a premium checklist once no premium aircraft is selected, so the active checklist falls
+    /// back to the bundled aircraft until its language-specific checklist loads.
+    ///
+    /// The bundled aircraft's own checklist stays. `loadRemoteChecklistIfNeeded` resolves the WT9 in
+    /// the pilot's language with no premium aircraft selected, and this runs on every `saveSettings()`
+    /// and settings sync: dropping it put a flight in progress back on the hard-coded English
+    /// `WT9ChecklistData` (not the same checks as the JSON) under the pilot's highlight, after a
+    /// Memory test or map-layer toggle. Its JSON carries the aircraft's `serverId` as `id` (bundled,
+    /// cached or API alike). A premium selection keeps what is resolved until its own load replaces it.
     private func syncAircraftType() {
-        if settings.selectedRemoteAircraftId == nil {
-            resolvedRemoteChecklist = nil
-        }
+        guard settings.selectedRemoteAircraftId == nil, let resolved = resolvedRemoteChecklist,
+              resolved.id != settings.selectedAircraft.serverId else { return }
+        resolvedRemoteChecklist = nil
     }
 
     /// Load the appropriate checklist for the selected aircraft and language

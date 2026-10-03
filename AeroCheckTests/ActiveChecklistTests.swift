@@ -145,6 +145,82 @@ final class ActiveChecklistTests: XCTestCase {
         XCTAssertFalse(ChecklistPhase.beforeDeparture.hasMissingRequiredAction(engineStarted: false, engineShutDown: false))
         XCTAssertEqual(ChecklistPhase.allCases.filter(\.readiesForLineUp), [.beforeDeparture])
     }
+
+    // MARK: - The resolved checklist and the selection
+
+    /// The WT9 in `language` with no network: the bundled JSON of that language, resolved the way
+    /// `FlightLauncher.begin` resolves it.
+    private func resolveOfflineWT9(_ appState: AppState, language: ChecklistLanguage) async {
+        appState.settings.selectedRemoteAircraftId = nil
+        appState.settings.selectedAircraft = .wt9Dynamic
+        appState.settings.checklistLanguage = language
+        let offline = AircraftDataServiceSeamTests.FakeHTTPClient(responseData: Data("offline".utf8), statusCode: 503)
+        let service = makeTestAircraftDataService(subscriptionManager: AircraftDataServiceSeamTests.FakeGating(),
+                                                  httpClient: offline)
+        await appState.loadRemoteChecklistIfNeeded(aircraftDataService: service)
+    }
+
+    /// The French checks before departure, which the hard-coded English `WT9ChecklistData` doesn't
+    /// have (14 against 13): the highlight points at a different check on the other one.
+    private func frenchWT9ChecksBeforeDeparture() throws -> [String] {
+        let french = try XCTUnwrap(BundledChecklistService.loadBundledChecklist(for: "wt9-dynamic", language: "fr"))
+        let checks = french.items(for: .beforeDeparture).map(\.challenge)
+        XCTAssertNotEqual(checks, AircraftType.wt9Dynamic.items(for: .beforeDeparture).map(\.challenge),
+                          "Precondition: the French checks differ from the hard-coded English ones")
+        return checks
+    }
+
+    /// The WT9's checklist in the pilot's language is resolved with no premium aircraft selected, and
+    /// every `saveSettings()` dropped it: a Memory test, UTC or map-layer toggle in flight put the
+    /// Cockpit back on the hard-coded English checks, under the highlight the pilot was following.
+    func testSavingSettingsKeepsTheWT9ChecklistInThePilotsLanguage() async throws {
+        let appState = makeTestAppState()
+        await resolveOfflineWT9(appState, language: .fr)
+        let french = try frenchWT9ChecksBeforeDeparture()
+        XCTAssertEqual(appState.activeChecklist.items(for: .beforeDeparture).map(\.challenge), french,
+                       "Precondition: the French checklist is the active one")
+
+        appState.settings.learningMode = false
+        appState.saveSettings()
+
+        XCTAssertEqual(appState.activeChecklist.items(for: .beforeDeparture).map(\.challenge), french,
+                       "a settings save must not swap the checklist being flown")
+    }
+
+    /// The same through iCloud: the settings of another device, arriving in flight.
+    func testSettingsFromICloudKeepTheWT9ChecklistInThePilotsLanguage() async throws {
+        let defaults = makeTestDefaults()
+        defaults.set(true, forKey: DataPersistenceManager.syncPreferenceKey)
+        let manager = SyncManager(defaults: defaults, backend: StubSyncBackend())
+        await manager.engineStartTask?.value
+        let appState = makeTestAppState(syncManager: manager)
+        await resolveOfflineWT9(appState, language: .fr)
+        let french = try frenchWT9ChecksBeforeDeparture()
+
+        var remote = appState.settings
+        remote.alwaysUseUTC.toggle()
+        await manager.onSettingsUpdated?(remote)
+
+        XCTAssertEqual(appState.activeChecklist.items(for: .beforeDeparture).map(\.challenge), french)
+    }
+
+    /// What the reconciliation is there for: a premium checklist never outlives a switch to the WT9,
+    /// which shows its own until its own loads.
+    func testSwitchingToTheWT9DropsThePremiumChecklist() async throws {
+        let appState = makeTestAppState()
+        appState.settings.selectedRemoteAircraftId = "pa28-181"
+        let body = Data(#"{"success":true,"data":"#.utf8) + (try JSONEncoder().encode(makePA28Checklist())) + Data("}".utf8)
+        let service = makeTestAircraftDataService(subscriptionManager: AircraftDataServiceSeamTests.FakeGating(),
+                                                  httpClient: AircraftDataServiceSeamTests.FakeHTTPClient(responseData: body))
+        await appState.loadRemoteChecklistIfNeeded(aircraftDataService: service)
+        XCTAssertEqual(appState.activeChecklist.registration, "HB-PFA", "Precondition: the PA-28 is resolved")
+
+        XCTAssertTrue(appState.selectAircraft(id: AircraftType.wt9Dynamic.serverId, available: []))
+
+        XCTAssertNil(appState.resolvedRemoteChecklist)
+        XCTAssertEqual(appState.activeChecklist.registration, "F-HVXA")
+        XCTAssertEqual(appState.activeChecklist.stallSpeed, AircraftType.wt9Dynamic.stallSpeed)
+    }
 }
 
 /// PR-20 / Task 2.E5: the bundled WT9 EN and FR checklists must carry byte-identical technical /

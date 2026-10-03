@@ -17810,6 +17810,142 @@
         }
       }
     },
+    "companion.divertAllowOnIPad": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "If the iPad asks, allow the iPhone there."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Si l’iPad le demande, autorisez l’iPhone sur l’iPad."
+          }
+        }
+      }
+    },
+    "companion.divertHint": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Choose a field to divert to. The iPad navigates there."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Choisissez un terrain de déroutement. L’iPad y navigue."
+          }
+        }
+      }
+    },
+    "companion.divertNearest": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nearest"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Les plus proches"
+          }
+        }
+      }
+    },
+    "companion.divertNoAirportData": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No airport data on this iPhone: download it in Settings, or divert from the iPad."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pas de données aéroports sur cet iPhone : téléchargez-les dans les Réglages, ou déroutez depuis l’iPad."
+          }
+        }
+      }
+    },
+    "companion.divertNoMatch": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No aerodrome by that code or name."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aucun aérodrome sous ce code ou ce nom."
+          }
+        }
+      }
+    },
+    "companion.divertNoPosition": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No position yet: search for the field."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pas encore de position : recherchez le terrain."
+          }
+        }
+      }
+    },
+    "companion.divertNotTaken": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The iPad has not taken it. Check the iPad."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "L’iPad ne l’a pas pris en compte. Vérifiez sur l’iPad."
+          }
+        }
+      }
+    },
+    "companion.divertWaiting": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Waiting for the iPad…"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "En attente de l’iPad…"
+          }
+        }
+      }
+    },
     "companion.enableCompanionMode": {
       "extractionState": "manual",
       "localizations": {

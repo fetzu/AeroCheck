@@ -3096,6 +3096,16 @@ enum L10n {
         static let exitConfirmMessage = String(localized: "companion.exitConfirmMessage")
         static let exitConfirmLeave = String(localized: "companion.exitConfirmLeave")
         static let pairInSettings = String(localized: "companion.pairInSettings")
+
+        // Divert from the phone (6.2.0). The rest of its words are the iPad's Divert sheet's (`Trip`).
+        static let divertHint = String(localized: "companion.divertHint")
+        static let divertNearest = String(localized: "companion.divertNearest")
+        static let divertWaiting = String(localized: "companion.divertWaiting")
+        static let divertAllowOnIPad = String(localized: "companion.divertAllowOnIPad")
+        static let divertNotTaken = String(localized: "companion.divertNotTaken")
+        static let divertNoPosition = String(localized: "companion.divertNoPosition")
+        static let divertNoAirportData = String(localized: "companion.divertNoAirportData")
+        static let divertNoMatch = String(localized: "companion.divertNoMatch")
     }
 }
 

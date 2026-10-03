@@ -421,6 +421,9 @@ class CompanionConnectivityManager: NSObject, ObservableObject {
 
     private weak var locationManager: LocationManager?
     private weak var flightPlanManager: FlightPlanManager?
+    /// This iPad's airport store: a field the phone diverts to is taken from it when it knows the ident.
+    /// (6.2.0)
+    private weak var airportDataService: AirportDataService?
 
     /// False for a manager built by a test: it never touches Wi-Fi Aware, so a test cannot start a
     /// real listener or browser on the simulator.
@@ -935,12 +938,15 @@ class CompanionConnectivityManager: NSObject, ObservableObject {
     var entitlementProvider: (() -> Bool)?
 
     /// Wire the data sources (idempotent, no timer). Needed on BOTH roles, so the viewer can read its
-    /// own GPS to stream upstream when the master has none. (shared-GPS)
-    func configure(appState: AppState, locationManager: LocationManager, flightPlanManager: FlightPlanManager) {
+    /// own GPS to stream upstream when the master has none. (shared-GPS) `airportDataService` is kept
+    /// when not given, so a later call without it leaves the app's store in place. (6.2.0)
+    func configure(appState: AppState, locationManager: LocationManager, flightPlanManager: FlightPlanManager,
+                   airportDataService: AirportDataService? = nil) {
         let isNewAppState = self.appState !== appState
         self.appState = appState
         self.locationManager = locationManager
         self.flightPlanManager = flightPlanManager
+        if let airportDataService { self.airportDataService = airportDataService }
         if isNewAppState {
             flightWatchToken += 1
             watchFlight(of: appState, token: flightWatchToken)
@@ -1287,7 +1293,8 @@ class CompanionConnectivityManager: NSObject, ObservableObject {
         // The debug viewer scene has no link: its commands act on the flight it shows, through the
         // master's own code.
         if debugLoopback, let flightPlanManager {
-            Self.apply(command, appState: appState, flightPlanManager: flightPlanManager)
+            Self.apply(command, appState: appState, flightPlanManager: flightPlanManager,
+                       airports: airportDataService)
             return
         }
         #endif
@@ -1821,13 +1828,15 @@ class CompanionConnectivityManager: NSObject, ObservableObject {
             lifecycle("Master: the phone revealed the hidden items of the current check")
         }
 
-        Self.apply(command, appState: appState, flightPlanManager: flightPlanManager)
+        Self.apply(command, appState: appState, flightPlanManager: flightPlanManager,
+                   airports: airportDataService)
     }
 
     /// What a command does on the master once it is allowed: the iPad's own action, as a tap there
     /// would do it. Apart from the checks above, so the debug viewer scene and the tests run exactly
-    /// this. (v6.0 review, decision 2)
-    static func apply(_ command: CompanionCommand, appState: AppState?, flightPlanManager: FlightPlanManager) {
+    /// this. (v6.0 review, decision 2) `airports`: this iPad's store, for a field the phone diverts to.
+    static func apply(_ command: CompanionCommand, appState: AppState?, flightPlanManager: FlightPlanManager,
+                      airports: AirportDataService? = nil) {
         switch command {
         case .recordATO(let waypointIndex):
             flightPlanManager.recordATO(forWaypointAt: waypointIndex)
@@ -1943,6 +1952,16 @@ class CompanionConnectivityManager: NSObject, ObservableObject {
             guard let appState, appState.landedCard?.id == cardId,
                   let answer = LandedAnswer(rawValue: answer) else { return }
             appState.answerLandedCard(answer)
+
+        // Divert from the phone: what the iPad's Divert sheet does with the same field, in flight only.
+        // (6.2.0)
+        case .divert(let field):
+            guard let appState, appState.isFlightActive else { return }
+            CompanionDivert.apply(field, flightPlanManager: flightPlanManager, airports: airports)
+
+        case .resumeRoute:
+            guard let appState, appState.isFlightActive else { return }
+            flightPlanManager.resumeRoute()
         }
     }
 
@@ -2332,7 +2351,8 @@ class CompanionConnectivityManager: NSObject, ObservableObject {
                                   plannedGroundSpeed: nil, estimatedElapsedTime: nil, legEETExtra: nil,
                                   cumulativeEET: nil, estimatedTimeOver: nil, actualTimeOver: nil,
                                   remarks: field.name)
-            }
+            },
+            supportsDivert: true
         )
     }
 }

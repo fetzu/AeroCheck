@@ -159,11 +159,13 @@ struct AeroCheckApp: App {
                     isInitialized = true
 
                     // Wire the companion manager's data sources for BOTH roles, so a viewer (iPhone) can
-                    // read its own GPS to stream up to a GPS-less master (iPad). (shared-GPS)
+                    // read its own GPS to stream up to a GPS-less master (iPad). (shared-GPS) The airports,
+                    // for a field the phone diverts to. (6.2.0)
                     companionConnectivityManager.configure(
                         appState: appState,
                         locationManager: locationManager,
-                        flightPlanManager: flightPlanManager
+                        flightPlanManager: flightPlanManager,
+                        airportDataService: airportDataService
                     )
                     // This device's OWN entitlement: the master needs it before streaming premium
                     // checklist text (S9-30), the viewer reports it in its hello, which the master

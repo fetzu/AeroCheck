@@ -177,6 +177,10 @@
 		A1000001211111110000915 /* RouteRadioPlanner.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000001111111110000915 /* RouteRadioPlanner.swift */; };
 		B1000001211111110000033 /* RouteVisibility.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1000001111111110000033 /* RouteVisibility.swift */; };
 		7BEEB9111DA7D9F4E5513BF7 /* LegsPanelMap.swift in Sources */ = {isa = PBXBuildFile; fileRef = A5703B1612E4889BB5285366 /* LegsPanelMap.swift */; };
+		DE57E570211111110000B02 /* CockpitStatusTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = DE57E570111111110000B02 /* CockpitStatusTests.swift */; };
+		DE57E570211111110000B01 /* DestinationEstimateTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = DE57E570111111110000B01 /* DestinationEstimateTests.swift */; };
+		DE57E570211111110000A02 /* CockpitStatus.swift in Sources */ = {isa = PBXBuildFile; fileRef = DE57E570111111110000A02 /* CockpitStatus.swift */; };
+		DE57E570211111110000A01 /* DestinationEstimate.swift in Sources */ = {isa = PBXBuildFile; fileRef = DE57E570111111110000A01 /* DestinationEstimate.swift */; };
 		B1000001211111110000032 /* TripDataSizeEstimator.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1000001111111110000032 /* TripDataSizeEstimator.swift */; };
 		B1000001211111110000031 /* CountryBoundaries.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1000001111111110000031 /* CountryBoundaries.swift */; };
 		A1000001211111110000069 /* OpenAIPAirportDataService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000001111111110000069 /* OpenAIPAirportDataService.swift */; };
@@ -546,6 +550,10 @@
 		A1000001111111110000915 /* RouteRadioPlanner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RouteRadioPlanner.swift; sourceTree = "<group>"; };
 		B1000001111111110000033 /* RouteVisibility.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RouteVisibility.swift; sourceTree = "<group>"; };
 		A5703B1612E4889BB5285366 /* LegsPanelMap.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LegsPanelMap.swift; sourceTree = "<group>"; };
+		DE57E570111111110000B02 /* CockpitStatusTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CockpitStatusTests.swift; sourceTree = "<group>"; };
+		DE57E570111111110000B01 /* DestinationEstimateTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DestinationEstimateTests.swift; sourceTree = "<group>"; };
+		DE57E570111111110000A02 /* CockpitStatus.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CockpitStatus.swift; sourceTree = "<group>"; };
+		DE57E570111111110000A01 /* DestinationEstimate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DestinationEstimate.swift; sourceTree = "<group>"; };
 		B1000001111111110000032 /* TripDataSizeEstimator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TripDataSizeEstimator.swift; sourceTree = "<group>"; };
 		B1000001111111110000031 /* CountryBoundaries.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CountryBoundaries.swift; sourceTree = "<group>"; };
 		A1000001111111110000069 /* OpenAIPAirportDataService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OpenAIPAirportDataService.swift; sourceTree = "<group>"; };
@@ -825,6 +833,8 @@
 				A1000001111111110000911 /* SigmetRelevanceTests.swift */,
 				A1000001111111110000914 /* RouteVisibilityTests.swift */,
 				775A8D7759183D64D8BE5FA5 /* LegsPanelMapTests.swift */,
+				DE57E570111111110000B02 /* CockpitStatusTests.swift */,
+				DE57E570111111110000B01 /* DestinationEstimateTests.swift */,
 				6D41D7C1AE3BF4D1E5CFD63C /* MapReadoutTests.swift */,
 				A1000001111111110000913 /* FlightPlanActivationTests.swift */,
 				HB0A0001111111110000003 /* HomeAerodromeTests.swift */,
@@ -1034,6 +1044,8 @@
 				A1000001111111110000915 /* RouteRadioPlanner.swift */,
 				B1000001111111110000033 /* RouteVisibility.swift */,
 				A5703B1612E4889BB5285366 /* LegsPanelMap.swift */,
+				DE57E570111111110000A02 /* CockpitStatus.swift */,
+				DE57E570111111110000A01 /* DestinationEstimate.swift */,
 				B1000001111111110000032 /* TripDataSizeEstimator.swift */,
 				B1000001111111110000031 /* CountryBoundaries.swift */,
 				A1000001111111110000069 /* OpenAIPAirportDataService.swift */,
@@ -1448,6 +1460,8 @@
 				A1000001211111110000911 /* SigmetRelevanceTests.swift in Sources */,
 				A1000001211111110000914 /* RouteVisibilityTests.swift in Sources */,
 				F011CFD411BA54F7EA510922 /* LegsPanelMapTests.swift in Sources */,
+				DE57E570211111110000B02 /* CockpitStatusTests.swift in Sources */,
+				DE57E570211111110000B01 /* DestinationEstimateTests.swift in Sources */,
 				438DE1D32E4A690CC30AF5BF /* MapReadoutTests.swift in Sources */,
 				A1000001211111110000913 /* FlightPlanActivationTests.swift in Sources */,
 				HB0A0001211111110000003 /* HomeAerodromeTests.swift in Sources */,
@@ -1522,6 +1536,8 @@
 				A1000001211111110000915 /* RouteRadioPlanner.swift in Sources */,
 				B1000001211111110000033 /* RouteVisibility.swift in Sources */,
 				7BEEB9111DA7D9F4E5513BF7 /* LegsPanelMap.swift in Sources */,
+				DE57E570211111110000A02 /* CockpitStatus.swift in Sources */,
+				DE57E570211111110000A01 /* DestinationEstimate.swift in Sources */,
 				B1000001211111110000032 /* TripDataSizeEstimator.swift in Sources */,
 				B1000001211111110000031 /* CountryBoundaries.swift in Sources */,
 				A1000001211111110000069 /* OpenAIPAirportDataService.swift in Sources */,

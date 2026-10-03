@@ -83,8 +83,9 @@ class OfflineMapManager: ObservableObject {
 
     // MARK: - Constants
 
-    /// Switzerland bounding box (approximate)
-    private let switzerlandBounds = (
+    /// Switzerland bounding box (approximate): what the chart cache covers. `nonisolated` because the
+    /// Cockpit's CHART OFFLINE rule reads it too (`ChartAvailability`). (6.2.0)
+    nonisolated static let switzerlandBounds = (
         minLat: 45.82,  // Southern border
         maxLat: 47.81,  // Northern border
         minLon: 5.96,   // Western border
@@ -525,12 +526,12 @@ class OfflineMapManager: ObservableObject {
         // Using Web Mercator (EPSG:3857) tile scheme
         let n = pow(2.0, Double(zoom))
 
-        let minX = Int(floor((switzerlandBounds.minLon + 180.0) / 360.0 * n))
-        let maxX = Int(floor((switzerlandBounds.maxLon + 180.0) / 360.0 * n))
+        let minX = Int(floor((Self.switzerlandBounds.minLon + 180.0) / 360.0 * n))
+        let maxX = Int(floor((Self.switzerlandBounds.maxLon + 180.0) / 360.0 * n))
 
         // Note: Y is inverted in TMS
-        let minLatRad = switzerlandBounds.minLat * .pi / 180.0
-        let maxLatRad = switzerlandBounds.maxLat * .pi / 180.0
+        let minLatRad = Self.switzerlandBounds.minLat * .pi / 180.0
+        let maxLatRad = Self.switzerlandBounds.maxLat * .pi / 180.0
 
         let maxY = Int(floor((1.0 - log(tan(minLatRad) + 1.0/cos(minLatRad)) / .pi) / 2.0 * n))
         let minY = Int(floor((1.0 - log(tan(maxLatRad) + 1.0/cos(maxLatRad)) / .pi) / 2.0 * n))

@@ -1187,6 +1187,33 @@ enum L10n {
         static let gpsDegraded = String(localized: "a11y.gps.degraded")
         static let gpsLost = String(localized: "a11y.gps.lost")
         static let gpsUnknown = String(localized: "a11y.gps.unknown")
+
+        // The instruments' values: the Cockpit strip and the boxed instruments (6.2: English in French
+        // until then). Their labels, "Ground speed", "Altitude" and "Heading", are keys in the views.
+        /// The speed and the altitude read nothing else with the GPS lost.
+        static let instrumentGPSLost = String(localized: "GPS signal lost")
+        /// A phase without a target speed (taxi, run-up): "12 knots ground speed".
+        static func groundSpeed(_ knots: Int) -> String {
+            String(localized: "\(knots) knots ground speed")
+        }
+        /// "55 knots ground speed, on target. Target 55 knots": the state in words, never colour alone.
+        static func groundSpeedOnTarget(_ knots: Int, target: Int) -> String {
+            String(localized: "\(knots) knots ground speed, on target. Target \(target) knots")
+        }
+        static func groundSpeedOffTarget(_ knots: Int, target: Int) -> String {
+            String(localized: "\(knots) knots ground speed, off target. Target \(target) knots")
+        }
+        /// "3500 feet M S L". Formatted apart, so the figure stays ungrouped as it always was: interpolated,
+        /// `String(localized:)` writes "3'500" in a Swiss region.
+        static func altitudeMSL(_ feet: Int) -> String {
+            String(format: String(localized: "%lld feet M S L"), feet)
+        }
+        /// The GPS track under the strip's TRK: "270 degrees track".
+        static func track(_ degrees: Int) -> String {
+            String(localized: "\(degrees) degrees track")
+        }
+        /// No valid GPS course to read.
+        static let trackUnknown = String(localized: "unknown")
     }
 
     enum ChecklistAction {
@@ -1428,6 +1455,14 @@ enum L10n {
         }
         /// "Hide where I parked" on a journey: the day's first departure and last arrival only.
         static let hideParkingJourneyHint = String(localized: "Leaves out the first leg's first 300 m and the last leg's last 300 m")
+
+        // The Logbook's stats card (6.2: English in French until then). Its tiles take a `String`, which
+        // `Text` shows as it is, so the lookup happens here.
+        static let statsTitle = String(localized: "FLIGHT LOG")
+        static let statsHours = String(localized: "HOURS")
+        static let statsFlights = String(localized: "FLIGHTS")
+        static let statsLandings = String(localized: "LANDINGS")
+        static let statsHoursByAircraft = String(localized: "HOURS BY AIRCRAFT")
     }
 
     // MARK: - Event Confirmation

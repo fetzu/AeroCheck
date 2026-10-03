@@ -32,6 +32,34 @@ final class LocalizationCatalogTests: XCTestCase {
         XCTAssertEqual(positional.sorted(), [], "Swift never looks these keys up: plain %@/%lld in the key, positions only in the value")
     }
 
+    /// The Logbook's stats card and the Cockpit strip's VoiceOver read English in French: the card's
+    /// tiles took a `String`, never looked up, and the instruments built their values in code. (6.2)
+    func testTheStatsCardAndTheInstrumentsHaveTheirFrench() throws {
+        let french = try frenchBundle()
+        let missing = "\u{1}missing"
+        let expected = [
+            "FLIGHT LOG": "CARNET DE VOL",
+            "HOURS": "HEURES",
+            "FLIGHTS": "VOLS",
+            "LANDINGS": "ATTERRISSAGES",
+            "HOURS BY AIRCRAFT": "HEURES PAR AVION",
+            "Ground speed": "Vitesse sol",
+            "Heading": "Cap",
+            "unknown": "inconnu",
+            "GPS signal lost": "Signal GPS perdu",
+            "%lld knots ground speed": "%lld nœuds de vitesse sol",
+            "%lld feet M S L": "%lld pieds M S L",
+            "%lld degrees track": "route %lld degrés",
+        ]
+        for (key, value) in expected {
+            XCTAssertEqual(french.localizedString(forKey: key, value: missing, table: nil), value, key)
+        }
+        let onTarget = french.localizedString(forKey: "%lld knots ground speed, on target. Target %lld knots", value: missing, table: nil)
+        let offTarget = french.localizedString(forKey: "%lld knots ground speed, off target. Target %lld knots", value: missing, table: nil)
+        XCTAssertEqual(String(format: onTarget, 55, 55), "55 nœuds de vitesse sol, dans la cible. Vitesse cible 55 nœuds")
+        XCTAssertEqual(String(format: offTarget, 45, 76), "45 nœuds de vitesse sol, hors cible. Vitesse cible 76 nœuds")
+    }
+
     func testTheInterpolatedKeysHaveTheirFrench() throws {
         let french = try frenchBundle()
         let missing = "\u{1}missing"

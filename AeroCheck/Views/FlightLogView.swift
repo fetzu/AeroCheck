@@ -1665,7 +1665,7 @@ struct FlightLogStatsShareCard: View {
     private var header: some View {
         HStack(alignment: .top) {
             VStack(alignment: .leading, spacing: 10) {
-                Text("FLIGHT LOG")
+                Text(L10n.ShareCard.statsTitle)
                     .font(.aero(size: 26, weight: .semibold)).tracking(6)
                     .foregroundColor(accent)
                 if options.showPeriod {
@@ -1688,15 +1688,15 @@ struct FlightLogStatsShareCard: View {
         switch options.layout {
         case .standard:
             HStack(spacing: 20) {
-                statTile("HOURS", String(format: "%.1f", hours), accent)
-                statTile("FLIGHTS", "\(flights)", theme.primaryTextColor)
-                statTile("LANDINGS", "\(landings)", theme.primaryTextColor)
+                statTile(L10n.ShareCard.statsHours, String(format: "%.1f", hours), accent)
+                statTile(L10n.ShareCard.statsFlights, "\(flights)", theme.primaryTextColor)
+                statTile(L10n.ShareCard.statsLandings, "\(landings)", theme.primaryTextColor)
                 statTile(unit.uppercased(), Self.grouped(distance), theme.primaryTextColor)
             }
         case .hero:
             VStack(alignment: .leading, spacing: 20) {
                 VStack(alignment: .leading, spacing: 4) {
-                    Text("HOURS")
+                    Text(L10n.ShareCard.statsHours)
                         .font(.aero(size: 24, weight: .semibold)).tracking(2)
                         .foregroundColor(theme.secondaryTextColor)
                     Text(String(format: "%.1f", hours))
@@ -1710,8 +1710,8 @@ struct FlightLogStatsShareCard: View {
                 .background(RoundedRectangle(cornerRadius: 28).fill(theme.cardOverlayColor))
 
                 HStack(spacing: 20) {
-                    statTile("FLIGHTS", "\(flights)", theme.primaryTextColor)
-                    statTile("LANDINGS", "\(landings)", theme.primaryTextColor)
+                    statTile(L10n.ShareCard.statsFlights, "\(flights)", theme.primaryTextColor)
+                    statTile(L10n.ShareCard.statsLandings, "\(landings)", theme.primaryTextColor)
                     statTile(unit.uppercased(), Self.grouped(distance), theme.primaryTextColor)
                 }
             }
@@ -1720,7 +1720,7 @@ struct FlightLogStatsShareCard: View {
 
     private var byAircraftSection: some View {
         VStack(alignment: .leading, spacing: 20) {
-            Text("HOURS BY AIRCRAFT")
+            Text(L10n.ShareCard.statsHoursByAircraft)
                 .font(.aero(size: 22, weight: .semibold)).tracking(2)
                 .foregroundColor(theme.secondaryTextColor)
             let maxHours = byAircraft.map(\.hours).max() ?? 1

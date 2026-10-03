@@ -2490,17 +2490,27 @@ struct GPSStatusContent: View {
         case .good:
             return nil
         case .degraded:
-            if let acc = locationManager.currentLocation?.horizontalAccuracy, acc >= 0 {
-                return "Reduced accuracy · ± \(Int(acc.rounded())) m"
+            // Degraded for one of two reasons: the last fix is worse than 100 m, or none has come for
+            // 20 s. It said "Reduced accuracy · ± 10 m" for the second. (6.1.0)
+            if let fix {
+                if fix.horizontalAccuracy > 100 {
+                    return "Reduced accuracy · ± \(Int(fix.horizontalAccuracy.rounded())) m"
+                }
+                let age = Int(Date().timeIntervalSince(fix.timestamp).rounded())
+                if fix.horizontalAccuracy >= 0 && age >= 10 { return "No position update for \(age) s" }
             }
             return "Weak signal"
         case .lost:
-            if let ts = locationManager.currentLocation?.timestamp {
+            if let ts = fix?.timestamp {
                 return "No position update for \(Int(Date().timeIntervalSince(ts).rounded())) s"
             }
             return "No position fix"
         }
     }
+
+    /// The latest fix the status counted: on the ground it is newer than the position the flight
+    /// works from while the aircraft stands still (`LocationManager.latestFix`).
+    private var fix: CLLocation? { locationManager.latestFix ?? locationManager.currentLocation }
 
     private var statusColor: Color {
         if appState.isFlightActive && !locationManager.isTracking { return theme.danger }
@@ -2563,7 +2573,7 @@ struct GPSStatusContent: View {
             .cardSection()
 
             // Advanced fix info — Vertical / Altitude tap to switch units; Position taps to copy.
-            if let loc = locationManager.currentLocation {
+            if let loc = fix {
                 LazyVGrid(columns: [GridItem(.flexible(), spacing: 8), GridItem(.flexible(), spacing: 8)], spacing: 8) {
                     fixTile("Accuracy", loc.horizontalAccuracy >= 0 ? "± \(Int(loc.horizontalAccuracy.rounded())) m" : "—")
                     Button { verticalInFeet.toggle() } label: {

@@ -180,6 +180,8 @@ struct DivertSheet: View {
                             .font(.aero(size: 13))
                             .foregroundColor(theme.warning)
                     }
+                    // The field's official chart, in the browser: as tall as the button under it. (6.2.0)
+                    OfficialChartLinkButton(icao: ident, type: option.aerodrome.type, minHeight: 56)
                     Button {
                         go(to: option, isDestination: isDestination)
                     } label: {

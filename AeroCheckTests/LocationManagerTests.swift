@@ -32,6 +32,142 @@ final class LocationManagerTests: XCTestCase {
         XCTAssertEqual(status(12, accuracy: -1, current: .good), .degraded) // negative accuracy = unknown/poor
     }
 
+    // MARK: Parked: every fix counts for the status, the pipeline takes them 5 m apart (6.1.0)
+
+    /// A fix of a parked aircraft: from the satellites (with a speed accuracy) unless `satellite` is false,
+    /// a Wi-Fi or cell position (none).
+    private func groundFix(north metres: Double, accuracy: CLLocationAccuracy = 8, satellite: Bool = true,
+                           at time: Date = Date()) -> CLLocation {
+        CLLocation(coordinate: CLLocationCoordinate2D(latitude: 47 + metres / 111_195, longitude: 8),
+                   altitude: 430, horizontalAccuracy: accuracy, verticalAccuracy: 10,
+                   course: -1, courseAccuracy: -1, speed: satellite ? 0 : -1, speedAccuracy: satellite ? 0.4 : -1,
+                   timestamp: time)
+    }
+
+    @MainActor
+    func testTheHardwareDeliversEveryFixOnTheGround() {
+        // As CoreLocation's distance filter, the 5 m held back every fix of a parked aircraft: the
+        // status could only count the seconds, and good GPS went amber at 20 s and red at 45 s.
+        let lm = LocationManager()
+        XCTAssertEqual(lm.hardwareDistanceFilter, kCLDistanceFilterNone)
+        lm.setGroundMode(false)
+        XCTAssertEqual(lm.hardwareDistanceFilter, 50, "in flight, the battery filter stays")
+        lm.setGroundMode(true)
+        XCTAssertEqual(lm.hardwareDistanceFilter, kCLDistanceFilterNone)
+    }
+
+    func testTheGroundFilterPassesFixesFiveMetresApart() {
+        let first = groundFix(north: 0)
+        XCTAssertTrue(LocationManager.passesGroundFilter(first, lastPassed: nil, groundMode: true, filter: 5),
+                      "the first fix always goes on")
+        XCTAssertFalse(LocationManager.passesGroundFilter(groundFix(north: 3), lastPassed: first,
+                                                          groundMode: true, filter: 5))
+        XCTAssertTrue(LocationManager.passesGroundFilter(groundFix(north: 6), lastPassed: first,
+                                                         groundMode: true, filter: 5))
+        XCTAssertTrue(LocationManager.passesGroundFilter(groundFix(north: 1), lastPassed: first,
+                                                         groundMode: false, filter: 5),
+                      "in flight the hardware filters, every fix it delivers goes on")
+    }
+
+    @MainActor
+    func testAParkedAircraftsFixesKeepTheStatusWhileThePipelineHoldsItsPosition() {
+        let lm = LocationManager()
+        lm.receiveDeviceFix(groundFix(north: 0, accuracy: 200))
+        XCTAssertEqual(lm.gpsSignalStatus, .degraded, "a poor fix degrades")
+        let pipeline = lm.currentLocation
+
+        let held = groundFix(north: 1, accuracy: 8)
+        lm.receiveDeviceFix(held)
+        XCTAssertEqual(lm.gpsSignalStatus, .good, "the receiver's accuracy decides, not the distance moved")
+        XCTAssertTrue(lm.ownFixIsLive)
+        XCTAssertTrue(lm.latestFix === held, "the GPS sheet shows the newest fix")
+        XCTAssertTrue(lm.currentLocation === pipeline, "the pipeline sees what the 5 m filter gave it before")
+
+        let moved = groundFix(north: 7)
+        lm.receiveDeviceFix(moved)
+        XCTAssertTrue(lm.currentLocation === moved)
+    }
+
+    // MARK: A fix counts from when it was determined (6.1.0)
+
+    @MainActor
+    func testALateFixDoesNotMakeTheSignalGood() {
+        // Core Location "sometimes returns cached events": a fix determined a minute ago, delivered now,
+        // is not a fresh one. It used to set the status good and restart the seconds.
+        let lm = LocationManager()
+        lm.receiveDeviceFix(groundFix(north: 0, accuracy: 200))
+        XCTAssertEqual(lm.gpsSignalStatus, .degraded)
+        let late = CLLocation(coordinate: CLLocationCoordinate2D(latitude: 47, longitude: 8), altitude: 430,
+                              horizontalAccuracy: 8, verticalAccuracy: 10, course: -1, speed: 0,
+                              timestamp: Date(timeIntervalSinceNow: -60))
+        lm.receiveDeviceFix(late)
+        XCTAssertEqual(lm.gpsSignalStatus, .degraded, "a minute-old fix doesn't turn it green")
+        let fresh = groundFix(north: 0, accuracy: 8)
+        lm.receiveDeviceFix(fresh)
+        XCTAssertEqual(lm.gpsSignalStatus, .good)
+        XCTAssertEqual(lm.lastLocationUpdateTime?.timeIntervalSince(fresh.timestamp) ?? 99, 0, accuracy: 0.001,
+                       "the seconds count from when the fix was determined")
+    }
+
+    func testTheLogLineSaysWhatTheFixesCarried() {
+        var digest = GPSFixDigest()
+        let now = Date()
+        func fix(_ north: Double, accuracy: Double, speedAccuracy: Double, age: TimeInterval = 0) -> CLLocation {
+            CLLocation(coordinate: CLLocationCoordinate2D(latitude: 47 + north / 111_195, longitude: 8), altitude: 430,
+                       horizontalAccuracy: accuracy, verticalAccuracy: 10, course: -1, courseAccuracy: -1,
+                       speed: 0, speedAccuracy: speedAccuracy, timestamp: now.addingTimeInterval(-age))
+        }
+        digest.add(fix(0, accuracy: 9, speedAccuracy: 0.5), borrowed: false, now: now)
+        digest.add(fix(0, accuracy: 9, speedAccuracy: 0.5), borrowed: false, now: now)
+        digest.add(fix(2, accuracy: 7, speedAccuracy: -1, age: 3), borrowed: false, now: now)
+        digest.noteDiagnostics(unavailable: true, stationary: false)
+        let line = digest.line(seconds: 10, status: .good)
+        XCTAssertEqual(line, "GPS 10 s: 3 fixes, ± 7–9 m, satellite 2, course on 0, same as previous 1, "
+                       + "moved 2.0 m, oldest 3 s, unavailable 1, stationary 0; status good")
+        XCTAssertFalse(line.contains("47"), "never a position")
+        digest.startNextStretch()
+        digest.add(fix(2, accuracy: 7, speedAccuracy: -1), borrowed: false, now: now)
+        XCTAssertEqual(digest.sameAsPrevious, 1, "the next stretch still compares with the last fix")
+        XCTAssertEqual(digest.fixes, 1)
+    }
+
+    // MARK: Green needs the satellites (6.1.0)
+
+    func testAFixWithoutASpeedAccuracyIsNotFromTheSatellites() {
+        XCTAssertTrue(LocationManager.isSatelliteFix(groundFix(north: 0)))
+        XCTAssertFalse(LocationManager.isSatelliteFix(groundFix(north: 0, satellite: false)),
+                       "a Wi-Fi or cell position carries no speed accuracy")
+    }
+
+    func testPositionsWithoutASatelliteFixDegradeAfterTwentySeconds() {
+        func status(sat: TimeInterval?, current: GPSSignalStatus = .good) -> GPSSignalStatus {
+            LocationManager.signalStatus(timeSinceLastUpdate: 2, lastKnownAccuracy: 9, current: current,
+                                         timeSinceSatelliteFix: sat)
+        }
+        XCTAssertEqual(status(sat: 5), .good)
+        XCTAssertEqual(status(sat: 19.9), .good)
+        XCTAssertEqual(status(sat: 20), .degraded, "Wi-Fi at ± 9 m every 2 s, no satellites for 20 s")
+        XCTAssertEqual(status(sat: 200, current: .lost), .degraded, "positions are back, not from the satellites")
+        XCTAssertEqual(LocationManager.signalStatus(timeSinceLastUpdate: 50, lastKnownAccuracy: 9, current: .good,
+                                                    timeSinceSatelliteFix: 50), .lost, "nothing at all for 45 s")
+    }
+
+    @MainActor
+    func testWiFiPositionsAloneTurnTheIndicatorAmber() {
+        // The basement of 3 Oct 2026: the receiver on, no fix; Core Location sends Wi-Fi positions at ± 14–78 m.
+        let lm = LocationManager()
+        let start = Date()
+        lm.receiveDeviceFix(groundFix(north: 0, at: start), now: start)
+        XCTAssertEqual(lm.gpsSignalStatus, .good)
+        lm.receiveDeviceFix(groundFix(north: 1, accuracy: 14, satellite: false, at: start + 10), now: start + 10)
+        XCTAssertEqual(lm.gpsSignalStatus, .good, "10 s without the satellites: not yet")
+        lm.receiveDeviceFix(groundFix(north: 2, accuracy: 14, satellite: false, at: start + 21), now: start + 21)
+        XCTAssertEqual(lm.gpsSignalStatus, .degraded, "21 s of Wi-Fi alone")
+        lm.receiveDeviceFix(groundFix(north: 2, at: start + 30), now: start + 30)
+        XCTAssertEqual(lm.gpsSignalStatus, .good, "a satellite fix again")
+        XCTAssertEqual(lm.lastSatelliteFixTime, start + 30)
+    }
+
     func testEscalationsOnlyFireFromGood() {
         // A non-good status is preserved (not re-escalated) in the 10–45 s band.
         XCTAssertEqual(status(25, accuracy: 10, current: .degraded), .degraded)
@@ -47,11 +183,14 @@ final class LocationManagerTests: XCTestCase {
 
     // MARK: - Companion shared GPS: borrowed-fix injection (v4.1)
 
+    /// A fix in flight. `satellite: false` (the default) has no speed accuracy, as a Wi-Fi position
+    /// or a companion's fix rebuilt from the wire.
     private func fix(lat: Double = 47, lon: Double = 8, accuracy: CLLocationAccuracy = 10,
-                     ageSeconds: TimeInterval = 0) -> CLLocation {
+                     ageSeconds: TimeInterval = 0, satellite: Bool = false) -> CLLocation {
         CLLocation(coordinate: CLLocationCoordinate2D(latitude: lat, longitude: lon),
                    altitude: 500, horizontalAccuracy: accuracy, verticalAccuracy: 10,
-                   course: 90, speed: 30, timestamp: Date(timeIntervalSinceNow: -ageSeconds))
+                   course: 90, courseAccuracy: -1, speed: 30, speedAccuracy: satellite ? 0.5 : -1,
+                   timestamp: Date(timeIntervalSinceNow: -ageSeconds))
     }
 
     @MainActor
@@ -66,11 +205,81 @@ final class LocationManagerTests: XCTestCase {
     @MainActor
     func testOwnFixWinsOverBorrowedFix() {
         let lm = LocationManager()
-        lm.processLocation(fix(lat: 47.0, lon: 8.0), isOwnFix: true)
+        lm.processLocation(fix(lat: 47.0, lon: 8.0, satellite: true), isOwnFix: true)
         XCTAssertTrue(lm.ownFixIsLive, "a real device fix marks own GPS live")
         lm.injectCompanionLocation(fix(lat: 46.5, lon: 6.6))
         XCTAssertEqual(lm.currentLocation?.coordinate.latitude ?? 0, 47.0, accuracy: 1e-6,
                        "a live own fix is preserved; the borrowed fix is ignored")
+    }
+
+    // MARK: Wi-Fi iPads (6.1.1)
+
+    /// A Wi-Fi iPad gets Wi-Fi positions near a hotspot. Counted as its own GPS, they kept the iPhone's
+    /// fix out of the flight and told the iPhone to stop sending it.
+    @MainActor
+    func testAWiFiPositionDoesNotKeepTheCompanionsGPSOut() {
+        let lm = LocationManager()
+        lm.processLocation(fix(lat: 47.0, lon: 8.0, accuracy: 30), isOwnFix: true)
+        XCTAssertFalse(lm.ownFixIsLive, "a Wi-Fi position is not this device's GPS")
+        lm.injectCompanionLocation(fix(lat: 46.5, lon: 6.6))
+        XCTAssertEqual(lm.currentLocation?.coordinate.latitude ?? 0, 46.5, accuracy: 1e-6,
+                       "the iPhone's fix is borrowed over the iPad's Wi-Fi position")
+    }
+
+    @MainActor
+    func testAParkedWiFiIPadsPositionsAreNotLiveEither() {
+        let lm = LocationManager()
+        let start = Date()
+        lm.receiveDeviceFix(groundFix(north: 0, accuracy: 20, satellite: false, at: start), now: start)
+        lm.receiveDeviceFix(groundFix(north: 1, accuracy: 20, satellite: false, at: start + 1), now: start + 1)
+        XCTAssertFalse(lm.ownFixIsLive, "held back by the ground filter or not, a Wi-Fi position is not live")
+    }
+
+    /// An external receiver (MFi) paired with a Wi-Fi iPad: Core Location marks its fixes as produced
+    /// by an accessory, and they may come without a speed accuracy. A CLLocation built with that source
+    /// information keeps the simulation flag but drops the accessory one, so the fix says it itself.
+    private final class AccessoryFix: CLLocation, @unchecked Sendable {
+        override var sourceInformation: CLLocationSourceInformation? {
+            CLLocationSourceInformation(softwareSimulationState: false, andExternalAccessoryState: true)
+        }
+    }
+
+    private func accessoryFix(at time: Date) -> CLLocation {
+        AccessoryFix(coordinate: CLLocationCoordinate2D(latitude: 47, longitude: 8), altitude: 430,
+                     horizontalAccuracy: 5, verticalAccuracy: 8, course: -1, courseAccuracy: -1,
+                     speed: 0, speedAccuracy: -1, timestamp: time)
+    }
+
+    func testAnExternalReceiversFixIsFromTheSatellites() {
+        XCTAssertTrue(LocationManager.isSatelliteFix(accessoryFix(at: Date())),
+                      "an external GPS receiver's fix counts, with or without a speed accuracy")
+    }
+
+    @MainActor
+    func testAnExternalReceiverKeepsTheIndicatorGreen() {
+        let lm = LocationManager()
+        let start = Date()
+        for t in stride(from: 0.0, through: 40.0, by: 5.0) {
+            lm.receiveDeviceFix(accessoryFix(at: start + t), now: start + t)
+        }
+        XCTAssertEqual(lm.gpsSignalStatus, .good, "40 s of accessory fixes keep the indicator green")
+        XCTAssertTrue(lm.ownFixIsLive, "the receiver is this device's GPS for Companion")
+    }
+
+    func testTheLogLineCountsAnExternalReceiver() {
+        var digest = GPSFixDigest()
+        let now = Date()
+        digest.add(accessoryFix(at: now), borrowed: false, now: now)
+        XCTAssertTrue(digest.line(seconds: 10, status: .good).contains("satellite 1 (1 from an accessory), "))
+    }
+
+    /// The app required a GPS to install until 6.1.1, so Wi-Fi-only iPads couldn't get it, although an
+    /// iPhone's GPS over Companion or an external receiver serves them. (author, 3 Oct 2026)
+    func testAWiFiIPadCanInstallTheApp() {
+        let value = Bundle.main.object(forInfoDictionaryKey: "UIRequiredDeviceCapabilities")
+        let required = (value as? [String]) ?? ((value as? [String: Bool])?.filter(\.value).map(\.key) ?? [])
+        XCTAssertFalse(required.contains("gps"), "a Wi-Fi-only iPad has no GPS of its own")
+        XCTAssertFalse(required.contains("location-services"), "nor does it need one to run the app")
     }
 
     @MainActor

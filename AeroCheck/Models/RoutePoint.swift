@@ -265,9 +265,30 @@ enum RoutePointSearch {
         let tier: Int
     }
 
+    /// With OpenAIP's aerodromes by id (`OpenAIPAirportDataService.aerodromesById`); an open flightmaps
+    /// point's aerodrome is then found by its code among them, or known by the code alone.
     static func search(_ query: String,
                        reportingPoints: [ReportingPoint],
                        aerodromes: [String: ReportingPointAerodrome],
+                       navaids: [Navaid],
+                       route: [CLLocationCoordinate2D],
+                       reference: CLLocationCoordinate2D? = nil,
+                       limit: Int = 8) -> [Result] {
+        var byICAO: [String: ReportingPointAerodrome]?
+        return search(query, reportingPoints: reportingPoints, aerodrome: { point in
+            if let joined = point.airports?.lazy.compactMap({ aerodromes[$0] }).first { return joined }
+            guard let icao = point.aerodromeICAO, !icao.isEmpty else { return nil }
+            if byICAO == nil { byICAO = OpenAIPAirportDataService.icaoIndex(aerodromes.values) }
+            return byICAO?[icao.uppercased()] ?? ReportingPointAerodrome(icao: icao, name: "")
+        }, navaids: navaids, route: route, reference: reference, limit: limit)
+    }
+
+    /// With the aerodrome of each point from `aerodrome` (`ReportingPointCatalog.aerodrome(for:)`, which
+    /// knows both sources). An open flightmaps point says so after its aerodrome: "LSZF · open
+    /// flightmaps". (6.2.0)
+    static func search(_ query: String,
+                       reportingPoints: [ReportingPoint],
+                       aerodrome: (ReportingPoint) -> ReportingPointAerodrome?,
                        navaids: [Navaid],
                        route: [CLLocationCoordinate2D],
                        reference: CLLocationCoordinate2D? = nil,
@@ -277,13 +298,16 @@ enum RoutePointSearch {
         var results: [Result] = []
 
         for point in reportingPoints {
-            let field = point.airports?.lazy.compactMap { aerodromes[$0] }.first
+            let field = aerodrome(point)
             guard let tier = tier(tokens, name: point.name, qualifiers: [field?.icao, field?.name],
                                   ident: point.code) else { continue }
             let label = ReportingPointLabel(point: point, aerodrome: field)
+            let subtitle = point.source == .openFlightmaps
+                ? [field?.displayLine, "open flightmaps"].compactMap { $0 }.joined(separator: " · ")
+                : field?.displayLine
             results.append(Result(id: "rp:" + point.id, point: .reportingPoint(point, label),
                                   kind: .reportingPoint(compulsory: point.compulsory), title: label.title,
-                                  subtitle: field?.displayLine,
+                                  subtitle: subtitle,
                                   distanceNM: distance(point.coordinate, route: route, reference: reference),
                                   tier: tier))
         }
@@ -306,7 +330,10 @@ enum RoutePointSearch {
     /// before they match a start, so "E" doesn't bring up every point of Les Eplatures.
     static func tier(_ tokens: [String], name: String?, qualifiers: [String?], ident: String?) -> Int? {
         let folded = name.map(ReportingPointRemarks.folded) ?? ""
-        let qualifierWords = qualifiers.compactMap { $0 }.flatMap { ReportingPointRemarks.folded($0).split(separator: " ") }
+        var qualifierWords = qualifiers.compactMap { $0 }.flatMap { ReportingPointRemarks.folded($0).split(separator: " ") }
+        // The aerodrome by its other names too: OpenAIP files Geneva's points under "GENEVA", and a
+        // pilot types "Genève E" or "Genf E". (6.1)
+        qualifierWords += qualifierWords.flatMap { AirportSearchIndex.otherNames(of: String($0)).map { Substring($0) } }
         let foldedIdent = ident.map(ReportingPointRemarks.folded)
         var best = Int.max
         for token in tokens {

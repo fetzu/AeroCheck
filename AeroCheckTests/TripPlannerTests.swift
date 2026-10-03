@@ -268,6 +268,96 @@ final class TripPlannerTests: XCTestCase {
         XCTAssertEqual(legs[2].fuelOnBoard, 80)
     }
 
+    // MARK: - Aerodromes found by search (6.1)
+    //
+    // The author's trip, LSZQ → LSGC → LSZQ, on the real positions: Ecuvillens lies south of Les
+    // Éplatures and Geneva far south-west, so both project past the end of the leg LSZQ → LSGC.
+
+    private let lszq = (ident: "LSZQ", lat: 47.392408, lon: 7.028956)
+    private let lsgc = (ident: "LSGC", lat: 47.083900, lon: 6.792840)
+
+    private func flight(_ points: [(ident: String, lat: Double, lon: Double)]) -> FlightPlan {
+        var plan = FlightPlan(name: "Trip", plannedDepartureTime: t0, fuelFlow: 20, fuelOnBoard: 80)
+        plan.waypoints = points.map {
+            FlightPlanWaypoint(name: $0.ident, coordinate: .init(latitude: $0.lat, longitude: $0.lon),
+                               altitude: 4500, plannedGroundSpeed: 100)
+        }
+        plan.calculateRouteData()
+        return plan
+    }
+
+    private var foundLSGE: TripPlanner.Aerodrome { aerodrome("LSGE", lat: 46.755279, lon: 7.075746) }
+    private var foundLSGG: TripPlanner.Aerodrome { aerodrome("LSGG", lat: 46.238098, lon: 6.10895) }
+    private var foundFournet: TripPlanner.Aerodrome { aerodrome("FR-0332", lat: 47.177389, lon: 6.812911) }
+
+    /// The cause of "LSGE found nothing": the search went through the corridor's rule, which drops a
+    /// field that doesn't project between the two ends, even with an endless corridor.
+    func testASearchedFieldPastTheDestinationIsKept() throws {
+        let leg = flight([lszq, lsgc])
+        XCTAssertTrue(TripPlanner.stopCandidates(along: leg.waypoints, aerodromes: [foundLSGE, foundLSGG],
+                                                 corridorNM: .greatestFiniteMagnitude).isEmpty,
+                      "what the search used to go through")
+
+        let searched = TripPlanner.searchedStops(along: leg.waypoints, found: [foundLSGE, foundLSGG])
+        XCTAssertEqual(searched.map(\.aerodrome.ident), ["LSGE", "LSGG"])
+        XCTAssertTrue(searched.allSatisfy(\.isStop))
+        let total = try XCTUnwrap(RouteGeometry(route: leg.waypoints.map(\.coordinate)).cumulative.last)
+        XCTAssertEqual(searched[0].candidate.alongNM, total, accuracy: 0.01, "abeam the destination")
+        XCTAssertEqual(searched[0].candidate.offsetNM, 23, accuracy: 1, "and 23 NM past it")
+        XCTAssertNil(searched[0].candidate.waypointIndex)
+    }
+
+    /// Searching "LSGC" on LSZQ → LSGC used to show nothing of LSGC (only the corridor's list below,
+    /// with Fournet in it): the flight's own ends now come back, marked, in the search's order.
+    func testTheFlightsOwnFieldsAreMarkedNotDropped() {
+        let leg = flight([lszq, lsgc])
+        let searched = TripPlanner.searchedStops(along: leg.waypoints, found: [
+            aerodrome("LSGC", lat: lsgc.lat, lon: lsgc.lon), foundFournet, aerodrome("LSZQ", lat: lszq.lat, lon: lszq.lon),
+        ])
+        XCTAssertEqual(searched.map(\.aerodrome.ident), ["LSGC", "FR-0332", "LSZQ"], "the search's order, kept")
+        XCTAssertEqual(searched.map(\.role), [.destination, .stop, .departure])
+        XCTAssertEqual(searched[1].candidate.offsetNM, 1.9, accuracy: 0.1, "Fournet, beside the leg")
+    }
+
+    /// The same trip planned as one flight, out and back: LSGE is a stop, LSGC the turning point it
+    /// can split at, LSZQ where it leaves and lands.
+    func testAnOutAndBackFlightFindsLSGE() {
+        let loop = flight([lszq, lsgc, lszq])
+        let searched = TripPlanner.searchedStops(along: loop.waypoints, found: [
+            foundLSGE, aerodrome("LSGC", lat: lsgc.lat, lon: lsgc.lon), aerodrome("LSZQ", lat: lszq.lat, lon: lszq.lon),
+        ])
+        XCTAssertEqual(searched.map(\.role), [.stop, .stop, .departureAndDestination])
+        XCTAssertEqual(searched[1].candidate.waypointIndex, 1, "the turning point is the stop itself")
+    }
+
+    /// A field is the flight's own by its position too, whatever the waypoint is called.
+    func testAnEndIsKnownByItsPositionToo() {
+        let leg = flight([(ident: "HOME", lat: lszq.lat, lon: lszq.lon), lsgc])
+        let searched = TripPlanner.searchedStops(along: leg.waypoints, found: [
+            aerodrome("LSZQ", lat: lszq.lat + 0.005, lon: lszq.lon),
+        ])
+        XCTAssertEqual(searched.map(\.role), [.departure])
+    }
+
+    /// Ticked, LSGE goes before the destination, on the leg it lengthens least: the leg ends there,
+    /// and a new one takes the flight on to LSGC.
+    func testASearchedFieldPastTheDestinationBecomesAStopBeforeIt() throws {
+        let leg = flight([lszq, (ident: "W1", lat: 47.25, lon: 6.9), lsgc])
+        let lsge = try XCTUnwrap(TripPlanner.searchedStops(along: leg.waypoints, found: [foundLSGE]).first)
+        let legs = TripPlanner.legs(of: leg, landingAt: [TripPlanner.Landing(candidate: lsge.candidate)])
+        XCTAssertEqual(legs.map { $0.waypoints.map(\.name) }, [["LSZQ", "W1", "LSGE"], ["LSGE", "LSGC"]])
+    }
+
+    /// A local flight's search keeps a field beyond the 40 NM its list shows, and marks the field itself.
+    func testALocalFlightsSearchKeepsAFarFieldAndMarksItsOwn() {
+        let local = flight([lszq])
+        let searched = TripPlanner.searchedStops(along: local.waypoints, found: [
+            foundLSGG, aerodrome("LSZQ", lat: lszq.lat, lon: lszq.lon),
+        ])
+        XCTAssertEqual(searched.map(\.role), [.stop, .departureAndDestination])
+        XCTAssertGreaterThan(searched[0].candidate.alongNM, TripPlanner.localStopRadiusNM, "Geneva, 79 NM out")
+    }
+
     // MARK: - Stops on a local flight (6.1)
 
     private func localFlight(lon: Double = 7.0) -> FlightPlan {

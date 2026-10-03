@@ -16,14 +16,19 @@ struct FlightPlanMapBuilderView: View {
     @EnvironmentObject var openAIPDataService: OpenAIPDataService
     @EnvironmentObject var locationManager: LocationManager
     @EnvironmentObject var windsAloftService: WindsAloftService
+    /// An aerodrome's official chart, from its callout, opens in the browser. (6.2.0)
+    @Environment(\.openURL) private var openURL
     // Observe the per-country layer singletons so the trip-prefetch banner reacts to download
     // completions (their @Published downloadedCountries) rather than only to airspace changes. (review #8)
     @ObservedObject private var navaidService = OpenAIPNavaidDataService.shared
     @ObservedObject private var obstacleService = OpenAIPObstacleDataService.shared
     @ObservedObject private var reportingPointService = OpenAIPReportingPointDataService.shared
+    @ObservedObject private var vfrProcedureService = OFMDataService.shared   // 6.2.0
     @Environment(\.dismiss) private var dismiss
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    /// For the aerodrome procedures' palette (night: no white casing). (6.2.0)
+    @Environment(\.cockpitTheme) private var theme
 
     let planId: UUID
 
@@ -37,6 +42,8 @@ struct FlightPlanMapBuilderView: View {
     @State private var visibleNavaids: [Navaid] = []
     @State private var visibleReportingPoints: [ReportingPoint] = []   // v4.1.0 ③
     @State private var visibleObstacles: [Obstacle] = []               // v4.1.0 ③
+    /// Traffic circuits, VFR routes and sectors around the map's region. (6.2.0)
+    @State private var vfrContent: VFRMapContent = .empty()
     @State private var navaidUpdateTask: Task<Void, Never>?
     @State private var fitRouteToken = 0
     @State private var didInitialFit = false
@@ -96,9 +103,9 @@ struct FlightPlanMapBuilderView: View {
     @State private var tripBannerDismissed = false   // v4.1.0 trip-aware prefetch banner
     @State private var showDeactivateConfirm = false   // v4.4.0 — arm/disarm from the builder
     @State private var tripPrefetchFailed = false    // v4.4.0 — coverage still incomplete after a download
-    /// Which of the four per-country layers is being fetched, so the banner can count instead of spin.
+    /// Which of the per-country layers is being fetched, so the banner can count instead of spin.
     @State private var prefetchStep = 0
-    @State private var prefetchTotal = 4
+    @State private var prefetchTotal = 0
     @State private var tripSizeEstimate: TripDataSizeEstimator.Estimate?   // v4.4.0 — what the offer costs
     @State private var tripSizeEstimateKey = ""      // the missing-set the estimate above belongs to
     @State private var isPrefetchingTrip = false
@@ -125,35 +132,28 @@ struct FlightPlanMapBuilderView: View {
             : []
     }
 
+    /// The per-country layers of the trip top-up: the same providers, in the same order, as
+    /// `DataStatusManager` checks (airspace, navaids, obstacles, reporting points, VFR procedures),
+    /// built on the services because the manager isn't injected into this cover. The OpenAIP airport
+    /// layer stays out (`OpenAIPAirportProvider.perCountryCoverage`). (6.2.0, was four hard-coded layers)
+    private var tripProviders: [DataSetProvider] {
+        DataStatusManager.tripProviders(airspace: openAIPDataService)
+    }
+
     /// Missing countries PER LAYER, which is how coverage actually works: a device can hold Swiss
     /// airspace and no Swiss obstacles. Quoting a size for data already on disk would overstate the
-    /// download, so the estimate needs the split even though the banner shows the union.
-    ///
-    /// The SAME 4 per-country layers `DataStatusManager.tripCountriesNeedingData` checks (airspace +
-    /// navaids + obstacles + reporting points). The OpenAIP airport layer is intentionally excluded:
-    /// it's brand-new (existing downloads lack it, so it would nag forever) and it ships with the full
-    /// Nav & Maps country bundle, not this lightweight route prefetch. Keep this in sync with the
-    /// manager and with prefetchTripData below. (review #7)
+    /// download, so the estimate needs the split even though the banner shows the union. A country a
+    /// layer's source doesn't publish (open flightmaps outside CH, AT, DE, CZ) is no gap. (review #7)
     private var tripMissingByLayer: [TripDataSizeEstimator.Layer: [String]] {
         guard waypoints.count >= 2, !routeCountriesCache.isEmpty else { return [:] }
-        let routeCountries = routeCountriesCache
-        let coverage: [TripDataSizeEstimator.Layer: [String]] = [
-            .airspace: openAIPDataService.downloadedCountries,
-            .navaids: navaidService.downloadedCountries,
-            .obstacles: obstacleService.downloadedCountries,
-            .reportingPoints: reportingPointService.downloadedCountries,
-        ]
-        return coverage.compactMapValues { downloaded in
-            let missing = routeCountries.filter { !downloaded.contains($0) }
-            return missing.isEmpty ? nil : missing
-        }
+        return DataStatusManager.tripGaps(providers: tripProviders, routeCountries: routeCountriesCache)
     }
 
     private var tripNeededCountries: [String] {
         Set(tripMissingByLayer.values.flatMap { $0 }).sorted()
     }
 
-    /// Download the 4 per-country layers for the route's missing countries (merged with what's cached).
+    /// Download the per-country layers for the route's missing countries (merged with what's cached).
     ///
     /// If coverage is still incomplete afterwards the banner says the download failed rather than
     /// resetting to the same "Download data" offer — pressing a button, watching a spinner for ten
@@ -164,21 +164,18 @@ struct FlightPlanMapBuilderView: View {
         guard !needed.isEmpty else { return }
         isPrefetchingTrip = true
         tripPrefetchFailed = false
-        func union(_ existing: [String]) -> [String] { Array(Set(existing).union(needed)) }
 
-        // Counted rather than spun. Four per-country layers, each a separate download that can take
-        // tens of seconds on a clubhouse hotspot — an indeterminate spinner for all four tells the
-        // pilot nothing about whether to keep waiting. (device pass)
+        // Counted rather than spun. Each per-country layer is a separate download that can take tens
+        // of seconds on a clubhouse hotspot — an indeterminate spinner for all of them tells the pilot
+        // nothing about whether to keep waiting. (device pass) Each provider adds the countries to what
+        // its layer holds (the union, so nothing is pruned) and skips what is already on disk.
+        let providers = tripProviders
         prefetchStep = 0
-        prefetchTotal = 4
-        await openAIPDataService.downloadData(for: union(openAIPDataService.downloadedCountries), skippingCached: true)
-        prefetchStep = 1
-        await navaidService.downloadData(for: union(navaidService.downloadedCountries), skippingCached: true)
-        prefetchStep = 2
-        await obstacleService.downloadData(for: union(obstacleService.downloadedCountries), skippingCached: true)
-        prefetchStep = 3
-        await reportingPointService.downloadData(for: union(reportingPointService.downloadedCountries), skippingCached: true)
-        prefetchStep = 4
+        prefetchTotal = providers.count
+        for provider in providers {
+            await provider.prefetch(countries: needed)
+            prefetchStep += 1
+        }
         isPrefetchingTrip = false
         tripPrefetchFailed = !tripNeededCountries.isEmpty
     }
@@ -441,7 +438,8 @@ struct FlightPlanMapBuilderView: View {
         .preferredColorScheme(.dark)
         .onAppear {
             Task {
-                await airportDataService.ensureLoaded()
+                // The airports, and the index the airfield search reads, built off the main actor. (6.1)
+                await airportDataService.prepareSearch()
                 scheduleAirportUpdate()
                 await OpenAIPNavaidDataService.shared.ensureLoaded()
                 scheduleNavaidUpdate()
@@ -455,6 +453,10 @@ struct FlightPlanMapBuilderView: View {
         }
         .onChange(of: region.center.latitude) { _, _ in scheduleAirportUpdate(); scheduleNavaidUpdate() }
         .onChange(of: region.center.longitude) { _, _ in scheduleAirportUpdate(); scheduleNavaidUpdate() }
+        // The procedures depend on the zoom (40 NM, labels 20 NM), the data and the palette. (6.2.0)
+        .onChange(of: region.span.latitudeDelta) { _, _ in scheduleNavaidUpdate() }
+        .onChange(of: vfrProcedureService.revision) { _, _ in scheduleNavaidUpdate() }
+        .onChange(of: theme.mode) { _, _ in scheduleNavaidUpdate() }
         // Recompute on-route hazards (airspace + terrain) whenever the route geometry changes (#4).
         .onChange(of: routeGeometryKey) { _, _ in
             selectedConflictId = nil; scheduleAirspaceUpdate(); scheduleTerrainUpdate(); scheduleWindsAloftUpdate()
@@ -502,7 +504,9 @@ struct FlightPlanMapBuilderView: View {
             onAddWaypoint: { coord in smartAddWaypoint(at: coord) },
             selectedLeg: selectedLeg,
             conflictLegs: Set(legConflicts.keys),
-            onSelectWaypoint: { index in selectLeg(index) }
+            onSelectWaypoint: { index in selectLeg(index) },
+            vfrContent: vfrContent,
+            onOpenOfficialChart: { openURL($0) }
         )
         .ignoresSafeArea(edges: .bottom)
         // From and To sit above the map now, not over it (planning proposal D1); what they find
@@ -658,10 +662,10 @@ struct FlightPlanMapBuilderView: View {
         }
     }
 
-    /// Debounced, distance-aware, fixed-wing-only airport search. Debouncing keeps each keystroke off
-    /// the ~40K-airport scan (feedback #1 perf); `near:`/`types:` apply the distance sort + heliport
-    /// filter (feedback #2/#3). Runs on the main actor (the service is `@MainActor`); the sleep simply
-    /// coalesces bursts of typing into one scan.
+    /// Debounced, distance-aware, fixed-wing-only airport search. Debouncing coalesces bursts of
+    /// typing into one search (feedback #1 perf; since 6.1 a search is a few milliseconds over the
+    /// folded index); `near:`/`types:` apply the distance sort + heliport filter (feedback #2/#3). Runs
+    /// on the main actor (the service is `@MainActor`).
     private func scheduleSearch(_ query: String) {
         searchTask?.cancel()
         let trimmed = query.trimmingCharacters(in: .whitespaces)
@@ -685,16 +689,18 @@ struct FlightPlanMapBuilderView: View {
         guard !trimmed.isEmpty else { viaResults = []; viaResultsQuery = ""; return }
         let route = waypoints.map(\.coordinate)
         let reference = region.center
+        let nonPowered = appState.settings.showsNonPoweredReportingPoints
         viaSearchTask = Task {
             try? await Task.sleep(nanoseconds: 200_000_000)
             guard !Task.isCancelled else { return }
-            await OpenAIPReportingPointDataService.shared.ensureLoaded()
+            let catalog = ReportingPointCatalog.shared
+            await catalog.ensureLoaded()
             await OpenAIPNavaidDataService.shared.ensureLoaded()
             guard !Task.isCancelled else { return }
             let results = RoutePointSearch.search(
                 trimmed,
-                reportingPoints: OpenAIPReportingPointDataService.shared.allLoadedPoints(),
-                aerodromes: OpenAIPAirportDataService.shared.aerodromesById,
+                reportingPoints: catalog.allPoints(includingNonPowered: nonPowered),
+                aerodrome: catalog.aerodrome(for:),
                 navaids: OpenAIPNavaidDataService.shared.allLoadedNavaids(),
                 route: route, reference: reference)
             guard !Task.isCancelled else { return }
@@ -800,15 +806,16 @@ struct FlightPlanMapBuilderView: View {
                                                           types: AirportType.fixedWing),
             navaid: OpenAIPNavaidDataService.shared.nearestNavaid(to: coordinate, maxDistanceNm: snapRadiusNm),
             reportingPoint: reportingPointSnapCandidate(near: coordinate)
-                .map { ($0, OpenAIPAirportDataService.shared.label(for: $0)) })
+                .map { ($0, ReportingPointCatalog.shared.label(for: $0)) })
     }
 
     /// Nearest reporting point eligible for snap — only when the RP layer is shown, within a tighter
     /// radius than airports/navaids (they're dense, so snap should be deliberate). (v4.1.0 ③)
     private func reportingPointSnapCandidate(near coordinate: CLLocationCoordinate2D) -> ReportingPoint? {
         guard appState.settings.showReportingPointsOnMap else { return nil }
-        return OpenAIPReportingPointDataService.shared
-            .reportingPointsNear(to: coordinate, maxDistanceNm: rpSnapRadiusNm, limit: 1).first
+        return ReportingPointCatalog.shared
+            .pointsNear(to: coordinate, maxDistanceNm: rpSnapRadiusNm, limit: 1,
+                        includingNonPowered: appState.settings.showsNonPoweredReportingPoints).first
     }
 
     private func swapEndpoints() {
@@ -849,6 +856,12 @@ struct FlightPlanMapBuilderView: View {
             Toggle(L10n.DataStorage.navaidsName, isOn: dataLayerBinding(\.showNavaidsOnMap))
             Toggle(L10n.DataStorage.reportingPointsName, isOn: dataLayerBinding(\.showReportingPointsOnMap))
             Toggle(L10n.DataStorage.obstaclesName, isOn: dataLayerBinding(\.showObstaclesOnMap))
+            // The aerodrome procedures (6.2.0), as in the Map sheet.
+            Section(L10n.VFRMap.aerodromeProcedures) {
+                Toggle(L10n.VFRMap.showCircuits, isOn: dataLayerBinding(\.showVFRCircuitsOnMap))
+                Toggle(L10n.VFRMap.showRoutes, isOn: dataLayerBinding(\.showVFRRoutesOnMap))
+                Toggle(L10n.VFRMap.showNonPowered, isOn: dataLayerBinding(\.showNonPoweredCircuitsOnMap))
+            }
         } label: {
             Image(systemName: "square.stack.3d.up")
                 .font(.aero(size: 16, weight: .semibold))
@@ -1788,7 +1801,10 @@ struct FlightPlanMapBuilderView: View {
         navaidUpdateTask?.cancel()
         let showNavaids = appState.settings.showNavaidsOnMap
         let showRP = appState.settings.showReportingPointsOnMap
+        let showNonPoweredRP = appState.settings.showsNonPoweredReportingPoints
         let showObstacles = appState.settings.showObstaclesOnMap
+        let vfrSelection = VFRLayerSelection(settings: appState.settings)
+        let vfrPalette = VFRMapPalette(theme: theme)
         navaidUpdateTask = Task {
             try? await Task.sleep(nanoseconds: 300_000_000) // 300 ms debounce
             guard !Task.isCancelled else { return }
@@ -1804,22 +1820,43 @@ struct FlightPlanMapBuilderView: View {
                 navaids = OpenAIPNavaidDataService.shared.navaidsInRegion(latRange: latRange, lonRange: lonRange)
             }
             var reportingPoints: [ReportingPoint] = []
-            if showRP, OpenAIPReportingPointDataService.shared.isDataAvailable {
-                await OpenAIPReportingPointDataService.shared.ensureLoaded()
-                reportingPoints = OpenAIPReportingPointDataService.shared.reportingPointsInRegion(latRange: latRange, lonRange: lonRange)
+            if showRP, ReportingPointCatalog.shared.isDataAvailable {
+                await ReportingPointCatalog.shared.ensureLoaded()
+                reportingPoints = ReportingPointCatalog.shared.points(latRange: latRange, lonRange: lonRange,
+                                                                     includingNonPowered: showNonPoweredRP)
             }
             var obstacles: [Obstacle] = []
             if showObstacles, OpenAIPObstacleDataService.shared.isDataAvailable {
                 await OpenAIPObstacleDataService.shared.ensureLoaded()
                 obstacles = OpenAIPObstacleDataService.shared.obstaclesInRegion(latRange: latRange, lonRange: lonRange)
             }
+            // Traffic circuits, VFR routes and sectors: loaded the first time a switch needs them, then
+            // gated by the span and capped as on the navigation map. (6.2.0)
+            if vfrSelection.isAnyOn, OFMDataService.shared.isDataAvailable {
+                await OFMDataService.shared.ensureLoaded()
+            }
             guard !Task.isCancelled else { return }
             await MainActor.run {
                 visibleNavaids = navaids
                 visibleReportingPoints = reportingPoints
                 visibleObstacles = obstacles
+                vfrContent = makeVFRContent(for: r, selection: vfrSelection, palette: vfrPalette)
             }
         }
+    }
+
+    /// The aerodrome procedures for `region`, the plan's destination and departure first. (6.2.0)
+    private func makeVFRContent(for region: MKCoordinateRegion, selection: VFRLayerSelection,
+                            palette: VFRMapPalette) -> VFRMapContent {
+        let service = OFMDataService.shared
+        guard selection.isAnyOn, service.isLoaded, VFRMapDensity.showsProcedures(in: region) else {
+            return .empty(palette)
+        }
+        return VFRMapContent.make(
+            candidates: service.procedures(in: region), region: region, selection: selection, palette: palette,
+            firstAerodromes: VFRMapDensity.endpointAerodromes(of: plan),
+            fieldPosition: { airportDataService.findAirport(byIdent: $0)?.coordinate },
+            cycle: { (service.cycles[$0]?.airac, service.region(forCountry: $0)) })
     }
 }
 
@@ -2241,6 +2278,10 @@ struct RouteBuilderMapView: UIViewRepresentable {
     var conflictLegs: Set<Int> = []
     /// A tap on a waypoint's pin selects it, and its row in the table. (planning proposal D3)
     var onSelectWaypoint: ((Int) -> Void)? = nil
+    /// Traffic circuits, VFR routes and sectors, under the route. (6.2.0)
+    var vfrContent: VFRMapContent = .empty()
+    /// Opens an aerodrome's official chart from its callout (the browser); nil: no chart. (6.2.0)
+    var onOpenOfficialChart: ((URL) -> Void)? = nil
 
     func makeUIView(context: Context) -> MKMapView {
         let mapView = MKMapView()
@@ -2286,6 +2327,7 @@ struct RouteBuilderMapView: UIViewRepresentable {
         applyAirspaceSelection(mapView)
         updateRoute(mapView, context: context)
         updateSelectedLeg(mapView, context: context)
+        VFRMapLayer.sync(vfrContent, on: mapView, state: context.coordinator.vfrLayer)
 
         if context.coordinator.lastFitToken != fitRouteToken {
             context.coordinator.lastFitToken = fitRouteToken
@@ -2421,14 +2463,26 @@ struct RouteBuilderMapView: UIViewRepresentable {
         // Replace the route polyline. Draw a black casing under a magenta core, matching the in-flight
         // navigation map so the plan previews exactly how the route reads in flight, and so it stays
         // visible on every tile layer (feedback #6 — gold washed out on some charts).
-        mapView.removeOverlays(mapView.overlays.filter { $0 is MKPolyline })
+        Self.removeRouteOverlays(from: mapView)
         if waypoints.count >= 2 {
             let coords = waypoints.map { $0.coordinate }
             let casing = RouteCasingPolyline(coordinates: coords, count: coords.count)
             mapView.addOverlay(casing, level: .aboveLabels)
-            let polyline = MKPolyline(coordinates: coords, count: coords.count)
+            let polyline = RouteLinePolyline(coordinates: coords, count: coords.count)
             mapView.addOverlay(polyline, level: .aboveLabels)
         }
+    }
+
+    /// The route's own lines: its core, its casing and the selected leg's halo. The three redraws take
+    /// off only these; they used to take off every `MKPolyline`, which would have taken the traffic
+    /// circuits and VFR routes with them. (6.2.0)
+    static func isRouteOverlay(_ overlay: MKOverlay) -> Bool {
+        overlay is RouteLinePolyline || overlay is RouteCasingPolyline || overlay is SelectedLegPolyline
+    }
+
+    static func removeRouteOverlays(from mapView: MKMapView) {
+        let route = mapView.overlays.filter(isRouteOverlay)
+        if !route.isEmpty { mapView.removeOverlays(route) }
     }
 
     /// A white halo under the selected leg, drawn below the route so the magenta line reads through
@@ -2470,6 +2524,8 @@ struct RouteBuilderMapView: UIViewRepresentable {
         var lastFocusToken = 0
         /// `ReportingPointAnnotation.labelRevision` the markers were labelled at. (6.0.1)
         var reportingPointLabelRevision = -1
+        /// The aerodrome procedures drawn, and their palette. (6.2.0)
+        let vfrLayer = VFRMapLayer.State()
 
         // MARK: Live drag (flight-plan revamp #3)
         enum DragMode { case move(Int); case insert(Int); case append } // insert(afterIndex)
@@ -2505,6 +2561,11 @@ struct RouteBuilderMapView: UIViewRepresentable {
             if let tile = overlay as? MKTileOverlay {
                 return LateTileRedraw.renderer(for: tile)
             }
+            // Traffic circuits, VFR routes and sectors: before the generic MKPolyline branch below, which
+            // would draw them magenta, as the route. (6.2.0)
+            if let renderer = VFRMapLayer.renderer(for: overlay, palette: vfrLayer.palette) {
+                return renderer
+            }
             // Crossed-airspace highlight (translucent fill + colored stroke). (#4)
             if let airspace = overlay as? AirspacePolygon {
                 let renderer = MKPolygonRenderer(polygon: airspace)
@@ -2532,6 +2593,7 @@ struct RouteBuilderMapView: UIViewRepresentable {
                 renderer.lineCap = .round
                 return renderer
             }
+            // The route's core (`RouteLinePolyline`).
             if let polyline = overlay as? MKPolyline {
                 let renderer = MKPolylineRenderer(polyline: polyline)
                 renderer.strokeColor = UIColor(red: 1.0, green: 0.0, blue: 0.8, alpha: 1.0) // navigation magenta
@@ -2570,7 +2632,13 @@ struct RouteBuilderMapView: UIViewRepresentable {
                 return view
             }
 
-            if annotation is AirportAnnotation {
+            // A traffic circuit's altitude or a VFR route's name, and its callout. (6.2.0)
+            if let label = VFRMapLayer.annotationView(for: annotation, on: mapView, palette: vfrLayer.palette,
+                                                      openChart: parent.onOpenOfficialChart) {
+                return label
+            }
+
+            if let airport = annotation as? AirportAnnotation {
                 let id = "BuilderAirport"
                 let view: MKAnnotationView
                 if let reused = mapView.dequeueReusableAnnotationView(withIdentifier: id) {
@@ -2581,6 +2649,11 @@ struct RouteBuilderMapView: UIViewRepresentable {
                 }
                 view.canShowCallout = true
                 view.image = aeroMarkerSymbol("airplane", color: UIColor(red: 0.3, green: 0.6, blue: 1.0, alpha: 1.0), pointSize: 13, weight: .medium)
+                // The field's official chart on the left, "+" on the right. (6.2.0)
+                view.leftCalloutAccessoryView = parent.onOpenOfficialChart == nil ? nil
+                    : OfficialChartService.shared.link(for: airport.airport).map {
+                        OfficialChartControl.accessory(link: $0, metrics: .ground, tint: vfrLayer.palette.action)
+                    }
                 view.rightCalloutAccessoryView = addButton(annotation)
                 return view
             }
@@ -2652,6 +2725,11 @@ struct RouteBuilderMapView: UIViewRepresentable {
         }
 
         func mapView(_ mapView: MKMapView, annotationView view: MKAnnotationView, calloutAccessoryControlTapped control: UIControl) {
+            // The official chart opens in the browser and adds nothing. (6.2.0)
+            if let chart = control as? OfficialChartControl, let link = chart.link {
+                parent.onOpenOfficialChart?(link.url)
+                return
+            }
             guard let point = routePoint(for: view.annotation) else { return }
             parent.onPointAdd?(point)
             mapView.deselectAnnotation(view.annotation, animated: true)
@@ -2811,11 +2889,11 @@ struct RouteBuilderMapView: UIViewRepresentable {
 
         /// Redraw the magenta route from the live working geometry (move/insert preview).
         private func redrawDragRoute(_ mapView: MKMapView) {
-            mapView.removeOverlays(mapView.overlays.filter { $0 is MKPolyline })
+            RouteBuilderMapView.removeRouteOverlays(from: mapView)
             guard dragCoords.count >= 2 else { return }
             let casing = RouteCasingPolyline(coordinates: dragCoords, count: dragCoords.count)
             mapView.addOverlay(casing, level: .aboveLabels)
-            let line = MKPolyline(coordinates: dragCoords, count: dragCoords.count)
+            let line = RouteLinePolyline(coordinates: dragCoords, count: dragCoords.count)
             mapView.addOverlay(line, level: .aboveLabels)
         }
 
@@ -2823,7 +2901,7 @@ struct RouteBuilderMapView: UIViewRepresentable {
         private func redrawCommittedRoute(_ mapView: MKMapView) {
             let old = mapView.annotations.compactMap { $0 as? RouteWaypointAnnotation }
             mapView.removeAnnotations(old)
-            mapView.removeOverlays(mapView.overlays.filter { $0 is MKPolyline })
+            RouteBuilderMapView.removeRouteOverlays(from: mapView)
             let wpts = parent.waypoints
             for (i, w) in wpts.enumerated() {
                 mapView.addAnnotation(RouteWaypointAnnotation(coordinate: w.coordinate, index: i, name: w.name))
@@ -2831,7 +2909,7 @@ struct RouteBuilderMapView: UIViewRepresentable {
             if wpts.count >= 2 {
                 let coords = wpts.map { $0.coordinate }
                 mapView.addOverlay(RouteCasingPolyline(coordinates: coords, count: coords.count), level: .aboveLabels)
-                mapView.addOverlay(MKPolyline(coordinates: coords, count: coords.count), level: .aboveLabels)
+                mapView.addOverlay(RouteLinePolyline(coordinates: coords, count: coords.count), level: .aboveLabels)
             }
             lastRouteSignature = wpts.map { "\($0.id.uuidString)\($0.latitude),\($0.longitude)" }.joined(separator: "|")
         }
@@ -2893,6 +2971,9 @@ struct RouteBuilderMapView: UIViewRepresentable {
 /// Black casing drawn underneath the magenta route core (a distinct subclass so the renderer can tell
 /// the two `MKPolyline`s apart). Mirrors the in-flight navigation map's route styling.
 final class RouteCasingPolyline: MKPolyline {}
+/// The route's magenta core. Its own class, so the redraws take off the route and nothing else on the
+/// map that is a polyline (the traffic circuits and VFR routes). (6.2.0)
+final class RouteLinePolyline: MKPolyline {}
 /// The halo under the leg selected in the route editor. (planning proposal D3)
 final class SelectedLegPolyline: MKPolyline {}
 

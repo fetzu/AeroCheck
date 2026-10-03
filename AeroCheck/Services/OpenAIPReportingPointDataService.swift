@@ -2,7 +2,7 @@ import Foundation
 import CoreLocation
 
 /// Manages OpenAIP VFR REPORTING-POINT data via the keyless, per-country GeoJSON exports
-/// (`storage.googleapis.com/.../{cc}_rpp.geojson`) — a sibling to `OpenAIPObstacleDataService`, sharing
+/// (`s3.openaip.net/openaip-system-exports/{cc}_rpp.geojson`) — a sibling to `OpenAIPObstacleDataService`, sharing
 /// its lazy-load + atomic per-country cache. Both the region query (nav-map markers) and the nearest-k
 /// query (briefings) sit on hot paths, so this keeps the same 1° spatial grid as
 /// `OpenAIPNavaidDataService` to avoid scanning the whole country-wide array on every call.
@@ -17,7 +17,9 @@ final class OpenAIPReportingPointDataService: ObservableObject {
 
     @Published var isDownloading = false
     @Published var downloadProgress: Double = 0
-    @Published var downloadError: String?
+    /// Countries the last download could not update (their old file, if any, is kept). Empty after a
+    /// download that served every country. Shown in Navigation & Maps and in Data & Storage. (6.2.0)
+    @Published var failedCountries: [String] = []
     @Published var lastUpdated: Date?
     @Published var isDataAvailable = false
     @Published var reportingPointCount = 0
@@ -104,7 +106,7 @@ final class OpenAIPReportingPointDataService: ObservableObject {
         guard !isDownloading, !countries.isEmpty else { return }
         isDownloading = true
         downloadProgress = 0
-        downloadError = nil
+        failedCountries = []
         defer { isDownloading = false }
 
         let result = await cache.downloadData(for: countries, skippingCached: skippingCached) { downloadProgress = $0 }
@@ -119,7 +121,7 @@ final class OpenAIPReportingPointDataService: ObservableObject {
         // A country no source could serve is reported, not swallowed. Silence here is what let the
         // trip-prefetch banner re-offer a download that had just failed, with nothing on screen to
         // say so. (device-test feedback, v4.4.0)
-        downloadError = result.failedCountries.isEmpty ? nil : result.failedCountries.joined(separator: ", ")
+        failedCountries = result.failedCountries
     }
 
     // MARK: - Queries
@@ -199,6 +201,7 @@ final class OpenAIPReportingPointDataService: ObservableObject {
         points = []
         reportingPointCount = 0
         downloadedCountries = []
+        failedCountries = []
         lastUpdated = nil
         isDataAvailable = false
         isLoaded = false
@@ -206,12 +209,14 @@ final class OpenAIPReportingPointDataService: ObservableObject {
     }
 
     #if DEBUG
-    func seedForTesting(_ seeded: [ReportingPoint], cachePredatesAerodromes: Bool = false) {
+    func seedForTesting(_ seeded: [ReportingPoint], cachePredatesAerodromes: Bool = false,
+                        downloadedCountries: [String]? = nil) {
         points = seeded
         reportingPointCount = seeded.count
         isLoaded = true
         isDataAvailable = !seeded.isEmpty
         self.cachePredatesAerodromes = cachePredatesAerodromes
+        if let downloadedCountries { self.downloadedCountries = downloadedCountries }
     }
     #endif
 }

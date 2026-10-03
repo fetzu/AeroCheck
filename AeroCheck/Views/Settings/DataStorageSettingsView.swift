@@ -183,10 +183,27 @@ struct DataStorageSettingsView: View {
                     .font(.aero(.caption2))
                     .foregroundColor(.dimText)
                     .fixedSize(horizontal: false, vertical: true)
+                // The AIRAC cycle and its validity, for open flightmaps. (6.2.0)
+                if let cycle = dataSet.cycleDetail {
+                    Text(cycle)
+                        .font(.aero(.caption2))
+                        .foregroundColor(.dimText)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
                 Text(subtitle(for: dataSet, statusLabel: statusLabel))
                     .font(.aero(.caption))
                     .foregroundColor(.secondaryText)
                     .fixedSize(horizontal: false, vertical: true)
+                if let failure = dataSet.updateFailure {
+                    updateFailureLine(failure)
+                }
+                if let attribution = dataSet.attribution {
+                    Text(attribution)
+                        .font(.aero(.caption2))
+                        .foregroundColor(.dimText)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .padding(.top, 2)
+                }
             }
             Spacer(minLength: 8)
             if let size = sizeString(for: dataSet) {
@@ -198,6 +215,20 @@ struct DataStorageSettingsView: View {
         }
         .padding(.horizontal, 14)
         .padding(.vertical, 11)
+    }
+
+    /// The last update that did not complete, until one does: glyph and text, never colour alone. (6.2.0)
+    private func updateFailureLine(_ failure: DataSetUpdateFailure) -> some View {
+        HStack(alignment: .firstTextBaseline, spacing: 5) {
+            Image(systemName: "exclamationmark.triangle.fill")
+                .font(.aero(.caption2))
+                .accessibilityHidden(true)
+            Text(L10n.DataStorage.updateFailed(failure.countries))
+                .font(.aero(.caption))
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .foregroundColor(.aviationRed)
+        .padding(.top, 2)
     }
 
     private func rowMenu(_ dataSet: DataSet) -> some View {
@@ -467,7 +498,9 @@ struct DataStorageSettingsView: View {
         "openaip.navaids": "OpenAIPNavaidData",
         "openaip.obstacles": "OpenAIPObstacleData",
         "openaip.reportingpoints": "OpenAIPReportingPointData",
+        "openaip.airports": OpenAIPAirportDataService.directoryName,
         "ourairports.airports": "AirportData",
+        "ofm.procedures": OFMDataService.directoryName,
     ]
 
     private func recomputeSizes() {

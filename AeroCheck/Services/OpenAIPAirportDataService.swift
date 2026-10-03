@@ -2,7 +2,7 @@ import Foundation
 import CoreLocation
 
 /// Manages OpenAIP AIRPORT data via the keyless, per-country GeoJSON exports
-/// (`storage.googleapis.com/.../{cc}_apt.geojson`) — a sibling to the other OpenAIP layer services.
+/// (`s3.openaip.net/openaip-system-exports/{cc}_apt.geojson`) — a sibling to the other OpenAIP layer services.
 /// Feeds `AirportDataMergeEngine` (OpenAIP is the primary airport source; OurAirports gap-fills). When
 /// no OpenAIP airport data is downloaded, the merge is a no-op and OurAirports remains the backbone. (v4.1.0)
 ///
@@ -14,7 +14,9 @@ final class OpenAIPAirportDataService: ObservableObject {
 
     @Published var isDownloading = false
     @Published var downloadProgress: Double = 0
-    @Published var downloadError: String?
+    /// Countries the last download could not update (their old file, if any, is kept). Empty after a
+    /// download that served every country. Shown in Navigation & Maps and in Data & Storage. (6.2.0)
+    @Published var failedCountries: [String] = []
     @Published var lastUpdated: Date?
     @Published var isDataAvailable = false
     @Published var airportCount = 0
@@ -29,16 +31,41 @@ final class OpenAIPAirportDataService: ObservableObject {
             guard !airports.isEmpty else { return }
             pprIcaoCodes = Set(airports.filter(\.isPPR).compactMap(\.icaoCode).map { $0.uppercased() })
             hasPPRData = true
+            fuelTypesByIcao = Self.fuelIndex(airports)
             aerodromesById = Self.aerodromeIndex(airports)
         }
+    }
+
+    /// Fuel grades by uppercased ICAO ident, for the flight thread's fuel row. Kept when the array is
+    /// released after the merge, like the PPR set: read from the array, the destination's grades were
+    /// gone a few seconds after launch, so the fuel row almost never named them. (6.2.0)
+    private(set) var fuelTypesByIcao: [String: [OpenAIPFuelType]] = [:]
+
+    /// The fuel grades OpenAIP lists for `icao`; empty when it lists none or doesn't know the field.
+    func fuelTypes(forICAO icao: String) -> [OpenAIPFuelType] {
+        fuelTypesByIcao[icao.uppercased()] ?? []
+    }
+
+    nonisolated static func fuelIndex(_ airports: [OpenAIPAirport]) -> [String: [OpenAIPFuelType]] {
+        Dictionary(airports.compactMap { airport -> (String, [OpenAIPFuelType])? in
+            guard let icao = airport.icaoCode?.uppercased(), !icao.isEmpty else { return nil }
+            let fuels = airport.fuelTypes
+            return fuels.isEmpty ? nil : (icao, fuels)
+        }, uniquingKeysWith: { first, _ in first })
     }
 
     /// Code and name of every OpenAIP aerodrome, by its OpenAIP `_id`: what a reporting point's
     /// `airports` refers to. Survives `releaseLoadedAirports()`, like the PPR set, since the merged
     /// `Airport` store keeps no OpenAIP id. (6.0.1)
     private(set) var aerodromesById: [String: ReportingPointAerodrome] = [:] {
-        didSet { aerodromeIndexRevision &+= 1 }
+        didSet {
+            aerodromeIndexRevision &+= 1
+            aerodromesByICAO = Self.icaoIndex(aerodromesById.values)
+        }
     }
+    /// The same aerodromes by upper-cased ICAO code, for a reporting point that names its aerodrome
+    /// by code (open flightmaps). (6.2.0)
+    private(set) var aerodromesByICAO: [String: ReportingPointAerodrome] = [:]
     /// Counts changes of `aerodromesById`, for the maps to relabel their reporting points.
     private(set) var aerodromeIndexRevision = 0
     private var aerodromeIndexTask: Task<Void, Never>?
@@ -49,16 +76,26 @@ final class OpenAIPAirportDataService: ObservableObject {
     /// "no PPR fields", not "nothing downloaded".
     private(set) var hasPPRData = false
 
-    private let cache = OpenAIPLayerCache<OpenAIPAirport>(
-        directoryName: "OpenAIPAirportData",
-        filePrefix: "airports",
-        endpointSuffix: "apt",
-        restPath: "airports",
-        logLabel: "OpenAIP airport",
-        parse: OpenAIPAirport.parse(geoJSON:))
+    /// Called when the downloaded aerodromes change (a download that updated a country, or a delete),
+    /// so the merged airport store folds them in without a relaunch. Set once, by the app's
+    /// `AirportDataService.followOpenAIPAirports()`. (6.2.0)
+    var onAirportsChanged: (@MainActor () -> Void)?
 
-    init() {
-        if let summary = cache.restoredSummary() {
+    /// The Application Support directory of the cache: Data & Storage sizes it.
+    nonisolated static let directoryName = "OpenAIPAirportData"
+
+    private let cache: OpenAIPLayerCache<OpenAIPAirport>
+
+    /// - Parameter cache: tests only; one in a test directory, with its own fetch.
+    init(cache: OpenAIPLayerCache<OpenAIPAirport>? = nil) {
+        self.cache = cache ?? OpenAIPLayerCache<OpenAIPAirport>(
+            directoryName: Self.directoryName,
+            filePrefix: "airports",
+            endpointSuffix: "apt",
+            restPath: "airports",
+            logLabel: "OpenAIP airport",
+            parse: OpenAIPAirport.parse(geoJSON:))
+        if let summary = self.cache.restoredSummary() {
             downloadedCountries = summary.downloadedCountries
             airportCount = summary.totalCount
             lastUpdated = summary.lastUpdated
@@ -85,9 +122,10 @@ final class OpenAIPAirportDataService: ObservableObject {
         guard !isDownloading, !countries.isEmpty else { return }
         isDownloading = true
         downloadProgress = 0
-        downloadError = nil
+        failedCountries = []
         defer { isDownloading = false }
 
+        let previousCountries = downloadedCountries
         let result = await cache.downloadData(for: countries) { downloadProgress = $0 }
         airports = result.features
         airportCount = result.features.count
@@ -98,7 +136,14 @@ final class OpenAIPAirportDataService: ObservableObject {
         // A country no source could serve is reported, not swallowed. Silence here is what let the
         // trip-prefetch banner re-offer a download that had just failed, with nothing on screen to
         // say so. (device-test feedback, v4.4.0)
-        downloadError = result.failedCountries.isEmpty ? nil : result.failedCountries.joined(separator: ", ")
+        failedCountries = result.failedCountries
+        // New runways and frequencies reached the app only at the next launch, when the merge ran
+        // again. Every download path ends here (the download page, Data & Storage, the foreground
+        // refresh), so the merge follows from here too. Not after a download that changed nothing:
+        // the re-merge reloads the whole airport database. (6.2.0)
+        if result.failedCountries.count < countries.count || downloadedCountries != previousCountries {
+            onAirportsChanged?()
+        }
     }
 
     // MARK: - Aerodromes of the reporting points (6.0.1)
@@ -128,6 +173,23 @@ final class OpenAIPAirportDataService: ObservableObject {
         ReportingPointLabel(point: point, aerodrome: aerodrome(for: point))
     }
 
+    /// The downloaded OpenAIP aerodrome with this ICAO code, nil when there is none. (6.2.0)
+    func aerodrome(forICAO icao: String) -> ReportingPointAerodrome? {
+        aerodromesByICAO[icao.uppercased()]
+    }
+
+    /// One aerodrome per code; where two share one (a field and its heliport), the one sorting first
+    /// by name, so the answer doesn't depend on dictionary order.
+    nonisolated static func icaoIndex(_ aerodromes: some Sequence<ReportingPointAerodrome>) -> [String: ReportingPointAerodrome] {
+        var index: [String: ReportingPointAerodrome] = [:]
+        for aerodrome in aerodromes {
+            guard let icao = aerodrome.icao?.uppercased(), !icao.isEmpty else { continue }
+            if let existing = index[icao], existing.name <= aerodrome.name { continue }
+            index[icao] = aerodrome
+        }
+        return index
+    }
+
     nonisolated static func aerodromeIndex(_ airports: [OpenAIPAirport]) -> [String: ReportingPointAerodrome] {
         Dictionary(airports.map { ($0.id, ReportingPointAerodrome(icao: $0.icaoCode, name: $0.name)) },
                    uniquingKeysWith: { first, _ in first })
@@ -141,7 +203,7 @@ final class OpenAIPAirportDataService: ObservableObject {
     /// Drops the in-memory array after the merge has consumed it. (APP-16)
     ///
     /// This service is a read-once source: `allLoadedAirports()` has exactly one caller
-    /// (`AirportDataService.applyOpenAIPMergeIfAvailable`), which folds the data into its own
+    /// (the merge in `AirportDataService`), which folds the data into its own
     /// merged store and never reads it again. The raw array nevertheless stayed resident for the
     /// process lifetime — a full second copy of the country dataset, held alongside the merged one
     /// it was already folded into.
@@ -161,11 +223,17 @@ final class OpenAIPAirportDataService: ObservableObject {
         cache.deleteData()
         airports = []
         aerodromesById = [:]
+        pprIcaoCodes = []
+        hasPPRData = false
+        fuelTypesByIcao = [:]
         airportCount = 0
         downloadedCountries = []
+        failedCountries = []
         lastUpdated = nil
         isDataAvailable = false
         isLoaded = false
+        // The merged store still held these aerodromes' runways and frequencies until a relaunch.
+        onAirportsChanged?()
     }
 
     #if DEBUG

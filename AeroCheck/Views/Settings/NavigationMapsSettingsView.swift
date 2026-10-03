@@ -8,6 +8,11 @@ struct NavigationMapsSettingsView: View {
     @EnvironmentObject var openAIPCacheManager: OpenAIPCacheManager
     @EnvironmentObject var openAIPDataService: OpenAIPDataService
     @EnvironmentObject var openAIPNavaidDataService: OpenAIPNavaidDataService
+    // Read for their failed downloads only; the download page fetches them with the others. (6.2.0)
+    @ObservedObject private var obstacleService = OpenAIPObstacleDataService.shared
+    @ObservedObject private var reportingPointService = OpenAIPReportingPointDataService.shared
+    @ObservedObject private var openAIPAirportService = OpenAIPAirportDataService.shared
+    @ObservedObject private var vfrProcedureService = OFMDataService.shared
 
     @State private var forceICAOChartLayer: Bool = false
     @State private var offlineMode: Bool = false
@@ -34,6 +39,7 @@ struct NavigationMapsSettingsView: View {
         SettingsPage {
             navigationSection
             openAIPSection
+            aerodromeProceduresSection
             offlineMapsSection
             airportDataSection
         }
@@ -249,19 +255,67 @@ struct NavigationMapsSettingsView: View {
                                   showsChevron: false, destructive: true, action: { showOpenAIPDeleteConfirmation = true })
             }
 
-            if let error = openAIPDataService.downloadError ?? openAIPCacheManager.downloadError {
-                // Error row: warning glyph + red caption, housed with the row container insets.
-                HStack {
-                    Image(systemName: "exclamationmark.triangle.fill")
-                        .foregroundColor(.aviationRed)
-                    Text(error)
-                        .font(.aero(.caption))
-                        .foregroundColor(.aviationRed)
-                }
-                .padding(.horizontal, 14)
-                .padding(.vertical, 11)
+            // The countries any OpenAIP data layer could not update, in one line. Navaids, obstacles,
+            // reporting points and aerodromes reported theirs to no screen at all, and airspace's
+            // came as an English sentence per country. (6.2.0)
+            if !failedOpenAIPCountries.isEmpty {
+                errorRow(L10n.DataStorage.updateFailed(failedOpenAIPCountries))
+            }
+            // Failures that name no country: airspace's own (a cache that could not be written) and the tiles'.
+            if let error = (openAIPDataService.failedCountries.isEmpty ? openAIPDataService.downloadError : nil)
+                ?? openAIPCacheManager.downloadError {
+                errorRow(error)
             }
         }
+    }
+
+    // MARK: - Aerodrome procedures (6.2.0)
+
+    /// The Map sheet's three switches: open flightmaps' traffic circuits, VFR routes with their sectors,
+    /// and the glider, UL and helicopter circuits (with open flightmaps' helicopter and glider reporting
+    /// points). Off by default.
+    private var aerodromeProceduresSection: some View {
+        SettingsGroup(title: L10n.VFRMap.aerodromeProcedures, tint: tint, footer: L10n.VFRMap.settingsFooter) {
+            SettingsToggleRow(icon: "arrow.triangle.capsulepath", title: L10n.VFRMap.showCircuits, tint: tint,
+                              isOn: settingBinding(\.showVFRCircuitsOnMap))
+            SettingsToggleRow(icon: "arrow.triangle.merge", title: L10n.VFRMap.showRoutes, tint: tint,
+                              isOn: settingBinding(\.showVFRRoutesOnMap))
+            SettingsToggleRow(icon: "wind", title: L10n.VFRMap.showNonPowered, tint: tint,
+                              isOn: settingBinding(\.showNonPoweredCircuitsOnMap))
+        }
+    }
+
+    /// A switch saved as it is flipped, straight into the settings: the map views load the procedures
+    /// when one is on.
+    private func settingBinding(_ keyPath: WritableKeyPath<AppSettings, Bool>) -> Binding<Bool> {
+        Binding(
+            get: { appState.settings[keyPath: keyPath] },
+            set: { appState.settings[keyPath: keyPath] = $0; appState.saveSettings() }
+        )
+    }
+
+    /// Every data layer's failed countries from the last download, once each: the five OpenAIP layers
+    /// and open flightmaps' VFR procedures, which the download page fetches with them.
+    private var failedOpenAIPCountries: [String] {
+        Set(openAIPDataService.failedCountries + openAIPNavaidDataService.failedCountries
+            + obstacleService.failedCountries + reportingPointService.failedCountries
+            + openAIPAirportService.failedCountries + vfrProcedureService.failedCountries).sorted()
+    }
+
+    /// Error row: warning glyph + red caption, housed with the row container insets.
+    private func errorRow(_ message: String) -> some View {
+        HStack {
+            Image(systemName: "exclamationmark.triangle.fill")
+                .foregroundColor(.aviationRed)
+                .accessibilityHidden(true)
+            Text(message)
+                .font(.aero(.caption))
+                .foregroundColor(.aviationRed)
+                .fixedSize(horizontal: false, vertical: true)
+            Spacer(minLength: 0)
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 11)
     }
 
     // MARK: - Airport Data Section
@@ -322,16 +376,7 @@ struct NavigationMapsSettingsView: View {
             }
 
             if let error = airportDataService.downloadError {
-                // Error row: warning glyph + red caption, housed with the row container insets.
-                HStack {
-                    Image(systemName: "exclamationmark.triangle.fill")
-                        .foregroundColor(.aviationRed)
-                    Text(error)
-                        .font(.aero(.caption))
-                        .foregroundColor(.aviationRed)
-                }
-                .padding(.horizontal, 14)
-                .padding(.vertical, 11)
+                errorRow(error)
             }
         }
     }
@@ -384,6 +429,8 @@ struct OpenAIPDownloadSheet: View {
     @EnvironmentObject var openAIPNavaidDataService: OpenAIPNavaidDataService
     @Environment(AppState.self) private var appState
     @Environment(\.dismiss) var dismiss
+    /// Which selected countries also get open flightmaps' circuits and VFR routes. (6.2.0)
+    @ObservedObject private var vfrProcedureService = OFMDataService.shared
 
     /// When true, rendered as a pushed page (parent supplies the nav bar + back); else as a sheet.
     var asPage: Bool = false
@@ -456,6 +503,14 @@ struct OpenAIPDownloadSheet: View {
                                     Text(L10n.Settings.estimatedDataSize(OpenAIPDataService.estimatedDataSize(for: countries)))
                                         .scaledFont(size: 13, relativeTo: .caption)
                                         .foregroundColor(.secondaryText)
+                                    // The countries that also get circuits and VFR routes. (6.2.0)
+                                    let vfrCountries = countries.filter { vfrProcedureService.supportedCountries.contains($0) }.sorted()
+                                    if !vfrCountries.isEmpty {
+                                        Text(L10n.Settings.vfrProceduresIncluded(vfrCountries.joined(separator: ", ")))
+                                            .scaledFont(size: 13, relativeTo: .caption)
+                                            .foregroundColor(.secondaryText)
+                                            .fixedSize(horizontal: false, vertical: true)
+                                    }
                                 }
                                 Spacer()
                                 Button(action: { selectedCountries.removeAll() }) {
@@ -624,6 +679,9 @@ struct OpenAIPDownloadSheet: View {
         let obstacleService = OpenAIPObstacleDataService.shared
         let reportingPointService = OpenAIPReportingPointDataService.shared
         let openAIPAirportService = OpenAIPAirportDataService.shared
+        // The countries open flightmaps covers get their circuits and VFR routes with the rest; the
+        // selection is the union, so a country left out is pruned like the OpenAIP layers'. (6.2.0)
+        let ofmService = OFMDataService.shared
 
         Task {
             if tilesAndData {
@@ -647,6 +705,9 @@ struct OpenAIPDownloadSheet: View {
                     group.addTask {
                         await openAIPAirportService.downloadData(for: countries)
                     }
+                    group.addTask {
+                        await ofmService.downloadData(for: countries)
+                    }
                     await group.waitForAll()
                 }
             } else {
@@ -666,6 +727,9 @@ struct OpenAIPDownloadSheet: View {
                     }
                     group.addTask {
                         await openAIPAirportService.downloadData(for: countries)
+                    }
+                    group.addTask {
+                        await ofmService.downloadData(for: countries)
                     }
                     await group.waitForAll()
                 }

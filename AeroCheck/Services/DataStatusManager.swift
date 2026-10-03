@@ -15,6 +15,7 @@ enum DataFreshness: Int, Comparable, CaseIterable {
 
 /// Age thresholds for a category, in seconds. `aging` is the soft hint, `stale` the hard one. Shown as
 /// "data as of <date>" — never as an AIRAC cycle number (the crowd-sourced data isn't AIRAC-aligned).
+/// open flightmaps is the exception: published per cycle, it goes stale by cycle (`OFMCycleFreshness`).
 struct FreshnessThresholds: Equatable {
     let aging: TimeInterval
     let stale: TimeInterval
@@ -73,6 +74,30 @@ struct DataSet: Identifiable, Equatable {
     /// their aerodromes). The foreground refresh fetches it like stale data, but it is not stale, so
     /// the Home dot doesn't turn red over it. (6.0.1)
     var formatOutdated: Bool = false
+    /// The last update did not complete; nil once one does. Data & Storage says so under the row. (6.2.0)
+    var updateFailure: DataSetUpdateFailure? = nil
+    /// The foreground refresh fetches this dataset as soon as it is aging, not only once stale: data
+    /// published per AIRAC cycle has a new edition to fetch the day it ages. (6.2.0)
+    var refreshWhenAging: Bool = false
+    /// The AIRAC cycle on disk and its validity, under the row's detail, for the one dataset whose
+    /// cycle means something (open flightmaps). (6.2.0)
+    var cycleDetail: String? = nil
+    /// A credit the source asks for, shown under the row. (6.2.0)
+    var attribution: String? = nil
+}
+
+/// An update that did not complete, from any path (Data & Storage, the download page, the foreground
+/// refresh). Failed downloads used to be logged and dropped: the row kept saying "Up to date" over data
+/// that had just failed to update. (6.2.0)
+struct DataSetUpdateFailure: Equatable {
+    /// ISO-2 codes of the countries that kept their old data (or have none); empty for a dataset that
+    /// isn't per-country.
+    let countries: [String]
+
+    /// The failure of a per-country layer, from its service's `failedCountries`; nil when none failed.
+    static func countries(_ failed: [String]) -> DataSetUpdateFailure? {
+        failed.isEmpty ? nil : DataSetUpdateFailure(countries: failed)
+    }
 }
 
 // MARK: - Home-dot health
@@ -124,11 +149,25 @@ protocol DataSetProvider {
     /// For per-country layers: download `countries` (merged with what's already cached) for trip-aware
     /// prefetch. Default no-op for non-country-scoped or intentionally-excluded (e.g. heavy tile) layers.
     func prefetch(countries: [String]) async
+    /// For per-country layers: the countries the source publishes at all; nil when it has every one. A
+    /// route country outside it is no gap, there is nothing to fetch (open flightmaps covers four). (6.2.0)
+    var servableCountries: Set<String>? { get }
+    /// The layer the trip-size estimator prices this provider as; nil when it isn't part of the trip
+    /// top-up (tiles, the airport databases). (6.2.0)
+    var tripLayer: TripDataSizeEstimator.Layer? { get }
 }
 
 extension DataSetProvider {
     var perCountryCoverage: [String]? { nil }
     func prefetch(countries: [String]) async {}
+    var servableCountries: Set<String>? { nil }
+    var tripLayer: TripDataSizeEstimator.Layer? { nil }
+
+    /// Whether a trip through `country` needs this layer's data: per-country, not cached, and served.
+    func lacksTripData(for country: String) -> Bool {
+        guard let coverage = perCountryCoverage, !coverage.contains(country) else { return false }
+        return servableCountries?.contains(country) ?? true
+    }
 }
 
 // MARK: - Manager
@@ -227,39 +266,52 @@ final class DataStatusManager: ObservableObject {
     }
 
     /// Trip-aware prefetch (v4.1.0): the route's countries that are NOT yet covered by at least one
-    /// per-country layer (airspace / navaids / obstacles / reporting points). Empty → nothing to offer.
+    /// per-country layer (airspace / navaids / obstacles / reporting points / VFR procedures), among the
+    /// countries that layer can serve. Empty → nothing to offer.
     func tripCountriesNeedingData(routeCountries: [String]) -> [String] {
-        let perCountry = providers.compactMap { $0.perCountryCoverage }
-        guard !perCountry.isEmpty else { return [] }
-        return routeCountries.filter { country in
-            perCountry.contains { !$0.contains(country) }
-        }
+        Self.tripCountriesNeedingData(providers: providers, routeCountries: routeCountries)
     }
 
     /// The same gap, split by layer, so the download can be sized before it is offered. Coverage is
     /// per-layer — a device can hold Swiss airspace and no Swiss obstacles — and quoting the size of
     /// data already on disk would overstate what the button is about to do. (v4.4.0)
     func tripCountriesNeedingDataByLayer(routeCountries: [String]) -> [TripDataSizeEstimator.Layer: [String]] {
+        Self.tripGaps(providers: providers, routeCountries: routeCountries)
+    }
+
+    static func tripCountriesNeedingData(providers: [DataSetProvider], routeCountries: [String]) -> [String] {
+        routeCountries.filter { country in providers.contains { $0.lacksTripData(for: country) } }
+    }
+
+    /// The route's countries each trip layer lacks, keyed by the layer the estimator prices. Shared by
+    /// Data & Storage and the route builder, which reads the same providers (`tripProviders`). (6.2.0)
+    static func tripGaps(providers: [DataSetProvider],
+                         routeCountries: [String]) -> [TripDataSizeEstimator.Layer: [String]] {
         var result: [TripDataSizeEstimator.Layer: [String]] = [:]
         for provider in providers {
-            guard let layer = Self.sizedLayer(forProviderID: provider.id),
-                  let coverage = provider.perCountryCoverage else { continue }
-            let missing = routeCountries.filter { !coverage.contains($0) }
+            guard let layer = provider.tripLayer else { continue }
+            let missing = routeCountries.filter { provider.lacksTripData(for: $0) }
             if !missing.isEmpty { result[layer] = missing }
         }
         return result
     }
 
-    /// Provider id → the layer the size estimator knows how to price. Providers with no entry (map
-    /// tiles, the OurAirports database) are not part of the trip top-up and carry no per-country cost.
-    private static func sizedLayer(forProviderID id: String) -> TripDataSizeEstimator.Layer? {
-        switch id {
-        case "openaip.airspace": return .airspace
-        case "openaip.navaids": return .navaids
-        case "openaip.obstacles": return .obstacles
-        case "openaip.reportingpoints": return .reportingPoints
-        default: return nil
-        }
+    /// The per-country layers of the trip top-up, built on the services themselves, in the order the
+    /// app registers them: the route builder is a full-screen cover the manager isn't injected into, so
+    /// it reads them through this list rather than four hard-coded calls. The OpenAIP aerodromes stay
+    /// out (`OpenAIPAirportProvider.perCountryCoverage`). (6.2.0)
+    static func tripProviders(airspace: OpenAIPDataService,
+                              navaids: OpenAIPNavaidDataService = .shared,
+                              obstacles: OpenAIPObstacleDataService = .shared,
+                              reportingPoints: OpenAIPReportingPointDataService = .shared,
+                              vfrProcedures: OFMDataService = .shared) -> [DataSetProvider] {
+        [
+            OpenAIPAirspaceProvider(service: airspace),
+            OpenAIPNavaidProvider(service: navaids),
+            OpenAIPObstacleProvider(service: obstacles),
+            OpenAIPReportingPointProvider(service: reportingPoints),
+            OFMProceduresProvider(service: vfrProcedures),
+        ]
     }
 
     /// Download the given countries (merged with each layer's existing cache) across every per-country
@@ -281,15 +333,18 @@ final class DataStatusManager: ObservableObject {
 
     /// Silent foreground auto-refresh (called on scenePhase `.active`): refresh every downloaded
     /// small-JSON dataset that has gone STALE, when the network gate permits. Aging stays untouched
-    /// (the soft hint), and large tiles are never auto-refreshed. A successful refresh makes the
-    /// dataset fresh, so it won't re-download until it ages out again. (v4.1.0)
+    /// (the soft hint) unless the dataset asks otherwise (`refreshWhenAging`: a new AIRAC cycle is out),
+    /// and large tiles are never auto-refreshed. A successful refresh makes the dataset fresh, so it
+    /// won't re-download until it ages out again. (v4.1.0)
     func autoRefreshIfNeeded(cellularUpdatesEnabled: Bool) async {
         guard DataRefreshGate.allowsSilentSmallRefresh(networkMonitor.conditions, cellularUpdatesEnabled: cellularUpdatesEnabled) else { return }
         let stamp = now()
         for provider in providers {
             let set = provider.makeDataSet(now: stamp)
-            guard set.refreshPolicy == .smallSilentJSON, set.isDownloaded,
-                  set.freshness == .stale || set.formatOutdated else { continue }
+            guard set.refreshPolicy == .smallSilentJSON, set.isDownloaded else { continue }
+            let due = set.freshness == .stale || set.formatOutdated
+                || (set.freshness == .aging && set.refreshWhenAging)
+            guard due else { continue }
             await provider.refresh()
         }
         recompute()
@@ -304,8 +359,11 @@ struct OpenAIPAirspaceProvider: DataSetProvider {
     let service: OpenAIPDataService
     var id: String { "openaip.airspace" }
     var perCountryCoverage: [String]? { service.downloadedCountries }
+    var tripLayer: TripDataSizeEstimator.Layer? { .airspace }
+    /// The union, so nothing is pruned; what is already on disk isn't fetched again (as the route
+    /// builder always did, 4.4.0 device pass). (6.2.0)
     func prefetch(countries: [String]) async {
-        await service.downloadData(for: Array(Set(service.downloadedCountries).union(countries)))
+        await service.downloadData(for: Array(Set(service.downloadedCountries).union(countries)), skippingCached: true)
     }
 
     func makeDataSet(now: Date) -> DataSet {
@@ -320,7 +378,8 @@ struct OpenAIPAirspaceProvider: DataSetProvider {
             freshness: FreshnessThresholds.aeronautical.freshness(lastUpdated: service.lastUpdated, now: now),
             sizeOnDisk: nil,
             coverage: service.downloadedCountries,
-            isDownloaded: service.isDataAvailable
+            isDownloaded: service.isDataAvailable,
+            updateFailure: .countries(service.failedCountries)
         )
     }
 
@@ -353,7 +412,10 @@ struct OurAirportsProvider: DataSetProvider {
             freshness: FreshnessThresholds.airports.freshness(lastUpdated: service.lastUpdated, now: now),
             sizeOnDisk: nil,
             coverage: [],
-            isDownloaded: service.isDataAvailable
+            // OurAirports alone: the OpenAIP aerodromes the store also serves have their own row. With
+            // them downloaded, this row read "Not downloaded · Coverage: Worldwide" and offered a delete.
+            isDownloaded: service.isOurAirportsDownloaded,
+            updateFailure: service.downloadError == nil ? nil : DataSetUpdateFailure(countries: [])
         )
     }
 
@@ -433,8 +495,11 @@ struct OpenAIPNavaidProvider: DataSetProvider {
     let service: OpenAIPNavaidDataService
     var id: String { "openaip.navaids" }
     var perCountryCoverage: [String]? { service.downloadedCountries }
+    var tripLayer: TripDataSizeEstimator.Layer? { .navaids }
+    /// The union, so nothing is pruned; what is already on disk isn't fetched again (as the route
+    /// builder always did, 4.4.0 device pass). (6.2.0)
     func prefetch(countries: [String]) async {
-        await service.downloadData(for: Array(Set(service.downloadedCountries).union(countries)))
+        await service.downloadData(for: Array(Set(service.downloadedCountries).union(countries)), skippingCached: true)
     }
 
     func makeDataSet(now: Date) -> DataSet {
@@ -449,7 +514,8 @@ struct OpenAIPNavaidProvider: DataSetProvider {
             freshness: FreshnessThresholds.aeronautical.freshness(lastUpdated: service.lastUpdated, now: now),
             sizeOnDisk: nil,
             coverage: service.downloadedCountries,
-            isDownloaded: service.isDataAvailable
+            isDownloaded: service.isDataAvailable,
+            updateFailure: .countries(service.failedCountries)
         )
     }
 
@@ -467,8 +533,11 @@ struct OpenAIPObstacleProvider: DataSetProvider {
     let service: OpenAIPObstacleDataService
     var id: String { "openaip.obstacles" }
     var perCountryCoverage: [String]? { service.downloadedCountries }
+    var tripLayer: TripDataSizeEstimator.Layer? { .obstacles }
+    /// The union, so nothing is pruned; what is already on disk isn't fetched again (as the route
+    /// builder always did, 4.4.0 device pass). (6.2.0)
     func prefetch(countries: [String]) async {
-        await service.downloadData(for: Array(Set(service.downloadedCountries).union(countries)))
+        await service.downloadData(for: Array(Set(service.downloadedCountries).union(countries)), skippingCached: true)
     }
 
     func makeDataSet(now: Date) -> DataSet {
@@ -483,7 +552,8 @@ struct OpenAIPObstacleProvider: DataSetProvider {
             freshness: FreshnessThresholds.aeronautical.freshness(lastUpdated: service.lastUpdated, now: now),
             sizeOnDisk: nil,
             coverage: service.downloadedCountries,
-            isDownloaded: service.isDataAvailable
+            isDownloaded: service.isDataAvailable,
+            updateFailure: .countries(service.failedCountries)
         )
     }
 
@@ -501,8 +571,11 @@ struct OpenAIPReportingPointProvider: DataSetProvider {
     let service: OpenAIPReportingPointDataService
     var id: String { "openaip.reportingpoints" }
     var perCountryCoverage: [String]? { service.downloadedCountries }
+    var tripLayer: TripDataSizeEstimator.Layer? { .reportingPoints }
+    /// The union, so nothing is pruned; what is already on disk isn't fetched again (as the route
+    /// builder always did, 4.4.0 device pass). (6.2.0)
     func prefetch(countries: [String]) async {
-        await service.downloadData(for: Array(Set(service.downloadedCountries).union(countries)))
+        await service.downloadData(for: Array(Set(service.downloadedCountries).union(countries)), skippingCached: true)
     }
 
     func makeDataSet(now: Date) -> DataSet {
@@ -520,7 +593,8 @@ struct OpenAIPReportingPointProvider: DataSetProvider {
             isDownloaded: service.isDataAvailable,
             // A cache from before points kept their aerodromes: the foreground refresh fetches it once
             // more (a few KB per country). (6.0.1)
-            formatOutdated: service.cachePredatesAerodromes
+            formatOutdated: service.cachePredatesAerodromes,
+            updateFailure: .countries(service.failedCountries)
         )
     }
 
@@ -528,6 +602,101 @@ struct OpenAIPReportingPointProvider: DataSetProvider {
         let countries = service.downloadedCountries
         guard !countries.isEmpty else { return }
         await service.downloadData(for: countries)
+    }
+
+    func delete() { service.deleteData() }
+}
+
+/// OpenAIP aerodromes: the primary airport source. `AirportDataService` folds them into the OurAirports
+/// backbone (position, runways, frequencies) and the flight thread reads their PPR flags. Per-country
+/// small JSON like the other OpenAIP layers, so it gets their thresholds and their silent refresh; it
+/// had no provider before 6.2.0, so it showed no row, never refreshed and survived "Remove all
+/// downloads". A download or a delete re-runs the merge by itself
+/// (`OpenAIPAirportDataService.onAirportsChanged`). (6.2.0)
+@MainActor
+struct OpenAIPAirportProvider: DataSetProvider {
+    let service: OpenAIPAirportDataService
+    var id: String { "openaip.airports" }
+
+    /// Nil: the layer stays out of the trip prefetch. OurAirports already gives every country on a
+    /// route its aerodromes, runways and frequencies; OpenAIP refines them, so a route country without
+    /// OpenAIP aerodromes is not the blind spot the trip banner is for (airspace, obstacles). Counting
+    /// it would also raise the banner again for every country a trip prefetch fetched since 4.1.0
+    /// (the four layers, never this one), with no size to quote (the estimator has no airport layer).
+    /// The countries still show in the row (`DataSet.coverage`).
+    var perCountryCoverage: [String]? { nil }
+
+    func makeDataSet(now: Date) -> DataSet {
+        DataSet(
+            id: id,
+            displayName: L10n.DataStorage.openAIPAirportsName,
+            detail: L10n.DataStorage.openAIPAirportsDetail,
+            urgency: .primary,
+            provenance: .community,
+            refreshPolicy: .smallSilentJSON,
+            lastUpdated: service.lastUpdated,
+            freshness: FreshnessThresholds.aeronautical.freshness(lastUpdated: service.lastUpdated, now: now),
+            sizeOnDisk: nil,
+            coverage: service.downloadedCountries,
+            isDownloaded: service.isDataAvailable,
+            updateFailure: .countries(service.failedCountries)
+        )
+    }
+
+    func refresh() async {
+        let countries = service.downloadedCountries
+        guard !countries.isEmpty else { return }
+        await service.downloadData(for: countries)
+    }
+
+    func delete() { service.deleteData() }
+}
+
+/// Traffic circuits, VFR arrival and departure routes and sectors from open flightmaps
+/// (`OFMDataService`). Primary data, small silent JSON like the OpenAIP layers, but stale BY CYCLE: fresh
+/// until the next AIRAC cycle is effective, aging from then on (and refreshed by the foreground refresh
+/// as soon as it is, at most hourly, `OFMDataService.agingRecheckInterval`), stale four weeks later.
+/// Part of the trip top-up for the countries OFM covers. (6.2.0)
+@MainActor
+struct OFMProceduresProvider: DataSetProvider {
+    let service: OFMDataService
+    /// The countries the device keeps offline (the OpenAIP selection), for a Refresh on a row that was
+    /// never downloaded: every install that had data before 6.2.0 starts there. Empty in the builder.
+    var offlineCountries: () -> [String] = { [] }
+
+    var id: String { "ofm.procedures" }
+    var perCountryCoverage: [String]? { service.downloadedCountries }
+    var servableCountries: Set<String>? { Set(service.supportedCountries) }
+    var tripLayer: TripDataSizeEstimator.Layer? { .vfrProcedures }
+
+    func prefetch(countries: [String]) async {
+        await service.downloadData(for: Array(Set(service.downloadedCountries).union(countries)))
+    }
+
+    func makeDataSet(now: Date) -> DataSet {
+        DataSet(
+            id: id,
+            displayName: L10n.DataStorage.vfrProceduresName,
+            detail: L10n.DataStorage.vfrProceduresDetail,
+            urgency: .primary,
+            provenance: .community,
+            refreshPolicy: .smallSilentJSON,
+            lastUpdated: service.lastUpdated,
+            freshness: service.freshness(now: now),
+            sizeOnDisk: nil,
+            coverage: service.downloadedCountries,
+            isDownloaded: service.isDataAvailable,
+            updateFailure: .countries(service.failedCountries),
+            refreshWhenAging: service.isAgingRecheckDue(now: now),
+            cycleDetail: service.cycleDetail(now: now),
+            attribution: L10n.DataStorage.vfrProceduresAttribution
+        )
+    }
+
+    func refresh() async {
+        let countries = Set(service.downloadedCountries).union(offlineCountries())
+        guard !countries.isEmpty else { return }
+        await service.downloadData(for: Array(countries))
     }
 
     func delete() { service.deleteData() }

@@ -531,4 +531,68 @@ final class CompanionLinkTests: XCTestCase {
                                           "sends failing", "the connection closed", "idle 10 min with no flight",
                                           "the device was forgotten"])
     }
+
+    // MARK: - A listener restart waits for the old one (6.1.0)
+
+    func testARestartWaitsForTheOldListenerToEnd() async {
+        let quick = Task<Void, any Error> { try await Task.sleep(for: .milliseconds(200)) }
+        let start = ContinuousClock.now
+        let ended = await CompanionConnectivityManager.waitForEnd(of: quick, upTo: .seconds(3))
+        XCTAssertTrue(ended)
+        XCTAssertLessThan(ContinuousClock.now - start, .seconds(2), "no longer than the old listener takes")
+    }
+
+    func testARestartDoesNotWaitForeverForAListenerThatHangs() async {
+        let hung = Task<Void, any Error> { try? await Task.sleep(for: .seconds(60)) }
+        defer { hung.cancel() }
+        let start = ContinuousClock.now
+        let ended = await CompanionConnectivityManager.waitForEnd(of: hung, upTo: .milliseconds(500))
+        XCTAssertFalse(ended)
+        XCTAssertLessThan(ContinuousClock.now - start, .seconds(2), "the limit holds")
+    }
+
+    // MARK: - The phone's goodbye reaches the iPad (6.1.0)
+
+    func testThePhonesGoodbyeGoesOutBeforeItsConnectionCloses() async {
+        let connection = Task<Void, any Error> { try await Task.sleep(for: .seconds(60)) }
+        let sent = SentMessages()
+        let closedBeforeTheGoodbye = SentFlag()
+        let send: @Sendable (CompanionMessage) async throws -> Void = { message in
+            if connection.isCancelled { closedBeforeTheGoodbye.set() }
+            try await Task.sleep(for: .milliseconds(50))   // a send takes a moment on the radio
+            try await sent.handler(message)
+        }
+        let went = await CompanionConnectivityManager.sayGoodbye(goodbye, on: send, thenClose: connection,
+                                                                 upTo: .seconds(2))
+        XCTAssertTrue(went)
+        XCTAssertEqual(sent.of(.disconnect).count, 1, "the iPad is told")
+        XCTAssertFalse(closedBeforeTheGoodbye.isSet, "the connection was still open when the goodbye left")
+        XCTAssertTrue(connection.isCancelled, "and closed after it")
+    }
+
+    func testAGoodbyeThatHangsDoesNotKeepTheConnectionOpen() async {
+        let connection = Task<Void, any Error> { try await Task.sleep(for: .seconds(60)) }
+        let hangs: @Sendable (CompanionMessage) async throws -> Void = { _ in try? await Task.sleep(for: .seconds(30)) }
+        let start = ContinuousClock.now
+        let went = await CompanionConnectivityManager.sayGoodbye(goodbye, on: hangs, thenClose: connection,
+                                                                 upTo: .milliseconds(300))
+        XCTAssertFalse(went)
+        XCTAssertTrue(connection.isCancelled, "closed anyway")
+        XCTAssertLessThan(ContinuousClock.now - start, .seconds(2))
+    }
+
+    func testAPhoneThatDisconnectsTellsTheIPad() async throws {
+        let sent = SentMessages()
+        let (companion, _) = try connectedViewer(sent: sent)
+        companion.manager.disconnect()
+        let told = try await eventually { !sent.of(.disconnect).isEmpty }
+        XCTAssertTrue(told)
+    }
+
+    final class SentFlag: @unchecked Sendable {
+        private let lock = NSLock()
+        private var value = false
+        var isSet: Bool { lock.withLock { value } }
+        func set() { lock.withLock { value = true } }
+    }
 }

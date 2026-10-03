@@ -36,7 +36,7 @@ struct EventConfirmationView: View {
                     .background(Circle().fill(iconColor.opacity(0.16)))
                     .accessibilityHidden(true)
 
-                Text(event.type.rawValue)
+                Text(event.type.title)
                     .font(.aero(size: CockpitType.button, weight: .bold))
                     .foregroundColor(theme.textPrimary)
                     .accessibilityIdentifier("eventCard.\(event.type)")

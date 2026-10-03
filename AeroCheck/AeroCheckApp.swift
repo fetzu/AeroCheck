@@ -74,6 +74,8 @@ struct AeroCheckApp: App {
         _offlineMapManager = StateObject(wrappedValue: offline)
         let airports = AirportDataService()
         _airportDataService = StateObject(wrappedValue: airports)
+        // An OpenAIP airport download or delete, from any screen, re-runs the merge into this store. (6.2.0)
+        airports.followOpenAIPAirports()
         let openAIP = OpenAIPDataService()
         _openAIPDataService = StateObject(wrappedValue: openAIP)
         let openAIPCache = OpenAIPCacheManager()
@@ -107,7 +109,12 @@ struct AeroCheckApp: App {
                 OpenAIPNavaidProvider(service: navaids),
                 OpenAIPObstacleProvider(service: OpenAIPObstacleDataService.shared),
                 OpenAIPReportingPointProvider(service: OpenAIPReportingPointDataService.shared),
+                OpenAIPAirportProvider(service: OpenAIPAirportDataService.shared),
                 OurAirportsProvider(service: airports),
+                // Circuits and VFR routes (6.2.0). A Refresh before the first download takes the
+                // countries the airspace layer keeps.
+                OFMProceduresProvider(service: OFMDataService.shared,
+                                      offlineCountries: { openAIP.downloadedCountries }),
                 SwissChartsProvider(manager: offline),
                 OpenAIPTilesProvider(manager: openAIPCache),
             ],
@@ -220,7 +227,8 @@ struct AeroCheckApp: App {
 
                     // v4.1.0: OpenAIP is the primary airport source. Re-apply the merge here in case an
                     // early ensureLoaded (widget/deep-link cold start via FlightLauncher) loaded airports
-                    // before OpenAIP airport data was ready; idempotent + a no-op without OpenAIP data.
+                    // before OpenAIP airport data was ready. Queued behind that load; before any load, it
+                    // fills the store with OpenAIP's fields alone. (6.2.0)
                     await airportDataService.applyOpenAIPMergeIfAvailable()
 
                     // Load subscription products and aircraft data in parallel with timeouts
@@ -246,10 +254,9 @@ struct AeroCheckApp: App {
 
                     // If a flight was restored from a crash-recovery checkpoint, re-resolve its
                     // checklist now that aircraft data is loaded — a restored premium flight
-                    // reloads its own checklist instead of showing unresolved content. (ARCH-08)
-                    if appState.isFlightActive && appState.resolvedRemoteChecklist == nil {
-                        await appState.loadRemoteChecklistIfNeeded(aircraftDataService: aircraftDataService)
-                    }
+                    // reloads its own checklist instead of showing unresolved content. Its own
+                    // aircraft, not the selection, which another device may have changed. (ARCH-08)
+                    await appState.loadFlightChecklistIfNeeded(aircraftDataService: aircraftDataService)
 
                     // PR-01: a flight restored from the crash-recovery checkpoint comes back "live"
                     // (running clock, restored checklist/track) but with GPS tracking OFF —
@@ -290,6 +297,13 @@ struct AeroCheckApp: App {
                     await OpenAIPObstacleDataService.shared.ensureLoaded()
                     // v4.1.0: preload reporting points so the nav-map markers have data in memory.
                     await OpenAIPReportingPointDataService.shared.ensureLoaded()
+                    // 6.2.0: the aerodrome procedures, only when a map shows them (off by default).
+                    if VFRLayerSelection(settings: appState.settings).isAnyOn {
+                        await OFMDataService.shared.ensureLoaded()
+                    }
+                    // 6.2.0: where each country keeps its official charts (12 KB, weekly, from the
+                    // disk when fresh). Not awaited: nothing at launch waits for a link.
+                    Task { await OfficialChartService.shared.refreshIfNeeded() }
 
                     // Check for yearly map update reminder (after main content loads)
                     if offlineMapManager.shouldShowUpdateReminder {
@@ -310,6 +324,8 @@ struct AeroCheckApp: App {
                     guard phase == .active else { return }
                     dataStatusManager.recompute()
                     Task { await dataStatusManager.autoRefreshIfNeeded(cellularUpdatesEnabled: true) }
+                    // The chart registry when a week old, or a new AIRAC cycle's French folder. (6.2.0)
+                    Task { await OfficialChartService.shared.refreshIfNeeded() }
                     // Re-establish the companion link on foreground (e.g. after the peer relaunched), and
                     // back from the background, check it or look afresh. (v4.1; 6.1.0)
                     companionConnectivityManager.appBecameActive()

@@ -1196,6 +1196,8 @@ struct DepartureBriefingContent: View {
                             if let elev = airport.elevation {
                                 BriefingItem(label: L10n.Briefing.elevation, value: "\(elev) \(L10n.Unit.ft)")
                             }
+                            // Its official chart, in the browser. (6.2.0)
+                            OfficialChartLinkButton(icao: airport.ident, type: airport.type)
                         } else {
                             BriefingItem(label: L10n.Briefing.airport, value: L10n.Briefing.notDetected)
                         }
@@ -1283,6 +1285,8 @@ struct ApproachBriefingContent: View {
                             if let elev = airport.elevation {
                                 BriefingItem(label: L10n.Briefing.elevation, value: "\(elev) \(L10n.Unit.ft)")
                             }
+                            // Its official chart, in the browser. (6.2.0)
+                            OfficialChartLinkButton(icao: airport.ident, type: airport.type)
                         } else {
                             BriefingItem(label: L10n.Briefing.airport, value: L10n.Briefing.notDetected)
                         }
@@ -1630,10 +1634,12 @@ struct BriefingReportingPointRow: View {
     let point: ReportingPoint
 
     var body: some View {
-        let label = OpenAIPAirportDataService.shared.label(for: point)
+        let label = ReportingPointCatalog.shared.label(for: point)
+        // A remark the aerodrome doesn't say, then where an open flightmaps point comes from. (6.2.0)
+        let detail = [label.note, label.source].compactMap { $0 }
         BriefingItem(label: label.title, value: label.briefingValue) {
-            if let note = label.note {
-                Text(note)
+            if !detail.isEmpty {
+                Text(detail.joined(separator: "\n"))
                     .font(.aero(size: CockpitType.label))
                     .foregroundColor(theme.textSecondary)
                     .fixedSize(horizontal: false, vertical: true)

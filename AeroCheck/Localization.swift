@@ -78,6 +78,8 @@ enum L10n {
         static let dataSourcesTitle = String(localized: "Data sources")
         static let sourceCharts = String(localized: "Aeronautical charts · © swisstopo / BAZL")
         static let sourceAirspace = String(localized: "Airspace · © OpenAIP and contributors, CC BY-NC 4.0")
+        /// open flightmaps' licence asks for the credit, and its data is never a primary source. (6.2.0)
+        static let sourceVFRProcedures = String(localized: "Traffic circuits, VFR routes & reporting points · © open flightmaps association · indicative, not for primary navigation")
         static let sourceAirports = String(localized: "Airport database · public domain")
         static let sourceWind = String(localized: "Surface wind (Switzerland) · © MeteoSwiss")
         static let sourceElevation = String(localized: "Terrain elevation & winds aloft · Open-Meteo (CC BY 4.0), © swisstopo")
@@ -93,6 +95,31 @@ enum L10n {
         static let reportingPointsName = String(localized: "Reporting points")
         static let reportingPointsDetail = String(localized: "OpenAIP · VFR reporting points")
         static let showReportingPointsOnMap = String(localized: "Show reporting points on map")
+        static let openAIPAirportsName = String(localized: "Aerodromes")
+        static let openAIPAirportsDetail = String(localized: "OpenAIP · runways, frequencies & PPR · primary source")
+        // open flightmaps VFR procedures (6.2.0)
+        static let vfrProceduresName = String(localized: "VFR procedures (open flightmaps)")
+        static let vfrProceduresDetail = String(localized: "open flightmaps · traffic circuits, VFR arrival & departure routes, sectors")
+        static let vfrProceduresAttribution = String(localized: "© open flightmaps association · not for primary navigation")
+        /// "AIRAC 2610 · valid Oct 1 – 28, 2026": the cycle on disk while it is current.
+        static func vfrCycleValid(_ airac: String, _ days: String) -> String {
+            String(localized: "AIRAC \(airac) · valid \(days)")
+        }
+        /// The cycle has ended and OFM hasn't published the next one yet.
+        static func vfrCycleNotPublished(_ airac: String) -> String {
+            String(localized: "AIRAC \(airac) · a newer cycle isn't published yet")
+        }
+        /// The cycle has ended and the next one is out (the update hasn't run, or failed).
+        static func vfrCycleAvailable(_ airac: String, _ newer: String) -> String {
+            String(localized: "AIRAC \(airac) · AIRAC \(newer) is available")
+        }
+        /// Under a data row, and in Navigation & Maps, after an update that did not complete: the
+        /// countries that kept their old data, or none for a dataset that isn't per-country. (6.2.0)
+        static func updateFailed(_ countries: [String]) -> String {
+            countries.isEmpty
+                ? String(localized: "Couldn't update. Try again on Wi-Fi.")
+                : String(localized: "Couldn't update \(countries.joined(separator: ", ")). Try again on Wi-Fi.")
+        }
         /// Lower-case layer name for the trip-size breakdown ("29 841 obstacles · 152 navaids").
         ///
         /// Reuses the row titles, which are already plural and read correctly after a count in both
@@ -105,6 +132,7 @@ enum L10n {
             case .navaids: return navaidsName.lowercased()
             case .obstacles: return obstaclesName.lowercased()
             case .reportingPoints: return reportingPointsName.lowercased()
+            case .vfrProcedures: return String(localized: "VFR procedures")
             }
         }
         static let tripSection = String(localized: "Trip data")
@@ -504,6 +532,24 @@ enum L10n {
         static let simulatedPosition = String(localized: "gps.simulatedPosition")
         static let points = String(localized: "gps.points")
         static let pointsRecorded = String(localized: "gps.pointsRecorded")
+        // The GPS Status drawer: why the signal is degraded or lost, and the fix tiles (6.2: English
+        // in French until then).
+        static func reasonReducedAccuracy(_ metres: Int) -> String {
+            String(format: String(localized: "gps.reason.reducedAccuracy"), metres)
+        }
+        static func reasonNoUpdate(_ seconds: Int) -> String {
+            String(format: String(localized: "gps.reason.noUpdate"), seconds)
+        }
+        static func reasonNetworkPosition(_ metres: Int) -> String {
+            String(format: String(localized: "gps.reason.networkPosition"), metres)
+        }
+        static let reasonWeakSignal = String(localized: "gps.reason.weakSignal")
+        static let reasonNoFix = String(localized: "gps.reason.noFix")
+        static let fixAccuracy = String(localized: "gps.fix.accuracy")
+        static let fixVertical = String(localized: "gps.fix.vertical")
+        static let fixTime = String(localized: "gps.fix.time")
+        static let fixAltitude = String(localized: "gps.fix.altitudeMSL")
+        static let fixPosition = String(localized: "gps.fix.position")
 
         // GPS Status Modal
         static let statusTitle = String(localized: "gps.status.title")
@@ -530,6 +576,19 @@ enum L10n {
         static let takeoff = String(localized: "time.takeoff")
         static let landing = String(localized: "time.landing")
         static let shutdown = String(localized: "time.shutdown")
+
+        /// "4 mo ago", "in 3 hr"; "il y a 4 m.", "dans 3 h". One style for every relative time: the
+        /// abbreviated one is CLDR's narrow form, which French writes "-4 m." and "-13 s". (6.2)
+        static func relative(_ date: Date, to now: Date = Date()) -> String {
+            relativeFormatter.localizedString(for: date, relativeTo: now)
+        }
+        static func makeRelativeFormatter(locale: Locale) -> RelativeDateTimeFormatter {
+            let formatter = RelativeDateTimeFormatter()
+            formatter.unitsStyle = .short
+            formatter.locale = locale
+            return formatter
+        }
+        private static let relativeFormatter = makeRelativeFormatter(locale: .current)
     }
 
     // MARK: - Alerts
@@ -838,6 +897,10 @@ enum L10n {
         static let downloadAirspaceOnly = String(localized: "settings.openAIP.downloadAirspaceOnly")
         static let downloadWithTiles = String(localized: "Download data + map tiles")   // v4.1.0 (literal-keyed; FR in pass)
         static let openAIPDownloadHint = String(localized: "Data (airspace, navaids, obstacles, reporting points, airports) is small. Map tiles add raster chart imagery and are much larger.")
+        /// Under the selection: the countries that also get open flightmaps' circuits and VFR routes. (6.2.0)
+        static func vfrProceduresIncluded(_ countries: String) -> String {
+            String(localized: "VFR procedures (open flightmaps): \(countries)")
+        }
         static let openAIPSelectionChanged = String(localized: "settings.openAIP.selectionChanged")
         static func openAIPCountriesSelected(_ count: Int) -> String {
             String(format: String(localized: "settings.openAIP.countriesSelected"), count)
@@ -1020,6 +1083,12 @@ enum L10n {
         static let noFlightsMessage = String(localized: "flightLog.noFlights.message")
         static let importFlight = String(localized: "flightLog.importFlight")
         static let pts = String(localized: "flightLog.pts")
+        /// The year menu, closed, when no year is picked: "All". (6.2)
+        static let allYears = String(localized: "flightLog.allYears")
+        /// A row's landings: "3 ldg". `String(format:)` keeps the number ungrouped, like the distance beside it.
+        static func landingCount(_ count: Int) -> String {
+            String(format: String(localized: "flightLog.landingCount"), count)
+        }
         // Naming a flight just imported (v6.1)
         static let nameImportedTitle = String(localized: "flightLog.nameImported.title")
         static func nameImportedMessage(_ title: String) -> String {
@@ -1027,6 +1096,18 @@ enum L10n {
         }
         static let nameImportedSave = String(localized: "flightLog.nameImported.save")
         static let nameImportedSkip = String(localized: "flightLog.nameImported.skip")
+
+        // The dashboard and the list (6.2: English in French until then)
+        static let hours = String(localized: "Hours", comment: "Logbook metric card: the hours flown in the period.")
+        static let flights = String(localized: "Flights")
+        static let landings = String(localized: "Landings", comment: "Logbook metric card: the landings in the period.")
+        static let filter = String(localized: "Filter", comment: "Logbook list: the aircraft filter, before an aircraft is picked.")
+        /// Over the list: "1 FLIGHT", "12 FLIGHTS". The plural is the catalog's (`ShareCard.flightCount`).
+        static func listHeader(_ count: Int) -> String { L10n.ShareCard.flightCount(count).uppercased() }
+        /// A month's line: "1 flight · 1.9 h".
+        static func monthSummary(_ count: Int, hours: Double) -> String {
+            "\(L10n.ShareCard.flightCount(count)) · \(String(format: "%.1f", hours)) h"
+        }
     }
 
     // MARK: - Flight titles, read aloud (v6.1)
@@ -1162,6 +1243,33 @@ enum L10n {
         static let gpsDegraded = String(localized: "a11y.gps.degraded")
         static let gpsLost = String(localized: "a11y.gps.lost")
         static let gpsUnknown = String(localized: "a11y.gps.unknown")
+
+        // The instruments' values: the Cockpit strip and the boxed instruments (6.2: English in French
+        // until then). Their labels, "Ground speed", "Altitude" and "Heading", are keys in the views.
+        /// The speed and the altitude read nothing else with the GPS lost.
+        static let instrumentGPSLost = String(localized: "GPS signal lost")
+        /// A phase without a target speed (taxi, run-up): "12 knots ground speed".
+        static func groundSpeed(_ knots: Int) -> String {
+            String(localized: "\(knots) knots ground speed")
+        }
+        /// "55 knots ground speed, on target. Target 55 knots": the state in words, never colour alone.
+        static func groundSpeedOnTarget(_ knots: Int, target: Int) -> String {
+            String(localized: "\(knots) knots ground speed, on target. Target \(target) knots")
+        }
+        static func groundSpeedOffTarget(_ knots: Int, target: Int) -> String {
+            String(localized: "\(knots) knots ground speed, off target. Target \(target) knots")
+        }
+        /// "3500 feet M S L". Formatted apart, so the figure stays ungrouped as it always was: interpolated,
+        /// `String(localized:)` writes "3'500" in a Swiss region.
+        static func altitudeMSL(_ feet: Int) -> String {
+            String(format: String(localized: "%lld feet M S L"), feet)
+        }
+        /// The GPS track under the strip's TRK: "270 degrees track".
+        static func track(_ degrees: Int) -> String {
+            String(localized: "\(degrees) degrees track")
+        }
+        /// No valid GPS course to read.
+        static let trackUnknown = String(localized: "unknown")
     }
 
     enum ChecklistAction {
@@ -1265,6 +1373,8 @@ enum L10n {
         static let noGPSData = String(localized: "flightDetail.noGPSData")
         static let noAltitudeData = String(localized: "flightDetail.noAltitudeData")
         static let altitudeFtMSL = String(localized: "flightDetail.altitudeFtMSL")
+        /// The header chip over the landings: "LDG". (6.2)
+        static let landingsChip = String(localized: "flightDetail.landingsChip")
 
         // Times
         static let sessionStart = String(localized: "flightDetail.sessionStart")
@@ -1283,6 +1393,14 @@ enum L10n {
         // Block Times
         static let blockOff = String(localized: "flightDetail.blockOff")
         static let blockOn = String(localized: "flightDetail.blockOn")
+
+        // The header, the track and the chart (6.2: English in French until then)
+        static let time = String(localized: "flightDetail.time")
+        static let timeline = String(localized: "TIMELINE")
+        static let trackStart = String(localized: "flightDetail.trackStart")
+        static let trackEnd = String(localized: "flightDetail.trackEnd")
+        static let chartAltitude = String(localized: "Altitude")
+        static let chartSpeed = String(localized: "Speed")
 
         // Name/Notes
         static let flightName = String(localized: "flightDetail.flightName")
@@ -1368,8 +1486,26 @@ enum L10n {
         /// Under the map styles when the ICAO chart gives way to the glider chart.
         static let gliderChartNote = String(localized: "Drawn on the glider chart, sharper at this scale")
 
+        // The Logbook's stats sheet (6.2: English in French until then). Its section labels, toggles,
+        // accents and layouts took a `String`, which `Text` shows as it is, so the lookup happens here.
+        static let shareStats = String(localized: "Share Stats")
+        static let colorTheme = String(localized: "COLOR THEME")
+        static let accent = String(localized: "ACCENT", comment: "Logbook stats sheet: the card's accent colour.")
+        static let accentGold = String(localized: "Gold", comment: "An accent colour of the Logbook stats card.")
+        static let accentBlue = String(localized: "Blue", comment: "An accent colour of the Logbook stats card.")
+        static let accentGreen = String(localized: "Green", comment: "An accent colour of the Logbook stats card.")
+        static let accentOrange = String(localized: "Orange", comment: "An accent colour of the Logbook stats card.")
+        static let accentRed = String(localized: "Red", comment: "An accent colour of the Logbook stats card.")
+        static let layout = String(localized: "LAYOUT", comment: "Logbook stats sheet: Tiles or Hero.")
+        static let layoutTiles = String(localized: "Tiles", comment: "Logbook stats card layout: four equal tiles in a row.")
+        static let layoutHero = String(localized: "Hero", comment: "Logbook stats card layout: the hours in big, then three smaller tiles.")
+        static let content = String(localized: "CONTENT", comment: "Logbook stats sheet: what the card shows.")
+        static let showHoursByAircraft = String(localized: "Hours by aircraft", comment: "Logbook stats sheet: a toggle for the card's hours per aircraft.")
+        static let showPeriodTitle = String(localized: "Period title", comment: "Logbook stats sheet: a toggle for the period under the card's title, 2026 or All time.")
+
         // The journey card (6.1): a day of the Logbook or a trip's legs on one card.
-        /// "3 flights": a day with circuits or a local flight in it, and the Logbook's day header.
+        /// "3 flights", "1 flight": a day with circuits or a local flight in it, and the Logbook's day
+        /// header, list header and month lines. A plural in the catalog, in both languages.
         static func flightCount(_ count: Int) -> String { String(localized: "\(count) flights") }
         /// The Logbook's day header: "1:26 flying".
         static func flying(_ duration: String) -> String {
@@ -1394,6 +1530,14 @@ enum L10n {
         }
         /// "Hide where I parked" on a journey: the day's first departure and last arrival only.
         static let hideParkingJourneyHint = String(localized: "Leaves out the first leg's first 300 m and the last leg's last 300 m")
+
+        // The Logbook's stats card (6.2: English in French until then). Its tiles take a `String`, which
+        // `Text` shows as it is, so the lookup happens here.
+        static let statsTitle = String(localized: "FLIGHT LOG")
+        static let statsHours = String(localized: "HOURS")
+        static let statsFlights = String(localized: "FLIGHTS")
+        static let statsLandings = String(localized: "LANDINGS")
+        static let statsHoursByAircraft = String(localized: "HOURS BY AIRCRAFT")
     }
 
     // MARK: - Event Confirmation
@@ -1406,6 +1550,10 @@ enum L10n {
         static func autoDismiss(_ seconds: Int) -> String {
             String(format: String(localized: "eventConfirmation.autoDismiss"), seconds)
         }
+        // The event's name: the card's title and the post-flight review's type menu. (6.2)
+        static let goAround = String(localized: "flightEvent.goAround")
+        static let touchAndGo = String(localized: "flightEvent.touchAndGo")
+        static let fullStop = String(localized: "flightEvent.fullStop")
     }
 
     // MARK: - Post-Flight Reconciliation
@@ -1957,6 +2105,8 @@ enum L10n {
         static func nextPhaseA11y(_ phase: String) -> String {
             String(format: String(localized: "cockpit.nextPhaseA11y"), phase)
         }
+        /// The strip's column over the next waypoint, on the iPad: "NEXT". (6.2)
+        static let nextColumn = String(localized: "cockpit.nextColumn")
         static let allChecked = String(localized: "cockpit.allChecked")
         /// Under READY FOR LINE UP: "then LINE UP CHECK". (6.2)
         static func thenCheck(_ check: String) -> String {
@@ -2199,11 +2349,22 @@ enum L10n {
         }
         static let noFrequency = String(localized: "trip.noFrequency")
         static let noCandidates = String(localized: "trip.noCandidates")
+        /// A searched aerodrome that is this flight's own end, so no stop (6.1).
+        static let leavesHere = String(localized: "trip.leavesHere")
+        static let landsHere = String(localized: "trip.landsHere")
+        static let leavesAndLandsHere = String(localized: "trip.leavesAndLandsHere")
         static let refuelHint = String(localized: "trip.refuelHint")
         static let joinNextLeg = String(localized: "trip.joinNextLeg")
 
         // Cancel trip (6.1)
         static let cancelTrip = String(localized: "trip.cancel")
+        /// At the foot of a trip's leg, beside the whole trip's cancel. (6.1.0)
+        static let cancelThisLeg = String(localized: "trip.cancelThisLeg")
+        /// The legs it takes: those not flown yet.
+        static func cancelWholeTrip(legs: Int) -> String {
+            legs == 1 ? String(localized: "trip.cancelWholeTripOneLeg")
+                      : String(format: String(localized: "trip.cancelWholeTrip"), legs)
+        }
         static let cancelConfirmTitle = String(localized: "trip.cancelConfirm.title")
         static let keepTrip = String(localized: "trip.cancelConfirm.keep")
         /// "Leg 2 · LSGE → LSGN"
@@ -2358,6 +2519,65 @@ enum L10n {
         static let routeContinues = String(localized: "pdf.routeContinues")
         static func page(_ number: Int, _ count: Int) -> String {
             String(format: String(localized: "pdf.page"), number, count)
+        }
+    }
+
+    /// Aerodrome procedures from open flightmaps on the maps: the switches, the labels, the callout and
+    /// the credit. (6.2.0)
+    enum VFRMap {
+        static let aerodromeProcedures = String(localized: "Aerodrome procedures")
+        static let showCircuits = String(localized: "Traffic circuits")
+        static let showRoutes = String(localized: "Arrival & departure routes (with sectors)")
+        /// The third switch: the glider, UL, gyro and helicopter circuits (with the routes, the helicopter
+        /// routes), and open flightmaps' helicopter and glider reporting points. (6.2.0)
+        static let showNonPowered = String(localized: "Glider, UL & helicopter")
+        /// Navigation & Maps, under the three switches.
+        static let settingsFooter = String(localized: "From open flightmaps, for the countries in Data & Storage. Indicative only: always check the official chart.")
+        /// The Map sheet, when a switch is on and the country under the map has none downloaded.
+        static func downloadHint(_ country: String) -> String {
+            String(localized: "Download VFR procedures for \(country) in Data & Storage")
+        }
+        static let credit = String(localized: "Circuits & VFR routes © open flightmaps · indicative")
+        static func creditWithCycle(_ airac: String) -> String {
+            String(localized: "Circuits & VFR routes © open flightmaps · AIRAC \(airac) · indicative")
+        }
+        static let trafficCircuit = String(localized: "Traffic circuit")
+        static let arrival = String(localized: "VFR arrival")
+        static let departure = String(localized: "VFR departure")
+        static let sector = String(localized: "Sector")
+        static let noiseArea = String(localized: "Noise abatement area")
+        /// A circuit's label when open flightmaps has no usable altitude for it.
+        static let altitudeSeeChart = String(localized: "Alt: see chart")
+        static let approximateShape = String(localized: "Approximate shape")
+        static let source = String(localized: "open flightmaps · indicative, check the official chart")
+        static func sourceWithCycle(_ airac: String) -> String {
+            String(localized: "open flightmaps · AIRAC \(airac) · indicative, check the official chart")
+        }
+        /// The same on one line, where the official chart's button is right under it (the phone's Cockpit).
+        static let sourceShort = String(localized: "open flightmaps · indicative")
+        static func sourceShortWithCycle(_ airac: String) -> String {
+            String(localized: "open flightmaps · AIRAC \(airac) · indicative")
+        }
+        static let reportError = String(localized: "Report an error")
+        /// Report an error, where the phone's Cockpit puts it beside the official chart.
+        static let reportShort = String(localized: "Report")
+    }
+
+    /// An aerodrome's official chart, opened in the browser: DFS BasicVFR, the SIA VAC, SkyBriefing's
+    /// VFR Manual, Austro Control's eAIP. (6.2.0)
+    enum OfficialChart {
+        static let title = String(localized: "Official chart")
+        /// A publisher behind a login: "SkyBriefing (subscription)".
+        static func subscription(_ publisher: String) -> String {
+            String(localized: "\(publisher) (subscription)")
+        }
+        /// Under the symbol of an airport callout's accessory, where "Official chart" doesn't fit.
+        static let short = String(localized: "Chart")
+        /// Under "Chart" on the phone's Cockpit, where "SkyBriefing (subscription)" doesn't fit.
+        static let subscriptionShort = String(localized: "Subscription")
+        /// VoiceOver's hint: "Opens SkyBriefing in the browser".
+        static func opens(_ publisher: String) -> String {
+            String(localized: "Opens \(publisher) in the browser")
         }
     }
 
@@ -2532,6 +2752,8 @@ enum L10n {
         static let trackVectorDesc = String(localized: "nav.trackVectorDesc")
         static let freqCurrent = String(localized: "nav.freqCurrent")
         static let freqNext = String(localized: "nav.freqNext")
+        /// 121.500, last in the FREQ panel. (6.2)
+        static let freqEmergency = String(localized: "nav.freqEmergency")
         static let mark = String(localized: "nav.mark")
         static let overlays = String(localized: "nav.overlays")
         static let airspace = String(localized: "nav.airspace")
@@ -2577,6 +2799,8 @@ enum L10n {
         static let leg = String(localized: "nav.leg")
         static let startLegTimer = String(localized: "nav.startLegTimer")
         static let legsAndFrequencies = String(localized: "nav.legsAndFrequencies")
+        /// VoiceOver's action on the map left above the open legs panel, which a tap closes. (6.1)
+        static let closeLegsAndFrequencies = String(localized: "nav.closeLegsAndFrequencies")
         static let baseChart = String(localized: "nav.baseChart")
         static let presets = String(localized: "nav.presets")
         static let presetCruise = String(localized: "nav.presetCruise")
@@ -2616,6 +2840,10 @@ enum L10n {
         /// The reporting point's ident from an OpenAIP remark ("ELESE"): not an official designator,
         /// so it is labelled as such wherever it shows. (6.0.1)
         static let pointIdent = String(localized: "nav.pointIdent")
+        /// What an open flightmaps helicopter or glider reporting point is for, on its own line in the
+        /// callout and the briefing (shown only with the "Glider, UL & helicopter" switch). (6.2.0)
+        static let helicopterReportingPoint = String(localized: "Helicopter reporting point")
+        static let gliderReportingPoint = String(localized: "Glider reporting point")
         /// The builder's search for a reporting point or navaid to put in the route, under From and To.
         static let via = String(localized: "nav.via")
         static let viaPlaceholder = String(localized: "nav.viaPlaceholder")

@@ -56,5 +56,29 @@ final class MapPresetTests: XCTestCase {
         MapPreset.cruise.apply(to: &settings)
         settings.showNavaidsOnMap = true
         XCTAssertTrue(MapPreset.allCases.allSatisfy { !$0.matches(settings) })
+
+        // Approach with the circuits turned off by hand is Approach no more. (6.2.0)
+        MapPreset.approach.apply(to: &settings)
+        settings.showVFRCircuitsOnMap = false
+        XCTAssertTrue(MapPreset.allCases.allSatisfy { !$0.matches(settings) })
+    }
+
+    /// The aerodrome procedures (6.2.0): Approach and Everything show the traffic circuits and the VFR
+    /// routes, Cruise neither; the glider, UL and helicopter circuits are the pilot's own opt-in.
+    func testApproachAndEverythingShowTheCircuitsAndRoutes() {
+        for preset in MapPreset.allCases {
+            var settings = AppSettings()
+            preset.apply(to: &settings)
+            let on = preset != .cruise
+            XCTAssertEqual(settings.showVFRCircuitsOnMap, on, "\(preset)")
+            XCTAssertEqual(settings.showVFRRoutesOnMap, on, "\(preset)")
+            XCTAssertFalse(settings.showNonPoweredCircuitsOnMap, "\(preset) turned the opt-in on")
+        }
+
+        var settings = AppSettings()
+        settings.showNonPoweredCircuitsOnMap = true
+        MapPreset.cruise.apply(to: &settings)
+        XCTAssertTrue(settings.showNonPoweredCircuitsOnMap, "a preset leaves the opt-in as it was")
+        XCTAssertTrue(MapPreset.cruise.matches(settings), "and the preset still matches")
     }
 }

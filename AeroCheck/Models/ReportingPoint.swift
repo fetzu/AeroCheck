@@ -2,9 +2,20 @@ import Foundation
 import CoreLocation
 import MapKit
 
+/// Where a reporting point comes from. (6.2.0)
+enum ReportingPointSource: String, Codable, Sendable {
+    /// OpenAIP's per-country export: the primary source, every point the app showed before 6.2.0.
+    case openAIP
+    /// open flightmaps, for the points OpenAIP lacks (`ReportingPointCatalog`).
+    case openFlightmaps
+}
+
 /// A VFR reporting point (mandatory or on-request) from OpenAIP's keyless per-country GeoJSON export
-/// (`{cc}_rpp.geojson`). Read-only nav-map markers (and, later, briefing context). (v4.1.0)
+/// (`{cc}_rpp.geojson`), or, since 6.2.0, one of the points OpenAIP lacks from open flightmaps
+/// (`ReportingPointCatalog`). Read-only map markers, briefing rows and route waypoints. (v4.1.0)
 struct ReportingPoint: Codable, Identifiable, Equatable {
+    /// OpenAIP's `_id`, or `ofm:<OFM id>` for an open flightmaps point. A route waypoint keeps it as its
+    /// `sourceId`, so neither form ever changes meaning.
     let id: String
     let name: String?
     let compulsory: Bool
@@ -20,6 +31,47 @@ struct ReportingPoint: Codable, Identifiable, Equatable {
     /// always has an array, empty when it names no aerodrome, so nil means "old cache", which
     /// `OpenAIPReportingPointDataService` refreshes once. (6.0.1)
     let airports: [String]?
+    /// Where the point comes from. A cache written before 6.2.0 has no such key: OpenAIP. (6.2.0)
+    let source: ReportingPointSource
+    /// The ICAO code of the aerodrome the point belongs to, when the source says so by code rather
+    /// than by OpenAIP id (open flightmaps). Names it "E (LSGC)" where `airports` can't. (6.2.0)
+    let aerodromeICAO: String?
+    /// The AIRAC cycle of an open flightmaps point ("2610"); nil for OpenAIP. (6.2.0)
+    let airac: String?
+
+    init(id: String, name: String?, compulsory: Bool, elevationFeetMSL: Int? = nil, remarks: String? = nil,
+         latitude: Double, longitude: Double, airports: [String]? = [], source: ReportingPointSource = .openAIP,
+         aerodromeICAO: String? = nil, airac: String? = nil) {
+        self.id = id
+        self.name = name
+        self.compulsory = compulsory
+        self.elevationFeetMSL = elevationFeetMSL
+        self.remarks = remarks
+        self.latitude = latitude
+        self.longitude = longitude
+        self.airports = airports
+        self.source = source
+        self.aerodromeICAO = aerodromeICAO
+        self.airac = airac
+    }
+
+    /// The OpenAIP cache stores points as encoded here; one written before 6.2.0 has no `source`,
+    /// `aerodromeICAO` or `airac`, and one before 6.0.1 no `airports`. Each new key is read
+    /// tolerantly: a value this build can't read is its default, never a lost cache.
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        id = try container.decode(String.self, forKey: .id)
+        name = try container.decodeIfPresent(String.self, forKey: .name)
+        compulsory = try container.decode(Bool.self, forKey: .compulsory)
+        elevationFeetMSL = try container.decodeIfPresent(Int.self, forKey: .elevationFeetMSL)
+        remarks = try container.decodeIfPresent(String.self, forKey: .remarks)
+        latitude = try container.decode(Double.self, forKey: .latitude)
+        longitude = try container.decode(Double.self, forKey: .longitude)
+        airports = try container.decodeIfPresent([String].self, forKey: .airports)
+        source = ((try? container.decodeIfPresent(ReportingPointSource.self, forKey: .source)) ?? nil) ?? .openAIP
+        aerodromeICAO = (try? container.decodeIfPresent(String.self, forKey: .aerodromeICAO)) ?? nil
+        airac = (try? container.decodeIfPresent(String.self, forKey: .airac)) ?? nil
+    }
 
     var coordinate: CLLocationCoordinate2D { CLLocationCoordinate2D(latitude: latitude, longitude: longitude) }
 
@@ -56,6 +108,9 @@ struct ReportingPoint: Codable, Identifiable, Equatable {
         self.longitude = feature.geometry.coordinates[0]   // GeoJSON is [lon, lat]
         self.latitude = feature.geometry.coordinates[1]
         self.airports = p.airports ?? []
+        self.source = .openAIP
+        self.aerodromeICAO = nil
+        self.airac = nil
     }
 }
 
@@ -181,10 +236,11 @@ enum ReportingPointRemarks {
 
 // MARK: - Label
 
-/// The aerodrome a reporting point belongs to, from OpenAIP's airport layer.
+/// The aerodrome a reporting point belongs to, from OpenAIP's airport layer (or, for an open
+/// flightmaps point whose aerodrome that layer doesn't have, its ICAO code alone).
 struct ReportingPointAerodrome: Equatable, Sendable {
     let icao: String?
-    /// OpenAIP's name, which is in capitals ("LES EPLATURES").
+    /// OpenAIP's name, which is in capitals ("LES EPLATURES"); empty when only the code is known.
     let name: String
 
     /// "Les Eplatures": OpenAIP's capitals set in title case, a name in mixed case left alone.
@@ -192,10 +248,11 @@ struct ReportingPointAerodrome: Equatable, Sendable {
         name == name.uppercased() ? name.capitalized(with: Locale(identifier: "en_US_POSIX")) : name
     }
 
-    /// "LSGC Les Eplatures", or the name alone for a field without an ICAO code.
+    /// "LSGC Les Eplatures", the name alone for a field without an ICAO code, the code alone for a
+    /// field known only by its code ("LSZF").
     var displayLine: String {
         guard let icao, !icao.isEmpty else { return displayName }
-        return "\(icao) \(displayName)"
+        return name.isEmpty ? icao : "\(icao) \(displayName)"
     }
 }
 
@@ -210,6 +267,9 @@ struct ReportingPointLabel: Equatable {
     let status: String
     let note: String?
     let aerodrome: ReportingPointAerodrome?
+    /// Where an open flightmaps point comes from, "open flightmaps · AIRAC 2610"; nil for OpenAIP's,
+    /// which every point was before 6.2.0. (6.2.0)
+    let source: String?
 
     init(point: ReportingPoint, aerodrome: ReportingPointAerodrome?) {
         let trimmed = point.name?.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -217,7 +277,16 @@ struct ReportingPointLabel: Equatable {
         title = name ?? String(localized: "Reporting point")
         status = point.compulsory ? L10n.Briefing.compulsory : L10n.Briefing.onRequest
         self.aerodrome = aerodrome
-        note = ReportingPointRemarks.informativeNote(point.remarkNote, aerodromeName: aerodrome?.name)
+        let aerodromeName = aerodrome.flatMap { $0.name.isEmpty ? nil : $0.name }
+        note = ReportingPointRemarks.informativeNote(point.remarkNote, aerodromeName: aerodromeName)
+        source = Self.sourceLine(of: point)
+    }
+
+    /// "open flightmaps · AIRAC 2610" (a brand and an abbreviation: the same in French).
+    static func sourceLine(of point: ReportingPoint) -> String? {
+        guard point.source == .openFlightmaps else { return nil }
+        guard let airac = point.airac, !airac.isEmpty else { return "open flightmaps" }
+        return "open flightmaps · AIRAC \(airac)"
     }
 
     /// "LSGC Les Eplatures · on request"; the status alone when the aerodrome is not known.
@@ -263,22 +332,21 @@ final class ReportingPointAnnotation: NSObject, MKAnnotation {
         self.label = label
     }
 
-    /// Labelled with the aerodrome OpenAIP gives the point, when its airport layer is on the device.
+    /// Labelled with the aerodrome its source gives the point, when OpenAIP's airport layer is on the
+    /// device (an open flightmaps point's ICAO code otherwise).
     @MainActor
     convenience init(point: ReportingPoint) {
-        self.init(point: point, label: OpenAIPAirportDataService.shared.label(for: point))
+        self.init(point: point, label: ReportingPointCatalog.shared.label(for: point))
     }
 
     var coordinate: CLLocationCoordinate2D { point.coordinate }
     var title: String? { label.title }
     var subtitle: String? { label.subtitle }
 
-    /// Changes whenever a label could: new points (a refresh that added their aerodromes) or new
-    /// aerodromes. Both counters only grow, so their sum does too.
+    /// Changes whenever a label could: new points (a refresh that added their aerodromes, a new
+    /// open flightmaps cycle) or new aerodromes. Every counter only grows, so their sum does too.
     @MainActor
-    static var labelRevision: Int {
-        OpenAIPReportingPointDataService.shared.pointsRevision &+ OpenAIPAirportDataService.shared.aerodromeIndexRevision
-    }
+    static var labelRevision: Int { ReportingPointCatalog.shared.labelRevision }
 
     /// Brings a map's reporting-point markers to `points`: the markers of points no longer shown go,
     /// new ones come. Nothing moves while the visible set and `labelRevision` stay the same (PERF-27);
@@ -302,22 +370,37 @@ final class ReportingPointAnnotation: NSObject, MKAnnotation {
         }
     }
 
-    /// A callout shows one subtitle line, so a note ("MAX 3500") needs the detail view, which then
-    /// carries the subtitle too. Nil without a note: the plain subtitle is enough. Each map's
-    /// delegate sets it on the (reused) view.
+    /// A callout shows one subtitle line, so a note ("MAX 3500") or an open flightmaps point's
+    /// source ("open flightmaps · AIRAC 2610") needs the detail view, which then carries the
+    /// subtitle too. Nil for an OpenAIP point without a note: the plain subtitle is enough. Each
+    /// map's delegate sets it on the (reused) view.
     func calloutDetailView() -> UIView? {
-        guard let note = label.note else { return nil }
-        let text = NSMutableAttributedString(
-            string: label.subtitle + "\n",
-            attributes: [.font: UIFont.aero(size: 12), .foregroundColor: UIColor.secondaryLabel])
-        text.append(NSAttributedString(
-            string: note,
-            attributes: [.font: UIFont.aero(size: 12, weight: .semibold), .foregroundColor: UIColor.label]))
+        guard let text = Self.calloutDetailText(label) else { return nil }
         let view = UILabel()
-        view.numberOfLines = 4
+        view.numberOfLines = 5
         view.lineBreakMode = .byTruncatingTail
         view.attributedText = text
         return view
+    }
+
+    /// The detail view's text: the subtitle, the note in semibold, then the source in a smaller,
+    /// quieter line (6.2.0). Nil when there is neither a note nor a source.
+    static func calloutDetailText(_ label: ReportingPointLabel) -> NSAttributedString? {
+        guard label.note != nil || label.source != nil else { return nil }
+        let text = NSMutableAttributedString(
+            string: label.subtitle,
+            attributes: [.font: UIFont.aero(size: 12), .foregroundColor: UIColor.secondaryLabel])
+        if let note = label.note {
+            text.append(NSAttributedString(
+                string: "\n" + note,
+                attributes: [.font: UIFont.aero(size: 12, weight: .semibold), .foregroundColor: UIColor.label]))
+        }
+        if let source = label.source {
+            text.append(NSAttributedString(
+                string: "\n" + source,
+                attributes: [.font: UIFont.aero(size: 11), .foregroundColor: UIColor.secondaryLabel]))
+        }
+        return text
     }
 }
 

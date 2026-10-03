@@ -255,12 +255,13 @@ final class ActiveFlightStatePersistenceTests: XCTestCase {
 
     /// A restored *premium* flight reports its checklist as unresolved — never the silent WT9
     /// fallback. (ARCH-01 / ARCH-08)
-    func testRestoredPremiumFlightDoesNotFallBackToWT9() throws {
+    func testRestoredPremiumFlightDoesNotFallBackToWT9() async throws {
         let source = launch()
-        startWT9Flight(on: source)
+        // A PA-28 flight. (Selecting it after a WT9 start no longer makes one: the checkpoint records
+        // the aircraft the flight started on.)
+        try await resolvePA28(source)
+        source.startFlight(withAircraft: "HB-PFA", aircraftRegistration: "HB-PFA", aircraftType: "PA28")
         let flight = try XCTUnwrap(source.currentFlight)
-        // Mark the snapshot as a premium aircraft selection (no resolved checklist).
-        source.settings.selectedRemoteAircraftId = "pa28-181"
         let snapshot = ActiveFlightState(flight: flight, from: source)
 
         let restored = launch()

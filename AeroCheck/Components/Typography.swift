@@ -87,13 +87,17 @@ enum CockpitScale: Equatable {
 /// (`CockpitScale`). Anything read in flight uses one of these. (v6.0 · P6)
 enum CockpitType {
     /// Secondary labels: units, captions, counters, hints.
-    static var label: CGFloat { size(kneeboard: 20, phone: 17) }
+    static var label: CGFloat { label(for: .current) }
     /// Checklist rows and list rows.
     static var row: CGFloat { size(kneeboard: 24, phone: 20) }
     /// The current checklist item's response.
     static var response: CGFloat { size(kneeboard: 28, phone: 24) }
     /// Labels of the buttons in the thumb bar.
-    static var button: CGFloat { size(kneeboard: 30, phone: 25) }
+    static var button: CGFloat { button(for: .current) }
+
+    /// The same at a given scale: for a view laid out at the other device's scale (its tests).
+    static func label(for scale: CockpitScale) -> CGFloat { size(kneeboard: 20, phone: 17, scale: scale) }
+    static func button(for scale: CockpitScale) -> CGFloat { size(kneeboard: 30, phone: 25, scale: scale) }
     /// The current checklist item's challenge.
     static var item: CGFloat { size(kneeboard: 42, phone: 36) }
     /// Instrument values: speed, altitude, track. 36 on the phone rather than 41: three values across
@@ -112,7 +116,8 @@ enum CockpitTarget {
     /// The thumb bar: CHECK, MARK and their neighbours.
     static var thumb: CGFloat { CockpitType.size(kneeboard: 104, phone: 92) }
     /// Controls over the map: Map, orientation, centre, zoom. Short enough to leave the map visible.
-    static var control: CGFloat { CockpitType.size(kneeboard: 64, phone: 50) }
+    static var control: CGFloat { control(.current) }
+    static func control(_ scale: CockpitScale) -> CGFloat { CockpitType.size(kneeboard: 64, phone: 50, scale: scale) }
     /// A control that comes and goes over a pane, UNDO on its toast: the 15 mm EFB control on both
     /// devices, as the phone's thumb bar keeps it. (v6.0.1)
     static var transient: CGFloat { CockpitType.size(kneeboard: 78, phone: 92) }

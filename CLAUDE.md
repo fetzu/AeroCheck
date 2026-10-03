@@ -84,7 +84,8 @@ Shared/                   at the REPO ROOT; compiled into the app and the Watch 
 AeroCheckWidget/          widgets and the Live Activity (FlightLiveActivity.swift)
 AeroCheckWatch/           the Watch app
 AeroCheckTests/           unit tests, one <Feature>Tests.swift per feature; TestDatastore.swift
-ci_scripts/               Xcode Cloud: ci_post_clone.sh (secrets), ci_pre_xcodebuild.sh (build number)
+ci_scripts/               Xcode Cloud: ci_post_clone.sh (secrets), ci_pre_xcodebuild.sh (build number), ci_post_xcodebuild.sh (What to Test)
+TestFlight/               What to Test for the next release tag, EN + FR (ci_post_xcodebuild.sh)
 ```
 
 Owners and rules that aren't obvious from the names:
@@ -122,7 +123,10 @@ Owners and rules that aren't obvious from the names:
   `group.com.fetzu.aerocheck`; the widget renders only those and launches through `FlightLauncher`.
   `Models/FlightActivityAttributes.swift` is compiled into the widget too (Live Activity).
 - `ActiveChecklist` owns the resolved checklist and speeds of the active aircraft (there are no global
-  checklist statics any more).
+  checklist statics any more). In flight that is the flight's own aircraft (`AppState.flightAircraft`,
+  taken at START FLIGHT and restored from the crash checkpoint), never the selection: iCloud syncs
+  `selectedAircraft` / `selectedRemoteAircraftId`, so another device can change them mid-flight. Read
+  `activeChecklist` / `activeAircraftIsPremium` for anything about the flight in progress.
 - `ChecklistProgress` (in `AppState.swift`): phase, highlight, deferred items (DEFER, or NEXT with items
   still open) and deferred checks (a phase jumped over on the phase bar); both follow the pilot until
   checked.
@@ -137,6 +141,48 @@ Owners and rules that aren't obvious from the names:
 - `AirportType.fixedWing` (`Models/Airport.swift`) keeps heliports, seaplane bases, balloonports and
   closed fields out of the planning pickers (builder search and map, snapping, stops, diverts). The nav
   map's airport layer has its own literal list in `NavigationView`.
+
+## Aeronautical data
+
+Community sources, credited in About › Data sources, never presented as official: OpenAIP is primary,
+OurAirports the fallback, open flightmaps (OFM) fills gaps and is always "indicative" next to a link to
+the official chart.
+
+- OpenAIP's keyless per-country exports come from `s3.openaip.net` (`OpenAIPConfig.geoJSONExportHost`),
+  pinned (a redirect elsewhere is refused), in their own session (300 s: Germany's obstacles are
+  ~21.6 MB). The old `storage.googleapis.com/29f98e10-…` bucket is Requester Pays and refuses anonymous
+  reads; don't go back to it. The keyed core API stays as the fallback (the host allows 20 requests/s).
+- `RunwayDesignatorOverrides`: designators set by hand (LSGC 05/23, LSPM 10/28), applied after the
+  OurAirports/OpenAIP merge. The merge never joins on designators: it matches runways physically, takes
+  the majority, OurAirports breaks ties. Checked each quarter with the landing-fee links: re-read each
+  entry's source, bump `checked`, drop the entries both sources have caught up with. Each entry has a
+  test in `OpenAIPAirportMergeTests`.
+- `OFMDataService`: circuits, VFR arrival/departure routes and sectors, reporting points and runway
+  designators, read from `aerocheck.app/data/ofm/v1/` only (allow-list, 4 MB per file, SHA-256 from
+  `index.json`). The app never calls OFM: the files come from the weekly `vfr-data.yml` job on `main`,
+  which runs `scripts/vfrdata/` on the `website` branch, so a schema change starts there (additive
+  within v1). Stale by AIRAC cycle, not by age (`DataSet.refreshWhenAging`). OFM ids aren't unique: a
+  procedure's `id` is `<country>:<kind>:<OFM id>`, `ofmId` keeps OFM's for the error report.
+- `VFRProcedureMapLayer.swift` (`VFRMapLayer`) is the one implementation for all three maps (both nav
+  representables and the route builder): don't fork it per map. Overlays are their own classes
+  (`VFRCircuitOverlay`, `VFRRouteOverlay`, `VFRDashOverlay`, `VFRSectorOverlay`), never a bare
+  `MKPolyline`, and each map asks `VFRMapLayer.renderer(for:palette:)` before its generic `MKPolyline`
+  branch. Removals are narrowed to their own class: the builder's route is `RouteLinePolyline`
+  (`RouteBuilderMapView.removeRouteOverlays`), the Swiss map's layer switch removes only the track
+  (`SwissMapView.removeTrackForRecolour`); a blanket "remove every `MKPolyline`" wipes the procedures.
+  `sync` diffs by id and returns early on an unchanged signature (every GPS tick). No `lineDashPattern`
+  and no renderer that draws its own tiles: MapKit rasterizes both and magnifies them past its last
+  tile level, so dashes and arrowheads are cut per zoom (`VFRMapLayer.Zoom`).
+- `ReportingPointCatalog` is the only reader of reporting points (maps, builder search and snap,
+  briefing, the `sourceId` lookups): OpenAIP first and unchanged, plus the OFM points that neither the
+  extractor nor the device's own OpenAIP data match. OFM ids are `ofm:<OFM id>`; an OpenAIP `_id` saved
+  by any build must keep resolving. Outside the catalog, `OpenAIPReportingPointDataService` is for
+  downloads only.
+- `OfficialChartService` reads `aerocheck.app/data/charts/v1/charts.json` (same job,
+  `charts_registry.py`) the way `AirfieldTariffService` reads the tariffs: disk cache, a week, silent
+  failure. A link, never a chart: the app downloads and shows none. A link opens only on its
+  publisher's domain (`OfficialChartRegistry.publisherDomains`), so a new country or a publisher's new
+  domain needs an app release. No Italy: ENAV forbids deep links.
 
 ## Architecture
 
@@ -308,6 +354,9 @@ Aware (Publish + Subscribe) for Companion, `aps-environment`.
 - Every user-facing string goes through `L10n.*` (`Localization.swift`); translations live in
   `Localizable.xcstrings` (EN/FR). Builds reformat that file and `xcuserstate` is tracked: NEVER
   `git add -A` / `git add .` in this repo, stage files by name.
+- The Watch app has its own catalog, `AeroCheckWatch/Localizable.xcstrings` (EN/FR): its strings never
+  go in the app's. `LocalizationCatalogTests` reads the French of the Watch app the phone app embeds.
+- A count goes through a plural in the catalog (`%lld flights`: one/other), never a hand-made "s".
 - Aviation abbreviations (kt, ft, NM, MSL, GPS, FREQ…) are not translated (ICAO).
 - One vocabulary (6.0 · P8): a *Flight* is one take-off to landing, planned (Plan) or flown (Logbook); a
   *Trip* is several flights in a row; a *Route* is a reusable path with no date; the *Nav log* is the
@@ -376,8 +425,18 @@ The screenshots show checklist text: never attach them to anything public.
 - `CURRENT_PROJECT_VERSION` (`CFBundleVersion`) is NEVER edited by hand: Xcode Cloud's
   `ci_scripts/ci_pre_xcodebuild.sh` writes its counter into all 8 configurations (app, widget and Watch
   must match, hence `project.pbxproj` and not an xcconfig; the script says why). The checked-in default
-  stays `1`, the number is never reset, and only ONE Xcode Cloud workflow may upload (each workflow
-  counts from 1).
-- To release: tag `X.Y.Z` on `main` and publish the GitHub release (that rebuilds the website changelog),
-  then check that the Xcode Cloud log says `written to 8 build configurations`. Any other count means a
-  target stopped being covered and the upload will be refused.
+  stays `1` and the number is never reset. Xcode Cloud keeps ONE counter per app, shared by every
+  workflow (confirmed by the first tag build, Oct 2026), so two workflows can both upload.
+- **TestFlight:** two Xcode Cloud workflows. "CI/CD for TestFlight (Internal Testing)" builds every push to
+  `main` for the internal (alpha) group; "Beta · tags" builds every release tag for the internal group and
+  the external Beta group (Beta App Review). The App Store gets the tag's beta build. Environment variables
+  (the three secrets of `ci_post_clone.sh`) belong to each workflow: a new workflow needs them set again.
+- **What to Test:** `ci_scripts/ci_post_xcodebuild.sh` writes `TestFlight/WhatToTest.<locale>.txt`, which Xcode
+  Cloud shows the testers of the build. A main build lists the last pull requests merged. A tag build keeps
+  the notes committed in `TestFlight/`, if their first line names the tag; otherwise it lists the pull
+  requests since the previous tag and warns in the log.
+- To release: before tagging, commit the beta testers' notes for `X.Y.Z` in `TestFlight/WhatToTest.en-US.txt`
+  and `.fr-FR.txt` (first line names the version; what's new and what to try, short). Then tag `X.Y.Z` on
+  `main` and publish the GitHub release (that rebuilds the website changelog). In the beta build's Xcode
+  Cloud log, check `written to 8 build configurations` (any other count means a target stopped being
+  covered and the upload will be refused) and `notes for X.Y.Z, as committed` for both languages.

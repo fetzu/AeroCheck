@@ -134,7 +134,8 @@ struct FlightView: View {
             wind: briefingWind,
             taf: briefingTaf,
             destinationIdent: destinationIdent,
-            flightPlan: flightPlanManager.activeFlightPlan
+            flightPlan: flightPlanManager.activeFlightPlan,
+            nonPoweredReportingPoints: appState.settings.showsNonPoweredReportingPoints
         )
     }
 
@@ -176,6 +177,11 @@ struct FlightView: View {
     }
 
     private var phaseProgressBarView: some View {
+        phaseProgressBar(interactive: true)
+    }
+
+    /// `interactive`: false for the bar drawn inside the phase button (`PhaseProgressBar.drawnBar`).
+    private func phaseProgressBar(interactive: Bool) -> some View {
         PhaseProgressBar(
             phases: visiblePhases,
             currentPhase: appState.currentPhase,
@@ -183,7 +189,8 @@ struct FlightView: View {
             onSelect: { requestJump(to: $0) },
             isCircuitMode: appState.isCircuitMode,
             fredaDue: appState.fredaDue,
-            currentOwed: appState.cueTiming(for: appState.currentPhase) == .owed
+            currentOwed: appState.cueTiming(for: appState.currentPhase) == .owed,
+            interactive: interactive
         )
     }
 
@@ -1030,9 +1037,11 @@ extension FlightView {
                 VStack(spacing: 0) {
                     cockpitColumnHead
                     Spacer(minLength: 0)
+                    // As the map's thumb row under the same column: in the same place over either pane.
                     cockpitThumbBar(narrow: true)
                         .padding(.horizontal, 12)
-                        .padding(.vertical, 10)
+                        .padding(.top, 6)
+                        .padding(.bottom, 12)
                 }
                 .frame(width: Self.cockpitColumnWidth)
                 .background(theme.panel.ignoresSafeArea())
@@ -1086,18 +1095,24 @@ extension FlightView {
     /// (at 390, V-SPEEDS dropped under CHECKLIST | MAP). It leaves the pane about as wide. (I7; round 6)
     static let cockpitColumnWidth: CGFloat = 402
 
-    /// The top of the landscape column: the header on two rows as in portrait, progress, CHECKLIST |
-    /// MAP with V-SPEEDS, the strip.
+    /// The top of the landscape column: the header on two rows as in portrait, the progress drawn in
+    /// the phase button, CHECKLIST | MAP with V-SPEEDS, the strip.
+    ///
+    /// The progress bar's own row went into the phase button (`CockpitHeaderStyle.column`). With it,
+    /// the column was about 440 pt tall, where a phone on its side has 369 to 419 pt above the home
+    /// indicator: the strip gave way, its values shrunk to about half, until the strip held its height
+    /// (6.1.0); then the thumb row ran off the bottom of the screen. Of what the column holds, the bar's
+    /// segments to touch are the least needed in flight: the phase button above opens the same jumps,
+    /// by name. (6.1, device check)
     private var cockpitColumnHead: some View {
         VStack(spacing: 0) {
-            SeparateView { cockpitHeader(style: .narrow) }
+            SeparateView { cockpitHeader(style: .column) }
                 .padding(.horizontal, 12)
                 .padding(.top, 4)
-            phaseProgressBarView
-                .padding(.horizontal, 12)
             cockpitPickerRow
                 .padding(.horizontal, 12)
-                .padding(.bottom, 6)
+                .padding(.top, 6)
+                .padding(.bottom, 4)
             cockpitStrip(showsNext: false)
                 .padding(.horizontal, 10)
         }
@@ -1121,7 +1136,8 @@ extension FlightView {
 
     // MARK: Header
 
-    enum CockpitHeaderStyle { case wide, narrow }
+    /// `column`: the phone on its side, as `narrow` with the progress drawn in the phase button.
+    enum CockpitHeaderStyle { case wide, narrow, column }
 
     /// Aircraft, phase and its place in the flight, flight time, GPS, Menu. Everything a glance at the
     /// top needs, and nothing in the stage colours the old badge used: colour means something in flight.
@@ -1131,7 +1147,8 @@ extension FlightView {
     /// takes what's left, wrapping between words ("CHECK BEFORE / ENGINE START"), never inside one.
     /// (on-device review #2)
     /// `narrow` (the phone in portrait): the phase gets a line of its own under the rest, instead of a
-    /// badge shrunk to about 7 pt; the landscape column uses it too. (iPhone pass)
+    /// badge shrunk to about 7 pt; the landscape column uses it too, with the progress bar drawn in the
+    /// phase button (`column`). (iPhone pass; 6.1)
     @ViewBuilder
     private func cockpitHeader(style: CockpitHeaderStyle) -> some View {
         switch style {
@@ -1146,8 +1163,8 @@ extension FlightView {
                 cockpitGPSButton(labelled: true)
                 cockpitMenuButton()
             }
-        case .narrow:
-            VStack(spacing: 8) {
+        case .narrow, .column:
+            VStack(spacing: style == .column ? 6 : 8) {
                 // Richest first, down to one that always fits. A row wider than the screen doesn't
                 // just clip: it widens the whole Cockpit, which then sits off centre with the Menu
                 // past the edge. With the Menu labelled beside its icon, an iPhone 17's row was
@@ -1159,7 +1176,7 @@ extension FlightView {
                     cockpitHeaderTopRow(gpsLabelled: false, menu: .stacked, circuitCaption: false)
                     cockpitHeaderTopRow(gpsLabelled: false, menu: .icon, circuitCaption: false)
                 }
-                cockpitPhaseButton(fillsWidth: true)
+                cockpitPhaseButton(fillsWidth: true, showsProgress: style == .column)
             }
         }
     }
@@ -1179,20 +1196,14 @@ extension FlightView {
         }
     }
 
-    private func cockpitPhaseButton(fillsWidth: Bool) -> some View {
+    /// `showsProgress`: the progress bar drawn under the phase, inside the button (the phone on its side).
+    private func cockpitPhaseButton(fillsWidth: Bool, showsProgress: Bool = false) -> some View {
         Button(action: { showPhaseSelector = true }) {
-            HStack(spacing: 8) {
-                Text(appState.currentPhase.shortTitle)
-                    .font(.aero(size: CockpitType.label, weight: .bold))
-                    .foregroundColor(theme.textPrimary)
-                    .lineLimit(2)
-                    .minimumScaleFactor(0.85)
-                    .fixedSize(horizontal: false, vertical: true)
-                if fillsWidth { Spacer(minLength: 8) }
-                Text("\(appState.currentPhase.rawValue + 1)/\(ChecklistPhase.allCases.count)")
-                    .font(.aero(size: CockpitType.label, design: .monospaced))
-                    .foregroundColor(theme.textSecondary)
-                    .fixedSize()
+            VStack(spacing: 4) {
+                cockpitPhaseTitleRow(fillsWidth: fillsWidth)
+                if showsProgress {
+                    phaseProgressBar(interactive: false)
+                }
             }
             .padding(.horizontal, 14)
             .padding(.vertical, 4)
@@ -1202,6 +1213,34 @@ extension FlightView {
         }
         .buttonStyle(.plain)
         .accessibilityHint(L10n.Sheet.selectPhase)
+    }
+
+    /// The phase and where it sits in the flight ("10/16").
+    private func cockpitPhaseTitleRow(fillsWidth: Bool) -> some View {
+        HStack(spacing: 8) {
+            ZStack(alignment: .leading) {
+                // The iPad's one-row header holds two lines' height whether the title takes one or
+                // two: it wrapped when the Companion's iPhone mark came or the GPS label grew (and on
+                // the longer phase names), and every row under the header moved 5 pt. (6.1.0)
+                if !fillsWidth {
+                    Text(verbatim: "A\nA")
+                        .font(.aero(size: CockpitType.label, weight: .bold))
+                        .hidden()
+                        .accessibilityHidden(true)
+                }
+                Text(appState.currentPhase.shortTitle)
+                    .font(.aero(size: CockpitType.label, weight: .bold))
+                    .foregroundColor(theme.textPrimary)
+                    .lineLimit(2)
+                    .minimumScaleFactor(0.85)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            if fillsWidth { Spacer(minLength: 8) }
+            Text("\(appState.currentPhase.rawValue + 1)/\(ChecklistPhase.allCases.count)")
+                .font(.aero(size: CockpitType.label, design: .monospaced))
+                .foregroundColor(theme.textSecondary)
+                .fixedSize()
+        }
     }
 
     @ViewBuilder
@@ -1234,7 +1273,8 @@ extension FlightView {
                 }
             }
             .foregroundColor(gpsStatusColor)
-            .frame(minWidth: 44, minHeight: 48)
+            // The Menu's height beside it on the phone, where its column on its side has no point to spare.
+            .frame(minWidth: 44, minHeight: CockpitType.size(kneeboard: 48, phone: 46))
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
@@ -1299,13 +1339,19 @@ extension FlightView {
         }
     }
 
-    /// CHECKLIST | MAP with V-SPEEDS beside it, the phone in both orientations; one above the other
-    /// where a language runs too long for the row.
+    /// CHECKLIST | MAP with V-SPEEDS beside it, the phone in both orientations; V-SPEEDS without its
+    /// icon where that row runs too long ("CHECKLIST | CARTE" in French), and one above the other past
+    /// that. In French the two rows took the 54 pt the phone's column on its side doesn't have, and its
+    /// thumb row ran off the screen. (6.1, device check)
     private var cockpitPickerRow: some View {
         ViewThatFits(in: .horizontal) {
             HStack(spacing: 8) {
                 CockpitPanePicker(selection: cockpitPaneBinding, fillsWidth: true)
                 cockpitVSpeedsChip
+            }
+            HStack(spacing: 8) {
+                CockpitPanePicker(selection: cockpitPaneBinding, fillsWidth: true)
+                cockpitVSpeedsChip(icon: nil)
             }
             VStack(alignment: .leading, spacing: 8) {
                 CockpitPanePicker(selection: cockpitPaneBinding, fillsWidth: true)
@@ -1315,7 +1361,11 @@ extension FlightView {
     }
 
     private var cockpitVSpeedsChip: some View {
-        CockpitChip(title: "V-SPEEDS", icon: "speedometer") { openReference(.vSpeeds) }
+        cockpitVSpeedsChip(icon: "speedometer")
+    }
+
+    private func cockpitVSpeedsChip(icon: String?) -> some View {
+        CockpitChip(title: "V-SPEEDS", icon: icon) { openReference(.vSpeeds) }
     }
 
     @ViewBuilder
@@ -1677,6 +1727,8 @@ struct PhaseProgressBar: View {
     var currentOwed: Bool = false
     /// How tall a segment is to the touch; the bar is drawn centred in it.
     var hitHeight: CGFloat = CockpitTarget.control
+    /// False: the bar drawn only, its own height, no segment to touch (`drawnBar`).
+    var interactive: Bool = true
 
     /// The pattern phases that repeat each lap in circuit mode. Contiguous in the visible list since
     /// cruise/descent are filtered out, so the bracket draws as one continuous span. (round 6)
@@ -1690,6 +1742,32 @@ struct PhaseProgressBar: View {
     }
 
     var body: some View {
+        if interactive {
+            touchBar
+        } else {
+            drawnBar
+        }
+    }
+
+    /// The bar drawn only, 8 pt tall: inside the phase button of the phone's column on its side, whose
+    /// tap opens the phase list, where a full control's height for its segments left the column too
+    /// tall for the screen (6.1, device check). Without the circuit bracket, which needs the room above
+    /// the bar: the header says circuits under the registration, and the bar by skipping cruise and
+    /// descent. VoiceOver reads the phase from the button.
+    private var drawnBar: some View {
+        HStack(spacing: 3) {
+            ForEach(phases, id: \.self) { phase in
+                let isCurrent = phase == currentPhase
+                segment(for: phase, isCurrent: isCurrent)
+                    .frame(height: isCurrent ? 8 : 5)
+                    .frame(maxWidth: .infinity)
+            }
+        }
+        .frame(height: 8)
+        .accessibilityHidden(true)
+    }
+
+    private var touchBar: some View {
         HStack(spacing: 3) {
             ForEach(phases, id: \.self) { phase in
                 let isCurrent = phase == currentPhase
@@ -2496,17 +2574,31 @@ struct GPSStatusContent: View {
         case .good:
             return nil
         case .degraded:
-            if let acc = locationManager.currentLocation?.horizontalAccuracy, acc >= 0 {
-                return "Reduced accuracy · ± \(Int(acc.rounded())) m"
+            // Degraded for one of two reasons: the last fix is worse than 100 m, or none has come for
+            // 20 s. It said "Reduced accuracy · ± 10 m" for the second. (6.1.0)
+            if let fix {
+                if fix.horizontalAccuracy > 100 {
+                    return L10n.GPS.reasonReducedAccuracy(Int(fix.horizontalAccuracy.rounded()))
+                }
+                let age = Int(FlightClock.now.timeIntervalSince(fix.timestamp).rounded())
+                if fix.horizontalAccuracy >= 0 && age >= 10 { return L10n.GPS.reasonNoUpdate(age) }
+                // Positions keep coming, from Wi-Fi or cell towers, not the satellites. (6.1.0)
+                if fix.horizontalAccuracy >= 0 && !LocationManager.isSatelliteFix(fix) {
+                    return L10n.GPS.reasonNetworkPosition(Int(fix.horizontalAccuracy.rounded()))
+                }
             }
-            return "Weak signal"
+            return L10n.GPS.reasonWeakSignal
         case .lost:
-            if let ts = locationManager.currentLocation?.timestamp {
-                return "No position update for \(Int(FlightClock.now.timeIntervalSince(ts).rounded())) s"
+            if let ts = fix?.timestamp {
+                return L10n.GPS.reasonNoUpdate(Int(FlightClock.now.timeIntervalSince(ts).rounded()))
             }
-            return "No position fix"
+            return L10n.GPS.reasonNoFix
         }
     }
+
+    /// The latest fix the status counted: on the ground it is newer than the position the flight
+    /// works from while the aircraft stands still (`LocationManager.latestFix`).
+    private var fix: CLLocation? { locationManager.latestFix ?? locationManager.currentLocation }
 
     private var statusColor: Color {
         if appState.isFlightActive && !locationManager.isTracking { return theme.danger }
@@ -2569,20 +2661,20 @@ struct GPSStatusContent: View {
             .cardSection()
 
             // Advanced fix info — Vertical / Altitude tap to switch units; Position taps to copy.
-            if let loc = locationManager.currentLocation {
+            if let loc = fix {
                 LazyVGrid(columns: [GridItem(.flexible(), spacing: 8), GridItem(.flexible(), spacing: 8)], spacing: 8) {
-                    fixTile("Accuracy", loc.horizontalAccuracy >= 0 ? "± \(Int(loc.horizontalAccuracy.rounded())) m" : "—")
+                    fixTile(L10n.GPS.fixAccuracy, loc.horizontalAccuracy >= 0 ? "± \(Int(loc.horizontalAccuracy.rounded())) m" : "—")
                     Button { verticalInFeet.toggle() } label: {
-                        fixTile("Vertical", verticalAccuracyText(loc), trailing: "arrow.left.arrow.right")
+                        fixTile(L10n.GPS.fixVertical, verticalAccuracyText(loc), trailing: "arrow.left.arrow.right")
                     }
                     .buttonStyle(.plain)
-                    fixTile("Fix time", fixTime(loc.timestamp))
+                    fixTile(L10n.GPS.fixTime, fixTime(loc.timestamp))
                     Button { altitudeInMeters.toggle() } label: {
-                        fixTile("Altitude (MSL)", altitudeText(loc), trailing: "arrow.left.arrow.right")
+                        fixTile(L10n.GPS.fixAltitude, altitudeText(loc), trailing: "arrow.left.arrow.right")
                     }
                     .buttonStyle(.plain)
                     Button { copyPosition(loc) } label: {
-                        fixTile("Position", positionText(loc), trailing: positionCopied ? "checkmark" : "doc.on.doc")
+                        fixTile(L10n.GPS.fixPosition, positionText(loc), trailing: positionCopied ? "checkmark" : "doc.on.doc")
                     }
                     .buttonStyle(.plain)
                     fixTile(L10n.GPS.pointsRecorded, "\(appState.currentFlight?.gpsTrack.count ?? 0)")

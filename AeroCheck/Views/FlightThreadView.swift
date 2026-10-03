@@ -87,9 +87,13 @@ struct ThreadTaskPresentation {
     /// `touchesSwitzerland` gates the Swiss half of a customs task. It is passed in rather than
     /// assumed: offering "Swiss side" on a Slovakia → Germany flight is the app claiming a country is
     /// involved that is 300 km away.
+    /// `chartLink` is the task's aerodrome's official chart, resolved by the caller like the tariff.
+    /// (6.2.0)
     static func links(for task: ThreadTask,
                       tariffURL: URL? = nil,
+                      chartLink: OfficialChartLink? = nil,
                       touchesSwitzerland: Bool = false) -> [(label: String, url: URL)] {
+        let chart = chartLink.map { [(label: $0.title, url: $0.url)] } ?? []
         switch task.key {
         case .flightPlanFiled:
             return [(L10n.Thread.openSkybriefing,
@@ -107,11 +111,14 @@ struct ThreadTaskPresentation {
         case .flightPlanClosed:
             // Skyguide's free flight-plan closing number. A `tel:` link is the whole feature here.
             return [(L10n.Thread.callFIC, URL(string: "tel://0800437837")!)]
+        case .pprObtained:
+            // The chart is where the aerodrome's PPR telephone and hours are. (6.2.0)
+            return chart
         case .feesPaid:
             // The operator's OWN tariff page, from the server registry. Absent for an aerodrome
-            // nobody has verified yet, which is the honest state rather than a guessed link.
-            guard let tariffURL else { return [] }
-            return [(L10n.Cost.openTariff, tariffURL)]
+            // nobody has verified yet, which is the honest state rather than a guessed link. The
+            // field's official chart next to it. (6.2.0)
+            return (tariffURL.map { [(label: L10n.Cost.openTariff, url: $0)] } ?? []) + chart
         case .customsNotified:
             // The authority's own page, in its own language, is the source — the app only points at
             // it. The Swiss side applies whichever country is at the other end, but only when the
@@ -153,6 +160,8 @@ struct FlightThreadView: View {
     @EnvironmentObject var airportDataService: AirportDataService
     @Environment(\.dismiss) private var dismiss
     @Environment(\.openURL) private var openURL
+    /// The official-chart registry: a PPR or fee task's chart turns up when it arrives. (6.2.0)
+    @ObservedObject private var officialCharts = OfficialChartService.shared
 
     @State private var expandedChapter: ThreadChapter?
     /// Registration whose mass & balance is open, from the PLAN task. (v5.0.0)
@@ -336,6 +345,9 @@ struct FlightThreadView: View {
         // Warm the tariff registry so the fee task can offer the operator's page. Cached for a week
         // and silent on failure — a missing link is a missing convenience, never an error.
         .task { await AirfieldTariffService.shared.refreshIfNeeded() }
+        // The aerodromes' types, which a French official chart needs (the chart registry itself is
+        // refreshed by the app on launch and on return). (6.2.0)
+        .task { await airportDataService.ensureLoaded() }
         // The AUTO rows are a computation over the plan, and the plan is edited from sheets this
         // screen presents. Without this they kept the values they were generated with — a fuel row
         // reading REQ 0 / FOB 0 forever, and never ticking itself once the tanks were entered.
@@ -554,6 +566,7 @@ struct FlightThreadView: View {
             onDismissTask: { setState(.notApplicable, task, in: thread) },
             onOpen: { url in openURL(url) },
             tariffURL: tariffURL(for: task),
+            chartLink: chartLink(for: task),
             touchesSwitzerland: thread.countries?.contains("CH") ?? false,
             // v5.0.0: three tasks now open a calculator instead of only taking a tick.
             // The tick still works on its own — the tool is an aid, not a gate.
@@ -644,7 +657,6 @@ struct FlightThreadView: View {
             .background(Color.panelBackground)
 
             legStrip(trip, current: leg)
-            cancelTripRow(trip, leg: leg)
             stopoverLine(leg, in: trip)
 
             ForEach(tasks) { task in
@@ -767,40 +779,33 @@ struct FlightThreadView: View {
         }
     }
 
-    /// "Cancel trip", under the legs it names: every leg not flown yet goes, each as "Cancel flight"
-    /// takes one (`FlightCreator.cancelTrip`). Offered while a leg is left to cancel and none is in
-    /// the air (`FlightThreadManager.canCancel`). Quiet red text, as "Cancel flight" at the foot of
-    /// the page, and it asks first, naming the legs that go. (6.1)
-    @ViewBuilder
-    private func cancelTripRow(_ trip: Trip, leg: FlightThread) -> some View {
-        if FlightThreadManager.canCancel(trip, threads: threadManager.threads, flyingPlanId: flyingPlanId) {
-            HStack {
-                Spacer(minLength: 0)
-                Button(role: .destructive) {
-                    confirmingTripCancel = true
-                } label: {
-                    HStack(spacing: 5) {
-                        Image(systemName: "xmark.circle")
-                            .scaledFont(size: 12, weight: .semibold, relativeTo: .footnote)
-                            .accessibilityHidden(true)
-                        Text(L10n.Trip.cancelTrip)
-                            .scaledFont(size: 13, relativeTo: .footnote)
-                    }
-                    .foregroundColor(.aviationRed.opacity(0.9))
-                    .frame(minHeight: 44)
-                    .contentShape(Rectangle())
-                }
-                .buttonStyle(.plain)
-                .confirmationDialog(L10n.Trip.cancelConfirmTitle, isPresented: $confirmingTripCancel,
-                                    titleVisibility: .visible) {
-                    Button(L10n.Trip.cancelTrip, role: .destructive) { cancelTrip(trip.id, from: leg) }
-                    Button(L10n.Trip.keepTrip, role: .cancel) { }
-                } message: {
-                    Text(cancelTripMessage(trip))
-                }
-            }
-            .padding(.horizontal, 14)
+    /// "Cancel whole trip (n legs)", beside "Cancel this leg" at the foot of the page: every leg not
+    /// flown yet goes, each as "Cancel this leg" takes one (`FlightCreator.cancelTrip`). Offered while
+    /// a leg is left to cancel and none is in the air (`FlightThreadManager.canCancel`), and only when
+    /// it takes more than this leg. It sat under the leg strip, where it read as this leg's own
+    /// cancel (6.1.0 device check): both now sit at the foot, each naming what it takes, and the one
+    /// at the foot that every flight has still takes the one leg. It asks first, naming the legs. (6.1)
+    private func tripLegsToCancel(_ thread: FlightThread) -> (trip: Trip, legs: [FlightThread])? {
+        guard let trip = threadManager.trip(forThreadId: thread.id),
+              FlightThreadManager.canCancel(trip, threads: threadManager.threads, flyingPlanId: flyingPlanId)
+        else { return nil }
+        let legs = FlightThreadManager.legsToCancel(in: trip, threads: threadManager.threads,
+                                                    flyingPlanId: flyingPlanId)
+        guard legs.map(\.id) != [thread.id] else { return nil }
+        return (trip, legs)
+    }
+
+    /// Quiet red text, as the leg's own cancel beside it.
+    private func cancelButton(_ title: String, action: @escaping () -> Void) -> some View {
+        Button(role: .destructive, action: action) {
+            Text(title)
+                .scaledFont(size: 13, relativeTo: .footnote)
+                .foregroundColor(.aviationRed.opacity(0.9))
+                .multilineTextAlignment(.center)
+                .frame(minHeight: 44)
+                .contentShape(Rectangle())
         }
+        .buttonStyle(.plain)
     }
 
     /// The legs that go, one a line ("Leg 2 · LSGE → LSGN", numbered as the strip numbers them), and
@@ -1300,24 +1305,45 @@ struct FlightThreadView: View {
             }
             // Asks first: the page, its tasks and the route copied for it go for good, and one tap
             // did it, the only delete on the ground screens without a question. (v6.0 review, B4)
-            Button(role: .destructive) {
-                confirmingCancel = true
-            } label: {
-                Text(L10n.Thread.deleteThread)
-                    .scaledFont(size: 13, relativeTo: .footnote)
-                    .foregroundColor(.aviationRed.opacity(0.9))
-                    .frame(minHeight: 44)
+            // A leg of a trip says it is the leg, beside the whole trip's cancel. (6.1.0)
+            let inTrip = threadManager.trip(forThreadId: thread.id) != nil
+            let legTitle = inTrip ? L10n.Trip.cancelThisLeg : L10n.Thread.deleteThread
+            let tripCancel = tripLegsToCancel(thread)
+            ViewThatFits(in: .horizontal) {
+                HStack(spacing: 28) { cancelButtons(thread, legTitle: legTitle, trip: tripCancel) }
+                VStack(spacing: 0) { cancelButtons(thread, legTitle: legTitle, trip: tripCancel) }
             }
-            .buttonStyle(.plain)
             .confirmationDialog(L10n.Thread.cancelConfirmTitle, isPresented: $confirmingCancel,
                                 titleVisibility: .visible) {
-                Button(L10n.Thread.deleteThread, role: .destructive) { cancelFlight(thread) }
+                Button(legTitle, role: .destructive) { cancelFlight(thread) }
                 Button(L10n.Thread.keepFlight, role: .cancel) { }
             } message: {
                 Text(L10n.Thread.cancelConfirmMessage)
             }
+            .background {
+                // On a view of its own: two dialogs on one view, and only one of them presents.
+                Color.clear
+                    .confirmationDialog(L10n.Trip.cancelConfirmTitle, isPresented: $confirmingTripCancel,
+                                        titleVisibility: .visible) {
+                        if let tripCancel {
+                            Button(L10n.Trip.cancelTrip, role: .destructive) { cancelTrip(tripCancel.trip.id, from: thread) }
+                        }
+                        Button(L10n.Trip.keepTrip, role: .cancel) { }
+                    } message: {
+                        if let tripCancel { Text(cancelTripMessage(tripCancel.trip)) }
+                    }
+            }
         }
         .padding(.top, 4)
+    }
+
+    @ViewBuilder
+    private func cancelButtons(_ thread: FlightThread, legTitle: String,
+                               trip: (trip: Trip, legs: [FlightThread])?) -> some View {
+        cancelButton(legTitle) { confirmingCancel = true }
+        if let trip {
+            cancelButton(L10n.Trip.cancelWholeTrip(legs: trip.legs.count)) { confirmingTripCancel = true }
+        }
     }
 
     private func cancelFlight(_ thread: FlightThread) {
@@ -1343,6 +1369,12 @@ struct FlightThreadView: View {
     }
 
     // MARK: - Actions
+
+    /// The official chart of a PPR or fee task's aerodrome, when its country publishes one. (6.2.0)
+    private func chartLink(for task: ThreadTask) -> OfficialChartLink? {
+        guard task.key == .pprObtained || task.key == .feesPaid, let icao = task.subject else { return nil }
+        return officialCharts.link(for: icao, type: airportDataService.findAirport(byIdent: icao)?.type)
+    }
 
     /// The operator's tariff page for a fee task, when the registry has a verified one.
     private func tariffURL(for task: ThreadTask) -> URL? {
@@ -1453,6 +1485,8 @@ struct ThreadTaskRow: View {
     let onOpen: (URL) -> Void
     /// Operator tariff page for a fee task, resolved by the parent view. (v5.0.0)
     var tariffURL: URL?
+    /// The official chart of a PPR or fee task's aerodrome, resolved by the parent view. (6.2.0)
+    var chartLink: OfficialChartLink?
     /// Whether this flight actually touches Switzerland, which gates the Swiss customs link.
     var touchesSwitzerland: Bool = false
     /// Label for an in-app tool this task can open (mass & balance, cost & logbook). Nil for a task
@@ -1469,7 +1503,8 @@ struct ThreadTaskRow: View {
 
     private var presentation: ThreadTaskPresentation { .make(for: task) }
     private var links: [(label: String, url: URL)] {
-        ThreadTaskPresentation.links(for: task, tariffURL: tariffURL, touchesSwitzerland: touchesSwitzerland)
+        ThreadTaskPresentation.links(for: task, tariffURL: tariffURL, chartLink: chartLink,
+                                     touchesSwitzerland: touchesSwitzerland)
     }
 
     var body: some View {
@@ -1519,7 +1554,7 @@ struct ThreadTaskRow: View {
                     // real width, so every chip sat a few points LEFT of the title it belonged to.
                     // Nesting them makes the alignment structural instead of a guess.
                     if (!links.isEmpty || toolLabel != nil) && task.state != .notApplicable {
-                        actionChips.padding(.top, 4)
+                        actionChips
                     }
                 }
                 Spacer(minLength: 0)
@@ -1569,24 +1604,29 @@ struct ThreadTaskRow: View {
                     if let toolLabel, let onOpenTool {
                         // Gold rather than blue: this one stays inside the app, where the blue chips
                         // all leave it.
-                        Button(toolLabel) { onOpenTool() }
-                            .scaledFont(size: 11, weight: .semibold, relativeTo: .caption2)
-                            .foregroundColor(.aviationGold)
-                            .padding(.horizontal, 9)
-                            .padding(.vertical, 5)
-                            .overlay(Capsule().strokeBorder(Color.aviationGold.opacity(0.5), lineWidth: 1))
-                            .buttonStyle(.plain)
+                        chip(toolLabel, color: .aviationGold, strokeOpacity: 0.5) { onOpenTool() }
                     }
                     ForEach(links, id: \.label) { link in
-                        Button(link.label) { onOpen(link.url) }
-                            .scaledFont(size: 11, weight: .semibold, relativeTo: .caption2)
-                            .foregroundColor(.altimeterBlue)
-                            .padding(.horizontal, 9)
-                            .padding(.vertical, 5)
-                            .overlay(Capsule().strokeBorder(Color.altimeterBlue.opacity(0.45), lineWidth: 1))
-                            .buttonStyle(.plain)
+                        chip(link.label, color: .altimeterBlue, strokeOpacity: 0.45) { onOpen(link.url) }
                     }
         }
+    }
+
+    /// One chip: the capsule as before, in a target at least 44 pt tall. The padding and the capsule
+    /// used to sit outside the button, so only the text took the tap. (6.2.0)
+    private func chip(_ label: String, color: Color, strokeOpacity: Double,
+                      action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Text(label)
+                .scaledFont(size: 11, weight: .semibold, relativeTo: .caption2)
+                .foregroundColor(color)
+                .padding(.horizontal, 9)
+                .padding(.vertical, 5)
+                .overlay(Capsule().strokeBorder(color.opacity(strokeOpacity), lineWidth: 1))
+                .frame(minHeight: 44)
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
     }
 
     private var tickButton: some View {

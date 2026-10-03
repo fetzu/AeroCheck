@@ -17,7 +17,9 @@ struct CompanionFlightView: View {
     @State private var mode: Mode = .checklist
     @State private var userPickedMode = false
     @State private var showFullPlan = false
-    @State private var isHoldingExit = false
+    /// The hold on the COMPANION tag that leaves Companion mode, 0 to 1: the tag fills red from the left
+    /// for as long as the hold takes, as END FLIGHT's button does, and empties if released early. (6.1.0)
+    @State private var exitHoldProgress: CGFloat = 0
     @State private var showExitConfirm = false
     @State private var now = Date()
     /// NEXT's review of the items still open, as on the Cockpit. (v6.0 review, decision 2)
@@ -57,20 +59,25 @@ struct CompanionFlightView: View {
 
             if isFlightActive {
                 modeSwitcher
-                // A mid-flight link drop keeps the last (frozen) flight data, so isFlightActive stays true.
-                // Surface the "connection lost / switch to standalone" escape here too — not only on the
-                // not-flying screen — falling back to the amber stale banner when merely connected-but-stale.
-                if companionConnectivityManager.connectionState == .reconnecting ||
-                   companionConnectivityManager.connectionState == .disconnected {
-                    disconnectedBanner
-                } else if isDataStale {
-                    staleBanner
-                }
                 TabView(selection: $mode) {
                     navMode.tag(Mode.nav)
                     checklistMode.tag(Mode.checklist)
                 }
                 .tabViewStyle(.page(indexDisplayMode: .never))
+                // A mid-flight link drop keeps the last (frozen) flight data, so isFlightActive stays true.
+                // Surface the "connection lost / switch to standalone" escape here too — not only on the
+                // not-flying screen — falling back to the amber stale banner when merely connected-but-stale.
+                // Over the top of the content, not above it: in the layout, each gap in the stream pushed
+                // the phase header, its buttons and the NAV card down 37–60 pt and back. What it covers is
+                // frozen while it shows. (6.1.0)
+                .overlay(alignment: .top) {
+                    if companionConnectivityManager.connectionState == .reconnecting ||
+                       companionConnectivityManager.connectionState == .disconnected {
+                        disconnectedBanner
+                    } else if isDataStale {
+                        staleBanner
+                    }
+                }
                 instrumentsStrip.opacity(isDataStale ? 0.4 : 1)
             } else {
                 if companionConnectivityManager.connectionState == .reconnecting ||
@@ -100,6 +107,9 @@ struct CompanionFlightView: View {
         }
     }
 
+    /// How long the COMPANION tag is held to leave Companion mode.
+    private static let exitHoldDuration: TimeInterval = 1.0
+
     private func applyAutoMode() {
         guard !userPickedMode else { return }
         let target: Mode = isAirborne ? .nav : .checklist
@@ -115,14 +125,25 @@ struct CompanionFlightView: View {
                     .font(.aero(size: CockpitType.label, weight: .bold, design: .monospaced))
                     .foregroundColor(theme.actionText)
                     .padding(.horizontal, 6).padding(.vertical, 2)
-                    .background(theme.action)
+                    .background {
+                        theme.action
+                            .overlay(alignment: .leading) {
+                                GeometryReader { geo in
+                                    theme.danger.frame(width: geo.size.width * exitHoldProgress)
+                                }
+                            }
+                    }
                     .clipShape(RoundedRectangle(cornerRadius: 3))
-                    .scaleEffect(isHoldingExit ? 0.9 : 1.0)
-                    .opacity(isHoldingExit ? 0.6 : 1.0)
-                    .onLongPressGesture(minimumDuration: 1.0, pressing: { p in
-                        withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.15)) { isHoldingExit = p } // (UX-18)
+                    .onLongPressGesture(minimumDuration: Self.exitHoldDuration, pressing: { pressing in
+                        if reduceMotion {
+                            exitHoldProgress = pressing ? 1 : 0   // no sweep; the hold is still required (UX-18)
+                        } else {
+                            withAnimation(.linear(duration: pressing ? Self.exitHoldDuration : 0.2)) {
+                                exitHoldProgress = pressing ? 1 : 0
+                            }
+                        }
                     }, perform: {
-                        isHoldingExit = false
+                        exitHoldProgress = 0
                         showExitConfirm = true
                     })
                     .accessibilityLabel(L10n.Companion.companionMode)
@@ -147,9 +168,10 @@ struct CompanionFlightView: View {
     /// Connection status using the app's StatusIndicator design language + the connected device name.
     private var connectionStatusRow: some View {
         HStack(spacing: 5) {
-            if let name = companionConnectivityManager.connectedDeviceName {
-                Text(name).font(.aero(size: CockpitType.label)).foregroundColor(theme.textSecondary).lineLimit(1)
-            }
+            // The line keeps its height without a name (the iPad ended the link): the header lost 13 pt
+            // and the NAV / CHECKLIST switch under it moved up. (6.1.0)
+            Text(companionConnectivityManager.connectedDeviceName ?? " ")
+                .font(.aero(size: CockpitType.label)).foregroundColor(theme.textSecondary).lineLimit(1)
             StatusIndicator(connectionStatus, size: 8)
         }
     }

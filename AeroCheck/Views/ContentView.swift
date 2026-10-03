@@ -278,7 +278,7 @@ struct ContentView: View {
             for _ in 0..<40 where !(threadManager.hasLoadedThreads && flightPlanManager.hasLoadedPlans) {
                 try? await Task.sleep(nanoseconds: 100_000_000)
             }
-            MarketingSceneInjector.inject(
+            await MarketingSceneInjector.inject(
                 scene,
                 appState: appState,
                 locationManager: locationManager,
@@ -542,6 +542,10 @@ struct ContentView: View {
     /// with, and go through the shared `FlightLauncher` rather than starting a flight some other
     /// way. Circuits skip the plan by design. (review F21)
     private func startFollowedFlight(threadId: UUID, circuits: Bool) {
+        // Before anything else: the launcher refuses a second flight (UX-06), but only after this
+        // has selected the thread's aircraft and armed its plan. A thread opened from its reminder
+        // while flying switched both under the flight in progress.
+        guard !appState.isFlightActive else { return }
         guard let thread = threadManager.thread(withId: threadId) else { return }
         if let registration = thread.aircraftRegistration, !registration.isEmpty {
             _ = appState.selectAircraft(id: registration,

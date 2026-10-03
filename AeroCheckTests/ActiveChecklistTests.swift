@@ -9,7 +9,7 @@ final class ActiveChecklistTests: XCTestCase {
 
     /// A minimal premium (PA-28) checklist whose content is deliberately distinct from the WT9:
     /// it only populates the `preflight` phase and uses a different stall speed and speed set.
-    private func makePA28Checklist() -> RemoteAircraftChecklist {
+    static func makePA28Checklist() -> RemoteAircraftChecklist {
         RemoteAircraftChecklist(
             id: "pa28-181",
             aircraftType: "PA28",
@@ -41,7 +41,7 @@ final class ActiveChecklistTests: XCTestCase {
     }
 
     func testPremiumChecklistNeverExposesWT9Items() {
-        let active = ActiveChecklist(source: .remote(makePA28Checklist()))
+        let active = ActiveChecklist(source: .remote(Self.makePA28Checklist()))
 
         // The populated phase shows the PA-28 item, never a WT9 one.
         let preflight = active.items(for: .preflight)
@@ -56,7 +56,7 @@ final class ActiveChecklistTests: XCTestCase {
     }
 
     func testPremiumChecklistNeverExposesWT9Speeds() {
-        let active = ActiveChecklist(source: .remote(makePA28Checklist()))
+        let active = ActiveChecklist(source: .remote(Self.makePA28Checklist()))
 
         XCTAssertEqual(active.stallSpeed, 50)
         XCTAssertNotEqual(active.stallSpeed, AircraftType.wt9Dynamic.stallSpeed,
@@ -144,6 +144,238 @@ final class ActiveChecklistTests: XCTestCase {
         XCTAssertFalse(ChecklistPhase.beforeDeparture.hasMissingRequiredAction(engineStarted: true, engineShutDown: true))
         XCTAssertFalse(ChecklistPhase.beforeDeparture.hasMissingRequiredAction(engineStarted: false, engineShutDown: false))
         XCTAssertEqual(ChecklistPhase.allCases.filter(\.readiesForLineUp), [.beforeDeparture])
+    }
+
+    // MARK: - The resolved checklist and the selection
+
+    /// The WT9 in `language` with no network: the bundled JSON of that language, resolved the way
+    /// `FlightLauncher.begin` resolves it.
+    private func resolveOfflineWT9(_ appState: AppState, language: ChecklistLanguage) async {
+        appState.settings.selectedRemoteAircraftId = nil
+        appState.settings.selectedAircraft = .wt9Dynamic
+        appState.settings.checklistLanguage = language
+        let offline = AircraftDataServiceSeamTests.FakeHTTPClient(responseData: Data("offline".utf8), statusCode: 503)
+        let service = makeTestAircraftDataService(subscriptionManager: AircraftDataServiceSeamTests.FakeGating(),
+                                                  httpClient: offline)
+        await appState.loadRemoteChecklistIfNeeded(aircraftDataService: service)
+    }
+
+    /// The French checks before departure, which the hard-coded English `WT9ChecklistData` doesn't
+    /// have (14 against 13): the highlight points at a different check on the other one.
+    private func frenchWT9ChecksBeforeDeparture() throws -> [String] {
+        let french = try XCTUnwrap(BundledChecklistService.loadBundledChecklist(for: "wt9-dynamic", language: "fr"))
+        let checks = french.items(for: .beforeDeparture).map(\.challenge)
+        XCTAssertNotEqual(checks, AircraftType.wt9Dynamic.items(for: .beforeDeparture).map(\.challenge),
+                          "Precondition: the French checks differ from the hard-coded English ones")
+        return checks
+    }
+
+    /// The WT9's checklist in the pilot's language is resolved with no premium aircraft selected, and
+    /// every `saveSettings()` dropped it: a Memory test, UTC or map-layer toggle in flight put the
+    /// Cockpit back on the hard-coded English checks, under the highlight the pilot was following.
+    func testSavingSettingsKeepsTheWT9ChecklistInThePilotsLanguage() async throws {
+        let appState = makeTestAppState()
+        await resolveOfflineWT9(appState, language: .fr)
+        let french = try frenchWT9ChecksBeforeDeparture()
+        XCTAssertEqual(appState.activeChecklist.items(for: .beforeDeparture).map(\.challenge), french,
+                       "Precondition: the French checklist is the active one")
+
+        appState.settings.learningMode = false
+        appState.saveSettings()
+
+        XCTAssertEqual(appState.activeChecklist.items(for: .beforeDeparture).map(\.challenge), french,
+                       "a settings save must not swap the checklist being flown")
+    }
+
+    /// The same through iCloud: the settings of another device, arriving in flight.
+    func testSettingsFromICloudKeepTheWT9ChecklistInThePilotsLanguage() async throws {
+        let defaults = makeTestDefaults()
+        defaults.set(true, forKey: DataPersistenceManager.syncPreferenceKey)
+        let manager = SyncManager(defaults: defaults, backend: StubSyncBackend())
+        await manager.engineStartTask?.value
+        let appState = makeTestAppState(syncManager: manager)
+        await resolveOfflineWT9(appState, language: .fr)
+        let french = try frenchWT9ChecksBeforeDeparture()
+
+        var remote = appState.settings
+        remote.alwaysUseUTC.toggle()
+        await manager.onSettingsUpdated?(remote)
+
+        XCTAssertEqual(appState.activeChecklist.items(for: .beforeDeparture).map(\.challenge), french)
+    }
+
+    /// What the reconciliation is there for: a premium checklist never outlives a switch to the WT9,
+    /// which shows its own until its own loads.
+    func testSwitchingToTheWT9DropsThePremiumChecklist() async throws {
+        let appState = makeTestAppState()
+        try await resolvePA28(appState)
+        XCTAssertEqual(appState.activeChecklist.registration, "HB-PFA", "Precondition: the PA-28 is resolved")
+
+        XCTAssertTrue(appState.selectAircraft(id: AircraftType.wt9Dynamic.serverId, available: []))
+
+        XCTAssertNil(appState.resolvedRemoteChecklist)
+        XCTAssertEqual(appState.activeChecklist.registration, "F-HVXA")
+        XCTAssertEqual(appState.activeChecklist.stallSpeed, AircraftType.wt9Dynamic.stallSpeed)
+    }
+
+    // MARK: - The checklist being flown and a selection synced from another device
+
+    /// A device on iCloud sync, as the app runs it, with its own datastore and defaults.
+    private func makeSyncedDevice(datastore: DataPersistenceManager,
+                                  defaults: UserDefaults) async -> (AppState, SyncManager) {
+        defaults.set(true, forKey: DataPersistenceManager.syncPreferenceKey)
+        let manager = SyncManager(defaults: defaults, backend: StubSyncBackend())
+        await manager.engineStartTask?.value
+        return (makeTestAppState(datastore: datastore, defaults: defaults, syncManager: manager), manager)
+    }
+
+    /// Another device's settings record, arriving in flight with `select` applied to it: the pilot's
+    /// iPhone on the same iCloud account, say, with another aircraft picked on it.
+    private func deliverSettings(to manager: SyncManager, from appState: AppState,
+                                 _ select: (inout AppSettings) -> Void) async {
+        var remote = appState.settings
+        select(&remote)
+        await manager.onSettingsUpdated?(remote)
+    }
+
+    /// A PA-28 flight under way, then another device's settings with the WT9 selected.
+    private func startPA28FlightThenSyncTheWT9(on appState: AppState, manager: SyncManager) async throws {
+        try await resolvePA28(appState)
+        appState.startFlight(withAircraft: "HB-PFA", aircraftRegistration: "HB-PFA", aircraftType: "PA28")
+        XCTAssertTrue(appState.isFlightActive, "Precondition: the PA-28 flight started")
+        await deliverSettings(to: manager, from: appState) {
+            $0.selectedRemoteAircraftId = nil
+            $0.selectedAircraft = .wt9Dynamic
+        }
+    }
+
+    /// A PA-28 in flight, and another device picks the WT9. The Cockpit must keep the PA-28's checks
+    /// and speeds: the WT9's hard-coded ones are another aircraft's (stall 42 kt against 50 kt).
+    func testASyncedWT9SelectionLeavesThePremiumChecklistInFlight() async throws {
+        let (appState, manager) = await makeSyncedDevice(datastore: makeTestDatastore(), defaults: makeTestDefaults())
+        try await startPA28FlightThenSyncTheWT9(on: appState, manager: manager)
+
+        let active = appState.activeChecklist
+        XCTAssertEqual(active.registration, "HB-PFA", "the Cockpit must name the aircraft being flown")
+        XCTAssertEqual(active.stallSpeed, 50, "the stall speed must be the PA-28's")
+        XCTAssertEqual(active.targetSpeed(for: .climb), 79, "the climb target must be the PA-28's")
+        XCTAssertEqual(active.items(for: .preflight).map(\.challenge), ["PA28 PREFLIGHT ITEM"])
+        XCTAssertTrue(active.items(for: .engineStart).isEmpty, "no WT9 check may show on the PA-28")
+        XCTAssertTrue(appState.activeAircraftIsPremium,
+                      "Companion's text gate must still see the premium checklist on screen")
+    }
+
+    /// The pick from the other device isn't lost: it is the aircraft once the flight is over.
+    func testASelectionSyncedInFlightTakesOverOnceTheFlightIsOver() async throws {
+        let (appState, manager) = await makeSyncedDevice(datastore: makeTestDatastore(), defaults: makeTestDefaults())
+        try await startPA28FlightThenSyncTheWT9(on: appState, manager: manager)
+
+        appState.cancelFlight()
+
+        XCTAssertNil(appState.flightAircraft)
+        XCTAssertNil(appState.settings.selectedRemoteAircraftId)
+        XCTAssertEqual(appState.activeChecklist.registration, "F-HVXA")
+        XCTAssertFalse(appState.activeAircraftIsPremium)
+    }
+
+    /// A WT9 flight in French, and another device picks the PA-28 in English. The checks on screen
+    /// stay the WT9's, and the crash checkpoint records the flight's aircraft and language.
+    func testASyncedPremiumSelectionStaysOutOfTheWT9FlightsCheckpoint() async throws {
+        let (appState, manager) = await makeSyncedDevice(datastore: makeTestDatastore(), defaults: makeTestDefaults())
+        await resolveOfflineWT9(appState, language: .fr)
+        let french = try frenchWT9ChecksBeforeDeparture()
+        appState.startFlight(withAircraft: "F-HVXA", aircraftRegistration: "F-HVXA", aircraftType: "WT9")
+
+        await deliverSettings(to: manager, from: appState) {
+            $0.selectedRemoteAircraftId = "pa28-181"
+            $0.checklistLanguage = .en
+        }
+
+        XCTAssertEqual(appState.activeChecklist.items(for: .beforeDeparture).map(\.challenge), french)
+        let checkpoint = ActiveFlightState(flight: try XCTUnwrap(appState.currentFlight), from: appState)
+        XCTAssertNil(checkpoint.selectedRemoteAircraftId,
+                     "the checkpoint must re-resolve the aircraft being flown, not the one picked elsewhere")
+        XCTAssertEqual(checkpoint.selectedAircraft, .wt9Dynamic)
+        XCTAssertEqual(checkpoint.checklistLanguage, "fr")
+    }
+
+    /// The same WT9 flight, then a crash (jetsam on a long flight) and a relaunch with no network,
+    /// which reloads the flight's checklist as `AeroCheckApp` does. The restored WT9 flight must come
+    /// back on the WT9's French checks, not on an unresolved PA-28 (an empty Cockpit).
+    func testACrashAfterASyncedPremiumSelectionRestoresTheWT9Checklist() async throws {
+        let datastore = makeTestDatastore()
+        let defaults = makeTestDefaults()
+        let (source, manager) = await makeSyncedDevice(datastore: datastore, defaults: defaults)
+        await resolveOfflineWT9(source, language: .fr)
+        let french = try frenchWT9ChecksBeforeDeparture()
+        source.startFlight(withAircraft: "F-HVXA", aircraftRegistration: "F-HVXA", aircraftType: "WT9")
+        await deliverSettings(to: manager, from: source) {
+            $0.selectedRemoteAircraftId = "pa28-181"
+            $0.checklistLanguage = .en
+        }
+        source.saveActiveFlightState()
+
+        let relaunched = makeTestAppState(datastore: datastore, defaults: defaults)
+        XCTAssertTrue(relaunched.isFlightActive, "Precondition: the flight is restored")
+        XCTAssertEqual(relaunched.currentFlight?.aircraftRegistration, "F-HVXA")
+        let offline = AircraftDataServiceSeamTests.FakeHTTPClient(responseData: Data("offline".utf8), statusCode: 503)
+        await relaunched.loadFlightChecklistIfNeeded(
+            aircraftDataService: makeTestAircraftDataService(subscriptionManager: AircraftDataServiceSeamTests.FakeGating(),
+                                                             httpClient: offline))
+
+        XCTAssertEqual(relaunched.activeChecklist.items(for: .beforeDeparture).map(\.challenge), french,
+                       "the restored WT9 flight must show the WT9's checks, in its own language")
+
+        relaunched.clearActiveFlightState()
+        relaunched.isFlightActive = false
+        source.isFlightActive = false
+    }
+
+    /// A PA-28 flight, the WT9 synced in, then a crash. The restored flight shows nothing until its
+    /// checklist is back (ARCH-08), and the launch fetches the PA-28's, not the selected WT9's.
+    func testARestoredPremiumFlightReloadsItsOwnChecklist() async throws {
+        let datastore = makeTestDatastore()
+        let defaults = makeTestDefaults()
+        let (source, manager) = await makeSyncedDevice(datastore: datastore, defaults: defaults)
+        try await startPA28FlightThenSyncTheWT9(on: source, manager: manager)
+        source.saveActiveFlightState()
+
+        let relaunched = makeTestAppState(datastore: datastore, defaults: defaults)
+        XCTAssertEqual(relaunched.activeChecklist.source, .unresolved, "nothing, never the WT9, until it loads")
+        let http = AircraftDataServiceSeamTests.FakeHTTPClient(responseData: try Self.pa28ChecklistResponse())
+        await relaunched.loadFlightChecklistIfNeeded(
+            aircraftDataService: makeTestAircraftDataService(subscriptionManager: AircraftDataServiceSeamTests.FakeGating(),
+                                                             httpClient: http))
+
+        let paths = http.capturedRequests.compactMap { $0.url?.path }
+        XCTAssertFalse(paths.isEmpty)
+        XCTAssertTrue(paths.allSatisfy { $0.contains("/aircraft/pa28-181/") }, "fetched \(paths)")
+        XCTAssertEqual(relaunched.activeChecklist.registration, "HB-PFA")
+        XCTAssertEqual(relaunched.activeChecklist.stallSpeed, 50)
+
+        relaunched.clearActiveFlightState()
+        relaunched.isFlightActive = false
+        source.isFlightActive = false
+    }
+}
+
+/// The PA-28 as the API serves it, for the tests that fly one.
+extension ActiveChecklistTests {
+    static func pa28ChecklistResponse() throws -> Data {
+        Data(#"{"success":true,"data":"#.utf8) + (try JSONEncoder().encode(makePA28Checklist())) + Data("}".utf8)
+    }
+}
+
+extension XCTestCase {
+    /// The PA-28 selected and its checklist resolved, the way `FlightLauncher.begin` resolves it: a
+    /// premium flight can start once this has run.
+    @MainActor
+    func resolvePA28(_ appState: AppState) async throws {
+        appState.settings.selectedRemoteAircraftId = "pa28-181"
+        let http = AircraftDataServiceSeamTests.FakeHTTPClient(responseData: try ActiveChecklistTests.pa28ChecklistResponse())
+        let service = makeTestAircraftDataService(subscriptionManager: AircraftDataServiceSeamTests.FakeGating(),
+                                                  httpClient: http)
+        await appState.loadRemoteChecklistIfNeeded(aircraftDataService: service)
     }
 }
 

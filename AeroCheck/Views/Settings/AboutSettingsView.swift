@@ -135,6 +135,10 @@ struct AboutSettingsView: View {
         SettingsGroup(title: L10n.DataStorage.dataSourcesTitle, tint: tint) {
             dataSourceRow(name: "swisstopo / BAZL", detail: L10n.DataStorage.sourceCharts, url: "https://www.swisstopo.admin.ch")
             dataSourceRow(name: "OpenAIP", detail: L10n.DataStorage.sourceAirspace, url: "https://www.openaip.net")
+            // open flightmaps' General Users' License asks for the credit and for a way to report errors
+            // (the VFR callout's Report an error); its data is never a primary source, so the row says it
+            // is indicative, as the map does. (6.2.0)
+            dataSourceRow(name: "open flightmaps", detail: L10n.DataStorage.sourceVFRProcedures, url: "https://openflightmaps.org")
             dataSourceRow(name: "OurAirports", detail: L10n.DataStorage.sourceAirports, url: "https://ourairports.com")
             dataSourceRow(name: "MeteoSwiss", detail: L10n.DataStorage.sourceWind, url: "https://www.meteoswiss.admin.ch")
             // NOAA AWC is a US Government work, so METAR/TAF/SIGMET are public domain and need no

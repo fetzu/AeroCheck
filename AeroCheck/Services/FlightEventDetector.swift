@@ -1,11 +1,20 @@
 import Foundation
 import CoreLocation
 
-/// Detected flight event type
+/// Detected flight event type. The raw value is the English name the logs use; the screen reads
+/// `title`, in the pilot's language. (6.2)
 enum FlightEventType: String {
     case goAround = "Go-Around"
     case touchAndGo = "Touch-and-Go"
     case fullStop = "Full Stop"
+
+    var title: String {
+        switch self {
+        case .goAround: return L10n.EventConfirmation.goAround
+        case .touchAndGo: return L10n.EventConfirmation.touchAndGo
+        case .fullStop: return L10n.EventConfirmation.fullStop
+        }
+    }
 }
 
 /// A detected flight event awaiting confirmation

@@ -254,6 +254,12 @@ struct CompanionForgottenDevices {
     }
 }
 
+/// Whether a task ended, set from another task (`CompanionConnectivityManager.waitForEnd`).
+actor CompanionTaskEnd {
+    private(set) var value = false
+    func mark() { value = true }
+}
+
 /// Manages companion device connectivity using Wi-Fi Aware (iOS 26+)
 /// iPad acts as Master (publisher/listener), iPhone acts as Viewer (subscriber/browser)
 ///
@@ -365,6 +371,9 @@ class CompanionConnectivityManager: NSObject, ObservableObject {
     /// and what the tests read, since a test manager starts nothing real.
     private(set) var listenerStarts = 0
     private(set) var browseStarts = 0
+    /// Master: bumped by every start and stop of the listener, so a start still waiting for the
+    /// previous listener to let go (`startListening`) does nothing once something newer happened.
+    private var listenerToken = 0
 
     /// Monotonic token identifying the current connection attempt. Each new connect/accept bumps it
     /// and captures the value; a stale connection's teardown (its receive loop ending *after* a
@@ -451,9 +460,9 @@ class CompanionConnectivityManager: NSObject, ObservableObject {
     /// Log a pairing-phase event from the DeviceDiscoveryUI pairing views, which run as system UI
     /// outside this manager — so the diagnostics panel shows the pairing attempt, not just connection. (v4.1)
     ///
-    /// Logged in the clear, so a Console capture of a failed pairing shows the steps (6.1.0): callers
-    /// pass fixed text only, never a device name.
-    func logPairing(_ message: String) { diag(message, isPublic: true) }
+    /// Logged in the clear at `.notice`, which a device capture keeps (`.info` it drops), so a capture of
+    /// a failed pairing shows the steps (6.1.0): callers pass fixed text only, never a device name.
+    func logPairing(_ message: String) { lifecycle(message) }
 
     /// Record a companion lifecycle event for the dev diagnostics panel (newest first) and the log.
     /// `isPublic` only for a fixed state message with no device name in it (SA-20).
@@ -518,6 +527,9 @@ class CompanionConnectivityManager: NSObject, ObservableObject {
                         if ids != self.pairedDeviceIDs {
                             self.diag("Paired devices: \(mapped.count) (\(mapped.compactMap(\.name).joined(separator: ", ")))")
                             self.lifecycle("Paired devices: \(mapped.count), \(ids.count) system record(s)")
+                        } else if self.isPairing {
+                            // Whether pairing again a device already paired tells the app anything. (6.1.0)
+                            self.lifecycle("Paired devices: an update during pairing, the same \(ids.count) record(s)")
                         }
                         self.pairedDevices = mapped
                     }
@@ -622,6 +634,7 @@ class CompanionConnectivityManager: NSObject, ObservableObject {
             AppLog.companion.publicLine("Master: listener held, pairing in progress")
             return
         }
+        let previous = listenerTask
         stopListening()
 
         currentRole = .master
@@ -638,6 +651,63 @@ class CompanionConnectivityManager: NSObject, ObservableObject {
             return
         }
 
+        // A listener still running holds the service until its task has ended, and Wi-Fi Aware takes
+        // one publisher per service. The re-arm after a drop cancelled the old listener and published
+        // again in the same instant; toggling Companion mode on the iPad, which left a second or more
+        // between the two, was what brought the phone back (6.1.0 device check, link-6: an awake iPad
+        // after its idle drop, the phone "looking for the iPad" until the toggle). So a restart waits
+        // for the old listener to end, up to 3 s, then a second more. (6.1.0)
+        guard let previous else {
+            makeListener()
+            return
+        }
+        listenerToken += 1
+        let token = listenerToken
+        Task { @MainActor [weak self] in
+            let ended = await Self.waitForEnd(of: previous, upTo: .seconds(3))
+            try? await Task.sleep(for: .seconds(1))
+            guard let self, self.listenerToken == token, self.currentRole == .master,
+                  self.connectionState == .connecting, !self.isPairing else { return }
+            self.lifecycle(ended ? "Master: the previous listener has ended, starting the next"
+                                 : "Master: the previous listener did not end within 3 s, starting the next")
+            self.makeListener()
+        }
+    }
+
+    /// Wait until `task` has ended (true), or `limit` has passed (false). A cancelled listener's task
+    /// ends once its run and its connections let go; nothing here depends on it ever doing so.
+    nonisolated static func waitForEnd(of task: Task<Void, any Error>, upTo limit: Duration) async -> Bool {
+        await waitFor(upTo: limit) { _ = await task.result }
+    }
+
+    /// Send `goodbye` on `send`, then close `connection` (cancel its task): once the goodbye went out
+    /// (true), or after `limit` (false). The connection is closed either way. (6.1.0)
+    nonisolated static func sayGoodbye(_ goodbye: CompanionMessage,
+                                       on send: @escaping @Sendable (CompanionMessage) async throws -> Void,
+                                       thenClose connection: Task<Void, any Error>,
+                                       upTo limit: Duration) async -> Bool {
+        let sent = await waitFor(upTo: limit) { _ = try? await send(goodbye) }
+        connection.cancel()
+        return sent
+    }
+
+    /// Run `work` and wait until it is done (true), or `limit` has passed (false): what is left of it
+    /// then carries on alone. For waits that must not hang the caller on a send or a task that never
+    /// ends.
+    nonisolated static func waitFor(upTo limit: Duration, _ work: @escaping @Sendable () async -> Void) async -> Bool {
+        let ended = CompanionTaskEnd()
+        Task { await work(); await ended.mark() }
+        let deadline = ContinuousClock.now + limit
+        while ContinuousClock.now < deadline {
+            if await ended.value { return true }
+            try? await Task.sleep(for: .milliseconds(100))
+        }
+        return await ended.value
+    }
+
+    /// The listener itself, made and run. (`startListening` decides when.)
+    @available(iOS 26.0, *)
+    private func makeListener() {
         do {
             let listener = try NetworkListener(
                 // Accept connections from any already-paired device — the connection phase uses
@@ -737,6 +807,7 @@ class CompanionConnectivityManager: NSObject, ObservableObject {
 
     /// Stop listening for connections
     func stopListening() {
+        listenerToken += 1   // a start still waiting for the previous listener is off
         listenerTask?.cancel()
         listenerTask = nil
     }
@@ -962,8 +1033,7 @@ class CompanionConnectivityManager: NSObject, ObservableObject {
         isPairing = true
         let running = sessionOnTheService
         endSession()
-        diag("Pairing mode on: \(running.map { "\($0) stopped" } ?? "nothing of ours was running"), auto-connect on hold",
-             isPublic: true)
+        lifecycle("Pairing mode on: \(running.map { "\($0) stopped" } ?? "nothing of ours was running"), auto-connect on hold")
     }
 
     /// The pairing screen went away (paired, cancelled or torn down): auto-connect resumes, as the
@@ -972,8 +1042,7 @@ class CompanionConnectivityManager: NSObject, ObservableObject {
         guard isPairing else { return }
         isPairing = false
         autoConnectIfReady()
-        diag("Pairing mode off: \(sessionOnTheService.map { "\($0) resumed" } ?? "nothing to resume")",
-             isPublic: true)
+        lifecycle("Pairing mode off: \(sessionOnTheService.map { "\($0) resumed" } ?? "nothing to resume")")
     }
 
     /// What of ours holds the Wi-Fi Aware service right now, for the pairing log. Fixed text.
@@ -1249,9 +1318,22 @@ class CompanionConnectivityManager: NSObject, ObservableObject {
         connectionGeneration += 1
 
         // Send graceful disconnect message
-        if connectionState == .connected, sendHandler != nil {
-            let message = CompanionMessage(type: .disconnect, payload: Data())
-            sendMessage(message)
+        if connectionState == .connected, let send = sendHandler {
+            let goodbye = CompanionMessage(type: .disconnect, payload: Data())
+            if currentRole == .viewer, let connection = browserTask {
+                // The phone's connection lives in its browse task, and cancelling that task here, as
+                // this did, closed the connection before the goodbye (queued in the outbox) went out: the
+                // iPad heard nothing, kept a dead link and only let it go after 10 s of silence (6.1.0
+                // final-fixes capture, 23:06). The goodbye now goes out on its own, and the connection
+                // closes once it has, or after half a second at most. (6.1.0)
+                browserTask = nil
+                Task {
+                    let sent = await Self.sayGoodbye(goodbye, on: send, thenClose: connection, upTo: .milliseconds(500))
+                    if !sent { AppLog.companion.publicNotice("Viewer: the goodbye did not go out within 0.5 s") }
+                }
+            } else {
+                sendMessage(goodbye)
+            }
         }
 
         cleanupConnection()   // also releases the GPS provider + clears peer-fix state (shared-GPS)
@@ -1950,7 +2032,7 @@ class CompanionConnectivityManager: NSObject, ObservableObject {
         Self.mayStreamItemText(masterIsEntitled: entitlementProvider?() ?? false,
                                viewerClaimsEntitlement: peerLink?.claimsEntitlement ?? false,
                                connectionAllowed: peerLink?.authorization == .allowed,
-                               remoteAircraftSelected: appState?.settings.isRemoteAircraftSelected ?? true)
+                               remoteAircraftSelected: appState?.activeAircraftIsPremium ?? true)
     }
 
     /// SA-26: the bundled aircraft's words always go out; a Pro aircraft's only from an iPad itself
@@ -2135,9 +2217,13 @@ class CompanionConnectivityManager: NSObject, ObservableObject {
     }
 
     /// Viewer: stream this device's current fix up to the master, if it's usable. (shared-GPS)
+    ///
+    /// Only a fix from the satellites (`LocationManager.isSatelliteFix`): the master shows a borrowed fix
+    /// as a good signal, so a Wi-Fi position sent from a phone indoors would turn a GPS-less iPad green.
+    /// (6.1.1, Wi-Fi iPads)
     private func sendPeerGPSIfAvailable() {
         guard currentRole == .viewer, sendHandler != nil, connectionState == .connected,
-              let loc = locationManager?.currentLocation else { return }
+              let loc = locationManager?.currentLocation, LocationManager.isSatelliteFix(loc) else { return }
         let accuracy = loc.horizontalAccuracy
         guard gpsElection.isValid(accuracy: accuracy, age: Date().timeIntervalSince(loc.timestamp)) else { return }
         let gps = CompanionPeerGPS(

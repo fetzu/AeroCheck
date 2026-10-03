@@ -32,32 +32,56 @@ final class LocationManagerTests: XCTestCase {
         XCTAssertEqual(status(12, accuracy: -1, current: .good), .degraded) // negative accuracy = unknown/poor
     }
 
-    // MARK: Parked: a fresh fix asked for before the signal degrades (PR-21; 6.1.0)
+    // MARK: Parked: every fix counts for the status, the pipeline takes them 5 m apart (6.1.0)
 
-    private func probe(_ t: TimeInterval, sinceProbe: TimeInterval? = nil, goodFix: Bool = true,
-                       stationary: Bool = true, current: GPSSignalStatus = .good) -> LocationManager.StationaryProbeStep {
-        LocationManager.stationaryProbeStep(timeSinceLastUpdate: t, lastAccuracyWasGood: goodFix,
-                                            stationary: stationary, current: current, timeSinceProbe: sinceProbe)
+    private func groundFix(north metres: Double, accuracy: CLLocationAccuracy = 8) -> CLLocation {
+        CLLocation(coordinate: CLLocationCoordinate2D(latitude: 47 + metres / 111_195, longitude: 8),
+                   altitude: 430, horizontalAccuracy: accuracy, verticalAccuracy: 10,
+                   course: -1, speed: 0, timestamp: Date())
     }
 
-    func testAParkedAircraftAsksForAFixBeforeTheSignalWouldDegrade() {
-        XCTAssertEqual(probe(14), .none, "a fix 14 s ago is fresh enough")
-        XCTAssertEqual(probe(15), .fire, "15 s: ask, short of the 20 s degraded mark")
-        XCTAssertLessThan(LocationManager.stationaryProbeLead, 20)
-        XCTAssertEqual(probe(18, sinceProbe: 3), .hold, "the status holds while the probe is out")
-        XCTAssertEqual(probe(22, sinceProbe: 7), .hold, "past 20 s too: no flag for a parked aircraft with good GPS")
+    @MainActor
+    func testTheHardwareDeliversEveryFixOnTheGround() {
+        // As CoreLocation's distance filter, the 5 m held back every fix of a parked aircraft: the
+        // status could only count the seconds, and good GPS went amber at 20 s and red at 45 s.
+        let lm = LocationManager()
+        XCTAssertEqual(lm.hardwareDistanceFilter, kCLDistanceFilterNone)
+        lm.setGroundMode(false)
+        XCTAssertEqual(lm.hardwareDistanceFilter, 50, "in flight, the battery filter stays")
+        lm.setGroundMode(true)
+        XCTAssertEqual(lm.hardwareDistanceFilter, kCLDistanceFilterNone)
     }
 
-    func testAProbeThatBringsNothingBackLeavesItToTheStalenessRules() {
-        XCTAssertEqual(probe(24, sinceProbe: 9), .none)
-        XCTAssertEqual(status(24, accuracy: 10, current: .good), .degraded, "then degraded")
-        XCTAssertEqual(probe(50, sinceProbe: 35), .none, "and lost at 45 s, without another hold")
+    func testTheGroundFilterPassesFixesFiveMetresApart() {
+        let first = groundFix(north: 0)
+        XCTAssertTrue(LocationManager.passesGroundFilter(first, lastPassed: nil, groundMode: true, filter: 5),
+                      "the first fix always goes on")
+        XCTAssertFalse(LocationManager.passesGroundFilter(groundFix(north: 3), lastPassed: first,
+                                                          groundMode: true, filter: 5))
+        XCTAssertTrue(LocationManager.passesGroundFilter(groundFix(north: 6), lastPassed: first,
+                                                         groundMode: true, filter: 5))
+        XCTAssertTrue(LocationManager.passesGroundFilter(groundFix(north: 1), lastPassed: first,
+                                                         groundMode: false, filter: 5),
+                      "in flight the hardware filters, every fix it delivers goes on")
     }
 
-    func testOnlyAParkedAircraftWithAGoodFixIsProbed() {
-        XCTAssertEqual(probe(16, stationary: false), .none, "moving: the fixes keep coming, or the signal is bad")
-        XCTAssertEqual(probe(16, goodFix: false), .none, "a poor last fix degrades as before")
-        XCTAssertEqual(probe(50, current: .lost), .none, "a lost signal is not held")
+    @MainActor
+    func testAParkedAircraftsFixesKeepTheStatusWhileThePipelineHoldsItsPosition() {
+        let lm = LocationManager()
+        lm.receiveDeviceFix(groundFix(north: 0, accuracy: 200))
+        XCTAssertEqual(lm.gpsSignalStatus, .degraded, "a poor fix degrades")
+        let pipeline = lm.currentLocation
+
+        let held = groundFix(north: 1, accuracy: 8)
+        lm.receiveDeviceFix(held)
+        XCTAssertEqual(lm.gpsSignalStatus, .good, "the receiver's accuracy decides, not the distance moved")
+        XCTAssertTrue(lm.ownFixIsLive)
+        XCTAssertTrue(lm.latestFix === held, "the GPS sheet shows the newest fix")
+        XCTAssertTrue(lm.currentLocation === pipeline, "the pipeline sees what the 5 m filter gave it before")
+
+        let moved = groundFix(north: 7)
+        lm.receiveDeviceFix(moved)
+        XCTAssertTrue(lm.currentLocation === moved)
     }
 
     func testEscalationsOnlyFireFromGood() {

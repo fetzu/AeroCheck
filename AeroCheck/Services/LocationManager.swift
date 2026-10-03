@@ -96,13 +96,12 @@ class LocationManager: NSObject, ObservableObject {
     private let signalTrulyLostThreshold: TimeInterval = 45.0  // 45 seconds = truly lost (red)
     private let horizontalAccuracyThreshold: CLLocationAccuracy = 100.0  // 100 meters
     private var signalCheckTimer: Timer?
-    /// PR-21: when we last had a good fix but are stationary and have gone stale, we fire a one-shot
-    /// requestLocation() probe and hold at degraded until either a fresh fix lands or this window
-    /// elapses (then it's a genuine loss → red). Stamped when the probe is fired.
-    private var stationaryProbeFiredAt: Date?
-    static let stationaryProbeWindow: TimeInterval = 8.0
-    /// Parked, how long without a fix before the probe: short of the 20 s "degraded" mark. (6.1.0)
-    static let stationaryProbeLead: TimeInterval = 15.0
+    /// The latest fix that counted for the GPS status, from this device or a companion: what the GPS
+    /// status sheet shows. On the ground it is newer than `currentLocation` while the aircraft stands
+    /// still, since the flight's pipeline takes a fix only 5 m on from the last (`passesGroundFilter`).
+    @Published private(set) var latestFix: CLLocation?
+    /// The last of this device's fixes that the ground filter let through to the pipeline.
+    private var lastFilteredFix: CLLocation?
     /// Deferred-start intents: set when start is requested before authorization is decided, so
     /// the start completes automatically once permission is granted. (PERF-03)
     private var pendingTrackingStart = false
@@ -125,13 +124,19 @@ class LocationManager: NSObject, ObservableObject {
     // Marketing mode flag - when true, ignores real GPS updates
     private var marketingModeActive: Bool = false
 
-    // Dynamic distance filter: ground mode uses no filter for precise low-speed tracking,
-    // flight mode uses 50m filter for battery efficiency
+    // Dynamic distance filter: on the ground the hardware takes every fix and the flight's pipeline
+    // takes them 5 m apart (`groundModeDistanceFilter`); in flight a 50 m filter, for battery.
     private var isGroundMode: Bool = true
     private var flightModeDistanceFilter: CLLocationDistance = 50
-    /// Ground-mode distance filter: a modest value (not `kCLDistanceFilterNone`) so taxi/block-on
-    /// detail is still captured while sub-metre GPS jitter no longer fires a callback on every
-    /// fix during long sub-40-kt phases, saving battery. (PERF-24)
+    /// Ground-mode distance filter: a modest value (not every fix) so taxi/block-on detail is still
+    /// captured while sub-metre GPS jitter doesn't feed the pipeline on every fix during long
+    /// sub-40-kt phases. (PERF-24)
+    ///
+    /// Applied to the fixes, not to the hardware, since 6.1.0: as CoreLocation's `distanceFilter` it held
+    /// back every fix of a parked aircraft, so the GPS status could only count the seconds since the
+    /// last one, not what the receiver reported: good GPS turned the indicator amber at 20 s and red at
+    /// 45 s on every stop. Every fix now reaches the status; the pipeline sees what the hardware
+    /// filter gave it before (`receiveDeviceFix`).
     private let groundModeDistanceFilter: CLLocationDistance = 5
 
     // Speed and heading caching/smoothing
@@ -161,9 +166,10 @@ class LocationManager: NSObject, ObservableObject {
     private func setupLocationManager() {
         locationManager.delegate = self
         locationManager.desiredAccuracy = kCLLocationAccuracyBest
-        // Start in ground mode (modest 5 m filter). applyGPSPriority adjusts accuracy per the user's
-        // GPSPriority; setGroundMode switches to the flight-mode filter (50/100 m) when airborne.
-        locationManager.distanceFilter = groundModeDistanceFilter
+        // Start in ground mode (every fix; the 5 m filter is applied to them). applyGPSPriority adjusts
+        // accuracy per the user's GPSPriority; setGroundMode switches to the flight-mode filter
+        // (50/100 m) when airborne.
+        locationManager.distanceFilter = kCLDistanceFilterNone
         locationManager.activityType = .airborne
 
         // Background location configuration:
@@ -298,7 +304,8 @@ class LocationManager: NSObject, ObservableObject {
         lastWaypointPassageTime = nil
         // Reset to ground mode for next flight
         isGroundMode = true
-        locationManager.distanceFilter = groundModeDistanceFilter
+        locationManager.distanceFilter = kCLDistanceFilterNone
+        lastFilteredFix = nil
         // Reset smoothed/cached values for next flight
         smoothedSpeedMPS = 0
         lastValidSpeedMPS = 0
@@ -311,14 +318,14 @@ class LocationManager: NSObject, ObservableObject {
         stopSimulatingPosition()
     }
 
-    /// Switch between ground mode (modest 5 m distance filter, precise low-speed tracking)
-    /// and flight mode (50/100 m distance filter, battery-efficient for cruise).
+    /// Switch between ground mode (every fix from the hardware, 5 m apart for the pipeline: precise
+    /// low-speed tracking) and flight mode (50/100 m distance filter, battery-efficient for cruise).
     /// Ground mode should be active during taxi and after landing.
     /// Flight mode should be active during airborne phases.
     func setGroundMode(_ onGround: Bool) {
         guard onGround != isGroundMode else { return }
         isGroundMode = onGround
-        locationManager.distanceFilter = onGround ? groundModeDistanceFilter : flightModeDistanceFilter
+        locationManager.distanceFilter = onGround ? kCLDistanceFilterNone : flightModeDistanceFilter
         AppLog.location.debugLine("Distance filter: \(onGround ? "ground mode (\(Int(groundModeDistanceFilter))m)" : "flight mode (\(Int(flightModeDistanceFilter))m)")")
     }
 
@@ -489,62 +496,11 @@ class LocationManager: NSObject, ObservableObject {
             trulyLostThreshold: signalTrulyLostThreshold,
             accuracyThreshold: horizontalAccuracyThreshold)
 
-        // PR-21: a parked aircraft (ground mode, 5 m distance filter) receives no callbacks, so
-        // staleness alone would drive the indicator orange→red even with good GPS — training the
-        // pilot to ignore the one indicator that matters. When we last had a good fix and are
-        // plausibly stationary, a one-shot requestLocation() probe (which bypasses the distance
-        // filter) asks for a fresh fix before staleness degrades the signal, and the status holds
-        // while it is out. The probe used to fire only at the 45 s "lost" mark, so from 20 s to 45 s
-        // a parked aircraft with good GPS showed the failure flag: about 25 s of every 45 at the
-        // holding point. (6.1.0) A fresh fix updates lastLocationUpdateTime and ends the episode;
-        // a probe that brings nothing back leaves the 20 / 45 s rules to it.
-        if let firedAt = stationaryProbeFiredAt, lastUpdate > firedAt {
-            stationaryProbeFiredAt = nil
-        }
-        let lastAccuracyWasGood = lastKnownAccuracy >= 0 && lastKnownAccuracy <= horizontalAccuracyThreshold
-        switch Self.stationaryProbeStep(
-            timeSinceLastUpdate: timeSinceLastUpdate,
-            lastAccuracyWasGood: lastAccuracyWasGood,
-            stationary: smoothedSpeedMPS < 0.5,   // < ~1 kt
-            current: gpsSignalStatus,
-            timeSinceProbe: stationaryProbeFiredAt.map { now.timeIntervalSince($0) }) {
-        case .fire:
-            stationaryProbeFiredAt = now
-            locationManager.requestLocation()
-            return                                          // the status holds while the probe is out
-        case .hold:
-            return
-        case .none:
-            gpsSignalStatus = computed
-        }
-    }
-
-    /// What the signal check of a possibly parked aircraft does about its stale fix. (PR-21; 6.1.0)
-    enum StationaryProbeStep: Equatable {
-        /// Moving, a poor last fix, the signal already lost, or a probe that brought nothing back:
-        /// the staleness rules (`signalStatus`) apply.
-        case none
-        /// Ask for a fresh fix now; the status holds.
-        case fire
-        /// A probe is out: the status holds until it answers or its window ends.
-        case hold
-    }
-
-    /// Pure, unit-testable: parked with a good last fix, probe from `lead` seconds without a fix (before
-    /// the 20 s "degraded" mark) and hold the status for `window` seconds while the probe is out. One
-    /// probe per stale stretch: `timeSinceProbe` is nil until it fires, and a fresh fix resets it.
-    nonisolated static func stationaryProbeStep(
-        timeSinceLastUpdate: TimeInterval,
-        lastAccuracyWasGood: Bool,
-        stationary: Bool,
-        current: GPSSignalStatus,
-        timeSinceProbe: TimeInterval?,
-        lead: TimeInterval = stationaryProbeLead,
-        window: TimeInterval = stationaryProbeWindow
-    ) -> StationaryProbeStep {
-        guard lastAccuracyWasGood, stationary, current != .lost, timeSinceLastUpdate >= lead else { return .none }
-        guard let timeSinceProbe else { return .fire }
-        return timeSinceProbe < window ? .hold : .none
+        // A parked aircraft keeps its fixes coming since 6.1.0 (`groundModeDistanceFilter`), so the
+        // seconds without one mean what they say. The one-shot probe that stood in for them while
+        // parked (PR-21) is gone: `requestLocation()` can't be used beside `startUpdatingLocation()`,
+        // and on the device it brought nothing back.
+        gpsSignalStatus = computed
     }
 
     /// Update smoothed speed (EMA) and cached heading from a new location update.
@@ -596,6 +552,7 @@ class LocationManager: NSObject, ObservableObject {
         // Always update the last location update time and accuracy when we receive any location
         lastLocationUpdateTime = now
         lastKnownAccuracy = accuracy
+        latestFix = location
 
         // Negative accuracy means invalid - mark as degraded
         if accuracy < 0 {
@@ -724,6 +681,7 @@ class LocationManager: NSObject, ObservableObject {
         isTracking = true
 
         currentLocation = location
+        latestFix = nil
 
         let now = Date()
         let speedMPS = max(location.speed, 0)
@@ -776,6 +734,7 @@ class LocationManager: NSObject, ObservableObject {
         }
         // Nothing may take the held position for a fix: a flight started now would begin there.
         currentLocation = nil
+        latestFix = nil
     }
 
     // MARK: - Companion Shared GPS (v4.1)
@@ -807,6 +766,38 @@ class LocationManager: NSObject, ObservableObject {
         guard !marketingModeActive else { return }
         guard !ownFixIsLive else { return }
         processLocation(location, isOwnFix: false)
+    }
+
+    /// A fix from this device's own GPS. Every one counts for the GPS status, its time and accuracy; the
+    /// flight's pipeline (`processLocation`) takes them as the ground filter lets them through, which is
+    /// what CoreLocation's distance filter gave it before 6.1.0. (`groundModeDistanceFilter`)
+    ///
+    /// `now` for the tests; the delegate passes the clock.
+    func receiveDeviceFix(_ location: CLLocation, now: Date = Date()) {
+        guard !marketingModeActive else { return }
+        if Self.passesGroundFilter(location, lastPassed: lastFilteredFix, groundMode: isGroundMode,
+                                   filter: groundModeDistanceFilter) {
+            lastFilteredFix = location
+            processLocation(location, isOwnFix: true, now: now)
+            return
+        }
+        // Held back from the pipeline: still a fix, for the own-GPS liveness and the status.
+        if location.horizontalAccuracy >= 0 && location.horizontalAccuracy <= ownFixMaxAccuracy {
+            lastOwnFixTime = now
+        }
+        updateSignalQuality(from: location)
+    }
+
+    /// The filter CoreLocation applies now: none on the ground, 50/100 m in flight. (tests)
+    var hardwareDistanceFilter: CLLocationDistance { locationManager.distanceFilter }
+
+    /// Pure, unit-testable: whether a fix of this device goes on to the pipeline. In flight, every one
+    /// the hardware's 50/100 m filter delivers; on the ground, one `filter` metres or more from the last
+    /// that went on, the first one always.
+    nonisolated static func passesGroundFilter(_ location: CLLocation, lastPassed: CLLocation?,
+                                               groundMode: Bool, filter: CLLocationDistance) -> Bool {
+        guard groundMode, let lastPassed else { return true }
+        return location.distance(from: lastPassed) >= filter
     }
 
     /// The single GPS-processing pipeline, shared by real device fixes (`isOwnFix == true`) and
@@ -953,7 +944,7 @@ extension LocationManager: CLLocationManagerDelegate {
     nonisolated func locationManager(_ manager: CLLocationManager, didUpdateLocations locations: [CLLocation]) {
         guard let location = locations.last else { return }
         Task { @MainActor in
-            self.processLocation(location, isOwnFix: true)
+            self.receiveDeviceFix(location)
         }
     }
 

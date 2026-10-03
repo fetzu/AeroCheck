@@ -530,6 +530,19 @@ enum L10n {
         static let takeoff = String(localized: "time.takeoff")
         static let landing = String(localized: "time.landing")
         static let shutdown = String(localized: "time.shutdown")
+
+        /// "4 mo ago", "in 3 hr"; "il y a 4 m.", "dans 3 h". One style for every relative time: the
+        /// abbreviated one is CLDR's narrow form, which French writes "-4 m." and "-13 s". (6.2)
+        static func relative(_ date: Date, to now: Date = Date()) -> String {
+            relativeFormatter.localizedString(for: date, relativeTo: now)
+        }
+        static func makeRelativeFormatter(locale: Locale) -> RelativeDateTimeFormatter {
+            let formatter = RelativeDateTimeFormatter()
+            formatter.unitsStyle = .short
+            formatter.locale = locale
+            return formatter
+        }
+        private static let relativeFormatter = makeRelativeFormatter(locale: .current)
     }
 
     // MARK: - Alerts
@@ -1027,6 +1040,18 @@ enum L10n {
         }
         static let nameImportedSave = String(localized: "flightLog.nameImported.save")
         static let nameImportedSkip = String(localized: "flightLog.nameImported.skip")
+
+        // The dashboard and the list (6.2: English in French until then)
+        static let hours = String(localized: "Hours", comment: "Logbook metric card: the hours flown in the period.")
+        static let flights = String(localized: "Flights")
+        static let landings = String(localized: "Landings", comment: "Logbook metric card: the landings in the period.")
+        static let filter = String(localized: "Filter", comment: "Logbook list: the aircraft filter, before an aircraft is picked.")
+        /// Over the list: "1 FLIGHT", "12 FLIGHTS". The plural is the catalog's (`ShareCard.flightCount`).
+        static func listHeader(_ count: Int) -> String { L10n.ShareCard.flightCount(count).uppercased() }
+        /// A month's line: "1 flight · 1.9 h".
+        static func monthSummary(_ count: Int, hours: Double) -> String {
+            "\(L10n.ShareCard.flightCount(count)) · \(String(format: "%.1f", hours)) h"
+        }
     }
 
     // MARK: - Flight titles, read aloud (v6.1)
@@ -1284,6 +1309,14 @@ enum L10n {
         static let blockOff = String(localized: "flightDetail.blockOff")
         static let blockOn = String(localized: "flightDetail.blockOn")
 
+        // The header, the track and the chart (6.2: English in French until then)
+        static let time = String(localized: "flightDetail.time")
+        static let timeline = String(localized: "TIMELINE")
+        static let trackStart = String(localized: "flightDetail.trackStart")
+        static let trackEnd = String(localized: "flightDetail.trackEnd")
+        static let chartAltitude = String(localized: "Altitude")
+        static let chartSpeed = String(localized: "Speed")
+
         // Name/Notes
         static let flightName = String(localized: "flightDetail.flightName")
         static let namePlaceholder = String(localized: "flightDetail.namePlaceholder")
@@ -1369,7 +1402,8 @@ enum L10n {
         static let gliderChartNote = String(localized: "Drawn on the glider chart, sharper at this scale")
 
         // The journey card (6.1): a day of the Logbook or a trip's legs on one card.
-        /// "3 flights": a day with circuits or a local flight in it, and the Logbook's day header.
+        /// "3 flights", "1 flight": a day with circuits or a local flight in it, and the Logbook's day
+        /// header, list header and month lines. A plural in the catalog, in both languages.
         static func flightCount(_ count: Int) -> String { String(localized: "\(count) flights") }
         /// The Logbook's day header: "1:26 flying".
         static func flying(_ duration: String) -> String {
@@ -1957,6 +1991,8 @@ enum L10n {
         static func nextPhaseA11y(_ phase: String) -> String {
             String(format: String(localized: "cockpit.nextPhaseA11y"), phase)
         }
+        /// The strip's column over the next waypoint, on the iPad: "NEXT". (6.2)
+        static let nextColumn = String(localized: "cockpit.nextColumn")
         static let allChecked = String(localized: "cockpit.allChecked")
         /// Under READY FOR LINE UP: "then LINE UP CHECK". (6.2)
         static func thenCheck(_ check: String) -> String {

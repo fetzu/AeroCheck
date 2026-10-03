@@ -736,11 +736,9 @@ struct FlightPlanRow: View {
         return plan.name.isEmpty ? L10n.Nav.newFlightPlan : plan.name
     }
 
-    /// Relative recency ("2d ago"), localised. (revamp #1b)
+    /// Relative recency ("2 days ago", "il y a 2 j"), localised. (revamp #1b)
     private var relativeDate: String {
-        let f = RelativeDateTimeFormatter()
-        f.unitsStyle = .abbreviated
-        return f.localizedString(for: plan.updatedAt, relativeTo: Date())
+        L10n.Time.relative(plan.updatedAt)
     }
 
     private func metric(_ icon: String, _ value: String) -> some View {

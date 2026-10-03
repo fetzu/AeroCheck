@@ -1452,7 +1452,7 @@ struct CockpitInstrumentStrip: View {
 
     /// The next waypoint: the active route, so magenta.
     private func nextCell(_ ident: String) -> some View {
-        cell(label: "NEXT") {
+        cell(label: L10n.Cockpit.nextColumn) {
             Text(ident)
                 .font(.aero(size: valueSize, weight: .bold, design: .monospaced))
                 .foregroundColor(theme.route)

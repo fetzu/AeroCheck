@@ -1395,10 +1395,7 @@ struct CockpitInstrumentStrip: View {
                     .opacity(targetSpeed == nil ? 0 : 1)
                 }
                 .opacity(gpsSignalStatus == .lost ? 0 : 1)
-                if showFailureFlag {
-                    InstrumentFailureFlag(level: failureLevel, size: flagSize)
-                        .clipShape(RoundedRectangle(cornerRadius: 6))
-                }
+                .overlay { failureFlagOverlay }
             }
         }
         .accessibilityElement(children: .ignore)
@@ -1429,10 +1426,7 @@ struct CockpitInstrumentStrip: View {
                         .opacity(verticalSpeedDisplay == nil ? 0 : 1)
                 }
                 .opacity(gpsSignalStatus == .lost ? 0 : 1)
-                if showFailureFlag {
-                    InstrumentFailureFlag(level: failureLevel, size: flagSize)
-                        .clipShape(RoundedRectangle(cornerRadius: 6))
-                }
+                .overlay { failureFlagOverlay }
             }
         }
         .accessibilityElement(children: .ignore)
@@ -1471,6 +1465,22 @@ struct CockpitInstrumentStrip: View {
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(L10n.Nav.next)
         .accessibilityValue(ident)
+    }
+
+    /// The GPS failure flag over a cell's values, never larger than they are: it sat beside them in the
+    /// layout, and at 110 × 54 it was taller than a phone's value line and wider than a narrow phone's
+    /// cell, so the strip grew and its neighbours moved whenever GPS degraded, every 45 s on a parked
+    /// aircraft. Over the values it takes their room and nothing else. (6.1.0)
+    private var failureFlagOverlay: some View {
+        GeometryReader { geo in
+            if showFailureFlag {
+                InstrumentFailureFlag(level: failureLevel,
+                                      size: CGSize(width: min(flagSize.width, geo.size.width),
+                                                   height: min(flagSize.height, geo.size.height)))
+                    .clipShape(RoundedRectangle(cornerRadius: 6))
+                    .position(x: geo.size.width / 2, y: geo.size.height / 2)
+            }
+        }
     }
 
     private var divider: some View {

@@ -1,0 +1,81 @@
+---
+import type { Lang } from '../lib/site';
+import Icon from './Icon.astro';
+interface Props { lang: Lang; }
+const { lang } = Astro.props;
+// The App Store's Support URL (aerocheck.app/support): App Review Guideline 1.5 asks for "an easy way
+// to contact you" there. The email first, then bug reports, then the manual.
+const EMAIL = 'support@aerocheck.app';
+const ISSUES = 'https://github.com/fetzu/AeroCheck/issues';
+const COPY = {
+  en: {
+    eyebrow: 'Support',
+    heading: 'Help and contact',
+    intro: 'Three ways to get help with AéroCheck.',
+    items: [
+      { icon: 'mail', title: 'Email', href: `mailto:${EMAIL}`, link: EMAIL,
+        body: 'For anything about the app, your subscription or your data. Say which version of the app you use (Settings › About) and on which device, with a screenshot if it helps. Answered in English or French.' },
+      { icon: 'brand-github', title: 'Report a bug or suggest a feature', href: ISSUES, link: 'GitHub Issues',
+        body: 'Public, and it needs a free GitHub account. Please don’t post personal data there.' },
+      { icon: 'notebook', title: 'The manual', href: '/manual', link: 'aerocheck.app/manual',
+        body: 'How each part of the app works, from planning a flight to the logbook.' },
+    ],
+    billing: 'Subscriptions are billed by Apple: manage or cancel yours in your Apple Account’s subscription settings, and ask Apple for a refund.',
+  },
+  fr: {
+    eyebrow: 'Assistance',
+    heading: 'Aide et contact',
+    intro: 'Trois façons d’obtenir de l’aide avec AéroCheck.',
+    items: [
+      { icon: 'mail', title: 'E-mail', href: `mailto:${EMAIL}`, link: EMAIL,
+        body: 'Pour toute question sur l’app, votre abonnement ou vos données. Indiquez la version de l’app (Réglages › À propos) et votre appareil, avec une capture d’écran si elle aide. Réponse en français ou en anglais.' },
+      { icon: 'brand-github', title: 'Signaler un bug ou proposer une fonction', href: ISSUES, link: 'GitHub Issues',
+        body: 'Public, et il faut un compte GitHub gratuit. N’y publiez pas de données personnelles.' },
+      { icon: 'notebook', title: 'Le manuel', href: '/fr/manual', link: 'aerocheck.app/fr/manual',
+        body: 'Comment fonctionne chaque partie de l’app, de la préparation du vol au carnet de vol.' },
+    ],
+    billing: 'Les abonnements sont facturés par Apple : gérez ou résiliez le vôtre dans les réglages d’abonnement de votre compte Apple, et demandez un remboursement à Apple.',
+  },
+} as const;
+const t = COPY[lang];
+---
+<section class="support container">
+  <p class="eyebrow">{t.eyebrow}</p>
+  <h1 class="support-title">{t.heading}</h1>
+  <p class="support-intro">{t.intro}</p>
+  <ul class="support-list">
+    {t.items.map((it) => (
+      <li class="support-item">
+        <span class="support-icon"><Icon name={it.icon} size={22} /></span>
+        <div class="support-text">
+          <h2>{it.title}</h2>
+          <a class="support-link" href={it.href} {...(it.href.startsWith('http') ? { target: '_blank', rel: 'noopener' } : {})}>
+            {it.link.includes('@') ? <Fragment>{it.link.split('@')[0]}@<wbr />{it.link.split('@')[1]}</Fragment> : it.link}
+          </a>
+          <p>{it.body}</p>
+        </div>
+      </li>
+    ))}
+  </ul>
+  <p class="support-billing">{t.billing}</p>
+</section>
+
+<style>
+  .support { padding: 48px 24px 80px; max-width: 760px; }
+  .support-title { font-size: clamp(26px, 4vw, 36px); margin: 12px 0 8px; }
+  .support-intro { color: var(--muted); margin: 0 0 28px; }
+  .support-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 14px; }
+  .support-item { display: grid; grid-template-columns: 44px minmax(0, 1fr); gap: 14px; padding: 18px 20px; background: var(--panel); border: 1px solid var(--line); border-radius: 14px; }
+  .support-icon { width: 44px; height: 44px; border-radius: 12px; display: grid; place-items: center; color: var(--gold); background: var(--card); }
+  .support-text h2 { color: var(--text); font-size: 16px; font-weight: 700; margin: 0 0 4px; }
+  .support-text p { color: var(--muted); font-size: 14.5px; line-height: 1.65; margin: 8px 0 0; }
+  .support-link { font-family: var(--mono); font-size: 15px; color: var(--gold); text-decoration: none; border-bottom: 1px solid var(--line-2); overflow-wrap: break-word; transition: border-color .2s ease; }
+  .support-link:hover { border-color: var(--gold); }
+  .support-billing { color: var(--dim); font-size: 13px; line-height: 1.6; margin: 24px 0 0; }
+  @media (max-width: 480px) {
+    .support { padding-inline: 16px; }
+    .support-item { grid-template-columns: 36px minmax(0, 1fr); gap: 12px; padding: 16px; }
+    .support-icon { width: 36px; height: 36px; border-radius: 10px; }
+    .support-link { font-size: 14px; }
+  }
+</style>

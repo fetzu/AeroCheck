@@ -796,7 +796,7 @@ struct ActChecklistPrimary: View {
         if appState.currentCheckAwaitsConfirmation {
             let next = appState.memoryConfirmationMovesTo
             // The phone: "from memory" alone. "NEXT: CRUISE CHECK · from memory" took four lines there, and
-            // was cut after "NEXT:". The undo toast still names both.
+            // was cut after "NEXT:"; the iPad keeps it whole.
             let subtitle = phone ? L10n.Cockpit.fromMemory
                                  : next.map { L10n.Cockpit.fromMemoryThenNext($0.shortTitle) } ?? L10n.Cockpit.fromMemory
             CockpitThumbButton(title: L10n.Cockpit.memoryCheckDone(appState.currentPhase.shortTitle),

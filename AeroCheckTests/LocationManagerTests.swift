@@ -34,10 +34,14 @@ final class LocationManagerTests: XCTestCase {
 
     // MARK: Parked: every fix counts for the status, the pipeline takes them 5 m apart (6.1.0)
 
-    private func groundFix(north metres: Double, accuracy: CLLocationAccuracy = 8) -> CLLocation {
+    /// A fix of a parked aircraft: from the satellites (with a speed accuracy) unless `satellite` is false,
+    /// a Wi-Fi or cell position (none).
+    private func groundFix(north metres: Double, accuracy: CLLocationAccuracy = 8, satellite: Bool = true,
+                           at time: Date = Date()) -> CLLocation {
         CLLocation(coordinate: CLLocationCoordinate2D(latitude: 47 + metres / 111_195, longitude: 8),
                    altitude: 430, horizontalAccuracy: accuracy, verticalAccuracy: 10,
-                   course: -1, speed: 0, timestamp: Date())
+                   course: -1, courseAccuracy: -1, speed: satellite ? 0 : -1, speedAccuracy: satellite ? 0.4 : -1,
+                   timestamp: time)
     }
 
     @MainActor
@@ -118,13 +122,50 @@ final class LocationManagerTests: XCTestCase {
         digest.add(fix(2, accuracy: 7, speedAccuracy: -1, age: 3), borrowed: false, now: now)
         digest.noteDiagnostics(unavailable: true, stationary: false)
         let line = digest.line(seconds: 10, status: .good)
-        XCTAssertEqual(line, "GPS 10 s: 3 fixes, ± 7–9 m, speed accuracy on 2, course on 0, same as previous 1, "
+        XCTAssertEqual(line, "GPS 10 s: 3 fixes, ± 7–9 m, satellite 2, course on 0, same as previous 1, "
                        + "moved 2.0 m, oldest 3 s, unavailable 1, stationary 0; status good")
         XCTAssertFalse(line.contains("47"), "never a position")
         digest.startNextStretch()
         digest.add(fix(2, accuracy: 7, speedAccuracy: -1), borrowed: false, now: now)
         XCTAssertEqual(digest.sameAsPrevious, 1, "the next stretch still compares with the last fix")
         XCTAssertEqual(digest.fixes, 1)
+    }
+
+    // MARK: Green needs the satellites (6.1.0)
+
+    func testAFixWithoutASpeedAccuracyIsNotFromTheSatellites() {
+        XCTAssertTrue(LocationManager.isSatelliteFix(groundFix(north: 0)))
+        XCTAssertFalse(LocationManager.isSatelliteFix(groundFix(north: 0, satellite: false)),
+                       "a Wi-Fi or cell position carries no speed accuracy")
+    }
+
+    func testPositionsWithoutASatelliteFixDegradeAfterTwentySeconds() {
+        func status(sat: TimeInterval?, current: GPSSignalStatus = .good) -> GPSSignalStatus {
+            LocationManager.signalStatus(timeSinceLastUpdate: 2, lastKnownAccuracy: 9, current: current,
+                                         timeSinceSatelliteFix: sat)
+        }
+        XCTAssertEqual(status(sat: 5), .good)
+        XCTAssertEqual(status(sat: 19.9), .good)
+        XCTAssertEqual(status(sat: 20), .degraded, "Wi-Fi at ± 9 m every 2 s, no satellites for 20 s")
+        XCTAssertEqual(status(sat: 200, current: .lost), .degraded, "positions are back, not from the satellites")
+        XCTAssertEqual(LocationManager.signalStatus(timeSinceLastUpdate: 50, lastKnownAccuracy: 9, current: .good,
+                                                    timeSinceSatelliteFix: 50), .lost, "nothing at all for 45 s")
+    }
+
+    @MainActor
+    func testWiFiPositionsAloneTurnTheIndicatorAmber() {
+        // The basement of 3 Oct 2026: the receiver on, no fix; Core Location sends Wi-Fi positions at ± 14–78 m.
+        let lm = LocationManager()
+        let start = Date()
+        lm.receiveDeviceFix(groundFix(north: 0, at: start), now: start)
+        XCTAssertEqual(lm.gpsSignalStatus, .good)
+        lm.receiveDeviceFix(groundFix(north: 1, accuracy: 14, satellite: false, at: start + 10), now: start + 10)
+        XCTAssertEqual(lm.gpsSignalStatus, .good, "10 s without the satellites: not yet")
+        lm.receiveDeviceFix(groundFix(north: 2, accuracy: 14, satellite: false, at: start + 21), now: start + 21)
+        XCTAssertEqual(lm.gpsSignalStatus, .degraded, "21 s of Wi-Fi alone")
+        lm.receiveDeviceFix(groundFix(north: 2, at: start + 30), now: start + 30)
+        XCTAssertEqual(lm.gpsSignalStatus, .good, "a satellite fix again")
+        XCTAssertEqual(lm.lastSatelliteFixTime, start + 30)
     }
 
     func testEscalationsOnlyFireFromGood() {

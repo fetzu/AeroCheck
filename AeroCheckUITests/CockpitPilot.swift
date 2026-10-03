@@ -428,9 +428,9 @@ final class CockpitPilot {
         if e.waitForExistence(timeout: 5) { tapNow(e) }
     }
 
-    /// "FREDA in 6 min" → 6.
+    /// "FREDA in 6 min" → 6. The figure and "min" are held together by a no-break space (6.2).
     static func minutes(in text: String) -> Int? {
-        guard let range = text.range(of: #"in (\d+) min"#, options: .regularExpression) else { return nil }
+        guard let range = text.range(of: #"in (\d+)\s+min"#, options: .regularExpression) else { return nil }
         return Int(text[range].components(separatedBy: CharacterSet.decimalDigits.inverted).joined())
     }
 

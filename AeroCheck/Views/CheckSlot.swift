@@ -380,8 +380,8 @@ struct CheckSlotButton: View {
 
     var body: some View {
         let phone = CockpitScale.current == .phone
-        // The phone's slot beside MARK or the hold buttons is about 100 pt wide: no icon (the
-        // colour and the frame say the state), the name on two lines, the short line.
+        // The phone's slot in the act band is about 100 pt wide: no icon (the colour and the frame say
+        // the state), the name and the short line set to fit it (`CheckSlotLabel`).
         let narrow = phone && !prominent
         Button(action: action) {
             // The name and its line in the middle of the slot's height, the icon beside them.
@@ -396,9 +396,9 @@ struct CheckSlotButton: View {
                     .frame(maxWidth: .infinity, alignment: .leading)
             }
             .foregroundColor(textColor)
-            // The phone's act band slot is about 100 pt wide (6.2): 6 pt each side leaves "CRUISE CHECK"
-            // on one line over its tick, as the 107 pt beside MARK did.
-            .padding(.horizontal, narrow ? 6 : phone ? 10 : 22)
+            // The phone's act band slot is about 100 pt wide (6.2): its words 8 pt in, 5 pt clear of the
+            // amber border, set to fit (`ActFace`). At 6 pt "CROISIÈRE" ran into the border.
+            .padding(.horizontal, narrow ? ActFace.inset : phone ? 10 : 22)
             .frame(maxWidth: .infinity, minHeight: Self.height, maxHeight: Self.height)
             .background(background)
             .contentShape(RoundedRectangle(cornerRadius: 16))
@@ -485,7 +485,33 @@ struct CheckSlotLabel: View {
 
     var body: some View {
         let phone = scale == .phone
-        let narrow = phone && !prominent
+        if phone && !prominent {
+            // The phone's act band slot, about 100 pt wide: the name and its line set to fit it, each on up
+            // to three lines, a number kept with its noun ("2 éléments"), nothing cut. Each sized by its
+            // room, so a value ticking moves nothing. (6.2)
+            ActFaceText(blocks: Self.phoneBlocks(slot, lineColor: lineColor), alignment: .leading)
+        } else {
+            label(phone: phone)
+        }
+    }
+
+    /// The name, then its line, as the phone's slot sets them.
+    static func phoneBlocks(_ slot: CheckSlot, lineColor: Color? = nil) -> [ActFaceBlock] {
+        phoneBlocks(title: slot.titleText(stacked: true), titleRoom: slot.titleRoom(stacked: true),
+                    line: slot.lineText(narrow: true), lineRoom: slot.lineRoom(narrow: true), lineColor: lineColor)
+    }
+
+    static func phoneBlocks(title: String, titleRoom: String? = nil, line: String, lineRoom: String? = nil,
+                            lineColor: Color? = nil) -> [ActFaceBlock] {
+        [ActFaceBlock(text: title, size: CockpitType.size(kneeboard: 25, phone: 19, scale: .phone), maxLines: 3,
+                      room: titleRoom),
+         ActFaceBlock(text: line, size: CockpitType.label(for: .phone), bold: false, maxLines: 3, room: lineRoom,
+                      color: lineColor)]
+    }
+
+    /// The iPad's, and the Companion iPhone's wide slot.
+    @ViewBuilder
+    private func label(phone: Bool) -> some View {
         // The iPad's slot sharing its row (beside MARK, the landscape column): about 160 pt of text.
         let stacked = !phone && !prominent
         let titleFont = Font.aero(size: prominent ? CockpitType.button(for: scale)
@@ -493,12 +519,12 @@ struct CheckSlotLabel: View {
                                   weight: .bold)
         let lineFont = Font.aero(size: CockpitType.label(for: scale), weight: .medium)
         VStack(alignment: .leading, spacing: 4) {
-            Self.text(slot.titleText(stacked: stacked || narrow), room: slot.titleRoom(stacked: stacked || narrow),
+            Self.text(slot.titleText(stacked: stacked), room: slot.titleRoom(stacked: stacked),
                       font: titleFont, lines: slot.titleWraps(phone: phone, stacked: stacked) ? 2 : 1,
                       minimumScale: 0.6)
             // Two lines where the slot shares the row (beside MARK, beside the hold buttons):
             // "from memory · one tap when done" is the line that matters.
-            Self.text(slot.lineText(narrow: narrow, stacked: stacked), room: slot.lineRoom(narrow: narrow, stacked: stacked),
+            Self.text(slot.lineText(stacked: stacked), room: slot.lineRoom(stacked: stacked),
                       font: lineFont, lines: slot.lineLines(phone: phone, prominent: prominent),
                       minimumScale: slot.lineMinimumScale(phone: phone, prominent: prominent))
                 .foregroundColor(lineColor)
@@ -663,11 +689,14 @@ struct MapFlightEventButton: View {
         let icon = event == .goAround ? "arrow.up.right.circle.fill" : "arrow.triangle.2.circlepath"
         let identifier = event == .goAround ? "map.goAround" : "map.touchAndGo"
         let height = half ? (CockpitTarget.thumb - 8) / 2 : CockpitTarget.thumb
-        let padding: CGFloat? = narrow ? ActBandMetrics.narrowPadding() : nil
+        // On the phone GO AROUND has a wide slot, its words 8 pt in; TOUCH-AND-GO the narrow one. Both set
+        // to fit (`ActFace`). (6.2)
+        let phone = CockpitScale.current == .phone
+        let padding: CGFloat? = narrow ? (phone && event == .goAround ? ActFace.inset : ActBandMetrics.narrowPadding()) : nil
         if appState.isCircuitMode {
             CockpitThumbButton(title: title, icon: narrow ? nil : icon, style: .outlined(tint: theme.action),
                                titleLines: twoLines ? 2 : 1, horizontalPadding: padding ?? 14, minHeight: height,
-                               action: perform)
+                               fitted: phone, action: perform)
                 .accessibilityIdentifier(identifier)
                 .accessibilityLabel(name)
         } else {
@@ -676,7 +705,7 @@ struct MapFlightEventButton: View {
                                                                        : appState.currentFlight?.touchAndGoCount ?? 0,
                                 kneeboard: true, height: height,
                                 stacked: narrow, titleLines: twoLines ? 2 : 1, horizontalPadding: padding,
-                                showsHint: !half, spokenTitle: name, action: perform)
+                                showsHint: !half, spokenTitle: name, fitted: phone && narrow, action: perform)
                 .accessibilityIdentifier(identifier)
         }
     }
@@ -733,25 +762,30 @@ struct FredaThumbButton: View {
     private func button(_ stage: Stage) -> some View {
         let phone = CockpitScale.current == .phone
         return Button { appState.confirmFreda() } label: {
-            VStack(spacing: 4) {
-                HStack(spacing: 8) {
-                    if !phone {
-                        Image(systemName: "arrow.triangle.2.circlepath")
-                            .font(.aero(size: CockpitType.response, weight: .bold))
+            Group {
+                if phone {
+                    // Set to fit the slot (`ActFace`), the countdown in figures that keep their place. (6.2)
+                    ActFaceText(blocks: Self.phoneBlocks(line: subtitle(stage, phone: true)))
+                } else {
+                    VStack(spacing: 4) {
+                        HStack(spacing: 8) {
+                            Image(systemName: "arrow.triangle.2.circlepath")
+                                .font(.aero(size: CockpitType.response, weight: .bold))
+                            Text(verbatim: L10n.Freda.name)
+                                .font(.aero(size: CockpitType.button, weight: .bold))
+                                .lineLimit(1)
+                                .minimumScaleFactor(0.6)
+                        }
+                        Text(subtitle(stage, phone: false))
+                            .font(.aero(size: CockpitType.label, weight: .semibold))
+                            .monospacedDigit()
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.7)
                     }
-                    Text(verbatim: L10n.Freda.name)
-                        .font(.aero(size: CockpitType.button, weight: .bold))
-                        .lineLimit(1)
-                        .minimumScaleFactor(0.6)
                 }
-                Text(subtitle(stage, phone: phone))
-                    .font(.aero(size: CockpitType.label, weight: .semibold))
-                    .monospacedDigit()
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.7)
             }
             .foregroundColor(textColor(stage))
-            .padding(.horizontal, phone ? 6 : 12)
+            .padding(.horizontal, phone ? ActFace.inset : 12)
             .frame(maxWidth: .infinity, minHeight: CockpitTarget.thumb)
             .background(background(stage))
             .contentShape(RoundedRectangle(cornerRadius: 18))
@@ -762,6 +796,13 @@ struct FredaThumbButton: View {
         .accessibilityIdentifier("cockpit.freda.\(stage.testName)")
         .accessibilityLabel(accessibilityLabel(stage))
         .accessibilityHint(stage == .waiting ? "" : L10n.Freda.confirmHint)
+    }
+
+    /// FREDA over its countdown or its letters, as the phone's slot sets them.
+    static func phoneBlocks(line: String) -> [ActFaceBlock] {
+        [ActFaceBlock(text: L10n.Freda.name, size: CockpitType.button(for: .phone), maxLines: 1),
+         ActFaceBlock(text: line, size: CockpitType.label(for: .phone), maxLines: 2,
+                      room: CheckSlot.widestFigures(line, atLeast: 1))]
     }
 
     private func subtitle(_ stage: Stage, phone: Bool) -> String {

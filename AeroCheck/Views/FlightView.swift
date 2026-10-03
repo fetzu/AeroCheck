@@ -1930,12 +1930,31 @@ struct HoldToConfirmButton: View {
     var showsHint: Bool = true
     /// What VoiceOver reads, where `title` is broken on two lines.
     var spokenTitle: String? = nil
+    /// The act band's slots on the phone (`stacked`): the title and the hint set to fit the slot
+    /// (`ActFace`), the title at the row size or as near as fits, the hint at the label size, smaller
+    /// only where the slot has no more room ("Maintenir pour confirmer"). (6.2)
+    var fitted = false
     let action: () -> Void
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var progress: CGFloat = 0
 
     private let holdDuration: TimeInterval = 1.0
+
+    /// The title, then "Hold to confirm" (where it shows), as the phone's slot sets them.
+    static func fittedBlocks(title: String, titleLines: Int, showsHint: Bool, hintColor: Color? = nil,
+                             hint: String = L10n.ChecklistAction.holdToConfirm) -> [ActFaceBlock] {
+        let label = CockpitType.label(for: .phone)
+        var blocks = [ActFaceBlock(text: title, size: CockpitType.size(kneeboard: 24, phone: 20, scale: .phone),
+                                   maxLines: max(2, titleLines))]
+        if showsHint {
+            // Regular, in grey: as large as the title where the slot allows, never as loud.
+            blocks.append(ActFaceBlock(text: hint, size: label, bold: false, maxLines: 3,
+                                       floor: label * 0.75, color: hintColor))
+        }
+        return blocks
+    }
+
     private var corner: CGFloat { kneeboard ? 18 : 12 }
 
     var body: some View {
@@ -1951,37 +1970,44 @@ struct HoldToConfirmButton: View {
 
             RoundedRectangle(cornerRadius: corner).strokeBorder(tint, lineWidth: kneeboard ? 1.5 : 2)
 
-            HStack(spacing: kneeboard ? 12 : 8) {
-                if !stacked {
-                    Image(systemName: systemImage).font(.aero(size: kneeboard ? CockpitType.row : 16, weight: .bold))
-                }
-                VStack(alignment: stacked ? .center : .leading, spacing: kneeboard ? 2 : 0) {
-                    // On two lines (the act band's narrow slot), the title at the label size and the hint
-                    // smaller, on two lines too ("Maintenir pour" over "confirmer"): four lines at the
-                    // full sizes ran over the slot's 104 pt.
-                    Text(title)
-                        .font(.aero(size: kneeboard ? (titleLines > 1 ? CockpitType.label : CockpitType.row) : 14,
-                                    weight: .bold))
-                        .multilineTextAlignment(stacked ? .center : .leading)
-                        .lineLimit(titleLines)
-                        .minimumScaleFactor(stacked ? 0.55 : 0.7)
-                    if showsHint {
-                        Text(L10n.ChecklistAction.holdToConfirm)
-                            .font(.aero(size: kneeboard ? (titleLines > 1 ? CockpitType.label * 0.75 : CockpitType.label) : 9,
-                                        weight: .semibold))
-                            .foregroundColor(theme.textSecondary)
+            if fitted {
+                ActFaceText(blocks: Self.fittedBlocks(title: title, titleLines: titleLines, showsHint: showsHint,
+                                                      hintColor: theme.textSecondary))
+                    .foregroundColor(tint)
+                    .padding(.horizontal, horizontalPadding ?? 8)
+            } else {
+                HStack(spacing: kneeboard ? 12 : 8) {
+                    if !stacked {
+                        Image(systemName: systemImage).font(.aero(size: kneeboard ? CockpitType.row : 16, weight: .bold))
+                    }
+                    VStack(alignment: stacked ? .center : .leading, spacing: kneeboard ? 2 : 0) {
+                        // On two lines (the act band's narrow slot), the title at the label size and the hint
+                        // smaller, on two lines too ("Maintenir pour" over "confirmer"): four lines at the
+                        // full sizes ran over the slot's 104 pt.
+                        Text(title)
+                            .font(.aero(size: kneeboard ? (titleLines > 1 ? CockpitType.label : CockpitType.row) : 14,
+                                        weight: .bold))
                             .multilineTextAlignment(stacked ? .center : .leading)
                             .lineLimit(titleLines)
-                            .minimumScaleFactor(0.7)
+                            .minimumScaleFactor(stacked ? 0.55 : 0.7)
+                        if showsHint {
+                            Text(L10n.ChecklistAction.holdToConfirm)
+                                .font(.aero(size: kneeboard ? (titleLines > 1 ? CockpitType.label * 0.75 : CockpitType.label) : 9,
+                                            weight: .semibold))
+                                .foregroundColor(theme.textSecondary)
+                                .multilineTextAlignment(stacked ? .center : .leading)
+                                .lineLimit(titleLines)
+                                .minimumScaleFactor(0.7)
+                        }
+                    }
+                    if count > 0 {
+                        Spacer(minLength: 4)
+                        Text("\(count)").font(.aero(size: kneeboard ? CockpitType.response : 17, weight: .heavy, design: .monospaced))
                     }
                 }
-                if count > 0 {
-                    Spacer(minLength: 4)
-                    Text("\(count)").font(.aero(size: kneeboard ? CockpitType.response : 17, weight: .heavy, design: .monospaced))
-                }
+                .foregroundColor(kneeboard ? tint : theme.textPrimary)
+                .padding(.horizontal, horizontalPadding ?? (stacked ? 8 : (kneeboard ? 16 : 12)))
             }
-            .foregroundColor(kneeboard ? tint : theme.textPrimary)
-            .padding(.horizontal, horizontalPadding ?? (stacked ? 8 : (kneeboard ? 16 : 12)))
         }
         .frame(height: height ?? (kneeboard ? 88 : 54))
         .frame(maxWidth: .infinity)

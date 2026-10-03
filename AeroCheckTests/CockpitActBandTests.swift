@@ -80,6 +80,26 @@ final class CockpitActBandTests: XCTestCase {
                        [.checkSlot, .mark, .divert(enabled: false, diverting: false), .more(withDivert: false)])
     }
 
+    /// ROUTE has MAP's slots: the legs it lists are the ones MARK marks and Divert leaves. (6.2)
+    func testROUTEHasTheMapsSlotsInEveryPhase() {
+        for phase in everyPhase {
+            for route in [false, true] {
+                for circuits in [false, true] {
+                    for landingShown in [false, true] {
+                        for diverting in [false, true] {
+                            XCTAssertEqual(
+                                ActBandRoles.make(page: .route, phase: phase, hasRoute: route, diverting: diverting,
+                                                  circuits: circuits, landingShown: landingShown),
+                                ActBandRoles.make(page: .map, phase: phase, hasRoute: route, diverting: diverting,
+                                                  circuits: circuits, landingShown: landingShown),
+                                "\(phase), route \(route), circuits \(circuits), landing \(landingShown), diverting \(diverting)")
+                        }
+                    }
+                }
+            }
+        }
+    }
+
     func testTheMapWithoutARouteHasRoutesAndDivertDimmed() {
         for circuits in [false, true] {
             XCTAssertEqual(ActBandRoles.make(page: .map, phase: .climb, hasRoute: false, circuits: circuits),
@@ -301,7 +321,7 @@ final class CockpitActBandTests: XCTestCase {
         XCTAssertEqual(manager.chronometerElapsed, 125)
     }
 
-    func testDivertOpensOnTheFieldAndTheRequestsCount() {
+    func testDivertOpensOnTheFieldAndTheRequestsCountAndALegIsShown() {
         let nav = CockpitNavState()
         nav.openDivert("LSGC")
         XCTAssertTrue(nav.showDivert)
@@ -311,8 +331,11 @@ final class CockpitActBandTests: XCTestCase {
         let before = nav.checklistScrollRequest
         nav.scrollChecklistToCurrentItem()
         XCTAssertEqual(nav.checklistScrollRequest, before + 1)
-        nav.requestLegsPanel()
-        XCTAssertTrue(nav.legsPanelPending)
+        // A leg tapped on ROUTE: MAP shows it until Back to aircraft (6.2).
+        nav.showLeg(2)
+        XCTAssertEqual(nav.framedLeg, 2)
+        nav.endLegFraming()
+        XCTAssertNil(nav.framedLeg)
     }
 
     // MARK: - Helpers

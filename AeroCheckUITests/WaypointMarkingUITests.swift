@@ -138,16 +138,21 @@ final class WaypointMarkingUITests: XCTestCase {
         pilot.shot("undo-4", "next-marked")
 
         // undo-7 (a): RESUME LEG on ST-URSANNE, which the flight marked: it stays the target, through
-        // two catch-ups (every 15 s of flight) and more.
+        // two catch-ups (every 15 s of flight) and more. Since 6.2 the row on ROUTE opens MAP on that leg,
+        // whose RESUME LEG asks the same question.
         _ = pilot.waitUntil(timeout: 9) { pilot.snap(pilot.undo) == nil }
         pilot.openLegs()
-        // The row's own tap, which scrolls it into view: at its point it may sit under the thumb bar
+        // The row's own tap, which scrolls it into view: at its point it may sit under the act band
         // (the phone), and a tap there would land on the slot.
         if let row = pilot.waitFor("legRow.4.passed.ato", timeout: 3) { row.tap() }
-        let resume = pilot.app.buttons["Resume leg"].firstMatch
+        if let onTheMap = pilot.waitFor("map.resumeLeg", timeout: 3) { onTheMap.tap() }
+        // The dialog's, not the map's own RESUME LEG under it.
+        let resume = pilot.app.buttons
+            .matching(NSPredicate(format: "label == 'Resume leg' AND identifier != 'map.resumeLeg'")).firstMatch
         let asked = resume.waitForExistence(timeout: 3)
         pilot.shot("undo-7", "resume-leg-asked")
         if asked { pilot.tapNow(resume) }
+        pilot.openLegs()
         pilot.check("undo-7", asked && pilot.waitUntil(timeout: 4) { pilot.leg(4)?.state == "next" && pilot.leg(4)?.hasATO == false },
                     "RESUME LEG: ST-URSANNE \(pilot.leg(4).map { "\($0)" } ?? "?")")
         pilot.waitForTrack(pilot.trackNow + 45)

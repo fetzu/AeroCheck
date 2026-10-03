@@ -353,8 +353,12 @@ Aware (Publish + Subscribe) for Companion, `aps-environment`.
 - `CURRENT_PROJECT_VERSION` (`CFBundleVersion`) is NEVER edited by hand: Xcode Cloud's
   `ci_scripts/ci_pre_xcodebuild.sh` writes its counter into all 8 configurations (app, widget and Watch
   must match, hence `project.pbxproj` and not an xcconfig; the script says why). The checked-in default
-  stays `1`, the number is never reset, and only ONE Xcode Cloud workflow may upload (each workflow
-  counts from 1).
+  stays `1` and the number is never reset. Xcode Cloud keeps ONE counter per app, shared by every
+  workflow (confirmed by the first tag build, Oct 2026), so two workflows can both upload.
+- **TestFlight:** two Xcode Cloud workflows. "CI/CD for TestFlight (Internal Testing)" builds every push to
+  `main` for the internal (alpha) group; "Beta · tags" builds every release tag for the internal group and
+  the external Beta group (Beta App Review). The App Store gets the tag's beta build. Environment variables
+  (the three secrets of `ci_post_clone.sh`) belong to each workflow: a new workflow needs them set again.
 - To release: tag `X.Y.Z` on `main` and publish the GitHub release (that rebuilds the website changelog),
   then check that the Xcode Cloud log says `written to 8 build configurations`. Any other count means a
   target stopped being covered and the upload will be refused.

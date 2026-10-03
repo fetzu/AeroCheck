@@ -100,7 +100,9 @@ class LocationManager: NSObject, ObservableObject {
     /// requestLocation() probe and hold at degraded until either a fresh fix lands or this window
     /// elapses (then it's a genuine loss → red). Stamped when the probe is fired.
     private var stationaryProbeFiredAt: Date?
-    private static let stationaryProbeWindow: TimeInterval = 8.0
+    static let stationaryProbeWindow: TimeInterval = 8.0
+    /// Parked, how long without a fix before the probe: short of the 20 s "degraded" mark. (6.1.0)
+    static let stationaryProbeLead: TimeInterval = 15.0
     /// Deferred-start intents: set when start is requested before authorization is decided, so
     /// the start completes automatically once permission is granted. (PERF-03)
     private var pendingTrackingStart = false
@@ -490,29 +492,59 @@ class LocationManager: NSObject, ObservableObject {
         // PR-21: a parked aircraft (ground mode, 5 m distance filter) receives no callbacks, so
         // staleness alone would drive the indicator orange→red even with good GPS — training the
         // pilot to ignore the one indicator that matters. When we last had a good fix and are
-        // plausibly stationary, fire a one-shot requestLocation() probe (which bypasses the distance
-        // filter) and hold at degraded; only go red if no fresh fix arrives within the probe window.
-        // A fresh fix updates lastLocationUpdateTime, so `computed` recovers on the next tick.
+        // plausibly stationary, a one-shot requestLocation() probe (which bypasses the distance
+        // filter) asks for a fresh fix before staleness degrades the signal, and the status holds
+        // while it is out. The probe used to fire only at the 45 s "lost" mark, so from 20 s to 45 s
+        // a parked aircraft with good GPS showed the failure flag: about 25 s of every 45 at the
+        // holding point. (6.1.0) A fresh fix updates lastLocationUpdateTime and ends the episode;
+        // a probe that brings nothing back leaves the 20 / 45 s rules to it.
+        if let firedAt = stationaryProbeFiredAt, lastUpdate > firedAt {
+            stationaryProbeFiredAt = nil
+        }
         let lastAccuracyWasGood = lastKnownAccuracy >= 0 && lastKnownAccuracy <= horizontalAccuracyThreshold
-        let stationary = smoothedSpeedMPS < 0.5  // < ~1 kt
-        if computed == .lost && lastAccuracyWasGood && stationary && gpsSignalStatus != .lost {
-            if let firedAt = stationaryProbeFiredAt {
-                if now.timeIntervalSince(firedAt) < Self.stationaryProbeWindow {
-                    gpsSignalStatus = .degraded             // probe in flight — hold short of red
-                    return
-                }
-                stationaryProbeFiredAt = nil                // window elapsed, no fresh fix → genuine loss
-                gpsSignalStatus = .lost
-                return
-            }
+        switch Self.stationaryProbeStep(
+            timeSinceLastUpdate: timeSinceLastUpdate,
+            lastAccuracyWasGood: lastAccuracyWasGood,
+            stationary: smoothedSpeedMPS < 0.5,   // < ~1 kt
+            current: gpsSignalStatus,
+            timeSinceProbe: stationaryProbeFiredAt.map { now.timeIntervalSince($0) }) {
+        case .fire:
             stationaryProbeFiredAt = now
             locationManager.requestLocation()
-            gpsSignalStatus = .degraded
+            return                                          // the status holds while the probe is out
+        case .hold:
             return
+        case .none:
+            gpsSignalStatus = computed
         }
+    }
 
-        stationaryProbeFiredAt = nil
-        gpsSignalStatus = computed
+    /// What the signal check of a possibly parked aircraft does about its stale fix. (PR-21; 6.1.0)
+    enum StationaryProbeStep: Equatable {
+        /// Moving, a poor last fix, the signal already lost, or a probe that brought nothing back:
+        /// the staleness rules (`signalStatus`) apply.
+        case none
+        /// Ask for a fresh fix now; the status holds.
+        case fire
+        /// A probe is out: the status holds until it answers or its window ends.
+        case hold
+    }
+
+    /// Pure, unit-testable: parked with a good last fix, probe from `lead` seconds without a fix (before
+    /// the 20 s "degraded" mark) and hold the status for `window` seconds while the probe is out. One
+    /// probe per stale stretch: `timeSinceProbe` is nil until it fires, and a fresh fix resets it.
+    nonisolated static func stationaryProbeStep(
+        timeSinceLastUpdate: TimeInterval,
+        lastAccuracyWasGood: Bool,
+        stationary: Bool,
+        current: GPSSignalStatus,
+        timeSinceProbe: TimeInterval?,
+        lead: TimeInterval = stationaryProbeLead,
+        window: TimeInterval = stationaryProbeWindow
+    ) -> StationaryProbeStep {
+        guard lastAccuracyWasGood, stationary, current != .lost, timeSinceLastUpdate >= lead else { return .none }
+        guard let timeSinceProbe else { return .fire }
+        return timeSinceProbe < window ? .hold : .none
     }
 
     /// Update smoothed speed (EMA) and cached heading from a new location update.

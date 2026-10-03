@@ -1,4 +1,5 @@
 import XCTest
+import SwiftUI
 @testable import AeroCheck
 
 /// Tests for the shared speed-indicator target annunciation used by both the iPad
@@ -93,5 +94,47 @@ final class SpeedIndicatorTests: XCTestCase {
             displaySpeed: 55, targetSpeed: 55, state: .onTarget, gpsLost: false)
         XCTAssertFalse(v.lowercased().contains("airspeed"))
         XCTAssertFalse(v.lowercased().contains("ias"))
+    }
+}
+
+/// The strip holds still: no live value changes its size. The vertical speed appearing at ±50 fpm
+/// grew it by a line, and everything under it (the tabs, the map) moved down and back up in flight.
+/// (6.1.0, seen in the ground replays)
+@MainActor
+final class InstrumentStripLayoutTests: XCTestCase {
+
+    private func size(kneeboard: Bool, gps: GPSSignalStatus = .good, verticalSpeed: Double? = nil,
+                      target: Int? = 70, next: String? = "LSGC") -> CGSize {
+        let strip = CockpitInstrumentStrip(speedKnots: 104, targetSpeed: target, gpsSignalStatus: gps,
+                                           altitudeFeet: 3_499, headingDegrees: 211,
+                                           verticalSpeedFPM: verticalSpeed, kneeboard: kneeboard,
+                                           nextWaypoint: next)
+        return UIHostingController(rootView: strip).sizeThatFits(in: CGSize(width: 800, height: 1_000))
+    }
+
+    func testTheVerticalSpeedNeverChangesTheStripsSize() {
+        for kneeboard in [true, false] {
+            let level = size(kneeboard: kneeboard, verticalSpeed: 0)
+            for vs: Double? in [nil, 30, -49, 50, 480, -300, 1_850] {
+                XCTAssertEqual(size(kneeboard: kneeboard, verticalSpeed: vs), level,
+                               "kneeboard \(kneeboard), \(String(describing: vs)) fpm")
+            }
+        }
+    }
+
+    func testATargetSpeedComingOrGoingDoesNotResizeIt() {
+        for kneeboard in [true, false] {
+            XCTAssertEqual(size(kneeboard: kneeboard, target: nil), size(kneeboard: kneeboard, target: 70),
+                           "a phase without a target speed, kneeboard \(kneeboard)")
+        }
+    }
+
+    func testTheGPSFailureFlagDoesNotResizeIt() {
+        for kneeboard in [true, false] {
+            let good = size(kneeboard: kneeboard, verticalSpeed: 480)
+            XCTAssertEqual(size(kneeboard: kneeboard, gps: .degraded, verticalSpeed: 480), good)
+            XCTAssertEqual(size(kneeboard: kneeboard, gps: .lost, verticalSpeed: 480), good,
+                           "the values keep their room under the flag, kneeboard \(kneeboard)")
+        }
     }
 }

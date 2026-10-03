@@ -59,20 +59,25 @@ struct CompanionFlightView: View {
 
             if isFlightActive {
                 modeSwitcher
-                // A mid-flight link drop keeps the last (frozen) flight data, so isFlightActive stays true.
-                // Surface the "connection lost / switch to standalone" escape here too — not only on the
-                // not-flying screen — falling back to the amber stale banner when merely connected-but-stale.
-                if companionConnectivityManager.connectionState == .reconnecting ||
-                   companionConnectivityManager.connectionState == .disconnected {
-                    disconnectedBanner
-                } else if isDataStale {
-                    staleBanner
-                }
                 TabView(selection: $mode) {
                     navMode.tag(Mode.nav)
                     checklistMode.tag(Mode.checklist)
                 }
                 .tabViewStyle(.page(indexDisplayMode: .never))
+                // A mid-flight link drop keeps the last (frozen) flight data, so isFlightActive stays true.
+                // Surface the "connection lost / switch to standalone" escape here too — not only on the
+                // not-flying screen — falling back to the amber stale banner when merely connected-but-stale.
+                // Over the top of the content, not above it: in the layout, each gap in the stream pushed
+                // the phase header, its buttons and the NAV card down 37–60 pt and back. What it covers is
+                // frozen while it shows. (6.1.0)
+                .overlay(alignment: .top) {
+                    if companionConnectivityManager.connectionState == .reconnecting ||
+                       companionConnectivityManager.connectionState == .disconnected {
+                        disconnectedBanner
+                    } else if isDataStale {
+                        staleBanner
+                    }
+                }
                 instrumentsStrip.opacity(isDataStale ? 0.4 : 1)
             } else {
                 if companionConnectivityManager.connectionState == .reconnecting ||
@@ -163,9 +168,10 @@ struct CompanionFlightView: View {
     /// Connection status using the app's StatusIndicator design language + the connected device name.
     private var connectionStatusRow: some View {
         HStack(spacing: 5) {
-            if let name = companionConnectivityManager.connectedDeviceName {
-                Text(name).font(.aero(size: CockpitType.label)).foregroundColor(theme.textSecondary).lineLimit(1)
-            }
+            // The line keeps its height without a name (the iPad ended the link): the header lost 13 pt
+            // and the NAV / CHECKLIST switch under it moved up. (6.1.0)
+            Text(companionConnectivityManager.connectedDeviceName ?? " ")
+                .font(.aero(size: CockpitType.label)).foregroundColor(theme.textSecondary).lineLimit(1)
             StatusIndicator(connectionStatus, size: 8)
         }
     }

@@ -32,6 +32,34 @@ final class LocationManagerTests: XCTestCase {
         XCTAssertEqual(status(12, accuracy: -1, current: .good), .degraded) // negative accuracy = unknown/poor
     }
 
+    // MARK: Parked: a fresh fix asked for before the signal degrades (PR-21; 6.1.0)
+
+    private func probe(_ t: TimeInterval, sinceProbe: TimeInterval? = nil, goodFix: Bool = true,
+                       stationary: Bool = true, current: GPSSignalStatus = .good) -> LocationManager.StationaryProbeStep {
+        LocationManager.stationaryProbeStep(timeSinceLastUpdate: t, lastAccuracyWasGood: goodFix,
+                                            stationary: stationary, current: current, timeSinceProbe: sinceProbe)
+    }
+
+    func testAParkedAircraftAsksForAFixBeforeTheSignalWouldDegrade() {
+        XCTAssertEqual(probe(14), .none, "a fix 14 s ago is fresh enough")
+        XCTAssertEqual(probe(15), .fire, "15 s: ask, short of the 20 s degraded mark")
+        XCTAssertLessThan(LocationManager.stationaryProbeLead, 20)
+        XCTAssertEqual(probe(18, sinceProbe: 3), .hold, "the status holds while the probe is out")
+        XCTAssertEqual(probe(22, sinceProbe: 7), .hold, "past 20 s too: no flag for a parked aircraft with good GPS")
+    }
+
+    func testAProbeThatBringsNothingBackLeavesItToTheStalenessRules() {
+        XCTAssertEqual(probe(24, sinceProbe: 9), .none)
+        XCTAssertEqual(status(24, accuracy: 10, current: .good), .degraded, "then degraded")
+        XCTAssertEqual(probe(50, sinceProbe: 35), .none, "and lost at 45 s, without another hold")
+    }
+
+    func testOnlyAParkedAircraftWithAGoodFixIsProbed() {
+        XCTAssertEqual(probe(16, stationary: false), .none, "moving: the fixes keep coming, or the signal is bad")
+        XCTAssertEqual(probe(16, goodFix: false), .none, "a poor last fix degrades as before")
+        XCTAssertEqual(probe(50, current: .lost), .none, "a lost signal is not held")
+    }
+
     func testEscalationsOnlyFireFromGood() {
         // A non-good status is preserved (not re-escalated) in the 10–45 s band.
         XCTAssertEqual(status(25, accuracy: 10, current: .degraded), .degraded)

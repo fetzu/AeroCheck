@@ -84,7 +84,8 @@ Shared/                   at the REPO ROOT; compiled into the app and the Watch 
 AeroCheckWidget/          widgets and the Live Activity (FlightLiveActivity.swift)
 AeroCheckWatch/           the Watch app
 AeroCheckTests/           unit tests, one <Feature>Tests.swift per feature; TestDatastore.swift
-ci_scripts/               Xcode Cloud: ci_post_clone.sh (secrets), ci_pre_xcodebuild.sh (build number)
+ci_scripts/               Xcode Cloud: ci_post_clone.sh (secrets), ci_pre_xcodebuild.sh (build number), ci_post_xcodebuild.sh (What to Test)
+TestFlight/               What to Test for the next release tag, EN + FR (ci_post_xcodebuild.sh)
 ```
 
 Owners and rules that aren't obvious from the names:
@@ -359,6 +360,12 @@ Aware (Publish + Subscribe) for Companion, `aps-environment`.
   `main` for the internal (alpha) group; "Beta · tags" builds every release tag for the internal group and
   the external Beta group (Beta App Review). The App Store gets the tag's beta build. Environment variables
   (the three secrets of `ci_post_clone.sh`) belong to each workflow: a new workflow needs them set again.
-- To release: tag `X.Y.Z` on `main` and publish the GitHub release (that rebuilds the website changelog),
-  then check that the Xcode Cloud log says `written to 8 build configurations`. Any other count means a
-  target stopped being covered and the upload will be refused.
+- **What to Test:** `ci_scripts/ci_post_xcodebuild.sh` writes `TestFlight/WhatToTest.<locale>.txt`, which Xcode
+  Cloud shows the testers of the build. A main build lists the last pull requests merged. A tag build keeps
+  the notes committed in `TestFlight/`, if their first line names the tag; otherwise it lists the pull
+  requests since the previous tag and warns in the log.
+- To release: before tagging, commit the beta testers' notes for `X.Y.Z` in `TestFlight/WhatToTest.en-US.txt`
+  and `.fr-FR.txt` (first line names the version; what's new and what to try, short). Then tag `X.Y.Z` on
+  `main` and publish the GitHub release (that rebuilds the website changelog). In the beta build's Xcode
+  Cloud log, check `written to 8 build configurations` (any other count means a target stopped being
+  covered and the upload will be refused) and `notes for X.Y.Z, as committed` for both languages.

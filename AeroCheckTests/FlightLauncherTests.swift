@@ -114,6 +114,23 @@ final class FlightLauncherTests: XCTestCase {
             .started)
     }
 
+    // MARK: - GPS that isn't running yet gets a moment (6.1.0)
+
+    func testTheStartWaitsForAFixThatComesInTime() async {
+        var looks = 0
+        let found = await FlightLauncher.waitFor(upTo: .seconds(2)) { looks += 1; return looks >= 3 }
+        XCTAssertTrue(found, "the fix that came on the third look lets the flight start")
+    }
+
+    func testTheStartGivesUpAfterItsWarmUp() async {
+        let start = ContinuousClock.now
+        let found = await FlightLauncher.waitFor(upTo: .milliseconds(300)) { false }
+        XCTAssertFalse(found, "no fix: the start says so, as before")
+        XCTAssertLessThan(ContinuousClock.now - start, .seconds(1))
+        XCTAssertGreaterThanOrEqual(FlightLauncher.gpsWarmUp, .seconds(3), "long enough for a first fix")
+        XCTAssertLessThanOrEqual(FlightLauncher.gpsWarmUp, .seconds(8), "short enough not to look stuck")
+    }
+
     // MARK: - begin() integration for the early-return guards
 
     func testBeginDoesNotOverwriteRunningFlight() async {

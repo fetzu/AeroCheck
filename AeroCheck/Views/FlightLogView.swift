@@ -809,7 +809,7 @@ struct FlightLogView: View {
                 .tracking(0.6)
                 .foregroundColor(.aviationGold)
             Spacer()
-            Text("\(group.flights.count) flight\(group.flights.count == 1 ? "" : "s") · \(String(format: "%.1f", group.totalHours)) h")
+            Text(L10n.FlightLog.monthSummary(group.flights.count, hours: group.totalHours))
                 .scaledFont(size: 11, design: .monospaced, relativeTo: .caption2)
                 .foregroundColor(.secondaryText)
         }
@@ -891,9 +891,9 @@ struct FlightLogView: View {
 
             // Metric cards — 4 across on regular width, 2 on compact.
             LazyVGrid(columns: metricColumns, spacing: 10) {
-                LogMetricCard(label: "Hours", value: String(format: "%.1f", stats.totalHours), valueColor: .aviationGold)
-                LogMetricCard(label: "Flights", value: "\(stats.flights)")
-                LogMetricCard(label: "Landings", value: "\(stats.landings)")
+                LogMetricCard(label: L10n.FlightLog.hours, value: String(format: "%.1f", stats.totalHours), valueColor: .aviationGold)
+                LogMetricCard(label: L10n.FlightLog.flights, value: "\(stats.flights)")
+                LogMetricCard(label: L10n.FlightLog.landings, value: "\(stats.landings)")
                 // Tap the distance card to toggle NM ⇄ km (persisted; also affects the list rows).
                 Button { toggleDistanceUnit() } label: {
                     LogMetricCard(label: distanceUnitLabel, value: Self.groupedNumber(distanceValue(stats.distanceKm)))
@@ -915,7 +915,7 @@ struct FlightLogView: View {
 
             // List header: count + aircraft filter.
             HStack {
-                Text("\(stats.flights) FLIGHTS")
+                Text(L10n.FlightLog.listHeader(stats.flights))
                     .scaledFont(size: 12, weight: .semibold, relativeTo: .caption)
                     .tracking(0.5)
                     .foregroundColor(.secondaryText)
@@ -1016,7 +1016,7 @@ struct FlightLogView: View {
         } label: {
             HStack(spacing: 4) {
                 // verbatim + String() so the year never gets a thousands separator ("2'026"). (round 7)
-                Text(verbatim: selectedYear.map { String($0) } ?? "All")
+                Text(verbatim: selectedYear.map { String($0) } ?? L10n.FlightLog.allYears)
                     .scaledFont(size: 15, weight: .medium, relativeTo: .subheadline)
                 Image(systemName: "chevron.down").scaledFont(size: 11, weight: .semibold, relativeTo: .caption2)
             }
@@ -1087,7 +1087,7 @@ struct FlightLogView: View {
             HStack(spacing: 4) {
                 Image(systemName: selectedAircraft == nil ? "line.3.horizontal.decrease.circle" : "line.3.horizontal.decrease.circle.fill")
                     .scaledFont(size: 13, relativeTo: .caption)
-                Text(selectedAircraft ?? "Filter").scaledFont(size: 13, weight: .medium, relativeTo: .caption)
+                Text(selectedAircraft ?? L10n.FlightLog.filter).scaledFont(size: 13, weight: .medium, relativeTo: .caption)
             }
             .foregroundColor(selectedAircraft == nil ? .secondaryText : .aviationGold)
         }
@@ -1550,11 +1550,11 @@ enum StatsCardAccent: String, CaseIterable, Identifiable {
 
     var displayName: String {
         switch self {
-        case .gold: return "Gold"
-        case .blue: return "Blue"
-        case .green: return "Green"
-        case .orange: return "Orange"
-        case .red: return "Red"
+        case .gold: return L10n.ShareCard.accentGold
+        case .blue: return L10n.ShareCard.accentBlue
+        case .green: return L10n.ShareCard.accentGreen
+        case .orange: return L10n.ShareCard.accentOrange
+        case .red: return L10n.ShareCard.accentRed
         }
     }
 
@@ -1578,8 +1578,8 @@ enum StatsCardLayout: String, CaseIterable, Identifiable {
 
     var displayName: String {
         switch self {
-        case .standard: return "Tiles"
-        case .hero: return "Hero"
+        case .standard: return L10n.ShareCard.layoutTiles
+        case .hero: return L10n.ShareCard.layoutHero
         }
     }
 
@@ -1665,7 +1665,7 @@ struct FlightLogStatsShareCard: View {
     private var header: some View {
         HStack(alignment: .top) {
             VStack(alignment: .leading, spacing: 10) {
-                Text("FLIGHT LOG")
+                Text(L10n.ShareCard.statsTitle)
                     .font(.aero(size: 26, weight: .semibold)).tracking(6)
                     .foregroundColor(accent)
                 if options.showPeriod {
@@ -1688,15 +1688,15 @@ struct FlightLogStatsShareCard: View {
         switch options.layout {
         case .standard:
             HStack(spacing: 20) {
-                statTile("HOURS", String(format: "%.1f", hours), accent)
-                statTile("FLIGHTS", "\(flights)", theme.primaryTextColor)
-                statTile("LANDINGS", "\(landings)", theme.primaryTextColor)
+                statTile(L10n.ShareCard.statsHours, String(format: "%.1f", hours), accent)
+                statTile(L10n.ShareCard.statsFlights, "\(flights)", theme.primaryTextColor)
+                statTile(L10n.ShareCard.statsLandings, "\(landings)", theme.primaryTextColor)
                 statTile(unit.uppercased(), Self.grouped(distance), theme.primaryTextColor)
             }
         case .hero:
             VStack(alignment: .leading, spacing: 20) {
                 VStack(alignment: .leading, spacing: 4) {
-                    Text("HOURS")
+                    Text(L10n.ShareCard.statsHours)
                         .font(.aero(size: 24, weight: .semibold)).tracking(2)
                         .foregroundColor(theme.secondaryTextColor)
                     Text(String(format: "%.1f", hours))
@@ -1710,8 +1710,8 @@ struct FlightLogStatsShareCard: View {
                 .background(RoundedRectangle(cornerRadius: 28).fill(theme.cardOverlayColor))
 
                 HStack(spacing: 20) {
-                    statTile("FLIGHTS", "\(flights)", theme.primaryTextColor)
-                    statTile("LANDINGS", "\(landings)", theme.primaryTextColor)
+                    statTile(L10n.ShareCard.statsFlights, "\(flights)", theme.primaryTextColor)
+                    statTile(L10n.ShareCard.statsLandings, "\(landings)", theme.primaryTextColor)
                     statTile(unit.uppercased(), Self.grouped(distance), theme.primaryTextColor)
                 }
             }
@@ -1720,7 +1720,7 @@ struct FlightLogStatsShareCard: View {
 
     private var byAircraftSection: some View {
         VStack(alignment: .leading, spacing: 20) {
-            Text("HOURS BY AIRCRAFT")
+            Text(L10n.ShareCard.statsHoursByAircraft)
                 .font(.aero(size: 22, weight: .semibold)).tracking(2)
                 .foregroundColor(theme.secondaryTextColor)
             let maxHours = byAircraft.map(\.hours).max() ?? 1
@@ -1964,7 +1964,7 @@ struct FlightRowView: View {
     nonisolated static func statsLine(for flight: Flight, nauticalMiles: Bool) -> String {
         var parts: [String] = [flight.aircraftRegistration ?? flight.airplane]
         if flight.totalLandings > 0 {
-            parts.append("\(flight.totalLandings) ldg")
+            parts.append(L10n.FlightLog.landingCount(flight.totalLandings))
         }
         let distance = nauticalMiles ? flight.distanceKilometers * 0.539957 : flight.distanceKilometers
         if distance >= 0.5, let whole = distance.safeRoundedInt() {
@@ -2357,8 +2357,8 @@ struct FlightDetailView: View {
                 .foregroundColor(.secondaryText)
                 .lineLimit(2)
             HStack(spacing: 8) {
-                statChip("TIME", flight.formattedDuration, .aviationGreen)
-                statChip("LDG", "\(flight.totalLandings)", .primaryText)
+                statChip(L10n.FlightDetail.time, flight.formattedDuration, .aviationGreen)
+                statChip(L10n.FlightDetail.landingsChip, "\(flight.totalLandings)", .primaryText)
                 statChip(appState.settings.distanceInNauticalMiles ? "NM" : "KM", headerDistanceText, .primaryText)
                 statChip("MAX", headerMaxAltText, .primaryText)
             }
@@ -2388,7 +2388,7 @@ struct FlightDetailView: View {
     /// Chronological event timeline card. (round 8)
     private var timelineCard: some View {
         VStack(alignment: .leading, spacing: 10) {
-            Text("TIMELINE").scaledFont(size: 11, weight: .semibold, relativeTo: .caption2).tracking(0.5).foregroundColor(.secondaryText)
+            Text(L10n.FlightDetail.timeline).scaledFont(size: 11, weight: .semibold, relativeTo: .caption2).tracking(0.5).foregroundColor(.secondaryText)
             VStack(spacing: 12) {
                 if let start = flight.startTime {
                     TimelineRow(label: L10n.FlightDetail.sessionStart, time: timeString(from: start), icon: "play.fill", color: .dimText)
@@ -2831,8 +2831,8 @@ struct FlightMapView: UIViewRepresentable {
 
                 if let first = points.first, let last = points.last {
                     mapView.addAnnotations([
-                        FlightAnnotation(coordinate: first.coordinate, title: "Start", isStart: true, isSelected: false),
-                        FlightAnnotation(coordinate: last.coordinate, title: "End", isStart: false, isSelected: false)
+                        FlightAnnotation(coordinate: first.coordinate, title: L10n.FlightDetail.trackStart, isStart: true, isSelected: false),
+                        FlightAnnotation(coordinate: last.coordinate, title: L10n.FlightDetail.trackEnd, isStart: false, isSelected: false)
                     ])
                 }
                 // Set the visible region only on initial load, not when selection changes.
@@ -2958,7 +2958,7 @@ struct AltitudeChartView: View {
     enum ChartMode: String, CaseIterable, Identifiable {
         case altitude, speed
         var id: String { rawValue }
-        var label: String { self == .altitude ? "Altitude" : "Speed" }
+        var label: String { self == .altitude ? L10n.FlightDetail.chartAltitude : L10n.FlightDetail.chartSpeed }
         var unit: String { self == .altitude ? "ft" : "kt" }
     }
     @State private var mode: ChartMode = .altitude
@@ -3199,8 +3199,8 @@ struct AltitudeChartView: View {
 
             // Altitude ⇄ speed toggle BELOW the chart, so the top phase icons don't overlap it. (round 8)
             Picker("Series", selection: $mode) {
-                Text("Altitude").tag(ChartMode.altitude)
-                Text("Speed").tag(ChartMode.speed)
+                Text(ChartMode.altitude.label).tag(ChartMode.altitude)
+                Text(ChartMode.speed.label).tag(ChartMode.speed)
             }
             .pickerStyle(.segmented)
           }
@@ -3958,7 +3958,7 @@ struct StatsShareCardCustomizationView: View {
                         .padding(.bottom, 16)
                 }
             }
-            .navigationTitle("Share Stats")
+            .navigationTitle(L10n.ShareCard.shareStats)
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
@@ -4001,7 +4001,7 @@ struct StatsShareCardCustomizationView: View {
 
     private var themePicker: some View {
         VStack(alignment: .leading, spacing: 8) {
-            sectionLabel("COLOR THEME")
+            sectionLabel(L10n.ShareCard.colorTheme)
             HStack(spacing: 12) {
                 ForEach(ShareCardColorScheme.allCases) { scheme in
                     Button {
@@ -4035,7 +4035,7 @@ struct StatsShareCardCustomizationView: View {
 
     private var accentPicker: some View {
         VStack(alignment: .leading, spacing: 8) {
-            sectionLabel("ACCENT")
+            sectionLabel(L10n.ShareCard.accent)
             HStack(spacing: 12) {
                 ForEach(StatsCardAccent.allCases) { accent in
                     Button {
@@ -4065,7 +4065,7 @@ struct StatsShareCardCustomizationView: View {
 
     private var layoutPicker: some View {
         VStack(alignment: .leading, spacing: 8) {
-            sectionLabel("LAYOUT")
+            sectionLabel(L10n.ShareCard.layout)
             HStack(spacing: 10) {
                 ForEach(StatsCardLayout.allCases) { layout in
                     Button {
@@ -4089,10 +4089,10 @@ struct StatsShareCardCustomizationView: View {
 
     private var contentToggles: some View {
         VStack(alignment: .leading, spacing: 8) {
-            sectionLabel("CONTENT")
+            sectionLabel(L10n.ShareCard.content)
             VStack(spacing: 10) {
-                toggleRow("Hours by aircraft", isOn: $options.showByAircraft)
-                toggleRow("Period title", isOn: $options.showPeriod)
+                toggleRow(L10n.ShareCard.showHoursByAircraft, isOn: $options.showByAircraft)
+                toggleRow(L10n.ShareCard.showPeriodTitle, isOn: $options.showPeriod)
             }
         }
     }

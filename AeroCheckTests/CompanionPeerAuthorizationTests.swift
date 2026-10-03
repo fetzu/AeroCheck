@@ -5,10 +5,12 @@ import CoreLocation
 /// What a paired peer may do to the master's flight, and when the pilot is asked (SEC-C40).
 ///
 /// Being paired is not authorisation: the first request of a connection to act on the flight (a
-/// command that changes something, or a position to borrow) asks the pilot, once; the answer holds
-/// for that connection only. A keep-alive never asks (S9-08), a position needs the same answer as a
-/// command and a forgotten device is refused (S9-09), and trust belongs to one connection, whose
-/// frames stop counting once another replaced it (S9-28).
+/// command that changes something, or a position to borrow) asks the pilot, once. Allow holds for
+/// this flight and that phone, reconnections included; Always Allow for that phone on this iPad until
+/// it is forgotten or set back to Ask Each Flight; Don't Allow for the connection (6.1.0). A
+/// keep-alive never asks (S9-08), a position needs the same answer as a command and a forgotten
+/// device is refused (S9-09), and trust belongs to one connection, whose frames stop counting once
+/// another replaced it (S9-28).
 ///
 /// The manager here is a test one: its own defaults suite, and no Wi-Fi Aware, so nothing starts a
 /// real listener on the simulator. Connections are adopted through the same entry point the
@@ -106,7 +108,7 @@ final class CompanionPeerAuthorizationTests: XCTestCase {
         master.manager.handleReceivedMessage(command(.revealHiddenItems), generation: gen)
         let request = try XCTUnwrap(master.manager.pendingAuthorization)
 
-        master.manager.answerAuthorization(request, allow: false)
+        master.manager.answerAuthorization(request, .deny)
         XCTAssertNil(master.manager.pendingAuthorization)
         XCTAssertEqual(master.manager.peerLink?.authorization, .denied)
 
@@ -125,7 +127,7 @@ final class CompanionPeerAuthorizationTests: XCTestCase {
         let master = makeMaster()
         let gen = try connect(master.manager)
         master.manager.handleReceivedMessage(command(.revealHiddenItems), generation: gen)
-        master.manager.answerAuthorization(try XCTUnwrap(master.manager.pendingAuthorization), allow: true)
+        master.manager.answerAuthorization(try XCTUnwrap(master.manager.pendingAuthorization), .allow)
         XCTAssertTrue(master.manager.peerMayIssueCommands)
 
         master.manager.handleReceivedMessage(command(.revealHiddenItems), generation: gen)
@@ -146,14 +148,14 @@ final class CompanionPeerAuthorizationTests: XCTestCase {
         XCTAssertNotNil(master.manager.pendingAuthorization)
     }
 
-    func testTheAnswerDoesNotOutliveTheConnection() throws {
+    func testAnotherPhoneDoesNotRideOnTheAllow() throws {
         let master = makeMaster()
-        let first = try connect(master.manager)
+        let first = try connect(master.manager, id: 7)
         master.manager.handleReceivedMessage(command(.revealHiddenItems), generation: first)
-        master.manager.answerAuthorization(try XCTUnwrap(master.manager.pendingAuthorization), allow: true)
+        master.manager.answerAuthorization(try XCTUnwrap(master.manager.pendingAuthorization), .allow)
 
-        let second = try connect(master.manager)
-        XCTAssertFalse(master.manager.peerMayIssueCommands, "a new connection starts from nothing")
+        let second = try connect(master.manager, id: 8, name: "Club iPhone")
+        XCTAssertFalse(master.manager.peerMayIssueCommands, "another phone's connection starts from nothing")
         master.manager.handleReceivedMessage(command(.revealHiddenItems), generation: second)
         XCTAssertEqual(master.manager.pendingAuthorization?.generation, second, "and is asked about")
         XCTAssertFalse(master.appState.hiddenItemsRevealed)
@@ -170,7 +172,7 @@ final class CompanionPeerAuthorizationTests: XCTestCase {
         // Another paired phone takes over while the prompt is still up; the pilot then taps Allow.
         let second = try connect(master.manager, id: 8, name: "Someone else's iPhone")
         XCTAssertNil(master.manager.pendingAuthorization, "the old question went with its connection")
-        master.manager.answerAuthorization(staleRequest, allow: true)
+        master.manager.answerAuthorization(staleRequest, .allow)
 
         XCTAssertFalse(master.manager.peerMayIssueCommands, "the Allow was for the replaced connection")
         master.manager.handleReceivedMessage(command(.revealHiddenItems), generation: second)
@@ -182,10 +184,10 @@ final class CompanionPeerAuthorizationTests: XCTestCase {
         let master = makeMaster()
         let first = try connect(master.manager)
         master.manager.handleReceivedMessage(command(.revealHiddenItems), generation: first)
-        master.manager.answerAuthorization(try XCTUnwrap(master.manager.pendingAuthorization), allow: true)
+        master.manager.answerAuthorization(try XCTUnwrap(master.manager.pendingAuthorization), .allow)
         let second = try connect(master.manager, id: 8)
         master.manager.handleReceivedMessage(command(.revealHiddenItems), generation: second)
-        master.manager.answerAuthorization(try XCTUnwrap(master.manager.pendingAuthorization), allow: true)
+        master.manager.answerAuthorization(try XCTUnwrap(master.manager.pendingAuthorization), .allow)
         master.appState.hiddenItemsRevealed = false
 
         // The old connection's receive loop is still running: its frames count for nothing.
@@ -219,7 +221,8 @@ final class CompanionPeerAuthorizationTests: XCTestCase {
         master.manager.handleReceivedMessage(command(.advanceWaypoint), generation: gen)
         let request = try XCTUnwrap(master.manager.pendingAuthorization)
         XCTAssertNil(request.deviceName, "no guess from the paired list")
-        XCTAssertFalse(L10n.Companion.allowControlMessage(nil).contains("Pilot's iPhone"))
+        XCTAssertFalse(L10n.Companion.allowControlMessage(nil, canRemember: request.canRemember)
+            .contains("Pilot's iPhone"))
     }
 
     // MARK: - S9-09: position needs the same answer
@@ -234,7 +237,7 @@ final class CompanionPeerAuthorizationTests: XCTestCase {
         XCTAssertNil(master.location.currentLocation, "never reaches the flight pipeline")
         XCTAssertNotNil(master.manager.pendingAuthorization, "the pilot is asked, as for a command")
 
-        master.manager.answerAuthorization(try XCTUnwrap(master.manager.pendingAuthorization), allow: true)
+        master.manager.answerAuthorization(try XCTUnwrap(master.manager.pendingAuthorization), .allow)
         master.manager.handleReceivedMessage(peerFix(), generation: gen)
         XCTAssertNotNil(master.manager.receivedPeerGPS)
         XCTAssertEqual(master.manager.effectiveGPSSource, .peer)
@@ -316,6 +319,230 @@ final class CompanionPeerAuthorizationTests: XCTestCase {
         XCTAssertFalse(CompanionConnectivityManager.refusesPeer(named, forgotten: [9]))
         XCTAssertTrue(CompanionConnectivityManager.refusesPeer(nil, forgotten: [9]),
                       "once something is forgotten, a peer Wi-Fi Aware will not name could be it")
+    }
+
+    // MARK: - 6.1.0: Allow for this flight
+
+    private func startFlight(_ master: Master) {
+        master.appState.settings.selectedAircraft = .wt9Dynamic   // bundled: nothing to resolve first
+        master.appState.startFlight()
+        XCTAssertTrue(master.appState.isFlightActive)
+        addTeardownBlock { @MainActor in if master.appState.isFlightActive { master.appState.cancelFlight() } }
+    }
+
+    /// Ask on the connection `gen`, and answer.
+    private func answer(_ master: Master, generation gen: Int, _ answer: CompanionAuthorizationAnswer) throws {
+        master.manager.handleReceivedMessage(command(.revealHiddenItems), generation: gen)
+        master.manager.answerAuthorization(try XCTUnwrap(master.manager.pendingAuthorization), answer)
+        master.appState.hiddenItemsRevealed = false
+    }
+
+    /// Let the flight watch run: it hears of a start or an end on the main actor's next turns.
+    private func settle() async {
+        for _ in 0..<10 { await Task.yield() }
+    }
+
+    func testAllowHoldsWhenThePhoneReconnectsDuringTheFlight() throws {
+        let master = makeMaster()
+        startFlight(master)
+        try answer(master, generation: try connect(master.manager), .allow)
+
+        // A Wi-Fi Aware drop, then the same phone back: not asked again.
+        let again = try connect(master.manager)
+        XCTAssertTrue(master.manager.peerMayIssueCommands, "the same phone, the same flight")
+        master.manager.handleReceivedMessage(command(.revealHiddenItems), generation: again)
+        XCTAssertTrue(master.appState.hiddenItemsRevealed)
+        XCTAssertNil(master.manager.pendingAuthorization)
+    }
+
+    func testAllowEndsWithTheFlight() throws {
+        let master = makeMaster()
+        startFlight(master)
+        try answer(master, generation: try connect(master.manager), .allow)
+        master.appState.cancelFlight()
+
+        let next = try connect(master.manager)
+        XCTAssertFalse(master.manager.peerMayIssueCommands, "the flight it was given for is over")
+        master.manager.handleReceivedMessage(command(.revealHiddenItems), generation: next)
+        XCTAssertNotNil(master.manager.pendingAuthorization, "asked again")
+
+        startFlight(master)
+        _ = try connect(master.manager)
+        XCTAssertFalse(master.manager.peerMayIssueCommands, "nor does it come back with the next flight")
+    }
+
+    func testAllowGivenBeforeTheFlightHoldsForTheNextOne() throws {
+        let master = makeMaster()
+        try answer(master, generation: try connect(master.manager), .allow)
+
+        startFlight(master)
+        _ = try connect(master.manager)
+        XCTAssertTrue(master.manager.peerMayIssueCommands, "the flight it was given before")
+
+        master.appState.cancelFlight()
+        _ = try connect(master.manager)
+        XCTAssertFalse(master.manager.peerMayIssueCommands, "and it ends with that one")
+    }
+
+    func testAPhoneStillConnectedIsAskedAgainAfterTheFlight() async throws {
+        let master = makeMaster()
+        startFlight(master)
+        let gen = try connect(master.manager)
+        try answer(master, generation: gen, .allow)
+
+        master.appState.cancelFlight()
+        await settle()
+        XCTAssertFalse(master.manager.peerMayIssueCommands, "the connection outlived the flight, not the Allow")
+        XCTAssertEqual(master.manager.peerLink?.generation, gen, "the link itself stays up")
+        master.manager.handleReceivedMessage(command(.revealHiddenItems), generation: gen)
+        XCTAssertNotNil(master.manager.pendingAuthorization)
+        XCTAssertFalse(master.appState.hiddenItemsRevealed)
+    }
+
+    func testAFlightFlownWhileThePhoneWasAwayEndsAnAllowGivenBeforeIt() async throws {
+        let master = makeMaster()
+        try answer(master, generation: try connect(master.manager), .allow)
+        master.manager.disconnect()
+        master.manager.currentRole = .master
+
+        // A whole flight without the phone.
+        startFlight(master)
+        await settle()
+        master.appState.cancelFlight()
+        await settle()
+
+        _ = try connect(master.manager)
+        XCTAssertFalse(master.manager.peerMayIssueCommands, "the Allow went with the flight it was given for")
+    }
+
+    func testDontAllowStillHoldsForTheConnectionOnly() throws {
+        let master = makeMaster()
+        startFlight(master)
+        try answer(master, generation: try connect(master.manager), .deny)
+
+        let again = try connect(master.manager)
+        master.manager.handleReceivedMessage(command(.revealHiddenItems), generation: again)
+        XCTAssertNotNil(master.manager.pendingAuthorization, "a new connection is asked, as before")
+    }
+
+    // MARK: - 6.1.0: Always Allow
+
+    func testAlwaysAllowIsKeptOnThisIPadAcrossFlightsAndRelaunches() throws {
+        let defaults = makeTestDefaults()
+        let master = makeMaster(defaults: defaults)
+        let phone = CompanionPairedDevice(name: "Pilot's iPhone", pairingName: nil, deviceIDs: [UInt64.max])
+        try answer(master, generation: try connect(master.manager, id: UInt64.max), .alwaysAllow)
+        XCTAssertTrue(master.manager.isAlwaysAllowed(phone))
+
+        startFlight(master)
+        master.appState.cancelFlight()
+        _ = try connect(master.manager, id: UInt64.max)
+        XCTAssertTrue(master.manager.peerMayIssueCommands, "not bound to a flight")
+
+        // A relaunch: same defaults, new manager. UInt64.max does not fit an Int64, hence the strings.
+        let relaunched = makeMaster(defaults: defaults)
+        XCTAssertTrue(relaunched.manager.isAlwaysAllowed(phone))
+        let gen = try connect(relaunched.manager, id: UInt64.max)
+        XCTAssertTrue(relaunched.manager.peerMayIssueCommands)
+        relaunched.manager.handleReceivedMessage(command(.revealHiddenItems), generation: gen)
+        XCTAssertTrue(relaunched.appState.hiddenItemsRevealed)
+        XCTAssertNil(relaunched.manager.pendingAuthorization, "never asked")
+    }
+
+    func testAlwaysAllowIsForThatPhoneOnly() throws {
+        let master = makeMaster()
+        try answer(master, generation: try connect(master.manager, id: 7), .alwaysAllow)
+
+        let other = try connect(master.manager, id: 8, name: "Club iPhone")
+        XCTAssertFalse(master.manager.peerMayIssueCommands)
+        master.manager.handleReceivedMessage(command(.revealHiddenItems), generation: other)
+        XCTAssertEqual(master.manager.pendingAuthorization?.deviceName, "Club iPhone")
+    }
+
+    func testAskEachFlightTakesAlwaysAllowBack() throws {
+        let defaults = makeTestDefaults()
+        let master = makeMaster(defaults: defaults)
+        let phone = CompanionPairedDevice(name: "Pilot's iPhone", pairingName: nil, deviceIDs: [7])
+        let gen = try connect(master.manager, id: 7)
+        try answer(master, generation: gen, .alwaysAllow)
+
+        master.manager.stopAlwaysAllowing(phone)
+        XCTAssertFalse(master.manager.isAlwaysAllowed(phone))
+        XCTAssertFalse(master.manager.peerMayIssueCommands, "from its next action on, this connection included")
+        master.manager.handleReceivedMessage(command(.revealHiddenItems), generation: gen)
+        XCTAssertNotNil(master.manager.pendingAuthorization, "asked again")
+        XCTAssertFalse(master.appState.hiddenItemsRevealed)
+        XCTAssertFalse(makeMaster(defaults: defaults).manager.isAlwaysAllowed(phone), "and that is stored")
+    }
+
+    func testForgetEndsEveryAllowance() throws {
+        let defaults = makeTestDefaults()
+        let master = makeMaster(defaults: defaults)
+        let always = CompanionPairedDevice(name: "Pilot's iPhone", pairingName: nil, deviceIDs: [7])
+        let forTheFlight = CompanionPairedDevice(name: "Student iPhone", pairingName: nil, deviceIDs: [9])
+        startFlight(master)
+        try answer(master, generation: try connect(master.manager, id: 7), .alwaysAllow)
+        try answer(master, generation: try connect(master.manager, id: 8), .alwaysAllow)
+        try answer(master, generation: try connect(master.manager, id: 9), .allow)
+
+        for device in [always, forTheFlight] {
+            master.manager.forget(device)
+            master.manager.allowAgain(device)
+            master.manager.currentRole = .master
+            let gen = try connect(master.manager, id: device.deviceIDs[0])
+            XCTAssertFalse(master.manager.peerMayIssueCommands, "allowed again, it starts from nothing")
+            master.manager.handleReceivedMessage(command(.revealHiddenItems), generation: gen)
+            XCTAssertNotNil(master.manager.pendingAuthorization)
+        }
+        XCTAssertFalse(makeMaster(defaults: defaults).manager.isAlwaysAllowed(always), "and that is stored")
+        XCTAssertTrue(master.manager.alwaysAllowedDevices.contains(8), "another phone keeps its own")
+    }
+
+    func testAPeerNotIdentifiedIsNeverRemembered() throws {
+        let master = makeMaster()
+        startFlight(master)
+        let gen = try connect(master.manager, id: nil)
+        master.manager.handleReceivedMessage(command(.revealHiddenItems), generation: gen)
+        let request = try XCTUnwrap(master.manager.pendingAuthorization)
+        XCTAssertFalse(request.canRemember, "the prompt offers no Always")
+        XCTAssertNotEqual(L10n.Companion.allowControlMessage(nil, canRemember: false),
+                          L10n.Companion.allowControlMessage(nil, canRemember: true),
+                          "and says the answer is for this connection")
+
+        master.manager.answerAuthorization(request, .alwaysAllow)
+        XCTAssertTrue(master.manager.peerMayIssueCommands, "this connection may act")
+        XCTAssertTrue(master.manager.alwaysAllowedDevices.ids.isEmpty)
+        XCTAssertTrue(master.manager.flightAllowance.deviceIDs.isEmpty)
+        _ = try connect(master.manager, id: nil)
+        XCTAssertFalse(master.manager.peerMayIssueCommands, "the next one is asked")
+    }
+
+    func testAPhoneIdentifiedWithoutANameCanStillBeRemembered() throws {
+        let master = makeMaster()
+        let gen = try connect(master.manager, id: 7, name: nil)
+        master.manager.handleReceivedMessage(command(.revealHiddenItems), generation: gen)
+        let request = try XCTUnwrap(master.manager.pendingAuthorization)
+        XCTAssertTrue(request.canRemember)
+        XCTAssertNotEqual(L10n.Companion.allowControlMessage(nil, canRemember: true),
+                          L10n.Companion.allowControlMessage(nil, canRemember: false))
+    }
+
+    func testTheFlightAllowanceRule() {
+        let flightA = UUID(), flightB = UUID()
+        var allowance = CompanionFlightAllowance()
+        allowance.allow(7, flightID: nil)
+        XCTAssertEqual(allowance.follow(flightID: nil), [], "no flight yet: it waits")
+        XCTAssertEqual(allowance.follow(flightID: flightA), [], "the next flight takes it")
+        XCTAssertTrue(allowance.allows(7))
+        allowance.allow(8, flightID: flightA)
+        XCTAssertEqual(allowance.follow(flightID: nil), [7, 8], "it ends with that flight")
+        XCTAssertFalse(allowance.allows(7))
+
+        allowance.allow(7, flightID: flightA)
+        XCTAssertEqual(allowance.follow(flightID: flightB), [7], "another flight ends it, even with no end seen")
+        allowance.allow(9, flightID: flightB)
+        allowance.remove([9])
+        XCTAssertFalse(allowance.allows(9))
     }
 
     // MARK: - The link's own rule

@@ -87,14 +87,17 @@ enum CockpitScale: Equatable {
 /// (`CockpitScale`). Anything read in flight uses one of these. (v6.0 · P6)
 enum CockpitType {
     /// Secondary labels: units, captions, counters, hints.
-    static var label: CGFloat { label(.current) }
-    static func label(_ scale: CockpitScale) -> CGFloat { size(kneeboard: 20, phone: 17, scale: scale) }
+    static var label: CGFloat { label(for: .current) }
     /// Checklist rows and list rows.
     static var row: CGFloat { size(kneeboard: 24, phone: 20) }
     /// The current checklist item's response.
     static var response: CGFloat { size(kneeboard: 28, phone: 24) }
     /// Labels of the buttons in the thumb bar.
-    static var button: CGFloat { size(kneeboard: 30, phone: 25) }
+    static var button: CGFloat { button(for: .current) }
+
+    /// The same at a given scale: for a view laid out at the other device's scale (its tests).
+    static func label(for scale: CockpitScale) -> CGFloat { size(kneeboard: 20, phone: 17, scale: scale) }
+    static func button(for scale: CockpitScale) -> CGFloat { size(kneeboard: 30, phone: 25, scale: scale) }
     /// The current checklist item's challenge.
     static var item: CGFloat { size(kneeboard: 42, phone: 36) }
     /// Instrument values: speed, altitude, track. 36 on the phone rather than 41: three values across

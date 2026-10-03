@@ -411,12 +411,143 @@
         }
       }
     },
-    "%lld flights": {
+    "Hours": {
+      "comment": "Logbook metric card: the hours flown in the period.",
       "localizations": {
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "%lld vols"
+            "value": "Heures"
+          }
+        }
+      }
+    },
+    "Landings": {
+      "comment": "Logbook metric card: the landings in the period.",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Atterrissages"
+          }
+        }
+      }
+    },
+    "Filter": {
+      "comment": "Logbook list: the aircraft filter, before an aircraft is picked.",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Filtrer"
+          }
+        }
+      }
+    },
+    "flightDetail.time": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "TIME"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "TEMPS"
+          }
+        }
+      }
+    },
+    "flightDetail.trackStart": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Start"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Départ"
+          }
+        }
+      }
+    },
+    "flightDetail.trackEnd": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "End"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Arrivée"
+          }
+        }
+      }
+    },
+    "cockpit.nextColumn": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "NEXT"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "SUIVANT"
+          }
+        }
+      }
+    },
+    "%lld flights": {
+      "localizations": {
+        "en": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld flight"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld flights"
+                }
+              }
+            }
+          }
+        },
+        "fr": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld vol"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld vols"
+                }
+              }
+            }
           }
         }
       }
@@ -6419,6 +6550,40 @@
         }
       }
     },
+    "cockpit.thenCheck": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "then %@"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "puis %@"
+          }
+        }
+      }
+    },
+    "cockpit.readyForLineUpHint": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Goes on to the line up check. The first time, it also records the take-off time, two minutes from now."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Passe à la vérification d'alignement. La première fois, enregistre aussi l'heure de décollage, dans deux minutes."
+          }
+        }
+      }
+    },
     "cockpit.stepBackHint": {
       "extractionState": "manual",
       "localizations": {
@@ -6670,6 +6835,23 @@
           "stringUnit": {
             "state": "translated",
             "value": "TOP CHRONO"
+          }
+        }
+      }
+    },
+    "nav.closeLegsAndFrequencies": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Close legs and frequencies"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Fermer les branches et fréquences"
           }
         }
       }
@@ -8046,6 +8228,57 @@
         }
       }
     },
+    "trip.leavesHere": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This flight leaves from here"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ce vol part d’ici"
+          }
+        }
+      }
+    },
+    "trip.landsHere": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This flight lands here"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ce vol atterrit ici"
+          }
+        }
+      }
+    },
+    "trip.leavesAndLandsHere": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This flight leaves and lands here"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ce vol part et atterrit ici"
+          }
+        }
+      }
+    },
     "trip.noFrequency": {
       "extractionState": "manual",
       "localizations": {
@@ -8110,6 +8343,159 @@
           "stringUnit": {
             "state": "translated",
             "value": "Fusionner avec l’étape suivante"
+          }
+        }
+      }
+    },
+    "trip.cancel": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cancel trip"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Annuler le voyage"
+          }
+        }
+      }
+    },
+    "trip.cancelThisLeg": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cancel this leg"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Annuler cette étape"
+          }
+        }
+      }
+    },
+    "trip.cancelWholeTrip": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cancel whole trip (%lld legs)"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Annuler tout le voyage (%lld étapes)"
+          }
+        }
+      }
+    },
+    "trip.cancelWholeTripOneLeg": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cancel whole trip (1 leg)"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Annuler tout le voyage (1 étape)"
+          }
+        }
+      }
+    },
+    "trip.cancelConfirm.title": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cancel this trip?"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Annuler ce voyage ?"
+          }
+        }
+      }
+    },
+    "trip.cancelConfirm.keep": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Keep trip"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Garder le voyage"
+          }
+        }
+      }
+    },
+    "trip.cancelConfirm.leg": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Leg %1$lld · %2$@"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Étape %1$lld · %2$@"
+          }
+        }
+      }
+    },
+    "trip.cancelConfirm.message": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Its legs are deleted, with their pages, tasks and the copies of the route made for them:\n\n%@\n\nYour routes and the logbook are not touched. This can't be undone."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ses étapes sont supprimées, avec leurs pages, leurs tâches et les copies de la route faites pour elles :\n\n%@\n\nVos routes et le carnet de vol ne sont pas touchés. Cette action est irréversible."
+          }
+        }
+      }
+    },
+    "trip.cancelConfirm.messageKeepsFlown": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The legs not flown yet are deleted, with their pages, tasks and the copies of the route made for them:\n\n%@\n\nThe legs already flown stay, with their flights in the logbook. Your routes are not touched. This can't be undone."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Les étapes pas encore volées sont supprimées, avec leurs pages, leurs tâches et les copies de la route faites pour elles :\n\n%@\n\nLes étapes déjà volées restent, avec leurs vols dans le carnet de vol. Vos routes ne sont pas touchées. Cette action est irréversible."
           }
         }
       }
@@ -11604,7 +11990,26 @@
       "comment": "A label at the top of the flight log listing the number of flights being displayed.",
       "isCommentAutoGenerated": true
     },
-    "%lld degrees track": {},
+    "%lld degrees track": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "route %lld degrés"
+          }
+        }
+      }
+    },
+    "%lld feet M S L": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld pieds M S L"
+          }
+        }
+      }
+    },
     "%lld flight%@ · %@ h": {
       "comment": "A count of the number of flights and the total flight time for a given month. The argument is the string “%.1f”.",
       "isCommentAutoGenerated": true,
@@ -11620,6 +12025,36 @@
     "%lld ft": {
       "comment": "A label displaying the altitude of a waypoint.",
       "isCommentAutoGenerated": true
+    },
+    "%lld knots ground speed": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld nœuds de vitesse sol"
+          }
+        }
+      }
+    },
+    "%lld knots ground speed, off target. Target %lld knots": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$lld nœuds de vitesse sol, hors cible. Vitesse cible %2$lld nœuds"
+          }
+        }
+      }
+    },
+    "%lld knots ground speed, on target. Target %lld knots": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$lld nœuds de vitesse sol, dans la cible. Vitesse cible %2$lld nœuds"
+          }
+        }
+      }
     },
     "%lld m": {},
     "%lld touch and go, %lld go around": {
@@ -11896,7 +12331,15 @@
     },
     "All flights (%lld)": {
       "comment": "A menu item that lets the user export all flights.",
-      "isCommentAutoGenerated": true
+      "isCommentAutoGenerated": true,
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tous les vols (%lld)"
+          }
+        }
+      }
     },
     "All time": {
       "comment": "A label for the \"All time\" option in the year picker.",
@@ -11911,7 +12354,16 @@
       }
     },
     "Alt (m):": {},
-    "Altitude": {},
+    "Altitude": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Altitude"
+          }
+        }
+      }
+    },
     "Altitude: %lld m (%lld ft)": {
       "localizations": {
         "en": {
@@ -12002,7 +12454,15 @@
     },
     "COMPANION": {
       "comment": "The name of the companion app.",
-      "isCommentAutoGenerated": true
+      "isCommentAutoGenerated": true,
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "COMPAGNON"
+          }
+        }
+      }
     },
     "CTRs & zones from OpenAIP": {
       "localizations": {
@@ -12443,7 +12903,15 @@
     },
     "Export": {
       "comment": "A label for the export button.",
-      "isCommentAutoGenerated": true
+      "isCommentAutoGenerated": true,
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Exporter"
+          }
+        }
+      }
     },
     "FAVORITES": {
       "comment": "The title of the favorites section of the flight log.",
@@ -12451,7 +12919,15 @@
     },
     "FLIGHT LOG": {
       "comment": "The title of the Flight Log stats share card.",
-      "isCommentAutoGenerated": true
+      "isCommentAutoGenerated": true,
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "CARNET DE VOL"
+          }
+        }
+      }
     },
     "FLIGHT TIME": {
       "comment": "A label displayed below the flight time in the Flight Share Card.",
@@ -12461,6 +12937,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "TEMPS DE VOL"
+          }
+        }
+      }
+    },
+    "FLIGHTS": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "VOLS"
           }
         }
       }
@@ -12719,6 +13205,138 @@
         }
       }
     },
+    "ACCENT": {
+      "comment": "Logbook stats sheet: the card's accent colour.",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "COULEUR D’ACCENTUATION"
+          }
+        }
+      }
+    },
+    "Gold": {
+      "comment": "An accent colour of the Logbook stats card.",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Or"
+          }
+        }
+      }
+    },
+    "Blue": {
+      "comment": "An accent colour of the Logbook stats card.",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bleu"
+          }
+        }
+      }
+    },
+    "Green": {
+      "comment": "An accent colour of the Logbook stats card.",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vert"
+          }
+        }
+      }
+    },
+    "Orange": {
+      "comment": "An accent colour of the Logbook stats card.",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Orange"
+          }
+        }
+      }
+    },
+    "Red": {
+      "comment": "An accent colour of the Logbook stats card.",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Rouge"
+          }
+        }
+      }
+    },
+    "LAYOUT": {
+      "comment": "Logbook stats sheet: Tiles or Hero.",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "DISPOSITION"
+          }
+        }
+      }
+    },
+    "Tiles": {
+      "comment": "Logbook stats card layout: four equal tiles in a row.",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tuiles"
+          }
+        }
+      }
+    },
+    "Hero": {
+      "comment": "Logbook stats card layout: the hours in big, then three smaller tiles.",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vedette"
+          }
+        }
+      }
+    },
+    "CONTENT": {
+      "comment": "Logbook stats sheet: what the card shows.",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "CONTENU"
+          }
+        }
+      }
+    },
+    "Hours by aircraft": {
+      "comment": "Logbook stats sheet: a toggle for the card's hours per aircraft.",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Heures par avion"
+          }
+        }
+      }
+    },
+    "Period title": {
+      "comment": "Logbook stats sheet: a toggle for the period under the card's title, 2026 or All time.",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Titre de la période"
+          }
+        }
+      }
+    },
     "Glider chart": {
       "localizations": {
         "fr": {
@@ -12832,6 +13450,16 @@
       "comment": "A label for the GPS signal indicator.",
       "isCommentAutoGenerated": true
     },
+    "GPS signal lost": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Signal GPS perdu"
+          }
+        }
+      }
+    },
     "GPX": {
       "comment": "The text label for the GPX export option in the flight plan editor.",
       "isCommentAutoGenerated": true
@@ -12860,7 +13488,15 @@
     },
     "Ground speed": {
       "comment": "The speed of the aircraft.",
-      "isCommentAutoGenerated": true
+      "isCommentAutoGenerated": true,
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vitesse sol"
+          }
+        }
+      }
     },
     "H": {
       "comment": "Wake turbulence category for high turbulence.",
@@ -12868,11 +13504,27 @@
     },
     "HOURS": {
       "comment": "A heading for the number of hours flown.",
-      "isCommentAutoGenerated": true
+      "isCommentAutoGenerated": true,
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "HEURES"
+          }
+        }
+      }
     },
     "HOURS BY AIRCRAFT": {
       "comment": "A label displayed above the chart of flight hours by aircraft.",
-      "isCommentAutoGenerated": true
+      "isCommentAutoGenerated": true,
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "HEURES PAR AVION"
+          }
+        }
+      }
     },
     "HUD Settings": {
       "comment": "The title of the settings screen that appears when you tap the HUD settings button.",
@@ -12881,7 +13533,15 @@
     "Hdg:": {},
     "Heading": {
       "comment": "A label for the heading of a navigation system.",
-      "isCommentAutoGenerated": true
+      "isCommentAutoGenerated": true,
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cap"
+          }
+        }
+      }
     },
     "Heading: %lld°": {
       "localizations": {
@@ -13024,7 +13684,15 @@
     },
     "Listed (%lld)": {
       "comment": "A menu that lets the user export a list of flights as a GPX or JSON file.",
-      "isCommentAutoGenerated": true
+      "isCommentAutoGenerated": true,
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vols listés (%lld)"
+          }
+        }
+      }
     },
     "Loading transactions...": {
       "comment": "A message displayed while loading transactions.",
@@ -13535,7 +14203,15 @@
     },
     "PLAN vs ACTUAL": {
       "comment": "A label displayed above the planned ETO vs actual ATO table.",
-      "isCommentAutoGenerated": true
+      "isCommentAutoGenerated": true,
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "PRÉVU vs RÉEL"
+          }
+        }
+      }
     },
     "Page %lld of %lld": {
       "comment": "A label that describes the current page and the total number of pages.",
@@ -13774,7 +14450,15 @@
     },
     "Share Stats": {
       "comment": "The title of the share stats customization sheet.",
-      "isCommentAutoGenerated": true
+      "isCommentAutoGenerated": true,
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Partager les statistiques"
+          }
+        }
+      }
     },
     "Share card": {
       "comment": "A button to share a card with the user.",
@@ -13910,7 +14594,16 @@
         }
       }
     },
-    "Speed": {},
+    "Speed": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vitesse"
+          }
+        }
+      }
+    },
     "Speed:": {
       "localizations": {
         "fr": {
@@ -14069,7 +14762,15 @@
     },
     "TIMELINE": {
       "comment": "A label displayed above the timeline.",
-      "isCommentAutoGenerated": true
+      "isCommentAutoGenerated": true,
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "CHRONOLOGIE"
+          }
+        }
+      }
     },
     "Terrain elevation & winds aloft · Open-Meteo (CC BY 4.0), © swisstopo": {
       "localizations": {
@@ -14360,7 +15061,16 @@
         }
       }
     },
-    "Waypoint": {},
+    "Waypoint": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Point"
+          }
+        }
+      }
+    },
     "Waypoint %lld": {
       "comment": "A label that reads \"Waypoint 1\".",
       "isCommentAutoGenerated": true
@@ -16120,23 +16830,6 @@
         }
       }
     },
-    "checklist.lineUp": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Line Up"
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Alignement"
-          }
-        }
-      }
-    },
     "checklist.maxCrosswind": {
       "extractionState": "manual",
       "localizations": {
@@ -16328,19 +17021,36 @@
         }
       }
     },
+    "companion.allowControlForFlight": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Allow for This Flight"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Autoriser pour ce vol"
+          }
+        }
+      }
+    },
     "companion.allowControlMessage": {
       "extractionState": "manual",
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "“%@” wants to control this flight's checklist and waypoints, or to supply its GPS position. Allow it for this connection only?"
+            "value": "“%@” wants to control this flight's checklist and waypoints, or to supply its GPS position. Allow it for this flight, or always on this iPad?"
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "« %@ » veut contrôler la checklist et les points de cheminement de ce vol, ou lui fournir sa position GPS. Autoriser pour cette connexion uniquement ?"
+            "value": "« %@ » veut contrôler la checklist et les points de cheminement de ce vol, ou lui fournir sa position GPS. L’autoriser pour ce vol, ou toujours sur cet iPad ?"
           }
         }
       }
@@ -16358,6 +17068,23 @@
           "stringUnit": {
             "state": "translated",
             "value": "Un appareil appairé veut contrôler la checklist et les points de cheminement de ce vol, ou lui fournir sa position GPS. Autoriser pour cette connexion uniquement ?"
+          }
+        }
+      }
+    },
+    "companion.allowControlMessageUnnamedDevice": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "A paired device wants to control this flight's checklist and waypoints, or to supply its GPS position. Allow it for this flight, or always on this iPad?"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Un appareil appairé veut contrôler la checklist et les points de cheminement de ce vol, ou lui fournir sa position GPS. L’autoriser pour ce vol, ou toujours sur cet iPad ?"
           }
         }
       }
@@ -16409,6 +17136,57 @@
           "stringUnit": {
             "state": "translated",
             "value": "Réautoriser %@"
+          }
+        }
+      }
+    },
+    "companion.alwaysAllowControl": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Always Allow"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Toujours autoriser"
+          }
+        }
+      }
+    },
+    "companion.askEachFlight": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ask Each Flight"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Demander à chaque vol"
+          }
+        }
+      }
+    },
+    "companion.askEachFlightAccessibility": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Stop always allowing %@"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ne plus toujours autoriser %@"
           }
         }
       }
@@ -16647,6 +17425,23 @@
           "stringUnit": {
             "state": "translated",
             "value": "Ne pas autoriser"
+          }
+        }
+      }
+    },
+    "companion.deviceAlwaysAllowed": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Always allowed to control flights"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Toujours autorisé à contrôler les vols"
           }
         }
       }
@@ -16986,7 +17781,7 @@
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Cet appareil va désactiver le mode Companion et revenir à l'application. Vous pourrez le réactiver dans les Réglages."
+            "value": "Cet appareil va désactiver le mode compagnon et revenir à l'application. Vous pourrez le réactiver dans les Réglages."
           }
         }
       }
@@ -17003,7 +17798,7 @@
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Quitter le mode Companion ?"
+            "value": "Quitter le mode compagnon ?"
           }
         }
       }
@@ -17195,23 +17990,6 @@
         }
       }
     },
-    "companion.pairBothDevices": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Do this on both devices: tap below, then select each other and confirm the code shown."
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "À faire sur les deux appareils : touchez ci-dessous, puis sélectionnez-vous mutuellement et confirmez le code affiché."
-          }
-        }
-      }
-    },
     "companion.pairDevice": {
       "extractionState": "manual",
       "localizations": {
@@ -17354,13 +18132,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "This iPad will be the main screen. On your iPhone, open AéroCheck → Companion and tap Connect."
+            "value": "This iPad is the main screen. To pair, start here: \"Pair New Device\", then \"Make discoverable\", and keep that sheet open while the iPhone scans for it."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Cet iPad sera l’écran principal. Sur votre iPhone, ouvrez AéroCheck → Compagnon et touchez Connecter."
+            "value": "Cet iPad est l’écran principal. Pour appairer, commencez ici : « Appairer un nouvel appareil », puis « Rendre détectable », et gardez cette fenêtre ouverte pendant que l’iPhone le recherche."
           }
         }
       }
@@ -17371,13 +18149,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "This iPhone connects to your iPad. Open AéroCheck → Companion on the iPad first, then tap Connect below."
+            "value": "This iPhone connects to your iPad. To pair, start on the iPad: \"Pair New Device\", then \"Make discoverable\", and keep that sheet open. Then, here: \"Pair New Device\", then \"Scan for Devices\"."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Cet iPhone se connecte à votre iPad. Ouvrez d’abord AéroCheck → Compagnon sur l’iPad, puis touchez Connecter ci-dessous."
+            "value": "Cet iPhone se connecte à votre iPad. Pour appairer, commencez sur l’iPad : « Appairer un nouvel appareil », puis « Rendre détectable », et gardez cette fenêtre ouverte. Ensuite, ici : « Appairer un nouvel appareil », puis « Rechercher des appareils »."
           }
         }
       }
@@ -17388,13 +18166,30 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Open the companion settings on your iPhone and tap \"Scan for Devices\" to find this iPad."
+            "value": "Start here: tap \"Make discoverable\" and keep the sheet that opens on screen. Then, on the iPhone, tap \"Pair New Device\", then \"Scan for Devices\", choose this iPad and confirm the code on both."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Ouvrez les réglages compagnon sur votre iPhone et appuyez sur « Rechercher des appareils » pour trouver cet iPad."
+            "value": "Commencez ici : touchez « Rendre détectable » et gardez à l’écran la fenêtre qui s’ouvre. Ensuite, sur l’iPhone, touchez « Appairer un nouvel appareil », puis « Rechercher des appareils », choisissez cet iPad et confirmez le code sur les deux appareils."
+          }
+        }
+      }
+    },
+    "companion.pairingPausesLink": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "While this screen is open, the companion link is paused. Once the devices are paired, or paired again, the screen closes by itself and the link comes back on its own."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tant que cet écran est ouvert, le lien avec le compagnon est en pause. Une fois les appareils appairés, ou appairés à nouveau, l’écran se ferme de lui-même et le lien revient tout seul."
           }
         }
       }
@@ -17405,13 +18200,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Make sure companion mode is enabled on your iPad and tap the button below to find it."
+            "value": "Start on the iPad: \"Pair New Device\", then \"Make discoverable\", and keep that sheet open. Then tap \"Scan for Devices\" below, choose the iPad and confirm the code on both."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Assurez-vous que le mode compagnon est activé sur votre iPad et appuyez sur le bouton ci-dessous pour le trouver."
+            "value": "Commencez sur l’iPad : « Appairer un nouvel appareil », puis « Rendre détectable », et gardez cette fenêtre ouverte. Touchez ensuite « Rechercher des appareils » ci-dessous, choisissez l’iPad et confirmez le code sur les deux appareils."
           }
         }
       }
@@ -18130,6 +18925,57 @@
         }
       }
     },
+    "flightEvent.goAround": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Go-Around"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Remise de gaz"
+          }
+        }
+      }
+    },
+    "flightEvent.touchAndGo": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Touch-and-Go"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Posé-décollé"
+          }
+        }
+      }
+    },
+    "flightEvent.fullStop": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Full Stop"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Atterrissage complet"
+          }
+        }
+      }
+    },
     "eventConfirmation.dismiss": {
       "extractionState": "manual",
       "localizations": {
@@ -18249,6 +19095,23 @@
         }
       }
     },
+    "flightDetail.landingsChip": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "LDG"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ATT"
+          }
+        }
+      }
+    },
     "flightDetail.blockOff": {
       "extractionState": "manual",
       "localizations": {
@@ -18261,7 +19124,7 @@
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Block Off"
+            "value": "Bloc OFF"
           }
         }
       }
@@ -18278,7 +19141,7 @@
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Block On"
+            "value": "Bloc ON"
           }
         }
       }
@@ -19031,6 +19894,40 @@
         }
       }
     },
+    "flightLog.allYears": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "All"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Toutes"
+          }
+        }
+      }
+    },
+    "flightLog.landingCount": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld ldg"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld att."
+          }
+        }
+      }
+    },
     "flightLog.title": {
       "extractionState": "manual",
       "localizations": {
@@ -19181,6 +20078,176 @@
           "stringUnit": {
             "state": "translated",
             "value": "Points enregistrés"
+          }
+        }
+      }
+    },
+    "gps.reason.reducedAccuracy": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Reduced accuracy · ± %lld m"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Précision réduite · ± %lld m"
+          }
+        }
+      }
+    },
+    "gps.reason.noUpdate": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No position update for %lld s"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aucune position depuis %lld s"
+          }
+        }
+      }
+    },
+    "gps.reason.networkPosition": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No satellite fix · network position ± %lld m"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aucune position satellite · position réseau ± %lld m"
+          }
+        }
+      }
+    },
+    "gps.reason.weakSignal": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Weak signal"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Signal faible"
+          }
+        }
+      }
+    },
+    "gps.reason.noFix": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No position fix"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aucune position"
+          }
+        }
+      }
+    },
+    "gps.fix.accuracy": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Accuracy"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Précision"
+          }
+        }
+      }
+    },
+    "gps.fix.vertical": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vertical"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Verticale"
+          }
+        }
+      }
+    },
+    "gps.fix.time": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Fix time"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Heure de la position"
+          }
+        }
+      }
+    },
+    "gps.fix.altitudeMSL": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Altitude (MSL)"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Altitude (MSL)"
+          }
+        }
+      }
+    },
+    "gps.fix.position": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Position"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Position"
           }
         }
       }
@@ -19412,13 +20479,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "GPS signal is weak. Position accuracy exceeds 100 meters, or no update has been received for more than 15 seconds. Your location may be approximate."
+            "value": "GPS signal is weak. Position accuracy exceeds 100 meters, or no satellite fix has been received for more than 20 seconds (the position may then come from Wi-Fi or cell towers). Your location may be approximate."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Le signal GPS est faible. La précision de la position dépasse 100 mètres, ou aucune mise à jour n'a été reçue depuis plus de 15 secondes. Votre position peut être approximative."
+            "value": "Le signal GPS est faible. La précision de la position dépasse 100 mètres, ou aucune position satellite n'a été reçue depuis plus de 20 secondes (la position peut alors provenir du Wi-Fi ou des antennes mobiles). Votre position peut être approximative."
           }
         }
       }
@@ -19429,13 +20496,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "GPS is working normally. Position accuracy is within 100 meters and a position update was received within the last 45 seconds."
+            "value": "GPS is working normally: a satellite fix within 100 meters was received in the last 20 seconds."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Le GPS fonctionne normalement. La précision de la position est inférieure à 100 mètres et une mise à jour a été reçue au cours des 45 dernières secondes."
+            "value": "Le GPS fonctionne normalement : une position satellite d'une précision inférieure à 100 mètres a été reçue au cours des 20 dernières secondes."
           }
         }
       }
@@ -19446,13 +20513,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "No GPS signal. No position update received for more than 90 seconds. Check that location services are enabled in Settings."
+            "value": "No GPS signal. No position update received for more than 45 seconds. Check that location services are enabled in Settings."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Aucun signal GPS. Aucune mise à jour de position reçue depuis plus de 90 secondes. Vérifiez que les services de localisation sont activés dans les Réglages."
+            "value": "Aucun signal GPS. Aucune mise à jour de position reçue depuis plus de 45 secondes. Vérifiez que les services de localisation sont activés dans les Réglages."
           }
         }
       }
@@ -21118,6 +22185,23 @@
           "stringUnit": {
             "state": "translated",
             "value": "SUIV"
+          }
+        }
+      }
+    },
+    "nav.freqEmergency": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Emergency"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Urgence"
           }
         }
       }
@@ -27817,7 +28901,15 @@
     },
     "unknown": {
       "comment": "A label for the heading when the value is unknown.",
-      "isCommentAutoGenerated": true
+      "isCommentAutoGenerated": true,
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "inconnu"
+          }
+        }
+      }
     },
     "warning.cancel": {
       "extractionState": "manual",

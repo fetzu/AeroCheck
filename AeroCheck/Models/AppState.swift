@@ -655,10 +655,15 @@ struct ActiveFlightState: Codable {
     let deferredChecks: [ChecklistPhase]?
     let hasLandingBeenDetected: Bool
     let isCircuitMode: Bool
-    /// Aircraft selection captured at save time so the correct checklist is re-resolved on
+    /// The flight's aircraft (`AppState.flightAircraft`), so the correct checklist is re-resolved on
     /// restore — a restored premium flight reloads its own checklist, never the WT9 residue. (ARCH-08)
+    /// Named after the selection it was read from until a synced selection could replace it in
+    /// flight; the names stay so a checkpoint reads the same either side of an update.
     let selectedAircraft: AircraftType
     let selectedRemoteAircraftId: String?
+    /// The flight's checklist language, which is synced settings too. Optional so an older
+    /// checkpoint still decodes (it reloads in the language selected at the restore).
+    let checklistLanguage: String?
     /// Captured alongside `isCircuitMode`, and for the same reason: it decides which thread END
     /// FLIGHT closes out. Left out of the snapshot, a jetsam mid-flight — routine on a two-hour
     /// flight with background GPS and map tiles — restored the flight with the pilot's explicit
@@ -702,8 +707,17 @@ struct ActiveFlightState: Codable {
         self.hasLandingBeenDetected = appState.hasLandingBeenDetected
         self.isCircuitMode = appState.isCircuitMode
         self.flightIsUnplanned = appState.flightIsUnplanned
-        self.selectedAircraft = appState.settings.selectedAircraft
-        self.selectedRemoteAircraftId = appState.settings.selectedRemoteAircraftId
+        // The flight's aircraft, not the selection: another device may have picked another one since
+        // START. A flight made active without `startFlight` has none and keeps the selection.
+        if let aircraft = appState.flightAircraft {
+            self.selectedAircraft = aircraft.bundled
+            self.selectedRemoteAircraftId = aircraft.remoteId
+            self.checklistLanguage = aircraft.language
+        } else {
+            self.selectedAircraft = appState.settings.selectedAircraft
+            self.selectedRemoteAircraftId = appState.settings.selectedRemoteAircraftId
+            self.checklistLanguage = nil
+        }
         self.savedAt = Date()
     }
 
@@ -733,12 +747,18 @@ struct ActiveFlightState: Codable {
         appState.hasLandingBeenDetected = hasLandingBeenDetected
         appState.isCircuitMode = isCircuitMode
         appState.flightIsUnplanned = flightIsUnplanned ?? false
-        // Re-apply the captured aircraft selection so the active checklist resolves to the
-        // restored flight's aircraft. The premium checklist body is re-fetched at launch (see
-        // AeroCheckApp's `.task`); until it resolves, `activeChecklist` reports `.unresolved`
-        // rather than falling back to WT9 content. (ARCH-08 / ARCH-01)
+        // The flight gets its aircraft back, and the selection with it (as before). Its checklist is
+        // re-fetched at launch (`loadFlightChecklistIfNeeded`, from AeroCheckApp's `.task`); until it
+        // resolves, `activeChecklist` reports `.unresolved` for a premium flight rather than
+        // falling back to WT9 content. (ARCH-08 / ARCH-01)
         appState.settings.selectedAircraft = selectedAircraft
         appState.settings.selectedRemoteAircraftId = selectedRemoteAircraftId
+        appState.flightAircraft = FlightAircraft(
+            bundled: selectedAircraft,
+            remoteId: selectedRemoteAircraftId,
+            language: checklistLanguage ?? appState.settings.checklistLanguage.resolvedLanguage,
+            checklist: nil
+        )
     }
 }
 
@@ -915,10 +935,20 @@ class AppState {
     /// Only mutated by `loadRemoteChecklistIfNeeded` / `syncAircraftType`.
     private(set) var resolvedRemoteChecklist: RemoteAircraftChecklist?
 
-    /// The owned, fully-resolved checklist + speeds for the current selection. Every checklist /
-    /// speed reader uses this instead of the former global `ChecklistData` statics, so a premium
-    /// aircraft never falls back to the bundled WT9's content. (ARCH-01)
+    /// The aircraft and checklist of the flight in progress, taken at START FLIGHT: in flight the
+    /// Cockpit reads this, never the selection, which iCloud syncs (see `FlightAircraft`). Set only by
+    /// `startFlight`, a checkpoint restore and `loadFlightChecklistIfNeeded`; cleared when the flight
+    /// ends.
+    fileprivate(set) var flightAircraft: FlightAircraft?
+
+    /// The owned, fully-resolved checklist + speeds: the flight's while one is in progress, the
+    /// current selection's otherwise. Every checklist / speed reader uses this instead of the former
+    /// global `ChecklistData` statics, so a premium aircraft never falls back to the bundled WT9's
+    /// content. (ARCH-01)
     var activeChecklist: ActiveChecklist {
+        if isFlightActive, let flightAircraft {
+            return flightAircraft.activeChecklist
+        }
         if let checklist = resolvedRemoteChecklist {
             return ActiveChecklist(source: .remote(checklist))
         }
@@ -932,6 +962,16 @@ class AppState {
     /// Callers must not begin a flight (or GPS tracking) when this is false. (ARCH-01)
     var isPremiumChecklistResolved: Bool {
         settings.selectedRemoteAircraftId == nil || resolvedRemoteChecklist != nil
+    }
+
+    /// Whether `activeChecklist` is a premium aircraft's: the flight's while one is in progress, the
+    /// selection's otherwise. Companion's text gate asks this, so a WT9 selected on another device
+    /// in flight never opens a premium checklist's words to an unsubscribed phone. (SA-26)
+    var activeAircraftIsPremium: Bool {
+        if isFlightActive, let flightAircraft {
+            return flightAircraft.remoteId != nil
+        }
+        return settings.isRemoteAircraftSelected
     }
     var flights: [Flight] = []
     var isLoadingFlights: Bool = true
@@ -1282,12 +1322,21 @@ class AppState {
     }
 
     /// Reconcile the resolved checklist with the current selection.
-    /// Drops any resolved remote checklist when no remote aircraft is selected, so the active
-    /// checklist falls back to the bundled aircraft until a (language-specific) checklist loads.
+    /// Drops a premium checklist once no premium aircraft is selected, so the active checklist falls
+    /// back to the bundled aircraft until its language-specific checklist loads.
+    ///
+    /// The bundled aircraft's own checklist stays. `loadRemoteChecklistIfNeeded` resolves the WT9 in
+    /// the pilot's language with no premium aircraft selected, and this runs on every `saveSettings()`
+    /// and settings sync: dropping it put a flight in progress back on the hard-coded English
+    /// `WT9ChecklistData` (not the same checks as the JSON) under the pilot's highlight, after a
+    /// Memory test or map-layer toggle. (A flight in progress reads `flightAircraft` since, so this
+    /// only reaches the ground screens now.) Its JSON carries the aircraft's `serverId` as `id`
+    /// (bundled, cached or API alike). A premium selection keeps what is resolved until its own load
+    /// replaces it.
     private func syncAircraftType() {
-        if settings.selectedRemoteAircraftId == nil {
-            resolvedRemoteChecklist = nil
-        }
+        guard settings.selectedRemoteAircraftId == nil, let resolved = resolvedRemoteChecklist,
+              resolved.id != settings.selectedAircraft.serverId else { return }
+        resolvedRemoteChecklist = nil
     }
 
     /// Load the appropriate checklist for the selected aircraft and language
@@ -1343,6 +1392,25 @@ class AppState {
         } else {
             resolvedRemoteChecklist = nil
         }
+    }
+
+    /// Reload the checklist of a flight restored from its checkpoint: its own aircraft in its own
+    /// language, whatever is selected now. `AeroCheckApp` calls it once the aircraft list is in. A
+    /// premium flight shows nothing until it is back (offline, the cache has it from the start); the
+    /// WT9 falls back to its bundled JSON. (ARCH-08)
+    func loadFlightChecklistIfNeeded(aircraftDataService: AircraftDataService) async {
+        guard isFlightActive, let aircraft = flightAircraft, aircraft.checklist == nil,
+              let flightId = currentFlight?.id else { return }
+        var checklist = await aircraftDataService.fetchChecklist(for: aircraft.checklistId, language: aircraft.language)
+        // The answer is this flight's only: one ended (or replaced) during the fetch doesn't take it.
+        guard isFlightActive, currentFlight?.id == flightId, flightAircraft?.checklist == nil else { return }
+        if let checklist {
+            noteLanguageFallback(for: checklist, requested: aircraft.language)
+        } else if aircraft.remoteId == nil {
+            checklist = BundledChecklistService.loadBundledChecklist(for: aircraft.checklistId, language: aircraft.language)
+        }
+        flightAircraft?.checklist = checklist
+        AppLog.general.debugLine("Restored flight's checklist for \(aircraft.checklistId) (\(aircraft.language)): \(checklist == nil ? "not loaded" : "loaded")")
     }
 
     /// Surfaces a non-blocking notice when the loaded checklist was served in a language other than
@@ -1432,6 +1500,12 @@ class AppState {
         // (PERF-29), so a stale delta from an unrestored previous session would otherwise leak
         // that session's points into this flight's recovery data.
         clearActiveFlightState()
+        // The flight keeps what it starts on, checklist and speeds included: a selection changed later
+        // (on this device or synced from another one) is the next flight's.
+        flightAircraft = FlightAircraft(bundled: settings.selectedAircraft,
+                                        remoteId: settings.selectedRemoteAircraftId,
+                                        language: settings.checklistLanguage.resolvedLanguage,
+                                        checklist: resolvedRemoteChecklist)
         currentFlight = Flight(
             airplane: aircraft,
             aircraftRegistration: aircraftRegistration,
@@ -1517,6 +1591,7 @@ class AppState {
         let saved = saveFlight(flight)
 
         currentFlight = nil
+        flightAircraft = nil
         isFlightActive = false
         isCircuitMode = false
         flightIsUnplanned = false
@@ -1557,6 +1632,7 @@ class AppState {
         flightCues = FlightCueState()
         landedCard = nil
         currentFlight = nil
+        flightAircraft = nil
         isFlightActive = false
         isCircuitMode = false
         flightIsUnplanned = false
@@ -1806,7 +1882,7 @@ class AppState {
     }
 
     /// Run to the end: the check leaves the list. Green when nothing in it was put off; orange, with
-    /// the items listed, when something was; red when its phase's own action (ENGINE START, LINE UP,
+    /// the items listed, when something was; red when its phase's own action (ENGINE START, ENGINE
     /// SHUTDOWN) was never pressed.
     private func concludeDeferredCheckIfRun(_ phase: ChecklistPhase) {
         guard checkIsDone(phase) else { return }
@@ -1816,7 +1892,7 @@ class AppState {
     }
 
     private func status(ofCheckRunIn phase: ChecklistPhase) -> PhaseCompletionStatus {
-        if phase.hasMissingRequiredAction(engineStarted: engineStartTime != nil, linedUp: lineUpTime != nil,
+        if phase.hasMissingRequiredAction(engineStarted: engineStartTime != nil,
                                           engineShutDown: engineShutdownTime != nil) {
             return .missingAction
         }
@@ -1862,7 +1938,7 @@ class AppState {
             deferredChecks.sort { $0.rawValue < $1.rawValue }
         }
         phaseCompletionStatus[phase] = phase.hasMissingRequiredAction(
-            engineStarted: engineStartTime != nil, linedUp: lineUpTime != nil,
+            engineStarted: engineStartTime != nil,
             engineShutDown: engineShutdownTime != nil) ? .missingAction : .skipped
         // Skipped explicitly: NEXT past it, a jump over it, the landed card's move on. (6.1)
         recordSkipped(phase)
@@ -1934,6 +2010,8 @@ class AppState {
             let to: ChecklistPhase
             let before: ChecklistProgress
             let after: ChecklistProgress
+            /// The move was READY FOR LINE UP and recorded the take-off estimate: UNDO forgets it. (6.2)
+            var recordedLineUp = false
         }
     }
 
@@ -1966,12 +2044,12 @@ class AppState {
 
     /// Where the checklist pane's ✓ DONE moves on to, in the same tap: the next check. Nil when it only
     /// confirms: no memory check to confirm, the last check, or the phase's own action (ENGINE START,
-    /// READY FOR LINE UP, ENGINE SHUTDOWN) still to press, since going on would record the check red.
-    /// (6.1, author's decision: one tap on the CHECKLIST page)
+    /// ENGINE SHUTDOWN) still to press, since going on would record the check red. Out of the check
+    /// before departure, the tap is READY FOR LINE UP too (`nextPhase`). (6.1, author's decision: one
+    /// tap on the CHECKLIST page)
     var memoryConfirmationMovesTo: ChecklistPhase? {
         guard currentCheckAwaitsConfirmation,
               !currentPhase.hasMissingRequiredAction(engineStarted: engineStartTime != nil,
-                                                    linedUp: lineUpTime != nil,
                                                     engineShutDown: engineShutdownTime != nil) else { return nil }
         return currentPhase.nextNavigable(circuitMode: isCircuitMode)
     }
@@ -1987,10 +2065,12 @@ class AppState {
         }
         let phase = currentPhase
         let before = checklistProgress
+        let lineUpBefore = lineUpTime
         confirmMemoryCheck()
         guard var confirmation = memoryConfirmation, confirmation.phase == phase else { return }
         nextPhase()
-        confirmation.movedOn = .init(to: currentPhase, before: before, after: checklistProgress)
+        confirmation.movedOn = .init(to: currentPhase, before: before, after: checklistProgress,
+                                     recordedLineUp: lineUpBefore == nil && lineUpTime != nil)
         memoryConfirmation = confirmation
         checkpointActiveFlight(force: true)
     }
@@ -2002,7 +2082,7 @@ class AppState {
         currentHighlightedItem[phase] = ChecklistHighlighting.lastItemComplete(visibleCount: allItemCount(phase))
         deferredChecks.removeAll { $0 == phase }
         let actionMissing = phase.hasMissingRequiredAction(
-            engineStarted: engineStartTime != nil, linedUp: lineUpTime != nil, engineShutDown: engineShutdownTime != nil)
+            engineStarted: engineStartTime != nil, engineShutDown: engineShutdownTime != nil)
         phaseCompletionStatus[phase] = actionMissing && !stayingInPhase ? .missingAction : .doneFromMemory
         settleOwedCheck(phase, done: true)
     }
@@ -2025,6 +2105,12 @@ class AppState {
             flightCues.restoreOwed(confirmation.phase, owed)
         }
         if let movedOn = confirmation.movedOn, currentPhase == movedOn.to {
+            // The same tap was READY FOR LINE UP: the estimate goes with it, and the NEXT that follows
+            // makes it again, ETOs included. (6.2)
+            if movedOn.recordedLineUp {
+                lineUpTime = nil
+                currentFlight?.lineUpTime = nil
+            }
             if checklistProgress == movedOn.after {
                 checklistProgress = movedOn.before
             } else {
@@ -2084,6 +2170,14 @@ class AppState {
             flightCues.withdraw(cue)
         }
         checkpointActiveFlight(force: true)
+    }
+
+    /// The detector has a field near the aircraft to anchor the take-off to: from now on the cued checks
+    /// wait for their cue, the first take-off's included (`FlightCueState.hasCueSource`). Called on every
+    /// detected fix; writes once. (6.1.0)
+    func noteCueSourceReady() {
+        guard isFlightActive, !flightCues.hasCueSource else { return }
+        flightCues.noteCueSource()
     }
 
     /// When the slot shows `phase`'s check: not yet, due, or owed.
@@ -2146,11 +2240,13 @@ class AppState {
     func advanceAndConfirmMemoryCheck() {
         guard currentCheckIsDone, let next = currentPhase.nextNavigable(circuitMode: isCircuitMode) else { return }
         let before = checklistProgress
+        let lineUpBefore = lineUpTime
         nextPhase()
         guard currentPhase == next, currentCheckAwaitsConfirmation else { return }
         confirmMemoryCheck()
         guard var confirmation = memoryConfirmation, confirmation.phase == next else { return }
-        confirmation.movedOn = .init(to: next, before: before, after: checklistProgress)
+        confirmation.movedOn = .init(to: next, before: before, after: checklistProgress,
+                                     recordedLineUp: lineUpBefore == nil && lineUpTime != nil)
         memoryConfirmation = confirmation
         checkpointActiveFlight(force: true)
     }
@@ -2182,7 +2278,7 @@ class AppState {
         if let answered = phaseCompletionStatus[phase], answered.isAnsweredAfterLanding {
             return answered == .notSure ? .notSure : .confirmedAfterLanding
         }
-        if phase.hasMissingRequiredAction(engineStarted: engineStartTime != nil, linedUp: lineUpTime != nil,
+        if phase.hasMissingRequiredAction(engineStarted: engineStartTime != nil,
                                           engineShutDown: engineShutdownTime != nil) {
             return .actionMissing
         }
@@ -2410,6 +2506,23 @@ class AppState {
         lineUpTime = Date().addingTimeInterval(120)
         currentFlight?.lineUpTime = lineUpTime
         checkpointActiveFlight(force: true)
+    }
+
+    /// Wired at launch to the plan manager's `anchorETOsOnLineUp`: AppState has no reference to it, and
+    /// READY FOR LINE UP moves the active plan's ETOs. Nil until then (and in the tests that don't set
+    /// it), which moves nothing. (6.2)
+    @ObservationIgnored var anchorETOsOnLineUp: (@MainActor (Date) -> Void)?
+
+    /// READY FOR LINE UP: the pilot going on from the check before departure, whichever way (the thumb
+    /// bar, the NEXT chip and its review, the check slot, the one-tap memory confirmation, the
+    /// Companion's NEXT). The take-off is estimated two minutes from now and the plan's ETOs count from
+    /// it, as the button did before 6.2. The first time only: a later circuit, or the check flown again,
+    /// keeps the first take-off, which the flight time and the logbook's Time OFF read. A jump on the
+    /// phase bar records nothing (END FLIGHT measures the take-off from the track anyway).
+    private func recordReadyForLineUp() {
+        guard isFlightActive, currentPhase.readiesForLineUp, lineUpTime == nil else { return }
+        recordLineUpTime()
+        if let lineUpTime { anchorETOsOnLineUp?(lineUpTime) }
     }
 
     /// Record the (final) landing. `time` is the physical touchdown time when the caller
@@ -2784,6 +2897,8 @@ class AppState {
         guard let currentIndex = ChecklistPhase.allCases.firstIndex(of: currentPhase),
               currentIndex + 1 < ChecklistPhase.allCases.count else { return }
 
+        // Every NEXT goes through here: out of the check before departure, it is READY FOR LINE UP.
+        recordReadyForLineUp()
         leaveCurrentPhase()
 
         // Calculate the next phase, skipping CRUISE and DESCENT in circuit mode (marking each
@@ -2834,7 +2949,6 @@ class AppState {
         let leftSomethingDeferred = !(deferredItems[currentPhase] ?? []).isEmpty
         let actionMissing = currentPhase.hasMissingRequiredAction(
             engineStarted: engineStartTime != nil,
-            linedUp: lineUpTime != nil,
             engineShutDown: engineShutdownTime != nil)
         if isMemoryCheck(currentPhase) {
             // A memory check, its items hidden: done once confirmed (6.1). Left unconfirmed, it is owed
@@ -2936,7 +3050,6 @@ class AppState {
                 if phaseCompletionStatus[skippedPhase] == nil {
                     phaseCompletionStatus[skippedPhase] = skippedPhase.hasMissingRequiredAction(
                         engineStarted: engineStartTime != nil,
-                        linedUp: lineUpTime != nil,
                         engineShutDown: engineShutdownTime != nil) ? .missingAction : .skipped
                 }
             }
@@ -2966,8 +3079,6 @@ class AppState {
         if phase.rawValue < currentPhase.rawValue {
             // Check if this phase had a required action
             if phase.showsEngineStartButton && engineStartTime == nil {
-                return .missingAction
-            } else if phase.showsLineUpButton && lineUpTime == nil {
                 return .missingAction
             } else if phase.showsEngineShutdownButton && engineShutdownTime == nil {
                 return .missingAction

@@ -82,8 +82,8 @@ final class ViewStackBudgetTests: XCTestCase {
         XCTAssertLessThan(used, Self.budget, "the Cockpit's map used \(used / 1_024) KB of stack")
     }
 
-    /// The Cockpit on its map in landing with the Memory test on: the check slot between GO AROUND and
-    /// TOUCH-AND-GO in the map's bottom row. (6.1)
+    /// The Cockpit on its map in landing with the Memory test on: the check slot, then GO AROUND and
+    /// TOUCH-AND-GO, in the map's bottom row. (6.1)
     func testCockpitMapWithTheCheckSlotRendersWithinHalfTheDeviceStack() {
         let services = makeServices()
         startFlight(services.appState, stepByStep: true)

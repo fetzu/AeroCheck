@@ -1596,7 +1596,7 @@ struct WaypointPickerMapViewRepresentable: UIViewRepresentable {
 
         func mapView(_ mapView: MKMapView, rendererFor overlay: MKOverlay) -> MKOverlayRenderer {
             if let tileOverlay = overlay as? MKTileOverlay {
-                return MKTileOverlayRenderer(tileOverlay: tileOverlay)
+                return LateTileRedraw.renderer(for: tileOverlay)
             }
             return MKOverlayRenderer(overlay: overlay)
         }

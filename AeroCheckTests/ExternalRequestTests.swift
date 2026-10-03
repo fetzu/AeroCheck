@@ -1,4 +1,5 @@
 import MapKit
+import UIKit
 import XCTest
 @testable import AeroCheck
 
@@ -333,6 +334,263 @@ final class SwisstopoTileRequestTests: XCTestCase {
                 continuation.resume(returning: (data, error))
             }
         }
+    }
+}
+
+/// MapKit drops some tiles handed over after `loadTile` returned and asks for them again only on a
+/// redraw. The swisstopo and OpenAIP overlays redraw once per burst of network tiles, never for a tile that came
+/// back empty nor for the tiles that answer a redraw, reload when a redraw goes unanswered, and stop
+/// at `LateTileRedraw.maxRedraws` per window. (6.1.0)
+@MainActor
+final class LateTileRedrawTests: XCTestCase {
+
+    private var session: URLSession!
+
+    override func setUpWithError() throws {
+        ExternalRequestStub.reset()
+        session = ExternalRequestStub.makeSession()
+    }
+
+    override func tearDownWithError() throws {
+        session.invalidateAndCancel()
+    }
+
+    /// Counts what MapKit would be asked to do.
+    private final class CountingRenderer: MKTileOverlayRenderer {
+        var redraws = 0
+        var reloads = 0
+        override func setNeedsDisplay() { redraws += 1 }
+        override func reloadData() { reloads += 1 }
+    }
+
+    @MainActor private final class Answers { var data: [Data?] = [] }
+
+    private let tile = Data(count: 2_048)
+
+    /// An ICAO overlay on the stub, its tiles at x 268 to 279 answered, with a counting renderer.
+    private func icaoOverlay(followUp: TimeInterval = 10) -> (ICAOSegelflugkarteTileOverlay, CountingRenderer) {
+        for x in 268...279 {
+            ExternalRequestStub.reply(.init(declaredLength: tile.count, body: tile),
+                                      at: "/1.0.0/ch.bazl.luftfahrtkarten-icao/default/current/3857/9/\(x)/179.png")
+        }
+        let overlay = ICAOSegelflugkarteTileOverlay()
+        overlay.tileSession = session
+        overlay.redraw.settleDelay = 0.05
+        overlay.redraw.followUpDelay = followUp
+        let renderer = CountingRenderer(tileOverlay: overlay)
+        overlay.redraw.renderer = renderer
+        return (overlay, renderer)
+    }
+
+    private func paths(_ xs: ClosedRange<Int>) -> [MKTileOverlayPath] {
+        xs.map { MKTileOverlayPath(x: $0, y: 179, z: 9, contentScaleFactor: 2) }
+    }
+
+    /// `loadTile` for every path, each answer kept; fails if MapKit would get any of them twice.
+    private func loadTiles(_ overlay: MKTileOverlay, _ paths: [MKTileOverlayPath]) async -> [Data?] {
+        let answered = expectation(description: "every tile answered once")
+        answered.expectedFulfillmentCount = paths.count
+        answered.assertForOverFulfill = true
+        let answers = Answers()
+        for path in paths { request(path, from: overlay, into: answers, answered) }
+        await fulfillment(of: [answered], timeout: 10)
+        return answers.data
+    }
+
+    /// MapKit's side of it: the completion form, which is what MapKit calls.
+    private func request(_ path: MKTileOverlayPath, from overlay: MKTileOverlay, into answers: Answers,
+                         _ answered: XCTestExpectation) {
+        overlay.loadTile(at: path) { data, _ in
+            Task { @MainActor in
+                answers.data.append(data)
+                answered.fulfill()
+            }
+        }
+    }
+
+    private func wait(_ seconds: Double) async {
+        try? await Task.sleep(nanoseconds: UInt64(seconds * 1_000_000_000))
+    }
+
+    /// Polls until `condition` holds (10 ms steps), so what follows happens right after it.
+    private func waitUntil(_ condition: () -> Bool, timeout: Double = 5) async {
+        let deadline = Date().addingTimeInterval(timeout)
+        while !condition(), Date() < deadline { await wait(0.01) }
+    }
+
+    func testABurstOfNetworkTilesRedrawsOnceAfterTheLast() async {
+        let (overlay, renderer) = icaoOverlay()
+
+        let answers = await loadTiles(overlay, paths(268...271))
+
+        XCTAssertEqual(answers, Array(repeating: tile, count: 4), "MapKit gets every tile, once")
+        await wait(0.3)
+        XCTAssertEqual(renderer.redraws, 1, "one redraw for the whole burst")
+        XCTAssertEqual(renderer.reloads, 0)
+    }
+
+    func testTheTilesAnsweringARedrawCallForNoOther() async {
+        let (overlay, renderer) = icaoOverlay(followUp: 0.3)
+        _ = await loadTiles(overlay, paths(268...271))
+        await waitUntil { renderer.redraws == 1 }
+
+        // MapKit answers: the dropped tiles again, and a few it already had.
+        _ = await loadTiles(overlay, paths(268...269))
+
+        await wait(0.6)
+        XCTAssertEqual(renderer.redraws, 1, "an answer must not call for the next redraw")
+        XCTAssertEqual(renderer.reloads, 0, "an answered redraw needs no reload")
+    }
+
+    func testARedrawMapKitIgnoresIsFollowedByAReload() async {
+        let (overlay, renderer) = icaoOverlay(followUp: 0.2)
+        _ = await loadTiles(overlay, paths(268...271))
+        await waitUntil { renderer.redraws == 1 }
+
+        // MapKit asks for nothing: the reload.
+        await waitUntil { renderer.reloads == 1 }
+        XCTAssertEqual(renderer.reloads, 1)
+
+        // It answers the reload with every tile, and that is the end of it.
+        _ = await loadTiles(overlay, paths(268...271))
+        await wait(0.5)
+        XCTAssertEqual(renderer.redraws, 1)
+        XCTAssertEqual(renderer.reloads, 1)
+    }
+
+    func testATileThatCameBackEmptyRedrawsNothing() async {
+        let (overlay, renderer) = icaoOverlay()
+
+        // Nothing stubbed at x 300: the stub answers 404, and MapKit is handed no data.
+        let answers = await loadTiles(overlay, paths(300...300))
+
+        XCTAssertEqual(answers, [nil])
+        await wait(0.3)
+        XCTAssertEqual(renderer.redraws, 0, "a redraw would only ask for the empty tile again")
+    }
+
+    func testSwissimageAndTheNationalMapRedrawToo() async {
+        let overlay = SwisstopoTileOverlay(layerIdentifier: "ch.swisstopo.swissimage", tileExtension: "jpeg")
+        let path = MKTileOverlayPath(x: 8510, y: 5774, z: 14, contentScaleFactor: 2)
+        ExternalRequestStub.reply(.init(declaredLength: tile.count, body: tile), at: overlay.url(forTilePath: path).path)
+        overlay.tileSession = session
+        overlay.redraw.settleDelay = 0.05
+        overlay.redraw.followUpDelay = 10
+        let renderer = CountingRenderer(tileOverlay: overlay)
+        overlay.redraw.renderer = renderer
+
+        let answers = await loadTiles(overlay, [path])
+
+        XCTAssertEqual(answers, [tile])
+        await wait(0.3)
+        XCTAssertEqual(renderer.redraws, 1)
+    }
+
+    func testTheMapDelegatesHookTheirRendererToTheOverlay() {
+        let icao = ICAOSegelflugkarteTileOverlay()
+        let icaoRenderer = LateTileRedraw.renderer(for: icao)
+        XCTAssertTrue(icao.redraw.renderer === icaoRenderer)
+        let swissimage = SwisstopoTileOverlay(layerIdentifier: "ch.swisstopo.swissimage", tileExtension: "jpeg")
+        let swissimageRenderer = LateTileRedraw.renderer(for: swissimage)
+        XCTAssertTrue(swissimage.redraw.renderer === swissimageRenderer)
+        let openAIP = OpenAIPTileOverlay()
+        let openAIPRenderer = LateTileRedraw.renderer(for: openAIP)
+        XCTAssertTrue(openAIP.redraw.renderer === openAIPRenderer)
+        // Any other tile overlay still gets a plain renderer.
+        XCTAssertNotNil(LateTileRedraw.renderer(for: MKTileOverlay(urlTemplate: nil)))
+    }
+
+    // MARK: OpenAIP
+
+    /// A 256 px PNG with a black square in it: something `processedTile` keeps.
+    private let openAIPTile: Data = {
+        let image = UIGraphicsImageRenderer(size: CGSize(width: 256, height: 256)).image { context in
+            UIColor.black.setFill()
+            context.fill(CGRect(x: 96, y: 96, width: 64, height: 64))
+        }
+        return image.pngData()!
+    }()
+
+    /// An OpenAIP overlay on the stub, its tiles at z 9, x 268 to 279 answered, with a counting renderer.
+    private func openAIPOverlay(followUp: TimeInterval = 10) -> (OpenAIPTileOverlay, CountingRenderer) {
+        for x in 268...279 {
+            ExternalRequestStub.reply(.init(declaredLength: openAIPTile.count, body: openAIPTile),
+                                      at: "/api/data/openaip/9/\(x)/179.png")
+        }
+        let overlay = OpenAIPTileOverlay()
+        overlay.tileSession = session
+        overlay.redraw.settleDelay = 0.05
+        overlay.redraw.followUpDelay = followUp
+        let renderer = CountingRenderer(tileOverlay: overlay)
+        overlay.redraw.renderer = renderer
+        return (overlay, renderer)
+    }
+
+    func testABurstOfOpenAIPTilesRedrawsOnce() async {
+        let (overlay, renderer) = openAIPOverlay()
+
+        let answers = await loadTiles(overlay, paths(268...271))
+
+        XCTAssertEqual(answers.count, 4)
+        XCTAssertTrue(answers.allSatisfy { $0 != nil }, "MapKit gets every processed tile, once")
+        await wait(0.3)
+        XCTAssertEqual(renderer.redraws, 1, "one redraw for the whole burst")
+        XCTAssertEqual(renderer.reloads, 0)
+    }
+
+    func testTheOpenAIPTilesAnsweringARedrawCallForNoOther() async {
+        let (overlay, renderer) = openAIPOverlay(followUp: 0.3)
+        _ = await loadTiles(overlay, paths(268...271))
+        await waitUntil { renderer.redraws == 1 }
+
+        // MapKit's answer, tiles not fetched yet (the ones it had come from the overlay's memo).
+        _ = await loadTiles(overlay, paths(272...273))
+
+        await wait(0.6)
+        XCTAssertEqual(renderer.redraws, 1, "an answer must not call for the next redraw")
+        XCTAssertEqual(renderer.reloads, 0, "an answered redraw needs no reload")
+    }
+
+    func testAFailedOpenAIPTileRedrawsNothing() async {
+        let (overlay, renderer) = openAIPOverlay()
+
+        // Nothing stubbed at x 300: a 404, and MapKit gets the transparent tile.
+        let answers = await loadTiles(overlay, paths(300...300))
+
+        XCTAssertEqual(answers.count, 1)
+        XCTAssertNotNil(answers[0], "the transparent tile, as before")
+        await wait(0.3)
+        XCTAssertEqual(renderer.redraws, 0, "a redraw would only fetch the failure again")
+    }
+
+    func testATileAnswersARedrawOnlyRightAfterIt() {
+        let redraw = Date()
+        XCTAssertFalse(LateTileRedraw.isAnswer(requestedAt: redraw, lastRedraw: nil), "no redraw yet")
+        XCTAssertTrue(LateTileRedraw.isAnswer(requestedAt: redraw.addingTimeInterval(0.06), lastRedraw: redraw))
+        XCTAssertFalse(LateTileRedraw.isAnswer(requestedAt: redraw.addingTimeInterval(LateTileRedraw.answerWindow),
+                                               lastRedraw: redraw), "later, it is a new tile (a pan)")
+        XCTAssertFalse(LateTileRedraw.isAnswer(requestedAt: redraw.addingTimeInterval(-0.01), lastRedraw: redraw))
+    }
+
+    func testRedrawsAreCappedPerWindow() {
+        let now = Date()
+        XCTAssertTrue(LateTileRedraw.mayRedraw(after: [], at: now))
+        let recent = (1...LateTileRedraw.maxRedraws).map { now.addingTimeInterval(-Double($0)) }
+        XCTAssertFalse(LateTileRedraw.mayRedraw(after: recent, at: now), "the cap stops a tile MapKit keeps dropping")
+        let old = recent.map { $0.addingTimeInterval(-LateTileRedraw.window) }
+        XCTAssertTrue(LateTileRedraw.mayRedraw(after: old, at: now), "a new window allows a redraw again")
+        XCTAssertTrue(LateTileRedraw.mayRedraw(after: Array(recent.dropFirst()), at: now))
+    }
+
+    func testRedrawsStopAtTheCap() async {
+        let (overlay, renderer) = icaoOverlay()
+
+        for _ in 0..<(LateTileRedraw.maxRedraws + 2) {
+            overlay.redraw.tileArrived()
+            await wait(0.3)
+        }
+
+        XCTAssertEqual(renderer.redraws, LateTileRedraw.maxRedraws)
     }
 }
 

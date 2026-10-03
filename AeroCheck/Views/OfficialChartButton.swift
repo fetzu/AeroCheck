@@ -22,8 +22,8 @@ struct CalloutMetrics: Equatable {
     static var flight: CalloutMetrics { flight(.current) }
 
     static func flight(_ scale: CockpitScale) -> CalloutMetrics {
-        CalloutMetrics(target: CockpitTarget.control(scale), fontSize: CockpitType.label(scale),
-                       captionSize: CockpitType.label(scale), sideBySide: scale == .phone)
+        CalloutMetrics(target: CockpitTarget.control(scale), fontSize: CockpitType.label(for: scale),
+                       captionSize: CockpitType.label(for: scale), sideBySide: scale == .phone)
     }
 
     static func metrics(inFlight: Bool) -> CalloutMetrics { inFlight ? .flight : .ground }

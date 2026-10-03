@@ -1367,7 +1367,10 @@ struct CockpitInstrumentStrip: View {
             }
         }
         .fixedSize(horizontal: false, vertical: true)
-        .padding(.vertical, 10)
+        // 6 pt on the phone: its column on its side holds the header, the panes' picker, the strip and
+        // the thumb row in about 370 pt, and the vertical speed's line, empty in level flight, already
+        // leaves room under the values. (6.1, device check)
+        .padding(.vertical, CockpitType.size(kneeboard: 10, phone: 6))
         .padding(.horizontal, 8)
         .background(theme.glassFill, in: RoundedRectangle(cornerRadius: 14))
         .overlay(RoundedRectangle(cornerRadius: 14).strokeBorder(theme.glassStroke, lineWidth: 0.5))

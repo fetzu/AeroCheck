@@ -732,8 +732,12 @@ struct NavigationMapView: View {
                     VStack(spacing: 0) {
                         leadingColumn
                         Spacer(minLength: 0)
+                        // 6 pt under the strip: the column is to fit a 6.1" phone's 369 pt over the home
+                        // indicator, the thumb row whole. (6.1, device check)
                         navThumbColumnCompact
-                            .padding(12)
+                            .padding(.horizontal, 12)
+                            .padding(.top, 6)
+                            .padding(.bottom, 12)
                     }
                     .frame(width: leadingColumnWidth)
                     .background(theme.panel.ignoresSafeArea())

@@ -330,7 +330,10 @@ enum RoutePointSearch {
     /// before they match a start, so "E" doesn't bring up every point of Les Eplatures.
     static func tier(_ tokens: [String], name: String?, qualifiers: [String?], ident: String?) -> Int? {
         let folded = name.map(ReportingPointRemarks.folded) ?? ""
-        let qualifierWords = qualifiers.compactMap { $0 }.flatMap { ReportingPointRemarks.folded($0).split(separator: " ") }
+        var qualifierWords = qualifiers.compactMap { $0 }.flatMap { ReportingPointRemarks.folded($0).split(separator: " ") }
+        // The aerodrome by its other names too: OpenAIP files Geneva's points under "GENEVA", and a
+        // pilot types "Genève E" or "Genf E". (6.1)
+        qualifierWords += qualifierWords.flatMap { AirportSearchIndex.otherNames(of: String($0)).map { Substring($0) } }
         let foldedIdent = ident.map(ReportingPointRemarks.folded)
         var best = Int.max
         for token in tokens {

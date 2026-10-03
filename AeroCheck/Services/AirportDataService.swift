@@ -28,8 +28,19 @@ class AirportDataService: ObservableObject {
     /// Callers MUST rebuild once when clearing it (see `rebuildStore`'s `defer`). (v4.1.0 pre-tag fix)
     private var suppressGridRebuild = false
     private var airports: [Airport] = [] {
-        didSet { if !suppressGridRebuild { rebuildSpatialGrid() } }
+        didSet {
+            // The search index points into this array by position: any change makes it stale.
+            searchIndex = nil
+            airportsRevision &+= 1
+            if !suppressGridRebuild { rebuildSpatialGrid() }
+        }
     }
+    /// The folded text the aerodrome search looks in (`AirportSearchIndex`), built on first need and
+    /// dropped whenever `airports` changes. About 4 MB for the whole world.
+    private var searchIndex: AirportSearchIndex?
+    /// Counts the changes to `airports`, so an index built off the main actor is only kept when the
+    /// airports it was built from are still the ones in memory.
+    private var airportsRevision = 0
     private var airportsByIdent: [String: Airport] = [:]
     private var frequenciesByAirport: [String: [AirportFrequency]] = [:]
     private var runwaysByAirport: [String: [Runway]] = [:]
@@ -235,6 +246,19 @@ class AirportDataService: ObservableObject {
         // this flag, and an OpenAIP-only dataset used to stay invisible because only OurAirports set it.
         isDataAvailable = !airports.isEmpty || fileManager.fileExists(atPath: airportsFileURL.path)
             || openAIPAirports.isDataAvailable
+    }
+
+    /// `ensureLoaded`, and the search index built off the main actor, for the screens that search: the
+    /// first keystroke then finds it ready instead of building it on the main actor. (6.1)
+    func prepareSearch() async {
+        await ensureLoaded()
+        guard searchIndex == nil, !airports.isEmpty else { return }
+        let snapshot = airports
+        let revision = airportsRevision
+        let built = await Task.detached(priority: .userInitiated) { AirportSearchIndex(snapshot) }.value
+        guard revision == airportsRevision, searchIndex == nil else { return }
+        searchIndex = built
+        AppLog.airportData.debugLine("Search index: \(built.count) airports, \(built.byteCount / 1024) KB")
     }
 
     /// OurAirports from disk, read and decoded off the main actor (PERF-07); nil when there is no file
@@ -457,12 +481,12 @@ class AirportDataService: ObservableObject {
         airportsByIdent[ident.uppercased()]
     }
 
-    /// Search airports by name or identifier
-    /// Search airports by ICAO/IATA/name/municipality.
+    /// Search airports by ICAO/IATA/name/municipality/keywords, whatever the case and the accents.
     /// - Parameters:
     ///   - near: when provided, results are ordered by distance to this coordinate *within* each
-    ///     relevance tier (exact ICAO → ICAO prefix → other), so a typed identifier still wins but
-    ///     otherwise the closest fields float to the top (flight-plan builder feedback #2).
+    ///     relevance tier (`AirportSearchIndex`: exact ident → ident start or another code → word starts
+    ///     → anywhere), so a typed identifier still wins but otherwise the closest fields float to the
+    ///     top (flight-plan builder feedback #2). Without it, the larger field first, then by name.
     ///   - types: when provided, only these airport types are returned. The builder passes
     ///     `AirportType.fixedWing` to drop heliports/seaplane/closed/balloon results (feedback #3 —
     ///     see `AirportType.fixedWing` to surface rotorcraft sites again).
@@ -472,48 +496,60 @@ class AirportDataService: ObservableObject {
         near reference: CLLocationCoordinate2D? = nil,
         types: Set<AirportType>? = nil
     ) -> [Airport] {
-        let searchTerm = query.lowercased()
-
-        var results = airports.filter { airport in
-            airport.ident.lowercased().contains(searchTerm) ||
-            airport.name.lowercased().contains(searchTerm) ||
-            (airport.iataCode?.lowercased().contains(searchTerm) ?? false) ||
-            (airport.municipality?.lowercased().contains(searchTerm) ?? false)
-        }
-        if let types = types {
-            results = results.filter { types.contains($0.type) }
-        }
-
-        // Relevance tier: exact ICAO match, then ICAO prefix, then everything else.
-        func tier(_ a: Airport) -> Int {
-            let id = a.ident.lowercased()
-            if id == searchTerm { return 0 }
-            if id.hasPrefix(searchTerm) { return 1 }
-            return 2
-        }
-
-        let sorted: [Airport]
-        if let reference = reference {
-            // Precompute (tier, distance) once per candidate, then order by tier → distance → name.
-            let scored = results.map { airport -> (airport: Airport, tier: Int, distance: Double) in
-                (airport, tier(airport),
-                 Self.haversineNm(lat1: reference.latitude, lon1: reference.longitude,
-                                  lat2: airport.latitude, lon2: airport.longitude))
-            }
-            sorted = scored.sorted { a, b in
-                if a.tier != b.tier { return a.tier < b.tier }
-                if a.distance != b.distance { return a.distance < b.distance }
-                return a.airport.name < b.airport.name
-            }.map { $0.airport }
+        guard !airports.isEmpty else { return [] }
+        let index: AirportSearchIndex
+        if let searchIndex {
+            index = searchIndex
         } else {
-            sorted = results.sorted { a, b in
-                let ta = tier(a), tb = tier(b)
-                if ta != tb { return ta < tb }
-                return a.name < b.name
+            // Not prepared (`prepareSearch`): built here, once, on the main actor.
+            index = AirportSearchIndex(airports)
+            searchIndex = index
+        }
+        return Self.search(airports, index: index, query: query, limit: limit, near: reference, types: types)
+    }
+
+    /// The search itself, pure: `index` must have been built from `airports`.
+    nonisolated static func search(
+        _ airports: [Airport],
+        index: AirportSearchIndex,
+        query: String,
+        limit: Int = 20,
+        near reference: CLLocationCoordinate2D? = nil,
+        types: Set<AirportType>? = nil
+    ) -> [Airport] {
+        guard index.count == airports.count else { return [] }
+        let matches = index.matches(query) { types?.contains(airports[$0].type) ?? true }
+
+        // Without a reference, the larger field first: "Geneva" finds a dozen fields in the United
+        // States too, and the airport is the one meant.
+        func size(_ type: AirportType) -> Int {
+            switch type {
+            case .largeAirport: return 0
+            case .mediumAirport: return 1
+            case .smallAirport: return 2
+            default: return 3
             }
         }
+        let scored = matches.map { match -> (airport: Airport, tier: Int, order: Double) in
+            let airport = airports[match.index]
+            let order = reference.map {
+                haversineNm(lat1: $0.latitude, lon1: $0.longitude, lat2: airport.latitude, lon2: airport.longitude)
+            } ?? Double(size(airport.type))
+            return (airport, match.tier, order)
+        }
+        let sorted = scored.sorted { a, b in
+            if a.tier != b.tier { return a.tier < b.tier }
+            if a.order != b.order { return a.order < b.order }
+            return a.airport.name < b.airport.name
+        }
+        return sorted.prefix(limit).map(\.airport)
+    }
 
-        return Array(sorted.prefix(limit))
+    /// A name typed in full (or enough of one) that names one aerodrome, or one exactly: what Plan
+    /// new flight's stops and the home aerodrome field take for a code. Nil when it names several.
+    nonisolated static func aerodrome(named typed: String, among hits: [Airport]) -> Airport? {
+        if hits.count == 1 { return hits[0] }
+        return hits.first { $0.name.compare(typed, options: [.caseInsensitive, .diacriticInsensitive]) == .orderedSame }
     }
 
     /// Find nearest airports to a coordinate.

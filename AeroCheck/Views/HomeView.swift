@@ -1242,9 +1242,7 @@ struct HomeView: View {
 
     private func lastFlightWhen(_ flight: Flight) -> String? {
         guard let date = flight.startTime else { return nil }
-        let formatter = RelativeDateTimeFormatter()
-        formatter.unitsStyle = .abbreviated
-        return formatter.localizedString(for: date, relativeTo: Date())
+        return L10n.Time.relative(date)
     }
 
     // MARK: - GPS Status Indicator

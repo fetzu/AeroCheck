@@ -323,7 +323,7 @@ struct UpcomingFlightsList: View {
     @ViewBuilder
     private func heroRelative(_ thread: FlightThread) -> some View {
         if let departure = thread.scheduledDeparture {
-            Text(Self.relative.localizedString(for: departure, relativeTo: Date()))
+            Text(L10n.Time.relative(departure))
                 .scaledFont(size: 14, relativeTo: .subheadline)
                 .foregroundColor(.secondaryText)
                 .fixedSize()
@@ -646,7 +646,7 @@ struct UpcomingFlightsList: View {
     @ViewBuilder
     private func tripRelative(_ overview: TripOverview) -> some View {
         if let departure = overview.focus?.departure {
-            Text(Self.relative.localizedString(for: departure, relativeTo: Date()))
+            Text(L10n.Time.relative(departure))
                 .scaledFont(size: 14, relativeTo: .subheadline)
                 .foregroundColor(.secondaryText)
                 .fixedSize()
@@ -1010,12 +1010,6 @@ struct UpcomingFlightsList: View {
         return (thread.countries ?? []).filter { $0 != home }
             .map { Locale.current.localizedString(forRegionCode: $0) ?? $0 }
     }
-
-    private static let relative: RelativeDateTimeFormatter = {
-        let formatter = RelativeDateTimeFormatter()
-        formatter.unitsStyle = .short
-        return formatter
-    }()
 
     /// Built from the legs rather than stored, so it stays right when one is added or removed.
     private func tripLabel(_ legs: [FlightThread]) -> String {

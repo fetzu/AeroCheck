@@ -1417,6 +1417,174 @@ extension TripTests {
                      "a focus that isn't one of the legs shows no trip")
     }
 
+    // MARK: - Cancelling a trip (6.1)
+
+    /// LSZQ → LSGE → LSGN → LSZQ, three legs in one trip, each with the copy of the route made for it
+    /// (`flightOwned`), as Plan new flight creates them. Leg 1 is the flight being followed.
+    @MainActor
+    private func threeLegTrip(_ m: FlightThreadManager, _ plans: FlightPlanManager,
+                              owned: [Bool] = [true, true, true]) -> (trip: Trip, legs: [UUID], plans: [UUID]) {
+        var legIds: [UUID] = []
+        var planIds: [UUID] = []
+        for (index, (from, to)) in [("LSZQ", "LSGE"), ("LSGE", "LSGN"), ("LSGN", "LSZQ")].enumerated() {
+            var leg = plan(from, to)
+            leg.flightOwned = owned[index]
+            plans.add(leg)
+            planIds.append(leg.id)
+            legIds.append(m.createThread(from: leg, routeLabel: "\(from) → \(to)").id)
+        }
+        let trip = m.formTrip(from: legIds)!
+        m.setCurrentThread(legIds[0])
+        return (trip, legIds, planIds)
+    }
+
+    @MainActor
+    func testCancellingATripOfUnflownLegsRemovesEveryLegItsPlansAndTheTrip() {
+        let datastore = makeTestDatastore()
+        let plans = makeTestPlanManager(datastore: datastore)
+        let m = makeTestThreadManager(datastore: datastore)
+        let (trip, legs, planIds) = threeLegTrip(m, plans)
+        // Only for a failure half-way: a cancelled leg is already gone.
+        defer { legs.forEach { m.deleteThread(threadId: $0) } }
+
+        XCTAssertTrue(FlightThreadManager.canCancel(trip, threads: m.threads))
+        XCTAssertEqual(FlightThreadManager.legsToCancel(in: trip, threads: m.threads).map(\.id), legs)
+
+        let removed = FlightCreator.cancelTrip(trip.id, plans: plans, threads: m, logbookPlanIds: [])
+
+        XCTAssertEqual(removed, legs, "every leg, in flying order")
+        XCTAssertTrue(legs.allSatisfy { m.thread(withId: $0) == nil })
+        XCTAssertNil(m.trip(withId: trip.id), "nothing is left to be a trip")
+        XCTAssertFalse(plans.flightPlans.contains { planIds.contains($0.id) },
+                       "the copies of the route made for the legs go with them")
+        XCTAssertNil(m.currentThreadId, "the followed flight was one of them")
+        // Recorded as "Cancel flight" records a leg, so another device's copies stay deleted.
+        for id in legs { XCTAssertNotNil(datastore.deletionMark(.thread, id: id), "leg \(id)") }
+        for id in planIds { XCTAssertNotNil(datastore.deletionMark(.plan, id: id), "plan \(id)") }
+        XCTAssertNotNil(datastore.deletionMark(.trip, id: trip.id))
+    }
+
+    @MainActor
+    func testCancellingATripKeepsTheLegAlreadyFlownWithItsFlight() {
+        let datastore = makeTestDatastore()
+        let plans = makeTestPlanManager(datastore: datastore)
+        let m = makeTestThreadManager(datastore: datastore)
+        let (trip, legs, planIds) = threeLegTrip(m, plans)
+        defer { legs.forEach { m.deleteThread(threadId: $0) } }
+        let booking = m.trip(withId: trip.id)!.sharedTasks.first { $0.key == .aircraftReserved }!
+        m.setSharedTaskState(.done, taskId: booking.id, tripId: trip.id)
+        // Leg 1 flew and landed at LSGE: END FLIGHT saved its flight, which the logbook holds.
+        let flightId = UUID()
+        m.attachFlight(flightId, toThreadId: legs[0])
+        m.beginCloseOut(threadId: legs[0], flightId: flightId)
+
+        XCTAssertTrue(FlightThreadManager.canCancel(m.trip(withId: trip.id)!, threads: m.threads))
+        let removed = FlightCreator.cancelTrip(trip.id, plans: plans, threads: m, logbookPlanIds: [planIds[0]])
+
+        XCTAssertEqual(removed, [legs[1], legs[2]], "only the legs not flown yet")
+        let kept = m.thread(withId: legs[0])
+        XCTAssertEqual(kept?.flightId, flightId, "the leg keeps its flight")
+        XCTAssertEqual(kept?.state, .closeOut, "and its close-out")
+        XCTAssertNil(datastore.deletionMark(.thread, id: legs[0]))
+        XCTAssertTrue(plans.flightPlans.contains { $0.id == planIds[0] }, "the plan its logbook flight points at")
+        XCTAssertNil(datastore.deletionMark(.plan, id: planIds[0]))
+        XCTAssertFalse(plans.flightPlans.contains { $0.id == planIds[1] || $0.id == planIds[2] })
+        // One leg left is a flight of its own again, with the trip's preparation, as `removeLeg` decides.
+        XCTAssertNil(m.trip(withId: trip.id))
+        XCTAssertNil(kept?.tripId)
+        XCTAssertTrue(kept?.tasks.contains { $0.key == .aircraftReserved && $0.state == .done } ?? false)
+        XCTAssertEqual(m.currentThreadId, legs[0], "the flight being followed stays followed")
+    }
+
+    @MainActor
+    func testWithTwoLegsFlownTheTripStaysAsTheRecordOfWhatWasFlown() {
+        let datastore = makeTestDatastore()
+        let plans = makeTestPlanManager(datastore: datastore)
+        let m = makeTestThreadManager(datastore: datastore)
+        let (trip, legs, _) = threeLegTrip(m, plans)
+        defer { legs.forEach { m.deleteThread(threadId: $0) } }
+        fly(m, legs[0])
+        fly(m, legs[1])
+
+        XCTAssertEqual(FlightCreator.cancelTrip(trip.id, plans: plans, threads: m, logbookPlanIds: []), [legs[2]])
+
+        let after = m.trip(withId: trip.id)
+        XCTAssertEqual(after?.legIds, [legs[0], legs[1]])
+        XCTAssertNil(datastore.deletionMark(.trip, id: trip.id))
+        XCTAssertFalse(FlightThreadManager.canCancel(after!, threads: m.threads),
+                       "every leg left has flown: nothing to cancel, so the action goes")
+    }
+
+    @MainActor
+    func testALegInFlightIsNeverCancelledAndTheTripIsNotOfferedWhileItFlies() {
+        let datastore = makeTestDatastore()
+        let plans = makeTestPlanManager(datastore: datastore)
+        let m = makeTestThreadManager(datastore: datastore)
+        let (trip, legs, planIds) = threeLegTrip(m, plans)
+        defer { legs.forEach { m.deleteThread(threadId: $0) } }
+        m.attachFlight(UUID(), toThreadId: legs[0])   // START FLIGHT: leg 1 is in the air
+
+        XCTAssertFalse(FlightThreadManager.canCancel(trip, threads: m.threads), "a trip is changed on the ground")
+        XCTAssertEqual(FlightThreadManager.legsToCancel(in: trip, threads: m.threads).map(\.id), [legs[1], legs[2]])
+
+        // A caller that offered it anyway still never takes the leg in the air.
+        let removed = FlightCreator.cancelTrip(trip.id, plans: plans, threads: m, logbookPlanIds: [])
+        XCTAssertEqual(removed, [legs[1], legs[2]])
+        XCTAssertEqual(m.thread(withId: legs[0])?.state, .flying)
+        XCTAssertNotNil(m.thread(withId: legs[0])?.flightId)
+        XCTAssertTrue(plans.flightPlans.contains { $0.id == planIds[0] }, "its route stays on the map")
+        XCTAssertNil(datastore.deletionMark(.thread, id: legs[0]))
+    }
+
+    /// A flight under way on a leg's plan whose page never heard of it: the plan is on the map, so
+    /// the leg counts as in the air.
+    @MainActor
+    func testTheLegWhosePlanIsBeingFlownCountsAsInTheAir() {
+        let datastore = makeTestDatastore()
+        let plans = makeTestPlanManager(datastore: datastore)
+        let m = makeTestThreadManager(datastore: datastore)
+        let (trip, legs, planIds) = threeLegTrip(m, plans)
+        defer { legs.forEach { m.deleteThread(threadId: $0) } }
+
+        XCTAssertFalse(FlightThreadManager.canCancel(trip, threads: m.threads, flyingPlanId: planIds[1]))
+        let removed = FlightCreator.cancelTrip(trip.id, plans: plans, threads: m, logbookPlanIds: [],
+                                               flyingPlanId: planIds[1])
+        XCTAssertEqual(removed, [legs[0], legs[2]])
+        XCTAssertNotNil(m.thread(withId: legs[1]))
+        XCTAssertTrue(plans.flightPlans.contains { $0.id == planIds[1] })
+    }
+
+    /// One trip cancelled whole, its twin cancelled leg by leg as "Cancel flight" does it: the same
+    /// result. A route from the library is never deleted, nor a copy the logbook points at.
+    @MainActor
+    func testCancellingATripIsCancellingEachLegAsCancelFlightDoes() {
+        let datastore = makeTestDatastore()
+        let plans = makeTestPlanManager(datastore: datastore)
+        let m = makeTestThreadManager(datastore: datastore)
+        // Leg 2 flies a route from the library (not a copy); leg 3's copy is in the logbook.
+        let whole = threeLegTrip(m, plans, owned: [true, false, true])
+        let byLeg = threeLegTrip(m, plans, owned: [true, false, true])
+        defer { (whole.legs + byLeg.legs).forEach { m.deleteThread(threadId: $0) } }
+        let logbook: Set<UUID> = [whole.plans[2], byLeg.plans[2]]
+
+        FlightCreator.cancelTrip(whole.trip.id, plans: plans, threads: m, logbookPlanIds: logbook)
+        for leg in byLeg.legs {
+            FlightCreator.cancelLeg(leg, plans: plans, threads: m, logbookPlanIds: logbook)
+        }
+
+        for twin in [whole, byLeg] {
+            XCTAssertTrue(twin.legs.allSatisfy { m.thread(withId: $0) == nil })
+            XCTAssertTrue(twin.legs.allSatisfy { datastore.deletionMark(.thread, id: $0) != nil })
+            XCTAssertNil(m.trip(withId: twin.trip.id))
+            XCTAssertNotNil(datastore.deletionMark(.trip, id: twin.trip.id))
+            let left = twin.plans.map { id in plans.flightPlans.contains { $0.id == id } }
+            XCTAssertEqual(left, [false, true, true], "the copy goes; the library route and the logbook's copy stay")
+            let recorded = twin.plans.map { datastore.deletionMark(.plan, id: $0) != nil }
+            XCTAssertEqual(recorded, [true, false, false])
+        }
+        XCTAssertTrue(m.trips.isEmpty)
+    }
+
     // MARK: - Names (on-device review #4)
 
     func testAFlightShowsItsNameElseItsRoute() {

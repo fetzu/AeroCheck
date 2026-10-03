@@ -12,6 +12,10 @@ import CoreLocation
 /// field further away is one search away. A local flight (one aerodrome, out and back) has no route
 /// to follow: it lists the aerodromes around its field, nearest first, and flies out to the ones
 /// ticked, in the order ticked, and back. (6.1)
+///
+/// The search finds any aerodrome, wherever it lies: behind the departure, past the destination, far
+/// off the route (`TripPlanner.searchedStops`). The flight's own departure and destination are listed
+/// too, marked, rather than left out as if the data didn't know them. (6.1)
 struct AddStopSheet: View {
     let threadId: UUID
     /// Called with the first new leg's thread id, or nil when the pilot cancelled.
@@ -22,7 +26,7 @@ struct AddStopSheet: View {
     @EnvironmentObject var airportDataService: AirportDataService
 
     @State private var candidates: [TripPlanner.StopCandidate] = []
-    @State private var searchResults: [TripPlanner.StopCandidate] = []
+    @State private var searchResults: [TripPlanner.SearchedStop] = []
     @State private var query = ""
     /// The stops ticked, each with its time on the ground and refuel, in the order ticked: a local
     /// flight lands in that order; a route, in its own.
@@ -47,7 +51,7 @@ struct AddStopSheet: View {
                         .fixedSize(horizontal: false, vertical: true)
                     searchField
                     if !searchResults.isEmpty {
-                        list(searchResults)
+                        searchList(searchResults)
                     }
                     candidatesSection
                     if !ticked.isEmpty { SeparateView { legsCard } }
@@ -132,6 +136,51 @@ struct AddStopSheet: View {
             }
         }
         .background(RoundedRectangle(cornerRadius: 12).fill(Color.cardBackground))
+    }
+
+    /// What the search found, in its order (an exact ident first): stops, and the flight's own ends.
+    private func searchList(_ results: [TripPlanner.SearchedStop]) -> some View {
+        VStack(spacing: 0) {
+            ForEach(Array(results.enumerated()), id: \.element.aerodrome.ident) { index, result in
+                if result.isStop {
+                    row(result.candidate)
+                } else {
+                    ownFieldRow(result)
+                }
+                if index < results.count - 1 {
+                    Divider().overlay(Color.white.opacity(0.06)).padding(.leading, 44)
+                }
+            }
+        }
+        .background(RoundedRectangle(cornerRadius: 12).fill(Color.cardBackground))
+    }
+
+    /// The flight's own departure or destination, found by the search: said, not offered. It used to be
+    /// left out, so searching "LSGC" on LSZQ → LSGC found nothing of LSGC.
+    private func ownFieldRow(_ result: TripPlanner.SearchedStop) -> some View {
+        HStack(alignment: .top, spacing: 12) {
+            Image(systemName: result.role == .destination ? "airplane.arrival" : "airplane.departure")
+                .scaledFont(size: 13, weight: .semibold, relativeTo: .caption)
+                .foregroundColor(.dimText)
+                .frame(width: 22, height: 22)
+                .padding(.top, 1)
+                .accessibilityHidden(true)
+            VStack(alignment: .leading, spacing: 3) {
+                Text(result.aerodrome.ident)
+                    .font(.aero(size: 15, weight: .semibold, design: .monospaced))
+                    .foregroundColor(.secondaryText)
+                Text("\(result.aerodrome.name) · \(StopPlacement.text(result.role))")
+                    .scaledFont(size: 12, relativeTo: .caption)
+                    .foregroundColor(.dimText)
+                    .lineLimit(2)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            Spacer(minLength: 8)
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 10)
+        .frame(minHeight: 56)
+        .accessibilityElement(children: .combine)
     }
 
     /// A tick box that shows the stop's number once ticked: where it comes in the trip.
@@ -286,8 +335,12 @@ struct AddStopSheet: View {
     // MARK: - Data
 
     private func load() async {
-        await airportDataService.ensureLoaded()
-        defer { isLoading = false }
+        await airportDataService.prepareSearch()
+        defer {
+            isLoading = false
+            // Typed while the airports were loading: that search found nothing to search.
+            search()
+        }
         guard let plan else { return }
         if plan.waypoints.count >= 2 {
             let aerodromes = airportDataService.planningAerodromes(around: plan.waypoints.map(\.coordinate),
@@ -300,6 +353,8 @@ struct AddStopSheet: View {
         }
     }
 
+    /// Any fixed-wing landing site by code or name, nearest the departure first after an exact ident,
+    /// kept wherever it lies: a field the pilot asked for. (6.1)
     private func search() {
         let term = query.trimmingCharacters(in: .whitespaces)
         guard term.count >= 2, let plan, let departure = plan.waypoints.first else { searchResults = []; return }
@@ -308,10 +363,6 @@ struct AddStopSheet: View {
                                                       types: AirportType.fixedWing)
             .filter(AirportDataService.isPlanningLandingSite)
             .map(airportDataService.planningAerodrome)
-        searchResults = isLocal
-            ? TripPlanner.stopCandidates(around: departure.coordinate, aerodromes: found,
-                                         radiusNM: .greatestFiniteMagnitude)
-            : TripPlanner.stopCandidates(along: plan.waypoints, aerodromes: found,
-                                         corridorNM: .greatestFiniteMagnitude)
+        searchResults = TripPlanner.searchedStops(along: plan.waypoints, found: found)
     }
 }

@@ -1,5 +1,6 @@
 import Foundation
 import MapKit
+import os
 
 // MARK: - Swisstopo / swisstopo WMTS tile overlays (shared)
 
@@ -62,6 +63,138 @@ enum SwisstopoTiles {
     }
 }
 
+// MARK: - Tiles MapKit drops
+
+/// Redraws a tile overlay once tiles have come in over the network, so MapKit asks again for the
+/// ones it dropped.
+///
+/// MapKit drops some of the tiles `loadTile` hands it asynchronously, and doesn't ask for them again
+/// until the map is redrawn (a pan, a zoom). On a map that doesn't move, those tiles stay holes: Plan ›
+/// Map after a relaunch, on a cold HTTP cache, often showed the ICAO chart with half its tiles missing
+/// or none at all. Measured on the simulator (2 Oct 2026, on 6.0.1, before #243 and on 6.1.0): every
+/// tile answered 200 with its PNG and `result` ran once per tile (on the main thread or off it, no
+/// difference), yet MapKit drew a random subset; the same tiles handed over synchronously, from the
+/// offline chart cache, drew every time. A redraw (`setNeedsDisplay`) makes MapKit request exactly
+/// the missing tiles again, and they draw. The Cockpit's map rarely shows it: following the aircraft
+/// moves the camera, which redraws.
+///
+/// One redraw per burst of tiles, `settle` after the last one. MapKit answers a redraw with the
+/// missing tiles, and with a few it already drew (four of 36 in the runs), so the tiles it asks for
+/// within `answerWindow` of a redraw call for no other: without that, each redraw called for the
+/// next. When a redraw gets no answer at all by `followUp`, MapKit has stopped listening (5 of 76
+/// warm-cache relaunches: the map blank, a second redraw ignored too) and `reloadData` brings the
+/// tiles back (it did, all three times it ran). `maxRedraws` per `window` is the backstop. (6.1.0)
+@MainActor
+final class LateTileRedraw {
+    /// Quiet time after the last tile before the redraw.
+    nonisolated static let settle: TimeInterval = 0.3
+    /// A tile MapKit asks for this soon after a redraw is the redraw's answer (it came within 60 ms
+    /// in the runs).
+    nonisolated static let answerWindow: TimeInterval = 0.25
+    /// How long a redraw may go unanswered before the reload.
+    nonisolated static let followUp: TimeInterval = 1
+    /// Redraws and reloads allowed per `window`.
+    nonisolated static let maxRedraws = 4
+    nonisolated static let window: TimeInterval = 10
+
+    /// The renderer drawing the overlay. Set by the map delegate that makes it
+    /// (`LateTileRedraw.renderer(for:)`); MapKit keeps it alive while the overlay is on the map.
+    weak var renderer: MKTileOverlayRenderer?
+    /// `settle` and `followUp`, shorter in tests.
+    var settleDelay: TimeInterval = LateTileRedraw.settle
+    var followUpDelay: TimeInterval = LateTileRedraw.followUp
+
+    private var pending: Task<Void, Never>?
+    private var redraws: [Date] = []
+
+    /// The last redraw and the tiles MapKit asked for since. Written on MapKit's tile threads too,
+    /// hence the lock.
+    private struct Ledger {
+        var lastRedraw: Date?
+        var askedSince = 0
+    }
+    private nonisolated let ledger = OSAllocatedUnfairLock(initialState: Ledger())
+
+    nonisolated init() {}
+
+    /// MapKit asks for a tile (every `loadTile`, cached or not): counted, so a redraw it answers isn't
+    /// taken for ignored. Whether it answers our last redraw. Any thread.
+    nonisolated func tileAsked() -> Bool {
+        let now = Date()
+        return ledger.withLock { ledger -> Bool in
+            guard let lastRedraw = ledger.lastRedraw else { return false }
+            ledger.askedSince += 1
+            return Self.isAnswer(requestedAt: now, lastRedraw: lastRedraw)
+        }
+    }
+
+    /// MapKit's `result` for a tile fetched over the network, wrapped: it hands the tile over, then
+    /// asks for a redraw after the burst, unless the tile came back empty (a redraw would only ask for
+    /// it again) or answers a redraw (`tileAsked()`).
+    nonisolated func handingOver(_ result: @escaping (Data?, Error?) -> Void,
+                                 answering answersRedraw: Bool) -> (Data?, Error?) -> Void {
+        { [self] data, error in
+            result(data, error)
+            if data != nil, !answersRedraw { tileArrived() }
+        }
+    }
+
+    /// A tile was just handed to MapKit, after `loadTile` returned. Any thread.
+    nonisolated func tileArrived() {
+        Task { @MainActor in self.schedule() }
+    }
+
+    /// Whether a tile MapKit asked for at `requestedAt` answers the redraw that went out at `lastRedraw`.
+    nonisolated static func isAnswer(requestedAt: Date, lastRedraw: Date?) -> Bool {
+        guard let lastRedraw else { return false }
+        let delay = requestedAt.timeIntervalSince(lastRedraw)
+        return delay >= 0 && delay < answerWindow
+    }
+
+    /// Whether one more redraw fits under the cap, given the times of the previous ones.
+    nonisolated static func mayRedraw(after previous: [Date], at now: Date) -> Bool {
+        previous.filter { now.timeIntervalSince($0) < window }.count < maxRedraws
+    }
+
+    /// A renderer for `overlay`, hooked to its redraw when it has one. Every map delegate that draws a
+    /// swisstopo or OpenAIP overlay makes its tile renderers here.
+    static func renderer(for overlay: MKTileOverlay) -> MKTileOverlayRenderer {
+        let renderer = MKTileOverlayRenderer(tileOverlay: overlay)
+        (overlay as? LateTileRedrawing)?.redraw.renderer = renderer
+        return renderer
+    }
+
+    /// The redraw `settle` after this tile, then the reload if MapKit didn't answer it; a later tile
+    /// starts over.
+    private func schedule() {
+        pending?.cancel()
+        pending = Task { [weak self, settleDelay, followUpDelay] in
+            try? await Task.sleep(nanoseconds: UInt64(settleDelay * 1_000_000_000))
+            guard !Task.isCancelled, self?.redraw(reload: false) == true else { return }
+            try? await Task.sleep(nanoseconds: UInt64(followUpDelay * 1_000_000_000))
+            guard !Task.isCancelled, let self, self.ledger.withLock({ $0.askedSince }) == 0 else { return }
+            self.redraw(reload: true)
+        }
+    }
+
+    /// Redraws (or reloads) the renderer if the cap allows; whether it did.
+    @discardableResult
+    private func redraw(reload: Bool) -> Bool {
+        guard let renderer else { return false }
+        let now = Date()
+        guard Self.mayRedraw(after: redraws, at: now) else { return false }
+        redraws = redraws.filter { now.timeIntervalSince($0) < Self.window } + [now]
+        ledger.withLock { $0 = Ledger(lastRedraw: now) }
+        if reload { renderer.reloadData() } else { renderer.setNeedsDisplay() }
+        return true
+    }
+}
+
+/// A tile overlay that loads tiles over the network and redraws after them (`LateTileRedraw`).
+protocol LateTileRedrawing: MKTileOverlay {
+    var redraw: LateTileRedraw { get }
+}
+
 // MARK: - ICAO + Segelflugkarte Tile Overlay (with seamless switching)
 
 /// Custom tile overlay for Swiss ICAO aeronautical chart with seamless Segelflugkarte switching
@@ -70,13 +203,16 @@ enum SwisstopoTiles {
 /// When forceICAO is true, always use ICAO layer even at higher zoom levels
 /// When offlineMapManager is provided, use cached tiles from disk (cache-first in online mode)
 /// When isStrictOfflineMode is true, only use cached tiles (no network requests)
-class ICAOSegelflugkarteTileOverlay: MKTileOverlay {
+class ICAOSegelflugkarteTileOverlay: MKTileOverlay, LateTileRedrawing {
     private let icaoLayerIdentifier = "ch.bazl.luftfahrtkarten-icao"
     private let segelflugkarteLayerIdentifier = "ch.bazl.segelflugkarte"
     let forceICAO: Bool
     weak var offlineMapManager: OfflineMapManager?
     let isStrictOfflineMode: Bool
     let hasSegelflugCache: Bool
+    let redraw = LateTileRedraw()
+    /// The session network tiles come over; a stub in tests.
+    var tileSession = ExternalRequest.session
 
     // Zoom level where we switch from ICAO to Segelflugkarte
     // ICAO: zoom 7-11 (1:500,000)
@@ -120,6 +256,7 @@ class ICAOSegelflugkarteTileOverlay: MKTileOverlay {
     /// Override loadTile to implement cache-first loading strategy
     /// This provides instant loading from cache while falling back to network when needed
     override func loadTile(at path: MKTileOverlayPath, result: @escaping (Data?, Error?) -> Void) {
+        let answersRedraw = redraw.tileAsked()
         // Determine which layer to use based on zoom and settings
         let (layerIdentifier, finalZ) = layerInfo(for: path)
 
@@ -160,7 +297,8 @@ class ICAOSegelflugkarteTileOverlay: MKTileOverlay {
             result(nil, nil)
             return
         }
-        SwisstopoTiles.load(url, result: result)
+        // MapKit may drop a tile that arrives this late: redraw after the burst. (6.1.0)
+        SwisstopoTiles.load(url, session: tileSession, result: redraw.handingOver(result, answering: answersRedraw))
     }
 
     /// Determine which layer and zoom to use for a given tile path
@@ -194,11 +332,14 @@ class ICAOSegelflugkarteTileOverlay: MKTileOverlay {
 // MARK: - Swisstopo Tile Overlay
 
 /// Custom tile overlay for swisstopo WMTS layers
-class SwisstopoTileOverlay: MKTileOverlay {
+class SwisstopoTileOverlay: MKTileOverlay, LateTileRedrawing {
     let layerIdentifier: String
     let tileExtension: String
     let validMinZoom: Int
     let validMaxZoom: Int
+    let redraw = LateTileRedraw()
+    /// The session tiles come over; a stub in tests.
+    var tileSession = ExternalRequest.session
 
     init(layerIdentifier: String, tileExtension: String = "png", minimumZ: Int = 7, maximumZ: Int = 18) {
         self.layerIdentifier = layerIdentifier
@@ -227,8 +368,10 @@ class SwisstopoTileOverlay: MKTileOverlay {
     }
 
     /// The tile at `url(forTilePath:)`, through `ExternalRequest` rather than MapKit's own loader,
-    /// which had no size cap. Same URL, same tile. (6.1)
+    /// which had no size cap. Same URL, same tile. (6.1) MapKit may drop it on arrival, as it does the
+    /// ICAO chart's: redraw after the burst. (6.1.0)
     override func loadTile(at path: MKTileOverlayPath, result: @escaping (Data?, Error?) -> Void) {
-        SwisstopoTiles.load(url(forTilePath: path), result: result)
+        SwisstopoTiles.load(url(forTilePath: path), session: tileSession,
+                            result: redraw.handingOver(result, answering: redraw.tileAsked()))
     }
 }

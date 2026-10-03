@@ -289,9 +289,24 @@ struct FlightCueState: Equatable, Codable {
     private(set) var owed: [ChecklistPhase: Owed] = [:]
     /// Checks already turned owed this leg: never a second time.
     private(set) var escalated: Set<ChecklistPhase> = []
-    /// Legs seen this flight. None: nothing times the checks (no airport data, no take-off detected
-    /// yet), and an open check is due as before 6.1.
+    /// Legs seen this flight.
     private(set) var legs = 0
+    /// The detector has a field near the aircraft to anchor the take-off to, so the next take-off
+    /// roll will start a leg (`noteCueSource`). Optional: a checkpoint written before 6.1.0 has none.
+    private var cueSource: Bool?
+
+    /// Something times the checks this flight: a leg already, or a field the next take-off starts one
+    /// from. Without it (no airport data, a strip not in it) an open check is due as before 6.1.
+    ///
+    /// Not "a leg already": before the first take-off that read as no cue source, so the climb check,
+    /// open from READY FOR LINE UP on, was amber on the runway and through the roll, went dark at
+    /// lift-off (the leg), and amber again at 500 ft (6.1.0 ground replay, flight-3). (6.1.0)
+    var hasCueSource: Bool { legs > 0 || cueSource == true }
+
+    /// The detector has a field to anchor the take-off to (`hasCueSource`).
+    mutating func noteCueSource() {
+        cueSource = true
+    }
 
     /// The checks the cues time: climb to landing.
     static func isCued(_ phase: ChecklistPhase) -> Bool {
@@ -309,7 +324,7 @@ struct FlightCueState: Equatable, Codable {
     /// When the slot shows `phase`'s check: not yet, due, or owed.
     func timing(for phase: ChecklistPhase, circuitMode: Bool) -> CheckSlotTiming {
         if owed[phase] != nil { return .owed }
-        guard legs > 0, Self.isCued(phase) else { return .due }
+        guard hasCueSource, Self.isCued(phase) else { return .due }
         let due = fired.keys.contains { $0.phase(circuitMode: circuitMode) == phase }
         return due ? .due : .notYet
     }

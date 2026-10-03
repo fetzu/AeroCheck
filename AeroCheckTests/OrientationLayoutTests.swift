@@ -269,6 +269,17 @@ final class OrientationLayoutTests: XCTestCase {
         XCTAssertEqual(UIHostingController(rootView: foot).sizeThatFits(in: offered).width, offered.width)
     }
 
+    /// The open panel is one scroll; opened, it brings the leg being flown into view, scrolling only as
+    /// far as it needs. On a route of eight waypoints, the legs had a scroll of their own inside the
+    /// panel's, and a leg far down the route opened out of view. (6.1, device check)
+    func testTheOpenPanelShowsTheLegBeingFlown() {
+        XCTAssertEqual(LegsPanelReveal.row(currentWaypointIndex: 6, waypointCount: 8), 6)
+        XCTAssertEqual(LegsPanelReveal.row(currentWaypointIndex: 1, waypointCount: 8), 1)
+        XCTAssertEqual(LegsPanelReveal.row(currentWaypointIndex: 8, waypointCount: 8), 7, "the route flown: its last row")
+        XCTAssertEqual(LegsPanelReveal.row(currentWaypointIndex: -1, waypointCount: 8), 0)
+        XCTAssertNil(LegsPanelReveal.row(currentWaypointIndex: 0, waypointCount: 0), "no legs")
+    }
+
     @MainActor
     func testEmergencyLinesUpWithTheFrequencyColumn() {
         final class Box { var frame: CGRect = .zero }

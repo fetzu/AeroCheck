@@ -260,6 +260,8 @@ struct NavigationMapView: View {
     @State private var legsPanelContentHeight: CGFloat = 0
     /// Emergency, pinned to the open panel's foot: its height. (6.1, option C)
     @State private var emergencyFooterHeight: CGFloat = 0
+    /// The panel just opened: its scroll is to bring the leg being flown into view, once measured.
+    @State private var legsRevealPending = false
     /// The chart's measures, for the band the open panel leaves between the card and itself.
     @State private var chartGeometry = ChartGeometry()
     /// The map as the panel found it, put back when it closes. (6.1, option C)
@@ -730,8 +732,12 @@ struct NavigationMapView: View {
                     VStack(spacing: 0) {
                         leadingColumn
                         Spacer(minLength: 0)
+                        // 6 pt under the strip: the column is to fit a 6.1" phone's 369 pt over the home
+                        // indicator, the thumb row whole. (6.1, device check)
                         navThumbColumnCompact
-                            .padding(12)
+                            .padding(.horizontal, 12)
+                            .padding(.top, 6)
+                            .padding(.bottom, 12)
                     }
                     .frame(width: leadingColumnWidth)
                     .background(theme.panel.ignoresSafeArea())
@@ -1271,8 +1277,9 @@ struct NavigationMapView: View {
                 ? (locationManager.currentCourseDegrees ?? mapState.cameraHeading) : 0)
     }
 
-    /// The panel opened: keep the map as it is, to put it back on closing.
+    /// The panel opened: keep the map as it is, to put it back on closing, and show the leg being flown.
     private func legsPanelOpened() {
+        legsRevealPending = true
         cameraBeforeLegs = LegsPanelMap.SavedCamera(
             center: mapState.region.center, span: mapState.region.span, distance: mapState.cameraDistance,
             heading: mapState.cameraHeading, following: isFollowingAircraft)
@@ -1894,16 +1901,35 @@ struct NavigationMapView: View {
         }
     }
 
-    /// The legs and every frequency in a scroll view as tall as they are, up to `maxHeight`.
+    /// The legs and every frequency in a scroll view as tall as they are, up to `maxHeight`: the panel's
+    /// one scroll, nothing inside it scrolls on its own. Opened, it brings the leg being flown into view
+    /// when it is below the fold (`LegsPanelReveal`). (6.1, device check)
     private func legsScroll(maxHeight: CGFloat) -> some View {
-        ScrollView {
-            SeparateView { legsAndFrequencies }
-                .background(GeometryReader { proxy in
-                    Color.clear.preference(key: LegsPanelHeightKey.self, value: proxy.size.height)
-                })
+        ScrollViewReader { reader in
+            ScrollView {
+                SeparateView { legsAndFrequencies }
+                    .background(GeometryReader { proxy in
+                        Color.clear.preference(key: LegsPanelHeightKey.self, value: proxy.size.height)
+                    })
+            }
+            .frame(height: min(legsPanelContentHeight, maxHeight))
+            .onPreferenceChange(LegsPanelHeightKey.self) { height in
+                legsPanelContentHeight = height
+                // Once the scroll has its height: on the next turn, after the frame above takes it.
+                guard legsRevealPending, height > 0 else { return }
+                legsRevealPending = false
+                DispatchQueue.main.async { revealLegBeingFlown(reader) }
+            }
         }
-        .frame(height: min(legsPanelContentHeight, maxHeight))
-        .onPreferenceChange(LegsPanelHeightKey.self) { legsPanelContentHeight = $0 }
+    }
+
+    /// The leg being flown, in the open panel's scroll, scrolling only as far as it needs: not at all
+    /// when it is in view.
+    private func revealLegBeingFlown(_ reader: ScrollViewProxy) {
+        guard let plan = flightPlanManager.activeFlightPlan,
+              let row = LegsPanelReveal.row(currentWaypointIndex: plan.currentWaypointIndex,
+                                            waypointCount: plan.waypoints.count) else { return }
+        reader.scrollTo(LegsPanelReveal.RowID(index: row), anchor: nil)
     }
 
     /// The chevron of the NOW / NEXT card (portrait) and of the column's NOW / NEXT (landscape): up to
@@ -2943,6 +2969,8 @@ struct NavigationMapView: View {
     /// The frequency column — by default just CURRENT + NEXT (what a VFR pilot needs to hand); "All
     /// Frequencies" reveals every station along the journey in order. (v4 UI/UX Revamp — current/next)
     /// EMERGENCY is pinned under the scroll, lined up with this column (`emergencyFooter`). (6.1, option C)
+    /// Every station whole, in the panel's one scroll: past five, they had a scroll of their own inside
+    /// it. (6.1, device check)
     private func freqColumn(large: Bool) -> some View {
         let nonEmergency = phaseFreqItems.filter { !$0.isEmergency }
         let essentials = nonEmergency.filter { $0.role == .current || $0.role == .next }
@@ -2954,15 +2982,7 @@ struct NavigationMapView: View {
                 .foregroundColor(theme.info)
                 .lineLimit(1)
                 .padding(.bottom, 4)
-            if large && visible.count > 5 {
-                // "All frequencies" can list a dozen stations; keep the panel's height in check.
-                ScrollView {
-                    VStack(spacing: 0) { ForEach(visible) { freqRow($0, large: true) } }
-                }
-                .frame(height: 5 * 44)
-            } else {
-                ForEach(visible) { freqRow($0, large: large) }
-            }
+            ForEach(visible) { freqRow($0, large: large) }
             if hasMore {
                 // No animated expand/collapse under Reduce Motion (UX-18)
                 Button(action: { withAnimation(reduceMotion ? nil : .default) { showAllFreqs.toggle() } }) {
@@ -2987,20 +3007,19 @@ struct NavigationMapView: View {
 
     /// `large`: the iPad kneeboard panel (v6.0 · P6). Rows read at 20–24 pt; heading and distance
     /// drop out, since the next-waypoint card already shows them live for the leg being flown.
+    ///
+    /// Every leg, whole, in the panel's one scroll (`legsScroll`). It had a scroll of its own, five rows
+    /// tall, inside the panel's: the legs scrolled, then the whole panel did. (6.1, device check)
     private func waypointList(plan: FlightPlan, compact: Bool = false, large: Bool = false) -> some View {
-        // Deterministic height (content for ≤5 waypoints, scroll beyond) — a greedy ScrollView made
-        // the whole sheet balloon to fill the screen. Keep the sheet as short as the content. (v4 UI/UX Revamp fix)
-        ScrollView {
-            VStack(spacing: 0) {
-                ForEach(Array(plan.waypoints.enumerated()), id: \.element.id) { index, wpt in
-                    waypointRow(plan: plan, index: index, wpt: wpt, compact: compact, large: large)
-                    if index < plan.waypoints.count - 1 {
-                        Rectangle().fill(Color.white.opacity(0.05)).frame(height: 0.5)
-                    }
+        VStack(spacing: 0) {
+            ForEach(Array(plan.waypoints.enumerated()), id: \.element.id) { index, wpt in
+                waypointRow(plan: plan, index: index, wpt: wpt, compact: compact, large: large)
+                    .id(LegsPanelReveal.RowID(index: index))
+                if index < plan.waypoints.count - 1 {
+                    Rectangle().fill(Color.white.opacity(0.05)).frame(height: 0.5)
                 }
             }
         }
-        .frame(height: CGFloat(min(max(plan.waypoints.count, 1), 5)) * (large ? 52 : 36))
     }
 
     private func waypointRow(plan: FlightPlan, index: Int, wpt: FlightPlanWaypoint, compact: Bool = false,
@@ -7325,6 +7344,22 @@ struct LegsPanelColumns: Layout {
             y += height + spacing
         }
         return frames
+    }
+}
+
+/// What the open legs panel brings into view when it is below the fold: the leg being flown, the row
+/// of the waypoint flown to. On a long route, a leg far down it opened out of view. Pure, so it is
+/// tested without a view. (6.1, device check)
+enum LegsPanelReveal {
+    /// A leg's row in the panel's scroll.
+    struct RowID: Hashable {
+        let index: Int
+    }
+
+    /// The row of the leg being flown; once the route is flown, its last row. None without legs.
+    static func row(currentWaypointIndex: Int, waypointCount: Int) -> Int? {
+        guard waypointCount > 0 else { return nil }
+        return min(max(currentWaypointIndex, 0), waypointCount - 1)
     }
 }
 

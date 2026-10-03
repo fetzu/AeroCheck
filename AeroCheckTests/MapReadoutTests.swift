@@ -108,6 +108,21 @@ final class MapReadoutTests: XCTestCase {
         }
     }
 
+    /// Several typed frequencies too long for the card: the first one whole, not the end of the text cut
+    /// in its digits ("….125 / Ground 121.900"). (6.1.0 device check)
+    func testSeveralTypedFrequenciesShowTheFirstWhole() {
+        XCTAssertEqual(FrequencyLineText.firstOfSeveral(FrequencyRow.parts(of: "Info 124.705 / Tower 118.125 / Ground 121.900")),
+                       "Info 124.705 / …")
+        XCTAssertEqual(FrequencyLineText.firstOfSeveral(FrequencyRow.parts(of: "119.175")), "119.175")
+        let font = Font.aero(size: CockpitType.response, weight: .bold, design: .monospaced)
+        let typed = "Info 124.705 / Tower 118.125 / Ground 121.900"
+        let first = size(Text("Info 124.705 / …").font(font).fixedSize()).width
+        let room = first + 10
+        XCTAssertGreaterThan(size(Text(typed).font(font).fixedSize()).width, room, "the whole text doesn't fit")
+        let card = size(FrequencyLineText(text: typed, font: font, color: .white), width: room)
+        XCTAssertEqual(card.width, first, accuracy: 1, "the first frequency and the sign, at full size")
+    }
+
     func testTheWordsGiveWayBeforeTheDigits() {
         XCTAssertFalse(FrequencyLineText.cutsAtStart("119.175 Bern Info"), "cut at the end: the digits lead")
         XCTAssertTrue(FrequencyLineText.cutsAtStart("Bern Info 119.175"), "cut at the start: the digits end it")

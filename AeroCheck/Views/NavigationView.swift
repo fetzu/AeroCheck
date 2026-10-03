@@ -7030,13 +7030,36 @@ struct FrequencyLineText: View {
                 .font(font)
                 .hidden()
                 .accessibilityHidden(true)
-            Text(text)
-                .font(font)
-                .foregroundColor(color)
-                .lineLimit(1)
-                .minimumScaleFactor(0.85)
-                .truncationMode(Self.cutsAtStart(text) ? .head : .tail)
+            let parts = FrequencyRow.parts(of: text)
+            if parts.count > 1 {
+                // Several frequencies typed ("Info 124.705 / Tower 118.125 / Ground 121.900"): all of them
+                // if they fit, else the first one whole and a sign there are more, which the open panel
+                // lists. Cut at its start, the text read "….125 / Ground 121.900": the first frequency
+                // gone and the second cut in its digits. (6.1.0 device check)
+                ViewThatFits(in: .horizontal) {
+                    line(text)
+                    line(Self.firstOfSeveral(parts))
+                    line(parts[0])
+                }
+                .accessibilityLabel(text)
+            } else {
+                line(text)
+            }
         }
+    }
+
+    private func line(_ shown: String) -> some View {
+        Text(shown)
+            .font(font)
+            .foregroundColor(color)
+            .lineLimit(1)
+            .minimumScaleFactor(0.85)
+            .truncationMode(Self.cutsAtStart(shown) ? .head : .tail)
+    }
+
+    /// The first of several typed frequencies, and a sign that more follow.
+    static func firstOfSeveral(_ parts: [String]) -> String {
+        parts.count > 1 ? parts[0] + " / …" : parts.first ?? ""
     }
 
     /// Whether the text ends with a frequency after some words ("Bern Info 120.100"): then the words are

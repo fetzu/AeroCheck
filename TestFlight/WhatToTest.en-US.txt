@@ -1,0 +1,3 @@
+6.1.1 is the version going to the App Store. Use it as you normally would, before, during and after your flights, and send what you notice from the TestFlight app: a screenshot with a line of text is the quickest way.
+
+New since 6.1.0: an iPad without GPS (Wi-Fi only) can install AéroCheck. In flight it uses the iPhone's GPS through Companion mode (iOS 26 on both), or an external GPS receiver. If you fly with either, tell us whether the GPS indicator stays green.

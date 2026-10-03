@@ -100,6 +100,25 @@ final class LocalizationCatalogTests: XCTestCase {
         }
     }
 
+    /// The source catalog had "Next: %@" twice, from an old merge: JSON readers keep the last copy
+    /// without a word, so an edit to the first one would silently do nothing. The compiled table
+    /// collapses duplicates, so this reads the source file. (6.2)
+    func testNoCatalogKeyAppearsTwice() throws {
+        let url = URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent().deletingLastPathComponent()
+            .appendingPathComponent("AeroCheck/Localizable.xcstrings")
+        let text = try String(contentsOf: url, encoding: .utf8)
+        let entry = try NSRegularExpression(pattern: #"^    ("(?:[^"\\]|\\.)*") ?: \{"#, options: .anchorsMatchLines)
+        var seen = Set<String>(), twice = [String]()
+        for match in entry.matches(in: text, range: NSRange(text.startIndex..., in: text)) {
+            guard let range = Range(match.range(at: 1), in: text) else { continue }
+            let key = String(text[range])
+            if !seen.insert(key).inserted { twice.append(key) }
+        }
+        XCTAssertGreaterThan(seen.count, 1_000, "read the real catalog")
+        XCTAssertEqual(twice, [], "each key once in Localizable.xcstrings")
+    }
+
     func testNoCatalogKeyUsesPositionalSpecifiers() throws {
         let url = try frenchBundle().bundleURL.appendingPathComponent("Localizable.strings")
         let table = try XCTUnwrap(NSDictionary(contentsOf: url) as? [String: String], "fr.lproj has a compiled Localizable.strings")

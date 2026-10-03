@@ -1550,11 +1550,11 @@ enum StatsCardAccent: String, CaseIterable, Identifiable {
 
     var displayName: String {
         switch self {
-        case .gold: return "Gold"
-        case .blue: return "Blue"
-        case .green: return "Green"
-        case .orange: return "Orange"
-        case .red: return "Red"
+        case .gold: return L10n.ShareCard.accentGold
+        case .blue: return L10n.ShareCard.accentBlue
+        case .green: return L10n.ShareCard.accentGreen
+        case .orange: return L10n.ShareCard.accentOrange
+        case .red: return L10n.ShareCard.accentRed
         }
     }
 
@@ -1578,8 +1578,8 @@ enum StatsCardLayout: String, CaseIterable, Identifiable {
 
     var displayName: String {
         switch self {
-        case .standard: return "Tiles"
-        case .hero: return "Hero"
+        case .standard: return L10n.ShareCard.layoutTiles
+        case .hero: return L10n.ShareCard.layoutHero
         }
     }
 
@@ -3960,7 +3960,7 @@ struct StatsShareCardCustomizationView: View {
                         .padding(.bottom, 16)
                 }
             }
-            .navigationTitle("Share Stats")
+            .navigationTitle(L10n.ShareCard.shareStats)
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
@@ -4003,7 +4003,7 @@ struct StatsShareCardCustomizationView: View {
 
     private var themePicker: some View {
         VStack(alignment: .leading, spacing: 8) {
-            sectionLabel("COLOR THEME")
+            sectionLabel(L10n.ShareCard.colorTheme)
             HStack(spacing: 12) {
                 ForEach(ShareCardColorScheme.allCases) { scheme in
                     Button {
@@ -4037,7 +4037,7 @@ struct StatsShareCardCustomizationView: View {
 
     private var accentPicker: some View {
         VStack(alignment: .leading, spacing: 8) {
-            sectionLabel("ACCENT")
+            sectionLabel(L10n.ShareCard.accent)
             HStack(spacing: 12) {
                 ForEach(StatsCardAccent.allCases) { accent in
                     Button {
@@ -4067,7 +4067,7 @@ struct StatsShareCardCustomizationView: View {
 
     private var layoutPicker: some View {
         VStack(alignment: .leading, spacing: 8) {
-            sectionLabel("LAYOUT")
+            sectionLabel(L10n.ShareCard.layout)
             HStack(spacing: 10) {
                 ForEach(StatsCardLayout.allCases) { layout in
                     Button {
@@ -4091,10 +4091,10 @@ struct StatsShareCardCustomizationView: View {
 
     private var contentToggles: some View {
         VStack(alignment: .leading, spacing: 8) {
-            sectionLabel("CONTENT")
+            sectionLabel(L10n.ShareCard.content)
             VStack(spacing: 10) {
-                toggleRow("Hours by aircraft", isOn: $options.showByAircraft)
-                toggleRow("Period title", isOn: $options.showPeriod)
+                toggleRow(L10n.ShareCard.showHoursByAircraft, isOn: $options.showByAircraft)
+                toggleRow(L10n.ShareCard.showPeriodTitle, isOn: $options.showPeriod)
             }
         }
     }

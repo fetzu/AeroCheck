@@ -17,6 +17,32 @@ final class LocalizationCatalogTests: XCTestCase {
         return try XCTUnwrap(Bundle(path: path))
     }
 
+    /// The Logbook's Share Stats sheet read English in French: its section labels, toggles, accents and
+    /// layouts took a `String`, never looked up, and its title had no French. (6.2)
+    func testTheShareStatsSheetHasItsFrench() throws {
+        let french = try frenchBundle()
+        let missing = "\u{1}missing"
+        let expected = [
+            "Share Stats": "Partager les statistiques",
+            "COLOR THEME": "THÈME DE COULEUR",
+            "ACCENT": "COULEUR D’ACCENTUATION",
+            "Gold": "Or",
+            "Blue": "Bleu",
+            "Green": "Vert",
+            "Orange": "Orange",
+            "Red": "Rouge",
+            "LAYOUT": "DISPOSITION",
+            "Tiles": "Tuiles",
+            "Hero": "Vedette",
+            "CONTENT": "CONTENU",
+            "Hours by aircraft": "Heures par avion",
+            "Period title": "Titre de la période",
+        ]
+        for (key, value) in expected {
+            XCTAssertEqual(french.localizedString(forKey: key, value: missing, table: nil), value, key)
+        }
+    }
+
     func testNoCatalogKeyUsesPositionalSpecifiers() throws {
         let url = try frenchBundle().bundleURL.appendingPathComponent("Localizable.strings")
         let table = try XCTUnwrap(NSDictionary(contentsOf: url) as? [String: String], "fr.lproj has a compiled Localizable.strings")

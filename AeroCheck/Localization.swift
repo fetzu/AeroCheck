@@ -1368,6 +1368,23 @@ enum L10n {
         /// Under the map styles when the ICAO chart gives way to the glider chart.
         static let gliderChartNote = String(localized: "Drawn on the glider chart, sharper at this scale")
 
+        // The Logbook's stats sheet (6.2: English in French until then). Its section labels, toggles,
+        // accents and layouts took a `String`, which `Text` shows as it is, so the lookup happens here.
+        static let shareStats = String(localized: "Share Stats")
+        static let colorTheme = String(localized: "COLOR THEME")
+        static let accent = String(localized: "ACCENT", comment: "Logbook stats sheet: the card's accent colour.")
+        static let accentGold = String(localized: "Gold", comment: "An accent colour of the Logbook stats card.")
+        static let accentBlue = String(localized: "Blue", comment: "An accent colour of the Logbook stats card.")
+        static let accentGreen = String(localized: "Green", comment: "An accent colour of the Logbook stats card.")
+        static let accentOrange = String(localized: "Orange", comment: "An accent colour of the Logbook stats card.")
+        static let accentRed = String(localized: "Red", comment: "An accent colour of the Logbook stats card.")
+        static let layout = String(localized: "LAYOUT", comment: "Logbook stats sheet: Tiles or Hero.")
+        static let layoutTiles = String(localized: "Tiles", comment: "Logbook stats card layout: four equal tiles in a row.")
+        static let layoutHero = String(localized: "Hero", comment: "Logbook stats card layout: the hours in big, then three smaller tiles.")
+        static let content = String(localized: "CONTENT", comment: "Logbook stats sheet: what the card shows.")
+        static let showHoursByAircraft = String(localized: "Hours by aircraft", comment: "Logbook stats sheet: a toggle for the card's hours per aircraft.")
+        static let showPeriodTitle = String(localized: "Period title", comment: "Logbook stats sheet: a toggle for the period under the card's title, 2026 or All time.")
+
         // The journey card (6.1): a day of the Logbook or a trip's legs on one card.
         /// "3 flights": a day with circuits or a local flight in it, and the Logbook's day header.
         static func flightCount(_ count: Int) -> String { String(localized: "\(count) flights") }

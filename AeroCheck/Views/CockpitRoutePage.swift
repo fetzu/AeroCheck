@@ -22,6 +22,8 @@ struct CockpitRoutePage: View {
     let layout: CockpitLayout
     /// A leg's row: MAP framed on the leg arriving at that waypoint.
     let onShowLeg: (Int) -> Void
+    /// The device's measures; the tests lay the phone's out on an iPad.
+    var scale: CockpitScale = .current
     /// For the tests: each part of the page as laid out, in the page's space.
     var onLayout: ((RoutePagePart, CGRect) -> Void)? = nil
 
@@ -33,7 +35,7 @@ struct CockpitRoutePage: View {
     var body: some View {
         let hasLegs = flightPlanManager.activeFlightPlan != nil
         VStack(spacing: 0) {
-            SeparateView { RouteDestinationSection(layout: layout) }
+            SeparateView { RouteDestinationSection(layout: layout, scale: scale) }
             SeparateView { RouteLegsAndRadio(layout: layout, hasLegs: hasLegs, onShowLeg: onShowLeg) }
                 .frame(maxHeight: .infinity, alignment: .top)
                 .routePagePart(.scroll)
@@ -94,6 +96,7 @@ private extension View {
 /// on the radio under it (it was on the map's next-waypoint card). Follows every fix.
 struct RouteDestinationSection: View {
     let layout: CockpitLayout
+    var scale: CockpitScale = .current
 
     @EnvironmentObject private var locationManager: LocationManager
     @EnvironmentObject private var flightPlanManager: FlightPlanManager
@@ -105,83 +108,37 @@ struct RouteDestinationSection: View {
            let estimate = DestinationEstimator.estimate(DestinationInput(
                plan: plan, location: locationManager.currentLocation,
                groundSpeedKnots: locationManager.currentSpeedKnots)) {
-            VStack(alignment: .leading, spacing: 8) {
-                DestinationLineSlot(estimate: estimate) { flightPlanManager.resumeRoute() }
-                if estimate.kind == .diversion, threadManager.thread(forPlanId: plan.id)?.hasOpenFlightPlan == true {
-                    Text(L10n.Trip.tellFIS(estimate.ident))
-                        .font(.aero(size: CockpitType.label))
-                        .foregroundColor(theme.warning)
-                        .fixedSize(horizontal: false, vertical: true)
+            OfferedWidth {
+                VStack(alignment: .leading, spacing: 8) {
+                    DestinationLine(estimate: estimate, scale: scale,
+                                    onResumeRoute: { flightPlanManager.resumeRoute() })
+                    if estimate.kind == .diversion, threadManager.thread(forPlanId: plan.id)?.hasOpenFlightPlan == true {
+                        Text(L10n.Trip.tellFIS(estimate.ident))
+                            .font(.aero(size: CockpitType.label))
+                            .foregroundColor(theme.warning)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
                 }
+                .padding(.horizontal, layout == .wide ? 16 : 12)
+                .padding(.top, 12)
             }
-            .padding(.horizontal, layout == .wide ? 16 : 12)
-            .padding(.top, 12)
         }
     }
 }
 
-/// Where the DEST line goes. PLACEHOLDER until `DestinationLine` (PR "feat(cockpit): the DEST line, with
-/// the route drawn to scale") is merged: this slot then holds `DestinationLine(estimate:scale:
-/// onResumeRoute:)` and nothing else. Until then, the line's figures on one row, at the line's height,
-/// carrying its identifier and its test hook (the plan's DEST ETO), so the UI tests have it.
-struct DestinationLineSlot: View {
-    let estimate: DestinationEstimate
-    let onResumeRoute: () -> Void
-
-    @Environment(\.cockpitTheme) private var theme
-
-    var body: some View {
-        HStack(spacing: 12) {
-            Text(verbatim: "DEST")
-                .font(.aero(size: CockpitType.label, weight: .semibold))
-                .foregroundColor(theme.textSecondary)
-            Text(estimate.ident)
-                .font(.aero(size: CockpitType.response, weight: .bold, design: .monospaced))
-                .foregroundColor(estimate.kind == .diversion ? theme.warning : theme.route)
-                .lineLimit(1)
-                .minimumScaleFactor(0.6)
-            Spacer(minLength: 8)
-            Text(figures)
-                .font(.aero(size: CockpitType.label, weight: .bold, design: .monospaced))
-                .foregroundColor(theme.textPrimary)
-                .lineLimit(1)
-                .minimumScaleFactor(0.7)
-            if estimate.kind == .diversion {
-                Button(action: onResumeRoute) {
-                    Text(L10n.Trip.resumeRoute)
-                        .font(.aero(size: CockpitType.label, weight: .bold))
-                        .foregroundColor(theme.action)
-                        .padding(.horizontal, 12)
-                        .frame(minHeight: 44)
-                        .overlay(Capsule().strokeBorder(theme.action, lineWidth: 1.5))
-                        .contentShape(Rectangle())
-                }
-                .buttonStyle(.plain)
-                .fixedSize()
-                .accessibilityIdentifier("dest.resumeRoute")
-            }
-        }
-        .padding(.horizontal, 16)
-        .frame(maxWidth: .infinity, minHeight: CockpitType.size(kneeboard: 88, phone: 76))
-        .background(RoundedRectangle(cornerRadius: 16).fill(theme.panel))
-        .overlay(RoundedRectangle(cornerRadius: 16).stroke(theme.panelStroke, lineWidth: 1))
-        .accessibilityElement(children: .contain)
-        .overlay {
-            // The line's identifier and hook: the plan's DEST ETO, as the legs list's "ETA" showed it.
-            Color.clear
-                .accessibilityElement()
-                .accessibilityLabel(Text(verbatim: "DEST \(estimate.ident)"))
-                .accessibilityValue(estimate.plannedDestinationETO.map(DestinationFormat.clock) ?? "")
-                .accessibilityIdentifier("dest.line")
-                .allowsHitTesting(false)
-        }
+/// Its content at the width it is offered, never wider: a line whose figures need more (the iPad's
+/// one-line DEST in a narrow window) runs past its edge rather than widen the page, which then sat off
+/// centre with every column moved. (6.2)
+struct OfferedWidth: Layout {
+    func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
+        guard let child = subviews.first else { return .zero }
+        guard let width = proposal.width, width.isFinite else { return child.sizeThatFits(proposal) }
+        return CGSize(width: width, height: child.sizeThatFits(ProposedViewSize(width: width, height: nil)).height)
     }
 
-    private var figures: String {
-        let distance = estimate.remainingNM.map(DestinationFormat.distance) ?? "—"
-        if let eta = estimate.eta { return "\(distance) · ETA \(DestinationFormat.clock(eta))" }
-        if let eto = estimate.plannedETO { return "\(distance) · ETO \(DestinationFormat.clock(eto))" }
-        return distance
+    func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) {
+        subviews.first?.place(at: bounds.origin, anchor: .topLeading,
+                              proposal: ProposedViewSize(width: bounds.width, height: bounds.height))
     }
 }
 

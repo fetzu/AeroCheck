@@ -56,6 +56,15 @@ final class CockpitRoutePageTests: XCTestCase {
         XCTAssertEqual(phone[.emergency]?.width, 402 - 32)
     }
 
+    /// The iPad's one-line DEST needs about 520 pt: in a window narrower than that (Slide Over) it runs
+    /// past its edge, and the page keeps its width. It made the page wider than the window, centred, every
+    /// column moved off the margin.
+    func testTheDestLineNeverWidensThePage() throws {
+        let parts = try layOut(waypoints: 6, size: CGSize(width: 402, height: 520), layout: .narrow, scale: .kneeboard)
+        XCTAssertEqual(parts[.legs]?.minX, 16)
+        XCTAssertEqual(parts[.emergency]?.maxX, 402 - 16)
+    }
+
     func testWithoutARouteTheRadioTakesThePage() throws {
         let parts = try layOut(waypoints: 0, size: CGSize(width: 820, height: 700))
         XCTAssertNil(parts[.legs])
@@ -147,7 +156,9 @@ final class CockpitRoutePageTests: XCTestCase {
     // MARK: - Helpers
 
     /// ROUTE at `size` with an active plan of `waypoints` (none: no plan), and where each part landed.
-    private func layOut(waypoints: Int, size: CGSize, layout: CockpitLayout = .wide) throws -> [RoutePagePart: CGRect] {
+    private func layOut(waypoints: Int, size: CGSize, layout: CockpitLayout = .wide,
+                        scale: CockpitScale? = nil) throws -> [RoutePagePart: CGRect] {
+        let scale = scale ?? (layout == .wide ? .kneeboard : .phone)
         let services = makeServices()
         startFlight(services.appState)
         if waypoints > 0 {
@@ -156,7 +167,7 @@ final class CockpitRoutePageTests: XCTestCase {
         }
         final class Box { var parts: [RoutePagePart: CGRect] = [:] }
         let box = Box()
-        let page = CockpitRoutePage(layout: layout, onShowLeg: { _ in }, onLayout: { box.parts[$0] = $1 })
+        let page = CockpitRoutePage(layout: layout, onShowLeg: { _ in }, scale: scale, onLayout: { box.parts[$0] = $1 })
         _ = render(page, services: services, size: size)
         XCTAssertFalse(box.parts.isEmpty, "the page reported its parts")
         return box.parts
@@ -199,8 +210,8 @@ final class CockpitRoutePageTests: XCTestCase {
     private func makeServices() -> Services {
         let datastore = makeTestDatastore()
         let subscriptionManager = makeTestSubscriptionManager(deferLoadProducts: true)
-        // The radio downloads the airport database when it starts without one: not from a test.
-        let airportDataService = AirportDataService()
+        // No airport database (the simulator app's own may be there), and none downloaded by the radio.
+        let airportDataService = makeTestAirportStore(openAIPAirports: makeTestOpenAIPAirportLayer { _ in [] })
         airportDataService.isDownloading = true
         return Services(
             appState: makeTestAppState(datastore: datastore),

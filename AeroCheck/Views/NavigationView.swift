@@ -2354,9 +2354,14 @@ struct NavigationMapView: View {
     private var legsAndFrequencies: some View {
         Group {
             if flightPlanManager.activeFlightPlan != nil {
-                LegsPanelColumns {
-                    legsColumn
-                    freqColumn(large: true)
+                VStack(alignment: .leading, spacing: 12) {
+                    // Over both columns, at the panel's width: beside the frequencies its figures had
+                    // no room. (6.2)
+                    destinationLine
+                    LegsPanelColumns {
+                        legsColumn
+                        freqColumn(large: true)
+                    }
                 }
             } else {
                 freqColumn(large: true)
@@ -2367,18 +2372,25 @@ struct NavigationMapView: View {
         .padding(.vertical, 12)
     }
 
-    /// The legs, then the DEST line (the author's call for 6.2: the Cockpit's ROUTE line, in place of the
-    /// "DEST · NM · ETA" row and the progress bar with its dots).
     @ViewBuilder
     private var legsColumn: some View {
         if let plan = flightPlanManager.activeFlightPlan {
-            VStack(alignment: .leading, spacing: 10) {
-                waypointList(plan: plan, large: true)
-                if let estimate = DestinationEstimator.estimate(DestinationInput(
-                    plan: plan, location: locationManager.currentLocation,
-                    groundSpeedKnots: locationManager.currentSpeedKnots)) {
-                    DestinationLineSlot(estimate: estimate) { flightPlanManager.resumeRoute() }
-                }
+            waypointList(plan: plan, large: true)
+        }
+    }
+
+    /// The Cockpit's DEST line, the route to scale under it (the author's call for 6.2), in place of the
+    /// "DEST · NM · ETA" row and the progress bar with its dots under the legs.
+    @ViewBuilder
+    private var destinationLine: some View {
+        if let plan = flightPlanManager.activeFlightPlan,
+           let estimate = DestinationEstimator.estimate(DestinationInput(
+               plan: plan, location: locationManager.currentLocation,
+               groundSpeedKnots: locationManager.currentSpeedKnots)) {
+            // Never wider than the panel: in a narrow window it widened the panel, then the map pane.
+            OfferedWidth {
+                DestinationLine(estimate: estimate, scale: CockpitScale.current,
+                                onResumeRoute: { flightPlanManager.resumeRoute() })
             }
         }
     }
@@ -2721,9 +2733,9 @@ struct NavigationMapView: View {
         let latitudeDelta: Double
     }
 
-    /// What the bar over the chart's foot leaves under it, at the most: the bar, the map's foot (the
-    /// scale; the controls on a phone) and their margins.
-    private static var framedLegFootRoom: CGFloat { CockpitType.size(kneeboard: 150, phone: 190) }
+    /// What the chart's foot holds while a leg shows: the bar, the map's foot under it (the scale; the
+    /// controls on a phone) and a margin, so the leg's waypoints stay above the bar.
+    private static var framedLegFootRoom: CGFloat { CockpitType.size(kneeboard: 190, phone: 230) }
 
     /// The leg framed: its two waypoints, clear of the chrome over the chart's top and of the bar at its
     /// foot, the aircraft no longer followed.

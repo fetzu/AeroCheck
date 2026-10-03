@@ -64,23 +64,26 @@ struct FlightView: View {
     /// `initialPane`: the page to open on, as if the pilot had picked it (a test's way to CHECKLIST in
     /// cruise, which the flight shows on MAP, or to ROUTE). `radio`: a test's, to read what it computed.
     init(initialPane: CockpitPane? = nil, radio: CockpitRadio? = nil) {
-        var pane = initialPane
         let navState = CockpitNavState()
-        #if DEBUG
-        // DEV-ONLY, for captures (6.2): `AEROCHECK_PANE=route` opens on that page, `AEROCHECK_LEG=3` on
-        // MAP showing the leg to the fourth waypoint, as a tap on its row on ROUTE does.
-        let environment = ProcessInfo.processInfo.environment
-        if pane == nil, let name = environment["AEROCHECK_PANE"]?.lowercased() {
-            pane = ["checklist": .checklist, "map": .map, "route": .route][name]
-        }
-        if let leg = environment["AEROCHECK_LEG"].flatMap(Int.init) {
-            navState.showLeg(leg)
-            pane = .map
-        }
-        #endif
-        _paneChoice = State(initialValue: CockpitPaneChoice(override: pane))
+        _paneChoice = State(initialValue: CockpitPaneChoice(override: Self.capturePane(initialPane, navState: navState)))
         _navState = State(initialValue: navState)
         _radio = State(initialValue: radio ?? CockpitRadio())
+    }
+
+    /// The page to open on. DEV-ONLY, for captures (6.2): `AEROCHECK_PANE=route` opens on that page,
+    /// `AEROCHECK_LEG=3` on MAP showing the leg to the fourth waypoint, as a tap on its row on ROUTE does.
+    private static func capturePane(_ pane: CockpitPane?, navState: CockpitNavState) -> CockpitPane? {
+        #if DEBUG
+        let environment = ProcessInfo.processInfo.environment
+        if let leg = environment["AEROCHECK_LEG"].flatMap(Int.init) {
+            navState.showLeg(leg)
+            return .map
+        }
+        if pane == nil, let name = environment["AEROCHECK_PANE"]?.lowercased() {
+            return ["checklist": .checklist, "map": .map, "route": .route][name]
+        }
+        #endif
+        return pane
     }
 
     /// Check if current phase has an action button that hasn't been pressed yet. Not the check before

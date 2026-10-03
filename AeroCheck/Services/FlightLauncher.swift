@@ -66,6 +66,19 @@ struct FlightLauncher {
         return .blockedAcquiringGPS
     }
 
+    /// How long a start waits for GPS that was not running to give a fix, before it says so.
+    static let gpsWarmUp: Duration = .seconds(5)
+
+    /// Whether `condition` holds within `limit`, looked at every 100 ms: true as soon as it does.
+    static func waitFor(upTo limit: Duration, _ condition: () -> Bool) async -> Bool {
+        let deadline = ContinuousClock.now + limit
+        while !condition() {
+            guard ContinuousClock.now < deadline else { return false }
+            try? await Task.sleep(for: .milliseconds(100))
+        }
+        return true
+    }
+
     /// Resolve the checklist, run the guards, start the flight, and begin GPS tracking.
     /// Returns the outcome; side effects (paywall request / error alert) are set on `appState`.
     /// `followedFlightId` is set when the pilot pressed START FLIGHT inside a followed flight, which
@@ -112,6 +125,18 @@ struct FlightLauncher {
         // or a companion's borrowed over Wi-Fi Aware. The first three guards have already passed, so
         // evaluate() here reduces to the location/GPS decision.
         let authorization = locationManager.authorizationStatus
+        // GPS that isn't running yet gets a moment to come up before the start is refused. Today warms it
+        // up when it appears, but leaving a map stops it again (`stopLocationUpdates`), and on the iPad,
+        // where Today stays on screen after a flight, nothing started it again: the first START FLIGHT
+        // almost always bounced off "Waiting for a GPS fix" and the second, a moment later, went through.
+        // (6.1.0 device check)
+        if authorization == .authorizedWhenInUse || authorization == .authorizedAlways,
+           !locationManager.hasRecentUsableFix, !CompanionConnectivityManager.shared.hasUsablePeerFix {
+            locationManager.startLocationUpdates()
+            _ = await Self.waitFor(upTo: Self.gpsWarmUp) { [locationManager] in
+                locationManager.hasRecentUsableFix || CompanionConnectivityManager.shared.hasUsablePeerFix
+            }
+        }
         // Use the lenient start-fix check (valid position + GPS active), NOT ownFixIsLive's tight few-second
         // window — a stationary aircraft on the ramp stops producing fresh fixes but its position is valid.
         let hasOwnFix = locationManager.hasRecentUsableFix

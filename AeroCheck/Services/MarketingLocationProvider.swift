@@ -608,7 +608,9 @@ enum MarketingSceneInjector {
         return nil
     }
 
-    /// Inject the given marketing scene. All side effects are dev-gated by the caller (Marketing Mode).
+    /// Inject the given marketing scene. Both callers, `ContentView`'s `AEROCHECK_SCENE` launch task
+    /// and the Marketing Mode overlay, are compiled out of Release (SEC-C37). Async because the cruise
+    /// scenes resolve their checklist before the flight starts, as a real start does.
     static func inject(
         _ scene: MarketingScene,
         appState: AppState,
@@ -618,7 +620,7 @@ enum MarketingSceneInjector {
         flightPlanManager: FlightPlanManager,
         airportDataService: AirportDataService,
         threadManager: FlightThreadManager? = nil
-    ) {
+    ) async {
 
         // Every scene starts from NO threads. A single leftover thread scheduled today takes over
         // Home's hero, which silently ruined the `home` and `conflicts` shots — they came back
@@ -649,15 +651,16 @@ enum MarketingSceneInjector {
         case .home2Aircraft:
             injectHome2Aircraft(appState: appState, subscriptionManager: subscriptionManager, aircraftDataService: aircraftDataService)
         case .cruiseHUD:
-            injectCruiseHUD(appState: appState, locationManager: locationManager, airportDataService: airportDataService)
+            await injectCruiseHUD(appState: appState, locationManager: locationManager, airportDataService: airportDataService,
+                                  aircraftDataService: aircraftDataService)
         case .cruiseRoute:
             injectNavPlanActive(flightPlanManager: flightPlanManager, airportDataService: airportDataService, locationManager: locationManager)
-            injectCruiseHUD(appState: appState, locationManager: locationManager, airportDataService: airportDataService,
-                            fix: .onTheLeg)
+            await injectCruiseHUD(appState: appState, locationManager: locationManager, airportDataService: airportDataService,
+                                  aircraftDataService: aircraftDataService, fix: .onTheLeg)
         case .cruiseMap:
             injectNavPlanActive(flightPlanManager: flightPlanManager, airportDataService: airportDataService, locationManager: locationManager)
-            injectCruiseHUD(appState: appState, locationManager: locationManager, airportDataService: airportDataService,
-                            fix: .onTheLeg)
+            await injectCruiseHUD(appState: appState, locationManager: locationManager, airportDataService: airportDataService,
+                                  aircraftDataService: aircraftDataService, fix: .onTheLeg)
             // The chart as the 5.0 captures showed it: the ICAO chart's own airspace, no OpenAIP layers
             // over it. The scene sets it rather than relying on a simulator's settings.
             appState.settings.showOpenAIPOverlay = false
@@ -723,11 +726,17 @@ enum MarketingSceneInjector {
     }
 
     private static func injectCruiseHUD(appState: AppState, locationManager: LocationManager, airportDataService: AirportDataService,
-                                        fix: CruiseFix = .standalone) {
-        // Start a fresh flight on the bundled WT9 (always resolvable, no network needed).
+                                        aircraftDataService: AircraftDataService, fix: CruiseFix = .standalone) async {
+        // Start a fresh flight on the bundled WT9 (always resolvable: offline, the load below falls
+        // back to the bundled JSON).
         if appState.isFlightActive { appState.cancelFlight() }
         appState.settings.selectedRemoteAircraftId = nil
         appState.settings.selectedAircraft = .wt9Dynamic
+        // Resolve its checklist the way FlightLauncher does before every real start: the WT9 in the
+        // checklist language (Settings, or the system's on Auto). Without it the flight ran on the
+        // hard-coded WT9 data, which is English only, so the French captures showed English checks
+        // and V-speeds. (6.1 App Store captures)
+        await appState.loadRemoteChecklistIfNeeded(aircraftDataService: aircraftDataService)
         appState.startFlight()
 
         // Mark every phase up to and including climb as completed (green); current phase = cruise.
@@ -741,10 +750,14 @@ enum MarketingSceneInjector {
         appState.highestCompletedPhase = .climb
 
         // Cruise: highlight the Fuel-Quantity item with the items before it completed (green).
-        // The WT9 cruise checklist lists Fuel Quantity as item 4; locate it by challenge text so the
-        // index is robust to checklist edits, falling back to index 3 (the 4th visible item).
+        // The WT9 cruise checklist lists Fuel Quantity as item 4 ("Quantité carburant" in French);
+        // locate it by challenge text so the index is robust to checklist edits, falling back to
+        // index 3 (the 4th visible item).
         let cruiseItems = appState.activeChecklist.visibleItems(for: .cruise, learningMode: appState.settings.learningMode)
-        let fuelIndex = cruiseItems.firstIndex { $0.challenge.lowercased().contains("fuel quantity") } ?? min(3, max(0, cruiseItems.count - 1))
+        let fuelIndex = cruiseItems.firstIndex {
+            let challenge = $0.challenge.lowercased()
+            return challenge.contains("fuel quantity") || challenge.contains("quantité carburant")
+        } ?? min(3, max(0, cruiseItems.count - 1))
         appState.currentHighlightedItem[.cruise] = fuelIndex
         appState.phaseCompletionStatus[.cruise] = nil // in-progress, not yet completed
 
@@ -1301,19 +1314,22 @@ struct MarketingControlsView: View {
     /// Drive the app into the selected marketing scene (DEV-ONLY). Always gated by Marketing Mode at
     /// the call site (this overlay only renders when Marketing Mode is on).
     private func injectSelectedScene() {
-        MarketingSceneInjector.inject(
-            selectedScene,
-            appState: appState,
-            locationManager: locationManager,
-            subscriptionManager: subscriptionManager,
-            aircraftDataService: aircraftDataService,
-            flightPlanManager: flightPlanManager,
-            airportDataService: airportDataService
-        ,
-            threadManager: threadManager)
-        let formatter = DateFormatter()
-        formatter.dateFormat = "HH:mm:ss"
-        lastInjected = "Injected: \(selectedScene.rawValue) @ \(formatter.string(from: Date()))"
+        let scene = selectedScene
+        Task {
+            await MarketingSceneInjector.inject(
+                scene,
+                appState: appState,
+                locationManager: locationManager,
+                subscriptionManager: subscriptionManager,
+                aircraftDataService: aircraftDataService,
+                flightPlanManager: flightPlanManager,
+                airportDataService: airportDataService,
+                threadManager: threadManager
+            )
+            let formatter = DateFormatter()
+            formatter.dateFormat = "HH:mm:ss"
+            lastInjected = "Injected: \(scene.rawValue) @ \(formatter.string(from: Date()))"
+        }
     }
 }
 

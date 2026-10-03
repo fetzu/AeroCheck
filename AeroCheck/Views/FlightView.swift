@@ -35,9 +35,14 @@ struct FlightView: View {
     /// docked into the iPad-landscape right column (over the map), or a cockpit-themed bottom drawer
     /// on iPad portrait / iPhone. nil = none. HUD Settings stays a sheet (Pattern A). (v4 UI/UX Revamp)
     @State private var activeReference: HUDReference? = nil
-    /// The Cockpit pane the pilot picked, over the one the flight suggests. Dropped as soon as the
-    /// suggestion changes (next phase, checklist done). (v6.0 · P2)
-    @State private var paneOverride: CockpitPane?
+    /// The Cockpit page the pilot picked, over the one the flight suggests. Dropped as soon as the
+    /// suggestion changes (next phase, checklist done). (v6.0 · P2; ROUTE 6.2)
+    @State private var paneChoice: CockpitPaneChoice
+    /// What the act band owns for every page: MARK's UNDO, the Divert sheet, the routes, the leg ROUTE
+    /// asked MAP to show. (6.2)
+    @State private var navState: CockpitNavState
+    /// NOW, NEXT and every frequency, on every page, and the Watch's list. (6.2, ROUTE)
+    @State private var radio: CockpitRadio
     @State private var pulseNextButton = false
     @State private var pulseActionButton = false
     @State private var allItemsChecked = false
@@ -55,6 +60,31 @@ struct FlightView: View {
     @State private var hourMeterStartInitialValue: String = ""
     @State private var hourMeterStopInitialValue: String = ""
 
+
+    /// `initialPane`: the page to open on, as if the pilot had picked it (a test's way to CHECKLIST in
+    /// cruise, which the flight shows on MAP, or to ROUTE). `radio`: a test's, to read what it computed.
+    init(initialPane: CockpitPane? = nil, radio: CockpitRadio? = nil) {
+        let navState = CockpitNavState()
+        _paneChoice = State(initialValue: CockpitPaneChoice(override: Self.capturePane(initialPane, navState: navState)))
+        _navState = State(initialValue: navState)
+        _radio = State(initialValue: radio ?? CockpitRadio())
+    }
+
+    /// The page to open on. DEV-ONLY, for captures (6.2): `AEROCHECK_PANE=route` opens on that page,
+    /// `AEROCHECK_LEG=3` on MAP showing the leg to the fourth waypoint, as a tap on its row on ROUTE does.
+    private static func capturePane(_ pane: CockpitPane?, navState: CockpitNavState) -> CockpitPane? {
+        #if DEBUG
+        let environment = ProcessInfo.processInfo.environment
+        if let leg = environment["AEROCHECK_LEG"].flatMap(Int.init) {
+            navState.showLeg(leg)
+            return .map
+        }
+        if pane == nil, let name = environment["AEROCHECK_PANE"]?.lowercased() {
+            return ["checklist": .checklist, "map": .map, "route": .route][name]
+        }
+        #endif
+        return pane
+    }
 
     /// Check if current phase has an action button that hasn't been pressed yet. Not the check before
     /// departure since 6.2: READY FOR LINE UP is its NEXT.
@@ -511,59 +541,8 @@ struct FlightView: View {
         appState.nextPhase()
     }
 
-    /// While anything is deferred, a caution row on top of the checklist opens the deferred list.
-    @ViewBuilder
-    private var deferredItemsChip: some View {
-        if appState.hasDeferredWork {
-            DeferredItemsChip(checks: appState.deferredChecks.count, count: appState.deferredItemCount) {
-                showDeferredItems = true
-            }
-                .padding(.top, 8)
-                .padding(.bottom, 2)
-        }
-    }
-
-    /// The phase's timestamp action (engine-start / shutdown) shown next to NEXT in the HUD bottom bar —
-    /// moved out of the checklist scroll so it's always reachable, not scrolled away. Mutually exclusive
-    /// per phase; empty otherwise. (v4 UI/UX Revamp) READY FOR LINE UP is the check before departure's
-    /// NEXT since 6.2 (`cockpitPrimaryButton`).
-    @ViewBuilder
-    private func hudPhaseActionButton(height: CGFloat? = nil) -> some View {
-        let phase = appState.currentPhase
-        let lang = appState.settings.checklistLanguage.resolvedLanguage
-        if phase.showsEngineStartButton {
-            TimestampActionButton(
-                title: L10n.ChecklistAction.engineStart(language: lang),
-                icon: "engine.combustion.fill",
-                color: theme.onTarget,
-                timestamp: appState.formattedEngineStartTime,
-                timestampLabel: L10n.ChecklistAction.started(language: lang),
-                isPulsing: pulseActionButton,
-                compact: true,
-                minHeight: height,
-                onFirstPress: { performEngineStart() },
-                onUpdateTime: { performEngineStartUpdate() }
-            )
-            .accessibilityIdentifier("cockpit.engineStart")
-        } else if phase.showsEngineShutdownButton {
-            TimestampActionButton(
-                title: L10n.ChecklistAction.engineShutdown(language: lang),
-                icon: "engine.combustion.fill",
-                color: theme.danger,
-                timestamp: appState.formattedEngineShutdownTime,
-                timestampLabel: L10n.ChecklistAction.shutdown(language: lang),
-                isPulsing: pulseActionButton,
-                compact: true,
-                minHeight: height,
-                onFirstPress: { performEngineShutdown() },
-                onUpdateTime: { performEngineShutdownUpdate() }
-            )
-            .accessibilityIdentifier("cockpit.engineShutdown")
-        }
-    }
-
-    // Phase timestamp actions — shared by the HUD bottom-bar button (iPad) and the in-checklist
-    // buttons (these methods back the iPad ChecklistView callbacks too, so behavior can't diverge).
+    // Phase timestamp actions — shared by the act band's first slot (`ActPhaseActionButton`) and the
+    // in-checklist buttons (these methods back the ChecklistView callbacks too, so behavior can't diverge).
     private func performEngineStart() {
         appState.recordEngineStart()
         pulseActionButton = false
@@ -595,40 +574,27 @@ struct FlightView: View {
     /// pilot doesn't have to scroll the checklist to reach them. Gated on the same phase flags as the
     /// in-checklist buttons; hold-to-confirm so a stray touch can't fire a go-around. Empty (no space)
     /// when no event applies to the current phase. (v4 UI/UX Revamp)
+    ///
+    /// In circuit mode GO-AROUND / TOUCH & GO are single taps, for a quick correction of a missed
+    /// detection (the jump back to the CLIMB check); FULL-STOP stays hold-to-confirm always. They were
+    /// beside NEXT in the checklist's thumb bar until the act band (6.2), whose slots never change with
+    /// the phase.
     @ViewBuilder
     /// `kneeboard`: the Cockpit's size and colours (on-device review #1, L-02).
     private func eventActionsRow(kneeboard: Bool = false) -> some View {
         let phase = appState.currentPhase
-        let language = appState.settings.checklistLanguage.resolvedLanguage
-        // In circuit mode GO-AROUND / TOUCH & GO become single-tap buttons beside NEXT
-        // (circuitQuickEventButtons) for fast missed-detection recovery, so they're omitted here.
-        // Outside circuit mode they stay hold-to-confirm. FULL-STOP stays hold-to-confirm always.
-        let showHoldGoAround = phase.showsGoAroundButtons && !appState.isCircuitMode
-        if showHoldGoAround || phase.showsLandedButton {
+        if phase.showsGoAroundButtons || phase.showsLandedButton {
             HStack(spacing: 10) {
-                if showHoldGoAround {
-                    HoldToConfirmButton(
-                        title: L10n.ChecklistAction.goAround(language: language),
-                        systemImage: "arrow.up.right.circle.fill",
-                        tint: kneeboard ? theme.action : theme.warning,
-                        count: appState.currentFlight?.goAroundCount ?? 0,
-                        kneeboard: kneeboard,
-                        action: performGoAround
-                    )
-                    .accessibilityIdentifier("cockpit.goAround")
-                    HoldToConfirmButton(
-                        title: L10n.ChecklistAction.touchAndGo(language: language),
-                        systemImage: "arrow.triangle.2.circlepath",
-                        tint: kneeboard ? theme.action : .aviationBlue,
-                        count: appState.currentFlight?.touchAndGoCount ?? 0,
-                        kneeboard: kneeboard,
-                        action: performTouchAndGo
-                    )
-                    .accessibilityIdentifier("cockpit.touchAndGo")
+                if phase.showsGoAroundButtons {
+                    if appState.isCircuitMode {
+                        circuitQuickEventButtons
+                    } else {
+                        holdEventButtons(kneeboard: kneeboard)
+                    }
                 }
                 if phase.showsLandedButton {
                     HoldToConfirmButton(
-                        title: L10n.ChecklistAction.landed(language: language),
+                        title: L10n.ChecklistAction.landed(language: appState.settings.checklistLanguage.resolvedLanguage),
                         systemImage: "airplane.arrival",
                         tint: kneeboard ? theme.action : .aviationBlue,
                         count: appState.currentFlight?.fullStopCount ?? 0,
@@ -643,30 +609,46 @@ struct FlightView: View {
         }
     }
 
-    /// In circuit mode, single-tap GO-AROUND / TOUCH & GO shown beside NEXT in the HUD bottom bar so a
-    /// missed auto-detection can be corrected instantly (jump back to the CLIMB check). Hold-to-confirm
-    /// is too slow here; the accepted trade-off is a small accidental-tap risk during circuit training.
+    /// GO-AROUND and TOUCH & GO held 1 s to confirm.
     @ViewBuilder
-    private func circuitQuickEventButtons() -> some View {
-        let phase = appState.currentPhase
+    private func holdEventButtons(kneeboard: Bool) -> some View {
         let language = appState.settings.checklistLanguage.resolvedLanguage
-        if appState.isCircuitMode && phase.showsGoAroundButtons {
-            // The Cockpit's thumb bar: the same outlined buttons as its neighbours, cyan because they
-            // are things to press, not alerts. (on-device review #1, L-02)
-            HStack(spacing: 12) {
-                CockpitThumbButton(title: L10n.ChecklistAction.goAround(language: language),
-                                   icon: "arrow.up.right.circle.fill",
-                                   style: .outlined(tint: theme.action), action: performGoAround)
-                    .accessibilityIdentifier("cockpit.goAround")
-                CockpitThumbButton(title: L10n.ChecklistAction.touchAndGo(language: language),
-                                   icon: "arrow.triangle.2.circlepath",
-                                   style: .outlined(tint: theme.action), action: performTouchAndGo)
-                    .accessibilityIdentifier("cockpit.touchAndGo")
-            }
-            .frame(maxWidth: .infinity)
-        }
+        HoldToConfirmButton(
+            title: L10n.ChecklistAction.goAround(language: language),
+            systemImage: "arrow.up.right.circle.fill",
+            tint: kneeboard ? theme.action : theme.warning,
+            count: appState.currentFlight?.goAroundCount ?? 0,
+            kneeboard: kneeboard,
+            action: performGoAround
+        )
+        .accessibilityIdentifier("cockpit.goAround")
+        HoldToConfirmButton(
+            title: L10n.ChecklistAction.touchAndGo(language: language),
+            systemImage: "arrow.triangle.2.circlepath",
+            tint: kneeboard ? theme.action : .aviationBlue,
+            count: appState.currentFlight?.touchAndGoCount ?? 0,
+            kneeboard: kneeboard,
+            action: performTouchAndGo
+        )
+        .accessibilityIdentifier("cockpit.touchAndGo")
     }
 
+    /// In circuit mode, single-tap GO-AROUND / TOUCH & GO, as tall as the hold buttons: a missed
+    /// auto-detection is corrected at once (jump back to the CLIMB check). Hold-to-confirm is too slow
+    /// here; the accepted trade-off is a small accidental-tap risk during circuit training. Cyan, the
+    /// outlined buttons of the Cockpit: things to press, not alerts. (on-device review #1, L-02)
+    @ViewBuilder
+    private var circuitQuickEventButtons: some View {
+        let language = appState.settings.checklistLanguage.resolvedLanguage
+        CockpitThumbButton(title: L10n.ChecklistAction.goAround(language: language),
+                           icon: "arrow.up.right.circle.fill", style: .outlined(tint: theme.action),
+                           minHeight: 88, action: performGoAround)
+            .accessibilityIdentifier("cockpit.goAround")
+        CockpitThumbButton(title: L10n.ChecklistAction.touchAndGo(language: language),
+                           icon: "arrow.triangle.2.circlepath", style: .outlined(tint: theme.action),
+                           minHeight: 88, action: performTouchAndGo)
+            .accessibilityIdentifier("cockpit.touchAndGo")
+    }
 
     /// Touch-and-goes and, if any, go-arounds, in the font the caller sets.
     @ViewBuilder
@@ -706,6 +688,18 @@ struct FlightView: View {
         let physicalTime = flightEventDetector.notifyManualEvent(.fullStop)
         appState.recordLanding(at: physicalTime)
         pulseActionButton = false
+    }
+
+    /// ✓ DONE: the memory check confirmed, and left where it can go on. (6.1)
+    private func performMemoryDone() {
+        if appState.memoryConfirmationMovesTo != nil {
+            pulseNextButton = false
+            pulseActionButton = false
+            allItemsChecked = false
+            appState.confirmMemoryCheckAndAdvance()
+        } else {
+            appState.confirmMemoryCheck()
+        }
     }
 
     /// CHECK: the highlighted item is done. Shared by the iPhone's tap-to-advance and the Cockpit's
@@ -948,7 +942,7 @@ extension FlightView {
                                     memoryCheck: appState.isMemoryCheck(appState.currentPhase))
     }
 
-    private var cockpitPane: CockpitPane { paneOverride ?? cockpitDefaultPane }
+    private var cockpitPane: CockpitPane { paneChoice.pane(suggested: cockpitDefaultPane) }
 
     /// The check slot's way to a list still to check: the CHECKLIST pane, as a tap on the picker picks
     /// it; the map comes back after the last CHECK, when the default pane changes. (6.1)
@@ -958,7 +952,13 @@ extension FlightView {
 
     private var cockpitPaneBinding: Binding<CockpitPane> {
         Binding(get: { cockpitPane },
-                set: { pane in paneOverride = pane == cockpitDefaultPane ? nil : pane })
+                set: { pane in paneChoice.pick(pane, suggested: cockpitDefaultPane) })
+    }
+
+    /// A leg's row on ROUTE: MAP, showing that leg. (6.2, the plan's Q7)
+    private func showLeg(_ index: Int) {
+        navState.showLeg(index)
+        cockpitPaneBinding.wrappedValue = .map
     }
 
     func cockpit(layout: CockpitLayout) -> some View {
@@ -969,8 +969,18 @@ extension FlightView {
             }
         }
         .background(theme.background)
-        .onChange(of: cockpitDefaultPane) { _, _ in paneOverride = nil }
+        .onChange(of: cockpitDefaultPane) { _, _ in paneChoice.suggestionChanged() }
+        // NOW and NEXT on every page, CHECKLIST included, and the Watch's list. (6.2, ROUTE)
+        .modifier(CockpitRadioFollower(radio: radio))
+        .environment(navState)
+        .environment(radio)
     }
+
+    // MARK: Frame (6.2)
+    //
+    // Three zones, whatever the page: the read band on top (the header, the phase bar, the strip and the
+    // picker), the page (CHECKLIST, MAP or ROUTE), and the act band at the foot (`CockpitActBand`). The
+    // iPad on its side has the same frame, wider: the map's side column is Plan › Map's alone now.
 
     /// The zones stacked, top to bottom: the iPad, and the phone in portrait (`narrow`).
     private func cockpitStack(narrow: Bool) -> some View {
@@ -998,97 +1008,131 @@ extension FlightView {
                 .padding(.horizontal, narrow ? 12 : 16)
                 .padding(.vertical, narrow ? 8 : 10)
 
-            Group {
-                switch cockpitPane {
-                case .checklist:
-                    VStack(spacing: 0) {
-                        // The phone: BRIEFING and NEXT at the top of the list, only while they exist,
-                        // as on its side. (round 6, I-06)
-                        if narrow && cockpitHasOccasionalChips {
-                            cockpitOccasionalChips
-                                .padding(.horizontal, 12)
-                                .padding(.bottom, 4)
-                        }
-                        SeparateView { cockpitChecklistPane(narrow: narrow) }
-                    }
-                case .map:
-                    // The same map as the full-screen one, minus its top bar: its next-waypoint card,
-                    // controls, frequencies and MARK thumb bar fill the pane. On the phone the chips
-                    // that come and go sit over the chart.
-                    NavigationMapView(isPresented: .constant(true), showsCloseButton: false, isInCockpit: true,
-                                      mapTopAccessory: narrow ? cockpitMapChips : nil,
-                                      onShowChecklist: showChecklistPane)
-                }
-            }
-            .frame(maxHeight: .infinity)
+            SeparateView { cockpitPage(layout: narrow ? .narrow : .wide) }
+                .frame(maxHeight: .infinity)
+
+            SeparateView { cockpitActBand(layout: narrow ? .narrow : .wide) }
         }
+    }
+
+    /// The page between the read band and the act band.
+    @ViewBuilder
+    private func cockpitPage(layout: CockpitLayout) -> some View {
+        let narrow = layout == .narrow
+        switch cockpitPane {
+        case .checklist:
+            VStack(spacing: 0) {
+                // What is deferred, BRIEFING and NEXT at the top of the list, in a row whose height is
+                // kept: the picker row has no room left for them. (6.2)
+                cockpitChecklistChips(narrow: narrow)
+                SeparateView { cockpitChecklistPane(narrow: narrow) }
+            }
+        case .map:
+            // The same map as the full-screen one, minus its top bar and its thumb row: its
+            // next-waypoint card, controls and frequencies fill the page. BRIEFING sits over the chart
+            // while its phase lasts (until the status slot, PR 4); the deferred count is in More. The
+            // card and the frequencies open ROUTE.
+            NavigationMapView(isPresented: .constant(true), showsCloseButton: false, chrome: .cockpit(layout),
+                              mapTopAccessory: cockpitMapChips,
+                              onDivert: { navState.openDivert($0) },
+                              onShowRoute: { cockpitPaneBinding.wrappedValue = .route })
+        case .route:
+            CockpitRoutePage(layout: layout, onShowLeg: { showLeg($0) })
+        }
+    }
+
+    /// The four slots under either page. (6.2)
+    private func cockpitActBand(layout: CockpitLayout) -> some View {
+        CockpitActBand(page: cockpitPane, layout: layout, actions: cockpitActions)
+    }
+
+    /// What the act band's buttons do that only this view can.
+    private var cockpitActions: CockpitActions {
+        CockpitActions(
+            check: { checkCurrentItem() },
+            next: { requestNextPhase() },
+            memoryDone: { performMemoryDone() },
+            endFlight: { showEndFlightAlert = true },
+            engineStart: { performEngineStart() },
+            engineStartUpdate: { performEngineStartUpdate() },
+            engineShutdown: { performEngineShutdown() },
+            engineShutdownUpdate: { performEngineShutdownUpdate() },
+            showChecklist: { showChecklistPane() },
+            showMap: { cockpitPaneBinding.wrappedValue = .map },
+            showRoute: { cockpitPaneBinding.wrappedValue = .route },
+            showVSpeeds: { openReference(.vSpeeds) },
+            showDeferred: { showDeferredItems = true },
+            pulseAction: pulseActionButton,
+            nextReady: nextButtonReady)
     }
 
     /// A phone on its side (I7): everything the pilot works with in a column on the left, where the
-    /// thumb is (the header, CHECKLIST | MAP with V-SPEEDS, the strip, the thumb bar), and the pane on
-    /// the right at full height. Only what comes and goes (BRIEFING, NEXT, the map's cautions) sits
-    /// over the pane, and only while it exists. With the pane bar, the card and a row of controls over
-    /// it, the map had about a third of its column left. (iPhone pass, I7)
-    @ViewBuilder
+    /// thumb is (the header, CHECKLIST · MAP · ROUTE, the strip, the act band), and the page on the right
+    /// at full height. The checklist's chips sit at the top of the list, BRIEFING over the chart. With the pane bar, the card and a row of controls over
+    /// it, the map had about a third of its column left. (iPhone pass, I7) The column is the same for
+    /// both pages since the act band (6.2): the map draws its chart and nothing else.
     private var cockpitColumns: some View {
-        switch cockpitPane {
-        case .checklist:
-            HStack(spacing: 0) {
-                VStack(spacing: 0) {
-                    cockpitColumnHead
-                    Spacer(minLength: 0)
-                    // As the map's thumb row under the same column: in the same place over either pane.
-                    cockpitThumbBar(narrow: true)
-                        .padding(.horizontal, 12)
-                        .padding(.top, 6)
-                        .padding(.bottom, 12)
-                }
-                .frame(width: Self.cockpitColumnWidth)
-                .background(theme.panel.ignoresSafeArea())
-                .overlay(alignment: .trailing) { Rectangle().fill(theme.panelStroke).frame(width: 1) }
-
-                VStack(spacing: 0) {
-                    if cockpitHasOccasionalChips {
-                        cockpitOccasionalChips
-                            .padding(.horizontal, 12)
-                            .padding(.top, 8)
-                    }
-                    SeparateView { cockpitChecklistPane(narrow: true, includesThumbBar: false) }
-                }
+        HStack(spacing: 0) {
+            VStack(spacing: 0) {
+                cockpitColumnHead
+                Spacer(minLength: 0)
+                // 6 pt under the strip: the column is to fit a 6.1" phone's 369 pt over the home
+                // indicator, the band whole. (6.1, device check)
+                SeparateView { cockpitActBand(layout: .columns) }
             }
-        case .map:
-            NavigationMapView(isPresented: .constant(true), showsCloseButton: false, isInCockpit: true,
-                              leadingColumn: AnyView(cockpitColumnHead),
-                              leadingColumnWidth: Self.cockpitColumnWidth,
-                              mapTopAccessory: cockpitMapChips,
-                              onShowChecklist: showChecklistPane)
+            .frame(width: Self.cockpitColumnWidth)
+            .background(theme.panel.ignoresSafeArea())
+            .overlay(alignment: .trailing) { Rectangle().fill(theme.panelStroke).frame(width: 1) }
+
+            SeparateView { cockpitColumnsPage }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
     }
 
-    /// The chips that come and go, over the chart: opaque, where the chips' tint alone was see-through.
+    /// The page beside the column.
+    @ViewBuilder
+    private var cockpitColumnsPage: some View {
+        switch cockpitPane {
+        case .checklist:
+            VStack(spacing: 0) {
+                cockpitChecklistChips(narrow: true)
+                SeparateView { cockpitChecklistPane(narrow: true) }
+            }
+        case .map:
+            NavigationMapView(isPresented: .constant(true), showsCloseButton: false, chrome: .cockpit(.columns),
+                              mapTopAccessory: cockpitMapChips,
+                              onDivert: { navState.openDivert($0) },
+                              onShowRoute: { cockpitPaneBinding.wrappedValue = .route })
+        case .route:
+            CockpitRoutePage(layout: .columns, onShowLeg: { showLeg($0) })
+        }
+    }
+
+    /// BRIEFING over the chart, while its phase lasts: opaque, where the chip's tint alone was
+    /// see-through. (The deferred count is in More on MAP since 6.2.)
     private var cockpitMapChips: AnyView? {
-        guard cockpitHasOccasionalChips else { return nil }
-        return AnyView(cockpitOccasionalChips
+        guard appState.currentPhase.briefingType != nil else { return nil }
+        return AnyView(cockpitBriefingChip
             .fixedSize()
             .padding(6)
             .background(RoundedRectangle(cornerRadius: 16).fill(theme.panel)))
     }
 
-    /// BRIEFING, NEXT and the map's cautions: the chips that come and go.
-    private var cockpitOccasionalChips: some View {
+    /// The CHECKLIST page's chips, at the top of the list: what is deferred, the phase's BRIEFING, and
+    /// NEXT while items are still open. The row keeps a chip's height when none shows, so the list never
+    /// moves as they come and go; the full-width deferred row it replaces pushed the list down. They
+    /// were in the iPad's picker row, which ROUTE's segment filled. (6.2)
+    private func cockpitChecklistChips(narrow: Bool) -> some View {
         HStack(spacing: 8) {
+            if appState.hasDeferredWork { deferredChip }
             cockpitBriefingChip
             cockpitNextChip
-            cockpitMapCautionChips
             Spacer(minLength: 0)
         }
-    }
-
-    private var cockpitHasOccasionalChips: Bool {
-        appState.currentPhase.briefingType != nil
-            || (cockpitPane == .checklist && !cockpitChecklistDone
-                && appState.currentPhase.nextNavigable(circuitMode: appState.isCircuitMode) != nil)
-            || (cockpitPane == .map && appState.hasDeferredWork)
+        .frame(minHeight: CockpitType.size(kneeboard: 52, phone: 46), alignment: .leading)
+        .padding(.horizontal, narrow ? 12 : 16)
+        .padding(.top, 8)
+        .padding(.bottom, 2)
     }
 
     /// The landscape column's width: an iPhone 17's in portrait, so its rows lay out as they do there
@@ -1129,7 +1173,9 @@ extension FlightView {
                 headingDegrees: locationManager.currentCourseDegrees,
                 verticalSpeedFPM: locationManager.verticalSpeedFpm,
                 kneeboard: true,
-                nextWaypoint: showsNext ? cockpitNextWaypoint : nil
+                nextWaypoint: showsNext ? cockpitNextWaypoint : nil,
+                // V-SPEEDS from GS, where the phone's picker row has no room for its chip. (6.2, Q8)
+                onSpeedTap: { openReference(.vSpeeds) }
             )
         }
     }
@@ -1322,14 +1368,11 @@ extension FlightView {
 
     // MARK: Pane bar
 
-    /// CHECKLIST | MAP, then what can be opened from here: the deferred work (seen from the map),
-    /// V-SPEEDS, the briefing of the phase, and the next phase while items are still open. FREDA is in
-    /// the map's check slot, not here. (6.1)
+    /// CHECKLIST · MAP · ROUTE, and V-SPEEDS beside it on the iPad. The chips that were beside it there
+    /// (what is deferred, BRIEFING, NEXT) are at the top of the CHECKLIST page since ROUTE's segment, the
+    /// deferred count in More on MAP and ROUTE, BRIEFING over the chart. (6.1; 6.2)
     ///
-    /// `narrow` (the phone): CHECKLIST | MAP across the width with V-SPEEDS beside it, as on its side.
-    /// BRIEFING and NEXT go to the top of the list and the cautions over the chart, while they exist.
-    /// On a row of its own V-SPEEDS often stood alone, and the row took the height the map's thumb bar
-    /// needed. (round 6, I-06)
+    /// `narrow` (the phone): the three across the width, V-SPEEDS in More and behind GS. (6.2, Q8)
     @ViewBuilder
     private func cockpitPaneBar(narrow: Bool) -> some View {
         if narrow {
@@ -1339,33 +1382,19 @@ extension FlightView {
         }
     }
 
-    /// CHECKLIST | MAP with V-SPEEDS beside it, the phone in both orientations; V-SPEEDS without its
-    /// icon where that row runs too long ("CHECKLIST | CARTE" in French), and one above the other past
-    /// that. In French the two rows took the 54 pt the phone's column on its side doesn't have, and its
-    /// thumb row ran off the screen. (6.1, device check)
+    /// CHECKLIST · MAP · ROUTE across the phone, in both orientations: with their icons where they fit,
+    /// the words alone where they don't ("CHECKLIST · CARTE · ROUTE"). One row always: a second one took
+    /// the 54 pt the phone's column on its side doesn't have, and its thumb row ran off the screen. (6.1,
+    /// device check; 6.2)
     private var cockpitPickerRow: some View {
         ViewThatFits(in: .horizontal) {
-            HStack(spacing: 8) {
-                CockpitPanePicker(selection: cockpitPaneBinding, fillsWidth: true)
-                cockpitVSpeedsChip
-            }
-            HStack(spacing: 8) {
-                CockpitPanePicker(selection: cockpitPaneBinding, fillsWidth: true)
-                cockpitVSpeedsChip(icon: nil)
-            }
-            VStack(alignment: .leading, spacing: 8) {
-                CockpitPanePicker(selection: cockpitPaneBinding, fillsWidth: true)
-                cockpitVSpeedsChip
-            }
+            CockpitPanePicker(selection: cockpitPaneBinding, fillsWidth: true)
+            CockpitPanePicker(selection: cockpitPaneBinding, fillsWidth: true, showsIcons: false)
         }
     }
 
     private var cockpitVSpeedsChip: some View {
-        cockpitVSpeedsChip(icon: "speedometer")
-    }
-
-    private func cockpitVSpeedsChip(icon: String?) -> some View {
-        CockpitChip(title: "V-SPEEDS", icon: icon) { openReference(.vSpeeds) }
+        CockpitChip(title: "V-SPEEDS", icon: "speedometer") { openReference(.vSpeeds) }
     }
 
     @ViewBuilder
@@ -1391,8 +1420,8 @@ extension FlightView {
         }
     }
 
-    /// What is deferred, on the map: checks and items together, in one count.
-    private var deferredMapChip: some View {
+    /// What is deferred: checks and items together, in one count; amber, a caution. It opens the list.
+    private var deferredChip: some View {
         CockpitChip(title: "\(appState.deferredChecks.count + appState.deferredItemCount)",
                     icon: "clock.arrow.circlepath", tint: theme.warning) {
             showDeferredItems = true
@@ -1401,41 +1430,12 @@ extension FlightView {
                                                   items: appState.deferredItemCount))
     }
 
-    /// Deferred items follow the pilot onto the map, as a caution. (A due FREDA is in the check slot.)
-    @ViewBuilder
-    private var cockpitMapCautionChips: some View {
-        // Deferred items follow the pilot onto the map too, as a caution: amber, with the count.
-        // (The checklist pane lists them above the items.)
-        if cockpitPane == .map && appState.hasDeferredWork {
-            deferredMapChip
-        }
-    }
-
+    /// The iPad's: the three pages, then V-SPEEDS at the right, in every phase.
     private var cockpitPaneBarRow: some View {
         HStack(spacing: 10) {
             CockpitPanePicker(selection: cockpitPaneBinding)
             Spacer(minLength: 8)
-            // Deferred items follow the pilot onto the map too, as a caution: amber, with the count.
-            // (The checklist pane lists them above the items.)
-            if cockpitPane == .map && appState.hasDeferredWork {
-                deferredMapChip
-            }
             cockpitVSpeedsChip
-            if let briefing = appState.currentPhase.briefingType {
-                // BRIEFING stays in English in FR, like the other aviation terms.
-                CockpitChip(title: "BRIEFING", icon: briefing == .departure ? "airplane.departure" : "airplane.arrival") {
-                    openReference(briefing == .departure ? .departureBriefing : .approachBriefing)
-                }
-            }
-            if cockpitPane == .checklist, !cockpitChecklistDone,
-               let next = appState.currentPhase.nextNavigable(circuitMode: appState.isCircuitMode) {
-                // Leaving with items open goes through the review of what's left. (v6.0 · B2)
-                // Just NEXT: phase titles run to "CHECK BEFORE ENGINE START". The name is on the big
-                // NEXT button once the list is done, and in the VoiceOver label here.
-                CockpitChip(title: L10n.Button.next, icon: "forward.end") { requestNextPhase() }
-                    .accessibilityIdentifier("cockpit.nextChip")
-                    .accessibilityLabel(L10n.Cockpit.nextPhaseA11y(next.title))
-            }
         }
     }
 
@@ -1452,12 +1452,10 @@ extension FlightView {
         CockpitScale.current == .phone && appState.settings.stepByStepHighlighting && !cockpitChecklistDone
     }
 
-    /// `includesThumbBar`: false in the landscape columns, where the thumb bar is in the left column.
-    private func cockpitChecklistPane(narrow: Bool, includesThumbBar: Bool = true) -> some View {
+    /// The list, the undo toast over its foot and the event row. The act band is the frame's, under it;
+    /// the chips over it (`cockpitChecklistChips`). (6.2)
+    private func cockpitChecklistPane(narrow: Bool) -> some View {
         VStack(spacing: 0) {
-            deferredItemsChip
-                .padding(.horizontal, narrow ? 12 : 16)
-
             ScrollViewReader { listProxy in
             ScrollView {
                 VStack(spacing: 0) {
@@ -1580,107 +1578,22 @@ extension FlightView {
                 listProxy.scrollTo(appState.getHighlightedItem(for: appState.currentPhase),
                                    anchor: UnitPoint(x: 0.5, y: 0.12))
             }
+            // The check slot in the act band, on this page: the current item into view. (6.2, Q11)
+            .onChange(of: navState.checklistScrollRequest) { _, _ in
+                withAnimation(.easeInOut(duration: 0.25)) {
+                    listProxy.scrollTo(appState.getHighlightedItem(for: appState.currentPhase),
+                                       anchor: UnitPoint(x: 0.5, y: 0.12))
+                }
+            }
             }
             // A waypoint the flight marked on its own, offered back over the foot of the list: never
-            // over the event buttons or the thumb bar, and never in the layout. The MAP pane shows it
+            // over the event buttons or the act band, and never in the layout. The MAP page shows it
             // on the map. (v6.0.1)
             .overlay(alignment: .bottom) { AutoMarkUndoToast(narrow: narrow) }
 
-            // Hold-to-confirm GO-AROUND / T&G / LANDED in the phases they belong to.
+            // Hold-to-confirm GO-AROUND / T&G / LANDED in the phases they belong to (a tap in circuits).
             eventActionsRow(kneeboard: true)
-
-            if includesThumbBar {
-                cockpitThumbBar(narrow: narrow)
-                    .padding(.horizontal, narrow ? 12 : 16)
-                    .padding(.vertical, narrow ? 10 : 12)
-                    .background(theme.panel.ignoresSafeArea(edges: .bottom))
-                    .overlay(alignment: .top) { Rectangle().fill(theme.panelStroke).frame(height: 1) }
-            }
         }
-    }
-
-    /// The checklist's thumb bar. The phase's own action and the circuit buttons or FREDA keep their
-    /// width; CHECK takes the rest, in the same place for every item. (review B1) Narrower on the
-    /// phone, where CHECK still gets the most. (iPhone pass)
-    private func cockpitThumbBar(narrow: Bool) -> some View {
-        HStack(spacing: narrow ? 8 : 12) {
-            hudPhaseActionButton(height: CockpitTarget.thumb)
-                .frame(maxWidth: narrow ? 110 : 240)
-            circuitQuickEventButtons()
-                .frame(maxWidth: narrow ? 170 : 320)
-            // In cruise: FREDA, where the cruise countdown was, the same size. (6.1)
-            FredaThumbButton()
-                .frame(maxWidth: narrow ? 96 : 220)
-            // A memory check has no item to put off: it is confirmed, or left for the review. (6.1)
-            if !cockpitChecklistDone && !appState.currentCheckAwaitsConfirmation {
-                CockpitThumbButton(title: L10n.Cockpit.deferItem, subtitle: L10n.Cockpit.deferHint,
-                                   style: .outlined(tint: theme.warning)) {
-                    appState.deferHighlightedItem()
-                }
-                .accessibilityIdentifier("cockpit.defer")
-                .frame(maxWidth: narrow ? 112 : 200)
-            }
-            cockpitPrimaryButton
-        }
-        .sensoryFeedback(.impact(weight: .light), trigger: appState.getHighlightedItem(for: appState.currentPhase))
-    }
-
-    /// CHECK while items are open; the next phase once they're all done (a different gesture, so
-    /// finishing a list is never an accident); END FLIGHT at the end. A memory check (every item hidden)
-    /// is confirmed and left in one tap: "✓ CLIMB CHECK DONE", "NEXT: CRUISE CHECK · from memory",
-    /// with the undo toast, which takes both back (6.1, author's decision). Where it can't go on (the
-    /// phase's own action still to press, the last check), it only confirms, and NEXT follows. Out of
-    /// the check before departure, NEXT reads READY FOR LINE UP (`CockpitNextLabel`, 6.2).
-    @ViewBuilder
-    private var cockpitPrimaryButton: some View {
-        if appState.currentCheckAwaitsConfirmation {
-            let next = appState.memoryConfirmationMovesTo
-            CockpitThumbButton(title: L10n.Cockpit.memoryCheckDone(appState.currentPhase.shortTitle),
-                               subtitle: next.map { L10n.Cockpit.fromMemoryThenNext($0.shortTitle) } ?? L10n.Cockpit.fromMemory,
-                               icon: "checkmark",
-                               style: .filled(fill: theme.action, text: theme.actionText)) {
-                if next != nil {
-                    pulseNextButton = false
-                    pulseActionButton = false
-                    allItemsChecked = false
-                    appState.confirmMemoryCheckAndAdvance()
-                } else {
-                    appState.confirmMemoryCheck()
-                }
-            }
-            .accessibilityIdentifier("cockpit.memoryDone")
-        } else if !cockpitChecklistDone {
-            CockpitThumbButton(title: L10n.Cockpit.check, subtitle: currentItemChallenge, icon: "checkmark",
-                               style: .filled(fill: theme.action, text: theme.actionText)) {
-                checkCurrentItem()
-            }
-            .accessibilityIdentifier("cockpit.check")
-        } else if appState.isLastPhase {
-            CockpitThumbButton(title: L10n.Button.endFlight, icon: "flag.checkered",
-                               style: .filled(fill: theme.danger, text: .white)) {
-                showEndFlightAlert = true
-            }
-            .accessibilityIdentifier("cockpit.endFlight")
-        } else {
-            let label = CockpitNextLabel(
-                leaving: appState.currentPhase,
-                to: appState.currentPhase.nextNavigable(circuitMode: appState.isCircuitMode),
-                deferred: appState.currentPhaseDeferredIds.count)
-            CockpitThumbButton(title: label.title, subtitle: label.subtitle, icon: label.icon,
-                               style: .filled(fill: theme.action, text: theme.actionText)) {
-                requestNextPhase()
-            }
-            .accessibilityIdentifier("cockpit.next")
-            .accessibilityHint(label.accessibilityHint ?? "")
-            .modifier(PulseModifier(isActive: nextButtonReady))
-        }
-    }
-
-    /// The challenge of the highlighted item, shown on CHECK so the button says what it checks.
-    private var currentItemChallenge: String? {
-        let items = appState.activeChecklist.visibleItems(for: appState.currentPhase, learningMode: effectiveLearningMode)
-        let index = appState.getHighlightedItem(for: appState.currentPhase)
-        return items.indices.contains(index) ? items[index].challenge : nil
     }
 
     /// The waypoint flown to, for the strip's NEXT cell: the diversion field when diverting. The plain
@@ -2010,6 +1923,13 @@ struct HoldToConfirmButton: View {
     var height: CGFloat? = nil
     /// The words only, "Hold to confirm" under the title, no icon: a narrow button (the phone's map row).
     var stacked: Bool = false
+    /// Two in the act band's narrow slot: "TOUCH-" over "AND-GO" at the in-flight sizes. (6.2)
+    var titleLines: Int = 1
+    var horizontalPadding: CGFloat? = nil
+    /// False where the button is half the band's height (the phone on its side): the fill alone says hold.
+    var showsHint: Bool = true
+    /// What VoiceOver reads, where `title` is broken on two lines.
+    var spokenTitle: String? = nil
     let action: () -> Void
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -2036,15 +1956,24 @@ struct HoldToConfirmButton: View {
                     Image(systemName: systemImage).font(.aero(size: kneeboard ? CockpitType.row : 16, weight: .bold))
                 }
                 VStack(alignment: stacked ? .center : .leading, spacing: kneeboard ? 2 : 0) {
+                    // On two lines (the act band's narrow slot), the title at the label size and the hint
+                    // smaller, on two lines too ("Maintenir pour" over "confirmer"): four lines at the
+                    // full sizes ran over the slot's 104 pt.
                     Text(title)
-                        .font(.aero(size: kneeboard ? CockpitType.row : 14, weight: .bold))
-                        .lineLimit(1)
+                        .font(.aero(size: kneeboard ? (titleLines > 1 ? CockpitType.label : CockpitType.row) : 14,
+                                    weight: .bold))
+                        .multilineTextAlignment(stacked ? .center : .leading)
+                        .lineLimit(titleLines)
                         .minimumScaleFactor(stacked ? 0.55 : 0.7)
-                    Text(L10n.ChecklistAction.holdToConfirm)
-                        .font(.aero(size: kneeboard ? CockpitType.label : 9, weight: .semibold))
-                        .foregroundColor(theme.textSecondary)
-                        .lineLimit(1)
-                        .minimumScaleFactor(0.7)
+                    if showsHint {
+                        Text(L10n.ChecklistAction.holdToConfirm)
+                            .font(.aero(size: kneeboard ? (titleLines > 1 ? CockpitType.label * 0.75 : CockpitType.label) : 9,
+                                        weight: .semibold))
+                            .foregroundColor(theme.textSecondary)
+                            .multilineTextAlignment(stacked ? .center : .leading)
+                            .lineLimit(titleLines)
+                            .minimumScaleFactor(0.7)
+                    }
                 }
                 if count > 0 {
                     Spacer(minLength: 4)
@@ -2052,7 +1981,7 @@ struct HoldToConfirmButton: View {
                 }
             }
             .foregroundColor(kneeboard ? tint : theme.textPrimary)
-            .padding(.horizontal, stacked ? 8 : (kneeboard ? 16 : 12))
+            .padding(.horizontal, horizontalPadding ?? (stacked ? 8 : (kneeboard ? 16 : 12)))
         }
         .frame(height: height ?? (kneeboard ? 88 : 54))
         .frame(maxWidth: .infinity)
@@ -2070,7 +1999,7 @@ struct HoldToConfirmButton: View {
             }
         }
         .accessibilityElement()
-        .accessibilityLabel(count > 0 ? "\(title), \(count)" : title)
+        .accessibilityLabel(count > 0 ? "\(spokenTitle ?? title), \(count)" : spokenTitle ?? title)
         .accessibilityHint(L10n.ChecklistAction.holdToConfirm)
         .accessibilityAddTraits(.isButton)
         .accessibilityAction { action() }

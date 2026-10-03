@@ -459,6 +459,9 @@ struct CompanionFlightPlanSnapshot: Codable, Equatable {
     /// The aerodrome the master diverted to, when it did. Optional and last, so a viewer on an older
     /// build ignores it and a snapshot from an older master decodes as "no diversion". (v5.1)
     var diversion: CompanionWaypoint? = nil
+    /// This iPad takes `divert` and `resumeRoute`. False from an older iPad, which never sends the field
+    /// and would drop the commands: the phone then offers no Divert. (6.2.0)
+    var supportsDivert: Bool = false
 
     // `==` compares everything, ETOs and times over included: the master sends a snapshot when it
     // differs from the last one sent. It compared the plan id, the waypoint count, the current index
@@ -500,6 +503,7 @@ extension CompanionFlightPlanSnapshot {
         plannedDepartureTime = try c.decodeIfPresent(Date.self, forKey: .plannedDepartureTime)
         chronometerStartTime = try c.decodeIfPresent(Date.self, forKey: .chronometerStartTime)
         diversion = try c.decodeIfPresent(CompanionWaypoint.self, forKey: .diversion)
+        supportsDivert = (try? c.decodeIfPresent(Bool.self, forKey: .supportsDivert)) ?? false
     }
 }
 
@@ -582,6 +586,75 @@ enum CompanionCommand: Codable {
     case checkSlotTap(phaseRawValue: Int, action: String)
     // The landed card answered from the phone (6.1, M4): "yes", "notSure" or "next", for that card only.
     case answerLandedCard(cardId: UUID, answer: String)
+    // Divert from the phone (6.2.0): go to this field instead of the rest of the route, through the
+    // iPad's own Divert sheet (the route's destination is "direct to" there, as on the iPad), and back
+    // onto the route. Sent only to an iPad whose plan snapshot says `supportsDivert`; an older one
+    // cannot decode them and drops them, the link untouched.
+    case divert(field: CompanionDivertField)
+    case resumeRoute
+}
+
+/// The field the phone picked to divert to, as its own airport data has it: enough for the iPad to
+/// divert without a lookup of its own. The iPad still prefers its own record of the ident when it has
+/// one. Plain values: the Watch compiles this file too. (6.2.0)
+struct CompanionDivertField: Codable, Equatable {
+    let ident: String
+    let name: String
+    let latitude: Double
+    let longitude: Double
+    let elevationFeet: Double?
+    /// The field's contact frequency, when the phone knows one ("AFIS 120.155").
+    let frequency: String?
+
+    /// Longest ident and name taken from the wire. OurAirports' idents are at most 7 characters
+    /// ("CH-0012"); a name a few dozen.
+    static let maxIdentLength = 12
+    static let maxNameLength = 80
+    static let maxFrequencyLength = 32
+
+    init(ident: String, name: String, latitude: Double, longitude: Double, elevationFeet: Double?,
+         frequency: String?) {
+        self.ident = ident
+        self.name = name
+        self.latitude = latitude
+        self.longitude = longitude
+        self.elevationFeet = elevationFeet
+        self.frequency = frequency
+    }
+
+    /// The peer is a trust boundary: this field goes into the plan, the nav log and the thread. A field
+    /// with no ident or no usable position throws, so the command is dropped at the wire, as a peer
+    /// fix without coordinates is; the strings are cut to length and an implausible elevation reads
+    /// as unknown.
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        func text(_ key: CodingKeys, max: Int) throws -> String? {
+            try c.decodeIfPresent(String.self, forKey: key).map {
+                String($0.trimmingCharacters(in: .whitespacesAndNewlines).prefix(max))
+            }
+        }
+        let ident = try text(.ident, max: Self.maxIdentLength) ?? ""
+        let latitude = try c.decode(Double.self, forKey: .latitude)
+        let longitude = try c.decode(Double.self, forKey: .longitude)
+        guard Self.isNavigable(ident: ident, latitude: latitude, longitude: longitude) else {
+            throw DecodingError.dataCorrupted(.init(codingPath: c.codingPath,
+                                                    debugDescription: "a divert field needs an ident and a position"))
+        }
+        self.ident = ident
+        self.latitude = latitude
+        self.longitude = longitude
+        name = try text(.name, max: Self.maxNameLength) ?? ""
+        elevationFeet = CompanionWireLimits.bounded(try c.decodeIfPresent(Double.self, forKey: .elevationFeet),
+                                                    in: PlausibleRange.fieldElevationFeet)
+        frequency = try text(.frequency, max: Self.maxFrequencyLength).flatMap { $0.isEmpty ? nil : $0 }
+    }
+
+    /// An ident and a coordinate that can be navigated to.
+    var isNavigable: Bool { Self.isNavigable(ident: ident, latitude: latitude, longitude: longitude) }
+
+    static func isNavigable(ident: String, latitude: Double, longitude: Double) -> Bool {
+        !ident.isEmpty && CompanionWireLimits.isValidCoordinate(latitude: latitude, longitude: longitude)
+    }
 }
 
 /// The landed card, as the phone shows it over its screen (6.1, M4). Plain values: the Watch compiles this

@@ -20,6 +20,37 @@ final class CockpitPaneRuleTests: XCTestCase {
         }
     }
 
+    /// ROUTE is the pilot's pick only: the flight never suggests it, in any phase or state. (6.2)
+    func testROUTEIsNeverWhatTheFlightSuggests() {
+        for phase in ChecklistPhase.allCases {
+            for done in [false, true] {
+                for memory in [false, true] {
+                    XCTAssertNotEqual(CockpitPaneRule.defaultPane(phase: phase, checklistDone: done, memoryCheck: memory),
+                                      .route, "\(phase), done \(done), memory \(memory)")
+                }
+            }
+        }
+    }
+
+    func testAPickedPageHoldsUntilTheSuggestionChanges() {
+        var choice = CockpitPaneChoice()
+        XCTAssertEqual(choice.pane(suggested: .checklist), .checklist)
+        choice.pick(.route, suggested: .checklist)
+        XCTAssertEqual(choice.pane(suggested: .checklist), .route, "ROUTE picked over the checklist")
+        // The flight moves on (the checklist done, the next phase): the pick is dropped, ROUTE's too.
+        choice.suggestionChanged()
+        XCTAssertEqual(choice.pane(suggested: .map), .map)
+        XCTAssertNil(choice.override)
+    }
+
+    func testPickingTheSuggestedPageClearsThePick() {
+        var choice = CockpitPaneChoice(override: .route)
+        choice.pick(.map, suggested: .map)
+        XCTAssertNil(choice.override, "back on what the flight shows: nothing to drop later")
+        choice.pick(.checklist, suggested: .map)
+        XCTAssertEqual(choice.override, .checklist)
+    }
+
     func testTheStripShowsWhileTheAircraftMoves() {
         let moving: [ChecklistPhase] = [.taxi, .runup, .beforeDeparture, .lineUp, .climb, .cruise, .descent,
                                         .approach, .landing, .afterLanding]

@@ -163,7 +163,7 @@ struct PlanTabView: View {
                     // The in-flight map's chrome, exactly: no clock/speed/altitude bar or GPS chip over
                     // the map controls (they sat on top of them), the same controls in the same places.
                     // (on-device review #4)
-                    NavigationMapView(isPresented: $mapPresented, showsCloseButton: false, isInCockpit: true,
+                    NavigationMapView(isPresented: $mapPresented, showsCloseButton: false, chrome: .plan,
                                       onShowRoutes: { section = .routes })
                         // The chart starts under the picker, as the other sections do. Drawn on under
                         // the iPhone's bar, it was blurred there by the bar's scroll edge effect.

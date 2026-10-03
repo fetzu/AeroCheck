@@ -713,6 +713,109 @@ final class CompanionServiceContractTests: XCTestCase {
         }
     }
 
+    // MARK: - Divert from the phone (6.2.0)
+
+    private static let bern = CompanionDivertField(ident: "LSZB", name: "Bern-Belp", latitude: 46.9141,
+                                                   longitude: 7.4971, elevationFeet: 1_674, frequency: "TWR 121.025")
+
+    func testTheDivertCommandsRoundTrip() throws {
+        let divert = CompanionCommand.divert(field: Self.bern)
+        let decoded = try JSONDecoder().decode(CompanionCommand.self, from: JSONEncoder().encode(divert))
+        guard case .divert(let field) = decoded else { return XCTFail("\(decoded)") }
+        XCTAssertEqual(field, Self.bern)
+
+        let resume = try JSONDecoder().decode(CompanionCommand.self, from: JSONEncoder().encode(CompanionCommand.resumeRoute))
+        guard case .resumeRoute = resume else { return XCTFail("\(resume)") }
+    }
+
+    /// The commands as an iPad on 6.1 knows them, the synthesised decoder's shape: what it makes of the
+    /// new ones. (The phone offers Divert only on `supportsDivert`, so this is the belt to those braces.)
+    private enum CompanionCommand61: Codable {
+        case recordATO(waypointIndex: Int)
+        case updateGroundSpeed(waypointIndex: Int, newGS: Int)
+        case advanceWaypoint
+        case goToPreviousWaypoint
+        case startChronometer
+        case resetChronometer
+        case ping
+        case advanceChecklistItem
+        case nextChecklistPhase
+        case previousChecklistPhase
+        case revealHiddenItems
+        case deferChecklistItem
+        case checkDeferredItem(phaseRawValue: Int, itemId: String)
+        case checkInDeferredCheck(phaseRawValue: Int)
+        case deferInDeferredCheck(phaseRawValue: Int)
+        case toggleChecklistItem(phaseRawValue: Int, itemId: String)
+        case confirmMemoryCheck(phaseRawValue: Int)
+        case undoMemoryCheck(phaseRawValue: Int)
+        case confirmMemoryCheckAndNext(phaseRawValue: Int)
+        case checkSlotTap(phaseRawValue: Int, action: String)
+        case answerLandedCard(cardId: UUID, answer: String)
+    }
+
+    /// An older iPad cannot decode the new commands: its `try?` drops them (the link is left alone, see
+    /// `CompanionPeerAuthorizationTests.testAnUnknownCommandIsDroppedAndTheLinkStays`). The commands it
+    /// knows still reach it as they did.
+    func testAnOlderIPadCannotDecodeTheDivertCommands() throws {
+        for command in [CompanionCommand.divert(field: Self.bern), .resumeRoute] {
+            let data = try JSONEncoder().encode(command)
+            XCTAssertThrowsError(try JSONDecoder().decode(CompanionCommand61.self, from: data), "\(command)")
+        }
+        let mark = try JSONDecoder().decode(CompanionCommand61.self,
+                                            from: JSONEncoder().encode(CompanionCommand.recordATO(waypointIndex: 2)))
+        guard case .recordATO(let index) = mark else { return XCTFail("\(mark)") }
+        XCTAssertEqual(index, 2)
+    }
+
+    /// An older iPad's plan snapshot has no `supportsDivert`: the phone offers no Divert. This iPad says it.
+    func testOnlyAnIPadThatTakesDivertIsOfferedIt() throws {
+        let id = UUID()
+        let json = #"{"planId":"\#(id.uuidString)","planName":"Old","waypoints":[],"currentWaypointIndex":0,"totalDistance":0,"totalEET":0}"#
+        let old = try JSONDecoder().decode(CompanionFlightPlanSnapshot.self, from: Data(json.utf8))
+        XCTAssertFalse(old.supportsDivert)
+        XCTAssertFalse(CompanionDivertButton.isOffered(plan: old, currentWaypointIndex: 0))
+
+        let wp = CompanionWaypoint(id: UUID(), name: "LSGC", latitude: 47.08, longitude: 6.79, altitude: nil,
+                                   frequency: nil, magneticCourse: nil, distance: nil, plannedGroundSpeed: nil,
+                                   estimatedElapsedTime: nil, legEETExtra: nil, cumulativeEET: nil,
+                                   estimatedTimeOver: nil, actualTimeOver: nil, remarks: "")
+        let new = CompanionFlightPlanSnapshot(planId: id, planName: "New", waypoints: [wp], currentWaypointIndex: 0,
+                                              totalDistance: 0, totalEET: 0, plannedDepartureTime: nil,
+                                              chronometerStartTime: nil, supportsDivert: true)
+        let decoded = try JSONDecoder().decode(CompanionFlightPlanSnapshot.self, from: JSONEncoder().encode(new))
+        XCTAssertTrue(decoded.supportsDivert)
+        XCTAssertEqual(decoded, new)
+        XCTAssertTrue(CompanionDivertButton.isOffered(plan: decoded, currentWaypointIndex: 0))
+        XCTAssertFalse(CompanionDivertButton.isOffered(plan: decoded, currentWaypointIndex: 1),
+                       "the route flown to its end, as the iPad hides its Divert")
+        XCTAssertFalse(CompanionDivertButton.isOffered(plan: nil, currentWaypointIndex: 0))
+    }
+
+    /// The field from the phone goes into the plan, the nav log and the thread: it is checked at the wire.
+    func testADivertFieldIsCheckedAtTheWire() throws {
+        func decode(_ json: String) throws -> CompanionDivertField {
+            try JSONDecoder().decode(CompanionDivertField.self, from: Data(json.utf8))
+        }
+        XCTAssertThrowsError(try decode(#"{"ident":"","name":"X","latitude":46.9,"longitude":7.4}"#), "no ident")
+        XCTAssertThrowsError(try decode(#"{"ident":"LSZB","name":"X","latitude":91,"longitude":7.4}"#), "off the globe")
+        XCTAssertThrowsError(try decode(#"{"ident":"LSZB","name":"X","latitude":1e300,"longitude":7.4}"#))
+        XCTAssertThrowsError(try decode(#"{"ident":"LSZB","name":"X","longitude":7.4}"#), "half a position")
+
+        let long = String(repeating: "A", count: 500)
+        let field = try decode(#"{"ident":"  lszb\#(long)","name":"\#(long)","latitude":46.9,"longitude":7.4,"elevationFeet":1e300,"frequency":"  "}"#)
+        XCTAssertEqual(field.ident.count, CompanionDivertField.maxIdentLength)
+        XCTAssertTrue(field.ident.hasPrefix("lszb"))
+        XCTAssertEqual(field.name.count, CompanionDivertField.maxNameLength)
+        XCTAssertNil(field.elevationFeet, "an implausible elevation reads as unknown")
+        XCTAssertNil(field.frequency)
+
+        let plain = try decode(#"{"ident":"LSZB","name":"Bern-Belp","latitude":46.9141,"longitude":7.4971}"#)
+        XCTAssertNil(plain.elevationFeet)
+        XCTAssertNil(plain.frequency)
+        XCTAssertTrue(plain.isNavigable)
+    }
+
     /// An iPad built before these fields says nothing about DEFER: the viewer must not offer it.
     func testAnOlderMasterDoesNotOfferDefer() throws {
         let decoded = try JSONDecoder().decode(CompanionChecklistSnapshot.self,

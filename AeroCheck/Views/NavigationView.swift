@@ -120,6 +120,9 @@ class SharedMapState: ObservableObject {
     /// knows it. Deriving a camera distance from the route's extent framed a 200 NM east–west route
     /// as if it were 20 NM tall and zoomed into the middle of it. (v4.4.0)
     var pendingFitCoordinates: [CLLocationCoordinate2D]?
+    /// The room left around `pendingFitCoordinates`, when not the route pill's: a leg shown from ROUTE
+    /// is framed clear of the chrome over the chart (`LegFraming.edgePadding`). Consumed with it. (6.2)
+    var pendingFitPadding: UIEdgeInsets?
     /// What the map shows while the legs panel's band has the camera, for the airports and airspace
     /// drawn on it. The band never writes `region`, `cameraDistance` or `cameraHeading`: they keep the
     /// map the pilot left, which closing the panel puts back. nil with the panel closed. (6.1, option C)
@@ -214,6 +217,15 @@ extension MapOrientationMode: Equatable {}
 
 /// Full-screen navigation map view with aircraft position tracking
 struct NavigationMapView: View {
+    /// Whose map it is. (6.2, the act band)
+    enum Chrome: Equatable {
+        /// Plan › Map, and the full-screen map: every piece of the map's own chrome, Routes at its foot.
+        case plan
+        /// The Cockpit's MAP page, in the Cockpit's layout: the act band under it holds what the map's
+        /// thumb row did.
+        case cockpit(CockpitLayout)
+    }
+
     @Environment(\.cockpitTheme) private var theme
     @EnvironmentObject var locationManager: LocationManager
     @Environment(AppState.self) private var appState
@@ -254,24 +266,31 @@ struct NavigationMapView: View {
     /// False in the Plan tab, where the map is a section of the screen rather than a cover to close.
     /// (v6.0 · P1)
     var showsCloseButton: Bool = true
-    /// The MAP pane of the Cockpit (iPad): no top bar — the Cockpit's header and instrument strip are
-    /// right above — and no second flight-event overlay, the Cockpit has one. (v6.0 · P2)
-    /// Plan › Map uses the same chrome, so the map a pilot plans on is the map they fly with.
-    /// (on-device review #4)
-    var isInCockpit: Bool = false
+    /// Whose map it is: Plan › Map's (and the full-screen one's), or the Cockpit's MAP page, which has no
+    /// thumb row (the act band is the Cockpit's, under every page) and no side column on an iPad on its
+    /// side (the same frame as in portrait, wider). On a phone on its side the Cockpit builds the column
+    /// itself, and the map is the chart beside it. (6.2, the act band)
+    var chrome: Chrome = .plan
     /// Where "Routes" goes instead of opening the routes as a cover: Plan › Map switches to its own
     /// Routes section, rather than stacking a second copy of it over the tab. (on-device review #4)
     var onShowRoutes: (() -> Void)? = nil
-    /// The Cockpit on a phone on its side (I7): its header and strip, for the top of a column on the
-    /// left that also takes the thumb bar, with the map at full height beside it. (iPhone pass)
-    var leadingColumn: AnyView? = nil
-    var leadingColumnWidth: CGFloat = 340
     /// Over the chart, under the next waypoint: the Cockpit's chips that come and go (BRIEFING, the
     /// cautions), on the phone. Over it, they pushed the next waypoint down as they came. (6.1)
     var mapTopAccessory: AnyView? = nil
-    /// The Cockpit's CHECKLIST pane, for the check slot's "N items". Given by the Cockpit only: with it,
-    /// in flight, the check slot leads the bottom row. (6.1)
-    var onShowChecklist: (() -> Void)? = nil
+    /// "Divert here" in an airport's callout, in flight: the Cockpit's Divert sheet, on the field.
+    var onDivert: ((String?) -> Void)? = nil
+    /// The Cockpit's ROUTE page: where its next-waypoint card and frequencies go, in place of the legs
+    /// panel, which is Plan › Map's alone since 6.2.
+    var onShowRoute: (() -> Void)? = nil
+    /// The Cockpit's: MARK's UNDO, the leg ROUTE asked to show. Nil in Plan › Map.
+    @Environment(CockpitNavState.self) private var cockpitNav: CockpitNavState?
+    /// The Cockpit's NOW and NEXT, from its one source on every page. Nil in Plan › Map, which computes its
+    /// own (`recomputePhaseFrequencies`). (6.2, ROUTE)
+    @Environment(CockpitRadio.self) private var cockpitRadio: CockpitRadio?
+    /// The zoom MAP had before it framed a leg from ROUTE: put back with "Back to aircraft". (6.2)
+    @State private var zoomBeforeLeg: LegZoom?
+    /// A leg to frame once the chart has measured itself: the room its chrome takes. (6.2)
+    @State private var legFramePending = false
     @State private var selectedLayer: MapLayerType = .icao
     @State private var isFollowingAircraft: Bool = true
     /// iPad: base chart and overlays in one labelled sheet. (v6.0 · C1)
@@ -317,15 +336,10 @@ struct NavigationMapView: View {
     /// Timer.publish recreated each render can stall, so the reminder never fired. (v4 UI/UX Revamp fix)
     @State private var fredaEvalTimer = Timer.publish(every: 5, on: .main, in: .common).autoconnect()
     @State private var mapOrientationMode: MapOrientationMode = .northUp
-    /// The last MARK or leg-timer reset, offered back for a few seconds. (v6.0 · C2)
-    @State private var undoOffer: NavUndoOffer?
     @State private var locationUpdateCounter: Int = 0 // Forces map view updates on location change
 
     @State private var showGPSStatusModal: Bool = false
     @State private var streamingCTRCheckTask: Task<Void, Never>?
-    /// The Divert sheet, and the field it opens on when reached from an airport callout. (v5.1)
-    @State private var showDivert = false
-    @State private var divertPreselect: String?
 
     /// Whether offline mode is active (requires at least ICAO cache)
     private var isOfflineMode: Bool {
@@ -478,16 +492,9 @@ struct NavigationMapView: View {
         // A detected go-around / touch-and-go / full-stop must be confirmable while the full-screen
         // map is up — FlightView's own overlay sits behind this .fullScreenCover. (PR-40)
         // In the Cockpit the map is inside FlightView, whose overlay already covers it.
-        .modifier(FlightEventOverlayUnlessEmbedded(isEmbedded: isInCockpit,
+        // Embedded (the Cockpit, Plan › Map), the screen around it has its own.
+        .modifier(FlightEventOverlayUnlessEmbedded(isEmbedded: !showsCloseButton,
                                                    detector: flightEventDetector, appState: appState))
-        .sheet(isPresented: $showDivert) {
-            DivertSheet(onClose: { showDivert = false }, preselectedIdent: divertPreselect)
-                .environment(\.cockpitTheme, theme)
-                .environmentObject(flightPlanManager)
-                .environmentObject(airportDataService)
-                .environmentObject(locationManager)
-                .presentationDetents([.large])
-        }
     }
 
     /// Opening and closing the map, its region, the panel, the overlay settings, the phase, the leg and
@@ -509,6 +516,10 @@ struct NavigationMapView: View {
         .onChange(of: navSheetExpanded) { _, open in
             if open { legsPanelOpened() } else { legsPanelClosed() }
         }
+        // A leg from ROUTE, framed once the chart knows the room its chrome takes. (6.2)
+        .onChange(of: chartGeometry.chartSize) { _, size in
+            if legFramePending && size != .zero { frameRequestedLeg() }
+        }
         .onChange(of: appState.settings.showAirportsOnMap) { _, _ in recomputeMapSpatialContent(force: true) }
         .onChange(of: appState.settings.showNavaidsOnMap) { _, _ in recomputeMapSpatialContent(force: true) }
         .onChange(of: appState.settings.showObstaclesOnMap) { _, _ in recomputeMapSpatialContent(force: true) }
@@ -518,15 +529,22 @@ struct NavigationMapView: View {
         .modifier(VFRLayerFollower(key: vfrLayerKey) { recomputeMapSpatialContent(force: true) })
         .onChange(of: appState.currentPhase) { _, _ in
             recomputePhaseFrequencies()
-            appState.evaluateFreda(lastPassage: FredaWaypointPassage.latest(in: flightPlanManager.activeFlightPlan))
+            evaluateFredaOutsideTheCockpit()
         }
         .onChange(of: flightPlanManager.activeFlightPlan?.currentWaypointIndex) { _, _ in recomputePhaseFrequencies() }
         .onReceive(fredaEvalTimer) { _ in
-            appState.evaluateFreda(lastPassage: FredaWaypointPassage.latest(in: flightPlanManager.activeFlightPlan))
+            evaluateFredaOutsideTheCockpit()
             // Re-prime the track-vector EMA each tick so a stationary device (no GPS *change*) keeps a
             // valid vector after a Nav→Checklist→Nav round trip. (v4 UI/UX Revamp fix)
             updateTrackVectorEMA()
         }
+    }
+
+    /// FREDA's evaluation, but in the Cockpit, where `FlightView` runs it every 5 s and on every phase
+    /// whatever the page: the map's was a second one. (6.2)
+    private func evaluateFredaOutsideTheCockpit() {
+        guard chrome == .plan else { return }
+        appState.evaluateFreda(lastPassage: FredaWaypointPassage.latest(in: flightPlanManager.activeFlightPlan))
     }
 
     /// The map's content as its data and settings change, the aircraft as it moves, the layer as chosen.
@@ -573,6 +591,12 @@ struct NavigationMapView: View {
         }
         // Default to centered & following the aircraft. (v4 UI/UX Revamp — center on position by default)
         isFollowingAircraft = true
+        // A leg tapped on ROUTE: framed instead, as soon as the chart has measured its chrome. (6.2)
+        if framedLeg != nil {
+            zoomBeforeLeg = LegZoom(distance: initialCameraDistance, latitudeDelta: initialSpan.latitudeDelta)
+            legFramePending = true
+            if chartGeometry.chartSize != .zero { frameRequestedLeg() }
+        }
         // Ensure airport data is loaded — needed both for the map overlay AND for the phase-aware
         // frequencies (nearest-airport lookup), so load it regardless of the overlay setting, then
         // refresh the cached phase frequencies once it's available. (v4 UI/UX Revamp fix)
@@ -603,9 +627,17 @@ struct NavigationMapView: View {
     }
 
     private func handleDisappear() {
-        // Keep the zoom for next time. (v6.0 · P2)
-        appState.navigationMapState.cameraDistance = mapState.cameraDistance
-        appState.navigationMapState.latitudeDelta = mapState.region.span.latitudeDelta
+        // Keep the zoom for next time (v6.0 · P2): the pilot's, not a leg's framing, which ends with the
+        // page. (6.2)
+        if let zoom = zoomBeforeLeg {
+            appState.navigationMapState.cameraDistance = zoom.distance
+            appState.navigationMapState.latitudeDelta = zoom.latitudeDelta
+            zoomBeforeLeg = nil
+            cockpitNav?.endLegFraming()
+        } else {
+            appState.navigationMapState.cameraDistance = mapState.cameraDistance
+            appState.navigationMapState.latitudeDelta = mapState.region.span.latitudeDelta
+        }
         // Stop GPS updates when navigation view closes (if not in a flight)
         locationManager.stopLocationUpdates()
         streamingCTRCheckTask?.cancel()
@@ -737,37 +769,23 @@ struct NavigationMapView: View {
         // width > height flipped it to the side column as soon as anything above it grew a few points,
         // and only in those phases: the phase bar's taller touch area did exactly that. A real
         // landscape pane is 1.5 to 2.5 times wider than tall. (v6.0 review, fixed layout)
-        let landscape = geometry.size.width > geometry.size.height * 1.2
-        let columns = landscape && leadingColumn != nil
-        let mapAreaWidth = columns ? geometry.size.width - leadingColumnWidth
-            : landscape ? geometry.size.width - Self.sideColumnWidth : geometry.size.width
+        //
+        // The Cockpit's map has no side column: an iPad on its side gets the portrait arrangement, the
+        // frame wider, its act band under the page; beside the phone's column on its side it is the
+        // chart alone. (6.2)
+        let landscape = chrome == .plan && geometry.size.width > geometry.size.height * 1.2
+        let columns = chrome == .cockpit(.columns)
+        let mapAreaWidth = landscape ? geometry.size.width - Self.sideColumnWidth : geometry.size.width
         // The closures below run later, in their own view's update: read the proxy here, while it
         // is current.
         let height = geometry.size.height
         // Each large part of the map is a view of its own (`SeparateView`): built inline, this body's
         // value was about 33 KB, and rendering it overflowed the device's 1 MB main-thread stack.
         return Group {
-            if columns, let leadingColumn {
-                // A phone on its side, in the Cockpit: the Cockpit's column on the left with the thumb
-                // bar at its foot, the map beside it at full height, the frequencies along its bottom.
-                // (iPhone pass, I7)
-                HStack(spacing: 0) {
-                    VStack(spacing: 0) {
-                        leadingColumn
-                        Spacer(minLength: 0)
-                        // 6 pt under the strip: the column is to fit a 6.1" phone's 369 pt over the home
-                        // indicator, the thumb row whole. (6.1, device check)
-                        navThumbColumnCompact
-                            .padding(.horizontal, 12)
-                            .padding(.top, 6)
-                            .padding(.bottom, 12)
-                    }
-                    .frame(width: leadingColumnWidth)
-                    .background(theme.panel.ignoresSafeArea())
-                    .overlay(alignment: .trailing) { Rectangle().fill(theme.panelStroke).frame(width: 1) }
-
-                    SeparateView { columnsMapArea(legsMaxHeight: height * 0.5) }
-                }
+            if columns {
+                // A phone on its side, in the Cockpit: the map at full height beside the Cockpit's column
+                // (its header, strip and act band), the frequencies along its bottom. (iPhone pass, I7)
+                SeparateView { columnsMapArea(legsMaxHeight: height * 0.5) }
             } else if landscape {
                 // The legs and every frequency open over the chart's foot, beside the column, rather than
                 // in it: in the column they had the room its controls left, a strip that showed a row and
@@ -809,6 +827,8 @@ struct NavigationMapView: View {
             Button(L10n.Nav.resumeLeg, role: .destructive) {
                 flightPlanManager.resumeLeg(at: idx)
                 legResumeTarget = nil
+                // From a leg shown from ROUTE: the leg is the one flown again, the aircraft the view.
+                if framedLeg != nil { backToAircraft() }
             }
             Button(L10n.Button.cancel, role: .cancel) { legResumeTarget = nil }
         } message: { _ in
@@ -845,18 +865,18 @@ struct NavigationMapView: View {
     private func columnsMapArea(legsMaxHeight: CGFloat) -> some View {
         VStack(spacing: 0) {
             chartWithChrome(top: VStack(spacing: 8) {
-                nextWaypointLine
+                if framedLeg != nil { framedLegBar } else { nextWaypointLine }
                 SeparateView { occasionalChips(pillLeading: true) }
             }
             .padding(.horizontal, 10)
             .padding(.top, 8),
             bottom: VStack(spacing: 8) {
-                MapUndoToast(undoOffer: $undoOffer)
+                MapUndoToast()
                     .padding(.horizontal, 16)
                 // The controls at the foot of the chart, by the thumb, leaving the top (what's
                 // ahead, in Track up) clear, and the scale and the chart's source beside them. Not with
                 // the legs open: the band is a view. (6.1, option C)
-                if chrome.showsMapControls || chrome.showsMapStatus {
+                if (panelChrome.showsMapControls || panelChrome.showsMapStatus) && framedLeg == nil {
                     SeparateView { columnsMapFoot }
                         .padding(.horizontal, 10)
                 }
@@ -1058,14 +1078,12 @@ struct NavigationMapView: View {
     /// NOW and NEXT on two lines: the station over the frequency. The landscape phone's version of
     /// `freqCard`, about 20 pt shorter.
     private var freqLine: some View {
-        let current = phaseFreqItems.first { $0.role == .current }
-        let next = phaseFreqItems.first { $0.role == .next }
-        return Button(action: toggleLegsAndFrequencies) {
+        Button(action: toggleLegsAndFrequencies) {
             HStack(spacing: 10) {
-                freqLineCell(tag: L10n.Nav.freqCurrent, tint: theme.onTarget, item: current)
+                freqLineCell(tag: L10n.Nav.freqCurrent, tint: theme.onTarget, item: nowFrequency)
                 Rectangle().fill(theme.panelStroke).frame(width: 1, height: 36)
-                freqLineCell(tag: L10n.Nav.freqNext, tint: theme.info, item: next)
-                Image(systemName: navSheetExpanded ? "chevron.down" : "chevron.up")
+                freqLineCell(tag: L10n.Nav.freqNext, tint: theme.info, item: nextFrequency)
+                Image(systemName: chrome != .plan ? "chevron.right" : navSheetExpanded ? "chevron.down" : "chevron.up")
                     .font(.aero(size: CockpitType.label, weight: .bold))
                     .foregroundColor(theme.action)
                     .frame(width: 40, height: 40)
@@ -1076,10 +1094,26 @@ struct NavigationMapView: View {
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
-        .accessibilityIdentifier("map.legsToggle")
+        .accessibilityIdentifier(legsToggleIdentifier)
         // A hint, not a label: a label replaced the station and frequency, so VoiceOver never read the
         // NOW and NEXT frequencies at all. (v6.0 review)
         .accessibilityHint(L10n.Nav.legsAndFrequencies)
+    }
+
+    /// "map.legsToggle" opens Plan › Map's panel; the Cockpit's NOW | NEXT open ROUTE, whose picker
+    /// segment ("pane.route") the UI tests tap instead. (6.2)
+    private var legsToggleIdentifier: String {
+        chrome == .plan ? "map.legsToggle" : "map.frequencies"
+    }
+
+    /// NOW: the Cockpit's radio's, or Plan › Map's own. (6.2)
+    private var nowFrequency: PhaseFrequency? {
+        chrome == .plan ? phaseFreqItems.first { $0.role == .current } : cockpitRadio?.now
+    }
+
+    /// NEXT, as NOW.
+    private var nextFrequency: PhaseFrequency? {
+        chrome == .plan ? phaseFreqItems.first { $0.role == .next } : cockpitRadio?.next
     }
 
     private func freqLineCell(tag: String, tint: Color, item: PhaseFrequency?) -> some View {
@@ -1112,7 +1146,7 @@ struct NavigationMapView: View {
         let compact = CockpitScale.current == .phone
         return VStack(spacing: 0) {
             chartWithChrome(top: VStack(spacing: 0) {
-                if !isInCockpit {
+                if showsCloseButton {
                     topBar
                         .padding(.horizontal)
                         .padding(.top)
@@ -1123,7 +1157,9 @@ struct NavigationMapView: View {
                 // moves them. (6.1)
                 VStack(spacing: compact ? 8 : 10) {
                     if compact {
-                        nextWaypointLine
+                        // A leg shown from ROUTE: its bar in the next line's place, over the chart's
+                        // top, where a 300 pt chart leaves it clear of the leg. (6.2)
+                        if framedLeg != nil { framedLegBar } else { nextWaypointLine }
                     } else {
                         SeparateView { nextWaypointCard }
                     }
@@ -1132,7 +1168,7 @@ struct NavigationMapView: View {
                             .frame(maxWidth: .infinity, alignment: .leading)
                     }
                     // Not with the legs open: the band under the card is a view. (6.1, option C)
-                    if !compact && chrome.showsMapControls {
+                    if !compact && panelChrome.showsMapControls {
                         SeparateView { mapControlsRow }
                             .frame(maxWidth: .infinity, alignment: .trailing)
                     }
@@ -1142,8 +1178,15 @@ struct NavigationMapView: View {
                 .padding(.top, compact ? 8 : 10)
             },
             bottom: VStack(spacing: 8) {
+                // A leg shown from ROUTE, on the iPad: over the foot, where the thumb is. (6.2)
+                if !compact {
+                    framedLegBar
+                        .padding(.horizontal, 16)
+                }
                 mapFooter
-                if compact && chrome.showsMapControls {
+                // The phone's controls give way while a leg shows (Back to aircraft is Centre then):
+                // the leg has the chart between the bar and the scale. (6.2)
+                if compact && panelChrome.showsMapControls && framedLeg == nil {
                     SeparateView { mapControlsBottomRow }
                         .frame(maxWidth: .infinity, alignment: .trailing)
                         .padding(.horizontal, 10)
@@ -1168,7 +1211,7 @@ struct NavigationMapView: View {
                                                          panelInset: CGFloat = 0) -> some View {
         Color.clear
             // Under the chrome, so the card and the undo stay live.
-            .overlay { if chrome.bandClosesPanel { legsBandCover } }
+            .overlay { if panelChrome.bandClosesPanel { legsBandCover } }
             .overlay(alignment: .top) {
                 top.background(GeometryReader { proxy in
                     Color.clear.preference(key: ChartChromeBottomKey.self,
@@ -1188,7 +1231,7 @@ struct NavigationMapView: View {
                 Color.clear
                     .preference(key: ChartSizeKey.self, value: proxy.size)
                     .preference(key: ChartPanelInsetKey.self, value: panelInset)
-                    .preference(key: ChartMeasuredOpenKey.self, value: chrome.bandClosesPanel)
+                    .preference(key: ChartMeasuredOpenKey.self, value: panelChrome.bandClosesPanel)
             })
             .coordinateSpace(name: Self.chartSpace)
             .onPreferenceChange(ChartSizeKey.self) { chartGeometry.chartSize = $0 }
@@ -1214,9 +1257,9 @@ struct NavigationMapView: View {
     @ViewBuilder
     private func occasionalChips(pillLeading: Bool) -> some View {
         let sigmets = rankedSigmets
-        let showsPill = chrome.showsRouteOffScreenPill && routeOffScreenHint != nil
+        let showsPill = panelChrome.showsRouteOffScreenPill && routeOffScreenHint != nil
         // The phone's Cockpit is where the chips come; elsewhere, once they have come.
-        let sharesRow = (CockpitScale.current == .phone && onShowChecklist != nil) || mapAccessoryHeight != nil
+        let sharesRow = (CockpitScale.current == .phone && chrome != .plan) || mapAccessoryHeight != nil
         let chipsHeight = sharesRow ? (mapAccessoryHeight ?? Self.cockpitChipsHeight) : 0
         if mapTopAccessory != nil || !sigmets.isEmpty || showsPill {
             HStack(alignment: .top, spacing: 8) {
@@ -1243,7 +1286,7 @@ struct NavigationMapView: View {
                 if height > 0 { mapAccessoryHeight = height }
             }
         }
-        if chrome.showsRouteOffScreenPill {
+        if panelChrome.showsRouteOffScreenPill {
             routeOffScreenPill(leading: pillLeading)
                 .animation(reduceMotion ? nil : .easeInOut(duration: 0.25), value: routeOffScreenHint) // (UX-18)
                 .modifier(StepsAsideForCallout(isHidden: mapState.isCalloutOpen, reduceMotion: reduceMotion))
@@ -1275,7 +1318,7 @@ struct NavigationMapView: View {
 
     /// The map's chrome for the panel's state: with the legs open, the map's controls go and the band is
     /// a view. (6.1, option C)
-    private var chrome: LegsPanelMap.Chrome { .forPanel(open: navSheetExpanded) }
+    private var panelChrome: LegsPanelMap.Chrome { .forPanel(open: navSheetExpanded) }
 
     /// The band the open legs panel leaves, as the map views take it; nil with the panel closed. It
     /// frames the waypoint previewed from the leg table while there is one, else the navigation target
@@ -1326,32 +1369,16 @@ struct NavigationMapView: View {
         isFollowingAircraft = camera.following
     }
 
-    /// The phone with no leg to fly, so the thumb bar would only hold Routes: no route on the map, or
-    /// no flight running (Plan › Map on the ground, where the bar is the way to the routes since the
-    /// leg controls went in-flight-only). In flight, the way to a route sits where the next waypoint
-    /// would be, rather than alone on a bar of its own at the foot of the screen; in Plan › Map there
-    /// is none, as the picker above has Routes. (round 6, I-06)
-    private var phoneWithNoLegToFly: Bool {
-        CockpitScale.current == .phone
-            && (flightPlanManager.activeFlightPlan == nil || !appState.isFlightActive)
-            // In the Cockpit's flight the foot has the check slot, and Routes joins it there. (6.1)
-            && !showsCheckSlot
+    /// Routes at the foot of the map: Plan › Map's on the iPad. The phone's picker has Routes already,
+    /// and the Cockpit has its act band. (round 6, I-06; 6.2)
+    private var showsRoutesRow: Bool {
+        chrome == .plan && CockpitScale.current != .phone
     }
 
-    /// The Cockpit's map in flight: the check slot leads the bottom row, in the same place in every
-    /// phase. (6.1, check slot)
-    private var showsCheckSlot: Bool { appState.isFlightActive && onShowChecklist != nil }
-
-    /// Approach and landing: GO AROUND and TOUCH-AND-GO after the slot, as on the checklist pane, in
-    /// place of the route's buttons (the destination is marked by the landing). (6.1, mockup M3) From
-    /// circuit height too, where the slot shows the landing check: the proposal's "circuit / final".
-    /// The slot doesn't move for them (`MapThumbRow`).
-    private var showsEventButtons: Bool {
-        showsCheckSlot && (appState.currentPhase == .approach || appState.currentPhase == .landing
-                           || appState.landingCheckShown)
+    /// The full-screen map on a phone, with nowhere else to go to the routes: Routes over the chart.
+    private var routesOnTop: Bool {
+        chrome == .plan && CockpitScale.current == .phone && onShowRoutes == nil
     }
-
-    private var routesOnTop: Bool { phoneWithNoLegToFly && onShowRoutes == nil }
 
     // MARK: - State Update Helper
 
@@ -1805,7 +1832,7 @@ struct NavigationMapView: View {
     private var mapFooter: some View {
         ZStack(alignment: .bottom) {
             // Not with the legs open: the band is a view, the undo stays. (6.1, option C)
-            if chrome.showsMapStatus {
+            if panelChrome.showsMapStatus {
                 HStack(alignment: .bottom) {
                     mapStatus
                     Spacer()
@@ -1814,7 +1841,7 @@ struct NavigationMapView: View {
                 .padding(.bottom, 16)
             }
 
-            MapUndoToast(undoOffer: $undoOffer)
+            MapUndoToast()
                 .padding(.horizontal, 16)
                 .padding(.bottom, 8)
         }
@@ -1856,16 +1883,16 @@ struct NavigationMapView: View {
     /// Portrait: opaque, pinned to the bottom edge — the frequencies to hand, the legs and every
     /// frequency when opened (at most `legsMaxHeight`, scrolling past it), and the thumb bar. No chart
     /// ink behind the numbers. (v6.0 · P3, C6; on-device review #1, M-06)
-    private func bottomPanel(legsMaxHeight: CGFloat, includesThumbBar: Bool = true) -> some View {
+    private func bottomPanel(legsMaxHeight: CGFloat) -> some View {
         VStack(spacing: 0) {
             freqCard
             if navSheetExpanded {
                 Rectangle().fill(theme.panelStroke).frame(height: 1)
                 SeparateView { legsPanelContent(maxHeight: legsMaxHeight) }
             }
-            if includesThumbBar && !phoneWithNoLegToFly {
+            if showsRoutesRow {
                 Rectangle().fill(theme.panelStroke).frame(height: 1)
-                navThumbBar
+                routesButtonRow()
             }
         }
         .background(theme.panel.ignoresSafeArea(edges: .bottom))
@@ -1886,10 +1913,8 @@ struct NavigationMapView: View {
             Button(action: toggleLegsAndFrequencies) {
                 HStack(spacing: 12) {
                     VStack(alignment: .leading, spacing: 12) {
-                        freqCell(tag: L10n.Nav.freqCurrent, tint: theme.onTarget,
-                                 item: phaseFreqItems.first { $0.role == .current })
-                        freqCell(tag: L10n.Nav.freqNext, tint: theme.info,
-                                 item: phaseFreqItems.first { $0.role == .next })
+                        freqCell(tag: L10n.Nav.freqCurrent, tint: theme.onTarget, item: nowFrequency)
+                        freqCell(tag: L10n.Nav.freqNext, tint: theme.info, item: nextFrequency)
                     }
                     legsChevron
                 }
@@ -1901,7 +1926,7 @@ struct NavigationMapView: View {
             .accessibilityHint(L10n.Nav.legsAndFrequencies)
             Rectangle().fill(theme.panelStroke).frame(height: 1)
             Spacer(minLength: 0)
-            navThumbColumn
+            routesButtonRow()
                 .padding(16)
         }
         .background(theme.panel.ignoresSafeArea(edges: [.bottom, .trailing]))
@@ -1977,6 +2002,8 @@ struct NavigationMapView: View {
                     })
             }
             .frame(height: min(legsPanelContentHeight, maxHeight))
+            // The leg being flown and NOW / NEXT never under a soft edge (`SharpScrollEdges`). (6.2)
+            .modifier(SharpScrollEdges())
             .onPreferenceChange(LegsPanelHeightKey.self) { height in
                 legsPanelContentHeight = height
                 // Once the scroll has its height: on the next turn, after the frame above takes it.
@@ -1999,7 +2026,8 @@ struct NavigationMapView: View {
     /// The chevron of the NOW / NEXT card (portrait) and of the column's NOW / NEXT (landscape): up to
     /// open the legs and every frequency, which rise from the foot of the map in both, down to close.
     private var legsChevron: some View {
-        Image(systemName: navSheetExpanded ? "chevron.down" : "chevron.up")
+        // The Cockpit's goes to ROUTE. (6.2)
+        Image(systemName: chrome != .plan ? "chevron.right" : navSheetExpanded ? "chevron.down" : "chevron.up")
             .font(.aero(size: CockpitType.label, weight: .bold))
             .foregroundColor(theme.action)
             .frame(width: CockpitType.size(kneeboard: 52, phone: 44),
@@ -2137,16 +2165,21 @@ struct NavigationMapView: View {
         return NextWaypointReadout.distance(dist)
     }
 
-    /// Time and clock time to the next waypoint at the current ground speed. Nothing below 30 kt:
-    /// taxiing at 8 kt, the 12 NM to the first waypoint would read as an hour and a half.
-    private var nextLegLive: (ete: TimeInterval, eta: Date)? {
+    /// Time and clock time to the next waypoint at the current ground speed: `NextLegLive`, the one rule
+    /// the NEXT cell and the DEST line read too. Nothing below 30 kt: taxiing at 8 kt, the 12 NM to the
+    /// first waypoint would read as an hour and a half.
+    private var nextLegLive: NextLegLive? {
         guard let loc = locationManager.currentLocation else { return nil }
-        let gs = locationManager.currentSpeedKnots
-        guard gs >= 30, let ete = flightPlanManager.etaToNextWaypoint(from: loc, groundSpeedKnots: gs) else { return nil }
-        return (ete, FlightClock.now.addingTimeInterval(ete))
+        return NextLegLive(distanceNM: flightPlanManager.distanceToNextWaypoint(from: loc),
+                           groundSpeedKnots: locationManager.currentSpeedKnots)
     }
 
+    /// The legs and every frequency: Plan › Map's panel, the Cockpit's ROUTE page. (6.2)
     private func toggleLegsAndFrequencies() {
+        if chrome != .plan, let onShowRoute {
+            onShowRoute()
+            return
+        }
         withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.28)) { navSheetExpanded.toggle() }
     }
 
@@ -2206,10 +2239,9 @@ struct NavigationMapView: View {
         }
     }
 
-    /// `height`: taller than a map control, in a row of the thumb bar's height (Routes beside the check
-    /// slot). `fillsWidth`: the row's width (Routes under the slot in the landscape column).
-    private func chromeButton(icon: String, title: String, prominent: Bool = false, height: CGFloat? = nil,
-                              fillsWidth: Bool = false, action: @escaping () -> Void) -> some View {
+    /// A labelled map control.
+    private func chromeButton(icon: String, title: String, prominent: Bool = false,
+                              action: @escaping () -> Void) -> some View {
         Button(action: action) {
             HStack(spacing: 8) {
                 Image(systemName: icon).font(.aero(size: CockpitType.label, weight: .semibold))
@@ -2220,7 +2252,7 @@ struct NavigationMapView: View {
             }
             .foregroundColor(prominent ? theme.actionText : theme.action)
             .padding(.horizontal, CockpitType.size(kneeboard: 16, phone: 12))
-            .frame(maxWidth: fillsWidth ? .infinity : nil, minHeight: height ?? CockpitTarget.control)
+            .frame(minHeight: CockpitTarget.control)
             .background(RoundedRectangle(cornerRadius: 14).fill(prominent ? theme.action : theme.panel))
             .overlay(RoundedRectangle(cornerRadius: 14).stroke(prominent ? Color.clear : theme.panelStroke, lineWidth: 1))
             .contentShape(Rectangle())
@@ -2282,13 +2314,11 @@ struct NavigationMapView: View {
     /// The two frequencies to have set: the one to talk to now and the next. Tap for every leg and
     /// every frequency along the way.
     private var freqCard: some View {
-        let current = phaseFreqItems.first { $0.role == .current }
-        let next = phaseFreqItems.first { $0.role == .next }
-        return Button(action: toggleLegsAndFrequencies) {
+        Button(action: toggleLegsAndFrequencies) {
             HStack(spacing: CockpitType.size(kneeboard: 16, phone: 10)) {
-                freqCell(tag: L10n.Nav.freqCurrent, tint: theme.onTarget, item: current)
+                freqCell(tag: L10n.Nav.freqCurrent, tint: theme.onTarget, item: nowFrequency)
                 Rectangle().fill(theme.panelStroke).frame(width: 1, height: 52)
-                freqCell(tag: L10n.Nav.freqNext, tint: theme.info, item: next)
+                freqCell(tag: L10n.Nav.freqNext, tint: theme.info, item: nextFrequency)
                 legsChevron
             }
             .padding(.horizontal, CockpitType.size(kneeboard: 16, phone: 12))
@@ -2296,7 +2326,7 @@ struct NavigationMapView: View {
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
-        .accessibilityIdentifier("map.legsToggle")
+        .accessibilityIdentifier(legsToggleIdentifier)
         // A hint, not a label: a label replaced the station and frequency, so VoiceOver never read the
         // NOW and NEXT frequencies at all. (v6.0 review)
         .accessibilityHint(L10n.Nav.legsAndFrequencies)
@@ -2330,9 +2360,14 @@ struct NavigationMapView: View {
     private var legsAndFrequencies: some View {
         Group {
             if flightPlanManager.activeFlightPlan != nil {
-                LegsPanelColumns {
-                    legsColumn
-                    freqColumn(large: true)
+                VStack(alignment: .leading, spacing: 12) {
+                    // Over both columns, at the panel's width: beside the frequencies its figures had
+                    // no room. (6.2)
+                    destinationLine
+                    LegsPanelColumns {
+                        legsColumn
+                        freqColumn(large: true)
+                    }
                 }
             } else {
                 freqColumn(large: true)
@@ -2346,451 +2381,41 @@ struct NavigationMapView: View {
     @ViewBuilder
     private var legsColumn: some View {
         if let plan = flightPlanManager.activeFlightPlan {
-            VStack(alignment: .leading, spacing: 10) {
-                waypointList(plan: plan, large: true)
-                destinationSummaryView
-                progressRow(plan: plan)
-            }
+            waypointList(plan: plan, large: true)
         }
     }
 
-    /// The thumb bar: the leg timer, MARK as the big button (named after the waypoint), Divert, and
-    /// everything else under More. Reset lives in More, with undo, not beside MARK. (review C2)
-    /// With no route on the map there is nothing to time or mark: the way to put one there is a
-    /// normal-size button, not a 104 pt bar. (on-device review #1, R-01)
-    ///
-    /// Only in flight. The same map is Plan › Map on the ground (`isInCockpit` there too), and with a
-    /// route armed it offered START LEG, MARK and DIVERT: a tap recorded a time over a waypoint and
-    /// advanced the leg before the flight existed, so the leg timer and the nav log's times were wrong
-    /// once airborne. On the ground the row is the way to the routes, as with no route. (v6.0 review)
-    ///
-    /// In the Cockpit's flight the check slot leads the row, in one frame whatever follows it: MARK with
-    /// Divert and More, GO AROUND and TOUCH-AND-GO, or Routes (`MapThumbRow`). (6.1)
+    /// The Cockpit's DEST line, the route to scale under it (the author's call for 6.2), in place of the
+    /// "DEST · NM · ETA" row and the progress bar with its dots under the legs.
     @ViewBuilder
-    private var navThumbBar: some View {
-        let spacing = CockpitType.size(kneeboard: 12, phone: 8)
-        if thumbRow == .routes {
-            routesButtonRow()
-        } else {
-            Group {
-                switch thumbRow {
-                case .slotThenFlightEvents:
-                    slotRow(spacing: spacing, divertAndMoreAxis: .horizontal) { flightEventButtons(spacing: spacing) }
-                case .slotThenMark:
-                    if let plan = flightPlanManager.activeFlightPlan {
-                        TimelineView(.periodic(from: .now, by: 1)) { _ in
-                            let state = legTimerState(plan)
-                            // The leg timer moves into MARK, the button that ends the leg. (mockup M2)
-                            slotRow(spacing: spacing, divertAndMoreAxis: .horizontal) {
-                                HStack(spacing: spacing) {
-                                    navPrimaryButton(plan, started: state.started, leg: state)
-                                    divertAndMore(plan, leg: state, axis: .horizontal, spacing: spacing)
-                                }
-                            }
-                        }
-                    }
-                case .slotThenRoutes:
-                    slotRow(spacing: spacing, divertAndMoreAxis: .horizontal) {
-                        routesButton(height: CheckSlotButton.height, fillsWidth: true)
-                    }
-                case .legTimerThenMark:
-                    if let plan = flightPlanManager.activeFlightPlan {
-                        TimelineView(.periodic(from: .now, by: 1)) { _ in
-                            let state = legTimerState(plan)
-                            HStack(spacing: spacing) {
-                                legTimerReadout(elapsed: state.elapsed, planned: state.planned, running: state.running,
-                                                started: state.started)
-                                navPrimaryButton(plan, started: state.started)
-                                divertAndMore(plan, leg: state, axis: .horizontal, spacing: spacing)
-                            }
-                        }
-                    }
-                case .routes:
-                    EmptyView()
-                }
-            }
-            .padding(.horizontal, CockpitType.size(kneeboard: 16, phone: 12))
-            .padding(.vertical, CockpitType.size(kneeboard: 12, phone: 10))
-        }
-    }
-
-    /// The bottom row for the flight as it stands (portrait, and the phone on its side).
-    private var thumbRow: MapThumbRow {
-        MapThumbRow.make(showsCheckSlot: showsCheckSlot, showsEventButtons: showsEventButtons,
-                         hasRoute: flightPlanManager.activeFlightPlan != nil, flightActive: appState.isFlightActive)
-    }
-
-    /// The check slot, when this map is the Cockpit's in flight. (6.1)
-    @ViewBuilder
-    private func checkSlot() -> some View {
-        if let onShowChecklist {
-            CockpitCheckSlot(onShowChecklist: onShowChecklist)
-        }
-    }
-
-    /// The check slot, then `rest` in the room it leaves: the slot as wide as MARK beside Divert and More,
-    /// whatever `rest` is, so it holds still when the row changes round it (`CheckSlotRowLayout`).
-    /// `divertAndMoreAxis`: Divert and More side by side (the thumb bar) or one above the other (the
-    /// phone on its side), as the row with MARK has them.
-    private func slotRow<Rest: View>(spacing: CGFloat, divertAndMoreAxis: Axis,
-                                     @ViewBuilder rest: () -> Rest) -> some View {
-        CheckSlotRowLayout(spacing: spacing) {
-            checkSlot()
-            divertAndMoreMeasure(axis: divertAndMoreAxis, spacing: divertAndMoreAxis == .horizontal ? spacing : 8)
-            rest()
-        }
-    }
-
-    /// Divert and More as `divertAndMore` lays them out, unseen: what the slot's width is measured by.
-    private func divertAndMoreMeasure(axis: Axis, spacing: CGFloat) -> some View {
-        let stacked = axis == .vertical
-        return EqualWidthStack(axis: axis, spacing: spacing) {
-            if !flightPlanManager.isFlightPlanCompleted {
-                thumbSecondaryLabel(icon: "arrow.triangle.turn.up.right.diamond.fill", title: L10n.Trip.divert,
-                                    tint: theme.action, stacked: stacked)
-            }
-            thumbSecondaryLabel(icon: "ellipsis.circle", title: L10n.Nav.more, tint: theme.action, stacked: stacked)
-        }
-        .hidden()
-        .accessibilityHidden(true)
-    }
-
-    /// GO AROUND and TOUCH-AND-GO after the slot, sharing what it leaves: approach and landing (mockup
-    /// M3), and from circuit height. Hold 1 s to confirm, or a single tap in circuits, as on the
-    /// checklist pane.
-    private func flightEventButtons(spacing: CGFloat) -> some View {
-        HStack(spacing: spacing) {
-            MapFlightEventButton(event: .goAround)
-                .frame(maxWidth: .infinity)
-            MapFlightEventButton(event: .touchAndGo)
-                .frame(maxWidth: .infinity)
-        }
-    }
-
-    /// The landscape phone's version, under the Cockpit's column: the slot (or the leg timer), MARK, and
-    /// Divert and More stacked, half height, so MARK keeps its width. (iPhone pass, I7)
-    @ViewBuilder
-    private var navThumbColumnCompact: some View {
-        switch thumbRow {
-        case .slotThenFlightEvents:
-            slotRow(spacing: 8, divertAndMoreAxis: .vertical) { flightEventButtons(spacing: 8) }
-        case .slotThenMark:
-            if let plan = flightPlanManager.activeFlightPlan {
-                TimelineView(.periodic(from: .now, by: 1)) { _ in
-                    let state = legTimerState(plan)
-                    slotRow(spacing: 8, divertAndMoreAxis: .vertical) {
-                        HStack(spacing: 8) {
-                            navPrimaryButton(plan, started: state.started, leg: state)
-                            divertAndMore(plan, leg: state, axis: .vertical, stacked: true)
-                        }
-                    }
-                }
-            }
-        case .slotThenRoutes:
-            slotRow(spacing: 8, divertAndMoreAxis: .vertical) {
-                routesButton(height: CheckSlotButton.height, fillsWidth: true)
-            }
-        case .legTimerThenMark:
-            if let plan = flightPlanManager.activeFlightPlan {
-                TimelineView(.periodic(from: .now, by: 1)) { _ in
-                    let state = legTimerState(plan)
-                    HStack(spacing: 8) {
-                        legTimerReadout(elapsed: state.elapsed, planned: state.planned, running: state.running,
-                                        started: state.started)
-                        navPrimaryButton(plan, started: state.started)
-                        divertAndMore(plan, leg: state, axis: .vertical, stacked: true)
-                    }
-                }
-            }
-        case .routes:
-            routesButtonRow(padded: false)
-        }
-    }
-
-    /// The landscape side column's version, in two rows so the legs keep room above it: the leg timer
-    /// and Divert, then MARK with More beside it, where the thumb rests. In the Cockpit's flight the
-    /// check slot heads them, the column's width, whatever the row under it (`MapThumbColumn`).
-    @ViewBuilder
-    private var navThumbColumn: some View {
-        let plan = flightPlanManager.activeFlightPlan
-        switch MapThumbColumn.make(showsCheckSlot: showsCheckSlot, showsEventButtons: showsEventButtons,
-                                   hasRoute: plan != nil, flightActive: appState.isFlightActive) {
-        case .slotOverFlightEvents:
-            VStack(spacing: 12) {
-                checkSlot()
-                HStack(spacing: 12) {
-                    MapFlightEventButton(event: .goAround, narrow: true)
-                    MapFlightEventButton(event: .touchAndGo, narrow: true)
-                }
-            }
-        case .slotOverMark:
-            // The slot on top, where the leg timer and Divert were; the leg timer in MARK.
-            if let plan {
-                VStack(spacing: 12) {
-                    checkSlot()
-                    TimelineView(.periodic(from: .now, by: 1)) { _ in
-                        let state = legTimerState(plan)
-                        // Divert and More stacked, half height, so MARK keeps the width for its leg line.
-                        HStack(spacing: 12) {
-                            navPrimaryButton(plan, started: state.started, leg: state)
-                            divertAndMore(plan, leg: state, axis: .vertical, stacked: true)
-                        }
-                    }
-                }
-            }
-        case .slotOverRoutes:
-            // No route: the slot as with one, and Routes where MARK would be, as tall, so the slot
-            // doesn't move when a route is armed. (6.1)
-            VStack(spacing: 12) {
-                checkSlot()
-                routesButton(height: CheckSlotButton.height, fillsWidth: true)
-            }
-        case .legTimerOverMark:
-            if let plan {
-                legTimerOverMark(plan)
-            }
-        case .routes:
-            routesButtonRow()
-        }
-    }
-
-    /// The landscape column in flight without the check slot: the leg timer and Divert, then MARK with
-    /// More beside it. Divert over More, so the two share a width.
-    private func legTimerOverMark(_ plan: FlightPlan) -> some View {
-        TimelineView(.periodic(from: .now, by: 1)) { _ in
-            let state = legTimerState(plan)
-            HStack(alignment: .bottom, spacing: 12) {
-                VStack(alignment: .leading, spacing: 12) {
-                    legTimerReadout(elapsed: state.elapsed, planned: state.planned, running: state.running,
-                                    started: state.started)
-                        .frame(maxWidth: .infinity, minHeight: CockpitTarget.thumb, alignment: .leading)
-                    navPrimaryButton(plan, started: state.started)
-                }
-                divertAndMore(plan, leg: state, axis: .vertical, spacing: 12)
+    private var destinationLine: some View {
+        if let plan = flightPlanManager.activeFlightPlan,
+           let estimate = DestinationEstimator.estimate(DestinationInput(
+               plan: plan, location: locationManager.currentLocation,
+               groundSpeedKnots: locationManager.currentSpeedKnots)) {
+            // Never wider than the panel: in a narrow window it widened the panel, then the map pane.
+            OfferedWidth {
+                DestinationLine(estimate: estimate, scale: CockpitScale.current,
+                                onResumeRoute: { flightPlanManager.resumeRoute() })
             }
         }
     }
 
-    /// Routes alone on the ground (Plan › Map). (In the Cockpit's flight with no route, Routes follows
-    /// the check slot: `MapThumbRow.slotThenRoutes`.) `padded`: false under the landscape phone's column,
-    /// which pads its thumb row itself.
-    private func routesButtonRow(padded: Bool = true) -> some View {
+    /// Routes alone on the ground (Plan › Map). (In the Cockpit, with no route, Routes is in the act
+    /// band, where MARK would be.)
+    private func routesButtonRow() -> some View {
         HStack(spacing: CockpitType.size(kneeboard: 12, phone: 8)) {
             routesButton()
             Spacer(minLength: 0)
         }
-        .padding(.horizontal, padded ? 16 : 0)
-        .padding(.vertical, padded ? 12 : 0)
+        .padding(.horizontal, 16)
+        .padding(.vertical, 12)
     }
 
-    /// `fillsWidth`: the rest of the row after the check slot, or a row of its own under it in the
-    /// landscape column.
-    private func routesButton(height: CGFloat? = nil, fillsWidth: Bool = false) -> some View {
-        chromeButton(icon: "point.topleft.down.to.point.bottomright.curvepath",
-                     title: L10n.Ground.planRoutes, height: height, fillsWidth: fillsWidth) {
+    private func routesButton() -> some View {
+        chromeButton(icon: "point.topleft.down.to.point.bottomright.curvepath", title: L10n.Ground.planRoutes) {
             if let onShowRoutes { onShowRoutes() } else { showFlightPlanning = true }
         }
-    }
-
-    private struct LegTimerState {
-        let planned: TimeInterval?
-        let running: Bool
-        let elapsed: TimeInterval
-        var started: Bool { running || elapsed > 0.5 }
-    }
-
-    private func legTimerState(_ plan: FlightPlan) -> LegTimerState {
-        LegTimerState(planned: plan.legArriving(at: plan.currentWaypointIndex)?.totalLegEET,
-                      running: flightPlanManager.isChronometerRunning,
-                      elapsed: flightPlanManager.chronometerElapsed)
-    }
-
-    /// START LEG before the timer runs, then MARK named after the waypoint. `leg`: beside the check slot
-    /// the leg timer has no place of its own and becomes MARK's second line, "LEG 2:05 / 17:32" (the
-    /// phone: "LSGC · 2:05"). (6.1, mockup M2)
-    @ViewBuilder
-    private func navPrimaryButton(_ plan: FlightPlan, started: Bool, leg: LegTimerState? = nil) -> some View {
-        if !started {
-            thumbPrimaryButton(icon: "stopwatch", title: L10n.Nav.startLegTimer) {
-                flightPlanManager.startChronometer()
-            }
-            .accessibilityIdentifier("map.startLeg")
-        } else if plan.currentWaypointIndex < plan.waypoints.count {
-            let index = plan.currentWaypointIndex
-            let name = plan.waypoints[index].name
-            if CockpitScale.current == .phone {
-                // The phone: the waypoint under MARK, where "MARK LSGC" on one line had to shrink.
-                let parts = [name.isEmpty ? nil : name, leg.map { legTimeText($0, planned: false) }].compactMap { $0 }
-                thumbPrimaryButton(icon: "mappin.and.ellipse", title: L10n.Nav.mark,
-                                   subtitle: parts.isEmpty ? nil : parts.joined(separator: " · ")) {
-                    markWaypoint(at: index, in: plan)
-                }
-                .accessibilityIdentifier("map.mark")
-            } else {
-                thumbPrimaryButton(icon: "mappin.and.ellipse",
-                                   title: name.isEmpty ? L10n.Nav.mark : "\(L10n.Nav.mark) \(name)",
-                                   subtitle: leg.map { "\(L10n.Nav.leg) \(legTimeText($0, planned: true))" }) {
-                    markWaypoint(at: index, in: plan)
-                }
-                .accessibilityIdentifier("map.mark")
-            }
-        } else {
-            Spacer(minLength: 0)
-        }
-    }
-
-    /// The leg time so far, against the planned one where there's room ("2:05 / 17:32"); paused, it says so.
-    private func legTimeText(_ state: LegTimerState, planned: Bool) -> String {
-        var text = formatClock(state.elapsed)
-        if planned, let plannedTime = state.planned { text += " / \(formatClock(plannedTime))" }
-        if !state.running { text += " ‖" }
-        return text
-    }
-
-    /// Divert (while the route has a leg to fly) and More, one width for both: side by side in the thumb
-    /// bar, one above the other in the landscape columns (`stacked`: half height each, beside MARK).
-    private func divertAndMore(_ plan: FlightPlan, leg state: LegTimerState, axis: Axis, stacked: Bool = false,
-                               spacing: CGFloat = 8) -> some View {
-        EqualWidthStack(axis: axis, spacing: spacing) {
-            if !flightPlanManager.isFlightPlanCompleted { divertThumbButton(plan, stacked: stacked) }
-            navMoreMenu(running: state.running, started: state.started, stacked: stacked)
-        }
-    }
-
-    private func divertThumbButton(_ plan: FlightPlan, stacked: Bool = false) -> some View {
-        thumbSecondaryButton(icon: "arrow.triangle.turn.up.right.diamond.fill",
-                             title: L10n.Trip.divert,
-                             tint: plan.diversion != nil ? theme.warning : theme.action,
-                             stacked: stacked) { openDivert(nil) }
-    }
-
-    /// Leg time so far against the planned leg time, and how far ahead or over.
-    private func legTimerReadout(elapsed: TimeInterval, planned: TimeInterval?, running: Bool,
-                                 started: Bool) -> some View {
-        VStack(alignment: .leading, spacing: 2) {
-            Text(L10n.Nav.leg)
-                .font(.aero(size: CockpitType.label, weight: .semibold))
-                .foregroundColor(theme.textSecondary)
-            HStack(alignment: .firstTextBaseline, spacing: 6) {
-                Text(started ? formatClock(elapsed) : "–:––")
-                    .font(.aero(size: CockpitType.response, weight: .bold, design: .monospaced))
-                    .foregroundColor(running ? theme.textPrimary : theme.textSecondary)
-                // The planned leg time only where there is room for it; the line under says how far
-                // ahead or over. (iPhone pass)
-                if let planned, CockpitScale.current == .kneeboard {
-                    Text("/ \(formatClock(planned))")
-                        .font(.aero(size: CockpitType.label, design: .monospaced))
-                        .foregroundColor(theme.textSecondary)
-                }
-            }
-            if started, let planned {
-                let delta = planned - elapsed
-                Text((delta >= 0 ? "▲ " : "▼ ") + formatClock(abs(delta)))
-                    .font(.aero(size: CockpitType.label, weight: .semibold, design: .monospaced))
-                    .foregroundColor(delta >= 0 ? theme.onTarget : theme.warning)
-            }
-        }
-        .fixedSize()
-        .accessibilityElement(children: .combine)
-    }
-
-    private func thumbPrimaryButton(icon: String, title: String, subtitle: String? = nil,
-                                    action: @escaping () -> Void) -> some View {
-        Button(action: action) {
-            VStack(spacing: 2) {
-                HStack(spacing: CockpitType.size(kneeboard: 12, phone: 8)) {
-                    Image(systemName: icon).font(.aero(size: CockpitType.button, weight: .bold))
-                    Text(title)
-                        .font(.aero(size: CockpitType.button, weight: .bold))
-                        .lineLimit(1)
-                        .minimumScaleFactor(0.6)
-                }
-                if let subtitle {
-                    Text(subtitle)
-                        .font(.aero(size: CockpitType.label, weight: .semibold, design: .monospaced))
-                        .lineLimit(1)
-                        .minimumScaleFactor(0.7)
-                }
-            }
-            .foregroundColor(theme.actionText)
-            .padding(.horizontal, CockpitType.size(kneeboard: 16, phone: 10))
-            .frame(maxWidth: .infinity, minHeight: CockpitTarget.thumb)
-            .background(RoundedRectangle(cornerRadius: 18).fill(theme.action))
-            .contentShape(Rectangle())
-        }
-        .buttonStyle(.plain)
-        .accessibilityLabel(subtitle.map { "\(title) \($0)" } ?? title)
-    }
-
-    private func thumbSecondaryButton(icon: String, title: String, tint: Color, stacked: Bool = false,
-                                      action: @escaping () -> Void) -> some View {
-        Button(action: action) {
-            thumbSecondaryLabel(icon: icon, title: title, tint: tint, stacked: stacked)
-        }
-        .buttonStyle(.plain)
-        .accessibilityLabel(title)
-    }
-
-    /// `stacked`: half height, icon beside the word, for two buttons one above the other (the landscape
-    /// phone). Narrower on the phone, where MARK needs the width. (iPhone pass) It fills the width it is
-    /// offered, so `divertAndMore` can give Divert and More one width.
-    @ViewBuilder
-    private func thumbSecondaryLabel(icon: String, title: String, tint: Color, stacked: Bool = false) -> some View {
-        Group {
-            if stacked {
-                HStack(spacing: 6) {
-                    Image(systemName: icon).font(.aero(size: CockpitType.label, weight: .semibold))
-                    Text(title)
-                        .font(.aero(size: CockpitType.label, weight: .bold))
-                        .lineLimit(1)
-                        .minimumScaleFactor(0.7)
-                }
-                .padding(.horizontal, 10)
-                .frame(minWidth: 96, maxWidth: .infinity, minHeight: (CockpitTarget.thumb - 8) / 2)
-            } else {
-                VStack(spacing: 6) {
-                    Image(systemName: icon).font(.aero(size: CockpitType.response, weight: .semibold))
-                    Text(title)
-                        .font(.aero(size: CockpitType.label, weight: .bold))
-                        .lineLimit(1)
-                        .minimumScaleFactor(0.7)
-                }
-                .padding(.horizontal, CockpitType.size(kneeboard: 12, phone: 8))
-                .frame(minWidth: CockpitType.size(kneeboard: 120, phone: 64), maxWidth: .infinity,
-                       minHeight: CockpitTarget.thumb)
-            }
-        }
-        .foregroundColor(tint)
-        .background(RoundedRectangle(cornerRadius: stacked ? 12 : 18).fill(tint.opacity(0.12)))
-        .overlay(RoundedRectangle(cornerRadius: stacked ? 12 : 18).stroke(tint.opacity(0.45), lineWidth: 1))
-        .contentShape(Rectangle())
-    }
-
-    /// The rarer actions: the leg timer's pause and reset (reset offers undo), the legs and
-    /// frequencies, and the routes.
-    private func navMoreMenu(running: Bool, started: Bool, stacked: Bool = false) -> some View {
-        Menu {
-            if started {
-                Button {
-                    running ? flightPlanManager.pauseChronometer() : flightPlanManager.startChronometer()
-                } label: {
-                    Label(running ? L10n.Nav.pauseChronometer : L10n.Nav.startChronometer,
-                          systemImage: running ? "pause.fill" : "play.fill")
-                }
-                Button(role: .destructive) { resetLegTimer() } label: {
-                    Label(L10n.Nav.resetChronometer, systemImage: "arrow.counterclockwise")
-                }
-            }
-            Button(action: toggleLegsAndFrequencies) {
-                Label(L10n.Nav.legsAndFrequencies, systemImage: "list.bullet")
-            }
-            Button { if let onShowRoutes { onShowRoutes() } else { showFlightPlanning = true } } label: {
-                Label(L10n.Ground.planRoutes, systemImage: "point.topleft.down.to.point.bottomright.curvepath")
-            }
-        } label: {
-            thumbSecondaryLabel(icon: "ellipsis.circle", title: L10n.Nav.more, tint: theme.action, stacked: stacked)
-        }
-        .accessibilityLabel(L10n.Nav.more)
     }
 
     private var liveBearingText: String? {
@@ -2801,169 +2426,19 @@ struct NavigationMapView: View {
 
     // MARK: - Phase-aware frequencies (v4 UI/UX Revamp C2)
 
-    private func areaFreqs(for sector: SwissAirspaceSector) -> [SwissCommonFrequency] {
-        switch sector {
-        case .zurich: return [.zurichInfo, .fisEast]
-        case .geneva: return [.genevaInfo, .fisWest]
-        case .east: return [.fisEast]
-        case .west: return [.fisWest]
-        }
-    }
-
-    private struct FreqEntry { let station: String; let freq: String }
-
-    /// The nearest airfield that actually has usable VFR frequencies — walks up to 6 nearest and skips
-    /// frequency-less fields (grass strips / heliports), mirroring the HUD's nearest-strip logic. The
-    /// old `limit: 1` made a single freq-less closest field silently drop the whole nearest entry, so
-    /// the area FIS ("Zurich Info") wrongly became the current frequency. (v4 UI/UX Revamp fix)
-    private func nearestAirfieldWithFreqs(to coord: CLLocationCoordinate2D) -> Airport? {
-        guard airportDataService.isDataAvailable else { return nil }
-        return airportDataService.findNearestAirports(to: coord, limit: 6, maxDistanceNm: 40)
-            .first { !airfieldFreqs(for: $0.ident).isEmpty }
-    }
-
-    private func airportDistanceNm(from coord: CLLocationCoordinate2D, to apt: Airport) -> Double {
-        CLLocation(latitude: coord.latitude, longitude: coord.longitude)
-            .distance(from: CLLocation(latitude: apt.latitude, longitude: apt.longitude)) / 1852.0
-    }
-
-    /// Select the CURRENT and NEXT frequencies a VFR pilot needs, proximity-aware: within ~10 NM of a
-    /// field CURRENT is that field's contact, else the area FIS/Info; NEXT is the next route airfield,
-    /// else the nearest CTR ahead, else the FIS↔field hand-off. Prefers the CONTACT freq (ATIS is
-    /// listen-only and stays under "All Frequencies"). Degrades to plan order with no GPS. (v4 UI/UX Revamp)
-    private func computeCurrentNextFreqs() -> (current: FreqEntry?, next: FreqEntry?) {
-        func contact(_ list: [(label: String, freq: String)]) -> FreqEntry? {
-            (list.first { !$0.label.uppercased().contains("ATIS") } ?? list.first)
-                .map { FreqEntry(station: $0.label, freq: $0.freq) }
-        }
-        // No usable position: fall back to plan order (departure = current, next waypoint = next).
-        guard let loc = locationManager.currentLocation, airportDataService.isDataAvailable else {
-            guard let plan = flightPlanManager.activeFlightPlan, !plan.waypoints.isEmpty else { return (nil, nil) }
-            let cur = contact(waypointFreqs(plan.waypoints[0]))
-            let nxt = plan.waypoints.dropFirst().lazy.compactMap { contact(self.waypointFreqs($0)) }.first
-            return (cur, nxt)
-        }
-        let coord = loc.coordinate
-        let nearField = nearestAirfieldWithFreqs(to: coord)
-        let nearDist = nearField.map { airportDistanceNm(from: coord, to: $0) }
-        let nearEntry = nearField.flatMap { apt in
-            contact(airfieldFreqs(for: apt.ident).map { (label: "\(apt.ident) \($0.type)", freq: $0.freq) })
-        }
-        let fisCommon = SwissAirspaceSectors.isInSwitzerland(coord)
-            ? areaFreqs(for: SwissAirspaceSectors.getSector(for: coord)).first : nil
-        let fisEntry = fisCommon.map { FreqEntry(station: $0.name, freq: $0.frequency) }
-
-        let nearActive = (nearDist ?? .infinity) <= 10.0  // ~10 NM ≈ inside a typical CTR/RMZ
-
-        // CURRENT: near a field → that field; else the area FIS you're working enroute.
-        let current = nearActive ? (nearEntry ?? fisEntry) : (fisEntry ?? nearEntry)
-
-        // NEXT: the next station you'll need — next route airfield, else nearest CTR ahead, else the
-        // FIS↔field hand-off (at a field you'll call Info next; enroute the next field).
-        var next: FreqEntry?
-        // Diverting: the field you are going to is the next call, whatever the route says. (v5.1)
-        if let diversion = flightPlanManager.activeFlightPlan?.diversion {
-            next = contact(airfieldFreqs(for: diversion.ident).map { (label: "\(diversion.ident) \($0.type)", freq: $0.freq) })
-        }
-        if next == nil, flightPlanManager.activeFlightPlan?.diversion == nil,
-           let plan = flightPlanManager.activeFlightPlan {
-            let idx = plan.currentWaypointIndex
-            if let aheadIdx = plan.waypoints.indices.first(where: { $0 > idx && !waypointFreqs(plan.waypoints[$0]).isEmpty }) {
-                next = contact(waypointFreqs(plan.waypoints[aheadIdx]))
-            }
-        }
-        if next == nil,
-           let ctr = openAIPDataService.nearbyCTRs(from: coord, withinNM: 25, requireFrequencies: true).first,
-           let f = ctr.airspace.primaryFrequency {
-            next = FreqEntry(station: ctr.airspace.shortName, freq: f.value)
-        }
-        if next == nil { next = nearActive ? fisEntry : nearEntry }
-        if let c = current, let n = next, c.station == n.station, c.freq == n.freq { next = nil }
-        return (current, next)
-    }
-
-    /// Recompute the cached frequency list. CURRENT + NEXT (proximity/time-aware) show by default along
-    /// with EMERGENCY; everything else along the journey (nearest field's full set, route waypoints,
-    /// area FIS, nearby CTRs) is `.other`, revealed by "All Frequencies". Deduped; cached (recomputed
-    /// on phase change + significant move). (v4 UI/UX Revamp — current/next)
+    /// Plan › Map's frequencies: NOW and NEXT, then every station along the way behind "All
+    /// frequencies", Emergency last (`PhaseFrequencyPlanner`), and the same list to the Watch. Cached,
+    /// recomputed on the phase, the leg, new data and a real move, since it asks for the nearest airports.
+    /// The Cockpit's map reads `CockpitRadio`'s instead, which follows the flight on every page and sends
+    /// the Watch its list: nothing to do here. (v4 UI/UX Revamp C2; 6.2)
     private func recomputePhaseFrequencies() {
-        var items: [PhaseFrequency] = []
-        var seen = Set<String>()
-        func add(_ station: String, _ freq: String, role: FreqRole = .other, emergency: Bool = false) {
-            let key = freq + "|" + station
-            guard !seen.contains(key) else { return }
-            seen.insert(key)
-            items.append(PhaseFrequency(station: station, freq: freq,
-                                        highlighted: role == .current, isEmergency: emergency,
-                                        role: emergency ? .emergency : role))
-        }
-
-        // CURRENT + NEXT — the two a VFR pilot needs at a glance.
-        let (current, next) = computeCurrentNextFreqs()
-        if let c = current { add(c.station, c.freq, role: .current) }
-        if let n = next { add(n.station, n.freq, role: .next) }
-
-        // Everything else, in journey order, for "All Frequencies" (deduped vs current/next).
-        if let loc = locationManager.currentLocation, let near = nearestAirfieldWithFreqs(to: loc.coordinate) {
-            for f in airfieldFreqs(for: near.ident) { add("\(near.ident) \(f.type)", f.freq) }
-        }
-        if let plan = flightPlanManager.activeFlightPlan, !plan.waypoints.isEmpty {
-            for wp in plan.waypoints { for (label, freq) in waypointFreqs(wp) { add(label, freq) } }
-        }
-        if let loc = locationManager.currentLocation, SwissAirspaceSectors.isInSwitzerland(loc.coordinate) {
-            for sf in areaFreqs(for: SwissAirspaceSectors.getSector(for: loc.coordinate)) { add(sf.name, sf.frequency) }
-        }
-        if let loc = locationManager.currentLocation {
-            for ctr in openAIPDataService.nearbyCTRs(from: loc.coordinate, withinNM: 25, requireFrequencies: true) {
-                if let f = ctr.airspace.primaryFrequency { add(ctr.airspace.shortName, f.value) }
-            }
-        }
-
-        // Emergency, always last.
-        add(SwissCommonFrequency.emergency.name, SwissCommonFrequency.emergency.frequency, emergency: true)
+        guard chrome == .plan else { return }
+        let items = PhaseFrequencyPlanner.plan(
+            position: locationManager.currentLocation?.coordinate, plan: flightPlanManager.activeFlightPlan,
+            sources: .live(airports: airportDataService, openAIP: openAIPDataService)).panel
         phaseFreqItems = items
-
         // Mirror this exact list (content + NOW/NEXT + order) to the Apple Watch. (Watch freq sync)
-        WatchConnectivityManager.shared.updatePanelFrequencies(items.map { item in
-            let role: FrequencyRole = item.isEmergency ? .emergency
-                : item.role == .current ? .now
-                : item.role == .next ? .next : .other
-            return FrequencyInfo(name: item.station, frequency: item.freq, type: .common, role: role)
-        })
-    }
-
-    /// An airfield's VFR frequencies: ATIS first when present (the first listen — it does NOT give you
-    /// the next entity's frequency), then the contact frequency (TWR > AFIS > INFO > A/G > … — never
-    /// the APP/GND that was being shown wrongly). (v4 UI/UX Revamp)
-    // Single source of truth shared with the HUD NEAREST strip (AirportDataService).
-    private static let contactPriority = AirportDataService.fieldContactPriority
-    private func airfieldFreqs(for ident: String) -> [(type: String, freq: String)] {
-        let freqs = airportDataService.getFrequencies(for: ident)
-        guard !freqs.isEmpty else { return [] }
-        var out: [(String, String)] = []
-        if let atis = freqs.first(where: { $0.type.uppercased().contains("ATIS") }) {
-            out.append((atis.type, atis.formattedFrequency))
-        }
-        for type in Self.contactPriority {
-            if let f = freqs.first(where: { $0.type.uppercased().contains(type) }) {
-                out.append((f.type, f.formattedFrequency)); break
-            }
-        }
-        if out.isEmpty, let f = freqs.first { out.append((f.type, f.formattedFrequency)) }
-        return out
-    }
-
-    /// A waypoint's frequencies: the manually-entered one if set, else the airfield's ATIS + contact
-    /// auto-completed from the DB when the waypoint name is an airfield ident. (v4 UI/UX Revamp)
-    private func waypointFreqs(_ wp: FlightPlanWaypoint) -> [(label: String, freq: String)] {
-        let name = wp.name.isEmpty ? nil : wp.name
-        if let f = wp.frequency, !f.isEmpty {
-            return [(name ?? "WPT", f)]
-        }
-        if let ident = name, airportDataService.isDataAvailable {
-            return airfieldFreqs(for: ident).map { ("\(ident) \($0.type)", $0.freq) }
-        }
-        return []
+        WatchConnectivityManager.shared.updatePanelFrequencies(items.map(\.watchInfo))
     }
 
     // MARK: - Track vector (v4 UI/UX Revamp C4)
@@ -3092,19 +2567,20 @@ struct NavigationMapView: View {
 
     private func waypointRow(plan: FlightPlan, index: Int, wpt: FlightPlanWaypoint, compact: Bool = false,
                              large: Bool = false) -> some View {
-        let isCurrent = index == plan.currentWaypointIndex
         let isPast = index < plan.currentWaypointIndex
         let isPreview = previewWaypointIndex == index
-        let leg = plan.legArriving(at: index)
-        let actual = actualLegTime(plan: plan, index: index, isCurrent: isCurrent, isPast: isPast, wpt: wpt)
+        let actual = RouteLegRow.actualTime(plan: plan, index: index, legTimer: flightPlanManager.chronometerElapsed)
         // A previewed waypoint ahead can be flown to straight away, skipping the ones before it —
         // and a waypoint of the route is where a diversion can rejoin it. (v5.1)
         let offersDirect = isPreview && (index > plan.currentWaypointIndex || plan.diversion != nil)
         // DIRECT over the row's ACT and Δ, empty on a waypoint ahead, rather than beside the row: beside
         // it, it took its width from the name, all of it beside the frequencies. (6.1, device check)
         let actualAndDelta = large ? LegRowMetrics.actualAndDeltaWidth : 44 + 6 + 52
-        return waypointRowButton(plan: plan, index: index, wpt: wpt, compact: compact, large: large,
-                                 isCurrent: isCurrent, isPast: isPast, isPreview: isPreview, leg: leg, actual: actual)
+        let row = RouteLegRow(plan: plan, index: index, compact: compact, large: large, isPreview: isPreview,
+                         actual: actual) {
+            handleWaypointTap(index: index, plan: plan, isPast: isPast)
+        }
+        return row
             .overlay(alignment: .trailing) {
                 if offersDirect {
                     Button {
@@ -3130,91 +2606,6 @@ struct NavigationMapView: View {
             }
     }
 
-    private func waypointRowButton(plan: FlightPlan, index: Int, wpt: FlightPlanWaypoint, compact: Bool,
-                                   large: Bool = false,
-                                   isCurrent: Bool, isPast: Bool, isPreview: Bool,
-                                   leg: FlightPlanWaypoint?, actual: TimeInterval?) -> some View {
-        // Column widths follow the type (`LegRowMetrics`).
-        let indexWidth: CGFloat = large ? LegRowMetrics.indexWidth : 16
-        let timeWidth: CGFloat = large ? LegRowMetrics.timeWidth : 44
-        let deltaWidth: CGFloat = large ? LegRowMetrics.deltaWidth : 52
-        return Button(action: { handleWaypointTap(index: index, plan: plan, isPast: isPast) }) {
-            HStack(spacing: LegRowMetrics.spacing) {
-                // Sequence number — matches the numbered disc on the map. (v4 UI/UX Revamp)
-                Text("\(index + 1)")
-                    .font(.aero(size: large ? CockpitType.label : 11, weight: .bold, design: .monospaced))
-                    .foregroundColor(isCurrent ? theme.route : theme.textSecondary)
-                    .frame(width: indexWidth, alignment: .center)
-                Image(systemName: isPast ? "circle.fill" : (isCurrent ? "location.fill" : "circle"))
-                    .font(.aero(size: large ? 14 : 9))
-                    .foregroundColor(isPast ? theme.onTarget : (isCurrent ? theme.route : theme.textDim))
-                Text(wpt.name.isEmpty ? "WPT \(index + 1)" : wpt.name)
-                    // The label size, like the times beside it: at 24 pt a name had to shrink to fit the
-                    // landscape column. The current leg reads by its colour.
-                    .font(.aero(size: large ? CockpitType.label : 13, weight: isCurrent ? .bold : .regular, design: .monospaced))
-                    .foregroundColor(isCurrent ? theme.route : theme.textPrimary)
-                    .lineLimit(1)
-                    .minimumScaleFactor(large ? 0.8 : 1)
-                Spacer(minLength: LegRowMetrics.nameGap)
-                // Fixed-width columns so every row's heading / distance / PLAN / ACT / Δ line up,
-                // whether or not a leg has been flown yet. (v4 UI/UX Revamp — column alignment)
-                HStack(spacing: LegRowMetrics.timeSpacing) {
-                    // Heading + distance kept on iPad; dropped on the narrow iPhone table. (v4 UI/UX Revamp)
-                    if !compact && !large {
-                        Text(leg?.formattedMagneticCourse ?? "")
-                            .foregroundColor(theme.textSecondary).frame(width: 38, alignment: .trailing)
-                        Text(leg?.distance.map { String(format: "%.1f", $0) } ?? "")
-                            .foregroundColor(theme.textSecondary).frame(width: 40, alignment: .trailing)
-                    }
-                    Text((leg?.totalLegEET).map { formatClock($0) } ?? "")  // PLAN (EET)
-                        .foregroundColor(large ? theme.textSecondary : theme.textDim).frame(width: timeWidth, alignment: .trailing)
-                    Text(actual.map { formatClock($0) } ?? "")            // ACT / live
-                        .foregroundColor(isCurrent ? theme.route : theme.onTarget)
-                        .frame(width: timeWidth, alignment: .trailing)
-                    legDeltaText(planned: leg?.totalLegEET, actual: actual)  // Δ ahead/over
-                        .frame(width: deltaWidth, alignment: .trailing)
-                }
-                .font(.aero(size: large ? CockpitType.label : 10, design: .monospaced))
-                .lineLimit(1)
-                .minimumScaleFactor(large ? 0.8 : 1)   // shrink a little rather than cut a time short
-            }
-            .padding(.horizontal, LegRowMetrics.horizontalPadding).padding(.vertical, large ? 9 : 7)
-            .background(isPreview ? theme.info.opacity(0.14)
-                        : (isCurrent ? theme.route.opacity(0.10) : Color.clear))
-            .clipShape(RoundedRectangle(cornerRadius: 6))
-            .contentShape(Rectangle())
-        }
-        .buttonStyle(.plain)
-        // Its place and whether it has a time over, for a UI test: "legRow.1.passed.ato".
-        .accessibilityIdentifier("legRow.\(index).\(isPast ? "passed" : isCurrent ? "next" : "ahead")\(wpt.actualTimeOver == nil ? "" : ".ato")")
-    }
-
-    /// Actual time flown on the leg arriving at `index`: the live timer for the current leg, ATO-to-ATO
-    /// for a crossed leg, nil for a future leg. (v4 UI/UX Revamp)
-    private func actualLegTime(plan: FlightPlan, index: Int, isCurrent: Bool, isPast: Bool, wpt: FlightPlanWaypoint) -> TimeInterval? {
-        if isCurrent {
-            let e = flightPlanManager.chronometerElapsed
-            return e > 0.5 ? e : nil
-        }
-        if isPast, index >= 1, let ato = wpt.actualTimeOver,
-           let prev = plan.waypoints[index - 1].actualTimeOver {
-            return ato.timeIntervalSince(prev)
-        }
-        return nil
-    }
-
-    /// The ▲ ahead / ▼ over delta of actual vs planned leg time, or blank when not yet comparable. (v4 UI/UX Revamp)
-    @ViewBuilder
-    private func legDeltaText(planned: TimeInterval?, actual: TimeInterval?) -> some View {
-        if let planned, let actual {
-            let d = planned - actual
-            Text((d >= 0 ? "▲" : "▼") + formatClock(abs(d)))
-                .foregroundColor(d >= 0 ? theme.onTarget : theme.warning)
-        } else {
-            Text("")
-        }
-    }
-
     /// Tap a crossed waypoint → confirm resuming that leg; tap a current/future one → map preview. (v4 UI/UX Revamp)
     private func handleWaypointTap(index: Int, plan: FlightPlan, isPast: Bool) {
         if isPast {
@@ -3237,126 +2628,15 @@ struct NavigationMapView: View {
         }
     }
 
-    private func progressRow(plan: FlightPlan) -> some View {
-        HStack(spacing: 10) {
-            ProgressView(value: plan.progress)
-                .progressViewStyle(.linear)
-                .tint(theme.onTarget)
-            HStack(spacing: 3) {
-                ForEach(0..<plan.waypoints.count, id: \.self) { i in
-                    Circle()
-                        .fill(i < plan.currentWaypointIndex ? theme.onTarget
-                              : (i == plan.currentWaypointIndex ? theme.route : theme.textDim.opacity(0.5)))
-                        .frame(width: 5, height: 5)
-                }
-            }
-        }
-    }
-
-    /// Destination endpoint, total remaining distance (live to next + remaining planned legs), and the
-    /// planned ETA at the destination. (v4 UI/UX Revamp — row 2)
-    private var destinationSummary: (dest: String, remainingNM: Double, eta: Date?)? {
-        guard let plan = flightPlanManager.activeFlightPlan,
-              plan.waypoints.count >= 2,
-              let dest = plan.waypoints.last else { return nil }
-        // Diverting: the destination IS the diversion field, straight there. Adding the rest of the
-        // route to the distance to the field would be a number describing no flight at all. (v5.1)
-        if let diversion = plan.diversion {
-            guard let loc = locationManager.currentLocation,
-                  let d = flightPlanManager.distanceToNextWaypoint(from: loc) else {
-                return (diversion.ident, 0, nil)
-            }
-            let gs = locationManager.currentSpeedKnots
-            return (diversion.ident, d, gs > 30 ? FlightClock.now.addingTimeInterval(d / gs * 3600) : nil)
-        }
-        var remaining = 0.0
-        if let loc = locationManager.currentLocation,
-           let d = flightPlanManager.distanceToNextWaypoint(from: loc) {
-            remaining += d
-        }
-        if plan.currentWaypointIndex + 1 < plan.waypoints.count {
-            for i in (plan.currentWaypointIndex + 1)..<plan.waypoints.count {
-                remaining += plan.legArriving(at: i)?.distance ?? 0
-            }
-        }
-        let name = dest.name.isEmpty ? "WPT \(plan.waypoints.count)" : dest.name
-        return (name, remaining, dest.estimatedTimeOver)
-    }
-
-    @ViewBuilder
-    private var destinationSummaryView: some View {
-        if let s = destinationSummary {
-            HStack(spacing: 8) {
-                Text("DEST")
-                    .font(.aero(size: CockpitType.label, weight: .semibold))
-                    .foregroundColor(theme.textSecondary)
-                Text(s.dest)
-                    .font(.aero(size: CockpitType.label, weight: .bold, design: .monospaced))
-                    .foregroundColor(theme.textPrimary)
-                Text("·").foregroundColor(theme.textDim)
-                Text(String(format: "%.0f NM", s.remainingNM))
-                    .font(.aero(size: CockpitType.label, design: .monospaced))
-                    .foregroundColor(theme.textPrimary)
-                if let eta = s.eta {
-                    Text("·").foregroundColor(theme.textDim)
-                    Text("ETA \(eta.formatted(date: .omitted, time: .shortened))")
-                        .font(.aero(size: CockpitType.label, design: .monospaced))
-                        .foregroundColor(theme.textSecondary)
-                        .accessibilityIdentifier("legs.destinationETA")
-                }
-            }
-            .lineLimit(1)
-            .minimumScaleFactor(0.7)
-        }
-    }
-
-
-    private func markWaypoint(at index: Int, in plan: FlightPlan) {
-        let timer = flightPlanManager.legTimerSnapshot
-        flightPlanManager.markWaypoint()
-        guard let timer else { return }
-        let name = plan.waypoints[index].name.isEmpty ? "WPT \(index + 1)" : plan.waypoints[index].name
-        offerUndo(L10n.Nav.markedAt(name, FlightClock.now.formatted(date: .omitted, time: .shortened))) {
-            flightPlanManager.undoMark(ofWaypointAt: index, timer: timer)
-        }
-    }
-
-    private func resetLegTimer() {
-        guard let timer = flightPlanManager.legTimerSnapshot else { return }
-        flightPlanManager.resetChronometer()
-        offerUndo(L10n.Nav.legTimerReset) { flightPlanManager.restoreLegTimer(timer) }
-    }
-
-    // MARK: - Undo (v6.0 · C2)
-
-    /// A mis-tap in turbulence is taken back with one tap, for a few seconds.
-    private func offerUndo(_ message: String, undo: @escaping () -> Void) {
-        // One undo at a time: this one is newer than a waypoint the flight marked on its own.
-        flightPlanManager.dismissAutoMarkNotice()
-        withAnimation(reduceMotion ? nil : .easeOut(duration: 0.2)) {
-            undoOffer = NavUndoOffer(message: message, undo: undo)
-        }
-    }
-
-    /// A duration as "M:SS" (or "H:MM:SS" past an hour). (v4 UI/UX Revamp)
-    private func formatClock(_ t: TimeInterval) -> String {
-        let total = Int(t.rounded())
-        let h = total / 3600, m = (total % 3600) / 60, s = total % 60
-        return h > 0 ? String(format: "%d:%02d:%02d", h, m, s) : String(format: "%d:%02d", m, s)
-    }
-
     // MARK: - Divert (v5.1)
 
-    /// "Divert here" in an airport's callout: in flight only, like the thumb bar's Divert. Plan › Map on
-    /// the ground is this same map, and with a route armed the callout offered it there too, leaving a
-    /// diversion on the route before the flight existed. (v6.0 review, 1694b7c; found by the 6.0 manual)
+    /// "Divert here" in an airport's callout: in flight only, like the act band's Divert, whose sheet it
+    /// opens on the field. Plan › Map on the ground is this same map, and with a route armed the callout
+    /// offered it there too, leaving a diversion on the route before the flight existed. (v6.0 review,
+    /// 1694b7c; found by the 6.0 manual)
     private var airportDivert: ((String) -> Void)? {
-        appState.isFlightActive ? { ident in openDivert(ident) } : nil
-    }
-
-    private func openDivert(_ ident: String?) {
-        divertPreselect = ident
-        showDivert = true
+        guard appState.isFlightActive, let onDivert else { return nil }
+        return { ident in onDivert(ident) }
     }
 
     // MARK: - Off-screen route (v4.4.0)
@@ -3424,6 +2704,11 @@ struct NavigationMapView: View {
     // MARK: - Actions
 
     private func centerOnAircraft() {
+        // MAP showing a leg from ROUTE: Centre is "Back to aircraft", the pilot's zoom with it. (6.2)
+        if framedLeg != nil {
+            backToAircraft()
+            return
+        }
         guard let location = locationManager.currentLocation else { return }
 
         isFollowingAircraft = true
@@ -3438,6 +2723,80 @@ struct NavigationMapView: View {
         // Respect orientation mode: only set heading for track-up (use cached heading)
         if mapOrientationMode == .trackUp, let course = locationManager.currentCourseDegrees {
             mapState.cameraHeading = course
+        }
+    }
+
+    // MARK: - A leg from ROUTE (6.2, the plan's Q7)
+
+    /// The leg ROUTE asked MAP to show (the index of the waypoint it arrives at), in the Cockpit only.
+    private var framedLeg: Int? {
+        chrome == .plan ? nil : cockpitNav?.framedLeg
+    }
+
+    /// The zoom to come back to: the camera's distance and the region's span.
+    struct LegZoom: Equatable {
+        let distance: Double
+        let latitudeDelta: Double
+    }
+
+    /// What the chart's foot holds while a leg shows: on the iPad the bar and the scale under it, on a
+    /// phone the scale (its bar is at the top, measured with the chrome there).
+    private static var framedLegFootRoom: CGFloat { CockpitType.size(kneeboard: 170, phone: 60) }
+
+    /// The leg framed: its two waypoints, clear of the chrome over the chart's top and of the bar at its
+    /// foot, the aircraft no longer followed.
+    private func frameRequestedLeg() {
+        legFramePending = false
+        guard let index = framedLeg, let plan = flightPlanManager.activeFlightPlan else { return }
+        let coordinates = LegFraming.coordinates(of: plan, leg: index)
+        guard !coordinates.isEmpty else {
+            backToAircraft()
+            return
+        }
+        isFollowingAircraft = false
+        mapState.pendingFitPadding = LegFraming.edgePadding(chartSize: chartGeometry.chartSize,
+                                                            topChrome: chartGeometry.chromeBottom,
+                                                            bottomChrome: Self.framedLegFootRoom)
+        mapState.pendingFitCoordinates = coordinates
+        mapState.objectWillChange.send()   // the fit isn't @Published; nudge updateUIView
+        // Appearing, the map view may not have its size yet, and keeps the fit pending: once more when
+        // it has. (6.2)
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { [mapState] in
+            if mapState.pendingFitCoordinates != nil { mapState.objectWillChange.send() }
+        }
+    }
+
+    /// Back to the aircraft, followed again at the zoom the pilot had before the leg.
+    private func backToAircraft() {
+        cockpitNav?.endLegFraming()
+        legFramePending = false
+        isFollowingAircraft = true
+        guard let zoom = zoomBeforeLeg else { return }
+        zoomBeforeLeg = nil
+        let center = locationManager.currentLocation?.coordinate ?? mapState.region.center
+        mapState.cameraDistance = zoom.distance
+        mapState.updateFromRegion(MKCoordinateRegion(
+            center: center, span: MKCoordinateSpan(latitudeDelta: zoom.latitudeDelta, longitudeDelta: zoom.latitudeDelta)))
+        if mapOrientationMode == .trackUp, let course = locationManager.currentCourseDegrees {
+            mapState.cameraHeading = course
+        }
+    }
+
+    /// While a leg shows: "Back to aircraft" and the leg's DIRECT or RESUME LEG (with its confirmation). At
+    /// the chart's foot on the iPad, in the next line's place on a phone.
+    @ViewBuilder
+    private var framedLegBar: some View {
+        if let index = framedLeg, let plan = flightPlanManager.activeFlightPlan, plan.waypoints.indices.contains(index) {
+            let name = plan.waypoints[index].name.isEmpty ? "WPT \(index + 1)" : plan.waypoints[index].name
+            FramedLegBar(waypointName: name,
+                         action: LegFraming.action(leg: index, nextIndex: plan.currentWaypointIndex,
+                                                   diverting: plan.diversion != nil),
+                         onBack: { backToAircraft() },
+                         onDirect: {
+                             flightPlanManager.directTo(waypointAt: index)
+                             backToAircraft()
+                         },
+                         onResume: { legResumeTarget = index })
         }
     }
 
@@ -4162,13 +3521,16 @@ struct NativeMapViewUIKit: UIViewRepresentable {
 
         // Frame the whole active route ("Show" on the off-screen route pill). MapKit does the
         // aspect-ratio maths; the top inset clears the floating chrome, as the builder's fit does.
-        if !bandOwnsCamera, let fit = mapState.pendingFitCoordinates, !fit.isEmpty {
+        // Not before the map has its size: fitted into no room, a leg shown from ROUTE as MAP appears
+        // came out at the old zoom on the aircraft. Left pending; the caller nudges again. (6.2)
+        if !bandOwnsCamera, let fit = mapState.pendingFitCoordinates, !fit.isEmpty,
+           mapView.bounds.width > 0, mapView.bounds.height > 0 {
             mapState.pendingFitCoordinates = nil
+            let padding = mapState.pendingFitPadding ?? UIEdgeInsets(top: 130, left: 50, bottom: 130, right: 50)
+            mapState.pendingFitPadding = nil
             let rects = fit.map { MKMapRect(origin: MKMapPoint($0), size: MKMapSize(width: 0, height: 0)) }
             let union = rects.dropFirst().reduce(rects[0]) { $0.union($1) }
-            mapView.setVisibleMapRect(union,
-                                      edgePadding: UIEdgeInsets(top: 130, left: 50, bottom: 130, right: 50),
-                                      animated: false)
+            mapView.setVisibleMapRect(union, edgePadding: padding, animated: false)
             // Sync the shared state to what the map now shows. Without this the next update pass sees
             // a changed region alongside the PRE-FIT `cameraDistance` and re-applies that camera,
             // silently undoing the fit — which looked like "Show" zooming into the middle of the route
@@ -5654,13 +5016,16 @@ struct SwissMapView: UIViewRepresentable {
 
         // Frame the whole active route ("Show" on the off-screen route pill). MapKit does the
         // aspect-ratio maths; the top inset clears the floating chrome, as the builder's fit does.
-        if !bandOwnsCamera, let fit = mapState.pendingFitCoordinates, !fit.isEmpty {
+        // Not before the map has its size: fitted into no room, a leg shown from ROUTE as MAP appears
+        // came out at the old zoom on the aircraft. Left pending; the caller nudges again. (6.2)
+        if !bandOwnsCamera, let fit = mapState.pendingFitCoordinates, !fit.isEmpty,
+           mapView.bounds.width > 0, mapView.bounds.height > 0 {
             mapState.pendingFitCoordinates = nil
+            let padding = mapState.pendingFitPadding ?? UIEdgeInsets(top: 130, left: 50, bottom: 130, right: 50)
+            mapState.pendingFitPadding = nil
             let rects = fit.map { MKMapRect(origin: MKMapPoint($0), size: MKMapSize(width: 0, height: 0)) }
             let union = rects.dropFirst().reduce(rects[0]) { $0.union($1) }
-            mapView.setVisibleMapRect(union,
-                                      edgePadding: UIEdgeInsets(top: 130, left: 50, bottom: 130, right: 50),
-                                      animated: false)
+            mapView.setVisibleMapRect(union, edgePadding: padding, animated: false)
             // Sync the shared state to what the map now shows. Without this the next update pass sees
             // a changed region alongside the PRE-FIT `cameraDistance` and re-applies that camera,
             // silently undoing the fit — which looked like "Show" zooming into the middle of the route
@@ -7104,112 +6469,6 @@ private struct ChartPanelInsetKey: PreferenceKey {
     static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) { value = max(value, nextValue()) }
 }
 
-/// Buttons side by side or one above the other, all one width: Divert and More, in the thumb bar and
-/// beside MARK in the landscape columns. More is a `Menu`, which sizes to its label, so it came out
-/// narrower than Divert, and much narrower in French ("Plus" beside "Déroutement"). (6.1, device check)
-///
-/// The pair takes the room the two buttons want, so MARK and the check slot beside it keep theirs:
-/// one above the other, the wider one's width, as a stack of the two took; side by side, half of
-/// both, the longer word a little smaller (its label scales down to 0.7) and the shorter one's button
-/// wider. As wide as the wider side by side, the pair left MARK and the slot about 55 pt each on a
-/// phone in French. Each button must fill the width it is offered (`maxWidth: .infinity`); the pair
-/// keeps its width whatever it is offered, and MARK gives.
-struct EqualWidthStack: Layout {
-    var axis: Axis = .vertical
-    var spacing: CGFloat = 8
-
-    /// The one width, from what each button wants.
-    static func buttonWidth(ideals: [CGFloat], axis: Axis) -> CGFloat {
-        guard !ideals.isEmpty else { return 0 }
-        switch axis {
-        case .vertical: return ideals.max() ?? 0
-        case .horizontal: return ideals.reduce(0, +) / CGFloat(ideals.count)
-        }
-    }
-
-    func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
-        guard !subviews.isEmpty else { return .zero }
-        let width = buttonWidth(subviews)
-        let heights = subviews.map { $0.sizeThatFits(ProposedViewSize(width: width, height: nil)).height }
-        let gaps = spacing * CGFloat(subviews.count - 1)
-        switch axis {
-        case .vertical:
-            return CGSize(width: width, height: heights.reduce(0, +) + gaps)
-        case .horizontal:
-            return CGSize(width: width * CGFloat(subviews.count) + gaps, height: heights.max() ?? 0)
-        }
-    }
-
-    func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) {
-        let width = buttonWidth(subviews)
-        var origin = bounds.origin
-        for subview in subviews {
-            let height = axis == .horizontal
-                ? bounds.height
-                : subview.sizeThatFits(ProposedViewSize(width: width, height: nil)).height
-            subview.place(at: origin, proposal: ProposedViewSize(width: width, height: height))
-            switch axis {
-            case .vertical: origin.y += height + spacing
-            case .horizontal: origin.x += width + spacing
-            }
-        }
-    }
-
-    private func buttonWidth(_ subviews: Subviews) -> CGFloat {
-        Self.buttonWidth(ideals: subviews.map { $0.sizeThatFits(.unspecified).width }, axis: axis)
-    }
-}
-
-/// The map's bottom row in flight with the check slot: the slot, then the rest of the row (MARK with
-/// Divert and More; GO AROUND and TOUCH-AND-GO; Routes). The slot keeps one frame whatever follows it,
-/// as wide as MARK beside Divert and More: half of what Divert and More leave. In circuits the row
-/// changes every lap, at circuit height and again on the runway, and the slot moved to the middle of it
-/// each time. (6.1, the author's call: the slot stays left)
-///
-/// Three subviews: the slot, Divert and More as a hidden measure (`reference`, laid out but never seen),
-/// and the rest of the row, which takes the width the slot leaves.
-struct CheckSlotRowLayout: Layout {
-    var spacing: CGFloat
-
-    /// The slot's width in a row `rowWidth` wide, beside Divert and More `reference` wide.
-    static func slotWidth(rowWidth: CGFloat, reference: CGFloat, spacing: CGFloat) -> CGFloat {
-        max(0, (rowWidth - reference - 2 * spacing) / 2)
-    }
-
-    func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
-        guard subviews.count == 3 else { return .zero }
-        let width = rowWidth(proposal, subviews)
-        let slot = Self.slotWidth(rowWidth: width, reference: referenceWidth(subviews), spacing: spacing)
-        let rest = max(0, width - slot - spacing)
-        let height = max(subviews[0].sizeThatFits(ProposedViewSize(width: slot, height: proposal.height)).height,
-                         subviews[2].sizeThatFits(ProposedViewSize(width: rest, height: proposal.height)).height)
-        return CGSize(width: width, height: height)
-    }
-
-    func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) {
-        guard subviews.count == 3 else { return }
-        let slot = Self.slotWidth(rowWidth: bounds.width, reference: referenceWidth(subviews), spacing: spacing)
-        subviews[0].place(at: CGPoint(x: bounds.minX, y: bounds.midY), anchor: .leading,
-                          proposal: ProposedViewSize(width: slot, height: bounds.height))
-        // Hidden: it only measures.
-        subviews[1].place(at: bounds.origin, proposal: .unspecified)
-        subviews[2].place(at: CGPoint(x: bounds.minX + slot + spacing, y: bounds.midY), anchor: .leading,
-                          proposal: ProposedViewSize(width: max(0, bounds.width - slot - spacing), height: bounds.height))
-    }
-
-    private func referenceWidth(_ subviews: Subviews) -> CGFloat {
-        subviews[1].sizeThatFits(.unspecified).width
-    }
-
-    /// The width offered, or with none (or no bound), what the row wants: a slot as wide as the rest's.
-    private func rowWidth(_ proposal: ProposedViewSize, _ subviews: Subviews) -> CGFloat {
-        if let width = proposal.width, width.isFinite { return width }
-        let reference = referenceWidth(subviews)
-        let slot = subviews[0].sizeThatFits(.unspecified).width
-        return 2 * slot + reference + 2 * spacing
-    }
-}
-
 /// The next waypoint's figures, as the card and the phone's line show them, and the widest value each
 /// format gives. B612 Mono draws every character the same width, so the widest is the longest. (6.1,
 /// stability)
@@ -7758,8 +7017,8 @@ extension AppState {
     }
 }
 
-/// The undo toast, over a pane and never in its layout, for six seconds: MARK and the leg-timer reset
-/// on the map, and a waypoint the flight marked on its own on the map and the checklist pane.
+/// The undo toast, over a page and never in its layout, for six seconds: MARK and the leg-timer reset
+/// (the act band's), and a waypoint the flight marked on its own, on the map and on the checklist.
 /// (v6.0 · C2, v6.0.1)
 struct NavUndoToast: View {
     /// MARK's and the leg-timer reset's UNDO take back the pilot's own tap: filled, as in 6.0. The
@@ -7826,74 +7085,60 @@ struct NavUndoToast: View {
     }
 }
 
-/// The map's undo toast: its own MARK or leg-timer reset or, in flight, a waypoint the flight just
-/// marked on its own. Only one at a time: each withdraws the other. A view of its own rather than a
-/// part of the map's body, which is already as deep as the stack allows (see `SeparateView`). (v6.0.1)
-struct MapUndoToast: View {
-    @Binding var undoOffer: NavUndoOffer?
-    @Environment(AppState.self) private var appState
-    @EnvironmentObject private var flightPlanManager: FlightPlanManager
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
-
-    private var shown: NavUndoOffer? {
-        // A memory check or a FREDA just confirmed from the slot (6.1): the pilot's latest tap here.
-        if appState.isFlightActive, let confirmation = NavUndoOffer.checkConfirmation(in: appState) {
-            return confirmation
-        }
-        if appState.isFlightActive, let notice = flightPlanManager.autoMarkNotice {
-            return .autoMark(notice, in: flightPlanManager)
-        }
-        return undoOffer
+extension NavUndoOffer {
+    /// The one offer to show, newest kind first: a check just confirmed (a memory check, a FREDA), a
+    /// waypoint the flight just marked, then the act band's MARK or reset (`band`). Each withdraws the
+    /// older (`MapUndoToast`, `AutoMarkUndoToast`). (6.1; the band 6.2)
+    @MainActor
+    static func shown(in appState: AppState, flightPlanManager: FlightPlanManager, band: NavUndoOffer?,
+                      flightOnly: Bool) -> NavUndoOffer? {
+        let inFlight = !flightOnly || appState.isFlightActive
+        if inFlight, let confirmation = checkConfirmation(in: appState) { return confirmation }
+        if inFlight, let notice = flightPlanManager.autoMarkNotice { return .autoMark(notice, in: flightPlanManager) }
+        return band
     }
+}
+
+/// The map's undo toast: the act band's MARK or leg-timer reset or, in flight, a waypoint the flight
+/// just marked on its own, or a check just confirmed from the slot. Only one at a time: each withdraws
+/// the other. A view of its own rather than a part of the map's body, which is already as deep as the
+/// stack allows (see `SeparateView`). (v6.0.1)
+struct MapUndoToast: View {
+    @Environment(AppState.self) private var appState
+    @Environment(CockpitNavState.self) private var cockpitNav: CockpitNavState?
+    @EnvironmentObject private var flightPlanManager: FlightPlanManager
 
     var body: some View {
         ZStack(alignment: .bottom) {
-            if let offer = shown {
+            if let offer = NavUndoOffer.shown(in: appState, flightPlanManager: flightPlanManager,
+                                              band: cockpitNav?.undoOffer, flightOnly: true) {
                 NavUndoToast(offer: offer) {
-                    if offer.id == undoOffer?.id { undoOffer = nil }
+                    if offer.id == cockpitNav?.undoOffer?.id { cockpitNav?.undoOffer = nil }
                     flightPlanManager.dismissAutoMarkNotice(offer.id)
                     appState.dismissCheckConfirmation(offer.id)
                 }
             }
         }
-        .animation(reduceMotion ? nil : .easeOut(duration: 0.2), value: flightPlanManager.autoMarkNotice?.id)
-        .animation(reduceMotion ? nil : .easeOut(duration: 0.2), value: appState.memoryConfirmation?.id)
-        .animation(reduceMotion ? nil : .easeOut(duration: 0.2), value: appState.fredaConfirmation?.id)
-        // A waypoint the flight marked on its own, or a check just confirmed, supersedes the undo of an
-        // older MARK or reset.
-        .onChange(of: flightPlanManager.autoMarkNotice?.id) { _, id in
-            if id != nil { undoOffer = nil }
-        }
-        .onChange(of: appState.memoryConfirmation?.id) { _, id in
-            if id != nil { undoOffer = nil }
-        }
-        .onChange(of: appState.fredaConfirmation?.id) { _, id in
-            if id != nil { undoOffer = nil }
-        }
+        .modifier(UndoOfferFollower(cockpitNav: cockpitNav))
     }
 }
 
-/// The Cockpit's checklist pane host for a waypoint the flight marked on its own, and for a memory
-/// check just confirmed with ✓ DONE or a FREDA just done (6.1): the map pane has its own, which also
-/// carries MARK's undo. (v6.0.1)
+/// The Cockpit's checklist page host for a waypoint the flight marked on its own, a memory check just
+/// confirmed with ✓ DONE or a FREDA just done (6.1), and the act band's MARK or reset (More's reset is
+/// on this page too since 6.2): the map page has its own. (v6.0.1)
 struct AutoMarkUndoToast: View {
     /// The phone's narrower margins.
     var narrow = false
     @EnvironmentObject var flightPlanManager: FlightPlanManager
     @Environment(AppState.self) private var appState
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
-
-    private var shown: NavUndoOffer? {
-        if let confirmation = NavUndoOffer.checkConfirmation(in: appState) {
-            return confirmation
-        }
-        return flightPlanManager.autoMarkNotice.map { .autoMark($0, in: flightPlanManager) }
-    }
+    @Environment(CockpitNavState.self) private var cockpitNav: CockpitNavState?
 
     var body: some View {
         ZStack(alignment: .bottom) {
-            if let offer = shown {
+            if let offer = NavUndoOffer.shown(in: appState, flightPlanManager: flightPlanManager,
+                                              band: cockpitNav?.undoOffer, flightOnly: false) {
                 NavUndoToast(offer: offer) {
+                    if offer.id == cockpitNav?.undoOffer?.id { cockpitNav?.undoOffer = nil }
                     flightPlanManager.dismissAutoMarkNotice(offer.id)
                     appState.dismissCheckConfirmation(offer.id)
                 }
@@ -7901,8 +7146,31 @@ struct AutoMarkUndoToast: View {
                 .padding(.bottom, 8)
             }
         }
-        .animation(reduceMotion ? nil : .easeOut(duration: 0.2), value: flightPlanManager.autoMarkNotice?.id)
-        .animation(reduceMotion ? nil : .easeOut(duration: 0.2), value: appState.memoryConfirmation?.id)
-        .animation(reduceMotion ? nil : .easeOut(duration: 0.2), value: appState.fredaConfirmation?.id)
+        .modifier(UndoOfferFollower(cockpitNav: cockpitNav))
+    }
+}
+
+/// The toasts' animations, and the newer offer withdrawing the band's older one: a waypoint the flight
+/// marked on its own, or a check just confirmed, supersedes the undo of an older MARK or reset.
+private struct UndoOfferFollower: ViewModifier {
+    let cockpitNav: CockpitNavState?
+    @Environment(AppState.self) private var appState
+    @EnvironmentObject private var flightPlanManager: FlightPlanManager
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    func body(content: Content) -> some View {
+        content
+            .animation(reduceMotion ? nil : .easeOut(duration: 0.2), value: flightPlanManager.autoMarkNotice?.id)
+            .animation(reduceMotion ? nil : .easeOut(duration: 0.2), value: appState.memoryConfirmation?.id)
+            .animation(reduceMotion ? nil : .easeOut(duration: 0.2), value: appState.fredaConfirmation?.id)
+            .onChange(of: flightPlanManager.autoMarkNotice?.id) { _, id in
+                if id != nil { cockpitNav?.undoOffer = nil }
+            }
+            .onChange(of: appState.memoryConfirmation?.id) { _, id in
+                if id != nil { cockpitNav?.undoOffer = nil }
+            }
+            .onChange(of: appState.fredaConfirmation?.id) { _, id in
+                if id != nil { cockpitNav?.undoOffer = nil }
+            }
     }
 }

@@ -7854,6 +7854,108 @@
         }
       }
     },
+    "cockpit.route": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ROUTE"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ROUTE"
+          }
+        }
+      }
+    },
+    "route.legs": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "LEGS"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "BRANCHES"
+          }
+        }
+      }
+    },
+    "route.radio": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "RADIO"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "RADIO"
+          }
+        }
+      }
+    },
+    "map.backToAircraft": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Back to aircraft"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Retour à l'avion"
+          }
+        }
+      }
+    },
+    "map.directTo": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Direct %@"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Direct vers %@"
+          }
+        }
+      }
+    },
+    "act.divert": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Divert"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dérouter"
+          }
+        }
+      }
+    },
     "trip.divert": {
       "extractionState": "manual",
       "localizations": {
@@ -17708,6 +17810,142 @@
         }
       }
     },
+    "companion.divertAllowOnIPad": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "If the iPad asks, allow the iPhone there."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Si l’iPad le demande, autorisez l’iPhone sur l’iPad."
+          }
+        }
+      }
+    },
+    "companion.divertHint": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Choose a field to divert to. The iPad navigates there."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Choisissez un terrain de déroutement. L’iPad y navigue."
+          }
+        }
+      }
+    },
+    "companion.divertNearest": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nearest"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Les plus proches"
+          }
+        }
+      }
+    },
+    "companion.divertNoAirportData": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No airport data on this iPhone: download it in Settings, or divert from the iPad."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pas de données aéroports sur cet iPhone : téléchargez-les dans les Réglages, ou déroutez depuis l’iPad."
+          }
+        }
+      }
+    },
+    "companion.divertNoMatch": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No aerodrome by that code or name."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aucun aérodrome sous ce code ou ce nom."
+          }
+        }
+      }
+    },
+    "companion.divertNoPosition": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No position yet: search for the field."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pas encore de position : recherchez le terrain."
+          }
+        }
+      }
+    },
+    "companion.divertNotTaken": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The iPad has not taken it. Check the iPad."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "L’iPad ne l’a pas pris en compte. Vérifiez sur l’iPad."
+          }
+        }
+      }
+    },
+    "companion.divertWaiting": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Waiting for the iPad…"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "En attente de l’iPad…"
+          }
+        }
+      }
+    },
     "companion.enableCompanionMode": {
       "extractionState": "manual",
       "localizations": {
@@ -18577,6 +18815,363 @@
     "degraded": {
       "comment": "A label describing a degraded GPS signal.",
       "isCommentAutoGenerated": true
+    },
+    "dest.a11y.destination": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Destination %@"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Destination %@"
+          }
+        }
+      }
+    },
+    "dest.a11y.reached": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Destination %@ reached"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Destination %@ atteinte"
+          }
+        }
+      }
+    },
+    "dest.a11y.overhead": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "overhead at %@"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "à la verticale à %@"
+          }
+        }
+      }
+    },
+    "dest.a11y.plannedOverhead": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "planned overhead at %@"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "verticale prévue à %@"
+          }
+        }
+      }
+    },
+    "mapChrome.a11y.edgeArrow": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aircraft off screen, at %lld o’clock"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Avion hors de l’écran, direction %lld h"
+          }
+        }
+      }
+    },
+    "mapChrome.hint.briefing": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Opens the briefing"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ouvre le briefing"
+          }
+        }
+      }
+    },
+    "mapChrome.hint.chartOffline": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Shows where the chart comes from"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Indique d’où vient la carte"
+          }
+        }
+      }
+    },
+    "mapChrome.hint.gps": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Shows the GPS status"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Affiche le statut GPS"
+          }
+        }
+      }
+    },
+    "mapChrome.hint.offRoute": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Shows the aircraft and the leg"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Montre l’avion et la branche"
+          }
+        }
+      }
+    },
+    "mapChrome.hint.tellFIS": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Opens Divert"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ouvre Dérouter"
+          }
+        }
+      }
+    },
+    "mapChrome.status.chartOffline": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "CHART OFFLINE"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "CARTE HORS LIGNE"
+          }
+        }
+      }
+    },
+    "mapChrome.status.gpsDegraded": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "GPS DEGRADED"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "GPS DÉGRADÉ"
+          }
+        }
+      }
+    },
+    "mapChrome.status.noGPS": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "NO GPS"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "PAS DE GPS"
+          }
+        }
+      }
+    },
+    "mapChrome.status.offRoute": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "OFF ROUTE %@ NM"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "HORS ROUTE %@ NM"
+          }
+        }
+      }
+    },
+    "mapChrome.status.tellFIS": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "TELL FIS"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ANNONCER AU FIS"
+          }
+        }
+      }
+    },
+    "dest.a11y.ahead": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ ahead of the plan"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ d’avance sur le plan"
+          }
+        }
+      }
+    },
+    "dest.a11y.behind": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ behind the plan"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ de retard sur le plan"
+          }
+        }
+      }
+    },
+    "dest.a11y.onTime": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "on time"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "à l’heure"
+          }
+        }
+      }
+    },
+    "dest.a11y.plannedArrival": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Planned arrival"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Arrivée prévue"
+          }
+        }
+      }
+    },
+    "dest.a11y.trackNext": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$lld of %2$lld NM flown, next %3$@"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$lld NM parcourus sur %2$lld, prochain %3$@"
+          }
+        }
+      }
+    },
+    "dest.a11y.track": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$lld of %2$lld NM flown"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$lld NM parcourus sur %2$lld"
+          }
+        }
+      }
     },
     "destination": {
       "comment": "A label for the last waypoint in a route.",

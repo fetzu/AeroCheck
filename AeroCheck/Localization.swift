@@ -2093,10 +2093,32 @@ enum L10n {
         static let deferredTag = String(localized: "deferred.tag")
     }
 
+    /// The Cockpit's act band, the four slots under every page. (6.2)
+    enum Act {
+        /// The button: a verb ("Dérouter"), where the Divert sheet's title is the noun ("Déroutement").
+        static let divert = String(localized: "act.divert")
+    }
+
+    /// The Cockpit's ROUTE page, and MAP showing a leg tapped there. (6.2)
+    enum Route {
+        /// Over the legs: "LEGS" / "BRANCHES".
+        static let legs = String(localized: "route.legs")
+        /// Over the frequencies: "RADIO".
+        static let radio = String(localized: "route.radio")
+        /// MAP showing a leg: back to the aircraft, followed again.
+        static let backToAircraft = String(localized: "map.backToAircraft")
+        /// "Direct LSGC": the leg's waypoint, flown to straight away.
+        static func direct(_ waypoint: String) -> String {
+            String(format: String(localized: "map.directTo"), waypoint)
+        }
+    }
+
     /// The in-flight Cockpit on iPad. (v6.0 · P2)
     enum Cockpit {
         static let checklist = String(localized: "cockpit.checklist")
         static let map = String(localized: "cockpit.map")
+        /// The third page: the DEST line, the legs and the radio. (6.2)
+        static let route = String(localized: "cockpit.route")
         static let check = String(localized: "cockpit.check")
         static let deferItem = String(localized: "cockpit.defer")
         static let deferHint = String(localized: "cockpit.deferHint")
@@ -2334,6 +2356,135 @@ enum L10n {
         /// The undo toast: "FREDA done at 14:34".
         static func doneToast(_ time: String) -> String {
             String(format: String(localized: "freda.doneToast"), time)
+        }
+    }
+
+    /// The DEST line on ROUTE: what VoiceOver reads of it, and its one button. Each reads in `language`
+    /// ("fr") when one is given, in the app's language otherwise: the line's French previews and tests
+    /// ask for French whatever the simulator speaks. "DEST", "ETA", "ETO" and "NM" stay as they are
+    /// (ICAO). (6.2)
+    enum Dest {
+        /// "Destination LSZB"
+        static func destination(_ ident: String, language: String? = nil) -> String {
+            String(format: text("dest.a11y.destination", "Destination %@", language), ident)
+        }
+        /// Once the destination is marked: "Destination LSZB reached".
+        static func reached(_ ident: String, language: String? = nil) -> String {
+            String(format: text("dest.a11y.reached", "Destination %@ reached", language), ident)
+        }
+        /// "Diverting to LSGC", as the trip's card says it.
+        static func divertingTo(_ ident: String, language: String? = nil) -> String {
+            String(format: text("trip.divertingTo", "Diverting to %@", language), ident)
+        }
+        /// The live ETA over the destination: "overhead at 11:58".
+        static func overhead(_ time: String, language: String? = nil) -> String {
+            String(format: text("dest.a11y.overhead", "overhead at %@", language), time)
+        }
+        /// The plan's, with no live ETA: "planned overhead at 11:55".
+        static func plannedOverhead(_ time: String, language: String? = nil) -> String {
+            String(format: text("dest.a11y.plannedOverhead", "planned overhead at %@", language), time)
+        }
+        /// Δ in words: "3 minutes ahead of the plan".
+        static func ahead(_ duration: String, language: String? = nil) -> String {
+            String(format: text("dest.a11y.ahead", "%@ ahead of the plan", language), duration)
+        }
+        static func behind(_ duration: String, language: String? = nil) -> String {
+            String(format: text("dest.a11y.behind", "%@ behind the plan", language), duration)
+        }
+        static func onTime(language: String? = nil) -> String {
+            text("dest.a11y.onTime", "on time", language)
+        }
+        /// Before the Flight Log's DEST ETO, the line's value (the UI tests read it): "Planned arrival".
+        static func plannedArrival(language: String? = nil) -> String {
+            text("dest.a11y.plannedArrival", "Planned arrival", language)
+        }
+        /// The route drawn to scale: "12 of 83 NM flown, next LSGC".
+        static func trackFlown(_ flown: Int, of total: Int, next: String, language: String? = nil) -> String {
+            String(format: text("dest.a11y.trackNext", "%1$lld of %2$lld NM flown, next %3$@", language),
+                   flown, total, next)
+        }
+        /// The same once the destination is marked: "83 of 83 NM flown".
+        static func trackFlown(_ flown: Int, of total: Int, language: String? = nil) -> String {
+            String(format: text("dest.a11y.track", "%1$lld of %2$lld NM flown", language), flown, total)
+        }
+        /// Back to the route while diverting, as the map's card says it.
+        static func resumeRoute(language: String? = nil) -> String {
+            text("trip.resumeRoute", "Resume route", language)
+        }
+
+        private static func text(_ key: String, _ english: String, _ language: String?) -> String {
+            guard let language else { return Bundle.main.localizedString(forKey: key, value: english, table: nil) }
+            return localizedString(key: key, language: language, defaultValue: english)
+        }
+    }
+
+    /// The MAP page's chrome: the status slot's states, the controls' names for VoiceOver, the edge
+    /// arrow. In `language` ("fr") when one is given, as `Dest`. The map's own words (North up, Centre,
+    /// Zoom in, Undo) are the map's keys. "GPS", "SIGMET", "BRIEFING", "TRK" and "NM" stay as they are
+    /// (ICAO, and the chip's BRIEFING). (6.2)
+    enum MapChrome {
+        static func gpsDegraded(language: String? = nil) -> String {
+            text("mapChrome.status.gpsDegraded", "GPS DEGRADED", language)
+        }
+        /// The GPS lost, or a flight not recording: the header's red.
+        static func noGPS(language: String? = nil) -> String {
+            text("mapChrome.status.noGPS", "NO GPS", language)
+        }
+        /// "OFF ROUTE 1.2 NM"
+        static func offRoute(_ distance: String, language: String? = nil) -> String {
+            String(format: text("mapChrome.status.offRoute", "OFF ROUTE %@ NM", language), distance)
+        }
+        static func chartOffline(language: String? = nil) -> String {
+            text("mapChrome.status.chartOffline", "CHART OFFLINE", language)
+        }
+        /// Over "Diverting to LSGC" (`divertingTo`).
+        static func tellFIS(language: String? = nil) -> String {
+            text("mapChrome.status.tellFIS", "TELL FIS", language)
+        }
+        static func divertingTo(_ ident: String, language: String? = nil) -> String {
+            String(format: text("trip.divertingTo", "Diverting to %@", language), ident)
+        }
+
+        // What a tap on each state does, for VoiceOver.
+        static func gpsHint(language: String? = nil) -> String {
+            text("mapChrome.hint.gps", "Shows the GPS status", language)
+        }
+        static func offRouteHint(language: String? = nil) -> String {
+            text("mapChrome.hint.offRoute", "Shows the aircraft and the leg", language)
+        }
+        static func chartOfflineHint(language: String? = nil) -> String {
+            text("mapChrome.hint.chartOffline", "Shows where the chart comes from", language)
+        }
+        static func tellFISHint(language: String? = nil) -> String {
+            text("mapChrome.hint.tellFIS", "Opens Divert", language)
+        }
+        static func sigmetHint(language: String? = nil) -> String {
+            text("nav.sigmet.hint", "Shows the hazards in range", language)
+        }
+        static func briefingHint(language: String? = nil) -> String {
+            text("mapChrome.hint.briefing", "Opens the briefing", language)
+        }
+
+        // The controls, as the map's row names them.
+        static func northUp(language: String? = nil) -> String { text("nav.northUp", "North up", language) }
+        static func trackUp(language: String? = nil) -> String { text("nav.trackUp", "Track up", language) }
+        static func layers(language: String? = nil) -> String { text("nav.mapSheet", "Map", language) }
+        static func centre(language: String? = nil) -> String { text("nav.centre", "Centre", language) }
+        static func zoomIn(language: String? = nil) -> String { text("nav.zoomIn", "Zoom in", language) }
+        static func zoomOut(language: String? = nil) -> String { text("nav.zoomOut", "Zoom out", language) }
+        static func undo(language: String? = nil) -> String { text("nav.undo", "Undo", language) }
+        /// The layers button's triangle, as the map's says it.
+        static func airspaceStale(language: String? = nil) -> String {
+            text("Airspace data is out of date", "Airspace data is out of date", language)
+        }
+        /// The edge arrow: "Aircraft off screen, at 2 o’clock".
+        static func aircraftOffScreen(clock: Int, language: String? = nil) -> String {
+            String(format: text("mapChrome.a11y.edgeArrow", "Aircraft off screen, at %lld o’clock", language), clock)
+        }
+
+        private static func text(_ key: String, _ english: String, _ language: String?) -> String {
+            guard let language else { return Bundle.main.localizedString(forKey: key, value: english, table: nil) }
+            return localizedString(key: key, language: language, defaultValue: english)
         }
     }
 
@@ -3015,6 +3166,16 @@ enum L10n {
         static let exitConfirmMessage = String(localized: "companion.exitConfirmMessage")
         static let exitConfirmLeave = String(localized: "companion.exitConfirmLeave")
         static let pairInSettings = String(localized: "companion.pairInSettings")
+
+        // Divert from the phone (6.2.0). The rest of its words are the iPad's Divert sheet's (`Trip`).
+        static let divertHint = String(localized: "companion.divertHint")
+        static let divertNearest = String(localized: "companion.divertNearest")
+        static let divertWaiting = String(localized: "companion.divertWaiting")
+        static let divertAllowOnIPad = String(localized: "companion.divertAllowOnIPad")
+        static let divertNotTaken = String(localized: "companion.divertNotTaken")
+        static let divertNoPosition = String(localized: "companion.divertNoPosition")
+        static let divertNoAirportData = String(localized: "companion.divertNoAirportData")
+        static let divertNoMatch = String(localized: "companion.divertNoMatch")
     }
 }
 

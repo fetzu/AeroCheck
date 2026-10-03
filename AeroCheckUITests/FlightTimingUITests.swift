@@ -87,7 +87,7 @@ final class FlightTimingUITests: XCTestCase {
         pilot.scrollTo("PLAN vs ACTUAL")
         pilot.shot(step, "flight-log")
         guard let departure = rows.first, let destination = rows.last, rows.count >= 2,
-              let plannedETA = planned?.replacingOccurrences(of: "ETA ", with: "") else {
+              let plannedETA = planned else {
             return pilot.check(step, false, "PLAN vs ACTUAL: \(rows), planned ETA \(planned ?? "?")")
         }
         let eetPlanned = CockpitPilot.minutes(from: departure.eto, to: plannedETA)

@@ -504,6 +504,24 @@ enum L10n {
         static let simulatedPosition = String(localized: "gps.simulatedPosition")
         static let points = String(localized: "gps.points")
         static let pointsRecorded = String(localized: "gps.pointsRecorded")
+        // The GPS Status drawer: why the signal is degraded or lost, and the fix tiles (6.2: English
+        // in French until then).
+        static func reasonReducedAccuracy(_ metres: Int) -> String {
+            String(format: String(localized: "gps.reason.reducedAccuracy"), metres)
+        }
+        static func reasonNoUpdate(_ seconds: Int) -> String {
+            String(format: String(localized: "gps.reason.noUpdate"), seconds)
+        }
+        static func reasonNetworkPosition(_ metres: Int) -> String {
+            String(format: String(localized: "gps.reason.networkPosition"), metres)
+        }
+        static let reasonWeakSignal = String(localized: "gps.reason.weakSignal")
+        static let reasonNoFix = String(localized: "gps.reason.noFix")
+        static let fixAccuracy = String(localized: "gps.fix.accuracy")
+        static let fixVertical = String(localized: "gps.fix.vertical")
+        static let fixTime = String(localized: "gps.fix.time")
+        static let fixAltitude = String(localized: "gps.fix.altitudeMSL")
+        static let fixPosition = String(localized: "gps.fix.position")
 
         // GPS Status Modal
         static let statusTitle = String(localized: "gps.status.title")
@@ -1020,6 +1038,12 @@ enum L10n {
         static let noFlightsMessage = String(localized: "flightLog.noFlights.message")
         static let importFlight = String(localized: "flightLog.importFlight")
         static let pts = String(localized: "flightLog.pts")
+        /// The year menu, closed, when no year is picked: "All". (6.2)
+        static let allYears = String(localized: "flightLog.allYears")
+        /// A row's landings: "3 ldg". `String(format:)` keeps the number ungrouped, like the distance beside it.
+        static func landingCount(_ count: Int) -> String {
+            String(format: String(localized: "flightLog.landingCount"), count)
+        }
         // Naming a flight just imported (v6.1)
         static let nameImportedTitle = String(localized: "flightLog.nameImported.title")
         static func nameImportedMessage(_ title: String) -> String {
@@ -1265,6 +1289,8 @@ enum L10n {
         static let noGPSData = String(localized: "flightDetail.noGPSData")
         static let noAltitudeData = String(localized: "flightDetail.noAltitudeData")
         static let altitudeFtMSL = String(localized: "flightDetail.altitudeFtMSL")
+        /// The header chip over the landings: "LDG". (6.2)
+        static let landingsChip = String(localized: "flightDetail.landingsChip")
 
         // Times
         static let sessionStart = String(localized: "flightDetail.sessionStart")
@@ -1406,6 +1432,10 @@ enum L10n {
         static func autoDismiss(_ seconds: Int) -> String {
             String(format: String(localized: "eventConfirmation.autoDismiss"), seconds)
         }
+        // The event's name: the card's title and the post-flight review's type menu. (6.2)
+        static let goAround = String(localized: "flightEvent.goAround")
+        static let touchAndGo = String(localized: "flightEvent.touchAndGo")
+        static let fullStop = String(localized: "flightEvent.fullStop")
     }
 
     // MARK: - Post-Flight Reconciliation
@@ -2543,6 +2573,8 @@ enum L10n {
         static let trackVectorDesc = String(localized: "nav.trackVectorDesc")
         static let freqCurrent = String(localized: "nav.freqCurrent")
         static let freqNext = String(localized: "nav.freqNext")
+        /// 121.500, last in the FREQ panel. (6.2)
+        static let freqEmergency = String(localized: "nav.freqEmergency")
         static let mark = String(localized: "nav.mark")
         static let overlays = String(localized: "nav.overlays")
         static let airspace = String(localized: "nav.airspace")

@@ -1016,7 +1016,7 @@ struct FlightLogView: View {
         } label: {
             HStack(spacing: 4) {
                 // verbatim + String() so the year never gets a thousands separator ("2'026"). (round 7)
-                Text(verbatim: selectedYear.map { String($0) } ?? "All")
+                Text(verbatim: selectedYear.map { String($0) } ?? L10n.FlightLog.allYears)
                     .scaledFont(size: 15, weight: .medium, relativeTo: .subheadline)
                 Image(systemName: "chevron.down").scaledFont(size: 11, weight: .semibold, relativeTo: .caption2)
             }
@@ -1964,7 +1964,7 @@ struct FlightRowView: View {
     nonisolated static func statsLine(for flight: Flight, nauticalMiles: Bool) -> String {
         var parts: [String] = [flight.aircraftRegistration ?? flight.airplane]
         if flight.totalLandings > 0 {
-            parts.append("\(flight.totalLandings) ldg")
+            parts.append(L10n.FlightLog.landingCount(flight.totalLandings))
         }
         let distance = nauticalMiles ? flight.distanceKilometers * 0.539957 : flight.distanceKilometers
         if distance >= 0.5, let whole = distance.safeRoundedInt() {
@@ -2358,7 +2358,7 @@ struct FlightDetailView: View {
                 .lineLimit(2)
             HStack(spacing: 8) {
                 statChip("TIME", flight.formattedDuration, .aviationGreen)
-                statChip("LDG", "\(flight.totalLandings)", .primaryText)
+                statChip(L10n.FlightDetail.landingsChip, "\(flight.totalLandings)", .primaryText)
                 statChip(appState.settings.distanceInNauticalMiles ? "NM" : "KM", headerDistanceText, .primaryText)
                 statChip("MAX", headerMaxAltText, .primaryText)
             }

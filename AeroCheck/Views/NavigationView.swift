@@ -212,7 +212,7 @@ struct NavigationMapView: View {
     // first-load lands (these services are singletons, not environment objects). (v4.2 fix)
     @ObservedObject private var openAIPNavaidDataService = OpenAIPNavaidDataService.shared
     @ObservedObject private var openAIPObstacleDataService = OpenAIPObstacleDataService.shared
-    @ObservedObject private var openAIPReportingPointDataService = OpenAIPReportingPointDataService.shared
+    @ObservedObject private var reportingPointCatalog = ReportingPointCatalog.shared   // OpenAIP + open flightmaps (6.2.0)
     /// The aerodrome procedures (6.2.0): its `revision` redraws them when a download or the first load lands.
     @ObservedObject private var vfrProcedureService = OFMDataService.shared
 
@@ -496,6 +496,7 @@ struct NavigationMapView: View {
         .onChange(of: appState.settings.showObstaclesOnMap) { _, _ in recomputeMapSpatialContent(force: true) }
         .onChange(of: appState.settings.showReportingPointsOnMap) { _, _ in recomputeMapSpatialContent(force: true) }
         // The aerodrome procedures: their switches, their data, the palette and the plan's ends. (6.2.0)
+        // The third switch also brings open flightmaps' helicopter and glider reporting points.
         .modifier(VFRLayerFollower(key: vfrLayerKey) { recomputeMapSpatialContent(force: true) })
         .onChange(of: appState.currentPhase) { _, _ in
             recomputePhaseFrequencies()
@@ -531,7 +532,7 @@ struct NavigationMapView: View {
         .onChange(of: openAIPDataService.airspaceCount) { _, _ in recomputeMapSpatialContent(force: true) }
         .onChange(of: openAIPNavaidDataService.navaidCount) { _, _ in recomputeMapSpatialContent(force: true) }
         .onChange(of: openAIPObstacleDataService.obstacleCount) { _, _ in recomputeMapSpatialContent(force: true) }
-        .onChange(of: openAIPReportingPointDataService.reportingPointCount) { _, _ in recomputeMapSpatialContent(force: true) }
+        .onChange(of: reportingPointCatalog.revision) { _, _ in recomputeMapSpatialContent(force: true) }
         .onChange(of: locationManager.currentLocation) { _, newLocation in handleLocationChange(newLocation) }
         .onChange(of: selectedLayer) { _, newLayer in handleLayerChange(to: newLayer) }
     }
@@ -1436,13 +1437,16 @@ struct NavigationMapView: View {
         }
 
         // VFR reporting points — independent layer, controlled solely by its toggle (v4.1.0; decoupled).
+        // OpenAIP's and the open flightmaps points it lacks, loaded when first shown (6.2.0).
         if appState.settings.showReportingPointsOnMap,
-           OpenAIPReportingPointDataService.shared.isDataAvailable {
+           ReportingPointCatalog.shared.isDataAvailable {
             let rpHalfLat = region.span.latitudeDelta / 2
             let rpHalfLon = region.span.longitudeDelta / 2
-            visibleReportingPoints = OpenAIPReportingPointDataService.shared.reportingPointsInRegion(
+            ReportingPointCatalog.shared.loadIfNeeded()
+            visibleReportingPoints = ReportingPointCatalog.shared.points(
                 latRange: (region.center.latitude - rpHalfLat)...(region.center.latitude + rpHalfLat),
-                lonRange: (region.center.longitude - rpHalfLon)...(region.center.longitude + rpHalfLon))
+                lonRange: (region.center.longitude - rpHalfLon)...(region.center.longitude + rpHalfLon),
+                includingNonPowered: appState.settings.showsNonPoweredReportingPoints)
         } else {
             visibleReportingPoints = []
         }
@@ -5163,8 +5167,8 @@ struct OverlaysSections: View {
     // MARK: Aerodrome procedures (6.2.0)
 
     /// Traffic circuits, VFR arrival and departure routes with their sectors, and the glider, UL and
-    /// helicopter circuits, from open flightmaps. All off by default; Approach and Everything turn the
-    /// first two on.
+    /// helicopter circuits (and reporting points), from open flightmaps. All off by default; Approach and
+    /// Everything turn the first two on.
     private var aerodromeProceduresCard: some View {
         groupCard(L10n.VFRMap.aerodromeProcedures) {
             toggleRow(icon: "arrow.triangle.capsulepath", title: L10n.VFRMap.showCircuits,

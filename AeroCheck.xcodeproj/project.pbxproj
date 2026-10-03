@@ -174,6 +174,7 @@
 		5E4C0A1B2C3D4E5F60718294 /* AirportSearchIndex.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5E4C0A1B2C3D4E5F60718293 /* AirportSearchIndex.swift */; };
 		A1000001211111110000B71 /* RunwayDesignatorOverrides.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000001111111110000B71 /* RunwayDesignatorOverrides.swift */; };
 		A1000001211111110000C62 /* OFMDataService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000001111111110000C62 /* OFMDataService.swift */; };
+		A1000001211111110000E91 /* ReportingPointCatalog.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000001111111110000E91 /* ReportingPointCatalog.swift */; };
 		A1000001211111110000074 /* NotificationService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000001111111110000074 /* NotificationService.swift */; };
 		A1000001211111110000076 /* AirfieldTariffService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000001111111110000076 /* AirfieldTariffService.swift */; };
 		A1000001211111110000077 /* LogbookPDFExportService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000001111111110000077 /* LogbookPDFExportService.swift */; };
@@ -523,6 +524,7 @@
 		5E4C0A1B2C3D4E5F60718293 /* AirportSearchIndex.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AirportSearchIndex.swift; sourceTree = "<group>"; };
 		A1000001111111110000B71 /* RunwayDesignatorOverrides.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RunwayDesignatorOverrides.swift; sourceTree = "<group>"; };
 		A1000001111111110000C62 /* OFMDataService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OFMDataService.swift; sourceTree = "<group>"; };
+		A1000001111111110000E91 /* ReportingPointCatalog.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReportingPointCatalog.swift; sourceTree = "<group>"; };
 		A1000001111111110000074 /* NotificationService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationService.swift; sourceTree = "<group>"; };
 		A1000001111111110000076 /* AirfieldTariffService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AirfieldTariffService.swift; sourceTree = "<group>"; };
 		A1000001111111110000077 /* LogbookPDFExportService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LogbookPDFExportService.swift; sourceTree = "<group>"; };
@@ -982,6 +984,7 @@
 				5E4C0A1B2C3D4E5F60718293 /* AirportSearchIndex.swift */,
 				A1000001111111110000B71 /* RunwayDesignatorOverrides.swift */,
 				A1000001111111110000C62 /* OFMDataService.swift */,
+				A1000001111111110000E91 /* ReportingPointCatalog.swift */,
 				A1000001111111110000074 /* NotificationService.swift */,
 				A1000001111111110000076 /* AirfieldTariffService.swift */,
 				A1000001111111110000077 /* LogbookPDFExportService.swift */,
@@ -1421,6 +1424,7 @@
 				5E4C0A1B2C3D4E5F60718294 /* AirportSearchIndex.swift in Sources */,
 				A1000001211111110000B71 /* RunwayDesignatorOverrides.swift in Sources */,
 				A1000001211111110000C62 /* OFMDataService.swift in Sources */,
+				A1000001211111110000E91 /* ReportingPointCatalog.swift in Sources */,
 				A1000001211111110000074 /* NotificationService.swift in Sources */,
 				A1000001211111110000076 /* AirfieldTariffService.swift in Sources */,
 				A1000001211111110000077 /* LogbookPDFExportService.swift in Sources */,

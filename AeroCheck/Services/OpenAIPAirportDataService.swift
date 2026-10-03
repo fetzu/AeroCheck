@@ -58,8 +58,14 @@ final class OpenAIPAirportDataService: ObservableObject {
     /// `airports` refers to. Survives `releaseLoadedAirports()`, like the PPR set, since the merged
     /// `Airport` store keeps no OpenAIP id. (6.0.1)
     private(set) var aerodromesById: [String: ReportingPointAerodrome] = [:] {
-        didSet { aerodromeIndexRevision &+= 1 }
+        didSet {
+            aerodromeIndexRevision &+= 1
+            aerodromesByICAO = Self.icaoIndex(aerodromesById.values)
+        }
     }
+    /// The same aerodromes by upper-cased ICAO code, for a reporting point that names its aerodrome
+    /// by code (open flightmaps). (6.2.0)
+    private(set) var aerodromesByICAO: [String: ReportingPointAerodrome] = [:]
     /// Counts changes of `aerodromesById`, for the maps to relabel their reporting points.
     private(set) var aerodromeIndexRevision = 0
     private var aerodromeIndexTask: Task<Void, Never>?
@@ -165,6 +171,23 @@ final class OpenAIPAirportDataService: ObservableObject {
 
     func label(for point: ReportingPoint) -> ReportingPointLabel {
         ReportingPointLabel(point: point, aerodrome: aerodrome(for: point))
+    }
+
+    /// The downloaded OpenAIP aerodrome with this ICAO code, nil when there is none. (6.2.0)
+    func aerodrome(forICAO icao: String) -> ReportingPointAerodrome? {
+        aerodromesByICAO[icao.uppercased()]
+    }
+
+    /// One aerodrome per code; where two share one (a field and its heliport), the one sorting first
+    /// by name, so the answer doesn't depend on dictionary order.
+    nonisolated static func icaoIndex(_ aerodromes: some Sequence<ReportingPointAerodrome>) -> [String: ReportingPointAerodrome] {
+        var index: [String: ReportingPointAerodrome] = [:]
+        for aerodrome in aerodromes {
+            guard let icao = aerodrome.icao?.uppercased(), !icao.isEmpty else { continue }
+            if let existing = index[icao], existing.name <= aerodrome.name { continue }
+            index[icao] = aerodrome
+        }
+        return index
     }
 
     nonisolated static func aerodromeIndex(_ airports: [OpenAIPAirport]) -> [String: ReportingPointAerodrome] {

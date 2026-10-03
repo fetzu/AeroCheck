@@ -209,12 +209,14 @@ final class OpenAIPReportingPointDataService: ObservableObject {
     }
 
     #if DEBUG
-    func seedForTesting(_ seeded: [ReportingPoint], cachePredatesAerodromes: Bool = false) {
+    func seedForTesting(_ seeded: [ReportingPoint], cachePredatesAerodromes: Bool = false,
+                        downloadedCountries: [String]? = nil) {
         points = seeded
         reportingPointCount = seeded.count
         isLoaded = true
         isDataAvailable = !seeded.isEmpty
         self.cachePredatesAerodromes = cachePredatesAerodromes
+        if let downloadedCountries { self.downloadedCountries = downloadedCountries }
     }
     #endif
 }

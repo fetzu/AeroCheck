@@ -198,7 +198,8 @@ struct BriefingContextBuilder {
         wind: BriefingWind? = nil,
         taf: BriefingContext.TafSummary? = nil,
         destinationIdent: String? = nil,
-        flightPlan: FlightPlan? = nil
+        flightPlan: FlightPlan? = nil,
+        nonPoweredReportingPoints: Bool = false
     ) -> BriefingContext {
         // Parse speeds
         let aircraftSpeeds = AircraftSpeeds(from: speeds)
@@ -244,13 +245,13 @@ struct BriefingContextBuilder {
             }
         }
 
-        // Nearby VFR reporting points around each field (OpenAIP, v4.1.0). Empty when the layer isn't
-        // downloaded; the briefing UI hides the section in that case.
-        let rpService = OpenAIPReportingPointDataService.shared
-        let departureReportingPoints = departureAirport
-            .map { rpService.reportingPointsNear(to: $0.coordinate, maxDistanceNm: 8, limit: 6) } ?? []
-        let destinationReportingPoints = destinationAirport
-            .map { rpService.reportingPointsNear(to: $0.coordinate, maxDistanceNm: 8, limit: 6) } ?? []
+        // Nearby VFR reporting points around each field (OpenAIP, v4.1.0; and the open flightmaps points
+        // OpenAIP lacks, 6.2.0). Empty when the layer isn't downloaded; the briefing UI hides the
+        // section in that case.
+        let departureReportingPoints = reportingPoints(around: departureAirport?.coordinate,
+                                                       includingNonPowered: nonPoweredReportingPoints)
+        let destinationReportingPoints = reportingPoints(around: destinationAirport?.coordinate,
+                                                         includingNonPowered: nonPoweredReportingPoints)
 
         // Departure procedure from the active flight plan's first leg + planned cruise altitude.
         // `magneticCourse` on a waypoint is the course TO the next one, so the first leg = waypoints[0].
@@ -284,5 +285,18 @@ struct BriefingContextBuilder {
             currentWind: wind,
             taf: taf
         )
+    }
+
+    /// The briefing's reporting points around a field: the six nearest within 8 NM, compulsory first
+    /// at the same distance, from OpenAIP and the open flightmaps points it lacks. Asking starts
+    /// loading the open flightmaps ones if no map has yet; the next briefing has them. (6.2.0)
+    @MainActor
+    static func reportingPoints(around coordinate: CLLocationCoordinate2D?,
+                                catalog: ReportingPointCatalog? = nil,
+                                includingNonPowered: Bool) -> [ReportingPoint] {
+        let catalog = catalog ?? .shared
+        guard let coordinate, catalog.isDataAvailable else { return [] }
+        catalog.loadIfNeeded()
+        return catalog.pointsNear(to: coordinate, maxDistanceNm: 8, limit: 6, includingNonPowered: includingNonPowered)
     }
 }

@@ -536,16 +536,14 @@ struct JourneyShareCustomizationView: View {
             }
         }
         guard eachLegNeedsRoutes else { return }
-        let points = OpenAIPReportingPointDataService.shared
-        let aerodromes = OpenAIPAirportDataService.shared
+        let points = ReportingPointCatalog.shared
         guard points.isDataAvailable else { return }
         await points.ensureLoaded()
-        await aerodromes.ensureAerodromeIndexLoaded()
         for flight in journey.legs {
             guard let plan = flight.flightPlan,
                   plan.waypoints.contains(where: { $0.pointKind == .vrp && ($0.aerodromeICAO ?? "").isEmpty }) else { continue }
             let qualified = ShareCardRoute.qualifyingReportingPoints(plan) { waypoint in
-                waypoint.sourceId.flatMap(points.point(withId:)).flatMap(aerodromes.aerodrome(for:))?.icao
+                waypoint.sourceId.flatMap(points.aerodrome(forSourceId:))?.icao
             }
             legRoutes[flight.id] = ShareCardRoute.flown(flight, plan: qualified.withActualTimesOver(from: flight))
         }

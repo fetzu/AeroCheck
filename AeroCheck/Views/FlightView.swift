@@ -134,7 +134,8 @@ struct FlightView: View {
             wind: briefingWind,
             taf: briefingTaf,
             destinationIdent: destinationIdent,
-            flightPlan: flightPlanManager.activeFlightPlan
+            flightPlan: flightPlanManager.activeFlightPlan,
+            nonPoweredReportingPoints: appState.settings.showsNonPoweredReportingPoints
         )
     }
 

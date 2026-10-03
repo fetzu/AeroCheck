@@ -2526,7 +2526,9 @@ enum L10n {
         static let aerodromeProcedures = String(localized: "Aerodrome procedures")
         static let showCircuits = String(localized: "Traffic circuits")
         static let showRoutes = String(localized: "Arrival & departure routes (with sectors)")
-        static let showNonPowered = String(localized: "Glider, UL & helicopter circuits")
+        /// The third switch: the glider, UL, gyro and helicopter circuits (with the routes, the helicopter
+        /// routes), and open flightmaps' helicopter and glider reporting points. (6.2.0)
+        static let showNonPowered = String(localized: "Glider, UL & helicopter")
         /// Navigation & Maps, under the three switches.
         static let settingsFooter = String(localized: "From open flightmaps, for the countries in Data & Storage. Indicative only: always check the official chart.")
         /// The Map sheet, when a switch is on and the country under the map has none downloaded.
@@ -2811,6 +2813,10 @@ enum L10n {
         /// The reporting point's ident from an OpenAIP remark ("ELESE"): not an official designator,
         /// so it is labelled as such wherever it shows. (6.0.1)
         static let pointIdent = String(localized: "nav.pointIdent")
+        /// What an open flightmaps helicopter or glider reporting point is for, on its own line in the
+        /// callout and the briefing (shown only with the "Glider, UL & helicopter" switch). (6.2.0)
+        static let helicopterReportingPoint = String(localized: "Helicopter reporting point")
+        static let gliderReportingPoint = String(localized: "Glider reporting point")
         /// The builder's search for a reporting point or navaid to put in the route, under From and To.
         static let via = String(localized: "nav.via")
         static let viaPlaceholder = String(localized: "nav.viaPlaceholder")

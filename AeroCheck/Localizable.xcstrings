@@ -1,6 +1,26 @@
 {
   "sourceLanguage": "en",
   "strings": {
+    "Helicopter reporting point": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Point de report pour hélicoptères"
+          }
+        }
+      }
+    },
+    "Glider reporting point": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Point de report pour planeurs"
+          }
+        }
+      }
+    },
     "Aerodrome procedures": {
       "localizations": {
         "fr": {
@@ -31,12 +51,12 @@
         }
       }
     },
-    "Glider, UL & helicopter circuits": {
+    "Glider, UL & helicopter": {
       "localizations": {
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Tours de piste planeurs, ULM et hélicoptères"
+            "value": "Planeurs, ULM et hélicoptères"
           }
         }
       }

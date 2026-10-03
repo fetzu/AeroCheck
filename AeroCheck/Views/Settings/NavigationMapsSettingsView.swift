@@ -272,7 +272,8 @@ struct NavigationMapsSettingsView: View {
     // MARK: - Aerodrome procedures (6.2.0)
 
     /// The Map sheet's three switches: open flightmaps' traffic circuits, VFR routes with their sectors,
-    /// and the glider, UL and helicopter circuits. Off by default.
+    /// and the glider, UL and helicopter circuits (with open flightmaps' helicopter and glider reporting
+    /// points). Off by default.
     private var aerodromeProceduresSection: some View {
         SettingsGroup(title: L10n.VFRMap.aerodromeProcedures, tint: tint, footer: L10n.VFRMap.settingsFooter) {
             SettingsToggleRow(icon: "arrow.triangle.capsulepath", title: L10n.VFRMap.showCircuits, tint: tint,

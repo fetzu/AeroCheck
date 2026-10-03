@@ -40,19 +40,29 @@ class FlightPlanExportService {
 
     /// What a reporting point is, for the GPX `<desc>`: "E · LSGC Les Eplatures", its name and
     /// aerodrome. Nil for anything else, or without the aerodrome. (6.0.1)
+    ///
+    /// An open flightmaps point is only in memory once a map or a search has loaded them; before that
+    /// (an export from the plan editor right after launch) the waypoint says it itself: the name and
+    /// the aerodrome's code it took from the point, "S · LSGS Sion". (6.2.0)
     @MainActor
-    static func gpxDescription(of waypoint: FlightPlanWaypoint) -> String? {
-        guard waypoint.pointKind == .vrp, let id = waypoint.sourceId,
-              let point = OpenAIPReportingPointDataService.shared.point(withId: id) else { return nil }
-        let label = OpenAIPAirportDataService.shared.label(for: point)
+    static func gpxDescription(of waypoint: FlightPlanWaypoint, catalog: ReportingPointCatalog? = nil) -> String? {
+        let catalog = catalog ?? .shared
+        guard waypoint.pointKind == .vrp, let id = waypoint.sourceId else { return nil }
+        guard let point = catalog.point(withId: id) else {
+            let name = waypoint.name.trimmingCharacters(in: .whitespaces)
+            guard id.hasPrefix(ReportingPointCatalog.ofmIdPrefix), !name.isEmpty,
+                  let aerodrome = catalog.aerodrome(forICAO: waypoint.aerodromeICAO) else { return nil }
+            return "\(name) · \(aerodrome.displayLine)"
+        }
+        let label = catalog.label(for: point)
         guard let aerodrome = label.aerodrome else { return nil }
         return "\(label.title) · \(aerodrome.displayLine)"
     }
 
     /// `gpxDescription(of:)` for every waypoint that has one.
     @MainActor
-    static func gpxDescriptions(for plan: FlightPlan) -> [UUID: String] {
-        Dictionary(plan.waypoints.compactMap { wp in gpxDescription(of: wp).map { (wp.id, $0) } },
+    static func gpxDescriptions(for plan: FlightPlan, catalog: ReportingPointCatalog? = nil) -> [UUID: String] {
+        Dictionary(plan.waypoints.compactMap { wp in gpxDescription(of: wp, catalog: catalog).map { (wp.id, $0) } },
                    uniquingKeysWith: { first, _ in first })
     }
 

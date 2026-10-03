@@ -2032,7 +2032,7 @@ class CompanionConnectivityManager: NSObject, ObservableObject {
         Self.mayStreamItemText(masterIsEntitled: entitlementProvider?() ?? false,
                                viewerClaimsEntitlement: peerLink?.claimsEntitlement ?? false,
                                connectionAllowed: peerLink?.authorization == .allowed,
-                               remoteAircraftSelected: appState?.settings.isRemoteAircraftSelected ?? true)
+                               remoteAircraftSelected: appState?.activeAircraftIsPremium ?? true)
     }
 
     /// SA-26: the bundled aircraft's words always go out; a Pro aircraft's only from an iPad itself

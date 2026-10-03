@@ -123,7 +123,10 @@ Owners and rules that aren't obvious from the names:
   `group.com.fetzu.aerocheck`; the widget renders only those and launches through `FlightLauncher`.
   `Models/FlightActivityAttributes.swift` is compiled into the widget too (Live Activity).
 - `ActiveChecklist` owns the resolved checklist and speeds of the active aircraft (there are no global
-  checklist statics any more).
+  checklist statics any more). In flight that is the flight's own aircraft (`AppState.flightAircraft`,
+  taken at START FLIGHT and restored from the crash checkpoint), never the selection: iCloud syncs
+  `selectedAircraft` / `selectedRemoteAircraftId`, so another device can change them mid-flight. Read
+  `activeChecklist` / `activeAircraftIsPremium` for anything about the flight in progress.
 - `ChecklistProgress` (in `AppState.swift`): phase, highlight, deferred items (DEFER, or NEXT with items
   still open) and deferred checks (a phase jumped over on the phase bar); both follow the pilot until
   checked.

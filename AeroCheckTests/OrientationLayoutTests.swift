@@ -124,4 +124,47 @@ final class OrientationLayoutTests: XCTestCase {
         let tight = CGSize(width: 120, height: 1_000)
         XCTAssertEqual(UIHostingController(rootView: pair(.horizontal)).sizeThatFits(in: tight).width, 168)
     }
+
+    // MARK: The check slot's row (6.1)
+
+    func testTheCheckSlotIsAsWideAsMARKBesideDivertAndMore() {
+        // An iPad in portrait: 788 pt of row, Divert and More 252 pt, 12 pt between buttons.
+        XCTAssertEqual(CheckSlotRowLayout.slotWidth(rowWidth: 788, reference: 252, spacing: 12), 256)
+        XCTAssertEqual(CheckSlotRowLayout.slotWidth(rowWidth: 200, reference: 252, spacing: 12), 0, "never negative")
+    }
+
+    /// The slot keeps one frame whatever follows it: MARK with Divert and More, GO AROUND and
+    /// TOUCH-AND-GO from circuit height, or Routes with no route. It moved to the middle every lap.
+    @MainActor
+    func testTheCheckSlotKeepsItsFrameWhateverFollowsIt() {
+        final class Box { var frame: CGRect = .zero }
+        func slotFrame(_ rest: some View) -> CGRect {
+            let box = Box()
+            let row = CheckSlotRowLayout(spacing: 12) {
+                GeometryReader { proxy in
+                    let _ = { box.frame = proxy.frame(in: .named("row")) }()
+                    Color.clear
+                }
+                .frame(height: 104)
+                Color.clear.frame(width: 252, height: 10)   // Divert and More, measured, unseen
+                rest
+            }
+            .frame(width: 788)
+            .coordinateSpace(name: "row")
+            _ = ImageRenderer(content: row).uiImage
+            return box.frame
+        }
+        let mark = slotFrame(HStack(spacing: 12) {
+            Color.blue.frame(maxWidth: .infinity).frame(height: 104)
+            Color.green.frame(width: 252, height: 104)
+        })
+        let flightEvents = slotFrame(HStack(spacing: 12) {
+            Color.red.frame(maxWidth: .infinity).frame(height: 104)
+            Color.red.frame(maxWidth: .infinity).frame(height: 104)
+        })
+        let routes = slotFrame(Color.gray.frame(maxWidth: .infinity).frame(height: 104))
+        XCTAssertEqual(mark, CGRect(x: 0, y: 0, width: 256, height: 104), "the slot first, MARK's width")
+        XCTAssertEqual(flightEvents, mark, "GO AROUND and TOUCH-AND-GO after it")
+        XCTAssertEqual(routes, mark, "Routes after it")
+    }
 }

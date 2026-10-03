@@ -238,6 +238,65 @@ final class CheckSlotTests: XCTestCase {
                                            flightActive: true), .slotOverFlightEvents, "GO AROUND in place of MARK")
     }
 
+    /// Portrait, and the phone on its side: the slot leads the row in every phase, route or not. From
+    /// circuit height GO AROUND and TOUCH-AND-GO take the place of MARK, Divert and More (or Routes), and
+    /// the slot keeps its own; it moved to the middle between them, every lap. (6.1, the author's call)
+    func testInTheBottomRowTheSlotAlwaysLeads() {
+        for events in [false, true] {
+            for route in [false, true] {
+                let row = MapThumbRow.make(showsCheckSlot: true, showsEventButtons: events, hasRoute: route,
+                                           flightActive: true)
+                XCTAssertTrue(row.slotLeads, "events \(events), route \(route): \(row)")
+            }
+        }
+        XCTAssertEqual(MapThumbRow.make(showsCheckSlot: true, showsEventButtons: true, hasRoute: false,
+                                        flightActive: true), .slotThenFlightEvents, "circuits: slot, GO AROUND, TOUCH-AND-GO")
+        XCTAssertEqual(MapThumbRow.make(showsCheckSlot: true, showsEventButtons: true, hasRoute: true,
+                                        flightActive: true), .slotThenFlightEvents)
+        XCTAssertEqual(MapThumbRow.make(showsCheckSlot: true, showsEventButtons: false, hasRoute: true,
+                                        flightActive: true), .slotThenMark)
+        XCTAssertEqual(MapThumbRow.make(showsCheckSlot: true, showsEventButtons: false, hasRoute: false,
+                                        flightActive: true), .slotThenRoutes, "Routes after the slot, not before it")
+    }
+
+    func testWithoutTheSlotTheBottomRowIsAsBefore() {
+        XCTAssertEqual(MapThumbRow.make(showsCheckSlot: false, showsEventButtons: false, hasRoute: true,
+                                        flightActive: true), .legTimerThenMark)
+        XCTAssertFalse(MapThumbRow.legTimerThenMark.slotLeads)
+        XCTAssertEqual(MapThumbRow.make(showsCheckSlot: false, showsEventButtons: false, hasRoute: true,
+                                        flightActive: false), .routes, "Plan › Map: no MARK before the flight")
+        XCTAssertEqual(MapThumbRow.make(showsCheckSlot: false, showsEventButtons: false, hasRoute: false,
+                                        flightActive: true), .routes)
+    }
+
+    // MARK: Its lines hold still
+
+    /// The second line keeps its room whether it takes one line or two, so the title above it never
+    /// moves: "FREDA in 10 min" wrapped, "9 min" didn't, and the title jumped 12 pt. (6.1, stability)
+    func testTheSecondLineKeepsItsRoom() {
+        let at = Date(timeIntervalSinceReferenceDate: 800_000_000)
+        let counting = (1...10).map {
+            CheckSlot.make(phase: .cruise, check: .list(open: 0), next: .descent,
+                           freda: .counting(after: .cruiseCheck, at: at, minutesLeft: $0))
+        }
+        // Beside MARK on the iPad, under FREDA's tick on two lines: one line, scaled a little more.
+        XCTAssertEqual(Set(counting.map { $0.lineLines(phone: false, prominent: false) }), [1])
+        XCTAssertEqual(counting[0].lineMinimumScale(phone: false, prominent: false), 0.7)
+        // The phone keeps two, its title and line both fitting its 92 pt.
+        XCTAssertEqual(Set(counting.map { $0.lineLines(phone: true, prominent: false) }), [2])
+
+        let owed = CheckSlot.make(phase: .climb, check: .memory(done: false), next: .cruise, timing: .owed, owedBy: .levelOff)
+        let due = CheckSlot.make(phase: .climb, check: .memory(done: false), next: .cruise)
+        XCTAssertEqual(owed.lineLines(phone: false, prominent: false), due.lineLines(phone: false, prominent: false),
+                       "the owed line coming changes nothing above it")
+        XCTAssertEqual(due.lineLines(phone: false, prominent: false), 2)
+        XCTAssertEqual(due.lineMinimumScale(phone: false, prominent: false), 0.8)
+        XCTAssertEqual(CheckSlot.make(phase: .cruise, check: .list(open: 0), next: .descent, freda: .due(waypoint: "LSGC"))
+                        .lineLines(phone: false, prominent: false), 2, "the letters over the waypoint")
+        XCTAssertEqual(due.lineLines(phone: false, prominent: true), 1, "the wide slot on the iPad")
+        XCTAssertEqual(due.lineLines(phone: true, prominent: true), 2)
+    }
+
     func testWithoutTheSlotTheLandscapeColumnIsAsBefore() {
         XCTAssertEqual(MapThumbColumn.make(showsCheckSlot: false, showsEventButtons: false, hasRoute: true,
                                            flightActive: true), .legTimerOverMark)

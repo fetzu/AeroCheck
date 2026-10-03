@@ -246,8 +246,8 @@ struct NavigationMapView: View {
     /// left that also takes the thumb bar, with the map at full height beside it. (iPhone pass)
     var leadingColumn: AnyView? = nil
     var leadingColumnWidth: CGFloat = 340
-    /// Over the map's own chrome, at the top: the Cockpit's chips that come and go (BRIEFING, the
-    /// cautions), on the phone.
+    /// Over the chart, under the next waypoint: the Cockpit's chips that come and go (BRIEFING, the
+    /// cautions), on the phone. Over it, they pushed the next waypoint down as they came. (6.1)
     var mapTopAccessory: AnyView? = nil
     /// The Cockpit's CHECKLIST pane, for the check slot's "N items". Given by the Cockpit only: with it,
     /// in flight, the check slot leads the bottom row. (6.1)
@@ -268,6 +268,8 @@ struct NavigationMapView: View {
     @State private var cameraBeforeLegs: LegsPanelMap.SavedCamera?
     @State private var showCacheInfoModal: Bool = false
     @State private var showSigmets: Bool = false
+    /// The Cockpit's chips over the chart, as last measured: the room kept for them. (6.1)
+    @State private var mapAccessoryHeight: CGFloat?
     @State private var showFlightPlanning: Bool = false
     /// Whether the flight-plan sheet (bottom bar) is expanded to show the full plan detail. (v4 UI/UX Revamp — inc C)
     @State private var navSheetExpanded: Bool = false
@@ -788,19 +790,8 @@ struct NavigationMapView: View {
     private func columnsMapArea(legsMaxHeight: CGFloat) -> some View {
         VStack(spacing: 0) {
             chartWithChrome(top: VStack(spacing: 8) {
-                if let mapTopAccessory {
-                    mapTopAccessory
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                }
                 nextWaypointLine
-                VStack(alignment: .leading, spacing: 8) {
-                    SigmetChip(hazards: rankedSigmets) { showSigmets = true }
-                    if chrome.showsRouteOffScreenPill {
-                        routeOffScreenPill
-                            .animation(reduceMotion ? nil : .easeInOut(duration: 0.25), value: routeOffScreenHint) // (UX-18)
-                    }
-                }
-                .frame(maxWidth: .infinity, alignment: .leading)
+                SeparateView { occasionalChips(pillLeading: true) }
             }
             .padding(.horizontal, 10)
             .padding(.top, 8),
@@ -858,10 +849,11 @@ struct NavigationMapView: View {
                             .lineLimit(1)
                             .minimumScaleFactor(0.6)
                         Spacer(minLength: 6)
-                        Text([liveBearingText,
-                              nextWaypointDistanceValue.map { "\($0) NM" },
-                              nextLegLive.map { "\(eteValue($0.ete)) \(eteUnit($0.ete))" }]
-                                .compactMap { $0 }.joined(separator: " · "))
+                        // One length whatever the figures: each in a field as wide as its widest, "—"
+                        // while there is none, so they hold still and the ident keeps its size. (6.1)
+                        Text(NextWaypointReadout.phoneLine(bearing: liveBearingText,
+                                                           distance: nextWaypointDistanceValue,
+                                                           ete: nextLegLive?.ete))
                             .font(.aero(size: CockpitType.label, weight: .bold, design: .monospaced))
                             .foregroundColor(theme.textPrimary)
                             .lineLimit(1)
@@ -1044,9 +1036,9 @@ struct NavigationMapView: View {
                     .foregroundColor(theme.textSecondary)
                     .lineLimit(1)
             }
-            Text(item?.freq ?? "—")
-                .font(.aero(size: CockpitType.label, weight: .bold, design: .monospaced))
-                .foregroundColor(theme.textPrimary)
+            FrequencyLineText(text: item?.freq ?? "—",
+                              font: .aero(size: CockpitType.label, weight: .bold, design: .monospaced),
+                              color: theme.textPrimary)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .accessibilityElement(children: .combine)
@@ -1070,12 +1062,9 @@ struct NavigationMapView: View {
                 }
 
                 // What a pilot reads most, big and on top: the next waypoint. Then the map's own
-                // controls, labelled. (v6.0 · P3)
+                // controls, labelled. (v6.0 · P3) What comes and goes sits under them, so it never
+                // moves them. (6.1)
                 VStack(spacing: compact ? 8 : 10) {
-                    if let mapTopAccessory {
-                        mapTopAccessory
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                    }
                     if compact {
                         nextWaypointLine
                     } else {
@@ -1090,14 +1079,7 @@ struct NavigationMapView: View {
                         SeparateView { mapControlsRow }
                             .frame(maxWidth: .infinity, alignment: .trailing)
                     }
-                    // Hazard chip. Only exists when a hazard is actually in range — a chip that is
-                    // always present stops being read.
-                    SigmetChip(hazards: rankedSigmets) { showSigmets = true }
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                    if chrome.showsRouteOffScreenPill {
-                        routeOffScreenPill
-                            .animation(reduceMotion ? nil : .easeInOut(duration: 0.25), value: routeOffScreenHint) // (UX-18)
-                    }
+                    SeparateView { occasionalChips(pillLeading: false) }
                 }
                 .padding(.horizontal, compact ? 10 : 16)
                 .padding(.top, compact ? 8 : 10)
@@ -1160,6 +1142,66 @@ struct NavigationMapView: View {
     }
 
     private static let chartSpace = "navChart"
+
+    /// What comes and goes over the chart, under the next waypoint and the map's controls: the Cockpit's
+    /// chips (BRIEFING, the deferred count; on the phone) and the SIGMET chip (only with a hazard in
+    /// range: a chip always there stops being read) on one row, then the off-screen route's pill. None of
+    /// them moves another. The chips keep the row's left and the SIGMET chip its right, so either comes
+    /// without moving the other (on the iPad, which has no chips, the SIGMET chip keeps the left); and
+    /// while the pill shows, the row above it keeps its full height, empty or not. The chips used to sit
+    /// over the next waypoint and push it down 54 pt on the phone, and a SIGMET after a data refresh moved
+    /// the pill down 38 pt. (6.1, stability)
+    ///
+    /// Laid out by the caller's stack, one view each. `pillLeading`: the pill at the left edge rather
+    /// than in the middle.
+    @ViewBuilder
+    private func occasionalChips(pillLeading: Bool) -> some View {
+        let sigmets = rankedSigmets
+        let showsPill = chrome.showsRouteOffScreenPill && routeOffScreenHint != nil
+        // The phone's Cockpit is where the chips come; elsewhere, once they have come.
+        let sharesRow = (CockpitScale.current == .phone && onShowChecklist != nil) || mapAccessoryHeight != nil
+        let chipsHeight = sharesRow ? (mapAccessoryHeight ?? Self.cockpitChipsHeight) : 0
+        if mapTopAccessory != nil || !sigmets.isEmpty || showsPill {
+            HStack(alignment: .top, spacing: 8) {
+                if let mapTopAccessory {
+                    mapTopAccessory
+                        .background(GeometryReader { proxy in
+                            Color.clear.preference(key: MapAccessoryHeightKey.self, value: proxy.size.height)
+                        })
+                }
+                if sharesRow { Spacer(minLength: 0) }
+                ZStack(alignment: .topLeading) {
+                    if showsPill {
+                        // The chip's own height, kept for the pill under it.
+                        SigmetChip(hazards: Self.sigmetChipMeasure) {}
+                            .hidden()
+                            .accessibilityHidden(true)
+                    }
+                    SigmetChip(hazards: sigmets) { showSigmets = true }
+                }
+                if !sharesRow { Spacer(minLength: 0) }
+            }
+            .frame(minHeight: showsPill ? chipsHeight : 0, alignment: .top)
+            .onPreferenceChange(MapAccessoryHeightKey.self) { height in
+                if height > 0 { mapAccessoryHeight = height }
+            }
+        }
+        if chrome.showsRouteOffScreenPill {
+            routeOffScreenPill(leading: pillLeading)
+                .animation(reduceMotion ? nil : .easeInOut(duration: 0.25), value: routeOffScreenHint) // (UX-18)
+        }
+    }
+
+    /// The Cockpit's chips over the chart before they have been measured: a chip (`CockpitChip`) in the
+    /// 6 pt panel the Cockpit puts them on.
+    private static var cockpitChipsHeight: CGFloat { CockpitType.size(kneeboard: 52, phone: 46) + 12 }
+
+    /// A hazard to measure the SIGMET chip by, never shown.
+    private static let sigmetChipMeasure = [SigmetHazardItem(
+        sigmet: AviationWeatherService.Sigmet(firId: nil, firName: nil, hazard: "TS", qualifier: nil, baseFt: nil,
+                                              topFt: nil, validFrom: nil, validTo: nil, distanceNm: 0,
+                                              containsPoint: false, coords: [], raw: nil),
+        assessment: nil)]
 
     /// The band, with the legs open: a tap on it closes the panel as the chevron does, and the map
     /// under it takes no pan, pinch, rotation or marker tap. VoiceOver gets the same as a named action
@@ -1241,9 +1283,10 @@ struct NavigationMapView: View {
     /// phase. (6.1, check slot)
     private var showsCheckSlot: Bool { appState.isFlightActive && onShowChecklist != nil }
 
-    /// Approach and landing: GO AROUND and TOUCH-AND-GO on either side of the slot, as on the checklist
-    /// pane, in place of the route's row (the destination is marked by the landing). (6.1, mockup M3)
-    /// From circuit height too, where the slot shows the landing check: the proposal's "circuit / final".
+    /// Approach and landing: GO AROUND and TOUCH-AND-GO after the slot, as on the checklist pane, in
+    /// place of the route's buttons (the destination is marked by the landing). (6.1, mockup M3) From
+    /// circuit height too, where the slot shows the landing check: the proposal's "circuit / final".
+    /// The slot doesn't move for them (`MapThumbRow`).
     private var showsEventButtons: Bool {
         showsCheckSlot && (appState.currentPhase == .approach || appState.currentPhase == .landing
                            || appState.landingCheckShown)
@@ -1657,10 +1700,14 @@ struct NavigationMapView: View {
 
     // MARK: - Bottom Controls
 
-    /// The scale bar and the offline/cache badge, bottom left over the map, and the undo toast. (The
-    /// landscape phone has them in the controls' band instead: `columnsMapFoot`.)
+    /// The scale bar and the offline/cache badge, bottom left over the map, and the undo toast over
+    /// them. (The landscape phone has them in the controls' band instead: `columnsMapFoot`.)
+    ///
+    /// The toast lies over the corner rather than under it: stacked, its six seconds after every MARK
+    /// and every waypoint the flight marked lifted the scale and the badge, a button, by 100 pt. Now
+    /// nothing moves; the scale and the badge are under the toast meanwhile. (6.1, stability)
     private var mapFooter: some View {
-        VStack(spacing: 0) {
+        ZStack(alignment: .bottom) {
             // Not with the legs open: the band is a view, the undo stays. (6.1, option C)
             if chrome.showsMapStatus {
                 HStack(alignment: .bottom) {
@@ -1668,7 +1715,7 @@ struct NavigationMapView: View {
                     Spacer()
                 }
                 .padding(.horizontal, 16)
-                .padding(.bottom, 8)
+                .padding(.bottom, 16)
             }
 
             MapUndoToast(undoOffer: $undoOffer)
@@ -1698,6 +1745,8 @@ struct NavigationMapView: View {
                 }
             }
             SwissScaleBar(region: mapState.region, mapWidth: mapWidth, nauticalMiles: appState.settings.distanceInNauticalMiles)
+                // Never in a tap's way: on a phone's short chart the route's pill can reach it. (6.1)
+                .allowsHitTesting(false)
         }
     }
 
@@ -1947,43 +1996,30 @@ struct NavigationMapView: View {
         }
     }
 
+    /// Each cell as wide as the widest value its format gives (`NavValueCell`), so the card's layout
+    /// depends on the waypoint's name only, which changes at a passage, not with every fix.
     @ViewBuilder
     private func nextWaypointCells(withETA: Bool) -> some View {
-        navValueCell("BRG", liveBearingText ?? "—")
-        navValueCell("DIST", nextWaypointDistanceValue ?? "—", unit: "NM")
-        navValueCell("ETE", nextLegLive.map { eteValue($0.ete) } ?? "—",
-                     unit: nextLegLive.map { eteUnit($0.ete) })
+        let live = nextLegLive
+        NavValueCell(label: "BRG", reading: .init(liveBearingText ?? "—"),
+                     widest: .init(NextWaypointReadout.widestBearing))
+        NavValueCell(label: "DIST", reading: .init(nextWaypointDistanceValue ?? "—", unit: "NM"),
+                     widest: .init(NextWaypointReadout.widestDistance, unit: "NM"))
+        NavValueCell(label: "ETE",
+                     reading: live.map { .init(NextWaypointReadout.eteValue($0.ete), unit: NextWaypointReadout.eteUnit($0.ete)) }
+                        ?? .init("—"),
+                     widest: NextWaypointReadout.widestMinutes, orWidest: NextWaypointReadout.widestHours)
         if withETA {
-            navValueCell("ETA", nextLegLive.map { $0.eta.formatted(date: .omitted, time: .shortened) } ?? "—")
+            NavValueCell(label: "ETA", reading: .init(live.map { NextWaypointReadout.eta($0.eta) } ?? "—"),
+                         widest: .init(NextWaypointReadout.widestETA))
         }
-    }
-
-    /// A label over a value, for the next-waypoint card.
-    private func navValueCell(_ label: String, _ value: String, unit: String? = nil) -> some View {
-        VStack(alignment: .leading, spacing: 2) {
-            Text(label)
-                .font(.aero(size: CockpitType.label, weight: .semibold))
-                .foregroundColor(theme.textSecondary)
-            HStack(alignment: .firstTextBaseline, spacing: 4) {
-                Text(value)
-                    .font(.aero(size: CockpitType.response, weight: .bold, design: .monospaced))
-                    .foregroundColor(theme.textPrimary)
-                if let unit {
-                    Text(unit)
-                        .font(.aero(size: CockpitType.label))
-                        .foregroundColor(theme.textSecondary)
-                }
-            }
-        }
-        .fixedSize()
-        .accessibilityElement(children: .combine)
     }
 
     /// Distance to the next waypoint, without its unit.
     private var nextWaypointDistanceValue: String? {
         guard let loc = locationManager.currentLocation,
               let dist = flightPlanManager.distanceToNextWaypoint(from: loc) else { return nil }
-        return String(format: "%.1f", dist)
+        return NextWaypointReadout.distance(dist)
     }
 
     /// Time and clock time to the next waypoint at the current ground speed. Nothing below 30 kt:
@@ -1993,17 +2029,6 @@ struct NavigationMapView: View {
         let gs = locationManager.currentSpeedKnots
         guard gs >= 30, let ete = flightPlanManager.etaToNextWaypoint(from: loc, groundSpeedKnots: gs) else { return nil }
         return (ete, Date().addingTimeInterval(ete))
-    }
-
-    /// ETE in minutes, "13 min", or "1:07 h" past the hour. As "13:07" beside an ETA of "13:58" it
-    /// read as a clock time.
-    private func eteValue(_ ete: TimeInterval) -> String {
-        let minutes = Int((ete / 60).rounded())
-        return minutes < 60 ? "\(minutes)" : String(format: "%d:%02d", minutes / 60, minutes % 60)
-    }
-
-    private func eteUnit(_ ete: TimeInterval) -> String {
-        Int((ete / 60).rounded()) < 60 ? "min" : "h"
     }
 
     private func toggleLegsAndFrequencies() {
@@ -2172,9 +2197,10 @@ struct NavigationMapView: View {
                     .foregroundColor(theme.textSecondary)
                     .lineLimit(1)
             }
-            Text(item?.freq ?? "—")
-                .font(.aero(size: CockpitType.response, weight: .bold, design: .monospaced))
-                .foregroundColor(theme.textPrimary)
+            // One line, whatever was typed for a waypoint: a second line made the card taller. (6.1)
+            FrequencyLineText(text: item?.freq ?? "—",
+                              font: .aero(size: CockpitType.response, weight: .bold, design: .monospaced),
+                              color: theme.textPrimary)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .accessibilityElement(children: .combine)
@@ -2226,79 +2252,146 @@ struct NavigationMapView: View {
     /// route armed it offered START LEG, MARK and DIVERT: a tap recorded a time over a waypoint and
     /// advanced the leg before the flight existed, so the leg timer and the nav log's times were wrong
     /// once airborne. On the ground the row is the way to the routes, as with no route. (v6.0 review)
+    ///
+    /// In the Cockpit's flight the check slot leads the row, in one frame whatever follows it: MARK with
+    /// Divert and More, GO AROUND and TOUCH-AND-GO, or Routes (`MapThumbRow`). (6.1)
     @ViewBuilder
     private var navThumbBar: some View {
-        if showsEventButtons {
-            eventSlotRow
-                .padding(.horizontal, CockpitType.size(kneeboard: 16, phone: 12))
-                .padding(.vertical, CockpitType.size(kneeboard: 12, phone: 10))
-        } else if appState.isFlightActive, let plan = flightPlanManager.activeFlightPlan {
-            TimelineView(.periodic(from: .now, by: 1)) { _ in
-                let state = legTimerState(plan)
-                HStack(spacing: CockpitType.size(kneeboard: 12, phone: 8)) {
-                    if showsCheckSlot {
-                        // The slot first, sharing the room with MARK; the leg timer moves into MARK, the
-                        // button that ends the leg. Divert and More keep their places. (mockup M2)
-                        checkSlot()
-                        navPrimaryButton(plan, started: state.started, leg: state)
-                    } else {
-                        legTimerReadout(elapsed: state.elapsed, planned: state.planned, running: state.running,
-                                        started: state.started)
-                        navPrimaryButton(plan, started: state.started)
+        let spacing = CockpitType.size(kneeboard: 12, phone: 8)
+        if thumbRow == .routes {
+            routesButtonRow()
+        } else {
+            Group {
+                switch thumbRow {
+                case .slotThenFlightEvents:
+                    slotRow(spacing: spacing, divertAndMoreAxis: .horizontal) { flightEventButtons(spacing: spacing) }
+                case .slotThenMark:
+                    if let plan = flightPlanManager.activeFlightPlan {
+                        TimelineView(.periodic(from: .now, by: 1)) { _ in
+                            let state = legTimerState(plan)
+                            // The leg timer moves into MARK, the button that ends the leg. (mockup M2)
+                            slotRow(spacing: spacing, divertAndMoreAxis: .horizontal) {
+                                HStack(spacing: spacing) {
+                                    navPrimaryButton(plan, started: state.started, leg: state)
+                                    divertAndMore(plan, leg: state, axis: .horizontal, spacing: spacing)
+                                }
+                            }
+                        }
                     }
-                    divertAndMore(plan, leg: state, axis: .horizontal,
-                                  spacing: CockpitType.size(kneeboard: 12, phone: 8))
+                case .slotThenRoutes:
+                    slotRow(spacing: spacing, divertAndMoreAxis: .horizontal) {
+                        routesButton(height: CheckSlotButton.height, fillsWidth: true)
+                    }
+                case .legTimerThenMark:
+                    if let plan = flightPlanManager.activeFlightPlan {
+                        TimelineView(.periodic(from: .now, by: 1)) { _ in
+                            let state = legTimerState(plan)
+                            HStack(spacing: spacing) {
+                                legTimerReadout(elapsed: state.elapsed, planned: state.planned, running: state.running,
+                                                started: state.started)
+                                navPrimaryButton(plan, started: state.started)
+                                divertAndMore(plan, leg: state, axis: .horizontal, spacing: spacing)
+                            }
+                        }
+                    }
+                case .routes:
+                    EmptyView()
                 }
             }
             .padding(.horizontal, CockpitType.size(kneeboard: 16, phone: 12))
             .padding(.vertical, CockpitType.size(kneeboard: 12, phone: 10))
-        } else {
-            routesButtonRow()
         }
     }
 
-    /// The check slot, when this map is the Cockpit's in flight. `prominent`: the wide one, beside
-    /// Routes. (6.1)
+    /// The bottom row for the flight as it stands (portrait, and the phone on its side).
+    private var thumbRow: MapThumbRow {
+        MapThumbRow.make(showsCheckSlot: showsCheckSlot, showsEventButtons: showsEventButtons,
+                         hasRoute: flightPlanManager.activeFlightPlan != nil, flightActive: appState.isFlightActive)
+    }
+
+    /// The check slot, when this map is the Cockpit's in flight. (6.1)
     @ViewBuilder
-    private func checkSlot(prominent: Bool = false) -> some View {
+    private func checkSlot() -> some View {
         if let onShowChecklist {
-            CockpitCheckSlot(onShowChecklist: onShowChecklist, prominent: prominent)
+            CockpitCheckSlot(onShowChecklist: onShowChecklist)
         }
     }
 
-    /// GO AROUND, the slot, TOUCH-AND-GO: approach and landing (mockup M3). Hold 1 s to confirm, or a
-    /// single tap in circuits, as on the checklist pane.
-    private var eventSlotRow: some View {
-        HStack(spacing: CockpitType.size(kneeboard: 12, phone: 8)) {
-            MapFlightEventButton(event: .goAround)
-                .frame(maxWidth: CockpitType.size(kneeboard: 220, phone: 112))
+    /// The check slot, then `rest` in the room it leaves: the slot as wide as MARK beside Divert and More,
+    /// whatever `rest` is, so it holds still when the row changes round it (`CheckSlotRowLayout`).
+    /// `divertAndMoreAxis`: Divert and More side by side (the thumb bar) or one above the other (the
+    /// phone on its side), as the row with MARK has them.
+    private func slotRow<Rest: View>(spacing: CGFloat, divertAndMoreAxis: Axis,
+                                     @ViewBuilder rest: () -> Rest) -> some View {
+        CheckSlotRowLayout(spacing: spacing) {
             checkSlot()
-            MapFlightEventButton(event: .touchAndGo)
-                .frame(maxWidth: CockpitType.size(kneeboard: 220, phone: 112))
+            divertAndMoreMeasure(axis: divertAndMoreAxis, spacing: divertAndMoreAxis == .horizontal ? spacing : 8)
+            rest()
         }
     }
 
-    /// The landscape phone's version, under the Cockpit's column: the leg timer, MARK, and Divert and
-    /// More stacked, half height, so MARK keeps its width. (iPhone pass, I7)
+    /// Divert and More as `divertAndMore` lays them out, unseen: what the slot's width is measured by.
+    private func divertAndMoreMeasure(axis: Axis, spacing: CGFloat) -> some View {
+        let stacked = axis == .vertical
+        return EqualWidthStack(axis: axis, spacing: spacing) {
+            if !flightPlanManager.isFlightPlanCompleted {
+                thumbSecondaryLabel(icon: "arrow.triangle.turn.up.right.diamond.fill", title: L10n.Trip.divert,
+                                    tint: theme.action, stacked: stacked)
+            }
+            thumbSecondaryLabel(icon: "ellipsis.circle", title: L10n.Nav.more, tint: theme.action, stacked: stacked)
+        }
+        .hidden()
+        .accessibilityHidden(true)
+    }
+
+    /// GO AROUND and TOUCH-AND-GO after the slot, sharing what it leaves: approach and landing (mockup
+    /// M3), and from circuit height. Hold 1 s to confirm, or a single tap in circuits, as on the
+    /// checklist pane.
+    private func flightEventButtons(spacing: CGFloat) -> some View {
+        HStack(spacing: spacing) {
+            MapFlightEventButton(event: .goAround)
+                .frame(maxWidth: .infinity)
+            MapFlightEventButton(event: .touchAndGo)
+                .frame(maxWidth: .infinity)
+        }
+    }
+
+    /// The landscape phone's version, under the Cockpit's column: the slot (or the leg timer), MARK, and
+    /// Divert and More stacked, half height, so MARK keeps its width. (iPhone pass, I7)
     @ViewBuilder
     private var navThumbColumnCompact: some View {
-        if showsEventButtons {
-            eventSlotRow
-        } else if appState.isFlightActive, let plan = flightPlanManager.activeFlightPlan {
-            TimelineView(.periodic(from: .now, by: 1)) { _ in
-                let state = legTimerState(plan)
-                HStack(spacing: 8) {
-                    if showsCheckSlot {
-                        checkSlot()
-                    } else {
-                        legTimerReadout(elapsed: state.elapsed, planned: state.planned, running: state.running,
-                                        started: state.started)
+        switch thumbRow {
+        case .slotThenFlightEvents:
+            slotRow(spacing: 8, divertAndMoreAxis: .vertical) { flightEventButtons(spacing: 8) }
+        case .slotThenMark:
+            if let plan = flightPlanManager.activeFlightPlan {
+                TimelineView(.periodic(from: .now, by: 1)) { _ in
+                    let state = legTimerState(plan)
+                    slotRow(spacing: 8, divertAndMoreAxis: .vertical) {
+                        HStack(spacing: 8) {
+                            navPrimaryButton(plan, started: state.started, leg: state)
+                            divertAndMore(plan, leg: state, axis: .vertical, stacked: true)
+                        }
                     }
-                    navPrimaryButton(plan, started: state.started, leg: showsCheckSlot ? state : nil)
-                    divertAndMore(plan, leg: state, axis: .vertical, stacked: true)
                 }
             }
-        } else {
+        case .slotThenRoutes:
+            slotRow(spacing: 8, divertAndMoreAxis: .vertical) {
+                routesButton(height: CheckSlotButton.height, fillsWidth: true)
+            }
+        case .legTimerThenMark:
+            if let plan = flightPlanManager.activeFlightPlan {
+                TimelineView(.periodic(from: .now, by: 1)) { _ in
+                    let state = legTimerState(plan)
+                    HStack(spacing: 8) {
+                        legTimerReadout(elapsed: state.elapsed, planned: state.planned, running: state.running,
+                                        started: state.started)
+                        navPrimaryButton(plan, started: state.started)
+                        divertAndMore(plan, leg: state, axis: .vertical, stacked: true)
+                    }
+                }
+            }
+        case .routes:
             routesButtonRow(padded: false)
         }
     }
@@ -2367,25 +2460,20 @@ struct NavigationMapView: View {
         }
     }
 
-    /// Routes alone on the ground (Plan › Map). In the Cockpit's flight, Routes then the check slot
-    /// filling the row, the thumb bar's height: the chart is as tall as with a route. (6.1)
-    /// `padded`: false under the landscape phone's column, which pads its thumb row itself; padded twice,
-    /// the row ran 20 pt taller than with a route and the slot's foot went off the screen.
+    /// Routes alone on the ground (Plan › Map). (In the Cockpit's flight with no route, Routes follows
+    /// the check slot: `MapThumbRow.slotThenRoutes`.) `padded`: false under the landscape phone's column,
+    /// which pads its thumb row itself.
     private func routesButtonRow(padded: Bool = true) -> some View {
         HStack(spacing: CockpitType.size(kneeboard: 12, phone: 8)) {
-            if showsCheckSlot {
-                routesButton(height: CheckSlotButton.height)
-                checkSlot(prominent: true)
-            } else {
-                routesButton()
-                Spacer(minLength: 0)
-            }
+            routesButton()
+            Spacer(minLength: 0)
         }
-        .padding(.horizontal, !padded ? 0 : showsCheckSlot ? CockpitType.size(kneeboard: 16, phone: 12) : 16)
-        .padding(.vertical, !padded ? 0 : showsCheckSlot ? CockpitType.size(kneeboard: 12, phone: 10) : 12)
+        .padding(.horizontal, padded ? 16 : 0)
+        .padding(.vertical, padded ? 12 : 0)
     }
 
-    /// `fillsWidth`: a row of its own, under the check slot in the landscape column.
+    /// `fillsWidth`: the rest of the row after the check slot, or a row of its own under it in the
+    /// landscape column.
     private func routesButton(height: CGFloat? = nil, fillsWidth: Bool = false) -> some View {
         chromeButton(icon: "point.topleft.down.to.point.bottomright.curvepath",
                      title: L10n.Ground.planRoutes, height: height, fillsWidth: fillsWidth) {
@@ -2594,7 +2682,7 @@ struct NavigationMapView: View {
     private var liveBearingText: String? {
         guard let loc = locationManager.currentLocation,
               let brg = flightPlanManager.bearingToNextWaypoint(from: loc) else { return nil }
-        return String(format: "%03d°", Int(brg))
+        return NextWaypointReadout.bearing(brg)
     }
 
     // MARK: - Phase-aware frequencies (v4 UI/UX Revamp C2)
@@ -3210,9 +3298,9 @@ struct NavigationMapView: View {
 
     /// The pill itself. Shared by both layouts — the map opening on the aircraft with the route
     /// somewhere else is not an iPhone-only situation, it is just far more common there because the
-    /// viewport is smaller. (v4.4.0 device-test feedback)
+    /// viewport is smaller. (v4.4.0 device-test feedback) `leading`: at the left edge, under the chips.
     @ViewBuilder
-    private var routeOffScreenPill: some View {
+    private func routeOffScreenPill(leading: Bool) -> some View {
         if let hint = routeOffScreenHint {
             Button { fitActiveRoute() } label: {
                 HStack(spacing: 8) {
@@ -3236,6 +3324,7 @@ struct NavigationMapView: View {
                 .contentShape(Capsule())
             }
             .buttonStyle(.plain)
+            .frame(maxWidth: leading ? .infinity : nil, alignment: .leading)
             .transition(.opacity.combined(with: .move(edge: .top)))
         }
     }
@@ -6720,6 +6809,11 @@ private struct ChartSizeKey: PreferenceKey {
     }
 }
 
+private struct MapAccessoryHeightKey: PreferenceKey {
+    static let defaultValue: CGFloat = 0
+    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) { value = max(value, nextValue()) }
+}
+
 private struct ChartChromeBottomKey: PreferenceKey {
     static let defaultValue: CGFloat = 0
     static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) { value = max(value, nextValue()) }
@@ -6796,6 +6890,210 @@ struct EqualWidthStack: Layout {
 
     private func buttonWidth(_ subviews: Subviews) -> CGFloat {
         Self.buttonWidth(ideals: subviews.map { $0.sizeThatFits(.unspecified).width }, axis: axis)
+    }
+}
+
+/// The map's bottom row in flight with the check slot: the slot, then the rest of the row (MARK with
+/// Divert and More; GO AROUND and TOUCH-AND-GO; Routes). The slot keeps one frame whatever follows it,
+/// as wide as MARK beside Divert and More: half of what Divert and More leave. In circuits the row
+/// changes every lap, at circuit height and again on the runway, and the slot moved to the middle of it
+/// each time. (6.1, the author's call: the slot stays left)
+///
+/// Three subviews: the slot, Divert and More as a hidden measure (`reference`, laid out but never seen),
+/// and the rest of the row, which takes the width the slot leaves.
+struct CheckSlotRowLayout: Layout {
+    var spacing: CGFloat
+
+    /// The slot's width in a row `rowWidth` wide, beside Divert and More `reference` wide.
+    static func slotWidth(rowWidth: CGFloat, reference: CGFloat, spacing: CGFloat) -> CGFloat {
+        max(0, (rowWidth - reference - 2 * spacing) / 2)
+    }
+
+    func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
+        guard subviews.count == 3 else { return .zero }
+        let width = rowWidth(proposal, subviews)
+        let slot = Self.slotWidth(rowWidth: width, reference: referenceWidth(subviews), spacing: spacing)
+        let rest = max(0, width - slot - spacing)
+        let height = max(subviews[0].sizeThatFits(ProposedViewSize(width: slot, height: proposal.height)).height,
+                         subviews[2].sizeThatFits(ProposedViewSize(width: rest, height: proposal.height)).height)
+        return CGSize(width: width, height: height)
+    }
+
+    func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) {
+        guard subviews.count == 3 else { return }
+        let slot = Self.slotWidth(rowWidth: bounds.width, reference: referenceWidth(subviews), spacing: spacing)
+        subviews[0].place(at: CGPoint(x: bounds.minX, y: bounds.midY), anchor: .leading,
+                          proposal: ProposedViewSize(width: slot, height: bounds.height))
+        // Hidden: it only measures.
+        subviews[1].place(at: bounds.origin, proposal: .unspecified)
+        subviews[2].place(at: CGPoint(x: bounds.minX + slot + spacing, y: bounds.midY), anchor: .leading,
+                          proposal: ProposedViewSize(width: max(0, bounds.width - slot - spacing), height: bounds.height))
+    }
+
+    private func referenceWidth(_ subviews: Subviews) -> CGFloat {
+        subviews[1].sizeThatFits(.unspecified).width
+    }
+
+    /// The width offered, or with none (or no bound), what the row wants: a slot as wide as the rest's.
+    private func rowWidth(_ proposal: ProposedViewSize, _ subviews: Subviews) -> CGFloat {
+        if let width = proposal.width, width.isFinite { return width }
+        let reference = referenceWidth(subviews)
+        let slot = subviews[0].sizeThatFits(.unspecified).width
+        return 2 * slot + reference + 2 * spacing
+    }
+}
+
+/// The next waypoint's figures, as the card and the phone's line show them, and the widest value each
+/// format gives. B612 Mono draws every character the same width, so the widest is the longest. (6.1,
+/// stability)
+enum NextWaypointReadout {
+    /// "206°"
+    static func bearing(_ degrees: Double) -> String { String(format: "%03d°", Int(degrees)) }
+
+    /// "9.9", without its unit.
+    static func distance(_ nauticalMiles: Double) -> String { String(format: "%.1f", nauticalMiles) }
+
+    /// ETE in minutes, "13 min", or "1:07 h" past the hour. As "13:07" beside an ETA of "13:58" it
+    /// read as a clock time.
+    static func eteValue(_ ete: TimeInterval) -> String {
+        let minutes = Int((ete / 60).rounded())
+        return minutes < 60 ? "\(minutes)" : String(format: "%d:%02d", minutes / 60, minutes % 60)
+    }
+
+    static func eteUnit(_ ete: TimeInterval) -> String {
+        Int((ete / 60).rounded()) < 60 ? "min" : "h"
+    }
+
+    /// The clock time, as the device writes it.
+    static func eta(_ date: Date) -> String {
+        date.formatted(date: .omitted, time: .shortened)
+    }
+
+    static let widestBearing = "000°"
+    /// Up to 999.9 NM: further away than that, the cell's value shrinks rather than widening it.
+    static let widestDistance = "000.0"
+    /// The ETE's two forms: up to 59 min, then up to 9:59 h.
+    static let widestMinutes = NavValueCell.Reading("00", unit: "min")
+    static let widestHours = NavValueCell.Reading("0:00", unit: "h")
+
+    /// A clock time with two digits to its hour (and AM or PM where the device writes them).
+    static var widestETA: String {
+        var components = DateComponents()
+        components.year = 2026
+        components.month = 1
+        components.day = 1
+        components.hour = 22
+        components.minute = 58
+        return Calendar.current.date(from: components).map(eta) ?? "00:00"
+    }
+
+    /// The phone's line, "206° ·  9.9 NM · 12 min": every figure right-aligned in a field as long as its
+    /// widest, and "—" where there is none yet (no fix; under 30 kt, no ETE), so the line keeps one
+    /// length. Dropping a missing figure, as the line did, moved the others at the take-off. The
+    /// distance's field holds 99.9 NM; a farther waypoint lengthens it by a character.
+    static func phoneLine(bearing: String?, distance: String?, ete: TimeInterval?) -> String {
+        let eteText = ete.map { "\(eteValue($0)) \(eteUnit($0))" }
+        return [padded(bearing ?? "—", to: 4),
+                padded(distance ?? "—", to: 4) + " NM",
+                padded(eteText ?? "—", to: 6)].joined(separator: " · ")
+    }
+
+    private static func padded(_ text: String, to length: Int) -> String {
+        String(repeating: " ", count: max(0, length - text.count)) + text
+    }
+}
+
+/// A label over a value, for the next-waypoint card. As wide as the widest value its format gives
+/// (`widest`, and `orWidest` for a format with two forms), whatever it shows now: each cell took its
+/// value's width, so 10.0 → 9.9 NM, 59 min → 1:00 h or a figure → "—" slid the cells to its left, and
+/// could flip the card to another of its layouts, as much as 59 pt taller. (6.1, stability)
+struct NavValueCell: View {
+    struct Reading: Equatable {
+        let value: String
+        var unit: String?
+
+        init(_ value: String, unit: String? = nil) {
+            self.value = value
+            self.unit = unit
+        }
+    }
+
+    let label: String
+    let reading: Reading
+    let widest: Reading
+    var orWidest: Reading?
+
+    @Environment(\.cockpitTheme) private var theme
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 2) {
+            Text(label)
+                .font(.aero(size: CockpitType.label, weight: .semibold))
+                .foregroundColor(theme.textSecondary)
+            // The widest, unseen, sizes the cell; the value sits over it, from its left edge.
+            ZStack(alignment: .leading) {
+                line(widest)
+                if let orWidest { line(orWidest) }
+            }
+            .hidden()
+            .accessibilityHidden(true)
+            .overlay(alignment: .leading) {
+                line(reading)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.5)
+            }
+        }
+        .fixedSize()
+        .accessibilityElement(children: .combine)
+    }
+
+    private func line(_ reading: Reading) -> some View {
+        HStack(alignment: .firstTextBaseline, spacing: 4) {
+            Text(reading.value)
+                .font(.aero(size: CockpitType.response, weight: .bold, design: .monospaced))
+                .foregroundColor(theme.textPrimary)
+            if let unit = reading.unit {
+                Text(unit)
+                    .font(.aero(size: CockpitType.label))
+                    .foregroundColor(theme.textSecondary)
+            }
+        }
+    }
+}
+
+/// A frequency on one line, at its size or a little under, never wrapped. What a pilot typed for a
+/// waypoint can be long ("119.175 Bern Information"); it wrapped and made the NOW / NEXT card a line
+/// taller (29 pt on the phone). Past the scaling, the words go, not the frequency: cut at the end, or at
+/// the start where the frequency ends the text. (6.1, stability)
+struct FrequencyLineText: View {
+    let text: String
+    let font: Font
+    let color: Color
+
+    var body: some View {
+        ZStack(alignment: .leading) {
+            // A line's height at full size: scaled, the text alone came out 5 pt shorter, the card too.
+            Text(verbatim: "0")
+                .font(font)
+                .hidden()
+                .accessibilityHidden(true)
+            Text(text)
+                .font(font)
+                .foregroundColor(color)
+                .lineLimit(1)
+                .minimumScaleFactor(0.85)
+                .truncationMode(Self.cutsAtStart(text) ? .head : .tail)
+        }
+    }
+
+    /// Whether the text ends with a frequency after some words ("Bern Info 120.100"): then the words are
+    /// cut at the start, so the digits stay.
+    static func cutsAtStart(_ text: String) -> Bool {
+        let trimmed = text.trimmingCharacters(in: .whitespaces)
+        guard let range = trimmed.range(of: #"[0-9]{3}[.,][0-9]{1,3}$"#, options: .regularExpression) else {
+            return false
+        }
+        return range.lowerBound != trimmed.startIndex
     }
 }
 

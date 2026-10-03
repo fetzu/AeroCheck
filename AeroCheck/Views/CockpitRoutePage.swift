@@ -174,6 +174,7 @@ struct RouteLegsAndRadio: View {
                 .padding(.horizontal, 16)
                 .padding(.vertical, 12)
             }
+            .modifier(SharpScrollEdges())
             .onAppear {
                 // On the next turn, once the rows are laid out: only as far as it takes, not at all when
                 // the leg is in view.
@@ -182,6 +183,21 @@ struct RouteLegsAndRadio: View {
                                                     waypointCount: plan.waypoints.count) else { return }
                 DispatchQueue.main.async { reader.scrollTo(LegsPanelReveal.RowID(index: row), anchor: nil) }
             }
+        }
+    }
+}
+
+/// No soft scroll edge effect (iOS 26) on a scroll read in flight: the leg being flown and NOW / NEXT
+/// are never blurred or dimmed. Nothing lies over these scrolls today, and an upright window shows no
+/// effect, scrolled or not; but under the iPad's landscape capture hook (`AEROCHECK_ORIENTATION`) the
+/// top of ROUTE's scroll was blurred at rest, and a bar over the page (the read band to come) would do
+/// it for real. ROUTE's scroll and Plan › Map's legs panel. (6.2)
+struct SharpScrollEdges: ViewModifier {
+    func body(content: Content) -> some View {
+        if #available(iOS 26.0, *) {
+            content.scrollEdgeEffectHidden(true, for: .all)
+        } else {
+            content
         }
     }
 }

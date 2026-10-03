@@ -2002,6 +2002,8 @@ struct NavigationMapView: View {
                     })
             }
             .frame(height: min(legsPanelContentHeight, maxHeight))
+            // The leg being flown and NOW / NEXT never under a soft edge (`SharpScrollEdges`). (6.2)
+            .modifier(SharpScrollEdges())
             .onPreferenceChange(LegsPanelHeightKey.self) { height in
                 legsPanelContentHeight = height
                 // Once the scroll has its height: on the next turn, after the frame above takes it.

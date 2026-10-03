@@ -21,6 +21,7 @@ struct FlightPlanMapBuilderView: View {
     @ObservedObject private var navaidService = OpenAIPNavaidDataService.shared
     @ObservedObject private var obstacleService = OpenAIPObstacleDataService.shared
     @ObservedObject private var reportingPointService = OpenAIPReportingPointDataService.shared
+    @ObservedObject private var vfrProcedureService = OFMDataService.shared   // 6.2.0
     @Environment(\.dismiss) private var dismiss
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -96,9 +97,9 @@ struct FlightPlanMapBuilderView: View {
     @State private var tripBannerDismissed = false   // v4.1.0 trip-aware prefetch banner
     @State private var showDeactivateConfirm = false   // v4.4.0 — arm/disarm from the builder
     @State private var tripPrefetchFailed = false    // v4.4.0 — coverage still incomplete after a download
-    /// Which of the four per-country layers is being fetched, so the banner can count instead of spin.
+    /// Which of the per-country layers is being fetched, so the banner can count instead of spin.
     @State private var prefetchStep = 0
-    @State private var prefetchTotal = 4
+    @State private var prefetchTotal = 0
     @State private var tripSizeEstimate: TripDataSizeEstimator.Estimate?   // v4.4.0 — what the offer costs
     @State private var tripSizeEstimateKey = ""      // the missing-set the estimate above belongs to
     @State private var isPrefetchingTrip = false
@@ -125,35 +126,28 @@ struct FlightPlanMapBuilderView: View {
             : []
     }
 
+    /// The per-country layers of the trip top-up: the same providers, in the same order, as
+    /// `DataStatusManager` checks (airspace, navaids, obstacles, reporting points, VFR procedures),
+    /// built on the services because the manager isn't injected into this cover. The OpenAIP airport
+    /// layer stays out (`OpenAIPAirportProvider.perCountryCoverage`). (6.2.0, was four hard-coded layers)
+    private var tripProviders: [DataSetProvider] {
+        DataStatusManager.tripProviders(airspace: openAIPDataService)
+    }
+
     /// Missing countries PER LAYER, which is how coverage actually works: a device can hold Swiss
     /// airspace and no Swiss obstacles. Quoting a size for data already on disk would overstate the
-    /// download, so the estimate needs the split even though the banner shows the union.
-    ///
-    /// The SAME 4 per-country layers `DataStatusManager.tripCountriesNeedingData` checks (airspace +
-    /// navaids + obstacles + reporting points). The OpenAIP airport layer is intentionally excluded:
-    /// it's brand-new (existing downloads lack it, so it would nag forever) and it ships with the full
-    /// Nav & Maps country bundle, not this lightweight route prefetch. Keep this in sync with the
-    /// manager and with prefetchTripData below. (review #7)
+    /// download, so the estimate needs the split even though the banner shows the union. A country a
+    /// layer's source doesn't publish (open flightmaps outside CH, AT, DE, CZ) is no gap. (review #7)
     private var tripMissingByLayer: [TripDataSizeEstimator.Layer: [String]] {
         guard waypoints.count >= 2, !routeCountriesCache.isEmpty else { return [:] }
-        let routeCountries = routeCountriesCache
-        let coverage: [TripDataSizeEstimator.Layer: [String]] = [
-            .airspace: openAIPDataService.downloadedCountries,
-            .navaids: navaidService.downloadedCountries,
-            .obstacles: obstacleService.downloadedCountries,
-            .reportingPoints: reportingPointService.downloadedCountries,
-        ]
-        return coverage.compactMapValues { downloaded in
-            let missing = routeCountries.filter { !downloaded.contains($0) }
-            return missing.isEmpty ? nil : missing
-        }
+        return DataStatusManager.tripGaps(providers: tripProviders, routeCountries: routeCountriesCache)
     }
 
     private var tripNeededCountries: [String] {
         Set(tripMissingByLayer.values.flatMap { $0 }).sorted()
     }
 
-    /// Download the 4 per-country layers for the route's missing countries (merged with what's cached).
+    /// Download the per-country layers for the route's missing countries (merged with what's cached).
     ///
     /// If coverage is still incomplete afterwards the banner says the download failed rather than
     /// resetting to the same "Download data" offer — pressing a button, watching a spinner for ten
@@ -164,21 +158,18 @@ struct FlightPlanMapBuilderView: View {
         guard !needed.isEmpty else { return }
         isPrefetchingTrip = true
         tripPrefetchFailed = false
-        func union(_ existing: [String]) -> [String] { Array(Set(existing).union(needed)) }
 
-        // Counted rather than spun. Four per-country layers, each a separate download that can take
-        // tens of seconds on a clubhouse hotspot — an indeterminate spinner for all four tells the
-        // pilot nothing about whether to keep waiting. (device pass)
+        // Counted rather than spun. Each per-country layer is a separate download that can take tens
+        // of seconds on a clubhouse hotspot — an indeterminate spinner for all of them tells the pilot
+        // nothing about whether to keep waiting. (device pass) Each provider adds the countries to what
+        // its layer holds (the union, so nothing is pruned) and skips what is already on disk.
+        let providers = tripProviders
         prefetchStep = 0
-        prefetchTotal = 4
-        await openAIPDataService.downloadData(for: union(openAIPDataService.downloadedCountries), skippingCached: true)
-        prefetchStep = 1
-        await navaidService.downloadData(for: union(navaidService.downloadedCountries), skippingCached: true)
-        prefetchStep = 2
-        await obstacleService.downloadData(for: union(obstacleService.downloadedCountries), skippingCached: true)
-        prefetchStep = 3
-        await reportingPointService.downloadData(for: union(reportingPointService.downloadedCountries), skippingCached: true)
-        prefetchStep = 4
+        prefetchTotal = providers.count
+        for provider in providers {
+            await provider.prefetch(countries: needed)
+            prefetchStep += 1
+        }
         isPrefetchingTrip = false
         tripPrefetchFailed = !tripNeededCountries.isEmpty
     }

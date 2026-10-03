@@ -477,6 +477,8 @@ struct OnboardingView: View {
             await navaidService.downloadData(for: list)
             await obstacleService.downloadData(for: list)
             await reportingPointService.downloadData(for: list)
+            // Circuits and VFR routes where open flightmaps publishes them (CH, AT, DE, CZ). (6.2.0)
+            await OFMDataService.shared.downloadData(for: list)
         }
     }
 

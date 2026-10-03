@@ -273,7 +273,7 @@ struct ContentView: View {
             for _ in 0..<40 where !(threadManager.hasLoadedThreads && flightPlanManager.hasLoadedPlans) {
                 try? await Task.sleep(nanoseconds: 100_000_000)
             }
-            MarketingSceneInjector.inject(
+            await MarketingSceneInjector.inject(
                 scene,
                 appState: appState,
                 locationManager: locationManager,

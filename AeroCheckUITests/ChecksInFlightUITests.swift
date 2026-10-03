@@ -79,6 +79,10 @@ final class ChecksInFlightUITests: XCTestCase {
                     "amber at about 500 ft: first due aloft at \(firstDueAloft.map { "\($0.aal ?? 0) ft (track \(Int($0.t)) s)" } ?? "never") (referee cue \(Int(takeoffCue)) s)")
         pilot.check("flight-3", !onRoll.isEmpty && onRoll.allSatisfy { $0.tone != "due" },
                     "not amber on the take-off roll (track \(Int(roll.0))-\(Int(roll.1)) s): \(onRoll.isEmpty ? "no sample on the roll" : onRoll.map { "\(Int($0.t))s \($0.tone)" }.joined(separator: ", "))")
+        // Nor on the runway before it, from the LINE UP check's tap (#276: dark at READY FOR LINE UP).
+        let linedUp = samples.filter { $0.t < roll.0 }
+        pilot.check("flight-3", !linedUp.isEmpty && linedUp.allSatisfy { $0.tone != "due" },
+                    "not amber lined up, before the roll (track to \(Int(roll.0)) s): \(linedUp.isEmpty ? "no sample" : "\(linedUp.filter { $0.tone == "due" }.count) of \(linedUp.count) samples due")")
         pilot.observed("flight-3", "slot timeline: \(timeline)")
 
         // The climb check done from the slot, the leg timer started, then the cruise check comes due at

@@ -130,6 +130,37 @@ struct ActiveChecklist: Equatable {
     }
 }
 
+/// The aircraft a flight was started on, and its checklist: what the Cockpit shows from START FLIGHT
+/// to the end, whatever is selected meanwhile.
+///
+/// The selection is synced settings, so another device on the same iCloud account (the Companion
+/// iPhone, say) can change it while this one flies. Followed in flight, it put a PA-28 on the WT9's
+/// checks and speeds (stall 42 kt instead of 50), and a crash restored a WT9 flight on the PA-28, or
+/// on nothing at all offline. Taken by `AppState.startFlight` after the ARCH-01 guard, and from the
+/// checkpoint by a crash restore.
+struct FlightAircraft {
+    /// The bundled aircraft selected at the start: the one flown when `remoteId` is nil.
+    let bundled: AircraftType
+    /// The premium aircraft flown (`id`, or `id~REG` for another tail), nil for the bundled one.
+    let remoteId: String?
+    /// The checklist language resolved at the start, so a restore reloads the same one.
+    let language: String
+    /// Its resolved checklist: a premium aircraft's, or the bundled one's in `language`. nil after a
+    /// restore until `AppState.loadFlightChecklistIfNeeded` has it back.
+    var checklist: RemoteAircraftChecklist?
+
+    /// The id its checklist is fetched under.
+    var checklistId: String { remoteId ?? bundled.serverId }
+
+    /// The rule `AppState.activeChecklist` applies to the selection, applied to this aircraft: a
+    /// premium flight without its checklist shows nothing, never the WT9's. (ARCH-01)
+    var activeChecklist: ActiveChecklist {
+        if let checklist { return ActiveChecklist(source: .remote(checklist)) }
+        if remoteId != nil { return ActiveChecklist(source: .unresolved) }
+        return ActiveChecklist(source: .bundled(bundled))
+    }
+}
+
 /// Pure step-by-step checklist highlighting rules, extracted from `AppState` so the rules are
 /// unit-testable and the @MainActor god-object no longer owns them. `AppState` keeps the
 /// `currentHighlightedItem` state and delegates the index math here. (Phase 4 — AppState decomposition)

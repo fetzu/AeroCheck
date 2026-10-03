@@ -639,10 +639,15 @@ struct ActiveFlightState: Codable {
     let deferredChecks: [ChecklistPhase]?
     let hasLandingBeenDetected: Bool
     let isCircuitMode: Bool
-    /// Aircraft selection captured at save time so the correct checklist is re-resolved on
+    /// The flight's aircraft (`AppState.flightAircraft`), so the correct checklist is re-resolved on
     /// restore — a restored premium flight reloads its own checklist, never the WT9 residue. (ARCH-08)
+    /// Named after the selection it was read from until a synced selection could replace it in
+    /// flight; the names stay so a checkpoint reads the same either side of an update.
     let selectedAircraft: AircraftType
     let selectedRemoteAircraftId: String?
+    /// The flight's checklist language, which is synced settings too. Optional so an older
+    /// checkpoint still decodes (it reloads in the language selected at the restore).
+    let checklistLanguage: String?
     /// Captured alongside `isCircuitMode`, and for the same reason: it decides which thread END
     /// FLIGHT closes out. Left out of the snapshot, a jetsam mid-flight — routine on a two-hour
     /// flight with background GPS and map tiles — restored the flight with the pilot's explicit
@@ -686,8 +691,17 @@ struct ActiveFlightState: Codable {
         self.hasLandingBeenDetected = appState.hasLandingBeenDetected
         self.isCircuitMode = appState.isCircuitMode
         self.flightIsUnplanned = appState.flightIsUnplanned
-        self.selectedAircraft = appState.settings.selectedAircraft
-        self.selectedRemoteAircraftId = appState.settings.selectedRemoteAircraftId
+        // The flight's aircraft, not the selection: another device may have picked another one since
+        // START. A flight made active without `startFlight` has none and keeps the selection.
+        if let aircraft = appState.flightAircraft {
+            self.selectedAircraft = aircraft.bundled
+            self.selectedRemoteAircraftId = aircraft.remoteId
+            self.checklistLanguage = aircraft.language
+        } else {
+            self.selectedAircraft = appState.settings.selectedAircraft
+            self.selectedRemoteAircraftId = appState.settings.selectedRemoteAircraftId
+            self.checklistLanguage = nil
+        }
         self.savedAt = Date()
     }
 
@@ -717,12 +731,18 @@ struct ActiveFlightState: Codable {
         appState.hasLandingBeenDetected = hasLandingBeenDetected
         appState.isCircuitMode = isCircuitMode
         appState.flightIsUnplanned = flightIsUnplanned ?? false
-        // Re-apply the captured aircraft selection so the active checklist resolves to the
-        // restored flight's aircraft. The premium checklist body is re-fetched at launch (see
-        // AeroCheckApp's `.task`); until it resolves, `activeChecklist` reports `.unresolved`
-        // rather than falling back to WT9 content. (ARCH-08 / ARCH-01)
+        // The flight gets its aircraft back, and the selection with it (as before). Its checklist is
+        // re-fetched at launch (`loadFlightChecklistIfNeeded`, from AeroCheckApp's `.task`); until it
+        // resolves, `activeChecklist` reports `.unresolved` for a premium flight rather than
+        // falling back to WT9 content. (ARCH-08 / ARCH-01)
         appState.settings.selectedAircraft = selectedAircraft
         appState.settings.selectedRemoteAircraftId = selectedRemoteAircraftId
+        appState.flightAircraft = FlightAircraft(
+            bundled: selectedAircraft,
+            remoteId: selectedRemoteAircraftId,
+            language: checklistLanguage ?? appState.settings.checklistLanguage.resolvedLanguage,
+            checklist: nil
+        )
     }
 }
 
@@ -899,10 +919,20 @@ class AppState {
     /// Only mutated by `loadRemoteChecklistIfNeeded` / `syncAircraftType`.
     private(set) var resolvedRemoteChecklist: RemoteAircraftChecklist?
 
-    /// The owned, fully-resolved checklist + speeds for the current selection. Every checklist /
-    /// speed reader uses this instead of the former global `ChecklistData` statics, so a premium
-    /// aircraft never falls back to the bundled WT9's content. (ARCH-01)
+    /// The aircraft and checklist of the flight in progress, taken at START FLIGHT: in flight the
+    /// Cockpit reads this, never the selection, which iCloud syncs (see `FlightAircraft`). Set only by
+    /// `startFlight`, a checkpoint restore and `loadFlightChecklistIfNeeded`; cleared when the flight
+    /// ends.
+    fileprivate(set) var flightAircraft: FlightAircraft?
+
+    /// The owned, fully-resolved checklist + speeds: the flight's while one is in progress, the
+    /// current selection's otherwise. Every checklist / speed reader uses this instead of the former
+    /// global `ChecklistData` statics, so a premium aircraft never falls back to the bundled WT9's
+    /// content. (ARCH-01)
     var activeChecklist: ActiveChecklist {
+        if isFlightActive, let flightAircraft {
+            return flightAircraft.activeChecklist
+        }
         if let checklist = resolvedRemoteChecklist {
             return ActiveChecklist(source: .remote(checklist))
         }
@@ -916,6 +946,16 @@ class AppState {
     /// Callers must not begin a flight (or GPS tracking) when this is false. (ARCH-01)
     var isPremiumChecklistResolved: Bool {
         settings.selectedRemoteAircraftId == nil || resolvedRemoteChecklist != nil
+    }
+
+    /// Whether `activeChecklist` is a premium aircraft's: the flight's while one is in progress, the
+    /// selection's otherwise. Companion's text gate asks this, so a WT9 selected on another device
+    /// in flight never opens a premium checklist's words to an unsubscribed phone. (SA-26)
+    var activeAircraftIsPremium: Bool {
+        if isFlightActive, let flightAircraft {
+            return flightAircraft.remoteId != nil
+        }
+        return settings.isRemoteAircraftSelected
     }
     var flights: [Flight] = []
     var isLoadingFlights: Bool = true
@@ -1266,12 +1306,21 @@ class AppState {
     }
 
     /// Reconcile the resolved checklist with the current selection.
-    /// Drops any resolved remote checklist when no remote aircraft is selected, so the active
-    /// checklist falls back to the bundled aircraft until a (language-specific) checklist loads.
+    /// Drops a premium checklist once no premium aircraft is selected, so the active checklist falls
+    /// back to the bundled aircraft until its language-specific checklist loads.
+    ///
+    /// The bundled aircraft's own checklist stays. `loadRemoteChecklistIfNeeded` resolves the WT9 in
+    /// the pilot's language with no premium aircraft selected, and this runs on every `saveSettings()`
+    /// and settings sync: dropping it put a flight in progress back on the hard-coded English
+    /// `WT9ChecklistData` (not the same checks as the JSON) under the pilot's highlight, after a
+    /// Memory test or map-layer toggle. (A flight in progress reads `flightAircraft` since, so this
+    /// only reaches the ground screens now.) Its JSON carries the aircraft's `serverId` as `id`
+    /// (bundled, cached or API alike). A premium selection keeps what is resolved until its own load
+    /// replaces it.
     private func syncAircraftType() {
-        if settings.selectedRemoteAircraftId == nil {
-            resolvedRemoteChecklist = nil
-        }
+        guard settings.selectedRemoteAircraftId == nil, let resolved = resolvedRemoteChecklist,
+              resolved.id != settings.selectedAircraft.serverId else { return }
+        resolvedRemoteChecklist = nil
     }
 
     /// Load the appropriate checklist for the selected aircraft and language
@@ -1327,6 +1376,25 @@ class AppState {
         } else {
             resolvedRemoteChecklist = nil
         }
+    }
+
+    /// Reload the checklist of a flight restored from its checkpoint: its own aircraft in its own
+    /// language, whatever is selected now. `AeroCheckApp` calls it once the aircraft list is in. A
+    /// premium flight shows nothing until it is back (offline, the cache has it from the start); the
+    /// WT9 falls back to its bundled JSON. (ARCH-08)
+    func loadFlightChecklistIfNeeded(aircraftDataService: AircraftDataService) async {
+        guard isFlightActive, let aircraft = flightAircraft, aircraft.checklist == nil,
+              let flightId = currentFlight?.id else { return }
+        var checklist = await aircraftDataService.fetchChecklist(for: aircraft.checklistId, language: aircraft.language)
+        // The answer is this flight's only: one ended (or replaced) during the fetch doesn't take it.
+        guard isFlightActive, currentFlight?.id == flightId, flightAircraft?.checklist == nil else { return }
+        if let checklist {
+            noteLanguageFallback(for: checklist, requested: aircraft.language)
+        } else if aircraft.remoteId == nil {
+            checklist = BundledChecklistService.loadBundledChecklist(for: aircraft.checklistId, language: aircraft.language)
+        }
+        flightAircraft?.checklist = checklist
+        AppLog.general.debugLine("Restored flight's checklist for \(aircraft.checklistId) (\(aircraft.language)): \(checklist == nil ? "not loaded" : "loaded")")
     }
 
     /// Surfaces a non-blocking notice when the loaded checklist was served in a language other than
@@ -1416,6 +1484,12 @@ class AppState {
         // (PERF-29), so a stale delta from an unrestored previous session would otherwise leak
         // that session's points into this flight's recovery data.
         clearActiveFlightState()
+        // The flight keeps what it starts on, checklist and speeds included: a selection changed later
+        // (on this device or synced from another one) is the next flight's.
+        flightAircraft = FlightAircraft(bundled: settings.selectedAircraft,
+                                        remoteId: settings.selectedRemoteAircraftId,
+                                        language: settings.checklistLanguage.resolvedLanguage,
+                                        checklist: resolvedRemoteChecklist)
         currentFlight = Flight(
             airplane: aircraft,
             aircraftRegistration: aircraftRegistration,
@@ -1501,6 +1575,7 @@ class AppState {
         let saved = saveFlight(flight)
 
         currentFlight = nil
+        flightAircraft = nil
         isFlightActive = false
         isCircuitMode = false
         flightIsUnplanned = false
@@ -1541,6 +1616,7 @@ class AppState {
         flightCues = FlightCueState()
         landedCard = nil
         currentFlight = nil
+        flightAircraft = nil
         isFlightActive = false
         isCircuitMode = false
         flightIsUnplanned = false

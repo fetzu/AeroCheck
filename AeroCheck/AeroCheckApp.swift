@@ -246,10 +246,9 @@ struct AeroCheckApp: App {
 
                     // If a flight was restored from a crash-recovery checkpoint, re-resolve its
                     // checklist now that aircraft data is loaded — a restored premium flight
-                    // reloads its own checklist instead of showing unresolved content. (ARCH-08)
-                    if appState.isFlightActive && appState.resolvedRemoteChecklist == nil {
-                        await appState.loadRemoteChecklistIfNeeded(aircraftDataService: aircraftDataService)
-                    }
+                    // reloads its own checklist instead of showing unresolved content. Its own
+                    // aircraft, not the selection, which another device may have changed. (ARCH-08)
+                    await appState.loadFlightChecklistIfNeeded(aircraftDataService: aircraftDataService)
 
                     // PR-01: a flight restored from the crash-recovery checkpoint comes back "live"
                     // (running clock, restored checklist/track) but with GPS tracking OFF —

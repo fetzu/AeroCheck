@@ -239,10 +239,10 @@ extension CheckSlot {
         phone || (stacked && title != .check)
     }
 
-    /// How many lines the second line has, always, filled or not, so the slot's lines keep their places
-    /// (`CheckSlotButton`): two where the slot shares its row, one in the wide slot on the iPad. One too
-    /// under FREDA's tick on the iPad, which takes two lines itself ("CRUISE CHECK" over "✓ 14:24"): four
-    /// lines don't fit its 104 pt, and "FREDA in 10 min" scales a little to one line. (6.1, stability)
+    /// How many lines the second line may take: two where the slot shares its row, one in the wide slot
+    /// on the iPad. One too under FREDA's tick on the iPad, which takes two lines itself ("CRUISE CHECK"
+    /// over "✓ 14:24"): four lines don't fit its 104 pt, and "FREDA in 10 min" scales a little to one
+    /// line. The room kept is what the state takes, up to that (`lineRoom`). (6.1, stability)
     func lineLines(phone: Bool, prominent: Bool) -> Int {
         if phone { return 2 }
         if prominent { return 1 }
@@ -266,6 +266,43 @@ extension CheckSlot {
     /// What VoiceOver reads for the second line.
     var lineAccessibilityText: String {
         readiesForLineUp ? lineText() : line.accessibilityText
+    }
+
+    /// The room the first line keeps: its words, the time at its widest, "CRUISE CHECK ✓ 00:00", so the
+    /// time it reads changes nothing. (6.1, the slot's text centred)
+    func titleRoom(stacked: Bool = false) -> String {
+        Self.widestFigures(titleText(stacked: stacked), atLeast: 2)
+    }
+
+    /// The room the second line keeps: the state's words, FREDA's minutes at the 10 they count down from
+    /// ("FREDA in 10 min"), so 10 turning 9 keeps the same room, and a count with as many figures as it
+    /// has, in its plural. Only a change of state changes it. A count kept at two figures could take two
+    /// lines where "5 items" takes one, and leave the empty line this is about: a list going from ten
+    /// items to nine is the one tick that can change the room. (6.1, the slot's text centred)
+    func lineRoom(narrow: Bool = false, stacked: Bool = false) -> String {
+        let widest = CheckSlot(phase: phase, line: line.widest, icon: icon, tone: tone, action: action, title: title)
+        return Self.widestFigures(widest.lineText(narrow: narrow, stacked: stacked), atLeast: 1)
+    }
+
+    /// `text` with every figure a zero, and every number at least `atLeast` figures: with 2, "✓ 9:05"
+    /// reads "✓ 00:00". B612's figures are all one width, so no number is wider than its zeros.
+    static func widestFigures(_ text: String, atLeast minimum: Int) -> String {
+        var result = ""
+        var figures = 0
+        func flush() {
+            if figures > 0 { result += String(repeating: "0", count: max(minimum, figures)) }
+            figures = 0
+        }
+        for character in text {
+            if character.wholeNumberValue != nil {
+                figures += 1
+            } else {
+                flush()
+                result.append(character)
+            }
+        }
+        flush()
+        return result
     }
 }
 
@@ -315,6 +352,17 @@ extension CheckSlot.Line {
         default: return text
         }
     }
+
+    /// The same line at its widest for the state: FREDA's minutes at the 10 they count down from, a
+    /// count in its plural ("2 items", where "1 item" is shorter).
+    var widest: CheckSlot.Line {
+        switch self {
+        case .items(let count): return .items(max(count, 2))
+        case .itemsQuiet(let count): return .itemsQuiet(max(count, 2))
+        case .fredaIn(let minutes): return .fredaIn(minutes: max(minutes, 10))
+        default: return self
+        }
+    }
 }
 
 /// The slot's button: the check's name, what a tap does under it, the icon on the left, in the tone's
@@ -335,9 +383,8 @@ struct CheckSlotButton: View {
         // The phone's slot beside MARK or the hold buttons is about 100 pt wide: no icon (the
         // colour and the frame say the state), the name on two lines, the short line.
         let narrow = phone && !prominent
-        // The iPad's slot sharing its row (beside MARK, the landscape column): about 160 pt of text.
-        let stacked = !phone && !prominent
         Button(action: action) {
+            // The name and its line in the middle of the slot's height, the icon beside them.
             HStack(spacing: phone ? 8 : 16) {
                 if !narrow {
                     Image(systemName: iconName)
@@ -345,32 +392,8 @@ struct CheckSlotButton: View {
                                                     : CockpitType.size(kneeboard: 32, phone: 24),
                                     weight: .semibold))
                 }
-                VStack(alignment: .leading, spacing: 4) {
-                    Text(slot.titleText(stacked: stacked || narrow))
-                        .font(.aero(size: prominent ? CockpitType.button : CockpitType.size(kneeboard: 25, phone: 19),
-                                    weight: .bold))
-                        .lineLimit(slot.titleWraps(phone: phone, stacked: stacked) ? 2 : 1)
-                        .minimumScaleFactor(0.6)
-                    // Two lines where the slot shares the row (beside MARK, beside the hold
-                    // buttons): "from memory · one tap when done" is the line that matters. Their room is
-                    // kept whether the line takes one or two, so the title above never moves when
-                    // "FREDA in 10 min" turns "9 min" or the owed line comes. (6.1, stability)
-                    let lines = slot.lineLines(phone: phone, prominent: prominent)
-                    ZStack(alignment: .topLeading) {
-                        // The room, at full size: however the line scales to fit, too.
-                        Text(verbatim: " ")
-                            .font(.aero(size: CockpitType.label, weight: .medium))
-                            .lineLimit(lines, reservesSpace: true)
-                            .hidden()
-                            .accessibilityHidden(true)
-                        Text(slot.lineText(narrow: narrow, stacked: stacked))
-                            .font(.aero(size: CockpitType.label, weight: .medium))
-                            .foregroundColor(lineColor)
-                            .lineLimit(lines)
-                            .minimumScaleFactor(slot.lineMinimumScale(phone: phone, prominent: prominent))
-                    }
-                }
-                .frame(maxWidth: .infinity, alignment: .leading)
+                CheckSlotLabel(slot: slot, prominent: prominent, lineColor: lineColor)
+                    .frame(maxWidth: .infinity, alignment: .leading)
             }
             .foregroundColor(textColor)
             .padding(.horizontal, phone ? 10 : 22)
@@ -440,6 +463,62 @@ struct CheckSlotButton: View {
         case .advanceAndConfirm: return L10n.CheckSlot.advanceAndConfirmHint
         case .goToLanding: return L10n.CheckSlot.goToLandingHint
         }
+    }
+}
+
+/// The slot's name and the line under it, which the button centres in its height. Each keeps the room
+/// its state takes at its widest (`CheckSlot.titleRoom`, `lineRoom`), laid out as the text is, filled or
+/// not: "FREDA in 10 min" turning "9 min", a time, or a line shrinking to fit never moves the name. The room
+/// changes with the state alone (a check coming due, done, owed), and the two lines then centre again
+/// in the same frame. Until 6.1.0 the room for two lines was kept in every state, and a one-line
+/// "5 items" sat high in the slot over an empty line. (6.1, the slot's text centred)
+struct CheckSlotLabel: View {
+    let slot: CheckSlot
+    var prominent: Bool = false
+    var lineColor: Color = .secondary
+    /// The device's; the tests lay the phone's out on an iPad.
+    var scale: CockpitScale = .current
+
+    var body: some View {
+        let phone = scale == .phone
+        let narrow = phone && !prominent
+        // The iPad's slot sharing its row (beside MARK, the landscape column): about 160 pt of text.
+        let stacked = !phone && !prominent
+        let titleFont = Font.aero(size: prominent ? CockpitType.button(for: scale)
+                                                  : CockpitType.size(kneeboard: 25, phone: 19, scale: scale),
+                                  weight: .bold)
+        let lineFont = Font.aero(size: CockpitType.label(for: scale), weight: .medium)
+        VStack(alignment: .leading, spacing: 4) {
+            Self.text(slot.titleText(stacked: stacked || narrow), room: slot.titleRoom(stacked: stacked || narrow),
+                      font: titleFont, lines: slot.titleWraps(phone: phone, stacked: stacked) ? 2 : 1,
+                      minimumScale: 0.6)
+            // Two lines where the slot shares the row (beside MARK, beside the hold buttons):
+            // "from memory · one tap when done" is the line that matters.
+            Self.text(slot.lineText(narrow: narrow, stacked: stacked), room: slot.lineRoom(narrow: narrow, stacked: stacked),
+                      font: lineFont, lines: slot.lineLines(phone: phone, prominent: prominent),
+                      minimumScale: slot.lineMinimumScale(phone: phone, prominent: prominent))
+                .foregroundColor(lineColor)
+        }
+    }
+
+    /// `text` from the top of the room `room` takes, laid out as `text` is (in at most `lines` lines,
+    /// shrinking as far as `minimumScale` to fit). The text is drawn within that room and never sizes
+    /// it: as wide or narrower than the room's, it fits it, shrinking a little more if it must.
+    private static func text(_ text: String, room: String, font: Font, lines: Int,
+                             minimumScale: CGFloat) -> some View {
+        Text(verbatim: room)
+            .font(font)
+            .lineLimit(lines)
+            .minimumScaleFactor(minimumScale)
+            .hidden()
+            .accessibilityHidden(true)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .overlay(alignment: .topLeading) {
+                Text(verbatim: text)
+                    .font(font)
+                    .lineLimit(lines)
+                    .minimumScaleFactor(minimumScale)
+            }
     }
 }
 

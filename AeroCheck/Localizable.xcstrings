@@ -18799,6 +18799,193 @@
         }
       }
     },
+    "mapChrome.a11y.edgeArrow": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aircraft off screen, at %lld o’clock"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Avion hors de l’écran, direction %lld h"
+          }
+        }
+      }
+    },
+    "mapChrome.hint.briefing": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Opens the briefing"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ouvre le briefing"
+          }
+        }
+      }
+    },
+    "mapChrome.hint.chartOffline": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Shows where the chart comes from"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Indique d’où vient la carte"
+          }
+        }
+      }
+    },
+    "mapChrome.hint.gps": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Shows the GPS status"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Affiche le statut GPS"
+          }
+        }
+      }
+    },
+    "mapChrome.hint.offRoute": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Shows the aircraft and the leg"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Montre l’avion et la branche"
+          }
+        }
+      }
+    },
+    "mapChrome.hint.tellFIS": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Opens Divert"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ouvre Dérouter"
+          }
+        }
+      }
+    },
+    "mapChrome.status.chartOffline": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "CHART OFFLINE"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "CARTE HORS LIGNE"
+          }
+        }
+      }
+    },
+    "mapChrome.status.gpsDegraded": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "GPS DEGRADED"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "GPS DÉGRADÉ"
+          }
+        }
+      }
+    },
+    "mapChrome.status.noGPS": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "NO GPS"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "PAS DE GPS"
+          }
+        }
+      }
+    },
+    "mapChrome.status.offRoute": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "OFF ROUTE %@ NM"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "HORS ROUTE %@ NM"
+          }
+        }
+      }
+    },
+    "mapChrome.status.tellFIS": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "TELL FIS"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ANNONCER AU FIS"
+          }
+        }
+      }
+    },
     "dest.a11y.ahead": {
       "extractionState": "manual",
       "localizations": {

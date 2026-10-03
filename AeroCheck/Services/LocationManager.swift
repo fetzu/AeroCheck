@@ -479,6 +479,13 @@ class LocationManager: NSObject, ObservableObject {
             return
         }
 
+        // Location access revoked mid-session: lost until it comes back. The last fix being recent, the
+        // seconds rules below turned the indicator green again on the next tick. (UX-01; 6.1.0)
+        if wasStoppedByRevocation {
+            gpsSignalStatus = .lost
+            return
+        }
+
         guard let lastUpdate = lastLocationUpdateTime else {
             // Never received a location update — GPS truly lost
             gpsSignalStatus = .lost

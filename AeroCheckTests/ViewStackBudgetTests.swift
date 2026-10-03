@@ -273,8 +273,9 @@ final class ViewStackBudgetTests: XCTestCase {
 }
 
 /// Measures how much of the main thread's stack a closure uses: it paints the free stack below the
-/// caller with a pattern, runs the closure, and finds the lowest word the closure overwrote.
-private enum StackProbe {
+/// caller with a pattern, runs the closure, and finds the lowest word the closure overwrote. Not private:
+/// the views measured on their own (`DestinationLineTests`) use it too.
+enum StackProbe {
     private static let pattern: UInt64 = 0xA5C4_A5C4_A5C4_A5C4
 
     /// Bytes of stack `body` used below this call, to within the 16 KB left unpainted for the calls

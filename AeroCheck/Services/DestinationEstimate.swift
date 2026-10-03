@@ -133,6 +133,9 @@ struct DestinationEstimate: Equatable {
     let delta: TimeInterval?
     /// The route drawn to scale; nil while diverting, or for a route with no length.
     let track: RouteTrack?
+    /// The waypoint flown to, the track's magenta notch, for "12 of 83 NM flown, next LSGC"; nil when
+    /// diverting or once the destination is marked.
+    var nextIdent: String? = nil
 }
 
 /// The DEST line: remaining distance, ETE, ETA and Δ to over the destination. (6.2.0)
@@ -188,7 +191,8 @@ enum DestinationEstimator {
                                    delta: delta(planned: input.plannedOverDestination, actual: eta),
                                    track: RouteTrack.make(legDistanceNM: input.legDistanceNM, nextIndex: next,
                                                           remainingNM: input.liveDistanceNM == nil ? nil : remaining,
-                                                          diverting: false))
+                                                          diverting: false),
+                                   nextIdent: input.names[next])
     }
 
     /// `array[index]`, or nil past its end: the input's arrays are as long as `names` from the adapter,

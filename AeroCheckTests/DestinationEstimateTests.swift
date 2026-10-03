@@ -369,6 +369,19 @@ final class DestinationEstimateTests: XCTestCase {
 
     // MARK: - The route to scale
 
+    /// The track's magenta notch has a name, for VoiceOver ("12 of 83 NM flown, next C"): the waypoint
+    /// flown to, the departure until the take-off marks it; none diverting or once the destination is
+    /// marked. (6.2, the DEST line's view)
+    func testTheEstimateNamesTheWaypointFlownTo() throws {
+        XCTAssertEqual(try estimate(input(next: 2, live: 5)).nextIdent, "C")
+        XCTAssertEqual(try estimate(input(next: 0, live: 0.3, gs: 8)).nextIdent, "A")
+        XCTAssertEqual(try estimate(input(next: 3, live: nil)).nextIdent, "D")
+        var diverting = input(next: 2, live: 8)
+        diverting.diversionIdent = "LSGC"
+        XCTAssertNil(try estimate(diverting).nextIdent)
+        XCTAssertNil(try estimate(input(next: 4, live: nil)).nextIdent)
+    }
+
     func testTheNotchesSitAtEachWaypointsDistanceAlongTheRoute() throws {
         let track = try XCTUnwrap(RouteTrack.make(legDistanceNM: [nil, 10, 20, 30], nextIndex: 2,
                                                   remainingNM: 35, diverting: false))

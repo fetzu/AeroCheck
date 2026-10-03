@@ -2337,6 +2337,65 @@ enum L10n {
         }
     }
 
+    /// The DEST line on ROUTE: what VoiceOver reads of it, and its one button. Each reads in `language`
+    /// ("fr") when one is given, in the app's language otherwise: the line's French previews and tests
+    /// ask for French whatever the simulator speaks. "DEST", "ETA", "ETO" and "NM" stay as they are
+    /// (ICAO). (6.2)
+    enum Dest {
+        /// "Destination LSZB"
+        static func destination(_ ident: String, language: String? = nil) -> String {
+            String(format: text("dest.a11y.destination", "Destination %@", language), ident)
+        }
+        /// Once the destination is marked: "Destination LSZB reached".
+        static func reached(_ ident: String, language: String? = nil) -> String {
+            String(format: text("dest.a11y.reached", "Destination %@ reached", language), ident)
+        }
+        /// "Diverting to LSGC", as the trip's card says it.
+        static func divertingTo(_ ident: String, language: String? = nil) -> String {
+            String(format: text("trip.divertingTo", "Diverting to %@", language), ident)
+        }
+        /// The live ETA over the destination: "overhead at 11:58".
+        static func overhead(_ time: String, language: String? = nil) -> String {
+            String(format: text("dest.a11y.overhead", "overhead at %@", language), time)
+        }
+        /// The plan's, with no live ETA: "planned overhead at 11:55".
+        static func plannedOverhead(_ time: String, language: String? = nil) -> String {
+            String(format: text("dest.a11y.plannedOverhead", "planned overhead at %@", language), time)
+        }
+        /// Δ in words: "3 minutes ahead of the plan".
+        static func ahead(_ duration: String, language: String? = nil) -> String {
+            String(format: text("dest.a11y.ahead", "%@ ahead of the plan", language), duration)
+        }
+        static func behind(_ duration: String, language: String? = nil) -> String {
+            String(format: text("dest.a11y.behind", "%@ behind the plan", language), duration)
+        }
+        static func onTime(language: String? = nil) -> String {
+            text("dest.a11y.onTime", "on time", language)
+        }
+        /// Before the Flight Log's DEST ETO, the line's value (the UI tests read it): "Planned arrival".
+        static func plannedArrival(language: String? = nil) -> String {
+            text("dest.a11y.plannedArrival", "Planned arrival", language)
+        }
+        /// The route drawn to scale: "12 of 83 NM flown, next LSGC".
+        static func trackFlown(_ flown: Int, of total: Int, next: String, language: String? = nil) -> String {
+            String(format: text("dest.a11y.trackNext", "%1$lld of %2$lld NM flown, next %3$@", language),
+                   flown, total, next)
+        }
+        /// The same once the destination is marked: "83 of 83 NM flown".
+        static func trackFlown(_ flown: Int, of total: Int, language: String? = nil) -> String {
+            String(format: text("dest.a11y.track", "%1$lld of %2$lld NM flown", language), flown, total)
+        }
+        /// Back to the route while diverting, as the map's card says it.
+        static func resumeRoute(language: String? = nil) -> String {
+            text("trip.resumeRoute", "Resume route", language)
+        }
+
+        private static func text(_ key: String, _ english: String, _ language: String?) -> String {
+            guard let language else { return Bundle.main.localizedString(forKey: key, value: english, table: nil) }
+            return localizedString(key: key, language: language, defaultValue: english)
+        }
+    }
+
     enum Trip {
         static let addStop = String(localized: "trip.addStop")
         static let addStopTitle = String(localized: "trip.addStopTitle")

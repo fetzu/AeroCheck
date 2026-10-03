@@ -207,6 +207,43 @@ final class ViewStackBudgetTests: XCTestCase {
         XCTAssertLessThan(used, Self.budget, "the Cockpit with the landed card used \(used / 1_024) KB of stack")
     }
 
+    /// The Companion iPhone's NAV screen in the Cockpit's frame (6.2.0): the read band over the mode
+    /// switch, DEST, the legs and the radio of a six-waypoint route, Emergency, and the act band with the
+    /// iPad's check slot, at a phone's size.
+    func testCompanionNavRendersWithinHalfTheDeviceStack() throws {
+        let services = makeServices()
+        let plans = services.flightPlanManager
+        armRoute(plans, waypoints: 6)
+        var plan = try XCTUnwrap(plans.activeFlightPlan)
+        plan.currentWaypointIndex = 2
+        let companion = CompanionConnectivityManager(defaults: makeTestDefaults(), usesWiFiAware: false)
+        companion.currentRole = .viewer
+        companion.connectionState = .connected
+        companion.connectedDeviceName = "iPad"
+        companion.lastFlightPlanSnapshot = CompanionConnectivityManager.flightPlanSnapshot(of: plan)
+        companion.lastReceivedData = CompanionFlightData(
+            isFlightActive: true, currentPhase: "CRUISE", currentPhaseRawValue: ChecklistPhase.cruise.rawValue,
+            isCircuitMode: false, engineStartTime: Date().addingTimeInterval(-1_800),
+            lineUpTime: Date().addingTimeInterval(-1_500), landingTime: nil, alwaysUseUTC: false,
+            latitude: 47.20, longitude: 7.03, speedMPS: 53.5, altitudeFeet: 4_500, courseDegrees: 180,
+            gpsSignalStatus: "good", ownGPSAvailable: true, gpsSource: "own", cockpitThemeMode: "day",
+            currentWaypointIndex: 2, chronometerStartTime: Date().addingTimeInterval(-101), chronometerElapsed: 101,
+            aircraftRegistration: "F-HVXA", aircraftType: "WT9 Dynamic", timestamp: Date(),
+            nowFrequency: CompanionFrequency(station: "Geneva Info", frequency: "126.350"),
+            nextFrequency: CompanionFrequency(station: "LSGC AFIS", frequency: "120.155"))
+        let slot = CheckSlot(phase: .cruise, line: .items(2), icon: .list, tone: .due, action: .showChecklist)
+        companion.lastReceivedChecklist = CompanionChecklistSnapshot(
+            phaseTitle: "Cruise", phaseRawValue: ChecklistPhase.cruise.rawValue, highlightedIndex: 0, visibleCount: 2,
+            completedCount: 0, items: [], hiddenItemCount: 0, checkSlotData: try JSONEncoder().encode(slot),
+            supportsFlightCues: true)
+
+        let used = StackProbe.bytesUsed {
+            render(CompanionFlightView(initialMode: .nav), services: services, size: CGSize(width: 402, height: 874),
+                   companion: companion)
+        }
+        XCTAssertLessThan(used, Self.budget, "the Companion's NAV used \(used / 1_024) KB of stack")
+    }
+
     /// A flight's page in the Flight Log with its checks (6.1, the debrief): an owed climb, a landing
     /// "not sure", FREDA missed once. (The Logbook's trend card sits in a `List` row, which `ImageRenderer`
     /// can't host: it traps tearing the list down, whatever the content.)
@@ -309,7 +346,8 @@ final class ViewStackBudgetTests: XCTestCase {
     /// One render of `view` at `size`, body and layout, as the app's first frame does. `ImageRenderer`
     /// runs the same view graph without a window. It runs the views' `onAppear` too, which fetch
     /// nothing here: the test location manager has no fix, and the airport download counts as running.
-    private func render<V: View>(_ view: V, services: Services, size: CGSize) {
+    private func render<V: View>(_ view: V, services: Services, size: CGSize,
+                                 companion: CompanionConnectivityManager = .shared) {
         let content = view
             .frame(width: size.width, height: size.height)
             .environment(services.appState)
@@ -328,7 +366,7 @@ final class ViewStackBudgetTests: XCTestCase {
             .environmentObject(services.windDataService)
             .environmentObject(services.windsAloftService)
             .environmentObject(services.subscriptionManager)
-            .environmentObject(CompanionConnectivityManager.shared)
+            .environmentObject(companion)
         let renderer = ImageRenderer(content: content)
         renderer.proposedSize = ProposedViewSize(size)
         _ = renderer.uiImage

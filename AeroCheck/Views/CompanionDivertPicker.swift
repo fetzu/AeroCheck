@@ -4,10 +4,13 @@ import SwiftUI
 
 // MARK: - Divert from the Companion iPhone (6.2.0)
 
-/// Divert on the phone's NAV screen, beside RECORD ATO for now (the act band's third slot later). Offered
-/// as the iPad's own is: while the route has a leg to fly, and only by an iPad that takes the command.
-/// Amber while diverting, as on the iPad.
+/// Divert in the third slot of the phone's act band, the iPad's own face (`ActNarrowLabel`). Offered as
+/// the iPad's own is: while the route has a leg to fly, and only by an iPad that takes the command;
+/// otherwise dimmed in its place. Amber while diverting, as on the iPad.
 struct CompanionDivertButton: View {
+    /// `isOffered(plan:currentWaypointIndex:)`, from the band.
+    var isEnabled = true
+
     @EnvironmentObject var companionConnectivityManager: CompanionConnectivityManager
     @Environment(\.cockpitTheme) private var theme
     @State private var showPicker = false
@@ -22,22 +25,12 @@ struct CompanionDivertButton: View {
     var body: some View {
         let tint = companionConnectivityManager.lastFlightPlanSnapshot?.diversion != nil ? theme.warning : theme.action
         Button { showPicker = true } label: {
-            VStack(spacing: 6) {
-                Image(systemName: "arrow.triangle.turn.up.right.diamond.fill")
-                    .font(.aero(size: CockpitType.response, weight: .semibold))
-                Text(L10n.Trip.divert)
-                    .font(.aero(size: CockpitType.label, weight: .bold))
-                    .lineLimit(1)
-            }
-            .padding(.horizontal, 10)
-            .frame(minWidth: 96, minHeight: CockpitTarget.thumb)
-            .foregroundColor(tint)
-            .background(RoundedRectangle(cornerRadius: 10).fill(tint.opacity(0.12)))
-            .overlay(RoundedRectangle(cornerRadius: 10).stroke(tint.opacity(0.45), lineWidth: 1))
-            .contentShape(Rectangle())
+            ActNarrowLabel(icon: "arrow.triangle.turn.up.right.diamond.fill", title: L10n.Act.divert, tint: tint)
         }
         .buttonStyle(.plain)
-        .fixedSize(horizontal: true, vertical: false)
+        .disabled(!isEnabled)
+        .opacity(isEnabled ? 1 : 0.4)
+        .accessibilityLabel(L10n.Act.divert)
         .accessibilityIdentifier("companion.divert")
         .accessibilityHint(L10n.Companion.divertHint)
         .sheet(isPresented: $showPicker) {

@@ -450,6 +450,94 @@ final class CompanionLinkTests: XCTestCase {
         XCTAssertNotEqual(snapshot(eto: t, ato: t), snapshot(eto: t, ato: nil), "so is a time over taken back")
     }
 
+    // MARK: - The NAV screen's figures reach the phone (6.2.0)
+
+    /// The last flight data the phone was sent, decoded as the phone decodes it.
+    private func lastFlightData(_ sent: SentMessages) throws -> CompanionFlightData? {
+        try sent.of(.flightData).last.map {
+            try JSONDecoder().decode(CompanionFlightData.self, from: $0.payload)
+        }
+    }
+
+    /// The Cockpit's radio in the Jura, 15 NM from Les Eplatures: the area's Info NOW, the field NEXT.
+    private func juraRadio() -> CockpitRadio {
+        let radio = CockpitRadio()
+        radio.publish = { _ in }
+        let lsgc = CLLocationCoordinate2D(latitude: 47.0839, longitude: 6.7928)
+        let sources = PhaseFrequencyPlanner.Sources(
+            hasAirportData: true,
+            nearestFields: { _ in [PhaseFrequencyPlanner.Field(ident: "LSGC", coordinate: lsgc)] },
+            fieldFrequencies: { $0 == "LSGC" ? [(type: "AFIS", frequency: "120.155")] : [] },
+            nearbyCTRs: { _ in [] })
+        radio.update(position: CLLocationCoordinate2D(latitude: 47.05, longitude: 7.15), plan: nil, sources: sources)
+        return radio
+    }
+
+    /// NOW and NEXT go with the flight data from the Cockpit's radio, the one source on the iPad, and the
+    /// phone's NOW line shows them. With no Cockpit on screen (the flight over), neither goes, and the
+    /// phone falls back on its FREQ, as with an older iPad.
+    func testThePhoneGetsTheCockpitsNowAndNext() async throws {
+        let sent = SentMessages()
+        let (companion, _) = try connectedMaster(sent: sent)
+        let radio = juraRadio()
+        let now = try XCTUnwrap(radio.now)
+        let next = try XCTUnwrap(radio.next)
+        companion.manager.cockpitRadio = radio
+
+        sent.clear()
+        companion.manager.streamTick(now: Date().addingTimeInterval(100))
+        let arrived = try await eventually { (try? self.lastFlightData(sent))??.nowFrequency != nil }
+        XCTAssertTrue(arrived)
+        let data = try XCTUnwrap(try lastFlightData(sent))
+        XCTAssertEqual(data.nowFrequency, CompanionFrequency(station: now.station, frequency: now.freq))
+        XCTAssertEqual(data.nextFrequency, CompanionFrequency(station: next.station, frequency: next.freq))
+        XCTAssertEqual(CompanionNowLine.make(flightData: data, plan: nil),
+                       .radio(now: data.nowFrequency, next: data.nextFrequency))
+        XCTAssertEqual(CompanionRadio.stations(flightData: data, plan: nil).map(\.freq), [now.freq, next.freq])
+
+        companion.manager.cockpitRadio = nil
+        sent.clear()
+        companion.manager.streamTick(now: Date().addingTimeInterval(101))
+        let gone = try await eventually { (try? self.lastFlightData(sent)) != nil }
+        XCTAssertTrue(gone)
+        let without = try XCTUnwrap(try lastFlightData(sent))
+        XCTAssertNil(without.nowFrequency)
+        XCTAssertNil(without.nextFrequency)
+        XCTAssertEqual(CompanionNowLine.make(flightData: without, plan: nil), .freq(station: "GUARD", frequency: "121.50"))
+    }
+
+    /// The phone's DEST line, from the plan and the position the iPad streams, is the iPad's own: the same
+    /// distance, ETE, ETA and Δ, the same track.
+    func testThePhonesDestLineIsTheIPads() async throws {
+        let sent = SentMessages()
+        let (companion, _) = try connectedMaster(sent: sent)
+        _ = armedPlan(on: companion.plans)
+        companion.plans.recordATO(forWaypointAt: 0)
+        // Half way, at 100 kt on the course.
+        let fix = CLLocation(coordinate: CLLocationCoordinate2D(latitude: 47.15, longitude: 7.26), altitude: 1_500,
+                             horizontalAccuracy: 5, verticalAccuracy: 5, course: 146, speed: 51.44, timestamp: Date())
+        companion.location.currentLocation = fix
+
+        sent.clear()
+        companion.manager.streamTick(now: Date().addingTimeInterval(200))
+        let both = try await eventually { !sent.of(.flightPlanUpdate).isEmpty && !sent.of(.flightData).isEmpty }
+        XCTAssertTrue(both)
+        let snapshot = try XCTUnwrap(try lastPlan(sent))
+        let data = try XCTUnwrap(try lastFlightData(sent))
+        XCTAssertEqual(data.currentWaypointIndex, 1)
+
+        let now = Date()
+        let phone = try XCTUnwrap(DestinationEstimator.estimate(DestinationInput(snapshot: snapshot, flightData: data, now: now)))
+        let iPad = try XCTUnwrap(DestinationEstimator.estimate(DestinationInput(
+            plan: try XCTUnwrap(companion.plans.activeFlightPlan), location: fix,
+            groundSpeedKnots: try XCTUnwrap(data.speedMPS) * CompanionNav.knotsPerMetrePerSecond, now: now)))
+        assertSameDestination(phone, iPad)
+        XCTAssertEqual(phone.kind, .route)
+        XCTAssertEqual(phone.ident, "LSZB")
+        XCTAssertNotNil(phone.eta, "timed at 100 kt")
+        XCTAssertNotNil(phone.track)
+    }
+
     // MARK: - The checklist reaches the phone (6.1.0)
 
     /// The last checklist the phone was sent, decoded as the phone decodes it.

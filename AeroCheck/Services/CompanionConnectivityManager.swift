@@ -424,6 +424,9 @@ class CompanionConnectivityManager: NSObject, ObservableObject {
     /// This iPad's airport store: a field the phone diverts to is taken from it when it knows the ident.
     /// (6.2.0)
     private weak var airportDataService: AirportDataService?
+    /// The Cockpit's radio while a flight shows (`CockpitRadioFollower` sets it): its NOW and NEXT go to
+    /// the phone with the flight data. Weak: it is the Cockpit's, and goes with it. (6.2.0)
+    weak var cockpitRadio: CockpitRadio?
 
     /// False for a manager built by a test: it never touches Wi-Fi Aware, so a test cannot start a
     /// real listener or browser on the simulator.
@@ -1992,7 +1995,7 @@ class CompanionConnectivityManager: NSObject, ObservableObject {
     private func sendFlightPlanSnapshotIfChanged(now: Date) {
         guard sendHandler != nil, connectionState == .connected,
               let plan = flightPlanManager?.activeFlightPlan else { return }
-        let snapshot = createFlightPlanSnapshot(plan)
+        let snapshot = Self.flightPlanSnapshot(of: plan)
         let due = lastPlanSentAt.map { now.timeIntervalSince($0) >= CompanionTiming.snapshotRefresh } ?? true
         guard snapshot != lastSentPlan || due else { return }
         do {
@@ -2021,11 +2024,22 @@ class CompanionConnectivityManager: NSObject, ObservableObject {
         currentRole = .viewer
         connectionState = .connected
         connectedDeviceName = "iPad"
+        // No Cockpit on this screen: a radio of its own for NOW and NEXT, on this device's airport data,
+        // kept by the loop. (6.2.0)
+        let radio = CockpitRadio()
+        radio.publish = { _ in }
+        cockpitRadio = radio
+        let openAIP = OpenAIPDataService()
         Task { @MainActor in
             for _ in 0..<600 {
+                if let airports = airportDataService {
+                    radio.update(position: locationManager.currentLocation?.coordinate,
+                                 plan: flightPlanManager.activeFlightPlan,
+                                 sources: .live(airports: airports, openAIP: openAIP))
+                }
                 lastReceivedData = createCompanionFlightData(appState: appState, locationManager: locationManager,
                                                              flightPlanManager: flightPlanManager)
-                lastFlightPlanSnapshot = flightPlanManager.activeFlightPlan.map { createFlightPlanSnapshot($0) }
+                lastFlightPlanSnapshot = flightPlanManager.activeFlightPlan.map(Self.flightPlanSnapshot)
                 lastReceivedChecklist = Self.checklistSnapshot(of: appState, mayStreamItemText: true)
                 try? await Task.sleep(nanoseconds: 1_000_000_000)
             }
@@ -2214,7 +2228,10 @@ class CompanionConnectivityManager: NSObject, ObservableObject {
             chronometerElapsed: flightPlanManager.chronometerElapsed,
             aircraftRegistration: flightPlanManager.activeFlightPlan?.aircraftRegistration ?? "",
             aircraftType: flightPlanManager.activeFlightPlan?.aircraftModelName ?? "",
-            timestamp: Date()
+            timestamp: Date(),
+            // The Cockpit's NOW and NEXT, the phone's NOW line. (6.2.0)
+            nowFrequency: cockpitRadio?.now.map(CompanionFrequency.init),
+            nextFrequency: cockpitRadio?.next.map(CompanionFrequency.init)
         )
     }
 
@@ -2311,7 +2328,9 @@ class CompanionConnectivityManager: NSObject, ObservableObject {
         }
     }
 
-    private func createFlightPlanSnapshot(_ plan: FlightPlan) -> CompanionFlightPlanSnapshot {
+    /// The active plan as the phone gets it. Internal and static: the tests check the phone's DEST
+    /// line against the iPad's through it.
+    static func flightPlanSnapshot(of plan: FlightPlan) -> CompanionFlightPlanSnapshot {
         let waypoints = plan.waypoints.map { wp in
             CompanionWaypoint(
                 id: wp.id,
@@ -2366,5 +2385,14 @@ extension GPSSignalStatus: CustomStringConvertible {
         case .degraded: return "degraded"
         case .lost: return "lost"
         }
+    }
+}
+
+// MARK: - The Cockpit's radio on the wire (6.2.0)
+
+extension CompanionFrequency {
+    /// NOW or NEXT as the Cockpit's radio has it.
+    init(_ item: PhaseFrequency) {
+        self.init(station: item.station, frequency: item.freq)
     }
 }

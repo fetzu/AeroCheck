@@ -44,6 +44,12 @@ final class DestinationEstimateTests: XCTestCase {
                          now: t0.addingTimeInterval(1000))
     }
 
+    /// Planned less estimated, between the two clock times as the line writes them (nearest minute).
+    private func minutesBetween(_ planned: TimeInterval, _ estimated: TimeInterval) -> TimeInterval {
+        DestinationFormat.toMinute(t0.addingTimeInterval(planned))
+            .timeIntervalSince(DestinationFormat.toMinute(t0.addingTimeInterval(estimated)))
+    }
+
     private func estimate(_ input: DestinationInput) throws -> DestinationEstimate {
         try XCTUnwrap(DestinationEstimator.estimate(input))
     }
@@ -70,8 +76,10 @@ final class DestinationEstimateTests: XCTestCase {
         XCTAssertEqual(line.eta, t0.addingTimeInterval(1000 + 1950))
         XCTAssertEqual(line.plannedETO, t0.addingTimeInterval(3900), "over the field, not the Flight Log's ETO")
         XCTAssertEqual(line.plannedDestinationETO, t0.addingTimeInterval(4200))
-        // Over D planned at 3900 s, estimated at 2950 s: 950 s ahead.
-        XCTAssertEqual(try XCTUnwrap(line.delta), 950, accuracy: 1e-9)
+        // Over D planned at 3900 s, estimated at 2950 s: 950 s ahead, counted between the two clocks
+        // as the line shows them (to the nearest minute).
+        XCTAssertEqual(try XCTUnwrap(line.delta), minutesBetween(3900, 2950), accuracy: 1e-9)
+        XCTAssertEqual(minutesBetween(3900, 2950), 900, "t0 is 20 s past a minute: 11:XX:00 against the ETA's minute")
     }
 
     /// The DEST ETE's first term is the NEXT cell's ETE, to the second.
@@ -86,7 +94,7 @@ final class DestinationEstimateTests: XCTestCase {
         let line = try estimate(input(next: 3, live: 12))
         XCTAssertEqual(try XCTUnwrap(line.remainingNM), 12, accuracy: 1e-9)
         XCTAssertEqual(try XCTUnwrap(line.ete), 360, accuracy: 1e-9)
-        XCTAssertEqual(try XCTUnwrap(line.delta), 3900 - 1360, accuracy: 1e-9)
+        XCTAssertEqual(try XCTUnwrap(line.delta), minutesBetween(3900, 1360), accuracy: 1e-9)
     }
 
     /// Until the take-off marks the departure, the departure is the target: every leg counts, and leg 1

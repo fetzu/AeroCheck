@@ -44,6 +44,12 @@ final class DestinationEstimateTests: XCTestCase {
                          now: t0.addingTimeInterval(1000))
     }
 
+    /// Planned less estimated, between the two clock times as the line writes them (nearest minute).
+    private func minutesBetween(_ planned: TimeInterval, _ estimated: TimeInterval) -> TimeInterval {
+        DestinationFormat.toMinute(t0.addingTimeInterval(planned))
+            .timeIntervalSince(DestinationFormat.toMinute(t0.addingTimeInterval(estimated)))
+    }
+
     private func estimate(_ input: DestinationInput) throws -> DestinationEstimate {
         try XCTUnwrap(DestinationEstimator.estimate(input))
     }
@@ -70,8 +76,10 @@ final class DestinationEstimateTests: XCTestCase {
         XCTAssertEqual(line.eta, t0.addingTimeInterval(1000 + 1950))
         XCTAssertEqual(line.plannedETO, t0.addingTimeInterval(3900), "over the field, not the Flight Log's ETO")
         XCTAssertEqual(line.plannedDestinationETO, t0.addingTimeInterval(4200))
-        // Over D planned at 3900 s, estimated at 2950 s: 950 s ahead.
-        XCTAssertEqual(try XCTUnwrap(line.delta), 950, accuracy: 1e-9)
+        // Over D planned at 3900 s, estimated at 2950 s: 950 s ahead, counted between the two clocks
+        // as the line shows them (to the nearest minute).
+        XCTAssertEqual(try XCTUnwrap(line.delta), minutesBetween(3900, 2950), accuracy: 1e-9)
+        XCTAssertEqual(minutesBetween(3900, 2950), 900, "t0 is 20 s past a minute: 11:XX:00 against the ETA's minute")
     }
 
     /// The DEST ETE's first term is the NEXT cell's ETE, to the second.
@@ -86,7 +94,7 @@ final class DestinationEstimateTests: XCTestCase {
         let line = try estimate(input(next: 3, live: 12))
         XCTAssertEqual(try XCTUnwrap(line.remainingNM), 12, accuracy: 1e-9)
         XCTAssertEqual(try XCTUnwrap(line.ete), 360, accuracy: 1e-9)
-        XCTAssertEqual(try XCTUnwrap(line.delta), 3900 - 1360, accuracy: 1e-9)
+        XCTAssertEqual(try XCTUnwrap(line.delta), minutesBetween(3900, 1360), accuracy: 1e-9)
     }
 
     /// Until the take-off marks the departure, the departure is the target: every leg counts, and leg 1
@@ -207,6 +215,21 @@ final class DestinationEstimateTests: XCTestCase {
     }
 
     // MARK: - Ahead or behind: the leg rows' convention
+
+    /// An ETA of 11:57:41 against a plan of 11:55:00 read "ETA 11:57 ▼3": the clock dropped the
+    /// seconds while Δ rounded them. Both now take the nearest minute, so Δ is what the two clocks show.
+    func testTheETAAndItsDeltaAlwaysAgree() throws {
+        for secondsLate in [161.0, 140.0, 89.0, 29.0, -31.0, -95.0] {
+            // Last leg at 120 kt (1 NM per 30 s): the ETA lands `secondsLate` after the plan's time over.
+            let planned = t0.addingTimeInterval(3900), now = t0.addingTimeInterval(1000)
+            let live = (planned.timeIntervalSince(now) + secondsLate) / 30
+            let e = try estimate(input(next: 3, live: live))
+            let eta = try XCTUnwrap(e.eta), delta = try XCTUnwrap(e.delta)
+            let shownGap = DestinationFormat.toMinute(planned).timeIntervalSince(DestinationFormat.toMinute(eta))
+            XCTAssertEqual(delta, shownGap, accuracy: 0.001, "\(secondsLate) s late")
+            XCTAssertEqual(delta.truncatingRemainder(dividingBy: 60), 0, accuracy: 0.001, "whole minutes")
+        }
+    }
 
     func testDeltaReadsInWholeMinutesWithTheLegRowsSigns() {
         XCTAssertEqual(DestinationFormat.delta(180).text, "▲3")
@@ -368,6 +391,19 @@ final class DestinationEstimateTests: XCTestCase {
     }
 
     // MARK: - The route to scale
+
+    /// The track's magenta notch has a name, for VoiceOver ("12 of 83 NM flown, next C"): the waypoint
+    /// flown to, the departure until the take-off marks it; none diverting or once the destination is
+    /// marked. (6.2, the DEST line's view)
+    func testTheEstimateNamesTheWaypointFlownTo() throws {
+        XCTAssertEqual(try estimate(input(next: 2, live: 5)).nextIdent, "C")
+        XCTAssertEqual(try estimate(input(next: 0, live: 0.3, gs: 8)).nextIdent, "A")
+        XCTAssertEqual(try estimate(input(next: 3, live: nil)).nextIdent, "D")
+        var diverting = input(next: 2, live: 8)
+        diverting.diversionIdent = "LSGC"
+        XCTAssertNil(try estimate(diverting).nextIdent)
+        XCTAssertNil(try estimate(input(next: 4, live: nil)).nextIdent)
+    }
 
     func testTheNotchesSitAtEachWaypointsDistanceAlongTheRoute() throws {
         let track = try XCTUnwrap(RouteTrack.make(legDistanceNM: [nil, 10, 20, 30], nextIndex: 2,

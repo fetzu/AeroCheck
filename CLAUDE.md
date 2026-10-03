@@ -93,10 +93,17 @@ Owners and rules that aren't obvious from the names:
 - `ContentView` routes to `GroundView` on the ground (tabs Today · Plan · Logbook · Aircraft · Settings;
   `appState.groundTab` switches tab from anywhere; Today is `HomeView`) and to `FlightView` in flight.
 - `FlightView` + `Cockpit.swift` = the Cockpit, on iPad AND iPhone: `CockpitLayout` (wide / narrow /
-  columns) arranges the same four zones, and the CHECKLIST | MAP pane follows the phase
-  (`CockpitPaneRule`). There is no separate iPhone HUD.
+  columns) arranges the same zones, and the CHECKLIST | MAP pane follows the phase
+  (`CockpitPaneRule`). There is no separate iPhone HUD. Under every page sits the act band
+  (`CockpitActBand.swift`, 6.2): four slots whose frames come from the width alone (`ActBandLayout`) and
+  whose roles come from the page and the flight (`ActBandRoles`). What a button there owns for every page
+  (MARK's and the reset's UNDO, the Divert sheet, the routes cover) is `CockpitNavState`, in the
+  environment; never put a thumb row back into a page.
 - `NavigationView.swift` holds `NavigationMapView` (embedded in the Cockpit and in Plan › Map), the FREQ
-  panel (nearest 6 fields within 40 nm; OpenAIP first, OurAirports TWR as fallback) and `MapPreset`.
+  panel (nearest 6 fields within 40 nm; OpenAIP first, OurAirports TWR as fallback) and `MapPreset`. Its
+  `chrome` says whose it is: `.plan` keeps every piece of its own chrome (side column on its side, Routes
+  at its foot); `.cockpit(layout)` has no thumb row and no side column, and beside the phone's column on
+  its side it is the chart alone.
 - `FlightLauncher` is the ONE flight-start sequence (buttons, widget, deep link): checklist load →
   entitlement / permission / active-flight guards → start → GPS. Never start a flight around it.
 - Waypoint ATOs come from the GPS track (`WaypointPassage`: abeam within 2.5 NM, forward only).

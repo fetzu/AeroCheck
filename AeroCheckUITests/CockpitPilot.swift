@@ -255,7 +255,8 @@ final class CockpitPilot {
         var description: String { "\(tone)/\(action) \"\(label)\"" }
     }
 
-    /// The check slot on the MAP pane, as drawn now: tone and action from its identifier, its words.
+    /// The check slot, as drawn now: tone and action from its identifier, its words. It is the act band's
+    /// first slot on MAP, and on CHECKLIST outside the engine phases and cruise (6.2): one band, one slot.
     var slot: Slot? {
         guard let e = snap(element(prefix: "checkSlot.")) else { return nil }
         let parts = e.identifier.split(separator: ".").map(String.init)
@@ -339,7 +340,7 @@ final class CockpitPilot {
     }
 
     /// The current check done, the pilot's usual way: its list CHECKed, or a memory check confirmed
-    /// (which, by the thumb bar's one tap, also goes on). Then NEXT when it shows. Returns the phase it
+    /// (which, by the act band's one tap, also goes on). Then NEXT when it shows. Returns the phase it
     /// left, as the phase bar said.
     @discardableResult
     func completeCurrentCheckAndGoOn() -> String? {
@@ -420,7 +421,7 @@ final class CockpitPilot {
         screen().filter { $0.elementType == .staticText && $0.label.contains(fragment) }.map(\.label)
     }
 
-    /// The check slot's one tap (on the MAP pane, where it is).
+    /// The check slot's one tap, on the MAP page (on CHECKLIST it brings the current item into view).
     func tapSlot() {
         showPane("map")
         let e = element(prefix: "checkSlot.")
@@ -458,14 +459,14 @@ final class CockpitPilot {
 
     // MARK: After the flight
 
-    /// END FLIGHT from the thumb bar (the last check) or from the Menu, confirmed.
+    /// END FLIGHT from the act band (the last check) or from the Menu, confirmed.
     func endFlight() {
         let notTheButtons = NSPredicate(format: "label ==[c] 'END FLIGHT' AND NOT (identifier IN {'menu.endFlight', 'cockpit.endFlight'})")
         if !tapNow(element("cockpit.endFlight")) {
             tap("cockpit.menu")
             tap("menu.endFlight")
         }
-        // The alert's (thumb bar) or the confirmation dialog's (Menu) END FLIGHT.
+        // The alert's (act band) or the confirmation dialog's (Menu) END FLIGHT.
         let confirm = app.buttons.matching(notTheButtons).firstMatch
         if confirm.waitForExistence(timeout: 5) { tapNow(confirm) }
         dismissAfterFlightSheets()
@@ -593,7 +594,7 @@ final class CockpitPilot {
 
     // MARK: The usual departure
 
-    /// Before Departure, the pilot's way: its items CHECKed, then the thumb bar's NEXT, which reads
+    /// Before Departure, the pilot's way: its items CHECKed, then the act band's NEXT, which reads
     /// READY FOR LINE UP there (6.2): it records the line-up, lets the replay go from the holding point
     /// and opens the LINE UP check. The one place that knows how the Cockpit asks for the line-up.
     /// Returns what NEXT read, and the check before departure's status once left.

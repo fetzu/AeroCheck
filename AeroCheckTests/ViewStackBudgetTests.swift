@@ -22,7 +22,7 @@ final class ViewStackBudgetTests: XCTestCase {
     func testPlanMapRendersWithinHalfTheDeviceStack() {
         let services = makeServices()
         let used = StackProbe.bytesUsed {
-            render(NavigationMapView(isPresented: .constant(true), showsCloseButton: false, isInCockpit: true,
+            render(NavigationMapView(isPresented: .constant(true), showsCloseButton: false, chrome: .plan,
                                      onShowRoutes: {}),
                    services: services, size: CGSize(width: 820, height: 1_180))
         }
@@ -37,7 +37,7 @@ final class ViewStackBudgetTests: XCTestCase {
         services.appState.settings.showVFRRoutesOnMap = true
         services.appState.settings.showNonPoweredCircuitsOnMap = true
         let used = StackProbe.bytesUsed {
-            render(NavigationMapView(isPresented: .constant(true), showsCloseButton: false, isInCockpit: true,
+            render(NavigationMapView(isPresented: .constant(true), showsCloseButton: false, chrome: .plan,
                                      onShowRoutes: {}),
                    services: services, size: CGSize(width: 820, height: 1_180))
         }
@@ -48,7 +48,7 @@ final class ViewStackBudgetTests: XCTestCase {
     func testLandscapeMapRendersWithinHalfTheDeviceStack() {
         let services = makeServices()
         let used = StackProbe.bytesUsed {
-            render(NavigationMapView(isPresented: .constant(true), showsCloseButton: false, isInCockpit: true),
+            render(NavigationMapView(isPresented: .constant(true), showsCloseButton: false, chrome: .plan),
                    services: services, size: CGSize(width: 1_180, height: 820))
         }
         XCTAssertLessThan(used, Self.budget, "the landscape map used \(used / 1_024) KB of stack")
@@ -82,8 +82,37 @@ final class ViewStackBudgetTests: XCTestCase {
         XCTAssertLessThan(used, Self.budget, "the Cockpit's map used \(used / 1_024) KB of stack")
     }
 
+    /// The Cockpit on its map on an iPad on its side (6.2): the portrait frame, wider, the act band under
+    /// the map, no side column.
+    func testCockpitMapOnItsSideRendersWithinHalfTheDeviceStack() {
+        let services = makeServices()
+        startFlight(services.appState, stepByStep: false)
+        services.appState.goToPhase(.cruise)
+
+        let used = StackProbe.bytesUsed {
+            render(FlightView(), services: services, size: CGSize(width: 1_180, height: 820))
+        }
+        XCTAssertLessThan(used, Self.budget, "the Cockpit's map on its side used \(used / 1_024) KB of stack")
+    }
+
+    /// The Cockpit on its checklist in cruise with FREDA counting in the act band's first slot (6.2):
+    /// the page the pilot picked over the map the flight shows.
+    func testCockpitChecklistWithFredaCountingRendersWithinHalfTheDeviceStack() {
+        let services = makeServices()
+        startFlight(services.appState, stepByStep: true)
+        services.appState.currentPhase = .cruise
+        services.appState.markLastItemComplete(learningMode: services.appState.effectiveLearningMode)
+        services.appState.evaluateFreda(now: Date())
+        XCTAssertTrue(services.appState.freda.isRunning && !services.appState.fredaDue, "FREDA counting")
+
+        let used = StackProbe.bytesUsed {
+            render(FlightView(initialPane: .checklist), services: services, size: CGSize(width: 820, height: 1_180))
+        }
+        XCTAssertLessThan(used, Self.budget, "the Cockpit's checklist with FREDA counting used \(used / 1_024) KB of stack")
+    }
+
     /// The Cockpit on its map in landing with the Memory test on: the check slot, then GO AROUND and
-    /// TOUCH-AND-GO, in the map's bottom row. (6.1)
+    /// TOUCH-AND-GO, in the act band. (6.1; the band 6.2)
     func testCockpitMapWithTheCheckSlotRendersWithinHalfTheDeviceStack() {
         let services = makeServices()
         startFlight(services.appState, stepByStep: true)
@@ -273,8 +302,9 @@ final class ViewStackBudgetTests: XCTestCase {
 }
 
 /// Measures how much of the main thread's stack a closure uses: it paints the free stack below the
-/// caller with a pattern, runs the closure, and finds the lowest word the closure overwrote.
-private enum StackProbe {
+/// caller with a pattern, runs the closure, and finds the lowest word the closure overwrote. Not private:
+/// the views measured on their own (`DestinationLineTests`) use it too.
+enum StackProbe {
     private static let pattern: UInt64 = 0xA5C4_A5C4_A5C4_A5C4
 
     /// Bytes of stack `body` used below this call, to within the 16 KB left unpainted for the calls

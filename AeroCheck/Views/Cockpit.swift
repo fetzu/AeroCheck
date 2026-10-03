@@ -11,8 +11,9 @@ import UIKit
 // 2. Instrument strip: GS, ALT, TRK and the next waypoint, at `CockpitType.value`.
 // 3. The context pane: the CHECKLIST or the MAP at full height, never both squeezed. It follows the
 //    flight (`CockpitPaneRule`); a tap on the picker overrides it until the flight moves on.
-// 4. The thumb bar: its buttons never move, so the hand learns where they are. Checklist: CHECK and
-//    DEFER, next to the phase's own action. Map: MARK, the leg timer, Divert and More.
+// 4. The act band (6.2, `CockpitActBand.swift`): four slots in the same frames under every pane, so the
+//    hand learns where they are. Checklist: the phase's action, FREDA or the check slot, then CHECK,
+//    DEFER and More. Map: the check slot, MARK with the leg timer, Divert and More.
 //
 // It replaces the iPad HUD's two layouts (portrait stack, landscape columns), whose map was a
 // 200 pt band that opened a full-screen cover. Since the iPhone pass the phone has the same Cockpit,
@@ -343,8 +344,8 @@ struct CockpitNextLabel: Equatable {
     }
 }
 
-/// A thumb-bar button: what it does, in `CockpitType.button`, and what it does it to, underneath.
-/// Always `CockpitTarget.thumb` tall.
+/// An act band button: what it does, in `CockpitType.button`, and what it does it to, underneath.
+/// At least `CockpitTarget.thumb` tall, unless told otherwise.
 struct CockpitThumbButton: View {
     enum Style {
         /// The primary action: solid.
@@ -357,6 +358,12 @@ struct CockpitThumbButton: View {
     var subtitle: String? = nil
     var icon: String? = nil
     let style: Style
+    /// Two in the act band's slots, where a long title ("✓ AFTER ENGINE START CHECK DONE", "READY FOR
+    /// LINE UP") or CHECK's item would shrink under the in-flight sizes on one. (6.2)
+    var titleLines: Int = 1
+    var subtitleLines: Int = 1
+    var horizontalPadding: CGFloat = 14
+    var minHeight: CGFloat? = nil
     let action: () -> Void
 
     var body: some View {
@@ -368,20 +375,22 @@ struct CockpitThumbButton: View {
                     }
                     Text(title)
                         .font(.aero(size: CockpitType.button, weight: .bold))
-                        .lineLimit(1)
+                        .multilineTextAlignment(.center)
+                        .lineLimit(titleLines)
                         .minimumScaleFactor(0.6)
                 }
                 if let subtitle {
                     Text(subtitle)
                         .font(.aero(size: CockpitType.label, weight: .medium))
-                        .lineLimit(1)
+                        .multilineTextAlignment(.center)
+                        .lineLimit(subtitleLines)
                         .minimumScaleFactor(0.7)
                         .opacity(0.85)
                 }
             }
             .foregroundColor(textColor)
-            .padding(.horizontal, 14)
-            .frame(maxWidth: .infinity, minHeight: CockpitTarget.thumb)
+            .padding(.horizontal, horizontalPadding)
+            .frame(maxWidth: .infinity, minHeight: minHeight ?? CockpitTarget.thumb)
             .background(background)
             .contentShape(Rectangle())
         }

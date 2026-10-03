@@ -2,8 +2,8 @@ import SwiftUI
 
 // MARK: - The check slot (6.1, "Checks in flight" Q1)
 //
-// On the MAP pane in flight, the first button of the bottom row holds the next thing to do with the
-// checklist, and one tap does it: confirm a memory check (done from memory, with undo), open a list
+// In flight, the act band's first slot holds the next thing to do with the checklist (on MAP always, on
+// CHECKLIST outside the engine phases and cruise, since 6.2), and one tap does it: confirm a memory check (done from memory, with undo), open a list
 // still to check on the CHECKLIST pane, or, the check done, go on to the next one. It is 104 pt tall on
 // the kneeboard (92 on the phone) and always in the same place, so the thumb learns it; before it,
 // marking the climb check done from the map took CHECKLIST at the top, then NEXT at the foot.
@@ -396,7 +396,9 @@ struct CheckSlotButton: View {
                     .frame(maxWidth: .infinity, alignment: .leading)
             }
             .foregroundColor(textColor)
-            .padding(.horizontal, phone ? 10 : 22)
+            // The phone's act band slot is about 100 pt wide (6.2): 6 pt each side leaves "CRUISE CHECK"
+            // on one line over its tick, as the 107 pt beside MARK did.
+            .padding(.horizontal, narrow ? 6 : phone ? 10 : 22)
             .frame(maxWidth: .infinity, minHeight: Self.height, maxHeight: Self.height)
             .background(background)
             .contentShape(RoundedRectangle(cornerRadius: 16))
@@ -524,10 +526,10 @@ struct CheckSlotLabel: View {
     }
 }
 
-/// The slot as the Cockpit's map shows it: the current check from `AppState`, and what a tap does. A
-/// view of its own, so the map's body only holds a reference to it (see `SeparateView`).
+/// The slot as the Cockpit's act band shows it: the current check from `AppState`, and what a tap does.
+/// A view of its own, so the band's body only holds a reference to it (see `SeparateView`).
 struct CockpitCheckSlot: View {
-    /// Shows the CHECKLIST pane (the Cockpit's).
+    /// Shows the CHECKLIST page (on MAP), or brings the list's current item into view (on CHECKLIST).
     let onShowChecklist: () -> Void
     var prominent: Bool = false
 
@@ -634,80 +636,20 @@ struct CockpitCheckSlot: View {
     }
 }
 
-/// The map's thumb controls in the iPad's landscape column, top to bottom. The check slot always heads
-/// them on a row of its own, the column's width, in the same place in every phase. Beside Routes, with
-/// no route, it had about 150 pt for its words and showed "CRUISE CH…" over "FREDA in 6…". Pure, so it
-/// is tested without a view. (6.1)
-enum MapThumbColumn: Equatable {
-    /// Approach and landing: the slot, then GO AROUND and TOUCH-AND-GO.
-    case slotOverFlightEvents
-    /// A route to fly: the slot, then MARK with Divert and More.
-    case slotOverMark
-    /// No route: the slot, then Routes at the thumb bar's height, where MARK would be.
-    case slotOverRoutes
-    /// In flight with no slot: the leg timer and Divert, then MARK and More.
-    case legTimerOverMark
-    /// Not in flight (Plan › Map): Routes alone.
-    case routes
-
-    static func make(showsCheckSlot: Bool, showsEventButtons: Bool, hasRoute: Bool, flightActive: Bool) -> MapThumbColumn {
-        if showsEventButtons { return .slotOverFlightEvents }
-        if showsCheckSlot { return hasRoute ? .slotOverMark : .slotOverRoutes }
-        if flightActive && hasRoute { return .legTimerOverMark }
-        return .routes
-    }
-
-    /// Whether the slot has a row of its own.
-    var slotHasOwnRow: Bool {
-        switch self {
-        case .slotOverFlightEvents, .slotOverMark, .slotOverRoutes: return true
-        case .legTimerOverMark, .routes: return false
-        }
-    }
-}
-
-/// The map's bottom row in flight, left to right: in portrait, and under the phone's column on its side.
-/// With the check slot, the slot leads it, in one frame whatever follows it (`CheckSlotRowLayout`), as the
-/// landscape column keeps it on top: from circuit height, GO AROUND and TOUCH-AND-GO take the place of
-/// MARK, Divert and More (or of Routes), never the slot's. They used to frame it, every lap in circuits.
-/// Pure, so it is tested without a view. (6.1, the author's call: the slot stays left)
-enum MapThumbRow: Equatable {
-    /// Approach and landing, and from circuit height: the slot, GO AROUND, TOUCH-AND-GO.
-    case slotThenFlightEvents
-    /// A route to fly: the slot, MARK, Divert and More.
-    case slotThenMark
-    /// No route: the slot, then Routes where MARK, Divert and More would be.
-    case slotThenRoutes
-    /// In flight with no slot: the leg timer, MARK, Divert and More.
-    case legTimerThenMark
-    /// Not in flight (Plan › Map): Routes alone.
-    case routes
-
-    static func make(showsCheckSlot: Bool, showsEventButtons: Bool, hasRoute: Bool, flightActive: Bool) -> MapThumbRow {
-        if showsEventButtons { return .slotThenFlightEvents }
-        if showsCheckSlot { return hasRoute ? .slotThenMark : .slotThenRoutes }
-        if flightActive && hasRoute { return .legTimerThenMark }
-        return .routes
-    }
-
-    /// Whether the check slot comes first, in its one frame.
-    var slotLeads: Bool {
-        switch self {
-        case .slotThenFlightEvents, .slotThenMark, .slotThenRoutes: return true
-        case .legTimerThenMark, .routes: return false
-        }
-    }
-}
-
-/// GO AROUND or TOUCH-AND-GO in the map's bottom row, in approach and landing (mockup M3): what the
-/// checklist pane's buttons do, at the thumb bar's height. Hold 1 s to confirm, as there; a single tap in
-/// circuits, as the checklist's thumb bar has them, for a quick correction of a missed detection. (6.1)
+/// GO AROUND or TOUCH-AND-GO in the act band, from the approach to the runway (mockup M3): what the
+/// checklist's event row does, at the band's height. Hold 1 s to confirm, as there; a single tap in
+/// circuits, for a quick correction of a missed detection. GO AROUND takes MARK's slot, TOUCH-AND-GO
+/// Divert's, the narrow one, on two lines ("TOUCH-" over "AND-GO") at the in-flight label size or
+/// larger. (6.1; act band 6.2)
 struct MapFlightEventButton: View {
     enum Event { case goAround, touchAndGo }
     let event: Event
-    /// The words only, no icon: on the phone, and two to a row in the iPad's landscape column, where
-    /// the icon left "TOUCH-AND…" about 120 pt. (6.1)
+    /// The words only, no icon: on the phone, and in the band's narrow slot. (6.1)
     var narrow: Bool = CockpitScale.current == .phone
+    /// The words broken on two lines (`ActBandText.twoLines`).
+    var twoLines: Bool = false
+    /// Half the band's height (the phone on its side): the words alone, no "Hold to confirm".
+    var half: Bool = false
 
     @Environment(AppState.self) private var appState
     @Environment(\.cockpitTheme) private var theme
@@ -715,20 +657,26 @@ struct MapFlightEventButton: View {
 
     var body: some View {
         let language = appState.settings.checklistLanguage.resolvedLanguage
-        let title = event == .goAround ? L10n.ChecklistAction.goAround(language: language)
-                                       : L10n.ChecklistAction.touchAndGo(language: language)
+        let name = event == .goAround ? L10n.ChecklistAction.goAround(language: language)
+                                      : L10n.ChecklistAction.touchAndGo(language: language)
+        let title = twoLines ? ActBandText.twoLines(name) : name
         let icon = event == .goAround ? "arrow.up.right.circle.fill" : "arrow.triangle.2.circlepath"
         let identifier = event == .goAround ? "map.goAround" : "map.touchAndGo"
+        let height = half ? (CockpitTarget.thumb - 8) / 2 : CockpitTarget.thumb
+        let padding: CGFloat? = narrow ? ActBandMetrics.narrowPadding() : nil
         if appState.isCircuitMode {
-            CockpitThumbButton(title: title, icon: narrow ? nil : icon,
-                               style: .outlined(tint: theme.action), action: perform)
+            CockpitThumbButton(title: title, icon: narrow ? nil : icon, style: .outlined(tint: theme.action),
+                               titleLines: twoLines ? 2 : 1, horizontalPadding: padding ?? 14, minHeight: height,
+                               action: perform)
                 .accessibilityIdentifier(identifier)
+                .accessibilityLabel(name)
         } else {
             HoldToConfirmButton(title: title, systemImage: icon, tint: theme.action,
-                                count: event == .goAround ? appState.currentFlight?.goAroundCount ?? 0
-                                                          : appState.currentFlight?.touchAndGoCount ?? 0,
-                                kneeboard: true, height: CockpitTarget.thumb,
-                                stacked: narrow, action: perform)
+                                count: narrow ? 0 : event == .goAround ? appState.currentFlight?.goAroundCount ?? 0
+                                                                       : appState.currentFlight?.touchAndGoCount ?? 0,
+                                kneeboard: true, height: height,
+                                stacked: narrow, titleLines: twoLines ? 2 : 1, horizontalPadding: padding,
+                                showsHint: !half, spokenTitle: name, action: perform)
                 .accessibilityIdentifier(identifier)
         }
     }
@@ -745,8 +693,8 @@ struct MapFlightEventButton: View {
     }
 }
 
-/// FREDA on the CHECKLIST pane's thumb bar, in cruise: where the cruise countdown was, the same size
-/// (6.1, Q6). Until the cruise check is done it waits, dimmed. Then it counts down the ten minutes, and a
+/// FREDA in the act band's first slot on CHECKLIST, in cruise: where the cruise countdown was (6.1, Q6;
+/// the band 6.2). Until the cruise check is done it waits, dimmed. Then it counts down the ten minutes, and a
 /// tap records FREDA done: early (a turning point of the pilot's own) or when due, amber. The old button
 /// re-armed the countdown with a hold and re-ran the cruise list; this one records the flow. Nothing
 /// pulses, nothing beeps.

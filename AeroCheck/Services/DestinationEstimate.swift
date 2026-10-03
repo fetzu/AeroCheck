@@ -133,6 +133,9 @@ struct DestinationEstimate: Equatable {
     let delta: TimeInterval?
     /// The route drawn to scale; nil while diverting, or for a route with no length.
     let track: RouteTrack?
+    /// The waypoint flown to, the track's magenta notch, for "12 of 83 NM flown, next LSGC"; nil when
+    /// diverting or once the destination is marked.
+    var nextIdent: String? = nil
 }
 
 /// The DEST line: remaining distance, ETE, ETA and Δ to over the destination. (6.2.0)
@@ -188,7 +191,8 @@ enum DestinationEstimator {
                                    delta: delta(planned: input.plannedOverDestination, actual: eta),
                                    track: RouteTrack.make(legDistanceNM: input.legDistanceNM, nextIndex: next,
                                                           remainingNM: input.liveDistanceNM == nil ? nil : remaining,
-                                                          diverting: false))
+                                                          diverting: false),
+                                   nextIdent: input.names[next])
     }
 
     /// `array[index]`, or nil past its end: the input's arrays are as long as `names` from the adapter,
@@ -197,10 +201,12 @@ enum DestinationEstimator {
         array.indices.contains(index) ? array[index] : nil
     }
 
-    /// Planned less actual (or estimated): above 0 ahead.
+    /// Planned less actual (or estimated): above 0 ahead. Both times to the nearest minute first, as
+    /// the line writes them (`DestinationFormat.clock`): "ETA 11:58 ▼3" against 11:55, never "11:57 ▼3"
+    /// for an ETA of 11:57:41.
     private static func delta(planned: Date?, actual: Date?) -> TimeInterval? {
         guard let planned, let actual else { return nil }
-        return planned.timeIntervalSince(actual)
+        return DestinationFormat.toMinute(planned).timeIntervalSince(DestinationFormat.toMinute(actual))
     }
 }
 
@@ -276,8 +282,14 @@ enum DestinationFormat {
     static func eteValue(_ ete: TimeInterval) -> String { NextWaypointReadout.eteValue(ete) }
     static func eteUnit(_ ete: TimeInterval) -> String { NextWaypointReadout.eteUnit(ete) }
 
-    /// A clock time (the ETA, or the plan's ETO), as the NEXT cell writes its ETA.
-    static func clock(_ date: Date) -> String { NextWaypointReadout.eta(date) }
+    /// A clock time (the ETA, or the plan's ETO), to the nearest minute as the app writes an ETO
+    /// (`FlightPlanWaypoint.formattedETO`), so Δ, computed on the same minutes, always agrees with it.
+    static func clock(_ date: Date) -> String { NextWaypointReadout.eta(toMinute(date)) }
+
+    /// `date` to the nearest whole minute.
+    static func toMinute(_ date: Date) -> Date {
+        Date(timeIntervalSinceReferenceDate: (date.timeIntervalSinceReferenceDate / 60).rounded() * 60)
+    }
 
     /// What colour Δ takes: the theme's `onTarget`, `warning` or `textSecondary`.
     enum Tone: Equatable {

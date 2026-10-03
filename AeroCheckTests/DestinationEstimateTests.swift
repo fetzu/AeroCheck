@@ -208,6 +208,21 @@ final class DestinationEstimateTests: XCTestCase {
 
     // MARK: - Ahead or behind: the leg rows' convention
 
+    /// An ETA of 11:57:41 against a plan of 11:55:00 read "ETA 11:57 ▼3": the clock dropped the
+    /// seconds while Δ rounded them. Both now take the nearest minute, so Δ is what the two clocks show.
+    func testTheETAAndItsDeltaAlwaysAgree() throws {
+        for secondsLate in [161.0, 140.0, 89.0, 29.0, -31.0, -95.0] {
+            // Last leg at 120 kt (1 NM per 30 s): the ETA lands `secondsLate` after the plan's time over.
+            let planned = t0.addingTimeInterval(3900), now = t0.addingTimeInterval(1000)
+            let live = (planned.timeIntervalSince(now) + secondsLate) / 30
+            let e = try estimate(input(next: 3, live: live))
+            let eta = try XCTUnwrap(e.eta), delta = try XCTUnwrap(e.delta)
+            let shownGap = DestinationFormat.toMinute(planned).timeIntervalSince(DestinationFormat.toMinute(eta))
+            XCTAssertEqual(delta, shownGap, accuracy: 0.001, "\(secondsLate) s late")
+            XCTAssertEqual(delta.truncatingRemainder(dividingBy: 60), 0, accuracy: 0.001, "whole minutes")
+        }
+    }
+
     func testDeltaReadsInWholeMinutesWithTheLegRowsSigns() {
         XCTAssertEqual(DestinationFormat.delta(180).text, "▲3")
         XCTAssertEqual(DestinationFormat.delta(180).tone, .ahead)

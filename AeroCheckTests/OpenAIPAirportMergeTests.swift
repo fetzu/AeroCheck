@@ -830,3 +830,191 @@ final class OpenAIPStandaloneMergeTests: XCTestCase {
         XCTAssertTrue(merged.isEmpty, "no ICAO code means no merge key — a known limitation")
     }
 }
+
+/// An OpenAIP aerodrome download reaches the merged airport store at once, whichever screen started
+/// it, and a delete takes the aerodromes out again. Both used to wait for the next launch, the only
+/// time the merge ran. The store's load, merge and download passes run one at a time. (6.2.0)
+@MainActor
+final class OpenAIPAirportDownloadMergeTests: XCTestCase {
+
+    /// What the fake OpenAIP export serves; changed between downloads.
+    private final class Export {
+        var features: [String: [String]] = [:]   // country → features
+        var failing: Set<String> = []
+        private(set) var fetches = 0
+
+        func fetch(_ country: String) throws -> [OpenAIPAirport] {
+            fetches += 1
+            if failing.contains(country) { throw URLError(.notConnectedToInternet) }
+            let json = #"{ "type": "FeatureCollection", "features": [\#((features[country] ?? []).joined(separator: ","))] }"#
+            return try OpenAIPAirport.parse(geoJSON: Data(json.utf8))
+        }
+    }
+
+    private func feature(_ id: String, _ icao: String, _ name: String, lon: Double, lat: Double,
+                         tower: String) -> String {
+        """
+        { "type": "Feature",
+          "properties": { "_id": "\(id)", "name": "\(name)", "icaoCode": "\(icao)", "type": 3, "country": "CH",
+            "frequencies": [ { "name": "\(name) TOWER", "value": "\(tower)", "type": 14 } ] },
+          "geometry": { "type": "Point", "coordinates": [\(lon), \(lat)] } }
+        """
+    }
+
+    private func bern(tower: String) -> String {
+        feature("b", "LSZB", "BERN-BELP", lon: 7.4971, lat: 46.9141, tower: tower)
+    }
+
+    private let eplatures = #"{ "type": "Feature", "properties": { "_id": "j", "name": "LES EPLATURES", "icaoCode": "LSGC", "type": 2, "country": "CH" }, "geometry": { "type": "Point", "coordinates": [6.7929, 47.0839] } }"#
+
+    private func layer(_ export: Export) -> OpenAIPAirportDataService {
+        makeTestOpenAIPAirportLayer { try export.fetch($0) }
+    }
+
+    /// OurAirports on disk, as a download leaves it: Bern and Grenchen, no frequencies.
+    private func writeOurAirports(into root: URL) throws {
+        func airport(_ id: Int, _ ident: String, _ name: String, lat: Double, lon: Double) -> Airport {
+            Airport(id: id, ident: ident, type: .mediumAirport, name: name, latitude: lat, longitude: lon,
+                    elevation: 1500, continent: "EU", isoCountry: "CH", isoRegion: "CH-BE", municipality: nil,
+                    scheduledService: false, gpsCode: ident, iataCode: nil, localCode: nil)
+        }
+        let directory = root.appendingPathComponent("AirportData", isDirectory: true)
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        try JSONEncoder().encode([airport(1, "LSZB", "Bern Airport", lat: 46.9141, lon: 7.4971),
+                                  airport(2, "LSZG", "Grenchen Airport", lat: 47.1816, lon: 7.4172)])
+            .write(to: directory.appendingPathComponent("airports.json"))
+    }
+
+    private func frequencies(_ store: AirportDataService, _ ident: String) -> [String] {
+        store.getFrequencies(for: ident).map { String(format: "%.3f", $0.frequencyMhz) }.sorted()
+    }
+
+    func testADownloadReachesTheLoadedStoreAndADeleteTakesItOut() async throws {
+        let export = Export()
+        export.features["CH"] = [bern(tower: "121.030"), eplatures]
+        let openAIP = layer(export)
+        let root = makeTestDirectory()
+        try writeOurAirports(into: root)
+        let store = makeTestAirportStore(openAIPAirports: openAIP, root: root)
+        store.followOpenAIPAirports()
+        await store.ensureLoaded()
+        XCTAssertEqual(store.findAirport(byIdent: "LSZB")?.name, "Bern Airport", "OurAirports alone, before any OpenAIP download")
+        XCTAssertNil(store.findAirport(byIdent: "LSGC"))
+
+        // The download page calls the service itself.
+        await openAIP.downloadData(for: ["CH"])
+        await store.waitForPendingPasses()
+        XCTAssertEqual(store.findAirport(byIdent: "LSZB")?.name, "BERN-BELP", "OpenAIP wins, without a relaunch")
+        XCTAssertEqual(frequencies(store, "LSZB"), ["121.030"])
+        XCTAssertEqual(store.findAirport(byIdent: "LSGC")?.name, "LES EPLATURES", "a field only OpenAIP has")
+        XCTAssertEqual(store.findAirport(byIdent: "LSZG")?.name, "Grenchen Airport", "OurAirports fills the gaps")
+        XCTAssertFalse(openAIP.isLoaded, "the merge consumed and released the OpenAIP array")
+
+        // Data & Storage and the foreground refresh go through the provider. The tower moved, and
+        // OpenAIP dropped Les Eplatures: rebuilt from the backbone, the store drops it too.
+        export.features["CH"] = [bern(tower: "121.035")]
+        await OpenAIPAirportProvider(service: openAIP).refresh()
+        await store.waitForPendingPasses()
+        XCTAssertEqual(frequencies(store, "LSZB"), ["121.035"])
+        XCTAssertNil(store.findAirport(byIdent: "LSGC"), "not merged on top of the last merge")
+        XCTAssertEqual(store.airportCount, 2)
+
+        // A delete takes OpenAIP's fields and frequencies out, OurAirports stays.
+        openAIP.deleteData()
+        await store.waitForPendingPasses()
+        XCTAssertEqual(store.findAirport(byIdent: "LSZB")?.name, "Bern Airport")
+        XCTAssertEqual(frequencies(store, "LSZB"), [])
+        XCTAssertEqual(store.findAirport(byIdent: "LSZG")?.name, "Grenchen Airport")
+        XCTAssertTrue(store.isDataAvailable)
+    }
+
+    /// Before the store is loaded (it loads lazily), a download fills it with OpenAIP's fields alone,
+    /// as the launch merge does; the load then brings OurAirports in under them.
+    func testADownloadBeforeTheLoadFillsTheLazyStore() async throws {
+        let export = Export()
+        export.features["CH"] = [bern(tower: "121.030")]
+        let openAIP = layer(export)
+        let root = makeTestDirectory()
+        try writeOurAirports(into: root)
+        let store = makeTestAirportStore(openAIPAirports: openAIP, root: root)
+        store.followOpenAIPAirports()
+
+        await openAIP.downloadData(for: ["CH"])
+        await store.waitForPendingPasses()
+        XCTAssertEqual(store.findAirport(byIdent: "LSZB")?.name, "BERN-BELP")
+        XCTAssertNil(store.findAirport(byIdent: "LSZG"), "OurAirports is not loaded yet")
+
+        await store.ensureLoaded()
+        XCTAssertEqual(store.findAirport(byIdent: "LSZB")?.name, "BERN-BELP")
+        XCTAssertEqual(store.findAirport(byIdent: "LSZG")?.name, "Grenchen Airport")
+        XCTAssertEqual(frequencies(store, "LSZB"), ["121.030"])
+    }
+
+    /// A download that updated nothing doesn't reload the airport database, and says which countries
+    /// failed until a download serves them.
+    func testOnlyADownloadThatUpdatedSomethingReloadsTheStore() async {
+        let export = Export()
+        export.failing = ["CH"]
+        let openAIP = layer(export)
+        var changes = 0
+        openAIP.onAirportsChanged = { changes += 1 }
+
+        await openAIP.downloadData(for: ["CH"])
+        XCTAssertEqual(openAIP.failedCountries, ["CH"])
+        XCTAssertEqual(changes, 0)
+
+        export.failing = []
+        export.features["CH"] = [bern(tower: "121.030")]
+        await openAIP.downloadData(for: ["CH"])
+        XCTAssertEqual(openAIP.failedCountries, [])
+        XCTAssertEqual(changes, 1)
+        XCTAssertEqual(openAIP.pprIcaoCodes, [])
+        XCTAssertTrue(openAIP.hasPPRData)
+
+        openAIP.deleteData()
+        XCTAssertEqual(changes, 2, "a delete changes them too")
+        XCTAssertFalse(openAIP.hasPPRData, "no PPR answer survives the data it came from")
+    }
+
+    /// Two passes never interleave: the second starts once the first has finished, across its
+    /// suspension points.
+    func testStorePassesRunOneAtATime() async {
+        let store = makeTestAirportStore(openAIPAirports: layer(Export()))
+        var log: [String] = []
+        let first = store.enqueuePass {
+            log.append("first starts")
+            try? await Task.sleep(nanoseconds: 50_000_000)
+            log.append("first ends")
+        }
+        let second = store.enqueuePass { log.append("second") }
+        await second.value
+        await first.value
+        XCTAssertEqual(log, ["first starts", "first ends", "second"])
+    }
+
+    /// Loads, merges and a download started together leave one consistent store.
+    func testConcurrentLoadsMergesAndADownloadAgree() async throws {
+        let export = Export()
+        export.features["CH"] = [bern(tower: "121.030"), eplatures]
+        let openAIP = layer(export)
+        let root = makeTestDirectory()
+        try writeOurAirports(into: root)
+        let store = makeTestAirportStore(openAIPAirports: openAIP, root: root)
+        store.followOpenAIPAirports()
+
+        async let load: Void = store.ensureLoaded()
+        async let merge: Void = store.applyOpenAIPMergeIfAvailable()
+        async let download: Void = openAIP.downloadData(for: ["CH"])
+        async let secondLoad: Void = store.ensureLoaded()
+        _ = await (load, merge, download, secondLoad)
+        await store.waitForPendingPasses()
+
+        XCTAssertEqual(store.airportCount, 3)
+        XCTAssertEqual(store.findAirport(byIdent: "LSZB")?.name, "BERN-BELP")
+        XCTAssertEqual(store.findAirport(byIdent: "LSZG")?.name, "Grenchen Airport")
+        XCTAssertEqual(frequencies(store, "LSZB"), ["121.030"])
+        XCTAssertEqual(store.findNearestAirports(to: CLLocationCoordinate2D(latitude: 46.9141, longitude: 7.4971),
+                                                 limit: 5).filter { $0.ident == "LSZB" }.count, 1,
+                       "one Bern in the spatial index")
+    }
+}

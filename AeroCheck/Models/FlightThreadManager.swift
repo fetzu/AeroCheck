@@ -262,14 +262,14 @@ class FlightThreadManager: ObservableObject {
     }
 
     /// Fuel grades the destination reports, so the fuel row can answer "can I fill up at the far
-    /// end". Empty is "not stated", never "none available".
-    static func destinationFuels(on plan: FlightPlan?) -> [String] {
+    /// end". Empty is "not stated", never "none available". From the kept fuel index, not the raw
+    /// airport array: the array is released once the merge has read it. `aerodromes`: tests only.
+    static func destinationFuels(on plan: FlightPlan?,
+                                 aerodromes: OpenAIPAirportDataService? = nil) -> [String] {
         guard let plan,
               let arrival = plan.waypoints.map(\.name).last(where: looksLikeICAO)
         else { return [] }
-        return OpenAIPAirportDataService.shared.allLoadedAirports()
-            .first { $0.icaoCode == arrival }?
-            .fuelTypes.map(\.label) ?? []
+        return (aerodromes ?? .shared).fuelTypes(forICAO: arrival).map(\.label)
     }
 
     // MARK: - Trips (v5.x)

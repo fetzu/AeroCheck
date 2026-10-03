@@ -73,6 +73,22 @@ struct DataSet: Identifiable, Equatable {
     /// their aerodromes). The foreground refresh fetches it like stale data, but it is not stale, so
     /// the Home dot doesn't turn red over it. (6.0.1)
     var formatOutdated: Bool = false
+    /// The last update did not complete; nil once one does. Data & Storage says so under the row. (6.2.0)
+    var updateFailure: DataSetUpdateFailure? = nil
+}
+
+/// An update that did not complete, from any path (Data & Storage, the download page, the foreground
+/// refresh). Failed downloads used to be logged and dropped: the row kept saying "Up to date" over data
+/// that had just failed to update. (6.2.0)
+struct DataSetUpdateFailure: Equatable {
+    /// ISO-2 codes of the countries that kept their old data (or have none); empty for a dataset that
+    /// isn't per-country.
+    let countries: [String]
+
+    /// The failure of a per-country layer, from its service's `failedCountries`; nil when none failed.
+    static func countries(_ failed: [String]) -> DataSetUpdateFailure? {
+        failed.isEmpty ? nil : DataSetUpdateFailure(countries: failed)
+    }
 }
 
 // MARK: - Home-dot health
@@ -320,7 +336,8 @@ struct OpenAIPAirspaceProvider: DataSetProvider {
             freshness: FreshnessThresholds.aeronautical.freshness(lastUpdated: service.lastUpdated, now: now),
             sizeOnDisk: nil,
             coverage: service.downloadedCountries,
-            isDownloaded: service.isDataAvailable
+            isDownloaded: service.isDataAvailable,
+            updateFailure: .countries(service.failedCountries)
         )
     }
 
@@ -353,7 +370,10 @@ struct OurAirportsProvider: DataSetProvider {
             freshness: FreshnessThresholds.airports.freshness(lastUpdated: service.lastUpdated, now: now),
             sizeOnDisk: nil,
             coverage: [],
-            isDownloaded: service.isDataAvailable
+            // OurAirports alone: the OpenAIP aerodromes the store also serves have their own row. With
+            // them downloaded, this row read "Not downloaded · Coverage: Worldwide" and offered a delete.
+            isDownloaded: service.isOurAirportsDownloaded,
+            updateFailure: service.downloadError == nil ? nil : DataSetUpdateFailure(countries: [])
         )
     }
 
@@ -449,7 +469,8 @@ struct OpenAIPNavaidProvider: DataSetProvider {
             freshness: FreshnessThresholds.aeronautical.freshness(lastUpdated: service.lastUpdated, now: now),
             sizeOnDisk: nil,
             coverage: service.downloadedCountries,
-            isDownloaded: service.isDataAvailable
+            isDownloaded: service.isDataAvailable,
+            updateFailure: .countries(service.failedCountries)
         )
     }
 
@@ -483,7 +504,8 @@ struct OpenAIPObstacleProvider: DataSetProvider {
             freshness: FreshnessThresholds.aeronautical.freshness(lastUpdated: service.lastUpdated, now: now),
             sizeOnDisk: nil,
             coverage: service.downloadedCountries,
-            isDownloaded: service.isDataAvailable
+            isDownloaded: service.isDataAvailable,
+            updateFailure: .countries(service.failedCountries)
         )
     }
 
@@ -520,7 +542,53 @@ struct OpenAIPReportingPointProvider: DataSetProvider {
             isDownloaded: service.isDataAvailable,
             // A cache from before points kept their aerodromes: the foreground refresh fetches it once
             // more (a few KB per country). (6.0.1)
-            formatOutdated: service.cachePredatesAerodromes
+            formatOutdated: service.cachePredatesAerodromes,
+            updateFailure: .countries(service.failedCountries)
+        )
+    }
+
+    func refresh() async {
+        let countries = service.downloadedCountries
+        guard !countries.isEmpty else { return }
+        await service.downloadData(for: countries)
+    }
+
+    func delete() { service.deleteData() }
+}
+
+/// OpenAIP aerodromes: the primary airport source. `AirportDataService` folds them into the OurAirports
+/// backbone (position, runways, frequencies) and the flight thread reads their PPR flags. Per-country
+/// small JSON like the other OpenAIP layers, so it gets their thresholds and their silent refresh; it
+/// had no provider before 6.2.0, so it showed no row, never refreshed and survived "Remove all
+/// downloads". A download or a delete re-runs the merge by itself
+/// (`OpenAIPAirportDataService.onAirportsChanged`). (6.2.0)
+@MainActor
+struct OpenAIPAirportProvider: DataSetProvider {
+    let service: OpenAIPAirportDataService
+    var id: String { "openaip.airports" }
+
+    /// Nil: the layer stays out of the trip prefetch. OurAirports already gives every country on a
+    /// route its aerodromes, runways and frequencies; OpenAIP refines them, so a route country without
+    /// OpenAIP aerodromes is not the blind spot the trip banner is for (airspace, obstacles). Counting
+    /// it would also raise the banner again for every country a trip prefetch fetched since 4.1.0
+    /// (the four layers, never this one), with no size to quote (the estimator has no airport layer).
+    /// The countries still show in the row (`DataSet.coverage`).
+    var perCountryCoverage: [String]? { nil }
+
+    func makeDataSet(now: Date) -> DataSet {
+        DataSet(
+            id: id,
+            displayName: L10n.DataStorage.openAIPAirportsName,
+            detail: L10n.DataStorage.openAIPAirportsDetail,
+            urgency: .primary,
+            provenance: .community,
+            refreshPolicy: .smallSilentJSON,
+            lastUpdated: service.lastUpdated,
+            freshness: FreshnessThresholds.aeronautical.freshness(lastUpdated: service.lastUpdated, now: now),
+            sizeOnDisk: nil,
+            coverage: service.downloadedCountries,
+            isDownloaded: service.isDataAvailable,
+            updateFailure: .countries(service.failedCountries)
         )
     }
 

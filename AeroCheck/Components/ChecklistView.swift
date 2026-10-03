@@ -1196,6 +1196,8 @@ struct DepartureBriefingContent: View {
                             if let elev = airport.elevation {
                                 BriefingItem(label: L10n.Briefing.elevation, value: "\(elev) \(L10n.Unit.ft)")
                             }
+                            // Its official chart, in the browser. (6.2.0)
+                            OfficialChartLinkButton(icao: airport.ident, type: airport.type)
                         } else {
                             BriefingItem(label: L10n.Briefing.airport, value: L10n.Briefing.notDetected)
                         }
@@ -1283,6 +1285,8 @@ struct ApproachBriefingContent: View {
                             if let elev = airport.elevation {
                                 BriefingItem(label: L10n.Briefing.elevation, value: "\(elev) \(L10n.Unit.ft)")
                             }
+                            // Its official chart, in the browser. (6.2.0)
+                            OfficialChartLinkButton(icao: airport.ident, type: airport.type)
                         } else {
                             BriefingItem(label: L10n.Briefing.airport, value: L10n.Briefing.notDetected)
                         }

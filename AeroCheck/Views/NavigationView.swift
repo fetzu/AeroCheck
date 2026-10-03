@@ -124,6 +124,10 @@ class SharedMapState: ObservableObject {
     /// drawn on it. The band never writes `region`, `cameraDistance` or `cameraHeading`: they keep the
     /// map the pilot left, which closing the panel puts back. nil with the panel closed. (6.1, option C)
     @Published var bandRegion: MKCoordinateRegion?
+    /// An annotation's callout is open (an aerodrome, a reporting point, a procedure's label): the chrome
+    /// laid over the chart where a callout opens, the scale bar and the off-screen route pill, steps aside
+    /// until it closes. Kept by the representables' coordinators from MapKit's selection. (6.2.0)
+    @Published private(set) var isCalloutOpen = false
 
     init() {
         // Default to Switzerland center
@@ -163,6 +167,18 @@ class SharedMapState: ObservableObject {
     func endBand() {
         DispatchQueue.main.async { [weak self] in
             self?.bandRegion = nil
+        }
+    }
+
+    /// Re-reads `mapView`'s selection after the current update: MapKit's delegate calls and `makeUIView`
+    /// come during one, where publishing is not allowed. Read when it runs, so a marker tapped while
+    /// another's callout is open (a deselect, then a select) doesn't flash the chrome back. (6.2.0)
+    @MainActor
+    func noteCalloutSelection(on mapView: MKMapView) {
+        DispatchQueue.main.async { [weak self, weak mapView] in
+            guard let self else { return }
+            let open = mapView.map { MapCallout.isOpen(selected: $0.selectedAnnotations, view: $0.view(for:)) } ?? false
+            if open != self.isCalloutOpen { self.isCalloutOpen = open }
         }
     }
 
@@ -231,6 +247,8 @@ struct NavigationMapView: View {
     @EnvironmentObject var threadManager: FlightThreadManager
     @ObservedObject private var marketingProvider = MarketingLocationProvider.shared
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    /// The callouts' official chart opens in the browser. (6.2.0)
+    @Environment(\.openURL) private var openURL
 
     @Binding var isPresented: Bool
     /// False in the Plan tab, where the map is a section of the screen rather than a cover to close.
@@ -1226,6 +1244,7 @@ struct NavigationMapView: View {
         if chrome.showsRouteOffScreenPill {
             routeOffScreenPill(leading: pillLeading)
                 .animation(reduceMotion ? nil : .easeInOut(duration: 0.25), value: routeOffScreenHint) // (UX-18)
+                .modifier(StepsAsideForCallout(isHidden: mapState.isCalloutOpen, reduceMotion: reduceMotion))
         }
     }
 
@@ -1555,7 +1574,9 @@ struct NavigationMapView: View {
                     flightPlanManager.recordATO(forWaypointAt: index)
                 },
                 onAirportDivert: airportDivert,
-                legsBand: legsBand
+                legsBand: legsBand,
+                onOpenOfficialChart: { openURL($0) },
+                isInFlight: appState.isFlightActive
             )
         } else {
             // Use UIKit-wrapped MKMapView for standard/satellite to avoid gesture issues
@@ -1585,7 +1606,9 @@ struct NavigationMapView: View {
                     flightPlanManager.recordATO(forWaypointAt: index)
                 },
                 onAirportDivert: airportDivert,
-                legsBand: legsBand
+                legsBand: legsBand,
+                onOpenOfficialChart: { openURL($0) },
+                isInFlight: appState.isFlightActive
             )
         }
     }
@@ -1818,6 +1841,7 @@ struct NavigationMapView: View {
             SwissScaleBar(region: mapState.region, mapWidth: mapWidth, nauticalMiles: appState.settings.distanceInNauticalMiles)
                 // Never in a tap's way: on a phone's short chart the route's pill can reach it. (6.1)
                 .allowsHitTesting(false)
+                .modifier(StepsAsideForCallout(isHidden: mapState.isCalloutOpen, reduceMotion: reduceMotion))
         }
     }
 
@@ -3536,6 +3560,34 @@ struct SwissAirspaceSectors {
     }
 }
 
+// MARK: - Callouts and the chrome over the chart (6.2.0)
+
+/// Whether a map shows an annotation's callout: something selected whose view has one (a waypoint
+/// marker is deselected as soon as it is tapped, and has none).
+enum MapCallout {
+    @MainActor
+    static func isOpen(selected: [MKAnnotation], view: (MKAnnotation) -> MKAnnotationView?) -> Bool {
+        selected.contains { !($0 is MKUserLocation) && view($0)?.canShowCallout == true }
+    }
+}
+
+/// Chrome laid over the chart that steps aside while a callout is open, the callout being what the
+/// pilot asked to read: faded out rather than removed, so nothing else moves, and neither touchable nor
+/// read while hidden. The off-screen route pill covered a callout's title, the scale bar its first
+/// button, on the phone's Cockpit MAP.
+struct StepsAsideForCallout: ViewModifier {
+    let isHidden: Bool
+    let reduceMotion: Bool
+
+    func body(content: Content) -> some View {
+        content
+            .opacity(isHidden ? 0 : 1)
+            .allowsHitTesting(!isHidden)
+            .accessibilityHidden(isHidden)
+            .animation(reduceMotion ? nil : .easeInOut(duration: 0.2), value: isHidden)
+    }
+}
+
 // MARK: - Swiss Scale Bar (mimics SwissTopo style)
 
 struct SwissScaleBar: View {
@@ -4014,10 +4066,15 @@ struct NativeMapViewUIKit: UIViewRepresentable {
     var onAirportDivert: ((String) -> Void)?  // "Divert here" from an airport callout (v5.1)
     /// The open legs panel's band, which then has the camera (`LegsBandDriver`). (6.1, option C)
     var legsBand: LegsPanelMap.Band? = nil
+    /// Opens an aerodrome's official chart from its callout (the browser); nil: no chart in the callouts. (6.2.0)
+    var onOpenOfficialChart: ((URL) -> Void)?
+    /// In flight the callouts' controls take the Cockpit's sizes. (6.2.0)
+    var isInFlight: Bool = false
 
     func makeUIView(context: Context) -> MKMapView {
         let mapView = MKMapView()
         mapView.delegate = context.coordinator
+        mapState.noteCalloutSelection(on: mapView)   // a new map has no callout open (6.2.0)
         mapView.showsCompass = false  // Disabled - compass was appearing in wrong position
         mapView.isRotateEnabled = true
         mapView.isPitchEnabled = false
@@ -4415,6 +4472,8 @@ struct NativeMapViewUIKit: UIViewRepresentable {
 
         func mapView(_ mapView: MKMapView, regionDidChangeAnimated animated: Bool) {
             isUserInteracting = false
+            // A marker the move took off the map leaves no deselect behind. (6.2.0)
+            parent.mapState.noteCalloutSelection(on: mapView)
             // Its zoom at rest, for the legs panel's band: the pilot's, unless the band has the camera.
             legsBand.mapCameToRest(mapView)
             // The band's camera is not the pilot's: the shared state keeps theirs, to go back to.
@@ -4511,7 +4570,9 @@ struct NativeMapViewUIKit: UIViewRepresentable {
             }
 
             // A traffic circuit's altitude or a VFR route's name, and its callout. (6.2.0)
-            if let label = VFRMapLayer.annotationView(for: annotation, on: mapView, palette: vfrLayer.palette) {
+            if let label = VFRMapLayer.annotationView(for: annotation, on: mapView, palette: vfrLayer.palette,
+                                                      metrics: .metrics(inFlight: parent.isInFlight),
+                                                      openChart: parent.onOpenOfficialChart) {
                 return label
             }
 
@@ -4722,19 +4783,15 @@ struct NativeMapViewUIKit: UIViewRepresentable {
 
             annotationView.image = aeroMarkerSymbol(iconName, color: color, pointSize: size, weight: .medium)
 
+            // The callout's controls: the field's official chart on the left (6.2.0), and "Divert here"
+            // on the right, in flight with a route to divert from (v5.1).
+            AirportCalloutControls.configure(
+                annotationView,
+                chart: parent.onOpenOfficialChart == nil ? nil : OfficialChartService.shared.link(for: annotation.airport),
+                divert: parent.activeFlightPlan != nil && parent.onAirportDivert != nil,
+                metrics: .metrics(inFlight: parent.isInFlight), tint: vfrLayer.palette.action)
+
             // Configure callout with multi-line frequency detail
-            annotationView.rightCalloutAccessoryView = nil
-            annotationView.leftCalloutAccessoryView = nil
-            // "Divert here", with a route to divert from. Opens the Divert sheet on this field, where the
-            // time, runway and the big button are. (v5.1)
-            if parent.activeFlightPlan != nil, parent.onAirportDivert != nil {
-                let button = UIButton(type: .system)
-                button.setImage(UIImage(systemName: "arrow.triangle.turn.up.right.diamond.fill"), for: .normal)
-                button.tintColor = UIColor(red: 0.898, green: 0.655, blue: 0.227, alpha: 1.0)
-                button.frame = CGRect(x: 0, y: 0, width: 44, height: 44)
-                button.accessibilityLabel = L10n.Trip.divert
-                annotationView.rightCalloutAccessoryView = button
-            }
 
             if let freqLines = annotation.frequencyLines {
                 let detailLabel = UILabel()
@@ -4763,13 +4820,16 @@ struct NativeMapViewUIKit: UIViewRepresentable {
             return annotationView
         }
 
-        // MARK: - Divert from an airport callout (v5.1)
+        // MARK: - An airport callout's controls: the official chart (6.2.0), Divert (v5.1)
 
         func mapView(_ mapView: MKMapView, annotationView view: MKAnnotationView,
                      calloutAccessoryControlTapped control: UIControl) {
             guard let airport = view.annotation as? AirportAnnotation else { return }
             mapView.deselectAnnotation(airport, animated: true)
-            parent.onAirportDivert?(airport.airport.ident)
+            switch AirportCalloutControls.action(for: control, airport: airport.airport) {
+            case .officialChart(let url): parent.onOpenOfficialChart?(url)
+            case .divert(let ident): parent.onAirportDivert?(ident)
+            }
         }
 
         // MARK: - Waypoint ATO Tap/Long-Press
@@ -4780,9 +4840,14 @@ struct NativeMapViewUIKit: UIViewRepresentable {
                 mapView.deselectAnnotation(annotation, animated: false)
                 return
             }
+            parent.mapState.noteCalloutSelection(on: mapView)   // the chrome steps aside (6.2.0)
             guard let waypointAnnotation = annotation as? FlightPlanWaypointAnnotation else { return }
             mapView.deselectAnnotation(annotation, animated: false)
             parent.onWaypointATOTap?(waypointAnnotation.waypointIndex)
+        }
+
+        func mapView(_ mapView: MKMapView, didDeselect annotation: MKAnnotation) {
+            parent.mapState.noteCalloutSelection(on: mapView)   // and comes back (6.2.0)
         }
 
         func addLongPressToWaypointView(_ annotationView: MKAnnotationView) {
@@ -5390,6 +5455,10 @@ struct SwissMapView: UIViewRepresentable {
     var onAirportDivert: ((String) -> Void)?  // "Divert here" from an airport callout (v5.1)
     /// The open legs panel's band, which then has the camera (`LegsBandDriver`). (6.1, option C)
     var legsBand: LegsPanelMap.Band? = nil
+    /// Opens an aerodrome's official chart from its callout (the browser); nil: no chart in the callouts. (6.2.0)
+    var onOpenOfficialChart: ((URL) -> Void)?
+    /// In flight the callouts' controls take the Cockpit's sizes. (6.2.0)
+    var isInFlight: Bool = false
 
     /// Get the camera zoom range for the current layer
     /// This locks the map view to only allow zooming within the valid tile range
@@ -5447,6 +5516,7 @@ struct SwissMapView: UIViewRepresentable {
     func makeUIView(context: Context) -> MKMapView {
         let mapView = MKMapView()
         mapView.delegate = context.coordinator
+        mapState.noteCalloutSelection(on: mapView)   // a new map has no callout open (6.2.0)
         mapView.showsCompass = false  // Disabled - compass was appearing in wrong position
         mapView.isRotateEnabled = true
         mapView.isPitchEnabled = false
@@ -6056,6 +6126,8 @@ struct SwissMapView: UIViewRepresentable {
         // Sync region changes back to shared state
         func mapView(_ mapView: MKMapView, regionDidChangeAnimated animated: Bool) {
             isUserInteracting = false
+            // A marker the move took off the map leaves no deselect behind. (6.2.0)
+            parent.mapState.noteCalloutSelection(on: mapView)
             // Its zoom at rest, for the legs panel's band: the pilot's, unless the band has the camera.
             legsBand.mapCameToRest(mapView)
             // The band's camera is not the pilot's: the shared state keeps theirs, to go back to.
@@ -6162,7 +6234,9 @@ struct SwissMapView: UIViewRepresentable {
             }
 
             // A traffic circuit's altitude or a VFR route's name, and its callout. (6.2.0)
-            if let label = VFRMapLayer.annotationView(for: annotation, on: mapView, palette: vfrLayer.palette) {
+            if let label = VFRMapLayer.annotationView(for: annotation, on: mapView, palette: vfrLayer.palette,
+                                                      metrics: .metrics(inFlight: parent.isInFlight),
+                                                      openChart: parent.onOpenOfficialChart) {
                 return label
             }
 
@@ -6375,19 +6449,15 @@ struct SwissMapView: UIViewRepresentable {
 
             annotationView.image = aeroMarkerSymbol(iconName, color: color, pointSize: size, weight: .medium)
 
+            // The callout's controls: the field's official chart on the left (6.2.0), and "Divert here"
+            // on the right, in flight with a route to divert from (v5.1).
+            AirportCalloutControls.configure(
+                annotationView,
+                chart: parent.onOpenOfficialChart == nil ? nil : OfficialChartService.shared.link(for: annotation.airport),
+                divert: parent.activeFlightPlan != nil && parent.onAirportDivert != nil,
+                metrics: .metrics(inFlight: parent.isInFlight), tint: vfrLayer.palette.action)
+
             // Configure callout with multi-line frequency detail
-            annotationView.rightCalloutAccessoryView = nil
-            annotationView.leftCalloutAccessoryView = nil
-            // "Divert here", with a route to divert from. Opens the Divert sheet on this field, where the
-            // time, runway and the big button are. (v5.1)
-            if parent.activeFlightPlan != nil, parent.onAirportDivert != nil {
-                let button = UIButton(type: .system)
-                button.setImage(UIImage(systemName: "arrow.triangle.turn.up.right.diamond.fill"), for: .normal)
-                button.tintColor = UIColor(red: 0.898, green: 0.655, blue: 0.227, alpha: 1.0)
-                button.frame = CGRect(x: 0, y: 0, width: 44, height: 44)
-                button.accessibilityLabel = L10n.Trip.divert
-                annotationView.rightCalloutAccessoryView = button
-            }
 
             if let freqLines = annotation.frequencyLines {
                 let detailLabel = UILabel()
@@ -6416,16 +6486,23 @@ struct SwissMapView: UIViewRepresentable {
             return annotationView
         }
 
-        // MARK: - Divert from an airport callout (v5.1)
+        // MARK: - An airport callout's controls: the official chart (6.2.0), Divert (v5.1)
 
         func mapView(_ mapView: MKMapView, annotationView view: MKAnnotationView,
                      calloutAccessoryControlTapped control: UIControl) {
             guard let airport = view.annotation as? AirportAnnotation else { return }
             mapView.deselectAnnotation(airport, animated: true)
-            parent.onAirportDivert?(airport.airport.ident)
+            switch AirportCalloutControls.action(for: control, airport: airport.airport) {
+            case .officialChart(let url): parent.onOpenOfficialChart?(url)
+            case .divert(let ident): parent.onAirportDivert?(ident)
+            }
         }
 
         // MARK: - Waypoint ATO Tap/Long-Press
+
+        func mapView(_ mapView: MKMapView, didDeselect annotation: MKAnnotation) {
+            parent.mapState.noteCalloutSelection(on: mapView)   // the chrome comes back (6.2.0)
+        }
 
         func mapView(_ mapView: MKMapView, didSelect annotation: MKAnnotation) {
             // Nothing on the band answers a tap: no callout, no time over a waypoint. (6.1, option C)
@@ -6433,6 +6510,7 @@ struct SwissMapView: UIViewRepresentable {
                 mapView.deselectAnnotation(annotation, animated: false)
                 return
             }
+            parent.mapState.noteCalloutSelection(on: mapView)   // the chrome steps aside (6.2.0)
             guard let waypointAnnotation = annotation as? FlightPlanWaypointAnnotation else { return }
             // Deselect so user can tap again later
             mapView.deselectAnnotation(annotation, animated: false)

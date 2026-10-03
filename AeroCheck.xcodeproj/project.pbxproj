@@ -69,6 +69,7 @@
 		A5000025111111110000002 /* DataStatusManagerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A5000025111111110000001 /* DataStatusManagerTests.swift */; };
 		A5000062111111110000002 /* VFRDataTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A5000062111111110000001 /* VFRDataTests.swift */; };
 		A5000070111111110000002 /* VFRMapLayerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A5000070111111110000001 /* VFRMapLayerTests.swift */; };
+		A5000071111111110000002 /* OfficialChartTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A5000071111111110000001 /* OfficialChartTests.swift */; };
 		A5000024111111110000002 /* NetworkMonitorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A5000024111111110000001 /* NetworkMonitorTests.swift */; };
 		A5000010111111110000002 /* DatastoreMigrationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A5000010111111110000001 /* DatastoreMigrationTests.swift */; };
 		DR0A0001211111110000001 /* DeletionRecordsTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = DR0A0001111111110000001 /* DeletionRecordsTests.swift */; };
@@ -174,6 +175,7 @@
 		5E4C0A1B2C3D4E5F60718294 /* AirportSearchIndex.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5E4C0A1B2C3D4E5F60718293 /* AirportSearchIndex.swift */; };
 		A1000001211111110000B71 /* RunwayDesignatorOverrides.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000001111111110000B71 /* RunwayDesignatorOverrides.swift */; };
 		A1000001211111110000C62 /* OFMDataService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000001111111110000C62 /* OFMDataService.swift */; };
+		A1000001211111110000C80 /* OfficialChartService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000001111111110000C80 /* OfficialChartService.swift */; };
 		A1000001211111110000E91 /* ReportingPointCatalog.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000001111111110000E91 /* ReportingPointCatalog.swift */; };
 		A1000001211111110000074 /* NotificationService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000001111111110000074 /* NotificationService.swift */; };
 		A1000001211111110000076 /* AirfieldTariffService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000001111111110000076 /* AirfieldTariffService.swift */; };
@@ -195,6 +197,7 @@
 		A1000001211111110000016 /* WT9ChecklistData.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000001111111110000016 /* WT9ChecklistData.swift */; };
 		A1000001211111110000018 /* NavigationView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000001111111110000018 /* NavigationView.swift */; };
 		A1000001211111110000C70 /* VFRProcedureMapLayer.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000001111111110000C70 /* VFRProcedureMapLayer.swift */; };
+		A1000001211111110000C81 /* OfficialChartButton.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000001111111110000C81 /* OfficialChartButton.swift */; };
 		A1000001211111110000019 /* OfflineMapManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000001111111110000019 /* OfflineMapManager.swift */; };
 		A1000001211111110000061 /* SwisstopoTileOverlays.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000001111111110000061 /* SwisstopoTileOverlays.swift */; };
 		A1000001211111110000020 /* WindDataService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000001111111110000020 /* WindDataService.swift */; };
@@ -415,6 +418,7 @@
 		A5000025111111110000001 /* DataStatusManagerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DataStatusManagerTests.swift; sourceTree = "<group>"; };
 		A5000062111111110000001 /* VFRDataTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VFRDataTests.swift; sourceTree = "<group>"; };
 		A5000070111111110000001 /* VFRMapLayerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VFRMapLayerTests.swift; sourceTree = "<group>"; };
+		A5000071111111110000001 /* OfficialChartTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OfficialChartTests.swift; sourceTree = "<group>"; };
 		A5000024111111110000001 /* NetworkMonitorTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NetworkMonitorTests.swift; sourceTree = "<group>"; };
 		A5000010111111110000001 /* DatastoreMigrationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DatastoreMigrationTests.swift; sourceTree = "<group>"; };
 		DR0A0001111111110000001 /* DeletionRecordsTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeletionRecordsTests.swift; sourceTree = "<group>"; };
@@ -524,6 +528,7 @@
 		5E4C0A1B2C3D4E5F60718293 /* AirportSearchIndex.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AirportSearchIndex.swift; sourceTree = "<group>"; };
 		A1000001111111110000B71 /* RunwayDesignatorOverrides.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RunwayDesignatorOverrides.swift; sourceTree = "<group>"; };
 		A1000001111111110000C62 /* OFMDataService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OFMDataService.swift; sourceTree = "<group>"; };
+		A1000001111111110000C80 /* OfficialChartService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OfficialChartService.swift; sourceTree = "<group>"; };
 		A1000001111111110000E91 /* ReportingPointCatalog.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReportingPointCatalog.swift; sourceTree = "<group>"; };
 		A1000001111111110000074 /* NotificationService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationService.swift; sourceTree = "<group>"; };
 		A1000001111111110000076 /* AirfieldTariffService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AirfieldTariffService.swift; sourceTree = "<group>"; };
@@ -544,6 +549,7 @@
 		A1000001111111110000016 /* WT9ChecklistData.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WT9ChecklistData.swift; sourceTree = "<group>"; };
 		A1000001111111110000018 /* NavigationView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NavigationView.swift; sourceTree = "<group>"; };
 		A1000001111111110000C70 /* VFRProcedureMapLayer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VFRProcedureMapLayer.swift; sourceTree = "<group>"; };
+		A1000001111111110000C81 /* OfficialChartButton.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OfficialChartButton.swift; sourceTree = "<group>"; };
 		A1000001111111110000019 /* OfflineMapManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OfflineMapManager.swift; sourceTree = "<group>"; };
 		A1000001111111110000061 /* SwisstopoTileOverlays.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SwisstopoTileOverlays.swift; sourceTree = "<group>"; };
 		A1000001111111110000020 /* WindDataService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WindDataService.swift; sourceTree = "<group>"; };
@@ -747,6 +753,7 @@
 				A5000025111111110000001 /* DataStatusManagerTests.swift */,
 				A5000062111111110000001 /* VFRDataTests.swift */,
 				A5000070111111110000001 /* VFRMapLayerTests.swift */,
+				A5000071111111110000001 /* OfficialChartTests.swift */,
 				A5000024111111110000001 /* NetworkMonitorTests.swift */,
 				A5000010111111110000001 /* DatastoreMigrationTests.swift */,
 				DR0A0001111111110000001 /* DeletionRecordsTests.swift */,
@@ -865,6 +872,7 @@
 				A1000001111111110000005 /* FlightLogView.swift */,
 				A1000001111111110000018 /* NavigationView.swift */,
 				A1000001111111110000C70 /* VFRProcedureMapLayer.swift */,
+				A1000001111111110000C81 /* OfficialChartButton.swift */,
 				I1000001111111110000007 /* OnboardingView.swift */,
 				A1000001111111110000006 /* SettingsView.swift */,
 				04F1C6F62EF9CD9D00192A14 /* FlightPlanEditorView.swift */,
@@ -984,6 +992,7 @@
 				5E4C0A1B2C3D4E5F60718293 /* AirportSearchIndex.swift */,
 				A1000001111111110000B71 /* RunwayDesignatorOverrides.swift */,
 				A1000001111111110000C62 /* OFMDataService.swift */,
+				A1000001111111110000C80 /* OfficialChartService.swift */,
 				A1000001111111110000E91 /* ReportingPointCatalog.swift */,
 				A1000001111111110000074 /* NotificationService.swift */,
 				A1000001111111110000076 /* AirfieldTariffService.swift */,
@@ -1318,6 +1327,7 @@
 				A5000025111111110000002 /* DataStatusManagerTests.swift in Sources */,
 				A5000062111111110000002 /* VFRDataTests.swift in Sources */,
 				A5000070111111110000002 /* VFRMapLayerTests.swift in Sources */,
+				A5000071111111110000002 /* OfficialChartTests.swift in Sources */,
 				A5000024111111110000002 /* NetworkMonitorTests.swift in Sources */,
 				A5000010111111110000002 /* DatastoreMigrationTests.swift in Sources */,
 				DR0A0001211111110000001 /* DeletionRecordsTests.swift in Sources */,
@@ -1424,6 +1434,7 @@
 				5E4C0A1B2C3D4E5F60718294 /* AirportSearchIndex.swift in Sources */,
 				A1000001211111110000B71 /* RunwayDesignatorOverrides.swift in Sources */,
 				A1000001211111110000C62 /* OFMDataService.swift in Sources */,
+				A1000001211111110000C80 /* OfficialChartService.swift in Sources */,
 				A1000001211111110000E91 /* ReportingPointCatalog.swift in Sources */,
 				A1000001211111110000074 /* NotificationService.swift in Sources */,
 				A1000001211111110000076 /* AirfieldTariffService.swift in Sources */,
@@ -1448,6 +1459,7 @@
 				047B5F7D2EF492D5009F1317 /* MarketingLocationProvider.swift in Sources */,
 				A1000001211111110000018 /* NavigationView.swift in Sources */,
 				A1000001211111110000C70 /* VFRProcedureMapLayer.swift in Sources */,
+				A1000001211111110000C81 /* OfficialChartButton.swift in Sources */,
 				A3000001211111110000001 /* WatchConnectivityManager.swift in Sources */,
 				A3000001211111110000002 /* WatchConnectivityData.swift in Sources */,
 				A3000009211111110000009 /* DesignTokens.swift in Sources */,

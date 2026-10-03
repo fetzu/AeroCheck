@@ -1,6 +1,86 @@
 {
   "sourceLanguage": "en",
   "strings": {
+    "Subscription": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Abonnement"
+          }
+        }
+      }
+    },
+    "open flightmaps · indicative": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "open flightmaps · indicatif"
+          }
+        }
+      }
+    },
+    "open flightmaps · AIRAC %@ · indicative": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "open flightmaps · AIRAC %@ · indicatif"
+          }
+        }
+      }
+    },
+    "Report": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Signaler"
+          }
+        }
+      }
+    },
+    "Official chart": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Carte officielle"
+          }
+        }
+      }
+    },
+    "%@ (subscription)": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ (abonnement)"
+          }
+        }
+      }
+    },
+    "Chart": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Carte"
+          }
+        }
+      }
+    },
+    "Opens %@ in the browser": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ouvre %@ dans le navigateur"
+          }
+        }
+      }
+    },
     "Helicopter reporting point": {
       "localizations": {
         "fr": {

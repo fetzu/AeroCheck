@@ -312,6 +312,9 @@ Aware (Publish + Subscribe) for Companion, `aps-environment`.
 - Every user-facing string goes through `L10n.*` (`Localization.swift`); translations live in
   `Localizable.xcstrings` (EN/FR). Builds reformat that file and `xcuserstate` is tracked: NEVER
   `git add -A` / `git add .` in this repo, stage files by name.
+- The Watch app has its own catalog, `AeroCheckWatch/Localizable.xcstrings` (EN/FR): its strings never
+  go in the app's. `LocalizationCatalogTests` reads the French of the Watch app the phone app embeds.
+- A count goes through a plural in the catalog (`%lld flights`: one/other), never a hand-made "s".
 - Aviation abbreviations (kt, ft, NM, MSL, GPS, FREQ…) are not translated (ICAO).
 - One vocabulary (6.0 · P8): a *Flight* is one take-off to landing, planned (Plan) or flown (Logbook); a
   *Trip* is several flights in a row; a *Route* is a reusable path with no date; the *Nav log* is the

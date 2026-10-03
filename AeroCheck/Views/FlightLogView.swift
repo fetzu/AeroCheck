@@ -809,7 +809,7 @@ struct FlightLogView: View {
                 .tracking(0.6)
                 .foregroundColor(.aviationGold)
             Spacer()
-            Text("\(group.flights.count) flight\(group.flights.count == 1 ? "" : "s") · \(String(format: "%.1f", group.totalHours)) h")
+            Text(L10n.FlightLog.monthSummary(group.flights.count, hours: group.totalHours))
                 .scaledFont(size: 11, design: .monospaced, relativeTo: .caption2)
                 .foregroundColor(.secondaryText)
         }
@@ -891,9 +891,9 @@ struct FlightLogView: View {
 
             // Metric cards — 4 across on regular width, 2 on compact.
             LazyVGrid(columns: metricColumns, spacing: 10) {
-                LogMetricCard(label: "Hours", value: String(format: "%.1f", stats.totalHours), valueColor: .aviationGold)
-                LogMetricCard(label: "Flights", value: "\(stats.flights)")
-                LogMetricCard(label: "Landings", value: "\(stats.landings)")
+                LogMetricCard(label: L10n.FlightLog.hours, value: String(format: "%.1f", stats.totalHours), valueColor: .aviationGold)
+                LogMetricCard(label: L10n.FlightLog.flights, value: "\(stats.flights)")
+                LogMetricCard(label: L10n.FlightLog.landings, value: "\(stats.landings)")
                 // Tap the distance card to toggle NM ⇄ km (persisted; also affects the list rows).
                 Button { toggleDistanceUnit() } label: {
                     LogMetricCard(label: distanceUnitLabel, value: Self.groupedNumber(distanceValue(stats.distanceKm)))
@@ -915,7 +915,7 @@ struct FlightLogView: View {
 
             // List header: count + aircraft filter.
             HStack {
-                Text("\(stats.flights) FLIGHTS")
+                Text(L10n.FlightLog.listHeader(stats.flights))
                     .scaledFont(size: 12, weight: .semibold, relativeTo: .caption)
                     .tracking(0.5)
                     .foregroundColor(.secondaryText)
@@ -1087,7 +1087,7 @@ struct FlightLogView: View {
             HStack(spacing: 4) {
                 Image(systemName: selectedAircraft == nil ? "line.3.horizontal.decrease.circle" : "line.3.horizontal.decrease.circle.fill")
                     .scaledFont(size: 13, relativeTo: .caption)
-                Text(selectedAircraft ?? "Filter").scaledFont(size: 13, weight: .medium, relativeTo: .caption)
+                Text(selectedAircraft ?? L10n.FlightLog.filter).scaledFont(size: 13, weight: .medium, relativeTo: .caption)
             }
             .foregroundColor(selectedAircraft == nil ? .secondaryText : .aviationGold)
         }
@@ -2357,7 +2357,7 @@ struct FlightDetailView: View {
                 .foregroundColor(.secondaryText)
                 .lineLimit(2)
             HStack(spacing: 8) {
-                statChip("TIME", flight.formattedDuration, .aviationGreen)
+                statChip(L10n.FlightDetail.time, flight.formattedDuration, .aviationGreen)
                 statChip("LDG", "\(flight.totalLandings)", .primaryText)
                 statChip(appState.settings.distanceInNauticalMiles ? "NM" : "KM", headerDistanceText, .primaryText)
                 statChip("MAX", headerMaxAltText, .primaryText)
@@ -2388,7 +2388,7 @@ struct FlightDetailView: View {
     /// Chronological event timeline card. (round 8)
     private var timelineCard: some View {
         VStack(alignment: .leading, spacing: 10) {
-            Text("TIMELINE").scaledFont(size: 11, weight: .semibold, relativeTo: .caption2).tracking(0.5).foregroundColor(.secondaryText)
+            Text(L10n.FlightDetail.timeline).scaledFont(size: 11, weight: .semibold, relativeTo: .caption2).tracking(0.5).foregroundColor(.secondaryText)
             VStack(spacing: 12) {
                 if let start = flight.startTime {
                     TimelineRow(label: L10n.FlightDetail.sessionStart, time: timeString(from: start), icon: "play.fill", color: .dimText)
@@ -2831,8 +2831,8 @@ struct FlightMapView: UIViewRepresentable {
 
                 if let first = points.first, let last = points.last {
                     mapView.addAnnotations([
-                        FlightAnnotation(coordinate: first.coordinate, title: "Start", isStart: true, isSelected: false),
-                        FlightAnnotation(coordinate: last.coordinate, title: "End", isStart: false, isSelected: false)
+                        FlightAnnotation(coordinate: first.coordinate, title: L10n.FlightDetail.trackStart, isStart: true, isSelected: false),
+                        FlightAnnotation(coordinate: last.coordinate, title: L10n.FlightDetail.trackEnd, isStart: false, isSelected: false)
                     ])
                 }
                 // Set the visible region only on initial load, not when selection changes.
@@ -2958,7 +2958,7 @@ struct AltitudeChartView: View {
     enum ChartMode: String, CaseIterable, Identifiable {
         case altitude, speed
         var id: String { rawValue }
-        var label: String { self == .altitude ? "Altitude" : "Speed" }
+        var label: String { self == .altitude ? L10n.FlightDetail.chartAltitude : L10n.FlightDetail.chartSpeed }
         var unit: String { self == .altitude ? "ft" : "kt" }
     }
     @State private var mode: ChartMode = .altitude
@@ -3199,8 +3199,8 @@ struct AltitudeChartView: View {
 
             // Altitude ⇄ speed toggle BELOW the chart, so the top phase icons don't overlap it. (round 8)
             Picker("Series", selection: $mode) {
-                Text("Altitude").tag(ChartMode.altitude)
-                Text("Speed").tag(ChartMode.speed)
+                Text(ChartMode.altitude.label).tag(ChartMode.altitude)
+                Text(ChartMode.speed.label).tag(ChartMode.speed)
             }
             .pickerStyle(.segmented)
           }

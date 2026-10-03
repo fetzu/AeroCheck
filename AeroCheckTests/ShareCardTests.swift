@@ -421,8 +421,8 @@ final class ShareCardTests: XCTestCase {
         "Glider chart": "Carte vol à voile",
         "Share card": "Carte de partage",
         "Share stats card": "Partager une carte des statistiques",
-        // The journey card (6.1)
-        "%lld flights": "%lld vols",
+        // The journey card (6.1). "%lld flights" is a plural since 6.2, so a plain lookup returns its
+        // format: LocalizationCatalogTests.testTheFlightCountIsAPluralInBothLanguages reads it.
         "%@ flying": "%@ de vol",
         "no track": "sans trace",
         "THE DAY": "LA JOURNÉE",

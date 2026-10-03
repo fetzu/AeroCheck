@@ -239,6 +239,23 @@ extension CheckSlot {
         phone || (stacked && title != .check)
     }
 
+    /// How many lines the second line has, always, filled or not, so the slot's lines keep their places
+    /// (`CheckSlotButton`): two where the slot shares its row, one in the wide slot on the iPad. One too
+    /// under FREDA's tick on the iPad, which takes two lines itself ("CRUISE CHECK" over "✓ 14:24"): four
+    /// lines don't fit its 104 pt, and "FREDA in 10 min" scales a little to one line. (6.1, stability)
+    func lineLines(phone: Bool, prominent: Bool) -> Int {
+        if phone { return 2 }
+        if prominent { return 1 }
+        if case .fredaCountsFrom = title { return 1 }
+        return 2
+    }
+
+    /// How far the second line may shrink: a little, or a little more on the one line under FREDA's tick,
+    /// where "FREDA dans 10 min" needs about three quarters of its size beside "Déroutement".
+    func lineMinimumScale(phone: Bool, prominent: Bool) -> CGFloat {
+        !phone && !prominent && lineLines(phone: phone, prominent: prominent) == 1 ? 0.7 : 0.8
+    }
+
     /// The second line, as the button shows it: `narrow` (the phone's shared row) and `stacked` (the
     /// iPad's shared row) pick the line's shorter forms; under READY FOR LINE UP, "then LINE UP CHECK".
     func lineText(narrow: Bool = false, stacked: Bool = false) -> String {
@@ -315,7 +332,7 @@ struct CheckSlotButton: View {
 
     var body: some View {
         let phone = CockpitScale.current == .phone
-        // The phone's slot beside MARK or between the hold buttons is about 100 pt wide: no icon (the
+        // The phone's slot beside MARK or the hold buttons is about 100 pt wide: no icon (the
         // colour and the frame say the state), the name on two lines, the short line.
         let narrow = phone && !prominent
         // The iPad's slot sharing its row (beside MARK, the landscape column): about 160 pt of text.
@@ -334,13 +351,24 @@ struct CheckSlotButton: View {
                                     weight: .bold))
                         .lineLimit(slot.titleWraps(phone: phone, stacked: stacked) ? 2 : 1)
                         .minimumScaleFactor(0.6)
-                    // Two lines where the slot shares the row (beside MARK, between the hold
-                    // buttons): "from memory · one tap when done" is the line that matters.
-                    Text(slot.lineText(narrow: narrow, stacked: stacked))
-                        .font(.aero(size: CockpitType.label, weight: .medium))
-                        .foregroundColor(lineColor)
-                        .lineLimit(prominent && !phone ? 1 : 2)
-                        .minimumScaleFactor(0.8)
+                    // Two lines where the slot shares the row (beside MARK, beside the hold
+                    // buttons): "from memory · one tap when done" is the line that matters. Their room is
+                    // kept whether the line takes one or two, so the title above never moves when
+                    // "FREDA in 10 min" turns "9 min" or the owed line comes. (6.1, stability)
+                    let lines = slot.lineLines(phone: phone, prominent: prominent)
+                    ZStack(alignment: .topLeading) {
+                        // The room, at full size: however the line scales to fit, too.
+                        Text(verbatim: " ")
+                            .font(.aero(size: CockpitType.label, weight: .medium))
+                            .lineLimit(lines, reservesSpace: true)
+                            .hidden()
+                            .accessibilityHidden(true)
+                        Text(slot.lineText(narrow: narrow, stacked: stacked))
+                            .font(.aero(size: CockpitType.label, weight: .medium))
+                            .foregroundColor(lineColor)
+                            .lineLimit(lines)
+                            .minimumScaleFactor(slot.lineMinimumScale(phone: phone, prominent: prominent))
+                    }
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
             }
@@ -553,6 +581,39 @@ enum MapThumbColumn: Equatable {
         switch self {
         case .slotOverFlightEvents, .slotOverMark, .slotOverRoutes: return true
         case .legTimerOverMark, .routes: return false
+        }
+    }
+}
+
+/// The map's bottom row in flight, left to right: in portrait, and under the phone's column on its side.
+/// With the check slot, the slot leads it, in one frame whatever follows it (`CheckSlotRowLayout`), as the
+/// landscape column keeps it on top: from circuit height, GO AROUND and TOUCH-AND-GO take the place of
+/// MARK, Divert and More (or of Routes), never the slot's. They used to frame it, every lap in circuits.
+/// Pure, so it is tested without a view. (6.1, the author's call: the slot stays left)
+enum MapThumbRow: Equatable {
+    /// Approach and landing, and from circuit height: the slot, GO AROUND, TOUCH-AND-GO.
+    case slotThenFlightEvents
+    /// A route to fly: the slot, MARK, Divert and More.
+    case slotThenMark
+    /// No route: the slot, then Routes where MARK, Divert and More would be.
+    case slotThenRoutes
+    /// In flight with no slot: the leg timer, MARK, Divert and More.
+    case legTimerThenMark
+    /// Not in flight (Plan › Map): Routes alone.
+    case routes
+
+    static func make(showsCheckSlot: Bool, showsEventButtons: Bool, hasRoute: Bool, flightActive: Bool) -> MapThumbRow {
+        if showsEventButtons { return .slotThenFlightEvents }
+        if showsCheckSlot { return hasRoute ? .slotThenMark : .slotThenRoutes }
+        if flightActive && hasRoute { return .legTimerThenMark }
+        return .routes
+    }
+
+    /// Whether the check slot comes first, in its one frame.
+    var slotLeads: Bool {
+        switch self {
+        case .slotThenFlightEvents, .slotThenMark, .slotThenRoutes: return true
+        case .legTimerThenMark, .routes: return false
         }
     }
 }

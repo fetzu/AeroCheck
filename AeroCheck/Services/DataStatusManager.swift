@@ -300,11 +300,14 @@ final class DataStatusManager: ObservableObject {
     /// app registers them: the route builder is a full-screen cover the manager isn't injected into, so
     /// it reads them through this list rather than four hard-coded calls. The OpenAIP aerodromes stay
     /// out (`OpenAIPAirportProvider.perCountryCoverage`). (6.2.0)
+    ///
+    /// No default values: a default argument is evaluated outside the main actor, where the services'
+    /// `.shared` instances can't be read (a Swift 6 error, a warning today).
     static func tripProviders(airspace: OpenAIPDataService,
-                              navaids: OpenAIPNavaidDataService = .shared,
-                              obstacles: OpenAIPObstacleDataService = .shared,
-                              reportingPoints: OpenAIPReportingPointDataService = .shared,
-                              vfrProcedures: OFMDataService = .shared) -> [DataSetProvider] {
+                              navaids: OpenAIPNavaidDataService,
+                              obstacles: OpenAIPObstacleDataService,
+                              reportingPoints: OpenAIPReportingPointDataService,
+                              vfrProcedures: OFMDataService) -> [DataSetProvider] {
         [
             OpenAIPAirspaceProvider(service: airspace),
             OpenAIPNavaidProvider(service: navaids),

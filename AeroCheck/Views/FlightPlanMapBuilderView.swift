@@ -137,7 +137,8 @@ struct FlightPlanMapBuilderView: View {
     /// built on the services because the manager isn't injected into this cover. The OpenAIP airport
     /// layer stays out (`OpenAIPAirportProvider.perCountryCoverage`). (6.2.0, was four hard-coded layers)
     private var tripProviders: [DataSetProvider] {
-        DataStatusManager.tripProviders(airspace: openAIPDataService)
+        DataStatusManager.tripProviders(airspace: openAIPDataService, navaids: .shared, obstacles: .shared,
+                                        reportingPoints: .shared, vfrProcedures: .shared)
     }
 
     /// Missing countries PER LAYER, which is how coverage actually works: a device can hold Swiss

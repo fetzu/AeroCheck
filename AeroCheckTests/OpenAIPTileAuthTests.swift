@@ -124,7 +124,7 @@ final class OpenAIPTilePruneTests: XCTestCase {
     func testPruneKeepsTilesInsideTheSelection() async throws {
         let manager = makeManager()
         // Ask the manager itself which tiles CH wants, so the test cannot drift from the projection.
-        let wanted = await manager.tilesForCountriesForTesting(["CH"])
+        let wanted = manager.tilesForCountriesForTesting(["CH"])
         let keep = try XCTUnwrap(wanted.first, "CH must project to at least one tile")
         try writeTile(z: keep.z, x: keep.x, y: keep.y)
 

@@ -2560,21 +2560,21 @@ struct GPSStatusContent: View {
             // 20 s. It said "Reduced accuracy · ± 10 m" for the second. (6.1.0)
             if let fix {
                 if fix.horizontalAccuracy > 100 {
-                    return "Reduced accuracy · ± \(Int(fix.horizontalAccuracy.rounded())) m"
+                    return L10n.GPS.reasonReducedAccuracy(Int(fix.horizontalAccuracy.rounded()))
                 }
                 let age = Int(Date().timeIntervalSince(fix.timestamp).rounded())
-                if fix.horizontalAccuracy >= 0 && age >= 10 { return "No position update for \(age) s" }
+                if fix.horizontalAccuracy >= 0 && age >= 10 { return L10n.GPS.reasonNoUpdate(age) }
                 // Positions keep coming, from Wi-Fi or cell towers, not the satellites. (6.1.0)
                 if fix.horizontalAccuracy >= 0 && !LocationManager.isSatelliteFix(fix) {
-                    return "No satellite fix · network position ± \(Int(fix.horizontalAccuracy.rounded())) m"
+                    return L10n.GPS.reasonNetworkPosition(Int(fix.horizontalAccuracy.rounded()))
                 }
             }
-            return "Weak signal"
+            return L10n.GPS.reasonWeakSignal
         case .lost:
             if let ts = fix?.timestamp {
-                return "No position update for \(Int(Date().timeIntervalSince(ts).rounded())) s"
+                return L10n.GPS.reasonNoUpdate(Int(Date().timeIntervalSince(ts).rounded()))
             }
-            return "No position fix"
+            return L10n.GPS.reasonNoFix
         }
     }
 
@@ -2645,18 +2645,18 @@ struct GPSStatusContent: View {
             // Advanced fix info — Vertical / Altitude tap to switch units; Position taps to copy.
             if let loc = fix {
                 LazyVGrid(columns: [GridItem(.flexible(), spacing: 8), GridItem(.flexible(), spacing: 8)], spacing: 8) {
-                    fixTile("Accuracy", loc.horizontalAccuracy >= 0 ? "± \(Int(loc.horizontalAccuracy.rounded())) m" : "—")
+                    fixTile(L10n.GPS.fixAccuracy, loc.horizontalAccuracy >= 0 ? "± \(Int(loc.horizontalAccuracy.rounded())) m" : "—")
                     Button { verticalInFeet.toggle() } label: {
-                        fixTile("Vertical", verticalAccuracyText(loc), trailing: "arrow.left.arrow.right")
+                        fixTile(L10n.GPS.fixVertical, verticalAccuracyText(loc), trailing: "arrow.left.arrow.right")
                     }
                     .buttonStyle(.plain)
-                    fixTile("Fix time", fixTime(loc.timestamp))
+                    fixTile(L10n.GPS.fixTime, fixTime(loc.timestamp))
                     Button { altitudeInMeters.toggle() } label: {
-                        fixTile("Altitude (MSL)", altitudeText(loc), trailing: "arrow.left.arrow.right")
+                        fixTile(L10n.GPS.fixAltitude, altitudeText(loc), trailing: "arrow.left.arrow.right")
                     }
                     .buttonStyle(.plain)
                     Button { copyPosition(loc) } label: {
-                        fixTile("Position", positionText(loc), trailing: positionCopied ? "checkmark" : "doc.on.doc")
+                        fixTile(L10n.GPS.fixPosition, positionText(loc), trailing: positionCopied ? "checkmark" : "doc.on.doc")
                     }
                     .buttonStyle(.plain)
                     fixTile(L10n.GPS.pointsRecorded, "\(appState.currentFlight?.gpsTrack.count ?? 0)")

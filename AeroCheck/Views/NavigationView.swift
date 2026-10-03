@@ -3429,7 +3429,7 @@ enum SwissCommonFrequency: CaseIterable {
         case .fisWest: return "FIS West"
         case .zurichInfo: return "Zurich Info"
         case .fisEast: return "FIS East"
-        case .emergency: return "Emergency"
+        case .emergency: return L10n.Nav.freqEmergency
         }
     }
 

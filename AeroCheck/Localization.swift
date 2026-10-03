@@ -2099,10 +2099,26 @@ enum L10n {
         static let divert = String(localized: "act.divert")
     }
 
+    /// The Cockpit's ROUTE page, and MAP showing a leg tapped there. (6.2)
+    enum Route {
+        /// Over the legs: "LEGS" / "BRANCHES".
+        static let legs = String(localized: "route.legs")
+        /// Over the frequencies: "RADIO".
+        static let radio = String(localized: "route.radio")
+        /// MAP showing a leg: back to the aircraft, followed again.
+        static let backToAircraft = String(localized: "map.backToAircraft")
+        /// "Direct LSGC": the leg's waypoint, flown to straight away.
+        static func direct(_ waypoint: String) -> String {
+            String(format: String(localized: "map.directTo"), waypoint)
+        }
+    }
+
     /// The in-flight Cockpit on iPad. (v6.0 · P2)
     enum Cockpit {
         static let checklist = String(localized: "cockpit.checklist")
         static let map = String(localized: "cockpit.map")
+        /// The third page: the DEST line, the legs and the radio. (6.2)
+        static let route = String(localized: "cockpit.route")
         static let check = String(localized: "cockpit.check")
         static let deferItem = String(localized: "cockpit.defer")
         static let deferHint = String(localized: "cockpit.deferHint")

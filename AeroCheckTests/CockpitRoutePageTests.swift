@@ -122,11 +122,11 @@ final class CockpitRoutePageTests: XCTestCase {
         XCTAssertEqual(tall.top, 206)
         XCTAssertEqual(tall.bottom, 166)
         XCTAssertEqual(tall.left, 40)
-        // The iPad on its side: a chart about 280 pt tall keeps a quarter of it for the leg.
+        // The iPad on its side: a chart about 280 pt tall keeps a fifth of it for the leg.
         let short = LegFraming.edgePadding(chartSize: CGSize(width: 1_180, height: 280), topChrome: 190, bottomChrome: 150)
         XCTAssertEqual(short.top, 280 * 0.45, accuracy: 0.001)
-        XCTAssertEqual(short.bottom, 280 * 0.3, accuracy: 0.001)
-        XCTAssertGreaterThan(280 - short.top - short.bottom, 60)
+        XCTAssertEqual(short.bottom, 280 * 0.35, accuracy: 0.001)
+        XCTAssertEqual(280 - short.top - short.bottom, 56, accuracy: 0.001)
     }
 
     func testALegTappedIsShownUntilBackToAircraft() {

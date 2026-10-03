@@ -865,20 +865,18 @@ struct NavigationMapView: View {
     private func columnsMapArea(legsMaxHeight: CGFloat) -> some View {
         VStack(spacing: 0) {
             chartWithChrome(top: VStack(spacing: 8) {
-                nextWaypointLine
+                if framedLeg != nil { framedLegBar } else { nextWaypointLine }
                 SeparateView { occasionalChips(pillLeading: true) }
             }
             .padding(.horizontal, 10)
             .padding(.top, 8),
             bottom: VStack(spacing: 8) {
-                framedLegBar
-                    .padding(.horizontal, 10)
                 MapUndoToast()
                     .padding(.horizontal, 16)
                 // The controls at the foot of the chart, by the thumb, leaving the top (what's
                 // ahead, in Track up) clear, and the scale and the chart's source beside them. Not with
                 // the legs open: the band is a view. (6.1, option C)
-                if panelChrome.showsMapControls || panelChrome.showsMapStatus {
+                if (panelChrome.showsMapControls || panelChrome.showsMapStatus) && framedLeg == nil {
                     SeparateView { columnsMapFoot }
                         .padding(.horizontal, 10)
                 }
@@ -1159,7 +1157,9 @@ struct NavigationMapView: View {
                 // moves them. (6.1)
                 VStack(spacing: compact ? 8 : 10) {
                     if compact {
-                        nextWaypointLine
+                        // A leg shown from ROUTE: its bar in the next line's place, over the chart's
+                        // top, where a 300 pt chart leaves it clear of the leg. (6.2)
+                        if framedLeg != nil { framedLegBar } else { nextWaypointLine }
                     } else {
                         SeparateView { nextWaypointCard }
                     }
@@ -1178,11 +1178,15 @@ struct NavigationMapView: View {
                 .padding(.top, compact ? 8 : 10)
             },
             bottom: VStack(spacing: 8) {
-                // A leg shown from ROUTE: over the foot, where the thumb is. (6.2)
-                framedLegBar
-                    .padding(.horizontal, compact ? 10 : 16)
+                // A leg shown from ROUTE, on the iPad: over the foot, where the thumb is. (6.2)
+                if !compact {
+                    framedLegBar
+                        .padding(.horizontal, 16)
+                }
                 mapFooter
-                if compact && panelChrome.showsMapControls {
+                // The phone's controls give way while a leg shows (Back to aircraft is Centre then):
+                // the leg has the chart between the bar and the scale. (6.2)
+                if compact && panelChrome.showsMapControls && framedLeg == nil {
                     SeparateView { mapControlsBottomRow }
                         .frame(maxWidth: .infinity, alignment: .trailing)
                         .padding(.horizontal, 10)
@@ -2733,9 +2737,9 @@ struct NavigationMapView: View {
         let latitudeDelta: Double
     }
 
-    /// What the chart's foot holds while a leg shows: the bar, the map's foot under it (the scale; the
-    /// controls on a phone) and a margin, so the leg's waypoints stay above the bar.
-    private static var framedLegFootRoom: CGFloat { CockpitType.size(kneeboard: 190, phone: 230) }
+    /// What the chart's foot holds while a leg shows: on the iPad the bar and the scale under it, on a
+    /// phone the scale (its bar is at the top, measured with the chrome there).
+    private static var framedLegFootRoom: CGFloat { CockpitType.size(kneeboard: 170, phone: 60) }
 
     /// The leg framed: its two waypoints, clear of the chrome over the chart's top and of the bar at its
     /// foot, the aircraft no longer followed.
@@ -2776,8 +2780,8 @@ struct NavigationMapView: View {
         }
     }
 
-    /// At the chart's foot while a leg shows: "Back to aircraft" and the leg's DIRECT or RESUME LEG (with
-    /// its confirmation).
+    /// While a leg shows: "Back to aircraft" and the leg's DIRECT or RESUME LEG (with its confirmation). At
+    /// the chart's foot on the iPad, in the next line's place on a phone.
     @ViewBuilder
     private var framedLegBar: some View {
         if let index = framedLeg, let plan = flightPlanManager.activeFlightPlan, plan.waypoints.indices.contains(index) {

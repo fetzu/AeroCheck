@@ -1175,12 +1175,23 @@ extension FlightView {
     private func cockpitPhaseButton(fillsWidth: Bool) -> some View {
         Button(action: { showPhaseSelector = true }) {
             HStack(spacing: 8) {
-                Text(appState.currentPhase.shortTitle)
-                    .font(.aero(size: CockpitType.label, weight: .bold))
-                    .foregroundColor(theme.textPrimary)
-                    .lineLimit(2)
-                    .minimumScaleFactor(0.85)
-                    .fixedSize(horizontal: false, vertical: true)
+                ZStack(alignment: .leading) {
+                    // The iPad's one-row header holds two lines' height whether the title takes one or
+                    // two: it wrapped when the Companion's iPhone mark came or the GPS label grew (and on
+                    // the longer phase names), and every row under the header moved 5 pt. (6.1.0)
+                    if !fillsWidth {
+                        Text(verbatim: "A\nA")
+                            .font(.aero(size: CockpitType.label, weight: .bold))
+                            .hidden()
+                            .accessibilityHidden(true)
+                    }
+                    Text(appState.currentPhase.shortTitle)
+                        .font(.aero(size: CockpitType.label, weight: .bold))
+                        .foregroundColor(theme.textPrimary)
+                        .lineLimit(2)
+                        .minimumScaleFactor(0.85)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
                 if fillsWidth { Spacer(minLength: 8) }
                 Text("\(appState.currentPhase.rawValue + 1)/\(ChecklistPhase.allCases.count)")
                     .font(.aero(size: CockpitType.label, design: .monospaced))

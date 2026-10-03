@@ -2,7 +2,7 @@ import Foundation
 import CoreLocation
 
 /// Manages OpenAIP OBSTACLE data via the keyless, per-country GeoJSON exports
-/// (`storage.googleapis.com/.../{cc}_obs.geojson`) — a sibling to `OpenAIPNavaidDataService`, sharing its
+/// (`s3.openaip.net/openaip-system-exports/{cc}_obs.geojson`) — a sibling to `OpenAIPNavaidDataService`, sharing its
 /// lazy-load + atomic per-country cache. Obstacles are read-only situational-awareness markers (no snap,
 /// no nearest query), but the region query now sits on the throttled map-region-change hot path
 /// (NavigationView + FlightPlanMapBuilderView), so it keeps the same 1° spatial grid as the navaid

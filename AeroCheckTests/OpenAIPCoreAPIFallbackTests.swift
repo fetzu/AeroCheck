@@ -152,3 +152,37 @@ final class OpenAIPCoreAPIFallbackTests: XCTestCase {
         XCTAssertEqual(try Navaid.parse(geoJSON: data).count, 0)
     }
 }
+
+/// The keyless exports' address (6.2). OpenAIP moved them from a Requester-Pays Google bucket, where
+/// every anonymous read 400ed, to a public host; nothing pinned the URL, so the app kept asking the
+/// dead bucket and fell back to the keyed API on every download without anyone noticing.
+final class OpenAIPExportURLTests: XCTestCase {
+
+    /// Every structured layer, for a country typed either way, lands on the public host under the
+    /// path the host serves: `openaip-system-exports/<cc>_<layer>.geojson`, cc lowercased.
+    func testEveryLayerExportIsOnThePublicHost() throws {
+        for suffix in ["apt", "nav", "obs", "rpp"] {
+            for country in ["CH", "de"] {
+                let url = try XCTUnwrap(OpenAIPConfig.geoJSONExportURL(country: country, layerSuffix: suffix))
+                XCTAssertEqual(url.absoluteString,
+                               "https://s3.openaip.net/openaip-system-exports/\(country.lowercased())_\(suffix).geojson")
+                XCTAssertTrue(ExternalRequest.isAllowed(url, hosts: [OpenAIPConfig.geoJSONExportHost]), url.absoluteString)
+            }
+        }
+    }
+
+    /// The old bucket is gone from the address, and a redirect to it would be refused by the pin.
+    func testTheRequesterPaysBucketIsNotAllowed() throws {
+        XCTAssertFalse(OpenAIPConfig.geoJSONExportBaseURL.contains("storage.googleapis.com"))
+        let old = try XCTUnwrap(URL(string: "https://storage.googleapis.com/29f98e10-a489-4c82-ae5e-489dbcd4912f/ch_rpp.geojson"))
+        XCTAssertFalse(ExternalRequest.isAllowed(old, hosts: [OpenAIPConfig.geoJSONExportHost]))
+    }
+
+    /// The exports get time for the largest files (Germany's obstacles are ~21.6 MB) and still say
+    /// who is asking.
+    func testTheExportSessionAllowsLargeFiles() {
+        let config = OpenAIPConfig.geoJSONExportSession.configuration
+        XCTAssertGreaterThanOrEqual(config.timeoutIntervalForResource, 300)
+        XCTAssertEqual(config.httpAdditionalHeaders?["User-Agent"] as? String, ExternalRequest.userAgent)
+    }
+}

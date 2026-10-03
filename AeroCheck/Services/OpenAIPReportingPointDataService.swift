@@ -2,7 +2,7 @@ import Foundation
 import CoreLocation
 
 /// Manages OpenAIP VFR REPORTING-POINT data via the keyless, per-country GeoJSON exports
-/// (`storage.googleapis.com/.../{cc}_rpp.geojson`) — a sibling to `OpenAIPObstacleDataService`, sharing
+/// (`s3.openaip.net/openaip-system-exports/{cc}_rpp.geojson`) — a sibling to `OpenAIPObstacleDataService`, sharing
 /// its lazy-load + atomic per-country cache. Both the region query (nav-map markers) and the nearest-k
 /// query (briefings) sit on hot paths, so this keeps the same 1° spatial grid as
 /// `OpenAIPNavaidDataService` to avoid scanning the whole country-wide array on every call.

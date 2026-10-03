@@ -9,8 +9,10 @@ import UIKit
 // 1. Header: the aircraft, the phase and where it sits in the flight, flight time, GPS, and a
 //    labelled Menu.
 // 2. Instrument strip: GS, ALT, TRK and the next waypoint, at `CockpitType.value`.
-// 3. The context pane: the CHECKLIST or the MAP at full height, never both squeezed. It follows the
-//    flight (`CockpitPaneRule`); a tap on the picker overrides it until the flight moves on.
+// 3. The context pane: the CHECKLIST, the MAP or the ROUTE at full height, never two squeezed. It
+//    follows the flight (`CockpitPaneRule`: CHECKLIST or MAP); a tap on the picker overrides it until
+//    the flight moves on (`CockpitPaneChoice`). ROUTE (6.2) is the pilot's pick only: the DEST line, the
+//    legs and the radio (`CockpitRoutePage.swift`).
 // 4. The act band (6.2, `CockpitActBand.swift`): four slots in the same frames under every pane, so the
 //    hand learns where they are. Checklist: the phase's action, FREDA or the check slot, then CHECK,
 //    DEFER and More. Map: the check slot, MARK with the leg timer, Divert and More.
@@ -23,6 +25,34 @@ import UIKit
 enum CockpitPane: Hashable {
     case checklist
     case map
+    /// The DEST line, the legs and the radio. Never a default: the pilot picks it. (6.2)
+    case route
+}
+
+/// The page the pilot picked over the one the flight suggests: kept until the suggestion changes (the
+/// next phase, the checklist done), then dropped. Pure, so it is tested without a view. (v6.0 · P2; 6.2)
+struct CockpitPaneChoice: Equatable {
+    /// The pilot's pick, while it differs from the suggestion.
+    private(set) var override: CockpitPane?
+
+    init(override: CockpitPane? = nil) {
+        self.override = override
+    }
+
+    /// What shows.
+    func pane(suggested: CockpitPane) -> CockpitPane {
+        override ?? suggested
+    }
+
+    /// A tap on the picker: the suggestion itself clears the pick.
+    mutating func pick(_ pane: CockpitPane, suggested: CockpitPane) {
+        override = pane == suggested ? nil : pane
+    }
+
+    /// The flight suggests another page: the pick is dropped, ROUTE's too.
+    mutating func suggestionChanged() {
+        override = nil
+    }
 }
 
 /// Which pane the Cockpit shows by itself. Pure, so it is tested without a view.
@@ -418,28 +448,42 @@ struct CockpitThumbButton: View {
     }
 }
 
-/// CHECKLIST | MAP, both words on screen, the current one filled.
+/// CHECKLIST · MAP · ROUTE, every word on screen, the current one filled.
 struct CockpitPanePicker: View {
     @Environment(\.cockpitTheme) private var theme
     @Binding var selection: CockpitPane
-    /// The phone's pane bar: the two segments share the full width.
+    /// The phone's pane bar: the segments share the full width.
     var fillsWidth: Bool = false
+    /// The icons beside the words, where they fit: a phone in French has room for the words alone.
+    var showsIcons: Bool = true
 
     var body: some View {
         HStack(spacing: 0) {
             segment(.checklist, title: L10n.Cockpit.checklist, icon: "checklist")
             segment(.map, title: L10n.Cockpit.map, icon: "map")
+            segment(.route, title: L10n.Cockpit.route, icon: "list.bullet")
         }
         .padding(4)
         .background(RoundedRectangle(cornerRadius: 14).fill(theme.panel))
         .overlay(RoundedRectangle(cornerRadius: 14).stroke(theme.panelStroke, lineWidth: 1))
     }
 
+    /// "pane.checklist", "pane.map", "pane.route": what the UI tests tap.
+    static func identifier(_ pane: CockpitPane) -> String {
+        switch pane {
+        case .checklist: return "pane.checklist"
+        case .map: return "pane.map"
+        case .route: return "pane.route"
+        }
+    }
+
     private func segment(_ pane: CockpitPane, title: String, icon: String) -> some View {
         let selected = selection == pane
         return Button { selection = pane } label: {
             HStack(spacing: 8) {
-                Image(systemName: icon).font(.aero(size: CockpitType.label, weight: .semibold))
+                if showsIcons {
+                    Image(systemName: icon).font(.aero(size: CockpitType.label, weight: .semibold))
+                }
                 Text(title).font(.aero(size: CockpitType.label, weight: .bold)).lineLimit(1).fixedSize()
             }
             .foregroundColor(selected ? theme.actionText : theme.action)
@@ -449,7 +493,7 @@ struct CockpitPanePicker: View {
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
-        .accessibilityIdentifier(pane == .checklist ? "pane.checklist" : "pane.map")
+        .accessibilityIdentifier(Self.identifier(pane))
         .accessibilityAddTraits(selected ? .isSelected : [])
     }
 }

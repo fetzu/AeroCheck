@@ -12,9 +12,9 @@ import os
 //   CHECKLIST  S1 ENGINE START / SHUTDOWN in their phases, FREDA in cruise, else the check slot
 //              S2 CHECK with the item, then ✓ DONE, NEXT, READY FOR LINE UP or END FLIGHT
 //              S3 DEFER (dimmed when nothing can be deferred)   S4 More
-//   MAP        S1 the check slot   S2 START LEG, then MARK <wpt> with the leg timer (Routes, no route)
+//   MAP, ROUTE S1 the check slot   S2 START LEG, then MARK <wpt> with the leg timer (Routes, no route)
 //              S3 Divert (amber while diverting)                S4 More
-//   MAP, from the approach to the runway, and from circuit height:
+//   MAP and ROUTE, from the approach to the runway, and from circuit height:
 //              S1 the check slot   S2 GO AROUND   S3 TOUCH-AND-GO   S4 More, Divert inside it
 //
 // Until 6.2 each pane had a thumb bar of its own: the checklist's laid itself out again with the phase
@@ -60,7 +60,8 @@ enum ActBandRoles {
         case .checklist:
             return [checklistFirst(phase: phase, circuits: circuits), .checklistPrimary,
                     .deferItem(enabled: canDefer), .more(withDivert: legToFly)]
-        case .map:
+        case .map, .route:
+            // ROUTE has MAP's roles: the legs to mark and divert from are on it. (6.2, ROUTE)
             // The destination is marked by the landing: from the approach on, the runway's buttons take
             // MARK's and Divert's places, and Divert goes into More. (6.1, mockup M3)
             if phase == .approach || phase == .landing || landingShown {
@@ -208,9 +209,9 @@ enum ActBandText {
 // MARK: - What the band owns
 
 /// What the map's thumb bar owned and the band does now, for every page: the last MARK or leg-timer
-/// reset offered back, the Divert sheet, the routes, and the two requests a tap in the band sends to a
-/// page (the checklist's current item into view, the map's legs and frequencies). The Cockpit's, put in
-/// the environment by `FlightView`; Plan › Map has none.
+/// reset offered back, the Divert sheet, the routes, the request a tap in the band sends to a page (the
+/// checklist's current item into view), and the leg ROUTE asked MAP to show. The Cockpit's, put in the
+/// environment by `FlightView`; Plan › Map has none.
 @MainActor
 @Observable
 final class CockpitNavState {
@@ -224,8 +225,11 @@ final class CockpitNavState {
     var showRoutes = false
     /// Bumped by the check slot on CHECKLIST: the list brings the current item into view.
     var checklistScrollRequest = 0
-    /// More › Legs and frequencies: the map opens its panel once it shows (it may be on its way).
-    var legsPanelPending = false
+    /// A leg tapped on ROUTE: MAP shows it framed (the waypoint before it and its own), with "Back to
+    /// aircraft" and the leg's DIRECT or RESUME LEG, until the pilot goes back to the aircraft or leaves
+    /// MAP. The index of the waypoint the leg arrives at; 0, the departure's row, is the first leg. (6.2,
+    /// ROUTE, the plan's Q7)
+    var framedLeg: Int?
 
     /// MARK: the waypoint flown to is passed now, the next leg's timer starts, and the mark is offered
     /// back.
@@ -268,8 +272,14 @@ final class CockpitNavState {
         checklistScrollRequest &+= 1
     }
 
-    func requestLegsPanel() {
-        legsPanelPending = true
+    /// The leg arriving at `index`, for MAP to frame; the page switch is the caller's.
+    func showLeg(_ index: Int) {
+        framedLeg = index
+    }
+
+    /// Back to the aircraft: the leg no longer framed.
+    func endLegFraming() {
+        framedLeg = nil
     }
 }
 
@@ -288,6 +298,12 @@ struct CockpitActions {
     var showChecklist: () -> Void = {}
     /// The MAP page.
     var showMap: () -> Void = {}
+    /// The ROUTE page: More's legs and frequencies. (6.2, ROUTE)
+    var showRoute: () -> Void = {}
+    /// The V-SPEEDS drawer: More's, on the phone, whose picker has no room left for its chip. (6.2, Q8)
+    var showVSpeeds: () -> Void = {}
+    /// The deferred list: More's, on MAP and ROUTE, whose picker row lost its chip. (6.2)
+    var showDeferred: () -> Void = {}
     /// ENGINE START or SHUTDOWN pulses: the list is done, the action is still to press.
     var pulseAction = false
     /// NEXT pulses: the check done, its action recorded.
@@ -405,8 +421,8 @@ struct ActSlotView: View {
         switch role {
         case .checkSlot:
             // On CHECKLIST the list is there already: "N items" brings the current one into view.
-            CockpitCheckSlot(onShowChecklist: page == .map ? actions.showChecklist
-                                                           : { navState.scrollChecklistToCurrentItem() })
+            CockpitCheckSlot(onShowChecklist: page == .checklist ? { navState.scrollChecklistToCurrentItem() }
+                                                                 : actions.showChecklist)
         case .engineStart, .engineShutdown:
             ActPhaseActionButton(shutdown: role == .engineShutdown, actions: actions)
         case .freda:
@@ -445,7 +461,7 @@ struct ActSlotView: View {
             .accessibilityLabel(L10n.Act.divert)
             .accessibilityIdentifier("act.divert")
         case .more(let withDivert):
-            CockpitMoreMenu(page: page, withDivert: withDivert, half: half, onShowMap: actions.showMap)
+            CockpitMoreMenu(page: page, withDivert: withDivert, half: half, actions: actions)
         }
     }
 }
@@ -708,14 +724,16 @@ struct ActRoutesButton: View {
 }
 
 /// The rarer actions, on every page: Divert where its slot holds something else, the leg timer's pause
-/// and reset (the reset offers undo), the legs and frequencies (on the map), and the routes.
+/// and reset (the reset offers undo), the legs and frequencies (ROUTE), what is deferred (on MAP and
+/// ROUTE, whose picker row has no room for its chip since 6.2), V-SPEEDS on the phone, and the routes.
 struct CockpitMoreMenu: View {
     let page: CockpitPane
     let withDivert: Bool
     var half: Bool = false
-    let onShowMap: () -> Void
+    let actions: CockpitActions
 
     @Environment(CockpitNavState.self) private var navState
+    @Environment(AppState.self) private var appState
     @Environment(\.cockpitTheme) private var theme
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @EnvironmentObject private var flightPlanManager: FlightPlanManager
@@ -728,12 +746,23 @@ struct CockpitMoreMenu: View {
                 }
             }
             legTimerItems
-            Button {
-                // From CHECKLIST, the map first: its panel opens as it shows.
-                if page != .map { onShowMap() }
-                navState.requestLegsPanel()
-            } label: {
-                Label(L10n.Nav.legsAndFrequencies, systemImage: "list.bullet")
+            if page != .route {
+                Button(action: actions.showRoute) {
+                    Label(L10n.Nav.legsAndFrequencies, systemImage: "list.bullet")
+                }
+            }
+            // On CHECKLIST the deferred chip is at the top of the list.
+            if page != .checklist && appState.hasDeferredWork {
+                Button(action: actions.showDeferred) {
+                    Label(L10n.Deferred.summary(checks: appState.deferredChecks.count, items: appState.deferredItemCount),
+                          systemImage: "clock.arrow.circlepath")
+                }
+            }
+            if CockpitScale.current == .phone {
+                // V-SPEEDS stays English in French, as on its chip.
+                Button(action: actions.showVSpeeds) {
+                    Label { Text(verbatim: "V-SPEEDS") } icon: { Image(systemName: "speedometer") }
+                }
             }
             Button { navState.showRoutes = true } label: {
                 Label(L10n.Ground.planRoutes, systemImage: "point.topleft.down.to.point.bottomright.curvepath")

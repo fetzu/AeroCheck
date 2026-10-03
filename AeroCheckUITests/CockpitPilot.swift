@@ -286,7 +286,7 @@ final class CockpitPilot {
         return snap(segments.firstMatch).map { String($0.identifier.dropFirst("phaseBar.".count)) }
     }
 
-    /// The pane CHECKLIST | MAP shows. One query: at 10x every query is flight time.
+    /// The page CHECKLIST · MAP · ROUTE shows. One query: at 10x every query is flight time.
     var paneShown: String? {
         let e = app.descendants(matching: .any)
             .matching(NSPredicate(format: "identifier BEGINSWITH 'pane.' AND selected == true")).firstMatch
@@ -436,18 +436,19 @@ final class CockpitPilot {
 
     // MARK: The route
 
-    /// The legs list open on the MAP pane (it stays open).
+    /// The legs list: the ROUTE page (6.2; until then the MAP pane's legs panel). It stays there.
     func openLegs() {
-        showPane("map")
-        if snap(element(prefix: "legRow.")) == nil { tap("map.legsToggle", timeout: 5) }
+        showPane("route")
         _ = element(prefix: "legRow.").waitForExistence(timeout: 3)
     }
 
-    /// "ETA 14:37" on the legs list's DEST line.
+    /// The plan's ETO over the destination ("14:37"), as the Flight Log's DEST ETO: the value of
+    /// ROUTE's DEST line, whose own figures are live since 6.2. (Until then the legs list's "ETA 14:37".)
     func destinationETA() -> String? {
         openLegs()
-        let e = element("legs.destinationETA")
-        return e.waitForExistence(timeout: 3) ? snap(e)?.label : nil
+        let e = element("dest.line")
+        guard e.waitForExistence(timeout: 3), let value = snap(e)?.value as? String, !value.isEmpty else { return nil }
+        return value
     }
 
     /// A row of the legs list: "next", "passed", "ahead", and whether it has a time over.

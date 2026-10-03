@@ -1,3 +1,4 @@
+import CoreLocation
 import SwiftUI
 import XCTest
 @testable import AeroCheck
@@ -93,6 +94,25 @@ final class ViewStackBudgetTests: XCTestCase {
             render(FlightView(), services: services, size: CGSize(width: 1_180, height: 820))
         }
         XCTAssertLessThan(used, Self.budget, "the Cockpit's map on its side used \(used / 1_024) KB of stack")
+    }
+
+    /// The Cockpit on ROUTE in cruise with a route of six waypoints (6.2): the DEST line, the legs beside
+    /// the radio, Emergency under them, the act band, on an iPad in portrait and on its side, and at a
+    /// phone's width.
+    func testCockpitRouteRendersWithinHalfTheDeviceStack() {
+        for (size, name) in [(CGSize(width: 820, height: 1_180), "iPad portrait"),
+                             (CGSize(width: 1_180, height: 820), "iPad on its side"),
+                             (CGSize(width: 402, height: 874), "phone width")] {
+            let services = makeServices()
+            startFlight(services.appState, stepByStep: false)
+            services.appState.goToPhase(.cruise)
+            armRoute(services.flightPlanManager, waypoints: 6)
+
+            let used = StackProbe.bytesUsed {
+                render(FlightView(initialPane: .route), services: services, size: size)
+            }
+            XCTAssertLessThan(used, Self.budget, "the Cockpit's ROUTE (\(name)) used \(used / 1_024) KB of stack")
+        }
     }
 
     /// The Cockpit on its checklist in cruise with FREDA counting in the act band's first slot (6.2):
@@ -261,6 +281,20 @@ final class ViewStackBudgetTests: XCTestCase {
             windDataService: WindDataService(),
             windsAloftService: WindsAloftService()
         )
+    }
+
+    /// `waypoints` from Bressaucourt southwards, armed; disarmed when the test ends.
+    private func armRoute(_ manager: FlightPlanManager, waypoints count: Int) {
+        var plan = manager.createFlightPlan(name: "Stack budget")
+        for index in 0..<count {
+            plan.waypoints.append(FlightPlanWaypoint(
+                name: index == 0 ? "LSZQ" : "WP\(index)",
+                coordinate: CLLocationCoordinate2D(latitude: 47.39 - Double(index) * 0.13, longitude: 7.03)))
+        }
+        plan.calculateRouteData()
+        manager.updateFlightPlan(plan)
+        manager.activateFlightPlan(plan)
+        addTeardownBlock { @MainActor in manager.deactivateFlightPlan() }
     }
 
     /// A flight with the bundled WT9, cancelled when the test ends.

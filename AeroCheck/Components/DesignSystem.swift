@@ -1311,6 +1311,8 @@ struct CockpitInstrumentStrip: View {
     var kneeboard: Bool = false
     /// The next waypoint, in the route's magenta: the fourth cell of the Cockpit strip. (v6.0 · P2)
     var nextWaypoint: String? = nil
+    /// A tap on GS: the Cockpit's V-SPEEDS, which the phone's picker row has no room for. (6.2, Q8)
+    var onSpeedTap: (() -> Void)? = nil
 
     private var valueSize: CGFloat { kneeboard ? CockpitType.value : 24 }
     private var labelSize: CGFloat { kneeboard ? CockpitType.label : 11 }
@@ -1404,6 +1406,7 @@ struct CockpitInstrumentStrip: View {
                 displaySpeed: Int(displaySpeed), targetSpeed: targetSpeed ?? 0, state: speedState,
                 gpsLost: gpsSignalStatus == .lost))
         .accessibilityAddTraits(.updatesFrequently)
+        .modifier(SpeedCellTap(action: onSpeedTap))
     }
 
     private var altitudeCell: some View {
@@ -1519,6 +1522,24 @@ struct CockpitInstrumentStrip: View {
     }
 
 
+}
+
+/// GS as a way to V-SPEEDS: the cell's whole area, a button to VoiceOver. Nothing without an action.
+/// (6.2, Q8)
+private struct SpeedCellTap: ViewModifier {
+    let action: (() -> Void)?
+
+    func body(content: Content) -> some View {
+        if let action {
+            content
+                .contentShape(Rectangle())
+                .onTapGesture(perform: action)
+                .accessibilityAddTraits(.isButton)
+                .accessibilityHint(Text(verbatim: "V-SPEEDS"))
+        } else {
+            content
+        }
+    }
 }
 
 // MARK: - Cockpit Hero Checklist Item (v4 UI/UX Revamp HUD)

@@ -84,7 +84,8 @@ Shared/                   at the REPO ROOT; compiled into the app and the Watch 
 AeroCheckWidget/          widgets and the Live Activity (FlightLiveActivity.swift)
 AeroCheckWatch/           the Watch app
 AeroCheckTests/           unit tests, one <Feature>Tests.swift per feature; TestDatastore.swift
-ci_scripts/               Xcode Cloud: ci_post_clone.sh (secrets), ci_pre_xcodebuild.sh (build number)
+ci_scripts/               Xcode Cloud: ci_post_clone.sh (secrets), ci_pre_xcodebuild.sh (build number), ci_post_xcodebuild.sh (What to Test)
+TestFlight/               What to Test for the next release tag, EN + FR (ci_post_xcodebuild.sh)
 ```
 
 Owners and rules that aren't obvious from the names:
@@ -353,8 +354,18 @@ Aware (Publish + Subscribe) for Companion, `aps-environment`.
 - `CURRENT_PROJECT_VERSION` (`CFBundleVersion`) is NEVER edited by hand: Xcode Cloud's
   `ci_scripts/ci_pre_xcodebuild.sh` writes its counter into all 8 configurations (app, widget and Watch
   must match, hence `project.pbxproj` and not an xcconfig; the script says why). The checked-in default
-  stays `1`, the number is never reset, and only ONE Xcode Cloud workflow may upload (each workflow
-  counts from 1).
-- To release: tag `X.Y.Z` on `main` and publish the GitHub release (that rebuilds the website changelog),
-  then check that the Xcode Cloud log says `written to 8 build configurations`. Any other count means a
-  target stopped being covered and the upload will be refused.
+  stays `1` and the number is never reset. Xcode Cloud keeps ONE counter per app, shared by every
+  workflow (confirmed by the first tag build, Oct 2026), so two workflows can both upload.
+- **TestFlight:** two Xcode Cloud workflows. "CI/CD for TestFlight (Internal Testing)" builds every push to
+  `main` for the internal (alpha) group; "Beta · tags" builds every release tag for the internal group and
+  the external Beta group (Beta App Review). The App Store gets the tag's beta build. Environment variables
+  (the three secrets of `ci_post_clone.sh`) belong to each workflow: a new workflow needs them set again.
+- **What to Test:** `ci_scripts/ci_post_xcodebuild.sh` writes `TestFlight/WhatToTest.<locale>.txt`, which Xcode
+  Cloud shows the testers of the build. A main build lists the last pull requests merged. A tag build keeps
+  the notes committed in `TestFlight/`, if their first line names the tag; otherwise it lists the pull
+  requests since the previous tag and warns in the log.
+- To release: before tagging, commit the beta testers' notes for `X.Y.Z` in `TestFlight/WhatToTest.en-US.txt`
+  and `.fr-FR.txt` (first line names the version; what's new and what to try, short). Then tag `X.Y.Z` on
+  `main` and publish the GitHub release (that rebuilds the website changelog). In the beta build's Xcode
+  Cloud log, check `written to 8 build configurations` (any other count means a target stopped being
+  covered and the upload will be refused) and `notes for X.Y.Z, as committed` for both languages.

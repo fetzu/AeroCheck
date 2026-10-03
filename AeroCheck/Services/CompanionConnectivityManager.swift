@@ -2217,9 +2217,13 @@ class CompanionConnectivityManager: NSObject, ObservableObject {
     }
 
     /// Viewer: stream this device's current fix up to the master, if it's usable. (shared-GPS)
+    ///
+    /// Only a fix from the satellites (`LocationManager.isSatelliteFix`): the master shows a borrowed fix
+    /// as a good signal, so a Wi-Fi position sent from a phone indoors would turn a GPS-less iPad green.
+    /// (6.1.1, Wi-Fi iPads)
     private func sendPeerGPSIfAvailable() {
         guard currentRole == .viewer, sendHandler != nil, connectionState == .connected,
-              let loc = locationManager?.currentLocation else { return }
+              let loc = locationManager?.currentLocation, LocationManager.isSatelliteFix(loc) else { return }
         let accuracy = loc.horizontalAccuracy
         guard gpsElection.isValid(accuracy: accuracy, age: Date().timeIntervalSince(loc.timestamp)) else { return }
         let gps = CompanionPeerGPS(

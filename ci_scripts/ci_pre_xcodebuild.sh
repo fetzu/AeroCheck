@@ -24,9 +24,10 @@
 # app is refused at upload. Rewriting every occurrence covers all targets, and
 # covers a target added later without anyone remembering this file exists.
 #
-# NOTE: only ONE Xcode Cloud workflow may upload. CI_BUILD_NUMBER is per-workflow
-# and each new workflow starts its own count at 1, which would regress the build
-# number and have the upload refused.
+# Xcode Cloud keeps one build counter per app, shared by every workflow (Apple,
+# "Setting the next build number for Xcode Cloud builds"; the first build of the
+# "Beta · tags" workflow continued main's numbers, Oct 2026). So the main and the
+# tag workflows can both upload without their numbers colliding.
 
 set -eu
 

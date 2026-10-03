@@ -183,11 +183,14 @@ final class LocationManagerTests: XCTestCase {
 
     // MARK: - Companion shared GPS: borrowed-fix injection (v4.1)
 
+    /// A fix in flight. `satellite: false` (the default) has no speed accuracy, as a Wi-Fi position
+    /// or a companion's fix rebuilt from the wire.
     private func fix(lat: Double = 47, lon: Double = 8, accuracy: CLLocationAccuracy = 10,
-                     ageSeconds: TimeInterval = 0) -> CLLocation {
+                     ageSeconds: TimeInterval = 0, satellite: Bool = false) -> CLLocation {
         CLLocation(coordinate: CLLocationCoordinate2D(latitude: lat, longitude: lon),
                    altitude: 500, horizontalAccuracy: accuracy, verticalAccuracy: 10,
-                   course: 90, speed: 30, timestamp: Date(timeIntervalSinceNow: -ageSeconds))
+                   course: 90, courseAccuracy: -1, speed: 30, speedAccuracy: satellite ? 0.5 : -1,
+                   timestamp: Date(timeIntervalSinceNow: -ageSeconds))
     }
 
     @MainActor
@@ -202,11 +205,81 @@ final class LocationManagerTests: XCTestCase {
     @MainActor
     func testOwnFixWinsOverBorrowedFix() {
         let lm = LocationManager()
-        lm.processLocation(fix(lat: 47.0, lon: 8.0), isOwnFix: true)
+        lm.processLocation(fix(lat: 47.0, lon: 8.0, satellite: true), isOwnFix: true)
         XCTAssertTrue(lm.ownFixIsLive, "a real device fix marks own GPS live")
         lm.injectCompanionLocation(fix(lat: 46.5, lon: 6.6))
         XCTAssertEqual(lm.currentLocation?.coordinate.latitude ?? 0, 47.0, accuracy: 1e-6,
                        "a live own fix is preserved; the borrowed fix is ignored")
+    }
+
+    // MARK: Wi-Fi iPads (6.1.1)
+
+    /// A Wi-Fi iPad gets Wi-Fi positions near a hotspot. Counted as its own GPS, they kept the iPhone's
+    /// fix out of the flight and told the iPhone to stop sending it.
+    @MainActor
+    func testAWiFiPositionDoesNotKeepTheCompanionsGPSOut() {
+        let lm = LocationManager()
+        lm.processLocation(fix(lat: 47.0, lon: 8.0, accuracy: 30), isOwnFix: true)
+        XCTAssertFalse(lm.ownFixIsLive, "a Wi-Fi position is not this device's GPS")
+        lm.injectCompanionLocation(fix(lat: 46.5, lon: 6.6))
+        XCTAssertEqual(lm.currentLocation?.coordinate.latitude ?? 0, 46.5, accuracy: 1e-6,
+                       "the iPhone's fix is borrowed over the iPad's Wi-Fi position")
+    }
+
+    @MainActor
+    func testAParkedWiFiIPadsPositionsAreNotLiveEither() {
+        let lm = LocationManager()
+        let start = Date()
+        lm.receiveDeviceFix(groundFix(north: 0, accuracy: 20, satellite: false, at: start), now: start)
+        lm.receiveDeviceFix(groundFix(north: 1, accuracy: 20, satellite: false, at: start + 1), now: start + 1)
+        XCTAssertFalse(lm.ownFixIsLive, "held back by the ground filter or not, a Wi-Fi position is not live")
+    }
+
+    /// An external receiver (MFi) paired with a Wi-Fi iPad: Core Location marks its fixes as produced
+    /// by an accessory, and they may come without a speed accuracy. A CLLocation built with that source
+    /// information keeps the simulation flag but drops the accessory one, so the fix says it itself.
+    private final class AccessoryFix: CLLocation, @unchecked Sendable {
+        override var sourceInformation: CLLocationSourceInformation? {
+            CLLocationSourceInformation(softwareSimulationState: false, andExternalAccessoryState: true)
+        }
+    }
+
+    private func accessoryFix(at time: Date) -> CLLocation {
+        AccessoryFix(coordinate: CLLocationCoordinate2D(latitude: 47, longitude: 8), altitude: 430,
+                     horizontalAccuracy: 5, verticalAccuracy: 8, course: -1, courseAccuracy: -1,
+                     speed: 0, speedAccuracy: -1, timestamp: time)
+    }
+
+    func testAnExternalReceiversFixIsFromTheSatellites() {
+        XCTAssertTrue(LocationManager.isSatelliteFix(accessoryFix(at: Date())),
+                      "an external GPS receiver's fix counts, with or without a speed accuracy")
+    }
+
+    @MainActor
+    func testAnExternalReceiverKeepsTheIndicatorGreen() {
+        let lm = LocationManager()
+        let start = Date()
+        for t in stride(from: 0.0, through: 40.0, by: 5.0) {
+            lm.receiveDeviceFix(accessoryFix(at: start + t), now: start + t)
+        }
+        XCTAssertEqual(lm.gpsSignalStatus, .good, "40 s of accessory fixes keep the indicator green")
+        XCTAssertTrue(lm.ownFixIsLive, "the receiver is this device's GPS for Companion")
+    }
+
+    func testTheLogLineCountsAnExternalReceiver() {
+        var digest = GPSFixDigest()
+        let now = Date()
+        digest.add(accessoryFix(at: now), borrowed: false, now: now)
+        XCTAssertTrue(digest.line(seconds: 10, status: .good).contains("satellite 1 (1 from an accessory), "))
+    }
+
+    /// The app required a GPS to install until 6.1.1, so Wi-Fi-only iPads couldn't get it, although an
+    /// iPhone's GPS over Companion or an external receiver serves them. (author, 3 Oct 2026)
+    func testAWiFiIPadCanInstallTheApp() {
+        let value = Bundle.main.object(forInfoDictionaryKey: "UIRequiredDeviceCapabilities")
+        let required = (value as? [String]) ?? ((value as? [String: Bool])?.filter(\.value).map(\.key) ?? [])
+        XCTAssertFalse(required.contains("gps"), "a Wi-Fi-only iPad has no GPS of its own")
+        XCTAssertFalse(required.contains("location-services"), "nor does it need one to run the app")
     }
 
     @MainActor

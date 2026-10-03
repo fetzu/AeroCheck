@@ -9,6 +9,78 @@ enum GPSSignalStatus {
     case lost       // Red: GPS truly lost — no position data available
 }
 
+/// What the GPS delivered over a stretch, for the device's log (`LocationManager.logFixDigest`): counts
+/// and ranges only, never a position. Pure, so it is tested without Core Location. (6.1.0)
+struct GPSFixDigest {
+    private(set) var fixes = 0
+    private(set) var borrowed = 0
+    private(set) var minAccuracy: Double?
+    private(set) var maxAccuracy: Double?
+    /// Fixes with a speed accuracy: from the satellites (`LocationManager.isSatelliteFix`).
+    private(set) var withSpeedAccuracy = 0
+    /// Fixes with a course.
+    private(set) var withCourse = 0
+    /// Fixes identical to the one before (position, altitude, accuracy): the same estimate again.
+    private(set) var sameAsPrevious = 0
+    private(set) var movedMetres = 0.0
+    /// The oldest fix on arrival, in seconds after it was determined.
+    private(set) var oldestAge: TimeInterval = 0
+    /// Core Location's diagnostics (iOS 18+): updates saying the location is unavailable, or stationary.
+    private(set) var unavailable = 0
+    private(set) var stationary = 0
+    private var previous: CLLocation?
+
+    mutating func add(_ fix: CLLocation, borrowed isBorrowed: Bool, now: Date) {
+        fixes += 1
+        if isBorrowed { borrowed += 1 }
+        let accuracy = fix.horizontalAccuracy
+        if accuracy >= 0 {
+            minAccuracy = min(minAccuracy ?? accuracy, accuracy)
+            maxAccuracy = max(maxAccuracy ?? accuracy, accuracy)
+        }
+        if fix.speedAccuracy >= 0 { withSpeedAccuracy += 1 }
+        if fix.course >= 0 { withCourse += 1 }
+        if !isBorrowed { oldestAge = max(oldestAge, now.timeIntervalSince(fix.timestamp)) }
+        if let previous {
+            if previous.coordinate.latitude == fix.coordinate.latitude,
+               previous.coordinate.longitude == fix.coordinate.longitude,
+               previous.altitude == fix.altitude, previous.horizontalAccuracy == accuracy {
+                sameAsPrevious += 1
+            }
+            movedMetres += fix.distance(from: previous)
+        }
+        previous = fix
+    }
+
+    mutating func noteDiagnostics(unavailable isUnavailable: Bool, stationary isStationary: Bool) {
+        if isUnavailable { unavailable += 1 }
+        if isStationary { stationary += 1 }
+    }
+
+    /// The next stretch counts from nothing, but still compares its first fix with the last one.
+    mutating func startNextStretch() {
+        let last = previous
+        self = GPSFixDigest()
+        previous = last
+    }
+
+    /// One line: "GPS 10 s: 10 fixes, ± 7–9 m, satellite 10, course on 0, same as previous 0,
+    /// moved 1.2 m, oldest 1 s, unavailable 0, stationary 0; status good".
+    func line(seconds: Int, status: GPSSignalStatus) -> String {
+        let range: String
+        if let minAccuracy, let maxAccuracy {
+            range = "± \(Int(minAccuracy.rounded()))–\(Int(maxAccuracy.rounded())) m"
+        } else {
+            range = "no accuracy"
+        }
+        return "GPS \(seconds) s: \(fixes) fixes" + (borrowed > 0 ? " (\(borrowed) from the companion)" : "")
+            + ", \(range), satellite \(withSpeedAccuracy), course on \(withCourse)"
+            + ", same as previous \(sameAsPrevious), moved \(String(format: "%.1f", movedMetres)) m"
+            + ", oldest \(Int(oldestAge.rounded())) s, unavailable \(unavailable), stationary \(stationary)"
+            + "; status \(status.description)"
+    }
+}
+
 /// Manages GPS location tracking during flights
 @MainActor
 class LocationManager: NSObject, ObservableObject {
@@ -29,7 +101,14 @@ class LocationManager: NSObject, ObservableObject {
     @Published var isTracking: Bool = false
     @Published var isLocationUpdatesActive: Bool = false // True when GPS is active (even without flight tracking)
     @Published var locationError: String?
-    @Published var gpsSignalStatus: GPSSignalStatus = .good
+    @Published var gpsSignalStatus: GPSSignalStatus = .good {
+        didSet {
+            // Kept in the device's log, for a field report read back with `log collect`. (6.1.0)
+            if gpsSignalStatus != oldValue {
+                AppLog.location.publicNotice("GPS status: \(oldValue.description) → \(gpsSignalStatus.description)")
+            }
+        }
+    }
     /// True when GPS is active but only WhenInUse authorization is granted, so the track may
     /// stop if the app is backgrounded. Drives an in-flight warning banner. (PERF-04)
     @Published var backgroundTrackingLimited: Bool = false
@@ -89,7 +168,12 @@ class LocationManager: NSObject, ObservableObject {
 
     // GPS accuracy tracking
     private var lastGoodSignalTime: Date?
-    private var lastLocationUpdateTime: Date?
+    /// When the latest fix that counted for the status was determined: its own time for this device's
+    /// fixes, the receiving time for a companion's. (`updateSignalQuality`)
+    private(set) var lastLocationUpdateTime: Date?
+    /// When the latest fix from the satellites, within 100 m, was determined (`isSatelliteFix`). Green
+    /// needs one in the last 20 s: a Wi-Fi or cell position alone is no GPS. (6.1.0)
+    private(set) var lastSatelliteFixTime: Date?
     private var lastKnownAccuracy: CLLocationAccuracy = -1  // Last received horizontal accuracy (-1 = unknown)
     private let signalDegradedThreshold: TimeInterval = 10.0  // 10 seconds without update = degraded
     private let signalLostThreshold: TimeInterval = 20.0  // 20 seconds without update = long-degraded
@@ -225,6 +309,7 @@ class LocationManager: NSObject, ObservableObject {
         self.lastWaypointPassageTime = nil
         self.lastGoodSignalTime = Date()
         self.lastLocationUpdateTime = Date()
+        self.lastSatelliteFixTime = Date()   // a session starts counting the 20 s too
         self.gpsSignalStatus = .good
 
         guard authorizationStatus == .authorizedWhenInUse ||
@@ -353,6 +438,7 @@ class LocationManager: NSObject, ObservableObject {
 
         locationManager.startUpdatingLocation()
         lastLocationUpdateTime = Date()
+        lastSatelliteFixTime = Date()   // a session starts counting the 20 s too
         gpsSignalStatus = .good
         isLocationUpdatesActive = true
         startSignalCheckTimer()
@@ -394,6 +480,7 @@ class LocationManager: NSObject, ObservableObject {
         locationManager.allowsBackgroundLocationUpdates = true
         locationManager.startUpdatingLocation()
         lastLocationUpdateTime = Date()
+        lastSatelliteFixTime = Date()   // a session starts counting the 20 s too
         gpsSignalStatus = .good
         startSignalCheckTimer()
         // Upgrade WhenInUse → Always so the feed isn't suspended the moment the viewer backgrounds.
@@ -436,11 +523,65 @@ class LocationManager: NSObject, ObservableObject {
         }
         RunLoop.main.add(timer, forMode: .common)
         signalCheckTimer = timer
+        fixDigest = GPSFixDigest()
+        signalChecks = 0
+        startLiveDiagnostics()
     }
 
     private func stopSignalCheckTimer() {
         signalCheckTimer?.invalidate()
         signalCheckTimer = nil
+        liveDiagnostics?.cancel()
+        liveDiagnostics = nil
+    }
+
+    // MARK: - What the GPS delivers, in the log (6.1.0)
+    //
+    // A parked iPad stayed green for minutes in a closed microwave oven (6.1.0 device check, gps-2), with
+    // a fix every second at ± 7–9 m. Whether Core Location was still tracking satellites through the
+    // door or holding a position it estimated, the app can't see: `horizontalAccuracy` is "the radius of
+    // uncertainty for the location", not a signal strength, and nothing in the API names the source (GNSS,
+    // Wi-Fi, cell, sensors). What it can do is keep a record: every 10 s, one line of what the fixes
+    // carried, and, from iOS 18, whether Core Location itself said the location was unavailable
+    // (`CLLocationUpdate.locationUnavailable`, "unable to determine their location at all"). Counts and
+    // ranges only, never a position, so the lines are public and survive in a `log collect` archive.
+
+    private var fixDigest = GPSFixDigest()
+    private var signalChecks = 0
+    private var liveDiagnostics: Task<Void, Never>?
+    private var liveSaysUnavailable = false
+
+    /// Core Location's own diagnostics, alongside the location manager's fixes: recorded, not acted on.
+    private func startLiveDiagnostics() {
+        guard liveDiagnostics == nil else { return }
+        guard #available(iOS 18.0, *) else { return }
+        liveDiagnostics = Task { @MainActor [weak self] in
+            do {
+                for try await update in CLLocationUpdate.liveUpdates(.airborne) {
+                    guard let self, !Task.isCancelled else { return }
+                    self.noteLiveDiagnostics(unavailable: update.locationUnavailable, stationary: update.stationary)
+                }
+            } catch {
+                AppLog.location.publicNotice("GPS: Core Location's diagnostics ended on an error")
+            }
+        }
+    }
+
+    private func noteLiveDiagnostics(unavailable: Bool, stationary: Bool) {
+        fixDigest.noteDiagnostics(unavailable: unavailable, stationary: stationary)
+        if unavailable != liveSaysUnavailable {
+            liveSaysUnavailable = unavailable
+            AppLog.location.publicNotice(unavailable ? "GPS: Core Location says the location is unavailable"
+                                                     : "GPS: Core Location has a location again")
+        }
+    }
+
+    /// Every other signal check (10 s): the line, then a fresh count.
+    private func logFixDigest() {
+        signalChecks += 1
+        guard signalChecks % 2 == 0 else { return }
+        AppLog.location.publicNotice(fixDigest.line(seconds: 10, status: gpsSignalStatus))
+        fixDigest.startNextStretch()
     }
 
     /// Pure, unit-testable GPS signal-status decision (PR-35). Extracted from `checkSignalStatus`
@@ -454,13 +595,16 @@ class LocationManager: NSObject, ObservableObject {
         degradedThreshold: TimeInterval = 10,
         lostThreshold: TimeInterval = 20,
         trulyLostThreshold: TimeInterval = 45,
-        accuracyThreshold: CLLocationAccuracy = 100
+        accuracyThreshold: CLLocationAccuracy = 100,
+        timeSinceSatelliteFix: TimeInterval? = nil
     ) -> GPSSignalStatus {
         let lastAccuracyWasGood = lastKnownAccuracy >= 0 && lastKnownAccuracy <= accuracyThreshold
         if timeSinceLastUpdate >= trulyLostThreshold {
             return .lost                                    // ≥45 s: truly lost (red), regardless of accuracy
         } else if timeSinceLastUpdate >= lostThreshold {
             return current == .good ? .degraded : current   // ≥20 s: degrade a good signal
+        } else if let timeSinceSatelliteFix, timeSinceSatelliteFix >= lostThreshold {
+            return .degraded                                 // positions, but none from the satellites for 20 s (6.1.0)
         } else if lastAccuracyWasGood {
             return .good                                     // <20 s and last fix was good: stay good
         } else if timeSinceLastUpdate >= degradedThreshold {
@@ -472,6 +616,7 @@ class LocationManager: NSObject, ObservableObject {
 
     private func checkSignalStatus() {
         guard isTracking || isLocationUpdatesActive || isSharedGPSProviderActive else { return }
+        defer { logFixDigest() }
 
         // If GPS status is overridden (marketing mode), don't check real signal
         if let override = gpsStatusOverride {
@@ -501,7 +646,8 @@ class LocationManager: NSObject, ObservableObject {
             degradedThreshold: signalDegradedThreshold,
             lostThreshold: signalLostThreshold,
             trulyLostThreshold: signalTrulyLostThreshold,
-            accuracyThreshold: horizontalAccuracyThreshold)
+            accuracyThreshold: horizontalAccuracyThreshold,
+            timeSinceSatelliteFix: lastSatelliteFixTime.map { now.timeIntervalSince($0) })
 
         // A parked aircraft keeps its fixes coming since 6.1.0 (`groundModeDistanceFilter`), so the
         // seconds without one mean what they say. The one-shot probe that stood in for them while
@@ -547,19 +693,25 @@ class LocationManager: NSObject, ObservableObject {
         }
     }
 
-    private func updateSignalQuality(from location: CLLocation) {
+    private func updateSignalQuality(from location: CLLocation, isOwnFix: Bool = true, now: Date = Date()) {
         // If GPS status is overridden (marketing mode), don't update from real signal
         if gpsStatusOverride != nil {
             return
         }
 
-        let now = Date()
         let accuracy = location.horizontalAccuracy
+        fixDigest.add(location, borrowed: !isOwnFix, now: now)
 
-        // Always update the last location update time and accuracy when we receive any location
-        lastLocationUpdateTime = now
+        // A fix counts from when it was determined, not from when it arrived: Core Location "sometimes
+        // returns cached events" (Apple: check the timestamp of any location event). A late one never
+        // turns the signal good, nor moves its time back. A companion's fix carries the peer's clock, so
+        // it counts from now, as the pipeline treats it. (6.1.0)
+        let fixTime = isOwnFix ? min(now, location.timestamp) : now
+        if let last = lastLocationUpdateTime, fixTime < last { return }
+        lastLocationUpdateTime = fixTime
         lastKnownAccuracy = accuracy
         latestFix = location
+        guard now.timeIntervalSince(fixTime) < signalDegradedThreshold else { return }
 
         // Negative accuracy means invalid - mark as degraded
         if accuracy < 0 {
@@ -569,8 +721,17 @@ class LocationManager: NSObject, ObservableObject {
             return
         }
 
-        // Good accuracy - signal is good
+        // Good accuracy - signal is good, from the satellites. A Wi-Fi or cell position as good degrades
+        // the signal once the last satellite fix is 20 s old (`isSatelliteFix`). A companion's fix comes
+        // from the peer's own GPS pipeline and counts as it always has. (6.1.0)
         if accuracy <= horizontalAccuracyThreshold {
+            guard !isOwnFix || Self.isSatelliteFix(location) else {
+                if let last = lastSatelliteFixTime, now.timeIntervalSince(last) >= signalLostThreshold {
+                    gpsSignalStatus = .degraded
+                }
+                return
+            }
+            lastSatelliteFixTime = fixTime
             lastGoodSignalTime = now
             gpsSignalStatus = .good
         } else {
@@ -792,11 +953,31 @@ class LocationManager: NSObject, ObservableObject {
         if location.horizontalAccuracy >= 0 && location.horizontalAccuracy <= ownFixMaxAccuracy {
             lastOwnFixTime = now
         }
-        updateSignalQuality(from: location)
+        updateSignalQuality(from: location, now: now)
     }
 
     /// The filter CoreLocation applies now: none on the ground, 50/100 m in flight. (tests)
     var hardwareDistanceFilter: CLLocationDistance { locationManager.distanceFilter }
+
+    /// Whether a fix came from the satellites. Core Location doesn't name a fix's source, but a satellite
+    /// fix carries a speed measured from the signals, with its accuracy; a Wi-Fi or cell position has none
+    /// (`speedAccuracy` −1). On 3 Oct 2026 the author's iPad sat 3 minutes in a basement with the GNSS
+    /// receiver on and reporting no fix, while Core Location handed the app Wi-Fi positions at ± 14–78 m,
+    /// each with no speed accuracy: the GPS indicator stayed green. (6.1.0)
+    ///
+    /// The simulator has no satellites: its simulated positions stand for them, except under the tests.
+    nonisolated static func isSatelliteFix(_ location: CLLocation) -> Bool {
+        if everyFixIsSatellite { return true }
+        return location.speedAccuracy >= 0
+    }
+
+    nonisolated static let everyFixIsSatellite: Bool = {
+        #if targetEnvironment(simulator)
+        return NSClassFromString("XCTestCase") == nil
+        #else
+        return false
+        #endif
+    }()
 
     /// Pure, unit-testable: whether a fix of this device goes on to the pipeline. In flight, every one
     /// the hardware's 50/100 m filter delivers; on the ground, one `filter` metres or more from the last
@@ -836,7 +1017,7 @@ class LocationManager: NSObject, ObservableObject {
         updateVerticalSpeed(altitudeFt: location.altitude * 3.28084)
 
         // Update signal quality based on accuracy
-        updateSignalQuality(from: location)
+        updateSignalQuality(from: location, isOwnFix: isOwnFix, now: now)
 
         // Check if we should record this point
         let shouldRecord: Bool
@@ -1029,6 +1210,7 @@ extension LocationManager: CLLocationManagerDelegate {
                     self.wasStoppedByRevocation = false
                     self.locationManager.startUpdatingLocation()
                     self.lastLocationUpdateTime = Date()
+                    self.lastSatelliteFixTime = Date()   // a session starts counting the 20 s too
                     self.gpsSignalStatus = .good
                     self.startSignalCheckTimer()
                 }

@@ -19342,13 +19342,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "GPS signal is weak. Position accuracy exceeds 100 meters, or no update has been received for more than 20 seconds. Your location may be approximate."
+            "value": "GPS signal is weak. Position accuracy exceeds 100 meters, or no satellite fix has been received for more than 20 seconds (the position may then come from Wi-Fi or cell towers). Your location may be approximate."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Le signal GPS est faible. La précision de la position dépasse 100 mètres, ou aucune mise à jour n'a été reçue depuis plus de 20 secondes. Votre position peut être approximative."
+            "value": "Le signal GPS est faible. La précision de la position dépasse 100 mètres, ou aucune position satellite n'a été reçue depuis plus de 20 secondes (la position peut alors provenir du Wi-Fi ou des antennes mobiles). Votre position peut être approximative."
           }
         }
       }
@@ -19359,13 +19359,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "GPS is working normally. Position accuracy is within 100 meters and a position update was received within the last 20 seconds."
+            "value": "GPS is working normally: a satellite fix within 100 meters was received in the last 20 seconds."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Le GPS fonctionne normalement. La précision de la position est inférieure à 100 mètres et une mise à jour a été reçue au cours des 20 dernières secondes."
+            "value": "Le GPS fonctionne normalement : une position satellite d'une précision inférieure à 100 mètres a été reçue au cours des 20 dernières secondes."
           }
         }
       }

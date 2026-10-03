@@ -2498,6 +2498,10 @@ struct GPSStatusContent: View {
                 }
                 let age = Int(Date().timeIntervalSince(fix.timestamp).rounded())
                 if fix.horizontalAccuracy >= 0 && age >= 10 { return "No position update for \(age) s" }
+                // Positions keep coming, from Wi-Fi or cell towers, not the satellites. (6.1.0)
+                if fix.horizontalAccuracy >= 0 && !LocationManager.isSatelliteFix(fix) {
+                    return "No satellite fix · network position ± \(Int(fix.horizontalAccuracy.rounded())) m"
+                }
             }
             return "Weak signal"
         case .lost:

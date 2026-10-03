@@ -2418,6 +2418,76 @@ enum L10n {
         }
     }
 
+    /// The MAP page's chrome: the status slot's states, the controls' names for VoiceOver, the edge
+    /// arrow. In `language` ("fr") when one is given, as `Dest`. The map's own words (North up, Centre,
+    /// Zoom in, Undo) are the map's keys. "GPS", "SIGMET", "BRIEFING", "TRK" and "NM" stay as they are
+    /// (ICAO, and the chip's BRIEFING). (6.2)
+    enum MapChrome {
+        static func gpsDegraded(language: String? = nil) -> String {
+            text("mapChrome.status.gpsDegraded", "GPS DEGRADED", language)
+        }
+        /// The GPS lost, or a flight not recording: the header's red.
+        static func noGPS(language: String? = nil) -> String {
+            text("mapChrome.status.noGPS", "NO GPS", language)
+        }
+        /// "OFF ROUTE 1.2 NM"
+        static func offRoute(_ distance: String, language: String? = nil) -> String {
+            String(format: text("mapChrome.status.offRoute", "OFF ROUTE %@ NM", language), distance)
+        }
+        static func chartOffline(language: String? = nil) -> String {
+            text("mapChrome.status.chartOffline", "CHART OFFLINE", language)
+        }
+        /// Over "Diverting to LSGC" (`divertingTo`).
+        static func tellFIS(language: String? = nil) -> String {
+            text("mapChrome.status.tellFIS", "TELL FIS", language)
+        }
+        static func divertingTo(_ ident: String, language: String? = nil) -> String {
+            String(format: text("trip.divertingTo", "Diverting to %@", language), ident)
+        }
+
+        // What a tap on each state does, for VoiceOver.
+        static func gpsHint(language: String? = nil) -> String {
+            text("mapChrome.hint.gps", "Shows the GPS status", language)
+        }
+        static func offRouteHint(language: String? = nil) -> String {
+            text("mapChrome.hint.offRoute", "Shows the aircraft and the leg", language)
+        }
+        static func chartOfflineHint(language: String? = nil) -> String {
+            text("mapChrome.hint.chartOffline", "Shows where the chart comes from", language)
+        }
+        static func tellFISHint(language: String? = nil) -> String {
+            text("mapChrome.hint.tellFIS", "Opens Divert", language)
+        }
+        static func sigmetHint(language: String? = nil) -> String {
+            text("nav.sigmet.hint", "Shows the hazards in range", language)
+        }
+        static func briefingHint(language: String? = nil) -> String {
+            text("mapChrome.hint.briefing", "Opens the briefing", language)
+        }
+
+        // The controls, as the map's row names them.
+        static func northUp(language: String? = nil) -> String { text("nav.northUp", "North up", language) }
+        static func trackUp(language: String? = nil) -> String { text("nav.trackUp", "Track up", language) }
+        static func layers(language: String? = nil) -> String { text("nav.mapSheet", "Map", language) }
+        static func centre(language: String? = nil) -> String { text("nav.centre", "Centre", language) }
+        static func zoomIn(language: String? = nil) -> String { text("nav.zoomIn", "Zoom in", language) }
+        static func zoomOut(language: String? = nil) -> String { text("nav.zoomOut", "Zoom out", language) }
+        static func undo(language: String? = nil) -> String { text("nav.undo", "Undo", language) }
+        /// The layers button's triangle, as the map's says it.
+        static func airspaceStale(language: String? = nil) -> String {
+            text("Airspace data is out of date", "Airspace data is out of date", language)
+        }
+        /// The edge arrow: "Aircraft off screen, at 2 o’clock".
+        static func aircraftOffScreen(clock: Int, language: String? = nil) -> String {
+            String(format: text("mapChrome.a11y.edgeArrow", "Aircraft off screen, at %lld o’clock", language), clock)
+        }
+
+        private static func text(_ key: String, _ english: String, _ language: String?) -> String {
+            guard let language else { return Bundle.main.localizedString(forKey: key, value: english, table: nil) }
+            return localizedString(key: key, language: language, defaultValue: english)
+        }
+    }
+
     enum Trip {
         static let addStop = String(localized: "trip.addStop")
         static let addStopTitle = String(localized: "trip.addStopTitle")

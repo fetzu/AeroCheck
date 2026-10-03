@@ -65,6 +65,16 @@ final class CockpitRoutePageTests: XCTestCase {
         XCTAssertEqual(parts[.emergency]?.maxX, 402 - 16)
     }
 
+    /// No soft scroll edge on ROUTE's scroll: under the iPad's landscape capture hook the top of it, the
+    /// leg being flown and NOW / NEXT, came out blurred and dimmed (iOS 26's scroll edge effect). The
+    /// effect is drawn by the system, not by the view graph `ImageRenderer` renders, so the test pins
+    /// the modifier in the scroll's type instead of reading pixels.
+    func testROUTEsScrollHasNoSoftEdge() {
+        let scroll = RouteLegsAndRadio(layout: .wide, hasLegs: true, onShowLeg: { _ in })
+        XCTAssertTrue(String(reflecting: type(of: scroll.body)).contains("SharpScrollEdges"),
+                      "\(type(of: scroll.body))")
+    }
+
     func testWithoutARouteTheRadioTakesThePage() throws {
         let parts = try layOut(waypoints: 0, size: CGSize(width: 820, height: 700))
         XCTAssertNil(parts[.legs])

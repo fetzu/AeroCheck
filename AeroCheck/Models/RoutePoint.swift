@@ -372,7 +372,8 @@ enum RoutePointSearch {
     }
 
     /// Distance to the segment a–b on a local flat projection: good to a tenth of a mile over a leg.
-    private static func crossTrackNM(_ p: CLLocationCoordinate2D, _ a: CLLocationCoordinate2D,
+    /// Also the Cockpit's OFF ROUTE rule (`OffRouteRule`). (6.2.0)
+    static func crossTrackNM(_ p: CLLocationCoordinate2D, _ a: CLLocationCoordinate2D,
                                      _ b: CLLocationCoordinate2D) -> Double {
         let k = cos(p.latitude * .pi / 180)
         func xy(_ c: CLLocationCoordinate2D) -> (Double, Double) { (c.longitude * 60 * k, c.latitude * 60) }

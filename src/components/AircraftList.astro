@@ -1,7 +1,11 @@
 ---
 import type { Lang } from '../lib/site';
+import { REQUESTS_COPY, fill } from '../lib/requests-copy';
 interface Props { lang: Lang; }
 const { lang } = Astro.props;
+// Aircraft requests: the way in to /send, for a new aircraft or a checklist that has moved on.
+const rq = { ...REQUESTS_COPY[lang].aircraft, sendHref: REQUESTS_COPY[lang].common.sendHref, clubsHref: REQUESTS_COPY[lang].common.clubsHref };
+const outdatedHref = (reg: string) => `${rq.sendHref}?registration=${encodeURIComponent(reg)}`;
 
 const COPY = {
   en: {
@@ -79,6 +83,13 @@ const ordered = group(aircraft);
   <p class="eyebrow">{t.eyebrow}</p>
   <h1 class="ac-title">{t.heading}</h1>
   <p class="ac-intro">{t.intro}</p>
+  <div class="ac-send">
+    <p>{rq.sendLead}</p>
+    <div class="ac-send-actions">
+      <a class="btn btn--primary" href={rq.sendHref}>{rq.sendButton}</a>
+      <a class="btn btn--ghost" href={rq.clubsHref}>{rq.clubsButton}</a>
+    </div>
+  </div>
 
   <div class="ac-stats" data-ac-stats>
     {!failed && statCells.map((s) => (
@@ -106,7 +117,7 @@ const ordered = group(aircraft);
                   <td class="c-reg">{a.registration}</td>
                   <td class="c-model">{a.modelName}</td>
                   <td class="c-type">{a.aircraftType}</td>
-                  <td class="c-ver">{a.version}</td>
+                  <td class="c-ver">{a.version}<a class="ac-outdated" href={outdatedHref(a.registration)} aria-label={fill(rq.outdatedLabel, { reg: a.registration })} title={fill(rq.outdatedLabel, { reg: a.registration })}>{rq.outdated}</a></td>
                   <td class="c-upd">{a.lastUpdated}</td>
                   <td><span class="langs">{(a.availableLanguages ?? ['en']).map((l) => <span class="lang-tag">{l.toUpperCase()}</span>)}</span></td>
                   <td>{a.isFree
@@ -122,7 +133,7 @@ const ordered = group(aircraft);
   </div>
 </section>
 
-<script define:vars={{ API, t }}>
+<script define:vars={{ API, t, rq }}>
   // Live refresh — PROD ONLY. The build-time render above is already correct on every deploy; this
   // just picks up roster changes between deploys. It runs only on aerocheck.app because the API's
   // CORS policy allows that origin alone (localhost/preview keep the baked data). Mirrors the server
@@ -138,6 +149,7 @@ const ordered = group(aircraft);
         if (!aircraft.length) return;
 
         const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+        const outdated = (reg) => rq.outdatedLabel.replace('{reg}', reg);
 
         const free = aircraft.filter((a) => a.isFree).length;
         const clubs = new Set(aircraft.map((a) => a.aeroclub).filter(Boolean)).size;
@@ -154,7 +166,7 @@ const ordered = group(aircraft);
           const rows = list.map((a) => {
             const langs = (a.availableLanguages || ['en']).map((l) => `<span class="lang-tag">${esc(l.toUpperCase())}</span>`).join('');
             const badge = a.isFree ? `<span class="badge badge--free">${esc(t.free)}</span>` : `<span class="badge badge--pro">${esc(t.premium)}</span>`;
-            return `<tr><td class="c-reg">${esc(a.registration)}</td><td class="c-model">${esc(a.modelName)}</td><td class="c-type">${esc(a.aircraftType)}</td><td class="c-ver">${esc(a.version)}</td><td class="c-upd">${esc(a.lastUpdated)}</td><td><span class="langs">${langs}</span></td><td>${badge}</td></tr>`;
+            return `<tr><td class="c-reg">${esc(a.registration)}</td><td class="c-model">${esc(a.modelName)}</td><td class="c-type">${esc(a.aircraftType)}</td><td class="c-ver">${esc(a.version)}<a class="ac-outdated" href="${esc(rq.sendHref + '?registration=' + encodeURIComponent(a.registration))}" aria-label="${esc(outdated(a.registration))}" title="${esc(outdated(a.registration))}">${esc(rq.outdated)}</a></td><td class="c-upd">${esc(a.lastUpdated)}</td><td><span class="langs">${langs}</span></td><td>${badge}</td></tr>`;
           }).join('');
           return `<div class="club">${club ? `<h2 class="club-name">${esc(club)}</h2>` : ''}<div class="table-wrap"><table class="ac-table"><thead><tr><th>${esc(t.cols.reg)}</th><th>${esc(t.cols.model)}</th><th>${esc(t.cols.type)}</th><th>${esc(t.cols.version)}</th><th>${esc(t.cols.updated)}</th><th>${esc(t.cols.langs)}</th><th>${esc(t.cols.access)}</th></tr></thead><tbody>${rows}</tbody></table></div></div>`;
         }).join('');
@@ -194,6 +206,11 @@ const ordered = group(aircraft);
   /* B612 Mono gives the dot a full cell ("2 . 1e"); versions read better in B612 with even figures. */
   .ac .c-ver { font-variant-numeric: tabular-nums; }
   .ac .c-upd { font-size: 13px; }
+  .ac .ac-outdated { display: block; width: max-content; margin-top: 2px; font-size: 11.5px; color: var(--dim); border-bottom: 1px solid var(--line-2); transition: color .2s ease, border-color .2s ease; }
+  .ac .ac-outdated:hover, .ac .ac-outdated:focus-visible { color: var(--gold); border-color: var(--gold); }
+  .ac .ac-send { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px 20px; margin: 0 0 28px; padding: 16px 18px; background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); }
+  .ac .ac-send p { margin: 0; color: var(--text); font-size: 15px; flex: 1 1 280px; }
+  .ac .ac-send-actions { display: flex; flex-wrap: wrap; gap: 10px; }
   .ac .langs { display: inline-flex; gap: 4px; }
   .ac .lang-tag { font-family: var(--mono); font-size: 10px; padding: 2px 6px; border-radius: 4px; background: var(--panel); border: 1px solid var(--line); color: var(--muted); }
   .ac .badge { font-family: var(--mono); font-size: 10px; font-weight: 600; letter-spacing: .05em; text-transform: uppercase; padding: 3px 8px; border-radius: 4px; }

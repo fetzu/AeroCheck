@@ -1,0 +1,216 @@
+---
+// /send and /fr/send: the aircraft-request form. The registration comes first: the worker's lookup
+// decides between a new aircraft and an update of one AéroCheck has, and only then does the rest of
+// the form open. Everything that talks to the worker is in src/scripts/requests/send.ts.
+import type { Lang } from '../../lib/site';
+import { REQUESTS_COPY, languageName, toJsonScript } from '../../lib/requests-copy';
+import { COMMON_LANGUAGES, OTHER_LANGUAGES, FILE_ACCEPT, NOTES_MAX } from '../../lib/intake';
+import RequestStyles from './RequestStyles.astro';
+interface Props { lang: Lang; }
+const { lang } = Astro.props;
+const copy = REQUESTS_COPY[lang];
+const t = copy.send;
+const common = COMMON_LANGUAGES.map((code) => ({ code, name: languageName(code, lang) }));
+const others = OTHER_LANGUAGES.map((code) => ({ code, name: languageName(code, lang) }))
+  .sort((a, b) => a.name.localeCompare(b.name, lang));
+const otherLangHref = lang === 'fr' ? '/send' : '/fr/send';
+const noscript = lang === 'fr'
+  ? 'Ce formulaire a besoin de JavaScript pour vérifier l’immatriculation et envoyer les fichiers.'
+  : 'This form needs JavaScript to look up the registration and send the files.';
+---
+<RequestStyles />
+<section class="rq container" data-rq-send>
+  <p class="eyebrow">{t.eyebrow}</p>
+  <h1 class="rq-title">{t.title}</h1>
+  <p class="rq-intro">{t.intro}</p>
+  <p class="rq-aside">{t.clubsLead} <a href={copy.common.clubsHref}>{t.clubsLink}</a> · <a href={otherLangHref} lang={lang === 'fr' ? 'en' : 'fr'} data-rq-lang>{copy.common.otherLang}</a></p>
+
+  <noscript><div class="rq-alert rq-alert--error"><p>{noscript}</p></div></noscript>
+
+  <form class="rq-form" novalidate data-rq-form>
+    <div class="rq-alert rq-alert--error rq-summary" data-rq-summary tabindex="-1" hidden>
+      <p class="rq-summary-title">{t.summary}</p>
+      <ul data-rq-summary-list></ul>
+    </div>
+
+    <fieldset class="rq-card rq-step">
+      <legend class="rq-legend">{t.stepRegistration}</legend>
+      <div class="rq-field">
+        <label class="rq-label" for="rq-reg">{t.regLabel}</label>
+        <p class="rq-hint" id="rq-reg-hint">{t.regHint}</p>
+        <div class="rq-inline">
+          <input id="rq-reg" name="registration" class="rq-input rq-input--reg" type="text" autocomplete="off"
+            autocapitalize="characters" spellcheck="false" maxlength="14" required
+            aria-describedby="rq-reg-hint rq-reg-error" />
+          <button type="button" class="btn btn--ghost rq-btn" data-rq-lookup>{t.regButton}</button>
+        </div>
+        <p class="rq-field-error" id="rq-reg-error" hidden></p>
+      </div>
+      <div class="rq-lookup" data-rq-lookup-result aria-live="polite"></div>
+    </fieldset>
+
+    <div class="rq-rest" data-rq-rest hidden>
+      <fieldset class="rq-card rq-step" data-rq-new-only>
+        <legend class="rq-legend">{t.stepAircraft}</legend>
+        <div class="rq-field">
+          <label class="rq-label" for="rq-type">{t.typeLabel}</label>
+          <p class="rq-hint" id="rq-type-hint">{t.typeHint}</p>
+          <input id="rq-type" name="aircraftType" class="rq-input" type="text" maxlength="80" autocomplete="off"
+            aria-describedby="rq-type-hint rq-type-error" />
+          <p class="rq-field-error" id="rq-type-error" hidden></p>
+        </div>
+        <div class="rq-field">
+          <label class="rq-label" for="rq-club">{t.clubLabel}</label>
+          <p class="rq-hint" id="rq-club-hint">{t.clubHint}</p>
+          <input id="rq-club" name="club" class="rq-input" type="text" maxlength="120" autocomplete="organization"
+            aria-describedby="rq-club-hint rq-club-error" />
+          <p class="rq-field-error" id="rq-club-error" hidden></p>
+        </div>
+        <div class="rq-field">
+          <label class="rq-label" for="rq-regs">{t.otherRegsLabel}</label>
+          <p class="rq-hint" id="rq-regs-hint">{t.otherRegsHint}</p>
+          <input id="rq-regs" name="otherRegistrations" class="rq-input" type="text" autocomplete="off"
+            autocapitalize="characters" spellcheck="false" maxlength="120" aria-describedby="rq-regs-hint rq-regs-error" />
+          <p class="rq-field-error" id="rq-regs-error" hidden></p>
+        </div>
+      </fieldset>
+
+      <fieldset class="rq-card rq-step" data-rq-sender hidden>
+        <legend class="rq-legend">{t.stepSender}</legend>
+        <fieldset class="rq-choices" id="rq-for" data-rq-error="rq-for-error" aria-describedby="rq-for-error">
+          <legend class="rq-label">{t.sendingForLegend}</legend>
+          <label class="rq-choice">
+            <input type="radio" name="sendingFor" value="club" />
+            <span><span class="rq-choice-title">{t.forClub}</span><span class="rq-choice-hint">{t.forClubHint}</span></span>
+          </label>
+          <label class="rq-choice">
+            <input type="radio" name="sendingFor" value="self" />
+            <span><span class="rq-choice-title">{t.forSelf}</span><span class="rq-choice-hint">{t.forSelfHint}</span></span>
+          </label>
+          <p class="rq-field-error" id="rq-for-error" hidden></p>
+        </fieldset>
+        <div class="rq-field" data-rq-contact hidden>
+          <label class="rq-label" for="rq-contact">{t.contactLabel}</label>
+          <p class="rq-hint" id="rq-contact-hint">{t.contactHint}</p>
+          <input id="rq-contact" name="clubContactEmail" class="rq-input" type="email" autocomplete="off"
+            spellcheck="false" maxlength="254" aria-describedby="rq-contact-hint rq-contact-error" />
+          <p class="rq-field-error" id="rq-contact-error" hidden></p>
+          <label class="rq-check rq-check--small">
+            <input type="checkbox" id="rq-contact-unknown" name="contactUnknown" aria-describedby="rq-contact-unknown-hint" />
+            <span>{t.contactUnknown}<span class="rq-choice-hint" id="rq-contact-unknown-hint">{t.contactUnknownHint}</span></span>
+          </label>
+        </div>
+      </fieldset>
+
+      <fieldset class="rq-card rq-step">
+        <legend class="rq-legend">{t.stepChecklist}</legend>
+        <div class="rq-field">
+          <span class="rq-label" id="rq-files-label">{t.filesLabel}</span>
+          <p class="rq-hint" id="rq-files-hint" data-rq-files-hint>{t.filesHintNew}</p>
+          <div class="rq-drop" data-rq-drop>
+            <button type="button" class="btn btn--ghost rq-btn" id="rq-files" data-rq-error="rq-files-error"
+              aria-describedby="rq-files-label rq-files-hint rq-files-error" data-rq-choose>{t.filesChoose}</button>
+            <span class="rq-drop-hint">{t.filesDrop}</span>
+            <!-- Visually hidden rather than display:none: iOS Safari won't open a picker for a file input that isn't rendered. -->
+            <input type="file" id="rq-file-input" class="rq-file-input" multiple accept={FILE_ACCEPT} tabindex="-1" aria-hidden="true" data-rq-file-input />
+          </div>
+          <ul class="rq-files" data-rq-files aria-labelledby="rq-files-label"></ul>
+          <p class="rq-files-total" data-rq-files-total aria-live="polite"></p>
+          <p class="rq-field-error" id="rq-files-error" hidden></p>
+        </div>
+        <fieldset class="rq-choices" id="rq-langs" data-rq-error="rq-langs-error" aria-describedby="rq-langs-hint rq-langs-error">
+          <legend class="rq-label">{t.languagesLegend}</legend>
+          <p class="rq-hint" id="rq-langs-hint">{t.languagesHint}</p>
+          <div class="rq-langs">
+            {common.map((l) => (
+              <label class="rq-check rq-check--chip"><input type="checkbox" name="checklistLanguages" value={l.code} /><span>{l.name}</span></label>
+            ))}
+          </div>
+          <div class="rq-field rq-field--tight">
+            <label class="rq-label rq-label--small" for="rq-lang-other">{t.otherLanguageLabel}</label>
+            <select id="rq-lang-other" name="otherLanguage" class="rq-input rq-select">
+              <option value="">{t.otherLanguageNone}</option>
+              {others.map((l) => <option value={l.code}>{l.name}</option>)}
+            </select>
+          </div>
+          <p class="rq-field-error" id="rq-langs-error" hidden></p>
+        </fieldset>
+      </fieldset>
+
+      <fieldset class="rq-card rq-step">
+        <legend class="rq-legend">{t.stepYou}</legend>
+        <div class="rq-field">
+          <label class="rq-label" for="rq-name">{t.nameLabel}</label>
+          <p class="rq-hint" id="rq-name-hint">{t.nameHint}</p>
+          <input id="rq-name" name="senderName" class="rq-input" type="text" autocomplete="name" maxlength="120"
+            aria-describedby="rq-name-hint rq-name-error" />
+          <p class="rq-field-error" id="rq-name-error" hidden></p>
+        </div>
+        <div class="rq-field">
+          <label class="rq-label" for="rq-email">{t.emailLabel}</label>
+          <p class="rq-hint" id="rq-email-hint">{t.emailHint}</p>
+          <input id="rq-email" name="senderEmail" class="rq-input" type="email" autocomplete="email" spellcheck="false"
+            maxlength="254" required aria-describedby="rq-email-hint rq-email-error" />
+          <p class="rq-field-error" id="rq-email-error" hidden></p>
+        </div>
+        <div class="rq-field">
+          <label class="rq-label" for="rq-notes">{t.notesLabel}</label>
+          <p class="rq-hint" id="rq-notes-hint">{t.notesHint}</p>
+          <textarea id="rq-notes" name="notes" class="rq-input rq-textarea" rows="4" maxlength={NOTES_MAX}
+            aria-describedby="rq-notes-hint rq-notes-count rq-notes-error"></textarea>
+          <p class="rq-counter" id="rq-notes-count" data-rq-counter="rq-notes" data-max={NOTES_MAX}></p>
+          <p class="rq-field-error" id="rq-notes-error" hidden></p>
+        </div>
+      </fieldset>
+
+      <div class="rq-card rq-final">
+        <label class="rq-check">
+          <input type="checkbox" id="rq-rights" name="rights" aria-describedby="rq-rights-more rq-rights-error" />
+          <span data-rq-rights-text>{t.rightsClub}</span>
+        </label>
+        <p class="rq-statement-more" id="rq-rights-more">{t.rightsMore} <a href={`${copy.common.termsHref}${t.termsAnchor}`} target="_blank" rel="noopener">{t.rightsLink}</a></p>
+        <p class="rq-field-error" id="rq-rights-error" hidden></p>
+
+        <label class="rq-check">
+          <input type="checkbox" id="rq-privacy" name="privacy" aria-describedby="rq-privacy-error" />
+          <span>{t.privacyLabel} <a href={`${copy.common.privacyHref}${t.privacyAnchor}`} target="_blank" rel="noopener">{t.privacyLink}</a></span>
+        </label>
+        <p class="rq-field-error" id="rq-privacy-error" hidden></p>
+
+        <div class="rq-turnstile-wrap">
+          <p class="rq-label rq-label--small" id="rq-turnstile-label">{t.turnstileLabel}</p>
+          <div class="rq-turnstile" id="rq-turnstile" data-rq-turnstile aria-labelledby="rq-turnstile-label"></div>
+          <p class="rq-hint" data-rq-turnstile-status role="status"></p>
+          <p class="rq-field-error" id="rq-turnstile-error" hidden></p>
+        </div>
+
+        <div data-rq-submit-error></div>
+        <button type="submit" class="btn btn--primary rq-submit" data-rq-submit>{t.submit}</button>
+      </div>
+    </div>
+  </form>
+
+  <div class="rq-card rq-progress" data-rq-progress tabindex="-1" hidden>
+    <p class="rq-progress-line" data-rq-progress-line role="status" aria-live="polite"></p>
+    <progress class="rq-bar" max="100" value="0" aria-label={t.progressLabel} data-rq-progress-bar></progress>
+    <ul class="rq-progress-files" data-rq-progress-files></ul>
+    <div data-rq-progress-error></div>
+  </div>
+
+  <div class="rq-card rq-result" data-rq-result tabindex="-1" hidden>
+    <h2 class="rq-result-title" data-rq-result-title></h2>
+    <p data-rq-result-body></p>
+    <div class="rq-result-link">
+      <a class="btn btn--primary" data-rq-result-link href="#">{t.resultLink}</a>
+      <button type="button" class="btn btn--ghost rq-btn" data-rq-copy-link>{t.resultCopy}</button>
+    </div>
+    <h3 class="rq-subtitle">{t.nextTitle}</h3>
+    <p>{t.nextBody}</p>
+    <p data-rq-result-club hidden></p>
+    <p><a href={copy.common.sendHref} class="rq-link">{t.another}</a></p>
+  </div>
+
+  <script type="application/json" id="rq-copy" set:html={toJsonScript(copy)}></script>
+</section>
+
+<script>import '../../scripts/requests/send.ts';</script>

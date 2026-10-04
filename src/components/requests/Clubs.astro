@@ -1,0 +1,40 @@
+---
+// /clubs and /fr/clubs: aircraft requests from a flying club's side. Static: what to send, what the
+// members get, who sees the document, the club's confirmation, and no promised date.
+import type { Lang } from '../../lib/site';
+import { REQUESTS_COPY } from '../../lib/requests-copy';
+import Icon from '../Icon.astro';
+import RequestStyles from './RequestStyles.astro';
+interface Props { lang: Lang; }
+const { lang } = Astro.props;
+const copy = REQUESTS_COPY[lang];
+const t = copy.clubs;
+const EMAIL = 'support@aerocheck.app';
+const [user, domain] = EMAIL.split('@');
+---
+<RequestStyles />
+<section class="rq rq-clubs container">
+  <p class="eyebrow">{t.eyebrow}</p>
+  <h1 class="rq-title">{t.title}</h1>
+  <p class="rq-intro">{t.intro}</p>
+  <div class="rq-cta">
+    <a class="btn btn--primary" href={copy.common.sendHref}><Icon name="plane-tilt" size={16} />{t.ctaSend}</a>
+    <a class="btn btn--ghost" href={copy.common.aircraftHref}>{t.ctaAircraft}</a>
+  </div>
+
+  {t.sections.map((s) => (
+    <div class="rq-card rq-clubs-section">
+      <h2 class="rq-subtitle">{s.title}</h2>
+      {'items' in s && s.items && <ul class="rq-list">{s.items.map((i) => <li>{i}</li>)}</ul>}
+      {'body' in s && s.body && s.body.map((p) => <p>{p}</p>)}
+      {'link' in s && s.link && <p class="rq-hint">{s.link.lead} <a href={s.link.href}>{s.link.label}</a></p>}
+      {'email' in s && s.email && (
+        <p class="rq-clubs-mail"><Icon name="mail" size={18} /><span>{t.emailLead} <a href={`mailto:${EMAIL}`}>{user}@<wbr />{domain}</a></span></p>
+      )}
+    </div>
+  ))}
+
+  <div class="rq-cta rq-cta--foot">
+    <a class="btn btn--primary" href={copy.common.sendHref}><Icon name="plane-tilt" size={16} />{t.ctaSend}</a>
+  </div>
+</section>

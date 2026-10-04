@@ -57,6 +57,8 @@ The **Aircraft** tab lists the same aircraft under **YOUR AIRCRAFT**. Below the 
 
 Selecting a premium aircraft loads its checklist in the background, so it is ready before you start.
 
+Your aircraft isn't in the list, or its checklist is older than the club's? Send the club's checklist from [aerocheck.app/send](/send): the registration first (one AéroCheck already has becomes an update), then the document as a PDF or photos of its pages. The club confirms before the aircraft goes live, and it joins AéroCheck Pro like the others; [aerocheck.app/clubs](/clubs) has the rest.
+
 ### Starting a Flight
 
 There are four ways to start, and they are different on purpose.

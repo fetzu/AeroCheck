@@ -137,6 +137,15 @@ final class CockpitRoutePageTests: XCTestCase {
         XCTAssertEqual(short.top, 280 * 0.45, accuracy: 0.001)
         XCTAssertEqual(short.bottom, 280 * 0.35, accuracy: 0.001)
         XCTAssertEqual(280 - short.top - short.bottom, 56, accuracy: 0.001)
+        // A phone (6.2): nothing over the chart's top since the read band, the bar and the scale at its
+        // foot. The foot takes what the top leaves, and the leg keeps a third of the chart.
+        let phone = LegFraming.edgePadding(chartSize: CGSize(width: 390, height: 300), topChrome: 8, bottomChrome: 160)
+        XCTAssertEqual(phone.top, 24)
+        XCTAssertEqual(phone.bottom, 176, "the whole bar and scale")
+        XCTAssertEqual(300 - phone.top - phone.bottom, 100, accuracy: 0.001)
+        // A phone with BRIEFING over the chart's top: the foot gives way, never under a fifth for the leg.
+        let crowded = LegFraming.edgePadding(chartSize: CGSize(width: 390, height: 260), topChrome: 70, bottomChrome: 160)
+        XCTAssertEqual(260 - crowded.top - crowded.bottom, 52, accuracy: 0.001)
     }
 
     func testALegTappedIsShownUntilBackToAircraft() {

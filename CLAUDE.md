@@ -95,16 +95,19 @@ Owners and rules that aren't obvious from the names:
 - `FlightView` + `Cockpit.swift` = the Cockpit, on iPad AND iPhone: `CockpitLayout` (wide / narrow /
   columns) arranges the same zones, and the page follows the phase (`CockpitPaneRule`: CHECKLIST or
   MAP; ROUTE, `CockpitRoutePage.swift`, is the pilot's pick only). There is no separate iPhone HUD.
-  Under every page sits the act band (`CockpitActBand.swift`, 6.2): four slots whose frames come from the
-  width alone (`ActBandLayout`) and whose roles come from the page and the flight (`ActBandRoles`). What a
-  button there owns for every page (MARK's and the reset's UNDO, the Divert sheet, the routes cover, the
-  leg ROUTE asks MAP to show) is `CockpitNavState`, in the environment; never put a thumb row back into a
-  page.
+  Over every page sits the read band's live part (`CockpitReadBand.swift`, 6.2): the strip with NEXT
+  and its figures on the iPad (`NextFigures`, whose ETE is the DEST line's first term), NOW | NEXT from
+  `CockpitRadio`; on the phone the next line and the NOW line. Under every page sits the act band
+  (`CockpitActBand.swift`, 6.2): four slots whose frames come from the width alone (`ActBandLayout`) and
+  whose roles come from the page and the flight (`ActBandRoles`). What a button there owns for every
+  page (MARK's and the reset's UNDO, the Divert sheet, the routes cover, the leg ROUTE asks MAP to show)
+  is `CockpitNavState`, in the environment; never put a thumb row back into a page.
 - `NavigationView.swift` holds `NavigationMapView` (embedded in the Cockpit and in Plan › Map) and
   `MapPreset`. Its `chrome` says whose it is: `.plan` keeps every piece of its own chrome (side column on
   its side, Routes at its foot, the legs and frequencies panel); `.cockpit(layout)` has no thumb row, no
-  side column and no legs panel (its card and NOW | NEXT open ROUTE), and beside the phone's column on
-  its side it is the chart alone.
+  side column, no legs panel, and neither the next-waypoint card nor NOW | NEXT (the read band has them
+  since 6.2); beside the phone's column on its side it is the chart, its next line and its frequencies,
+  until the column takes them.
 - Frequencies: the rules are `PhaseFrequencyPlanner` (`Services/PhaseFrequencyPlanner.swift`, pure:
   nearest 6 fields within 40 nm, the area FIS, CTRs within 25 nm). In flight `CockpitRadio` is the ONE
   source (NOW/NEXT for the map, ROUTE's RADIO, the Watch's list, the Companion iPhone's NOW line),

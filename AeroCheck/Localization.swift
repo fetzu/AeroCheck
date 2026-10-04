@@ -2488,6 +2488,41 @@ enum L10n {
         }
     }
 
+    /// The read band over every Cockpit page: the strip's NEXT cell, the phone's next line, NOW | NEXT.
+    /// `language` for the French previews and tests, as `Dest`. (6.2)
+    enum Read {
+        /// Over the next waypoint: "NEXT" / "SUIVANT".
+        static func nextColumn(language: String? = nil) -> String {
+            text("cockpit.nextColumn", "NEXT", language)
+        }
+        /// In its place while diverting: "DIVERT" / "DÉROUTEMENT".
+        static func divertTag(language: String? = nil) -> String {
+            text("trip.divertTag", "DIVERT", language)
+        }
+        /// The frequencies' tags: "NOW" / "ACT", "NEXT" / "SUIV".
+        static func now(language: String? = nil) -> String { text("nav.freqCurrent", "NOW", language) }
+        static func next(language: String? = nil) -> String { text("nav.freqNext", "NEXT", language) }
+        /// What VoiceOver calls the waypoint flown to: "Next".
+        static func nextWaypoint(language: String? = nil) -> String { text("nav.next", "Next", language) }
+        /// "bearing 206 degrees"
+        static func bearing(_ degrees: Int, language: String? = nil) -> String {
+            String(format: text("read.a11y.bearing", "bearing %lld degrees", language), degrees)
+        }
+        /// No route, or the destination marked: "no waypoint ahead".
+        static func noTarget(language: String? = nil) -> String {
+            text("read.a11y.noTarget", "no waypoint ahead", language)
+        }
+        /// A tap on the line or the frequencies: "Legs and frequencies" (ROUTE).
+        static func routeHint(language: String? = nil) -> String {
+            text("nav.legsAndFrequencies", "Legs and frequencies", language)
+        }
+
+        private static func text(_ key: String, _ english: String, _ language: String?) -> String {
+            guard let language else { return Bundle.main.localizedString(forKey: key, value: english, table: nil) }
+            return localizedString(key: key, language: language, defaultValue: english)
+        }
+    }
+
     enum Trip {
         static let addStop = String(localized: "trip.addStop")
         static let addStopTitle = String(localized: "trip.addStopTitle")

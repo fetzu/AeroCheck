@@ -121,6 +121,24 @@ final class CompanionNavScreenTests: XCTestCase {
         XCTAssertFalse(next.diverting)
     }
 
+    /// The read band's next line (`ReadBandNextLine`, the phone Cockpit's) from the stream: the same name,
+    /// bearing, distance and ETE, the ETA at that ETE; "—" everywhere with no leg. (6.2.0, the read band)
+    func testTheReadBandsNextLineReadsTheStream() throws {
+        let nav = CompanionNav(flightData: flightData(), snapshot: try snapshot(plan(next: 1)))
+        let next = try XCTUnwrap(nav.next)
+        let figures = NextFigures(companion: nav, now: t0)
+        XCTAssertEqual(figures.ident, "LSGC")
+        XCTAssertEqual(figures.fullIdent, "LSGC")
+        XCTAssertEqual(figures.bearing, next.bearing)
+        XCTAssertEqual(figures.distanceNM, next.distanceNM)
+        XCTAssertEqual(figures.live?.ete, next.ete)
+        XCTAssertEqual(figures.live?.eta, t0.addingTimeInterval(try XCTUnwrap(next.ete)))
+        XCTAssertFalse(figures.diverting)
+        XCTAssertEqual(NextFigures(companion: CompanionNav(flightData: flightData(index: 4), snapshot: try snapshot(plan())),
+                                   now: t0), .none, "the route flown")
+        XCTAssertEqual(NextFigures(companion: CompanionNav(flightData: flightData(), snapshot: nil), now: t0), .none, "no route")
+    }
+
     /// No fix: the name, no figures. The route flown, or no route: no leg, the line kept with "—".
     func testTheNextLineWithoutAFixOrALeg() throws {
         let noFix = CompanionNav(flightData: flightData(latitude: nil, longitude: nil), snapshot: try snapshot(plan()))

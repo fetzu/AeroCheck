@@ -805,12 +805,16 @@ struct NavigationMapView: View {
                     SeparateView { sideColumn }
                         .frame(width: Self.sideColumnWidth)
                 }
-            } else {
+            } else if chrome == .plan {
                 // The legs and every frequency open inside the bottom panel, never taller than 40 %
                 // of the map: past that they scroll, and the thumb bar stays on screen. (M-06)
                 SeparateView {
                     mapArea(bottomPanel: SeparateView { bottomPanel(legsMaxHeight: height * 0.4) })
                 }
+            } else {
+                // The Cockpit's chart, to the act band: NOW | NEXT are in its read band, over every page,
+                // since 6.2 (they were a card at the chart's foot).
+                SeparateView { mapArea(bottomPanel: EmptyView?.none) }
             }
         }
         // Declared once here, so both layouts have them.
@@ -861,7 +865,8 @@ struct NavigationMapView: View {
     /// next waypoint on one line, the controls in a short column on the right edge, the frequencies on
     /// two lines at the bottom, and over the chart only the chips that come and go. The card, a row of
     /// controls, the pane bar and the tall frequency bar left the map about a third of its column.
-    /// (iPhone pass, I7)
+    /// (iPhone pass, I7) The next line and the frequencies stay here until the column takes them, as the
+    /// read band took them everywhere else (6.2).
     private func columnsMapArea(legsMaxHeight: CGFloat) -> some View {
         VStack(spacing: 0) {
             chartWithChrome(top: VStack(spacing: 8) {
@@ -1135,10 +1140,11 @@ struct NavigationMapView: View {
         .accessibilityElement(children: .combine)
     }
 
-    /// The map with its chrome: the top bar (full-screen only), the next-waypoint card and the map's
-    /// controls on top, the scale bar and the undo toast at the bottom, and — in portrait — the
-    /// bottom panel. `footerClearance`: room kept under the scale bar and the undo toast, for the
-    /// landscape legs panel laid over the chart's foot.
+    /// The map with its chrome: the top bar (full-screen only), the next-waypoint card (Plan › Map's; the
+    /// Cockpit's next waypoint is in its read band) and the map's controls on top, the scale bar and the
+    /// undo toast at the bottom, and — in Plan › Map's portrait — the bottom panel. `footerClearance`:
+    /// room kept under the scale bar and the undo toast, for the landscape legs panel laid over the
+    /// chart's foot.
     private func mapArea<Panel: View>(bottomPanel: Panel?, footerClearance: CGFloat = 0) -> some View {
         // The phone: the next waypoint on one line and the controls at the foot of the chart, as on
         // its side. With the card and a row of controls on top, a phone in cruise had about 150 pt
@@ -1156,12 +1162,14 @@ struct NavigationMapView: View {
                 // controls, labelled. (v6.0 · P3) What comes and goes sits under them, so it never
                 // moves them. (6.1)
                 VStack(spacing: compact ? 8 : 10) {
-                    if compact {
-                        // A leg shown from ROUTE: its bar in the next line's place, over the chart's
-                        // top, where a 300 pt chart leaves it clear of the leg. (6.2)
-                        if framedLeg != nil { framedLegBar } else { nextWaypointLine }
-                    } else {
-                        SeparateView { nextWaypointCard }
+                    // The Cockpit's next waypoint is in its read band, over every page, since 6.2: the
+                    // chart keeps its top, what lies ahead in Track up.
+                    if chrome == .plan {
+                        if compact {
+                            nextWaypointLine
+                        } else {
+                            SeparateView { nextWaypointCard }
+                        }
                     }
                     if routesOnTop {
                         routesButton()
@@ -1178,11 +1186,11 @@ struct NavigationMapView: View {
                 .padding(.top, compact ? 8 : 10)
             },
             bottom: VStack(spacing: 8) {
-                // A leg shown from ROUTE, on the iPad: over the foot, where the thumb is. (6.2)
-                if !compact {
-                    framedLegBar
-                        .padding(.horizontal, 16)
-                }
+                // A leg shown from ROUTE: over the foot, where the thumb is, on both devices. On a phone it
+                // took the next line's place at the chart's top until the line went to the read band.
+                // (6.2)
+                framedLegBar
+                    .padding(.horizontal, compact ? 10 : 16)
                 mapFooter
                 // The phone's controls give way while a leg shows (Back to aircraft is Centre then):
                 // the leg has the chart between the bar and the scale. (6.2)
@@ -1257,7 +1265,7 @@ struct NavigationMapView: View {
     @ViewBuilder
     private func occasionalChips(pillLeading: Bool) -> some View {
         let sigmets = rankedSigmets
-        let showsPill = panelChrome.showsRouteOffScreenPill && routeOffScreenHint != nil
+        let showsPill = showsRouteOffScreenPill && routeOffScreenHint != nil
         // The phone's Cockpit is where the chips come; elsewhere, once they have come.
         let sharesRow = (CockpitScale.current == .phone && chrome != .plan) || mapAccessoryHeight != nil
         let chipsHeight = sharesRow ? (mapAccessoryHeight ?? Self.cockpitChipsHeight) : 0
@@ -1286,11 +1294,18 @@ struct NavigationMapView: View {
                 if height > 0 { mapAccessoryHeight = height }
             }
         }
-        if panelChrome.showsRouteOffScreenPill {
+        if showsRouteOffScreenPill {
             routeOffScreenPill(leading: pillLeading)
                 .animation(reduceMotion ? nil : .easeInOut(duration: 0.25), value: routeOffScreenHint) // (UX-18)
                 .modifier(StepsAsideForCallout(isHidden: mapState.isCalloutOpen, reduceMotion: reduceMotion))
         }
+    }
+
+    /// The off-screen route's pill, but not while a leg from ROUTE shows: the leg is the route, on screen.
+    /// Before the leg was framed, the pill came for a moment over the chart's top, and the leg was framed
+    /// clear of it, low on a phone's chart, under the leg's bar. (6.2)
+    private var showsRouteOffScreenPill: Bool {
+        panelChrome.showsRouteOffScreenPill && framedLeg == nil
     }
 
     /// The Cockpit's chips over the chart before they have been measured: a chip (`CockpitChip`) in the
@@ -2739,9 +2754,14 @@ struct NavigationMapView: View {
         let latitudeDelta: Double
     }
 
-    /// What the chart's foot holds while a leg shows: on the iPad the bar and the scale under it, on a
-    /// phone the scale (its bar is at the top, measured with the chrome there).
-    private static var framedLegFootRoom: CGFloat { CockpitType.size(kneeboard: 170, phone: 60) }
+    /// What the chart's foot holds while a leg shows: the bar (a control's height and its 8 pt padding),
+    /// and under it the chart's source and the scale (`mapFooter`, about 76 pt with the CACHED badge). On a
+    /// phone too since 6.2: its bar was at the top, in the next line's place, until the line went to the
+    /// read band. A phone on its side keeps its bar at the top, in its next line's place, and only the
+    /// scale at the foot. (6.2)
+    private var framedLegFootRoom: CGFloat {
+        chrome == .cockpit(.columns) ? 60 : CockpitType.size(kneeboard: 170, phone: 160)
+    }
 
     /// The leg framed: its two waypoints, clear of the chrome over the chart's top and of the bar at its
     /// foot, the aircraft no longer followed.
@@ -2756,7 +2776,7 @@ struct NavigationMapView: View {
         isFollowingAircraft = false
         mapState.pendingFitPadding = LegFraming.edgePadding(chartSize: chartGeometry.chartSize,
                                                             topChrome: chartGeometry.chromeBottom,
-                                                            bottomChrome: Self.framedLegFootRoom)
+                                                            bottomChrome: framedLegFootRoom)
         mapState.pendingFitCoordinates = coordinates
         mapState.objectWillChange.send()   // the fit isn't @Published; nudge updateUIView
         // Appearing, the map view may not have its size yet, and keeps the fit pending: once more when
@@ -2782,8 +2802,8 @@ struct NavigationMapView: View {
         }
     }
 
-    /// While a leg shows: "Back to aircraft" and the leg's DIRECT or RESUME LEG (with its confirmation). At
-    /// the chart's foot on the iPad, in the next line's place on a phone.
+    /// While a leg shows: "Back to aircraft" and the leg's DIRECT or RESUME LEG (with its confirmation), at
+    /// the chart's foot.
     @ViewBuilder
     private var framedLegBar: some View {
         if let index = framedLeg, let plan = flightPlanManager.activeFlightPlan, plan.waypoints.indices.contains(index) {

@@ -93,6 +93,20 @@ struct CompanionNav {
     }
 }
 
+extension NextFigures {
+    /// The Companion's next line, the read band's (`ReadBandNextLine`): the leg the stream says is flown,
+    /// measured as the iPad measures it (`CompanionNav.next`), its ETA from the streamed ground speed. The
+    /// plain name, as on the phone Cockpit. (6.2.0)
+    init(companion nav: CompanionNav, now: Date = FlightClock.now) {
+        guard let next = nav.next else {
+            self = .none
+            return
+        }
+        self.init(ident: next.ident, diverting: next.diverting, bearing: next.bearing, distanceNM: next.distanceNM,
+                  live: NextLegLive(distanceNM: next.distanceNM, groundSpeedKnots: nav.groundSpeedKnots, now: now))
+    }
+}
+
 extension DestinationInput {
     /// The Companion's adapter: the iPad's plan snapshot and stream, read as the plan adapter reads the
     /// active plan, so the phone's DEST line is the iPad's. (6.2.0)
@@ -205,15 +219,23 @@ enum CompanionMarkState: Equatable {
 /// The strip, the next line and the NOW line, over both modes; a tap on either line shows NAV, as on the
 /// Cockpit it opens ROUTE. Every value sits in a cell as wide as its widest, so nothing moves when one
 /// changes, appears or goes. Dimmed while the stream is late.
+///
+/// The next line is the phone Cockpit's (`ReadBandNextLine`, with the turn arrow). The NOW line stays the
+/// Companion's own: it carries the iPad's NOW and NEXT side by side, or an older iPad's FREQ, where the
+/// Cockpit's phone has NOW alone, from its own radio.
 struct CompanionReadBand: View {
     let flightData: CompanionFlightData?
     let nav: CompanionNav
     let onShowNav: () -> Void
 
+    @Environment(\.cockpitTheme) private var theme
+
     var body: some View {
         VStack(spacing: 8) {
             CompanionStrip(flightData: flightData)
-            CompanionNextLine(next: nav.next, onTap: onShowNav)
+            ReadBandNextLine(figures: NextFigures(companion: nav), turn: .some(nav.next?.turn), onTap: onShowNav)
+                .background(RoundedRectangle(cornerRadius: 12).fill(theme.panel))
+                .overlay(RoundedRectangle(cornerRadius: 12).stroke(theme.panelStroke, lineWidth: 1))
             CompanionNowLineView(line: CompanionNowLine.make(flightData: flightData, plan: nav.plan), onTap: onShowNav)
         }
         .padding(.horizontal, 12)
@@ -281,74 +303,6 @@ struct CompanionStrip: View {
     static func track(_ data: CompanionFlightData?) -> String {
         guard let c = data?.courseDegrees else { return "---" }
         return String(format: "%03.0f", c)
-    }
-}
-
-/// The next waypoint: the turn arrow (where it lies from the track, as the phone's NAV always pointed)
-/// and its name in the route's colour on one line, bearing, distance and ETE under it, in fields as long
-/// as their widest ("—" until there is a figure). Two lines, so the name is never cut. Amber arrow while
-/// diverting. "—" with no leg to fly, the line kept.
-struct CompanionNextLine: View {
-    let next: CompanionNav.Next?
-    let onTap: () -> Void
-
-    @Environment(\.cockpitTheme) private var theme
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
-
-    var body: some View {
-        Button(action: onTap) {
-            VStack(alignment: .leading, spacing: 2) {
-                HStack(spacing: 10) {
-                    arrow
-                    Text(verbatim: next?.ident ?? "—")
-                        .font(.aero(size: CockpitType.response, weight: .bold, design: .monospaced))
-                        .foregroundColor(next == nil ? theme.textDim : theme.route)
-                        .lineLimit(1)
-                        .minimumScaleFactor(CockpitType.label / CockpitType.response)
-                    Spacer(minLength: 0)
-                }
-                Text(verbatim: NextWaypointReadout.phoneLine(bearing: next?.bearing.map(NextWaypointReadout.bearing),
-                                                             distance: next?.distanceNM.map(NextWaypointReadout.distance),
-                                                             ete: next?.ete))
-                    .font(.aero(size: CockpitType.label, weight: .bold, design: .monospaced))
-                    .foregroundColor(theme.textPrimary)
-                    .lineLimit(1)
-                    .padding(.leading, Self.arrowSize + 10)
-            }
-            .padding(.horizontal, 12)
-            .padding(.vertical, 6)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .background(RoundedRectangle(cornerRadius: 12).fill(theme.panel))
-            .overlay(RoundedRectangle(cornerRadius: 12).stroke(theme.panelStroke, lineWidth: 1))
-            .contentShape(Rectangle())
-        }
-        .buttonStyle(.plain)
-        .accessibilityElement(children: .ignore)
-        .accessibilityLabel(spoken)
-        .accessibilityIdentifier("read.nextLine")
-    }
-
-    static let arrowSize: CGFloat = 24
-
-    /// The arrow turns inside its square: nothing beside it moves.
-    private var arrow: some View {
-        Image(systemName: "arrow.up")
-            .font(.aero(size: CockpitType.label, weight: .bold))
-            .foregroundColor(next?.diverting == true ? theme.warning : theme.route)
-            .rotationEffect(.degrees(next?.turn ?? 0))
-            .animation(reduceMotion ? nil : .easeInOut(duration: 0.4), value: next?.turn ?? 0)
-            .frame(width: Self.arrowSize, height: Self.arrowSize)
-            .opacity(next?.turn == nil ? 0.35 : 1)
-            .opacity(next == nil ? 0 : 1)
-    }
-
-    private var spoken: String {
-        guard let next else { return "\(L10n.Nav.next) —" }
-        var parts = [(next.diverting ? L10n.Trip.divertTag : L10n.Nav.next) + " " + next.ident]
-        if let bearing = next.bearing { parts.append(NextWaypointReadout.bearing(bearing)) }
-        if let distance = next.distanceNM { parts.append(DestinationSpeech.distance(distance, language: nil)) }
-        if let ete = next.ete { parts.append(DestinationSpeech.duration(minutes: (ete / 60).safeRoundedInt(or: 0), language: nil)) }
-        return parts.joined(separator: ", ")
     }
 }
 

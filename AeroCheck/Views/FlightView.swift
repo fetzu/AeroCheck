@@ -978,9 +978,10 @@ extension FlightView {
 
     // MARK: Frame (6.2)
     //
-    // Three zones, whatever the page: the read band on top (the header, the phase bar, the strip and the
-    // picker), the page (CHECKLIST, MAP or ROUTE), and the act band at the foot (`CockpitActBand`). The
-    // iPad on its side has the same frame, wider: the map's side column is Plan › Map's alone now.
+    // Three zones, whatever the page: the read band on top (the header, the phase bar, the strip with
+    // NEXT, NOW | NEXT, and the picker; `CockpitReadBand.swift`), the page (CHECKLIST, MAP or ROUTE), and
+    // the act band at the foot (`CockpitActBand`). The iPad on its side has the same frame, wider: the
+    // map's side column is Plan › Map's alone now.
 
     /// The zones stacked, top to bottom: the iPad, and the phone in portrait (`narrow`).
     private func cockpitStack(narrow: Bool) -> some View {
@@ -999,10 +1000,10 @@ extension FlightView {
                 .padding(.horizontal, narrow ? 16 : 20)
                 .background(theme.panel)
 
-            // GS · ALT · TRK · NEXT, whenever the aircraft moves (Taxi to After landing). The phone has
-            // room for three; the next waypoint is on the map's card.
-            cockpitStrip(showsNext: !narrow)
-                .padding(.horizontal, narrow ? 12 : 16)
+            // The read band's live rows, over every page: GS · ALT · TRK · NEXT whenever the aircraft
+            // moves (Taxi to After landing), NEXT with its figures, then NOW | NEXT; on the phone, the
+            // strip of three, then the next line and the NOW line. (6.2, the read band)
+            SeparateView { cockpitReadRows(layout: narrow ? .narrow : .wide) }
 
             cockpitPaneBar(narrow: narrow)
                 .padding(.horizontal, narrow ? 12 : 16)
@@ -1028,10 +1029,10 @@ extension FlightView {
                 SeparateView { cockpitChecklistPane(narrow: narrow) }
             }
         case .map:
-            // The same map as the full-screen one, minus its top bar and its thumb row: its
-            // next-waypoint card, controls and frequencies fill the page. BRIEFING sits over the chart
-            // while its phase lasts (until the status slot, PR 4); the deferred count is in More. The
-            // card and the frequencies open ROUTE.
+            // The same map as the full-screen one, minus its top bar, its thumb row, its next-waypoint
+            // card and its frequencies (in the read band since 6.2): the chart and its controls fill the
+            // page. BRIEFING sits over the chart while its phase lasts (until the status slot, PR 4); the
+            // deferred count is in More.
             NavigationMapView(isPresented: .constant(true), showsCloseButton: false, chrome: .cockpit(layout),
                               mapTopAccessory: cockpitMapChips,
                               onDivert: { navState.openDivert($0) },
@@ -1157,24 +1158,48 @@ extension FlightView {
                 .padding(.horizontal, 12)
                 .padding(.top, 6)
                 .padding(.bottom, 4)
-            cockpitStrip(showsNext: false)
+            cockpitStrip
                 .padding(.horizontal, 10)
         }
     }
 
+    /// The strip's values, in the phases that show it (`CockpitStripRule`).
+    private var stripReading: StripReading? {
+        guard CockpitStripRule.showsStrip(in: appState.currentPhase) else { return nil }
+        return StripReading(speedKnots: locationManager.displaySpeedKnots,
+                            targetSpeed: appState.activeChecklist.targetSpeed(for: appState.currentPhase),
+                            gpsSignalStatus: locationManager.gpsSignalStatus,
+                            altitudeFeet: locationManager.currentAltitudeFeet,
+                            headingDegrees: locationManager.currentCourseDegrees,
+                            verticalSpeedFPM: locationManager.verticalSpeedFpm)
+    }
+
+    /// The read band's rows under the phase bar (`CockpitReadRows`): the strip, NEXT and its figures (the
+    /// leg's ETE is the DEST line's first term, `NextLegLive`), NOW and NEXT from the Cockpit's one radio.
+    /// A tap on NEXT or on a frequency opens ROUTE, where every leg and frequency is. (6.2)
+    private func cockpitReadRows(layout: CockpitLayout) -> some View {
+        CockpitReadRows(
+            layout: layout,
+            strip: stripReading,
+            next: NextFigures(plan: flightPlanManager.activeFlightPlan, location: locationManager.currentLocation,
+                              groundSpeedKnots: locationManager.currentSpeedKnots),
+            now: radio.now,
+            nextFrequency: radio.next,
+            onShowRoute: { cockpitPaneBinding.wrappedValue = .route },
+            // V-SPEEDS from GS, where the phone's picker row has no room for its chip. (6.2, Q8)
+            onSpeedTap: { openReference(.vSpeeds) })
+    }
+
+    /// The phone on its side: the strip of three in the column; the next line and the frequencies are on
+    /// its map until the column takes them.
     @ViewBuilder
-    private func cockpitStrip(showsNext: Bool) -> some View {
-        if CockpitStripRule.showsStrip(in: appState.currentPhase) {
+    private var cockpitStrip: some View {
+        if let strip = stripReading {
             CockpitInstrumentStrip(
-                speedKnots: locationManager.displaySpeedKnots,
-                targetSpeed: appState.activeChecklist.targetSpeed(for: appState.currentPhase),
-                gpsSignalStatus: locationManager.gpsSignalStatus,
-                altitudeFeet: locationManager.currentAltitudeFeet,
-                headingDegrees: locationManager.currentCourseDegrees,
-                verticalSpeedFPM: locationManager.verticalSpeedFpm,
+                speedKnots: strip.speedKnots, targetSpeed: strip.targetSpeed,
+                gpsSignalStatus: strip.gpsSignalStatus, altitudeFeet: strip.altitudeFeet,
+                headingDegrees: strip.headingDegrees, verticalSpeedFPM: strip.verticalSpeedFPM,
                 kneeboard: true,
-                nextWaypoint: showsNext ? cockpitNextWaypoint : nil,
-                // V-SPEEDS from GS, where the phone's picker row has no room for its chip. (6.2, Q8)
                 onSpeedTap: { openReference(.vSpeeds) }
             )
         }
@@ -1594,13 +1619,6 @@ extension FlightView {
             // Hold-to-confirm GO-AROUND / T&G / LANDED in the phases they belong to (a tap in circuits).
             eventActionsRow(kneeboard: true)
         }
-    }
-
-    /// The waypoint flown to, for the strip's NEXT cell: the diversion field when diverting. The plain
-    /// name ("E", not "E (LSGC)"): the cell has a fixed width. (6.0.1)
-    private var cockpitNextWaypoint: String? {
-        guard let plan = flightPlanManager.activeFlightPlan, !flightPlanManager.isFlightPlanCompleted else { return nil }
-        return plan.nextWaypointName(.cockpitNext)
     }
 }
 

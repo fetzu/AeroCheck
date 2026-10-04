@@ -8,7 +8,9 @@ import UIKit
 //
 // 1. Header: the aircraft, the phase and where it sits in the flight, flight time, GPS, and a
 //    labelled Menu.
-// 2. Instrument strip: GS, ALT, TRK and the next waypoint, at `CockpitType.value`.
+// 2. The read band's live rows (6.2, `CockpitReadBand.swift`): the instrument strip, GS, ALT and TRK at
+//    `CockpitType.value` and, on the iPad, NEXT with its bearing, distance, ETE and ETA; then NOW | NEXT,
+//    the frequencies (on the phone the next line and the NOW line). Over every page.
 // 3. The context pane: the CHECKLIST, the MAP or the ROUTE at full height, never two squeezed. It
 //    follows the flight (`CockpitPaneRule`: CHECKLIST or MAP); a tap on the picker overrides it until
 //    the flight moves on (`CockpitPaneChoice`). ROUTE (6.2) is the pilot's pick only: the DEST line, the
@@ -82,7 +84,7 @@ enum CockpitLayout: Equatable {
     /// The iPad, portrait and landscape: the header and the pane bar on one row each.
     case wide
     /// A phone in portrait, or any window under 600 pt wide: the same zones, the header on two rows, and
-    /// no NEXT cell in the strip.
+    /// no NEXT cell in the strip (the next line under it instead).
     case narrow
     /// A phone on its side: the header, the strip and the thumb bar in a column on the left, where the
     /// thumb is, and the pane on the right at full height. Stacked, the zones would leave the checklist

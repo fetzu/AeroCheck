@@ -204,9 +204,10 @@ enum RouteNameForm: Equatable {
     /// With the aerodrome, "E (LSGC)".
     case full
 
-    /// The Cockpit strip's NEXT cell: 48 pt in a cell of 192.6 pt in iPad portrait.
-    static let cockpitNext = RouteNameForm.compact
-    /// The phone's next-waypoint line over the map, where the name shares a line with the figures.
+    /// The Cockpit strip's NEXT cell, beside its figures: "E (LSGC)" where it fits, else the plain name
+    /// (`StripNextCell`). Its `strip.next` value stays the plain name. (6.2, the read band)
+    static let cockpitNext = RouteNameForm.full
+    /// The phone's next line in the read band, where the name shares its rows with the figures.
     static let phoneNextLine = RouteNameForm.compact
     /// The iPad map's next-waypoint card: "E (LSGC)" on its one row, ETA included, in portrait. The
     /// card falls back to the plain name where the long one would cost a figure (in landscape beside

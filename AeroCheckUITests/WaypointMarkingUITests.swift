@@ -77,14 +77,15 @@ final class WaypointMarkingUITests: XCTestCase {
         pilot.check("ato-3", leg.map { abs(Double($0) - sinceN) < 45 } ?? false,
                     "LEG from N: \(markLabel ?? "no MARK") (N passed \(Int(sinceN)) s ago)")
 
-        // rp-9: E (LSGC) next: the Cockpit's NEXT cell reads "E"; on the iPad the map card "E (LSGC)".
+        // rp-9: E (LSGC) next: the NEXT cell's value is "E"; on the iPad it shows "E (LSGC)" (6.2: the
+        // cell, where the map's card showed it until then).
         let phone = pilot.isPhone
         let nextE = pilot.snap("strip.next")?.value as? String
         pilot.check("rp-9", nextE == "E", "NEXT cell: \(nextE ?? "-")")
         if phone {
             pilot.observed("rp-9", "the phone line: see the screenshot (texts with E: \(pilot.texts(containing: "E").filter { $0.count < 24 }.prefix(8)))")
         } else {
-            pilot.check("rp-9", !pilot.texts(containing: "E (LSGC)").isEmpty, "map card: \(pilot.texts(containing: "(LSGC)"))")
+            pilot.check("rp-9", !pilot.texts(containing: "E (LSGC)").isEmpty, "NEXT cell: \(pilot.texts(containing: "(LSGC)"))")
         }
         pilot.shot("rp-9", "next-e")
         pilot.observed("rp-9", "nothing shrinks or moves: see the screenshot")
@@ -338,8 +339,9 @@ extension WaypointMarkingUITests {
 
 extension WaypointMarkingUITests {
     /// rp-9 on the phone (`scripts/ground-replay.sh --iphone --only WaypointMarkingUITests/testReportingPointOnThePhone`):
-    /// with E (LSGC) next, the phone's line over the chart reads "E", without its aerodrome; with the legs
-    /// open too. (The iPad's NEXT cell and map card are testRouteWithReportingPoints'.)
+    /// with E (LSGC) next, the phone's next line reads "E", without its aerodrome; with the legs open too.
+    /// The line is in the read band, over every page, since 6.2 (it was over the chart). (The iPad's NEXT
+    /// cell is testRouteWithReportingPoints'.)
     func testReportingPointOnThePhone() {
         let pilot = CockpitPilot(self, scenario: "route-vrps", page: "601")
         defer { pilot.attachResults(testName: name) }
@@ -347,8 +349,9 @@ extension WaypointMarkingUITests {
         pilot.launch()
         guard pilot.departToClimb() else { return XCTFail("could not get to the climb check") }
         pilot.showPane("map")
-        // The line over the chart: "→ E  172° · 2.4 NM · 1 min", the button that opens the legs.
-        func line() -> String? { pilot.label("map.nextLine") }
+        // The read band's next line, "NEXT E  172° · 2.4 NM / 1 min · 11:58", the button that opens ROUTE.
+        // VoiceOver reads it "Next, E, bearing 172 degrees, …".
+        func line() -> String? { pilot.label("read.nextLine") }
         func readsE(_ label: String?) -> Bool {
             (label ?? "").components(separatedBy: ", ").contains("E")
         }

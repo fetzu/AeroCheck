@@ -1309,10 +1309,20 @@ struct CockpitInstrumentStrip: View {
     /// The Cockpit, on both devices: values at `CockpitType.value`, labels at `CockpitType.label`.
     /// (v6.0 · P2, P6; iPhone pass)
     var kneeboard: Bool = false
-    /// The next waypoint, in the route's magenta: the fourth cell of the Cockpit strip. (v6.0 · P2)
-    var nextWaypoint: String? = nil
+    /// The fourth cell on the iPad: the next waypoint, in the route's magenta, with its bearing,
+    /// distance, ETE and ETA (`StripNextCell`). Nil: three cells (the phone, which has its next line).
+    /// Present in every phase the strip is, "—" with no route, so the cells never divide again: GS, ALT
+    /// and TRK then take their widest values' width, NEXT the rest. (v6.0 · P2; 6.2, the read band)
+    var next: NextFigures? = nil
+    /// A tap on NEXT: ROUTE. (6.2)
+    var onNextTap: (() -> Void)? = nil
     /// A tap on GS: the Cockpit's V-SPEEDS, which the phone's picker row has no room for. (6.2, Q8)
     var onSpeedTap: (() -> Void)? = nil
+    /// NEXT's language, "fr"; nil, the app's. For the French previews and tests.
+    var language: String? = nil
+
+    /// Whether GS, ALT and TRK hug their widest values, leaving NEXT the rest.
+    private var hugsValues: Bool { kneeboard && next != nil }
 
     private var valueSize: CGFloat { kneeboard ? CockpitType.value : 24 }
     private var labelSize: CGFloat { kneeboard ? CockpitType.label : 11 }
@@ -1358,13 +1368,17 @@ struct CockpitInstrumentStrip: View {
         // dividers run its height. (6.1.0)
         HStack(alignment: .top, spacing: 0) {
             speedCell
+                .readBandPart(.speed)
             divider
             altitudeCell
+                .readBandPart(.altitude)
             divider
             headingCell
-            if kneeboard, let nextWaypoint {
+                .readBandPart(.track)
+            if kneeboard, let next {
                 divider
-                nextCell(nextWaypoint)
+                SeparateView { StripNextCell(figures: next, onTap: onNextTap, language: language) }
+                    .frame(maxWidth: .infinity)
             }
         }
         .fixedSize(horizontal: false, vertical: true)
@@ -1379,7 +1393,7 @@ struct CockpitInstrumentStrip: View {
 
     private var speedCell: some View {
         // GS, not SPD: it is ground speed, the app has no airspeed source. (v6.0 · P2)
-        cell(label: kneeboard ? "GS kt" : "SPD kt") {
+        cell(label: kneeboard ? "GS kt" : "SPD kt", widest: "000") {
             // Every line keeps its room whatever it shows: the target bar in a phase without a target
             // speed, the value under the GPS failure flag. Lines that came and went resized the strip,
             // and moved everything under it, in flight. (6.1.0)
@@ -1410,7 +1424,8 @@ struct CockpitInstrumentStrip: View {
     }
 
     private var altitudeCell: some View {
-        cell(label: "ALT ft") {
+        // The widest altitude as the cell writes it, grouped for the region ("88'888", "88,888").
+        cell(label: "ALT ft", widest: 88_888.formatted(.number)) {
             // The vertical speed's line is always there, empty in level flight: appearing at ±50 fpm it
             // pushed the strip, and the map under it, down a line and back up, in flight. The value
             // keeps its room under the GPS failure flag too. (6.1.0)
@@ -1438,7 +1453,7 @@ struct CockpitInstrumentStrip: View {
 
     private var headingCell: some View {
         // TRK on the kneeboard: it is the GPS track, which the compact strip spells out underneath.
-        cell(label: kneeboard ? "TRK" : "HDG") {
+        cell(label: kneeboard ? "TRK" : "HDG", widest: "000°") {
             Text(headingDegrees.map { String(format: "%03d°", (Int($0.rounded()) % 360 + 360) % 360) } ?? "---")
                 .font(.aero(size: valueSize, weight: .medium, design: .monospaced))
                 .foregroundColor(theme.textPrimary)
@@ -1451,20 +1466,6 @@ struct CockpitInstrumentStrip: View {
         .accessibilityLabel("Heading")
         .accessibilityValue(headingDegrees.map { L10n.Accessibility.track((Int($0.rounded()) % 360 + 360) % 360) }
             ?? L10n.Accessibility.trackUnknown)
-    }
-
-    /// The next waypoint: the active route, so magenta.
-    private func nextCell(_ ident: String) -> some View {
-        cell(label: L10n.Cockpit.nextColumn) {
-            Text(ident)
-                .font(.aero(size: valueSize, weight: .bold, design: .monospaced))
-                .foregroundColor(theme.route)
-                .minimumScaleFactor(0.4).lineLimit(1)
-        }
-        .accessibilityElement(children: .ignore)
-        .accessibilityIdentifier("strip.next")
-        .accessibilityLabel(L10n.Nav.next)
-        .accessibilityValue(ident)
     }
 
     /// A cell's value, across the cell, hidden with GPS lost, and the failure flag over it. The flag is
@@ -1497,13 +1498,15 @@ struct CockpitInstrumentStrip: View {
         Rectangle().fill(theme.glassStroke).frame(width: 0.5).padding(.vertical, kneeboard ? 8 : 4)
     }
 
+    /// `widest`: the cell's widest value, which sets its width beside NEXT (`hugsValues`).
     @ViewBuilder
-    private func cell<Content: View>(label: String, @ViewBuilder content: () -> Content) -> some View {
+    private func cell<Content: View>(label: String, widest: String,
+                                     @ViewBuilder content: () -> Content) -> some View {
         VStack(spacing: 2) {
             Text(label).font(.aero(size: labelSize)).foregroundColor(theme.textSecondary)
             content()
         }
-        .frame(maxWidth: .infinity)
+        .modifier(StripCellWidth(widest: widest, size: valueSize, hugs: hugsValues))
         // The Apple-sanctioned answer for UI that genuinely cannot scale.
         //
         // These instruments keep fixed point sizes on purpose: a HUD read at a glance from a fixed
@@ -1522,6 +1525,29 @@ struct CockpitInstrumentStrip: View {
     }
 
 
+}
+
+/// A strip cell's width. Beside NEXT (`hugs`), as wide as the widest value the cell can show ("88'888"
+/// for ALT, in a Swiss region) plus a margin: what is left is NEXT's, the same whatever the values do. Without NEXT (the
+/// phone), a third of the strip each, as always. (6.2, the read band)
+private struct StripCellWidth: ViewModifier {
+    let widest: String
+    let size: CGFloat
+    let hugs: Bool
+
+    func body(content: Content) -> some View {
+        if hugs {
+            content.frame(width: Self.width(widest, size: size))
+        } else {
+            content.frame(maxWidth: .infinity)
+        }
+    }
+
+    /// The widest value's width in the strip's figures (B612 Mono), and 8 pt each side.
+    static func width(_ widest: String, size: CGFloat) -> CGFloat {
+        let font = UIFont.aero(size: size, monospaced: true)
+        return ceil((widest as NSString).size(withAttributes: [.font: font]).width) + 16
+    }
 }
 
 /// GS as a way to V-SPEEDS: the cell's whole area, a button to VoiceOver. Nothing without an action.

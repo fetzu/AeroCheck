@@ -108,7 +108,7 @@ final class InstrumentStripLayoutTests: XCTestCase {
         let strip = CockpitInstrumentStrip(speedKnots: 104, targetSpeed: target, gpsSignalStatus: gps,
                                            altitudeFeet: 3_499, headingDegrees: 211,
                                            verticalSpeedFPM: verticalSpeed, kneeboard: kneeboard,
-                                           nextWaypoint: next)
+                                           next: next.map { NextFigures(ident: $0) })
         return UIHostingController(rootView: strip).sizeThatFits(in: CGSize(width: 800, height: 1_000))
     }
 
@@ -134,7 +134,7 @@ final class InstrumentStripLayoutTests: XCTestCase {
     private func flagRows(width: CGFloat) -> [ClosedRange<Int>] {
         let strip = CockpitInstrumentStrip(speedKnots: 0, targetSpeed: nil, gpsSignalStatus: .lost,
                                            altitudeFeet: 4_060, headingDegrees: nil, verticalSpeedFPM: nil,
-                                           kneeboard: true, nextWaypoint: nil)
+                                           kneeboard: true, next: nil)
             .frame(width: width)
         let renderer = ImageRenderer(content: strip)
         renderer.scale = 1

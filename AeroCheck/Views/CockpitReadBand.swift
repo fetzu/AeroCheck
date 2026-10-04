@@ -162,29 +162,95 @@ struct StripNextCell: View {
     private var metrics: ReadBandMetrics { ReadBandMetrics(.kneeboard) }
 
     var body: some View {
-        HStack(alignment: .top, spacing: metrics.figureGap) {
-            VStack(alignment: .leading, spacing: 4) {
-                NextTagRow(diverting: figures.diverting, size: metrics.labelSize, language: language)
-                SeparateView { NextIdent(figures: figures, metrics: metrics, language: language) }
-            }
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .readBandPart(.nextName)
-
-            VStack(alignment: .trailing, spacing: 0) {
-                figure(figures.bearingText, NextFigureTemplates.bearing)
-                figure(figures.distanceText, NextFigureTemplates.distance)
-                figure(figures.eteText, NextFigureTemplates.ete)
-                figure(figures.etaClock, NextFigureTemplates.clock)
-            }
-            .fixedSize()
-            .modifier(NextFiguresElement(figures: figures, onTap: onTap, language: language))
-            .readBandPart(.nextFigures)
+        // A width's choice, never the figures': both arrangements are as wide as their templates and the
+        // name's room whatever they show, so a cell keeps the one its width gives it all flight.
+        ViewThatFits(in: .horizontal) {
+            figuresBeside
+            figuresUnder
         }
         .padding(.leading, 12)
         .padding(.trailing, 4)
         .contentShape(Rectangle())
         .onTapGesture { onTap?() }
         .readBandPart(.next)
+    }
+
+    /// The portrait cell's, about 315 pt wide: the name at the left, the figures one per line at the right.
+    private var figuresUnder: some View {
+        HStack(alignment: .top, spacing: metrics.figureGap) {
+            name
+            figureColumn
+                .modifier(NextFiguresElement(figures: figures, onTap: onTap, language: language))
+                .readBandPart(.nextFigures)
+        }
+    }
+
+    /// The cell on an iPad on its side, about 655 pt wide (6.2, PR 4): the figures on one row beside the
+    /// name, "206° · 17.6 NM · 10 min · 11:58" on the name's line, rather than the name far left and four
+    /// lines far right. The cell keeps the portrait one's height (the figures' column, hidden), so the
+    /// strip is as tall as it was.
+    private var figuresBeside: some View {
+        ZStack(alignment: .topLeading) {
+            figureColumn.hidden().accessibilityHidden(true)
+            HStack(alignment: .lastTextBaseline, spacing: Self.besideGap) {
+                name
+                    .frame(minWidth: Self.nameRoom, idealWidth: Self.nameRoom, maxWidth: Self.nameRoomAtMost,
+                           alignment: .leading)
+                figureRow
+                    .modifier(NextFiguresElement(figures: figures, onTap: onTap, language: language))
+                    .readBandPart(.nextFigures)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+        }
+    }
+
+    /// The name's least room beside the figures' row, which decides the arrangement: "SAIGNELÉGIER" at
+    /// 25 pt, where the name scales before it is ever cut. The cell is about 655 pt wide on an iPad Air on
+    /// its side, 315 upright: an iPad mini on its side (about 610) gets the row too.
+    static let nameRoom: CGFloat = 180
+    /// And its most: "SAIGNELÉGIER" whole at 28 pt, with a margin. The figures follow it, at the same
+    /// place whatever the name, and a wider cell (a 13" iPad) leaves its room at the right.
+    static let nameRoomAtMost: CGFloat = 240
+    static let besideGap: CGFloat = 20
+
+    private var name: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            NextTagRow(diverting: figures.diverting, size: metrics.labelSize, language: language)
+            SeparateView { NextIdent(figures: figures, metrics: metrics, language: language) }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .readBandPart(.nextName)
+    }
+
+    private var figureColumn: some View {
+        VStack(alignment: .trailing, spacing: 0) {
+            figure(figures.bearingText, NextFigureTemplates.bearing)
+            figure(figures.distanceText, NextFigureTemplates.distance)
+            figure(figures.eteText, NextFigureTemplates.ete)
+            figure(figures.etaClock, NextFigureTemplates.clock)
+        }
+        .fixedSize()
+    }
+
+    /// BRG · DIST · ETE · the ETA's clock time, each in its widest value's room.
+    private var figureRow: some View {
+        HStack(alignment: .lastTextBaseline, spacing: 10) {
+            figure(figures.bearingText, NextFigureTemplates.bearing)
+            separator
+            figure(figures.distanceText, NextFigureTemplates.distance)
+            separator
+            figure(figures.eteText, NextFigureTemplates.ete)
+            separator
+            figure(figures.etaClock, NextFigureTemplates.clock)
+        }
+        .fixedSize()
+    }
+
+    private var separator: some View {
+        Text(verbatim: "·")
+            .font(metrics.figureFont)
+            .foregroundColor(theme.textSecondary)
+            .accessibilityHidden(true)
     }
 
     private func figure(_ text: String, _ widest: [String]) -> some View {

@@ -43,6 +43,8 @@ struct FlightView: View {
     @State private var navState: CockpitNavState
     /// NOW, NEXT and every frequency, on every page, and the Watch's list. (6.2, ROUTE)
     @State private var radio: CockpitRadio
+    /// OFF ROUTE, followed on every page, and More's requests to the chart. (6.2, MAP's chrome)
+    @State private var chartState = CockpitMapState()
     @State private var pulseNextButton = false
     @State private var pulseActionButton = false
     @State private var allItemsChecked = false
@@ -972,8 +974,11 @@ extension FlightView {
         .onChange(of: cockpitDefaultPane) { _, _ in paneChoice.suggestionChanged() }
         // NOW and NEXT on every page, CHECKLIST included, and the Watch's list. (6.2, ROUTE)
         .modifier(CockpitRadioFollower(radio: radio))
+        // OFF ROUTE on every fix, whatever page shows. (6.2, MAP's chrome)
+        .modifier(CockpitMapFollower(mapState: chartState))
         .environment(navState)
         .environment(radio)
+        .environment(chartState)
     }
 
     // MARK: Frame (6.2)
@@ -993,21 +998,29 @@ extension FlightView {
             // main-thread stack in a Debug build.
             SeparateView { cockpitHeader(style: narrow ? .narrow : .wide) }
                 .padding(.horizontal, narrow ? 16 : 20)
-                .padding(.top, 8)
+                .padding(.top, narrow ? 4 : 8)
+                .padding(.bottom, narrow ? 6 : 0)
                 .background(theme.panel)
 
-            phaseProgressBarView
-                .padding(.horizontal, narrow ? 16 : 20)
-                .background(theme.panel)
+            // The iPad's phase bar, its segments a control tall to the touch. The phone draws it in the
+            // phase button, as on its side, whose tap opens the phase list, where a phase is picked by
+            // its name: its own row took 50 pt of a chart that has 220 (an iPhone 17e) since the read
+            // band. (6.2, PR 4)
+            if !narrow {
+                phaseProgressBarView
+                    .padding(.horizontal, 20)
+                    .background(theme.panel)
+            }
 
             // The read band's live rows, over every page: GS · ALT · TRK · NEXT whenever the aircraft
             // moves (Taxi to After landing), NEXT with its figures, then NOW | NEXT; on the phone, the
             // strip of three, then the next line and the NOW line. (6.2, the read band)
             SeparateView { cockpitReadRows(layout: narrow ? .narrow : .wide) }
 
+            // 6 pt on the phone, whose chart has every point it can get (6.2, PR 4).
             cockpitPaneBar(narrow: narrow)
                 .padding(.horizontal, narrow ? 12 : 16)
-                .padding(.vertical, narrow ? 8 : 10)
+                .padding(.vertical, narrow ? 6 : 10)
 
             SeparateView { cockpitPage(layout: narrow ? .narrow : .wide) }
                 .frame(maxHeight: .infinity)
@@ -1029,13 +1042,13 @@ extension FlightView {
                 SeparateView { cockpitChecklistPane(narrow: narrow) }
             }
         case .map:
-            // The same map as the full-screen one, minus its top bar, its thumb row, its next-waypoint
-            // card and its frequencies (in the read band since 6.2): the chart and its controls fill the
-            // page. BRIEFING sits over the chart while its phase lasts (until the status slot, PR 4); the
-            // deferred count is in More.
+            // The chart alone since 6.2 (PR 4): the aircraft, the route, the airspace, and the chrome over
+            // them (the stack, the status slot with BRIEFING, the edge arrow, the scale while zooming). The
+            // next waypoint and the frequencies are in the read band, the deferred count and the SIGMETs
+            // in More.
             NavigationMapView(isPresented: .constant(true), showsCloseButton: false, chrome: .cockpit(layout),
-                              mapTopAccessory: cockpitMapChips,
                               onDivert: { navState.openDivert($0) },
+                              onOpenReference: { openReference($0) },
                               onShowRoute: { cockpitPaneBinding.wrappedValue = .route })
         case .route:
             CockpitRoutePage(layout: layout, onShowLeg: { showLeg($0) })
@@ -1069,7 +1082,7 @@ extension FlightView {
 
     /// A phone on its side (I7): everything the pilot works with in a column on the left, where the
     /// thumb is (the header, CHECKLIST · MAP · ROUTE, the strip, the act band), and the page on the right
-    /// at full height. The checklist's chips sit at the top of the list, BRIEFING over the chart. With the pane bar, the card and a row of controls over
+    /// at full height. The checklist's chips sit at the top of the list, BRIEFING in the chart's status slot. With the pane bar, the card and a row of controls over
     /// it, the map had about a third of its column left. (iPhone pass, I7) The column is the same for
     /// both pages since the act band (6.2): the map draws its chart and nothing else.
     private var cockpitColumns: some View {
@@ -1101,22 +1114,12 @@ extension FlightView {
             }
         case .map:
             NavigationMapView(isPresented: .constant(true), showsCloseButton: false, chrome: .cockpit(.columns),
-                              mapTopAccessory: cockpitMapChips,
                               onDivert: { navState.openDivert($0) },
+                              onOpenReference: { openReference($0) },
                               onShowRoute: { cockpitPaneBinding.wrappedValue = .route })
         case .route:
             CockpitRoutePage(layout: .columns, onShowLeg: { showLeg($0) })
         }
-    }
-
-    /// BRIEFING over the chart, while its phase lasts: opaque, where the chip's tint alone was
-    /// see-through. (The deferred count is in More on MAP since 6.2.)
-    private var cockpitMapChips: AnyView? {
-        guard appState.currentPhase.briefingType != nil else { return nil }
-        return AnyView(cockpitBriefingChip
-            .fixedSize()
-            .padding(6)
-            .background(RoundedRectangle(cornerRadius: 16).fill(theme.panel)))
     }
 
     /// The CHECKLIST page's chips, at the top of the list: what is deferred, the phase's BRIEFING, and
@@ -1218,8 +1221,8 @@ extension FlightView {
     /// takes what's left, wrapping between words ("CHECK BEFORE / ENGINE START"), never inside one.
     /// (on-device review #2)
     /// `narrow` (the phone in portrait): the phase gets a line of its own under the rest, instead of a
-    /// badge shrunk to about 7 pt; the landscape column uses it too, with the progress bar drawn in the
-    /// phase button (`column`). (iPhone pass; 6.1)
+    /// badge shrunk to about 7 pt, with the progress bar drawn in the phase button (6.2, PR 4); the
+    /// landscape column has it so too (`column`). (iPhone pass; 6.1)
     @ViewBuilder
     private func cockpitHeader(style: CockpitHeaderStyle) -> some View {
         switch style {
@@ -1235,7 +1238,7 @@ extension FlightView {
                 cockpitMenuButton()
             }
         case .narrow, .column:
-            VStack(spacing: style == .column ? 6 : 8) {
+            VStack(spacing: 6) {
                 // Richest first, down to one that always fits. A row wider than the screen doesn't
                 // just clip: it widens the whole Cockpit, which then sits off centre with the Menu
                 // past the edge. With the Menu labelled beside its icon, an iPhone 17's row was
@@ -1247,7 +1250,7 @@ extension FlightView {
                     cockpitHeaderTopRow(gpsLabelled: false, menu: .stacked, circuitCaption: false)
                     cockpitHeaderTopRow(gpsLabelled: false, menu: .icon, circuitCaption: false)
                 }
-                cockpitPhaseButton(fillsWidth: true, showsProgress: style == .column)
+                cockpitPhaseButton(fillsWidth: true, showsProgress: true)
             }
         }
     }
@@ -1284,6 +1287,9 @@ extension FlightView {
         }
         .buttonStyle(.plain)
         .accessibilityHint(L10n.Sheet.selectPhase)
+        // The UI tests' way to the phase on the phone, whose bar has no segment to read since 6.2 (PR 4):
+        // "cockpit.phase.climb". An identifier, never read out.
+        .accessibilityIdentifier("cockpit.phase.\(appState.currentPhase)")
     }
 
     /// The phase and where it sits in the flight ("10/16").
@@ -1299,10 +1305,13 @@ extension FlightView {
                         .hidden()
                         .accessibilityHidden(true)
                 }
+                // The phone's on one line (6.2, PR 4): the button holds the phase bar under it now, and a
+                // title wrapping on a narrow phone ("CHECK BEFORE ENGINE START" on an iPhone SE) would move
+                // everything under the header. It needs 99.6 % of its size there; every other phone, 100.
                 Text(appState.currentPhase.shortTitle)
                     .font(.aero(size: CockpitType.label, weight: .bold))
                     .foregroundColor(theme.textPrimary)
-                    .lineLimit(2)
+                    .lineLimit(fillsWidth ? 1 : 2)
                     .minimumScaleFactor(0.85)
                     .fixedSize(horizontal: false, vertical: true)
             }
@@ -1786,11 +1795,18 @@ struct PhaseProgressBar: View {
     /// triple is the hardest possible palette. HIG: "Convey information with more than color
     /// alone." (UX-10)
     private func accessibilityStatus(for phase: ChecklistPhase) -> String {
+        Self.spokenStatus(of: phase, current: currentPhase, status: status(phase), fredaDue: fredaDue,
+                          currentOwed: currentOwed)
+    }
+
+    /// A phase's status in words: the bar's segment and the phase list's row say the same. (6.2, PR 4)
+    static func spokenStatus(of phase: ChecklistPhase, current currentPhase: ChecklistPhase,
+                             status: PhaseCompletionStatus, fredaDue: Bool, currentOwed: Bool) -> String {
         if phase == .cruise && phase == currentPhase && fredaDue {
             return L10n.Accessibility.phaseFredaDue
         }
         if phase == currentPhase && currentOwed { return L10n.Accessibility.phaseOwed }
-        switch status(phase) {
+        switch status {
         case .completed:     return L10n.Accessibility.phaseCompleted
         case .doneFromMemory: return L10n.Accessibility.phaseDoneFromMemory
         case .skipped:       return L10n.Accessibility.phaseSkipped
@@ -1887,6 +1903,15 @@ struct PhaseSelectorView: View {
                             .foregroundColor(theme.textSecondary)
                     }
                 }
+                // What the bar's segment says, which the phone's bar, drawn in its phase button, no longer
+                // says on its own since 6.2 (PR 4): the status in words (the dot is colour alone), the
+                // current phase selected. The UI tests read and pick a phase here on the phone.
+                .accessibilityIdentifier("phaseList.\(phase)")
+                .accessibilityValue(PhaseProgressBar.spokenStatus(
+                    of: phase, current: appState.currentPhase, status: appState.getPhaseStatus(phase),
+                    fredaDue: appState.fredaDue,
+                    currentOwed: appState.cueTiming(for: appState.currentPhase) == .owed))
+                .accessibilityAddTraits(phase == appState.currentPhase ? .isSelected : [])
             }
             .navigationTitle(L10n.Sheet.selectPhase)
             .navigationBarTitleDisplayMode(.inline)

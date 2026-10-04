@@ -29,7 +29,13 @@ final class FlightTimingUITests: XCTestCase {
         pilot.check("eet-4", planned != nil && anchored != nil && planned != anchored,
                     "READY FOR LINE UP moves the ETA: planned \(planned ?? "?") → \(anchored ?? "?")")
         if pilot.memoryDone.waitForExistence(timeout: 3) { pilot.tapNow(pilot.memoryDone) }
-        pilot.waitForTrack(s.mark("liftoff") + 60)
+        // The departure on MAP, ten minutes of it: the track leaves LSZQ on the runway's heading and joins
+        // the leg to INS some 9 NM out, 1.0 to 1.6 NM off it until then. OFF ROUTE never shows (6.2, PR 4):
+        // the aircraft is on its way to the route, not off it.
+        let offRoute = pilot.watchOffRoute(untilTrack: s.mark("liftoff") + 600)
+        pilot.shot("offroute-1", "xc-planned-departure")
+        pilot.check("offroute-1", offRoute.isEmpty,
+                    "xc-planned, the departure to 9 NM out: \(offRoute.isEmpty ? "no OFF ROUTE" : offRoute.joined(separator: " | "))")
         let inFlight = pilot.destinationETA()
         pilot.shot("eet-4", "in-flight")
         pilot.check("eet-4", inFlight == anchored, "in flight the ETA stays on LINE UP + 2 min: \(anchored ?? "?") → \(inFlight ?? "?")")
@@ -52,8 +58,9 @@ final class FlightTimingUITests: XCTestCase {
         pilot.checkAllItems()
         let planned = pilot.destinationETA()
         pilot.shot("eet-3", "planned")
-        // The jump: the replay's hold at the holding point lets go once the line-up check is reached.
-        pilot.tap("phaseBar.lineUp")
+        // The jump: the replay's hold at the holding point lets go once the line-up check is reached. On
+        // the phase bar on the iPad, in the phase list on the phone.
+        pilot.jump(to: "lineUp")
         let ask = pilot.app.buttons.matching(NSPredicate(format: "label CONTAINS[c] 'already done'")).firstMatch
         if ask.waitForExistence(timeout: 2) { pilot.tapNow(ask) }
         pilot.check("eet-3", pilot.waitUntil(timeout: 4) { pilot.currentPhase == "lineUp" }, "jumped to \(pilot.currentPhase ?? "?")")

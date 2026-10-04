@@ -132,15 +132,27 @@ enum CockpitStatusRule {
 
 // MARK: - OFF ROUTE
 
-/// OFF ROUTE: the aircraft more than a mile off the leg it is flying. On above 1.0 NM, off again below
-/// 0.7 NM, so GPS jitter around one mile doesn't make it blink. A value: the view keeps one and feeds
-/// it every fix. (6.2.0)
+/// OFF ROUTE: the aircraft more than a mile off the route it is flying. On above 1.0 NM, off again below
+/// 0.7 NM, so GPS jitter around one mile doesn't make it blink. A value: the Cockpit keeps one and feeds
+/// it every fix, on every page (`CockpitMapState`). (6.2.0)
 ///
 /// Dark unless every condition holds: a leg to fly (the active plan's `currentWaypointIndex` ≥ 1, the
 /// leg from waypoint n−1 to n; not the leg to the departure, not after the destination), not
 /// diverting, not in circuits, airborne (LINE UP tapped, no landing yet), and good GPS. Suppressed
 /// without good GPS, so OFF ROUTE and the GPS state never contradict each other. A suppressed rule
 /// starts again from on-route.
+///
+/// It never speaks where a pilot is right to be off the line (6.2.0, PR 4; the replays' departures and
+/// arrivals were 1 to 2 NM off it):
+/// - the route is the leg flown and the legs on either side of it, the one just flown to the
+///   destination: a waypoint flown past before the flight marks it (a catch-up runs every 15 s), MARK
+///   pressed a little early, a waypoint taken back with UNDO, a corner cut, are all on the route;
+/// - near the fields the route starts and ends at (`fieldRadiusNM`), the circuits and their joining
+///   are flown, not the line;
+/// - after a new target other than the next waypoint (the take-off, DIRECT, RESUME LEG, UNDO, the route
+///   resumed after a diversion), the aircraft is on its way to the route: OFF ROUTE waits until it has
+///   been on it (within `clearBelowNM`) once. A departure that joins the first leg 9 NM out says
+///   nothing on the way.
 ///
 /// Until 6.2.0 nothing detected an aircraft off its route in flight: the off-screen route pill
 /// (`RouteVisibility`) only said where the route was on the map.
@@ -149,16 +161,27 @@ struct OffRouteRule {
     static let showAboveNM = 1.0
     /// NM: and clears below this.
     static let clearBelowNM = 0.7
+    /// NM around the route's departure and destination where OFF ROUTE stays dark: the circuit, its
+    /// joining and leaving.
+    static let fieldRadiusNM = 5.0
 
-    /// The leg being flown: waypoint n−1 to waypoint n.
+    /// A leg of the route: waypoint n−1 to waypoint n.
     struct Leg {
         let from: CLLocationCoordinate2D
         let to: CLLocationCoordinate2D
     }
 
     struct Input {
-        /// Nil when there is no leg to fly (`activeLeg(of:)`).
+        /// The leg being flown; nil when there is no leg to fly (`activeLeg(of:)`).
         var leg: Leg?
+        /// The legs on either side of it that count as the route too (`routeLegs(of:)`): the one just
+        /// flown, and every one still to fly.
+        var otherLegs: [Leg] = []
+        /// The route's departure and destination: dark within `fieldRadiusNM` of either.
+        var fields: [CLLocationCoordinate2D] = []
+        /// The waypoint flown to (`currentWaypointIndex`): a change other than to the next one makes the
+        /// aircraft join the route again before OFF ROUTE may speak. Nil: no such memory (the tests).
+        var target: Int? = nil
         /// Nil with no fix.
         var aircraft: CLLocationCoordinate2D?
         var diverting = false
@@ -170,20 +193,56 @@ struct OffRouteRule {
 
     /// Whether OFF ROUTE shows now. The hysteresis's memory.
     private(set) var isOffRoute = false
+    /// The aircraft has been on the route since its target last changed other than to the next waypoint.
+    private(set) var hasJoinedRoute = false
+    /// The target the last fix was flown to.
+    private(set) var lastTarget: Int?
 
     /// Feeds one fix: the cross-track distance to show, or nil for no OFF ROUTE.
     mutating func update(_ input: Input) -> Double? {
-        let shown = Self.evaluate(input, wasOffRoute: isOffRoute)
-        isOffRoute = shown != nil
-        return shown
+        if let target = input.target {
+            if let last = lastTarget, target != last, target != last + 1 { hasJoinedRoute = false }
+            lastTarget = target
+        }
+        // Off the route on purpose, or not flying it: joined again from scratch afterwards.
+        if input.leg == nil || input.diverting || input.inCircuits || !input.airborne { hasJoinedRoute = false }
+        guard let crossTrack = Self.routeDistance(input) else {
+            isOffRoute = false
+            return nil
+        }
+        guard hasJoinedRoute else {
+            hasJoinedRoute = crossTrack < Self.clearBelowNM
+            isOffRoute = false
+            return nil
+        }
+        isOffRoute = Self.isOffRoute(crossTrackNM: crossTrack, wasOffRoute: isOffRoute)
+        return isOffRoute ? crossTrack : nil
     }
 
-    /// The cross-track distance to show, or nil: the conditions, then the hysteresis.
+    /// The cross-track distance to show, or nil: the conditions, then the hysteresis. Without the
+    /// route's joining, which is `update`'s memory.
     static func evaluate(_ input: Input, wasOffRoute: Bool) -> Double? {
-        guard let leg = input.leg, let aircraft = input.aircraft,
-              !input.diverting, !input.inCircuits, input.airborne, input.gpsGood else { return nil }
-        let crossTrack = crossTrackNM(aircraft, leg: leg)
+        guard let crossTrack = routeDistance(input) else { return nil }
         return isOffRoute(crossTrackNM: crossTrack, wasOffRoute: wasOffRoute) ? crossTrack : nil
+    }
+
+    /// NM from the route around the aircraft (the nearest of the leg and the others), or nil where the
+    /// rule is dark: no leg, no fix, diverting, in circuits, on the ground, GPS not good, or near the
+    /// route's departure or destination.
+    static func routeDistance(_ input: Input) -> Double? {
+        guard let leg = input.leg, let aircraft = input.aircraft,
+              !input.diverting, !input.inCircuits, input.airborne, input.gpsGood,
+              !isNearField(aircraft, fields: input.fields) else { return nil }
+        return ([leg] + input.otherLegs).map { crossTrackNM(aircraft, leg: $0) }.min()
+    }
+
+    /// Within `fieldRadiusNM` of a field.
+    static func isNearField(_ aircraft: CLLocationCoordinate2D, fields: [CLLocationCoordinate2D]) -> Bool {
+        let here = CLLocation(latitude: aircraft.latitude, longitude: aircraft.longitude)
+        return fields.contains { field in
+            here.distance(from: CLLocation(latitude: field.latitude, longitude: field.longitude)) / 1_852
+                < fieldRadiusNM
+        }
     }
 
     /// On above 1.0 NM, off below 0.7 NM; in between, as it was.
@@ -206,6 +265,24 @@ struct OffRouteRule {
         return Leg(from: plan.waypoints[next - 1].coordinate, to: plan.waypoints[next].coordinate)
     }
 
+    /// The legs that count as the route besides the one flown: the one just flown (into waypoint n−1),
+    /// and every one after it to the destination. None without an active leg.
+    static func otherLegs(of plan: FlightPlan?) -> [Leg] {
+        guard let plan, activeLeg(of: plan) != nil else { return [] }
+        let next = plan.currentWaypointIndex
+        let points = plan.waypoints.map(\.coordinate)
+        return (max(1, next - 1)..<points.count)
+            .filter { $0 != next }
+            .map { Leg(from: points[$0 - 1], to: points[$0]) }
+    }
+
+    /// The route's departure and destination, where OFF ROUTE stays dark.
+    static func fields(of plan: FlightPlan?) -> [CLLocationCoordinate2D] {
+        guard let plan, let first = plan.waypoints.first, let last = plan.waypoints.last,
+              plan.waypoints.count >= 2 else { return [] }
+        return [first.coordinate, last.coordinate]
+    }
+
     /// Airborne for the rule: LINE UP tapped, and no landing since.
     static func isAirborne(lineUpTime: Date?, landingTime: Date?) -> Bool {
         lineUpTime != nil && landingTime == nil
@@ -222,8 +299,18 @@ struct OffRouteRule {
 extension OffRouteRule.Input {
     /// The rule's input from the active plan and the flight.
     init(plan: FlightPlan?, aircraft: CLLocationCoordinate2D?, inCircuits: Bool, airborne: Bool, gpsGood: Bool) {
-        self.init(leg: OffRouteRule.activeLeg(of: plan), aircraft: aircraft,
+        self.init(leg: OffRouteRule.activeLeg(of: plan), otherLegs: OffRouteRule.otherLegs(of: plan),
+                  fields: OffRouteRule.fields(of: plan), target: plan?.currentWaypointIndex, aircraft: aircraft,
                   diverting: plan?.diversion != nil, inCircuits: inCircuits, airborne: airborne, gpsGood: gpsGood)
+    }
+
+    /// The rule's input in flight, as the Cockpit feeds it every fix (`CockpitOffRouteFollower`) and the
+    /// replays check it (`GroundReplayTests`).
+    init(plan: FlightPlan?, aircraft: CLLocationCoordinate2D?, circuits: Bool, lineUpTime: Date?, landingTime: Date?,
+         isTracking: Bool, signal: GPSSignalStatus, isSimulating: Bool) {
+        self.init(plan: plan, aircraft: aircraft, inCircuits: circuits,
+                  airborne: OffRouteRule.isAirborne(lineUpTime: lineUpTime, landingTime: landingTime),
+                  gpsGood: OffRouteRule.gpsIsGood(isTracking: isTracking, signal: signal, isSimulating: isSimulating))
     }
 }
 
@@ -306,6 +393,13 @@ enum ChartAvailability {
             return false
         }
         return cached && input.zoom >= minZoom && regionMeetsCacheBox(input.region)
+    }
+
+    /// The map's zoom level from its region's latitude span, as `NavigationMapView.estimatedZoomLevel`
+    /// takes it: the world is 360° at zoom 0, each level halves it.
+    static func zoom(latitudeDelta: Double) -> Int {
+        guard latitudeDelta > 0, latitudeDelta.isFinite else { return 11 }
+        return Int(log2(360.0 / latitudeDelta).rounded())
     }
 
     /// CHART OFFLINE ⇔ not online and not covered by the cache.

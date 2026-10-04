@@ -144,9 +144,12 @@ struct MapChromeGeometry: Equatable {
         scale == .kneeboard ? Control.allCases : [.orientation, .layers, .centre]
     }
 
-    init(size: CGSize, scale: CockpitScale) {
+    /// `showsStack`: false while the phone shows a leg from ROUTE, whose bar takes the chart's foot (Back to
+    /// aircraft is centre then). `footRoom`: what that bar takes of the foot, kept clear of the scale and
+    /// the edge arrow.
+    init(size: CGSize, scale: CockpitScale, showsStack: Bool = true, footRoom: CGFloat = 0) {
         let m = Metrics(scale)
-        let all = Self.controls(for: scale)
+        let all = showsStack ? Self.controls(for: scale) : []
         let length = { (count: Int) in CGFloat(count) * m.button + CGFloat(max(count - 1, 0)) * m.gap }
         let isColumn = length(all.count) <= size.height - 2 * m.margin
         // In a row, − before +, as the map's row has them; centre beside them.
@@ -170,7 +173,11 @@ struct MapChromeGeometry: Equatable {
                                          y: top + CGFloat(line) * (m.button + m.gap), width: m.button, height: m.button)
             }
         }
-        let stack = frames.values.reduce(CGRect.null) { $0.union($1) }
+        // No stack (the phone showing a leg): a point at the foot of the right edge, so what is placed
+        // beside it takes the chart's width.
+        let stack = frames.isEmpty
+            ? CGRect(x: size.width - m.margin, y: size.height - m.margin, width: 0, height: 0)
+            : frames.values.reduce(CGRect.null) { $0.union($1) }
 
         // The slot at the top left: beside the stack where they share rows, else as wide as it may be.
         let besideStack = max(0, stack.minX - m.slotGap - m.margin)
@@ -178,18 +185,22 @@ struct MapChromeGeometry: Equatable {
         let room = sharesRows ? besideStack : size.width - 2 * m.margin
         let slot = CGRect(x: m.margin, y: m.margin, width: min(m.slotWidth, room), height: m.slotHeight)
 
-        // The scale at the foot, left; over the stack's row where a row reaches it (a short phone chart).
-        var scaleFrame = CGRect(x: m.margin, y: size.height - m.margin - m.scaleSize.height,
+        // What the foot keeps for itself: the margin, or a leg's bar and a gap over it.
+        let floor = footRoom > 0 ? size.height - footRoom - m.gap : size.height - m.margin
+
+        // The scale at the foot, left; over the stack's row where a row reaches it (a short phone chart),
+        // over a leg's bar where one shows.
+        var scaleFrame = CGRect(x: m.margin, y: floor - m.scaleSize.height,
                                 width: m.scaleSize.width, height: m.scaleSize.height)
-        if scaleFrame.intersects(stack) {
-            scaleFrame.origin.y = stack.minY - m.gap - m.scaleSize.height
+        if !frames.isEmpty, scaleFrame.intersects(stack) {
+            scaleFrame.origin.y = min(stack.minY, floor) - m.gap - m.scaleSize.height
         }
 
-        // The arrow: left of the stack, or above it, whichever leaves it more room.
+        // The arrow: left of the stack, or above it, whichever leaves it more room; over a leg's bar.
         let below = slot.maxY + m.slotGap
-        let left = CGRect(x: m.margin, y: below, width: besideStack, height: max(0, size.height - m.margin - below))
+        let left = CGRect(x: m.margin, y: below, width: besideStack, height: max(0, floor - below))
         let above = CGRect(x: m.margin, y: below, width: max(0, size.width - 2 * m.margin),
-                           height: max(0, stack.minY - m.slotGap - below))
+                           height: max(0, min(stack.minY - m.slotGap, floor) - below))
 
         self.size = size
         self.metrics = m
@@ -200,6 +211,30 @@ struct MapChromeGeometry: Equatable {
         self.statusSlot = slot
         self.scale = scaleFrame
         self.arrowBounds = left.width * left.height >= above.width * above.height ? left : above
+        self.footRoom = footRoom
+    }
+
+    /// What a leg's bar takes of the foot: its height and the stack's margin under it.
+    let footRoom: CGFloat
+
+    /// A leg's bar from ROUTE (`FramedLegBar`) along the chart's foot: from the left margin to the stack
+    /// (a gap short of it), or to the right margin without one, on the stack's margin. `height`: the bar's.
+    func legBarFrame(height: CGFloat) -> CGRect {
+        let right = frames.isEmpty ? size.width - metrics.margin : stack.minX - metrics.gap
+        return CGRect(x: metrics.margin, y: size.height - metrics.margin - height,
+                      width: max(0, right - metrics.margin), height: height)
+    }
+
+    /// The chrome around what MAP frames (the aircraft and its leg after OFF ROUTE, a leg from ROUTE): the
+    /// slot when a state shows, the stack (a column takes the right, a row the foot), a leg's bar. The
+    /// caller adds its breathing room and its caps (`LegFraming.edgePadding(chartSize:chrome:)`).
+    func framingChrome(statusShown: Bool) -> UIEdgeInsets {
+        let hasStack = !frames.isEmpty
+        let top = statusShown ? statusSlot.maxY : 0
+        let right = hasStack && isColumn ? size.width - stack.minX : 0
+        let stackFoot = hasStack && !isColumn ? size.height - stack.minY : 0
+        let barFoot = footRoom > 0 ? footRoom : 0
+        return UIEdgeInsets(top: top, left: 0, bottom: max(stackFoot, barFoot), right: right)
     }
 
     func frame(_ control: Control) -> CGRect {
@@ -262,17 +297,30 @@ struct CockpitMapChrome: View {
     var scaleShownOverride: Bool? = nil
     /// For the tests: each piece as laid out, in the chart's coordinates.
     var onPlace: ((MapChromeElement, CGRect) -> Void)? = nil
+    /// False while the phone shows a leg from ROUTE (`MapChromeGeometry`'s).
+    var showsStack = true
+    /// What a leg's bar takes of the chart's foot (`MapChromeGeometry`'s).
+    var footRoom: CGFloat = 0
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var scaleVisibility = ScaleVisibility()
     @State private var scaleShown = false
+    /// When the chrome came: the map sets its camera in the moments after (the zoom it was left at), which
+    /// is no zoom of the pilot's.
+    @State private var appearedAt = Date()
+
+    /// How long after appearing the map's own camera settles: its zoom shows no scale.
+    static let settling: TimeInterval = 1
 
     var body: some View {
         GeometryReader { proxy in
-            pieces(MapChromeGeometry(size: proxy.size, scale: scale))
+            pieces(MapChromeGeometry(size: proxy.size, scale: scale, showsStack: showsStack, footRoom: footRoom))
         }
         .coordinateSpace(.named(MapChromeElement.space))
-        .onAppear { scaleVisibility.note(zoom: model.zoom) }
+        .onAppear {
+            appearedAt = Date()
+            scaleVisibility.note(zoom: model.zoom)
+        }
         .onChange(of: model.zoom) { _, zoom in noteZoom(zoom) }
         .task(id: scaleVisibility.changedAt) { await hideScaleLater() }
     }
@@ -323,8 +371,14 @@ struct CockpitMapChrome: View {
 
     // MARK: The scale
 
-    /// A change of zoom shows the scale; following the aircraft changes none.
+    /// A change of zoom shows the scale; following the aircraft changes none, nor does the map setting its
+    /// camera as MAP appears (the zoom becomes the reference then).
     private func noteZoom(_ zoom: Double) {
+        guard Date().timeIntervalSince(appearedAt) >= Self.settling else {
+            scaleVisibility = ScaleVisibility()
+            scaleVisibility.note(zoom: zoom)
+            return
+        }
         let before = scaleVisibility.changedAt
         scaleVisibility.note(zoom: zoom)
         guard scaleVisibility.changedAt != before else { return }
@@ -808,6 +862,241 @@ struct UndoCountdownBar: View {
                 .frame(width: width, alignment: .leading)
         }
         .accessibilityHidden(true)
+    }
+}
+
+// MARK: - On the Cockpit's chart (6.2, PR 4)
+//
+// The chrome above draws plain values. What follows gathers them from the flight: `CockpitChartChrome` on
+// the map (the status slot's inputs, the undo offer and its dismissal), `CockpitMapState` and its
+// follower on the Cockpit's frame (OFF ROUTE, fed every fix on every page), and More's two items for the
+// chart.
+
+/// What the Cockpit's chart shares with the rest of the Cockpit, on every page: OFF ROUTE, followed every
+/// fix whatever page shows (a rule fed only while MAP shows would start from scratch each time MAP came
+/// back, and say nothing until the aircraft rejoined the route), the SIGMETs in range for More, and
+/// More's requests to the chart. The Cockpit's, put in the environment by `FlightView`; Plan › Map has none.
+@MainActor
+@Observable
+final class CockpitMapState {
+    /// OFF ROUTE's cross-track distance, to the tenth of a mile; nil while on the route or dark.
+    private(set) var offRouteNM: Double?
+    /// The SIGMETs in range: More's "Hazards (n)".
+    var hazardCount = 0
+    /// More's "Show the whole route" and "Hazards (n)": bumped, MAP acts on the change.
+    private(set) var wholeRouteRequest = 0
+    private(set) var hazardsRequest = 0
+
+    @ObservationIgnored private var offRoute = OffRouteRule()
+
+    /// One fix, or a change of the plan or the flight: OFF ROUTE as the rule now says it.
+    func note(_ input: OffRouteRule.Input) {
+        let shown = offRoute.update(input).map { ($0 * 10).rounded() / 10 }
+        if shown != offRouteNM { offRouteNM = shown }
+    }
+
+    func showWholeRoute() { wholeRouteRequest &+= 1 }
+    func showHazards() { hazardsRequest &+= 1 }
+}
+
+/// Keeps `CockpitMapState` current on every page: OFF ROUTE on every fix and on every change of the plan
+/// or the flight that can start or stop it, and the SIGMETs' count. On the Cockpit's frame, beside
+/// `CockpitRadioFollower`.
+struct CockpitMapFollower: ViewModifier {
+    let mapState: CockpitMapState
+
+    @Environment(AppState.self) private var appState
+    @EnvironmentObject private var locationManager: LocationManager
+    @EnvironmentObject private var flightPlanManager: FlightPlanManager
+    @EnvironmentObject private var aviationWeatherService: AviationWeatherService
+
+    /// What OFF ROUTE is evaluated again for, besides a fix.
+    struct Key: Equatable {
+        let target: Int?
+        let waypointCount: Int
+        let diversion: String?
+        let circuits: Bool
+        let linedUp: Bool
+        let landed: Bool
+        let tracking: Bool
+        let signal: GPSSignalStatus
+        let simulating: Bool
+    }
+
+    func body(content: Content) -> some View {
+        content
+            .onAppear {
+                note()
+                mapState.hazardCount = aviationWeatherService.sigmets.count
+            }
+            .onChange(of: locationManager.currentLocation) { _, _ in note() }
+            .onChange(of: key) { _, _ in note() }
+            .onChange(of: aviationWeatherService.sigmets.count) { _, count in mapState.hazardCount = count }
+    }
+
+    private var key: Key {
+        let plan = flightPlanManager.activeFlightPlan
+        return Key(target: plan?.currentWaypointIndex, waypointCount: plan?.waypoints.count ?? 0,
+                   diversion: plan?.diversion?.ident, circuits: appState.isCircuitMode,
+                   linedUp: appState.lineUpTime != nil, landed: appState.landingTime != nil,
+                   tracking: locationManager.isTracking, signal: locationManager.gpsSignalStatus,
+                   simulating: locationManager.isSimulatingPosition)
+    }
+
+    private func note() {
+        mapState.note(OffRouteRule.Input(
+            plan: flightPlanManager.activeFlightPlan, aircraft: locationManager.currentLocation?.coordinate,
+            circuits: appState.isCircuitMode, lineUpTime: appState.lineUpTime, landingTime: appState.landingTime,
+            isTracking: locationManager.isTracking, signal: locationManager.gpsSignalStatus,
+            isSimulating: locationManager.isSimulatingPosition))
+    }
+}
+
+/// Whether the status slot shows a state, for the map's framing (a leg, the aircraft and its leg).
+struct MapStatusShownKey: PreferenceKey {
+    static let defaultValue = false
+    static func reduce(value: inout Bool, nextValue: () -> Bool) { value = value || nextValue() }
+}
+
+/// The chrome over the Cockpit's chart, wired. The map hands it what only the map knows (its
+/// orientation, whether it follows the aircraft, its region, the SIGMETs it ranked, its taps); it reads
+/// the flight for the status slot, and owns the undo offer's dismissal, as `MapUndoToast` did. A view of
+/// its own, so the map's body only places it.
+struct CockpitChartChrome: View {
+    @ObservedObject var mapState: SharedMapState
+    /// `dataStatusManager.networkMonitor`, observed here: CHART OFFLINE follows the network (plan §5.2).
+    @ObservedObject var networkMonitor: NetworkMonitor
+    let orientation: MapOrientationMode
+    let isFollowingAircraft: Bool
+    let airspaceNeedsAttention: Bool
+    let selectedLayer: MapLayerType
+    /// `NavigationMapView.rankedSigmets`: the one on the aircraft's path is the slot's.
+    let sigmets: [SigmetHazardItem]
+    var showsStack = true
+    var footRoom: CGFloat = 0
+    /// Every tap but UNDO's dismissal, which is this view's.
+    let actions: MapChromeActions
+
+    @Environment(AppState.self) private var appState
+    @Environment(CockpitNavState.self) private var cockpitNav: CockpitNavState?
+    @Environment(CockpitMapState.self) private var cockpitMap: CockpitMapState?
+    @EnvironmentObject private var locationManager: LocationManager
+    @EnvironmentObject private var flightPlanManager: FlightPlanManager
+    @EnvironmentObject private var offlineMapManager: OfflineMapManager
+    @EnvironmentObject private var threadManager: FlightThreadManager
+
+    var body: some View {
+        let undo = NavUndoOffer.shown(in: appState, flightPlanManager: flightPlanManager,
+                                      band: cockpitNav?.undoOffer, flightOnly: true)
+        let status = shownStatus(undoOffered: undo != nil)
+        CockpitMapChrome(
+            model: MapChromeModel(orientation: orientation, isFollowingAircraft: isFollowingAircraft,
+                                  airspaceNeedsAttention: airspaceNeedsAttention, status: status, undoOffer: undo,
+                                  region: mapState.region,
+                                  heading: orientation == .trackUp ? mapState.cameraHeading : 0,
+                                  aircraft: locationManager.currentLocation?.coordinate,
+                                  zoom: mapState.cameraDistance,
+                                  nauticalMiles: appState.settings.distanceInNauticalMiles),
+            actions: wiredActions, showsStack: showsStack, footRoom: footRoom)
+            // A waypoint the flight marked, or a check just confirmed, withdraws the band's older offer.
+            .modifier(UndoOfferFollower(cockpitNav: cockpitNav))
+            .preference(key: MapStatusShownKey.self, value: status != nil)
+    }
+
+    /// The state the slot shows: UNDO first, then what the flight says (plan §5.1).
+    private func shownStatus(undoOffered: Bool) -> CockpitStatus? {
+        #if DEBUG
+        // The captures' (6.2): `AEROCHECK_STATUS=gps|nogps|offroute|chartoffline|tellfis|sigmet|briefing`
+        // holds the slot on that state, under UNDO.
+        if !undoOffered, let held = Self.capturedStatus { return held }
+        #endif
+        return CockpitStatusRule.current(statusInputs(undoOffered: undoOffered))
+    }
+
+    /// The slot's inputs, from the flight.
+    private func statusInputs(undoOffered: Bool) -> CockpitStatusRule.Inputs {
+        let plan = flightPlanManager.activeFlightPlan
+        let filed = plan.flatMap { threadManager.thread(forPlanId: $0.id) }?.hasOpenFlightPlan ?? false
+        return CockpitStatusRule.Inputs(
+            undoOffered: undoOffered,
+            gps: CockpitStatusRule.gpsAlarm(isFlightActive: appState.isFlightActive,
+                                            isTracking: locationManager.isTracking,
+                                            signal: locationManager.gpsSignalStatus,
+                                            isSimulating: locationManager.isSimulatingPosition),
+            offRouteNM: cockpitMap?.offRouteNM,
+            chartOffline: ChartAvailability.isChartOffline(chartInput),
+            tellFISField: CockpitStatusRule.tellFIS(diversionIdent: plan?.diversion?.ident, hasOpenATCFlightPlan: filed),
+            sigmetOnPath: CockpitStatusRule.sigmetOnPath(sigmets).map(Self.sigmetSummary),
+            briefing: appState.currentPhase.briefingType)
+    }
+
+    /// CHART OFFLINE's inputs: the chart picked, the network, the caches, the zoom and the region.
+    private var chartInput: ChartAvailability.Input {
+        ChartAvailability.Input(selectedLayer: selectedLayer, offlineMode: appState.settings.offlineMode,
+                                isConnected: networkMonitor.isConnected,
+                                icaoCached: offlineMapManager.isCacheAvailable,
+                                gliderCached: offlineMapManager.isSegelflugCacheAvailable,
+                                forceICAOChartLayer: appState.settings.forceICAOChartLayer,
+                                zoom: ChartAvailability.zoom(latitudeDelta: mapState.region.span.latitudeDelta),
+                                region: mapState.region)
+    }
+
+    /// "SEV TURB · on route", as the SIGMET sheet names a hazard and where it is.
+    static func sigmetSummary(_ item: SigmetHazardItem) -> String {
+        "\(SigmetFormat.hazardName(item.sigmet)) \(SigmetFormat.proximity(item))"
+    }
+
+    /// UNDO's dismissal, as the toast's: the band's offer cleared, the flight's notice and the check's
+    /// confirmation dismissed.
+    private var wiredActions: MapChromeActions {
+        var wired = actions
+        let cockpitNav = cockpitNav
+        let flightPlanManager = flightPlanManager
+        let appState = appState
+        wired.dismissUndo = { offer in
+            if offer.id == cockpitNav?.undoOffer?.id { cockpitNav?.undoOffer = nil }
+            flightPlanManager.dismissAutoMarkNotice(offer.id)
+            appState.dismissCheckConfirmation(offer.id)
+        }
+        return wired
+    }
+
+    #if DEBUG
+    private static let capturedStatus: CockpitStatus? = {
+        switch ProcessInfo.processInfo.environment["AEROCHECK_STATUS"]?.lowercased() {
+        case "gps": return .gps(.degraded)
+        case "nogps": return .gps(.lost)
+        case "offroute": return .offRoute(crossTrackNM: 1.4)
+        case "chartoffline": return .chartOffline
+        case "tellfis": return .tellFIS(field: "LSGC")
+        case "sigmet": return .sigmet(summary: "SEV TURB · " + L10n.Nav.sigmetOnRoute)
+        case "briefing": return .briefing(.approach)
+        default: return nil
+        }
+    }()
+    #endif
+}
+
+/// More's items for the chart, on MAP: the SIGMETs, whose chip left the chart ("Hazards (2)"; the one on
+/// the aircraft's path is in the status slot too), and the whole route, which the off-screen route's pill
+/// showed. OFF ROUTE and the edge arrow say the rest of what the pill said.
+struct CockpitMapMoreItems: View {
+    @Environment(CockpitMapState.self) private var cockpitMap: CockpitMapState?
+    @EnvironmentObject private var flightPlanManager: FlightPlanManager
+
+    var body: some View {
+        if let cockpitMap {
+            if cockpitMap.hazardCount > 0 {
+                Button { cockpitMap.showHazards() } label: {
+                    Label(L10n.MapChrome.hazards(cockpitMap.hazardCount), systemImage: "exclamationmark.triangle")
+                }
+            }
+            if (flightPlanManager.activeFlightPlan?.waypoints.count ?? 0) >= 2 {
+                Button { cockpitMap.showWholeRoute() } label: {
+                    Label(L10n.MapChrome.wholeRoute(), systemImage: "point.topleft.down.to.point.bottomright.curvepath")
+                }
+            }
+        }
     }
 }
 

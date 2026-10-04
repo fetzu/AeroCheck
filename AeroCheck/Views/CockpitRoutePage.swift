@@ -441,10 +441,20 @@ enum LegFraming {
     /// what the top leaves: on a phone, with nothing over the chart's top since the read band (6.2), the
     /// whole bar at its foot.
     static func edgePadding(chartSize: CGSize, topChrome: CGFloat, bottomChrome: CGFloat) -> UIEdgeInsets {
+        edgePadding(chartSize: chartSize, chrome: UIEdgeInsets(top: topChrome, left: 0, bottom: bottomChrome, right: 0))
+    }
+
+    /// The same around the chrome on every side: the Cockpit chart's (PR 4) has a stack at the right edge
+    /// in iPad portrait. A side takes 16 pt past its chrome, at least the old 40 (a tenth of a narrow
+    /// chart), at most 40 % of the width.
+    static func edgePadding(chartSize: CGSize, chrome: UIEdgeInsets) -> UIEdgeInsets {
         let side = min(40, chartSize.width * 0.1)
-        let top = min(topChrome + 16, chartSize.height * 0.45)
-        let bottom = min(bottomChrome + 16, max(0, chartSize.height * 0.8 - top))
-        return UIEdgeInsets(top: top, left: side, bottom: bottom, right: side)
+        func across(_ chrome: CGFloat) -> CGFloat {
+            chrome > 0 ? min(max(side, chrome + 16), chartSize.width * 0.4) : side
+        }
+        let top = min(chrome.top + 16, chartSize.height * 0.45)
+        let bottom = min(chrome.bottom + 16, max(0, chartSize.height * 0.8 - top))
+        return UIEdgeInsets(top: top, left: across(chrome.left), bottom: bottom, right: across(chrome.right))
     }
 }
 

@@ -62,6 +62,29 @@ final class ReadBandLayoutTests: XCTestCase {
         }
     }
 
+    /// The iPad on its side (6.2, PR 4): NEXT's figures on one row beside the name, on the name's line,
+    /// where the cell is some 700 pt wide; in portrait one per line at the cell's right. The strip keeps its
+    /// height, so nothing under it moves when the iPad turns; and the choice is the width's, the same in
+    /// every state (`testTheBandHoldsStillThroughEveryState` holds the frames at 1180).
+    func testOnItsSideTheIPadsFiguresSitOnOneRowBesideTheName() throws {
+        let metrics = ReadBandMetrics(.kneeboard)
+        for language in ["en", "fr"] {
+            for state in Sample.states {
+                let side = parts(state, .wide, 1_180, language)
+                let upright = parts(state, .wide, 820, language)
+                let row = try XCTUnwrap(side[.nextFigures], "\(state.name), \(language)")
+                let column = try XCTUnwrap(upright[.nextFigures])
+                let name = try XCTUnwrap(side[.nextName])
+                XCTAssertLessThan(row.height, metrics.figureSize * 2, "one row on its side: \(row), \(state.name)")
+                XCTAssertGreaterThan(column.height, metrics.figureSize * 4, "four lines upright: \(column)")
+                XCTAssertGreaterThan(row.minX, name.minX + StripNextCell.nameRoom - 1, "beside the name's room")
+                XCTAssertEqual(row.maxY, name.maxY, accuracy: 8, "on the name's line: \(row) / \(name)")
+                XCTAssertEqual(try XCTUnwrap(side[.strip]).height, try XCTUnwrap(upright[.strip]).height, accuracy: 0.5,
+                               "the strip as tall on its side as upright, \(state.name), \(language)")
+            }
+        }
+    }
+
     // MARK: - Nothing cut
 
     /// iPad in portrait: "E (LSGC)" whole at the name's full size, "SAIGNELÉGIER" at the label's size at

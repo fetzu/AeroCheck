@@ -126,7 +126,14 @@ final class WaypointMarkingUITests: XCTestCase {
         // undo-4: a minute on: not marked again on its own; MARK by hand; the next one marks and moves on.
         // (Straight after the UNDO: with a relaunch between them the replay flew past ST-URSANNE before
         // the MARK, the app being gone some twenty seconds, three minutes of flight at 10x.)
-        pilot.waitForTrack(pilot.trackNow + 60)
+        // That minute on MAP: SAIGNELEGIER taken back is still the target while the aircraft flies on past
+        // it, on the route all the same. OFF ROUTE never shows (6.2, PR 4), the minute where a rule on the
+        // leg flown alone would have said "OFF ROUTE 1.7 NM".
+        let offRoute = pilot.watchOffRoute(untilTrack: pilot.trackNow + 60)
+        pilot.shot("offroute-1", "route-vrps-past-taken-back")
+        pilot.check("offroute-1", offRoute.isEmpty,
+                    "route-vrps, the minute past SAIGNELEGIER taken back: \(offRoute.isEmpty ? "no OFF ROUTE" : offRoute.joined(separator: " | "))")
+        pilot.openLegs()
         pilot.check("undo-4", pilot.leg(3)?.state == "next" && pilot.leg(3)?.hasATO == false,
                     "a minute on, not re-marked: \(pilot.leg(3).map { "\($0)" } ?? "?") (track \(Int(pilot.trackNow)) s, ST-URSANNE at \(Int(s.mark("wp4"))) s)")
         pilot.tap("map.mark")

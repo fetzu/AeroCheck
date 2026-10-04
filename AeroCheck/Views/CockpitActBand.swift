@@ -1073,6 +1073,8 @@ struct CockpitMoreMenu: View {
                     Label(L10n.Nav.legsAndFrequencies, systemImage: "list.bullet")
                 }
             }
+            // The SIGMETs and the whole route, which left the chart for the status slot and here. (6.2, PR 4)
+            if page == .map { CockpitMapMoreItems() }
             // On CHECKLIST the deferred chip is at the top of the list.
             if page != .checklist && appState.hasDeferredWork {
                 Button(action: actions.showDeferred) {

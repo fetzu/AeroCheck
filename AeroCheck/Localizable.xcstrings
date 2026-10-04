@@ -19020,6 +19020,40 @@
         }
       }
     },
+    "mapChrome.more.hazards": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hazards (%lld)"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dangers (%lld)"
+          }
+        }
+      }
+    },
+    "mapChrome.more.wholeRoute": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Show the whole route"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Afficher toute la route"
+          }
+        }
+      }
+    },
     "mapChrome.status.chartOffline": {
       "extractionState": "manual",
       "localizations": {

@@ -56,7 +56,7 @@
 		A5000045111111110000002 /* MemoryTestSettingsTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A5000045111111110000001 /* MemoryTestSettingsTests.swift */; };
 		A5000046111111110000002 /* TypographyTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A5000046111111110000001 /* TypographyTests.swift */; };
 		A5000047111111110000002 /* MapPresetTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A5000047111111110000001 /* MapPresetTests.swift */; };
-		A5000048111111110000002 /* CockpitPaneRuleTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A5000048111111110000001 /* CockpitPaneRuleTests.swift */; };
+		A5000048111111110000002 /* CockpitPageRuleTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A5000048111111110000001 /* CockpitPageRuleTests.swift */; };
 		C5107A010000000000000B2 /* CheckSlotTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C5107A010000000000000F2 /* CheckSlotTests.swift */; };
 		C5107A020000000000000B2 /* CockpitActBandTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C5107A020000000000000F2 /* CockpitActBandTests.swift */; };
 		A0C7E2000000000000000013 /* PhaseFrequencyPlannerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A0C7E2000000000000000003 /* PhaseFrequencyPlannerTests.swift */; };
@@ -443,7 +443,7 @@
 		A5000045111111110000001 /* MemoryTestSettingsTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MemoryTestSettingsTests.swift; sourceTree = "<group>"; };
 		A5000046111111110000001 /* TypographyTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TypographyTests.swift; sourceTree = "<group>"; };
 		A5000047111111110000001 /* MapPresetTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MapPresetTests.swift; sourceTree = "<group>"; };
-		A5000048111111110000001 /* CockpitPaneRuleTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CockpitPaneRuleTests.swift; sourceTree = "<group>"; };
+		A5000048111111110000001 /* CockpitPageRuleTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CockpitPageRuleTests.swift; sourceTree = "<group>"; };
 		C5107A010000000000000F2 /* CheckSlotTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CheckSlotTests.swift; sourceTree = "<group>"; };
 		C5107A020000000000000F2 /* CockpitActBandTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CockpitActBandTests.swift; sourceTree = "<group>"; };
 		A0C7E2000000000000000003 /* PhaseFrequencyPlannerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PhaseFrequencyPlannerTests.swift; sourceTree = "<group>"; };
@@ -820,7 +820,7 @@
 				A5000045111111110000001 /* MemoryTestSettingsTests.swift */,
 				A5000046111111110000001 /* TypographyTests.swift */,
 				A5000047111111110000001 /* MapPresetTests.swift */,
-				A5000048111111110000001 /* CockpitPaneRuleTests.swift */,
+				A5000048111111110000001 /* CockpitPageRuleTests.swift */,
 				C5107A010000000000000F2 /* CheckSlotTests.swift */,
 				C5107A020000000000000F2 /* CockpitActBandTests.swift */,
 				A0C7E2000000000000000003 /* PhaseFrequencyPlannerTests.swift */,
@@ -1465,7 +1465,7 @@
 				A5000045111111110000002 /* MemoryTestSettingsTests.swift in Sources */,
 				A5000046111111110000002 /* TypographyTests.swift in Sources */,
 				A5000047111111110000002 /* MapPresetTests.swift in Sources */,
-				A5000048111111110000002 /* CockpitPaneRuleTests.swift in Sources */,
+				A5000048111111110000002 /* CockpitPageRuleTests.swift in Sources */,
 				C5107A010000000000000B2 /* CheckSlotTests.swift in Sources */,
 				C5107A020000000000000B2 /* CockpitActBandTests.swift in Sources */,
 				A0C7E2000000000000000013 /* PhaseFrequencyPlannerTests.swift in Sources */,

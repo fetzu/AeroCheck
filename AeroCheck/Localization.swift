@@ -3204,7 +3204,6 @@ enum L10n {
         static let startFlightOnMaster = String(localized: "companion.startFlightOnMaster")
         static let connectingTo = String(localized: "companion.connectingTo")
         static let keepTrying = String(localized: "companion.keepTrying")
-        static let recordATO = String(localized: "companion.recordATO")
         static let noFlightPlan = String(localized: "companion.noFlightPlan")
         static let holdToReveal = String(localized: "companion.holdToReveal")
         static let exitConfirmTitle = String(localized: "companion.exitConfirmTitle")

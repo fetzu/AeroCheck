@@ -68,7 +68,7 @@ enum CockpitStatus: Equatable {
 /// seconds are over; the GPS state stays in the header and the strip's flags meanwhile.
 enum CockpitStatusRule {
     struct Inputs: Equatable {
-        /// An undo offer is up (`MapUndoToast.shown` would show one).
+        /// An undo offer is up (`NavUndoOffer.shown` has one).
         var undoOffered = false
         /// `gpsAlarm(isFlightActive:isTracking:signal:isSimulating:)`.
         var gps: CockpitStatus.GPSAlarm?

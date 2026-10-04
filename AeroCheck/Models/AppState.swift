@@ -823,7 +823,7 @@ class AppState {
     private(set) var freda = FredaSchedule()
 
     /// FREDA is due: the slot and the thumb bar's FREDA button turn amber, and so does the cruise
-    /// segment of the phase bar. Nothing else: no pane change, no sound, no haptic.
+    /// segment of the phase bar. Nothing else: no page change, no sound, no haptic.
     var fredaDue: Bool { freda.due != nil }
 
     /// FREDA runs in this flight's cruise: not in circuits, which have none.
@@ -1977,7 +1977,7 @@ class AppState {
     }
 
     /// The current check is done: its items on screen worked through, or, for a memory check, confirmed.
-    /// What CHECK gives way to NEXT on, what the pane rule and the check slot read.
+    /// What CHECK gives way to NEXT on, what the page rule and the check slot read.
     var currentCheckIsDone: Bool {
         guard settings.stepByStepHighlighting else { return true }
         if isMemoryCheck(currentPhase) { return memoryCheckIsDone(currentPhase) }
@@ -1989,7 +1989,7 @@ class AppState {
         isMemoryCheck(currentPhase) && !memoryCheckIsDone(currentPhase)
     }
 
-    /// The last confirmation, offered back for six seconds by the undo toast on either pane.
+    /// The last confirmation, offered back for six seconds by the undo toast on either page.
     struct MemoryConfirmation: Identifiable, Equatable {
         let id: UUID
         let phase: ChecklistPhase
@@ -2001,7 +2001,7 @@ class AppState {
         /// off the flight. (6.1, cues)
         fileprivate var previousOwed: FlightCueState.Owed?
         fileprivate var lateRecordId: UUID?
-        /// Set when the same tap moved on to the next check (the checklist pane's ✓ DONE · NEXT).
+        /// Set when the same tap moved on to the next check (the checklist page's ✓ DONE · NEXT).
         fileprivate var movedOn: MovedOn?
 
         /// Where the tap went, and the checklist as it stood before it and right after it: UNDO puts
@@ -2042,7 +2042,7 @@ class AppState {
         checkpointActiveFlight(force: true)
     }
 
-    /// Where the checklist pane's ✓ DONE moves on to, in the same tap: the next check. Nil when it only
+    /// Where the checklist page's ✓ DONE moves on to, in the same tap: the next check. Nil when it only
     /// confirms: no memory check to confirm, the last check, or the phase's own action (ENGINE START,
     /// ENGINE SHUTDOWN) still to press, since going on would record the check red. Out of the check
     /// before departure, the tap is READY FOR LINE UP too (`nextPhase`). (6.1, author's decision: one
@@ -2054,7 +2054,7 @@ class AppState {
         return currentPhase.nextNavigable(circuitMode: isCircuitMode)
     }
 
-    /// ✓ <CHECK> DONE · NEXT: <CHECK> on the checklist pane (and the Companion's): the memory check
+    /// ✓ <CHECK> DONE · NEXT: <CHECK> on the checklist page (and the Companion's): the memory check
     /// recorded done from memory and the next check opened, in one tap. The toast's UNDO takes both back
     /// (`undoMemoryConfirmation`). Where it can't move on (`memoryConfirmationMovesTo` is nil) it only
     /// confirms. The map's check slot keeps its confirm that stays on the check.

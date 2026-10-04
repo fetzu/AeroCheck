@@ -11,11 +11,11 @@ import UIKit
 // 2. The read band's live rows (6.2, `CockpitReadBand.swift`): the instrument strip, GS, ALT and TRK at
 //    `CockpitType.value` and, on the iPad, NEXT with its bearing, distance, ETE and ETA; then NOW | NEXT,
 //    the frequencies (on the phone the next line and the NOW line). Over every page.
-// 3. The context pane: the CHECKLIST, the MAP or the ROUTE at full height, never two squeezed. It
-//    follows the flight (`CockpitPaneRule`: CHECKLIST or MAP); a tap on the picker overrides it until
-//    the flight moves on (`CockpitPaneChoice`). ROUTE (6.2) is the pilot's pick only: the DEST line, the
+// 3. The context page: the CHECKLIST, the MAP or the ROUTE at full height, never two squeezed. It
+//    follows the flight (`CockpitPageRule`: CHECKLIST or MAP); a tap on the picker overrides it until
+//    the flight moves on (`CockpitPageChoice`). ROUTE (6.2) is the pilot's pick only: the DEST line, the
 //    legs and the radio (`CockpitRoutePage.swift`).
-// 4. The act band (6.2, `CockpitActBand.swift`): four slots in the same frames under every pane, so the
+// 4. The act band (6.2, `CockpitActBand.swift`): four slots in the same frames under every page, so the
 //    hand learns where they are. Checklist: the phase's action, FREDA or the check slot, then CHECK,
 //    DEFER and More. Map: the check slot, MARK with the leg timer, Divert and More.
 //
@@ -23,8 +23,8 @@ import UIKit
 // 200 pt band that opened a full-screen cover. Since the iPhone pass the phone has the same Cockpit,
 // laid out by `CockpitLayout` and sized by `CockpitScale`.
 
-/// What the Cockpit's context pane shows.
-enum CockpitPane: Hashable {
+/// What the Cockpit's context page shows.
+enum CockpitPage: Hashable {
     case checklist
     case map
     /// The DEST line, the legs and the radio. Never a default: the pilot picks it. (6.2)
@@ -33,22 +33,22 @@ enum CockpitPane: Hashable {
 
 /// The page the pilot picked over the one the flight suggests: kept until the suggestion changes (the
 /// next phase, the checklist done), then dropped. Pure, so it is tested without a view. (v6.0 · P2; 6.2)
-struct CockpitPaneChoice: Equatable {
+struct CockpitPageChoice: Equatable {
     /// The pilot's pick, while it differs from the suggestion.
-    private(set) var override: CockpitPane?
+    private(set) var override: CockpitPage?
 
-    init(override: CockpitPane? = nil) {
+    init(override: CockpitPage? = nil) {
         self.override = override
     }
 
     /// What shows.
-    func pane(suggested: CockpitPane) -> CockpitPane {
+    func page(suggested: CockpitPage) -> CockpitPage {
         override ?? suggested
     }
 
     /// A tap on the picker: the suggestion itself clears the pick.
-    mutating func pick(_ pane: CockpitPane, suggested: CockpitPane) {
-        override = pane == suggested ? nil : pane
+    mutating func pick(_ page: CockpitPage, suggested: CockpitPage) {
+        override = page == suggested ? nil : page
     }
 
     /// The flight suggests another page: the pick is dropped, ROUTE's too.
@@ -57,8 +57,8 @@ struct CockpitPaneChoice: Equatable {
     }
 }
 
-/// Which pane the Cockpit shows by itself. Pure, so it is tested without a view.
-enum CockpitPaneRule {
+/// Which page the Cockpit shows by itself. Pure, so it is tested without a view.
+enum CockpitPageRule {
     /// The map in climb, cruise and descent once their checklist is worked through; the checklist
     /// everywhere else: on the ground, around take-off and landing, and whenever an en-route checklist
     /// is open, including a cruise check that has come due again.
@@ -66,7 +66,7 @@ enum CockpitPaneRule {
     /// A memory check (`memoryCheck`: every item hidden by the Memory test) has no list to show: the
     /// map, with the check slot to confirm it, in climb, cruise and descent as before, and since 6.1 in
     /// approach, landing and after landing too, which were near-empty checklist pages (Q7).
-    static func defaultPane(phase: ChecklistPhase, checklistDone: Bool, memoryCheck: Bool = false) -> CockpitPane {
+    static func defaultPage(phase: ChecklistPhase, checklistDone: Bool, memoryCheck: Bool = false) -> CockpitPage {
         switch phase {
         case .climb, .cruise, .descent:
             return checklistDone || memoryCheck ? .map : .checklist
@@ -81,7 +81,7 @@ enum CockpitPaneRule {
 /// How the Cockpit lays its zones out for the room it has. Pure, so it is tested without a view.
 /// (iPhone pass, I1 and I7)
 enum CockpitLayout: Equatable {
-    /// The iPad, portrait and landscape: the header and the pane bar on one row each.
+    /// The iPad, portrait and landscape: the header and the page bar on one row each.
     case wide
     /// A phone in portrait, or any window under 600 pt wide: the same zones, the header on two rows, and
     /// no NEXT cell in the strip (the next line under it instead).
@@ -472,10 +472,10 @@ struct CockpitThumbButton: View {
 }
 
 /// CHECKLIST · MAP · ROUTE, every word on screen, the current one filled.
-struct CockpitPanePicker: View {
+struct CockpitPagePicker: View {
     @Environment(\.cockpitTheme) private var theme
-    @Binding var selection: CockpitPane
-    /// The phone's pane bar: the segments share the full width.
+    @Binding var selection: CockpitPage
+    /// The phone's page bar: the segments share the full width.
     var fillsWidth: Bool = false
     /// The icons beside the words, where they fit: a phone in French has room for the words alone.
     var showsIcons: Bool = true
@@ -497,18 +497,18 @@ struct CockpitPanePicker: View {
     /// A segment's height in the column on its side.
     static let compactSegmentHeight: CGFloat = 42
 
-    /// "pane.checklist", "pane.map", "pane.route": what the UI tests tap.
-    static func identifier(_ pane: CockpitPane) -> String {
-        switch pane {
+    /// "pane.checklist", "pane.map", "pane.route": what the UI tests and the replays tap, their 6.0 names.
+    static func identifier(_ page: CockpitPage) -> String {
+        switch page {
         case .checklist: return "pane.checklist"
         case .map: return "pane.map"
         case .route: return "pane.route"
         }
     }
 
-    private func segment(_ pane: CockpitPane, title: String, icon: String) -> some View {
-        let selected = selection == pane
-        return Button { selection = pane } label: {
+    private func segment(_ page: CockpitPage, title: String, icon: String) -> some View {
+        let selected = selection == page
+        return Button { selection = page } label: {
             HStack(spacing: 8) {
                 if showsIcons {
                     Image(systemName: icon).font(.aero(size: CockpitType.label, weight: .semibold))
@@ -523,12 +523,12 @@ struct CockpitPanePicker: View {
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
-        .accessibilityIdentifier(Self.identifier(pane))
+        .accessibilityIdentifier(Self.identifier(page))
         .accessibilityAddTraits(selected ? .isSelected : [])
     }
 }
 
-/// A labelled chip beside the pane picker: V-SPEEDS, BRIEFING, the next phase.
+/// A labelled chip beside the page picker: V-SPEEDS, BRIEFING, the next phase.
 struct CockpitChip: View {
     @Environment(\.cockpitTheme) private var theme
     let title: String

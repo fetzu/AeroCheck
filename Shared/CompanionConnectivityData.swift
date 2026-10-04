@@ -621,7 +621,7 @@ enum CompanionCommand: Codable {
     case confirmMemoryCheck(phaseRawValue: Int)
     case undoMemoryCheck(phaseRawValue: Int)
     // ✓ DONE · NEXT: the current memory check confirmed and the next one opened, in one tap, as the
-    // iPad's checklist pane does it (6.1). `undoMemoryCheck` takes both back. Sent only to an iPad whose
+    // iPad's checklist page does it (6.1). `undoMemoryCheck` takes both back. Sent only to an iPad whose
     // snapshot names where it goes (`memoryCheckNextRawValue`); an older one drops it.
     case confirmMemoryCheckAndNext(phaseRawValue: Int)
     // The check slot's tap, from the phone's NAV screen (6.1, cues from the flight): by the phase it names

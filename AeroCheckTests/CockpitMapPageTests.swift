@@ -50,7 +50,7 @@ final class CockpitMapPageTests: XCTestCase {
         services.appState.goToPhase(.cruise)
         services.locationManager.isTracking = true          // recording, GPS good: no GPS state first
         armRoute(services.flightPlanManager)
-        let seen = accessibility(FlightView(initialPane: .map), services: services, size: CGSize(width: 820, height: 1_180))
+        let seen = accessibility(FlightView(initialPage: .map), services: services, size: CGSize(width: 820, height: 1_180))
         let ids = Set(seen.map(\.id))
         let zoom = CockpitScale.current == .kneeboard
         for id in ["map.orientation", "map.layers", "map.centre", "status.chartOffline"] + (zoom ? ["map.zoomIn", "map.zoomOut"] : []) {
@@ -126,7 +126,7 @@ final class CockpitMapPageTests: XCTestCase {
                 let services = makeServices()
                 startFlight(services.appState, stepByStep: true)
                 services.appState.currentPhase = phase
-                let seen = accessibility(FlightView(initialPane: .checklist), services: services,
+                let seen = accessibility(FlightView(initialPage: .checklist), services: services,
                                          size: CGSize(width: width, height: 844))
                 let button = try XCTUnwrap(seen.first { $0.id == "cockpit.phase.\(phase)" }?.frame, "\(phase) at \(width)")
                 if let reference {
@@ -151,24 +151,24 @@ final class CockpitMapPageTests: XCTestCase {
     func testOnItsSideThePageIsOnTheLeftAndTheColumnOnTheRight() throws {
         let size = Self.onItsSide
         let columnLeft = size.width - FlightView.cockpitColumnWidth
-        for pane in [CockpitPane.map, .checklist, .route] {
+        for page in [CockpitPage.map, .checklist, .route] {
             let services = makeServices()
             startFlight(services.appState, stepByStep: false)
             services.appState.goToPhase(.cruise)
             services.locationManager.isTracking = true
             armRoute(services.flightPlanManager)
-            let seen = accessibility(FlightView(initialPane: pane), services: services, size: size, wholeWindow: true)
+            let seen = accessibility(FlightView(initialPage: page), services: services, size: size, wholeWindow: true)
             let ids = Set(seen.map(\.id))
             func frame(_ id: String) throws -> CGRect {
-                try XCTUnwrap(seen.first { $0.id == id }?.frame, "\(id) on \(pane): \(ids.sorted())")
+                try XCTUnwrap(seen.first { $0.id == id }?.frame, "\(id) on \(page): \(ids.sorted())")
             }
             for id in ["cockpit.phase.cruise", "cockpit.menu", "pane.checklist", "pane.map", "pane.route", "read.nextLine",
                        "read.now", "act.more"] {
-                XCTAssertGreaterThanOrEqual(try frame(id).minX, columnLeft - 0.5, "\(id) in the column, \(pane)")
+                XCTAssertGreaterThanOrEqual(try frame(id).minX, columnLeft - 0.5, "\(id) in the column, \(page)")
             }
-            XCTAssertFalse(ids.contains("map.nextLine"), "no next line over the chart, \(pane)")
-            XCTAssertFalse(ids.contains("map.frequencies"), "no frequency line under it, \(pane)")
-            if pane == .map {
+            XCTAssertFalse(ids.contains("map.nextLine"), "no next line over the chart, \(page)")
+            XCTAssertFalse(ids.contains("map.frequencies"), "no frequency line under it, \(page)")
+            if page == .map {
                 for id in ["map.orientation", "map.layers", "map.centre"] {
                     XCTAssertLessThan(try frame(id).maxX, columnLeft + 0.5, "\(id) on the chart, left of the column")
                 }
@@ -187,7 +187,7 @@ final class CockpitMapPageTests: XCTestCase {
             let services = makeServices()
             startFlight(services.appState, stepByStep: true)
             services.appState.currentPhase = phase
-            let seen = accessibility(FlightView(initialPane: .checklist), services: services, size: Self.onItsSide,
+            let seen = accessibility(FlightView(initialPage: .checklist), services: services, size: Self.onItsSide,
                                      wholeWindow: true)
             let button = try XCTUnwrap(seen.first { $0.id == "cockpit.phase.\(phase)" }?.frame, "\(phase)")
             let more = try XCTUnwrap(seen.first { $0.id == "act.more" }?.frame, "More in \(phase)")

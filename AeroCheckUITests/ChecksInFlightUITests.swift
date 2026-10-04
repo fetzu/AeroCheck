@@ -45,7 +45,7 @@ final class ChecksInFlightUITests: XCTestCase {
 
         // Taxi, run-up, before departure; READY FOR LINE UP lets the replay go from the holding point.
         pilot.workChecks(until: "beforeDeparture")
-        let lineUp = pilot.readyForLineUp()
+        let lineUp = pilot.readyForLineUp(readingStatus: true)
 
         // flight-2: at line-up, the same one tap, to CLIMB on the map. (Before it, since 6.2: the check
         // before departure's NEXT reads READY FOR LINE UP and leaves it completed.)
@@ -132,9 +132,14 @@ final class ChecksInFlightUITests: XCTestCase {
         pilot.shot("flight-7", "freda-due")
         pilot.check("flight-7", freda.ok && (freda.slot?.label.contains("INS") ?? false),
                     "slot at INS (track \(Int(s.mark("wp1"))) s): \(freda.slot?.description ?? "none")")
-        pilot.check("flight-7", pilot.phaseStatus("cruise") == "FREDA due", "cruise segment: \(pilot.phaseStatus("cruise") ?? "?")")
+        let cruiseSegment = pilot.phaseStatus("cruise")
+        pilot.check("flight-7", cruiseSegment == "FREDA due", "cruise segment: \(cruiseSegment ?? "?")")
         pilot.tapSlot()
-        pilot.check("flight-7", pilot.undo.waitForExistence(timeout: 3), "toast: \(pilot.toastMessage ?? "none")")
+        // On MAP the offer is the status slot's, at the chart's top left (6.2, PR 4), not a toast.
+        let fredaUndo = pilot.undo.waitForExistence(timeout: 3)
+        let fredaUndoPlace = pilot.undoPlace
+        pilot.check("flight-7", fredaUndo && fredaUndoPlace == .statusSlot,
+                    "UNDO in the \(fredaUndoPlace?.rawValue ?? "nowhere"): \(pilot.toastMessage ?? "none")")
         let restarted = pilot.waitForSlot(timeout: 8) { $0.label.contains("FREDA ✓") }
         pilot.shot("flight-7", "freda-done")
         pilot.check("flight-7", restarted.ok, "the count restarts: \(restarted.slot?.description ?? "none")")
@@ -171,7 +176,10 @@ final class ChecksInFlightUITests: XCTestCase {
                     "slot · MARK · Divert · More: \(band.map { "x \(Int($0.minX))-\(Int($0.maxX)) y \(Int($0.minY))" })")
         pilot.shot("flight-16", "bottom-row")
         pilot.tapNow(mark)
-        pilot.check("flight-16", pilot.undo.waitForExistence(timeout: 3), "MARK offers UNDO: \(pilot.toastMessage ?? "no toast")")
+        let markUndo = pilot.undo.waitForExistence(timeout: 3)
+        let markUndoPlace = pilot.undoPlace
+        pilot.check("flight-16", markUndo && markUndoPlace == .statusSlot,
+                    "MARK offers UNDO, in MAP's status slot (6.2): \(markUndoPlace?.rawValue ?? "nowhere"), \(pilot.toastMessage ?? "no toast")")
         pilot.shot("flight-16", "mark-undo")
         pilot.tapNow(pilot.undo)
         pilot.check("flight-16", pilot.waitUntil(timeout: 3) { (pilot.label("map.mark") ?? "").contains("LSGC") },
@@ -192,7 +200,10 @@ final class ChecksInFlightUITests: XCTestCase {
         pilot.check("flight-9", !(descent.slot?.label.contains("FREDA") ?? true), "FREDA gone from the slot")
         pilot.tapSlot()
         pilot.check("flight-9", pilot.waitUntil(timeout: 4) { pilot.currentPhase == "descent" }, "one tap: \(pilot.currentPhase ?? "?")")
-        pilot.check("flight-9", pilot.undo.waitForExistence(timeout: 3), "with UNDO: \(pilot.toastMessage ?? "no toast")")
+        let descentUndo = pilot.undo.waitForExistence(timeout: 3)
+        let descentUndoPlace = pilot.undoPlace
+        pilot.check("flight-9", descentUndo && descentUndoPlace == .statusSlot,
+                    "with UNDO, in MAP's status slot: \(descentUndoPlace?.rawValue ?? "nowhere"), \(pilot.toastMessage ?? "no toast")")
         pilot.check("flight-9", pilot.phaseStatus("descent") != nil, "descent segment: \(pilot.phaseStatus("descent") ?? "?")")
         pilot.shot("flight-9", "descent-confirmed")
 
@@ -440,6 +451,14 @@ final class ChecksInFlightUITests: XCTestCase {
         pilot.shot("flight-10", "freda-back")
         pilot.check("flight-10", back.ok, "climbed back: \(back.slot?.description ?? "none") (referee withdrawal at \(Int(withdrawn)) s)")
         pilot.check("flight-10", pilot.currentPhase == "cruise", "still on \(pilot.currentPhase ?? "?")")
+
+        // offroute-1's control: the watch that finds no OFF ROUTE on route-vrps and xc-planned sees it where
+        // a flight does leave its route. Past INS this one flies 4 to 9 NM off the leg to LSGC, the route
+        // still armed (GroundReplayTests.testOffRouteSpeaksWhenTheFlightLeavesTheRoute, headless).
+        let offTheLeg = pilot.watchStatus(untilTrack: pilot.trackNow + 120)
+        pilot.shot("offroute-1", "xc-descent-abandoned-off-the-leg")
+        pilot.check("offroute-1", !offTheLeg.offRoute.isEmpty,
+                    "control, xc-descent-abandoned off the leg INS → LSGC: \(offTheLeg.offRoute.first ?? "no OFF ROUTE"); the slot: \(offTheLeg.all.joined(separator: " → "))")
         pilot.endFlight()
     }
 

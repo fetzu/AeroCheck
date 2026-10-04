@@ -261,6 +261,8 @@ struct ContentView: View {
             case "prepare", "flightprepare":    scene = .flightPrepare
             case "closeout", "flightcloseout":  scene = .flightCloseOut
             case "homeflight", "homeflighttoday": scene = .homeFlightToday
+            case "circuits":                    scene = .circuits
+            case "circuitsplan":                scene = .circuitsPlan
             default:                            scene = nil
             }
             guard let scene else { return }

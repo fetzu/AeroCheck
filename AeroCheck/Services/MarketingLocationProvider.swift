@@ -544,6 +544,13 @@ enum MarketingScene: String, CaseIterable, Identifiable {
     case flightPrepare = "Flight — Prepare"
     case flightCloseOut = "Flight — Close-out"
     case homeFlightToday = "Home — Today's flight"
+    #if DEBUG
+    /// The Cockpit's MAP arriving at Ecuvillens (LSGE), its traffic circuits and arrival routes on.
+    /// (6.2.0 captures)
+    case circuits = "Circuits — arriving at LSGE"
+    /// The same circuits on Plan › Map, on the ground at LSGE: the iPhone's. (6.2.0 captures)
+    case circuitsPlan = "Circuits — Plan › Map at LSGE"
+    #endif
 
     var id: String { rawValue }
 
@@ -561,6 +568,10 @@ enum MarketingScene: String, CaseIterable, Identifiable {
         case .flightPrepare: return "Same flight — swipe to PREPARE after inject"
         case .flightCloseOut: return "Vol d'Alpes in CLOSE with its route and rate — no gesture"
         case .homeFlightToday: return "LSZQ→LFSB scheduled today 14:00 → Home hero"
+        #if DEBUG
+        case .circuits: return "DESCENT checked, joining LSGE's downwind, circuits on the MAP"
+        case .circuitsPlan: return "On the ground at LSGE, circuits on Plan › Map — tap Map"
+        #endif
         }
     }
 }
@@ -634,6 +645,21 @@ enum MarketingSceneInjector {
         for old in flightPlanManager.flightPlans where demoRouteNames.contains(old.name) {
             flightPlanManager.deleteFlightPlan(old)
         }
+        #if DEBUG
+        // The circuits scene's route goes the same way, and its layers with it: the aerodrome
+        // procedures are off by default, so every other scene shows the chart without them.
+        for old in flightPlanManager.flightPlans where old.name == circuitsRouteName {
+            flightPlanManager.deleteFlightPlan(old)
+        }
+        if scene != .circuits && scene != .circuitsPlan {
+            appState.settings.showVFRCircuitsOnMap = false
+            appState.settings.showVFRRoutesOnMap = false
+            if let base = baseBeforeCircuits {
+                appState.navigationMapState.selectedLayer = base
+                baseBeforeCircuits = nil
+            }
+        }
+        #endif
 
         switch scene {
         case .flightFollowed, .flightPrepare, .flightCloseOut, .homeFlightToday:
@@ -679,6 +705,15 @@ enum MarketingSceneInjector {
             injectFlightLog(appState: appState)
         case .flightFollowed, .flightPrepare, .flightCloseOut, .homeFlightToday:
             break // dispatched above — they need the thread manager
+        #if DEBUG
+        case .circuits:
+            await injectCircuits(appState: appState, locationManager: locationManager,
+                                 airportDataService: airportDataService, aircraftDataService: aircraftDataService,
+                                 flightPlanManager: flightPlanManager)
+        case .circuitsPlan:
+            await injectCircuitsPlan(appState: appState, locationManager: locationManager,
+                                     airportDataService: airportDataService)
+        #endif
         }
     }
 
@@ -783,6 +818,131 @@ enum MarketingSceneInjector {
             }
         }
     }
+
+    #if DEBUG
+    // MARK: - Scenes: the traffic circuits at Ecuvillens (6.2.0)
+
+    private static let circuitsRouteName = "LSZQ → LSGE"
+
+    /// The base the circuits scenes replaced with the national map, until the next scene puts it back.
+    private static var baseBeforeCircuits: MapLayerType?
+
+    /// Ecuvillens' position, should the airport data not be loaded yet.
+    private static let lsge = CLLocationCoordinate2D(latitude: 46.7549, longitude: 7.0742)
+
+    /// Joining the north circuit's downwind from the north arrival route, westbound, at circuit
+    /// altitude (3300 ft): the circuit below the aircraft, the arrival route above it.
+    private static let lsgeDownwindJoin = CLLocationCoordinate2D(latitude: 46.7812, longitude: 7.0768)
+
+    /// On the ground at Ecuvillens, north of the runway: both circuits around it.
+    private static let lsgeApron = CLLocationCoordinate2D(latitude: 46.7570, longitude: 7.0800)
+
+    /// The maps' zoom, as a camera distance in metres: the Cockpit's on the iPad, the north circuit
+    /// across most of the chart; Plan › Map's on the iPhone, both circuits across the screen.
+    private static let circuitsCockpitDistance = 13_500.0
+    private static let circuitsPlanDistance = 24_000.0
+
+    /// The map both scenes open: the national map, on which the circuits read best, north up, close;
+    /// the traffic circuits and the arrival and departure routes on, no OpenAIP layer over them.
+    /// The base and the zoom are session state, forgotten on the next launch; the next scene puts the
+    /// base back and turns the procedures off again (`inject`).
+    private static func showCircuitsMap(appState: AppState, cameraDistance: Double) {
+        if baseBeforeCircuits == nil { baseBeforeCircuits = appState.navigationMapState.selectedLayer }
+        appState.navigationMapState.selectedLayer = .landeskarten
+        appState.navigationMapState.orientationMode = .northUp
+        appState.navigationMapState.cameraDistance = cameraDistance
+        appState.navigationMapState.latitudeDelta = nil
+        appState.settings.showVFRCircuitsOnMap = true
+        appState.settings.showVFRRoutesOnMap = true
+        appState.settings.showNonPoweredCircuitsOnMap = false
+        appState.settings.showOpenAIPOverlay = false
+        appState.settings.showReportingPointsOnMap = false
+        appState.settings.showObstaclesOnMap = false
+    }
+
+    /// The 6.2.0 headline, in flight: from LSZQ to Ecuvillens (LSGE), chosen for its two circuits,
+    /// north and south of the runway, joining the north one's downwind. The descent check is done, so
+    /// the Cockpit shows its MAP by itself.
+    private static func injectCircuits(appState: AppState, locationManager: LocationManager,
+                                       airportDataService: AirportDataService,
+                                       aircraftDataService: AircraftDataService,
+                                       flightPlanManager: FlightPlanManager) async {
+        if appState.isFlightActive { appState.cancelFlight() }
+        showCircuitsMap(appState: appState, cameraDistance: circuitsCockpitDistance)
+
+        // The route, LSZQ passed, LSGE next. LSZQ on the charted field, as the cruise scenes have it.
+        var plan = flightPlanManager.createFlightPlan(name: circuitsRouteName)
+        let lszq = CLLocationCoordinate2D(latitude: 47.392250, longitude: 7.029552)
+        let destination = airportDataService.findAirport(byIdent: "LSGE")?.coordinate ?? lsge
+        plan.waypoints.append(FlightPlanWaypoint(name: "LSZQ", coordinate: lszq))
+        plan.waypoints.append(FlightPlanWaypoint(name: "LSGE", coordinate: destination))
+        plan.calculateRouteData()
+        flightPlanManager.updateFlightPlan(plan)
+        flightPlanManager.activateFlightPlan(plan)
+        flightPlanManager.markWaypoint()
+        // 37 of the leg's 38 NM flown at about 100 kt.
+        flightPlanManager.marketingStartChronometer(elapsedSeconds: 22 * 60)
+
+        // The fix before the flight starts, so the MAP opens on it: one opened elsewhere at this zoom
+        // never got there.
+        holdCircuitsFix(at: lsgeDownwindJoin, altitudeFeet: 3300, speedKnots: 90, heading: 265,
+                        locationManager: locationManager)
+
+        // The flight, on the bundled WT9 with its checklist resolved as a real start does.
+        appState.settings.selectedRemoteAircraftId = nil
+        appState.settings.selectedAircraft = .wt9Dynamic
+        await appState.loadRemoteChecklistIfNeeded(aircraftDataService: aircraftDataService)
+        appState.startFlight()
+
+        // Every phase up to cruise completed, the descent check worked through.
+        appState.currentPhase = .descent
+        for phase in ChecklistPhase.allCases where phase.rawValue <= ChecklistPhase.descent.rawValue {
+            if phase != .descent { appState.phaseCompletionStatus[phase] = .completed }
+            let count = appState.activeChecklist.visibleItemCount(for: phase, learningMode: appState.settings.learningMode)
+            appState.currentHighlightedItem[phase] = ChecklistHighlighting.lastItemComplete(visibleCount: count)
+        }
+        appState.highestCompletedPhase = .cruise
+
+        let now = Date()
+        appState.engineStartTime = now.addingTimeInterval(-35 * 60)
+        appState.lineUpTime = now.addingTimeInterval(-30 * 60)
+        appState.currentFlight?.engineStartTime = appState.engineStartTime
+        appState.currentFlight?.lineUpTime = appState.lineUpTime
+
+        // Again once the airport data is loaded, as in the cruise scenes, so NOW / NEXT see it.
+        Task {
+            await airportDataService.ensureLoaded()
+            holdCircuitsFix(at: lsgeDownwindJoin, altitudeFeet: 3300, speedKnots: 90, heading: 265,
+                            locationManager: locationManager)
+        }
+    }
+
+    /// The same circuits on the ground, for the iPhone, whose Cockpit leaves the map too little room:
+    /// no flight, the aircraft at Ecuvillens, the Plan tab open. The capture taps Map.
+    private static func injectCircuitsPlan(appState: AppState, locationManager: LocationManager,
+                                           airportDataService: AirportDataService) async {
+        if appState.isFlightActive { appState.cancelFlight() }
+        showCircuitsMap(appState: appState, cameraDistance: circuitsPlanDistance)
+        holdCircuitsFix(at: lsgeApron, altitudeFeet: 2300, speedKnots: 0, heading: 100,
+                        locationManager: locationManager)
+        appState.groundTab = .plan
+        Task {
+            await airportDataService.ensureLoaded()
+            holdCircuitsFix(at: lsgeApron, altitudeFeet: 2300, speedKnots: 0, heading: 100,
+                            locationManager: locationManager)
+        }
+    }
+
+    private static func holdCircuitsFix(at fix: CLLocationCoordinate2D, altitudeFeet: Double, speedKnots: Double,
+                                        heading: Double, locationManager: LocationManager) {
+        let provider = MarketingLocationProvider.shared
+        provider.holdStaticFix(latitude: fix.latitude, longitude: fix.longitude, altitudeMeters: altitudeFeet / 3.28084,
+                               speedKnots: speedKnots, headingDegrees: heading)
+        if let loc = provider.currentLocation {
+            locationManager.injectMarketingStaticFix(loc)
+        }
+    }
+    #endif
 
     // MARK: - Scene 3: Active nav plan LSZQ → LSGC → LSGN → LSZB
 

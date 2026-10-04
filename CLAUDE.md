@@ -99,9 +99,13 @@ Owners and rules that aren't obvious from the names:
   and its figures on the iPad (`NextFigures`, whose ETE is the DEST line's first term), NOW | NEXT from
   `CockpitRadio`; on the phone the next line and the NOW line. Under every page sits the act band
   (`CockpitActBand.swift`, 6.2): four slots whose frames come from the width alone (`ActBandLayout`) and
-  whose roles come from the page and the flight (`ActBandRoles`). What a button there owns for every
-  page (MARK's and the reset's UNDO, the Divert sheet, the routes cover, the leg ROUTE asks MAP to show)
-  is `CockpitNavState`, in the environment; never put a thumb row back into a page.
+  whose roles come from the page and the flight (`ActBandRoles`). A phone on its side (`.columns`) has the
+  page on the left at full height and all of that in a column on the right: one header row, the strip at
+  28 pt, the next and NOW lines (one line under 400 pt tall, `CockpitColumnRule`), the band two by two in
+  76 pt slots. It fits an iPhone 17e's 370 pt with 3 to spare: `CockpitColumnFitTests` adds it up. What
+  a button there owns for every page (MARK's and the reset's UNDO, the Divert sheet, the routes cover, the
+  leg ROUTE asks MAP to show) is `CockpitNavState`, in the environment; never put a thumb row back into a
+  page.
 - `NavigationView.swift` holds `NavigationMapView` (embedded in the Cockpit and in Plan › Map) and
   `MapPreset`. Its `chrome` says whose it is: `.plan` keeps every piece of its own chrome (side column on
   its side, Routes at its foot, the legs and frequencies panel, the labelled controls row, CACHED, the
@@ -110,8 +114,7 @@ Owners and rules that aren't obvious from the names:
   slot (UNDO, GPS, OFF ROUTE, CHART OFFLINE, TELL FIS, SIGMET on the path, BRIEFING; the rules in
   `Services/CockpitStatus.swift`), the edge arrow once panned, the scale while zooming. OFF ROUTE is fed
   every fix on every page (`CockpitMapState`, `CockpitMapFollower`), never on the map alone. Beside the
-  phone's column on its side the Cockpit's chart keeps its next line and its frequencies until the column
-  takes them.
+  phone's column on its side it is the same chart and chrome, at full height.
 - Frequencies: the rules are `PhaseFrequencyPlanner` (`Services/PhaseFrequencyPlanner.swift`, pure:
   nearest 6 fields within 40 nm, the area FIS, CTRs within 25 nm). In flight `CockpitRadio` is the ONE
   source (NOW/NEXT for the map, ROUTE's RADIO, the Watch's list, the Companion iPhone's NOW line),

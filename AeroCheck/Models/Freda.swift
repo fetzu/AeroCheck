@@ -10,7 +10,7 @@ import Foundation
 // or MARK) stand for the turning points, and the five minutes keep two close waypoints from asking twice.
 //
 // It shows in the check slot on the map and in the FREDA button of the checklist's thumb bar, and one
-// tap records it done, with the usual six seconds of undo. It never changes the pane, never beeps and
+// tap records it done, with the usual six seconds of undo. It never changes the page, never beeps and
 // never vibrates. It replaces a fixed 15-minute re-run of the cruise list that nothing showed until it
 // was due, and which then took the map away by itself.
 

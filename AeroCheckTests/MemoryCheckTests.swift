@@ -148,7 +148,7 @@ final class MemoryCheckTests: XCTestCase {
         XCTAssertTrue(appState.currentCheckIsDone)
     }
 
-    // MARK: One tap on the checklist pane: ✓ DONE · NEXT (6.1, author's decision)
+    // MARK: One tap on the checklist page: ✓ DONE · NEXT (6.1, author's decision)
 
     func testOneTapConfirmsAndOpensTheNextCheck() throws {
         let appState = flight()
@@ -422,27 +422,27 @@ final class MemoryCheckTests: XCTestCase {
         XCTAssertEqual(encoded, #"["doneFromMemory"]"#)
     }
 
-    // MARK: The pane (Q7)
+    // MARK: The page (Q7)
 
     func testMemoryChecksShowTheMapFromClimbToAfterLanding() {
         for phase in [ChecklistPhase.climb, .cruise, .descent, .approach, .landing, .afterLanding] {
-            XCTAssertEqual(CockpitPaneRule.defaultPane(phase: phase, checklistDone: false, memoryCheck: true), .map, "\(phase)")
-            XCTAssertEqual(CockpitPaneRule.defaultPane(phase: phase, checklistDone: true, memoryCheck: true), .map, "\(phase)")
+            XCTAssertEqual(CockpitPageRule.defaultPage(phase: phase, checklistDone: false, memoryCheck: true), .map, "\(phase)")
+            XCTAssertEqual(CockpitPageRule.defaultPage(phase: phase, checklistDone: true, memoryCheck: true), .map, "\(phase)")
         }
     }
 
     func testReadDoChecksKeepTodaysRule() {
         for phase in [ChecklistPhase.approach, .landing, .afterLanding] {
-            XCTAssertEqual(CockpitPaneRule.defaultPane(phase: phase, checklistDone: true), .checklist, "\(phase)")
-            XCTAssertEqual(CockpitPaneRule.defaultPane(phase: phase, checklistDone: false), .checklist, "\(phase)")
+            XCTAssertEqual(CockpitPageRule.defaultPage(phase: phase, checklistDone: true), .checklist, "\(phase)")
+            XCTAssertEqual(CockpitPageRule.defaultPage(phase: phase, checklistDone: false), .checklist, "\(phase)")
         }
-        XCTAssertEqual(CockpitPaneRule.defaultPane(phase: .cruise, checklistDone: false), .checklist)
-        XCTAssertEqual(CockpitPaneRule.defaultPane(phase: .cruise, checklistDone: true), .map)
+        XCTAssertEqual(CockpitPageRule.defaultPage(phase: .cruise, checklistDone: false), .checklist)
+        XCTAssertEqual(CockpitPageRule.defaultPage(phase: .cruise, checklistDone: true), .map)
     }
 
     func testOnTheGroundAMemoryCheckStaysOnTheChecklist() {
         for phase in [ChecklistPhase.afterEngineStart, .taxi, .lineUp] {
-            XCTAssertEqual(CockpitPaneRule.defaultPane(phase: phase, checklistDone: false, memoryCheck: true), .checklist,
+            XCTAssertEqual(CockpitPageRule.defaultPage(phase: phase, checklistDone: false, memoryCheck: true), .checklist,
                            "\(phase)")
         }
     }

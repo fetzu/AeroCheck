@@ -960,8 +960,8 @@ struct MapStatusShownKey: PreferenceKey {
 
 /// The chrome over the Cockpit's chart, wired. The map hands it what only the map knows (its
 /// orientation, whether it follows the aircraft, its region, the SIGMETs it ranked, its taps); it reads
-/// the flight for the status slot, and owns the undo offer's dismissal, as `MapUndoToast` did. A view of
-/// its own, so the map's body only places it.
+/// the flight for the status slot, and owns the undo offer's dismissal, as the map's undo toast did. A
+/// view of its own, so the map's body only places it.
 struct CockpitChartChrome: View {
     @ObservedObject var mapState: SharedMapState
     /// `dataStatusManager.networkMonitor`, observed here: CHART OFFLINE follows the network (plan §5.2).

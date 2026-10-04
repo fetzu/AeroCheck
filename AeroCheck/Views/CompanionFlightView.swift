@@ -295,7 +295,7 @@ struct CompanionFlightView: View {
             .background(mode == m ? theme.action : Color.clear)
             .clipShape(RoundedRectangle(cornerRadius: 6))
         }
-        // A Cockpit control's height, as the Cockpit's own pane switch. (v6.0 review)
+        // A Cockpit control's height, as the Cockpit's own page switch. (v6.0 review)
         .frame(minHeight: CockpitTarget.control)
         .contentShape(Rectangle())
         .accessibilityAddTraits(mode == m ? .isSelected : [])
@@ -382,7 +382,7 @@ struct CompanionFlightView: View {
     }
 
     /// ✓ DONE: the iPad records it, and this screen offers it back for six seconds. `andNext`: the same
-    /// tap goes on to the next check, as on the iPad's checklist pane, and UNDO takes both back. (6.1)
+    /// tap goes on to the next check, as on the iPad's checklist page, and UNDO takes both back. (6.1)
     private func confirmMemoryCheck(_ cl: CompanionChecklistSnapshot, phaseRawValue: Int, andNext: Bool = false) {
         companionConnectivityManager.sendCommand(andNext ? .confirmMemoryCheckAndNext(phaseRawValue: phaseRawValue)
                                                          : .confirmMemoryCheck(phaseRawValue: phaseRawValue))

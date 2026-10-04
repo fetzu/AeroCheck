@@ -450,11 +450,26 @@ final class CheckSlotLabelLayoutTests: XCTestCase {
     }
 
     func testTheTimeOfTheTickNeverMovesTheName() {
-        // "CRUISE CHECK ✓ 9:05" and "✓ 14:24": the same room.
+        // "CRUISE CHECK ✓ 9:05" and "✓ 14:24": the same room, on a 24-hour clock and on a 12-hour one
+        // ("9:05 AM", "2:24 PM"). Not only on the test host's own clock: a host that can't read the
+        // simulator's preferences falls back to en_US, a 12-hour clock, where this failed with "✓ 00:00
+        // AM" against "✓ 00:00 PM". (6.2)
         var calendar = Calendar(identifier: .gregorian)
         calendar.timeZone = .current
         let morning = calendar.date(bySettingHour: 9, minute: 5, second: 0, of: at)!
         let afternoon = calendar.date(bySettingHour: 14, minute: 24, second: 0, of: at)!
+        for identifier in ["en_CH", "fr_CH", "en_US"] {
+            let locale = Locale(identifier: identifier)
+            for stacked in [false, true] {
+                XCTAssertEqual(counting(6, at: morning).titleRoom(stacked: stacked, locale: locale),
+                               counting(6, at: afternoon).titleRoom(stacked: stacked, locale: locale),
+                               "\(identifier), stacked: \(stacked)")
+            }
+        }
+        let twelveHour = Locale(identifier: "en_US")
+        XCTAssertTrue(counting(6, at: morning).titleText(locale: twelveHour).hasSuffix("AM"), "a 12-hour clock here")
+        XCTAssertEqual(counting(6, at: morning).titleRoom(locale: twelveHour).filter(\.isNumber).count, 4,
+                       "two figures to the hour: \(counting(6, at: morning).titleRoom(locale: twelveHour))")
         XCTAssertEqual(iPadSetting(counting(6, at: morning)).map(\.roomLines),
                        iPadSetting(counting(6, at: afternoon)).map(\.roomLines), "the iPad")
         XCTAssertEqual(iPadSetting(counting(6, at: morning)).map(\.size),

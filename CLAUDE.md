@@ -92,34 +92,42 @@ Owners and rules that aren't obvious from the names:
 
 - `ContentView` routes to `GroundView` on the ground (tabs Today · Plan · Logbook · Aircraft · Settings;
   `appState.groundTab` switches tab from anywhere; Today is `HomeView`) and to `FlightView` in flight.
-- `FlightView` + `Cockpit.swift` = the Cockpit, on iPad AND iPhone: `CockpitLayout` (wide / narrow /
-  columns) arranges the same zones, and the page follows the phase (`CockpitPaneRule`: CHECKLIST or
-  MAP; ROUTE, `CockpitRoutePage.swift`, is the pilot's pick only). There is no separate iPhone HUD.
-  Over every page sits the read band's live part (`CockpitReadBand.swift`, 6.2): the strip with NEXT
-  and its figures on the iPad (`NextFigures`, whose ETE is the DEST line's first term), NOW | NEXT from
-  `CockpitRadio`; on the phone the next line and the NOW line. Under every page sits the act band
-  (`CockpitActBand.swift`, 6.2): four slots whose frames come from the width alone (`ActBandLayout`) and
-  whose roles come from the page and the flight (`ActBandRoles`). A phone on its side (`.columns`) has the
-  page on the left at full height and all of that in a column on the right: one header row, the strip at
-  28 pt, the next and NOW lines (one line under 400 pt tall, `CockpitColumnRule`), the band two by two in
-  76 pt slots. It fits an iPhone 17e's 370 pt with 3 to spare: `CockpitColumnFitTests` adds it up. What
-  a button there owns for every page (MARK's and the reset's UNDO, the Divert sheet, the routes cover, the
-  leg ROUTE asks MAP to show) is `CockpitNavState`, in the environment; never put a thumb row back into a
-  page.
+- `FlightView` + `Cockpit.swift` = the Cockpit, on iPad AND iPhone (there is no separate iPhone HUD).
+  `CockpitLayout` (wide / narrow / columns) arranges the same three zones whatever the page: the read
+  band, the page, the act band. The page follows the phase (`CockpitPageRule`: CHECKLIST or MAP; ROUTE,
+  `CockpitRoutePage.swift`, is the pilot's pick only), and a pick holds until the suggestion changes
+  (`CockpitPageChoice`). The picker is `CockpitPagePicker`; its identifiers are still `pane.*`, which the
+  UI tests and the replays tap.
+  - Read band (`CockpitReadBand.swift`), over every page: the strip with NEXT and its figures on the iPad
+    (`NextFigures`, whose ETE is the DEST line's first term) and NOW | NEXT from `CockpitRadio`; on the
+    phone the next line and the NOW line.
+  - Act band (`CockpitActBand.swift`), under every page: four slots whose frames come from the width
+    alone (`ActBandLayout`) and whose roles come from the page and the flight (`ActBandRoles`). The phone
+    sets the words of a slot itself (`ActFace`: broken between words, never cut). What a button there owns
+    for every page (MARK's and the reset's UNDO, the Divert sheet, the routes cover, the leg ROUTE asks
+    MAP to show) is `CockpitNavState`, in the environment; never put a thumb row back into a page.
+  - A phone on its side (`.columns`): the page on the left at full height, the rest in a column on the
+    right (one header row, the strip at 28 pt, the next and NOW lines, one line under 400 pt tall,
+    `CockpitColumnRule`, then the band two by two in 76 pt slots). It fits an iPhone 17e's 370 pt with 3
+    to spare: `CockpitColumnFitTests` adds it up.
 - `NavigationView.swift` holds `NavigationMapView` (embedded in the Cockpit and in Plan › Map) and
-  `MapPreset`. Its `chrome` says whose it is: `.plan` keeps every piece of its own chrome (side column on
-  its side, Routes at its foot, the legs and frequencies panel, the labelled controls row, CACHED, the
-  scale, the chips, the route's pill, the undo toast); `.cockpit(layout)` is the chart and
-  `CockpitChartChrome` over it (`CockpitMapChrome.swift`, 6.2): the stack at the right edge, the status
-  slot (UNDO, GPS, OFF ROUTE, CHART OFFLINE, TELL FIS, SIGMET on the path, BRIEFING; the rules in
-  `Services/CockpitStatus.swift`), the edge arrow once panned, the scale while zooming. OFF ROUTE is fed
-  every fix on every page (`CockpitMapState`, `CockpitMapFollower`), never on the map alone. Beside the
-  phone's column on its side it is the same chart and chrome, at full height.
+  `MapPreset`. Its `chrome` says whose it is. `.plan` is Plan › Map's (`mapArea`, the side column on its
+  side): the next-waypoint card, the labelled controls row, CACHED, the scale, the chips, the route's
+  pill, the legs and frequencies panel with its band, Routes at its foot. `.cockpit(layout)` only reaches
+  `cockpitMapArea`: the chart, and over it `CockpitChartChrome` (`CockpitMapChrome.swift`: the stack at
+  the right edge, the status slot, the edge arrow once panned, the scale while zooming) and the bar of a
+  leg ROUTE asked MAP to show. In-flight changes go there: `ContentView` never shows Plan › Map in flight.
+  OFF ROUTE is fed every fix on every page (`CockpitMapState`, `CockpitMapFollower`), never on the map
+  alone.
+- MAP's status slot shows one state at a time, the highest pending (`CockpitStatusRule`,
+  `Services/CockpitStatus.swift`): UNDO, GPS (DEGRADED or NO GPS), OFF ROUTE, CHART OFFLINE, TELL FIS, a
+  SIGMET on the path, BRIEFING. A tap opens what the state is about. CHECKLIST and ROUTE have no slot:
+  their UNDO is the toast over the page's foot (`AutoMarkUndoToast`).
 - Frequencies: the rules are `PhaseFrequencyPlanner` (`Services/PhaseFrequencyPlanner.swift`, pure:
-  nearest 6 fields within 40 nm, the area FIS, CTRs within 25 nm). In flight `CockpitRadio` is the ONE
-  source (NOW/NEXT for the map, ROUTE's RADIO, the Watch's list, the Companion iPhone's NOW line),
-  recomputed on every page by `CockpitRadioFollower`; Plan › Map calls the planner itself and syncs the
-  Watch only there.
+  nearest 6 fields within 40 nm, the area FIS, CTRs within 25 nm; NEXT is the field flown to until it is
+  NOW). In flight `CockpitRadio` is the ONE source (the read band's NOW | NEXT, ROUTE's RADIO, the
+  Watch's list, the Companion iPhone's NOW line), recomputed on every page by `CockpitRadioFollower`;
+  Plan › Map calls the planner itself and syncs the Watch only there.
 - `FlightLauncher` is the ONE flight-start sequence (buttons, widget, deep link): checklist load →
   entitlement / permission / active-flight guards → start → GPS. Never start a flight around it.
 - Waypoint ATOs come from the GPS track (`WaypointPassage`: abeam within 2.5 NM, forward only).
@@ -130,9 +138,9 @@ Owners and rules that aren't obvious from the names:
   that plan, and ABANDON FLIGHT (`abandonFlownPlan`) deactivates only that plan; any other stays armed,
   untouched. The departure takes the takeoff time and the destination the landing time, never a
   proximity; nothing is marked while diverting; the new leg's timer starts at the passage. Each mark
-  past the departure raises `FlightPlanManager.autoMarkNotice`, offered back on the checklist pane and
-  on the map (`NavUndoToast`: outlined UNDO, where MARK's and the leg-timer reset's are filled; all
-  20 pt, 78 pt). A waypoint taken back (UNDO, RESUME LEG) is left to MARK:
+  past the departure raises `FlightPlanManager.autoMarkNotice`, offered back for six seconds, in MAP's
+  status slot or over the foot of CHECKLIST and ROUTE (an outlined UNDO, where MARK's and the leg-timer
+  reset's are filled). A waypoint taken back (UNDO, RESUME LEG) is left to MARK:
   `FlightPlan.takenBackWaypointIds` survives a relaunch, and no track fill (in flight, END FLIGHT, the
   Flight Log) gives it a time. UNDO keeps a departure marked in the same run.
 - `FlightEventDetector` (take-off, touch-and-go, go-around, full stop) is a port of the Python prototype in

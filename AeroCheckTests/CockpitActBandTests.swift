@@ -4,7 +4,7 @@ import CoreLocation
 @testable import AeroCheck
 
 /// The act band (6.2): four slots under every page of the Cockpit, in four frames that never move, the
-/// roles following the page and the flight. Until 6.2 each pane had a thumb bar of its own, and the
+/// roles following the page and the flight. Until 6.2 each page had a thumb bar of its own, and the
 /// checklist's laid itself out again with the phase: CHECK at the right end, the phase's action, FREDA
 /// or the circuit buttons coming and going, so nothing stayed where the thumb had learned it.
 @MainActor
@@ -269,7 +269,7 @@ final class CockpitActBandTests: XCTestCase {
             let metrics = ActBandMetrics.make(layout: layout, scale: scale)
             let expected = ActBandLayout.frames(width: screen - (layout == .wide ? 32 : 24), metrics: metrics)
             var roleSets: Set<String> = []
-            func draw(_ name: String, page: CockpitPane, _ set: () -> Void) {
+            func draw(_ name: String, page: CockpitPage, _ set: () -> Void) {
                 set()
                 let slotRoles = roles(page, services)
                 roleSets.insert("\(slotRoles)")
@@ -765,7 +765,7 @@ final class CockpitActBandTests: XCTestCase {
         addTeardownBlock { @MainActor in manager.deactivateFlightPlan() }
     }
 
-    private func roles(_ page: CockpitPane, _ services: Services) -> [ActSlotRole] {
+    private func roles(_ page: CockpitPage, _ services: Services) -> [ActSlotRole] {
         let app = services.appState, plans = services.flightPlanManager
         return ActBandRoles.make(page: page, phase: app.currentPhase, hasRoute: plans.activeFlightPlan != nil,
                                  routeFlown: plans.isFlightPlanCompleted, circuits: app.isCircuitMode,
@@ -774,7 +774,7 @@ final class CockpitActBandTests: XCTestCase {
     }
 
     /// The band drawn `width` wide, and each slot's frame as laid out.
-    private func bandFrames(page: CockpitPane, layout: CockpitLayout, scale: CockpitScale, width: CGFloat,
+    private func bandFrames(page: CockpitPage, layout: CockpitLayout, scale: CockpitScale, width: CGFloat,
                             services: Services) -> [CGRect] {
         final class Box { var frames: [Int: CGRect] = [:] }
         let box = Box()

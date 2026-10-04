@@ -477,7 +477,7 @@ private final class HeadlessFlight {
     }
 
     /// The slot, as the pilot answers it: due or owed, tapped (a list it opens worked through on the
-    /// checklist pane), unless the pilot leaves that check open; from circuit height, on to the landing check.
+    /// checklist page), unless the pilot leaves that check open; from circuit height, on to the landing check.
     private func answerSlot(at t: Double) {
         let slot = noteSlot(at: t)
         guard appState.landedCard == nil else { return }

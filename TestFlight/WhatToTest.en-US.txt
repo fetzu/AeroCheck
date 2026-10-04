@@ -1,3 +1,11 @@
-6.1.1 is the version going to the App Store. Use it as you normally would, before, during and after your flights, and send what you notice from the TestFlight app: a screenshot with a line of text is the quickest way.
+6.2.0 takes the Cockpit apart: three pages (CHECKLIST, MAP, ROUTE) between a band at the top that reads the flight and four fixed buttons at the foot. The map can also draw traffic circuits and VFR routes from open flightmaps. Try it on the ground first: plan a flight with a route, START FLIGHT, then walk through the phases.
 
-New since 6.1.0: an iPad without GPS (Wi-Fi only) can install AéroCheck. In flight it uses the iPhone's GPS through Companion mode (iOS 26 on both), or an external GPS receiver. If you fly with either, tell us whether the GPS indicator stays green.
+What to look at:
+- the bottom row: the same four places on every page, CHECK is now the second button;
+- ROUTE: the destination line, the legs (a tap shows the leg on MAP) and every frequency in the order you'll need it;
+- MAP: the chart alone, the buttons on the right edge, and the slot at the top left (UNDO after MARK, CHART OFFLINE in airplane mode, BRIEFING before departure and in descent);
+- the iPhone: the phase bar now sits inside the phase button (a tap picks a phase), and the iPhone on its side;
+- Plan › Map › Map: Traffic circuits and Arrival & departure routes (download the data in Settings › Navigation & Maps first);
+- Companion mode (iOS 26 on both): Divert from the iPhone.
+
+Send what you notice from the TestFlight app: a screenshot with a line of text is the quickest way.

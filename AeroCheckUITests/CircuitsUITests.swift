@@ -60,7 +60,7 @@ final class CircuitsUITests: XCTestCase {
         // until the line-up check is reached again (the scenario's phaseIs:lineUp hold).
         pilot.workChecks(until: "lineUp")
         if let hold = s.holds.first(where: { $0.until == "phaseIs:lineUp" }) { pilot.noteRelease(atTrack: hold.t) }
-        if pilot.memoryDone.waitForExistence(timeout: 3) { pilot.tapNow(pilot.memoryDone) }
+        pilot.confirmMemoryCheck()
         pilot.check("circuits-2", pilot.waitUntil(timeout: 5) { pilot.currentPhase == "climb" }, "the next circuit: \(pilot.currentPhase ?? "?")")
 
         // Lap 3, ending in the second stop-and-go: circuits-3, the card left alone goes on the take-off roll.

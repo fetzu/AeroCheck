@@ -115,6 +115,27 @@ final class ViewStackBudgetTests: XCTestCase {
         }
     }
 
+    /// The Cockpit in cruise with a route of six waypoints, on CHECKLIST and on MAP (6.2, the read band):
+    /// NEXT with its figures in the strip and NOW | NEXT under it, over each page, on an iPad in portrait
+    /// and on its side, and the phone's next line and NOW line at a phone's width.
+    func testCockpitInCruiseWithARouteRendersWithinHalfTheDeviceStack() {
+        for pane in [CockpitPane.checklist, .map] {
+            for (size, name) in [(CGSize(width: 820, height: 1_180), "iPad portrait"),
+                                 (CGSize(width: 1_180, height: 820), "iPad on its side"),
+                                 (CGSize(width: 402, height: 874), "phone width")] {
+                let services = makeServices()
+                startFlight(services.appState, stepByStep: false)
+                services.appState.goToPhase(.cruise)
+                armRoute(services.flightPlanManager, waypoints: 6)
+
+                let used = StackProbe.bytesUsed {
+                    render(FlightView(initialPane: pane), services: services, size: size)
+                }
+                XCTAssertLessThan(used, Self.budget, "the Cockpit in cruise with a route, \(pane), \(name), used \(used / 1_024) KB of stack")
+            }
+        }
+    }
+
     /// The Cockpit on its checklist in cruise with FREDA counting in the act band's first slot (6.2):
     /// the page the pilot picked over the map the flight shows.
     func testCockpitChecklistWithFredaCountingRendersWithinHalfTheDeviceStack() {

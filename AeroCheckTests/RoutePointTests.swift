@@ -401,7 +401,8 @@ final class RoutePointTests: XCTestCase {
     // MARK: - Route names (author decision 2026-09-29)
 
     /// "E (LSGC)" where there is room: the nav log and its exports, the route list, the iPad map
-    /// card. "E" in the Cockpit's NEXT cell and on the phone's next-waypoint line.
+    /// card, the Cockpit's NEXT cell (which falls back to "E" where it doesn't fit, 6.2). "E" on the
+    /// phone's next line.
     func testAShortReportingPointIsQualifiedWhereThereIsRoom() throws {
         var plan = FlightPlan(name: "Names", waypoints: [
             RoutePoint.aerodrome(lszq).waypoint(asEndpoint: true), try pointE().waypoint(asEndpoint: false),
@@ -415,7 +416,7 @@ final class RoutePointTests: XCTestCase {
         XCTAssertEqual(plan.waypoints[1].name, "E", "the stored name stays the point's own")
 
         plan.currentWaypointIndex = 1
-        XCTAssertEqual(plan.nextWaypointName(.cockpitNext), "E")
+        XCTAssertEqual(plan.nextWaypointName(.cockpitNext), "E (LSGC)")
         XCTAssertEqual(plan.nextWaypointName(.phoneNextLine), "E")
         XCTAssertEqual(plan.nextWaypointName(.mapCard), "E (LSGC)")
         plan.diversion = Diversion(ident: "LSZG", name: "GRENCHEN", latitude: 47.18, longitude: 7.42, leftRouteAt: 1)

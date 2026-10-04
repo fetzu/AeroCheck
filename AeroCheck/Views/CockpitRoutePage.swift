@@ -436,17 +436,21 @@ enum LegFraming {
     }
 
     /// The room MAP leaves around the leg: clear of the chrome over the chart's top and foot, but never
-    /// more than 45 % of the chart at the top and 35 % at the foot, so a short chart (an iPad on its
-    /// side, a phone) still shows the leg on a fifth of it.
+    /// more than 45 % of the chart at the top, and the top and the foot together never more than 80 %, so a
+    /// short chart (an iPad on its side, a phone) still shows the leg on a fifth of it. The foot takes
+    /// what the top leaves: on a phone, with nothing over the chart's top since the read band (6.2), the
+    /// whole bar at its foot.
     static func edgePadding(chartSize: CGSize, topChrome: CGFloat, bottomChrome: CGFloat) -> UIEdgeInsets {
         let side = min(40, chartSize.width * 0.1)
-        return UIEdgeInsets(top: min(topChrome + 16, chartSize.height * 0.45), left: side,
-                            bottom: min(bottomChrome + 16, chartSize.height * 0.35), right: side)
+        let top = min(topChrome + 16, chartSize.height * 0.45)
+        let bottom = min(bottomChrome + 16, max(0, chartSize.height * 0.8 - top))
+        return UIEdgeInsets(top: top, left: side, bottom: bottom, right: side)
     }
 }
 
 /// MAP showing a leg tapped on ROUTE: "Back to aircraft", and the leg's DIRECT (filled) or RESUME LEG
-/// (outlined). Over the chart, never in its layout: at its foot on the iPad, at its top on a phone.
+/// (outlined). Over the chart, never in its layout: at its foot, where the thumb is; beside a phone's
+/// column on its side, at its top, in its next line's place.
 struct FramedLegBar: View {
     let waypointName: String
     let action: LegFraming.Action

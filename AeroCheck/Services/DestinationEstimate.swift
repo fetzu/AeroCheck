@@ -35,6 +35,68 @@ struct NextLegLive: Equatable {
     }
 }
 
+// MARK: - The NEXT cell
+
+/// What the read band says of the navigation target (the next waypoint, or the field diverted to): its
+/// name, the bearing and the distance to it, and the live leg (`NextLegLive`, the DEST line's first
+/// term). The iPad's NEXT cell in the strip and the phone's next line show it; nil figures are drawn as
+/// "—" in their place, so nothing moves when they come. Pure. (6.2.0, the read band)
+struct NextFigures: Equatable {
+    /// The plain name ("E"), or the field's ident while diverting; nil with no route, or once the
+    /// destination is marked. What `strip.next` reads as its value.
+    var ident: String?
+    /// The name with its aerodrome where a short reporting point has one ("E (LSGC)"); else the plain one.
+    var fullIdent: String?
+    var diverting = false
+    /// Degrees from the aircraft to the target; nil with no fix.
+    var bearing: Double?
+    /// NM to the target; nil with no fix.
+    var distanceNM: Double?
+    /// ETE and ETA at the current ground speed; nil with no fix or under 30 kt.
+    var live: NextLegLive?
+
+    /// No route: every figure "—".
+    static let none = NextFigures()
+
+    init(ident: String? = nil, fullIdent: String? = nil, diverting: Bool = false, bearing: Double? = nil,
+         distanceNM: Double? = nil, live: NextLegLive? = nil) {
+        self.ident = ident
+        self.fullIdent = fullIdent ?? ident
+        self.diverting = diverting
+        self.bearing = bearing
+        self.distanceNM = distanceNM
+        self.live = live
+    }
+
+    /// The active plan's target, measured from `location` as `FlightPlanManager.distanceToNextWaypoint`
+    /// and the DEST line (`DestinationInput`) measure it, so the ETE here is the DEST ETE's first term.
+    init(plan: FlightPlan?, location: CLLocation?, groundSpeedKnots: Double, now: Date = FlightClock.now) {
+        guard let plan, let target = plan.navigationTarget,
+              let ident = plan.nextWaypointName(.compact) else {
+            self.init()
+            return
+        }
+        let distance = location.map {
+            $0.distance(from: CLLocation(latitude: target.latitude, longitude: target.longitude)) / 1852.0
+        }
+        self.init(ident: ident, fullIdent: plan.nextWaypointName(.cockpitNext),
+                  diverting: plan.diversion != nil,
+                  bearing: location.map { $0.coordinate.bearing(to: target.coordinate) },
+                  distanceNM: distance,
+                  live: NextLegLive(distanceNM: distance, groundSpeedKnots: groundSpeedKnots, now: now))
+    }
+
+    /// "206°", "12.4" (NM), "7" / "1:05" with "min" / "h", the clock time: as the map's card wrote them
+    /// (`NextWaypointReadout`), "—" where there is none.
+    var bearingText: String { bearing.map(NextWaypointReadout.bearing) ?? "—" }
+    var distanceText: String { distanceNM.map { NextWaypointReadout.distance($0) + " NM" } ?? "— NM" }
+    var eteText: String {
+        live.map { "\(NextWaypointReadout.eteValue($0.ete)) \(NextWaypointReadout.eteUnit($0.ete))" } ?? "— min"
+    }
+    /// The ETA alone ("11:58"), to the minute as the DEST line writes it.
+    var etaClock: String { live.map { DestinationFormat.clock($0.eta) } ?? "—" }
+}
+
 // MARK: - The DEST line
 
 /// What the DEST line is computed from: the plan's legs as the leg rows read them, and the live

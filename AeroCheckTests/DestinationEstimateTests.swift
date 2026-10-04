@@ -372,6 +372,64 @@ final class DestinationEstimateTests: XCTestCase {
         XCTAssertNil(NextLegLive.ete(distanceNM: distance, groundSpeedKnots: 29), "the cell's 30 kt rule")
     }
 
+    // MARK: - The NEXT cell (6.2, the read band)
+
+    /// The NEXT cell's ETE is the DEST line's first term: the same distance, the same ground speed, the same
+    /// `NextLegLive`. On the last leg the two are one.
+    func testTheNextCellsETEIsTheDestinationsFirstTerm() throws {
+        var plan = juraPlan(departure: t0)
+        let here = CLLocation(latitude: 47.15, longitude: 6.97)
+        for next in 1...3 {
+            plan.currentWaypointIndex = next
+            let figures = NextFigures(plan: plan, location: here, groundSpeedKnots: 97, now: t0)
+            let input = DestinationInput(plan: plan, location: here, groundSpeedKnots: 97, now: t0)
+            let line = try estimate(input)
+            let after = stride(from: next + 1, through: 3, by: 1).compactMap { input.legEET[$0] }.reduce(0, +)
+            let live = try XCTUnwrap(figures.live, "leg \(next)")
+            XCTAssertEqual(try XCTUnwrap(line.ete), live.ete + after, accuracy: 1e-9, "leg \(next)")
+            XCTAssertEqual(try XCTUnwrap(figures.distanceNM), try XCTUnwrap(input.liveDistanceNM), accuracy: 1e-12)
+            XCTAssertEqual(live.eta, t0.addingTimeInterval(live.ete))
+        }
+        XCTAssertEqual(try XCTUnwrap(estimate(DestinationInput(plan: plan, location: here, groundSpeedKnots: 97, now: t0)).ete),
+                       try XCTUnwrap(NextFigures(plan: plan, location: here, groundSpeedKnots: 97, now: t0).live?.ete),
+                       "the last leg: the line is the cell")
+    }
+
+    /// The cell's name and figures: the plain name and the full one, the bearing and the distance to the
+    /// target as the map measured them; diverting, the field; nothing with no route, once the destination
+    /// is marked, with no fix (the figures) or under 30 kt (the ETE).
+    @MainActor
+    func testTheNextCellReadsTheTarget() throws {
+        let manager = makeTestPlanManager()
+        var plan = juraPlan(departure: t0)
+        plan.currentWaypointIndex = 2
+        manager.activeFlightPlan = plan
+        let here = CLLocation(latitude: 47.15, longitude: 6.97)
+        let figures = NextFigures(plan: plan, location: here, groundSpeedKnots: 100, now: t0)
+        XCTAssertEqual(figures.ident, "E")
+        XCTAssertEqual(figures.fullIdent, "E", "not a reporting point: the plain name")
+        XCTAssertFalse(figures.diverting)
+        XCTAssertEqual(try XCTUnwrap(figures.bearing), try XCTUnwrap(manager.bearingToNextWaypoint(from: here)), accuracy: 1e-9)
+        XCTAssertEqual(try XCTUnwrap(figures.distanceNM), try XCTUnwrap(manager.distanceToNextWaypoint(from: here)),
+                       accuracy: 1e-12)
+
+        plan.diversion = Diversion(ident: "LSGN", name: "Neuchâtel", latitude: 46.9575, longitude: 6.8647, leftRouteAt: 2)
+        let diverting = NextFigures(plan: plan, location: here, groundSpeedKnots: 100, now: t0)
+        XCTAssertEqual(diverting.ident, "LSGN")
+        XCTAssertTrue(diverting.diverting)
+        XCTAssertEqual(try XCTUnwrap(diverting.live?.ete),
+                       try XCTUnwrap(estimate(DestinationInput(plan: plan, location: here, groundSpeedKnots: 100, now: t0)).ete),
+                       accuracy: 1e-9, "diverting, the DEST line is the field: the same ETE")
+
+        plan.diversion = nil
+        XCTAssertEqual(NextFigures(plan: plan, location: nil, groundSpeedKnots: 100, now: t0),
+                       NextFigures(ident: "E", fullIdent: "E"), "no fix: the name, no figures")
+        XCTAssertNil(NextFigures(plan: plan, location: here, groundSpeedKnots: 29, now: t0).live, "under 30 kt")
+        plan.currentWaypointIndex = 4
+        XCTAssertEqual(NextFigures(plan: plan, location: here, groundSpeedKnots: 100, now: t0), .none, "the destination marked")
+        XCTAssertEqual(NextFigures(plan: nil, location: here, groundSpeedKnots: 100, now: t0), .none, "no route")
+    }
+
     /// Over waypoint 1 at its ETO, flying the next leg at its planned ground speed: the line's ETA is
     /// the plan's time over the destination, Δ ±0.
     func testFlownToThePlanTheDeltaIsEven() throws {

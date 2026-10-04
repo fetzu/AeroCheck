@@ -311,6 +311,40 @@
         }
       }
     },
+    "read.a11y.bearing": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "bearing %lld degrees"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "relèvement %lld degrés"
+          }
+        }
+      }
+    },
+    "read.a11y.noTarget": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "no waypoint ahead"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "aucun point à venir"
+          }
+        }
+      }
+    },
     "© open flightmaps association · not for primary navigation": {
       "localizations": {
         "fr": {

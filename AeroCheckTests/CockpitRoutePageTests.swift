@@ -131,6 +131,91 @@ final class CockpitRoutePageTests: XCTestCase {
         XCTAssertEqual(radio.emergency.map(\.freq), ["121.500"])
     }
 
+    // MARK: - A leg's row
+
+    /// Every waypoint's name whole at the phone's 17 pt, SAIGNELÉGIER's twelve letters too, on an iPhone
+    /// SE, a 17e and a 17 (ROUTE's 16 pt each side). Beside PLAN, ACT and Δ the name had what the three
+    /// columns left, about 30 pt on the 17e: "LS…", "SA…".
+    func testEveryNameStaysWholeAtThePhonesSize() throws {
+        for screen: CGFloat in [375, 390, 402] {
+            let frames = layOutRows(Self.longNames, width: screen - 32, scale: .phone)
+            for (index, name) in Self.longNames.enumerated() {
+                let frame = try XCTUnwrap(frames[index]?[.name], "\(name) at \(screen) pt")
+                let whole = Self.width(of: name, size: CockpitType.label(for: .phone))
+                XCTAssertGreaterThanOrEqual(frame.width + 0.5, whole,
+                                            "\(name) at \(screen) pt: \(frame.width) pt of the \(whole) it needs")
+            }
+        }
+    }
+
+    /// PLAN, ACT and Δ in one place on every row, whatever the name beside them: the columns never move
+    /// with a value.
+    func testTheFiguresKeepTheirColumnWhateverTheName() throws {
+        for (width, scale) in [(CGFloat(375 - 32), CockpitScale.phone), (402 - 32, .phone), (440 - 32, .phone),
+                               (464, .kneeboard)] {
+            let frames = layOutRows(Self.longNames, width: width, scale: scale)
+            let figures = try Self.longNames.indices.map { try XCTUnwrap(frames[$0]?[.figures]) }
+            XCTAssertEqual(Set(figures.map(\.minX)).count, 1, "one column at \(width) pt: \(figures)")
+            XCTAssertEqual(Set(figures.map(\.width)).count, 1, "one width at \(width) pt: \(figures)")
+        }
+    }
+
+    /// A route's rows take its shape: on a phone, the figures under every name but the departure's, which
+    /// has none (no leg arrives at it) and keeps one line, so the 17e's scroll of about 121 pt doesn't lose
+    /// a row to an empty line; on the iPad's legs column, one line everywhere.
+    func testTheDeparturesRowIsOneLineAndTheOthersTakeTheRoutesShape() throws {
+        for screen: CGFloat in [375, 390, 402, 440] {
+            let frames = layOutRows(Self.longNames, width: screen - 32, scale: .phone)
+            let departure = try XCTUnwrap(frames[0]), first = try XCTUnwrap(frames[1])
+            XCTAssertEqual(try XCTUnwrap(departure[.figures]).midY, try XCTUnwrap(departure[.name]).midY, accuracy: 2,
+                           "the departure's row on one line at \(screen) pt")
+            XCTAssertLessThan(try XCTUnwrap(departure[.row]).height + 10, try XCTUnwrap(first[.row]).height,
+                              "the departure's row a line shorter at \(screen) pt")
+            for index in Self.longNames.indices.dropFirst() {
+                let row = try XCTUnwrap(frames[index])
+                XCTAssertGreaterThanOrEqual(try XCTUnwrap(row[.figures]).minY, try XCTUnwrap(row[.name]).maxY,
+                                            "\(Self.longNames[index])'s figures under its name at \(screen) pt")
+                XCTAssertEqual(try XCTUnwrap(row[.row]).height, try XCTUnwrap(first[.row]).height,
+                               "\(Self.longNames[index])'s row as tall as the route's others at \(screen) pt")
+            }
+        }
+        let iPad = layOutRows(Self.longNames, width: 464, scale: .kneeboard)
+        for index in Self.longNames.indices {
+            XCTAssertEqual(try XCTUnwrap(iPad[index]?[.row]).height, try XCTUnwrap(iPad[0]?[.row]).height,
+                           "\(Self.longNames[index]): one line on the iPad, as the departure's")
+        }
+    }
+
+    /// Plan › Map's DIRECT on a long name whose figures are under it: on their line, never over the name.
+    /// Centred on the row as on a single line, it covered the end of SAIGNELÉGIER on a 17e.
+    func testDirectNeverCoversTheNameOfATwoLineRow() throws {
+        for screen: CGFloat in [375, 390, 402] {
+            // SAIGNELÉGIER, the leg being flown, offered while diverting (where DIRECT rejoins the route).
+            let frames = layOutRows(Self.longNames, width: screen - 32, scale: .phone, directAt: 1)
+            let row = try XCTUnwrap(frames[1])
+            let name = try XCTUnwrap(row[.name]), direct = try XCTUnwrap(row[.direct], "DIRECT at \(screen) pt")
+            XCTAssertFalse(name.intersects(direct), "at \(screen) pt, name \(name), DIRECT \(direct)")
+            XCTAssertGreaterThanOrEqual(direct.minY, name.maxY, "DIRECT under the name at \(screen) pt")
+            XCTAssertLessThanOrEqual(direct.maxY, try XCTUnwrap(row[.row]).maxY + 9, "inside its row at \(screen) pt")
+            XCTAssertGreaterThanOrEqual(name.width + 0.5, Self.width(of: Self.longNames[1], size: 17), "the name whole")
+        }
+        // The departure while diverting (DIRECT rejoins the route anywhere): DIRECT under its name too.
+        let departure = try XCTUnwrap(layOutRows(Self.longNames, width: 390 - 32, scale: .phone, directAt: 0)[0])
+        XCTAssertFalse(try XCTUnwrap(departure[.name]).intersects(try XCTUnwrap(departure[.direct])))
+    }
+
+    /// The iPad's legs column beside the radio (464 pt in portrait): a row on one line, as before, every
+    /// name whole at the 80 % it may shrink to.
+    func testTheIPadKeepsItsRowsOnOneLine() throws {
+        let frames = layOutRows(Self.longNames, width: 464, scale: .kneeboard)
+        for (index, name) in Self.longNames.enumerated() {
+            let nameFrame = try XCTUnwrap(frames[index]?[.name]), figures = try XCTUnwrap(frames[index]?[.figures])
+            XCTAssertEqual(nameFrame.midY, figures.midY, accuracy: 2, "\(name): the figures beside the name")
+            XCTAssertGreaterThanOrEqual(nameFrame.width + 0.5,
+                                        Self.width(of: name, size: CockpitType.label(for: .kneeboard)) * 0.8, name)
+        }
+    }
+
     // MARK: - A leg on MAP
 
     func testALegIsFramedFromTheWaypointBeforeIt() {
@@ -195,6 +280,41 @@ final class CockpitRoutePageTests: XCTestCase {
     }
 
     // MARK: - Helpers
+
+    /// Grenchen, SAIGNELÉGIER, ST-URSANNE, Bressaucourt: the longest name a Jura route has.
+    private static let longNames = ["LSZG", "SAIGNELÉGIER", "ST-URSANNE", "LSZQ"]
+
+    /// `names` as a route's leg rows, the second one flown to, `width` wide at `scale`: each row's name
+    /// and figures as laid out.
+    private func layOutRows(_ names: [String], width: CGFloat, scale: CockpitScale,
+                            directAt: Int? = nil) -> [Int: [LegRowPart: CGRect]] {
+        var plan = FlightPlan(name: "Leg rows", waypoints: names.enumerated().map { index, name in
+            FlightPlanWaypoint(name: name, coordinate: .init(latitude: 47.4 - Double(index) * 0.1, longitude: 7.0),
+                               estimatedElapsedTime: 600)
+        })
+        plan.currentWaypointIndex = 1
+        final class Box { var frames: [Int: [LegRowPart: CGRect]] = [:] }
+        let box = Box()
+        let rows = VStack(spacing: 0) {
+            ForEach(names.indices, id: \.self) { index in
+                // DIRECT as Plan › Map offers it on a previewed row.
+                RouteLegRow(plan: plan, index: index, actual: index == 1 ? 105 : nil, scale: scale,
+                            reservesDirect: index == directAt, onTap: {})
+                    .modifier(LegRowDirect(index: index, large: true, action: index == directAt ? {} : nil))
+            }
+        }
+        .frame(width: width)
+        .coordinateSpace(name: RouteLegRow.space)
+        .environment(\.legRowReporter, { index, part, frame in box.frames[index, default: [:]][part] = frame })
+        .environment(\.cockpitTheme, CockpitTheme.resolve(.day))
+        _ = ImageRenderer(content: rows).uiImage
+        return box.frames
+    }
+
+    /// `text` set in B612 Mono at `size`, as the rows set a name.
+    private static func width(of text: String, size: CGFloat) -> CGFloat {
+        (text as NSString).size(withAttributes: [.font: UIFont.aero(size: size, weight: .bold, monospaced: true)]).width
+    }
 
     /// ROUTE at `size` with an active plan of `waypoints` (none: no plan), and where each part landed.
     private func layOut(waypoints: Int, size: CGSize, layout: CockpitLayout = .wide,

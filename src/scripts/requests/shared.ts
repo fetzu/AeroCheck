@@ -21,18 +21,28 @@ export function fill(text: string, values: Record<string, string | number>): str
 // The worker
 // ---------------------------------------------------------------------------------------------
 
-/** An answer that wasn't a success: the contract's `{ error, field? }`, or `network` when nothing came back. */
+/**
+ * An answer that wasn't a success: the worker's `{ error, field?, … }` (`data` keeps the whole body,
+ * for the codes that say more: `registrations` with `known_registration`, `ticket` or `state` with
+ * `wrong_state`), or `network` when nothing came back.
+ */
 export class IntakeError extends Error {
-  constructor(public code: string, public status: number, public field?: string) {
+  constructor(public code: string, public status: number, public field?: string, public data: Record<string, unknown> = {}) {
     super(code);
   }
 }
 
+/** The worker's error body, from a fetch Response or an XHR's text. */
+export function errorFromBody(status: number, body: unknown): IntakeError {
+  const b = body && typeof body === 'object' ? body as Record<string, unknown> : {};
+  const code = typeof b.error === 'string' ? b.error : `http_${status}`;
+  return new IntakeError(code, status, typeof b.field === 'string' ? b.field : undefined, b);
+}
+
 async function errorFrom(res: Response): Promise<IntakeError> {
-  let body: { error?: unknown; field?: unknown } | null = null;
+  let body: unknown = null;
   try { body = await res.json(); } catch { /* not JSON: the status says enough */ }
-  const code = typeof body?.error === 'string' ? body.error : `http_${res.status}`;
-  return new IntakeError(code, res.status, typeof body?.field === 'string' ? body.field : undefined);
+  return errorFromBody(res.status, body);
 }
 
 /** A JSON call to the worker. No cookies, no referrer: the token in the path is all it needs. */
@@ -56,7 +66,7 @@ export async function call<T>(path: string, init: { method?: string; body?: unkn
   try {
     return (await res.json()) as T;
   } catch {
-    throw new IntakeError('server', res.status);
+    throw new IntakeError('internal', res.status);
   }
 }
 
@@ -64,41 +74,37 @@ export async function call<T>(path: string, init: { method?: string; body?: unkn
 export function intakeUrl(pathOrUrl: string): URL {
   const base = new URL(INTAKE_URL);
   const url = new URL(pathOrUrl, base);
-  if (url.origin !== base.origin) throw new IntakeError('server', 0);
+  if (url.origin !== base.origin) throw new IntakeError('internal', 0);
   return url;
 }
 
+/** Every code the intake worker answers with (its docs, "Error codes"); each has its sentence in the copy. */
+const KNOWN_CODES = new Set([
+  'invalid_json', 'invalid_field', 'invalid_registration', 'invalid_email', 'club_contact_is_sender',
+  'rights_required', 'privacy_required', 'too_many_files', 'bad_type', 'file_too_large', 'total_too_large',
+  'unknown_registration', 'known_registration', 'size_mismatch', 'turnstile_failed', 'not_found',
+  'missing_files', 'wrong_state', 'length_required', 'payload_too_large', 'bad_file', 'rate_limited',
+  'internal', 'unavailable', 'daily_cap', 'lookup_unavailable', 'network',
+]);
+
 /**
- * The copy key for an error. The contract names three codes (`invalid_registration`, `daily_cap`,
- * `bad_file`); the others are read from the HTTP status, so a code the worker adds later still gets a
- * sentence that says what to do. A few likely spellings are mapped by name on top.
+ * The copy key for an error: its code when the worker names one we know, otherwise what its HTTP
+ * status means, so a code added to the worker later still gets a sentence that says what to do.
  */
 export function errorKey(err: unknown): string {
   if (!(err instanceof IntakeError)) return 'unknown';
-  const byCode: Record<string, string> = {
-    network: 'network',
-    daily_cap: 'daily_cap',
-    invalid_registration: 'invalid_registration',
-    bad_file: 'bad_file',
-    turnstile: 'turnstile', turnstile_failed: 'turnstile', captcha: 'turnstile', bot: 'turnstile',
-    rate_limited: 'rate_limited', too_many_requests: 'rate_limited', rate_limit: 'rate_limited',
-    not_found: 'not_found', unknown_token: 'not_found', invalid_token: 'forbidden', expired: 'forbidden',
-    file_too_large: 'too_large', total_too_large: 'too_large', too_large: 'too_large',
-    unsupported_type: 'bad_file', bad_type: 'bad_file',
-    conflict: 'conflict', already_decided: 'conflict', already_answered: 'conflict', wrong_status: 'conflict',
-    unavailable: 'unavailable', not_configured: 'unavailable',
-  };
-  if (byCode[err.code]) return byCode[err.code];
+  if (KNOWN_CODES.has(err.code)) return err.code;
   switch (err.status) {
-    case 400: case 422: return 'invalid';
+    case 400: case 422: return 'invalid_field';
     case 401: case 403: return 'forbidden';
     case 404: case 410: return 'not_found';
-    case 409: return 'conflict';
-    case 413: return 'too_large';
+    case 409: return 'wrong_state';
+    case 411: return 'length_required';
+    case 413: return 'payload_too_large';
     case 415: return 'bad_file';
     case 429: return 'rate_limited';
     case 503: return 'unavailable';
-    default: return err.status >= 500 ? 'server' : 'unknown';
+    default: return err.status >= 500 ? 'internal' : 'unknown';
   }
 }
 
@@ -141,18 +147,21 @@ export function wireLangSwitch(): void {
   });
 }
 
-/** An error box: what happened, what to do, the code (for an e-mail to support), and a retry.
- *  `key` overrides the copy key when the page knows better than the status (a 403 on /send is the
- *  Turnstile check, not a link). */
-export function errorBox(copy: RequestsCopy, err: unknown, retry?: () => void, key = errorKey(err), retryLabel = copy.common.retry): HTMLElement {
+/**
+ * An error box: what happened, what to do, the code (for an e-mail to support), and a way on.
+ * `key` picks another sentence when the page knows more than the code (a 404 while uploading is an
+ * expired sending, not a link), `text` replaces it outright, `retry` adds the button.
+ */
+export function errorBox(copy: RequestsCopy, err: unknown, opts: { retry?: () => void; retryLabel?: string; key?: string; text?: string } = {}): HTMLElement {
   const code = err instanceof IntakeError ? err.code : 'unknown';
   const errors = copy.errors as Record<string, string>;
+  const text = opts.text ?? errors[opts.key ?? errorKey(err)] ?? errors.unknown;
   return h('div', { class: 'rq-alert rq-alert--error', role: 'alert' },
-    h('p', {}, errors[key] ?? errors.unknown),
+    h('p', {}, text),
     h('p', { class: 'rq-alert-meta' },
       `${copy.common.code} ${code} · `,
       h('a', { href: copy.common.supportHref }, copy.common.support)),
-    retry ? h('button', { type: 'button', class: 'btn btn--ghost rq-retry', onclick: () => retry() }, retryLabel) : null);
+    opts.retry ? h('button', { type: 'button', class: 'btn btn--ghost rq-retry', onclick: () => opts.retry!() }, opts.retryLabel ?? copy.common.retry) : null);
 }
 
 export function formatDate(value: unknown, withTime = false): string {

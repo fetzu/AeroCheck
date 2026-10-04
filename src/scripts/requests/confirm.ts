@@ -2,12 +2,13 @@
 // POST the decision with the name and role of whoever answers for the club.
 import { CLUB_MESSAGE_MAX } from '../../lib/intake';
 import {
-  call, errorBox, fill, formatDate, h, languageName, readCopy, setFieldError, tokenFromHash, wireLangSwitch,
+  IntakeError, call, errorBox, errorKey, fill, formatDate, h, languageName, readCopy, setFieldError, tokenFromHash,
+  wireLangSwitch,
 } from './shared';
 
 interface ClubRequest {
-  ticket: string; registrations?: string[]; aircraftType?: string; club?: string; senderName?: string;
-  checklistLanguages?: string[]; createdAt?: string | number; state?: string;
+  ticket: string; kind?: string; registrations?: string[]; aircraftType?: string; club?: string | null;
+  senderName?: string; checklistLanguages?: string[]; createdAt?: string | number; state?: string;
 }
 
 const root = document.querySelector<HTMLElement>('[data-rq-confirm]');
@@ -30,7 +31,7 @@ async function init(root: HTMLElement): Promise<void> {
     try {
       render(await call<ClubRequest>(path));
     } catch (err) {
-      view.replaceChildren(errorBox(copy, err, () => { void load(); }));
+      view.replaceChildren(errorBox(copy, err, errorKey(err) === 'not_found' ? {} : { retry: () => { void load(); } }));
     }
   }
 
@@ -38,6 +39,7 @@ async function init(root: HTMLElement): Promise<void> {
     const sender = r.senderName?.trim() || t.senderUnknown;
     const facts: [string, string][] = [
       [t.labelTicket, r.ticket],
+      [t.labelKind, r.kind ? copy.kinds[r.kind] ?? '' : ''],
       [t.labelRegistrations, (r.registrations ?? []).join(', ')],
       [t.labelAircraft, r.aircraftType ?? ''],
       [t.labelClub, r.club ?? ''],
@@ -45,10 +47,7 @@ async function init(root: HTMLElement): Promise<void> {
       [t.labelSent, formatDate(r.createdAt)],
     ];
     const state = r.state ?? 'pending';
-    const answer = state === 'pending'
-      ? decisionForm()
-      : h('div', { class: 'rq-alert rq-alert--info', role: 'status' }, h('p', {},
-          state === 'confirmed' ? t.alreadyConfirmed : state === 'refused' ? t.alreadyRefused : t.notNeeded));
+    const answer = state === 'pending' ? decisionForm() : answered(state);
 
     view.replaceChildren(
       h('p', { class: 'rq-intro' }, r.club ? fill(t.intro, { sender, club: r.club }) : fill(t.introNoClub, { sender })),
@@ -59,6 +58,12 @@ async function init(root: HTMLElement): Promise<void> {
         h('ul', { class: 'rq-list' }, ...t.what.map((line) => h('li', {}, line))),
         h('p', {}, t.refuseBody)),
       h('div', { class: 'rq-card' }, answer));
+  }
+
+  /** What the page says once the club has answered (or never had to). */
+  function answered(state: string): HTMLElement {
+    return h('div', { class: 'rq-alert rq-alert--info', role: 'status', tabindex: '-1' }, h('p', {},
+      state === 'confirmed' ? t.alreadyConfirmed : state === 'refused' ? t.alreadyRefused : t.notNeeded));
   }
 
   function decisionForm(): HTMLElement {
@@ -75,8 +80,8 @@ async function init(root: HTMLElement): Promise<void> {
       hint ? h('p', { class: 'rq-hint', id: `${id}-hint` }, hint) : null,
       input,
       h('p', { class: 'rq-field-error', id: `${id}-error`, hidden: true }));
-    const name = h('input', { id: 'rq-club-name', class: 'rq-input', type: 'text', autocomplete: 'name', maxlength: 120, 'aria-describedby': 'rq-club-name-error' });
-    const role = h('input', { id: 'rq-club-role', class: 'rq-input', type: 'text', autocomplete: 'organization-title', maxlength: 120, 'aria-describedby': 'rq-club-role-hint rq-club-role-error' });
+    const name = h('input', { id: 'rq-club-name', class: 'rq-input', type: 'text', autocomplete: 'name', maxlength: 100, 'aria-describedby': 'rq-club-name-error' });
+    const role = h('input', { id: 'rq-club-role', class: 'rq-input', type: 'text', autocomplete: 'organization-title', maxlength: 100, 'aria-describedby': 'rq-club-role-hint rq-club-role-error' });
     const message = h('textarea', { id: 'rq-club-message', class: 'rq-input rq-textarea', rows: 3, maxlength: CLUB_MESSAGE_MAX, 'aria-describedby': 'rq-club-message-count rq-club-message-error' });
     const counter = h('p', { class: 'rq-counter', id: 'rq-club-message-count' });
     const updateCounter = () => { counter.textContent = fill(copy.send.counter, { n: message.value.length, max: CLUB_MESSAGE_MAX }); };
@@ -123,8 +128,24 @@ async function init(root: HTMLElement): Promise<void> {
         form.replaceWith(done);
         done.focus();
       } catch (err) {
-        errorHolder.replaceChildren(h('div', { style: 'margin: 0 0 12px' }, errorBox(copy, err)));
         submit.disabled = false;
+        const key = errorKey(err);
+        const field = err instanceof IntakeError ? err.field : undefined;
+        const byField: Record<string, [HTMLElement, string]> = {
+          decision: [decision, t.decisionRequired], name: [name, t.nameRequired], role: [role, t.roleRequired], message: [message, t.messageTooLong],
+        };
+        if (key === 'wrong_state' && err instanceof IntakeError && typeof err.data.state === 'string') {
+          // Someone answered for the club in the meantime: say what they answered.
+          const box = answered(err.data.state);
+          form.replaceWith(box);
+          box.focus();
+        } else if (key === 'invalid_field' && field && byField[field]) {
+          const [el, msg] = byField[field];
+          setFieldError(el, msg);
+          (el.matches('fieldset') ? el.querySelector<HTMLElement>('input')! : el).focus();
+        } else {
+          errorHolder.replaceChildren(h('div', { style: 'margin: 0 0 12px' }, errorBox(copy, err)));
+        }
       }
     });
     return form;

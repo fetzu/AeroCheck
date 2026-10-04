@@ -4,18 +4,21 @@
 import { MESSAGE_MAX, STATUS_PATH } from '../../lib/intake';
 import { renderChecklist, type ChecklistFile } from './checklist';
 import {
-  call, errorBox, fill, formatDate, h, loadingLine, looksLikeEmail, readCopy, setFieldError, tokenFromHash,
-  wireLangSwitch,
+  call, errorBox, errorKey, fill, formatDate, h, loadingLine, looksLikeEmail, readCopy, setFieldError,
+  tokenFromHash, wireLangSwitch,
 } from './shared';
 
+/** An event's `status` is a request status, `club:<state>` or `proofread:<verdict>`. */
 interface StatusEvent { status: string; at: string | number; message?: string; }
 interface Status {
   ticket: string; kind: string; status: string; registrations?: string[]; aircraftType?: string;
-  /** The contract lists `club` twice (the name, then the state object); JSON keeps the last one. */
-  club?: string | { state?: string; canAddContact?: boolean; name?: string };
-  clubName?: string;
+  /** The club's name (null for an aircraft without one), its OK, and whether its contact can be added. */
+  club?: { name?: string | null; state?: string; canAddContact?: boolean } | null;
   createdAt?: string | number; updatedAt?: string | number;
-  events?: StatusEvent[]; draft?: boolean; locale?: string;
+  events?: StatusEvent[]; draft?: boolean;
+  /** The sender's own verdict on the draft, once given. */
+  proofread?: 'ok' | 'issue' | null;
+  locale?: string;
 }
 
 const root = document.querySelector<HTMLElement>('[data-rq-status]');
@@ -33,28 +36,38 @@ async function init(root: HTMLElement): Promise<void> {
     return;
   }
   const base = `/v1/status/${encodeURIComponent(token)}`;
-  let flash: { where: 'club' | 'proof'; text: string } | null = null;
+  let flash: { where: 'club'; text: string; tone: 'success' | 'info' } | null = null;
 
   async function load(): Promise<void> {
     try {
       const status = await call<Status>(base);
       render(status);
     } catch (err) {
-      view.replaceChildren(h('h1', { class: 'rq-title' }, t.title), errorBox(copy, err, () => {
-        view.replaceChildren(h('h1', { class: 'rq-title' }, t.title), loadingLine(t.loading));
-        void load();
+      const dead = errorKey(err) === 'not_found';
+      view.replaceChildren(h('h1', { class: 'rq-title' }, t.title), errorBox(copy, err, dead ? {} : {
+        retry: () => {
+          view.replaceChildren(h('h1', { class: 'rq-title' }, t.title), loadingLine(t.loading));
+          void load();
+        },
       }));
     }
   }
 
   function clubOf(s: Status): { name: string; state: string; canAddContact: boolean } {
-    const c = s.club;
-    if (c && typeof c === 'object') return { name: c.name ?? s.clubName ?? '', state: c.state ?? '', canAddContact: Boolean(c.canAddContact) };
-    return { name: (typeof c === 'string' ? c : '') || s.clubName || '', state: '', canAddContact: false };
+    const c = s.club && typeof s.club === 'object' ? s.club : {};
+    return { name: c.name ?? '', state: c.state ?? '', canAddContact: Boolean(c.canAddContact) };
   }
 
   function statusLabel(code: string): string {
     return copy.statuses[code]?.label ?? code;
+  }
+
+  /** The history's line for an event: a status, the club's answer, or the sender's verdict. */
+  function eventLabel(code: string): string {
+    const [kind, value] = code.split(':');
+    if (kind === 'club' && value) return t.eventClub[value] ?? code;
+    if (kind === 'proofread' && value) return t.eventProofread[value] ?? code;
+    return statusLabel(code);
   }
 
   function badgeClass(code: string): string {
@@ -88,8 +101,9 @@ async function init(root: HTMLElement): Promise<void> {
       h('div', { class: 'rq-card' },
         h('dl', { class: 'rq-facts' }, ...facts.filter(([, v]) => v).flatMap(([k, v]) => [h('dt', {}, k), h('dd', {}, v)]))),
       renderSteps(s.status, events),
-      club.state ? renderClub(club) : null,
-      s.status === 'proofreading' && s.draft ? renderProofreading() : null,
+      // An aircraft without a club has nothing to show here.
+      club.state && (club.name || club.state !== 'not-needed') ? renderClub(club) : null,
+      s.status === 'proofreading' && s.draft ? renderProofreading(s.proofread ?? null) : null,
       events.length ? renderHistory(events) : null,
     ];
     view.replaceChildren(...parts.filter((p): p is HTMLElement => p !== null));
@@ -139,7 +153,7 @@ async function init(root: HTMLElement): Promise<void> {
       h('h2', { class: 'rq-subtitle' }, copy.club.heading),
       h('p', {}, copy.club.states[club.state] ?? club.state));
     if (flash?.where === 'club') {
-      card.append(h('div', { class: 'rq-alert rq-alert--success', role: 'status' }, h('p', {}, flash.text)));
+      card.append(h('div', { class: `rq-alert rq-alert--${flash.tone}`, role: 'status' }, h('p', {}, flash.text)));
       flash = null;
     }
     if (club.state === 'pending' && club.canAddContact) card.append(contactForm());
@@ -171,22 +185,33 @@ async function init(root: HTMLElement): Promise<void> {
       button.disabled = true;
       try {
         await call(`${base}/club-contact`, { method: 'POST', body: { clubContactEmail: value } });
-        flash = { where: 'club', text: c.addDone };
+        flash = { where: 'club', text: c.addDone, tone: 'success' };
         await load();
         document.querySelector<HTMLElement>('[data-rq-club]')?.scrollIntoView({ block: 'center' });
       } catch (err) {
-        errorHolder.replaceChildren(h('div', { style: 'margin-top: 12px' }, errorBox(copy, err)));
+        const key = errorKey(err);
         button.disabled = false;
+        if (key === 'invalid_email' || key === 'club_contact_is_sender') {
+          setFieldError(input, key === 'invalid_email' ? c.addInvalid : c.addIsSender);
+          input.focus();
+        } else if (key === 'wrong_state') {
+          flash = { where: 'club', text: copy.errors.contactClosed, tone: 'info' };
+          await load();
+        } else {
+          errorHolder.replaceChildren(h('div', { style: 'margin-top: 12px' }, errorBox(copy, err)));
+        }
       }
     });
     return form;
   }
 
-  function renderProofreading(): HTMLElement {
+  function renderProofreading(given: 'ok' | 'issue' | null): HTMLElement {
     const body = h('div', {}, loadingLine(t.proofLoading));
     const card = h('div', { class: 'rq-card', 'data-rq-proof': '' },
       h('h2', { class: 'rq-subtitle' }, t.proofHeading),
       h('p', {}, t.proofIntro),
+      given ? h('div', { class: 'rq-alert rq-alert--info', role: 'status', style: 'margin-bottom: 4px' },
+        h('p', {}, fill(t.proofYours, { verdict: given === 'ok' ? t.verdictOk : t.verdictIssue }))) : null,
       body);
     const loadDraft = async () => {
       body.replaceChildren(loadingLine(t.proofLoading));
@@ -195,7 +220,9 @@ async function init(root: HTMLElement): Promise<void> {
         const files = Array.isArray(draft?.files) ? draft.files : [];
         body.replaceChildren(...files.map((f, i) => renderChecklist(copy, f, i)), verdictForm());
       } catch (err) {
-        body.replaceChildren(h('p', {}, t.proofFailed), errorBox(copy, err, () => { void loadDraft(); }));
+        body.replaceChildren(errorKey(err) === 'wrong_state'
+          ? errorBox(copy, err, { key: 'proofClosed', retry: () => { void load(); } })
+          : h('div', {}, h('p', {}, t.proofFailed), errorBox(copy, err, { retry: () => { void loadDraft(); } })));
       }
     };
     void loadDraft();
@@ -238,8 +265,16 @@ async function init(root: HTMLElement): Promise<void> {
         form.replaceWith(done);
         done.focus();
       } catch (err) {
-        errorHolder.replaceChildren(h('div', { style: 'margin: 12px 0' }, errorBox(copy, err)));
+        const key = errorKey(err);
         ok.disabled = issue.disabled = false;
+        if (key === 'invalid_field' && (err as { field?: string }).field === 'message') {
+          setFieldError(message, t.verdictTooLong);
+          message.focus();
+        } else if (key === 'wrong_state') {
+          form.replaceWith(errorBox(copy, err, { key: 'proofClosed', retry: () => { void load(); } }));
+        } else {
+          errorHolder.replaceChildren(h('div', { style: 'margin: 12px 0' }, errorBox(copy, err)));
+        }
       }
     });
     return form;
@@ -252,7 +287,7 @@ async function init(root: HTMLElement): Promise<void> {
       h('ol', { class: 'rq-history', reversed: true },
         ...sorted.map((e) => h('li', {},
           h('span', { class: 'rq-history-when' }, formatDate(e.at, true)),
-          h('span', { class: 'rq-history-what' }, statusLabel(e.status)),
+          h('span', { class: 'rq-history-what' }, eventLabel(e.status)),
           e.message ? h('p', { class: 'rq-quote' }, e.message) : null))));
   }
 

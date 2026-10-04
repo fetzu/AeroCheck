@@ -7,8 +7,8 @@ import {
   REGISTRATION_PATTERN, TURNSTILE_SCRIPT, TURNSTILE_SITE_KEY, TURNSTILE_TEST_KEY, type FileType,
 } from '../../lib/intake';
 import {
-  IntakeError, call, errorBox, errorKey, fill, formatSize, h, intakeUrl, lang, languageName, loadingLine,
-  looksLikeEmail, readCopy, setFieldError, wireLangSwitch,
+  IntakeError, call, errorBox, errorFromBody, errorKey, fill, formatSize, h, intakeUrl, lang, languageName,
+  loadingLine, looksLikeEmail, readCopy, setFieldError, wireLangSwitch,
 } from './shared';
 
 interface Lookup {
@@ -112,7 +112,7 @@ function init(root: HTMLElement): void {
         lookupBox.replaceChildren();
         setFieldError(regInput, copy.errors.invalid_registration);
       } else {
-        lookupBox.replaceChildren(errorBox(copy, err, () => { void runLookup(); }));
+        lookupBox.replaceChildren(errorBox(copy, err, { retry: () => { void runLookup(); } }));
       }
       return false;
     } finally {
@@ -351,7 +351,7 @@ function init(root: HTMLElement): void {
     const problems: Problem[] = [];
     const update = isUpdate();
     if (!update) {
-      if (!typeInput.value.trim()) problems.push([typeInput, fe.typeRequired]);
+      if (typeInput.value.trim().length < 2) problems.push([typeInput, fe.typeRequired]);
       const { valid, invalid } = otherRegistrations();
       if (invalid.length) problems.push([regsInput, fill(fe.otherRegsInvalid, { list: invalid.join(', ') })]);
       else if (valid.length + 1 > MAX_REGISTRATIONS) problems.push([regsInput, fe.tooManyRegs]);
@@ -363,6 +363,7 @@ function init(root: HTMLElement): void {
         const contact = contactInput.value.trim();
         if (!contact) problems.push([contactInput, fe.contactRequired]);
         else if (!looksLikeEmail(contact)) problems.push([contactInput, fe.contactInvalid]);
+        else if (contact.toLowerCase() === emailInput.value.trim().toLowerCase()) problems.push([contactInput, copy.errors.club_contact_is_sender]);
       }
     }
     if (!picked.length) problems.push([chooseBtn, fe.filesRequired]);
@@ -476,7 +477,7 @@ function init(root: HTMLElement): void {
         created = await call<Created>('/v1/requests', { method: 'POST', body });
       } catch (err) {
         hideProgress();
-        reportSubmitError(err);
+        await reportSubmitError(err);
         return;
       } finally {
         resetTurnstile(); // a token is good for one try, whatever its outcome
@@ -491,16 +492,45 @@ function init(root: HTMLElement): void {
     }
   }
 
-  function reportSubmitError(err: unknown): void {
+  /** The codes that are about one field, and say so better than "check this field". */
+  const FIELD_CODES = new Set(['invalid_registration', 'invalid_email', 'club_contact_is_sender', 'rights_required',
+    'privacy_required', 'too_many_files', 'bad_type', 'file_too_large', 'total_too_large', 'turnstile_failed']);
+
+  async function reportSubmitError(err: unknown): Promise<void> {
+    const errors = copy.errors as Record<string, string>;
     let key = errorKey(err);
-    const field = err instanceof IntakeError ? err.field : undefined;
-    if (key === 'forbidden' || field === 'turnstileToken') key = 'turnstile';
-    submitError.replaceChildren(errorBox(copy, err, undefined, key));
-    const target = field ? byField[field] : key === 'invalid_registration' ? regInput : key === 'bad_file' || key === 'too_large' ? chooseBtn : undefined;
+    const e = err instanceof IntakeError ? err : null;
+    const field = e?.field;
+    if (key === 'forbidden' || field === 'turnstileToken') key = 'turnstile_failed';
+
+    // The app's list changed between the lookup and the sending: look again, and let the form follow.
+    if (key === 'known_registration' || key === 'unknown_registration') {
+      const named = Array.isArray(e?.data.registrations) ? (e!.data.registrations as unknown[]).map(String) : [];
+      if (key === 'known_registration' && lookup && named.length && !named.includes(lookup.registration)) {
+        // The registration typed first is new; some of the others aren't.
+        submitError.replaceChildren(errorBox(copy, err, { key: 'invalid_field' }));
+        showProblems([[regsInput, fill(fe.knownOthers, { list: named.join(', ') }), fill(fe.knownOthers, { list: named.join(', ') })]]);
+        return;
+      }
+      const wasUpdate = isUpdate();
+      lookup = null;
+      lookupFor = '';
+      await runLookup();
+      // The form follows the new answer; if the lookup still says what it said, the list is moving.
+      const switched = isUpdate() !== wasUpdate;
+      submitError.replaceChildren(errorBox(copy, err, switched ? {} : { key: 'listChanged' }));
+      lookupBox.scrollIntoView({ block: 'center' });
+      return;
+    }
+
+    const target = field ? byField[field] : undefined;
     if (target) {
-      if (key === 'invalid_registration') showProblems([[target, copy.errors.invalid_registration]]);
+      // The Turnstile refusal says what to do next by itself; the others point at their field.
+      submitError.replaceChildren(errorBox(copy, err, { key: key === 'turnstile_failed' ? key : 'invalid_field' }));
+      if (FIELD_CODES.has(key)) showProblems([[target, errors[key]]]);
       else showProblems([[target, fe.field, fill(fe.fieldNamed, { label: labelOf(target) })]]);
     } else {
+      submitError.replaceChildren(errorBox(copy, err, { key }));
       submitError.scrollIntoView({ block: 'center' });
     }
   }
@@ -530,14 +560,9 @@ function init(root: HTMLElement): void {
       xhr.upload.onprogress = (e) => onProgress(e.loaded);
       xhr.onload = () => {
         if (xhr.status >= 200 && xhr.status < 300) { onProgress(item.file.size); resolve(); return; }
-        let code = `http_${xhr.status}`;
-        let field: string | undefined;
-        try {
-          const body = JSON.parse(xhr.responseText) as { error?: string; field?: string };
-          if (body.error) code = body.error;
-          field = body.field;
-        } catch { /* the status says enough */ }
-        reject(new IntakeError(code, xhr.status, field));
+        let body: unknown = null;
+        try { body = JSON.parse(xhr.responseText); } catch { /* the status says enough */ }
+        reject(errorFromBody(xhr.status, body));
       };
       xhr.onerror = () => reject(new IntakeError('network', 0));
       xhr.ontimeout = () => reject(new IntakeError('network', 0));
@@ -555,7 +580,7 @@ function init(root: HTMLElement): void {
     for (; nextUpload < uploads.length; nextUpload++) {
       const slot = uploads[nextUpload];
       const item = picked[slot.n - 1];
-      if (!item) { failUpload(new IntakeError('server', 0), null); return; }
+      if (!item) { failUpload(new IntakeError('internal', 0), null); return; }
       progressLine.textContent = fill(t.progressUpload, { i: nextUpload + 1, n: uploads.length, name: item.file.name });
       const before = doneBytes();
       try {
@@ -564,6 +589,8 @@ function init(root: HTMLElement): void {
           progressBar.value = Math.round(((before + loaded) / totalBytes) * 100);
         });
       } catch (err) {
+        // Completed already (an answer lost on the way): the completion says with which ticket.
+        if (errorKey(err) === 'wrong_state') break;
         if (bars[slot.n - 1]) bars[slot.n - 1].value = 0;
         progressBar.value = Math.round((before / totalBytes) * 100);
         failUpload(err, item);
@@ -576,21 +603,50 @@ function init(root: HTMLElement): void {
       const done = await call<Completed>(`/v1/requests/${encodeURIComponent(created.requestId)}/complete?u=${encodeURIComponent(uploadToken)}`, { method: 'POST' });
       showResult(done);
     } catch (err) {
-      failUpload(err, null);
+      const key = errorKey(err);
+      if (key === 'wrong_state' && err instanceof IntakeError && typeof err.data.ticket === 'string') {
+        showAlreadySent(err.data.ticket);
+      } else if (key === 'missing_files') {
+        // Something didn't arrive: send every file again, into the same slots.
+        nextUpload = 0;
+        progressError.replaceChildren(errorBox(copy, err, { retry: () => { void runUploads(); } }));
+      } else {
+        failUpload(err, null);
+      }
     }
   }
 
-  /** A file the worker refused sends the sender back to the form (a new request); anything else can resume. */
+  /** A second completion: the request went through before, and its link is in the sender's e-mail. */
+  function showAlreadySent(ticket: string): void {
+    progress.hidden = true;
+    result.hidden = false;
+    $<HTMLElement>('[data-rq-result-title]').textContent = fill(t.resultTitle, { ticket });
+    $<HTMLElement>('[data-rq-result-body]').textContent = fill(copy.errors.alreadySent, { ticket });
+    $<HTMLElement>('.rq-result-link').hidden = true;
+    result.focus();
+    result.scrollIntoView({ block: 'start' });
+  }
+
+  /**
+   * A file the worker refused, or a sending it no longer has, sends the sender back to the form (the
+   * next try is a new request); anything else can resume where it stopped.
+   */
   function failUpload(err: unknown, item: Picked | null): void {
     const key = errorKey(err);
-    if (key === 'bad_file' || key === 'too_large' || key === 'invalid') {
+    const backToForm = ['bad_file', 'size_mismatch', 'length_required', 'not_found', 'invalid_field', 'bad_type',
+      'file_too_large', 'total_too_large'].includes(key);
+    if (backToForm) {
       created = null;
-      const box = errorBox(copy, err, () => { hideProgress(); chooseBtn.focus(); }, key, copy.common.backToForm);
-      if (item && key === 'bad_file') box.prepend(h('p', {}, fill(fe.fileType, { name: item.file.name })));
+      const box = errorBox(copy, err, {
+        key: key === 'not_found' ? 'uploadGone' : key,
+        retry: () => { hideProgress(); chooseBtn.focus(); },
+        retryLabel: copy.common.backToForm,
+      });
+      if (item && key !== 'not_found') box.prepend(h('p', { class: 'rq-alert-title' }, item.file.name));
       progressError.replaceChildren(box);
       return;
     }
-    const box = errorBox(copy, err, () => { void runUploads(); });
+    const box = errorBox(copy, err, { retry: () => { void runUploads(); } });
     if (item) box.prepend(h('p', {}, fill(t.uploadStopped, { name: item.file.name })));
     progressError.replaceChildren(box);
   }

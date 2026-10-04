@@ -74,6 +74,16 @@ enum ActBandRoles {
         }
     }
 
+    /// The roles for `page` as the flight and its plan stand: what the band draws, and what the replays read.
+    @MainActor
+    static func make(page: CockpitPage, appState: AppState, plans: FlightPlanManager) -> [ActSlotRole] {
+        let plan = plans.activeFlightPlan
+        return make(page: page, phase: appState.currentPhase, hasRoute: plan != nil,
+                    routeFlown: plans.isFlightPlanCompleted, diverting: plan?.diversion != nil,
+                    circuits: appState.isCircuitMode, landingShown: appState.landingCheckShown,
+                    canDefer: !appState.currentCheckIsDone && !appState.currentCheckAwaitsConfirmation)
+    }
+
     /// The checklist's first slot: the phase's own action where it has one, FREDA in cruise, else the
     /// check slot (the plan's Q11).
     private static func checklistFirst(phase: ChecklistPhase, circuits: Bool) -> ActSlotRole {
@@ -664,12 +674,7 @@ struct CockpitActBand: View {
     static let columnBottomPadding: CGFloat = 2
 
     private var roles: [ActSlotRole] {
-        let plan = flightPlanManager.activeFlightPlan
-        return ActBandRoles.make(page: page, phase: appState.currentPhase, hasRoute: plan != nil,
-                                 routeFlown: flightPlanManager.isFlightPlanCompleted,
-                                 diverting: plan?.diversion != nil, circuits: appState.isCircuitMode,
-                                 landingShown: appState.landingCheckShown,
-                                 canDefer: !appState.currentCheckIsDone && !appState.currentCheckAwaitsConfirmation)
+        ActBandRoles.make(page: page, appState: appState, plans: flightPlanManager)
     }
 }
 

@@ -162,6 +162,8 @@ class LocationManager: NSObject, ObservableObject {
     /// few minutes, and each run replays the whole track so far, so 15 s is plenty. (v6.0.1)
     static let waypointPassageIntervalSeconds: TimeInterval = 15.0
     private var lastWaypointPassageTime: Date?
+    /// The landing the last run saw: a new one runs the next at once. (6.2)
+    private var lastPassageLanding: Date?
     private weak var appState: AppState?
     private weak var airportDataService: AirportDataService?
     private weak var flightEventDetector: FlightEventDetector?
@@ -325,6 +327,7 @@ class LocationManager: NSObject, ObservableObject {
         self.lastRecordedTime = nil
         self.lastDetectionTime = nil
         self.lastWaypointPassageTime = nil
+        self.lastPassageLanding = nil
         self.lastGoodSignalTime = FlightClock.now
         self.lastLocationUpdateTime = FlightClock.now
         self.lastSatelliteFixTime = FlightClock.now   // a session starts counting the 20 s too
@@ -405,6 +408,7 @@ class LocationManager: NSObject, ObservableObject {
         hasConfiguredDetector = false
         lastDetectionTime = nil
         lastWaypointPassageTime = nil
+        lastPassageLanding = nil
         // Reset to ground mode for next flight
         isGroundMode = true
         locationManager.distanceFilter = kCLDistanceFilterNone
@@ -1099,19 +1103,22 @@ class LocationManager: NSObject, ObservableObject {
 
         // Waypoints passed: the ATO and the next waypoint, whichever screen is showing and with the
         // app in the background. The track above is the evidence, so a stale or invalid fix, which
-        // it never records, doesn't trigger a run either. (v6.0.1)
+        // it never records, doesn't trigger a run either. (v6.0.1) A landing just recorded runs one at
+        // once, rather than up to 15 s later with MARK still offering the field landed at. (6.2)
         let passageDue = lastWaypointPassageTime.map {
             now.timeIntervalSince($0) >= Self.waypointPassageIntervalSeconds
         } ?? true
-        if passageDue, fixIsUsable, let appState, appState.isFlightActive,
-           let flightPlanManager, let track = appState.currentFlight?.gpsTrack {
+        if passageDue || appState?.landingTime != lastPassageLanding, fixIsUsable, let appState,
+           appState.isFlightActive, let flightPlanManager, let track = appState.currentFlight?.gpsTrack {
             lastWaypointPassageTime = now
+            lastPassageLanding = appState.landingTime
+            let planId = appState.currentFlight?.flightPlanId
             // Once the track shows the take-off, LINE UP tapped or not, the ETOs count from it and it is
             // the departure's time over. (6.1)
-            flightPlanManager.followTakeoff(track: track, engineStart: appState.engineStartTime,
-                                            flightPlanId: appState.currentFlight?.flightPlanId)
-            flightPlanManager.catchUpWaypointPassages(track: track, takeoff: appState.lineUpTime,
-                                                      flightPlanId: appState.currentFlight?.flightPlanId)
+            flightPlanManager.followTakeoff(track: track, engineStart: appState.engineStartTime, flightPlanId: planId)
+            flightPlanManager.catchUpWaypointPassages(track: track, takeoff: appState.lineUpTime, flightPlanId: planId)
+            // Landed at the route's end: the destination's time over, and the route flown. (6.2)
+            flightPlanManager.followLanding(track: track, landing: appState.landingTime, flightPlanId: planId)
         }
 
         // Event detection runs independently of recording so it isn't starved at slow recording

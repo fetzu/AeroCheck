@@ -198,6 +198,43 @@ final class GroundReplayTests: XCTestCase {
         XCTAssertEqual(try XCTUnwrap(flight.endedFlight).fullStopCount, 1)
     }
 
+    /// flight-12's landing at LSGC, the route's end: from the fix after the landed card's answer, LSGC's ATO
+    /// is the landing, MARK has nothing left to offer and the leg timer stands at the last leg's time. MAP's
+    /// band holds what AFTER LANDING has with the route flown: MARK dimmed, Divert off. Until 6.2 the
+    /// destination waited for END FLIGHT, and MAP offered MARK LSGC on the ramp, the leg timer running.
+    func testTheLandingAtTheRoutesEndIsItsATOAndEndsTheRoute() throws {
+        let flight = try HeadlessFlight(test: self, scenario: "xc-all-checks")
+        var seen: (plan: FlightPlan, landing: Date, timer: FlightPlanManager.LegTimerSnapshot?, elapsed: TimeInterval,
+                   roles: [ActSlotRole], phase: ChecklistPhase, notice: String?)?
+        flight.onFix = { [unowned flight] _ in
+            let plans = flight.plans, appState = flight.appState
+            // START LEG at the line-up, as the pilot of flight-16 had it.
+            if appState.lineUpTime != nil, !plans.isChronometerRunning, plans.chronometerElapsed < 0.5 {
+                plans.startChronometer()
+            }
+            // The first fix after the answer (the card is answered after the chain takes a fix).
+            guard seen == nil, let landing = appState.landingTime, let plan = plans.activeFlightPlan else { return }
+            seen = (plan, landing, plans.legTimerSnapshot, plans.chronometerElapsed,
+                    ActBandRoles.make(page: .map, appState: appState, plans: plans), appState.currentPhase,
+                    plans.autoMarkNotice?.waypointName)
+        }
+        flight.fly()
+        XCTAssertEqual(flight.landedCards.map(\.aerodrome), ["LSGC"])
+        let after = try XCTUnwrap(seen, "a landing recorded in flight")
+        let destination = try XCTUnwrap(after.plan.waypoints.last)
+        XCTAssertEqual(destination.name, "LSGC", "the route's end")
+        XCTAssertEqual(destination.actualTimeOver, after.landing, "LSGC's ATO is the landing")
+        XCTAssertEqual(after.plan.currentWaypointIndex, after.plan.waypoints.count, "nothing left to MARK")
+        XCTAssertNil(after.timer?.startTime, "the leg timer stopped")
+        let ins = try XCTUnwrap(after.plan.waypoints[1].actualTimeOver, "INS passed")
+        XCTAssertEqual(after.elapsed, after.landing.timeIntervalSince(ins), accuracy: 1,
+                       "at the last leg's time, INS to the landing")
+        XCTAssertEqual(after.phase, .afterLanding)
+        XCTAssertEqual(after.roles, [.checkSlot, .mark, .divert(enabled: false, diverting: false), .more(withDivert: false)],
+                       "MARK dimmed, Divert off: the route flown")
+        XCTAssertNotEqual(after.notice, "LSGC", "the landing is not a passage to take back")
+    }
+
     // MARK: - OFF ROUTE (6.2, MAP's status slot)
 
     /// OFF ROUTE never speaks on the routes the replays fly (plan PR 4), fed at every fix as the Cockpit

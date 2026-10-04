@@ -2414,8 +2414,9 @@ struct NavigationMapView: View {
                          actual: actual) {
             handleWaypointTap(index: index, plan: plan, isPast: isPast)
         }
+        // At the foot: where the figures are when they go under the name (`LegRowLayout`).
         return row
-            .overlay(alignment: .trailing) {
+            .overlay(alignment: .bottomTrailing) {
                 if offersDirect {
                     Button {
                         flightPlanManager.directTo(waypointAt: index)

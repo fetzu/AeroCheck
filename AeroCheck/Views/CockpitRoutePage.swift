@@ -1,6 +1,7 @@
 import SwiftUI
 import CoreLocation
 import UIKit
+import os
 
 // MARK: - ROUTE (6.2, the Cockpit's pages)
 //
@@ -302,7 +303,13 @@ extension PhaseFrequency {
 
 /// One leg, the one ARRIVING at its waypoint: its number, its state, the waypoint, then PLAN (the planned
 /// EET), ACT (the leg timer on the leg being flown, ATO to ATO on one flown) and Δ, in fixed columns
-/// (`LegRowMetrics`). ROUTE's and Plan › Map's panel's; each says what a tap does. (6.2: out of the map)
+/// (`LegRowMetrics`). ROUTE's, Plan › Map's panel's and the Companion's; each says what a tap does.
+/// (6.2: out of the map)
+///
+/// The figures go under the name wherever the route's longest name wouldn't be whole beside them
+/// (`LegRowLayout`): on a phone the three columns left a name about 30 pt, "LS…" on a 17e, and
+/// SAIGNELÉGIER fits beside them on no phone. Whole at the phone's 17 pt; on the iPad a name may still
+/// shrink to 80 %, as it always could.
 struct RouteLegRow: View {
     let plan: FlightPlan
     let index: Int
@@ -314,6 +321,8 @@ struct RouteLegRow: View {
     var isPreview = false
     /// The time flown on the leg (`actualTime`).
     let actual: TimeInterval?
+    /// The device's measures; the tests lay the phone's out on an iPad.
+    var scale: CockpitScale = .current
     let onTap: () -> Void
 
     @Environment(\.cockpitTheme) private var theme
@@ -327,11 +336,13 @@ struct RouteLegRow: View {
         let indexWidth: CGFloat = large ? LegRowMetrics.indexWidth : 16
         let timeWidth: CGFloat = large ? LegRowMetrics.timeWidth : 44
         let deltaWidth: CGFloat = large ? LegRowMetrics.deltaWidth : 52
+        let nameScale = Self.nameMinimumScale(large: large, scale: scale)
         Button(action: onTap) {
-            HStack(spacing: LegRowMetrics.spacing) {
+            LegRowLayout(nameRoom: Self.nameRoom(plan: plan, size: large ? CockpitType.label(for: scale) : 13,
+                                                  minimumScale: nameScale)) {
                 // Sequence number: the numbered disc on the map. (v4 UI/UX Revamp)
                 Text("\(index + 1)")
-                    .font(.aero(size: large ? CockpitType.label : 11, weight: .bold, design: .monospaced))
+                    .font(.aero(size: large ? CockpitType.label(for: scale) : 11, weight: .bold, design: .monospaced))
                     .foregroundColor(isCurrent ? theme.route : theme.textSecondary)
                     .frame(width: indexWidth, alignment: .center)
                 Image(systemName: isPast ? "circle.fill" : (isCurrent ? "location.fill" : "circle"))
@@ -340,11 +351,11 @@ struct RouteLegRow: View {
                 Text(waypoint.name.isEmpty ? "WPT \(index + 1)" : waypoint.name)
                     // The label size, like the times beside it: at 24 pt a name had to shrink to fit the
                     // landscape column. The current leg reads by its colour.
-                    .font(.aero(size: large ? CockpitType.label : 13, weight: isCurrent ? .bold : .regular, design: .monospaced))
+                    .font(.aero(size: large ? CockpitType.label(for: scale) : 13, weight: isCurrent ? .bold : .regular, design: .monospaced))
                     .foregroundColor(isCurrent ? theme.route : theme.textPrimary)
                     .lineLimit(1)
-                    .minimumScaleFactor(large ? 0.8 : 1)
-                Spacer(minLength: LegRowMetrics.nameGap)
+                    .minimumScaleFactor(nameScale)
+                    .modifier(LegRowPartReader(index: index, part: .name))
                 // Fixed-width columns so every row's heading / distance / PLAN / ACT / Δ line up,
                 // whether or not a leg has been flown yet. (v4 UI/UX Revamp)
                 HStack(spacing: LegRowMetrics.timeSpacing) {
@@ -364,9 +375,10 @@ struct RouteLegRow: View {
                     delta(planned: leg?.totalLegEET, actual: actual)       // Δ ahead/over
                         .frame(width: deltaWidth, alignment: .trailing)
                 }
-                .font(.aero(size: large ? CockpitType.label : 10, design: .monospaced))
+                .font(.aero(size: large ? CockpitType.label(for: scale) : 10, design: .monospaced))
                 .lineLimit(1)
                 .minimumScaleFactor(large ? 0.8 : 1)   // a little smaller rather than a time cut short
+                .modifier(LegRowPartReader(index: index, part: .figures))
             }
             .padding(.horizontal, LegRowMetrics.horizontalPadding).padding(.vertical, large ? 9 : 7)
             .background(isPreview ? theme.info.opacity(0.14)
@@ -391,6 +403,42 @@ struct RouteLegRow: View {
         }
     }
 
+    /// The space the layout tests read a row's parts in.
+    static let space = "legRows"
+
+    /// How far a name may shrink: not at all on a phone, where the label size is the in-flight minimum
+    /// (17 pt); to 80 % on the iPad, as before.
+    static func nameMinimumScale(large: Bool, scale: CockpitScale) -> CGFloat {
+        large && scale == .kneeboard ? 0.8 : 1
+    }
+
+    /// The room the route's longest name needs at `size`, shrunk at most to `minimumScale`: every row of
+    /// the route takes the same shape from it. B612 Mono, as the rows set it (the name of the leg being
+    /// flown is bold, the same width).
+    static func nameRoom(plan: FlightPlan, size: CGFloat, minimumScale: CGFloat) -> CGFloat {
+        let names = plan.waypoints.enumerated().map { $1.name.isEmpty ? "WPT \($0 + 1)" : $1.name }
+        let key = NameRoomKey(names: names, size: size, minimumScale: minimumScale)
+        if let room = nameRooms.withLock({ $0[key] }) { return room }
+        let font = UIFont.aero(size: size, weight: .bold, monospaced: true)
+        let widest = names.map { ($0 as NSString).size(withAttributes: [.font: font]).width }.max() ?? 0
+        // A point over, as SwiftUI rounds what it sets.
+        let room = (widest * minimumScale).rounded(.up) + 1
+        nameRooms.withLock { rooms in
+            if rooms.count > 32 { rooms.removeAll() }
+            rooms[key] = room
+        }
+        return room
+    }
+
+    private struct NameRoomKey: Hashable {
+        let names: [String]
+        let size: CGFloat
+        let minimumScale: CGFloat
+    }
+
+    /// Every row asks on every second the leg timer ticks: measured once a route.
+    private static let nameRooms = OSAllocatedUnfairLock<[NameRoomKey: CGFloat]>(initialState: [:])
+
     /// The time flown on the leg arriving at `index`: the leg timer on the leg being flown, ATO to ATO on
     /// one flown, nothing on a leg ahead. (v4 UI/UX Revamp)
     static func actualTime(plan: FlightPlan, index: Int, legTimer: TimeInterval) -> TimeInterval? {
@@ -403,6 +451,101 @@ struct RouteLegRow: View {
             return ato.timeIntervalSince(previous)
         }
         return nil
+    }
+}
+
+/// A part of a leg's row, for the layout tests.
+enum LegRowPart: Hashable {
+    case name, figures
+}
+
+private struct LegRowReporterKey: EnvironmentKey {
+    static let defaultValue: ((Int, LegRowPart, CGRect) -> Void)? = nil
+}
+
+extension EnvironmentValues {
+    /// The leg rows' layout hook, the tests' only: a row's index, the part, its frame in the space named
+    /// `RouteLegRow.space`.
+    var legRowReporter: ((Int, LegRowPart, CGRect) -> Void)? {
+        get { self[LegRowReporterKey.self] }
+        set { self[LegRowReporterKey.self] = newValue }
+    }
+}
+
+/// Reports a part of a leg's row, when a test asks: nothing at all otherwise.
+private struct LegRowPartReader: ViewModifier {
+    let index: Int
+    let part: LegRowPart
+    @Environment(\.legRowReporter) private var report
+
+    func body(content: Content) -> some View {
+        if let report {
+            content.background(GeometryReader { proxy in
+                let _ = report(index, part, proxy.frame(in: .named(RouteLegRow.space)))
+                Color.clear
+            })
+        } else {
+            content
+        }
+    }
+}
+
+/// A leg's row for the room it has, its four parts in order: the number, the dot, the name, the figures
+/// (PLAN, ACT, Δ). On one line where the route's longest name (`nameRoom`) is whole beside the figures,
+/// as `HStack` set it: the name after the dot, the figures at the right, a spacing, the least gap and a
+/// spacing between them (`LegRowMetrics.fixedWidth`). Else the figures on a second line, in the same
+/// columns at the right, and the name has the row's width after the dot. Decided by the width and the
+/// route alone, so every row of a route takes the same shape and no value moves anything. (6.2)
+struct LegRowLayout: Layout {
+    /// What the route's longest name needs, at the least it may shrink to.
+    let nameRoom: CGFloat
+    var spacing: CGFloat = LegRowMetrics.spacing
+    var nameGap: CGFloat = LegRowMetrics.nameGap
+    /// Between the name's line and the figures', when there are two.
+    var lineSpacing: CGFloat = 2
+
+    /// Whether the figures go under the name: `width` the row's, less its padding.
+    static func figuresUnderName(width: CGFloat, lead: CGFloat, figures: CGFloat, nameRoom: CGFloat,
+                                 spacing: CGFloat = LegRowMetrics.spacing,
+                                 nameGap: CGFloat = LegRowMetrics.nameGap) -> Bool {
+        width - lead - (2 * spacing + nameGap) - figures < nameRoom
+    }
+
+    func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
+        let frames = frames(proposal: proposal, subviews: subviews)
+        return CGSize(width: frames.map(\.maxX).max() ?? 0, height: frames.map(\.maxY).max() ?? 0)
+    }
+
+    func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) {
+        let frames = frames(proposal: ProposedViewSize(width: bounds.width, height: nil), subviews: subviews)
+        for (subview, frame) in zip(subviews, frames) {
+            subview.place(at: CGPoint(x: bounds.minX + frame.minX, y: bounds.minY + frame.minY),
+                          proposal: ProposedViewSize(width: frame.width, height: frame.height))
+        }
+    }
+
+    private func frames(proposal: ProposedViewSize, subviews: Subviews) -> [CGRect] {
+        guard subviews.count == 4 else { return [] }
+        let number = subviews[0].sizeThatFits(.unspecified), dot = subviews[1].sizeThatFits(.unspecified)
+        let figures = subviews[3].sizeThatFits(.unspecified)
+        let lead = number.width + spacing + dot.width + spacing
+        let between = 2 * spacing + nameGap
+        // Asked for its ideal: one line, the name whole.
+        let width = proposal.width.flatMap { $0.isFinite ? $0 : nil }
+            ?? lead + subviews[2].sizeThatFits(.unspecified).width + between + figures.width
+        let twoLines = Self.figuresUnderName(width: width, lead: lead, figures: figures.width, nameRoom: nameRoom,
+                                             spacing: spacing, nameGap: nameGap)
+        let nameWidth = max(0, twoLines ? width - lead : width - lead - between - figures.width)
+        let name = subviews[2].sizeThatFits(ProposedViewSize(width: nameWidth, height: nil))
+        let line = max(number.height, dot.height, name.height, twoLines ? 0 : figures.height)
+        func centred(_ size: CGSize, x: CGFloat, width: CGFloat? = nil) -> CGRect {
+            CGRect(x: x, y: (line - size.height) / 2, width: width ?? size.width, height: size.height)
+        }
+        let figuresFrame = twoLines
+            ? CGRect(x: width - figures.width, y: line + lineSpacing, width: figures.width, height: figures.height)
+            : centred(figures, x: width - figures.width)
+        return [centred(number, x: 0), centred(dot, x: number.width + spacing),
+                centred(name, x: lead, width: min(name.width, nameWidth)), figuresFrame]
     }
 }
 

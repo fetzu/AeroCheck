@@ -5,7 +5,7 @@ What to look at:
 - ROUTE: the destination line, the legs (a tap shows the leg on MAP) and every frequency in the order you'll need it;
 - MAP: the chart alone, the buttons on the right edge, and the slot at the top left (UNDO after MARK, CHART OFFLINE in airplane mode, BRIEFING before departure and in descent);
 - the iPhone: the phase bar now sits inside the phase button (a tap picks a phase), and the iPhone on its side;
-- Plan › Map › Map: Traffic circuits and Arrival & departure routes (download the data in Settings › Navigation & Maps first);
+- Plan › Map › Map: Traffic circuits and Arrival & departure routes (with sectors), once the data is downloaded in Settings › Navigation & Maps;
 - Companion mode (iOS 26 on both): Divert from the iPhone.
 
 Send what you notice from the TestFlight app: a screenshot with a line of text is the quickest way.

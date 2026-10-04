@@ -1,3 +1,11 @@
-6.1.1 est la version qui part sur l'App Store. Utilisez-la comme d'habitude, avant, pendant et après vos vols, et envoyez vos remarques depuis l'app TestFlight : une capture d'écran avec une ligne de texte, c'est le plus rapide.
+6.2.0 refait le cockpit : trois pages (CHECKLIST, CARTE, ROUTE) entre un bandeau en haut qui lit le vol et quatre boutons fixes en bas. La carte peut aussi afficher les tours de piste et les routes VFR d'open flightmaps. Essayez d'abord au sol : planifiez un vol avec une route, DÉMARRER LE VOL, puis passez les phases une à une.
 
-Nouveau depuis 6.1.0 : un iPad sans GPS (Wi-Fi seulement) peut installer AéroCheck. En vol, il utilise le GPS de l'iPhone grâce au mode compagnon (iOS 26 sur les deux), ou un récepteur GPS externe. Si vous volez ainsi, dites-nous si l'indicateur GPS reste vert.
+À regarder :
+- la rangée du bas : les mêmes quatre places sur chaque page, COCHER est désormais le deuxième bouton ;
+- ROUTE : la ligne de destination, les branches (un appui montre la branche sur la CARTE) et toutes les fréquences dans l'ordre où vous en aurez besoin ;
+- CARTE : la carte seule, les boutons sur le bord droit, et l'emplacement en haut à gauche (ANNULER après MARQUER, CARTE HORS LIGNE en mode avion, BRIEFING avant le départ et en descente) ;
+- l'iPhone : la barre des phases est maintenant dans le bouton de phase (un appui pour choisir une phase), et l'iPhone couché ;
+- Planifier › Carte › Carte : Tours de piste et Routes d’arrivée et de départ (avec secteurs), une fois les données téléchargées dans Réglages › Navigation & Cartes ;
+- le mode compagnon (iOS 26 sur les deux) : Dérouter depuis l'iPhone.
+
+Envoyez vos remarques depuis l'app TestFlight : une capture d'écran avec une ligne de texte, c'est le plus rapide.

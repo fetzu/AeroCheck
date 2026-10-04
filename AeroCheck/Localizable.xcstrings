@@ -18507,23 +18507,6 @@
         }
       }
     },
-    "companion.recordATO": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "RECORD ATO"
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "ENREG. ATO"
-          }
-        }
-      }
-    },
     "companion.requiresIOS26": {
       "localizations": {
         "en": {

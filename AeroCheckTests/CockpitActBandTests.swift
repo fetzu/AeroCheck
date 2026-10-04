@@ -4,7 +4,7 @@ import CoreLocation
 @testable import AeroCheck
 
 /// The act band (6.2): four slots under every page of the Cockpit, in four frames that never move, the
-/// roles following the page and the flight. Until 6.2 each pane had a thumb bar of its own, and the
+/// roles following the page and the flight. Until 6.2 each page had a thumb bar of its own, and the
 /// checklist's laid itself out again with the phase: CHECK at the right end, the phase's action, FREDA
 /// or the circuit buttons coming and going, so nothing stayed where the thumb had learned it.
 @MainActor
@@ -161,17 +161,29 @@ final class CockpitActBandTests: XCTestCase {
         XCTAssertLessThanOrEqual(ActBandMetrics.textWidth("CRUISE CHECK", size: 19) * 0.6, phone[0].width - 2 * 6)
     }
 
-    func testThePhoneOnItsSideHasS3OverS4AtHalfHeight() {
+    /// The phone on its side (6.2, PR 5): two by two at the column's foot, S1 and S2 over S3 and S4, the
+    /// four as wide and 76 pt tall (the author's answer to the plan's Q2). Until then S3 and S4 were half
+    /// height beside S1 and S2, and "POSÉ-DÉCOLLÉ" was set at about 13 pt.
+    func testThePhoneOnItsSideHasItsFourSlotsTwoByTwo() {
         let metrics = ActBandMetrics.make(layout: .columns, scale: .phone)
-        let width: CGFloat = 402 - 24
+        let width = FlightView.cockpitColumnWidth - 24
         let f = ActBandLayout.frames(width: width, metrics: metrics)
-        XCTAssertEqual(f[2].minX, f[3].minX, "one above the other")
-        XCTAssertEqual(f[2].maxX, width, accuracy: 0.001)
-        XCTAssertEqual(f[2].height, (92 - 8) / 2)
-        XCTAssertEqual(f[3].maxY, 92, accuracy: 0.001, "the band's height, as the thumb row's was")
-        XCTAssertEqual(f[0].height, 92)
-        XCTAssertEqual(f[0].width, f[1].width)
-        XCTAssertGreaterThan(f[0].width, 130, "the slot and MARK keep the room they had")
+        XCTAssertTrue(metrics.isGrid)
+        XCTAssertEqual(metrics.height, 76)
+        XCTAssertEqual(Set(f.map(\.size)), [CGSize(width: (width - 6) / 2, height: 76)], "four slots alike")
+        XCTAssertEqual(f[0].minX, 0)
+        XCTAssertEqual(f[0].minY, 0)
+        XCTAssertEqual(f[1].maxX, width, accuracy: 0.001, "S2 at the right of S1")
+        XCTAssertEqual(f[1].minY, 0)
+        XCTAssertEqual(f[2].minX, 0, "S3 under S1")
+        XCTAssertEqual(f[2].minY, 76 + 6)
+        XCTAssertEqual(f[3].minX, f[1].minX, "S4 under S2")
+        XCTAssertEqual(f[3].maxY, metrics.bandHeight, accuracy: 0.001)
+        XCTAssertEqual(metrics.bandHeight, 2 * 76 + 6)
+        XCTAssertGreaterThan(f[0].width, 160, "the slot and MARK wider than in portrait (about 100)")
+        // The portrait's band keeps its row.
+        XCTAssertFalse(ActBandMetrics.make(layout: .narrow, scale: .phone).isGrid)
+        XCTAssertFalse(ActBandMetrics.make(layout: .wide, scale: .kneeboard).isGrid)
     }
 
     /// S3 holds TOUCH-AND-GO on two lines and "Dérouter" at the in-flight label size or larger, on the
@@ -249,14 +261,15 @@ final class CockpitActBandTests: XCTestCase {
     /// and the row changed by phase; MARK was second on the map's.
     func testEveryRoleSetLaysOutInTheSameFourFrames() {
         let cases = [(CGFloat(820), CockpitLayout.wide, CockpitScale.kneeboard), (1180, .wide, .kneeboard),
-                     (402, .narrow, .phone), (440, .narrow, .phone)].filter { $0.2 == CockpitScale.current }
+                     (402, .narrow, .phone), (440, .narrow, .phone),
+                     (FlightView.cockpitColumnWidth, .columns, .phone)].filter { $0.2 == CockpitScale.current }
         for (screen, layout, scale) in cases {
             let services = makeServices()
             startFlight(services.appState)
             let metrics = ActBandMetrics.make(layout: layout, scale: scale)
             let expected = ActBandLayout.frames(width: screen - (layout == .wide ? 32 : 24), metrics: metrics)
             var roleSets: Set<String> = []
-            func draw(_ name: String, page: CockpitPane, _ set: () -> Void) {
+            func draw(_ name: String, page: CockpitPage, _ set: () -> Void) {
                 set()
                 let slotRoles = roles(page, services)
                 roleSets.insert("\(slotRoles)")
@@ -324,7 +337,7 @@ final class CockpitActBandTests: XCTestCase {
     }
 
     /// Every role the band can show, in English and in French, on an iPhone 17e, 17 and 17 Pro Max in
-    /// portrait and in the column on its side: each line within the slot's inset, the lines within its
+    /// portrait and in the column on its side (two by two since PR 5): each line within the slot's inset, the lines within its
     /// height, no separator at either end of a line, no number left at the end of one, and nothing under
     /// the in-flight label size (17 pt) but a word wider than the slot at that size, set as large as it
     /// fits, or a slot whose height is full at the floor (the hold hint has its own, three quarters of it).
@@ -340,7 +353,7 @@ final class CockpitActBandTests: XCTestCase {
                 }
             }
             for slot in Self.narrowSlots {
-                for face in narrowFaces(language, half: slot.height < 60) {
+                for face in narrowFaces(language, inset: slot.inset ?? ActBandMetrics.narrowPadding(.phone)) {
                     check(face, in: slot, language: language)
                     cases += 1
                 }
@@ -409,9 +422,11 @@ final class CockpitActBandTests: XCTestCase {
         let name: String
         let width: CGFloat
         let height: CGFloat
+        /// The words' inset, where the slot sets its own.
+        var inset: CGFloat? = nil
     }
 
-    /// S1 and S2: on an iPhone 17e, 17 and 17 Pro Max in portrait, and in the column on its side.
+    /// S1 and S2: on an iPhone 17e, 17 and 17 Pro Max in portrait, and in the column's grid on its side.
     private static var wideSlots: [BandSlot] {
         let portrait = [("17e", CGFloat(390)), ("17", 402), ("17 Pro Max", 440)].map { name, screen -> BandSlot in
             let frame = ActBandLayout.frames(width: screen - 24, metrics: .make(layout: .narrow, scale: .phone))[0]
@@ -422,13 +437,13 @@ final class CockpitActBandTests: XCTestCase {
         return portrait + [BandSlot(name: "the column", width: column.width, height: column.height)]
     }
 
-    /// S3: in portrait, and at half height on its side.
+    /// S3: in portrait, and in the column's grid on its side, as wide as S1 there.
     private static var narrowSlots: [BandSlot] {
         let portrait = ActBandLayout.frames(width: 402 - 24, metrics: .make(layout: .narrow, scale: .phone))[2]
         let column = ActBandLayout.frames(width: FlightView.cockpitColumnWidth - 24,
                                           metrics: .make(layout: .columns, scale: .phone))[2]
         return [BandSlot(name: "S3", width: portrait.width, height: portrait.height),
-                BandSlot(name: "S3 on its side", width: column.width, height: column.height)]
+                BandSlot(name: "S3 on its side", width: column.width, height: column.height, inset: ActFace.inset)]
     }
 
     /// The iPad's check slot text, beside MARK in portrait (820 pt) and on its side (1180): the slot less
@@ -547,20 +562,20 @@ final class CockpitActBandTests: XCTestCase {
         }
         let goAround = ActBandText.twoLines(t("checklist.goAround"))
         faces.append(Face(name: "GO AROUND held",
-                          blocks: HoldToConfirmButton.fittedBlocks(title: goAround, titleLines: 2, showsHint: true,
+                          blocks: HoldToConfirmButton.fittedBlocks(title: goAround, titleLines: 2,
                                                                    hint: t("checklist.holdToConfirm"))))
         faces.append(thumb(goAround, titleLines: 2))
         return faces
     }
 
-    /// What S3 can hold in a set face: TOUCH-AND-GO, held (no hint at half height) and in circuits.
-    private func narrowFaces(_ language: String, half: Bool) -> [Face] {
+    /// What S3 can hold in a set face: TOUCH-AND-GO, held and in circuits.
+    private func narrowFaces(_ language: String, inset: CGFloat) -> [Face] {
         let title = ActBandText.twoLines(localizedString(key: "checklist.touchAndGo", language: language))
-        let held = HoldToConfirmButton.fittedBlocks(title: title, titleLines: 2, showsHint: !half,
+        let held = HoldToConfirmButton.fittedBlocks(title: title, titleLines: 2,
                                                     hint: localizedString(key: "checklist.holdToConfirm", language: language))
         let circuits = CockpitThumbButton(title: title, style: .outlined(tint: .cyan), titleLines: 2, fitted: true) {}
-        return [Face(name: "TOUCH-AND-GO held", blocks: held, inset: ActBandMetrics.narrowPadding(.phone)),
-                Face(name: "TOUCH-AND-GO", blocks: circuits.fittedBlocks, inset: ActBandMetrics.narrowPadding(.phone))]
+        return [Face(name: "TOUCH-AND-GO held", blocks: held, inset: inset),
+                Face(name: "TOUCH-AND-GO", blocks: circuits.fittedBlocks, inset: inset)]
     }
 
     private func check(_ face: Face, in slot: BandSlot, language: String) {
@@ -750,7 +765,7 @@ final class CockpitActBandTests: XCTestCase {
         addTeardownBlock { @MainActor in manager.deactivateFlightPlan() }
     }
 
-    private func roles(_ page: CockpitPane, _ services: Services) -> [ActSlotRole] {
+    private func roles(_ page: CockpitPage, _ services: Services) -> [ActSlotRole] {
         let app = services.appState, plans = services.flightPlanManager
         return ActBandRoles.make(page: page, phase: app.currentPhase, hasRoute: plans.activeFlightPlan != nil,
                                  routeFlown: plans.isFlightPlanCompleted, circuits: app.isCircuitMode,
@@ -759,7 +774,7 @@ final class CockpitActBandTests: XCTestCase {
     }
 
     /// The band drawn `width` wide, and each slot's frame as laid out.
-    private func bandFrames(page: CockpitPane, layout: CockpitLayout, scale: CockpitScale, width: CGFloat,
+    private func bandFrames(page: CockpitPage, layout: CockpitLayout, scale: CockpitScale, width: CGFloat,
                             services: Services) -> [CGRect] {
         final class Box { var frames: [Int: CGRect] = [:] }
         let box = Box()

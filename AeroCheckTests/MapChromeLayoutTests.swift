@@ -340,7 +340,8 @@ final class MapChromeLayoutTests: XCTestCase {
 
     /// The same on the charts the Cockpit has since the chrome is on screen (PR 4), measured on the
     /// simulators in cruise: an iPad Air 11" upright and on its side, an iPhone 17e, 17 and 17 Pro Max with
-    /// the phase bar in the phase button.
+    /// the phase bar in the phase button, and the three phones on their side, the chart at full height
+    /// beside the column on the right (PR 5).
     func testTheChromeLeavesTheMeasuredChartsFree() {
         let charts: [(String, CGSize, CockpitScale, Double, Double)] = [
             ("iPad portrait", CGSize(width: 820, height: 607), .kneeboard, 0.93, 0.86),
@@ -348,6 +349,9 @@ final class MapChromeLayoutTests: XCTestCase {
             ("iPhone 17e", CGSize(width: 390, height: 274), .phone, 0.85, 0.60),
             ("iPhone 17", CGSize(width: 402, height: 289), .phone, 0.86, 0.62),
             ("iPhone 17 Pro Max", CGSize(width: 440, height: 371), .phone, 0.90, 0.66),
+            ("iPhone 17e on its side", CGSize(width: 411, height: 370), .phone, 0.89, 0.66),
+            ("iPhone 17 on its side", CGSize(width: 426, height: 382), .phone, 0.90, 0.67),
+            ("iPhone 17 Pro Max on its side", CGSize(width: 508, height: 420), .phone, 0.92, 0.71),
         ]
         for (name, size, scale, dark, withState) in charts {
             let geometry = MapChromeGeometry(size: size, scale: scale)

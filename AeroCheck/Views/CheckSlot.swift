@@ -4,14 +4,14 @@ import SwiftUI
 //
 // In flight, the act band's first slot holds the next thing to do with the checklist (on MAP always, on
 // CHECKLIST outside the engine phases and cruise, since 6.2), and one tap does it: confirm a memory check (done from memory, with undo), open a list
-// still to check on the CHECKLIST pane, or, the check done, go on to the next one. It is 104 pt tall on
+// still to check on the CHECKLIST page, or, the check done, go on to the next one. It is 104 pt tall on
 // the kneeboard (92 on the phone) and always in the same place, so the thumb learns it; before it,
 // marking the climb check done from the map took CHECKLIST at the top, then NEXT at the foot.
 //
 // Its colour says when: dark while nothing is due, amber (outlined) when the check is due, filled amber
 // once, when the flight moved on with it still open, and dashed grey in the landing phase, where there
 // is nothing to press until the runway is behind. Nothing pulses, nothing beeps, and it never changes
-// the pane on its own. "Due" comes from the flight (FlightCues.swift): the climb check at 500 ft above the
+// the page on its own. "Due" comes from the flight (FlightCues.swift): the climb check at 500 ft above the
 // field, the cruise check at the level-off, the descent check at the descent, the approach check near the
 // destination, and the landing check shown, dashed, from circuit height. Once the flight says so, the
 // next check comes to the slot too, with its one tap (the descent check in cruise, where FREDA was).
@@ -63,7 +63,7 @@ struct CheckSlot: Equatable, Codable {
     enum Action: String, Equatable, Codable {
         /// Records the current memory check done from memory.
         case confirmFromMemory
-        /// Shows the CHECKLIST pane; the map comes back after the last CHECK, by the pane rule.
+        /// Shows the CHECKLIST page; the map comes back after the last CHECK, by the page rule.
         case showChecklist
         /// Goes on to the next phase, as NEXT.
         case advance
@@ -223,15 +223,26 @@ extension CheckSlot {
 
     /// The first line. `stacked`: a slot sharing its row on the iPad (beside MARK, in the landscape
     /// column), where "CRUISE CHECK ✓ 14:24" on one line would shrink under 20 pt: the time goes under.
-    func titleText(stacked: Bool = false) -> String {
+    /// `locale`: the clock the time is written in, the device's.
+    func titleText(stacked: Bool = false, locale: Locale = .autoupdatingCurrent) -> String {
+        firstLine(stacked: stacked) { $0.formatted(Self.clock(locale)) }
+    }
+
+    /// The first line, the tick's time written by `time`.
+    private func firstLine(stacked: Bool, time: (Date) -> String) -> String {
         switch title {
         case .check: return readiesForLineUp ? L10n.ChecklistAction.readyForLineUp : phase.shortTitle
         case .freda: return L10n.Freda.name
         case .fredaCountsFrom(let since, let at):
             let what = since == .cruiseCheck ? ChecklistPhase.cruise.shortTitle : L10n.Freda.name
-            let time = at.formatted(date: .omitted, time: .shortened)
-            return stacked ? L10n.Freda.tickedStacked(what, time) : L10n.Freda.ticked(what, time)
+            let written = time(at)
+            return stacked ? L10n.Freda.tickedStacked(what, written) : L10n.Freda.ticked(what, written)
         }
+    }
+
+    /// The tick's time as the device writes it: "14:24", or "2:24 PM" on a 12-hour clock.
+    private static func clock(_ locale: Locale) -> Date.FormatStyle {
+        Date.FormatStyle(date: .omitted, time: .shortened, locale: locale)
     }
 
     /// The second line, as the button shows it: `narrow` (the phone's shared row) and `stacked` (the
@@ -248,8 +259,17 @@ extension CheckSlot {
 
     /// The room the first line keeps: its words, the time at its widest, "CRUISE CHECK ✓ 00:00", so the
     /// time it reads changes nothing. (6.1, the slot's text centred)
-    func titleRoom(stacked: Bool = false) -> String {
-        Self.widestFigures(titleText(stacked: stacked), atLeast: 2)
+    ///
+    /// The time is written at 22:58 whatever the tick's, as the read band's clock is
+    /// (`NextWaypointReadout.widestETA`): on a 12-hour clock the room was "✓ 00:00 AM" for a tick at 9:05
+    /// and "✓ 00:00 PM" for one at 14:24. (6.2)
+    func titleRoom(stacked: Bool = false, locale: Locale = .autoupdatingCurrent) -> String {
+        Self.widestFigures(firstLine(stacked: stacked) { _ in Self.roomTime.formatted(Self.clock(locale)) }, atLeast: 2)
+    }
+
+    /// Two figures to its hour, and PM on a 12-hour clock.
+    private static var roomTime: Date {
+        Calendar.current.date(from: DateComponents(year: 2026, month: 1, day: 1, hour: 22, minute: 58)) ?? .distantPast
     }
 
     /// The room the second line keeps: the state's words, FREDA's minutes at the 10 they count down from
@@ -352,8 +372,10 @@ struct CheckSlotButton: View {
     let action: () -> Void
 
     @Environment(\.cockpitTheme) private var theme
+    @Environment(\.actSlotHeight) private var slotHeight
 
-    /// The slot's height: the thumb bar's, 104 pt on the kneeboard and 92 on the phone.
+    /// The slot's height: the thumb bar's, 104 pt on the kneeboard and 92 on the phone; its slot's in the
+    /// act band (76 pt in the phone's grid on its side).
     static var height: CGFloat { CockpitTarget.thumb }
 
     var body: some View {
@@ -377,7 +399,7 @@ struct CheckSlotButton: View {
             // The phone's act band slot is about 100 pt wide (6.2): its words 8 pt in, 5 pt clear of the
             // amber border, set to fit (`ActFace`). At 6 pt "CROISIÈRE" ran into the border.
             .padding(.horizontal, narrow ? ActFace.inset : phone ? 10 : 22)
-            .frame(maxWidth: .infinity, minHeight: Self.height, maxHeight: Self.height)
+            .frame(maxWidth: .infinity, minHeight: slotHeight ?? Self.height, maxHeight: slotHeight ?? Self.height)
             .background(background)
             .contentShape(RoundedRectangle(cornerRadius: 16))
         }
@@ -654,11 +676,12 @@ struct MapFlightEventButton: View {
     var narrow: Bool = CockpitScale.current == .phone
     /// The words broken on two lines (`ActBandText.twoLines`).
     var twoLines: Bool = false
-    /// Half the band's height (the phone on its side): the words alone, no "Hold to confirm".
-    var half: Bool = false
+    /// The words' inset from the edges, where the slot sets another than the narrow slot's.
+    var horizontalInset: CGFloat? = nil
 
     @Environment(AppState.self) private var appState
     @Environment(\.cockpitTheme) private var theme
+    @Environment(\.actSlotHeight) private var slotHeight
     @EnvironmentObject private var flightEventDetector: FlightEventDetector
 
     var body: some View {
@@ -668,11 +691,12 @@ struct MapFlightEventButton: View {
         let title = twoLines ? ActBandText.twoLines(name) : name
         let icon = event == .goAround ? "arrow.up.right.circle.fill" : "arrow.triangle.2.circlepath"
         let identifier = event == .goAround ? "map.goAround" : "map.touchAndGo"
-        let height = half ? (CockpitTarget.thumb - 8) / 2 : CockpitTarget.thumb
+        let height = slotHeight ?? CockpitTarget.thumb
         // On the phone GO AROUND has a wide slot, its words 8 pt in; TOUCH-AND-GO the narrow one. Both set
         // to fit (`ActFace`). (6.2)
         let phone = CockpitScale.current == .phone
-        let padding: CGFloat? = narrow ? (phone && event == .goAround ? ActFace.inset : ActBandMetrics.narrowPadding()) : nil
+        let padding: CGFloat? = horizontalInset
+            ?? (narrow ? (phone && event == .goAround ? ActFace.inset : ActBandMetrics.narrowPadding()) : nil)
         if appState.isCircuitMode {
             CockpitThumbButton(title: title, icon: narrow ? nil : icon, style: .outlined(tint: theme.action),
                                titleLines: twoLines ? 2 : 1, horizontalPadding: padding ?? 14, minHeight: height,
@@ -685,12 +709,12 @@ struct MapFlightEventButton: View {
                                                                        : appState.currentFlight?.touchAndGoCount ?? 0,
                                 kneeboard: true, height: height,
                                 stacked: narrow, titleLines: twoLines ? 2 : 1, horizontalPadding: padding,
-                                showsHint: !half, spokenTitle: name, fitted: phone && narrow, action: perform)
+                                spokenTitle: name, fitted: phone && narrow, action: perform)
                 .accessibilityIdentifier(identifier)
         }
     }
 
-    /// As the checklist pane's: the detector is told first, so it doesn't prompt for the same event, and
+    /// As the checklist page's: the detector is told first, so it doesn't prompt for the same event, and
     /// gives back the physical time when it knows one.
     private func perform() {
         switch event {
@@ -710,6 +734,7 @@ struct MapFlightEventButton: View {
 struct FredaThumbButton: View {
     @Environment(AppState.self) private var appState
     @Environment(\.cockpitTheme) private var theme
+    @Environment(\.actSlotHeight) private var slotHeight
 
     private enum Stage: Equatable {
         /// The cruise check is still open: FREDA doesn't run yet.
@@ -766,7 +791,7 @@ struct FredaThumbButton: View {
             }
             .foregroundColor(textColor(stage))
             .padding(.horizontal, phone ? ActFace.inset : 12)
-            .frame(maxWidth: .infinity, minHeight: CockpitTarget.thumb)
+            .frame(maxWidth: .infinity, minHeight: slotHeight ?? CockpitTarget.thumb)
             .background(background(stage))
             .contentShape(RoundedRectangle(cornerRadius: 18))
         }

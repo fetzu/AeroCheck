@@ -85,6 +85,102 @@ final class ReadBandLayoutTests: XCTestCase {
         }
     }
 
+    // MARK: - The phone's column on its side (6.2, PR 5)
+
+    /// The column's read rows: the strip at 28 pt, then the next line over the NOW line (a Pro Max), or one
+    /// line for both under 400 pt tall (an iPhone 17e, a 17), at the column's width.
+    private static let columnForms: [(name: String, merges: Bool)] = [("two lines", false), ("merged", true)]
+
+    /// One height and every part in its frame through every state, in both forms and both languages: a
+    /// diversion (the name framed in amber, no tag coming), no fix, 59 → 60 min, a long name, a typed NOW.
+    func testTheColumnsRowsHoldStillThroughEveryState() {
+        let width = FlightView.cockpitColumnWidth
+        for (name, merges) in Self.columnForms {
+            for language in ["en", "fr"] {
+                let reference = parts(Sample.states[0], .columns, width, language, merges: merges)
+                let referenceHeight = height(Sample.states[0], .columns, width, language, merges: merges)
+                XCTAssertNotNil(reference[.nextLine], "\(name): the next line")
+                XCTAssertNotNil(reference[.nowLine], "\(name): NOW")
+                for state in Sample.states.dropFirst() {
+                    XCTAssertEqual(height(state, .columns, width, language, merges: merges), referenceHeight, accuracy: 0.5,
+                                   "\(state.name): the rows' height, \(name), \(language)")
+                    let frames = parts(state, .columns, width, language, merges: merges)
+                    XCTAssertEqual(Set(frames.keys), Set(reference.keys), "\(state.name): the same parts, \(name)")
+                    for (part, frame) in reference {
+                        guard let other = frames[part] else { continue }
+                        assertSameFrame(other, frame, "\(state.name): \(part), \(name), \(language)")
+                    }
+                }
+            }
+        }
+    }
+
+    /// The column's height budget (the author's answer to the plan's Q2): the strip at 28 pt, 70 pt with its
+    /// labels at 17; one line of under 30 pt under 400 pt tall; the next line and the NOW line in some 74 pt
+    /// on a Pro Max. With the header row, the picker and the band two by two, the column holds in an iPhone
+    /// 17e's 370 pt (`CockpitColumnFitTests`).
+    func testTheColumnsRowsKeepToTheirHeight() throws {
+        // The strip's labels are the device's label size (20 pt on the iPad the suite runs on).
+        try XCTSkipUnless(CockpitScale.current == .phone, "laid out at the phone's sizes: run it on an iPhone")
+        let width = FlightView.cockpitColumnWidth
+        for language in ["en", "fr"] {
+            let merged = parts(Sample.states[0], .columns, width, language, merges: true)
+            let twoLines = parts(Sample.states[0], .columns, width, language)
+            let strip = try XCTUnwrap(merged[.strip])
+            XCTAssertLessThanOrEqual(strip.height, 71, "the strip at 28 pt, \(language)")
+            XCTAssertLessThanOrEqual(try XCTUnwrap(merged[.rows]).height, 104, "strip and merged line, \(language)")
+            XCTAssertLessThanOrEqual(try XCTUnwrap(twoLines[.rows]).height, 150, "strip and two lines, \(language)")
+            // One line: the name, its ETE and NOW on the same row.
+            let next = try XCTUnwrap(merged[.nextLine]), now = try XCTUnwrap(merged[.nowLine])
+            XCTAssertEqual(next.minY, now.minY, accuracy: 0.5, "NOW beside the next waypoint, \(language)")
+            XCTAssertLessThanOrEqual(next.height, 30)
+            XCTAssertGreaterThanOrEqual(now.minX, next.maxX, "NOW after it")
+            // Two lines: NOW under the next waypoint.
+            XCTAssertGreaterThanOrEqual(try XCTUnwrap(twoLines[.nowLine]).minY, try XCTUnwrap(twoLines[.nextLine]).maxY)
+            XCTAssertEqual(strip.height, try XCTUnwrap(twoLines[.strip]).height, accuracy: 0.5)
+        }
+        // The strip's values at 28 pt in the column, at the label's 17 beside them.
+        XCTAssertEqual(CockpitInstrumentStrip.compactValueSize, 28)
+    }
+
+    /// The names whole in the column's lines: "ST-URSANNE" at the label's size beside its ETE and NOW (the
+    /// merged line), "SAIGNELÉGIER" beside its distance and ETE (the next line), in both languages, with a
+    /// 12-hour clock too (the ETA is not on these lines). A longer name on the merged line scales, whole.
+    func testTheColumnsLinesHoldTheNamesAtTheLabelSize() throws {
+        let metrics = ReadBandMetrics(.phone)
+        let width = FlightView.cockpitColumnWidth
+        for language in ["en", "fr"] {
+            let merged = try XCTUnwrap(parts(Sample.states[0], .columns, width, language, merges: true)[.nextName])
+            XCTAssertLessThanOrEqual(textWidth("ST-URSANNE", size: metrics.labelSize, bold: true, mono: true), merged.width,
+                                     "the merged line's name, \(language): \(merged.width) pt")
+            let next = try XCTUnwrap(parts(Sample.states[0], .columns, width, language)[.nextName])
+            XCTAssertLessThanOrEqual(textWidth("SAIGNELÉGIER", size: metrics.labelSize, bold: true, mono: true), next.width,
+                                     "the next line's name, \(language): \(next.width) pt")
+            // "SAIGNELÉGIER" on the merged line: smaller, never under half the name's size.
+            XCTAssertLessThanOrEqual(textWidth("SAIGNELÉGIER", size: metrics.identSize * ReadBandMetrics.columnNameMinimumScale,
+                                               bold: true, mono: true), merged.width)
+        }
+    }
+
+    /// Before the taxi (no strip), the column has NOW alone, from START FLIGHT on, as the portrait's card.
+    func testWithoutTheStripTheColumnHasNOWAlone() {
+        let width = FlightView.cockpitColumnWidth
+        for merges in [true, false] {
+            final class Box { var parts: [ReadBandPart: CGRect] = [:] }
+            let box = Box()
+            let rows = CockpitReadRows(layout: .columns, mergesLines: merges, scale: .phone, strip: nil, next: Sample.next(),
+                                       now: Sample.nowField, nextFrequency: Sample.nextField, onShowRoute: {},
+                                       onLayout: { box.parts[$0] = $1 })
+                .frame(width: width)
+                .environment(\.cockpitTheme, CockpitTheme.resolve(.day))
+            let renderer = ImageRenderer(content: rows)
+            renderer.proposedSize = ProposedViewSize(width: width, height: nil)
+            _ = renderer.uiImage
+            XCTAssertNil(box.parts[.nextLine], "no next line before the taxi, merged \(merges)")
+            XCTAssertNotNil(box.parts[.nowLine], "NOW, merged \(merges)")
+        }
+    }
+
     // MARK: - Nothing cut
 
     /// iPad in portrait: "E (LSGC)" whole at the name's full size, "SAIGNELÉGIER" at the label's size at
@@ -281,6 +377,20 @@ final class ReadBandLayoutTests: XCTestCase {
                 try writePNG(all, width: width, to: directory.appendingPathComponent(file))
             }
         }
+        // The phone's column on its side, both forms.
+        for (name, merges) in Self.columnForms {
+            for language in ["en", "fr"] {
+                let all = VStack(alignment: .leading, spacing: 10) {
+                    ForEach(Sample.states, id: \.name) { state in
+                        Text(verbatim: state.name).font(.caption).foregroundColor(.gray).padding(.horizontal, 16)
+                        self.band(state, .columns, FlightView.cockpitColumnWidth, language, merges: merges)
+                    }
+                }
+                .padding(.vertical, 12)
+                let file = "column-" + name.replacingOccurrences(of: " ", with: "-") + "-\(language).png"
+                try writePNG(all, width: FlightView.cockpitColumnWidth, to: directory.appendingPathComponent(file))
+            }
+        }
     }
 
     // MARK: - Helpers
@@ -289,8 +399,8 @@ final class ReadBandLayoutTests: XCTestCase {
                                nextFrequency: PhaseFrequency?)
 
     private func band(_ state: State, _ layout: CockpitLayout, _ width: CGFloat, _ language: String,
-                      onLayout: ((ReadBandPart, CGRect) -> Void)? = nil) -> some View {
-        CockpitReadRows(layout: layout, scale: layout == .wide ? .kneeboard : .phone, strip: state.strip,
+                      merges: Bool = false, onLayout: ((ReadBandPart, CGRect) -> Void)? = nil) -> some View {
+        CockpitReadRows(layout: layout, mergesLines: merges, scale: layout == .wide ? .kneeboard : .phone, strip: state.strip,
                         next: state.next, now: state.now, nextFrequency: state.nextFrequency, onShowRoute: {},
                         onSpeedTap: {}, language: language, onLayout: onLayout)
             .frame(width: width)
@@ -299,17 +409,19 @@ final class ReadBandLayoutTests: XCTestCase {
 
     /// Where each part of the band landed, in its space.
     private func parts(_ state: State, _ layout: CockpitLayout, _ width: CGFloat,
-                       _ language: String) -> [ReadBandPart: CGRect] {
+                       _ language: String, merges: Bool = false) -> [ReadBandPart: CGRect] {
         final class Box { var parts: [ReadBandPart: CGRect] = [:] }
         let box = Box()
-        let renderer = ImageRenderer(content: band(state, layout, width, language, onLayout: { box.parts[$0] = $1 }))
+        let renderer = ImageRenderer(content: band(state, layout, width, language, merges: merges,
+                                                   onLayout: { box.parts[$0] = $1 }))
         renderer.proposedSize = ProposedViewSize(width: width, height: nil)
         _ = renderer.uiImage
         return box.parts
     }
 
-    private func height(_ state: State, _ layout: CockpitLayout, _ width: CGFloat, _ language: String) -> CGFloat {
-        UIHostingController(rootView: band(state, layout, width, language))
+    private func height(_ state: State, _ layout: CockpitLayout, _ width: CGFloat, _ language: String,
+                        merges: Bool = false) -> CGFloat {
+        UIHostingController(rootView: band(state, layout, width, language, merges: merges))
             .sizeThatFits(in: CGSize(width: width, height: .greatestFiniteMagnitude)).height
     }
 

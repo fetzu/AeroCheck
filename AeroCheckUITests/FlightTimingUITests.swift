@@ -52,8 +52,9 @@ final class FlightTimingUITests: XCTestCase {
         pilot.checkAllItems()
         let planned = pilot.destinationETA()
         pilot.shot("eet-3", "planned")
-        // The jump: the replay's hold at the holding point lets go once the line-up check is reached.
-        pilot.tap("phaseBar.lineUp")
+        // The jump: the replay's hold at the holding point lets go once the line-up check is reached. On
+        // the phase bar on the iPad, in the phase list on the phone.
+        pilot.jump(to: "lineUp")
         let ask = pilot.app.buttons.matching(NSPredicate(format: "label CONTAINS[c] 'already done'")).firstMatch
         if ask.waitForExistence(timeout: 2) { pilot.tapNow(ask) }
         pilot.check("eet-3", pilot.waitUntil(timeout: 4) { pilot.currentPhase == "lineUp" }, "jumped to \(pilot.currentPhase ?? "?")")

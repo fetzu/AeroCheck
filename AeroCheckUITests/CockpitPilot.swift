@@ -274,16 +274,40 @@ final class CockpitPilot {
         return (ok, last)
     }
 
-    /// The phase bar's word for a check: "completed", "done from memory", "Owed", "skipped"...
+    /// The phase bar's word for a check: "completed", "done from memory", "Owed", "skipped"... On the
+    /// phone, whose bar is drawn in its phase button since 6.2, the phase list's row says it.
     func phaseStatus(_ phase: String) -> String? {
-        snap("phaseBar.\(phase)")?.value as? String
+        if !isPhone { return snap("phaseBar.\(phase)")?.value as? String }
+        return withPhaseList { snap("phaseList.\(phase)")?.value as? String }
     }
 
-    /// The phase the Cockpit is on: the selected segment.
+    /// The phase the Cockpit is on: the selected segment on the iPad, the phase button's on the phone
+    /// ("cockpit.phase.climb"), in one query.
     var currentPhase: String? {
-        let segments = app.descendants(matching: .any)
-            .matching(NSPredicate(format: "identifier BEGINSWITH 'phaseBar.' AND selected == true"))
-        return snap(segments.firstMatch).map { String($0.identifier.dropFirst("phaseBar.".count)) }
+        let current = app.descendants(matching: .any).matching(NSPredicate(
+            format: "(identifier BEGINSWITH 'phaseBar.' AND selected == true) OR identifier BEGINSWITH 'cockpit.phase.'"))
+        guard let id = snap(current.firstMatch)?.identifier else { return nil }
+        return id.components(separatedBy: ".").last
+    }
+
+    /// A jump to `phase`, as the pilot makes it: its segment on the iPad's phase bar, its row in the phase
+    /// list on the phone (the phase button opens it). The question a long jump asks is the caller's.
+    @discardableResult
+    func jump(to phase: String) -> Bool {
+        if !isPhone { return tap("phaseBar.\(phase)") }
+        guard tapNow(element(prefix: "cockpit.phase.")) else { return false }
+        return tap("phaseList.\(phase)", timeout: 5)
+    }
+
+    /// `read` with the phase list open (the phone's), closed after.
+    private func withPhaseList<T>(_ read: () -> T?) -> T? {
+        guard tapNow(element(prefix: "cockpit.phase.")),
+              element(prefix: "phaseList.").waitForExistence(timeout: 5) else { return nil }
+        let value = read()
+        let close = app.navigationBars.buttons["Close"].firstMatch
+        if close.waitForExistence(timeout: 2) { tapNow(close) }
+        _ = waitUntil(timeout: 3) { self.snap(self.element(prefix: "phaseList.")) == nil }
+        return value
     }
 
     /// The page CHECKLIST · MAP · ROUTE shows. One query: at 10x every query is flight time.
@@ -390,13 +414,17 @@ final class CockpitPilot {
         label("undoToast.message")
     }
 
-    /// The phase bar, segment by segment: phase → its spoken status.
+    /// The phase bar, segment by segment: phase → its spoken status. On the phone, the phase list's rows.
     func phaseBar() -> [String: String] {
-        var out: [String: String] = [:]
-        for s in screen() where s.identifier.hasPrefix("phaseBar.") {
-            out[String(s.identifier.dropFirst("phaseBar.".count))] = (s.value as? String) ?? ""
+        func read(_ prefix: String) -> [String: String] {
+            var out: [String: String] = [:]
+            for s in screen() where s.identifier.hasPrefix(prefix) {
+                out[String(s.identifier.dropFirst(prefix.count))] = (s.value as? String) ?? ""
+            }
+            return out
         }
-        return out
+        if !isPhone { return read("phaseBar.") }
+        return withPhaseList { read("phaseList.") } ?? [:]
     }
 
     /// The strip's altitude, feet (nil when not shown or no GPS).

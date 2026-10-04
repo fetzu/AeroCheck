@@ -885,6 +885,9 @@ class AppState {
 
     /// Set by FREDA done, cleared by its toast (UNDO, or the six seconds up).
     private(set) var fredaConfirmation: FredaConfirmation?
+    /// When the last memory check or FREDA was offered back, kept after the offer goes: an older undo
+    /// offer never comes back (`UndoOfferRule`). (6.2)
+    private(set) var lastCheckOfferAt: Date?
 
     /// FREDA done: the slot (when due), or the FREDA button (due, or early, at a turning point of the
     /// pilot's own). Recorded on the flight, and the count starts again from now.
@@ -895,6 +898,7 @@ class AppState {
         recordFreda(record)
         freda.start(at: date, after: .freda)
         fredaConfirmation = FredaConfirmation(id: UUID(), doneAt: date, previous: previous, recordId: record.id)
+        lastCheckOfferAt = date
     }
 
     /// UNDO on FREDA's toast: the record goes, and the count is as it was. Cruise left since, a FREDA
@@ -2047,6 +2051,7 @@ class AppState {
             confirmation.lateRecordId = currentFlight?.checkRecords?.last { $0.kind == .doneLate }?.id
         }
         memoryConfirmation = confirmation
+        lastCheckOfferAt = confirmation.confirmedAt
         // The cruise check done starts FREDA's count, however it was done.
         if phase == .cruise && phase == currentPhase { startFredaAfterCruiseCheck() }
         checkpointActiveFlight(force: true)

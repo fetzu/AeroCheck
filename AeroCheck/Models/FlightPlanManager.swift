@@ -17,6 +17,9 @@ class FlightPlanManager: ObservableObject {
     /// whichever in-flight screen is showing. One at a time: any other leg action withdraws it, so
     /// taking it back always restores what was there just before. (v6.0.1)
     @Published private(set) var autoMarkNotice: AutoMarkNotice?
+    /// When the last notice was offered, kept after it goes: an older undo offer never comes back
+    /// (`UndoOfferRule`). (6.2)
+    private(set) var lastAutoMarkOfferAt: Date?
     /// Elapsed accumulated from completed run segments, so pause/resume preserves the leg time. (v4 UI/UX Revamp)
     private var chronometerAccumulated: TimeInterval = 0
 
@@ -902,11 +905,14 @@ class FlightPlanManager: ObservableObject {
                                         passedAt: passedAt,
                                         previousTarget: departure == nil ? before.target : max(before.target, 1),
                                         marked: undoable, timer: timer, departure: departure)
+        lastAutoMarkOfferAt = autoMarkNotice?.madeAt
     }
 
     /// A waypoint the flight marked on its own, and what that changed. (v6.0.1)
     struct AutoMarkNotice: Identifiable, Equatable {
         let id = UUID()
+        /// When it was offered: its UNDO lasts six seconds from then (`UndoOfferRule`). (6.2)
+        let madeAt = FlightClock.now
         /// The last waypoint passed, and when: its ATO, not the time the catch-up ran.
         let waypointName: String
         let passedAt: Date

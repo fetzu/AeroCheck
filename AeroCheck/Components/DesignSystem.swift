@@ -1320,11 +1320,18 @@ struct CockpitInstrumentStrip: View {
     var onSpeedTap: (() -> Void)? = nil
     /// NEXT's language, "fr"; nil, the app's. For the French previews and tests.
     var language: String? = nil
+    /// The phone on its side (6.2, PR 5): the values at 28 pt, and ALT's vertical speed beside its label
+    /// rather than on a line of its own, so the strip fits the column with the act band under it (the
+    /// author's answer to the plan's Q2).
+    var compact: Bool = false
+
+    /// The values in the phone's column on its side.
+    static let compactValueSize: CGFloat = 28
 
     /// Whether GS, ALT and TRK hug their widest values, leaving NEXT the rest.
     private var hugsValues: Bool { kneeboard && next != nil }
 
-    private var valueSize: CGFloat { kneeboard ? CockpitType.value : 24 }
+    private var valueSize: CGFloat { kneeboard ? (compact ? Self.compactValueSize : CockpitType.value) : 24 }
     private var labelSize: CGFloat { kneeboard ? CockpitType.label : 11 }
     private var flagSize: CGSize { kneeboard ? CGSize(width: 110, height: 54) : CGSize(width: 70, height: 34) }
 
@@ -1382,10 +1389,9 @@ struct CockpitInstrumentStrip: View {
             }
         }
         .fixedSize(horizontal: false, vertical: true)
-        // 6 pt on the phone: its column on its side holds the header, the panes' picker, the strip and
-        // the thumb row in about 370 pt, and the vertical speed's line, empty in level flight, already
-        // leaves room under the values. (6.1, device check)
-        .padding(.vertical, CockpitType.size(kneeboard: 10, phone: 6))
+        // 6 pt on the phone, 4 in its column on its side, which holds the header, the pages' picker, the
+        // strip, the next and NOW line and the act band in 370 pt. (6.1, device check; 6.2, PR 5)
+        .padding(.vertical, compact ? 4 : CockpitType.size(kneeboard: 10, phone: 6))
         .padding(.horizontal, 8)
         .background(theme.glassFill, in: RoundedRectangle(cornerRadius: 14))
         .overlay(RoundedRectangle(cornerRadius: 14).strokeBorder(theme.glassStroke, lineWidth: 0.5))
@@ -1399,7 +1405,7 @@ struct CockpitInstrumentStrip: View {
             // and moved everything under it, in flight. (6.1.0)
             VStack(spacing: 0) {
                 flagged(Text("\(Int(max(0, displaySpeed)))")
-                    .font(.aero(size: kneeboard ? CockpitType.value : 30, weight: .medium, design: .monospaced))
+                    .font(.aero(size: kneeboard ? valueSize : 30, weight: .medium, design: .monospaced))
                     .foregroundColor(speedColor)
                     .minimumScaleFactor(0.6).lineLimit(1))
                 InstrumentTargetBar(
@@ -1408,7 +1414,7 @@ struct CockpitInstrumentStrip: View {
                     } ?? 0,
                     state: SpeedIndicatorView.barState(for: speedState)
                 )
-                .frame(maxWidth: kneeboard ? 110 : 72).padding(.top, 3)
+                .frame(maxWidth: kneeboard ? 110 : 72).padding(.top, compact ? 1 : 3)
                 .opacity(targetSpeed == nil || gpsSignalStatus == .lost ? 0 : 1)
             }
         }
@@ -1425,7 +1431,11 @@ struct CockpitInstrumentStrip: View {
 
     private var altitudeCell: some View {
         // The widest altitude as the cell writes it, grouped for the region ("88'888", "88,888").
-        cell(label: "ALT ft", widest: 88_888.formatted(.number)) {
+        // In the phone's column on its side the vertical speed sits beside the label, where the cell has
+        // room: under the value it took a line of the column's height. (6.2, PR 5)
+        cell(label: "ALT ft", widest: 88_888.formatted(.number), accessory: {
+            if compact { verticalSpeedText }
+        }) {
             // The vertical speed's line is always there, empty in level flight: appearing at ±50 fpm it
             // pushed the strip, and the map under it, down a line and back up, in flight. The value
             // keeps its room under the GPS failure flag too. (6.1.0)
@@ -1434,12 +1444,7 @@ struct CockpitInstrumentStrip: View {
                     .font(.aero(size: valueSize, weight: .medium, design: .monospaced))
                     .foregroundColor(theme.textPrimary)
                     .minimumScaleFactor(0.5).lineLimit(1))
-                // Empty with GPS lost (`verticalSpeedDisplay`).
-                Text(verticalSpeedDisplay?.text ?? "↑000")
-                    .font(.aero(size: labelSize, weight: .semibold, design: .monospaced))
-                    .foregroundColor(verticalSpeedDisplay?.color ?? .clear)
-                    .lineLimit(1)
-                    .opacity(verticalSpeedDisplay == nil ? 0 : 1)
+                if !compact { verticalSpeedText }
             }
         }
         .accessibilityElement(children: .ignore)
@@ -1449,6 +1454,15 @@ struct CockpitInstrumentStrip: View {
         // On the phone the three cells are about 118 pt each, and "3'499" at the value size takes all
         // of it: the altitude, the widest figure, gets its width first. (iPhone pass)
         .frame(minWidth: kneeboard && CockpitScale.current == .phone ? 140 : 0)
+    }
+
+    /// "↑480" in its widest value's room, empty in level flight and with GPS lost (`verticalSpeedDisplay`).
+    private var verticalSpeedText: some View {
+        Text(verticalSpeedDisplay?.text ?? "↑000")
+            .font(.aero(size: labelSize, weight: .semibold, design: .monospaced))
+            .foregroundColor(verticalSpeedDisplay?.color ?? .clear)
+            .lineLimit(1)
+            .opacity(verticalSpeedDisplay == nil ? 0 : 1)
     }
 
     private var headingCell: some View {
@@ -1498,12 +1512,17 @@ struct CockpitInstrumentStrip: View {
         Rectangle().fill(theme.glassStroke).frame(width: 0.5).padding(.vertical, kneeboard ? 8 : 4)
     }
 
-    /// `widest`: the cell's widest value, which sets its width beside NEXT (`hugsValues`).
+    /// `widest`: the cell's widest value, which sets its width beside NEXT (`hugsValues`). `accessory`:
+    /// beside the label (ALT's vertical speed, in the phone's column on its side).
     @ViewBuilder
-    private func cell<Content: View>(label: String, widest: String,
-                                     @ViewBuilder content: () -> Content) -> some View {
+    private func cell<Content: View, Accessory: View>(label: String, widest: String,
+                                                      @ViewBuilder accessory: () -> Accessory = { EmptyView() },
+                                                      @ViewBuilder content: () -> Content) -> some View {
         VStack(spacing: 2) {
-            Text(label).font(.aero(size: labelSize)).foregroundColor(theme.textSecondary)
+            HStack(spacing: 6) {
+                Text(label).font(.aero(size: labelSize)).foregroundColor(theme.textSecondary)
+                accessory()
+            }
             content()
         }
         .modifier(StripCellWidth(widest: widest, size: valueSize, hugs: hugsValues))

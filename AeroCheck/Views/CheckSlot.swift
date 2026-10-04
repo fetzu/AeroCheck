@@ -352,8 +352,10 @@ struct CheckSlotButton: View {
     let action: () -> Void
 
     @Environment(\.cockpitTheme) private var theme
+    @Environment(\.actSlotHeight) private var slotHeight
 
-    /// The slot's height: the thumb bar's, 104 pt on the kneeboard and 92 on the phone.
+    /// The slot's height: the thumb bar's, 104 pt on the kneeboard and 92 on the phone; its slot's in the
+    /// act band (76 pt in the phone's grid on its side).
     static var height: CGFloat { CockpitTarget.thumb }
 
     var body: some View {
@@ -377,7 +379,7 @@ struct CheckSlotButton: View {
             // The phone's act band slot is about 100 pt wide (6.2): its words 8 pt in, 5 pt clear of the
             // amber border, set to fit (`ActFace`). At 6 pt "CROISIÈRE" ran into the border.
             .padding(.horizontal, narrow ? ActFace.inset : phone ? 10 : 22)
-            .frame(maxWidth: .infinity, minHeight: Self.height, maxHeight: Self.height)
+            .frame(maxWidth: .infinity, minHeight: slotHeight ?? Self.height, maxHeight: slotHeight ?? Self.height)
             .background(background)
             .contentShape(RoundedRectangle(cornerRadius: 16))
         }
@@ -654,11 +656,12 @@ struct MapFlightEventButton: View {
     var narrow: Bool = CockpitScale.current == .phone
     /// The words broken on two lines (`ActBandText.twoLines`).
     var twoLines: Bool = false
-    /// Half the band's height (the phone on its side): the words alone, no "Hold to confirm".
-    var half: Bool = false
+    /// The words' inset from the edges, where the slot sets another than the narrow slot's.
+    var horizontalInset: CGFloat? = nil
 
     @Environment(AppState.self) private var appState
     @Environment(\.cockpitTheme) private var theme
+    @Environment(\.actSlotHeight) private var slotHeight
     @EnvironmentObject private var flightEventDetector: FlightEventDetector
 
     var body: some View {
@@ -668,11 +671,12 @@ struct MapFlightEventButton: View {
         let title = twoLines ? ActBandText.twoLines(name) : name
         let icon = event == .goAround ? "arrow.up.right.circle.fill" : "arrow.triangle.2.circlepath"
         let identifier = event == .goAround ? "map.goAround" : "map.touchAndGo"
-        let height = half ? (CockpitTarget.thumb - 8) / 2 : CockpitTarget.thumb
+        let height = slotHeight ?? CockpitTarget.thumb
         // On the phone GO AROUND has a wide slot, its words 8 pt in; TOUCH-AND-GO the narrow one. Both set
         // to fit (`ActFace`). (6.2)
         let phone = CockpitScale.current == .phone
-        let padding: CGFloat? = narrow ? (phone && event == .goAround ? ActFace.inset : ActBandMetrics.narrowPadding()) : nil
+        let padding: CGFloat? = horizontalInset
+            ?? (narrow ? (phone && event == .goAround ? ActFace.inset : ActBandMetrics.narrowPadding()) : nil)
         if appState.isCircuitMode {
             CockpitThumbButton(title: title, icon: narrow ? nil : icon, style: .outlined(tint: theme.action),
                                titleLines: twoLines ? 2 : 1, horizontalPadding: padding ?? 14, minHeight: height,
@@ -685,7 +689,7 @@ struct MapFlightEventButton: View {
                                                                        : appState.currentFlight?.touchAndGoCount ?? 0,
                                 kneeboard: true, height: height,
                                 stacked: narrow, titleLines: twoLines ? 2 : 1, horizontalPadding: padding,
-                                showsHint: !half, spokenTitle: name, fitted: phone && narrow, action: perform)
+                                spokenTitle: name, fitted: phone && narrow, action: perform)
                 .accessibilityIdentifier(identifier)
         }
     }
@@ -710,6 +714,7 @@ struct MapFlightEventButton: View {
 struct FredaThumbButton: View {
     @Environment(AppState.self) private var appState
     @Environment(\.cockpitTheme) private var theme
+    @Environment(\.actSlotHeight) private var slotHeight
 
     private enum Stage: Equatable {
         /// The cruise check is still open: FREDA doesn't run yet.
@@ -766,7 +771,7 @@ struct FredaThumbButton: View {
             }
             .foregroundColor(textColor(stage))
             .padding(.horizontal, phone ? ActFace.inset : 12)
-            .frame(maxWidth: .infinity, minHeight: CockpitTarget.thumb)
+            .frame(maxWidth: .infinity, minHeight: slotHeight ?? CockpitTarget.thumb)
             .background(background(stage))
             .contentShape(RoundedRectangle(cornerRadius: 18))
         }

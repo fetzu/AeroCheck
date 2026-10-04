@@ -104,10 +104,14 @@ Owners and rules that aren't obvious from the names:
   is `CockpitNavState`, in the environment; never put a thumb row back into a page.
 - `NavigationView.swift` holds `NavigationMapView` (embedded in the Cockpit and in Plan › Map) and
   `MapPreset`. Its `chrome` says whose it is: `.plan` keeps every piece of its own chrome (side column on
-  its side, Routes at its foot, the legs and frequencies panel); `.cockpit(layout)` has no thumb row, no
-  side column, no legs panel, and neither the next-waypoint card nor NOW | NEXT (the read band has them
-  since 6.2); beside the phone's column on its side it is the chart, its next line and its frequencies,
-  until the column takes them.
+  its side, Routes at its foot, the legs and frequencies panel, the labelled controls row, CACHED, the
+  scale, the chips, the route's pill, the undo toast); `.cockpit(layout)` is the chart and
+  `CockpitChartChrome` over it (`CockpitMapChrome.swift`, 6.2): the stack at the right edge, the status
+  slot (UNDO, GPS, OFF ROUTE, CHART OFFLINE, TELL FIS, SIGMET on the path, BRIEFING; the rules in
+  `Services/CockpitStatus.swift`), the edge arrow once panned, the scale while zooming. OFF ROUTE is fed
+  every fix on every page (`CockpitMapState`, `CockpitMapFollower`), never on the map alone. Beside the
+  phone's column on its side the Cockpit's chart keeps its next line and its frequencies until the column
+  takes them.
 - Frequencies: the rules are `PhaseFrequencyPlanner` (`Services/PhaseFrequencyPlanner.swift`, pure:
   nearest 6 fields within 40 nm, the area FIS, CTRs within 25 nm). In flight `CockpitRadio` is the ONE
   source (NOW/NEXT for the map, ROUTE's RADIO, the Watch's list, the Companion iPhone's NOW line),

@@ -43,6 +43,8 @@ struct FlightView: View {
     @State private var navState: CockpitNavState
     /// NOW, NEXT and every frequency, on every page, and the Watch's list. (6.2, ROUTE)
     @State private var radio: CockpitRadio
+    /// OFF ROUTE, followed on every page, and More's requests to the chart. (6.2, MAP's chrome)
+    @State private var chartState = CockpitMapState()
     @State private var pulseNextButton = false
     @State private var pulseActionButton = false
     @State private var allItemsChecked = false
@@ -972,8 +974,11 @@ extension FlightView {
         .onChange(of: cockpitDefaultPane) { _, _ in paneChoice.suggestionChanged() }
         // NOW and NEXT on every page, CHECKLIST included, and the Watch's list. (6.2, ROUTE)
         .modifier(CockpitRadioFollower(radio: radio))
+        // OFF ROUTE on every fix, whatever page shows. (6.2, MAP's chrome)
+        .modifier(CockpitMapFollower(mapState: chartState))
         .environment(navState)
         .environment(radio)
+        .environment(chartState)
     }
 
     // MARK: Frame (6.2)
@@ -1037,13 +1042,13 @@ extension FlightView {
                 SeparateView { cockpitChecklistPane(narrow: narrow) }
             }
         case .map:
-            // The same map as the full-screen one, minus its top bar, its thumb row, its next-waypoint
-            // card and its frequencies (in the read band since 6.2): the chart and its controls fill the
-            // page. BRIEFING sits over the chart while its phase lasts (until the status slot, PR 4); the
-            // deferred count is in More.
+            // The chart alone since 6.2 (PR 4): the aircraft, the route, the airspace, and the chrome over
+            // them (the stack, the status slot with BRIEFING, the edge arrow, the scale while zooming). The
+            // next waypoint and the frequencies are in the read band, the deferred count and the SIGMETs
+            // in More.
             NavigationMapView(isPresented: .constant(true), showsCloseButton: false, chrome: .cockpit(layout),
-                              mapTopAccessory: cockpitMapChips,
                               onDivert: { navState.openDivert($0) },
+                              onOpenReference: { openReference($0) },
                               onShowRoute: { cockpitPaneBinding.wrappedValue = .route })
         case .route:
             CockpitRoutePage(layout: layout, onShowLeg: { showLeg($0) })
@@ -1077,7 +1082,7 @@ extension FlightView {
 
     /// A phone on its side (I7): everything the pilot works with in a column on the left, where the
     /// thumb is (the header, CHECKLIST · MAP · ROUTE, the strip, the act band), and the page on the right
-    /// at full height. The checklist's chips sit at the top of the list, BRIEFING over the chart. With the pane bar, the card and a row of controls over
+    /// at full height. The checklist's chips sit at the top of the list, BRIEFING in the chart's status slot. With the pane bar, the card and a row of controls over
     /// it, the map had about a third of its column left. (iPhone pass, I7) The column is the same for
     /// both pages since the act band (6.2): the map draws its chart and nothing else.
     private var cockpitColumns: some View {
@@ -1109,22 +1114,12 @@ extension FlightView {
             }
         case .map:
             NavigationMapView(isPresented: .constant(true), showsCloseButton: false, chrome: .cockpit(.columns),
-                              mapTopAccessory: cockpitMapChips,
                               onDivert: { navState.openDivert($0) },
+                              onOpenReference: { openReference($0) },
                               onShowRoute: { cockpitPaneBinding.wrappedValue = .route })
         case .route:
             CockpitRoutePage(layout: .columns, onShowLeg: { showLeg($0) })
         }
-    }
-
-    /// BRIEFING over the chart, while its phase lasts: opaque, where the chip's tint alone was
-    /// see-through. (The deferred count is in More on MAP since 6.2.)
-    private var cockpitMapChips: AnyView? {
-        guard appState.currentPhase.briefingType != nil else { return nil }
-        return AnyView(cockpitBriefingChip
-            .fixedSize()
-            .padding(6)
-            .background(RoundedRectangle(cornerRadius: 16).fill(theme.panel)))
     }
 
     /// The CHECKLIST page's chips, at the top of the list: what is deferred, the phase's BRIEFING, and

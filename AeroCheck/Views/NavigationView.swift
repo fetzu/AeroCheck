@@ -274,11 +274,11 @@ struct NavigationMapView: View {
     /// Where "Routes" goes instead of opening the routes as a cover: Plan › Map switches to its own
     /// Routes section, rather than stacking a second copy of it over the tab. (on-device review #4)
     var onShowRoutes: (() -> Void)? = nil
-    /// Over the chart, under the next waypoint: the Cockpit's chips that come and go (BRIEFING, the
-    /// cautions), on the phone. Over it, they pushed the next waypoint down as they came. (6.1)
-    var mapTopAccessory: AnyView? = nil
-    /// "Divert here" in an airport's callout, in flight: the Cockpit's Divert sheet, on the field.
+    /// "Divert here" in an airport's callout, in flight: the Cockpit's Divert sheet, on the field. TELL FIS
+    /// in the status slot opens it too.
     var onDivert: ((String?) -> Void)? = nil
+    /// The Cockpit's drawers, from the status slot: GPS and BRIEFING (`FlightView.openReference`). (6.2)
+    var onOpenReference: ((HUDReference) -> Void)? = nil
     /// The Cockpit's ROUTE page: where its next-waypoint card and frequencies go, in place of the legs
     /// panel, which is Plan › Map's alone since 6.2.
     var onShowRoute: (() -> Void)? = nil
@@ -287,6 +287,10 @@ struct NavigationMapView: View {
     /// The Cockpit's NOW and NEXT, from its one source on every page. Nil in Plan › Map, which computes its
     /// own (`recomputePhaseFrequencies`). (6.2, ROUTE)
     @Environment(CockpitRadio.self) private var cockpitRadio: CockpitRadio?
+    /// The Cockpit's OFF ROUTE and More's requests to the chart. Nil in Plan › Map. (6.2, PR 4)
+    @Environment(CockpitMapState.self) private var cockpitMap: CockpitMapState?
+    /// The status slot shows a state: what MAP frames is kept clear of it. (6.2, PR 4)
+    @State private var mapStatusShown = false
     /// The zoom MAP had before it framed a leg from ROUTE: put back with "Back to aircraft". (6.2)
     @State private var zoomBeforeLeg: LegZoom?
     /// A leg to frame once the chart has measured itself: the room its chrome takes. (6.2)
@@ -307,8 +311,6 @@ struct NavigationMapView: View {
     @State private var cameraBeforeLegs: LegsPanelMap.SavedCamera?
     @State private var showCacheInfoModal: Bool = false
     @State private var showSigmets: Bool = false
-    /// The Cockpit's chips over the chart, as last measured: the room kept for them. (6.1)
-    @State private var mapAccessoryHeight: CGFloat?
     @State private var showFlightPlanning: Bool = false
     /// Whether the flight-plan sheet (bottom bar) is expanded to show the full plan detail. (v4 UI/UX Revamp — inc C)
     @State private var navSheetExpanded: Bool = false
@@ -378,11 +380,8 @@ struct NavigationMapView: View {
     private var estimatedZoomLevel: Int {
         // Calculate zoom level from latitude span
         // At zoom 0, the world is 360° wide; each zoom level halves the span
-        let latSpan = mapState.region.span.latitudeDelta
-        if latSpan <= 0 { return 11 }
-        // Formula: zoom ≈ log2(360 / span)
-        let zoom = log2(360.0 / latSpan)
-        return Int(zoom.rounded())
+        // Formula: zoom ≈ log2(360 / span); CHART OFFLINE reads the same (6.2)
+        ChartAvailability.zoom(latitudeDelta: mapState.region.span.latitudeDelta)
     }
 
     // Shared map state for preserving position between layers
@@ -812,9 +811,11 @@ struct NavigationMapView: View {
                     mapArea(bottomPanel: SeparateView { bottomPanel(legsMaxHeight: height * 0.4) })
                 }
             } else {
-                // The Cockpit's chart, to the act band: NOW | NEXT are in its read band, over every page,
-                // since 6.2 (they were a card at the chart's foot).
-                SeparateView { mapArea(bottomPanel: EmptyView?.none) }
+                // The Cockpit's chart, to the act band, and its own chrome over it (`CockpitChartChrome`):
+                // NOW | NEXT are in its read band, over every page, since 6.2 (they were a card at the
+                // chart's foot), and the controls row, CACHED, the scale, the chips, the route's pill and
+                // the undo toast left the chart for the stack, the status slot and More (PR 4).
+                SeparateView { cockpitMapArea }
             }
         }
         // Declared once here, so both layouts have them.
@@ -869,25 +870,20 @@ struct NavigationMapView: View {
     /// read band took them everywhere else (6.2).
     private func columnsMapArea(legsMaxHeight: CGFloat) -> some View {
         VStack(spacing: 0) {
-            chartWithChrome(top: VStack(spacing: 8) {
-                if framedLeg != nil { framedLegBar } else { nextWaypointLine }
-                SeparateView { occasionalChips(pillLeading: true) }
-            }
-            .padding(.horizontal, 10)
-            .padding(.top, 8),
-            bottom: VStack(spacing: 8) {
-                MapUndoToast()
-                    .padding(.horizontal, 16)
-                // The controls at the foot of the chart, by the thumb, leaving the top (what's
-                // ahead, in Track up) clear, and the scale and the chart's source beside them. Not with
-                // the legs open: the band is a view. (6.1, option C)
-                if (panelChrome.showsMapControls || panelChrome.showsMapStatus) && framedLeg == nil {
-                    SeparateView { columnsMapFoot }
-                        .padding(.horizontal, 10)
+            // The Cockpit's chrome over the chart under the next line (6.2, PR 4): the stack at the right
+            // edge, the status slot, the edge arrow, the scale. The controls row at its foot, CACHED, the
+            // permanent scale, the chips, the route's pill and the undo toast went with it.
+            cockpitChartPresentations(
+                chartWithChrome(top: VStack(spacing: 8) {
+                    if framedLeg != nil { framedLegBar } else { nextWaypointLine }
                 }
-            }
-            .padding(.bottom, 8)
-            .sheet(isPresented: $showCacheInfoModal) { cacheInfoSheet })
+                .padding(.horizontal, 10)
+                .padding(.top, 8),
+                bottom: EmptyView())
+                .overlay {
+                    SeparateView { cockpitChartChrome }
+                        .padding(.top, chartGeometry.chromeBottom)
+                })
 
             // The frequencies, and the legs when opened, under the chart rather than over it.
             VStack(spacing: 0) {
@@ -975,41 +971,6 @@ struct NavigationMapView: View {
             mapControlsIcons
         }
         .sheet(isPresented: $showMapSheet) { mapSheet }
-    }
-
-    /// The landscape phone's foot of the chart: the chart's source and the scale bar at the left of
-    /// the controls, in their band. Stacked over the controls, they reached the middle of a chart about
-    /// 340 pt tall, by the aircraft. The controls keep their labels where all fits (a Pro Max), else go
-    /// to their icons, the fallback French already took; on a phone too narrow even for that (an iPhone
-    /// SE), the source and the scale go back over the controls. The portrait phone and the iPad keep
-    /// theirs over the chart's bottom left corner: there it is a corner. (6.1, device check)
-    private var columnsMapFoot: some View {
-        ViewThatFits(in: .horizontal) {
-            HStack(alignment: .bottom, spacing: 0) {
-                columnsMapStatus
-                Spacer(minLength: 8)
-                mapControlsLabelled
-            }
-            HStack(alignment: .bottom, spacing: 0) {
-                columnsMapStatus
-                Spacer(minLength: 8)
-                mapControlsIcons
-            }
-            VStack(alignment: .leading, spacing: 8) {
-                columnsMapStatus
-                mapControlsIcons
-                    .frame(maxWidth: .infinity, alignment: .trailing)
-            }
-        }
-        .sheet(isPresented: $showMapSheet) { mapSheet }
-    }
-
-    /// The source and the scale in the landscape phone's band, as wide whatever the zoom: the scale bar
-    /// runs 60 to 100 pt, and a band that changed its mind with every pinch would move the controls.
-    private var columnsMapStatus: some View {
-        mapStatus
-            .frame(minWidth: 100, alignment: .bottomLeading)
-            .fixedSize()
     }
 
     private var mapControlsLabelled: some View {
@@ -1251,14 +1212,11 @@ struct NavigationMapView: View {
 
     private static let chartSpace = "navChart"
 
-    /// What comes and goes over the chart, under the next waypoint and the map's controls: the Cockpit's
-    /// chips (BRIEFING, the deferred count; on the phone) and the SIGMET chip (only with a hazard in
-    /// range: a chip always there stops being read) on one row, then the off-screen route's pill. None of
-    /// them moves another. The chips keep the row's left and the SIGMET chip its right, so either comes
-    /// without moving the other (on the iPad, which has no chips, the SIGMET chip keeps the left); and
-    /// while the pill shows, the row above it keeps its full height, empty or not. The chips used to sit
-    /// over the next waypoint and push it down 54 pt on the phone, and a SIGMET after a data refresh moved
-    /// the pill down 38 pt. (6.1, stability)
+    /// What comes and goes over Plan › Map's chart, under the next waypoint and the map's controls: the
+    /// SIGMET chip (only with a hazard in range: a chip always there stops being read), then the off-screen
+    /// route's pill, the one never moving the other. A SIGMET after a data refresh moved the pill down
+    /// 38 pt. (6.1, stability) The Cockpit's chips, which shared the row, left its chart in 6.2 (PR 4) for
+    /// the status slot and More, and its pill for OFF ROUTE, the edge arrow and More's whole route.
     ///
     /// Laid out by the caller's stack, one view each. `pillLeading`: the pill at the left edge rather
     /// than in the middle.
@@ -1266,18 +1224,9 @@ struct NavigationMapView: View {
     private func occasionalChips(pillLeading: Bool) -> some View {
         let sigmets = rankedSigmets
         let showsPill = showsRouteOffScreenPill && routeOffScreenHint != nil
-        // The phone's Cockpit is where the chips come; elsewhere, once they have come.
-        let sharesRow = (CockpitScale.current == .phone && chrome != .plan) || mapAccessoryHeight != nil
-        let chipsHeight = sharesRow ? (mapAccessoryHeight ?? Self.cockpitChipsHeight) : 0
-        if mapTopAccessory != nil || !sigmets.isEmpty || showsPill {
+        // Plan › Map's: the Cockpit's chips left its chart for the status slot and More in 6.2 (PR 4).
+        if !sigmets.isEmpty || showsPill {
             HStack(alignment: .top, spacing: 8) {
-                if let mapTopAccessory {
-                    mapTopAccessory
-                        .background(GeometryReader { proxy in
-                            Color.clear.preference(key: MapAccessoryHeightKey.self, value: proxy.size.height)
-                        })
-                }
-                if sharesRow { Spacer(minLength: 0) }
                 ZStack(alignment: .topLeading) {
                     if showsPill {
                         // The chip's own height, kept for the pill under it.
@@ -1287,12 +1236,9 @@ struct NavigationMapView: View {
                     }
                     SigmetChip(hazards: sigmets) { showSigmets = true }
                 }
-                if !sharesRow { Spacer(minLength: 0) }
+                Spacer(minLength: 0)
             }
-            .frame(minHeight: showsPill ? chipsHeight : 0, alignment: .top)
-            .onPreferenceChange(MapAccessoryHeightKey.self) { height in
-                if height > 0 { mapAccessoryHeight = height }
-            }
+            .frame(minHeight: 0, alignment: .top)
         }
         if showsRouteOffScreenPill {
             routeOffScreenPill(leading: pillLeading)
@@ -1307,10 +1253,6 @@ struct NavigationMapView: View {
     private var showsRouteOffScreenPill: Bool {
         panelChrome.showsRouteOffScreenPill && framedLeg == nil
     }
-
-    /// The Cockpit's chips over the chart before they have been measured: a chip (`CockpitChip`) in the
-    /// 6 pt panel the Cockpit puts them on.
-    private static var cockpitChipsHeight: CGFloat { CockpitType.size(kneeboard: 52, phone: 46) + 12 }
 
     /// A hazard to measure the SIGMET chip by, never shown.
     private static let sigmetChipMeasure = [SigmetHazardItem(
@@ -2741,6 +2683,110 @@ struct NavigationMapView: View {
         }
     }
 
+    // MARK: - The Cockpit's chart (6.2, PR 4)
+
+    /// The Cockpit's MAP: the chart, the aircraft, the route and the airspace, and over them only the
+    /// chrome of `CockpitChartChrome` (the stack at the right edge, the status slot at the top left, the
+    /// edge arrow once panned, the scale while zooming). A leg shown from ROUTE has its bar along the foot,
+    /// left of the stack.
+    private var cockpitMapArea: some View {
+        cockpitChartPresentations(
+            chartWithChrome(top: EmptyView(), bottom: cockpitLegBar)
+                .overlay { SeparateView { cockpitChartChrome } })
+    }
+
+    /// The chrome, wired to this map.
+    private var cockpitChartChrome: some View {
+        CockpitChartChrome(mapState: mapState, networkMonitor: dataStatusManager.networkMonitor,
+                           orientation: mapOrientationMode, isFollowingAircraft: isFollowingAircraft,
+                           airspaceNeedsAttention: airspaceDataNeedsAttention,
+                           selectedLayer: isOfflineMode ? .icao : selectedLayer, sigmets: rankedSigmets,
+                           showsStack: cockpitShowsStack, footRoom: cockpitLegFootRoom,
+                           actions: MapChromeActions(
+                               toggleOrientation: { toggleOrientation() },
+                               showLayers: { showMapSheet = true },
+                               centre: { centerOnAircraft() },
+                               zoomIn: { zoom(by: 0.5) },
+                               zoomOut: { zoom(by: 2.0) },
+                               openStatus: { openStatus($0) }))
+            .onPreferenceChange(MapStatusShownKey.self) { mapStatusShown = $0 }
+    }
+
+    /// The Cockpit chart's sheets (the layers, where the chart comes from) and More's requests (the whole
+    /// route, the SIGMETs).
+    private func cockpitChartPresentations(_ content: some View) -> some View {
+        content
+            .sheet(isPresented: $showMapSheet) { mapSheet }
+            .sheet(isPresented: $showCacheInfoModal) { cacheInfoSheet }
+            .onChange(of: cockpitMap?.wholeRouteRequest) { _, _ in fitActiveRoute() }
+            .onChange(of: cockpitMap?.hazardsRequest) { _, _ in showSigmets = true }
+    }
+
+    /// A tap on the status slot: what the state is about.
+    private func openStatus(_ status: CockpitStatus) {
+        switch status {
+        case .undo: break
+        case .gps: onOpenReference?(.gps)
+        case .offRoute: frameAircraftAndLeg()
+        case .chartOffline: showCacheInfoModal = true
+        case .tellFIS: onDivert?(nil)
+        case .sigmet: showSigmets = true
+        case .briefing(let type): onOpenReference?(type == .departure ? .departureBriefing : .approachBriefing)
+        }
+    }
+
+    /// OFF ROUTE tapped: the aircraft and the leg it is off, framed clear of the chrome. The aircraft is no
+    /// longer followed; centre brings it back.
+    private func frameAircraftAndLeg() {
+        guard let leg = OffRouteRule.activeLeg(of: flightPlanManager.activeFlightPlan) else { return }
+        let coordinates = ([leg.from, leg.to] + [locationManager.currentLocation?.coordinate].compactMap { $0 })
+            .filter(CLLocationCoordinate2DIsValid)
+        isFollowingAircraft = false
+        mapState.pendingFitPadding = cockpitFramingPadding
+        mapState.pendingFitCoordinates = coordinates
+        mapState.objectWillChange.send()   // the fit isn't @Published; nudge updateUIView
+    }
+
+    /// On the phone a leg's bar takes the chart's foot, and the stack gives way (Back to aircraft is centre
+    /// then); the iPad keeps it, the bar left of it.
+    private var cockpitShowsStack: Bool {
+        !(framedLeg != nil && CockpitScale.current == .phone)
+    }
+
+    /// A leg's bar: a control's height and its 8 pt padding.
+    private static var legBarHeight: CGFloat { CockpitTarget.control + 16 }
+
+    /// What a leg's bar takes of the chart's foot, with the stack's margin under it; nothing beside the
+    /// phone's column on its side, where the bar is at the top.
+    private var cockpitLegFootRoom: CGFloat {
+        guard framedLeg != nil, chrome != .cockpit(.columns) else { return 0 }
+        return Self.legBarHeight + MapChromeGeometry.Metrics(.current).margin
+    }
+
+    /// The chrome's frames on this chart, as `CockpitChartChrome` lays them out.
+    private var cockpitChromeGeometry: MapChromeGeometry {
+        MapChromeGeometry(size: chartGeometry.chartSize, scale: .current, showsStack: cockpitShowsStack,
+                          footRoom: cockpitLegFootRoom)
+    }
+
+    /// The room around what MAP frames: clear of the chrome, within the caps a short chart needs.
+    private var cockpitFramingPadding: UIEdgeInsets {
+        LegFraming.edgePadding(chartSize: chartGeometry.chartSize,
+                               chrome: cockpitChromeGeometry.framingChrome(statusShown: mapStatusShown))
+    }
+
+    /// A leg's bar at the chart's foot, from the left margin to the stack.
+    private var cockpitLegBar: some View {
+        let margin = MapChromeGeometry.Metrics(.current).margin
+        let size = chartGeometry.chartSize
+        let frame = cockpitChromeGeometry.legBarFrame(height: Self.legBarHeight)
+        let trailing = size.width > 0 ? max(margin, size.width - frame.maxX) : margin
+        return framedLegBar
+            .padding(.leading, margin)
+            .padding(.trailing, trailing)
+            .padding(.bottom, margin)
+    }
+
     // MARK: - A leg from ROUTE (6.2, the plan's Q7)
 
     /// The leg ROUTE asked MAP to show (the index of the waypoint it arrives at), in the Cockpit only.
@@ -2754,17 +2800,8 @@ struct NavigationMapView: View {
         let latitudeDelta: Double
     }
 
-    /// What the chart's foot holds while a leg shows: the bar (a control's height and its 8 pt padding),
-    /// and under it the chart's source and the scale (`mapFooter`, about 76 pt with the CACHED badge). On a
-    /// phone too since 6.2: its bar was at the top, in the next line's place, until the line went to the
-    /// read band. A phone on its side keeps its bar at the top, in its next line's place, and only the
-    /// scale at the foot. (6.2)
-    private var framedLegFootRoom: CGFloat {
-        chrome == .cockpit(.columns) ? 60 : CockpitType.size(kneeboard: 170, phone: 160)
-    }
-
-    /// The leg framed: its two waypoints, clear of the chrome over the chart's top and of the bar at its
-    /// foot, the aircraft no longer followed.
+    /// The leg framed: its two waypoints, clear of the chrome over the chart and of the bar at its foot, the
+    /// aircraft no longer followed.
     private func frameRequestedLeg() {
         legFramePending = false
         guard let index = framedLeg, let plan = flightPlanManager.activeFlightPlan else { return }
@@ -2774,9 +2811,7 @@ struct NavigationMapView: View {
             return
         }
         isFollowingAircraft = false
-        mapState.pendingFitPadding = LegFraming.edgePadding(chartSize: chartGeometry.chartSize,
-                                                            topChrome: chartGeometry.chromeBottom,
-                                                            bottomChrome: framedLegFootRoom)
+        mapState.pendingFitPadding = framedLegPadding
         mapState.pendingFitCoordinates = coordinates
         mapState.objectWillChange.send()   // the fit isn't @Published; nudge updateUIView
         // Appearing, the map view may not have its size yet, and keeps the fit pending: once more when
@@ -2784,6 +2819,19 @@ struct NavigationMapView: View {
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { [mapState] in
             if mapState.pendingFitCoordinates != nil { mapState.objectWillChange.send() }
         }
+    }
+
+    /// The room around a leg from ROUTE. The chart's own chrome since PR 4: the bar along the foot, left of
+    /// the stack (the phone's stack gives way to it), the stack's column at the right edge (the iPad in
+    /// portrait), the status slot when a state shows; the read band took the chart's top in PR 3. Beside the
+    /// phone's column on its side, the bar takes the next line's place at the top, and the scale's 60 pt
+    /// stay at the foot. (6.2)
+    private var framedLegPadding: UIEdgeInsets {
+        if chrome == .cockpit(.columns) {
+            return LegFraming.edgePadding(chartSize: chartGeometry.chartSize, topChrome: chartGeometry.chromeBottom,
+                                          bottomChrome: 60)
+        }
+        return cockpitFramingPadding
     }
 
     /// Back to the aircraft, followed again at the zoom the pilot had before the leg.
@@ -6461,11 +6509,6 @@ private struct ChartSizeKey: PreferenceKey {
     }
 }
 
-private struct MapAccessoryHeightKey: PreferenceKey {
-    static let defaultValue: CGFloat = 0
-    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) { value = max(value, nextValue()) }
-}
-
 private struct ChartChromeBottomKey: PreferenceKey {
     static let defaultValue: CGFloat = 0
     static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) { value = max(value, nextValue()) }
@@ -7172,7 +7215,7 @@ struct AutoMarkUndoToast: View {
 
 /// The toasts' animations, and the newer offer withdrawing the band's older one: a waypoint the flight
 /// marked on its own, or a check just confirmed, supersedes the undo of an older MARK or reset.
-private struct UndoOfferFollower: ViewModifier {
+struct UndoOfferFollower: ViewModifier {
     let cockpitNav: CockpitNavState?
     @Environment(AppState.self) private var appState
     @EnvironmentObject private var flightPlanManager: FlightPlanManager

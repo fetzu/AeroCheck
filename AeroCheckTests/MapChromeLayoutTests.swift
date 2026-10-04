@@ -255,6 +255,73 @@ final class MapChromeLayoutTests: XCTestCase {
         XCTAssertEqual(MapChromeGeometry.Metrics(.current).slotHeight, NavUndoToast.buttonHeight, "as tall as the toast's UNDO")
     }
 
+    // MARK: - A leg from ROUTE, OFF ROUTE's framing (PR 4)
+
+    /// A leg shown from ROUTE: its bar along the chart's foot, from the left margin to the stack on the
+    /// iPad (which keeps its stack, a column or a row), across the chart on the phone (whose stack gives
+    /// way); the scale and the edge arrow kept over the bar, the slot where it was.
+    func testALegsBarTakesTheFootLeftOfTheStack() {
+        let barHeight = CGFloat(80)
+        for chart in Chart.allCases {
+            let phone = chart.scale == .phone
+            let plain = MapChromeGeometry(size: chart.size, scale: chart.scale)
+            let footRoom = barHeight + plain.metrics.margin
+            let leg = MapChromeGeometry(size: chart.size, scale: chart.scale, showsStack: !phone, footRoom: footRoom)
+            let bar = leg.legBarFrame(height: barHeight)
+            XCTAssertEqual(bar.minX, leg.metrics.margin, chart.rawValue)
+            XCTAssertEqual(bar.maxY, chart.size.height - leg.metrics.margin, chart.rawValue)
+            if phone {
+                XCTAssertTrue(leg.controls.isEmpty, "the phone's stack gives way to the bar")
+                XCTAssertEqual(bar.maxX, chart.size.width - leg.metrics.margin, "the bar across the phone's chart")
+                XCTAssertEqual(leg.statusSlot.width, chart.size.width - 2 * leg.metrics.margin, "the slot across it too")
+            } else {
+                XCTAssertEqual(leg.controls, plain.controls, "the iPad keeps its stack")
+                for control in leg.controls {
+                    XCTAssertEqual(leg.frame(control), plain.frame(control), "\(control) where it was, \(chart.rawValue)")
+                    XCTAssertFalse(bar.intersects(leg.frame(control)), "the bar clear of \(control), \(chart.rawValue)")
+                }
+                XCTAssertEqual(leg.statusSlot, plain.statusSlot)
+                XCTAssertGreaterThan(bar.width, 600, "room for Back to aircraft and DIRECT SAIGNELÉGIER (\(bar.width))")
+            }
+            XCTAssertLessThanOrEqual(leg.scale.maxY, bar.minY, "the scale over the bar, \(chart.rawValue)")
+            XCTAssertLessThanOrEqual(leg.arrowBounds.maxY, bar.minY, "the arrow over the bar, \(chart.rawValue)")
+            XCTAssertFalse(leg.arrowBounds.intersects(leg.statusSlot), chart.rawValue)
+        }
+    }
+
+    /// What MAP frames (a leg, or the aircraft and its leg after OFF ROUTE) stays clear of the chrome: the
+    /// slot when a state shows, the iPad's column at the right, its row on its side and a leg's bar at the
+    /// foot; within the caps a short chart needs, so the framed part never shrinks to nothing.
+    func testFramingKeepsClearOfTheChrome() {
+        let portrait = MapChromeGeometry(size: Chart.iPadPortrait.size, scale: .kneeboard)
+        let dark = portrait.framingChrome(statusShown: false)
+        XCTAssertEqual(dark.top, 0)
+        XCTAssertEqual(dark.right, 16 + 78, "the column and its margin")
+        XCTAssertEqual(dark.bottom, 0)
+        XCTAssertEqual(portrait.framingChrome(statusShown: true).top, 16 + 78, "the slot and its margin")
+        let padding = LegFraming.edgePadding(chartSize: Chart.iPadPortrait.size, chrome: portrait.framingChrome(statusShown: true))
+        XCTAssertEqual(padding.right, 16 + 78 + 16)
+        XCTAssertEqual(padding.left, 40)
+        XCTAssertEqual(padding.top, 16 + 78 + 16)
+
+        let side = MapChromeGeometry(size: Chart.iPadLandscape.size, scale: .kneeboard)
+        XCTAssertEqual(side.framingChrome(statusShown: false).bottom, 16 + 78, "the row at the foot")
+        XCTAssertEqual(side.framingChrome(statusShown: false).right, 0)
+
+        let leg = MapChromeGeometry(size: Chart.iPadPortrait.size, scale: .kneeboard, footRoom: 96)
+        XCTAssertEqual(leg.framingChrome(statusShown: false).bottom, 96, "the bar at the foot")
+
+        // A phone's short chart with a state showing: the caps leave the leg a fifth of it at least.
+        let phone = MapChromeGeometry(size: Chart.phone.size, scale: .phone, showsStack: false, footRoom: 78)
+        let phonePadding = LegFraming.edgePadding(chartSize: Chart.phone.size, chrome: phone.framingChrome(statusShown: true))
+        XCTAssertGreaterThanOrEqual(Chart.phone.size.height - phonePadding.top - phonePadding.bottom, Chart.phone.size.height * 0.2 - 0.5)
+        XCTAssertLessThanOrEqual(phonePadding.top, Chart.phone.size.height * 0.45)
+        XCTAssertEqual(phonePadding.left, 39, "a tenth of a narrow chart")
+        // The old way in: top and foot only, as beside the phone's column on its side.
+        XCTAssertEqual(LegFraming.edgePadding(chartSize: CGSize(width: 500, height: 300), topChrome: 50, bottomChrome: 60),
+                       UIEdgeInsets(top: 66, left: 40, bottom: 76, right: 40))
+    }
+
     // MARK: - The chart left free
 
     /// How much chart the chrome leaves: the controls always, the slot while a state shows. Today's chart
@@ -268,6 +335,25 @@ final class MapChromeLayoutTests: XCTestCase {
             let minimum: (Double, Double) = chart.scale == .kneeboard ? (0.90, 0.78) : (0.84, 0.57)
             XCTAssertGreaterThanOrEqual(dark, minimum.0, "\(chart.rawValue): \(percent(dark)) free")
             XCTAssertGreaterThanOrEqual(withStatus, minimum.1, "\(chart.rawValue), a state showing: \(percent(withStatus)) free")
+        }
+    }
+
+    /// The same on the charts the Cockpit has since the chrome is on screen (PR 4), measured on the
+    /// simulators in cruise: an iPad Air 11" upright and on its side, an iPhone 17e, 17 and 17 Pro Max with
+    /// the phase bar in the phase button.
+    func testTheChromeLeavesTheMeasuredChartsFree() {
+        let charts: [(String, CGSize, CockpitScale, Double, Double)] = [
+            ("iPad portrait", CGSize(width: 820, height: 607), .kneeboard, 0.93, 0.86),
+            ("iPad on its side", CGSize(width: 1_180, height: 299), .kneeboard, 0.91, 0.80),
+            ("iPhone 17e", CGSize(width: 390, height: 274), .phone, 0.85, 0.60),
+            ("iPhone 17", CGSize(width: 402, height: 289), .phone, 0.86, 0.62),
+            ("iPhone 17 Pro Max", CGSize(width: 440, height: 371), .phone, 0.90, 0.66),
+        ]
+        for (name, size, scale, dark, withState) in charts {
+            let geometry = MapChromeGeometry(size: size, scale: scale)
+            XCTAssertTrue(geometry.isColumn || scale == .kneeboard, "\(name): the phone's stack a column")
+            XCTAssertGreaterThanOrEqual(geometry.freeFraction(statusShown: false), dark, name)
+            XCTAssertGreaterThanOrEqual(geometry.freeFraction(statusShown: true), withState, name)
         }
     }
 

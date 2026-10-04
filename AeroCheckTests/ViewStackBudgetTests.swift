@@ -96,6 +96,34 @@ final class ViewStackBudgetTests: XCTestCase {
         XCTAssertLessThan(used, Self.budget, "the Cockpit's map on its side used \(used / 1_024) KB of stack")
     }
 
+    /// The Cockpit on its chart with a state in the status slot (6.2, PR 4): UNDO with its countdown after a
+    /// check done from memory, and CHART OFFLINE (no network here, no cache) with a route armed, on an iPad
+    /// in portrait and on its side.
+    func testCockpitMapWithAStatusShowingRendersWithinHalfTheDeviceStack() {
+        for (size, name) in [(CGSize(width: 820, height: 1_180), "iPad portrait"),
+                             (CGSize(width: 1_180, height: 820), "iPad on its side")] {
+            let undo = makeServices()
+            startFlight(undo.appState, stepByStep: true)
+            undo.appState.settings.learningMode = false
+            undo.appState.currentPhase = .landing
+            undo.appState.confirmMemoryCheck()
+            XCTAssertNotNil(undo.appState.memoryConfirmationToOffer, "UNDO offered")
+            let withUndo = StackProbe.bytesUsed {
+                render(FlightView(initialPane: .map), services: undo, size: size)
+            }
+            XCTAssertLessThan(withUndo, Self.budget, "the Cockpit's chart with UNDO, \(name), used \(withUndo / 1_024) KB of stack")
+
+            let offline = makeServices()
+            startFlight(offline.appState, stepByStep: false)
+            offline.appState.goToPhase(.descent)
+            armRoute(offline.flightPlanManager, waypoints: 6)
+            let withState = StackProbe.bytesUsed {
+                render(FlightView(initialPane: .map), services: offline, size: size)
+            }
+            XCTAssertLessThan(withState, Self.budget, "the Cockpit's chart with CHART OFFLINE, \(name), used \(withState / 1_024) KB of stack")
+        }
+    }
+
     /// The Cockpit on ROUTE in cruise with a route of six waypoints (6.2): the DEST line, the legs beside
     /// the radio, Emergency under them, the act band, on an iPad in portrait and on its side, and at a
     /// phone's width.

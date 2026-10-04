@@ -2482,6 +2482,16 @@ enum L10n {
             String(format: text("mapChrome.a11y.edgeArrow", "Aircraft off screen, at %lld o’clock", language), clock)
         }
 
+        // More's items for the chart, on MAP.
+        /// The SIGMETs in range, whose chip left the chart: "Hazards (2)".
+        static func hazards(_ count: Int, language: String? = nil) -> String {
+            String(format: text("mapChrome.more.hazards", "Hazards (%lld)", language), count)
+        }
+        /// The whole route framed, as the off-screen route's pill did.
+        static func wholeRoute(language: String? = nil) -> String {
+            text("mapChrome.more.wholeRoute", "Show the whole route", language)
+        }
+
         private static func text(_ key: String, _ english: String, _ language: String?) -> String {
             guard let language else { return Bundle.main.localizedString(forKey: key, value: english, table: nil) }
             return localizedString(key: key, language: language, defaultValue: english)

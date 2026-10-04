@@ -206,6 +206,7 @@ final class CockpitStatusTests: XCTestCase {
     /// A suppression starts the rule again from on-route.
     func testASuppressionResetsTheHysteresis() {
         var rule = OffRouteRule()
+        XCTAssertNil(rule.update(flying(0.3)), "on the route: joined")
         XCTAssertNotNil(rule.update(flying(1.2)))
         var degraded = flying(0.8)
         degraded.gpsGood = false
@@ -268,6 +269,188 @@ final class CockpitStatusTests: XCTestCase {
         XCTAssertFalse(OffRouteRule.gpsIsGood(isTracking: false, signal: .good, isSimulating: false))
         XCTAssertTrue(OffRouteRule.gpsIsGood(isTracking: true, signal: .degraded, isSimulating: true),
                       "a simulated position is held at degraded, and OFF ROUTE is what it is for")
+    }
+
+    // MARK: - OFF ROUTE never where the pilot is right (PR 4)
+
+    /// West to east along 46.5°N, then north, then east: W0 the departure, W4 the destination, every leg
+    /// 18 to 29 NM, the middle ones far from both fields.
+    private let route: [CLLocationCoordinate2D] = [
+        .init(latitude: 46.5, longitude: 6.5), .init(latitude: 46.5, longitude: 7.0),
+        .init(latitude: 46.5, longitude: 7.5), .init(latitude: 46.8, longitude: 7.5),
+        .init(latitude: 46.8, longitude: 8.2),
+    ]
+
+    private func route(next: Int) -> FlightPlan {
+        var plan = FlightPlan(waypoints: route.enumerated().map { index, coordinate in
+            FlightPlanWaypoint(name: "W\(index)", coordinate: coordinate)
+        })
+        plan.currentWaypointIndex = next
+        return plan
+    }
+
+    /// `nm` miles north (south when negative) and `east` miles east of `point`.
+    private func offset(_ point: CLLocationCoordinate2D, north nm: Double, east: Double = 0) -> CLLocationCoordinate2D {
+        .init(latitude: point.latitude + nm / 60,
+              longitude: point.longitude + east / (60 * cos(point.latitude * .pi / 180)))
+    }
+
+    private func inFlight(_ plan: FlightPlan, at aircraft: CLLocationCoordinate2D) -> OffRouteRule.Input {
+        OffRouteRule.Input(plan: plan, aircraft: aircraft, inCircuits: false, airborne: true, gpsGood: true)
+    }
+
+    /// The legs that count: the one just flown, the one flown, every one after it; none before the take-off,
+    /// after the destination or diverting. The fields: the departure and the destination.
+    func testTheRouteIsTheLegFlownAndTheLegsAroundIt() throws {
+        func legs(_ next: Int) -> [Double] {
+            OffRouteRule.otherLegs(of: route(next: next)).map(\.to.longitude)
+        }
+        XCTAssertEqual(legs(1), [7.5, 7.5, 8.2], "on the first leg: every one after it")
+        XCTAssertEqual(legs(2), [7.0, 7.5, 8.2], "the one just flown (to W1), then W3 and W4's")
+        XCTAssertEqual(legs(4), [7.5], "on the last leg: the one just flown")
+        XCTAssertEqual(legs(0), [], "the leg to the departure: none")
+        XCTAssertEqual(legs(5), [], "the destination marked: none")
+        var diverting = route(next: 2)
+        diverting.diversion = Diversion(ident: "LSGN", name: "Neuchâtel", latitude: 46.95, longitude: 6.86, leftRouteAt: 2)
+        XCTAssertEqual(OffRouteRule.otherLegs(of: diverting).count, 0)
+        let fields = OffRouteRule.fields(of: route(next: 2))
+        XCTAssertEqual(fields.map(\.longitude), [6.5, 8.2])
+        XCTAssertEqual(OffRouteRule.fields(of: nil).count, 0)
+        let input = inFlight(route(next: 2), at: route[1])
+        XCTAssertEqual(input.target, 2)
+        XCTAssertEqual(input.otherLegs.count, 3)
+        XCTAssertEqual(input.fields.count, 2)
+    }
+
+    /// Flown past the waypoint before the flight marks it (a catch-up runs every 15 s), MARK pressed early,
+    /// a waypoint taken back and flown past: on the route, though miles off the leg flown.
+    func testTheLegsAroundTheLegFlownAreTheRouteToo() throws {
+        let pastW2 = offset(route[2], north: 2)                         // on W2 → W3, W2 still the target
+        XCTAssertEqual(OffRouteRule.crossTrackNM(pastW2, leg: try XCTUnwrap(OffRouteRule.activeLeg(of: route(next: 2)))),
+                       2, accuracy: 0.05, "2 NM past the leg's end")
+        XCTAssertEqual(try XCTUnwrap(OffRouteRule.routeDistance(inFlight(route(next: 2), at: pastW2))), 0, accuracy: 0.05)
+
+        let beforeW2 = offset(route[2], north: 0, east: -1.5)           // W2 marked 1.5 NM early, on W1 → W2
+        XCTAssertEqual(try XCTUnwrap(OffRouteRule.routeDistance(inFlight(route(next: 3), at: beforeW2))), 0, accuracy: 0.05)
+
+        let onLastLeg = offset(route[3], north: 0, east: 10)            // W2 taken back, flown on to W3 → W4
+        XCTAssertEqual(try XCTUnwrap(OffRouteRule.routeDistance(inFlight(route(next: 2), at: onLastLeg))), 0, accuracy: 0.05)
+
+        // Off every one of them, it speaks.
+        let off = offset(CLLocationCoordinate2D(latitude: 46.65, longitude: 7.5), north: 0, east: 2)
+        var rule = OffRouteRule()
+        XCTAssertNil(rule.update(inFlight(route(next: 3), at: CLLocationCoordinate2D(latitude: 46.65, longitude: 7.5))))
+        XCTAssertEqual(try XCTUnwrap(rule.update(inFlight(route(next: 3), at: off))), 2, accuracy: 0.05)
+    }
+
+    /// Within 5 NM of the departure and the destination, the circuit, its joining and its leaving are
+    /// flown, not the line: dark.
+    func testNearTheRoutesFieldsOffRouteIsDark() throws {
+        let nearDeparture = offset(route[0], north: 1.5, east: 3)       // 3.4 NM from W0, 1.5 NM off W0 → W1
+        XCTAssertNil(OffRouteRule.routeDistance(inFlight(route(next: 1), at: nearDeparture)))
+        let pastIt = offset(route[0], north: 1.5, east: 6)              // 6.2 NM out
+        XCTAssertEqual(try XCTUnwrap(OffRouteRule.routeDistance(inFlight(route(next: 1), at: pastIt))), 1.5, accuracy: 0.05)
+        let joining = offset(route[4], north: -1.6, east: -2)           // the destination's downwind
+        XCTAssertNil(OffRouteRule.routeDistance(inFlight(route(next: 4), at: joining)))
+        XCTAssertTrue(OffRouteRule.isNearField(route[4], fields: [route[4]]))
+        XCTAssertFalse(OffRouteRule.isNearField(route[2], fields: OffRouteRule.fields(of: route(next: 2))))
+    }
+
+    /// The take-off: the aircraft leaves the field on the runway's heading and joins the first leg miles
+    /// out. OFF ROUTE waits until it has been on the route once (within 0.7 NM), then speaks as before.
+    func testTheDepartureJoinsTheRouteBeforeOffRouteSpeaks() {
+        var rule = OffRouteRule()
+        var ground = inFlight(route(next: 0), at: route[0])
+        ground.airborne = false
+        XCTAssertNil(rule.update(ground))
+        XCTAssertNil(rule.update(inFlight(route(next: 1), at: offset(route[0], north: 0.5))), "the take-off marks W0")
+        let w1 = route[1]
+        XCTAssertNil(rule.update(inFlight(route(next: 1), at: offset(w1, north: 1.4, east: -12))), "6 NM out, 1.4 off: joining")
+        XCTAssertFalse(rule.hasJoinedRoute)
+        XCTAssertNil(rule.update(inFlight(route(next: 1), at: offset(w1, north: 1.1, east: -9))))
+        XCTAssertNil(rule.update(inFlight(route(next: 1), at: offset(w1, north: 0.5, east: -6))), "on the leg: joined")
+        XCTAssertTrue(rule.hasJoinedRoute)
+        XCTAssertEqual(rule.update(inFlight(route(next: 1), at: offset(w1, north: 1.2, east: -4))) ?? 0, 1.2, accuracy: 0.05)
+    }
+
+    /// The next waypoint, by a passage or MARK, keeps the route joined. Any other new target (DIRECT, RESUME
+    /// LEG, UNDO, the route resumed) makes the aircraft join it again first.
+    func testANewTargetOtherThanTheNextWaypointJoinsAgain() {
+        var rule = OffRouteRule()
+        let midW1W2 = CLLocationCoordinate2D(latitude: 46.5, longitude: 7.25)
+        let midW2W3 = CLLocationCoordinate2D(latitude: 46.65, longitude: 7.5)
+        XCTAssertNil(rule.update(inFlight(route(next: 2), at: midW1W2)))
+        XCTAssertNotNil(rule.update(inFlight(route(next: 2), at: offset(midW1W2, north: 1.5))))
+        // W2 passed: still off, said at once.
+        XCTAssertNotNil(rule.update(inFlight(route(next: 3), at: offset(midW2W3, north: 0, east: 1.5))))
+        // RESUME LEG back to W2 from there: joined again first.
+        XCTAssertNil(rule.update(inFlight(route(next: 2), at: offset(midW2W3, north: 0, east: 1.5))))
+        XCTAssertFalse(rule.hasJoinedRoute)
+        XCTAssertNil(rule.update(inFlight(route(next: 2), at: midW2W3)), "back on the route")
+        XCTAssertTrue(rule.hasJoinedRoute)
+        // DIRECT to W4, 4 NM east of W2 → W3: on the way, not off.
+        XCTAssertNil(rule.update(inFlight(route(next: 4), at: CLLocationCoordinate2D(latitude: 46.6, longitude: 7.6))))
+        XCTAssertFalse(rule.hasJoinedRoute)
+        XCTAssertNil(rule.update(inFlight(route(next: 4), at: offset(route[3], north: -0.4, east: 6))), "joined W3 → W4")
+        XCTAssertNotNil(rule.update(inFlight(route(next: 4), at: offset(route[3], north: -1.3, east: 9))))
+    }
+
+    /// GPS lost a moment keeps the route joined; diverting, circuits and the ground start the joining over.
+    func testOnlyLeavingTheRouteOnPurposeStartsTheJoiningOver() {
+        let midW1W2 = CLLocationCoordinate2D(latitude: 46.5, longitude: 7.25)
+        var rule = OffRouteRule()
+        XCTAssertNil(rule.update(inFlight(route(next: 2), at: midW1W2)))
+        var degraded = inFlight(route(next: 2), at: offset(midW1W2, north: 1.2))
+        degraded.gpsGood = false
+        XCTAssertNil(rule.update(degraded))
+        XCTAssertTrue(rule.hasJoinedRoute, "a GPS dropout is not leaving the route")
+        XCTAssertNotNil(rule.update(inFlight(route(next: 2), at: offset(midW1W2, north: 1.2))))
+
+        var diverting = route(next: 2)
+        diverting.diversion = Diversion(ident: "LSGN", name: "Neuchâtel", latitude: 46.95, longitude: 6.86, leftRouteAt: 2)
+        XCTAssertNil(rule.update(inFlight(diverting, at: offset(midW1W2, north: 5))))
+        XCTAssertFalse(rule.hasJoinedRoute)
+        XCTAssertNil(rule.update(inFlight(route(next: 2), at: offset(midW1W2, north: 3))), "the route resumed: on the way back")
+    }
+
+    /// The Cockpit's OFF ROUTE: to the tenth, said again only when it changes.
+    @MainActor
+    func testTheCockpitKeepsOffRouteToTheTenth() {
+        let state = CockpitMapState()
+        let midW1W2 = CLLocationCoordinate2D(latitude: 46.5, longitude: 7.25)
+        state.note(inFlight(route(next: 2), at: midW1W2))
+        XCTAssertNil(state.offRouteNM)
+        state.note(inFlight(route(next: 2), at: offset(midW1W2, north: 1.234)))
+        XCTAssertEqual(state.offRouteNM ?? 0, 1.2, accuracy: 1e-9)
+        state.showWholeRoute()
+        state.showHazards()
+        XCTAssertEqual(state.wholeRouteRequest, 1)
+        XCTAssertEqual(state.hazardsRequest, 1)
+    }
+
+    /// The flight's own input: airborne from LINE UP to the landing, good GPS as the rule takes it.
+    func testTheInputInFlight() {
+        let input = OffRouteRule.Input(plan: route(next: 2), aircraft: route[1], circuits: false,
+                                       lineUpTime: Date(), landingTime: nil, isTracking: true, signal: .good,
+                                       isSimulating: false)
+        XCTAssertTrue(input.airborne && input.gpsGood && !input.inCircuits)
+        let landed = OffRouteRule.Input(plan: route(next: 2), aircraft: route[1], circuits: true, lineUpTime: Date(),
+                                        landingTime: Date(), isTracking: true, signal: .degraded, isSimulating: false)
+        XCTAssertFalse(landed.airborne || landed.gpsGood)
+        XCTAssertTrue(landed.inCircuits)
+    }
+
+    /// The slot's other inputs as the map gathers them: the zoom as the map estimates it, the SIGMET named
+    /// as the sheet names it.
+    @MainActor
+    func testTheMapsZoomAndTheSigmetsName() {
+        XCTAssertEqual(ChartAvailability.zoom(latitudeDelta: 360), 0)
+        XCTAssertEqual(ChartAvailability.zoom(latitudeDelta: 0.1), 12)
+        XCTAssertEqual(ChartAvailability.zoom(latitudeDelta: 0.7), 9)
+        XCTAssertEqual(ChartAvailability.zoom(latitudeDelta: 0), 11)
+        XCTAssertEqual(ChartAvailability.zoom(latitudeDelta: .infinity), 11)
+        XCTAssertEqual(CockpitChartChrome.sigmetSummary(hazard("TURB", crossesRoute: true)), "TURB · " + L10n.Nav.sigmetOnRoute)
+        XCTAssertEqual(CockpitChartChrome.sigmetSummary(hazard("TS", inside: true, distance: 0)), "TS · " + L10n.Nav.sigmetOverhead)
     }
 
     // MARK: - CHART OFFLINE

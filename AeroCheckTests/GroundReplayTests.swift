@@ -198,6 +198,36 @@ final class GroundReplayTests: XCTestCase {
         XCTAssertEqual(try XCTUnwrap(flight.endedFlight).fullStopCount, 1)
     }
 
+    // MARK: - OFF ROUTE (6.2, MAP's status slot)
+
+    /// OFF ROUTE never speaks on the routes the replays fly (plan PR 4), fed at every fix as the Cockpit
+    /// feeds it. route-vrps with the UI test's own taps: SAIGNELEGIER marked on its own and taken back, a
+    /// minute flown past it, MARK, then RESUME LEG on ST-URSANNE once marked; xc-planned, whose departure
+    /// joins the leg to INS 9 NM out. A rule on the leg flown alone, as 6.2 first had it, would have spoken
+    /// on both: asked too, so the replays are a test of something.
+    func testOffRouteNeverSpeaksOnTheRoutesTheReplaysFly() throws {
+        for name in ["route-vrps", "xc-planned"] {
+            let flight = try HeadlessFlight(test: self, scenario: name)
+            let watch = OffRouteWatch(flight: flight, pilotTakesBackSaignelegier: name == "route-vrps")
+            flight.fly()
+            XCTAssertEqual(watch.spoke, [], "\(name): OFF ROUTE")
+            XCTAssertFalse(watch.legAlone.isEmpty, "\(name): the leg flown alone would have said OFF ROUTE")
+            if name == "route-vrps" {
+                XCTAssertEqual(watch.taps, ["UNDO SAIGNELEGIER", "MARK SAIGNELEGIER", "RESUME LEG ST-URSANNE"])
+            }
+        }
+    }
+
+    /// And it speaks where a flight does leave its route: the descent abandoned for another field, the
+    /// route still armed, miles off it.
+    func testOffRouteSpeaksWhenTheFlightLeavesTheRoute() throws {
+        let flight = try HeadlessFlight(test: self, scenario: "xc-descent-abandoned")
+        let watch = OffRouteWatch(flight: flight)
+        flight.fly()
+        XCTAssertFalse(watch.spoke.isEmpty, "OFF ROUTE once off the route")
+        XCTAssertGreaterThan(watch.farthest, 5, "miles off: \(watch.farthest) NM")
+    }
+
     /// A barometric altitude in the scenario reaches the recorded track, as the device's barometer does.
     func testABarometricAltitudeIsRecordedWithTheFix() throws {
         let appState = makeTestAppState()
@@ -217,6 +247,56 @@ final class GroundReplayTests: XCTestCase {
 }
 
 // MARK: - The headless pilot
+
+/// OFF ROUTE through a headless flight: the Cockpit's rule fed every fix (GPS good: the replay's fixes are
+/// the device's own), and beside it the rule on the leg flown alone. With `pilotTakesBackSaignelegier`,
+/// the taps of `WaypointMarkingUITests`: UNDO on SAIGNELEGIER marked on its own, MARK a minute later,
+/// RESUME LEG on ST-URSANNE once it is marked.
+@MainActor
+private final class OffRouteWatch {
+    private(set) var spoke: [String] = []
+    private(set) var legAlone: [String] = []
+    private(set) var farthest = 0.0
+    private(set) var taps: [String] = []
+    private var rule = OffRouteRule()
+    private var wasOffTheLeg = false
+
+    init(flight: HeadlessFlight, pilotTakesBackSaignelegier: Bool = false) {
+        var takenBackAt: Double?
+        flight.onFix = { [unowned self, unowned flight] fix in
+            let plans = flight.plans
+            if pilotTakesBackSaignelegier {
+                if takenBackAt == nil, let notice = plans.autoMarkNotice, notice.waypointName == "SAIGNELEGIER" {
+                    plans.undoAutoMark(notice)
+                    takenBackAt = fix.t
+                    self.taps.append("UNDO SAIGNELEGIER")
+                }
+                if let at = takenBackAt, self.taps.count == 1, fix.t >= at + 60 {
+                    plans.markWaypoint()
+                    self.taps.append("MARK SAIGNELEGIER")
+                }
+                if self.taps.count == 2, let plan = plans.activeFlightPlan, plan.waypoints.count > 4,
+                   plan.waypoints[4].actualTimeOver != nil {
+                    plans.resumeLeg(at: 4)
+                    self.taps.append("RESUME LEG ST-URSANNE")
+                }
+            }
+            let input = OffRouteRule.Input(
+                plan: plans.activeFlightPlan, aircraft: CLLocationCoordinate2D(latitude: fix.latitude, longitude: fix.longitude),
+                circuits: false, lineUpTime: flight.appState.lineUpTime, landingTime: flight.appState.landingTime,
+                isTracking: true, signal: .good, isSimulating: false)
+            if let nm = self.rule.update(input) {
+                self.spoke.append("\(Int(fix.t)) s: \(String(format: "%.1f", nm)) NM")
+                self.farthest = max(self.farthest, nm)
+            }
+            let alone = OffRouteRule.Input(leg: input.leg, aircraft: input.aircraft, diverting: input.diverting,
+                                           airborne: input.airborne, gpsGood: true)
+            let off = OffRouteRule.evaluate(alone, wasOffRoute: self.wasOffTheLeg)
+            self.wasOffTheLeg = off != nil
+            if let off { self.legAlone.append("\(Int(fix.t)) s: \(String(format: "%.1f", off)) NM") }
+        }
+    }
+}
 
 private extension FlightEventType {
     /// The referee's names.
@@ -266,6 +346,8 @@ private final class HeadlessFlight {
     var landedAnswer: LandedAnswer = .yes
     /// Called once, at the first fix with the cruise check's cue come (the level-off).
     var onLevelOff: ((AppState) -> Void)?
+    /// Called at every fix, once the chain has taken it: what the Cockpit does with a fix besides.
+    var onFix: ((GroundReplayFix) -> Void)?
 
     private(set) var slots: [SlotSeen] = []
     private(set) var landedCards: [(aerodrome: String?, t: Double)] = []
@@ -346,6 +428,7 @@ private final class HeadlessFlight {
                 linedUp = true
             }
             location.feedReplayFix(fix.location(at: FlightClock.now), baroRelativeAltitudeM: fix.baroRelativeM)
+            onFix?(fix)
             // FREDA, as the Cockpit's 5 s evaluation does it.
             if fix.t - lastFreda >= 5 {
                 lastFreda = fix.t

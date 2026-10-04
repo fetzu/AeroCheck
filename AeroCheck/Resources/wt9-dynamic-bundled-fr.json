@@ -9,6 +9,7 @@
   "lastUpdated": "Mars 2025",
   "isFree": true,
   "stallSpeed": 42,
+  "cruiseSpeedKIAS": 97,
   "pageCount": 4,
   "hasParachute": true,
   "crosswindLimits": {

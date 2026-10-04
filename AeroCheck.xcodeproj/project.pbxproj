@@ -191,8 +191,10 @@
 		B1000001211111110000033 /* RouteVisibility.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1000001111111110000033 /* RouteVisibility.swift */; };
 		7BEEB9111DA7D9F4E5513BF7 /* LegsPanelMap.swift in Sources */ = {isa = PBXBuildFile; fileRef = A5703B1612E4889BB5285366 /* LegsPanelMap.swift */; };
 		DE57E570211111110000B02 /* CockpitStatusTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = DE57E570111111110000B02 /* CockpitStatusTests.swift */; };
+		DE57E570211111110000D05 /* UndoOfferTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = DE57E570111111110000D05 /* UndoOfferTests.swift */; };
 		DE57E570211111110000B01 /* DestinationEstimateTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = DE57E570111111110000B01 /* DestinationEstimateTests.swift */; };
 		DE57E570211111110000A02 /* CockpitStatus.swift in Sources */ = {isa = PBXBuildFile; fileRef = DE57E570111111110000A02 /* CockpitStatus.swift */; };
+		DE57E570211111110000D04 /* UndoOfferRule.swift in Sources */ = {isa = PBXBuildFile; fileRef = DE57E570111111110000D04 /* UndoOfferRule.swift */; };
 		DE57E570211111110000A01 /* DestinationEstimate.swift in Sources */ = {isa = PBXBuildFile; fileRef = DE57E570111111110000A01 /* DestinationEstimate.swift */; };
 		DE57E570211111110000C01 /* DestinationLine.swift in Sources */ = {isa = PBXBuildFile; fileRef = DE57E570111111110000C01 /* DestinationLine.swift */; };
 		DE57E570211111110000C02 /* DestinationLineTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = DE57E570111111110000C02 /* DestinationLineTests.swift */; };
@@ -582,8 +584,10 @@
 		B1000001111111110000033 /* RouteVisibility.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RouteVisibility.swift; sourceTree = "<group>"; };
 		A5703B1612E4889BB5285366 /* LegsPanelMap.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LegsPanelMap.swift; sourceTree = "<group>"; };
 		DE57E570111111110000B02 /* CockpitStatusTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CockpitStatusTests.swift; sourceTree = "<group>"; };
+		DE57E570111111110000D05 /* UndoOfferTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UndoOfferTests.swift; sourceTree = "<group>"; };
 		DE57E570111111110000B01 /* DestinationEstimateTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DestinationEstimateTests.swift; sourceTree = "<group>"; };
 		DE57E570111111110000A02 /* CockpitStatus.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CockpitStatus.swift; sourceTree = "<group>"; };
+		DE57E570111111110000D04 /* UndoOfferRule.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UndoOfferRule.swift; sourceTree = "<group>"; };
 		DE57E570111111110000A01 /* DestinationEstimate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DestinationEstimate.swift; sourceTree = "<group>"; };
 		DE57E570111111110000C01 /* DestinationLine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DestinationLine.swift; sourceTree = "<group>"; };
 		DE57E570111111110000C02 /* DestinationLineTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DestinationLineTests.swift; sourceTree = "<group>"; };
@@ -876,6 +880,7 @@
 				A1000001111111110000914 /* RouteVisibilityTests.swift */,
 				775A8D7759183D64D8BE5FA5 /* LegsPanelMapTests.swift */,
 				DE57E570111111110000B02 /* CockpitStatusTests.swift */,
+				DE57E570111111110000D05 /* UndoOfferTests.swift */,
 				DE57E570111111110000B01 /* DestinationEstimateTests.swift */,
 				DE57E570111111110000C02 /* DestinationLineTests.swift */,
 				DE57E570111111110000D02 /* MapChromeLayoutTests.swift */,
@@ -1098,6 +1103,7 @@
 				B1000001111111110000033 /* RouteVisibility.swift */,
 				A5703B1612E4889BB5285366 /* LegsPanelMap.swift */,
 				DE57E570111111110000A02 /* CockpitStatus.swift */,
+				DE57E570111111110000D04 /* UndoOfferRule.swift */,
 				DE57E570111111110000A01 /* DestinationEstimate.swift */,
 				A0C7E2000000000000000002 /* PhaseFrequencyPlanner.swift */,
 				B1000001111111110000032 /* TripDataSizeEstimator.swift */,
@@ -1521,6 +1527,7 @@
 				A1000001211111110000914 /* RouteVisibilityTests.swift in Sources */,
 				F011CFD411BA54F7EA510922 /* LegsPanelMapTests.swift in Sources */,
 				DE57E570211111110000B02 /* CockpitStatusTests.swift in Sources */,
+				DE57E570211111110000D05 /* UndoOfferTests.swift in Sources */,
 				DE57E570211111110000B01 /* DestinationEstimateTests.swift in Sources */,
 				DE57E570211111110000C02 /* DestinationLineTests.swift in Sources */,
 				DE57E570211111110000D02 /* MapChromeLayoutTests.swift in Sources */,
@@ -1607,6 +1614,7 @@
 				B1000001211111110000033 /* RouteVisibility.swift in Sources */,
 				7BEEB9111DA7D9F4E5513BF7 /* LegsPanelMap.swift in Sources */,
 				DE57E570211111110000A02 /* CockpitStatus.swift in Sources */,
+				DE57E570211111110000D04 /* UndoOfferRule.swift in Sources */,
 				DE57E570211111110000A01 /* DestinationEstimate.swift in Sources */,
 				DE57E570211111110000C01 /* DestinationLine.swift in Sources */,
 				DE57E570211111110000D01 /* CockpitMapChrome.swift in Sources */,

@@ -107,7 +107,7 @@ final class ViewStackBudgetTests: XCTestCase {
             undo.appState.settings.learningMode = false
             undo.appState.currentPhase = .landing
             undo.appState.confirmMemoryCheck()
-            XCTAssertNotNil(undo.appState.memoryConfirmationToOffer, "UNDO offered")
+            XCTAssertNotNil(NavUndoOffer.shown(in: undo.appState, flightPlanManager: undo.flightPlanManager, cockpitNav: nil, flightOnly: true), "UNDO offered")
             let withUndo = StackProbe.bytesUsed {
                 render(FlightView(initialPage: .map), services: undo, size: size)
             }

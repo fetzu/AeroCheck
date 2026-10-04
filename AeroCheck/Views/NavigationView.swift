@@ -6867,6 +6867,9 @@ struct NavUndoOffer: Identifiable {
     var id = UUID()
     let message: String
     var style: NavUndoToast.Style = .filled
+    /// When it was made: it can be taken back for six seconds from then, on any page
+    /// (`UndoOfferRule`). (6.2)
+    var madeAt = FlightClock.now
     let undo: () -> Void
 }
 
@@ -6877,7 +6880,7 @@ extension NavUndoOffer {
         NavUndoOffer(id: notice.id,
                      message: L10n.Nav.markedAutomaticallyAt(notice.waypointName,
                                                              notice.passedAt.formatted(date: .omitted, time: .shortened)),
-                     style: .outlined) {
+                     style: .outlined, madeAt: notice.madeAt) {
             manager.undoAutoMark(notice)
         }
     }
@@ -6890,7 +6893,7 @@ extension NavUndoOffer {
     static func memoryConfirmation(_ confirmation: AppState.MemoryConfirmation, in appState: AppState) -> NavUndoOffer {
         NavUndoOffer(id: confirmation.id,
                      message: L10n.Cockpit.doneFromMemoryToast(confirmation.phase.shortTitle),
-                     style: .outlined) {
+                     style: .outlined, madeAt: confirmation.confirmedAt) {
             appState.undoMemoryConfirmation(confirmation.id)
         }
     }
@@ -6902,39 +6905,13 @@ extension NavUndoOffer {
     static func fredaConfirmation(_ confirmation: AppState.FredaConfirmation, in appState: AppState) -> NavUndoOffer {
         NavUndoOffer(id: confirmation.id,
                      message: L10n.Freda.doneToast(confirmation.doneAt.formatted(date: .omitted, time: .shortened)),
-                     style: .outlined) {
+                     style: .outlined, madeAt: confirmation.doneAt) {
             appState.undoFredaConfirmation(confirmation.id)
         }
-    }
-
-    /// The check just confirmed, still to offer back: a memory check or a FREDA, the newer of the two
-    /// when both are. (6.1)
-    @MainActor
-    static func checkConfirmation(in appState: AppState) -> NavUndoOffer? {
-        let memory = appState.memoryConfirmationToOffer
-        let freda = appState.fredaConfirmationToOffer
-        if let freda, memory.map({ $0.confirmedAt <= freda.doneAt }) ?? true {
-            return .fredaConfirmation(freda, in: appState)
-        }
-        return memory.map { .memoryConfirmation($0, in: appState) }
     }
 }
 
 extension AppState {
-    /// The memory check confirmation still to offer back: within its six seconds. (6.1)
-    var memoryConfirmationToOffer: MemoryConfirmation? {
-        guard let confirmation = memoryConfirmation,
-              FlightClock.pilotSeconds(since: confirmation.confirmedAt) < Self.memoryConfirmationUndoWindow else { return nil }
-        return confirmation
-    }
-
-    /// FREDA done, still to offer back: within the same six seconds. (6.1)
-    var fredaConfirmationToOffer: FredaConfirmation? {
-        guard let confirmation = fredaConfirmation,
-              FlightClock.pilotSeconds(since: confirmation.doneAt) < Self.memoryConfirmationUndoWindow else { return nil }
-        return confirmation
-    }
-
     /// Clears whichever check confirmation `id` is: the toast's six seconds are up.
     func dismissCheckConfirmation(_ id: UUID) {
         dismissMemoryConfirmation(id)
@@ -6942,9 +6919,14 @@ extension AppState {
     }
 }
 
-/// The undo toast, over a page and never in its layout, for six seconds: MARK and the leg-timer reset
-/// (the act band's), and a waypoint the flight marked on its own, on the map and on the checklist.
-/// (v6.0 · C2, v6.0.1)
+/// The undo toast, over a page and never in its layout, for the six seconds of its offer: MARK and the
+/// leg-timer reset (the act band's), a waypoint the flight marked on its own, a check just done, on
+/// CHECKLIST and ROUTE (MAP has it in its status slot). (v6.0 · C2, v6.0.1)
+///
+/// On the phone it is compact (6.2): the message on two lines (three at the most) beside an UNDO a control
+/// tall (`compactButtonHeight`), about 62 pt in all. With UNDO the 15 mm control of the kneeboard it was
+/// 108 pt, and on ROUTE it covered nearly all the legs of a phone's scroll (about 136 pt on an iPhone 17)
+/// for its six seconds.
 struct NavUndoToast: View {
     /// MARK's and the leg-timer reset's UNDO take back the pilot's own tap: filled, as in 6.0. The
     /// flight's own mark is not the pilot's action, and its UNDO sits right above CHECK on the checklist
@@ -6959,50 +6941,89 @@ struct NavUndoToast: View {
     static var textSize: CGFloat { CockpitType.label }
     /// UNDO's height: the 15 mm control (78 pt on the iPad, 92 on the phone). (v6.0.1)
     static var buttonHeight: CGFloat { CockpitTarget.transient }
+    /// The phone's UNDO: a control's height (50 pt), over the 44 pt minimum, so the toast leaves the page
+    /// under it in view. (6.2)
+    static var compactButtonHeight: CGFloat { CockpitTarget.control(.phone) }
+
+    /// The toast's sizes: the kneeboard's (the iPad's), or the phone's compact one.
+    struct Metrics: Equatable {
+        /// The message and UNDO: the in-flight label size, the phone's when compact.
+        let textSize: CGFloat
+        let buttonHeight: CGFloat
+        let buttonMinWidth: CGFloat
+        let messageLines: Int
+        let spacing: CGFloat
+        let leading: CGFloat
+        let trailing: CGFloat
+        let vertical: CGFloat
+        let cornerRadius: CGFloat
+        let buttonCornerRadius: CGFloat
+
+        init(compact: Bool) {
+            textSize = CockpitType.label(for: compact ? .phone : .kneeboard)
+            // The 15 mm control on the kneeboard (`CockpitTarget.transient`'s 78 pt).
+            buttonHeight = compact ? NavUndoToast.compactButtonHeight : CockpitType.size(kneeboard: 78, phone: 92, scale: .kneeboard)
+            // "ANNULER" at the label size, with its margins.
+            buttonMinWidth = compact ? 96 : 104
+            // Three on the phone where it must, never cut: a 12-letter waypoint, in French, with a
+            // 12-hour clock ("SAIGNELÉGIER marqué automatiquement à 10:58 PM"). Two otherwise.
+            messageLines = compact ? 3 : 2
+            spacing = compact ? 10 : 16
+            leading = compact ? 14 : 18
+            trailing = compact ? 6 : 8
+            vertical = compact ? 6 : 8
+            cornerRadius = compact ? 14 : 16
+            buttonCornerRadius = compact ? 10 : 12
+        }
+    }
+
 
     @Environment(\.cockpitTheme) private var theme
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     let offer: NavUndoOffer
+    /// Compact on the phone, whose pages are short. Tests set it.
+    var compact = CockpitScale.current == .phone
     /// Clears the offer: after UNDO, or when its six seconds are up.
     let onDismiss: () -> Void
 
     var body: some View {
-        HStack(spacing: 16) {
+        let metrics = Metrics(compact: compact)
+        HStack(spacing: metrics.spacing) {
             Text(offer.message)
-                .font(.aero(size: Self.textSize, weight: .semibold))
+                .font(.aero(size: metrics.textSize, weight: .semibold))
                 .foregroundColor(theme.textPrimary)
-                .lineLimit(2)
+                .lineLimit(metrics.messageLines)
+                // The phone's message takes all the room beside UNDO: a spacer there cost it the stack's
+                // spacing twice, a line on the longest messages.
+                .frame(maxWidth: compact ? .infinity : nil, alignment: .leading)
                 .accessibilityIdentifier("undoToast.message")
-            Spacer(minLength: 8)
+            if !compact { Spacer(minLength: 8) }
             Button {
                 offer.undo()
                 withAnimation(reduceMotion ? nil : .easeOut(duration: 0.2)) { onDismiss() }
             } label: {
                 Text(L10n.Nav.undo.uppercased())
-                    .font(.aero(size: Self.textSize, weight: .heavy))
+                    .font(.aero(size: metrics.textSize, weight: .heavy))
+                    .lineLimit(1)
                     .foregroundColor(offer.style == .filled ? theme.actionText : theme.action)
-                    .frame(minWidth: 104, minHeight: Self.buttonHeight)
-                    .background(buttonShape)
+                    .frame(minWidth: metrics.buttonMinWidth, minHeight: metrics.buttonHeight)
+                    .background(buttonShape(metrics))
+                    .contentShape(Rectangle())
             }
             .accessibilityIdentifier("undoToast.undo")
         }
-        .padding(.leading, 18)
-        .padding(.trailing, 8)
-        .padding(.vertical, 8)
-        .background(RoundedRectangle(cornerRadius: 16).fill(theme.panel.opacity(0.97)))
-        .overlay(RoundedRectangle(cornerRadius: 16).stroke(theme.panelStroke, lineWidth: 1))
+        .padding(.leading, metrics.leading)
+        .padding(.trailing, metrics.trailing)
+        .padding(.vertical, metrics.vertical)
+        .background(RoundedRectangle(cornerRadius: metrics.cornerRadius).fill(theme.panel.opacity(0.97)))
+        .overlay(RoundedRectangle(cornerRadius: metrics.cornerRadius).stroke(theme.panelStroke, lineWidth: 1))
         .transition(.move(edge: .bottom).combined(with: .opacity))
-        .task(id: offer.id) {
-            AccessibilityNotification.Announcement(offer.message).post()
-            try? await Task.sleep(for: .seconds(6))
-            guard !Task.isCancelled else { return }
-            withAnimation(reduceMotion ? nil : .easeOut(duration: 0.2)) { onDismiss() }
-        }
+        .modifier(UndoOfferExpiry(offer: offer, onDismiss: onDismiss))
     }
 
     @ViewBuilder
-    private var buttonShape: some View {
-        let shape = RoundedRectangle(cornerRadius: 12)
+    private func buttonShape(_ metrics: Metrics) -> some View {
+        let shape = RoundedRectangle(cornerRadius: metrics.buttonCornerRadius)
         switch offer.style {
         case .filled: shape.fill(theme.action)
         case .outlined: shape.strokeBorder(theme.action, lineWidth: 2)
@@ -7010,18 +7031,46 @@ struct NavUndoToast: View {
     }
 }
 
+/// An offer's six seconds, counted from when it was made, not from when its view came (`UndoOfferRule`):
+/// a page switch doesn't give it six more. VoiceOver hears the message once, when it comes. (6.2)
+struct UndoOfferExpiry: ViewModifier {
+    let offer: NavUndoOffer
+    let onDismiss: () -> Void
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    func body(content: Content) -> some View {
+        content.task(id: offer.id) {
+            let left = UndoOfferRule.remaining(offer.madeAt)
+            if left > UndoOfferRule.window - 1 { AccessibilityNotification.Announcement(offer.message).post() }
+            try? await Task.sleep(for: .seconds(left))
+            guard !Task.isCancelled else { return }
+            withAnimation(reduceMotion ? nil : .easeOut(duration: 0.2)) { onDismiss() }
+        }
+    }
+}
+
 extension NavUndoOffer {
-    /// The one offer to show, newest kind first: a check just confirmed (a memory check, a FREDA), a
-    /// waypoint the flight just marked, then the act band's MARK or reset (`band`). Each withdraws the
-    /// older (`UndoOfferFollower`). `flightOnly`: the confirmations and the marks only in flight, as on
-    /// MAP (`CockpitChartChrome`). (6.1; the band 6.2)
+    /// The one offer to show (`UndoOfferRule`): the newest made, for its six seconds, whichever kind it is
+    /// (a check just confirmed, a waypoint the flight marked, the act band's MARK or reset); an older one
+    /// never again. `flightOnly`: the confirmations and the marks only in flight, as on MAP
+    /// (`CockpitChartChrome`). (6.1; the rule 6.2)
     @MainActor
-    static func shown(in appState: AppState, flightPlanManager: FlightPlanManager, band: NavUndoOffer?,
+    static func shown(in appState: AppState, flightPlanManager: FlightPlanManager, cockpitNav: CockpitNavState?,
                       flightOnly: Bool) -> NavUndoOffer? {
         let inFlight = !flightOnly || appState.isFlightActive
-        if inFlight, let confirmation = checkConfirmation(in: appState) { return confirmation }
-        if inFlight, let notice = flightPlanManager.autoMarkNotice { return .autoMark(notice, in: flightPlanManager) }
-        return band
+        // Two made at the same instant: the check, then the waypoint, then the band, as before.
+        var offers: [NavUndoOffer] = []
+        if inFlight {
+            if let memory = appState.memoryConfirmation { offers.append(.memoryConfirmation(memory, in: appState)) }
+            if let freda = appState.fredaConfirmation { offers.append(.fredaConfirmation(freda, in: appState)) }
+            if let notice = flightPlanManager.autoMarkNotice { offers.append(.autoMark(notice, in: flightPlanManager)) }
+        }
+        if let band = cockpitNav?.undoOffer { offers.append(band) }
+        let lastMadeAt = UndoOfferRule.lastMadeAt(inFlight ? appState.lastCheckOfferAt : nil,
+                                                  inFlight ? flightPlanManager.lastAutoMarkOfferAt : nil,
+                                                  cockpitNav?.lastOfferAt)
+        let current = UndoOfferRule.current(offers.map { .init(id: $0.id, madeAt: $0.madeAt) }, lastMadeAt: lastMadeAt)
+        return offers.first { $0.id == current?.id }
     }
 }
 
@@ -7039,7 +7088,7 @@ struct AutoMarkUndoToast: View {
     var body: some View {
         ZStack(alignment: .bottom) {
             if let offer = NavUndoOffer.shown(in: appState, flightPlanManager: flightPlanManager,
-                                              band: cockpitNav?.undoOffer, flightOnly: false) {
+                                              cockpitNav: cockpitNav, flightOnly: false) {
                 NavUndoToast(offer: offer) {
                     if offer.id == cockpitNav?.undoOffer?.id { cockpitNav?.undoOffer = nil }
                     flightPlanManager.dismissAutoMarkNotice(offer.id)

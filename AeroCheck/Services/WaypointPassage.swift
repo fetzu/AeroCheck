@@ -64,9 +64,8 @@ enum WaypointPassage {
 
         // Departure and destination: where the aircraft was at takeoff and landing.
         times[0] = departure(route: route, track: fixes, at: start, toleranceNM: toleranceNM)
-        if let landing, let at = fix(nearest: landing, in: fixes),
-           geometry.distanceNM(at.coordinate, route[route.count - 1]) <= toleranceNM {
-            times[route.count - 1] = landing
+        if let landing {
+            times[route.count - 1] = arrival(route: route, track: fixes, at: landing, toleranceNM: toleranceNM)
         }
 
         // En route: the moment progress along the route reaches each waypoint.
@@ -101,6 +100,15 @@ enum WaypointPassage {
                           toleranceNM: Double = toleranceNM) -> Date? {
         guard let first = route.first, let at = fix(nearest: takeoff, in: track) else { return nil }
         return RouteGeometry(route: route).distanceNM(at.coordinate, first) <= toleranceNM ? takeoff : nil
+    }
+
+    /// `landing` when the aircraft landed at the route's destination (within `toleranceNM` of it then),
+    /// else nil: the destination's time over IS the landing. (6.2: shared with the flight in progress,
+    /// `FlightPlanManager.followLanding`)
+    static func arrival(route: [CLLocationCoordinate2D], track: [Fix], at landing: Date,
+                        toleranceNM: Double = toleranceNM) -> Date? {
+        guard let last = route.last, let at = fix(nearest: landing, in: track) else { return nil }
+        return RouteGeometry(route: route).distanceNM(at.coordinate, last) <= toleranceNM ? landing : nil
     }
 
     private static func fix(nearest time: Date, in fixes: [Fix]) -> Fix? {

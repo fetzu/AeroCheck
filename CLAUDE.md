@@ -137,12 +137,17 @@ Owners and rules that aren't obvious from the names:
   flight started without it. END FLIGHT (`settleFlownPlan`) writes into, attaches and deactivates only
   that plan, and ABANDON FLIGHT (`abandonFlownPlan`) deactivates only that plan; any other stays armed,
   untouched. The departure takes the takeoff time and the destination the landing time, never a
-  proximity; nothing is marked while diverting; the new leg's timer starts at the passage. Each mark
-  past the departure raises `FlightPlanManager.autoMarkNotice`, offered back for six seconds, in MAP's
-  status slot or over the foot of CHECKLIST and ROUTE (an outlined UNDO, where MARK's and the leg-timer
-  reset's are filled). A waypoint taken back (UNDO, RESUME LEG) is left to MARK:
-  `FlightPlan.takenBackWaypointIds` survives a relaunch, and no track fill (in flight, END FLIGHT, the
-  Flight Log) gives it a time. UNDO keeps a departure marked in the same run.
+  proximity, in flight as soon as each is known (`followTakeoff`, `followLanding`: landed at the
+  route's end, nothing is left to MARK and the leg timer stops there); nothing is marked while
+  diverting; the new leg's timer starts at the passage. Each mark past the departure raises
+  `FlightPlanManager.autoMarkNotice`, offered back for six seconds, in MAP's status slot or over the
+  foot of CHECKLIST and ROUTE (an outlined UNDO, where MARK's and the leg-timer reset's are filled;
+  compact on the phone). One undo offer at a time, whatever its source (the act band's MARK and reset,
+  a waypoint's notice, a memory check or FREDA done): `UndoOfferRule` shows the newest made, for six
+  seconds from when it was made on any page, and an older one never comes back. Each source remembers
+  when it last offered; a view never counts six seconds of its own. A waypoint taken back (UNDO,
+  RESUME LEG) is left to MARK: `FlightPlan.takenBackWaypointIds` survives a relaunch, and no track fill
+  (in flight, END FLIGHT, the Flight Log) gives it a time. UNDO keeps a departure marked in the same run.
 - `FlightEventDetector` (take-off, touch-and-go, go-around, full stop) is a port of the Python prototype in
   `../CLAUDE/review/flight-events/` and pinned to it by `AeroCheckTests/FlightEventFixtures/` and
   `testFullCorpusMatchesPythonReferee`: change the prototype first, run `cue_referee.py` / `make_fixtures.py`,

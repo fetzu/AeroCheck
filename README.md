@@ -18,7 +18,7 @@ You need Xcode 26 (Companion mode imports the iOS 26 SDK); the app itself runs o
 2. Fill in what you have. Without an `OPENAIP_API_KEY` the app builds and runs, but every OpenAIP request gets a 401 and the airspace, the CTR frequencies and the airspace conflicts stay empty. `WEATHER_CLIENT_SECRET` and `APP_CLIENT_SECRET` have to match the weather proxy's and the API's (they live in AeroCheck-server, which is private); left empty, the parts that need them stay quiet.
 3. Open `AeroCheck.xcodeproj`, pick the `AéroCheck` scheme and your team under Signing & Capabilities, and run.
 
-The unit tests are the `AeroCheckTests` scheme (`scripts/run-tests.sh` wraps them; read its caveats in [CLAUDE.md](./CLAUDE.md) before you use it). To try the subscriptions without paying, set the scheme's StoreKit configuration to `AeroCheck/Configuration.storekit` (Edit Scheme › Run › Options). To talk to a local API, start AeroCheck-server with `npm run dev` and set `API_BASE_URL_SANDBOX = http://localhost:8787` in `Secrets.xcconfig`: a Debug build always uses the sandbox URL.
+The unit tests are the `AeroCheckTests` scheme (`scripts/run-tests.sh` wraps them; read its caveats in [CLAUDE.md](./CLAUDE.md) before you use it). To try the subscriptions without paying, set the scheme's StoreKit configuration to `AeroCheck/Configuration.storekit` (Edit Scheme › Run › Options). To talk to a local API, start AeroCheck-server with `npm run dev` and point `API_BASE_URL_SANDBOX` in `Config.xcconfig` at `http:/$()/localhost:8787` (locally, don't commit it; the `$()` keeps xcconfig from reading `//` as a comment, and setting it in `Secrets.xcconfig` does nothing, since `Config.xcconfig` sets it after the include): a Debug build always uses the sandbox URL.
 
 ## How it fits together
 

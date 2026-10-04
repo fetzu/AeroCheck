@@ -8,13 +8,16 @@
 #   <out>/screenshots/*.png       "<page>-<step id>-<short>.png" (they show checklist text: keep them private)
 #   <out>/<test>.xcresult, logs
 #
-# usage: scripts/ground-replay.sh [--iphone] [--only <Class/testMethod>]... [--out <dir>] [--keep-simulator]
+# usage: scripts/ground-replay.sh [--iphone | --udid <UDID>] [--only <Class/testMethod>]... [--out <dir>]
+#                                  [--keep-simulator]
 #   --only    a subset, e.g. --only ChecksInFlightUITests/testCrossCountryEveryCheckOnTime (repeatable)
 #   --iphone  an iPhone 17 instead of the iPad Air 11-inch (M4); without --only, the phone's own steps
+#   --udid    a throwaway made beforehand ("AeroCheck Tmp ..."), booted for the run and shut down after
+#             it, kept; an iPhone gets the phone's steps as with --iphone
 #   --out     default: $TMPDIR/aerocheck-ground-replay/<date-time>
 #
-# The simulator is created for the run ("AeroCheck Tmp replay-<n> <date>") and deleted after it. Never
-# the author's own simulator, never a destination by name.
+# Without --udid the simulator is created for the run ("AeroCheck Tmp replay-<n> <date>") and deleted
+# after it. Never the author's own simulator, never a destination by name.
 
 set -u
 cd "$(dirname "$0")/.."
@@ -24,13 +27,16 @@ ONLY=()
 DEVICE_TYPE="iPad Air 11-inch (M4)"
 OUT=""
 KEEP=0
+GIVEN=""
+AUTHORS_SIMULATOR=A7A5FC41-C92E-48EE-9A06-0E833852F3D5
 while [ $# -gt 0 ]; do
     case "$1" in
         --only) ONLY+=("$2"); shift 2 ;;
         --iphone) DEVICE_TYPE="iPhone 17"; shift ;;
+        --udid) GIVEN=$(echo "$2" | tr '[:lower:]' '[:upper:]'); shift 2 ;;
         --out) OUT="$2"; shift 2 ;;
         --keep-simulator) KEEP=1; shift ;;
-        -h|--help) sed -n '2,20p' "$0"; exit 0 ;;
+        -h|--help) sed -n '2,23p' "$0"; exit 0 ;;
         *) echo "unknown option $1" >&2; exit 2 ;;
     esac
 done
@@ -39,6 +45,28 @@ STAMP=$(date +%Y%m%d-%H%M%S)
 OUT=${OUT:-"${TMPDIR:-/tmp}/aerocheck-ground-replay/$STAMP"}
 mkdir -p "$OUT/screenshots" "$OUT/logs"
 DD="$OUT/DerivedData"
+
+# A throwaway made beforehand: never the author's, only an "AeroCheck Tmp" one, its kind from simctl.
+if [ -n "$GIVEN" ]; then
+    if [ "$GIVEN" = "$AUTHORS_SIMULATOR" ]; then
+        echo "never the author's own simulator" >&2
+        exit 2
+    fi
+    read -r DEVICE_TYPE NAME < <(xcrun simctl list devices -j | python3 -c '
+import json, sys
+udid = sys.argv[1]
+for runtime in json.load(sys.stdin)["devices"].values():
+    for d in runtime:
+        if d["udid"] == udid:
+            print("iPhone" if "iPhone" in d.get("deviceTypeIdentifier", "") else "iPad", d["name"])
+' "$GIVEN")
+    case "$NAME" in
+        "AeroCheck Tmp "*) ;;
+        "") echo "no simulator $GIVEN" >&2; exit 2 ;;
+        *) echo "$NAME is not a throwaway (\"AeroCheck Tmp ...\")" >&2; exit 2 ;;
+    esac
+    [ "$DEVICE_TYPE" = "iPhone" ] && DEVICE_TYPE="iPhone 17"
+fi
 
 # All of them, in the order of priority, when no --only. On the phone, the steps that are the phone's
 # (the kneeboard ones assume the iPad's layout).
@@ -63,16 +91,24 @@ if [ ${#ONLY[@]} -eq 0 ]; then
     )
 fi
 
-# The throwaway, on the newest iOS runtime.
-RUNTIME=$(xcrun simctl list runtimes available | grep -o 'com.apple.CoreSimulator.SimRuntime.iOS-[0-9-]*' | sort -V | tail -1)
-N=1
-while xcrun simctl list devices | grep -q "AeroCheck Tmp replay-$N $(date +%Y%m%d)"; do N=$((N + 1)); done
-NAME="AeroCheck Tmp replay-$N $(date +%Y%m%d)"
-UDID=$(xcrun simctl create "$NAME" "$DEVICE_TYPE" "$RUNTIME") || { echo "could not create a simulator" >&2; exit 1; }
-echo "simulator: $NAME ($UDID), $RUNTIME"
+# The throwaway, on the newest iOS runtime (or the one given).
+if [ -n "$GIVEN" ]; then
+    UDID=$GIVEN
+    echo "simulator: $NAME ($UDID), given"
+else
+    RUNTIME=$(xcrun simctl list runtimes available | grep -o 'com.apple.CoreSimulator.SimRuntime.iOS-[0-9-]*' | sort -V | tail -1)
+    N=1
+    while xcrun simctl list devices | grep -q "AeroCheck Tmp replay-$N $(date +%Y%m%d)"; do N=$((N + 1)); done
+    NAME="AeroCheck Tmp replay-$N $(date +%Y%m%d)"
+    UDID=$(xcrun simctl create "$NAME" "$DEVICE_TYPE" "$RUNTIME") || { echo "could not create a simulator" >&2; exit 1; }
+    echo "simulator: $NAME ($UDID), $RUNTIME"
+fi
 cleanup() {
     xcrun simctl shutdown "$UDID" > /dev/null 2>&1
-    if [ $KEEP -eq 0 ]; then
+    if [ -n "$GIVEN" ]; then
+        echo "simulator shut down, kept"
+        [ $KEEP -eq 0 ] && /bin/rm -rf "$DD"
+    elif [ $KEEP -eq 0 ]; then
         xcrun simctl delete "$UDID" > /dev/null 2>&1 && echo "simulator deleted"
         /bin/rm -rf "$DD"
     fi

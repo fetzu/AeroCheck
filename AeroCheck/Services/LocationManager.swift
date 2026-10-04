@@ -162,6 +162,8 @@ class LocationManager: NSObject, ObservableObject {
     /// few minutes, and each run replays the whole track so far, so 15 s is plenty. (v6.0.1)
     static let waypointPassageIntervalSeconds: TimeInterval = 15.0
     private var lastWaypointPassageTime: Date?
+    /// The landing the last run saw: a new one runs the next at once. (6.2)
+    private var lastPassageLanding: Date?
     private weak var appState: AppState?
     private weak var airportDataService: AirportDataService?
     private weak var flightEventDetector: FlightEventDetector?
@@ -178,6 +180,9 @@ class LocationManager: NSObject, ObservableObject {
     private var activeChecklist: ActiveChecklist?
     private var hasNotifiedTakeoffTime: Bool = false
     private var hasConfiguredDetector: Bool = false
+    /// The flight came back from its checkpoint (its track not empty at `startTracking`): before its
+    /// first fix, the detector catches up with the track (`catchUpDetector`). (6.2)
+    private var detectorCatchesUp = false
 
     // GPS accuracy tracking
     private var lastGoodSignalTime: Date?
@@ -325,6 +330,9 @@ class LocationManager: NSObject, ObservableObject {
         self.lastRecordedTime = nil
         self.lastDetectionTime = nil
         self.lastWaypointPassageTime = nil
+        self.lastPassageLanding = nil
+        // FlightLauncher starts a flight with no track yet; one that has a track was restored.
+        self.detectorCatchesUp = !(appState.currentFlight?.gpsTrack.isEmpty ?? true)
         self.lastGoodSignalTime = FlightClock.now
         self.lastLocationUpdateTime = FlightClock.now
         self.lastSatelliteFixTime = FlightClock.now   // a session starts counting the 20 s too
@@ -403,8 +411,10 @@ class LocationManager: NSObject, ObservableObject {
         flightPlanManager = nil
         hasNotifiedTakeoffTime = false
         hasConfiguredDetector = false
+        detectorCatchesUp = false
         lastDetectionTime = nil
         lastWaypointPassageTime = nil
+        lastPassageLanding = nil
         // Reset to ground mode for next flight
         isGroundMode = true
         locationManager.distanceFilter = kCLDistanceFilterNone
@@ -1099,19 +1109,22 @@ class LocationManager: NSObject, ObservableObject {
 
         // Waypoints passed: the ATO and the next waypoint, whichever screen is showing and with the
         // app in the background. The track above is the evidence, so a stale or invalid fix, which
-        // it never records, doesn't trigger a run either. (v6.0.1)
+        // it never records, doesn't trigger a run either. (v6.0.1) A landing just recorded runs one at
+        // once, rather than up to 15 s later with MARK still offering the field landed at. (6.2)
         let passageDue = lastWaypointPassageTime.map {
             now.timeIntervalSince($0) >= Self.waypointPassageIntervalSeconds
         } ?? true
-        if passageDue, fixIsUsable, let appState, appState.isFlightActive,
-           let flightPlanManager, let track = appState.currentFlight?.gpsTrack {
+        if passageDue || appState?.landingTime != lastPassageLanding, fixIsUsable, let appState,
+           appState.isFlightActive, let flightPlanManager, let track = appState.currentFlight?.gpsTrack {
             lastWaypointPassageTime = now
+            lastPassageLanding = appState.landingTime
+            let planId = appState.currentFlight?.flightPlanId
             // Once the track shows the take-off, LINE UP tapped or not, the ETOs count from it and it is
             // the departure's time over. (6.1)
-            flightPlanManager.followTakeoff(track: track, engineStart: appState.engineStartTime,
-                                            flightPlanId: appState.currentFlight?.flightPlanId)
-            flightPlanManager.catchUpWaypointPassages(track: track, takeoff: appState.lineUpTime,
-                                                      flightPlanId: appState.currentFlight?.flightPlanId)
+            flightPlanManager.followTakeoff(track: track, engineStart: appState.engineStartTime, flightPlanId: planId)
+            flightPlanManager.catchUpWaypointPassages(track: track, takeoff: appState.lineUpTime, flightPlanId: planId)
+            // Landed at the route's end: the destination's time over, and the route flown. (6.2)
+            flightPlanManager.followLanding(track: track, landing: appState.landingTime, flightPlanId: planId)
         }
 
         // Event detection runs independently of recording so it isn't starved at slow recording
@@ -1133,25 +1146,23 @@ class LocationManager: NSObject, ObservableObject {
                 hasConfiguredDetector = true
             }
 
+            // Restored mid-flight: the detector is where the flight is before it takes this fix. (6.2)
+            if detectorCatchesUp {
+                detectorCatchesUp = false
+                catchUpDetector(detector, appState: appState, airports: airportService, before: now,
+                                interval: detectionInterval)
+            }
+
             // Notify detector of takeoff time once for initial suppression
             if !hasNotifiedTakeoffTime, let lineUpTime = appState.lineUpTime {
                 detector.setTakeoffTime(lineUpTime)
                 hasNotifiedTakeoffTime = true
             }
 
-            // Get nearby airports for event detection. Fixed-wing only: the v2 detector's
-            // altitude anchor must never land on a heliport or closed strip (its "AGL"
-            // flapped ±440 ft at LSZQ when it did — failure mechanism M4).
-            let nearbyAirports = airportService.findNearestAirports(
-                to: location.coordinate,
-                limit: 3,
-                maxDistanceNm: 5.0,
-                types: AirportType.fixedWing
-            )
+            let nearbyAirports = Self.detectorAirports(near: location.coordinate, in: airportService)
             // The approach check is due 5 NM from where the flight is going: its own route's end, or the
             // aerodrome it diverted to. Only the flight's own plan, as for the ATOs. (6.1, cues)
-            let plan = flightPlanManager?.activeFlightPlan
-            detector.cueDestination = plan?.id == appState.currentFlight?.flightPlanId ? plan?.cueDestination : nil
+            detector.cueDestination = cueDestination(of: appState)
             detector.processLocation(location, nearbyAirports: nearbyAirports, baroSample: barometer.currentSample)
             // A field to anchor the take-off to: the cues will time the checks from the first roll on, so
             // the climb check waits for 500 ft rather than show due on the runway. (6.1.0)
@@ -1160,6 +1171,69 @@ class LocationManager: NSObject, ObservableObject {
             // the Companion shows it from the iPad's snapshot. (6.1, M4)
             if appState.takeFullStopForLandedCard(detector.pendingFullStop) { detector.dismissFullStop() }
         }
+    }
+
+    /// The fields the detector may anchor to near `coordinate`. Fixed-wing only: the v2 detector's altitude
+    /// anchor must never land on a heliport or closed strip (its "AGL" flapped ±440 ft at LSZQ when it
+    /// did, failure mechanism M4).
+    private static func detectorAirports(near coordinate: CLLocationCoordinate2D,
+                                         in airports: AirportDataService) -> [Airport] {
+        airports.findNearestAirports(to: coordinate, limit: 3, maxDistanceNm: 5.0, types: AirportType.fixedWing)
+    }
+
+    /// Where the flight is going, for the approach cue: the flight's own plan's, never another's.
+    private func cueDestination(of appState: AppState) -> CLLocationCoordinate2D? {
+        let plan = flightPlanManager?.activeFlightPlan
+        return plan?.id == appState.currentFlight?.flightPlanId ? plan?.cueDestination : nil
+    }
+
+    /// A flight restored from its checkpoint (the app killed mid-flight and launched again) comes back with
+    /// a new detector, on the ground as far as it knows: the first fast fixes read to it as a take-off,
+    /// and its cues as a new leg, which wiped the leg's cues the checkpoint had brought back. The climb
+    /// check owed showed as merely due, and near the field the landing check shown went, GO AROUND with
+    /// it (6.2.0 ground replay, undo-5). So, before its first fix, the detector is fed the track recorded
+    /// so far, as the live pipeline fed it (the same fields, the same cadence, from ENGINE START) and as
+    /// the reconciliation does at END FLIGHT: it is then where the flight is, in the air, on its leg, the
+    /// cues of that leg fired, and the next ones come when they would have.
+    ///
+    /// Silently: what it finds, the flight has already (the cues on `AppState.flightCues`, the landings
+    /// on the flight), so no cue reaches the Cockpit and no card comes up. The detector's rules are its
+    /// own, untouched; a GO AROUND or TOUCH-AND-GO pressed before the relaunch is not in the track. (6.2)
+    private func catchUpDetector(_ detector: FlightEventDetector, appState: AppState, airports: AirportDataService,
+                                 before now: Date, interval: TimeInterval) {
+        guard let track = appState.currentFlight?.gpsTrack, !track.isEmpty else { return }
+        let onCue = detector.onCue, onEvent = detector.onEvent, clock = detector.clock
+        var at = now
+        detector.onCue = nil
+        detector.onEvent = nil
+        detector.clock = { at }
+        defer {
+            detector.clock = clock
+            detector.onCue = onCue
+            detector.onEvent = onEvent
+            detector.dismissGoAround()
+            detector.dismissTouchAndGo()
+            detector.dismissFullStop()
+        }
+        if let lineUpTime = appState.lineUpTime {
+            detector.setTakeoffTime(lineUpTime)
+            hasNotifiedTakeoffTime = true
+        }
+        detector.cueDestination = cueDestination(of: appState)
+        let engineStart = appState.engineStartTime ?? appState.currentFlight?.engineStartTime
+        var lastFed: Date?
+        for point in track.sorted(by: { $0.timestamp < $1.timestamp }) where point.timestamp < now {
+            let running = engineStart.map { point.timestamp >= $0 } ?? false
+            guard running || point.speed * 1.94384 > 30, (point.horizontalAccuracy ?? 0) >= 0,
+                  lastFed.map({ point.timestamp.timeIntervalSince($0) >= interval }) ?? true else { continue }
+            lastFed = point.timestamp
+            at = point.timestamp
+            let location = CLLocation(coordinate: point.coordinate, altitude: point.altitude,
+                                      horizontalAccuracy: point.horizontalAccuracy ?? 0, verticalAccuracy: 10,
+                                      course: point.course, speed: point.speed, timestamp: point.timestamp)
+            detector.processLocation(location, nearbyAirports: Self.detectorAirports(near: point.coordinate, in: airports))
+        }
+        AppLog.flightEvents.debugLine("Detector caught up with the restored flight: \(track.count) points")
     }
 }
 

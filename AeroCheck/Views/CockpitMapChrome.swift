@@ -745,8 +745,8 @@ enum MapStatusText {
 
 /// The six seconds of an undo offer, as a share left.
 enum UndoCountdown {
-    /// As `NavUndoToast`'s and `AppState.memoryConfirmationUndoWindow`.
-    static let window: TimeInterval = 6
+    /// The offer's (`UndoOfferRule`), as `AppState.memoryConfirmationUndoWindow`.
+    static let window: TimeInterval = UndoOfferRule.window
 
     /// 1 when offered, 0 once over.
     static func remaining(elapsed: TimeInterval) -> Double {
@@ -756,7 +756,9 @@ enum UndoCountdown {
 }
 
 /// UNDO in the slot: the message, and UNDO with its six seconds running out under the word. It goes on
-/// its own when they are up, as the toast did; VoiceOver hears the message when it comes.
+/// its own when they are up, as the toast does; VoiceOver hears the message when it comes. The six
+/// seconds are the offer's, from when it was made (`UndoOfferRule`): coming back to MAP shows what is left
+/// of them. (6.2)
 struct MapUndoSlot: View {
     let offer: NavUndoOffer
     let metrics: MapChromeGeometry.Metrics
@@ -765,11 +767,10 @@ struct MapUndoSlot: View {
 
     @Environment(\.cockpitTheme) private var theme
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    @State private var shownAt = FlightClock.now
 
     var body: some View {
         let shape = RoundedRectangle(cornerRadius: metrics.slotCornerRadius)
-        MapUndoFace(message: offer.message, style: offer.style, shownAt: shownAt, metrics: metrics, language: language) {
+        MapUndoFace(message: offer.message, style: offer.style, shownAt: offer.madeAt, metrics: metrics, language: language) {
             offer.undo()
             withAnimation(reduceMotion ? nil : .easeOut(duration: 0.2)) { onDismiss() }
         }
@@ -778,12 +779,7 @@ struct MapUndoSlot: View {
         .overlay(shape.strokeBorder(theme.panelStroke, lineWidth: 1))
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("status.undo")
-        .task(id: offer.id) {
-            AccessibilityNotification.Announcement(offer.message).post()
-            try? await Task.sleep(for: .seconds(UndoCountdown.window))
-            guard !Task.isCancelled else { return }
-            withAnimation(reduceMotion ? nil : .easeOut(duration: 0.2)) { onDismiss() }
-        }
+        .modifier(UndoOfferExpiry(offer: offer, onDismiss: onDismiss))
     }
 }
 
@@ -987,7 +983,7 @@ struct CockpitChartChrome: View {
 
     var body: some View {
         let undo = NavUndoOffer.shown(in: appState, flightPlanManager: flightPlanManager,
-                                      band: cockpitNav?.undoOffer, flightOnly: true)
+                                      cockpitNav: cockpitNav, flightOnly: true)
         let status = shownStatus(undoOffered: undo != nil)
         CockpitMapChrome(
             model: MapChromeModel(orientation: orientation, isFollowingAircraft: isFollowingAircraft,

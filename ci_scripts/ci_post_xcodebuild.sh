@@ -7,12 +7,12 @@
 # when it distributes a build (Apple, "Including notes for testers with a beta
 # release of your app"), and every tester of that build sees the text.
 #
-#   A release tag (the "Beta · tags" workflow, CI_TAG set): the notes committed in
+#   A release tag (the "TestFlight (Beta testing)" workflow, CI_TAG set): the notes committed in
 #   TestFlight/, written for that release before it was tagged. Their first line
 #   names the version. If a file doesn't name this tag, it is an older release's,
 #   and that language gets the pull requests merged since the previous tag instead.
 #
-#   Anything else (the main workflow, for the internal group): the last pull
+#   Anything else (the "TestFlight (Alpha testing)" workflow on main, for the internal group): the last pull
 #   requests merged, in English for both languages, since the internal testers
 #   read the repository's language.
 #

@@ -28,7 +28,7 @@ struct FredaSchedule: Equatable {
         case freda
     }
 
-    struct Due: Equatable {
+    struct Due: Equatable, Codable {
         /// When it came due: the ten minutes up, or the waypoint's passage.
         let since: Date
         /// The waypoint passed that made it due; nil for the ten minutes.
@@ -81,6 +81,24 @@ struct FredaSchedule: Equatable {
         guard let first = candidates.min(by: { $0.since < $1.since }) else { return false }
         due = first
         return true
+    }
+}
+
+/// In the crash checkpoint (`ActiveFlightState.freda`), so a relaunch in cruise counts on from the same
+/// anchor and keeps a FREDA due. (6.2)
+extension FredaSchedule: Codable {
+    private enum CodingKeys: String, CodingKey {
+        case anchor, since, due
+    }
+
+    /// Tolerant, as a checkpoint must be: never a flight that doesn't come back for a value this build
+    /// can't read (a newer build's). A count it doesn't know counts from the cruise check; an anchor it
+    /// can't read is a FREDA that doesn't run, which the next evaluation starts again.
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        anchor = (try? c.decodeIfPresent(Date.self, forKey: .anchor)) ?? nil
+        since = (try? c.decodeIfPresent(Since.self, forKey: .since)) ?? .cruiseCheck
+        due = anchor == nil ? nil : (try? c.decodeIfPresent(Due.self, forKey: .due)) ?? nil
     }
 }
 

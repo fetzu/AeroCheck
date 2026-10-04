@@ -74,6 +74,16 @@ enum ActBandRoles {
         }
     }
 
+    /// The roles for `page` as the flight and its plan stand: what the band draws, and what the replays read.
+    @MainActor
+    static func make(page: CockpitPage, appState: AppState, plans: FlightPlanManager) -> [ActSlotRole] {
+        let plan = plans.activeFlightPlan
+        return make(page: page, phase: appState.currentPhase, hasRoute: plan != nil,
+                    routeFlown: plans.isFlightPlanCompleted, diverting: plan?.diversion != nil,
+                    circuits: appState.isCircuitMode, landingShown: appState.landingCheckShown,
+                    canDefer: !appState.currentCheckIsDone && !appState.currentCheckAwaitsConfirmation)
+    }
+
     /// The checklist's first slot: the phase's own action where it has one, FREDA in cruise, else the
     /// check slot (the plan's Q11).
     private static func checklistFirst(phase: ChecklistPhase, circuits: Bool) -> ActSlotRole {
@@ -513,6 +523,9 @@ final class CockpitNavState {
     /// The last MARK or leg-timer reset, offered back for a few seconds (MAP's status slot,
     /// `AutoMarkUndoToast`). (v6.0 · C2)
     var undoOffer: NavUndoOffer?
+    /// When the band last offered an undo, kept after the offer goes: an older offer never comes back
+    /// (`UndoOfferRule`). (6.2)
+    private(set) var lastOfferAt: Date?
     /// The Divert sheet, and the field it opens on when reached from an airport callout. (v5.1)
     var showDivert = false
     var divertPreselect: String?
@@ -553,8 +566,10 @@ final class CockpitNavState {
     func offerUndo(_ message: String, in manager: FlightPlanManager, animated: Bool = true,
                    undo: @escaping () -> Void) {
         manager.dismissAutoMarkNotice()
+        let offer = NavUndoOffer(message: message, undo: undo)
+        lastOfferAt = offer.madeAt
         withAnimation(animated ? .easeOut(duration: 0.2) : nil) {
-            undoOffer = NavUndoOffer(message: message, undo: undo)
+            undoOffer = offer
         }
     }
 
@@ -664,12 +679,7 @@ struct CockpitActBand: View {
     static let columnBottomPadding: CGFloat = 2
 
     private var roles: [ActSlotRole] {
-        let plan = flightPlanManager.activeFlightPlan
-        return ActBandRoles.make(page: page, phase: appState.currentPhase, hasRoute: plan != nil,
-                                 routeFlown: flightPlanManager.isFlightPlanCompleted,
-                                 diverting: plan?.diversion != nil, circuits: appState.isCircuitMode,
-                                 landingShown: appState.landingCheckShown,
-                                 canDefer: !appState.currentCheckIsDone && !appState.currentCheckAwaitsConfirmation)
+        ActBandRoles.make(page: page, appState: appState, plans: flightPlanManager)
     }
 }
 

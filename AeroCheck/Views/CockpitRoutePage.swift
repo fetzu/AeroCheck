@@ -152,6 +152,13 @@ struct RouteLegsAndRadio: View {
     let hasLegs: Bool
     let onShowLeg: (Int) -> Void
 
+    /// How far the undo toast reaches over the scroll above Emergency: its height (two lines of message,
+    /// the phone's compact one) and its 8 pt over the page's foot, less Emergency's row. Held by
+    /// `CockpitRoutePageTests`. (6.2)
+    static func toastClearance(_ layout: CockpitLayout) -> CGFloat {
+        layout == .wide ? 52 : 24
+    }
+
     @EnvironmentObject private var flightPlanManager: FlightPlanManager
 
     var body: some View {
@@ -174,6 +181,9 @@ struct RouteLegsAndRadio: View {
                 .padding(.horizontal, 16)
                 .padding(.vertical, 12)
             }
+            // Room at the foot for the undo toast, which lies over Emergency and a little of the scroll
+            // for six seconds: the leg being flown, brought into view, is never under it. (6.2)
+            .contentMargins(.bottom, Self.toastClearance(layout), for: .scrollContent)
             .modifier(SharpScrollEdges())
             .onAppear {
                 // On the next turn, once the rows are laid out: only as far as it takes, not at all when

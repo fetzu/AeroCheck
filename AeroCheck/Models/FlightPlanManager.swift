@@ -17,6 +17,9 @@ class FlightPlanManager: ObservableObject {
     /// whichever in-flight screen is showing. One at a time: any other leg action withdraws it, so
     /// taking it back always restores what was there just before. (v6.0.1)
     @Published private(set) var autoMarkNotice: AutoMarkNotice?
+    /// When the last notice was offered, kept after it goes: an older undo offer never comes back
+    /// (`UndoOfferRule`). (6.2)
+    private(set) var lastAutoMarkOfferAt: Date?
     /// Elapsed accumulated from completed run segments, so pause/resume preserves the leg time. (v4 UI/UX Revamp)
     private var chronometerAccumulated: TimeInterval = 0
 
@@ -613,12 +616,43 @@ class FlightPlanManager: ObservableObject {
 
     /// Whether the aircraft took off from the plan's departure (`WaypointPassage.departure`).
     private func departed(_ plan: FlightPlan, from track: [GPSPoint], at takeoff: Date) -> Bool {
-        let fixes = track.map {
+        WaypointPassage.departure(route: plan.waypoints.map(\.coordinate), track: Self.passageFixes(track),
+                                  at: takeoff) != nil
+    }
+
+    private static func passageFixes(_ track: [GPSPoint]) -> [WaypointPassage.Fix] {
+        track.map {
             WaypointPassage.Fix(time: $0.timestamp, coordinate: CLLocationCoordinate2D(latitude: $0.latitude,
                                                                                          longitude: $0.longitude),
                                 speed: $0.speed)
         }
-        return WaypointPassage.departure(route: plan.waypoints.map(\.coordinate), track: fixes, at: takeoff) != nil
+    }
+
+    /// In flight, the landing once recorded (the landed card answered, a full stop confirmed, LANDED),
+    /// when it was at the route's end (`WaypointPassage.arrival`): the destination's time over is the
+    /// landing, as END FLIGHT has it, whatever was recorded before (a MARK over the field); nothing is
+    /// left to MARK, and the leg timer stops at the landing, on the last leg's time. `LocationManager`
+    /// calls this after the catch-up, at the first fix once the landing is known, then every 15 s.
+    ///
+    /// The landing used to wait for END FLIGHT: on the ground MAP still offered MARK with the leg timer
+    /// running (6.2.0 ground replay, flight-12). A landing elsewhere (a field on the way, a diversion's)
+    /// ends nothing, and a destination the pilot took back is left to MARK. Not a passage to dispute,
+    /// like the departure's take-off: no automatic-mark notice. Only the plan the flight was started
+    /// with. (6.2)
+    func followLanding(track: [GPSPoint], landing: Date?, flightPlanId: UUID?) {
+        guard let landing, var plan = activeFlightPlan, plan.id == flightPlanId, plan.diversion == nil,
+              plan.waypoints.count >= 2 else { return }
+        let last = plan.waypoints.count - 1
+        let destination = plan.waypoints[last]
+        guard destination.actualTimeOver != landing, !(plan.takenBackWaypointIds ?? []).contains(destination.id),
+              let arrived = WaypointPassage.arrival(route: plan.waypoints.map(\.coordinate),
+                                                    track: Self.passageFixes(track), at: landing) else { return }
+        plan.waypoints[last].actualTimeOver = arrived
+        plan.currentWaypointIndex = plan.waypoints.count
+        // The flight's mark: RESUME LEG gives it back to the pilot, as it does the catch-up's.
+        plan.autoMarkedWaypointIds = (plan.autoMarkedWaypointIds ?? []).union([destination.id])
+        commitActive(plan)
+        pauseChronometer(at: arrived)
     }
 
     /// The take-off found in flight for the plan being flown, if it has been.
@@ -818,8 +852,8 @@ class FlightPlanManager: ObservableObject {
     /// Records every passage `WaypointPassage` can establish (at the time it happened, not now) and
     /// moves the current waypoint past the last one. Times already recorded are kept, and a waypoint
     /// is only ever passed once, so a circuit flown past the same point again changes nothing. The
-    /// departure takes the takeoff time and the destination waits for the landing (END FLIGHT): being
-    /// parked on either is never a passage.
+    /// departure takes the takeoff time and the destination waits for the landing (`followLanding`):
+    /// being parked on either is never a passage.
     ///
     /// It replaced a 500 m radius around the current waypoint, which fired on the ramp at the
     /// departure before engine start, missed any waypoint passed abeam, and ran only while the nav
@@ -871,11 +905,14 @@ class FlightPlanManager: ObservableObject {
                                         passedAt: passedAt,
                                         previousTarget: departure == nil ? before.target : max(before.target, 1),
                                         marked: undoable, timer: timer, departure: departure)
+        lastAutoMarkOfferAt = autoMarkNotice?.madeAt
     }
 
     /// A waypoint the flight marked on its own, and what that changed. (v6.0.1)
     struct AutoMarkNotice: Identifiable, Equatable {
         let id = UUID()
+        /// When it was offered: its UNDO lasts six seconds from then (`UndoOfferRule`). (6.2)
+        let madeAt = FlightClock.now
         /// The last waypoint passed, and when: its ATO, not the time the catch-up ran.
         let waypointName: String
         let passedAt: Date
@@ -945,9 +982,11 @@ class FlightPlanManager: ObservableObject {
     #endif
 
     /// Pause the leg timer, freezing the elapsed time (resume with startChronometer). (v4 UI/UX Revamp)
-    func pauseChronometer() {
+    /// `end`: when it stopped, if before now (the landing at the route's end, found at the next fix). (6.2)
+    func pauseChronometer(at end: Date? = nil) {
         guard var plan = activeFlightPlan, let start = plan.chronometerStartTime else { return }
-        chronometerAccumulated += FlightClock.now.timeIntervalSince(start)
+        let now = FlightClock.now
+        chronometerAccumulated += max(0, min(end ?? now, now).timeIntervalSince(start))
         plan.chronometerStartTime = nil
         activeFlightPlan = plan
 

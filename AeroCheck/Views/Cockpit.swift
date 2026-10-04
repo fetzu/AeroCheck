@@ -86,9 +86,9 @@ enum CockpitLayout: Equatable {
     /// A phone in portrait, or any window under 600 pt wide: the same zones, the header on two rows, and
     /// no NEXT cell in the strip (the next line under it instead).
     case narrow
-    /// A phone on its side: the header, the strip and the thumb bar in a column on the left, where the
-    /// thumb is, and the pane on the right at full height. Stacked, the zones would leave the checklist
-    /// about 90 pt.
+    /// A phone on its side: the page on the left at full height, and the header, the strip, the next and
+    /// NOW lines and the act band in a column on the right, where the thumb is (6.2, PR 5). Stacked, the
+    /// zones would leave the checklist about 90 pt.
     case columns
 
     static func make(width: CGFloat, height: CGFloat) -> CockpitLayout {
@@ -377,7 +377,7 @@ struct CockpitNextLabel: Equatable {
 }
 
 /// An act band button: what it does, in `CockpitType.button`, and what it does it to, underneath.
-/// At least `CockpitTarget.thumb` tall, unless told otherwise.
+/// At least its slot's height (`CockpitTarget.thumb` outside the band), unless told otherwise.
 struct CockpitThumbButton: View {
     enum Style {
         /// The primary action: solid.
@@ -400,6 +400,8 @@ struct CockpitThumbButton: View {
     /// `titleLines`, the subtitle on up to `subtitleLines`, no icon. (6.2)
     var fitted = false
     let action: () -> Void
+
+    @Environment(\.actSlotHeight) private var slotHeight
 
     var body: some View {
         Button(action: action) {
@@ -431,7 +433,7 @@ struct CockpitThumbButton: View {
             }
             .foregroundColor(textColor)
             .padding(.horizontal, horizontalPadding)
-            .frame(maxWidth: .infinity, minHeight: minHeight ?? CockpitTarget.thumb)
+            .frame(maxWidth: .infinity, minHeight: minHeight ?? slotHeight ?? CockpitTarget.thumb)
             .background(background)
             .contentShape(Rectangle())
         }
@@ -477,6 +479,9 @@ struct CockpitPanePicker: View {
     var fillsWidth: Bool = false
     /// The icons beside the words, where they fit: a phone in French has room for the words alone.
     var showsIcons: Bool = true
+    /// The phone's column on its side: segments 42 pt tall in 2 pt of frame, 46 in all, where the column
+    /// has no point to spare (54 elsewhere on the phone). (6.2, PR 5)
+    var compact: Bool = false
 
     var body: some View {
         HStack(spacing: 0) {
@@ -484,10 +489,13 @@ struct CockpitPanePicker: View {
             segment(.map, title: L10n.Cockpit.map, icon: "map")
             segment(.route, title: L10n.Cockpit.route, icon: "list.bullet")
         }
-        .padding(4)
+        .padding(compact ? 2 : 4)
         .background(RoundedRectangle(cornerRadius: 14).fill(theme.panel))
         .overlay(RoundedRectangle(cornerRadius: 14).stroke(theme.panelStroke, lineWidth: 1))
     }
+
+    /// A segment's height in the column on its side.
+    static let compactSegmentHeight: CGFloat = 42
 
     /// "pane.checklist", "pane.map", "pane.route": what the UI tests tap.
     static func identifier(_ pane: CockpitPane) -> String {
@@ -509,8 +517,9 @@ struct CockpitPanePicker: View {
             }
             .foregroundColor(selected ? theme.actionText : theme.action)
             .padding(.horizontal, CockpitType.size(kneeboard: 16, phone: 10))
-            .frame(maxWidth: fillsWidth ? .infinity : nil, minHeight: CockpitType.size(kneeboard: 52, phone: 46))
-            .background(RoundedRectangle(cornerRadius: 10).fill(selected ? theme.action : Color.clear))
+            .frame(maxWidth: fillsWidth ? .infinity : nil,
+                   minHeight: compact ? Self.compactSegmentHeight : CockpitType.size(kneeboard: 52, phone: 46))
+            .background(RoundedRectangle(cornerRadius: compact ? 12 : 10).fill(selected ? theme.action : Color.clear))
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)

@@ -771,9 +771,8 @@ struct NavigationMapView: View {
         //
         // The Cockpit's map has no side column: an iPad on its side gets the portrait arrangement, the
         // frame wider, its act band under the page; beside the phone's column on its side it is the
-        // chart alone. (6.2)
+        // chart alone too. (6.2)
         let landscape = chrome == .plan && geometry.size.width > geometry.size.height * 1.2
-        let columns = chrome == .cockpit(.columns)
         let mapAreaWidth = landscape ? geometry.size.width - Self.sideColumnWidth : geometry.size.width
         // The closures below run later, in their own view's update: read the proxy here, while it
         // is current.
@@ -781,11 +780,7 @@ struct NavigationMapView: View {
         // Each large part of the map is a view of its own (`SeparateView`): built inline, this body's
         // value was about 33 KB, and rendering it overflowed the device's 1 MB main-thread stack.
         return Group {
-            if columns {
-                // A phone on its side, in the Cockpit: the map at full height beside the Cockpit's column
-                // (its header, strip and act band), the frequencies along its bottom. (iPhone pass, I7)
-                SeparateView { columnsMapArea(legsMaxHeight: height * 0.5) }
-            } else if landscape {
+            if landscape {
                 // The legs and every frequency open over the chart's foot, beside the column, rather than
                 // in it: in the column they had the room its controls left, a strip that showed a row and
                 // a half. (6.1, device check) The map's footer rides above them, the undo toast with it.
@@ -811,10 +806,12 @@ struct NavigationMapView: View {
                     mapArea(bottomPanel: SeparateView { bottomPanel(legsMaxHeight: height * 0.4) })
                 }
             } else {
-                // The Cockpit's chart, to the act band, and its own chrome over it (`CockpitChartChrome`):
-                // NOW | NEXT are in its read band, over every page, since 6.2 (they were a card at the
-                // chart's foot), and the controls row, CACHED, the scale, the chips, the route's pill and
-                // the undo toast left the chart for the stack, the status slot and More (PR 4).
+                // The Cockpit's chart, to the act band (beside the phone's column on its side, at full
+                // height), and its own chrome over it (`CockpitChartChrome`): NOW | NEXT are in its read
+                // band, over every page, since 6.2 (they were a card at the chart's foot), and the controls
+                // row, CACHED, the scale, the chips, the route's pill and the undo toast left the chart for
+                // the stack, the status slot and More (PR 4). The phone on its side kept its next line and
+                // its frequencies until its column took them (PR 5).
                 SeparateView { cockpitMapArea }
             }
         }
@@ -862,44 +859,9 @@ struct NavigationMapView: View {
         .onChange(of: mapAreaWidth) { _, width in mapWidth = width }
     }
 
-    /// The landscape phone's map, beside the Cockpit's column: as much chart as the height allows. The
-    /// next waypoint on one line, the controls in a short column on the right edge, the frequencies on
-    /// two lines at the bottom, and over the chart only the chips that come and go. The card, a row of
-    /// controls, the pane bar and the tall frequency bar left the map about a third of its column.
-    /// (iPhone pass, I7) The next line and the frequencies stay here until the column takes them, as the
-    /// read band took them everywhere else (6.2).
-    private func columnsMapArea(legsMaxHeight: CGFloat) -> some View {
-        VStack(spacing: 0) {
-            // The Cockpit's chrome over the chart under the next line (6.2, PR 4): the stack at the right
-            // edge, the status slot, the edge arrow, the scale. The controls row at its foot, CACHED, the
-            // permanent scale, the chips, the route's pill and the undo toast went with it.
-            cockpitChartPresentations(
-                chartWithChrome(top: VStack(spacing: 8) {
-                    if framedLeg != nil { framedLegBar } else { nextWaypointLine }
-                }
-                .padding(.horizontal, 10)
-                .padding(.top, 8),
-                bottom: EmptyView())
-                .overlay {
-                    SeparateView { cockpitChartChrome }
-                        .padding(.top, chartGeometry.chromeBottom)
-                })
-
-            // The frequencies, and the legs when opened, under the chart rather than over it.
-            VStack(spacing: 0) {
-                freqLine
-                if navSheetExpanded {
-                    Rectangle().fill(theme.panelStroke).frame(height: 1)
-                    SeparateView { legsPanelContent(maxHeight: legsMaxHeight) }
-                }
-            }
-            .background(theme.panel.ignoresSafeArea(edges: .bottom))
-            .overlay(alignment: .top) { Rectangle().fill(theme.panelStroke).frame(height: 1) }
-        }
-    }
-
     /// The next waypoint on one line: the ident in magenta, then bearing, distance and time. Tap for
-    /// every leg and frequency. A diversion shows its tag and the way back to the route.
+    /// every leg and frequency. A diversion shows its tag and the way back to the route. Plan › Map's on
+    /// the phone: the Cockpit's next waypoint is in its read band, on its side too since 6.2.
     @ViewBuilder
     private var nextWaypointLine: some View {
         if let plan = flightPlanManager.activeFlightPlan, !flightPlanManager.isFlightPlanCompleted,
@@ -1041,31 +1003,6 @@ struct NavigationMapView: View {
         .accessibilityLabel(label)
     }
 
-    /// NOW and NEXT on two lines: the station over the frequency. The landscape phone's version of
-    /// `freqCard`, about 20 pt shorter.
-    private var freqLine: some View {
-        Button(action: toggleLegsAndFrequencies) {
-            HStack(spacing: 10) {
-                freqLineCell(tag: L10n.Nav.freqCurrent, tint: theme.onTarget, item: nowFrequency)
-                Rectangle().fill(theme.panelStroke).frame(width: 1, height: 36)
-                freqLineCell(tag: L10n.Nav.freqNext, tint: theme.info, item: nextFrequency)
-                Image(systemName: chrome != .plan ? "chevron.right" : navSheetExpanded ? "chevron.down" : "chevron.up")
-                    .font(.aero(size: CockpitType.label, weight: .bold))
-                    .foregroundColor(theme.action)
-                    .frame(width: 40, height: 40)
-                    .background(Circle().fill(theme.action.opacity(0.14)))
-            }
-            .padding(.horizontal, 12)
-            .padding(.vertical, 5)
-            .contentShape(Rectangle())
-        }
-        .buttonStyle(.plain)
-        .accessibilityIdentifier(legsToggleIdentifier)
-        // A hint, not a label: a label replaced the station and frequency, so VoiceOver never read the
-        // NOW and NEXT frequencies at all. (v6.0 review)
-        .accessibilityHint(L10n.Nav.legsAndFrequencies)
-    }
-
     /// "map.legsToggle" opens Plan › Map's panel; the Cockpit's NOW | NEXT open ROUTE, whose picker
     /// segment ("pane.route") the UI tests tap instead. (6.2)
     private var legsToggleIdentifier: String {
@@ -1080,25 +1017,6 @@ struct NavigationMapView: View {
     /// NEXT, as NOW.
     private var nextFrequency: PhaseFrequency? {
         chrome == .plan ? phaseFreqItems.first { $0.role == .next } : cockpitRadio?.next
-    }
-
-    private func freqLineCell(tag: String, tint: Color, item: PhaseFrequency?) -> some View {
-        VStack(alignment: .leading, spacing: 0) {
-            HStack(spacing: 6) {
-                Text(tag)
-                    .font(.aero(size: 13, weight: .bold))
-                    .foregroundColor(tint)
-                Text(item?.station ?? "—")
-                    .font(.aero(size: 13))
-                    .foregroundColor(theme.textSecondary)
-                    .lineLimit(1)
-            }
-            FrequencyLineText(text: item?.freq ?? "—",
-                              font: .aero(size: CockpitType.label, weight: .bold, design: .monospaced),
-                              color: theme.textPrimary)
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .accessibilityElement(children: .combine)
     }
 
     /// The map with its chrome: the top bar (full-screen only), the next-waypoint card (Plan › Map's; the
@@ -1781,7 +1699,7 @@ struct NavigationMapView: View {
     // MARK: - Bottom Controls
 
     /// The scale bar and the offline/cache badge, bottom left over the map, and the undo toast over
-    /// them. (The landscape phone has them in the controls' band instead: `columnsMapFoot`.)
+    /// them (Plan › Map's; the Cockpit's chart has `CockpitChartChrome`).
     ///
     /// The toast lies over the corner rather than under it: stacked, its six seconds after every MARK
     /// and every waypoint the flight marked lifted the scale and the badge, a button, by 100 pt. Now
@@ -2756,10 +2674,9 @@ struct NavigationMapView: View {
     /// A leg's bar: a control's height and its 8 pt padding.
     private static var legBarHeight: CGFloat { CockpitTarget.control + 16 }
 
-    /// What a leg's bar takes of the chart's foot, with the stack's margin under it; nothing beside the
-    /// phone's column on its side, where the bar is at the top.
+    /// What a leg's bar takes of the chart's foot, with the stack's margin under it.
     private var cockpitLegFootRoom: CGFloat {
-        guard framedLeg != nil, chrome != .cockpit(.columns) else { return 0 }
+        guard framedLeg != nil else { return 0 }
         return Self.legBarHeight + MapChromeGeometry.Metrics(.current).margin
     }
 
@@ -2823,16 +2740,9 @@ struct NavigationMapView: View {
 
     /// The room around a leg from ROUTE. The chart's own chrome since PR 4: the bar along the foot, left of
     /// the stack (the phone's stack gives way to it), the stack's column at the right edge (the iPad in
-    /// portrait), the status slot when a state shows; the read band took the chart's top in PR 3. Beside the
-    /// phone's column on its side, the bar takes the next line's place at the top, and the scale's 60 pt
-    /// stay at the foot. (6.2)
-    private var framedLegPadding: UIEdgeInsets {
-        if chrome == .cockpit(.columns) {
-            return LegFraming.edgePadding(chartSize: chartGeometry.chartSize, topChrome: chartGeometry.chromeBottom,
-                                          bottomChrome: 60)
-        }
-        return cockpitFramingPadding
-    }
+    /// portrait), the status slot when a state shows; the read band took the chart's top in PR 3, and the
+    /// phone's column on its side the next line in PR 5. (6.2)
+    private var framedLegPadding: UIEdgeInsets { cockpitFramingPadding }
 
     /// Back to the aircraft, followed again at the zoom the pilot had before the leg.
     private func backToAircraft() {

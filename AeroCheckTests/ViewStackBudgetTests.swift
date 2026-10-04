@@ -164,6 +164,26 @@ final class ViewStackBudgetTests: XCTestCase {
         }
     }
 
+    /// The Cockpit on a phone on its side (6.2, PR 5): the page on the left, the column on the right with
+    /// the header row, the picker, the strip, the next and NOW lines (one line under 400 pt tall) and the act
+    /// band two by two, on CHECKLIST, MAP and ROUTE, at an iPhone 17's and a Pro Max's sizes.
+    func testCockpitOnAPhoneOnItsSideRendersWithinHalfTheDeviceStack() {
+        for pane in [CockpitPane.checklist, .map, .route] {
+            for (size, name) in [(CGSize(width: 796, height: 382), "iPhone 17, merged line"),
+                                 (CGSize(width: 878, height: 420), "Pro Max, two lines")] {
+                let services = makeServices()
+                startFlight(services.appState, stepByStep: false)
+                services.appState.goToPhase(.cruise)
+                armRoute(services.flightPlanManager, waypoints: 6)
+
+                let used = StackProbe.bytesUsed {
+                    render(FlightView(initialPane: pane), services: services, size: size)
+                }
+                XCTAssertLessThan(used, Self.budget, "the Cockpit on its side, \(pane), \(name), used \(used / 1_024) KB of stack")
+            }
+        }
+    }
+
     /// The Cockpit on its checklist in cruise with FREDA counting in the act band's first slot (6.2):
     /// the page the pilot picked over the map the flight shows.
     func testCockpitChecklistWithFredaCountingRendersWithinHalfTheDeviceStack() {

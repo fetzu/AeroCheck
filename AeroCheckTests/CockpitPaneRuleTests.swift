@@ -122,55 +122,169 @@ final class CockpitPaneRuleTests: XCTestCase {
     }
 }
 
-/// A phone on its side: the Cockpit's column on the left (the header, the phase, CHECKLIST | MAP, the
-/// strip, the thumb row) fits above the home indicator, the thumb row whole, over the map and over the
-/// checklist. It was about 440 pt tall where a phone on its side has 369 to 419: the strip's values shrank
-/// to about half, then, the strip holding its height (6.1.0), the thumb row ran off the screen. (6.1,
-/// device check of 3 Oct)
+/// A phone on its side (6.2, PR 5): the page on the left at full height, the column on the right, with the
+/// header on one row, the pages' picker, the strip at 28 pt, the next and NOW lines (one line under 400 pt
+/// tall) and the act band two by two at its foot, every row whole between the top of the screen and the home
+/// indicator, on CHECKLIST, MAP, ROUTE and in the approach (GO AROUND, TOUCH-AND-GO), with the checklist in
+/// English and in French. Run it with `-testLanguage fr` too: the phase names, CARTE and ACT are the app's.
+///
+/// The column was on the left until 6.2, and about 440 pt tall where a phone on its side has 370 to 420:
+/// the strip's values shrank to about half, then the thumb row ran off the screen (6.1, device check of 3
+/// Oct). On main before this PR it was 374 pt in an iPhone 17e's 370, the thumb row's 12 pt of padding
+/// hiding the overflow from this test's 2 pt look at its foot.
 ///
 /// Laid out at the phone's sizes (`CockpitScale`), so it runs on an iPhone simulator; on the iPad the
 /// suite runs on, it is skipped.
 @MainActor
 final class CockpitColumnFitTests: XCTestCase {
 
-    /// Current phones on their side: the room above the home indicator.
-    private static let phones: [(name: String, size: CGSize)] = [
-        ("iPhone 17e", CGSize(width: 844, height: 390 - 21)),
-        ("iPhone 17 Pro", CGSize(width: 874, height: 402 - 21)),
-        ("iPhone 17 Pro Max", CGSize(width: 956, height: 440 - 21)),
+    /// The phones on their side, as the Cockpit has them: the room over the home indicator (20 pt), less
+    /// the camera's side (47 or 62 pt) and the other side's 16 (`CameraSideInset`). Measured on iOS 27
+    /// simulators. The iPhone 17e is 390 pt wide in portrait.
+    static let phones: [(name: String, size: CGSize)] = [
+        ("iPhone 17e", CGSize(width: 844 - 47 - 16, height: 390 - 20)),
+        ("iPhone 17", CGSize(width: 874 - 62 - 16, height: 402 - 20)),
+        ("iPhone 17 Pro Max", CGSize(width: 956 - 62 - 16, height: 440 - 20)),
     ]
 
-    func testTheColumnFitsBesideTheMap() throws {
+    /// The pages and the states the column holds through: the band's roles change with them, the column's
+    /// rows never do.
+    enum Page: String, CaseIterable {
+        /// Cruise, the list open: FREDA, CHECK with the item, DEFER, More.
+        case checklist
+        /// Cruise with a route: the check slot, MARK with the leg time, Divert, More.
+        case map
+        /// Cruise with a route: the DEST line, the legs, the radio.
+        case route
+        /// The approach on MAP: the check slot, GO AROUND, TOUCH-AND-GO, More.
+        case approach
+        /// The longest phase name on the header's row: "CHECK BEFORE ENGINE START", no strip yet.
+        case beforeEngineStart
+    }
+
+    func testTheColumnFitsOnEveryPhoneOnEveryPage() throws {
         try XCTSkipUnless(CockpitScale.current == .phone, "laid out at the phone's sizes: run it on an iPhone")
+        let interface = Bundle.main.preferredLocalizations.first ?? "en"
         for phone in Self.phones {
-            let services = makeServices()
-            // Every check worked through: in cruise, the Cockpit shows the map, a route armed, the
-            // check slot, MARK, Divert and More under the column.
-            startFlight(services.appState, stepByStep: false)
-            services.appState.goToPhase(.cruise)
+            for page in Page.allCases {
+                for language in [ChecklistLanguage.en, .fr] {
+                    let services = makeServices()
+                    let pane = setUp(page, language: language, services: services)
+                    let image = try render(FlightView(initialPane: pane), services: services, size: phone.size)
+                    let column = try columnPixels(image)
+                    let name = "\(phone.name), \(page.rawValue), checklist \(language.rawValue), app \(interface)"
+                    try writeForReview(image, name: name)
+                    XCTAssertTrue(column.topIsClear, "\(name): the header runs off the top")
+                    XCTAssertTrue(column.footIsClear, "\(name): the act band runs off the foot")
+                    XCTAssertTrue(column.edgeAtFullHeight, "\(name): the column's edge from the top to the foot, the page left of it")
+                }
+            }
+        }
+    }
+
+    /// The header's one row: every phase's name at 17 pt beside Menu, in English and in French, in the
+    /// column's width (`FlightView.cockpitColumnWidth`): its 12 pt either side, Menu (the word under its
+    /// icon, 10 pt either side), 8 pt between them, the phase button's 10 pt either side. "CHECK BEFORE
+    /// ENGINE START" sets the width.
+    func testEveryPhaseNameFitsTheHeadersRowAtTheLabelSize() {
+        let label = CockpitType.label(for: .phone)
+        let menu = ActBandMetrics.textWidth(localizedString(key: "cockpit.menu", language: "en"), size: label) + 2 * 10
+        let room = FlightView.cockpitColumnWidth - 2 * 12 - menu - 8 - 2 * 10
+        var widest: (String, CGFloat) = ("", 0)
+        for language in ["en", "fr"] {
+            for phase in Self.phases {
+                let name = localizedString(key: "phase.short.\(phase)", language: language)
+                let width = ActBandMetrics.textWidth(name, size: label)
+                if width > widest.1 { widest = (name, width) }
+                XCTAssertLessThanOrEqual(width, room, "\(name) at \(label) pt in \(room) pt")
+            }
+        }
+        XCTAssertEqual(widest.0, "CHECK BEFORE ENGINE START")
+    }
+
+    /// The column's rows, added up, within each phone's height (the author's answer to the plan's Q2): 2 pt
+    /// over the header's row, its 44, 4, the picker's 46, 4, the read band's rows as laid out (the strip at
+    /// 28 pt and one line, or two on a Pro Max), the act band's 2 × 76 + 6 with 4 over and 2 under it. The
+    /// pixels above see the column run over; this says by how much it has room.
+    func testTheColumnsRowsAddUpWithinEveryPhone() throws {
+        try XCTSkipUnless(CockpitScale.current == .phone, "laid out at the phone's sizes: run it on an iPhone")
+        let width = FlightView.cockpitColumnWidth
+        let band = ActBandMetrics.make(layout: .columns, scale: .phone).bandHeight
+            + CockpitActBand.columnTopPadding + CockpitActBand.columnBottomPadding
+        let head = FlightView.cockpitColumnTop + FlightView.cockpitColumnHeaderHeight + FlightView.cockpitColumnGap
+            + CockpitPanePicker.compactSegmentHeight + 2 * 2 + FlightView.cockpitColumnGap
+        let strip = StripReading(speedKnots: 104, targetSpeed: 100, gpsSignalStatus: .good, altitudeFeet: 10_500,
+                                 headingDegrees: 211, verticalSpeedFPM: 650)
+        for phone in Self.phones {
+            let merges = CockpitColumnRule.mergesNextAndNow(height: phone.size.height)
+            let rows = CockpitReadRows(layout: .columns, mergesLines: merges, scale: .phone, strip: strip,
+                                       next: NextFigures(ident: "SAIGNELÉGIER", fullIdent: nil, diverting: false, bearing: 206,
+                                                         distanceNM: 17.6, live: nil),
+                                       now: PhaseFrequency(station: "LSZQ AFIS", freq: "120.375", highlighted: true,
+                                                           isEmergency: false, role: .current),
+                                       nextFrequency: nil, onShowRoute: {})
+                .environment(\.cockpitTheme, CockpitTheme.resolve(.day))
+            let height = UIHostingController(rootView: rows.frame(width: width))
+                .sizeThatFits(in: CGSize(width: width, height: .greatestFiniteMagnitude)).height
+            let total = head + height + band
+            XCTAssertLessThanOrEqual(total, phone.size.height,
+                                     "\(phone.name): \(total) pt of \(phone.size.height) (the read band \(height))")
+        }
+    }
+
+    /// The next and NOW lines merge under 400 pt tall: the 17e and the 17, not the Pro Max.
+    func testTheLinesMergeOnTheSmallerPhones() {
+        XCTAssertEqual(Self.phones.map { CockpitColumnRule.mergesNextAndNow(height: $0.size.height) }, [true, true, false])
+        XCTAssertTrue(CockpitColumnRule.mergesNextAndNow(height: 399))
+        XCTAssertFalse(CockpitColumnRule.mergesNextAndNow(height: 400))
+    }
+
+    /// Writes `image` as a PNG into the folder named by COLUMN_SHOTS (`TEST_RUNNER_COLUMN_SHOTS` on
+    /// xcodebuild's command line), for review. Nothing without it.
+    private func writeForReview(_ image: CGImage, name: String) throws {
+        guard let folder = ProcessInfo.processInfo.environment["COLUMN_SHOTS"], !folder.isEmpty else { return }
+        let directory = URL(fileURLWithPath: folder, isDirectory: true)
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        let file = name.lowercased().replacingOccurrences(of: ", ", with: "-").replacingOccurrences(of: " ", with: "-") + ".png"
+        let data = try XCTUnwrap(UIImage(cgImage: image).pngData())
+        try data.write(to: directory.appendingPathComponent(file))
+    }
+
+    private static let phases = ["preflight", "beforeEngineStart", "engineStart", "afterEngineStart", "taxi", "runup",
+                                 "beforeDeparture", "lineUp", "climb", "cruise", "descent", "approach", "landing",
+                                 "afterLanding", "shutdown", "hangar"]
+
+    /// The flight for `page`, and the page to open on.
+    private func setUp(_ page: Page, language: ChecklistLanguage, services: Services) -> CockpitPane {
+        let appState = services.appState
+        appState.settings.checklistLanguage = language
+        switch page {
+        case .checklist:
+            startFlight(appState, stepByStep: true)
+            appState.currentPhase = .cruise
+            return .checklist
+        case .map, .route:
+            startFlight(appState, stepByStep: false)
+            appState.goToPhase(.cruise)
             armRoute(services.flightPlanManager)
-            let foot = try footPixels(render(FlightView(), services: services, size: phone.size))
-            XCTAssertTrue(foot.isClear, "\(phone.name): the thumb row reaches \(foot.drawnRows) pt into the foot")
+            return page == .map ? .map : .route
+        case .approach:
+            startFlight(appState, stepByStep: false)
+            appState.goToPhase(.approach)
+            armRoute(services.flightPlanManager)
+            return .map
+        case .beforeEngineStart:
+            startFlight(appState, stepByStep: true)
+            appState.currentPhase = .beforeEngineStart
+            return .checklist
         }
     }
 
-    func testTheColumnFitsBesideTheChecklist() throws {
-        try XCTSkipUnless(CockpitScale.current == .phone, "laid out at the phone's sizes: run it on an iPhone")
-        for phone in Self.phones {
-            let services = makeServices()
-            // The cruise list open: the checklist pane, CHECK and DEFER under the column.
-            startFlight(services.appState, stepByStep: true)
-            services.appState.currentPhase = .cruise
-            let foot = try footPixels(render(FlightView(), services: services, size: phone.size))
-            XCTAssertTrue(foot.isClear, "\(phone.name): the thumb bar reaches \(foot.drawnRows) pt into the foot")
-        }
-    }
-
-    // MARK: - Helpers
-
-    /// The column's foot, its last 2 pt across its width, against its own background (its left margin):
-    /// clear when the thumb row ended above it.
-    private func footPixels(_ image: CGImage) throws -> (isClear: Bool, drawnRows: Int) {
+    /// The column's first and last rows across its width, against its own background: clear when the header
+    /// and the band keep their 2 pt from the edges (the buttons' strokes reach half a point into them), drawn
+    /// when the column runs 2 pt or more over the phone's height. And its left edge, drawn from the top to
+    /// the foot: the column on the right at full height, the page beside it.
+    private func columnPixels(_ image: CGImage) throws -> (topIsClear: Bool, footIsClear: Bool, edgeAtFullHeight: Bool) {
         let data = try XCTUnwrap(image.dataProvider?.data)
         let bytes = try XCTUnwrap(CFDataGetBytePtr(data))
         let perRow = image.bytesPerRow, perPixel = image.bitsPerPixel / 8
@@ -178,21 +292,20 @@ final class CockpitColumnFitTests: XCTestCase {
             let p = bytes + y * perRow + x * perPixel
             return (Int(p[0]), Int(p[1]), Int(p[2]))
         }
-        let background = pixel(4, image.height - 1)
+        let left = image.width - Int(FlightView.cockpitColumnWidth)
+        // The column's own background: its right margin, at its foot.
+        let background = pixel(image.width - 4, image.height - 1)
         func isBackground(_ x: Int, _ y: Int) -> Bool {
             let (a, b, c) = pixel(x, y)
             return abs(a - background.0) <= 3 && abs(b - background.1) <= 3 && abs(c - background.2) <= 3
         }
-        // How far up from the bottom something other than the background is drawn, within the column.
-        let columns = 12..<Int(FlightView.cockpitColumnWidth) - 12
-        var drawnRows = 0
-        for y in stride(from: image.height - 1, through: max(0, image.height - 24), by: -1) {
-            guard columns.contains(where: { !isBackground($0, y) }) else { break }
-            drawnRows += 1
-        }
-        let footIsBackground = (image.height - 2..<image.height).allSatisfy { y in columns.allSatisfy { isBackground($0, y) } }
-        return (footIsBackground, drawnRows)
+        let columns = (left + 12)..<(image.width - 12)
+        let footIsClear = columns.allSatisfy { isBackground($0, image.height - 1) }
+        let topIsClear = columns.allSatisfy { isBackground($0, 0) }
+        let edge = (0..<image.height).allSatisfy { !isBackground(left, $0) }
+        return (topIsClear, footIsClear, edge)
     }
+    // MARK: - Helpers
 
     /// LSZQ to LSGC to LSGN, armed.
     private func armRoute(_ manager: FlightPlanManager) {

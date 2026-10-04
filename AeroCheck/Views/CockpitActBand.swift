@@ -86,24 +86,32 @@ enum ActBandRoles {
 
 // MARK: - The four frames
 
-/// The band's measures for a layout and a device: the room between the slots, their height, and the
+/// The band's measures for a layout and a device: the room between the slots, a slot's height, and the
 /// width of the two narrow ones.
 struct ActBandMetrics: Equatable {
     var spacing: CGFloat
+    /// A slot's height.
     var height: CGFloat
-    /// S3 and S4.
+    /// S3 and S4, in a row.
     var narrowWidth: CGFloat
-    /// The phone on its side (until its own pass): S3 over S4, half height each, beside S1 and S2.
-    var stacksNarrow: Bool
-    /// Between S3 and S4 one above the other.
-    var narrowSpacing: CGFloat = 8
+    /// The phone on its side: two by two at the foot of its column, S1 and S2 over S3 and S4, the four
+    /// as wide. (6.2, PR 5)
+    var isGrid: Bool
 
     static func make(layout: CockpitLayout, scale: CockpitScale = .current) -> ActBandMetrics {
-        ActBandMetrics(spacing: CockpitType.size(kneeboard: 12, phone: 6, scale: scale),
-                       height: CockpitType.size(kneeboard: 104, phone: 92, scale: scale),
-                       narrowWidth: narrowWidth(scale: scale),
-                       stacksNarrow: layout == .columns)
+        let grid = layout == .columns
+        return ActBandMetrics(spacing: CockpitType.size(kneeboard: 12, phone: 6, scale: scale),
+                              height: grid ? gridSlotHeight : CockpitType.size(kneeboard: 104, phone: 92, scale: scale),
+                              narrowWidth: narrowWidth(scale: scale), isGrid: grid)
     }
+
+    /// The phone on its side: a slot 76 pt tall, the author's answer to the plan's Q2 (with one header row,
+    /// the strip's values at 28 pt and the next and NOW lines merged under 400 pt, the column holds in an
+    /// iPhone 17e's 370 pt). At the portrait's 92 the grid alone took half of it.
+    static let gridSlotHeight: CGFloat = 76
+
+    /// The band's height: one row of slots, or two and the room between them.
+    var bandHeight: CGFloat { isGrid ? 2 * height + spacing : height }
 
     /// The narrow slots' text, from their edges: what a word has, less this on each side.
     static func narrowPadding(_ scale: CockpitScale = .current) -> CGFloat {
@@ -141,25 +149,25 @@ struct ActBandMetrics: Equatable {
     private static let measured = OSAllocatedUnfairLock<[CockpitScale: CGFloat]>(initialState: [:])
 }
 
-/// The four slots, left to right: S1 and S2 share what S3 and S4 leave. From the row's width and the
-/// device's measures alone, never from what the slots hold, so a role changing (CHECK becoming NEXT,
-/// MARK giving way to GO AROUND) moves nothing.
+/// The four slots, left to right: S1 and S2 share what S3 and S4 leave. On a phone on its side, two by
+/// two: S1 and S2 over S3 and S4, each half the column. From the row's width and the device's measures
+/// alone, never from what the slots hold, so a role changing (CHECK becoming NEXT, MARK giving way to GO
+/// AROUND) moves nothing.
 struct ActBandLayout: Layout {
     var metrics: ActBandMetrics
     /// Each slot as laid out (its index, its frame in the band): for the tests.
     var onPlace: ((Int, CGRect) -> Void)? = nil
 
     static func frames(width: CGFloat, metrics m: ActBandMetrics) -> [CGRect] {
-        let narrow = min(m.narrowWidth, max(0, width / 4))
-        if m.stacksNarrow {
-            let wide = max(0, (width - narrow - 2 * m.spacing) / 2)
-            let half = max(0, (m.height - m.narrowSpacing) / 2)
-            let x = 2 * (wide + m.spacing)
-            return [CGRect(x: 0, y: 0, width: wide, height: m.height),
-                    CGRect(x: wide + m.spacing, y: 0, width: wide, height: m.height),
-                    CGRect(x: x, y: 0, width: narrow, height: half),
-                    CGRect(x: x, y: half + m.narrowSpacing, width: narrow, height: half)]
+        if m.isGrid {
+            let half = max(0, (width - m.spacing) / 2)
+            let below = m.height + m.spacing
+            return [CGRect(x: 0, y: 0, width: half, height: m.height),
+                    CGRect(x: half + m.spacing, y: 0, width: half, height: m.height),
+                    CGRect(x: 0, y: below, width: half, height: m.height),
+                    CGRect(x: half + m.spacing, y: below, width: half, height: m.height)]
         }
+        let narrow = min(m.narrowWidth, max(0, width / 4))
         let wide = max(0, (width - 2 * narrow - 3 * m.spacing) / 2)
         let x = 2 * (wide + m.spacing)
         return [CGRect(x: 0, y: 0, width: wide, height: m.height),
@@ -171,7 +179,7 @@ struct ActBandLayout: Layout {
     func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
         let width = proposal.width.flatMap { $0.isFinite ? $0 : nil }
             ?? 4 * metrics.narrowWidth + 3 * metrics.spacing
-        return CGSize(width: width, height: metrics.height)
+        return CGSize(width: width, height: metrics.bandHeight)
     }
 
     func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) {
@@ -597,10 +605,23 @@ struct CockpitActions {
     var nextReady = false
 }
 
+/// The height of the act band's slot a button is in: 76 pt in the phone's grid on its side. Nil outside
+/// the band (the Companion, the event cards), where a button keeps the thumb's height. (6.2, PR 5)
+private struct ActSlotHeightKey: EnvironmentKey {
+    static let defaultValue: CGFloat? = nil
+}
+
+extension EnvironmentValues {
+    var actSlotHeight: CGFloat? {
+        get { self[ActSlotHeightKey.self] }
+        set { self[ActSlotHeightKey.self] = newValue }
+    }
+}
+
 // MARK: - The band
 
-/// The four slots under the page, in the frame's place: across the iPad and the phone in portrait,
-/// at the foot of the phone's column on its side. The Divert sheet and the routes hang here, so they stay
+/// The four slots under the page, in the frame's place: across the iPad and the phone in portrait, two by
+/// two at the foot of the phone's column on its side. The Divert sheet and the routes hang here, so they stay
 /// up whichever page shows.
 struct CockpitActBand: View {
     let page: CockpitPane
@@ -619,14 +640,16 @@ struct CockpitActBand: View {
         let metrics = ActBandMetrics.make(layout: layout, scale: scale)
         let roles = self.roles
         ActBandLayout(metrics: metrics, onPlace: onPlace) {
-            ActSlotView(role: roles[0], page: page, half: false, actions: actions)
-            ActSlotView(role: roles[1], page: page, half: false, actions: actions)
-            ActSlotView(role: roles[2], page: page, half: metrics.stacksNarrow, actions: actions)
-            ActSlotView(role: roles[3], page: page, half: metrics.stacksNarrow, actions: actions)
+            ActSlotView(role: roles[0], page: page, grid: metrics.isGrid, actions: actions)
+            ActSlotView(role: roles[1], page: page, grid: metrics.isGrid, actions: actions)
+            ActSlotView(role: roles[2], page: page, grid: metrics.isGrid, actions: actions)
+            ActSlotView(role: roles[3], page: page, grid: metrics.isGrid, actions: actions)
         }
+        // Every slot's button as tall as its frame: 76 pt in the grid, the thumb's elsewhere.
+        .environment(\.actSlotHeight, metrics.height)
         .padding(.horizontal, layout == .wide ? 16 : 12)
-        .padding(.top, layout == .columns ? 6 : layout == .wide ? 12 : 10)
-        .padding(.bottom, layout == .columns ? 12 : layout == .wide ? 12 : 10)
+        .padding(.top, layout == .columns ? Self.columnTopPadding : layout == .wide ? 12 : 10)
+        .padding(.bottom, layout == .columns ? Self.columnBottomPadding : layout == .wide ? 12 : 10)
         .background { if layout != .columns { theme.panel.ignoresSafeArea(edges: .bottom) } }
         .overlay(alignment: .top) {
             if layout != .columns { Rectangle().fill(theme.panelStroke).frame(height: 1) }
@@ -634,6 +657,11 @@ struct CockpitActBand: View {
         .sensoryFeedback(.impact(weight: .light), trigger: appState.getHighlightedItem(for: appState.currentPhase))
         .modifier(ActBandPresentations())
     }
+
+    /// Above the grid at the column's foot, and below it, over the home indicator's own 20 pt: the
+    /// column has no point to spare on a 6.1" phone. (6.2, PR 5)
+    static let columnTopPadding: CGFloat = 4
+    static let columnBottomPadding: CGFloat = 2
 
     private var roles: [ActSlotRole] {
         let plan = flightPlanManager.activeFlightPlan
@@ -686,12 +714,12 @@ private struct ActBandPresentations: ViewModifier {
     }
 }
 
-/// One slot: its role's button, filling the frame it is given. `half`: S3 or S4 on the phone on its
-/// side, half the band's height.
+/// One slot: its role's button, filling the frame it is given. `grid`: the phone's band on its side, two by
+/// two, where S3 is as wide as S1.
 struct ActSlotView: View {
     let role: ActSlotRole
     let page: CockpitPane
-    let half: Bool
+    var grid = false
     let actions: CockpitActions
 
     @Environment(AppState.self) private var appState
@@ -725,11 +753,13 @@ struct ActSlotView: View {
             MapFlightEventButton(event: .goAround, narrow: CockpitScale.current == .phone,
                                  twoLines: CockpitScale.current == .phone)
         case .touchAndGo:
-            MapFlightEventButton(event: .touchAndGo, narrow: true, twoLines: true, half: half)
+            // In the grid, S3 is as wide as S1: its words as far in ("Maintenir pour confirmer" ran to
+            // within 3 pt of the border).
+            MapFlightEventButton(event: .touchAndGo, narrow: true, twoLines: true,
+                                 horizontalInset: grid ? ActFace.inset : nil)
         case .deferItem(let enabled):
             Button { appState.deferHighlightedItem() } label: {
-                ActNarrowLabel(icon: "clock.arrow.circlepath", title: L10n.Cockpit.deferItem, tint: theme.warning,
-                               half: half)
+                ActNarrowLabel(icon: "clock.arrow.circlepath", title: L10n.Cockpit.deferItem, tint: theme.warning)
             }
             .buttonStyle(.plain)
             .disabled(!enabled)
@@ -740,7 +770,7 @@ struct ActSlotView: View {
         case .divert(let enabled, let diverting):
             Button { navState.openDivert(nil) } label: {
                 ActNarrowLabel(icon: "arrow.triangle.turn.up.right.diamond.fill", title: L10n.Act.divert,
-                               tint: diverting ? theme.warning : theme.action, half: half)
+                               tint: diverting ? theme.warning : theme.action)
             }
             .buttonStyle(.plain)
             .disabled(!enabled)
@@ -748,24 +778,21 @@ struct ActSlotView: View {
             .accessibilityLabel(L10n.Act.divert)
             .accessibilityIdentifier("act.divert")
         case .more(let withDivert):
-            CockpitMoreMenu(page: page, withDivert: withDivert, half: half, actions: actions)
+            CockpitMoreMenu(page: page, withDivert: withDivert, actions: actions)
         }
     }
 }
 
-/// A narrow slot's face: the icon over the word (DEFER, Divert, More), at the in-flight label size.
-/// `half`: the word alone, half height. Its button says the word to VoiceOver, not the icon's name.
+/// A narrow slot's face: the icon over the word (DEFER, Divert, More), at the in-flight label size. Its
+/// button says the word to VoiceOver, not the icon's name.
 struct ActNarrowLabel: View {
     let icon: String
     let title: String
     let tint: Color
-    var half: Bool = false
 
     var body: some View {
         VStack(spacing: 6) {
-            if !half {
-                Image(systemName: icon).font(.aero(size: CockpitType.response, weight: .semibold))
-            }
+            Image(systemName: icon).font(.aero(size: CockpitType.response, weight: .semibold))
             Text(title)
                 .font(.aero(size: CockpitType.label, weight: .bold))
                 .lineLimit(1)
@@ -774,8 +801,8 @@ struct ActNarrowLabel: View {
         .padding(.horizontal, ActBandMetrics.narrowPadding())
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .foregroundColor(tint)
-        .background(RoundedRectangle(cornerRadius: half ? 12 : 18).fill(tint.opacity(0.12)))
-        .overlay(RoundedRectangle(cornerRadius: half ? 12 : 18).stroke(tint.opacity(0.45), lineWidth: 1))
+        .background(RoundedRectangle(cornerRadius: 18).fill(tint.opacity(0.12)))
+        .overlay(RoundedRectangle(cornerRadius: 18).stroke(tint.opacity(0.45), lineWidth: 1))
         .contentShape(Rectangle())
     }
 }
@@ -853,6 +880,7 @@ struct ActPhaseActionButton: View {
 
     @Environment(AppState.self) private var appState
     @Environment(\.cockpitTheme) private var theme
+    @Environment(\.actSlotHeight) private var slotHeight
 
     var body: some View {
         let language = appState.settings.checklistLanguage.resolvedLanguage
@@ -862,7 +890,7 @@ struct ActPhaseActionButton: View {
                 icon: "engine.combustion.fill", color: theme.danger,
                 timestamp: appState.formattedEngineShutdownTime,
                 timestampLabel: L10n.ChecklistAction.shutdown(language: language),
-                isPulsing: actions.pulseAction, compact: true, minHeight: CockpitTarget.thumb,
+                isPulsing: actions.pulseAction, compact: true, minHeight: slotHeight ?? CockpitTarget.thumb,
                 fitted: CockpitScale.current == .phone,
                 onFirstPress: actions.engineShutdown, onUpdateTime: actions.engineShutdownUpdate)
             .accessibilityIdentifier("cockpit.engineShutdown")
@@ -872,7 +900,7 @@ struct ActPhaseActionButton: View {
                 icon: "engine.combustion.fill", color: theme.onTarget,
                 timestamp: appState.formattedEngineStartTime,
                 timestampLabel: L10n.ChecklistAction.started(language: language),
-                isPulsing: actions.pulseAction, compact: true, minHeight: CockpitTarget.thumb,
+                isPulsing: actions.pulseAction, compact: true, minHeight: slotHeight ?? CockpitTarget.thumb,
                 fitted: CockpitScale.current == .phone,
                 onFirstPress: actions.engineStart, onUpdateTime: actions.engineStartUpdate)
             .accessibilityIdentifier("cockpit.engineStart")
@@ -1051,7 +1079,6 @@ struct ActRoutesButton: View {
 struct CockpitMoreMenu: View {
     let page: CockpitPane
     let withDivert: Bool
-    var half: Bool = false
     let actions: CockpitActions
 
     @Environment(CockpitNavState.self) private var navState
@@ -1092,7 +1119,7 @@ struct CockpitMoreMenu: View {
                 Label(L10n.Ground.planRoutes, systemImage: "point.topleft.down.to.point.bottomright.curvepath")
             }
         } label: {
-            ActNarrowLabel(icon: "ellipsis.circle", title: L10n.Nav.more, tint: theme.action, half: half)
+            ActNarrowLabel(icon: "ellipsis.circle", title: L10n.Nav.more, tint: theme.action)
         }
         .accessibilityLabel(L10n.Nav.more)
         .accessibilityIdentifier("act.more")

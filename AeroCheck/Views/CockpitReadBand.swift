@@ -9,6 +9,9 @@ import SwiftUI
 //          the two frequencies on one line each (`ReadBandFrequencies`)
 //   phone  the strip, GS · ALT · TRK; then the next line, the waypoint and its figures on two rows
 //          (`ReadBandNextLine`), and the NOW line (`ReadBandNowLine`), on one card
+//   phone on its side, in its column (6.2, PR 5): the strip at 28 pt; then the waypoint, its distance
+//          and its ETE on one line (`ReadBandColumnNextLine`) over the NOW line; under 400 pt tall, the
+//          waypoint, its ETE and NOW on one line (`ReadBandMergedLine`)
 //
 // A tap on NEXT, on NOW | NEXT or on either line opens ROUTE. Until 6.2 the next waypoint was a card
 // over the chart (a line on the phone) and NOW | NEXT a card at its foot: they were on MAP only, and NOW
@@ -20,11 +23,14 @@ import SwiftUI
 // frame (`ReadBandLayoutTests`). Text is never under `CockpitType.label`.
 
 /// The read band's rows under the phase bar: the strip (with NEXT on the iPad), then NOW | NEXT (the iPad)
-/// or the next line and the NOW line (the phone and any window under 600 pt). Plain values in, so the
-/// tests lay out every state. `strip` nil: a phase without it (`CockpitStripRule`); on the phone the next
-/// line goes with it, NOW stays, from START FLIGHT on.
+/// or the next line and the NOW line (the phone and any window under 600 pt, the phone's column on its
+/// side). Plain values in, so the tests lay out every state. `strip` nil: a phase without it
+/// (`CockpitStripRule`); on the phone the next line goes with it, NOW stays, from START FLIGHT on.
 struct CockpitReadRows: View {
     let layout: CockpitLayout
+    /// The phone's column on its side, under 400 pt tall: the next line and the NOW line on one line
+    /// (`CockpitColumnRule`). (6.2, PR 5)
+    var mergesLines = false
     var scale: CockpitScale = .current
     let strip: StripReading?
     let next: NextFigures
@@ -47,21 +53,24 @@ struct CockpitReadRows: View {
     private var metrics: ReadBandMetrics { ReadBandMetrics(scale) }
 
     var body: some View {
-        VStack(spacing: metrics.rowGap) {
+        VStack(spacing: layout == .columns ? ReadBandMetrics.columnRowGap : metrics.rowGap) {
             if let strip {
                 CockpitInstrumentStrip(
                     speedKnots: strip.speedKnots, targetSpeed: strip.targetSpeed,
                     gpsSignalStatus: strip.gpsSignalStatus, altitudeFeet: strip.altitudeFeet,
                     headingDegrees: strip.headingDegrees, verticalSpeedFPM: strip.verticalSpeedFPM,
                     kneeboard: true, next: wide ? next : nil, onNextTap: onShowRoute,
-                    onSpeedTap: onSpeedTap, language: language)
+                    onSpeedTap: onSpeedTap, language: language, compact: layout == .columns)
                     .readBandPart(.strip)
             }
-            if wide {
+            switch layout {
+            case .wide:
                 ReadBandFrequencies(now: now, next: nextFrequency, scale: scale, onTap: onShowRoute,
                                     language: language)
-            } else {
+            case .narrow:
                 phoneCard
+            case .columns:
+                columnCard
             }
         }
         .padding(.horizontal, wide ? 16 : 12)
@@ -83,6 +92,36 @@ struct CockpitReadRows: View {
         .background(theme.glassFill, in: RoundedRectangle(cornerRadius: metrics.cornerRadius))
         .overlay(RoundedRectangle(cornerRadius: metrics.cornerRadius).strokeBorder(theme.glassStroke, lineWidth: 0.5))
     }
+
+    /// The phone's column on its side: the next line and the NOW line one line each, or merged into one
+    /// under 400 pt tall. Each a line, where the portrait card's next line is two rows: the column had
+    /// the height for neither. With no strip (before the taxi), NOW alone.
+    private var columnCard: some View {
+        VStack(spacing: 0) {
+            if mergesLines {
+                ReadBandMergedLine(figures: strip == nil ? nil : next, now: now, scale: scale, onTap: onShowRoute,
+                                   language: language)
+            } else {
+                if strip != nil {
+                    ReadBandColumnNextLine(figures: next, scale: scale, onTap: onShowRoute, language: language)
+                    Rectangle().fill(theme.glassStroke).frame(height: 0.5)
+                        .padding(.horizontal, metrics.cellPadding)
+                }
+                ReadBandNowLine(now: now, scale: scale, onTap: onShowRoute, language: language)
+            }
+        }
+        .background(theme.glassFill, in: RoundedRectangle(cornerRadius: metrics.cornerRadius))
+        .overlay(RoundedRectangle(cornerRadius: metrics.cornerRadius).strokeBorder(theme.glassStroke, lineWidth: 0.5))
+    }
+}
+
+/// How the phone's column on its side reads, from the room it has. Pure, so it is tested without a view.
+/// (6.2, PR 5)
+enum CockpitColumnRule {
+    /// Under 400 pt tall (an iPhone 17e's 370 above the home indicator, a 17's 382), the next line and the
+    /// NOW line are one line: with the header, the picker, the strip and the act band's 2 × 2, there is
+    /// room for one and not two. A Pro Max (420) has both. The author's answer to the plan's Q2.
+    static func mergesNextAndNow(height: CGFloat) -> Bool { height < 400 }
 }
 
 /// The strip's live values, as `CockpitInstrumentStrip` takes them.
@@ -126,8 +165,19 @@ struct ReadBandMetrics: Equatable {
         cornerRadius = kneeboard ? 14 : 12
     }
 
+    /// Between the strip and the card in the phone's column on its side, which has no point to spare.
+    static let columnRowGap: CGFloat = 4
+    /// The merged line's padding above and below: one line in the column's 370 pt.
+    static let mergedVerticalPadding: CGFloat = 2
+    /// Its padding at either end, and either side of the rule between its two halves: "ST-URSANNE" keeps
+    /// the label's size beside its ETE and NOW.
+    static let mergedPadding: CGFloat = 8
+
     /// The smallest the name scales to: the label's size.
     var identMinimumScale: CGFloat { labelSize / identSize }
+    /// In the column's lines, a name wider than its room at the label's size goes on shrinking, whole:
+    /// "SAIGNELÉGIER" beside NOW on a 6.1" phone, at about 14 pt. Never cut.
+    static let columnNameMinimumScale: CGFloat = 0.5
 
     var figureFont: Font { .aero(size: figureSize, weight: .bold, design: .monospaced) }
     var identFont: Font { .aero(size: identSize, weight: .bold, design: .monospaced) }
@@ -463,6 +513,174 @@ struct ReadBandNextLine: View {
     }
 
     static let arrowSize: CGFloat = 24
+}
+
+// MARK: - The phone's column on its side (6.2, PR 5)
+
+/// The next waypoint on one line, in the phone's column on its side (a Pro Max, 400 pt tall or more): the
+/// name in magenta at the left, its distance · its ETE at the right, each in its widest value's room.
+/// The bearing and the ETA are on ROUTE. A tap opens ROUTE. "SAIGNELÉGIER" holds whole at 17 pt.
+struct ReadBandColumnNextLine: View {
+    let figures: NextFigures
+    var scale: CockpitScale = .current
+    let onTap: () -> Void
+    var language: String? = nil
+
+    @Environment(\.cockpitTheme) private var theme
+
+    private var metrics: ReadBandMetrics { ReadBandMetrics(scale) }
+
+    var body: some View {
+        Button(action: onTap) {
+            HStack(alignment: .firstTextBaseline, spacing: metrics.figureGap) {
+                ReadBandColumnName(figures: figures, metrics: metrics)
+                // A dot between the two, as the iPad's row has them: side by side, "17.5 NM 10 min" read as
+                // "NM 10".
+                HStack(alignment: .firstTextBaseline, spacing: Self.dotGap) {
+                    figure(figures.distanceText, NextFigureTemplates.distance)
+                    Text(verbatim: "·")
+                        .font(metrics.figureFont)
+                        .foregroundColor(theme.textSecondary)
+                        .accessibilityHidden(true)
+                    figure(figures.eteText, NextFigureTemplates.ete)
+                }
+                .fixedSize()
+            }
+            .padding(.horizontal, metrics.cellPadding)
+            .padding(.vertical, metrics.verticalPadding)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .modifier(NextLineElement(figures: figures, language: language))
+        .readBandPart(.nextLine)
+    }
+
+    private func figure(_ text: String, _ widest: [String]) -> some View {
+        DestinationFigureCell(text: text, widest: widest, font: metrics.figureFont, color: theme.textPrimary)
+    }
+
+    static let dotGap: CGFloat = 6
+}
+
+/// The next line and the NOW line as one, in the phone's column on its side under 400 pt tall: the
+/// waypoint in magenta and its ETE, then NOW and its frequency. The distance, the bearing, the ETA and NOW's
+/// station are on ROUTE, where a tap on either half goes. Every figure in its widest value's room and NOW's
+/// half as wide whatever it shows, so the name keeps one room: "ST-URSANNE" at 17 pt, a longer name smaller,
+/// whole. `figures` nil: NOW alone (a phase without the strip).
+struct ReadBandMergedLine: View {
+    let figures: NextFigures?
+    let now: PhaseFrequency?
+    var scale: CockpitScale = .current
+    let onTap: () -> Void
+    var language: String? = nil
+
+    @Environment(\.cockpitTheme) private var theme
+
+    private var metrics: ReadBandMetrics { ReadBandMetrics(scale) }
+
+    var body: some View {
+        HStack(spacing: 0) {
+            if let figures {
+                Button(action: onTap) {
+                    HStack(alignment: .firstTextBaseline, spacing: metrics.figureGap) {
+                        ReadBandColumnName(figures: figures, metrics: metrics)
+                        DestinationFigureCell(text: figures.eteText, widest: NextFigureTemplates.ete,
+                                              font: metrics.figureFont, color: theme.textPrimary)
+                    }
+                    .padding(.leading, ReadBandMetrics.mergedPadding)
+                    .padding(.trailing, ReadBandMetrics.mergedPadding)
+                    .padding(.vertical, ReadBandMetrics.mergedVerticalPadding)
+                    .frame(maxHeight: .infinity)
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .modifier(NextLineElement(figures: figures, language: language))
+                .readBandPart(.nextLine)
+                Rectangle().fill(theme.glassStroke).frame(width: 0.5)
+                    .padding(.vertical, metrics.verticalPadding)
+            }
+            nowHalf
+                .frame(maxWidth: figures == nil ? .infinity : nil, alignment: .leading)
+        }
+        .fixedSize(horizontal: false, vertical: true)
+    }
+
+    /// NOW and the frequency to dial, in the room of the widest it can show.
+    private var nowHalf: some View {
+        let shown = ReadBandFrequencyText(now)
+        let title = L10n.Read.now(language: language)
+        return Button(action: onTap) {
+            HStack(alignment: .firstTextBaseline, spacing: 5) {
+                Text(verbatim: title)
+                    .font(.aero(size: metrics.labelSize, weight: .bold))
+                    .foregroundColor(theme.onTarget)
+                    .lineLimit(1)
+                    .fixedSize()
+                DestinationFigureCell(text: shown.frequency, widest: ReadBandMergedLine.frequencyTemplates,
+                                      font: metrics.figureFont, color: theme.textPrimary)
+            }
+            .padding(.horizontal, ReadBandMetrics.mergedPadding)
+            .padding(.vertical, ReadBandMetrics.mergedVerticalPadding)
+            .frame(maxHeight: .infinity)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(ReadBandSpeech.frequency(title: title, item: now))
+        .accessibilityAddTraits(.isButton)
+        .accessibilityHint(L10n.Read.routeHint(language: language))
+        .accessibilityIdentifier("read.now")
+        .readBandPart(.nowLine)
+    }
+
+    /// A frequency at its widest, "121.500" as "000.000", and none.
+    static let frequencyTemplates = ["000.000", "—"]
+}
+
+/// The waypoint's name in the column's lines: in magenta, at the name's size where it fits, down to the
+/// label's, then smaller where the word alone is wider than its room, whole, never cut. While diverting,
+/// framed in amber (the line has no room for the DIVERT tag, and a tag coming would move the figures).
+private struct ReadBandColumnName: View {
+    let figures: NextFigures
+    let metrics: ReadBandMetrics
+
+    @Environment(\.cockpitTheme) private var theme
+
+    var body: some View {
+        ZStack(alignment: .leading) {
+            // A line's height at full size, whatever a long name scales to.
+            Text(verbatim: "0").font(metrics.identFont).hidden()
+            Text(verbatim: figures.ident ?? "—")
+                .font(metrics.identFont)
+                .foregroundColor(figures.ident == nil ? theme.textSecondary : theme.route)
+                .lineLimit(1)
+                .minimumScaleFactor(ReadBandMetrics.columnNameMinimumScale)
+                .padding(.horizontal, figures.diverting ? 4 : 0)
+                .overlay {
+                    if figures.diverting {
+                        RoundedRectangle(cornerRadius: 6).strokeBorder(theme.warning, lineWidth: 2)
+                    }
+                }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .readBandPart(.nextName)
+    }
+}
+
+/// The column's next line as one element: what the portrait's next line reads ("Next, E, bearing 172
+/// degrees, …", the replays' `read.nextLine`), and a button to ROUTE.
+private struct NextLineElement: ViewModifier {
+    let figures: NextFigures
+    var language: String?
+
+    func body(content: Content) -> some View {
+        content
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel(ReadBandSpeech.nextLine(figures, language: language))
+            .accessibilityAddTraits([.isButton, .updatesFrequently])
+            .accessibilityHint(L10n.Read.routeHint(language: language))
+            .accessibilityIdentifier("read.nextLine")
+    }
 }
 
 // MARK: - NOW | NEXT

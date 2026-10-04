@@ -8,7 +8,8 @@ import XCTest
 /// - the Cockpit's chart is the chart and its own chrome (the stack, the status slot); the controls row,
 ///   CACHED, the legs toggle and the chips are Plan › Map's, which keeps every one of them;
 /// - the phone draws its phase bar in the phase button, as on its side, and its header holds one height
-///   in every phase; the phase list says what the bar's segments said.
+///   in every phase; the phase list says what the bar's segments said;
+/// - on its side (PR 5) the page is on the left and the column on the right, holding still.
 @MainActor
 final class CockpitMapPageTests: XCTestCase {
 
@@ -138,6 +139,67 @@ final class CockpitMapPageTests: XCTestCase {
         }
     }
 
+    // MARK: - The phone on its side (6.2, PR 5)
+
+    /// An iPhone 17 on its side, as the Cockpit has it: the room over the home indicator, less the camera's
+    /// side and the other side's 16 pt.
+    private static let onItsSide = CGSize(width: 874 - 62 - 16, height: 402 - 20)
+
+    /// The phone on its side: the page on the left (MAP's chart with its own chrome and nothing else, the
+    /// next line and the frequency line over it until 6.2 gone; CHECKLIST; ROUTE), the column on the right
+    /// with the phase, Menu, the picker, the next line and NOW, and the act band.
+    func testOnItsSideThePageIsOnTheLeftAndTheColumnOnTheRight() throws {
+        let size = Self.onItsSide
+        let columnLeft = size.width - FlightView.cockpitColumnWidth
+        for pane in [CockpitPane.map, .checklist, .route] {
+            let services = makeServices()
+            startFlight(services.appState, stepByStep: false)
+            services.appState.goToPhase(.cruise)
+            services.locationManager.isTracking = true
+            armRoute(services.flightPlanManager)
+            let seen = accessibility(FlightView(initialPane: pane), services: services, size: size, wholeWindow: true)
+            let ids = Set(seen.map(\.id))
+            func frame(_ id: String) throws -> CGRect {
+                try XCTUnwrap(seen.first { $0.id == id }?.frame, "\(id) on \(pane): \(ids.sorted())")
+            }
+            for id in ["cockpit.phase.cruise", "cockpit.menu", "pane.checklist", "pane.map", "pane.route", "read.nextLine",
+                       "read.now", "act.more"] {
+                XCTAssertGreaterThanOrEqual(try frame(id).minX, columnLeft - 0.5, "\(id) in the column, \(pane)")
+            }
+            XCTAssertFalse(ids.contains("map.nextLine"), "no next line over the chart, \(pane)")
+            XCTAssertFalse(ids.contains("map.frequencies"), "no frequency line under it, \(pane)")
+            if pane == .map {
+                for id in ["map.orientation", "map.layers", "map.centre"] {
+                    XCTAssertLessThan(try frame(id).maxX, columnLeft + 0.5, "\(id) on the chart, left of the column")
+                }
+            }
+            // Where the phase sits in the flight, for VoiceOver: the bar in the button shows it.
+            XCTAssertEqual(seen.first { $0.id == "cockpit.phase.cruise" }?.value, "10/16")
+        }
+    }
+
+    /// The column holds still through every phase: the header's row at its top, the act band at its foot,
+    /// whatever the phase's name ("CHECK BEFORE ENGINE START" on one line) and the band's roles.
+    func testOnItsSideTheColumnHoldsStillThroughEveryPhase() throws {
+        try XCTSkipUnless(CockpitScale.current == .phone, "laid out at the phone's sizes: run it on an iPhone")
+        var reference: (phase: CGRect, more: CGRect)?
+        for phase in ChecklistPhase.allCases {
+            let services = makeServices()
+            startFlight(services.appState, stepByStep: true)
+            services.appState.currentPhase = phase
+            let seen = accessibility(FlightView(initialPane: .checklist), services: services, size: Self.onItsSide,
+                                     wholeWindow: true)
+            let button = try XCTUnwrap(seen.first { $0.id == "cockpit.phase.\(phase)" }?.frame, "\(phase)")
+            let more = try XCTUnwrap(seen.first { $0.id == "act.more" }?.frame, "More in \(phase)")
+            if let reference {
+                XCTAssertEqual(button, reference.phase, "\(phase): the phase button")
+                XCTAssertEqual(more, reference.more, "\(phase): More")
+            } else {
+                reference = (button, more)
+            }
+        }
+    }
+
     // MARK: - Helpers
 
     private final class ZoomHolder: ObservableObject {
@@ -217,10 +279,12 @@ final class CockpitMapPageTests: XCTestCase {
         let selected: Bool
     }
 
-    /// What VoiceOver would find in `view`, hosted in a window at `size`.
-    private func accessibility(_ view: some View, services: Services, size: CGSize) -> [Element] {
+    /// What VoiceOver would find in `view`, hosted in a window at `size`. `wholeWindow`: no safe area, the
+    /// window's size the view's (a phone on its side, laid out in an upright simulator).
+    private func accessibility(_ view: some View, services: Services, size: CGSize, wholeWindow: Bool = false) -> [Element] {
         let host = UIHostingController(rootView: AnyView(environment(view.frame(width: size.width, height: size.height),
                                                                      services)))
+        if wholeWindow { host.safeAreaRegions = [] }
         let window = makeWindow(size: size)
         window.rootViewController = host
         window.isHidden = false

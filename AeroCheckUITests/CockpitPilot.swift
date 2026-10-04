@@ -159,11 +159,14 @@ final class CockpitPilot {
             .matching(NSPredicate(format: "identifier BEGINSWITH %@", prefix)).firstMatch
     }
 
-    /// The element as it is now, in one query, or nil when it isn't there. Every read goes through it:
-    /// `exists` then `label` is two queries, and a toast or a card gone between them fails the test
-    /// ("Failed to get matching snapshot").
+    /// The element as it is now, or nil when it isn't there. Every read goes through it. `exists` first:
+    /// a snapshot of an element that isn't there retries twice before it throws, some 2.2 s, 22 s of
+    /// flight at 10x (a landed card seen gone 22 s after it went), where `exists` answers in a tenth of
+    /// one. The snapshot after it is caught: a toast or a card gone in between gives nil, never a failed
+    /// test ("Failed to get matching snapshot").
     func snap(_ e: XCUIElement) -> XCUIElementSnapshot? {
-        try? e.snapshot()
+        guard e.exists else { return nil }
+        return try? e.snapshot()
     }
 
     func snap(_ identifier: String) -> XCUIElementSnapshot? {

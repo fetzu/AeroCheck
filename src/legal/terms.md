@@ -83,9 +83,9 @@ Anyone may send us an aircraft's checklist through [aerocheck.app/send](/send). 
 
 When a pilot sends a club's checklist, the club is asked to confirm, and nothing is published without its agreement.
 
-You (and the club, when it confirms) allow us to transcribe the document into AéroCheck's format and to offer the transcription in the app, where it becomes part of the premium checklist content of section 2.0 (AéroCheck Pro), like every aircraft but the bundled WT9 Dynamic. The document itself is never published; the [privacy policy](/privacy) (section 4.3) says what we keep and for how long. A club that later wants its aircraft withdrawn can ask us to.
+You (and the club, when it confirms) allow us to use the document to add the aircraft's checklist to AéroCheck and to offer it in the app, where it becomes part of the premium checklist content of section 2.0 (AéroCheck Pro), like every aircraft but the bundled WT9 Dynamic. The document itself is never published; the [privacy policy](/privacy) (section 4.3) says what we keep and for how long. A club that later wants its aircraft withdrawn can ask us to.
 
-We decide which aircraft we add, and when: no date is promised, and a request may be declined. A transcription stays a transcription: section 1.2 applies to it as to every other checklist, and proofreading the draft does not make it an approved checklist.
+We decide which aircraft we add, and when: no date is promised, and a request may be declined. Section 1.2 applies to such a checklist as to every other, and proofreading the draft does not make it an approved checklist.
 
 Send the checklist and nothing more: black out any personal data in it (names, phone numbers) first.
 

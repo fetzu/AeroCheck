@@ -1,533 +1,44 @@
-__IMPORTANT CAVEAT: This application is provided solely for training and pedagogical purposes; its information is not guaranteed for accuracy and must not be used for operational decision-making. Always rely on the official Aircraft Flight Manual (AFM) and approved checklists when operating an aircraft.__
-
-_NOTE: This app has been entirely vibe coded. If you hate that, feel free to close your browser window in disgust and not use it._
-
 # AéroCheck
 
-![Platform](https://img.shields.io/badge/Platform-i(Pad)OS%2017%2B-blue)
-![Devices](https://img.shields.io/badge/Devices-iPhone%20%7C%20iPad-green)
-![Swift](https://img.shields.io/badge/Swift-5.9-orange)
-![License](https://img.shields.io/badge/License-MIT-red)
+AéroCheck walks a pilot through the checklists of a flight on an iPad (or an iPhone), from the preflight to the hangar, while it records the track and keeps the paperwork that comes with it.
 
-An iPad-first application for students and licensed pilots. Works on both iPhone and iPad. This app guides pilots through all checklists during a flight, from preflight to shutdown, while recording GPS tracks and flight data.
+> AéroCheck is a training aid. Its information is not guaranteed to be accurate and must not be used for operational decisions: the aircraft's flight manual (AFM) and its approved checklists always come first.
 
-> **New in 6.0** — the Cockpit now runs on iPad and iPhone alike (one screen, four fixed zones); a five-tab ground bar (Today · Plan · Logbook · Aircraft · Settings) replaces the old full-screen covers; a Flight Thread (PLAN → PREPARE → FLY → CLOSE) optionally brackets a flight with admin tasks. See the [6.0.0 release notes](https://github.com/fetzu/AeroCheck/releases/tag/6.0.0).
+_This app has been entirely vibe coded. If you hate that, feel free to close your browser window in disgust and not use it._
 
-## Open Source with Premium Content
+It was built for the kneeboard: an iPad in portrait on the pilot's knee, three pages in flight (the checklist, the chart and the route), big type, and buttons that stay where the thumb expects them. Around that it plans routes on the Swiss charts (OpenAIP elsewhere), briefs the departure and the approach, reads the METARs and SIGMETs, draws traffic circuits and VFR routes from open flightmaps, keeps a logbook, and can pair an iPhone as a second screen (iOS 26 on both). What it does, screen by screen, is in the [manual](https://aerocheck.app/manual/) (EN/FR); what changed, and when, is in the [releases](https://github.com/fetzu/AeroCheck/releases).
 
-AéroCheck is open source under the MIT License. The app includes:
+The WT9 Dynamic's checklist (F-HVXA) is bundled and free. The other aircraft (15 registrations, from GVMP Porrentruy, Lausanne Aéroclub and GVMN Neuchâtel) come from the AeroCheck API with an AeroCheck Pro subscription: monthly, yearly or a one-time lifetime purchase, through the App Store. The current list is on [aerocheck.app](https://aerocheck.app).
 
-- **Free aircraft** (bundled with the app):
-  - WT9 Dynamic (F-HVXA)
+## Building it
 
-- **Premium aircraft** (requires AeroCheck Pro subscription):
-  - 13 aircraft ids (15 registrations) delivered via the AeroCheck API — Piper (Archer II, Warrior II, Cadet, Dakota II, Saratoga II, Super Cub, L4), Robin DR400 (two variants) & DR401, CAP10-C, Pipistrel VELIS Electro and Sportcruiser PS-28. Aircraft with several tails are selectable per registration.
-  - Sourced from three Swiss flying clubs (Groupe de Vol à Moteur de Porrentruy, Lausanne Aéroclub, and Groupe de Vol à Moteur Neuchâtel)
-  - Automatic updates when checklists change
-  - Offline access after initial download
+You need Xcode 26 (Companion mode imports the iOS 26 SDK); the app itself runs on iOS and iPadOS 17 and later.
 
-### Subscription Options
+1. Clone the repository and copy the secrets template: `cp Secrets.example.xcconfig Secrets.xcconfig` (the copy is gitignored).
+2. Fill in what you have. Without an `OPENAIP_API_KEY` the app builds and runs, but every OpenAIP request gets a 401 and the airspace, the CTR frequencies and the airspace conflicts stay empty. `WEATHER_CLIENT_SECRET` and `APP_CLIENT_SECRET` have to match the weather proxy's and the API's (they live in AeroCheck-server, which is private); left empty, the parts that need them stay quiet.
+3. Open `AeroCheck.xcodeproj`, pick the `AéroCheck` scheme and your team under Signing & Capabilities, and run.
 
-- **Monthly**: Access to all premium aircraft checklists
-- **Yearly**: Same access at a discount over monthly (includes an introductory free-trial period)
-- **Lifetime**: One-time non-consumable purchase for permanent premium access, no recurring billing
+The unit tests are the `AeroCheckTests` scheme (`scripts/run-tests.sh` wraps them; read its caveats in [CLAUDE.md](./CLAUDE.md) before you use it). To try the subscriptions without paying, set the scheme's StoreKit configuration to `AeroCheck/Configuration.storekit` (Edit Scheme › Run › Options). To talk to a local API, start AeroCheck-server with `npm run dev` and set `API_BASE_URL_SANDBOX = http://localhost:8787` in `Secrets.xcconfig`: a Debug build always uses the sandbox URL.
 
-All subscription payments are handled securely through the Apple App Store. See the [API Server](../AeroCheck-server) for self-hosting options.
+## How it fits together
 
-## Supported Aircraft
+- this repository: the app, its widget and its Watch app (Swift/SwiftUI); its `website` branch is [aerocheck.app](https://aerocheck.app) (Astro), deployed on every push;
+- AeroCheck-server (private): the API on Cloudflare Workers (subscriptions, premium checklists, airfield tariffs) and the weather proxy;
+- AeroCheck-checklists (private): the checklists themselves, one JSON file per registration and language.
 
-**Free (bundled)**
-- **F-HVXA** - Aerospool WT9 Dynamic - Free
+[CLAUDE.md](./CLAUDE.md) has the project structure, the conventions and the release steps. It is written for the coding agents, but humans are allowed to read it too.
 
-**Premium (AeroCheck Pro)** — 13 aircraft ids / 15 registrations delivered via the API:
+## Exports
 
-| Registration | Aircraft | Club |
-|--------------|----------|------|
-| HB-PFA | Piper Archer II PA-28-181 | GVMP Porrentruy |
-| F-HPSA | Sportcruiser PS-28 | GVMP Porrentruy |
-| HB-PNL | Piper PA28-161 Warrior II | Lausanne Aéroclub |
-| HB-OJI | PA28-161 Piper Cadet | Lausanne Aéroclub |
-| HB-PMP | Piper PA28-236 Dakota II | Lausanne Aéroclub |
-| HB-PJE | Piper PA32R-301 Saratoga II | Lausanne Aéroclub |
-| HB-ORV | Piper PA18-150 Super Cub | Lausanne Aéroclub |
-| HB-OKN | Piper L4 | Lausanne Aéroclub |
-| HB-KFD | Robin DR400/140B | Lausanne Aéroclub |
-| HB-KFI | Robin DR400/140B | Lausanne Aéroclub |
-| HB-KOJ | Robin DR401/140B | Lausanne Aéroclub |
-| HB-SAX | CAP10-C | Lausanne Aéroclub |
-| HB-SYI | Pipistrel VELIS Electro SW128 | Lausanne Aéroclub |
-| HB-KFO | Robin DR400/140B | GVMN Neuchâtel |
-| HB-KFP | Robin DR400/140B | GVMN Neuchâtel |
-
-Checklists, speeds and limits adapt automatically to the selected aircraft. Some aircraft are French- or English-only; most ship in both languages.
-
-## Features
-
-### ✈️ Multi-Aircraft Checklist System
-- **WT9 Dynamic bundled free**, additional aircraft via AeroCheck Pro subscription
-- All 16 flight phases from official checklists
-- Aircraft selection in Settings - checklists, speeds, and limits adapt automatically
-- Checklists displayed exactly as in the official documentation
-- Easy navigation between phases
-- Quick phase selector for jumping to any checklist
-- Speed reference card with aircraft-specific speeds always accessible
-- **Step-by-Step Highlighting**: Items highlighted one at a time; tap anywhere in the checklist area to advance
-- **Smart completion**: When all items are checked, the NEXT button pulses to draw attention
-- **Learning Mode**: Toggle to show all checks for studying, or hide memorizable checks to test memory
-- **Circuit Mode**: Streamlined workflow for pattern training - skips irrelevant phases (Cruise, Descent) and tracks full-stop landings
-
-### 🗺️ Navigation Mode
-- Full-screen map with real-time aircraft position and track
-- **Multiple map layers**:
-  - Apple Maps (Standard and Satellite)
-  - Swiss ICAO Chart (1:500,000) from SwissTopo
-  - Segelflugkarte (1:300,000) - seamless switch at higher zoom
-  - Swiss Landeskarten (national map)
-  - SWISSIMAGE (aerial imagery)
-- **Two-row bottom bar** with the live instrument readout (speed, altitude, heading, time) and a centered VFR leg chronometer
-- **Expandable flight-plan sheet**: pull up the active route to see leg-by-leg timing (FROM → TO), distances and estimated times; go back a leg, or mark the current waypoint
-- **Ground-track trend vector**: a projected track line with 1/2/5-minute graduations
-- **FREDA cruise-check reminder** during the cruise phase
-- **FREQ panel** (`CURRENT / NEXT / EMERGENCY`): nearby controlled-airspace and area frequencies organised by where you are and where you're heading (OpenAIP worldwide; OurAirports TWR fallback)
-- GPS status card, scale bar with accurate distance measurement
-- **Liquid Glass map controls** on iOS 26 (material fallback on iOS 17)
-- **Offline maps**: Download Swiss ICAO Chart (~100 MB) and/or Segelflugkarte (~150 MB) for offline navigation
-
-### 🧭 Map-First Flight Planning
-- **Build routes directly on the map**: drag a waypoint to move it, drag the route line to insert one, and release near an airfield to **auto-snap** (name and frequency filled in automatically)
-- **Smart "cheapest insertion"** places a dropped waypoint into the leg that adds the least detour
-- **From → To bar** and **route thumbnails** on the plan list, with one-tap Activate
-- **Interactive route profile**: a terrain silhouette with your planned-altitude line — drag a point to set its altitude, hold to add one
-- **On-route airspace conflicts** and **terrain-clearance** warnings update live as you reshape the route. When a ceiling/floor is given as AGL/FL or a leg has no planned altitude, the warning is flagged "verify vertical separation" rather than implying you're clear; a green "no conflicts" only shows when airspace data is actually loaded
-- **GPX route export** for Dynon/Garmin avionics
-
-### 📍 GPS Flight Tracking
-- Automatic GPS recording during flights
-- Configurable recording interval (1-30 seconds)
-- Background location tracking support
-- Track visualization on map
-- **GPS failure flags** on speed and altitude indicators when signal is lost or degraded
-- **"Always" permission prompt**: If only "While Using" access is granted, the app offers to upgrade to "Always" when a flight starts, so the track keeps recording when the screen locks or you switch apps
-- **In-flight GPS-lost banner**: A warning appears if the position stops updating (no fix for >90 s) or background tracking is limited — a silent GPS dropout is never mistaken for a valid reading
-
-### 🎯 Live Speed Indicator
-- Real-time GPS ground speed display during flight phases
-- Displays "GND SPD" (ground speed) with "kt" (knots) unit
-- Color-coded feedback:
-  - **Green**: Speed within 5 kt of target
-  - **Orange**: Speed outside ±5 kt range
-  - **Flashing Red/White**: Below stall speed (aircraft-specific: 42 kt for WT9, 53 kt for PA-28)
-- Target speed guidance based on current flight phase and aircraft type
-- Arrow indicators showing speed trend (up/down/on target)
-- Automatically hidden during ground operations (taxi, parking)
-- **Honest provenance**: The indicator shows GPS **ground speed** ("GND SPD") by default — not true airspeed — so the stall warning is an awareness aid, never a replacement for the aircraft's airspeed indicator
-- **Optional aural stall alert**: An audible warning below stall speed (off by default; see Estimated Airspeed)
-
-### 🌬️ Experimental: Estimated Airspeed (Switzerland only)
-- **Optional feature** to display estimated indicated airspeed (IAS) calculated from GPS ground speed and wind data
-- Uses real-time **mean wind** from MeteoSwiss automatic weather stations (steady wind, not peak gusts)
-- Finds nearest weather station and applies wind correction to ground speed
-- **Clearly marked as estimated**: shows "EST. IAS" with a `~` prefix (e.g. `~62`) so a derived value is never confused with a measured one
-- **Stale wind aged out**: wind readings that are too old are discarded rather than used, so an outdated observation can't silently drive the estimate
-- **Optional aural stall alert**: once enabled, an "Aural stall alert" toggle (off by default) plays an audible warning below stall speed
-- **Important limitations**:
-  - Only works within Switzerland (with ~5 NM margin at borders)
-  - Requires constant cellular connection
-  - Can be highly inaccurate - always rely on aircraft's onboard airspeed indicator
-- Disabled by default; enable in Settings with mandatory safety warning acknowledgment
-
-### 📏 Live Altimeter
-- Real-time GPS altitude display (feet MSL)
-- Light blue background for easy visibility
-- Displayed alongside speed indicator during flight phases
-
-### 📊 Flight Log
-- Complete flight history with all parameters
-- **Custom flight names**: Name your flights for easy identification (e.g., "Circuits 2 (F-HVXA)")
-- Flight duration (engine start to shutdown)
-- Distance travelled in kilometers
-- All times recorded chronologically:
-  1. Session Start
-  2. Engine Start
-  3. Take-off (READY FOR LINE UP + 2 min; at END FLIGHT, the take-off the GPS track shows, when it shows one)
-  4. Landing (auto-detected)
-  5. Engine Shutdown
-  6. Session End
-- GPS track visualization on map
-- **Altitude profile graph**: Time-based altitude chart with flight event markers (Engine Start, Take-off, Landing, Shutdown)
-- **Go-arounds and touch-and-goes**: Detected and displayed on altitude profile
-- Notes for each flight
-- **Flight sharing**: Generate shareable image cards with flight summary and map
-
-### 💾 Data Export/Import
-- Export flights to GPX format (standard GPS track format)
-- Export flights to JSON format (includes all timing data)
-- **Export all flights**: Export entire flight log as a ZIP archive
-- All timing data included (start, engine, takeoff, landing, shutdown, stop)
-- Distance calculation included in exports
-- **Bulk import**: Import multiple flights from ZIP archives
-- Import GPX or JSON files from other sources
-- Compatible with most flight tracking software
-- Share flights via any iOS sharing method
-
-### 🎨 Cockpit Design & Themes
-- **Redesigned in-flight HUD**: the current checklist item is the hero; past and future steps recede. A cockpit instrument strip shows live speed, altitude, heading and vertical speed with a color-blind-safe on-target bar, plus stall and instrument-failure annunciations
-- **Tappable phase bar**: jump forward and back through the 16 phases from a single segmented bar
-- **One-tap reference panels**: V-Speeds, GPS status and departure/approach briefings open as a docked panel on iPad or a bottom drawer on iPhone
-- **Hold-to-confirm events**: Go-Around, Touch-and-Go and Full-Stop sit behind a deliberate hold, with a brief undo
-- **Selectable theme engine** — choose **Auto / Day / Sunlight / Night**; Auto follows the system appearance. Tuned for glare, dusk and night cockpits
-- **Aviation-inspired palette** (gold, blue, green); large, high-contrast buttons and readable text; screen stays on during flights
-- **Adaptive, iPad-first layout**: two-column landscape and reflowed portrait across Home, Flight, Navigation, Flight Log and Settings
-- Phase completion tracking with color-coded indicators:
-  - **Green dot**: Phase completed (pressed NEXT)
-  - **Orange dot**: Phase skipped (jumped ahead without NEXT)
-  - **Red dot**: Phase skipped with missing action (e.g., Engine Start button not pressed)
-  - **Gold dot**: Current active phase
-
-### ♿ Accessibility
-- VoiceOver labels, values and custom actions across the redesigned screens
-- Dynamic Type on the ground-use screens (planning, settings, onboarding, paywall). The in-flight
-  HUD instruments keep fixed sizes on purpose — a readout scanned at a glance from a fixed distance
-  must not reflow — and expose `accessibilityShowsLargeContentViewer` instead, so a long press
-  gives a large rendition without changing the instrument's geometry.
-- Contrast and touch targets follow Apple's current guidance (44x44 pt recommended, 28x28 pt
-  minimum). Not independently audited; the sunlight/night palettes have not been measured on device.
-- Reduce Motion support
-
-### 📲 Companion Mode (iPad ↔ iPhone)
-- Pair an iPhone as a **synced second screen** that mirrors your iPad's live flight data over Wi-Fi Aware
-- Pairing and status live under **Settings → Companion**
-- Requires **iOS 26** on both devices; on earlier iOS the feature is safely hidden
-
-### 📋 Interactive Briefings
-- Departure briefing modal with runway, routing, speeds, and emergency procedures
-- Approach briefing modal with approach info, speeds, and missed approach
-
-### 📱 Home Screen Widgets
-- **Small widget**: Quick-start buttons for the aircraft you own — the free F-HVXA plus any premium aircraft you've unlocked (unowned aircraft are never shown)
-- **Medium widget**: Owned-aircraft quick start plus a Flight Log shortcut
-- Deep links start a flight directly from the widget, going through the same checklist load, entitlement, location-permission, and GPS-tracking setup as the in-app START button
-
-## Checklist Phases
-
-The app includes all 16 phases from the official checklists (same structure for both aircraft):
-
-1. **Preflight Check** (Page 1)
-2. **Check Before Engine Start** (Page 1)
-3. **Engine Start** (Page 1) - with "Engine Start" button
-4. **Check After Engine Start** (Page 2)
-5. **Taxi Check** (Page 2)
-6. **Runup** (Page 2)
-7. **Check Before Departure** (Page 2) - its NEXT reads "Ready for Line Up"
-8. **Line Up Check** (Page 3)
-9. **Climb Check** (Page 3)
-10. **Cruise Check** (Page 3)
-11. **Descent Check** (Page 3)
-12. **Approach Check** (Page 3)
-13. **Landing Check** (Page 3)
-14. **After Landing Check** (Page 4)
-15. **Engine Shutdown and Parking Check** (Page 4) - with "Engine Shutdown" button
-16. **At the Hangar** (Page 4)
-
-## Requirements
-
-### For iPad
-- iPad Air (11-inch) or larger recommended
-- iPadOS 17.0 or later
-
-### For iPhone
-- Any iPhone running iOS 17.0 or later
-- Compact UI adapts to smaller screens
-
-### General
-- Location services enabled
-- Xcode 26 for building (ships the iOS 26 SDK required by Companion mode's `WiFiAware` imports)
-
-## Installation
-
-### From Xcode
-
-1. Clone or download this repository
-2. Provide an OpenAIP API key (optional but recommended):
-   ```bash
-   cp Secrets.example.xcconfig Secrets.xcconfig
-   # then paste your key from https://www.openaip.net/ (account → API keys)
-   ```
-   `Secrets.xcconfig` is gitignored. **Without a key the app still builds and runs**, but every
-   OpenAIP request returns 401, so the airspace overlay, the FREQ panel's controlled-airspace
-   entries and on-route airspace conflicts silently do nothing.
-3. Open `AeroCheck.xcodeproj` in Xcode 26+
-4. Select your development team in Signing & Capabilities
-5. Connect your iPhone/iPad or select a simulator
-6. Build and run (⌘R)
-
-### Building for Distribution
-
-1. In Xcode, select Product → Archive
-2. Follow the distribution wizard
-3. Choose Ad Hoc or App Store distribution
-
-## Usage
-
-### Starting a Flight
-
-1. Launch the app
-2. Select your aircraft in Settings if needed (the free WT9 Dynamic or any unlocked premium aircraft)
-3. Tap "START FLIGHT"
-4. GPS tracking begins automatically
-5. Follow the checklists in order
-
-> **Premium aircraft**: If the aircraft's checklist hasn't finished downloading (no connection or an inactive subscription), the app shows a **"Checklist Not Ready"** alert and refuses to start rather than launch with an incomplete or wrong checklist.
-
-### During Flight
-
-- Use "PREVIOUS" and "NEXT" buttons to navigate
-- Tap the phase indicator to jump to any checklist
-- Access speed reference anytime via "SPEEDS" button
-- Tap the labelled Menu button (header) to see flight info, recorded times, and END FLIGHT — the same sheet on iPad and iPhone
-
-### Special Buttons
-
-- **ENGINE START**: Records the engine start time (shown on Engine Start phase)
-- **READY FOR LINE UP**: The NEXT of Check Before Departure once every item is checked (the map's check slot and the Companion iPhone's NEXT say and do the same). It opens the Line Up Check and, the first time in the flight, records the take-off as now + 2 minutes; a later circuit keeps the first one
-- **ENGINE SHUTDOWN**: Records the engine shutdown time (shown on Engine Shutdown phase)
-
-### Briefing Modals
-
-Tap on the briefing reminder text to open interactive briefings:
-
-- **Departure Briefing**: LSZQ 25, wind, routing, speeds (Vr/Vx/Vy/Vbg), emergency procedures
-- **Approach Briefing**: LSZQ 25, routing, approach speeds, missed approach, alternate
-
-### Ending a Flight
-
-1. Complete all checklists through "At the Hangar"
-2. Tap "END FLIGHT" on the final page
-3. Flight is saved with all data to the Flight Log
-
-### Flight Log
-
-- Access via "FLIGHT LOG" on home screen
-- View all recorded flights
-- Tap any flight to see details and map
-- Export flights to GPX or JSON format
-- Add notes to flights
-- Delete unwanted flights
-
-## File Structure
-
-See [CLAUDE.md → Project Structure](./CLAUDE.md#project-structure) for the layout: the directories
-and the files you would not find by name. The full tree is Xcode's project navigator; neither document
-keeps a copy of it any more, since every copy drifted (the last one predated the 6.0
-Cockpit/GroundView/Flight Thread rework and still listed files that no longer exist).
-
-## Related Repositories
-
-- **[AeroCheck-server](../AeroCheck-server)**: Cloudflare Workers API for subscription management and premium checklist delivery
-- **[AeroCheck-checklists](../AeroCheck-checklists)**: Aircraft checklist data in JSON format
-
-## GPX Format
-
-Exported flights use standard GPX 1.1 with AeroCheck metadata in a `pc:` namespace
-(`http://aerocheck.app/gpx/1`). Every extension element is namespaced, and per-point speed/course
-live inside `<extensions>` rather than as direct children of `<trkpt>` — plain GPX readers ignore
-all of it and still see a valid track:
-
-```xml
-<?xml version="1.0" encoding="UTF-8"?>
-<gpx version="1.1" creator="AéroCheck v4.3.0"
-     xmlns="http://www.topografix.com/GPX/1/1"
-     xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-     xmlns:pc="http://aerocheck.app/gpx/1">
-  <metadata>
-    <name>F-HVXA - Dec 1, 2025</name>
-    <time>2025-12-01T10:00:00Z</time>
-  </metadata>
-  <trk>
-    <name>F-HVXA</name>
-    <extensions>
-      <pc:flightData>
-        <pc:formatVersion>4</pc:formatVersion>
-        <pc:appVersion>4.3.0</pc:appVersion>
-        <pc:airplane>F-HVXA</pc:airplane>
-        <pc:engineStartTime>2025-12-01T10:00:00Z</pc:engineStartTime>
-        <pc:lineUpTime>2025-12-01T10:12:00Z</pc:lineUpTime>
-        <pc:landingTime>2025-12-01T11:05:00Z</pc:landingTime>
-        <pc:distanceKm>82.4</pc:distanceKm>
-      </pc:flightData>
-    </extensions>
-    <trkseg>
-      <trkpt lat="46.9481" lon="7.4474">
-        <ele>540</ele>
-        <time>2025-12-01T10:15:00Z</time>
-        <extensions>
-          <pc:speed>38.2</pc:speed>
-          <pc:course>271</pc:course>
-        </extensions>
-      </trkpt>
-    </trkseg>
-  </trk>
-</gpx>
-```
-
-## JSON Format
-
-JSON export wraps the flight in an envelope carrying `metadata` (app name/version, format version,
-export date), the `flight` itself, and the `flightPlan` when one was active. The flight is **not**
-at the top level — it sits under `flight`:
-
-```json
-{
-  "metadata": {
-    "appName": "AéroCheck",
-    "appVersion": "4.3.0",
-    "formatVersion": 4,
-    "exportDate": "2025-12-01T12:00:00Z"
-  },
-  "flight": {
-    "id": "uuid-string",
-    "airplane": "F-HVXA",
-    "startTime": "2025-12-01T10:00:00Z",
-    "engineStartTime": "2025-12-01T10:00:00Z",
-    "landingTime": "2025-12-01T11:05:00Z",
-    "gpsTrack": [
-      { "latitude": 46.9481, "longitude": 7.4474, "altitude": 540, "timestamp": "2025-12-01T10:15:00Z" }
-    ]
-  },
-  "flightPlan": null
-}
-```
-
-## Configuration Options
-
-In Settings:
-
-- **Aircraft in use**: Select your aircraft (the free WT9 Dynamic or any unlocked premium aircraft) - this changes checklists, speeds, and stall warnings
-- **Theme**: Auto / Day / Sunlight / Night cockpit theme (Auto follows the system appearance)
-- **Companion**: Pair an iPhone as a synced second screen for your iPad (iOS 26+)
-- **GPS Recording Interval**: 1-30 seconds between points
-- **Show Estimated Airspeed** *(Experimental)*: Display estimated IAS calculated from GPS ground speed and MeteoSwiss mean-wind data. Estimated values are shown as "EST. IAS" with a `~` prefix so they're never mistaken for measured airspeed. Only works in Switzerland with cellular connection. Shows safety warning before enabling.
-- **Aural Stall Alert** *(Experimental)*: Revealed once Estimated Airspeed is enabled. Plays an audible warning below the aircraft's stall speed. Off by default.
-- **Keep Screen On**: Prevents display sleep during use
-- **Always Use UTC Times**: Display all times in UTC with a (UTC) suffix
-- **Force ICAO Chart Layer**: Keep ICAO Chart (1:500,000) at all zoom levels instead of switching to Segelflugkarte
-- **Offline Mode**: Use only cached charts for navigation (requires download)
-- **Step-by-Step Highlighting**: Highlights checklist items one at a time; tap anywhere to advance to the next item (auto-scrolls if needed)
-- **Learning Mode (show all checks)**: When OFF (default), memorizable checks are hidden to test your memory. When ON, all checks are visible for studying. Hidden phases vary by aircraft
-- **Circuit Mode**: Enable for pattern training - skips Cruise and Descent phases, adds FULL STOP button for tracking landings
-
-## Speed Reference
-
-Quick access to all important speeds (KIAS). The SPEEDS modal shows aircraft-specific values:
-
-### WT9 Dynamic (F-HVXA)
-
-| Speed | Value | Description |
-|-------|-------|-------------|
-| Vso | 33 | Stall (flaps down) |
-| Vs | 42 | Stall (clean) |
-| Vr | 40 | Rotation |
-| Vx | 55 | Best angle |
-| Vy | 70 | Best rate of climb |
-| Vcc | 85 | Cruise climb |
-| Vfe | 76 | Flaps extension |
-| Vbg | 70 | Best glide |
-
-**Max crosswind**: TO 14 kt / LDG 16 kt
-
-### PA-28-181 (HB-PFA)
-
-| Speed | Value | Description |
-|-------|-------|-------------|
-| Vso | 47 | Stall (flaps down) |
-| Vs | 53 | Stall (clean) |
-| Vr | 53 | Rotation |
-| Vx | 64 | Best angle |
-| Vy | 76 | Best rate of climb |
-| Vcc | 87 | Cruise climb |
-| Vfe | 103 | Flaps extension |
-| Vbg | 76 | Best glide |
-
-**Max crosswind**: 17 kt
-
-### Target Speeds by Phase
-
-Target speeds vary by aircraft. Examples for WT9:
-
-| Phase | Target | Notes |
-|-------|--------|-------|
-| Climb | 70 | Vy - best rate of climb |
-| Cruise | 85 | Vcc - cruise climb/cruise |
-| Descent | 70 | Vbg - best glide |
-| Approach | 70 | Initial approach, clean |
-| Landing | 60 | Final approach, F2 |
-
-> These mirror `targetSpeeds` in the bundled WT9 checklist. If you change one, change the other —
-> the two drifted apart once already and this table published pre-2.1e values for months, including
-> a climb target labelled Vx when the app targets Vy.
-
-*Note: Speed indicator is hidden during ground operations (taxi, runup, parking)*
-
-## Based On
-
-- WT9 F-HVXA Checklist v2.1e from Groupe de Vol à Moteur de Porrentruy (Aeroclub du Jura GVMP)
-- Premium checklists from Groupe de Vol à Moteur de Porrentruy and Lausanne Aéroclub (e.g. PA-28-181 HB-PFA v2.0e)
-- SPHAIR Bases et procédures
-
-## Testing
-
-### Unit Tests
-
-See CLAUDE.md → Build & Run for the full test-runner recipe and its two hang-diagnosis cases.
-Quick start: `scripts/run-tests.sh`.
-
-### StoreKit Testing
-
-The app includes a `Configuration.storekit` file for testing subscriptions locally:
-
-1. Open the project in Xcode
-2. Edit the scheme (Product > Scheme > Edit Scheme)
-3. Under Run > Options, set StoreKit Configuration to `Configuration.storekit`
-4. Run the app to test subscription flows without real purchases
-
-### API Testing
-
-For testing against the development server:
-
-1. Run the server locally with Wrangler: `cd ../AeroCheck-server && npm run dev`
-2. Point the app at it by setting `API_BASE_URL_SANDBOX` in `Secrets.xcconfig`:
-   ```
-   API_BASE_URL_SANDBOX = http://localhost:8787
-   ```
-   A Debug build always takes the sandbox endpoint (`APIConfig.usesSandboxEndpoint`), so setting
-   `API_BASE_URL` alone changes nothing locally. There is no URL to edit in `SubscriptionManager.swift`
-   either: it takes `APIConfig.baseURL`, resolved from the `APIBaseURLSandbox` Info.plist key fed by
-   that build setting, and editing the service would also miss `AircraftDataService`, which resolves
-   the same way. `APIConfig` allows `localhost`/`127.0.0.1` over plain HTTP for exactly this.
-3. Test subscription verification and checklist fetching
+A flight exports as GPX 1.1 or JSON (the whole logbook as a ZIP of either), and both import back. The GPX carries AéroCheck's own data (the flight's times, its distance, each point's speed and course) in a `pc:` namespace (`http://aerocheck.app/gpx/1`) inside `<extensions>`, so any other GPX reader ignores it and still sees a valid track. The JSON wraps the flight in an envelope: `metadata` (app, version, format version, export date), `flight`, and `flightPlan` when one was active.
 
 ## Privacy
 
-- All flight data stored locally on device
-- Your flight log, tracks and settings are never uploaded to AeroCheck's servers. Flights and
-  settings sync only through **your own** iCloud account (CloudKit private database).
-- **Terrain profiles send route coordinates to a third party.** When you generate a flight-plan or
-  flight-share terrain profile, the route — for a recorded flight, a sampled version of the actual
-  GPS track — is sent to swisstopo (`api3.geo.admin.ch`) inside Switzerland or Open-Meteo
-  (`api.open-meteo.com`) elsewhere, to look up ground elevation. Coordinates are rounded to roughly
-  100 m before they leave the device, and nothing identifying you is attached. No terrain profile
-  means no transmission.
-- Map, airspace and airport data are fetched by area, not by your position.
-- The VFR procedures and the official-chart registry are static files on aerocheck.app (GitHub
-  Pages), fetched by country, never by position. An official chart, or an error report to open
-  flightmaps, opens in your browser only when you tap it; the report's pre-filled text names the
-  procedure and where its label sits on the map, nothing about you.
-- Checklist data cached locally after initial download
-- Export only when explicitly requested by user
+Flights, tracks and settings stay on the device and in your own iCloud (CloudKit's private database); none of it goes to AeroCheck's servers. Maps, airspace, airports and the VFR data are fetched by area or by country, never by position. The one exception is the terrain profile: the route (or a sampled track, rounded to about 100 m) goes to swisstopo in Switzerland and to Open-Meteo elsewhere, to look up the ground under it. The whole policy is on [aerocheck.app/privacy](https://aerocheck.app/privacy/).
 
-## Data Sources & Licences
+## Data sources and licences
 
-AéroCheck displays third-party geographic, aeronautical and weather data. These sources require visible attribution, and their terms govern your use. The app credits every one of them in Settings › About › Data sources; the Map sheet credits open flightmaps (with the AIRAC cycle on the device) and OpenAIP, Data & Storage credits open flightmaps under its row, and a share card credits the map and the terrain it shows.
+AéroCheck shows other people's geographic, aeronautical and weather data, under their terms. The app credits each of them in Settings › About › Data sources (and on the map and share cards where their data shows).
 
 | Data | Source | Attribution |
 |------|--------|-------------|
@@ -538,19 +49,17 @@ AéroCheck displays third-party geographic, aeronautical and weather data. These
 | METAR / TAF / SIGMET | **NOAA Aviation Weather Center** (public domain), through wx.aerocheck.app | NOAA Aviation Weather Center |
 | Airspace, aerodromes, navaids, obstacles, reporting points | **OpenAIP** (CC BY-NC 4.0) | © OpenAIP and contributors |
 | Airport / runway / frequency data | **OurAirports** (public domain) | OurAirports |
-| Traffic circuits, VFR arrival and departure routes with their sectors, the reporting points OpenAIP lacks (CH, AT, DE, CZ) | **open flightmaps** (General Users' License: free, commercial use included, as long as the data is credited and users can report errors back; never a primary source of navigation) | © open flightmaps association |
-| Official chart links, per aerodrome | A registry of links to **DFS** BasicVFR (DE), the **SIA** VAC atlas (FR), **skyguide**'s eVFR Manual on SkyBriefing (CH, subscription) and the **Austro Control** eAIP (AT). Links only: the app never downloads or shows a chart | The publisher's terms, on its own site |
+| Traffic circuits, VFR arrival and departure routes and their sectors, the reporting points OpenAIP lacks (CH, AT, DE, CZ) | **open flightmaps** (General Users' License: free, commercial use included, as long as the data is credited and errors can be reported back; never a primary source of navigation) | © open flightmaps association |
+| Official chart links, per aerodrome | Links to **DFS** BasicVFR (DE), the **SIA** VAC atlas (FR), **skyguide**'s eVFR Manual on SkyBriefing (CH, subscription) and the **Austro Control** eAIP (AT); the app never downloads or shows a chart | The publisher's terms, on its own site |
 
-The VFR procedures and the chart registry come from aerocheck.app, never from open flightmaps or the publishers directly. A weekly GitHub Actions job (`.github/workflows/vfr-data.yml` on `main`, Thursdays at 05:00 UTC, the day an AIRAC cycle takes effect) checks out the `website` branch and runs `scripts/vfrdata/`: `extract_ofm.py` turns open flightmaps' files for the cycle in force into one small JSON file per country under `public/data/ofm/v1/`, and `charts_registry.py` writes `public/data/charts/v1/charts.json` (HEAD-checking a sample per country). A change is committed to `website` and the site redeployed; the app reads `https://aerocheck.app/data/`. When something looks off (a parse error, a big drop, an oversized file) the job keeps the last good file and opens a "VFR data job failed" issue. Schema and rules: `scripts/vfrdata/README.md` on the `website` branch.
+The VFR procedures and the chart links are small files on aerocheck.app, rewritten every Thursday at 05:00 UTC (the AIRAC day) by `.github/workflows/vfr-data.yml` from open flightmaps and the publishers' sites; the scripts and the schema are in `scripts/vfrdata/` on the `website` branch. The offline ICAO and glider charts are a bulk download of swisstopo/BAZL products, which needs their agreement to ship (tracked as SEC-09).
 
-> **Offline chart caching:** the offline ICAO/Segelflug chart download is a bulk extraction of BAZL aeronautical chart products. Shipping that feature requires an explicit licence/agreement with swisstopo/BAZL (tracked separately as SEC-09); until then it is a release blocker for the offline-cache feature.
+## Credits
 
-The app code is MIT-licensed; premium checklist content is proprietary. Third-party data remains under its providers' respective licences.
+The checklists are the clubs' own: the WT9's from the Groupe de Vol à Moteur de Porrentruy (Aéroclub du Jura, v2.1e), the others from GVMP, Lausanne Aéroclub and GVMN Neuchâtel. The procedures follow SPHAIR's "Bases et procédures".
 
-## Support
+## Support and licence
 
-The app is provided as-is and support is not guaranteed. In case of issues, feel free to open an issue on GitHub.
+Bugs and questions go to the [GitHub issues](https://github.com/fetzu/AeroCheck/issues) or to support@aerocheck.app ([aerocheck.app/support](https://aerocheck.app/support/)); support is best effort. The app's code is under the MIT licence ([LICENSE](./LICENSE)), the premium checklists are proprietary, and the third-party data stays under its providers' licences.
 
----
-
-**Safe flying!**
+Safe flying!

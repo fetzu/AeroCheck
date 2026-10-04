@@ -4,7 +4,7 @@ September 2026
 
 AéroCheck is an open-source flight checklist and situational-awareness app for pilots, developed and published by Julien Bono in Switzerland. This page says what the app keeps on your device, what it sends, to whom and how precisely, and what our own servers keep.
 
-The short version: there is no account, no advertising, no analytics and no tracking. Your flights are kept on your device and, if you sync, in your own iCloud. Some requests carry a position, a route or a few points of a track, most of them rounded, so that the app can show weather, terrain and airspace (section 3.0 lists every one of them). Our API server keeps a record of a purchase, never a location.
+The short version: there is no account, no advertising, no analytics and no tracking. Your flights are kept on your device and, if you sync, in your own iCloud. Some requests carry a position, a route or a few points of a track, most of them rounded, so that the app can show weather, terrain and airspace (section 3.0 lists every one of them). Our API server keeps a record of a purchase, never a location. If you send us an aircraft's checklist from this website, we keep what you send for as long as the request needs it (section 4.3).
 
 
 ## 1.0 What stays on your device
@@ -68,7 +68,7 @@ No position ever. When you open an aircraft, the app sends its identifier, its r
 
 ## 4.0 What our servers keep
 
-Both servers run on Cloudflare, which handles the IP address of every request to deliver it, under [Cloudflare's privacy policy](https://www.cloudflare.com/privacypolicy/).
+Our three servers (the API, the weather proxy and the one that receives aircraft requests) run on Cloudflare, which handles the IP address of every request to deliver it, under [Cloudflare's privacy policy](https://www.cloudflare.com/privacypolicy/).
 
 ### 4.1 API server
 - Per purchase, a record filed under the purchase's original transaction identifier: its status, expiry date, product, environment (App Store or test), whether it renews, and when it was last checked. It is kept until 30 days after a subscription's expiry date, for 90 days after the last check of a lifetime purchase, and for 7 days once a purchase has lapsed or been refunded.
@@ -80,6 +80,23 @@ Apple notifies the server of expiries, refunds and revocations; those notices on
 
 ### 4.2 Weather proxy
 No database and no logs of its own: only the cache described in section 3.1.
+
+### 4.3 Aircraft requests (intake.aerocheck.app)
+Only if you send us an aircraft's checklist from [aerocheck.app/send](/send) (the app itself sends nothing of the kind). The request server keeps:
+- what you typed: the registrations, the aircraft type, the club, whether you send it for the club, the checklist's languages, your notes, your e-mail address, your name if you give one, and the e-mail address of the club's contact if you give it (then or later);
+- the files you send (the club's document, as a PDF or images), in Cloudflare R2, and the request in a Cloudflare D1 database, with its history: each status, when it changed, and the messages we write to you;
+- the club's answer when it is asked: the name and role of the person who answers for it, the decision and their message;
+- your verdict and your message, if you proofread the draft;
+- the links to your request's page and to the club's page, as SHA-256 hashes only (the links themselves are in the e-mails, never on our side);
+- your IP address, in a request counter that limits how often one address may send, for one minute at most.
+
+The form is protected by Cloudflare Turnstile, which looks at your browser to tell a person from a robot, under [Cloudflare's Turnstile privacy addendum](https://www.cloudflare.com/turnstile-privacy-policy/); the server only checks Turnstile's answer.
+
+Who reads it: Julien Bono, who develops AéroCheck, reads the request and its files to transcribe the checklist, with the help of an AI model (Claude, by Anthropic, under [Anthropic's privacy policy](https://www.anthropic.com/legal/privacy)), which therefore processes the document. Each request is also tracked as an issue in a private GitHub repository: the registrations, the type, the club, your notes, the files' names and sizes, and, as comments, the club's answer and your proofreading message; never an e-mail address. What reaches the app is our transcription, never your file, your name or your address.
+
+The e-mails about your request (received, a question, live) and the club's link go out through [Resend](https://resend.com/legal/privacy-policy), an e-mail service based in the United States, which receives the address, the message and the link to deliver them. Replies reach support@aerocheck.app.
+
+How long: everything is kept while the request is open. 90 days after it closes (live, declined or a duplicate), the files and every e-mail address are deleted; what stays is the request's record (its number, the registrations, the type, the club, the name you gave if any, and its history), so that we know where a checklist came from. A request whose files never finished uploading is deleted after 24 hours. To have a request deleted earlier, or to know what we keep about it, write to support@aerocheck.app or reply to one of our e-mails.
 
 
 ## 5.0 Exports and sharing
@@ -98,17 +115,17 @@ You can change each of them at any time in the iOS Settings app.
 
 ## 7.0 Deleting your data
 
-Deleting the app deletes its data on the device. To remove what is in your iCloud, delete AéroCheck's folder in iCloud Drive and the app's iCloud data (in the iOS Settings app, under your name, iCloud, storage). The purchase record on our server expires by itself (section 4.1); to have it deleted earlier, contact us (section 10.0).
+Deleting the app deletes its data on the device. To remove what is in your iCloud, delete AéroCheck's folder in iCloud Drive and the app's iCloud data (in the iOS Settings app, under your name, iCloud, storage). The purchase record on our server expires by itself (section 4.1); to have it deleted earlier, contact us (section 10.0). An aircraft request is deleted as section 4.3 says, or earlier if you write to support@aerocheck.app.
 
 
 ## 8.0 This website
 
-The site itself sets no cookies and runs no analytics. It is served by GitHub Pages through Cloudflare, and the aircraft page asks api.aerocheck.app for the current list from your browser.
+The site itself sets no cookies and runs no analytics. It is served by GitHub Pages through Cloudflare, and the aircraft page asks api.aerocheck.app for the current list from your browser. The request pages (sending a checklist, following a request, a club's answer) talk to intake.aerocheck.app from your browser (section 4.3), and the form loads Cloudflare Turnstile from challenges.cloudflare.com. The links in our e-mails carry their code after a "#", which a browser never sends to the website: only the request server receives it, to open the request.
 
 
 ## 9.0 Open source and changes
 
-AéroCheck is open source: the [source code](https://github.com/fetzu/AeroCheck) lets anyone check what this page says. We update this policy when the app changes what it sends; the date at the top says when it last did.
+AéroCheck is open source: the [source code](https://github.com/fetzu/AeroCheck) lets anyone check what this page says. We update this policy when the app or this website changes what it sends; the date at the top says when it last did.
 
 
 ## 10.0 Contact

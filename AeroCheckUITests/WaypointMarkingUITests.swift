@@ -35,7 +35,7 @@ final class WaypointMarkingUITests: XCTestCase {
         // started on the map once airborne).
         pilot.showPane("checklist")
         pilot.readyForLineUp()
-        if pilot.memoryDone.waitForExistence(timeout: 3) { pilot.tapNow(pilot.memoryDone) }
+        pilot.confirmMemoryCheck()
         // undo-7 (b): no toast for the departure at the line-up (watched from READY FOR LINE UP to N).
         var toasts: Set<String> = []
         func noteToast() { if let t = pilot.toastMessage { toasts.insert(t) } }
@@ -90,21 +90,32 @@ final class WaypointMarkingUITests: XCTestCase {
         pilot.shot("rp-9", "next-e")
         pilot.observed("rp-9", "nothing shrinks or moves: see the screenshot")
 
-        // undo-2: past E on the MAP pane: the toast above the frequencies; then a manual MARK, its UNDO.
-        let e = pilot.waitUntil(timeout: pilot.wallUntil(track: s.mark("wp2") + 30, margin: 15)) {
-            (pilot.toastMessage ?? "").contains("E marked automatically at")
+        // undo-2: past E on the MAP page. Since 6.2 (PR 4) the offer is MAP's status slot, at the chart's
+        // top left, where it was a toast above the frequency card; then a manual MARK, its UNDO there too.
+        // The legs are ROUTE's since 6.2: read there once MARK is taken back.
+        pilot.showPane("map")
+        var eToast: (message: String, place: CockpitPilot.UndoPlace?)?
+        _ = pilot.waitUntil(timeout: pilot.wallUntil(track: s.mark("wp2") + 30, margin: 15)) {
+            guard let message = pilot.toastMessage, message.contains("E marked automatically at") else { return false }
+            eToast = (message, pilot.undoPlace)
+            return true
         }
         pilot.shot("undo-2", "toast-map")
-        pilot.check("undo-2", e, "toast: \(pilot.toastMessage ?? "none")")
+        pilot.check("undo-2", eToast?.place == .statusSlot,
+                    "E's offer: \(eToast?.message ?? "none"), in the \(eToast.flatMap { $0.place?.rawValue } ?? "?")")
         _ = pilot.waitUntil(timeout: 9) { pilot.snap(pilot.undo) == nil }
         let markSaigne = pilot.label("map.mark")
         pilot.check("undo-2", markSaigne?.contains("MARK SAIGNELEGIER") ?? false, "MARK: \(markSaigne ?? "missing")")
         pilot.tap("map.mark", timeout: 2)
-        pilot.check("undo-2", pilot.undo.waitForExistence(timeout: 3) && (pilot.toastMessage ?? "").contains("SAIGNELEGIER passed at"),
-                    "MARK's toast: \(pilot.toastMessage ?? "none")")
+        let markOffered = pilot.undo.waitForExistence(timeout: 3)
+        let markMessage = pilot.toastMessage ?? "none"
+        let markPlace = pilot.undoPlace
+        pilot.check("undo-2", markOffered && markMessage.contains("SAIGNELEGIER passed at") && markPlace == .statusSlot,
+                    "MARK's offer: \(markMessage), in the \(markPlace?.rawValue ?? "?")")
         pilot.shot("undo-2", "mark-undo")
-        pilot.observed("undo-2", "MARK's UNDO filled, the same size (20 pt, 78 pt): see the screenshots")
+        pilot.observed("undo-2", "MARK's UNDO filled, the automatic mark's outlined, in the same slot: see the screenshots")
         pilot.tapNow(pilot.undo)
+        pilot.openLegs()
         pilot.check("undo-2", pilot.waitUntil(timeout: 4) { pilot.leg(3)?.state == "next" && pilot.leg(3)?.hasATO == false },
                     "MARK taken back: SAIGNELEGIER \(pilot.leg(3).map { "\($0)" } ?? "?")")
 
@@ -129,10 +140,9 @@ final class WaypointMarkingUITests: XCTestCase {
         // That minute on MAP: SAIGNELEGIER taken back is still the target while the aircraft flies on past
         // it, on the route all the same. OFF ROUTE never shows (6.2, PR 4), the minute where a rule on the
         // leg flown alone would have said "OFF ROUTE 1.7 NM".
-        let offRoute = pilot.watchOffRoute(untilTrack: pilot.trackNow + 60)
+        let pastTakenBack = pilot.watchStatus(untilTrack: pilot.trackNow + 60)
         pilot.shot("offroute-1", "route-vrps-past-taken-back")
-        pilot.check("offroute-1", offRoute.isEmpty,
-                    "route-vrps, the minute past SAIGNELEGIER taken back: \(offRoute.isEmpty ? "no OFF ROUTE" : offRoute.joined(separator: " | "))")
+        pilot.recordOffRoute(pastTakenBack, "route-vrps, the minute past SAIGNELEGIER taken back")
         pilot.openLegs()
         pilot.check("undo-4", pilot.leg(3)?.state == "next" && pilot.leg(3)?.hasATO == false,
                     "a minute on, not re-marked: \(pilot.leg(3).map { "\($0)" } ?? "?") (track \(Int(pilot.trackNow)) s, ST-URSANNE at \(Int(s.mark("wp4"))) s)")
@@ -399,15 +409,10 @@ extension WaypointMarkingUITests {
 }
 
 extension CockpitPilot {
-    /// "MARK E LEG 2:05 / 17:32" (the phone: "MARK E · 2:05") → 125 (the leg so far).
+    /// MARK's leg so far, the label's first time: "MARK E LEG 2:05 / 17:32" (the iPad), "MARK E 2:05" (the
+    /// phone, whose MARK, waypoint and leg time are a line each since 6.2) → 125; "1:02:05" past an hour.
     static func legSeconds(in text: String) -> Int? {
-        guard let range = text.range(of: #"(LEG|·) (\d+):(\d\d)"#, options: .regularExpression) else { return nil }
-        let parts = text[range].split(separator: " ").last?.split(separator: ":").compactMap { Int($0) } ?? []
-        return parts.count == 2 ? parts[0] * 60 + parts[1] : nil
-    }
-
-    /// An iPhone (the Cockpit's phone layout), not the kneeboard.
-    var isPhone: Bool {
-        (snap(app)?.frame.width ?? 1000) < 600
+        guard let range = text.range(of: #"\b\d+:\d\d(:\d\d)?\b"#, options: .regularExpression) else { return nil }
+        return text[range].split(separator: ":").compactMap { Int($0) }.reduce(0) { $0 * 60 + $1 }
     }
 }

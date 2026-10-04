@@ -219,6 +219,14 @@ final class CockpitPilot {
         return frame
     }
 
+    /// An iPhone (the Cockpit's phone layout), not the kneeboard. From the window read once: a snapshot
+    /// of the whole app at each read was a second or more of flight at 10x, and `phaseStatus` asks twice
+    /// in some steps.
+    var isPhone: Bool {
+        let width = windowFrame.width
+        return (width > 0 ? width : 1000) < 600
+    }
+
     /// Polls `condition` every 0.25 s for up to `timeout` wall seconds.
     @discardableResult
     func waitUntil(timeout: TimeInterval, _ condition: () -> Bool) -> Bool {
@@ -409,9 +417,30 @@ final class CockpitPilot {
     // MARK: What the Cockpit shows
 
     var memoryDone: XCUIElement { element("cockpit.memoryDone") }
+
+    /// The current memory check confirmed with ✓ DONE, the act band's second slot on CHECKLIST only (on
+    /// MAP and ROUTE that slot is MARK since 6.2): CHECKLIST first when ✓ DONE isn't there. One query when
+    /// it is. False when there was nothing to confirm.
+    @discardableResult
+    func confirmMemoryCheck(timeout: TimeInterval = 3) -> Bool {
+        if tapNow(memoryDone) { return true }
+        showPane("checklist")
+        return memoryDone.waitForExistence(timeout: timeout) && tapNow(memoryDone)
+    }
+
     var undo: XCUIElement { element("undoToast.undo") }
     var toastMessage: String? {
         label("undoToast.message")
+    }
+
+    /// Where the undo offer sits, read in one query: MAP's status slot at the chart's top left
+    /// ("status.undo", 6.2 PR 4), or a toast (CHECKLIST, ROUTE: over the page's foot). Nil when none shows.
+    enum UndoPlace: String { case statusSlot = "status slot", toast }
+    var undoPlace: UndoPlace? {
+        let e = app.descendants(matching: .any)
+            .matching(NSPredicate(format: "identifier IN {'status.undo', 'undoToast.undo'}")).firstMatch
+        guard let id = snap(e)?.identifier else { return nil }
+        return id == "status.undo" ? .statusSlot : .toast
     }
 
     /// The phase bar, segment by segment: phase → its spoken status. On the phone, the phase list's rows.
@@ -464,19 +493,48 @@ final class CockpitPilot {
 
     // MARK: OFF ROUTE (6.2, PR 4)
 
-    /// OFF ROUTE as MAP's status slot shows it ("OFF ROUTE 1.4 NM"), nil while it is dark.
-    var offRoute: String? { label("status.offRoute") }
+    /// What MAP's status slot shows, in one query: its state ("offRoute", "gps", "undo", "briefing"...) and
+    /// its words ("OFF ROUTE 1.4 NM"); nil while it is dark.
+    var mapStatus: (state: String, label: String)? {
+        let e = app.descendants(matching: .any)
+            .matching(NSPredicate(format: "identifier BEGINSWITH 'status.'")).firstMatch
+        guard let s = snap(e) else { return nil }
+        return (String(s.identifier.dropFirst("status.".count)), s.label)
+    }
 
-    /// MAP shown until the track reaches `t`, OFF ROUTE watched all along: every time it was seen, with the
-    /// track's second. OFF ROUTE is the Cockpit's on every page, but only MAP shows it.
-    func watchOffRoute(untilTrack t: Double) -> [String] {
+    /// MAP shown until the track reaches `t`, its status slot watched all along: each state it took, once
+    /// per change, with the track's second. OFF ROUTE is the Cockpit's on every page, but only MAP shows
+    /// it, and only while nothing above it in the slot's order holds the slot (UNDO, then a GPS state):
+    /// `masked` says when something did, so "never OFF ROUTE" is never read off a slot it couldn't reach.
+    func watchStatus(untilTrack t: Double) -> (offRoute: [String], masked: [String], all: [String]) {
         showPane("map")
-        var seen: [String] = []
+        var all: [String] = [], offRoute: [String] = [], masked: [String] = []
+        var last: String?
         _ = waitUntil(timeout: max(1, (t - trackNow) / rate)) {
-            if let shown = self.offRoute { seen.append("\(shown) at \(Int(self.trackNow)) s") }
+            let shown = self.mapStatus
+            let key = shown.map { "\($0.state) \"\($0.label)\"" } ?? "dark"
+            guard key != last else { return false }
+            last = key
+            let note = "\(key) at \(Int(self.trackNow)) s"
+            all.append(note)
+            switch shown?.state {
+            case "offRoute": offRoute.append(note)
+            case "gps": masked.append(note)
+            default: break
+            }
             return false
         }
-        return seen
+        return (offRoute, masked, all)
+    }
+
+    /// offroute-1's record for a stretch watched with `watchStatus`: a pass when OFF ROUTE never showed,
+    /// and what else held the slot, observed when a GPS state could have hidden it.
+    func recordOffRoute(_ watched: (offRoute: [String], masked: [String], all: [String]), _ what: String) {
+        check("offroute-1", watched.offRoute.isEmpty,
+              "\(what): \(watched.offRoute.isEmpty ? "no OFF ROUTE" : watched.offRoute.joined(separator: " | ")); the slot: \(watched.all.joined(separator: " → "))")
+        if !watched.masked.isEmpty {
+            observed("offroute-1", "\(what): a GPS state held the slot, above OFF ROUTE, at \(watched.masked.joined(separator: " | "))")
+        }
     }
 
     // MARK: The route
@@ -643,16 +701,17 @@ final class CockpitPilot {
     /// Before Departure, the pilot's way: its items CHECKed, then the act band's NEXT, which reads
     /// READY FOR LINE UP there (6.2): it records the line-up, lets the replay go from the holding point
     /// and opens the LINE UP check. The one place that knows how the Cockpit asks for the line-up.
-    /// Returns what NEXT read, and the check before departure's status once left.
+    /// Returns what NEXT read, and, `readingStatus`, the check before departure's status once left (on the
+    /// phone that opens the phase list: seconds of the runway at 10x, so only the step that needs it).
     @discardableResult
-    func readyForLineUp() -> (next: String, beforeDeparture: String?) {
+    func readyForLineUp(readingStatus: Bool = false) -> (next: String, beforeDeparture: String?) {
         checkAllItems()
         let next = element("cockpit.next")
         let label = next.waitForExistence(timeout: 5) ? (snap(next)?.label ?? "") : ""
         tapNow(next)
         if let hold = scenario.holds.first(where: { $0.until == "lineUp" }) { noteRelease(atTrack: hold.t) }
         _ = waitUntil(timeout: 4) { self.currentPhase == "lineUp" }
-        return (label, phaseStatus("beforeDeparture"))
+        return (label, readingStatus ? phaseStatus("beforeDeparture") : nil)
     }
 
     /// From Today to the runway: START FLIGHT (or CIRCUITS), the ground checks, ENGINE START (the replay
@@ -664,7 +723,7 @@ final class CockpitPilot {
         noteRelease(atTrack: 0)
         workChecks(until: "beforeDeparture")
         readyForLineUp()
-        if memoryDone.waitForExistence(timeout: 3) { tapNow(memoryDone) }
+        confirmMemoryCheck()
         return waitUntil(timeout: 5) { self.currentPhase == "climb" }
     }
 

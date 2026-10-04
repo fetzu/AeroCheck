@@ -28,14 +28,14 @@ final class FlightTimingUITests: XCTestCase {
         pilot.shot("eet-4", "line-up")
         pilot.check("eet-4", planned != nil && anchored != nil && planned != anchored,
                     "READY FOR LINE UP moves the ETA: planned \(planned ?? "?") → \(anchored ?? "?")")
-        if pilot.memoryDone.waitForExistence(timeout: 3) { pilot.tapNow(pilot.memoryDone) }
+        // The LINE UP check's ✓ DONE is on CHECKLIST, and the ETA was just read on ROUTE. (6.2)
+        pilot.confirmMemoryCheck()
         // The departure on MAP, ten minutes of it: the track leaves LSZQ on the runway's heading and joins
         // the leg to INS some 9 NM out, 1.0 to 1.6 NM off it until then. OFF ROUTE never shows (6.2, PR 4):
         // the aircraft is on its way to the route, not off it.
-        let offRoute = pilot.watchOffRoute(untilTrack: s.mark("liftoff") + 600)
+        let departure = pilot.watchStatus(untilTrack: s.mark("liftoff") + 600)
         pilot.shot("offroute-1", "xc-planned-departure")
-        pilot.check("offroute-1", offRoute.isEmpty,
-                    "xc-planned, the departure to 9 NM out: \(offRoute.isEmpty ? "no OFF ROUTE" : offRoute.joined(separator: " | "))")
+        pilot.recordOffRoute(departure, "xc-planned, the departure to 9 NM out")
         let inFlight = pilot.destinationETA()
         pilot.shot("eet-4", "in-flight")
         pilot.check("eet-4", inFlight == anchored, "in flight the ETA stays on LINE UP + 2 min: \(anchored ?? "?") → \(inFlight ?? "?")")
@@ -67,7 +67,8 @@ final class FlightTimingUITests: XCTestCase {
         pilot.noteRelease(atTrack: s.holds.first { $0.until == "lineUp" }?.t ?? 0)
         let beforeTakeoff = pilot.destinationETA()
         pilot.check("eet-3", beforeTakeoff == planned, "no LINE UP recorded: the ETA stays planned (\(planned ?? "?") → \(beforeTakeoff ?? "?"))")
-        if pilot.memoryDone.waitForExistence(timeout: 3) { pilot.tapNow(pilot.memoryDone) }
+        // The LINE UP check's ✓ DONE is on CHECKLIST, and the ETA was just read on ROUTE. (6.2)
+        pilot.confirmMemoryCheck()
         var jumpedAt: Double?
         var latest: String?
         _ = pilot.waitUntil(timeout: pilot.wallUntil(track: s.mark("liftoff") + 60, margin: 10)) {

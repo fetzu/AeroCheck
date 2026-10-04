@@ -279,14 +279,8 @@ struct NavigationMapView: View {
     var onDivert: ((String?) -> Void)? = nil
     /// The Cockpit's drawers, from the status slot: GPS and BRIEFING (`FlightView.openReference`). (6.2)
     var onOpenReference: ((HUDReference) -> Void)? = nil
-    /// The Cockpit's ROUTE page: where its next-waypoint card and frequencies go, in place of the legs
-    /// panel, which is Plan › Map's alone since 6.2.
-    var onShowRoute: (() -> Void)? = nil
     /// The Cockpit's: MARK's UNDO, the leg ROUTE asked to show. Nil in Plan › Map.
     @Environment(CockpitNavState.self) private var cockpitNav: CockpitNavState?
-    /// The Cockpit's NOW and NEXT, from its one source on every page. Nil in Plan › Map, which computes its
-    /// own (`recomputePhaseFrequencies`). (6.2, ROUTE)
-    @Environment(CockpitRadio.self) private var cockpitRadio: CockpitRadio?
     /// The Cockpit's OFF ROUTE and More's requests to the chart. Nil in Plan › Map. (6.2, PR 4)
     @Environment(CockpitMapState.self) private var cockpitMap: CockpitMapState?
     /// The status slot shows a state: what MAP frames is kept clear of it. (6.2, PR 4)
@@ -807,11 +801,10 @@ struct NavigationMapView: View {
                 }
             } else {
                 // The Cockpit's chart, to the act band (beside the phone's column on its side, at full
-                // height), and its own chrome over it (`CockpitChartChrome`): NOW | NEXT are in its read
-                // band, over every page, since 6.2 (they were a card at the chart's foot), and the controls
-                // row, CACHED, the scale, the chips, the route's pill and the undo toast left the chart for
-                // the stack, the status slot and More (PR 4). The phone on its side kept its next line and
-                // its frequencies until its column took them (PR 5).
+                // height), and its own chrome over it (`CockpitChartChrome`). The next waypoint and NOW |
+                // NEXT are in the read band, over every page; the controls row, CACHED, the scale, the chips,
+                // the route's pill and the undo toast left the chart for the stack, the status slot and
+                // More. Everything above is Plan › Map's alone. (6.2)
                 SeparateView { cockpitMapArea }
             }
         }
@@ -1003,27 +996,20 @@ struct NavigationMapView: View {
         .accessibilityLabel(label)
     }
 
-    /// "map.legsToggle" opens Plan › Map's panel; the Cockpit's NOW | NEXT open ROUTE, whose picker
-    /// segment ("pane.route") the UI tests tap instead. (6.2)
-    private var legsToggleIdentifier: String {
-        chrome == .plan ? "map.legsToggle" : "map.frequencies"
-    }
-
-    /// NOW: the Cockpit's radio's, or Plan › Map's own. (6.2)
+    /// NOW, as Plan › Map works it out (`recomputePhaseFrequencies`); the Cockpit's is its read band's.
     private var nowFrequency: PhaseFrequency? {
-        chrome == .plan ? phaseFreqItems.first { $0.role == .current } : cockpitRadio?.now
+        phaseFreqItems.first { $0.role == .current }
     }
 
     /// NEXT, as NOW.
     private var nextFrequency: PhaseFrequency? {
-        chrome == .plan ? phaseFreqItems.first { $0.role == .next } : cockpitRadio?.next
+        phaseFreqItems.first { $0.role == .next }
     }
 
-    /// The map with its chrome: the top bar (full-screen only), the next-waypoint card (Plan › Map's; the
-    /// Cockpit's next waypoint is in its read band) and the map's controls on top, the scale bar and the
-    /// undo toast at the bottom, and — in Plan › Map's portrait — the bottom panel. `footerClearance`:
-    /// room kept under the scale bar and the undo toast, for the landscape legs panel laid over the
-    /// chart's foot.
+    /// Plan › Map's map with its chrome: the top bar (full-screen only), the next-waypoint card and the
+    /// map's controls on top, the scale bar at the bottom, and in portrait the bottom panel.
+    /// `footerClearance`: room kept under the scale bar, for the landscape legs panel laid over the
+    /// chart's foot. (The Cockpit's chart is `cockpitMapArea`, 6.2.)
     private func mapArea<Panel: View>(bottomPanel: Panel?, footerClearance: CGFloat = 0) -> some View {
         // The phone: the next waypoint on one line and the controls at the foot of the chart, as on
         // its side. With the card and a row of controls on top, a phone in cruise had about 150 pt
@@ -1041,14 +1027,10 @@ struct NavigationMapView: View {
                 // controls, labelled. (v6.0 · P3) What comes and goes sits under them, so it never
                 // moves them. (6.1)
                 VStack(spacing: compact ? 8 : 10) {
-                    // The Cockpit's next waypoint is in its read band, over every page, since 6.2: the
-                    // chart keeps its top, what lies ahead in Track up.
-                    if chrome == .plan {
-                        if compact {
-                            nextWaypointLine
-                        } else {
-                            SeparateView { nextWaypointCard }
-                        }
+                    if compact {
+                        nextWaypointLine
+                    } else {
+                        SeparateView { nextWaypointCard }
                     }
                     if routesOnTop {
                         routesButton()
@@ -1059,21 +1041,14 @@ struct NavigationMapView: View {
                         SeparateView { mapControlsRow }
                             .frame(maxWidth: .infinity, alignment: .trailing)
                     }
-                    SeparateView { occasionalChips(pillLeading: false) }
+                    SeparateView { occasionalChips }
                 }
                 .padding(.horizontal, compact ? 10 : 16)
                 .padding(.top, compact ? 8 : 10)
             },
             bottom: VStack(spacing: 8) {
-                // A leg shown from ROUTE: over the foot, where the thumb is, on both devices. On a phone it
-                // took the next line's place at the chart's top until the line went to the read band.
-                // (6.2)
-                framedLegBar
-                    .padding(.horizontal, compact ? 10 : 16)
                 mapFooter
-                // The phone's controls give way while a leg shows (Back to aircraft is Centre then):
-                // the leg has the chart between the bar and the scale. (6.2)
-                if compact && panelChrome.showsMapControls && framedLeg == nil {
+                if compact && panelChrome.showsMapControls {
                     SeparateView { mapControlsBottomRow }
                         .frame(maxWidth: .infinity, alignment: .trailing)
                         .padding(.horizontal, 10)
@@ -1136,13 +1111,11 @@ struct NavigationMapView: View {
     /// 38 pt. (6.1, stability) The Cockpit's chips, which shared the row, left its chart in 6.2 (PR 4) for
     /// the status slot and More, and its pill for OFF ROUTE, the edge arrow and More's whole route.
     ///
-    /// Laid out by the caller's stack, one view each. `pillLeading`: the pill at the left edge rather
-    /// than in the middle.
+    /// Laid out by the caller's stack, one view each.
     @ViewBuilder
-    private func occasionalChips(pillLeading: Bool) -> some View {
+    private var occasionalChips: some View {
         let sigmets = rankedSigmets
         let showsPill = showsRouteOffScreenPill && routeOffScreenHint != nil
-        // Plan › Map's: the Cockpit's chips left its chart for the status slot and More in 6.2 (PR 4).
         if !sigmets.isEmpty || showsPill {
             HStack(alignment: .top, spacing: 8) {
                 ZStack(alignment: .topLeading) {
@@ -1159,17 +1132,15 @@ struct NavigationMapView: View {
             .frame(minHeight: 0, alignment: .top)
         }
         if showsRouteOffScreenPill {
-            routeOffScreenPill(leading: pillLeading)
+            routeOffScreenPill
                 .animation(reduceMotion ? nil : .easeInOut(duration: 0.25), value: routeOffScreenHint) // (UX-18)
                 .modifier(StepsAsideForCallout(isHidden: mapState.isCalloutOpen, reduceMotion: reduceMotion))
         }
     }
 
-    /// The off-screen route's pill, but not while a leg from ROUTE shows: the leg is the route, on screen.
-    /// Before the leg was framed, the pill came for a moment over the chart's top, and the leg was framed
-    /// clear of it, low on a phone's chart, under the leg's bar. (6.2)
+    /// The off-screen route's pill, but not with the legs open. (6.1, option C)
     private var showsRouteOffScreenPill: Bool {
-        panelChrome.showsRouteOffScreenPill && framedLeg == nil
+        panelChrome.showsRouteOffScreenPill
     }
 
     /// A hazard to measure the SIGMET chip by, never shown.
@@ -1244,15 +1215,15 @@ struct NavigationMapView: View {
         isFollowingAircraft = camera.following
     }
 
-    /// Routes at the foot of the map: Plan › Map's on the iPad. The phone's picker has Routes already,
-    /// and the Cockpit has its act band. (round 6, I-06; 6.2)
+    /// Routes at the foot of the map: Plan › Map's on the iPad. The phone's picker has Routes already.
+    /// (round 6, I-06)
     private var showsRoutesRow: Bool {
-        chrome == .plan && CockpitScale.current != .phone
+        CockpitScale.current != .phone
     }
 
     /// The full-screen map on a phone, with nowhere else to go to the routes: Routes over the chart.
     private var routesOnTop: Bool {
-        chrome == .plan && CockpitScale.current == .phone && onShowRoutes == nil
+        CockpitScale.current == .phone && onShowRoutes == nil
     }
 
     // MARK: - State Update Helper
@@ -1698,15 +1669,12 @@ struct NavigationMapView: View {
 
     // MARK: - Bottom Controls
 
-    /// The scale bar and the offline/cache badge, bottom left over the map, and the undo toast over
-    /// them (Plan › Map's; the Cockpit's chart has `CockpitChartChrome`).
-    ///
-    /// The toast lies over the corner rather than under it: stacked, its six seconds after every MARK
-    /// and every waypoint the flight marked lifted the scale and the badge, a button, by 100 pt. Now
-    /// nothing moves; the scale and the badge are under the toast meanwhile. (6.1, stability)
+    /// The scale bar and the offline/cache badge, bottom left over Plan › Map's chart. (Its undo toast, for
+    /// MARK and the waypoints the flight marks, went with the Cockpit's chart to `CockpitChartChrome` in
+    /// 6.2: on the ground there is nothing to take back.)
     private var mapFooter: some View {
         ZStack(alignment: .bottom) {
-            // Not with the legs open: the band is a view, the undo stays. (6.1, option C)
+            // Not with the legs open: the band is a view. (6.1, option C)
             if panelChrome.showsMapStatus {
                 HStack(alignment: .bottom) {
                     mapStatus
@@ -1715,10 +1683,6 @@ struct NavigationMapView: View {
                 .padding(.horizontal, 16)
                 .padding(.bottom, 16)
             }
-
-            MapUndoToast()
-                .padding(.horizontal, 16)
-                .padding(.bottom, 8)
         }
         .sheet(isPresented: $showCacheInfoModal) { cacheInfoSheet }
     }
@@ -1901,8 +1865,7 @@ struct NavigationMapView: View {
     /// The chevron of the NOW / NEXT card (portrait) and of the column's NOW / NEXT (landscape): up to
     /// open the legs and every frequency, which rise from the foot of the map in both, down to close.
     private var legsChevron: some View {
-        // The Cockpit's goes to ROUTE. (6.2)
-        Image(systemName: chrome != .plan ? "chevron.right" : navSheetExpanded ? "chevron.down" : "chevron.up")
+        Image(systemName: navSheetExpanded ? "chevron.down" : "chevron.up")
             .font(.aero(size: CockpitType.label, weight: .bold))
             .foregroundColor(theme.action)
             .frame(width: CockpitType.size(kneeboard: 52, phone: 44),
@@ -2049,12 +2012,8 @@ struct NavigationMapView: View {
                            groundSpeedKnots: locationManager.currentSpeedKnots)
     }
 
-    /// The legs and every frequency: Plan › Map's panel, the Cockpit's ROUTE page. (6.2)
+    /// The legs and every frequency, in Plan › Map's panel. (The Cockpit's are on ROUTE, 6.2.)
     private func toggleLegsAndFrequencies() {
-        if chrome != .plan, let onShowRoute {
-            onShowRoute()
-            return
-        }
         withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.28)) { navSheetExpanded.toggle() }
     }
 
@@ -2201,7 +2160,7 @@ struct NavigationMapView: View {
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
-        .accessibilityIdentifier(legsToggleIdentifier)
+        .accessibilityIdentifier("map.legsToggle")
         // A hint, not a label: a label replaced the station and frequency, so VoiceOver never read the
         // NOW and NEXT frequencies at all. (v6.0 review)
         .accessibilityHint(L10n.Nav.legsAndFrequencies)
@@ -2531,9 +2490,9 @@ struct NavigationMapView: View {
 
     /// The pill itself. Shared by both layouts — the map opening on the aircraft with the route
     /// somewhere else is not an iPhone-only situation, it is just far more common there because the
-    /// viewport is smaller. (v4.4.0 device-test feedback) `leading`: at the left edge, under the chips.
+    /// viewport is smaller. (v4.4.0 device-test feedback)
     @ViewBuilder
-    private func routeOffScreenPill(leading: Bool) -> some View {
+    private var routeOffScreenPill: some View {
         if let hint = routeOffScreenHint {
             Button { fitActiveRoute() } label: {
                 HStack(spacing: 8) {
@@ -2557,7 +2516,6 @@ struct NavigationMapView: View {
                 .contentShape(Capsule())
             }
             .buttonStyle(.plain)
-            .frame(maxWidth: leading ? .infinity : nil, alignment: .leading)
             .transition(.opacity.combined(with: .move(edge: .top)))
         }
     }
@@ -2728,7 +2686,7 @@ struct NavigationMapView: View {
             return
         }
         isFollowingAircraft = false
-        mapState.pendingFitPadding = framedLegPadding
+        mapState.pendingFitPadding = cockpitFramingPadding
         mapState.pendingFitCoordinates = coordinates
         mapState.objectWillChange.send()   // the fit isn't @Published; nudge updateUIView
         // Appearing, the map view may not have its size yet, and keeps the fit pending: once more when
@@ -2737,12 +2695,6 @@ struct NavigationMapView: View {
             if mapState.pendingFitCoordinates != nil { mapState.objectWillChange.send() }
         }
     }
-
-    /// The room around a leg from ROUTE. The chart's own chrome since PR 4: the bar along the foot, left of
-    /// the stack (the phone's stack gives way to it), the stack's column at the right edge (the iPad in
-    /// portrait), the status slot when a state shows; the read band took the chart's top in PR 3, and the
-    /// phone's column on its side the next line in PR 5. (6.2)
-    private var framedLegPadding: UIEdgeInsets { cockpitFramingPadding }
 
     /// Back to the aircraft, followed again at the zoom the pilot had before the leg.
     private func backToAircraft() {
@@ -7061,7 +7013,8 @@ struct NavUndoToast: View {
 extension NavUndoOffer {
     /// The one offer to show, newest kind first: a check just confirmed (a memory check, a FREDA), a
     /// waypoint the flight just marked, then the act band's MARK or reset (`band`). Each withdraws the
-    /// older (`MapUndoToast`, `AutoMarkUndoToast`). (6.1; the band 6.2)
+    /// older (`UndoOfferFollower`). `flightOnly`: the confirmations and the marks only in flight, as on
+    /// MAP (`CockpitChartChrome`). (6.1; the band 6.2)
     @MainActor
     static func shown(in appState: AppState, flightPlanManager: FlightPlanManager, band: NavUndoOffer?,
                       flightOnly: Bool) -> NavUndoOffer? {
@@ -7072,33 +7025,10 @@ extension NavUndoOffer {
     }
 }
 
-/// The map's undo toast: the act band's MARK or leg-timer reset or, in flight, a waypoint the flight
-/// just marked on its own, or a check just confirmed from the slot. Only one at a time: each withdraws
-/// the other. A view of its own rather than a part of the map's body, which is already as deep as the
-/// stack allows (see `SeparateView`). (v6.0.1)
-struct MapUndoToast: View {
-    @Environment(AppState.self) private var appState
-    @Environment(CockpitNavState.self) private var cockpitNav: CockpitNavState?
-    @EnvironmentObject private var flightPlanManager: FlightPlanManager
-
-    var body: some View {
-        ZStack(alignment: .bottom) {
-            if let offer = NavUndoOffer.shown(in: appState, flightPlanManager: flightPlanManager,
-                                              band: cockpitNav?.undoOffer, flightOnly: true) {
-                NavUndoToast(offer: offer) {
-                    if offer.id == cockpitNav?.undoOffer?.id { cockpitNav?.undoOffer = nil }
-                    flightPlanManager.dismissAutoMarkNotice(offer.id)
-                    appState.dismissCheckConfirmation(offer.id)
-                }
-            }
-        }
-        .modifier(UndoOfferFollower(cockpitNav: cockpitNav))
-    }
-}
-
 /// The Cockpit's checklist page host for a waypoint the flight marked on its own, a memory check just
 /// confirmed with ✓ DONE or a FREDA just done (6.1), and the act band's MARK or reset (More's reset is
-/// on this page too since 6.2): the map page has its own. (v6.0.1)
+/// on this page too since 6.2): the map page has its own, in the status slot (`CockpitChartChrome`).
+/// (v6.0.1)
 struct AutoMarkUndoToast: View {
     /// The phone's narrower margins.
     var narrow = false

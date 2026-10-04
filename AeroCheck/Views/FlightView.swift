@@ -1049,8 +1049,7 @@ extension FlightView {
             // in More.
             NavigationMapView(isPresented: .constant(true), showsCloseButton: false, chrome: .cockpit(layout),
                               onDivert: { navState.openDivert($0) },
-                              onOpenReference: { openReference($0) },
-                              onShowRoute: { cockpitPaneBinding.wrappedValue = .route })
+                              onOpenReference: { openReference($0) })
         case .route:
             CockpitRoutePage(layout: layout, onShowLeg: { showLeg($0) })
         }
@@ -1121,8 +1120,7 @@ extension FlightView {
         case .map:
             NavigationMapView(isPresented: .constant(true), showsCloseButton: false, chrome: .cockpit(.columns),
                               onDivert: { navState.openDivert($0) },
-                              onOpenReference: { openReference($0) },
-                              onShowRoute: { cockpitPaneBinding.wrappedValue = .route })
+                              onOpenReference: { openReference($0) })
         case .route:
             CockpitRoutePage(layout: .columns, onShowLeg: { showLeg($0) })
         }

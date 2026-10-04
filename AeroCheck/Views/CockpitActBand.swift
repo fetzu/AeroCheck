@@ -510,7 +510,7 @@ struct ActFaceText: View {
 @MainActor
 @Observable
 final class CockpitNavState {
-    /// The last MARK or leg-timer reset, offered back for a few seconds (`MapUndoToast`,
+    /// The last MARK or leg-timer reset, offered back for a few seconds (MAP's status slot,
     /// `AutoMarkUndoToast`). (v6.0 · C2)
     var undoOffer: NavUndoOffer?
     /// The Divert sheet, and the field it opens on when reached from an airport callout. (v5.1)

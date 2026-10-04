@@ -223,15 +223,26 @@ extension CheckSlot {
 
     /// The first line. `stacked`: a slot sharing its row on the iPad (beside MARK, in the landscape
     /// column), where "CRUISE CHECK ✓ 14:24" on one line would shrink under 20 pt: the time goes under.
-    func titleText(stacked: Bool = false) -> String {
+    /// `locale`: the clock the time is written in, the device's.
+    func titleText(stacked: Bool = false, locale: Locale = .autoupdatingCurrent) -> String {
+        firstLine(stacked: stacked) { $0.formatted(Self.clock(locale)) }
+    }
+
+    /// The first line, the tick's time written by `time`.
+    private func firstLine(stacked: Bool, time: (Date) -> String) -> String {
         switch title {
         case .check: return readiesForLineUp ? L10n.ChecklistAction.readyForLineUp : phase.shortTitle
         case .freda: return L10n.Freda.name
         case .fredaCountsFrom(let since, let at):
             let what = since == .cruiseCheck ? ChecklistPhase.cruise.shortTitle : L10n.Freda.name
-            let time = at.formatted(date: .omitted, time: .shortened)
-            return stacked ? L10n.Freda.tickedStacked(what, time) : L10n.Freda.ticked(what, time)
+            let written = time(at)
+            return stacked ? L10n.Freda.tickedStacked(what, written) : L10n.Freda.ticked(what, written)
         }
+    }
+
+    /// The tick's time as the device writes it: "14:24", or "2:24 PM" on a 12-hour clock.
+    private static func clock(_ locale: Locale) -> Date.FormatStyle {
+        Date.FormatStyle(date: .omitted, time: .shortened, locale: locale)
     }
 
     /// The second line, as the button shows it: `narrow` (the phone's shared row) and `stacked` (the
@@ -248,8 +259,17 @@ extension CheckSlot {
 
     /// The room the first line keeps: its words, the time at its widest, "CRUISE CHECK ✓ 00:00", so the
     /// time it reads changes nothing. (6.1, the slot's text centred)
-    func titleRoom(stacked: Bool = false) -> String {
-        Self.widestFigures(titleText(stacked: stacked), atLeast: 2)
+    ///
+    /// The time is written at 22:58 whatever the tick's, as the read band's clock is
+    /// (`NextWaypointReadout.widestETA`): on a 12-hour clock the room was "✓ 00:00 AM" for a tick at 9:05
+    /// and "✓ 00:00 PM" for one at 14:24. (6.2)
+    func titleRoom(stacked: Bool = false, locale: Locale = .autoupdatingCurrent) -> String {
+        Self.widestFigures(firstLine(stacked: stacked) { _ in Self.roomTime.formatted(Self.clock(locale)) }, atLeast: 2)
+    }
+
+    /// Two figures to its hour, and PM on a 12-hour clock.
+    private static var roomTime: Date {
+        Calendar.current.date(from: DateComponents(year: 2026, month: 1, day: 1, hour: 22, minute: 58)) ?? .distantPast
     }
 
     /// The room the second line keeps: the state's words, FREDA's minutes at the 10 they count down from

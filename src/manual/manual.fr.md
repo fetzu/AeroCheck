@@ -274,14 +274,15 @@ Les routes s'exportent en **GPX** pour Dynon, Garmin et autres avioniques, et en
 
 En vol, AéroCheck affiche un seul écran : le **cockpit**. Il est conçu pour un iPad en portrait sur une planchette, lu à environ 55 cm, et l'iPhone affiche le même cockpit, à la taille du téléphone (voir [L'iPhone](#liphone)). L'écran reste allumé pendant un vol, et seulement pendant un vol.
 
-### Quatre zones
+### Trois zones
 
-De haut en bas, toujours aux mêmes endroits :
+De haut en bas, toujours aux mêmes endroits, quelle que soit la page :
 
-1. **L'en-tête** : l'avion, la phase et sa place dans le vol, le temps de vol, le GPS et **Menu**.
-2. **La bande d'instruments** : GS, ALT, TRK et, sur iPad, NEXT.
-3. **Le volet** : **CHECKLIST** ou **CARTE**, sur toute la hauteur.
-4. **La barre d'actions** : les grands boutons, là où repose la main. Leurs places ne changent jamais, pour que la main les apprenne.
+1. **Le bandeau de lecture**, ce qui se lit : l'en-tête (l'avion, la phase et sa place dans le vol, le temps de vol, le GPS et **Menu**), la barre de phases, la bande d'instruments (GS, ALT, TRK et, sur iPad, SUIVANT) et **ACT | SUIV**, les deux fréquences. En dessous, **CHECKLIST · CARTE · ROUTE** choisit la page.
+2. **La page** : **CHECKLIST**, **CARTE** ou **ROUTE**, sur toute la hauteur.
+3. **La barre d'actions**, ce qui se touche : quatre grands boutons, là où repose la main. Ils gardent leur taille et leur place sur chaque page et dans chaque phase, pour que la main les apprenne une fois pour toutes ; seul ce qu'ils portent change (voir [La barre d'actions](#la-barre-dactions)).
+
+Un iPad à l'horizontale a les mêmes trois zones, en plus large.
 
 Les couleurs gardent un seul sens en vol : cyan pour ce qui se touche, magenta pour la route active, vert pour le normal ou le fait, ambre pour une mise en garde, rouge pour une alerte, blanc pour les données.
 
@@ -302,42 +303,61 @@ Sous l'en-tête, un segment par phase : la phase en cours plus haute, les autres
 
 De Roulage à Après atterrissage, dès que l'avion se déplace, la bande affiche :
 
-- **GS kt** : la vitesse sol GPS. Dans une phase avec une vitesse cible, elle est verte à moins de 5 kt de la cible et ambre au-delà, avec une barre qui se remplit à l'approche de la cible ; sans cible (roulage, point fixe), elle reste simplement blanche.
+- **GS kt** : la vitesse sol GPS. Dans une phase avec une vitesse cible, elle est verte à moins de 5 kt de la cible et ambre au-delà, avec une barre qui se remplit à l'approche de la cible ; sans cible (roulage, point fixe), elle reste simplement blanche. Un toucher dessus ouvre **V-SPEEDS**.
 - **ALT ft** : l'altitude GPS, avec la vitesse verticale en dessous (↑ ou ↓, dès 50 ft/min).
 - **TRK** : la route GPS suivie.
-- **NEXT** (iPad) : le prochain point de la route affichée sur la carte, en magenta, ou le terrain de déroutement.
+- **SUIVANT** (iPad) : le point vers lequel vous volez, en magenta (« E (LSGC) », ou « E » quand cela ne tient pas), et à sa droite, l'un sous l'autre, son relèvement, sa distance (NM), l'ETE et l'ETA. L'ETE est en minutes (« 13 min », ou « 1:07 h » au-delà de l'heure), pour ne pas se lire comme une heure ; ETE et ETA n'apparaissent qu'au-dessus de 30 kt, pour qu'un roulage à 8 kt ne promette pas une heure et demie jusqu'au premier point. En déroutement, **DÉROUTEMENT** prend la place de SUIVANT, au-dessus du terrain de déroutement. Sans route, la case reste, avec des tirets, pour que la bande ne se redivise plus. Un toucher dessus ouvre ROUTE.
+
+Sur l'iPhone, SUIVANT est une ligne à part sous la bande (voir [Le cockpit sur le téléphone](#le-cockpit-sur-le-téléphone)).
 
 La vitesse sol n'est pas la vitesse indiquée de votre tableau de bord (un vent de face ou arrière la décale), et l'app n'a ni source anémométrique ni angle d'attaque : elle n'affiche donc délibérément **ni vitesse air estimée ni alerte de décrochage**. Pilotez à l'anémomètre certifié de l'avion. Quand le GPS se dégrade, un drapeau de panne recouvre les valeurs ; quand il est perdu (aucune position depuis 45 secondes), il ne reste que le drapeau, pour qu'une coupure silencieuse ne soit jamais prise pour une mesure valide.
 
-### Checklist ou carte
+### ACT et SUIV
 
-**CHECKLIST | CARTE** change le volet. Le volet suit aussi le vol de lui-même : la checklist au sol, autour du décollage et de l'atterrissage, et chaque fois qu'une checklist est ouverte ; la carte en Montée, Croisière et Descente une fois la checklist de la phase déroulée. Une vérification de mémoire (voir [Test de mémoire](#test-de-mémoire)) n'a pas de liste à montrer : elle s'ouvre donc sur la carte, où l'[emplacement de vérification](#lemplacement-de-vérification) la prend en charge, en Montée, Croisière et Descente, et aussi en Approche, Atterrissage et Après atterrissage. Une vérification qui arrive à échéance ne change jamais le volet. Un toucher sur CHECKLIST ou CARTE l'emporte jusqu'à ce que le vol avance : la phase suivante, ou la vérification faite ou rouverte.
+Sous la bande, dans chaque phase et sur chaque page, les deux fréquences à avoir affichées, une ligne chacune :
 
-À côté du sélecteur : **V-SPEEDS** toujours, **BRIEFING** en Avant départ et en Descente, et **SUIVANT** tant que la liste a des éléments ouverts (on sort alors par la revue, voir plus bas). Sur la carte, une puce ambre avec le nombre d'éléments reportés vous suit.
+- **ACT** : celle à qui parler maintenant. À moins d'environ 10 NM d'un aérodrome, sa fréquence de contact ; en route, le FIS de la région.
+- **SUIV** : la prochaine dont vous aurez besoin. L'aérodrome vers lequel vous volez (le prochain point), jusqu'à ce que vous soyez à moins de 10 NM et qu'il devienne ACT ; puis le suivant sur la route. À défaut, la zone de contrôle la plus proche devant, sinon le passage entre FIS et aérodrome. En déroutement, le terrain de déroutement.
+
+Chaque ligne donne la fréquence, puis le nom de la station s'il tient en entier. Les deux suivent le vol quelle que soit la page affichée, CHECKLIST comprise. Sans position GPS ou sans données d'aérodromes, elles suivent la route : la fréquence du départ, puis le prochain point qui en a une. Un toucher sur l'une ou l'autre ouvre ROUTE, où se trouvent toutes les fréquences.
+
+Sur l'iPhone, la ligne ACT se place sous celle du prochain point ; la fréquence SUIV est sur ROUTE.
+
+### Trois pages
+
+**CHECKLIST · CARTE · ROUTE**, sous le bandeau de lecture, choisit la page :
+
+- **CHECKLIST** : la checklist de la phase (voir plus bas). En haut, une rangée de puces : une puce ambre avec le nombre d'éléments reportés, **BRIEFING** en Avant départ et en Descente, et **SUIVANT** tant que la liste a des éléments ouverts (on sort alors par la revue, voir plus bas). La rangée garde sa hauteur quand aucune ne s'affiche, pour que la liste ne bouge jamais.
+- **CARTE** : la carte (voir [La carte](#la-carte)).
+- **ROUTE** : la destination, les branches et toutes les fréquences (voir [La page ROUTE](#la-page-route)).
+
+La page suit aussi le vol d'elle-même, entre CHECKLIST et CARTE : la checklist au sol, autour du décollage et de l'atterrissage, et chaque fois qu'une checklist est ouverte ; la carte en Montée, Croisière et Descente une fois la checklist de la phase déroulée. Une vérification de mémoire (voir [Test de mémoire](#test-de-mémoire)) n'a pas de liste à montrer : elle s'ouvre donc sur la carte, où l'[emplacement de vérification](#lemplacement-de-vérification) la prend en charge, en Montée, Croisière et Descente, et aussi en Approche, Atterrissage et Après atterrissage. Une vérification qui arrive à échéance ne change jamais la page, et ROUTE n'est jamais choisie à votre place. Un toucher sur l'une des trois l'emporte jusqu'à ce que le vol avance : la phase suivante, ou la vérification faite ou rouverte.
+
+Sur l'iPad, **V-SPEEDS** se trouve à côté des trois ; sur l'iPhone, dans **Plus**. Sur les deux, un toucher sur GS l'ouvre.
 
 ### Dérouler la checklist
 
 La checklist se déroule pas à pas, comme sur papier avec le doigt sur la ligne. L'élément en cours est encadré là où il se trouve dans la liste, en plus grand, avec sa place (« 3 / 11 ») ; les éléments cochés au-dessus sont atténués avec une coche, ceux du dessous attendent leur tour. La liste défile pour garder l'élément en cours près du haut.
 
-- **COCHER**, dans la barre d'actions avec l'intitulé de l'élément sous le mot, coche l'élément en cours et passe le cadre au suivant.
-- **REPORTER** (« pour plus tard ») passe l'élément en cours sans le cocher : il reste dans la liste en ambre et va dans la liste des éléments reportés.
+- **COCHER**, la deuxième case de la barre d'actions, avec l'intitulé de l'élément sous le mot, coche l'élément en cours et passe le cadre au suivant.
+- **REPORTER** (« pour plus tard »), la troisième, passe l'élément en cours sans le cocher : il reste dans la liste en ambre et va dans la liste des éléments reportés.
 - Touchez un élément coché (ou reporté) pour y revenir : cet élément et tous les suivants sont de nouveau ouverts.
 
 Sur l'iPad, la liste se lit seulement, et COCHER est la façon de cocher. Sur l'iPhone, un toucher sur la liste coche aussi.
 
-Quand le dernier élément est coché, la ligne de clôture de la checklist (« … TERMINÉ ») passe au vert, et le grand bouton devient **SUIVANT : <phase>**, avec « Tout est coché » (ou le nombre d'éléments reportés) en dessous ; à la fin d'Avant départ, il indique **PRÊT POUR L'ALIGNEMENT** (voir [La barre d'actions](#la-barre-dactions)). Si la phase a encore son propre bouton à presser (DÉMARRAGE MOTEUR, ARRÊT MOTEUR), c'est lui qui pulse d'abord.
+Quand le dernier élément est coché, la ligne de clôture de la checklist (« … TERMINÉ ») passe au vert, et la deuxième case devient **SUIVANT : <phase>**, avec « Tout est coché » (ou le nombre d'éléments reportés) en dessous ; à la fin d'Avant départ, il indique **PRÊT POUR L'ALIGNEMENT** (voir [La barre d'actions](#la-barre-dactions)). Si la phase a encore son propre bouton à presser (DÉMARRAGE MOTEUR, ARRÊT MOTEUR), c'est lui qui pulse d'abord.
 
 ### Éléments reportés et SUIVANT
 
 SUIVANT avec des éléments encore ouverts les liste d'abord (« 3 éléments non cochés », avec la phase) : **RETOUR À LA CHECKLIST** reste sur la phase, au premier élément ouvert ; **CONTINUER, COCHER PLUS TARD** la quitte, et les éléments non cochés deviennent des éléments reportés. La phase passe à l'orange.
 
-Les éléments reportés vous suivent jusqu'à ce que vous les cochiez. Une ligne ambre en haut de la checklist (« 2 éléments reportés », **Revoir**) ouvre **Éléments reportés**, phase par phase, chacun avec son propre **COCHER**. Sur la carte, la puce ambre avec le compte ouvre la même liste. Une phase ignorée passe au vert dès que son dernier élément reporté est coché ; une phase à laquelle il manque DÉMARRAGE MOTEUR ou ARRÊT MOTEUR reste rouge.
+Les éléments reportés vous suivent jusqu'à ce que vous les cochiez. Sur CHECKLIST, la puce ambre avec leur nombre, en haut de la liste, ouvre **Éléments reportés**, phase par phase, chacun avec son propre **COCHER**. Sur CARTE et ROUTE, **Plus** ouvre la même liste (« 2 éléments reportés »). Une phase ignorée passe au vert dès que son dernier élément reporté est coché ; une phase à laquelle il manque DÉMARRAGE MOTEUR ou ARRÊT MOTEUR reste rouge.
 
 En mode tours de piste, une remise de gaz, un posé-décollé ou un atterrissage complet repart à neuf sur les phases qui se répètent, leurs éléments reportés compris : ce que vous avez remis à plus tard au tour précédent est redemandé à ce tour-ci.
 
 ### Quand une vérification est à faire
 
-Le vol dit quand chaque vérification arrive à échéance, sans clignoter, sans bip et sans changer de volet. Avant son moment, une vérification reste sombre (vous pouvez tout de même la faire en avance) ; à son moment, elle passe à l'ambre.
+Le vol dit quand chaque vérification arrive à échéance, sans clignoter, sans bip et sans changer de page. Avant son moment, une vérification reste sombre (vous pouvez tout de même la faire en avance) ; à son moment, elle passe à l'ambre.
 
 - **Montée** : à 500 ft au-dessus du terrain, après le décollage, pas pendant la course au décollage.
 - **Croisière** : à la mise en palier.
@@ -351,22 +371,22 @@ Une vérification que le vol dépasse alors qu'elle est encore ouverte passe **e
 
 ### L'emplacement de vérification
 
-Sur la carte, l'**emplacement de vérification** porte la vérification en cours, en premier dans la rangée du bas, sur l'iPad comme sur l'iPhone (sur un iPad à l'horizontale, en haut de la colonne latérale). Il nomme la vérification et ce qu'elle demande, et un toucher s'en charge :
+L'**emplacement de vérification** porte la vérification en cours, dans la première case de la barre d'actions : sur CARTE et ROUTE dans chaque phase, et sur CHECKLIST aussi, sauf en Démarrage moteur, en Arrêt moteur et en Croisière, où le bouton propre à la phase prend la case (voir [La barre d'actions](#la-barre-dactions)). Il nomme la vérification et ce qu'elle demande, et un toucher s'en charge :
 
-- Une vérification avec une liste : « CROISIÈRE · 5 éléments ». Le toucher ouvre la checklist, et la carte revient après le dernier COCHER.
+- Une vérification avec une liste : « CROISIÈRE · 5 éléments ». Sur CARTE et ROUTE, le toucher ouvre la checklist, et la carte revient après le dernier COCHER ; sur CHECKLIST, il ramène l'élément en cours à l'écran.
 - Une vérification de mémoire : « de mémoire · un appui quand c'est fait ». Le toucher l'enregistre faite.
 - Une vérification en retard : sa raison (« en retard · début de la descente »), et le même toucher.
 - Une fois une vérification faite, l'emplacement propose la suivante (« vérification suivante »), sombre jusqu'à son moment, puis ambre ; un toucher y passe (et l'enregistre faite, pour une vérification de mémoire).
 - Un bouton de phase encore à presser : « d'abord DÉMARRAGE MOTEUR », qui ouvre la checklist. Une fois la vérification avant départ faite : **PRÊT POUR L'ALIGNEMENT**, « puis ALIGNEMENT ».
 - Dès la hauteur du circuit : la vérification d'atterrissage, en pointillé, « rien à toucher ».
 
-En Approche et en Atterrissage, et dès la hauteur du circuit, **REMISE DE GAZ** et **POSÉ-DÉCOLLÉ** se placent à côté de l'emplacement, à la place de MARQUER, Déroutement et Plus (voir [La barre d'actions](#la-barre-dactions) pour leur fonctionnement).
+Sur CARTE et ROUTE, en Approche et en Atterrissage, et dès la hauteur du circuit, **REMISE DE GAZ** et **POSÉ-DÉCOLLÉ** se placent à côté de l'emplacement, à la place de MARQUER et Dérouter (voir [La barre d'actions](#la-barre-dactions) pour leur fonctionnement).
 
 ### FREDA
 
 En croisière, une fois la vérification de croisière faite, le **FREDA** (carburant, radio, moteur, direction, altimètre) prend le relais. Il est à faire toutes les 10 minutes, ou à un point passé 5 minutes ou plus après le dernier, selon ce qui arrive en premier.
 
-L'emplacement de vérification dit quand le dernier a été fait (« FREDA ✓ 14:34 », l'heure de la vérification de croisière au début) et décompte jusqu'au suivant (« FREDA dans 6 min » ; un toucher ouvre la checklist). Quand le FREDA est à faire, l'emplacement passe à l'ambre (**F·R·E·D·A**, avec le nom du point sur l'iPad), le segment Croisière de la barre de phases aussi : un toucher l'enregistre, et un message (« FREDA fait à 14:34 ») propose **ANNULER** pendant six secondes. Sur le volet checklist, le bouton FREDA de la barre d'actions fait de même : atténué tant que la vérification de croisière n'est pas faite, puis en décompte, ambre à échéance, et un toucher enregistre le FREDA (en avance, si vous voulez). La liste de croisière elle-même n'est pas remise à zéro.
+L'emplacement de vérification dit quand le dernier a été fait (« FREDA ✓ 14:34 », l'heure de la vérification de croisière au début) et décompte jusqu'au suivant (« FREDA dans 6 min » ; un toucher ouvre la checklist). Quand le FREDA est à faire, l'emplacement passe à l'ambre (**F·R·E·D·A**, avec le nom du point sur l'iPad), le segment Croisière de la barre de phases aussi : un toucher l'enregistre, et un message (« FREDA fait à 14:34 ») propose **ANNULER** pendant six secondes. Sur CHECKLIST, le bouton FREDA prend la première case de la barre d'actions en Croisière et fait de même : atténué tant que la vérification de croisière n'est pas faite, puis en décompte, ambre à échéance, et un toucher enregistre le FREDA (en avance, si vous voulez). La liste de croisière elle-même n'est pas remise à zéro.
 
 Le FREDA s'arrête à la descente ; un FREDA dû et non fait est consigné comme manqué. Il n'y a pas de FREDA en mode tours de piste.
 
@@ -380,26 +400,54 @@ L'encart attend une réponse, quel que soit le temps que prend le dégagement de
 
 Toutes les vérifications sont affichées par défaut. Activez le **Test de mémoire** (dans le Menu, sous **Réglages › Checklist & Vol**, ou pendant l'accueil) pour masquer les vérifications à connaître par cœur, afin de les réciter de mémoire. Un bandeau **TEST DE MÉMOIRE** en fin de liste indique combien sont masquées ; maintenez-le pour les afficher pour la phase en cours.
 
-Une vérification dont tous les éléments sont masqués se fait d'un seul toucher. Sur le volet checklist, **✓ MONTÉE : FAIT** (avec « SUIVANT : CROISIÈRE · de mémoire » en dessous) l'enregistre faite de mémoire, en vert, et ouvre la vérification suivante ; dans l'[emplacement de vérification](#lemplacement-de-vérification), un toucher l'enregistre. Un message (« MONTÉE : fait de mémoire ») propose **ANNULER** pendant six secondes, qui reprend les deux. Le Test de mémoire remplace l'ancien mode apprentissage.
+Une vérification dont tous les éléments sont masqués se fait d'un seul toucher. Sur CHECKLIST, **✓ MONTÉE : FAIT**, dans la deuxième case (avec « SUIVANT : CROISIÈRE · de mémoire » en dessous sur l'iPad, « de mémoire » sur l'iPhone), l'enregistre faite de mémoire, en vert, et ouvre la vérification suivante ; dans l'[emplacement de vérification](#lemplacement-de-vérification), un toucher l'enregistre. Un message (« MONTÉE : fait de mémoire ») propose **ANNULER** pendant six secondes, qui reprend les deux. Le Test de mémoire remplace l'ancien mode apprentissage.
 
 ### V-SPEEDS et BRIEFING
 
-**V-SPEEDS** ouvre les vitesses de l'avion (vitesse indiquée, en nœuds) dans un tiroir qui monte du bas. Sur l'iPad, c'est un seul tableau fixe, identique dans chaque phase : **DÉCROCHAGE & PLANÉ** d'abord, sur un panneau à part (Vso et Vs en ambre, Vne en rouge), puis **DÉCOLLAGE & MONTÉE**, **APPROCHE & ATTERRISSAGE** (dans l'ordre où on les vole), **LIMITES**, **AUTRES** et **VENT DE TRAVERS** (T/O et LDG). La phase décide seulement des cases encadrées, là où elles se trouvent : Vr avant le départ et à l'alignement, Vx en dessous de 300 ft au-dessus du terrain de départ puis Vy en montée, Vno et Va en croisière, Va et Vbg en descente, les vitesses d'approche en approche, Vfinal et Vso à l'atterrissage. Sur l'iPhone, les vitesses forment une liste, celles de la phase en évidence. Touchez hors du tiroir, ou glissez-le vers le bas, pour le fermer.
+**V-SPEEDS** ouvre les vitesses de l'avion (vitesse indiquée, en nœuds) dans un tiroir qui monte du bas : depuis sa puce à côté de CHECKLIST · CARTE · ROUTE sur l'iPad, depuis **Plus** sur l'iPhone, et d'un toucher sur GS sur les deux. Sur l'iPad, c'est un seul tableau fixe, identique dans chaque phase : **DÉCROCHAGE & PLANÉ** d'abord, sur un panneau à part (Vso et Vs en ambre, Vne en rouge), puis **DÉCOLLAGE & MONTÉE**, **APPROCHE & ATTERRISSAGE** (dans l'ordre où on les vole), **LIMITES**, **AUTRES** et **VENT DE TRAVERS** (T/O et LDG). La phase décide seulement des cases encadrées, là où elles se trouvent : Vr avant le départ et à l'alignement, Vx en dessous de 300 ft au-dessus du terrain de départ puis Vy en montée, Vno et Va en croisière, Va et Vbg en descente, les vitesses d'approche en approche, Vfinal et Vso à l'atterrissage. Sur l'iPhone, les vitesses forment une liste, celles de la phase en évidence. Touchez hors du tiroir, ou glissez-le vers le bas, pour le fermer.
 
-**BRIEFING** ouvre le briefing de départ en Avant départ et le briefing d'approche en Descente ; voir [Briefings](#briefings).
+**BRIEFING** ouvre le briefing de départ en Avant départ et le briefing d'approche en Descente ; il se trouve en haut de CHECKLIST et par-dessus la carte sur CARTE. Voir [Briefings](#briefings).
+<!-- TODO PR4: BRIEFING leaves the chart for MAP's status slot -->
 
 ### La barre d'actions
 
-Outre COCHER, REPORTER et SUIVANT, la barre d'actions porte les boutons propres à chaque phase, dans la langue de la checklist :
+La barre d'actions, ce sont les quatre cases au pied du cockpit, sous chaque page. Leur taille et leur place ne changent jamais ; ce qu'elles portent suit la page et la phase :
+
+- **CHECKLIST** : **DÉMARRAGE MOTEUR** en Démarrage moteur, **ARRÊT MOTEUR** en Arrêt moteur, **FREDA** en Croisière, l'[emplacement de vérification](#lemplacement-de-vérification) dans toutes les autres phases ; puis **COCHER** avec l'élément en cours ; **REPORTER** (atténué quand il n'y a rien à reporter) ; et **Plus**.
+- **CARTE et ROUTE** : l'emplacement de vérification ; **TOP CHRONO**, puis **MARQUER** avec le point et le chrono de branche (voir [Chrono de branche et MARQUER](#chrono-de-branche-et-marquer)), ou **Routes** sans route ; **Dérouter** (ambre pendant un déroutement, atténué sans route ou une fois la route volée) ; et **Plus**.
+- **CARTE et ROUTE, en Approche et en Atterrissage, et dès la hauteur du circuit** : l'emplacement de vérification ; **REMISE DE GAZ** ; **POSÉ-DÉCOLLÉ** ; et **Plus**, avec **Dérouter** dedans.
+
+**Plus** porte ce qui sert moins souvent : **Dérouter** là où la troisième case porte autre chose (sur CHECKLIST, et dès l'approche), la pause ou le départ du chronomètre et **Réinitialiser le chronomètre**, **Branches et fréquences** (qui ouvre ROUTE), les éléments reportés sur CARTE et ROUTE (« 2 éléments reportés »), **V-SPEEDS** sur l'iPhone, et **Routes**.
+
+Si vous voliez avec la 6.1, trois choses ont bougé : COCHER est la deuxième case, et non plus le bout droit de la barre ; le panneau des branches et fréquences de la carte est devenu la page ROUTE ; et le compte des éléments reportés sur CARTE et ROUTE, comme V-SPEEDS sur l'iPhone, sont dans Plus.
+
+Les boutons propres à chaque phase sont dans la langue de la checklist :
 
 - **DÉMARRAGE MOTEUR** (Démarrage moteur) et **ARRÊT MOTEUR** (Arrêt moteur) : un toucher enregistre l'heure. Une fois l'heure enregistrée, maintenez le bouton 1,5 s pour la changer ; AéroCheck demande d'abord.
-- **PRÊT POUR L'ALIGNEMENT** est le SUIVANT d'Avant départ : une fois tous les éléments cochés, le grand bouton indique PRÊT POUR L'ALIGNEMENT, avec « puis ALIGNEMENT » en dessous. Le toucher enregistre l'heure d'alignement et passe à Alignement. Les ETO comptent depuis l'alignement jusqu'à ce que le décollage apparaisse dans la trace (environ 30 secondes après l'envol), puis depuis le décollage.
+- **PRÊT POUR L'ALIGNEMENT** est le SUIVANT d'Avant départ : une fois tous les éléments cochés, la deuxième case indique PRÊT POUR L'ALIGNEMENT, avec « puis ALIGNEMENT » en dessous. Le toucher enregistre l'heure d'alignement et passe à Alignement. Les ETO comptent depuis l'alignement jusqu'à ce que le décollage apparaisse dans la trace (environ 30 secondes après l'envol), puis depuis le décollage.
 - **FREDA** (Croisière) : voir [FREDA](#freda).
-- En **Atterrissage**, **REMISE DE GAZ** et **POSÉ-DÉCOLLÉ** se trouvent au-dessus de la barre d'actions, et en **Après atterrissage**, **ATTERRISSAGE**. Chacun demande un appui d'une seconde (**Maintenir pour confirmer**), pour qu'un toucher involontaire ne le déclenche pas, et affiche son compte. Une remise de gaz ou un posé-décollé ramène la checklist en Montée.
-- En mode tours de piste, **REMISE DE GAZ** et **POSÉ-DÉCOLLÉ** deviennent des boutons à simple toucher dans la barre d'actions, pour corriger aussitôt une détection manquée.
+- Sur CHECKLIST, en **Atterrissage**, **REMISE DE GAZ** et **POSÉ-DÉCOLLÉ** se trouvent au-dessus de la barre d'actions, et en **Après atterrissage**, **ATTERRISSAGE**. Sur CARTE et ROUTE, REMISE DE GAZ et POSÉ-DÉCOLLÉ sont les deuxième et troisième cases dès l'approche. Chacun demande un appui d'une seconde (**Maintenir pour confirmer**), pour qu'un toucher involontaire ne le déclenche pas, et affiche son compte. Une remise de gaz ou un posé-décollé ramène la checklist en Montée.
+- En mode tours de piste, **REMISE DE GAZ** et **POSÉ-DÉCOLLÉ** se déclenchent d'un simple toucher, pour corriger aussitôt une détection manquée.
 - **TERMINER LE VOL** prend la place de SUIVANT une fois la dernière phase cochée.
 
 Quand **Heures moteur** est activé (**Réglages › Checklist & Vol**), la checklist propose le compteur horaire à la fin de Avant démarrage et en Démarrage moteur (elle le demande d'elle-même en entrant en Démarrage moteur s'il n'a pas encore été saisi), puis après ARRÊT MOTEUR, en Arrêt moteur et Au hangar.
+
+### La page ROUTE
+
+**ROUTE** dit où va le vol et à qui parler en chemin. Le vol ne l'ouvre jamais à votre place : choisissez-la, ou touchez SUIVANT ou ACT | SUIV dans le bandeau de lecture, ou **Branches et fréquences** dans Plus. De haut en bas :
+
+- **La ligne DEST** : **DEST** et la destination, puis la distance qui reste à voler, l'ETE et l'ETA à la verticale de la destination, et votre avance (▲, en vert) ou votre retard (▼, en ambre) sur le plan, en minutes entières (±0 à l'heure). Sur l'iPad, elle tient sur une ligne ; sur l'iPhone, sur deux (« 71 NM · 41 min · ETA 11:58 » sous la destination).
+- **La route à l'échelle**, en dessous : une barre aussi longue que la route, remplie jusqu'où vous avez volé, avec un cran à chaque point, là où il se trouve le long de la route (le prochain en magenta et plus haut), et l'avion là où il est.
+- **BRANCHES** et **RADIO**, dans un seul défilement qui s'ouvre sur la branche en cours : côte à côte sur l'iPad, l'une au-dessus de l'autre sur l'iPhone. Chaque branche, sur la ligne du point où elle mène, donne son temps prévu, le temps volé (le chrono de branche sur la branche en cours ; d'une heure de passage à la suivante sur une branche volée) et votre avance (▲) ou votre retard (▼). RADIO liste toutes les fréquences dans l'ordre où vous vous en servirez : ACT et SUIV, signalées ; l'aérodrome où vous êtes, avec son ATIS ; le terrain de déroutement ; les stations de la route à partir du point vers lequel vous volez (les aérodromes passés sont retirés) ; le FIS de la région ; et les zones de contrôle à moins de 25 NM. Sans route, RADIO prend toute la page.
+- **Urgence**, 121.500, sous le défilement, toujours entière.
+
+L'ETE de la ligne DEST est celle de SUIVANT (la branche en cours, à la vitesse sol du moment), plus les EET prévues des branches suivantes, jusqu'à la verticale de la destination, sans la marge d'arrivée ; ▲ ou ▼ compare l'ETA à l'heure de passage prévue à la destination. En dessous de 30 kt ou sans position GPS, il n'y a ni ETE, ni ETA, ni ▲/▼ : la ligne donne à la place l'heure de passage prévue à la destination (« ETO 11:55 »). Une fois la destination marquée, elle garde le ▲ ou le ▼ final.
+
+Touchez une branche pour la voir sur CARTE, cadrée sur cette branche (le point qui la précède et le sien). Une barre au pied de la carte propose **Retour à l'avion** et l'action de la branche : **Direct vers** et le nom du point, pour un point à venir, vous y envoie tout droit ; **Reprendre l'étape**, pour un point déjà passé, demande d'abord (« Revenir à cette étape ? »), puis efface son passage et les suivants et relance le chrono de branche. **Centrer** fait ce que fait Retour à l'avion, et quitter CARTE met fin au cadrage.
+
+En déroutement, la ligne DEST montre le terrain de déroutement en ambre, avec la distance, l'ETE et l'ETA pour y aller tout droit (et ni ▲ ni ▼ : le plan ne connaît pas ce terrain), et **Reprendre la route** prend la place de la barre de la route. Avec un plan de vol ATC déposé, une ligne en dessous rappelle de l'annoncer au FIS (« Plan de vol ATC déposé : annoncez votre déroutement vers … »).
+
+Sur ROUTE, la barre d'actions est celle de CARTE : l'emplacement de vérification, TOP CHRONO ou MARQUER, Dérouter et Plus.
 
 ### Le menu
 
@@ -440,7 +488,7 @@ En mode tours de piste, Croisière et Descente sont sautées.
 
 ### Terminer ou abandonner un vol
 
-**TERMINER LE VOL** (le grand bouton après Au hangar, ou dans le Menu à n'importe quelle phase) demande d'abord (« Terminer le vol ? »), puis enregistre le vol dans votre carnet de vol et arrête l'enregistrement GPS. Un vol suivi passe alors à sa clôture ([Clôturer](#clôturer)) ; une séance de tours de piste propose une clôture allégée ([Mode tours de piste](#mode-tours-de-piste)). Si la trace contredit les événements que vous avez confirmés, une revue suit ([Revue post-vol](#revue-post-vol)).
+**TERMINER LE VOL** (la deuxième case de la barre d'actions après Au hangar, ou dans le Menu à n'importe quelle phase) demande d'abord (« Terminer le vol ? »), puis enregistre le vol dans votre carnet de vol et arrête l'enregistrement GPS. Un vol suivi passe alors à sa clôture ([Clôturer](#clôturer)) ; une séance de tours de piste propose une clôture allégée ([Mode tours de piste](#mode-tours-de-piste)). Si la trace contredit les événements que vous avez confirmés, une revue suit ([Revue post-vol](#revue-post-vol)).
 
 Pour abandonner un vol, faites un appui long de 1,5 s sur l'immatriculation dans l'en-tête, jusqu'à ce que l'anneau autour de l'icône d'avion se referme. **Abandonner le vol** efface le vol sans le sauvegarder ; ses données GPS sont perdues.
 
@@ -448,15 +496,18 @@ Pour abandonner un vol, faites un appui long de 1,5 s sur l'immatriculation dans
 
 ## La carte
 
-La carte est la même à deux endroits : le volet **CARTE** du cockpit, et **Planifier › Carte** au sol ; la carte sur laquelle vous planifiez est celle avec laquelle vous volez. Elle s'ouvre sur votre position, au zoom où vous l'avez laissée.
+La carte est la même à deux endroits : la page **CARTE** du cockpit, et **Planifier › Carte** au sol ; la carte sur laquelle vous planifiez est celle avec laquelle vous volez. Elle s'ouvre sur votre position, au zoom où vous l'avez laissée. Dans le cockpit, le prochain point et les fréquences sont dans le bandeau de lecture et les branches sur ROUTE : CARTE laisse donc sa page à la carte ; Planifier › Carte les garde sur la carte.
+
+<!-- TODO PR4: MAP = the chart alone (the stack on the right edge, the status slot, the arrow to the aircraft, the scale on a zoom) -->
 
 ### Le prochain point
 
-Avec une route sur la carte, le prochain point s'affiche en haut : son nom en magenta, puis **BRG**, **DIST** (NM), **ETE** et **ETA**. L'ETE est en minutes (« 13 min », ou « 1:07 h » au-delà de l'heure), pour ne pas se lire comme une heure ; ETE et ETA n'apparaissent qu'au-dessus de 30 kt, pour qu'un roulage à 8 kt ne promette pas une heure et demie jusqu'au premier point. Sur l'iPad, c'est un encart ; sur l'iPhone, une ligne. Touchez-le pour toutes les branches et toutes les fréquences : le panneau s'ouvre sous la carte, qui retire ses commandes et cadre l'avion et le prochain point. Un toucher sur la carte ferme le panneau et remet la carte comme elle était.
+Dans le cockpit, le prochain point est SUIVANT, dans le bandeau de lecture (voir [La bande d'instruments](#la-bande-dinstruments)). Dans **Planifier › Carte**, avec une route sur la carte, il s'affiche en haut de la carte : son nom en magenta, puis **BRG**, **DIST** (NM), **ETE** et **ETA**, en encart sur l'iPad et sur une ligne sur l'iPhone. Touchez-le, ou ACT | SUIV au pied de la carte, pour toutes les branches et toutes les fréquences : le panneau s'ouvre sous la carte, qui retire ses commandes et cadre l'avion et le prochain point. Un toucher sur la carte ferme le panneau et remet la carte comme elle était.
 
-Les branches listent chaque point avec son temps prévu, le temps volé et votre avance (▲) ou votre retard (▼), puis la destination avec la distance restante et l'ETA. Touchez un point à venir pour le regarder sur la carte, puis **Direct vers** pour y aller tout droit. Touchez un point déjà passé pour revenir à cette branche (« Revenir à cette étape ? ») : son passage et les suivants sont effacés, et le chrono de branche repart.
+Le panneau s'ouvre sur la ligne DEST de ROUTE et la route à l'échelle (voir [La page ROUTE](#la-page-route)), puis les branches, chacune avec son temps prévu, et les fréquences. Touchez un point pour le regarder sur la carte.
 
-En vol, un point est passé automatiquement, d'après la trace GPS, au moment où vous le passez (par le travers compris), quel que soit le volet affiché. Un message (« VRP1 marqué automatiquement à 10:42 ») propose **ANNULER** pendant six secondes ; un point repris attend MARQUER. Si rien de la route n'est à l'écran, une pastille indique où elle se trouve (« Route à 12 NM · 045° ») ; **Afficher** la cadre.
+Si rien de la route n'est à l'écran, une pastille indique où elle se trouve (« Route à 12 NM · 045° ») ; **Afficher** la cadre.
+<!-- TODO PR4: the pill stays in Plan › Map only -->
 
 ### La feuille Carte
 
@@ -493,32 +544,37 @@ Avec **Points de report** activé, la carte montre aussi les quelques points de 
 
 ### Les commandes de la carte
 
-Sous le prochain point sur l'iPad, et au pied de la carte sur l'iPhone : **Carte**, **Nord en haut** / **Route en haut**, **Centrer** et les boutons de zoom. **Centrer** se remplit dès que vous avez éloigné la carte de l'avion, et l'y ramène. Le pincement zoome aussi.
+Sur l'iPad, en haut de la carte (dans Planifier › Carte, sous le prochain point), et au pied de la carte sur l'iPhone : **Carte**, **Nord en haut** / **Route en haut**, **Centrer** et les boutons de zoom. **Centrer** se remplit dès que vous avez éloigné la carte de l'avion, et l'y ramène. Le pincement zoome aussi.
+<!-- TODO PR4: the Cockpit's controls, one stack on the right edge (N↑ or TRK, layers, centre, zoom on the iPad) -->
 
 ### Fréquences
 
-En bas de la carte, les deux fréquences à avoir affichées : **ACT**, celle à qui parler maintenant (à moins d'environ 10 NM d'un aérodrome, sa fréquence de contact ; en route, le FIS de la région), et **SUIV**, la prochaine dont vous aurez besoin (le prochain aérodrome de la route, sinon la zone de contrôle la plus proche devant, sinon le passage entre FIS et aérodrome ; en déroutement, le terrain de déroutement). Touchez-les pour les branches et les **FRÉQUENCES RADIO** : ACT et SUIV, **Toutes les fréquences** du parcours (l'aérodrome le plus proche, les points de la route, le FIS de la région, les zones de contrôle proches) et la fréquence de détresse, 121.500, toujours en bas.
+Dans le cockpit, ACT et SUIV sont dans le bandeau de lecture (voir [ACT et SUIV](#act-et-suiv)), et toutes les fréquences sur ROUTE. Dans Planifier › Carte, ACT et SUIV s'affichent en bas de la carte, selon la même règle. Touchez-les pour les branches et les **FRÉQUENCES RADIO** : ACT et SUIV, **Toutes les fréquences** du parcours (l'aérodrome le plus proche, les points de la route, le FIS de la région, les zones de contrôle proches) et la fréquence de détresse, 121.500, toujours en bas.
 
 ### Chrono de branche et MARQUER
 
-En vol, avec une route sur la carte, la barre d'actions sous la carte porte :
+En vol, avec une route, la barre d'actions de CARTE et de ROUTE porte :
 
 - **L'emplacement de vérification**, en premier ; voir [L'emplacement de vérification](#lemplacement-de-vérification).
-- **TOP CHRONO** démarre le chrono de branche. Le grand bouton devient ensuite **MARQUER** avec le nom du point, et le chrono de branche en dessous (sur l'iPad, « BRANCHE 2:05 / 17:32 » : le temps sur la branche en cours et le temps prévu ; ‖ en pause) : touchez-le au passage du point pour enregistrer son heure et commencer la branche suivante.
-- **Déroutement** : voir plus bas.
-- **Plus** : mettre en pause ou démarrer le chronomètre, **Réinitialiser le chronomètre**, **Branches et fréquences**, et **Routes**.
+- **TOP CHRONO** démarre le chrono de branche. La deuxième case devient ensuite **MARQUER** avec le nom du point, et le chrono de branche en dessous (sur l'iPad, « BRANCHE 2:05 / 17:32 » : le temps sur la branche en cours et le temps prévu ; ‖ en pause ; sur l'iPhone, MARQUER, le point et le temps de branche, l'un sous l'autre) : touchez-le au passage du point pour enregistrer son heure et commencer la branche suivante. Une fois la route volée, il s'atténue.
+- **Dérouter** : voir plus bas.
+- **Plus** : mettre en pause ou démarrer le chronomètre, **Réinitialiser le chronomètre**, **Branches et fréquences** (qui ouvre ROUTE), et **Routes**.
 
-Sans route sur la carte, **Routes** suit l'emplacement de vérification. En Approche et en Atterrissage, **REMISE DE GAZ** et **POSÉ-DÉCOLLÉ** prennent la place de MARQUER, Déroutement et Plus.
+Sans route, **Routes** prend la place de MARQUER. En Approche et en Atterrissage, et dès la hauteur du circuit, **REMISE DE GAZ** et **POSÉ-DÉCOLLÉ** prennent la place de MARQUER et Dérouter, et Dérouter passe dans Plus.
 
-Pendant six secondes après un MARQUER ou une réinitialisation, un message (« LSGC passé à 10:42 », « Chronomètre réinitialisé ») propose **ANNULER** : un toucher de travers dans la turbulence se rattrape d'un seul toucher.
+Un point est aussi passé automatiquement, d'après la trace GPS, au moment où vous le passez (par le travers compris), quelle que soit la page affichée. Un message (« VRP1 marqué automatiquement à 10:42 ») propose **ANNULER** pendant six secondes ; un point repris attend MARQUER.
 
-Au sol, et dans Planifier › Carte, la barre d'actions porte **Routes** à la place : rien n'est chronométré ni marqué avant que le vol existe.
+Pendant six secondes après un MARQUER ou une réinitialisation, un message (« LSGC passé à 10:42 », « Chronomètre réinitialisé ») propose **ANNULER** : un toucher de travers dans la turbulence se rattrape d'un seul toucher. Sur CARTE, il se place au pied de la carte ; sur CHECKLIST et ROUTE, au pied de la page, au-dessus de la barre d'actions.
+<!-- TODO PR4: on MAP, UNDO moves into the status slot -->
+
+Dans Planifier › Carte, **Routes** prend leur place : rien n'est chronométré ni marqué avant que le vol existe.
 
 ### Déroutement
 
-**Déroutement** (en vol, dans la barre d'actions) répond à « où aller à la place ? » en deux touchers et sans rien saisir. Il liste les aérodromes autour de vous, **Devant · le plus proche d'abord** et **Derrière · demi-tour**, avec la destination et le dégagement ; touchez-en un pour le voir (avec sa piste, son altitude et sa **Carte officielle**), puis **DÉROUTER VERS** lui. Toucher la destination elle-même donne **DIRECT VERS**, pas un déroutement. Les glaciers et altisurfaces, les héliports et les terrains fermés ne sont pas listés. Avec une route sur la carte, la bulle d'un aérodrome sur la carte propose aussi le déroutement, à droite (**Carte**, à gauche, ouvre la carte officielle).
+**Dérouter** (en vol, la troisième case de la barre d'actions sur CARTE et ROUTE, ou dans **Plus**) ouvre **Déroutement**, qui répond à « où aller à la place ? » en deux touchers et sans rien saisir. Il liste les aérodromes autour de vous, **Devant · le plus proche d'abord** et **Derrière · demi-tour**, avec la destination et le dégagement ; touchez-en un pour le voir (avec sa piste, son altitude et sa **Carte officielle**), puis **DÉROUTER VERS** lui. Toucher la destination elle-même donne **DIRECT VERS**, pas un déroutement. Les glaciers et altisurfaces, les héliports et les terrains fermés ne sont pas listés. Avec une route sur la carte, la bulle d'un aérodrome sur la carte propose aussi le déroutement, à droite (**Carte**, à gauche, ouvre la carte officielle).
 
-Un déroutement change l'endroit vers lequel vous naviguez, et rien d'autre : le prochain point affiche **DÉROUTEMENT** et le terrain, les fréquences le suivent, et **Reprendre la route** vous ramène à la route d'un seul toucher. Avec un plan de vol ATC déposé, l'encart de l'iPad vous rappelle de l'annoncer au FIS (« Plan de vol ATC déposé : annoncez votre déroutement vers … »). Rien d'administratif ne bouge avant le sol ; pour ce que la page du vol propose après l'atterrissage, voir [Voyages et escales](#voyages-et-escales).
+Un déroutement change l'endroit vers lequel vous naviguez, et rien d'autre : Dérouter passe à l'ambre, SUIVANT affiche **DÉROUTEMENT** et le terrain, les fréquences le suivent, la ligne DEST de ROUTE montre le terrain, et **Reprendre la route** (sur cette ligne, et dans Déroutement) vous ramène à la route d'un seul toucher. Avec un plan de vol ATC déposé, ROUTE vous rappelle de l'annoncer au FIS, sous la ligne DEST (« Plan de vol ATC déposé : annoncez votre déroutement vers … »). Rien d'administratif ne bouge avant le sol ; pour ce que la page du vol propose après l'atterrissage, voir [Voyages et escales](#voyages-et-escales). L'iPhone compagnon peut aussi dérouter le vol (voir [Mode compagnon](#mode-compagnon)).
+<!-- TODO PR4: TELL FIS in MAP's status slot -->
 
 ### Carte officielle
 
@@ -548,6 +604,7 @@ Les positions d'un récepteur GPS externe comptent comme satellite. Si l'accès 
 ### Cartes hors ligne
 
 La carte OACI suisse et la Segelflugkarte peuvent être mises en cache pour un usage hors ligne sous **Réglages › Navigation & Cartes › Cartes hors ligne** (jusqu'à environ 250 Mo), avec le **Mode hors ligne** pour n'utiliser que le cache. Une carte en cache est servie depuis l'appareil : la carte fonctionne sans connexion. Un badge **HORS LIGNE** ou **EN CACHE** en bas à gauche de la carte indique lequel ; touchez-le pour les détails.
+<!-- TODO PR4: CACHED leaves the Cockpit's chart; CHART OFFLINE in MAP's status slot -->
 
 ---
 
@@ -558,19 +615,23 @@ L'iPhone vole avec le même cockpit que l'iPad : les mêmes zones, dans le même
 ### Le cockpit sur le téléphone
 
 - **L'en-tête, sur deux lignes** : l'immatriculation, le temps de vol, le GPS et **Menu** sur la première ; la phase et sa place sur une ligne à part en dessous.
-- **La bande** a trois cases, GS, ALT et TRK ; le prochain point est sur la carte.
-- **CHECKLIST | CARTE** occupe toute la largeur, avec **V-SPEEDS** à côté. **BRIEFING** et **SUIVANT** apparaissent en haut de la liste, seulement quand ils s'appliquent ; sur la carte, **BRIEFING** et les puces ambre se placent par-dessus le fond de carte.
-- **COCHER** et **REPORTER** dans la barre d'actions, comme sur l'iPad, et un toucher n'importe où sur la liste coche aussi l'élément en cours.
+- **La bande** a trois cases, GS, ALT et TRK (un toucher sur GS ouvre V-SPEEDS). En dessous, un seul encart porte la **ligne du prochain point** (**SUIVANT**, ou **DÉROUTEMENT**, au-dessus du nom du point à gauche ; son relèvement et sa distance, puis son ETE et son ETA, à droite) et la **ligne ACT** (la fréquence ACT et sa station). Un toucher sur l'une ou l'autre ouvre ROUTE, où se trouve aussi la fréquence SUIV. La ligne du prochain point apparaît et disparaît avec la bande ; la ligne ACT est là dans chaque phase.
+- **CHECKLIST · CARTE · ROUTE** occupe toute la largeur (les mots seuls quand leurs icônes ne tiennent pas). **V-SPEEDS** est dans **Plus**, et derrière un toucher sur GS. En haut de CHECKLIST, le compte des éléments reportés, **BRIEFING** et **SUIVANT** n'apparaissent que quand ils s'appliquent.
+- **La barre d'actions** a les quatre cases de l'iPad, plus étroites. Leurs mots sont composés pour tenir : une ligne se coupe entre deux mots, jamais au milieu d'un mot, et un mot trop long pour sa case est écrit plus petit plutôt que coupé. Un toucher n'importe où sur la liste coche aussi l'élément en cours.
 - **V-SPEEDS** est une liste, avec les vitesses de la phase en évidence et le vent de travers maximal en dessous.
 - Une ligne de checklist trop longue pour une seule ligne place la réponse sous l'intitulé. La liste s'ouvre sur l'élément en cours.
 
+<!-- TODO PR4: in portrait, the phase bar drawn inside the phase button -->
+
 ### La carte sur le téléphone
 
-Le prochain point tient sur une ligne (son nom en magenta, puis BRG, DIST et ETE), et les commandes se trouvent au pied de la carte : **Carte**, un seul bouton qui montre l'orientation (**Nord en haut** ou **Route en haut** ; un toucher la change) et **Centrer**. Pincez pour zoomer. ACT et SUIV, et la barre d'actions (l'emplacement de vérification, MARQUER avec le nom du point et le temps de branche sous le mot, Déroutement, Plus), sont sous la carte. En vol sans route sur la carte, **Routes** prend la place du prochain point.
+La carte occupe la page entre le bandeau de lecture et la barre d'actions, et ses commandes se trouvent à son pied : **Carte**, un seul bouton qui montre l'orientation (**Nord en haut** ou **Route en haut** ; un toucher la change) et **Centrer**. Pincez pour zoomer. **BRIEFING**, dans ses phases, se place en haut de la carte. Une branche touchée sur ROUTE s'affiche avec sa barre au pied de la carte, où les commandes lui laissent la place.
+<!-- TODO PR4: the phone's MAP, the chart alone (the stack without zoom buttons, the status slot) -->
 
 ### Le téléphone à l'horizontale
 
-À l'horizontale, le téléphone affiche deux colonnes. À gauche, les commandes du cockpit : l'en-tête, le bouton de phase (la phase et sa place, avec la progression dessinée à l'intérieur ; un toucher ouvre **Sélectionner la phase**), CHECKLIST | CARTE avec V-SPEEDS, la bande, et la barre d'actions en bas, là où se trouve le pouce. À droite, le volet sur toute la hauteur. Sur la carte, les fréquences courent en bas de la carte sur deux lignes, et le bas de la colonne porte l'emplacement de vérification et MARQUER, avec Déroutement et Plus empilés pour que MARQUER garde sa largeur.
+À l'horizontale, le téléphone affiche deux colonnes. À gauche, les commandes du cockpit : l'en-tête, le bouton de phase (la phase et sa place, avec la progression dessinée à l'intérieur ; un toucher ouvre **Sélectionner la phase**), CHECKLIST · CARTE · ROUTE, la bande, et la barre d'actions en bas, là où se trouve le pouce : les deux premières cases côte à côte, la troisième au-dessus de la quatrième, à mi-hauteur. À droite, la page sur toute la hauteur. Sur CARTE, le prochain point tient sur une ligne en haut de la carte et ACT | SUIV courent en bas, sur deux lignes ; un toucher sur l'une ou l'autre ouvre ROUTE.
+<!-- TODO PR5: the column on the right, the act band two by two at its foot, the next line and the NOW line in the column -->
 
 ---
 
@@ -673,25 +734,27 @@ AéroCheck peut afficher votre vol en direct sur un second écran.
 
 ### Apple Watch
 
-L'**app Apple Watch** suit le vol depuis votre iPhone ; ses libellés sont en anglais. Avant un vol, elle affiche l'heure et si elle est connectée au téléphone (« Start flight on iPhone »).
+L'**app Apple Watch** suit le vol depuis votre iPhone. Avant un vol, elle affiche l'heure et si elle est connectée au téléphone (« Démarrez le vol sur l'iPhone »).
 
-En vol, la **page du vol** affiche la phase (dans la couleur de sa partie du vol) et la suivante (la bonne en mode tours de piste, qui saute Croisière et Descente), l'heure (**LOCAL**, ou **UTC** avec **Toujours utiliser l'heure UTC**) et le **FLIGHT TIME**, de l'alignement à l'atterrissage. Avec une route sur la carte, la montre a trois pages, de haut en bas la **navigation**, la page du vol et les **fréquences**, et s'ouvre sur la première ; tournez la Digital Crown ou balayez vers le haut et le bas pour passer de l'une à l'autre :
+En vol, la **page du vol** affiche la phase (dans la couleur de sa partie du vol) et la suivante (la bonne en mode tours de piste, qui saute Croisière et Descente), l'heure (**HEURE LOCALE**, ou **UTC** avec **Toujours utiliser l'heure UTC**) et le **TEMPS DE VOL**, de l'alignement à l'atterrissage. Avec une route sur la carte, la montre a trois pages, de haut en bas la **navigation**, la page du vol et les **fréquences**, et s'ouvre sur la première ; tournez la Digital Crown ou balayez vers le haut et le bas pour passer de l'une à l'autre :
 
 - **Navigation** : le prochain point (ou le terrain de déroutement) et sa place dans la route (« 3/7 ») ; le chrono de branche (**CHRONO**) avec trois boutons, marquer, pause ou départ, et remise à zéro, qui commandent le chrono de branche de l'iPhone comme ceux du cockpit (marquer enregistre l'heure de passage et commence la branche suivante) ; puis **HDG** (le relèvement du point), **DIST** (NM) et **EET** (le temps jusqu'au point à la vitesse sol du moment).
-- **Fréquences** (**FREQUENCIES**) : les fréquences de la liste de la carte, NOW et NEXT d'abord, puis les autres.
+- **Fréquences** (**FRÉQUENCES**) : les fréquences de la RADIO du cockpit (voir [La page ROUTE](#la-page-route)), ACT et SUIV d'abord, puis les autres dans l'ordre où vous vous en servirez. Elles suivent le vol quelle que soit la page affichée sur l'iPhone.
 
-Quand la montre n'a rien reçu du téléphone depuis cinq secondes (hors de portée, par exemple), ses valeurs s'atténuent sous une bannière **NO DATA**, pour que des valeurs figées ne soient jamais prises pour des valeurs en direct.
+Quand la montre n'a rien reçu du téléphone depuis cinq secondes (hors de portée, par exemple), ses valeurs s'atténuent sous une bannière **AUCUNE DONNÉE**, pour que des valeurs figées ne soient jamais prises pour des valeurs en direct.
 
 ### Mode compagnon
 
 Le **mode compagnon** apparie un iPad et un iPhone par une liaison Wi-Fi directe (Wi-Fi Aware ; nécessite **iOS 26 sur les deux appareils**) pour faire du second appareil un écran **équipier** synchronisé. Appariez les deux appareils une fois sous **Réglages › Mode compagnon** (**Appairer un nouvel appareil** s'affiche même mode désactivé) ; ensuite ils se connectent automatiquement dès qu'ils sont proches et prêts.
 
-La première fois qu'un téléphone veut piloter le vol de l'iPad (sa checklist et ses points, ou sa position GPS), l'iPad demande : **Autoriser le contrôle du compagnon ?**, avec **Autoriser pour ce vol**, **Toujours autoriser** (sur cet iPad, tant que vous ne touchez pas **Oublier** ou **Demander à chaque vol** dans les Réglages) et **Ne pas autoriser**.
+La première fois qu'un téléphone veut piloter le vol de l'iPad (sa checklist et ses points, un déroutement, ou sa position GPS), l'iPad demande : **Autoriser le contrôle du compagnon ?**, avec **Autoriser pour ce vol**, **Toujours autoriser** (sur cet iPad, tant que vous ne touchez pas **Oublier** ou **Demander à chaque vol** dans les Réglages) et **Ne pas autoriser**.
 
-L'afficheur compagnon a deux écrans, **NAV** et **CHECKLIST**. Il montre la checklist au sol et NAV une fois en l'air, jusqu'à ce que vous en touchiez un :
+L'afficheur compagnon a deux écrans, **NAV** et **CHECKLIST**, sous le bandeau de lecture du cockpit du téléphone : la bande (GS, ALT, TRK), la ligne du prochain point (avec une flèche qui montre où se trouve le point par rapport à votre route, ambre en déroutement) et ACT | SUIV, les deux fréquences de l'iPad côte à côte. Il montre la checklist au sol et NAV une fois en l'air, jusqu'à ce que vous en touchiez un ; un toucher sur la ligne du prochain point ou sur ACT | SUIV affiche NAV.
 
-- **NAV** : une vue du prochain point, route en haut, avec la route affichée sur la carte, **ENREG. ATO** (l'heure de passage du point en cours, enregistrée sur l'iPad) et en dessous l'[emplacement de vérification](#lemplacement-de-vérification), qui prend le même toucher unique que sur l'iPad.
+- **NAV** est la page ROUTE du téléphone, dessinée d'après ce qu'envoie l'iPad : la ligne DEST avec la route à l'échelle, les branches et la radio dans un seul défilement, Urgence en dessous (voir [La page ROUTE](#la-page-route)), et la barre d'actions en bas. Ses quatre cases : l'[emplacement de vérification](#lemplacement-de-vérification) de l'iPad, qui prend le même toucher unique que sur l'iPad ; **TOP CHRONO**, puis **MARQUER** avec le point et le temps de branche, qui marque le point sur l'iPad et y lance la branche suivante ; **Dérouter** (plus bas) ; et **Plus**, pour relancer le chrono de branche après une pause, **Réinitialiser le chronomètre**, ou ouvrir le **Log de nav** (la branche vers chaque point, MC et NM, son ETO et son ATO ; touchez un ATO vide pour l'enregistrer maintenant). RADIO liste ce qu'envoie l'iPad : ACT, SUIV, le terrain de déroutement et les fréquences saisies pour les points à venir. Une ligne de branche ne fait rien ici (le téléphone n'a pas de carte où la montrer), et un MARQUER depuis le téléphone n'a pas d'ANNULER.
 - **CHECKLIST** : un miroir de la checklist de l'appareil principal.
+
+**Dérouter**, sur le téléphone, liste les aérodromes les plus proches d'après les données d'aéroports du téléphone lui-même (jusqu'à 8, à moins de 60 NM), avec leur relèvement et leur distance, et un champ de recherche. Touchez-en un, puis **DÉROUTER VERS** lui (**DIRECT VERS** pour la destination de la route), ou **Reprendre la route** pendant un déroutement : l'iPad fait exactement ce que fait son propre Déroutement. Un déroutement pose la même question qu'un MARQUER (**Autoriser le contrôle du compagnon ?**, sur l'iPad) ; le téléphone le renvoie donc jusqu'à ce que l'iPad l'ait pris : il affiche « En attente de l'iPad… » et « Si l'iPad le demande, autorisez l'iPhone sur l'iPad. », se ferme de lui-même une fois l'iPad dérouté, et après 30 secondes affiche « L'iPad ne l'a pas pris en compte. Vérifiez sur l'iPad. », avec **Réessayer**. Dérouter est atténué quand la route n'a plus de branche à voler, et quand l'iPad tourne avec une version antérieure à la 6.2, qui ne peut pas prendre un déroutement venu du téléphone. Avec un tel iPad, ACT | SUIV donne la fréquence saisie pour le point vers lequel vous volez (ou celle du terrain de déroutement), sinon GUARD 121.50.
 
 Le contrôle est **bidirectionnel** : avancer dans la checklist ou révéler les vérifications que masque le Test de mémoire sur l'un des appareils met à jour les deux, et les deux écrans suivent le thème de l'appareil principal. Le téléphone peut aussi répondre à [l'encart Posé](#lencart-posé). Une **puce GPS** indique quel appareil fournit le GPS (**GPS iPad** ou **GPS iPhone**). Pour quitter, maintenez **COMPANION** sur le téléphone jusqu'à ce qu'il se remplisse de rouge.
 

@@ -29,7 +29,13 @@ final class FlightTimingUITests: XCTestCase {
         pilot.check("eet-4", planned != nil && anchored != nil && planned != anchored,
                     "READY FOR LINE UP moves the ETA: planned \(planned ?? "?") → \(anchored ?? "?")")
         if pilot.memoryDone.waitForExistence(timeout: 3) { pilot.tapNow(pilot.memoryDone) }
-        pilot.waitForTrack(s.mark("liftoff") + 60)
+        // The departure on MAP, ten minutes of it: the track leaves LSZQ on the runway's heading and joins
+        // the leg to INS some 9 NM out, 1.0 to 1.6 NM off it until then. OFF ROUTE never shows (6.2, PR 4):
+        // the aircraft is on its way to the route, not off it.
+        let offRoute = pilot.watchOffRoute(untilTrack: s.mark("liftoff") + 600)
+        pilot.shot("offroute-1", "xc-planned-departure")
+        pilot.check("offroute-1", offRoute.isEmpty,
+                    "xc-planned, the departure to 9 NM out: \(offRoute.isEmpty ? "no OFF ROUTE" : offRoute.joined(separator: " | "))")
         let inFlight = pilot.destinationETA()
         pilot.shot("eet-4", "in-flight")
         pilot.check("eet-4", inFlight == anchored, "in flight the ETA stays on LINE UP + 2 min: \(anchored ?? "?") → \(inFlight ?? "?")")

@@ -462,6 +462,23 @@ final class CockpitPilot {
         return Int(text[range].components(separatedBy: CharacterSet.decimalDigits.inverted).joined())
     }
 
+    // MARK: OFF ROUTE (6.2, PR 4)
+
+    /// OFF ROUTE as MAP's status slot shows it ("OFF ROUTE 1.4 NM"), nil while it is dark.
+    var offRoute: String? { label("status.offRoute") }
+
+    /// MAP shown until the track reaches `t`, OFF ROUTE watched all along: every time it was seen, with the
+    /// track's second. OFF ROUTE is the Cockpit's on every page, but only MAP shows it.
+    func watchOffRoute(untilTrack t: Double) -> [String] {
+        showPane("map")
+        var seen: [String] = []
+        _ = waitUntil(timeout: max(1, (t - trackNow) / rate)) {
+            if let shown = self.offRoute { seen.append("\(shown) at \(Int(self.trackNow)) s") }
+            return false
+        }
+        return seen
+    }
+
     // MARK: The route
 
     /// The legs list: the ROUTE page (6.2; until then the MAP pane's legs panel). It stays there.

@@ -367,6 +367,47 @@ final class CockpitActBandTests: XCTestCase {
     /// memory · one tap when done"), set to fit as on the phone, never under 20 pt where the words fit at
     /// it. On main before this the iPad left them to SwiftUI, which cut "de mémoire · un appui quand c'est
     /// fait" after "c'est". (6.2)
+    /// Every other face of the iPad's band, in English and in French, in portrait and on its side: S2
+    /// (CHECK with every item, ✓ DONE, NEXT, READY FOR LINE UP, END FLIGHT, START LEG and MARK, Routes, GO
+    /// AROUND held and in circuits), S1 (ENGINE START and SHUTDOWN, FREDA), S3 and S4 (TOUCH-AND-GO,
+    /// DEFER, Divert, More), each beside its icon where it has one. The same rules as the phone's, at
+    /// 20 pt. On main before this the iPad's S2 left its words to SwiftUI on one line at 70 %: the ground
+    /// replays' "CHECK AFTER ENGINE START DO…" over "NEXT: TAXI CHECK · from mem…" (flight-1, flight-2,
+    /// undo-1). (6.2)
+    func testEveryIPadFaceFitsItsSlot() {
+        var cases = 0
+        for language in ["en", "fr"] {
+            for (slot, faces) in iPadWideFaces(language) + iPadNarrowFaces(language) {
+                for face in faces {
+                    check(face, in: slot, language: language)
+                    cases += 1
+                }
+            }
+        }
+        XCTAssertGreaterThan(cases, 600)
+        // What the replays caught: ✓ DONE's line on one line at 70 % (main's) holds none of them in
+        // portrait; set, every word shows at 20 pt or about.
+        let slot = Self.iPadSlots[0]
+        for language in ["en", "fr"] {
+            func t(_ key: String) -> String { localizedString(key: key, language: language) }
+            for (check, next) in [("afterEngineStart", "taxi"), ("lineUp", "climb"), ("climb", "cruise")] {
+                let title = format("cockpit.memoryCheckDone", language, t("phase.short.\(check)"))
+                let line = format("cockpit.fromMemoryThenNext", language, t("phase.short.\(next)"))
+                let button = CockpitThumbButton(title: title, subtitle: line, icon: "checkmark", style: .outlined(tint: .cyan),
+                                                titleLines: ActChecklistPrimary.lines(.kneeboard).title,
+                                                subtitleLines: ActChecklistPrimary.lines(.kneeboard).subtitle, fitted: true) {}
+                // Main's line: under the title and its icon, the slot less 14 pt each side.
+                let lineBlock = ActFaceBlock(text: line, size: 20, bold: false)
+                XCTAssertGreaterThan(ActFace.width(line, size: 20 * 0.7, block: lineBlock), slot.width - 28,
+                                     "\(language): \"\(line)\" can't fit main's one line")
+                let (room, faces) = Self.iPadFace("", slot, padding: 14, icon: "checkmark", iconSize: 28, spacing: 10,
+                                                  blocks: button.fittedBlocks(for: .kneeboard))
+                let settings = ActFace.set(faces[0].blocks, width: room.width, height: slot.height - 6, spacing: 2)
+                XCTAssertGreaterThanOrEqual(settings.map(\.size).min() ?? 0, 19, "\(language): \(title) / \(line)")
+            }
+        }
+    }
+
     func testTheIPadsCheckSlotWordsFitItsSlot() {
         var cases = 0
         for language in ["en", "fr"] {
@@ -484,6 +525,117 @@ final class CockpitActBandTests: XCTestCase {
         }
     }
 
+    /// The iPad's S1/S2 frames in portrait (820 pt) and on its side (1180), and S3/S4.
+    private static var iPadSlots: [BandSlot] {
+        [("portrait", CGFloat(820)), ("on its side", 1180)].map { name, screen in
+            let frame = ActBandLayout.frames(width: screen - 32, metrics: .make(layout: .wide, scale: .kneeboard))[0]
+            return BandSlot(name: "iPad \(name)", width: frame.width, height: frame.height)
+        }
+    }
+
+    private static var iPadNarrowSlot: BandSlot {
+        let frame = ActBandLayout.frames(width: 820 - 32, metrics: .make(layout: .wide, scale: .kneeboard))[2]
+        return BandSlot(name: "iPad S3", width: frame.width, height: frame.height)
+    }
+
+    /// A face on the iPad: its slot less `padding` each side, its first block beside the icon where
+    /// `ActFaceText` keeps it (`ActFace.besideIcon`).
+    private static func iPadFace(_ name: String, _ slot: BandSlot, padding: CGFloat, icon: String?, iconSize: CGFloat,
+                                 spacing: CGFloat, blocks: [ActFaceBlock]) -> (BandSlot, [Face]) {
+        let room = BandSlot(name: slot.name, width: slot.width - 2 * padding, height: slot.height)
+        let placed = ActFace.besideIcon(blocks, icon: icon, iconSize: iconSize, iconSpacing: spacing, width: room.width,
+                                        height: slot.height - 6, spacing: 2)
+        return (room, [Face(name: name + (icon != nil && !placed.showsIcon ? " (no icon)" : ""), blocks: placed.blocks,
+                            inset: 0)])
+    }
+
+    /// The iPad's wide faces, each with the room its view leaves the words, as a slot of that width.
+    private func iPadWideFaces(_ language: String) -> [(BandSlot, [Face])] {
+        func t(_ key: String) -> String { localizedString(key: key, language: language) }
+        let checks = Self.phases.map { t("phase.short.\($0)") }
+        let lines = ActChecklistPrimary.lines(.kneeboard)
+        var faces: [(BandSlot, [Face])] = []
+        for slot in Self.iPadSlots {
+            func thumb(_ title: String, _ subtitle: String?, icon: String?, titleLines: Int = lines.title,
+                       subtitleLines: Int = lines.subtitle) -> (BandSlot, [Face]) {
+                let button = CockpitThumbButton(title: title, subtitle: subtitle, icon: icon, style: .outlined(tint: .cyan),
+                                                titleLines: titleLines, subtitleLines: subtitleLines, fitted: true) {}
+                return Self.iPadFace("iPad \(title) / \(subtitle ?? "")", slot, padding: 14, icon: icon, iconSize: 28,
+                                     spacing: 10, blocks: button.fittedBlocks(for: .kneeboard))
+            }
+            for item in bundledChallenges(language) {
+                faces.append(thumb(t("cockpit.check"), item, icon: "checkmark", titleLines: 1, subtitleLines: lines.item))
+            }
+            for (index, check) in checks.enumerated() {
+                let next = checks[min(index + 1, checks.count - 1)]
+                faces.append(thumb(format("cockpit.memoryCheckDone", language, check),
+                                   format("cockpit.fromMemoryThenNext", language, next), icon: "checkmark"))
+                faces.append(thumb(format("cockpit.memoryCheckDone", language, check), t("cockpit.fromMemory"), icon: "checkmark"))
+                faces.append(thumb(format("cockpit.next", language, check), t("cockpit.allChecked"), icon: "chevron.right"))
+                for count in [1, 2, 12] {
+                    faces.append(thumb(format("cockpit.next", language, check), plural("%lld deferred items", count, language),
+                                       icon: "chevron.right"))
+                }
+            }
+            faces.append(thumb(t("checklist.readyForLineUp"), format("cockpit.thenCheck", language, t("phase.short.lineUp")),
+                               icon: "airplane.departure"))
+            faces.append(thumb(t("button.endFlight"), nil, icon: "flag.checkered"))
+            faces.append(thumb(t("ground.plan.routes"), nil, icon: "point.topleft.down.to.point.bottomright.curvepath",
+                               titleLines: 2))
+            faces.append(thumb(t("checklist.goAround"), nil, icon: "arrow.up.right.circle.fill", titleLines: 2))
+            // S1: ENGINE START and SHUTDOWN beside the engine (10 pt in, 8 after the icon), FREDA (12, 8).
+            for key in ["checklist.engineStart", "checklist.engineShutdown"] {
+                faces.append(Self.iPadFace("iPad \(key)", slot, padding: 10, icon: "engine.combustion.fill", iconSize: 24,
+                                           spacing: 8, blocks: TimestampActionButton.fittedBlocks(title: t(key), scale: .kneeboard)))
+            }
+            for line in ["10:00", "0:05", L10n.Freda.flow] {
+                faces.append(Self.iPadFace("iPad FREDA \(line)", slot, padding: 12, icon: "arrow.triangle.2.circlepath",
+                                           iconSize: 28, spacing: 8, blocks: FredaThumbButton.blocks(line: line, scale: .kneeboard)))
+            }
+            // S2 on MAP: START LEG and MARK beside the pin (16 pt in, 12 after it), the leg time paused or not.
+            func mark(_ name: String, _ blocks: [ActFaceBlock], icon: String) {
+                faces.append(Self.iPadFace(name, slot, padding: 16, icon: icon, iconSize: 30, spacing: 12, blocks: blocks))
+            }
+            mark("iPad START LEG", ActMarkButton.kneeboardBlocks(title: t("nav.startLegTimer"), subtitle: nil), icon: "stopwatch")
+            for name in ["LSGC", "SAIGNELÉGIER", "COL DES MOSSES"] {
+                for running in [true, false] {
+                    let leg = ActLegTimer(planned: 1_023, running: running, elapsed: 754).text(planned: true)
+                    mark("iPad MARK \(name) \(leg)", ActMarkButton.kneeboardBlocks(title: "\(t("nav.mark")) \(name)",
+                                                                                   subtitle: "\(t("nav.leg")) \(leg)"),
+                         icon: "mappin.and.ellipse")
+                }
+            }
+            // GO AROUND held: 16 pt in, its count at the end (12 before it), the icon beside the title.
+            let count = ActFace.width("00", size: 28, block: ActFaceBlock(text: "", size: 28, monospaced: true)) + 12
+            let held = BandSlot(name: slot.name, width: slot.width - count, height: slot.height)
+            faces.append(Self.iPadFace("iPad GO AROUND held", held, padding: 16, icon: "arrow.up.right.circle.fill",
+                                       iconSize: 24, spacing: 12,
+                                       blocks: HoldToConfirmButton.fittedBlocks(title: t("checklist.goAround"), titleLines: 1,
+                                                                                hint: t("checklist.holdToConfirm"),
+                                                                                scale: .kneeboard)))
+        }
+        return faces
+    }
+
+    /// S3 and S4 on the iPad: TOUCH-AND-GO held and in circuits, DEFER, Divert, More.
+    private func iPadNarrowFaces(_ language: String) -> [(BandSlot, [Face])] {
+        func t(_ key: String) -> String { localizedString(key: key, language: language) }
+        let slot = Self.iPadNarrowSlot
+        let inset = ActBandMetrics.narrowPadding(.kneeboard)
+        let title = ActBandText.twoLines(t("checklist.touchAndGo"))
+        let circuits = CockpitThumbButton(title: title, style: .outlined(tint: .cyan), titleLines: 2, fitted: true) {}
+        var faces = [Face(name: "iPad TOUCH-AND-GO held",
+                          blocks: HoldToConfirmButton.fittedBlocks(title: title, titleLines: 2, hint: t("checklist.holdToConfirm"),
+                                                                   scale: .kneeboard), inset: inset),
+                     Face(name: "iPad TOUCH-AND-GO", blocks: circuits.fittedBlocks(for: .kneeboard), inset: inset)]
+        // The word under its icon: one line at the label size.
+        let word = BandSlot(name: slot.name, width: slot.width, height: CockpitType.label(for: .kneeboard) * 1.3)
+        let words = ["cockpit.defer", "act.divert", "nav.more"].map {
+            Face(name: "iPad \($0)", blocks: [ActNarrowLabel.block(t($0), scale: .kneeboard)], inset: inset, verticalInset: 0)
+        }
+        return [(slot, faces), (word, words)]
+    }
+
     /// A slot's words as one of the band's views sets them, with its inset.
     private struct Face {
         let name: String
@@ -524,7 +676,7 @@ final class CockpitActBandTests: XCTestCase {
         func thumb(_ title: String, _ subtitle: String? = nil, titleLines: Int = 3, subtitleLines: Int = 2) -> Face {
             let button = CockpitThumbButton(title: title, subtitle: subtitle, style: .outlined(tint: .cyan),
                                             titleLines: titleLines, subtitleLines: subtitleLines, fitted: true) {}
-            return Face(name: "\(title) / \(subtitle ?? "")", blocks: button.fittedBlocks)
+            return Face(name: "\(title) / \(subtitle ?? "")", blocks: button.fittedBlocks(for: .phone))
         }
         for item in bundledChallenges(language) {
             faces.append(thumb(t("cockpit.check"), item, titleLines: 1, subtitleLines: 3))
@@ -544,7 +696,7 @@ final class CockpitActBandTests: XCTestCase {
             faces.append(Face(name: key, blocks: TimestampActionButton.fittedBlocks(title: t(key))))
         }
         for line in ["10:00", "0:05", L10n.Freda.flowCompact] {
-            faces.append(Face(name: "FREDA \(line)", blocks: FredaThumbButton.phoneBlocks(line: line)))
+            faces.append(Face(name: "FREDA \(line)", blocks: FredaThumbButton.blocks(line: line, scale: .phone)))
         }
         // S2 on MAP: START LEG, MARK with a short and a long name and the leg time; GO AROUND held and in
         // circuits.
@@ -575,7 +727,7 @@ final class CockpitActBandTests: XCTestCase {
                                                     hint: localizedString(key: "checklist.holdToConfirm", language: language))
         let circuits = CockpitThumbButton(title: title, style: .outlined(tint: .cyan), titleLines: 2, fitted: true) {}
         return [Face(name: "TOUCH-AND-GO held", blocks: held, inset: inset),
-                Face(name: "TOUCH-AND-GO", blocks: circuits.fittedBlocks, inset: inset)]
+                Face(name: "TOUCH-AND-GO", blocks: circuits.fittedBlocks(for: .phone), inset: inset)]
     }
 
     private func check(_ face: Face, in slot: BandSlot, language: String) {
@@ -591,7 +743,7 @@ final class CockpitActBandTests: XCTestCase {
             total += CGFloat(setting.roomLines.count) * ActFace.lineHeight(size: setting.size, block: block)
             XCTAssertLessThanOrEqual(setting.lines.count, setting.roomLines.count, "\(where_): within its room")
             for line in setting.lines + setting.roomLines {
-                XCTAssertLessThanOrEqual(ActFace.width(line, size: setting.size, block: block), room + 0.01,
+                XCTAssertLessThanOrEqual(ActFace.width(line, size: setting.size, block: block), room - block.indent + 0.01,
                                          "\(where_): \"\(line)\" within the inset")
                 let words = line.split(separator: " ")
                 if let first = words.first, let last = words.last {
@@ -618,7 +770,7 @@ final class CockpitActBandTests: XCTestCase {
             // Never smaller than its widest word needs, unless the slot's height asks.
             let widest = ActFace.unbreakable(block.room ?? block.text)
                 .map { ActFace.width($0, size: block.size, block: block) }.max() ?? 0
-            XCTAssertGreaterThan(setting.size, min(block.effectiveFloor, block.size * room / max(widest, 1)) * 0.6,
+            XCTAssertGreaterThan(setting.size, min(block.effectiveFloor, block.size * (room - block.indent) / max(widest, 1)) * 0.6,
                                  "\(where_): \(block.text) at \(setting.size) pt")
         }
         XCTAssertLessThanOrEqual(total, height + 0.01, "\(where_): within the slot's height")
@@ -629,10 +781,11 @@ final class CockpitActBandTests: XCTestCase {
         var total = spacing * CGFloat(max(0, blocks.count - 1))
         for block in blocks {
             let text = block.room ?? block.text
-            let lines = ActFace.lines(text, size: block.effectiveFloor, block: block, width: width)
+            let room = width - block.indent
+            let lines = ActFace.lines(text, size: block.effectiveFloor, block: block, width: room)
             let paragraphs = text.split(separator: "\n", omittingEmptySubsequences: false).count
             guard lines.count <= max(paragraphs, block.maxLines),
-                  lines.allSatisfy({ ActFace.width($0, size: block.effectiveFloor, block: block) <= width }) else { return false }
+                  lines.allSatisfy({ ActFace.width($0, size: block.effectiveFloor, block: block) <= room }) else { return false }
             total += CGFloat(lines.count) * ActFace.lineHeight(size: block.effectiveFloor, block: block)
         }
         return total <= height + 0.01

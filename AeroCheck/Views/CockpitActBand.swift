@@ -233,9 +233,13 @@ struct ActFaceBlock: Hashable {
     var room: String? = nil
     var color: Color? = nil
     var opacity: Double = 1
-    /// Smaller on fewer lines rather than larger on more, as long as it stays at or over its floor: the
-    /// iPad's check name, "CRUISE CHECK" on one line at 21 pt rather than two at 25.
+    /// Smaller on fewer lines rather than larger on more, as long as it stays at four fifths of its size
+    /// and at its floor: the iPad's check name, "CRUISE CHECK" on one line at 21 pt rather than two at 25;
+    /// but "MARQUER" over "LSGC" at 30 rather than one line at 20.
     var prefersFewerLines = false
+    /// The room an icon takes beside the block's lines (the iPad's ✓ beside "CLIMB CHECK DONE"): its
+    /// lines are that much narrower.
+    var indent: CGFloat = 0
 
     var effectiveFloor: CGFloat { min(floor, size) }
 }
@@ -277,8 +281,9 @@ enum ActFace {
             return sizes
         }()
         return zip(blocks, sizes).map { block, size in
-            Setting(lines: lines(block.text, size: size, block: block, width: width),
-                    roomLines: lines(block.room ?? block.text, size: size, block: block, width: width), size: size)
+            Setting(lines: lines(block.text, size: size, block: block, width: width - block.indent),
+                    roomLines: lines(block.room ?? block.text, size: size, block: block, width: width - block.indent),
+                    size: size)
         }
     }
 
@@ -358,8 +363,12 @@ enum ActFace {
         }
         var best: (score: [CGFloat], sizes: [CGFloat])?
         for counts in combinations(choices) {
-            var sizes = blocks.indices.map { largestSize(blocks[$0], text: texts[$0], lines: counts[$0], width: width) }
-            func lineCount(_ i: Int) -> Int { lines(texts[i], size: sizes[i], block: blocks[i], width: width).count }
+            var sizes = blocks.indices.map {
+                largestSize(blocks[$0], text: texts[$0], lines: counts[$0], width: width - blocks[$0].indent)
+            }
+            func lineCount(_ i: Int) -> Int {
+                lines(texts[i], size: sizes[i], block: blocks[i], width: width - blocks[i].indent).count
+            }
             var lineCounts = blocks.indices.map(lineCount)
             func setHeight() -> CGFloat {
                 blocks.indices.reduce(spacing * CGFloat(max(0, blocks.count - 1))) { total, i in
@@ -382,7 +391,11 @@ enum ActFace {
             }
             let under = blocks.indices.map { max(0, blocks[$0].effectiveFloor - sizes[$0]) }
             let shrunk = blocks.indices.map { sizes[$0] / blocks[$0].size }.min() ?? 1
-            let fewer = blocks.indices.filter { blocks[$0].prefersFewerLines }.reduce(0) { $0 + lineCounts[$1] }
+            // A block preferring fewer lines counts its lines where it keeps four fifths of its size, more
+            // than it can take where it doesn't.
+            let fewer = blocks.indices.filter { blocks[$0].prefersFewerLines }.reduce(0) { total, i in
+                total + (sizes[i] >= 0.8 * blocks[i].size - 0.001 ? lineCounts[i] : blocks[i].maxLines + 1)
+            }
             let score = [-(under.max() ?? 0), -under.reduce(0, +), -CGFloat(fewer), shrunk, sizes.reduce(0, +),
                          -CGFloat(lineCounts.reduce(0, +))]
             if let current = best, !better(score, than: current.score) { continue }
@@ -424,11 +437,12 @@ enum ActFace {
     /// What a block's size depends on: its words for the room, its face, its limits; not its colour.
     private struct SizingKey: Hashable {
         let text: String, size: CGFloat, bold: Bool, monospaced: Bool, maxLines: Int, floor: CGFloat
-        let prefersFewerLines: Bool
+        let prefersFewerLines: Bool, indent: CGFloat
         init(_ block: ActFaceBlock) {
             text = block.room ?? block.text
             size = block.size; bold = block.bold; monospaced = block.monospaced
             maxLines = block.maxLines; floor = block.effectiveFloor; prefersFewerLines = block.prefersFewerLines
+            indent = block.indent
         }
     }
 
@@ -441,9 +455,11 @@ enum ActFace {
     private static let cache = OSAllocatedUnfairLock<[Key: [CGFloat]]>(initialState: [:])
 }
 
-/// A slot's words on the phone, as `ActFace` sets them in the room the slot leaves: each line a text of
-/// its own, so nothing on screen wraps, shrinks or is cut but as set. VoiceOver reads the words once,
-/// whole. Fills the slot; the slot's padding is its inset.
+/// A slot's words, as `ActFace` sets them in the room the slot leaves: each line a text of its own, so
+/// nothing on screen wraps, shrinks or is cut but as set. VoiceOver reads the words once, whole. Fills the
+/// slot; the slot's padding is its inset. `icon`: the iPad's, beside the first block (✓ beside "CLIMB
+/// CHECK DONE", the pin beside "MARK LSGC"), as the iPad's buttons have always shown it; left out where
+/// its room alone would set the words smaller.
 struct ActFaceText: View {
     let blocks: [ActFaceBlock]
     var spacing: CGFloat = 2
@@ -452,14 +468,27 @@ struct ActFaceText: View {
     /// capitals for the accents, so they sit further in. With 2 pt between blocks, four lines at 17 pt
     /// fit the phone's 92 pt.
     var verticalInset: CGFloat = 3
+    var icon: String? = nil
+    /// The icon's point size, and the room after it.
+    var iconSize: CGFloat = 0
+    var iconSpacing: CGFloat = 10
 
     var body: some View {
         GeometryReader { proxy in
-            let settings = ActFace.set(blocks, width: proxy.size.width,
-                                       height: max(0, proxy.size.height - 2 * verticalInset), spacing: spacing)
+            let height = max(0, proxy.size.height - 2 * verticalInset)
+            let placed = ActFace.besideIcon(blocks, icon: icon, iconSize: iconSize, iconSpacing: iconSpacing,
+                                            width: proxy.size.width, height: height, spacing: spacing)
+            let settings = ActFace.set(placed.blocks, width: proxy.size.width, height: height, spacing: spacing)
             VStack(alignment: alignment, spacing: spacing) {
-                ForEach(Array(zip(blocks, settings).enumerated()), id: \.offset) { _, pair in
-                    block(pair.0, pair.1)
+                ForEach(Array(zip(placed.blocks, settings).enumerated()), id: \.offset) { index, pair in
+                    if index == 0, placed.showsIcon, let icon {
+                        HStack(spacing: iconSpacing) {
+                            Image(systemName: icon).font(.aero(size: iconSize, weight: .bold))
+                            block(pair.0, pair.1)
+                        }
+                    } else {
+                        block(pair.0, pair.1)
+                    }
                 }
             }
             .frame(width: proxy.size.width, height: proxy.size.height,
@@ -498,6 +527,28 @@ struct ActFaceText: View {
                     .minimumScaleFactor(0.9)
             }
         }
+    }
+}
+
+extension ActFace {
+    /// `blocks` with the first indented by the icon beside it, or as they are where the icon's room alone
+    /// would set them smaller than without it.
+    static func besideIcon(_ blocks: [ActFaceBlock], icon: String?, iconSize: CGFloat, iconSpacing: CGFloat,
+                           width: CGFloat, height: CGFloat, spacing: CGFloat) -> (showsIcon: Bool, blocks: [ActFaceBlock]) {
+        guard let icon, !blocks.isEmpty else { return (false, blocks) }
+        var indented = blocks
+        indented[0].indent = iconWidth(icon, size: iconSize) + iconSpacing
+        func shortfall(_ blocks: [ActFaceBlock]) -> CGFloat {
+            zip(blocks, set(blocks, width: width, height: height, spacing: spacing))
+                .reduce(0) { $0 + max(0, $1.0.effectiveFloor - $1.1.size) }
+        }
+        return shortfall(indented) > shortfall(blocks) + 0.01 ? (false, blocks) : (true, indented)
+    }
+
+    /// An SF Symbol's width at `size`, and a little to be safe.
+    static func iconWidth(_ name: String, size: CGFloat) -> CGFloat {
+        let symbol = UIImage(systemName: name, withConfiguration: UIImage.SymbolConfiguration(pointSize: size, weight: .bold))
+        return (symbol?.size.width ?? size) + 2
     }
 }
 
@@ -783,7 +834,8 @@ struct ActSlotView: View {
     }
 }
 
-/// A narrow slot's face: the icon over the word (DEFER, Divert, More), at the in-flight label size. Its
+/// A narrow slot's face: the icon over the word (DEFER, Divert, More), at the in-flight label size, set to
+/// fit the slot (`ActFace`): smaller only where the word is wider than it (the phone's "REPORTER"). Its
 /// button says the word to VoiceOver, not the icon's name.
 struct ActNarrowLabel: View {
     let icon: String
@@ -791,12 +843,11 @@ struct ActNarrowLabel: View {
     let tint: Color
 
     var body: some View {
+        let block = Self.block(title, scale: .current)
         VStack(spacing: 6) {
             Image(systemName: icon).font(.aero(size: CockpitType.response, weight: .semibold))
-            Text(title)
-                .font(.aero(size: CockpitType.label, weight: .bold))
-                .lineLimit(1)
-                .minimumScaleFactor(0.7)
+            ActFaceText(blocks: [block], verticalInset: 0)
+                .frame(height: ActFace.lineHeight(size: block.size, block: block))
         }
         .padding(.horizontal, ActBandMetrics.narrowPadding())
         .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -804,6 +855,13 @@ struct ActNarrowLabel: View {
         .background(RoundedRectangle(cornerRadius: 18).fill(tint.opacity(0.12)))
         .overlay(RoundedRectangle(cornerRadius: 18).stroke(tint.opacity(0.45), lineWidth: 1))
         .contentShape(Rectangle())
+    }
+}
+
+extension ActNarrowLabel {
+    /// The word, on one line, at the label size.
+    static func block(_ title: String, scale: CockpitScale) -> ActFaceBlock {
+        ActFaceBlock(text: title, size: CockpitType.label(for: scale), maxLines: 1, floor: CockpitType.label(for: scale))
     }
 }
 
@@ -824,9 +882,10 @@ struct ActChecklistPrimary: View {
     var body: some View {
         let phone = CockpitScale.current == .phone
         let filled = CockpitThumbButton.Style.filled(fill: theme.action, text: theme.actionText)
-        // On the phone the slot is about 100 pt wide: the words set to fit it (`ActFace`), a title on up to
-        // three lines, the line under it on up to three.
-        let lines = phone ? 3 : 2
+        // The words set to fit the slot (`ActFace`) on both devices (6.2): about 100 pt wide on the phone,
+        // 180 of text beside the iPad's icon. Left to SwiftUI, the iPad cut "CHECK AFTER ENGINE START DONE"
+        // and "NEXT: TAXI CHECK · from memory" (the ground replays, flight-1).
+        let lines = Self.lines(.current)
         let padding = phone ? ActFace.inset : 14
         if appState.currentCheckAwaitsConfirmation {
             let next = appState.memoryConfirmationMovesTo
@@ -835,19 +894,19 @@ struct ActChecklistPrimary: View {
             let subtitle = phone ? L10n.Cockpit.fromMemory
                                  : next.map { L10n.Cockpit.fromMemoryThenNext($0.shortTitle) } ?? L10n.Cockpit.fromMemory
             CockpitThumbButton(title: L10n.Cockpit.memoryCheckDone(appState.currentPhase.shortTitle),
-                               subtitle: subtitle, icon: phone ? nil : "checkmark", style: filled, titleLines: lines,
-                               subtitleLines: phone ? 2 : 1, horizontalPadding: padding, fitted: phone,
-                               action: actions.memoryDone)
+                               subtitle: subtitle, icon: phone ? nil : "checkmark", style: filled,
+                               titleLines: lines.title, subtitleLines: lines.subtitle, horizontalPadding: padding,
+                               fitted: true, action: actions.memoryDone)
                 .accessibilityIdentifier("cockpit.memoryDone")
         } else if !appState.currentCheckIsDone {
             CockpitThumbButton(title: L10n.Cockpit.check, subtitle: currentItemChallenge,
-                               icon: phone ? nil : "checkmark", style: filled, subtitleLines: lines,
-                               horizontalPadding: padding, fitted: phone, action: actions.check)
+                               icon: phone ? nil : "checkmark", style: filled, subtitleLines: lines.item,
+                               horizontalPadding: padding, fitted: true, action: actions.check)
                 .accessibilityIdentifier("cockpit.check")
         } else if appState.isLastPhase {
             CockpitThumbButton(title: L10n.Button.endFlight, icon: phone ? nil : "flag.checkered",
-                               style: .filled(fill: theme.danger, text: .white), titleLines: lines,
-                               horizontalPadding: padding, fitted: phone, action: actions.endFlight)
+                               style: .filled(fill: theme.danger, text: .white), titleLines: lines.title,
+                               horizontalPadding: padding, fitted: true, action: actions.endFlight)
                 .accessibilityIdentifier("cockpit.endFlight")
         } else {
             let label = CockpitNextLabel(
@@ -855,12 +914,18 @@ struct ActChecklistPrimary: View {
                 to: appState.currentPhase.nextNavigable(circuitMode: appState.isCircuitMode),
                 deferred: appState.currentPhaseDeferredIds.count)
             CockpitThumbButton(title: label.title, subtitle: label.subtitle, icon: phone ? nil : label.icon,
-                               style: filled, titleLines: lines, subtitleLines: phone ? 2 : 1, horizontalPadding: padding,
-                               fitted: phone, action: actions.next)
+                               style: filled, titleLines: lines.title, subtitleLines: lines.subtitle,
+                               horizontalPadding: padding, fitted: true, action: actions.next)
                 .accessibilityIdentifier("cockpit.next")
                 .accessibilityHint(label.accessibilityHint ?? "")
                 .modifier(PulseModifier(isActive: actions.nextReady))
         }
+    }
+
+    /// The most lines S2's words take: the title (✓ DONE, NEXT, READY FOR LINE UP, END FLIGHT), the line
+    /// under it, CHECK's item. Three on the phone; on the iPad the title two, the rest three.
+    static func lines(_ scale: CockpitScale) -> (title: Int, subtitle: Int, item: Int) {
+        scale == .phone ? (3, 2, 3) : (2, 3, 3)
     }
 
     /// The challenge of the highlighted item, shown on CHECK so the button says what it checks.
@@ -891,8 +956,7 @@ struct ActPhaseActionButton: View {
                 timestamp: appState.formattedEngineShutdownTime,
                 timestampLabel: L10n.ChecklistAction.shutdown(language: language),
                 isPulsing: actions.pulseAction, compact: true, minHeight: slotHeight ?? CockpitTarget.thumb,
-                fitted: CockpitScale.current == .phone,
-                onFirstPress: actions.engineShutdown, onUpdateTime: actions.engineShutdownUpdate)
+                fitted: true, onFirstPress: actions.engineShutdown, onUpdateTime: actions.engineShutdownUpdate)
             .accessibilityIdentifier("cockpit.engineShutdown")
         } else {
             TimestampActionButton(
@@ -901,8 +965,7 @@ struct ActPhaseActionButton: View {
                 timestamp: appState.formattedEngineStartTime,
                 timestampLabel: L10n.ChecklistAction.started(language: language),
                 isPulsing: actions.pulseAction, compact: true, minHeight: slotHeight ?? CockpitTarget.thumb,
-                fitted: CockpitScale.current == .phone,
-                onFirstPress: actions.engineStart, onUpdateTime: actions.engineStartUpdate)
+                fitted: true, onFirstPress: actions.engineStart, onUpdateTime: actions.engineStartUpdate)
             .accessibilityIdentifier("cockpit.engineStart")
         }
     }
@@ -971,31 +1034,16 @@ struct ActMarkButton: View {
             .accessibilityLabel(([title, subtitle].compactMap { $0 } + details).filter { !$0.isEmpty }.joined(separator: " "))
     }
 
-    /// The iPad: the name on two lines where it runs long ("MARK" over "SAIGNELEGIER"), the leg's time on
-    /// one. The phone: set to fit its slot (`ActFace`).
+    /// Set to fit the slot (`ActFace`). The iPad: the icon beside "MARK LSGC" (two lines where the name
+    /// runs long, "MARK" over "SAIGNELÉGIER") over the leg's time. The phone: the verb, the waypoint, the time.
     private func face(icon: String, title: String, subtitle: String?, details: [String] = []) -> some View {
         let phone = CockpitScale.current == .phone
         return Group {
             if phone {
                 ActFaceText(blocks: Self.phoneBlocks(title: title, name: details.first, time: details.dropFirst().first))
             } else {
-                VStack(spacing: 2) {
-                    HStack(spacing: CockpitType.size(kneeboard: 12, phone: 8)) {
-                        Image(systemName: icon).font(.aero(size: CockpitType.button, weight: .bold))
-                        Text(title)
-                            .font(.aero(size: CockpitType.button, weight: .bold))
-                            .multilineTextAlignment(.center)
-                            .lineLimit(2)
-                            .minimumScaleFactor(0.6)
-                    }
-                    if let subtitle {
-                        Text(subtitle)
-                            .font(.aero(size: CockpitType.label, weight: .semibold, design: .monospaced))
-                            .multilineTextAlignment(.center)
-                            .lineLimit(1)
-                            .minimumScaleFactor(0.7)
-                    }
-                }
+                ActFaceText(blocks: Self.kneeboardBlocks(title: title, subtitle: subtitle), icon: icon,
+                            iconSize: CockpitType.button, iconSpacing: 12)
             }
         }
         .foregroundColor(theme.actionText)
@@ -1003,6 +1051,19 @@ struct ActMarkButton: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(RoundedRectangle(cornerRadius: 18).fill(theme.action))
         .contentShape(Rectangle())
+    }
+
+    /// The iPad's MARK: "MARK LSGC" (or START LEG) at the button size, on one line while it stays at the
+    /// label size; "LEG 2:05 / 17:32" under it, its figures keeping their place.
+    static func kneeboardBlocks(title: String, subtitle: String?) -> [ActFaceBlock] {
+        let label = CockpitType.label(for: .kneeboard)
+        var blocks = [ActFaceBlock(text: title, size: CockpitType.button(for: .kneeboard), maxLines: 2, floor: label,
+                                   prefersFewerLines: true)]
+        if let subtitle, !subtitle.isEmpty {
+            blocks.append(ActFaceBlock(text: subtitle, size: label, monospaced: true, maxLines: 2, floor: label,
+                                       room: CheckSlot.widestFigures(subtitle, atLeast: 1)))
+        }
+        return blocks
     }
 
     /// The phone's MARK: the verb (or START LEG), the waypoint's name (two lines where it has two words),
@@ -1041,10 +1102,11 @@ struct ActLegTimer {
     }
 
     /// The leg time so far, against the planned one where there's room ("2:05 / 17:32"); paused, it says so.
+    /// No-break spaces: the two times and the pause mark stay on one line.
     func text(planned withPlanned: Bool) -> String {
         var text = Self.clock(elapsed)
-        if withPlanned, let planned { text += " / \(Self.clock(planned))" }
-        if !running { text += " ‖" }
+        if withPlanned, let planned { text += "\u{00A0}/\u{00A0}\(Self.clock(planned))" }
+        if !running { text += "\u{00A0}‖" }
         return text
     }
 
@@ -1065,8 +1127,8 @@ struct ActRoutesButton: View {
         let phone = CockpitScale.current == .phone
         CockpitThumbButton(title: L10n.Ground.planRoutes,
                            icon: phone ? nil : "point.topleft.down.to.point.bottomright.curvepath",
-                           style: .outlined(tint: theme.action), titleLines: phone ? 2 : 1,
-                           horizontalPadding: phone ? ActFace.inset : 14, fitted: phone) {
+                           style: .outlined(tint: theme.action), titleLines: 2,
+                           horizontalPadding: phone ? ActFace.inset : 14, fitted: true) {
             navState.showRoutes = true
         }
         .accessibilityIdentifier("act.routes")

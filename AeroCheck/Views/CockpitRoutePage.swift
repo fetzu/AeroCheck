@@ -520,6 +520,7 @@ struct CockpitRadioFollower: ViewModifier {
     @EnvironmentObject private var flightPlanManager: FlightPlanManager
     @EnvironmentObject private var airportDataService: AirportDataService
     @EnvironmentObject private var openAIPDataService: OpenAIPDataService
+    @EnvironmentObject private var companion: CompanionConnectivityManager
 
     /// What the lists are computed again for, besides a move.
     struct Key: Equatable {
@@ -560,6 +561,8 @@ struct CockpitRadioFollower: ViewModifier {
     }
 
     private func start() {
+        // The Companion iPhone's NOW and NEXT are these. (6.2.0)
+        companion.cockpitRadio = radio
         recompute()
         let airports = airportDataService
         let openAIP = openAIPDataService

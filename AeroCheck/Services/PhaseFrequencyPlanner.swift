@@ -315,11 +315,11 @@ extension PhaseFrequency {
 
 // MARK: - The Cockpit's radio
 
-/// The Cockpit's one source of frequencies: NOW and NEXT for the map and the read band, every station in
-/// the order of use for ROUTE, and the Watch's list. Recomputed on every page, CHECKLIST included, when
-/// the phase, the waypoint flown to or the diversion changes, when the airport or airspace data arrives,
-/// and when the aircraft moves 0.01° or more. Driven by `CockpitRadioFollower`; owned by `FlightView`.
-/// (6.2, ROUTE)
+/// The Cockpit's one source of frequencies: NOW and NEXT for the map, the read band and the Companion
+/// iPhone, every station in the order of use for ROUTE, and the Watch's list. Recomputed on every page,
+/// CHECKLIST included, when the phase, the waypoint flown to or the diversion changes, when the airport
+/// or airspace data arrives, and when the aircraft moves 0.01° or more. Driven by `CockpitRadioFollower`;
+/// owned by `FlightView`. (6.2, ROUTE)
 @MainActor
 @Observable
 final class CockpitRadio {

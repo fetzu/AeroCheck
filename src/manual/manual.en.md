@@ -489,7 +489,7 @@ In circuit mode, Cruise and Descent are skipped.
 
 **END FLIGHT** (the act band's second slot after At the Hangar, or in the Menu at any phase) asks first ("End Flight?"), then saves the flight to your logbook and stops the GPS recording. A followed flight then moves to its close-out ([Close](#close)); a circuit session offers a light close-out ([Circuit Mode](#circuit-mode)). If the track disagrees with the events you confirmed, a review follows ([Post-Flight Review](#post-flight-review)).
 
-To abandon a flight, touch and hold the registration in the header for 1.5 s, until the ring around the aircraft icon closes. **Abandon Flight** discards the flight without saving it; its GPS data is lost.
+To abandon a flight, touch and hold the registration in the header (on an iPhone, upright) for 1.5 s, until the ring around the aircraft icon closes. **Abandon Flight** discards the flight without saving it; its GPS data is lost.
 
 ---
 
@@ -635,8 +635,13 @@ The chart takes the page between the read band and the act band, with the iPad's
 
 ### The Phone on Its Side
 
-On its side, the phone shows two columns. On the left, the Cockpit's controls: the header, the phase button (the phase and its place, with the progress drawn inside it; a tap opens **Select Phase**), CHECKLIST · MAP · ROUTE, the strip, and the act band at the foot, where the thumb is: the first two slots side by side, the third over the fourth at half height. On the right, the page at full height. On MAP, the next waypoint takes one line at the top of the chart, the buttons and the status slot are under it, and NOW | NEXT run along its bottom on two lines; a tap on either opens ROUTE.
-<!-- TODO PR5: the column on the right, the act band two by two at its foot, the next line and the NOW line in the column -->
+On its side, the phone puts the page on the left, at full height (CHECKLIST, MAP or ROUTE; MAP is the same chart as upright, with the same buttons and status slot, and nothing over it), and everything else in a column on the right, whichever way the phone is turned. From top to bottom:
+
+- **One header row**: the phase button, with the phase bar drawn inside (a tap opens **Select Phase**), and **Menu**. The registration, the flight time and the GPS icon show upright only: a GPS problem shows in the strip's flags and in MAP's status slot, and abandoning a flight needs the phone upright.
+- **CHECKLIST · MAP · ROUTE**, a little more compact.
+- **The strip**: GS, ALT and TRK.
+- **The next waypoint and NOW, on one line**: the waypoint's name and its ETE, then NOW and its frequency (the name framed in amber while you divert). On the largest phones, two lines: the name with its distance and ETE, then the NOW line. A tap opens ROUTE.
+- **The act band**, its four slots two by two, at the foot of the column.
 
 ---
 

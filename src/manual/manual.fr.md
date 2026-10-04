@@ -489,7 +489,7 @@ En mode tours de piste, Croisière et Descente sont sautées.
 
 **TERMINER LE VOL** (la deuxième case de la barre d'actions après Au hangar, ou dans le Menu à n'importe quelle phase) demande d'abord (« Terminer le vol ? »), puis enregistre le vol dans votre carnet de vol et arrête l'enregistrement GPS. Un vol suivi passe alors à sa clôture ([Clôturer](#clôturer)) ; une séance de tours de piste propose une clôture allégée ([Mode tours de piste](#mode-tours-de-piste)). Si la trace contredit les événements que vous avez confirmés, une revue suit ([Revue post-vol](#revue-post-vol)).
 
-Pour abandonner un vol, faites un appui long de 1,5 s sur l'immatriculation dans l'en-tête, jusqu'à ce que l'anneau autour de l'icône d'avion se referme. **Abandonner le vol** efface le vol sans le sauvegarder ; ses données GPS sont perdues.
+Pour abandonner un vol, faites un appui long de 1,5 s sur l'immatriculation dans l'en-tête (sur un iPhone, en portrait), jusqu'à ce que l'anneau autour de l'icône d'avion se referme. **Abandonner le vol** efface le vol sans le sauvegarder ; ses données GPS sont perdues.
 
 ---
 
@@ -635,8 +635,13 @@ La carte occupe la page entre le bandeau de lecture et la barre d'actions, avec 
 
 ### Le téléphone à l'horizontale
 
-À l'horizontale, le téléphone affiche deux colonnes. À gauche, les commandes du cockpit : l'en-tête, le bouton de phase (la phase et sa place, avec la progression dessinée à l'intérieur ; un toucher ouvre **Sélectionner la phase**), CHECKLIST · CARTE · ROUTE, la bande, et la barre d'actions en bas, là où se trouve le pouce : les deux premières cases côte à côte, la troisième au-dessus de la quatrième, à mi-hauteur. À droite, la page sur toute la hauteur. Sur CARTE, le prochain point tient sur une ligne en haut de la carte, les boutons et l'emplacement d'état sont en dessous, et ACT | SUIV courent en bas, sur deux lignes ; un toucher sur l'une ou l'autre ouvre ROUTE.
-<!-- TODO PR5: the column on the right, the act band two by two at its foot, the next line and the NOW line in the column -->
+À l'horizontale, le téléphone place la page à gauche, sur toute la hauteur (CHECKLIST, CARTE ou ROUTE ; CARTE est la même carte qu'en portrait, avec les mêmes boutons et le même emplacement d'état, et rien par-dessus), et tout le reste dans une colonne à droite, quel que soit le sens dans lequel il est tourné. De haut en bas :
+
+- **Une seule ligne d'en-tête** : le bouton de phase, avec la barre de phases dessinée à l'intérieur (un toucher ouvre **Sélectionner la phase**), et **Menu**. L'immatriculation, le temps de vol et l'icône GPS ne s'affichent qu'en portrait : un problème de GPS se voit dans les drapeaux de la bande et dans l'emplacement d'état de CARTE, et abandonner un vol demande de remettre le téléphone en portrait.
+- **CHECKLIST · CARTE · ROUTE**, un peu plus compact.
+- **La bande** : GS, ALT et TRK.
+- **Le prochain point et ACT, sur une ligne** : le nom du point et son ETE, puis ACT et sa fréquence (le nom encadré d'ambre en déroutement). Sur les plus grands téléphones, deux lignes : le nom avec sa distance et son ETE, puis la ligne ACT. Un toucher ouvre ROUTE.
+- **La barre d'actions**, ses quatre cases deux par deux, au pied de la colonne.
 
 ---
 

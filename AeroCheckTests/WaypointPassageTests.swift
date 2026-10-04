@@ -407,4 +407,100 @@ final class WaypointPassageTests: XCTestCase {
             XCTAssertEqual(plan.currentWaypointIndex, 0)
         }
     }
+    // MARK: - In flight: the landing (6.2)
+
+    /// Fixes parked at `point`, a minute of them, from `start`: after the landing, on the field.
+    private func parked(at point: (lat: Double, lon: Double), from start: Date) -> [WaypointPassage.Fix] {
+        (1...6).map { WaypointPassage.Fix(time: start.addingTimeInterval(10 * Double($0)),
+                                          coordinate: .init(latitude: point.lat, longitude: point.lon), speed: 0) }
+    }
+
+    /// Landed at the route's end: at the next fix its time over is the landing, nothing is left to MARK
+    /// and the leg timer stands at the last leg's time, without an automatic-mark notice to take back.
+    /// A MARK over the field before the landing gives way to it, as at END FLIGHT. Until 6.2 the
+    /// destination waited for END FLIGHT, and MARK offered it on the ramp (ground replay, flight-12).
+    @MainActor
+    func testTheLandingAtTheRoutesEndIsItsTimeOverAndStopsTheLegTimer() throws {
+        for markedOverhead in [false, true] {
+            let manager = activePlan([(47.0, 7.0), (47.0, 7.3), (47.0, 7.6)])
+            let (gpsPipeline, appState) = trackingFlight(planManager: manager)
+            appState.lineUpTime = t0
+            manager.startChronometer()
+            let flown = track([(47.0, 7.0), (47.0, 7.6)])
+            fly(flown, through: gpsPipeline)
+            if markedOverhead {
+                manager.markWaypoint()
+                XCTAssertNotNil(manager.activeFlightPlan?.waypoints[2].actualTimeOver, "MARK over the field")
+            } else {
+                XCTAssertNil(manager.activeFlightPlan?.waypoints[2].actualTimeOver, "the destination waits for the landing")
+            }
+            let landing = try XCTUnwrap(flown.last?.time)
+            appState.recordFullStop(at: landing)
+            fly(Array(parked(at: (47.0, 7.6), from: landing).prefix(1)), through: gpsPipeline)
+
+            let plan = try XCTUnwrap(manager.activeFlightPlan)
+            XCTAssertEqual(plan.waypoints[2].actualTimeOver, landing, "overhead MARK \(markedOverhead): the landing")
+            XCTAssertEqual(plan.currentWaypointIndex, 3, "nothing left to MARK")
+            XCTAssertTrue(manager.isFlightPlanCompleted)
+            XCTAssertFalse(manager.isChronometerRunning, "the leg timer stopped")
+            if !markedOverhead {
+                let passed = try XCTUnwrap(plan.waypoints[1].actualTimeOver)
+                XCTAssertEqual(manager.chronometerElapsed, landing.timeIntervalSince(passed), accuracy: 1,
+                               "the last leg's time")
+            }
+            XCTAssertNotEqual(manager.autoMarkNotice?.waypointName, "WP2", "the landing is not a passage to take back")
+
+            // The minute on the field after it changes nothing more.
+            let timer = manager.legTimerSnapshot
+            fly(parked(at: (47.0, 7.6), from: landing), through: gpsPipeline)
+            XCTAssertEqual(manager.activeFlightPlan?.waypoints[2].actualTimeOver, landing)
+            XCTAssertEqual(manager.legTimerSnapshot, timer)
+        }
+    }
+
+    /// A full stop at a field on the way (a precautionary landing beside the second leg) ends nothing:
+    /// the destination keeps waiting, and the waypoints flown after the next take-off are still marked.
+    @MainActor
+    func testALandingOnTheWayEndsNothing() throws {
+        let manager = activePlan([(47.0, 7.0), (47.0, 7.3), (47.0, 7.6), (47.0, 7.9)])
+        let (gpsPipeline, appState) = trackingFlight(planManager: manager)
+        appState.lineUpTime = t0
+        let first = track([(47.0, 7.0), (47.0, 7.4)])
+        fly(first, through: gpsPipeline)
+        let landing = try XCTUnwrap(first.last?.time)
+        appState.recordFullStop(at: landing)
+        let stop = parked(at: (47.0, 7.4), from: landing)
+        fly(stop, through: gpsPipeline)
+        XCTAssertNil(manager.activeFlightPlan?.waypoints[3].actualTimeOver, "not the route's end")
+        XCTAssertEqual(manager.activeFlightPlan?.currentWaypointIndex, 2)
+
+        fly(track([(47.0, 7.4), (47.0, 7.75)], from: stop.last!.time.addingTimeInterval(10)), through: gpsPipeline)
+        let plan = try XCTUnwrap(manager.activeFlightPlan)
+        XCTAssertNotNil(plan.waypoints[2].actualTimeOver, "passed after the stop")
+        XCTAssertEqual(plan.currentWaypointIndex, 3)
+        XCTAssertNil(plan.waypoints[3].actualTimeOver)
+    }
+
+    /// The destination taken back after the landing (RESUME LEG on the last leg) is the pilot's to MARK:
+    /// the landing doesn't come back to it.
+    @MainActor
+    func testADestinationTakenBackAfterTheLandingIsLeftToMark() throws {
+        let manager = activePlan([(47.0, 7.0), (47.0, 7.3), (47.0, 7.6)])
+        let (gpsPipeline, appState) = trackingFlight(planManager: manager)
+        appState.lineUpTime = t0
+        let flown = track([(47.0, 7.0), (47.0, 7.6)])
+        fly(flown, through: gpsPipeline)
+        let landing = try XCTUnwrap(flown.last?.time)
+        appState.recordFullStop(at: landing)
+        let ground = parked(at: (47.0, 7.6), from: landing)
+        fly(Array(ground.prefix(1)), through: gpsPipeline)
+        XCTAssertEqual(manager.activeFlightPlan?.waypoints[2].actualTimeOver, landing)
+
+        manager.resumeLeg(at: 2)
+        fly(Array(ground.dropFirst()), through: gpsPipeline)
+        // A minute and more on: past the 15 s cadence, several runs.
+        fly(parked(at: (47.0, 7.6), from: ground.last!.time), through: gpsPipeline)
+        XCTAssertNil(manager.activeFlightPlan?.waypoints[2].actualTimeOver, "taken back: left to MARK")
+        XCTAssertEqual(manager.activeFlightPlan?.currentWaypointIndex, 2)
+    }
 }

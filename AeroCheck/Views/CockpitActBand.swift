@@ -225,6 +225,9 @@ struct ActFaceBlock: Hashable {
     var room: String? = nil
     var color: Color? = nil
     var opacity: Double = 1
+    /// Smaller on fewer lines rather than larger on more, as long as it stays at or over its floor: the
+    /// iPad's check name, "CRUISE CHECK" on one line at 21 pt rather than two at 25.
+    var prefersFewerLines = false
 
     var effectiveFloor: CGFloat { min(floor, size) }
 }
@@ -336,8 +339,8 @@ enum ActFace {
     }
 
     /// Each block's size: every way of giving the blocks their lines (one up to their most) is set, and
-    /// the best kept: the least under a floor (the most, then all), then the least shrunk, the largest,
-    /// the fewest lines.
+    /// the best kept: the least under a floor (the most, then all), the fewest lines where a block prefers
+    /// them, then the least shrunk, the largest, the fewest lines.
     private static func fittedSizes(_ blocks: [ActFaceBlock], width: CGFloat, height: CGFloat,
                                     spacing: CGFloat) -> [CGFloat] {
         let texts = blocks.map { $0.room ?? $0.text }
@@ -371,7 +374,8 @@ enum ActFace {
             }
             let under = blocks.indices.map { max(0, blocks[$0].effectiveFloor - sizes[$0]) }
             let shrunk = blocks.indices.map { sizes[$0] / blocks[$0].size }.min() ?? 1
-            let score = [-(under.max() ?? 0), -under.reduce(0, +), shrunk, sizes.reduce(0, +),
+            let fewer = blocks.indices.filter { blocks[$0].prefersFewerLines }.reduce(0) { $0 + lineCounts[$1] }
+            let score = [-(under.max() ?? 0), -under.reduce(0, +), -CGFloat(fewer), shrunk, sizes.reduce(0, +),
                          -CGFloat(lineCounts.reduce(0, +))]
             if let current = best, !better(score, than: current.score) { continue }
             best = (score, sizes)
@@ -393,12 +397,15 @@ enum ActFace {
             return set.count <= count && set.allSatisfy { self.width($0, size: size, block: block) <= width }
         }
         if fits(block.size) { return block.size }
-        var low: CGFloat = 1, high = block.size
-        for _ in 0..<14 {
+        // On the quarter-point grid, so a size that fits exactly (the floor) is found, not a hair under.
+        var low = 4, high = Int((block.size * 4).rounded(.down))
+        if fits(CGFloat(high) / 4) { return CGFloat(high) / 4 }
+        if !fits(CGFloat(low) / 4) { return CGFloat(low) / 4 }
+        while high - low > 1 {
             let middle = (low + high) / 2
-            if fits(middle) { low = middle } else { high = middle }
+            if fits(CGFloat(middle) / 4) { low = middle } else { high = middle }
         }
-        return (low * 4).rounded(.down) / 4
+        return CGFloat(low) / 4
     }
 
     /// Every pick of one value from each list.
@@ -409,10 +416,11 @@ enum ActFace {
     /// What a block's size depends on: its words for the room, its face, its limits; not its colour.
     private struct SizingKey: Hashable {
         let text: String, size: CGFloat, bold: Bool, monospaced: Bool, maxLines: Int, floor: CGFloat
+        let prefersFewerLines: Bool
         init(_ block: ActFaceBlock) {
             text = block.room ?? block.text
             size = block.size; bold = block.bold; monospaced = block.monospaced
-            maxLines = block.maxLines; floor = block.effectiveFloor
+            maxLines = block.maxLines; floor = block.effectiveFloor; prefersFewerLines = block.prefersFewerLines
         }
     }
 

@@ -250,30 +250,27 @@ final class CheckSlotTests: XCTestCase {
 
     // MARK: Its lines hold still
 
-    /// How many lines the second line may take, beside MARK, under FREDA's tick, on the phone. The room
-    /// it keeps within that is its state's (`CheckSlotLabelLayoutTests`). (6.1, stability)
+    /// The line under the name, beside MARK on the iPad and on the phone: its lines and size come from its
+    /// room, the state's at its widest, so FREDA counting down changes nothing; the letters keep their line
+    /// over the waypoint's. The room itself is `CheckSlotLabelLayoutTests`'. (6.1, stability; set by
+    /// `ActFace` since 6.2)
     func testTheSecondLineKeepsItsRoom() {
         let at = Date(timeIntervalSinceReferenceDate: 800_000_000)
         let counting = (1...10).map {
             CheckSlot.make(phase: .cruise, check: .list(open: 0), next: .descent,
                            freda: .counting(after: .cruiseCheck, at: at, minutesLeft: $0))
         }
-        // Beside MARK on the iPad, under FREDA's tick on two lines: one line, scaled a little more.
-        XCTAssertEqual(Set(counting.map { $0.lineLines(phone: false, prominent: false) }), [1])
-        XCTAssertEqual(counting[0].lineMinimumScale(phone: false, prominent: false), 0.7)
-        // The phone keeps two, its title and line both fitting its 92 pt.
-        XCTAssertEqual(Set(counting.map { $0.lineLines(phone: true, prominent: false) }), [2])
-
-        let owed = CheckSlot.make(phase: .climb, check: .memory(done: false), next: .cruise, timing: .owed, owedBy: .levelOff)
-        let due = CheckSlot.make(phase: .climb, check: .memory(done: false), next: .cruise)
-        XCTAssertEqual(owed.lineLines(phone: false, prominent: false), due.lineLines(phone: false, prominent: false),
-                       "the owed line coming changes nothing above it")
-        XCTAssertEqual(due.lineLines(phone: false, prominent: false), 2)
-        XCTAssertEqual(due.lineMinimumScale(phone: false, prominent: false), 0.8)
-        XCTAssertEqual(CheckSlot.make(phase: .cruise, check: .list(open: 0), next: .descent, freda: .due(waypoint: "LSGC"))
-                        .lineLines(phone: false, prominent: false), 2, "the letters over the waypoint")
-        XCTAssertEqual(due.lineLines(phone: false, prominent: true), 1, "the wide slot on the iPad")
-        XCTAssertEqual(due.lineLines(phone: true, prominent: true), 2)
+        for (scale, width) in [(CockpitScale.kneeboard, CGFloat(156)), (.phone, 84)] {
+            let height = CockpitType.size(kneeboard: 104, phone: 92, scale: scale) - 6
+            let settings = Set(counting.map { slot in
+                ActFace.set(CheckSlotLabel.blocks(slot, scale: scale), width: width, height: height, spacing: 2)
+                    .map { "\($0.roomLines) \($0.size)" }
+            })
+            XCTAssertEqual(settings.count, 1, "\(scale): \(settings)")
+        }
+        let due = CheckSlot.make(phase: .cruise, check: .list(open: 0), next: .descent, freda: .due(waypoint: "LSGC"))
+        let line = ActFace.set(CheckSlotLabel.blocks(due, scale: .kneeboard), width: 156, height: 98, spacing: 2).last
+        XCTAssertEqual(line?.lines, [L10n.Freda.flowCompact, "LSGC"], "the letters over the waypoint, on the iPad")
     }
 
     func testTheSlotTravelsToTheCompanion() throws {
@@ -380,7 +377,12 @@ final class CheckSlotLabelLayoutTests: XCTestCase {
 
     /// The phone's slot as `ActFace` sets it: its 92 pt less the border, 3 pt each side.
     private func phoneSetting(_ slot: CheckSlot, width: CGFloat = TextWidth.phoneSlot) -> [ActFace.Setting] {
-        ActFace.set(CheckSlotLabel.phoneBlocks(slot), width: width, height: 92 - 2 * 3, spacing: 2)
+        ActFace.set(CheckSlotLabel.blocks(slot, scale: .phone), width: width, height: 92 - 2 * 3, spacing: 2)
+    }
+
+    /// The iPad's, beside MARK: its 104 pt less the border.
+    private func iPadSetting(_ slot: CheckSlot, width: CGFloat = TextWidth.iPadSharedRow) -> [ActFace.Setting] {
+        ActFace.set(CheckSlotLabel.blocks(slot, scale: .kneeboard), width: width, height: 104 - 2 * 3, spacing: 2)
     }
 
     private let at = Date(timeIntervalSinceReferenceDate: 800_000_000)
@@ -406,29 +408,19 @@ final class CheckSlotLabelLayoutTests: XCTestCase {
     }
 
     func testTheNameAndItsLineFillTheBlockTheSlotCentres() {
-        // The device check: an iPad in portrait, cruise, the map with no route, the slot beside Routes.
+        // The device check: an iPad in portrait, cruise, the slot beside MARK. The face is set to fit
+        // (`ActFace`, 6.2), which centres the block in the slot: with nothing kept under the two lines,
+        // their middle is the slot's. With a second line kept empty, they sat about 12 pt above it.
         let slot = CheckSlot.make(phase: .cruise, check: .list(open: 5), next: .descent)
-        let ipad = CockpitType.label(for: .kneeboard)
-        let width = TextWidth.iPadSharedRow
-        let name = plain(slot.titleText(stacked: true), size: 25, weight: .bold, lines: 1, width: width, minimumScale: 0.6)
-        let line = plain(slot.lineText(stacked: true), size: ipad, weight: .medium, lines: 2, width: width, minimumScale: 0.8)
-        XCTAssertEqual(line, plain("A", size: ipad, weight: .medium, lines: 1, width: width), "\"5 items\" takes one line")
-        // The button centres the block in its 104 pt: with nothing under the two lines, their middle is
-        // the slot's. With a second line kept empty, they sat about 12 pt above it.
-        XCTAssertEqual(label(slot, .kneeboard, width: width), name + 4 + line, accuracy: 0.5)
-
-        // The iPad's landscape column.
-        let column = TextWidth.iPadColumn
-        XCTAssertEqual(label(slot, .kneeboard, width: column),
-                       plain(slot.titleText(stacked: true), size: 25, weight: .bold, lines: 1, width: column, minimumScale: 0.6)
-                       + 4 + plain(slot.lineText(stacked: true), size: ipad, weight: .medium, lines: 2, width: column,
-                                   minimumScale: 0.8),
-                       accuracy: 0.5)
-        // The phone's act band slot (6.2) sets them to fit it (`ActFace`), which centres them: no line kept
-        // empty under either.
-        for setting in phoneSetting(slot) {
-            XCTAssertEqual(setting.roomLines.count, setting.lines.count, "\(setting.lines)")
+        for settings in [iPadSetting(slot), iPadSetting(slot, width: TextWidth.iPadColumn), phoneSetting(slot)] {
+            for setting in settings {
+                XCTAssertEqual(setting.roomLines.count, setting.lines.count, "\(setting.lines)")
+            }
         }
+        let label = CockpitType.label(for: .kneeboard)
+        XCTAssertEqual(iPadSetting(slot).map(\.lines.count), [1, 1], "the name on one line, \"5 items\" on one")
+        XCTAssertGreaterThanOrEqual(iPadSetting(slot).first?.size ?? 0, label, "the name at the label size or over")
+        XCTAssertEqual(iPadSetting(slot).last?.size, label)
     }
 
     func testFredaCountingDownNeverMovesTheName() throws {
@@ -440,8 +432,10 @@ final class CheckSlotLabelLayoutTests: XCTestCase {
                 > plain(counting(9).lineText(narrow: true), size: size, weight: .medium, lines: 2, width: width)
         })
         for width in [width, TextWidth.iPadSharedRow, TextWidth.iPadColumn] {
-            let heights = Set((1...10).map { label(counting($0), .kneeboard, width: width) })
-            XCTAssertEqual(heights.count, 1, "at \(width) pt: \(heights)")
+            let settings = Set((1...10).map { minutes in
+                iPadSetting(counting(minutes), width: width).map { "\($0.roomLines) \($0.size)" }
+            })
+            XCTAssertEqual(settings.count, 1, "the iPad at \(width) pt: \(settings)")
         }
         // The phone's act band slot sets the name and its line by their room: the same lines at the same
         // size every minute. (6.2)
@@ -461,8 +455,10 @@ final class CheckSlotLabelLayoutTests: XCTestCase {
         calendar.timeZone = .current
         let morning = calendar.date(bySettingHour: 9, minute: 5, second: 0, of: at)!
         let afternoon = calendar.date(bySettingHour: 14, minute: 24, second: 0, of: at)!
-        XCTAssertEqual(label(counting(6, at: morning), .kneeboard, width: TextWidth.iPadSharedRow),
-                       label(counting(6, at: afternoon), .kneeboard, width: TextWidth.iPadSharedRow))
+        XCTAssertEqual(iPadSetting(counting(6, at: morning)).map(\.roomLines),
+                       iPadSetting(counting(6, at: afternoon)).map(\.roomLines), "the iPad")
+        XCTAssertEqual(iPadSetting(counting(6, at: morning)).map(\.size),
+                       iPadSetting(counting(6, at: afternoon)).map(\.size))
         XCTAssertEqual(phoneSetting(counting(6, at: morning)).map(\.roomLines),
                        phoneSetting(counting(6, at: afternoon)).map(\.roomLines), "the phone")
         XCTAssertEqual(phoneSetting(counting(6, at: morning)).map(\.size),
@@ -470,16 +466,13 @@ final class CheckSlotLabelLayoutTests: XCTestCase {
     }
 
     func testALineShrinkingToFitNeverMovesTheName() {
-        // Under FREDA's tick on the iPad the line has one line, and shrinks to fit a narrow slot ("FREDA
-        // dans 10 min" beside "Déroutement"): by as much for every minute, so the room holds.
-        let size = CockpitType.label(for: .kneeboard)
+        // Under FREDA's tick on the iPad, in a slot too narrow for its words at their size ("FREDA dans 10
+        // min" in 110 pt): set smaller, by as much for every minute, so the room holds.
         let narrow: CGFloat = 110
-        XCTAssertLessThan(plain(counting(10).lineText(stacked: true), size: size, weight: .medium, lines: 1,
-                                width: narrow, minimumScale: 0.7),
-                          plain(counting(10).lineText(stacked: true), size: size, weight: .medium, lines: 1,
-                                width: TextWidth.iPadColumn, minimumScale: 0.7),
+        let settings = (1...10).map { iPadSetting(counting($0), width: narrow) }
+        XCTAssertLessThan(settings[0].map(\.size).min() ?? 0, iPadSetting(counting(10), width: TextWidth.iPadColumn).map(\.size).min() ?? 0,
                           "it shrinks at \(narrow) pt")
-        XCTAssertEqual(Set((1...10).map { label(counting($0), .kneeboard, width: narrow) }).count, 1)
+        XCTAssertEqual(Set(settings.map { $0.map { "\($0.roomLines) \($0.size)" } }).count, 1)
     }
 
     func testANameTooLongForThePhonesSlotTakesLinesNotRoom() {
@@ -492,7 +485,7 @@ final class CheckSlotLabelLayoutTests: XCTestCase {
             for setting in settings {
                 XCTAssertEqual(setting.roomLines.count, setting.lines.count, "at \(width) pt: \(setting.lines)")
             }
-            let height = zip(CheckSlotLabel.phoneBlocks(slot), settings).reduce(CGFloat(2)) {
+            let height = zip(CheckSlotLabel.blocks(slot, scale: .phone), settings).reduce(CGFloat(2)) {
                 $0 + CGFloat($1.1.lines.count) * ActFace.lineHeight(size: $1.1.size, block: $1.0)
             }
             XCTAssertLessThanOrEqual(height, 92 - 6, "at \(width) pt")

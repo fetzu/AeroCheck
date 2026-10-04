@@ -234,28 +234,6 @@ extension CheckSlot {
         }
     }
 
-    /// Whether the title may take two lines: on the phone, and a stacked FREDA title. (6.1)
-    func titleWraps(phone: Bool, stacked: Bool) -> Bool {
-        phone || (stacked && title != .check)
-    }
-
-    /// How many lines the second line may take: two where the slot shares its row, one in the wide slot
-    /// on the iPad. One too under FREDA's tick on the iPad, which takes two lines itself ("CRUISE CHECK"
-    /// over "✓ 14:24"): four lines don't fit its 104 pt, and "FREDA in 10 min" scales a little to one
-    /// line. The room kept is what the state takes, up to that (`lineRoom`). (6.1, stability)
-    func lineLines(phone: Bool, prominent: Bool) -> Int {
-        if phone { return 2 }
-        if prominent { return 1 }
-        if case .fredaCountsFrom = title { return 1 }
-        return 2
-    }
-
-    /// How far the second line may shrink: a little, or a little more on the one line under FREDA's tick,
-    /// where "FREDA dans 10 min" needs about three quarters of its size beside "Déroutement".
-    func lineMinimumScale(phone: Bool, prominent: Bool) -> CGFloat {
-        !phone && !prominent && lineLines(phone: phone, prominent: prominent) == 1 ? 0.7 : 0.8
-    }
-
     /// The second line, as the button shows it: `narrow` (the phone's shared row) and `stacked` (the
     /// iPad's shared row) pick the line's shorter forms; under READY FOR LINE UP, "then LINE UP CHECK".
     func lineText(narrow: Bool = false, stacked: Bool = false) -> String {
@@ -484,49 +462,51 @@ struct CheckSlotLabel: View {
     var scale: CockpitScale = .current
 
     var body: some View {
-        let phone = scale == .phone
-        if phone && !prominent {
-            // The phone's act band slot, about 100 pt wide: the name and its line set to fit it, each on up
-            // to three lines, a number kept with its noun ("2 éléments"), nothing cut. Each sized by its
-            // room, so a value ticking moves nothing. (6.2)
-            ActFaceText(blocks: Self.phoneBlocks(slot, lineColor: lineColor), alignment: .leading)
+        if prominent {
+            wideLabel
         } else {
-            label(phone: phone)
+            // In the act band: the phone's slot, about 100 pt wide, and the iPad's beside MARK or the hold
+            // buttons (about 160 pt of text in portrait, 340 on its side). The name and its line set to fit
+            // it (`ActFace`): a number kept with its noun ("2 éléments"), nothing cut, never under the
+            // in-flight label size where the words fit at it. Each sized by its room, so a value ticking
+            // moves nothing. Left to SwiftUI, the phone's broke "2" from "éléments" and the iPad's cut "de
+            // mémoire · un appui quand c'est fait" after "c'est". (6.2)
+            ActFaceText(blocks: Self.blocks(slot, scale: scale, lineColor: lineColor), alignment: .leading)
         }
     }
 
-    /// The name, then its line, as the phone's slot sets them.
-    static func phoneBlocks(_ slot: CheckSlot, lineColor: Color? = nil) -> [ActFaceBlock] {
-        phoneBlocks(title: slot.titleText(stacked: true), titleRoom: slot.titleRoom(stacked: true),
-                    line: slot.lineText(narrow: true), lineRoom: slot.lineRoom(narrow: true), lineColor: lineColor)
+    /// The name, then its line, as the band's slot sets them on `scale`'s device: the phone's short line
+    /// (`CheckSlot.Line.shortText`), the iPad's whole one (`stackedText`).
+    static func blocks(_ slot: CheckSlot, scale: CockpitScale, lineColor: Color? = nil) -> [ActFaceBlock] {
+        let phone = scale == .phone
+        return blocks(title: slot.titleText(stacked: true), titleRoom: slot.titleRoom(stacked: true),
+                      line: slot.lineText(narrow: phone, stacked: !phone),
+                      lineRoom: slot.lineRoom(narrow: phone, stacked: !phone), scale: scale, lineColor: lineColor)
     }
 
-    static func phoneBlocks(title: String, titleRoom: String? = nil, line: String, lineRoom: String? = nil,
-                            lineColor: Color? = nil) -> [ActFaceBlock] {
-        [ActFaceBlock(text: title, size: CockpitType.size(kneeboard: 25, phone: 19, scale: .phone), maxLines: 3,
-                      room: titleRoom),
-         ActFaceBlock(text: line, size: CockpitType.label(for: .phone), bold: false, maxLines: 3, room: lineRoom,
-                      color: lineColor)]
+    /// The name at 19 pt on the phone (up to three lines), 25 on the iPad (up to two, one where it stays at
+    /// the label size or over: "CRUISE CHECK" on one line, as it was); the line at the label size, up to
+    /// three; neither under the label size where the words fit at it.
+    static func blocks(title: String, titleRoom: String? = nil, line: String, lineRoom: String? = nil,
+                       scale: CockpitScale, lineColor: Color? = nil) -> [ActFaceBlock] {
+        let label = CockpitType.label(for: scale)
+        return [ActFaceBlock(text: title, size: CockpitType.size(kneeboard: 25, phone: 19, scale: scale),
+                             maxLines: scale == .phone ? 3 : 2, floor: label, room: titleRoom,
+                             prefersFewerLines: scale != .phone),
+                ActFaceBlock(text: line, size: label, bold: false, maxLines: 3, floor: label, room: lineRoom,
+                             color: lineColor)]
     }
 
-    /// The iPad's, and the Companion iPhone's wide slot.
-    @ViewBuilder
-    private func label(phone: Bool) -> some View {
-        // The iPad's slot sharing its row (beside MARK, the landscape column): about 160 pt of text.
-        let stacked = !phone && !prominent
-        let titleFont = Font.aero(size: prominent ? CockpitType.button(for: scale)
-                                                  : CockpitType.size(kneeboard: 25, phone: 19, scale: scale),
-                                  weight: .bold)
-        let lineFont = Font.aero(size: CockpitType.label(for: scale), weight: .medium)
-        VStack(alignment: .leading, spacing: 4) {
-            Self.text(slot.titleText(stacked: stacked), room: slot.titleRoom(stacked: stacked),
-                      font: titleFont, lines: slot.titleWraps(phone: phone, stacked: stacked) ? 2 : 1,
-                      minimumScale: 0.6)
-            // Two lines where the slot shares the row (beside MARK, beside the hold buttons):
-            // "from memory · one tap when done" is the line that matters.
-            Self.text(slot.lineText(stacked: stacked), room: slot.lineRoom(stacked: stacked),
-                      font: lineFont, lines: slot.lineLines(phone: phone, prominent: prominent),
-                      minimumScale: slot.lineMinimumScale(phone: phone, prominent: prominent))
+    /// The Companion iPhone's wide slot (`prominent`): the name at the button size, its line under it, on
+    /// two lines each.
+    private var wideLabel: some View {
+        let phone = scale == .phone
+        let lines = phone ? 2 : 1
+        return VStack(alignment: .leading, spacing: 4) {
+            Self.text(slot.titleText(), room: slot.titleRoom(),
+                      font: .aero(size: CockpitType.button(for: scale), weight: .bold), lines: lines, minimumScale: 0.6)
+            Self.text(slot.lineText(), room: slot.lineRoom(), font: .aero(size: CockpitType.label(for: scale), weight: .medium),
+                      lines: lines, minimumScale: 0.8)
                 .foregroundColor(lineColor)
         }
     }

@@ -349,6 +349,33 @@ final class CockpitActBandTests: XCTestCase {
         XCTAssertGreaterThan(cases, 1_500)
     }
 
+    /// The iPad's check slot beside MARK or the hold buttons, in portrait and on its side, in English and
+    /// in French: every name over every line it can have, whole lines (the iPad's are the long ones, "from
+    /// memory · one tap when done"), set to fit as on the phone, never under 20 pt where the words fit at
+    /// it. On main before this the iPad left them to SwiftUI, which cut "de mémoire · un appui quand c'est
+    /// fait" after "c'est". (6.2)
+    func testTheIPadsCheckSlotWordsFitItsSlot() {
+        var cases = 0
+        for language in ["en", "fr"] {
+            for slot in Self.iPadCheckSlots {
+                for face in iPadCheckSlotFaces(language) {
+                    check(face, in: slot, language: language)
+                    cases += 1
+                }
+            }
+        }
+        XCTAssertGreaterThan(cases, 600)
+        // The line that was cut, whole.
+        let slot = Self.iPadCheckSlots[0]
+        let settings = ActFace.set(CheckSlotLabel.blocks(title: "MONTÉE", line: localizedString(key: "checkSlot.fromMemoryOneTap", language: "fr"),
+                                                         scale: .kneeboard),
+                                   width: slot.width, height: slot.height - 6, spacing: 2)
+        let words = (settings.last?.lines ?? []).joined(separator: " ").split(separator: " ")
+            .filter { $0 != "·" }.joined(separator: " ")
+        XCTAssertEqual(words, "de mémoire un appui quand c'est fait", "every word")
+        XCTAssertGreaterThanOrEqual(settings.last?.size ?? 0, 19, "about the label size")
+    }
+
     /// The lines as SwiftUI draws them: each on one line, as wide as `ActFace` measured it, so the face
     /// shows what was set (the narrowest phone, every face).
     func testSwiftUIDrawsEachLineAsSet() throws {
@@ -378,30 +405,68 @@ final class CockpitActBandTests: XCTestCase {
 
     // MARK: The phone's slots and faces
 
-    private struct PhoneSlot {
+    private struct BandSlot {
         let name: String
         let width: CGFloat
         let height: CGFloat
     }
 
     /// S1 and S2: on an iPhone 17e, 17 and 17 Pro Max in portrait, and in the column on its side.
-    private static var wideSlots: [PhoneSlot] {
-        let portrait = [("17e", CGFloat(390)), ("17", 402), ("17 Pro Max", 440)].map { name, screen -> PhoneSlot in
+    private static var wideSlots: [BandSlot] {
+        let portrait = [("17e", CGFloat(390)), ("17", 402), ("17 Pro Max", 440)].map { name, screen -> BandSlot in
             let frame = ActBandLayout.frames(width: screen - 24, metrics: .make(layout: .narrow, scale: .phone))[0]
-            return PhoneSlot(name: "iPhone \(name)", width: frame.width, height: frame.height)
+            return BandSlot(name: "iPhone \(name)", width: frame.width, height: frame.height)
         }
         let column = ActBandLayout.frames(width: FlightView.cockpitColumnWidth - 24,
                                           metrics: .make(layout: .columns, scale: .phone))[0]
-        return portrait + [PhoneSlot(name: "the column", width: column.width, height: column.height)]
+        return portrait + [BandSlot(name: "the column", width: column.width, height: column.height)]
     }
 
     /// S3: in portrait, and at half height on its side.
-    private static var narrowSlots: [PhoneSlot] {
+    private static var narrowSlots: [BandSlot] {
         let portrait = ActBandLayout.frames(width: 402 - 24, metrics: .make(layout: .narrow, scale: .phone))[2]
         let column = ActBandLayout.frames(width: FlightView.cockpitColumnWidth - 24,
                                           metrics: .make(layout: .columns, scale: .phone))[2]
-        return [PhoneSlot(name: "S3", width: portrait.width, height: portrait.height),
-                PhoneSlot(name: "S3 on its side", width: column.width, height: column.height)]
+        return [BandSlot(name: "S3", width: portrait.width, height: portrait.height),
+                BandSlot(name: "S3 on its side", width: column.width, height: column.height)]
+    }
+
+    /// The iPad's check slot text, beside MARK in portrait (820 pt) and on its side (1180): the slot less
+    /// its 22 pt each side, its icon (the widest it shows) and the 16 pt after it.
+    private static var iPadCheckSlots: [BandSlot] {
+        let icon = ["checkmark.circle", "list.bullet", "chevron.right.circle", "arrow.triangle.2.circlepath",
+                    "airplane.departure"].compactMap {
+            UIImage(systemName: $0, withConfiguration: UIImage.SymbolConfiguration(pointSize: 32, weight: .semibold))?.size.width
+        }.max() ?? 40
+        return [("portrait", CGFloat(820)), ("on its side", 1180)].map { name, screen in
+            let frame = ActBandLayout.frames(width: screen - 32, metrics: .make(layout: .wide, scale: .kneeboard))[0]
+            return BandSlot(name: "iPad \(name)", width: frame.width - 2 * 22 - icon - 16, height: frame.height)
+        }
+    }
+
+    /// Every name the iPad's check slot gives, over every line a check can have there, and the ones that go
+    /// together, as `CheckSlotLabel` builds them.
+    private func iPadCheckSlotFaces(_ language: String) -> [Face] {
+        func t(_ key: String) -> String { localizedString(key: key, language: language) }
+        let checks = Self.phases.map { t("phase.short.\($0)") }
+        let lines = [1, 2, 9, 10, 12].map { plural("%lld items", $0, language) }
+            + [1, 2, 12].map { plural("%lld items · nothing to press", $0, language) }
+            + ["checkSlot.fromMemoryOneTap", "checkSlot.fromMemoryNothingToPress", "checkSlot.nextCheck",
+               "cockpit.allChecked", "checkSlot.owedShort", "checkSlot.owed.takeoff", "checkSlot.owed.levelOff",
+               "checkSlot.owed.descent", "checkSlot.owed.approach", "checkSlot.owed.circuit"].map(t)
+        var pairs: [(String, String)] = []
+        for check in checks { pairs += lines.map { (check, $0) } }
+        pairs += [(t("phase.short.engineStart"), format("checkSlot.actionFirst", language, t("checklist.engineStart"))),
+                  (t("phase.short.shutdown"), format("checkSlot.actionFirst", language, t("checklist.engineShutdown"))),
+                  (t("checklist.readyForLineUp"), format("cockpit.thenCheck", language, t("phase.short.lineUp"))),
+                  (L10n.Freda.name, L10n.Freda.flowCompact),
+                  (L10n.Freda.name, "\(L10n.Freda.flowCompact)\nSAIGNELÉGIER"),
+                  (L10n.Freda.tickedStacked(t("phase.short.cruise"), "00:00"), format("freda.inMinutes", language, 10)),
+                  (L10n.Freda.tickedStacked(L10n.Freda.name, "00:00"), format("freda.inMinutes", language, 10))]
+        return pairs.map { title, line in
+            Face(name: "iPad check slot: \(title) / \(line)",
+                 blocks: CheckSlotLabel.blocks(title: title, line: line, scale: .kneeboard), inset: 0)
+        }
     }
 
     /// A slot's words as one of the band's views sets them, with its inset.
@@ -437,7 +502,7 @@ final class CockpitActBandTests: XCTestCase {
                   (L10n.Freda.tickedStacked(L10n.Freda.name, "00:00"), format("freda.inMinutes", language, 10))]
         for (title, line) in pairs {
             faces.append(Face(name: "check slot: \(title) / \(line)",
-                              blocks: CheckSlotLabel.phoneBlocks(title: title, line: line)))
+                              blocks: CheckSlotLabel.blocks(title: title, line: line, scale: .phone)))
         }
         // S2 on CHECKLIST: CHECK with every item of the bundled checklist, ✓ DONE, NEXT, READY FOR LINE UP,
         // END FLIGHT, as `ActChecklistPrimary` gives them.
@@ -475,6 +540,11 @@ final class CockpitActBandTests: XCTestCase {
                                   blocks: ActMarkButton.phoneBlocks(title: t("nav.mark"), name: name, time: time)))
             }
         }
+        // The Companion iPhone's MARK, under NAV in the same frames: the same face (6.2, #305).
+        for name in ["LSGC", "SAIGNELÉGIER", "COL DES MOSSES"] {
+            faces.append(Face(name: "Companion MARK \(name)",
+                              blocks: CompanionMarkSlot.phoneBlocks(title: t("nav.mark"), lines: [name, "12:34"])))
+        }
         let goAround = ActBandText.twoLines(t("checklist.goAround"))
         faces.append(Face(name: "GO AROUND held",
                           blocks: HoldToConfirmButton.fittedBlocks(title: goAround, titleLines: 2, showsHint: true,
@@ -493,7 +563,7 @@ final class CockpitActBandTests: XCTestCase {
                 Face(name: "TOUCH-AND-GO", blocks: circuits.fittedBlocks, inset: ActBandMetrics.narrowPadding(.phone))]
     }
 
-    private func check(_ face: Face, in slot: PhoneSlot, language: String) {
+    private func check(_ face: Face, in slot: BandSlot, language: String) {
         let room = slot.width - 2 * face.inset
         let height = slot.height - 2 * face.verticalInset
         let settings = ActFace.set(face.blocks, width: room, height: height, spacing: face.spacing)

@@ -100,7 +100,7 @@ Only if you send us an aircraft's checklist from [aerocheck.app/send](/send) (th
 
 The form is protected by Cloudflare Turnstile, which looks at your browser to tell a person from a robot, under [Cloudflare's Turnstile privacy addendum](https://www.cloudflare.com/turnstile-privacy-policy/); the server only checks Turnstile's answer.
 
-Who reads it: Julien Bono, who develops AéroCheck, reads the request and its files to transcribe the checklist, with the help of an AI model (Claude, by Anthropic, under [Anthropic's privacy policy](https://www.anthropic.com/legal/privacy)), which therefore processes the document. Each request is also tracked as an issue in a private GitHub repository: the registrations, the type, the club, your notes, the files' names and sizes, and, as comments, the club's answer and your proofreading message; never an e-mail address. What reaches the app is our transcription, never your file, your name or your address.
+Who reads it: Julien Bono, who develops AéroCheck, reads the request and its files to prepare the checklist for the app. Each request is also tracked as an issue in a private GitHub repository: the registrations, the type, the club, your notes, the files' names and sizes, and, as comments, the club's answer and your proofreading message; never an e-mail address. What reaches the app is the checklist, never your file, your name or your address.
 
 The e-mails about your request (received, a question, live) and the club's link go out through [Resend](https://resend.com/legal/privacy-policy), an e-mail service based in the United States, which receives the address, the message and the link to deliver them. Replies reach support@aerocheck.app.
 

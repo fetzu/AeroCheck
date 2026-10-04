@@ -56,6 +56,23 @@ final class GroundReplayTests: XCTestCase {
         XCTAssertEqual(location.timestamp, Date(timeIntervalSince1970: 5), "stamped with the replay's clock")
     }
 
+    // MARK: - The aerodromes
+
+    /// The replay's aerodromes stay through the store's later passes. Since 6.2.0 a pass rebuilds the
+    /// store from its backbone, and the launch's OpenAIP merge, run after the injection, emptied it again
+    /// on a fresh simulator: no field to anchor the take-off to, so the climb check showed due on the runway.
+    func testTheReplaysAerodromesSurviveTheStoresLaterPasses() async {
+        let store = makeTestAirportStore(openAIPAirports: makeTestOpenAIPAirportLayer { _ in [] })
+        let field = GroundReplayScenario.Aerodrome(ident: "LSZQ", name: nil, lat: 47.3949, lon: 7.0321,
+                                                  elev: 1880, type: "small_airport")
+        store.injectForReplay([GroundReplay.airport(field)])
+        await store.applyOpenAIPMergeIfAvailable()
+        await store.ensureLoaded()
+        let near = store.findNearestAirports(to: CLLocationCoordinate2D(latitude: 47.395, longitude: 7.032),
+                                             limit: 3, maxDistanceNm: 5, types: AirportType.fixedWing)
+        XCTAssertEqual(near.map(\.ident), ["LSZQ"], "the launch's merge and a later load keep the replay's field")
+    }
+
     func testTheReplayWaitsAtEachHoldUntilThePilotReleasesIt() {
         var cursor = GroundReplayCursor(duration: 600, holds: [
             .init(t: 0, condition: .engineStart),

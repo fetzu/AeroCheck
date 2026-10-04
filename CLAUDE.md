@@ -110,8 +110,9 @@ Owners and rules that aren't obvious from the names:
   until the column takes them.
 - Frequencies: the rules are `PhaseFrequencyPlanner` (`Services/PhaseFrequencyPlanner.swift`, pure:
   nearest 6 fields within 40 nm, the area FIS, CTRs within 25 nm). In flight `CockpitRadio` is the ONE
-  source (NOW/NEXT for the map, ROUTE's RADIO, the Watch's list), recomputed on every page by
-  `CockpitRadioFollower`; Plan › Map calls the planner itself and syncs the Watch only there.
+  source (NOW/NEXT for the map, ROUTE's RADIO, the Watch's list, the Companion iPhone's NOW line),
+  recomputed on every page by `CockpitRadioFollower`; Plan › Map calls the planner itself and syncs the
+  Watch only there.
 - `FlightLauncher` is the ONE flight-start sequence (buttons, widget, deep link): checklist load →
   entitlement / permission / active-flight guards → start → GPS. Never start a flight around it.
 - Waypoint ATOs come from the GPS track (`WaypointPassage`: abeam within 2.5 NM, forward only).
@@ -227,6 +228,10 @@ Watch ≠ Companion, two separate stacks: the Watch app uses WatchConnectivity
 (`Services/WatchConnectivityManager.swift` ↔ `AeroCheckWatch/`, models in
 `Shared/WatchConnectivityData.swift`); Companion mode pairs iPad (master) and iPhone (viewer) over Wi-Fi
 Aware (`CompanionConnectivityManager`, `Views/Companion*`, `Shared/CompanionConnectivityData.swift`).
+The phone's NAV screen is the phone Cockpit's ROUTE and act band drawn from the iPad's stream
+(`CompanionNavScreen.swift`): the plan is rebuilt from its snapshot (`FlightPlan(companion:)`) so the
+DEST line, the legs and the next line read through the iPad's own rules; a new figure the phone needs
+goes on the wire as an optional field the older build ignores.
 
 ## iOS 17 target, newer SDK
 

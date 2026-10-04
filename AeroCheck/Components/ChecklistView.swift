@@ -17,8 +17,16 @@ struct TimestampActionButton: View {
     var compact: Bool = false
     /// The Cockpit's thumb bar: at least this tall, label at the row size. (v6.0 · P2)
     var minHeight: CGFloat? = nil
+    /// The act band's first slot on the phone, about 100 pt wide: the title set to fit it on two lines
+    /// (`ActFace`), no icon. On one line beside the icon, "DÉMARRAGE MOTEUR" was cut to "DÉ…". (6.2)
+    var fitted = false
     let onFirstPress: () -> Void
     let onUpdateTime: () -> Void
+
+    /// The title as the phone's slot sets it: at the row size, on up to two lines.
+    static func fittedBlocks(title: String) -> [ActFaceBlock] {
+        [ActFaceBlock(text: title, size: CockpitType.size(kneeboard: 24, phone: 20, scale: .phone), maxLines: 2)]
+    }
 
     @State private var isPressed = false
     @State private var showUpdateConfirmation = false
@@ -39,18 +47,24 @@ struct TimestampActionButton: View {
     var body: some View {
         VStack(spacing: compact ? 0 : 8) {
             // The button — black text on the colour, matching the NEXT button. (v4 UI/UX Revamp)
-            HStack {
-                Image(systemName: icon)
-                Text(title)
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.6)
+            Group {
+                if fitted {
+                    ActFaceText(blocks: Self.fittedBlocks(title: title))
+                } else {
+                    HStack {
+                        Image(systemName: icon)
+                        Text(title)
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.6)
+                    }
+                }
             }
             .font(.aero(size: minHeight != nil ? CockpitType.row : (compact ? 20 : 18), weight: .bold))
             .foregroundColor(compact ? .black : .white)
             // Compact = HUD bottom bar: fill width + match NEXT's vertical padding so the heights are
             // identical; the title shrinks (one line) rather than wrapping when the row is tight.
             .frame(maxWidth: compact ? .infinity : nil)
-            .padding(.horizontal, compact ? (minHeight != nil ? 10 : 0) : 24)
+            .padding(.horizontal, fitted ? ActFace.inset : compact ? (minHeight != nil ? 10 : 0) : 24)
             .padding(.vertical, minHeight != nil ? 0 : (compact ? 18 : 14))
             .frame(minHeight: minHeight)
             .background(

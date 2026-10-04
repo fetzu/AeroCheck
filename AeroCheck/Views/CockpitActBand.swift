@@ -206,6 +206,285 @@ enum ActBandText {
     }
 }
 
+// MARK: - Words set in a slot, on the phone
+
+/// One block of a slot's words on the phone (the check, the item, the waypoint, the leg time): what it
+/// says, how it is set, and how far it may go.
+struct ActFaceBlock: Hashable {
+    var text: String
+    var size: CGFloat
+    var bold = true
+    var monospaced = false
+    /// The most lines it may take.
+    var maxLines = 2
+    /// The smallest size it is set at, unless one of its words alone is wider than the slot: the
+    /// in-flight label size, or `size` where that is smaller.
+    var floor: CGFloat = CockpitType.label(for: .phone)
+    /// The words it keeps room for, where they are wider than `text`: a value at its widest ("FREDA in 10
+    /// min", "0:00"), so the value ticking never moves a line.
+    var room: String? = nil
+    var color: Color? = nil
+    var opacity: Double = 1
+
+    var effectiveFloor: CGFloat { min(floor, size) }
+}
+
+/// How the phone's act band sets its words, in slots of about 100 × 92 pt. Each block on lines of its
+/// own, broken between words and never inside one: a no-break space keeps a number with its noun ("2
+/// éléments"), a French colon stays with its word, and a separator ("·", "-") is never at either end of
+/// a line: where the words break at it, the break takes its place. A block takes another line before it
+/// gets smaller; the blocks shrink, the largest first, as far as the slot's height asks, down to the
+/// in-flight label size; under it only where a single word is wider than the slot, and then as large as
+/// that word fits. Nothing is cut. Pure, so every role's words are tested in both languages at every
+/// phone's width. Until 6.2 each face left this to SwiftUI: "LSGC ·" over "1:42", "2" over "éléments",
+/// "SAIGNELÉGI" over "ER", "DÉ…". (6.2)
+enum ActFace {
+    /// A block as set: its lines, the lines its room takes, its size.
+    struct Setting: Equatable {
+        var lines: [String]
+        var roomLines: [String]
+        var size: CGFloat
+    }
+
+    /// Words that only separate others: never at either end of a line.
+    static let separators: Set<Character> = ["·", "-", "–", "—", "|", "/"]
+    /// What French sets after a space and keeps with the word before it.
+    static let trailingPunctuation: Set<Character> = [":", ";", "!", "?"]
+    /// The words' inset from the edges of S1 and S2 on the phone: 5 pt clear of the check slot's 3 pt
+    /// amber border. S3 and S4 keep `ActBandMetrics.narrowPadding()`, where "Dérouter" needs the room.
+    static let inset: CGFloat = 8
+
+    /// `blocks`, one under the other, `spacing` apart, in `width` × `height`.
+    static func set(_ blocks: [ActFaceBlock], width: CGFloat, height: CGFloat, spacing: CGFloat) -> [Setting] {
+        let key = Key(blocks: blocks.map { SizingKey($0) }, width: width, height: height, spacing: spacing)
+        let sizes = cache.withLock { $0[key] } ?? {
+            let sizes = fittedSizes(blocks, width: width, height: height, spacing: spacing)
+            cache.withLock { cache in
+                if cache.count > 512 { cache.removeAll() }
+                cache[key] = sizes
+            }
+            return sizes
+        }()
+        return zip(blocks, sizes).map { block, size in
+            Setting(lines: lines(block.text, size: size, block: block, width: width),
+                    roomLines: lines(block.room ?? block.text, size: size, block: block, width: width), size: size)
+        }
+    }
+
+    /// `text` on lines no wider than `width` at `size`, broken between words; "\n" breaks too.
+    static func lines(_ text: String, size: CGFloat, block: ActFaceBlock, width: CGFloat) -> [String] {
+        var lines: [String] = []
+        for paragraph in text.split(separator: "\n", omittingEmptySubsequences: false) {
+            var line = ""
+            var separator: String?
+            for word in words(paragraph) {
+                if word.isSeparator {
+                    // Kept between two words of a line, dropped where the line breaks.
+                    if !line.isEmpty { separator = word.text }
+                    continue
+                }
+                let joined = [line, separator, word.text].compactMap { $0 }.filter { !$0.isEmpty }.joined(separator: " ")
+                if line.isEmpty || self.width(joined, size: size, block: block) <= width {
+                    line = joined
+                } else {
+                    lines.append(line)
+                    line = word.text
+                }
+                separator = nil
+            }
+            lines.append(line)
+        }
+        return lines
+    }
+
+    static func width(_ text: String, size: CGFloat, block: ActFaceBlock) -> CGFloat {
+        (text as NSString).size(withAttributes: [.font: font(size: size, block: block)]).width
+    }
+
+    static func lineHeight(size: CGFloat, block: ActFaceBlock) -> CGFloat {
+        font(size: size, block: block).lineHeight
+    }
+
+    private static func font(size: CGFloat, block: ActFaceBlock) -> UIFont {
+        UIFont.aero(size: size, weight: block.bold ? .bold : .regular, monospaced: block.monospaced)
+    }
+
+    /// The runs of a text that a line never breaks, separators aside ("2 éléments", "SUIVANT :").
+    static func unbreakable(_ text: String) -> [String] {
+        text.split(separator: "\n", omittingEmptySubsequences: false)
+            .flatMap { words($0).filter { !$0.isSeparator }.map(\.text) }
+    }
+
+    private struct Word {
+        var text: String
+        var isSeparator: Bool
+    }
+
+    /// The words of a paragraph, as a line keeps them together: split at the spaces (not the no-break
+    /// ones), a French colon joined to the word before it.
+    private static func words(_ paragraph: Substring) -> [Word] {
+        var words: [Word] = []
+        for part in paragraph.split(separator: " ") {
+            let text = String(part)
+            if text.allSatisfy({ trailingPunctuation.contains($0) }), let last = words.last, !last.isSeparator {
+                words[words.count - 1].text += "\u{00A0}" + text
+            } else {
+                words.append(Word(text: text, isSeparator: text.allSatisfy { separators.contains($0) }))
+            }
+        }
+        return words
+    }
+
+    /// Each block's size: every way of giving the blocks their lines (one up to their most) is set, and
+    /// the best kept: the least under a floor (the most, then all), then the least shrunk, the largest,
+    /// the fewest lines.
+    private static func fittedSizes(_ blocks: [ActFaceBlock], width: CGFloat, height: CGFloat,
+                                    spacing: CGFloat) -> [CGFloat] {
+        let texts = blocks.map { $0.room ?? $0.text }
+        let choices = blocks.indices.map { i -> [Int] in
+            let paragraphs = texts[i].split(separator: "\n", omittingEmptySubsequences: false).count
+            return Array(paragraphs...max(paragraphs, blocks[i].maxLines))
+        }
+        var best: (score: [CGFloat], sizes: [CGFloat])?
+        for counts in combinations(choices) {
+            var sizes = blocks.indices.map { largestSize(blocks[$0], text: texts[$0], lines: counts[$0], width: width) }
+            func lineCount(_ i: Int) -> Int { lines(texts[i], size: sizes[i], block: blocks[i], width: width).count }
+            var lineCounts = blocks.indices.map(lineCount)
+            func setHeight() -> CGFloat {
+                blocks.indices.reduce(spacing * CGFloat(max(0, blocks.count - 1))) { total, i in
+                    total + CGFloat(lineCounts[i]) * lineHeight(size: sizes[i], block: blocks[i])
+                }
+            }
+            // Too tall: the largest block above its floor gives a quarter point, then, all at their floors,
+            // every block does.
+            var steps = 0
+            while setHeight() > height + 0.01, steps < 400 {
+                steps += 1
+                let above = blocks.indices.filter { sizes[$0] > blocks[$0].effectiveFloor + 0.001 }
+                if let i = above.max(by: { sizes[$0] < sizes[$1] || (sizes[$0] == sizes[$1] && $0 < $1) }) {
+                    sizes[i] = max(blocks[i].effectiveFloor, sizes[i] - 0.25)
+                    lineCounts[i] = lineCount(i)
+                } else {
+                    sizes = sizes.map { max(1, $0 - 0.25) }
+                    lineCounts = blocks.indices.map(lineCount)
+                }
+            }
+            let under = blocks.indices.map { max(0, blocks[$0].effectiveFloor - sizes[$0]) }
+            let shrunk = blocks.indices.map { sizes[$0] / blocks[$0].size }.min() ?? 1
+            let score = [-(under.max() ?? 0), -under.reduce(0, +), shrunk, sizes.reduce(0, +),
+                         -CGFloat(lineCounts.reduce(0, +))]
+            if let current = best, !better(score, than: current.score) { continue }
+            best = (score, sizes)
+        }
+        return best?.sizes ?? blocks.map(\.size)
+    }
+
+    /// `a` before `b`, comparing in order, a hair counting as equal.
+    private static func better(_ a: [CGFloat], than b: [CGFloat]) -> Bool {
+        for (x, y) in zip(a, b) where abs(x - y) > 0.0001 { return x > y }
+        return false
+    }
+
+    /// The largest size, up to the block's, at which `text` takes at most `lines` lines with none wider
+    /// than `width`; a quarter point at a time.
+    private static func largestSize(_ block: ActFaceBlock, text: String, lines count: Int, width: CGFloat) -> CGFloat {
+        func fits(_ size: CGFloat) -> Bool {
+            let set = lines(text, size: size, block: block, width: width)
+            return set.count <= count && set.allSatisfy { self.width($0, size: size, block: block) <= width }
+        }
+        if fits(block.size) { return block.size }
+        var low: CGFloat = 1, high = block.size
+        for _ in 0..<14 {
+            let middle = (low + high) / 2
+            if fits(middle) { low = middle } else { high = middle }
+        }
+        return (low * 4).rounded(.down) / 4
+    }
+
+    /// Every pick of one value from each list.
+    private static func combinations(_ lists: [[Int]]) -> [[Int]] {
+        lists.reduce([[]]) { partial, list in partial.flatMap { prefix in list.map { prefix + [$0] } } }
+    }
+
+    /// What a block's size depends on: its words for the room, its face, its limits; not its colour.
+    private struct SizingKey: Hashable {
+        let text: String, size: CGFloat, bold: Bool, monospaced: Bool, maxLines: Int, floor: CGFloat
+        init(_ block: ActFaceBlock) {
+            text = block.room ?? block.text
+            size = block.size; bold = block.bold; monospaced = block.monospaced
+            maxLines = block.maxLines; floor = block.effectiveFloor
+        }
+    }
+
+    private struct Key: Hashable {
+        let blocks: [SizingKey]
+        let width: CGFloat, height: CGFloat, spacing: CGFloat
+    }
+
+    /// The sizes, once a slot and its words: MARK's face is set again every second.
+    private static let cache = OSAllocatedUnfairLock<[Key: [CGFloat]]>(initialState: [:])
+}
+
+/// A slot's words on the phone, as `ActFace` sets them in the room the slot leaves: each line a text of
+/// its own, so nothing on screen wraps, shrinks or is cut but as set. VoiceOver reads the words once,
+/// whole. Fills the slot; the slot's padding is its inset.
+struct ActFaceText: View {
+    let blocks: [ActFaceBlock]
+    var spacing: CGFloat = 2
+    var alignment: HorizontalAlignment = .center
+    /// Kept clear above and below, inside the slot: its border's width. B612's line keeps room above its
+    /// capitals for the accents, so they sit further in. With 2 pt between blocks, four lines at 17 pt
+    /// fit the phone's 92 pt.
+    var verticalInset: CGFloat = 3
+
+    var body: some View {
+        GeometryReader { proxy in
+            let settings = ActFace.set(blocks, width: proxy.size.width,
+                                       height: max(0, proxy.size.height - 2 * verticalInset), spacing: spacing)
+            VStack(alignment: alignment, spacing: spacing) {
+                ForEach(Array(zip(blocks, settings).enumerated()), id: \.offset) { _, pair in
+                    block(pair.0, pair.1)
+                }
+            }
+            .frame(width: proxy.size.width, height: proxy.size.height,
+                   alignment: Alignment(horizontal: alignment, vertical: .center))
+        }
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(Text(verbatim: spokenText))
+    }
+
+    private var spokenText: String {
+        blocks.map { $0.text.replacingOccurrences(of: "\n", with: " ") }.filter { !$0.isEmpty }.joined(separator: ", ")
+    }
+
+    @ViewBuilder
+    private func block(_ block: ActFaceBlock, _ setting: ActFace.Setting) -> some View {
+        let lines = ZStack(alignment: Alignment(horizontal: alignment, vertical: .top)) {
+            column(setting.roomLines, block, setting.size).hidden()
+            column(setting.lines, block, setting.size)
+        }
+        .opacity(block.opacity)
+        if let color = block.color {
+            lines.foregroundColor(color)
+        } else {
+            lines
+        }
+    }
+
+    private func column(_ lines: [String], _ block: ActFaceBlock, _ size: CGFloat) -> some View {
+        VStack(alignment: alignment, spacing: 0) {
+            ForEach(Array(lines.enumerated()), id: \.offset) { _, line in
+                Text(verbatim: line)
+                    .font(.aero(size: size, weight: block.bold ? .bold : .regular,
+                                design: block.monospaced ? .monospaced : nil))
+                    .lineLimit(1)
+                    // Set to fit already: this only takes up a rounding.
+                    .minimumScaleFactor(0.9)
+            }
+        }
+    }
+}
+
 // MARK: - What the band owns
 
 /// What the map's thumb bar owned and the band does now, for every page: the last MARK or leg-timer
@@ -510,23 +789,30 @@ struct ActChecklistPrimary: View {
     var body: some View {
         let phone = CockpitScale.current == .phone
         let filled = CockpitThumbButton.Style.filled(fill: theme.action, text: theme.actionText)
+        // On the phone the slot is about 100 pt wide: the words set to fit it (`ActFace`), a title on up to
+        // three lines, the line under it on up to three.
+        let lines = phone ? 3 : 2
+        let padding = phone ? ActFace.inset : 14
         if appState.currentCheckAwaitsConfirmation {
             let next = appState.memoryConfirmationMovesTo
+            // The phone: "from memory" alone. "NEXT: CRUISE CHECK · from memory" took four lines there, and
+            // was cut after "NEXT:"; the iPad keeps it whole.
+            let subtitle = phone ? L10n.Cockpit.fromMemory
+                                 : next.map { L10n.Cockpit.fromMemoryThenNext($0.shortTitle) } ?? L10n.Cockpit.fromMemory
             CockpitThumbButton(title: L10n.Cockpit.memoryCheckDone(appState.currentPhase.shortTitle),
-                               subtitle: next.map { L10n.Cockpit.fromMemoryThenNext($0.shortTitle) } ?? L10n.Cockpit.fromMemory,
-                               icon: phone ? nil : "checkmark", style: filled, titleLines: 2,
-                               horizontalPadding: phone ? 8 : 14, action: actions.memoryDone)
+                               subtitle: subtitle, icon: phone ? nil : "checkmark", style: filled, titleLines: lines,
+                               subtitleLines: phone ? 2 : 1, horizontalPadding: padding, fitted: phone,
+                               action: actions.memoryDone)
                 .accessibilityIdentifier("cockpit.memoryDone")
         } else if !appState.currentCheckIsDone {
-            // The item under CHECK, on two lines: on the phone the slot is about 100 pt wide.
             CockpitThumbButton(title: L10n.Cockpit.check, subtitle: currentItemChallenge,
-                               icon: phone ? nil : "checkmark", style: filled, subtitleLines: 2,
-                               horizontalPadding: phone ? 8 : 14, action: actions.check)
+                               icon: phone ? nil : "checkmark", style: filled, subtitleLines: lines,
+                               horizontalPadding: padding, fitted: phone, action: actions.check)
                 .accessibilityIdentifier("cockpit.check")
         } else if appState.isLastPhase {
             CockpitThumbButton(title: L10n.Button.endFlight, icon: phone ? nil : "flag.checkered",
-                               style: .filled(fill: theme.danger, text: .white), titleLines: 2,
-                               horizontalPadding: phone ? 8 : 14, action: actions.endFlight)
+                               style: .filled(fill: theme.danger, text: .white), titleLines: lines,
+                               horizontalPadding: padding, fitted: phone, action: actions.endFlight)
                 .accessibilityIdentifier("cockpit.endFlight")
         } else {
             let label = CockpitNextLabel(
@@ -534,7 +820,8 @@ struct ActChecklistPrimary: View {
                 to: appState.currentPhase.nextNavigable(circuitMode: appState.isCircuitMode),
                 deferred: appState.currentPhaseDeferredIds.count)
             CockpitThumbButton(title: label.title, subtitle: label.subtitle, icon: phone ? nil : label.icon,
-                               style: filled, titleLines: 2, horizontalPadding: phone ? 8 : 14, action: actions.next)
+                               style: filled, titleLines: lines, subtitleLines: phone ? 2 : 1, horizontalPadding: padding,
+                               fitted: phone, action: actions.next)
                 .accessibilityIdentifier("cockpit.next")
                 .accessibilityHint(label.accessibilityHint ?? "")
                 .modifier(PulseModifier(isActive: actions.nextReady))
@@ -568,6 +855,7 @@ struct ActPhaseActionButton: View {
                 timestamp: appState.formattedEngineShutdownTime,
                 timestampLabel: L10n.ChecklistAction.shutdown(language: language),
                 isPulsing: actions.pulseAction, compact: true, minHeight: CockpitTarget.thumb,
+                fitted: CockpitScale.current == .phone,
                 onFirstPress: actions.engineShutdown, onUpdateTime: actions.engineShutdownUpdate)
             .accessibilityIdentifier("cockpit.engineShutdown")
         } else {
@@ -577,6 +865,7 @@ struct ActPhaseActionButton: View {
                 timestamp: appState.formattedEngineStartTime,
                 timestampLabel: L10n.ChecklistAction.started(language: language),
                 isPulsing: actions.pulseAction, compact: true, minHeight: CockpitTarget.thumb,
+                fitted: CockpitScale.current == .phone,
                 onFirstPress: actions.engineStart, onUpdateTime: actions.engineStartUpdate)
             .accessibilityIdentifier("cockpit.engineStart")
         }
@@ -586,8 +875,9 @@ struct ActPhaseActionButton: View {
 // MARK: - The map's slots
 
 /// START LEG before the timer runs, then MARK named after the waypoint, with the leg timer under it:
-/// "LEG 2:05 / 17:32" on the iPad, "LSGC · 2:05" under MARK on the phone. The route flown, MARK keeps
-/// its place, dimmed. The one-second clock is this view's alone. (6.1, mockup M2)
+/// "LEG 2:05 / 17:32" on the iPad; on the phone MARK, the waypoint and the leg's time each on a line of
+/// its own. The route flown, MARK keeps its place, dimmed. The one-second clock is this view's alone.
+/// (6.1, mockup M2)
 struct ActMarkButton: View {
     @EnvironmentObject private var flightPlanManager: FlightPlanManager
     @Environment(CockpitNavState.self) private var navState
@@ -619,9 +909,11 @@ struct ActMarkButton: View {
         } else {
             let name = plan.waypoints[plan.currentWaypointIndex].name
             if CockpitScale.current == .phone {
-                // The phone: the waypoint under MARK, where "MARK LSGC" on one line had to shrink.
-                let parts = [name.isEmpty ? nil : name, leg.text(planned: false)].compactMap { $0 }
-                primary(icon: "mappin.and.ellipse", title: L10n.Nav.mark, subtitle: parts.joined(separator: " · ")) {
+                // The phone: the waypoint under MARK, where "MARK LSGC" on one line had to shrink, and the
+                // leg's time under it. Joined, "LSGC · 1:42" broke where it liked: "LSGC ·" over "1:42",
+                // "SAIGNELÉGI" over "ER · 1:55". (6.2)
+                primary(icon: "mappin.and.ellipse", title: L10n.Nav.mark, subtitle: nil,
+                        details: [name, leg.text(planned: false)]) {
                     navState.markWaypoint(in: flightPlanManager, animated: !reduceMotion)
                 }
                 .accessibilityIdentifier("map.mark")
@@ -635,39 +927,60 @@ struct ActMarkButton: View {
         }
     }
 
-    private func primary(icon: String, title: String, subtitle: String?, action: @escaping () -> Void) -> some View {
-        Button(action: action) { face(icon: icon, title: title, subtitle: subtitle) }
+    /// `details`: the phone's waypoint and leg time, under the title.
+    private func primary(icon: String, title: String, subtitle: String?, details: [String] = [],
+                         action: @escaping () -> Void) -> some View {
+        Button(action: action) { face(icon: icon, title: title, subtitle: subtitle, details: details) }
             .buttonStyle(.plain)
-            .accessibilityLabel(subtitle.map { "\(title) \($0)" } ?? title)
+            .accessibilityLabel(([title, subtitle].compactMap { $0 } + details).filter { !$0.isEmpty }.joined(separator: " "))
     }
 
-    /// The name on two lines where it runs long ("MARK" over "SAIGNELEGIER"), the leg's time on one.
-    private func face(icon: String, title: String, subtitle: String?) -> some View {
+    /// The iPad: the name on two lines where it runs long ("MARK" over "SAIGNELEGIER"), the leg's time on
+    /// one. The phone: set to fit its slot (`ActFace`).
+    private func face(icon: String, title: String, subtitle: String?, details: [String] = []) -> some View {
         let phone = CockpitScale.current == .phone
-        return VStack(spacing: 2) {
-            HStack(spacing: CockpitType.size(kneeboard: 12, phone: 8)) {
-                if !phone {
-                    Image(systemName: icon).font(.aero(size: CockpitType.button, weight: .bold))
+        return Group {
+            if phone {
+                ActFaceText(blocks: Self.phoneBlocks(title: title, name: details.first, time: details.dropFirst().first))
+            } else {
+                VStack(spacing: 2) {
+                    HStack(spacing: CockpitType.size(kneeboard: 12, phone: 8)) {
+                        Image(systemName: icon).font(.aero(size: CockpitType.button, weight: .bold))
+                        Text(title)
+                            .font(.aero(size: CockpitType.button, weight: .bold))
+                            .multilineTextAlignment(.center)
+                            .lineLimit(2)
+                            .minimumScaleFactor(0.6)
+                    }
+                    if let subtitle {
+                        Text(subtitle)
+                            .font(.aero(size: CockpitType.label, weight: .semibold, design: .monospaced))
+                            .multilineTextAlignment(.center)
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.7)
+                    }
                 }
-                Text(title)
-                    .font(.aero(size: CockpitType.button, weight: .bold))
-                    .multilineTextAlignment(.center)
-                    .lineLimit(2)
-                    .minimumScaleFactor(0.6)
-            }
-            if let subtitle {
-                Text(subtitle)
-                    .font(.aero(size: CockpitType.label, weight: .semibold, design: .monospaced))
-                    .multilineTextAlignment(.center)
-                    .lineLimit(phone ? 2 : 1)
-                    .minimumScaleFactor(0.7)
             }
         }
         .foregroundColor(theme.actionText)
-        .padding(.horizontal, CockpitType.size(kneeboard: 16, phone: 8))
+        .padding(.horizontal, CockpitType.size(kneeboard: 16, phone: ActFace.inset))
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(RoundedRectangle(cornerRadius: 18).fill(theme.action))
         .contentShape(Rectangle())
+    }
+
+    /// The phone's MARK: the verb (or START LEG), the waypoint's name (two lines where it has two words),
+    /// the leg's time in figures that keep their place ("0:00" its room).
+    static func phoneBlocks(title: String, name: String?, time: String?) -> [ActFaceBlock] {
+        var blocks = [ActFaceBlock(text: title, size: CockpitType.button(for: .phone), maxLines: 2)]
+        if let name, !name.isEmpty {
+            blocks.append(ActFaceBlock(text: name, size: CockpitType.label(for: .phone), maxLines: 2))
+        }
+        if let time, !time.isEmpty {
+            blocks.append(ActFaceBlock(text: time, size: CockpitType.label(for: .phone), monospaced: true, maxLines: 1,
+                                       room: CheckSlot.widestFigures(time, atLeast: 1)))
+        }
+        return blocks
     }
 }
 
@@ -716,7 +1029,8 @@ struct ActRoutesButton: View {
         let phone = CockpitScale.current == .phone
         CockpitThumbButton(title: L10n.Ground.planRoutes,
                            icon: phone ? nil : "point.topleft.down.to.point.bottomright.curvepath",
-                           style: .outlined(tint: theme.action), horizontalPadding: phone ? 8 : 14) {
+                           style: .outlined(tint: theme.action), titleLines: phone ? 2 : 1,
+                           horizontalPadding: phone ? ActFace.inset : 14, fitted: phone) {
             navState.showRoutes = true
         }
         .accessibilityIdentifier("act.routes")

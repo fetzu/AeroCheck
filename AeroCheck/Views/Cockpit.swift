@@ -396,28 +396,37 @@ struct CockpitThumbButton: View {
     var subtitleLines: Int = 1
     var horizontalPadding: CGFloat = 14
     var minHeight: CGFloat? = nil
+    /// The act band's slots on the phone: the words set to fit the slot (`ActFace`), the title on up to
+    /// `titleLines`, the subtitle on up to `subtitleLines`, no icon. (6.2)
+    var fitted = false
     let action: () -> Void
 
     var body: some View {
         Button(action: action) {
-            VStack(spacing: 4) {
-                HStack(spacing: 10) {
-                    if let icon {
-                        Image(systemName: icon).font(.aero(size: CockpitType.response, weight: .bold))
+            Group {
+                if fitted {
+                    ActFaceText(blocks: fittedBlocks)
+                } else {
+                    VStack(spacing: 4) {
+                        HStack(spacing: 10) {
+                            if let icon {
+                                Image(systemName: icon).font(.aero(size: CockpitType.response, weight: .bold))
+                            }
+                            Text(title)
+                                .font(.aero(size: CockpitType.button, weight: .bold))
+                                .multilineTextAlignment(.center)
+                                .lineLimit(titleLines)
+                                .minimumScaleFactor(0.6)
+                        }
+                        if let subtitle {
+                            Text(subtitle)
+                                .font(.aero(size: CockpitType.label, weight: .medium))
+                                .multilineTextAlignment(.center)
+                                .lineLimit(subtitleLines)
+                                .minimumScaleFactor(0.7)
+                                .opacity(0.85)
+                        }
                     }
-                    Text(title)
-                        .font(.aero(size: CockpitType.button, weight: .bold))
-                        .multilineTextAlignment(.center)
-                        .lineLimit(titleLines)
-                        .minimumScaleFactor(0.6)
-                }
-                if let subtitle {
-                    Text(subtitle)
-                        .font(.aero(size: CockpitType.label, weight: .medium))
-                        .multilineTextAlignment(.center)
-                        .lineLimit(subtitleLines)
-                        .minimumScaleFactor(0.7)
-                        .opacity(0.85)
                 }
             }
             .foregroundColor(textColor)
@@ -428,6 +437,16 @@ struct CockpitThumbButton: View {
         }
         .buttonStyle(.plain)
         .accessibilityElement(children: .combine)
+    }
+
+    /// The title, then the subtitle, as the slot sets them on the phone.
+    var fittedBlocks: [ActFaceBlock] {
+        var blocks = [ActFaceBlock(text: title, size: CockpitType.button(for: .phone), maxLines: titleLines)]
+        if let subtitle, !subtitle.isEmpty {
+            blocks.append(ActFaceBlock(text: subtitle, size: CockpitType.label(for: .phone), bold: false,
+                                       maxLines: subtitleLines, opacity: 0.85))
+        }
+        return blocks
     }
 
     private var textColor: Color {

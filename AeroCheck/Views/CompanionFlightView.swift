@@ -4,7 +4,9 @@ import SwiftUI
 /// Full-screen iPhone companion — the "wingman" second screen. Two glanceable modes the pilot swipes
 /// between (NAV | CHECKLIST), defaulting by flight phase: CHECKLIST on the ground, NAV in the air.
 /// Only shown once a flight is active on the iPad; otherwise a "start a flight" prompt.
-/// - NAV: next checkpoint as a track-up turn arrow + bearing/distance/ETE, plan/freqs/chrono below.
+/// - Over both: the read band, as on the phone Cockpit (the strip, the next line, the NOW line).
+/// - NAV: the phone Cockpit's ROUTE from the stream (DEST, legs, radio) and its act band
+///   (`CompanionNavScreen.swift`). (6.2.0)
 /// - CHECKLIST: the SAME hero + rows as the iPad checklist; tap to advance + NEXT, driving the iPad.
 ///
 /// Theming: the view renders in the MASTER's resolved day/sunlight/night cockpit theme (streamed in the
@@ -14,9 +16,14 @@ struct CompanionFlightView: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     enum Mode: Hashable { case nav, checklist }
-    @State private var mode: Mode = .checklist
-    @State private var userPickedMode = false
-    @State private var showFullPlan = false
+    @State private var mode: Mode
+    @State private var userPickedMode: Bool
+
+    /// `initialMode`: a mode picked from the start, as a swipe would (the stack-budget test's NAV).
+    init(initialMode: Mode? = nil) {
+        _mode = State(initialValue: initialMode ?? .checklist)
+        _userPickedMode = State(initialValue: initialMode != nil)
+    }
     /// The hold on the COMPANION tag that leaves Companion mode, 0 to 1: the tag fills red from the left
     /// for as long as the hold takes, as END FLIGHT's button does, and empties if released early. (6.1.0)
     @State private var exitHoldProgress: CGFloat = 0
@@ -58,27 +65,31 @@ struct CompanionFlightView: View {
             headerBar
 
             if isFlightActive {
+                // The read band over both modes, as on the phone Cockpit; frozen data dimmed. (6.2.0)
+                CompanionReadBand(flightData: flightData,
+                                  nav: CompanionNav(flightData: flightData, snapshot: flightPlan),
+                                  onShowNav: { pick(.nav) })
+                    .opacity(isDataStale ? 0.4 : 1)
+                    // A mid-flight link drop keeps the last (frozen) flight data, so isFlightActive stays
+                    // true. Surface the "connection lost / switch to standalone" escape here too (not only
+                    // on the not-flying screen), falling back to the amber stale banner when merely
+                    // connected-but-stale. Over the read band, not above it: in the layout, each gap in the
+                    // stream pushed everything under it down 37–60 pt and back. What it covers is what is
+                    // frozen while it shows. (6.1.0; over the read band 6.2.0)
+                    .overlay(alignment: .top) {
+                        if companionConnectivityManager.connectionState == .reconnecting ||
+                           companionConnectivityManager.connectionState == .disconnected {
+                            disconnectedBanner
+                        } else if isDataStale {
+                            staleBanner
+                        }
+                    }
                 modeSwitcher
                 TabView(selection: $mode) {
                     navMode.tag(Mode.nav)
                     checklistMode.tag(Mode.checklist)
                 }
                 .tabViewStyle(.page(indexDisplayMode: .never))
-                // A mid-flight link drop keeps the last (frozen) flight data, so isFlightActive stays true.
-                // Surface the "connection lost / switch to standalone" escape here too — not only on the
-                // not-flying screen — falling back to the amber stale banner when merely connected-but-stale.
-                // Over the top of the content, not above it: in the layout, each gap in the stream pushed
-                // the phase header, its buttons and the NAV card down 37–60 pt and back. What it covers is
-                // frozen while it shows. (6.1.0)
-                .overlay(alignment: .top) {
-                    if companionConnectivityManager.connectionState == .reconnecting ||
-                       companionConnectivityManager.connectionState == .disconnected {
-                        disconnectedBanner
-                    } else if isDataStale {
-                        staleBanner
-                    }
-                }
-                instrumentsStrip.opacity(isDataStale ? 0.4 : 1)
             } else {
                 if companionConnectivityManager.connectionState == .reconnecting ||
                    companionConnectivityManager.connectionState == .disconnected {
@@ -265,10 +276,16 @@ struct CompanionFlightView: View {
         .padding(.horizontal, 12).padding(.vertical, 6)
     }
 
+    /// A mode picked by the pilot: the switch, the read band's lines, the slot's "open the list".
+    /// Latched directly (even when re-selecting the already-active mode, which wouldn't fire an
+    /// .onChange) so auto-by-phase stops overriding the pilot.
+    private func pick(_ m: Mode) {
+        userPickedMode = true
+        withAnimation(reduceMotion ? nil : .default) { mode = m } // (UX-18)
+    }
+
     private func modeButton(_ m: Mode, _ title: String, _ icon: String) -> some View {
-        // Tapping either mode is a deliberate manual choice — latch it directly (even when re-selecting the
-        // already-active mode, which wouldn't fire an .onChange) so auto-by-phase stops overriding the pilot.
-        Button { userPickedMode = true; withAnimation(reduceMotion ? nil : .default) { mode = m } } label: { // (UX-18)
+        Button { pick(m) } label: {
             HStack(spacing: 5) {
                 Image(systemName: icon).font(.aero(size: CockpitType.label))
                 Text(title).font(.aero(size: CockpitType.label, weight: .bold, design: .monospaced))
@@ -286,62 +303,24 @@ struct CompanionFlightView: View {
 
     // MARK: - NAV mode
 
+    /// The phone Cockpit's ROUTE, from the stream, with its act band (`CompanionNavScreen.swift`). (6.2.0)
     private var navMode: some View {
-        ScrollView {
-            VStack(spacing: 10) {
-                if let (idx, wp) = nextWaypoint {
-                    nextWaypointHero(index: idx, waypoint: wp)
-                    metricsRow(waypoint: wp)
-                } else {
-                    noFlightPlanContent.frame(height: 160)
-                }
-                planSection
-                freqChronoRow
-            }
-            .padding(.horizontal, 12).padding(.top, 4).padding(.bottom, 12)
-        }
-        // RECORD ATO and the iPad's check slot at the foot, where the thumb is, as MARK and the slot on
-        // the iPad's map: always whole, the plan above them scrolls. RECORD ATO in the scroll went under
-        // the slot, cut on an iPhone 17 Pro and out of sight on an iPhone SE. (6.1)
-        .safeAreaInset(edge: .bottom, spacing: 0) { navFoot }
-    }
-
-    private var navFoot: some View {
-        VStack(spacing: 8) {
-            // ✓ DONE's UNDO, for its six seconds: on top of the foot, over the plan, never over RECORD
-            // ATO or the slot, which stay where they are.
-            if let offer = memoryUndo {
-                NavUndoToast(offer: offer) { memoryUndo = nil }
-            }
-            // Divert beside RECORD ATO, as on the iPad's thumb bar, from an iPad that takes it. (6.2.0)
-            HStack(spacing: 8) {
-                recordATOButton
-                if CompanionDivertButton.isOffered(plan: flightPlan, currentWaypointIndex: flightData?.currentWaypointIndex) {
-                    CompanionDivertButton()
-                }
-            }
-            companionCheckSlot
-        }
-        .padding(.horizontal, 12).padding(.vertical, 8)
-        .background(theme.background)
+        CompanionNavPage(flightData: flightData, snapshot: flightPlan, checkSlot: checkSlot,
+                         onCheckSlot: tapCheckSlot, memoryUndo: $memoryUndo)
     }
 
     /// The iPad's check slot, from its snapshot: the same name, line and colour, and its tap sent back.
-    /// Only from an iPad that sends it; nothing otherwise, as before 6.1.
-    @ViewBuilder
-    private var companionCheckSlot: some View {
-        if let cl = checklist, cl.supportsFlightCues, let data = cl.checkSlotData,
-           let slot = try? JSONDecoder().decode(CheckSlot.self, from: data) {
-            CheckSlotButton(slot: slot, prominent: true) { tapCheckSlot(slot) }
-        }
+    /// Only from an iPad that sends it; its room kept otherwise, as on the Cockpit.
+    private var checkSlot: CheckSlot? {
+        guard let cl = checklist, cl.supportsFlightCues, let data = cl.checkSlotData else { return nil }
+        return try? JSONDecoder().decode(CheckSlot.self, from: data)
     }
 
     /// The slot's tap: CHECKLIST is this phone's own mode; everything else is the iPad's, sent there. A
     /// confirmation is offered back for six seconds, as on the iPad.
     private func tapCheckSlot(_ slot: CheckSlot) {
         if slot.action == .showChecklist {
-            userPickedMode = true
-            withAnimation(reduceMotion ? nil : .default) { mode = .checklist }
+            pick(.checklist)
             return
         }
         companionConnectivityManager.sendCommand(.checkSlotTap(phaseRawValue: slot.phase.rawValue,
@@ -369,40 +348,8 @@ struct CompanionFlightView: View {
         }
     }
 
-    private var nextWaypoint: (index: Int, wp: CompanionWaypoint)? {
-        guard let plan = flightPlan else { return nil }
-        let idx = flightData?.currentWaypointIndex ?? plan.currentWaypointIndex
-        // Diverted on the master: the second screen points where the aircraft is going. (v5.1)
-        if let diversion = plan.diversion { return (idx, diversion) }
-        guard plan.waypoints.indices.contains(idx) else { return nil }
-        return (idx, plan.waypoints[idx])
-    }
-
-    /// True geographic bearing (0–360°) from the current GPS position to the waypoint, or nil with no fix.
-    private func bearingToWaypoint(_ wp: CompanionWaypoint) -> Double? {
-        guard let lat1 = flightData?.latitude, let lon1 = flightData?.longitude, wp.hasValidCoordinate else { return nil }
-        let lat1r = lat1 * .pi / 180, lat2r = wp.latitude * .pi / 180
-        let dLon = (wp.longitude - lon1) * .pi / 180
-        let y = sin(dLon) * cos(lat2r)
-        let x = cos(lat1r) * sin(lat2r) - sin(lat1r) * cos(lat2r) * cos(dLon)
-        let brng = atan2(y, x) * 180 / .pi
-        return (brng + 360).truncatingRemainder(dividingBy: 360)
-    }
-
-    /// Arrow rotation for the track-up turn arrow: where the waypoint is relative to the direction of
-    /// travel. Computed from the real bearing-to-waypoint (so it actually points at the checkpoint)
-    /// minus the current track. Falls back to the planned leg course when there is no position fix.
-    /// (item 2 — the arrow was stuck pointing up because it used leg-course − track.)
-    private func arrowRotation(_ wp: CompanionWaypoint) -> Double {
-        if let brg = bearingToWaypoint(wp) {
-            return Self.signedAngle(brg - (flightData?.courseDegrees ?? 0))
-        }
-        // No fix: best-effort using the planned magnetic course vs current track.
-        guard let mc = wp.magneticCourse, let track = flightData?.courseDegrees else { return 0 }
-        return Self.signedAngle(mc - track)
-    }
-
-    /// An angle folded into -180…180°. In one step: the `while rel > 180 { rel -= 360 }` it replaces
+    /// An angle folded into -180…180°: the next line's turn arrow (`CompanionNav.next`). In one step: the
+    /// `while rel > 180 { rel -= 360 }` it replaces
     /// never ended on a course of 1e300 from the master (subtracting 360 changes nothing at that
     /// magnitude), freezing the phone. The wire bounds the course now; this holds without them.
     static func signedAngle(_ degrees: Double) -> Double {
@@ -410,169 +357,6 @@ struct CompanionFlightView: View {
         var r = degrees.truncatingRemainder(dividingBy: 360)
         if r > 180 { r -= 360 } else if r < -180 { r += 360 }
         return r
-    }
-
-    private func nextWaypointHero(index: Int, waypoint wp: CompanionWaypoint) -> some View {
-        HStack(spacing: 16) {
-            ZStack {
-                Circle().stroke(theme.action, lineWidth: 2).frame(width: 84, height: 84)
-                Image(systemName: "arrow.up").font(.aero(size: 40, weight: .semibold)).foregroundColor(theme.action)
-                    .rotationEffect(.degrees(arrowRotation(wp)))
-                    .animation(reduceMotion ? nil : .easeInOut(duration: 0.4), value: arrowRotation(wp)) // (UX-18)
-            }
-            VStack(alignment: .leading, spacing: 2) {
-                Text(L10n.Nav.next.uppercased()).font(.aero(size: CockpitType.label, weight: .bold, design: .monospaced)).foregroundColor(theme.textSecondary)
-                // The next waypoint in the route's colour, as on the Cockpit's card.
-                Text(wp.name.isEmpty ? "WP\(index + 1)" : wp.name)
-                    .font(.aero(size: CockpitType.item, weight: .bold, design: .monospaced)).foregroundColor(theme.route)
-                    .lineLimit(1).minimumScaleFactor(0.6)
-                if let mc = wp.magneticCourse {
-                    Text(String(format: "%03.0f° mag", mc)).font(.aero(size: CockpitType.label, design: .monospaced)).foregroundColor(theme.textSecondary)
-                }
-            }
-            Spacer()
-        }
-        .padding(14).background(theme.action.opacity(0.08)).clipShape(RoundedRectangle(cornerRadius: 12))
-    }
-
-    private func metricsRow(waypoint wp: CompanionWaypoint) -> some View {
-        HStack(spacing: 8) {
-            metricCell("DIST", wp.distance.map { String(format: "%.1f", $0) } ?? "---", "NM")
-            metricCell("ETE", formattedEET(wp), "")
-            metricCell("ETO", formattedTime(wp.estimatedTimeOver), "")
-        }
-    }
-
-    private func metricCell(_ label: String, _ value: String, _ unit: String) -> some View {
-        VStack(spacing: 2) {
-            Text(label).font(.aero(size: CockpitType.label, design: .monospaced)).foregroundColor(theme.textSecondary)
-            HStack(alignment: .firstTextBaseline, spacing: 3) {
-                Text(value).font(.aero(size: CockpitType.button, weight: .bold, design: .monospaced)).foregroundColor(theme.textPrimary)
-                    .lineLimit(1).minimumScaleFactor(0.7)
-                if !unit.isEmpty { Text(unit).font(.aero(size: CockpitType.label, design: .monospaced)).foregroundColor(theme.textSecondary) }
-            }
-        }
-        .frame(maxWidth: .infinity).padding(.vertical, 8)
-        .background(Color.black.opacity(0.25)).clipShape(RoundedRectangle(cornerRadius: 8))
-    }
-
-    private var planSection: some View {
-        Group {
-            if let plan = flightPlan {
-                VStack(spacing: 0) {
-                    Button { withAnimation(reduceMotion ? nil : .default) { showFullPlan.toggle() } } label: { // (UX-18)
-                        HStack {
-                            Text("PLAN").font(.aero(size: CockpitType.label, weight: .bold, design: .monospaced)).foregroundColor(theme.action)
-                            Spacer()
-                            Image(systemName: showFullPlan ? "chevron.up" : "chevron.down").font(.aero(size: CockpitType.label)).foregroundColor(theme.action)
-                        }
-                        .padding(.horizontal, 12)
-                        .frame(minHeight: CockpitTarget.control)
-                        .contentShape(Rectangle())
-                    }
-                    if showFullPlan { routeTable(plan).frame(maxHeight: 320) } else { upcomingStrip(plan) }
-                }
-                .background(Color.black.opacity(0.2)).clipShape(RoundedRectangle(cornerRadius: 8))
-            }
-        }
-    }
-
-    private func upcomingStrip(_ plan: CompanionFlightPlanSnapshot) -> some View {
-        let start = (flightData?.currentWaypointIndex ?? plan.currentWaypointIndex) + 1
-        let upcoming = Array(plan.waypoints.enumerated()).filter { $0.offset >= start }.prefix(2)
-        return VStack(spacing: 0) {
-            if upcoming.isEmpty {
-                Text("—").font(.aero(size: CockpitType.label, design: .monospaced)).foregroundColor(theme.textSecondary)
-                    .frame(maxWidth: .infinity).padding(.vertical, 6)
-            } else {
-                ForEach(Array(upcoming), id: \.element.id) { i, wp in
-                    HStack {
-                        Text("\(i + 1) · \(wp.name.isEmpty ? "WP" : wp.name)").lineLimit(1)
-                        Spacer()
-                        Text(wp.magneticCourse.map { String(format: "%03.0f°", $0) } ?? "---")
-                        Text(wp.distance.map { String(format: "%.1f NM", $0) } ?? "---").frame(width: 96, alignment: .trailing)
-                    }
-                    .font(.aero(size: CockpitType.label, design: .monospaced)).foregroundColor(theme.textPrimary.opacity(0.85))
-                    .padding(.horizontal, 12).padding(.vertical, 6)
-                }
-            }
-        }
-    }
-
-    private var freqChronoRow: some View {
-        HStack(spacing: 8) {
-            VStack(alignment: .leading, spacing: 2) {
-                // FREQ + a descriptor of WHAT the frequency is (the waypoint it belongs to, or GUARD for
-                // the 121.50 emergency fallback). (item 3)
-                HStack(spacing: 4) {
-                    Text("FREQ").font(.aero(size: CockpitType.label, design: .monospaced)).foregroundColor(theme.textSecondary)
-                    Text(freqDescriptor).font(.aero(size: CockpitType.label, weight: .semibold, design: .monospaced)).foregroundColor(theme.textPrimary).lineLimit(1)
-                }
-                Text(freqValue).font(.aero(size: CockpitType.row, weight: .bold, design: .monospaced)).foregroundColor(theme.textPrimary)
-            }
-            .frame(maxWidth: .infinity, alignment: .leading).padding(10)
-            .background(Color.black.opacity(0.25)).clipShape(RoundedRectangle(cornerRadius: 8))
-
-            Button {
-                if flightData?.chronometerStartTime != nil || (flightData?.chronometerElapsed ?? 0) > 0 {
-                    companionConnectivityManager.sendCommand(.resetChronometer)
-                } else {
-                    companionConnectivityManager.sendCommand(.startChronometer)
-                }
-            } label: {
-                VStack(alignment: .leading, spacing: 2) {
-                    HStack(spacing: 4) {
-                        Image(systemName: "stopwatch").font(.aero(size: CockpitType.label)).foregroundColor(theme.action)
-                        Text("CHRONO").font(.aero(size: CockpitType.label, design: .monospaced)).foregroundColor(theme.action)
-                    }
-                    Text(formattedChronometer).font(.aero(size: CockpitType.row, weight: .bold, design: .monospaced)).foregroundColor(theme.textPrimary)
-                }
-                .frame(maxWidth: .infinity, alignment: .leading).padding(10)
-                .background(Color.black.opacity(0.25)).clipShape(RoundedRectangle(cornerRadius: 8))
-            }
-        }
-    }
-
-    /// What the FREQ box's frequency is: the next waypoint's name, or GUARD for the 121.50 fallback.
-    private var freqDescriptor: String {
-        if let wp = nextWaypoint?.wp, let f = wp.frequency, !f.isEmpty {
-            return wp.name.isEmpty ? "WPT" : wp.name
-        }
-        return "GUARD"
-    }
-
-    private var freqValue: String {
-        if let f = nextWaypoint?.wp.frequency, !f.isEmpty { return f }
-        return "121.50"
-    }
-
-    /// Whether the current waypoint can take an ATO: a waypoint exists at the current index and hasn't
-    /// been timed yet. Drives both the action guard and the button's enabled/visual state. (v4.1.0)
-    private var canRecordATO: Bool {
-        guard let plan = flightPlan, let idx = flightData?.currentWaypointIndex,
-              plan.waypoints.indices.contains(idx) else { return false }
-        return plan.waypoints[idx].actualTimeOver == nil
-    }
-
-    private var recordATOButton: some View {
-        Button {
-            if canRecordATO, let idx = flightData?.currentWaypointIndex {
-                companionConnectivityManager.sendCommand(.recordATO(waypointIndex: idx))
-            }
-        } label: {
-            HStack(spacing: 6) {
-                Image(systemName: "clock.badge.checkmark").font(.aero(size: CockpitType.response, weight: .bold))
-                Text(L10n.Companion.recordATO).font(.aero(size: CockpitType.button, weight: .bold))
-                    .lineLimit(1).minimumScaleFactor(0.6)
-            }
-            // The thumb bar's height, as MARK on the Cockpit. (v6.0 review)
-            .foregroundColor(theme.actionText).frame(maxWidth: .infinity, minHeight: CockpitTarget.thumb)
-            .background(theme.action).clipShape(RoundedRectangle(cornerRadius: 10))
-        }
-        // No ButtonStyle here, so .disabled() alone won't dim the inline background — dim explicitly so a
-        // no-op tap (ATO already recorded / no active waypoint) reads as disabled. (v4.1.0)
-        .disabled(!canRecordATO)
-        .opacity(canRecordATO ? 1.0 : 0.45)
     }
 
     // MARK: - CHECKLIST mode
@@ -933,62 +717,7 @@ struct CompanionFlightView: View {
         return phase.completionText
     }
 
-    // MARK: - Route table (full plan, inside the PLAN disclosure)
-
-    private func routeTable(_ plan: CompanionFlightPlanSnapshot) -> some View {
-        ScrollViewReader { proxy in
-            ScrollView {
-                LazyVStack(spacing: 0) {
-                    ForEach(Array(plan.waypoints.enumerated()), id: \.element.id) { index, wp in
-                        routeTableRow(index: index, waypoint: wp, plan: plan).id(index)
-                    }
-                }
-            }
-            .onChange(of: flightData?.currentWaypointIndex) {
-                if let idx = flightData?.currentWaypointIndex { withAnimation(reduceMotion ? nil : .default) { proxy.scrollTo(idx, anchor: .center) } } // (UX-18)
-            }
-        }
-    }
-
-    private func routeTableRow(index: Int, waypoint wp: CompanionWaypoint, plan: CompanionFlightPlanSnapshot) -> some View {
-        let currentIdx = flightData?.currentWaypointIndex ?? plan.currentWaypointIndex
-        let isCurrent = index == currentIdx
-        let isPast = index < currentIdx
-        let textColor: Color = isPast ? theme.textSecondary : theme.textPrimary.opacity(isCurrent ? 1 : 0.8)
-        return HStack(spacing: 0) {
-            Group {
-                if isPast { Image(systemName: "checkmark").font(.aero(size: CockpitType.label)).foregroundColor(theme.onTarget) }
-                else if isCurrent { Image(systemName: "arrowtriangle.right.fill").font(.aero(size: CockpitType.label)).foregroundColor(theme.route) }
-                else { Text("\(index + 1)").font(.aero(size: CockpitType.label, design: .monospaced)).foregroundColor(theme.textSecondary) }
-            }.frame(width: 28)
-            // The Cockpit's label size throughout: the name takes what the four figures leave. (v6.0 review)
-            Text(wp.name.isEmpty ? "WP\(index)" : wp.name).font(.aero(size: CockpitType.label, weight: isCurrent ? .bold : .regular, design: .monospaced)).foregroundColor(isCurrent ? theme.route : textColor).lineLimit(1).minimumScaleFactor(0.7).frame(maxWidth: .infinity, alignment: .leading)
-            Text(wp.magneticCourse.map { String(format: "%03.0f", $0) } ?? "---").font(.aero(size: CockpitType.label, design: .monospaced)).foregroundColor(textColor).frame(width: 44)
-            Text(wp.distance.map { String(format: "%.1f", $0) } ?? "---").font(.aero(size: CockpitType.label, design: .monospaced)).foregroundColor(textColor).frame(width: 52)
-            Text(formattedTime(wp.estimatedTimeOver)).font(.aero(size: CockpitType.label, design: .monospaced)).foregroundColor(textColor).frame(width: 60)
-            Button {
-                if wp.actualTimeOver == nil { companionConnectivityManager.sendCommand(.recordATO(waypointIndex: index)) }
-            } label: {
-                Text(formattedTime(wp.actualTimeOver)).font(.aero(size: CockpitType.label, weight: wp.actualTimeOver != nil ? .bold : .regular, design: .monospaced)).foregroundColor(wp.actualTimeOver != nil ? theme.onTarget : theme.action).frame(width: 60)
-                    .frame(minHeight: 44)
-                    .contentShape(Rectangle())
-            }.disabled(wp.actualTimeOver != nil)
-        }
-        .padding(.vertical, 2)
-        .background(isCurrent ? theme.action.opacity(0.1) : Color.clear)
-    }
-
     // MARK: - Shared chrome
-
-    private var noFlightPlanContent: some View {
-        VStack(spacing: 8) {
-            Spacer()
-            Image(systemName: "doc.text.magnifyingglass").font(.aero(size: 36)).foregroundColor(theme.textSecondary)
-            Text(L10n.Companion.noFlightPlan).font(.aero(.subheadline)).foregroundColor(theme.textSecondary)
-            Spacer()
-        }
-        .frame(maxWidth: .infinity)
-    }
 
     private var disconnectedBanner: some View {
         HStack {
@@ -1014,75 +743,10 @@ struct CompanionFlightView: View {
         .foregroundColor(.black).padding(.horizontal, 12).padding(.vertical, 8).background(theme.warning)
     }
 
-    private var instrumentsStrip: some View {
-        HStack {
-            instrumentItem("GS", formattedSpeed, "kt")
-            Divider().frame(height: 20)
-            instrumentItem("ALT", formattedAltitude, "ft")
-            Divider().frame(height: 20)
-            instrumentItem("TRK", formattedTrack, "°")
-        }
-        .padding(.horizontal, 12).padding(.vertical, 10).background(theme.panel)
-    }
-
-    private func instrumentItem(_ label: String, _ value: String, _ unit: String) -> some View {
-        HStack(spacing: 4) {
-            Text(label).font(.aero(size: CockpitType.label, weight: .medium, design: .monospaced)).foregroundColor(theme.textSecondary)
-            Text(value).font(.aero(size: CockpitType.row, weight: .bold, design: .monospaced)).foregroundColor(theme.textPrimary)
-                .lineLimit(1).minimumScaleFactor(0.7)
-            Text(unit).font(.aero(size: CockpitType.label, design: .monospaced)).foregroundColor(theme.textSecondary)
-        }
-        .frame(maxWidth: .infinity)
-    }
-
     // MARK: - Formatting
 
-    private var formattedSpeed: String {
-        guard let s = flightData?.speedMPS else { return "---" }
-        return String(format: "%.0f", s * 1.94384)
-    }
-    private var formattedAltitude: String {
-        guard let a = flightData?.altitudeFeet else { return "---" }
-        return String(format: "%.0f", a)
-    }
-    private var formattedTrack: String {
-        guard let c = flightData?.courseDegrees else { return "---" }
-        return String(format: "%03.0f", c)
-    }
-    private var formattedChronometer: String {
-        // The master's number: bounded at the wire (CompanionWireLimits), and `safeInt` all the
-        // same, since `Int(e)` on an unrepresentable value is a trap, not an error.
-        let e = max(0, (flightData?.chronometerElapsed ?? 0).safeInt(or: 0))
-        return String(format: "%02d:%02d:%02d", e / 3600, (e % 3600) / 60, e % 60)
-    }
-
-    private func formattedEET(_ wp: CompanionWaypoint) -> String {
-        let hasLeg = (wp.estimatedElapsedTime ?? 0) > 0
-        let hasExtra = (wp.legEETExtra ?? 0) > 0
-        if !hasLeg && !hasExtra { return "---" }
-        // `safeInt`: the leg times come from the master's plan, and an EET of 1e19 in a shared route
-        // trapped the viewer. (S9-07)
-        let minutes = hasLeg ? (wp.estimatedElapsedTime! / 60).safeInt(or: 0) : 0
-        if hasExtra {
-            let extra = (wp.legEETExtra! / 60).safeInt(or: 0)
-            return hasLeg ? "\(minutes)+\(extra)" : "+\(extra)"
-        }
-        return "\(minutes)"
-    }
-
-    // Cached formatters — formattedTime is called per route-table row while the view re-renders at 1 Hz,
-    // and allocating a DateFormatter each call is among the most expensive Foundation allocations. (efficiency)
-    private static let timeFormatterLocal: DateFormatter = {
-        let f = DateFormatter(); f.dateFormat = "HH:mm"; return f
-    }()
-    private static let timeFormatterUTC: DateFormatter = {
-        let f = DateFormatter(); f.dateFormat = "HH:mm"; f.timeZone = TimeZone(identifier: "UTC"); return f
-    }()
-
     private func formattedTime(_ date: Date?) -> String {
-        guard let date else { return "--:--" }
-        let f = flightData?.alwaysUseUTC == true ? Self.timeFormatterUTC : Self.timeFormatterLocal
-        return f.string(from: date)
+        CompanionClock.text(date, utc: flightData?.alwaysUseUTC == true)
     }
 }
 

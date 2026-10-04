@@ -816,6 +816,116 @@ final class CompanionServiceContractTests: XCTestCase {
         XCTAssertTrue(plain.isNavigable)
     }
 
+    // MARK: - NOW and NEXT in the flight data (6.2.0)
+
+    /// The flight data as the iPad streams it, at 1 Hz.
+    private static func flightData(now: CompanionFrequency? = nil, next: CompanionFrequency? = nil) -> CompanionFlightData {
+        CompanionFlightData(isFlightActive: true, currentPhase: "CRUISE", currentPhaseRawValue: 9, isCircuitMode: false,
+                            engineStartTime: nil, lineUpTime: Date(timeIntervalSince1970: 1_790_000_000), landingTime: nil,
+                            alwaysUseUTC: false, latitude: 47.05, longitude: 7.15, speedMPS: 53.5, altitudeFeet: 4_500,
+                            courseDegrees: 211, gpsSignalStatus: "good", ownGPSAvailable: true, gpsSource: "own",
+                            cockpitThemeMode: "day", currentWaypointIndex: 2, chronometerStartTime: nil,
+                            chronometerElapsed: 101, aircraftRegistration: "F-HVXA", aircraftType: "WT9 Dynamic",
+                            timestamp: Date(timeIntervalSince1970: 1_790_000_100), nowFrequency: now, nextFrequency: next)
+    }
+
+    private static let fis = CompanionFrequency(station: "Geneva Info", frequency: "126.350")
+    private static let lsgc = CompanionFrequency(station: "LSGC AFIS", frequency: "120.155")
+
+    /// The flight data as a phone on 6.1 (or on 6.2.0 before the frame) knows it, its decoder's shape: every
+    /// key read if present, the rest ignored. A few of its keys, enough to show the update still reads.
+    private struct CompanionFlightData61: Decodable {
+        let isFlightActive: Bool
+        let currentPhase: String
+        let currentWaypointIndex: Int
+        let chronometerElapsed: TimeInterval
+        let aircraftRegistration: String
+
+        enum CodingKeys: String, CodingKey {
+            case isFlightActive, currentPhase, currentWaypointIndex, chronometerElapsed, aircraftRegistration
+        }
+
+        init(from decoder: Decoder) throws {
+            let c = try decoder.container(keyedBy: CodingKeys.self)
+            isFlightActive = try c.decodeIfPresent(Bool.self, forKey: .isFlightActive) ?? false
+            currentPhase = try c.decodeIfPresent(String.self, forKey: .currentPhase) ?? "PREFLIGHT"
+            currentWaypointIndex = try c.decodeIfPresent(Int.self, forKey: .currentWaypointIndex) ?? 0
+            chronometerElapsed = try c.decodeIfPresent(TimeInterval.self, forKey: .chronometerElapsed) ?? 0
+            aircraftRegistration = try c.decodeIfPresent(String.self, forKey: .aircraftRegistration) ?? ""
+        }
+    }
+
+    func testNowAndNextRoundTrip() throws {
+        let data = Self.flightData(now: Self.fis, next: Self.lsgc)
+        let decoded = try JSONDecoder().decode(CompanionFlightData.self, from: JSONEncoder().encode(data))
+        XCTAssertEqual(decoded.nowFrequency, Self.fis)
+        XCTAssertEqual(decoded.nextFrequency, Self.lsgc)
+        XCTAssertEqual(decoded.currentWaypointIndex, 2)
+
+        let neither = try JSONDecoder().decode(CompanionFlightData.self, from: JSONEncoder().encode(Self.flightData()))
+        XCTAssertNil(neither.nowFrequency)
+        XCTAssertNil(neither.nextFrequency)
+        let json = try XCTUnwrap(String(data: JSONEncoder().encode(Self.flightData()), encoding: .utf8))
+        XCTAssertFalse(json.contains("nowFrequency"), "nothing known, nothing sent")
+    }
+
+    /// The new iPad to an older phone: the update reads as it did, the two keys ignored.
+    func testAnOlderPhoneReadsTheFlightDataWithNowAndNext() throws {
+        let data = try JSONEncoder().encode(Self.flightData(now: Self.fis, next: Self.lsgc))
+        let old = try JSONDecoder().decode(CompanionFlightData61.self, from: data)
+        XCTAssertTrue(old.isFlightActive)
+        XCTAssertEqual(old.currentPhase, "CRUISE")
+        XCTAssertEqual(old.currentWaypointIndex, 2)
+        XCTAssertEqual(old.chronometerElapsed, 101)
+        XCTAssertEqual(old.aircraftRegistration, "F-HVXA")
+    }
+
+    /// An older iPad to the new phone: no NOW, no NEXT, and the phone shows its FREQ as before.
+    func testAnOlderIPadSendsNeitherAndThePhoneShowsItsFreq() throws {
+        let json = #"{"isFlightActive":true,"currentPhase":"CRUISE","currentWaypointIndex":1,"latitude":47.05,"longitude":7.15}"#
+        let decoded = try JSONDecoder().decode(CompanionFlightData.self, from: Data(json.utf8))
+        XCTAssertTrue(decoded.isFlightActive)
+        XCTAssertNil(decoded.nowFrequency)
+        XCTAssertNil(decoded.nextFrequency)
+        XCTAssertEqual(CompanionNowLine.make(flightData: decoded, plan: nil), .freq(station: "GUARD", frequency: "121.50"))
+    }
+
+    /// The peer is a trust boundary: a station or frequency is cut to length, an entry without a frequency
+    /// or of the wrong shape reads as absent, and the rest of the 1 Hz update is kept.
+    func testNowAndNextAreCheckedAtTheWire() throws {
+        let long = String(repeating: "9", count: 500)
+        let json = #"""
+        {"isFlightActive":true,"currentWaypointIndex":3,
+         "nowFrequency":{"station":"  Bern Information\#(long)","frequency":" 119.175\#(long) "},
+         "nextFrequency":{"station":"LSZB TWR","frequency":"   "}}
+        """#
+        let decoded = try JSONDecoder().decode(CompanionFlightData.self, from: Data(json.utf8))
+        let now = try XCTUnwrap(decoded.nowFrequency)
+        XCTAssertEqual(now.station.count, CompanionFrequency.maxLength)
+        XCTAssertTrue(now.station.hasPrefix("Bern Information"))
+        XCTAssertEqual(now.frequency.count, CompanionFrequency.maxLength)
+        XCTAssertTrue(now.frequency.hasPrefix("119.175"))
+        XCTAssertNil(decoded.nextFrequency, "no frequency, no entry")
+        XCTAssertEqual(decoded.currentWaypointIndex, 3, "the update is kept")
+
+        let wrongShape = try JSONDecoder().decode(CompanionFlightData.self, from: Data(
+            #"{"isFlightActive":true,"nowFrequency":"119.175","nextFrequency":{"frequency":"120.155"}}"#.utf8))
+        XCTAssertNil(wrongShape.nowFrequency)
+        XCTAssertEqual(wrongShape.nextFrequency, CompanionFrequency(station: "", frequency: "120.155"))
+        XCTAssertTrue(wrongShape.isFlightActive)
+    }
+
+    /// The NAV screen's act band sends only what a 6.1 iPad already takes (START LEG, MARK, the leg timer's
+    /// reset); Divert, which it can't decode, is still dropped there, as before this frame.
+    func testTheActBandsCommandsReachAnOlderIPad() throws {
+        for command in [CompanionCommand.startChronometer, .resetChronometer, .recordATO(waypointIndex: 3)] {
+            XCTAssertNoThrow(try JSONDecoder().decode(CompanionCommand61.self, from: JSONEncoder().encode(command)),
+                             "\(command)")
+        }
+        XCTAssertThrowsError(try JSONDecoder().decode(CompanionCommand61.self,
+                                                      from: JSONEncoder().encode(CompanionCommand.divert(field: Self.bern))))
+    }
+
     /// An iPad built before these fields says nothing about DEFER: the viewer must not offer it.
     func testAnOlderMasterDoesNotOfferDefer() throws {
         let decoded = try JSONDecoder().decode(CompanionChecklistSnapshot.self,

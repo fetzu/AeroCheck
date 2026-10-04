@@ -18,8 +18,10 @@ WEATHER_CLIENT_SECRET =
 
 // Shared secret sent as `X-AeroCheck-Client` to api.aerocheck.app's /airfields routes. Same kind of
 // speed bump as the weather one, and a SEPARATE value on purpose: the two workers keep separate
-// lists, so rotating one must not force rotating the other. Empty is fine — the worker fails open
-// when its own list is unset, so a fresh checkout still gets airfield links.
+// lists, so rotating one must not force rotating the other. Empty still builds, but both workers
+// have their list set, so /airfields answers 403 and the airfield links (landing fees, PPR) are
+// missing: the worker only fails open where its list is unset (a local `npm run dev`). Xcode Cloud
+// writes it in ci_post_clone.sh.
 APP_CLIENT_SECRET =
 
 // Pull in untracked local secrets if the file exists (the "?" makes it optional,
@@ -40,7 +42,9 @@ APP_CLIENT_SECRET =
 //
 // So: API_BASE_URL is the endpoint for a normal App Store build, API_BASE_URL_SANDBOX is used
 // whenever the running build has a Sandbox receipt (TestFlight, and Debug on device/simulator).
-// Override either in Secrets.xcconfig (untracked) to aim a local build somewhere else, e.g.
-// http://localhost:8787 for `npm run dev`.
+// To aim a local build somewhere else, change the line below locally and don't commit it:
+// Secrets.xcconfig can't, since it is included above and these lines come after it. Keep the
+// slashes escaped or xcconfig reads the rest as a comment: http:/$()/localhost:8787 for
+// `npm run dev`.
 API_BASE_URL = https:/$()/api.aerocheck.app
 API_BASE_URL_SANDBOX = https:/$()/api-sandbox.aerocheck.app

@@ -680,6 +680,10 @@ struct ActiveFlightState: Codable {
     let answeredAfterLanding: [ChecklistPhase: PhaseCompletionStatus]?
     /// What the flight says is due and owed, this leg. Optional for the same reason. (6.1)
     let flightCues: FlightCueState?
+    /// FREDA's count in cruise, and one due. Without it a relaunch in cruise started the ten minutes
+    /// again from the restore and dropped a FREDA due (never recorded missed). Nil when it doesn't run;
+    /// optional, so an older checkpoint still decodes (and counts from the restore, as before). (6.2)
+    let freda: FredaSchedule?
     let savedAt: Date
 
     /// Builds a snapshot from a **non-optional** flight, so a nil `currentFlight` can never
@@ -700,6 +704,7 @@ struct ActiveFlightState: Codable {
         let answered = appState.phaseCompletionStatus.filter { $0.value.isAnsweredAfterLanding }
         self.answeredAfterLanding = answered.isEmpty ? nil : answered
         self.flightCues = appState.flightCues
+        self.freda = appState.freda.isRunning ? appState.freda : nil
         self.highestCompletedPhase = appState.highestCompletedPhase
         self.currentHighlightedItem = appState.currentHighlightedItem
         self.deferredItems = appState.deferredItems
@@ -740,6 +745,7 @@ struct ActiveFlightState: Codable {
         }
         appState.phaseCompletionStatus = statuses
         appState.flightCues = flightCues ?? FlightCueState()
+        appState.freda = freda ?? FredaSchedule()
         appState.highestCompletedPhase = highestCompletedPhase
         appState.currentHighlightedItem = currentHighlightedItem
         appState.deferredItems = deferredItems ?? [:]
@@ -819,8 +825,9 @@ class AppState {
     // MARK: - FREDA in cruise (6.1, "Checks in flight" Q6)
     // The rules are `FredaSchedule`'s (Freda.swift); this is where the flight keeps and records them.
 
-    /// When FREDA is due. Runs in cruise once the cruise check is done; stopped by leaving cruise.
-    private(set) var freda = FredaSchedule()
+    /// When FREDA is due. Runs in cruise once the cruise check is done; stopped by leaving cruise. Set
+    /// here and by the crash checkpoint's restore (`ActiveFlightState`).
+    fileprivate(set) var freda = FredaSchedule()
 
     /// FREDA is due: the slot and the thumb bar's FREDA button turn amber, and so does the cruise
     /// segment of the phase bar. Nothing else: no page change, no sound, no haptic.
@@ -833,6 +840,7 @@ class AppState {
     private func startFredaAfterCruiseCheck(at date: Date = FlightClock.now) {
         guard fredaApplies, !freda.isRunning, !flightCues.descentBegun else { return }
         freda.start(at: date, after: .cruiseCheck)
+        checkpointActiveFlight(force: true)
     }
 
     /// Call periodically in flight (the Cockpit's 5 s timer) with the last waypoint the flight passed.
@@ -846,8 +854,10 @@ class AppState {
             return
         }
         guard currentCheckIsDone else { return }
-        if !freda.isRunning { freda.start(at: now, after: .cruiseCheck) }
-        freda.evaluate(now: now, lastPassage: lastPassage)
+        let starts = !freda.isRunning
+        if starts { freda.start(at: now, after: .cruiseCheck) }
+        // On disk when it starts and when it comes due, as the cues are: a relaunch finds it. (6.2)
+        if freda.evaluate(now: now, lastPassage: lastPassage) || starts { checkpointActiveFlight(force: true) }
     }
 
     /// FREDA stops; one due and not done goes on the flight as missed.

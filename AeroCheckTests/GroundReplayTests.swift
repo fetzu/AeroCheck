@@ -237,18 +237,26 @@ final class GroundReplayTests: XCTestCase {
 
     /// undo-5's relaunch: the app killed and launched again mid-flight. On route-vrps with the climb check
     /// left open, in cruise (the climb check owed) and over LSZQ at circuit height (the landing check
-    /// shown, GO AROUND in MAP's band); in circuits, on a downwind (the approach check due) and on the
-    /// ground after a stop-and-go, where the next take-off is a new leg. From each relaunch to the end of
-    /// the flight, the check slot and MAP's band read as they do on the same flight flown straight
-    /// through, and the flight ends with the same records and landings. Until 6.2 the detector started
-    /// again on the ground, read the first fast fixes as a take-off and its cues as a new leg: the owed
-    /// climb check showed as due, GO AROUND gave way to MARK, and the debrief had the climb check owed
-    /// three times.
+    /// shown, GO AROUND in MAP's band); on xc-all-checks in cruise, FREDA counting; in circuits, on a
+    /// downwind and on the ground after a stop-and-go, where the next take-off is a new leg. From each
+    /// relaunch to the end of the flight, the check slot and MAP's band read as they do on the same
+    /// flight flown straight through, and the flight ends with the same records and landings. Until 6.2
+    /// the detector started again on the ground, read the first fast fixes as a take-off and its cues as
+    /// a new leg: the owed climb check showed as due, GO AROUND gave way to MARK, and the debrief had the
+    /// climb check owed three times; and FREDA counted its ten minutes again from the restore.
     func testARelaunchMidFlightKeepsTheChecksAndTheBandAsTheyWere() throws {
         struct Seen: Equatable {
             let slot: CheckSlot
             let roles: [ActSlotRole]
             let owed: [ChecklistPhase: FlightCue]
+        }
+        /// The slot as drawn: its time to the minute ("FREDA ✓ 12:01").
+        func drawn(_ slot: CheckSlot) -> CheckSlot {
+            var drawn = slot
+            if case .fredaCountsFrom(let since, let at) = slot.title {
+                drawn.title = .fredaCountsFrom(since, Date(timeIntervalSince1970: (at.timeIntervalSince1970 / 60).rounded(.down) * 60))
+            }
+            return drawn
         }
         func fly(_ name: String, circuits: Bool, leaveOpen: Set<ChecklistPhase>, relaunchingAt relaunches: [Double]) throws
             -> (seen: [Double: Seen], flight: HeadlessFlight) {
@@ -258,7 +266,7 @@ final class GroundReplayTests: XCTestCase {
             var seen: [Double: Seen] = [:]
             flight.onFix = { [unowned flight] fix in
                 let appState = flight.appState
-                seen[fix.t] = Seen(slot: CockpitCheckSlot.slot(for: appState),
+                seen[fix.t] = Seen(slot: drawn(CockpitCheckSlot.slot(for: appState)),
                                    roles: ActBandRoles.make(page: .map, appState: appState, plans: flight.plans),
                                    owed: ChecklistPhase.allCases.reduce(into: [:]) { owed, phase in
                                        owed[phase] = appState.owedCue(for: phase)
@@ -272,6 +280,7 @@ final class GroundReplayTests: XCTestCase {
         }
         let flights: [(name: String, circuits: Bool, leaveOpen: Set<ChecklistPhase>, relaunches: [Double])] = [
             ("route-vrps", false, [.climb], [1000, 1700]),
+            ("xc-all-checks", false, [], [1100]),
             ("circuits-stop-and-go", true, [], [760, 990]),
         ]
         for (name, circuits, leaveOpen, relaunches) in flights {
@@ -279,7 +288,12 @@ final class GroundReplayTests: XCTestCase {
             let relaunched = try fly(name, circuits: circuits, leaveOpen: leaveOpen, relaunchingAt: relaunches)
 
             // What the relaunches are about.
-            if !circuits {
+            if name == "xc-all-checks" {
+                let cruise = try state(straight.seen, at: relaunches[0]).slot
+                guard case .fredaCountsFrom(.cruiseCheck, _) = cruise.title else {
+                    return XCTFail("in cruise, FREDA counting from the cruise check: \(cruise)")
+                }
+            } else if !circuits {
                 XCTAssertEqual(try state(straight.seen, at: relaunches[0]).owed[.climb], .levelOff,
                                "the climb check owed in cruise")
                 XCTAssertEqual(try state(straight.seen, at: relaunches[1]).roles,
@@ -294,9 +308,13 @@ final class GroundReplayTests: XCTestCase {
                               "stopped after the stop-and-go, before the next take-off roll")
             }
 
+            // Give or take the relaunch's own cadence: the passages run 15 s from it, and the detector every
+            // 5 s, not on the straight flight's beat. A state seen within 15 s of the same moment flown
+            // straight through is the same state; the bug kept them apart for minutes.
             var differ: [String] = []
             for t in straight.seen.keys.sorted() where t >= relaunches[0] {
-                guard let want = straight.seen[t], let got = relaunched.seen[t] else { continue }
+                guard let want = straight.seen[t], let got = relaunched.seen[t], want != got,
+                      !straight.seen.contains(where: { abs($0.key - t) <= 15 && $0.value == got }) else { continue }
                 if want.slot != got.slot { differ.append("\(Int(t)) s, the slot: \(got.slot), straight: \(want.slot)") }
                 if want.roles != got.roles { differ.append("\(Int(t)) s, MAP's band: \(got.roles), straight: \(want.roles)") }
                 if want.owed != got.owed { differ.append("\(Int(t)) s, owed: \(got.owed), straight: \(want.owed)") }

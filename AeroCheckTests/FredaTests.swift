@@ -123,8 +123,9 @@ final class FredaTests: XCTestCase {
 
     // MARK: On a flight
 
-    private func flight(circuits: Bool = false) -> AppState {
-        let appState = makeTestAppState()
+    private func flight(circuits: Bool = false, datastore: DataPersistenceManager? = nil,
+                        defaults: UserDefaults? = nil) -> AppState {
+        let appState = makeTestAppState(datastore: datastore, defaults: defaults)
         appState.settings.selectedRemoteAircraftId = nil
         appState.settings.selectedAircraft = .wt9Dynamic
         appState.settings.learningMode = true
@@ -285,6 +286,72 @@ final class FredaTests: XCTestCase {
         XCTAssertFalse(appState.freda.isRunning)
         appState.confirmFreda()
         XCTAssertNil(appState.currentFlight?.fredaChecks)
+    }
+
+    // MARK: Across a relaunch (6.2)
+
+    /// The app killed in cruise and launched again on the same device, the flight restored from its
+    /// checkpoint.
+    private func relaunch(_ appState: AppState, datastore: DataPersistenceManager,
+                          defaults: UserDefaults) throws -> AppState {
+        appState.flushPendingCheckpoint()
+        let relaunched = makeTestAppState(datastore: datastore, defaults: defaults)
+        XCTAssertTrue(relaunched.restoreActiveFlightState(), "the flight restored")
+        addTeardownBlock { @MainActor in relaunched.cancelFlight() }
+        return relaunched
+    }
+
+    /// Killed in cruise and launched again: FREDA counts on from the same anchor rather than from the
+    /// restore, and one due stays due (and missed when cruise is left without it, as without the
+    /// relaunch). Until 6.2 the checkpoint didn't keep it: the ten minutes started again at the restore,
+    /// and a FREDA due went without a trace.
+    func testARelaunchInCruiseKeepsTheCountAndAFredaDue() throws {
+        let datastore = makeTestDatastore(), defaults = makeTestDefaults()
+        let appState = flight(datastore: datastore, defaults: defaults)
+        try cruiseChecked(appState)
+        let anchor = try XCTUnwrap(appState.freda.anchor)
+
+        let counting = try relaunch(appState, datastore: datastore, defaults: defaults)
+        XCTAssertEqual(counting.freda.since, .cruiseCheck)
+        XCTAssertEqual(try XCTUnwrap(counting.freda.anchor).timeIntervalSince(anchor), 0, accuracy: 1,
+                       "counting from the cruise check, not from the restore")
+        counting.evaluateFreda(now: anchor.addingTimeInterval(FredaSchedule.interval + 1))
+        XCTAssertTrue(counting.fredaDue, "due ten minutes after the cruise check")
+
+        let due = try relaunch(counting, datastore: datastore, defaults: defaults)
+        XCTAssertTrue(due.fredaDue, "still due after a second relaunch")
+        XCTAssertEqual(CockpitCheckSlot.slot(for: due).action, .confirmFreda)
+        due.nextPhase()
+        XCTAssertEqual(due.currentFlight?.fredaChecks?.map(\.outcome), [.missed], "left alone: missed")
+    }
+
+    /// A checkpoint written before 6.2 has no FREDA: it still restores, and FREDA counts from the restore,
+    /// as it did. One written by a newer build, with a value this one can't read, restores too.
+    func testACheckpointWithoutFredaOrWithANewerOneStillRestores() throws {
+        let datastore = makeTestDatastore(), defaults = makeTestDefaults()
+        let appState = flight(datastore: datastore, defaults: defaults)
+        try cruiseChecked(appState)
+        let flight = try XCTUnwrap(appState.currentFlight)
+        let encoder = JSONEncoder(); encoder.dateEncodingStrategy = .iso8601
+        let decoder = JSONDecoder(); decoder.dateDecodingStrategy = .iso8601
+        var json = try XCTUnwrap(JSONSerialization.jsonObject(with: encoder.encode(ActiveFlightState(flight: flight, from: appState)))
+                                 as? [String: Any])
+        XCTAssertNotNil(json["freda"], "kept while it runs")
+
+        json.removeValue(forKey: "freda")
+        let older = try decoder.decode(ActiveFlightState.self, from: JSONSerialization.data(withJSONObject: json))
+        let restored = makeTestAppState()
+        older.restore(to: restored)
+        addTeardownBlock { @MainActor in restored.cancelFlight() }
+        XCTAssertFalse(restored.freda.isRunning)
+        let later = Date().addingTimeInterval(60)
+        restored.evaluateFreda(now: later)
+        XCTAssertEqual(restored.freda.anchor, later, "an older checkpoint: FREDA counts from the restore")
+
+        json["freda"] = ["anchor": "2027-01-15T08:00:00Z", "since": ["afterTurbulence": [:] as [String: Any]]]
+        let newer = try decoder.decode(ActiveFlightState.self, from: JSONSerialization.data(withJSONObject: json))
+        XCTAssertEqual(newer.freda?.since, .cruiseCheck, "a kind this build doesn't know")
+        XCTAssertNotNil(newer.freda?.anchor)
     }
 
     // MARK: Where it shows

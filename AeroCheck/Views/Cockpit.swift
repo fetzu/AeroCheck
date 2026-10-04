@@ -396,8 +396,9 @@ struct CockpitThumbButton: View {
     var subtitleLines: Int = 1
     var horizontalPadding: CGFloat = 14
     var minHeight: CGFloat? = nil
-    /// The act band's slots on the phone: the words set to fit the slot (`ActFace`), the title on up to
-    /// `titleLines`, the subtitle on up to `subtitleLines`, no icon. (6.2)
+    /// The act band's slots: the words set to fit the slot (`ActFace`) at the device's sizes, the title on
+    /// up to `titleLines`, the subtitle on up to `subtitleLines`, the icon (the iPad's) beside them. Left to
+    /// SwiftUI, the iPad's cut "NEXT: CRUISE CHECK · from memory" after "from me". (6.2)
     var fitted = false
     let action: () -> Void
 
@@ -407,7 +408,7 @@ struct CockpitThumbButton: View {
         Button(action: action) {
             Group {
                 if fitted {
-                    ActFaceText(blocks: fittedBlocks)
+                    ActFaceText(blocks: fittedBlocks(for: .current), icon: icon, iconSize: CockpitType.response)
                 } else {
                     VStack(spacing: 4) {
                         HStack(spacing: 10) {
@@ -441,12 +442,15 @@ struct CockpitThumbButton: View {
         .accessibilityElement(children: .combine)
     }
 
-    /// The title, then the subtitle, as the slot sets them on the phone.
-    var fittedBlocks: [ActFaceBlock] {
-        var blocks = [ActFaceBlock(text: title, size: CockpitType.button(for: .phone), maxLines: titleLines)]
+    /// The title, then the subtitle, as the slot sets them on `scale`'s device: neither under the in-flight
+    /// label size where the words fit at it; the iPad's title on one line while it stays at that size.
+    func fittedBlocks(for scale: CockpitScale) -> [ActFaceBlock] {
+        let label = CockpitType.label(for: scale)
+        var blocks = [ActFaceBlock(text: title, size: CockpitType.button(for: scale), maxLines: titleLines, floor: label,
+                                   prefersFewerLines: scale != .phone)]
         if let subtitle, !subtitle.isEmpty {
-            blocks.append(ActFaceBlock(text: subtitle, size: CockpitType.label(for: .phone), bold: false,
-                                       maxLines: subtitleLines, opacity: 0.85))
+            blocks.append(ActFaceBlock(text: subtitle, size: label, bold: false, maxLines: subtitleLines, floor: label,
+                                       opacity: 0.85))
         }
         return blocks
     }

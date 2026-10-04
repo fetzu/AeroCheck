@@ -1981,9 +1981,10 @@ struct HoldToConfirmButton: View {
     var horizontalPadding: CGFloat? = nil
     /// What VoiceOver reads, where `title` is broken on two lines.
     var spokenTitle: String? = nil
-    /// The act band's slots on the phone (`stacked`): the title and the hint set to fit the slot
-    /// (`ActFace`), the title at the row size or as near as fits, the hint at the label size, smaller
-    /// only where the slot has no more room ("Maintenir pour confirmer"). (6.2)
+    /// The act band's slots: the title and the hint set to fit the slot (`ActFace`) at the device's sizes,
+    /// the title at the row size or as near as fits (on one line on the iPad while it stays at the label
+    /// size), the hint at the label size, smaller only where the slot has no more room ("Maintenir pour
+    /// confirmer"); the icon and the count beside them where the button isn't `stacked`. (6.2)
     var fitted = false
     let action: () -> Void
 
@@ -1992,13 +1993,14 @@ struct HoldToConfirmButton: View {
 
     private let holdDuration: TimeInterval = 1.0
 
-    /// The title, then "Hold to confirm", as the phone's slot sets them.
+    /// The title, then "Hold to confirm", as the slot sets them on `scale`'s device.
     static func fittedBlocks(title: String, titleLines: Int, hintColor: Color? = nil,
-                             hint: String = L10n.ChecklistAction.holdToConfirm) -> [ActFaceBlock] {
-        let label = CockpitType.label(for: .phone)
+                             hint: String = L10n.ChecklistAction.holdToConfirm,
+                             scale: CockpitScale = .phone) -> [ActFaceBlock] {
+        let label = CockpitType.label(for: scale)
         // The hint regular, in grey: as large as the title where the slot allows, never as loud.
-        return [ActFaceBlock(text: title, size: CockpitType.size(kneeboard: 24, phone: 20, scale: .phone),
-                             maxLines: max(2, titleLines)),
+        return [ActFaceBlock(text: title, size: CockpitType.size(kneeboard: 24, phone: 20, scale: scale),
+                             maxLines: max(2, titleLines), floor: label, prefersFewerLines: scale != .phone),
                 ActFaceBlock(text: hint, size: label, bold: false, maxLines: 3, floor: label * 0.75, color: hintColor)]
     }
 
@@ -2018,9 +2020,18 @@ struct HoldToConfirmButton: View {
             RoundedRectangle(cornerRadius: corner).strokeBorder(tint, lineWidth: kneeboard ? 1.5 : 2)
 
             if fitted {
-                ActFaceText(blocks: Self.fittedBlocks(title: title, titleLines: titleLines, hintColor: theme.textSecondary))
-                    .foregroundColor(tint)
-                    .padding(.horizontal, horizontalPadding ?? 8)
+                HStack(spacing: kneeboard ? 12 : 8) {
+                    // The icon beside the title, as the button showed it; none where `stacked`.
+                    ActFaceText(blocks: Self.fittedBlocks(title: title, titleLines: titleLines, hintColor: theme.textSecondary,
+                                                          scale: .current),
+                                icon: stacked ? nil : systemImage, iconSize: kneeboard ? CockpitType.row : 16,
+                                iconSpacing: kneeboard ? 12 : 8)
+                    if count > 0 {
+                        Text("\(count)").font(.aero(size: kneeboard ? CockpitType.response : 17, weight: .heavy, design: .monospaced))
+                    }
+                }
+                .foregroundColor(tint)
+                .padding(.horizontal, horizontalPadding ?? (stacked ? 8 : 16))
             } else {
                 HStack(spacing: kneeboard ? 12 : 8) {
                     if !stacked {

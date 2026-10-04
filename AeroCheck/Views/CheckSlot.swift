@@ -4,14 +4,14 @@ import SwiftUI
 //
 // In flight, the act band's first slot holds the next thing to do with the checklist (on MAP always, on
 // CHECKLIST outside the engine phases and cruise, since 6.2), and one tap does it: confirm a memory check (done from memory, with undo), open a list
-// still to check on the CHECKLIST pane, or, the check done, go on to the next one. It is 104 pt tall on
+// still to check on the CHECKLIST page, or, the check done, go on to the next one. It is 104 pt tall on
 // the kneeboard (92 on the phone) and always in the same place, so the thumb learns it; before it,
 // marking the climb check done from the map took CHECKLIST at the top, then NEXT at the foot.
 //
 // Its colour says when: dark while nothing is due, amber (outlined) when the check is due, filled amber
 // once, when the flight moved on with it still open, and dashed grey in the landing phase, where there
 // is nothing to press until the runway is behind. Nothing pulses, nothing beeps, and it never changes
-// the pane on its own. "Due" comes from the flight (FlightCues.swift): the climb check at 500 ft above the
+// the page on its own. "Due" comes from the flight (FlightCues.swift): the climb check at 500 ft above the
 // field, the cruise check at the level-off, the descent check at the descent, the approach check near the
 // destination, and the landing check shown, dashed, from circuit height. Once the flight says so, the
 // next check comes to the slot too, with its one tap (the descent check in cruise, where FREDA was).
@@ -63,7 +63,7 @@ struct CheckSlot: Equatable, Codable {
     enum Action: String, Equatable, Codable {
         /// Records the current memory check done from memory.
         case confirmFromMemory
-        /// Shows the CHECKLIST pane; the map comes back after the last CHECK, by the pane rule.
+        /// Shows the CHECKLIST page; the map comes back after the last CHECK, by the page rule.
         case showChecklist
         /// Goes on to the next phase, as NEXT.
         case advance
@@ -714,7 +714,7 @@ struct MapFlightEventButton: View {
         }
     }
 
-    /// As the checklist pane's: the detector is told first, so it doesn't prompt for the same event, and
+    /// As the checklist page's: the detector is told first, so it doesn't prompt for the same event, and
     /// gives back the physical time when it knows one.
     private func perform() {
         switch event {

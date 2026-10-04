@@ -3,7 +3,7 @@ import XCTest
 
 /// FREDA in cruise (6.1, "Checks in flight" Q6): after the cruise check, due every ten minutes or at a
 /// waypoint passed five minutes or more after the last one, whichever comes first; one tap done, with
-/// undo; recorded on the flight, done or missed; never a pane change. The rules first (`FredaSchedule`),
+/// undo; recorded on the flight, done or missed; never a page change. The rules first (`FredaSchedule`),
 /// then read off a flight on the bundled WT9, whose cruise check is a read-do list.
 @MainActor
 final class FredaTests: XCTestCase {
@@ -163,10 +163,10 @@ final class FredaTests: XCTestCase {
         appState.evaluateFreda(now: Date().addingTimeInterval(FredaSchedule.interval + 1))
         XCTAssertTrue(appState.fredaDue)
 
-        // The old reminder reopened the cruise list, which flipped the pane to the CHECKLIST by itself.
+        // The old reminder reopened the cruise list, which flipped the page to the CHECKLIST by itself.
         XCTAssertEqual(appState.currentHighlightedItem[.cruise], highlight, "the cruise list stays done")
         XCTAssertTrue(appState.currentCheckIsDone)
-        XCTAssertEqual(CockpitPaneRule.defaultPane(phase: .cruise, checklistDone: appState.currentCheckIsDone,
+        XCTAssertEqual(CockpitPageRule.defaultPage(phase: .cruise, checklistDone: appState.currentCheckIsDone,
                                                    memoryCheck: appState.isMemoryCheck(.cruise)), .map)
     }
 

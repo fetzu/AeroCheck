@@ -3,20 +3,20 @@ import SwiftUI
 import XCTest
 @testable import AeroCheck
 
-/// Which pane the Cockpit shows by itself (v6.0 · P2): the map en route once the phase's checklist is
+/// Which page the Cockpit shows by itself (v6.0 · P2): the map en route once the phase's checklist is
 /// done, the checklist everywhere else and whenever one is open.
-final class CockpitPaneRuleTests: XCTestCase {
+final class CockpitPageRuleTests: XCTestCase {
 
     func testEnRouteTheMapOnceTheChecklistIsDone() {
         for phase in [ChecklistPhase.climb, .cruise, .descent] {
-            XCTAssertEqual(CockpitPaneRule.defaultPane(phase: phase, checklistDone: true), .map, "\(phase)")
+            XCTAssertEqual(CockpitPageRule.defaultPage(phase: phase, checklistDone: true), .map, "\(phase)")
         }
     }
 
     func testEnRouteTheChecklistWhileItIsOpen() {
         // Entering climb shows the climb checklist; a cruise check come due brings the list back.
         for phase in [ChecklistPhase.climb, .cruise, .descent] {
-            XCTAssertEqual(CockpitPaneRule.defaultPane(phase: phase, checklistDone: false), .checklist, "\(phase)")
+            XCTAssertEqual(CockpitPageRule.defaultPage(phase: phase, checklistDone: false), .checklist, "\(phase)")
         }
     }
 
@@ -25,7 +25,7 @@ final class CockpitPaneRuleTests: XCTestCase {
         for phase in ChecklistPhase.allCases {
             for done in [false, true] {
                 for memory in [false, true] {
-                    XCTAssertNotEqual(CockpitPaneRule.defaultPane(phase: phase, checklistDone: done, memoryCheck: memory),
+                    XCTAssertNotEqual(CockpitPageRule.defaultPage(phase: phase, checklistDone: done, memoryCheck: memory),
                                       .route, "\(phase), done \(done), memory \(memory)")
                 }
             }
@@ -33,18 +33,18 @@ final class CockpitPaneRuleTests: XCTestCase {
     }
 
     func testAPickedPageHoldsUntilTheSuggestionChanges() {
-        var choice = CockpitPaneChoice()
-        XCTAssertEqual(choice.pane(suggested: .checklist), .checklist)
+        var choice = CockpitPageChoice()
+        XCTAssertEqual(choice.page(suggested: .checklist), .checklist)
         choice.pick(.route, suggested: .checklist)
-        XCTAssertEqual(choice.pane(suggested: .checklist), .route, "ROUTE picked over the checklist")
+        XCTAssertEqual(choice.page(suggested: .checklist), .route, "ROUTE picked over the checklist")
         // The flight moves on (the checklist done, the next phase): the pick is dropped, ROUTE's too.
         choice.suggestionChanged()
-        XCTAssertEqual(choice.pane(suggested: .map), .map)
+        XCTAssertEqual(choice.page(suggested: .map), .map)
         XCTAssertNil(choice.override)
     }
 
     func testPickingTheSuggestedPageClearsThePick() {
-        var choice = CockpitPaneChoice(override: .route)
+        var choice = CockpitPageChoice(override: .route)
         choice.pick(.map, suggested: .map)
         XCTAssertNil(choice.override, "back on what the flight shows: nothing to drop later")
         choice.pick(.checklist, suggested: .map)
@@ -62,8 +62,8 @@ final class CockpitPaneRuleTests: XCTestCase {
     func testOnTheGroundAndAroundTakeOffAndLandingTheChecklist() {
         let enRoute: Set<ChecklistPhase> = [.climb, .cruise, .descent]
         for phase in ChecklistPhase.allCases where !enRoute.contains(phase) {
-            XCTAssertEqual(CockpitPaneRule.defaultPane(phase: phase, checklistDone: true), .checklist, "\(phase)")
-            XCTAssertEqual(CockpitPaneRule.defaultPane(phase: phase, checklistDone: false), .checklist, "\(phase)")
+            XCTAssertEqual(CockpitPageRule.defaultPage(phase: phase, checklistDone: true), .checklist, "\(phase)")
+            XCTAssertEqual(CockpitPageRule.defaultPage(phase: phase, checklistDone: false), .checklist, "\(phase)")
         }
     }
 
@@ -169,8 +169,8 @@ final class CockpitColumnFitTests: XCTestCase {
             for page in Page.allCases {
                 for language in [ChecklistLanguage.en, .fr] {
                     let services = makeServices()
-                    let pane = setUp(page, language: language, services: services)
-                    let image = try render(FlightView(initialPane: pane), services: services, size: phone.size)
+                    let shown = setUp(page, language: language, services: services)
+                    let image = try render(FlightView(initialPage: shown), services: services, size: phone.size)
                     let column = try columnPixels(image)
                     let name = "\(phone.name), \(page.rawValue), checklist \(language.rawValue), app \(interface)"
                     try writeForReview(image, name: name)
@@ -212,7 +212,7 @@ final class CockpitColumnFitTests: XCTestCase {
         let band = ActBandMetrics.make(layout: .columns, scale: .phone).bandHeight
             + CockpitActBand.columnTopPadding + CockpitActBand.columnBottomPadding
         let head = FlightView.cockpitColumnTop + FlightView.cockpitColumnHeaderHeight + FlightView.cockpitColumnGap
-            + CockpitPanePicker.compactSegmentHeight + 2 * 2 + FlightView.cockpitColumnGap
+            + CockpitPagePicker.compactSegmentHeight + 2 * 2 + FlightView.cockpitColumnGap
         let strip = StripReading(speedKnots: 104, targetSpeed: 100, gpsSignalStatus: .good, altitudeFeet: 10_500,
                                  headingDegrees: 211, verticalSpeedFPM: 650)
         for phone in Self.phones {
@@ -255,7 +255,7 @@ final class CockpitColumnFitTests: XCTestCase {
                                  "afterLanding", "shutdown", "hangar"]
 
     /// The flight for `page`, and the page to open on.
-    private func setUp(_ page: Page, language: ChecklistLanguage, services: Services) -> CockpitPane {
+    private func setUp(_ page: Page, language: ChecklistLanguage, services: Services) -> CockpitPage {
         let appState = services.appState
         appState.settings.checklistLanguage = language
         switch page {

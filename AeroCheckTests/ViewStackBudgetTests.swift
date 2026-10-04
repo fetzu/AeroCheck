@@ -55,7 +55,7 @@ final class ViewStackBudgetTests: XCTestCase {
         XCTAssertLessThan(used, Self.budget, "the landscape map used \(used / 1_024) KB of stack")
     }
 
-    /// The Cockpit on its checklist, on an iPad in portrait: the header, the phase bar, the pane bar
+    /// The Cockpit on its checklist, on an iPad in portrait: the header, the phase bar, the page bar
     /// and the checklist.
     func testCockpitChecklistRendersWithinHalfTheDeviceStack() {
         let services = makeServices()
@@ -69,7 +69,7 @@ final class ViewStackBudgetTests: XCTestCase {
     }
 
     /// The Cockpit on its map, in cruise with the checklist worked through: the Cockpit and the map in
-    /// its pane, as flown.
+    /// its page, as flown.
     func testCockpitMapRendersWithinHalfTheDeviceStack() {
         let services = makeServices()
         // Without step-by-step checking a phase counts as worked through, so the Cockpit shows the map.
@@ -109,7 +109,7 @@ final class ViewStackBudgetTests: XCTestCase {
             undo.appState.confirmMemoryCheck()
             XCTAssertNotNil(undo.appState.memoryConfirmationToOffer, "UNDO offered")
             let withUndo = StackProbe.bytesUsed {
-                render(FlightView(initialPane: .map), services: undo, size: size)
+                render(FlightView(initialPage: .map), services: undo, size: size)
             }
             XCTAssertLessThan(withUndo, Self.budget, "the Cockpit's chart with UNDO, \(name), used \(withUndo / 1_024) KB of stack")
 
@@ -118,7 +118,7 @@ final class ViewStackBudgetTests: XCTestCase {
             offline.appState.goToPhase(.descent)
             armRoute(offline.flightPlanManager, waypoints: 6)
             let withState = StackProbe.bytesUsed {
-                render(FlightView(initialPane: .map), services: offline, size: size)
+                render(FlightView(initialPage: .map), services: offline, size: size)
             }
             XCTAssertLessThan(withState, Self.budget, "the Cockpit's chart with CHART OFFLINE, \(name), used \(withState / 1_024) KB of stack")
         }
@@ -137,7 +137,7 @@ final class ViewStackBudgetTests: XCTestCase {
             armRoute(services.flightPlanManager, waypoints: 6)
 
             let used = StackProbe.bytesUsed {
-                render(FlightView(initialPane: .route), services: services, size: size)
+                render(FlightView(initialPage: .route), services: services, size: size)
             }
             XCTAssertLessThan(used, Self.budget, "the Cockpit's ROUTE (\(name)) used \(used / 1_024) KB of stack")
         }
@@ -147,7 +147,7 @@ final class ViewStackBudgetTests: XCTestCase {
     /// NEXT with its figures in the strip and NOW | NEXT under it, over each page, on an iPad in portrait
     /// and on its side, and the phone's next line and NOW line at a phone's width.
     func testCockpitInCruiseWithARouteRendersWithinHalfTheDeviceStack() {
-        for pane in [CockpitPane.checklist, .map] {
+        for page in [CockpitPage.checklist, .map] {
             for (size, name) in [(CGSize(width: 820, height: 1_180), "iPad portrait"),
                                  (CGSize(width: 1_180, height: 820), "iPad on its side"),
                                  (CGSize(width: 402, height: 874), "phone width")] {
@@ -157,9 +157,9 @@ final class ViewStackBudgetTests: XCTestCase {
                 armRoute(services.flightPlanManager, waypoints: 6)
 
                 let used = StackProbe.bytesUsed {
-                    render(FlightView(initialPane: pane), services: services, size: size)
+                    render(FlightView(initialPage: page), services: services, size: size)
                 }
-                XCTAssertLessThan(used, Self.budget, "the Cockpit in cruise with a route, \(pane), \(name), used \(used / 1_024) KB of stack")
+                XCTAssertLessThan(used, Self.budget, "the Cockpit in cruise with a route, \(page), \(name), used \(used / 1_024) KB of stack")
             }
         }
     }
@@ -168,7 +168,7 @@ final class ViewStackBudgetTests: XCTestCase {
     /// the header row, the picker, the strip, the next and NOW lines (one line under 400 pt tall) and the act
     /// band two by two, on CHECKLIST, MAP and ROUTE, at an iPhone 17's and a Pro Max's sizes.
     func testCockpitOnAPhoneOnItsSideRendersWithinHalfTheDeviceStack() {
-        for pane in [CockpitPane.checklist, .map, .route] {
+        for page in [CockpitPage.checklist, .map, .route] {
             for (size, name) in [(CGSize(width: 796, height: 382), "iPhone 17, merged line"),
                                  (CGSize(width: 878, height: 420), "Pro Max, two lines")] {
                 let services = makeServices()
@@ -177,9 +177,9 @@ final class ViewStackBudgetTests: XCTestCase {
                 armRoute(services.flightPlanManager, waypoints: 6)
 
                 let used = StackProbe.bytesUsed {
-                    render(FlightView(initialPane: pane), services: services, size: size)
+                    render(FlightView(initialPage: page), services: services, size: size)
                 }
-                XCTAssertLessThan(used, Self.budget, "the Cockpit on its side, \(pane), \(name), used \(used / 1_024) KB of stack")
+                XCTAssertLessThan(used, Self.budget, "the Cockpit on its side, \(page), \(name), used \(used / 1_024) KB of stack")
             }
         }
     }
@@ -195,7 +195,7 @@ final class ViewStackBudgetTests: XCTestCase {
         XCTAssertTrue(services.appState.freda.isRunning && !services.appState.fredaDue, "FREDA counting")
 
         let used = StackProbe.bytesUsed {
-            render(FlightView(initialPane: .checklist), services: services, size: CGSize(width: 820, height: 1_180))
+            render(FlightView(initialPage: .checklist), services: services, size: CGSize(width: 820, height: 1_180))
         }
         XCTAssertLessThan(used, Self.budget, "the Cockpit's checklist with FREDA counting used \(used / 1_024) KB of stack")
     }

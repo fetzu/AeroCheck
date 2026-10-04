@@ -99,7 +99,7 @@ final class CockpitRoutePageTests: XCTestCase {
         let radio = CockpitRadio()
         radio.publish = { _ in }
 
-        _ = render(FlightView(initialPane: .checklist, radio: radio), services: services,
+        _ = render(FlightView(initialPage: .checklist, radio: radio), services: services,
                    size: CGSize(width: 820, height: 1_180))
 
         XCTAssertGreaterThanOrEqual(radio.computations, 1, "computed with no map on screen")

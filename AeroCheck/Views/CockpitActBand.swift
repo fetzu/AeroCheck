@@ -17,7 +17,7 @@ import os
 //   MAP and ROUTE, from the approach to the runway, and from circuit height:
 //              S1 the check slot   S2 GO AROUND   S3 TOUCH-AND-GO   S4 More, Divert inside it
 //
-// Until 6.2 each pane had a thumb bar of its own: the checklist's laid itself out again with the phase
+// Until 6.2 each page had a thumb bar of its own: the checklist's laid itself out again with the phase
 // (CHECK at the right end, the phase's action, FREDA or the circuit buttons coming and going), the map's
 // held the slot, MARK, Divert and More. The band is the frame's now, and what the map's bar owned (MARK's
 // UNDO, the Divert sheet, the leg timer's actions, the routes) is `CockpitNavState`'s.
@@ -52,7 +52,7 @@ enum ActSlotRole: Equatable {
 enum ActBandRoles {
     /// `routeFlown`: every waypoint passed. `landingShown`: the landing check shown from circuit height
     /// (the flight cues). `canDefer`: an item to put off (the check open, not a memory check).
-    static func make(page: CockpitPane, phase: ChecklistPhase, hasRoute: Bool, routeFlown: Bool = false,
+    static func make(page: CockpitPage, phase: ChecklistPhase, hasRoute: Bool, routeFlown: Bool = false,
                      diverting: Bool = false, circuits: Bool = false, landingShown: Bool = false,
                      canDefer: Bool = true) -> [ActSlotRole] {
         let legToFly = hasRoute && !routeFlown
@@ -624,7 +624,7 @@ extension EnvironmentValues {
 /// two at the foot of the phone's column on its side. The Divert sheet and the routes hang here, so they stay
 /// up whichever page shows.
 struct CockpitActBand: View {
-    let page: CockpitPane
+    let page: CockpitPage
     let layout: CockpitLayout
     let actions: CockpitActions
     /// The device's measures; the tests lay the phone's out on an iPad.
@@ -718,7 +718,7 @@ private struct ActBandPresentations: ViewModifier {
 /// two, where S3 is as wide as S1.
 struct ActSlotView: View {
     let role: ActSlotRole
-    let page: CockpitPane
+    let page: CockpitPage
     var grid = false
     let actions: CockpitActions
 
@@ -1077,7 +1077,7 @@ struct ActRoutesButton: View {
 /// and reset (the reset offers undo), the legs and frequencies (ROUTE), what is deferred (on MAP and
 /// ROUTE, whose picker row has no room for its chip since 6.2), V-SPEEDS on the phone, and the routes.
 struct CockpitMoreMenu: View {
-    let page: CockpitPane
+    let page: CockpitPage
     let withDivert: Bool
     let actions: CockpitActions
 

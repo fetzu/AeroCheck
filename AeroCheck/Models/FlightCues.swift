@@ -276,7 +276,7 @@ struct FlightCueTracker {
 /// passed with the check still open ("owed"). Kept by `AppState`, in the crash checkpoint.
 ///
 /// Owed happens once per check and leg ("never twice"): filled amber in the slot until the check is done
-/// or skipped explicitly. Nothing pulses, nothing sounds, and the pane never changes.
+/// or skipped explicitly. Nothing pulses, nothing sounds, and the page never changes.
 struct FlightCueState: Equatable, Codable {
     struct Owed: Equatable, Codable {
         /// When the flight moved past it, and with which cue.

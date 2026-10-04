@@ -702,7 +702,7 @@ final class CockpitActBandTests: XCTestCase {
         // circuits.
         faces.append(Face(name: "START LEG", blocks: ActMarkButton.phoneBlocks(title: t("nav.startLegTimer"), name: nil, time: nil)))
         for name in ["LSGC", "SAIGNELÉGIER", "COL DES MOSSES", ""] {
-            for time in ["0:05", "12:34", "12:34 ‖", "1:02:03 ‖"] {
+            for time in ["0:05", "12:34", "12:34\u{00A0}‖", "1:02:03\u{00A0}‖"] {
                 faces.append(Face(name: "MARK \(name) \(time)",
                                   blocks: ActMarkButton.phoneBlocks(title: t("nav.mark"), name: name, time: time)))
             }

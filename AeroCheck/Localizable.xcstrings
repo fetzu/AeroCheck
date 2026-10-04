@@ -2489,13 +2489,13 @@
               "one": {
                 "stringUnit": {
                   "state": "translated",
-                  "value": "%lld item · nothing to press"
+                  "value": "%lld item · nothing to press"
                 }
               },
               "other": {
                 "stringUnit": {
                   "state": "translated",
-                  "value": "%lld items · nothing to press"
+                  "value": "%lld items · nothing to press"
                 }
               }
             }
@@ -2507,13 +2507,13 @@
               "one": {
                 "stringUnit": {
                   "state": "translated",
-                  "value": "%lld élément · rien à toucher"
+                  "value": "%lld élément · rien à toucher"
                 }
               },
               "other": {
                 "stringUnit": {
                   "state": "translated",
-                  "value": "%lld éléments · rien à toucher"
+                  "value": "%lld éléments · rien à toucher"
                 }
               }
             }
@@ -2629,13 +2629,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "FREDA in %lld min"
+            "value": "FREDA in %lld min"
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "FREDA dans %lld min"
+            "value": "FREDA dans %lld min"
           }
         }
       }
@@ -3208,13 +3208,13 @@
               "one": {
                 "stringUnit": {
                   "state": "translated",
-                  "value": "%lld item"
+                  "value": "%lld item"
                 }
               },
               "other": {
                 "stringUnit": {
                   "state": "translated",
-                  "value": "%lld items"
+                  "value": "%lld items"
                 }
               }
             }
@@ -3226,13 +3226,13 @@
               "one": {
                 "stringUnit": {
                   "state": "translated",
-                  "value": "%lld élément"
+                  "value": "%lld élément"
                 }
               },
               "other": {
                 "stringUnit": {
                   "state": "translated",
-                  "value": "%lld éléments"
+                  "value": "%lld éléments"
                 }
               }
             }
@@ -7618,13 +7618,13 @@
               "one" : {
                 "stringUnit" : {
                   "state" : "translated",
-                  "value" : "%lld deferred item"
+                  "value" : "%lld deferred item"
                 }
               },
               "other" : {
                 "stringUnit" : {
                   "state" : "translated",
-                  "value" : "%lld deferred items"
+                  "value" : "%lld deferred items"
                 }
               }
             }
@@ -7636,13 +7636,13 @@
               "one" : {
                 "stringUnit" : {
                   "state" : "translated",
-                  "value" : "%lld élément reporté"
+                  "value" : "%lld élément reporté"
                 }
               },
               "other" : {
                 "stringUnit" : {
                   "state" : "translated",
-                  "value" : "%lld éléments reportés"
+                  "value" : "%lld éléments reportés"
                 }
               }
             }

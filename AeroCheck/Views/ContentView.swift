@@ -382,6 +382,21 @@ struct ContentView: View {
                 }
                 appState.applyCuesForCapture(cues, owed: owed)
             }
+            // The read band's captures (6.2): `AEROCHECK_NEXT_NAME=SAIGNELÉGIER` renames the waypoint flown
+            // to, `AEROCHECK_DIVERT=LSZG` diverts to a field (the airport database's, else Grenchen's
+            // coordinates).
+            if appState.isFlightActive, let name = env["AEROCHECK_NEXT_NAME"], !name.isEmpty,
+               var plan = flightPlanManager.activeFlightPlan, plan.waypoints.indices.contains(plan.currentWaypointIndex) {
+                plan.waypoints[plan.currentWaypointIndex].name = name
+                flightPlanManager.activeFlightPlan = plan
+            }
+            if appState.isFlightActive, let ident = env["AEROCHECK_DIVERT"]?.uppercased(), !ident.isEmpty {
+                let airport = airportDataService.findAirport(byIdent: ident)
+                flightPlanManager.divert(to: TripPlanner.Aerodrome(
+                    ident: ident, name: airport?.name ?? "Grenchen", latitude: airport?.latitude ?? 47.1820,
+                    longitude: airport?.longitude ?? 7.4170, elevationFeet: airport.map { Double($0.elevation ?? 0) },
+                    frequency: nil, isPPR: false))
+            }
             // A ground tab, for captures that can't tap one (the Logbook's checks trend, 6.1):
             // `AEROCHECK_TAB=logbook`.
             if !appState.isFlightActive, let name = env["AEROCHECK_TAB"]?.lowercased() {

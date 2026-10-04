@@ -587,28 +587,43 @@ struct CompanionMarkSlot: View {
         }
     }
 
-    /// The word at the act band's size, shrinking no further than the in-flight label size; the
-    /// waypoint and the leg time under it at that size, one line each (the next line above has the
-    /// whole name).
+    /// The phone's: the Cockpit's MARK face (`ActMarkButton.phoneBlocks`), set to fit the slot (`ActFace`):
+    /// the verb, the waypoint whole (on two lines where it has two words), the leg time. Until 6.2 the
+    /// waypoint had one monospaced line at the label size and lost what didn't fit: "SAIGNELÉGIER" was cut
+    /// after eight letters. Elsewhere (the tests' iPad), the word at the act band's size over one line each.
+    @ViewBuilder
     private func face(title: String, titleLines: Int, lines: [String]) -> some View {
         let buttonSize = CockpitType.button(for: scale)
-        return VStack(spacing: 2) {
-            Text(verbatim: title)
-                .font(.aero(size: buttonSize, weight: .bold))
-                .multilineTextAlignment(.center)
-                .lineLimit(titleLines)
-                .minimumScaleFactor(CockpitType.label(for: scale) / buttonSize)
-            ForEach(Array(lines.enumerated()), id: \.offset) { _, line in
-                Text(verbatim: line)
-                    .font(.aero(size: CockpitType.label(for: scale), weight: .semibold, design: .monospaced))
-                    .lineLimit(1)
+        Group {
+            if scale == .phone {
+                ActFaceText(blocks: Self.phoneBlocks(title: title, lines: lines))
+            } else {
+                VStack(spacing: 2) {
+                    Text(verbatim: title)
+                        .font(.aero(size: buttonSize, weight: .bold))
+                        .multilineTextAlignment(.center)
+                        .lineLimit(titleLines)
+                        .minimumScaleFactor(CockpitType.label(for: scale) / buttonSize)
+                    ForEach(Array(lines.enumerated()), id: \.offset) { _, line in
+                        Text(verbatim: line)
+                            .font(.aero(size: CockpitType.label(for: scale), weight: .semibold, design: .monospaced))
+                            .lineLimit(1)
+                    }
+                }
             }
         }
         .foregroundColor(theme.actionText)
-        .padding(.horizontal, CockpitType.size(kneeboard: 16, phone: 6, scale: scale))
+        .padding(.horizontal, CockpitType.size(kneeboard: 16, phone: ActFace.inset, scale: scale))
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(RoundedRectangle(cornerRadius: 18).fill(theme.action))
         .contentShape(Rectangle())
+    }
+}
+
+extension CompanionMarkSlot {
+    /// `lines`: the waypoint, then the leg time, as `CompanionMarkState.mark` gives them.
+    static func phoneBlocks(title: String, lines: [String]) -> [ActFaceBlock] {
+        ActMarkButton.phoneBlocks(title: title, name: lines.first, time: lines.dropFirst().first)
     }
 }
 

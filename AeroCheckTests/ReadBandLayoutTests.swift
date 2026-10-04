@@ -86,7 +86,8 @@ final class ReadBandLayoutTests: XCTestCase {
     }
 
     /// The phone's next line: "SAIGNELÉGIER" and DÉROUTEMENT whole at the phone's label size beside the
-    /// figures, on a 6.1" phone too, with a 12-hour clock too.
+    /// figures, on a 6.1" phone too, with a 12-hour clock too, and the name with the Companion's turn arrow
+    /// before it.
     func testThePhoneNextLineHoldsTheNamesAtTheirSizes() {
         let metrics = ReadBandMetrics(.phone)
         for (_, layout, width) in Self.layouts where layout == .narrow {
@@ -97,8 +98,9 @@ final class ReadBandLayoutTests: XCTestCase {
                                 + templateWidth(NextFigureTemplates.clock, metrics) + twelveHourClockAllowance(metrics))
             let column = width - 24 - 2 * metrics.cellPadding - figures - metrics.figureGap
             for language in ["en", "fr"] {
-                XCTAssertLessThanOrEqual(textWidth("SAIGNELÉGIER", size: metrics.labelSize, bold: true, mono: true), column,
-                                         "\"SAIGNELÉGIER\" at \(width), \(language)")
+                XCTAssertLessThanOrEqual(textWidth("SAIGNELÉGIER", size: metrics.labelSize, bold: true, mono: true),
+                                         column - ReadBandNextLine.arrowSize - 6,
+                                         "\"SAIGNELÉGIER\" after the turn arrow at \(width), \(language)")
                 XCTAssertLessThanOrEqual(textWidth(L10n.Read.divertTag(language: language), size: metrics.labelSize, bold: true) + 12,
                                          column, "the DIVERT tag at \(width), \(language)")
                 XCTAssertLessThanOrEqual(textWidth(L10n.Read.nextColumn(language: language), size: metrics.labelSize), column)

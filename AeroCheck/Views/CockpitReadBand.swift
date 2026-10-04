@@ -317,13 +317,20 @@ private struct RouteTapTraits: ViewModifier {
 /// figures on two rows at the right, bearing and distance, then ETE and ETA. One line of the map held the
 /// name and three figures until 6.2, by shrinking them: at 17 pt they no longer fit a 12-letter name.
 /// The plain name, as before ("E", never "E (LSGC)"). A tap opens ROUTE.
+///
+/// The Companion's NAV screen reads the same line from the iPad's stream (`NextFigures(companion:)`),
+/// with the phone's turn arrow before the name: where the waypoint lies from the track.
 struct ReadBandNextLine: View {
     let figures: NextFigures
     var scale: CockpitScale = .current
+    /// The turn arrow, the Companion's: `.some(nil)` while the turn is unknown (no fix), dimmed; nil, no
+    /// arrow (the Cockpit, whose map turns).
+    var turn: Double?? = nil
     let onTap: () -> Void
     var language: String? = nil
 
     @Environment(\.cockpitTheme) private var theme
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     private var metrics: ReadBandMetrics { ReadBandMetrics(scale) }
 
@@ -332,14 +339,17 @@ struct ReadBandNextLine: View {
             HStack(alignment: .top, spacing: metrics.figureGap) {
                 VStack(alignment: .leading, spacing: 2) {
                     NextTagRow(diverting: figures.diverting, size: metrics.labelSize, language: language)
-                    ZStack(alignment: .leading) {
-                        // A line's height at full size, whatever a long name scales to.
-                        Text(verbatim: "0").font(metrics.identFont).hidden()
-                        Text(verbatim: figures.ident ?? "—")
-                            .font(metrics.identFont)
-                            .foregroundColor(figures.ident == nil ? theme.textSecondary : theme.route)
-                            .lineLimit(1)
-                            .minimumScaleFactor(metrics.identMinimumScale)
+                    HStack(spacing: 6) {
+                        if let turn { turnArrow(turn) }
+                        ZStack(alignment: .leading) {
+                            // A line's height at full size, whatever a long name scales to.
+                            Text(verbatim: "0").font(metrics.identFont).hidden()
+                            Text(verbatim: figures.ident ?? "—")
+                                .font(metrics.identFont)
+                                .foregroundColor(figures.ident == nil ? theme.textSecondary : theme.route)
+                                .lineLimit(1)
+                                .minimumScaleFactor(metrics.identMinimumScale)
+                        }
                     }
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
@@ -372,6 +382,21 @@ struct ReadBandNextLine: View {
     private func figure(_ text: String, _ widest: [String]) -> some View {
         DestinationFigureCell(text: text, widest: widest, font: metrics.figureFont, color: theme.textPrimary)
     }
+
+    /// The arrow turns inside its square, nothing beside it moves; amber while diverting, dimmed with no
+    /// turn to show, gone with no leg.
+    private func turnArrow(_ degrees: Double?) -> some View {
+        Image(systemName: "arrow.up")
+            .font(.aero(size: metrics.labelSize, weight: .bold))
+            .foregroundColor(figures.diverting ? theme.warning : theme.route)
+            .rotationEffect(.degrees(degrees ?? 0))
+            .animation(reduceMotion ? nil : .easeInOut(duration: 0.4), value: degrees ?? 0)
+            .frame(width: Self.arrowSize, height: Self.arrowSize)
+            .opacity(degrees == nil ? 0.35 : 1)
+            .opacity(figures.ident == nil ? 0 : 1)
+    }
+
+    static let arrowSize: CGFloat = 24
 }
 
 // MARK: - NOW | NEXT

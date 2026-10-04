@@ -513,6 +513,9 @@ final class CockpitNavState {
     /// The last MARK or leg-timer reset, offered back for a few seconds (MAP's status slot,
     /// `AutoMarkUndoToast`). (v6.0 · C2)
     var undoOffer: NavUndoOffer?
+    /// When the band last offered an undo, kept after the offer goes: an older offer never comes back
+    /// (`UndoOfferRule`). (6.2)
+    private(set) var lastOfferAt: Date?
     /// The Divert sheet, and the field it opens on when reached from an airport callout. (v5.1)
     var showDivert = false
     var divertPreselect: String?
@@ -553,8 +556,10 @@ final class CockpitNavState {
     func offerUndo(_ message: String, in manager: FlightPlanManager, animated: Bool = true,
                    undo: @escaping () -> Void) {
         manager.dismissAutoMarkNotice()
+        let offer = NavUndoOffer(message: message, undo: undo)
+        lastOfferAt = offer.madeAt
         withAnimation(animated ? .easeOut(duration: 0.2) : nil) {
-            undoOffer = NavUndoOffer(message: message, undo: undo)
+            undoOffer = offer
         }
     }
 

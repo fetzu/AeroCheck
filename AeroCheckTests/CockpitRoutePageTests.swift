@@ -47,6 +47,28 @@ final class CockpitRoutePageTests: XCTestCase {
         XCTAssertGreaterThanOrEqual(radio.minY, scroll.minY, "the radio in the same scroll as the legs")
     }
 
+    /// The undo toast lies over Emergency and a little of the scroll for six seconds: the scroll keeps that
+    /// much room at its foot, so the leg being flown, brought into view, is never under it. The phone's
+    /// toast is the compact one; a message on its two lines. (6.2)
+    func testTheScrollKeepsTheUndoToastsReachAtItsFoot() throws {
+        let offer = NavUndoOffer(message: "SAIGNELÉGIER marked automatically at 10:58 PM", style: .outlined) {}
+        for (layout, size) in [(CockpitLayout.narrow, CGSize(width: 390, height: 520)),
+                               (.narrow, CGSize(width: 402, height: 520)), (.wide, CGSize(width: 820, height: 700))] {
+            // Emergency's row takes the device's sizes: the iPad's page measured on an iPad only.
+            if layout == .wide && CockpitScale.current != .kneeboard { continue }
+            let parts = try layOut(waypoints: 6, size: size, layout: layout)
+            let emergency = try XCTUnwrap(parts[.emergency]).height + 4      // its row, and the foot's 4 pt
+            let margin: CGFloat = layout == .wide ? 16 : 12                   // `AutoMarkUndoToast`'s
+            let toast = UIHostingController(rootView: NavUndoToast(offer: offer, compact: layout != .wide) {}
+                .environment(\.cockpitTheme, .day))
+                .sizeThatFits(in: CGSize(width: size.width - 2 * margin, height: .greatestFiniteMagnitude)).height
+            let reach = toast + 8 - emergency
+            let clearance = RouteLegsAndRadio.toastClearance(layout)
+            XCTAssertLessThanOrEqual(reach, clearance, "\(size.width) pt: the toast reaches \(reach) pt over the scroll")
+            XCTAssertGreaterThan(reach, clearance - 16, "\(size.width) pt: no more room than it takes (\(reach) of \(clearance))")
+        }
+    }
+
     func testEmergencyLinesUpWithTheRadioColumn() throws {
         let iPad = try layOut(waypoints: 6, size: CGSize(width: 820, height: 700))
         XCTAssertEqual(iPad[.emergency]?.minX, iPad[.radio]?.minX, "under RADIO, beside the legs")

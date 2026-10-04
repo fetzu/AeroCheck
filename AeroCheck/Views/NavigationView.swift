@@ -2408,37 +2408,19 @@ struct NavigationMapView: View {
         // and a waypoint of the route is where a diversion can rejoin it. (v5.1)
         let offersDirect = isPreview && (index > plan.currentWaypointIndex || plan.diversion != nil)
         // DIRECT over the row's ACT and Δ, empty on a waypoint ahead, rather than beside the row: beside
-        // it, it took its width from the name, all of it beside the frequencies. (6.1, device check)
-        let actualAndDelta = large ? LegRowMetrics.actualAndDeltaWidth : 44 + 6 + 52
-        let row = RouteLegRow(plan: plan, index: index, compact: compact, large: large, isPreview: isPreview,
-                         actual: actual) {
+        // it, it took its width from the name, all of it beside the frequencies. (6.1, device check) With
+        // the figures under the name, their line keeps its room (`LegRowDirect`). (6.2)
+        return RouteLegRow(plan: plan, index: index, compact: compact, large: large, isPreview: isPreview,
+                           actual: actual, reservesDirect: offersDirect) {
             handleWaypointTap(index: index, plan: plan, isPast: isPast)
         }
-        // At the foot: where the figures are when they go under the name (`LegRowLayout`).
-        return row
-            .overlay(alignment: .bottomTrailing) {
-                if offersDirect {
-                    Button {
-                        flightPlanManager.directTo(waypointAt: index)
-                        previewWaypointIndex = nil
-                        // It re-centred the map on the aircraft. The band now frames the new leg, and the
-                        // map follows the aircraft once the panel closes. (6.1, option C)
-                        cameraBeforeLegs?.following = true
-                    } label: {
-                        Text(L10n.Trip.directToWaypoint)
-                            .font(.aero(size: large ? CockpitType.label : 12, weight: .bold))
-                            .foregroundColor(theme.actionText)
-                            .lineLimit(1)
-                            .minimumScaleFactor(0.8)
-                            .padding(.horizontal, 10)
-                            .frame(minHeight: large ? 44 : 36)
-                            .background(theme.action, in: Capsule())
-                    }
-                    .buttonStyle(.plain)
-                    .frame(width: actualAndDelta, alignment: .trailing)
-                    .padding(.trailing, LegRowMetrics.horizontalPadding)
-                }
-            }
+        .modifier(LegRowDirect(index: index, large: large, action: offersDirect ? {
+            flightPlanManager.directTo(waypointAt: index)
+            previewWaypointIndex = nil
+            // It re-centred the map on the aircraft. The band now frames the new leg, and the map follows
+            // the aircraft once the panel closes. (6.1, option C)
+            cameraBeforeLegs?.following = true
+        } : nil))
     }
 
     /// Tap a crossed waypoint → confirm resuming that leg; tap a current/future one → map preview. (v4 UI/UX Revamp)

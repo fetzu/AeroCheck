@@ -309,7 +309,8 @@ extension PhaseFrequency {
 /// The figures go under the name wherever the route's longest name wouldn't be whole beside them
 /// (`LegRowLayout`): on a phone the three columns left a name about 30 pt, "LS…" on a 17e, and
 /// SAIGNELÉGIER fits beside them on no phone. Whole at the phone's 17 pt; on the iPad a name may still
-/// shrink to 80 %, as it always could.
+/// shrink to 80 %, as it always could. The departure's row has no figures (no leg arrives at it), so it
+/// is always one line.
 struct RouteLegRow: View {
     let plan: FlightPlan
     let index: Int
@@ -323,6 +324,9 @@ struct RouteLegRow: View {
     let actual: TimeInterval?
     /// The device's measures; the tests lay the phone's out on an iPad.
     var scale: CockpitScale = .current
+    /// Plan › Map offers DIRECT on the row (`LegRowDirect`): with the figures under the name, their line
+    /// keeps DIRECT's height, so the button sits in it and never reaches the name.
+    var reservesDirect = false
     let onTap: () -> Void
 
     @Environment(\.cockpitTheme) private var theme
@@ -337,9 +341,13 @@ struct RouteLegRow: View {
         let timeWidth: CGFloat = large ? LegRowMetrics.timeWidth : 44
         let deltaWidth: CGFloat = large ? LegRowMetrics.deltaWidth : 52
         let nameScale = Self.nameMinimumScale(large: large, scale: scale)
+        // No leg arrives at the departure: no figures there, ever.
+        let hasFigures = index > 0
+        let actual = hasFigures ? actual : nil
         Button(action: onTap) {
             LegRowLayout(nameRoom: Self.nameRoom(plan: plan, size: large ? CockpitType.label(for: scale) : 13,
-                                                  minimumScale: nameScale)) {
+                                                  minimumScale: nameScale),
+                         hasFigures: hasFigures) {
                 // Sequence number: the numbered disc on the map. (v4 UI/UX Revamp)
                 Text("\(index + 1)")
                     .font(.aero(size: large ? CockpitType.label(for: scale) : 11, weight: .bold, design: .monospaced))
@@ -379,7 +387,12 @@ struct RouteLegRow: View {
                 .lineLimit(1)
                 .minimumScaleFactor(large ? 0.8 : 1)   // a little smaller rather than a time cut short
                 .modifier(LegRowPartReader(index: index, part: .figures))
+                if reservesDirect {
+                    // DIRECT's room on the figures' line; the button itself is Plan › Map's (`LegRowDirect`).
+                    Color.clear.frame(width: LegRowDirect.width(large: large), height: LegRowDirect.height(large: large))
+                }
             }
+            .modifier(LegRowPartReader(index: index, part: .row))
             .padding(.horizontal, LegRowMetrics.horizontalPadding).padding(.vertical, large ? 9 : 7)
             .background(isPreview ? theme.info.opacity(0.14)
                         : (isCurrent ? theme.route.opacity(0.10) : Color.clear))
@@ -442,6 +455,8 @@ struct RouteLegRow: View {
     /// The time flown on the leg arriving at `index`: the leg timer on the leg being flown, ATO to ATO on
     /// one flown, nothing on a leg ahead. (v4 UI/UX Revamp)
     static func actualTime(plan: FlightPlan, index: Int, legTimer: TimeInterval) -> TimeInterval? {
+        // The departure: the leg timer running before the take-off times no leg (MARK shows it).
+        guard index > 0 else { return nil }
         if index == plan.currentWaypointIndex {
             return legTimer > 0.5 ? legTimer : nil
         }
@@ -456,7 +471,7 @@ struct RouteLegRow: View {
 
 /// A part of a leg's row, for the layout tests.
 enum LegRowPart: Hashable {
-    case name, figures
+    case name, figures, row, direct
 }
 
 private struct LegRowReporterKey: EnvironmentKey {
@@ -499,6 +514,9 @@ private struct LegRowPartReader: ViewModifier {
 struct LegRowLayout: Layout {
     /// What the route's longest name needs, at the least it may shrink to.
     let nameRoom: CGFloat
+    /// False on the departure's row, which has none: one line, the name the row's width, unless DIRECT's
+    /// room is asked for (then on the second line, clear of the name).
+    var hasFigures = true
     var spacing: CGFloat = LegRowMetrics.spacing
     var nameGap: CGFloat = LegRowMetrics.nameGap
     /// Between the name's line and the figures', when there are two.
@@ -512,40 +530,91 @@ struct LegRowLayout: Layout {
     }
 
     func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
-        let frames = frames(proposal: proposal, subviews: subviews)
-        return CGSize(width: frames.map(\.maxX).max() ?? 0, height: frames.map(\.maxY).max() ?? 0)
+        layOut(proposal: proposal, subviews: subviews).size
     }
 
     func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) {
-        let frames = frames(proposal: ProposedViewSize(width: bounds.width, height: nil), subviews: subviews)
+        let frames = layOut(proposal: ProposedViewSize(width: bounds.width, height: nil), subviews: subviews).frames
         for (subview, frame) in zip(subviews, frames) {
             subview.place(at: CGPoint(x: bounds.minX + frame.minX, y: bounds.minY + frame.minY),
                           proposal: ProposedViewSize(width: frame.width, height: frame.height))
         }
     }
 
-    private func frames(proposal: ProposedViewSize, subviews: Subviews) -> [CGRect] {
-        guard subviews.count == 4 else { return [] }
+    /// The parts' frames; `size` the row's. DIRECT's room (a fifth part, Plan › Map's) counts on the
+    /// figures' line when they are under the name, and lies over a single line as an overlay would.
+    private func layOut(proposal: ProposedViewSize, subviews: Subviews) -> (frames: [CGRect], size: CGSize) {
+        guard subviews.count == 4 || subviews.count == 5 else { return ([], .zero) }
         let number = subviews[0].sizeThatFits(.unspecified), dot = subviews[1].sizeThatFits(.unspecified)
         let figures = subviews[3].sizeThatFits(.unspecified)
+        let direct = subviews.count == 5 ? subviews[4].sizeThatFits(.unspecified) : nil
         let lead = number.width + spacing + dot.width + spacing
         let between = 2 * spacing + nameGap
         // Asked for its ideal: one line, the name whole.
         let width = proposal.width.flatMap { $0.isFinite ? $0 : nil }
             ?? lead + subviews[2].sizeThatFits(.unspecified).width + between + figures.width
-        let twoLines = Self.figuresUnderName(width: width, lead: lead, figures: figures.width, nameRoom: nameRoom,
-                                             spacing: spacing, nameGap: nameGap)
-        let nameWidth = max(0, twoLines ? width - lead : width - lead - between - figures.width)
+        let twoLines = hasFigures
+            ? Self.figuresUnderName(width: width, lead: lead, figures: figures.width, nameRoom: nameRoom,
+                                    spacing: spacing, nameGap: nameGap)
+            : direct != nil
+        let nameWidth = max(0, twoLines || !hasFigures ? width - lead : width - lead - between - figures.width)
         let name = subviews[2].sizeThatFits(ProposedViewSize(width: nameWidth, height: nil))
         let line = max(number.height, dot.height, name.height, twoLines ? 0 : figures.height)
         func centred(_ size: CGSize, x: CGFloat, width: CGFloat? = nil) -> CGRect {
             CGRect(x: x, y: (line - size.height) / 2, width: width ?? size.width, height: size.height)
         }
+        // The figures' line, under the name: as tall as DIRECT where its room is kept, the figures at its top.
+        let second = line + lineSpacing
         let figuresFrame = twoLines
-            ? CGRect(x: width - figures.width, y: line + lineSpacing, width: figures.width, height: figures.height)
+            ? CGRect(x: width - figures.width, y: second, width: figures.width, height: figures.height)
             : centred(figures, x: width - figures.width)
-        return [centred(number, x: 0), centred(dot, x: number.width + spacing),
-                centred(name, x: lead, width: min(name.width, nameWidth)), figuresFrame]
+        var frames = [centred(number, x: 0), centred(dot, x: number.width + spacing),
+                      centred(name, x: lead, width: min(name.width, nameWidth)), figuresFrame]
+        if let direct {
+            frames.append(twoLines ? CGRect(x: width - direct.width, y: second, width: direct.width, height: direct.height)
+                                   : centred(direct, x: width - direct.width))
+        }
+        let height = twoLines ? second + max(figures.height, direct?.height ?? 0) : line
+        return (frames, CGSize(width: width, height: height))
+    }
+}
+
+/// Plan › Map's DIRECT on a previewed waypoint (a later one, or any while diverting): over ACT and Δ, empty
+/// there, at the row's foot. Where the figures go under the name, the row keeps DIRECT's height on their
+/// line (`RouteLegRow.reservesDirect`), so the button never reaches the name: on a line a text tall, its
+/// 44 pt rose into the name's and covered the end of SAIGNELÉGIER on a 17e. (6.2)
+struct LegRowDirect: ViewModifier {
+    let index: Int
+    let large: Bool
+    /// Nil: no DIRECT on this row.
+    let action: (() -> Void)?
+
+    @Environment(\.cockpitTheme) private var theme
+
+    /// Over ACT and Δ.
+    static func width(large: Bool) -> CGFloat { large ? LegRowMetrics.actualAndDeltaWidth : 44 + 6 + 52 }
+    /// A touch target's height.
+    static func height(large: Bool) -> CGFloat { large ? 44 : 36 }
+
+    func body(content: Content) -> some View {
+        content.overlay(alignment: .bottomTrailing) {
+            if let action {
+                Button(action: action) {
+                    Text(L10n.Trip.directToWaypoint)
+                        .font(.aero(size: large ? CockpitType.label : 12, weight: .bold))
+                        .foregroundColor(theme.actionText)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.8)
+                        .padding(.horizontal, 10)
+                        .frame(minHeight: Self.height(large: large))
+                        .background(theme.action, in: Capsule())
+                }
+                .buttonStyle(.plain)
+                .modifier(LegRowPartReader(index: index, part: .direct))
+                .frame(width: Self.width(large: large), alignment: .trailing)
+                .padding(.trailing, LegRowMetrics.horizontalPadding)
+            }
+        }
     }
 }
 

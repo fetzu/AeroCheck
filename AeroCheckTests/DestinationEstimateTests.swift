@@ -372,6 +372,58 @@ final class DestinationEstimateTests: XCTestCase {
         XCTAssertNil(NextLegLive.ete(distanceNM: distance, groundSpeedKnots: 29), "the cell's 30 kt rule")
     }
 
+    /// The Companion's adapter: the iPad's plan through its snapshot and the wire, and the position and
+    /// ground speed it streams, give the plan adapter's input and estimate exactly. On the departure, on a
+    /// leg, on the last leg, with no fix, slow, diverting, and once the destination is marked. (6.2.0)
+    @MainActor
+    func testTheSnapshotAdapterGivesThePlanAdaptersResult() throws {
+        // At 4,500 ft, as the stream says: the iPad's own fix has its altitude, which the distance counts.
+        let here = CLLocation(coordinate: CLLocationCoordinate2D(latitude: 47.15, longitude: 6.97),
+                              altitude: 4_500 / CompanionNav.feetPerMetre, horizontalAccuracy: 5, verticalAccuracy: 5,
+                              timestamp: t0)
+        let gsMPS = 51.44
+        var cases: [(String, FlightPlan, CLLocation?, Double)] = []
+        for next in [0, 1, 2, 3] {
+            var plan = juraPlan(departure: t0)
+            plan.currentWaypointIndex = next
+            cases.append(("next \(next)", plan, here, gsMPS))
+        }
+        var leg = juraPlan(departure: t0)
+        leg.currentWaypointIndex = 2
+        cases.append(("no fix", leg, nil, gsMPS))
+        cases.append(("taxiing", leg, here, 4))
+        var diverting = leg
+        diverting.diversion = Diversion(ident: "LSGN", name: "Neuchâtel", latitude: 46.9575, longitude: 6.8647,
+                                        frequency: "AFIS 121.050", leftRouteAt: 2)
+        cases.append(("diverting", diverting, here, gsMPS))
+        var landed = juraPlan(departure: t0)
+        landed.currentWaypointIndex = 4
+        landed.waypoints[3].actualTimeOver = t0.addingTimeInterval(3_700)
+        cases.append(("destination marked", landed, nil, 0))
+
+        let now = t0.addingTimeInterval(1_000)
+        for (name, plan, location, speed) in cases {
+            let snapshot = try JSONDecoder().decode(
+                CompanionFlightPlanSnapshot.self,
+                from: JSONEncoder().encode(CompanionConnectivityManager.flightPlanSnapshot(of: plan)))
+            let data = try JSONDecoder().decode(CompanionFlightData.self, from: JSONEncoder().encode(CompanionFlightData(
+                isFlightActive: true, currentPhase: "CRUISE", currentPhaseRawValue: 9, isCircuitMode: false,
+                engineStartTime: nil, lineUpTime: t0, landingTime: nil, alwaysUseUTC: false,
+                latitude: location?.coordinate.latitude, longitude: location?.coordinate.longitude, speedMPS: speed,
+                altitudeFeet: 4_500, courseDegrees: 230, gpsSignalStatus: "good", ownGPSAvailable: true,
+                gpsSource: "own", cockpitThemeMode: "day", currentWaypointIndex: plan.currentWaypointIndex,
+                chronometerStartTime: nil, chronometerElapsed: 0, aircraftRegistration: "F-HVXA",
+                aircraftType: "WT9", timestamp: now)))
+
+            let phone = DestinationInput(snapshot: snapshot, flightData: data, now: now)
+            let iPad = DestinationInput(plan: plan, location: location,
+                                        groundSpeedKnots: speed * CompanionNav.knotsPerMetrePerSecond, now: now)
+            XCTAssertEqual(phone, iPad, name)
+            XCTAssertEqual(DestinationEstimator.estimate(phone), DestinationEstimator.estimate(iPad), name)
+            XCTAssertNotNil(DestinationEstimator.estimate(phone), name)
+        }
+    }
+
     /// Over waypoint 1 at its ETO, flying the next leg at its planned ground speed: the line's ETA is
     /// the plan's time over the destination, Δ ±0.
     func testFlownToThePlanTheDeltaIsEven() throws {

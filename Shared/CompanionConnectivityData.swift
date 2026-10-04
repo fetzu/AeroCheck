@@ -138,6 +138,46 @@ struct CompanionFlightData: Codable {
 
     // Timestamp for staleness detection
     let timestamp: Date
+
+    /// NOW and NEXT as the iPad's Cockpit has them (`CockpitRadio`), for the phone's NOW line and RADIO.
+    /// Never sent by an older iPad, nor by one with no Cockpit on screen: the phone then shows its FREQ
+    /// as before (the next waypoint's frequency, else 121.50). Last and defaulted, so the sender's
+    /// memberwise initialiser keeps its shape. (6.2.0)
+    var nowFrequency: CompanionFrequency? = nil
+    var nextFrequency: CompanionFrequency? = nil
+}
+
+/// A station and its frequency as the iPad's radio lists them: "LSGC TWR", "120.155". Plain values: the
+/// Watch compiles this file too. (6.2.0)
+struct CompanionFrequency: Codable, Equatable {
+    let station: String
+    let frequency: String
+
+    /// The longest station or frequency taken from the wire. A frequency typed for a waypoint can carry
+    /// several ("Info 124.705 / Tower 118.125 / Ground 121.900"); a station is a few words.
+    static let maxLength = 64
+
+    init(station: String, frequency: String) {
+        self.station = station
+        self.frequency = frequency
+    }
+
+    /// The peer is a trust boundary: the strings are trimmed and cut to length, and an entry with no
+    /// frequency throws, so it reads as absent (the flight data's decoder takes it with `try?`).
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        func text(_ key: CodingKeys) throws -> String {
+            String((try c.decodeIfPresent(String.self, forKey: key) ?? "")
+                .trimmingCharacters(in: .whitespacesAndNewlines).prefix(Self.maxLength))
+        }
+        let frequency = try text(.frequency)
+        guard !frequency.isEmpty else {
+            throw DecodingError.dataCorrupted(.init(codingPath: c.codingPath,
+                                                    debugDescription: "a frequency needs its frequency"))
+        }
+        self.frequency = frequency
+        station = try text(.station)
+    }
 }
 
 extension CompanionFlightData {
@@ -191,6 +231,10 @@ extension CompanionFlightData {
         aircraftType = try c.decodeIfPresent(String.self, forKey: .aircraftType) ?? ""
         // Absent timestamp -> distantPast so a malformed update reads as stale, never as "fresh now".
         timestamp = try c.decodeIfPresent(Date.self, forKey: .timestamp) ?? Date.distantPast
+        // Absent from an older iPad: the phone's FREQ as before. One the phone can't read is left out
+        // rather than losing the whole update. (6.2.0)
+        nowFrequency = (try? c.decodeIfPresent(CompanionFrequency.self, forKey: .nowFrequency)) ?? nil
+        nextFrequency = (try? c.decodeIfPresent(CompanionFrequency.self, forKey: .nextFrequency)) ?? nil
     }
 }
 

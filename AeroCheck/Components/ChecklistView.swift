@@ -17,15 +17,18 @@ struct TimestampActionButton: View {
     var compact: Bool = false
     /// The Cockpit's thumb bar: at least this tall, label at the row size. (v6.0 · P2)
     var minHeight: CGFloat? = nil
-    /// The act band's first slot on the phone, about 100 pt wide: the title set to fit it on two lines
-    /// (`ActFace`), no icon. On one line beside the icon, "DÉMARRAGE MOTEUR" was cut to "DÉ…". (6.2)
+    /// The act band's first slot: the title set to fit it (`ActFace`) on up to two lines, beside the icon
+    /// on the iPad, alone on the phone (about 100 pt wide). On one line beside the icon, "DÉMARRAGE MOTEUR"
+    /// was cut to "DÉ…" on the phone. (6.2)
     var fitted = false
     let onFirstPress: () -> Void
     let onUpdateTime: () -> Void
 
-    /// The title as the phone's slot sets it: at the row size, on up to two lines.
-    static func fittedBlocks(title: String) -> [ActFaceBlock] {
-        [ActFaceBlock(text: title, size: CockpitType.size(kneeboard: 24, phone: 20, scale: .phone), maxLines: 2)]
+    /// The title as the slot sets it on `scale`'s device: at the row size, on up to two lines (one on the
+    /// iPad while it stays at the label size).
+    static func fittedBlocks(title: String, scale: CockpitScale = .phone) -> [ActFaceBlock] {
+        [ActFaceBlock(text: title, size: CockpitType.size(kneeboard: 24, phone: 20, scale: scale), maxLines: 2,
+                      floor: CockpitType.label(for: scale), prefersFewerLines: scale != .phone)]
     }
 
     @State private var isPressed = false
@@ -49,7 +52,8 @@ struct TimestampActionButton: View {
             // The button — black text on the colour, matching the NEXT button. (v4 UI/UX Revamp)
             Group {
                 if fitted {
-                    ActFaceText(blocks: Self.fittedBlocks(title: title))
+                    ActFaceText(blocks: Self.fittedBlocks(title: title, scale: .current),
+                                icon: CockpitScale.current == .phone ? nil : icon, iconSize: CockpitType.row, iconSpacing: 8)
                 } else {
                     HStack {
                         Image(systemName: icon)
@@ -64,7 +68,8 @@ struct TimestampActionButton: View {
             // Compact = HUD bottom bar: fill width + match NEXT's vertical padding so the heights are
             // identical; the title shrinks (one line) rather than wrapping when the row is tight.
             .frame(maxWidth: compact ? .infinity : nil)
-            .padding(.horizontal, fitted ? ActFace.inset : compact ? (minHeight != nil ? 10 : 0) : 24)
+            .padding(.horizontal, fitted ? CockpitType.size(kneeboard: 10, phone: ActFace.inset)
+                                         : compact ? (minHeight != nil ? 10 : 0) : 24)
             .padding(.vertical, minHeight != nil ? 0 : (compact ? 18 : 14))
             .frame(minHeight: minHeight)
             .background(

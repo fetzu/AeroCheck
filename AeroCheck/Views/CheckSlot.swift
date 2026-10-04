@@ -692,15 +692,15 @@ struct MapFlightEventButton: View {
         let icon = event == .goAround ? "arrow.up.right.circle.fill" : "arrow.triangle.2.circlepath"
         let identifier = event == .goAround ? "map.goAround" : "map.touchAndGo"
         let height = slotHeight ?? CockpitTarget.thumb
-        // On the phone GO AROUND has a wide slot, its words 8 pt in; TOUCH-AND-GO the narrow one. Both set
-        // to fit (`ActFace`). (6.2)
+        // On the phone GO AROUND has a wide slot, its words 8 pt in; TOUCH-AND-GO the narrow one. Set to fit
+        // (`ActFace`) on both devices; on the iPad GO AROUND keeps its icon and its count beside. (6.2)
         let phone = CockpitScale.current == .phone
         let padding: CGFloat? = horizontalInset
             ?? (narrow ? (phone && event == .goAround ? ActFace.inset : ActBandMetrics.narrowPadding()) : nil)
         if appState.isCircuitMode {
             CockpitThumbButton(title: title, icon: narrow ? nil : icon, style: .outlined(tint: theme.action),
-                               titleLines: twoLines ? 2 : 1, horizontalPadding: padding ?? 14, minHeight: height,
-                               fitted: phone, action: perform)
+                               titleLines: 2, horizontalPadding: padding ?? 14, minHeight: height,
+                               fitted: true, action: perform)
                 .accessibilityIdentifier(identifier)
                 .accessibilityLabel(name)
         } else {
@@ -709,7 +709,7 @@ struct MapFlightEventButton: View {
                                                                        : appState.currentFlight?.touchAndGoCount ?? 0,
                                 kneeboard: true, height: height,
                                 stacked: narrow, titleLines: twoLines ? 2 : 1, horizontalPadding: padding,
-                                spokenTitle: name, fitted: phone && narrow, action: perform)
+                                spokenTitle: name, fitted: true, action: perform)
                 .accessibilityIdentifier(identifier)
         }
     }
@@ -768,25 +768,13 @@ struct FredaThumbButton: View {
         let phone = CockpitScale.current == .phone
         return Button { appState.confirmFreda() } label: {
             Group {
+                // Set to fit the slot (`ActFace`), the countdown in figures that keep their place; the
+                // iPad's icon beside. (6.2)
                 if phone {
-                    // Set to fit the slot (`ActFace`), the countdown in figures that keep their place. (6.2)
-                    ActFaceText(blocks: Self.phoneBlocks(line: subtitle(stage, phone: true)))
+                    ActFaceText(blocks: Self.blocks(line: subtitle(stage, phone: true), scale: .phone))
                 } else {
-                    VStack(spacing: 4) {
-                        HStack(spacing: 8) {
-                            Image(systemName: "arrow.triangle.2.circlepath")
-                                .font(.aero(size: CockpitType.response, weight: .bold))
-                            Text(verbatim: L10n.Freda.name)
-                                .font(.aero(size: CockpitType.button, weight: .bold))
-                                .lineLimit(1)
-                                .minimumScaleFactor(0.6)
-                        }
-                        Text(subtitle(stage, phone: false))
-                            .font(.aero(size: CockpitType.label, weight: .semibold))
-                            .monospacedDigit()
-                            .lineLimit(1)
-                            .minimumScaleFactor(0.7)
-                    }
+                    ActFaceText(blocks: Self.blocks(line: subtitle(stage, phone: false), scale: .kneeboard),
+                                icon: "arrow.triangle.2.circlepath", iconSize: CockpitType.response, iconSpacing: 8)
                 }
             }
             .foregroundColor(textColor(stage))
@@ -803,11 +791,14 @@ struct FredaThumbButton: View {
         .accessibilityHint(stage == .waiting ? "" : L10n.Freda.confirmHint)
     }
 
-    /// FREDA over its countdown or its letters, as the phone's slot sets them.
-    static func phoneBlocks(line: String) -> [ActFaceBlock] {
-        [ActFaceBlock(text: L10n.Freda.name, size: CockpitType.button(for: .phone), maxLines: 1),
-         ActFaceBlock(text: line, size: CockpitType.label(for: .phone), maxLines: 2,
-                      room: CheckSlot.widestFigures(line, atLeast: 1))]
+    /// FREDA over its countdown or its letters, as the slot sets them on `scale`'s device. The letters
+    /// spaced out ("F · R · E · D · A", the iPad's) stay on one line.
+    static func blocks(line: String, scale: CockpitScale) -> [ActFaceBlock] {
+        let label = CockpitType.label(for: scale)
+        let line = line == L10n.Freda.flow ? line.replacingOccurrences(of: " ", with: "\u{00A0}") : line
+        return [ActFaceBlock(text: L10n.Freda.name, size: CockpitType.button(for: scale), maxLines: 1, floor: label),
+                ActFaceBlock(text: line, size: label, maxLines: 2, floor: label,
+                             room: CheckSlot.widestFigures(line, atLeast: 1))]
     }
 
     private func subtitle(_ stage: Stage, phone: Bool) -> String {

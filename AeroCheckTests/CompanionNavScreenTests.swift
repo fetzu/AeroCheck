@@ -223,7 +223,7 @@ final class CompanionNavScreenTests: XCTestCase {
         XCTAssertEqual(CompanionMarkState.make(plan: plan(), flightData: flightData()),
                        .mark(waypointIndex: 1, name: "LSGC", legTime: "1:41"))
         XCTAssertEqual(CompanionMarkState.make(plan: plan(), flightData: flightData(running: false, elapsed: 101)),
-                       .mark(waypointIndex: 1, name: "LSGC", legTime: "1:41 ‖"), "paused, it says so")
+                       .mark(waypointIndex: 1, name: "LSGC", legTime: "1:41\u{00A0}‖"), "paused, it says so, on the time's line")
         XCTAssertEqual(CompanionMarkState.make(plan: nil, flightData: flightData()), .unavailable, "no route")
         XCTAssertEqual(CompanionMarkState.make(plan: plan(next: 4), flightData: flightData()), .unavailable, "the route flown")
         var timed = plan()

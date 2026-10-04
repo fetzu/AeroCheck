@@ -235,6 +235,82 @@ final class GroundReplayTests: XCTestCase {
         XCTAssertNotEqual(after.notice, "LSGC", "the landing is not a passage to take back")
     }
 
+    /// undo-5's relaunch: the app killed and launched again mid-flight. On route-vrps with the climb check
+    /// left open, in cruise (the climb check owed) and over LSZQ at circuit height (the landing check
+    /// shown, GO AROUND in MAP's band); in circuits, on a downwind (the approach check due) and on the
+    /// ground after a stop-and-go, where the next take-off is a new leg. From each relaunch to the end of
+    /// the flight, the check slot and MAP's band read as they do on the same flight flown straight
+    /// through, and the flight ends with the same records and landings. Until 6.2 the detector started
+    /// again on the ground, read the first fast fixes as a take-off and its cues as a new leg: the owed
+    /// climb check showed as due, GO AROUND gave way to MARK, and the debrief had the climb check owed
+    /// three times.
+    func testARelaunchMidFlightKeepsTheChecksAndTheBandAsTheyWere() throws {
+        struct Seen: Equatable {
+            let slot: CheckSlot
+            let roles: [ActSlotRole]
+            let owed: [ChecklistPhase: FlightCue]
+        }
+        func fly(_ name: String, circuits: Bool, leaveOpen: Set<ChecklistPhase>, relaunchingAt relaunches: [Double]) throws
+            -> (seen: [Double: Seen], flight: HeadlessFlight) {
+            let flight = try HeadlessFlight(test: self, scenario: name, circuits: circuits)
+            flight.leaveOpen = leaveOpen
+            flight.relaunches = relaunches
+            var seen: [Double: Seen] = [:]
+            flight.onFix = { [unowned flight] fix in
+                let appState = flight.appState
+                seen[fix.t] = Seen(slot: CockpitCheckSlot.slot(for: appState),
+                                   roles: ActBandRoles.make(page: .map, appState: appState, plans: flight.plans),
+                                   owed: ChecklistPhase.allCases.reduce(into: [:]) { owed, phase in
+                                       owed[phase] = appState.owedCue(for: phase)
+                                   })
+            }
+            flight.fly()
+            return (seen, flight)
+        }
+        func state(_ seen: [Double: Seen], at t: Double) throws -> Seen {
+            try XCTUnwrap(seen.filter { $0.key >= t }.min { $0.key < $1.key }?.value)
+        }
+        let flights: [(name: String, circuits: Bool, leaveOpen: Set<ChecklistPhase>, relaunches: [Double])] = [
+            ("route-vrps", false, [.climb], [1000, 1700]),
+            ("circuits-stop-and-go", true, [], [760, 990]),
+        ]
+        for (name, circuits, leaveOpen, relaunches) in flights {
+            let straight = try fly(name, circuits: circuits, leaveOpen: leaveOpen, relaunchingAt: [])
+            let relaunched = try fly(name, circuits: circuits, leaveOpen: leaveOpen, relaunchingAt: relaunches)
+
+            // What the relaunches are about.
+            if !circuits {
+                XCTAssertEqual(try state(straight.seen, at: relaunches[0]).owed[.climb], .levelOff,
+                               "the climb check owed in cruise")
+                XCTAssertEqual(try state(straight.seen, at: relaunches[1]).roles,
+                               [.checkSlot, .goAround, .touchAndGo, .more(withDivert: true)], "GO AROUND over LSZQ")
+            } else {
+                let marks = straight.flight.scenario.marks
+                XCTAssertTrue((marks["downwind2"]!..<marks["base2"]!).contains(relaunches[0]), "on the second downwind")
+                let downwind = try state(straight.seen, at: relaunches[0]).slot
+                XCTAssertEqual([downwind.phase, downwind.tone] as [AnyHashable], [ChecklistPhase.landing, CheckSlot.Tone.idle],
+                               "the approach check done, the landing check next")
+                XCTAssertTrue((marks["stopped"]!..<marks["takeoffRoll2"]!).contains(relaunches[1]),
+                              "stopped after the stop-and-go, before the next take-off roll")
+            }
+
+            var differ: [String] = []
+            for t in straight.seen.keys.sorted() where t >= relaunches[0] {
+                guard let want = straight.seen[t], let got = relaunched.seen[t] else { continue }
+                if want.slot != got.slot { differ.append("\(Int(t)) s, the slot: \(got.slot), straight: \(want.slot)") }
+                if want.roles != got.roles { differ.append("\(Int(t)) s, MAP's band: \(got.roles), straight: \(want.roles)") }
+                if want.owed != got.owed { differ.append("\(Int(t)) s, owed: \(got.owed), straight: \(want.owed)") }
+            }
+            XCTAssertTrue(differ.isEmpty, "\(name), after a relaunch:\n\(differ.prefix(12).joined(separator: "\n"))")
+            func ended(_ flight: HeadlessFlight) -> [String] {
+                let saved = flight.endedFlight
+                return (saved?.checkRecords ?? []).map { "\($0.phase.map { "\($0)" } ?? "?") \($0.kind)" }
+                    + ["TG \(saved?.touchAndGoCount ?? -1)", "FS \(saved?.fullStopCount ?? -1)"]
+            }
+            XCTAssertEqual(ended(relaunched.flight), ended(straight.flight), "\(name): the records and the landings")
+        }
+    }
+
     // MARK: - OFF ROUTE (6.2, MAP's status slot)
 
     /// OFF ROUTE never speaks on the routes the replays fly (plan PR 4), fed at every fix as the Cockpit
@@ -369,14 +445,20 @@ private final class HeadlessFlight {
     let scenario: (marks: [String: Double], expected: ScenarioFile.Expected?)
     let replay: GroundReplayScenario
     let fixes: [GroundReplayFix]
-    let appState: AppState
-    let location = LocationManager()
-    let detector = FlightEventDetector()
+    /// The app's: a relaunch (`relaunches`) puts new ones in their place, as a kill and a launch do.
+    private(set) var appState: AppState
+    private(set) var location = LocationManager()
+    private(set) var detector = FlightEventDetector()
     let airports = AirportDataService()
-    let plans: FlightPlanManager
+    private(set) var plans: FlightPlanManager
     let circuits: Bool
     private let start = Date(timeIntervalSince1970: 1_800_000_000)
     private unowned let test: XCTestCase
+    private let datastore: DataPersistenceManager
+    private let defaults: UserDefaults
+
+    /// Track times at which the app is killed and launched again, mid-flight (replay undo-5).
+    var relaunches: [Double] = []
 
     /// The checks the pilot leaves alone when they come due.
     var leaveOpen: Set<ChecklistPhase> = []
@@ -424,10 +506,11 @@ private final class HeadlessFlight {
             scenario = (file.marks ?? [:], file.expected)
         }
         fixes = GroundReplayFix.fixes(from: replay.track)
-        let datastore = test.makeTestDatastore()
-        let defaults = test.makeTestDefaults()
+        datastore = test.makeTestDatastore()
+        defaults = test.makeTestDefaults()
         appState = test.makeTestAppState(datastore: datastore, defaults: defaults)
         appState.settings.learningMode = false              // the Memory test, as on the 6.1.0 page
+        appState.saveSettings()                             // and after a relaunch
         plans = test.makeTestPlanManager(datastore: datastore, defaults: defaults)
         airports.injectForReplay(replay.airports.map(GroundReplay.airport))
         if let route = replay.route, !circuits {
@@ -448,10 +531,7 @@ private final class HeadlessFlight {
         appState.startFlight(withAircraft: appState.settings.defaultAirplane, aircraftRegistration: "F-HVXA",
                              flightPlanId: circuits ? nil : plans.activeFlightPlan?.id, circuitMode: circuits)
         XCTAssertTrue(appState.isFlightActive)
-        location.authorizationStatus = .authorizedAlways
-        detector.configure(speeds: appState.activeChecklist.speeds, stallSpeed: appState.activeChecklist.stallSpeed)
-        location.startTracking(appState: appState, interval: 5, airportDataService: airports, flightEventDetector: detector,
-                               flightPlanManager: plans, activeChecklist: appState.activeChecklist)
+        startTracking()
         // ENGINE START at the first fix, as the replay's first hold waits for.
         workGroundChecks(until: .afterEngineStart, engineStart: true)
         let lineUpHold = replay.holds?.first { $0.until == "lineUp" }?.t
@@ -460,6 +540,10 @@ private final class HeadlessFlight {
         var lastFreda = -Double.infinity
         for fix in fixes {
             setClock(fix.t)
+            if let next = relaunches.first, fix.t >= next {
+                relaunches.removeFirst()
+                relaunch()
+            }
             if !linedUp, let hold = lineUpHold, fix.t >= hold {
                 departure()
                 linedUp = true
@@ -483,6 +567,30 @@ private final class HeadlessFlight {
         events = detector.emittedEvents
         cues = detector.cueEvents
         endFlight()
+    }
+
+    /// The GPS pipeline and the detector, wired as `FlightLauncher` (and, after a relaunch, `AeroCheckApp`)
+    /// wire them.
+    private func startTracking() {
+        location.authorizationStatus = .authorizedAlways
+        detector.configure(speeds: appState.activeChecklist.speeds, stallSpeed: appState.activeChecklist.stallSpeed)
+        location.startTracking(appState: appState, interval: 5, airportDataService: airports, flightEventDetector: detector,
+                               flightPlanManager: plans, activeChecklist: appState.activeChecklist)
+    }
+
+    /// Killed and launched again, just after a checkpoint (the app writes one every 30 s and at every cue
+    /// and landing; a kill loses the fixes since the last): nothing winds down (no END of anything), and
+    /// what the launch finds on disk comes back, as `AeroCheckApp` brings it back: the flight from its
+    /// checkpoint, the plan from the defaults, a new detector and GPS pipeline.
+    private func relaunch() {
+        appState.checkpointActiveFlight(force: true)
+        appState.flushPendingCheckpoint()
+        appState = test.makeTestAppState(datastore: datastore, defaults: defaults)
+        XCTAssertTrue(appState.restoreActiveFlightState(), "the flight restored")
+        plans = test.makeTestPlanManager(datastore: datastore, defaults: defaults)
+        detector = FlightEventDetector()
+        location = LocationManager()
+        startTracking()
     }
 
     /// The ground checks up to `phase`, lists checked, memory checks confirmed.

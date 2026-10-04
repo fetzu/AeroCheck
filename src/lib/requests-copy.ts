@@ -47,14 +47,14 @@ const en = {
   },
   statuses: {
     uploading: { label: 'Incomplete', line: 'The files never finished uploading, so this request was never sent.' },
-    received: { label: 'Received', line: 'We have your request and its files. Next, we decide whether (and when) we convert it.' },
-    accepted: { label: 'Accepted', line: 'The checklist will be converted.' },
-    converting: { label: 'Converting', line: 'The checklist is being transcribed into AéroCheck’s format.' },
+    received: { label: 'Received', line: 'We have your request and its files. Next, we decide whether (and when) we add it.' },
+    accepted: { label: 'Accepted', line: 'The checklist will be added to AéroCheck.' },
+    converting: { label: 'In preparation', line: 'The checklist is being prepared for AéroCheck.' },
     proofreading: { label: 'Proofreading', line: 'A draft is ready. Have a look below if you have five minutes (it’s optional).' },
     testflight: { label: 'In testing', line: 'The checklist is in the test version of the app. The App Store version comes next.' },
     live: { label: 'Live', line: 'The aircraft is in AéroCheck, for AéroCheck Pro subscribers.' },
     'need-info': { label: 'Need info', line: 'We need something from you: see the message in the history, and reply to our e-mail.' },
-    declined: { label: 'Declined', line: 'We won’t convert this one. The reason is in the history.' },
+    declined: { label: 'Declined', line: 'We won’t add this one. The reason is in the history.' },
     duplicate: { label: 'Duplicate', line: 'Someone already asked for this aircraft: that request carries on, this one is closed.' },
   } as Record<string, { label: string; line: string }>,
   club: {
@@ -85,7 +85,7 @@ const en = {
   send: {
     eyebrow: 'Aircraft requests',
     title: 'Send an aircraft’s checklist',
-    intro: 'Your aircraft isn’t in AéroCheck, or its checklist is older than the club’s? Send us the club’s document: we transcribe it, the club confirms, and the aircraft joins the app (as part of AéroCheck Pro, like every aircraft but the WT9).',
+    intro: 'Your aircraft isn’t in AéroCheck, or its checklist is older than the club’s? Send us the club’s document: once the club confirms, the aircraft joins the app (as part of AéroCheck Pro, like every aircraft but the WT9).',
     clubsLead: 'For flying clubs:',
     clubsLink: 'what to send, who sees it, and the club’s confirmation',
     stepRegistration: 'The registration',
@@ -192,7 +192,7 @@ const en = {
     resultCopy: 'Copy the link',
     resultCopied: 'Copied',
     nextTitle: 'What happens next',
-    nextBody: 'We look at it, then convert it, which takes as long as it takes (one person, spare time, no promised date). You get an e-mail at each step that needs one, and the page always shows where it stands.',
+    nextBody: 'We look at it, then prepare it, which takes as long as it takes (one person, spare time, no promised date). You get an e-mail at each step that needs one, and the page always shows where it stands.',
     nextClub: 'The club’s contact has an e-mail asking them to confirm. Nothing goes live without it.',
     nextClubNoContact: 'The club hasn’t been asked yet: add its contact from the request’s page when you have it.',
     another: 'Send another aircraft',
@@ -213,7 +213,7 @@ const en = {
     stepSkipped: 'skipped',
     stepNext: 'to come',
     historyHeading: 'History',
-    noTimeline: 'No date is promised: one person converts the checklists, in their spare time. You get an e-mail when something needs you, and when it’s live.',
+    noTimeline: 'No date is promised: one person prepares the checklists, in their spare time. You get an e-mail when something needs you, and when it’s live.',
     proofHeading: 'Proofread the draft (optional)',
     proofIntro: 'Here is the checklist as the app will show it. Five minutes with the club’s document next to it is plenty: does each phase have its items, in order, with the right values? It’s a draft: never fly with it.',
     proofLoading: 'Loading the draft',
@@ -251,9 +251,9 @@ const en = {
     labelSent: 'Sent',
     whatTitle: 'What confirming means',
     what: [
-      'AéroCheck may transcribe the club’s checklist for these aircraft and offer it in the app, as part of AéroCheck Pro (like every aircraft but the free WT9).',
-      'The document itself is never published: it is used for the transcription, and deleted 90 days after the request closes.',
-      'In the app, the checklist stays a transcription: the club’s approved checklist remains the reference.',
+      'AéroCheck may add the club’s checklist for these aircraft to the app, as part of AéroCheck Pro (like every aircraft but the free WT9).',
+      'The document itself is never published: it is only used to prepare the checklist, and deleted 90 days after the request closes.',
+      'In the app, the club’s approved checklist remains the reference.',
       'If the club later wants it withdrawn, it writes to us.',
     ],
     refuseBody: 'Refusing closes the matter: nothing is published, and the sender is told.',
@@ -283,7 +283,7 @@ const en = {
   clubs: {
     eyebrow: 'For flying clubs',
     title: 'Your club’s aircraft, in AéroCheck',
-    intro: 'AéroCheck carries flying clubs’ checklists, transcribed from the club’s own document. If your aircraft aren’t in it yet (or their checklist has moved on since), send it: one form and a PDF.',
+    intro: 'AéroCheck carries flying clubs’ checklists, from the club’s own document. If your aircraft aren’t in it yet (or their checklist has moved on since), send it: one form and a PDF.',
     ctaSend: 'Send a checklist',
     ctaAircraft: 'The aircraft list',
     sections: [
@@ -305,7 +305,7 @@ const en = {
       {
         title: 'Who sees the document',
         body: [
-          'Julien Bono, who develops AéroCheck, transcribes it (with the help of an AI model). The document is kept privately while the request is open, and deleted 90 days after it closes: it is never published. What reaches the app is the transcription, for AéroCheck Pro subscribers, who may not redistribute it.',
+          'Julien Bono, who develops AéroCheck, prepares the checklist for the app. The document is kept privately while the request is open, and deleted 90 days after it closes: it is never published. What reaches the app is the checklist, for AéroCheck Pro subscribers, who may not redistribute it.',
         ],
         link: { lead: 'The details:', label: 'privacy policy, section 4.3', href: '/privacy#43-aircraft-requests-intakeaerocheckapp' },
       },
@@ -320,7 +320,7 @@ const en = {
       {
         title: 'When',
         body: [
-          'No date is promised: one person converts the checklists, in their spare time. The request’s page shows where it stands, and the sender gets an e-mail when something needs them, and when it’s live. Before that, they may proofread the draft.',
+          'No date is promised: one person prepares the checklists, in their spare time. The request’s page shows where it stands, and the sender gets an e-mail when something needs them, and when it’s live. Before that, they may proofread the draft.',
         ],
       },
       {
@@ -330,7 +330,7 @@ const en = {
         ],
       },
       {
-        title: 'A transcription stays a transcription',
+        title: 'The club’s checklist stays the reference',
         body: [
           'The checklist in AéroCheck is a careful copy of the club’s, but a copy: the club’s approved checklist and the aircraft’s flight manual remain the reference (terms of use, section 1.2).',
         ],
@@ -385,14 +385,14 @@ const fr: RequestsCopy = {
   },
   statuses: {
     uploading: { label: 'Incomplète', line: 'Les fichiers n’ont jamais fini d’arriver : cette demande n’a donc jamais été envoyée.' },
-    received: { label: 'Reçue', line: 'Nous avons votre demande et ses fichiers. Nous décidons ensuite si (et quand) nous la convertissons.' },
-    accepted: { label: 'Acceptée', line: 'La checklist sera convertie.' },
-    converting: { label: 'En conversion', line: 'La checklist est en cours de transcription au format d’AéroCheck.' },
+    received: { label: 'Reçue', line: 'Nous avons votre demande et ses fichiers. Nous décidons ensuite si (et quand) nous l’ajoutons.' },
+    accepted: { label: 'Acceptée', line: 'La checklist sera ajoutée à AéroCheck.' },
+    converting: { label: 'En préparation', line: 'La checklist est en cours de préparation pour AéroCheck.' },
     proofreading: { label: 'Relecture', line: 'Un brouillon est prêt. Jetez-y un œil ci-dessous si vous avez cinq minutes (c’est facultatif).' },
     testflight: { label: 'En test', line: 'La checklist est dans la version de test de l’app. Celle de l’App Store suit.' },
     live: { label: 'Dans l’app', line: 'L’avion est dans AéroCheck, pour les abonnés AéroCheck Pro.' },
     'need-info': { label: 'Infos requises', line: 'Il nous manque quelque chose : voyez le message dans l’historique, et répondez à notre e-mail.' },
-    declined: { label: 'Refusée', line: 'Nous ne convertirons pas celle-ci. La raison est dans l’historique.' },
+    declined: { label: 'Refusée', line: 'Nous n’ajouterons pas celle-ci. La raison est dans l’historique.' },
     duplicate: { label: 'Doublon', line: 'Quelqu’un a déjà demandé cet avion : cette demande-là continue, celle-ci est close.' },
   },
   club: {
@@ -423,7 +423,7 @@ const fr: RequestsCopy = {
   send: {
     eyebrow: 'Demandes d\'avions',
     title: 'Envoyer la checklist d’un avion',
-    intro: 'Votre avion n’est pas dans AéroCheck, ou sa checklist est plus ancienne que celle du club ? Envoyez-nous le document du club : nous le transcrivons, le club confirme, et l’avion rejoint l’app (dans AéroCheck Pro, comme tous les avions sauf le WT9).',
+    intro: 'Votre avion n’est pas dans AéroCheck, ou sa checklist est plus ancienne que celle du club ? Envoyez-nous le document du club : dès que le club confirme, l’avion rejoint l’app (dans AéroCheck Pro, comme tous les avions sauf le WT9).',
     clubsLead: 'Pour les clubs :',
     clubsLink: 'quoi envoyer, qui voit le document, et la confirmation du club',
     stepRegistration: 'L’immatriculation',
@@ -530,7 +530,7 @@ const fr: RequestsCopy = {
     resultCopy: 'Copier le lien',
     resultCopied: 'Copié',
     nextTitle: 'La suite',
-    nextBody: 'Nous la regardons, puis nous la convertissons, ce qui prend le temps qu’il faut (une seule personne, sur son temps libre, sans date promise). Vous recevez un e-mail à chaque étape qui en demande un, et la page montre toujours où elle en est.',
+    nextBody: 'Nous la regardons, puis nous la préparons, ce qui prend le temps qu’il faut (une seule personne, sur son temps libre, sans date promise). Vous recevez un e-mail à chaque étape qui en demande un, et la page montre toujours où elle en est.',
     nextClub: 'Le contact du club a reçu un e-mail lui demandant de confirmer. Rien n’est mis en ligne sans son accord.',
     nextClubNoContact: 'Le club n’a pas encore été sollicité : ajoutez son contact depuis la page de la demande dès que vous l’avez.',
     another: 'Envoyer un autre avion',
@@ -551,7 +551,7 @@ const fr: RequestsCopy = {
     stepSkipped: 'sautée',
     stepNext: 'à venir',
     historyHeading: 'Historique',
-    noTimeline: 'Aucune date n’est promise : une seule personne convertit les checklists, sur son temps libre. Vous recevez un e-mail quand quelque chose dépend de vous, et à la mise en ligne.',
+    noTimeline: 'Aucune date n’est promise : une seule personne prépare les checklists, sur son temps libre. Vous recevez un e-mail quand quelque chose dépend de vous, et à la mise en ligne.',
     proofHeading: 'Relire le brouillon (facultatif)',
     proofIntro: 'Voici la checklist telle que l’app l’affichera. Cinq minutes avec le document du club à côté suffisent : chaque phase a-t-elle ses points, dans l’ordre, avec les bonnes valeurs ? C’est un brouillon : ne volez jamais avec.',
     proofLoading: 'Chargement du brouillon',
@@ -589,9 +589,9 @@ const fr: RequestsCopy = {
     labelSent: 'Envoyée le',
     whatTitle: 'Ce que confirmer implique',
     what: [
-      'AéroCheck peut transcrire la checklist du club pour ces avions et la proposer dans l’app, dans AéroCheck Pro (comme tous les avions sauf le WT9, gratuit).',
-      'Le document lui-même n’est jamais publié : il sert à la transcription, et il est supprimé 90 jours après la clôture de la demande.',
-      'Dans l’app, la checklist reste une transcription : la checklist approuvée du club reste la référence.',
+      'AéroCheck peut ajouter la checklist du club pour ces avions à l’app, dans AéroCheck Pro (comme tous les avions sauf le WT9, gratuit).',
+      'Le document lui-même n’est jamais publié : il sert uniquement à préparer la checklist, et il est supprimé 90 jours après la clôture de la demande.',
+      'Dans l’app, la checklist approuvée du club reste la référence.',
       'Si le club veut plus tard la retirer, il nous l’écrit.',
     ],
     refuseBody: 'Refuser clôt l’affaire : rien n’est publié, et l’expéditeur en est informé.',
@@ -621,7 +621,7 @@ const fr: RequestsCopy = {
   clubs: {
     eyebrow: 'Pour les clubs',
     title: 'Les avions de votre club, dans AéroCheck',
-    intro: 'AéroCheck contient des checklists de clubs, transcrites à partir du document du club. Si vos avions n’y sont pas encore (ou si leur checklist a changé depuis), envoyez-la : un formulaire et un PDF.',
+    intro: 'AéroCheck contient des checklists de clubs, tirées du document du club. Si vos avions n’y sont pas encore (ou si leur checklist a changé depuis), envoyez-la : un formulaire et un PDF.',
     ctaSend: 'Envoyer une checklist',
     ctaAircraft: 'La liste des aéronefs',
     sections: [
@@ -643,7 +643,7 @@ const fr: RequestsCopy = {
       {
         title: 'Qui voit le document',
         body: [
-          'Julien Bono, qui développe AéroCheck, le transcrit (avec l’aide d’un modèle d’IA). Le document est conservé de façon privée tant que la demande est ouverte, et supprimé 90 jours après sa clôture : il n’est jamais publié. Ce qui arrive dans l’app, c’est la transcription, pour les abonnés AéroCheck Pro, qui ne peuvent pas la redistribuer.',
+          'Julien Bono, qui développe AéroCheck, prépare la checklist pour l’app. Le document est conservé de façon privée tant que la demande est ouverte, et supprimé 90 jours après sa clôture : il n’est jamais publié. Ce qui arrive dans l’app, c’est la checklist, pour les abonnés AéroCheck Pro, qui ne peuvent pas la redistribuer.',
         ],
         link: { lead: 'Le détail :', label: 'politique de confidentialité, section 4.3', href: '/fr/privacy#43-demandes-davions-intakeaerocheckapp' },
       },
@@ -658,7 +658,7 @@ const fr: RequestsCopy = {
       {
         title: 'Quand',
         body: [
-          'Aucune date n’est promise : une seule personne convertit les checklists, sur son temps libre. La page de la demande montre où elle en est, et l’expéditeur reçoit un e-mail quand quelque chose dépend de lui, et à la mise en ligne. Avant cela, il peut relire le brouillon.',
+          'Aucune date n’est promise : une seule personne prépare les checklists, sur son temps libre. La page de la demande montre où elle en est, et l’expéditeur reçoit un e-mail quand quelque chose dépend de lui, et à la mise en ligne. Avant cela, il peut relire le brouillon.',
         ],
       },
       {
@@ -668,7 +668,7 @@ const fr: RequestsCopy = {
         ],
       },
       {
-        title: 'Une transcription reste une transcription',
+        title: 'La checklist du club reste la référence',
         body: [
           'La checklist d’AéroCheck est une copie soignée de celle du club, mais une copie : la checklist approuvée du club et le manuel de vol de l’avion restent la référence (conditions d’utilisation, section 1.2).',
         ],

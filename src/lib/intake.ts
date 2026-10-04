@@ -1,7 +1,6 @@
 /**
  * Aircraft requests: the constants the request pages (/send, /request, /confirm) share with the
- * intake worker (AeroCheck-server, workers/intake). The contract is CLAUDE/PLAN-aircraft-requests.md,
- * section 5; the worker enforces every limit below again, these only spare the sender a round trip.
+ * intake worker (AeroCheck-server, workers/intake, whose docs describe its routes); the worker enforces every limit below again, these only spare the sender a round trip.
  *
  * Imported by the pages (build time) and by their scripts (in the browser): nothing Node-only here.
  */
@@ -49,7 +48,7 @@ export const FILE_ACCEPT = '.pdf,.jpg,.jpeg,.png,.heic,.heif,application/pdf,ima
 export const COMMON_LANGUAGES = ['en', 'fr', 'de', 'it'] as const;
 export const OTHER_LANGUAGES = ['es', 'pt', 'nl', 'da', 'sv', 'no', 'fi', 'pl', 'cs', 'sk', 'sl', 'hr', 'hu', 'ro', 'el', 'tr'] as const;
 
-/** The checklist file's phase keys, in flight order (AeroCheck-checklists, CLAUDE.md). */
+/** The checklist file's phase keys, in flight order, as the checklist files have them. */
 export const PHASE_KEYS = [
   'preflight', 'beforeEngineStart', 'engineStart', 'afterEngineStart', 'taxi', 'runup',
   'beforeDeparture', 'lineUp', 'climb', 'cruise', 'descent', 'approach', 'landing',

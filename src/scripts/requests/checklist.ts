@@ -1,4 +1,4 @@
-// A draft checklist file (the schema in AeroCheck-checklists' CLAUDE.md), drawn the way the app draws
+// A draft checklist file (the app's checklist JSON), drawn the way the app draws
 // it: the 16 phases in flight order, each titled in capitals, headers grouping items, and every item
 // as challenge · dot leader · response. Plus the speeds and crosswind limits, since a wrong figure is
 // the thing proofreading is most likely to catch. Text only: nothing in the file is read as markup.

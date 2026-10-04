@@ -1,4 +1,4 @@
-// /send: the aircraft-request form (CLAUDE/PLAN-aircraft-requests.md, section 5). In order: the
+// /send: the aircraft-request form (the intake worker's routes). In order: the
 // registration's lookup (new or update), the checks a browser can make (fields, file types by their
 // first bytes, the 4 / 10 MB / 25 MB limits), Turnstile, then the contract's sequence: POST the
 // request, PUT each file to its upload slot (with progress, resumable), POST complete, show the ticket.

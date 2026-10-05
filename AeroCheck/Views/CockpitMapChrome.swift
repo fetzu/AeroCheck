@@ -11,7 +11,8 @@ import CoreLocation
 //     centre (filled once the map is panned), and zoom + / − on the iPad only. A column where the chart
 //     is tall enough, else a row along the foot of the chart, at the right (the iPad on its side).
 //   - At the top left, the status slot: one state at a time, the one `CockpitStatusRule` picks (UNDO,
-//     GPS, OFF ROUTE, CHART OFFLINE, TELL FIS, SIGMET, BRIEFING), each a tap away from what it is about.
+//     NO GPS, OFF ROUTE, CHART OFFLINE, TELL FIS, SIGMET, BRIEFING, GPS DEGRADED), each a tap away from
+//     what it is about.
 //   - After a pan, an arrow at the chart's edge pointing to the aircraft (`OwnshipEdgeArrow`).
 //   - The scale, only from a change of zoom to 2 s after the last one (`ScaleVisibility`).
 //

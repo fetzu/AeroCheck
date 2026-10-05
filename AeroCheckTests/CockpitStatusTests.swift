@@ -15,7 +15,7 @@ final class CockpitStatusTests: XCTestCase {
                                  tellFISField: "LSGC", sigmetOnPath: "TS", briefing: .approach)
     }
 
-    /// UNDO > GPS > OFF ROUTE > CHART OFFLINE > TELL FIS > SIGMET > BRIEFING, one at a time.
+    /// UNDO > NO GPS > OFF ROUTE > CHART OFFLINE > TELL FIS > SIGMET > BRIEFING > GPS DEGRADED, one at a time.
     func testTheSlotShowsTheHighestStatePending() {
         XCTAssertEqual(CockpitStatusRule.pending(everything), [
             .undo, .gps(.lost), .offRoute(crossTrackNM: 1.4), .chartOffline, .tellFIS(field: "LSGC"),
@@ -38,6 +38,25 @@ final class CockpitStatusTests: XCTestCase {
         XCTAssertEqual(CockpitStatusRule.current(inputs), .briefing(.approach))
         inputs.briefing = nil
         XCTAssertNil(CockpitStatusRule.current(inputs), "a dark slot")
+    }
+
+    /// GPS DEGRADED waits behind everything else (on the ground it held the slot over CHART OFFLINE and
+    /// BRIEFING; the header and the strip show it); NO GPS keeps its place under UNDO. (5 Oct, device check)
+    func testGPSDegradedComesLastAndNoGPSStaysHigh() {
+        var inputs = everything
+        inputs.undoOffered = false
+        inputs.gps = .degraded
+        XCTAssertEqual(CockpitStatusRule.pending(inputs), [
+            .offRoute(crossTrackNM: 1.4), .chartOffline, .tellFIS(field: "LSGC"), .sigmet(summary: "TS"),
+            .briefing(.approach), .gps(.degraded),
+        ])
+        XCTAssertEqual(CockpitStatusRule.current(CockpitStatusRule.Inputs(gps: .degraded, chartOffline: true)), .chartOffline,
+                       "airplane mode on the ground: CHART OFFLINE")
+        XCTAssertEqual(CockpitStatusRule.current(CockpitStatusRule.Inputs(gps: .degraded, briefing: .approach)),
+                       .briefing(.approach), "the descent: BRIEFING")
+        XCTAssertEqual(CockpitStatusRule.current(CockpitStatusRule.Inputs(gps: .degraded)), .gps(.degraded),
+                       "alone, it shows")
+        XCTAssertEqual(CockpitStatusRule.current(CockpitStatusRule.Inputs(gps: .lost, briefing: .approach)), .gps(.lost))
     }
 
     /// The others wait: once UNDO's window is over, what was pending shows.

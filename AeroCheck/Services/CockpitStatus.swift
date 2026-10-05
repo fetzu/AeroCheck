@@ -63,9 +63,11 @@ enum CockpitStatus: Equatable {
 
 /// Which state the slot shows. Pure: the view gathers the inputs and draws the answer. (6.2.0)
 ///
-/// Priority, highest first: UNDO > GPS > OFF ROUTE > CHART OFFLINE > TELL FIS > SIGMET on path >
-/// BRIEFING. UNDO comes first because it answers the pilot's own tap and is useless once its six
-/// seconds are over; the GPS state stays in the header and the strip's flags meanwhile.
+/// Priority, highest first: UNDO > NO GPS > OFF ROUTE > CHART OFFLINE > TELL FIS > SIGMET on path >
+/// BRIEFING > GPS DEGRADED. UNDO comes first because it answers the pilot's own tap and is useless once
+/// its six seconds are over; the GPS state stays in the header and the strip's flags meanwhile. GPS
+/// DEGRADED comes last: common on the ground and in a hangar, it held the slot over CHART OFFLINE and
+/// BRIEFING, and the header and the strip already show it (author, 5 Oct, device check).
 enum CockpitStatusRule {
     struct Inputs: Equatable {
         /// An undo offer is up (`NavUndoOffer.shown` has one).
@@ -93,12 +95,13 @@ enum CockpitStatusRule {
     static func pending(_ inputs: Inputs) -> [CockpitStatus] {
         var states: [CockpitStatus] = []
         if inputs.undoOffered { states.append(.undo) }
-        if let alarm = inputs.gps { states.append(.gps(alarm)) }
+        if inputs.gps == .lost { states.append(.gps(.lost)) }
         if let nm = inputs.offRouteNM { states.append(.offRoute(crossTrackNM: nm)) }
         if inputs.chartOffline { states.append(.chartOffline) }
         if let field = inputs.tellFISField { states.append(.tellFIS(field: field)) }
         if let summary = inputs.sigmetOnPath { states.append(.sigmet(summary: summary)) }
         if let briefing = inputs.briefing { states.append(.briefing(briefing)) }
+        if inputs.gps == .degraded { states.append(.gps(.degraded)) }
         return states
     }
 

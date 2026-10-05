@@ -47,12 +47,13 @@ enum PhaseFrequencyPlanner {
         /// The one to call next.
         let next: Entry?
         /// Plan › Map's panel, as it always was: NOW and NEXT, then the nearest field, the route, the
-        /// area and the CTRs around, then Emergency. Everything but NOW, NEXT and Emergency is `.other`,
+        /// areas on the way and the CTRs around, then Emergency. Everything but NOW, NEXT and Emergency is `.other`,
         /// behind "All frequencies".
         let panel: [PhaseFrequency]
         /// ROUTE's RADIO: every frequency in the order of use, Emergency last (the plan's Q6). NOW and
         /// NEXT; the field the aircraft is at; the field diverted to; the route's stations from the
-        /// waypoint flown to onward (the fields passed are dropped); the area's FIS; the CTRs around.
+        /// waypoint flown to onward (the fields passed are dropped); the FIS of each area on the way
+        /// (`areaAlongTheWay`); the CTRs around.
         let route: [PhaseFrequency]
     }
 
@@ -61,6 +62,20 @@ enum PhaseFrequencyPlanner {
     static let nearestFieldLimit = 6
     static let nearestFieldRadiusNM = 40.0
     static let ctrRadiusNM = 25.0
+    /// How finely the way ahead is walked for the areas it crosses.
+    static let areaStepNM = 5.0
+
+    /// Points from `start` to `end`, `areaStepNM` apart at most, `end` included and `start` not.
+    static func steps(from start: CLLocationCoordinate2D, to end: CLLocationCoordinate2D) -> [CLLocationCoordinate2D] {
+        let nm = CLLocation(latitude: start.latitude, longitude: start.longitude)
+            .distance(from: CLLocation(latitude: end.latitude, longitude: end.longitude)) / 1852.0
+        let count = max(1, Int((nm / areaStepNM).rounded(.up)))
+        return (1...count).map { step in
+            let t = Double(step) / Double(count)
+            return CLLocationCoordinate2D(latitude: start.latitude + (end.latitude - start.latitude) * t,
+                                          longitude: start.longitude + (end.longitude - start.longitude) * t)
+        }
+    }
 
     /// NOW, NEXT and both lists. With no fix or no airport database, NOW and NEXT follow the plan's
     /// order: the departure's frequency, then the first waypoint after it that has one.
@@ -167,6 +182,30 @@ enum PhaseFrequencyPlanner {
             return PhaseFrequencyPlanner.areaFrequencies(for: SwissAirspaceSectors.getSector(for: position))
         }
 
+        /// The FIS and Info of every Swiss area on the way, in the order they come: the aircraft's, then
+        /// each one the way ahead enters (to the waypoint flown to and along the legs after it, or to the
+        /// field diverted to), walked every `areaStepNM`. Until 6.2 only the aircraft's: on the ground in
+        /// the Engadine, a Jura route's RADIO listed Zurich Info and never Geneva Info, whose area the
+        /// whole route is in (device check, 5 Oct).
+        var areaAlongTheWay: [SwissCommonFrequency] {
+            var way: [CLLocationCoordinate2D] = position.map { [$0] } ?? []
+            if let diversion = plan?.diversion {
+                way.append(CLLocationCoordinate2D(latitude: diversion.latitude, longitude: diversion.longitude))
+            } else if let plan, plan.currentWaypointIndex < plan.waypoints.count {
+                way += plan.waypoints[max(0, plan.currentWaypointIndex)...].map(\.coordinate)
+            }
+            var points = Array(way.prefix(1))
+            for (start, end) in zip(way, way.dropFirst()) {
+                points += PhaseFrequencyPlanner.steps(from: start, to: end)
+            }
+            var sectors: [SwissAirspaceSector] = []
+            for point in points where SwissAirspaceSectors.isInSwitzerland(point) {
+                let sector = SwissAirspaceSectors.getSector(for: point)
+                if !sectors.contains(sector) { sectors.append(sector) }
+            }
+            return sectors.flatMap(PhaseFrequencyPlanner.areaFrequencies(for:))
+        }
+
         var ctrs: [(station: String, frequency: String?)] {
             position.map(sources.nearbyCTRs) ?? []
         }
@@ -227,7 +266,7 @@ enum PhaseFrequencyPlanner {
             for waypoint in plan?.waypoints ?? [] {
                 for frequency in waypointFrequencies(waypoint) { list.add(frequency.label, frequency.freq) }
             }
-            for common in area { list.add(common.name, common.frequency) }
+            for common in areaAlongTheWay { list.add(common.name, common.frequency) }
             for ctr in ctrs { if let frequency = ctr.frequency { list.add(ctr.station, frequency) } }
             list.addEmergency()
             return list.items
@@ -250,7 +289,7 @@ enum PhaseFrequencyPlanner {
                     for frequency in waypointFrequencies(waypoint) { list.add(frequency.label, frequency.freq) }
                 }
             }
-            for common in area { list.add(common.name, common.frequency) }
+            for common in areaAlongTheWay { list.add(common.name, common.frequency) }
             for ctr in ctrs { if let frequency = ctr.frequency { list.add(ctr.station, frequency) } }
             list.addEmergency()
             return list.items

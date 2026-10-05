@@ -2,8 +2,29 @@ import XCTest
 @testable import AeroCheck
 
 /// The Map sheet's presets (v6.0 · P3): one tap sets the markers for a phase of flight, and the sheet
-/// shows which preset the current switches match. Airspace stays on in every one of them.
+/// shows which preset the current switches match. Airspace stays on in every one of them. And the chart
+/// picked there, which the device keeps (6.2).
 final class MapPresetTests: XCTestCase {
+
+    // MARK: - The chart picked
+
+    /// The layer survives a relaunch, on this device: after one the map came back on the ICAO chart
+    /// (6.2 device check). The ICAO chart the first time.
+    @MainActor
+    func testTheChartPickedIsKeptAcrossLaunches() {
+        let defaults = makeTestDefaults()
+        let first = makeTestAppState(defaults: defaults)
+        XCTAssertEqual(first.navigationMapState.selectedLayer, .icao, "the first launch")
+        first.selectMapLayer(.landeskarten)
+        XCTAssertEqual(first.navigationMapState.selectedLayer, .landeskarten)
+
+        let relaunched = makeTestAppState(defaults: defaults)
+        XCTAssertEqual(relaunched.navigationMapState.selectedLayer, .landeskarten)
+        XCTAssertEqual(NavigationMapState.savedLayer(in: defaults), .landeskarten, "what the map's first frame reads")
+
+        defaults.set("Topo 1:25k", forKey: NavigationMapState.layerKey)
+        XCTAssertEqual(NavigationMapState.savedLayer(in: defaults), .icao, "an unknown layer: the ICAO chart")
+    }
 
     func testCruiseShowsAirspaceAndReportingPointsOnly() {
         var settings = AppSettings()

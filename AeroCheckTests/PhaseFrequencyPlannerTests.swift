@@ -172,6 +172,49 @@ final class PhaseFrequencyPlannerTests: XCTestCase {
         XCTAssertEqual(route.last?.isEmergency, true)
     }
 
+    /// On the ground in the Engadine with a Jura route: the aircraft's area (Zurich's), then the route's
+    /// (Geneva's), which RADIO left out (device check, 5 Oct: LSZQ to LSGE from Tinizong).
+    func testRouteRadioListsTheAreasOfTheRouteNotOnlyTheAircrafts() {
+        let tinizong = CLLocationCoordinate2D(latitude: 46.582, longitude: 9.616)
+        let route = PhaseFrequencyPlanner.plan(position: tinizong, plan: Self.route(next: 0),
+                                               sources: Self.world.sources).route
+        let stations = route.map(\.station)
+        XCTAssertEqual(stations.first, "Zurich Info", "NOW: the aircraft's area")
+        let zurich = try? XCTUnwrap(stations.firstIndex(of: "FIS East"))
+        let geneva = try? XCTUnwrap(stations.firstIndex(of: "Geneva Info"))
+        XCTAssertNotNil(geneva, "the route's area: \(stations)")
+        XCTAssertTrue(stations.contains("FIS West"), "\(stations)")
+        if let zurich, let geneva { XCTAssertLessThan(zurich, geneva, "the aircraft's area first, then the way's") }
+    }
+
+    /// Flying east out of Geneva's area: Zurich's Info and FIS come after Geneva's, in the order of use.
+    func testRouteRadioListsTheNextAreaInTheOrderItComes() {
+        var plan = FlightPlan(name: "East", waypoints: [Self.waypoint("LSGC"),
+                                                        FlightPlanWaypoint(name: "LSZH", coordinate: .init(latitude: 47.4647, longitude: 8.5492))])
+        plan.currentWaypointIndex = 1
+        let route = PhaseFrequencyPlanner.plan(position: Self.enRoute, plan: plan, sources: Self.world.sources).route
+        let areas = route.map(\.station).filter { ["Geneva Info", "FIS West", "Zurich Info", "FIS East"].contains($0) }
+        XCTAssertEqual(areas, ["Geneva Info", "FIS West", "Zurich Info", "FIS East"])
+    }
+
+    /// Diverting: the way is to the field diverted to, not along the route left.
+    func testDivertingTheAreasAreThoseOnTheWayToTheField() {
+        var plan = Self.route(next: 2)
+        plan.diversion = Diversion(ident: "LSZH", name: "Zurich", latitude: 47.4647, longitude: 8.5492, leftRouteAt: 2)
+        let route = PhaseFrequencyPlanner.plan(position: Self.enRoute, plan: plan, sources: Self.world.sources).route
+        XCTAssertTrue(route.contains { $0.station == "Zurich Info" }, "\(route.map(\.station))")
+    }
+
+    /// The way is walked every 5 NM at most, the leg's end included.
+    func testTheWayIsWalkedEveryFiveMiles() {
+        let start = CLLocationCoordinate2D(latitude: 47.0, longitude: 7.0)
+        let end = CLLocationCoordinate2D(latitude: 47.0, longitude: 7.5)          // about 20 NM
+        let steps = PhaseFrequencyPlanner.steps(from: start, to: end)
+        XCTAssertEqual(steps.count, 5)
+        XCTAssertEqual(steps.last?.longitude ?? 0, 7.5, accuracy: 1e-9)
+        XCTAssertEqual(PhaseFrequencyPlanner.steps(from: start, to: start).count, 1, "a leg of nothing: its end")
+    }
+
     // MARK: - The Cockpit's radio
 
     func testTheRadioComputesAgainOnceTheAircraftMovedAHundredthOfADegree() {

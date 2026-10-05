@@ -151,7 +151,7 @@ const en = {
     languagesLegend: 'The checklist’s language',
     languagesHint: 'The language the document is written in. The checklist keeps it: it doesn’t follow the app’s language (English or French), so a German checklist reads in German in both.',
     otherLanguageLabel: 'Another language',
-    otherLanguageNone: 'None',
+    otherLanguageHint: 'Type it if it isn’t above, in any form (Japanese, Swiss German…); several, separated by commas.',
     stepYou: 'You',
     nameLabel: 'Your name (optional)',
     nameHint: 'So the club knows who asked, if it’s asked to confirm.',
@@ -193,6 +193,8 @@ const en = {
       emailRequired: 'Give your e-mail: it’s where we tell you what happens.',
       emailInvalid: 'That e-mail address doesn’t look right.',
       languagesRequired: 'Pick the checklist’s language.',
+      languagesInvalid: 'A language is letters, spaces and dashes, 2 to 35 characters: “{value}” isn’t.',
+      languagesTooMany: 'Five languages at most.',
       filesRequired: 'Add the checklist (a PDF or photos of its pages).',
       tooManyFiles: 'Up to 4 files: remove one first.',
       fileTooBig: '{name} is {size}: a file can be 10 MB at most.',
@@ -523,7 +525,7 @@ const fr: RequestsCopy = {
     languagesLegend: 'La langue de la checklist',
     languagesHint: 'La langue dans laquelle le document est écrit. La checklist la garde : elle ne suit pas la langue de l’app (anglais ou français), une checklist en allemand se lit donc en allemand dans les deux.',
     otherLanguageLabel: 'Une autre langue',
-    otherLanguageNone: 'Aucune',
+    otherLanguageHint: 'Saisissez-la si elle ne figure pas ci-dessus, sous n’importe quelle forme (japonais, suisse allemand…) ; plusieurs, séparées par des virgules.',
     stepYou: 'Vous',
     nameLabel: 'Votre nom (facultatif)',
     nameHint: 'Pour que le club sache qui demande, si on lui demande de confirmer.',
@@ -565,6 +567,8 @@ const fr: RequestsCopy = {
       emailRequired: 'Indiquez votre e-mail : c’est là que nous vous disons ce qui se passe.',
       emailInvalid: 'Cette adresse e-mail ne semble pas juste.',
       languagesRequired: 'Choisissez la langue de la checklist.',
+      languagesInvalid: 'Une langue s’écrit en lettres, espaces et tirets, de 2 à 35 caractères : « {value} » ne convient pas.',
+      languagesTooMany: 'Cinq langues au plus.',
       filesRequired: 'Ajoutez la checklist (un PDF ou des photos de ses pages).',
       tooManyFiles: 'Jusqu’à 4 fichiers : retirez-en un d’abord.',
       fileTooBig: '{name} pèse {size} : un fichier peut faire 10 Mo au plus.',
@@ -772,6 +776,8 @@ export const REQUESTS_COPY: Record<Lang, RequestsCopy> = { en, fr: frenchSpacing
 
 /** A language code as its name in the page's language ("de" → "German" / "Allemand"). */
 export function languageName(code: string, lang: Lang): string {
+  // A language typed as a name ("Japanese", "Swiss German") is shown as it was sent.
+  if (!/^[a-z]{2,3}(-[A-Za-z0-9]{2,8})*$/i.test(code)) return code;
   try {
     const name = new Intl.DisplayNames([lang], { type: 'language' }).of(code) ?? code;
     return name.charAt(0).toLocaleUpperCase(lang) + name.slice(1);

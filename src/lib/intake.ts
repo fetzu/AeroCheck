@@ -45,9 +45,24 @@ export const FILE_TYPES = {
 export type FileType = keyof typeof FILE_TYPES;
 export const FILE_ACCEPT = '.pdf,.jpg,.jpeg,.png,.heic,.heif,application/pdf,image/jpeg,image/png,image/heic,image/heif';
 
-/** The checklist's own languages, offered as boxes; any other goes through the list below them. */
+/** The checklist's own languages, offered as boxes (Switzerland's four and English). Any other is
+ *  typed: the worker keeps a language as sent ("Japanese", "it-CH"), so the field suggests and
+ *  never restricts. */
 export const COMMON_LANGUAGES = ['en', 'fr', 'de', 'it'] as const;
-export const OTHER_LANGUAGES = ['es', 'pt', 'nl', 'da', 'sv', 'no', 'fi', 'pl', 'cs', 'sk', 'sl', 'hr', 'hu', 'ro', 'el', 'tr'] as const;
+/** The field's suggestions: every ISO 639-1 code, named in the page's language at build time (a
+ *  code the runtime cannot name is left out). */
+export const SUGGESTED_LANGUAGES = (
+  'aa ab af ak am an ar as av ay az ba be bg bi bm bn bo br bs ca ce ch co cr cs cu cv cy da de dv dz ee el en eo es et eu ' +
+  'fa ff fi fj fo fr fy ga gd gl gn gu gv ha he hi ho hr ht hu hy hz ia id ie ig ii ik io is it iu ja jv ka kg ki kj kk kl km ' +
+  'kn ko kr ks ku kv kw ky la lb lg li ln lo lt lu lv mg mh mi mk ml mn mr ms mt my na nb nd ne ng nl nn no nr nv ny oc oj om ' +
+  'or os pa pi pl ps pt qu rm rn ro ru rw sa sc sd se sg si sk sl sm sn so sq sr ss st su sv sw ta te tg th ti tk tl tn to tr ' +
+  'ts tt tw ty ug uk ur uz ve vi vo wa wo xh yi yo za zh zu'
+).split(' ');
+/** The worker's rule for one language: letters, spaces and dashes, 2 to 35 characters; 5 at most. */
+export const LANGUAGE_PATTERN = /^\p{L}[\p{L} -]*$/u;
+export const LANGUAGE_MIN = 2;
+export const LANGUAGE_MAX = 35;
+export const MAX_LANGUAGES = 5;
 
 /** The checklist file's phase keys, in flight order, as the checklist files have them. */
 export const PHASE_KEYS = [

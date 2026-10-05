@@ -3,8 +3,8 @@
 // first bytes, the 4 / 10 MB / 25 MB limits), Turnstile, then the contract's sequence: POST the
 // request, PUT each file to its upload slot (with progress, resumable), POST complete, show the ticket.
 import {
-  FILE_TYPES, MAX_FILES, MAX_FILE_BYTES, MAX_REGISTRATIONS, MAX_TOTAL_BYTES, NOTES_MAX,
-  REGISTRATION_PATTERN, TURNSTILE_SCRIPT, TURNSTILE_SITE_KEY, TURNSTILE_TEST_KEY, type FileType,
+  COMMON_LANGUAGES, FILE_TYPES, LANGUAGE_MAX, LANGUAGE_MIN, LANGUAGE_PATTERN, MAX_FILES, MAX_FILE_BYTES,
+  MAX_LANGUAGES, MAX_REGISTRATIONS, MAX_TOTAL_BYTES, NOTES_MAX, REGISTRATION_PATTERN, SUGGESTED_LANGUAGES, TURNSTILE_SCRIPT, TURNSTILE_SITE_KEY, TURNSTILE_TEST_KEY, type FileType,
 } from '../../lib/intake';
 import {
   IntakeError, call, errorBox, errorFromBody, errorKey, fill, formatSize, h, intakeUrl, lang, languageName,
@@ -61,7 +61,7 @@ function init(root: HTMLElement): void {
   const filesList = $<HTMLUListElement>('[data-rq-files]');
   const filesTotal = $<HTMLElement>('[data-rq-files-total]');
   const langsGroup = $<HTMLElement>('#rq-langs');
-  const otherLang = $<HTMLSelectElement>('#rq-lang-other');
+  const otherLang = $<HTMLInputElement>('#rq-lang-other');
   const nameInput = $<HTMLInputElement>('#rq-name');
   const emailInput = $<HTMLInputElement>('#rq-email');
   const notesInput = $<HTMLTextAreaElement>('#rq-notes');
@@ -174,8 +174,8 @@ function init(root: HTMLElement): void {
       root.querySelectorAll<HTMLInputElement>('input[name="checklistLanguages"]').forEach((box) => {
         box.checked = lookup!.languages!.includes(box.value);
       });
-      const other = lookup.languages.find((l) => !root.querySelector(`input[name="checklistLanguages"][value="${CSS.escape(l)}"]`));
-      if (other && [...otherLang.options].some((o) => o.value === other)) otherLang.value = other;
+      const others = lookup.languages.filter((l) => !root.querySelector(`input[name="checklistLanguages"][value="${CSS.escape(l)}"]`));
+      if (others.length && !otherLang.value.trim()) otherLang.value = others.map((l) => languageName(l)).join(', ');
     }
     const club = clubName();
     senderStep.hidden = !club;
@@ -325,10 +325,33 @@ function init(root: HTMLElement): void {
 
   // ---- Checks before sending -----------------------------------------------------------------
 
+  /** The page's names for every code it suggests ("japonais" → "ja"), lowercase, for typed names. */
+  const knownNames = new Map<string, string>();
+  for (const code of [...COMMON_LANGUAGES, ...SUGGESTED_LANGUAGES]) {
+    const name = languageName(code);
+    if (name.toUpperCase() !== code.toUpperCase()) knownNames.set(name.toLocaleLowerCase(lang), code);
+  }
+
+  /** What was typed in "Another language", one entry per comma, as sent: a known name as its code. */
+  function typedLanguages(): string[] {
+    return otherLang.value.split(/[,;\n]+/).map((v) => v.trim().replace(/\s+/g, ' ')).filter(Boolean)
+      .map((v) => knownNames.get(v.toLocaleLowerCase(lang)) ?? v);
+  }
+
   function checkedLanguages(): string[] {
     const list = Array.from(root.querySelectorAll<HTMLInputElement>('input[name="checklistLanguages"]:checked')).map((b) => b.value);
-    if (otherLang.value && !list.includes(otherLang.value)) list.push(otherLang.value);
+    for (const typed of typedLanguages()) if (!list.includes(typed)) list.push(typed);
     return list;
+  }
+
+  /** The worker's rule (it checks again): the first entry that breaks it, or the count. */
+  function languagesProblem(): string | null {
+    const list = checkedLanguages();
+    if (!list.length) return fe.languagesRequired;
+    const bad = list.find((l) => l.length < LANGUAGE_MIN || l.length > LANGUAGE_MAX || !LANGUAGE_PATTERN.test(l));
+    if (bad) return fill(fe.languagesInvalid, { value: bad });
+    if (list.length > MAX_LANGUAGES) return fe.languagesTooMany;
+    return null;
   }
 
   /** "HB-KFI, HB-KFO", one per line, or "HB-KFI HB-KFO"; "HB KFI" is one registration typed with a space. */
@@ -367,7 +390,8 @@ function init(root: HTMLElement): void {
       }
     }
     if (!picked.length) problems.push([chooseBtn, fe.filesRequired]);
-    if (!checkedLanguages().length) problems.push([langsGroup, fe.languagesRequired]);
+    const languages = languagesProblem();
+    if (languages) problems.push([langsGroup, languages]);
     const email = emailInput.value.trim();
     if (!email) problems.push([emailInput, fe.emailRequired]);
     else if (!looksLikeEmail(email)) problems.push([emailInput, fe.emailInvalid]);

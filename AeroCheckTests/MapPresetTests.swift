@@ -1,3 +1,4 @@
+import MapKit
 import XCTest
 @testable import AeroCheck
 
@@ -24,6 +25,15 @@ final class MapPresetTests: XCTestCase {
 
         defaults.set("Topo 1:25k", forKey: NavigationMapState.layerKey)
         XCTAssertEqual(NavigationMapState.savedLayer(in: defaults), .icao, "an unknown layer: the ICAO chart")
+    }
+
+    /// The map opens inside its chart's zoom range: MapKit leaves a camera set before the map is on screen
+    /// where it is, and the ICAO chart opened at 56 km for its 65 km limit. (6.2)
+    func testTheCameraOpensInsideTheChartsZoomRange() {
+        let icao = MKMapView.CameraZoomRange(minCenterCoordinateDistance: 65_000, maxCenterCoordinateDistance: 600_000)!
+        XCTAssertEqual(SwissMapView.clamped(56_053, to: icao), 65_000)
+        XCTAssertEqual(SwissMapView.clamped(120_000, to: icao), 120_000)
+        XCTAssertEqual(SwissMapView.clamped(900_000, to: icao), 600_000)
     }
 
     func testCruiseShowsAirspaceAndReportingPointsOnly() {

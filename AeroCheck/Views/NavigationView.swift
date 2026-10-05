@@ -4864,7 +4864,11 @@ struct SwissMapView: UIViewRepresentable {
     }
 
     func makeUIView(context: Context) -> MKMapView {
-        let mapView = MKMapView()
+        let mapView = FirstLayoutMapView()
+        // The layer's zoom range made to hold before the map draws anything (`applyZoomRange`).
+        mapView.onFirstLayout = { [coordinator = context.coordinator] map in
+            applyZoomRange(to: map, coordinator: coordinator)
+        }
         mapView.delegate = context.coordinator
         mapState.noteCalloutSelection(on: mapView)   // a new map has no callout open (6.2.0)
         mapView.showsCompass = false  // Disabled - compass was appearing in wrong position
@@ -4878,99 +4882,16 @@ struct SwissMapView: UIViewRepresentable {
         // Add tile overlay
         addTileOverlay(to: mapView, layerType: layerType, context: context)
 
-        // Set initial camera from shared state (preserves heading)
+        // Set initial camera from shared state (preserves heading), inside the layer's zoom range: MapKit
+        // doesn't apply the range to a camera set before the map is on screen (on iPad, and on the
+        // simulator: the ICAO chart opened at 56 km for its 65 km limit). See `applyZoomRange`.
         let camera = MKMapCamera(
             lookingAtCenter: mapState.region.center,
-            fromDistance: mapState.cameraDistance,
+            fromDistance: Self.clamped(mapState.cameraDistance, to: zoomRange),
             pitch: 0,
             heading: mapState.cameraHeading
         )
         mapView.setCamera(camera, animated: false)
-
-        // WORKAROUND for iPad-specific bug: Force a complete layer cycle after initial setup.
-        // On iPad, the initial tile overlay doesn't properly respect zoom constraints until
-        // a layer switch occurs. We simulate this by briefly switching to a different layer
-        // configuration and back.
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-            // Remove existing overlay
-            let existingTileOverlays = mapView.overlays.compactMap { $0 as? MKTileOverlay }
-            mapView.removeOverlays(existingTileOverlays)
-
-            // Briefly set a different zoom range (like switching to Landeskarten)
-            mapView.cameraZoomRange = MKMapView.CameraZoomRange(
-                minCenterCoordinateDistance: 1_500,
-                maxCenterCoordinateDistance: 600_000
-            )
-
-            // Now switch back to ICAO configuration
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
-                // The layer the map shows NOW, as the coordinator last set it, not the one this view
-                // was made with: Plan › Map and the Cockpit's MAP pane are made on ICAO and switched
-                // to the pilot's layer by the first update, before this runs. Re-adding the make-time
-                // ICAO chart under SWISSIMAGE or the national map left it past its last tile level,
-                // blank, and the coordinator (still on the pilot's layer) never put it right. (6.1.0)
-                let coordinator = context.coordinator
-                let layer = coordinator.currentLayerType ?? self.layerType
-
-                // Set correct zoom range
-                mapView.cameraZoomRange = cameraZoomRange(for: layer, forceICAO: coordinator.currentForceICAO)
-
-                // Re-add the overlay
-                if layer == .icao {
-                    let overlay = ICAOSegelflugkarteTileOverlay(
-                        forceICAO: coordinator.currentForceICAO,
-                        offlineMapManager: coordinator.offlineMapManager,
-                        isStrictOfflineMode: coordinator.isStrictOfflineMode,
-                        hasSegelflugCache: coordinator.hasSegelflugCache
-                    )
-                    overlay.canReplaceMapContent = true
-                    insertTileBelowShapes(overlay, on: mapView)
-                } else if let layerId = layer.swisstopoLayerIdentifier {
-                    let overlay = SwisstopoTileOverlay(
-                        layerIdentifier: layerId,
-                        tileExtension: layer.tileExtension,
-                        minimumZ: layer.minimumZoom,
-                        maximumZ: layer.maximumZoom
-                    )
-                    overlay.canReplaceMapContent = true
-                    insertTileBelowShapes(overlay, on: mapView)
-                }
-
-                // Re-add OpenAIP tile overlay if it was enabled (removed above with all MKTileOverlays)
-                if self.showOpenAIPTiles {
-                    let openAIPOverlay = OpenAIPTileOverlay(
-                        cacheManager: self.openAIPCacheManager,
-                        isStrictOfflineMode: coordinator.isStrictOfflineMode
-                    )
-                    insertTileBelowShapes(openAIPOverlay, on: mapView)
-                }
-
-                // The base tile was just re-added on TOP (same .aboveLabels level), which buries the
-                // flight-plan route line. Invalidate the route diff-guard so the next updateUIView
-                // redraws the route above the tile. (v4 UI/UX Revamp fix — route line was invisible on Swiss layers)
-                context.coordinator.lastFlightPlanSignature = nil
-                // And re-lift any other overlays (airspace etc.) the fresh tile just buried. (v4.2 layer-switch fix)
-                reliftNonTileOverlays(on: mapView)
-
-                // Force camera update like updateUIView does after overlay change (preserves heading)
-                let adjustedCamera = MKMapCamera(
-                    lookingAtCenter: self.mapState.region.center,
-                    fromDistance: self.mapState.cameraDistance * 1.0001,
-                    pitch: 0,
-                    heading: self.mapState.cameraHeading
-                )
-                mapView.setCamera(adjustedCamera, animated: false)
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-                    let camera = MKMapCamera(
-                        lookingAtCenter: self.mapState.region.center,
-                        fromDistance: self.mapState.cameraDistance,
-                        pitch: 0,
-                        heading: self.mapState.cameraHeading
-                    )
-                    mapView.setCamera(camera, animated: false)
-                }
-            }
-        }
 
         return mapView
     }
@@ -5090,7 +5011,7 @@ struct SwissMapView: UIViewRepresentable {
             // Always reposition camera on overlay change (layer switch)
             let camera = MKMapCamera(
                 lookingAtCenter: sharedIsStale ? mapView.camera.centerCoordinate : mapState.region.center,
-                fromDistance: mapState.cameraDistance,
+                fromDistance: Self.clamped(mapState.cameraDistance, to: mapView.cameraZoomRange),
                 pitch: 0,
                 heading: mapState.cameraHeading
             )
@@ -5101,7 +5022,7 @@ struct SwissMapView: UIViewRepresentable {
                 // Trigger a redraw by slightly adjusting the camera distance
                 let adjustedCamera = MKMapCamera(
                     lookingAtCenter: mapState.region.center,
-                    fromDistance: mapState.cameraDistance * 1.0001,
+                    fromDistance: Self.clamped(mapState.cameraDistance, to: mapView.cameraZoomRange) * 1.0001,
                     pitch: 0,
                     heading: mapState.cameraHeading
                 )
@@ -5114,7 +5035,7 @@ struct SwissMapView: UIViewRepresentable {
             // Only reposition camera when NOT user-driven (matches NativeMapViewUIKit pattern)
             let camera = MKMapCamera(
                 lookingAtCenter: mapState.region.center,
-                fromDistance: mapState.cameraDistance,
+                fromDistance: Self.clamped(mapState.cameraDistance, to: mapView.cameraZoomRange),
                 pitch: 0,
                 heading: mapState.cameraHeading
             )
@@ -5311,6 +5232,35 @@ struct SwissMapView: UIViewRepresentable {
         context.coordinator.offlineMapManager = offlineMapManager
         context.coordinator.isStrictOfflineMode = isStrictOfflineMode
         context.coordinator.hasSegelflugCache = hasSegelflugCache
+    }
+
+    /// `distance` within `range`.
+    static func clamped(_ distance: Double, to range: MKMapView.CameraZoomRange) -> Double {
+        min(max(distance, range.minCenterCoordinateDistance), range.maxCenterCoordinateDistance)
+    }
+
+    /// The layer's zoom range, made to hold: MapKit ignores a range set before the map is on screen (on
+    /// iPad, and on the simulator: the ICAO chart opened at 56 km for its 65 km limit, and + went past
+    /// it) until the range changes once it is. Set to another range and back, and the camera brought
+    /// inside it, on the map's first layout: later, the camera's move to the range redrew the chart
+    /// from scratch after it had drawn once (a dark half second).
+    ///
+    /// Until 6.2 a workaround did it by removing the chart overlay 0.1 s after the map was made and
+    /// adding a new one: every chart was drawn twice, the second overlay's tiles were sometimes dropped
+    /// (the chart blank until a zoom, about every other time MAP opened on an iPad) and the swap showed
+    /// as a flash (6.2 device check). Measured on the simulator, page after page with the ICAO chart
+    /// cached: the range holds as it did (64.5–65 km under repeated +), one overlay per MAP, its tiles
+    /// loaded once, no blank chart in 100 switches (1 or 2 per 100 with the workaround).
+    private func applyZoomRange(to mapView: MKMapView, coordinator: Coordinator) {
+        let range = cameraZoomRange(for: coordinator.currentLayerType ?? layerType, forceICAO: coordinator.currentForceICAO)
+        mapView.cameraZoomRange = MKMapView.CameraZoomRange(minCenterCoordinateDistance: 1_500,
+                                                            maxCenterCoordinateDistance: 600_000)
+        mapView.cameraZoomRange = range
+        let distance = mapView.camera.centerCoordinateDistance
+        let inside = Self.clamped(distance, to: range)
+        guard abs(inside - distance) > 1 else { return }
+        mapView.setCamera(MKMapCamera(lookingAtCenter: mapView.camera.centerCoordinate, fromDistance: inside,
+                                      pitch: 0, heading: mapView.camera.heading), animated: false)
     }
 
     func makeCoordinator() -> Coordinator {
@@ -6010,6 +5960,20 @@ class TrackVectorCasingPolyline: TrackVectorPolyline {}
 
 /// Modal sheet explaining GPS status indicators
 /// GPS Status modal — presented via .fullScreenCover as a centered card over dimmed background
+
+/// A map that says when it first has a size: what MapKit needs to apply a zoom range. (6.2)
+final class FirstLayoutMapView: MKMapView {
+    /// Run once, on the first layout with a size, before the map draws.
+    var onFirstLayout: ((MKMapView) -> Void)?
+
+    override func layoutSubviews() {
+        super.layoutSubviews()
+        guard bounds.width > 0, bounds.height > 0, let action = onFirstLayout else { return }
+        onFirstLayout = nil
+        action(self)
+    }
+}
+
 struct GPSStatusInfoSheet: View {
     @Environment(\.cockpitTheme) private var theme
     let currentStatus: GPSSignalStatus

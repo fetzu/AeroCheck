@@ -182,6 +182,8 @@ export function formatSize(bytes: number, copy: RequestsCopy): string {
 }
 
 export function languageName(code: string): string {
+  // A language typed as a name ("Japanese", "Swiss German") is shown as it was sent.
+  if (!/^[a-z]{2,3}(-[A-Za-z0-9]{2,8})*$/i.test(code)) return code;
   try {
     const name = new Intl.DisplayNames([lang], { type: 'language' }).of(code) ?? code;
     return name.charAt(0).toLocaleUpperCase(lang) + name.slice(1);

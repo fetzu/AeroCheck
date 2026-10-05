@@ -4,15 +4,17 @@
 // the form open. Everything that talks to the worker is in src/scripts/requests/send.ts.
 import type { Lang } from '../../lib/site';
 import { REQUESTS_COPY, languageName, toJsonScript } from '../../lib/requests-copy';
-import { COMMON_LANGUAGES, OTHER_LANGUAGES, FILE_ACCEPT, NOTES_MAX } from '../../lib/intake';
+import { COMMON_LANGUAGES, SUGGESTED_LANGUAGES, FILE_ACCEPT, NOTES_MAX } from '../../lib/intake';
 import RequestStyles from './RequestStyles.astro';
 interface Props { lang: Lang; }
 const { lang } = Astro.props;
 const copy = REQUESTS_COPY[lang];
 const t = copy.send;
 const common = COMMON_LANGUAGES.map((code) => ({ code, name: languageName(code, lang) }));
-const others = OTHER_LANGUAGES.map((code) => ({ code, name: languageName(code, lang) }))
-  .sort((a, b) => a.name.localeCompare(b.name, lang));
+const commonCodes: readonly string[] = COMMON_LANGUAGES;
+const suggestions = [...new Set(SUGGESTED_LANGUAGES.filter((code) => !commonCodes.includes(code))
+  .map((code) => [code, languageName(code, lang)]).filter(([code, name]) => name.toLowerCase() !== code).map(([, name]) => name))]
+  .sort((a, b) => a.localeCompare(b, lang));
 const otherLangHref = lang === 'fr' ? '/send' : '/fr/send';
 const noscript = lang === 'fr'
   ? 'Ce formulaire a besoin de JavaScript pour vérifier l’immatriculation et envoyer les fichiers.'
@@ -128,10 +130,12 @@ const noscript = lang === 'fr'
           </div>
           <div class="rq-field rq-field--tight">
             <label class="rq-label rq-label--small" for="rq-lang-other">{t.otherLanguageLabel}</label>
-            <select id="rq-lang-other" name="otherLanguage" class="rq-input rq-select">
-              <option value="">{t.otherLanguageNone}</option>
-              {others.map((l) => <option value={l.code}>{l.name}</option>)}
-            </select>
+            <p class="rq-hint" id="rq-lang-other-hint">{t.otherLanguageHint}</p>
+            <input id="rq-lang-other" name="otherLanguage" class="rq-input" type="text" list="rq-lang-suggestions"
+              autocomplete="off" spellcheck="false" maxlength="200" aria-describedby="rq-lang-other-hint" />
+            <datalist id="rq-lang-suggestions">
+              {suggestions.map((name) => <option value={name} />)}
+            </datalist>
           </div>
           <p class="rq-field-error" id="rq-langs-error" hidden></p>
         </fieldset>

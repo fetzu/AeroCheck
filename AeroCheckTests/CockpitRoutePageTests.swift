@@ -1,4 +1,5 @@
 import CoreLocation
+import MapKit
 import SwiftUI
 import XCTest
 @testable import AeroCheck
@@ -262,6 +263,23 @@ final class CockpitRoutePageTests: XCTestCase {
         XCTAssertEqual(nav.framedLeg, 3)
         nav.endLegFraming()
         XCTAssertNil(nav.framedLeg)
+    }
+
+    /// The leg framed on MAP stays framed until the shared region has it: an update pass before then saw the
+    /// region from before the fit (the aircraft) and put the camera back there. (6.2 device check)
+    func testAFitHoldsUntilTheSharedRegionHasIt() {
+        let aircraft = MKCoordinateRegion(center: .init(latitude: 47.08, longitude: 6.79),
+                                          span: .init(latitudeDelta: 0.1, longitudeDelta: 0.1))
+        let leg = MKCoordinateRegion(center: .init(latitude: 46.95, longitude: 7.10),
+                                     span: .init(latitudeDelta: 0.6, longitudeDelta: 0.6))
+        var sync = FitRegionSync()
+        XCTAssertFalse(sync.isStale(aircraft), "no fit: the camera follows the shared region")
+        sync.fitted(replacing: aircraft)
+        XCTAssertTrue(sync.isStale(aircraft), "the shared region is still the aircraft's: the fit holds")
+        XCTAssertTrue(sync.isStale(aircraft), "and again, until it moves")
+        XCTAssertFalse(sync.isStale(leg), "the fit has reached it")
+        XCTAssertNil(sync.staleRegion, "let go")
+        XCTAssertFalse(sync.isStale(aircraft), "Back to aircraft afterwards is followed")
     }
 
     func testALegsTimeIsTheTimerOnTheLegFlownAndATOToATOBehind() {

@@ -1,5 +1,5 @@
 **Last updated**
-September 2026
+October 2026
 
 
 AéroCheck is an open-source flight checklist and situational-awareness app for pilots, developed and published by Julien Bono in Switzerland. This page says what the app keeps on your device, what it sends, to whom and how precisely, and what our own servers keep.

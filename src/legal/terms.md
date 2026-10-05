@@ -1,5 +1,5 @@
 **Last updated**
-August 2026
+October 2026
 
 
 These terms govern your use of AéroCheck, an open-source flight checklist and situational-awareness application for pilots. By installing or using the app, you accept them. If you do not accept them, do not use the app.

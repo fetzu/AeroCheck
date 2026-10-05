@@ -1,5 +1,5 @@
 **Dernière mise à jour**
-Septembre 2026
+Octobre 2026
 
 
 AéroCheck est une app open source de listes de vérification et de conscience de la situation pour pilotes, développée et publiée par Julien Bono, en Suisse. Cette page dit ce que l'app garde sur votre appareil, ce qu'elle envoie, à qui et avec quelle précision, et ce que nos propres serveurs conservent.

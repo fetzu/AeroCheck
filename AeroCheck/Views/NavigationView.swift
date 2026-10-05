@@ -100,6 +100,40 @@ enum MapLayerType: String, CaseIterable, Identifiable {
     }
 }
 
+
+/// A fit's region (a leg from ROUTE, Show on the route pill) reaches the shared state a turn later:
+/// `SharedMapState.updateFromRegion` defers it, to publish outside the view update. Until it does, the
+/// shared state still holds the region from before the fit, and an update pass in that window moved the
+/// camera back there at the fit's zoom: a leg tapped on ROUTE opened MAP on the aircraft with the leg's
+/// bar (6.2 device check; 8 of 10 relaunches on MAP framed on a leg, on the simulator). Noted at the fit,
+/// let go as soon as the shared region is anything but the one the fit replaced; the regions reported
+/// before the fit, which would let it go too early, are dropped (`SharedMapState.updateFromFit`). (6.2)
+struct FitRegionSync {
+    private(set) var staleRegion: MKCoordinateRegion?
+
+    /// The map was just fitted; `shared` is what the shared state still says until the fit reaches it.
+    mutating func fitted(replacing shared: MKCoordinateRegion) {
+        staleRegion = shared
+    }
+
+    /// Whether `shared` is still the region the last fit replaced: the camera keeps the fit meanwhile.
+    mutating func isStale(_ shared: MKCoordinateRegion) -> Bool {
+        guard let stale = staleRegion else { return false }
+        if Self.same(shared, stale) { return true }
+        staleRegion = nil
+        return false
+    }
+
+    /// The representables' `regionsAreEqual`.
+    static func same(_ a: MKCoordinateRegion, _ b: MKCoordinateRegion) -> Bool {
+        let epsilon = 0.0001
+        return abs(a.center.latitude - b.center.latitude) < epsilon
+            && abs(a.center.longitude - b.center.longitude) < epsilon
+            && abs(a.span.latitudeDelta - b.span.latitudeDelta) < epsilon
+            && abs(a.span.longitudeDelta - b.span.longitudeDelta) < epsilon
+    }
+}
+
 // MARK: - Shared Map State
 
 /// Observable object to share map region state between different map views
@@ -142,10 +176,25 @@ class SharedMapState: ObservableObject {
 
     func updateFromRegion(_ newRegion: MKCoordinateRegion) {
         // Defer state updates to avoid "Publishing changes from within view updates" warning
+        let generation = fitGeneration
         DispatchQueue.main.async { [weak self] in
-            self?.region = newRegion
+            // A fit came since: this region is older than the one it framed (`updateFromFit`).
+            guard let self, generation == self.fitGeneration else { return }
+            self.region = newRegion
         }
     }
+
+    /// The region the map was just fitted to (a leg from ROUTE, Show on the route pill). It replaces any
+    /// region still on its way: the map delegate reports every camera move a turn later, and the report
+    /// of the camera set before the fit landed after it and put the map back where it was (6.2 device
+    /// check; with `FitRegionSync`).
+    func updateFromFit(_ newRegion: MKCoordinateRegion) {
+        fitGeneration &+= 1
+        updateFromRegion(newRegion)
+    }
+
+    /// Bumped by each fit; a region sync queued before it is dropped.
+    private var fitGeneration = 0
 
     /// Update camera state from an MKMapView's camera
     /// Call this from map delegate to sync distance and heading
@@ -3455,12 +3504,15 @@ struct NativeMapViewUIKit: UIViewRepresentable {
             // it, and a long east–west route in a portrait viewport needs more than that. That is the
             // layer's limit, not a framing bug — the route ends up under the pilot's thumb either way.
             mapState.cameraDistance = mapView.camera.centerCoordinateDistance
-            mapState.updateFromRegion(mapView.region)
+            context.coordinator.fitSync.fitted(replacing: mapState.region)
+            mapState.updateFromFit(mapView.region)
             return
         }
 
-        // Update camera from shared state if significantly different (preserves heading)
-        let regionChanged = !context.coordinator.regionsAreEqual(mapView.region, mapState.region)
+        // Update camera from shared state if significantly different (preserves heading), unless it is
+        // still the region a fit just replaced (`FitRegionSync`). (6.2)
+        let regionChanged = !context.coordinator.fitSync.isStale(mapState.region)
+            && !context.coordinator.regionsAreEqual(mapView.region, mapState.region)
         if !bandOwnsCamera && regionChanged && !context.coordinator.isUserInteracting {
             let camera = MKMapCamera(
                 lookingAtCenter: mapState.region.center,
@@ -3724,6 +3776,8 @@ struct NativeMapViewUIKit: UIViewRepresentable {
         var reportingPointLabelRevision = -1
         /// The open legs panel's band. (6.1, option C)
         let legsBand = LegsBandDriver()
+        /// A fit the shared state hasn't caught up with yet. (6.2)
+        var fitSync = FitRegionSync()
         /// The aerodrome procedures drawn, and their palette. (6.2.0)
         let vfrLayer = VFRMapLayer.State()
 
@@ -4950,7 +5004,8 @@ struct SwissMapView: UIViewRepresentable {
             // it, and a long east–west route in a portrait viewport needs more than that. That is the
             // layer's limit, not a framing bug — the route ends up under the pilot's thumb either way.
             mapState.cameraDistance = mapView.camera.centerCoordinateDistance
-            mapState.updateFromRegion(mapView.region)
+            context.coordinator.fitSync.fitted(replacing: mapState.region)
+            mapState.updateFromFit(mapView.region)
             return
         }
 
@@ -5015,12 +5070,14 @@ struct SwissMapView: UIViewRepresentable {
             }
         }
 
-        // Update camera from shared state (preserves heading)
-        let regionChanged = !context.coordinator.regionsAreEqual(mapView.region, mapState.region)
+        // Update camera from shared state (preserves heading), unless it is still the region a fit just
+        // replaced (`FitRegionSync`): the camera keeps the fit, a layer switch included. (6.2)
+        let sharedIsStale = context.coordinator.fitSync.isStale(mapState.region)
+        let regionChanged = !sharedIsStale && !context.coordinator.regionsAreEqual(mapView.region, mapState.region)
         if overlayChanged && !bandOwnsCamera {
             // Always reposition camera on overlay change (layer switch)
             let camera = MKMapCamera(
-                lookingAtCenter: mapState.region.center,
+                lookingAtCenter: sharedIsStale ? mapView.camera.centerCoordinate : mapState.region.center,
                 fromDistance: mapState.cameraDistance,
                 pitch: 0,
                 heading: mapState.cameraHeading
@@ -5338,6 +5395,8 @@ struct SwissMapView: UIViewRepresentable {
         var isUserInteracting = false
         /// The open legs panel's band. (6.1, option C)
         let legsBand = LegsBandDriver()
+        /// A fit the shared state hasn't caught up with yet. (6.2)
+        var fitSync = FitRegionSync()
         /// The aerodrome procedures drawn, and their palette. (6.2.0)
         let vfrLayer = VFRMapLayer.State()
 

@@ -30,6 +30,23 @@ Images are real captures from the DEBUG scene injector (see `SCREENSHOTS.md`) un
 no placeholder set active. Swap the paths in `shots.ts` to point at new captures — nothing else
 changes.
 
+## Aircraft requests
+
+`/send` (the form), `/request` (a request's page), `/confirm` (the club's page) and `/clubs`, each with its
+`/fr/` twin, talk from the browser to the intake worker (`intake.aerocheck.app`, AeroCheck-server's
+`workers/intake/`), never to this site. The pages are in `src/components/requests/`, their scripts in
+`src/scripts/requests/`, the copy (EN and FR) in `src/lib/requests-copy.ts`, and what the pages share with
+the worker in `src/lib/intake.ts`:
+
+- `INTAKE_URL`: the worker. A build with `PUBLIC_INTAKE_URL=http://localhost:8787` points the pages at a
+  local `wrangler dev` instead (whose `ALLOWED_ORIGIN` must then be the local site).
+- `TURNSTILE_SITE_KEY`: the site key of the aerocheck.app Turnstile widget (Cloudflare dashboard ›
+  Turnstile). Empty, the form uses Cloudflare's always-pass test key on localhost and says "not open
+  yet" anywhere else.
+
+`/request` and `/confirm` open with a private link (`#t=<token>`, the part after `#` never reaches GitHub
+Pages): they are `noindex` and left out of the sitemap.
+
 ## Design
 
 Dark "glass cockpit" palette + editorial feature rows (see `src/styles/global.css` for tokens:

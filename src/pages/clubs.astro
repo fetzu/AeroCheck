@@ -1,0 +1,9 @@
+---
+import Base from '../layouts/Base.astro';
+import Clubs from '../components/requests/Clubs.astro';
+import { loadSite } from '../lib/site';
+const site = loadSite('en');
+---
+<Base site={site} lang="en" title="For flying clubs">
+  <Clubs lang="en" />
+</Base>

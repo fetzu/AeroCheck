@@ -8,7 +8,8 @@ import sitemap from '@astrojs/sitemap';
 export default defineConfig({
   site: 'https://aerocheck.app',
   trailingSlash: 'ignore',
-  integrations: [sitemap()],
+  // /request and /confirm only open with a private link (#t=…): nothing there for a search engine.
+  integrations: [sitemap({ filter: (page) => !/\/(request|confirm)\/?$/.test(page) })],
   i18n: {
     defaultLocale: 'en',
     locales: ['en', 'fr'],

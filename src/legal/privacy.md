@@ -96,7 +96,7 @@ Who reads it: Julien Bono, who develops AéroCheck, reads the request and its fi
 
 The e-mails about your request (received, a question, live) and the club's link go out through [Resend](https://resend.com/legal/privacy-policy), an e-mail service based in the United States, which receives the address, the message and the link to deliver them. Replies reach support@aerocheck.app.
 
-How long: everything is kept while the request is open. 90 days after it closes (live, declined or a duplicate), the files and every e-mail address are deleted; what stays is the request's record (its number, the registrations, the type, the club, the name you gave if any, and its history), so that we know where a checklist came from. A request whose files never finished uploading is deleted after 24 hours. To have a request deleted earlier, or to know what we keep about it, write to support@aerocheck.app or reply to one of our e-mails.
+How long: everything is kept while the request is open. 90 days after it closes (live, declined or a duplicate), the files are deleted, and so are every e-mail address, your name, your notes, the name and role of whoever answered for the club, and the messages; what stays on the request server is the request's record (its number, the registrations, the type, the club, its statuses and their dates). The GitHub issue stays as it is (it never held an e-mail address or your name), so that we know where a checklist came from. A request whose files never finished uploading is deleted after 24 hours. To have a request deleted earlier, or to know what we keep about it, write to support@aerocheck.app or reply to one of our e-mails.
 
 
 ## 5.0 Exports and sharing

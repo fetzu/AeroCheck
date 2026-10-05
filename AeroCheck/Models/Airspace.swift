@@ -111,7 +111,7 @@ struct Airspace: Codable, Identifiable {
             return (0.85, 0.2, 0.2)    // Red
         case .danger:
             return (0.9, 0.5, 0.1)     // Orange
-        case .ctr:
+        case .ctr, .mctr:
             return (0.2, 0.4, 0.9)     // Blue
         case .tma, .cta:
             // Color by class
@@ -129,8 +129,6 @@ struct Airspace: Codable, Identifiable {
             return (0.3, 0.3, 0.8)     // Light blue
         case .fir, .uir:
             return (0.4, 0.4, 0.4)     // Dark gray
-        case .wave:
-            return (0.2, 0.7, 0.3)     // Green
         case .gliderSector:
             return (0.2, 0.8, 0.2)     // Bright green
         default:
@@ -155,6 +153,17 @@ struct Airspace: Codable, Identifiable {
             return "\(typeStr) (Class \(cls.letter))"
         }
         return typeStr
+    }
+
+    /// An area that says who to talk to or how traffic is organised, not airspace to stay out of: a FIS
+    /// sector, a lower or upper traffic area. Each covers a region or a country; never drawn, never a
+    /// conflict on a route, never an airspace to check. FIS sectors give RADIO its FIS
+    /// (`OpenAIPDataService.fisSectors(containing:)`). (6.2)
+    var isInformationArea: Bool {
+        switch airspaceType {
+        case .fisSector, .lta, .uta: return true
+        default: return false
+        }
     }
 
     /// Whether this airspace is considered restrictive (requires clearance or avoidance)
@@ -470,7 +479,11 @@ struct AltitudeLimit: Codable {
 
 // MARK: - Airspace Type Categories
 
-/// OpenAIP airspace type codes
+/// OpenAIP airspace type codes, as its API schema lists them (api.core.openaip.net, `type`). Until 6.2
+/// codes 31–35 were read as TSA/TRA temporary, mountain wave and French interdit areas: OpenAIP's FIS
+/// sectors (33) came out as green "Wave" areas over all of France, and Switzerland's two (added
+/// 2026-10-04) would have covered the country; its lower traffic areas (34) were taken for prohibited
+/// areas a route had to check.
 enum AirspaceTypeCategory: Int, Codable {
     case other = 0
     case restricted = 1
@@ -503,11 +516,12 @@ enum AirspaceTypeCategory: Int, Codable {
     case aerial = 28      // Aerial Sporting/Recreational
     case lowAltitude = 29
     case mrt = 30         // Military Route
-    case tsaTemp = 31     // TSA Temporary
-    case traTemp = 32     // TRA Temporary
-    case wave = 33        // Mountain Wave
-    case interditP = 34   // Interdit (Prohibited)
-    case interditR = 35   // Interdit (Restricted)
+    case tfr = 31         // TSA/TRA Feeding Route
+    case vfrSector = 32   // VFR Sector
+    case fisSector = 33   // FIS Sector: who gives the flight information service there
+    case lta = 34         // Lower Traffic Area
+    case uta = 35         // Upper Traffic Area
+    case mctr = 36        // Military Control Zone (MCTR)
 
     var displayName: String {
         switch self {
@@ -542,11 +556,12 @@ enum AirspaceTypeCategory: Int, Codable {
         case .aerial: return "Aerial"
         case .lowAltitude: return "Low Altitude"
         case .mrt: return "MRT"
-        case .tsaTemp: return "TSA (Temp)"
-        case .traTemp: return "TRA (Temp)"
-        case .wave: return "Wave"
-        case .interditP: return "P - Interdit"
-        case .interditR: return "R - Interdit"
+        case .tfr: return "TFR"
+        case .vfrSector: return "VFR Sector"
+        case .fisSector: return "FIS Sector"
+        case .lta: return "LTA"
+        case .uta: return "UTA"
+        case .mctr: return "MCTR"
         }
     }
 }

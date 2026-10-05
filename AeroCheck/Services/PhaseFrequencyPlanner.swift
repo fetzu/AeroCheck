@@ -32,6 +32,9 @@ enum PhaseFrequencyPlanner {
         var fieldFrequencies: (String) -> [(type: String, frequency: String)]
         /// The CTRs within 25 NM, nearest first: their name and primary frequency, if they have one.
         var nearbyCTRs: (CLLocationCoordinate2D) -> [(station: String, frequency: String?)]
+        /// The FIS stations over a point from the downloaded data (`FISSectors.station(of:)`); none where
+        /// it has no FIS sector, and the Swiss split built in answers instead.
+        var fisSectors: (CLLocationCoordinate2D) -> [Entry] = { _ in [] }
     }
 
     /// A station and its frequency.
@@ -47,13 +50,13 @@ enum PhaseFrequencyPlanner {
         /// The one to call next.
         let next: Entry?
         /// Plan › Map's panel, as it always was: NOW and NEXT, then the nearest field, the route, the
-        /// areas on the way and the CTRs around, then Emergency. Everything but NOW, NEXT and Emergency is `.other`,
+        /// FIS on the way and the CTRs around, then Emergency. Everything but NOW, NEXT and Emergency is `.other`,
         /// behind "All frequencies".
         let panel: [PhaseFrequency]
         /// ROUTE's RADIO: every frequency in the order of use, Emergency last (the plan's Q6). NOW and
         /// NEXT; the field the aircraft is at; the field diverted to; the route's stations from the
-        /// waypoint flown to onward (the fields passed are dropped); the FIS of each area on the way
-        /// (`areaAlongTheWay`); the CTRs around.
+        /// waypoint flown to onward (the fields passed are dropped); the FIS of each sector on the way
+        /// (`fisAlongTheWay`); the CTRs around.
         let route: [PhaseFrequency]
     }
 
@@ -85,16 +88,6 @@ enum PhaseFrequencyPlanner {
         return Plan(current: current, next: next,
                     panel: context.panel(current: current, next: next),
                     route: context.route(current: current, next: next))
-    }
-
-    /// The Swiss area's FIS and Info, the Info first: what the area is worked on.
-    static func areaFrequencies(for sector: SwissAirspaceSector) -> [SwissCommonFrequency] {
-        switch sector {
-        case .zurich: return [.zurichInfo, .fisEast]
-        case .geneva: return [.genevaInfo, .fisWest]
-        case .east: return [.fisEast]
-        case .west: return [.fisWest]
-        }
     }
 
     /// A field's VFR frequencies: its ATIS first when it has one (the first to listen to), then its
@@ -176,18 +169,24 @@ enum PhaseFrequencyPlanner {
             return []
         }
 
-        /// The area's FIS and Info, in Switzerland.
-        var area: [SwissCommonFrequency] {
-            guard let position, SwissAirspaceSectors.isInSwitzerland(position) else { return [] }
-            return PhaseFrequencyPlanner.areaFrequencies(for: SwissAirspaceSectors.getSector(for: position))
+        /// The FIS over a point: the data's sectors, else the Swiss split built in (none outside it).
+        func fis(at point: CLLocationCoordinate2D) -> [Entry] {
+            let fromData = sources.fisSectors(point)
+            if !fromData.isEmpty { return fromData }
+            return FISSectors.swiss(at: point).map { [$0] } ?? []
         }
 
-        /// The FIS and Info of every Swiss area on the way, in the order they come: the aircraft's, then
-        /// each one the way ahead enters (to the waypoint flown to and along the legs after it, or to the
-        /// field diverted to), walked every `areaStepNM`. Until 6.2 only the aircraft's: on the ground in
-        /// the Engadine, a Jura route's RADIO listed Zurich Info and never Geneva Info, whose area the
-        /// whole route is in (device check, 5 Oct).
-        var areaAlongTheWay: [SwissCommonFrequency] {
+        /// The FIS where the aircraft is.
+        var fisHere: [Entry] {
+            position.map(fis(at:)) ?? []
+        }
+
+        /// The FIS of every sector on the way, in the order they come, each frequency once: the
+        /// aircraft's, then each one the way ahead enters (to the waypoint flown to and along the legs
+        /// after it, or to the field diverted to), walked every `areaStepNM`. Until 6.2 only the
+        /// aircraft's: on the ground in the Engadine, a Jura route's RADIO listed Zurich Info and never
+        /// Geneva Info, which works two thirds of it (device check, 5 Oct).
+        var fisAlongTheWay: [Entry] {
             var way: [CLLocationCoordinate2D] = position.map { [$0] } ?? []
             if let diversion = plan?.diversion {
                 way.append(CLLocationCoordinate2D(latitude: diversion.latitude, longitude: diversion.longitude))
@@ -198,12 +197,13 @@ enum PhaseFrequencyPlanner {
             for (start, end) in zip(way, way.dropFirst()) {
                 points += PhaseFrequencyPlanner.steps(from: start, to: end)
             }
-            var sectors: [SwissAirspaceSector] = []
-            for point in points where SwissAirspaceSectors.isInSwitzerland(point) {
-                let sector = SwissAirspaceSectors.getSector(for: point)
-                if !sectors.contains(sector) { sectors.append(sector) }
+            var stations: [Entry] = []
+            for point in points {
+                for station in fis(at: point) where !stations.contains(where: { $0.freq == station.freq }) {
+                    stations.append(station)
+                }
             }
-            return sectors.flatMap(PhaseFrequencyPlanner.areaFrequencies(for:))
+            return stations
         }
 
         var ctrs: [(station: String, frequency: String?)] {
@@ -223,7 +223,7 @@ enum PhaseFrequencyPlanner {
                 return (current, next)
             }
             let nearEntry = nearField.flatMap { PhaseFrequencyPlanner.contact(labelled($0.ident)) }
-            let fisEntry = area.first.map { Entry(station: $0.name, freq: $0.frequency) }
+            let fisEntry = fisHere.first
 
             let current = nearActive ? (nearEntry ?? fisEntry) : (fisEntry ?? nearEntry)
 
@@ -266,7 +266,7 @@ enum PhaseFrequencyPlanner {
             for waypoint in plan?.waypoints ?? [] {
                 for frequency in waypointFrequencies(waypoint) { list.add(frequency.label, frequency.freq) }
             }
-            for common in areaAlongTheWay { list.add(common.name, common.frequency) }
+            for station in fisAlongTheWay { list.add(station, role: .other) }
             for ctr in ctrs { if let frequency = ctr.frequency { list.add(ctr.station, frequency) } }
             list.addEmergency()
             return list.items
@@ -289,7 +289,7 @@ enum PhaseFrequencyPlanner {
                     for frequency in waypointFrequencies(waypoint) { list.add(frequency.label, frequency.freq) }
                 }
             }
-            for common in areaAlongTheWay { list.add(common.name, common.frequency) }
+            for station in fisAlongTheWay { list.add(station, role: .other) }
             for ctr in ctrs { if let frequency = ctr.frequency { list.add(ctr.station, frequency) } }
             list.addEmergency()
             return list.items
@@ -318,6 +318,48 @@ enum PhaseFrequencyPlanner {
     }
 }
 
+// MARK: - The FIS (6.2)
+
+/// Who gives the flight information service where. The downloaded data's FIS sectors (OpenAIP type 33)
+/// wherever it has them, Swiss or not (Bâle Information over the Ajoie, Langen Information beyond the
+/// Rhine); else, in Switzerland, the published split built in (`SwissAirspaceSectors`): Zürich
+/// Information 124.700 and Geneva Information 126.350, either side of the line from the Doubs to Binn.
+/// They are the only two Swiss FIS. Until 6.2 a line at 7.45° E, and with each Info a "FIS West"
+/// 119.175 (Alps Radar, the Geneva side's class C, no FIS) or a "FIS East" 125.225 (no Swiss frequency:
+/// Langen Radar, in Germany).
+enum FISSectors {
+    /// A sector reaching this low or lower is worked from low level. One that starts higher (SIV GENEVE 1
+    /// from 6,500 ft, SIV LYON 1 from FL85) is not a VFR flight's station near the ground.
+    static let lowLevelFeet = 3_000.0
+
+    /// A data sector's station: its primary frequency under its name as RADIO shows it ("BALE
+    /// INFORMATION" → "Bale Info"); nil without a frequency, or starting above `lowLevelFeet`.
+    static func station(of sector: Airspace) -> PhaseFrequencyPlanner.Entry? {
+        guard sector.airspaceType == .fisSector, sector.lowerCeiling.asFeetMSL <= lowLevelFeet,
+              let frequency = sector.primaryFrequency else { return nil }
+        let name = frequency.name.flatMap { $0.isEmpty ? nil : $0 } ?? sector.name
+        return PhaseFrequencyPlanner.Entry(station: displayName(name), freq: frequency.value)
+    }
+
+    /// "GENEVA INFORMATION" → "Geneva Info", "ZÜRICH INFORMATION" → "Zürich Info", "CHAMBERY APP" →
+    /// "Chambery APP": as the app has always written the Swiss two, abbreviations kept in capitals.
+    static func displayName(_ raw: String) -> String {
+        raw.split(separator: " ").map { word -> String in
+            let upper = word.uppercased()
+            if upper == "INFORMATION" { return "Info" }
+            if word.count <= 3 { return upper }
+            return word.prefix(1).uppercased() + word.dropFirst().lowercased()
+        }.joined(separator: " ")
+    }
+
+    /// The Swiss split's station at a point; nil outside Switzerland.
+    static func swiss(at point: CLLocationCoordinate2D) -> PhaseFrequencyPlanner.Entry? {
+        guard SwissAirspaceSectors.isInSwitzerland(point) else { return nil }
+        let common: SwissCommonFrequency = SwissAirspaceSectors.getSector(for: point) == .geneva ? .genevaInfo : .zurichInfo
+        return PhaseFrequencyPlanner.Entry(station: common.name, freq: common.frequency)
+    }
+}
+
 extension PhaseFrequencyPlanner.Sources {
     /// The app's airport database and OpenAIP airspace.
     @MainActor
@@ -335,6 +377,9 @@ extension PhaseFrequencyPlanner.Sources {
                  openAIP.nearbyCTRs(from: coordinate, withinNM: PhaseFrequencyPlanner.ctrRadiusNM,
                                     requireFrequencies: true)
                      .map { (station: $0.airspace.shortName, frequency: $0.airspace.primaryFrequency?.value) }
+             },
+             fisSectors: { coordinate in
+                 openAIP.fisSectors(containing: coordinate).compactMap(FISSectors.station(of:))
              })
     }
 }

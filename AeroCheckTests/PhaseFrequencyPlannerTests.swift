@@ -74,7 +74,7 @@ final class PhaseFrequencyPlannerTests: XCTestCase {
         XCTAssertEqual(PhaseFrequencyPlanner.plan(position: Self.enRoute, plan: nil, sources: Self.world.sources).next?.station,
                        "LSZG TWR")
         XCTAssertEqual(PhaseFrequencyPlanner.plan(position: Self.nearGrenchen, plan: nil, sources: Self.world.sources).next?.station,
-                       "Zurich Info")
+                       "Zürich Info")
     }
 
     func testACTRWithoutAFrequencyIsNotNext() {
@@ -137,7 +137,7 @@ final class PhaseFrequencyPlannerTests: XCTestCase {
             "Geneva Info|126.350",          // NOW
             "LSGC AFIS|120.350",            // NEXT
             "LSZQ A/G|123.575",             // the route on from the waypoint flown to (E has none)
-            "FIS West|119.175",             // the area
+            "Zürich Info|124.700",          // the FIS the way ahead enters (Bressaucourt is Zürich's)
             "BERN|121.025",                 // the CTRs around
             "\(L10n.Nav.freqEmergency)|121.500",
         ])
@@ -153,7 +153,7 @@ final class PhaseFrequencyPlannerTests: XCTestCase {
     func testAtTheFieldItsATISFollowsNow() {
         // Circuits at Grenchen, no route: the field's ATIS right after NOW and NEXT.
         let route = PhaseFrequencyPlanner.plan(position: Self.nearGrenchen, plan: nil, sources: Self.world.sources).route
-        XCTAssertEqual(Array(route.map(\.station).prefix(3)), ["LSZG TWR", "Zurich Info", "LSZG ATIS"])
+        XCTAssertEqual(Array(route.map(\.station).prefix(3)), ["LSZG TWR", "Zürich Info", "LSZG ATIS"])
     }
 
     func testDivertingTheFieldsATISComesBeforeTheRoute() {
@@ -172,37 +172,33 @@ final class PhaseFrequencyPlannerTests: XCTestCase {
         XCTAssertEqual(route.last?.isEmergency, true)
     }
 
-    /// On the ground in the Engadine with a Jura route: the aircraft's area (Zurich's), then the route's
+    /// On the ground in the Engadine with a Jura route: the aircraft's FIS (Zürich's), then the route's
     /// (Geneva's), which RADIO left out (device check, 5 Oct: LSZQ to LSGE from Tinizong).
-    func testRouteRadioListsTheAreasOfTheRouteNotOnlyTheAircrafts() {
+    func testRouteRadioListsTheFISOfTheRouteNotOnlyTheAircrafts() {
         let tinizong = CLLocationCoordinate2D(latitude: 46.582, longitude: 9.616)
         let route = PhaseFrequencyPlanner.plan(position: tinizong, plan: Self.route(next: 0),
                                                sources: Self.world.sources).route
         let stations = route.map(\.station)
-        XCTAssertEqual(stations.first, "Zurich Info", "NOW: the aircraft's area")
-        let zurich = try? XCTUnwrap(stations.firstIndex(of: "FIS East"))
-        let geneva = try? XCTUnwrap(stations.firstIndex(of: "Geneva Info"))
-        XCTAssertNotNil(geneva, "the route's area: \(stations)")
-        XCTAssertTrue(stations.contains("FIS West"), "\(stations)")
-        if let zurich, let geneva { XCTAssertLessThan(zurich, geneva, "the aircraft's area first, then the way's") }
+        XCTAssertEqual(stations.first, "Zürich Info", "NOW: the aircraft's FIS")
+        XCTAssertTrue(stations.contains("Geneva Info"), "the route's: \(stations)")
+        XCTAssertFalse(stations.contains { $0.hasPrefix("FIS ") }, "no FIS East or West: \(stations)")
     }
 
-    /// Flying east out of Geneva's area: Zurich's Info and FIS come after Geneva's, in the order of use.
-    func testRouteRadioListsTheNextAreaInTheOrderItComes() {
+    /// Flying east out of Geneva's sector: Zürich Information after Geneva Information, in the order of use.
+    func testRouteRadioListsTheNextFISInTheOrderItComes() {
         var plan = FlightPlan(name: "East", waypoints: [Self.waypoint("LSGC"),
                                                         FlightPlanWaypoint(name: "LSZH", coordinate: .init(latitude: 47.4647, longitude: 8.5492))])
         plan.currentWaypointIndex = 1
         let route = PhaseFrequencyPlanner.plan(position: Self.enRoute, plan: plan, sources: Self.world.sources).route
-        let areas = route.map(\.station).filter { ["Geneva Info", "FIS West", "Zurich Info", "FIS East"].contains($0) }
-        XCTAssertEqual(areas, ["Geneva Info", "FIS West", "Zurich Info", "FIS East"])
+        XCTAssertEqual(route.map(\.station).filter { $0.hasSuffix(" Info") }, ["Geneva Info", "Zürich Info"])
     }
 
     /// Diverting: the way is to the field diverted to, not along the route left.
-    func testDivertingTheAreasAreThoseOnTheWayToTheField() {
+    func testDivertingTheFISAreThoseOnTheWayToTheField() {
         var plan = Self.route(next: 2)
         plan.diversion = Diversion(ident: "LSZH", name: "Zurich", latitude: 47.4647, longitude: 8.5492, leftRouteAt: 2)
         let route = PhaseFrequencyPlanner.plan(position: Self.enRoute, plan: plan, sources: Self.world.sources).route
-        XCTAssertTrue(route.contains { $0.station == "Zurich Info" }, "\(route.map(\.station))")
+        XCTAssertTrue(route.contains { $0.station == "Zürich Info" }, "\(route.map(\.station))")
     }
 
     /// The way is walked every 5 NM at most, the leg's end included.
@@ -213,6 +209,59 @@ final class PhaseFrequencyPlannerTests: XCTestCase {
         XCTAssertEqual(steps.count, 5)
         XCTAssertEqual(steps.last?.longitude ?? 0, 7.5, accuracy: 1e-9)
         XCTAssertEqual(PhaseFrequencyPlanner.steps(from: start, to: start).count, 1, "a leg of nothing: its end")
+    }
+
+    // MARK: - The FIS
+
+    /// The published split, as OpenAIP's two Swiss FIS sectors draw it: until 6.2 a line at 7.45° E put
+    /// Bressaucourt, Delémont, Saignelégier, Biel and Grenchen on Geneva's side, Brig on Zurich's.
+    func testTheSwissFISSplitIsThePublishedOne() {
+        let zurich: [(String, Double, Double)] = [
+            ("LSZQ", 47.392, 7.030), ("Delémont", 47.36, 7.34), ("Saignelégier", 47.256, 7.003),
+            ("Courtelary", 47.18, 7.07), ("Biel", 47.14, 7.25), ("LSZG", 47.182, 7.417), ("LSZB", 46.913, 7.499),
+            ("Thun", 46.76, 7.63), ("Interlaken", 46.69, 7.86), ("LSZA", 46.004, 8.911), ("LSZS", 46.534, 9.884),
+            ("Tinizong", 46.582, 9.616), ("LSZH", 47.465, 8.549)]
+        let geneva: [(String, Double, Double)] = [
+            ("LSGC", 47.084, 6.793), ("St-Imier", 47.15, 6.99), ("Neuchâtel", 46.99, 6.93), ("LSGE", 46.755, 7.076),
+            ("Fribourg", 46.80, 7.15), ("Frutigen", 46.59, 7.65), ("LSGS", 46.219, 7.327), ("Brig", 46.32, 7.99),
+            ("LSGG", 46.238, 6.109)]
+        for (name, lat, lon) in zurich {
+            XCTAssertEqual(SwissAirspaceSectors.getSector(for: .init(latitude: lat, longitude: lon)), .zurich, name)
+            XCTAssertEqual(FISSectors.swiss(at: .init(latitude: lat, longitude: lon)),
+                           .init(station: "Zürich Info", freq: "124.700"), name)
+        }
+        for (name, lat, lon) in geneva {
+            XCTAssertEqual(SwissAirspaceSectors.getSector(for: .init(latitude: lat, longitude: lon)), .geneva, name)
+            XCTAssertEqual(FISSectors.swiss(at: .init(latitude: lat, longitude: lon)),
+                           .init(station: "Geneva Info", freq: "126.350"), name)
+        }
+        XCTAssertNil(FISSectors.swiss(at: .init(latitude: 48.5, longitude: 7.7)), "Strasbourg: not Switzerland")
+    }
+
+    /// The data's FIS sectors answer wherever they cover, a foreign one included; the Swiss split only
+    /// where they don't. Flying to Bressaucourt: Geneva's, then Zürich's, then Bâle Information over the
+    /// Ajoie (SIV BÂLE), in the order the way enters them.
+    func testTheDatasFISWinAndAForeignSectorIsListedInItsTurn() {
+        var sources = Self.world.sources
+        sources.fisSectors = { point in
+            point.latitude > 47.30 && point.longitude < 7.20 ? [.init(station: "Bale Info", freq: "130.900")] : []
+        }
+        let route = PhaseFrequencyPlanner.plan(position: Self.enRoute, plan: Self.route(next: 3), sources: sources).route
+        XCTAssertEqual(route.map(\.station).filter { $0.hasSuffix(" Info") }, ["Geneva Info", "Zürich Info", "Bale Info"])
+    }
+
+    /// A data sector's station: its primary frequency, its name as RADIO writes it; none for a sector that
+    /// starts high (SIV GENEVE 1 from 6,500 ft) or has no frequency.
+    func testADataSectorsStation() {
+        XCTAssertEqual(FISSectors.station(of: Self.fisSector("SIV BALE 1.2", frequency: "130.900", name: "BALE INFORMATION")),
+                       .init(station: "Bale Info", freq: "130.900"))
+        XCTAssertEqual(FISSectors.station(of: Self.fisSector("ZÜRICH", frequency: "124.700", name: "ZÜRICH INFORMATION")),
+                       .init(station: "Zürich Info", freq: "124.700"))
+        XCTAssertNil(FISSectors.station(of: Self.fisSector("SIV GENEVE 1", frequency: "126.350", name: "GENEVE INFORMATION",
+                                                           lowerFeetMSL: 6_500)))
+        XCTAssertNil(FISSectors.station(of: Self.fisSector("SIV X", frequency: nil, name: nil)))
+        XCTAssertEqual(FISSectors.displayName("CHAMBERY APP"), "Chambery APP")
+        XCTAssertEqual(FISSectors.displayName("GENEVA INFORMATION"), "Geneva Info")
     }
 
     // MARK: - The Cockpit's radio
@@ -335,6 +384,19 @@ final class PhaseFrequencyPlannerTests: XCTestCase {
         var plan = FlightPlan(name: "Jura", waypoints: ["LSZG", "E", "LSGC", "LSZQ"].map(waypoint))
         plan.currentWaypointIndex = next
         return plan
+    }
+
+    /// A FIS sector (OpenAIP type 33) over the Jura, from `lowerFeetMSL` to FL100.
+    private static func fisSector(_ name: String, frequency: String?, name station: String?,
+                                  lowerFeetMSL: Int = 0) -> Airspace {
+        let ring: [[Double]] = [[6.8, 47.0], [6.8, 47.5], [7.4, 47.5], [7.4, 47.0], [6.8, 47.0]]
+        return Airspace(
+            id: name, name: name, type: 33, icaoClass: 8, country: "FR",
+            upperCeiling: AltitudeLimit(value: 100, unit: 6, referenceDatum: 2),
+            lowerCeiling: AltitudeLimit(value: lowerFeetMSL, unit: 1, referenceDatum: lowerFeetMSL == 0 ? 0 : 1),
+            geometry: AirspaceGeometry(type: "Polygon", coordinates: [ring]),
+            activity: nil,
+            frequencies: frequency.map { [AirspaceFrequency(value: $0, name: station, primary: true, unit: nil)] })
     }
 
     private static func diversion(_ ident: String) -> Diversion {

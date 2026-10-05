@@ -342,6 +342,9 @@ class OpenAIPDataService: ObservableObject {
         }
 
         return candidates.filter { airspace in
+            // FIS sectors and traffic areas cover regions or countries: not drawn, never a conflict or an
+            // airspace to check (`Airspace.isInformationArea`). (6.2)
+            guard !airspace.isInformationArea else { return false }
             // Fast reject: skip any airspace whose bounding box doesn't overlap the visible region,
             // without touching its coordinate ring. (PR-11)
             if let box = airspace.boundingBox,
@@ -362,6 +365,39 @@ class OpenAIPDataService: ObservableObject {
             // Check 2: Bounding box center inside the polygon (catches large surrounding airspaces)
             return airspace.containsPoint(region.center)
         }
+    }
+
+    /// The FIS sectors over a point, from the downloaded data: OpenAIP's type 33, with the station that
+    /// gives the flight information service there and its frequency. Empty where the data has none (a
+    /// country not downloaded, or Swiss data older than 2026-10-04): `FISSectors` falls back to the
+    /// published Swiss split. (6.2)
+    func fisSectors(containing point: CLLocationCoordinate2D) -> [Airspace] {
+        guard isLoaded else { return [] }
+        let cell = gridKeyRange(minLat: point.latitude, maxLat: point.latitude,
+                                minLon: point.longitude, maxLon: point.longitude)
+        return (spatialGrid[GridKey(lat: cell.lat.lowerBound, lon: cell.lon.lowerBound)] ?? []).filter { $0.airspaceType == .fisSector && $0.containsPoint(point) }
+    }
+
+    /// The data's FIS sectors whose box the route's comes near: `fisSectors(containing:)` for a whole
+    /// route, the nav log's per-leg FIS. (6.2)
+    func fisSectors(alongRoute waypoints: [CLLocationCoordinate2D]) -> [Airspace] {
+        guard isLoaded, !waypoints.isEmpty else { return [] }
+        let lats = waypoints.map(\.latitude), lons = waypoints.map(\.longitude)
+        guard let minLat = lats.min(), let maxLat = lats.max(), let minLon = lons.min(), let maxLon = lons.max() else {
+            return []
+        }
+        let keys = gridKeyRange(minLat: minLat, maxLat: maxLat, minLon: minLon, maxLon: maxLon)
+        var seen = Set<String>()
+        var sectors: [Airspace] = []
+        for lat in keys.lat {
+            for lon in keys.lon {
+                for airspace in spatialGrid[GridKey(lat: lat, lon: lon)] ?? []
+                where airspace.airspaceType == .fisSector && seen.insert(airspace.id).inserted {
+                    sectors.append(airspace)
+                }
+            }
+        }
+        return sectors
     }
 
     /// Find airspaces along a flight route (for flight plan analysis)

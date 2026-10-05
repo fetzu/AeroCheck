@@ -488,15 +488,14 @@ enum RouteRadioPlanner {
     /// listed, never a frequency. Everything else (class E/G TMA, TMZ, FIR, airways) is ignored.
     static func kind(of airspace: Airspace) -> Kind {
         switch airspace.airspaceType {
-        case .ctr, .rmz, .atz, .matz, .tiz, .tia:
+        case .ctr, .mctr, .rmz, .atz, .matz, .tiz, .tia:
             return .unit
         case .tma, .cta:
             switch airspace.airspaceClass {
             case .classA?, .classB?, .classC?, .classD?: return .unit
             default: return .ignore
             }
-        case .restricted, .danger, .prohibited, .gliderSector, .tra, .tsa, .traTemp, .tsaTemp,
-             .interditP, .interditR, .mta, .alertArea, .warningArea:
+        case .restricted, .danger, .prohibited, .gliderSector, .tra, .tsa, .tfr, .mta, .alertArea, .warningArea:
             return .check
         default:
             return .ignore
@@ -559,7 +558,7 @@ enum RouteRadioPlanner {
     static func label(_ airspace: Airspace) -> String {
         let name = cleanName(airspace.name)
         switch airspace.airspaceType {
-        case .ctr, .tma, .cta:
+        case .ctr, .mctr, .tma, .cta:
             return airspace.airspaceClass.map { "\(name) (\($0.letter))" } ?? name
         case .rmz where !name.uppercased().hasPrefix("RMZ"):
             return "\(name) (RMZ)"
@@ -622,19 +621,14 @@ enum RouteRadioPlanner {
         wp.name.isEmpty ? "WP \(index + 1)" : wp.routeName(form)
     }
 
-    // MARK: - Swiss FIS
+    // MARK: - FIS
 
-    /// The area FIS from the same table and sector split as the in-flight FREQ panel, so paper and
-    /// screen agree. Nil outside Switzerland (the caller checks the border).
-    static func swissFIS(at coordinate: CLLocationCoordinate2D) -> Station {
-        let common: SwissCommonFrequency
-        switch SwissAirspaceSectors.getSector(for: coordinate) {
-        case .zurich: common = .zurichInfo
-        case .geneva: common = .genevaInfo
-        case .east: common = .fisEast
-        case .west: common = .fisWest
-        }
-        return Station(frequency: common.frequency, callSign: common.name.uppercased())
+    /// The FIS at a point, as RADIO picks it (`FISSectors`): the sector of `sectors` (the data's FIS
+    /// sectors along the route) over it, else, `inSwitzerland`, the Swiss split. Paper and screen agree.
+    static func fis(at coordinate: CLLocationCoordinate2D, sectors: [Airspace], inSwitzerland: Bool) -> Station? {
+        let station = sectors.lazy.filter { $0.containsPoint(coordinate) }.compactMap(FISSectors.station(of:)).first
+            ?? (inSwitzerland ? FISSectors.swiss(at: coordinate) : nil)
+        return station.map { Station(frequency: $0.freq, callSign: $0.station.uppercased()) }
     }
 }
 
@@ -667,9 +661,9 @@ extension RouteRadioPlanner {
             airspaces: openAIP.airspacesAlongRoute(coords),
             departure: aerodrome(for: wps[0], airports: airports),
             destination: aerodrome(for: wps[wps.count - 1], airports: airports),
-            fis: { coordinate in
-                CountryBoundaries.shared.countries(near: coordinate, bufferNm: 0).contains("CH")
-                    ? swissFIS(at: coordinate) : nil
+            fis: { [fisSectors = openAIP.fisSectors(alongRoute: coords)] coordinate in
+                fis(at: coordinate, sectors: fisSectors,
+                    inSwitzerland: CountryBoundaries.shared.countries(near: coordinate, bufferNm: 0).contains("CH"))
             },
             missingAirspaceCountries: crossed.filter { !downloaded.contains($0) },
             airspaceSource: source,

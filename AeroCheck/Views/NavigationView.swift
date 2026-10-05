@@ -2822,17 +2822,16 @@ struct PhaseFrequency: Identifiable {
 
 enum SwissCommonFrequency: CaseIterable {
     case genevaInfo
-    case fisWest
     case zurichInfo
-    case fisEast
     case emergency
 
+    /// As RADIO shows a FIS from the data (`FISSectors.displayName`): "ZÜRICH INFORMATION" → "Zürich Info".
+    /// Until 6.2 the table also had "FIS West" 119.175 (Alps Radar, the Geneva side's class C, not a FIS)
+    /// and "FIS East" 125.225 (no Swiss frequency at all: Langen Radar, in Germany).
     var name: String {
         switch self {
         case .genevaInfo: return "Geneva Info"
-        case .fisWest: return "FIS West"
-        case .zurichInfo: return "Zurich Info"
-        case .fisEast: return "FIS East"
+        case .zurichInfo: return "Zürich Info"
         case .emergency: return L10n.Nav.freqEmergency
         }
     }
@@ -2840,25 +2839,19 @@ enum SwissCommonFrequency: CaseIterable {
     var frequency: String {
         switch self {
         case .genevaInfo: return "126.350"
-        case .fisWest: return "119.175"
         case .zurichInfo: return "124.700"
-        case .fisEast: return "125.225"
         case .emergency: return "121.500"
         }
     }
 }
 
-/// Swiss airspace sectors for Info/FIS frequency selection
-/// Based on the CTA zones from geocat.ch
+/// The two Swiss FIS sectors: Zürich Information's and Geneva Information's.
 enum SwissAirspaceSector {
-    case zurich  // Eastern Switzerland - Zurich Info / FIS East
-    case geneva  // Western Switzerland - Geneva Info / FIS West
-    case east    // Far east - FIS East only (no Info)
-    case west    // Far west - FIS West only (no Info)
+    case zurich
+    case geneva
 }
 
-/// Rough polygons for Swiss airspace sectors
-/// Based on CTA zones from https://www.geocat.ch/geonetwork/srv/eng/catalog.search#/metadata/5fd1a95b-8f2c-4fff-8038-a7b2922488ad
+/// The Swiss FIS split as published, for when the downloaded airspace data has no FIS sectors (`FISSectors`).
 struct SwissAirspaceSectors {
     /// Check if a coordinate is within Swiss airspace bounds (approximate)
     static func isInSwitzerland(_ coordinate: CLLocationCoordinate2D) -> Bool {
@@ -2866,39 +2859,44 @@ struct SwissAirspaceSectors {
         coordinate.longitude >= 5.9 && coordinate.longitude <= 10.6
     }
 
-    /// Get the airspace sector for a given coordinate
+    /// The line between the two sectors, from the French border on the Doubs (south-west of
+    /// Saignelégier) to the Italian border near Binn: the open flightmaps sector boundary (OFMX `LSA62`
+    /// GENEVA / `LS121` ZURICH, AIRAC 2610), the dashed CTA ZURICH / CTA GENEVA line of the eVFR Manual's
+    /// COM 2-APP 2, and OpenAIP's two FIS sectors along it. (6.2)
+    static let boundary: [CLLocationCoordinate2D] = [
+        CLLocationCoordinate2D(latitude: 47.242778, longitude: 6.955278),   // 47°14'34"N 006°57'19"E
+        CLLocationCoordinate2D(latitude: 46.769722, longitude: 7.503889),   // 46°46'11"N 007°30'14"E
+        CLLocationCoordinate2D(latitude: 46.509722, longitude: 7.802500),   // 46°30'35"N 007°48'09"E
+        CLLocationCoordinate2D(latitude: 46.514167, longitude: 7.991389),   // 46°30'51"N 007°59'29"E
+        CLLocationCoordinate2D(latitude: 46.330833, longitude: 8.223333),   // 46°19'51"N 008°13'24"E
+    ]
+
+    /// Geneva's side: the boundary closed round the west and the south, outside the country.
+    private static let genevaSide: [CLLocationCoordinate2D] = boundary + [
+        CLLocationCoordinate2D(latitude: 45.0, longitude: 8.223333),
+        CLLocationCoordinate2D(latitude: 45.0, longitude: 5.0),
+        CLLocationCoordinate2D(latitude: 47.242778, longitude: 5.0),
+    ]
+
+    /// The sector a point is in. Until 6.2 a line at 7.45° E: Bressaucourt, Delémont, Biel and Grenchen
+    /// came out Geneva's, Brig Zurich's.
     static func getSector(for coordinate: CLLocationCoordinate2D) -> SwissAirspaceSector {
-        let lon = coordinate.longitude
-        let lat = coordinate.latitude
+        contains(genevaSide, coordinate) ? .geneva : .zurich
+    }
 
-        // Switzerland approximate bounds
-        guard lat >= 45.8 && lat <= 47.9 && lon >= 5.9 && lon <= 10.6 else {
-            // Outside Switzerland - default to nearest sector
-            if lon < 7.5 {
-                return .west
-            } else {
-                return .east
+    /// Ray casting, as `Airspace.containsPoint`.
+    private static func contains(_ polygon: [CLLocationCoordinate2D], _ point: CLLocationCoordinate2D) -> Bool {
+        var inside = false
+        var j = polygon.count - 1
+        for i in polygon.indices {
+            let a = polygon[i], b = polygon[j]
+            if (a.latitude > point.latitude) != (b.latitude > point.latitude),
+               point.longitude < (b.longitude - a.longitude) * (point.latitude - a.latitude) / (b.latitude - a.latitude) + a.longitude {
+                inside.toggle()
             }
+            j = i
         }
-
-        // The dividing line between Zurich and Geneva sectors is approximately at 7.5°E longitude
-        // This is a simplified approximation of the actual CTA boundaries
-        // The actual boundary follows a more complex path through the Alps
-
-        // Main dividing longitude (approximate - based on CTA boundary through Fribourg/Bern area)
-        let divisionLongitude: Double = 7.45
-
-        // Zurich Info covers:
-        // - East of the dividing line
-        // - Includes most of central and eastern Switzerland
-        if lon >= divisionLongitude {
-            return .zurich
-        } else {
-            // Geneva Info covers:
-            // - West of the dividing line
-            // - Includes western Switzerland and parts of the Alps
-            return .geneva
-        }
+        return inside
     }
 }
 

@@ -9,12 +9,12 @@ final class WatchContractTests: XCTestCase {
     /// the phone's FREQ panel AND, since the Watch's hand-written copy was removed, on the Watch.
     ///
     /// That copy had drifted: the Watch served FIS East 124.150 / FIS West 126.600 against the
-    /// canonical 125.225 / 119.175, so a pilot reading the Watch would have tuned a frequency the
-    /// app's own data says is not that FIS sector. Deriving both from this enum makes the two
-    /// physically incapable of diverging — which concentrates the risk here, so pin the values.
+    /// table's 125.225 / 119.175. Deriving both from this enum makes the two physically incapable of
+    /// diverging — which concentrates the risk here, so pin the values. Since 6.2 the table has the two
+    /// Swiss FIS only: "FIS East" and "FIS West" were none (119.175 is Alps Radar, 125.225 no Swiss
+    /// frequency).
     func testCanonicalSwissFrequencies() {
-        XCTAssertEqual(SwissCommonFrequency.fisEast.frequency, "125.225")
-        XCTAssertEqual(SwissCommonFrequency.fisWest.frequency, "119.175")
+        XCTAssertEqual(SwissCommonFrequency.allCases, [.genevaInfo, .zurichInfo, .emergency])
         XCTAssertEqual(SwissCommonFrequency.genevaInfo.frequency, "126.350")
         XCTAssertEqual(SwissCommonFrequency.zurichInfo.frequency, "124.700")
         XCTAssertEqual(SwissCommonFrequency.emergency.frequency, "121.500")

@@ -331,16 +331,16 @@ class WatchConnectivityManager: NSObject, ObservableObject {
     ///
     /// These used to be hand-written literals, and two of them had drifted from the canonical
     /// values: the Watch showed FIS East 124.150 and FIS West 126.600 where the iPad showed
-    /// 125.225 and 119.175 for the same sectors. A pilot reading the Watch would have tuned a
-    /// frequency the app's own data says is not that FIS sector. Deriving them removes both the
-    /// divergence and the ability for it to recur.
+    /// 125.225 and 119.175 for the same sectors. Deriving them removed the divergence. Since 6.2 the
+    /// table has the two Swiss FIS only: neither "FIS East" nor "FIS West" was one (119.175 is Alps
+    /// Radar, 125.225 no Swiss frequency at all).
     ///
     /// The display order is stated explicitly rather than using `allCases`, because it is not the
     /// enum's declaration order and the Watch renders only the first four entries — reordering
     /// here would silently change which frequencies a pilot sees.
     private func getCommonFrequencies() -> [FrequencyInfo] {
         let ordered: [SwissCommonFrequency] = [
-            .genevaInfo, .zurichInfo, .fisEast, .fisWest, .emergency,
+            .genevaInfo, .zurichInfo, .emergency,
         ]
         return ordered.map { freq in
             FrequencyInfo(

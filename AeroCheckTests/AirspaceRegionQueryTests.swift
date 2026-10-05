@@ -152,6 +152,30 @@ final class AirspaceRegionQueryTests: XCTestCase {
         }
     }
 
+    /// FIS sectors and traffic areas cover countries: never drawn, never along a route (a conflict on every
+    /// Swiss route otherwise); RADIO and the nav log ask for the FIS sectors on their own. (6.2)
+    func testInformationAreasStayOffTheMapAndComeOnlyAsFISSectors() {
+        func area(_ id: String, type: Int) -> Airspace {
+            let ring: [[Double]] = [[6.0, 46.0], [6.0, 47.8], [10.0, 47.8], [10.0, 46.0], [6.0, 46.0]]
+            return Airspace(id: id, name: id, type: type, icaoClass: 8, country: "CH",
+                            upperCeiling: AltitudeLimit(value: 100, unit: 6, referenceDatum: 2),
+                            lowerCeiling: AltitudeLimit(value: 0, unit: 1, referenceDatum: 0),
+                            geometry: AirspaceGeometry(type: "Polygon", coordinates: [ring]), activity: nil,
+                            frequencies: [AirspaceFrequency(value: "124.700", name: "ZÜRICH INFORMATION", primary: true, unit: nil)])
+        }
+        let ctr = rectAirspace(id: "CTR", minLat: 47.0, maxLat: 47.1, minLon: 7.0, maxLon: 7.1)
+        let service = OpenAIPDataService()
+        service.seedForTesting([area("ZÜRICH", type: 33), area("LTA", type: 34), area("UTA", type: 35), ctr])
+
+        let here = CLLocationCoordinate2D(latitude: 47.05, longitude: 7.05)
+        let region = MKCoordinateRegion(center: here, span: MKCoordinateSpan(latitudeDelta: 0.3, longitudeDelta: 0.3))
+        XCTAssertEqual(service.airspacesInBounds(region).map(\.id), ["CTR"])
+        XCTAssertEqual(service.airspacesAlongRoute([here, .init(latitude: 47.3, longitude: 7.4)]).map(\.id), ["CTR"])
+        XCTAssertEqual(service.fisSectors(containing: here).map(\.id), ["ZÜRICH"])
+        XCTAssertEqual(service.fisSectors(alongRoute: [here, .init(latitude: 47.3, longitude: 8.4)]).map(\.id), ["ZÜRICH"])
+        XCTAssertTrue(service.fisSectors(containing: .init(latitude: 45.5, longitude: 7.0)).isEmpty, "outside it")
+    }
+
     /// Negative longitudes/latitudes floor toward -infinity, the case integer cell keys get wrong.
     func testNearbyCTRsAcrossPrimeMeridianAndEquator() {
         let all = [

@@ -136,6 +136,35 @@ final class RouteRadioPlannerTests: XCTestCase {
         XCTAssertEqual(plan([tmaE]).rows[2].station?.callSign, "ZURICH INFO")
     }
 
+    /// OpenAIP's codes 31–36 as its schema has them (6.2): a FIS sector or a traffic area is no unit and
+    /// no area to check (until 6.2 a lower traffic area was read as a French prohibited area to check); a
+    /// military CTR is a unit; a TSA/TRA feeding route is checked like its TSA.
+    func testOpenAIPsLaterTypesAreReadAsTheSchemaSays() {
+        XCTAssertEqual(airspace("GENEVA", type: 33, icaoClass: 8, lon: 6.9...7.1).airspaceType, .fisSector)
+        XCTAssertEqual(RouteRadioPlanner.kind(of: airspace("GENEVA", type: 33, icaoClass: 8, lon: 6.9...7.1)), .ignore)
+        XCTAssertEqual(RouteRadioPlanner.kind(of: airspace("LTA FRANCE 1", type: 34, icaoClass: 4, lon: 6.9...7.1)), .ignore)
+        XCTAssertEqual(RouteRadioPlanner.kind(of: airspace("UTA", type: 35, icaoClass: 2, lon: 6.9...7.1)), .ignore)
+        XCTAssertEqual(RouteRadioPlanner.kind(of: airspace("MCTR PAYERNE", type: 36, icaoClass: 3, lon: 6.9...7.1)), .unit)
+        XCTAssertEqual(RouteRadioPlanner.kind(of: airspace("TFR 1", type: 31, icaoClass: nil, lon: 6.9...7.1)), .check)
+        XCTAssertTrue(airspace("GENEVA", type: 33, icaoClass: 8, lon: 6.9...7.1).isInformationArea)
+        XCTAssertFalse(airspace("CTA GENEVA", type: 26, icaoClass: 2, lon: 6.9...7.1).isInformationArea)
+    }
+
+    /// The nav log's FIS, as RADIO's: the data's sector over the point, else in Switzerland the published
+    /// split, else none.
+    func testTheNavLogsFISIsRADIOs() {
+        let bale = airspace("SIV BALE 1.2", type: 33, icaoClass: 8, lon: 6.9...7.2, lat: 47.3...47.6,
+                            frequency: ("130.900", "BALE INFORMATION"))
+        let ajoie = CLLocationCoordinate2D(latitude: 47.42, longitude: 7.05)
+        XCTAssertEqual(RouteRadioPlanner.fis(at: ajoie, sectors: [bale], inSwitzerland: true),
+                       .init(frequency: "130.900", callSign: "BALE INFO"))
+        XCTAssertEqual(RouteRadioPlanner.fis(at: ajoie, sectors: [], inSwitzerland: true),
+                       .init(frequency: "124.700", callSign: "ZÜRICH INFO"))
+        XCTAssertEqual(RouteRadioPlanner.fis(at: .init(latitude: 46.755, longitude: 7.076), sectors: [], inSwitzerland: true),
+                       .init(frequency: "126.350", callSign: "GENEVA INFO"))
+        XCTAssertNil(RouteRadioPlanner.fis(at: .init(latitude: 47.6, longitude: 6.8), sectors: [], inSwitzerland: false))
+    }
+
     func testBoundaryJustPastAWaypointIsCalledOnTheLegBefore() {
         // FIZ starting 0.2 NM after D: there is no time to call once past D, so the call goes on the
         // leg TO D — as with Samedan's FIZ, 0.1 NM after W.

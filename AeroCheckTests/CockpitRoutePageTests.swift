@@ -28,24 +28,59 @@ final class CockpitRoutePageTests: XCTestCase {
     func testOnAPhoneTheRadioIsUnderTheLegs() throws {
         let parts = try layOut(waypoints: 6, size: CGSize(width: 402, height: 520), layout: .narrow)
         let legs = try XCTUnwrap(parts[.legs]), radio = try XCTUnwrap(parts[.radio])
-        XCTAssertGreaterThanOrEqual(radio.minY, legs.maxY, "RADIO under LEGS")
+        let legsScroll = try XCTUnwrap(parts[.legsScroll])
+        XCTAssertGreaterThanOrEqual(radio.minY, legsScroll.maxY, "RADIO under LEGS")
         XCTAssertEqual(legs.minX, 16)
         XCTAssertEqual(radio.minX, 16)
         XCTAssertEqual(radio.width, 402 - 32, "the page's width")
     }
 
-    func testEmergencyIsPinnedWholeUnderTheOneScroll() throws {
-        // Twenty legs: more than the page, so the legs and the radio scroll, together.
+    /// A short route on a phone: LEGS takes what its rows need, RADIO the rest.
+    func testOnAPhoneAShortRoutesLegsTakeOnlyTheirRows() throws {
+        let parts = try layOut(waypoints: 3, size: CGSize(width: 402, height: 640), layout: .narrow)
+        let legs = try XCTUnwrap(parts[.legs]), legsScroll = try XCTUnwrap(parts[.legsScroll])
+        let scroll = try XCTUnwrap(parts[.scroll])
+        XCTAssertLessThan(legsScroll.height, scroll.height * RouteLegsAndRadio.phoneLegsShare - 20, "no empty half page")
+        XCTAssertLessThanOrEqual(legs.height, legsScroll.height, "every row in view, no scroll")
+    }
+
+    /// A long route: LEGS scrolls on its own and RADIO stays at the top of its own scroll, NOW and NEXT in
+    /// view, on the iPad and on a phone (on a phone, LEGS over at most half the page). In one scroll the
+    /// legs took RADIO off the page. (6.2 device check)
+    func testRadioStaysInViewHoweverLongTheLegs() throws {
+        for (layout, size) in [(CockpitLayout.wide, CGSize(width: 820, height: 700)),
+                               (.narrow, CGSize(width: 402, height: 640))] {
+            let parts = try layOut(waypoints: 20, size: size, layout: layout)
+            let legs = try XCTUnwrap(parts[.legs]), radio = try XCTUnwrap(parts[.radio])
+            let legsScroll = try XCTUnwrap(parts[.legsScroll]), radioScroll = try XCTUnwrap(parts[.radioScroll])
+            let scroll = try XCTUnwrap(parts[.scroll]), emergency = try XCTUnwrap(parts[.emergency])
+            XCTAssertGreaterThan(legs.height, legsScroll.height, "\(layout): twenty legs scroll")
+            XCTAssertEqual(radio.minY, radioScroll.minY + 12, accuracy: 0.5, "\(layout): RADIO at the top of its own scroll")
+            XCTAssertLessThanOrEqual(radioScroll.maxY, emergency.minY + 0.5, "\(layout): above Emergency")
+            if layout == .wide {
+                XCTAssertEqual(radioScroll.minY, legsScroll.minY, "side by side")
+                XCTAssertEqual(radioScroll.height, legsScroll.height, "the page's height each")
+            } else {
+                XCTAssertLessThanOrEqual(legsScroll.height, scroll.height * RouteLegsAndRadio.phoneLegsShare + 0.5,
+                                         "a phone's LEGS: half the page at most")
+                XCTAssertGreaterThanOrEqual(radioScroll.minY, legsScroll.maxY, "RADIO under it")
+                XCTAssertGreaterThan(radioScroll.height, 150, "room for NOW, NEXT and more")
+            }
+        }
+    }
+
+    func testEmergencyIsPinnedWholeUnderTheScrolls() throws {
+        // Twenty legs: more than the page, so the legs scroll.
         let size = CGSize(width: 820, height: 600)
         let parts = try layOut(waypoints: 20, size: size)
         let scroll = try XCTUnwrap(parts[.scroll]), emergency = try XCTUnwrap(parts[.emergency])
         let legs = try XCTUnwrap(parts[.legs]), radio = try XCTUnwrap(parts[.radio])
         XCTAssertGreaterThan(legs.height, scroll.height, "the legs run past the page: they scroll")
-        XCTAssertGreaterThanOrEqual(emergency.minY, scroll.maxY, "Emergency is outside the scroll, under it")
+        XCTAssertGreaterThanOrEqual(emergency.minY, scroll.maxY, "Emergency is outside the scrolls, under them")
         XCTAssertLessThanOrEqual(emergency.maxY, size.height, "whole, on the page")
         XCTAssertGreaterThan(emergency.height, 40, "a frequency row, not squeezed")
         XCTAssertGreaterThanOrEqual(legs.minY, scroll.minY)
-        XCTAssertGreaterThanOrEqual(radio.minY, scroll.minY, "the radio in the same scroll as the legs")
+        XCTAssertGreaterThanOrEqual(radio.minY, scroll.minY)
     }
 
     /// The undo toast lies over Emergency and a little of the scroll for six seconds: the scroll keeps that

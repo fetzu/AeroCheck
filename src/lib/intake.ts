@@ -10,11 +10,12 @@
 export const INTAKE_URL: string = (import.meta.env.PUBLIC_INTAKE_URL || 'https://intake.aerocheck.app').replace(/\/+$/, '');
 
 /**
- * TODO/REPLACE: the site key of the aerocheck.app Turnstile widget (Cloudflare dashboard › Turnstile ›
- * the widget › Site Key; its secret goes to the worker as TURNSTILE_SECRET). Public by design.
- * Empty: /send uses Cloudflare's always-pass test key on localhost, and says "not open yet" anywhere else.
+ * The site key of the aerocheck.app Turnstile widget (Cloudflare dashboard › Turnstile › "AéroCheck
+ * requests" › Site Key; its secret goes to the worker as TURNSTILE_SECRET). Public by design. The
+ * widget allows aerocheck.app only, so a local preview uses the test key below instead. Empty: /send
+ * says "not open yet" anywhere but on localhost.
  */
-export const TURNSTILE_SITE_KEY = '';
+export const TURNSTILE_SITE_KEY = '0x4AAAAAAFOiLRlFcqqwezEh';
 
 /** Cloudflare's documented test key: always passes, visibly. Only ever used on localhost. */
 export const TURNSTILE_TEST_KEY = '1x00000000000000000000AA';

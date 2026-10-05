@@ -273,10 +273,10 @@ function init(root: HTMLElement): void {
   let widgetId: string | undefined;
 
   function siteKey(): string | null {
-    if (TURNSTILE_SITE_KEY) return TURNSTILE_SITE_KEY;
     const host = location.hostname;
     const local = host === 'localhost' || host === '127.0.0.1' || host === '[::1]' || host.endsWith('.localhost');
-    return local ? TURNSTILE_TEST_KEY : null;
+    if (local) return TURNSTILE_TEST_KEY;
+    return TURNSTILE_SITE_KEY || null;
   }
 
   function turnstileFailed(): void {

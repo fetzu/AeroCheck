@@ -8,8 +8,9 @@ import os
 // The third page, the pilot's pick only: where the flight goes and who to talk to on the way.
 //
 //   DEST    the destination (or the field diverted to): distance, ETE, ETA and Δ, the route to scale
-//   LEGS | RADIO   every leg, and every frequency in the order of use, in one scroll: side by side
-//                  on the iPad (`LegsPanelColumns`, 700 pt and wider), one above the other on a phone
+//   LEGS | RADIO   every leg, and every frequency in the order of use, each in its own scroll: side by
+//                  side on the iPad (`LegsPanelColumns`, 700 pt and wider), LEGS over at most half the
+//                  page and RADIO under it on a phone. LEGS follows the leg being flown.
 //   Emergency      121.500, pinned under the scroll, whole, lined up with RADIO
 //
 // A leg's row opens MAP framed on that leg, with "Back to aircraft" and the leg's DIRECT (a waypoint
@@ -51,9 +52,10 @@ struct CockpitRoutePage: View {
     }
 }
 
-/// A part of ROUTE, for the layout tests.
+/// A part of ROUTE, for the layout tests: the area under DEST, the columns' content, their scrolls,
+/// Emergency.
 enum RoutePagePart: Hashable {
-    case scroll, legs, radio, emergency
+    case scroll, legs, radio, legsScroll, radioScroll, emergency
 }
 
 private struct RoutePageReporterKey: EnvironmentKey {
@@ -145,9 +147,10 @@ struct OfferedWidth: Layout {
 
 // MARK: - LEGS | RADIO
 
-/// The legs and every frequency, in the page's one scroll: side by side where the legs keep their times
-/// beside the frequencies (`LegsPanelColumns`), one above the other on a phone, the frequencies alone and
-/// the page's width with no route. It opens on the leg being flown.
+/// The legs and every frequency, each in a scroll of its own: side by side where the legs keep their times
+/// beside the frequencies (`LegsPanelColumns`), one above the other on a phone (LEGS over at most half the
+/// page), the frequencies alone and the page's width with no route. LEGS opens on the leg being flown and
+/// follows it.
 struct RouteLegsAndRadio: View {
     let layout: CockpitLayout
     let hasLegs: Bool
@@ -162,38 +165,92 @@ struct RouteLegsAndRadio: View {
 
     @EnvironmentObject private var flightPlanManager: FlightPlanManager
 
+    /// The share of the page LEGS may take on a phone, RADIO having the rest. (6.2, author)
+    static let phoneLegsShare: CGFloat = 0.5
+
     var body: some View {
-        ScrollViewReader { reader in
-            ScrollView {
-                Group {
-                    if hasLegs {
-                        LegsPanelColumns {
-                            RouteLegsColumn(onShowLeg: onShowLeg)
-                                .routePagePart(.legs)
-                            RouteRadioColumn()
-                                .routePagePart(.radio)
-                        }
-                    } else {
-                        RouteRadioColumn()
-                            .routePagePart(.radio)
-                    }
+        // LEGS and RADIO each scroll on their own: in one scroll, a long route's legs took RADIO with them
+        // off the page (6.2 device check, author's call: the same on the iPad and on a phone).
+        GeometryReader { proxy in
+            let width = max(0, proxy.size.width - 32)
+            if !hasLegs {
+                radioScroll
+                    .padding(.horizontal, 16)
+            } else if LegsPanelColumns.isSideBySide(width: width) {
+                let radioColumn = LegsPanelColumns.frequencyColumn(width: width, hasLegs: true)
+                HStack(alignment: .top, spacing: LegsPanelColumns.columnSpacing) {
+                    legsScroll(fits: false)
+                        .frame(width: radioColumn.minX - LegsPanelColumns.columnSpacing)
+                    radioScroll
+                        .frame(width: radioColumn.width)
                 }
-                .frame(maxWidth: .infinity, alignment: .leading)
                 .padding(.horizontal, 16)
-                .padding(.vertical, 12)
+            } else {
+                VStack(alignment: .leading, spacing: LegsPanelColumns.stackSpacing) {
+                    legsScroll(fits: true)
+                        .frame(maxHeight: proxy.size.height * Self.phoneLegsShare, alignment: .top)
+                    radioScroll
+                }
+                .padding(.horizontal, 16)
             }
-            // Room at the foot for the undo toast, which lies over Emergency and a little of the scroll
-            // for six seconds: the leg being flown, brought into view, is never under it. (6.2)
-            .contentMargins(.bottom, Self.toastClearance(layout), for: .scrollContent)
-            .modifier(SharpScrollEdges())
+        }
+    }
+
+    /// Every leg, the leg being flown brought into view as ROUTE opens and as each waypoint is passed (it
+    /// stayed where it was after a MARK). `fits`: no scroll at all while every row fits (a phone's LEGS
+    /// hugs a short route and leaves RADIO the rest).
+    @ViewBuilder
+    private func legsScroll(fits: Bool) -> some View {
+        let legs = RouteLegsColumn(onShowLeg: onShowLeg).routePagePart(.legs)
+        ScrollViewReader { reader in
+            Group {
+                if fits {
+                    ViewThatFits(in: .vertical) {
+                        legs.padding(.vertical, 12)
+                        scroll(legs)
+                    }
+                } else {
+                    scroll(legs)
+                }
+            }
+            .routePagePart(.legsScroll)
             .onAppear {
                 // On the next turn, once the rows are laid out: only as far as it takes, not at all when
                 // the leg is in view.
-                guard let plan = flightPlanManager.activeFlightPlan,
-                      let row = LegsPanelReveal.row(currentWaypointIndex: plan.currentWaypointIndex,
-                                                    waypointCount: plan.waypoints.count) else { return }
-                DispatchQueue.main.async { reader.scrollTo(LegsPanelReveal.RowID(index: row), anchor: nil) }
+                DispatchQueue.main.async { reveal(reader, animated: false) }
             }
+            .onChange(of: flightPlanManager.activeFlightPlan?.currentWaypointIndex) { _, _ in
+                reveal(reader, animated: true)
+            }
+        }
+    }
+
+    /// Every frequency, in its own scroll whatever LEGS does.
+    private var radioScroll: some View {
+        scroll(RouteRadioColumn().routePagePart(.radio))
+            .routePagePart(.radioScroll)
+    }
+
+    /// One of the page's scrolls: the column, room at the foot for the undo toast, sharp edges.
+    private func scroll<Content: View>(_ content: Content) -> some View {
+        ScrollView {
+            content
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.vertical, 12)
+        }
+        // Room at the foot for the undo toast, which lies over Emergency and a little of the scrolls for
+        // six seconds: the leg being flown, brought into view, is never under it. (6.2)
+        .contentMargins(.bottom, Self.toastClearance(layout), for: .scrollContent)
+        .modifier(SharpScrollEdges())
+    }
+
+    /// The leg being flown into view, only as far as it takes.
+    private func reveal(_ reader: ScrollViewProxy, animated: Bool) {
+        guard let plan = flightPlanManager.activeFlightPlan,
+              let row = LegsPanelReveal.row(currentWaypointIndex: plan.currentWaypointIndex,
+                                            waypointCount: plan.waypoints.count) else { return }
+        withAnimation(animated ? .easeInOut(duration: 0.25) : nil) {
+            reader.scrollTo(LegsPanelReveal.RowID(index: row), anchor: nil)
         }
     }
 }
@@ -257,7 +314,7 @@ struct RouteLegsColumn: View {
 }
 
 /// Every frequency in the order of use (`CockpitRadio`): NOW and NEXT first, tagged. No "All
-/// frequencies": the page has the room (the plan's Q6). Emergency is under the scroll.
+/// frequencies": the page has the room (the plan's Q6). Emergency is under the scrolls.
 struct RouteRadioColumn: View {
     @Environment(CockpitRadio.self) private var radio
 

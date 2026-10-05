@@ -1040,9 +1040,17 @@ class AppState {
     /// (round 6)
     var pendingFlightStart: PendingFlightStart?
 
-    // Navigation view session state (not persisted to disk — resets on app restart).
-    // One cohesive value (selected layer + orientation) instead of two loose @Published properties.
+    // Navigation view session state: the orientation and the zoom reset on app restart; the chart layer is
+    // kept on the device (`selectMapLayer`). One cohesive value instead of loose @Published properties.
     var navigationMapState = NavigationMapState()
+
+    /// The chart layer the pilot picked, for this session and the next launches on this device (a
+    /// relaunch went back to the ICAO chart: 6.2 device check). Per device, not synced: an iPhone and an
+    /// iPad may well show different charts.
+    func selectMapLayer(_ layer: MapLayerType) {
+        navigationMapState.selectedLayer = layer
+        defaults.set(layer.rawValue, forKey: NavigationMapState.layerKey)
+    }
 
     // Recorded times during flight — grouped into one cohesive FlightTiming value (extracted from
     // four loose @Published timestamps). The forwarding accessors below keep every existing call
@@ -1194,6 +1202,9 @@ class AppState {
         // install AND for an in-place upgrade from a build that predates the notice: an existing user
         // has never been shown it either, so they see it once on the next launch.
         acceptedDisclaimerVersion = defaults.integer(forKey: acceptedDisclaimerVersionKey)
+
+        // The chart the pilot last picked, on this device. (6.2, device check)
+        navigationMapState.selectedLayer = NavigationMapState.savedLayer(in: defaults)
 
         syncAircraftType()
         setupSyncCallbacks()

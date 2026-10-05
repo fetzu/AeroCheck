@@ -203,7 +203,8 @@ enum MapOrientationMode {
 /// The navigation map's display state (selected chart layer + orientation), extracted from AppState
 /// as one cohesive value rather than two loose @Published properties. AppState owns it via a single
 /// `@Published var navigationMapState`, so mutating a field still drives SwiftUI updates. In-memory
-/// session state (not persisted). (Phase 4 — AppState decomposition: state extraction)
+/// session state, but for the layer, which the device keeps (`AppState.selectMapLayer`). (Phase 4 —
+/// AppState decomposition: state extraction)
 struct NavigationMapState: Equatable {
     var selectedLayer: MapLayerType = .icao
     var orientationMode: MapOrientationMode = .northUp
@@ -211,6 +212,14 @@ struct NavigationMapState: Equatable {
     /// throw away the scale the pilot chose. nil until the map has been shown once. (v6.0 · P2)
     var cameraDistance: Double?
     var latitudeDelta: Double?
+
+    /// Where the device keeps the layer. (6.2)
+    static let layerKey = "map.selectedLayer"
+
+    /// The layer last picked on this device; the ICAO chart the first time.
+    static func savedLayer(in defaults: UserDefaults) -> MapLayerType {
+        defaults.string(forKey: layerKey).flatMap(MapLayerType.init(rawValue:)) ?? .icao
+    }
 }
 
 extension MapOrientationMode: Equatable {}
@@ -289,7 +298,10 @@ struct NavigationMapView: View {
     @State private var zoomBeforeLeg: LegZoom?
     /// A leg to frame once the chart has measured itself: the room its chrome takes. (6.2)
     @State private var legFramePending = false
-    @State private var selectedLayer: MapLayerType = .icao
+    /// The device's layer from the first frame: made on the ICAO chart and switched by `handleAppear`, the
+    /// map drew one chart, then the other, and the switch's forced tile refresh made Plan › Map flash.
+    /// (6.2, device check)
+    @State private var selectedLayer: MapLayerType = NavigationMapState.savedLayer(in: .standard)
     @State private var isFollowingAircraft: Bool = true
     /// iPad: base chart and overlays in one labelled sheet. (v6.0 · C1)
     @State private var showMapSheet: Bool = false
@@ -675,8 +687,8 @@ struct NavigationMapView: View {
     }
 
     private func handleLayerChange(to newLayer: MapLayerType) {
-        // Save to session state
-        appState.navigationMapState.selectedLayer = newLayer
+        // Kept for the session and the device's next launches. (6.2)
+        appState.selectMapLayer(newLayer)
         // When switching layers, force a tile refresh for Swiss layers
         if newLayer.isSwissLayer {
             // Trigger a small region update to force tile loading

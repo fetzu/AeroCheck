@@ -246,6 +246,20 @@ class SyncManager: ObservableObject {
         // permanently-failed upload). Cheap, off the hot path, and bounded by an age cutoff so it
         // can never touch an upload in progress.
         Task.detached(priority: .utility) { SyncManager.sweepStagedFlightAssets() }
+        observeAccountChanges()
+    }
+
+    /// `CKAccountChanged` → `accountDidChange`. The app's instance only: the tests call it directly.
+    private func observeAccountChanges() {
+        NotificationCenter.default.addObserver(
+            forName: .CKAccountChanged,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            MainActor.assumeIsolated {
+                self?.accountDidChange()
+            }
+        }
     }
 
     /// `defaults` and `backend` are injectable for the tests; the app uses `shared`.
@@ -319,10 +333,10 @@ class SyncManager: ObservableObject {
         do {
             let status = try await backend.accountStatus()
             guard !Task.isCancelled, isSyncEnabled else { return }
-            AppLog.sync.debugLine("CloudKit initialized successfully, account status: \(status)")
+            AppLog.sync.publicLine("CloudKit initialized successfully, account status: \(status)")
             guard status == .available else {
                 syncError = "iCloud account not available"
-                AppLog.sync.debugLine("iCloud account not available: \(status)")
+                AppLog.sync.publicLine("iCloud account not available: \(status)")
                 return
             }
             await startEngine()
@@ -342,7 +356,7 @@ class SyncManager: ObservableObject {
         let engine = backend.makeEngine(state: loadSyncState(), delegate: createDelegate())
         syncEngine = engine
         syncError = nil
-        AppLog.sync.debugLine("Sync engine initialized")
+        AppLog.sync.publicLine("Sync engine initialized")
 
         engine.queue([.saveZone(zone)])
         let owed = owedFlightDeletions
@@ -374,7 +388,7 @@ class SyncManager: ObservableObject {
             try await engine.fetch()
             lastSyncDate = Date()
             defaults.set(lastSyncDate, forKey: lastSyncDateKey)
-            AppLog.sync.debugLine("Initial fetch on launch completed")
+            AppLog.sync.publicLine("Initial fetch on launch completed")
             return true
         } catch {
             AppLog.sync.debugLine("Initial fetch on launch failed: \(error)")
@@ -455,7 +469,7 @@ class SyncManager: ObservableObject {
     private func shutdownSyncEngine() {
         syncEngine = nil
         syncEngineDelegate = nil
-        AppLog.sync.debugLine("Sync engine shutdown")
+        AppLog.sync.publicLine("Sync engine shutdown")
     }
 
     /// Whether an engine is running. For the tests and the logs.
@@ -497,7 +511,7 @@ class SyncManager: ObservableObject {
         lastSyncDate = nil
         pendingSettingsChange = nil
         pendingFlights = [:]
-        AppLog.sync.debugLine("Cleared account-scoped sync state")
+        AppLog.sync.publicLine("Cleared account-scoped sync state")
     }
 
     private func createDelegate() -> SyncEngineDelegate {
@@ -515,7 +529,7 @@ class SyncManager: ObservableObject {
 
         do {
             let state = try JSONDecoder().decode(CKSyncEngine.State.Serialization.self, from: data)
-            AppLog.sync.debugLine("Loaded sync state")
+            AppLog.sync.publicLine("Loaded sync state")
             return state
         } catch {
             AppLog.sync.debugLine("Failed to load sync state: \(error)")
@@ -728,11 +742,35 @@ class SyncManager: ObservableObject {
         isSyncing = false
     }
 
-    /// Restarts sync after an account change, optionally discarding the previous account's state. (RES-05)
+    /// The engine met the iCloud account (`.signIn`): it is already working on it, so it is kept.
     ///
-    /// `clearState` is true for `.switchAccounts` — a different account's server side means every
-    /// cached token, change tag and fingerprint is stale. It is false for `.signIn`, which resumes
-    /// the account the state already belongs to.
+    /// An engine only runs once the account check said available, and a sign-out tears it down, so
+    /// its `.signIn` is its own first start with this account: a fresh install, or the first launch
+    /// after a sign-out. 6.1.1 and 6.1.2 restarted the engine here. The state that knows the account
+    /// comes after `.signIn`, from the engine just stopped, and was ignored: every new engine started
+    /// without it, signed in again and was restarted again, for as long as the app ran, and a fresh
+    /// install never finished its first fetch.
+    ///
+    /// During the start, its first fetch and catch-up cover the account. With the engine already up,
+    /// a fetch and the catch-up run now. Not awaited by the delegate: the catch-up waits for the
+    /// events handled so far, the one calling here among them.
+    func engineSignedIn() async {
+        guard isSyncEnabled, syncEngine != nil, engineStart == nil else { return }
+        catchUpOwed = true
+        await syncNow()
+    }
+
+    /// The iCloud account changed (`CKAccountChanged`). With no engine running, sync starts:
+    /// signing back in after a sign-out, or an account that wasn't available at launch, used to
+    /// wait for the next launch. A running engine reports its own account changes (`.signOut`,
+    /// `.switchAccounts`), and `startSync` leaves it alone.
+    func accountDidChange() {
+        startSync()
+    }
+
+    /// Restarts sync on a different account (`.switchAccounts`), discarding the previous account's
+    /// state when `clearState`: its server side means every cached token, change tag and fingerprint
+    /// is stale. (RES-05)
     func restartSyncForAccountChange(clearState: Bool) {
         stopSync()
         if clearState { clearAccountScopedState() }
@@ -782,7 +820,7 @@ class SyncManager: ObservableObject {
             try await engine.send()
             lastSyncDate = Date()
             defaults.set(lastSyncDate, forKey: lastSyncDateKey)
-            AppLog.sync.debugLine("Manual sync completed")
+            AppLog.sync.publicLine("Manual sync completed")
         } catch {
             syncError = "Sync failed: \(error.localizedDescription)"
             AppLog.sync.debugLine("Manual sync failed: \(error)")
@@ -1312,7 +1350,7 @@ class SyncEngineDelegate: NSObject, CKSyncEngineDelegate {
         // under way. Its state and its changes belong to no running engine: the next one resumes
         // from the state saved before, and fetches them again.
         guard manager?.isCurrent(self) == true else {
-            AppLog.sync.debugLine("Ignoring an event from a stopped sync engine")
+            AppLog.sync.publicLine("Ignoring an event from a stopped sync engine")
             return
         }
         switch event {
@@ -1462,13 +1500,15 @@ class SyncEngineDelegate: NSObject, CKSyncEngineDelegate {
         // because the app runs on shared aeroclub hardware, where account switching is routine.
         switch change.changeType {
         case .signIn:
-            AppLog.sync.debugLine("User signed into iCloud — restarting sync engine")
-            manager?.restartSyncForAccountChange(clearState: false)
+            AppLog.sync.publicLine("Sync engine signed into iCloud — keeping it")
+            // Detached and not awaited (`engineSignedIn`).
+            let manager = self.manager
+            Task.detached { await manager?.engineSignedIn() }
         case .signOut:
-            AppLog.sync.debugLine("User signed out of iCloud — tearing down sync engine")
+            AppLog.sync.publicLine("User signed out of iCloud — tearing down sync engine")
             manager?.stopSyncForSignOut()
         case .switchAccounts:
-            AppLog.sync.debugLine("iCloud account switched — resetting sync state")
+            AppLog.sync.publicLine("iCloud account switched — resetting sync state")
             manager?.restartSyncForAccountChange(clearState: true)
         @unknown default:
             break

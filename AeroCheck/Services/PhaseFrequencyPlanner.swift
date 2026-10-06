@@ -325,12 +325,12 @@ enum PhaseFrequencyPlanner {
 // MARK: - The FIS (6.2)
 
 /// Who gives the flight information service where. The downloaded data's FIS sectors (OpenAIP type 33)
-/// wherever it has them, Swiss or not (Bâle Information over the Ajoie, Langen Information beyond the
-/// Rhine); else, in Switzerland, the published split built in (`SwissAirspaceSectors`): Zürich
-/// Information 124.700 and Geneva Information 126.350, either side of the line from the Doubs to Binn.
-/// They are the only two Swiss FIS. Until 6.2 a line at 7.45° E, and with each Info a "FIS West"
-/// 119.175 (Alps Radar, the Geneva side's class C, no FIS) or a "FIS East" 125.225 (no Swiss frequency:
-/// Langen Radar, in Germany).
+/// wherever it has them, Swiss or not (Bâle Information over Franche-Comté and Alsace, Langen Information
+/// beyond the Rhine); else, in Switzerland, the published split built in (`SwissAirspaceSectors`): Zürich
+/// Information 124.700 and Geneva Information 126.350, either side of the line from the Doubs to Binn. They
+/// are the only two Swiss FIS. Until 6.2 a line at 7.45° E, and with each Info a "FIS West" 119.175 (Alps
+/// Radar, the Geneva side's class C, no FIS) or a "FIS East" 125.225 (no Swiss frequency: Langen Radar, in
+/// Germany).
 enum FISSectors {
     /// A sector reaching this low or lower is worked from low level. One that starts higher (SIV GENEVE 1
     /// from 6,500 ft, SIV LYON 1 from FL85) is not a VFR flight's station near the ground.
@@ -357,17 +357,16 @@ enum FISSectors {
     }
 
     /// The stations of the data's sectors over a point, one per FIS, in an order that doesn't depend on
-    /// how the data loaded: the sectors of the country below first, then by id. Two countries' sectors
-    /// overlap from the ground in places (SIV BALE 1.2 over the Swiss Jura, Zürich's there too), and the
-    /// downloads load in no fixed order, so NOW over Bressaucourt could change from launch to launch.
+    /// how the data loaded (by id). Another country's sector counts only where the country below has none
+    /// of its own: OpenAIP draws SIV BALE 1.2 from the ground over the Swiss Jura, where a pilot calls
+    /// Zürich Information, and Bale Info once the way goes into France (the author, 6 Oct; the Basel TMAs
+    /// above are units of their own). Before, both were listed there, in the order the downloads happened
+    /// to load, so NOW over Bressaucourt could change from launch to launch.
     static func stations(over sectors: [Airspace], countriesBelow: Set<String>) -> [PhaseFrequencyPlanner.Entry] {
-        let ordered = sectors.sorted { a, b in
-            let aBelow = countriesBelow.contains(a.country.uppercased())
-            let bBelow = countriesBelow.contains(b.country.uppercased())
-            return aBelow != bBelow ? aBelow : a.id < b.id
-        }
+        let own = sectors.filter { countriesBelow.contains($0.country.uppercased()) && station(of: $0) != nil }
+        let counted = own.isEmpty ? sectors : own
         var stations: [PhaseFrequencyPlanner.Entry] = []
-        for station in ordered.compactMap(station(of:))
+        for station in counted.sorted(by: { $0.id < $1.id }).compactMap(station(of:))
         where !stations.contains(where: { $0.freq == station.freq || $0.station == station.station }) {
             stations.append(station)
         }

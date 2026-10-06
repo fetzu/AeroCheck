@@ -65,6 +65,13 @@ The airport database is downloaded whole, without any position.
 ### 3.7 AéroCheck API server (api.aerocheck.app)
 No position ever. When you open an aircraft, the app sends its identifier, its registration and the language you use, to get the right checklist. With AéroCheck Pro, the app also sends the proof of purchase Apple gives it (a transaction signed by Apple) and that purchase's original transaction identifier, and from then on a session token with each request. What the server keeps is in section 4.0.
 
+The same server hands out the VFR procedures from open flightmaps (traffic circuits, VFR arrival and departure routes, and the reporting points OpenAIP lacks) and the list of official chart links, as small files. The app downloads the procedures by country, with the other aeronautical data (the request names the country, nothing else), and the chart list about once a week. No position either, and no session token.
+
+### 3.8 Pages you open in your browser
+Some buttons open a page in your browser instead of fetching anything themselves (the briefing links of a flight's preparation, for instance). The app sends nothing on its own: the site you land on receives what any visit sends it. Two of these links say what you were looking at:
+- "Official chart" opens the aerodrome's chart on its publisher's site, the national air navigation or aeronautical information service of its country. Where the link leads to the aerodrome's own chart (Germany, France and 11 more countries), the publisher learns the aerodrome from it; where it leads to one page for the whole country (Switzerland's SkyBriefing, Austria, Greece, and the sign-in portals of Croatia and Bulgaria), it gets the same page whatever the aerodrome.
+- "Report an error", on a traffic circuit or a VFR route, opens open flightmaps' error-report form (a Google form, under [Google's privacy policy](https://policies.google.com/privacy)) with its description filled in: the region, the AIRAC cycle, the aerodrome, the procedure and its open flightmaps identifier, and the position of the label you tapped (a point of the procedure, not yours). Nothing about you: the form has an e-mail field of its own, which you may leave empty. Without the form, the app prepares the same text as an e-mail to open flightmaps, which you send or not.
+
 
 ## 4.0 What our servers keep
 

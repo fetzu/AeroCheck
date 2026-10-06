@@ -524,7 +524,7 @@ When the downloaded airspace is aging, an amber mark sits on the **Map** button 
 
 ### Traffic Circuits and VFR Routes
 
-With **Traffic circuits** or **Arrival & departure routes** on, the map draws the aerodrome procedures that open flightmaps publishes for Switzerland, Austria, Germany and the Czech Republic: in Plan › Map, in the Cockpit's MAP, and in the route editor (its layers button has the same three switches, as does **Settings › Navigation & Maps**). They are **indicative**: open flightmaps is a community source, and the aerodrome's official chart always prevails (it is one tap away, see below).
+With **Traffic circuits** or **Arrival & departure routes** on, the map draws the aerodrome procedures that open flightmaps publishes, in 22 countries (most of Europe; the most complete are Switzerland, Austria, Germany, the Czech Republic, Slovakia and Hungary): in Plan › Map, in the Cockpit's MAP, and in the route editor (its layers button has the same three switches, as does **Settings › Navigation & Maps**). They are **indicative**: open flightmaps is a community source, and the aerodrome's official chart always prevails (it is one tap away, see below).
 
 - **A traffic circuit** is a solid dark-blue line with a white edge, with its altitude on the downwind ("2900 ft", or "Alt: see chart" when open flightmaps gives none). A field with several circuits (by runway, or by type of aircraft) shows each of them.
 - **An arrival or a departure** is a dashed blue line with its name halfway along, and an arrowhead toward the field (arrival) or away from it (departure). **A sector** is a light blue area with a dashed outline; Austria's noise-abatement areas are a grey hatched outline.
@@ -594,10 +594,12 @@ A diversion changes where you navigate to and nothing else: Divert turns amber, 
 
 - **Germany**: the aerodrome's page in DFS BasicVFR.
 - **France**: the aerodrome's VAC (PDF) from the SIA, for the AIRAC cycle in force.
+- **Czech Republic, Slovakia, Hungary, Slovenia, Poland, Finland, Sweden, the Netherlands, Denmark, Romania and South Africa**: the aerodrome's VFR chart, or its page in the VFR manual or the AIP, from the national publisher (ANS CR, LPS SR, HungaroControl, Slovenia Control, PANSA, Fintraffic, LFV, LVNL, Naviair, ROMATSA, SACAA).
 - **Switzerland**: skyguide's VFR Manual on SkyBriefing, one page for every aerodrome, behind a login and a subscription; the button says so (**Official chart · SkyBriefing (subscription)**), so a sign-in page comes as no surprise.
-- **Austria**: Austro Control's eAIP start page.
+- **Croatia** and **Bulgaria**: the AIP portal, behind a login (Croatia Control's by order, BULATSA's after a free sign-in; the button says which).
+- **Austria** and **Greece**: the AIP's start page (Greece's asks you to prove you are not a robot).
 
-Italy has none (ENAV's terms forbid deep links to its charts), and neither do the other countries. The link is in the airport callout on the map (**Chart**, on the left), the route editor's airport callout, the Divert list, the departure and approach briefings, the PPR and Fees tasks of a flight's page, and the callout of a traffic circuit or a VFR route.
+Italy has none (ENAV's terms forbid links to its site without its authorisation), nor do Belgium and Luxembourg (skeyes allows links to its home page only) or Malta (its AIP is sold), and neither do the countries elsewhere. The link is in the airport callout on the map (**Chart**, on the left), the route editor's airport callout, the Divert list, the departure and approach briefings, the PPR and Fees tasks of a flight's page, and the callout of a traffic circuit or a VFR route.
 
 ### Track Vector
 
@@ -806,9 +808,9 @@ AéroCheck draws on several external datasets so navigation works wherever you f
 - **Airports and frequencies**: from OurAirports and OpenAIP (positions, runways, fuel grades, PPR flags and radio frequencies). A runway shows once, even when the two sources number it differently: it takes the numbers most sources agree on, and a short list, checked by hand, corrects the few they get wrong.
 - **Airspace**: OpenAIP controlled and restricted airspace, with vertical limits and frequencies.
 - **Navaids, obstacles, and reporting points**: OpenAIP map layers (see [The Map Sheet](#the-map-sheet)), plus the few reporting points OpenAIP lacks, from open flightmaps.
-- **Traffic circuits and VFR routes**: open flightmaps' traffic circuits (with their altitude), VFR arrival and departure routes and their sectors, for Switzerland, Austria, Germany and the Czech Republic. Indicative only: open flightmaps is a community source, not for primary navigation. They follow the AIRAC cycle (a new one every 28 days) and are kept offline like the rest (see [Traffic Circuits and VFR Routes](#traffic-circuits-and-vfr-routes)).
+- **Traffic circuits and VFR routes**: open flightmaps' traffic circuits (with their altitude), VFR arrival and departure routes and their sectors, in the 22 countries open flightmaps covers. Indicative only: open flightmaps is a community source, not for primary navigation. They follow the AIRAC cycle (a new one every 28 days) and are kept offline like the rest (see [Traffic Circuits and VFR Routes](#traffic-circuits-and-vfr-routes)).
 - **Charts**: Swiss ICAO, national map, and Segelflug charts from swisstopo.
-- **Official charts**: a link to each aerodrome's chart on its publisher's site (DFS, the SIA, skyguide on SkyBriefing, Austro Control), never the chart itself; see [Official Chart](#official-chart).
+- **Official charts**: a link to each aerodrome's chart on its publisher's site (DFS, the SIA, skyguide on SkyBriefing, Austro Control and the AIS of 14 more countries), never the chart itself; see [Official Chart](#official-chart).
 - **Landing-fee sources**: where each aerodrome publishes its own tariff (links and dates, never amounts), from the AéroCheck service.
 
 ### Downloading Data

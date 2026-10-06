@@ -524,7 +524,7 @@ Quand les espaces aériens téléchargés vieillissent, une marque ambre appara�
 
 ### Tours de piste et routes VFR
 
-Avec **Tours de piste** ou **Routes d'arrivée et de départ** activé, la carte dessine les procédures d'aérodrome qu'open flightmaps publie pour la Suisse, l'Autriche, l'Allemagne et la Tchéquie : dans Planifier › Carte, dans la CARTE du cockpit et dans l'éditeur de route (son bouton des calques porte les trois mêmes interrupteurs, tout comme **Réglages › Navigation & Cartes**). Elles sont **indicatives** : open flightmaps est une source communautaire, et la carte officielle de l'aérodrome l'emporte toujours (elle est à un toucher, voir plus bas).
+Avec **Tours de piste** ou **Routes d'arrivée et de départ** activé, la carte dessine les procédures d'aérodrome qu'open flightmaps publie, dans 22 pays (la plupart de l'Europe ; les plus complets sont la Suisse, l'Autriche, l'Allemagne, la Tchéquie, la Slovaquie et la Hongrie) : dans Planifier › Carte, dans la CARTE du cockpit et dans l'éditeur de route (son bouton des calques porte les trois mêmes interrupteurs, tout comme **Réglages › Navigation & Cartes**). Elles sont **indicatives** : open flightmaps est une source communautaire, et la carte officielle de l'aérodrome l'emporte toujours (elle est à un toucher, voir plus bas).
 
 - **Un tour de piste** est une ligne continue bleu foncé bordée de blanc, avec son altitude sur la branche vent arrière (« 2900 ft », ou « Alt. : voir carte » quand open flightmaps n'en donne pas). Un terrain qui en a plusieurs (par piste, ou par type d'avion) les montre tous.
 - **Une arrivée ou un départ** est une ligne bleue en tirets, avec son nom à mi-parcours et une pointe de flèche vers le terrain (arrivée) ou qui s'en éloigne (départ). **Un secteur** est une zone bleu clair au contour en tirets ; les zones de moindre bruit autrichiennes ont un contour hachuré gris.
@@ -594,10 +594,12 @@ Un déroutement change l'endroit vers lequel vous naviguez, et rien d'autre : D�
 
 - **Allemagne** : la page de l'aérodrome dans la BasicVFR de la DFS.
 - **France** : la carte VAC (PDF) de l'aérodrome, publiée par le SIA, pour le cycle AIRAC en vigueur.
+- **Tchéquie, Slovaquie, Hongrie, Slovénie, Pologne, Finlande, Suède, Pays-Bas, Danemark, Roumanie et Afrique du Sud** : la carte VFR de l'aérodrome, ou sa page dans le manuel VFR ou l'AIP, chez l'éditeur national (ANS CR, LPS SR, HungaroControl, Slovenia Control, PANSA, Fintraffic, LFV, LVNL, Naviair, ROMATSA, SACAA).
 - **Suisse** : le VFR Manual de skyguide sur SkyBriefing, une seule page pour tous les aérodromes, derrière une connexion et un abonnement ; le bouton le dit (**Carte officielle · SkyBriefing (abonnement)**), pour qu'une page de connexion ne surprenne personne.
-- **Autriche** : la page d'accueil de l'eAIP d'Austro Control.
+- **Croatie** et **Bulgarie** : le portail de l'AIP, derrière une connexion (sur commande chez Croatia Control, après une inscription gratuite chez BULATSA ; le bouton dit laquelle).
+- **Autriche** et **Grèce** : la page d'accueil de l'AIP (celle de la Grèce demande de prouver que vous n'êtes pas un robot).
 
-L'Italie n'en a pas (les conditions de l'ENAV interdisent les liens directs vers ses cartes), les autres pays non plus. Le lien se trouve dans la bulle d'un aérodrome sur la carte (**Carte**, à gauche), dans la bulle d'aérodrome de l'éditeur de route, dans la liste Déroutement, dans les briefings de départ et d'approche, dans les tâches PPR et Taxes de la page d'un vol, et dans la bulle d'un tour de piste ou d'une route VFR.
+L'Italie n'en a pas (les conditions de l'ENAV interdisent tout lien vers son site sans son autorisation), ni la Belgique et le Luxembourg (skeyes n'autorise que les liens vers sa page d'accueil), ni Malte (son AIP est payant), ni les pays d'ailleurs. Le lien se trouve dans la bulle d'un aérodrome sur la carte (**Carte**, à gauche), dans la bulle d'aérodrome de l'éditeur de route, dans la liste Déroutement, dans les briefings de départ et d'approche, dans les tâches PPR et Taxes de la page d'un vol, et dans la bulle d'un tour de piste ou d'une route VFR.
 
 ### Vecteur de route
 
@@ -806,9 +808,9 @@ AéroCheck s'appuie sur plusieurs jeux de données externes pour que la navigati
 - **Aérodromes et fréquences** : OurAirports et OpenAIP (positions, pistes, grades de carburant, indicateurs PPR et fréquences radio). Une piste n'apparaît qu'une fois, même quand les deux sources la numérotent différemment : elle prend les numéros sur lesquels la plupart des sources s'accordent, et une courte liste, vérifiée à la main, corrige les rares erreurs qu'elles font.
 - **Espaces aériens** : espaces contrôlés et réglementés OpenAIP, avec limites verticales et fréquences.
 - **Balises, obstacles et points de report** : couches OpenAIP (voir [La feuille Carte](#la-feuille-carte)), plus les quelques points de report qui manquent à OpenAIP, issus d'open flightmaps.
-- **Tours de piste et routes VFR** : les tours de piste d'open flightmaps (avec leur altitude), les routes d'arrivée et de départ VFR et leurs secteurs, pour la Suisse, l'Autriche, l'Allemagne et la Tchéquie. Indicatifs seulement : open flightmaps est une source communautaire, non destinée à la navigation primaire. Ils suivent le cycle AIRAC (un nouveau tous les 28 jours) et se gardent hors ligne comme le reste (voir [Tours de piste et routes VFR](#tours-de-piste-et-routes-vfr)).
+- **Tours de piste et routes VFR** : les tours de piste d'open flightmaps (avec leur altitude), les routes d'arrivée et de départ VFR et leurs secteurs, dans les 22 pays que couvre open flightmaps. Indicatifs seulement : open flightmaps est une source communautaire, non destinée à la navigation primaire. Ils suivent le cycle AIRAC (un nouveau tous les 28 jours) et se gardent hors ligne comme le reste (voir [Tours de piste et routes VFR](#tours-de-piste-et-routes-vfr)).
 - **Cartes** : cartes OACI, nationales et de vol à voile suisses de swisstopo.
-- **Cartes officielles** : un lien vers la carte de chaque aérodrome sur le site de son éditeur (DFS, SIA, skyguide sur SkyBriefing, Austro Control), jamais la carte elle-même ; voir [Carte officielle](#carte-officielle).
+- **Cartes officielles** : un lien vers la carte de chaque aérodrome sur le site de son éditeur (DFS, SIA, skyguide sur SkyBriefing, Austro Control et le service d'information aéronautique de 14 autres pays), jamais la carte elle-même ; voir [Carte officielle](#carte-officielle).
 - **Sources de taxes d'atterrissage** : l'endroit où chaque aérodrome publie son propre tarif (liens et dates, jamais de montants), depuis le service AéroCheck.
 
 ### Télécharger des données

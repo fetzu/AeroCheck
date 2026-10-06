@@ -1060,11 +1060,14 @@ enum VFRProcedureCallout {
     @MainActor
     private static func reportButton(for item: VFRMapItem, at coordinate: CLLocationCoordinate2D,
                                      palette: VFRMapPalette, metrics: CalloutMetrics, short: Bool) -> UIButton {
-        var configuration = UIButton.Configuration.tinted()
+        // Secondary to Official chart: its shape, type and height, a neutral fill and the callout's own
+        // text colour. Until 6.2 it was tinted with no fill colour of its own, so it took the app's
+        // accent, aviation gold, under the action's blue text (device check, 6 Oct).
+        var configuration = UIButton.Configuration.gray()
         configuration.title = short ? L10n.VFRMap.reportShort : L10n.VFRMap.reportError
         configuration.image = UIImage(systemName: "exclamationmark.bubble")
         configuration.imagePadding = 6
-        configuration.baseForegroundColor = palette.action
+        configuration.baseForegroundColor = palette == .night ? .secondaryLabel : .label
         configuration.titleTextAttributesTransformer = UIConfigurationTextAttributesTransformer { attributes in
             var attributes = attributes
             attributes.font = UIFont.aero(size: metrics.fontSize, weight: .semibold)

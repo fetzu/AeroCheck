@@ -250,6 +250,38 @@ final class PhaseFrequencyPlannerTests: XCTestCase {
         XCTAssertEqual(route.map(\.station).filter { $0.hasSuffix(" Info") }, ["Geneva Info", "Zürich Info", "Bale Info"])
     }
 
+    /// A FIS with several sectors is one station: Bale Info is 130.900 over the Ajoie and 135.855 over
+    /// Franche-Comté, and RADIO listed both (device check, 6 Oct). Once, with the frequency of the sector
+    /// the aircraft is in, or else the first the way enters.
+    func testAFISWithSeveralSectorsIsListedOnceWithTheSectorReachedFirst() {
+        var sources = Self.world.sources
+        sources.fisSectors = { point in
+            if point.longitude < 7.0 { return [.init(station: "Bale Info", freq: "135.855")] }
+            return point.latitude > 47.3 ? [.init(station: "Bale Info", freq: "130.900")] : []
+        }
+        var plan = FlightPlan(name: "West", waypoints: [Self.waypoint("LSZQ"), Self.waypoint("LSGC")])
+        plan.currentWaypointIndex = 1
+        let fromTheAjoie = PhaseFrequencyPlanner.plan(position: Self.nearBressaucourt, plan: plan, sources: sources).route
+        XCTAssertEqual(fromTheAjoie.filter { $0.station == "Bale Info" }.map(\.freq), ["130.900"], "\(fromTheAjoie.map(\.station))")
+        let fromTheDoubs = PhaseFrequencyPlanner.plan(position: .init(latitude: 47.30, longitude: 6.95), plan: plan,
+                                                      sources: sources).route
+        XCTAssertEqual(fromTheDoubs.filter { $0.station == "Bale Info" }.map(\.freq), ["135.855"])
+    }
+
+    /// Where two countries' sectors overlap from the ground (Zürich's and SIV BALE 1.2 over the Swiss
+    /// Jura), the country below's comes first, whatever order the downloads loaded in: NOW over
+    /// Bressaucourt changed from launch to launch.
+    func testOverlappingSectorsPutTheCountryBelowFirstWhateverTheirOrder() {
+        let bale = Self.fisSector("SIV BALE 1.2", frequency: "130.900", name: "BALE INFORMATION", country: "FR")
+        let zurich = Self.fisSector("ZÜRICH", frequency: "124.700", name: "ZÜRICH INFORMATION", country: "CH")
+        for sectors in [[bale, zurich], [zurich, bale]] {
+            XCTAssertEqual(FISSectors.stations(over: sectors, countriesBelow: ["CH"]).map(\.station), ["Zürich Info", "Bale Info"])
+            XCTAssertEqual(FISSectors.stations(over: sectors, countriesBelow: ["FR"]).map(\.station), ["Bale Info", "Zürich Info"])
+        }
+        let otherBale = Self.fisSector("SIV BALE 2.1", frequency: "135.855", name: "BALE INFORMATION", country: "FR")
+        XCTAssertEqual(FISSectors.stations(over: [otherBale, bale], countriesBelow: ["FR"]).count, 1, "one per FIS")
+    }
+
     /// A data sector's station: its primary frequency, its name as RADIO writes it; none for a sector that
     /// starts high (SIV GENEVE 1 from 6,500 ft) or has no frequency.
     func testADataSectorsStation() {
@@ -388,10 +420,10 @@ final class PhaseFrequencyPlannerTests: XCTestCase {
 
     /// A FIS sector (OpenAIP type 33) over the Jura, from `lowerFeetMSL` to FL100.
     private static func fisSector(_ name: String, frequency: String?, name station: String?,
-                                  lowerFeetMSL: Int = 0) -> Airspace {
+                                  lowerFeetMSL: Int = 0, country: String = "FR") -> Airspace {
         let ring: [[Double]] = [[6.8, 47.0], [6.8, 47.5], [7.4, 47.5], [7.4, 47.0], [6.8, 47.0]]
         return Airspace(
-            id: name, name: name, type: 33, icaoClass: 8, country: "FR",
+            id: name, name: name, type: 33, icaoClass: 8, country: country,
             upperCeiling: AltitudeLimit(value: 100, unit: 6, referenceDatum: 2),
             lowerCeiling: AltitudeLimit(value: lowerFeetMSL, unit: 1, referenceDatum: lowerFeetMSL == 0 ? 0 : 1),
             geometry: AirspaceGeometry(type: "Polygon", coordinates: [ring]),

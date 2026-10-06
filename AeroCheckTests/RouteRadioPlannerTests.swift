@@ -42,7 +42,7 @@ final class RouteRadioPlannerTests: XCTestCase {
     }
 
     private func airspace(_ name: String, type: Int, icaoClass: Int?, lon: ClosedRange<Double>,
-                          lat: ClosedRange<Double> = 46.9...47.1,
+                          lat: ClosedRange<Double> = 46.9...47.1, country: String = "CH",
                           floor: AltitudeLimit = AltitudeLimit(value: 0, unit: 1, referenceDatum: 0),
                           ceiling: AltitudeLimit = AltitudeLimit(value: 130, unit: 6, referenceDatum: 2),
                           frequency: (String, String)? = nil) -> Airspace {
@@ -51,7 +51,7 @@ final class RouteRadioPlannerTests: XCTestCase {
             [lon.upperBound, lat.upperBound], [lon.upperBound, lat.lowerBound], [lon.lowerBound, lat.lowerBound],
         ]
         return Airspace(
-            id: name, name: name, type: type, icaoClass: icaoClass, country: "CH",
+            id: name, name: name, type: type, icaoClass: icaoClass, country: country,
             upperCeiling: ceiling, lowerCeiling: floor,
             geometry: AirspaceGeometry(type: "Polygon", coordinates: [ring]), activity: nil,
             frequencies: frequency.map { [AirspaceFrequency(value: $0.0, name: $0.1, primary: true, unit: nil)] })
@@ -156,13 +156,83 @@ final class RouteRadioPlannerTests: XCTestCase {
         let bale = airspace("SIV BALE 1.2", type: 33, icaoClass: 8, lon: 6.9...7.2, lat: 47.3...47.6,
                             frequency: ("130.900", "BALE INFORMATION"))
         let ajoie = CLLocationCoordinate2D(latitude: 47.42, longitude: 7.05)
-        XCTAssertEqual(RouteRadioPlanner.fis(at: ajoie, sectors: [bale], inSwitzerland: true),
+        XCTAssertEqual(RouteRadioPlanner.fis(at: ajoie, sectors: [bale], countriesBelow: ["CH"]),
                        .init(frequency: "130.900", callSign: "BALE INFO"))
-        XCTAssertEqual(RouteRadioPlanner.fis(at: ajoie, sectors: [], inSwitzerland: true),
+        XCTAssertEqual(RouteRadioPlanner.fis(at: ajoie, sectors: [], countriesBelow: ["CH"]),
                        .init(frequency: "124.700", callSign: "ZÜRICH INFO"))
-        XCTAssertEqual(RouteRadioPlanner.fis(at: .init(latitude: 46.755, longitude: 7.076), sectors: [], inSwitzerland: true),
+        XCTAssertEqual(RouteRadioPlanner.fis(at: .init(latitude: 46.755, longitude: 7.076), sectors: [], countriesBelow: ["CH"]),
                        .init(frequency: "126.350", callSign: "GENEVA INFO"))
-        XCTAssertNil(RouteRadioPlanner.fis(at: .init(latitude: 47.6, longitude: 6.8), sectors: [], inSwitzerland: false))
+        XCTAssertNil(RouteRadioPlanner.fis(at: .init(latitude: 47.6, longitude: 6.8), sectors: [], countriesBelow: []))
+    }
+
+    /// Where Zürich's sector and SIV BALE 1.2 overlap over the Swiss Jura, the country below's, in
+    /// either order: the downloads load in no fixed order.
+    func testTheNavLogsFISPrefersTheCountryBelow() {
+        let bale = airspace("SIV BALE 1.2", type: 33, icaoClass: 8, lon: 6.9...7.2, lat: 47.3...47.6, country: "FR",
+                            frequency: ("130.900", "BALE INFORMATION"))
+        let zurich = airspace("ZÜRICH", type: 33, icaoClass: 8, lon: 6.9...7.2, lat: 47.3...47.6,
+                              frequency: ("124.700", "ZÜRICH INFORMATION"))
+        let ajoie = CLLocationCoordinate2D(latitude: 47.42, longitude: 7.05)
+        for sectors in [[bale, zurich], [zurich, bale]] {
+            XCTAssertEqual(RouteRadioPlanner.fis(at: ajoie, sectors: sectors, countriesBelow: ["CH"])?.callSign, "ZÜRICH INFO")
+            XCTAssertEqual(RouteRadioPlanner.fis(at: ajoie, sectors: sectors, countriesBelow: ["FR"])?.callSign, "BALE INFO")
+        }
+    }
+
+    // MARK: - The FIS on the way
+
+    private let genevaInfo = RouteRadioPlanner.Station(frequency: "126.350", callSign: "GENEVA INFO")
+
+    /// Geneva's west of 7.45° E, Zürich's east of it (the test route runs east along 47° N).
+    private func splitFIS(at coordinate: CLLocationCoordinate2D) -> RouteRadioPlanner.Station {
+        coordinate.longitude < 7.45 ? genevaInfo : zurichInfo
+    }
+
+    private func planWithSplitFIS(_ airspaces: [Airspace], waypoints wps: [FlightPlanWaypoint],
+                                  departure: RouteRadioPlanner.Aerodrome? = nil,
+                                  destination: RouteRadioPlanner.Aerodrome? = nil) -> RouteRadioPlanner.Plan {
+        RouteRadioPlanner.plan(.init(waypoints: wps, airspaces: airspaces, departure: departure,
+                                     destination: destination, fis: { self.splitFIS(at: $0) }))
+    }
+
+    /// LSGC → LSZH, one leg: the Radio box named no FIS at all (device check, 6 Oct). It lists every
+    /// FIS the route crosses, in order, between the departure's station and the destination's.
+    func testADirectRouteListsEveryFISOnTheWay() {
+        var direct = FlightPlan(waypoints: [
+            FlightPlanWaypoint(name: "LSGC", coordinate: .init(latitude: 47.0, longitude: 7.0), altitude: 1500, plannedGroundSpeed: 100),
+            FlightPlanWaypoint(name: "LSZH", coordinate: .init(latitude: 47.0, longitude: 8.2), altitude: 1500, plannedGroundSpeed: 100),
+        ])
+        direct.calculateRouteData()
+        let departure = RouteRadioPlanner.Aerodrome(ident: "LSGC", contact: .init(frequency: "120.350", callSign: "LSGC AFIS"),
+                                                     atis: nil, ground: nil)
+        let destination = RouteRadioPlanner.Aerodrome(ident: "LSZH", contact: .init(frequency: "118.100", callSign: "LSZH TWR"),
+                                                       atis: "128.525", ground: "121.900")
+        let result = planWithSplitFIS([], waypoints: direct.waypoints, departure: departure, destination: destination)
+        XCTAssertEqual(result.stations.map(\.label),
+                       ["LSGC AFIS", "GENEVA INFO", "ZURICH INFO", "LSZH TWR", "LSZH ATIS", "LSZH GND", "EMERGENCY"])
+        XCTAssertTrue(result.rows[1].remarks.contains { $0.hasPrefix("▸ FIS +") && $0.hasSuffix("ZURICH INFO 124.700") },
+                      result.rows[1].remarks.description)
+    }
+
+    /// A leg flown outside controlled airspace calls the FIS it starts in (until 6.2 its midpoint's), and
+    /// says where the next takes over.
+    func testALegCrossingTheFISLineStartsWithItsFISAndNotesTheChange() {
+        let rows = planWithSplitFIS([], waypoints: waypoints()).rows
+        XCTAssertEqual(rows[1].station?.callSign, "GENEVA INFO")
+        XCTAssertEqual(rows[2].station?.callSign, "GENEVA INFO", "B (7.3° E) to C (7.6° E) starts on Geneva's side")
+        XCTAssertTrue(rows[2].remarks.contains { $0.hasPrefix("▸ FIS +") && $0.hasSuffix("ZURICH INFO 124.700") },
+                      rows[2].remarks.description)
+        XCTAssertEqual(rows[3].station?.callSign, "ZURICH INFO")
+        XCTAssertTrue(rows[3].remarks.allSatisfy { !$0.hasPrefix("▸ FIS") }, rows[3].remarks.description)
+    }
+
+    /// Leaving a zone for open air names the FIS to call; a FIS line crossed inside the zone is not a remark.
+    func testLeavingAZoneNamesTheFISToCallNext() {
+        let ctr = airspace("CTR ALPHA", type: 4, icaoClass: 3, lon: 7.40...7.50, frequency: ("130.150", "ALPHA TOWER"))
+        let rows = planWithSplitFIS([ctr], waypoints: waypoints()).rows
+        XCTAssertTrue(rows[2].remarks.contains { $0.hasPrefix("leave CTR ALPHA +8.") && $0.hasSuffix("· ZURICH INFO 124.700") },
+                      rows[2].remarks.description)
+        XCTAssertTrue(rows[2].remarks.allSatisfy { !$0.hasPrefix("▸ FIS") }, rows[2].remarks.description)
     }
 
     func testBoundaryJustPastAWaypointIsCalledOnTheLegBefore() {

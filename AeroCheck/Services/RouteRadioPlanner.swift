@@ -15,8 +15,9 @@ import CoreLocation
 /// piecewise-linear profile the builder's cross-section draws). On each leg the station is, in order:
 /// 1. the controlled or radio-mandatory airspace the leg starts in or enters (CTR, TMA/CTA class A–D,
 ///    RMZ/FIZ/ATZ/TIZ);
-/// 2. otherwise the area FIS;
+/// 2. otherwise the area FIS where the leg starts, with a remark where the next one takes over;
 /// 3. on the first and last rows, the aerodrome's own contact frequency.
+/// The Radio box lists every FIS the route crosses, whatever the rows carry.
 /// A frequency typed on a waypoint always wins for its row.
 enum RouteRadioPlanner {
 
@@ -163,6 +164,25 @@ enum RouteRadioPlanner {
             unitStation(units[u].airspace, among: ctx.airspaces)
         }
 
+        // The FIS along the route, where it changes (every NM is enough for a boundary): a leg flown
+        // outside controlled airspace calls the FIS it starts in, a remark gives the next where it takes
+        // over, and the Radio box lists them all. Until 6.2 a leg asked for the FIS at its midpoint, and
+        // only when no airspace governed it: LSGC → LSZH, one leg from a CTR into Zürich's TMA, printed
+        // no FIS at all (device check, 6 Oct).
+        let fisStride = max(1, Int((1.0 / ctx.sampleStepNM).rounded()))
+        var fisChanges: [(s: Int, station: Station)] = []
+        for s in Swift.stride(from: 0, to: samples.count, by: fisStride) {
+            guard let station = ctx.fis(samples[s].coordinate) else { continue }
+            if !station.hasSameFrequency(as: fisChanges.last?.station) { fisChanges.append((s, station)) }
+        }
+        func fis(atSample s: Int) -> Station? { fisChanges.last { $0.s <= s }?.station }
+        var fisByRow = [[Station]](repeating: [], count: n)
+        var fisListed: [Station] = []
+        for change in fisChanges where !fisListed.contains(where: { $0.hasSameFrequency(as: change.station) }) {
+            fisListed.append(change.station)
+            fisByRow[samples[change.s].leg + 1].append(change.station)
+        }
+
         // Per leg: station, and the events worth a remark.
         struct Pending { let station: Station; let remark: String }
         var carried: [Int: Pending] = [:]   // row → call moved in from the leg after it
@@ -224,19 +244,25 @@ enum RouteRadioPlanner {
                 }
                 transitions.removeFirst()
             } else {
-                let mid = CLLocationCoordinate2D(
-                    latitude: (wps[k].latitude + wps[k + 1].latitude) / 2,
-                    longitude: (wps[k].longitude + wps[k + 1].longitude) / 2)
-                station = ctx.fis(mid)
+                station = fis(atSample: first)
             }
+            // What changes along the leg, in order: units entered and left (leaving one for open air
+            // names the FIS to call), and the FIS taking over outside them.
+            var events: [(s: Int, text: String)] = []
             for t in transitions {
                 if let to = t.to {
                     let same = stationOf(unit: to).hasSameFrequency(as: station)
-                    remarks.append(entryRemarks(to, t.s, withStation: !same)[0])
+                    events.append((t.s, entryRemarks(to, t.s, withStation: !same)[0]))
                 } else if let from = t.from {
-                    remarks.append("leave \(shortLabel(units[from].airspace)) \(offset(t.s))")
+                    var text = "leave \(shortLabel(units[from].airspace)) \(offset(t.s))"
+                    if let next = fis(atSample: t.s) { text += " · \(next.callSign) \(next.frequency)" }
+                    events.append((t.s, text))
                 }
             }
+            for change in fisChanges where samples[change.s].leg == k && change.s > first && active[change.s] == nil {
+                events.append((change.s, "▸ FIS \(offset(change.s)) · \(change.station.callSign) \(change.station.frequency)"))
+            }
+            remarks.append(contentsOf: events.sorted { $0.s < $1.s }.map(\.text))
 
             // Units the leg may enter: where a run of "maybe" starts, outside a stretch surely inside.
             for t in maybeUnits {
@@ -326,7 +352,7 @@ enum RouteRadioPlanner {
 
         applyManual(wps, to: &plan.rows)
         markChanges(&plan.rows)
-        plan.stations = listings(plan, departure: ctx.departure, destination: ctx.destination)
+        plan.stations = listings(plan, departure: ctx.departure, destination: ctx.destination, fisByRow: fisByRow)
         plan.notes = notes(plan, ctx)
         if anyPossible { plan.notes.append(L10n.Export.verticalLimitUncertain) }
         return plan
@@ -371,7 +397,10 @@ enum RouteRadioPlanner {
         }
     }
 
-    private static func listings(_ plan: Plan, departure: Aerodrome?, destination: Aerodrome?) -> [Listing] {
+    /// The Radio box's list, in route order: the departure's ATIS and GND, then per row the FIS first
+    /// met on its leg (`fisByRow`) and the row's station, then the destination's ATIS and GND, 121.500.
+    private static func listings(_ plan: Plan, departure: Aerodrome?, destination: Aerodrome?,
+                                 fisByRow: [[Station]] = []) -> [Listing] {
         var out: [Listing] = []
         func add(_ l: Listing) {
             if !out.contains(where: { $0.label == l.label && Station.normalized($0.frequency) == Station.normalized(l.frequency) }) {
@@ -383,7 +412,11 @@ enum RouteRadioPlanner {
             if let gnd = dep.ground { add(Listing(label: "\(dep.ident) GND", frequency: gnd)) }
         }
         var seen: [Station] = []
-        for row in plan.rows {
+        for (index, row) in plan.rows.enumerated() {
+            for fis in index < fisByRow.count ? fisByRow[index] : [] where !seen.contains(where: { $0.hasSameFrequency(as: fis) }) {
+                seen.append(fis)
+                add(Listing(label: fis.callSign, frequency: fis.frequency))
+            }
             guard let st = row.station, !seen.contains(where: { $0.hasSameFrequency(as: st) }) else { continue }
             seen.append(st)
             add(Listing(label: st.callSign.isEmpty ? "—" : st.callSign, frequency: st.frequency,
@@ -623,11 +656,13 @@ enum RouteRadioPlanner {
 
     // MARK: - FIS
 
-    /// The FIS at a point, as RADIO picks it (`FISSectors`): the sector of `sectors` (the data's FIS
-    /// sectors along the route) over it, else, `inSwitzerland`, the Swiss split. Paper and screen agree.
-    static func fis(at coordinate: CLLocationCoordinate2D, sectors: [Airspace], inSwitzerland: Bool) -> Station? {
-        let station = sectors.lazy.filter { $0.containsPoint(coordinate) }.compactMap(FISSectors.station(of:)).first
-            ?? (inSwitzerland ? FISSectors.swiss(at: coordinate) : nil)
+    /// The FIS at a point, as RADIO picks it (`FISSectors`): the first station of `sectors` (the data's
+    /// FIS sectors along the route) over it, the country below's first where two overlap, else, in
+    /// Switzerland, the Swiss split. Paper and screen agree.
+    static func fis(at coordinate: CLLocationCoordinate2D, sectors: [Airspace], countriesBelow: Set<String>) -> Station? {
+        let station = FISSectors.stations(over: sectors.filter { $0.containsPoint(coordinate) },
+                                          countriesBelow: countriesBelow).first
+            ?? (countriesBelow.contains("CH") ? FISSectors.swiss(at: coordinate) : nil)
         return station.map { Station(frequency: $0.freq, callSign: $0.station.uppercased()) }
     }
 }
@@ -663,7 +698,7 @@ extension RouteRadioPlanner {
             destination: aerodrome(for: wps[wps.count - 1], airports: airports),
             fis: { [fisSectors = openAIP.fisSectors(alongRoute: coords)] coordinate in
                 fis(at: coordinate, sectors: fisSectors,
-                    inSwitzerland: CountryBoundaries.shared.countries(near: coordinate, bufferNm: 0).contains("CH"))
+                    countriesBelow: CountryBoundaries.shared.countries(near: coordinate, bufferNm: 0))
             },
             missingAirspaceCountries: crossed.filter { !downloaded.contains($0) },
             airspaceSource: source,

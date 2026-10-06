@@ -2,9 +2,9 @@
 ### [   extract_ofm.py || traffic circuits, VFR routes and reporting points from open flightmaps, for aerocheck.app   ] ###
 """
 Fetches the open flightmaps (OFM) snapshot of each configured region for the AIRAC cycle in force, keeps the
-traffic circuits, VFR arrivals and departures (with their sector polygons), the VFR reporting points and the
-runway designators, cleans them up and publishes one small JSON file per country plus an index under
-public/data/ofm/v1/. The app downloads those files; it never talks to OFM itself.
+traffic circuits, VFR arrivals and departures (with their sector polygons), the VFR reporting points, the
+runway designators and thresholds, cleans them up and publishes one small JSON file per country plus an index
+under public/data/ofm/v1/. The app downloads those files; it never talks to OFM itself.
 
 Usage: extract_ofm.py [-h] [-v] [--out DIR] [--date YYYY-MM-DD] [--regions CC,CC] [--force] [--allow-drop]
 
@@ -27,6 +27,8 @@ notice: that is what the validation gates are for. Data: © open flightmaps asso
 ## [ IMPORTS be imports ]
 import argparse
 import hashlib
+import heapq
+import itertools
 import json
 import math
 import os
@@ -81,6 +83,9 @@ OPENAIPANYNAMENM = 0.1           # this close, same point whatever the names
 OPENAIPSAMENAMENM = 0.5          # this close, same point if the names agree
 OPENAIPDISPUTEDNM = 3.0          # same name but this far: the same point, position disputed (flagged) ...
 OPENAIPDISPUTEDSHORTNM = 1.0     # ... or this far for a one- or two-letter name ("S" of the next field over)
+# Map helpers for the app: where a sector's badge sits, and where a route leaves the circuit
+LABELPRECISIONM = 10.0           # the pole of inaccessibility is searched down to this
+CIRCUITREACHM = 200.0            # a route vertex this close to one of its aerodrome's circuits is flown on it
 # Validation gates
 MAXFILEBYTES = 2 * 1024 * 1024   # a country file over 2 MB means something went wrong
 MAXDROP = 0.30                   # circuits or points down more than 30% vs the published file
@@ -90,8 +95,11 @@ KINDS = {"TRAFFIC_CIRCUIT": "circuit", "VFR_ARR": "arr", "VFR_DEP": "dep"}
 KINDORDER = {"circuit": 0, "arr": 1, "dep": 2}
 USES = {"FIXED_WING": "fw", "HELICOPTER": "heli"}
 POINTKINDS = {"VFR-RP": "rp", "VFR-MRP": "mrp", "VFR-ENR": "enr", "VFR-HELI": "heli", "VFR-GLDR": "gld"}
-# Leg sector polygons we keep; "Leg Label" sectors only place a label, even the few that carry a box
+# Leg sector polygons we keep; "Leg Label" sectors only place a label, even the few that carry a box (unless
+# that box is all the procedure has: LSZE "ARR SECTOR EAST" draws its sector that way)
 AREAKINDS = {"VFR Corridor": "corridor", "Noise Abatement Area": "noise", "": "area"}
+LEGLABEL = "Leg Label"
+LEGLABELKIND = "corridor"
 
 # Category from the procedure name: usageType only knows FIXED_WING and HELICOPTER, so a glider circuit is
 # "FIXED_WING" named "TFC GLIDER". First match wins, except glider and UL, which combine.
@@ -104,6 +112,23 @@ HELINAME = re.compile(r"HELI|\bHEL\b|\(H\)|HUBSCHR")
 HEAVYNAME = re.compile(r"MULTI|RETRACT|TURBO|\bJETS?\b|TWIN|HEAVY|MEHRMOT|>\s*\d")
 # A twin carrying one of these names is the leftover, whatever the order in the file
 PLACEHOLDERNAME = re.compile(r"NEW PROCEDURE|^TEST\b|\bCOPY\b|\bDRAFT\b|^\s*$", re.IGNORECASE)
+
+# Direction from an arrival's or departure's name (the letter of the app's sector badge), in English, German,
+# French and Italian, read once accents are folded (SÜD reads SUD). Intercardinals first, so NORTHEAST is never
+# read as NORTH; their halves may be glued, hyphenated or spaced (NORDOST, NORD-EST, NORTH EAST). A word ends at
+# a letter but not at a digit (NORD04, WEST28: a runway glued on); a one- or two-letter form must stand alone
+# (E1 and N2 are the reporting points ECHO 1 and NOVEMBER 2). Deliberately not read: O (Ost or Ouest), NO and
+# SO (Nordost or nord-ouest, Südost or sud-ouest), the phonetic names (ECHO is a point, wherever it lies) and
+# misspellings (NOTHEAST, SOUTEAST, N0RTH: a wrong letter on the map is worse than none).
+_NORTH, _SOUTH, _EAST, _WEST = "NORTH|NORD", "SOUTH|SUED|SUD", "EAST|OST|EST", "WEST|OUEST|OVEST"
+DIRECTIONWORDS = [
+    ("NE", rf"(?:{_NORTH})\s*-?\s*(?:{_EAST})"), ("SE", rf"(?:{_SOUTH})\s*-?\s*(?:{_EAST})"),
+    ("SW", rf"(?:{_SOUTH})\s*-?\s*(?:{_WEST})"), ("NW", rf"(?:{_NORTH})\s*-?\s*(?:{_WEST})"),
+    ("N", _NORTH), ("E", _EAST), ("S", _SOUTH), ("W", _WEST),
+]
+DIRECTIONNAME = re.compile("|".join(
+    [rf"(?<![A-Z])(?P<word{d}>{pattern})(?![A-Z])" for d, pattern in DIRECTIONWORDS]
+    + [rf"(?<![A-Z0-9])(?P<letter{d}>{d})(?![A-Z0-9])" for d, _ in DIRECTIONWORDS]))
 
 # Phonetic alphabet, for "SIERRA" = "S" and "ECHO1" = "E1" when comparing point names
 PHONETIC = {
@@ -208,6 +233,126 @@ def publish_line(points):
     return [[lon, lat] for lon, lat in rounded]
 
 
+def publish_point(point):
+    """One (lon, lat) as [lon, lat] rounded to DECIMALS."""
+    return [round(point[0], DECIMALS), round(point[1], DECIMALS)]
+
+
+## [ GEOMETRY for the app's badges and route labels ]
+class Flat:
+    """A local flat projection in metres around (lon0, lat0), longitude scaled by cos(latitude); same as simplify's."""
+
+    def __init__(self, lon0, lat0):
+        self.lon0, self.lat0 = lon0, lat0
+        self.kx, self.ky = 111320.0 * math.cos(math.radians(lat0)), 110540.0
+
+    def xy(self, p):
+        return ((p[0] - self.lon0) * self.kx, (p[1] - self.lat0) * self.ky)
+
+    def lonlat(self, q):
+        return (self.lon0 + q[0] / self.kx, self.lat0 + q[1] / self.ky)
+
+
+def segment_distance(p, a, b):
+    """Distance from p to the segment a-b, all three (x, y)."""
+    dx, dy = b[0] - a[0], b[1] - a[1]
+    length2 = dx * dx + dy * dy
+    t = 0.0 if length2 == 0 else max(0.0, min(1.0, ((p[0] - a[0]) * dx + (p[1] - a[1]) * dy) / length2))
+    return math.hypot(p[0] - a[0] - t * dx, p[1] - a[1] - t * dy)
+
+
+def signed_ring_distance(p, ring):
+    """Distance from p to the edges of an open ring (the closing edge included): positive inside, negative outside."""
+    inside, distance = False, math.inf
+    for k in range(len(ring)):
+        a, b = ring[k], ring[k - 1]
+        # Even-odd ray cast to the right, then the edge distance
+        if (a[1] > p[1]) != (b[1] > p[1]) and p[0] < (b[0] - a[0]) * (p[1] - a[1]) / (b[1] - a[1]) + a[0]:
+            inside = not inside
+        distance = min(distance, segment_distance(p, a, b))
+    return distance if inside else -distance
+
+
+def pole_of_inaccessibility(ring, precision_m=LABELPRECISIONM):
+    """
+    The point of a polygon farthest from its edges, where a badge fits best (a centroid can fall outside a
+    bent sector). Mapbox's polylabel (https://github.com/mapbox/polylabel): square cells over the bounding
+    box, searched best-first by how far from the edges a point of the cell could possibly be, split until
+    no cell can beat the best point by more than the precision. Takes and returns (lon, lat).
+    """
+    flat = Flat(ring[0][0], ring[0][1])
+    xy = [flat.xy(p) for p in ring]
+    xs, ys = [x for x, _ in xy], [y for _, y in xy]
+    minx, miny, maxx, maxy = min(xs), min(ys), max(xs), max(ys)
+    size = min(maxx - minx, maxy - miny)
+    if size <= 0:
+        return ring[0]
+
+    order = itertools.count()
+
+    def cell(x, y, half):
+        d = signed_ring_distance((x, y), xy)
+        # (minus the best a point of this cell could do, a tie-breaker, its centre's distance, centre, half size)
+        return (-(d + half * math.sqrt(2)), next(order), d, x, y, half)
+
+    heap = []
+    x = minx
+    while x < maxx:
+        y = miny
+        while y < maxy:
+            heapq.heappush(heap, cell(x + size / 2, y + size / 2, size / 2))
+            y += size
+        x += size
+    # First guesses: the area centroid and the middle of the bounding box
+    area = cx = cy = 0.0
+    for k in range(len(xy)):
+        (x0, y0), (x1, y1) = xy[k - 1], xy[k]
+        cross = x0 * y1 - x1 * y0
+        area, cx, cy = area + cross, cx + (x0 + x1) * cross, cy + (y0 + y1) * cross
+    best = cell(cx / (3 * area), cy / (3 * area), 0) if area != 0 else cell(xy[0][0], xy[0][1], 0)
+    middle = cell(minx + (maxx - minx) / 2, miny + (maxy - miny) / 2, 0)
+    if middle[2] > best[2]:
+        best = middle
+    while heap:
+        candidate = heapq.heappop(heap)
+        if candidate[2] > best[2]:
+            best = candidate
+        # Nothing in this cell can do better than the best by more than the precision: don't split it
+        if -candidate[0] - best[2] <= precision_m:
+            continue
+        _, _, _, x, y, half = candidate
+        half /= 2
+        for dx, dy in ((-1, -1), (1, -1), (-1, 1), (1, 1)):
+            heapq.heappush(heap, cell(x + dx * half, y + dy * half, half))
+    return flat.lonlat((best[3], best[4]))
+
+
+def polyline_distance(p, line):
+    """Metres from p (lon, lat) to a polyline of (lon, lat), on a flat projection around p."""
+    flat = Flat(p[0], p[1])
+    if len(line) == 1:
+        return math.hypot(*flat.xy(line[0]))
+    points = [flat.xy(q) for q in line]
+    return min(segment_distance((0.0, 0.0), a, b) for a, b in zip(points, points[1:]))
+
+
+def off_circuit(line, circuits, reach_m=CIRCUITREACHM):
+    """
+    The part of an arrival or departure that is not flown along one of its aerodrome's circuits: [i, j],
+    inclusive indices into `line`, once the leading and the trailing runs of vertices within reach_m of a
+    circuit are dropped. The vertex where the line meets the circuit stays, so the part ends ON the circuit.
+    None when nothing would be dropped (no circuit, or the line never runs along one) or everything would.
+    """
+    if not circuits or len(line) < 2:
+        return None
+    on = [any(polyline_distance(p, c) <= reach_m for c in circuits) for p in line]
+    off = [k for k, flown_on in enumerate(on) if not flown_on]
+    if not off:
+        return None
+    i, j = max(off[0] - 1, 0), min(off[-1] + 1, len(line) - 1)
+    return None if (i, j) == (0, len(line) - 1) else [i, j]
+
+
 def category(name, usage):
     """glider | ul | glider+ul | gyro | heli | heavy | None (= a plain powered circuit or route)."""
     upper = name.upper()
@@ -226,6 +371,22 @@ def category(name, usage):
     if HEAVYNAME.search(upper):
         return "heavy"
     return None
+
+
+def fold(name):
+    """Upper case with the accents dropped (Süd-Ost -> SUD-OST)."""
+    upper = (name or "").upper()
+    return "".join(ch for ch in unicodedata.normalize("NFD", upper) if unicodedata.category(ch) != "Mn")
+
+
+def direction(name):
+    """
+    The compass direction a procedure's name gives, N NE E SE S SW W NW, or None. A name that gives two
+    different ones ("08-EAST-NORTH", "DEP 11TO THE N W") gives none: which one the badge should carry is a guess.
+    """
+    found = {match.lastgroup.removeprefix("word").removeprefix("letter")
+             for match in DIRECTIONNAME.finditer(fold(name))}
+    return found.pop() if len(found) == 1 else None
 
 
 def canon_name(name):
@@ -270,11 +431,12 @@ def parse_snapshot(stream):
     """
     Streams an isolated OFMX snapshot (iterparse, every top-level element cleared once read, so DE's 59 MB
     never sits in memory) and returns what we use of it, still raw: aerodrome elevations, procedures,
-    published points, the reporting points that only exist inline in procedure legs, runway ends.
+    published points, the reporting points that only exist inline in procedure legs, runway ends and
+    thresholds.
     Raises ExtractError when the stream isn't an OFMX snapshot or isn't well-formed XML.
     """
     raw = {"created": None, "elevations": {}, "procedures": [], "points": [], "legpoints": [],
-           "runways": defaultdict(dict), "malformed": [], "skipped": Counter()}
+           "runways": defaultdict(dict), "thresholds": [], "malformed": [], "skipped": Counter()}
     root = None
     depth = 0
     try:
@@ -329,6 +491,17 @@ def read_runway_end(el, raw):
     designator = text(el, "RdnUid/txtDesig").upper().replace(" ", "")
     if ad and runway is not None and designator:
         raw["runways"][(ad, runway.get("mid"))][designator] = True
+        # The threshold, when OFM has a usable position (a bad one costs the threshold, never the designator)
+        try:
+            lat = parse_coordinate(text(el, "geoLat"), "N", "S")
+            lon = parse_coordinate(text(el, "geoLong"), "E", "W")
+        except ValueError:
+            return
+        try:
+            bearing = float(text(el, "valTrueBrg"))
+        except ValueError:
+            bearing = None
+        raw["thresholds"].append({"ad": ad, "rwy": designator, "lon": lon, "lat": lat, "brg": bearing})
 
 
 def read_point(el, raw):
@@ -371,17 +544,25 @@ def read_procedure(el, raw):
         "id": uid.get("mid"), "ad": ad, "kind": KINDS[code_type], "name": name,
         "use": USES.get(usage), "cat": category(name, usage),
         "curve": dedupe(pos_list(text(el, "_beztrajectory/gmlPosList"))),
+        "alternate": dedupe(pos_list(text(el, "_beztrajectoryAlternate/gmlPosList"))),
         "skeleton": dedupe(pos_list(text(el, "_sceletonPath/gmlPosList"))),
         "areas": [], "altitude": None,
     }
+    label_boxes = []
     for sector in el.findall("Leg/sector"):
-        kind = AREAKINDS.get(text(sector, "codeType"))
+        code = text(sector, "codeType")
+        kind = AREAKINDS.get(code)
         ring = dedupe(pos_list(text(sector, "geoBounds/gmlPosList")))
         # Open the ring if the source closed it: the app closes polygons itself
         if len(ring) > 3 and ring[0] == ring[-1]:
             ring = ring[:-1]
         if kind is not None and len(ring) >= 3:
             procedure["areas"].append((kind, ring))
+        elif code == LEGLABEL and len(ring) >= 3:
+            label_boxes.append(ring)
+    # A Leg Label box only counts when it is the one polygon the procedure has
+    if not procedure["areas"] and len(label_boxes) == 1:
+        procedure["areas"].append((LEGLABELKIND, label_boxes[0]))
     if code_type == "TRAFFIC_CIRCUIT" and text(el, "valDistVerTfc"):
         procedure["altitude"] = (float(text(el, "valDistVerTfc")), text(el, "codeDistVerTfc"),
                                  text(el, "uomDistVerTfc"))
@@ -402,7 +583,8 @@ def are_twins(a, b):
 def clean_procedures(raw, flags):
     """
     Applies ofm-investigation.md §6 and returns the publishable procedures:
-    geometry from the Bézier curve, else the straight skeleton marked approx, else dropped; circuit altitude
+    geometry from the Bézier curve, else OFM's alternate Bézier curve, else the straight skeleton marked
+    approx, else dropped; circuit altitude
     kept only when it is an ALT in FT and 400-2500 ft above the OFM aerodrome elevation; twins with the same
     altitude and category reduced to one (a placeholder name always loses), twins with different altitudes
     both kept and flagged. Everything dropped or doubted goes into `flags` for an error report to OFM.
@@ -410,13 +592,21 @@ def clean_procedures(raw, flags):
     elevations = raw["elevations"]
     candidates = []
     for p in raw["procedures"]:
-        # Geometry
+        # Geometry: a procedure with an empty curve usually still has its alternate one (LSGE "ARR SECTOR
+        # SOUTH", all 2610's arrivals and departures that came out approx before)
         if len(p["curve"]) >= 2:
             p["line"], p["approx"] = p["curve"], False
+        elif len(p["alternate"]) >= 2:
+            # OFM draws some alternates backwards (in 2610, every departure's that had no curve: exit point
+            # first): run it the way the skeleton does, as the line drawn from the skeleton before did
+            alternate, skeleton = p["alternate"], p["skeleton"]
+            if len(skeleton) >= 2 and nm_between(alternate[0], skeleton[-1]) < nm_between(alternate[0], skeleton[0]):
+                alternate = alternate[::-1]
+            p["line"], p["approx"] = alternate, False
         elif len(p["skeleton"]) >= 2:
             p["line"], p["approx"] = p["skeleton"], True
         else:
-            flag(flags, "no-geometry", p["ad"], p["id"], p["name"], "neither curve nor skeleton; dropped")
+            flag(flags, "no-geometry", p["ad"], p["id"], p["name"], "no curve, alternate or skeleton; dropped")
             continue
         # Circuit altitude
         p["alt"] = None
@@ -515,17 +705,39 @@ def mark_openaip(points, openaip, flags):
                  f"OpenAIP has \"{disputed[1]}\" {disputed[0]:.2f} NM away")
 
 
+def runway_designator(designator):
+    """(number to sort on, designator written with two digits): "7" -> (7, "07"), "08L" -> (8, "08L")."""
+    match = re.match(r"^0*(\d{1,2})([A-Z]*)$", designator)
+    return (int(match.group(1)), f"{int(match.group(1)):02d}{match.group(2)}") if match else (99, designator)
+
+
 def runway_pairs(raw):
     """Per aerodrome, the runway designators as OFM has them per physical runway ("07/25"), from the Rdn ends."""
     out = defaultdict(set)
     for (ad, _), ends in raw["runways"].items():
-        designators = []
-        for designator in ends:
-            match = re.match(r"^0*(\d{1,2})([A-Z]*)$", designator)
-            designators.append((int(match.group(1)), f"{int(match.group(1)):02d}{match.group(2)}") if match
-                               else (99, designator))
+        designators = [runway_designator(designator) for designator in ends]
         out[ad].add("/".join(d for _, d in sorted(designators)))
     return {ad: sorted(pairs) for ad, pairs in sorted(out.items())}
+
+
+def thresholds(raw, aerodromes):
+    """
+    Per aerodrome with a published procedure, the runway ends OFM positions: designator as in `runways`, the
+    threshold as [lon, lat] and the true bearing of the runway direction (left out when OFM has none). OFM's
+    designators as they are, even when the chart has moved on (LSGE is still 10/28 in OFM, 09/27 on its VAC).
+    """
+    out = defaultdict(list)
+    for t in raw["thresholds"]:
+        if t["ad"] not in aerodromes:
+            continue
+        number, designator = runway_designator(t["rwy"])
+        entry = {"rwy": designator, "pos": publish_point((t["lon"], t["lat"]))}
+        if t["brg"] is not None:
+            entry["trueBrg"] = round(t["brg"], 1)
+        if (number, entry) not in out[t["ad"]]:
+            out[t["ad"]].append((number, entry))
+    return {ad: [entry for _, entry in sorted(ends, key=lambda e: (e[0], e[1]["rwy"], e[1]["pos"]))]
+            for ad, ends in sorted(out.items())}
 
 
 def parse_openaip(data):
@@ -553,15 +765,32 @@ def build_region(config, airac, raw, openaip):
     points = collect_points(raw)
     mark_openaip(points, openaip, flags)
 
+    # The published lines first: a route's offCircuit indexes its own and is measured against its circuits'
+    # (on the procedure itself, not by id: OFM gives an arrival and a departure the same id now and then)
+    circuits = defaultdict(list)
+    for p in procedures:
+        p["published"] = publish_line(p["line"])
+        if p["kind"] == "circuit":
+            circuits[p["ad"]].append(p["published"])
+
     published = []
     for p in sorted(procedures, key=lambda q: (q["ad"], KINDORDER[q["kind"]], q["name"], q["id"])):
         item = {"id": p["id"], "ad": p["ad"], "kind": p["kind"], "name": p["name"], "use": p["use"], "cat": p["cat"]}
+        route = p["kind"] in ("arr", "dep")
+        compass = direction(p["name"]) if route else None
+        if compass is not None:
+            item["dir"] = compass
         if p["alt"] is not None:
             item["alt"] = p["alt"]
-        item["line"] = publish_line(p["line"])
+        item["line"] = p["published"]
+        part = off_circuit(item["line"], circuits[p["ad"]]) if route else None
+        if part is not None:
+            item["offCircuit"] = part
         if p["approx"] is True:
             item["approx"] = True
-        areas = [{"kind": kind, "poly": publish_line(ring)} for kind, ring in p["areas"]]
+        # The badge goes where the sector is widest, measured on OFM's ring, not the simplified one
+        areas = [{"kind": kind, "poly": publish_line(ring), "label": publish_point(pole_of_inaccessibility(ring))}
+                 for kind, ring in p["areas"]]
         areas = [a for a in areas if len(a["poly"]) >= 3]
         if areas:
             item["areas"] = areas
@@ -581,6 +810,7 @@ def build_region(config, airac, raw, openaip):
         "airac": airac.ident, "validFrom": airac.valid_from.isoformat(), "validTo": airac.valid_to.isoformat(),
         "ofmCreated": raw["created"],
         "procedures": published, "points": published_points, "runways": runway_pairs(raw),
+        "thresholds": thresholds(raw, {p["ad"] for p in published}),
     }
     return document, flags
 

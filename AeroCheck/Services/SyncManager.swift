@@ -286,9 +286,14 @@ class SyncManager: ObservableObject {
     /// The container and the account are resolved here every time, not once at launch: a switch
     /// turned on mid-session (or a launch whose account check failed) found no container and never
     /// started the engine before the next launch.
+    ///
+    /// Detached: the start awaits the engine's first fetch, and an account change starts it from a
+    /// delegate callback. A task started there inherits the callback's context, and iOS 27 traps an
+    /// await into the engine made with it ("BUG IN CLIENT OF CLOUDKIT"): 6.1.1 crashed at launch in
+    /// App Review, on the `.signIn` a fresh install's engine delivers first.
     private func startSync() {
         guard isSyncEnabled, syncEngine == nil, engineStart == nil else { return }
-        engineStart = Task(priority: .utility) { [weak self] in
+        engineStart = Task.detached(priority: .utility) { @MainActor [weak self] in
             await self?.initializeCloudKit()
             // A start cancelled by `stopSync` leaves the field to whatever replaced it.
             if !Task.isCancelled { self?.engineStart = nil }
@@ -753,7 +758,8 @@ class SyncManager: ObservableObject {
         }
         guard isSyncEnabled, syncEngine != nil else { return }
 
-        let task = Task { @MainActor [weak self] in
+        // Detached, like the engine start (`startSync`): never inside a delegate callback's context.
+        let task = Task.detached { @MainActor [weak self] in
             guard let self else { return }
             await self.performSync()
         }
@@ -1281,10 +1287,13 @@ class SyncEngineDelegate: NSObject, CKSyncEngineDelegate {
     private nonisolated let eventLock = NSLock()
     private nonisolated(unsafe) var lastEvent: Task<Void, Never>?
 
+    /// Hands the event to the main actor, after the one before it. Detached, so nothing the event
+    /// leads to (an engine restart, Sync Now) carries the callback's context into an await on the
+    /// engine, which iOS 27 traps (`SyncManager.startSync`).
     nonisolated func handleEvent(_ event: CKSyncEngine.Event, syncEngine: CKSyncEngine) {
         eventLock.withLock {
             let previous = lastEvent
-            lastEvent = Task { @MainActor in
+            lastEvent = Task.detached { @MainActor in
                 await previous?.value
                 await self.handleEventAsync(event, syncEngine: syncEngine)
             }

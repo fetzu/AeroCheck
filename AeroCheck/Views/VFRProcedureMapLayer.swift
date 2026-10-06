@@ -245,11 +245,11 @@ struct VFRMapItem: Identifiable, Equatable {
     }
 
     /// The item as the map draws it (6.2.0, the author's design "C"): a circuit with its altitude on the
-    /// downwind's middle; an arrival or departure off the circuit (`offCircuit`, else worked out against
-    /// `circuits`, the aerodrome's) and outside its sector, its letter in a badge at the sector's
-    /// deepest point, or, without a sector, where the arrival starts (a departure: its middle); a name
-    /// that gives no direction as before, halfway along what is drawn.
-    static func drawn(_ procedure: VFRProcedure, circuits: [VFRProcedure], field: CLLocationCoordinate2D?,
+    /// downwind's middle; an arrival or departure off the circuit (its `offCircuit`, else whole) and
+    /// outside its sector, its letter (`dir`) in a badge at its sector's `label`, or, without one, where
+    /// the arrival starts (a departure: its middle); without a `dir`, its name, halfway along what is
+    /// drawn. The data says all three; the app reads no direction from a name and finds no spot itself.
+    static func drawn(_ procedure: VFRProcedure, field: CLLocationCoordinate2D?,
                       country: String, region: String?, airac: String?) -> VFRMapItem {
         if procedure.kind == .circuit {
             let style = defaultStyle(for: procedure)
@@ -262,16 +262,14 @@ struct VFRMapItem: Identifiable, Equatable {
                               country: country, region: region, airac: airac, line: procedure.line, labelStyle: style)
         }
         var line = procedure.line
-        if let part = procedure.offCircuit ?? VFRSectorGeometry.offCircuitPart(of: line, circuits: circuits.map(\.line)) {
-            line = Array(line[part])
-        }
+        if let part = procedure.offCircuit { line = Array(line[part]) }
         let sector = procedure.areas.first { $0.kind != .noise }
         if let sector { line = VFRSectorGeometry.outsideSector(line, ring: sector.polygon, kind: procedure.kind) }
         let arrow = VFRArrow.arrow(for: procedure, line: line, field: field)
-        if let letter = procedure.direction ?? VFRSectorGeometry.direction(inName: procedure.name) {
+        if let letter = procedure.direction {
             let at: VFRCoordinate
-            if let sector {
-                at = sector.labelPoint ?? VFRSectorGeometry.pole(of: sector.polygon)
+            if let point = sector?.labelPoint {
+                at = point
             } else if procedure.kind == .arrival {
                 at = arrow == .atStart ? line[line.count - 1] : line[0]
             } else {
@@ -359,14 +357,11 @@ struct VFRMapContent: Equatable {
         guard selection.isAnyOn, VFRMapDensity.showsProcedures(in: region) else { return .empty(palette) }
         let chosen = VFRMapDensity.prioritized(candidates.filter(selection.includes), around: region.center,
                                                first: firstAerodromes)
-        // An arrival is drawn off its aerodrome's circuits, whether the circuits are shown or not.
-        let circuits = Dictionary(grouping: candidates.filter { $0.kind == .circuit }) { $0.aerodrome.uppercased() }
         let items = chosen.map { procedure -> VFRMapItem in
             let country = VFRMapItem.country(ofProcedureId: procedure.id)
             let info = cycle(country)
             let field = procedure.kind == .departure || procedure.kind == .arrival ? fieldPosition(procedure.aerodrome) : nil
-            return VFRMapItem.drawn(procedure, circuits: circuits[procedure.aerodrome.uppercased()] ?? [], field: field,
-                                    country: country, region: info.region, airac: info.airac)
+            return VFRMapItem.drawn(procedure, field: field, country: country, region: info.region, airac: info.airac)
         }
         return VFRMapContent(items: items, showsLabels: VFRMapDensity.showsLabels(in: region), palette: palette,
                              approach: approach)

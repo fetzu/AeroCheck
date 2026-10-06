@@ -231,6 +231,7 @@
 		A1000001211111110000016 /* WT9ChecklistData.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000001111111110000016 /* WT9ChecklistData.swift */; };
 		A1000001211111110000018 /* NavigationView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000001111111110000018 /* NavigationView.swift */; };
 		A1000001211111110000C70 /* VFRProcedureMapLayer.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000001111111110000C70 /* VFRProcedureMapLayer.swift */; };
+		A1000001211111110000C73 /* VFRApproachLayer.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000001111111110000C73 /* VFRApproachLayer.swift */; };
 		A1000001211111110000C81 /* OfficialChartButton.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000001111111110000C81 /* OfficialChartButton.swift */; };
 		A1000001211111110000019 /* OfflineMapManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000001111111110000019 /* OfflineMapManager.swift */; };
 		A1000001211111110000061 /* SwisstopoTileOverlays.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000001111111110000061 /* SwisstopoTileOverlays.swift */; };
@@ -624,6 +625,7 @@
 		A1000001111111110000016 /* WT9ChecklistData.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WT9ChecklistData.swift; sourceTree = "<group>"; };
 		A1000001111111110000018 /* NavigationView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NavigationView.swift; sourceTree = "<group>"; };
 		A1000001111111110000C70 /* VFRProcedureMapLayer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VFRProcedureMapLayer.swift; sourceTree = "<group>"; };
+		A1000001111111110000C73 /* VFRApproachLayer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VFRApproachLayer.swift; sourceTree = "<group>"; };
 		A1000001111111110000C81 /* OfficialChartButton.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OfficialChartButton.swift; sourceTree = "<group>"; };
 		A1000001111111110000019 /* OfflineMapManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OfflineMapManager.swift; sourceTree = "<group>"; };
 		A1000001111111110000061 /* SwisstopoTileOverlays.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SwisstopoTileOverlays.swift; sourceTree = "<group>"; };
@@ -988,6 +990,7 @@
 				DE57E570111111110000C01 /* DestinationLine.swift */,
 				DE57E570111111110000D01 /* CockpitMapChrome.swift */,
 				A1000001111111110000C70 /* VFRProcedureMapLayer.swift */,
+				A1000001111111110000C73 /* VFRApproachLayer.swift */,
 				A1000001111111110000C81 /* OfficialChartButton.swift */,
 				I1000001111111110000007 /* OnboardingView.swift */,
 				A1000001111111110000006 /* SettingsView.swift */,
@@ -1654,6 +1657,7 @@
 				047B5F7D2EF492D5009F1317 /* MarketingLocationProvider.swift in Sources */,
 				A1000001211111110000018 /* NavigationView.swift in Sources */,
 				A1000001211111110000C70 /* VFRProcedureMapLayer.swift in Sources */,
+				A1000001211111110000C73 /* VFRApproachLayer.swift in Sources */,
 				A1000001211111110000C81 /* OfficialChartButton.swift in Sources */,
 				A3000001211111110000001 /* WatchConnectivityManager.swift in Sources */,
 				A3000001211111110000002 /* WatchConnectivityData.swift in Sources */,

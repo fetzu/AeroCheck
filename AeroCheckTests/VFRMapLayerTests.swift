@@ -199,19 +199,18 @@ final class VFRMapLayerTests: XCTestCase {
         XCTAssertEqual(circuits.first?.pointCount, 10)
         XCTAssertTrue(VFRMapLayer.scaledOverlays(for: item(try procedure(named: "TC")), zoom: tenMetersAPoint).isEmpty)
 
-        // An arrival with its sector: the sector's fill is fixed; its outline, the line's dashes and the
-        // arrowhead are built for the zoom.
+        // An arrival with its sector: the sector's fill and the solid line (casing, core) are fixed; the
+        // sector's outline and the arrowhead are built for the zoom. (Dashed until the 6.2.0 redesign.)
         let arrival = item(try procedure(named: "ARR SECTOR EAST"), arrow: .atStart)
         let fixed = VFRMapLayer.overlays(for: arrival)
-        XCTAssertEqual(fixed.count, 1)
+        XCTAssertEqual(fixed.count, 3)
         let sector = try XCTUnwrap(fixed.first as? VFRSectorOverlay)
         XCTAssertEqual(sector.areaKind, .corridor)
+        XCTAssertEqual(fixed.compactMap { ($0 as? VFRRouteLineOverlay)?.stroke }, [.casing, .core])
         let scaled = VFRMapLayer.scaledOverlays(for: arrival, zoom: tenMetersAPoint)
-        let dashes = scaled.compactMap { $0 as? VFRDashOverlay }
-        XCTAssertEqual(dashes.map(\.role), [.sectorOutline, .route, .route])
-        XCTAssertEqual(dashes.dropFirst().map(\.stroke), [.casing, .core])
-        XCTAssertEqual(scaled.compactMap { ($0 as? VFRRouteOverlay)?.stroke }, [.casing, .core], "the arrowhead")
-        XCTAssertTrue(scaled.allSatisfy { ($0 as? VFRProcedureShape)?.procedureId == sector.procedureId })
+        XCTAssertEqual(scaled.compactMap { ($0 as? VFRDashOverlay)?.role }, [.sectorOutline])
+        XCTAssertEqual(scaled.filter { $0 is VFRRouteOverlay }.count, 1, "the arrowhead, one filled triangle")
+        XCTAssertTrue((fixed + scaled).allSatisfy { ($0 as? VFRProcedureShape)?.procedureId == sector.procedureId })
 
         // A glider circuit is dashed, so built for the zoom too; a helicopter route dotted.
         XCTAssertTrue(VFRMapLayer.overlays(for: item(try procedure(named: "TFC GLIDER 14R/32L"))).isEmpty)
@@ -249,11 +248,13 @@ final class VFRMapLayerTests: XCTestCase {
         XCTAssertTrue(VFRMapLayer.dashes(along: [start], pattern: [10, 6], zoom: tenMetersAPoint).isEmpty)
     }
 
-    /// The arrowhead: a chevron on the line's end, 12 pt long at the map's zoom, pointing along it.
+    /// The arrowhead: a filled triangle on the drawn line's end, 12 pt long at the map's zoom, pointing
+    /// along it.
     func testTheArrowheadIsAChevronSizedForTheZoom() throws {
         let arrival = item(try procedure(named: "ARR SECTOR EAST"), arrow: .atEnd)
         let overlays = VFRMapLayer.arrowheadOverlays(for: arrival, zoom: tenMetersAPoint)
-        XCTAssertEqual(overlays.compactMap { ($0 as? VFRRouteOverlay)?.stroke }, [.casing, .core])
+        XCTAssertEqual(overlays.count, 1)
+        XCTAssertEqual((overlays.first as? VFRRouteOverlay)?.pointCount, 3)
 
         let chevron = try XCTUnwrap(VFRMapLayer.chevron(for: arrival, lengthMeters: 120))
         XCTAssertEqual(chevron.count, 3)
@@ -282,7 +283,9 @@ final class VFRMapLayerTests: XCTestCase {
         let heli = VFRLineStyle.style(kind: .circuit, categories: [.helicopter], approximate: false)
         XCTAssertTrue(heli.isDotted)
         let arrival = VFRLineStyle.style(kind: .arrival, categories: [.powered], approximate: false)
-        XCTAssertEqual(arrival, VFRLineStyle(coreWidth: 2, casingWidth: 5, dash: [10, 6], isDotted: false, alpha: 1))
+        XCTAssertEqual(arrival, VFRLineStyle(coreWidth: 2.4, casingWidth: 5.4, dash: [], isDotted: false, alpha: 1),
+                       "solid since the 6.2.0 redesign")
+        XCTAssertEqual(VFRLineStyle.style(kind: .arrival, categories: [.glider], approximate: false).dash, [9, 6])
         XCTAssertEqual(arrival.arrowhead.dash, [], "the chevron is solid")
         let approximate = VFRLineStyle.style(kind: .departure, categories: [.powered], approximate: true)
         XCTAssertLessThan(approximate.coreWidth, arrival.coreWidth, "approx is thinner")
@@ -309,34 +312,36 @@ final class VFRMapLayerTests: XCTestCase {
             ("SwissMapView", { swiss.mapView(map, rendererFor: $0) }),
             ("RouteBuilderMapView", { builder.mapView(map, rendererFor: $0) }),
         ]
-        // fixed: the sector's fill, the circuit's casing and core. scaled: the sector's outline, the
-        // arrival's dashes (casing, core), its arrowhead (casing, core).
+        // fixed: the sector's fill, the arrival's casing and core, the circuit's casing and core. scaled:
+        // the sector's outline, the arrival's arrowhead.
         let day = VFRMapPalette.day
-        XCTAssertEqual(fixed.count, 3)
-        XCTAssertEqual(scaled.count, 5)
-        guard fixed.count == 3, scaled.count == 5 else { return }
+        XCTAssertEqual(fixed.count, 5)
+        XCTAssertEqual(scaled.count, 2)
+        guard fixed.count == 5, scaled.count == 2 else { return }
         for (name, renderer) in renderers {
             let sector = try XCTUnwrap(renderer(fixed[0]) as? MKPolygonRenderer, name)
             XCTAssertEqual(sector.fillColor, day.sectorFill, name)
-            let casing = try XCTUnwrap(renderer(fixed[1]) as? MKPolylineRenderer, name)
+            let routeCore = try XCTUnwrap(renderer(fixed[2]) as? MKPolylineRenderer, name)
+            XCTAssertEqual(routeCore.strokeColor, day.procedure, name)
+            XCTAssertEqual(routeCore.lineWidth, 2.4, name)
+            XCTAssertNil(routeCore.lineDashPattern, name)
+            let casing = try XCTUnwrap(renderer(fixed[3]) as? MKPolylineRenderer, name)
             XCTAssertEqual(casing.strokeColor, day.casing, name)
             XCTAssertEqual(casing.lineWidth, 6, name)
-            let core = try XCTUnwrap(renderer(fixed[2]) as? MKPolylineRenderer, name)
+            let core = try XCTUnwrap(renderer(fixed[4]) as? MKPolylineRenderer, name)
             XCTAssertEqual(core.strokeColor, day.procedure, "\(name): the procedure's blue, not the generic branch's colour")
             XCTAssertEqual(core.lineWidth, 3, name)
             let outline = try XCTUnwrap(renderer(scaled[0]) as? MKMultiPolylineRenderer, name)
             XCTAssertEqual(outline.strokeColor, day.sectorStroke, name)
-            let dashes = try XCTUnwrap(renderer(scaled[2]) as? MKMultiPolylineRenderer, name)
-            XCTAssertEqual(dashes.strokeColor, day.procedure, name)
-            XCTAssertEqual(dashes.lineWidth, 2, name)
-            XCTAssertNil(dashes.lineDashPattern, "\(name): cut into dashes, not a raster dash pattern")
-            let arrow = try XCTUnwrap(renderer(scaled[4]) as? MKPolylineRenderer, name)
-            XCTAssertEqual(arrow.strokeColor, day.procedure, name)
+            XCTAssertNil(outline.lineDashPattern, "\(name): cut into dashes, not a raster dash pattern")
+            let arrow = try XCTUnwrap(renderer(scaled[1]) as? MKPolygonRenderer, name)
+            XCTAssertEqual(arrow.fillColor, day.procedure, name)
+            XCTAssertEqual(arrow.strokeColor, day.casing, name)
             // A plain polyline still goes to the map's own branch.
             let plain = try XCTUnwrap(renderer(MKPolyline(coordinates: [CLLocationCoordinate2D](), count: 0)) as? MKPolylineRenderer, name)
             XCTAssertNotEqual(plain.strokeColor, day.procedure, name)
         }
-        XCTAssertEqual((VFRMapLayer.renderer(for: fixed[2], palette: .night) as? MKPolylineRenderer)?.strokeColor,
+        XCTAssertEqual((VFRMapLayer.renderer(for: fixed[4], palette: .night) as? MKPolylineRenderer)?.strokeColor,
                        VFRMapPalette.night.procedure)
 
         // The labels: a bitmap at least 44 pt square with a callout, on every map, never a default pin.
@@ -379,7 +384,7 @@ final class VFRMapLayerTests: XCTestCase {
         let first = VFRMapContent.make(candidates: Array(all.prefix(2)), region: region(spanNM: 10),
                                        selection: everything, palette: .day)
         VFRMapLayer.sync(first, on: map, state: state)
-        XCTAssertEqual(map.overlays.count, 3, "the circuit's casing and core, the arrival's sector")
+        XCTAssertEqual(map.overlays.count, 5, "the circuit's casing and core, the arrival's sector and its line's casing and core")
         XCTAssertEqual(map.annotations.compactMap { $0 as? VFRProcedureAnnotation }.count, 2)
         let circuit = try XCTUnwrap(map.overlays.first { ($0 as? VFRCircuitOverlay)?.stroke == .core })
 
@@ -442,9 +447,9 @@ final class VFRMapLayerTests: XCTestCase {
             VFRMapLayer.sync(content, on: map, state: layer)
             let fixed = map.overlays.filter { ($0 as? VFRProcedureShape)?.isScaled == false }
             let scaled = map.overlays.filter { ($0 as? VFRProcedureShape)?.isScaled == true }
-            XCTAssertEqual(fixed.count, 3 * 2 + 1, "\(name): three solid circuits cased, a sector's fill")
-            // The sector's outline; five dashed lines cased; three routes' arrowheads cased.
-            XCTAssertEqual(scaled.count, 1 + 5 * 2 + 3 * 2, name)
+            XCTAssertEqual(fixed.count, 3 * 2 + 1 + 2 * 2, "\(name): three solid circuits cased, a sector's fill, two solid routes cased")
+            // The sector's outline; three dashed or dotted lines cased; three routes' arrowheads.
+            XCTAssertEqual(scaled.count, 1 + 3 * 2 + 3, name)
             XCTAssertTrue(map.overlays.contains { ($0 as? VFRCircuitOverlay)?.stroke == .core
                 && (map.renderer(for: $0) as? MKPolylineRenderer)?.strokeColor == VFRMapPalette.day.procedure },
                           "\(name): drawn as added")
@@ -477,7 +482,7 @@ final class VFRMapLayerTests: XCTestCase {
         // Bottom to top, whatever the order the procedures came in: tiers never go down.
         let tiers = stack.compactMap { VFRMapLayer.tier(of: $0) }
         XCTAssertEqual(tiers, tiers.sorted())
-        XCTAssertEqual(Set(tiers), Set(0...7), "sectors, outlines, route casings and cores, arrowheads, circuits")
+        XCTAssertEqual(Set(tiers), [0, 1, 2, 3, 5, 6, 7], "sectors, outlines, route casings and cores, arrowheads, circuits")
     }
 
     /// The builder's three redraws (`updateRoute`, `redrawDragRoute`, `redrawCommittedRoute`) and the
@@ -577,6 +582,225 @@ final class VFRMapLayerTests: XCTestCase {
                        "info@openflightmaps.org")
     }
 
+    // MARK: - Sectors, badges and the approach view (6.2.0, the author's design "C with E")
+
+    /// The letter on the badge, whatever language and spelling open flightmaps used: LSZQ mixes
+    /// "SECTOR EAST" and "SEKTOR WEST"; "NO" and "SO" stay unread (north-east in German, north-west in
+    /// Italian).
+    func testTheSectorsLetterIsReadFromItsName() {
+        let cases: [(String, String?)] = [
+            ("ARR SECTOR EAST", "E"), ("ARR SEKTOR WEST", "W"), ("ARR SECTOR NORTH", "N"), ("ARR SECTOR SOUTH", "S"),
+            ("ARR NORD", "N"), ("ARR SÜD", "S"), ("ANFLUG OST", "E"), ("ARR NORD-EST", "NE"), ("ARR SUD OUEST", "SW"),
+            ("ARR NORTHWEST", "NW"), ("ARR SECTOR SE", "SE"), ("ARR OVEST", "W"), ("DEP 23", nil), ("ARR NO", nil),
+            ("ECHO (REGA)", nil), ("ARR 29 FROM NOTHEAST", nil),
+        ]
+        for (name, letter) in cases {
+            XCTAssertEqual(VFRSectorGeometry.direction(inName: name), letter, name)
+        }
+    }
+
+    /// LSZQ's east arrival: drawn from where it leaves its sector to where it meets the circuit (its third
+    /// vertex, the north-east corner), not round the circuit; its letter in a badge inside the sector; the
+    /// arrowhead at the join. Before, its name sat halfway along the whole line, on the downwind.
+    func testAnArrivalIsDrawnOffTheCircuitWithItsLetterInItsSector() throws {
+        let all = try procedures()
+        let arrival = try procedure(named: "ARR SECTOR EAST")
+        let circuits = all.filter { $0.aerodrome == "LSZQ" && $0.kind == .circuit }
+        XCTAssertEqual(VFRSectorGeometry.offCircuitPart(of: arrival.line, circuits: circuits.map(\.line)), 0...2)
+        let lszq = CLLocationCoordinate2D(latitude: 47.3925, longitude: 7.0286)
+        let item = VFRMapItem.drawn(arrival, circuits: circuits, field: lszq, country: "CH", region: "LSAS", airac: "2610")
+        XCTAssertEqual(item.labelStyle, .badge)
+        XCTAssertEqual(item.labelText, "E")
+        XCTAssertEqual(item.arrow, .atEnd)
+        let sector = try XCTUnwrap(arrival.areas.first)
+        XCTAssertTrue(VFRSectorGeometry.contains(item.labelAnchor, sector.polygon), "the badge inside its sector")
+        let end = try XCTUnwrap(item.line.last)
+        XCTAssertEqual(end, arrival.line[2], "it stops where it meets the circuit")
+        let start = try XCTUnwrap(item.line.first)
+        XCTAssertLessThan(VFRSectorGeometry.meters(from: start, to: sector.polygon + [sector.polygon[0]]), 30,
+                          "it starts on the sector's edge")
+        XCTAssertFalse(item.line.dropFirst().contains { VFRSectorGeometry.contains($0, sector.polygon) }, "never through the badge")
+
+        // A route without a direction keeps its name; a circuit gets its altitude on the downwind's middle.
+        let heli = VFRMapItem.drawn(try procedure(named: "ECHO (REGA)"), circuits: [], field: nil, country: "CH",
+                                    region: nil, airac: nil)
+        XCTAssertEqual(heli.labelStyle, .name)
+        XCTAssertEqual(heli.labelText, "ECHO (REGA)")
+        let circuit = VFRMapItem.drawn(try procedure(named: "TC"), circuits: [], field: nil, country: "CH", region: nil, airac: nil)
+        guard case .altitude(let leg, let outsideLeft) = circuit.labelStyle else { return XCTFail("an altitude pill") }
+        XCTAssertEqual(leg, [VFRCoordinate(latitude: 47.41884, longitude: 7.044), VFRCoordinate(latitude: 47.40447, longitude: 6.98485)],
+                       "the downwind, flown west")
+        XCTAssertFalse(outsideLeft, "flown west, the outside (north) is on the right")
+        XCTAssertEqual(circuit.labelAnchor.latitude, (47.41884 + 47.40447) / 2, accuracy: 1e-9)
+
+        // The weekly job's own answers win when the file has them.
+        let published = try JSONDecoder().decode(VFRProcedure.self, from: Data("""
+        {"id": "p", "ad": "LSZQ", "kind": "arr", "name": "ARR SEKTOR WEST", "cat": null, "dir": "w", "offCircuit": [0, 1],
+         "line": [[6.9433, 47.3782], [6.97, 47.3831], [6.9889, 47.3837]],
+         "areas": [{"kind": "corridor", "poly": [[6.9433, 47.3854], [6.9647, 47.3854], [6.9673, 47.3784], [6.9472, 47.3731]],
+                    "label": [6.95283, 47.3802]}]}
+        """.utf8))
+        XCTAssertEqual(published.direction, "W")
+        XCTAssertEqual(published.offCircuit, 0...1)
+        XCTAssertEqual(published.areas.first?.labelPoint, VFRCoordinate(latitude: 47.3802, longitude: 6.95283))
+        let west = VFRMapItem.drawn(published, circuits: circuits, field: lszq, country: "CH", region: nil, airac: nil)
+        XCTAssertEqual(west.labelAnchor, VFRCoordinate(latitude: 47.3802, longitude: 6.95283))
+        XCTAssertEqual(west.line.last, published.line[1])
+        // Nonsense from a file is ignored, not trusted.
+        let odd = try JSONDecoder().decode(VFRProcedure.self, from: Data("""
+        {"id": "q", "ad": "LSZQ", "kind": "arr", "name": "ARR", "cat": null, "dir": "UP", "offCircuit": [2, 1],
+         "line": [[6.9433, 47.3782], [6.97, 47.3831], [6.9889, 47.3837]]}
+        """.utf8))
+        XCTAssertNil(odd.direction)
+        XCTAssertNil(odd.offCircuit)
+    }
+
+    /// The altitude pill turns with the downwind and stays upright, outside the circuit, whichever way
+    /// the map is turned (track up).
+    func testTheAltitudeTurnsAlongTheDownwindUprightAndOutside() {
+        let west = [VFRCoordinate(latitude: 47.41884, longitude: 7.044), VFRCoordinate(latitude: 47.40447, longitude: 6.98485)]
+        let northUp = VFRMapLayer.labelTurn(leg: west, outsideLeft: false, heading: 0)
+        XCTAssertLessThanOrEqual(abs(northUp.angle), .pi / 2, "upright")
+        XCTAssertTrue(northUp.above, "north up, the outside (north) is above")
+        let southUp = VFRMapLayer.labelTurn(leg: west, outsideLeft: false, heading: 180)
+        XCTAssertLessThanOrEqual(abs(southUp.angle), .pi / 2)
+        XCTAssertFalse(southUp.above, "turned round, north is below")
+        XCTAssertEqual(northUp.angle, southUp.angle, accuracy: 1e-9, "the same slant, upright both ways")
+        let east = VFRMapLayer.labelTurn(leg: [VFRCoordinate(latitude: 47, longitude: 7), VFRCoordinate(latitude: 47, longitude: 7.1)],
+                                         outsideLeft: true, heading: 90)
+        XCTAssertEqual(abs(east.angle), .pi / 2, accuracy: 1e-6, "flown east with east up: upright, on its side")
+    }
+
+    /// Open flightmaps' thresholds pair into runways; the runway in use lands into the wind; the
+    /// circuit, drawn for 07 at LSZQ, is flown as drawn for 07 and the other way round for 25.
+    func testTheRunwayInUseAndTheCircuitsDirection() throws {
+        let thresholds = [VFRThreshold(runway: "07", position: VFRCoordinate(latitude: 47.39125, longitude: 7.02427), trueBearing: 70),
+                          VFRThreshold(runway: "25", position: VFRCoordinate(latitude: 47.39356, longitude: 7.03373), trueBearing: 250)]
+        let runways = VFRRunwayEnds.runways(thresholds: thresholds, airportRunways: [], reference: nil)
+        XCTAssertEqual(runways.count, 1)
+        XCTAssertEqual(VFRRunwayEnds.endInUse(of: runways, windFrom: 240)?.ident, "25")
+        XCTAssertEqual(VFRRunwayEnds.endInUse(of: runways, windFrom: 90)?.ident, "07")
+        XCTAssertNil(VFRRunwayEnds.endInUse(of: runways, windFrom: nil), "variable or unknown: none")
+
+        let circuit = try procedure(named: "TC")
+        let for07 = VFRApproachField.directionArrows(on: circuit.line, landing: 70)
+        XCTAssertEqual(for07.count, 2)
+        let west = VFRSectorGeometry.bearing(VFRCoordinate(latitude: 47.41884, longitude: 7.044),
+                                             VFRCoordinate(latitude: 47.40447, longitude: 6.98485))
+        XCTAssertEqual(for07.first.map { VFRSectorGeometry.angle($0.bearing, west) } ?? 180, 0, accuracy: 1, "downwind flown west for 07")
+        let for25 = VFRApproachField.directionArrows(on: circuit.line, landing: 250)
+        XCTAssertEqual(for25.first.map { VFRSectorGeometry.angle($0.bearing, west) } ?? 0, 180, accuracy: 1, "the other way for 25")
+        XCTAssertTrue(VFRApproachField.directionArrows(on: circuit.line, landing: 160).isEmpty, "a crossing runway: none")
+
+        // Open flightmaps' thresholds, the airport database's designators: LSGE is 10/28 in its file, 09/27
+        // everywhere else.
+        let lsgeRunway = Runway(id: 2, airportRef: 2, airportIdent: "LSGE", lengthFt: 2625, widthFt: 59, surface: "ASP",
+                                lighted: false, closed: false, leIdent: "09", leLatitude: nil, leLongitude: nil, leElevationFt: nil,
+                                leHeadingDegT: 93, leDisplacedThresholdFt: nil, heIdent: "27", heLatitude: nil, heLongitude: nil,
+                                heElevationFt: nil, heHeadingDegT: 273, heDisplacedThresholdFt: nil,
+                                pcn: nil, leToraFt: nil, leLdaFt: nil, heToraFt: nil, heLdaFt: nil)
+        let lsge = VFRRunwayEnds.runways(
+            thresholds: [VFRThreshold(runway: "10", position: VFRCoordinate(latitude: 46.75559, longitude: 7.07063), trueBearing: 95),
+                         VFRThreshold(runway: "28", position: VFRCoordinate(latitude: 46.75495, longitude: 7.08091), trueBearing: 275)],
+            airportRunways: [lsgeRunway], reference: nil)
+        XCTAssertEqual(lsge.first.map { [$0.first.ident, $0.second.ident] }, ["09", "27"])
+
+        // The approach view keeps the longest runway, and the one in use.
+        let short = VFRRunwayEnds(first: .init(ident: "14R", threshold: VFRCoordinate(latitude: 46.918, longitude: 7.492), trueBearing: 140),
+                                  second: .init(ident: "32L", threshold: VFRCoordinate(latitude: 46.915, longitude: 7.496), trueBearing: 320))
+        let kept = VFRApproachField.make(ident: "LSZQ", reference: VFRCoordinate(latitude: 47.3925, longitude: 7.02889),
+                                         runways: runways + [short], circuits: [], windFrom: nil, parachuting: false)
+        XCTAssertEqual(kept.runways, runways, "the longest only")
+        let inUse = VFRApproachField.make(ident: "LSZQ", reference: VFRCoordinate(latitude: 47.3925, longitude: 7.02889),
+                                          runways: runways + [short], circuits: [], windFrom: 140, parachuting: false)
+        XCTAssertEqual(inUse.runways.count, 2, "and the one in use")
+        XCTAssertEqual(inUse.runwayInUse, "14R")
+
+        // Without thresholds: the airport database's ends, else the reference point, heading and length.
+        let noEnds = Runway(id: 1, airportRef: 1, airportIdent: "LSZQ", lengthFt: 2625, widthFt: 59, surface: "ASP",
+                            lighted: false, closed: false, leIdent: "07", leLatitude: nil, leLongitude: nil, leElevationFt: nil,
+                            leHeadingDegT: 70, leDisplacedThresholdFt: nil, heIdent: "25", heLatitude: nil, heLongitude: nil,
+                            heElevationFt: nil, heHeadingDegT: 250, heDisplacedThresholdFt: nil,
+                            pcn: nil, leToraFt: nil, leLdaFt: nil, heToraFt: nil, heLdaFt: nil)
+        let estimated = VFRRunwayEnds.runways(thresholds: [], airportRunways: [noEnds],
+                                              reference: VFRCoordinate(latitude: 47.3925, longitude: 7.02889))
+        XCTAssertEqual(estimated.count, 1)
+        if let runway = estimated.first {
+            XCTAssertEqual(VFRSectorGeometry.meters(runway.first.threshold, runway.second.threshold), 2625 * 0.3048, accuracy: 2)
+        }
+    }
+
+    /// The approach view: the fade under everything, the extended centreline, the direction arrowheads
+    /// over the circuit, the runway numbers (the runway in use filled) and the parachute, never hidden.
+    func testTheApproachViewDrawsItsFadeCentrelineNumbersAndParachute() throws {
+        let circuit = try procedure(named: "TC")
+        let runways = VFRRunwayEnds.runways(
+            thresholds: [VFRThreshold(runway: "07", position: VFRCoordinate(latitude: 47.39125, longitude: 7.02427), trueBearing: 70),
+                         VFRThreshold(runway: "25", position: VFRCoordinate(latitude: 47.39356, longitude: 7.03373), trueBearing: 250)],
+            airportRunways: [], reference: nil)
+        let field = VFRApproachField.make(ident: "LSZQ", reference: VFRCoordinate(latitude: 47.3925, longitude: 7.02889),
+                                          runways: runways, circuits: [circuit], windFrom: 80, parachuting: true)
+        XCTAssertEqual(field.runwayInUse, "07")
+        XCTAssertEqual(field.arrows.count, 2)
+        let spot = try XCTUnwrap(field.parachutePosition)
+        XCTAssertLessThan(spot.latitude, 47.3925, "beside the field, away from the circuit (north of it)")
+
+        let fixed = VFRMapLayer.approachOverlays(for: field)
+        XCTAssertTrue(fixed.first is VFRFadeOverlay)
+        XCTAssertEqual(fixed.compactMap { VFRMapLayer.tier(of: $0) }, [-1], "under the sectors")
+        let scaled = VFRMapLayer.approachScaledOverlays(for: field, zoom: tenMetersAPoint)
+        XCTAssertEqual(scaled.compactMap { ($0 as? VFRDashOverlay)?.role }, [.centreline])
+        let heads = scaled.compactMap { $0 as? VFRRouteOverlay }
+        XCTAssertEqual(heads.count, 2)
+        XCTAssertTrue(heads.allSatisfy { $0.onCircuit && VFRMapLayer.tier(of: $0) == 8 }, "over the circuit")
+
+        let labels = VFRApproachAnnotation.annotations(for: field)
+        XCTAssertEqual(labels.map(\.kind), [.runway("07", inUse: true), .runway("25", inUse: false), .parachute])
+        let west = try XCTUnwrap(labels.first)
+        XCTAssertLessThan(west.coordinate.longitude, 7.02427, "07's number past the west end, where it is landed from")
+
+        let map = MKMapView()
+        for label in labels {
+            let view = try XCTUnwrap(VFRMapLayer.annotationView(for: label, on: map, palette: .day))
+            XCTAssertEqual(view.displayPriority, .required)
+            XCTAssertFalse(view.canShowCallout)
+            XCTAssertGreaterThanOrEqual(view.image?.size.width ?? 0, 44)
+            XCTAssertNotNil(view.accessibilityLabel)
+        }
+        XCTAssertEqual(L10n.VFRMap.runwayInUse("07"), "Runway 07, in use")
+
+        // On the map: the content's signature changes with the approach view, and the sync adds and
+        // removes its shapes and labels.
+        let state = VFRMapLayer.State()
+        let plain = VFRMapContent(items: [], showsLabels: true, palette: .day)
+        let approach = VFRMapContent(items: [], showsLabels: true, palette: .day, approach: [field])
+        XCTAssertNotEqual(plain.signature, approach.signature)
+        VFRMapLayer.sync(approach, on: map, state: state)
+        XCTAssertTrue(map.overlays.contains { $0 is VFRFadeOverlay })
+        XCTAssertEqual(map.annotations.compactMap { $0 as? VFRApproachAnnotation }.count, 3)
+        VFRMapLayer.sync(plain, on: map, state: state)
+        XCTAssertFalse(map.overlays.contains { $0 is VFRFadeOverlay })
+        XCTAssertTrue(map.annotations.isEmpty)
+    }
+
+    /// The badge: a 44 pt square (the touch target), never hidden by a collision, with its callout.
+    func testTheBadgeIsAFixedSizeTargetWithItsCallout() throws {
+        let all = try procedures()
+        let arrival = VFRMapItem.drawn(try procedure(named: "ARR SECTOR EAST"),
+                                       circuits: all.filter { $0.kind == .circuit && $0.aerodrome == "LSZQ" },
+                                       field: nil, country: "CH", region: "LSAS", airac: "2610")
+        let view = try XCTUnwrap(VFRMapLayer.annotationView(for: VFRProcedureAnnotation(item: arrival), on: MKMapView(), palette: .day))
+        XCTAssertEqual(view.image?.size, CGSize(width: 44, height: 44))
+        XCTAssertEqual(view.displayPriority, .required)
+        XCTAssertTrue(view.canShowCallout)
+        XCTAssertEqual(VFRProcedureCallout.summary(for: arrival), "VFR arrival · Sector · LSZQ")
+        // The circuit's altitude, turned: required too, and wider than tall only once turned.
+        let circuit = VFRMapItem.drawn(try procedure(named: "TC"), circuits: [], field: nil, country: "CH", region: nil, airac: nil)
+        let pill = try XCTUnwrap(VFRMapLayer.annotationView(for: VFRProcedureAnnotation(item: circuit), on: MKMapView(), palette: .day))
+        XCTAssertEqual(pill.displayPriority, .required)
+        XCTAssertNotEqual(pill.transform, .identity, "turned along the downwind")
+    }
+
     // MARK: - Strings
 
     func testTheNewStringsHaveTheirFrench() throws {
@@ -603,6 +827,9 @@ final class VFRMapLayerTests: XCTestCase {
             "open flightmaps · AIRAC %@ · indicative, check the official chart":
                 "open flightmaps · AIRAC %@ · indicatif, vérifiez la carte officielle",
             "Report an error": "Signaler une erreur",
+            "Runway %@": "Piste %@",
+            "Runway %@, in use": "Piste %@, en service",
+            "Parachuting": "Parachutisme",
         ]
         for (key, value) in expected {
             XCTAssertEqual(french.localizedString(forKey: key, value: missing, table: nil), value, key)

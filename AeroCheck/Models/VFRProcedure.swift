@@ -84,12 +84,16 @@ struct VFRArea: Equatable, Sendable, Decodable {
 
     let kind: Kind
     let polygon: [VFRCoordinate]
+    /// Where the sector's letter goes, as the weekly job computed it on OFM's full ring (its pole of
+    /// inaccessibility, `label`); nil in files from before it did, and the app works it out itself.
+    let labelPoint: VFRCoordinate?
 
-    private enum CodingKeys: String, CodingKey { case kind, poly }
+    private enum CodingKeys: String, CodingKey { case kind, poly, label }
 
-    init(kind: Kind, polygon: [VFRCoordinate]) {
+    init(kind: Kind, polygon: [VFRCoordinate], labelPoint: VFRCoordinate? = nil) {
         self.kind = kind
         self.polygon = polygon
+        self.labelPoint = labelPoint
     }
 
     init(from decoder: Decoder) throws {
@@ -101,6 +105,7 @@ struct VFRArea: Equatable, Sendable, Decodable {
         guard polygon.count >= 3 else {
             throw DecodingError.dataCorruptedError(forKey: .poly, in: container, debugDescription: "An area needs three points")
         }
+        labelPoint = (try? container.decodeIfPresent(VFRCoordinate.self, forKey: .label)) ?? nil
     }
 }
 
@@ -152,6 +157,12 @@ struct VFRProcedure: Identifiable, Equatable, Sendable, Decodable {
     let areas: [VFRArea]
     /// The extent of the line and the areas.
     let bounds: VFRBounds
+    /// An arrival's or departure's direction as the weekly job read it from the name (`dir`: "N", "NE"…);
+    /// nil in older files, and the app reads the name itself (`VFRSectorGeometry.direction(inName:)`).
+    let direction: String?
+    /// The part of `line` not flown along one of the aerodrome's circuits (`offCircuit`, inclusive
+    /// indices), as the weekly job found it; nil when it didn't, and the app works it out itself.
+    let offCircuit: ClosedRange<Int>?
 
     /// Whether the procedure is for any of `categories`.
     func isFor(any categories: Set<Category>) -> Bool {
@@ -159,7 +170,7 @@ struct VFRProcedure: Identifiable, Equatable, Sendable, Decodable {
     }
 
     private enum CodingKeys: String, CodingKey {
-        case id, ad, kind, name, use, cat, alt, line, approx, areas
+        case id, ad, kind, name, use, cat, alt, line, approx, areas, dir, offCircuit
     }
 
     init(from decoder: Decoder) throws {
@@ -200,6 +211,11 @@ struct VFRProcedure: Identifiable, Equatable, Sendable, Decodable {
         self.areas = areas
         // `line` has two points, so the box exists.
         self.bounds = VFRBounds(line + areas.flatMap(\.polygon))!
+        let direction = ((try? container.decodeIfPresent(String.self, forKey: .dir)) ?? nil)?.uppercased()
+        self.direction = direction.flatMap { VFRSectorGeometry.directions.contains($0) ? $0 : nil }
+        let range = ((try? container.decodeIfPresent([Int].self, forKey: .offCircuit)) ?? nil) ?? []
+        self.offCircuit = range.count == 2 && range[0] >= 0 && range[0] < range[1] && range[1] < line.count
+            ? range[0]...range[1] : nil
     }
 
     /// `null` is a plain powered procedure (or a helicopter one, by its usage); otherwise one or more
@@ -285,12 +301,15 @@ struct OFMRegionFile: Sendable, Decodable {
     let points: [VFRPoint]
     /// Runway designators per aerodrome, as OFM has them (`["05/23"]`).
     let runways: [String: [String]]
+    /// Runway thresholds per aerodrome, as OFM has them (`thresholds`), for the approach view's
+    /// extended centreline; empty in older files.
+    let thresholds: [String: [VFRThreshold]]
     /// How many procedures the lossy decode dropped, for the log.
     let droppedProcedures: Int
 
     private enum CodingKeys: String, CodingKey {
         case v, source, attribution, region, country, airac, validFrom, validTo, ofmCreated
-        case procedures, points, runways
+        case procedures, points, runways, thresholds
     }
 
     init(from decoder: Decoder) throws {
@@ -335,6 +354,38 @@ struct OFMRegionFile: Sendable, Decodable {
             let designators = (entry.value ?? []).filter { !$0.isEmpty }
             return designators.isEmpty ? nil : designators
         }
+        let rawThresholds = ((try? container.decodeIfPresent([String: [OFMLossy<VFRThreshold>]].self,
+                                                             forKey: .thresholds)) ?? nil) ?? [:]
+        thresholds = rawThresholds.reduce(into: [:]) { result, entry in
+            let ends = entry.value.compactMap(\.value)
+            if !ends.isEmpty { result[entry.key.uppercased()] = ends }
+        }
+    }
+}
+
+/// One runway end as OFM publishes it: its designator, its threshold, its true bearing. (6.2.0)
+struct VFRThreshold: Equatable, Sendable, Decodable {
+    let runway: String
+    let position: VFRCoordinate
+    let trueBearing: Double?
+
+    private enum CodingKeys: String, CodingKey { case rwy, pos, trueBrg }
+
+    init(runway: String, position: VFRCoordinate, trueBearing: Double?) {
+        self.runway = runway
+        self.position = position
+        self.trueBearing = trueBearing
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        runway = try container.decode(String.self, forKey: .rwy).trimmingCharacters(in: .whitespaces)
+        guard !runway.isEmpty else {
+            throw DecodingError.dataCorruptedError(forKey: .rwy, in: container, debugDescription: "No designator")
+        }
+        position = try container.decode(VFRCoordinate.self, forKey: .pos)
+        let bearing = (try? container.decodeIfPresent(Double.self, forKey: .trueBrg)) ?? nil
+        trueBearing = bearing.flatMap { $0.isFinite && (0...360).contains($0) ? $0 : nil }
     }
 }
 

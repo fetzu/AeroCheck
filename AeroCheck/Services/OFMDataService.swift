@@ -199,6 +199,7 @@ final class OFMDataService: ObservableObject {
     /// The loaded reporting points, per country file, in country order. Empty until `ensureLoaded()`.
     private(set) var pointSets: [PointSet] = []
     private var runways: [String: [String]] = [:]
+    private var thresholds: [String: [VFRThreshold]] = [:]
     private var procedureGrid: [GridKey: [Int]] = [:]
     private var pointGrid: [GridKey: [Int]] = [:]
     private var proceduresByAerodrome: [String: [Int]] = [:]
@@ -498,6 +499,9 @@ final class OFMDataService: ObservableObject {
         runways = sorted.reduce(into: [:]) { result, file in
             result.merge(file.runways) { first, _ in first }
         }
+        thresholds = sorted.reduce(into: [:]) { result, file in
+            result.merge(file.thresholds) { first, _ in first }
+        }
         for file in sorted { if let region = file.region { regionByCountry[file.country] = region } }
 
         var procedureGrid: [GridKey: [Int]] = [:]
@@ -555,6 +559,12 @@ final class OFMDataService: ObservableObject {
         let bounds = Self.bounds(of: region)
         return Set(Self.gridKeys(covering: bounds).flatMap { pointGrid[$0] ?? [] })
             .sorted().map { points[$0] }.filter { bounds.contains($0.position) }
+    }
+
+    /// OFM's runway thresholds for an aerodrome, for the approach view's centreline. Empty when the file
+    /// has none (older files) or OFM doesn't know them. (6.2.0)
+    func thresholds(forAerodrome code: String) -> [VFRThreshold] {
+        thresholds[code.uppercased()] ?? []
     }
 
     /// OFM's runway designators for an aerodrome (`["05/23"]`), for the runway vote. Empty when unknown.

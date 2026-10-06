@@ -313,6 +313,9 @@ struct NavigationMapView: View {
     }
     @EnvironmentObject var flightEventDetector: FlightEventDetector
     @EnvironmentObject var aviationWeatherService: AviationWeatherService
+    // The approach view's runway in use: the briefing's wind (`FlightView.briefingContext`). (6.2.0)
+    @EnvironmentObject var windDataService: WindDataService
+    @EnvironmentObject var windsAloftService: WindsAloftService
     /// For the one line a diversion shows when a flight plan was filed. (v5.1)
     @EnvironmentObject var threadManager: FlightThreadManager
     @ObservedObject private var marketingProvider = MarketingLocationProvider.shared
@@ -584,6 +587,8 @@ struct NavigationMapView: View {
         .onChange(of: appState.currentPhase) { _, _ in
             recomputePhaseFrequencies()
             evaluateFredaOutsideTheCockpit()
+            // The approach view opens from the Approach phase. (6.2.0)
+            if appState.isFlightActive { recomputeMapSpatialContent(force: true) }
         }
         .onChange(of: flightPlanManager.activeFlightPlan?.currentWaypointIndex) { _, _ in recomputePhaseFrequencies() }
         .onReceive(fredaEvalTimer) { _ in
@@ -1448,11 +1453,61 @@ struct NavigationMapView: View {
             vfrContent = .empty(palette)
             return
         }
+        let candidates = service.procedures(in: region)
         vfrContent = VFRMapContent.make(
-            candidates: service.procedures(in: region), region: region, selection: selection, palette: palette,
+            candidates: candidates, region: region, selection: selection, palette: palette,
             firstAerodromes: VFRMapDensity.endpointAerodromes(of: flightPlanManager.activeFlightPlan),
             fieldPosition: { airportDataService.findAirport(byIdent: $0)?.coordinate },
-            cycle: { (service.cycles[$0]?.airac, service.region(forCountry: $0)) })
+            cycle: { (service.cycles[$0]?.airac, service.region(forCountry: $0)) },
+            approach: approachFields(region: region, candidates: candidates, selection: selection))
+    }
+
+    /// The approach view's aerodromes (6.2.0, the author's design "E"): in flight, the destination or the
+    /// field diverted to, within 10 NM of the aircraft or from the Approach phase on, with the runway in
+    /// use from the briefing's wind; in Plan › Map, the aerodromes with procedures in view once the map
+    /// spans 8 NM or less (no runway in use on the ground). At most three.
+    private func approachFields(region: MKCoordinateRegion, candidates: [VFRProcedure],
+                                selection: VFRLayerSelection) -> [VFRApproachField] {
+        let byField = Dictionary(grouping: candidates) { $0.aerodrome.uppercased() }
+        var idents: [String]
+        var windFrom: Double?
+        if appState.isFlightActive {
+            guard let plan = flightPlanManager.activeFlightPlan,
+                  let target = plan.diversion?.ident.uppercased() ?? VFRMapDensity.endpointAerodromes(of: plan).first,
+                  let airport = airportDataService.findAirport(byIdent: target) else { return [] }
+            let distanceNM = locationManager.getCurrentCoordinate().map {
+                CLLocation(latitude: $0.latitude, longitude: $0.longitude)
+                    .distance(from: CLLocation(latitude: airport.latitude, longitude: airport.longitude)) / 1852
+            }
+            let onApproach = appState.currentPhase == .approach || appState.currentPhase == .landing
+            guard onApproach || (distanceNM ?? .infinity) <= 10 else { return [] }
+            idents = [target]
+            windFrom = BriefingWindLadder.select(
+                metars: aviationWeatherService.ladderCandidates,
+                station: windDataService.currentWindData,
+                model: windsAloftService.surfaceCandidate(near: locationManager.getCurrentCoordinate()),
+                aircraftAltitudeM: locationManager.currentAltitudeMeters,
+                now: Date())?.directionDeg.map(Double.init)
+        } else {
+            guard VFRMapDensity.spanNM(of: region) <= 8 else { return [] }
+            let halfLat = region.span.latitudeDelta / 2, halfLon = region.span.longitudeDelta / 2
+            idents = byField.keys.filter { ident in
+                guard let airport = airportDataService.findAirport(byIdent: ident) else { return false }
+                return abs(airport.latitude - region.center.latitude) <= halfLat
+                    && abs(airport.longitude - region.center.longitude) <= halfLon
+            }.sorted()
+        }
+        return idents.prefix(3).compactMap { ident -> VFRApproachField? in
+            guard let airport = airportDataService.findAirport(byIdent: ident) else { return nil }
+            let reference = VFRCoordinate(latitude: airport.latitude, longitude: airport.longitude)
+            let runways = VFRRunwayEnds.runways(thresholds: OFMDataService.shared.thresholds(forAerodrome: ident),
+                                                airportRunways: airportDataService.getRunways(for: ident),
+                                                reference: reference)
+            let circuits = (byField[ident] ?? OFMDataService.shared.procedures(forAerodrome: ident))
+                .filter { $0.kind == .circuit && selection.includes($0) }
+            return VFRApproachField.make(ident: ident, reference: reference, runways: runways, circuits: circuits,
+                                         windFrom: windFrom, parachuting: airportDataService.hasParachuting(ident))
+        }
     }
 
     /// Pick the most relevant frequency from a list (TWR > ATIS > APP > first available)
@@ -3561,6 +3616,7 @@ struct NativeMapViewUIKit: UIViewRepresentable {
         // Traffic circuits, VFR routes and sectors, under the route: nothing while the content is the
         // one drawn, which is every GPS tick. (6.2.0)
         VFRMapLayer.sync(vfrContent, on: mapView, state: context.coordinator.vfrLayer)
+        VFRMapLayer.orientLabels(on: mapView, palette: context.coordinator.vfrLayer.palette)
 
         // Update airport annotations
         updateAirportAnnotations(mapView, context: context)
@@ -3820,6 +3876,8 @@ struct NativeMapViewUIKit: UIViewRepresentable {
 
         func mapView(_ mapView: MKMapView, regionDidChangeAnimated animated: Bool) {
             isUserInteracting = false
+            // The circuits' altitudes follow the map's heading (track up). (6.2.0)
+            VFRMapLayer.orientLabels(on: mapView, palette: vfrLayer.palette)
             // A marker the move took off the map leaves no deselect behind. (6.2.0)
             parent.mapState.noteCalloutSelection(on: mapView)
             // Its zoom at rest, for the legs panel's band: the pilot's, unless the band has the camera.
@@ -5073,6 +5131,7 @@ struct SwissMapView: UIViewRepresentable {
         // Traffic circuits, VFR routes and sectors, under the route: nothing while the content is the
         // one drawn, which is every GPS tick. (6.2.0)
         VFRMapLayer.sync(vfrContent, on: mapView, state: context.coordinator.vfrLayer)
+        VFRMapLayer.orientLabels(on: mapView, palette: context.coordinator.vfrLayer.palette)
 
         // Update airport annotations
         updateAirportAnnotations(mapView, context: context)
@@ -5432,6 +5491,8 @@ struct SwissMapView: UIViewRepresentable {
         // Sync region changes back to shared state
         func mapView(_ mapView: MKMapView, regionDidChangeAnimated animated: Bool) {
             isUserInteracting = false
+            // The circuits' altitudes follow the map's heading (track up). (6.2.0)
+            VFRMapLayer.orientLabels(on: mapView, palette: vfrLayer.palette)
             // A marker the move took off the map leaves no deselect behind. (6.2.0)
             parent.mapState.noteCalloutSelection(on: mapView)
             // Its zoom at rest, for the legs panel's band: the pilot's, unless the band has the camera.

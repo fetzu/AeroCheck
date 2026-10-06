@@ -2757,6 +2757,15 @@ enum L10n {
         static let reportError = String(localized: "Report an error")
         /// Report an error, where the phone's Cockpit puts it beside the official chart.
         static let reportShort = String(localized: "Report")
+        /// The approach view's runway numbers, for VoiceOver. (6.2.0)
+        static func runway(_ ident: String) -> String {
+            String(localized: "Runway \(ident)")
+        }
+        static func runwayInUse(_ ident: String) -> String {
+            String(localized: "Runway \(ident), in use")
+        }
+        /// The approach view's parachute, where OpenAIP says there is parachuting. (6.2.0)
+        static let parachuting = String(localized: "Parachuting")
     }
 
     /// An aerodrome's official chart, opened in the browser: DFS BasicVFR, the SIA VAC, SkyBriefing's

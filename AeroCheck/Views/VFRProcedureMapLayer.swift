@@ -176,7 +176,12 @@ enum VFRArrow: String, Hashable, Sendable {
     case atStart
 
     static func arrow(for procedure: VFRProcedure, field: CLLocationCoordinate2D?) -> VFRArrow {
-        guard procedure.kind != .circuit, let first = procedure.line.first, let last = procedure.line.last else {
+        arrow(for: procedure, line: procedure.line, field: field)
+    }
+
+    /// The same for `line`, the part of the procedure the map draws (off the circuit, outside the sector).
+    static func arrow(for procedure: VFRProcedure, line: [VFRCoordinate], field: CLLocationCoordinate2D?) -> VFRArrow {
+        guard procedure.kind != .circuit, let first = line.first, let last = line.last else {
             return .none
         }
         // Without the field, the line's own direction (true of every arrival, and most departures).
@@ -195,9 +200,19 @@ enum VFRArrow: String, Hashable, Sendable {
 
 /// One procedure as the map draws it, with what its callout and error report need.
 struct VFRMapItem: Identifiable, Equatable {
+    /// How the label is drawn.
+    enum LabelStyle: Equatable {
+        /// A circuit's altitude in a pill turned along its downwind (`leg`, from and to), outside it.
+        case altitude(leg: [VFRCoordinate], outsideLeft: Bool)
+        /// An arrival's or departure's letter in its badge, a fixed 34 pt.
+        case badge
+        /// A route's name, flat: a route whose name gives no direction.
+        case name
+    }
+
     let procedure: VFRProcedure
     let arrow: VFRArrow
-    /// "2900 ft", "Alt: see chart", or a route's name.
+    /// "2900 ft", "Alt: see chart", a sector's letter ("E"), or a route's name.
     let labelText: String
     let labelAnchor: VFRCoordinate
     /// The country of the file it came from (its id's prefix).
@@ -205,12 +220,84 @@ struct VFRMapItem: Identifiable, Equatable {
     /// OFM's region of that country (`LSAS`), and the cycle on disk.
     let region: String?
     let airac: String?
+    /// The line as the map draws it: an arrival or departure off the circuit and outside its sector, a
+    /// circuit whole.
+    let line: [VFRCoordinate]
+    let labelStyle: LabelStyle
+
+    init(procedure: VFRProcedure, arrow: VFRArrow, labelText: String, labelAnchor: VFRCoordinate, country: String,
+         region: String?, airac: String?, line: [VFRCoordinate]? = nil, labelStyle: LabelStyle? = nil) {
+        self.procedure = procedure
+        self.arrow = arrow
+        self.labelText = labelText
+        self.labelAnchor = labelAnchor
+        self.country = country
+        self.region = region
+        self.airac = airac
+        self.line = line ?? procedure.line
+        self.labelStyle = labelStyle ?? Self.defaultStyle(for: procedure)
+    }
+
+    /// A circuit's altitude along its downwind; a route's name.
+    static func defaultStyle(for procedure: VFRProcedure) -> LabelStyle {
+        guard procedure.kind == .circuit, let leg = VFRSectorGeometry.downwind(of: procedure.line) else { return .name }
+        return .altitude(leg: [leg.0, leg.1], outsideLeft: VFRSectorGeometry.outsideIsLeft(of: leg, circuit: procedure.line))
+    }
+
+    /// The item as the map draws it (6.2.0, the author's design "C"): a circuit with its altitude on the
+    /// downwind's middle; an arrival or departure off the circuit (`offCircuit`, else worked out against
+    /// `circuits`, the aerodrome's) and outside its sector, its letter in a badge at the sector's
+    /// deepest point, or, without a sector, where the arrival starts (a departure: its middle); a name
+    /// that gives no direction as before, halfway along what is drawn.
+    static func drawn(_ procedure: VFRProcedure, circuits: [VFRProcedure], field: CLLocationCoordinate2D?,
+                      country: String, region: String?, airac: String?) -> VFRMapItem {
+        if procedure.kind == .circuit {
+            let style = defaultStyle(for: procedure)
+            var anchor = VFRLabelPlacement.circuitAnchor(procedure.line)
+            if case .altitude(let leg, _) = style {
+                anchor = VFRCoordinate(latitude: (leg[0].latitude + leg[1].latitude) / 2,
+                                       longitude: (leg[0].longitude + leg[1].longitude) / 2)
+            }
+            return VFRMapItem(procedure: procedure, arrow: .none, labelText: labelText(for: procedure), labelAnchor: anchor,
+                              country: country, region: region, airac: airac, line: procedure.line, labelStyle: style)
+        }
+        var line = procedure.line
+        if let part = procedure.offCircuit ?? VFRSectorGeometry.offCircuitPart(of: line, circuits: circuits.map(\.line)) {
+            line = Array(line[part])
+        }
+        let sector = procedure.areas.first { $0.kind != .noise }
+        if let sector { line = VFRSectorGeometry.outsideSector(line, ring: sector.polygon, kind: procedure.kind) }
+        let arrow = VFRArrow.arrow(for: procedure, line: line, field: field)
+        if let letter = procedure.direction ?? VFRSectorGeometry.direction(inName: procedure.name) {
+            let at: VFRCoordinate
+            if let sector {
+                at = sector.labelPoint ?? VFRSectorGeometry.pole(of: sector.polygon)
+            } else if procedure.kind == .arrival {
+                at = arrow == .atStart ? line[line.count - 1] : line[0]
+            } else {
+                at = VFRLabelPlacement.midLine(line)
+            }
+            return VFRMapItem(procedure: procedure, arrow: arrow, labelText: letter, labelAnchor: at, country: country,
+                              region: region, airac: airac, line: line, labelStyle: .badge)
+        }
+        return VFRMapItem(procedure: procedure, arrow: arrow, labelText: labelText(for: procedure),
+                          labelAnchor: VFRLabelPlacement.midLine(line), country: country, region: region, airac: airac,
+                          line: line, labelStyle: .name)
+    }
 
     var id: String { procedure.id }
     /// Changes when the shape would be drawn differently.
-    var drawKey: String { "\(procedure.id)|\(arrow.rawValue)" }
+    var drawKey: String { "\(procedure.id)|\(arrow.rawValue)|\(line.count)" }
     /// Changes when the label or its callout would read differently.
-    var labelKey: String { "\(procedure.id)|\(labelText)|\(airac ?? "")" }
+    var labelKey: String {
+        let style: String
+        switch labelStyle {
+        case .altitude: style = "alt"
+        case .badge: style = "badge"
+        case .name: style = "name"
+        }
+        return "\(procedure.id)|\(labelText)|\(airac ?? "")|\(style)"
+    }
 
     static func country(ofProcedureId id: String) -> String {
         String(id.prefix { $0 != ":" })
@@ -232,16 +319,19 @@ struct VFRMapContent: Equatable {
     let items: [VFRMapItem]
     let showsLabels: Bool
     let palette: VFRMapPalette
+    /// The approach view's aerodromes: on approach in flight, or zoomed in on them in Plan › Map.
+    let approach: [VFRApproachField]
     let signature: Int
 
     static func empty(_ palette: VFRMapPalette = .day) -> VFRMapContent {
         VFRMapContent(items: [], showsLabels: false, palette: palette)
     }
 
-    init(items: [VFRMapItem], showsLabels: Bool, palette: VFRMapPalette) {
+    init(items: [VFRMapItem], showsLabels: Bool, palette: VFRMapPalette, approach: [VFRApproachField] = []) {
         self.items = items
         self.showsLabels = showsLabels
         self.palette = palette
+        self.approach = approach
         // Order-free: the same procedures in another order (the aircraft moved, and the nearest changed)
         // draw the same map.
         var hasher = Hasher()
@@ -249,6 +339,7 @@ struct VFRMapContent: Equatable {
         hasher.combine(showsLabels)
         hasher.combine(items.map(\.drawKey).sorted())
         if showsLabels { hasher.combine(items.map(\.labelKey).sorted()) }
+        hasher.combine(approach.map(\.drawKey).sorted())
         signature = hasher.finalize()
     }
 
@@ -259,24 +350,26 @@ struct VFRMapContent: Equatable {
     ///   - firstAerodromes: drawn first, in that order (`VFRMapDensity.endpointAerodromes(of:)`).
     ///   - fieldPosition: an aerodrome's position, for the departures' arrowheads.
     ///   - cycle: the AIRAC and OFM region of a country's data on disk.
+    ///   - approach: the approach view's aerodromes (`VFRApproachField.make`), drawn with the procedures.
     static func make(candidates: [VFRProcedure], region: MKCoordinateRegion, selection: VFRLayerSelection,
                      palette: VFRMapPalette, firstAerodromes: [String] = [],
                      fieldPosition: (String) -> CLLocationCoordinate2D? = { _ in nil },
-                     cycle: (String) -> (airac: String?, region: String?) = { _ in (nil, nil) }) -> VFRMapContent {
+                     cycle: (String) -> (airac: String?, region: String?) = { _ in (nil, nil) },
+                     approach: [VFRApproachField] = []) -> VFRMapContent {
         guard selection.isAnyOn, VFRMapDensity.showsProcedures(in: region) else { return .empty(palette) }
         let chosen = VFRMapDensity.prioritized(candidates.filter(selection.includes), around: region.center,
                                                first: firstAerodromes)
+        // An arrival is drawn off its aerodrome's circuits, whether the circuits are shown or not.
+        let circuits = Dictionary(grouping: candidates.filter { $0.kind == .circuit }) { $0.aerodrome.uppercased() }
         let items = chosen.map { procedure -> VFRMapItem in
             let country = VFRMapItem.country(ofProcedureId: procedure.id)
             let info = cycle(country)
-            let anchor = procedure.kind == .circuit
-                ? VFRLabelPlacement.circuitAnchor(procedure.line) : VFRLabelPlacement.midLine(procedure.line)
             let field = procedure.kind == .departure || procedure.kind == .arrival ? fieldPosition(procedure.aerodrome) : nil
-            return VFRMapItem(procedure: procedure, arrow: VFRArrow.arrow(for: procedure, field: field),
-                              labelText: VFRMapItem.labelText(for: procedure), labelAnchor: anchor,
-                              country: country, region: info.region, airac: info.airac)
+            return VFRMapItem.drawn(procedure, circuits: circuits[procedure.aerodrome.uppercased()] ?? [], field: field,
+                                    country: country, region: info.region, airac: info.airac)
         }
-        return VFRMapContent(items: items, showsLabels: VFRMapDensity.showsLabels(in: region), palette: palette)
+        return VFRMapContent(items: items, showsLabels: VFRMapDensity.showsLabels(in: region), palette: palette,
+                             approach: approach)
     }
 }
 
@@ -311,8 +404,25 @@ enum VFRMapPalette: String, Hashable, Sendable {
         }
     }
 
-    var sectorFill: UIColor { procedure.withAlphaComponent(0.08) }
-    var sectorStroke: UIColor { procedure.withAlphaComponent(0.85) }
+    /// A sector's fill and its dashed edge: faint, the badge does the talking (6.2.0, design "C").
+    var sectorFill: UIColor { procedure.withAlphaComponent(0.10) }
+    var sectorStroke: UIColor { procedure.withAlphaComponent(0.55) }
+
+    /// A sector badge's letter and the runway in use's number: white by day, a soft grey at night.
+    var badgeLetter: UIColor {
+        switch self {
+        case .day: return .white
+        case .night: return UIColor(white: 0.86, alpha: 1)
+        }
+    }
+
+    /// The approach view's fade round the field: white by day, a dimming at night.
+    var fade: UIColor {
+        switch self {
+        case .day: return .white
+        case .night: return .black
+        }
+    }
 
     /// Austrian noise-abatement areas: grey, not a procedure to fly.
     var noise: UIColor {
@@ -373,17 +483,31 @@ final class VFRCircuitOverlay: MKPolyline, VFRProcedureShape {
     var isScaled: Bool { false }
 }
 
-/// A VFR arrival or departure route's arrowhead: a chevron at the end of its line (casing, or core),
-/// 12 pt long at the zoom it was built for.
-final class VFRRouteOverlay: MKPolyline, VFRProcedureShape {
+/// An arrowhead: at the end of a VFR arrival or departure (where an arrival meets the circuit), or on
+/// a circuit's downwind for the runway in use (`onCircuit`). A filled triangle with a casing, 12 pt
+/// long at the zoom it was built for.
+final class VFRRouteOverlay: MKPolygon, VFRProcedureShape {
+    var procedureId = ""
+    var drawKey = ""
+    var kind: VFRProcedure.Kind = .arrival
+    var categories: Set<VFRProcedure.Category> = [.powered]
+    var isApproximate = false
+    /// The circuit's direction for the runway in use (the approach view), over the circuit's line.
+    var onCircuit = false
+    var isArrowhead: Bool { true }
+    var isScaled: Bool { true }
+}
+
+/// A powered VFR arrival's or departure's solid line, as drawn (off the circuit, outside its sector):
+/// its casing, or its core.
+final class VFRRouteLineOverlay: MKPolyline, VFRProcedureShape {
     var procedureId = ""
     var drawKey = ""
     var stroke: VFRStroke = .core
     var kind: VFRProcedure.Kind = .arrival
     var categories: Set<VFRProcedure.Category> = [.powered]
     var isApproximate = false
-    var isArrowhead: Bool { true }
-    var isScaled: Bool { true }
+    var isScaled: Bool { false }
 }
 
 /// Every dashed or dotted line, as its dashes: a route's line, a glider, UL or helicopter circuit, a
@@ -397,6 +521,8 @@ final class VFRDashOverlay: MKMultiPolyline, VFRProcedureShape {
         case route
         case sectorOutline
         case hatch
+        /// The approach view's extended runway centreline.
+        case centreline
     }
 
     var procedureId = ""
@@ -428,19 +554,18 @@ struct VFRLineStyle: Equatable {
     var isDotted: Bool
     var alpha: CGFloat
 
-    /// Circuits solid 3 pt with a casing; glider, UL and gyro dashed, helicopters dotted; routes dashed
-    /// 2 pt; a shape drawn from OFM's straight skeleton (`approx`) thinner and lighter.
+    /// Circuits solid 3 pt with a casing; powered routes solid 2.4 pt with a casing (dashed until the
+    /// 6.2.0 redesign); glider, UL and gyro dashed, helicopters dotted; a shape drawn from OFM's straight
+    /// skeleton (`approx`) thinner and lighter.
     static func style(kind: VFRProcedure.Kind, categories: Set<VFRProcedure.Category>,
                       approximate: Bool) -> VFRLineStyle {
         let isCircuit = kind == .circuit
         let heli = categories.contains(.helicopter)
         let powered = !categories.isDisjoint(with: VFRLayerSelection.poweredCategories)
-        var style = VFRLineStyle(coreWidth: isCircuit ? 3 : 2, casingWidth: 0, dash: [], isDotted: false, alpha: 1)
+        var style = VFRLineStyle(coreWidth: isCircuit ? 3 : 2.4, casingWidth: 0, dash: [], isDotted: false, alpha: 1)
         if heli {
             style.dash = [0.01, 7]
             style.isDotted = true
-        } else if !isCircuit {
-            style.dash = [10, 6]
         } else if !powered {
             style.dash = [9, 6]
         }
@@ -452,8 +577,10 @@ struct VFRLineStyle: Equatable {
         return style
     }
 
-    /// A sector's outline: 1.5 pt, dashed 6 on 4.
-    static let sectorOutline = VFRLineStyle(coreWidth: 1.5, casingWidth: 0, dash: [6, 4], isDotted: false, alpha: 1)
+    /// A sector's outline: 1.2 pt, dashed 5 on 4.
+    static let sectorOutline = VFRLineStyle(coreWidth: 1.2, casingWidth: 0, dash: [5, 4], isDotted: false, alpha: 1)
+    /// The approach view's extended centreline: 1.8 pt, dashed 7 on 5.
+    static let centreline = VFRLineStyle(coreWidth: 1.8, casingWidth: 0, dash: [7, 5], isDotted: false, alpha: 0.85)
     /// A noise-abatement area's hatch ticks.
     static let hatch = VFRLineStyle(coreWidth: 1.2, casingWidth: 0, dash: [], isDotted: false, alpha: 1)
 
@@ -503,6 +630,34 @@ enum VFRProcedureLabelImage {
         let image = UIGraphicsImageRenderer(size: canvas).image { _ in
             let rect = CGRect(x: (canvas.width - box.width) / 2, y: (canvas.height - box.height) / 2,
                               width: box.width, height: box.height)
+            let shape = UIBezierPath(roundedRect: rect, cornerRadius: 7)
+            palette.labelFill.setFill()
+            shape.fill()
+            palette.procedure.setStroke()
+            shape.lineWidth = 1.5
+            shape.stroke()
+            (text as NSString).draw(at: CGPoint(x: rect.minX + 7, y: rect.minY + 3), withAttributes: attributes)
+        }
+        cache[key] = image
+        return image
+    }
+
+    /// The circuit's altitude pill above (`above`) or below the middle of a canvas twice its height and
+    /// a gap, so that the annotation, turned along the downwind about its anchor on the line, puts it
+    /// beside the line, outside the circuit.
+    static func sideImage(text: String, above: Bool, palette: VFRMapPalette) -> UIImage {
+        let size = fontSize(for: .circuit)
+        let key = "side|\(text)|\(above)|\(palette.rawValue)|\(size)"
+        if let cached = cache[key] { return cached }
+        let font = UIFont.aero(size: size, weight: .bold)
+        let attributes: [NSAttributedString.Key: Any] = [.font: font, .foregroundColor: palette.labelText]
+        let textSize = (text as NSString).size(withAttributes: attributes)
+        let box = CGSize(width: ceil(textSize.width) + 14, height: ceil(textSize.height) + 6)
+        let gap: CGFloat = 6
+        let canvas = CGSize(width: max(44, box.width + 4), height: 2 * (box.height + gap))
+        let image = UIGraphicsImageRenderer(size: canvas).image { _ in
+            let y = above ? 0 : canvas.height - box.height
+            let rect = CGRect(x: (canvas.width - box.width) / 2, y: y, width: box.width, height: box.height)
             let shape = UIBezierPath(roundedRect: rect, cornerRadius: 7)
             palette.labelFill.setFill()
             shape.fill()
@@ -587,7 +742,7 @@ enum VFRMapLayer {
         let shapes = mapView.overlays.filter { $0 is VFRProcedureShape }
         let scaled = shapes.filter { ($0 as? VFRProcedureShape)?.isScaled == true }
         let fixed = shapes.filter { ($0 as? VFRProcedureShape)?.isScaled != true }
-        let wanted = Set(content.items.map(\.drawKey))
+        let wanted = Set(content.items.map(\.drawKey)).union(content.approach.map(\.drawKey))
         let staleFixed = fixed.filter { paletteChanged || !wanted.contains(key($0)) }
         // What is built for the zoom, all again for a new zoom or palette; otherwise what went.
         let staleScaled = zoomChanged || paletteChanged ? scaled : scaled.filter { !wanted.contains(key($0)) }
@@ -604,6 +759,14 @@ enum VFRMapLayer {
                 for overlay in scaledOverlays(for: item, zoom: zoom) { insert(overlay, on: mapView) }
             }
         }
+        for field in content.approach {
+            if !fixedDrawn.contains(field.drawKey) {
+                for overlay in approachOverlays(for: field) { insert(overlay, on: mapView) }
+            }
+            if let zoom, !scaledDrawn.contains(field.drawKey) {
+                for overlay in approachScaledOverlays(for: field, zoom: zoom) { insert(overlay, on: mapView) }
+            }
+        }
 
         guard contentChanged else { return }
         let labels = mapView.annotations.compactMap { $0 as? VFRProcedureAnnotation }
@@ -615,6 +778,90 @@ enum VFRMapLayer {
             let added = content.items.filter { !shown.contains($0.labelKey) }.map(VFRProcedureAnnotation.init)
             if !added.isEmpty { mapView.addAnnotations(added) }
         }
+
+        // The approach view's runway numbers and parachutes.
+        let approachLabels = mapView.annotations.compactMap { $0 as? VFRApproachAnnotation }
+        let wantedApproach = content.approach.flatMap(VFRApproachAnnotation.annotations(for:))
+        let wantedApproachKeys = Set(wantedApproach.map(\.labelKey))
+        let staleApproach = approachLabels.filter { paletteChanged || !wantedApproachKeys.contains($0.labelKey) }
+        if !staleApproach.isEmpty { mapView.removeAnnotations(staleApproach) }
+        let approachShown = Set(approachLabels.map(\.labelKey)).subtracting(staleApproach.map(\.labelKey))
+        let approachAdded = wantedApproach.filter { !approachShown.contains($0.labelKey) }
+        if !approachAdded.isEmpty { mapView.addAnnotations(approachAdded) }
+    }
+
+    /// Turns the circuits' altitude pills along their downwind for the map's heading (track up turns
+    /// the map under them), outside the circuit and upright. Cheap: a handful of labels. Called after
+    /// every sync and when the map's region or heading changed.
+    static func orientLabels(on mapView: MKMapView, palette: VFRMapPalette) {
+        for label in mapView.annotations.compactMap({ $0 as? VFRProcedureAnnotation }) {
+            guard let view = mapView.view(for: label) else { continue }
+            orient(view, label: label, heading: mapView.camera.heading, palette: palette)
+        }
+    }
+
+    /// One pill: its image (above or below the line) and its turn.
+    static func orient(_ view: MKAnnotationView, label: VFRProcedureAnnotation, heading: CLLocationDirection,
+                       palette: VFRMapPalette) {
+        guard case .altitude(let leg, let outsideLeft) = label.item.labelStyle, leg.count == 2 else { return }
+        let turn = labelTurn(leg: leg, outsideLeft: outsideLeft, heading: heading)
+        view.image = VFRProcedureLabelImage.sideImage(text: label.item.labelText, above: turn.above, palette: palette)
+        view.transform = CGAffineTransform(rotationAngle: turn.angle)
+    }
+
+    /// The pill's turn on screen (radians, clockwise, between −90° and 90° so it reads upright) for a
+    /// leg drawn on a map turned to `heading`, and whether it goes above the line in its own frame:
+    /// above when the circuit's outside is on the leg's left, unless the pill was turned over.
+    nonisolated static func labelTurn(leg: [VFRCoordinate], outsideLeft: Bool,
+                                      heading: CLLocationDirection) -> (angle: CGFloat, above: Bool) {
+        let a = MKMapPoint(leg[0].coordinate), b = MKMapPoint(leg[1].coordinate)
+        var angle = atan2(b.y - a.y, b.x - a.x) - heading * .pi / 180
+        while angle > .pi { angle -= 2 * .pi }
+        while angle <= -.pi { angle += 2 * .pi }
+        var turnedOver = false
+        if angle > .pi / 2 { angle -= .pi; turnedOver = true } else if angle <= -.pi / 2 { angle += .pi; turnedOver = true }
+        return (CGFloat(angle), outsideLeft != turnedOver)
+    }
+
+    /// The approach view's fixed shape: the fade round the field.
+    static func approachOverlays(for field: VFRApproachField) -> [MKOverlay] {
+        let fade = VFRFadeOverlay(center: field.reference.coordinate, radiusMeters: VFRApproachField.fadeRadiusNM * 1852)
+        fade.procedureId = "approach:\(field.ident)"
+        fade.drawKey = field.drawKey
+        return [fade]
+    }
+
+    /// What the approach view builds for the zoom: the extended centrelines' dashes, and the circuit's
+    /// direction arrowheads for the runway in use.
+    static func approachScaledOverlays(for field: VFRApproachField, zoom: Zoom) -> [MKOverlay] {
+        var overlays: [MKOverlay] = []
+        let reach = VFRApproachField.centrelineNM * 1852
+        for runway in field.runways {
+            let a = runway.first.threshold, b = runway.second.threshold
+            let outA = VFRSectorGeometry.offset(a, bearing: VFRSectorGeometry.bearing(b, a), meters: reach)
+            let outB = VFRSectorGeometry.offset(b, bearing: VFRSectorGeometry.bearing(a, b), meters: reach)
+            let pieces = dashes(along: [outA.coordinate, outB.coordinate], pattern: VFRLineStyle.centreline.dash, zoom: zoom)
+            guard !pieces.isEmpty else { continue }
+            let line = VFRDashOverlay(pieces.map { MKPolyline(coordinates: $0, count: $0.count) })
+            line.procedureId = "approach:\(field.ident)"
+            line.drawKey = field.drawKey
+            line.role = .centreline
+            line.style = VFRLineStyle.centreline
+            overlays.append(line)
+        }
+        let length = arrowheadPoints * 1.1 * zoom.metersPerPoint
+        for arrow in field.arrows {
+            let tip = VFRSectorGeometry.offset(arrow.at, bearing: arrow.bearing, meters: length / 2)
+            let from = VFRSectorGeometry.offset(arrow.at, bearing: arrow.bearing + 180, meters: length / 2)
+            guard let triangle = arrowhead(tip: tip, from: from, lengthMeters: length) else { continue }
+            let head = VFRRouteOverlay(coordinates: triangle, count: triangle.count)
+            head.procedureId = "approach:\(field.ident)"
+            head.drawKey = field.drawKey
+            head.kind = .circuit
+            head.onCircuit = true
+            overlays.append(head)
+        }
+        return overlays
     }
 
     /// What doesn't depend on the zoom: the sectors' fills and the noise areas' outlines, and a solid
@@ -622,7 +869,7 @@ enum VFRMapLayer {
     static func overlays(for item: VFRMapItem) -> [MKOverlay] {
         let procedure = item.procedure
         var overlays: [MKOverlay] = procedure.areas.map { area in
-            let ring = area.polygon.map(\.coordinate)
+            let ring = (area.kind == .noise ? area.polygon : VFRSectorGeometry.rounded(area.polygon)).map(\.coordinate)
             let sector = VFRSectorOverlay(coordinates: ring, count: ring.count)
             sector.procedureId = procedure.id
             sector.drawKey = item.drawKey
@@ -641,6 +888,18 @@ enum VFRMapLayer {
                 circuit.categories = procedure.categories
                 circuit.isApproximate = procedure.isApproximate
                 overlays.append(circuit)
+            }
+        } else if procedure.kind != .circuit, style.dash.isEmpty, item.line.count >= 2 {
+            let line = item.line.map(\.coordinate)
+            for stroke in [VFRStroke.casing, .core] {
+                let route = VFRRouteLineOverlay(coordinates: line, count: line.count)
+                route.procedureId = procedure.id
+                route.drawKey = item.drawKey
+                route.stroke = stroke
+                route.kind = procedure.kind
+                route.categories = procedure.categories
+                route.isApproximate = procedure.isApproximate
+                overlays.append(route)
             }
         }
         return overlays
@@ -670,7 +929,8 @@ enum VFRMapLayer {
                     overlays.append(hatch)
                 }
             } else {
-                let outline = dashes(along: ring + ring.prefix(1), pattern: VFRLineStyle.sectorOutline.dash, zoom: zoom)
+                let rounded = VFRSectorGeometry.rounded(area.polygon).map(\.coordinate)
+                let outline = dashes(along: rounded + rounded.prefix(1), pattern: VFRLineStyle.sectorOutline.dash, zoom: zoom)
                 if let dashed = dashOverlay(outline, role: .sectorOutline, stroke: .core, style: VFRLineStyle.sectorOutline) {
                     overlays.append(dashed)
                 }
@@ -679,7 +939,7 @@ enum VFRMapLayer {
         let style = VFRLineStyle.style(kind: procedure.kind, categories: procedure.categories,
                                        approximate: procedure.isApproximate)
         if !style.dash.isEmpty {
-            let pieces = dashes(along: procedure.line.map(\.coordinate), pattern: style.dash, zoom: zoom)
+            let pieces = dashes(along: item.line.map(\.coordinate), pattern: style.dash, zoom: zoom)
             let role: VFRDashOverlay.Role = procedure.kind == .circuit ? .circuit : .route
             for stroke in [VFRStroke.casing, .core] {
                 if let dashed = dashOverlay(pieces, role: role, stroke: stroke, style: style) { overlays.append(dashed) }
@@ -761,27 +1021,24 @@ enum VFRMapLayer {
         return ticks
     }
 
-    /// A route's arrowhead: a chevron at the end `item.arrow` says, 12 pt long at `zoom`, its casing
-    /// under its core. None for a circuit.
+    /// A route's arrowhead: a filled triangle at the end `item.arrow` says (where an arrival meets the
+    /// circuit), 12 pt long at `zoom`. None for a circuit.
     static func arrowheadOverlays(for item: VFRMapItem, zoom: Zoom) -> [MKOverlay] {
         let procedure = item.procedure
-        guard let chevron = chevron(for: item, lengthMeters: arrowheadPoints * zoom.metersPerPoint) else { return [] }
-        return [VFRStroke.casing, .core].map { stroke in
-            let arrow = VFRRouteOverlay(coordinates: chevron, count: chevron.count)
-            arrow.procedureId = procedure.id
-            arrow.drawKey = item.drawKey
-            arrow.stroke = stroke
-            arrow.kind = procedure.kind
-            arrow.categories = procedure.categories
-            arrow.isApproximate = procedure.isApproximate
-            return arrow
-        }
+        guard let triangle = chevron(for: item, lengthMeters: arrowheadPoints * zoom.metersPerPoint) else { return [] }
+        let arrow = VFRRouteOverlay(coordinates: triangle, count: triangle.count)
+        arrow.procedureId = procedure.id
+        arrow.drawKey = item.drawKey
+        arrow.kind = procedure.kind
+        arrow.categories = procedure.categories
+        arrow.isApproximate = procedure.isApproximate
+        return [arrow]
     }
 
-    /// Wing, tip, wing: the tip on the line's end, the wings 30° either side of the line, back along its
-    /// last (or first) segment.
+    /// Wing, tip, wing: the tip on the drawn line's end, the wings 25° either side of the line, back
+    /// along its last (or first) segment; the map fills the triangle.
     static func chevron(for item: VFRMapItem, lengthMeters: Double) -> [CLLocationCoordinate2D]? {
-        let line = item.procedure.line
+        let line = item.line
         let tip: VFRCoordinate, from: VFRCoordinate?
         switch item.arrow {
         case .none: return nil
@@ -792,7 +1049,13 @@ enum VFRMapLayer {
             guard let first = line.first else { return nil }
             (tip, from) = (first, line.dropFirst().first { $0 != first })
         }
-        guard let from, lengthMeters > 0, lengthMeters.isFinite else { return nil }
+        guard let from else { return nil }
+        return arrowhead(tip: tip, from: from, lengthMeters: lengthMeters)
+    }
+
+    /// Wing, tip, wing for an arrowhead at `tip`, pointing away from `from`.
+    static func arrowhead(tip: VFRCoordinate, from: VFRCoordinate, lengthMeters: Double) -> [CLLocationCoordinate2D]? {
+        guard lengthMeters > 0, lengthMeters.isFinite else { return nil }
         let tipPoint = MKMapPoint(tip.coordinate)
         let fromPoint = MKMapPoint(from.coordinate)
         let dx = tipPoint.x - fromPoint.x, dy = tipPoint.y - fromPoint.y
@@ -800,7 +1063,7 @@ enum VFRMapLayer {
         guard length > 0 else { return nil }
         let back = lengthMeters * MKMapPointsPerMeterAtLatitude(tip.latitude)
         let (ux, uy) = (dx / length, dy / length)
-        let angle = Double.pi / 6
+        let angle = 25 * Double.pi / 180
         func wing(_ sign: Double) -> CLLocationCoordinate2D {
             let c = cos(angle), s = sin(angle) * sign
             let wx = -(ux * c - uy * s), wy = -(ux * s + uy * c)
@@ -809,23 +1072,28 @@ enum VFRMapLayer {
         return [wing(1), tip.coordinate, wing(-1)]
     }
 
-    /// Where an overlay goes among the procedures', bottom to top: the sectors (fill, outline, hatch);
-    /// the routes' casings, their cores, their arrowheads; the circuits' casings, then their cores. All
+    /// Where an overlay goes among the procedures', bottom to top: the approach view's fade; the sectors
+    /// (fill, outline, hatch) and the extended centrelines; the routes' casings, their cores, their
+    /// arrowheads; the circuits' casings, then their cores; the circuits' direction arrowheads. All
     /// casings under all cores of a tier, so a casing never cuts another line where they cross; the
     /// circuits over the routes, which often join them on the crosswind or downwind (their dashes over
     /// the circuit's solid line read as one dash-dot line).
     static func tier(of overlay: MKOverlay) -> Int? {
         switch overlay {
+        case is VFRFadeOverlay:
+            return -1
         case is VFRSectorOverlay:
             return 0
         case let dash as VFRDashOverlay:
             switch dash.role {
-            case .sectorOutline, .hatch: return 1
+            case .sectorOutline, .hatch, .centreline: return 1
             case .route: return dash.stroke == .casing ? 2 : 3
             case .circuit: return dash.stroke == .casing ? 6 : 7
             }
+        case let route as VFRRouteLineOverlay:
+            return route.stroke == .casing ? 2 : 3
         case let arrow as VFRRouteOverlay:
-            return arrow.stroke == .casing ? 4 : 5
+            return arrow.onCircuit ? 8 : 5
         case let circuit as VFRCircuitOverlay:
             return circuit.stroke == .casing ? 6 : 7
         default:
@@ -861,10 +1129,21 @@ enum VFRMapLayer {
             return renderer
         case let arrow as VFRRouteOverlay:
             let style = VFRLineStyle.style(kind: arrow.kind, categories: arrow.categories,
-                                           approximate: arrow.isApproximate).arrowhead
-            let renderer = MKPolylineRenderer(polyline: arrow)
-            configure(renderer, style: style, stroke: arrow.stroke, palette: palette, dashed: false)
+                                           approximate: arrow.isApproximate)
+            let renderer = MKPolygonRenderer(polygon: arrow)
+            renderer.fillColor = palette.procedure.withAlphaComponent(style.alpha)
+            renderer.strokeColor = palette.casing
+            renderer.lineWidth = 1.4
+            renderer.lineJoin = .round
             return renderer
+        case let route as VFRRouteLineOverlay:
+            let style = VFRLineStyle.style(kind: route.kind, categories: route.categories,
+                                           approximate: route.isApproximate)
+            let renderer = MKPolylineRenderer(polyline: route)
+            configure(renderer, style: style, stroke: route.stroke, palette: palette, dashed: false)
+            return renderer
+        case let fade as VFRFadeOverlay:
+            return VFRFadeRenderer(overlay: fade, color: palette.fade)
         case let dash as VFRDashOverlay:
             let renderer = MKMultiPolylineRenderer(multiPolyline: dash)
             switch dash.role {
@@ -874,6 +1153,10 @@ enum VFRMapLayer {
                 renderer.lineCap = .butt
             case .hatch:
                 renderer.strokeColor = palette.noise
+                renderer.lineWidth = dash.style.coreWidth
+                renderer.lineCap = .butt
+            case .centreline:
+                renderer.strokeColor = palette.procedure.withAlphaComponent(dash.style.alpha)
                 renderer.lineWidth = dash.style.coreWidth
                 renderer.lineCap = .butt
             case .route, .circuit:
@@ -919,18 +1202,32 @@ enum VFRMapLayer {
     static func annotationView(for annotation: MKAnnotation, on mapView: MKMapView,
                                palette: VFRMapPalette, metrics: CalloutMetrics = .ground,
                                openChart: ((URL) -> Void)? = nil) -> MKAnnotationView? {
+        if let approach = annotation as? VFRApproachAnnotation {
+            return approachView(for: approach, on: mapView, palette: palette)
+        }
         guard let label = annotation as? VFRProcedureAnnotation else { return nil }
         let id = "VFRProcedureLabel"
         let view = mapView.dequeueReusableAnnotationView(withIdentifier: id)
             ?? MKAnnotationView(annotation: label, reuseIdentifier: id)
         view.annotation = label
         let kind = label.item.procedure.kind
-        view.image = VFRProcedureLabelImage.image(text: label.item.labelText, kind: kind, palette: palette)
+        view.transform = .identity
         view.centerOffset = .zero
         view.canShowCallout = true
-        // Labels give way to each other and to the markers that must show: MapKit hides the colliding ones.
-        view.displayPriority = .defaultHigh
         view.collisionMode = .rectangle
+        switch label.item.labelStyle {
+        case .badge:
+            view.image = VFRApproachImages.badge(label.item.labelText, palette: palette)
+            // A sector's letter and a circuit's altitude are why the layer is on: never hidden.
+            view.displayPriority = .required
+        case .altitude:
+            view.displayPriority = .required
+            orient(view, label: label, heading: mapView.camera.heading, palette: palette)
+        case .name:
+            view.image = VFRProcedureLabelImage.image(text: label.item.labelText, kind: kind, palette: palette)
+            // Labels give way to each other and to the markers that must show: MapKit hides the colliding ones.
+            view.displayPriority = .defaultHigh
+        }
         view.detailCalloutAccessoryView = VFRProcedureCallout.detailView(for: label.item, at: label.coordinate,
                                                                          palette: palette, metrics: metrics,
                                                                          openChart: openChart)
@@ -939,6 +1236,29 @@ enum VFRMapLayer {
         view.isAccessibilityElement = true
         view.accessibilityLabel = VFRProcedureCallout.summary(for: label.item)
         view.accessibilityTraits = .button
+        return view
+    }
+
+    /// A runway number or a parachute: no callout, never hidden.
+    static func approachView(for annotation: VFRApproachAnnotation, on mapView: MKMapView,
+                             palette: VFRMapPalette) -> MKAnnotationView {
+        let id = "VFRApproachLabel"
+        let view = mapView.dequeueReusableAnnotationView(withIdentifier: id)
+            ?? MKAnnotationView(annotation: annotation, reuseIdentifier: id)
+        view.annotation = annotation
+        view.centerOffset = .zero
+        view.canShowCallout = false
+        view.displayPriority = .required
+        view.collisionMode = .rectangle
+        view.isAccessibilityElement = true
+        switch annotation.kind {
+        case .runway(let ident, let inUse):
+            view.image = VFRApproachImages.runway(ident, inUse: inUse, palette: palette)
+            view.accessibilityLabel = inUse ? L10n.VFRMap.runwayInUse(ident) : L10n.VFRMap.runway(ident)
+        case .parachute:
+            view.image = VFRApproachImages.parachute(palette: palette)
+            view.accessibilityLabel = L10n.VFRMap.parachuting
+        }
         return view
     }
 }

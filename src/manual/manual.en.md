@@ -437,8 +437,8 @@ When **Log Engine Hours** is on (**Settings › Checklist & Flight**), the check
 
 - **The DEST line**: **DEST** and the destination, then the distance still to fly, the ETE and the ETA over the destination, and how far ahead of the plan (▲, green) or behind it (▼, amber) you are, in whole minutes (±0 on time). On the iPad it is one line; on the iPhone, two ("71 NM · 41 min · ETA 11:58" under the destination).
 - **The route to scale**, under it: a bar as long as the route, filled as far as you have flown, with a notch at each waypoint where it lies along the route (the next one magenta and taller), and the aircraft where it is.
-- **LEGS** and **RADIO**, in one scroll that opens on the leg being flown: side by side on the iPad, one above the other on the iPhone. Each leg, on the row of the waypoint it leads to, gives its planned time, the time flown (the leg timer on the leg being flown; from one time over to the next on a leg flown) and how far ahead (▲) or over (▼) you are. RADIO lists every frequency in the order you will use it: NOW and NEXT, tagged; the aerodrome you are at, with its ATIS; the diversion field; the stations of the route from the waypoint you are flying to onward (the aerodromes passed are dropped); the area FIS; and the control zones within 25 NM. Without a route, RADIO takes the whole page.
-- **Emergency**, 121.500, under the scroll, always whole.
+- **LEGS** and **RADIO**, each scrolling on its own: side by side on the iPad; on the iPhone, LEGS over at most half the page (only its rows on a short route) and RADIO under it. LEGS opens on the leg being flown and brings it back into view at each MARK. Each leg, on the row of the waypoint it leads to, gives its planned time, the time flown (the leg timer on the leg being flown; from one time over to the next on a leg flown) and how far ahead (▲) or over (▼) you are. RADIO lists every frequency in the order you will use it: NOW and NEXT, tagged; the aerodrome you are at, with its ATIS; the diversion field; the stations of the route from the waypoint you are flying to onward (the aerodromes passed are dropped); the FIS where you are, then that of each area the way ahead enters, in the order it enters them (Zürich Info, then Geneva Info from LSZQ to LSGE); and the control zones within 25 NM. Without a route, RADIO takes the whole page.
+- **Emergency**, 121.500, under both, always whole.
 
 The DEST line's ETE is NEXT's (the leg being flown, at the current ground speed) plus the planned EETs of the legs after it, to overhead the destination without the arrival allowance; ▲ or ▼ compares the ETA with the plan's time over the destination. Below 30 kt or without a GPS position, there is no ETE, ETA or ▲/▼: the line gives the plan's time over the destination instead ("ETO 11:55"). Once the destination is marked, it keeps the final ▲ or ▼.
 
@@ -509,7 +509,7 @@ If none of the route is on screen, a pill says where it is ("Route 12 NM · 045�
 
 **Map** (the layers button on the Cockpit's MAP) opens everything about how the map looks, in one sheet:
 
-- **Base chart**: **ICAO chart** (the Swiss aeronautical chart 1:500,000, which becomes the glider chart, the Segelflugkarte 1:300,000, when you zoom in, unless **Force ICAO Chart Layer** is on), **National map**, **SWISSIMAGE aerial**, **Satellite** and **Standard map**. The Swiss layers are available within and near Switzerland. In offline mode, the cached ICAO chart is the only one.
+- **Base chart**: **ICAO chart** (the Swiss aeronautical chart 1:500,000, which becomes the glider chart, the Segelflugkarte 1:300,000, when you zoom in, unless **Force ICAO Chart Layer** is on), **National map**, **SWISSIMAGE aerial**, **Satellite** and **Standard map**. The Swiss layers are available within and near Switzerland. In offline mode, the cached ICAO chart is the only one. The chart you pick is kept on the device: the map opens on it, in the Cockpit and in Plan › Map.
 - **Presets**: **Cruise** shows airspace and reporting points; **Approach** adds airports, obstacles, the traffic circuits and the arrival and departure routes; **Everything** shows every marker, and the circuits and routes too. Airspace stays on in all three.
 - **Airspace & charts**: **Airspace** (the OpenAIP airspace, drawn as a vector overlay) and **Map tiles** (OpenAIP's raster tiles, off by default). When the airspace is on and no data is downloaded, the sheet says so and offers **Download data…**.
 - **Map markers**, from the downloaded OpenAIP data (see [Aeronautical Data and Storage](#aeronautical-data-and-storage)): **Airports** (with frequencies on tap), **Navaids** (VOR, DME, NDB), **Reporting points** and **Obstacles** (towers, masts, wind turbines; off by default, they are dense). **Show all** or **Hide all**.
@@ -549,18 +549,19 @@ In Plan › Map, the controls are a labelled row, at the top of the chart on the
 At the top left of the Cockpit's MAP, one slot says the one thing that needs you, and stays dark otherwise. It shows one state at a time, the most urgent first, and a tap opens what it is about:
 
 - **UNDO**: for six seconds after a MARK, a leg-timer reset, a waypoint marked automatically, or a check or FREDA recorded with one tap, the message and **UNDO**, with its time running out under the word.
-- **GPS DEGRADED** (amber) or **NO GPS** (red), by the header's rule (see [GPS Indicators](#gps-indicators)). A tap opens the GPS Status drawer.
+- **NO GPS** (red), by the header's rule (see [GPS Indicators](#gps-indicators)). A tap opens the GPS Status drawer.
 - **OFF ROUTE 1.2 NM** (amber), see below. A tap frames the aircraft and the leg.
 - **CHART OFFLINE** (amber): the chart on screen can neither be fetched (offline mode, or no network) nor drawn from the offline cache (another layer, a zoom the cache does not hold, or outside Switzerland). A tap says where the chart comes from.
 - **TELL FIS** (amber), over "Diverting to LSGC": while you divert with an ATC flight plan filed. A tap opens Divert.
 - **SIGMET** (amber), with the hazard ("SEV TURB · on route"), when one is on your path. A tap opens the SIGMET sheet; **Hazards (2)** in More lists every one in range.
 - **BRIEFING** (cyan), in Before Departure and in Descent. A tap opens the briefing.
+- **GPS DEGRADED** (amber), by the same rule, last: it shows only when nothing above it does (the header says it all along). A tap opens the GPS Status drawer.
 
 OFF ROUTE shows when the aircraft is more than 1.0 NM off the route it is flying (the leg flown, the one just flown and those still to fly, so a corner cut or a MARK pressed early is still on the route), and clears below 0.7 NM. It stays dark on the ground, in circuits, while you divert, without good GPS, and within 5 NM of the route's departure and destination, where the circuit and its joining are flown. After the take-off, a direct to a waypoint, a resumed leg, an UNDO or the route resumed after a diversion, it waits until the aircraft has been on the route once: an aircraft that never joins its route is never told.
 
 ### Frequencies
 
-In the Cockpit, NOW and NEXT are in the read band (see [NOW and NEXT](#now-and-next)), and every frequency is on ROUTE. In Plan › Map, NOW and NEXT run along the bottom of the map, by the same rule. Tap them for the legs and the **RADIO FREQUENCIES**: NOW and NEXT, **All frequencies** along the way (the nearest aerodrome, the route's waypoints, the area FIS, nearby control zones), and the emergency frequency, 121.500, always at the foot.
+In the Cockpit, NOW and NEXT are in the read band (see [NOW and NEXT](#now-and-next)), and every frequency is on ROUTE. In Plan › Map, NOW and NEXT run along the bottom of the map, by the same rule. Tap them for the legs and the **RADIO FREQUENCIES**: NOW and NEXT, **All frequencies** along the way (the nearest aerodrome, the route's waypoints, the FIS of the areas on the way, nearby control zones), and the emergency frequency, 121.500, always at the foot.
 
 ### Leg Timer and MARK
 

@@ -15,16 +15,27 @@ struct OfficialChartLink: Equatable, Sendable {
     /// Behind a login (SkyBriefing's VFR Manual also wants a subscription): said on the button, so a
     /// tap that lands on a sign-in page is no surprise.
     let requiresLogin: Bool
+    /// Whether that login is a subscription (SkyBriefing, Croatia Control) rather than a free sign-in
+    /// (BULATSA's B-FLIP): the button says which.
+    var isSubscription = true
 
     /// "Official chart", or "Official chart · SkyBriefing (subscription)".
     var title: String {
-        requiresLogin
-            ? "\(L10n.OfficialChart.title) · \(L10n.OfficialChart.subscription(publisher))"
-            : L10n.OfficialChart.title
+        guard let note else { return L10n.OfficialChart.title }
+        return "\(L10n.OfficialChart.title) · \(note)"
     }
 
-    /// The subscription note alone, for a button that has room for a second line.
-    var note: String? { requiresLogin ? L10n.OfficialChart.subscription(publisher) : nil }
+    /// The login note alone, for a button that has room for a second line.
+    var note: String? {
+        guard requiresLogin else { return nil }
+        return isSubscription ? L10n.OfficialChart.subscription(publisher) : L10n.OfficialChart.signIn(publisher)
+    }
+
+    /// The login note in one word, where the publisher's name doesn't fit.
+    var shortNote: String? {
+        guard requiresLogin else { return nil }
+        return isSubscription ? L10n.OfficialChart.subscriptionShort : L10n.OfficialChart.signInShort
+    }
 
     /// What VoiceOver adds: "Opens SkyBriefing in the browser".
     var accessibilityHint: String { L10n.OfficialChart.opens(publisher) }
@@ -53,6 +64,15 @@ struct OfficialChartRegistry: Codable, Equatable, Sendable {
     ///   that have a VAC there (FR; `codes` since the registry of 2 October 2026, optional);
     /// - `skybriefing-vfr-manual`: one `url` for every aerodrome, `login` (CH);
     /// - `eaip`: one `url`, the eAIP's start page (AT).
+    /// The generic kinds, for every country added since (6 October 2026), so the next one needs no new
+    /// code, only its publisher's domain below:
+    /// - `pages`: `pages[ICAO]`, the job's link from the publisher's own index: a path under `base`, or a
+    ///   whole https URL when a country's charts live on two hosts (a VFR manual and the AIP);
+    /// - `template`: `template` with `{icao}`, for the `codes` listed (else the aerodrome types that have
+    ///   one), optionally in the folder of AIRAC `airac`;
+    /// - `url`: one `url` for every aerodrome of the country (a start page).
+    /// Any kind can carry `until`: when its links stop working (the publisher's next amendment takes the
+    /// folder down), after which they are not offered and the registry is fetched again.
     struct Country: Codable, Equatable, Sendable {
         let kind: String
         var base: String?
@@ -63,9 +83,14 @@ struct OfficialChartRegistry: Codable, Equatable, Sendable {
         var login: Bool?
         /// The codes that have a chart behind the template (FR: SIA's own list of the atlas).
         var codes: [String]?
+        /// With `login`: "sign-in" for a free one; anything else, or nothing, is a subscription.
+        var access: String?
+        /// ISO 8601: the links stop working then (the next amendment's date, when the job knows it).
+        var until: String?
 
         init(kind: String, base: String? = nil, pages: [String: String]? = nil, template: String? = nil,
-             airac: String? = nil, url: String? = nil, login: Bool? = nil, codes: [String]? = nil) {
+             airac: String? = nil, url: String? = nil, login: Bool? = nil, codes: [String]? = nil,
+             until: String? = nil, access: String? = nil) {
             self.kind = kind
             self.base = base
             self.pages = pages
@@ -74,6 +99,8 @@ struct OfficialChartRegistry: Codable, Equatable, Sendable {
             self.url = url
             self.login = login
             self.codes = codes
+            self.until = until
+            self.access = access
         }
 
         init(from decoder: Decoder) throws {
@@ -86,6 +113,14 @@ struct OfficialChartRegistry: Codable, Equatable, Sendable {
             url = try? container.decodeIfPresent(String.self, forKey: .url)
             login = try? container.decodeIfPresent(Bool.self, forKey: .login)
             codes = try? container.decodeIfPresent([String].self, forKey: .codes)
+            until = try? container.decodeIfPresent(String.self, forKey: .until)
+            access = try? container.decodeIfPresent(String.self, forKey: .access)
+        }
+
+        /// Whether the links are past their `until` (an unreadable one counts as no limit).
+        func hasExpired(now: Date) -> Bool {
+            guard let until, let date = OfficialChartRegistry.parseDate(until) else { return false }
+            return now >= date
         }
     }
 
@@ -94,23 +129,50 @@ struct OfficialChartRegistry: Codable, Equatable, Sendable {
         static let siaVAC = "sia-vac"
         static let skyBriefingVFRManual = "skybriefing-vfr-manual"
         static let eAIP = "eaip"
+        static let pages = "pages"
+        static let template = "template"
+        static let url = "url"
     }
 
-    /// The ICAO nationality letters of each country's AIP. DE needs none (its page table names every
-    /// aerodrome); a country the registry adds later needs an app release, which is also when its
-    /// publisher gets a host below.
-    static let icaoPrefixes: [String: [String]] = ["AT": ["LO"], "CH": ["LS"], "DE": ["ED", "ET"], "FR": ["LF"]]
-
-    /// The publisher's domain per country: a link anywhere else is not opened. The registry is ours,
-    /// but a link that asks for a SkyBriefing login is exactly what a tampered file would forge.
-    static let publisherDomains: [String: [String]] = [
-        "AT": ["austrocontrol.at"],
-        "CH": ["skybriefing.com", "skyguide.ch"],
-        "DE": ["dfs.de"],
-        "FR": ["aviation-civile.gouv.fr"],
+    /// The ICAO nationality letters of each country's AIP, for the kinds that serve a whole country
+    /// (`template`, `url`); a `pages` table names its aerodromes. A country the registry adds later
+    /// needs an app release, which is also when its publisher gets a host below.
+    static let icaoPrefixes: [String: [String]] = [
+        "AT": ["LO"], "BG": ["LB"], "CH": ["LS"], "CZ": ["LK"], "DE": ["ED", "ET"], "DK": ["EK"], "FI": ["EF"],
+        "FR": ["LF"], "GR": ["LG"], "HR": ["LD"], "HU": ["LH"], "NL": ["EH"], "PL": ["EP"], "RO": ["LR"],
+        "SE": ["ES"], "SI": ["LJ"], "SK": ["LZ"], "ZA": ["FA"],
     ]
 
-    static let publisherNames = ["AT": "Austro Control", "CH": "SkyBriefing", "DE": "DFS", "FR": "SIA"]
+    /// The publisher's domain per country: a link anywhere else is not opened. The registry is ours,
+    /// but a link that asks for a SkyBriefing login is exactly what a tampered file would forge. South
+    /// Africa's charts are on a storage host of a shared cloud domain: that one host, never the domain.
+    static let publisherDomains: [String: [String]] = [
+        "AT": ["austrocontrol.at"],
+        "BG": ["bulatsa.com"],
+        "CH": ["skybriefing.com", "skyguide.ch"],
+        "CZ": ["aim.rlp.cz"],
+        "DE": ["dfs.de"],
+        "DK": ["naviair.dk"],
+        "FI": ["ais.fi"],
+        "FR": ["aviation-civile.gouv.fr"],
+        "GR": ["hasp.gov.gr"],
+        "HR": ["crocontrol.hr"],
+        "HU": ["hungarocontrol.hu"],
+        "NL": ["lvnl.nl"],
+        "PL": ["pansa.pl"],
+        "RO": ["aisro.ro"],
+        "SE": ["lfv.se"],
+        "SI": ["sloveniacontrol.si"],
+        "SK": ["lps.sk"],
+        "ZA": ["caasanwebsitestorage.blob.core.windows.net"],
+    ]
+
+    static let publisherNames = [
+        "AT": "Austro Control", "BG": "BULATSA", "CH": "SkyBriefing", "CZ": "ANS CR", "DE": "DFS", "DK": "Naviair",
+        "FI": "Fintraffic", "FR": "SIA", "GR": "HASP", "HR": "Croatia Control", "HU": "HungaroControl",
+        "NL": "LVNL", "PL": "PANSA", "RO": "ROMATSA", "SE": "LFV", "SI": "Slovenia Control", "SK": "LPS SR",
+        "ZA": "SACAA",
+    ]
 
     init(v: Int = OfficialChartRegistry.schema, generated: String? = nil, countries: [String: Country]) {
         self.v = v
@@ -158,13 +220,15 @@ struct OfficialChartRegistry: Codable, Equatable, Sendable {
             guard let url = url(of: entry, country: country, code: code, type: type, now: now) else { continue }
             return OfficialChartLink(icao: code, country: country, url: url,
                                      publisher: Self.publisherNames[country] ?? url.host ?? country,
-                                     requiresLogin: entry.login ?? (entry.kind == Kind.skyBriefingVFRManual))
+                                     requiresLogin: entry.login ?? (entry.kind == Kind.skyBriefingVFRManual),
+                                     isSubscription: entry.access != "sign-in")
         }
         return nil
     }
 
     private func url(of entry: Country, country: String, code: String, type: AirportType?, now: Date) -> URL? {
         let prefixes = Self.icaoPrefixes[country] ?? []
+        guard !entry.hasExpired(now: now) else { return nil }
         switch entry.kind {
         case Kind.dfsBasicVFR:
             guard let base = entry.base, let page = entry.pages?[code], Self.isPageId(page) else { return nil }
@@ -174,9 +238,22 @@ struct OfficialChartRegistry: Codable, Equatable, Sendable {
                   let template = entry.template, template.contains("{icao}"),
                   Self.folderIsCurrent(airac: entry.airac, generated: generated, now: now) else { return nil }
             return Self.publisherURL(template.replacingOccurrences(of: "{icao}", with: code), country: country)
-        case Kind.skyBriefingVFRManual, Kind.eAIP:
+        case Kind.skyBriefingVFRManual, Kind.eAIP, Kind.url:
             guard prefixes.contains(where: code.hasPrefix), let link = entry.url else { return nil }
             return Self.publisherURL(link, country: country)
+        case Kind.pages:
+            guard let page = entry.pages?[code] else { return nil }
+            if page.hasPrefix("https://") {
+                guard Self.isRelativePath(String(page.dropFirst("https://".count))) else { return nil }
+                return Self.publisherURL(page, country: country)
+            }
+            guard let base = entry.base, Self.isRelativePath(page) else { return nil }
+            return Self.publisherURL(base + page, country: country)
+        case Kind.template:
+            guard prefixes.contains(where: code.hasPrefix), Self.hasVAC(code, codes: entry.codes, type: type),
+                  let template = entry.template, template.contains("{icao}"),
+                  Self.folderIsCurrent(airac: entry.airac, generated: generated, now: now) else { return nil }
+            return Self.publisherURL(template.replacingOccurrences(of: "{icao}", with: code), country: country)
         default:
             return nil
         }
@@ -204,6 +281,15 @@ struct OfficialChartRegistry: Codable, Equatable, Sendable {
 
     static func isICAOCode(_ code: String) -> Bool {
         code.count == 4 && code.unicodeScalars.allSatisfy { ("A"..."Z").contains($0) }
+    }
+
+    /// A `pages` path the job read from a publisher's index: relative, without `..`, a scheme or a
+    /// query, in URL characters (spaces arrive encoded). It is only ever appended to its own `base`.
+    static func isRelativePath(_ path: String) -> Bool {
+        guard (1...512).contains(path.count), !path.hasPrefix("/"), !path.contains(".."), !path.contains("//"),
+              !path.contains("?"), !path.contains("#") else { return false }
+        let allowed = CharacterSet(charactersIn: "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-._~%/()")
+        return path.unicodeScalars.allSatisfy(allowed.contains)
     }
 
     /// A DFS page id is six hex digits; anything else could walk out of `base`.
@@ -304,17 +390,20 @@ final class OfficialChartService: ObservableObject {
 
     var isStale: Bool { Self.isStale(registry: registry, fetchedAt: lastFetch, now: now()) }
 
-    /// A week old, from a clock that has gone back, or from before the AIRAC cycle in force while it
-    /// names an older French folder (then at most once an hour, until the job publishes the new one).
+    /// A week old, from a clock that has gone back, or, at most once an hour until the job publishes the
+    /// new one, when a country's links have expired: a folder of an AIRAC cycle older than the one in
+    /// force (France, and any template that names its cycle), or a country past its `until`.
     nonisolated static func isStale(registry: OfficialChartRegistry?, fetchedAt: Date?, now: Date) -> Bool {
         guard let registry, let fetchedAt else { return true }
         let age = now.timeIntervalSince(fetchedAt)
         if age < 0 || age >= maxAge { return true }
-        let french = registry.countries.values.first { $0.kind == OfficialChartRegistry.Kind.siaVAC }
-        if let french, !OfficialChartRegistry.folderIsCurrent(airac: french.airac, generated: registry.generated, now: now) {
-            return age >= cycleRetry
+        let cycleKinds = [OfficialChartRegistry.Kind.siaVAC, OfficialChartRegistry.Kind.template]
+        let expired = registry.countries.values.contains { entry in
+            entry.hasExpired(now: now)
+                || (cycleKinds.contains(entry.kind)
+                    && !OfficialChartRegistry.folderIsCurrent(airac: entry.airac, generated: registry.generated, now: now))
         }
-        return false
+        return expired && age >= cycleRetry
     }
 
     /// Refresh when stale. Silent on failure.

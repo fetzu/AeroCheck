@@ -2769,7 +2769,7 @@ enum L10n {
     }
 
     /// An aerodrome's official chart, opened in the browser: DFS BasicVFR, the SIA VAC, SkyBriefing's
-    /// VFR Manual, Austro Control's eAIP. (6.2.0)
+    /// VFR Manual, Austro Control's eAIP, and 14 more countries' AIPs and VFR manuals. (6.2.0)
     enum OfficialChart {
         static let title = String(localized: "Official chart")
         /// A publisher behind a login: "SkyBriefing (subscription)".
@@ -2780,6 +2780,12 @@ enum L10n {
         static let short = String(localized: "Chart")
         /// Under "Chart" on the phone's Cockpit, where "SkyBriefing (subscription)" doesn't fit.
         static let subscriptionShort = String(localized: "Subscription")
+        /// A publisher behind a free sign-in, no subscription: "BULATSA (sign-in)".
+        static func signIn(_ publisher: String) -> String {
+            String(localized: "\(publisher) (sign-in)")
+        }
+        /// The short form, under "Chart" on the phone's Cockpit.
+        static let signInShort = String(localized: "Sign-in")
         /// VoiceOver's hint: "Opens SkyBriefing in the browser".
         static func opens(_ publisher: String) -> String {
             String(localized: "Opens \(publisher) in the browser")

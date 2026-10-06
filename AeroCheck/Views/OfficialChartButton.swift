@@ -71,7 +71,7 @@ final class OfficialChartControl: UIButton {
                        open: @escaping (URL) -> Void) -> OfficialChartControl {
         var configuration = UIButton.Configuration.tinted()
         configuration.title = metrics.sideBySide ? L10n.OfficialChart.short : L10n.OfficialChart.title
-        configuration.subtitle = metrics.sideBySide && link.requiresLogin ? L10n.OfficialChart.subscriptionShort : link.note
+        configuration.subtitle = metrics.sideBySide ? link.shortNote : link.note
         configuration.image = UIImage(systemName: link.symbolName)
         configuration.imagePadding = 6
         configuration.baseForegroundColor = tint

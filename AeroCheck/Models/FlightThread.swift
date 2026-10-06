@@ -320,6 +320,55 @@ struct FlightThread: Codable, Identifiable, Equatable, Sendable {
     }
 }
 
+// MARK: - Decoding files written by older builds
+
+// Written by hand, like `LandedElsewhere`'s: the synthesised decoder demands every key whose
+// property is not optional, default value or not, and a thread that fails to decode is not shown at
+// all. `ThreadTask.acknowledgedLegIds` (added 6 Sep 2026, review F13) did exactly that to the threads
+// written before it. Only the keys a thread or a task cannot exist without are required; every other
+// field takes its default when the file lacks it, so a field added later never needs this again.
+// In extensions, so the memberwise initialisers stay; encoding stays synthesised.
+
+extension ThreadTask {
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        id = try c.decodeIfPresent(UUID.self, forKey: .id) ?? UUID()
+        key = try c.decode(ThreadTaskKey.self, forKey: .key)
+        subject = try c.decodeIfPresent(String.self, forKey: .subject)
+        kind = try c.decode(ThreadTaskKind.self, forKey: .kind)
+        state = try c.decodeIfPresent(ThreadTaskState.self, forKey: .state) ?? .pending
+        completedAt = try c.decodeIfPresent(Date.self, forKey: .completedAt)
+        note = try c.decodeIfPresent(String.self, forKey: .note)
+        detail = try c.decodeIfPresent(String.self, forKey: .detail)
+        isUrgent = try c.decodeIfPresent(Bool.self, forKey: .isUrgent) ?? false
+        acknowledgedLegIds = try c.decodeIfPresent(Set<UUID>.self, forKey: .acknowledgedLegIds) ?? []
+    }
+}
+
+extension FlightThread {
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        id = try c.decodeIfPresent(UUID.self, forKey: .id) ?? UUID()
+        flightPlanId = try c.decodeIfPresent(UUID.self, forKey: .flightPlanId)
+        flightId = try c.decodeIfPresent(UUID.self, forKey: .flightId)
+        profile = try c.decodeIfPresent(ThreadProfile.self, forKey: .profile) ?? .full
+        state = try c.decodeIfPresent(FlightThreadState.self, forKey: .state) ?? .planned
+        routeLabel = try c.decode(String.self, forKey: .routeLabel)
+        name = try c.decodeIfPresent(String.self, forKey: .name)
+        aircraftRegistration = try c.decodeIfPresent(String.self, forKey: .aircraftRegistration)
+        scheduledDeparture = try c.decodeIfPresent(Date.self, forKey: .scheduledDeparture)
+        countries = try c.decodeIfPresent([String].self, forKey: .countries)
+        tripId = try c.decodeIfPresent(UUID.self, forKey: .tripId)
+        landedElsewhere = try c.decodeIfPresent(LandedElsewhere.self, forKey: .landedElsewhere)
+        homeCountry = try c.decodeIfPresent(String.self, forKey: .homeCountry)
+        tasks = try c.decodeIfPresent([ThreadTask].self, forKey: .tasks) ?? []
+        flightPlanFiledAt = try c.decodeIfPresent(Date.self, forKey: .flightPlanFiledAt)
+        flightPlanClosedAt = try c.decodeIfPresent(Date.self, forKey: .flightPlanClosedAt)
+        createdAt = try c.decodeIfPresent(Date.self, forKey: .createdAt) ?? Date()
+        updatedAt = try c.decodeIfPresent(Date.self, forKey: .updatedAt) ?? createdAt
+    }
+}
+
 // MARK: - Landing somewhere else (v5.1)
 
 /// A flight that ended at another aerodrome than the one it was planned to.

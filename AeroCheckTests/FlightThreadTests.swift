@@ -283,6 +283,112 @@ final class FlightThreadTests: XCTestCase {
         XCTAssertEqual(thread.nextTaskBesideOpenFlightPlan?.key, .flightPlanClosed)
     }
 
+    // MARK: - Files written by older builds
+
+    /// Encoded and decoded as `DataPersistenceManager` does (ISO 8601 dates).
+    private func encoded(_ thread: FlightThread) throws -> [String: Any] {
+        let encoder = JSONEncoder()
+        encoder.dateEncodingStrategy = .iso8601
+        return try XCTUnwrap(JSONSerialization.jsonObject(with: encoder.encode(thread)) as? [String: Any])
+    }
+
+    private func decoded(_ json: [String: Any]) throws -> FlightThread {
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .iso8601
+        return try decoder.decode(FlightThread.self, from: JSONSerialization.data(withJSONObject: json))
+    }
+
+    /// Every field away from its default, with whole-second dates (ISO 8601 drops the fraction).
+    private func populatedThread() -> FlightThread {
+        let date = Date(timeIntervalSince1970: 1_790_000_000)
+        var task = ThreadTask(key: .weatherBriefed, subject: "CH", kind: .check)
+        task.state = .done
+        task.completedAt = date
+        task.note = "GAFOR 0700"
+        task.detail = "VFR"
+        task.isUrgent = true
+        task.acknowledgedLegIds = [UUID()]
+        var thread = FlightThread(routeLabel: "LSZQ → LSZE")
+        thread.flightPlanId = UUID()
+        thread.flightId = UUID()
+        thread.profile = .local
+        thread.state = .closeOut
+        thread.name = "Alps, home"
+        thread.aircraftRegistration = "HB-KFD"
+        thread.scheduledDeparture = date
+        thread.countries = ["CH", "FR"]
+        thread.tripId = UUID()
+        thread.landedElsewhere = LandedElsewhere(plannedIdent: "LSZE", landedIdent: "LSZS", landedName: "Samedan")
+        thread.homeCountry = "CH"
+        thread.tasks = [task]
+        thread.flightPlanFiledAt = date
+        thread.flightPlanClosedAt = date.addingTimeInterval(3600)
+        thread.createdAt = date
+        thread.updatedAt = date.addingTimeInterval(60)
+        return thread
+    }
+
+    /// Four threads written on 6 Sep 2026 stopped loading: their tasks predate `acknowledgedLegIds`,
+    /// which the synthesised decoder required ("The data couldn't be read because it is missing").
+    func testAThreadWrittenBeforeAcknowledgedLegIdsLoads() throws {
+        let thread = populatedThread()
+        var json = try encoded(thread)
+        json["tasks"] = (json["tasks"] as? [[String: Any]])?.map { task in
+            var task = task
+            task.removeValue(forKey: "acknowledgedLegIds")
+            return task
+        }
+        for key in ["name", "tripId", "landedElsewhere", "countries", "homeCountry"] {
+            json.removeValue(forKey: key)
+        }
+
+        let loaded = try decoded(json)
+
+        XCTAssertEqual(loaded.id, thread.id)
+        XCTAssertEqual(loaded.tasks.count, 1)
+        XCTAssertEqual(loaded.tasks.first?.state, .done)
+        XCTAssertEqual(loaded.tasks.first?.acknowledgedLegIds, [])
+        XCTAssertNil(loaded.tripId)
+    }
+
+    /// Only what a thread and a task can't exist without is required: a field added later decodes as
+    /// its default from a file that lacks it.
+    func testOnlyARouteLabelAndEachTasksKeyAndKindAreRequired() throws {
+        let loaded = try decoded(["routeLabel": "LSZQ → LSGY",
+                                  "tasks": [["key": ThreadTaskKey.fuelPlanned.rawValue,
+                                             "kind": ThreadTaskKind.auto.rawValue]]])
+
+        XCTAssertEqual(loaded.routeLabel, "LSZQ → LSGY")
+        XCTAssertEqual(loaded.profile, .full)
+        XCTAssertEqual(loaded.state, .planned)
+        XCTAssertEqual(loaded.tasks.first?.key, .fuelPlanned)
+        XCTAssertEqual(loaded.tasks.first?.state, .pending)
+        XCTAssertEqual(loaded.tasks.first?.isUrgent, false)
+        XCTAssertEqual(loaded.updatedAt, loaded.createdAt, "an undated file is as old as it is")
+
+        XCTAssertThrowsError(try decoded(["tasks": []]), "a thread without its route label")
+    }
+
+    func testEveryFieldSurvivesARoundTrip() throws {
+        let thread = populatedThread()
+
+        XCTAssertEqual(try decoded(encoded(thread)), thread)
+    }
+
+    /// The decoders are written by hand: a stored property they don't read decodes as its default,
+    /// silently. A new one fails here until it is read in `init(from:)` (with `decodeIfPresent`, so
+    /// files written before it still load) and listed below.
+    func testTheDecodersReadEveryStoredProperty() {
+        let threadFields = Set(Mirror(reflecting: populatedThread()).children.compactMap(\.label))
+        XCTAssertEqual(threadFields, ["id", "flightPlanId", "flightId", "profile", "state", "routeLabel", "name",
+                                      "aircraftRegistration", "scheduledDeparture", "countries", "tripId",
+                                      "landedElsewhere", "homeCountry", "tasks", "flightPlanFiledAt",
+                                      "flightPlanClosedAt", "createdAt", "updatedAt"])
+        let taskFields = Set(Mirror(reflecting: ThreadTask(key: .routePlanned, kind: .check)).children.compactMap(\.label))
+        XCTAssertEqual(taskFields, ["id", "key", "subject", "kind", "state", "completedAt", "note", "detail",
+                                    "isUrgent", "acknowledgedLegIds"])
+    }
+
     // MARK: - Context building
 
     func testContextFromPlanDerivesRouteFuelAndFees() {

@@ -69,7 +69,7 @@ The same server hands out the VFR procedures from open flightmaps (traffic circu
 
 ### 3.8 Pages you open in your browser
 Some buttons open a page in your browser instead of fetching anything themselves (the briefing links of a flight's preparation, for instance). The app sends nothing on its own: the site you land on receives what any visit sends it. Two of these links say what you were looking at:
-- "Official chart" opens the aerodrome's chart on its publisher's site: DFS (Germany) and the SIA (France) learn the aerodrome from the link, while SkyBriefing (skyguide, Switzerland) and Austro Control (Austria) get the same page whatever the aerodrome.
+- "Official chart" opens the aerodrome's chart on its publisher's site, the national air navigation or aeronautical information service of its country. Where the link leads to the aerodrome's own chart (Germany, France and 11 more countries), the publisher learns the aerodrome from it; where it leads to one page for the whole country (Switzerland's SkyBriefing, Austria, Greece, and the sign-in portals of Croatia and Bulgaria), it gets the same page whatever the aerodrome.
 - "Report an error", on a traffic circuit or a VFR route, opens open flightmaps' error-report form (a Google form, under [Google's privacy policy](https://policies.google.com/privacy)) with its description filled in: the region, the AIRAC cycle, the aerodrome, the procedure and its open flightmaps identifier, and the position of the label you tapped (a point of the procedure, not yours). Nothing about you: the form has an e-mail field of its own, which you may leave empty. Without the form, the app prepares the same text as an e-mail to open flightmaps, which you send or not.
 
 

@@ -694,6 +694,12 @@ final class FlightRecordSystemFieldsTests: XCTestCase {
 
 // MARK: - The switch and the CloudKit engine
 
+/// Stands in for CloudKit's own mark of a `CKSyncEngine` delegate callback, a task-local that every
+/// task started inside the callback inherits. iOS 27 traps an engine fetch or send awaited with it set.
+enum SyncEngineCallbackContext {
+    @TaskLocal static var isInside = false
+}
+
 /// Stands in for `CKSyncEngine`: records what it is asked to queue, fetch and send.
 final class StubSyncEngine: SyncEngineDriving, @unchecked Sendable {
     private(set) var queued: [CKSyncEngine.PendingRecordZoneChange] = []
@@ -701,6 +707,8 @@ final class StubSyncEngine: SyncEngineDriving, @unchecked Sendable {
     private(set) var queuedDatabaseChanges: [CKSyncEngine.PendingDatabaseChange] = []
     private(set) var fetches = 0
     private(set) var sends = 0
+    /// Fetches and sends awaited from inside a delegate callback: each one a crash on iOS 27.
+    private(set) var callsFromInsideACallback = 0
     var fetchError: Error?
 
     func queue(_ changes: [CKSyncEngine.PendingRecordZoneChange]) { queued += changes }
@@ -708,9 +716,13 @@ final class StubSyncEngine: SyncEngineDriving, @unchecked Sendable {
     func queue(_ changes: [CKSyncEngine.PendingDatabaseChange]) { queuedDatabaseChanges += changes }
     func fetch() async throws {
         fetches += 1
+        if SyncEngineCallbackContext.isInside { callsFromInsideACallback += 1 }
         if let fetchError { throw fetchError }
     }
-    func send() async throws { sends += 1 }
+    func send() async throws {
+        sends += 1
+        if SyncEngineCallbackContext.isInside { callsFromInsideACallback += 1 }
+    }
 
     /// Record names queued for saving.
     var saves: Set<String> {
@@ -892,6 +904,41 @@ final class SyncSwitchCloudKitTests: XCTestCase {
         await manager.engineStartTask?.value
 
         XCTAssertEqual(backend.engines.count, 1)
+    }
+
+    // MARK: - Delegate callbacks (iOS 27)
+
+    /// 6.1.1 crashed at launch in App Review (iOS 27.0): "BUG IN CLIENT OF CLOUDKIT: Cannot await a
+    /// call into CKSyncEngine from within a delegate callback". On a fresh install the engine's first
+    /// event is `.signIn`, its handler restarts the engine, and the new engine's first fetch ran in a
+    /// task that had inherited the callback's context.
+    func testAnEngineRestartedFromADelegateCallbackFetchesOutsideIt() async throws {
+        let manager = manager(on: true)
+        _ = try await started(manager)
+
+        SyncEngineCallbackContext.$isInside.withValue(true) {
+            manager.restartSyncForAccountChange(clearState: false)
+        }
+        let restarted = try await started(manager)
+
+        XCTAssertEqual(backend.engines.count, 2)
+        XCTAssertEqual(restarted.fetches, 1, "the first fetch, as at launch")
+        XCTAssertEqual(restarted.callsFromInsideACallback, 0, "a trap on iOS 27")
+    }
+
+    /// The same for Sync Now, which a settings change fires: one applied from a fetched record runs
+    /// on behalf of a delegate callback.
+    func testSyncNowFromADelegateCallbackFetchesAndSendsOutsideIt() async throws {
+        let manager = manager(on: true)
+        let engine = try await started(manager)
+
+        await SyncEngineCallbackContext.$isInside.withValue(true) {
+            await manager.syncNow()
+        }
+
+        XCTAssertEqual(engine.fetches, 2, "the first fetch, then Sync Now's")
+        XCTAssertEqual(engine.sends, 1)
+        XCTAssertEqual(engine.callsFromInsideACallback, 0, "a trap on iOS 27")
     }
 
     // MARK: - Off

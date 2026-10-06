@@ -13,6 +13,3 @@ node_modules/
 
 # Claude dev tooling
 .claude/
-
-# Python bytecode (scripts/vfrdata)
-__pycache__/

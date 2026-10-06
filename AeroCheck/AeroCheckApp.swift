@@ -164,8 +164,12 @@ struct AeroCheckApp: App {
                     // A strong capture, stated: the manager is a @StateObject that lives as long as the
                     // app, and the surrounding task already holds it strongly, so `weak` bought nothing.
                     companionConnectivityManager.entitlementProvider = { [subscriptionManager] in
-                        subscriptionManager.subscriptionStatus.isSubscribed
+                        // A flight started with Pro keeps streaming its checklist until it ends. (6.1.4)
+                        subscriptionManager.subscriptionStatus.isSubscribed || subscriptionManager.isHoldingForFlight()
                     }
+                    // The flight this launch restored, or none: drops the hold of a flight that
+                    // wasn't restored (`SubscriptionManager.holdForFlight`). (6.1.4)
+                    subscriptionManager.holdForFlight(appState.isFlightActive)
 
                     // Live Activity next-waypoint feed (UX-25): AppState has no FlightPlanManager
                     // reference, so the controller pulls the name through this closure at sync time.
@@ -396,6 +400,8 @@ struct AeroCheckApp: App {
     }
 
     private func handleFlightStateChange(isActive: Bool) {
+        // Pro is held from START FLIGHT to END or ABANDON FLIGHT. (6.1.4)
+        subscriptionManager.holdForFlight(isActive)
         if isActive {
             // Notify Watch that flight has started (triggers Watch app launch)
             watchConnectivityManager.notifyFlightStarted(

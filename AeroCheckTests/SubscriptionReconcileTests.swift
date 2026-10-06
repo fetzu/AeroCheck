@@ -35,6 +35,129 @@ final class SubscriptionReconcileTests: XCTestCase {
         )
     }
 
+    // MARK: - The grace window is for a lapsed subscription only
+
+    /// Up to 6.1.3 every fresh install that never subscribed (App Review's device among them) opened
+    /// the 48 h grace window on its first launch: premium unlocked, and "Your subscription has
+    /// lapsed" in Settings. A device that never verified a subscription gets none.
+    func testANewUserGetsNoGraceWindow() async {
+        let sm = manager()
+        sm.confirmNoActiveSubscription()
+
+        let allowed = await sm.performPeriodicCheck()
+
+        XCTAssertFalse(allowed)
+        XCTAssertFalse(sm.isInGracePeriod)
+        XCTAssertNil(sm.gracePeriodEndsAt)
+        XCTAssertFalse(sm.shouldAllowPremiumAccess())
+    }
+
+    /// A window such a build opened is closed on the next check.
+    func testAGraceWindowOpenedForANewUserIsClosed() async {
+        let sm = manager()
+        sm.confirmNoActiveSubscription()
+        sm.startGracePeriod()
+        XCTAssertTrue(sm.shouldAllowPremiumAccess())
+
+        let allowed = await sm.performPeriodicCheck()
+
+        XCTAssertFalse(allowed)
+        XCTAssertFalse(sm.isInGracePeriod)
+        XCTAssertFalse(sm.shouldAllowPremiumAccess())
+    }
+
+    /// A subscription this device verified, now lapsed: the window still opens, as before.
+    func testALapsedSubscriptionVerifiedHereStillGetsTheGraceWindow() async {
+        let defaults = makeTestDefaults()
+        let sm = SubscriptionManager(defaults: defaults, keychain: makeTestKeychain(), deferLoadProducts: true)
+        sm.confirmNoActiveSubscription()
+        defaults.set(Date(timeIntervalSinceNow: -25 * 60 * 60), forKey: "subscriptionLastVerificationDate")
+
+        let allowed = await sm.performPeriodicCheck()
+
+        XCTAssertTrue(allowed)
+        XCTAssertTrue(sm.isInGracePeriod)
+        XCTAssertNotNil(sm.gracePeriodEndsAt)
+        XCTAssertTrue(sm.shouldAllowPremiumAccess())
+    }
+
+    // MARK: - A subscription never runs out in flight
+
+    private let subscribed = SubscriptionStatus.subscribed(expiresAt: Date().addingTimeInterval(3600),
+                                                            productID: "aerocheck.pro.yearly")
+
+    /// The subscription ends mid-flight, definitively (no grace window): the flight keeps Pro, so the
+    /// caches stay and its checklist loads after a relaunch, until the flight ends.
+    func testAFlightStartedWithProKeepsItUntilItEnds() {
+        let sm = manager()
+        sm.subscriptionStatus = subscribed
+        sm.holdForFlight(true)
+
+        sm.confirmNoActiveSubscription()
+
+        XCTAssertTrue(sm.isHoldingForFlight())
+        XCTAssertTrue(sm.shouldAllowPremiumAccess())
+        XCTAssertFalse(sm.isPremiumAccessDefinitivelyDenied(), "nothing on the device is cleared in flight")
+
+        sm.holdForFlight(false)
+
+        XCTAssertFalse(sm.isHoldingForFlight())
+        XCTAssertTrue(sm.isPremiumAccessDefinitivelyDenied(), "once the flight ends, the usual rules")
+    }
+
+    /// The hold keeps access; it never grants it.
+    func testAFlightStartedWithoutProHoldsNothing() {
+        let sm = manager()
+        sm.confirmNoActiveSubscription()
+
+        sm.holdForFlight(true)
+
+        XCTAssertFalse(sm.isHoldingForFlight())
+        XCTAssertTrue(sm.isPremiumAccessDefinitivelyDenied())
+    }
+
+    /// A relaunch in flight (a crash, iOS reclaiming memory) finds the hold before anything runs.
+    func testTheHoldSurvivesARelaunchInFlight() {
+        let defaults = makeTestDefaults()
+        let before = SubscriptionManager(defaults: defaults, keychain: makeTestKeychain(), deferLoadProducts: true)
+        before.subscriptionStatus = subscribed
+        before.holdForFlight(true)
+
+        let relaunched = SubscriptionManager(defaults: defaults, keychain: makeTestKeychain(), deferLoadProducts: true)
+        relaunched.confirmNoActiveSubscription()
+        relaunched.holdForFlight(true)   // the launch, with the flight it restored
+
+        XCTAssertTrue(relaunched.isHoldingForFlight())
+        XCTAssertFalse(relaunched.isPremiumAccessDefinitivelyDenied())
+    }
+
+    /// A flight left open doesn't keep Pro for good: the hold ends after `maxFlightHold`, and a call
+    /// for the same flight doesn't restart it.
+    func testTheHoldEndsAfterTheLongestFlight() {
+        let sm = manager()
+        sm.subscriptionStatus = subscribed
+        sm.holdForFlight(true, now: Date(timeIntervalSinceNow: -SubscriptionManager.maxFlightHold - 60))
+        sm.confirmNoActiveSubscription()
+
+        sm.holdForFlight(true)
+
+        XCTAssertFalse(sm.isHoldingForFlight())
+        XCTAssertTrue(sm.isPremiumAccessDefinitivelyDenied())
+    }
+
+    /// The launch finds no flight to restore: a hold left behind is dropped.
+    func testALaunchWithoutAFlightDropsAHoldLeftBehind() {
+        let sm = manager()
+        sm.subscriptionStatus = subscribed
+        sm.holdForFlight(true)
+        sm.confirmNoActiveSubscription()
+
+        sm.holdForFlight(false)
+
+        XCTAssertFalse(sm.isHoldingForFlight())
+        XCTAssertFalse(sm.shouldAllowPremiumAccess())
+    }
+
     /// Lifetime is a one-time, permanent entitlement: it grants premium with no grace window and is
     /// never gated on the offline re-verification window or "definitively denied".
     func testLifetimeStatusGrantsPermanentPremium() {

@@ -1,5 +1,5 @@
-6.1.2 is the version going to the App Store, in place of 6.1.1. Use it as you normally would, before, during and after your flights, and send what you notice from the TestFlight app: a screenshot with a line of text is the quickest way.
+6.1.3 is the version going to the App Store, in place of 6.1.1 and 6.1.2. Use it as you normally would, before, during and after your flights, and send what you notice from the TestFlight app: a screenshot with a line of text is the quickest way.
 
-Fixed since 6.1.1: on iOS 27, AéroCheck could crash at launch with iCloud signed in, every time after a fresh install. If you are on iOS 27, delete the app, install this build and open it: it should start, and your flights should come back from iCloud.
+Fixed since 6.1.1: on a fresh install with iCloud signed in, AéroCheck crashed at launch on iOS 27 (fixed in 6.1.2), and iCloud sync then restarted itself over and over without ever bringing your flights back (fixed in 6.1.3). To try it, delete the app, install this build and open it: your flights should come back from iCloud. Sync also starts again as soon as you sign back in to iCloud, without relaunching the app.
 
 New since 6.1.0: an iPad without GPS (Wi-Fi only) can install AéroCheck. In flight it uses the iPhone's GPS through Companion mode (iOS 26 on both), or an external GPS receiver. If you fly with either, tell us whether the GPS indicator stays green.

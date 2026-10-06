@@ -160,6 +160,13 @@ class SubscriptionManager: ObservableObject {
     /// Key for storing grace period start date
     private let gracePeriodStartKey = "subscriptionGracePeriodStart"
 
+    /// When the flight in progress started holding Pro (`holdForFlight`); absent with no flight.
+    private let flightHoldStartKey = "subscriptionFlightHoldStart"
+
+    /// The longest a flight holds Pro: the app restores an interrupted flight for 24 h, and no flight
+    /// it records lasts longer. Bounds a flight left open, which would otherwise keep Pro for good.
+    static let maxFlightHold: TimeInterval = 24 * 60 * 60
+
     // MARK: - Initialization
 
     /// Initialize the subscription manager
@@ -497,6 +504,37 @@ class SubscriptionManager: ObservableObject {
         return timeSinceVerification > maxOfflineDuration
     }
 
+    // MARK: - Flight hold
+
+    /// A subscription never runs out in flight: a flight started with Pro keeps it until END or
+    /// ABANDON FLIGHT, at most `maxFlightHold`. Without it, a subscription (or grace window) ending
+    /// mid-flight let the next return to the foreground delete the premium checklists
+    /// (`AircraftDataService.validatePremiumCaches`), and a relaunch in flight then restored the
+    /// flight without its checklist. The hold keeps what is on the device usable (caches, the
+    /// flight's checklist, Companion's checklist text); the server still refuses anything new.
+    ///
+    /// Stored, so a relaunch in flight keeps it before anything else runs; the app calls this when
+    /// a flight starts or ends, and at launch with the flight it restored, which drops a hold left by
+    /// a flight that wasn't. A hold already running keeps its start.
+    func holdForFlight(_ inProgress: Bool, now: Date = Date()) {
+        if inProgress {
+            guard defaults.object(forKey: flightHoldStartKey) == nil else { return }
+            // Only a flight started WITH Pro: the hold keeps access, it never grants it.
+            guard !isPremiumAccessDefinitivelyDenied() else { return }
+            defaults.set(now, forKey: flightHoldStartKey)
+            debugLogger.log("Flight in progress: Pro held until it ends", level: .info)
+        } else if defaults.object(forKey: flightHoldStartKey) != nil {
+            defaults.removeObject(forKey: flightHoldStartKey)
+            debugLogger.log("Flight ended: Pro hold released", level: .info)
+        }
+    }
+
+    /// Whether a flight in progress holds Pro: one started with it, less than `maxFlightHold` ago.
+    func isHoldingForFlight(now: Date = Date()) -> Bool {
+        guard let start = defaults.object(forKey: flightHoldStartKey) as? Date else { return false }
+        return now.timeIntervalSince(start) < Self.maxFlightHold
+    }
+
     /// Starts the grace period (called when subscription lapses or cannot be verified)
     func startGracePeriod() {
         // Only start if not already in grace period
@@ -573,7 +611,14 @@ class SubscriptionManager: ObservableObject {
                 recordSuccessfulVerification()
                 return true
             } else {
-                // Subscription not active
+                // Subscription not active. The grace window is for a subscription that lapsed, so
+                // only for one this device verified. A device that never did is a new user (App
+                // Review is one): it got 48 h of premium and "Your subscription has lapsed" from
+                // its first launch, up to 6.1.3. A window opened that way is closed here.
+                guard getLastVerificationDate() != nil else {
+                    if isInGracePeriod { clearGracePeriod() }
+                    return false
+                }
                 if !isInGracePeriod && !hasGracePeriodExpired() {
                     // Start grace period
                     startGracePeriod()
@@ -614,6 +659,11 @@ class SubscriptionManager: ObservableObject {
             return false
         }
 
+        // A flight started with Pro keeps it until it ends, whatever happens meanwhile.
+        if isHoldingForFlight() {
+            return true
+        }
+
         // Lifetime is a permanent, one-time purchase — never gate it on the offline re-verification
         // window (there is nothing to renew/re-verify). The local StoreKit entitlement is authoritative.
         if subscriptionStatus.isLifetime {
@@ -644,12 +694,14 @@ class SubscriptionManager: ObservableObject {
     ///  • `.unknown` (StoreKit/server status still resolving at cold launch) → NOT denied (keep cache).
     ///  • StoreKit reports an active entitlement but the last *server* verification is stale
     ///    (offline too long) → NOT denied (keep cache); the local entitlement is authoritative.
-    /// So the only way to reach `true` is a resolved, not-subscribed status with no valid grace window.
+    /// So the only way to reach `true` is a resolved, not-subscribed status with no valid grace window,
+    /// and no flight in progress holding it (`holdForFlight`).
     func isPremiumAccessDefinitivelyDenied() -> Bool {
         #if DEBUG
         if forceSubscribed { return false } // DEBUG-ONLY marketing override (compiled out of release)
         #endif
         if debugForceNotSubscribed { return true }
+        if isHoldingForFlight() { return false }
         if subscriptionStatus == .unknown { return false }
         if subscriptionStatus.isSubscribed { return false }
         if isInGracePeriod && !hasGracePeriodExpired() { return false }

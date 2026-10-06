@@ -204,14 +204,20 @@ struct BriefingContextBuilder {
         // Parse speeds
         let aircraftSpeeds = AircraftSpeeds(from: speeds)
 
-        // Find departure airport (nearest to current location)
+        // The departure airport: the one the aircraft is at (within 5 NM), else the plan's departure.
+        // Until 6.2 only the first: a flight started away from its field (planned at home, or the GPS
+        // not yet fixed) briefed "Airport: Not detected", its runways blank (device check, 6 Oct).
         var departureAirport: Airport?
         var departureRunways: [Runway] = []
         var suggestedDepartureRunway: Runway?
 
-        if let location = currentLocation, let service = airportDataService {
-            let nearestAirports = service.findNearestAirports(to: location, limit: 1, maxDistanceNm: 5.0)
-            departureAirport = nearestAirports.first
+        if let service = airportDataService {
+            if let location = currentLocation {
+                departureAirport = service.findNearestAirports(to: location, limit: 1, maxDistanceNm: 5.0).first
+            }
+            if departureAirport == nil, let ident = flightPlan?.departureAerodromeIdent {
+                departureAirport = service.findAirport(byIdent: ident)
+            }
 
             if let airport = departureAirport {
                 departureRunways = service.getRunways(for: airport.ident).filter { !$0.closed }

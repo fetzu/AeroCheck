@@ -1290,6 +1290,9 @@ class FlightPlanManager: ObservableObject {
     /// until the next launch, then the file on disk won: a whole "Set altitudes" pass came back undone.
     private var lastPersisted: [UUID: Data] = [:]
 
+    /// The last plan save started; the next one waits for it (`saveFlightPlans`).
+    private var lastSave: Task<Void, Never>?
+
     /// The plan's content, for comparing against what was persisted.
     nonisolated static func fingerprint(_ plan: FlightPlan) -> Data? {
         let encoder = JSONEncoder()
@@ -1308,11 +1311,19 @@ class FlightPlanManager: ObservableObject {
     /// Persists only the plans that actually changed since the last save (plus the index), off the
     /// main actor. Previously this rewrote EVERY plan file synchronously on the main thread — and it
     /// is called on every waypoint edit and every ATO record/auto-advance during a flight. (PERF-25)
+    ///
+    /// Each save waits for the one before it (`lastSave`). They were independent detached writes, so
+    /// two saves of one plan could land in either order and the older content stay on disk. Found
+    /// with a plan being flown when "Sync to iCloud" moved the datastore: the save of its activation,
+    /// stamped before a deletion recorded elsewhere, could land after the copy kept for the flight,
+    /// and the next load retired the plan as deleted. (`DeletionRecordsTests`, 6.2)
     private func saveFlightPlans() {
         let changed = Self.plansNeedingSave(flightPlans, lastPersisted: lastPersisted)
         guard !changed.isEmpty else { return }
         let all = flightPlans
-        Task { [weak self] in
+        let previous = lastSave
+        lastSave = Task { [weak self] in
+            await previous?.value
             let written = await self?.persistence.saveNavigationPlansOffMain(changed: changed, all: all) ?? []
             // RES-01: mark plans persisted only once their file is CONFIRMED written. This used to
             // run synchronously before the write was even attempted, so a failed write left the

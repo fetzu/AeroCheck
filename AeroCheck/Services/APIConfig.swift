@@ -89,6 +89,13 @@ enum APIConfig {
         return production
     }()
 
+    /// A file the API serves under `/data/` (the VFR data the server builds every week: the open
+    /// flightmaps procedures, the official-chart registry), on this build's API host, so a TestFlight
+    /// build reads the sandbox worker's files like the rest of its API. (6.2.0)
+    static func dataURL(_ path: String) -> URL {
+        URL(string: "\(baseURL)/data/\(path)") ?? URL(string: "\(fallback)/data/\(path)")!
+    }
+
     /// Weather proxy base URL, without a trailing slash.
     ///
     /// A DIFFERENT worker from `baseURL`, deliberately. `api.aerocheck.app` is the entitlement
@@ -110,8 +117,8 @@ enum APIConfig {
     ///
     /// Absent is fine and must stay fine: the worker fails open when its own list is unset, so a
     /// checkout without Secrets.xcconfig still gets working weather.
-    /// Shared secret sent as `X-AeroCheck-Client` to `api.aerocheck.app`'s `/airfields` routes, or
-    /// nil when not configured. (v5.0.0)
+    /// Shared secret sent as `X-AeroCheck-Client` to `api.aerocheck.app`'s `/airfields` routes and its
+    /// `/data` files (6.2.0), or nil when not configured. (v5.0.0)
     ///
     /// A SEPARATE value from `weatherClientSecret` on purpose: the two workers keep separate lists,
     /// so rotating one must not force rotating the other.

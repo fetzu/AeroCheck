@@ -4,12 +4,11 @@ import MapKit
 
 // MARK: - Configuration
 
-/// Where the app reads open flightmaps data: small files the weekly job extracts from OFM and publishes
-/// on aerocheck.app (`scripts/vfrdata/` on the `website` branch). The app never talks to OFM itself.
-/// (6.2.0)
+/// Where the app reads open flightmaps data: small files the AeroCheck server builds from OFM every
+/// week and serves at `/data/ofm/v1/` on this build's API host (`APIConfig.dataURL`: the sandbox worker
+/// for Debug and TestFlight builds). The app never talks to OFM itself. (6.2.0)
 enum OFMConfig {
-    static let host = "aerocheck.app"
-    static let defaultBaseURL = URL(string: "https://aerocheck.app/data/ofm/v1/")!
+    static let defaultBaseURL = APIConfig.dataURL("ofm/v1/")
 
     /// Ceiling per file. The largest (DE) is 566 KB in 2610; the job refuses to publish over 2 MB.
     static let maxFileBytes = 4 * 1024 * 1024
@@ -30,29 +29,25 @@ enum OFMConfig {
     /// The published files, or in a DEBUG build the override's.
     static var baseURL: URL { debugBaseURL ?? defaultBaseURL }
 
-    /// The hosts a download may reach: aerocheck.app, plus a DEBUG override's.
+    /// The hosts a download may reach: the API's, plus a DEBUG override's.
     static var allowedHosts: Set<String> { allowedHosts(override: debugBaseURL) }
 
     static func allowedHosts(override: URL?) -> Set<String> {
-        var hosts: Set<String> = [host]
-        if let overrideHost = override?.host?.lowercased() { hosts.insert(overrideHost) }
-        return hosts
+        Set([defaultBaseURL, override].compactMap { $0?.host?.lowercased() })
     }
 
     static func indexURL(base: URL) -> URL { base.appendingPathComponent("index.json") }
 
-    /// A country file's URL from its index entry: absolute as published, or relative to the index.
-    /// Under another base than aerocheck.app (a DEBUG override, a test), the file of the same name on
-    /// that base: the index names aerocheck.app's files.
+    /// A country file's URL from its index entry: relative to the index (`ch.json`, as the server
+    /// writes it, so the sandbox and production hosts serve the same index), or absolute. An absolute
+    /// one off the allow-list is refused before it is asked.
     static func fileURL(published: String, base: URL) -> URL? {
-        guard let resolved = URL(string: published, relativeTo: indexURL(base: base))?.absoluteURL else { return nil }
-        guard base.host?.lowercased() != host, !resolved.lastPathComponent.isEmpty else { return resolved }
-        return base.appendingPathComponent(resolved.lastPathComponent)
+        URL(string: published, relativeTo: indexURL(base: base))?.absoluteURL
     }
 
     #if DEBUG
-    /// DEBUG builds only: read the files from another HTTPS base, e.g. a branch on
-    /// raw.githubusercontent.com before it is published. Environment `AEROCHECK_VFR_DATA_BASE` (simctl:
+    /// DEBUG builds only: read the files from another HTTPS base, e.g. a copy of a channel served
+    /// somewhere else before it is published. Environment `AEROCHECK_VFR_DATA_BASE` (simctl:
     /// `SIMCTL_CHILD_AEROCHECK_VFR_DATA_BASE=…`) or launch argument `-AEROCHECK_VFR_DATA_BASE …`. Its
     /// host joins the allow-list. Release builds don't contain this.
     static let debugBaseURL: URL? = {
@@ -382,6 +377,10 @@ final class OFMDataService: ObservableObject {
             var request = URLRequest(url: url)
             request.cachePolicy = .reloadIgnoringLocalCacheData
             request.setValue("application/json", forHTTPHeaderField: "Accept")
+            // The API's app-client hurdle, as for `/airfields`: absent in a build without Secrets.xcconfig.
+            if let secret = APIConfig.appClientSecret {
+                request.setValue(secret, forHTTPHeaderField: "X-AeroCheck-Client")
+            }
             let (body, response) = try await ExternalRequest.data(
                 for: request, maxResponseBytes: OFMConfig.maxFileBytes, allowedHosts: allowedHosts)
             guard response.statusCode == 200 else { throw OFMDataError.http(response.statusCode) }

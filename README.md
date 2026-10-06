@@ -52,7 +52,7 @@ AéroCheck shows other people's geographic, aeronautical and weather data, under
 | Traffic circuits, VFR arrival and departure routes and their sectors, the reporting points OpenAIP lacks (CH, AT, DE, CZ) | **open flightmaps** (General Users' License: free, commercial use included, as long as the data is credited and errors can be reported back; never a primary source of navigation) | © open flightmaps association |
 | Official chart links, per aerodrome | Links to **DFS** BasicVFR (DE), the **SIA** VAC atlas (FR), **skyguide**'s eVFR Manual on SkyBriefing (CH, subscription) and the **Austro Control** eAIP (AT); the app never downloads or shows a chart | The publisher's terms, on its own site |
 
-The VFR procedures and the chart links are small files on aerocheck.app, rewritten every Thursday at 05:00 UTC (the AIRAC day) by `.github/workflows/vfr-data.yml` from open flightmaps and the publishers' sites; the scripts and the schema are in `scripts/vfrdata/` on the `website` branch.
+The VFR procedures and the chart links are small files the AeroCheck server rebuilds every Thursday at 05:00 UTC (the AIRAC day) from open flightmaps and the publishers' sites, and serves to the app.
 
 ## Credits
 

@@ -77,7 +77,7 @@ final class VFRDataTests: XCTestCase {
         """.utf8)
     }
 
-    /// aerocheck.app as the tests serve it: `index.json` and the country files, by file name.
+    /// The API's `/data/ofm/v1/` as the tests serve it: `index.json` and the country files, by file name.
     @MainActor
     final class FakeVFRServer {
         private(set) var files: [String: Data] = [:]
@@ -93,7 +93,7 @@ final class VFRDataTests: XCTestCase {
                 let name = "\(country.lowercased()).json"
                 files[name] = data
                 let sha = checksums[country] ?? OFMDataService.sha256(of: data)
-                let url = urls[country] ?? "https://aerocheck.app/data/ofm/v1/\(name)"
+                let url = urls[country] ?? name
                 regions.append("""
                 "\(country)": {"airac": "\(airac)", "validFrom": "2026-10-01", "validTo": "\(validTo)", "url": "\(url)",
                   "sha256": "\(sha)", "bytes": \(data.count), "sourceEtag": "\\"x\\"", "procedures": 3, "points": 1, "flags": []}
@@ -255,23 +255,25 @@ final class VFRDataTests: XCTestCase {
 
     // MARK: - Configuration
 
-    func testTheFilesComeFromAerocheckAppOnly() throws {
+    /// From the API host this build talks to (the sandbox worker in a Debug build), at `/data/ofm/v1/`.
+    func testTheFilesComeFromTheAPIHostOnly() throws {
         let base = OFMConfig.defaultBaseURL
-        XCTAssertEqual(OFMConfig.indexURL(base: base).absoluteString, "https://aerocheck.app/data/ofm/v1/index.json")
-        XCTAssertEqual(OFMConfig.fileURL(published: "https://aerocheck.app/data/ofm/v1/ch.json", base: base)?.absoluteString,
-                       "https://aerocheck.app/data/ofm/v1/ch.json")
+        let api = try XCTUnwrap(URL(string: APIConfig.baseURL)?.host?.lowercased())
+        XCTAssertEqual(base.absoluteString, APIConfig.baseURL + "/data/ofm/v1/")
+        XCTAssertEqual(OFMConfig.indexURL(base: base).absoluteString, APIConfig.baseURL + "/data/ofm/v1/index.json")
         XCTAssertEqual(OFMConfig.fileURL(published: "de.json", base: base)?.absoluteString,
-                       "https://aerocheck.app/data/ofm/v1/de.json", "relative to the index")
-        XCTAssertEqual(OFMConfig.allowedHosts(override: nil), ["aerocheck.app"])
+                       APIConfig.baseURL + "/data/ofm/v1/de.json", "relative to the index, as the server writes it")
+        XCTAssertEqual(OFMConfig.fileURL(published: "https://example.com/ch.json", base: base)?.host, "example.com",
+                       "kept as it is, for the allow-list to refuse")
+        XCTAssertEqual(OFMConfig.allowedHosts(override: nil), [api])
         XCTAssertEqual(OFMConfig.maxFileBytes, 4 * 1024 * 1024)
         XCTAssertEqual(OFMConfig.region(forCountry: "ch"), "LSAS")
         XCTAssertEqual(OFMConfig.country(forRegion: "LKAA"), "CZ")
 
         // Another base (a DEBUG override): its host joins the list and the files come from it.
-        let other = try XCTUnwrap(URL(string: "https://raw.githubusercontent.com/fetzu/AeroCheck/website/public/data/ofm/v1/"))
-        XCTAssertEqual(OFMConfig.allowedHosts(override: other), ["aerocheck.app", "raw.githubusercontent.com"])
-        XCTAssertEqual(OFMConfig.fileURL(published: "https://aerocheck.app/data/ofm/v1/ch.json", base: other)?.absoluteString,
-                       "https://raw.githubusercontent.com/fetzu/AeroCheck/website/public/data/ofm/v1/ch.json")
+        let other = try XCTUnwrap(URL(string: "https://example.org/vfr/ofm/v1/"))
+        XCTAssertEqual(OFMConfig.allowedHosts(override: other), [api, "example.org"])
+        XCTAssertEqual(OFMConfig.fileURL(published: "ch.json", base: other)?.absoluteString, "https://example.org/vfr/ofm/v1/ch.json")
         #if DEBUG
         XCTAssertNil(OFMConfig.debugBaseURL(from: "http://example.com/v1/"), "HTTPS only")
         XCTAssertEqual(OFMConfig.debugBaseURL(from: "https://example.com/v1")?.absoluteString, "https://example.com/v1/")

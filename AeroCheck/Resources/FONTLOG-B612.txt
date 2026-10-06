@@ -1,27 +1,46 @@
 FONTLOG for the B612 fonts bundled with AeroCheck
 
 The four files come from B612 1.008 (https://github.com/polarsys/b612, tag 1.008, commit 48ac6ba)
-and are licensed under the SIL Open Font License 1.1 (OFL-B612.txt, next to this file).
+and are licensed under the SIL Open Font License 1.1 (OFL-B612.txt, next to this file). All four are
+modified; the family and PostScript names are the original ones (the licence declares no Reserved
+Font Name), and each change is recorded in the name table: version string, unique id, description.
 
-B612-Regular.ttf, B612-Bold.ttf
-  Unmodified.
+B612Mono-Regular.ttf, B612Mono-Bold.ttf: punctuation centred (2026-10-01)
+  B612 Mono draws the colon, semicolon, period, comma, apostrophe and middle dot at the left of
+  their monospaced cell (upstream issue #31), so numbers read "00: 44", "122. 050" and, with the
+  Swiss grouping apostrophe, "1' 860". Those glyphs, and the right single quote (a few units off),
+  were moved sideways until their ink is centred in the cell. Nothing else changed: every advance is
+  still 1300 units and the outlines keep their shape and hinting. Version string: "Version 1.008;
+  AeroCheck: punctuation centred". Made by scripts/center-b612-mono-punctuation.py.
 
-B612Mono-Regular.ttf, B612Mono-Bold.ttf
-  Modified (2026-10-01). B612 Mono draws the colon, semicolon, period, comma, apostrophe and middle
-  dot at the left of their monospaced cell (upstream issue #31), so numbers read "00: 44",
-  "122. 050" and, with the Swiss grouping apostrophe, "1' 860". Those glyphs, and the right single
-  quote (a few units off), were moved sideways until their ink is centred in the cell. Nothing else
-  changed: every advance is still 1300 units, the outlines keep their shape and hinting, and the
-  family and PostScript names are the original ones (the licence declares no Reserved Font Name).
-  The name table records the change in the version string ("Version 1.008; AeroCheck: punctuation
-  centred"), the unique id and the description.
+All four files: the copyright and registered signs at full size (2026-10-06)
+  B612 draws © and ® as superscripts in every face: a circle 940 units across (47 % of the em) hung
+  from the cap height, its foot 577 units above the baseline, so "Chart © swisstopo / BAZL" read
+  like a footnote mark. Both were scaled uniformly (same shape, the ring and the letter in
+  proportion) until as tall as the capital O, from the baseline to the cap height with the O's
+  overshoot (-17 to 1517 units of 2000), and given the O's side bearings, evened out: their advance
+  grows from 1100 to 1782 units in B612 Regular and 1698 in B612 Bold. B612 Mono keeps its 1300-unit
+  cell, so there they are as large as the cell allows with the O's side bearings (1100 units across
+  in Regular, 1198 in Bold) and centred in the cell and on the cap height. Upstream gives the two
+  glyphs no hinting; the hdmx and LTSH entries follow the new advance. Nothing else changed. Version
+  string: "...; AeroCheck: full-size copyright and registered signs". Made by
+  scripts/b612-full-size-copyright.py.
 
-  To reproduce, run scripts/center-b612-mono-punctuation.py (fontTools) on the upstream files:
+To reproduce, run the two scripts (fontTools) on the upstream files, in this order:
 
+  1. scripts/center-b612-mono-punctuation.py on B612Mono-Regular.ttf and B612Mono-Bold.ttf;
+  2. scripts/b612-full-size-copyright.py on all four (it refuses an upstream B612 Mono: step 1 first).
+
+    upstream B612-Regular.ttf      sha256 139dce659100a83bf95b48474696e448bee95631ef84fd3d0437ced2bf33cf73
+    upstream B612-Bold.ttf         sha256 91749541ac7b2c328b58832b7e2c4df809d7e2ba38d62a3a5aa3f8e38b271814
     upstream B612Mono-Regular.ttf  sha256 b98cb96cc8a6206dae08c063d60902df7e6d40f86139ebdb97256704253c9c69
     upstream B612Mono-Bold.ttf     sha256 b467b1d19fdabed42be51d87e38c86645ceeff2f828f294775188d00d1fd68ca
-    patched  B612Mono-Regular.ttf  sha256 88a2d8a05caa80d857fd7c2807603e3921d53b3004cc88ba60fe28c714215604
-    patched  B612Mono-Bold.ttf     sha256 b4397515fc88b3a970f7609d42f0638b572d0c68fd277546114b846989adc2f3
+    step 1   B612Mono-Regular.ttf  sha256 88a2d8a05caa80d857fd7c2807603e3921d53b3004cc88ba60fe28c714215604
+    step 1   B612Mono-Bold.ttf     sha256 b4397515fc88b3a970f7609d42f0638b572d0c68fd277546114b846989adc2f3
+    bundled  B612-Regular.ttf      sha256 c8062d233a83c51fc6734d0abf94ad08ad5752b834ec6df5c3d69d1ceb925a20
+    bundled  B612-Bold.ttf         sha256 bc2fa44f36ba8a9d43c46e161c7ec12d2d3ac1711a5833d2e28d79b9fd32f8c6
+    bundled  B612Mono-Regular.ttf  sha256 16790b2ba769e18758549094101786b05a09deec9275055d269e320cffe401c6
+    bundled  B612Mono-Bold.ttf     sha256 3ecdf8c6ba7e1a3610bcefbccb9ff55c8471cd90da1e33e7a8b3c95631be8cc7
 
-  (The patched hashes were made with fontTools 4.66.1; another version may lay the tables out
+  (These hashes were made with fontTools 4.66.1; another version may lay the tables out
   differently while drawing the same glyphs.)

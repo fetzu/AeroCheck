@@ -71,6 +71,52 @@ final class TypographyTests: XCTestCase {
         }
     }
 
+    // MARK: - © and ® at full size (6.2)
+
+    /// The attributions ("Chart © swisstopo / BAZL", "© OpenAIP and contributors") and a trademark.
+    private let copyrightSigns: [Character] = ["©", "®"]
+
+    /// Upstream B612 draws © and ® as superscripts, 47 % of the em hung from the cap height, so an
+    /// attribution read like a footnote mark; the bundled files are patched to draw them as tall as
+    /// the capital O (`scripts/b612-full-size-copyright.py`). Read with CoreText's own glyph bounds,
+    /// with 2 % of the em for the round overshoot.
+    func testCopyrightSignsRunFromTheBaselineToTheCapHeight() throws {
+        for name in [AeroTypeface.regular, AeroTypeface.bold] {
+            let font = try XCTUnwrap(UIFont(name: name, size: 100)) as CTFont
+            let capHeight = CTFontGetCapHeight(font)
+            for character in copyrightSigns {
+                let ink = metrics(of: character, in: font).ink
+                XCTAssertEqual(ink.minY, 0, accuracy: 2,
+                               "\(name) '\(character)': foot at \(ink.minY) pt, not on the baseline")
+                XCTAssertEqual(ink.maxY, capHeight, accuracy: 2,
+                               "\(name) '\(character)': top at \(ink.maxY) pt, not at the \(capHeight) pt cap height")
+            }
+        }
+    }
+
+    /// B612 Mono keeps its cell (a sign as tall as the O would not fit it), so there the patch makes
+    /// © and ® as large as the cell allows with the O's side bearings, centred in the cell and on the
+    /// cap height, instead of hanging from it: at least 70 % of the cap height (upstream: 63 %), and as
+    /// wide as a digit still.
+    func testMonoCopyrightSignsAreCentredOnTheCapHeight() throws {
+        for name in [AeroTypeface.monoRegular, AeroTypeface.monoBold] {
+            let font = try XCTUnwrap(UIFont(name: name, size: 100)) as CTFont
+            let capHeight = CTFontGetCapHeight(font)
+            let digitAdvance = metrics(of: "0", in: font).advance
+            for character in copyrightSigns {
+                let (advance, ink) = metrics(of: character, in: font)
+                XCTAssertEqual(ink.midY, capHeight / 2, accuracy: 1,
+                               "\(name) '\(character)': ink centred at \(ink.midY) pt, not on the cap height's middle")
+                XCTAssertEqual(ink.midX, advance / 2, accuracy: advance * 0.02,
+                               "\(name) '\(character)': ink not centred in its \(advance) pt cell")
+                XCTAssertGreaterThan(ink.height, capHeight * 0.7,
+                                     "\(name) '\(character)': \(ink.height) pt tall, still a superscript")
+                XCTAssertEqual(advance, digitAdvance, accuracy: 0.001,
+                               "\(name) '\(character)' is not as wide as a digit")
+            }
+        }
+    }
+
     /// The advance and the ink bounds of one character's glyph, in points.
     private func metrics(of character: Character, in font: CTFont) -> (advance: CGFloat, ink: CGRect) {
         let units = Array(String(character).utf16)

@@ -171,6 +171,36 @@
         }
       }
     },
+    "Runway %@": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Piste %@"
+          }
+        }
+      }
+    },
+    "Runway %@, in use": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Piste %@, en service"
+          }
+        }
+      }
+    },
+    "Parachuting": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Parachutisme"
+          }
+        }
+      }
+    },
     "Circuits & VFR routes © open flightmaps · indicative": {
       "localizations": {
         "fr": {

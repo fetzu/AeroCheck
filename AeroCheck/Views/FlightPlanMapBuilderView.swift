@@ -2329,6 +2329,7 @@ struct RouteBuilderMapView: UIViewRepresentable {
         updateRoute(mapView, context: context)
         updateSelectedLeg(mapView, context: context)
         VFRMapLayer.sync(vfrContent, on: mapView, state: context.coordinator.vfrLayer)
+        VFRMapLayer.orientLabels(on: mapView, palette: context.coordinator.vfrLayer.palette)
 
         if context.coordinator.lastFitToken != fitRouteToken {
             context.coordinator.lastFitToken = fitRouteToken
@@ -2554,6 +2555,8 @@ struct RouteBuilderMapView: UIViewRepresentable {
         // Fires continuously while the user pans/zooms (not just at the end), so the profile's
         // "looking here" band tracks the map live instead of snapping on release. (feedback)
         func mapViewDidChangeVisibleRegion(_ mapView: MKMapView) {
+            // The circuits' altitudes follow the map's heading as it turns. (6.2.0)
+            VFRMapLayer.orientLabels(on: mapView, palette: vfrLayer.palette)
             guard !isDragging else { return } // don't fight an in-progress waypoint/line drag
             parent.region = mapView.region
         }

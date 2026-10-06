@@ -711,6 +711,11 @@ class AirportDataService: ObservableObject {
         return Self.suggestRunway(among: getRunways(for: airport.ident), windDirection: windDirection)
     }
 
+    /// Whether OpenAIP says there is parachuting at `ident`: the approach view's parachute. (6.2.0)
+    func hasParachuting(_ ident: String) -> Bool {
+        openAIPAirports.skydiveIcaoCodes.contains(ident.uppercased())
+    }
+
     /// Pure pick (no I/O, unit-testable): the open runway whose end best faces the wind, or the longest
     /// one when the wind is unknown.
     nonisolated static func suggestRunway(among allRunways: [Runway], windDirection: Double?) -> Runway? {

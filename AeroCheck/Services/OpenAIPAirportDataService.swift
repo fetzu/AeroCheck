@@ -30,6 +30,7 @@ final class OpenAIPAirportDataService: ObservableObject {
         didSet {
             guard !airports.isEmpty else { return }
             pprIcaoCodes = Set(airports.filter(\.isPPR).compactMap(\.icaoCode).map { $0.uppercased() })
+            skydiveIcaoCodes = Set(airports.filter(\.hasSkydiveActivity).compactMap(\.icaoCode).map { $0.uppercased() })
             hasPPRData = true
             fuelTypesByIcao = Self.fuelIndex(airports)
             aerodromesById = Self.aerodromeIndex(airports)
@@ -72,6 +73,9 @@ final class OpenAIPAirportDataService: ObservableObject {
 
     /// ICAO idents of the aerodromes OpenAIP flags as PPR. Survives `releaseLoadedAirports()`.
     private(set) var pprIcaoCodes: Set<String> = []
+    /// ICAO idents of the aerodromes OpenAIP flags with parachuting, for the approach view's parachute.
+    /// Survives `releaseLoadedAirports()`, like the PPR set. (6.2.0)
+    private(set) var skydiveIcaoCodes: Set<String> = []
     /// Whether `pprIcaoCodes` has been filled from real data at all — an empty set is then a real
     /// "no PPR fields", not "nothing downloaded".
     private(set) var hasPPRData = false
@@ -224,6 +228,7 @@ final class OpenAIPAirportDataService: ObservableObject {
         airports = []
         aerodromesById = [:]
         pprIcaoCodes = []
+        skydiveIcaoCodes = []
         hasPPRData = false
         fuelTypesByIcao = [:]
         airportCount = 0

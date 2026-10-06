@@ -825,6 +825,8 @@ struct CockpitRadioFollower: ViewModifier {
         let airports: Bool
         let airspace: Bool
         let airspaceCount: Int
+        /// The route's points and typed frequencies: a route edited in flight keeps its id and count.
+        let route: [String]
     }
 
     func body(content: Content) -> some View {
@@ -841,7 +843,8 @@ struct CockpitRadioFollower: ViewModifier {
         return Key(phase: appState.currentPhase, planId: plan?.id, waypointCount: plan?.waypoints.count ?? 0,
                    nextIndex: plan?.currentWaypointIndex, diversion: plan?.diversion?.ident,
                    airports: airportDataService.isDataAvailable, airspace: openAIPDataService.isDataAvailable,
-                   airspaceCount: openAIPDataService.airspaceCount)
+                   airspaceCount: openAIPDataService.airspaceCount,
+                   route: plan?.waypoints.map { "\($0.latitude),\($0.longitude),\($0.frequency ?? "")" } ?? [])
     }
 
     private var sources: PhaseFrequencyPlanner.Sources {

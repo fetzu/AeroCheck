@@ -181,11 +181,14 @@ enum PhaseFrequencyPlanner {
             position.map(fis(at:)) ?? []
         }
 
-        /// The FIS of every sector on the way, in the order they come, each frequency once: the
-        /// aircraft's, then each one the way ahead enters (to the waypoint flown to and along the legs
-        /// after it, or to the field diverted to), walked every `areaStepNM`. Until 6.2 only the
-        /// aircraft's: on the ground in the Engadine, a Jura route's RADIO listed Zurich Info and never
-        /// Geneva Info, which works two thirds of it (device check, 5 Oct).
+        /// The FIS of every sector on the way, in the order they come, each FIS once: the aircraft's,
+        /// then each one the way ahead enters (to the waypoint flown to and along the legs after it, or
+        /// to the field diverted to), walked every `areaStepNM`. Until 6.2 only the aircraft's: on the
+        /// ground in the Engadine, a Jura route's RADIO listed Zurich Info and never Geneva Info, which
+        /// works two thirds of it (device check, 5 Oct). A FIS with several sectors (Bale Info 130.900
+        /// over the Ajoie and 135.855 over Franche-Comté, Langen Info's 126.950 and 120.650) is listed
+        /// once, with the frequency of the sector the aircraft is in or reaches first: RADIO is computed
+        /// again as the aircraft moves, so it changes on entering the next one (device check, 6 Oct).
         var fisAlongTheWay: [Entry] {
             var way: [CLLocationCoordinate2D] = position.map { [$0] } ?? []
             if let diversion = plan?.diversion {
@@ -199,7 +202,8 @@ enum PhaseFrequencyPlanner {
             }
             var stations: [Entry] = []
             for point in points {
-                for station in fis(at: point) where !stations.contains(where: { $0.freq == station.freq }) {
+                for station in fis(at: point)
+                where !stations.contains(where: { $0.freq == station.freq || $0.station == station.station }) {
                     stations.append(station)
                 }
             }
@@ -352,6 +356,24 @@ enum FISSectors {
         }.joined(separator: " ")
     }
 
+    /// The stations of the data's sectors over a point, one per FIS, in an order that doesn't depend on
+    /// how the data loaded: the sectors of the country below first, then by id. Two countries' sectors
+    /// overlap from the ground in places (SIV BALE 1.2 over the Swiss Jura, Zürich's there too), and the
+    /// downloads load in no fixed order, so NOW over Bressaucourt could change from launch to launch.
+    static func stations(over sectors: [Airspace], countriesBelow: Set<String>) -> [PhaseFrequencyPlanner.Entry] {
+        let ordered = sectors.sorted { a, b in
+            let aBelow = countriesBelow.contains(a.country.uppercased())
+            let bBelow = countriesBelow.contains(b.country.uppercased())
+            return aBelow != bBelow ? aBelow : a.id < b.id
+        }
+        var stations: [PhaseFrequencyPlanner.Entry] = []
+        for station in ordered.compactMap(station(of:))
+        where !stations.contains(where: { $0.freq == station.freq || $0.station == station.station }) {
+            stations.append(station)
+        }
+        return stations
+    }
+
     /// The Swiss split's station at a point; nil outside Switzerland.
     static func swiss(at point: CLLocationCoordinate2D) -> PhaseFrequencyPlanner.Entry? {
         guard SwissAirspaceSectors.isInSwitzerland(point) else { return nil }
@@ -379,7 +401,10 @@ extension PhaseFrequencyPlanner.Sources {
                      .map { (station: $0.airspace.shortName, frequency: $0.airspace.primaryFrequency?.value) }
              },
              fisSectors: { coordinate in
-                 openAIP.fisSectors(containing: coordinate).compactMap(FISSectors.station(of:))
+                 let sectors = openAIP.fisSectors(containing: coordinate)
+                 // The countries below matter only where sectors overlap.
+                 let below = sectors.count > 1 ? CountryBoundaries.shared.countries(near: coordinate, bufferNm: 0) : []
+                 return FISSectors.stations(over: sectors, countriesBelow: below)
              })
     }
 }

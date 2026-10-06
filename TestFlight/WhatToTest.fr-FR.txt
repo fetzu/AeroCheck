@@ -1,3 +1,5 @@
-6.1.1 est la version qui part sur l'App Store. Utilisez-la comme d'habitude, avant, pendant et après vos vols, et envoyez vos remarques depuis l'app TestFlight : une capture d'écran avec une ligne de texte, c'est le plus rapide.
+6.1.2 est la version qui part sur l'App Store, à la place de 6.1.1. Utilisez-la comme d'habitude, avant, pendant et après vos vols, et envoyez vos remarques depuis l'app TestFlight : une capture d'écran avec une ligne de texte, c'est le plus rapide.
+
+Corrigé depuis 6.1.1 : sous iOS 27, AéroCheck pouvait planter au lancement avec un compte iCloud, à chaque fois après une nouvelle installation. Si vous êtes sous iOS 27, supprimez l'app, installez cette version et ouvrez-la : elle doit démarrer, et vos vols doivent revenir depuis iCloud.
 
 Nouveau depuis 6.1.0 : un iPad sans GPS (Wi-Fi seulement) peut installer AéroCheck. En vol, il utilise le GPS de l'iPhone grâce au mode compagnon (iOS 26 sur les deux), ou un récepteur GPS externe. Si vous volez ainsi, dites-nous si l'indicateur GPS reste vert.

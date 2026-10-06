@@ -710,6 +710,8 @@ final class StubSyncEngine: SyncEngineDriving, @unchecked Sendable {
     /// Fetches and sends awaited from inside a delegate callback: each one a crash on iOS 27.
     private(set) var callsFromInsideACallback = 0
     var fetchError: Error?
+    /// Runs inside the first fetch, where a real engine delivers its first events (`.signIn`).
+    var duringFirstFetch: (@MainActor () async -> Void)?
 
     func queue(_ changes: [CKSyncEngine.PendingRecordZoneChange]) { queued += changes }
     func unqueue(_ changes: [CKSyncEngine.PendingRecordZoneChange]) { unqueued += changes }
@@ -717,6 +719,7 @@ final class StubSyncEngine: SyncEngineDriving, @unchecked Sendable {
     func fetch() async throws {
         fetches += 1
         if SyncEngineCallbackContext.isInside { callsFromInsideACallback += 1 }
+        if fetches == 1, let duringFirstFetch { await duringFirstFetch() }
         if let fetchError { throw fetchError }
     }
     func send() async throws {
@@ -745,6 +748,8 @@ final class StubSyncBackend: SyncBackend {
     private(set) var isHoldingAccountCheck = false
     private var held: CheckedContinuation<Void, Never>?
     private(set) var engines: [StubSyncEngine] = []
+    /// Runs inside each engine's first fetch, with the engine's index (0 = the first built).
+    var duringFirstFetch: (@MainActor (_ engine: Int) async -> Void)?
 
     func accountStatus() async throws -> CKAccountStatus {
         if holdsAccountCheck {
@@ -762,6 +767,10 @@ final class StubSyncBackend: SyncBackend {
     func makeEngine(state: CKSyncEngine.State.Serialization?, delegate: SyncEngineDelegate) -> SyncEngineDriving {
         let engine = StubSyncEngine()
         engine.fetchError = fetchError
+        if let hook = duringFirstFetch {
+            let index = engines.count
+            engine.duringFirstFetch = { await hook(index) }
+        }
         engines.append(engine)
         return engine
     }
@@ -939,6 +948,99 @@ final class SyncSwitchCloudKitTests: XCTestCase {
         XCTAssertEqual(engine.fetches, 2, "the first fetch, then Sync Now's")
         XCTAssertEqual(engine.sends, 1)
         XCTAssertEqual(engine.callsFromInsideACallback, 0, "a trap on iOS 27")
+    }
+
+    // MARK: - Account changes
+
+    /// Waits for every start, a restart's included.
+    private func settled(_ manager: SyncManager) async {
+        while let start = manager.engineStartTask { await start.value }
+    }
+
+    /// 6.1.2 restarted the engine on its `.signIn`, and each new engine signed in again: on a fresh
+    /// install the engine was rebuilt for as long as the app ran and never finished its first fetch
+    /// (seen on a device, 6 Oct 2026). Here each engine signs in during its first fetch, like a real
+    /// one without a saved account; the stand-in stops after five, so a loop fails instead of hanging.
+    func testAnEngineSigningInDuringItsStartIsKept() async throws {
+        let manager = manager(on: false)
+        backend.duringFirstFetch = { index in
+            if index < 5 { await manager.engineSignedIn() }
+        }
+
+        manager.isSyncEnabled = true
+        await settled(manager)
+
+        XCTAssertEqual(backend.engines.count, 1, "no restart")
+        XCTAssertTrue(manager.isEngineRunning)
+        XCTAssertEqual(backend.engines.first?.fetches, 1, "the first fetch, as at launch")
+    }
+
+    /// A sign-in once the engine is up: a fetch, then what CloudKit lacks goes out.
+    func testAnEngineSigningInOnceUpFetchesAndCatchesUp() async throws {
+        let manager = manager(on: true)
+        let engine = try await started(manager)
+        let unsent = flight()
+        manager.localSnapshot = { ([unsent], AppSettings()) }
+
+        await manager.engineSignedIn()
+
+        XCTAssertEqual(backend.engines.count, 1, "no restart")
+        XCTAssertEqual(engine.fetches, 2)
+        XCTAssertEqual(engine.saves, records(of: unsent))
+        XCTAssertEqual(engine.sends, 1)
+    }
+
+    /// Signed back in after a sign-out, or no account at launch: sync starts without waiting for the
+    /// next launch.
+    func testAnAccountThatBecomesAvailableStartsSync() async throws {
+        backend.status = .noAccount
+        let manager = manager(on: true)
+        await manager.engineStartTask?.value
+        XCTAssertTrue(backend.engines.isEmpty)
+
+        backend.status = .available
+        manager.accountDidChange()
+        let engine = try await started(manager)
+
+        XCTAssertTrue(manager.isEngineRunning)
+        XCTAssertEqual(engine.fetches, 1)
+    }
+
+    /// A running engine reports its own account changes: the notification starts nothing more.
+    func testAnAccountChangeWithTheEngineUpStartsNothingMore() async throws {
+        let manager = manager(on: true)
+        _ = try await started(manager)
+
+        manager.accountDidChange()
+        await manager.engineStartTask?.value
+
+        XCTAssertEqual(backend.engines.count, 1)
+    }
+
+    func testAnAccountChangeWithTheSwitchOffStartsNothing() {
+        let manager = manager(on: false)
+
+        manager.accountDidChange()
+
+        XCTAssertNil(manager.engineStartTask)
+        XCTAssertTrue(backend.engines.isEmpty)
+    }
+
+    /// A different account still gets an engine of its own, and the logbook goes to it: the previous
+    /// account's fingerprints are gone.
+    func testSwitchedAccountsGetAFreshEngineAndTheLogbook() async throws {
+        let manager = manager(on: true)
+        _ = try await started(manager)
+        let known = flight()
+        manager.markFlightSynced(known.id, modifiedAt: known.modifiedAt)
+        manager.markFlightTrackSynced(known.id, count: known.gpsTrack.count)
+        manager.localSnapshot = { ([known], AppSettings()) }
+
+        manager.restartSyncForAccountChange(clearState: true)
+        let second = try await started(manager)
+
+        XCTAssertEqual(backend.engines.count, 2)
+        XCTAssertEqual(second.saves, records(of: known))
     }
 
     // MARK: - Off

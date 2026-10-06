@@ -74,19 +74,35 @@ The App Store licence for the app itself is Apple's Licensed Application End Use
 A subscription buys you access to checklist content. It does not make that content authoritative: section 1.2 applies to paid aircraft exactly as it does to free ones.
 
 
-## 4.0 Acceptable use
+## 4.0 Sending us an aircraft's checklist
+
+Anyone may send us an aircraft's checklist through [aerocheck.app/send](/send). By sending one, you confirm that:
+
+- you may share the document with us for this purpose: you send it for the club or operator it belongs to, or with its agreement, or the aircraft is yours;
+- as far as you know, it is the current revision.
+
+When a pilot sends a club's checklist, the club is asked to confirm, and nothing is published without its agreement.
+
+You (and the club, when it confirms) allow us to use the document to add the aircraft's checklist to AéroCheck and to offer it in the app, where it becomes part of the premium checklist content of section 2.0 (AéroCheck Pro), like every aircraft but the bundled WT9 Dynamic. The document itself is never published; the [privacy policy](/privacy) (section 4.3) says what we keep and for how long. A club that later wants its aircraft withdrawn can ask us to.
+
+We decide which aircraft we add, and when: no date is promised, and a request may be declined. Section 1.2 applies to such a checklist as to every other, and proofreading the draft does not make it an approved checklist.
+
+Send the checklist and nothing more: black out any personal data in it (names, phone numbers) first.
+
+
+## 5.0 Acceptable use
 
 Do not use AéroCheck to break the law or aviation regulations, do not attempt to extract or redistribute the premium checklist content, and do not attempt to circumvent the subscription mechanism or interfere with the API service.
 
 
-## 5.0 No warranty
+## 6.0 No warranty
 
 **AéroCheck is provided "as is" and "as available", without warranty of any kind**, express or implied, including any implied warranty of merchantability, fitness for a particular purpose, accuracy, or non-infringement.
 
 We do not warrant that the app or its content is accurate, complete, current or error-free, that it will be available without interruption, or that defects will be corrected. This applies equally to the free and paid parts of the app, and to data obtained from third-party providers.
 
 
-## 6.0 Limitation of liability
+## 7.0 Limitation of liability
 
 To the fullest extent permitted by applicable law, the author and contributors of AéroCheck shall not be liable for any loss or damage of any kind arising out of or in connection with your use of, or inability to use, the app or its content. This includes direct, indirect, incidental, special, consequential and punitive damages, and expressly includes loss of or damage to aircraft or property, personal injury and death.
 
@@ -95,17 +111,17 @@ You use AéroCheck at your own risk, in the knowledge that it is uncertified sof
 Nothing in these terms excludes or limits liability where such exclusion is not permitted by law, in particular for damage caused intentionally or by gross negligence.
 
 
-## 7.0 Changes to these terms
+## 8.0 Changes to these terms
 
 We may update these terms from time to time. Changes are posted on this page with an updated revision date. Where a change materially affects the safety notice in section 1.0, the app will ask you to acknowledge it again.
 
 
-## 8.0 Governing law
+## 9.0 Governing law
 
 These terms are governed by Swiss law, excluding its conflict-of-law rules and the Vienna Convention on Contracts for the International Sale of Goods. Mandatory consumer-protection provisions of your country of residence are unaffected.
 
 
-## 9.0 Contact
+## 10.0 Contact
 
 Questions about these terms: open an issue on the [GitHub repository](https://github.com/fetzu/AeroCheck/issues).
 

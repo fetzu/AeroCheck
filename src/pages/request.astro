@@ -1,0 +1,9 @@
+---
+import Base from '../layouts/Base.astro';
+import RequestStatus from '../components/requests/RequestStatus.astro';
+import { loadSite } from '../lib/site';
+const site = loadSite('en');
+---
+<Base site={site} lang="en" title="Aircraft request" noindex>
+  <RequestStatus lang="en" />
+</Base>

@@ -1,0 +1,29 @@
+---
+// /request and /fr/request: a request's page, opened with the link from the sender's e-mail
+// (#t=<status token>). Everything on it comes from the worker, so the page is a shell the script
+// fills (src/scripts/requests/status.ts); without a token, or without the worker, it says so.
+import type { Lang } from '../../lib/site';
+import { REQUESTS_COPY, toJsonScript } from '../../lib/requests-copy';
+import RequestStyles from './RequestStyles.astro';
+interface Props { lang: Lang; }
+const { lang } = Astro.props;
+const copy = REQUESTS_COPY[lang];
+const t = copy.status;
+const otherLangHref = lang === 'fr' ? '/request' : '/fr/request';
+const noscript = lang === 'fr'
+  ? 'Cette page a besoin de JavaScript pour afficher votre demande.'
+  : 'This page needs JavaScript to show your request.';
+---
+<RequestStyles />
+<section class="rq container" data-rq-status>
+  <p class="eyebrow">{t.eyebrow}</p>
+  <div data-rq-view>
+    <h1 class="rq-title">{t.title}</h1>
+    <p class="rq-loading" role="status"><span class="rq-spinner" aria-hidden="true"></span>{t.loading}</p>
+  </div>
+  <noscript><div class="rq-alert rq-alert--error"><p>{noscript}</p></div></noscript>
+  <p class="rq-aside rq-aside--foot"><a href={otherLangHref} lang={lang === 'fr' ? 'en' : 'fr'} data-rq-lang>{copy.common.otherLang}</a></p>
+  <script type="application/json" id="rq-copy" set:html={toJsonScript(copy)}></script>
+</section>
+
+<script>import '../../scripts/requests/status.ts';</script>

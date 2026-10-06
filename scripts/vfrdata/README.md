@@ -1,6 +1,6 @@
 # VFR data for the app (aerocheck.app/data)
 
-Two small scripts that turn other people's aeronautical data into the files AéroCheck downloads for its map: the traffic circuits, VFR arrival and departure routes, arrival sectors and reporting points from open flightmaps, and a registry of where each country keeps its official aerodrome charts. The output lives in `public/data/` and Astro copies it to the site as is; the app reads it from `https://aerocheck.app/data/…` and never talks to the sources itself.
+Two small scripts that turn other people's aeronautical data into the files AéroCheck downloads for its map: the traffic circuits, VFR arrival and departure routes, arrival sectors, reporting points and runway thresholds from open flightmaps, and a registry of where each country keeps its official aerodrome charts. The output lives in `public/data/` and Astro copies it to the site as is; the app reads it from `https://aerocheck.app/data/…` and never talks to the sources itself.
 
 A weekly job on `main` (`.github/workflows/vfr-data.yml`) runs both scripts on Thursdays at 05:00 UTC (AIRAC cycles start on Thursdays), commits what changed to this branch as "website: VFR data AIRAC <cycle> (<countries>)" and dispatches `deploy.yml`. When a script stops, the job opens (or updates) one issue, "VFR data job failed".
 
@@ -40,13 +40,13 @@ When the new cycle isn't on OFM yet (a missing object is a 404 with a PNG body, 
 
 ### What is kept
 
-Traffic circuits, VFR arrivals and departures (transits, holds and IFR transitions are dropped), the sector polygons of their legs ("VFR Corridor" → `corridor`, AT's "Noise Abatement Area" → `noise`, untyped → `area`; "Leg Label" boxes are not areas), the VFR reporting points (published ones, plus the few OFM only has inline in a procedure leg), and the runway designators per aerodrome as OFM has them. Lines are Douglas-Peucker simplified at 10 m and rounded to 5 decimals (display only, about 1 m).
+Traffic circuits, VFR arrivals and departures (transits, holds and IFR transitions are dropped), the sector polygons of their legs ("VFR Corridor" → `corridor`, AT's "Noise Abatement Area" → `noise`, untyped → `area`; a "Leg Label" box is not an area, unless it is the only polygon the procedure has, as for LSZE "ARR SECTOR EAST": then it is its `corridor`), the VFR reporting points (published ones, plus the few OFM only has inline in a procedure leg), and the runway designators and thresholds per aerodrome as OFM has them. Lines are Douglas-Peucker simplified at 10 m and rounded to 5 decimals (display only, about 1 m).
 
 ### Hygiene
 
 From the 6.2.0 investigation (`ofm-investigation.md` §6):
 
-- geometry from the Bézier curve (`_beztrajectory`); without one, from the straight skeleton (`_sceletonPath`) and marked `approx`; without either, dropped;
+- geometry from the Bézier curve (`_beztrajectory`); without one, from OFM's alternate Bézier curve (`_beztrajectoryAlternate`, which every arrival and departure without a curve had in 2610), turned around when OFM drew it backwards so it runs the way the skeleton does (the departures' alternates start at the exit point); without either, from the straight skeleton (`_sceletonPath`) and marked `approx`; without any, dropped;
 - a circuit altitude is published only when it is an ALT in FT between 400 and 2,500 ft above OFM's aerodrome elevation (LOAA "2900 ft" on a 2,870 ft field is a height coded as an altitude);
 - two procedures of an aerodrome on the same path (skeletons within 0.05 NM, vertex by vertex) at the same altitude and for the same aircraft are one: the second is dropped, and a placeholder name ("NEW PROCEDURE", "TEST", "COPY", "DRAFT", empty) always loses. Same path at different altitudes: both kept and flagged;
 - the category comes from the name, since OFM's `usageType` only knows fixed wing and helicopter: `glider`, `ul`, `glider+ul`, `gyro`, `heli` (also from the helicopter usage), `heavy` (multi-engine, retractable, turbine, "> 2000 KG"…), or `null` for the plain powered one.
@@ -70,13 +70,21 @@ public/data/ofm/v1/index.json   { v, generated, regions: { CH: { airac, validFro
                                   sourceEtag, procedures, points, flags[] }, … }, attribution,
                                   reportForm: { url, field }, reportMail }
 public/data/ofm/v1/<cc>.json    { v, source, attribution, region, country, airac, validFrom, validTo, ofmCreated,
-                                  procedures: [{ id, ad, kind, name, use, cat, alt?, line, approx?,
-                                  areas?: [{ kind, poly }] }],
+                                  procedures: [{ id, ad, kind, name, use, cat, dir?, alt?, line, offCircuit?,
+                                  approx?, areas?: [{ kind, poly, label }] }],
                                   points: [{ id, name, kind, ad?, lat, lon, inOpenAIP }],
-                                  runways: { <ICAO>: ["07/25", …] } }
+                                  runways: { <ICAO>: ["07/25", …] },
+                                  thresholds: { <ICAO>: [{ rwy, pos, trueBrg? }, …] } }
 ```
 
 `kind` is `circuit`, `arr` or `dep`; `use` is `fw` or `heli`; `alt` is in ft MSL; `line` and `poly` are `[lon, lat]` pairs (polygons are open rings: the app closes them); `validTo` is the next cycle's first day. Point kinds: `rp` (on request), `mrp` (compulsory), `enr` (en route), `heli`, `gld`. A point's `id` is OFM's `mid`, or `leg-<hash>` for one OFM only has inline. `reportForm` is OFM's "Open flightmaps error reporting" Google Form and its description field, for a pre-filled report; `reportMail` is the fallback. Both live here so they can change without an app release.
+
+Added within v1 for the map's badges and labels (additive: a build that doesn't know a key ignores it):
+
+- `dir` (arrivals and departures): the compass direction the name gives, one of `N` `NE` `E` `SE` `S` `SW` `W` `NW`, for the letter on the sector's badge. Read from English, German, French and Italian words and letters (NORTH, NORD, OST, SÜD-OST, OUEST, OVEST, NE, W…) once accents are folded, intercardinals before cardinals (NORDOST is NE, never N). A word may carry a runway glued on (`NORD04`), a letter must stand alone (`E1` is the point ECHO 1, not east). Left out when the name gives no direction (phonetic names such as ECHO, misspellings such as "NOTHEAST": nothing is guessed) or two different ones ("08-EAST-NORTH"). O, NO and SO are not read: German and French disagree on them.
+- `offCircuit` (arrivals and departures): `[i, j]`, inclusive indices into `line`, the part of the route that is not flown along one of its aerodrome's published circuits, so the app can put a route's label (or anything else) on the route itself and not on the circuit. The leading and the trailing vertices within 200 m of a circuit are dropped, except the one where the line meets it: the part ends ON the circuit. Left out when nothing would be dropped (no circuit, or a route that never runs along one) or everything would (a short departure flown on the circuit all the way).
+- `label` (every area): `[lon, lat]`, the area's pole of inaccessibility, the point farthest from its edges, where a badge fits best (a centroid can fall outside a bent sector). Mapbox's polylabel to 10 m, on a local flat projection (longitude scaled by the cosine of the latitude), measured on OFM's ring before simplification.
+- `thresholds`: per aerodrome with at least one published procedure, the runway ends as OFM positions them: `rwy` the designator written as in `runways`, `pos` the threshold as `[lon, lat]`, `trueBrg` the true bearing of that runway direction in degrees (one decimal), left out when OFM has none. An end without a position is left out, and so is an aerodrome left without any. OFM's designators are published as they are, outdated or not (OFM still has LSGE as 10/28, its chart says 09/27): the app votes on designators itself.
 
 ## charts_registry.py
 
@@ -85,24 +93,24 @@ Where the official chart of an aerodrome lives, by country. Links only: nothing 
 ```
 public/data/charts/v1/charts.json  { v, generated, countries: {
                                        DE: { kind: "dfs-basicvfr", base, pages: { <ICAO>: <id> } },
-                                       FR: { kind: "sia-vac", template, airac },
+                                       FR: { kind: "sia-vac", template, airac, codes? },
                                        CH: { kind: "skybriefing-vfr-manual", url, login: true },
                                        AT: { kind: "eaip", url } },
                                      flags[] }
 ```
 
 - DE: DFS BasicVFR permalinks, `base + id + ".html"` (free, no login, amendment-proof). The ICAO → id table is DFS's own public `config.js` (the BasicVFR search box), read once a run; the pages themselves are never crawled.
-- FR: SIA eAIP Atlas-VAC PDF, `template` with `{icao}` replaced. The folder is named after the AIRAC date (`eAIP_01_OCT_2026`), checked on LFGA; while the new cycle's folder isn't online, the previous one is used.
+- FR: SIA eAIP Atlas-VAC PDF, `template` with `{icao}` replaced. The folder is named after the AIRAC date (`eAIP_01_OCT_2026`), checked on LFGA; while the new cycle's folder isn't online, the previous one is used. `codes` lists the aerodromes that have a VAC in that folder (419 in 2610), read from `Atlas-VAC/Javascript/AeroArraysVac.js`, the list behind the atlas's own search box: a code that isn't in it answers 404 (most of the French air bases, for one). It is optional: when the list is unavailable or looks wrong (fewer than 300 codes, or LFGA missing), FR is published without it and flagged, and the app falls back to its own rule (an LF code of an aerodrome type); last week's list is kept while the folder is the same.
 - CH: skyguide's eVFR Manual on SkyBriefing, one URL for every aerodrome, behind a login and a subscription.
 - AT: Austro Control's eAIP start page (the amendment folders have no stable alias).
 - IT: none. ENAV's terms forbid deep links.
 
-Every run HEAD-checks a sample (three DFS pages spread over the alphabet, the French sample, both start pages). A failed DFS page is left out; a country whose sample fails entirely is left out of `countries` and listed in `flags`, and the run exits 1. If `config.js` itself is unavailable, last week's table is re-checked and kept if its sample still answers.
+Every run HEAD-checks a sample (three DFS pages spread over the alphabet, the French sample, both start pages) and reads SIA's code list once. A failed DFS page is left out; a country whose sample fails entirely is left out of `countries` and listed in `flags`, and the run exits 1. If `config.js` itself is unavailable, last week's table is re-checked and kept if its sample still answers.
 
 ## Notes
 
 - OFM's procedure element (`Prc`) is not in the public OFMX schema, and the underscore elements (`_beztrajectory`, `_sceletonPath`) are OFM internals: the format can change without notice. The gates catch the loud failures; a quiet change (a renamed field) shows up as missing circuits or areas in the counts the job prints.
-- The tests use elements cut from the real AIRAC 2610 Swiss snapshot (`tests/fixtures/ofmx_ls_2610_sample.xml`) and a made-up OpenAIP stand-in; they never touch the network.
+- The tests use elements cut from the real AIRAC 2610 Swiss snapshot (`tests/fixtures/ofmx_ls_2610_sample.xml`), a made-up OpenAIP stand-in and a made-up excerpt in the shape of SIA's code list (`tests/fixtures/sia_aeroarraysvac_sample.js`); they never touch the network.
 - Licence of the data: the open flightmaps General Users' License asks that open flightmaps always be credited as the source and that errors found be reported back. Every file carries the attribution, `index.json` carries the report form, and the app shows both. Ask OFMA (info@openflightmaps.org) before 6.2.0 ships.
 
 ## Credits

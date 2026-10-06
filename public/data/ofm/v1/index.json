@@ -1,15 +1,15 @@
 {
   "v": 1,
-  "generated": "2026-10-02T00:15:33Z",
+  "generated": "2026-10-06T19:20:45Z",
   "regions": {
     "CH": {
       "airac": "2610",
       "validFrom": "2026-10-01",
       "validTo": "2026-10-29",
       "url": "https://aerocheck.app/data/ofm/v1/ch.json",
-      "sha256": "d28f537af1b4bb03dd598821752838df67bb325d44269d104be2db7ad6c3223f",
-      "bytes": 97197,
-      "sourceEtag": "\"0a7610c06f7aaac8f3585b1ef4e71769\"",
+      "sha256": "f2097475044ecb033c59c805fb18a4e860afd62d2cfdb99ce8df15aa562e889b",
+      "bytes": 108594,
+      "sourceEtag": "\"52c03e28fc534f5cf664b364c47bccca\"",
       "procedures": 241,
       "points": 91,
       "flags": [
@@ -35,174 +35,6 @@
           "name": "NEW PROCEDURE",
           "detail": "same path and altitude as \"TC\"; dropped",
           "with": "f2fbd4ca-1edb-354d-414d-28863037c1ea"
-        },
-        {
-          "type": "approx-geometry",
-          "ad": "LSGP",
-          "id": "ac6ea63a-d293-f76b-9097-71fc1b3498c5",
-          "name": "DEP04",
-          "detail": "no curve published; drawn from the straight skeleton"
-        },
-        {
-          "type": "approx-geometry",
-          "ad": "LSGY",
-          "id": "b6db820a-1704-ef14-438b-26826b64cf09",
-          "name": "ARR SECTOR SOUTH 3500",
-          "detail": "no curve published; drawn from the straight skeleton"
-        },
-        {
-          "type": "approx-geometry",
-          "ad": "LSTO",
-          "id": "e73f63ff-a611-b572-ebd7-9db9ede9eb9f",
-          "name": "ARR SECTOR SOUTH",
-          "detail": "no curve published; drawn from the straight skeleton"
-        },
-        {
-          "type": "approx-geometry",
-          "ad": "LSGB",
-          "id": "9364aaed-40a5-f0a7-8deb-c2b97ccf94c0",
-          "name": "APP SECTOR NORTH",
-          "detail": "no curve published; drawn from the straight skeleton"
-        },
-        {
-          "type": "approx-geometry",
-          "ad": "LSGE",
-          "id": "a0764343-e967-4732-8ce4-ff7957fe3a43",
-          "name": "ARR SECTOR SOUTH",
-          "detail": "no curve published; drawn from the straight skeleton"
-        },
-        {
-          "type": "approx-geometry",
-          "ad": "LSZB",
-          "id": "ffd483fd-5820-e96d-a340-68c851d0eede",
-          "name": "S-32",
-          "detail": "no curve published; drawn from the straight skeleton"
-        },
-        {
-          "type": "approx-geometry",
-          "ad": "LSGR",
-          "id": "f46e5f76-3574-8f04-fb24-5d880c9f67ab",
-          "name": "ARR SECTOR N",
-          "detail": "no curve published; drawn from the straight skeleton"
-        },
-        {
-          "type": "approx-geometry",
-          "ad": "LSZO",
-          "id": "1928d3ab-df5c-4d97-e3af-e0495808c471",
-          "name": "ARR SECTOR WEST",
-          "detail": "no curve published; drawn from the straight skeleton"
-        },
-        {
-          "type": "approx-geometry",
-          "ad": "LSZF",
-          "id": "be07659e-57b1-fb27-4e3a-bfeb75c063ea",
-          "name": "ARR W 26",
-          "detail": "no curve published; drawn from the straight skeleton"
-        },
-        {
-          "type": "approx-geometry",
-          "ad": "LSZC",
-          "id": "07dd7266-440d-06af-bcad-f4b441aeb5c3",
-          "name": "DEP TC RW 06 ACFT < 5.7T DIREKTION GISWIL",
-          "detail": "no curve published; drawn from the straight skeleton"
-        },
-        {
-          "type": "approx-geometry",
-          "ad": "LSZC",
-          "id": "93d552a5-5b47-08a3-f5ee-1b36ff9548d1",
-          "name": "ARR RW 24 ACFT < 5.7T FROM GISWIL",
-          "detail": "no curve published; drawn from the straight skeleton"
-        },
-        {
-          "type": "approx-geometry",
-          "ad": "LSZC",
-          "id": "85bece56-dd7e-583c-20d2-fa394559989c",
-          "name": "ARR RW 24 FROM NW",
-          "detail": "no curve published; drawn from the straight skeleton"
-        },
-        {
-          "type": "approx-geometry",
-          "ad": "LSZC",
-          "id": "1db15698-7b7e-6e0c-a738-f2d39ca0ad1b",
-          "name": "ARR RW 24 FROM RISCH",
-          "detail": "no curve published; drawn from the straight skeleton"
-        },
-        {
-          "type": "approx-geometry",
-          "ad": "LSZC",
-          "id": "c90a6b11-c258-fd2b-e947-5ce4cca8fa3f",
-          "name": "DEP 06 TO RISCH",
-          "detail": "no curve published; drawn from the straight skeleton"
-        },
-        {
-          "type": "approx-geometry",
-          "ad": "LSZO",
-          "id": "c8fb0b93-e7f3-4bb1-1794-839343110c7e",
-          "name": "DEP 15 TO EAST",
-          "detail": "no curve published; drawn from the straight skeleton"
-        },
-        {
-          "type": "approx-geometry",
-          "ad": "LSZU",
-          "id": "694253b4-56a0-b09d-2b46-9fde33cc1bcc",
-          "name": "ARR SECTOR EAST",
-          "detail": "no curve published; drawn from the straight skeleton"
-        },
-        {
-          "type": "approx-geometry",
-          "ad": "LSZU",
-          "id": "26feb57c-2183-5a19-5026-eec2e4d75270",
-          "name": "ARR SECTOR WEST",
-          "detail": "no curve published; drawn from the straight skeleton"
-        },
-        {
-          "type": "approx-geometry",
-          "ad": "LSZF",
-          "id": "19edaf0e-d90d-8d42-b7a8-61a962bed49d",
-          "name": "SECTOR S RWY 26",
-          "detail": "no curve published; drawn from the straight skeleton"
-        },
-        {
-          "type": "approx-geometry",
-          "ad": "LSZF",
-          "id": "7f5e25cc-bc6a-0d4a-5efa-011bd6aee507",
-          "name": "ECHO 08",
-          "detail": "no curve published; drawn from the straight skeleton"
-        },
-        {
-          "type": "approx-geometry",
-          "ad": "LSZK",
-          "id": "f79697d1-00dc-c582-6b3c-62da1894341d",
-          "name": "ARR SECTOR EAST RW 30",
-          "detail": "no curve published; drawn from the straight skeleton"
-        },
-        {
-          "type": "approx-geometry",
-          "ad": "LSZK",
-          "id": "6ba6c5bd-07df-d5ae-ceb1-9ecefa27ebc2",
-          "name": "ARR SECTOR WEST OUTSIDE DÜBENDORF OP HR",
-          "detail": "no curve published; drawn from the straight skeleton"
-        },
-        {
-          "type": "approx-geometry",
-          "ad": "LSPH",
-          "id": "2c5e078b-e2f8-328a-720a-2cedd104ffb1",
-          "name": "DEP 01 TO EAST",
-          "detail": "no curve published; drawn from the straight skeleton"
-        },
-        {
-          "type": "approx-geometry",
-          "ad": "LSZV",
-          "id": "8a159d61-e09d-969d-66ff-c48103d9a283",
-          "name": "ARR SECKTOR SOUTH",
-          "detail": "no curve published; drawn from the straight skeleton"
-        },
-        {
-          "type": "approx-geometry",
-          "ad": "LSZE",
-          "id": "f497a06b-571f-d60a-b304-d86a77e9ea57",
-          "name": "ARR SECTOR EAST",
-          "detail": "no curve published; drawn from the straight skeleton"
         },
         {
           "type": "point-position",
@@ -253,9 +85,9 @@
       "validFrom": "2026-10-01",
       "validTo": "2026-10-29",
       "url": "https://aerocheck.app/data/ofm/v1/at.json",
-      "sha256": "7ec9a830541cec1554101ecdda220496dbdf2e35701d4631b34c3dfe33f4ed5c",
-      "bytes": 101046,
-      "sourceEtag": "\"ef35f9b041c29964062428c3b15e0665\"",
+      "sha256": "4fe29513905ad3193aeb4c2ef75dc1dd4da4bd8429ff6aa0250bb69bbd859287",
+      "bytes": 111241,
+      "sourceEtag": "\"e4742973224bb1265bb2404fe5cd3856\"",
       "procedures": 187,
       "points": 322,
       "flags": [
@@ -299,27 +131,6 @@
           "with": "937ff3de-fc4d-883d-0f97-4fbd61d69fdb"
         },
         {
-          "type": "approx-geometry",
-          "ad": "LOWI",
-          "id": "ae44ebe1-6cd2-cdf9-522c-ebae080f05c3",
-          "name": "08 INDIA NOVEMBER2",
-          "detail": "no curve published; drawn from the straight skeleton"
-        },
-        {
-          "type": "approx-geometry",
-          "ad": "LOWZ",
-          "id": "2d4c6fd3-9d59-5cbd-bfc8-57bf5d7824b8",
-          "name": "WEST",
-          "detail": "no curve published; drawn from the straight skeleton"
-        },
-        {
-          "type": "approx-geometry",
-          "ad": "LOLE",
-          "id": "06efbea8-4d84-4a3c-d097-327f190ffc94",
-          "name": "NORTH",
-          "detail": "no curve published; drawn from the straight skeleton"
-        },
-        {
           "type": "point-position",
           "ad": "LOXN",
           "id": "c027e499-c284-a008-7993-6cab5bec5e41",
@@ -340,10 +151,10 @@
       "validFrom": "2026-10-01",
       "validTo": "2026-10-29",
       "url": "https://aerocheck.app/data/ofm/v1/de.json",
-      "sha256": "987c8fac1f8002aa76ec2ed7357efaf489cd028b4b1a9119b775c0af962cd92c",
-      "bytes": 566123,
-      "sourceEtag": "\"36aed1959065e356fb608dc96c7e08da\"",
-      "procedures": 1642,
+      "sha256": "f251f76fc019578fa796c477f198db9f8a428e8e746d4fdb6e33e8525e88263f",
+      "bytes": 649826,
+      "sourceEtag": "\"e3ceebea5259d0a9b4c788d4b7747423\"",
+      "procedures": 1645,
       "points": 405,
       "flags": [
         {
@@ -427,146 +238,6 @@
           "with": "b8503aa5-54f6-6e01-587f-4cf288fea167"
         },
         {
-          "type": "approx-geometry",
-          "ad": "EDRB",
-          "id": "4a97aff3-359c-5dc4-9dbf-f88c595c4917",
-          "name": "06-NORTHWEST",
-          "detail": "no curve published; drawn from the straight skeleton"
-        },
-        {
-          "type": "approx-geometry",
-          "ad": "EDWET",
-          "id": "ad3979ce-d1a9-7f1e-418c-d30d3ec1f908",
-          "name": "WEST",
-          "detail": "no curve published; drawn from the straight skeleton"
-        },
-        {
-          "type": "approx-geometry",
-          "ad": "EDKB",
-          "id": "da3f6dc7-d790-fb09-646a-ec040635f273",
-          "name": "11-SOUTHEAST",
-          "detail": "no curve published; drawn from the straight skeleton"
-        },
-        {
-          "type": "approx-geometry",
-          "ad": "EDWY",
-          "id": "43e497b5-d7ec-8340-9e07-b071949694f5",
-          "name": "08-SOUTH",
-          "detail": "no curve published; drawn from the straight skeleton"
-        },
-        {
-          "type": "approx-geometry",
-          "ad": "EDWY",
-          "id": "8b9bcfde-c375-2ff2-5f05-3e57c310d448",
-          "name": "08-EAST",
-          "detail": "no curve published; drawn from the straight skeleton"
-        },
-        {
-          "type": "approx-geometry",
-          "ad": "EDFC",
-          "id": "33843a16-3e9d-9772-ac96-5168353f96f3",
-          "name": "08-SE",
-          "detail": "no curve published; drawn from the straight skeleton"
-        },
-        {
-          "type": "approx-geometry",
-          "ad": "ETHL",
-          "id": "aee03e36-c713-ffb8-37fe-f000d3aed9c4",
-          "name": "W-27",
-          "detail": "no curve published; drawn from the straight skeleton"
-        },
-        {
-          "type": "approx-geometry",
-          "ad": "EDNE",
-          "id": "00857331-2cbc-e5cd-dc24-00ed13953f54",
-          "name": "03-EAST",
-          "detail": "no curve published; drawn from the straight skeleton"
-        },
-        {
-          "type": "approx-geometry",
-          "ad": "EDNE",
-          "id": "f09ca17a-df50-5605-7e39-8dea594ba21e",
-          "name": "SOUTH-UL TFC",
-          "detail": "no curve published; drawn from the straight skeleton"
-        },
-        {
-          "type": "approx-geometry",
-          "ad": "EDVC",
-          "id": "f902e0d7-e6d5-877c-57e7-f52865b05383",
-          "name": "04- SOUTHWEST",
-          "detail": "no curve published; drawn from the straight skeleton"
-        },
-        {
-          "type": "approx-geometry",
-          "ad": "EDNG",
-          "id": "6081e0af-6a71-bad9-9ad3-ba2bb271e5f7",
-          "name": "NORTH-35",
-          "detail": "no curve published; drawn from the straight skeleton"
-        },
-        {
-          "type": "approx-geometry",
-          "ad": "EDPA",
-          "id": "8ef1b79a-57ad-0e5f-8c9f-e4bc83549c81",
-          "name": "NORTHWEST -TFC",
-          "detail": "no curve published; drawn from the straight skeleton"
-        },
-        {
-          "type": "approx-geometry",
-          "ad": "EDQH",
-          "id": "1b624e6c-56f7-8f53-1495-98737481a29a",
-          "name": "08-NORTHEAST",
-          "detail": "no curve published; drawn from the straight skeleton"
-        },
-        {
-          "type": "approx-geometry",
-          "ad": "EDNV",
-          "id": "51b0008a-a9ad-751a-add0-7ffc1243a42f",
-          "name": "NORTH-24",
-          "detail": "no curve published; drawn from the straight skeleton"
-        },
-        {
-          "type": "approx-geometry",
-          "ad": "EDNV",
-          "id": "551c06a8-5753-2441-0798-b474f1c6dfa5",
-          "name": "WEST-24",
-          "detail": "no curve published; drawn from the straight skeleton"
-        },
-        {
-          "type": "approx-geometry",
-          "ad": "EDNB",
-          "id": "61085fce-977c-d248-e7b2-9704e4a649c1",
-          "name": "GLIDER TOWING TFC-SOUTH",
-          "detail": "no curve published; drawn from the straight skeleton"
-        },
-        {
-          "type": "approx-geometry",
-          "ad": "EDNB",
-          "id": "0713d0b7-816e-d1c5-adb3-67bfe9c8f825",
-          "name": "GLIDER TOWING TFC-SOUTHEAST",
-          "detail": "no curve published; drawn from the straight skeleton"
-        },
-        {
-          "type": "approx-geometry",
-          "ad": "EDBZ",
-          "id": "0875a98e-ec97-0588-e22f-9c82efe90474",
-          "name": "25",
-          "detail": "no curve published; drawn from the straight skeleton"
-        },
-        {
-          "type": "approx-geometry",
-          "ad": "EDCM",
-          "id": "b10cc191-5a6e-6174-2d7e-05581282e889",
-          "name": "21",
-          "detail": "no curve published; drawn from the straight skeleton"
-        },
-        {
-          "type": "approx-geometry",
-          "ad": "EDCM",
-          "id": "b8503aa5-54f6-6e01-587f-4cf288fea167",
-          "name": "UL-03X",
-          "detail": "no curve published; drawn from the straight skeleton"
-        },
-        {
           "type": "point-position",
           "ad": "ETHC",
           "id": "a25cdd52-be72-955a-719f-ef0df219f2ab",
@@ -594,8 +265,8 @@
       "validFrom": "2026-10-01",
       "validTo": "2026-10-29",
       "url": "https://aerocheck.app/data/ofm/v1/cz.json",
-      "sha256": "6a6f48d5d121f8a3bd6c396a80ba0b2368c2c5ec9592a43777b11720551caab9",
-      "bytes": 107746,
+      "sha256": "b96d26484e007431e0776e9b261656be2b83e126c7b5851cbf197ee4036a3cce",
+      "bytes": 133961,
       "sourceEtag": "\"ec044d9f43befb41070486c97b676cc3\"",
       "procedures": 280,
       "points": 114,

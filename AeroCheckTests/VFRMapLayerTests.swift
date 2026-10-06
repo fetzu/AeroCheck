@@ -22,8 +22,10 @@ final class VFRMapLayerTests: XCTestCase {
             {"id": "f2fbd4ca-1edb-354d-414d-28863037c1ea", "ad": "LSZQ", "kind": "circuit", "name": "TC", "use": "fw", "cat": null, "alt": 2900,
              "line": [[7.03373, 47.39356], [7.05466, 47.39851], [7.05579, 47.4001], [7.04636, 47.41809], [7.044, 47.41884], [6.98485, 47.40447], [6.98375, 47.40284], [6.99369, 47.38507], [6.99602, 47.38434], [7.02427, 47.39125]]},
             {"id": "b14a1c24-a583-8fc1-252c-8324d6d5b6f8", "ad": "LSZQ", "kind": "arr", "name": "ARR SECTOR EAST", "use": "fw", "cat": null,
+             "dir": "E", "offCircuit": [0, 2],
              "line": [[7.10158, 47.38718], [7.07828, 47.39336], [7.05721, 47.39871], [7.05612, 47.39946], [7.04636, 47.41809]],
-             "areas": [{"kind": "corridor", "poly": [[7.10449, 47.39655], [7.07946, 47.39518], [7.07946, 47.39206], [7.09685, 47.38044]]}]},
+             "areas": [{"kind": "corridor", "poly": [[7.10449, 47.39655], [7.07946, 47.39518], [7.07946, 47.39206], [7.09685, 47.38044]],
+                        "label": [7.09321, 47.39044]}]},
             {"id": "fe731546-989c-258b-218b-dba8b8aa3ff4", "ad": "LSGR", "kind": "circuit", "name": "TC MULTI", "use": "fw", "cat": "heavy", "alt": 3500,
              "line": [[7.68155, 46.61693], [7.69123, 46.65887], [7.67561, 46.65771], [7.65353, 46.60322], [7.67584, 46.61202]]},
             {"id": "f4efc4c8-2db7-5a53-e5a8-0c5663e38b10", "ad": "LSZB", "kind": "circuit", "name": "TFC GLIDER 14R/32L", "use": "fw", "cat": "glider",
@@ -584,56 +586,40 @@ final class VFRMapLayerTests: XCTestCase {
 
     // MARK: - Sectors, badges and the approach view (6.2.0, the author's design "C with E")
 
-    /// The letter on the badge, whatever language and spelling open flightmaps used: LSZQ mixes
-    /// "SECTOR EAST" and "SEKTOR WEST"; "NO" and "SO" stay unread (north-east in German, north-west in
-    /// Italian).
-    func testTheSectorsLetterIsReadFromItsName() {
-        let cases: [(String, String?)] = [
-            ("ARR SECTOR EAST", "E"), ("ARR SEKTOR WEST", "W"), ("ARR SECTOR NORTH", "N"), ("ARR SECTOR SOUTH", "S"),
-            ("ARR NORD", "N"), ("ARR SÜD", "S"), ("ANFLUG OST", "E"), ("ARR NORD-EST", "NE"), ("ARR SUD OUEST", "SW"),
-            ("ARR NORTHWEST", "NW"), ("ARR SECTOR SE", "SE"), ("ARR OVEST", "W"), ("DEP 23", nil), ("ARR NO", nil),
-            ("ECHO (REGA)", nil), ("ARR 29 FROM NOTHEAST", nil),
-        ]
-        for (name, letter) in cases {
-            XCTAssertEqual(VFRSectorGeometry.direction(inName: name), letter, name)
-        }
-    }
-
-    /// LSZQ's east arrival: drawn from where it leaves its sector to where it meets the circuit (its third
-    /// vertex, the north-east corner), not round the circuit; its letter in a badge inside the sector; the
+    /// LSZQ's east arrival, as the server's file gives it (`dir`, `offCircuit`, the sector's `label`):
+    /// drawn from where it leaves its sector to where it meets the circuit (its third vertex, the
+    /// north-east corner), not round the circuit; its letter in a badge at the sector's label point; the
     /// arrowhead at the join. Before, its name sat halfway along the whole line, on the downwind.
     func testAnArrivalIsDrawnOffTheCircuitWithItsLetterInItsSector() throws {
-        let all = try procedures()
         let arrival = try procedure(named: "ARR SECTOR EAST")
-        let circuits = all.filter { $0.aerodrome == "LSZQ" && $0.kind == .circuit }
-        XCTAssertEqual(VFRSectorGeometry.offCircuitPart(of: arrival.line, circuits: circuits.map(\.line)), 0...2)
+        XCTAssertEqual(arrival.direction, "E")
+        XCTAssertEqual(arrival.offCircuit, 0...2)
         let lszq = CLLocationCoordinate2D(latitude: 47.3925, longitude: 7.0286)
-        let item = VFRMapItem.drawn(arrival, circuits: circuits, field: lszq, country: "CH", region: "LSAS", airac: "2610")
+        let item = VFRMapItem.drawn(arrival, field: lszq, country: "CH", region: "LSAS", airac: "2610")
         XCTAssertEqual(item.labelStyle, .badge)
         XCTAssertEqual(item.labelText, "E")
         XCTAssertEqual(item.arrow, .atEnd)
         let sector = try XCTUnwrap(arrival.areas.first)
-        XCTAssertTrue(VFRSectorGeometry.contains(item.labelAnchor, sector.polygon), "the badge inside its sector")
+        XCTAssertEqual(item.labelAnchor, VFRCoordinate(latitude: 47.39044, longitude: 7.09321), "the badge at the sector's label")
+        XCTAssertTrue(VFRSectorGeometry.contains(item.labelAnchor, sector.polygon), "inside its sector")
         let end = try XCTUnwrap(item.line.last)
         XCTAssertEqual(end, arrival.line[2], "it stops where it meets the circuit")
         let start = try XCTUnwrap(item.line.first)
-        XCTAssertLessThan(VFRSectorGeometry.meters(from: start, to: sector.polygon + [sector.polygon[0]]), 30,
-                          "it starts on the sector's edge")
+        XCTAssertLessThan(meters(from: start, to: sector.polygon + [sector.polygon[0]]), 30, "it starts on the sector's edge")
         XCTAssertFalse(item.line.dropFirst().contains { VFRSectorGeometry.contains($0, sector.polygon) }, "never through the badge")
 
         // A route without a direction keeps its name; a circuit gets its altitude on the downwind's middle.
-        let heli = VFRMapItem.drawn(try procedure(named: "ECHO (REGA)"), circuits: [], field: nil, country: "CH",
-                                    region: nil, airac: nil)
+        let heli = VFRMapItem.drawn(try procedure(named: "ECHO (REGA)"), field: nil, country: "CH", region: nil, airac: nil)
         XCTAssertEqual(heli.labelStyle, .name)
         XCTAssertEqual(heli.labelText, "ECHO (REGA)")
-        let circuit = VFRMapItem.drawn(try procedure(named: "TC"), circuits: [], field: nil, country: "CH", region: nil, airac: nil)
+        let circuit = VFRMapItem.drawn(try procedure(named: "TC"), field: nil, country: "CH", region: nil, airac: nil)
         guard case .altitude(let leg, let outsideLeft) = circuit.labelStyle else { return XCTFail("an altitude pill") }
         XCTAssertEqual(leg, [VFRCoordinate(latitude: 47.41884, longitude: 7.044), VFRCoordinate(latitude: 47.40447, longitude: 6.98485)],
                        "the downwind, flown west")
         XCTAssertFalse(outsideLeft, "flown west, the outside (north) is on the right")
         XCTAssertEqual(circuit.labelAnchor.latitude, (47.41884 + 47.40447) / 2, accuracy: 1e-9)
 
-        // The weekly job's own answers win when the file has them.
+        // Another file's answers are taken as they are.
         let published = try JSONDecoder().decode(VFRProcedure.self, from: Data("""
         {"id": "p", "ad": "LSZQ", "kind": "arr", "name": "ARR SEKTOR WEST", "cat": null, "dir": "w", "offCircuit": [0, 1],
          "line": [[6.9433, 47.3782], [6.97, 47.3831], [6.9889, 47.3837]],
@@ -643,7 +629,7 @@ final class VFRMapLayerTests: XCTestCase {
         XCTAssertEqual(published.direction, "W")
         XCTAssertEqual(published.offCircuit, 0...1)
         XCTAssertEqual(published.areas.first?.labelPoint, VFRCoordinate(latitude: 47.3802, longitude: 6.95283))
-        let west = VFRMapItem.drawn(published, circuits: circuits, field: lszq, country: "CH", region: nil, airac: nil)
+        let west = VFRMapItem.drawn(published, field: lszq, country: "CH", region: nil, airac: nil)
         XCTAssertEqual(west.labelAnchor, VFRCoordinate(latitude: 47.3802, longitude: 6.95283))
         XCTAssertEqual(west.line.last, published.line[1])
         // Nonsense from a file is ignored, not trusted.
@@ -653,6 +639,44 @@ final class VFRMapLayerTests: XCTestCase {
         """.utf8))
         XCTAssertNil(odd.direction)
         XCTAssertNil(odd.offCircuit)
+    }
+
+    /// The app works none of it out: without `dir` a route keeps its name, even one that says EAST;
+    /// without the sector's `label` the letter goes where the arrival starts; without `offCircuit` the
+    /// whole line is drawn. The server's job gives all three.
+    func testWithoutTheServersFieldsTheMapFallsBackToTheName() throws {
+        let bare = try JSONDecoder().decode(VFRProcedure.self, from: Data("""
+        {"id": "r", "ad": "LSZQ", "kind": "arr", "name": "ARR SECTOR EAST", "cat": null,
+         "line": [[7.10158, 47.38718], [7.07828, 47.39336], [7.05721, 47.39871], [7.05612, 47.39946], [7.04636, 47.41809]],
+         "areas": [{"kind": "corridor", "poly": [[7.10449, 47.39655], [7.07946, 47.39518], [7.07946, 47.39206], [7.09685, 47.38044]]}]}
+        """.utf8))
+        let named = VFRMapItem.drawn(bare, field: nil, country: "CH", region: nil, airac: nil)
+        XCTAssertEqual(named.labelStyle, .name)
+        XCTAssertEqual(named.labelText, "ARR SECTOR EAST")
+        XCTAssertEqual(named.line.last, bare.line.last, "drawn to the end of its line")
+
+        let lettered = try JSONDecoder().decode(VFRProcedure.self, from: Data("""
+        {"id": "s", "ad": "LSZQ", "kind": "arr", "name": "ARR SECTOR EAST", "cat": null, "dir": "E",
+         "line": [[7.10158, 47.38718], [7.07828, 47.39336], [7.05721, 47.39871]],
+         "areas": [{"kind": "corridor", "poly": [[7.10449, 47.39655], [7.07946, 47.39518], [7.07946, 47.39206], [7.09685, 47.38044]]}]}
+        """.utf8))
+        let badge = VFRMapItem.drawn(lettered, field: CLLocationCoordinate2D(latitude: 47.3925, longitude: 7.0286),
+                                     country: "CH", region: nil, airac: nil)
+        XCTAssertEqual(badge.labelStyle, .badge)
+        XCTAssertEqual(badge.labelText, "E")
+        XCTAssertEqual(badge.labelAnchor, badge.line.first, "where the arrival starts, at its sector's edge")
+    }
+
+    /// Metres from `point` to the nearest point of `polyline`, on the flat projection the map uses.
+    private func meters(from point: VFRCoordinate, to polyline: [VFRCoordinate]) -> Double {
+        zip(polyline, polyline.dropFirst()).map { a, b in
+            let k = cos(point.latitude * .pi / 180)
+            let (ax, ay, bx, by) = (a.longitude * k, a.latitude, b.longitude * k, b.latitude)
+            let (px, py) = (point.longitude * k, point.latitude)
+            let (dx, dy) = (bx - ax, by - ay)
+            let t = dx == 0 && dy == 0 ? 0 : max(0, min(1, ((px - ax) * dx + (py - ay) * dy) / (dx * dx + dy * dy)))
+            return hypot(ax + t * dx - px, ay + t * dy - py) * 111_320
+        }.min() ?? .infinity
     }
 
     /// The altitude pill turns with the downwind and stays upright, outside the circuit, whichever way
@@ -785,17 +809,15 @@ final class VFRMapLayerTests: XCTestCase {
 
     /// The badge: a 44 pt square (the touch target), never hidden by a collision, with its callout.
     func testTheBadgeIsAFixedSizeTargetWithItsCallout() throws {
-        let all = try procedures()
-        let arrival = VFRMapItem.drawn(try procedure(named: "ARR SECTOR EAST"),
-                                       circuits: all.filter { $0.kind == .circuit && $0.aerodrome == "LSZQ" },
-                                       field: nil, country: "CH", region: "LSAS", airac: "2610")
+        let arrival = VFRMapItem.drawn(try procedure(named: "ARR SECTOR EAST"), field: nil, country: "CH",
+                                       region: "LSAS", airac: "2610")
         let view = try XCTUnwrap(VFRMapLayer.annotationView(for: VFRProcedureAnnotation(item: arrival), on: MKMapView(), palette: .day))
         XCTAssertEqual(view.image?.size, CGSize(width: 44, height: 44))
         XCTAssertEqual(view.displayPriority, .required)
         XCTAssertTrue(view.canShowCallout)
         XCTAssertEqual(VFRProcedureCallout.summary(for: arrival), "VFR arrival · Sector · LSZQ")
         // The circuit's altitude, turned: required too, and wider than tall only once turned.
-        let circuit = VFRMapItem.drawn(try procedure(named: "TC"), circuits: [], field: nil, country: "CH", region: nil, airac: nil)
+        let circuit = VFRMapItem.drawn(try procedure(named: "TC"), field: nil, country: "CH", region: nil, airac: nil)
         let pill = try XCTUnwrap(VFRMapLayer.annotationView(for: VFRProcedureAnnotation(item: circuit), on: MKMapView(), palette: .day))
         XCTAssertEqual(pill.displayPriority, .required)
         XCTAssertNotEqual(pill.transform, .identity, "turned along the downwind")

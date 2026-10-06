@@ -3,8 +3,8 @@ import CoreLocation
 
 // MARK: - open flightmaps VFR data (schema v1)
 //
-// The files the weekly job publishes on aerocheck.app (`scripts/vfrdata/README.md` on the `website`
-// branch): `index.json`, then one file per country with its traffic circuits, VFR arrival and departure
+// The files the AeroCheck server builds every week and serves at `/data/ofm/v1/` (`OFMConfig`):
+// `index.json`, then one file per country with its traffic circuits, VFR arrival and departure
 // routes (with their sector polygons), reporting points and runway designators, for one AIRAC cycle.
 //
 // Decoding is lossy and hardened, like the OpenAIP layers: a procedure, area, point or runway entry
@@ -84,8 +84,8 @@ struct VFRArea: Equatable, Sendable, Decodable {
 
     let kind: Kind
     let polygon: [VFRCoordinate]
-    /// Where the sector's letter goes, as the weekly job computed it on OFM's full ring (its pole of
-    /// inaccessibility, `label`); nil in files from before it did, and the app works it out itself.
+    /// Where the sector's letter goes (`label`), as the server's weekly job gives it; nil when it gives
+    /// none (the badge then goes where the arrival starts).
     let labelPoint: VFRCoordinate?
 
     private enum CodingKeys: String, CodingKey { case kind, poly, label }
@@ -157,11 +157,11 @@ struct VFRProcedure: Identifiable, Equatable, Sendable, Decodable {
     let areas: [VFRArea]
     /// The extent of the line and the areas.
     let bounds: VFRBounds
-    /// An arrival's or departure's direction as the weekly job read it from the name (`dir`: "N", "NE"…);
-    /// nil in older files, and the app reads the name itself (`VFRSectorGeometry.direction(inName:)`).
+    /// An arrival's or departure's direction as the server's weekly job gives it (`dir`: "N", "NE"…), the
+    /// letter on its sector's badge; nil when the job found none (the map then shows the name).
     let direction: String?
     /// The part of `line` not flown along one of the aerodrome's circuits (`offCircuit`, inclusive
-    /// indices), as the weekly job found it; nil when it didn't, and the app works it out itself.
+    /// indices), as the server's weekly job gives it; nil when it gives none (the line is drawn whole).
     let offCircuit: ClosedRange<Int>?
 
     /// Whether the procedure is for any of `categories`.

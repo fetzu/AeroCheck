@@ -270,7 +270,7 @@ final class OfficialChartTests: XCTestCase {
         return directory.appendingPathComponent("official-charts.json")
     }
 
-    func testItFetchesFromAerocheckCachesOnDiskAndRefreshesWhenAWeekOld() async throws {
+    func testItFetchesFromTheAPICachesOnDiskAndRefreshesWhenAWeekOld() async throws {
         let cache = try temporaryCache()
         let clock = Box(october2)
         let requests = Box([URL]())
@@ -284,7 +284,7 @@ final class OfficialChartTests: XCTestCase {
         XCTAssertTrue(service.isStale)
 
         await service.refreshIfNeeded()
-        XCTAssertEqual(requests.value.map(\.absoluteString), ["https://aerocheck.app/data/charts/v1/charts.json"])
+        XCTAssertEqual(requests.value.map(\.absoluteString), [APIConfig.baseURL + "/data/charts/v1/charts.json"])
         XCTAssertEqual(service.registry, try registry())
         XCTAssertEqual(service.link(for: "LSZQ", type: nil)?.requiresLogin, true)
         XCTAssertTrue(FileManager.default.fileExists(atPath: cache.path))
@@ -324,8 +324,9 @@ final class OfficialChartTests: XCTestCase {
         body.value = Data(repeating: 0x20, count: OfficialChartService.maxBytes + 1)
         await service.refresh()
         XCTAssertEqual(service.registry, good)
-        XCTAssertEqual(OfficialChartService.allowedHosts, ["aerocheck.app"])
-        XCTAssertEqual(OfficialChartService.registryURL.host, "aerocheck.app")
+        let api = try XCTUnwrap(URL(string: APIConfig.baseURL)?.host?.lowercased())
+        XCTAssertEqual(OfficialChartService.allowedHosts, [api], "the API host this build talks to, only")
+        XCTAssertEqual(OfficialChartService.registryURL.host, api)
     }
 
     /// A fetch that started before a seed doesn't land after it (the app's launch refresh, while a test

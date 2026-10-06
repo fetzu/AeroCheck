@@ -35,10 +35,10 @@ struct OfficialChartLink: Equatable, Sendable {
 
 // MARK: - The registry (charts.json, schema v1)
 
-/// `https://aerocheck.app/data/charts/v1/charts.json`: how each country turns an ICAO code into its
-/// official chart. Published weekly by `scripts/vfrdata/charts_registry.py` on the `website` branch,
-/// which HEAD-checks a sample of every country and leaves out the ones that fail, so the app never has
-/// to judge a link itself. Decoded leniently: a country the app can't read is skipped, never the file.
+/// `/data/charts/v1/charts.json` on the API host: how each country turns an ICAO code into its
+/// official chart. Built weekly by the AeroCheck server, which HEAD-checks a sample of every country
+/// and leaves out the ones that fail, so the app never has to judge a link itself. Decoded leniently:
+/// a country the app can't read is skipped, never the file.
 struct OfficialChartRegistry: Codable, Equatable, Sendable {
     static let schema = 1
 
@@ -263,8 +263,8 @@ enum AIRACCycle {
 final class OfficialChartService: ObservableObject {
     static let shared = OfficialChartService()
 
-    static let registryURL = URL(string: "https://aerocheck.app/data/charts/v1/charts.json")!
-    static let allowedHosts: Set<String> = ["aerocheck.app"]
+    static let registryURL = APIConfig.dataURL("charts/v1/charts.json")
+    static let allowedHosts = Set([registryURL.host?.lowercased()].compactMap { $0 })
     /// 12 KB in 2610, nearly all of it DFS's page table.
     static let maxBytes = 1024 * 1024
     /// A week, the job's own rhythm.
@@ -357,6 +357,10 @@ final class OfficialChartService: ObservableObject {
             request.cachePolicy = .reloadIgnoringLocalCacheData
             request.timeoutInterval = 15
             request.setValue("application/json", forHTTPHeaderField: "Accept")
+            // The API's app-client hurdle, as for `/airfields`: absent in a build without Secrets.xcconfig.
+            if let secret = APIConfig.appClientSecret {
+                request.setValue(secret, forHTTPHeaderField: "X-AeroCheck-Client")
+            }
             let (body, response) = try await ExternalRequest.data(
                 for: request, maxResponseBytes: Self.maxBytes, allowedHosts: Self.allowedHosts)
             guard response.statusCode == 200 else { throw FetchError.http(response.statusCode) }

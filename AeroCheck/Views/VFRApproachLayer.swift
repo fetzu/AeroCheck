@@ -14,80 +14,22 @@ import UIKit
 //   chart faded round the field, the runway's extended centreline with its numbers (in flight the
 //   runway in use filled), the circuit's direction for that runway, and a parachute where OpenAIP
 //   says there is parachuting.
-// Everything is drawn from data the app has (open flightmaps, OpenAIP, the airport database); the
-// official chart stays a tap away in the callout.
+// Everything is drawn from data the app has (open flightmaps through the AeroCheck server, OpenAIP,
+// the airport database); the official chart stays a tap away in the callout.
 
 // MARK: - Geometry
 
-/// Pure geometry for the sectors and the arrivals: the letter, the badge's point, the part of a line
-/// off the circuit, the rounded ring. On a local flat projection (longitude scaled by cos latitude),
-/// which is exact enough for a few NM.
+/// Pure geometry for drawing the sectors and the arrivals: an arrival cut at its sector's edge, the
+/// rounded ring, the circuit's downwind. On a local flat projection (longitude scaled by cos latitude),
+/// which is exact enough for a few NM. The letter, the badge's point and the part of a route off the
+/// circuit come with the data (`dir`, an area's `label`, `offCircuit`): the app works none of them out.
 enum VFRSectorGeometry {
-    /// The letters a sector can have, the intercardinals included.
+    /// The letters a sector can have, the intercardinals included: a `dir` outside them is ignored.
     static let directions: Set<String> = ["N", "NE", "E", "SE", "S", "SW", "W", "NW"]
-
-    /// The direction in a procedure's name ("ARR SECTOR EAST" → "E", "ARR SEKTOR WEST" → "W",
-    /// "ARR NORD-EST" → "NE"), English, German, French or Italian; nil when it names none. Open
-    /// flightmaps' names mix languages and spellings, so the letter is what the map shows; the callout
-    /// keeps the name. "NO" and "SO" are left out: north-east in German, north-west in Italian.
-    static func direction(inName name: String) -> String? {
-        let words = name.uppercased()
-            .replacingOccurrences(of: "Ü", with: "U").replacingOccurrences(of: "É", with: "E")
-            .components(separatedBy: CharacterSet.alphanumerics.inverted).filter { !$0.isEmpty }
-        let joined = " " + words.joined(separator: " ") + " "
-        let table: [(String, [String])] = [
-            ("NE", ["NORTHEAST", "NORTH EAST", "NORDOST", "NORD OST", "NORD EST", "NE"]),
-            ("NW", ["NORTHWEST", "NORTH WEST", "NORDWEST", "NORD WEST", "NORD OUEST", "NORD OVEST", "NW"]),
-            ("SE", ["SOUTHEAST", "SOUTH EAST", "SUDOST", "SUD OST", "SUED OST", "SUEDOST", "SUD EST", "SE"]),
-            ("SW", ["SOUTHWEST", "SOUTH WEST", "SUDWEST", "SUD WEST", "SUEDWEST", "SUD OUEST", "SUD OVEST", "SW"]),
-            ("N", ["NORTH", "NORD", "N"]),
-            ("S", ["SOUTH", "SUD", "SUED", "S"]),
-            ("E", ["EAST", "OST", "EST", "E"]),
-            ("W", ["WEST", "OUEST", "OVEST", "W"]),
-        ]
-        for (letter, spellings) in table where spellings.contains(where: { joined.contains(" \($0) ") }) {
-            return letter
-        }
-        return nil
-    }
 
     /// Metres between two points.
     static func meters(_ a: VFRCoordinate, _ b: VFRCoordinate) -> Double {
         VFRLabelPlacement.flatDistance(a, b) * 111_320
-    }
-
-    /// Metres from `point` to the nearest point of `polyline`.
-    static func meters(from point: VFRCoordinate, to polyline: [VFRCoordinate]) -> Double {
-        guard polyline.count > 1 else { return polyline.first.map { meters(point, $0) } ?? .infinity }
-        let k = cos(point.latitude * .pi / 180)
-        var best = Double.infinity
-        for (a, b) in zip(polyline, polyline.dropFirst()) {
-            let ax = a.longitude * k, ay = a.latitude, bx = b.longitude * k, by = b.latitude
-            let px = point.longitude * k, py = point.latitude
-            let dx = bx - ax, dy = by - ay
-            let t = dx == 0 && dy == 0 ? 0 : max(0, min(1, ((px - ax) * dx + (py - ay) * dy) / (dx * dx + dy * dy)))
-            let ex = ax + t * dx - px, ey = ay + t * dy - py
-            best = min(best, (ex * ex + ey * ey).squareRoot() * 111_320)
-        }
-        return best
-    }
-
-    /// The part of `line` not flown along one of `circuits` (inclusive indices): the leading and the
-    /// trailing runs of vertices within `tolerance` metres of a circuit are left out, but for the vertex
-    /// where the line meets it, so the part ends on the circuit. Nil when nothing is left out, or
-    /// everything would be. An arrival's line runs on round the whole circuit to the runway (8.4 NM at
-    /// LSZQ, 5 of them on the circuit): drawn whole, it doubled the circuit and put its label on the
-    /// downwind, north of the field.
-    static func offCircuitPart(of line: [VFRCoordinate], circuits: [[VFRCoordinate]],
-                               tolerance: Double = 200) -> ClosedRange<Int>? {
-        guard line.count >= 2, !circuits.isEmpty else { return nil }
-        let onCircuit = line.map { point in circuits.contains { meters(from: point, to: $0) <= tolerance } }
-        var first = 0
-        while first < line.count - 1, onCircuit[first], onCircuit[first + 1] { first += 1 }
-        var last = line.count - 1
-        while last > 0, onCircuit[last], onCircuit[last - 1] { last -= 1 }
-        guard first < last, first > 0 || last < line.count - 1 else { return nil }
-        return first...last
     }
 
     /// Whether `point` is inside `ring` (open or closed).
@@ -132,38 +74,6 @@ enum VFRSectorGeometry {
         case .circuit:
             return line
         }
-    }
-
-    /// The point of `ring` farthest from its edge (its pole of inaccessibility): where a letter fits
-    /// best, clear of the line through the sector (at LSGE the centre is on it). A grid search refined
-    /// round the best cell, to about 10 m.
-    static func pole(of ring: [VFRCoordinate]) -> VFRCoordinate {
-        guard let bounds = VFRBounds(ring), ring.count >= 3 else { return ring.first ?? VFRCoordinate(latitude: 0, longitude: 0) }
-        let closed = ring + [ring[0]]
-        func score(_ p: VFRCoordinate) -> Double {
-            contains(p, ring) ? meters(from: p, to: closed) : -meters(from: p, to: closed)
-        }
-        var center = VFRCoordinate(latitude: (bounds.minLatitude + bounds.maxLatitude) / 2,
-                                   longitude: (bounds.minLongitude + bounds.maxLongitude) / 2)
-        var halfLat = (bounds.maxLatitude - bounds.minLatitude) / 2
-        var halfLon = (bounds.maxLongitude - bounds.minLongitude) / 2
-        var best = center, bestScore = -Double.infinity
-        for _ in 0..<8 {
-            let n = 12
-            for i in 0...n {
-                for j in 0...n {
-                    let p = VFRCoordinate(latitude: center.latitude - halfLat + 2 * halfLat * Double(i) / Double(n),
-                                          longitude: center.longitude - halfLon + 2 * halfLon * Double(j) / Double(n))
-                    let s = score(p)
-                    if s > bestScore { bestScore = s; best = p }
-                }
-            }
-            center = best
-            halfLat /= 3
-            halfLon /= 3
-            if halfLat * 111_320 < 5 { break }
-        }
-        return best
     }
 
     /// `ring` with its corners rounded (Chaikin's corner cutting, closed): open flightmaps draws its

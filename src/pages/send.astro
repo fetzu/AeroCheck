@@ -1,0 +1,9 @@
+---
+import Base from '../layouts/Base.astro';
+import SendForm from '../components/requests/SendForm.astro';
+import { loadSite } from '../lib/site';
+const site = loadSite('en');
+---
+<Base site={site} lang="en" title="Send an aircraft">
+  <SendForm lang="en" />
+</Base>

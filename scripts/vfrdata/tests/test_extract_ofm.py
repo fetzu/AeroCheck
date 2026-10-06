@@ -21,9 +21,11 @@ from vfrcommon import Response, airac_by_ident, airac_for  # noqa: E402
 ## [ FIXTURES ]
 FIXTURES = os.path.join(os.path.dirname(os.path.abspath(__file__)), "fixtures")
 # Real 2610 elements: LSZQ "TC" and its placeholder twin "NEW PROCEDURE" (2900 ft both), LSZQ "ARR SEKTOR WEST"
-# (with a "VFR Corridor" sector), LSGE "ARR SECTOR SOUTH" (no curve, skeleton only), LSGG "TRANSIT_SOUTH" (a
-# kind we don't publish), points SW, SIERRA, HW, INTERLAKEN SÜD and the town MARTIGNY, LSZQ's runway ends,
-# and the LSZQ / LSGE aerodromes (for the elevations)
+# and "ARR SECTOR EAST" (each with a "VFR Corridor" sector), LSGE's circuits "TC N" and "TRAFFIC CIRCUIT SOUTH"
+# with their "ARR SECTOR NORTH" and "ARR SECTOR SOUTH" (no curve, only the alternate one and the skeleton),
+# LSZE "ARR SECTOR EAST" (its one polygon is a "Leg Label" box), LSGG "TRANSIT_SOUTH" (a kind we don't publish),
+# points SW, SIERRA, HW, INTERLAKEN SÜD and the town MARTIGNY, LSZQ's and LSGE's runway ends, and the LSZQ /
+# LSGE aerodromes (for the elevations)
 with open(os.path.join(FIXTURES, "ofmx_ls_2610_sample.xml"), "rb") as handle:
     SNAPSHOT = handle.read()
 with open(os.path.join(FIXTURES, "openaip_ch_rpp_sample.geojson"), "rb") as handle:
@@ -32,7 +34,12 @@ with open(os.path.join(FIXTURES, "openaip_ch_rpp_sample.geojson"), "rb") as hand
 TC = "f2fbd4ca-1edb-354d-414d-28863037c1ea"
 NEWPROCEDURE = "cdac5ab1-3b95-99ee-c5a1-2d386a78dba4"
 ARRWEST = "2a11d4aa-2772-c870-cc07-25ca6cf4d54f"
+ARREAST = "b14a1c24-a583-8fc1-252c-8324d6d5b6f8"
+LSGETCN = "498ef871-3068-3629-8cfb-937a03f2651a"
+LSGETCSOUTH = "5da2f96f-6727-171d-c03f-fa949b6c4e8f"
+LSGENORTH = "bcbf4062-2cd0-ff8f-5f0c-7cd38a4e2f86"
 LSGESOUTH = "a0764343-e967-4732-8ce4-ff7957fe3a43"
+LSZEEAST = "f497a06b-571f-d60a-b304-d86a77e9ea57"
 SNAPSHOTETAG = '"0a7610c06f7aaac8f3585b1ef4e71769"'
 CH = extract_ofm.REGIONS[0]
 
@@ -47,6 +54,24 @@ def edit(snapshot, old, new, after=None):
 def extract(snapshot=SNAPSHOT, openaip=OPENAIP):
     raw = extract_ofm.parse_snapshot(io.BytesIO(snapshot))
     return extract_ofm.build_region(CH, airac_by_ident("2610"), raw, extract_ofm.parse_openaip(openaip))
+
+
+def element_text(snapshot, mid, *tags):
+    """(start, end) of the text of <tags[0]>…<tags[-1]> in the procedure with that id (first of each, in order)."""
+    position = snapshot.index(b'<PrcUid mid="' + mid.encode())
+    for tag in tags:
+        position = snapshot.index(b"<" + tag + b">", position) + len(tag) + 2
+    return position, snapshot.index(b"</" + tags[-1] + b">", position)
+
+
+def blank(snapshot, mid, tag):
+    """The snapshot with one of a procedure's curves emptied, as OFM leaves them (<_beztrajectory />)."""
+    start, end = element_text(snapshot, mid, tag)
+    return snapshot[:snapshot.rindex(b"<", 0, start)] + b"<" + tag + b" />" + snapshot[end + len(tag) + 3:]
+
+
+def metres(a, b):
+    return extract_ofm.nm_between(a, b) * 1852
 
 
 class FakeOFM:
@@ -151,11 +176,29 @@ class ExtractTests(unittest.TestCase):
         self.assertEqual([a["kind"] for a in arrival["areas"]], ["corridor"])
         self.assertGreaterEqual(len(arrival["areas"][0]["poly"]), 3)
 
-    def test_skeleton_only_arrival_is_approximate(self):
+    def test_alternate_curve_before_the_skeleton(self):
+        # LSGE "ARR SECTOR SOUTH" has an empty curve: its alternate one goes from the entry to the 28 threshold
         arrival = self.procedures[LSGESOUTH]
+        self.assertNotIn("approx", arrival)
+        self.assertEqual((arrival["line"][0], arrival["line"][-1]), ([7.0659, 46.72259], [7.08091, 46.75495]))
+        self.assertGreaterEqual(len(arrival["line"]), 5)
+        self.assertNotIn("approx-geometry", [f["type"] for f in self.flags])
+
+    def test_backwards_alternate_runs_the_way_the_skeleton_does(self):
+        # OFM draws the departures' alternates exit point first: turned around, the line starts where the
+        # skeleton does
+        start, end = element_text(SNAPSHOT, LSGESOUTH, b"_beztrajectoryAlternate", b"gmlPosList")
+        backwards = b" ".join(reversed(SNAPSHOT[start:end].split()))
+        document, _ = extract(SNAPSHOT[:start] + backwards + SNAPSHOT[end:])
+        arrival = next(p for p in document["procedures"] if p["id"] == LSGESOUTH)
+        self.assertEqual((arrival["line"][0], arrival["line"][-1]), ([7.0659, 46.72259], [7.08091, 46.75495]))
+
+    def test_skeleton_only_arrival_is_approximate(self):
+        document, flags = extract(blank(SNAPSHOT, LSGESOUTH, b"_beztrajectoryAlternate"))
+        arrival = next(p for p in document["procedures"] if p["id"] == LSGESOUTH)
         self.assertTrue(arrival["approx"])
         self.assertGreaterEqual(len(arrival["line"]), 2)
-        self.assertIn(("approx-geometry", LSGESOUTH), [(f["type"], f["id"]) for f in self.flags])
+        self.assertIn(("approx-geometry", LSGESOUTH), [(f["type"], f["id"]) for f in flags])
 
     def test_only_circuits_arrivals_and_departures(self):
         self.assertEqual({p["kind"] for p in self.document["procedures"]}, {"circuit", "arr"})
@@ -183,7 +226,8 @@ class ExtractTests(unittest.TestCase):
         self.assertEqual([f["name"] for f in disputed], ["SW"])
 
     def test_runways(self):
-        self.assertEqual(self.document["runways"], {"LSZQ": ["07/25"]})
+        # OFM's LSGE is still 10/28 (its chart says 09/27): published as OFM has it
+        self.assertEqual(self.document["runways"], {"LSGE": ["10/28"], "LSZQ": ["07/25"]})
 
     def test_deterministic(self):
         again, _ = extract()
@@ -232,10 +276,8 @@ class HygieneTests(unittest.TestCase):
         self.assertIn(("altitude-unusable", TC), [(f["type"], f["id"]) for f in flags])
 
     def test_procedure_without_geometry_is_dropped(self):
-        start = SNAPSHOT.index(b'<PrcUid mid="' + LSGESOUTH.encode())
-        skeleton = SNAPSHOT.index(b"<_sceletonPath>", start)
-        end = SNAPSHOT.index(b"</_sceletonPath>", skeleton) + len(b"</_sceletonPath>")
-        document, flags = extract(SNAPSHOT[:skeleton] + b"<_sceletonPath />" + SNAPSHOT[end:])
+        snapshot = blank(blank(SNAPSHOT, LSGESOUTH, b"_beztrajectoryAlternate"), LSGESOUTH, b"_sceletonPath")
+        document, flags = extract(snapshot)
         self.assertNotIn(LSGESOUTH, {p["id"] for p in document["procedures"]})
         self.assertIn(("no-geometry", LSGESOUTH), [(f["type"], f["id"]) for f in flags])
 
@@ -278,6 +320,189 @@ class HygieneTests(unittest.TestCase):
         document, flags = extract(snapshot)
         self.assertNotIn("SIERRA", [p["name"] for p in document["points"]])
         self.assertEqual([f["type"] for f in flags if f["type"] == "malformed"], ["malformed"])
+
+
+## [ MAP HELPERS: sector badges, routes off the circuit, thresholds ]
+class DirectionTests(unittest.TestCase):
+
+    def test_real_names(self):
+        # Arrival and departure names from the 2610 CH, AT, DE and CZ files
+        cases = {
+            "ARR SECTOR EAST": "E", "ARR SEKTOR WEST": "W", "ARE SECTOR NORTH": "N", "ARR SECKTOR SOUTH": "S",
+            "ARR SECTOR NE": "NE", "ARR SECTOR NW": "NW", "ARR SECTOR SW": "SW", "ARR SECTOR E": "E",
+            "ARR SECTOR SOUTH04": "S", "ARR SECTOR NORTH STRAIGHT IN APP ONLY": "N", "APP SECTOR EAST MIN 4000": "E",
+            "ARR SECTOR WEST OUTSIDE DÜBENDORF OP HR": "W", "ARR FROM DIREKTION SW 21 SINGLE ENGINE": "SW",
+            "ARR RW 24 FROM NW": "NW", "DEP RW 17 TO THE SOUTH": "S", "DEP 06 TO NW": "NW", "SECTOR S RWY 08": "S",
+            "AMSTETTEN-OST - OSCAR": "E", "AMSTETTEN WEST - WHISKEY": "W", "TFC- NORTHWEST": "NW",
+            "NORDOST27": "NE", "SÜD-OST09": "SE", "SÜDOST10": "SE", "SÜD13": "S", "OST06": "E", "NORD04": "N",
+            "WEST28": "W", "36-NORTH EAST": "NE", "36-SOUTH EAST": "SE", "04- SOUTHWEST": "SW",
+            "GLIDER TOWING 07-SOUTHEAST": "SE", "DEP-07-NORTHEAST": "NE", "19-SECTOR-E": "E", "SEC-N-TFC": "N",
+            "S-ARR": "S", "27-W": "W", "NORTH-N-12": "N",
+        }
+        for name, expected in cases.items():
+            self.assertEqual(extract_ofm.direction(name), expected, name)
+
+    def test_no_direction(self):
+        for name in (
+            # Misspelt: not guessed
+            "ARR 29 FROM NOTHEAST", "01-N0RTH", "08-SOUTEAST", "DEP 23 TO SUOTH", "ARR SECTOR EAS RW 12",
+            # Reporting points, not directions: phonetic names and letter-digit names
+            "ECHO 1 ARR", "SIERRA ARRIVAL 09", "WHISKEY 1", "SEKTOR ECHO", "E1-E2-04", "N2-N1", "07-O2-O1",
+            # Letters inside words, and nothing at all
+            "NATTENHEIM", "GLEISDORF", "OEFFINGEN-28", "ARR 08C FIXED GEAR DOWNWIND 270°", "SPECIAL TC DEP07 ARR25",
+            # Two directions: which one is a guess
+            "08-EAST-NORTH", "27-WEST-NORTH", "DEP 11TO THE N W", "SOUTH-N-12",
+        ):
+            self.assertIsNone(extract_ofm.direction(name), name)
+
+    def test_french_and_italian(self):
+        # Made up: no French or Italian name in the four regions yet
+        cases = {"SECTEUR NORD-EST": "NE", "SECTEUR SUD-OUEST": "SW", "SECTEUR OUEST": "W", "SECTEUR EST": "E",
+                 "SETTORE NORD OVEST": "NW", "SETTORE SUD EST": "SE", "SETTORE OVEST": "W", "SECTEUR SUD": "S",
+                 "SÜDWEST": "SW", "SUEDOST": "SE", "NORD-WEST": "NW"}
+        for name, expected in cases.items():
+            self.assertEqual(extract_ofm.direction(name), expected, name)
+
+    def test_only_routes_carry_it(self):
+        document, _ = extract()
+        procedures = {p["id"]: p for p in document["procedures"]}
+        self.assertEqual([procedures[i]["dir"] for i in (ARREAST, ARRWEST, LSGENORTH, LSGESOUTH, LSZEEAST)],
+                         ["E", "W", "N", "S", "E"])
+        self.assertEqual(list(procedures[ARRWEST])[:7], ["id", "ad", "kind", "name", "use", "cat", "dir"])
+        # "TC N" is a circuit: no badge
+        self.assertNotIn("dir", procedures[LSGETCN])
+
+
+class LabelTests(unittest.TestCase):
+    FLAT = extract_ofm.Flat(7.0, 47.0)
+
+    def ring(self, metres_xy):
+        return [self.FLAT.lonlat(q) for q in metres_xy]
+
+    def clearance(self, point, ring):
+        return extract_ofm.signed_ring_distance(self.FLAT.xy(point), [self.FLAT.xy(q) for q in ring])
+
+    def test_convex(self):
+        # A 2 km square: the middle, 1 km from every side
+        square = self.ring([(0, 0), (2000, 0), (2000, 2000), (0, 2000)])
+        label = extract_ofm.pole_of_inaccessibility(square)
+        self.assertGreater(self.clearance(label, square), 1000 - extract_ofm.LABELPRECISIONM)
+
+    def test_concave(self):
+        # A U, 3 km wide, its notch 1 km wide and 2 km deep: the centroid (1500, 1357) falls in the notch; the
+        # best point sits in a bottom corner, 586 m from the outer sides and the notch's corner
+        u = self.ring([(0, 0), (3000, 0), (3000, 3000), (2000, 3000), (2000, 1000), (1000, 1000), (1000, 3000), (0, 3000)])
+        self.assertLess(self.clearance(self.FLAT.lonlat((1500, 1357)), u), 0)
+        label = extract_ofm.pole_of_inaccessibility(u)
+        self.assertGreater(self.clearance(label, u), 586 - extract_ofm.LABELPRECISIONM)
+
+    def test_degenerate_ring(self):
+        flat = self.ring([(0, 0), (1000, 0), (2000, 0)])
+        self.assertEqual(extract_ofm.pole_of_inaccessibility(flat), flat[0])
+
+    def test_every_published_area_has_its_label_inside(self):
+        document, _ = extract()
+        areas = [a for p in document["procedures"] for a in p.get("areas", [])]
+        self.assertEqual(len(areas), 4)
+        for area in areas:
+            self.assertEqual(list(area), ["kind", "poly", "label"])
+            self.assertEqual([round(v, 5) for v in area["label"]], area["label"])
+            self.assertGreater(self.clearance(area["label"], area["poly"]), 0, area)
+
+
+class OffCircuitTests(unittest.TestCase):
+
+    def setUp(self):
+        self.document, _ = extract()
+        self.procedures = {p["id"]: p for p in self.document["procedures"]}
+
+    def on_circuit(self, point, ad):
+        circuits = [p["line"] for p in self.document["procedures"] if p["ad"] == ad and p["kind"] == "circuit"]
+        return min(extract_ofm.polyline_distance(point, c) for c in circuits) <= extract_ofm.CIRCUITREACHM
+
+    def test_lszq_arrivals(self):
+        # East: joins the circuit's NE corner at its third vertex, then flies the circuit to the 07 threshold
+        east = self.procedures[ARREAST]
+        self.assertEqual(east["offCircuit"], [0, 2])
+        self.assertTrue(self.on_circuit(east["line"][2], "LSZQ"))
+        self.assertFalse(self.on_circuit(east["line"][1], "LSZQ"))
+        self.assertLess(metres(east["line"][2], (7.05466, 47.39851)), 200)
+        # West: joins near the corner of base and final
+        west = self.procedures[ARRWEST]
+        self.assertEqual(west["offCircuit"], [0, 3])
+        self.assertLess(metres(west["line"][3], (6.99602, 47.38434)), 200)
+        self.assertEqual(list(west)[7:9], ["line", "offCircuit"])
+
+    def test_lsge_arrivals(self):
+        # Both come straight in and join their own circuit's downwind at the second vertex
+        for arrival in (LSGENORTH, LSGESOUTH):
+            route = self.procedures[arrival]
+            self.assertEqual(route["offCircuit"], [0, 1], route["name"])
+            self.assertTrue(all(self.on_circuit(p, "LSGE") for p in route["line"][1:]), route["name"])
+            self.assertFalse(self.on_circuit(route["line"][0], "LSGE"), route["name"])
+
+    def test_no_circuit_no_key(self):
+        # LSZE's circuit isn't in the fixture
+        self.assertNotIn("offCircuit", self.procedures[LSZEEAST])
+        self.assertNotIn("offCircuit", self.procedures[LSGETCN])
+
+    def test_rules(self):
+        circuit = [[7.0, 47.0], [7.02, 47.0], [7.02, 47.01], [7.0, 47.01]]
+        off = [7.05, 47.03]
+        on = [[7.01, 47.0005], [7.02, 47.005], [7.019, 47.0099]]
+        departure = on + [[7.03, 47.02], off]
+        self.assertEqual(extract_ofm.off_circuit(departure, [circuit]), [2, 4])
+        self.assertEqual(extract_ofm.off_circuit([off] + on, [circuit]), [0, 1])
+        self.assertEqual(extract_ofm.off_circuit([off] + on + [off], [circuit]), None)    # nothing at either end
+        self.assertEqual(extract_ofm.off_circuit([off, on[0]], [circuit]), None)          # meets it, never runs along
+        self.assertEqual(extract_ofm.off_circuit(on, [circuit]), None)                    # all of it on the circuit
+        self.assertEqual(extract_ofm.off_circuit(departure, []), None)                    # no circuit
+        # 200 m is the reach
+        just_off = [7.01, 47.0 - 210 / 110540]
+        self.assertEqual(extract_ofm.off_circuit([off, just_off] + on, [circuit]), [0, 2])
+
+
+class LegLabelTests(unittest.TestCase):
+
+    def test_a_leg_label_box_alone_is_the_sector(self):
+        document, _ = extract()
+        east = next(p for p in document["procedures"] if p["id"] == LSZEEAST)
+        self.assertEqual([a["kind"] for a in east["areas"]], ["corridor"])
+        self.assertGreaterEqual(len(east["areas"][0]["poly"]), 4)
+
+    def test_a_leg_label_box_beside_a_corridor_is_dropped(self):
+        # Give ARR SEKTOR WEST's label a box: the corridor stays its only area
+        box = b"<geoBounds><gmlPosList>006.95,47.38 006.96,47.38 006.96,47.39 006.95,47.39 006.95,47.38</gmlPosList></geoBounds>"
+        snapshot = edit(SNAPSHOT, b"<visThr>200</visThr>", b"<visThr>200</visThr>" + box, after=b"<txtName>ARR SEKTOR WEST</txtName>")
+        document, _ = extract(snapshot)
+        west = next(p for p in document["procedures"] if p["id"] == ARRWEST)
+        self.assertEqual([a["kind"] for a in west["areas"]], ["corridor"])
+
+
+class ThresholdTests(unittest.TestCase):
+
+    def test_published(self):
+        document, _ = extract()
+        self.assertEqual(list(document)[-2:], ["runways", "thresholds"])
+        self.assertEqual(document["thresholds"], {
+            "LSGE": [{"rwy": "10", "pos": [7.07063, 46.75559], "trueBrg": 95.0},
+                     {"rwy": "28", "pos": [7.08091, 46.75495], "trueBrg": 275.0}],
+            "LSZQ": [{"rwy": "07", "pos": [7.02427, 47.39125], "trueBrg": 70.0},
+                     {"rwy": "25", "pos": [7.03373, 47.39356], "trueBrg": 250.0}],
+        })
+
+    def test_only_aerodromes_with_a_procedure(self):
+        raw = extract_ofm.parse_snapshot(io.BytesIO(SNAPSHOT))
+        self.assertEqual(list(extract_ofm.thresholds(raw, {"LSZQ", "LSZE"})), ["LSZQ"])
+
+    def test_missing_position_or_bearing(self):
+        snapshot = edit(SNAPSHOT, b"<geoLat>46.75558700N</geoLat>", b"<geoLat />")
+        snapshot = edit(snapshot, b"<valTrueBrg>275</valTrueBrg>", b"<valTrueBrg />")
+        document, flags = extract(snapshot)
+        self.assertEqual(document["thresholds"]["LSGE"], [{"rwy": "28", "pos": [7.08091, 46.75495]}])
+        # The runway itself is still there, and nothing is malformed
+        self.assertEqual(document["runways"]["LSGE"], ["10/28"])
+        self.assertNotIn("malformed", [f["type"] for f in flags])
 
 
 ## [ REPORTING POINTS vs OpenAIP ]
@@ -402,7 +627,7 @@ class RunTests(unittest.TestCase):
         self.assertEqual(entry["sha256"], vfrcommon.sha256_hex(data))
         self.assertEqual(entry["bytes"], len(data))
         self.assertEqual(entry["sourceEtag"], SNAPSHOTETAG)  # the strong form: the weak one never gets a 304
-        self.assertEqual((entry["procedures"], entry["points"]), (3, 4))
+        self.assertEqual((entry["procedures"], entry["points"]), (8, 4))
         self.assertIn("duplicate-dropped", [f["type"] for f in entry["flags"]])
         self.assertEqual(index["attribution"], "© open flightmaps association (openflightmaps.org)")
         self.assertEqual(index["reportForm"]["field"], "entry.284686808")

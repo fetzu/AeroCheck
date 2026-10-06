@@ -57,6 +57,8 @@ L'onglet **Avions** liste les mêmes avions sous **VOS AVIONS**. Sous la liste v
 
 Sélectionner un avion premium charge sa checklist en arrière-plan, pour qu'elle soit prête avant le départ.
 
+Votre avion n'est pas dans la liste, ou sa checklist est plus ancienne que celle du club ? Envoyez la checklist du club depuis [aerocheck.app/fr/send](/fr/send) : l'immatriculation d'abord (un avion qu'AéroCheck a déjà devient une mise à jour), puis le document, en PDF ou en photos de ses pages. Le club confirme avant la mise en ligne, et l'avion rejoint AéroCheck Pro comme les autres ; [aerocheck.app/fr/clubs](/fr/clubs) dit le reste.
+
 ### Démarrer un vol
 
 Il y a quatre façons de démarrer, différentes à dessein.

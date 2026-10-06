@@ -1,0 +1,9 @@
+---
+import Base from '../layouts/Base.astro';
+import ClubConfirm from '../components/requests/ClubConfirm.astro';
+import { loadSite } from '../lib/site';
+const site = loadSite('en');
+---
+<Base site={site} lang="en" title="Confirm a request" noindex>
+  <ClubConfirm lang="en" />
+</Base>

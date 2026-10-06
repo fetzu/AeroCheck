@@ -239,8 +239,8 @@ final class PhaseFrequencyPlannerTests: XCTestCase {
     }
 
     /// The data's FIS sectors answer wherever they cover, a foreign one included; the Swiss split only
-    /// where they don't. Flying to Bressaucourt: Geneva's, then Zürich's, then Bâle Information over the
-    /// Ajoie (SIV BÂLE), in the order the way enters them.
+    /// where they don't. Flying to Bressaucourt: Geneva's, then Zürich's, then a foreign sector where the
+    /// stub has no Swiss one (Bale Info), in the order the way enters them.
     func testTheDatasFISWinAndAForeignSectorIsListedInItsTurn() {
         var sources = Self.world.sources
         sources.fisSectors = { point in
@@ -250,9 +250,9 @@ final class PhaseFrequencyPlannerTests: XCTestCase {
         XCTAssertEqual(route.map(\.station).filter { $0.hasSuffix(" Info") }, ["Geneva Info", "Zürich Info", "Bale Info"])
     }
 
-    /// A FIS with several sectors is one station: Bale Info is 130.900 over the Ajoie and 135.855 over
-    /// Franche-Comté, and RADIO listed both (device check, 6 Oct). Once, with the frequency of the sector
-    /// the aircraft is in, or else the first the way enters.
+    /// A FIS with several sectors is one station: Bale Info is 130.900 north of the Doubs (SIV BALE 1) and
+    /// 135.855 over Franche-Comté (SIV BALE 2), and RADIO listed both (device check, 6 Oct). Once, with the
+    /// frequency of the sector the aircraft is in, or else the first the way enters.
     func testAFISWithSeveralSectorsIsListedOnceWithTheSectorReachedFirst() {
         var sources = Self.world.sources
         sources.fisSectors = { point in
@@ -269,15 +269,18 @@ final class PhaseFrequencyPlannerTests: XCTestCase {
     }
 
     /// Where two countries' sectors overlap from the ground (Zürich's and SIV BALE 1.2 over the Swiss
-    /// Jura), the country below's comes first, whatever order the downloads loaded in: NOW over
-    /// Bressaucourt changed from launch to launch.
-    func testOverlappingSectorsPutTheCountryBelowFirstWhateverTheirOrder() {
+    /// Jura), only the country below's counts, whatever order the downloads loaded in: over the Ajoie a
+    /// pilot calls Zürich Information, and Bale Info once the way goes into France (the author, 6 Oct).
+    /// Another country's sector still counts where the country below has none.
+    func testOverAnotherCountryItsOwnSectorCountsAlone() {
         let bale = Self.fisSector("SIV BALE 1.2", frequency: "130.900", name: "BALE INFORMATION", country: "FR")
         let zurich = Self.fisSector("ZÜRICH", frequency: "124.700", name: "ZÜRICH INFORMATION", country: "CH")
         for sectors in [[bale, zurich], [zurich, bale]] {
-            XCTAssertEqual(FISSectors.stations(over: sectors, countriesBelow: ["CH"]).map(\.station), ["Zürich Info", "Bale Info"])
-            XCTAssertEqual(FISSectors.stations(over: sectors, countriesBelow: ["FR"]).map(\.station), ["Bale Info", "Zürich Info"])
+            XCTAssertEqual(FISSectors.stations(over: sectors, countriesBelow: ["CH"]).map(\.station), ["Zürich Info"])
+            XCTAssertEqual(FISSectors.stations(over: sectors, countriesBelow: ["FR"]).map(\.station), ["Bale Info"])
         }
+        XCTAssertEqual(FISSectors.stations(over: [bale], countriesBelow: ["CH"]).map(\.station), ["Bale Info"],
+                       "no Swiss sector there: the foreign one")
         let otherBale = Self.fisSector("SIV BALE 2.1", frequency: "135.855", name: "BALE INFORMATION", country: "FR")
         XCTAssertEqual(FISSectors.stations(over: [otherBale, bale], countriesBelow: ["FR"]).count, 1, "one per FIS")
     }

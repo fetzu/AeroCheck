@@ -144,7 +144,7 @@ struct FlightPlanMapBuilderView: View {
     /// Missing countries PER LAYER, which is how coverage actually works: a device can hold Swiss
     /// airspace and no Swiss obstacles. Quoting a size for data already on disk would overstate the
     /// download, so the estimate needs the split even though the banner shows the union. A country a
-    /// layer's source doesn't publish (open flightmaps outside CH, AT, DE, CZ) is no gap. (review #7)
+    /// layer's source doesn't publish (open flightmaps outside its 22 countries) is no gap. (review #7)
     private var tripMissingByLayer: [TripDataSizeEstimator.Layer: [String]] {
         guard waypoints.count >= 2, !routeCountriesCache.isEmpty else { return [:] }
         return DataStatusManager.tripGaps(providers: tripProviders, routeCountries: routeCountriesCache)

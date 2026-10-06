@@ -11,10 +11,11 @@ import UIKit
 // Regular, semibold and heavier to Bold. `.monospaced` maps to B612 Mono. The widget and the Watch
 // app keep the system font; the font files ship in the app bundle only.
 //
-// The bundled B612 Mono is patched: upstream draws : ; . , ' · at the left of their cell ("00: 44",
-// "122. 050"), and ours has them centred, with every advance unchanged. That fix lives in the font
-// files, so no call site needs to know (`FONTLOG-B612.txt`, `scripts/center-b612-mono-punctuation.py`;
-// re-run the script if the fonts are ever updated).
+// The bundled B612 is patched: upstream B612 Mono draws : ; . , ' · at the left of their cell
+// ("00: 44", "122. 050"), and ours has them centred, with every advance unchanged; every upstream face
+// draws © and ® as superscripts, and ours draws them at full size. Those fixes live in the font files,
+// so no call site needs to know (`FONTLOG-B612.txt`; re-run `scripts/center-b612-mono-punctuation.py`,
+// then `scripts/b612-full-size-copyright.py`, if the fonts are ever updated).
 //
 // `Font.aero` mirrors `Font.system` label for label, so a view swaps one for the other without any
 // other change: fixed sizes stay fixed, text styles scale with Dynamic Type.

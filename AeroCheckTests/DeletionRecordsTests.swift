@@ -435,9 +435,12 @@ final class DeletionRecordsTests: XCTestCase {
         XCTAssertEqual(active.id, route.id)
         XCTAssertTrue(manager.flightPlans.contains { $0.id == route.id })
         XCTAssertFalse(DeletionRecords.isDead(stamp: active.updatedAt, deletedAt: base.addingTimeInterval(60)))
+        // The copy written back for the flight, alive by the rule. Waiting for any copy of the plan
+        // let the read below see the save of its activation, stamped before the deletion, and retire
+        // it before the copy kept for the flight landed: flaky, and hiding the save order (6.2).
         try await waitUntil {
             DataPersistenceManager.decodeNavigationPlans(in: self.local.appendingPathComponent("NavigationPlans"))
-                .contains { $0.id == route.id }
+                .contains { $0.id == route.id && !DeletionRecords.isDead(stamp: $0.updatedAt, deletedAt: self.base.addingTimeInterval(60)) }
         }
         let onDisk = DataPersistenceManager.decodeNavigationPlans(in: local.appendingPathComponent("NavigationPlans"),
                                                                   deletions: DeletionFilter.reading(storeRoot: local, retiredRoot: retired,

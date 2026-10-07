@@ -464,8 +464,14 @@ final class OfficialChartService: ObservableObject {
     private struct CachedRegistry: Codable {
         let fetchedAt: Date
         let registry: OfficialChartRegistry
+        /// The address it was read from; nil in a cache written before 6.2.0 kept it.
+        var source: String?
     }
 
+    /// The cache, and its age when it came from today's address. One from another address (aerocheck.app
+    /// until the registry moved to the API, or the other server's after a switch between TestFlight and
+    /// the App Store) keeps its links for offline use but counts as stale, so the first refresh replaces
+    /// it: kept a week, the old file hid the countries added since. (6.2.0, device check 7 Oct)
     private func loadCache() {
         let decoder = JSONDecoder()
         decoder.dateDecodingStrategy = .iso8601
@@ -473,7 +479,7 @@ final class OfficialChartService: ObservableObject {
               let cached = try? decoder.decode(CachedRegistry.self, from: data),
               cached.registry.v == OfficialChartRegistry.schema else { return }
         registry = cached.registry
-        lastFetch = cached.fetchedAt
+        lastFetch = cached.source == Self.registryURL.absoluteString ? cached.fetchedAt : nil
     }
 
     private func saveCache(_ registry: OfficialChartRegistry) {
@@ -481,7 +487,8 @@ final class OfficialChartService: ObservableObject {
         let encoder = JSONEncoder()
         encoder.dateEncodingStrategy = .iso8601
         do {
-            try encoder.encode(CachedRegistry(fetchedAt: fetchedAt, registry: registry))
+            try encoder.encode(CachedRegistry(fetchedAt: fetchedAt, registry: registry,
+                                              source: Self.registryURL.absoluteString))
                 .write(to: cacheURL, options: DataPersistenceManager.protectedWriteOptions)
         } catch {
             AppLog.general.debugLine("Failed to cache the chart registry: \(error.localizedDescription)")

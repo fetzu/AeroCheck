@@ -238,20 +238,22 @@ struct VFRApproachField: Equatable, Sendable {
     let parachuting: Bool
     /// Where the parachute goes: beside the field, away from its circuits.
     let parachutePosition: VFRCoordinate?
+    /// Whether the chart fades round the field: on the light charts only (`MapLayerType.fadesForApproach`).
+    var fadesChart = true
 
     /// How far the fade reaches, and the centreline past each threshold.
     static let fadeRadiusNM = 4.2
     static let centrelineNM = 2.0
 
     var drawKey: String {
-        "approach|\(ident)|\(runwayInUse ?? "-")|\(parachuting)|\(arrows.count)|\(runways.count)"
+        "approach|\(ident)|\(runwayInUse ?? "-")|\(parachuting)|\(arrows.count)|\(runways.count)|\(fadesChart)"
     }
 
     /// - Parameters:
     ///   - circuits: the aerodrome's circuits as drawn, for the direction arrows.
     ///   - windFrom: the wind's direction (degrees true), in flight; nil on the ground.
     static func make(ident: String, reference: VFRCoordinate, runways: [VFRRunwayEnds], circuits: [VFRProcedure],
-                     windFrom: Double?, parachuting: Bool) -> VFRApproachField {
+                     windFrom: Double?, parachuting: Bool, fadesChart: Bool = true) -> VFRApproachField {
         let inUse = VFRRunwayEnds.endInUse(of: runways, windFrom: windFrom)
         // The longest runway, and the one in use if it is another: Bern's parallel strips put four
         // numbers on top of each other at the end of their centrelines.
@@ -267,7 +269,8 @@ struct VFRApproachField: Equatable, Sendable {
         }
         return VFRApproachField(ident: ident, reference: reference, runways: runways, runwayInUse: inUse?.ident,
                                 arrows: arrows, parachuting: parachuting,
-                                parachutePosition: parachuting ? parachuteSpot(reference: reference, runways: runways, circuits: circuits) : nil)
+                                parachutePosition: parachuting ? parachuteSpot(reference: reference, runways: runways, circuits: circuits) : nil,
+                                fadesChart: fadesChart)
     }
 
     /// The circuit's direction for the runway landed on: two arrowheads on the downwind. Open

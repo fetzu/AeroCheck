@@ -346,7 +346,8 @@ final class VFRMapLayerTests: XCTestCase {
         XCTAssertEqual((VFRMapLayer.renderer(for: fixed[4], palette: .night) as? MKPolylineRenderer)?.strokeColor,
                        VFRMapPalette.night.procedure)
 
-        // The labels: a bitmap at least 44 pt square with a callout, on every map, never a default pin.
+        // The labels: a bitmap at least 44 pt square with a callout, on every map, never a default pin. A
+        // circuit's altitude draws its bitmap turned inside an upright view (`VFRAltitudeLabelView`).
         let label = VFRProcedureAnnotation(item: item(try procedure(named: "TC")))
         let views: [(String, MKAnnotationView?)] = [
             ("NativeMapViewUIKit", native.mapView(map, viewFor: label)),
@@ -356,9 +357,10 @@ final class VFRMapLayerTests: XCTestCase {
         for (name, view) in views {
             let view = try XCTUnwrap(view, name)
             XCTAssertFalse(view is MKMarkerAnnotationView, name)
-            let image = try XCTUnwrap(view.image, name)
-            XCTAssertGreaterThanOrEqual(image.size.width, 44, name)
-            XCTAssertGreaterThanOrEqual(image.size.height, 44, name)
+            let pill = try XCTUnwrap(view as? VFRAltitudeLabelView, name)
+            XCTAssertGreaterThanOrEqual(pill.bounds.width, 44, name)
+            XCTAssertGreaterThanOrEqual(pill.bounds.height, 44, name)
+            XCTAssertTrue(pill.subviews.contains { ($0 as? UIImageView)?.image != nil }, name)
             XCTAssertTrue(view.canShowCallout, name)
             XCTAssertNotNil(view.detailCalloutAccessoryView, name)
         }
@@ -771,6 +773,14 @@ final class VFRMapLayerTests: XCTestCase {
 
         let fixed = VFRMapLayer.approachOverlays(for: field)
         XCTAssertTrue(fixed.first is VFRFadeOverlay)
+        // The fade on the light charts only: on Apple's map, dark in the app, its white wash lit up Apple's
+        // airport grounds (device check, 7 Oct). The rest of the approach view stays.
+        let unfaded = VFRApproachField.make(ident: "LSZQ", reference: VFRCoordinate(latitude: 47.3925, longitude: 7.02889),
+                                            runways: runways, circuits: [circuit], windFrom: 80, parachuting: true,
+                                            fadesChart: false)
+        XCTAssertTrue(VFRMapLayer.approachOverlays(for: unfaded).isEmpty)
+        XCTAssertNotEqual(unfaded.drawKey, field.drawKey, "a switch of layer redraws it")
+        XCTAssertEqual(MapLayerType.allCases.filter(\.fadesForApproach), [.icao, .landeskarten])
         XCTAssertEqual(fixed.compactMap { VFRMapLayer.tier(of: $0) }, [-1], "under the sectors")
         let scaled = VFRMapLayer.approachScaledOverlays(for: field, zoom: tenMetersAPoint)
         XCTAssertEqual(scaled.compactMap { ($0 as? VFRDashOverlay)?.role }, [.centreline])
@@ -816,11 +826,75 @@ final class VFRMapLayerTests: XCTestCase {
         XCTAssertEqual(view.displayPriority, .required)
         XCTAssertTrue(view.canShowCallout)
         XCTAssertEqual(VFRProcedureCallout.summary(for: arrival), "VFR arrival · Sector · LSZQ")
-        // The circuit's altitude, turned: required too, and wider than tall only once turned.
+        // The circuit's altitude: required too, the pill turned along the downwind inside a view that
+        // stays upright, so its callout reads like any other (device check, 7 Oct).
         let circuit = VFRMapItem.drawn(try procedure(named: "TC"), field: nil, country: "CH", region: nil, airac: nil)
-        let pill = try XCTUnwrap(VFRMapLayer.annotationView(for: VFRProcedureAnnotation(item: circuit), on: MKMapView(), palette: .day))
+        let pillView = try XCTUnwrap(VFRMapLayer.annotationView(for: VFRProcedureAnnotation(item: circuit), on: MKMapView(), palette: .day))
+        let pill = try XCTUnwrap(pillView as? VFRAltitudeLabelView)
         XCTAssertEqual(pill.displayPriority, .required)
-        XCTAssertNotEqual(pill.transform, .identity, "turned along the downwind")
+        XCTAssertEqual(pill.transform, .identity, "the view upright")
+        XCTAssertNotEqual(pill.angle, 0, "the pill turned along the downwind")
+        XCTAssertTrue(pill.canShowCallout)
+        XCTAssertNil(pill.image)
+    }
+
+    /// The pill alone takes a tap, the view hugs it (a 44 pt target at least) beside its line, and the
+    /// callout's tip sits on it, upright.
+    func testTheAltitudeViewTakesTapsOnThePillAndSitsBesideItsLine() {
+        let view = VFRAltitudeLabelView(annotation: nil, reuseIdentifier: nil)
+        let text = "2000 ft"
+        let pill = VFRProcedureLabelImage.pillImage(text: text, palette: .day)
+        XCTAssertEqual(pill.size, VFRProcedureLabelImage.pillBox(text: text))
+        for (angle, above) in [(CGFloat(0), true), (.pi / 6, false), (-.pi / 3, true)] {
+            let offset = VFRPill.offset(size: pill.size, level: 1, gap: 6, angle: angle, above: above)
+            view.show(pill, angle: angle, offset: offset, duplicate: false)
+            XCTAssertEqual(view.transform, .identity)
+            XCTAssertEqual(view.centerOffset, offset)
+            XCTAssertEqual(hypot(offset.x, offset.y), 6 + pill.size.height + 6 + pill.size.height / 2, accuracy: 0.01,
+                           "a pill further out than the one beside the line")
+            XCTAssertGreaterThanOrEqual(min(view.bounds.width, view.bounds.height), 44)
+            let centre = CGPoint(x: view.bounds.midX, y: view.bounds.midY)
+            XCTAssertTrue(view.point(inside: centre, with: nil), "\(angle)")
+            if angle != 0 {
+                XCTAssertFalse(view.point(inside: CGPoint(x: 1, y: 1), with: nil), "a corner of the box: the chart, \(angle)")
+            }
+            XCTAssertEqual(view.calloutOffset, CGPoint(x: 0, y: VFRAltitudeLabelView.margin))
+        }
+        view.show(pill, angle: 0, offset: .zero, duplicate: true)
+        XCTAssertFalse(view.canShowCallout)
+        XCTAssertFalse(view.point(inside: CGPoint(x: view.bounds.midX, y: view.bounds.midY), with: nil),
+                       "a duplicate takes no tap")
+    }
+
+    /// Circuits sharing a downwind: a pill that would cover another goes a level out, the one with an
+    /// altitude keeping the line; one with the same text isn't drawn twice; pills apart stay beside their
+    /// line. (ELLX, device check 7 Oct: "2000 ft" over "Alt: see chart", 430 m apart on one downwind.)
+    func testPillsThatWouldCoverEachOtherStackOrShowOnce() {
+        func pill(_ key: String, _ text: String, x: CGFloat, angle: CGFloat = 0.5, above: Bool = false,
+                  order: [Int] = [0, 0]) -> VFRPill {
+            VFRPill(key: key, text: text, anchor: CGPoint(x: x, y: 300 + x * tan(angle)), angle: angle, above: above,
+                    size: VFRProcedureLabelImage.pillBox(text: text), order: order)
+        }
+        let seeChart = L10n.VFRMap.altitudeSeeChart
+        let ellx = VFRMapLayer.stackPills([pill("24-SOUTH", seeChart, x: 230, order: [1, 0]),
+                                           pill("06-SOUTH", "2000 ft", x: 200)], gap: 6)
+        XCTAssertEqual(ellx["06-SOUTH"], .level(0), "the altitude keeps the line")
+        XCTAssertEqual(ellx["24-SOUTH"], .level(1))
+
+        let shared = VFRMapLayer.stackPills([pill("TC04", "2500 ft", x: 200), pill("TC22", "2500 ft", x: 201)], gap: 6)
+        XCTAssertEqual(shared["TC04"], .level(0))
+        XCTAssertEqual(shared["TC22"], .duplicate)
+
+        let apart = VFRMapLayer.stackPills([pill("A", "2000 ft", x: 100), pill("B", seeChart, x: 400)], gap: 6)
+        XCTAssertEqual(apart, ["A": .level(0), "B": .level(0)])
+
+        // On the other side of the line, nothing covers anything.
+        let sides = VFRMapLayer.stackPills([pill("N", "2000 ft", x: 200, above: true), pill("S", "1500 ft", x: 200)], gap: 6)
+        XCTAssertEqual(sides, ["N": .level(0), "S": .level(0)])
+
+        // A stacked pill sits a pill further from the line than the one beside it.
+        let first = pill("06-SOUTH", "2000 ft", x: 200)
+        XCTAssertFalse(first.rect(level: 0, gap: 6).overlaps(first.rect(level: 1, gap: 6)))
     }
 
     // MARK: - Strings

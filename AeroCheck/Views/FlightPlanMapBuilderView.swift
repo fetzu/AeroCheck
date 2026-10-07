@@ -2611,6 +2611,8 @@ struct RouteBuilderMapView: UIViewRepresentable {
 
         /// A tap on a waypoint's pin selects it in the table too. (planning proposal D3)
         func mapView(_ mapView: MKMapView, didSelect annotation: MKAnnotation) {
+            // A circuit's altitude: the pill the finger was on, not the one whose box the map picked. (6.2.0)
+            if VFRMapLayer.correctPillSelection(of: annotation, on: mapView) { return }
             guard let waypoint = annotation as? RouteWaypointAnnotation else { return }
             parent.onSelectWaypoint?(waypoint.index)
         }

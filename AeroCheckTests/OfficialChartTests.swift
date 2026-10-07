@@ -387,6 +387,30 @@ final class OfficialChartTests: XCTestCase {
         XCTAssertEqual(requests.value.count, 2)
     }
 
+    /// A cache from another address (aerocheck.app's, before the registry moved to the API) keeps its
+    /// links for a pilot offline, but is fetched again at once: kept a week, it hid the countries added
+    /// since. (6.2.0, device check 7 Oct)
+    func testACacheFromAnotherAddressIsKeptButFetchedAgainAtOnce() async throws {
+        let cache = try temporaryCache()
+        try Data("{\"fetchedAt\": \"2026-10-02T06:00:00Z\", \"registry\": \(registryJSON)}".utf8).write(to: cache)
+        let requests = Box(0)
+        let json = registryJSON
+        let service = OfficialChartService(cacheURL: cache, fetch: { _ in
+            await MainActor.run { requests.value += 1 }
+            return Data(json.utf8)
+        }, now: { self.october2 + 3600 })
+        XCTAssertEqual(service.registry, try registry(), "its links stay until the new file arrives")
+        XCTAssertTrue(service.isStale, "a day old, but from another address")
+
+        await service.refreshIfNeeded()
+        XCTAssertEqual(requests.value, 1)
+        XCTAssertFalse(service.isStale)
+        // Written with today's address: a relaunch takes it as it is.
+        let relaunched = OfficialChartService(cacheURL: cache, fetch: { _ in throw URLError(.notConnectedToInternet) },
+                                              now: { self.october2 + 7200 })
+        XCTAssertFalse(relaunched.isStale)
+    }
+
     func testANewSchemaAnOversizedOrABrokenFileIsNotTaken() async throws {
         let body = Box(Data(registryJSON.utf8))
         let service = OfficialChartService(cacheURL: try temporaryCache(), fetch: { _ in await MainActor.run { body.value } },

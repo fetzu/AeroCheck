@@ -45,6 +45,11 @@ struct FlightView: View {
     @State private var radio: CockpitRadio
     /// OFF ROUTE, followed on every page, and More's requests to the chart. (6.2, MAP's chrome)
     @State private var chartState = CockpitMapState()
+    /// BRIEFING is in the iPad's page bar, over every page, when the bar has room for it beside the
+    /// pages and V-SPEEDS (`cockpitPageBarRow`); otherwise it is at the top of CHECKLIST and in MAP's
+    /// status slot, as on the phone. (6.2.0, device check 7 Oct: ROUTE had no BRIEFING, MAP's slot
+    /// covered the chart's top left.)
+    @State private var briefingInBar = true
     @State private var pulseNextButton = false
     @State private var pulseActionButton = false
     @State private var allItemsChecked = false
@@ -1022,9 +1027,11 @@ extension FlightView {
             cockpitPageBar(narrow: narrow)
                 .padding(.horizontal, narrow ? 12 : 16)
                 .padding(.vertical, narrow ? 6 : 10)
+                .onPreferenceChange(CockpitBriefingInBarKey.self) { briefingInBar = $0 }
 
             SeparateView { cockpitPage(layout: narrow ? .narrow : .wide) }
                 .frame(maxHeight: .infinity)
+                .environment(\.cockpitBriefingInBar, !narrow && briefingInBar)
 
             SeparateView { cockpitActBand(layout: narrow ? .narrow : .wide) }
         }
@@ -1126,14 +1133,15 @@ extension FlightView {
         }
     }
 
-    /// The CHECKLIST page's chips, at the top of the list: what is deferred, the phase's BRIEFING, and
-    /// NEXT while items are still open. The row keeps a chip's height when none shows, so the list never
-    /// moves as they come and go; the full-width deferred row it replaces pushed the list down. They
-    /// were in the iPad's picker row, which ROUTE's segment filled. (6.2)
+    /// The CHECKLIST page's chips, at the top of the list: what is deferred, the phase's BRIEFING (unless
+    /// the iPad's page bar has it), and NEXT while items are still open. The row keeps a chip's height
+    /// when none shows, so the list never moves as they come and go; the full-width deferred row it
+    /// replaces pushed the list down. They were in the iPad's picker row, which ROUTE's segment filled;
+    /// BRIEFING alone fits there again on an iPad. (6.2)
     private func cockpitChecklistChips(narrow: Bool) -> some View {
         HStack(spacing: 8) {
             if appState.hasDeferredWork { deferredChip }
-            cockpitBriefingChip
+            if narrow || !briefingInBar { cockpitBriefingChip }
             cockpitNextChip
             Spacer(minLength: 0)
         }
@@ -1422,7 +1430,8 @@ extension FlightView {
         if narrow {
             cockpitPickerRow()
         } else {
-            cockpitPageBarRow
+            // A view of its own: two variants in a `ViewThatFits`, inline in the Cockpit's stack.
+            SeparateView { cockpitPageBarRow }
         }
     }
 
@@ -1474,13 +1483,25 @@ extension FlightView {
                                                   items: appState.deferredItemCount))
     }
 
-    /// The iPad's: the three pages, then V-SPEEDS at the right, in every phase.
+    /// The iPad's: the three pages, then, at the right, the phase's BRIEFING and V-SPEEDS, which is
+    /// there in every phase. BRIEFING comes and goes between them, so neither moves; where the window
+    /// is too narrow for it (a split screen), the row is the pages and V-SPEEDS, and BRIEFING goes back
+    /// to CHECKLIST's chips and MAP's slot (`briefingInBar`). (6.2.0, device check 7 Oct)
     private var cockpitPageBarRow: some View {
+        ViewThatFits(in: .horizontal) {
+            cockpitPageBarRow(withBriefing: true)
+            cockpitPageBarRow(withBriefing: false)
+        }
+    }
+
+    private func cockpitPageBarRow(withBriefing: Bool) -> some View {
         HStack(spacing: 10) {
             CockpitPagePicker(selection: cockpitPageBinding)
             Spacer(minLength: 8)
+            if withBriefing { cockpitBriefingChip }
             cockpitVSpeedsChip
         }
+        .preference(key: CockpitBriefingInBarKey.self, value: withBriefing)
     }
 
     // MARK: Checklist page

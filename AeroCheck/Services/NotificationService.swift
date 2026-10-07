@@ -230,15 +230,27 @@ final class NotificationService: NSObject, ObservableObject {
         return [.list]
     }
 
-    /// Shows again what was held, now that a banner may interrupt: each request delivered anew, at once.
+    /// Shows again what was held, now that a banner may interrupt: each request still in Notification
+    /// Center (one the pilot opened or cleared meanwhile stays gone) delivered anew, at once.
     func releaseHeld() {
         guard !held.isEmpty, mayInterrupt?() ?? true else { return }
         let requests = held
         held = []
-        center.removeDeliveredNotifications(withIdentifiers: requests.map(\.identifier))
-        for request in requests {
-            center.add(UNNotificationRequest(identifier: request.identifier, content: request.content, trigger: nil))
+        Task {
+            let delivered = Set(await center.deliveredNotifications().map(\.request.identifier))
+            let waiting = requests.filter { delivered.contains($0.identifier) }
+            guard !waiting.isEmpty else { return }
+            center.removeDeliveredNotifications(withIdentifiers: waiting.map(\.identifier))
+            for request in waiting {
+                try? await center.add(UNNotificationRequest(identifier: request.identifier, content: request.content,
+                                                            trigger: nil))
+            }
         }
+    }
+
+    /// A notification opened from Notification Center is not shown again.
+    func forgetHeld(identifier: String) {
+        held.removeAll { $0.identifier == identifier }
     }
 
     // MARK: - Deferred actions
@@ -294,6 +306,8 @@ extension NotificationService: UNUserNotificationCenterDelegate {
     nonisolated func userNotificationCenter(_ center: UNUserNotificationCenter,
                                             didReceive response: UNNotificationResponse) async {
         let userInfo = response.notification.request.content.userInfo
+        let identifier = response.notification.request.identifier
+        await MainActor.run { NotificationService.shared.forgetHeld(identifier: identifier) }
         guard let raw = userInfo[NotificationService.threadIdKey] as? String,
               let threadId = UUID(uuidString: raw) else { return }
         let actionIdentifier = response.actionIdentifier

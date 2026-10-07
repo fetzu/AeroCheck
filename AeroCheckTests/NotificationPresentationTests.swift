@@ -47,6 +47,16 @@ final class NotificationPresentationTests: XCTestCase {
         XCTAssertTrue(service.held.isEmpty, "shown again once a banner may interrupt")
     }
 
+    func testANotificationOpenedMeanwhileIsNotShownAgain() {
+        let service = NotificationService.shared
+        service.mayInterrupt = { false }
+        let request = UNNotificationRequest(identifier: "test.\(UUID().uuidString).fplClose", content: UNNotificationContent(),
+                                            trigger: nil)
+        XCTAssertEqual(service.presentation(for: request), [.list])
+        service.forgetHeld(identifier: request.identifier)
+        XCTAssertTrue(service.held.isEmpty)
+    }
+
     func testWithoutAGateEveryBannerShows() {
         NotificationService.shared.mayInterrupt = nil
         let request = UNNotificationRequest(identifier: "test.\(UUID().uuidString)", content: UNNotificationContent(), trigger: nil)

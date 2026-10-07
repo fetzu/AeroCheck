@@ -60,6 +60,11 @@ enum MapLayerType: String, CaseIterable, Identifiable {
         }
     }
 
+    /// A light chart the approach view may fade round the field: the ICAO chart and the national map.
+    /// Not Apple's map, dark in the app, where the white wash lit up Apple's airport grounds into a
+    /// glow (device check 7 Oct), nor the photos. (6.2.0)
+    var fadesForApproach: Bool { self == .icao || self == .landeskarten }
+
     /// WMTS layer identifier for swisstopo
     var swisstopoLayerIdentifier: String? {
         switch self {
@@ -743,6 +748,8 @@ struct NavigationMapView: View {
     private func handleLayerChange(to newLayer: MapLayerType) {
         // Kept for the session and the device's next launches. (6.2)
         appState.selectMapLayer(newLayer)
+        // The approach view fades the charts only. (6.2.0)
+        recomputeVFRContent(region: mapState.region)
         // When switching layers, force a tile refresh for Swiss layers
         if newLayer.isSwissLayer {
             // Trigger a small region update to force tile loading
@@ -1497,6 +1504,7 @@ struct NavigationMapView: View {
                     && abs(airport.longitude - region.center.longitude) <= halfLon
             }.sorted()
         }
+        let fades = selectedLayer.fadesForApproach
         return idents.prefix(3).compactMap { ident -> VFRApproachField? in
             guard let airport = airportDataService.findAirport(byIdent: ident) else { return nil }
             let reference = VFRCoordinate(latitude: airport.latitude, longitude: airport.longitude)
@@ -1506,7 +1514,8 @@ struct NavigationMapView: View {
             let circuits = (byField[ident] ?? OFMDataService.shared.procedures(forAerodrome: ident))
                 .filter { $0.kind == .circuit && selection.includes($0) }
             return VFRApproachField.make(ident: ident, reference: reference, runways: runways, circuits: circuits,
-                                         windFrom: windFrom, parachuting: airportDataService.hasParachuting(ident))
+                                         windFrom: windFrom, parachuting: airportDataService.hasParachuting(ident),
+                                         fadesChart: fades)
         }
     }
 
@@ -4246,6 +4255,8 @@ struct NativeMapViewUIKit: UIViewRepresentable {
                 mapView.deselectAnnotation(annotation, animated: false)
                 return
             }
+            // A circuit's altitude: the pill the finger was on, not the one whose box the map picked. (6.2.0)
+            if VFRMapLayer.correctPillSelection(of: annotation, on: mapView) { return }
             parent.mapState.noteCalloutSelection(on: mapView)   // the chrome steps aside (6.2.0)
             guard let waypointAnnotation = annotation as? FlightPlanWaypointAnnotation else { return }
             mapView.deselectAnnotation(annotation, animated: false)
@@ -5877,6 +5888,8 @@ struct SwissMapView: UIViewRepresentable {
                 mapView.deselectAnnotation(annotation, animated: false)
                 return
             }
+            // A circuit's altitude: the pill the finger was on, not the one whose box the map picked. (6.2.0)
+            if VFRMapLayer.correctPillSelection(of: annotation, on: mapView) { return }
             parent.mapState.noteCalloutSelection(on: mapView)   // the chrome steps aside (6.2.0)
             guard let waypointAnnotation = annotation as? FlightPlanWaypointAnnotation else { return }
             // Deselect so user can tap again later

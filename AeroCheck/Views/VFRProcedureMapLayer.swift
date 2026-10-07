@@ -603,6 +603,137 @@ final class VFRProcedureAnnotation: NSObject, MKAnnotation {
     var labelKey: String { item.labelKey }
 }
 
+/// Where a circuit's altitude pill goes (`VFRMapLayer.stackPills`): `level` pills out from its line, or
+/// not drawn, a pill with the same text being there already.
+enum VFRPillSlot: Equatable, Sendable {
+    case level(Int)
+    case duplicate
+}
+
+/// A circuit's altitude pill on screen, for `VFRMapLayer.stackPills`.
+struct VFRPill: Equatable, Sendable {
+    let key: String
+    let text: String
+    /// The anchor on the downwind, in the map view's points.
+    let anchor: CGPoint
+    /// `VFRMapLayer.labelTurn`'s.
+    let angle: CGFloat
+    let above: Bool
+    /// The pill's box (`VFRProcedureLabelImage.pillBox`).
+    let size: CGSize
+    /// Placed in this order, lowest first (then by key).
+    let order: [Int]
+
+    /// The pill on screen, `level` pills out from its line.
+    func rect(level: Int, gap: CGFloat) -> VFROrientedRect {
+        let offset = Self.offset(size: size, level: level, gap: gap, angle: angle, above: above)
+        return VFROrientedRect(center: CGPoint(x: anchor.x + offset.x, y: anchor.y + offset.y), size: size, angle: angle)
+    }
+
+    /// From the anchor on the line to the pill's centre, on screen: along the line's normal, on the
+    /// pill's side, `level` pills out (0 beside the line, a gap off it).
+    static func offset(size: CGSize, level: Int, gap: CGFloat, angle: CGFloat, above: Bool) -> CGPoint {
+        let fromLine = gap + CGFloat(max(0, level)) * (size.height + gap) + size.height / 2
+        let along = above ? -fromLine : fromLine
+        return CGPoint(x: -along * sin(angle), y: along * cos(angle))
+    }
+}
+
+/// A rectangle turned about its centre, on screen.
+struct VFROrientedRect: Equatable, Sendable {
+    let center: CGPoint
+    let size: CGSize
+    let angle: CGFloat
+
+    var corners: [CGPoint] {
+        let (c, s) = (cos(angle), sin(angle))
+        let (w, h) = (size.width / 2, size.height / 2)
+        return [(-w, -h), (w, -h), (w, h), (-w, h)].map { x, y in
+            CGPoint(x: center.x + x * c - y * s, y: center.y + x * s + y * c)
+        }
+    }
+
+    /// Whether the two cover each other, or come closer than `margin`: no axis of either separates them.
+    func overlaps(_ other: VFROrientedRect, margin: CGFloat = 0) -> Bool {
+        let axes = [angle, other.angle].flatMap { [CGPoint(x: cos($0), y: sin($0)), CGPoint(x: -sin($0), y: cos($0))] }
+        let mine = corners, theirs = other.corners
+        for axis in axes {
+            let a = mine.map { $0.x * axis.x + $0.y * axis.y }
+            let b = theirs.map { $0.x * axis.x + $0.y * axis.y }
+            if a.max()! + margin <= b.min()! || b.max()! + margin <= a.min()! { return false }
+        }
+        return true
+    }
+}
+
+/// A circuit's altitude pill. The pill turns along the downwind inside the view, which stays upright: a
+/// turned view turned its callout with it, and the callout was hard to read (6.2.0, device check 7 Oct).
+/// The view is the turned pill's box, 8 pt round it, off the anchor by `centerOffset`; only the pill
+/// takes a tap. The map picks an annotation by its view's box, not by that: `lastTouched` lets
+/// `VFRMapLayer.correctPillSelection` hand the selection to the pill the finger was on.
+final class VFRAltitudeLabelView: MKAnnotationView {
+    static let reuseIdentifier = "VFRAltitudeLabel"
+    /// Round the turned pill: a horizontal one's box is 46 pt tall, a touch target.
+    static let margin: CGFloat = 8
+
+    /// The pill a finger last went down on, and when.
+    private(set) static weak var lastTouched: VFRAltitudeLabelView?
+    private(set) static var lastTouchedAt = Date.distantPast
+
+    private let pillView = UIImageView()
+    private(set) var angle: CGFloat = 0
+    /// A pill with the same text is drawn on the same spot: this one isn't, and takes no tap.
+    private(set) var isDuplicate = false
+
+    override init(annotation: MKAnnotation?, reuseIdentifier: String?) {
+        super.init(annotation: annotation, reuseIdentifier: reuseIdentifier)
+        pillView.isUserInteractionEnabled = false
+        addSubview(pillView)
+    }
+
+    @available(*, unavailable)
+    required init?(coder: NSCoder) { fatalError("init(coder:) is not used") }
+
+    /// Shows `pill` turned by `angle`, its centre `offset` from the anchor (`VFRPill.offset`).
+    func show(_ pill: UIImage, angle: CGFloat, offset: CGPoint, duplicate: Bool) {
+        image = nil
+        transform = .identity
+        pillView.transform = .identity
+        pillView.image = pill
+        pillView.bounds = CGRect(origin: .zero, size: pill.size)
+        pillView.transform = CGAffineTransform(rotationAngle: angle)
+        let box = pillView.frame.size
+        bounds = CGRect(x: 0, y: 0, width: ceil(box.width) + 2 * Self.margin, height: ceil(box.height) + 2 * Self.margin)
+        pillView.center = CGPoint(x: bounds.midX, y: bounds.midY)
+        centerOffset = offset
+        self.angle = angle
+        isDuplicate = duplicate
+        pillView.isHidden = duplicate
+        canShowCallout = !duplicate
+        // The callout's tip on the turned pill's highest point, the margin under the box's top.
+        calloutOffset = CGPoint(x: 0, y: Self.margin)
+    }
+
+    /// The pill's size, unturned.
+    var pillSize: CGSize { pillView.bounds.size }
+
+    /// Only the pill (and the margin round it) takes a tap: the corners of a turned pill's box are the
+    /// chart, or the next pill.
+    override func point(inside point: CGPoint, with event: UIEvent?) -> Bool {
+        guard !isDuplicate else { return false }
+        let dx = point.x - bounds.midX, dy = point.y - bounds.midY
+        let (c, s) = (cos(angle), sin(angle))
+        let along = dx * c + dy * s, across = -dx * s + dy * c
+        return abs(along) <= pillSize.width / 2 + Self.margin && abs(across) <= pillSize.height / 2 + Self.margin
+    }
+
+    override func touchesBegan(_ touches: Set<UITouch>, with event: UIEvent?) {
+        Self.lastTouched = self
+        Self.lastTouchedAt = Date()
+        super.touchesBegan(touches, with: event)
+    }
+}
+
 /// The label as a bitmap: a rounded box, the procedure's colour around it, in a transparent square of
 /// at least 44 pt so it is easy to tap. A bitmap, never a symbol image (`aeroMarkerSymbol`).
 enum VFRProcedureLabelImage {
@@ -637,22 +768,27 @@ enum VFRProcedureLabelImage {
         return image
     }
 
-    /// The circuit's altitude pill above (`above`) or below the middle of a canvas twice its height and
-    /// a gap, so that the annotation, turned along the downwind about its anchor on the line, puts it
-    /// beside the line, outside the circuit.
-    static func sideImage(text: String, above: Bool, palette: VFRMapPalette) -> UIImage {
+    /// Between the line and its pill, and between two pills stacked on one line.
+    static let sideGap: CGFloat = 6
+
+    /// The altitude pill's box for `text`.
+    static func pillBox(text: String) -> CGSize {
+        let font = UIFont.aero(size: fontSize(for: .circuit), weight: .bold)
+        let textSize = (text as NSString).size(withAttributes: [.font: font])
+        return CGSize(width: ceil(textSize.width) + 14, height: ceil(textSize.height) + 6)
+    }
+
+    /// A circuit's altitude pill, alone: its view turns it along the downwind and puts it beside the
+    /// line (`VFRAltitudeLabelView`).
+    static func pillImage(text: String, palette: VFRMapPalette) -> UIImage {
         let size = fontSize(for: .circuit)
-        let key = "side|\(text)|\(above)|\(palette.rawValue)|\(size)"
+        let key = "pill|\(text)|\(palette.rawValue)|\(size)"
         if let cached = cache[key] { return cached }
         let font = UIFont.aero(size: size, weight: .bold)
         let attributes: [NSAttributedString.Key: Any] = [.font: font, .foregroundColor: palette.labelText]
-        let textSize = (text as NSString).size(withAttributes: attributes)
-        let box = CGSize(width: ceil(textSize.width) + 14, height: ceil(textSize.height) + 6)
-        let gap: CGFloat = 6
-        let canvas = CGSize(width: max(44, box.width + 4), height: 2 * (box.height + gap))
-        let image = UIGraphicsImageRenderer(size: canvas).image { _ in
-            let y = above ? 0 : canvas.height - box.height
-            let rect = CGRect(x: (canvas.width - box.width) / 2, y: y, width: box.width, height: box.height)
+        let box = pillBox(text: text)
+        let image = UIGraphicsImageRenderer(size: box).image { _ in
+            let rect = CGRect(origin: .zero, size: box).insetBy(dx: 0.75, dy: 0.75)
             let shape = UIBezierPath(roundedRect: rect, cornerRadius: 7)
             palette.labelFill.setFill()
             shape.fill()
@@ -786,22 +922,88 @@ enum VFRMapLayer {
     }
 
     /// Turns the circuits' altitude pills along their downwind for the map's heading (track up turns
-    /// the map under them), outside the circuit and upright. Cheap: a handful of labels. Called after
-    /// every sync and when the map's region or heading changed.
+    /// the map under them), outside the circuit and upright, and stacks the ones that would cover each
+    /// other on screen (`stackPills`). Cheap: a handful of labels. Called after every sync and when the
+    /// map's region or heading changed.
     static func orientLabels(on mapView: MKMapView, palette: VFRMapPalette) {
+        let slots = pillSlots(on: mapView)
         for label in mapView.annotations.compactMap({ $0 as? VFRProcedureAnnotation }) {
-            guard let view = mapView.view(for: label) else { continue }
-            orient(view, label: label, heading: mapView.camera.heading, palette: palette)
+            guard let view = mapView.view(for: label) as? VFRAltitudeLabelView else { continue }
+            orient(view, label: label, heading: mapView.camera.heading, slot: slots[label.labelKey] ?? .level(0),
+                   palette: palette)
         }
     }
 
-    /// One pill: its image (above or below the line) and its turn.
-    static func orient(_ view: MKAnnotationView, label: VFRProcedureAnnotation, heading: CLLocationDirection,
-                       palette: VFRMapPalette) {
+    /// One pill: turned along the downwind, beside the line (above or below it, `slot` pills out).
+    static func orient(_ view: VFRAltitudeLabelView, label: VFRProcedureAnnotation, heading: CLLocationDirection,
+                       slot: VFRPillSlot, palette: VFRMapPalette) {
         guard case .altitude(let leg, let outsideLeft) = label.item.labelStyle, leg.count == 2 else { return }
         let turn = labelTurn(leg: leg, outsideLeft: outsideLeft, heading: heading)
-        view.image = VFRProcedureLabelImage.sideImage(text: label.item.labelText, above: turn.above, palette: palette)
-        view.transform = CGAffineTransform(rotationAngle: turn.angle)
+        let level: Int
+        if case .level(let n) = slot { level = n } else { level = 0 }
+        let text = label.item.labelText
+        let offset = VFRPill.offset(size: VFRProcedureLabelImage.pillBox(text: text), level: level,
+                                    gap: VFRProcedureLabelImage.sideGap, angle: turn.angle, above: turn.above)
+        view.show(VFRProcedureLabelImage.pillImage(text: text, palette: palette), angle: turn.angle, offset: offset,
+                  duplicate: slot == .duplicate)
+    }
+
+    /// When the map selected a circuit's altitude other than the one the finger was on (it picks by the
+    /// views' boxes, and turned pills' boxes overlap), hands the selection to that one. True when it
+    /// did: the caller stops there, the map calls it again for the right one.
+    static func correctPillSelection(of annotation: MKAnnotation, on mapView: MKMapView, now: Date = Date()) -> Bool {
+        guard annotation is VFRProcedureAnnotation, now.timeIntervalSince(VFRAltitudeLabelView.lastTouchedAt) < 1,
+              let touched = VFRAltitudeLabelView.lastTouched?.annotation as? VFRProcedureAnnotation,
+              touched !== annotation, mapView.annotations.contains(where: { $0 === touched }) else { return false }
+        mapView.deselectAnnotation(annotation, animated: false)
+        DispatchQueue.main.async { mapView.selectAnnotation(touched, animated: true) }
+        return true
+    }
+
+    /// Where each circuit's altitude pill goes on this map as it is now (`stackPills`), by label key.
+    static func pillSlots(on mapView: MKMapView) -> [String: VFRPillSlot] {
+        let heading = mapView.camera.heading
+        let pills = mapView.annotations.compactMap { $0 as? VFRProcedureAnnotation }.compactMap { label -> VFRPill? in
+            guard case .altitude(let leg, let outsideLeft) = label.item.labelStyle, leg.count == 2 else { return nil }
+            let turn = labelTurn(leg: leg, outsideLeft: outsideLeft, heading: heading)
+            let procedure = label.item.procedure
+            return VFRPill(key: label.labelKey, text: label.item.labelText,
+                           anchor: mapView.convert(label.coordinate, toPointTo: mapView),
+                           angle: turn.angle, above: turn.above,
+                           size: VFRProcedureLabelImage.pillBox(text: label.item.labelText),
+                           order: [procedure.altitudeFt == nil ? 1 : 0,
+                                   procedure.isFor(any: VFRLayerSelection.poweredCategories) ? 0 : 1])
+        }
+        return stackPills(pills, gap: VFRProcedureLabelImage.sideGap)
+    }
+
+    /// Places the pills in turn: a circuit with its altitude before one without, a powered one before
+    /// a glider's or a UL's, then by key. A pill that would cover one already placed goes a level further
+    /// out from its line, up to three; one that would cover a pill with the same text is not drawn: two
+    /// circuits sharing a downwind at one altitude need one "2500 ft". (6.2.0, device check 7 Oct: at
+    /// ELLX, 06-SOUTH's "2000 ft" covered 24-SOUTH's "Alt: see chart", 430 m along the same downwind.)
+    nonisolated static func stackPills(_ pills: [VFRPill], gap: CGFloat, maxLevel: Int = 3) -> [String: VFRPillSlot] {
+        let ordered = pills.sorted { a, b in a.order != b.order ? a.order.lexicographicallyPrecedes(b.order) : a.key < b.key }
+        var placed: [(rect: VFROrientedRect, text: String)] = []
+        var slots: [String: VFRPillSlot] = [:]
+        for pill in ordered {
+            var level = 0
+            var slot: VFRPillSlot?
+            while slot == nil {
+                let rect = pill.rect(level: level, gap: gap)
+                let covered = placed.filter { $0.rect.overlaps(rect, margin: 2) }
+                if covered.contains(where: { $0.text == pill.text }) {
+                    slot = .duplicate
+                } else if covered.isEmpty || level == maxLevel {
+                    slot = .level(level)
+                    placed.append((rect, pill.text))
+                } else {
+                    level += 1
+                }
+            }
+            slots[pill.key] = slot
+        }
+        return slots
     }
 
     /// The pill's turn on screen (radians, clockwise, between −90° and 90° so it reads upright) for a
@@ -818,8 +1020,9 @@ enum VFRMapLayer {
         return (CGFloat(angle), outsideLeft != turnedOver)
     }
 
-    /// The approach view's fixed shape: the fade round the field.
+    /// The approach view's fixed shape: the fade round the field, on a light chart.
     static func approachOverlays(for field: VFRApproachField) -> [MKOverlay] {
+        guard field.fadesChart else { return [] }
         let fade = VFRFadeOverlay(center: field.reference.coordinate, radiusMeters: VFRApproachField.fadeRadiusNM * 1852)
         fade.procedureId = "approach:\(field.ident)"
         fade.drawKey = field.drawKey
@@ -1201,13 +1404,21 @@ enum VFRMapLayer {
             return approachView(for: approach, on: mapView, palette: palette)
         }
         guard let label = annotation as? VFRProcedureAnnotation else { return nil }
-        let id = "VFRProcedureLabel"
-        let view = mapView.dequeueReusableAnnotationView(withIdentifier: id)
-            ?? MKAnnotationView(annotation: label, reuseIdentifier: id)
+        let view: MKAnnotationView
+        if case .altitude = label.item.labelStyle {
+            let id = VFRAltitudeLabelView.reuseIdentifier
+            view = mapView.dequeueReusableAnnotationView(withIdentifier: id)
+                ?? VFRAltitudeLabelView(annotation: label, reuseIdentifier: id)
+        } else {
+            let id = "VFRProcedureLabel"
+            view = mapView.dequeueReusableAnnotationView(withIdentifier: id)
+                ?? MKAnnotationView(annotation: label, reuseIdentifier: id)
+        }
         view.annotation = label
         let kind = label.item.procedure.kind
         view.transform = .identity
         view.centerOffset = .zero
+        view.calloutOffset = .zero
         view.canShowCallout = true
         view.collisionMode = .rectangle
         switch label.item.labelStyle {
@@ -1217,7 +1428,10 @@ enum VFRMapLayer {
             view.displayPriority = .required
         case .altitude:
             view.displayPriority = .required
-            orient(view, label: label, heading: mapView.camera.heading, palette: palette)
+            if let pill = view as? VFRAltitudeLabelView {
+                orient(pill, label: label, heading: mapView.camera.heading,
+                       slot: pillSlots(on: mapView)[label.labelKey] ?? .level(0), palette: palette)
+            }
         case .name:
             view.image = VFRProcedureLabelImage.image(text: label.item.labelText, kind: kind, palette: palette)
             // Labels give way to each other and to the markers that must show: MapKit hides the colliding ones.

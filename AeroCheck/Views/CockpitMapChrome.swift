@@ -950,6 +950,24 @@ struct CockpitMapFollower: ViewModifier {
 }
 
 /// Whether the status slot shows a state, for the map's framing (a leg, the aircraft and its leg).
+/// Which of the iPad's page bars fits (`FlightView.cockpitPageBarRow`): with BRIEFING or without.
+struct CockpitBriefingInBarKey: PreferenceKey {
+    static let defaultValue = false
+    static func reduce(value: inout Bool, nextValue: () -> Bool) { value = value || nextValue() }
+}
+
+private struct CockpitBriefingInBarEnvironmentKey: EnvironmentKey {
+    static let defaultValue = false
+}
+
+extension EnvironmentValues {
+    /// BRIEFING is in the iPad's page bar, over every page: MAP's status slot leaves it out. (6.2.0)
+    var cockpitBriefingInBar: Bool {
+        get { self[CockpitBriefingInBarEnvironmentKey.self] }
+        set { self[CockpitBriefingInBarEnvironmentKey.self] = newValue }
+    }
+}
+
 struct MapStatusShownKey: PreferenceKey {
     static let defaultValue = false
     static func reduce(value: inout Bool, nextValue: () -> Bool) { value = value || nextValue() }
@@ -981,6 +999,8 @@ struct CockpitChartChrome: View {
     @EnvironmentObject private var flightPlanManager: FlightPlanManager
     @EnvironmentObject private var offlineMapManager: OfflineMapManager
     @EnvironmentObject private var threadManager: FlightThreadManager
+    /// BRIEFING is in the iPad's page bar: the slot leaves it out. (6.2.0)
+    @Environment(\.cockpitBriefingInBar) private var briefingInBar
 
     var body: some View {
         let undo = NavUndoOffer.shown(in: appState, flightPlanManager: flightPlanManager,
@@ -1024,7 +1044,7 @@ struct CockpitChartChrome: View {
             chartOffline: ChartAvailability.isChartOffline(chartInput),
             tellFISField: CockpitStatusRule.tellFIS(diversionIdent: plan?.diversion?.ident, hasOpenATCFlightPlan: filed),
             sigmetOnPath: CockpitStatusRule.sigmetOnPath(sigmets).map(Self.sigmetSummary),
-            briefing: appState.currentPhase.briefingType)
+            briefing: briefingInBar ? nil : appState.currentPhase.briefingType)
     }
 
     /// CHART OFFLINE's inputs: the chart picked, the network, the caches, the zoom and the region.

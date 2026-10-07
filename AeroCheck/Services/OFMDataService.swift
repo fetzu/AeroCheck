@@ -10,21 +10,25 @@ import MapKit
 enum OFMConfig {
     static let defaultBaseURL = APIConfig.dataURL("ofm/v1/")
 
-    /// Ceiling per file. The largest (DE) is 566 KB in 2610; the job refuses to publish over 2 MB.
+    /// Ceiling per file. The largest (DE) is 650 KB in 2610; the job refuses to publish over 2 MB.
     static let maxFileBytes = 4 * 1024 * 1024
 
-    /// The countries the job publishes, until the first `index.json` says otherwise.
-    static let knownCountries = ["AT", "CH", "CZ", "DE"]
+    /// The countries the job publishes, until the first `index.json` says otherwise: every region open
+    /// flightmaps publishes (22 countries from 21 regions in 2610, Belgium's split into BE and LU). Some
+    /// have few procedures or none yet, and bring their reporting points and runways meanwhile.
+    static let knownCountries = ["AT", "BE", "BG", "CH", "CZ", "DE", "DK", "FI", "FR", "GR", "HR", "HU",
+                                 "IT", "LU", "MT", "NL", "PL", "RO", "SE", "SI", "SK", "ZA"]
 
     /// OFM's region per country (its FIR package). The country files carry theirs (`region`), which
-    /// wins; this is for a country not downloaded yet.
-    static let regionByCountry = ["AT": "LOVV", "CH": "LSAS", "CZ": "LKAA", "DE": "ED"]
+    /// wins; this is for a country not downloaded yet. A region can serve two countries (EBBU).
+    static let regionByCountry = [
+        "AT": "LOVV", "BE": "EBBU", "BG": "LBSR", "CH": "LSAS", "CZ": "LKAA", "DE": "ED", "DK": "EKDK",
+        "FI": "EFIN", "FR": "LF", "GR": "LGGG", "HR": "LDZO", "HU": "LHCC", "IT": "LI", "LU": "EBBU",
+        "MT": "LMMM", "NL": "EHAA", "PL": "EPWW", "RO": "LRBB", "SE": "ESAA", "SI": "LJLA", "SK": "LZBB",
+        "ZA": "FA",
+    ]
 
     static func region(forCountry country: String) -> String? { regionByCountry[country.uppercased()] }
-
-    static func country(forRegion region: String) -> String? {
-        regionByCountry.first { $0.value.caseInsensitiveCompare(region) == .orderedSame }?.key
-    }
 
     /// The published files, or in a DEBUG build the override's.
     static var baseURL: URL { debugBaseURL ?? defaultBaseURL }
@@ -176,7 +180,7 @@ final class OFMDataService: ObservableObject {
 
     var isDataAvailable: Bool { !downloadedCountries.isEmpty }
 
-    /// The countries OFM data is published for: the last index's, or the known four before one.
+    /// The countries OFM data is published for: the last index's, or `OFMConfig.knownCountries` before one.
     var supportedCountries: [String] { index?.countries ?? OFMConfig.knownCountries }
 
     /// The last index read attempted, successful or not (in memory: a relaunch may try again).

@@ -182,6 +182,78 @@ final class OfficialChartTests: XCTestCase {
         XCTAssertNil(OfficialChartService.shared.link(for: "LIMJ", type: .mediumAirport))
     }
 
+    /// The generic kinds of the countries added on 6 October 2026 (the server's chart_sources.py): a
+    /// page per aerodrome, under `base` or whole when a country has two hosts; a template for a list of
+    /// codes; one start page behind a free sign-in or a subscription; and links that expire.
+    func testTheGenericKinds() throws {
+        let charts = try registry("""
+        { "v": 1, "generated": "2026-10-06T05:10:00Z", "countries": {
+            "CZ": { "kind": "pages", "base": "https://aim.rlp.cz/vfrmanual/actual/", "pages": { "LKBU": "lkbu_text_en.html" } },
+            "SK": { "kind": "pages", "base": "https://", "pages": {
+                    "LZNZ": "https://gis.lps.sk/pdf/VFRM_SR_LZNZ_EN.pdf",
+                    "LZIB": "https://aim.lps.sk/web/eAIP_SR/AIP_SR_EFF_01OCT2026_amdt/pdf/aip/LZ_AD_2_LZIB_8-1_en.pdf" } },
+            "SE": { "kind": "pages", "base": "https://aro.lfv.se/content/eaip/", "until": "2026-10-29T00:00:00Z",
+                    "pages": { "ESSB": "AIP%20AMDT%201-2026_2026_08_07/documents/Root/SWEDEN/Charts/AD/ESSB/9.%20VAC/ESSB%20Visual%20Approach%20Chart.pdf" } },
+            "FI": { "kind": "template", "codes": ["EFHK"],
+                    "template": "https://www.ais.fi/eaip/currently_effective/documents/Root_WePub/ANSFI/Charts/AD/{icao}/EF_AD_2_{icao}_VAC.pdf" },
+            "BG": { "kind": "url", "url": "https://b-flip.bulatsa.com/publications/aip/home", "login": true, "access": "sign-in" },
+            "HR": { "kind": "url", "url": "https://aim.crocontrol.hr/", "login": true },
+            "ZA": { "kind": "pages", "base": "https://caasanwebsitestorage.blob.core.windows.net/aeronautical-charts/",
+                    "pages": { "FAAB": "FAAB_AERODROME%20CHART.pdf" } } } }
+        """)
+        func url(_ icao: String, now: Date? = nil) -> String? {
+            charts.link(for: icao, type: .smallAirport, now: now ?? october2)?.url.absoluteString
+        }
+        XCTAssertEqual(url("LKBU"), "https://aim.rlp.cz/vfrmanual/actual/lkbu_text_en.html")
+        XCTAssertNil(url("LKPR"), "a page table names its aerodromes")
+        XCTAssertEqual(url("LZNZ"), "https://gis.lps.sk/pdf/VFRM_SR_LZNZ_EN.pdf")
+        XCTAssertEqual(url("LZIB"), "https://aim.lps.sk/web/eAIP_SR/AIP_SR_EFF_01OCT2026_amdt/pdf/aip/LZ_AD_2_LZIB_8-1_en.pdf")
+        XCTAssertEqual(url("ESSB"), "https://aro.lfv.se/content/eaip/AIP%20AMDT%201-2026_2026_08_07/documents/Root/SWEDEN/Charts/"
+                       + "AD/ESSB/9.%20VAC/ESSB%20Visual%20Approach%20Chart.pdf")
+        XCTAssertNil(url("ESSB", now: utc(2026, 10, 29, 1)), "past its until: LFV took the folder down")
+        XCTAssertEqual(url("EFHK"), "https://www.ais.fi/eaip/currently_effective/documents/Root_WePub/ANSFI/Charts/AD/EFHK/EF_AD_2_EFHK_VAC.pdf")
+        XCTAssertNil(url("EFNU"), "not among the template's codes")
+        XCTAssertEqual(url("FAAB"), "https://caasanwebsitestorage.blob.core.windows.net/aeronautical-charts/FAAB_AERODROME%20CHART.pdf")
+
+        let sofia = try XCTUnwrap(charts.link(for: "LBSF", type: .largeAirport, now: october2))
+        XCTAssertEqual(sofia.publisher, "BULATSA")
+        XCTAssertTrue(sofia.requiresLogin)
+        XCTAssertFalse(sofia.isSubscription, "a free sign-in")
+        XCTAssertEqual(sofia.note, "BULATSA (sign-in)")
+        XCTAssertEqual(sofia.shortNote, "Sign-in")
+        let zagreb = try XCTUnwrap(charts.link(for: "LDZA", type: .largeAirport, now: october2))
+        XCTAssertEqual(zagreb.note, "Croatia Control (subscription)")
+        XCTAssertEqual(zagreb.title, "Official chart · Croatia Control (subscription)")
+        XCTAssertNil(try XCTUnwrap(charts.link(for: "LKBU", type: .smallAirport, now: october2)).note)
+    }
+
+    /// A page from the file can't walk out of its base or onto another host: only a path in URL
+    /// characters, or a whole https URL on the country's publisher's domain.
+    func testAPageCantLeaveItsPublisher() throws {
+        let hostile = try registry("""
+        { "v": 1, "countries": {
+            "CZ": { "kind": "pages", "base": "https://aim.rlp.cz/vfrmanual/actual/", "pages": {
+                    "LKAA": "../../evil", "LKBB": "x?y=1", "LKCC": "//evil.example/x", "LKDD": "https://evil.example/x.pdf",
+                    "LKEE": "https://aim.rlp.cz.evil.example/x", "LKFF": "a b.html", "LKGG": "lkgg_text_en.html" } },
+            "ZA": { "kind": "pages", "base": "https://evil.blob.core.windows.net/", "pages": { "FAAB": "x.pdf" } } } }
+        """)
+        for code in ["LKAA", "LKBB", "LKCC", "LKDD", "LKEE", "LKFF", "FAAB"] {
+            XCTAssertNil(hostile.link(for: code, type: .smallAirport, now: october2), code)
+        }
+        XCTAssertNotNil(hostile.link(for: "LKGG", type: .smallAirport, now: october2))
+        XCTAssertNil(OfficialChartRegistry.publisherURL("https://other.blob.core.windows.net/x.pdf", country: "ZA"),
+                     "South Africa's storage host, never the shared cloud domain")
+    }
+
+    func testEveryCountryHasItsLettersItsDomainAndItsName() {
+        let countries = Set(OfficialChartRegistry.publisherDomains.keys)
+        XCTAssertEqual(countries.count, 18)
+        XCTAssertEqual(Set(OfficialChartRegistry.icaoPrefixes.keys), countries)
+        XCTAssertEqual(Set(OfficialChartRegistry.publisherNames.keys), countries)
+        XCTAssertFalse(countries.contains("IT"), "ENAV needs written authorisation for any link")
+        XCTAssertFalse(countries.contains("BE"), "skeyes allows its home page only, for personal use")
+    }
+
     /// A link off its publisher's domain, not HTTPS, or a page id that could leave DFS's folder is
     /// never built: a forged "SkyBriefing" sign-in page is what a tampered file would want.
     func testALinkOffThePublishersSiteIsNotOpened() throws {
@@ -214,7 +286,7 @@ final class OfficialChartTests: XCTestCase {
         """)
         XCTAssertEqual(charts.countries.keys.sorted(), ["CH", "DE", "SI"])
         XCTAssertNotNil(charts.link(for: "LSZQ", type: nil, now: october2))
-        XCTAssertNil(charts.link(for: "LJLJ", type: .largeAirport, now: october2), "a kind and a country the app doesn't know")
+        XCTAssertNil(charts.link(for: "LJLJ", type: .largeAirport, now: october2), "a kind the app doesn't know")
         XCTAssertNil(charts.link(for: "EDNY", type: nil, now: october2), "an unreadable page table is no table")
     }
 
@@ -259,6 +331,14 @@ final class OfficialChartTests: XCTestCase {
         let noFrance = OfficialChartRegistry(generated: charts.generated, countries: charts.countries.filter { $0.key != "FR" })
         XCTAssertFalse(OfficialChartService.isStale(registry: noFrance, fetchedAt: cycleStart - day, now: cycleStart + 600))
         XCTAssertTrue(OfficialChartService.isStale(registry: charts, fetchedAt: cycleStart - day, now: cycleStart + 600))
+        // A country past its `until` (Sweden's next issue): once an hour too, though nothing else aged.
+        let sweden = OfficialChartRegistry(generated: noFrance.generated, countries: noFrance.countries.merging(
+            ["SE": .init(kind: "pages", base: "https://aro.lfv.se/content/eaip/", pages: ["ESSB": "x.pdf"],
+                         until: "2026-10-29T00:00:00Z")]) { $1 })
+        XCTAssertFalse(OfficialChartService.isStale(registry: sweden, fetchedAt: utc(2026, 10, 27), now: utc(2026, 10, 28)))
+        XCTAssertTrue(OfficialChartService.isStale(registry: sweden, fetchedAt: utc(2026, 10, 28), now: utc(2026, 10, 29, 2)))
+        XCTAssertFalse(OfficialChartService.isStale(registry: sweden, fetchedAt: utc(2026, 10, 29, 1) + 1800,
+                                                    now: utc(2026, 10, 29, 2)), "not more than once an hour")
     }
 
     private final class Box<T> { var value: T; init(_ value: T) { self.value = value } }
@@ -661,6 +741,8 @@ final class OfficialChartTests: XCTestCase {
             "Opens %@ in the browser": "Ouvre %@ dans le navigateur",
             "Report": "Signaler",
             "Subscription": "Abonnement",
+            "%@ (sign-in)": "%@ (connexion)",
+            "Sign-in": "Connexion",
             "open flightmaps · indicative": "open flightmaps · indicatif",
             "open flightmaps · AIRAC %@ · indicative": "open flightmaps · AIRAC %@ · indicatif",
         ]

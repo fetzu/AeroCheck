@@ -71,6 +71,26 @@
         }
       }
     },
+    "%@ (sign-in)": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ (connexion)"
+          }
+        }
+      }
+    },
+    "Sign-in": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Connexion"
+          }
+        }
+      }
+    },
     "Chart": {
       "localizations": {
         "fr": {

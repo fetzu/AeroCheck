@@ -286,7 +286,7 @@ struct OFMRegionFile: Sendable, Decodable {
     let version: Int?
     let source: String?
     let attribution: String?
-    /// OFM's region (`LSAS`, `LOVV`, `ED`, `LKAA`).
+    /// OFM's region (`LSAS`, `LOVV`, `ED`, `EBBU`…; one region can serve two countries).
     let region: String?
     /// ISO 3166-1 alpha-2 (`CH`).
     let country: String

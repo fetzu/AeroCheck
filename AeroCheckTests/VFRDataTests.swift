@@ -268,7 +268,9 @@ final class VFRDataTests: XCTestCase {
         XCTAssertEqual(OFMConfig.allowedHosts(override: nil), [api])
         XCTAssertEqual(OFMConfig.maxFileBytes, 4 * 1024 * 1024)
         XCTAssertEqual(OFMConfig.region(forCountry: "ch"), "LSAS")
-        XCTAssertEqual(OFMConfig.country(forRegion: "LKAA"), "CZ")
+        XCTAssertEqual(OFMConfig.region(forCountry: "LU"), "EBBU", "Luxembourg's file comes from Belgium's region")
+        XCTAssertEqual(Set(OFMConfig.knownCountries), Set(OFMConfig.regionByCountry.keys))
+        XCTAssertEqual(OFMConfig.knownCountries.count, 22)
 
         // Another base (a DEBUG override): its host joins the list and the files come from it.
         let other = try XCTUnwrap(URL(string: "https://example.org/vfr/ofm/v1/"))
@@ -288,7 +290,7 @@ final class VFRDataTests: XCTestCase {
         server.publish(["CH": swissFile(), "DE": germanFile()])
         let ofm = service(server, root: root)
         XCTAssertFalse(ofm.isDataAvailable)
-        XCTAssertEqual(ofm.supportedCountries, ["AT", "CH", "CZ", "DE"], "the known four before an index")
+        XCTAssertEqual(ofm.supportedCountries, OFMConfig.knownCountries, "the known countries before an index")
 
         await ofm.downloadData(for: ["FR", "DE", "CH"])
         XCTAssertEqual(server.requests, ["index.json", "ch.json", "de.json"], "nothing asked for FR")
@@ -600,13 +602,13 @@ final class VFRDataTests: XCTestCase {
         server.publish(["CH": swissFile()])
         server.failing = ["index.json"]
         let ofm = service(server)
-        let provider = OFMProceduresProvider(service: ofm, offlineCountries: { ["CH", "FR"] })
+        let provider = OFMProceduresProvider(service: ofm, offlineCountries: { ["CH", "ES"] })
         let manager = DataStatusManager(providers: [provider], networkMonitor: NetworkMonitor(stub: .disconnected),
                                         userDefaults: makeTestDefaults())
 
         // Never downloaded: Refresh takes the offline countries.
         await manager.refresh(try XCTUnwrap(manager.dataSets.first))
-        XCTAssertEqual(manager.dataSets.first?.updateFailure?.countries, ["CH"], "FR isn't covered: no failure")
+        XCTAssertEqual(manager.dataSets.first?.updateFailure?.countries, ["CH"], "ES isn't covered: no failure")
         XCTAssertTrue(L10n.DataStorage.updateFailed(["CH"]).contains("CH"))
 
         server.failing = []

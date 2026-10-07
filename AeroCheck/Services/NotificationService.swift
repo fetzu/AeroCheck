@@ -29,6 +29,11 @@ final class NotificationService: NSObject, ObservableObject {
     var markFlightPlanClosedHandler: ((UUID) -> Void)?
     /// Called when the pilot taps the notification body, so the app can open that thread.
     var openThreadHandler: ((UUID) -> Void)?
+    /// Whether a banner may interrupt now, with the app open (`NotificationPresentationRule`). Installed
+    /// by the app; nil (before it is, and in tests) lets every banner through.
+    var mayInterrupt: (() -> Bool)?
+    /// What arrived while no banner could show: in Notification Center only until `releaseHeld()`.
+    private(set) var held: [UNNotificationRequest] = []
 
     private let center = UNUserNotificationCenter.current()
 
@@ -193,10 +198,12 @@ final class NotificationService: NSObject, ObservableObject {
     func cancelFlightPlanCloseReminder(threadId: UUID) {
         center.removePendingNotificationRequests(withIdentifiers: [Identifier.fplClose(threadId)])
         center.removeDeliveredNotifications(withIdentifiers: [Identifier.fplClose(threadId)])
+        held.removeAll { $0.identifier == Identifier.fplClose(threadId) }
     }
 
     func cancelPreparationReminder(threadId: UUID) {
         center.removePendingNotificationRequests(withIdentifiers: [Identifier.preparation(threadId)])
+        held.removeAll { $0.identifier == Identifier.preparation(threadId) }
         // Also clear a banner already sitting in Notification Center — otherwise "Flight tomorrow"
         // outlives the flight being cancelled or deleted, same as the close reminder above.
         center.removeDeliveredNotifications(withIdentifiers: [Identifier.preparation(threadId)])
@@ -206,6 +213,32 @@ final class NotificationService: NSObject, ObservableObject {
     func cancelAll(threadId: UUID) {
         cancelFlightPlanCloseReminder(threadId: threadId)
         cancelPreparationReminder(threadId: threadId)
+    }
+
+    // MARK: - With the app open, in flight
+
+    /// How a notification shows with the app open: a banner, unless a flight is under way outside
+    /// Preflight and At the Hangar (`mayInterrupt`). Then it goes to Notification Center only, and is
+    /// shown again once the flight reaches At the Hangar or ends (`releaseHeld`). The pilot's attention
+    /// belongs to the flight, and neither reminder is about this one. (6.2.0, the author, device check
+    /// 7 Oct.) The close-your-flight-plan reminder waits too: it fires two minutes after the full stop,
+    /// during the taxi in, and a few minutes later is still well inside the 30 minutes before the RCC
+    /// alerts. With the app in the background the system shows both as always.
+    func presentation(for request: UNNotificationRequest) -> UNNotificationPresentationOptions {
+        if mayInterrupt?() ?? true { return [.banner, .sound] }
+        if !held.contains(where: { $0.identifier == request.identifier }) { held.append(request) }
+        return [.list]
+    }
+
+    /// Shows again what was held, now that a banner may interrupt: each request delivered anew, at once.
+    func releaseHeld() {
+        guard !held.isEmpty, mayInterrupt?() ?? true else { return }
+        let requests = held
+        held = []
+        center.removeDeliveredNotifications(withIdentifiers: requests.map(\.identifier))
+        for request in requests {
+            center.add(UNNotificationRequest(identifier: request.identifier, content: request.content, trigger: nil))
+        }
     }
 
     // MARK: - Deferred actions
@@ -249,11 +282,13 @@ final class NotificationService: NSObject, ObservableObject {
 extension NotificationService: UNUserNotificationCenterDelegate {
 
     /// Show the reminder even with the app in the foreground: a pilot who is looking at the app after
-    /// landing is exactly the person who still has to close the plan.
+    /// landing is exactly the person who still has to close the plan. In flight, not before At the
+    /// Hangar (`presentation(for:)`).
     nonisolated func userNotificationCenter(_ center: UNUserNotificationCenter,
                                             willPresent notification: UNNotification) async
         -> UNNotificationPresentationOptions {
-        [.banner, .sound]
+        let request = HeldRequest(request: notification.request)
+        return await MainActor.run { NotificationService.shared.presentation(for: request.request) }
     }
 
     nonisolated func userNotificationCenter(_ center: UNUserNotificationCenter,
@@ -272,5 +307,21 @@ extension NotificationService: UNUserNotificationCenterDelegate {
                 NotificationService.shared.enqueueOrRun(.open(threadId))
             }
         }
+    }
+}
+
+/// A request handed from the delegate's callback to the main actor; read only there.
+private struct HeldRequest: @unchecked Sendable {
+    let request: UNNotificationRequest
+}
+
+/// When a notification may interrupt the pilot with the app open. (6.2.0, the author, 7 Oct)
+enum NotificationPresentationRule {
+    /// On the ground with the engine off, before the flight and after it: nothing to take the pilot's
+    /// attention from.
+    static let calmPhases: Set<ChecklistPhase> = [.preflight, .hangar]
+
+    static func mayInterrupt(isFlightActive: Bool, phase: ChecklistPhase) -> Bool {
+        !isFlightActive || calmPhases.contains(phase)
     }
 }

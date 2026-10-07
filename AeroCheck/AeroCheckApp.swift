@@ -213,6 +213,12 @@ struct AeroCheckApp: App {
                         flightThreadManager.setCurrentThread(threadId)
                         appState.pendingThreadToOpen = threadId
                     }
+                    // In flight, no banner before At the Hangar: what arrives meanwhile waits in
+                    // Notification Center, and shows when the flight gets there or ends. (6.2.0)
+                    NotificationService.shared.mayInterrupt = {
+                        NotificationPresentationRule.mayInterrupt(isFlightActive: appState.isFlightActive,
+                                                                  phase: appState.currentPhase)
+                    }
                     // Anything that arrived before the handlers existed — the cold-launch case the
                     // delegate move exists for — is replayed now.
                     NotificationService.shared.drainPendingActions()
@@ -322,7 +328,9 @@ struct AeroCheckApp: App {
                 }
                 .onChange(of: appState.isFlightActive) { _, isActive in
                     handleFlightStateChange(isActive: isActive)
+                    NotificationService.shared.releaseHeld()
                 }
+                .onChange(of: appState.currentPhase) { _, _ in NotificationService.shared.releaseHeld() }
                 // v4.1.0 Data Freshness: foreground-only refresh — recompute the status and silently
                 // refresh any STALE small data the network gate permits. No background tasks.
                 .onChange(of: scenePhase) { _, phase in

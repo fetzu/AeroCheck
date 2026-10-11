@@ -734,15 +734,20 @@ class CompanionConnectivityManager: NSObject, ObservableObject {
     }
 
     /// Send `goodbye` on `send`, then close `connection` (cancel its task): once the goodbye went out
-    /// (true), or after `limit` (false). The connection is closed either way. (6.1.0)
+    /// (true), or once its send failed or `limit` passed (false). The connection is closed either way.
+    /// (6.1.0)
     nonisolated static func sayGoodbye(_ goodbye: CompanionMessage,
                                        on send: @escaping @Sendable (CompanionMessage) async throws -> Void,
                                        thenClose connection: Task<Void, any Error>,
                                        upTo limit: Duration) async -> Bool {
         // Within the limit too, so a goodbye stuck on the radio does not hold the connection after it.
-        let sent = await waitFor(upTo: limit) { _ = try? await Self.send(goodbye, on: send, within: limit) }
+        let attempt = Task { try await Self.send(goodbye, on: send, within: limit) }
+        let ended = await waitFor(upTo: limit) { _ = await attempt.result }
         connection.cancel()
-        return sent
+        // Ended is not sent: a send given up at the limit ends too, on a timer of the same length as
+        // the wait's, and the wait read that as a goodbye gone out about two times in three. (6.3.0)
+        guard ended, case .success = await attempt.result else { return false }
+        return true
     }
 
     /// `send(message)`, given up after `limit`: it throws `CompanionSendTimeout` then, and the send is

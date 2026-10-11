@@ -399,6 +399,11 @@ struct RouteLegRow: View {
     /// ACT and Δ, the flight's times. Plan › Map shows PLAN alone, at the right: with no flight to time,
     /// the two empty columns left PLAN floating in the middle of the row (device check, 11 Oct). (6.2.0)
     var showsFlown = true
+    /// Plan › Map on the iPad: under each leg's name its distance and a bar to the route's scale, the longest
+    /// leg's the widest: how the waypoints split the route, where the route-to-scale bar under DEST showed
+    /// nothing flown on the ground (the author's fix9-4, 11 Oct). The longest leg, NM; nil, no line (the
+    /// Cockpit's ROUTE, the phones). (6.3.0)
+    var longestLegNM: Double? = nil
     let onTap: () -> Void
 
     @Environment(\.cockpitTheme) private var theme
@@ -417,53 +422,63 @@ struct RouteLegRow: View {
         let hasFigures = index > 0
         let actual = hasFigures ? actual : nil
         Button(action: onTap) {
-            LegRowLayout(nameRoom: Self.nameRoom(plan: plan, size: large ? CockpitType.label(for: scale) : 13,
-                                                  minimumScale: nameScale),
-                         hasFigures: hasFigures, spacing: LegRowMetrics.spacing(scale),
-                         nameGap: LegRowMetrics.nameGap(scale)) {
-                // Sequence number: the numbered disc on the map. (v4 UI/UX Revamp)
-                Text("\(index + 1)")
-                    .font(.aero(size: large ? CockpitType.label(for: scale) : 11, weight: .bold, design: .monospaced))
-                    .foregroundColor(isCurrent ? theme.route : theme.textSecondary)
-                    .frame(width: indexWidth, alignment: .center)
-                Image(systemName: isPast ? "circle.fill" : (isCurrent ? "location.fill" : "circle"))
-                    .font(.aero(size: large ? 14 : 9))
-                    .foregroundColor(isPast ? theme.onTarget : (isCurrent ? theme.route : theme.textDim))
-                Text(waypoint.name.isEmpty ? "WPT \(index + 1)" : waypoint.name)
-                    // The label size, like the times beside it: at 24 pt a name had to shrink to fit the
-                    // landscape column. The current leg reads by its colour.
-                    .font(.aero(size: large ? CockpitType.label(for: scale) : 13, weight: isCurrent ? .bold : .regular, design: .monospaced))
-                    .foregroundColor(isCurrent ? theme.route : theme.textPrimary)
-                    .lineLimit(1)
-                    .minimumScaleFactor(nameScale)
-                    .modifier(LegRowPartReader(index: index, part: .name))
-                // Fixed-width columns so every row's heading / distance / PLAN / ACT / Δ line up,
-                // whether or not a leg has been flown yet. (v4 UI/UX Revamp)
-                HStack(spacing: LegRowMetrics.timeSpacing(scale)) {
-                    // Heading and distance on the old sheet only. (v4 UI/UX Revamp)
-                    if !compact && !large {
-                        Text(leg?.formattedMagneticCourse ?? "")
-                            .foregroundColor(theme.textSecondary).frame(width: 38, alignment: .trailing)
-                        Text(leg?.distance.map { String(format: "%.1f", $0) } ?? "")
-                            .foregroundColor(theme.textSecondary).frame(width: 40, alignment: .trailing)
-                    }
-                    Text((leg?.totalLegEET).map(ActLegTimer.columnClock) ?? "")   // PLAN (EET)
-                        .foregroundColor(large ? theme.textSecondary : theme.textDim)
-                        .frame(width: timeWidth, alignment: .trailing)
-                    if showsFlown {
-                        Text(actual.map(ActLegTimer.columnClock) ?? "")          // ACT / live
-                            .foregroundColor(isCurrent ? theme.route : theme.onTarget)
+            VStack(alignment: .leading, spacing: 2) {
+                LegRowLayout(nameRoom: Self.nameRoom(plan: plan, size: large ? CockpitType.label(for: scale) : 13,
+                                                      minimumScale: nameScale),
+                             hasFigures: hasFigures, spacing: LegRowMetrics.spacing(scale),
+                             nameGap: LegRowMetrics.nameGap(scale)) {
+                    // Sequence number: the numbered disc on the map. (v4 UI/UX Revamp)
+                    Text("\(index + 1)")
+                        .font(.aero(size: large ? CockpitType.label(for: scale) : 11, weight: .bold, design: .monospaced))
+                        .foregroundColor(isCurrent ? theme.route : theme.textSecondary)
+                        .frame(width: indexWidth, alignment: .center)
+                    Image(systemName: isPast ? "circle.fill" : (isCurrent ? "location.fill" : "circle"))
+                        .font(.aero(size: large ? 14 : 9))
+                        .foregroundColor(isPast ? theme.onTarget : (isCurrent ? theme.route : theme.textDim))
+                    Text(waypoint.name.isEmpty ? "WPT \(index + 1)" : waypoint.name)
+                        // The label size, like the times beside it: at 24 pt a name had to shrink to fit the
+                        // landscape column. The current leg reads by its colour.
+                        .font(.aero(size: large ? CockpitType.label(for: scale) : 13, weight: isCurrent ? .bold : .regular, design: .monospaced))
+                        .foregroundColor(isCurrent ? theme.route : theme.textPrimary)
+                        .lineLimit(1)
+                        .minimumScaleFactor(nameScale)
+                        .modifier(LegRowPartReader(index: index, part: .name))
+                    // Fixed-width columns so every row's heading / distance / PLAN / ACT / Δ line up,
+                    // whether or not a leg has been flown yet. (v4 UI/UX Revamp)
+                    HStack(spacing: LegRowMetrics.timeSpacing(scale)) {
+                        // Heading and distance on the old sheet only. (v4 UI/UX Revamp)
+                        if !compact && !large {
+                            Text(leg?.formattedMagneticCourse ?? "")
+                                .foregroundColor(theme.textSecondary).frame(width: 38, alignment: .trailing)
+                            Text(leg?.distance.map { String(format: "%.1f", $0) } ?? "")
+                                .foregroundColor(theme.textSecondary).frame(width: 40, alignment: .trailing)
+                        }
+                        Text((leg?.totalLegEET).map(ActLegTimer.columnClock) ?? "")   // PLAN (EET)
+                            .foregroundColor(large ? theme.textSecondary : theme.textDim)
                             .frame(width: timeWidth, alignment: .trailing)
-                        delta(planned: leg?.totalLegEET, actual: actual)   // Δ ahead/over
-                            .frame(width: deltaWidth, alignment: .trailing)
+                        if showsFlown {
+                            Text(actual.map(ActLegTimer.columnClock) ?? "")          // ACT / live
+                                .foregroundColor(isCurrent ? theme.route : theme.onTarget)
+                                .frame(width: timeWidth, alignment: .trailing)
+                            delta(planned: leg?.totalLegEET, actual: actual)   // Δ ahead/over
+                                .frame(width: deltaWidth, alignment: .trailing)
+                        }
                     }
+                    .font(.aero(size: large ? CockpitType.label(for: scale) : 10, design: .monospaced))
+                    .lineLimit(1)
+                    // A little smaller rather than a time cut short, should a time ever outgrow its column (an
+                    // hour is "1h05" since 6.3.0, which fits).
+                    .minimumScaleFactor(large ? (scale == .phone ? 0.7 : 0.8) : 1)
+                    .modifier(LegRowPartReader(index: index, part: .figures))
                 }
-                .font(.aero(size: large ? CockpitType.label(for: scale) : 10, design: .monospaced))
-                .lineLimit(1)
-                // A little smaller rather than a time cut short, should a time ever outgrow its column (an
-                // hour is "1h05" since 6.3.0, which fits).
-                .minimumScaleFactor(large ? (scale == .phone ? 0.7 : 0.8) : 1)
-                .modifier(LegRowPartReader(index: index, part: .figures))
+                if let longestLegNM {
+                    // Under the name, clear of the PLAN column; the departure keeps the line's room, empty, so every
+                    // row has one height.
+                    LegDistanceLine(share: hasFigures ? (leg?.distance).map { $0 / longestLegNM } : nil,
+                                    distanceNM: hasFigures ? leg?.distance : nil, scale: scale)
+                        .padding(.leading, indexWidth + LegRowMetrics.iconWidth + 2 * LegRowMetrics.spacing(scale))
+                        .padding(.trailing, timeWidth + LegRowMetrics.spacing(scale))
+                }
             }
             .modifier(LegRowPartReader(index: index, part: .row))
             .padding(.horizontal, LegRowMetrics.horizontalPadding(scale)).padding(.vertical, large ? 9 : 7)
@@ -475,6 +490,12 @@ struct RouteLegRow: View {
         .buttonStyle(.plain)
         // Its place and whether it has a time over, for a UI test: "legRow.1.passed.ato".
         .accessibilityIdentifier("legRow.\(index).\(isPast ? "passed" : isCurrent ? "next" : "ahead")\(waypoint.actualTimeOver == nil ? "" : ".ato")")
+    }
+
+    /// The longest leg of `plan`, NM: the scale of Plan › Map's distance bars. Nil without a leg's distance.
+    static func longestLegNM(_ plan: FlightPlan) -> Double? {
+        let distances = plan.waypoints.indices.compactMap { plan.legArriving(at: $0)?.distance }.filter { $0 > 0 }
+        return distances.max()
     }
 
     /// ▲ ahead or ▼ over: the planned leg time less the time flown; blank until both exist.
@@ -920,5 +941,52 @@ struct CockpitRadioFollower: ViewModifier {
             if openAIP.isDataAvailable { await openAIP.ensureLoaded() }
             recompute()
         }
+    }
+}
+
+/// A leg's distance and a bar to the route's scale (`share`: the leg over the longest leg), under its name on
+/// Plan › Map's legs panel. Nil `share`: the line's room, empty (the departure). (6.3.0, fix9-4)
+struct LegDistanceLine: View {
+    let share: Double?
+    let distanceNM: Double?
+    let scale: CockpitScale
+
+    @Environment(\.cockpitTheme) private var theme
+
+    /// The figure's size: under the name's label size, a reading for the ground.
+    static func figureSize(_ scale: CockpitScale) -> CGFloat { CockpitType.label(for: scale) - 4 }
+    /// The bar's thickness.
+    static let barHeight: CGFloat = 4
+
+    var body: some View {
+        let size = Self.figureSize(scale)
+        GeometryReader { geometry in
+            HStack(spacing: 6) {
+                if let share, let distanceNM {
+                    Capsule()
+                        .fill(theme.info)
+                        .frame(width: Self.barWidth(share: share, room: geometry.size.width - Self.figureRoom(size)),
+                               height: Self.barHeight)
+                        .accessibilityHidden(true)
+                    Text(String(format: "%.0f NM", distanceNM))
+                        .font(.aero(size: size, design: .monospaced))
+                        .foregroundColor(theme.textSecondary)
+                        .lineLimit(1)
+                        .fixedSize()
+                }
+            }
+            .frame(maxHeight: .infinity)
+        }
+        .frame(height: UIFont.aero(size: size, monospaced: true).lineHeight)
+    }
+
+    /// The figure's widest room, "000 NM", and the gap before it.
+    static func figureRoom(_ size: CGFloat) -> CGFloat {
+        ("000 NM" as NSString).size(withAttributes: [.font: UIFont.aero(size: size, monospaced: true)]).width + 6
+    }
+
+    /// The bar for `share` of the longest leg, in `room`: never under 4 pt, so a short leg still shows one.
+    static func barWidth(share: Double, room: CGFloat) -> CGFloat {
+        max(4, max(0, room) * CGFloat(min(max(share, 0), 1)))
     }
 }

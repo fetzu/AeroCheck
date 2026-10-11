@@ -28,13 +28,18 @@ struct DestinationLine: View {
     let onResumeRoute: (() -> Void)?
     /// The language the line reads in, "fr"; nil, the app's. For the French previews and tests.
     var language: String? = nil
+    /// The route to scale under the figures, on the iPad. Plan › Map leaves it out: on the ground nothing
+    /// is flown, and each leg's distance shows how the waypoints split the route (`RouteLegRow`'s
+    /// `longestLegNM`). "Resume route" still comes while diverting. (6.3.0, fix9-4)
+    var showsTrack = true
 
     @Environment(\.cockpitTheme) private var theme
 
     var body: some View {
         VStack(alignment: .leading, spacing: metrics.rowSpacing) {
             figures
-            if scale != .phone { lowerRow }
+            if Self.showsLowerRow(scale: scale, showsTrack: showsTrack, diverting: estimate.kind == .diversion,
+                                  canResume: onResumeRoute != nil) { lowerRow }
         }
         .padding(.horizontal, metrics.horizontalPadding)
         .padding(.vertical, metrics.verticalPadding)
@@ -43,6 +48,12 @@ struct DestinationLine: View {
     }
 
     private var metrics: Metrics { Metrics(scale) }
+
+    /// Whether the line has its second row: the iPad's, with the route to scale, or "Resume route" while
+    /// diverting where the line offers it; none on the phone. (6.3.0: Plan › Map leaves the track out)
+    static func showsLowerRow(scale: CockpitScale, showsTrack: Bool, diverting: Bool, canResume: Bool) -> Bool {
+        scale != .phone && (showsTrack || (diverting && canResume))
+    }
 
     // MARK: The figures
 

@@ -394,6 +394,39 @@ final class CockpitRoutePageTests: XCTestCase {
         }
     }
 
+    /// Plan › Map on the iPad (the author's fix9-4): DEST on one line, and each leg's distance with a bar to
+    /// the route's scale, the longest leg's the widest; the Cockpit's ROUTE keeps its route to scale. (6.3.0)
+    func testPlanMapShowsHowTheWaypointsSplitTheRoute() {
+        var plan = FlightPlan(name: "Split", waypoints: [
+            FlightPlanWaypoint(name: "LSZQ", coordinate: .init(latitude: 47.3497, longitude: 7.0278)),
+            FlightPlanWaypoint(name: "LSGC", coordinate: .init(latitude: 47.0839, longitude: 6.7928)),
+            FlightPlanWaypoint(name: "LSGN", coordinate: .init(latitude: 46.9575, longitude: 6.8647)),
+            FlightPlanWaypoint(name: "LSZB", coordinate: .init(latitude: 46.9141, longitude: 7.4972)),
+        ])
+        plan.calculateRouteData(readingForecasts: false)
+        let legs = (1..<4).compactMap { plan.legArriving(at: $0)?.distance }
+        XCTAssertEqual(legs.count, 3)
+        XCTAssertEqual(RouteLegRow.longestLegNM(plan), legs.max())
+        XCTAssertEqual(RouteLegRow.longestLegNM(plan) ?? 0, 26, accuracy: 1, "LSGN to LSZB")
+        XCTAssertNil(RouteLegRow.longestLegNM(FlightPlan(name: "One", waypoints: [plan.waypoints[0]])))
+
+        XCTAssertEqual(LegDistanceLine.barWidth(share: 1, room: 200), 200, "the longest leg: the whole room")
+        XCTAssertEqual(LegDistanceLine.barWidth(share: 0.3, room: 200), 60, accuracy: 0.01)
+        XCTAssertEqual(LegDistanceLine.barWidth(share: 0.001, room: 200), 4, "a short leg still shows one")
+        XCTAssertEqual(LegDistanceLine.barWidth(share: 2, room: 200), 200)
+
+        for diverting in [false, true] {
+            XCTAssertTrue(DestinationLine.showsLowerRow(scale: .kneeboard, showsTrack: true, diverting: diverting,
+                                                        canResume: true), "the Cockpit's ROUTE: its track or Resume")
+            XCTAssertFalse(DestinationLine.showsLowerRow(scale: .phone, showsTrack: true, diverting: diverting,
+                                                         canResume: true), "the phone: one line")
+        }
+        XCTAssertFalse(DestinationLine.showsLowerRow(scale: .kneeboard, showsTrack: false, diverting: false, canResume: true),
+                       "Plan › Map: one line")
+        XCTAssertTrue(DestinationLine.showsLowerRow(scale: .kneeboard, showsTrack: false, diverting: true, canResume: true),
+                      "Plan › Map while diverting: Resume route")
+    }
+
     // MARK: - Helpers
 
     /// Grenchen, SAIGNELÉGIER, ST-URSANNE, Bressaucourt: the longest name a Jura route has.

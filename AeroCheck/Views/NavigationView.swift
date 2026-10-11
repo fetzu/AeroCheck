@@ -2425,8 +2425,9 @@ struct NavigationMapView: View {
         }
     }
 
-    /// The Cockpit's DEST line, the route to scale under it (the author's call for 6.2), in place of the
-    /// "DEST · NM · ETA" row and the progress bar with its dots under the legs.
+    /// The Cockpit's DEST line, in place of the "DEST · NM · ETA" row and the progress bar with its dots
+    /// under the legs. Without the route to scale since 6.3.0 (the author's fix9-4): the legs show how the
+    /// waypoints split the route.
     @ViewBuilder
     private var destinationLine: some View {
         if let plan = flightPlanManager.activeFlightPlan,
@@ -2435,8 +2436,9 @@ struct NavigationMapView: View {
                groundSpeedKnots: locationManager.currentSpeedKnots)) {
             // Never wider than the panel: in a narrow window it widened the panel, then the map pane.
             OfferedWidth {
+                // One line, without the route to scale: each leg below shows its distance. (6.3.0, fix9-4)
                 DestinationLine(estimate: estimate, scale: CockpitScale.current,
-                                onResumeRoute: { flightPlanManager.resumeRoute() })
+                                onResumeRoute: { flightPlanManager.resumeRoute() }, showsTrack: false)
             }
         }
     }
@@ -2594,9 +2596,11 @@ struct NavigationMapView: View {
     /// Every leg, whole, in the panel's one scroll (`legsScroll`). It had a scroll of its own, five rows
     /// tall, inside the panel's: the legs scrolled, then the whole panel did. (6.1, device check)
     private func waypointList(plan: FlightPlan, compact: Bool = false, large: Bool = false) -> some View {
-        VStack(spacing: 0) {
+        // On the iPad's open panel, each leg's distance to the route's scale. (6.3.0, fix9-4)
+        let longest = large && CockpitScale.current != .phone ? RouteLegRow.longestLegNM(plan) : nil
+        return VStack(spacing: 0) {
             ForEach(Array(plan.waypoints.enumerated()), id: \.element.id) { index, wpt in
-                waypointRow(plan: plan, index: index, wpt: wpt, compact: compact, large: large)
+                waypointRow(plan: plan, index: index, wpt: wpt, compact: compact, large: large, longestLegNM: longest)
                     .id(LegsPanelReveal.RowID(index: index))
                 if index < plan.waypoints.count - 1 {
                     Rectangle().fill(Color.white.opacity(0.05)).frame(height: 0.5)
@@ -2606,14 +2610,14 @@ struct NavigationMapView: View {
     }
 
     private func waypointRow(plan: FlightPlan, index: Int, wpt: FlightPlanWaypoint, compact: Bool = false,
-                             large: Bool = false) -> some View {
+                             large: Bool = false, longestLegNM: Double? = nil) -> some View {
         let isPast = index < plan.currentWaypointIndex
         let isPreview = previewWaypointIndex == index
         // A previewed waypoint ahead can be flown to straight away, skipping the ones before it, and a
         // waypoint of the route is where a diversion can rejoin it (v5.1): DIRECT is under the legs, the
         // panel's width (`previewDirectBar`), and the row stays as its neighbours. (6.2.0)
         return RouteLegRow(plan: plan, index: index, compact: compact, large: large, isPreview: isPreview,
-                           actual: nil, showsFlown: false) {
+                           actual: nil, showsFlown: false, longestLegNM: longestLegNM) {
             handleWaypointTap(index: index, plan: plan, isPast: isPast)
         }
     }

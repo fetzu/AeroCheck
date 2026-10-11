@@ -17,7 +17,7 @@ shot keys; `--as` names a shot that shares a scene with another.
 
 | Shot key | Scene key | What it shows | After the scene |
 |---|---|---|---|
-| `cockpit` | `cruise` | The Cockpit in cruise, Fuel quantity framed (4/5), the strip lit | none |
+| `cockpit` | `cruiseroute` | The Cockpit in cruise with a route (LSGC NEXT), Fuel quantity framed (4/5), the strip lit | none (`--as cockpit`); iPhone: a slow drag on the list so its first row shows whole |
 | `cockpitmap` | `cruisemap` | The Cockpit on its map: LSGC next, the aircraft on the LSZQ → LSGC leg | none |
 | `vspeeds` | `cruise` | V-SPEEDS open over the Cockpit (the table on iPad, the list on iPhone) | tap V-SPEEDS (`--as vspeeds --pause`) |
 | `today` | `homeflight` | Today, with today's flight at 14:00 as the next flight | none |
@@ -27,16 +27,20 @@ shot keys; `--as` names a shot that shares a scene with another.
 | `route` | `conflicts` | The route editor: Geneva → Samedan over the ICAO chart, the profile, the leg table, the conflicts count | tap Today's ROUTE strip, then the route; needs airspace data (below) |
 | `log` | `flightlog` | Vol d'Alpes in the logbook: track, altitude profile | Logbook tab, tap Vol d'Alpes |
 | `landscape` | `cruisemap` | The iPhone on its side: the Cockpit's column, the map at full height | iPhone only: `--orientation landscapeLeft --as landscape` |
+| `circuits` | `nav` | Plan › Map close in on LSZQ: its traffic circuit at 2900 ft, the W and E arrival sectors, runway 07/25 | Plan › Map; Map sheet: National map, Airspace off, Traffic circuits and Arrival & departure routes on; the magnifying glass, "LSZQ"; close the airport callout; iPad: tap "2900 ft" for its callout and pan it clear of the controls (`--as circuits --pause`) |
 
 The rules that are not negotiable:
 
 - **Both devices in PORTRAIT.** The Cockpit is built for an iPad in portrait on a kneeboard, and the
   site shows the iPad with the iPhone in front of it. The one exception is `landscape`, the phone on
   its side.
-- **Use a simulator kept for captures.** Every scene cancels a running flight, clears all flight
+- **Use a simulator kept for captures.** Every scene cancels a running flight (the second launch can then show "Flight Restored": close it before the shot), clears all flight
   threads, turns circuit mode on, and the map scene turns the OpenAIP layers off. Those are the
   right conditions for a picture and the wrong thing to do to a simulator you use.
 - **The scene launch bypasses the safety gate and onboarding.** A fresh container needs no tapping.
+- **The VFR procedures need the server's current files**: a capture simulator's open flightmaps
+  data from before 7 Oct 2026 has no sector letters, so the `circuits` shot shows no W and E badges.
+  Refresh it in Settings › Data & Storage › VFR procedures › Refresh.
 - **The demo flight is dated 1 August** (the *next* 1 August at inject time, so never in the past) and
   prepared to **10 of 12** — a readiness ring must never show a count that reads as a date. Adding a
   task to Plan or Prepare moves the denominator, so check the ring in every captured image.

@@ -354,6 +354,11 @@ enum LogbookLineBuilder {
         if flight.goAroundCount > 0 {
             parts.append(L10n.Logbook.remarkGoAround(flight.goAroundCount))
         }
+        // The circuits' full stops before the last, as the share card and the flight page name them.
+        // (6.3.0, the author's device check circ-9)
+        if flight.stopAndGoCount > 0 {
+            parts.append(L10n.Logbook.remarkStopAndGo(flight.stopAndGoCount))
+        }
         return parts.joined(separator: ", ")
     }
 

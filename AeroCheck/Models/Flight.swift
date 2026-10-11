@@ -1713,3 +1713,82 @@ extension String {
     }
 }
 
+
+// MARK: - The full stops before the last: stop-and-goes and stops
+
+extension Flight {
+    /// A full stop before the flight's last landing: back at an aerodrome of the flight (a stop-and-go,
+    /// the circuits' full stop), or at another one (a stop).
+    enum IntermediateFullStop: Equatable {
+        case stopAndGo
+        case stop
+    }
+
+    /// How near a full stop must be to an aerodrome the flight used to count as the same aerodrome.
+    /// Wide enough for the longest runway and the taxiways around it, narrower than the gap between
+    /// two aerodromes.
+    static let sameAerodromeRadiusMeters = 2 * 1852.0
+
+    /// How far from a full stop the nearest fix may be for the track to place it.
+    static let placementToleranceSeconds: TimeInterval = 120
+
+    /// Each full stop before the last one (the last is the flight's landing), in time order, as a
+    /// stop-and-go or a stop. Read by the share card's counts, the Logbook's timeline and the logbook
+    /// line's remarks, so the three agree (moved from `ShareCardFigures` in 6.3.0).
+    ///
+    /// The rule: a full stop before the last is a stop-and-go when the aircraft is back at an
+    /// aerodrome of the flight: within 2 NM of the take-off, of an earlier full stop or of the final
+    /// landing. Farther than that from all of them, it is a landing at another aerodrome: a stop.
+    /// A full stop the track cannot place (no fix within 2 min, or times missing) stays a
+    /// stop-and-go, as every non-final full stop was before (decision D1): only the track can show it
+    /// was elsewhere.
+    ///
+    /// Nil when the times don't match the count (a flight from before they were kept): which full stop
+    /// was the last can't be told, and every one before it is a stop-and-go without a time.
+    var intermediateFullStops: [(time: Date, kind: IntermediateFullStop)]? {
+        let times = fullStopTimes.sorted()
+        guard times.count == fullStopCount else { return nil }
+        guard times.count > 1 else { return [] }
+
+        let track = gpsTrack
+        func position(at time: Date) -> CLLocationCoordinate2D? {
+            guard let nearest = track.min(by: {
+                abs($0.timestamp.timeIntervalSince(time)) < abs($1.timestamp.timeIntervalSince(time))
+            }), abs(nearest.timestamp.timeIntervalSince(time)) <= Self.placementToleranceSeconds else { return nil }
+            return nearest.coordinate
+        }
+        func coordinate(_ latitude: Double?, _ longitude: Double?) -> CLLocationCoordinate2D? {
+            guard let latitude, let longitude else { return nil }
+            return CLLocationCoordinate2D(latitude: latitude, longitude: longitude)
+        }
+
+        let takeoff = lineUpTime.flatMap(position(at:))
+            ?? coordinate(blockOffLatitude, blockOffLongitude)
+            ?? track.first?.coordinate
+        let finalLanding = times.last.flatMap(position(at:))
+            ?? coordinate(blockOnLatitude, blockOnLongitude)
+            ?? track.last?.coordinate
+
+        var aerodromes = [takeoff, finalLanding].compactMap { $0 }
+        var result: [(time: Date, kind: IntermediateFullStop)] = []
+        for time in times.dropLast() {
+            guard let here = position(at: time) else {
+                result.append((time, .stopAndGo))
+                continue
+            }
+            let atAnAerodromeOfTheFlight = aerodromes.contains {
+                Flight.haversineMeters($0.latitude, $0.longitude, here.latitude, here.longitude)
+                    <= Self.sameAerodromeRadiusMeters
+            }
+            result.append((time, atAnAerodromeOfTheFlight ? .stopAndGo : .stop))
+            aerodromes.append(here)
+        }
+        return result
+    }
+
+    /// The stop-and-goes among the full stops before the last; every one of them on a flight whose
+    /// times don't match its count (decision D1).
+    var stopAndGoCount: Int {
+        intermediateFullStops.map { $0.filter { $0.kind == .stopAndGo }.count } ?? max(0, fullStopCount - 1)
+    }
+}

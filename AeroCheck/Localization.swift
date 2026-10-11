@@ -276,6 +276,9 @@ enum L10n {
         static func remarkGoAround(_ count: Int) -> String {
             String(localized: "\(count) go-around")
         }
+        static func remarkStopAndGo(_ count: Int) -> String {
+            String(localized: "\(count) stop-and-go")
+        }
         static let copyLine = String(localized: "Copy line")
         static let lineCopied = String(localized: "Logbook line copied")
         static let showRow = String(localized: "Logbook row")
@@ -1450,6 +1453,11 @@ enum L10n {
         static let engineStart = String(localized: "flightDetail.engineStart")
         static let takeoff = String(localized: "flightDetail.takeoff")
         static let landing = String(localized: "flightDetail.landing")
+        /// The timeline's landings and go-arounds between the take-off and the last landing. (6.3.0)
+        static let touchAndGo = String(localized: "flightDetail.touchAndGo")
+        static let goAround = String(localized: "flightDetail.goAround")
+        static let stopAndGo = String(localized: "flightDetail.stopAndGo")
+        static let stop = String(localized: "flightDetail.stop")
         static let engineShutdown = String(localized: "flightDetail.engineShutdown")
         static let sessionEnd = String(localized: "flightDetail.sessionEnd")
 

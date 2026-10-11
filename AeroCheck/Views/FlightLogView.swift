@@ -2404,6 +2404,9 @@ struct FlightDetailView: View {
                 if let lineUp = flight.lineUpTime {
                     TimelineRow(label: L10n.FlightDetail.takeoff, time: timeString(from: lineUp), icon: "airplane.departure", color: .aviationAmber)
                 }
+                ForEach(FlightTimelineEvents.events(of: flight)) { event in
+                    TimelineRow(label: event.label, time: timeString(from: event.time), icon: event.icon, color: event.color)
+                }
                 if let landing = flight.landingTime {
                     TimelineRow(label: L10n.FlightDetail.landing, time: timeString(from: landing), icon: "airplane.arrival", color: .aviationBlue)
                 }
@@ -4162,3 +4165,58 @@ struct StatsShareCardCustomizationView: View {
     FlightLogView()
         .environment(AppState())
 }
+
+// MARK: - The landings and go-arounds in the timeline
+
+/// The flight's landings and go-arounds between its take-off and its last landing, in time order, for
+/// the flight page's timeline: the touch-and-goes, the go-arounds, and the full stops before the last
+/// as stop-and-goes or stops (`Flight.intermediateFullStops`, the share card's rule). The breakdown had
+/// been the share card's alone since the flight page's redesign in 4.0.0. (6.3.0, the author's device
+/// check circ-9)
+enum FlightTimelineEvents {
+    enum Kind: Equatable {
+        case touchAndGo, goAround, stopAndGo, stop
+    }
+
+    struct Event: Equatable, Identifiable {
+        let kind: Kind
+        let time: Date
+        var id: String { "\(kind)-\(time.timeIntervalSinceReferenceDate)" }
+
+        var label: String {
+            switch kind {
+            case .touchAndGo: return L10n.FlightDetail.touchAndGo
+            case .goAround: return L10n.FlightDetail.goAround
+            case .stopAndGo: return L10n.FlightDetail.stopAndGo
+            case .stop: return L10n.FlightDetail.stop
+            }
+        }
+
+        /// The altitude chart's icons for the same events.
+        var icon: String {
+            switch kind {
+            case .touchAndGo: return "arrow.triangle.2.circlepath"
+            case .goAround: return "arrow.up.right.circle.fill"
+            case .stopAndGo: return "stop.circle.fill"
+            case .stop: return "mappin.circle.fill"
+            }
+        }
+
+        var color: Color {
+            switch kind {
+            case .touchAndGo: return .aviationBlue
+            case .goAround, .stopAndGo, .stop: return .aviationAmber
+            }
+        }
+    }
+
+    static func events(of flight: Flight) -> [Event] {
+        var events = flight.touchAndGoTimes.map { Event(kind: .touchAndGo, time: $0) }
+        events += flight.goAroundTimes.map { Event(kind: .goAround, time: $0) }
+        events += (flight.intermediateFullStops ?? []).map {
+            Event(kind: $0.kind == .stop ? .stop : .stopAndGo, time: $0.time)
+        }
+        return events.sorted { $0.time < $1.time }
+    }
+}
+

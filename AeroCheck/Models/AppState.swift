@@ -2700,7 +2700,9 @@ class AppState {
     /// Record a full stop landing: the detector's card confirmed, or FULL STOP LANDING held in the
     /// checklist. `time` is the physical TOUCHDOWN time when the detector knows it (v2 stamps full stops at
     /// touchdown, not at the end of the stillness dwell); "now" otherwise. Stop-and-gos count as full stops
-    /// (decision D1): the flight log labels every non-final full stop "stop-and-go" at display time.
+    /// (decision D1): a full stop before the last is told apart at display time, a stop-and-go back at an
+    /// aerodrome of the flight or a stop elsewhere (`Flight.intermediateFullStops`: the share card, the
+    /// flight page's timeline, the logbook line's remarks).
     ///
     /// The flight has landed, whatever it is: AFTER LANDING next, every check kept as it stands. (6.1.0 for
     /// a flight that isn't circuits; until then it went to TAXI, a check already run, and the pilot had to

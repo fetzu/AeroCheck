@@ -262,65 +262,21 @@ struct ShareCardFigures {
                       stops: split.stops)
     }
 
-    /// How near a full stop must be to an aerodrome the flight used to count as the same aerodrome.
-    /// Wide enough for the longest runway and the taxiways around it, narrower than the gap between
-    /// two aerodromes.
-    static let sameAerodromeRadiusMeters = 2 * 1852.0
+    /// How near a full stop must be to an aerodrome the flight used to count as the same aerodrome
+    /// (`Flight.sameAerodromeRadiusMeters`, where the rule lives since 6.3.0).
+    static var sameAerodromeRadiusMeters: Double { Flight.sameAerodromeRadiusMeters }
 
     /// How far from a full stop the nearest fix may be for the track to place it.
-    static let placementToleranceSeconds: TimeInterval = 120
+    static var placementToleranceSeconds: TimeInterval { Flight.placementToleranceSeconds }
 
-    /// The full stops before the last one (the last is the flight's landing), split into
-    /// stop-and-goes and stops.
-    ///
-    /// The rule: a full stop before the last is a stop-and-go when the aircraft is back at an
-    /// aerodrome of the flight: within 2 NM of the take-off, of an earlier full stop or of the final
-    /// landing. Farther than that from all of them, it is a landing at another aerodrome: a stop.
-    /// A full stop the track cannot place (no fix within 2 min, or times missing) stays a
-    /// stop-and-go, as every non-final full stop was before (decision D1): only the track can show it
-    /// was elsewhere.
+    /// The full stops before the last one (the last is the flight's landing), counted as stop-and-goes
+    /// and stops: `Flight.intermediateFullStops` has the rule, which the Logbook's timeline and the
+    /// logbook line's remarks read too (6.3.0). A flight whose times don't match its count has every
+    /// one of them as a stop-and-go (decision D1).
     static func intermediateFullStops(of flight: Flight) -> (stopAndGoes: Int, stops: Int) {
-        let intermediate = max(0, flight.fullStopCount - 1)
-        guard intermediate > 0 else { return (0, 0) }
-
-        // Times that do not match the count cannot say which full stop was the last.
-        let times = flight.fullStopTimes.sorted()
-        guard times.count == flight.fullStopCount else { return (intermediate, 0) }
-
-        let track = flight.gpsTrack
-        func position(at time: Date) -> CLLocationCoordinate2D? {
-            guard let nearest = track.min(by: {
-                abs($0.timestamp.timeIntervalSince(time)) < abs($1.timestamp.timeIntervalSince(time))
-            }), abs(nearest.timestamp.timeIntervalSince(time)) <= placementToleranceSeconds else { return nil }
-            return nearest.coordinate
-        }
-        func coordinate(_ latitude: Double?, _ longitude: Double?) -> CLLocationCoordinate2D? {
-            guard let latitude, let longitude else { return nil }
-            return CLLocationCoordinate2D(latitude: latitude, longitude: longitude)
-        }
-
-        let takeoff = flight.lineUpTime.flatMap(position(at:))
-            ?? coordinate(flight.blockOffLatitude, flight.blockOffLongitude)
-            ?? track.first?.coordinate
-        let finalLanding = times.last.flatMap(position(at:))
-            ?? coordinate(flight.blockOnLatitude, flight.blockOnLongitude)
-            ?? track.last?.coordinate
-
-        var aerodromes = [takeoff, finalLanding].compactMap { $0 }
-        var stopAndGoes = 0, stops = 0
-        for time in times.dropLast() {
-            guard let here = position(at: time) else {
-                stopAndGoes += 1
-                continue
-            }
-            let atAnAerodromeOfTheFlight = aerodromes.contains {
-                Flight.haversineMeters($0.latitude, $0.longitude, here.latitude, here.longitude)
-                    <= sameAerodromeRadiusMeters
-            }
-            if atAnAerodromeOfTheFlight { stopAndGoes += 1 } else { stops += 1 }
-            aerodromes.append(here)
-        }
-        return (stopAndGoes, stops)
+        guard let kinds = flight.intermediateFullStops else { return (max(0, flight.fullStopCount - 1), 0) }
+        let stops = kinds.filter { $0.kind == .stop }.count
+        return (kinds.count - stops, stops)
     }
 
     // MARK: - Credit line

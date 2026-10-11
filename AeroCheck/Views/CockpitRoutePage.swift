@@ -9,8 +9,9 @@ import os
 //
 //   DEST    the destination (or the field diverted to): distance, ETE, ETA and Δ, the route to scale
 //   LEGS | RADIO   every leg, and every frequency in the order of use, each in its own scroll: side by
-//                  side on the iPad (`LegsPanelColumns`, 700 pt and wider), LEGS over at most half the
-//                  page and RADIO under it on a phone. LEGS follows the leg being flown.
+//                  side on the iPad (`LegsPanelColumns`, 700 pt and wider); on a phone one at a time, each
+//                  with the whole page, under a LEGS | RADIO switch (`RouteListSwitch`). LEGS follows the
+//                  leg being flown.
 //   Emergency      121.500, pinned under the scroll, whole, lined up with RADIO
 //
 // A leg's row opens MAP framed on that leg, with "Back to aircraft" and the leg's DIRECT (a waypoint
@@ -55,7 +56,12 @@ struct CockpitRoutePage: View {
 /// A part of ROUTE, for the layout tests: the area under DEST, the columns' content, their scrolls,
 /// Emergency.
 enum RoutePagePart: Hashable {
-    case scroll, legs, radio, legsScroll, radioScroll, emergency
+    case scroll, legs, radio, legsScroll, radioScroll, emergency, listSwitch
+}
+
+/// Which list a phone's ROUTE shows (`RouteListSwitch`). (6.2.0)
+enum RouteList: Hashable {
+    case legs, radio
 }
 
 private struct RoutePageReporterKey: EnvironmentKey {
@@ -164,9 +170,15 @@ struct RouteLegsAndRadio: View {
     }
 
     @EnvironmentObject private var flightPlanManager: FlightPlanManager
+    /// The Cockpit's: which list the phone shows, which a tap on the read band's lines sets.
+    @Environment(CockpitNavState.self) private var cockpitNav: CockpitNavState?
+    /// Without the Cockpit's state (a preview): the list here.
+    @State private var localList: RouteList = .legs
 
-    /// The share of the page LEGS may take on a phone, RADIO having the rest. (6.2, author)
-    static let phoneLegsShare: CGFloat = 0.5
+    private var list: Binding<RouteList> {
+        Binding(get: { cockpitNav?.routeList ?? localList },
+                set: { list in if let cockpitNav { cockpitNav.routeList = list } else { localList = list } })
+    }
 
     var body: some View {
         // LEGS and RADIO each scroll on their own: in one scroll, a long route's legs took RADIO with them
@@ -174,45 +186,41 @@ struct RouteLegsAndRadio: View {
         GeometryReader { proxy in
             let width = max(0, proxy.size.width - 32)
             if !hasLegs {
-                radioScroll
+                radioScroll()
                     .padding(.horizontal, 16)
             } else if LegsPanelColumns.isSideBySide(width: width) {
                 let radioColumn = LegsPanelColumns.frequencyColumn(width: width, hasLegs: true)
                 HStack(alignment: .top, spacing: LegsPanelColumns.columnSpacing) {
-                    legsScroll(fits: false)
+                    legsScroll()
                         .frame(width: radioColumn.minX - LegsPanelColumns.columnSpacing)
-                    radioScroll
+                    radioScroll()
                         .frame(width: radioColumn.width)
                 }
                 .padding(.horizontal, 16)
             } else {
-                VStack(alignment: .leading, spacing: LegsPanelColumns.stackSpacing) {
-                    legsScroll(fits: true)
-                        .frame(maxHeight: proxy.size.height * Self.phoneLegsShare, alignment: .top)
-                    radioScroll
+                // A phone: one list at a time, each with the whole page, under LEGS | RADIO. LEGS over at
+                // most half the page and RADIO under it left each about a leg and a half on an iPhone,
+                // and three layouts were tried (the author's pick of three mockups, device check 11 Oct).
+                VStack(alignment: .leading, spacing: 8) {
+                    RouteListSwitch(selection: list)
+                        .routePagePart(.listSwitch)
+                    switch list.wrappedValue {
+                    case .legs: legsScroll(showsHeader: false)
+                    case .radio: radioScroll(showsHeader: false)
+                    }
                 }
                 .padding(.horizontal, 16)
+                .padding(.top, 8)
             }
         }
     }
 
     /// Every leg, the leg being flown brought into view as ROUTE opens and as each waypoint is passed (it
-    /// stayed where it was after a MARK). `fits`: no scroll at all while every row fits (a phone's LEGS
-    /// hugs a short route and leaves RADIO the rest).
-    @ViewBuilder
-    private func legsScroll(fits: Bool) -> some View {
-        let legs = RouteLegsColumn(onShowLeg: onShowLeg).routePagePart(.legs)
-        ScrollViewReader { reader in
-            Group {
-                if fits {
-                    ViewThatFits(in: .vertical) {
-                        legs.padding(.vertical, 12)
-                        scroll(legs)
-                    }
-                } else {
-                    scroll(legs)
-                }
-            }
+    /// stayed where it was after a MARK).
+    private func legsScroll(showsHeader: Bool = true) -> some View {
+        let legs = RouteLegsColumn(onShowLeg: onShowLeg, showsHeader: showsHeader).routePagePart(.legs)
+        return ScrollViewReader { reader in
+            scroll(legs)
             .routePagePart(.legsScroll)
             .onAppear {
                 // On the next turn, once the rows are laid out: only as far as it takes, not at all when
@@ -226,8 +234,8 @@ struct RouteLegsAndRadio: View {
     }
 
     /// Every frequency, in its own scroll whatever LEGS does.
-    private var radioScroll: some View {
-        scroll(RouteRadioColumn().routePagePart(.radio))
+    private func radioScroll(showsHeader: Bool = true) -> some View {
+        scroll(RouteRadioColumn(showsHeader: showsHeader).routePagePart(.radio))
             .routePagePart(.radioScroll)
     }
 
@@ -289,13 +297,15 @@ private struct RouteColumnHeader: View {
 /// the leg being flown.
 struct RouteLegsColumn: View {
     let onShowLeg: (Int) -> Void
+    /// "LEGS" over the rows; not under the phone's switch, which says it.
+    var showsHeader = true
 
     @EnvironmentObject private var flightPlanManager: FlightPlanManager
 
     var body: some View {
         if let plan = flightPlanManager.activeFlightPlan {
             VStack(alignment: .leading, spacing: 0) {
-                RouteColumnHeader(title: L10n.Route.legs)
+                if showsHeader { RouteColumnHeader(title: L10n.Route.legs) }
                 ForEach(Array(plan.waypoints.enumerated()), id: \.element.id) { index, _ in
                     RouteLegRow(plan: plan, index: index,
                            actual: RouteLegRow.actualTime(plan: plan, index: index,
@@ -316,11 +326,14 @@ struct RouteLegsColumn: View {
 /// Every frequency in the order of use (`CockpitRadio`): NOW and NEXT first, tagged. No "All
 /// frequencies": the page has the room (the plan's Q6). Emergency is under the scrolls.
 struct RouteRadioColumn: View {
+    /// "RADIO" over the rows; not under the phone's switch, which says it.
+    var showsHeader = true
+
     @Environment(CockpitRadio.self) private var radio
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            RouteColumnHeader(title: L10n.Route.radio)
+            if showsHeader { RouteColumnHeader(title: L10n.Route.radio) }
             ForEach(radio.stations) { FrequencyRow(item: $0, large: true) }
         }
         // The column's width, whatever it lists: Emergency under it is as wide.
@@ -381,6 +394,9 @@ struct RouteLegRow: View {
     let actual: TimeInterval?
     /// The device's measures; the tests lay the phone's out on an iPad.
     var scale: CockpitScale = .current
+    /// ACT and Δ, the flight's times. Plan › Map shows PLAN alone, at the right: with no flight to time,
+    /// the two empty columns left PLAN floating in the middle of the row (device check, 11 Oct). (6.2.0)
+    var showsFlown = true
     let onTap: () -> Void
 
     @Environment(\.cockpitTheme) private var theme
@@ -393,7 +409,7 @@ struct RouteLegRow: View {
         // Column widths follow the type (`LegRowMetrics`).
         let indexWidth: CGFloat = large ? LegRowMetrics.indexWidth : 16
         let timeWidth: CGFloat = large ? LegRowMetrics.timeWidth : 44
-        let deltaWidth: CGFloat = large ? LegRowMetrics.deltaWidth : 52
+        let deltaWidth: CGFloat = large ? LegRowMetrics.deltaWidth(scale) : 52
         let nameScale = Self.nameMinimumScale(large: large, scale: scale)
         // No leg arrives at the departure: no figures there, ever.
         let hasFigures = index > 0
@@ -420,7 +436,7 @@ struct RouteLegRow: View {
                     .modifier(LegRowPartReader(index: index, part: .name))
                 // Fixed-width columns so every row's heading / distance / PLAN / ACT / Δ line up,
                 // whether or not a leg has been flown yet. (v4 UI/UX Revamp)
-                HStack(spacing: LegRowMetrics.timeSpacing) {
+                HStack(spacing: LegRowMetrics.timeSpacing(scale)) {
                     // Heading and distance on the old sheet only. (v4 UI/UX Revamp)
                     if !compact && !large {
                         Text(leg?.formattedMagneticCourse ?? "")
@@ -431,11 +447,13 @@ struct RouteLegRow: View {
                     Text((leg?.totalLegEET).map(ActLegTimer.clock) ?? "")   // PLAN (EET)
                         .foregroundColor(large ? theme.textSecondary : theme.textDim)
                         .frame(width: timeWidth, alignment: .trailing)
-                    Text(actual.map(ActLegTimer.clock) ?? "")              // ACT / live
-                        .foregroundColor(isCurrent ? theme.route : theme.onTarget)
-                        .frame(width: timeWidth, alignment: .trailing)
-                    delta(planned: leg?.totalLegEET, actual: actual)       // Δ ahead/over
-                        .frame(width: deltaWidth, alignment: .trailing)
+                    if showsFlown {
+                        Text(actual.map(ActLegTimer.clock) ?? "")          // ACT / live
+                            .foregroundColor(isCurrent ? theme.route : theme.onTarget)
+                            .frame(width: timeWidth, alignment: .trailing)
+                        delta(planned: leg?.totalLegEET, actual: actual)   // Δ ahead/over
+                            .frame(width: deltaWidth, alignment: .trailing)
+                    }
                 }
                 .font(.aero(size: large ? CockpitType.label(for: scale) : 10, design: .monospaced))
                 .lineLimit(1)
@@ -443,7 +461,7 @@ struct RouteLegRow: View {
                 .modifier(LegRowPartReader(index: index, part: .figures))
             }
             .modifier(LegRowPartReader(index: index, part: .row))
-            .padding(.horizontal, LegRowMetrics.horizontalPadding).padding(.vertical, large ? 9 : 7)
+            .padding(.horizontal, LegRowMetrics.horizontalPadding(scale)).padding(.vertical, large ? 9 : 7)
             .background(isPreview ? theme.info.opacity(0.14)
                         : (isCurrent ? theme.route.opacity(0.10) : Color.clear))
             .clipShape(RoundedRectangle(cornerRadius: 6))
@@ -618,6 +636,39 @@ struct LegRowLayout: Layout {
                       centred(name, x: lead, width: min(name.width, nameWidth)), figuresFrame]
         let height = twoLines ? second + figures.height : line
         return (frames, CGSize(width: width, height: height))
+    }
+}
+
+/// LEGS | RADIO over a phone's ROUTE: which list has the page. A tap on the read band's next line opens
+/// ROUTE on LEGS, on its NOW line on RADIO; the picker opens it on LEGS (`CockpitNavState.routeList`).
+/// (6.2.0, device check 11 Oct)
+struct RouteListSwitch: View {
+    @Binding var selection: RouteList
+
+    @Environment(\.cockpitTheme) private var theme
+
+    var body: some View {
+        HStack(spacing: 8) {
+            segment(.legs, title: L10n.Route.legs)
+            segment(.radio, title: L10n.Route.radio)
+        }
+    }
+
+    private func segment(_ list: RouteList, title: String) -> some View {
+        let selected = selection == list
+        return Button { selection = list } label: {
+            Text(title)
+                .font(.aero(size: CockpitType.label, weight: .bold))
+                .foregroundColor(selected ? theme.actionText : theme.action)
+                .lineLimit(1)
+                .frame(maxWidth: .infinity, minHeight: 44)
+                .background(RoundedRectangle(cornerRadius: 10).fill(selected ? theme.action : theme.action.opacity(0.12)))
+                .overlay(RoundedRectangle(cornerRadius: 10).stroke(theme.action.opacity(selected ? 0 : 0.45), lineWidth: 1))
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityAddTraits(selected ? .isSelected : [])
+        .accessibilityIdentifier("route.list.\(list == .legs ? "legs" : "radio")")
     }
 }
 

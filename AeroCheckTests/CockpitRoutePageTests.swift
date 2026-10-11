@@ -4,8 +4,9 @@ import SwiftUI
 import XCTest
 @testable import AeroCheck
 
-/// The Cockpit's ROUTE page (6.2): the DEST line, then LEGS | RADIO in one scroll (side by side on the
-/// iPad, one above the other on a phone), Emergency pinned under the scroll, whole, lined up with RADIO.
+/// The Cockpit's ROUTE page (6.2): the DEST line, then LEGS | RADIO, each in its own scroll (side by side
+/// on the iPad, one at a time under a LEGS | RADIO switch on a phone), Emergency pinned under the scrolls,
+/// whole, lined up with RADIO.
 /// A leg's row opens MAP on that leg, with "Back to aircraft" and the leg's DIRECT or RESUME LEG. And the
 /// radio, which follows the flight on every page: until 6.2 NOW and NEXT were recomputed only when the
 /// map's region moved, so on CHECKLIST they never changed.
@@ -25,48 +26,54 @@ final class CockpitRoutePageTests: XCTestCase {
         }
     }
 
-    func testOnAPhoneTheRadioIsUnderTheLegs() throws {
-        let parts = try layOut(waypoints: 6, size: CGSize(width: 402, height: 520), layout: .narrow)
-        let legs = try XCTUnwrap(parts[.legs]), radio = try XCTUnwrap(parts[.radio])
-        let legsScroll = try XCTUnwrap(parts[.legsScroll])
-        XCTAssertGreaterThanOrEqual(radio.minY, legsScroll.maxY, "RADIO under LEGS")
-        XCTAssertEqual(legs.minX, 16)
-        XCTAssertEqual(radio.minX, 16)
-        XCTAssertEqual(radio.width, 402 - 32, "the page's width")
+    /// A phone: LEGS | RADIO under DEST, and the list picked has the page down to Emergency, alone. LEGS over
+    /// at most half the page and RADIO under it left each about a leg and a half on an iPhone (device check,
+    /// 11 Oct): the author picked the switch from three mockups. (6.2.0)
+    func testOnAPhoneOneListHasTheWholePage() throws {
+        for list in [RouteList.legs, .radio] {
+            let parts = try layOut(waypoints: 6, size: CGSize(width: 402, height: 520), layout: .narrow, list: list)
+            let toggle = try XCTUnwrap(parts[.listSwitch], "the switch")
+            let emergency = try XCTUnwrap(parts[.emergency])
+            let shown = try XCTUnwrap(parts[list == .legs ? .legsScroll : .radioScroll], "\(list)")
+            XCTAssertNil(parts[list == .legs ? .radio : .legs], "\(list): the other list is not on the page")
+            XCTAssertGreaterThanOrEqual(shown.minY, toggle.maxY, "\(list): under the switch")
+            XCTAssertEqual(shown.maxY, emergency.minY, accuracy: 6, "\(list): down to Emergency")
+            XCTAssertEqual(shown.minX, 16)
+            XCTAssertEqual(shown.width, 402 - 32, "the page's width")
+            XCTAssertGreaterThan(shown.height, 250, "\(list): the page, not half of it")
+            XCTAssertEqual(toggle.minX, 16)
+            XCTAssertEqual(toggle.width, 402 - 32)
+        }
     }
 
-    /// A short route on a phone: LEGS takes what its rows need, RADIO the rest.
-    func testOnAPhoneAShortRoutesLegsTakeOnlyTheirRows() throws {
-        let parts = try layOut(waypoints: 3, size: CGSize(width: 402, height: 640), layout: .narrow)
-        let legs = try XCTUnwrap(parts[.legs]), legsScroll = try XCTUnwrap(parts[.legsScroll])
-        let scroll = try XCTUnwrap(parts[.scroll])
-        XCTAssertLessThan(legsScroll.height, scroll.height * RouteLegsAndRadio.phoneLegsShare - 20, "no empty half page")
-        XCTAssertLessThanOrEqual(legs.height, legsScroll.height, "every row in view, no scroll")
+    /// The iPad keeps LEGS and RADIO side by side, with no switch.
+    func testTheIPadHasNoSwitch() throws {
+        let parts = try layOut(waypoints: 6, size: CGSize(width: 820, height: 700))
+        XCTAssertNil(parts[.listSwitch])
+        XCTAssertNotNil(parts[.legs])
+        XCTAssertNotNil(parts[.radio])
     }
 
     /// A long route: LEGS scrolls on its own and RADIO stays at the top of its own scroll, NOW and NEXT in
-    /// view, on the iPad and on a phone (on a phone, LEGS over at most half the page). In one scroll the
-    /// legs took RADIO off the page. (6.2 device check)
+    /// view: side by side on the iPad, one at a time on a phone. In one scroll the legs took RADIO off the
+    /// page. (6.2 device check)
     func testRadioStaysInViewHoweverLongTheLegs() throws {
-        for (layout, size) in [(CockpitLayout.wide, CGSize(width: 820, height: 700)),
-                               (.narrow, CGSize(width: 402, height: 640))] {
-            let parts = try layOut(waypoints: 20, size: size, layout: layout)
-            let legs = try XCTUnwrap(parts[.legs]), radio = try XCTUnwrap(parts[.radio])
-            let legsScroll = try XCTUnwrap(parts[.legsScroll]), radioScroll = try XCTUnwrap(parts[.radioScroll])
-            let scroll = try XCTUnwrap(parts[.scroll]), emergency = try XCTUnwrap(parts[.emergency])
-            XCTAssertGreaterThan(legs.height, legsScroll.height, "\(layout): twenty legs scroll")
-            XCTAssertEqual(radio.minY, radioScroll.minY + 12, accuracy: 0.5, "\(layout): RADIO at the top of its own scroll")
-            XCTAssertLessThanOrEqual(radioScroll.maxY, emergency.minY + 0.5, "\(layout): above Emergency")
-            if layout == .wide {
-                XCTAssertEqual(radioScroll.minY, legsScroll.minY, "side by side")
-                XCTAssertEqual(radioScroll.height, legsScroll.height, "the page's height each")
-            } else {
-                XCTAssertLessThanOrEqual(legsScroll.height, scroll.height * RouteLegsAndRadio.phoneLegsShare + 0.5,
-                                         "a phone's LEGS: half the page at most")
-                XCTAssertGreaterThanOrEqual(radioScroll.minY, legsScroll.maxY, "RADIO under it")
-                XCTAssertGreaterThan(radioScroll.height, 150, "room for NOW, NEXT and more")
-            }
+        let iPad = try layOut(waypoints: 20, size: CGSize(width: 820, height: 700))
+        for (parts, name) in [(iPad, "iPad"),
+                              (try layOut(waypoints: 20, size: CGSize(width: 402, height: 640), layout: .narrow, list: .legs), "phone")] {
+            let legs = try XCTUnwrap(parts[.legs]), legsScroll = try XCTUnwrap(parts[.legsScroll])
+            XCTAssertGreaterThan(legs.height, legsScroll.height, "\(name): twenty legs scroll")
+            XCTAssertLessThanOrEqual(legsScroll.maxY, try XCTUnwrap(parts[.emergency]).minY + 0.5, "\(name): above Emergency")
         }
+        let phoneRadio = try layOut(waypoints: 20, size: CGSize(width: 402, height: 640), layout: .narrow, list: .radio)
+        for (parts, name) in [(iPad, "iPad"), (phoneRadio, "phone")] {
+            let radio = try XCTUnwrap(parts[.radio]), radioScroll = try XCTUnwrap(parts[.radioScroll])
+            XCTAssertEqual(radio.minY, radioScroll.minY + 12, accuracy: 0.5, "\(name): RADIO at the top of its own scroll")
+            XCTAssertLessThanOrEqual(radioScroll.maxY, try XCTUnwrap(parts[.emergency]).minY + 0.5, "\(name): above Emergency")
+        }
+        let legsScroll = try XCTUnwrap(iPad[.legsScroll]), radioScroll = try XCTUnwrap(iPad[.radioScroll])
+        XCTAssertEqual(radioScroll.minY, legsScroll.minY, "the iPad: side by side")
+        XCTAssertEqual(radioScroll.height, legsScroll.height, "the iPad: the page's height each")
     }
 
     func testEmergencyIsPinnedWholeUnderTheScrolls() throws {
@@ -239,6 +246,35 @@ final class CockpitRoutePageTests: XCTestCase {
         }
     }
 
+    /// A route of ICAO codes on a phone's ROUTE: each row on one line, the name beside PLAN, ACT and Δ, on an
+    /// iPhone 17 and a 17e. It missed by 2 to 4 pt, and every row took two lines (device check, 11 Oct).
+    func testOnAPhoneARouteOfCodesIsOneLineARow() throws {
+        for screen: CGFloat in [390, 402] {
+            let rows = layOutRows(["LSZQ", "LSGC", "LSGN", "LSZB"], width: screen - 32, scale: .phone)
+            for index in 1...3 {
+                let row = try XCTUnwrap(rows[index])
+                XCTAssertEqual(try XCTUnwrap(row[.figures]).midY, try XCTUnwrap(row[.name]).midY, accuracy: 2,
+                               "row \(index) on one line at \(screen) pt")
+                XCTAssertGreaterThanOrEqual(try XCTUnwrap(row[.name]).width + 0.5, Self.width(of: "LSGC", size: 17) - 1,
+                                            "the code whole at \(screen) pt")
+            }
+        }
+    }
+
+    /// Plan › Map's rows: PLAN alone, at the row's right edge, never floating where ACT and Δ would be
+    /// (device check, 11 Oct); on a phone a short route's rows are then one line.
+    func testPlanMapShowsThePlannedTimeAloneAtTheRight() throws {
+        for screen: CGFloat in [375, 402] {
+            let rows = layOutRows(["LSZQ", "LSZJ", "E", "LSGC"], width: screen - 32, scale: .phone, showsFlown: false)
+            for index in 1...3 {
+                let row = try XCTUnwrap(rows[index]), figures = try XCTUnwrap(row[.figures])
+                XCTAssertLessThan(figures.width, LegRowMetrics.timeWidth + 1, "PLAN alone at \(screen) pt")
+                XCTAssertEqual(figures.maxX, try XCTUnwrap(row[.row]).maxX, accuracy: 1, "at the right at \(screen) pt")
+                XCTAssertEqual(figures.midY, try XCTUnwrap(row[.name]).midY, accuracy: 2, "beside the name at \(screen) pt")
+            }
+        }
+    }
+
     /// DIRECT under the legs: for a waypoint ahead of the one flown to, and for any while diverting, where
     /// the route is rejoined; never for the one flown to or one passed.
     func testDirectIsOfferedAheadAndAnywhereWhileDiverting() {
@@ -349,7 +385,7 @@ final class CockpitRoutePageTests: XCTestCase {
     /// `names` as a route's leg rows, the second one flown to, `width` wide at `scale`: each row's name
     /// and figures as laid out.
     private func layOutRows(_ names: [String], width: CGFloat, scale: CockpitScale,
-                            previewAt: Int? = nil) -> [Int: [LegRowPart: CGRect]] {
+                            previewAt: Int? = nil, showsFlown: Bool = true) -> [Int: [LegRowPart: CGRect]] {
         var plan = FlightPlan(name: "Leg rows", waypoints: names.enumerated().map { index, name in
             FlightPlanWaypoint(name: name, coordinate: .init(latitude: 47.4 - Double(index) * 0.1, longitude: 7.0),
                                estimatedElapsedTime: 600)
@@ -361,7 +397,7 @@ final class CockpitRoutePageTests: XCTestCase {
             ForEach(names.indices, id: \.self) { index in
                 // Previewed as Plan › Map shows a waypoint tapped in its legs.
                 RouteLegRow(plan: plan, index: index, isPreview: index == previewAt,
-                            actual: index == 1 ? 105 : nil, scale: scale, onTap: {})
+                            actual: index == 1 ? 105 : nil, scale: scale, showsFlown: showsFlown, onTap: {})
             }
         }
         .frame(width: width)
@@ -379,7 +415,7 @@ final class CockpitRoutePageTests: XCTestCase {
 
     /// ROUTE at `size` with an active plan of `waypoints` (none: no plan), and where each part landed.
     private func layOut(waypoints: Int, size: CGSize, layout: CockpitLayout = .wide,
-                        scale: CockpitScale? = nil) throws -> [RoutePagePart: CGRect] {
+                        scale: CockpitScale? = nil, list: RouteList = .legs) throws -> [RoutePagePart: CGRect] {
         let scale = scale ?? (layout == .wide ? .kneeboard : .phone)
         let services = makeServices()
         startFlight(services.appState)
@@ -390,7 +426,9 @@ final class CockpitRoutePageTests: XCTestCase {
         final class Box { var parts: [RoutePagePart: CGRect] = [:] }
         let box = Box()
         let page = CockpitRoutePage(layout: layout, onShowLeg: { _ in }, scale: scale, onLayout: { box.parts[$0] = $1 })
-        _ = render(page, services: services, size: size)
+        let nav = CockpitNavState()
+        nav.routeList = list
+        _ = render(page, services: services, size: size, nav: nav)
         XCTAssertFalse(box.parts.isEmpty, "the page reported its parts")
         return box.parts
     }
@@ -465,13 +503,14 @@ final class CockpitRoutePageTests: XCTestCase {
 
     /// One render of `view` at `size`, with the Cockpit's environment (its radio and its nav state too).
     @discardableResult
-    private func render<V: View>(_ view: V, services: Services, size: CGSize) -> UIImage? {
+    private func render<V: View>(_ view: V, services: Services, size: CGSize,
+                                 nav: CockpitNavState? = nil) -> UIImage? {
         let radio = CockpitRadio()
         radio.publish = { _ in }
         let content = view
             .frame(width: size.width, height: size.height)
             .environment(services.appState)
-            .environment(CockpitNavState())
+            .environment(nav ?? CockpitNavState())
             .environment(radio)
             .environment(\.cockpitTheme, CockpitTheme.resolve(.day))
             .environmentObject(services.locationManager)

@@ -2277,6 +2277,12 @@ class CompanionConnectivityManager: NSObject, ObservableObject {
         case .resumeRoute:
             guard let appState, appState.isFlightActive else { return }
             flightPlanManager.resumeRoute()
+
+        // NEW CIRCUIT from the phone: only while the iPad offers it, so a tap arriving after the pilot went
+        // on here does nothing. (6.3.0)
+        case .newCircuit:
+            guard let appState, appState.offersNewCircuit else { return }
+            appState.startNewCircuit()
         }
     }
 
@@ -2478,7 +2484,8 @@ class CompanionConnectivityManager: NSObject, ObservableObject {
                 CompanionLandedCard(id: $0.id, aerodrome: $0.aerodrome, touchdown: $0.touchdown,
                                     landingCheckSettled: appState.landingCheckSettled)
             },
-            supportsFlightCues: true
+            supportsFlightCues: true,
+            offersNewCircuit: appState.offersNewCircuit
         )
     }
 

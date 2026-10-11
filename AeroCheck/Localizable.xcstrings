@@ -11,6 +11,57 @@
         }
       }
     },
+    "cockpit.newCircuit": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "NEW CIRCUIT"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "NOUVEAU TOUR"
+          }
+        }
+      }
+    },
+    "cockpit.newCircuit.short": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "↻ CIRCUIT"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "↻ TOUR"
+          }
+        }
+      }
+    },
+    "cockpit.newCircuitHint": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Starts the next circuit at the check before departure. The full stop is counted if it wasn't yet."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Reprend au tour suivant, à la vérification avant départ. L'atterrissage complet est compté s'il ne l'était pas encore."
+          }
+        }
+      }
+    },
     "open flightmaps · indicative": {
       "localizations": {
         "fr": {

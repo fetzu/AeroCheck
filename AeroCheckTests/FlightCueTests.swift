@@ -565,7 +565,8 @@ final class FlightCueCockpitTests: XCTestCase {
 }
 
 /// The landed card (M4): after a full-stop landing on a flight that isn't circuits, one question, two
-/// answers, and AFTER LANDING next. It waits; circuits keep their full-stop card and TAXI.
+/// answers, and AFTER LANDING next. It waits; circuits keep their full-stop card, whose CONFIRM goes to
+/// AFTER LANDING too since 6.3.0.
 @MainActor
 final class LandedCardTests: XCTestCase {
 

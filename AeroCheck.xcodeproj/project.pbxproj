@@ -67,6 +67,7 @@
 		C5107A010000000000000B3 /* MemoryCheckTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C5107A010000000000000F3 /* MemoryCheckTests.swift */; };
 		FEDA0A010000000000000B2 /* FredaTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = FEDA0A010000000000000F2 /* FredaTests.swift */; };
 		C0E50A010000000000000B2 /* FlightCueTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0E50A010000000000000F2 /* FlightCueTests.swift */; };
+		C1C01A950000000000000CB1 /* CircuitsTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C1C01A950000000000000CF1 /* CircuitsTests.swift */; };
 		A5000050111111110000002 /* VSpeedTableTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A5000050111111110000001 /* VSpeedTableTests.swift */; };
 		A5000052111111110000002 /* FuelOnBoardTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A5000052111111110000001 /* FuelOnBoardTests.swift */; };
 		A5000053111111110000002 /* RouteLibraryTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A5000053111111110000001 /* RouteLibraryTests.swift */; };
@@ -142,6 +143,7 @@
 		A7EADBA00000000000000011 /* CockpitReadBand.swift in Sources */ = {isa = PBXBuildFile; fileRef = A7EADBA00000000000000001 /* CockpitReadBand.swift */; };
 		A0C7E2000000000000000012 /* PhaseFrequencyPlanner.swift in Sources */ = {isa = PBXBuildFile; fileRef = A0C7E2000000000000000002 /* PhaseFrequencyPlanner.swift */; };
 		FEDA0A010000000000000B1 /* Freda.swift in Sources */ = {isa = PBXBuildFile; fileRef = FEDA0A010000000000000F1 /* Freda.swift */; };
+		C1C01A950000000000000AB1 /* CircuitLaps.swift in Sources */ = {isa = PBXBuildFile; fileRef = C1C01A950000000000000AF1 /* CircuitLaps.swift */; };
 		DEB71EF00000000000000B1 /* CheckDebrief.swift in Sources */ = {isa = PBXBuildFile; fileRef = DEB71EF00000000000000F1 /* CheckDebrief.swift */; };
 		DEB71EF00000000000000B2 /* FlightChecksViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = DEB71EF00000000000000F2 /* FlightChecksViews.swift */; };
 		DEB71EF00000000000000B3 /* CheckDebriefTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = DEB71EF00000000000000F3 /* CheckDebriefTests.swift */; };
@@ -461,6 +463,7 @@
 		C5107A010000000000000F3 /* MemoryCheckTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MemoryCheckTests.swift; sourceTree = "<group>"; };
 		FEDA0A010000000000000F2 /* FredaTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FredaTests.swift; sourceTree = "<group>"; };
 		C0E50A010000000000000F2 /* FlightCueTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FlightCueTests.swift; sourceTree = "<group>"; };
+		C1C01A950000000000000CF1 /* CircuitsTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CircuitsTests.swift; sourceTree = "<group>"; };
 		A5000050111111110000001 /* VSpeedTableTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VSpeedTableTests.swift; sourceTree = "<group>"; };
 		A5000052111111110000001 /* FuelOnBoardTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FuelOnBoardTests.swift; sourceTree = "<group>"; };
 		A5000053111111110000001 /* RouteLibraryTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RouteLibraryTests.swift; sourceTree = "<group>"; };
@@ -545,6 +548,7 @@
 		A1000001111111110000006 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
 		A1000001111111110000007 /* Flight.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Flight.swift; sourceTree = "<group>"; };
 		FEDA0A010000000000000F1 /* Freda.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Freda.swift; sourceTree = "<group>"; };
+		C1C01A950000000000000AF1 /* CircuitLaps.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CircuitLaps.swift; sourceTree = "<group>"; };
 		DEB71EF00000000000000F1 /* CheckDebrief.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CheckDebrief.swift; sourceTree = "<group>"; };
 		DEB71EF00000000000000F2 /* FlightChecksViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FlightChecksViews.swift; sourceTree = "<group>"; };
 		DEB71EF00000000000000F3 /* CheckDebriefTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CheckDebriefTests.swift; sourceTree = "<group>"; };
@@ -846,6 +850,7 @@
 				FEDA0A010000000000000F2 /* FredaTests.swift */,
 				DEB71EF00000000000000F3 /* CheckDebriefTests.swift */,
 				C0E50A010000000000000F2 /* FlightCueTests.swift */,
+				C1C01A950000000000000CF1 /* CircuitsTests.swift */,
 				A5000050111111110000001 /* VSpeedTableTests.swift */,
 				A5000052111111110000001 /* FuelOnBoardTests.swift */,
 				A5000053111111110000001 /* RouteLibraryTests.swift */,
@@ -1075,6 +1080,7 @@
 				A1000001111111110000910 /* SigmetRelevance.swift */,
 				A1000001111111110000007 /* Flight.swift */,
 				FEDA0A010000000000000F1 /* Freda.swift */,
+				C1C01A950000000000000AF1 /* CircuitLaps.swift */,
 				DEB71EF00000000000000F1 /* CheckDebrief.swift */,
 				C0E50A010000000000000F1 /* FlightCues.swift */,
 				04F1C6F02EF9CD5100192A14 /* FlightPlan.swift */,
@@ -1498,6 +1504,7 @@
 				FEDA0A010000000000000B2 /* FredaTests.swift in Sources */,
 				DEB71EF00000000000000B3 /* CheckDebriefTests.swift in Sources */,
 				C0E50A010000000000000B2 /* FlightCueTests.swift in Sources */,
+				C1C01A950000000000000CB1 /* CircuitsTests.swift in Sources */,
 				A5000050111111110000002 /* VSpeedTableTests.swift in Sources */,
 				A5000052111111110000002 /* FuelOnBoardTests.swift in Sources */,
 				A5000053111111110000002 /* RouteLibraryTests.swift in Sources */,
@@ -1589,6 +1596,7 @@
 				A1000001211111110000006 /* SettingsView.swift in Sources */,
 				A1000001211111110000007 /* Flight.swift in Sources */,
 				FEDA0A010000000000000B1 /* Freda.swift in Sources */,
+				C1C01A950000000000000AB1 /* CircuitLaps.swift in Sources */,
 				DEB71EF00000000000000B1 /* CheckDebrief.swift in Sources */,
 				C0E50A010000000000000B1 /* FlightCues.swift in Sources */,
 				A1000001211111110000008 /* Checklist.swift in Sources */,

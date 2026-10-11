@@ -46,7 +46,8 @@ final class CircuitsUITests: XCTestCase {
         }
         _ = pilot.waitUntil(timeout: 4) { pilot.currentPhase == "climb" }
 
-        // Lap 2, ending in the first stop-and-go: circuits-2, its full-stop card CONFIRMed: TAXI.
+        // Lap 2, ending in the first stop-and-go: circuits-2, its full-stop card CONFIRMed: AFTER LANDING (it
+        // was TAXI until 6.3.0).
         flyLap(pilot, by: s.mark("touchdown2"), note: note)
         guard pilot.waitFor("eventCard.fullStop", timeout: pilot.wallUntil(track: s.mark("stopped") + 20, margin: 20)) != nil else {
             return pilot.check("circuits-2", false, "no full-stop card at the stop-and-go (track \(Int(pilot.trackNow)) s)")
@@ -54,10 +55,16 @@ final class CircuitsUITests: XCTestCase {
         pilot.check("circuits-2", pilot.landedCardTitle == nil, "the circuits' own full-stop card, not the landed card")
         pilot.shot("circuits-2", "full-stop-card")
         pilot.tap("eventCard.confirm")
-        pilot.check("circuits-2", pilot.waitUntil(timeout: 4) { pilot.currentPhase == "taxi" }, "CONFIRM: \(pilot.currentPhase ?? "?")")
-        pilot.shot("circuits-2", "taxi")
-        // And the next circuit: the checks to the climb again. The replay waits on the runway, stopped,
+        pilot.check("circuits-2", pilot.waitUntil(timeout: 4) { pilot.currentPhase == "afterLanding" }, "CONFIRM: \(pilot.currentPhase ?? "?")")
+        pilot.shot("circuits-2", "after-landing")
+        // The after landing check, then NEW CIRCUIT in NEXT's place: the check before departure, taxi and
+        // run-up flown once. Then the checks to the climb again; the replay waits on the runway, stopped,
         // until the line-up check is reached again (the scenario's phaseIs:lineUp hold).
+        pilot.check("circuits-2", pilot.finishAfterLandingCheckOfACircuit(), "NEW CIRCUIT at the end of the after landing check")
+        pilot.shot("circuits-2", "new-circuit")
+        pilot.tap("cockpit.newCircuit")
+        pilot.check("circuits-2", pilot.waitUntil(timeout: 4) { pilot.currentPhase == "beforeDeparture" },
+                    "NEW CIRCUIT: \(pilot.currentPhase ?? "?")")
         pilot.workChecks(until: "lineUp")
         if let hold = s.holds.first(where: { $0.until == "phaseIs:lineUp" }) { pilot.noteRelease(atTrack: hold.t) }
         pilot.confirmMemoryCheck()

@@ -648,6 +648,10 @@ enum CompanionCommand: Codable {
     // cannot decode them and drops them, the link untouched.
     case divert(field: CompanionDivertField)
     case resumeRoute
+    // NEW CIRCUIT from the phone (6.3.0): the end of a circuits flight's after landing check, on to the check
+    // before departure on a new lap. Sent only while the iPad's checklist snapshot says `offersNewCircuit`;
+    // an older iPad never says it, and would drop the command, the link untouched.
+    case newCircuit
 }
 
 /// The field the phone picked to divert to, as its own airport data has it: enough for the iPad to
@@ -818,6 +822,9 @@ struct CompanionChecklistSnapshot: Codable, Equatable {
     let landedCard: CompanionLandedCard?
     /// This iPad takes `checkSlotTap` and `answerLandedCard`. False from an older iPad. (6.1)
     let supportsFlightCues: Bool
+    /// The iPad offers NEW CIRCUIT now, in NEXT's place (the end of a circuits flight's after landing
+    /// check), and takes `newCircuit`. False from an older iPad, whose phone keeps NEXT. (6.3.0)
+    let offersNewCircuit: Bool
 
     init(phaseTitle: String, phaseRawValue: Int, highlightedIndex: Int, visibleCount: Int,
          completedCount: Int, items: [CompanionChecklistItem], hiddenItemCount: Int,
@@ -825,7 +832,8 @@ struct CompanionChecklistSnapshot: Codable, Equatable {
          deferredGroups: [CompanionDeferredGroup] = [], openItemCount: Int = 0, supportsDefer: Bool = false,
          deferredChecks: [CompanionDeferredCheck] = [], memoryCheck: Bool = false, memoryCheckDone: Bool = false,
          supportsMemoryConfirm: Bool = false, memoryCheckNextRawValue: Int? = nil,
-         checkSlotData: Data? = nil, landedCard: CompanionLandedCard? = nil, supportsFlightCues: Bool = false) {
+         checkSlotData: Data? = nil, landedCard: CompanionLandedCard? = nil, supportsFlightCues: Bool = false,
+         offersNewCircuit: Bool = false) {
         self.phaseTitle = phaseTitle
         self.phaseRawValue = phaseRawValue
         self.highlightedIndex = highlightedIndex
@@ -846,6 +854,7 @@ struct CompanionChecklistSnapshot: Codable, Equatable {
         self.checkSlotData = checkSlotData
         self.landedCard = landedCard
         self.supportsFlightCues = supportsFlightCues
+        self.offersNewCircuit = offersNewCircuit
     }
 
     /// Tolerant decoder: every field defaults so a field skew between independently-updated builds never
@@ -879,5 +888,7 @@ struct CompanionChecklistSnapshot: Codable, Equatable {
         checkSlotData = try? c.decodeIfPresent(Data.self, forKey: .checkSlotData)
         landedCard = try? c.decodeIfPresent(CompanionLandedCard.self, forKey: .landedCard)
         supportsFlightCues = (try? c.decodeIfPresent(Bool.self, forKey: .supportsFlightCues)) ?? false
+        // Absent from an iPad before 6.3.0: NEXT, as that iPad goes on to the parking check.
+        offersNewCircuit = (try? c.decodeIfPresent(Bool.self, forKey: .offersNewCircuit)) ?? false
     }
 }

@@ -2178,6 +2178,11 @@ enum L10n {
         }
         /// VoiceOver, on READY FOR LINE UP: what the tap does besides going on. (6.2)
         static let readyForLineUpHint = String(localized: "cockpit.readyForLineUpHint")
+        /// In NEXT's place at the end of a circuits flight's after landing check: "NEW CIRCUIT"; the
+        /// phone's one line, "↻ CIRCUIT"; what it does, for VoiceOver. (6.3.0)
+        static let newCircuit = String(localized: "cockpit.newCircuit")
+        static let newCircuitShort = String(localized: "cockpit.newCircuit.short")
+        static let newCircuitHint = String(localized: "cockpit.newCircuitHint")
         /// "CLIMB CHECK DONE", beside a ✓, on a memory check to confirm. (6.1)
         static func memoryCheckDone(_ check: String) -> String {
             String(format: String(localized: "cockpit.memoryCheckDone"), check)

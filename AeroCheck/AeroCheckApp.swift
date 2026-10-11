@@ -201,6 +201,12 @@ struct AeroCheckApp: App {
                     // READY FOR LINE UP, whichever NEXT made it (the Cockpit's, the slot's, the
                     // Companion's), moves the active plan's ETOs. (6.2)
                     appState.anchorETOsOnLineUp = { flightPlanManager.anchorETOsOnLineUp($0) }
+                    // NEW CIRCUIT, or on to the parking check, at the end of a circuits flight's after
+                    // landing check: the detector told of that full stop, which it then never raises a
+                    // card for, and its touchdown counted. (6.3.0)
+                    appState.takeLapFullStop = { [flightEventDetector] in
+                        flightEventDetector.notifyManualEvent(.fullStop)
+                    }
 
                     // The delegate and its category are registered in `AeroCheckAppDelegate` before
                     // launch finishes; only the handlers are wired here, because they need the

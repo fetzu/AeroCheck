@@ -155,7 +155,7 @@ struct GroundReplayCursor: Equatable {
         case lineUp
         case phase(ChecklistPhase)
         /// That check exactly, not a later one: after a stop-and-go the Cockpit is past the line-up
-        /// already, and goes back to TAXI on the card's CONFIRM.
+        /// already, and comes back to it through AFTER LANDING and NEW CIRCUIT. (6.3.0)
         case phaseIs(ChecklistPhase)
         case flightActive
 

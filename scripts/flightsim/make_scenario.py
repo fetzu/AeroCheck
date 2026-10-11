@@ -449,8 +449,9 @@ def build(name):
         return scenario_local(name, 105, 'LSZQ', laps=['fullStop', 'fullStop'], cruise_ft=4000, circuits=False,
                               description='Local flight at LSZQ: full stop, card left unanswered, taxi, away again, full stop')
     if name == 'circuits-stop-and-go':
-        # The first stop-and-go waits for its card to be answered and the checks to the line-up done again
-        # (circuits-2); the second goes on unanswered, its card gone on the roll (circuits-3).
+        # The first stop-and-go waits for its card to be answered, the after landing check, NEW CIRCUIT and
+        # the checks to the line-up done again (circuits-2); the second goes on unanswered, its card gone
+        # on the roll (circuits-3).
         return scenario_local(name, 106, 'LSZQ', laps=['touchAndGo', 'stopAndGo', 'stopAndGo', 'fullStop'],
                               hold_first_stop='phaseIs:lineUp',
                               description='Circuits at LSZQ: a touch-and-go, two stop-and-goes, a full stop')

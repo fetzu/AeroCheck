@@ -371,6 +371,8 @@ struct CompanionNavPage: View {
     let onCheckSlot: (CheckSlot) -> Void
     /// ✓ DONE's UNDO, sent from the slot, offered for six seconds over the page's foot.
     @Binding var memoryUndo: NavUndoOffer?
+    /// The iPad offers NEW CIRCUIT: S2's, in MARK's place, as on the Cockpit's MAP. (6.3.0)
+    var offersNewCircuit = false
     var scale: CockpitScale = .current
 
     @Environment(\.cockpitTheme) private var theme
@@ -393,7 +395,7 @@ struct CompanionNavPage: View {
             }
             SeparateView {
                 CompanionActBand(nav: nav, flightData: flightData, snapshot: snapshot, checkSlot: checkSlot,
-                                 onCheckSlot: onCheckSlot, scale: scale)
+                                 onCheckSlot: onCheckSlot, offersNewCircuit: offersNewCircuit, scale: scale)
             }
         }
         .background(theme.background)
@@ -520,6 +522,9 @@ struct CompanionActBand: View {
     let snapshot: CompanionFlightPlanSnapshot?
     let checkSlot: CheckSlot?
     let onCheckSlot: (CheckSlot) -> Void
+    /// The end of a circuits flight's after landing check: NEW CIRCUIT in MARK's place, the slot beside it
+    /// going on to the parking check. (6.3.0)
+    var offersNewCircuit = false
     var scale: CockpitScale = .current
     /// For the tests: each slot as laid out.
     var onPlace: ((Int, CGRect) -> Void)? = nil
@@ -533,7 +538,13 @@ struct CompanionActBand: View {
         let metrics = ActBandMetrics.companion(scale: scale)
         ActBandLayout(metrics: metrics, onPlace: onPlace) {
             slotOne
-            CompanionMarkSlot(state: CompanionMarkState.make(plan: nav.plan, flightData: flightData), scale: scale)
+            if offersNewCircuit {
+                ActNewCircuitButton(actions: CockpitActions(newCircuit: {
+                    companionConnectivityManager.sendCommand(.newCircuit)
+                }))
+            } else {
+                CompanionMarkSlot(state: CompanionMarkState.make(plan: nav.plan, flightData: flightData), scale: scale)
+            }
             CompanionDivertButton(isEnabled: CompanionDivertButton.isOffered(
                 plan: snapshot, currentWaypointIndex: flightData?.currentWaypointIndex))
             CompanionMoreMenu(plan: nav.plan, flightData: flightData)

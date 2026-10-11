@@ -309,7 +309,8 @@ struct CompanionFlightView: View {
     /// The phone Cockpit's ROUTE, from the stream, with its act band (`CompanionNavScreen.swift`). (6.2.0)
     private var navMode: some View {
         CompanionNavPage(flightData: flightData, snapshot: flightPlan, checkSlot: checkSlot,
-                         onCheckSlot: tapCheckSlot, memoryUndo: $memoryUndo)
+                         onCheckSlot: tapCheckSlot, memoryUndo: $memoryUndo,
+                         offersNewCircuit: checklist?.offersNewCircuit == true)
     }
 
     /// The iPad's check slot, from its snapshot: the same name, line and colour, and its tap sent back.
@@ -641,6 +642,24 @@ struct CompanionFlightView: View {
                                    style: .filled(fill: theme.action, text: theme.actionText)) {
                     companionConnectivityManager.sendCommand(.advanceChecklistItem)
                 }
+            } else if cl.offersNewCircuit {
+                // The end of a circuits flight's after landing check, as on the iPad: on to the parking
+                // check (its check slot there), or NEW CIRCUIT, filled, in NEXT's place. (6.3.0)
+                let phase = ChecklistPhase(rawValue: cl.phaseRawValue)
+                let parking = CockpitNextLabel(leaving: phase, to: phase?.nextNavigable(circuitMode: true),
+                                               deferred: cl.deferredItemIds.count)
+                CockpitThumbButton(title: parking.title, subtitle: parking.subtitle,
+                                   style: .outlined(tint: theme.action), titleLines: 2) {
+                    requestNextPhase(cl)
+                }
+                CockpitThumbButton(title: L10n.Cockpit.newCircuit,
+                                   subtitle: L10n.Cockpit.thenCheck(ChecklistPhase.beforeDeparture.shortTitle),
+                                   icon: "arrow.triangle.2.circlepath",
+                                   style: .filled(fill: theme.action, text: theme.actionText), subtitleLines: 2) {
+                    companionConnectivityManager.sendCommand(.newCircuit)
+                }
+                .accessibilityHint(L10n.Cockpit.newCircuitHint)
+                .accessibilityIdentifier("companion.newCircuit")
             } else {
                 // Out of the check before departure: READY FOR LINE UP, which the iPad records on this
                 // NEXT, as on its own. (6.2)

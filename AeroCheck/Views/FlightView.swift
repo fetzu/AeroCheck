@@ -537,6 +537,15 @@ struct FlightView: View {
         appState.nextPhase()
     }
 
+    /// NEW CIRCUIT, in NEXT's place at the end of a circuits flight's after landing check: the check
+    /// before departure, on a new lap. (6.3.0)
+    private func performNewCircuit() {
+        pulseNextButton = false
+        pulseActionButton = false
+        allItemsChecked = false
+        appState.startNewCircuit()
+    }
+
     // Phase timestamp actions — shared by the act band's first slot (`ActPhaseActionButton`) and the
     // in-checklist buttons (these methods back the ChecklistView callbacks too, so behavior can't diverge).
     private func performEngineStart() {
@@ -1091,6 +1100,7 @@ extension FlightView {
             engineStartUpdate: { performEngineStartUpdate() },
             engineShutdown: { performEngineShutdown() },
             engineShutdownUpdate: { performEngineShutdownUpdate() },
+            newCircuit: { performNewCircuit() },
             showChecklist: { showChecklistPage() },
             showMap: { cockpitPageBinding.wrappedValue = .map },
             showRoute: { cockpitPageBinding.wrappedValue = .route },

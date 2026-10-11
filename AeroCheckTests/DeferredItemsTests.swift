@@ -325,13 +325,14 @@ final class DeferredItemsTests: XCTestCase {
     }
 
     /// The rule the author confirmed: a new circuit clears what was deferred in the phases it repeats,
-    /// and only those, for all three ways a circuit ends. On circuits: a full stop on any other flight
-    /// is the landing and clears nothing (`FullStopLandingTests`).
+    /// and only those, for all three ways a circuit ends. A full stop itself clears nothing, on circuits
+    /// too since 6.3.0: NEW CIRCUIT, at the end of the after landing check, starts the next lap at the check
+    /// before departure (`CircuitsTests`).
     func testEachNewCircuitClearsOnlyTheRepeatedPhases() {
         let repeated: [(String, ChecklistPhase, (AppState) -> Void)] = [
             ("go-around", .climb, { $0.recordGoAround(at: Date()) }),
             ("touch-and-go", .climb, { $0.recordTouchAndGo(at: Date()) }),
-            ("full stop", .taxi, { $0.recordFullStop(at: Date()) }),
+            ("new circuit", .beforeDeparture, { $0.currentPhase = .afterLanding; $0.startNewCircuit() }),
         ]
         for (name, first, event) in repeated {
             let appState = flight()
@@ -341,7 +342,7 @@ final class DeferredItemsTests: XCTestCase {
             event(appState)
             for phase in ChecklistPhase.allCases {
                 let cleared = phase.rawValue >= first.rawValue
-                    && (first != .taxi || phase.rawValue <= ChecklistPhase.afterLanding.rawValue)
+                    && (first != .beforeDeparture || phase.rawValue <= ChecklistPhase.afterLanding.rawValue)
                 XCTAssertEqual(appState.deferredItems[phase] == nil, cleared, "\(name): \(phase)")
                 XCTAssertEqual(!appState.deferredChecks.contains(phase), cleared, "\(name), check: \(phase)")
             }

@@ -684,6 +684,10 @@ struct ActiveFlightState: Codable {
     /// again from the restore and dropped a FREDA due (never recorded missed). Nil when it doesn't run;
     /// optional, so an older checkpoint still decodes (and counts from the restore, as before). (6.2)
     let freda: FredaSchedule?
+    /// Where a circuits flight stands in its laps: when the lap being flown began (a full stop is counted
+    /// once per lap) and the loops taken. Optional, so an older checkpoint still decodes, as a first lap.
+    /// (6.3.0)
+    let circuitLaps: CircuitLaps?
     let savedAt: Date
 
     /// Builds a snapshot from a **non-optional** flight, so a nil `currentFlight` can never
@@ -705,6 +709,7 @@ struct ActiveFlightState: Codable {
         self.answeredAfterLanding = answered.isEmpty ? nil : answered
         self.flightCues = appState.flightCues
         self.freda = appState.freda.isRunning ? appState.freda : nil
+        self.circuitLaps = appState.circuitLaps
         self.highestCompletedPhase = appState.highestCompletedPhase
         self.currentHighlightedItem = appState.currentHighlightedItem
         self.deferredItems = appState.deferredItems
@@ -746,6 +751,7 @@ struct ActiveFlightState: Codable {
         appState.phaseCompletionStatus = statuses
         appState.flightCues = flightCues ?? FlightCueState()
         appState.freda = freda ?? FredaSchedule()
+        appState.circuitLaps = circuitLaps ?? CircuitLaps()
         appState.highestCompletedPhase = highestCompletedPhase
         appState.currentHighlightedItem = currentHighlightedItem
         appState.deferredItems = deferredItems ?? [:]
@@ -1117,6 +1123,9 @@ class AppState {
 
     // Circuit mode - skips CRUISE and DESCENT phases
     var isCircuitMode: Bool = false
+    /// The laps of a circuits flight: the loop that started the one being flown, the circuits started
+    /// again from a full stop, and when the lap began. (6.3.0)
+    var circuitLaps = CircuitLaps()
     /// Set when the pilot chose "Fly without a plan" over a flight they had planned. Transient, like
     /// `isCircuitMode`: it exists so END FLIGHT does not adopt the followed flight they deliberately
     /// stepped around. (v5.x)
@@ -1542,6 +1551,7 @@ class AppState {
         currentPhase = .preflight
         isFlightActive = true
         isCircuitMode = circuitMode
+        circuitLaps = CircuitLaps()
         flightIsUnplanned = unplanned
         engineStartTime = nil
         lineUpTime = nil
@@ -1619,6 +1629,7 @@ class AppState {
         flightAircraft = nil
         isFlightActive = false
         isCircuitMode = false
+        circuitLaps = CircuitLaps()
         flightIsUnplanned = false
         engineStartTime = nil
         lineUpTime = nil
@@ -1660,6 +1671,7 @@ class AppState {
         flightAircraft = nil
         isFlightActive = false
         isCircuitMode = false
+        circuitLaps = CircuitLaps()
         flightIsUnplanned = false
         engineStartTime = nil
         lineUpTime = nil
@@ -2077,6 +2089,9 @@ class AppState {
         guard currentCheckAwaitsConfirmation,
               !currentPhase.hasMissingRequiredAction(engineStarted: engineStartTime != nil,
                                                     engineShutDown: engineShutdownTime != nil) else { return nil }
+        // The after landing check of a circuits flight ends on a choice, NEW CIRCUIT or the parking check:
+        // ✓ DONE confirms it, and the two follow. (6.3.0)
+        if isCircuitMode && currentPhase == .afterLanding { return nil }
         return currentPhase.nextNavigable(circuitMode: isCircuitMode)
     }
 
@@ -2320,7 +2335,7 @@ class AppState {
     // MARK: The landed card (6.1, M4)
 
     /// The detector's full stop on a flight that isn't circuits: the landed card, in place of the
-    /// full-stop card. Circuits keep that card and its stop-and-go to TAXI.
+    /// full-stop card. Circuits keep that card, whose CONFIRM goes to AFTER LANDING too since 6.3.0.
     func presentLandedCard(touchdown: Date, aerodrome: String?) {
         guard isFlightActive, !isCircuitMode, landedCard?.touchdown != touchdown else { return }
         landedCard = LandedCard(touchdown: touchdown, aerodrome: aerodrome)
@@ -2626,19 +2641,10 @@ class AppState {
         }
         currentFlight?.goAroundCount += 1
         currentFlight?.goAroundTimes.append(goAroundTime)
+        circuitLaps.tookTouchAndGo(at: goAroundTime)
 
-        // Reset phases from climb onwards. The new circuit starts them clean, deferred items included:
-        // what was put off on the last lap is asked again on this one. (v6.0 review, confirmed rule)
-        for phase in ChecklistPhase.allCases {
-            if phase.rawValue >= ChecklistPhase.climb.rawValue {
-                phaseCompletionStatus[phase] = nil
-                currentHighlightedItem[phase] = 0
-                deferredItems[phase] = nil
-                deferredChecks.removeAll { $0 == phase }
-            }
-        }
-
-        // Go to climb phase
+        // Reset phases from climb onwards, and go to the climb check.
+        startChecksOfNewLap(from: .climb, through: .hangar)
         currentPhase = .climb
     }
 
@@ -2652,63 +2658,42 @@ class AppState {
         }
         currentFlight?.touchAndGoCount += 1
         currentFlight?.touchAndGoTimes.append(touchAndGoTime)
+        circuitLaps.tookTouchAndGo(at: touchAndGoTime)
 
-        // Reset phases from climb onwards. The new circuit starts them clean, deferred items included:
-        // what was put off on the last lap is asked again on this one. (v6.0 review, confirmed rule)
-        for phase in ChecklistPhase.allCases {
-            if phase.rawValue >= ChecklistPhase.climb.rawValue {
-                phaseCompletionStatus[phase] = nil
-                currentHighlightedItem[phase] = 0
-                deferredItems[phase] = nil
-                deferredChecks.removeAll { $0 == phase }
-            }
-        }
-
-        // Go to climb phase
+        // Reset phases from climb onwards, and go to the climb check.
+        startChecksOfNewLap(from: .climb, through: .hangar)
         currentPhase = .climb
     }
 
-    /// Record a full stop landing: the detector's card confirmed, or a manual stop-and-go.
-    /// `time` is the physical TOUCHDOWN time when the detector knows it (v2 stamps full
-    /// stops at touchdown, not at the end of the stillness dwell); "now" otherwise.
-    /// Stop-and-gos count as full stops (decision D1) — the flight log labels every
-    /// non-final full stop "stop-and-go" at display time.
+    /// The checks a new lap flies again, from `first` through `last`, started clean, deferred items
+    /// included: what was put off on the last lap is asked again on this one. (v6.0 review, confirmed rule)
+    private func startChecksOfNewLap(from first: ChecklistPhase, through last: ChecklistPhase) {
+        for phase in ChecklistPhase.allCases where (first.rawValue...last.rawValue).contains(phase.rawValue) {
+            phaseCompletionStatus[phase] = nil
+            currentHighlightedItem[phase] = 0
+            deferredItems[phase] = nil
+            deferredChecks.removeAll { $0 == phase }
+        }
+    }
+
+    /// Record a full stop landing: the detector's card confirmed, or FULL STOP LANDING held in the
+    /// checklist. `time` is the physical TOUCHDOWN time when the detector knows it (v2 stamps full stops at
+    /// touchdown, not at the end of the stillness dwell); "now" otherwise. Stop-and-gos count as full stops
+    /// (decision D1): the flight log labels every non-final full stop "stop-and-go" at display time.
     ///
-    /// Where the Cockpit goes next depends on the flight (6.1.0, author decision):
-    /// - Circuits (`isCircuitMode`: started with CIRCUITS, or a local-profile thread) fly
-    ///   stop-and-gos: the next circuit starts at TAXI, taxi through after landing reset.
-    /// - Any other flight has landed: AFTER LANDING, every check kept as it stands. (Until
-    ///   6.1 it went to TAXI as well, a check already run, and the pilot had to go and find
-    ///   the after landing check.) The landing time, the count and the logbook are the same
-    ///   either way: only the checklist differs.
+    /// The flight has landed, whatever it is: AFTER LANDING next, every check kept as it stands. (6.1.0 for
+    /// a flight that isn't circuits; until then it went to TAXI, a check already run, and the pilot had to
+    /// go and find the after landing check.) Circuits too since 6.3.0, where it went to TAXI with the
+    /// checks from taxi to after landing reset: after landing is flown on every lap now, and its end offers
+    /// NEW CIRCUIT or the parking check (`startNewCircuit`). The landing time, the count and the logbook are
+    /// the same either way.
     func recordFullStop(at time: Date? = nil) {
         let fullStopTime = clampedToLineUp(time ?? FlightClock.now)
-        if isDuplicateLandingEvent(at: fullStopTime) {
+        guard countFullStop(at: fullStopTime) else {
             AppLog.flightEvents.debugLine("Full stop ignored (duplicate landing within \(Int(landingDedupeWindow)) s)")
             return
         }
-        currentFlight?.fullStopCount += 1
-        currentFlight?.fullStopTimes.append(fullStopTime)
-        // A full stop is a landing: keep landingTime tracking the latest one (the final
-        // full stop of the flight is the flight's landing time). Set before the phase
-        // changes, so AFTER LANDING's own stop fallback (`addGPSPoint`) never re-stamps it.
-        landingTime = fullStopTime
-        currentFlight?.landingTime = fullStopTime
-        hasLandingBeenDetected = true
-
-        if isCircuitMode {
-            // Reset phases from taxi onwards (taxi through afterLanding), deferred items included,
-            // as for a touch-and-go. (v6.0 review, confirmed rule)
-            for phase in ChecklistPhase.allCases {
-                if phase.rawValue >= ChecklistPhase.taxi.rawValue && phase.rawValue <= ChecklistPhase.afterLanding.rawValue {
-                    phaseCompletionStatus[phase] = nil
-                    currentHighlightedItem[phase] = 0
-                    deferredItems[phase] = nil
-                    deferredChecks.removeAll { $0 == phase }
-                }
-            }
-            currentPhase = .taxi
-        } else if currentPhase.rawValue < ChecklistPhase.afterLanding.rawValue {
+        if currentPhase.rawValue < ChecklistPhase.afterLanding.rawValue {
             // Forward only, as a tap on AFTER LANDING in the phase bar would go: the check left
             // keeps what was ticked and defers what wasn't, and a check passed over is deferred
             // whole. The detection never marks a check done. A pilot already on AFTER LANDING or
@@ -2717,6 +2702,63 @@ class AppState {
         }
         // A landing is logbook data: on disk now, not at the next throttled checkpoint.
         checkpointActiveFlight(force: true)
+    }
+
+    /// A full stop counted at `time`, unless it is one already counted (`landingDedupeWindow`). A full
+    /// stop is a landing: `landingTime` follows the latest one (the final full stop of the flight is the
+    /// flight's landing time). Set before any change of phase, so AFTER LANDING's own stop fallback
+    /// (`addGPSPoint`) never re-stamps it.
+    private func countFullStop(at time: Date) -> Bool {
+        if isDuplicateLandingEvent(at: time) { return false }
+        currentFlight?.fullStopCount += 1
+        currentFlight?.fullStopTimes.append(time)
+        landingTime = time
+        currentFlight?.landingTime = time
+        hasLandingBeenDetected = true
+        return true
+    }
+
+    // MARK: Full-stop circuits (6.3.0)
+
+    /// Tells the detector of the full stop the pilot goes on from, at the end of the after landing check,
+    /// and returns its touchdown when it knows it (`FlightEventDetector.notifyManualEvent`): the landing
+    /// is then counted at its touchdown, and its card never comes after. Wired at launch, like
+    /// `anchorETOsOnLineUp`; nil in the tests that don't set it, which count the full stop at "now".
+    @ObservationIgnored var takeLapFullStop: (@MainActor () -> Date?)?
+
+    /// A full stop is counted on the lap being flown already: the card's CONFIRM, LANDED.
+    var fullStopCountedThisLap: Bool {
+        guard let last = currentFlight?.fullStopTimes.last else { return false }
+        return circuitLaps.isThisLap(last)
+    }
+
+    /// NEW CIRCUIT in NEXT's place: a circuits flight at the end of its after landing check. The check
+    /// slot has the parking check beside it, as at the end of every after landing check. (6.3.0, Q2)
+    var offersNewCircuit: Bool {
+        isFlightActive && isCircuitMode && currentPhase == .afterLanding && currentCheckIsDone
+    }
+
+    /// NEW CIRCUIT, at the end of the after landing check of a circuits flight (6.3.0, the author's Q1 to
+    /// Q3): the lap's full stop counted if nothing counted it yet, the after landing check left as NEXT
+    /// leaves it, the checks from the one before departure to after landing started clean (deferred items
+    /// included, as for a touch-and-go), and the check before departure next. Taxi and run-up are flown
+    /// once, on the first lap; the first take-off stays the flight's (`recordReadyForLineUp`).
+    func startNewCircuit() {
+        guard isFlightActive, isCircuitMode, currentPhase == .afterLanding else { return }
+        countLapFullStopIfNeeded()
+        leaveCurrentPhase()
+        startChecksOfNewLap(from: .beforeDeparture, through: .afterLanding)
+        circuitLaps.tookNewCircuit(at: FlightClock.now)
+        enterPhase(.beforeDeparture)
+        checkpointActiveFlight(force: true)
+    }
+
+    /// The lap's full stop, counted at the choice made at the end of the after landing check (NEW CIRCUIT,
+    /// or on to the parking check), when the card's CONFIRM or LANDED didn't count it. (6.3.0, Q3)
+    private func countLapFullStopIfNeeded() {
+        guard isCircuitMode, !fullStopCountedThisLap else { return }
+        let touchdown = takeLapFullStop?() ?? nil
+        _ = countFullStop(at: clampedToLineUp(touchdown ?? FlightClock.now))
     }
 
     // MARK: - Post-flight reconciliation (D2)
@@ -2925,6 +2967,9 @@ class AppState {
 
         // Every NEXT goes through here: out of the check before departure, it is READY FOR LINE UP.
         recordReadyForLineUp()
+        // Out of the after landing check of a circuits flight, it is the parking check, the other way on
+        // from NEW CIRCUIT: the lap's full stop is counted if nothing counted it. (6.3.0)
+        if currentPhase == .afterLanding { countLapFullStopIfNeeded() }
         leaveCurrentPhase()
 
         // Calculate the next phase, skipping CRUISE and DESCENT in circuit mode (marking each

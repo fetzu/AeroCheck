@@ -1328,3 +1328,43 @@ class FlightThreadManager: ObservableObject {
         currentThreadId = UUID(uuidString: raw)
     }
 }
+
+// MARK: - Starting from a flight's page (6.2.0)
+
+/// What FLY's card on a flight's page offers: START FLIGHT (CIRCUITS for a local flight) on its day,
+/// "Start now" behind a question on another day, and, while another flight is running, why it can't
+/// start.
+///
+/// A flight in progress was not part of the rule. Opened from its "Flight tomorrow" reminder during
+/// another flight, the page offered "Start now", asked its question, and then the launcher refused
+/// without a word: the pilot was back on the running flight's Cockpit with no idea why (device check,
+/// 10 Oct). Ending that flight from here is not the answer either: END FLIGHT has its own sequence in
+/// the Cockpit (the track times, the logbook line, the ATC flight plan to close), never run from a
+/// notification's page. So the page says what is going on, where the button was. (6.2.0)
+enum ThreadStartOffer: Equatable {
+    /// Nothing to start: this page's flight has flown or is the one flying, or whoever presents the
+    /// page can't start a flight.
+    case none
+    /// START FLIGHT, or CIRCUITS: the flight is due.
+    case start
+    /// "Start now", then a question: the flight is planned for another day.
+    case startEarly
+    /// Another flight is running, flown in the aircraft named (nil when it has no registration).
+    case flightInProgress(registration: String?)
+
+    /// - Parameters:
+    ///   - canStart: the page's presenter can start a flight (`FlightThreadView.onStartFlight`).
+    ///   - isDue: the flight is today's, undated, or the next leg from a stop.
+    ///   - isFlightActive: a flight is running (`AppState.isFlightActive`).
+    ///   - runningFlight: that flight, when there is one.
+    static func make(for thread: FlightThread, canStart: Bool, isDue: Bool,
+                     isFlightActive: Bool, runningFlight: Flight?) -> ThreadStartOffer {
+        guard canStart, thread.flightId == nil else { return .none }
+        guard isFlightActive else { return isDue ? .start : .startEarly }
+        // The running flight's own page, which never heard of it (started from the widget or a deep
+        // link with its route armed): it is flying, there is nothing to start or to explain.
+        if FlightThreadManager.isFlying(thread, flyingPlanId: runningFlight?.flightPlanId) { return .none }
+        let registration = runningFlight?.aircraftRegistration?.trimmingCharacters(in: .whitespaces)
+        return .flightInProgress(registration: registration?.isEmpty == false ? registration : nil)
+    }
+}

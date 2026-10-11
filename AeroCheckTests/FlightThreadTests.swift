@@ -1102,4 +1102,82 @@ extension FlightThreadTests {
                                                       plans: [copy], logbookPlanIds: [copy.id]),
                      "the logbook exports it with its flight")
     }
+
+    // MARK: - Another flight's page while one is flying (6.2.0)
+    //
+    // The device report: in At the Hangar, "Flight tomorrow" opened, "Start now", confirmed, and the
+    // pilot was back on the running flight's Cockpit without a word.
+
+    private func offer(_ thread: FlightThread, canStart: Bool = true, isDue: Bool,
+                       running: Flight?) -> ThreadStartOffer {
+        ThreadStartOffer.make(for: thread, canStart: canStart, isDue: isDue,
+                              isFlightActive: running != nil, runningFlight: running)
+    }
+
+    func testAFlightInProgressTakesTheStartButtonsPlaceAndNamesItsAircraft() {
+        let tomorrow = FlightThread(routeLabel: "LSZQ → LSGY")
+        let running = Flight(aircraftRegistration: "F-HVXA")
+        XCTAssertEqual(offer(tomorrow, isDue: false, running: running), .flightInProgress(registration: "F-HVXA"),
+                       "no Start now: its question led to a refusal nobody saw")
+        XCTAssertEqual(offer(tomorrow, isDue: true, running: running), .flightInProgress(registration: "F-HVXA"),
+                       "today's flight neither")
+        XCTAssertEqual(offer(tomorrow, isDue: true, running: Flight(aircraftRegistration: " ")),
+                       .flightInProgress(registration: nil), "no registration: the note without one")
+    }
+
+    func testOnTheGroundItsDayDecidesTheButton() {
+        let thread = FlightThread(routeLabel: "LSZQ → LSGY")
+        XCTAssertEqual(offer(thread, isDue: true, running: nil), .start)
+        XCTAssertEqual(offer(thread, isDue: false, running: nil), .startEarly)
+        XCTAssertEqual(offer(thread, canStart: false, isDue: true, running: nil), .none,
+                       "a presenter that can't start one (the logbook) offers nothing")
+    }
+
+    func testTheRunningFlightsOwnPageOffersNothing() {
+        let plan = swissPlan()
+        var started = FlightThread(routeLabel: "LSZQ → LSGY")
+        started.flightId = UUID()
+        XCTAssertEqual(offer(started, isDue: true, running: Flight(id: started.flightId!, aircraftRegistration: "F-HVXA")),
+                       .none, "attached at START FLIGHT")
+        var armed = FlightThread(routeLabel: "LSZQ → LSGY")
+        armed.flightPlanId = plan.id
+        XCTAssertEqual(offer(armed, isDue: true, running: Flight(aircraftRegistration: "F-HVXA", flightPlanId: plan.id)),
+                       .none, "started from the widget with its route armed: it is the one flying")
+    }
+
+    /// A flight started without a page (the widget, no route) closes out the FOLLOWED flight at END
+    /// FLIGHT. The reminder used to make tomorrow's flight the followed one, in flight.
+    @MainActor
+    func testAReminderOpenedInFlightOpensItsPageButKeepsTheFollowedFlight() {
+        let manager = makeTestThreadManager()
+        let appState = makeTestAppState()
+        let today = manager.createThread(from: swissPlan(), profile: .full)
+        let tomorrow = manager.createThread(from: swissPlan(), profile: .full)
+        defer { manager.deleteThread(threadId: today.id); manager.deleteThread(threadId: tomorrow.id) }
+        manager.setCurrentThread(today.id)
+        appState.isFlightActive = true
+        defer { appState.isFlightActive = false }
+
+        ReminderTap.open(tomorrow.id, appState: appState, threads: manager)
+
+        XCTAssertEqual(appState.pendingThreadToOpen, tomorrow.id, "its page opens, to read")
+        XCTAssertEqual(manager.currentThreadId, today.id, "the followed flight is still the one flying")
+        XCTAssertEqual(manager.threadToCloseOut(flightId: UUID(), planId: nil), today.id,
+                       "END FLIGHT closes out the flight flown")
+    }
+
+    @MainActor
+    func testAReminderOpenedOnTheGroundFollowsItsFlight() {
+        let manager = makeTestThreadManager()
+        let appState = makeTestAppState()
+        let today = manager.createThread(from: swissPlan(), profile: .full)
+        let tomorrow = manager.createThread(from: swissPlan(), profile: .full)
+        defer { manager.deleteThread(threadId: today.id); manager.deleteThread(threadId: tomorrow.id) }
+        manager.setCurrentThread(today.id)
+
+        ReminderTap.open(tomorrow.id, appState: appState, threads: manager)
+
+        XCTAssertEqual(appState.pendingThreadToOpen, tomorrow.id)
+        XCTAssertEqual(manager.currentThreadId, tomorrow.id)
+    }
 }

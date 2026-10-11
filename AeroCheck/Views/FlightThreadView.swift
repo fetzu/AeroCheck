@@ -1096,23 +1096,30 @@ struct FlightThreadView: View {
 
         // The chapter said what happens next without offering to do it, which made FLY the one
         // chapter you had to leave the flight to act on. The 16 phases still live where they always
-        // did — this only starts them.
-        if let onStartFlight, thread.flightId == nil, !isDue(thread) {
-            earlyStart(thread, onStart: onStartFlight)
-        } else if let onStartFlight, thread.flightId == nil {
-            Button {
-                onStartFlight(thread.profile == .local)
-            } label: {
-                HStack(spacing: 8) {
-                    Image(systemName: thread.profile == .local
-                          ? "arrow.triangle.2.circlepath" : "play.fill")
-                        .scaledFont(size: 14, weight: .semibold, relativeTo: .subheadline)
-                    Text(thread.profile == .local ? L10n.Button.circuits : L10n.Button.startFlight)
-                        .scaledFont(size: 14, weight: .bold, relativeTo: .subheadline)
+        // did — this only starts them. With another flight running, it says why it can't. (6.2.0)
+        switch startOffer(thread) {
+        case .none:
+            EmptyView()
+        case .flightInProgress(let registration):
+            FlightInProgressNote(registration: registration)
+        case .startEarly:
+            if let onStartFlight { earlyStart(thread, onStart: onStartFlight) }
+        case .start:
+            if let onStartFlight {
+                Button {
+                    onStartFlight(thread.profile == .local)
+                } label: {
+                    HStack(spacing: 8) {
+                        Image(systemName: thread.profile == .local
+                              ? "arrow.triangle.2.circlepath" : "play.fill")
+                            .scaledFont(size: 14, weight: .semibold, relativeTo: .subheadline)
+                        Text(thread.profile == .local ? L10n.Button.circuits : L10n.Button.startFlight)
+                            .scaledFont(size: 14, weight: .bold, relativeTo: .subheadline)
+                    }
+                    .frame(maxWidth: .infinity)
                 }
-                .frame(maxWidth: .infinity)
+                .buttonStyle(PrimaryButtonStyle(color: thread.profile == .local ? .aviationAmber : .aviationGreen))
             }
-            .buttonStyle(PrimaryButtonStyle(color: thread.profile == .local ? .aviationAmber : .aviationGreen))
         }
         }
         .padding(14)
@@ -1128,6 +1135,13 @@ struct FlightThreadView: View {
     /// button. (Plan › Flights opens next week's flights too.)
     private func isDue(_ thread: FlightThread) -> Bool {
         thread.isDueToday() || threadManager.startableFlightToday?.id == thread.id
+    }
+
+    /// What FLY's card offers (`ThreadStartOffer`): with another flight running, a note in place of the
+    /// button. (6.2.0)
+    private func startOffer(_ thread: FlightThread) -> ThreadStartOffer {
+        ThreadStartOffer.make(for: thread, canStart: onStartFlight != nil, isDue: isDue(thread),
+                              isFlightActive: appState.isFlightActive, runningFlight: appState.currentFlight)
     }
 
     /// A flight planned for another day starts from its page too: its day and a quieter button, then a
@@ -1471,6 +1485,41 @@ struct FlightThreadView: View {
 
     private func close() {
         if let onClose { onClose() } else { dismiss() }
+    }
+}
+
+// MARK: - Flight in progress (6.2.0)
+
+/// In FLY's card, where START FLIGHT or "Start now" would be while another flight is running: which
+/// flight, and what to do. Not a button: that flight ends with END FLIGHT, in the Cockpit, and its
+/// sequence (the track times, the logbook line, the ATC flight plan to close) is never run from here.
+/// The rest of the page stays open, to read.
+private struct FlightInProgressNote: View {
+    let registration: String?
+
+    var body: some View {
+        HStack(alignment: .top, spacing: 10) {
+            Image(systemName: "airplane.circle")
+                .scaledFont(size: 18, weight: .semibold, relativeTo: .title3)
+                .foregroundColor(.aviationAmber)
+                .accessibilityHidden(true)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(registration.map { L10n.Thread.flightInProgress(aircraft: $0) } ?? L10n.Thread.flightInProgress)
+                    .scaledFont(size: 14, weight: .bold, relativeTo: .subheadline)
+                    .foregroundColor(.primaryText)
+                Text(L10n.Thread.endBeforeStarting)
+                    .scaledFont(size: 13, relativeTo: .footnote)
+                    .foregroundColor(.secondaryText)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            Spacer(minLength: 0)
+        }
+        .padding(12)
+        .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
+        .background(RoundedRectangle(cornerRadius: 10).fill(Color.aviationAmber.opacity(0.10)))
+        .overlay(RoundedRectangle(cornerRadius: 10).strokeBorder(Color.aviationAmber.opacity(0.4), lineWidth: 1))
+        .accessibilityElement(children: .combine)
+        .accessibilityIdentifier("thread.flightInProgress")
     }
 }
 

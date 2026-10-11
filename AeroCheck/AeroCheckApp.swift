@@ -209,9 +209,9 @@ struct AeroCheckApp: App {
                     NotificationService.shared.markFlightPlanClosedHandler = { threadId in
                         flightThreadManager.markFlightPlanClosed(threadId: threadId)
                     }
+                    // Its page opens; it is followed only on the ground (`ReminderTap`). (6.2.0)
                     NotificationService.shared.openThreadHandler = { threadId in
-                        flightThreadManager.setCurrentThread(threadId)
-                        appState.pendingThreadToOpen = threadId
+                        ReminderTap.open(threadId, appState: appState, threads: flightThreadManager)
                     }
                     // In flight, no banner before At the Hangar: what arrives meanwhile waits in
                     // Notification Center, and shows when the flight gets there or ends. (6.2.0)

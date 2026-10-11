@@ -339,3 +339,23 @@ enum NotificationPresentationRule {
         !isFlightActive || calmPhases.contains(phase)
     }
 }
+
+/// A reminder tapped (`NotificationService.openThreadHandler`, as the app installs it): its flight's
+/// page opens over whatever is on screen, and on the ground that flight becomes the one followed.
+///
+/// Not in flight. A flight started without a page of its own (the widget, no route) closes out the
+/// followed flight at END FLIGHT (`FlightThreadManager.threadToCloseOut`'s fallback): a "Flight
+/// tomorrow" banner opened during it made tomorrow's flight the followed one, and the flight being
+/// flown would hand its close-out (the ATC flight plan to close, the logbook line) to the wrong page.
+/// The page still opens, to read. (6.2.0)
+@MainActor
+enum ReminderTap {
+    static func open(_ threadId: UUID, appState: AppState, threads: FlightThreadManager) {
+        if appState.isFlightActive {
+            AppLog.general.publicLine("Reminder opened in flight: the followed flight is kept")
+        } else {
+            threads.setCurrentThread(threadId)
+        }
+        appState.pendingThreadToOpen = threadId
+    }
+}

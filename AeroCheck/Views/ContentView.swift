@@ -560,8 +560,12 @@ struct ContentView: View {
     private func startFollowedFlight(threadId: UUID, circuits: Bool) {
         // Before anything else: the launcher refuses a second flight (UX-06), but only after this
         // has selected the thread's aircraft and armed its plan. A thread opened from its reminder
-        // while flying switched both under the flight in progress.
-        guard !appState.isFlightActive else { return }
+        // while flying switched both under the flight in progress. The page no longer offers a start
+        // then (`ThreadStartOffer.flightInProgress`): this is the backstop, and says so in the log.
+        guard !appState.isFlightActive else {
+            AppLog.general.publicLine("Start from a flight's page refused: a flight is in progress")
+            return
+        }
         guard let thread = threadManager.thread(withId: threadId) else { return }
         if let registration = thread.aircraftRegistration, !registration.isEmpty {
             _ = appState.selectAircraft(id: registration,

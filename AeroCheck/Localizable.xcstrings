@@ -4163,6 +4163,57 @@
         }
       }
     },
+    "thread.flightInProgress": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Flight in progress"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vol en cours"
+          }
+        }
+      }
+    },
+    "thread.flightInProgressAircraft": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Flight in progress (%@)"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vol en cours (%@)"
+          }
+        }
+      }
+    },
+    "thread.endBeforeStarting": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "End it before starting this one."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Terminez-le avant de démarrer celui-ci."
+          }
+        }
+      }
+    },
     "routeEditor.legs": {
       "extractionState": "manual",
       "localizations": {

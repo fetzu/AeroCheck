@@ -136,7 +136,8 @@ struct CompanionFlightData: Codable {
     let aircraftRegistration: String
     let aircraftType: String
 
-    // Timestamp for staleness detection
+    /// The iPad's clock when it sent this. A phone before 6.2.0 judges staleness by it; since then by
+    /// its own clock, when the data arrived (`CompanionConnectivityManager.lastReceivedDataAt`).
     let timestamp: Date
 
     /// NOW and NEXT as the iPad's Cockpit has them (`CockpitRadio`), for the phone's NOW line and RADIO.
@@ -431,6 +432,17 @@ enum CompanionTiming {
     /// silent this long went to a listener that is gone (the phone's browse can find the publish the
     /// iPad is tearing down). (6.1.0)
     static let firstFrameLimit: TimeInterval = 5
+
+    /// Viewer: a browse that has found no iPad within this is started afresh, the pause before it
+    /// growing each time (`CompanionConnectivityManager.viewerRetryDelay`). One that hung used to wait
+    /// for as long as the phone stayed in the foreground. (6.2.0)
+    static let browseWatchdog: TimeInterval = 15
+
+    /// Either side: a send that has not gone within this is a failed send, and the next goes. A send on
+    /// a connection that never became ready can wait for good, and the messages behind it with it. As
+    /// long as the first-frame limit, so the viewer's first ping, which sets up the connection, is not
+    /// cut short before the connection would be given up anyway. (6.2.0)
+    static let sendLimit: TimeInterval = 5
 
     /// Master: an unchanged plan or checklist snapshot goes again this often. Both are sent when they
     /// change, and a datagram lost over UDP is not resent: the phone kept a stale check or plan until

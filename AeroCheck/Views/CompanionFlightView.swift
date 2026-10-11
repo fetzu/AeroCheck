@@ -48,9 +48,12 @@ struct CompanionFlightView: View {
         return d.lineUpTime != nil && d.landingTime == nil
     }
     private var isConnected: Bool { companionConnectivityManager.connectionState == .connected }
+    /// By when the data arrived on this phone, not by the iPad's timestamp: the two clocks differ by a
+    /// few seconds, and the banner came and went on a link that was fine. (6.2.0)
     private var isDataStale: Bool {
         guard let d = flightData, d.isFlightActive else { return false }
-        return now.timeIntervalSince(d.timestamp) > CompanionTiming.streamStaleAfter
+        return CompanionConnectivityManager.flightDataIsStale(
+            receivedAt: companionConnectivityManager.lastReceivedDataAt, now: now)
     }
 
     // MARK: - Theme parity (mirror the iPad's day/sunlight/night cockpit theme)

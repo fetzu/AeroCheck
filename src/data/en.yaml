@@ -17,9 +17,9 @@ hero:
   subtitle: "One cockpit screen you can read from your thigh: the checklist step you are on, speed and altitude, the map, and the buttons under your thumb. Around it, the whole flight, from the first idea to the logbook line."
   primary: { label: "Get it on GitHub", href: "https://github.com/fetzu/AeroCheck/releases", icon: "brand-github" }
   secondary: { label: "Read the manual", href: "/manual", icon: "book-2" }
-  cycle_caption: "the Cockpit · the map · Today · a flight · close-out"
-  cycle: ["cockpit", "cockpitmap", "today", "flight", "closeout"]
-  cycle_labels: ["The Cockpit in cruise", "The Cockpit on its map", "Today, with the day's flight", "A followed flight, 10 of 12 prepared", "Closing out a flight"]
+  cycle_caption: "the Cockpit · the map · traffic circuits · Today · a flight · close-out"
+  cycle: ["cockpit", "cockpitmap", "circuits", "today", "flight", "closeout"]
+  cycle_labels: ["The Cockpit in cruise", "The Cockpit on its map", "Traffic circuits around LSZQ", "Today, with the day's flight", "A followed flight, 10 of 12 prepared", "Closing out a flight"]
 
 # The four chapters a flight has in the app. FLY is the core, filled in the flight-deck cyan.
 chapters:
@@ -27,7 +27,7 @@ chapters:
   items:
     - { key: "plan",    name: "Plan",    line: "Where, when, which aircraft — and a route that checks itself." }
     - { key: "prepare", name: "Prepare", line: "Weather, NOTAMs, the ATC flight plan, the border pack, the nav log." }
-    - { key: "fly",     name: "Fly",     line: "One cockpit screen: the checklist or the map, at full height.", core: true }
+    - { key: "fly",     name: "Fly",     line: "One cockpit screen: the checklist, the map or the route, at full height.", core: true }
     - { key: "close",   name: "Close",   line: "Close the ATC flight plan, write the logbook line, know what it cost." }
 
 # Rows with `fly: true` sit in the FLY band, with the iPhone band (`phone`) after them.
@@ -50,15 +50,21 @@ flagship:
       anchor: "fly"
       fly: true
       title: "One screen in the cockpit"
-      description: "The Cockpit keeps everything where the hand learns it: the phase and flight time on top, ground speed, altitude and track in a strip, the checklist or the map at full height, and a thumb bar at the bottom. The item you are on is framed where it stands; CHECK names it, DEFER keeps it for later, and NEXT shows what is still open before you move on. Take-offs, go-arounds, touch-and-goes and landings are detected and logged by themselves."
-      chips: ["Kneeboard-sized, portrait", "CHECK · DEFER · NEXT", "Deferred items", "GS · ALT · TRK", "The pane follows the flight", "Auto go-around · touch-and-go · landing", "Day · Night · sunlight contrast"]
+      description: "The Cockpit keeps everything where the hand learns it: the phase and flight time on top, then ground speed, altitude, track and the next waypoint, and the frequencies to call now and next; three pages at full height, CHECKLIST, MAP and ROUTE; and four buttons at the bottom that never move. The item you are on is framed where it stands; CHECK names it, DEFER keeps it for later, and NEXT shows what is still open before you move on. Take-offs, go-arounds, touch-and-goes and landings are detected and logged by themselves."
+      chips: ["Kneeboard-sized, portrait", "CHECKLIST · MAP · ROUTE", "CHECK · DEFER · NEXT", "Deferred items", "GS · ALT · TRK · NEXT", "The page follows the flight", "Auto go-around · touch-and-go · landing", "Day · Night · sunlight contrast"]
       shot: "cockpit"
     - step: "03 · Fly"
       fly: true
       title: "The map, in context"
-      description: "En route the pane turns to the map: the next waypoint on top in the route's magenta, with bearing, distance, time and ETA; the frequencies to call now and next at the bottom; MARK, the leg timer and Divert under your thumb, with undo. Swiss ICAO and glider charts, satellite imagery and a worldwide OpenAIP airspace overlay, cached for offline use."
+      description: "En route the page turns to the map, and MAP is the chart alone: the aircraft, the route and the airspace, with MARK, the leg timer and Divert under your thumb, with undo. ROUTE has the destination, every leg, and every frequency in the order you will call it. Swiss ICAO and glider charts, satellite imagery and a worldwide OpenAIP airspace overlay, cached for offline use."
       chips: ["Next waypoint · BRG · DIST · ETE · ETA", "NOW / NEXT frequencies", "MARK, with undo", "Divert in two taps", "ICAO · Segelflug · satellite", "OpenAIP airspace", "Offline by continent"]
       shot: "cockpitmap"
+    - step: "03 · Fly"
+      fly: true
+      title: "Traffic circuits, drawn on the map"
+      description: "Around the aerodromes, the map draws the traffic circuits with their altitude, the VFR arrival and departure routes, and the arrival sectors with their letter, as on the VACs, from open flightmaps in 22 countries. Close in, each runway's extended centreline appears with its number; in flight, the runway in use is filled and arrows show which way the circuit is flown. Downloaded by country, updated every AIRAC cycle, and indicative: the callout links to the aerodrome's official chart, which has the last word."
+      chips: ["Traffic circuits · altitude", "VFR arrival & departure routes", "Arrival sectors, lettered", "Runway in use", "open flightmaps · 22 countries", "AIRAC, offline", "Official chart links"]
+      shot: "circuits"
     - step: "03 · Fly"
       fly: true
       title: "Every speed, at a glance"
@@ -76,8 +82,8 @@ flagship:
 phone:
   step: "03 · Fly · iPhone"
   title: "The same Cockpit on the iPhone"
-  description: "Sized for a phone at arm's length: the same zones in the same order, CHECK and DEFER under the thumb, and a tap on the list checks too. Turn it on its side and the controls move to a column, leaving the map the rest of the screen."
-  chips: ["Portrait and landscape", "Tap the list to check", "Companion mode with an iPad"]
+  description: "Sized for a phone at arm's length: the same three pages, a word per button under the thumb, and a tap on the list checks too. ROUTE shows the legs or the radio, one at a time. Turn it on its side and the controls move to a column, leaving the map the rest of the screen."
+  chips: ["Portrait and landscape", "Tap the list to check", "LEGS | RADIO", "Companion mode with an iPad"]
   shots: ["cockpitmap", "landscape"]
 
 supporting:

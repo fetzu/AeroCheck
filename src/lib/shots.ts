@@ -10,6 +10,8 @@ const both = (key: string, label: string): Shot => ({ ipad: v6('ipad', key), iph
 export const SHOTS: Record<string, Shot> = {
   cockpit:    both('cockpit', 'The Cockpit in cruise'),
   cockpitmap: both('cockpitmap', 'The Cockpit on its map'),
+  // 6.2: Plan › Map close in on LSZQ, its traffic circuit and arrival sectors from open flightmaps.
+  circuits:   both('circuits', 'Traffic circuits on the map'),
   vspeeds:    both('vspeeds', 'V-SPEEDS'),
   today:      both('today', 'Today, with the day’s flight'),
   flight:     both('flight', 'A followed flight'),

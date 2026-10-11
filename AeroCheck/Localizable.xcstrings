@@ -6753,6 +6753,40 @@
         }
       }
     },
+    "cockpit.menu.circuits": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Circuits"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tours de piste"
+          }
+        }
+      }
+    },
+    "cockpit.menu.fullStops": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Full stops"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Atterrissages complets"
+          }
+        }
+      }
+    },
     "deferred.tag": {
       "extractionState": "manual",
       "localizations": {

@@ -7,8 +7,10 @@ import SwiftUI
 //
 //   iPad   the strip, GS · ALT · TRK · NEXT, NEXT with its figures (`StripNextCell`); then NOW | NEXT,
 //          the two frequencies on one line each (`ReadBandFrequencies`)
-//   phone  the strip, GS · ALT · TRK; then the next line, the waypoint and its figures on two rows
-//          (`ReadBandNextLine`), and the NOW line (`ReadBandNowLine`), on one card
+//   phone  the strip, GS · ALT · TRK, its vertical speed beside ALT's label; then the next line, the
+//          waypoint, its distance and its ETE on one line (`ReadBandColumnNextLine`), and the NOW line
+//          (`ReadBandNowLine`), on one card. The Companion's NAV screen keeps the two-row next line
+//          (`ReadBandNextLine`), with its turn arrow
 //   phone on its side, in its column (6.2, PR 5): the strip at 28 pt; then the waypoint, its distance
 //          and its ETE on one line (`ReadBandColumnNextLine`) over the NOW line; under 400 pt tall, the
 //          waypoint, its ETE and NOW on one line (`ReadBandMergedLine`)
@@ -60,7 +62,8 @@ struct CockpitReadRows: View {
                     gpsSignalStatus: strip.gpsSignalStatus, altitudeFeet: strip.altitudeFeet,
                     headingDegrees: strip.headingDegrees, verticalSpeedFPM: strip.verticalSpeedFPM,
                     kneeboard: true, next: wide ? next : nil, onNextTap: onShowRoute,
-                    onSpeedTap: onSpeedTap, language: language, compact: layout == .columns)
+                    onSpeedTap: onSpeedTap, language: language, compact: layout == .columns,
+                    tight: layout == .narrow)
                     .readBandPart(.strip)
             }
             switch layout {
@@ -79,11 +82,14 @@ struct CockpitReadRows: View {
         .environment(\.readBandReporter, onLayout)
     }
 
-    /// The next line (with the strip) and the NOW line, on one card.
+    /// The next line (with the strip) and the NOW line, on one card. The next line is the column's, one
+    /// line: the name, its distance and its ETE. The two rows it had (NEXT over the name, the bearing, the
+    /// distance, the ETE and the ETA beside them) left an iPhone's MAP about 290 pt of chart and ROUTE a
+    /// leg and a half; the bearing and the ETA are on ROUTE. (6.2.0, device check 11 Oct)
     private var phoneCard: some View {
         VStack(spacing: 0) {
             if strip != nil {
-                ReadBandNextLine(figures: next, scale: scale, onTap: onShowRoute, language: language)
+                ReadBandColumnNextLine(figures: next, scale: scale, onTap: onShowRoute, language: language)
                 Rectangle().fill(theme.glassStroke).frame(height: 0.5)
                     .padding(.horizontal, metrics.cellPadding)
             }

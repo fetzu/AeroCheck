@@ -2156,6 +2156,10 @@ enum L10n {
         static let display = String(localized: "cockpit.display")
         static let options = String(localized: "cockpit.options")
         static let endFlightHint = String(localized: "cockpit.endFlightHint")
+        /// Menu's running flight time, and its circuit counts. (6.2.0)
+        static let flightTime = String(localized: "Flight time")
+        static let circuits = String(localized: "cockpit.menu.circuits")
+        static let fullStops = String(localized: "cockpit.menu.fullStops")
     }
 
     /// The check slot on the map, in flight. (6.1)

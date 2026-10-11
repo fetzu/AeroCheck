@@ -1324,9 +1324,16 @@ struct CockpitInstrumentStrip: View {
     /// rather than on a line of its own, so the strip fits the column with the act band under it (the
     /// author's answer to the plan's Q2).
     var compact: Bool = false
+    /// The phone upright (6.2.0, device check 11 Oct): the values at their full size, but the vertical
+    /// speed beside ALT's label and 4 pt above and below, as on its side. Its own line under ALT made the
+    /// strip 100 pt tall, of a phone whose chart had about 290.
+    var tight: Bool = false
 
     /// The values in the phone's column on its side.
     static let compactValueSize: CGFloat = 28
+
+    /// The vertical speed beside ALT's label rather than on a line under the value.
+    private var speedBesideLabel: Bool { compact || tight }
 
     /// Whether GS, ALT and TRK hug their widest values, leaving NEXT the rest.
     private var hugsValues: Bool { kneeboard && next != nil }
@@ -1389,9 +1396,10 @@ struct CockpitInstrumentStrip: View {
             }
         }
         .fixedSize(horizontal: false, vertical: true)
-        // 6 pt on the phone, 4 in its column on its side, which holds the header, the pages' picker, the
-        // strip, the next and NOW line and the act band in 370 pt. (6.1, device check; 6.2, PR 5)
-        .padding(.vertical, compact ? 4 : CockpitType.size(kneeboard: 10, phone: 6))
+        // 4 pt on the phone, upright and in its column on its side, which holds the header, the pages'
+        // picker, the strip, the next and NOW line and the act band in 370 pt. (6.1, device check; 6.2,
+        // PR 5; 6.2.0, device check 11 Oct)
+        .padding(.vertical, speedBesideLabel ? 4 : CockpitType.size(kneeboard: 10, phone: 6))
         .padding(.horizontal, 8)
         .background(theme.glassFill, in: RoundedRectangle(cornerRadius: 14))
         .overlay(RoundedRectangle(cornerRadius: 14).strokeBorder(theme.glassStroke, lineWidth: 0.5))
@@ -1434,7 +1442,7 @@ struct CockpitInstrumentStrip: View {
         // In the phone's column on its side the vertical speed sits beside the label, where the cell has
         // room: under the value it took a line of the column's height. (6.2, PR 5)
         cell(label: "ALT ft", widest: 88_888.formatted(.number), accessory: {
-            if compact { verticalSpeedText }
+            if speedBesideLabel { verticalSpeedText }
         }) {
             // The vertical speed's line is always there, empty in level flight: appearing at ±50 fpm it
             // pushed the strip, and the map under it, down a line and back up, in flight. The value
@@ -1444,7 +1452,7 @@ struct CockpitInstrumentStrip: View {
                     .font(.aero(size: valueSize, weight: .medium, design: .monospaced))
                     .foregroundColor(theme.textPrimary)
                     .minimumScaleFactor(0.5).lineLimit(1))
-                if !compact { verticalSpeedText }
+                if !speedBesideLabel { verticalSpeedText }
             }
         }
         .accessibilityElement(children: .ignore)

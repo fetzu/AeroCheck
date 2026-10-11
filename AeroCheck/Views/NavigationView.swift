@@ -3099,6 +3099,18 @@ struct SwissScaleBar: View {
     var mapWidth: CGFloat = 0  // Actual map width in points, 0 means use fallback
     /// Aviation distance unit: NM (default for the nav map) vs metric. (v4 UI/UX Revamp — configurable in settings)
     var nauticalMiles: Bool = false
+    /// The figure's size: 11 pt on Plan › Map; the in-flight label size on the Cockpit's MAP, where it is
+    /// read in flight (`MapChromeGeometry.Metrics.textSize`, 20 pt on the iPad, 17 on the phone). (6.3.0)
+    var labelSize: CGFloat = 11
+
+    /// The card's padding above and below: less around a figure at the label size, so the card keeps the
+    /// 50 pt the Cockpit's chrome gives it (`cardHeight`).
+    static func verticalPadding(labelSize: CGFloat) -> CGFloat { labelSize > 11 ? 5 : 8 }
+
+    /// The card's height: the figure's line, 2 pt, the 8 pt bar, the padding.
+    static func cardHeight(labelSize: CGFloat) -> CGFloat {
+        UIFont.aero(size: labelSize, weight: .medium).lineHeight + 2 + 8 + 2 * verticalPadding(labelSize: labelSize)
+    }
 
     /// Calculate the appropriate scale distance based on current zoom
     /// Uses proper geodetic distance calculation for accuracy
@@ -3183,7 +3195,7 @@ struct SwissScaleBar: View {
         return VStack(alignment: .leading, spacing: 2) {
             // Scale text
             Text(info.text)
-                .font(.aero(size: 11, weight: .medium))
+                .font(.aero(size: labelSize, weight: .medium))
                 .foregroundColor(.white)
 
             // Scale bar (L-shaped like SwissTopo)
@@ -3204,7 +3216,8 @@ struct SwissScaleBar: View {
                     .frame(width: 2, height: 8)
             }
         }
-        .padding(8)
+        .padding(.horizontal, 8)
+        .padding(.vertical, Self.verticalPadding(labelSize: labelSize))
         .background(
             RoundedRectangle(cornerRadius: 6)
                 .fill(Color.black.opacity(0.5))

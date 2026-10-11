@@ -195,8 +195,9 @@ struct ContentView: View {
             }
 
             // The screen stays on for as long as a flight runs, and only then: a kneeboard iPad must
-            // not lock mid-approach, and one on the desk should. It was a setting. (v6.0 · P7)
-            UIApplication.shared.isIdleTimerDisabled = appState.isFlightActive
+            // not lock mid-approach, and one on the desk should. It was a setting. (v6.0 · P7) And on a
+            // Companion iPhone showing the iPad's flight (`ScreenAwakeRule`, 6.2.0).
+            UIApplication.shared.isIdleTimerDisabled = keepsScreenAwake
 
             // Retire an activation that was never flown. Runs once, at launch, and only when no
             // flight is in progress — a restored flight keeps its plan whatever its age.
@@ -211,12 +212,12 @@ struct ContentView: View {
         .onChange(of: appState.settings.enableCostTracking) { _, tracks in
             threadManager.tracksCost = tracks
         }
+        .onChange(of: keepsScreenAwake) { _, awake in
+            UIApplication.shared.isIdleTimerDisabled = awake
+        }
         // Once — and only once BOTH sides have loaded. Deliberately not hung off a plan change:
         // `FlightCreator` adds the plan before it creates the flight, so a sweep triggered by the
         // insertion would strip the date it had just set, a beat before anything followed it. (v5.x)
-        .onChange(of: appState.isFlightActive) { _, active in
-            UIApplication.shared.isIdleTimerDisabled = active
-        }
         .onChange(of: routeDateSweepReady) { _, ready in
             if ready { sweepRouteDates() }
         }
@@ -878,6 +879,25 @@ private extension ContentView {
         hasSweptRouteDates = true
         let followed = Set(threadManager.threads.compactMap(\.flightPlanId))
         flightPlanManager.clearDatesFromUnflownRoutes(followedPlanIds: followed)
+    }
+
+    /// See `ScreenAwakeRule`.
+    var keepsScreenAwake: Bool {
+        ScreenAwakeRule.keepsAwake(isFlightActive: appState.isFlightActive,
+                                   companionRole: companionConnectivityManager.currentRole,
+                                   companionState: companionConnectivityManager.connectionState)
+    }
+}
+
+/// When the screen stays on: for as long as a flight runs, and only then, a kneeboard iPad must not
+/// lock mid-approach and one on the desk should (v6.0 · P7). And on a Companion iPhone while it shows the
+/// iPad's flight (`.connected`, or `.reconnecting` within the grace after a drop): it runs no flight of
+/// its own, so it locked after its auto-lock delay, was suspended, and the link went with it. (6.2.0)
+enum ScreenAwakeRule {
+    static func keepsAwake(isFlightActive: Bool, companionRole: CompanionRole,
+                           companionState: CompanionConnectionState) -> Bool {
+        if isFlightActive { return true }
+        return companionRole == .viewer && (companionState == .connected || companionState == .reconnecting)
     }
 }
 

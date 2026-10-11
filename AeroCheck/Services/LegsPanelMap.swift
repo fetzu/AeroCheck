@@ -54,10 +54,14 @@ enum LegsPanelMap {
         var waypoint: CLLocationCoordinate2D?
         /// 0 in North up, the track in Track up.
         var heading: CLLocationDirection
+        /// On the ground (no flight): where the leg ending at `waypoint` starts. The band then frames
+        /// that leg, its two ends, in place of the aircraft, which there is the device on the desk.
+        /// nil in flight. (6.3.0, the author's device check carry-1)
+        var legStart: CLLocationCoordinate2D? = nil
 
         static func == (a: Band, b: Band) -> Bool {
             a.rect == b.rect && a.viewSize == b.viewSize && a.heading == b.heading
-                && same(a.aircraft, b.aircraft) && same(a.waypoint, b.waypoint)
+                && same(a.aircraft, b.aircraft) && same(a.waypoint, b.waypoint) && same(a.legStart, b.legStart)
         }
 
         private static func same(_ a: CLLocationCoordinate2D?, _ b: CLLocationCoordinate2D?) -> Bool {
@@ -94,6 +98,8 @@ enum LegsPanelMap {
         /// at that zoom or another one comes up, so the map doesn't zoom out and back as the aircraft
         /// closes in.
         case routeAhead
+        /// On the ground: a leg, its two ends in the band, zoomed in or out to fit. (6.3.0)
+        case leg
     }
 
     struct Placement: Equatable {
@@ -169,6 +175,31 @@ enum LegsPanelMap {
                                             scale: scale * zoomOut, heading: heading),
                              zoomOut: zoomOut, framing: .aircraftAndWaypoint)
         }
+    }
+
+    /// The closest a leg is framed: a departure row, or two waypoints a few hundred metres apart, are
+    /// shown with this much chart across the band's long side rather than at street level.
+    static let minimumLegSpanMeters = 3 * 1852.0
+
+    /// Where the camera goes so the band frames a leg on the ground (Plan › Map, no flight): the two
+    /// ends in the band's inner part, centred, at the zoom that just fits them, closer than the pilot's
+    /// for a short leg, farther for a long one; never closer than `minimumLegSpanMeters` across the band. The band's
+    /// in-flight framing frames the aircraft, which on the ground is the device wherever it sits: a leg
+    /// tapped in the table panned around the pilot's desk. (6.3.0, the author's device check carry-1)
+    static func placeLeg(from start: MKMapPoint, to end: MKMapPoint, heading: CLLocationDirection,
+                         band: CGRect, viewSize: CGSize, cameraPoint: CGPoint? = nil, scale: Double) -> Placement {
+        let viewCenter = cameraPoint ?? CGPoint(x: viewSize.width / 2, y: viewSize.height / 2)
+        let inner = innerBand(band, viewSize: viewSize)
+        let middle = CGPoint(x: inner.midX, y: inner.midY)
+        let midpoint = MKMapPoint(x: (start.x + end.x) / 2, y: (start.y + end.y) / 2)
+        let span = toScreen(dx: end.x - start.x, dy: end.y - start.y, heading: heading)
+        let minimum = MKMapPointsPerMeterAtLatitude(midpoint.coordinate.latitude) * minimumLegSpanMeters
+        let needed = max(abs(span.dx) / scale / max(inner.width, 1),
+                         abs(span.dy) / scale / max(inner.height, 1),
+                         minimum / scale / max(max(inner.width, inner.height), 1))
+        return Placement(center: center(putting: midpoint, at: middle, viewCenter: viewCenter,
+                                        scale: scale * needed, heading: heading),
+                         zoomOut: needed, framing: .leg)
     }
 
     /// Where a point of the map lands in the view, for a camera centre, zoom (map points per screen

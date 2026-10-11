@@ -115,6 +115,49 @@ final class LegsPanelMapTests: XCTestCase {
         XCTAssertEqual(off.y - band.midY, 16, accuracy: 0.01)
     }
 
+    // MARK: - On the ground: the leg (6.3.0, the author's device check carry-1)
+
+    /// Plan › Map without a flight: a tapped leg is framed by its two ends, wherever the device is, and
+    /// a short one is zoomed in on.
+    func testOnTheGroundAShortLegIsZoomedInOnAndCentred() {
+        let start = offset(east: 0, south: 0)
+        let end = offset(east: 300, south: -20)   // a leg of some 6 km
+        let placement = LegsPanelMap.placeLeg(from: start, to: end, heading: 0, band: band,
+                                              viewSize: viewSize, scale: scale)
+        XCTAssertEqual(placement.framing, .leg)
+        XCTAssertLessThan(placement.zoomOut, 1, "closer than the pilot's zoom")
+        let s = onScreen(start, placement), e = onScreen(end, placement)
+        assertInside(s, innerBand, "the leg's start")
+        assertInside(e, innerBand, "the leg's end")
+        XCTAssertEqual((s.x + e.x) / 2, band.midX, accuracy: 0.01, "the leg centred in the band")
+        XCTAssertEqual((s.y + e.y) / 2, band.midY, accuracy: 0.01)
+        XCTAssertEqual(abs(e.x - s.x), innerBand.width, accuracy: 0.5, "as large as the band holds it")
+    }
+
+    /// A long leg is zoomed out to fit, without the in-flight cap of three bands.
+    func testOnTheGroundALongLegIsZoomedOutToFit() {
+        let start = offset(east: -3_000, south: 500)
+        let end = offset(east: 3_000, south: -500)
+        let placement = LegsPanelMap.placeLeg(from: start, to: end, heading: 0, band: band,
+                                              viewSize: viewSize, scale: scale)
+        XCTAssertGreaterThan(placement.zoomOut, LegsPanelMap.farFactor)
+        assertInside(onScreen(start, placement), innerBand, "the leg's start")
+        assertInside(onScreen(end, placement), innerBand, "the leg's end")
+    }
+
+    /// The departure's row (no leg ends there): the aerodrome in the middle, with three nautical miles of
+    /// chart across the band, not at street level.
+    func testOnTheGroundTheDepartureIsShownWithTheChartAroundIt() {
+        let placement = LegsPanelMap.placeLeg(from: aircraft, to: aircraft, heading: 0, band: band,
+                                              viewSize: viewSize, scale: scale)
+        let point = onScreen(aircraft, placement)
+        XCTAssertEqual(point.x, band.midX, accuracy: 0.01)
+        XCTAssertEqual(point.y, band.midY, accuracy: 0.01)
+        let metres = scale * placement.zoomOut * Double(innerBand.width)
+            / MKMapPointsPerMeterAtLatitude(aircraft.coordinate.latitude)
+        XCTAssertEqual(metres, LegsPanelMap.minimumLegSpanMeters, accuracy: 1, "the band's width spans 3 NM")
+    }
+
     func testAWaypointThatFitsKeepsThePilotsZoom() {
         let waypoint = offset(east: 300, south: -60)
         let placement = LegsPanelMap.place(aircraft: aircraft, waypoint: waypoint, heading: 0, band: band,

@@ -1317,16 +1317,25 @@ struct NavigationMapView: View {
 
     /// The band the open legs panel leaves, as the map views take it; nil with the panel closed. It
     /// frames the waypoint previewed from the leg table while there is one, else the navigation target
-    /// (the next waypoint, or the diversion field).
+    /// (the next waypoint, or the diversion field). In flight with the aircraft; on the ground (Plan ›
+    /// Map, no flight) the leg ending there, its two ends, since the "aircraft" is then the device on the
+    /// desk (6.3.0, the author's device check carry-1).
     private var legsBand: LegsPanelMap.Band? {
         guard navSheetExpanded else { return nil }
         let geometry = chartGeometry
         var waypoint: CLLocationCoordinate2D?
+        var legStart: CLLocationCoordinate2D?
         if let plan = flightPlanManager.activeFlightPlan, !flightPlanManager.isFlightPlanCompleted {
+            let end: Int?
             if let index = previewWaypointIndex, plan.waypoints.indices.contains(index) {
                 waypoint = plan.waypoints[index].coordinate
+                end = index
             } else {
                 waypoint = plan.navigationTarget?.coordinate
+                end = plan.diversion == nil ? plan.currentWaypointIndex : nil
+            }
+            if !appState.isFlightActive, let end, plan.waypoints.indices.contains(end) {
+                legStart = plan.waypoints[max(0, end - 1)].coordinate
             }
         }
         return LegsPanelMap.Band(
@@ -1338,7 +1347,8 @@ struct NavigationMapView: View {
             aircraft: locationManager.currentLocation?.coordinate,
             waypoint: waypoint,
             heading: mapOrientationMode == .trackUp
-                ? (locationManager.currentCourseDegrees ?? mapState.cameraHeading) : 0)
+                ? (locationManager.currentCourseDegrees ?? mapState.cameraHeading) : 0,
+            legStart: legStart)
     }
 
     /// The panel opened: keep the map as it is, to put it back on closing, and show the leg being flown.
@@ -2624,7 +2634,10 @@ struct NavigationMapView: View {
 
     /// The previewed waypoint DIRECT can fly to now, if any (`LegsPanelDirectBar.offers`).
     private var previewDirectTarget: (index: Int, name: String)? {
-        guard let plan = flightPlanManager.activeFlightPlan, let index = previewWaypointIndex,
+        // In flight only, as Divert: on the ground it re-armed the route from there before any flight; a
+        // route is changed in the route builder. (6.3.0, the author's pick, 11 Oct)
+        guard appState.isFlightActive,
+              let plan = flightPlanManager.activeFlightPlan, let index = previewWaypointIndex,
               plan.waypoints.indices.contains(index),
               LegsPanelDirectBar.offers(index: index, currentIndex: plan.currentWaypointIndex,
                                         diverting: plan.diversion != nil) else { return nil }
@@ -2663,7 +2676,7 @@ struct NavigationMapView: View {
 
     /// Tap a waypoint to preview it; tap the active/previewed one to return. The leg table only shows in
     /// the open panel, whose band frames the aircraft and the previewed waypoint in place of the next
-    /// one. The map the pilot left isn't touched, so closing the panel still puts it back. (It centred the
+    /// one (on the ground, the leg ending at that waypoint: `legsBand`). The map the pilot left isn't touched, so closing the panel still puts it back. (It centred the
     /// map on the waypoint, under the panel; 6.1, option C)
     private func previewWaypoint(index: Int, plan: FlightPlan) {
         guard plan.waypoints.indices.contains(index) else { return }
@@ -3412,9 +3425,8 @@ final class LegsBandDriver {
     }
 
     private func frame(_ mapView: MKMapView, band: LegsPanelMap.Band) {
-        // No position: the camera stays where it is. Not measured with the panel open yet: wait for it.
-        guard let aircraft = band.aircraft, CLLocationCoordinate2DIsValid(aircraft), let rect = band.rect,
-              band.viewSize.height > 0, let pilotScale, let measured = scalePerMetre else { return }
+        // Not measured with the panel open yet: wait for it.
+        guard let rect = band.rect, band.viewSize.height > 0, let pilotScale, let measured = scalePerMetre else { return }
         if !Self.same(band.waypoint, framedWaypoint) {
             // Another waypoint (MARK, a pass, Direct to, a preview): decide afresh how far is far.
             framing = nil
@@ -3425,9 +3437,19 @@ final class LegsBandDriver {
         let safe = mapView.safeAreaInsets
         let cameraPoint = CGPoint(x: safe.left + (band.viewSize.width - safe.left - safe.right) / 2,
                                   y: safe.top + (band.viewSize.height - safe.top - safe.bottom) / 2)
-        let placement = LegsPanelMap.place(aircraft: MKMapPoint(aircraft), waypoint: band.waypoint.map(MKMapPoint.init),
+        let placement: LegsPanelMap.Placement
+        if let start = band.legStart, let end = band.waypoint {
+            // On the ground: the leg, whatever the device's own position.
+            placement = LegsPanelMap.placeLeg(from: MKMapPoint(start), to: MKMapPoint(end), heading: band.heading,
+                                              band: rect, viewSize: band.viewSize, cameraPoint: cameraPoint,
+                                              scale: pilotScale)
+        } else {
+            // No position: the camera stays where it is.
+            guard let aircraft = band.aircraft, CLLocationCoordinate2DIsValid(aircraft) else { return }
+            placement = LegsPanelMap.place(aircraft: MKMapPoint(aircraft), waypoint: band.waypoint.map(MKMapPoint.init),
                                            heading: band.heading, band: rect, viewSize: band.viewSize,
                                            cameraPoint: cameraPoint, scale: pilotScale, previous: framing)
+        }
         framing = placement.framing
         // The camera distance that gives that zoom in the map as laid out with the panel open, from the
         // last zoom per metre measured at rest, taken to the band's height (MapKit's field of view is

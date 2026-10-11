@@ -272,6 +272,9 @@ struct FlightView: View {
             FlightInfoSheet(locationManager: locationManager, onEndFlight: {
                 showFlightInfo = false
                 performEndFlight()
+            }, onAbandonFlight: {
+                showFlightInfo = false
+                performAbandonFlight()
             })
         }
         .sheet(item: $openItemsReview) { review in
@@ -347,21 +350,7 @@ struct FlightView: View {
         }
         .alert(L10n.Alert.abandonFlightTitle, isPresented: $showAbandonFlightAlert) {
             Button(L10n.Button.cancel, role: .cancel) { }
-            Button(L10n.Alert.abandonFlightButton, role: .destructive) {
-                // Release the followed flight FIRST, while the flight id still exists to match on.
-                // An abandoned flight did not happen: leaving it attached left the thread reading
-                // IN FLIGHT forever, its FLY chapter green, and its START FLIGHT button hidden —
-                // with no flight running. (device pass)
-                let abandoned = appState.currentFlight
-                if let abandonedId = abandoned?.id {
-                    threadManager.detachAbandonedFlight(abandonedId)
-                }
-                locationManager.stopTracking()
-                appState.cancelFlight()
-                // Only the plan this flight was started with: one left armed through circuits or a
-                // flight started without it stays armed. (v6.0.1)
-                flightPlanManager.abandonFlownPlan(of: abandoned)
-            }
+            Button(L10n.Alert.abandonFlightButton, role: .destructive) { performAbandonFlight() }
         } message: {
             Text(L10n.Alert.abandonFlightMessage)
         }
@@ -755,6 +744,24 @@ struct FlightView: View {
         }
     }
 
+    /// The flight discarded, unsaved: from the hold on the aircraft (the iPad's header) or Menu's ABANDON
+    /// FLIGHT (the phone's, whose header has no aircraft since 6.2.0), each asked first.
+    private func performAbandonFlight() {
+        // Release the followed flight FIRST, while the flight id still exists to match on.
+        // An abandoned flight did not happen: leaving it attached left the thread reading
+        // IN FLIGHT forever, its FLY chapter green, and its START FLIGHT button hidden —
+        // with no flight running. (device pass)
+        let abandoned = appState.currentFlight
+        if let abandonedId = abandoned?.id {
+            threadManager.detachAbandonedFlight(abandonedId)
+        }
+        locationManager.stopTracking()
+        appState.cancelFlight()
+        // Only the plan this flight was started with: one left armed through circuits or a
+        // flight started without it stays armed. (v6.0.1)
+        flightPlanManager.abandonFlownPlan(of: abandoned)
+    }
+
     // MARK: - Abandon Flight Long Press
 
     /// Hold the aircraft name this long to abandon the flight.
@@ -764,8 +771,7 @@ struct FlightView: View {
     /// Both the airplane icon and the call sign are tappable. `stacked` (the Cockpit) puts the circuit
     /// caption and counts under the registration instead of beside it: in portrait the header row had no
     /// room for them, and cut "(for circuits)" short. (on-device review #2)
-    private func abandonableAircraftIdentifier(iconSize: CGFloat, isCompact: Bool, stacked: Bool = false,
-                                               circuitCaption: Bool = true) -> some View {
+    private func abandonableAircraftIdentifier(iconSize: CGFloat, isCompact: Bool, stacked: Bool = false) -> some View {
         HStack(spacing: isCompact ? 4 : 8) {
             // Progress ring behind the icon. The ring footprint is RESERVED at all times (fixed frame)
             // so it appearing on press-and-hold doesn't enlarge the icon and shift the top bar. (v4 UI/UX Revamp fix)
@@ -794,10 +800,8 @@ struct FlightView: View {
                         .fixedSize()
                     if appState.isCircuitMode {
                         HStack(spacing: 8) {
-                            if circuitCaption {
-                                Text(L10n.Flight.forCircuits)
-                                    .foregroundColor(theme.warning)
-                            }
+                            Text(L10n.Flight.forCircuits)
+                                .foregroundColor(theme.warning)
                             circuitCounts
                         }
                         .font(.aero(size: 16, weight: .medium))
@@ -1023,10 +1027,11 @@ extension FlightView {
             // strip of three, then the next line and the NOW line. (6.2, the read band)
             SeparateView { cockpitReadRows(layout: narrow ? .narrow : .wide) }
 
-            // 6 pt on the phone, whose chart has every point it can get (6.2, PR 4).
+            // 4 pt on the phone, whose chart has every point it can get (6.2, PR 4; 6.2.0, device check
+            // 11 Oct).
             cockpitPageBar(narrow: narrow)
                 .padding(.horizontal, narrow ? 12 : 16)
-                .padding(.vertical, narrow ? 6 : 10)
+                .padding(.vertical, narrow ? 4 : 10)
                 .onPreferenceChange(CockpitBriefingInBarKey.self) { briefingInBar = $0 }
 
             SeparateView { cockpitPage(layout: narrow ? .narrow : .wide) }
@@ -1221,11 +1226,13 @@ extension FlightView {
     /// its circuit line under the registration, the time, GPS and Menu keep their size, and the phase
     /// takes what's left, wrapping between words ("CHECK BEFORE / ENGINE START"), never inside one.
     /// (on-device review #2)
-    /// `narrow` (the phone in portrait): the phase gets a line of its own under the rest, instead of a
-    /// badge shrunk to about 7 pt, with the progress bar drawn in the phase button (6.2, PR 4). (iPhone
-    /// pass; 6.1)
-    /// `column` (the phone on its side): one row, the phase button with its bar and Menu, every phase's
-    /// name at 17 pt; the bar says where the phase sits, so the "10/16" goes to VoiceOver. (6.2, PR 5)
+    /// `narrow` (the phone in portrait) and `column` (the phone on its side): one row, the phase button
+    /// with its bar and Menu, every phase's name at 17 pt; the bar says where the phase sits, so the
+    /// "10/16" goes to VoiceOver. Upright, the phone had the aircraft, the flight time, GPS and Menu on a
+    /// row over the phase: 111 pt of a screen whose chart had about 290, "crowded" on the author's iPhone
+    /// (device check, 11 Oct). It has the column's header now: GPS says itself in the strip's flags, in
+    /// MAP's status slot and in Menu, and Menu has the flight time, the circuit's counts and ABANDON
+    /// FLIGHT, which the hold on the aircraft was. (6.2, PR 5; 6.2.0)
     @ViewBuilder
     private func cockpitHeader(style: CockpitHeaderStyle) -> some View {
         switch style {
@@ -1240,41 +1247,11 @@ extension FlightView {
                 cockpitGPSButton(labelled: true)
                 cockpitMenuButton()
             }
-        case .column:
+        case .column, .narrow:
             HStack(spacing: 8) {
                 cockpitPhaseButton(fillsWidth: true, showsProgress: true, showsCount: false)
                 cockpitMenuButton(.stacked, minHeight: Self.cockpitColumnHeaderHeight)
             }
-        case .narrow:
-            VStack(spacing: 6) {
-                // Richest first, down to one that always fits. A row wider than the screen doesn't
-                // just clip: it widens the whole Cockpit, which then sits off centre with the Menu
-                // past the edge. With the Menu labelled beside its icon, an iPhone 17's row was
-                // 16 pt too wide. (round 6, I-06)
-                ViewThatFits(in: .horizontal) {
-                    cockpitHeaderTopRow(gpsLabelled: true, menu: .labelled)
-                    cockpitHeaderTopRow(gpsLabelled: false, menu: .labelled)
-                    cockpitHeaderTopRow(gpsLabelled: false, menu: .stacked)
-                    cockpitHeaderTopRow(gpsLabelled: false, menu: .stacked, circuitCaption: false)
-                    cockpitHeaderTopRow(gpsLabelled: false, menu: .icon, circuitCaption: false)
-                }
-                cockpitPhaseButton(fillsWidth: true, showsProgress: true)
-            }
-        }
-    }
-
-    /// `circuitCaption`: "for circuits" beside the counts under the registration. Without it the counts
-    /// stay; the progress bar already says circuits by skipping cruise and descent.
-    private func cockpitHeaderTopRow(gpsLabelled: Bool, menu: CockpitMenuStyle,
-                                     circuitCaption: Bool = true) -> some View {
-        HStack(spacing: menu == .labelled ? 10 : 8) {
-            abandonableAircraftIdentifier(iconSize: 18, isCompact: false, stacked: true,
-                                          circuitCaption: circuitCaption)
-            Spacer(minLength: menu == .labelled ? 8 : 4)
-            cockpitCompanionIndicator
-            cockpitFlightTime
-            cockpitGPSButton(labelled: gpsLabelled)
-            cockpitMenuButton(menu)
         }
     }
 
@@ -1379,9 +1356,8 @@ extension FlightView {
         .accessibilityLabel(isBorrowingCompanionGPS ? L10n.GPS.sourceCompanion : L10n.GPS.status)
     }
 
-    /// The Menu button's shapes, widest first: the name beside the icon, the name under it (a phone's
-    /// header), the icon alone (only when nothing else fits).
-    enum CockpitMenuStyle { case labelled, stacked, icon }
+    /// The Menu button's shapes: the name beside the icon (the iPad), the name under it (the phone).
+    enum CockpitMenuStyle { case labelled, stacked }
 
     /// Named: the grey gear gave no hint that the display mode was inside. (review B7) `minHeight`: the
     /// header's, 44 pt in the phone's column on its side.
@@ -1401,8 +1377,6 @@ extension FlightView {
                         // the phone's scale on every mid-size iPhone in portrait. (v6.0 review)
                         Text(L10n.Cockpit.menu).font(.aero(size: CockpitType.label, weight: .bold))
                     }
-                case .icon:
-                    Image(systemName: "slider.horizontal.3").font(.aero(size: 18, weight: .semibold))
                 }
             }
             .foregroundColor(theme.action)
@@ -1428,7 +1402,8 @@ extension FlightView {
     @ViewBuilder
     private func cockpitPageBar(narrow: Bool) -> some View {
         if narrow {
-            cockpitPickerRow()
+            // The column's picker, 46 pt: the regular one's 54 went to the chart. (6.2.0, device check 11 Oct)
+            cockpitPickerRow(compact: true)
         } else {
             // A view of its own: two variants in a `ViewThatFits`, inline in the Cockpit's stack.
             SeparateView { cockpitPageBarRow }
@@ -2120,7 +2095,10 @@ struct FlightInfoSheet: View {
     @ObservedObject var locationManager: LocationManager
     /// Ends the flight now, whatever the phase. The sheet asks first.
     var onEndFlight: (() -> Void)? = nil
+    /// Discards the flight, unsaved. The sheet asks first. (6.2.0)
+    var onAbandonFlight: (() -> Void)? = nil
     @State private var confirmEndFlight = false
+    @State private var confirmAbandonFlight = false
     @ObservedObject private var companion = CompanionConnectivityManager.shared
     @Environment(\.dismiss) var dismiss
     @State private var detent: PresentationDetent = .large  // open extended
@@ -2246,10 +2224,27 @@ struct FlightInfoSheet: View {
                     }
 
                     settingsCard(title: L10n.Flight.times) {
-                        if timeEntries.isEmpty {
-                            HStack {
-                                Text(L10n.GPS.signalInactive).font(.aero(size: CockpitType.label)).foregroundColor(theme.textDim)
+                        // The flight time the iPad's header shows, and the phone's showed until 6.2.0, when
+                        // its header went to one row. (device check, 11 Oct)
+                        if appState.isFlightActive {
+                            HStack(spacing: 10) {
+                                Image(systemName: "timer").foregroundColor(theme.textSecondary).frame(width: 22)
+                                Text(L10n.Cockpit.flightTime).font(.aero(size: CockpitType.label)).foregroundColor(theme.textPrimary)
                                 Spacer()
+                                FlightDurationText(
+                                    startTime: appState.engineStartTime ?? appState.currentFlight?.startTime,
+                                    font: .aero(size: CockpitType.label, weight: .bold, design: .monospaced),
+                                    color: theme.textPrimary)
+                                    .fixedSize()
+                            }
+                            if !timeEntries.isEmpty { rowDivider }
+                        }
+                        if timeEntries.isEmpty {
+                            if !appState.isFlightActive {
+                                HStack {
+                                    Text(L10n.GPS.signalInactive).font(.aero(size: CockpitType.label)).foregroundColor(theme.textDim)
+                                    Spacer()
+                                }
                             }
                         } else {
                             ForEach(Array(timeEntries.enumerated()), id: \.offset) { idx, row in
@@ -2261,6 +2256,17 @@ struct FlightInfoSheet: View {
                                     Text(row.value).font(.aero(size: CockpitType.label, design: .monospaced)).foregroundColor(theme.textPrimary)
                                 }
                             }
+                        }
+                    }
+
+                    // The circuit's counts, which were under the registration in the phone's header. (6.2.0)
+                    if appState.isCircuitMode, let flight = appState.currentFlight {
+                        settingsCard(title: L10n.Cockpit.circuits) {
+                            countRow("arrow.triangle.2.circlepath", L10n.ChecklistAction.touchAndGoes, flight.touchAndGoCount)
+                            rowDivider
+                            countRow("airplane.arrival", L10n.Cockpit.fullStops, flight.fullStopCount)
+                            rowDivider
+                            countRow("arrow.up.right.circle", L10n.ChecklistAction.goArounds, flight.goAroundCount)
                         }
                     }
 
@@ -2288,6 +2294,27 @@ struct FlightInfoSheet: View {
                             Button(L10n.Button.cancel, role: .cancel) { }
                         } message: {
                             Text(L10n.Alert.endFlightMessage)
+                        }
+                    }
+
+                    // ABANDON FLIGHT: the hold on the aircraft's, which the phone's header no longer has.
+                    // Under END FLIGHT, smaller, and asked first. (6.2.0)
+                    if onAbandonFlight != nil {
+                        Button { confirmAbandonFlight = true } label: {
+                            Label(L10n.Alert.abandonFlightButton, systemImage: "xmark.octagon")
+                                .font(.aero(size: CockpitType.label, weight: .semibold))
+                                .foregroundColor(theme.danger)
+                                .frame(maxWidth: .infinity, minHeight: 52)
+                                .contentShape(Rectangle())
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityIdentifier("menu.abandonFlight")
+                        .confirmationDialog(L10n.Alert.abandonFlightTitle, isPresented: $confirmAbandonFlight,
+                                            titleVisibility: .visible) {
+                            Button(L10n.Alert.abandonFlightButton, role: .destructive) { onAbandonFlight?() }
+                            Button(L10n.Button.cancel, role: .cancel) { }
+                        } message: {
+                            Text(L10n.Alert.abandonFlightMessage)
                         }
                     }
                 }
@@ -2341,6 +2368,17 @@ struct FlightInfoSheet: View {
 
     private var rowDivider: some View {
         Rectangle().fill(Color.white.opacity(0.06)).frame(height: 1)
+    }
+
+    /// A count with its icon, as the times are written.
+    private func countRow(_ icon: String, _ title: String, _ count: Int) -> some View {
+        HStack(spacing: 10) {
+            Image(systemName: icon).foregroundColor(theme.textSecondary).frame(width: 22)
+            Text(title).font(.aero(size: CockpitType.label)).foregroundColor(theme.textPrimary)
+            Spacer()
+            Text("\(count)").font(.aero(size: CockpitType.label, weight: .bold, design: .monospaced))
+                .foregroundColor(theme.textPrimary)
+        }
     }
 }
 

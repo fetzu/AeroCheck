@@ -12,7 +12,9 @@ import CoreLocation
 //     is tall enough, else a row along the foot of the chart, at the right (the iPad on its side).
 //   - At the top left, the status slot: one state at a time, the one `CockpitStatusRule` picks (UNDO,
 //     NO GPS, OFF ROUTE, CHART OFFLINE, TELL FIS, SIGMET, BRIEFING, GPS DEGRADED), each a tap away from
-//     what it is about.
+//     what it is about; GPS DEGRADED's tap tucks it away instead, into a control's square in line with the
+//     stack at N↑ (above it in a column, before it in a row), for the rest of the flight
+//     (`CockpitStatus.tucksAway`, the author's device check, 11 Oct).
 //   - After a pan, an arrow at the chart's edge pointing to the aircraft (`OwnshipEdgeArrow`).
 //   - The scale, only from a change of zoom to 2 s after the last one (`ScaleVisibility`).
 //
@@ -33,6 +35,8 @@ struct MapChromeModel {
     var airspaceNeedsAttention = false
     /// `CockpitStatusRule.current`: the state the slot shows, or nil for a dark slot.
     var status: CockpitStatus? = nil
+    /// A state the pilot tucked away (GPS DEGRADED): its square by the stack instead of the slot.
+    var tuckedStatus: CockpitStatus? = nil
     /// The offer behind `.undo` (`NavUndoOffer.shown`).
     var undoOffer: NavUndoOffer? = nil
     /// What the chart shows, and the camera's heading (0 north up, the track in track up).
@@ -55,8 +59,10 @@ struct MapChromeActions {
     /// UNDO tapped (after the offer's own undo), or its six seconds over: clear the offer.
     var dismissUndo: (NavUndoOffer) -> Void = { _ in }
     /// A tap on a state: the GPS drawer, the aircraft and its leg framed, the cache info, Divert, the
-    /// SIGMETs, the briefing.
+    /// SIGMETs, the briefing. GPS DEGRADED's square, tucked away, opens the GPS drawer too.
     var openStatus: (CockpitStatus) -> Void = { _ in }
+    /// A tap on a state that tucks away (`CockpitStatus.tucksAway`) in the slot.
+    var tuckStatus: (CockpitStatus) -> Void = { _ in }
 }
 
 // MARK: - Geometry
@@ -136,6 +142,10 @@ struct MapChromeGeometry: Equatable {
     /// What the stack covers.
     let stack: CGRect
     let statusSlot: CGRect
+    /// A tucked state's square, a control's size, in line with the stack at its N↑ end: above N↑ in a column,
+    /// before it in a row (beside the column's foot on a column too short for above). Over a leg's bar, at
+    /// the right, while the phone shows a leg. The slot keeps clear of it.
+    let tuckedStatus: CGRect
     let scale: CGRect
     /// Where the edge arrow may sit: under the slot, clear of the stack.
     let arrowBounds: CGRect
@@ -180,14 +190,34 @@ struct MapChromeGeometry: Equatable {
             ? CGRect(x: size.width - m.margin, y: size.height - m.margin, width: 0, height: 0)
             : frames.values.reduce(CGRect.null) { $0.union($1) }
 
-        // The slot at the top left: beside the stack where they share rows, else as wide as it may be.
-        let besideStack = max(0, stack.minX - m.slotGap - m.margin)
-        let sharesRows = stack.minY < m.margin + m.slotHeight + m.slotGap
-        let room = sharesRows ? besideStack : size.width - 2 * m.margin
-        let slot = CGRect(x: m.margin, y: m.margin, width: min(m.slotWidth, room), height: m.slotHeight)
-
         // What the foot keeps for itself: the margin, or a leg's bar and a gap over it.
         let floor = footRoom > 0 ? size.height - footRoom - m.gap : size.height - m.margin
+
+        // A tucked state's square in line with the stack, one more control at its N↑ end (the author's place
+        // for it, device check 11 Oct): above N↑ in a column, before it in a row (the iPad on its side). A
+        // column too short to have it above (an iPhone SE upright) has it beside its foot, where it takes
+        // none of the slot's room. With no stack (the phone showing a leg), at the right over the leg's bar.
+        let tucked: CGRect
+        if let north = frames[.orientation], let foot = controls.last.flatMap({ frames[$0] }) {
+            let square = { (x: CGFloat, y: CGFloat) in CGRect(x: x, y: y, width: m.button, height: m.button) }
+            let above = square(north.minX, north.minY - m.gap - m.button)
+            if !isColumn {
+                tucked = square(north.minX - m.gap - m.button, north.minY)
+            } else {
+                tucked = above.minY >= m.margin ? above : square(foot.minX - m.gap - m.button, foot.minY)
+            }
+        } else {
+            tucked = CGRect(x: size.width - m.margin - m.button, y: floor - m.button, width: m.button, height: m.button)
+        }
+
+        // The slot at the top left: beside the stack, and the tucked square over it, where they share its
+        // rows, else as wide as it may be. The square's place counts whether a state is tucked or not, so
+        // the slot keeps one frame and never lies under it.
+        let besideStack = max(0, stack.minX - m.slotGap - m.margin)
+        let rowsTaken = m.margin + m.slotHeight + m.slotGap
+        let sharesRows = stack.minY < rowsTaken || (!frames.isEmpty && tucked.minX >= stack.minX && tucked.minY < rowsTaken)
+        let room = sharesRows ? besideStack : size.width - 2 * m.margin
+        let slot = CGRect(x: m.margin, y: m.margin, width: min(m.slotWidth, room), height: m.slotHeight)
 
         // The scale at the foot, left; over the stack's row where a row reaches it (a short phone chart),
         // over a leg's bar where one shows.
@@ -200,8 +230,9 @@ struct MapChromeGeometry: Equatable {
         // The arrow: left of the stack, or above it, whichever leaves it more room; over a leg's bar.
         let below = slot.maxY + m.slotGap
         let left = CGRect(x: m.margin, y: below, width: besideStack, height: max(0, floor - below))
+        let stackTop = frames.isEmpty ? stack.minY : min(stack.minY, tucked.minY)
         let above = CGRect(x: m.margin, y: below, width: max(0, size.width - 2 * m.margin),
-                           height: max(0, min(stack.minY - m.slotGap, floor) - below))
+                           height: max(0, min(stackTop - m.slotGap, floor) - below))
 
         self.size = size
         self.metrics = m
@@ -210,6 +241,7 @@ struct MapChromeGeometry: Equatable {
         self.isColumn = isColumn
         self.stack = stack
         self.statusSlot = slot
+        self.tuckedStatus = tucked
         self.scale = scaleFrame
         self.arrowBounds = left.width * left.height >= above.width * above.height ? left : above
         self.footRoom = footRoom
@@ -276,6 +308,7 @@ struct MapChromeGeometry: Equatable {
 enum MapChromeElement: Hashable {
     case control(MapChromeGeometry.Control)
     case status
+    case tuckedStatus
     case edgeArrow
     case scale
 
@@ -340,6 +373,13 @@ struct CockpitMapChrome: View {
                     .modifier(MapChromePlacement(element: .status, frame: geometry.statusSlot, onPlace: onPlace))
                     .transition(.opacity)
             }
+            if let tucked = model.tuckedStatus {
+                MapTuckedStatusButton(status: tucked, metrics: geometry.metrics, language: language) {
+                    actions.openStatus(tucked)
+                }
+                .modifier(MapChromePlacement(element: .tuckedStatus, frame: geometry.tuckedStatus, onPlace: onPlace))
+                .transition(.opacity)
+            }
             if let arrow = edgeArrow(geometry) {
                 MapChromeEdgeArrow(degrees: arrow.degrees, size: geometry.metrics.arrowSize, language: language)
                     .modifier(MapChromePlacement(element: .edgeArrow, frame: arrowFrame(arrow, geometry),
@@ -356,6 +396,7 @@ struct CockpitMapChrome: View {
             }
         }
         .animation(reduceMotion ? nil : .easeOut(duration: 0.2), value: model.status)
+        .animation(reduceMotion ? nil : .easeOut(duration: 0.2), value: model.tuckedStatus)
     }
 
     private func edgeArrow(_ geometry: MapChromeGeometry) -> OwnshipEdgeArrow.Placement? {
@@ -585,7 +626,9 @@ struct MapStatusSlot: View {
                     .id(offer.id)
             }
         } else {
-            MapStatusButton(status: status, metrics: metrics, language: language) { actions.openStatus(status) }
+            MapStatusButton(status: status, metrics: metrics, language: language) {
+                if status.tucksAway { actions.tuckStatus(status) } else { actions.openStatus(status) }
+            }
         }
     }
 }
@@ -611,8 +654,38 @@ struct MapStatusButton: View {
         }
         .buttonStyle(.plain)
         .accessibilityLabel(MapStatusText.spoken(status, language: language))
-        .accessibilityHint(MapStatusText.hint(status, language: language))
+        .accessibilityHint(MapStatusText.slotHint(status, language: language))
         .accessibilityIdentifier(status.accessibilityIdentifier)
+    }
+}
+
+/// A tucked state (GPS DEGRADED): its icon alone in a control's square, in the state's colours, by the
+/// stack. A tap opens what the state is about, as the slot's did before it was tucked. (6.2.0, device
+/// check 11 Oct: on a phone on its side the slot took a large part of the chart for a state that lasts.)
+struct MapTuckedStatusButton: View {
+    let status: CockpitStatus
+    let metrics: MapChromeGeometry.Metrics
+    var language: String? = nil
+    let action: () -> Void
+
+    @Environment(\.cockpitTheme) private var theme
+
+    var body: some View {
+        let colors = MapStatusColors(status.tone, theme: theme)
+        let shape = RoundedRectangle(cornerRadius: metrics.cornerRadius)
+        Button(action: action) {
+            Image(systemName: MapStatusText.icon(status))
+                .font(.aero(size: metrics.controlIconSize, weight: .bold))
+                .foregroundColor(colors.accent)
+                .frame(width: metrics.button, height: metrics.button)
+                .background(shape.fill(colors.fill))
+                .overlay(shape.strokeBorder(colors.border, lineWidth: 2))
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(MapStatusText.spoken(status, language: language))
+        .accessibilityHint(MapStatusText.hint(status, language: language))
+        .accessibilityIdentifier(status.accessibilityIdentifier + ".tucked")
     }
 }
 
@@ -707,6 +780,12 @@ enum MapStatusText {
 
     static func spoken(_ status: CockpitStatus, language: String?) -> String {
         [title(status, language: language), detail(status, language: language)].compactMap { $0 }.joined(separator: ", ")
+    }
+
+    /// What a tap does: in the slot, a state that tucks away tucks (`slotHint`); its square, and every
+    /// other state, open what they are about.
+    static func slotHint(_ status: CockpitStatus, language: String?) -> String {
+        status.tucksAway ? L10n.MapChrome.tuckHint(language: language) : hint(status, language: language)
     }
 
     static func hint(_ status: CockpitStatus, language: String?) -> String {
@@ -894,6 +973,15 @@ final class CockpitMapState {
 
     func showWholeRoute() { wholeRouteRequest &+= 1 }
     func showHazards() { hazardsRequest &+= 1 }
+
+    /// The states the pilot tucked away, for the rest of the flight (this state lives as long as the
+    /// Cockpit). (6.2.0)
+    private(set) var tucked: [CockpitStatus] = []
+
+    func tuck(_ status: CockpitStatus) {
+        guard status.tucksAway, !tucked.contains(status) else { return }
+        tucked.append(status)
+    }
 }
 
 /// Keeps `CockpitMapState` current on every page: OFF ROUTE on every fix and on every change of the plan
@@ -1005,10 +1093,12 @@ struct CockpitChartChrome: View {
     var body: some View {
         let undo = NavUndoOffer.shown(in: appState, flightPlanManager: flightPlanManager,
                                       cockpitNav: cockpitNav, flightOnly: true)
-        let status = shownStatus(undoOffered: undo != nil)
+        let placed = CockpitStatusRule.placed(pendingStates(undoOffered: undo != nil), tucked: cockpitMap?.tucked ?? [])
+        let status = placed.slot
         CockpitMapChrome(
             model: MapChromeModel(orientation: orientation, isFollowingAircraft: isFollowingAircraft,
-                                  airspaceNeedsAttention: airspaceNeedsAttention, status: status, undoOffer: undo,
+                                  airspaceNeedsAttention: airspaceNeedsAttention, status: status,
+                                  tuckedStatus: placed.tucked, undoOffer: undo,
                                   region: mapState.region,
                                   heading: orientation == .trackUp ? mapState.cameraHeading : 0,
                                   aircraft: locationManager.currentLocation?.coordinate,
@@ -1020,14 +1110,14 @@ struct CockpitChartChrome: View {
             .preference(key: MapStatusShownKey.self, value: status != nil)
     }
 
-    /// The state the slot shows: UNDO first, then what the flight says (plan §5.1).
-    private func shownStatus(undoOffered: Bool) -> CockpitStatus? {
+    /// Every state that would show, highest first: UNDO first, then what the flight says (plan §5.1).
+    private func pendingStates(undoOffered: Bool) -> [CockpitStatus] {
         #if DEBUG
         // The captures' (6.2): `AEROCHECK_STATUS=gps|nogps|offroute|chartoffline|tellfis|sigmet|briefing`
         // holds the slot on that state, under UNDO.
-        if !undoOffered, let held = Self.capturedStatus { return held }
+        if !undoOffered, let held = Self.capturedStatus { return [held] }
         #endif
-        return CockpitStatusRule.current(statusInputs(undoOffered: undoOffered))
+        return CockpitStatusRule.pending(statusInputs(undoOffered: undoOffered))
     }
 
     /// The slot's inputs, from the flight.
@@ -1075,6 +1165,8 @@ struct CockpitChartChrome: View {
             flightPlanManager.dismissAutoMarkNotice(offer.id)
             appState.dismissCheckConfirmation(offer.id)
         }
+        let cockpitMap = cockpitMap
+        wired.tuckStatus = { status in cockpitMap?.tuck(status) }
         return wired
     }
 

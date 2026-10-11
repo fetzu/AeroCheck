@@ -1916,7 +1916,8 @@ struct NavigationMapView: View {
     /// (6.1, option C)
     private func legsPanelContent(maxHeight: CGFloat) -> some View {
         VStack(spacing: 0) {
-            legsScroll(maxHeight: max(0, maxHeight - emergencyFooterHeight))
+            legsScroll(maxHeight: max(0, maxHeight - emergencyFooterHeight - previewDirectBarHeight))
+            previewDirectBar
             emergencyFooter
                 .background(GeometryReader { proxy in
                     Color.clear.preference(key: EmergencyFooterHeightKey.self, value: proxy.size.height)
@@ -1928,7 +1929,8 @@ struct NavigationMapView: View {
     /// The open panel's height for at most `maxHeight`, Emergency included: what the landscape panel
     /// covers of the chart's foot.
     private func legsPanelHeight(maxHeight: CGFloat) -> CGFloat {
-        min(legsPanelContentHeight, max(0, maxHeight - emergencyFooterHeight)) + emergencyFooterHeight
+        let fixed = emergencyFooterHeight + previewDirectBarHeight
+        return min(legsPanelContentHeight, max(0, maxHeight - fixed)) + fixed
     }
 
     /// Emergency, at the panel's foot, lined up with the frequency column above it: its right-hand
@@ -2529,23 +2531,43 @@ struct NavigationMapView: View {
         let isPast = index < plan.currentWaypointIndex
         let isPreview = previewWaypointIndex == index
         let actual = RouteLegRow.actualTime(plan: plan, index: index, legTimer: flightPlanManager.chronometerElapsed)
-        // A previewed waypoint ahead can be flown to straight away, skipping the ones before it —
-        // and a waypoint of the route is where a diversion can rejoin it. (v5.1)
-        let offersDirect = isPreview && (index > plan.currentWaypointIndex || plan.diversion != nil)
-        // DIRECT over the row's ACT and Δ, empty on a waypoint ahead, rather than beside the row: beside
-        // it, it took its width from the name, all of it beside the frequencies. (6.1, device check) With
-        // the figures under the name, their line keeps its room (`LegRowDirect`). (6.2)
+        // A previewed waypoint ahead can be flown to straight away, skipping the ones before it, and a
+        // waypoint of the route is where a diversion can rejoin it (v5.1): DIRECT is under the legs, the
+        // panel's width (`previewDirectBar`), and the row stays as its neighbours. (6.2.0)
         return RouteLegRow(plan: plan, index: index, compact: compact, large: large, isPreview: isPreview,
-                           actual: actual, reservesDirect: offersDirect) {
+                           actual: actual) {
             handleWaypointTap(index: index, plan: plan, isPast: isPast)
         }
-        .modifier(LegRowDirect(index: index, large: large, action: offersDirect ? {
-            flightPlanManager.directTo(waypointAt: index)
-            previewWaypointIndex = nil
-            // It re-centred the map on the aircraft. The band now frames the new leg, and the map follows
-            // the aircraft once the panel closes. (6.1, option C)
-            cameraBeforeLegs?.following = true
-        } : nil))
+    }
+
+    /// The previewed waypoint DIRECT can fly to now, if any (`LegsPanelDirectBar.offers`).
+    private var previewDirectTarget: (index: Int, name: String)? {
+        guard let plan = flightPlanManager.activeFlightPlan, let index = previewWaypointIndex,
+              plan.waypoints.indices.contains(index),
+              LegsPanelDirectBar.offers(index: index, currentIndex: plan.currentWaypointIndex,
+                                        diverting: plan.diversion != nil) else { return nil }
+        let name = plan.waypoints[index].name
+        return (index, name.isEmpty ? "WPT \(index + 1)" : name)
+    }
+
+    /// DIRECT to the previewed waypoint, under the legs and over Emergency, while one is previewed.
+    @ViewBuilder
+    private var previewDirectBar: some View {
+        if let target = previewDirectTarget {
+            LegsPanelDirectBar(waypointName: target.name) {
+                flightPlanManager.directTo(waypointAt: target.index)
+                previewWaypointIndex = nil
+                // It re-centred the map on the aircraft. The band now frames the new leg, and the map follows
+                // the aircraft once the panel closes. (6.1, option C)
+                cameraBeforeLegs?.following = true
+            }
+            .padding(.horizontal, 16)
+        }
+    }
+
+    /// What `previewDirectBar` takes of the panel's height while it shows.
+    private var previewDirectBarHeight: CGFloat {
+        previewDirectTarget == nil ? 0 : LegsPanelDirectBar.height
     }
 
     /// Tap a crossed waypoint → confirm resuming that leg; tap a current/future one → map preview. (v4 UI/UX Revamp)

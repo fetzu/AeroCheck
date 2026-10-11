@@ -2156,6 +2156,10 @@ enum L10n {
         static let display = String(localized: "cockpit.display")
         static let options = String(localized: "cockpit.options")
         static let endFlightHint = String(localized: "cockpit.endFlightHint")
+        /// Menu's running flight time, and its circuit counts. (6.2.0)
+        static let flightTime = String(localized: "Flight time")
+        static let circuits = String(localized: "cockpit.menu.circuits")
+        static let fullStops = String(localized: "cockpit.menu.fullStops")
     }
 
     /// The check slot on the map, in flight. (6.1)
@@ -2448,6 +2452,10 @@ enum L10n {
         // What a tap on each state does, for VoiceOver.
         static func gpsHint(language: String? = nil) -> String {
             text("mapChrome.hint.gps", "Shows the GPS status", language)
+        }
+        /// GPS DEGRADED in the slot: a tap tucks it by the map's buttons. (6.2.0)
+        static func tuckHint(language: String? = nil) -> String {
+            text("mapChrome.hint.tuck", "Makes it a small square by the map's buttons", language)
         }
         static func offRouteHint(language: String? = nil) -> String {
             text("mapChrome.hint.offRoute", "Shows the aircraft and the leg", language)

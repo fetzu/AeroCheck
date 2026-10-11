@@ -679,6 +679,30 @@ final class FullStopLandingTests: XCTestCase {
         assertOneLandingAtTouchdown(appState)
     }
 
+    /// Every full stop counted arms the close-your-flight-plan reminder (`onFullStopCounted`), once: the
+    /// card's CONFIRM, LANDED, the circuits' choice at the end of the after landing check. A duplicate of a
+    /// landing counted already arms nothing more. (6.3.0: one counted by hand before the detector's ten
+    /// seconds of stillness armed nothing until END FLIGHT.)
+    func testEveryCountedFullStopArmsTheReminderOnce() {
+        let appState = wt9FlightOnLandingCheck(circuits: true)
+        var armed = 0
+        appState.onFullStopCounted = { armed += 1 }
+        appState.recordFullStop(at: touchdown)                            // the card's CONFIRM
+        XCTAssertEqual(armed, 1)
+        appState.recordLanding(at: touchdown.addingTimeInterval(20))     // LANDED, the same landing
+        XCTAssertEqual(armed, 1, "the same landing: nothing more")
+        appState.markLastItemComplete(learningMode: appState.effectiveLearningMode)
+        if appState.currentCheckAwaitsConfirmation { appState.confirmMemoryCheck() }
+        appState.startNewCircuit()                                       // counted already: nothing more
+        XCTAssertEqual(armed, 1)
+
+        let byHand = wt9FlightOnLandingCheck(circuits: false)
+        var armedByHand = 0
+        byHand.onFullStopCounted = { armedByHand += 1 }
+        byHand.recordLanding(at: touchdown)                              // LANDED before the detector's card
+        XCTAssertEqual(armedByHand, 1)
+    }
+
     /// The phase is the only difference: count, times and the flight's own landing time match.
     func testTheLandingIsRecordedTheSameOnEitherFlight() {
         let flight = wt9FlightOnLandingCheck(circuits: false)

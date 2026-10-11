@@ -2595,9 +2595,17 @@ class AppState {
         if !isDuplicateLandingEvent(at: landing) {
             currentFlight?.fullStopCount += 1
             currentFlight?.fullStopTimes.append(landing)
+            onFullStopCounted?()
         }
         checkpointActiveFlight(force: true)
     }
+
+    /// A full stop counted: the card's CONFIRM, LANDED, or the choice at the end of a circuits flight's
+    /// after landing check. Wired at launch to `FlightThreadManager.noteFullStopLanding`, which arms the
+    /// close-your-flight-plan reminder from it as it does from the detector's own full stop: a landing
+    /// counted by hand before the detector's ten seconds of stillness tells the detector, which then
+    /// never emits it, and armed nothing until END FLIGHT. Nil in the tests that don't set it. (6.3.0)
+    @ObservationIgnored var onFullStopCounted: (@MainActor () -> Void)?
 
     /// Update landing time (long-press update): "now", since there is no detector context here.
     func updateLandingTime() {
@@ -2728,6 +2736,7 @@ class AppState {
         landingTime = time
         currentFlight?.landingTime = time
         hasLandingBeenDetected = true
+        onFullStopCounted?()
         return true
     }
 

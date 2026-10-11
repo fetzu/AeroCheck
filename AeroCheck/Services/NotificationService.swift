@@ -222,11 +222,11 @@ final class NotificationService: NSObject, ObservableObject {
     /// shown again once the flight reaches At the Hangar or ends (`releaseHeld`). The pilot's attention
     /// belongs to the flight, and neither reminder is about this one. (6.2.0, the author, device check
     /// 7 Oct.) The close-your-flight-plan reminder waits too. It fires `landingDelay` (15 minutes) after
-    /// a full stop the detector sees (`FlightThreadManager.noteFullStopLanding`), each full stop of a
-    /// circuits flight moving it on, and `postFlightDelay` (2 minutes) after END FLIGHT. One that comes
-    /// while the flight is still under way (a circuit flown after a full stop, a long taxi in) shows at
-    /// At the Hangar or at END FLIGHT, whichever comes first. With the app in the background the system
-    /// shows both as always.
+    /// a full stop, the detector's or one counted by hand (`FlightThreadManager.noteFullStopLanding`), each
+    /// full stop of a circuits flight moving it on, and `postFlightDelay` (2 minutes) after END FLIGHT. One
+    /// that comes while the flight is still under way (a circuit flown after a full stop, a long taxi in)
+    /// shows at At the Hangar or at END FLIGHT, whichever comes first. With the app in the background the
+    /// system shows both as always.
     func presentation(for request: UNNotificationRequest) -> UNNotificationPresentationOptions {
         if mayInterrupt?() ?? true { return [.banner, .sound] }
         if !held.contains(where: { $0.identifier == request.identifier }) { held.append(request) }

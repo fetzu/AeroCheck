@@ -239,6 +239,13 @@ struct AeroCheckApp: App {
                             flightThreadManager.noteFullStopLanding(flightId: flightId)
                         }
                     }
+                    // A full stop counted by hand too (LANDED, the circuits' choice), which the detector
+                    // then never emits. Scheduling replaces by identifier: a card's CONFIRM after the
+                    // detector's own only moves it on. (6.3.0)
+                    appState.onFullStopCounted = { [flightThreadManager] in
+                        guard let flightId = appState.currentFlight?.id else { return }
+                        flightThreadManager.noteFullStopLanding(flightId: flightId)
+                    }
                     // Auto-connect if companion mode is on and a device is paired — the user shouldn't
                     // have to start it on both devices. (v4.1 companion UX)
                     companionConnectivityManager.autoConnectIfReady()

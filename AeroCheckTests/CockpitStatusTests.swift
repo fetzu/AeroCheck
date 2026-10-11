@@ -67,6 +67,47 @@ final class CockpitStatusTests: XCTestCase {
         XCTAssertEqual(CockpitStatusRule.current(inputs), .briefing(.departure))
     }
 
+    /// GPS DEGRADED tucked away by a tap (device check, 11 Oct): its square while it is pending, the slot to
+    /// the next state; NO GPS and every other state never tuck, and a state that is not pending shows nowhere.
+    func testATuckedStateLeavesTheSlotAndKeepsItsSquare() {
+        let degraded = CockpitStatus.gps(.degraded)
+        XCTAssertTrue(degraded.tucksAway)
+        XCTAssertFalse(CockpitStatus.gps(.lost).tucksAway)
+        XCTAssertFalse(CockpitStatus.chartOffline.tucksAway)
+        XCTAssertFalse(CockpitStatus.undo.tucksAway)
+
+        let alone = CockpitStatusRule.placed([degraded], tucked: [degraded])
+        XCTAssertNil(alone.slot)
+        XCTAssertEqual(alone.tucked, degraded)
+
+        let under = CockpitStatusRule.placed([.chartOffline, degraded], tucked: [degraded])
+        XCTAssertEqual(under.slot, .chartOffline, "the slot to the next state")
+        XCTAssertEqual(under.tucked, degraded, "and the square stays")
+
+        let notTucked = CockpitStatusRule.placed([degraded], tucked: [])
+        XCTAssertEqual(notTucked.slot, degraded)
+        XCTAssertNil(notTucked.tucked)
+
+        let recovered = CockpitStatusRule.placed([], tucked: [degraded])
+        XCTAssertNil(recovered.slot)
+        XCTAssertNil(recovered.tucked, "GPS good again: no square")
+
+        let lost = CockpitStatusRule.placed([.gps(.lost)], tucked: [degraded])
+        XCTAssertEqual(lost.slot, .gps(.lost), "NO GPS in the slot, whatever was tucked")
+        XCTAssertNil(lost.tucked)
+    }
+
+    /// The map's state keeps what was tucked for the rest of the flight, and tucks only what may be.
+    @MainActor
+    func testTheCockpitMapRemembersWhatWasTucked() {
+        let state = CockpitMapState()
+        state.tuck(.chartOffline)
+        XCTAssertTrue(state.tucked.isEmpty, "CHART OFFLINE never tucks")
+        state.tuck(.gps(.degraded))
+        state.tuck(.gps(.degraded))
+        XCTAssertEqual(state.tucked, [.gps(.degraded)])
+    }
+
     func testEachStateHasItsToneAndIdentifier() {
         let expected: [(CockpitStatus, CockpitStatus.Tone, String)] = [
             (.undo, .neutral, "status.undo"),

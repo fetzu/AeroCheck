@@ -2453,6 +2453,10 @@ enum L10n {
         static func gpsHint(language: String? = nil) -> String {
             text("mapChrome.hint.gps", "Shows the GPS status", language)
         }
+        /// GPS DEGRADED in the slot: a tap tucks it by the map's buttons. (6.2.0)
+        static func tuckHint(language: String? = nil) -> String {
+            text("mapChrome.hint.tuck", "Makes it a small square by the map's buttons", language)
+        }
         static func offRouteHint(language: String? = nil) -> String {
             text("mapChrome.hint.offRoute", "Shows the aircraft and the leg", language)
         }

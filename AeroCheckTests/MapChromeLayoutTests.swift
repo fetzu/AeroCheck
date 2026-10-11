@@ -361,6 +361,62 @@ final class MapChromeLayoutTests: XCTestCase {
         }
     }
 
+    /// GPS DEGRADED tucked: a control's square in line with the stack at N↑, above it in a column and
+    /// before it in a row, inside the chart, clear of the slot and of every control, on every chart the
+    /// Cockpit has (the phone upright with its 6.2.0 frame, about 395 pt of chart, among them), and with a
+    /// leg's bar at the foot. (device check, 11 Oct)
+    func testATuckedStateSitsByTheStackClearOfTheSlot() {
+        let charts: [(String, CGSize, CockpitScale)] = [
+            ("iPad portrait", CGSize(width: 820, height: 607), .kneeboard),
+            ("iPad on its side", CGSize(width: 1_180, height: 299), .kneeboard),
+            ("iPhone 17e", CGSize(width: 390, height: 380), .phone),
+            ("iPhone 17", CGSize(width: 402, height: 396), .phone),
+            ("iPhone 17 Pro Max", CGSize(width: 440, height: 477), .phone),
+            ("iPhone 17e on its side", CGSize(width: 411, height: 370), .phone),
+            ("iPhone 17 Pro Max on its side", CGSize(width: 508, height: 420), .phone),
+        ]
+        for (name, size, scale) in charts {
+            for footRoom: CGFloat in [0, 80] {
+                let geometry = MapChromeGeometry(size: size, scale: scale, showsStack: footRoom == 0, footRoom: footRoom)
+                let tucked = geometry.tuckedStatus
+                XCTAssertEqual(tucked.size, CGSize(width: geometry.metrics.button, height: geometry.metrics.button), name)
+                XCTAssertTrue(CGRect(origin: .zero, size: size).contains(tucked), "\(name): inside the chart, foot \(footRoom)")
+                XCTAssertFalse(tucked.intersects(geometry.statusSlot), "\(name): clear of the slot, foot \(footRoom)")
+                for control in geometry.controls {
+                    XCTAssertFalse(tucked.intersects(geometry.frame(control)), "\(name): clear of \(control)")
+                }
+                if footRoom > 0 {
+                    XCTAssertFalse(tucked.intersects(geometry.legBarFrame(height: footRoom - geometry.metrics.margin)),
+                                   "\(name): over a leg's bar")
+                } else {
+                    let north = geometry.frame(.orientation), gap = geometry.metrics.gap
+                    if geometry.isColumn {
+                        XCTAssertEqual(tucked.minX, north.minX, accuracy: 0.5, "\(name): in the column")
+                        XCTAssertEqual(tucked.maxY + gap, north.minY, accuracy: 0.5, "\(name): above N↑")
+                        XCTAssertEqual(geometry.statusSlot, MapChromeGeometry(size: size, scale: scale).statusSlot,
+                                       "\(name): the slot's frame")
+                    } else {
+                        XCTAssertEqual(tucked.minY, north.minY, accuracy: 0.5, "\(name): in the row")
+                        XCTAssertEqual(tucked.maxX + gap, north.minX, accuracy: 0.5, "\(name): before N↑")
+                    }
+                }
+            }
+        }
+    }
+
+    /// A column too short to have the square above N↑ (an iPhone SE upright, about 280 pt of chart): beside the
+    /// column's foot, where the slot keeps all the room beside the stack it had.
+    func testOnAShortColumnTheTuckedSquareSitsBesideItsFoot() throws {
+        let geometry = MapChromeGeometry(size: CGSize(width: 375, height: 280), scale: .phone)
+        XCTAssertTrue(geometry.isColumn)
+        let foot = geometry.frame(.centre), tucked = geometry.tuckedStatus
+        XCTAssertEqual(tucked.minY, foot.minY, accuracy: 0.5)
+        XCTAssertEqual(tucked.maxX + geometry.metrics.gap, foot.minX, accuracy: 0.5)
+        XCTAssertFalse(tucked.intersects(geometry.statusSlot))
+        XCTAssertEqual(geometry.statusSlot.width, geometry.stack.minX - geometry.metrics.slotGap - geometry.metrics.margin,
+                       accuracy: 0.5, "the slot as wide as beside the stack")
+    }
+
     // MARK: - What it says
 
     func testEachStateSaysWhatItIsInEnglishAndFrench() {

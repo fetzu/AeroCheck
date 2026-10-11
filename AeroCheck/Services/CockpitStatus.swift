@@ -47,6 +47,12 @@ enum CockpitStatus: Equatable {
         }
     }
 
+    /// A state that lasts and asks nothing of the pilot: a tap in the slot tucks it into a control's square
+    /// by the stack for the rest of the flight (`MapChromeGeometry.tuckedStatus`). GPS DEGRADED only: it
+    /// can last a whole flight in a valley or under a canopy, and the strip's flags say it too. NO GPS
+    /// stays in the slot, red. (6.2.0, device check 11 Oct)
+    var tucksAway: Bool { self == .gps(.degraded) }
+
     /// `status.<state>`, for the UI tests.
     var accessibilityIdentifier: String {
         switch self {
@@ -89,6 +95,14 @@ enum CockpitStatusRule {
     /// The state the slot shows, or nil for a dark slot.
     static func current(_ inputs: Inputs) -> CockpitStatus? {
         pending(inputs).first
+    }
+
+    /// Where the pending states go once the pilot has tucked some away (`CockpitStatus.tucksAway`): the
+    /// slot shows the highest one not tucked, and a tucked one still pending shows in its square, whatever
+    /// the slot holds. (6.2.0)
+    static func placed(_ pending: [CockpitStatus], tucked: [CockpitStatus]) -> (slot: CockpitStatus?, tucked: CockpitStatus?) {
+        let isTucked = { (status: CockpitStatus) in status.tucksAway && tucked.contains(status) }
+        return (pending.first { !isTucked($0) }, pending.first(where: isTucked))
     }
 
     /// Every state that would show, highest first: the first one shows, the others wait.

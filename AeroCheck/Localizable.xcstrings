@@ -19053,6 +19053,23 @@
         }
       }
     },
+    "mapChrome.hint.tuck": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Makes it a small square by the map's buttons"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Le réduit à un petit carré près des boutons de la carte"
+          }
+        }
+      }
+    },
     "mapChrome.hint.offRoute": {
       "extractionState": "manual",
       "localizations": {

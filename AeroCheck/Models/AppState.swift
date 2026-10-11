@@ -2726,6 +2726,14 @@ class AppState {
     /// `anchorETOsOnLineUp`; nil in the tests that don't set it, which count the full stop at "now".
     @ObservationIgnored var takeLapFullStop: (@MainActor () -> Date?)?
 
+    /// The phase bar's loops and the phone's lap, on a circuits flight; nil on any other. (6.3.0)
+    var circuitLoopMarks: CircuitLoopMarks? {
+        guard isCircuitMode, let flight = currentFlight else { return nil }
+        return CircuitLoopMarks(touchAndGoes: flight.touchAndGoCount, fullStops: flight.fullStopCount,
+                                current: circuitLaps.currentLoop(at: currentPhase),
+                                lap: circuitLaps.lap(touchAndGoes: flight.touchAndGoCount, goArounds: flight.goAroundCount))
+    }
+
     /// A full stop is counted on the lap being flown already: the card's CONFIRM, LANDED.
     var fullStopCountedThisLap: Bool {
         guard let last = currentFlight?.fullStopTimes.last else { return false }

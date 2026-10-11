@@ -267,6 +267,51 @@ final class CircuitsTests: XCTestCase {
         XCTAssertEqual(other.memoryConfirmationMovesTo, .shutdown, "one tap on any other flight, as before")
     }
 
+    // MARK: The top bar's loops and lap (6.3.0)
+
+    /// The lap: one more than the loops taken (touch-and-goes, go-arounds, NEW CIRCUIT); a full stop gone on
+    /// to the parking check ends the laps, it starts none. The current loop: the one that started the lap,
+    /// and the full stop's from the after landing check on.
+    func testTheLapAndTheLoopItTook() {
+        let appState = flight()
+        appState.takeLapFullStop = { nil }
+        var marks: CircuitLoopMarks? { appState.circuitLoopMarks }
+        XCTAssertEqual(marks?.lap, 1)
+        XCTAssertNil(marks?.current, "neither loop before the first")
+        fly(appState, to: .landing)
+        appState.recordTouchAndGo(at: t(400))
+        XCTAssertEqual(marks, CircuitLoopMarks(touchAndGoes: 1, fullStops: 0, current: .touchAndGo, lap: 2))
+        fly(appState, to: .landing)
+        appState.recordGoAround(at: t(500))
+        XCTAssertEqual(marks?.lap, 3)
+        fly(appState, to: .landing)
+        appState.recordFullStop(at: touchdown)
+        XCTAssertEqual(marks, CircuitLoopMarks(touchAndGoes: 1, fullStops: 1, current: .fullStop, lap: 3),
+                       "after landing: the full stop's loop, still lap 3")
+        completeCurrentCheck(appState)
+        at(650)
+        appState.startNewCircuit()
+        XCTAssertEqual(marks, CircuitLoopMarks(touchAndGoes: 1, fullStops: 1, current: .fullStop, lap: 4))
+        fly(appState, to: .landing)
+        completeCurrentCheck(appState)
+        appState.nextPhase()
+        completeCurrentCheck(appState)
+        at(1000)
+        appState.nextPhase()                                        // on to the parking check
+        XCTAssertEqual(marks, CircuitLoopMarks(touchAndGoes: 1, fullStops: 2, current: .fullStop, lap: 4),
+                       "the parking check: no new lap")
+
+        XCTAssertNil(flight(circuits: false).circuitLoopMarks, "no loops on any other flight")
+    }
+
+    /// The loops' spans on the bar, cruise and descent left out.
+    func testTheLoopsSpans() {
+        let bar = ChecklistPhase.allCases.filter { !$0.isSkippedInCircuitMode(true) }
+        XCTAssertEqual(CircuitLoopMarks.phases(of: .touchAndGo, in: bar), [.climb, .approach, .landing])
+        XCTAssertEqual(CircuitLoopMarks.phases(of: .fullStop, in: bar),
+                       [.beforeDeparture, .lineUp, .climb, .approach, .landing, .afterLanding])
+    }
+
     // MARK: Relaunch, and the Companion
 
     /// A relaunch keeps the lap: a full stop counted before it isn't counted again after it.

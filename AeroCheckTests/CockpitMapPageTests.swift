@@ -100,6 +100,39 @@ final class CockpitMapPageTests: XCTestCase {
         }
     }
 
+    /// A circuits flight (6.3.0): the phase button says the lap after the phase's place ("↻ 2" on screen, in
+    /// place of the iPad's "9/16"), and the iPad's bar names its two loops with their counts, the one the lap
+    /// took marked. No "(for circuits)" under the iPad's registration: it cut the phase's name.
+    func testCircuitsSayTheirLapAndTheirLoops() throws {
+        let services = makeServices()
+        startFlight(services.appState, stepByStep: true)
+        let app = services.appState
+        app.isCircuitMode = true
+        app.currentPhase = .landing
+        app.recordTouchAndGo(at: FlightClock.now)                   // lap 2, by the touch-and-go loop
+        XCTAssertEqual(app.currentPhase, .climb)
+
+        let phone = accessibility(FlightView(), services: services, size: CGSize(width: 390, height: 844))
+        XCTAssertEqual(phone.first { $0.id == "cockpit.phase.climb" }?.value,
+                       "9/16, " + L10n.Circuits.lapSpeech(2, touchAndGoes: 1, fullStops: 0))
+
+        let pad = accessibility(FlightView(), services: services, size: CGSize(width: 820, height: 1_180))
+        XCTAssertEqual(pad.first { $0.id == "cockpit.phase.climb" }?.value,
+                       "9/16, " + L10n.Circuits.lapSpeech(2, touchAndGoes: 1, fullStops: 0))
+        XCTAssertFalse(pad.contains { $0.label.contains(L10n.Flight.forCircuits) }, "nothing under the registration")
+        let loops = Set(pad.map(\.label).filter {
+            $0.hasPrefix(L10n.Circuits.touchAndGoLoop) || $0.hasPrefix(L10n.Circuits.fullStopLoop)
+        })
+        XCTAssertEqual(loops, [
+            [L10n.Circuits.touchAndGoLoop, L10n.Circuits.touchAndGoes(1), L10n.Circuits.thisLap].joined(separator: ", "),
+            [L10n.Circuits.fullStopLoop, L10n.Circuits.fullStops(0)].joined(separator: ", "),
+        ])
+
+        app.isCircuitMode = false
+        let other = accessibility(FlightView(), services: services, size: CGSize(width: 390, height: 844))
+        XCTAssertEqual(other.first { $0.id == "cockpit.phase.climb" }?.value, "9/16", "no lap on any other flight")
+    }
+
     /// The phase list says what the bar's segments said: each phase's status in words (the dot is colour
     /// alone), the current one selected. The UI tests read and pick a phase there on the phone.
     func testThePhaseListSaysWhatTheBarSaid() throws {

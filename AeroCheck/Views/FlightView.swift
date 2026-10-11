@@ -225,6 +225,7 @@ struct FlightView: View {
             status: { appState.getPhaseStatus($0) },
             onSelect: { requestJump(to: $0) },
             isCircuitMode: appState.isCircuitMode,
+            loops: appState.circuitLoopMarks,
             fredaDue: appState.fredaDue,
             currentOwed: appState.cueTiming(for: appState.currentPhase) == .owed,
             interactive: interactive
@@ -655,22 +656,6 @@ struct FlightView: View {
             .accessibilityIdentifier("cockpit.touchAndGo")
     }
 
-    /// Touch-and-goes and, if any, go-arounds, in the font the caller sets.
-    @ViewBuilder
-    private var circuitCounts: some View {
-        if let flight = appState.currentFlight {
-            HStack(spacing: 6) {
-                Label("\(flight.touchAndGoCount)", systemImage: "arrow.triangle.2.circlepath")
-                if flight.goAroundCount > 0 {
-                    Label("\(flight.goAroundCount)", systemImage: "arrow.up.right.circle")
-                }
-            }
-            .foregroundColor(theme.textSecondary)
-            .accessibilityElement(children: .combine)
-            .accessibilityLabel("\(flight.touchAndGoCount) touch and go, \(flight.goAroundCount) go around")
-        }
-    }
-
     // These mirror the in-checklist event callbacks exactly (record + PR-07 manual-event dedup), so
     // the HUD buttons and the checklist buttons log identically — no double-counting. (v4 UI/UX Revamp)
     private func performGoAround() {
@@ -807,16 +792,10 @@ struct FlightView: View {
                         .foregroundColor(isHoldingAbandon ? theme.danger : theme.textPrimary)
                         .lineLimit(1)
                         .fixedSize()
-                    if appState.isCircuitMode {
-                        HStack(spacing: 8) {
-                            Text(L10n.Flight.forCircuits)
-                                .foregroundColor(theme.warning)
-                            circuitCounts
-                        }
-                        .font(.aero(size: 16, weight: .medium))
-                        .lineLimit(1)
-                        .fixedSize()
-                    }
+                    // A circuits flight says so on the phase bar (its two loops, with their counts) and in
+                    // the phase button (the lap, "↻ 3"): "(for circuits)" and the counts under the
+                    // registration took the room of the phase's name, which they cut ("AFTER / LANDI…").
+                    // (6.3.0, the author, from captures, 11 Oct)
                 }
             } else {
                 HStack(spacing: 4) {
@@ -1292,7 +1271,8 @@ extension FlightView {
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
-        .accessibilityValue(showsCount ? "" : phaseCount)
+        .accessibilityValue(showsCount && !appState.isCircuitMode
+                            ? "" : [phaseCount, lapSpeech].compactMap { $0 }.joined(separator: ", "))
         .accessibilityHint(L10n.Sheet.selectPhase)
         // The UI tests' way to the phase on the phone, whose bar has no segment to read since 6.2 (PR 4):
         // "cockpit.phase.climb". An identifier, never read out.
@@ -1302,6 +1282,30 @@ extension FlightView {
     /// Where the phase sits in the flight: "10/16".
     private var phaseCount: String {
         "\(appState.currentPhase.rawValue + 1)/\(ChecklistPhase.allCases.count)"
+    }
+
+    /// The lap on a circuits flight, for VoiceOver: "circuit 4: 2 touch-and-goes, 1 full stop". (6.3.0)
+    private var lapSpeech: String? {
+        guard let loops = appState.circuitLoopMarks else { return nil }
+        return L10n.Circuits.lapSpeech(loops.lap, touchAndGoes: loops.touchAndGoes, fullStops: loops.fullStops)
+    }
+
+    /// The lap, "↻ 4", on a circuits flight: at the right end of the phone's title row, and in place of the
+    /// iPad's "10/16" (which counts sixteen checks where circuits fly fourteen). In the info blue the loops
+    /// use, its room kept for "↻ 00" so the title beside it never changes size when a lap starts. (6.3.0, the
+    /// author's picks)
+    @ViewBuilder
+    private var lapBadge: some View {
+        if let loops = appState.circuitLoopMarks {
+            ZStack(alignment: .trailing) {
+                Text(verbatim: "↻ 00").hidden().accessibilityHidden(true)
+                Text(verbatim: "↻ \(loops.lap)")
+            }
+            .font(.aero(size: CockpitType.label, weight: .bold, design: .monospaced))
+            .foregroundColor(theme.info)
+            .fixedSize()
+            .accessibilityHidden(true)
+        }
     }
 
     /// The phase and where it sits in the flight ("10/16").
@@ -1327,8 +1331,9 @@ extension FlightView {
                     .minimumScaleFactor(0.85)
                     .fixedSize(horizontal: false, vertical: true)
             }
-            if fillsWidth { Spacer(minLength: showsCount ? 8 : 0) }
-            if showsCount {
+            if fillsWidth { Spacer(minLength: showsCount || appState.isCircuitMode ? 8 : 0) }
+            lapBadge
+            if showsCount && !appState.isCircuitMode {
                 Text(phaseCount)
                     .font(.aero(size: CockpitType.label, design: .monospaced))
                     .foregroundColor(theme.textSecondary)
@@ -1687,6 +1692,8 @@ struct PhaseProgressBar: View {
     let status: (ChecklistPhase) -> PhaseCompletionStatus
     let onSelect: (ChecklistPhase) -> Void
     var isCircuitMode: Bool = false
+    /// A circuits flight's two loops, their counts and the current one (6.3.0); nil on any other flight.
+    var loops: CircuitLoopMarks? = nil
     /// When true, the Cruise segment turns amber: FREDA is due. (v4 UI/UX Revamp; FREDA since 6.1)
     var fredaDue: Bool = false
     /// The current check is owed (the flight moved past it open): its segment amber, as FREDA due. (6.1)
@@ -1696,15 +1703,11 @@ struct PhaseProgressBar: View {
     /// False: the bar drawn only, its own height, no segment to touch (`drawnBar`).
     var interactive: Bool = true
 
-    /// The pattern phases that repeat each lap in circuit mode. Contiguous in the visible list since
-    /// cruise/descent are filtered out, so the bracket draws as one continuous span. (round 6)
-    private var loopPhases: [ChecklistPhase] {
+    /// The checks `loop` flies again on a circuits flight. Contiguous in the visible list since cruise and
+    /// descent are filtered out, so its bracket draws as one continuous span. (round 6; two loops, 6.3.0)
+    private func loopPhases(_ loop: CircuitLaps.Loop) -> [ChecklistPhase] {
         guard isCircuitMode else { return [] }
-        return phases.filter { $0 == .climb || $0 == .approach || $0 == .landing }
-    }
-
-    private var loopMiddle: ChecklistPhase? {
-        loopPhases.isEmpty ? nil : loopPhases[loopPhases.count / 2]
+        return CircuitLoopMarks.phases(of: loop, in: phases)
     }
 
     var body: some View {
@@ -1717,16 +1720,23 @@ struct PhaseProgressBar: View {
 
     /// The bar drawn only, 8 pt tall: inside the phase button of the phone's column on its side, whose
     /// tap opens the phase list, where a full control's height for its segments left the column too
-    /// tall for the screen (6.1, device check). Without the circuit bracket, which needs the room above
-    /// the bar: the header says circuits under the registration, and the bar by skipping cruise and
-    /// descent. VoiceOver reads the phase from the button.
+    /// tall for the screen (6.1, device check). Without the circuit brackets, which need the room above
+    /// and under the bar: on a circuits flight a 2 pt mark under the segments of the current lap's loop
+    /// instead (6.3.0), drawn in the button's padding so nothing moves when it comes or goes, and the lap
+    /// in the title row ("↻ 4"). VoiceOver reads the phase and the lap from the button.
     private var drawnBar: some View {
-        HStack(spacing: 3) {
+        let marked = loops?.current.map(loopPhases) ?? []
+        return HStack(spacing: 3) {
             ForEach(phases, id: \.self) { phase in
                 let isCurrent = phase == currentPhase
                 segment(for: phase, isCurrent: isCurrent)
                     .frame(height: isCurrent ? 8 : 5)
                     .frame(maxWidth: .infinity)
+                    .overlay(alignment: .bottom) {
+                        if marked.contains(phase) {
+                            Rectangle().fill(theme.info).frame(height: 2).offset(y: 4)
+                        }
+                    }
             }
         }
         .frame(height: 8)
@@ -1766,52 +1776,92 @@ struct PhaseProgressBar: View {
                 .accessibilityAddTraits(isCurrent ? [.isButton, .isSelected] : .isButton)
             }
         }
-        // The circuit bracket sits just over the drawn bar, inside the segments' touch height, and
-        // lets taps through to them.
+        // The circuit brackets sit just over and under the drawn bar, inside the segments' touch height,
+        // and let taps through to them: the touch-and-go loop over it, where it has been since round 6, the
+        // full-stop loop under it (6.3.0, the author's pick).
         .overlay {
-            if !loopPhases.isEmpty {
-                circuitBracket
-                    .offset(y: -(8 / 2 + 3 + 9 / 2))
+            if !loopPhases(.touchAndGo).isEmpty {
+                circuitBracket(.touchAndGo)
+                    .offset(y: -Self.bracketOffset)
+                    .allowsHitTesting(false)
+            }
+        }
+        .overlay {
+            if loops != nil, !loopPhases(.fullStop).isEmpty {
+                circuitBracket(.fullStop)
+                    .offset(y: Self.bracketOffset)
                     .allowsHitTesting(false)
             }
         }
     }
 
-    /// A repeat (↻) bracket over the looping pattern segments, so the circuit cycle reads at a glance.
-    /// Aligns to the segments below (same spacing + equal-width cells); a leading/trailing tick encloses
-    /// the span and the ↻ badge sits at its centre. (round 6)
-    private var circuitBracket: some View {
-        HStack(spacing: 3) {
+    /// From the bar's centre line to a bracket's: half the current segment, a gap, half the bracket.
+    private static let bracketOffset: CGFloat = 8 / 2 + 3 + 9 / 2
+
+    /// A repeat (↻) bracket over or under a loop's segments, so the circuit cycle reads at a glance.
+    /// Aligns to the segments (same spacing + equal-width cells); a leading/trailing tick encloses the span
+    /// and the ↻ badge sits at its centre, with the loop's count on a circuits flight. The current lap's
+    /// loop is drawn full, the other faint; neither before the first loop. (round 6; two loops, 6.3.0)
+    private func circuitBracket(_ loop: CircuitLaps.Loop) -> some View {
+        let span = loopPhases(loop)
+        let middle = span.isEmpty ? nil : span[span.count / 2]
+        return HStack(spacing: 3) {
             ForEach(phases, id: \.self) { phase in
                 ZStack {
-                    if loopPhases.contains(phase) {
+                    if span.contains(phase) {
                         Rectangle().fill(theme.info).frame(height: 2)
                     }
                 }
                 .frame(maxWidth: .infinity)
                 .overlay(alignment: .leading) {
-                    if phase == loopPhases.first {
+                    if phase == span.first {
                         Rectangle().fill(theme.info).frame(width: 2, height: 7)
                     }
                 }
                 .overlay(alignment: .trailing) {
-                    if phase == loopPhases.last {
+                    if phase == span.last {
                         Rectangle().fill(theme.info).frame(width: 2, height: 7)
                     }
                 }
                 .overlay {
-                    if phase == loopMiddle {
-                        Image(systemName: "arrow.triangle.2.circlepath")
-                            .font(.aero(size: 9, weight: .bold))
-                            .foregroundColor(theme.info)
-                            .padding(.horizontal, 3)
-                            .background(theme.panel)
+                    if phase == middle {
+                        loopBadge(loop)
                     }
                 }
             }
         }
         .frame(height: 9)
-        .accessibilityLabel("Circuit pattern repeats from climb to landing")
+        // Flattened first: faded as one, the badge's panel still hides the line under it.
+        .compositingGroup()
+        .opacity(loops == nil || loops?.current == loop ? 1 : 0.45)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(loopSpeech(loop))
+    }
+
+    /// The ↻ and the loop's count beside it, on the panel, so the line under reads as broken there.
+    private func loopBadge(_ loop: CircuitLaps.Loop) -> some View {
+        HStack(spacing: 2) {
+            Image(systemName: "arrow.triangle.2.circlepath")
+                .font(.aero(size: 9, weight: .bold))
+            if let loops {
+                Text(verbatim: "\(loops.count(of: loop))")
+                    .font(.aero(size: 12, weight: .bold, design: .monospaced))
+                    .fixedSize()
+            }
+        }
+        .foregroundColor(theme.info)
+        .padding(.horizontal, 3)
+        .background(theme.panel)
+    }
+
+    /// What VoiceOver says of a loop: its checks and its count, and whether the lap being flown took it.
+    private func loopSpeech(_ loop: CircuitLaps.Loop) -> String {
+        let span = loop == .touchAndGo ? L10n.Circuits.touchAndGoLoop : L10n.Circuits.fullStopLoop
+        guard let loops else { return span }
+        let count = loop == .touchAndGo ? L10n.Circuits.touchAndGoes(loops.touchAndGoes)
+                                        : L10n.Circuits.fullStops(loops.fullStops)
+        let parts = [span, count] + (loops.current == loop ? [L10n.Circuits.thisLap] : [])
+        return parts.joined(separator: ", ")
     }
 
     /// Spoken status for a segment. Six states are drawn as six FILL COLOURS and nothing else —

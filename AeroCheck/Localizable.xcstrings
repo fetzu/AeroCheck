@@ -1,12 +1,160 @@
 {
   "sourceLanguage": "en",
   "strings": {
+    "%lld touch-and-goes": {
+      "localizations": {
+        "en": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld touch-and-go"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld touch-and-goes"
+                }
+              }
+            }
+          }
+        },
+        "fr": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld posé-décollé"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld posés-décollés"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "%lld full stops": {
+      "localizations": {
+        "en": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld full stop"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld full stops"
+                }
+              }
+            }
+          }
+        },
+        "fr": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld atterrissage complet"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld atterrissages complets"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "Subscription": {
       "localizations": {
         "fr": {
           "stringUnit": {
             "state": "translated",
             "value": "Abonnement"
+          }
+        }
+      }
+    },
+    "circuits.touchAndGoLoop": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Touch-and-go loop, climb check to landing check"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Boucle du posé-décollé, de la montée à l'atterrissage"
+          }
+        }
+      }
+    },
+    "circuits.fullStopLoop": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Full-stop loop, check before departure to after landing check"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Boucle de l'atterrissage complet, de l'avant départ à l'après atterrissage"
+          }
+        }
+      }
+    },
+    "circuits.thisLap": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "this circuit"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ce tour"
+          }
+        }
+      }
+    },
+    "circuits.lapSpeech": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "circuit %lld: %@"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "tour %lld : %@"
           }
         }
       }

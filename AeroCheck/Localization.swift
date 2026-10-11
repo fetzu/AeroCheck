@@ -3455,6 +3455,35 @@ enum L10n {
         static let menuItem = String(localized: "aircraftRequest.menuItem")
         static let proLine = String(localized: "aircraftRequest.proLine")
         static let onboardingLine = String(localized: "aircraftRequest.onboardingLine")
+        static let requestsSection = String(localized: "aircraftRequest.requestsSection")
+        static let requestsFooter = String(localized: "aircraftRequest.requestsFooter")
+        static let removeFromList = String(localized: "aircraftRequest.removeFromList")
+        static func liveTitle(_ registrations: String) -> String { String(format: String(localized: "aircraftRequest.liveTitle"), registrations) }
+        static func liveBody(_ aircraftType: String) -> String { String(format: String(localized: "aircraftRequest.liveBody"), aircraftType) }
+
+        /// A request's status as the website's status page names it, and its line.
+        static func status(_ status: AircraftRequestStatus) -> (label: String, line: String) {
+            switch status {
+            case .uploading, .received:
+                return (String(localized: "aircraftRequest.status.received"), String(localized: "aircraftRequest.status.receivedLine"))
+            case .accepted:
+                return (String(localized: "aircraftRequest.status.accepted"), String(localized: "aircraftRequest.status.acceptedLine"))
+            case .converting:
+                return (String(localized: "aircraftRequest.status.converting"), String(localized: "aircraftRequest.status.convertingLine"))
+            case .proofreading:
+                return (String(localized: "aircraftRequest.status.proofreading"), String(localized: "aircraftRequest.status.proofreadingLine"))
+            case .testflight:
+                return (String(localized: "aircraftRequest.status.testflight"), String(localized: "aircraftRequest.status.testflightLine"))
+            case .live:
+                return (String(localized: "aircraftRequest.status.live"), String(localized: "aircraftRequest.status.liveLine"))
+            case .needInfo:
+                return (String(localized: "aircraftRequest.status.needInfo"), String(localized: "aircraftRequest.status.needInfoLine"))
+            case .declined:
+                return (String(localized: "aircraftRequest.status.declined"), String(localized: "aircraftRequest.status.declinedLine"))
+            case .duplicate:
+                return (String(localized: "aircraftRequest.status.duplicate"), String(localized: "aircraftRequest.status.duplicateLine"))
+            }
+        }
     }
 }
 

@@ -623,8 +623,15 @@ final class AircraftRequestStore: ObservableObject {
     /// list, so the new aircraft is there when the pilot opens the app.
     var onLive: ((SentAircraftRequest) -> Void)?
 
-    /// How often an open request's status is read, at most, when the app comes to the foreground.
-    static let checkInterval: TimeInterval = 3 * 60 * 60
+    /// How often an open request's status is read, at most, when the app comes to the foreground. A
+    /// DEBUG build can shorten it (`AEROCHECK_REQUEST_CHECK_SECONDS`) for a check against a local intake.
+    static var checkInterval: TimeInterval {
+        #if DEBUG
+        if let raw = ProcessInfo.processInfo.environment["AEROCHECK_REQUEST_CHECK_SECONDS"],
+           let seconds = TimeInterval(raw) { return seconds }
+        #endif
+        return 3 * 60 * 60
+    }
     /// How long a closed request stays in the list after it closed.
     static let keptAfterClosing: TimeInterval = 30 * 24 * 60 * 60
 

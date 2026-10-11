@@ -20,6 +20,7 @@ struct AircraftSettingsView: View {
         SettingsPage {
             if showsSpeeds {
                 aircraftSection
+                AircraftRequestsGroup(tint: tint)
                 SettingsGroup(title: L10n.Sheet.speedReference, tint: .aviationGold) {
                     if let locked = lockedSelection {
                         // The speeds come with the checklist, which Pro unlocks: say that, rather
@@ -55,6 +56,7 @@ struct AircraftSettingsView: View {
             } else {
                 subscriptionSection
                 aircraftSection
+                AircraftRequestsGroup(tint: tint)
                 aircraftVisibilitySection
             }
         }

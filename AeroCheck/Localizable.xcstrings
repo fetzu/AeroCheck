@@ -91,6 +91,397 @@
         }
       }
     },
+    "aircraftRequest.requestsSection": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Your requests"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vos demandes"
+          }
+        }
+      }
+    },
+    "aircraftRequest.requestsFooter": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Where each stands, read when the app opens. The e-mails tell you too, and a tap opens the request’s page, with its history."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Où chacune en est, lu à l’ouverture de l’app. Les e-mails vous le disent aussi, et un toucher ouvre la page de la demande, avec son historique."
+          }
+        }
+      }
+    },
+    "aircraftRequest.removeFromList": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Remove from this list"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Retirer de cette liste"
+          }
+        }
+      }
+    },
+    "aircraftRequest.liveTitle": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ is in AéroCheck"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ est dans AéroCheck"
+          }
+        }
+      }
+    },
+    "aircraftRequest.liveBody": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@: its checklist is in the app, for AéroCheck Pro subscribers."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ : sa checklist est dans l’app, pour les abonnés AéroCheck Pro."
+          }
+        }
+      }
+    },
+    "aircraftRequest.status.received": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Received"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Reçue"
+          }
+        }
+      }
+    },
+    "aircraftRequest.status.receivedLine": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "We have your request and its files. Next, we decide whether (and when) we add it."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nous avons votre demande et ses fichiers. Nous décidons ensuite si (et quand) nous l’ajoutons."
+          }
+        }
+      }
+    },
+    "aircraftRequest.status.accepted": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Accepted"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Acceptée"
+          }
+        }
+      }
+    },
+    "aircraftRequest.status.acceptedLine": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The checklist will be added to AéroCheck."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "La checklist sera ajoutée à AéroCheck."
+          }
+        }
+      }
+    },
+    "aircraftRequest.status.converting": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "In preparation"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "En préparation"
+          }
+        }
+      }
+    },
+    "aircraftRequest.status.convertingLine": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The checklist is being prepared for AéroCheck."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "La checklist est en cours de préparation pour AéroCheck."
+          }
+        }
+      }
+    },
+    "aircraftRequest.status.proofreading": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Proofreading"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Relecture"
+          }
+        }
+      }
+    },
+    "aircraftRequest.status.proofreadingLine": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "A draft is ready: have a look on the request’s page if you have five minutes (it’s optional)."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Un brouillon est prêt : jetez-y un œil sur la page de la demande si vous avez cinq minutes (c’est facultatif)."
+          }
+        }
+      }
+    },
+    "aircraftRequest.status.testflight": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "In testing"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "En test"
+          }
+        }
+      }
+    },
+    "aircraftRequest.status.testflightLine": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The checklist is in the test version of the app. The App Store version comes next."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "La checklist est dans la version de test de l’app. Celle de l’App Store suit."
+          }
+        }
+      }
+    },
+    "aircraftRequest.status.live": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Live"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dans l’app"
+          }
+        }
+      }
+    },
+    "aircraftRequest.status.liveLine": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The aircraft is in AéroCheck, for AéroCheck Pro subscribers."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "L’avion est dans AéroCheck, pour les abonnés AéroCheck Pro."
+          }
+        }
+      }
+    },
+    "aircraftRequest.status.needInfo": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Need info"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Infos requises"
+          }
+        }
+      }
+    },
+    "aircraftRequest.status.needInfoLine": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "We need something from you: see the message on the request’s page, and reply to our e-mail."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Il nous manque quelque chose : voyez le message sur la page de la demande, et répondez à notre e-mail."
+          }
+        }
+      }
+    },
+    "aircraftRequest.status.declined": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Declined"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Refusée"
+          }
+        }
+      }
+    },
+    "aircraftRequest.status.declinedLine": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "We won’t add this one. The reason is on the request’s page."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nous n’ajouterons pas celle-ci. La raison est sur la page de la demande."
+          }
+        }
+      }
+    },
+    "aircraftRequest.status.duplicate": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Duplicate"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Doublon"
+          }
+        }
+      }
+    },
+    "aircraftRequest.status.duplicateLine": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Someone already asked for this aircraft: that request carries on, this one is closed."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Quelqu’un a déjà demandé cet avion : cette demande-là continue, celle-ci est close."
+          }
+        }
+      }
+    },
     "aircraftRequest.title": {
       "extractionState": "manual",
       "localizations": {

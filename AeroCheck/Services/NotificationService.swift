@@ -15,6 +15,10 @@ import UserNotifications
 ///
 /// Anything else the thread tracks is checked when the pilot opens the app; a companion that pings
 /// all day gets its notifications turned off, and then the one that mattered is gone too.
+///
+/// Besides them, one notice, once per request (6.3.0): an aircraft whose checklist the pilot sent from
+/// the app is in AéroCheck. It is read when the app comes to the foreground (no background work), so
+/// it mostly shows with the app open, and the rule for banners in flight applies to it as to the rest.
 @MainActor
 final class NotificationService: NSObject, ObservableObject {
     static let shared = NotificationService()
@@ -29,6 +33,8 @@ final class NotificationService: NSObject, ObservableObject {
     var markFlightPlanClosedHandler: ((UUID) -> Void)?
     /// Called when the pilot taps the notification body, so the app can open that thread.
     var openThreadHandler: ((UUID) -> Void)?
+    /// Called when the pilot taps the "it's in AéroCheck" notice: the app opens the Aircraft tab. (6.3.0)
+    var openAircraftRequestsHandler: (() -> Void)?
     /// Whether a banner may interrupt now, with the app open (`NotificationPresentationRule`). Installed
     /// by the app; nil (before it is, and in tests) lets every banner through.
     var mayInterrupt: (() -> Bool)?
@@ -40,6 +46,7 @@ final class NotificationService: NSObject, ObservableObject {
     private enum Identifier {
         static func fplClose(_ threadId: UUID) -> String { "thread.\(threadId.uuidString).fplClose" }
         static func preparation(_ threadId: UUID) -> String { "thread.\(threadId.uuidString).prepare" }
+        static func aircraftRequestLive(_ ticket: String) -> String { "aircraftRequest.\(ticket).live" }
     }
 
     private enum Category {
@@ -55,6 +62,8 @@ final class NotificationService: NSObject, ObservableObject {
     /// nonisolated — it runs wherever the system delivers the tap. A `String` constant is Sendable,
     /// so there is nothing to protect and the isolation was only ever in the way.
     nonisolated private static let threadIdKey = "threadId"
+    /// Userinfo key carrying the ticket of an aircraft request's notice. (6.3.0)
+    nonisolated static let aircraftRequestKey = "aircraftRequest"
 
     private override init() {
         super.init()
@@ -192,6 +201,24 @@ final class NotificationService: NSObject, ObservableObject {
         }
     }
 
+    /// An aircraft request is live: the aircraft is in AéroCheck. Once per request (the store says when),
+    /// at once.
+    func notifyAircraftRequestLive(ticket: String, registrations: [String], aircraftType: String) async {
+        guard await hasPermission() else { return }
+        let content = UNMutableNotificationContent()
+        content.title = L10n.AircraftRequests.liveTitle(registrations.joined(separator: ", "))
+        content.body = L10n.AircraftRequests.liveBody(aircraftType)
+        content.sound = .default
+        content.userInfo = [Self.aircraftRequestKey: ticket]
+        let request = UNNotificationRequest(identifier: Identifier.aircraftRequestLive(ticket), content: content,
+                                            trigger: nil)
+        do {
+            try await center.add(request)
+        } catch {
+            AppLog.general.debugLine("Failed to post the aircraft request notice: \(error.localizedDescription)")
+        }
+    }
+
     // MARK: - Cancellation
 
     /// Drop the close reminder — the plan was closed, or the thread was finished or deleted.
@@ -269,6 +296,7 @@ final class NotificationService: NSObject, ObservableObject {
     fileprivate enum PendingAction {
         case markClosed(UUID)
         case open(UUID)
+        case openAircraftRequests
     }
 
     private var pendingActions: [PendingAction] = []
@@ -281,6 +309,9 @@ final class NotificationService: NSObject, ObservableObject {
         case .open(let id):
             guard let handler = openThreadHandler else { pendingActions.append(action); return }
             handler(id)
+        case .openAircraftRequests:
+            guard let handler = openAircraftRequestsHandler else { pendingActions.append(action); return }
+            handler()
         }
     }
 
@@ -323,6 +354,7 @@ extension NotificationService: UNUserNotificationCenterDelegate {
         let threadId = (response.notification.request.content.userInfo[NotificationService.threadIdKey] as? String)
             .flatMap(UUID.init(uuidString:))
         let actionIdentifier = response.actionIdentifier
+        let isAircraftRequest = response.notification.request.content.userInfo[NotificationService.aircraftRequestKey] != nil
         let done = MainThreadCompletion(completionHandler)
         NotificationService.onMain {
             let service = NotificationService.shared
@@ -335,6 +367,8 @@ extension NotificationService: UNUserNotificationCenterDelegate {
                     // Tapping the notification itself opens the thread.
                     service.enqueueOrRun(.open(threadId))
                 }
+            } else if isAircraftRequest {
+                service.enqueueOrRun(.openAircraftRequests)
             }
             done.call(())
         }

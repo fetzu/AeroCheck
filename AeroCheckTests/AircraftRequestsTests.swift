@@ -377,6 +377,19 @@ final class AircraftRequestsTests: XCTestCase {
         }
     }
 
+    func testEveryStatusHasItsWordsAndOnlyThreeClose() {
+        var labels = Set<String>()
+        for status in AircraftRequestStatus.allCases where status != .uploading {
+            let words = L10n.AircraftRequests.status(status)
+            XCTAssertFalse(words.label.isEmpty)
+            XCTAssertFalse(words.line.isEmpty)
+            labels.insert(words.label)
+        }
+        XCTAssertEqual(labels.count, 9, "each status reads as itself")
+        XCTAssertEqual(AircraftRequestStatus.allCases.filter(\.isClosed), [.live, .declined, .duplicate])
+        XCTAssertEqual(AircraftRequestStatus(worker: "on-hold"), .received, "a status a later worker adds")
+    }
+
     // MARK: - Helpers
 
     private var keychain: KeychainStore!

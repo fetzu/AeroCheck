@@ -225,6 +225,17 @@ struct AeroCheckApp: App {
                         NotificationPresentationRule.mayInterrupt(isFlightActive: appState.isFlightActive,
                                                                   phase: appState.currentPhase)
                     }
+                    // An aircraft request live: the notice opens the Aircraft tab, where the aircraft now
+                    // is; the list is fetched again so it is there. (6.3.0)
+                    NotificationService.shared.openAircraftRequestsHandler = { appState.groundTab = .aircraft }
+                    AircraftRequestStore.shared.onLive = { [aircraftDataService] request in
+                        Task {
+                            await NotificationService.shared.notifyAircraftRequestLive(
+                                ticket: request.ticket, registrations: request.registrations,
+                                aircraftType: request.aircraftType)
+                            await aircraftDataService.fetchAvailableAircraft()
+                        }
+                    }
                     // Anything that arrived before the handlers existed — the cold-launch case the
                     // delegate move exists for — is replayed now.
                     NotificationService.shared.drainPendingActions()
@@ -337,6 +348,8 @@ struct AeroCheckApp: App {
                     // 6.2.0: where each country keeps its official charts (12 KB, weekly, from the
                     // disk when fresh). Not awaited: nothing at launch waits for a link.
                     Task { await OfficialChartService.shared.refreshIfNeeded() }
+                    // The aircraft requests sent from this device: where they stand. (6.3.0)
+                    if !appState.isFlightActive { Task { await AircraftRequestStore.shared.refreshIfDue() } }
 
                     // Check for yearly map update reminder (after main content loads)
                     if offlineMapManager.shouldShowUpdateReminder {
@@ -361,6 +374,9 @@ struct AeroCheckApp: App {
                     Task { await dataStatusManager.autoRefreshIfNeeded(cellularUpdatesEnabled: true) }
                     // The chart registry when a week old, or a new AIRAC cycle's French folder. (6.2.0)
                     Task { await OfficialChartService.shared.refreshIfNeeded() }
+                    // The aircraft requests, at most every few hours, never in flight. (6.3.0, author 11
+                    // Oct: when the app opens, no background work.)
+                    if !appState.isFlightActive { Task { await AircraftRequestStore.shared.refreshIfDue() } }
                     // Re-establish the companion link on foreground (e.g. after the peer relaunched), and
                     // back from the background, check it or look afresh. (v4.1; 6.1.0)
                     companionConnectivityManager.appBecameActive()

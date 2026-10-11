@@ -713,6 +713,9 @@ struct AircraftRequestSheet: View {
             let sent = try await store.complete(upload)
             pending = nil
             stage = .sent(sent)
+            // The "it's in AéroCheck" notice needs the permission: asked now, with its reason in front
+            // of the pilot, as a flight's reminders ask it when a flight is first followed.
+            Task { await NotificationService.shared.requestAuthorization() }
         } catch let error as AircraftRequestError {
             switch error {
             case .intake(code: "missing_files", _, _, _):
@@ -812,6 +815,84 @@ struct AircraftRequestSheet: View {
     private func add(_ files: [AircraftRequestFile]) {
         if !files.isEmpty { fileMessage = nil }
         for file in files where form.files.count < AircraftRequestIntake.maxFiles { form.files.append(file) }
+    }
+}
+
+// MARK: - The requests sent, in the Aircraft tab
+
+/// The requests sent from this device: where each stands, as the website's status page names it. A tap
+/// opens the request's page (the history, the proofreading, the club's contact); a long press takes it
+/// off the list. (6.3.0)
+struct AircraftRequestsGroup: View {
+    var tint: Color = .aviationGold
+    @ObservedObject private var store = AircraftRequestStore.shared
+    @Environment(\.openURL) private var openURL
+
+    var body: some View {
+        if !store.requests.isEmpty {
+            SettingsGroup(title: L10n.AircraftRequests.requestsSection, tint: tint,
+                          footer: L10n.AircraftRequests.requestsFooter) {
+                ForEach(store.requests) { request in
+                    row(request)
+                }
+            }
+            .task { await store.refreshIfDue() }
+        }
+    }
+
+    private func row(_ request: SentAircraftRequest) -> some View {
+        let status = request.currentStatus
+        let words = L10n.AircraftRequests.status(status)
+        return Button {
+            if let url = store.pageURL(of: request) { openURL(url) }
+        } label: {
+            HStack(spacing: 10) {
+                SettingsRowLabel(icon: Self.icon(status),
+                                 title: request.registrations.joined(separator: ", ") + " · " + request.aircraftType,
+                                 subtitle: request.ticket + " · " + words.line,
+                                 tint: Self.tint(status, accent: tint))
+                Text(words.label)
+                    .font(.aero(.subheadline).weight(.semibold))
+                    .foregroundColor(Self.tint(status, accent: tint))
+                    .lineLimit(1)
+                    .fixedSize()
+                Image(systemName: "chevron.right")
+                    .font(.aero(size: 13, weight: .semibold))
+                    .foregroundColor(.dimText)
+            }
+            .padding(.horizontal, 14)
+            .padding(.vertical, 11)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .contextMenu {
+            Button(role: .destructive) { store.remove(request) } label: {
+                Label(L10n.AircraftRequests.removeFromList, systemImage: "trash")
+            }
+        }
+    }
+
+    static func icon(_ status: AircraftRequestStatus) -> String {
+        switch status {
+        case .uploading, .received: return "tray.and.arrow.down"
+        case .accepted: return "checkmark.circle"
+        case .converting: return "gearshape.2"
+        case .proofreading: return "text.magnifyingglass"
+        case .testflight: return "hammer"
+        case .live: return "airplane"
+        case .needInfo: return "questionmark.circle"
+        case .declined: return "xmark.circle"
+        case .duplicate: return "square.on.square"
+        }
+    }
+
+    static func tint(_ status: AircraftRequestStatus, accent: Color) -> Color {
+        switch status {
+        case .live: return .aviationGreen
+        case .needInfo: return .aviationAmber
+        case .declined, .duplicate: return .secondaryText
+        default: return accent
+        }
     }
 }
 

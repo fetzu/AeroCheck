@@ -24827,6 +24827,57 @@
         }
       }
     },
+    "nav.searchAerodromes": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Search aerodromes"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Rechercher un aérodrome"
+          }
+        }
+      }
+    },
+    "nav.searchNoMatch": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No aerodrome matches “%@”."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aucun aérodrome ne correspond à « %@ »."
+          }
+        }
+      }
+    },
+    "nav.searchNoAirportData": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The airport data isn't downloaded yet: there is nothing to search."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Les données aéroports ne sont pas encore téléchargées : rien à rechercher."
+          }
+        }
+      }
+    },
     "nav.viaPlaceholder": {
       "extractionState": "manual",
       "localizations": {

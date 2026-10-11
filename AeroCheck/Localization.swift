@@ -3061,6 +3061,12 @@ enum L10n {
         static func viaNoMatch(_ query: String) -> String {
             String(format: String(localized: "nav.viaNoMatch"), query)
         }
+        /// Plan › Map's magnifying glass, and the search it opens. (6.2.0)
+        static let searchAerodromes = String(localized: "nav.searchAerodromes")
+        static func searchNoMatch(_ query: String) -> String {
+            String(format: String(localized: "nav.searchNoMatch"), query)
+        }
+        static let searchNoAirportData = String(localized: "nav.searchNoAirportData")
         static let deleteWaypoint = String(localized: "nav.deleteWaypoint")
         static let deleteWaypointConfirmation = String(localized: "nav.deleteWaypointConfirmation")
         static let selectOnMap = String(localized: "nav.selectOnMap")

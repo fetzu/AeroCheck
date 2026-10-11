@@ -91,6 +91,91 @@
         }
       }
     },
+    "circuits.skippedInCircuits": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "skipped in circuits"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "sautée en tours de piste"
+          }
+        }
+      }
+    },
+    "circuits.leaveTitle": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Leave circuits?"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Quitter les tours de piste ?"
+          }
+        }
+      }
+    },
+    "circuits.leaveMessage": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This flight is set for circuits, which skip Cruise and Descent. The touch-and-goes and full stops so far stay in the flight."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ce vol est en tours de piste, qui sautent la croisière et la descente. Les posés-décollés et atterrissages complets faits jusqu'ici restent dans le vol."
+          }
+        }
+      }
+    },
+    "circuits.leaveAndGo": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Leave circuits, go to %@"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Quitter les tours de piste, puis %@"
+          }
+        }
+      }
+    },
+    "circuits.stay": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Stay in circuits"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Rester en tours de piste"
+          }
+        }
+      }
+    },
     "circuits.touchAndGoLoop": {
       "extractionState": "manual",
       "localizations": {

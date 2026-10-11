@@ -292,24 +292,7 @@ struct FlightView: View {
             )
             .environment(\.cockpitTheme, theme)
         }
-        .sheet(item: $jumpQuestion) { question in
-            JumpQuestionSheet(
-                target: question.target,
-                checks: question.checks,
-                leaving: question.leaving,
-                leavingOpenItems: question.leavingOpenItems,
-                onDefer: {
-                    jumpQuestion = nil
-                    appState.goToPhase(question.target, skipped: .deferred)
-                },
-                onAlreadyDone: {
-                    jumpQuestion = nil
-                    appState.goToPhase(question.target, skipped: .alreadyDone)
-                },
-                onStay: { jumpQuestion = nil }
-            )
-            .environment(\.cockpitTheme, theme)
-        }
+        .sheet(item: $jumpQuestion) { jumpQuestionSheet($0) }
         .sheet(isPresented: $showDeferredItems) {
             DeferredItemsSheet(onClose: { showDeferredItems = false })
                 .environment(\.cockpitTheme, theme)
@@ -434,11 +417,13 @@ struct FlightView: View {
         // v5.0.0: resolve the followed thread BEFORE the plan is deactivated — afterwards
         // there is no plan left to resolve it from. A flight with no thread resolves to nil
         // and nothing below changes, which is what "start a flight without a thread" means.
-        let wasCircuits = appState.isCircuitMode
+        // Circuits can be left or taken up in flight (6.3.0): the close-out goes by how the flight began,
+        // the light circuits close-out by whether circuits were flown at the end of it.
+        let wasCircuits = appState.isCircuitMode || appState.startedAsCircuits
         let closingThreadId = threadManager.threadToCloseOut(
             flightId: endedFlightId,
             planId: flightPlanManager.activeFlightPlan?.id,
-            isCircuitMode: wasCircuits,
+            isCircuitMode: appState.startedAsCircuits,
             isUnplanned: appState.flightIsUnplanned
         )
         appState.endFlight(withFlightPlan: flownPlan)
@@ -516,8 +501,16 @@ struct FlightView: View {
     }
 
     /// A jump on the phase bar or the phase list. Past the threshold, the checks it would leave undone
-    /// are listed first: defer them, they were already done, or stay. (v6.0 review, J2-J3)
+    /// are listed first: defer them, they were already done, or stay. (v6.0 review, J2-J3) Never for a
+    /// check the flight can't enter: circuits skip cruise and descent, and the jump did nothing after its
+    /// question. Leaving circuits is asked instead (6.3.0, the author's Q5).
     private func requestJump(to target: ChecklistPhase) {
+        jumpQuestion = nil
+        if target.isSkippedInCircuitMode(appState.isCircuitMode) {
+            jumpQuestion = JumpQuestion(target: target, checks: [], leaving: appState.currentPhase,
+                                        leavingOpenItems: 0, leavesCircuits: true)
+            return
+        }
         guard appState.jumpNeedsQuestion(to: target) else {
             appState.goToPhase(target)
             return
@@ -529,6 +522,40 @@ struct FlightView: View {
             checks: (untouched ? [leaving] : []) + appState.checksPassed(jumpingTo: target),
             leaving: leaving,
             leavingOpenItems: untouched ? 0 : appState.openItems(in: leaving).count)
+    }
+
+    /// The jump's question: the checks it leaves undone, or, for cruise or descent on a circuits flight,
+    /// whether to leave circuits (then the jump, asked as any other).
+    @ViewBuilder
+    private func jumpQuestionSheet(_ question: JumpQuestion) -> some View {
+        if question.leavesCircuits {
+            LeaveCircuitsSheet(
+                target: question.target,
+                onLeave: {
+                    appState.setCircuitMode(false)
+                    requestJump(to: question.target)
+                },
+                onStay: { jumpQuestion = nil }
+            )
+            .environment(\.cockpitTheme, theme)
+        } else {
+            JumpQuestionSheet(
+                target: question.target,
+                checks: question.checks,
+                leaving: question.leaving,
+                leavingOpenItems: question.leavingOpenItems,
+                onDefer: {
+                    jumpQuestion = nil
+                    appState.goToPhase(question.target, skipped: .deferred)
+                },
+                onAlreadyDone: {
+                    jumpQuestion = nil
+                    appState.goToPhase(question.target, skipped: .alreadyDone)
+                },
+                onStay: { jumpQuestion = nil }
+            )
+            .environment(\.cockpitTheme, theme)
+        }
     }
 
     private func advanceToNextPhase() {
@@ -1960,11 +1987,14 @@ struct PhaseSelectorView: View {
     var body: some View {
         NavigationStack {
             List(ChecklistPhase.allCases) { phase in
+                // Circuits skip cruise and descent: dimmed and said so, never hidden, the flight's whole
+                // sequence still in order; a tap asks whether to leave circuits. (6.3.0, the author's Q5)
+                let skipped = phase.isSkippedInCircuitMode(appState.isCircuitMode)
                 Button(action: { onSelect(phase) }) {
                     HStack {
                         // Status indicator
                         Circle()
-                            .fill(statusColor(for: phase))
+                            .fill(skipped ? theme.textDim.opacity(0.3) : statusColor(for: phase))
                             .frame(width: 10, height: 10)
                         
                         Text(phase.title)
@@ -1974,16 +2004,17 @@ struct PhaseSelectorView: View {
                             Image(systemName: "checkmark")
                                 .foregroundColor(theme.action)
                         }
-                        Text(L10n.Sheet.page(phase.pageNumber))
+                        Text(skipped ? L10n.Circuits.skippedInCircuits : L10n.Sheet.page(phase.pageNumber))
                             .font(.captionText)
                             .foregroundColor(theme.textSecondary)
                     }
+                    .opacity(skipped ? 0.55 : 1)
                 }
                 // What the bar's segment says, which the phone's bar, drawn in its phase button, no longer
                 // says on its own since 6.2 (PR 4): the status in words (the dot is colour alone), the
                 // current phase selected. The UI tests read and pick a phase here on the phone.
                 .accessibilityIdentifier("phaseList.\(phase)")
-                .accessibilityValue(PhaseProgressBar.spokenStatus(
+                .accessibilityValue(skipped ? L10n.Circuits.skippedInCircuits : PhaseProgressBar.spokenStatus(
                     of: phase, current: appState.currentPhase, status: appState.getPhaseStatus(phase),
                     fredaDue: appState.fredaDue,
                     currentOwed: appState.cueTiming(for: appState.currentPhase) == .owed))
@@ -2245,6 +2276,8 @@ struct FlightInfoSheet: View {
 
                     // The most useful settings without leaving the flight.
                     settingsCard(title: L10n.Cockpit.options) {
+                        circuitsRow
+                        rowDivider
                         toggleRow(L10n.Settings.memoryTest, Binding(
                             get: { !appState.settings.learningMode },
                             set: { appState.settings.learningMode = !$0; appState.saveSettings() }
@@ -2431,6 +2464,16 @@ struct FlightInfoSheet: View {
                         )
                 )
         }
+    }
+
+    /// Circuits, both ways, for this flight: off for the pattern left behind, on for circuits at the end of
+    /// a cross-country (in cruise or descent, on to the approach check). (6.3.0, the author's Q6)
+    private var circuitsRow: some View {
+        toggleRow(L10n.Cockpit.circuits, Binding(
+            get: { appState.isCircuitMode },
+            set: { appState.setCircuitMode($0) }
+        ))
+        .accessibilityIdentifier("menu.circuits")
     }
 
     private func toggleRow(_ title: String, _ binding: Binding<Bool>) -> some View {
@@ -3263,6 +3306,8 @@ struct JumpQuestion: Identifiable {
     let checks: [ChecklistPhase]
     let leaving: ChecklistPhase
     let leavingOpenItems: Int
+    /// Cruise or descent on a circuits flight: "Leave circuits?" first. (6.3.0)
+    var leavesCircuits = false
 }
 
 struct OpenItemsReview: Identifiable {

@@ -312,6 +312,86 @@ final class CircuitsTests: XCTestCase {
                        [.beforeDeparture, .lineUp, .climb, .approach, .landing, .afterLanding])
     }
 
+    // MARK: Leaving circuits, or taking them up, in flight (6.3.0, Q5 and Q6)
+
+    /// Off: a normal flight from now. Cruise and descent come back, NEW CIRCUIT goes; the counts and the
+    /// laps stay, and so does how the flight began (END FLIGHT's close-out reads it).
+    func testLeavingCircuitsMakesItANormalFlightFromNow() {
+        let appState = flight()
+        fly(appState, to: .landing)
+        appState.recordTouchAndGo(at: t(400))
+        XCTAssertEqual(appState.currentPhase, .climb)
+        appState.goToPhase(.cruise)
+        XCTAssertEqual(appState.currentPhase, .climb, "circuits: cruise can't be entered")
+
+        appState.setCircuitMode(false)
+
+        XCTAssertFalse(appState.isCircuitMode)
+        XCTAssertTrue(appState.startedAsCircuits, "how the flight began")
+        XCTAssertEqual(appState.currentFlight?.touchAndGoCount, 1, "the counts stay")
+        XCTAssertEqual(appState.circuitLaps.lastLoop, .touchAndGo, "and the laps")
+        XCTAssertNil(appState.circuitLoopMarks, "no loops drawn on a normal flight")
+        completeCurrentCheck(appState)
+        appState.nextPhase()
+        XCTAssertEqual(appState.currentPhase, .cruise, "NEXT: the cruise check again")
+        appState.goToPhase(.descent)
+        XCTAssertEqual(appState.currentPhase, .descent, "a jump there too")
+        fly(appState, to: .afterLanding)
+        completeCurrentCheck(appState)
+        XCTAssertFalse(appState.offersNewCircuit, "NEXT at the end of the after landing check")
+    }
+
+    /// On, in cruise or descent: on to the approach check, both skipped as NEXT skips them on a circuits
+    /// flight (a check done stays done), neither owed any more.
+    func testTakingUpCircuitsInCruiseGoesOnToTheApproachCheck() {
+        let appState = flight(circuits: false)
+        fly(appState, to: .cruise)
+        completeCurrentCheck(appState)
+        appState.nextPhase()
+        XCTAssertEqual(appState.currentPhase, .descent)
+        appState.flightCues.owe(.descent, cue: .descent, at: t(300))
+
+        appState.setCircuitMode(true)
+
+        XCTAssertTrue(appState.isCircuitMode)
+        XCTAssertFalse(appState.startedAsCircuits)
+        XCTAssertEqual(appState.currentPhase, .approach)
+        XCTAssertTrue(appState.getPhaseStatus(.cruise).isDone, "the cruise check done stays done")
+        XCTAssertEqual(appState.phaseCompletionStatus[.descent], .skipped)
+        XCTAssertNil(appState.owedCue(for: .descent), "not owed")
+        XCTAssertEqual(appState.circuitLoopMarks?.lap, 1)
+    }
+
+    /// On anywhere else: nothing moves; NEXT skips cruise and descent from then on.
+    func testTakingUpCircuitsElsewhereMovesNothing() {
+        let appState = flight(circuits: false)
+        fly(appState, to: .climb)
+        appState.setCircuitMode(true)
+        XCTAssertEqual(appState.currentPhase, .climb)
+        completeCurrentCheck(appState)
+        appState.nextPhase()
+        XCTAssertEqual(appState.currentPhase, .approach)
+        XCTAssertEqual(appState.phaseCompletionStatus[.cruise], .skipped)
+    }
+
+    /// A relaunch finds the switch as it was left, and how the flight began.
+    func testARelaunchKeepsTheSwitchAndHowTheFlightBegan() throws {
+        let datastore = makeTestDatastore()
+        let defaults = makeTestDefaults()
+        let appState = makeTestAppState(datastore: datastore, defaults: defaults)
+        appState.settings.selectedRemoteAircraftId = nil
+        appState.settings.selectedAircraft = .wt9Dynamic
+        appState.startFlight(withAircraft: "F-HVXA", aircraftRegistration: "F-HVXA", aircraftType: "WT9", circuitMode: true)
+        appState.setCircuitMode(false)
+        appState.flushPendingCheckpoint()
+
+        let restored = makeTestAppState(datastore: datastore, defaults: defaults)
+        XCTAssertTrue(restored.restoreActiveFlightState())
+        addTeardownBlock { @MainActor in if restored.isFlightActive { restored.cancelFlight() } }
+        XCTAssertFalse(restored.isCircuitMode)
+        XCTAssertTrue(restored.startedAsCircuits)
+    }
+
     // MARK: Relaunch, and the Companion
 
     /// A relaunch keeps the lap: a full stop counted before it isn't counted again after it.

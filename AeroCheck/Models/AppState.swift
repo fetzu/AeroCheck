@@ -688,6 +688,9 @@ struct ActiveFlightState: Codable {
     /// once per lap) and the loops taken. Optional, so an older checkpoint still decodes, as a first lap.
     /// (6.3.0)
     let circuitLaps: CircuitLaps?
+    /// Whether the flight was started as circuits, which END FLIGHT's close-out reads, `isCircuitMode` being
+    /// the switch as it stands. Optional, so an older checkpoint still decodes (as `isCircuitMode`). (6.3.0)
+    let startedAsCircuits: Bool?
     let savedAt: Date
 
     /// Builds a snapshot from a **non-optional** flight, so a nil `currentFlight` can never
@@ -710,6 +713,7 @@ struct ActiveFlightState: Codable {
         self.flightCues = appState.flightCues
         self.freda = appState.freda.isRunning ? appState.freda : nil
         self.circuitLaps = appState.circuitLaps
+        self.startedAsCircuits = appState.startedAsCircuits
         self.highestCompletedPhase = appState.highestCompletedPhase
         self.currentHighlightedItem = appState.currentHighlightedItem
         self.deferredItems = appState.deferredItems
@@ -752,6 +756,7 @@ struct ActiveFlightState: Codable {
         appState.flightCues = flightCues ?? FlightCueState()
         appState.freda = freda ?? FredaSchedule()
         appState.circuitLaps = circuitLaps ?? CircuitLaps()
+        appState.startedAsCircuits = startedAsCircuits ?? isCircuitMode
         appState.highestCompletedPhase = highestCompletedPhase
         appState.currentHighlightedItem = currentHighlightedItem
         appState.deferredItems = deferredItems ?? [:]
@@ -1126,6 +1131,11 @@ class AppState {
     /// The laps of a circuits flight: the loop that started the one being flown, the circuits started
     /// again from a full stop, and when the lap began. (6.3.0)
     var circuitLaps = CircuitLaps()
+    /// The flight was started as circuits (CIRCUITS, or a local thread's). Circuits can be left or taken up
+    /// in flight since 6.3.0, so END FLIGHT's close-out reads this, not the switch: a session started as
+    /// circuits never adopts a cross-country planned for another day, and a cross-country that ends in
+    /// circuits still closes out its own thread.
+    var startedAsCircuits = false
     /// Set when the pilot chose "Fly without a plan" over a flight they had planned. Transient, like
     /// `isCircuitMode`: it exists so END FLIGHT does not adopt the followed flight they deliberately
     /// stepped around. (v5.x)
@@ -1551,6 +1561,7 @@ class AppState {
         currentPhase = .preflight
         isFlightActive = true
         isCircuitMode = circuitMode
+        startedAsCircuits = circuitMode
         circuitLaps = CircuitLaps()
         flightIsUnplanned = unplanned
         engineStartTime = nil
@@ -1629,6 +1640,7 @@ class AppState {
         flightAircraft = nil
         isFlightActive = false
         isCircuitMode = false
+        startedAsCircuits = false
         circuitLaps = CircuitLaps()
         flightIsUnplanned = false
         engineStartTime = nil
@@ -1671,6 +1683,7 @@ class AppState {
         flightAircraft = nil
         isFlightActive = false
         isCircuitMode = false
+        startedAsCircuits = false
         circuitLaps = CircuitLaps()
         flightIsUnplanned = false
         engineStartTime = nil
@@ -2758,6 +2771,30 @@ class AppState {
         startChecksOfNewLap(from: .beforeDeparture, through: .afterLanding)
         circuitLaps.tookNewCircuit(at: FlightClock.now)
         enterPhase(.beforeDeparture)
+        checkpointActiveFlight(force: true)
+    }
+
+    /// Circuits on or off during a flight (6.3.0, the author's Q5 and Q6): the phase list's "Leave circuits?"
+    /// and Menu › Options. Off, a normal flight from now on: cruise and descent come back (the phase bar,
+    /// NEXT, FREDA), GO AROUND and TOUCH-AND-GO are held again, NEW CIRCUIT is no longer offered. On, for
+    /// circuits at the end of a cross-country: cruise and descent are skipped from now on, and a flight in
+    /// either goes on to the approach check, both marked skipped as NEXT marks them, neither owed. The
+    /// counts, the landings and the laps stay either way. `isCircuitMode` is not on `Flight`; the crash
+    /// checkpoint carries it, written at once.
+    func setCircuitMode(_ on: Bool) {
+        guard isFlightActive, on != isCircuitMode else { return }
+        isCircuitMode = on
+        if on {
+            let skipped: [ChecklistPhase] = [.cruise, .descent]
+            for phase in skipped { flightCues.resolve(phase) }
+            if skipped.contains(currentPhase) {
+                // A check done stays done; the rest is skipped, as NEXT skips them on a circuits flight.
+                for phase in skipped where phaseCompletionStatus[phase]?.isDone != true {
+                    phaseCompletionStatus[phase] = .skipped
+                }
+                enterPhase(.approach)
+            }
+        }
         checkpointActiveFlight(force: true)
     }
 

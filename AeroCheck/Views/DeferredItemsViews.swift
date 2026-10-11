@@ -498,3 +498,51 @@ struct JumpQuestionSheet: View {
     }
 }
 
+/// Cruise or descent picked on a circuits flight, which skips them (6.3.0, the author's Q5): leave circuits
+/// and go there as a normal flight, the counts and landings kept, or stay. As the jump question looks, a
+/// pilot who finishes the pattern and departs for a local flight, or who started CIRCUITS by mistake, gets
+/// there in one answer.
+struct LeaveCircuitsSheet: View {
+    let target: ChecklistPhase
+    let onLeave: () -> Void
+    let onStay: () -> Void
+
+    @Environment(\.cockpitTheme) private var theme
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 18) {
+            Text(L10n.Circuits.leaveTitle)
+                .font(.aero(size: 30, weight: .bold))
+                .foregroundColor(theme.textPrimary)
+                .accessibilityAddTraits(.isHeader)
+            Text(L10n.Circuits.leaveMessage)
+                .font(.aero(size: 20))
+                .foregroundColor(theme.textSecondary)
+                .fixedSize(horizontal: false, vertical: true)
+            VStack(spacing: 12) {
+                Button(action: onLeave) {
+                    Text(L10n.Circuits.leaveAndGo(target.shortTitle).uppercased())
+                        .font(.aero(size: 22, weight: .heavy))
+                        .multilineTextAlignment(.center)
+                        .foregroundColor(theme.actionText)
+                        .padding(.horizontal, 12)
+                        .frame(maxWidth: .infinity, minHeight: 84)
+                        .background(RoundedRectangle(cornerRadius: 16).fill(theme.action))
+                }
+                .accessibilityIdentifier("leaveCircuits.leave")
+                Button(action: onStay) {
+                    Text(L10n.Circuits.stay)
+                        .font(.aero(size: 20))
+                        .foregroundColor(theme.textSecondary)
+                        .frame(maxWidth: .infinity, minHeight: 64)
+                }
+                .accessibilityIdentifier("leaveCircuits.stay")
+            }
+            .buttonStyle(.plain)
+        }
+        .padding(28)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background(theme.panel.ignoresSafeArea())
+    }
+}
+

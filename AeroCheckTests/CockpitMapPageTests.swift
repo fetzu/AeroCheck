@@ -149,6 +149,20 @@ final class CockpitMapPageTests: XCTestCase {
         XCTAssertEqual(seen.first { $0.id == "phaseList.descent" }?.value, L10n.Accessibility.phaseNotStarted)
     }
 
+    /// On a circuits flight the list keeps cruise and descent, dimmed and said to be skipped in circuits: a
+    /// tap on one asks whether to leave circuits. (6.3.0, the author's Q5)
+    func testThePhaseListSaysCircuitsSkipCruiseAndDescent() throws {
+        let services = makeServices()
+        startFlight(services.appState, stepByStep: true)
+        services.appState.isCircuitMode = true
+        let seen = accessibility(PhaseSelectorView(onSelect: { _ in }), services: services,
+                                 size: CGSize(width: 390, height: 1_600))
+        for phase in ChecklistPhase.allCases {
+            let row = try XCTUnwrap(seen.first { $0.id == "phaseList.\(phase)" }, "\(phase)'s row")
+            XCTAssertEqual(row.value == L10n.Circuits.skippedInCircuits, phase == .cruise || phase == .descent, "\(phase)")
+        }
+    }
+
     /// The phone's header holds one height in every phase, the bar drawn in the button and the longest
     /// title ("CHECK BEFORE ENGINE START") on one line: the phase button, the header's last row, keeps its
     /// frame, on a 6.1" phone and on an iPhone SE's 375 pt.

@@ -246,6 +246,16 @@ enum L10n {
         static let fullStopLoop = String(localized: "circuits.fullStopLoop")
         /// The bracket the lap being flown took.
         static let thisLap = String(localized: "circuits.thisLap")
+        /// Cruise and descent in the phase list of a circuits flight, and the question a tap on one asks.
+        /// (6.3.0, Q5)
+        static let skippedInCircuits = String(localized: "circuits.skippedInCircuits")
+        static let leaveTitle = String(localized: "circuits.leaveTitle")
+        static let leaveMessage = String(localized: "circuits.leaveMessage")
+        /// "Leave circuits, go to CRUISE CHECK"
+        static func leaveAndGo(_ check: String) -> String {
+            String(format: String(localized: "circuits.leaveAndGo"), check)
+        }
+        static let stay = String(localized: "circuits.stay")
         /// The phone's phase button: "circuit 4: 2 touch-and-goes, 1 full stop".
         static func lapSpeech(_ lap: Int, touchAndGoes: Int, fullStops: Int) -> String {
             String(format: String(localized: "circuits.lapSpeech"), lap,

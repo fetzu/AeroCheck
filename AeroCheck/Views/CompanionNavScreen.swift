@@ -6,7 +6,8 @@ import SwiftUI
 // The phone's NAV screen is the phone Cockpit's ROUTE page, drawn from what the iPad streams:
 //
 //   read band  the strip, the next line and the NOW line, over both modes (CHECKLIST too)
-//   page       DEST and the route to scale, the legs, the radio; Emergency pinned under them
+//   page       the DEST line (the phone's: one line, the field, the distance · the ETE and Δ; no route to
+//              scale, no ETA, since #352), the legs, the radio; Emergency pinned under them
 //   act band   the iPad's check slot · START LEG, then MARK <wpt> · Divert · More (the leg timer, the nav
 //              log), in the Cockpit's four frames (`ActBandLayout`)
 //

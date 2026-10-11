@@ -1268,6 +1268,16 @@ struct ActLegTimer {
         let h = total / 3600, m = (total % 3600) / 60, s = total % 60
         return h > 0 ? String(format: "%d:%02d:%02d", h, m, s) : String(format: "%d:%02d", m, s)
     }
+
+    /// A leg's time in the legs' columns (PLAN, ACT and Δ, on ROUTE and in Plan › Map's panel): "M:SS" as
+    /// `clock`, and an hour or more as "1h05", in whole minutes. It fits the column at full size, where
+    /// "1:05:00" shrank to 80 % (#317), and can't be read as minutes and seconds, as "1:05" could. MARK's
+    /// running timer keeps its seconds (`clock`). (6.3.0, the author's pick)
+    static func columnClock(_ t: TimeInterval) -> String {
+        let total = Int(t.rounded())
+        guard total >= 3600 else { return clock(t) }
+        return String(format: "%dh%02d", total / 3600, (total % 3600) / 60)
+    }
 }
 
 /// No route on the map: the way to one, where MARK would be, as tall.

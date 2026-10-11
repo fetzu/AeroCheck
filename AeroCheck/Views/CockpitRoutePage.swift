@@ -447,11 +447,11 @@ struct RouteLegRow: View {
                         Text(leg?.distance.map { String(format: "%.1f", $0) } ?? "")
                             .foregroundColor(theme.textSecondary).frame(width: 40, alignment: .trailing)
                     }
-                    Text((leg?.totalLegEET).map(ActLegTimer.clock) ?? "")   // PLAN (EET)
+                    Text((leg?.totalLegEET).map(ActLegTimer.columnClock) ?? "")   // PLAN (EET)
                         .foregroundColor(large ? theme.textSecondary : theme.textDim)
                         .frame(width: timeWidth, alignment: .trailing)
                     if showsFlown {
-                        Text(actual.map(ActLegTimer.clock) ?? "")          // ACT / live
+                        Text(actual.map(ActLegTimer.columnClock) ?? "")          // ACT / live
                             .foregroundColor(isCurrent ? theme.route : theme.onTarget)
                             .frame(width: timeWidth, alignment: .trailing)
                         delta(planned: leg?.totalLegEET, actual: actual)   // Δ ahead/over
@@ -460,7 +460,8 @@ struct RouteLegRow: View {
                 }
                 .font(.aero(size: large ? CockpitType.label(for: scale) : 10, design: .monospaced))
                 .lineLimit(1)
-                // A little smaller rather than a time cut short: an hour's "1:05:12" in the phone's 58 pt.
+                // A little smaller rather than a time cut short, should a time ever outgrow its column (an
+                // hour is "1h05" since 6.3.0, which fits).
                 .minimumScaleFactor(large ? (scale == .phone ? 0.7 : 0.8) : 1)
                 .modifier(LegRowPartReader(index: index, part: .figures))
             }
@@ -481,7 +482,7 @@ struct RouteLegRow: View {
     private func delta(planned: TimeInterval?, actual: TimeInterval?) -> some View {
         if let planned, let actual {
             let difference = planned - actual
-            Text((difference >= 0 ? "▲" : "▼") + ActLegTimer.clock(abs(difference)))
+            Text((difference >= 0 ? "▲" : "▼") + ActLegTimer.columnClock(abs(difference)))
                 .foregroundColor(difference >= 0 ? theme.onTarget : theme.warning)
         } else {
             Text("")

@@ -376,6 +376,24 @@ final class CockpitRoutePageTests: XCTestCase {
         XCTAssertNil(RouteLegRow.actualTime(plan: plan, index: 0, legTimer: 90), "the departure has no leg")
     }
 
+    /// A leg of an hour or more reads "1h05" in the legs' columns, whole at full size on both devices, where
+    /// "1:05:00" shrank to 80 % (#317); under an hour the times are as before. (6.3.0)
+    func testAnHourLongLegFitsItsColumnsAtFullSize() {
+        XCTAssertEqual(ActLegTimer.columnClock(1_023), "17:03")
+        XCTAssertEqual(ActLegTimer.columnClock(3_599.4), "59:59")
+        XCTAssertEqual(ActLegTimer.columnClock(3_600), "1h00")
+        XCTAssertEqual(ActLegTimer.columnClock(3_900), "1h05")
+        XCTAssertEqual(ActLegTimer.columnClock(3_959), "1h05", "whole minutes")
+        XCTAssertEqual(ActLegTimer.columnClock(37_800), "10h30")
+        XCTAssertEqual(ActLegTimer.clock(3_900), "1:05:00", "MARK's running timer keeps its seconds")
+        for scale in [CockpitScale.kneeboard, .phone] {
+            let font = UIFont.aero(size: CockpitType.label(for: scale), monospaced: true)
+            func width(_ text: String) -> CGFloat { (text as NSString).size(withAttributes: [.font: font]).width }
+            XCTAssertLessThanOrEqual(width("1h05"), LegRowMetrics.timeWidth(scale), "\(scale): PLAN and ACT")
+            XCTAssertLessThanOrEqual(width("▲1h05"), LegRowMetrics.deltaWidth(scale), "\(scale): Δ")
+        }
+    }
+
     // MARK: - Helpers
 
     /// Grenchen, SAIGNELÉGIER, ST-URSANNE, Bressaucourt: the longest name a Jura route has.

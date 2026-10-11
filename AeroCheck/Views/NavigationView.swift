@@ -6926,8 +6926,8 @@ enum LegRowMetrics {
 
     /// A phone's rows, tighter: one line a row with PLAN, ACT and Δ, the name taking what is left (about
     /// 106 pt on an iPhone 17, SAIGNELÉGIER at about 14 pt), where two lines a row left ROUTE's legs "all
-    /// over the place" (device check, 11 Oct). PLAN keeps "17:03" (55 pt), Δ "▲15:19" (66 pt) at full size;
-    /// an hour's "1:05:12" shrinks, as it may, to 80 %. (6.2.0)
+    /// over the place" (device check, 11 Oct). PLAN keeps "17:03" (55 pt), Δ "▲15:19" (66 pt) at full size,
+    /// and an hour's "1h05" too since 6.3.0 (`ActLegTimer.columnClock`; "1:05:12" shrank to 80 %). (6.2.0)
     static func indexWidth(_ scale: CockpitScale) -> CGFloat { scale == .phone ? 20 : indexWidth }
     static func spacing(_ scale: CockpitScale) -> CGFloat { scale == .phone ? 6 : spacing }
     static func nameGap(_ scale: CockpitScale) -> CGFloat { scale == .phone ? 4 : nameGap }

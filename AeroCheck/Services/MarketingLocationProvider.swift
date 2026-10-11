@@ -544,6 +544,9 @@ enum MarketingScene: String, CaseIterable, Identifiable {
     case flightPrepare = "Flight — Prepare"
     case flightCloseOut = "Flight — Close-out"
     case homeFlightToday = "Home — Today's flight"
+    /// Plan › Map close in on LSZQ: its traffic circuit, its arrival sectors and runway, on the national map
+    /// with the airspace off. The website's `circuits` shot, no tap needed. (6.3.0)
+    case planMapCircuits = "Plan › Map — Circuits at LSZQ"
 
     var id: String { rawValue }
 
@@ -561,6 +564,7 @@ enum MarketingScene: String, CaseIterable, Identifiable {
         case .flightPrepare: return "Same flight — swipe to PREPARE after inject"
         case .flightCloseOut: return "Vol d'Alpes in CLOSE with its route and rate — no gesture"
         case .homeFlightToday: return "LSZQ→LFSB scheduled today 14:00 → Home hero"
+        case .planMapCircuits: return "Plan › Map at LSZQ, national map, circuits and routes, no airspace"
         }
     }
 }
@@ -677,9 +681,27 @@ enum MarketingSceneInjector {
             injectPlanBuilder(flightPlanManager: flightPlanManager, airportDataService: airportDataService)
         case .flightLogDetail:
             injectFlightLog(appState: appState)
+        case .planMapCircuits:
+            injectPlanMapCircuits(appState: appState)
         case .flightFollowed, .flightPrepare, .flightCloseOut, .homeFlightToday:
             break // dispatched above — they need the thread manager
         }
+    }
+
+    // MARK: - Plan › Map at LSZQ, the circuits shot (6.3.0)
+
+    /// No flight, Plan › Map, the national map, the airspace off, the traffic circuits and the arrival and
+    /// departure routes on (the airports too, for the runway). The map frames LSZQ itself as it appears
+    /// (`NavigationMapView.frameForCaptureIfAsked`), as the search frames an aerodrome, without its callout.
+    private static func injectPlanMapCircuits(appState: AppState) {
+        if appState.isFlightActive { appState.cancelFlight() }
+        appState.selectMapLayer(.landeskarten)
+        appState.settings.showOpenAIPOverlay = false
+        appState.settings.showVFRCircuitsOnMap = true
+        appState.settings.showVFRRoutesOnMap = true
+        appState.settings.showAirportsOnMap = true
+        appState.groundTab = .plan
+        appState.pendingPlanSection = .map
     }
 
     // MARK: - Scene 1: Home with exactly two owned aircraft

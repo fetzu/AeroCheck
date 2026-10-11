@@ -703,6 +703,9 @@ struct NavigationMapView: View {
         // Prime the track-vector EMA from the last known fix so the vector appears immediately on
         // (re)open — even on a stationary device with no fresh location *change* to trigger it. (v4 UI/UX Revamp fix)
         updateTrackVectorEMA()
+        #if DEBUG
+        frameForCaptureIfAsked()
+        #endif
     }
 
     private func handleDisappear() {
@@ -1069,6 +1072,28 @@ struct NavigationMapView: View {
         chosenAerodrome = nil
         showAerodrome(airport)
     }
+
+    #if DEBUG
+    /// DEV-ONLY (`AEROCHECK_SCENE=circuits`, the website's `circuits` shot): Plan › Map framed on LSZQ as the
+    /// search frames an aerodrome, about 8 NM across, without the callout the shot had to close. (6.3.0)
+    private func frameForCaptureIfAsked() {
+        guard chrome == .plan, ProcessInfo.processInfo.environment["AEROCHECK_SCENE"]?.lowercased() == "circuits"
+        else { return }
+        Task {
+            await airportDataService.ensureLoaded()
+            // The airport list may still be downloading on a fresh simulator.
+            let field = airportDataService.findAirport(byIdent: "LSZQ") ?? Airport(
+                id: 0, ident: "LSZQ", type: .smallAirport, name: "Bressaucourt",
+                latitude: 47.3497, longitude: 7.0278, elevation: 1860, continent: "EU",
+                isoCountry: "CH", isoRegion: "CH-JU", municipality: nil, scheduledService: false,
+                gpsCode: nil, iataCode: nil, localCode: nil)
+            isFollowingAircraft = false
+            mapState.pendingCallout = nil
+            mapState.pendingCameraMove = PendingCameraMove(to: field)
+            mapState.objectWillChange.send()
+        }
+    }
+    #endif
 
     /// An aerodrome chosen in the search: the map goes there, about 8 NM across, and stops following the
     /// aircraft (the pilot asked to look there), and its callout opens as a tap on its marker would,

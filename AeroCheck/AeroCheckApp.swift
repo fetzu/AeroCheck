@@ -299,7 +299,15 @@ struct AeroCheckApp: App {
                                 flightPlanManager: flightPlanManager,
                                 activeChecklist: appState.activeChecklist
                             )
-                            appState.flightRestoredNotice = L10n.Alert.flightRestored
+                            // Not under a capture scene: the capture script launches each scene twice,
+                            // and the second launch restored the flight the first one started, its alert
+                            // over most of the 6.2.0 in-flight shots. (6.3.0)
+                            #if DEBUG
+                            let capturing = ProcessInfo.processInfo.environment["AEROCHECK_SCENE"] != nil
+                            #else
+                            let capturing = false
+                            #endif
+                            if !capturing { appState.flightRestoredNotice = L10n.Alert.flightRestored }
                         }
                     }
 

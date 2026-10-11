@@ -2584,12 +2584,11 @@ struct NavigationMapView: View {
                              large: Bool = false) -> some View {
         let isPast = index < plan.currentWaypointIndex
         let isPreview = previewWaypointIndex == index
-        let actual = RouteLegRow.actualTime(plan: plan, index: index, legTimer: flightPlanManager.chronometerElapsed)
         // A previewed waypoint ahead can be flown to straight away, skipping the ones before it, and a
         // waypoint of the route is where a diversion can rejoin it (v5.1): DIRECT is under the legs, the
         // panel's width (`previewDirectBar`), and the row stays as its neighbours. (6.2.0)
         return RouteLegRow(plan: plan, index: index, compact: compact, large: large, isPreview: isPreview,
-                           actual: actual) {
+                           actual: nil, showsFlown: false) {
             handleWaypointTap(index: index, plan: plan, isPast: isPast)
         }
     }
@@ -6900,14 +6899,19 @@ enum LegRowMetrics {
     static let timeWidth: CGFloat = 68
     static let deltaWidth: CGFloat = 82
 
+    /// A phone's rows, a little tighter: an ICAO code ("LSZQ", 44 pt at 17) beside PLAN, ACT and Δ on one
+    /// line on an iPhone 17 and a 17e, where it missed by 2 to 4 pt and every row of such a route took two
+    /// lines (device check, 11 Oct). Δ keeps "▲15:19" at full size (66 pt); an hour's "▼1:05:12" shrinks
+    /// to 80 %, as it may. (6.2.0)
+    static func deltaWidth(_ scale: CockpitScale) -> CGFloat { scale == .phone ? 72 : deltaWidth }
+    static func timeSpacing(_ scale: CockpitScale) -> CGFloat { scale == .phone ? 4 : timeSpacing }
+    static func horizontalPadding(_ scale: CockpitScale) -> CGFloat { scale == .phone ? 6 : horizontalPadding }
+
     /// A row without its name.
     static var fixedWidth: CGFloat {
         2 * horizontalPadding + indexWidth + iconWidth + 4 * spacing + nameGap
             + 2 * timeWidth + deltaWidth + 2 * timeSpacing
     }
-
-    /// ACT and Δ, both empty on a waypoint ahead: where DIRECT goes on a previewed one.
-    static var actualAndDeltaWidth: CGFloat { timeWidth + timeSpacing + deltaWidth }
 
     /// The least of a name the legs keep beside the frequencies: an ICAO code, four characters of B612
     /// Mono at 20 pt.

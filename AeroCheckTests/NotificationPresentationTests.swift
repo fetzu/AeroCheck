@@ -62,4 +62,28 @@ final class NotificationPresentationTests: XCTestCase {
         let request = UNNotificationRequest(identifier: "test.\(UUID().uuidString)", content: UNNotificationContent(), trigger: nil)
         XCTAssertEqual(NotificationService.shared.presentation(for: request), [.banner, .sound])
     }
+
+    /// The delegate's callbacks finish on the main thread, wherever they are called: their completion
+    /// updates the app's snapshot in UIKit, which aborts off the main thread. Opening "Flight tomorrow"
+    /// from Notification Center crashed the iPad (6.2.0 TestFlight 468, device check 11 Oct).
+    func testTheCallbacksFinishOnTheMainThread() {
+        let done = expectation(description: "finished on the main thread")
+        DispatchQueue.global().async {
+            NotificationService.onMain {
+                XCTAssertTrue(Thread.isMainThread)
+                done.fulfill()
+            }
+        }
+        wait(for: [done], timeout: 2)
+    }
+
+    @MainActor
+    func testTheSystemsCompletionIsCalledWithItsAnswer() {
+        var options: UNNotificationPresentationOptions = []
+        MainThreadCompletion<UNNotificationPresentationOptions> { options = $0 }.call([.list])
+        XCTAssertEqual(options, [.list])
+        var called = false
+        MainThreadCompletion<Void> { called = true }.call(())
+        XCTAssertTrue(called)
+    }
 }

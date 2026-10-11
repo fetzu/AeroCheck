@@ -40,6 +40,9 @@ struct CockpitReadRows: View {
     let nextFrequency: PhaseFrequency?
     /// ROUTE, from a tap on NEXT, on the frequencies or on either line.
     let onShowRoute: () -> Void
+    /// ROUTE on its RADIO list, from a tap on the phone's NOW line (`RouteListSwitch`); nil, `onShowRoute`.
+    /// (6.2.0)
+    var onShowRadio: (() -> Void)? = nil
     /// V-SPEEDS, from a tap on GS.
     var onSpeedTap: (() -> Void)? = nil
     /// The language the band reads in, "fr"; nil, the app's. For the French previews and tests.
@@ -93,7 +96,7 @@ struct CockpitReadRows: View {
                 Rectangle().fill(theme.glassStroke).frame(height: 0.5)
                     .padding(.horizontal, metrics.cellPadding)
             }
-            ReadBandNowLine(now: now, scale: scale, onTap: onShowRoute, language: language)
+            ReadBandNowLine(now: now, scale: scale, onTap: onShowRadio ?? onShowRoute, language: language)
         }
         .background(theme.glassFill, in: RoundedRectangle(cornerRadius: metrics.cornerRadius))
         .overlay(RoundedRectangle(cornerRadius: metrics.cornerRadius).strokeBorder(theme.glassStroke, lineWidth: 0.5))
@@ -106,14 +109,14 @@ struct CockpitReadRows: View {
         VStack(spacing: 0) {
             if mergesLines {
                 ReadBandMergedLine(figures: strip == nil ? nil : next, now: now, scale: scale, onTap: onShowRoute,
-                                   language: language)
+                                   onNowTap: onShowRadio, language: language)
             } else {
                 if strip != nil {
                     ReadBandColumnNextLine(figures: next, scale: scale, onTap: onShowRoute, language: language)
                     Rectangle().fill(theme.glassStroke).frame(height: 0.5)
                         .padding(.horizontal, metrics.cellPadding)
                 }
-                ReadBandNowLine(now: now, scale: scale, onTap: onShowRoute, language: language)
+                ReadBandNowLine(now: now, scale: scale, onTap: onShowRadio ?? onShowRoute, language: language)
             }
         }
         .background(theme.glassFill, in: RoundedRectangle(cornerRadius: metrics.cornerRadius))
@@ -578,6 +581,8 @@ struct ReadBandMergedLine: View {
     let now: PhaseFrequency?
     var scale: CockpitScale = .current
     let onTap: () -> Void
+    /// NOW's half: ROUTE on RADIO; nil, `onTap`. (6.2.0)
+    var onNowTap: (() -> Void)? = nil
     var language: String? = nil
 
     @Environment(\.cockpitTheme) private var theme
@@ -615,7 +620,7 @@ struct ReadBandMergedLine: View {
     private var nowHalf: some View {
         let shown = ReadBandFrequencyText(now)
         let title = L10n.Read.now(language: language)
-        return Button(action: onTap) {
+        return Button(action: onNowTap ?? onTap) {
             HStack(alignment: .firstTextBaseline, spacing: 5) {
                 Text(verbatim: title)
                     .font(.aero(size: metrics.labelSize, weight: .bold))

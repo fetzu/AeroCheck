@@ -296,32 +296,69 @@ extension NotificationService: UNUserNotificationCenterDelegate {
     /// Show the reminder even with the app in the foreground: a pilot who is looking at the app after
     /// landing is exactly the person who still has to close the plan. In flight, not before At the
     /// Hangar (`presentation(for:)`).
+    ///
+    /// Both callbacks take the completion handler and call it on the main thread, never the `async`
+    /// forms. A `nonisolated async` callback resumed off the main thread after its `await MainActor.run`,
+    /// and the system's completion then ran there too: answering a tap updates the app's snapshot in
+    /// UIKit, which asserts it is on the main thread, and the iPad crashed as soon as a "Flight tomorrow"
+    /// was opened from Notification Center (6.2.0 TestFlight 468, iPadOS 27.0.1, device check 11 Oct).
     nonisolated func userNotificationCenter(_ center: UNUserNotificationCenter,
-                                            willPresent notification: UNNotification) async
-        -> UNNotificationPresentationOptions {
+                                            willPresent notification: UNNotification,
+                                            withCompletionHandler completionHandler:
+                                                @escaping (UNNotificationPresentationOptions) -> Void) {
         let request = HeldRequest(request: notification.request)
-        return await MainActor.run { NotificationService.shared.presentation(for: request.request) }
-    }
-
-    nonisolated func userNotificationCenter(_ center: UNUserNotificationCenter,
-                                            didReceive response: UNNotificationResponse) async {
-        let userInfo = response.notification.request.content.userInfo
-        let identifier = response.notification.request.identifier
-        await MainActor.run { NotificationService.shared.forgetHeld(identifier: identifier) }
-        guard let raw = userInfo[NotificationService.threadIdKey] as? String,
-              let threadId = UUID(uuidString: raw) else { return }
-        let actionIdentifier = response.actionIdentifier
-
-        await MainActor.run {
-            switch actionIdentifier {
-            case "AEROCHECK_MARK_FPL_CLOSED":
-                NotificationService.shared.enqueueOrRun(.markClosed(threadId))
-            default:
-                // Tapping the notification itself opens the thread.
-                NotificationService.shared.enqueueOrRun(.open(threadId))
-            }
+        let answer = MainThreadCompletion(completionHandler)
+        NotificationService.onMain {
+            answer.call(NotificationService.shared.presentation(for: request.request))
         }
     }
+
+    nonisolated func userNotificationCenter(_ center: UNUserNotificationCenter,
+                                            didReceive response: UNNotificationResponse,
+                                            withCompletionHandler completionHandler: @escaping () -> Void) {
+        let identifier = response.notification.request.identifier
+        let threadId = (response.notification.request.content.userInfo[NotificationService.threadIdKey] as? String)
+            .flatMap(UUID.init(uuidString:))
+        let actionIdentifier = response.actionIdentifier
+        let done = MainThreadCompletion(completionHandler)
+        NotificationService.onMain {
+            let service = NotificationService.shared
+            service.forgetHeld(identifier: identifier)
+            if let threadId {
+                switch actionIdentifier {
+                case "AEROCHECK_MARK_FPL_CLOSED":
+                    service.enqueueOrRun(.markClosed(threadId))
+                default:
+                    // Tapping the notification itself opens the thread.
+                    service.enqueueOrRun(.open(threadId))
+                }
+            }
+            done.call(())
+        }
+    }
+
+    /// `work` on the main actor: at once when already on the main thread (where the system calls these),
+    /// else on the main queue. Internal, for the tests.
+    nonisolated static func onMain(_ work: @escaping @MainActor () -> Void) {
+        if Thread.isMainThread {
+            MainActor.assumeIsolated { work() }
+        } else {
+            DispatchQueue.main.async { MainActor.assumeIsolated { work() } }
+        }
+    }
+}
+
+/// A system completion handler, carried to the main thread and called there. (6.2.0)
+struct MainThreadCompletion<Value>: @unchecked Sendable {
+    private let handler: (Value) -> Void
+
+    init(_ handler: @escaping (Value) -> Void) { self.handler = handler }
+
+    @MainActor func call(_ value: Value) { handler(value) }
+}
+
+extension MainThreadCompletion where Value == Void {
+    init(_ handler: @escaping () -> Void) { self.handler = { _ in handler() } }
 }
 
 /// A request handed from the delegate's callback to the main actor; read only there.

@@ -589,6 +589,9 @@ final class CockpitNavState {
     /// MAP. The index of the waypoint the leg arrives at; 0, the departure's row, is the first leg. (6.2,
     /// ROUTE, the plan's Q7)
     var framedLeg: Int?
+    /// The list a phone's ROUTE shows: LEGS, unless the read band's NOW line opened it on RADIO; back to
+    /// LEGS whenever the page leaves ROUTE (`RouteListSwitch`). (6.2.0)
+    var routeList: RouteList = .legs
 
     /// MARK: the waypoint flown to is passed now, the next leg's timer starts, and the mark is offered
     /// back.

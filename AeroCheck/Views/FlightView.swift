@@ -966,6 +966,12 @@ extension FlightView {
                 set: { page in pageChoice.pick(page, suggested: cockpitDefaultPage) })
     }
 
+    /// ROUTE, on `list` where a phone shows one at a time (`RouteListSwitch`). (6.2.0)
+    private func showRoute(_ list: RouteList) {
+        navState.routeList = list
+        cockpitPageBinding.wrappedValue = .route
+    }
+
     /// A leg's row on ROUTE: MAP, showing that leg. (6.2, the plan's Q7)
     private func showLeg(_ index: Int) {
         navState.showLeg(index)
@@ -982,6 +988,8 @@ extension FlightView {
         }
         .background(theme.background)
         .onChange(of: cockpitDefaultPage) { _, _ in pageChoice.suggestionChanged() }
+        // ROUTE opens on LEGS, from the picker too, unless the NOW line asked for RADIO. (6.2.0)
+        .onChange(of: cockpitCurrentPage) { _, page in if page != .route { navState.routeList = .legs } }
         // NOW and NEXT on every page, CHECKLIST included, and the Watch's list. (6.2, ROUTE)
         .modifier(CockpitRadioFollower(radio: radio))
         // OFF ROUTE on every fix, whatever page shows. (6.2, MAP's chrome)
@@ -1209,7 +1217,9 @@ extension FlightView {
                               groundSpeedKnots: locationManager.currentSpeedKnots),
             now: radio.now,
             nextFrequency: radio.next,
-            onShowRoute: { cockpitPageBinding.wrappedValue = .route },
+            onShowRoute: { showRoute(.legs) },
+            // The NOW line: ROUTE on its RADIO list, where a phone shows one list at a time. (6.2.0)
+            onShowRadio: { showRoute(.radio) },
             // V-SPEEDS from GS, where the phone's picker row has no room for its chip. (6.2, Q8)
             onSpeedTap: { openReference(.vSpeeds) })
     }

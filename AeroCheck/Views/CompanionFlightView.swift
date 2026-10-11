@@ -36,6 +36,9 @@ struct CompanionFlightView: View {
     @State private var runningCheck: Int?
     /// ✓ DONE just sent for a memory check, offered back for six seconds as on the iPad. (6.1)
     @State private var memoryUndo: NavUndoOffer?
+    /// The check this phone's slot just sent the iPad to: CHECKLIST once the iPad is there with a list to
+    /// run (`CompanionSlotFollow`). (6.3.0)
+    @State private var following: CompanionSlotFollow.Pending?
     private let tick = Timer.publish(every: 1, on: .main, in: .common).autoconnect()
 
     private var flightData: CompanionFlightData? { companionConnectivityManager.lastReceivedData }
@@ -108,9 +111,10 @@ struct CompanionFlightView: View {
         // Render the reused checklist hero/rows in the SAME theme as the iPad, not this device's theme.
         .environment(\.cockpitTheme, theme)
         .environment(\.isNightMode, themeMode == .night)
-        .onReceive(tick) { now = $0 }
+        .onReceive(tick) { now = $0; followSlotTap() }
         .onAppear { applyAutoMode() }
         .onChange(of: isAirborne) { applyAutoMode() }
+        .onChange(of: checklist?.phaseRawValue) { followSlotTap() }
         .alert(L10n.Companion.exitConfirmTitle, isPresented: $showExitConfirm) {
             Button(L10n.Companion.exitConfirmLeave, role: .destructive) {
                 companionConnectivityManager.switchToStandalone()
@@ -329,11 +333,28 @@ struct CompanionFlightView: View {
         }
         companionConnectivityManager.sendCommand(.checkSlotTap(phaseRawValue: slot.phase.rawValue,
                                                                action: slot.action.rawValue))
+        if let target = CompanionSlotFollow.target(of: slot) { following = .init(phase: target, since: now) }
         if slot.action == .confirmFromMemory || slot.action == .advanceAndConfirm {
             let raw = slot.phase.rawValue
             memoryUndo = NavUndoOffer(message: L10n.Cockpit.doneFromMemoryToast(slot.phase.shortTitle), style: .outlined) {
                 companionConnectivityManager.sendCommand(.undoMemoryCheck(phaseRawValue: raw))
             }
+        }
+    }
+
+    /// The phone following its own slot's tap: CHECKLIST once the iPad shows the check it was sent to,
+    /// with a list to run. A tap the iPad dropped, or a check it doesn't open, leaves the page as it is.
+    private func followSlotTap() {
+        guard let pending = following else { return }
+        switch CompanionSlotFollow.outcome(of: pending, phaseRawValue: checklist?.phaseRawValue,
+                                           slot: checkSlot, now: now) {
+        case .wait:
+            return
+        case .showChecklist:
+            following = nil
+            pick(.checklist)
+        case .stop:
+            following = nil
         }
     }
 
@@ -781,3 +802,43 @@ struct CompanionOpenItemsReview: Identifiable {
     var memoryCheck: Bool = false
     var id: Int { phase.rawValue }
 }
+
+// MARK: - The phone following its slot's tap
+
+/// The phone's NAV slot sends the iPad on to a check ("PARKING · next check"): the iPad's page goes to
+/// that check's list by its own rule (`CockpitPageRule`), and the phone now follows, to CHECKLIST, once
+/// the snapshot shows the iPad there and the slot offers the list. It used to stay on NAV, its slot then
+/// reading "PARKING" again (the list to open), so the check took two taps from the phone. (6.3.0, the
+/// author's device check comp-3)
+enum CompanionSlotFollow {
+    struct Pending: Equatable {
+        let phase: ChecklistPhase
+        let since: Date
+    }
+
+    enum Outcome: Equatable {
+        /// The snapshot hasn't caught up yet.
+        case wait
+        case showChecklist
+        /// Done: the iPad shows a check with no list to run (a memory check), or the tap came to nothing.
+        case stop
+    }
+
+    /// How long the phone waits for the iPad to get there: a dropped tap leaves the page alone.
+    static let patience: TimeInterval = 6
+
+    /// The check a slot's tap sends the iPad to, when it is one whose list the pilot then runs.
+    static func target(of slot: CheckSlot) -> ChecklistPhase? {
+        switch slot.action {
+        case .advance, .goToLanding: return slot.phase
+        case .confirmFromMemory, .showChecklist, .confirmFreda, .advanceAndConfirm: return nil
+        }
+    }
+
+    static func outcome(of pending: Pending, phaseRawValue: Int?, slot: CheckSlot?, now: Date) -> Outcome {
+        if now.timeIntervalSince(pending.since) > patience { return .stop }
+        guard let phaseRawValue, phaseRawValue == pending.phase.rawValue else { return .wait }
+        return slot?.phase == pending.phase && slot?.action == .showChecklist ? .showChecklist : .stop
+    }
+}
+

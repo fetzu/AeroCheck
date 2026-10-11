@@ -2,7 +2,19 @@
 
 Every image under `public/assets/screenshot/v6/` is a real capture of the app in a deterministic
 state, taken from the iOS Simulator. Nothing is mocked in Figma; when the app changes, the shots are
-recaptured. This is the recipe. It takes about half an hour for a full set.
+recaptured. This is the recipe. It takes about an hour for a full set, the gestures included.
+
+## When to recapture
+
+- **At every release that changes a screen the site shows.** Before tagging (or right after), compare
+  the release's changes with the table below; the Cockpit (`cockpit`, `cockpitmap`, `vspeeds`,
+  `landscape`) changes most. The 6.2.0 Cockpit, for instance, changed every in-flight shot.
+- `CAPTURED_FROM` in `src/lib/shots.ts` names the app version the set was captured from. A build warns
+  (`[shots] The screenshots were captured from …`) once the latest GitHub release is a newer minor
+  version. Recapture what changed, then set it to the new version, even when only some shots changed.
+- Capture from the release's tag, never from a branch: the site shows what users install.
+- Recapture both devices, and check the iPhone as closely as the iPad: its Cockpit differs (one-line
+  words-only buttons since 6.2.0, LEGS | RADIO on ROUTE), and the site shows it in front of the iPad.
 
 ## The idea
 
@@ -17,14 +29,14 @@ shot keys; `--as` names a shot that shares a scene with another.
 
 | Shot key | Scene key | What it shows | After the scene |
 |---|---|---|---|
-| `cockpit` | `cruiseroute` | The Cockpit in cruise with a route (LSGC NEXT), Fuel quantity framed (4/5), the strip lit | none (`--as cockpit`); iPhone: a slow drag on the list so its first row shows whole |
+| `cockpit` | `cruiseroute` | The Cockpit in cruise with a route (LSGC NEXT), Fuel quantity framed (4/5), the strip lit | none; iPhone: a slow drag on the list so its first row shows whole (a short drag is a tap, and ticks an item) |
 | `cockpitmap` | `cruisemap` | The Cockpit on its map: LSGC next, the aircraft on the LSZQ → LSGC leg | none |
-| `vspeeds` | `cruise` | V-SPEEDS open over the Cockpit (the table on iPad, the list on iPhone) | tap V-SPEEDS (`--as vspeeds --pause`) |
+| `vspeeds` | `cruiseroute` | V-SPEEDS open over the Cockpit (the table on iPad, the list on iPhone) | tap V-SPEEDS on the iPad, GS on the iPhone (`--as vspeeds --pause`) |
 | `today` | `homeflight` | Today, with today's flight at 14:00 as the next flight | none |
 | `flight` | `flight` | A followed flight LSZQ → LFSB on the next 1 August, 10/12, on its own page | none |
 | `prepare` | `prepare` | The same flight, the PREPARE chapter unfolded (border crossings, ATC flight plan) | tap "6 done"; on iPhone scroll so the tasks fill the screen |
 | `closeout` | `closeout` | Vol d'Alpes (a real flight) in CLOSE, the red close-your-ATC-flight-plan card | none |
-| `route` | `conflicts` | The route editor: Geneva → Samedan over the ICAO chart, the profile, the leg table, the conflicts count | tap Today's ROUTE strip, then the route; needs airspace data (below) |
+| `route` | `conflicts` | The route editor: Geneva → Samedan over the ICAO chart, the profile, the leg table, the conflicts count | tap Today's ROUTE strip, then the route; close the "Airspace data missing" banner with its ×; needs airspace data (below) |
 | `log` | `flightlog` | Vol d'Alpes in the logbook: track, altitude profile | Logbook tab, tap Vol d'Alpes |
 | `landscape` | `cruisemap` | The iPhone on its side: the Cockpit's column, the map at full height | iPhone only: `--orientation landscapeLeft --as landscape` |
 | `circuits` | `nav` | Plan › Map close in on LSZQ: its traffic circuit at 2900 ft, the W and E arrival sectors, runway 07/25 | Plan › Map; Map sheet: National map, Airspace off, Traffic circuits and Arrival & departure routes on; the magnifying glass, "LSZQ"; close the airport callout; iPad: tap "2900 ft" for its callout and pan it clear of the controls (`--as circuits --pause`) |
@@ -34,9 +46,13 @@ The rules that are not negotiable:
 - **Both devices in PORTRAIT.** The Cockpit is built for an iPad in portrait on a kneeboard, and the
   site shows the iPad with the iPhone in front of it. The one exception is `landscape`, the phone on
   its side.
-- **Use a simulator kept for captures.** Every scene cancels a running flight (the second launch can then show "Flight Restored": close it before the shot), clears all flight
+- **Use a simulator kept for captures.** Every scene cancels a running flight, clears all flight
   threads, turns circuit mode on, and the map scene turns the OpenAIP layers off. Those are the
   right conditions for a picture and the wrong thing to do to a simulator you use.
+- **"Flight Restored" over the in-flight shots.** The script launches each scene twice; the second
+  launch restores the flight the first one started, and its alert can cover the Cockpit (it did on
+  most 6.2.0 in-flight shots). Close it (iPad about (410, 642) pt, iPhone about (201, 496)) and take
+  the screenshot again, with the script's `sips` settings.
 - **The scene launch bypasses the safety gate and onboarding.** A fresh container needs no tapping.
 - **The VFR procedures need the server's current files**: a capture simulator's open flightmaps
   data from before 7 Oct 2026 has no sector letters, so the `circuits` shot shows no W and E badges.
@@ -73,13 +89,15 @@ quits at launch.
 APP=/tmp/ac_dd/Build/Products/Debug-iphonesimulator/AeroCheck.app
 # Each device: the scenes without a gesture, then the ones with one (--pause stops before each shot).
 scripts/capture-screenshots.sh --app $APP --device "Capture iPad" \
-  --scenes cruise,cruisemap,homeflight,flight,closeout
-scripts/capture-screenshots.sh --app $APP --device "Capture iPad" --scenes cruise --as vspeeds --pause
+  --scenes cruiseroute,cruisemap,homeflight,flight,closeout
+scripts/capture-screenshots.sh --app $APP --device "Capture iPad" --scenes cruiseroute --as vspeeds --pause
+scripts/capture-screenshots.sh --app $APP --device "Capture iPad" --scenes nav --as circuits --pause
 scripts/capture-screenshots.sh --app $APP --device "Capture iPad" --scenes prepare,conflicts,flightlog --pause
 
 scripts/capture-screenshots.sh --app $APP --device "Capture iPhone" \
-  --scenes cruise,cruisemap,homeflight,flight,closeout
-scripts/capture-screenshots.sh --app $APP --device "Capture iPhone" --scenes cruise --as vspeeds --pause
+  --scenes cruiseroute,cruisemap,homeflight,flight,closeout
+scripts/capture-screenshots.sh --app $APP --device "Capture iPhone" --scenes cruiseroute --as vspeeds --pause
+scripts/capture-screenshots.sh --app $APP --device "Capture iPhone" --scenes nav --as circuits --pause
 scripts/capture-screenshots.sh --app $APP --device "Capture iPhone" --scenes prepare,conflicts,flightlog --pause
 scripts/capture-screenshots.sh --app $APP --device "Capture iPhone" --scenes cruisemap \
   --orientation landscapeLeft --as landscape
@@ -116,9 +134,18 @@ Things that bite:
 
 1. Every key in `src/lib/shots.ts` points at `v6/<device>/<key>.jpg`; a new key needs an entry there
    (and, until captured, a place in `PLACEHOLDERS`).
-2. `npm run build` — it must print **no** `[shots] PLACEHOLDER` warning.
-3. `npm run dev`, open `/` and `/fr/`, check the hero cycle and every row, at desktop and phone width.
-4. Commit with the `website:` prefix. Pushing `website` deploys.
+2. Set `CAPTURED_FROM` in `src/lib/shots.ts` to the app version you captured from.
+3. `npm run build` — it must print **no** `[shots]` warning (no PLACEHOLDER, no "captured from").
+4. `npm run dev`, open `/` and `/fr/`, check the hero cycle and every row, at desktop and phone width.
+5. Commit with the `website:` prefix. Pushing `website` deploys.
+6. After the deploy (about a minute), `scripts/check-live-screenshots.sh`: every image served as in
+   the checkout.
+
+The page asks for each image with a hash of its contents (`/assets/…/cockpit.jpg?v=1a2b3c4d`, from
+`src/lib/shots.ts` at build time), so a recaptured image is a new URL and nobody keeps an old one.
+Until 6.2.0 the URLs never changed and Cloudflare let browsers keep an image for 4 hours: the day the
+6.2.0 set went live, a visitor who had seen the page that morning still saw the 6.0 iPhone. Keep the
+file names; the hash does the rest.
 
 ## App Store
 

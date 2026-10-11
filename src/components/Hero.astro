@@ -1,12 +1,13 @@
 ---
 import type { SiteData } from '../lib/site';
-import { shot } from '../lib/shots';
+import { shot, warnIfShotsAreOld } from '../lib/shots';
 import DevicePair from './DevicePair.astro';
 import Icon from './Icon.astro';
 interface Props { site: SiteData; }
 const { site } = Astro.props;
 const h = site.hero;
 const screens = h.cycle.map((k) => shot(k));
+await warnIfShotsAreOld();
 ---
 <section class="hero">
   <div class="container hero-inner">

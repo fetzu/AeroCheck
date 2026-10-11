@@ -9,9 +9,9 @@
 # Read SCREENSHOTS.md first: some shots need a gesture between launch and capture.
 #
 # Usage:
-#   scripts/capture-screenshots.sh --app <path/to/AeroCheck.app> --device "iPad Air 11-inch (M4)" \
-#       --scenes cruise,cruisemap,homeflight [--pause] [--wait 12] [--out public/assets/screenshot/v6]
-#   scripts/capture-screenshots.sh --app … --device "iPhone 17" --scenes cruisemap \
+#   scripts/capture-screenshots.sh --app <path/to/AeroCheck.app> --device "AeroCheck Dev Check iPad" \
+#       --scenes cruiseroute,cruisemap,homeflight [--pause] [--wait 12] [--out public/assets/screenshot/v6]
+#   scripts/capture-screenshots.sh --app … --device "AeroCheck Dev Check iPhone" --scenes cruisemap \
 #       --orientation landscapeLeft --as landscape
 #
 #   --device       simulator name (a name containing "iPad" is an iPad); iPad output goes to <out>/ipad,
@@ -79,6 +79,7 @@ shot_key() {
   if [ -n "$AS" ]; then echo "$AS"; return; fi
   case "$1" in
     cruise|cruisehud)          echo "cockpit" ;;
+    cruiseroute)               echo "cockpit" ;;   # since 6.2: the Cockpit with a route, LSGC NEXT
     cruisemap)                 echo "cockpitmap" ;;
     homeflight|homeflighttoday) echo "today" ;;
     conflicts|planconflicts)   echo "route" ;;
@@ -130,4 +131,6 @@ for SCENE in "${LIST[@]}"; do
   fi
   echo "   → $DEST ($(sips -g pixelWidth -g pixelHeight "$DEST" | awk '/pixel/ {printf "%s ", $2}'))"
 done
-echo "✓ done. Now: check each image (the ring at 10/12, GPS green, no alert over the screen), run 'npm run build' and check no [shots] warning remains."
+echo "✓ done. Now: look at each image (the ring at 10/12, GPS green, no \"Flight Restored\" or other alert over"
+echo "  the screen: close it and capture again), set CAPTURED_FROM in src/lib/shots.ts to the app version,"
+echo "  run 'npm run build' (no [shots] warning), and after the deploy scripts/check-live-screenshots.sh."

@@ -1,10 +1,32 @@
+import { createHash } from 'node:crypto';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
+import { appVersion } from './version';
+
 export interface Shot { ipad: string; iphone: string; label: string; }
 
-// 6.0: every image is a full screen, the iPad in PORTRAIT (1112×1600) as the Cockpit is flown on a
+// Every image is a full screen, the iPad in PORTRAIT (1112×1600) as the Cockpit is flown on a
 // kneeboard, the iPhone in portrait (800×1739) — except `landscape`, the iPhone on its side
 // (1600×736). All captured deterministically via the DEBUG scene injector; see SCREENSHOTS.md.
-// These are the proposal-era captures: the whole set is recaptured from the merged 6.0 build.
-const v6 = (device: 'ipad' | 'iphone', key: string) => `/assets/screenshot/v6/${device}/${key}.jpg`;
+
+// The app version the whole set was captured from. Bump it with every recapture: a build warns
+// while the latest release is a newer minor version than this (`warnIfShotsAreOld`).
+export const CAPTURED_FROM = '6.2.0';
+
+// Each URL carries a hash of the image (`?v=1a2b3c4d`), read at build time, so a recaptured image is
+// a new URL. The file names never change, and Cloudflare lets a browser keep an image for 4 hours:
+// after the 6.2.0 recapture, a visitor who had seen the page that day kept seeing the 6.0 images.
+const PUBLIC = join(process.cwd(), 'public');
+function versioned(path: string): string {
+  try {
+    const hash = createHash('sha1').update(readFileSync(join(PUBLIC, path))).digest('hex').slice(0, 8);
+    return `${path}?v=${hash}`;
+  } catch {
+    console.warn(`[shots] ${path} is missing from public/.`);
+    return path;
+  }
+}
+const v6 = (device: 'ipad' | 'iphone', key: string) => versioned(`/assets/screenshot/v6/${device}/${key}.jpg`);
 const both = (key: string, label: string): Shot => ({ ipad: v6('ipad', key), iphone: v6('iphone', key), label });
 
 export const SHOTS: Record<string, Shot> = {
@@ -36,4 +58,19 @@ export function shot(key: string): Shot {
   const found = SHOTS[key];
   if (!found) throw new Error(`[shots] unknown shot key "${key}"`);
   return found;
+}
+
+// The other guard rail: the set was captured from `CAPTURED_FROM`, and a release of a newer minor
+// version (6.3 after 6.2) may have changed what it shows. Warns once a build; never fails it.
+let checkedAge = false;
+export async function warnIfShotsAreOld(): Promise<void> {
+  if (checkedAge) return;
+  checkedAge = true;
+  const minor = (v: string) => v.split('.').slice(0, 2).map(Number);
+  const [capMajor, capMinor] = minor(CAPTURED_FROM);
+  const [major, minorNow] = minor(await appVersion());
+  if (major > capMajor || (major === capMajor && minorNow > capMinor)) {
+    console.warn(`[shots] The screenshots were captured from ${CAPTURED_FROM}; the latest release is ` +
+      `${await appVersion()}. Check them against it and recapture what changed (SCREENSHOTS.md).`);
+  }
 }

@@ -162,6 +162,14 @@ class SharedMapState: ObservableObject {
     /// The room left around `pendingFitCoordinates`, when not the route pill's: a leg shown from ROUTE
     /// is framed clear of the chrome over the chart (`LegFraming.edgePadding`). Consumed with it. (6.2)
     var pendingFitPadding: UIEdgeInsets?
+    /// Where a search sends the camera: an aerodrome, at a distance the layer's zoom range may hold
+    /// back. Consumed by the representables like `pendingFitCoordinates`, and for the same reason: set
+    /// at once, not animated, then synced to this state, or a report of the old region takes the camera
+    /// back. (6.2.0)
+    var pendingCameraMove: PendingCameraMove?
+    /// The aerodrome a search chose, whose callout opens once the camera and its marker are there
+    /// (`AirfieldSearch.openPendingCallout`). (6.2.0)
+    var pendingCallout: PendingCallout?
     /// What the map shows while the legs panel's band has the camera, for the airports and airspace
     /// drawn on it. The band never writes `region`, `cameraDistance` or `cameraHeading`: they keep the
     /// map the pilot left, which closing the panel puts back. nil with the panel closed. (6.1, option C)
@@ -362,6 +370,10 @@ struct NavigationMapView: View {
     @State private var isFollowingAircraft: Bool = true
     /// iPad: base chart and overlays in one labelled sheet. (v6.0 · C1)
     @State private var showMapSheet: Bool = false
+    /// Plan › Map's aerodrome search, from the magnifying glass left of Map. (6.2.0)
+    @State private var showAerodromeSearch: Bool = false
+    /// The aerodrome chosen in it: the map goes there once the sheet has gone.
+    @State private var chosenAerodrome: Airport?
     /// Measured height of the open legs-and-frequencies panel, so it hugs its content up to its limit.
     @State private var legsPanelContentHeight: CGFloat = 0
     /// Emergency, pinned to the open panel's foot: its height. (6.1, option C)
@@ -568,8 +580,11 @@ struct NavigationMapView: View {
         // PR-11: recompute the visible airports/airspace only when the region moves past the
         // quantization threshold (the function early-returns otherwise), instead of on every body
         // re-eval. A toggled overlay setting or newly-available data forces an immediate recompute.
-        .onReceive(mapState.$region) { _ in
-            recomputeMapSpatialContent()
+        // The region published, not `mapState.region`: a @Published property sends before it holds the
+        // new value, so the content was for the region before. Plan › Map's search moves the camera
+        // once, and its aerodrome's marker never came (simulator, 11 Oct). (6.2.0)
+        .onReceive(mapState.$region) { region in
+            recomputeMapSpatialContent(published: region)
         }
         // The band's chart, while the legs panel is open. (6.1, option C)
         .onReceive(mapState.$bandRegion) { _ in
@@ -999,10 +1014,12 @@ struct NavigationMapView: View {
             mapControlsIcons
         }
         .sheet(isPresented: $showMapSheet) { mapSheet }
+        .sheet(isPresented: $showAerodromeSearch, onDismiss: showChosenAerodrome) { aerodromeSearchSheet }
     }
 
     private var mapControlsLabelled: some View {
         HStack(spacing: 8) {
+            aerodromeSearchButton
             mapSheetButton(labelled: true)
             orientationButton
             chromeButton(icon: isFollowingAircraft ? "location.fill" : "location",
@@ -1012,6 +1029,7 @@ struct NavigationMapView: View {
 
     private var mapControlsIcons: some View {
         HStack(spacing: 8) {
+            aerodromeSearchButton
             mapSheetButton(labelled: false)
             chromeIconButton(icon: mapOrientationMode == .northUp ? "location.north.line" : "location.north.line.fill",
                              label: mapOrientationMode == .northUp ? L10n.Nav.northUp : L10n.Nav.trackUp) {
@@ -1029,6 +1047,39 @@ struct NavigationMapView: View {
             .environmentObject(openAIPDataService)
             .environmentObject(dataStatusManager)
             .environmentObject(offlineMapManager)
+    }
+
+    /// The magnifying glass left of Map: an aerodrome by its ICAO code or its name, and the map goes
+    /// there (`AirfieldSearchSheet`). Plan › Map's only: the Cockpit's map has Divert's search. (6.2.0)
+    private var aerodromeSearchButton: some View {
+        chromeIconButton(icon: "magnifyingglass", label: L10n.Nav.searchAerodromes) { showAerodromeSearch = true }
+            .accessibilityIdentifier("map.searchAerodromes")
+    }
+
+    private var aerodromeSearchSheet: some View {
+        AirfieldSearchSheet(reference: mapState.region.center) { chosenAerodrome = $0 }
+            .environmentObject(airportDataService)
+    }
+
+    /// The sheet has gone, and the keyboard with it: the map goes to the aerodrome chosen, if any. Moved
+    /// while the sheet was still going, the map was laid out again afterwards and the aerodrome ended up
+    /// at the chart's foot (simulator, 11 Oct).
+    private func showChosenAerodrome() {
+        guard let airport = chosenAerodrome else { return }
+        chosenAerodrome = nil
+        showAerodrome(airport)
+    }
+
+    /// An aerodrome chosen in the search: the map goes there, about 8 NM across, and stops following the
+    /// aircraft (the pilot asked to look there), and its callout opens as a tap on its marker would,
+    /// when the airport layer draws one. Otherwise the map only goes there.
+    private func showAerodrome(_ airport: Airport) {
+        isFollowingAircraft = false
+        mapState.pendingCallout = AirfieldSearch.hasMarker(airport, airportsLayerOn: appState.settings.showAirportsOnMap)
+            ? PendingCallout(airport, until: Date().addingTimeInterval(AirfieldSearch.calloutWait))
+            : nil
+        mapState.pendingCameraMove = PendingCameraMove(to: airport)
+        mapState.objectWillChange.send()   // neither is @Published; nudge updateUIView
     }
 
     /// Map, with the stale-airspace cue on it.
@@ -1352,8 +1403,9 @@ struct NavigationMapView: View {
 
     /// Recompute the cached spatial map content. Skips work when the region hasn't moved past the
     /// quantization threshold, unless `force` (a toggled setting / newly-available data). (PR-11)
-    private func recomputeMapSpatialContent(force: Bool = false) {
-        let region = mapState.bandRegion ?? mapState.region
+    /// `published`: the region `mapState` is publishing, which it doesn't hold yet. (6.2.0)
+    private func recomputeMapSpatialContent(force: Bool = false, published: MKCoordinateRegion? = nil) {
+        let region = mapState.bandRegion ?? published ?? mapState.region
         if !force, let last = lastSpatialRegion, !Self.regionMovedSignificantly(from: last, to: region) {
             return
         }
@@ -2166,10 +2218,12 @@ struct NavigationMapView: View {
                 .environmentObject(dataStatusManager)
                 .environmentObject(offlineMapManager)
         }
+        .sheet(isPresented: $showAerodromeSearch, onDismiss: showChosenAerodrome) { aerodromeSearchSheet }
     }
 
     private func mapControls(withZoom: Bool, orientationSegments: Bool = true) -> some View {
         HStack(spacing: CockpitType.size(kneeboard: 10, phone: 8)) {
+            aerodromeSearchButton
             chromeButton(icon: "square.stack.3d.up", title: L10n.Nav.mapSheet) { showMapSheet = true }
                 .overlay(alignment: .topTrailing) {
                     // Airspace data aging or stale: the cue sits on the button that leads to it.
@@ -3605,6 +3659,16 @@ struct NativeMapViewUIKit: UIViewRepresentable {
             return
         }
 
+        // An aerodrome from the search, as a fit. (6.2.0)
+        if !bandOwnsCamera, let move = mapState.pendingCameraMove,
+           move.apply(to: mapView) {
+            mapState.pendingCameraMove = nil
+            mapState.cameraDistance = mapView.camera.centerCoordinateDistance
+            context.coordinator.fitSync.fitted(replacing: mapState.region)
+            mapState.updateFromFit(mapView.region)
+            return
+        }
+
         // Update camera from shared state if significantly different (preserves heading), unless it is
         // still the region a fit just replaced (`FitRegionSync`). (6.2)
         let regionChanged = !context.coordinator.fitSync.isStale(mapState.region)
@@ -3654,6 +3718,8 @@ struct NativeMapViewUIKit: UIViewRepresentable {
         updateNavaidAnnotations(mapView, context: context)
         updateObstacleAnnotations(mapView, context: context)
         updateReportingPointAnnotations(mapView, context: context)
+        // A search result: its callout, once its marker is here. (6.2.0)
+        AirfieldSearch.openPendingCallout(on: mapView, mapState: mapState)
     }
 
     func makeCoordinator() -> Coordinator {
@@ -4287,6 +4353,12 @@ struct NativeMapViewUIKit: UIViewRepresentable {
 
         func mapView(_ mapView: MKMapView, didDeselect annotation: MKAnnotation) {
             parent.mapState.noteCalloutSelection(on: mapView)   // and comes back (6.2.0)
+        }
+
+        /// A search's aerodrome: its callout, now its marker is drawn. Selected as it is added, a marker
+        /// has no view yet and MapKit ignores it. (6.2.0)
+        func mapView(_ mapView: MKMapView, didAdd views: [MKAnnotationView]) {
+            AirfieldSearch.openPendingCallout(on: mapView, mapState: parent.mapState)
         }
 
         func addLongPressToWaypointView(_ annotationView: MKAnnotationView) {
@@ -5031,6 +5103,17 @@ struct SwissMapView: UIViewRepresentable {
             return
         }
 
+        // An aerodrome from the search, as a fit, within the chart's zoom range: on the ICAO chart its
+        // nearest zoom, the glider chart. (6.2.0)
+        if !bandOwnsCamera, let move = mapState.pendingCameraMove,
+           move.apply(to: mapView, within: mapView.cameraZoomRange) {
+            mapState.pendingCameraMove = nil
+            mapState.cameraDistance = mapView.camera.centerCoordinateDistance
+            context.coordinator.fitSync.fitted(replacing: mapState.region)
+            mapState.updateFromFit(mapView.region)
+            return
+        }
+
         // Update tile overlay if layer changed or force setting changed
         let overlayChanged = context.coordinator.updateTileOverlayIfNeeded(
             mapView,
@@ -5171,6 +5254,8 @@ struct SwissMapView: UIViewRepresentable {
         updateNavaidAnnotations(mapView, context: context)
         updateObstacleAnnotations(mapView, context: context)
         updateReportingPointAnnotations(mapView, context: context)
+        // A search result: its callout, once its marker is here. (6.2.0)
+        AirfieldSearch.openPendingCallout(on: mapView, mapState: mapState)
     }
 
     private func updateAirportAnnotations(_ mapView: MKMapView, context: Context) {
@@ -5902,6 +5987,12 @@ struct SwissMapView: UIViewRepresentable {
 
         func mapView(_ mapView: MKMapView, didDeselect annotation: MKAnnotation) {
             parent.mapState.noteCalloutSelection(on: mapView)   // the chrome comes back (6.2.0)
+        }
+
+        /// A search's aerodrome: its callout, now its marker is drawn. Selected as it is added, a marker
+        /// has no view yet and MapKit ignores it. (6.2.0)
+        func mapView(_ mapView: MKMapView, didAdd views: [MKAnnotationView]) {
+            AirfieldSearch.openPendingCallout(on: mapView, mapState: parent.mapState)
         }
 
         func mapView(_ mapView: MKMapView, didSelect annotation: MKAnnotation) {

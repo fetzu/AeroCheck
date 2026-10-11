@@ -19,6 +19,9 @@ struct SubscriptionView: View {
     var presentedAsSheet: Bool = true
 
     @State private var showingError = false
+    /// The aircraft-request sheet: Pro is every aircraft AéroCheck has, and a pilot whose aircraft
+    /// isn't one of them can send its checklist. (6.3.0)
+    @State private var sendingAircraftRequest = false
     @State private var errorMessage = ""
     @State private var isLoadingProducts = false
     /// Free-trial length (days) of the yearly plan, set only when this account is actually eligible.
@@ -89,6 +92,7 @@ struct SubscriptionView: View {
                 }
 
                 benefitsSection
+                aircraftRequestLine
                 statusSection
                 restoreSection
                 termsSection
@@ -98,6 +102,37 @@ struct SubscriptionView: View {
         .background(Color.cockpitBackground)
         .navigationTitle(L10n.Settings.aeroCheckPro)
         .navigationBarTitleDisplayMode(.inline)
+        .sheet(isPresented: $sendingAircraftRequest) { AircraftRequestSheet() }
+    }
+
+    private var aircraftRequestLine: some View {
+        Button { sendingAircraftRequest = true } label: {
+            HStack(spacing: 11) {
+                Image(systemName: "paperplane")
+                    .scaledFont(size: 16, relativeTo: .body)
+                    .foregroundColor(.aviationGold)
+                    .frame(width: 30, height: 30)
+                    .background(Circle().fill(Color.aviationGold.opacity(0.16)))
+                    .accessibilityHidden(true)
+                Text(L10n.AircraftRequests.proLine)
+                    .font(.aero(.subheadline))
+                    .foregroundColor(Color.primaryText)
+                    .multilineTextAlignment(.leading)
+                Spacer(minLength: 8)
+                Image(systemName: "chevron.right")
+                    .font(.aero(size: 13, weight: .semibold))
+                    .foregroundColor(.dimText)
+            }
+            .padding(.horizontal, 14)
+            .padding(.vertical, 9)
+            .background(
+                RoundedRectangle(cornerRadius: 14)
+                    .fill(Color.cardBackground)
+                    .overlay(RoundedRectangle(cornerRadius: 14).strokeBorder(Color.subtleOverlay(0.06), lineWidth: 1))
+            )
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
     }
 
     /// Resolve whether THIS account is eligible for the yearly free trial (Apple only grants it once),

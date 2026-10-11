@@ -163,6 +163,8 @@ struct HomeView: View {
     @State private var isCreatingFlight = false
     /// The flight being planned. Non-nil presents the one creation sheet. (v5.0.0)
     @State private var planningNewFlight: NewFlightIntent?
+    /// The aircraft-request sheet, from the aircraft menu's "Not listed?". (6.3.0)
+    @State private var sendingAircraftRequest = false
     /// What START FLIGHT needs to ask before it departs. (v5.x)
     @State private var startPrompt: StartPrompt?
 
@@ -312,6 +314,7 @@ struct HomeView: View {
                 EmptyView()
             }
         }
+        .sheet(isPresented: $sendingAircraftRequest) { AircraftRequestSheet() }
         // Derived binding rather than `item:` — NewFlightIntent is a value the sheet edits, and
         // presenting on `item:` would rebuild the sheet on every keystroke it reports back.
         .sheet(isPresented: Binding(
@@ -787,6 +790,9 @@ struct HomeView: View {
             Divider()
             Button { appState.groundTab = .aircraft } label: {
                 Label(L10n.Ground.aircraftDetails, systemImage: "speedometer")
+            }
+            Button { sendingAircraftRequest = true } label: {
+                Label(L10n.AircraftRequests.menuItem, systemImage: "paperplane")
             }
         } label: {
             HStack(spacing: 10) {

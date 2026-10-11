@@ -41,6 +41,12 @@ final class PrivacyUsageDescriptionTests: XCTestCase {
         XCTAssertFalse(try usageDescription("NSPhotoLibraryAddUsageDescription").isEmpty)
     }
 
+    /// The camera — the aircraft request sheet's document scanner (6.3.0). Without it,
+    /// VisionKit's scanner crashes the app the moment it opens.
+    func testCameraUsageDescriptionIsDeclared() throws {
+        XCTAssertFalse(try usageDescription("NSCameraUsageDescription").isEmpty)
+    }
+
     /// The service's own guard must agree with the bundle, so the "degrade to GPS-only" fallback
     /// can never silently disable the barometer on a correctly-configured build.
     func testBarometerServiceAgreesTheBundlePermitsCoreMotion() {
@@ -58,6 +64,7 @@ final class PrivacyUsageDescriptionTests: XCTestCase {
     // MARK: - French purpose strings (S9-34)
 
     private static let purposeKeys = [
+        "NSCameraUsageDescription",
         "NSLocationAlwaysAndWhenInUseUsageDescription",
         "NSLocationWhenInUseUsageDescription",
         "NSMotionUsageDescription",

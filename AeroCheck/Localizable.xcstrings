@@ -91,6 +91,2114 @@
         }
       }
     },
+    "aircraftRequest.title": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Send an aircraft’s checklist"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Envoyer la checklist d’un avion"
+          }
+        }
+      }
+    },
+    "aircraftRequest.intro": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Your aircraft isn’t in AéroCheck, or its checklist is older than the club’s? Send us the club’s document: once the club confirms, the aircraft joins the app (as part of AéroCheck Pro, like every aircraft but the WT9)."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Votre avion n’est pas dans AéroCheck, ou sa checklist est plus ancienne que celle du club ? Envoyez-nous le document du club : dès que le club confirme, l’avion rejoint l’app (dans AéroCheck Pro, comme tous les avions sauf le WT9)."
+          }
+        }
+      }
+    },
+    "aircraftRequest.registrationSection": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The registration"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "L’immatriculation"
+          }
+        }
+      }
+    },
+    "aircraftRequest.registrationLabel": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Registration"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Immatriculation"
+          }
+        }
+      }
+    },
+    "aircraftRequest.registrationHint": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "As painted on the aircraft: HB-KFD, F-HVXA, D-EABC. AéroCheck checks whether it already has it."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Telle qu’elle est peinte sur l’avion : HB-KFD, F-HVXA, D-EABC. AéroCheck vérifie s’il l’a déjà."
+          }
+        }
+      }
+    },
+    "aircraftRequest.lookUp": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Look it up"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vérifier"
+          }
+        }
+      }
+    },
+    "aircraftRequest.lookingUp": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Looking it up"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vérification"
+          }
+        }
+      }
+    },
+    "aircraftRequest.knownTitle": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ is already in AéroCheck"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ est déjà dans AéroCheck"
+          }
+        }
+      }
+    },
+    "aircraftRequest.knownBody": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This becomes an update: send the club’s new revision, and it replaces the checklist the app has."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ce sera une mise à jour : envoyez la nouvelle révision du club, elle remplacera la checklist de l’app."
+          }
+        }
+      }
+    },
+    "aircraftRequest.knownModel": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aircraft"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Avion"
+          }
+        }
+      }
+    },
+    "aircraftRequest.knownClub": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Club"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Club"
+          }
+        }
+      }
+    },
+    "aircraftRequest.knownVersion": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Current version"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Version actuelle"
+          }
+        }
+      }
+    },
+    "aircraftRequest.knownLanguages": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Languages"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Langues"
+          }
+        }
+      }
+    },
+    "aircraftRequest.unknownTitle": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ isn’t in AéroCheck yet"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ n’est pas encore dans AéroCheck"
+          }
+        }
+      }
+    },
+    "aircraftRequest.unknownBody": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This becomes a new aircraft. Tell us what it is, and send its checklist."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ce sera un nouvel avion. Dites-nous lequel, et envoyez sa checklist."
+          }
+        }
+      }
+    },
+    "aircraftRequest.aircraftSection": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The aircraft"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "L’avion"
+          }
+        }
+      }
+    },
+    "aircraftRequest.otherRegistrationsLabel": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Other registrations with the same checklist (optional)"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Autres immatriculations avec la même checklist (facultatif)"
+          }
+        }
+      }
+    },
+    "aircraftRequest.otherRegistrationsHint": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The club’s other aircraft of this type, if the same document covers them: HB-KFI, HB-KFO. Up to 10 registrations in all."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Les autres avions du club de ce type, si le même document les couvre : HB-KFI, HB-KFO. Jusqu’à 10 immatriculations en tout."
+          }
+        }
+      }
+    },
+    "aircraftRequest.typeLabel": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aircraft type"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Type d’avion"
+          }
+        }
+      }
+    },
+    "aircraftRequest.typeHint": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Manufacturer and model, as the club calls it: Robin DR400/180, Piper PA-28-181."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Constructeur et modèle, comme le club l’appelle : Robin DR400/180, Piper PA-28-181."
+          }
+        }
+      }
+    },
+    "aircraftRequest.clubLabel": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Flying club or operator (optional)"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Club ou exploitant (facultatif)"
+          }
+        }
+      }
+    },
+    "aircraftRequest.clubHint": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Leave it empty for a privately owned aircraft."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Laissez vide pour un avion privé."
+          }
+        }
+      }
+    },
+    "aircraftRequest.senderSection": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Who sends it"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Qui l’envoie"
+          }
+        }
+      }
+    },
+    "aircraftRequest.forClub": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "For the club"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pour le club"
+          }
+        }
+      }
+    },
+    "aircraftRequest.forClubHint": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "I look after the club’s documents, or the club asked me to send it."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Je m’occupe des documents du club, ou le club m’a demandé de l’envoyer."
+          }
+        }
+      }
+    },
+    "aircraftRequest.asPilot": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "As a pilot"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "En tant que pilote"
+          }
+        }
+      }
+    },
+    "aircraftRequest.asPilotHint": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "I fly it. The club is asked to confirm before anything goes live."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Je le pilote. Le club devra confirmer avant toute mise en ligne."
+          }
+        }
+      }
+    },
+    "aircraftRequest.contactLabel": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The club’s contact (e-mail)"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Le contact du club (e-mail)"
+          }
+        }
+      }
+    },
+    "aircraftRequest.contactHint": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Someone who can speak for the club about its documents (the president, the chief flying instructor, the technical manager). We send them a link to confirm or refuse, nothing else."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Une personne qui peut parler pour le club au sujet de ses documents (le président, le chef-instructeur, le responsable technique). Nous lui envoyons un lien pour confirmer ou refuser, rien d’autre."
+          }
+        }
+      }
+    },
+    "aircraftRequest.contactUnknown": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "I don’t know it: I’ll add it later from the request’s page"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Je ne le connais pas : je l’ajouterai plus tard depuis la page de la demande"
+          }
+        }
+      }
+    },
+    "aircraftRequest.contactUnknownHint": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The request then waits for the club’s OK until someone adds it."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "La demande attend alors l’accord du club jusqu’à ce que quelqu’un l’ajoute."
+          }
+        }
+      }
+    },
+    "aircraftRequest.checklistSection": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The checklist"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "La checklist"
+          }
+        }
+      }
+    },
+    "aircraftRequest.filesHintNew": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "A PDF, or photos of its pages (JPEG, PNG or HEIC): up to 4 files, 10 MB each, 25 MB in all. Black out anything personal first (names, phone numbers)."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Un PDF, ou des photos de ses pages (JPEG, PNG ou HEIC) : jusqu’à 4 fichiers, 10 Mo chacun, 25 Mo en tout. Masquez d’abord ce qui est personnel (noms, numéros de téléphone)."
+          }
+        }
+      }
+    },
+    "aircraftRequest.filesHintUpdate": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The new revision, as a PDF or photos of its pages (JPEG, PNG or HEIC): up to 4 files, 10 MB each, 25 MB in all."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "La nouvelle révision, en PDF ou en photos de ses pages (JPEG, PNG ou HEIC) : jusqu’à 4 fichiers, 10 Mo chacun, 25 Mo en tout."
+          }
+        }
+      }
+    },
+    "aircraftRequest.scan": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Scan"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Numériser"
+          }
+        }
+      }
+    },
+    "aircraftRequest.photos": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Photos"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Photos"
+          }
+        }
+      }
+    },
+    "aircraftRequest.files": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Files"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Fichiers"
+          }
+        }
+      }
+    },
+    "aircraftRequest.scanHint": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "A scan becomes one PDF, its pages in the order you took them."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Une numérisation devient un PDF, ses pages dans l’ordre où vous les avez prises."
+          }
+        }
+      }
+    },
+    "aircraftRequest.filesTotal": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld of 4 files · %@ of 25 MB"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld fichier(s) sur 4 · %@ sur 25 Mo"
+          }
+        }
+      }
+    },
+    "aircraftRequest.remove": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Remove %@"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Retirer %@"
+          }
+        }
+      }
+    },
+    "aircraftRequest.fileUnreadable": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ isn’t a PDF, JPEG, PNG or HEIC."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ n’est ni un PDF, ni un JPEG, ni un PNG, ni un HEIC."
+          }
+        }
+      }
+    },
+    "aircraftRequest.languagesLabel": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The checklist’s language"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "La langue de la checklist"
+          }
+        }
+      }
+    },
+    "aircraftRequest.languagesHint": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The language the document is written in. The checklist keeps it: it doesn’t follow the app’s language (English or French), so a German checklist reads in German in both."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "La langue dans laquelle le document est écrit. La checklist la garde : elle ne suit pas la langue de l’app (anglais ou français), une checklist en allemand se lit donc en allemand dans les deux."
+          }
+        }
+      }
+    },
+    "aircraftRequest.otherLanguageLabel": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Another language"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Une autre langue"
+          }
+        }
+      }
+    },
+    "aircraftRequest.otherLanguageHint": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Type it if it isn’t above, in any form (Japanese, Swiss German…); several, separated by commas."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Saisissez-la si elle ne figure pas ci-dessus, sous n’importe quelle forme (japonais, suisse allemand…) ; plusieurs, séparées par des virgules."
+          }
+        }
+      }
+    },
+    "aircraftRequest.youSection": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "You"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vous"
+          }
+        }
+      }
+    },
+    "aircraftRequest.nameLabel": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Your name (optional)"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Votre nom (facultatif)"
+          }
+        }
+      }
+    },
+    "aircraftRequest.nameHint": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "So the club knows who asked, if it’s asked to confirm."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pour que le club sache qui demande, si on lui demande de confirmer."
+          }
+        }
+      }
+    },
+    "aircraftRequest.emailLabel": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Your e-mail"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Votre e-mail"
+          }
+        }
+      }
+    },
+    "aircraftRequest.emailHint": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "We write to you here about this request (received, questions, when it’s live), and about nothing else."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nous vous écrivons à cette adresse au sujet de cette demande (réception, questions, mise en ligne), et de rien d’autre."
+          }
+        }
+      }
+    },
+    "aircraftRequest.notesLabel": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Anything we should know (optional)"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ce que nous devrions savoir (facultatif)"
+          }
+        }
+      }
+    },
+    "aircraftRequest.notesHint": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Which pages are the checklist, what changed in this revision, an aircraft that differs from the others."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Quelles pages sont la checklist, ce qui change dans cette révision, un avion qui diffère des autres."
+          }
+        }
+      }
+    },
+    "aircraftRequest.counter": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld / %lld"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld / %lld"
+          }
+        }
+      }
+    },
+    "aircraftRequest.rightsClub": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "I may share this document with AéroCheck for the club, and it’s the club’s current revision as far as I know."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Je peux transmettre ce document à AéroCheck pour le club, et c’est, à ma connaissance, la révision en vigueur du club."
+          }
+        }
+      }
+    },
+    "aircraftRequest.rightsSelf": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "I may share this document with AéroCheck, and it’s the club’s current revision as far as I know. The club will be asked to confirm."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Je peux transmettre ce document à AéroCheck, et c’est, à ma connaissance, la révision en vigueur du club. Le club devra confirmer."
+          }
+        }
+      }
+    },
+    "aircraftRequest.rightsPrivate": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The aircraft is mine (or its owner agrees), and I may share this document with AéroCheck."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "L’avion est à moi (ou son propriétaire est d’accord), et je peux transmettre ce document à AéroCheck."
+          }
+        }
+      }
+    },
+    "aircraftRequest.privacyLabel": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "I have read how AéroCheck keeps and uses what I send."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "J’ai lu comment AéroCheck conserve et utilise ce que j’envoie."
+          }
+        }
+      }
+    },
+    "aircraftRequest.termsLink": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Terms of use, section 4.0"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Conditions d’utilisation, section 4.0 (en anglais)"
+          }
+        }
+      }
+    },
+    "aircraftRequest.privacyLink": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Privacy policy, section 4.3"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Politique de confidentialité, section 4.3"
+          }
+        }
+      }
+    },
+    "aircraftRequest.checkLabel": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "A quick check that you’re not a robot"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Une vérification rapide que vous n’êtes pas un robot"
+          }
+        }
+      }
+    },
+    "aircraftRequest.checkLoading": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Loading the check"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chargement de la vérification"
+          }
+        }
+      }
+    },
+    "aircraftRequest.checkWorking": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Checking"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vérification en cours"
+          }
+        }
+      }
+    },
+    "aircraftRequest.checkPassed": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Checked"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vérifié"
+          }
+        }
+      }
+    },
+    "aircraftRequest.checkFailed": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The check couldn’t load (no connection, or Cloudflare can’t be reached). Try again in a moment."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "La vérification n’a pas pu se charger (pas de connexion, ou Cloudflare injoignable). Réessayez dans un moment."
+          }
+        }
+      }
+    },
+    "aircraftRequest.checkMissing": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Wait for the check above to finish, then send."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Attendez la fin de la vérification ci-dessus, puis envoyez."
+          }
+        }
+      }
+    },
+    "aircraftRequest.submit": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Send the request"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Envoyer la demande"
+          }
+        }
+      }
+    },
+    "aircraftRequest.progressSending": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sending the request"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Envoi de la demande"
+          }
+        }
+      }
+    },
+    "aircraftRequest.progressUpload": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Uploading %lld of %lld: %@"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Envoi de %lld sur %lld : %@"
+          }
+        }
+      }
+    },
+    "aircraftRequest.progressFinishing": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Finishing"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Finalisation"
+          }
+        }
+      }
+    },
+    "aircraftRequest.uploadStopped": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The upload stopped at %@. Try again: the files already sent stay."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "L’envoi s’est arrêté sur %@. Réessayez : les fichiers déjà envoyés restent."
+          }
+        }
+      }
+    },
+    "aircraftRequest.summary": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Check these before sending:"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "À vérifier avant d’envoyer :"
+          }
+        }
+      }
+    },
+    "aircraftRequest.problem.registrationLookup": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Look up the registration first."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vérifiez d’abord l’immatriculation."
+          }
+        }
+      }
+    },
+    "aircraftRequest.problem.otherRegistrationsInvalid": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "These don’t read as registrations: %@."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ce ne sont pas des immatriculations lisibles : %@."
+          }
+        }
+      }
+    },
+    "aircraftRequest.problem.tooManyRegistrations": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Up to 10 registrations in all."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Jusqu’à 10 immatriculations en tout."
+          }
+        }
+      }
+    },
+    "aircraftRequest.problem.typeRequired": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Say what aircraft it is."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dites de quel avion il s’agit."
+          }
+        }
+      }
+    },
+    "aircraftRequest.problem.sendingForRequired": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Say whether you send it for the club or as a pilot."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dites si vous l’envoyez pour le club ou en tant que pilote."
+          }
+        }
+      }
+    },
+    "aircraftRequest.problem.contactRequired": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Give the club’s contact, or say that you don’t know it."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Indiquez le contact du club, ou dites que vous ne le connaissez pas."
+          }
+        }
+      }
+    },
+    "aircraftRequest.problem.contactInvalid": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The club’s e-mail address doesn’t look right."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "L’adresse e-mail du club ne semble pas juste."
+          }
+        }
+      }
+    },
+    "aircraftRequest.problem.contactIsSender": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The club’s contact is your own address: it has to be someone else at the club, who confirms for it."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Le contact du club est votre propre adresse : ce doit être quelqu’un d’autre au club, qui confirme pour lui."
+          }
+        }
+      }
+    },
+    "aircraftRequest.problem.emailRequired": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Give your e-mail: it’s where we tell you what happens."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Indiquez votre e-mail : c’est là que nous vous disons ce qui se passe."
+          }
+        }
+      }
+    },
+    "aircraftRequest.problem.emailInvalid": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Your e-mail address doesn’t look right."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Votre adresse e-mail ne semble pas juste."
+          }
+        }
+      }
+    },
+    "aircraftRequest.problem.languagesRequired": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pick the checklist’s language."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Choisissez la langue de la checklist."
+          }
+        }
+      }
+    },
+    "aircraftRequest.problem.languageInvalid": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "A language is letters, spaces and dashes, 2 to 35 characters: “%@” isn’t."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Une langue s’écrit en lettres, espaces et tirets, de 2 à 35 caractères : « %@ » ne convient pas."
+          }
+        }
+      }
+    },
+    "aircraftRequest.problem.languagesTooMany": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Five languages at most."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cinq langues au plus."
+          }
+        }
+      }
+    },
+    "aircraftRequest.problem.filesRequired": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Add the checklist (a scan, a PDF or photos of its pages)."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ajoutez la checklist (une numérisation, un PDF ou des photos de ses pages)."
+          }
+        }
+      }
+    },
+    "aircraftRequest.problem.tooManyFiles": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Up to 4 files: remove one first."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Jusqu’à 4 fichiers : retirez-en un d’abord."
+          }
+        }
+      }
+    },
+    "aircraftRequest.problem.fileTooBig": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ is %@: a file can be 10 MB at most."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ pèse %@ : un fichier peut faire 10 Mo au plus."
+          }
+        }
+      }
+    },
+    "aircraftRequest.problem.totalTooBig": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The files come to %@: 25 MB at most in all."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Les fichiers font %@ en tout : 25 Mo au plus."
+          }
+        }
+      }
+    },
+    "aircraftRequest.problem.notesTooLong": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Keep it to 1,000 characters."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Restez à 1000 caractères."
+          }
+        }
+      }
+    },
+    "aircraftRequest.problem.rightsRequired": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tick that you may share this document."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cochez que vous pouvez transmettre ce document."
+          }
+        }
+      }
+    },
+    "aircraftRequest.problem.privacyRequired": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tick that you have read how what you send is kept."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cochez que vous avez lu comment ce que vous envoyez est conservé."
+          }
+        }
+      }
+    },
+    "aircraftRequest.error.network": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The request service isn’t answering. Check your connection and try again; if it still fails, the service may be down for a while."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Le service des demandes ne répond pas. Vérifiez votre connexion et réessayez ; si cela échoue encore, le service est peut-être indisponible pour un moment."
+          }
+        }
+      }
+    },
+    "aircraftRequest.error.invalidRegistration": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "That doesn’t read as a registration. Type it as it’s painted on the aircraft: HB-KFD, F-HVXA, D-EABC."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ce n’est pas une immatriculation lisible. Tapez-la comme elle est peinte sur l’avion : HB-KFD, F-HVXA, D-EABC."
+          }
+        }
+      }
+    },
+    "aircraftRequest.error.invalidEmail": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "That e-mail address doesn’t look right."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cette adresse e-mail ne semble pas juste."
+          }
+        }
+      }
+    },
+    "aircraftRequest.error.clubContactIsSender": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The club’s contact can’t be your own address: someone else at the club confirms. If you look after the club’s documents yourself, send it “For the club”."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Le contact du club ne peut pas être votre propre adresse : c’est quelqu’un d’autre au club qui confirme. Si c’est vous qui vous occupez des documents du club, envoyez-la « Pour le club »."
+          }
+        }
+      }
+    },
+    "aircraftRequest.error.files": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "One of the files wasn’t accepted (up to 4 files, PDF, JPEG, PNG or HEIC, 10 MB each, 25 MB in all): remove it, then send again."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Un des fichiers n’a pas été accepté (jusqu’à 4 fichiers, PDF, JPEG, PNG ou HEIC, 10 Mo chacun, 25 Mo en tout) : retirez-le, puis envoyez à nouveau."
+          }
+        }
+      }
+    },
+    "aircraftRequest.error.unknownRegistration": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "AéroCheck doesn’t have this registration (any more), so it can’t be an update. The form now sends it as a new aircraft: check its details, then send again."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "AéroCheck n’a pas (ou plus) cette immatriculation : ce ne peut donc pas être une mise à jour. Le formulaire l’envoie maintenant comme un nouvel avion : vérifiez ses détails, puis envoyez à nouveau."
+          }
+        }
+      }
+    },
+    "aircraftRequest.error.knownRegistration": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "AéroCheck already has this registration, so this is an update. The form has switched to it: check, then send again."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "AéroCheck a déjà cette immatriculation : c’est donc une mise à jour. Le formulaire est passé en mise à jour : vérifiez, puis envoyez à nouveau."
+          }
+        }
+      }
+    },
+    "aircraftRequest.error.knownOthers": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Remove from the other registrations: %@ (already in AéroCheck; a new revision is a request of its own)."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "À retirer des autres immatriculations : %@ (déjà dans AéroCheck ; une nouvelle révision fait l’objet d’une demande à part)."
+          }
+        }
+      }
+    },
+    "aircraftRequest.error.listChanged": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "AéroCheck’s aircraft list changed while you filled in the form. Look the registration up again in a few minutes, then send."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "La liste des avions d’AéroCheck a changé pendant que vous remplissiez le formulaire. Vérifiez à nouveau l’immatriculation dans quelques minutes, puis envoyez."
+          }
+        }
+      }
+    },
+    "aircraftRequest.error.sizeMismatch": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "A file changed while it was being sent. Add it again, then send again."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Un fichier a changé pendant l’envoi. Ajoutez-le à nouveau, puis envoyez à nouveau."
+          }
+        }
+      }
+    },
+    "aircraftRequest.error.turnstileFailed": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The check that you’re not a robot didn’t go through. It has started again: wait for it to finish, then send again."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "La vérification anti-robot n’est pas passée. Elle a recommencé : attendez qu’elle se termine, puis envoyez à nouveau."
+          }
+        }
+      }
+    },
+    "aircraftRequest.error.uploadGone": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This sending has expired (files wait 24 hours at most). Send the request again."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cet envoi a expiré (les fichiers attendent 24 heures au plus). Envoyez la demande à nouveau."
+          }
+        }
+      }
+    },
+    "aircraftRequest.error.alreadySent": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This request was sent already: %@. Its link is in the e-mail we sent you."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cette demande a déjà été envoyée : %@. Son lien est dans l’e-mail que nous vous avons envoyé."
+          }
+        }
+      }
+    },
+    "aircraftRequest.error.payloadTooLarge": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The form is too long for the service (the notes, most likely). Shorten it, then send again."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Le formulaire est trop long pour le service (les remarques, sans doute). Raccourcissez-le, puis envoyez à nouveau."
+          }
+        }
+      }
+    },
+    "aircraftRequest.error.rateLimited": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Too many tries from your connection in a short time. Wait a minute, then try again."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Trop d’essais depuis votre connexion en peu de temps. Attendez une minute, puis réessayez."
+          }
+        }
+      }
+    },
+    "aircraftRequest.error.internal": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The service ran into a problem on its side. Try again in a moment; if it keeps happening, write to us."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Le service a rencontré un problème de son côté. Réessayez dans un moment ; si cela continue, écrivez-nous."
+          }
+        }
+      }
+    },
+    "aircraftRequest.error.unavailable": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Requests are closed for the moment (the service isn’t ready). Try again later: nothing was sent."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Les demandes sont fermées pour le moment (le service n’est pas prêt). Réessayez plus tard : rien n’a été envoyé."
+          }
+        }
+      }
+    },
+    "aircraftRequest.error.dailyCap": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "That’s all the requests we can take today. Try again tomorrow: nothing was sent."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "C’est tout ce que nous pouvons recevoir aujourd’hui. Réessayez demain : rien n’a été envoyé."
+          }
+        }
+      }
+    },
+    "aircraftRequest.error.lookupUnavailable": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "AéroCheck’s aircraft list can’t be read right now, so the registration can’t be checked. Try again in a few minutes."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "La liste des avions d’AéroCheck ne peut pas être lue pour le moment : impossible de vérifier l’immatriculation. Réessayez dans quelques minutes."
+          }
+        }
+      }
+    },
+    "aircraftRequest.error.field": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "One of the fields wasn’t accepted: check the form, then send again."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Un des champs n’a pas été accepté : vérifiez le formulaire, puis envoyez à nouveau."
+          }
+        }
+      }
+    },
+    "aircraftRequest.error.unknown": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Something went wrong. Try again in a moment."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Quelque chose s’est mal passé. Réessayez dans un moment."
+          }
+        }
+      }
+    },
+    "aircraftRequest.resultTitle": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sent: %@"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Envoyée : %@"
+          }
+        }
+      }
+    },
+    "aircraftRequest.resultBody": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "We have your request, and we sent its link to %@: it’s how you follow it. The Aircraft tab lists it too, with where it stands."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nous avons votre demande, et nous avons envoyé son lien à %@ : c’est ainsi que vous la suivez. L’onglet Avions la liste aussi, avec où elle en est."
+          }
+        }
+      }
+    },
+    "aircraftRequest.nextTitle": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "What happens next"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "La suite"
+          }
+        }
+      }
+    },
+    "aircraftRequest.nextBody": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "We look at it, then prepare it, which takes as long as it takes (one person, spare time, no promised date). You get an e-mail at each step that needs one."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nous la regardons, puis nous la préparons, ce qui prend le temps qu’il faut (une seule personne, sur son temps libre, sans date promise). Vous recevez un e-mail à chaque étape qui en demande un."
+          }
+        }
+      }
+    },
+    "aircraftRequest.nextClub": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The club’s contact has an e-mail asking them to confirm. Nothing goes live without it."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Le contact du club a reçu un e-mail lui demandant de confirmer. Rien n’est mis en ligne sans son accord."
+          }
+        }
+      }
+    },
+    "aircraftRequest.nextClubNoContact": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The club hasn’t been asked yet: add its contact from the request’s page when you have it."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Le club n’a pas encore été sollicité : ajoutez son contact depuis la page de la demande dès que vous l’avez."
+          }
+        }
+      }
+    },
+    "aircraftRequest.openPage": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Your request’s page"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "La page de votre demande"
+          }
+        }
+      }
+    },
+    "aircraftRequest.entryTitle": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Send us an aircraft’s checklist"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Envoyez-nous la checklist d’un avion"
+          }
+        }
+      }
+    },
+    "aircraftRequest.entrySubtitle": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Your aircraft isn’t here, or its checklist is out of date"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Votre avion n’est pas là, ou sa checklist n’est plus à jour"
+          }
+        }
+      }
+    },
+    "aircraftRequest.menuItem": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Not listed? Send us its checklist"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pas dans la liste ? Envoyez-nous sa checklist"
+          }
+        }
+      }
+    },
+    "aircraftRequest.proLine": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Can’t find your aircraft? Send us its checklist"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Votre avion n’y est pas ? Envoyez-nous sa checklist"
+          }
+        }
+      }
+    },
+    "aircraftRequest.onboardingLine": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Your aircraft isn’t there? Once you’re in, send us its checklist from the Aircraft tab."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Votre avion n’y est pas ? Une fois dans l’app, envoyez-nous sa checklist depuis l’onglet Avions."
+          }
+        }
+      }
+    },
     "circuits.skippedInCircuits": {
       "extractionState": "manual",
       "localizations": {

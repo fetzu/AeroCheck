@@ -658,6 +658,13 @@ struct OnboardingView: View {
             pageIcon("airplane.circle.fill", tint: .aviationGold, iconSize: 46)
             pageTitle(String(localized: "One aircraft free — unlock the rest"))
             pageBody(String(localized: "AéroCheck is fully featured out of the box, with the WT9 Dynamic included free. AéroCheck Pro unlocks every other aircraft — the full fleet from both flying clubs, listed on aerocheck.app."))
+            // A line, not a button: the form waits until the pilot is in the app. (6.3.0)
+            Text(L10n.AircraftRequests.onboardingLine)
+                .font(.aero(.footnote))
+                .foregroundColor(.dimText)
+                .multilineTextAlignment(.center)
+                .padding(.horizontal, 40)
+                .fixedSize(horizontal: false, vertical: true)
             Spacer()
             pageDots
             VStack(spacing: 10) {

@@ -340,6 +340,43 @@ final class AircraftRequestsTests: XCTestCase {
         XCTAssertNil(keychain.get(.aircraftRequestTokens))
     }
 
+    // MARK: - The sheet's pieces
+
+    func testAScanBecomesOnePDFOfAFewMegabytes() throws {
+        let page = UIGraphicsImageRenderer(size: CGSize(width: 2480, height: 3508)).image { context in
+            for row in 0..<60 {
+                UIColor(white: CGFloat(row % 7) / 7, alpha: 1).setFill()
+                context.fill(CGRect(x: 0, y: CGFloat(row) * 58, width: 2480, height: 29))
+            }
+        }
+        let data = AircraftRequestScan.pdf(of: [page, page, page])
+        let file = try XCTUnwrap(AircraftRequestFile(name: "HB-KFD-scan.pdf", data: data))
+        XCTAssertEqual(file.kind, .pdf)
+        XCTAssertLessThan(data.count, 3_000_000, "three pages, far under the 10 MB a file may be")
+        let document = try XCTUnwrap(CGPDFDocument(CGDataProvider(data: data as CFData)!))
+        XCTAssertEqual(document.numberOfPages, 3, "one page per scanned page")
+    }
+
+    func testAPhotoTheIntakeTakesIsSentAsItIs() throws {
+        let png = try XCTUnwrap(UIGraphicsImageRenderer(size: CGSize(width: 40, height: 40)).image { _ in }.pngData())
+        let file = try XCTUnwrap(AircraftRequestScan.photo(png, name: "photo-1"))
+        XCTAssertEqual(file.kind, .png)
+        XCTAssertEqual(file.data, png)
+        XCTAssertEqual(file.name, "photo-1.png")
+    }
+
+    func testEveryRefusalHasItsOwnWords() {
+        let codes = ["network", "invalid_registration", "invalid_email", "club_contact_is_sender", "too_many_files",
+                     "bad_type", "file_too_large", "total_too_large", "bad_file", "unknown_registration",
+                     "known_registration", "size_mismatch", "turnstile_failed", "not_found", "payload_too_large",
+                     "rate_limited", "internal", "unavailable", "daily_cap", "lookup_unavailable", "invalid_field"]
+        for code in codes {
+            let error: AircraftRequestError = code == "network" ? .network
+                : .intake(code: code, field: nil, registrations: [], ticket: nil)
+            XCTAssertNotEqual(AircraftRequestSheet.text(for: error), L10n.AircraftRequests.errorUnknown, code)
+        }
+    }
+
     // MARK: - Helpers
 
     private var keychain: KeychainStore!

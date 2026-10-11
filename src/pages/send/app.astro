@@ -1,0 +1,80 @@
+---
+/**
+ * The app's Turnstile check (app 6.3.0): the request sheet in AéroCheck opens this page in a web view
+ * just before it sends, the way /send runs the check before the form goes. The worker refuses a
+ * request without a token, and a native app can't get one any other way (Cloudflare supports the
+ * widget in a WKWebView, from a page on an allowed domain).
+ *
+ * What the app reads, through the `aerocheckTurnstile` message handler: `ready`, `interactive` (the
+ * widget needs a tap: the app shows it), `settled`, `token` (with the token), `expired`, `error` (with
+ * Cloudflare's code), `unsupported`. The app calls `acReset()` for a fresh token: one is good for one
+ * try. Opened anywhere else, the page says what it is and loads nothing.
+ *
+ * One page for both languages (`?lang=fr`), out of the sitemap, no layout: the app shows it in a
+ * small box of its own.
+ */
+import { TURNSTILE_SITE_KEY, TURNSTILE_TEST_KEY, TURNSTILE_SCRIPT } from '../../lib/intake';
+---
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="robots" content="noindex" />
+  <title>AéroCheck</title>
+  <style is:global>
+    html, body { margin: 0; background: transparent; }
+    #box { display: flex; justify-content: center; min-height: 1px; }
+    #outside { display: none; max-width: 32rem; margin: 2rem auto; padding: 0 1rem; font: 16px/1.5 -apple-system, system-ui, sans-serif; color: #17191d; }
+    #outside a { color: #0d7f9c; }
+  </style>
+</head>
+<body>
+  <div id="box"></div>
+  <p id="outside"></p>
+  <script is:inline define:vars={{ siteKey: TURNSTILE_SITE_KEY, testKey: TURNSTILE_TEST_KEY, script: TURNSTILE_SCRIPT }}>
+    const handler = window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.aerocheckTurnstile;
+    const lang = new URLSearchParams(location.search).get('lang') === 'fr' ? 'fr' : 'en';
+    document.documentElement.lang = lang;
+    const post = (message) => { if (handler) handler.postMessage(message); };
+
+    if (!handler) {
+      const outside = document.getElementById('outside');
+      outside.style.display = 'block';
+      outside.innerHTML = lang === 'fr'
+        ? 'Cette page sert à l’app AéroCheck, quand elle envoie la checklist d’un avion. Depuis un navigateur, c’est ici : <a href="/fr/send/">envoyer la checklist d’un avion</a>.'
+        : 'This page is used by the AéroCheck app when it sends an aircraft’s checklist. From a browser, it’s here: <a href="/send/">send an aircraft’s checklist</a>.';
+    } else {
+      // Cloudflare's test key on a local preview, as /send does: the real one allows aerocheck.app only.
+      const local = location.hostname === 'localhost' || location.hostname === '127.0.0.1';
+      let widget;
+      window.acTurnstileReady = () => {
+        try {
+          widget = window.turnstile.render('#box', {
+            sitekey: local ? testKey : siteKey,
+            theme: 'dark',
+            language: lang,
+            size: 'flexible',
+            appearance: 'interaction-only',
+            callback: (token) => post({ type: 'token', token }),
+            'expired-callback': () => post({ type: 'expired' }),
+            'error-callback': (code) => { post({ type: 'error', code: String(code || '') }); return true; },
+            'before-interactive-callback': () => post({ type: 'interactive' }),
+            'after-interactive-callback': () => post({ type: 'settled' }),
+            'unsupported-callback': () => post({ type: 'unsupported' }),
+          });
+          post({ type: 'ready' });
+        } catch (error) {
+          post({ type: 'error', code: 'render' });
+        }
+      };
+      window.acReset = () => { if (widget !== undefined) window.turnstile.reset(widget); };
+      const tag = document.createElement('script');
+      tag.src = `${script}?render=explicit&onload=acTurnstileReady`;
+      tag.async = true;
+      tag.onerror = () => post({ type: 'error', code: 'script' });
+      document.head.append(tag);
+    }
+  </script>
+</body>
+</html>

@@ -1992,6 +1992,9 @@ struct HoldToConfirmButton: View {
     /// size), the hint at the label size, smaller only where the slot has no more room ("Maintenir pour
     /// confirmer"); the icon and the count beside them where the button isn't `stacked`. (6.2)
     var fitted = false
+    /// "Hold to confirm" under the title, where `fitted`. Not in the phone's act band, words only since
+    /// 6.2.0 (the author, device check 11 Oct); VoiceOver still hears it.
+    var showsHint = true
     let action: () -> Void
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -1999,10 +2002,12 @@ struct HoldToConfirmButton: View {
 
     private let holdDuration: TimeInterval = 1.0
 
-    /// The title, then "Hold to confirm", as the slot sets them on `scale`'s device.
+    /// The title, then "Hold to confirm", as the slot sets them on `scale`'s device; the phone's title
+    /// alone, on one line (`ActFace.phoneLine`, 6.2.0).
     static func fittedBlocks(title: String, titleLines: Int, hintColor: Color? = nil,
                              hint: String = L10n.ChecklistAction.holdToConfirm,
                              scale: CockpitScale = .phone) -> [ActFaceBlock] {
+        if scale == .phone { return [ActFace.phoneLine(title)] }
         let label = CockpitType.label(for: scale)
         // The hint regular, in grey: as large as the title where the slot allows, never as loud.
         return [ActFaceBlock(text: title, size: CockpitType.size(kneeboard: 24, phone: 20, scale: scale),
@@ -2028,8 +2033,9 @@ struct HoldToConfirmButton: View {
             if fitted {
                 HStack(spacing: kneeboard ? 12 : 8) {
                     // The icon beside the title, as the button showed it; none where `stacked`.
-                    ActFaceText(blocks: Self.fittedBlocks(title: title, titleLines: titleLines, hintColor: theme.textSecondary,
-                                                          scale: .current),
+                    ActFaceText(blocks: Array(Self.fittedBlocks(title: title, titleLines: titleLines,
+                                                                hintColor: theme.textSecondary,
+                                                                scale: .current).prefix(showsHint ? 2 : 1)),
                                 icon: stacked ? nil : systemImage, iconSize: kneeboard ? CockpitType.row : 16,
                                 iconSpacing: kneeboard ? 12 : 8)
                     if count > 0 {

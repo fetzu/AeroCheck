@@ -97,22 +97,55 @@ enum ActBandRoles {
 // MARK: - The four frames
 
 /// The band's measures for a layout and a device: the room between the slots, a slot's height, and the
-/// width of the two narrow ones.
+/// width of the narrow ones.
 struct ActBandMetrics: Equatable {
     var spacing: CGFloat
     /// A slot's height.
     var height: CGFloat
-    /// S3 and S4, in a row.
+    /// S3 and S4, in a row; S4 alone on the phone in portrait.
     var narrowWidth: CGFloat
     /// The phone on its side: two by two at the foot of its column, S1 and S2 over S3 and S4, the four
     /// as wide. (6.2, PR 5)
     var isGrid: Bool
+    /// The phone in portrait: a row one line tall, S1, S2 and S3 as wide and More alone narrow (6.2.0).
+    var isOneLine = false
 
     static func make(layout: CockpitLayout, scale: CockpitScale = .current) -> ActBandMetrics {
         let grid = layout == .columns
+        if scale == .phone && layout == .narrow {
+            return ActBandMetrics(spacing: 6, height: phoneLineHeight, narrowWidth: phoneMoreWidth(),
+                                  isGrid: false, isOneLine: true)
+        }
         return ActBandMetrics(spacing: CockpitType.size(kneeboard: 12, phone: 6, scale: scale),
                               height: grid ? gridSlotHeight : CockpitType.size(kneeboard: 104, phone: 92, scale: scale),
                               narrowWidth: narrowWidth(scale: scale), isGrid: grid)
+    }
+
+    /// The Companion iPhone's band, under NAV: as the phone's was until 6.2.0, 92 pt tall with S3 and S4
+    /// narrow, where MARK shows the waypoint and the leg's time the Cockpit's read band and ROUTE show.
+    static func companion(scale: CockpitScale = .current) -> ActBandMetrics {
+        ActBandMetrics(spacing: CockpitType.size(kneeboard: 12, phone: 6, scale: scale),
+                       height: CockpitType.size(kneeboard: 104, phone: 92, scale: scale),
+                       narrowWidth: narrowWidth(scale: scale), isGrid: false)
+    }
+
+    /// The phone in portrait: a slot one line of words tall (`ActFace.phoneLine`), the 15 mm thumb target's
+    /// 92 pt given back to the page. The author, device check 11 Oct: "one line per button, since vertical
+    /// space is critical on iPhone", as the ROUTE mockup (option A) drew the band. Above the 44 pt touch
+    /// target; the slots' words at 20 pt where they fit. (6.2.0)
+    static let phoneLineHeight: CGFloat = 56
+
+    /// More, the phone's S4 in portrait: "More" or "Plus" at the slots' 20 pt, 6 pt clear of its frame
+    /// each side (at the narrow padding's 3 "More" touched it), between 56 and 64 pt. What it leaves goes
+    /// to S1, S2 and S3, which hold the long words: the check's name, GO AROUND, TOUCH-AND-GO. Measured
+    /// once.
+    static func phoneMoreWidth() -> CGFloat {
+        if let cached = measured.withLock({ $0[.phoneMore] }) { return cached }
+        let widest = ["en", "fr"].map { textWidth(localizedString(key: "nav.more", language: $0), size: ActFace.phoneLineSize) }
+            .max() ?? 0
+        let width = min(max((widest + 2 * 6).rounded(.up), 56), 64)
+        measured.withLock { $0[.phoneMore] = width }
+        return width
     }
 
     /// The phone on its side: a slot 76 pt tall, the author's answer to the plan's Q2 (with one header row,
@@ -130,15 +163,16 @@ struct ActBandMetrics: Equatable {
 
     /// How wide S3 and S4 are: the widest word either can ever carry, in English and in French, at the
     /// in-flight label size (DEFER, Divert, More, TOUCH-AND-GO on two lines), with its padding. Kept
-    /// between 120 and 150 pt on the iPad and 72 and 80 on the phone, where S1 and S2 need the rest (the
-    /// check slot's "CRUISE CHECK" on one line over its tick, about 100 pt).
+    /// between 120 and 150 pt on the iPad and 72 and 80 on the Companion iPhone, where S1 and S2 need the
+    /// rest. The Cockpit's phone in portrait has its own since 6.2.0 (`phoneMoreWidth`).
     /// Measured once a device: the frames never follow the words on screen.
     static func narrowWidth(scale: CockpitScale) -> CGFloat {
-        if let cached = measured.withLock({ $0[scale] }) { return cached }
+        let key: Measure = scale == .phone ? .phoneNarrow : .kneeboardNarrow
+        if let cached = measured.withLock({ $0[key] }) { return cached }
         let widest = narrowTemplates.map { textWidth($0, size: CockpitType.label(for: scale)) }.max() ?? 0
         let bounds: ClosedRange<CGFloat> = scale == .phone ? 72...80 : 120...150
         let width = min(max((widest + 2 * narrowPadding(scale)).rounded(.up), bounds.lowerBound), bounds.upperBound)
-        measured.withLock { $0[scale] = width }
+        measured.withLock { $0[key] = width }
         return width
     }
 
@@ -156,10 +190,12 @@ struct ActBandMetrics: Equatable {
         (text as NSString).size(withAttributes: [.font: UIFont.aero(size: size, weight: .bold)]).width
     }
 
-    private static let measured = OSAllocatedUnfairLock<[CockpitScale: CGFloat]>(initialState: [:])
+    private enum Measure { case kneeboardNarrow, phoneNarrow, phoneMore }
+    private static let measured = OSAllocatedUnfairLock<[Measure: CGFloat]>(initialState: [:])
 }
 
-/// The four slots, left to right: S1 and S2 share what S3 and S4 leave. On a phone on its side, two by
+/// The four slots, left to right: S1 and S2 share what S3 and S4 leave. On a phone in portrait, one line
+/// tall: S1, S2 and S3 share what More leaves. On a phone on its side, two by
 /// two: S1 and S2 over S3 and S4, each half the column. From the row's width and the device's measures
 /// alone, never from what the slots hold, so a role changing (CHECK becoming NEXT, MARK giving way to GO
 /// AROUND) moves nothing.
@@ -176,6 +212,13 @@ struct ActBandLayout: Layout {
                     CGRect(x: half + m.spacing, y: 0, width: half, height: m.height),
                     CGRect(x: 0, y: below, width: half, height: m.height),
                     CGRect(x: half + m.spacing, y: below, width: half, height: m.height)]
+        }
+        if m.isOneLine {
+            // S1, S2 and S3 as wide, More narrow at the right end.
+            let narrow = min(m.narrowWidth, max(0, width / 4))
+            let wide = max(0, (width - narrow - 3 * m.spacing) / 3)
+            return (0..<3).map { CGRect(x: CGFloat($0) * (wide + m.spacing), y: 0, width: wide, height: m.height) }
+                + [CGRect(x: 3 * (wide + m.spacing), y: 0, width: narrow, height: m.height)]
         }
         let narrow = min(m.narrowWidth, max(0, width / 4))
         let wide = max(0, (width - 2 * narrow - 3 * m.spacing) / 2)
@@ -254,7 +297,8 @@ struct ActFaceBlock: Hashable {
     var effectiveFloor: CGFloat { min(floor, size) }
 }
 
-/// How the phone's act band sets its words, in slots of about 100 × 92 pt. Each block on lines of its
+/// How the phone's act band sets its words: since 6.2.0 one line in slots of about 95 × 56 pt
+/// (`phoneLine`), the Companion iPhone's MARK in about 100 × 92. Each block on lines of its
 /// own, broken between words and never inside one: a no-break space keeps a number with its noun ("2
 /// éléments"), a French colon stays with its word, and a separator ("·", "-") is never at either end of
 /// a line: where the words break at it, the break takes its place. A block takes another line before it
@@ -278,6 +322,20 @@ enum ActFace {
     /// The words' inset from the edges of S1 and S2 on the phone: 5 pt clear of the check slot's 3 pt
     /// amber border. S3 and S4 keep `ActBandMetrics.narrowPadding()`, where "Dérouter" needs the room.
     static let inset: CGFloat = 8
+
+    /// The words' size on the phone's band: the rows' 20 pt, as large as the ROUTE mockup (option A) set
+    /// them. (6.2.0)
+    static let phoneLineSize: CGFloat = 20
+
+    /// A slot's words on the phone, on one line: at `phoneLineSize` where they fit, as large as the slot's
+    /// width allows where they don't ("ATTERRISSAGE", "REMISE DE GAZ"), never broken or cut. The author,
+    /// device check 11 Oct: one line per button, since vertical space is critical on iPhone; until then
+    /// a slot took up to four lines in 92 pt. The floor is the label size, so the tests know the words that
+    /// go under it are the ones wider than the slot at it. (6.2.0)
+    static func phoneLine(_ text: String) -> ActFaceBlock {
+        ActFaceBlock(text: text.replacingOccurrences(of: "\n", with: " "), size: phoneLineSize, maxLines: 1,
+                     floor: CockpitType.label(for: .phone))
+    }
 
     /// `blocks`, one under the other, `spacing` apart, in `width` × `height`.
     static func set(_ blocks: [ActFaceBlock], width: CGFloat, height: CGFloat, spacing: CGFloat) -> [Setting] {
@@ -813,13 +871,13 @@ struct ActSlotView: View {
         case .routes:
             ActRoutesButton()
         case .goAround:
-            // About 100 pt on the phone: "GO" over "AROUND".
-            MapFlightEventButton(event: .goAround, narrow: CockpitScale.current == .phone,
-                                 twoLines: CockpitScale.current == .phone)
+            // About 100 pt on the phone, its words on one line (6.2.0).
+            MapFlightEventButton(event: .goAround, narrow: CockpitScale.current == .phone)
         case .touchAndGo:
-            // In the grid, S3 is as wide as S1: its words as far in ("Maintenir pour confirmer" ran to
+            // The iPad's narrow slot: "TOUCH-" over "AND-GO"; the phone's on one line, S3 as wide as S1
+            // since 6.2.0. In the grid, its words as far in as S1's ("Maintenir pour confirmer" ran to
             // within 3 pt of the border).
-            MapFlightEventButton(event: .touchAndGo, narrow: true, twoLines: true,
+            MapFlightEventButton(event: .touchAndGo, narrow: true, twoLines: CockpitScale.current != .phone,
                                  horizontalInset: grid ? ActFace.inset : nil)
         case .deferItem(let enabled):
             Button { appState.deferHighlightedItem() } label: {
@@ -858,7 +916,10 @@ struct ActNarrowLabel: View {
     var body: some View {
         let block = Self.block(title, scale: .current)
         VStack(spacing: 6) {
-            Image(systemName: icon).font(.aero(size: CockpitType.response, weight: .semibold))
+            // The phone's band is words only, the word at 20 pt where it fits (6.2.0).
+            if CockpitScale.current != .phone {
+                Image(systemName: icon).font(.aero(size: CockpitType.response, weight: .semibold))
+            }
             ActFaceText(blocks: [block], verticalInset: 0)
                 .frame(height: ActFace.lineHeight(size: block.size, block: block))
         }
@@ -872,9 +933,22 @@ struct ActNarrowLabel: View {
 }
 
 extension ActNarrowLabel {
-    /// The word, on one line, at the label size.
+    /// The word, on one line: at the label size under the iPad's icon; on the phone, with no icon, the
+    /// band's one line ("Divert", "More"; at the button's 25 they ran into the narrow slot's edges).
+    /// (6.2.0)
     static func block(_ title: String, scale: CockpitScale) -> ActFaceBlock {
-        ActFaceBlock(text: title, size: CockpitType.label(for: scale), maxLines: 1, floor: CockpitType.label(for: scale))
+        scale == .phone ? ActFace.phoneLine(title)
+                        : ActFaceBlock(text: title, size: CockpitType.label(for: scale), maxLines: 1,
+                                       floor: CockpitType.label(for: scale))
+    }
+}
+
+extension View {
+    /// What VoiceOver says for a slot whose face shows a short word: the phone's, on one line, "DONE"
+    /// for "CLIMB CHECK DONE". Elsewhere, the face as it is. (6.2.0)
+    @ViewBuilder
+    func spokenAs(_ label: String?) -> some View {
+        if let label { accessibilityLabel(label) } else { self }
     }
 }
 
@@ -902,43 +976,55 @@ struct ActChecklistPrimary: View {
         let padding = phone ? ActFace.inset : 14
         if appState.currentCheckAwaitsConfirmation {
             let next = appState.memoryConfirmationMovesTo
-            // The phone: "from memory" alone. "NEXT: CRUISE CHECK · from memory" took four lines there, and
-            // was cut after "NEXT:"; the iPad keeps it whole.
-            let subtitle = phone ? L10n.Cockpit.fromMemory
-                                 : next.map { L10n.Cockpit.fromMemoryThenNext($0.shortTitle) } ?? L10n.Cockpit.fromMemory
-            CockpitThumbButton(title: L10n.Cockpit.memoryCheckDone(appState.currentPhase.shortTitle),
+            // The phone's band is words only, on one line (6.2.0): DONE, the check and its line for
+            // VoiceOver. "NEXT: CRUISE CHECK · from memory" took four lines there; the iPad keeps it whole.
+            let spoken = next.map { L10n.Cockpit.fromMemoryThenNext($0.shortTitle) } ?? L10n.Cockpit.fromMemory
+            let subtitle = phone ? nil : spoken
+            let done = L10n.Cockpit.memoryCheckDone(appState.currentPhase.shortTitle)
+            CockpitThumbButton(title: phone ? L10n.Cockpit.memoryCheckDoneShort : done,
                                subtitle: subtitle, icon: phone ? nil : "checkmark", style: filled,
                                titleLines: lines.title, subtitleLines: lines.subtitle, horizontalPadding: padding,
                                fitted: true, action: actions.memoryDone)
                 .accessibilityIdentifier("cockpit.memoryDone")
+                .spokenAs(phone ? done : nil)
+                .accessibilityValue(phone ? spoken : "")
         } else if !appState.currentCheckIsDone {
-            CockpitThumbButton(title: L10n.Cockpit.check, subtitle: currentItemChallenge,
+            // CHECK and the item it checks; on the phone CHECK alone, the item highlighted in the list above.
+            CockpitThumbButton(title: L10n.Cockpit.check, subtitle: phone ? nil : currentItemChallenge,
                                icon: phone ? nil : "checkmark", style: filled, subtitleLines: lines.item,
                                horizontalPadding: padding, fitted: true, action: actions.check)
                 .accessibilityIdentifier("cockpit.check")
+                .accessibilityValue(phone ? currentItemChallenge ?? "" : "")
         } else if appState.isLastPhase {
-            CockpitThumbButton(title: L10n.Button.endFlight, icon: phone ? nil : "flag.checkered",
+            CockpitThumbButton(title: phone ? L10n.Button.endFlightShort : L10n.Button.endFlight,
+                               icon: phone ? nil : "flag.checkered",
                                style: .filled(fill: theme.danger, text: .white), titleLines: lines.title,
                                horizontalPadding: padding, fitted: true, action: actions.endFlight)
                 .accessibilityIdentifier("cockpit.endFlight")
+                .spokenAs(phone ? L10n.Button.endFlight : nil)
         } else {
             let label = CockpitNextLabel(
                 leaving: appState.currentPhase,
                 to: appState.currentPhase.nextNavigable(circuitMode: appState.isCircuitMode),
                 deferred: appState.currentPhaseDeferredIds.count)
-            CockpitThumbButton(title: label.title, subtitle: label.subtitle, icon: phone ? nil : label.icon,
+            // The phone: NEXT or READY, on one line (6.2.0); the check it goes to for VoiceOver.
+            CockpitThumbButton(title: phone ? label.phoneTitle : label.title, subtitle: phone ? nil : label.subtitle,
+                               icon: phone ? nil : label.icon,
                                style: filled, titleLines: lines.title, subtitleLines: lines.subtitle,
                                horizontalPadding: padding, fitted: true, action: actions.next)
                 .accessibilityIdentifier("cockpit.next")
+                .spokenAs(phone ? label.title : nil)
+                .accessibilityValue(phone ? label.subtitle : "")
                 .accessibilityHint(label.accessibilityHint ?? "")
                 .modifier(PulseModifier(isActive: actions.nextReady))
         }
     }
 
     /// The most lines S2's words take: the title (✓ DONE, NEXT, READY FOR LINE UP, END FLIGHT), the line
-    /// under it, CHECK's item. Three on the phone; on the iPad the title two, the rest three.
+    /// under it, CHECK's item. One on the phone (its words alone, since 6.2.0); on the iPad the title two,
+    /// the rest three.
     static func lines(_ scale: CockpitScale) -> (title: Int, subtitle: Int, item: Int) {
-        scale == .phone ? (3, 2, 3) : (2, 3, 3)
+        scale == .phone ? (1, 1, 1) : (2, 3, 3)
     }
 
     /// The challenge of the highlighted item, shown on CHECK so the button says what it checks.
@@ -962,24 +1048,30 @@ struct ActPhaseActionButton: View {
 
     var body: some View {
         let language = appState.settings.checklistLanguage.resolvedLanguage
+        // The phone: START or SHUTDOWN on one line (6.2.0), the whole name for VoiceOver.
+        let phone = CockpitScale.current == .phone
         if shutdown {
             TimestampActionButton(
-                title: L10n.ChecklistAction.engineShutdown(language: language),
+                title: phone ? L10n.ChecklistAction.engineShutdownShort(language: language)
+                             : L10n.ChecklistAction.engineShutdown(language: language),
                 icon: "engine.combustion.fill", color: theme.danger,
                 timestamp: appState.formattedEngineShutdownTime,
                 timestampLabel: L10n.ChecklistAction.shutdown(language: language),
                 isPulsing: actions.pulseAction, compact: true, minHeight: slotHeight ?? CockpitTarget.thumb,
                 fitted: true, onFirstPress: actions.engineShutdown, onUpdateTime: actions.engineShutdownUpdate)
             .accessibilityIdentifier("cockpit.engineShutdown")
+            .spokenAs(phone ? L10n.ChecklistAction.engineShutdown(language: language) : nil)
         } else {
             TimestampActionButton(
-                title: L10n.ChecklistAction.engineStart(language: language),
+                title: phone ? L10n.ChecklistAction.engineStartShort(language: language)
+                             : L10n.ChecklistAction.engineStart(language: language),
                 icon: "engine.combustion.fill", color: theme.onTarget,
                 timestamp: appState.formattedEngineStartTime,
                 timestampLabel: L10n.ChecklistAction.started(language: language),
                 isPulsing: actions.pulseAction, compact: true, minHeight: slotHeight ?? CockpitTarget.thumb,
                 fitted: true, onFirstPress: actions.engineStart, onUpdateTime: actions.engineStartUpdate)
             .accessibilityIdentifier("cockpit.engineStart")
+            .spokenAs(phone ? L10n.ChecklistAction.engineStart(language: language) : nil)
         }
     }
 }
@@ -987,9 +1079,9 @@ struct ActPhaseActionButton: View {
 // MARK: - The map's slots
 
 /// START LEG before the timer runs, then MARK named after the waypoint, with the leg timer under it:
-/// "LEG 2:05 / 17:32" on the iPad; on the phone MARK, the waypoint and the leg's time each on a line of
-/// its own. The route flown, MARK keeps its place, dimmed. The one-second clock is this view's alone.
-/// (6.1, mockup M2)
+/// "LEG 2:05 / 17:32" on the iPad; on the phone MARK alone (words only since 6.2.0), the waypoint and the
+/// leg's time said to VoiceOver. The route flown, MARK keeps its place, dimmed. The one-second clock is
+/// this view's alone. (6.1, mockup M2)
 struct ActMarkButton: View {
     @EnvironmentObject private var flightPlanManager: FlightPlanManager
     @Environment(CockpitNavState.self) private var navState
@@ -1021,9 +1113,7 @@ struct ActMarkButton: View {
         } else {
             let name = plan.waypoints[plan.currentWaypointIndex].name
             if CockpitScale.current == .phone {
-                // The phone: the waypoint under MARK, where "MARK LSGC" on one line had to shrink, and the
-                // leg's time under it. Joined, "LSGC · 1:42" broke where it liked: "LSGC ·" over "1:42",
-                // "SAIGNELÉGI" over "ER · 1:55". (6.2)
+                // The phone: MARK alone on the face (6.2.0); the waypoint and the leg's time go to VoiceOver.
                 primary(icon: "mappin.and.ellipse", title: L10n.Nav.mark, subtitle: nil,
                         details: [name, leg.text(planned: false)]) {
                     navState.markWaypoint(in: flightPlanManager, animated: !reduceMotion)
@@ -1039,7 +1129,7 @@ struct ActMarkButton: View {
         }
     }
 
-    /// `details`: the phone's waypoint and leg time, under the title.
+    /// `details`: the phone's waypoint and leg time, for VoiceOver.
     private func primary(icon: String, title: String, subtitle: String?, details: [String] = [],
                          action: @escaping () -> Void) -> some View {
         Button(action: action) { face(icon: icon, title: title, subtitle: subtitle, details: details) }
@@ -1053,7 +1143,9 @@ struct ActMarkButton: View {
         let phone = CockpitScale.current == .phone
         return Group {
             if phone {
-                ActFaceText(blocks: Self.phoneBlocks(title: title, name: details.first, time: details.dropFirst().first))
+                // Words only on the phone, on one line (6.2.0): MARK or START LEG. The waypoint is the read
+                // band's next line, the leg's time ROUTE's ACT; VoiceOver hears both.
+                ActFaceText(blocks: [ActFace.phoneLine(title)])
             } else {
                 ActFaceText(blocks: Self.kneeboardBlocks(title: title, subtitle: subtitle), icon: icon,
                             iconSize: CockpitType.button, iconSpacing: 12)
@@ -1079,8 +1171,9 @@ struct ActMarkButton: View {
         return blocks
     }
 
-    /// The phone's MARK: the verb (or START LEG), the waypoint's name (two lines where it has two words),
-    /// the leg's time in figures that keep their place ("0:00" its room).
+    /// The Companion iPhone's MARK: the verb (or START LEG), the waypoint's name (two lines where it has two
+    /// words), the leg's time in figures that keep their place ("0:00" its room). The Cockpit's phone shows
+    /// the verb alone, on one line, since 6.2.0.
     static func phoneBlocks(title: String, name: String?, time: String?) -> [ActFaceBlock] {
         var blocks = [ActFaceBlock(text: title, size: CockpitType.button(for: .phone), maxLines: 2)]
         if let name, !name.isEmpty {
@@ -1140,7 +1233,7 @@ struct ActRoutesButton: View {
         let phone = CockpitScale.current == .phone
         CockpitThumbButton(title: L10n.Ground.planRoutes,
                            icon: phone ? nil : "point.topleft.down.to.point.bottomright.curvepath",
-                           style: .outlined(tint: theme.action), titleLines: 2,
+                           style: .outlined(tint: theme.action), titleLines: phone ? 1 : 2,
                            horizontalPadding: phone ? ActFace.inset : 14, fitted: true) {
             navState.showRoutes = true
         }

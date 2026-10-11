@@ -33,8 +33,9 @@ final class DestinationLineTests: XCTestCase {
         }
     }
 
-    /// Diverting: "Resume route" in the track's place, one height whatever the field and its figures.
-    /// Without the button (a viewer), the line keeps the track's height.
+    /// Diverting: on the iPad "Resume route" in the track's place, one height whatever the field and its
+    /// figures; without the button (a viewer), the line keeps the track's height. The phone's one line has
+    /// neither track nor button (6.2.0): one height, diverting or not (Divert's sheet resumes the route).
     func testDivertingKeepsOneHeightToo() {
         let states: [(String, DestinationEstimate)] = [
             ("diverting", Sample.diverting),
@@ -48,6 +49,11 @@ final class DestinationLineTests: XCTestCase {
                 for (name, estimate) in states {
                     XCTAssertEqual(height(estimate, scale, width, language), reference, accuracy: 0.5,
                                    "\(name), \(scale), \(language)")
+                }
+                if scale == .phone {
+                    XCTAssertEqual(reference, height(Sample.behind, scale, width, language), accuracy: 0.5,
+                                   "the phone: one line, diverting or not")
+                    continue
                 }
                 XCTAssertGreaterThan(reference, height(Sample.behind, scale, width, language),
                                      "the button is taller than the track (\(scale))")
@@ -77,9 +83,9 @@ final class DestinationLineTests: XCTestCase {
     // MARK: - Nothing cut
 
     /// The widest line (a 12-letter field, 105 NM, "1:05 h", an evening ETA, ▼12) and every other state
-    /// fit at their full size: the width the line asks for with nothing scaled, and room for a 12-hour
-    /// clock, is within ROUTE's, on an iPad in portrait and on a phone, in English and in French
-    /// ("Reprendre la route").
+    /// fit: on the iPad at their full size, the width the line asks for with nothing scaled and room for a
+    /// 12-hour clock within ROUTE's, in English and in French ("Reprendre la route"); on the phone's one
+    /// line (no ETA), with the field's name at the least it may shrink to (`identMinimumScale`).
     func testNothingIsCutAtTheInFlightSizes() {
         let states = trackRowStates + [LineCase("diverting", Sample.diverting),
                                        LineCase("diverting to SAIGNELÉGIER", Sample.long(diverting: true))]
@@ -87,7 +93,8 @@ final class DestinationLineTests: XCTestCase {
             for language in ["en", "fr"] {
                 for state in states {
                     let wanted = idealWidth(state.estimate, scale, language, resumes: state.resumes)
-                        + twelveHourClockAllowance(scale)
+                        + (scale == .phone ? 0 : twelveHourClockAllowance(scale))
+                        - (scale == .phone ? identSlack(state.estimate.ident) : 0)
                     XCTAssertLessThanOrEqual(wanted, width, "\(state.name), \(scale), \(language): \(wanted) pt wanted")
                 }
             }
@@ -329,6 +336,13 @@ final class DestinationLineTests: XCTestCase {
                 .sizeThatFits(in: CGSize(width: 1_000, height: 1_000)).width
         }
         return max(0, width(["ETA 10:58 PM", "ETO 10:58 PM"]) - width(DestinationLine.clockTemplates))
+    }
+
+    /// What the phone's field name gives back at the least it may shrink to.
+    private func identSlack(_ ident: String) -> CGFloat {
+        let font = UIFont.aero(size: DestinationLine.Metrics(.phone).identSize, weight: .bold, monospaced: true)
+        let full = (ident as NSString).size(withAttributes: [.font: font]).width
+        return full * (1 - DestinationLine.identMinimumScale(.phone))
     }
 
     /// The width the line asks for with every text at its full size.

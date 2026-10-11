@@ -68,7 +68,8 @@ final class CockpitRoutePageTests: XCTestCase {
         let phoneRadio = try layOut(waypoints: 20, size: CGSize(width: 402, height: 640), layout: .narrow, list: .radio)
         for (parts, name) in [(iPad, "iPad"), (phoneRadio, "phone")] {
             let radio = try XCTUnwrap(parts[.radio]), radioScroll = try XCTUnwrap(parts[.radioScroll])
-            XCTAssertEqual(radio.minY, radioScroll.minY + 12, accuracy: 0.5, "\(name): RADIO at the top of its own scroll")
+            XCTAssertEqual(radio.minY, radioScroll.minY + (name == "iPad" ? 12 : 4), accuracy: 0.5,
+                           "\(name): RADIO at the top of its own scroll")
             XCTAssertLessThanOrEqual(radioScroll.maxY, try XCTUnwrap(parts[.emergency]).minY + 0.5, "\(name): above Emergency")
         }
         let legsScroll = try XCTUnwrap(iPad[.legsScroll]), radioScroll = try XCTUnwrap(iPad[.radioScroll])
@@ -176,17 +177,22 @@ final class CockpitRoutePageTests: XCTestCase {
 
     // MARK: - A leg's row
 
-    /// Every waypoint's name whole at the phone's 17 pt, SAIGNELÉGIER's twelve letters too, on an iPhone
-    /// SE, a 17e and a 17 (ROUTE's 16 pt each side). Beside PLAN, ACT and Δ the name had what the three
-    /// columns left, about 30 pt on the 17e: "LS…", "SA…".
-    func testEveryNameStaysWholeAtThePhonesSize() throws {
-        for screen: CGFloat in [375, 390, 402] {
+    /// On a phone every row is one line, PLAN, ACT and Δ kept, the name smaller where it must be and never cut:
+    /// SAIGNELÉGIER's twelve letters at no less than half the phone's 17 pt on an iPhone SE, at about 13 pt on
+    /// a 17. Two lines a row left ROUTE's legs "all over the place" (the author, device check 11 Oct). (6.2.0)
+    func testOnAPhoneEveryRowIsOneLineAndNoNameIsCut() throws {
+        for (screen, least) in [(CGFloat(375), CGFloat(0.5)), (390, 0.6), (402, 0.75)] {
             let frames = layOutRows(Self.longNames, width: screen - 32, scale: .phone)
             for (index, name) in Self.longNames.enumerated() {
-                let frame = try XCTUnwrap(frames[index]?[.name], "\(name) at \(screen) pt")
+                let row = try XCTUnwrap(frames[index], "\(name) at \(screen) pt")
+                let frame = try XCTUnwrap(row[.name])
                 let whole = Self.width(of: name, size: CockpitType.label(for: .phone))
-                XCTAssertGreaterThanOrEqual(frame.width + 0.5, whole,
+                XCTAssertGreaterThanOrEqual((frame.width + 0.5) / whole, least,
                                             "\(name) at \(screen) pt: \(frame.width) pt of the \(whole) it needs")
+                if index > 0 {
+                    XCTAssertEqual(try XCTUnwrap(row[.figures]).midY, frame.midY, accuracy: 2,
+                                   "\(name) on one line at \(screen) pt")
+                }
             }
         }
     }
@@ -203,23 +209,16 @@ final class CockpitRoutePageTests: XCTestCase {
         }
     }
 
-    /// A route's rows take its shape: on a phone, the figures under every name but the departure's, which
-    /// has none (no leg arrives at it) and keeps one line, so the 17e's scroll of about 121 pt doesn't lose
-    /// a row to an empty line; on the iPad's legs column, one line everywhere.
-    func testTheDeparturesRowIsOneLineAndTheOthersTakeTheRoutesShape() throws {
+    /// Every row of a route one line and one height: on a phone since 6.2.0 (the names shrink instead), on the
+    /// iPad's legs column as always.
+    func testEveryRowOfARouteIsOneLineAndOneHeight() throws {
         for screen: CGFloat in [375, 390, 402, 440] {
             let frames = layOutRows(Self.longNames, width: screen - 32, scale: .phone)
-            let departure = try XCTUnwrap(frames[0]), first = try XCTUnwrap(frames[1])
-            XCTAssertEqual(try XCTUnwrap(departure[.figures]).midY, try XCTUnwrap(departure[.name]).midY, accuracy: 2,
-                           "the departure's row on one line at \(screen) pt")
-            XCTAssertLessThan(try XCTUnwrap(departure[.row]).height + 10, try XCTUnwrap(first[.row]).height,
-                              "the departure's row a line shorter at \(screen) pt")
-            for index in Self.longNames.indices.dropFirst() {
+            let first = try XCTUnwrap(frames[1])
+            for index in Self.longNames.indices {
                 let row = try XCTUnwrap(frames[index])
-                XCTAssertGreaterThanOrEqual(try XCTUnwrap(row[.figures]).minY, try XCTUnwrap(row[.name]).maxY,
-                                            "\(Self.longNames[index])'s figures under its name at \(screen) pt")
-                XCTAssertEqual(try XCTUnwrap(row[.row]).height, try XCTUnwrap(first[.row]).height,
-                               "\(Self.longNames[index])'s row as tall as the route's others at \(screen) pt")
+                XCTAssertEqual(try XCTUnwrap(row[.row]).height, try XCTUnwrap(first[.row]).height, accuracy: 0.5,
+                               "\(Self.longNames[index])'s row as tall as the others at \(screen) pt")
             }
         }
         let iPad = layOutRows(Self.longNames, width: 464, scale: .kneeboard)

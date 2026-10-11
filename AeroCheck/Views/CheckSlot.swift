@@ -240,6 +240,16 @@ extension CheckSlot {
         }
     }
 
+    /// The first line on the iPhone's act band, on one line (6.2.0): the check's word ("CRUISE"), READY
+    /// out of the check before departure, FREDA whatever it counts from. The tick's time and the second
+    /// line are the iPad's and VoiceOver's.
+    var phoneTitle: String {
+        switch title {
+        case .check: return readiesForLineUp ? L10n.ChecklistAction.readyForLineUpShort : phase.phoneWord
+        case .freda, .fredaCountsFrom: return L10n.Freda.name
+        }
+    }
+
     /// The tick's time as the device writes it: "14:24", or "2:24 PM" on a 12-hour clock.
     private static func clock(_ locale: Locale) -> Date.FormatStyle {
         Date.FormatStyle(date: .omitted, time: .shortened, locale: locale)
@@ -380,8 +390,8 @@ struct CheckSlotButton: View {
 
     var body: some View {
         let phone = CockpitScale.current == .phone
-        // The phone's slot in the act band is about 100 pt wide: no icon (the colour and the frame say
-        // the state), the name and the short line set to fit it (`CheckSlotLabel`).
+        // The phone's slot in the act band is about 95 pt wide and a line tall: no icon (the colour and
+        // the frame say the state), the check's word on one line (`CheckSlotLabel`, 6.2.0).
         let narrow = phone && !prominent
         Button(action: action) {
             // The name and its line in the middle of the slot's height, the icon beside them.
@@ -392,8 +402,9 @@ struct CheckSlotButton: View {
                                                     : CockpitType.size(kneeboard: 32, phone: 24),
                                     weight: .semibold))
                 }
+                // The phone's word in the middle, as the band's others (6.2.0).
                 CheckSlotLabel(slot: slot, prominent: prominent, lineColor: lineColor)
-                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .frame(maxWidth: .infinity, alignment: narrow ? .center : .leading)
             }
             .foregroundColor(textColor)
             // The phone's act band slot is about 100 pt wide (6.2): its words 8 pt in, 5 pt clear of the
@@ -493,17 +504,21 @@ struct CheckSlotLabel: View {
             // in-flight label size where the words fit at it. Each sized by its room, so a value ticking
             // moves nothing. Left to SwiftUI, the phone's broke "2" from "éléments" and the iPad's cut "de
             // mémoire · un appui quand c'est fait" after "c'est". (6.2)
-            ActFaceText(blocks: Self.blocks(slot, scale: scale, lineColor: lineColor), alignment: .leading)
+            ActFaceText(blocks: Self.blocks(slot, scale: scale, lineColor: lineColor),
+                        alignment: scale == .phone ? .center : .leading)
         }
     }
 
-    /// The name, then its line, as the band's slot sets them on `scale`'s device: the phone's short line
-    /// (`CheckSlot.Line.shortText`), the iPad's whole one (`stackedText`).
+    /// The name, then its line, as the band's slot sets them on `scale`'s device: the iPad's whole line
+    /// (`stackedText`). The phone's slot has the check's word alone on one line ("CRUISE", as the ROUTE
+    /// mockup drew it), its state in its colours and its frame, its name and line for VoiceOver: the act
+    /// band is words only there, a line tall (the author, device check 11 Oct: "the iPhone remains a
+    /// second citizen"). (6.2.0)
     static func blocks(_ slot: CheckSlot, scale: CockpitScale, lineColor: Color? = nil) -> [ActFaceBlock] {
-        let phone = scale == .phone
+        if scale == .phone { return [ActFace.phoneLine(slot.phoneTitle)] }
         return blocks(title: slot.titleText(stacked: true), titleRoom: slot.titleRoom(stacked: true),
-                      line: slot.lineText(narrow: phone, stacked: !phone),
-                      lineRoom: slot.lineRoom(narrow: phone, stacked: !phone), scale: scale, lineColor: lineColor)
+                      line: slot.lineText(stacked: true), lineRoom: slot.lineRoom(stacked: true), scale: scale,
+                      lineColor: lineColor)
     }
 
     /// The name at 19 pt on the phone (up to three lines), 25 on the iPad (up to two, one where it stays at
@@ -667,8 +682,8 @@ struct CockpitCheckSlot: View {
 /// GO AROUND or TOUCH-AND-GO in the act band, from the approach to the runway (mockup M3): what the
 /// checklist's event row does, at the band's height. Hold 1 s to confirm, as there; a single tap in
 /// circuits, for a quick correction of a missed detection. GO AROUND takes MARK's slot, TOUCH-AND-GO
-/// Divert's, the narrow one, on two lines ("TOUCH-" over "AND-GO") at the in-flight label size or
-/// larger. (6.1; act band 6.2)
+/// Divert's: on the iPad the narrow one, on two lines ("TOUCH-" over "AND-GO") at the in-flight label
+/// size or larger; on the phone one line each (6.2.0). (6.1; act band 6.2)
 struct MapFlightEventButton: View {
     enum Event { case goAround, touchAndGo }
     let event: Event
@@ -692,7 +707,8 @@ struct MapFlightEventButton: View {
         let icon = event == .goAround ? "arrow.up.right.circle.fill" : "arrow.triangle.2.circlepath"
         let identifier = event == .goAround ? "map.goAround" : "map.touchAndGo"
         let height = slotHeight ?? CockpitTarget.thumb
-        // On the phone GO AROUND has a wide slot, its words 8 pt in; TOUCH-AND-GO the narrow one. Set to fit
+        // On the phone GO AROUND's words are 8 pt in, TOUCH-AND-GO's at the narrow padding, both on one
+        // line in slots as wide (6.2.0); on the iPad TOUCH-AND-GO has the narrow slot. Set to fit
         // (`ActFace`) on both devices; on the iPad GO AROUND keeps its icon and its count beside. (6.2)
         let phone = CockpitScale.current == .phone
         let padding: CGFloat? = horizontalInset
@@ -709,7 +725,7 @@ struct MapFlightEventButton: View {
                                                                        : appState.currentFlight?.touchAndGoCount ?? 0,
                                 kneeboard: true, height: height,
                                 stacked: narrow, titleLines: twoLines ? 2 : 1, horizontalPadding: padding,
-                                spokenTitle: name, fitted: true, action: perform)
+                                spokenTitle: name, fitted: true, showsHint: !phone, action: perform)
                 .accessibilityIdentifier(identifier)
         }
     }
@@ -771,9 +787,10 @@ struct FredaThumbButton: View {
                 // Set to fit the slot (`ActFace`), the countdown in figures that keep their place; the
                 // iPad's icon beside. (6.2)
                 if phone {
-                    ActFaceText(blocks: Self.blocks(line: subtitle(stage, phone: true), scale: .phone))
+                    // The phone's band is words only, on one line: FREDA, its stage in its colours. (6.2.0)
+                    ActFaceText(blocks: [ActFace.phoneLine(L10n.Freda.name)])
                 } else {
-                    ActFaceText(blocks: Self.blocks(line: subtitle(stage, phone: false), scale: .kneeboard),
+                    ActFaceText(blocks: Self.blocks(line: subtitle(stage), scale: .kneeboard),
                                 icon: "arrow.triangle.2.circlepath", iconSize: CockpitType.response, iconSpacing: 8)
                 }
             }
@@ -801,11 +818,11 @@ struct FredaThumbButton: View {
                              room: CheckSlot.widestFigures(line, atLeast: 1))]
     }
 
-    private func subtitle(_ stage: Stage, phone: Bool) -> String {
+    private func subtitle(_ stage: Stage) -> String {
         switch stage {
         case .waiting: return Self.countdown(FredaSchedule.interval)
         case .counting(let remaining): return Self.countdown(remaining)
-        case .due: return phone ? L10n.Freda.flowCompact : L10n.Freda.flow
+        case .due: return L10n.Freda.flow
         }
     }
 

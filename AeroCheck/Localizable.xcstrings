@@ -1426,6 +1426,24 @@
         }
       }
     },
+    "cockpit.memoryCheckDone.short": {
+      "comment": "A memory check confirmed done, on the iPhone. The iPhone's act band: one line in a slot about 90 pt wide. Keep it short.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "DONE"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "FAIT"
+          }
+        }
+      }
+    },
     "cockpit.fromMemory": {
       "extractionState": "manual",
       "localizations": {
@@ -16785,6 +16803,24 @@
         }
       }
     },
+    "button.endFlight.short": {
+      "comment": "END FLIGHT on the iPhone. The iPhone's act band: one line in a slot about 90 pt wide. Keep it short.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "END FLIGHT"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "FIN DU VOL"
+          }
+        }
+      }
+    },
     "button.flightLog": {
       "extractionState": "manual",
       "localizations": {
@@ -16921,6 +16957,24 @@
         }
       }
     },
+    "checklist.engineShutdown.short": {
+      "comment": "ENGINE SHUTDOWN on the iPhone. The iPhone's act band: one line in a slot about 90 pt wide. Keep it short.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "SHUTDOWN"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ARRÊT"
+          }
+        }
+      }
+    },
     "checklist.engineStart": {
       "extractionState": "manual",
       "localizations": {
@@ -16934,6 +16988,24 @@
           "stringUnit": {
             "state": "translated",
             "value": "DÉMARRAGE MOTEUR"
+          }
+        }
+      }
+    },
+    "checklist.engineStart.short": {
+      "comment": "ENGINE START on the iPhone. The iPhone's act band: one line in a slot about 90 pt wide. Keep it short.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "START"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "DÉMARRAGE"
           }
         }
       }
@@ -17138,6 +17210,24 @@
           "stringUnit": {
             "state": "translated",
             "value": "PRÊT POUR L'ALIGNEMENT"
+          }
+        }
+      }
+    },
+    "checklist.readyForLineUp.short": {
+      "comment": "READY FOR LINE UP on the iPhone. The iPhone's act band: one line in a slot about 90 pt wide. Keep it short.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "READY"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "PRÊT"
           }
         }
       }
@@ -26154,6 +26244,294 @@
           "stringUnit": {
             "state": "translated",
             "value": "ROULAGE"
+          }
+        }
+      }
+    },
+    "phase.word.preflight": {
+      "comment": "The check slot on the iPhone: the check's name, without CHECK. The iPhone's act band: one line in a slot about 90 pt wide. Keep it short.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "PREFLIGHT"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "PRÉ-VOL"
+          }
+        }
+      }
+    },
+    "phase.word.beforeEngineStart": {
+      "comment": "The check slot on the iPhone: the check's name, without CHECK. The iPhone's act band: one line in a slot about 90 pt wide. Keep it short.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "BEFORE START"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "AVANT DÉM."
+          }
+        }
+      }
+    },
+    "phase.word.engineStart": {
+      "comment": "The check slot on the iPhone: the check's name, without CHECK. The iPhone's act band: one line in a slot about 90 pt wide. Keep it short.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "START"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "DÉMARRAGE"
+          }
+        }
+      }
+    },
+    "phase.word.afterEngineStart": {
+      "comment": "The check slot on the iPhone: the check's name, without CHECK. The iPhone's act band: one line in a slot about 90 pt wide. Keep it short.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "AFTER START"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "APRÈS DÉM."
+          }
+        }
+      }
+    },
+    "phase.word.taxi": {
+      "comment": "The check slot on the iPhone: the check's name, without CHECK. The iPhone's act band: one line in a slot about 90 pt wide. Keep it short.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "TAXI"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ROULAGE"
+          }
+        }
+      }
+    },
+    "phase.word.runup": {
+      "comment": "The check slot on the iPhone: the check's name, without CHECK. The iPhone's act band: one line in a slot about 90 pt wide. Keep it short.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "RUNUP"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "POINT FIXE"
+          }
+        }
+      }
+    },
+    "phase.word.beforeDeparture": {
+      "comment": "The check slot on the iPhone: the check's name, without CHECK. The iPhone's act band: one line in a slot about 90 pt wide. Keep it short.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "DEPARTURE"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "DÉPART"
+          }
+        }
+      }
+    },
+    "phase.word.lineUp": {
+      "comment": "The check slot on the iPhone: the check's name, without CHECK. The iPhone's act band: one line in a slot about 90 pt wide. Keep it short.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "LINE UP"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ALIGNEMENT"
+          }
+        }
+      }
+    },
+    "phase.word.climb": {
+      "comment": "The check slot on the iPhone: the check's name, without CHECK. The iPhone's act band: one line in a slot about 90 pt wide. Keep it short.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "CLIMB"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "MONTÉE"
+          }
+        }
+      }
+    },
+    "phase.word.cruise": {
+      "comment": "The check slot on the iPhone: the check's name, without CHECK. The iPhone's act band: one line in a slot about 90 pt wide. Keep it short.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "CRUISE"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "CROISIÈRE"
+          }
+        }
+      }
+    },
+    "phase.word.descent": {
+      "comment": "The check slot on the iPhone: the check's name, without CHECK. The iPhone's act band: one line in a slot about 90 pt wide. Keep it short.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "DESCENT"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "DESCENTE"
+          }
+        }
+      }
+    },
+    "phase.word.approach": {
+      "comment": "The check slot on the iPhone: the check's name, without CHECK. The iPhone's act band: one line in a slot about 90 pt wide. Keep it short.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "APPROACH"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "APPROCHE"
+          }
+        }
+      }
+    },
+    "phase.word.landing": {
+      "comment": "The check slot on the iPhone: the check's name, without CHECK. The iPhone's act band: one line in a slot about 90 pt wide. Keep it short.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "LANDING"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ATTERRISSAGE"
+          }
+        }
+      }
+    },
+    "phase.word.afterLanding": {
+      "comment": "The check slot on the iPhone: the check's name, without CHECK. The iPhone's act band: one line in a slot about 90 pt wide. Keep it short.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "AFTER LDG"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "APRÈS ATT."
+          }
+        }
+      }
+    },
+    "phase.word.shutdown": {
+      "comment": "The check slot on the iPhone: the check's name, without CHECK. The iPhone's act band: one line in a slot about 90 pt wide. Keep it short.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "PARKING"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ARRÊT"
+          }
+        }
+      }
+    },
+    "phase.word.hangar": {
+      "comment": "The check slot on the iPhone: the check's name, without CHECK. The iPhone's act band: one line in a slot about 90 pt wide. Keep it short.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "HANGAR"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "HANGAR"
           }
         }
       }

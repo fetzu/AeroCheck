@@ -527,7 +527,9 @@ struct CompanionActBand: View {
     @Environment(\.cockpitTheme) private var theme
 
     var body: some View {
-        let metrics = ActBandMetrics.make(layout: .narrow, scale: scale)
+        // Its own measures: the Cockpit's phone band is a line tall since 6.2.0, this one keeps MARK's
+        // waypoint and leg time.
+        let metrics = ActBandMetrics.companion(scale: scale)
         ActBandLayout(metrics: metrics, onPlace: onPlace) {
             slotOne
             CompanionMarkSlot(state: CompanionMarkState.make(plan: nav.plan, flightData: flightData), scale: scale)

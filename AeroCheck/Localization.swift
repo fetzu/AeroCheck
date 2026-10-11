@@ -365,6 +365,13 @@ enum L10n {
         static func startEarlyMessage(_ when: String) -> String {
             String(format: String(localized: "thread.startEarlyMessage"), when)
         }
+        /// In FLY's card while another flight is running, where its start button would be. (6.2.0)
+        static let flightInProgress = String(localized: "thread.flightInProgress")
+        /// "Flight in progress (F-HVXA)"
+        static func flightInProgress(aircraft registration: String) -> String {
+            String(format: String(localized: "thread.flightInProgressAircraft"), registration)
+        }
+        static let endBeforeStarting = String(localized: "thread.endBeforeStarting")
 
         // States
         static let statePlanned = String(localized: "PLANNED")

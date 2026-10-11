@@ -65,6 +65,13 @@ La base des aérodromes est téléchargée en entier, sans aucune position.
 ### 3.7 Serveur d'API d'AéroCheck (api.aerocheck.app)
 Jamais de position. Lorsque vous ouvrez un avion, l'app envoie son identifiant, son immatriculation et la langue que vous utilisez, pour obtenir la bonne liste de vérification. Avec AéroCheck Pro, l'app envoie en outre la preuve d'achat que lui remet Apple (une transaction signée par Apple) et l'identifiant de transaction d'origine de cet achat, puis un jeton de session avec chaque requête. Ce que le serveur conserve figure à la section 4.0.
 
+Le même serveur fournit les procédures VFR d'open flightmaps (tours de piste, routes d'arrivée et de départ VFR, et les points de report qui manquent à OpenAIP) et la liste des liens vers les cartes officielles, sous forme de petits fichiers. L'app télécharge les procédures par pays, avec les autres données aéronautiques (la requête nomme le pays, rien d'autre), et la liste des cartes environ une fois par semaine. Là non plus, aucune position ni jeton de session.
+
+### 3.8 Pages que vous ouvrez dans votre navigateur
+Certains boutons ouvrent une page dans votre navigateur au lieu d'aller chercher quoi que ce soit eux-mêmes (les liens de briefing de la préparation d'un vol, par exemple). L'app n'envoie rien d'elle-même : le site sur lequel vous arrivez reçoit ce que reçoit toute visite. Deux de ces liens disent ce que vous regardiez :
+- « Carte officielle » ouvre la carte de l'aérodrome sur le site de son éditeur, le service de navigation aérienne ou d'information aéronautique de son pays. Quand le lien mène à la carte de l'aérodrome lui-même (Allemagne, France et 11 autres pays), l'éditeur apprend l'aérodrome par le lien ; quand il mène à une page unique pour tout le pays (SkyBriefing en Suisse, l'Autriche, la Grèce, et les portails à connexion de la Croatie et de la Bulgarie), il reçoit la même page quel que soit l'aérodrome.
+- « Signaler une erreur », sur un tour de piste ou une route VFR, ouvre le formulaire de signalement d'erreurs d'open flightmaps (un formulaire Google, soumis à la [politique de confidentialité de Google](https://policies.google.com/privacy?hl=fr)) avec sa description déjà remplie : la région, le cycle AIRAC, l'aérodrome, la procédure et son identifiant open flightmaps, et la position de l'étiquette que vous avez touchée (un point de la procédure, pas le vôtre). Rien sur vous : le formulaire a son propre champ d'adresse e-mail, que vous pouvez laisser vide. Sans formulaire, l'app prépare le même texte sous forme d'e-mail à open flightmaps, que vous envoyez ou non.
+
 
 ## 4.0 Ce que nos serveurs conservent
 

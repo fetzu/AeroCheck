@@ -222,22 +222,31 @@ final class CockpitRoutePageTests: XCTestCase {
         }
     }
 
-    /// Plan › Map's DIRECT on a long name whose figures are under it: on their line, never over the name.
-    /// Centred on the row as on a single line, it covered the end of SAIGNELÉGIER on a 17e.
-    func testDirectNeverCoversTheNameOfATwoLineRow() throws {
+    /// Plan › Map's previewed row (the waypoint shown on the map, DIRECT offered under the legs): as tall as
+    /// the route's other rows, its name and figures where theirs are. DIRECT was in the row, a capsule taller
+    /// than the figures' line: the row grew and nothing lined up any more (device check, 11 Oct). (6.2.0)
+    func testAPreviewedRowKeepsTheRoutesShape() throws {
         for screen: CGFloat in [375, 390, 402] {
-            // SAIGNELÉGIER, the leg being flown, offered while diverting (where DIRECT rejoins the route).
-            let frames = layOutRows(Self.longNames, width: screen - 32, scale: .phone, directAt: 1)
-            let row = try XCTUnwrap(frames[1])
-            let name = try XCTUnwrap(row[.name]), direct = try XCTUnwrap(row[.direct], "DIRECT at \(screen) pt")
-            XCTAssertFalse(name.intersects(direct), "at \(screen) pt, name \(name), DIRECT \(direct)")
-            XCTAssertGreaterThanOrEqual(direct.minY, name.maxY, "DIRECT under the name at \(screen) pt")
-            XCTAssertLessThanOrEqual(direct.maxY, try XCTUnwrap(row[.row]).maxY + 9, "inside its row at \(screen) pt")
-            XCTAssertGreaterThanOrEqual(name.width + 0.5, Self.width(of: Self.longNames[1], size: 17), "the name whole")
+            let plain = layOutRows(Self.longNames, width: screen - 32, scale: .phone)
+            let previewed = layOutRows(Self.longNames, width: screen - 32, scale: .phone, previewAt: 2)
+            for part in [LegRowPart.row, .name, .figures] {
+                let before = try XCTUnwrap(plain[2]?[part]), after = try XCTUnwrap(previewed[2]?[part])
+                XCTAssertEqual(after.height, before.height, accuracy: 0.5, "\(part)'s height at \(screen) pt")
+                XCTAssertEqual(after.minX, before.minX, accuracy: 0.5, "\(part)'s place at \(screen) pt")
+            }
+            XCTAssertEqual(try XCTUnwrap(previewed[2]?[.row]).height, try XCTUnwrap(previewed[3]?[.row]).height,
+                           accuracy: 0.5, "the previewed row as tall as the next at \(screen) pt")
         }
-        // The departure while diverting (DIRECT rejoins the route anywhere): DIRECT under its name too.
-        let departure = try XCTUnwrap(layOutRows(Self.longNames, width: 390 - 32, scale: .phone, directAt: 0)[0])
-        XCTAssertFalse(try XCTUnwrap(departure[.name]).intersects(try XCTUnwrap(departure[.direct])))
+    }
+
+    /// DIRECT under the legs: for a waypoint ahead of the one flown to, and for any while diverting, where
+    /// the route is rejoined; never for the one flown to or one passed.
+    func testDirectIsOfferedAheadAndAnywhereWhileDiverting() {
+        XCTAssertTrue(LegsPanelDirectBar.offers(index: 3, currentIndex: 1, diverting: false))
+        XCTAssertFalse(LegsPanelDirectBar.offers(index: 1, currentIndex: 1, diverting: false))
+        XCTAssertFalse(LegsPanelDirectBar.offers(index: 0, currentIndex: 1, diverting: false))
+        XCTAssertTrue(LegsPanelDirectBar.offers(index: 0, currentIndex: 1, diverting: true))
+        XCTAssertTrue(LegsPanelDirectBar.offers(index: 1, currentIndex: 1, diverting: true))
     }
 
     /// The iPad's legs column beside the radio (464 pt in portrait): a row on one line, as before, every
@@ -340,7 +349,7 @@ final class CockpitRoutePageTests: XCTestCase {
     /// `names` as a route's leg rows, the second one flown to, `width` wide at `scale`: each row's name
     /// and figures as laid out.
     private func layOutRows(_ names: [String], width: CGFloat, scale: CockpitScale,
-                            directAt: Int? = nil) -> [Int: [LegRowPart: CGRect]] {
+                            previewAt: Int? = nil) -> [Int: [LegRowPart: CGRect]] {
         var plan = FlightPlan(name: "Leg rows", waypoints: names.enumerated().map { index, name in
             FlightPlanWaypoint(name: name, coordinate: .init(latitude: 47.4 - Double(index) * 0.1, longitude: 7.0),
                                estimatedElapsedTime: 600)
@@ -350,10 +359,9 @@ final class CockpitRoutePageTests: XCTestCase {
         let box = Box()
         let rows = VStack(spacing: 0) {
             ForEach(names.indices, id: \.self) { index in
-                // DIRECT as Plan › Map offers it on a previewed row.
-                RouteLegRow(plan: plan, index: index, actual: index == 1 ? 105 : nil, scale: scale,
-                            reservesDirect: index == directAt, onTap: {})
-                    .modifier(LegRowDirect(index: index, large: true, action: index == directAt ? {} : nil))
+                // Previewed as Plan › Map shows a waypoint tapped in its legs.
+                RouteLegRow(plan: plan, index: index, isPreview: index == previewAt,
+                            actual: index == 1 ? 105 : nil, scale: scale, onTap: {})
             }
         }
         .frame(width: width)

@@ -356,6 +356,8 @@ enum VSpeedTable {
 /// (`AppState.nextPhase`). The Cockpit's and the Companion iPhone's, so both say the same. (6.2)
 struct CockpitNextLabel: Equatable {
     let title: String
+    /// The iPhone's act band, on one line: NEXT, or READY out of the check before departure. (6.2.0)
+    let phoneTitle: String
     let subtitle: String
     let icon: String
     /// VoiceOver: what the tap does besides going on, when it does more.
@@ -364,11 +366,13 @@ struct CockpitNextLabel: Equatable {
     init(leaving phase: ChecklistPhase?, to next: ChecklistPhase?, deferred: Int) {
         if phase?.readiesForLineUp == true, let next {
             title = L10n.ChecklistAction.readyForLineUp
+            phoneTitle = L10n.ChecklistAction.readyForLineUpShort
             subtitle = L10n.Cockpit.thenCheck(next.shortTitle)
             icon = "airplane.departure"
             accessibilityHint = L10n.Cockpit.readyForLineUpHint
         } else {
             title = next.map { L10n.Cockpit.next($0.shortTitle) } ?? L10n.Button.next
+            phoneTitle = L10n.Button.next
             subtitle = deferred > 0 ? L10n.Deferred.count(deferred) : L10n.Cockpit.allChecked
             icon = "chevron.right"
             accessibilityHint = nil
@@ -443,8 +447,10 @@ struct CockpitThumbButton: View {
     }
 
     /// The title, then the subtitle, as the slot sets them on `scale`'s device: neither under the in-flight
-    /// label size where the words fit at it; the iPad's title on one line while it stays at that size.
+    /// label size where the words fit at it; the iPad's title on one line while it stays at that size. The
+    /// phone's title alone, on one line (`ActFace.phoneLine`, 6.2.0).
     func fittedBlocks(for scale: CockpitScale) -> [ActFaceBlock] {
+        if scale == .phone { return [ActFace.phoneLine(title)] }
         let label = CockpitType.label(for: scale)
         var blocks = [ActFaceBlock(text: title, size: CockpitType.button(for: scale), maxLines: titleLines, floor: label,
                                    prefersFewerLines: scale != .phone)]

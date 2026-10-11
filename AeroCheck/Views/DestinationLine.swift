@@ -9,9 +9,9 @@ import SwiftUI
 ///
 /// - iPad: "DEST" and the ident on the left; the distance, the ETE, "ETA hh:mm" and Δ on the right, on
 ///   one line.
-/// - Phone: the ident and Δ on one line, the distance, the ETE and the ETA on the next. At 17 pt the
-///   proposal's single line ("DEST LSZB 71 NM · 41 min · 11:58 ▼3", drawn at 14) can't hold a
-///   12-letter field and a 12-hour clock in 378 pt.
+/// - Phone: one line, the ident, the distance · the ETE and Δ, and no track under it (6.2.0, the author's
+///   pick of three mockups, device check 11 Oct: "the iPhone remains a second citizen"). The ETA has no
+///   room beside them at 17 pt; VoiceOver still says it, and "Resume route" is in Divert's sheet.
 /// - Below 30 kt there is no ETE, ETA or Δ: the plan's "ETO hh:mm" instead. Diverting, DEST is the
 ///   field straight there, no track, and "Resume route" sits where the track was. Once the destination
 ///   is marked, the final Δ.
@@ -34,7 +34,7 @@ struct DestinationLine: View {
     var body: some View {
         VStack(alignment: .leading, spacing: metrics.rowSpacing) {
             figures
-            lowerRow
+            if scale != .phone { lowerRow }
         }
         .padding(.horizontal, metrics.horizontalPadding)
         .padding(.vertical, metrics.verticalPadding)
@@ -77,19 +77,16 @@ struct DestinationLine: View {
     }
 
     private var phoneFigures: some View {
-        VStack(alignment: .trailing, spacing: metrics.phoneLineSpacing) {
-            HStack(alignment: .firstTextBaseline, spacing: 0) {
-                destination
-                Spacer(minLength: metrics.minimumGap)
-                deltaCell
-            }
+        HStack(alignment: .firstTextBaseline, spacing: 0) {
+            destination
+            Spacer(minLength: metrics.minimumGap)
             HStack(alignment: .firstTextBaseline, spacing: metrics.figureGap) {
                 distanceCell
                 separator
                 eteCell
-                separator
-                clockCell
+                deltaCell
             }
+            .fixedSize()
         }
     }
 
@@ -100,11 +97,18 @@ struct DestinationLine: View {
             Text(verbatim: "DEST")
                 .font(.aero(size: metrics.labelSize, weight: .semibold))
                 .foregroundColor(estimate.kind == .diversion ? theme.warning : theme.textSecondary)
-            Text(verbatim: estimate.ident)
-                .font(.aero(size: metrics.identSize, weight: .bold, design: .monospaced))
-                .foregroundColor(theme.textPrimary)
-                .lineLimit(1)
-                .minimumScaleFactor(0.75)
+            ZStack(alignment: .leading) {
+                // A line's height at full size, whatever a long name scales to: the line never moves.
+                Text(verbatim: "0")
+                    .font(.aero(size: metrics.identSize, weight: .bold, design: .monospaced))
+                    .hidden()
+                    .accessibilityHidden(true)
+                Text(verbatim: estimate.ident)
+                    .font(.aero(size: metrics.identSize, weight: .bold, design: .monospaced))
+                    .foregroundColor(theme.textPrimary)
+                    .lineLimit(1)
+                    .minimumScaleFactor(Self.identMinimumScale(scale))
+            }
         }
     }
 
@@ -185,6 +189,10 @@ struct DestinationLine: View {
         }
     }
 
+    /// How far the field's name may shrink: on the phone's one line, a 12-letter field beside the figures
+    /// needs about half. Never cut.
+    static func identMinimumScale(_ scale: CockpitScale) -> CGFloat { scale == .phone ? 0.5 : 0.75 }
+
     private var card: some View {
         RoundedRectangle(cornerRadius: metrics.cornerRadius)
             .fill(theme.card)
@@ -238,7 +246,6 @@ extension DestinationLine {
         let horizontalPadding: CGFloat
         let verticalPadding: CGFloat
         let rowSpacing: CGFloat
-        let phoneLineSpacing: CGFloat
         let labelGap: CGFloat
         let figureGap: CGFloat
         let minimumGap: CGFloat
@@ -256,7 +263,6 @@ extension DestinationLine {
             horizontalPadding = kneeboard ? 16 : 12
             verticalPadding = kneeboard ? 12 : 10
             rowSpacing = kneeboard ? 10 : 8
-            phoneLineSpacing = 4
             labelGap = kneeboard ? 12 : 8
             figureGap = kneeboard ? 20 : 6
             minimumGap = kneeboard ? 16 : 8

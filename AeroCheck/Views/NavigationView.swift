@@ -6899,11 +6899,15 @@ enum LegRowMetrics {
     static let timeWidth: CGFloat = 68
     static let deltaWidth: CGFloat = 82
 
-    /// A phone's rows, a little tighter: an ICAO code ("LSZQ", 44 pt at 17) beside PLAN, ACT and Δ on one
-    /// line on an iPhone 17 and a 17e, where it missed by 2 to 4 pt and every row of such a route took two
-    /// lines (device check, 11 Oct). Δ keeps "▲15:19" at full size (66 pt); an hour's "▼1:05:12" shrinks
-    /// to 80 %, as it may. (6.2.0)
-    static func deltaWidth(_ scale: CockpitScale) -> CGFloat { scale == .phone ? 72 : deltaWidth }
+    /// A phone's rows, tighter: one line a row with PLAN, ACT and Δ, the name taking what is left (about
+    /// 106 pt on an iPhone 17, SAIGNELÉGIER at about 14 pt), where two lines a row left ROUTE's legs "all
+    /// over the place" (device check, 11 Oct). PLAN keeps "17:03" (55 pt), Δ "▲15:19" (66 pt) at full size;
+    /// an hour's "1:05:12" shrinks, as it may, to 80 %. (6.2.0)
+    static func indexWidth(_ scale: CockpitScale) -> CGFloat { scale == .phone ? 20 : indexWidth }
+    static func spacing(_ scale: CockpitScale) -> CGFloat { scale == .phone ? 6 : spacing }
+    static func nameGap(_ scale: CockpitScale) -> CGFloat { scale == .phone ? 4 : nameGap }
+    static func timeWidth(_ scale: CockpitScale) -> CGFloat { scale == .phone ? 58 : timeWidth }
+    static func deltaWidth(_ scale: CockpitScale) -> CGFloat { scale == .phone ? 66 : deltaWidth }
     static func timeSpacing(_ scale: CockpitScale) -> CGFloat { scale == .phone ? 4 : timeSpacing }
     static func horizontalPadding(_ scale: CockpitScale) -> CGFloat { scale == .phone ? 6 : horizontalPadding }
 

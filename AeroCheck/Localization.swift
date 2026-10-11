@@ -148,6 +148,8 @@ enum L10n {
         static let next = String(localized: "button.next")
         static let prev = String(localized: "button.prev")
         static let endFlight = String(localized: "button.endFlight")
+        /// END FLIGHT in the iPhone's act band, on one line. (6.2.0)
+        static let endFlightShort = String(localized: "button.endFlight.short")
         static let end = String(localized: "button.end")
         static let done = String(localized: "button.done")
         static let close = String(localized: "button.close")
@@ -662,6 +664,27 @@ enum L10n {
             static let afterLanding = String(localized: "phase.short.afterLanding")
             static let shutdown = String(localized: "phase.short.shutdown")
             static let hangar = String(localized: "phase.short.hangar")
+        }
+
+        /// The check slot's word on the iPhone, one line in a slot about 90 pt wide: the check's name
+        /// without CHECK, "CRUISE", "CROISIÈRE". (6.2.0, device check 11 Oct)
+        enum Word {
+            static let preflight = String(localized: "phase.word.preflight")
+            static let beforeEngineStart = String(localized: "phase.word.beforeEngineStart")
+            static let engineStart = String(localized: "phase.word.engineStart")
+            static let afterEngineStart = String(localized: "phase.word.afterEngineStart")
+            static let taxi = String(localized: "phase.word.taxi")
+            static let runup = String(localized: "phase.word.runup")
+            static let beforeDeparture = String(localized: "phase.word.beforeDeparture")
+            static let lineUp = String(localized: "phase.word.lineUp")
+            static let climb = String(localized: "phase.word.climb")
+            static let cruise = String(localized: "phase.word.cruise")
+            static let descent = String(localized: "phase.word.descent")
+            static let approach = String(localized: "phase.word.approach")
+            static let landing = String(localized: "phase.word.landing")
+            static let afterLanding = String(localized: "phase.word.afterLanding")
+            static let shutdown = String(localized: "phase.word.shutdown")
+            static let hangar = String(localized: "phase.word.hangar")
         }
 
         static func completed(_ phase: String) -> String {
@@ -1286,6 +1309,8 @@ enum L10n {
         /// The check before departure's NEXT, on the Cockpit, the map's check slot and the Companion. In
         /// the app's language, like the CHECK and NEXT it stands for. (6.2)
         static let readyForLineUp = String(localized: "checklist.readyForLineUp")
+        /// READY FOR LINE UP in the iPhone's act band, on one line. (6.2.0)
+        static let readyForLineUpShort = String(localized: "checklist.readyForLineUp.short")
         static let engineShutdown = String(localized: "checklist.engineShutdown")
         static let shutdown = String(localized: "checklist.shutdown")
         static let goAround = String(localized: "checklist.goAround")
@@ -1306,6 +1331,16 @@ enum L10n {
 
         static func engineShutdown(language: String) -> String {
             localizedString(key: "checklist.engineShutdown", language: language, defaultValue: "ENGINE SHUTDOWN")
+        }
+
+        /// ENGINE START and ENGINE SHUTDOWN in the iPhone's act band, on one line: "START", "DÉMARRAGE".
+        /// (6.2.0)
+        static func engineStartShort(language: String) -> String {
+            localizedString(key: "checklist.engineStart.short", language: language, defaultValue: "START")
+        }
+
+        static func engineShutdownShort(language: String) -> String {
+            localizedString(key: "checklist.engineShutdown.short", language: language, defaultValue: "SHUTDOWN")
         }
 
         static func shutdown(language: String) -> String {
@@ -2147,6 +2182,8 @@ enum L10n {
         static func memoryCheckDone(_ check: String) -> String {
             String(format: String(localized: "cockpit.memoryCheckDone"), check)
         }
+        /// The same in the iPhone's act band, on one line: "DONE", "FAIT". (6.2.0)
+        static let memoryCheckDoneShort = String(localized: "cockpit.memoryCheckDone.short")
         static let fromMemory = String(localized: "cockpit.fromMemory")
         /// Under "✓ CLIMB CHECK DONE" when the same tap goes on: "NEXT: CRUISE CHECK · from memory". (6.1)
         static func fromMemoryThenNext(_ next: String) -> String {

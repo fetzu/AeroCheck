@@ -129,7 +129,9 @@ struct RouteDestinationSection: View {
                     }
                 }
                 .padding(.horizontal, layout == .wide ? 16 : 12)
-                .padding(.top, 12)
+                // The phone's gaps even, as in the mockup the author picked: 8 pt between DEST, the switch
+                // and the list. (6.2.0)
+                .padding(.top, layout == .wide ? 12 : 8)
             }
         }
     }
@@ -244,7 +246,7 @@ struct RouteLegsAndRadio: View {
         ScrollView {
             content
                 .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(.vertical, 12)
+                .padding(.vertical, layout == .wide ? 12 : 4)
         }
         // Room at the foot for the undo toast, which lies over Emergency and a little of the scrolls for
         // six seconds: the leg being flown, brought into view, is never under it. (6.2)
@@ -407,8 +409,8 @@ struct RouteLegRow: View {
         let isPast = index < plan.currentWaypointIndex
         let leg = plan.legArriving(at: index)
         // Column widths follow the type (`LegRowMetrics`).
-        let indexWidth: CGFloat = large ? LegRowMetrics.indexWidth : 16
-        let timeWidth: CGFloat = large ? LegRowMetrics.timeWidth : 44
+        let indexWidth: CGFloat = large ? LegRowMetrics.indexWidth(scale) : 16
+        let timeWidth: CGFloat = large ? LegRowMetrics.timeWidth(scale) : 44
         let deltaWidth: CGFloat = large ? LegRowMetrics.deltaWidth(scale) : 52
         let nameScale = Self.nameMinimumScale(large: large, scale: scale)
         // No leg arrives at the departure: no figures there, ever.
@@ -417,7 +419,8 @@ struct RouteLegRow: View {
         Button(action: onTap) {
             LegRowLayout(nameRoom: Self.nameRoom(plan: plan, size: large ? CockpitType.label(for: scale) : 13,
                                                   minimumScale: nameScale),
-                         hasFigures: hasFigures) {
+                         hasFigures: hasFigures, spacing: LegRowMetrics.spacing(scale),
+                         nameGap: LegRowMetrics.nameGap(scale)) {
                 // Sequence number: the numbered disc on the map. (v4 UI/UX Revamp)
                 Text("\(index + 1)")
                     .font(.aero(size: large ? CockpitType.label(for: scale) : 11, weight: .bold, design: .monospaced))
@@ -457,7 +460,8 @@ struct RouteLegRow: View {
                 }
                 .font(.aero(size: large ? CockpitType.label(for: scale) : 10, design: .monospaced))
                 .lineLimit(1)
-                .minimumScaleFactor(large ? 0.8 : 1)   // a little smaller rather than a time cut short
+                // A little smaller rather than a time cut short: an hour's "1:05:12" in the phone's 58 pt.
+                .minimumScaleFactor(large ? (scale == .phone ? 0.7 : 0.8) : 1)
                 .modifier(LegRowPartReader(index: index, part: .figures))
             }
             .modifier(LegRowPartReader(index: index, part: .row))
@@ -490,7 +494,11 @@ struct RouteLegRow: View {
     /// How far a name may shrink: not at all on a phone, where the label size is the in-flight minimum
     /// (17 pt); to 80 % on the iPad, as before.
     static func nameMinimumScale(large: Bool, scale: CockpitScale) -> CGFloat {
-        large && scale == .kneeboard ? 0.8 : 1
+        guard large else { return 1 }
+        // The phone: one line a row, PLAN, ACT and Δ kept, the name smaller where it must be (about 14 pt for
+        // SAIGNELÉGIER on an iPhone 17), never cut. Two lines a row left ROUTE's legs "all over the place"
+        // (the author's choice of three, device check 11 Oct). (6.2.0)
+        return scale == .kneeboard ? 0.8 : 0.5
     }
 
     /// The room the route's longest name needs at `size`, shrunk at most to `minimumScale`: every row of

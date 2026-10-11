@@ -81,6 +81,28 @@ enum ChecklistPhase: Int, CaseIterable, Identifiable, Codable {
         }
     }
     
+    /// The check's name on one line of the iPhone's act band: "CRUISE", "CROISIÈRE". (6.2.0)
+    var phoneWord: String {
+        switch self {
+        case .preflight: return L10n.Phase.Word.preflight
+        case .beforeEngineStart: return L10n.Phase.Word.beforeEngineStart
+        case .engineStart: return L10n.Phase.Word.engineStart
+        case .afterEngineStart: return L10n.Phase.Word.afterEngineStart
+        case .taxi: return L10n.Phase.Word.taxi
+        case .runup: return L10n.Phase.Word.runup
+        case .beforeDeparture: return L10n.Phase.Word.beforeDeparture
+        case .lineUp: return L10n.Phase.Word.lineUp
+        case .climb: return L10n.Phase.Word.climb
+        case .cruise: return L10n.Phase.Word.cruise
+        case .descent: return L10n.Phase.Word.descent
+        case .approach: return L10n.Phase.Word.approach
+        case .landing: return L10n.Phase.Word.landing
+        case .afterLanding: return L10n.Phase.Word.afterLanding
+        case .shutdown: return L10n.Phase.Word.shutdown
+        case .hangar: return L10n.Phase.Word.hangar
+        }
+    }
+
     /// Whether this phase shows the "Engine Start" button
     var showsEngineStartButton: Bool {
         self == .engineStart

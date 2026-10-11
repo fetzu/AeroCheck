@@ -25,9 +25,10 @@ struct TimestampActionButton: View {
     let onUpdateTime: () -> Void
 
     /// The title as the slot sets it on `scale`'s device: at the row size, on up to two lines (one on the
-    /// iPad while it stays at the label size).
+    /// iPad while it stays at the label size); on the phone, on one line (`ActFace.phoneLine`, 6.2.0).
     static func fittedBlocks(title: String, scale: CockpitScale = .phone) -> [ActFaceBlock] {
-        [ActFaceBlock(text: title, size: CockpitType.size(kneeboard: 24, phone: 20, scale: scale), maxLines: 2,
+        if scale == .phone { return [ActFace.phoneLine(title)] }
+        return [ActFaceBlock(text: title, size: CockpitType.size(kneeboard: 24, phone: 20, scale: scale), maxLines: 2,
                       floor: CockpitType.label(for: scale), prefersFewerLines: scale != .phone)]
     }
 

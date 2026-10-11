@@ -375,9 +375,11 @@ final class CheckSlotLabelLayoutTests: XCTestCase {
         static let narrowestPhoneSlot: CGFloat = 94 - 2 * ActFace.inset
     }
 
-    /// The phone's slot as `ActFace` sets it: its 92 pt less the border, 3 pt each side.
+    /// The phone's slot as `ActFace` sets it: a line tall since 6.2.0 (56 pt) less the border, 3 pt each
+    /// side.
     private func phoneSetting(_ slot: CheckSlot, width: CGFloat = TextWidth.phoneSlot) -> [ActFace.Setting] {
-        ActFace.set(CheckSlotLabel.blocks(slot, scale: .phone), width: width, height: 92 - 2 * 3, spacing: 2)
+        ActFace.set(CheckSlotLabel.blocks(slot, scale: .phone), width: width,
+                    height: ActBandMetrics.phoneLineHeight - 2 * 3, spacing: 2)
     }
 
     /// The iPad's, beside MARK: its 104 pt less the border.
@@ -490,20 +492,37 @@ final class CheckSlotLabelLayoutTests: XCTestCase {
         XCTAssertEqual(Set(settings.map { $0.map { "\($0.roomLines) \($0.size)" } }).count, 1)
     }
 
-    func testANameTooLongForThePhonesSlotTakesLinesNotRoom() {
-        // A name too long for one line of the phone's slot ("CHECK BEFORE ENGINE START", "AVANT
-        // DÉMARRAGE") takes the lines it needs, at its size where they fit, and keeps no empty line: the
-        // block stays in the middle. Before 6.2 it shrank to fit two lines, to about 11 pt. (6.2)
-        let slot = CheckSlot.make(phase: .beforeEngineStart, check: .list(open: 4), next: .engineStart)
-        for width: CGFloat in [64, TextWidth.narrowestPhoneSlot, TextWidth.phoneSlot] {
-            let settings = phoneSetting(slot, width: width)
-            for setting in settings {
-                XCTAssertEqual(setting.roomLines.count, setting.lines.count, "at \(width) pt: \(setting.lines)")
+    func testThePhonesSlotShowsTheChecksWordOnOneLine() {
+        // The phone's slot is a line tall since 6.2.0 (the author, device check 11 Oct: one line per
+        // button): the check's word alone, "CRUISE" as the ROUTE mockup drew it, READY out of the check
+        // before departure, FREDA whatever it counts from. The name and the line are VoiceOver's.
+        let cases: [(CheckSlot, String)] = [
+            (CheckSlot.make(phase: .cruise, check: .list(open: 5), next: .descent), L10n.Phase.Word.cruise),
+            (CheckSlot.make(phase: .beforeEngineStart, check: .list(open: 4), next: .engineStart),
+             L10n.Phase.Word.beforeEngineStart),
+            (CheckSlot.make(phase: .beforeDeparture, check: .list(open: 0), next: .lineUp),
+             L10n.ChecklistAction.readyForLineUpShort),
+            (counting(6), L10n.Freda.name),
+            (CheckSlot.make(phase: .cruise, check: .list(open: 0), next: .descent, freda: .due(waypoint: "LSGC")),
+             L10n.Freda.name)]
+        for (slot, word) in cases {
+            XCTAssertEqual(slot.phoneTitle, word)
+            XCTAssertEqual(CheckSlotLabel.blocks(slot, scale: .phone), [ActFace.phoneLine(word)])
+            for width in [TextWidth.narrowestPhoneSlot, TextWidth.phoneSlot] {
+                let settings = phoneSetting(slot, width: width)
+                XCTAssertEqual(settings.map(\.lines), [[word]], "\(word) at \(width) pt: one line")
             }
-            let height = zip(CheckSlotLabel.blocks(slot, scale: .phone), settings).reduce(CGFloat(2)) {
-                $0 + CGFloat($1.1.lines.count) * ActFace.lineHeight(size: $1.1.size, block: $1.0)
+        }
+        // Every check has its word, in both languages, without CHECK or VÉRIFICATION.
+        for phase in ChecklistPhase.allCases {
+            XCTAssertFalse(phase.phoneWord.isEmpty, "\(phase)")
+            for language in ["en", "fr"] {
+                // The case's name is the catalog's: "phase.word.beforeEngineStart".
+                let key = "phase.word.\(phase)"
+                let word = localizedString(key: key, language: language)
+                XCTAssertNotEqual(word, key, "\(key) in \(language)")
+                XCTAssertFalse(word.contains("CHECK") || word.contains("VÉRIFICATION"), "\(language): \(word)")
             }
-            XCTAssertLessThanOrEqual(height, 92 - 6, "at \(width) pt")
         }
     }
 

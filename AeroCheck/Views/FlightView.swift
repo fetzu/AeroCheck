@@ -1215,7 +1215,9 @@ extension FlightView {
         guard CockpitStripRule.showsStrip(in: appState.currentPhase) else { return nil }
         return StripReading(speedKnots: locationManager.displaySpeedKnots,
                             targetSpeed: appState.activeChecklist.targetSpeed(for: appState.currentPhase),
-                            gpsSignalStatus: locationManager.gpsSignalStatus,
+                            gpsSignalStatus: StripReading.gpsStatus(isFlightActive: appState.isFlightActive,
+                                                                    isTracking: locationManager.isTracking,
+                                                                    signal: locationManager.gpsSignalStatus),
                             altitudeFeet: locationManager.currentAltitudeFeet,
                             headingDegrees: locationManager.currentCourseDegrees,
                             verticalSpeedFPM: locationManager.verticalSpeedFpm)

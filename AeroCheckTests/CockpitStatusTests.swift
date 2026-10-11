@@ -143,6 +143,18 @@ final class CockpitStatusTests: XCTestCase {
         XCTAssertNil(alarm(true, false, .lost, simulating: true))
     }
 
+    /// The strip follows the same rule for a flight that stops recording: lost, the failure flag over its
+    /// figures, on every page; otherwise the signal as before. (6.3.0)
+    func testTheStripFlagsAFlightThatStopsRecording() {
+        XCTAssertEqual(StripReading.gpsStatus(isFlightActive: true, isTracking: false, signal: .good), .lost)
+        XCTAssertEqual(StripReading.gpsStatus(isFlightActive: true, isTracking: false, signal: .degraded), .lost)
+        for signal in [GPSSignalStatus.good, .degraded, .lost] {
+            XCTAssertEqual(StripReading.gpsStatus(isFlightActive: true, isTracking: true, signal: signal), signal)
+            XCTAssertEqual(StripReading.gpsStatus(isFlightActive: false, isTracking: false, signal: signal), signal,
+                           "no flight: the signal as it is")
+        }
+    }
+
     func testTellFISOnlyWithAnOpenATCFlightPlan() {
         XCTAssertEqual(CockpitStatusRule.tellFIS(diversionIdent: "LSGC", hasOpenATCFlightPlan: true), "LSGC")
         XCTAssertNil(CockpitStatusRule.tellFIS(diversionIdent: "LSGC", hasOpenATCFlightPlan: false))

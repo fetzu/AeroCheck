@@ -141,6 +141,15 @@ struct StripReading: Equatable {
     var altitudeFeet: Double
     var headingDegrees: Double?
     var verticalSpeedFPM: Double?
+
+    /// The strip's GPS state: a flight that isn't recording is lost whatever the signal, as MAP's status
+    /// slot and the iPad's header say it (`CockpitStatusRule.gpsAlarm`), so the strip shows the failure flag
+    /// a lost signal shows (the red X, the figures hidden). Its figures were the last ones the track had,
+    /// and the logbook's times come from that track; on the phones, which have no GPS chip since 6.2.0,
+    /// only MAP said it. (6.3.0, the author: a customary flag, on every page and both devices)
+    static func gpsStatus(isFlightActive: Bool, isTracking: Bool, signal: GPSSignalStatus) -> GPSSignalStatus {
+        isFlightActive && !isTracking ? .lost : signal
+    }
 }
 
 // MARK: - Sizes

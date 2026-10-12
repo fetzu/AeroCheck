@@ -4,7 +4,7 @@ Octobre 2026
 
 AéroCheck est une app open source de listes de vérification et de conscience de la situation pour pilotes, développée et publiée par Julien Bono, en Suisse. Cette page dit ce que l'app garde sur votre appareil, ce qu'elle envoie, à qui et avec quelle précision, et ce que nos propres serveurs conservent.
 
-En bref : pas de compte, pas de publicité, pas de statistiques d'utilisation, aucun pistage. Vos vols sont conservés sur votre appareil et, si vous synchronisez, dans votre propre iCloud. Certaines requêtes portent une position, une route ou quelques points d'une trace, arrondis pour la plupart, pour que l'app puisse afficher la météo, le relief et les espaces aériens (la section 3.0 les énumère toutes). Notre serveur d'API garde la trace d'un achat, jamais une position. Si vous nous envoyez la checklist d'un avion depuis ce site, nous conservons ce que vous envoyez aussi longtemps que la demande en a besoin (section 4.3).
+En bref : pas de compte, pas de publicité, pas de statistiques d'utilisation, aucun pistage. Vos vols sont conservés sur votre appareil et, si vous synchronisez, dans votre propre iCloud. Certaines requêtes portent une position, une route ou quelques points d'une trace, arrondis pour la plupart, pour que l'app puisse afficher la météo, le relief et les espaces aériens (la section 3.0 les énumère toutes). Notre serveur d'API garde la trace d'un achat, jamais une position. Si vous nous envoyez la checklist d'un avion, depuis ce site ou depuis l'app, nous conservons ce que vous envoyez aussi longtemps que la demande en a besoin (section 4.3).
 
 
 ## 1.0 Ce qui reste sur votre appareil
@@ -73,6 +73,15 @@ Certains boutons ouvrent une page dans votre navigateur au lieu d'aller chercher
 - « Signaler une erreur », sur un tour de piste ou une route VFR, ouvre le formulaire de signalement d'erreurs d'open flightmaps (un formulaire Google, soumis à la [politique de confidentialité de Google](https://policies.google.com/privacy?hl=fr)) avec sa description déjà remplie : la région, le cycle AIRAC, l'aérodrome, la procédure et son identifiant open flightmaps, et la position de l'étiquette que vous avez touchée (un point de la procédure, pas le vôtre). Rien sur vous : le formulaire a son propre champ d'adresse e-mail, que vous pouvez laisser vide. Sans formulaire, l'app prépare le même texte sous forme d'e-mail à open flightmaps, que vous envoyez ou non.
 
 
+### 3.9 Serveur des demandes d'AéroCheck (intake.aerocheck.app)
+Seulement si vous nous envoyez la checklist d'un avion depuis l'app (Avions › « Envoyez-nous la checklist d’un avion »). Aucune position. L'app envoie :
+- l'immatriculation que vous cherchez, pour savoir si AéroCheck l'a déjà ;
+- ce que vous remplissez et les fichiers que vous ajoutez, comme les envoie le formulaire du site (section 4.3). Une photo part sans la position qu'elle peut porter : l'app la retire d'abord. Une numérisation devient un PDF sur l'appareil ;
+- pour la vérification contre les robots, l'app ouvre une page de ce site, aerocheck.app/send/app/, dans une petite vue web, qui charge Cloudflare Turnstile comme le formulaire.
+
+Une fois la demande envoyée, l'app garde son numéro et son lien sur l'appareil (le lien dans le trousseau de l'appareil) et la liste sous « Vos demandes ». Quand l'app revient au premier plan, au plus toutes les trois heures, elle demande au serveur des demandes où en est chaque demande ouverte, en n'envoyant que le code de ce lien. Une demande close depuis 30 jours quitte la liste.
+
+
 ## 4.0 Ce que nos serveurs conservent
 
 Nos trois serveurs (l'API, le relais météo et celui qui reçoit les demandes d'avions) tournent chez Cloudflare, qui traite l'adresse IP de chaque requête pour l'acheminer, selon la [politique de confidentialité de Cloudflare](https://www.cloudflare.com/fr-fr/privacypolicy/).
@@ -89,7 +98,7 @@ Apple informe le serveur des échéances, des remboursements et des révocations
 Ni base de données ni journaux propres : seulement le cache décrit à la section 3.1.
 
 ### 4.3 Demandes d'avions (intake.aerocheck.app)
-Seulement si vous nous envoyez la checklist d'un avion depuis [aerocheck.app/fr/send](/fr/send) (l'app elle-même n'envoie rien de tel). Le serveur des demandes conserve :
+Seulement si vous nous envoyez la checklist d'un avion, depuis [aerocheck.app/fr/send](/fr/send) ou depuis l'app (section 3.9). Le serveur des demandes conserve :
 - ce que vous avez saisi : les immatriculations, le type d'avion, le club, si vous l'envoyez pour le club, les langues de la checklist, vos remarques, votre adresse e-mail, votre nom si vous le donnez, et l'adresse e-mail du contact du club si vous la donnez (tout de suite ou plus tard) ;
 - les fichiers que vous envoyez (le document du club, en PDF ou en images), dans Cloudflare R2, et la demande dans une base de données Cloudflare D1, avec son historique : chaque statut, la date de son changement et les messages que nous vous écrivons ;
 - la réponse du club lorsqu'on la lui demande : le nom et la fonction de la personne qui répond pour lui, sa décision et son message ;
@@ -97,7 +106,7 @@ Seulement si vous nous envoyez la checklist d'un avion depuis [aerocheck.app/fr/
 - les liens vers la page de votre demande et vers celle du club, sous forme d'empreintes SHA-256 uniquement (les liens eux-mêmes sont dans les e-mails, jamais chez nous) ;
 - votre adresse IP, dans un compteur de requêtes qui limite la fréquence des envois d'une même adresse, pendant une minute au plus.
 
-Le formulaire est protégé par Cloudflare Turnstile, qui examine votre navigateur pour distinguer une personne d'un robot, selon [l'avenant de confidentialité de Turnstile](https://www.cloudflare.com/fr-fr/turnstile-privacy-policy/) ; le serveur ne vérifie que la réponse de Turnstile.
+Le formulaire est protégé par Cloudflare Turnstile, qui examine votre navigateur (dans l'app, sa vue web) pour distinguer une personne d'un robot, selon [l'avenant de confidentialité de Turnstile](https://www.cloudflare.com/fr-fr/turnstile-privacy-policy/) ; le serveur ne vérifie que la réponse de Turnstile.
 
 Qui le lit : Julien Bono, qui développe AéroCheck, lit la demande et ses fichiers pour préparer la checklist pour l'app. Chaque demande est aussi suivie dans un ticket d'un dépôt GitHub privé : les immatriculations, le type, le club, vos remarques, le nom et la taille des fichiers, et, en commentaires, la réponse du club et votre message de relecture ; jamais une adresse e-mail. Ce qui arrive dans l'app, c'est la checklist, jamais votre fichier, votre nom ni votre adresse.
 
@@ -115,14 +124,15 @@ Vous pouvez exporter ou partager des vols (GPX, JSON, ZIP), votre carnet de vol 
 
 - La position « Lorsque l'app est active » dessine la carte et enregistre le vol ; « Toujours » continue l'enregistrement quand l'écran se verrouille ou que vous changez d'app en vol.
 - Mouvement permet à l'app de lire l'altimètre barométrique ; les mesures restent sur l'appareil.
-- Photos (ajout uniquement) vous permet d'enregistrer une carte de partage dans votre photothèque. L'app ne peut pas voir vos photos.
+- Photos (ajout uniquement) vous permet d'enregistrer une carte de partage dans votre photothèque. L'app ne peut pas voir vos photos : pour une demande d'avion, elle ne reçoit que celles que vous choisissez.
+- Appareil photo, seulement pour numériser une checklist pour une demande d'avion ; les pages restent sur l'appareil jusqu'à l'envoi de la demande.
 
 Vous pouvez modifier chacune d'elles à tout moment dans l'app Réglages d'iOS.
 
 
 ## 7.0 Supprimer vos données
 
-Supprimer l'app supprime ses données sur l'appareil. Pour effacer ce qui se trouve dans votre iCloud, supprimez le dossier d'AéroCheck dans iCloud Drive et les données iCloud de l'app (dans l'app Réglages d'iOS, sous votre nom, iCloud, stockage). L'enregistrement de l'achat sur notre serveur expire de lui-même (section 4.1) ; pour le faire supprimer plus tôt, contactez-nous (section 10.0). Une demande d'avion est supprimée comme le dit la section 4.3, ou plus tôt si vous écrivez à support@aerocheck.app.
+Supprimer l'app supprime ses données sur l'appareil. Pour effacer ce qui se trouve dans votre iCloud, supprimez le dossier d'AéroCheck dans iCloud Drive et les données iCloud de l'app (dans l'app Réglages d'iOS, sous votre nom, iCloud, stockage). L'enregistrement de l'achat sur notre serveur expire de lui-même (section 4.1) ; pour le faire supprimer plus tôt, contactez-nous (section 10.0). Une demande d'avion est supprimée comme le dit la section 4.3, ou plus tôt si vous écrivez à support@aerocheck.app. La retirer de la liste de l'app (un appui long) l'oublie sur l'appareil seulement.
 
 
 ## 8.0 Ce site

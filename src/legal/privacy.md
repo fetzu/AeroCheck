@@ -4,7 +4,7 @@ October 2026
 
 AéroCheck is an open-source flight checklist and situational-awareness app for pilots, developed and published by Julien Bono in Switzerland. This page says what the app keeps on your device, what it sends, to whom and how precisely, and what our own servers keep.
 
-The short version: there is no account, no advertising, no analytics and no tracking. Your flights are kept on your device and, if you sync, in your own iCloud. Some requests carry a position, a route or a few points of a track, most of them rounded, so that the app can show weather, terrain and airspace (section 3.0 lists every one of them). Our API server keeps a record of a purchase, never a location. If you send us an aircraft's checklist from this website, we keep what you send for as long as the request needs it (section 4.3).
+The short version: there is no account, no advertising, no analytics and no tracking. Your flights are kept on your device and, if you sync, in your own iCloud. Some requests carry a position, a route or a few points of a track, most of them rounded, so that the app can show weather, terrain and airspace (section 3.0 lists every one of them). Our API server keeps a record of a purchase, never a location. If you send us an aircraft's checklist, from this website or from the app, we keep what you send for as long as the request needs it (section 4.3).
 
 
 ## 1.0 What stays on your device
@@ -73,6 +73,15 @@ Some buttons open a page in your browser instead of fetching anything themselves
 - "Report an error", on a traffic circuit or a VFR route, opens open flightmaps' error-report form (a Google form, under [Google's privacy policy](https://policies.google.com/privacy)) with its description filled in: the region, the AIRAC cycle, the aerodrome, the procedure and its open flightmaps identifier, and the position of the label you tapped (a point of the procedure, not yours). Nothing about you: the form has an e-mail field of its own, which you may leave empty. Without the form, the app prepares the same text as an e-mail to open flightmaps, which you send or not.
 
 
+### 3.9 AéroCheck request server (intake.aerocheck.app)
+Only if you send us an aircraft's checklist from the app (Aircraft › “Send us an aircraft’s checklist”). No position. The app sends:
+- the registration you look up, to know whether AéroCheck has it already;
+- what you fill in and the files you add, as the website's form sends them (section 4.3). A photo goes without the position it may carry: the app takes it out first. A scan becomes a PDF on the device;
+- for the check against robots, the app opens a page of this website, aerocheck.app/send/app/, in a small web view, which loads Cloudflare Turnstile as the form does.
+
+Once a request is sent, the app keeps its number and its link on the device (the link in the device's keychain) and lists it under “Your requests”. When the app comes to the foreground, at most every three hours, it asks the request server where each open request stands, sending that link's code and nothing else. A request closed for 30 days leaves the list.
+
+
 ## 4.0 What our servers keep
 
 Our three servers (the API, the weather proxy and the one that receives aircraft requests) run on Cloudflare, which handles the IP address of every request to deliver it, under [Cloudflare's privacy policy](https://www.cloudflare.com/privacypolicy/).
@@ -89,7 +98,7 @@ Apple notifies the server of expiries, refunds and revocations; those notices on
 No database and no logs of its own: only the cache described in section 3.1.
 
 ### 4.3 Aircraft requests (intake.aerocheck.app)
-Only if you send us an aircraft's checklist from [aerocheck.app/send](/send) (the app itself sends nothing of the kind). The request server keeps:
+Only if you send us an aircraft's checklist, from [aerocheck.app/send](/send) or from the app (section 3.9). The request server keeps:
 - what you typed: the registrations, the aircraft type, the club, whether you send it for the club, the checklist's languages, your notes, your e-mail address, your name if you give one, and the e-mail address of the club's contact if you give it (then or later);
 - the files you send (the club's document, as a PDF or images), in Cloudflare R2, and the request in a Cloudflare D1 database, with its history: each status, when it changed, and the messages we write to you;
 - the club's answer when it is asked: the name and role of the person who answers for it, the decision and their message;
@@ -97,7 +106,7 @@ Only if you send us an aircraft's checklist from [aerocheck.app/send](/send) (th
 - the links to your request's page and to the club's page, as SHA-256 hashes only (the links themselves are in the e-mails, never on our side);
 - your IP address, in a request counter that limits how often one address may send, for one minute at most.
 
-The form is protected by Cloudflare Turnstile, which looks at your browser to tell a person from a robot, under [Cloudflare's Turnstile privacy addendum](https://www.cloudflare.com/turnstile-privacy-policy/); the server only checks Turnstile's answer.
+The form is protected by Cloudflare Turnstile, which looks at your browser (in the app, its web view) to tell a person from a robot, under [Cloudflare's Turnstile privacy addendum](https://www.cloudflare.com/turnstile-privacy-policy/); the server only checks Turnstile's answer.
 
 Who reads it: Julien Bono, who develops AéroCheck, reads the request and its files to prepare the checklist for the app. Each request is also tracked as an issue in a private GitHub repository: the registrations, the type, the club, your notes, the files' names and sizes, and, as comments, the club's answer and your proofreading message; never an e-mail address. What reaches the app is the checklist, never your file, your name or your address.
 
@@ -115,14 +124,15 @@ You can export or share flights (GPX, JSON, ZIP), your logbook (PDF, CSV), fligh
 
 - Location "While Using the App" draws the map and records the flight; "Always" keeps recording when the screen locks or you switch apps in flight.
 - Motion lets the app read the barometric altimeter; the readings stay on the device.
-- Photos (add only) lets you save a share card to your photo library. The app cannot see your photos.
+- Photos (add only) lets you save a share card to your photo library. The app cannot see your photos: for an aircraft request, it receives only the ones you pick.
+- Camera, only to scan a checklist for an aircraft request; the pages stay on the device until you send the request.
 
 You can change each of them at any time in the iOS Settings app.
 
 
 ## 7.0 Deleting your data
 
-Deleting the app deletes its data on the device. To remove what is in your iCloud, delete AéroCheck's folder in iCloud Drive and the app's iCloud data (in the iOS Settings app, under your name, iCloud, storage). The purchase record on our server expires by itself (section 4.1); to have it deleted earlier, contact us (section 10.0). An aircraft request is deleted as section 4.3 says, or earlier if you write to support@aerocheck.app.
+Deleting the app deletes its data on the device. To remove what is in your iCloud, delete AéroCheck's folder in iCloud Drive and the app's iCloud data (in the iOS Settings app, under your name, iCloud, storage). The purchase record on our server expires by itself (section 4.1); to have it deleted earlier, contact us (section 10.0). An aircraft request is deleted as section 4.3 says, or earlier if you write to support@aerocheck.app. Removing it from the app's list (a long press) forgets it on the device only.
 
 
 ## 8.0 This website

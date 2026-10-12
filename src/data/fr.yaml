@@ -102,7 +102,7 @@ supporting:
       description: "Heures, vols, atterrissages, distance et dépenses par année ; chaque vol avec sa trace, son profil d'altitude et sa chronologie, exportable en CSV, GPX ou extrait PDF."
       icon: "notebook"
     - title: "Test de mémoire & tours de piste"
-      description: "Le test de mémoire masque les vérifications à connaître par cœur, pour les réciter de mémoire. Les tours de piste sont à un tap sur Aujourd'hui, comptent touch-and-go et remises de gaz, et proposent ensuite une clôture allégée."
+      description: "Le test de mémoire masque les vérifications à connaître par cœur, pour les réciter de mémoire. Les tours de piste sont à un tap sur Aujourd'hui : touch-and-go, remises de gaz et atterrissages complets comptés, NOUVEAU TOUR à la fin de la vérification après atterrissage, et une clôture allégée ensuite."
       icon: "school"
     - title: "Composé en B612"
       description: "La police conçue pour les écrans de cockpit Airbus, là où un texte doit se lire vite et sans erreur. Toute l'app est composée avec, et cette page aussi."

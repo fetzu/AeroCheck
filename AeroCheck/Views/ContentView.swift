@@ -262,6 +262,7 @@ struct ContentView: View {
             case "prepare", "flightprepare":    scene = .flightPrepare
             case "closeout", "flightcloseout":  scene = .flightCloseOut
             case "homeflight", "homeflighttoday": scene = .homeFlightToday
+            case "circuits", "planmapcircuits": scene = .planMapCircuits
             default:                            scene = nil
             }
             guard let scene else { return }
@@ -300,8 +301,8 @@ struct ContentView: View {
                     appState: appState, locationManager: locationManager, flightPlanManager: flightPlanManager)
             }
             // Stopped on the runway at LSZQ on the LANDING check, the detector's full-stop card up
-            // and waiting: the card's device check, and where its CONFIRM goes (AFTER LANDING; TAXI
-            // with `landedcircuits`). (6.1.0)
+            // and waiting: the card's device check, and where its CONFIRM goes (AFTER LANDING, then
+            // NEW CIRCUIT or the parking check with `landedcircuits`). (6.1.0; circuits 6.3.0)
             if key == "landed" || key == "landedcircuits" {
                 appState.isCircuitMode = key == "landedcircuits"
                 for phase in ChecklistPhase.allCases where phase.rawValue < ChecklistPhase.landing.rawValue {

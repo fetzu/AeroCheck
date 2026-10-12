@@ -99,8 +99,8 @@ final class ReadyForLineUpTests: XCTestCase {
         XCTAssertEqual(anchors.anchors, [first], "the ETOs are not moved again")
     }
 
-    /// Circuits: the stop-and-go starts the next lap at TAXI, the check before departure included, and
-    /// READY FOR LINE UP is said again on every lap. The first take-off stays the flight's.
+    /// Circuits: after a stop-and-go, NEW CIRCUIT starts the next lap at the check before departure (6.3.0;
+    /// it was TAXI), and READY FOR LINE UP is said again on every lap. The first take-off stays the flight's.
     func testEveryCircuitSaysItButTheFirstTakeOffStays() throws {
         let appState = flight(circuits: true)
         try onTheCheckBeforeDeparture(appState)
@@ -108,7 +108,9 @@ final class ReadyForLineUpTests: XCTestCase {
         let first = try XCTUnwrap(appState.lineUpTime)
 
         appState.recordFullStop()
-        XCTAssertEqual(appState.currentPhase, .taxi, "the next circuit starts at TAXI")
+        XCTAssertEqual(appState.currentPhase, .afterLanding, "the full stop: the after landing check")
+        appState.startNewCircuit()
+        XCTAssertEqual(appState.currentPhase, .beforeDeparture, "the next circuit starts at the check before departure")
         XCTAssertNil(appState.phaseCompletionStatus[.beforeDeparture], "reset for the lap")
         try onTheCheckBeforeDeparture(appState)
         XCTAssertEqual(CockpitNextLabel(leaving: appState.currentPhase, to: .lineUp, deferred: 0).title,

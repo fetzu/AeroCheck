@@ -122,6 +122,44 @@ final class CockpitActBandTests: XCTestCase {
         XCTAssertEqual(ActBandRoles.make(page: .map, phase: .descent, hasRoute: true, landingShown: true)[1], .goAround)
     }
 
+    /// The end of a circuits flight's after landing check: NEW CIRCUIT in S2 on every page, in NEXT's place
+    /// on CHECKLIST and MARK's or Routes' on MAP and ROUTE; the check slot beside it, the other slots as they
+    /// were. (6.3.0, the author's Q2)
+    func testNEWCIRCUITTakesS2OnEveryPageAtTheEndOfACircuitsAfterLandingCheck() {
+        for route in [false, true] {
+            XCTAssertEqual(ActBandRoles.make(page: .checklist, phase: .afterLanding, hasRoute: route, circuits: true,
+                                             canDefer: false, newCircuit: true),
+                           [.checkSlot, .newCircuit, .deferItem(enabled: false), .more(withDivert: route)])
+            for page in [CockpitPage.map, .route] {
+                var expected = ActBandRoles.make(page: page, phase: .afterLanding, hasRoute: route, circuits: true)
+                expected[1] = .newCircuit
+                XCTAssertEqual(ActBandRoles.make(page: page, phase: .afterLanding, hasRoute: route, circuits: true,
+                                                 newCircuit: true), expected, "\(page), route \(route)")
+            }
+        }
+    }
+
+    /// The flight decides it: a circuits flight on its after landing check, done. (6.3.0)
+    func testNEWCIRCUITComesWithTheAfterLandingCheckDoneOnACircuitsFlightOnly() {
+        let services = makeServices()
+        startFlight(services.appState)
+        let app = services.appState
+        app.currentPhase = .afterLanding
+        app.isCircuitMode = true
+        if !app.currentCheckIsDone {
+            XCTAssertEqual(roles(.checklist, services)[1], .checklistPrimary, "CHECK (or ✓ DONE) while it is open")
+            XCTAssertFalse(app.offersNewCircuit, "not before the check is done")
+            app.markLastItemComplete(learningMode: app.effectiveLearningMode)
+            if app.currentCheckAwaitsConfirmation { app.confirmMemoryCheck() }
+        }
+        XCTAssertTrue(app.offersNewCircuit)
+        XCTAssertEqual(roles(.checklist, services)[1], .newCircuit)
+        XCTAssertEqual(roles(.map, services)[1], .newCircuit)
+        app.isCircuitMode = false
+        XCTAssertEqual(roles(.checklist, services)[1], .checklistPrimary, "NEXT on any other flight")
+        XCTAssertNotEqual(roles(.map, services)[1], .newCircuit)
+    }
+
     // MARK: - The four frames
 
     /// The band's row on each device: the screen less its padding (16 pt each side on the iPad, 12 on
@@ -329,7 +367,12 @@ final class CockpitActBandTests: XCTestCase {
             draw("map, landing", page: .map) { app.currentPhase = .landing }
             draw("map, landing in circuits", page: .map) { app.isCircuitMode = true }
             draw("checklist, landing in circuits", page: .checklist) {}
-            XCTAssertGreaterThanOrEqual(roleSets.count, 8, "as many role sets, one frame each: \(roleSets.sorted())")
+            draw("map, NEW CIRCUIT", page: .map) {
+                app.currentPhase = .afterLanding
+                app.markLastItemComplete(learningMode: app.effectiveLearningMode)
+            }
+            draw("checklist, NEW CIRCUIT", page: .checklist) {}
+            XCTAssertGreaterThanOrEqual(roleSets.count, 10, "as many role sets, one frame each: \(roleSets.sorted())")
         }
     }
 
@@ -667,6 +710,8 @@ final class CockpitActBandTests: XCTestCase {
             }
             faces.append(thumb(t("checklist.readyForLineUp"), format("cockpit.thenCheck", language, t("phase.short.lineUp")),
                                icon: "airplane.departure"))
+            faces.append(thumb(t("cockpit.newCircuit"), format("cockpit.thenCheck", language, t("phase.short.beforeDeparture")),
+                               icon: "arrow.triangle.2.circlepath"))
             faces.append(thumb(t("button.endFlight"), nil, icon: "flag.checkered"))
             faces.append(thumb(t("ground.plan.routes"), nil, icon: "point.topleft.down.to.point.bottomright.curvepath",
                                titleLines: 2))
@@ -753,7 +798,7 @@ final class CockpitActBandTests: XCTestCase {
             return Face(name: title, blocks: button.fittedBlocks(for: .phone))
         }
         for key in ["cockpit.check", "cockpit.memoryCheckDone.short", "button.next", "checklist.readyForLineUp.short",
-                    "button.endFlight.short", "ground.plan.routes"] {
+                    "button.endFlight.short", "ground.plan.routes", "cockpit.newCircuit.short"] {
             faces.append(thumb(t(key)))
         }
         // S1: START and SHUTDOWN, FREDA.
@@ -995,12 +1040,9 @@ final class CockpitActBandTests: XCTestCase {
         addTeardownBlock { @MainActor in manager.deactivateFlightPlan() }
     }
 
+    /// The roles as the band reads them from the flight.
     private func roles(_ page: CockpitPage, _ services: Services) -> [ActSlotRole] {
-        let app = services.appState, plans = services.flightPlanManager
-        return ActBandRoles.make(page: page, phase: app.currentPhase, hasRoute: plans.activeFlightPlan != nil,
-                                 routeFlown: plans.isFlightPlanCompleted, circuits: app.isCircuitMode,
-                                 landingShown: app.landingCheckShown,
-                                 canDefer: !app.currentCheckIsDone && !app.currentCheckAwaitsConfirmation)
+        ActBandRoles.make(page: page, appState: services.appState, plans: services.flightPlanManager)
     }
 
     /// The band drawn `width` wide, and each slot's frame as laid out.

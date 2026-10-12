@@ -456,24 +456,25 @@ final class FlightEventDetectorTests: XCTestCase {
         XCTAssertEqual(snapshot.phaseRawValue, ChecklistPhase.afterLanding.rawValue, "the Companion follows")
     }
 
-    /// Circuits keep the stop-and-go: the same CONFIRM goes to TAXI with taxi…after landing reset,
-    /// and records the same landing.
-    func testConfirmingTheCardOnCircuitsGoesToTaxi() throws {
+    /// Circuits keep the full-stop card, and its CONFIRM goes to AFTER LANDING too since 6.3.0 (it went
+    /// to TAXI, with taxi…after landing reset), with the checks before it kept and the same landing.
+    func testConfirmingTheCardOnCircuitsGoesToAfterLanding() throws {
         let d = TrajectoryDriver(field: testField())
         let touchdown = landAndStop(d)
         let event = try XCTUnwrap(d.detector.pendingFullStop)
         let appState = wt9FlightOnLandingCheck(circuits: true)
+        let highlights = appState.currentHighlightedItem
 
         FlightEventConfirmationOverlay.confirm(event, appState: appState, detector: d.detector)
 
-        XCTAssertEqual(appState.currentPhase, .taxi)
-        for phase in ChecklistPhase.allCases
-        where phase.rawValue >= ChecklistPhase.taxi.rawValue && phase.rawValue <= ChecklistPhase.afterLanding.rawValue {
-            XCTAssertNil(appState.phaseCompletionStatus[phase], "\(phase) starts again")
-            XCTAssertEqual(appState.currentHighlightedItem[phase], 0, "\(phase) starts again")
+        XCTAssertEqual(appState.currentPhase, .afterLanding)
+        XCTAssertNil(d.detector.pendingFullStop, "the card goes")
+        for phase in ChecklistPhase.allCases where phase.rawValue < ChecklistPhase.landing.rawValue {
+            XCTAssertEqual(appState.currentHighlightedItem[phase], highlights[phase], "\(phase) kept")
         }
         XCTAssertEqual(appState.currentFlight?.fullStopCount, 1)
         XCTAssertEqual(appState.landingTime?.timeIntervalSince(touchdown) ?? 99, 0, accuracy: 6)
+        XCTAssertTrue(appState.fullStopCountedThisLap, "counted on this lap: the choice at its end won't count it again")
     }
 
     /// FULL STOP LANDING held on AFTER LANDING after the card was confirmed is the same landing: no
@@ -622,10 +623,10 @@ private extension XCTestCase {
     }
 }
 
-/// Where a full-stop landing takes the Cockpit (6.1.0, author decision): on circuits, TAXI for the
-/// next circuit (the stop-and-go, as before); on any other flight, AFTER LANDING with every check
-/// kept, never back to taxi. The landing itself is recorded the same way on both. The detector's
-/// card and FULL STOP LANDING are driven end to end in `FlightEventDetectorTests`.
+/// Where a full-stop landing takes the Cockpit: AFTER LANDING with every check kept, never back to taxi
+/// (6.1.0, author decision), on circuits too since 6.3.0, where its end offers NEW CIRCUIT
+/// (`CircuitsTests`). The landing itself is recorded the same way on both. The detector's card and FULL
+/// STOP LANDING are driven end to end in `FlightEventDetectorTests`.
 @MainActor
 final class FullStopLandingTests: XCTestCase {
 
@@ -656,22 +657,50 @@ final class FullStopLandingTests: XCTestCase {
         assertOneLandingAtTouchdown(appState)
     }
 
-    func testCircuitsStillStopAndGoToTaxi() {
+    /// Circuits since 6.3.0: AFTER LANDING too, every check kept as on any flight (it was TAXI, with taxi
+    /// to after landing reset); the lap goes on from there by NEW CIRCUIT (`CircuitsTests`).
+    func testCircuitsGoToAfterLandingWithTheChecksKept() throws {
         let appState = wt9FlightOnLandingCheck(circuits: true)
+        let landing = items(appState, .landing)
+        try XCTSkipIf(landing.count < 2, "needs a landing check of two items or more")
         appState.currentHighlightedItem[.landing] = 1
         appState.deferredItems[.approach] = ["x"]
+        let statuses = appState.phaseCompletionStatus
 
         appState.recordFullStop(at: touchdown)
 
-        XCTAssertEqual(appState.currentPhase, .taxi)
-        for phase in ChecklistPhase.allCases
-        where phase.rawValue >= ChecklistPhase.taxi.rawValue && phase.rawValue <= ChecklistPhase.afterLanding.rawValue {
-            XCTAssertNil(appState.phaseCompletionStatus[phase], "\(phase) starts again")
-            XCTAssertEqual(appState.currentHighlightedItem[phase], 0, "\(phase) starts again")
-            XCTAssertNil(appState.deferredItems[phase], "\(phase) starts again")
+        XCTAssertEqual(appState.currentPhase, .afterLanding)
+        for phase in ChecklistPhase.allCases where phase.rawValue < ChecklistPhase.landing.rawValue {
+            XCTAssertEqual(appState.phaseCompletionStatus[phase], statuses[phase], "\(phase) kept")
         }
-        XCTAssertEqual(appState.phaseCompletionStatus[.preflight], .completed, "before taxi: kept")
+        XCTAssertEqual(appState.deferredItems[.approach], ["x"], "what was put off on this lap still follows")
+        XCTAssertEqual(appState.currentHighlightedItem[.landing], 1, "what was ticked stays ticked")
+        XCTAssertEqual(appState.phaseCompletionStatus[.cruise], .skipped, "circuits fly no cruise")
         assertOneLandingAtTouchdown(appState)
+    }
+
+    /// Every full stop counted arms the close-your-flight-plan reminder (`onFullStopCounted`), once: the
+    /// card's CONFIRM, LANDED, the circuits' choice at the end of the after landing check. A duplicate of a
+    /// landing counted already arms nothing more. (6.3.0: one counted by hand before the detector's ten
+    /// seconds of stillness armed nothing until END FLIGHT.)
+    func testEveryCountedFullStopArmsTheReminderOnce() {
+        let appState = wt9FlightOnLandingCheck(circuits: true)
+        var armed = 0
+        appState.onFullStopCounted = { armed += 1 }
+        appState.recordFullStop(at: touchdown)                            // the card's CONFIRM
+        XCTAssertEqual(armed, 1)
+        appState.recordLanding(at: touchdown.addingTimeInterval(20))     // LANDED, the same landing
+        XCTAssertEqual(armed, 1, "the same landing: nothing more")
+        appState.markLastItemComplete(learningMode: appState.effectiveLearningMode)
+        if appState.currentCheckAwaitsConfirmation { appState.confirmMemoryCheck() }
+        appState.startNewCircuit()                                       // counted already: nothing more
+        XCTAssertEqual(armed, 1)
+
+        let byHand = wt9FlightOnLandingCheck(circuits: false)
+        var armedByHand = 0
+        byHand.onFullStopCounted = { armedByHand += 1 }
+        byHand.recordLanding(at: touchdown)                              // LANDED before the detector's card
+        XCTAssertEqual(armedByHand, 1)
     }
 
     /// The phase is the only difference: count, times and the flight's own landing time match.
@@ -687,16 +716,19 @@ final class FullStopLandingTests: XCTestCase {
         XCTAssertEqual(flight.currentFlight?.touchAndGoCount, circuits.currentFlight?.touchAndGoCount)
     }
 
-    /// Forward only: a pilot already on AFTER LANDING, or past it, stays there with their progress.
+    /// Forward only: a pilot already on AFTER LANDING, or past it, stays there with their progress, on
+    /// circuits too (6.3.0).
     func testAFullStopNeverTakesTheCockpitBack() {
-        for phase in [ChecklistPhase.afterLanding, .shutdown, .hangar] {
-            let appState = wt9FlightOnLandingCheck(circuits: false)
-            appState.currentPhase = phase
-            appState.currentHighlightedItem[phase] = 1
-            appState.recordFullStop(at: touchdown)
-            XCTAssertEqual(appState.currentPhase, phase)
-            XCTAssertEqual(appState.currentHighlightedItem[phase], 1, "\(phase)")
-            XCTAssertEqual(appState.currentFlight?.fullStopCount, 1, "\(phase)")
+        for circuits in [false, true] {
+            for phase in [ChecklistPhase.afterLanding, .shutdown, .hangar] {
+                let appState = wt9FlightOnLandingCheck(circuits: circuits)
+                appState.currentPhase = phase
+                appState.currentHighlightedItem[phase] = 1
+                appState.recordFullStop(at: touchdown)
+                XCTAssertEqual(appState.currentPhase, phase, "\(phase), circuits: \(circuits)")
+                XCTAssertEqual(appState.currentHighlightedItem[phase], 1, "\(phase), circuits: \(circuits)")
+                XCTAssertEqual(appState.currentFlight?.fullStopCount, 1, "\(phase), circuits: \(circuits)")
+            }
         }
     }
 

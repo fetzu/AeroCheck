@@ -174,6 +174,11 @@ class SharedMapState: ObservableObject {
     /// drawn on it. The band never writes `region`, `cameraDistance` or `cameraHeading`: they keep the
     /// map the pilot left, which closing the panel puts back. nil with the panel closed. (6.1, option C)
     @Published var bandRegion: MKCoordinateRegion?
+    /// The pilot's zoom as the band last measured it, with the panel closed (`LegsBandDriver`): kept here
+    /// because the map view isn't. Portrait and landscape are different views, and a map made with the
+    /// panel open, the device just turned, has never shown the pilot's chart: its band never framed until
+    /// the panel closed. (6.3.0, the author's device check fix1-4)
+    var bandPilotZoom: (scale: Double, perMetre: Double, height: CGFloat)?
     /// An annotation's callout is open (an aerodrome, a reporting point, a procedure's label): the chrome
     /// laid over the chart where a callout opens, the scale bar and the off-screen route pill, steps aside
     /// until it closes. Kept by the representables' coordinators from MapKit's selection. (6.2.0)
@@ -703,6 +708,9 @@ struct NavigationMapView: View {
         // Prime the track-vector EMA from the last known fix so the vector appears immediately on
         // (re)open — even on a stationary device with no fresh location *change* to trigger it. (v4 UI/UX Revamp fix)
         updateTrackVectorEMA()
+        #if DEBUG
+        frameForCaptureIfAsked()
+        #endif
     }
 
     private func handleDisappear() {
@@ -1070,6 +1078,28 @@ struct NavigationMapView: View {
         showAerodrome(airport)
     }
 
+    #if DEBUG
+    /// DEV-ONLY (`AEROCHECK_SCENE=circuits`, the website's `circuits` shot): Plan › Map framed on LSZQ as the
+    /// search frames an aerodrome, about 8 NM across, without the callout the shot had to close. (6.3.0)
+    private func frameForCaptureIfAsked() {
+        guard chrome == .plan, ProcessInfo.processInfo.environment["AEROCHECK_SCENE"]?.lowercased() == "circuits"
+        else { return }
+        Task {
+            await airportDataService.ensureLoaded()
+            // The airport list may still be downloading on a fresh simulator.
+            let field = airportDataService.findAirport(byIdent: "LSZQ") ?? Airport(
+                id: 0, ident: "LSZQ", type: .smallAirport, name: "Bressaucourt",
+                latitude: 47.3497, longitude: 7.0278, elevation: 1860, continent: "EU",
+                isoCountry: "CH", isoRegion: "CH-JU", municipality: nil, scheduledService: false,
+                gpsCode: nil, iataCode: nil, localCode: nil)
+            isFollowingAircraft = false
+            mapState.pendingCallout = nil
+            mapState.pendingCameraMove = PendingCameraMove(to: field)
+            mapState.objectWillChange.send()
+        }
+    }
+    #endif
+
     /// An aerodrome chosen in the search: the map goes there, about 8 NM across, and stops following the
     /// aircraft (the pilot asked to look there), and its callout opens as a tap on its marker would,
     /// when the airport layer draws one. Otherwise the map only goes there.
@@ -1292,16 +1322,25 @@ struct NavigationMapView: View {
 
     /// The band the open legs panel leaves, as the map views take it; nil with the panel closed. It
     /// frames the waypoint previewed from the leg table while there is one, else the navigation target
-    /// (the next waypoint, or the diversion field).
+    /// (the next waypoint, or the diversion field). In flight with the aircraft; on the ground (Plan ›
+    /// Map, no flight) the leg ending there, its two ends, since the "aircraft" is then the device on the
+    /// desk (6.3.0, the author's device check carry-1).
     private var legsBand: LegsPanelMap.Band? {
         guard navSheetExpanded else { return nil }
         let geometry = chartGeometry
         var waypoint: CLLocationCoordinate2D?
+        var legStart: CLLocationCoordinate2D?
         if let plan = flightPlanManager.activeFlightPlan, !flightPlanManager.isFlightPlanCompleted {
+            let end: Int?
             if let index = previewWaypointIndex, plan.waypoints.indices.contains(index) {
                 waypoint = plan.waypoints[index].coordinate
+                end = index
             } else {
                 waypoint = plan.navigationTarget?.coordinate
+                end = plan.diversion == nil ? plan.currentWaypointIndex : nil
+            }
+            if !appState.isFlightActive, let end, plan.waypoints.indices.contains(end) {
+                legStart = plan.waypoints[max(0, end - 1)].coordinate
             }
         }
         return LegsPanelMap.Band(
@@ -1313,7 +1352,8 @@ struct NavigationMapView: View {
             aircraft: locationManager.currentLocation?.coordinate,
             waypoint: waypoint,
             heading: mapOrientationMode == .trackUp
-                ? (locationManager.currentCourseDegrees ?? mapState.cameraHeading) : 0)
+                ? (locationManager.currentCourseDegrees ?? mapState.cameraHeading) : 0,
+            legStart: legStart)
     }
 
     /// The panel opened: keep the map as it is, to put it back on closing, and show the leg being flown.
@@ -2400,8 +2440,9 @@ struct NavigationMapView: View {
         }
     }
 
-    /// The Cockpit's DEST line, the route to scale under it (the author's call for 6.2), in place of the
-    /// "DEST · NM · ETA" row and the progress bar with its dots under the legs.
+    /// The Cockpit's DEST line, in place of the "DEST · NM · ETA" row and the progress bar with its dots
+    /// under the legs. Without the route to scale since 6.3.0 (the author's fix9-4): the legs show how the
+    /// waypoints split the route.
     @ViewBuilder
     private var destinationLine: some View {
         if let plan = flightPlanManager.activeFlightPlan,
@@ -2410,8 +2451,9 @@ struct NavigationMapView: View {
                groundSpeedKnots: locationManager.currentSpeedKnots)) {
             // Never wider than the panel: in a narrow window it widened the panel, then the map pane.
             OfferedWidth {
+                // One line, without the route to scale: each leg below shows its distance. (6.3.0, fix9-4)
                 DestinationLine(estimate: estimate, scale: CockpitScale.current,
-                                onResumeRoute: { flightPlanManager.resumeRoute() })
+                                onResumeRoute: { flightPlanManager.resumeRoute() }, showsTrack: false)
             }
         }
     }
@@ -2569,9 +2611,11 @@ struct NavigationMapView: View {
     /// Every leg, whole, in the panel's one scroll (`legsScroll`). It had a scroll of its own, five rows
     /// tall, inside the panel's: the legs scrolled, then the whole panel did. (6.1, device check)
     private func waypointList(plan: FlightPlan, compact: Bool = false, large: Bool = false) -> some View {
-        VStack(spacing: 0) {
+        // On the iPad's open panel, each leg's distance to the route's scale. (6.3.0, fix9-4)
+        let longest = large && CockpitScale.current != .phone ? RouteLegRow.longestLegNM(plan) : nil
+        return VStack(spacing: 0) {
             ForEach(Array(plan.waypoints.enumerated()), id: \.element.id) { index, wpt in
-                waypointRow(plan: plan, index: index, wpt: wpt, compact: compact, large: large)
+                waypointRow(plan: plan, index: index, wpt: wpt, compact: compact, large: large, longestLegNM: longest)
                     .id(LegsPanelReveal.RowID(index: index))
                 if index < plan.waypoints.count - 1 {
                     Rectangle().fill(Color.white.opacity(0.05)).frame(height: 0.5)
@@ -2581,21 +2625,24 @@ struct NavigationMapView: View {
     }
 
     private func waypointRow(plan: FlightPlan, index: Int, wpt: FlightPlanWaypoint, compact: Bool = false,
-                             large: Bool = false) -> some View {
+                             large: Bool = false, longestLegNM: Double? = nil) -> some View {
         let isPast = index < plan.currentWaypointIndex
         let isPreview = previewWaypointIndex == index
         // A previewed waypoint ahead can be flown to straight away, skipping the ones before it, and a
         // waypoint of the route is where a diversion can rejoin it (v5.1): DIRECT is under the legs, the
         // panel's width (`previewDirectBar`), and the row stays as its neighbours. (6.2.0)
         return RouteLegRow(plan: plan, index: index, compact: compact, large: large, isPreview: isPreview,
-                           actual: nil, showsFlown: false) {
+                           actual: nil, showsFlown: false, longestLegNM: longestLegNM) {
             handleWaypointTap(index: index, plan: plan, isPast: isPast)
         }
     }
 
     /// The previewed waypoint DIRECT can fly to now, if any (`LegsPanelDirectBar.offers`).
     private var previewDirectTarget: (index: Int, name: String)? {
-        guard let plan = flightPlanManager.activeFlightPlan, let index = previewWaypointIndex,
+        // In flight only, as Divert: on the ground it re-armed the route from there before any flight; a
+        // route is changed in the route builder. (6.3.0, the author's pick, 11 Oct)
+        guard appState.isFlightActive,
+              let plan = flightPlanManager.activeFlightPlan, let index = previewWaypointIndex,
               plan.waypoints.indices.contains(index),
               LegsPanelDirectBar.offers(index: index, currentIndex: plan.currentWaypointIndex,
                                         diverting: plan.diversion != nil) else { return nil }
@@ -2634,7 +2681,7 @@ struct NavigationMapView: View {
 
     /// Tap a waypoint to preview it; tap the active/previewed one to return. The leg table only shows in
     /// the open panel, whose band frames the aircraft and the previewed waypoint in place of the next
-    /// one. The map the pilot left isn't touched, so closing the panel still puts it back. (It centred the
+    /// one (on the ground, the leg ending at that waypoint: `legsBand`). The map the pilot left isn't touched, so closing the panel still puts it back. (It centred the
     /// map on the waypoint, under the panel; 6.1, option C)
     private func previewWaypoint(index: Int, plan: FlightPlan) {
         guard plan.waypoints.indices.contains(index) else { return }
@@ -3074,6 +3121,18 @@ struct SwissScaleBar: View {
     var mapWidth: CGFloat = 0  // Actual map width in points, 0 means use fallback
     /// Aviation distance unit: NM (default for the nav map) vs metric. (v4 UI/UX Revamp — configurable in settings)
     var nauticalMiles: Bool = false
+    /// The figure's size: 11 pt on Plan › Map; the in-flight label size on the Cockpit's MAP, where it is
+    /// read in flight (`MapChromeGeometry.Metrics.textSize`, 20 pt on the iPad, 17 on the phone). (6.3.0)
+    var labelSize: CGFloat = 11
+
+    /// The card's padding above and below: less around a figure at the label size, so the card keeps the
+    /// 50 pt the Cockpit's chrome gives it (`cardHeight`).
+    static func verticalPadding(labelSize: CGFloat) -> CGFloat { labelSize > 11 ? 5 : 8 }
+
+    /// The card's height: the figure's line, 2 pt, the 8 pt bar, the padding.
+    static func cardHeight(labelSize: CGFloat) -> CGFloat {
+        UIFont.aero(size: labelSize, weight: .medium).lineHeight + 2 + 8 + 2 * verticalPadding(labelSize: labelSize)
+    }
 
     /// Calculate the appropriate scale distance based on current zoom
     /// Uses proper geodetic distance calculation for accuracy
@@ -3158,7 +3217,7 @@ struct SwissScaleBar: View {
         return VStack(alignment: .leading, spacing: 2) {
             // Scale text
             Text(info.text)
-                .font(.aero(size: 11, weight: .medium))
+                .font(.aero(size: labelSize, weight: .medium))
                 .foregroundColor(.white)
 
             // Scale bar (L-shaped like SwissTopo)
@@ -3179,7 +3238,8 @@ struct SwissScaleBar: View {
                     .frame(width: 2, height: 8)
             }
         }
-        .padding(8)
+        .padding(.horizontal, 8)
+        .padding(.vertical, Self.verticalPadding(labelSize: labelSize))
         .background(
             RoundedRectangle(cornerRadius: 6)
                 .fill(Color.black.opacity(0.5))
@@ -3318,11 +3378,9 @@ final class LegsBandDriver {
     private var redrawsTilesAtRest = false
 
     /// The map came to rest (the coordinator's `regionDidChange`): note its zoom, the pilot's when the
-    /// band doesn't have the camera.
-    func mapCameToRest(_ mapView: MKMapView) {
-        let distance = mapView.camera.centerCoordinateDistance
-        guard let scale = Self.scale(of: mapView), distance > 0 else { return }
-        scalePerMetre = (scale / distance, mapView.bounds.height)
+    /// band doesn't have the camera, in the shared state too.
+    func mapCameToRest(_ mapView: MKMapView, mapState: SharedMapState) {
+        guard let scale = measure(mapView), let measured = scalePerMetre else { return }
         if let restoring, abs(mapView.bounds.height - restoring.height) < 1 {
             // Back to its height: now the pilot's camera, exactly.
             finishRestore(mapView, mapState: restoring.mapState)
@@ -3334,7 +3392,16 @@ final class LegsBandDriver {
         }
         guard !ownsCamera else { return }
         pilotScale = scale
-        pilotScalePerMetre = scalePerMetre
+        pilotScalePerMetre = measured
+        mapState.bandPilotZoom = (scale, measured.value, measured.height)
+    }
+
+    /// The map's zoom as it stands, noted as the last zoom per metre. nil before it has a size.
+    private func measure(_ mapView: MKMapView) -> Double? {
+        let distance = mapView.camera.centerCoordinateDistance
+        guard let scale = Self.scale(of: mapView), distance > 0 else { return nil }
+        scalePerMetre = (scale / distance, mapView.bounds.height)
+        return scale
     }
 
     /// One update pass. True while the band has the camera.
@@ -3343,14 +3410,19 @@ final class LegsBandDriver {
             if isOpen { close(mapView, mapState: mapState) }
             return ownsCamera
         }
-        if !isOpen { open(mapView) }
+        if !isOpen { open(mapView, mapState: mapState) }
         frame(mapView, band: band)
         return true
     }
 
-    private func open(_ mapView: MKMapView) {
+    private func open(_ mapView: MKMapView, mapState: SharedMapState) {
+        // A map made with the panel open (the device turned): the pilot's zoom as the last map saw it.
+        if pilotScale == nil, let kept = mapState.bandPilotZoom {
+            pilotScale = kept.scale
+            pilotScalePerMetre = (kept.perMetre, kept.height)
+        }
         // A map that hasn't moved since it was made: its zoom as it stands.
-        if pilotScale == nil { mapCameToRest(mapView) }
+        if pilotScale == nil { mapCameToRest(mapView, mapState: mapState) }
         // Unless a restore is still on its way: then the range it will put back.
         if !ownsCamera { zoomRangeBeforeBand = mapView.cameraZoomRange }
         isOpen = true
@@ -3370,9 +3442,10 @@ final class LegsBandDriver {
     }
 
     private func frame(_ mapView: MKMapView, band: LegsPanelMap.Band) {
-        // No position: the camera stays where it is. Not measured with the panel open yet: wait for it.
-        guard let aircraft = band.aircraft, CLLocationCoordinate2DIsValid(aircraft), let rect = band.rect,
-              band.viewSize.height > 0, let pilotScale, let measured = scalePerMetre else { return }
+        // A map made with the panel open, which the band hasn't moved yet: as it stands, it is at rest.
+        if scalePerMetre == nil, lastCamera == nil { _ = measure(mapView) }
+        // Not measured with the panel open yet: wait for it.
+        guard let rect = band.rect, band.viewSize.height > 0, let pilotScale, let measured = scalePerMetre else { return }
         if !Self.same(band.waypoint, framedWaypoint) {
             // Another waypoint (MARK, a pass, Direct to, a preview): decide afresh how far is far.
             framing = nil
@@ -3383,9 +3456,19 @@ final class LegsBandDriver {
         let safe = mapView.safeAreaInsets
         let cameraPoint = CGPoint(x: safe.left + (band.viewSize.width - safe.left - safe.right) / 2,
                                   y: safe.top + (band.viewSize.height - safe.top - safe.bottom) / 2)
-        let placement = LegsPanelMap.place(aircraft: MKMapPoint(aircraft), waypoint: band.waypoint.map(MKMapPoint.init),
+        let placement: LegsPanelMap.Placement
+        if let start = band.legStart, let end = band.waypoint {
+            // On the ground: the leg, whatever the device's own position.
+            placement = LegsPanelMap.placeLeg(from: MKMapPoint(start), to: MKMapPoint(end), heading: band.heading,
+                                              band: rect, viewSize: band.viewSize, cameraPoint: cameraPoint,
+                                              scale: pilotScale)
+        } else {
+            // No position: the camera stays where it is.
+            guard let aircraft = band.aircraft, CLLocationCoordinate2DIsValid(aircraft) else { return }
+            placement = LegsPanelMap.place(aircraft: MKMapPoint(aircraft), waypoint: band.waypoint.map(MKMapPoint.init),
                                            heading: band.heading, band: rect, viewSize: band.viewSize,
                                            cameraPoint: cameraPoint, scale: pilotScale, previous: framing)
+        }
         framing = placement.framing
         // The camera distance that gives that zoom in the map as laid out with the panel open, from the
         // last zoom per metre measured at rest, taken to the band's height (MapKit's field of view is
@@ -3977,7 +4060,7 @@ struct NativeMapViewUIKit: UIViewRepresentable {
             // A marker the move took off the map leaves no deselect behind. (6.2.0)
             parent.mapState.noteCalloutSelection(on: mapView)
             // Its zoom at rest, for the legs panel's band: the pilot's, unless the band has the camera.
-            legsBand.mapCameToRest(mapView)
+            legsBand.mapCameToRest(mapView, mapState: parent.mapState)
             // The band's camera is not the pilot's: the shared state keeps theirs, to go back to.
             if legsBand.ownsCamera {
                 parent.mapState.updateBandRegion(mapView.region)
@@ -5613,7 +5696,7 @@ struct SwissMapView: UIViewRepresentable {
             // A marker the move took off the map leaves no deselect behind. (6.2.0)
             parent.mapState.noteCalloutSelection(on: mapView)
             // Its zoom at rest, for the legs panel's band: the pilot's, unless the band has the camera.
-            legsBand.mapCameToRest(mapView)
+            legsBand.mapCameToRest(mapView, mapState: parent.mapState)
             // The band's camera is not the pilot's: the shared state keeps theirs, to go back to.
             if legsBand.ownsCamera {
                 parent.mapState.updateBandRegion(mapView.region)
@@ -6901,8 +6984,8 @@ enum LegRowMetrics {
 
     /// A phone's rows, tighter: one line a row with PLAN, ACT and Δ, the name taking what is left (about
     /// 106 pt on an iPhone 17, SAIGNELÉGIER at about 14 pt), where two lines a row left ROUTE's legs "all
-    /// over the place" (device check, 11 Oct). PLAN keeps "17:03" (55 pt), Δ "▲15:19" (66 pt) at full size;
-    /// an hour's "1:05:12" shrinks, as it may, to 80 %. (6.2.0)
+    /// over the place" (device check, 11 Oct). PLAN keeps "17:03" (55 pt), Δ "▲15:19" (66 pt) at full size,
+    /// and an hour's "1h05" too since 6.3.0 (`ActLegTimer.columnClock`; "1:05:12" shrank to 80 %). (6.2.0)
     static func indexWidth(_ scale: CockpitScale) -> CGFloat { scale == .phone ? 20 : indexWidth }
     static func spacing(_ scale: CockpitScale) -> CGFloat { scale == .phone ? 6 : spacing }
     static func nameGap(_ scale: CockpitScale) -> CGFloat { scale == .phone ? 4 : nameGap }

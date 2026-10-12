@@ -7,6 +7,7 @@ struct AircraftSettingsView: View {
     @EnvironmentObject var aircraftDataService: AircraftDataService
 
     @State private var isSyncingAircraftData = false
+    @State private var showsRequestSheet = false
 
     private let tint: Color = .aviationGold
 
@@ -19,6 +20,7 @@ struct AircraftSettingsView: View {
         SettingsPage {
             if showsSpeeds {
                 aircraftSection
+                AircraftRequestsGroup(tint: tint)
                 SettingsGroup(title: L10n.Sheet.speedReference, tint: .aviationGold) {
                     if let locked = lockedSelection {
                         // The speeds come with the checklist, which Pro unlocks: say that, rather
@@ -54,11 +56,13 @@ struct AircraftSettingsView: View {
             } else {
                 subscriptionSection
                 aircraftSection
+                AircraftRequestsGroup(tint: tint)
                 aircraftVisibilitySection
             }
         }
         .navigationTitle(showsSpeeds ? L10n.Ground.aircraft : L10n.Settings.aircraftAndSubscription)
         .navigationBarTitleDisplayMode(.inline)
+        .sheet(isPresented: $showsRequestSheet) { AircraftRequestSheet() }
     }
 
     // MARK: - Subscription Section
@@ -315,6 +319,13 @@ struct AircraftSettingsView: View {
             }
             .buttonStyle(.plain)
             .disabled(isSyncingAircraftData)
+
+            // An aircraft that isn't here, or whose checklist is older than the club's: its
+            // checklist, sent from the app as from aerocheck.app/send/. (6.3.0)
+            SettingsButtonRow(icon: "paperplane", title: L10n.AircraftRequests.entryTitle,
+                              subtitle: L10n.AircraftRequests.entrySubtitle, tint: tint) {
+                showsRequestSheet = true
+            }
         }
     }
 

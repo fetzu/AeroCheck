@@ -386,7 +386,10 @@ struct CockpitMapChrome: View {
                                                  onPlace: onPlace))
             }
             if scaleShownOverride ?? scaleShown {
-                SwissScaleBar(region: model.region, mapWidth: geometry.size.width, nauticalMiles: model.nauticalMiles)
+                // Its figure at the in-flight label size: read in flight, after a zoom. (6.3.0, the author;
+                // it was SwissScaleBar's 11 pt, a known gap of #302 and #309)
+                SwissScaleBar(region: model.region, mapWidth: geometry.size.width, nauticalMiles: model.nauticalMiles,
+                              labelSize: geometry.metrics.textSize)
                     .frame(width: geometry.scale.width, height: geometry.scale.height, alignment: .topLeading)
                     .allowsHitTesting(false)
                     .accessibilityElement(children: .combine)

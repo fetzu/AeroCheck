@@ -236,6 +236,33 @@ enum L10n {
         }
     }
 
+    /// A circuits flight's laps and loops, as VoiceOver says them (6.3.0).
+    enum Circuits {
+        /// "2 touch-and-goes", "1 full stop".
+        static func touchAndGoes(_ count: Int) -> String { String(localized: "\(count) touch-and-goes") }
+        static func fullStops(_ count: Int) -> String { String(localized: "\(count) full stops") }
+        /// The phase bar's two brackets.
+        static let touchAndGoLoop = String(localized: "circuits.touchAndGoLoop")
+        static let fullStopLoop = String(localized: "circuits.fullStopLoop")
+        /// The bracket the lap being flown took.
+        static let thisLap = String(localized: "circuits.thisLap")
+        /// Cruise and descent in the phase list of a circuits flight, and the question a tap on one asks.
+        /// (6.3.0, Q5)
+        static let skippedInCircuits = String(localized: "circuits.skippedInCircuits")
+        static let leaveTitle = String(localized: "circuits.leaveTitle")
+        static let leaveMessage = String(localized: "circuits.leaveMessage")
+        /// "Leave circuits, go to CRUISE CHECK"
+        static func leaveAndGo(_ check: String) -> String {
+            String(format: String(localized: "circuits.leaveAndGo"), check)
+        }
+        static let stay = String(localized: "circuits.stay")
+        /// The phone's phase button: "circuit 4: 2 touch-and-goes, 1 full stop".
+        static func lapSpeech(_ lap: Int, touchAndGoes: Int, fullStops: Int) -> String {
+            String(format: String(localized: "circuits.lapSpeech"), lap,
+                   [Self.touchAndGoes(touchAndGoes), Self.fullStops(fullStops)].joined(separator: ", "))
+        }
+    }
+
     enum Logbook {
         static let title = String(localized: "Logbook line")
         static let subtitle = String(localized: "EASA AMC1 FCL.050")
@@ -248,6 +275,9 @@ enum L10n {
         }
         static func remarkGoAround(_ count: Int) -> String {
             String(localized: "\(count) go-around")
+        }
+        static func remarkStopAndGo(_ count: Int) -> String {
+            String(localized: "\(count) stop-and-go")
         }
         static let copyLine = String(localized: "Copy line")
         static let lineCopied = String(localized: "Logbook line copied")
@@ -1423,6 +1453,11 @@ enum L10n {
         static let engineStart = String(localized: "flightDetail.engineStart")
         static let takeoff = String(localized: "flightDetail.takeoff")
         static let landing = String(localized: "flightDetail.landing")
+        /// The timeline's landings and go-arounds between the take-off and the last landing. (6.3.0)
+        static let touchAndGo = String(localized: "flightDetail.touchAndGo")
+        static let goAround = String(localized: "flightDetail.goAround")
+        static let stopAndGo = String(localized: "flightDetail.stopAndGo")
+        static let stop = String(localized: "flightDetail.stop")
         static let engineShutdown = String(localized: "flightDetail.engineShutdown")
         static let sessionEnd = String(localized: "flightDetail.sessionEnd")
 
@@ -2178,6 +2213,11 @@ enum L10n {
         }
         /// VoiceOver, on READY FOR LINE UP: what the tap does besides going on. (6.2)
         static let readyForLineUpHint = String(localized: "cockpit.readyForLineUpHint")
+        /// In NEXT's place at the end of a circuits flight's after landing check: "NEW CIRCUIT"; the
+        /// phone's one line, "↻ CIRCUIT"; what it does, for VoiceOver. (6.3.0)
+        static let newCircuit = String(localized: "cockpit.newCircuit")
+        static let newCircuitShort = String(localized: "cockpit.newCircuit.short")
+        static let newCircuitHint = String(localized: "cockpit.newCircuitHint")
         /// "CLIMB CHECK DONE", beside a ✓, on a memory check to confirm. (6.1)
         static func memoryCheckDone(_ check: String) -> String {
             String(format: String(localized: "cockpit.memoryCheckDone"), check)
@@ -3293,6 +3333,165 @@ enum L10n {
         static let divertNoPosition = String(localized: "companion.divertNoPosition")
         static let divertNoAirportData = String(localized: "companion.divertNoAirportData")
         static let divertNoMatch = String(localized: "companion.divertNoMatch")
+    }
+
+    // MARK: - Aircraft requests (6.3.0)
+
+    /// The request sheet, its entry points: the website's form and wording (aerocheck.app/send/).
+    enum AircraftRequests {
+        static let title = String(localized: "aircraftRequest.title")
+        static let intro = String(localized: "aircraftRequest.intro")
+        static let registrationSection = String(localized: "aircraftRequest.registrationSection")
+        static let registrationLabel = String(localized: "aircraftRequest.registrationLabel")
+        static let registrationHint = String(localized: "aircraftRequest.registrationHint")
+        static let lookUp = String(localized: "aircraftRequest.lookUp")
+        static let lookingUp = String(localized: "aircraftRequest.lookingUp")
+        static func knownTitle(_ a0: String) -> String { String(format: String(localized: "aircraftRequest.knownTitle"), a0) }
+        static let knownBody = String(localized: "aircraftRequest.knownBody")
+        static let knownModel = String(localized: "aircraftRequest.knownModel")
+        static let knownClub = String(localized: "aircraftRequest.knownClub")
+        static let knownVersion = String(localized: "aircraftRequest.knownVersion")
+        static let knownLanguages = String(localized: "aircraftRequest.knownLanguages")
+        static func unknownTitle(_ a0: String) -> String { String(format: String(localized: "aircraftRequest.unknownTitle"), a0) }
+        static let unknownBody = String(localized: "aircraftRequest.unknownBody")
+        static let aircraftSection = String(localized: "aircraftRequest.aircraftSection")
+        static let otherRegistrationsLabel = String(localized: "aircraftRequest.otherRegistrationsLabel")
+        static let otherRegistrationsHint = String(localized: "aircraftRequest.otherRegistrationsHint")
+        static let typeLabel = String(localized: "aircraftRequest.typeLabel")
+        static let typeHint = String(localized: "aircraftRequest.typeHint")
+        static let clubLabel = String(localized: "aircraftRequest.clubLabel")
+        static let clubHint = String(localized: "aircraftRequest.clubHint")
+        static let senderSection = String(localized: "aircraftRequest.senderSection")
+        static let forClub = String(localized: "aircraftRequest.forClub")
+        static let forClubHint = String(localized: "aircraftRequest.forClubHint")
+        static let asPilot = String(localized: "aircraftRequest.asPilot")
+        static let asPilotHint = String(localized: "aircraftRequest.asPilotHint")
+        static let contactLabel = String(localized: "aircraftRequest.contactLabel")
+        static let contactHint = String(localized: "aircraftRequest.contactHint")
+        static let contactUnknown = String(localized: "aircraftRequest.contactUnknown")
+        static let contactUnknownHint = String(localized: "aircraftRequest.contactUnknownHint")
+        static let checklistSection = String(localized: "aircraftRequest.checklistSection")
+        static let filesHintNew = String(localized: "aircraftRequest.filesHintNew")
+        static let filesHintUpdate = String(localized: "aircraftRequest.filesHintUpdate")
+        static let scan = String(localized: "aircraftRequest.scan")
+        static let photos = String(localized: "aircraftRequest.photos")
+        static let files = String(localized: "aircraftRequest.files")
+        static let scanHint = String(localized: "aircraftRequest.scanHint")
+        static func filesTotal(_ a0: Int, _ a1: String) -> String { String(format: String(localized: "aircraftRequest.filesTotal"), a0, a1) }
+        static func remove(_ a0: String) -> String { String(format: String(localized: "aircraftRequest.remove"), a0) }
+        static func fileUnreadable(_ a0: String) -> String { String(format: String(localized: "aircraftRequest.fileUnreadable"), a0) }
+        static let languagesLabel = String(localized: "aircraftRequest.languagesLabel")
+        static let languagesHint = String(localized: "aircraftRequest.languagesHint")
+        static let otherLanguageLabel = String(localized: "aircraftRequest.otherLanguageLabel")
+        static let otherLanguageHint = String(localized: "aircraftRequest.otherLanguageHint")
+        static let youSection = String(localized: "aircraftRequest.youSection")
+        static let nameLabel = String(localized: "aircraftRequest.nameLabel")
+        static let nameHint = String(localized: "aircraftRequest.nameHint")
+        static let emailLabel = String(localized: "aircraftRequest.emailLabel")
+        static let emailHint = String(localized: "aircraftRequest.emailHint")
+        static let notesLabel = String(localized: "aircraftRequest.notesLabel")
+        static let notesHint = String(localized: "aircraftRequest.notesHint")
+        static func counter(_ a0: Int, _ a1: Int) -> String { String(format: String(localized: "aircraftRequest.counter"), a0, a1) }
+        static let rightsClub = String(localized: "aircraftRequest.rightsClub")
+        static let rightsSelf = String(localized: "aircraftRequest.rightsSelf")
+        static let rightsPrivate = String(localized: "aircraftRequest.rightsPrivate")
+        static let privacyLabel = String(localized: "aircraftRequest.privacyLabel")
+        static let termsLink = String(localized: "aircraftRequest.termsLink")
+        static let privacyLink = String(localized: "aircraftRequest.privacyLink")
+        static let checkLabel = String(localized: "aircraftRequest.checkLabel")
+        static let checkLoading = String(localized: "aircraftRequest.checkLoading")
+        static let checkWorking = String(localized: "aircraftRequest.checkWorking")
+        static let checkPassed = String(localized: "aircraftRequest.checkPassed")
+        static let checkFailed = String(localized: "aircraftRequest.checkFailed")
+        static let checkMissing = String(localized: "aircraftRequest.checkMissing")
+        static let submit = String(localized: "aircraftRequest.submit")
+        static let progressSending = String(localized: "aircraftRequest.progressSending")
+        static func progressUpload(_ a0: Int, _ a1: Int, _ a2: String) -> String { String(format: String(localized: "aircraftRequest.progressUpload"), a0, a1, a2) }
+        static let progressFinishing = String(localized: "aircraftRequest.progressFinishing")
+        static func uploadStopped(_ a0: String) -> String { String(format: String(localized: "aircraftRequest.uploadStopped"), a0) }
+        static let summary = String(localized: "aircraftRequest.summary")
+        static let problemRegistrationLookup = String(localized: "aircraftRequest.problem.registrationLookup")
+        static func problemOtherRegistrationsInvalid(_ a0: String) -> String { String(format: String(localized: "aircraftRequest.problem.otherRegistrationsInvalid"), a0) }
+        static let problemTooManyRegistrations = String(localized: "aircraftRequest.problem.tooManyRegistrations")
+        static let problemTypeRequired = String(localized: "aircraftRequest.problem.typeRequired")
+        static let problemSendingForRequired = String(localized: "aircraftRequest.problem.sendingForRequired")
+        static let problemContactRequired = String(localized: "aircraftRequest.problem.contactRequired")
+        static let problemContactInvalid = String(localized: "aircraftRequest.problem.contactInvalid")
+        static let problemContactIsSender = String(localized: "aircraftRequest.problem.contactIsSender")
+        static let problemEmailRequired = String(localized: "aircraftRequest.problem.emailRequired")
+        static let problemEmailInvalid = String(localized: "aircraftRequest.problem.emailInvalid")
+        static let problemLanguagesRequired = String(localized: "aircraftRequest.problem.languagesRequired")
+        static func problemLanguageInvalid(_ a0: String) -> String { String(format: String(localized: "aircraftRequest.problem.languageInvalid"), a0) }
+        static let problemLanguagesTooMany = String(localized: "aircraftRequest.problem.languagesTooMany")
+        static let problemFilesRequired = String(localized: "aircraftRequest.problem.filesRequired")
+        static let problemTooManyFiles = String(localized: "aircraftRequest.problem.tooManyFiles")
+        static func problemFileTooBig(_ a0: String, _ a1: String) -> String { String(format: String(localized: "aircraftRequest.problem.fileTooBig"), a0, a1) }
+        static func problemTotalTooBig(_ a0: String) -> String { String(format: String(localized: "aircraftRequest.problem.totalTooBig"), a0) }
+        static let problemNotesTooLong = String(localized: "aircraftRequest.problem.notesTooLong")
+        static let problemRightsRequired = String(localized: "aircraftRequest.problem.rightsRequired")
+        static let problemPrivacyRequired = String(localized: "aircraftRequest.problem.privacyRequired")
+        static let errorNetwork = String(localized: "aircraftRequest.error.network")
+        static let errorInvalidRegistration = String(localized: "aircraftRequest.error.invalidRegistration")
+        static let errorInvalidEmail = String(localized: "aircraftRequest.error.invalidEmail")
+        static let errorClubContactIsSender = String(localized: "aircraftRequest.error.clubContactIsSender")
+        static let errorFiles = String(localized: "aircraftRequest.error.files")
+        static let errorUnknownRegistration = String(localized: "aircraftRequest.error.unknownRegistration")
+        static let errorKnownRegistration = String(localized: "aircraftRequest.error.knownRegistration")
+        static func errorKnownOthers(_ a0: String) -> String { String(format: String(localized: "aircraftRequest.error.knownOthers"), a0) }
+        static let errorListChanged = String(localized: "aircraftRequest.error.listChanged")
+        static let errorSizeMismatch = String(localized: "aircraftRequest.error.sizeMismatch")
+        static let errorTurnstileFailed = String(localized: "aircraftRequest.error.turnstileFailed")
+        static let errorUploadGone = String(localized: "aircraftRequest.error.uploadGone")
+        static func errorAlreadySent(_ a0: String) -> String { String(format: String(localized: "aircraftRequest.error.alreadySent"), a0) }
+        static let errorPayloadTooLarge = String(localized: "aircraftRequest.error.payloadTooLarge")
+        static let errorRateLimited = String(localized: "aircraftRequest.error.rateLimited")
+        static let errorInternal = String(localized: "aircraftRequest.error.internal")
+        static let errorUnavailable = String(localized: "aircraftRequest.error.unavailable")
+        static let errorDailyCap = String(localized: "aircraftRequest.error.dailyCap")
+        static let errorLookupUnavailable = String(localized: "aircraftRequest.error.lookupUnavailable")
+        static let errorField = String(localized: "aircraftRequest.error.field")
+        static let errorUnknown = String(localized: "aircraftRequest.error.unknown")
+        static func resultTitle(_ a0: String) -> String { String(format: String(localized: "aircraftRequest.resultTitle"), a0) }
+        static func resultBody(_ a0: String) -> String { String(format: String(localized: "aircraftRequest.resultBody"), a0) }
+        static let nextTitle = String(localized: "aircraftRequest.nextTitle")
+        static let nextBody = String(localized: "aircraftRequest.nextBody")
+        static let nextClub = String(localized: "aircraftRequest.nextClub")
+        static let nextClubNoContact = String(localized: "aircraftRequest.nextClubNoContact")
+        static let openPage = String(localized: "aircraftRequest.openPage")
+        static let entryTitle = String(localized: "aircraftRequest.entryTitle")
+        static let entrySubtitle = String(localized: "aircraftRequest.entrySubtitle")
+        static let menuItem = String(localized: "aircraftRequest.menuItem")
+        static let proLine = String(localized: "aircraftRequest.proLine")
+        static let onboardingLine = String(localized: "aircraftRequest.onboardingLine")
+        static let requestsSection = String(localized: "aircraftRequest.requestsSection")
+        static let requestsFooter = String(localized: "aircraftRequest.requestsFooter")
+        static let removeFromList = String(localized: "aircraftRequest.removeFromList")
+        static func liveTitle(_ registrations: String) -> String { String(format: String(localized: "aircraftRequest.liveTitle"), registrations) }
+        static func liveBody(_ aircraftType: String) -> String { String(format: String(localized: "aircraftRequest.liveBody"), aircraftType) }
+
+        /// A request's status as the website's status page names it, and its line.
+        static func status(_ status: AircraftRequestStatus) -> (label: String, line: String) {
+            switch status {
+            case .uploading, .received:
+                return (String(localized: "aircraftRequest.status.received"), String(localized: "aircraftRequest.status.receivedLine"))
+            case .accepted:
+                return (String(localized: "aircraftRequest.status.accepted"), String(localized: "aircraftRequest.status.acceptedLine"))
+            case .converting:
+                return (String(localized: "aircraftRequest.status.converting"), String(localized: "aircraftRequest.status.convertingLine"))
+            case .proofreading:
+                return (String(localized: "aircraftRequest.status.proofreading"), String(localized: "aircraftRequest.status.proofreadingLine"))
+            case .testflight:
+                return (String(localized: "aircraftRequest.status.testflight"), String(localized: "aircraftRequest.status.testflightLine"))
+            case .live:
+                return (String(localized: "aircraftRequest.status.live"), String(localized: "aircraftRequest.status.liveLine"))
+            case .needInfo:
+                return (String(localized: "aircraftRequest.status.needInfo"), String(localized: "aircraftRequest.status.needInfoLine"))
+            case .declined:
+                return (String(localized: "aircraftRequest.status.declined"), String(localized: "aircraftRequest.status.declinedLine"))
+            case .duplicate:
+                return (String(localized: "aircraftRequest.status.duplicate"), String(localized: "aircraftRequest.status.duplicateLine"))
+            }
+        }
     }
 }
 

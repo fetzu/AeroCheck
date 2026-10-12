@@ -119,7 +119,7 @@ Community sources, credited in About › Data sources, never presented as offici
 The thread carries the admin around a flight (PLAN, PREPARE, CLOSE); FLY, the 16-phase flight, stays untouched.
 - A thread is OPTIONAL and stays so: a flight without one starts and ends as it always did. END FLIGHT resolves it (`threadToCloseOut(…)`) BEFORE `deactivateFlightPlan()`; `nil` means nothing below runs, and `FlightLauncher`'s guards never depend on one.
 - `ThreadTaskEngine` is pure. A task stores a key, never words (`ThreadTaskPresentation`), and `ThreadTaskKey`'s raw value is persisted: add a case, never rename one.
-- The close-flight-plan reminder is the one that matters (Zurich RCC alerts 30 min after the ETA): only when "flight plan filed" was ticked, red, no auto-dismiss. `NotificationService` sends it and a T−24 h nudge, nothing else.
+- The close-flight-plan reminder is the one that matters (Zurich RCC alerts 30 min after the ETA): only when "flight plan filed" was ticked, red, no auto-dismiss. `NotificationService` sends it and a T−24 h nudge, plus one notice per aircraft request sent from the app, when the app reads it live (6.3.0; read on foreground, no background work); nothing else.
 - Reminders and links, never integrations: skybriefing and DABS are opened, then ticked.
 - `FlightThreadManager` takes `defaults:` (the test host shares the app's bundle id).
 

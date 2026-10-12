@@ -96,7 +96,8 @@ final class GroundReplayTests: XCTestCase {
     }
 
     /// A stop-and-go waits for the line-up check itself: the Cockpit is past it already (on the landing
-    /// check), and the card's CONFIRM takes it back to TAXI.
+    /// check), and the card's CONFIRM takes it on to AFTER LANDING, then NEW CIRCUIT back to the check
+    /// before departure. (6.3.0; it was TAXI)
     func testAStopAndGoWaitsForTheLineUpCheckItself() {
         XCTAssertEqual(GroundReplayCursor.Condition("phaseIs:lineUp"), .phaseIs(.lineUp))
         var cursor = GroundReplayCursor(duration: 600, holds: [.init(t: 100, condition: .phaseIs(.lineUp))])
@@ -104,9 +105,12 @@ final class GroundReplayTests: XCTestCase {
                                                     phase: .landing)
         cursor.advance(by: 150, flight: flight)
         XCTAssertEqual(cursor.t, 100, "on the landing check, past the line-up: still waiting")
-        flight.phase = .taxi
+        flight.phase = .afterLanding
         cursor.advance(by: 10, flight: flight)
-        XCTAssertEqual(cursor.t, 100, "CONFIRM: TAXI, still waiting")
+        XCTAssertEqual(cursor.t, 100, "CONFIRM: AFTER LANDING, still waiting")
+        flight.phase = .beforeDeparture
+        cursor.advance(by: 10, flight: flight)
+        XCTAssertEqual(cursor.t, 100, "NEW CIRCUIT: the check before departure, still waiting")
         flight.phase = .lineUp
         cursor.advance(by: 10, flight: flight)
         XCTAssertEqual(cursor.t, 110, "the line-up check again: away")
@@ -173,7 +177,8 @@ final class GroundReplayTests: XCTestCase {
     }
 
     /// Circuits: a touch-and-go, two stop-and-goes and a full stop. The circuits keep the detector's cards
-    /// (CONFIRM: TAXI after a full stop), never the landed card, and there is no FREDA.
+    /// (CONFIRM: AFTER LANDING after a full stop since 6.3.0, then NEW CIRCUIT or the parking check), never
+    /// the landed card, and there is no FREDA. Each full stop is counted once, by its card.
     func testCircuitsKeepTheirCardsAndHaveNoFreda() throws {
         let flight = try HeadlessFlight(test: self, scenario: "circuits-stop-and-go", circuits: true)
         flight.fly()
@@ -181,7 +186,9 @@ final class GroundReplayTests: XCTestCase {
         XCTAssertEqual(flight.events.map(\.type.code), expected.events.map(\.type))
         XCTAssertTrue(flight.landedCards.isEmpty, "no landed card in circuits")
         XCTAssertEqual(flight.cardsConfirmed, ["TG", "FS", "FS", "FS"])
-        XCTAssertEqual(flight.phaseAfterFullStops, [.taxi, .taxi, .taxi], "CONFIRM on the full-stop card: TAXI")
+        XCTAssertEqual(flight.phaseAfterFullStops, [.afterLanding, .afterLanding, .afterLanding],
+                       "CONFIRM on the full-stop card: AFTER LANDING")
+        XCTAssertEqual(flight.newCircuits, 2, "NEW CIRCUIT after the two stop-and-goes, the parking check after the last")
         XCTAssertFalse(flight.fredaEverRan, "no FREDA in circuits")
         let saved = try XCTUnwrap(flight.endedFlight)
         XCTAssertEqual(saved.touchAndGoCount, 1)
@@ -447,6 +454,8 @@ private struct ScenarioFile: Decodable {
         struct Cue: Decodable { let type: String; let t: Double; let implied: Bool }
         let events: [Event]
         let cues: [Cue]
+        /// The take-offs, track seconds. Optional: the corpus fixtures have none.
+        let takeoffs: [Double]?
 
         func cue(_ type: String) -> Double? { cues.first { $0.type == type && !$0.implied }?.t }
     }
@@ -490,6 +499,8 @@ private final class HeadlessFlight {
     private(set) var landedCards: [(aerodrome: String?, t: Double)] = []
     private(set) var cardsConfirmed: [String] = []
     private(set) var phaseAfterFullStops: [ChecklistPhase] = []
+    /// NEW CIRCUIT, at the end of the after landing check that follows a stop-and-go. (6.3.0)
+    private(set) var newCircuits = 0
     private(set) var fredaEverRan = false
     private(set) var endedFlight: Flight?
     /// What the detector emitted and cued, kept before END FLIGHT resets it.
@@ -594,6 +605,8 @@ private final class HeadlessFlight {
         detector.configure(speeds: appState.activeChecklist.speeds, stallSpeed: appState.activeChecklist.stallSpeed)
         location.startTracking(appState: appState, interval: 5, airportDataService: airports, flightEventDetector: detector,
                                flightPlanManager: plans, activeChecklist: appState.activeChecklist)
+        // As `AeroCheckApp` wires it: the full stop gone on from, told to the detector. (6.3.0)
+        appState.takeLapFullStop = { [weak self] in self?.detector.notifyManualEvent(.fullStop) }
     }
 
     /// Killed and launched again, just after a checkpoint (the app writes one every 30 s and at every cue
@@ -672,8 +685,15 @@ private final class HeadlessFlight {
             cardsConfirmed.append(event.type.code)
             FlightEventConfirmationOverlay.confirm(event, appState: appState, detector: detector)
             if event.type == .fullStop { phaseAfterFullStops.append(appState.currentPhase) }
-            // On to the next circuit: the checks to the climb again, as after a stop-and-go.
-            if event.type == .fullStop, circuits { departure() }
+            // A stop-and-go: the after landing check, NEW CIRCUIT, and the checks to the climb again. The last
+            // full stop, with no take-off after it, goes on to the parking check (`endFlight`). (6.3.0)
+            if event.type == .fullStop, circuits, scenario.expected?.takeoffs?.contains(where: { $0 > t }) == true {
+                completeCurrentCheck()
+                XCTAssertTrue(appState.offersNewCircuit, "NEW CIRCUIT at the end of the after landing check")
+                appState.startNewCircuit()
+                newCircuits += 1
+                departure()
+            }
         }
     }
 

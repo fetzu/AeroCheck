@@ -36,6 +36,8 @@
 	<false/>
 	<key>LSSupportsOpeningDocumentsInPlace</key>
 	<true/>
+	<key>NSCameraUsageDescription</key>
+	<string>AéroCheck uses the camera to scan your aircraft’s checklist when you send it to us. The pages go to AéroCheck only when you send the request.</string>
 	<key>NSMotionUsageDescription</key>
 	<string>AéroCheck reads the barometric altimeter to record altitude on your flight track and to detect take-offs, touch-and-gos and landings accurately. Motion data never leaves your device.</string>
 	<key>NSPhotoLibraryAddUsageDescription</key>

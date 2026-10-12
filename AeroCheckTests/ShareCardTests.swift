@@ -248,6 +248,52 @@ final class ShareCardTests: XCTestCase {
         XCTAssertEqual(ShareCardFigures.intermediateFullStops(of: flight).stops, 0)
     }
 
+    /// The flight page's timeline and the logbook line read the same rule as the card (6.3.0, the
+    /// author's device check circ-9: the breakdown had been the card's alone since 4.0.0). A circuits
+    /// session: a touch-and-go, a go-around, two stop-and-goes, the last landing.
+    func testTheFlightPageAndTheLogbookLineNameEachLandingAsTheCardCountsThem() {
+        let runwayEnd = point(eastNM: 0.4, of: home)
+        var flight = makeFlight(at: [("2026-04-30T09:09:00Z", home),
+                                     ("2026-04-30T09:27:00Z", runwayEnd),
+                                     ("2026-04-30T09:36:00Z", home),
+                                     ("2026-04-30T09:44:00Z", runwayEnd)],
+                                fullStops: ["2026-04-30T09:27:00Z", "2026-04-30T09:36:00Z", "2026-04-30T09:44:00Z"],
+                                takeoff: "2026-04-30T09:09:00Z")
+        flight.touchAndGoTimes = [date("2026-04-30T09:12:00Z")]
+        flight.touchAndGoCount = 1
+        flight.goAroundTimes = [date("2026-04-30T09:19:00Z")]
+        flight.goAroundCount = 1
+
+        let events = FlightTimelineEvents.events(of: flight)
+        XCTAssertEqual(events.map(\.kind), [.touchAndGo, .goAround, .stopAndGo, .stopAndGo],
+                       "in time order, between the take-off and the landing; the last full stop is the landing row")
+        XCTAssertEqual(events.map(\.time), ["2026-04-30T09:12:00Z", "2026-04-30T09:19:00Z",
+                                             "2026-04-30T09:27:00Z", "2026-04-30T09:36:00Z"].map(date))
+        XCTAssertEqual(ShareCardFigures(flight: flight).counts.stopAndGoes, 2)
+        XCTAssertEqual(LogbookLineBuilder.build(flight: flight).remarks,
+                       "1 touch-and-go, 1 go-around, 2 stop-and-goes")
+    }
+
+    /// One landing: nothing between the take-off and the landing, no remark.
+    func testAFlightWithOneLandingKeepsItsTimelineAndRemarks() {
+        let flight = makeFlight(at: [("2026-04-30T09:09:00Z", home), ("2026-04-30T09:40:00Z", home)],
+                                fullStops: ["2026-04-30T09:40:00Z"], takeoff: "2026-04-30T09:09:00Z")
+        XCTAssertTrue(FlightTimelineEvents.events(of: flight).isEmpty)
+        XCTAssertEqual(LogbookLineBuilder.build(flight: flight).remarks, "")
+    }
+
+    /// A full stop at another aerodrome is a stop in the timeline, and no stop-and-go in the remarks.
+    func testAFullStopElsewhereIsAStopInTheTimeline() {
+        let away = point(eastNM: 38, of: home)
+        let flight = makeFlight(at: [("2026-09-29T09:46:00Z", home),
+                                     ("2026-09-29T10:20:00Z", away),
+                                     ("2026-09-29T11:20:00Z", home)],
+                                fullStops: ["2026-09-29T10:20:00Z", "2026-09-29T11:20:00Z"],
+                                takeoff: "2026-09-29T09:46:00Z")
+        XCTAssertEqual(FlightTimelineEvents.events(of: flight).map(\.kind), [.stop])
+        XCTAssertEqual(flight.stopAndGoCount, 0)
+    }
+
     /// Home → LSGE, landed, took off again, back home: LSGE is a stop at another aerodrome, not a
     /// stop-and-go.
     func testAFullStopAtAnotherAerodromeIsAStop() {

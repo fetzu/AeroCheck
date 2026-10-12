@@ -34,6 +34,9 @@ enum ActSlotRole: Equatable {
     /// CHECK with the item; then ✓ DONE (a memory check), NEXT (READY FOR LINE UP out of the check before
     /// departure), END FLIGHT at the last one.
     case checklistPrimary
+    /// NEW CIRCUIT, in NEXT's place at the end of a circuits flight's after landing check, on CHECKLIST and
+    /// MAP: the check before departure next. The check slot beside it goes on to the parking check. (6.3.0)
+    case newCircuit
     /// START LEG, then MARK <wpt> with the leg timer; dimmed once the route is flown.
     case mark
     /// No route: the way to one.
@@ -52,9 +55,21 @@ enum ActSlotRole: Equatable {
 enum ActBandRoles {
     /// `routeFlown`: every waypoint passed. `landingShown`: the landing check shown from circuit height
     /// (the flight cues). `canDefer`: an item to put off (the check open, not a memory check).
+    /// `newCircuit`: the end of a circuits flight's after landing check (`AppState.offersNewCircuit`),
+    /// where NEW CIRCUIT takes S2 on every page. (6.3.0)
     static func make(page: CockpitPage, phase: ChecklistPhase, hasRoute: Bool, routeFlown: Bool = false,
                      diverting: Bool = false, circuits: Bool = false, landingShown: Bool = false,
-                     canDefer: Bool = true) -> [ActSlotRole] {
+                     canDefer: Bool = true, newCircuit: Bool = false) -> [ActSlotRole] {
+        var roles = pageRoles(page: page, phase: phase, hasRoute: hasRoute, routeFlown: routeFlown,
+                              diverting: diverting, circuits: circuits, landingShown: landingShown,
+                              canDefer: canDefer)
+        if newCircuit { roles[1] = .newCircuit }
+        return roles
+    }
+
+    private static func pageRoles(page: CockpitPage, phase: ChecklistPhase, hasRoute: Bool, routeFlown: Bool,
+                                  diverting: Bool, circuits: Bool, landingShown: Bool,
+                                  canDefer: Bool) -> [ActSlotRole] {
         let legToFly = hasRoute && !routeFlown
         switch page {
         case .checklist:
@@ -81,7 +96,8 @@ enum ActBandRoles {
         return make(page: page, phase: appState.currentPhase, hasRoute: plan != nil,
                     routeFlown: plans.isFlightPlanCompleted, diverting: plan?.diversion != nil,
                     circuits: appState.isCircuitMode, landingShown: appState.landingCheckShown,
-                    canDefer: !appState.currentCheckIsDone && !appState.currentCheckAwaitsConfirmation)
+                    canDefer: !appState.currentCheckIsDone && !appState.currentCheckAwaitsConfirmation,
+                    newCircuit: appState.offersNewCircuit)
     }
 
     /// The checklist's first slot: the phase's own action where it has one, FREDA in cruise, else the
@@ -716,6 +732,8 @@ struct CockpitActions {
     var engineStartUpdate: () -> Void = {}
     var engineShutdown: () -> Void = {}
     var engineShutdownUpdate: () -> Void = {}
+    /// NEW CIRCUIT: the check before departure, on a new lap. (6.3.0)
+    var newCircuit: () -> Void = {}
     /// The CHECKLIST page, as a tap on the picker picks it.
     var showChecklist: () -> Void = {}
     /// The MAP page.
@@ -866,6 +884,8 @@ struct ActSlotView: View {
             FredaThumbButton()
         case .checklistPrimary:
             ActChecklistPrimary(actions: actions)
+        case .newCircuit:
+            ActNewCircuitButton(actions: actions)
         case .mark:
             ActMarkButton()
         case .routes:
@@ -1033,6 +1053,32 @@ struct ActChecklistPrimary: View {
                                                           learningMode: appState.effectiveLearningMode)
         let index = appState.getHighlightedItem(for: appState.currentPhase)
         return items.indices.contains(index) ? items[index].challenge : nil
+    }
+}
+
+/// NEW CIRCUIT, filled, in NEXT's place at the end of a circuits flight's after landing check (6.3.0, the
+/// author's Q2): one tap to the check before departure, on a new lap. On the iPad the words and the check it
+/// goes to, as NEXT names its own; on the phone "↻ CIRCUIT" on one line, the whole for VoiceOver. The check
+/// slot beside it reads the parking check, the other way on.
+struct ActNewCircuitButton: View {
+    let actions: CockpitActions
+
+    @Environment(\.cockpitTheme) private var theme
+
+    var body: some View {
+        let phone = CockpitScale.current == .phone
+        let lines = ActChecklistPrimary.lines(.current)
+        let then = L10n.Cockpit.thenCheck(ChecklistPhase.beforeDeparture.shortTitle)
+        CockpitThumbButton(title: phone ? L10n.Cockpit.newCircuitShort : L10n.Cockpit.newCircuit,
+                           subtitle: phone ? nil : then, icon: phone ? nil : "arrow.triangle.2.circlepath",
+                           style: .filled(fill: theme.action, text: theme.actionText),
+                           titleLines: lines.title, subtitleLines: lines.subtitle,
+                           horizontalPadding: phone ? ActFace.inset : 14, fitted: true, action: actions.newCircuit)
+            .accessibilityIdentifier("cockpit.newCircuit")
+            .spokenAs(phone ? L10n.Cockpit.newCircuit : nil)
+            .accessibilityValue(phone ? then : "")
+            .accessibilityHint(L10n.Cockpit.newCircuitHint)
+            .modifier(PulseModifier(isActive: actions.nextReady))
     }
 }
 
@@ -1221,6 +1267,16 @@ struct ActLegTimer {
         let total = Int(t.rounded())
         let h = total / 3600, m = (total % 3600) / 60, s = total % 60
         return h > 0 ? String(format: "%d:%02d:%02d", h, m, s) : String(format: "%d:%02d", m, s)
+    }
+
+    /// A leg's time in the legs' columns (PLAN, ACT and Δ, on ROUTE and in Plan › Map's panel): "M:SS" as
+    /// `clock`, and an hour or more as "1h05", in whole minutes. It fits the column at full size, where
+    /// "1:05:00" shrank to 80 % (#317), and can't be read as minutes and seconds, as "1:05" could. MARK's
+    /// running timer keeps its seconds (`clock`). (6.3.0, the author's pick)
+    static func columnClock(_ t: TimeInterval) -> String {
+        let total = Int(t.rounded())
+        guard total >= 3600 else { return clock(t) }
+        return String(format: "%dh%02d", total / 3600, (total % 3600) / 60)
     }
 }
 

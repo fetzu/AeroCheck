@@ -792,6 +792,25 @@ final class CompanionServiceContractTests: XCTestCase {
         XCTAssertFalse(CompanionDivertButton.isOffered(plan: nil, currentWaypointIndex: 0))
     }
 
+    /// NEW CIRCUIT from the phone (6.3.0): an older iPad can't decode the command and drops it, and never
+    /// says `offersNewCircuit`, so its phone keeps NEXT. This iPad says it, and the command round-trips.
+    func testOnlyAnIPadThatOffersNEWCIRCUITGetsIt() throws {
+        let data = try JSONEncoder().encode(CompanionCommand.newCircuit)
+        XCTAssertThrowsError(try JSONDecoder().decode(CompanionCommand61.self, from: data))
+        let decoded = try JSONDecoder().decode(CompanionCommand.self, from: data)
+        guard case .newCircuit = decoded else { return XCTFail("\(decoded)") }
+
+        let json = #"{"phaseTitle":"AFTER LANDING CHECK","phaseRawValue":13,"highlightedIndex":0,"visibleCount":0,"completedCount":0,"items":[],"hiddenItemCount":0}"#
+        let old = try JSONDecoder().decode(CompanionChecklistSnapshot.self, from: Data(json.utf8))
+        XCTAssertFalse(old.offersNewCircuit)
+        let new = CompanionChecklistSnapshot(phaseTitle: "AFTER LANDING CHECK", phaseRawValue: 13, highlightedIndex: 0,
+                                             visibleCount: 0, completedCount: 0, items: [], hiddenItemCount: 0,
+                                             offersNewCircuit: true)
+        let round = try JSONDecoder().decode(CompanionChecklistSnapshot.self, from: JSONEncoder().encode(new))
+        XCTAssertTrue(round.offersNewCircuit)
+        XCTAssertEqual(round, new)
+    }
+
     /// The field from the phone goes into the plan, the nav log and the thread: it is checked at the wire.
     func testADivertFieldIsCheckedAtTheWire() throws {
         func decode(_ json: String) throws -> CompanionDivertField {

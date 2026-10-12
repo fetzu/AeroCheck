@@ -2277,6 +2277,12 @@ class CompanionConnectivityManager: NSObject, ObservableObject {
         case .resumeRoute:
             guard let appState, appState.isFlightActive else { return }
             flightPlanManager.resumeRoute()
+
+        // NEW CIRCUIT from the phone: only while the iPad offers it, so a tap arriving after the pilot went
+        // on here does nothing. (6.3.0)
+        case .newCircuit:
+            guard let appState, appState.offersNewCircuit else { return }
+            appState.startNewCircuit()
         }
     }
 
@@ -2478,7 +2484,8 @@ class CompanionConnectivityManager: NSObject, ObservableObject {
                 CompanionLandedCard(id: $0.id, aerodrome: $0.aerodrome, touchdown: $0.touchdown,
                                     landingCheckSettled: appState.landingCheckSettled)
             },
-            supportsFlightCues: true
+            supportsFlightCues: true,
+            offersNewCircuit: appState.offersNewCircuit
         )
     }
 
@@ -2519,7 +2526,10 @@ class CompanionConnectivityManager: NSObject, ObservableObject {
             speedMPS: location?.speed ?? 0 >= 0 ? location?.speed : nil,
             altitudeFeet: location != nil ? location!.altitude * 3.28084 : nil,
             courseDegrees: location?.course ?? 0 >= 0 ? location?.course : nil,
-            gpsSignalStatus: locationManager.gpsSignalStatus.description,
+            // As the iPad's strip shows it: a flight not recording is lost, whatever the signal. (6.3.0)
+            gpsSignalStatus: StripReading.gpsStatus(isFlightActive: appState.isFlightActive,
+                                                    isTracking: locationManager.isTracking,
+                                                    signal: locationManager.gpsSignalStatus).description,
             // Whether the master has its OWN (real device) fix — drives the viewer's decision to source
             // GPS. Reads own-fix liveness, NOT `currentLocation`, which may already hold a borrowed peer
             // fix; otherwise borrowing would mark the master "has GPS" and stop the feed it depends on. (shared-GPS)

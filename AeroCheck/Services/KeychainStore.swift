@@ -28,6 +28,9 @@ struct KeychainStore {
     enum Key: String, CaseIterable {
         /// Opaque session token minted by `POST /subscription/verify`.
         case apiSessionToken = "api.session.token"
+        /// The status tokens of the aircraft requests sent from this device, ticket → token, as JSON:
+        /// each opens its request's page, as the link in the sender's e-mail does. (6.3.0)
+        case aircraftRequestTokens = "aircraft.request.tokens"
     }
 
     /// The app's own credentials.

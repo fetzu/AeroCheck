@@ -18,6 +18,24 @@ final class MapChromeLayoutTests: XCTestCase {
 
     /// The stack's frames are the geometry's whatever the chrome shows: centre filled or not, N↑ or TRK,
     /// a state in the slot or none, the stale-airspace triangle or not, the scale or not.
+    /// The scale's figure on the Cockpit's MAP at the in-flight label size (20 pt on the iPad, 17 on the phone),
+    /// and its card still within the 50 pt the chrome gives it; Plan › Map keeps 11 pt. (6.3.0, the author: it
+    /// was 11 pt, a known gap of #302 and #309)
+    func testTheScalesFigureIsAtTheLabelSizeAndItsCardKeepsItsRoom() {
+        for scale in [CockpitScale.kneeboard, .phone] {
+            let metrics = MapChromeGeometry.Metrics(scale)
+            XCTAssertEqual(metrics.textSize, CockpitType.label(for: scale), "\(scale)")
+            XCTAssertLessThanOrEqual(SwissScaleBar.cardHeight(labelSize: metrics.textSize), metrics.scaleSize.height,
+                                     "\(scale): the card's height")
+            let widest = ["0.5 NM", "10 NM", "500 m", "10 km"].map {
+                ($0 as NSString).size(withAttributes: [.font: UIFont.aero(size: metrics.textSize, weight: .medium)]).width
+            }.max() ?? 0
+            XCTAssertLessThanOrEqual(widest + 16, metrics.scaleSize.width, "\(scale): the figure's width")
+        }
+        XCTAssertEqual(SwissScaleBar.cardHeight(labelSize: 11), UIFont.aero(size: 11, weight: .medium).lineHeight + 26,
+                       accuracy: 0.01, "Plan › Map's card as before")
+    }
+
     func testTheStackKeepsItsFramesWhateverTheChromeShows() {
         for chart in Chart.allCases {
             let geometry = MapChromeGeometry(size: chart.size, scale: chart.scale)

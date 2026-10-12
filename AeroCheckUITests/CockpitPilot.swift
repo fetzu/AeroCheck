@@ -417,6 +417,16 @@ final class CockpitPilot {
         }
     }
 
+    /// The end of a circuits flight's after landing check: the check done (its ✓ DONE only confirms there),
+    /// and NEW CIRCUIT in NEXT's place. True when NEW CIRCUIT shows. (6.3.0)
+    @discardableResult
+    func finishAfterLandingCheckOfACircuit() -> Bool {
+        skipHourMeterIfAsked()
+        showPane("checklist")
+        if !tapNow(element("cockpit.memoryDone")) { checkAllItems() }
+        return element("cockpit.newCircuit").waitForExistence(timeout: 3)
+    }
+
     // MARK: What the Cockpit shows
 
     var memoryDone: XCUIElement { element("cockpit.memoryDone") }

@@ -355,3 +355,40 @@ func assertSameDestination(_ a: DestinationEstimate, _ b: DestinationEstimate, _
     XCTAssertEqual(a.track?.nextIndex, b.track?.nextIndex, message, file: file, line: line)
     XCTAssertEqual(a.track?.flown ?? -1, b.track?.flown ?? -1, accuracy: 1e-9, message, file: file, line: line)
 }
+
+// MARK: - The phone following its slot's tap (6.3.0, device check comp-3)
+
+extension CompanionNavScreenTests {
+    /// "PARKING · next check" from NAV: once the iPad is on the parking check and the slot offers its
+    /// list, the phone goes to CHECKLIST, as the iPad's page does; one tap, not two.
+    func testThePhoneFollowsItsNextCheckTapToTheList() {
+        let tap = CheckSlot(phase: .shutdown, line: .next, icon: .next, tone: .idle, action: .advance)
+        let target = CompanionSlotFollow.target(of: tap)
+        XCTAssertEqual(target, .shutdown)
+        let sent = Date(timeIntervalSince1970: 1_800_000_000)
+        let pending = CompanionSlotFollow.Pending(phase: .shutdown, since: sent)
+
+        XCTAssertEqual(CompanionSlotFollow.outcome(of: pending, phaseRawValue: ChecklistPhase.afterLanding.rawValue,
+                                                   slot: tap, now: sent.addingTimeInterval(1)), .wait,
+                       "the snapshot from before the tap")
+        let list = CheckSlot(phase: .shutdown, line: .items(4), icon: .list, tone: .due, action: .showChecklist)
+        XCTAssertEqual(CompanionSlotFollow.outcome(of: pending, phaseRawValue: ChecklistPhase.shutdown.rawValue,
+                                                   slot: list, now: sent.addingTimeInterval(1)), .showChecklist)
+    }
+
+    /// A memory check, a dropped tap, a tap that opens nothing: the page stays where the pilot put it.
+    func testThePhoneStaysWhenThereIsNoListToFollowTo() {
+        let sent = Date(timeIntervalSince1970: 1_800_000_000)
+        let pending = CompanionSlotFollow.Pending(phase: .landing, since: sent)
+        let memory = CheckSlot(phase: .landing, line: .next, icon: .next, tone: .idle, action: .confirmFromMemory)
+        XCTAssertEqual(CompanionSlotFollow.outcome(of: pending, phaseRawValue: ChecklistPhase.landing.rawValue,
+                                                   slot: memory, now: sent.addingTimeInterval(1)), .stop)
+        XCTAssertEqual(CompanionSlotFollow.outcome(of: pending, phaseRawValue: ChecklistPhase.approach.rawValue,
+                                                   slot: nil, now: sent.addingTimeInterval(CompanionSlotFollow.patience + 1)),
+                       .stop, "the iPad never got there")
+        let confirm = CheckSlot(phase: .cruise, line: .next, icon: .next, tone: .idle, action: .advanceAndConfirm)
+        XCTAssertNil(CompanionSlotFollow.target(of: confirm), "confirmed from memory: no list to run")
+        let open = CheckSlot(phase: .cruise, line: .items(2), icon: .list, tone: .due, action: .showChecklist)
+        XCTAssertNil(CompanionSlotFollow.target(of: open), "opened on the phone itself")
+    }
+}

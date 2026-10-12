@@ -201,6 +201,12 @@ struct AeroCheckApp: App {
                     // READY FOR LINE UP, whichever NEXT made it (the Cockpit's, the slot's, the
                     // Companion's), moves the active plan's ETOs. (6.2)
                     appState.anchorETOsOnLineUp = { flightPlanManager.anchorETOsOnLineUp($0) }
+                    // NEW CIRCUIT, or on to the parking check, at the end of a circuits flight's after
+                    // landing check: the detector told of that full stop, which it then never raises a
+                    // card for, and its touchdown counted. (6.3.0)
+                    appState.takeLapFullStop = { [flightEventDetector] in
+                        flightEventDetector.notifyManualEvent(.fullStop)
+                    }
 
                     // The delegate and its category are registered in `AeroCheckAppDelegate` before
                     // launch finishes; only the handlers are wired here, because they need the
@@ -219,6 +225,17 @@ struct AeroCheckApp: App {
                         NotificationPresentationRule.mayInterrupt(isFlightActive: appState.isFlightActive,
                                                                   phase: appState.currentPhase)
                     }
+                    // An aircraft request live: the notice opens the Aircraft tab, where the aircraft now
+                    // is; the list is fetched again so it is there. (6.3.0)
+                    NotificationService.shared.openAircraftRequestsHandler = { appState.groundTab = .aircraft }
+                    AircraftRequestStore.shared.onLive = { [aircraftDataService] request in
+                        Task {
+                            await NotificationService.shared.notifyAircraftRequestLive(
+                                ticket: request.ticket, registrations: request.registrations,
+                                aircraftType: request.aircraftType)
+                            await aircraftDataService.fetchAvailableAircraft()
+                        }
+                    }
                     // Anything that arrived before the handlers existed — the cold-launch case the
                     // delegate move exists for — is replayed now.
                     NotificationService.shared.drainPendingActions()
@@ -232,6 +249,13 @@ struct AeroCheckApp: App {
                             guard let flightId = appState.currentFlight?.id else { return }
                             flightThreadManager.noteFullStopLanding(flightId: flightId)
                         }
+                    }
+                    // A full stop counted by hand too (LANDED, the circuits' choice), which the detector
+                    // then never emits. Scheduling replaces by identifier: a card's CONFIRM after the
+                    // detector's own only moves it on. (6.3.0)
+                    appState.onFullStopCounted = { [flightThreadManager] in
+                        guard let flightId = appState.currentFlight?.id else { return }
+                        flightThreadManager.noteFullStopLanding(flightId: flightId)
                     }
                     // Auto-connect if companion mode is on and a device is paired — the user shouldn't
                     // have to start it on both devices. (v4.1 companion UX)
@@ -293,7 +317,15 @@ struct AeroCheckApp: App {
                                 flightPlanManager: flightPlanManager,
                                 activeChecklist: appState.activeChecklist
                             )
-                            appState.flightRestoredNotice = L10n.Alert.flightRestored
+                            // Not under a capture scene: the capture script launches each scene twice,
+                            // and the second launch restored the flight the first one started, its alert
+                            // over most of the 6.2.0 in-flight shots. (6.3.0)
+                            #if DEBUG
+                            let capturing = ProcessInfo.processInfo.environment["AEROCHECK_SCENE"] != nil
+                            #else
+                            let capturing = false
+                            #endif
+                            if !capturing { appState.flightRestoredNotice = L10n.Alert.flightRestored }
                         }
                     }
 
@@ -316,6 +348,8 @@ struct AeroCheckApp: App {
                     // 6.2.0: where each country keeps its official charts (12 KB, weekly, from the
                     // disk when fresh). Not awaited: nothing at launch waits for a link.
                     Task { await OfficialChartService.shared.refreshIfNeeded() }
+                    // The aircraft requests sent from this device: where they stand. (6.3.0)
+                    if !appState.isFlightActive { Task { await AircraftRequestStore.shared.refreshIfDue() } }
 
                     // Check for yearly map update reminder (after main content loads)
                     if offlineMapManager.shouldShowUpdateReminder {
@@ -340,6 +374,9 @@ struct AeroCheckApp: App {
                     Task { await dataStatusManager.autoRefreshIfNeeded(cellularUpdatesEnabled: true) }
                     // The chart registry when a week old, or a new AIRAC cycle's French folder. (6.2.0)
                     Task { await OfficialChartService.shared.refreshIfNeeded() }
+                    // The aircraft requests, at most every few hours, never in flight. (6.3.0, author 11
+                    // Oct: when the app opens, no background work.)
+                    if !appState.isFlightActive { Task { await AircraftRequestStore.shared.refreshIfDue() } }
                     // Re-establish the companion link on foreground (e.g. after the peer relaunched), and
                     // back from the background, check it or look afresh. (v4.1; 6.1.0)
                     companionConnectivityManager.appBecameActive()

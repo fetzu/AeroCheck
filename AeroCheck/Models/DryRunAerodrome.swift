@@ -49,6 +49,18 @@ struct DryRunAerodrome {
         return right == 0 ? onAxis : DryRunGeo.destination(from: onAxis, bearing: heading + 90, distance: right)
     }
 
+    /// The aerodrome as the detector anchors to it, for a store that doesn't have it (a fresh install has no
+    /// airport data yet). A stable id, the ground replays' (`GroundReplay.airport`): never saved, the same on
+    /// every launch.
+    var airport: Airport {
+        let id = ident.unicodeScalars.reduce(7) { ($0 &* 31 &+ Int($1.value)) % 100_000_000 }
+        return Airport(id: id, ident: ident, type: .smallAirport, name: name,
+                       latitude: reference.latitude, longitude: reference.longitude, elevation: Int(elevationFt),
+                       continent: "EU", isoCountry: ident.hasPrefix("LS") ? "CH" : ident.hasPrefix("LF") ? "FR" : "",
+                       isoRegion: "", municipality: nil, scheduledService: false, gpsCode: ident,
+                       iataCode: nil, localCode: nil)
+    }
+
     // The points the generator flies to and taxis by, as scripts/flightsim laid them out.
     var touchdownPoint: CLLocationCoordinate2D { point(along: -runwayLengthM / 2 + 60) }
     var lineUpPoint: CLLocationCoordinate2D { point(along: -runwayLengthM / 2 + 20) }

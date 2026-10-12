@@ -8,6 +8,7 @@ struct AboutSettingsView: View {
     @EnvironmentObject var dataStatusManager: DataStatusManager
     @EnvironmentObject var locationManager: LocationManager
     @EnvironmentObject var aircraftDataService: AircraftDataService
+    @EnvironmentObject var airportDataService: AirportDataService
 
     @Environment(\.openURL) private var openURL
 
@@ -318,6 +319,21 @@ struct AboutSettingsView: View {
                         await appState.loadRemoteChecklistIfNeeded(aircraftDataService: aircraftDataService)
                     }
                 }
+
+                #if DEBUG
+                // The dry run's world before free practice gives it an entry of its own (6.4.0, PR 5):
+                // circuits at LSZQ at 4×, a touch-and-go, a go-around, then full stops. END FLIGHT, or
+                // abandoning the flight, ends it.
+                SettingsButtonRow(icon: "airplane.circle", title: "Dry run: circuits at LSZQ (4×)",
+                                  tint: tint, showsChevron: false) {
+                    Task {
+                        await DryRunCenter.shared.beginCircuits(at: .lszq, settings: appState.settings,
+                                                                airports: airportDataService,
+                                                                isFlightActive: appState.isFlightActive, rate: 4,
+                                                                landings: [.touchAndGo, .goAround])
+                    }
+                }
+                #endif
 
                 // Temporary: fire a sample detected event so the restyled confirmation prompt can be
                 // verified without flying a pattern.

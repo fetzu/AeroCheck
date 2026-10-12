@@ -2211,6 +2211,7 @@ struct FlightInfoSheet: View {
     @State private var confirmEndFlight = false
     @State private var confirmAbandonFlight = false
     @ObservedObject private var companion = CompanionConnectivityManager.shared
+    @Environment(\.isDryRun) private var isDryRun
     @Environment(\.dismiss) var dismiss
     @State private var detent: PresentationDetent = .large  // open extended
 
@@ -2288,11 +2289,14 @@ struct FlightInfoSheet: View {
                         ))
                         rowDivider
                         toggleRow(L10n.Settings.alwaysUseUTC, optionBinding(\.alwaysUseUTC))
-                        rowDivider
                         // Companion mode only makes sense once a device is paired (pairing happens in
                         // the main Settings, not mid-flight). Show the toggle when paired; otherwise a
-                        // hint pointing to Settings. (companion — HUD gating)
-                        if companion.hasPairedDevices {
+                        // hint pointing to Settings. (companion — HUD gating) Never in a dry run: its
+                        // Companion is off (D8), and the toggle is the real app's. (6.4.0)
+                        if isDryRun {
+                            EmptyView()
+                        } else if companion.hasPairedDevices {
+                            rowDivider
                             // Toggle the second screen on/off without leaving the flight (e.g. the iPad
                             // pilot brings up the iPhone wingman mid-flight). Mirrors the main settings
                             // toggle: enabling auto-connects to a paired device, disabling tears down.
@@ -2306,6 +2310,7 @@ struct FlightInfoSheet: View {
                                 }
                             ))
                         } else {
+                            rowDivider
                             HStack(spacing: 8) {
                                 Image(systemName: "ipad.and.iphone")
                                     .font(.aero(size: 16))

@@ -22,6 +22,8 @@ struct ContentView: View {
     /// Guards the one-shot route-date sweep, so a later load cannot run it twice.
     @State private var hasSweptRouteDates = false
     @ObservedObject private var marketingProvider = MarketingLocationProvider.shared
+    /// A dry run's Cockpit covers the app while one runs. (6.4.0)
+    @ObservedObject private var dryRuns = DryRunCenter.shared
 
     var body: some View {
         GeometryReader { geometry in
@@ -246,6 +248,18 @@ struct ContentView: View {
                                                    airportDataService: airportDataService,
                                                    flightPlanManager: flightPlanManager,
                                                    threadManager: threadManager) { return }
+            // A dry run instead (`AEROCHECK_DRYRUN=lszq`, at `AEROCHECK_DRYRUN_SPEED`, 4 by default): its
+            // circuits at LSZQ from launch, for a check or a capture without a tap. (6.4.0)
+            if ProcessInfo.processInfo.environment["AEROCHECK_DRYRUN"]?.lowercased() == "lszq" {
+                if appState.needsDisclaimerAcceptance { appState.acceptDisclaimer() }
+                if !appState.hasSeenOnboarding { appState.completeOnboarding() }
+                let speed = ProcessInfo.processInfo.environment["AEROCHECK_DRYRUN_SPEED"].flatMap(Double.init) ?? 4
+                await DryRunCenter.shared.beginCircuits(at: .lszq, settings: appState.settings,
+                                                        airports: airportDataService,
+                                                        isFlightActive: appState.isFlightActive, rate: speed,
+                                                        landings: [.touchAndGo, .goAround])
+                return
+            }
             guard let key = ProcessInfo.processInfo.environment["AEROCHECK_SCENE"]?.lowercased() else { return }
             let scene: MarketingScene?
             switch key {
@@ -461,6 +475,10 @@ struct ContentView: View {
                 )
                 .presentationDetents([.large])
             }
+        }
+        // A dry run: the real Cockpit in a world of its own, over everything; it ends with its flight. (6.4.0)
+        .fullScreenCover(item: Binding(get: { dryRuns.session }, set: { if $0 == nil { dryRuns.end() } })) { session in
+            DryRunCockpitView(session: session)
         }
         .fullScreenCover(isPresented: Bindable(appState).showFlightLog) {
             FlightLogView()
@@ -890,7 +908,8 @@ private extension ContentView {
     var keepsScreenAwake: Bool {
         ScreenAwakeRule.keepsAwake(isFlightActive: appState.isFlightActive,
                                    companionRole: companionConnectivityManager.currentRole,
-                                   companionState: companionConnectivityManager.connectionState)
+                                   companionState: companionConnectivityManager.connectionState,
+                                   isDryRunning: dryRuns.isRunning)
     }
 }
 
@@ -898,10 +917,11 @@ private extension ContentView {
 /// lock mid-approach and one on the desk should (v6.0 · P7). And on a Companion iPhone while it shows the
 /// iPad's flight (`.connected`, or `.reconnecting` within the grace after a drop): it runs no flight of
 /// its own, so it locked after its auto-lock delay, was suspended, and the link went with it. (6.2.0)
+/// And during a dry run, flown as a flight is. (6.4.0)
 enum ScreenAwakeRule {
     static func keepsAwake(isFlightActive: Bool, companionRole: CompanionRole,
-                           companionState: CompanionConnectionState) -> Bool {
-        if isFlightActive { return true }
+                           companionState: CompanionConnectionState, isDryRunning: Bool = false) -> Bool {
+        if isFlightActive || isDryRunning { return true }
         return companionRole == .viewer && (companionState == .connected || companionState == .reconnecting)
     }
 }

@@ -21,6 +21,8 @@ struct FlightLauncher {
     /// as a condition of one — linking a followed flight is a consequence of departing, not a
     /// permission to depart. (v5.x)
     var threadManager: FlightThreadManager?
+    /// Whether a dry run is under way: no real flight starts under its Cockpit (the widget, a link). (6.4.0)
+    var isDryRunning: @MainActor () -> Bool = { DryRunCenter.shared.isRunning }
 
     /// The outcome of a launch attempt, so a caller can present the right follow-up.
     enum Outcome: Equatable {
@@ -86,8 +88,8 @@ struct FlightLauncher {
     @discardableResult
     func begin(circuitMode: Bool, followedFlightId: UUID? = nil, unplanned: Bool = false) async -> Outcome {
         // UX-06: never overwrite a running flight. Checked first so we don't reload the active
-        // checklist out from under a flight already in progress.
-        guard !appState.isFlightActive else { return .blockedActiveFlight }
+        // checklist out from under a flight already in progress. Nor start one during a dry run. (6.4.0)
+        guard !appState.isFlightActive, !isDryRunning() else { return .blockedActiveFlight }
 
         // UX-07: refuse an unowned premium aircraft up-front, and say why: AéroCheck Pro isn't active
         // (never bought, or lapsed). The alert offers the plans and a restore; it used to open the

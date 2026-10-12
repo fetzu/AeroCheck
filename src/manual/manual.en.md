@@ -51,13 +51,26 @@ Today keeps the same slots in the same places every day, filled or not.
 
 ### Choosing Your Aircraft
 
-Tap the aircraft on Today for the list of every aircraft you can fly: the free WT9 Dynamic, and each premium aircraft AéroCheck Pro unlocks that you have not hidden. Choose one to switch to it; **Speeds and details** opens the **Aircraft** tab.
+Tap the aircraft on Today for the list of every aircraft you can fly: the free WT9 Dynamic, and each premium aircraft AéroCheck Pro unlocks that you have not hidden. Choose one to switch to it; **Speeds and details** opens the **Aircraft** tab, and **Not listed? Send us its checklist** the request sheet (see [Sending an Aircraft's Checklist](#sending-an-aircrafts-checklist)).
 
-The **Aircraft** tab lists the same aircraft under **YOUR AIRCRAFT**. Below the list come the selected aircraft's **SPEED REFERENCE**, its **FUEL** (the usable fuel with full tanks, see [Fuel on Board](#fuel-on-board)), its **PLANNING** (the **Cruise speed** your plans fly, see [Cruise Speed and EET Allowances](#cruise-speed-and-eet-allowances)), a link to **AéroCheck Pro**, and **Aircraft Visibility**, which opens Settings to show or hide aircraft one by one or by aeroclub.
+The **Aircraft** tab lists the same aircraft under **YOUR AIRCRAFT**, the last row being **Send us an aircraft's checklist**, and the requests you sent under **Your requests**. Then come the selected aircraft's **SPEED REFERENCE**, its **FUEL** (the usable fuel with full tanks, see [Fuel on Board](#fuel-on-board)), its **PLANNING** (the **Cruise speed** your plans fly, see [Cruise Speed and EET Allowances](#cruise-speed-and-eet-allowances)), a link to **AéroCheck Pro**, and **Aircraft Visibility**, which opens Settings to show or hide aircraft one by one or by aeroclub.
 
 Selecting a premium aircraft loads its checklist in the background, so it is ready before you start.
 
-Your aircraft isn't in the list, or its checklist is older than the club's? Send the club's checklist from [aerocheck.app/send](/send): the registration first (one AéroCheck already has becomes an update), then the document as a PDF or photos of its pages. The club confirms before the aircraft goes live, and it joins AéroCheck Pro like the others; [aerocheck.app/clubs](/clubs) has the rest.
+Your aircraft isn't in the list, or its checklist is older than the club's? Send the club's checklist, from the app (below) or from [aerocheck.app/send](/send). The club confirms before the aircraft goes live, and it joins AéroCheck Pro like the others; [aerocheck.app/clubs](/clubs) has the rest.
+
+### Sending an Aircraft's Checklist
+
+The app sends a club's checklist as [aerocheck.app/send](/send) does, with the same form in the same words. It opens from the **Aircraft** tab (**Send us an aircraft's checklist**, also in **Settings › Aircraft & Subscription**), from the aircraft menu on Today (**Not listed? Send us its checklist**), and from the line under what AéroCheck Pro unlocks on its page (**Can't find your aircraft? Send us its checklist**).
+
+- **The registration** first, then **Look it up**: one AéroCheck already has makes the request an update (the club's new revision replaces the checklist the app has), any other a new aircraft, with its type and the other registrations the same checklist covers. The rest of the form opens after the lookup.
+- The club (left empty for a privately owned aircraft), then **Who sends it**: **For the club**, or **As a pilot**, with the club's contact, whom AéroCheck asks to confirm (or "I don't know it", and the request waits for the club's OK until someone adds it).
+- **The checklist**: **Scan** (the document scanner, one PDF), **Photos** or **Files** (PDF, JPEG, PNG or HEIC), up to 4 files, 10 MB each and 25 MB in all. A photo is sent without the position it may carry. Then its language: English, French, German or Italian, or another one typed.
+- **You**: your name (optional) and e-mail, both remembered on the device for the next request, and your notes. Then the two statements to tick.
+
+Above **Send the request**, "A quick check that you're not a robot" runs the website's own Cloudflare check in a small web view; it usually needs nothing from you. Each file then goes up with its progress (an upload that stops goes on from that file when you try again), and the sheet ends on the ticket ("Sent: AC-2610-001"), what happens next and **Your request's page**, whose link also comes by e-mail.
+
+**Your requests**, in the Aircraft tab (and in **Settings › Aircraft & Subscription**) once you have sent one, gives each request its ticket and where it stands, in the website's words: Received, Accepted, In preparation, Proofreading, In testing, Live, Need info, Declined or Duplicate. A tap opens the request's page, with its history; touch and hold for **Remove from this list**. A closed request leaves the list by itself a month later. The statuses are read when the app opens or comes to the foreground, at most every three hours and never during a flight: nothing runs in the background. The first time a request reads Live, a notification says so ("HB-ABC is in AéroCheck"); a tap on it opens the Aircraft tab, its list of aircraft fetched again so the new one is there.
 
 ### Starting a Flight
 
@@ -152,7 +165,7 @@ From there on it is the 16 phases; see [The Cockpit](#the-cockpit) and [The Map]
 
 After **END FLIGHT**, the flight moves to CLOSE-OUT.
 
-- **Close the ATC flight plan**: only if you ticked **ATC flight plan filed**. It is the one task with a search-and-rescue consequence: if the plan was not closed on arrival, Zurich RCC is alerted 30 minutes after your ETA. So the flight's page opens on a red card, **Close your ATC flight plan**, with **Call 0800 437 837** and **Mark closed**; the Today tab shows a badge; and a notification comes about two minutes after END FLIGHT, or 15 minutes after a detected full-stop landing if you have not ended the flight (with the app open before At the Hangar, it waits in Notification Center: see [Notifications](#notifications)). If you landed somewhere other than planned, the card tells you which aerodrome to give the FIC.
+- **Close the ATC flight plan**: only if you ticked **ATC flight plan filed**. It is the one task with a search-and-rescue consequence: if the plan was not closed on arrival, Zurich RCC is alerted 30 minutes after your ETA. So the flight's page opens on a red card, **Close your ATC flight plan**, with **Call 0800 437 837** and **Mark closed**; the Today tab shows a badge; and a notification comes about two minutes after END FLIGHT, or 15 minutes after a full-stop landing if you have not ended the flight, whether the app detected the landing or you counted it (with the app open before At the Hangar, it waits in Notification Center: see [Notifications](#notifications)). If you landed somewhere other than planned, the card tells you which aerodrome to give the FIC.
 - **Logbook entry**: **Logbook line** opens **Logbook & costs** for the recorded flight; see [Logbook & Costs](#logbook--costs).
 - **Fees**: the landing fee, when your destination has one. **Flight cost** opens the cost of the flight, **Operator's tariff** the operator's own tariff page, where AéroCheck knows it, and **Official chart** the aerodrome's chart. It appears only when cost tracking is on.
 - **Debrief**: a note to yourself.
@@ -214,9 +227,9 @@ If you land somewhere other than planned, the flight's page says so ("Landed at 
 
 ### Notifications
 
-AéroCheck sends exactly two kinds of local notification: the **preparation reminder** the day before a dated flight, and the **reminder to close the ATC flight plan** after landing, when one was filed. Permission is asked when you first follow a flight. Nothing else notifies.
+AéroCheck sends exactly three kinds of local notification: the **preparation reminder** the day before a dated flight, the **reminder to close the ATC flight plan** after landing, when one was filed, and, once per request, the notice that an aircraft whose checklist you sent is in AéroCheck ("HB-ABC is in AéroCheck", see [Sending an Aircraft's Checklist](#sending-an-aircrafts-checklist)). Permission is asked when you first follow a flight, or right after you send a request. Nothing else notifies.
 
-In flight, with the app open, neither interrupts you: outside Preflight and At the Hangar, a notification goes to Notification Center only, and shows as a banner once the flight gets to At the Hangar or ends, unless you have opened or cleared it meanwhile. With the app in the background, they show as usual. A reminder tapped during a flight opens its flight's page, to read; the flight you are flying stays the one AéroCheck follows.
+In flight, with the app open, none of them interrupts you: outside Preflight and At the Hangar, a notification goes to Notification Center only, and shows as a banner once the flight gets to At the Hangar or ends, unless you have opened or cleared it meanwhile. With the app in the background, they show as usual. A reminder tapped during a flight opens its flight's page, to read; the flight you are flying stays the one AéroCheck follows.
 
 ---
 
@@ -277,7 +290,7 @@ Routes export as **GPX** for Dynon, Garmin and other avionics, and as JSON. The 
 
 ## The Cockpit
 
-In flight, AéroCheck shows one screen: the **Cockpit**. It is built for an iPad in portrait on a kneeboard, read from about 55 cm, and the iPhone shows the same Cockpit, sized for the phone (see [The iPhone](#the-iphone)). The screen stays on while a flight runs, and only then.
+In flight, AéroCheck shows one screen: the **Cockpit**. It is built for an iPad in portrait on a kneeboard, read from about 55 cm, and the iPhone shows the same Cockpit, sized for the phone (see [The iPhone](#the-iphone)). The screen stays on while a flight runs, and on a Companion iPhone while it is connected to the iPad (see [Companion Mode](#companion-mode)); otherwise it sleeps as usual.
 
 ### Three Zones
 
@@ -295,18 +308,18 @@ Colours keep one meaning in flight: cyan for what you can touch, magenta for the
 
 On the iPad, one row:
 
-- **The registration**, with "(for circuits)" and the touch-and-go and go-around counts in circuit mode. Touch and hold it to abandon the flight (see [Ending or Abandoning a Flight](#ending-or-abandoning-a-flight)).
-- **The phase** and its place ("CRUISE CHECK 10/16"). Tap it for **Select Phase**, the list of all 16 phases with their status and each one's page in the paper checklist.
+- **The registration**. Touch and hold it to abandon the flight (see [Ending or Abandoning a Flight](#ending-or-abandoning-a-flight)).
+- **The phase** and its place ("CRUISE CHECK 10/16"; in circuit mode, the lap instead, "↻ 4"). Tap it for **Select Phase**, the list of all 16 phases with their status and each one's page in the paper checklist.
 - **The flight time**, counted from ENGINE START.
 - **GPS**, in the colour of its status: green good, orange degraded, red lost or not recording (see [GPS Indicators](#gps-indicators)). Tap it for the **GPS Status** drawer: the signal and why it is degraded or lost, the accuracy, the time of the fix, the altitude, the position (tap it to copy) and the points recorded. When location access is limited to "While Using the App", the drawer says so. On the Companion iPhone's GPS, it reads **GPS · iPhone**.
 - **Menu**: see [The Menu](#the-menu).
 - An iPhone icon appears while a companion is connected.
 
-On the iPhone, the header is the phase button and **Menu** alone; the flight time, the circuit's counts and **Abandon Flight** are in the Menu (see [The Cockpit on the Phone](#the-cockpit-on-the-phone)).
+On the iPhone, the header is the phase button (with the lap at its right end in circuit mode) and **Menu** alone; the flight time, the circuit's counts and **Abandon Flight** are in the Menu (see [The Cockpit on the Phone](#the-cockpit-on-the-phone)).
 
 ### The Phase Bar
 
-Under the header, one segment per phase: the current one taller, the others coloured by their status (green done, or outlined in green for a landing check confirmed after the landing; orange skipped; red when a required ENGINE START or ENGINE SHUTDOWN was not pressed; amber for a check owed, for Cruise while FREDA is due, or for a landing check you were not sure of; grey not started). Tap a segment to jump to that phase (on the iPhone, the bar is drawn inside the phase button: a phase is picked by its name in **Select Phase**). A jump forward leaves the phases behind it the way NEXT does: they turn orange, and their unchecked items go on the [deferred list](#deferred-items-and-next). Coming back to a phase takes its open items off that list again. In circuit mode, a bracket with ↻ marks the phases that repeat each lap (Climb to Landing), and Cruise and Descent are left out.
+Under the header, one segment per phase: the current one taller, the others coloured by their status (green done, or outlined in green for a landing check confirmed after the landing; orange skipped; red when a required ENGINE START or ENGINE SHUTDOWN was not pressed; amber for a check owed, for Cruise while FREDA is due, or for a landing check you were not sure of; grey not started). Tap a segment to jump to that phase (on the iPhone, the bar is drawn inside the phase button: a phase is picked by its name in **Select Phase**). A jump forward leaves the phases behind it the way NEXT does: they turn orange, and their unchecked items go on the [deferred list](#deferred-items-and-next). Coming back to a phase takes its open items off that list again. In circuit mode, Cruise and Descent are left out, and two brackets with ↻ mark the loops a lap flies again, each with its count: over the bar, the touch-and-go loop (Climb to Landing, with the touch-and-goes); under it, the full-stop loop (Before Departure to After Landing, with the full stops). The current lap's loop is drawn full, the other faint. On the iPhone, the bar in the phase button has a mark under the current loop's phases instead.
 
 ### The Instrument Strip
 
@@ -319,7 +332,7 @@ From Taxi to After Landing, whenever the aircraft moves, the strip shows:
 
 On the iPhone, NEXT is a line of its own under the strip (see [The Cockpit on the Phone](#the-cockpit-on-the-phone)).
 
-Ground speed is not the airspeed your panel shows (a head- or tailwind shifts it), and the app has no pitot or angle-of-attack source: it deliberately shows **no estimated airspeed and no stall warning**. Fly the aircraft's certified airspeed indicator. When the GPS degrades, a failure flag covers the values; when it is lost (no position for 45 seconds), only the flag remains, so a silent dropout is never mistaken for a valid reading.
+Ground speed is not the airspeed your panel shows (a head- or tailwind shifts it), and the app has no pitot or angle-of-attack source: it deliberately shows **no estimated airspeed and no stall warning**. Fly the aircraft's certified airspeed indicator. When the GPS degrades, a failure flag covers the values; when it is lost (no position for 45 seconds), only the flag remains, so a silent dropout is never mistaken for a valid reading. A flight whose track is not recording (no location access, for one) shows the lost flag too, whatever the signal, on every page of both devices.
 
 ### NOW and NEXT
 
@@ -362,7 +375,7 @@ NEXT with items still open lists them first ("3 items not checked", with the pha
 
 Deferred items follow you until you check them. On CHECKLIST, the amber chip with their number, at the top of the list, opens **Deferred items**, phase by phase, each with its own **CHECK**. On MAP and ROUTE, **More** opens the same list ("2 deferred items"). A skipped phase turns green once its last deferred item is checked; a phase missing its ENGINE START or ENGINE SHUTDOWN stays red.
 
-In circuit mode, a go-around, a touch-and-go or a full stop starts the repeated phases clean, their deferred items included: what you put off on the last lap is asked again on this one.
+In circuit mode, a go-around or a touch-and-go starts the checks from Climb on clean, and NEW CIRCUIT those from the check before departure to After Landing, their deferred items included: what you put off on the last lap is asked again on this one.
 
 ### When a Check Is Due
 
@@ -405,7 +418,7 @@ FREDA stops at the descent; one that was due and not done is logged as missed. T
 
 After a full-stop landing (outside circuit mode), the landed card comes up over the Cockpit: "LANDED · LSZQ · 14:44 · Was the landing check done before touchdown?", with **YES, IT WAS DONE** and **NOT SURE**. Yes records the landing check as confirmed after the landing (outlined in green on the phase bar); Not sure puts it in the debrief, in amber. Either way the full stop is logged at the touchdown and the checklist goes on to After Landing. When the landing check was done before touchdown, the card says so and offers **NEXT: AFTER LANDING CHECK**.
 
-The card waits for an answer, however long the taxi off the runway takes, and goes by itself only on the next take-off roll. The Companion iPhone can answer it too. In circuit mode, a full stop brings the full-stop card instead (see [Circuit Mode](#circuit-mode)).
+The card waits for an answer, however long the taxi off the runway takes, and goes by itself only on the next take-off roll. The Companion iPhone can answer it too. In circuit mode, a full stop brings the full-stop card instead, whose **Confirm** goes on to After Landing as well (see [Circuit Mode](#circuit-mode)).
 
 ### Memory Test
 
@@ -426,20 +439,21 @@ The act band is the four slots at the foot of the Cockpit, under every page. The
 - **CHECKLIST**: **ENGINE START** in Engine Start, **ENGINE SHUTDOWN** in Engine Shutdown, **FREDA** in Cruise, the [check slot](#the-check-slot) in every other phase; then **CHECK** with the current item; **DEFER** (dimmed when there is nothing to defer); and **More**.
 - **MAP and ROUTE**: the check slot; **START LEG**, then **MARK** with the waypoint and the leg timer (see [Leg Timer and MARK](#leg-timer-and-mark)), or **Routes** without a route; **Divert** (amber while you divert, dimmed without a route or once it is flown); and **More**.
 - **MAP and ROUTE, in Approach and Landing, and from circuit height**: the check slot; **GO AROUND**; **TOUCH-AND-GO**; and **More**, with **Divert** inside.
+- **In circuit mode, once the after landing check is done**: the check slot offers the parking check, and **NEW CIRCUIT** takes the second slot on every page (NEXT's place on CHECKLIST, MARK's on MAP and ROUTE), with "then CHECK BEFORE DEPARTURE" under it. See [Circuit Mode](#circuit-mode).
 
 **More** holds what you need less often: **Divert** where the third slot holds something else (on CHECKLIST, and from the approach), the leg timer's pause or start and **Reset chronometer**, **Legs and frequencies** (it opens ROUTE), the deferred items on MAP and ROUTE ("2 deferred items"), on MAP **Show the whole route** and, with SIGMETs in range, **Hazards (2)**, **V-SPEEDS** on the iPhone, and **Routes**.
 
 If you flew with 6.1, three things moved: CHECK is the second slot, no longer at the right end of the bar; the map's legs and frequencies panel is now the ROUTE page; and the deferred count on MAP and ROUTE, and V-SPEEDS on the iPhone, are in More.
 
-On the iPhone, the band is one line of words: no icons and no second lines, the first three slots as wide and **More** the narrow one at the right end. On MAP and ROUTE it reads, for instance, **CRUISE · MARK · Divert · More**; on CHECKLIST in cruise, **FREDA · CHECK · DEFER · More**. The check slot shows the check's word, MARK says **MARK** alone (the waypoint is the read band's next line, the leg time is on ROUTE), and the long names are shortened: **DONE** for a check from memory, **NEXT**, **READY** for READY FOR LINE UP, **START** and **SHUTDOWN** for ENGINE START and ENGINE SHUTDOWN. GO AROUND and TOUCH-AND-GO take one line each, with no **Hold to confirm** under them; the hold is still 1 second. A word too long for its slot is set smaller, never cut, and VoiceOver still reads the whole names.
+On the iPhone, the band is one line of words: no icons and no second lines, the first three slots as wide and **More** the narrow one at the right end. On MAP and ROUTE it reads, for instance, **CRUISE · MARK · Divert · More**; on CHECKLIST in cruise, **FREDA · CHECK · DEFER · More**. The check slot shows the check's word, MARK says **MARK** alone (the waypoint is the read band's next line, the leg time is on ROUTE), and the long names are shortened: **DONE** for a check from memory, **NEXT**, **READY** for READY FOR LINE UP, **START** and **SHUTDOWN** for ENGINE START and ENGINE SHUTDOWN, **↻ CIRCUIT** for NEW CIRCUIT. GO AROUND and TOUCH-AND-GO take one line each, with no **Hold to confirm** under them and no count; the hold is still 1 second. A word too long for its slot is set smaller, never cut, and VoiceOver still reads the whole names.
 
 Each phase's own buttons are in the checklist's language:
 
 - **ENGINE START** (Engine Start) and **ENGINE SHUTDOWN** (Shutdown): a tap records the time. Once it is recorded, hold the button 1.5 s to change it; AéroCheck asks first.
 - **READY FOR LINE UP** is the NEXT of Before Departure: with every item checked, the second slot reads READY FOR LINE UP, with "then LINE UP CHECK" under it. The tap records the line-up time and goes on to Line Up. The ETOs count from the line-up until the take-off shows in the track (within about 30 seconds of lift-off), then from the take-off.
 - **FREDA** (Cruise): see [FREDA](#freda).
-- On CHECKLIST, in **Landing**, **GO AROUND** and **TOUCH-AND-GO** sit above the act band, and in **After Landing**, **FULL STOP LANDING**. On MAP and ROUTE, GO AROUND and TOUCH-AND-GO are the second and third slots from the approach on. Each needs a 1-second hold (**Hold to confirm**), so a stray touch cannot fire it, and shows its count. A go-around or a touch-and-go takes the checklist back to Climb.
-- In circuit mode, **GO AROUND** and **TOUCH-AND-GO** are single taps instead, to correct a missed detection at once.
+- On CHECKLIST, in **Landing**, **GO AROUND** and **TOUCH-AND-GO** sit above the act band, and in **After Landing**, **FULL STOP LANDING**. On MAP and ROUTE, GO AROUND and TOUCH-AND-GO are the second and third slots from the approach on. Each needs a 1-second hold (**Hold to confirm**), so a stray touch cannot fire it. On CHECKLIST each shows its count beside its name once there is one; on MAP and ROUTE only the iPad's GO AROUND does (TOUCH-AND-GO's narrow slot and the iPhone's band have the name alone). A go-around or a touch-and-go takes the checklist back to Climb.
+- In circuit mode, **GO AROUND** and **TOUCH-AND-GO** are single taps instead, to correct a missed detection at once, and show no count (the counts are on the iPad's phase bar and in the Menu).
 - **END FLIGHT** takes NEXT's place once the last phase is checked.
 
 When **Log Engine Hours** is on (**Settings › Checklist & Flight**), the checklist offers the hour meter at the end of Before Engine Start and in Engine Start (it asks by itself on entering Engine Start if you have not entered it yet), and again after ENGINE SHUTDOWN, in Shutdown and At the Hangar.
@@ -450,7 +464,7 @@ When **Log Engine Hours** is on (**Settings › Checklist & Flight**), the check
 
 - **The DEST line**: **DEST** and the destination, then the distance still to fly, the ETE and the ETA over the destination, and how far ahead of the plan (▲, green) or behind it (▼, amber) you are, in whole minutes (±0 on time). On the iPad it is one line; on the iPhone too, without the ETA ("DEST LSZB 52 NM · 30 min ▲3"), a long name set smaller rather than cut.
 - **The route to scale**, under it, on the iPad: a bar as long as the route, filled as far as you have flown, with a notch at each waypoint where it lies along the route (the next one magenta and taller), and the aircraft where it is. The iPhone has none.
-- **LEGS** and **RADIO**, each scrolling on its own: side by side on the iPad; on the iPhone, one at a time: a **LEGS | RADIO** switch under the DEST line picks the list, which takes the page down to Emergency (ROUTE opens on LEGS, from CHECKLIST · MAP · ROUTE too). LEGS opens on the leg being flown and brings it back into view at each MARK. Each leg, on the row of the waypoint it leads to, gives its planned time, the time flown (the leg timer on the leg being flown; from one time over to the next on a leg flown) and how far ahead (▲) or over (▼) you are; on the iPhone, each leg is one line, a long name set smaller, never cut. RADIO lists every frequency in the order you will use it: NOW and NEXT, tagged; the aerodrome you are at, with its ATIS; the diversion field; the stations of the route from the waypoint you are flying to onward (the aerodromes passed are dropped); the FIS where you are, then that of each area the way ahead enters, in the order it enters them (Zürich Info, then Geneva Info from LSZQ to LSGE); and the control zones within 25 NM. Without a route, RADIO takes the whole page.
+- **LEGS** and **RADIO**, each scrolling on its own: side by side on the iPad; on the iPhone, one at a time: a **LEGS | RADIO** switch under the DEST line picks the list, which takes the page down to Emergency (ROUTE opens on LEGS, from CHECKLIST · MAP · ROUTE too). LEGS opens on the leg being flown and brings it back into view at each MARK. Each leg, on the row of the waypoint it leads to, gives its planned time, the time flown (the leg timer on the leg being flown; from one time over to the next on a leg flown) and how far ahead (▲) or over (▼) you are, a leg of an hour or more as "1h05"; on the iPhone, each leg is one line, a long name set smaller, never cut. RADIO lists every frequency in the order you will use it: NOW and NEXT, tagged; the aerodrome you are at, with its ATIS; the diversion field; the stations of the route from the waypoint you are flying to onward (the aerodromes passed are dropped); the FIS where you are, then that of each area the way ahead enters, in the order it enters them (Zürich Info, then Geneva Info from LSZQ to LSGE); and the control zones within 25 NM. Without a route, RADIO takes the whole page.
 - **Emergency**, 121.500, under both, always whole.
 
 The DEST line's ETE is NEXT's (the leg being flown, at the current ground speed) plus the planned EETs of the legs after it, to overhead the destination without the arrival allowance; ▲ or ▼ compares the ETA with the plan's time over the destination. Below 30 kt or without a GPS position, there is no ETE, ETA or ▲/▼: the line gives the plan's time over the destination instead ("ETO 11:55"). Once the destination is marked, it keeps the final ▲ or ▼.
@@ -466,7 +480,7 @@ The act band on ROUTE is MAP's: the check slot, START LEG or MARK, Divert and Mo
 **Menu**, at the right of the header, opens:
 
 - **DISPLAY**: the **Cockpit theme**, **Auto**, **Day** or **Night** (Night dims to red to protect your night vision; Auto follows the device's appearance), and **High contrast in sunlight**, which switches to a high-contrast palette while the screen is near full brightness (the app cannot read the ambient light, so brightness is the signal).
-- **OPTIONS**: **Memory test**, **Always Use UTC Times**, and **Enable Companion Mode** once a device is paired.
+- **OPTIONS**: **Circuits** (on and off during the flight, see [Circuit Mode](#circuit-mode)), **Memory test**, **Always Use UTC Times**, and **Enable Companion Mode** once a device is paired.
 - **GPS STATUS**: the signal and the points recorded.
 - **FLIGHT TIMES**: the **Flight time**, running since ENGINE START, then engine start, take-off, landing and shutdown, as recorded.
 - **CIRCUITS**, in circuit mode: the touch-and-goes, the full stops and the go-arounds.
@@ -498,7 +512,7 @@ AéroCheck covers every phase of flight:
 15. Engine Shutdown
 16. At the Hangar
 
-In circuit mode, Cruise and Descent are skipped.
+In circuit mode, Cruise and Descent are skipped. **Select Phase** keeps them, dimmed and marked "skipped in circuits", and a tap on either asks "Leave circuits?" (see [Circuit Mode](#circuit-mode)).
 
 ### Ending or Abandoning a Flight
 
@@ -514,9 +528,9 @@ The map is the same chart in two places: the **MAP** page of the Cockpit, and **
 
 ### The Next Waypoint
 
-In the Cockpit, the next waypoint is NEXT, in the read band (see [The Instrument Strip](#the-instrument-strip)). In **Plan › Map**, with a route on the map, it sits on top of the chart: its name in magenta, then **BRG**, **DIST** (NM), **ETE** and **ETA**, as a card on the iPad and one line on the iPhone. Tap it, or NOW | NEXT at the foot of the map, for every leg and every frequency: the panel opens under the chart, which clears its controls and frames the aircraft and the next waypoint. A tap on the chart closes the panel and puts the map back as it was.
+In the Cockpit, the next waypoint is NEXT, in the read band (see [The Instrument Strip](#the-instrument-strip)). In **Plan › Map**, with a route on the map, it sits on top of the chart: its name in magenta, then **BRG**, **DIST** (NM), **ETE** and **ETA**, as a card on the iPad and one line on the iPhone. Tap it, or NOW | NEXT at the foot of the map, for every leg and every frequency: the panel opens under the chart, which clears its controls and frames the leg to the next waypoint. A tap on the chart closes the panel and puts the map back as it was.
 
-The panel opens with ROUTE's DEST line and, on the iPad, the route to scale (see [The Route Page](#the-route-page)), then the legs, each with its planned leg time at the right, and the frequencies. Tap a waypoint to look at it on the map; for one ahead (or any, while you divert), **Direct** and its name then span the panel under the legs, over Emergency, and fly you straight to it.
+The panel opens with ROUTE's DEST line, on one line (see [The Route Page](#the-route-page)), then the legs, each with its planned leg time at the right ("1h05" for an hour or more), and the frequencies. On the iPad, each leg also has its distance under its name, with a bar to the route's scale, the longest leg the widest: you see how the waypoints split the route (the route to scale stays on ROUTE). Tap a waypoint to look at its leg on the map: the leg ending there, both ends in view, at least 3 NM across, wherever the device itself is. Plan › Map has no **Direct**: nothing is flown before the flight exists (in flight, a leg shown from ROUTE keeps its Direct).
 
 If none of the route is on screen, a pill says where it is ("Route 12 NM · 045°"); **Show** frames it. In the Cockpit, the arrow at the chart's edge, OFF ROUTE and **Show the whole route** in More say the same.
 
@@ -644,7 +658,7 @@ The iPhone flies with the same Cockpit as the iPad: the same zones, in the same 
 
 ### The Cockpit on the Phone
 
-- **The header, on one row**: the phase button, with the phase bar drawn inside, and **Menu**. A tap on the phase opens **Select Phase**, which is where a phase is picked on the phone (the iPad keeps its bar of segments to tap). The registration, the flight time and the GPS icon are not there: the Menu has the running flight time, the circuit's counts and **Abandon Flight** (see [The Menu](#the-menu)), and a GPS problem shows in the strip's flags and in MAP's status slot.
+- **The header, on one row**: the phase button, with the phase bar drawn inside (and the lap at its right end in circuit mode), and **Menu**. A tap on the phase opens **Select Phase**, which is where a phase is picked on the phone (the iPad keeps its bar of segments to tap). The registration, the flight time and the GPS icon are not there: the Menu has the running flight time, the circuit's counts and **Abandon Flight** (see [The Menu](#the-menu)), and a GPS problem shows in the strip's flags and in MAP's status slot.
 - **The strip** has three cells, GS, ALT and TRK (a tap on GS opens V-SPEEDS; the vertical speed sits beside ALT's label). Under it, one card holds the **next line** (the waypoint's name in magenta, framed in amber while you divert, then its distance and its ETE) and the **NOW line** (NOW's frequency and station). The bearing and the ETA are on ROUTE. A tap on the next line opens ROUTE on LEGS, a tap on the NOW line opens it on RADIO, where NEXT's frequency is too. The next line comes and goes with the strip; the NOW line is there in every phase.
 - **CHECKLIST · MAP · ROUTE** runs across the width, slim (the words alone where their icons do not fit). **V-SPEEDS** is in **More**, and behind a tap on GS. At the top of CHECKLIST, the deferred count, **BRIEFING** and **NEXT** appear only while they apply.
 - **The act band** has the iPad's four slots, one line of words tall: the first three as wide, **More** narrow at the right end, no icons and no second lines (**CRUISE · MARK · Divert · More** on MAP and ROUTE; see [The Act Band](#the-act-band)). A word too long for its slot is set smaller rather than cut. A tap anywhere on the list checks the current item too.
@@ -703,7 +717,7 @@ AéroCheck automatically records the key timestamps of your flight:
 
 ### Flight Events
 
-The app detects **take-offs**, **go-arounds**, **touch-and-goes** and **full-stop landings** from GPS altitude and speed and, on devices with a barometer, relative pressure altitude. A take-off is logged without asking. A go-around or a touch-and-go comes up as a card ("Go-around detected at LSZQ") with **Dismiss** and **Confirm**; it goes away by itself after 20 seconds and never confirms itself, so a detection is never logged against your wishes. A full stop brings [the landed card](#the-landed-card), or in circuit mode the full-stop card, whose **Confirm** makes it a stop-and-go (see [Circuit Mode](#circuit-mode)).
+The app detects **take-offs**, **go-arounds**, **touch-and-goes** and **full-stop landings** from GPS altitude and speed and, on devices with a barometer, relative pressure altitude. A take-off is logged without asking. A go-around or a touch-and-go comes up as a card ("Go-around detected at LSZQ") with **Dismiss** and **Confirm**; it goes away by itself after 20 seconds and never confirms itself, so a detection is never logged against your wishes. A full stop brings [the landed card](#the-landed-card), or in circuit mode the full-stop card, which waits for **Dismiss** or **Confirm** (see [Circuit Mode](#circuit-mode)).
 
 ### Post-Flight Review
 
@@ -719,7 +733,7 @@ Open the **Logbook** tab to review flights. Each one is titled by its route ("LS
 
 - **FLIGHT TRACK**: an interactive map of your flight track
 - An altitude (and speed) profile chart
-- **TIMELINE**: every event, in order
+- **TIMELINE**: every event, in order, with a row and its time for each touch-and-go, go-around and full stop between the take-off and the landing: **Stop-and-go** for a full stop back at an aerodrome of the flight (within 2 NM of the take-off, of an earlier full stop or of the landing), **Stop** for one anywhere else
 - **CHECKS**: the debrief, see [Checks](#checks)
 - Engine hours (if logged), **PLAN vs ACTUAL**, the flight's name and notes
 - **Nav Log**, **Logbook & costs** (see below), **Export** and **Share card**
@@ -736,7 +750,7 @@ The Logbook spots a trend: from three flights with checks, **CHECKS · LAST 10 F
 
 From a flight's detail in the Logbook, or from a flight's CLOSE chapter, **Logbook & costs** holds three things.
 
-**The logbook line.** A draft of the line an EASA Part-FCL logbook wants for this flight, per **AMC1 FCL.050**: date, departure and arrival with **UTC** block times, aircraft, single-engine and total time, PIC, landings, night and IFR time, function time, remarks. Dates, places, times and landings come from the recorded flight. **Function time is a judgment** the app cannot make from a flight, so it defaults from a signal — an instructor named on the flight, or [student mode](#student-pilots) — and is yours to change with **Edit**, together with the PIC name, night landings, night and IFR time (deliberately **not computed**: a plausible wrong number in a logbook column is worse than an empty one you fill in) and remarks.
+**The logbook line.** A draft of the line an EASA Part-FCL logbook wants for this flight, per **AMC1 FCL.050**: date, departure and arrival with **UTC** block times, aircraft, single-engine and total time, PIC, landings, night and IFR time, function time, remarks. Dates, places, times and landings come from the recorded flight, and the remarks name the touch-and-goes, go-arounds and stop-and-goes ("1 touch-and-go, 1 go-around, 2 stop-and-goes") until you write your own. **Function time is a judgment** the app cannot make from a flight, so it defaults from a signal (an instructor named on the flight, or [student mode](#student-pilots)) and is yours to change with **Edit**, together with the PIC name, night landings, night and IFR time (deliberately **not computed**: a plausible wrong number in a logbook column is worse than an empty one you fill in) and remarks.
 
 **Logbook row** lays the same values out as your paper logbook's own twelve column groups, to copy from; **Copy line** and **Export CSV** hand them over as text; and **Export logbook PDF** in the Logbook renders any selection of flights as logbook pages with page and carried-forward totals. AéroCheck is not a logbook of record and every page says so.
 
@@ -781,16 +795,16 @@ When the watch has had nothing from the phone for five seconds (out of range, fo
 
 The first time a phone wants to drive the iPad's flight (its checklist and waypoints, a diversion, or its GPS position), the iPad asks: **Allow companion control?**, with **Allow for This Flight**, **Always Allow** (on this iPad, until you **Forget** the phone or tap **Ask Each Flight** in Settings) and **Don't Allow**.
 
-The companion viewer has two screens, **NAV** and **CHECKLIST**, under the read band of the phone's Cockpit: the strip (GS, ALT, TRK), the next line (with an arrow that shows where the waypoint lies from your track, amber while you divert) and NOW | NEXT, the iPad's two frequencies side by side. It shows the checklist on the ground and NAV once airborne, until you tap one; a tap on the next line or on NOW | NEXT shows NAV.
+The companion viewer has two screens, **NAV** and **CHECKLIST**, under the read band of the phone's Cockpit: the strip (GS, ALT, TRK), the next line (with an arrow that shows where the waypoint lies from your track, amber while you divert) and NOW | NEXT, the iPad's two frequencies side by side. It shows the checklist on the ground and NAV once airborne, until you tap one; a tap on the next line or on NOW | NEXT shows NAV, and a tap on NAV's check slot that sends the iPad on to the next check shows CHECKLIST once the iPad is there (unless that check is from memory).
 
-- **NAV** is the phone's ROUTE page, drawn from what the iPad sends: the DEST line, the legs and the radio in one scroll, Emergency under it (see [The Route Page](#the-route-page)), and the act band at the foot. Its four slots: the iPad's [check slot](#the-check-slot), which takes the same one tap as on the iPad; **START LEG**, then **MARK** with the waypoint and the leg time, which marks the waypoint on the iPad and starts its next leg; **Divert** (below); and **More**, to start the leg timer again after a pause, **Reset chronometer**, or open the **Nav Log** (the leg to each waypoint, MC and NM, its ETO and its ATO; tap an empty ATO to record it now). RADIO lists what the iPad sends: NOW, NEXT, the diversion field and the frequencies typed for the waypoints ahead. A leg's row does nothing here (the phone has no map to show it on), and a MARK from the phone has no UNDO.
-- **CHECKLIST**: a mirror of the master's checklist.
+- **NAV** is the phone's ROUTE page, drawn from what the iPad sends: the DEST line, the legs and the radio in one scroll, Emergency under it (see [The Route Page](#the-route-page)), and the act band at the foot. Its four slots: the iPad's [check slot](#the-check-slot), which takes the same one tap as on the iPad; **START LEG**, then **MARK** with the waypoint and the leg time, which marks the waypoint on the iPad and starts its next leg; **Divert** (below); and **More**, to start the leg timer again after a pause, **Reset chronometer**, or open the **Nav Log** (the leg to each waypoint, MC and NM, its ETO and its ATO; tap an empty ATO to record it now). RADIO lists what the iPad sends: NOW, NEXT, the diversion field and the frequencies typed for the waypoints ahead. A leg's row does nothing here (the phone has no map to show it on), and a MARK from the phone has no UNDO. At the end of a circuits flight's after landing check, **NEW CIRCUIT** takes MARK's place.
+- **CHECKLIST**: a mirror of the master's checklist. At the end of a circuits flight's after landing check, **NEXT: PARKING CHECK** and **NEW CIRCUIT** sit side by side. NEW CIRCUIT needs 6.3.0 on both devices; otherwise the phone keeps NEXT.
 
 **Divert** on the phone lists the nearest aerodromes from the phone's own airport data (up to 8, within 60 NM), with their bearing and distance, and a search field. Tap one, then **DIVERT TO** it (**DIRECT TO** for the route's destination), or **Resume route** while you divert: the iPad does exactly what its own Divert does. A diversion asks the same question as a MARK (**Allow companion control?**, on the iPad), so the phone keeps sending it until the iPad has it: it says "Waiting for the iPad…" and "If the iPad asks, allow the iPhone there.", closes by itself once the iPad diverts, and after 30 seconds says "The iPad has not taken it. Check the iPad.", with **Retry**. Divert is dimmed when the route has no leg left to fly, and when the iPad runs a version before 6.2, which cannot take a diversion from the phone. With such an iPad, NOW | NEXT gives the frequency typed for the waypoint you are flying to (or the diversion field's), else GUARD 121.50.
 
-Control is **two-way**: advancing the checklist or revealing the checks the Memory test hides on either device updates both, and both screens match the master's theme. The phone can also answer [the landed card](#the-landed-card). A **GPS chip** shows which device's GPS is in use (**GPS iPad** or **GPS iPhone**). To leave, hold **COMPANION** on the phone until it fills red.
+Control is **two-way**: advancing the checklist or revealing the checks the Memory test hides on either device updates both, and both screens match the master's theme. The phone can also answer [the landed card](#the-landed-card). A **GPS chip** shows which device's GPS is in use (**GPS iPad** or **GPS iPhone**), with a dot in the colour of the signal, red too for a flight not recording. To leave, hold **COMPANION** on the phone until it fills red.
 
-When the data goes stale (nothing for five seconds), the companion shows **"Data stale — values may be frozen"**; when the link drops (after 10 seconds without anything), **"Connection lost"**, with **Go Standalone**. The rule is simple: a staleness or disconnect banner means *stop trusting the numbers on that screen* until it reconnects. After a drop, the phone looks for the iPad again by itself, and shows connected only once the iPad's first data has arrived. While it shows the iPad's flight, connected or reconnecting, the phone keeps its screen on. To save battery, the iPad ends a link that has been idle for 10 minutes without a flight, and keeps listening.
+When the data goes stale (nothing for five seconds), the companion shows **"Data stale — values may be frozen"**; when the link drops (after 10 seconds without anything), **"Connection lost"**, with **Go Standalone**. The rule is simple: a staleness or disconnect banner means *stop trusting the numbers on that screen* until it reconnects. After a drop, the phone looks for the iPad again by itself, and shows connected only once the iPad's first data has arrived. While it is connected to the iPad, or reconnecting after a drop, the phone keeps its screen on, flight or not. To save battery, the iPad ends a link that has been idle for 10 minutes without a flight, and keeps listening.
 
 ### Wi-Fi-Only iPads
 
@@ -810,9 +824,15 @@ Circuit mode is designed for **pattern training** (touch-and-go practice). Start
 - The checklist skips the **Cruise** and **Descent** phases, and so FREDA
 - The approach check falls due at the level-off, and the landing check shows (nothing to press) once you start down
 - **GO AROUND** and **TOUCH-AND-GO** are single taps, and either takes the checklist back to **Climb** for the next lap
-- **Full-stop landings** are detected: the full-stop card ("Full-stop landing detected at LSZQ") waits for **Confirm**, which logs a stop-and-go and takes the checklist back to **Taxi**, or **Dismiss**. Outside circuit mode, a full stop goes on to After Landing instead (see [The Landed Card](#the-landed-card))
+- A **full stop** goes on to **After Landing**, as on any other flight, and **NEW CIRCUIT**, at the end of the after landing check, back to the check before departure for the next lap
 
-Circuits are start-now only (there is no such thing as a planned circuit session), so a session never adopts a flight you planned. When it ends, AéroCheck **offers** to close it out: a light version of CLOSE with just the logbook line and a debrief. Dismissing the offer is a complete answer.
+A full stop the app detects brings the full-stop card ("Full-stop landing detected at LSZQ"), which waits for **Confirm** or **Dismiss**. At the end of the after landing check, the second slot reads **NEW CIRCUIT** (NEXT's place on CHECKLIST, MARK's on MAP and ROUTE), with "then CHECK BEFORE DEPARTURE" under it (**↻ CIRCUIT** on the iPhone): the next lap starts at the check before departure, so taxi and run-up are flown once, on the first lap. The check slot beside it offers the parking check ("PARKING CHECK · next check", **PARKING** on the iPhone), which ends the circuits. A full stop is counted once per lap: by the card's **Confirm**, by **FULL STOP LANDING**, or else by the choice at the end of the after landing check, which counts it at its touchdown when the app detected one. With the after landing check from memory, **✓ AFTER LANDING CHECK DONE** records it, and the same choice follows.
+
+The iPad's phase bar draws the two loops with their counts (see [The Phase Bar](#the-phase-bar)), and the phase button shows the lap, "↻ 4" (on the iPad in place of "10/16", on the iPhone at its right end): a touch-and-go, a go-around and NEW CIRCUIT each start one. **CIRCUITS**, in the Menu, counts the touch-and-goes, the full stops and the go-arounds.
+
+To leave circuits, tap Cruise or Descent in **Select Phase**, where they stay, dimmed and marked "skipped in circuits". "Leave circuits?" then offers **LEAVE CIRCUITS, GO TO CRUISE CHECK** (or DESCENT CHECK), which makes it a normal flight from there (Cruise and Descent back on the bar, FREDA counting, GO AROUND and TOUCH-AND-GO held again) and jumps as any jump does, or **Stay in circuits**. The touch-and-goes and full stops so far stay in the flight. The **Circuits** switch, under OPTIONS in the Menu, works both ways: off, it leaves circuits the same way; on, for circuits at the end of a cross-country, Cruise and Descent are skipped from then on, and a flight in either goes on to the approach check.
+
+Circuits are start-now only (there is no such thing as a planned circuit session), so a session never adopts a flight you planned, even once it leaves circuits. When it ends, AéroCheck **offers** to close it out: a light version of CLOSE with just the logbook line and a debrief (a followed flight that ends in circuits has its own close-out). Dismissing the offer is a complete answer.
 
 ---
 
@@ -860,11 +880,11 @@ Cache the Swiss ICAO Chart and Segelflugkarte for offline use (~100–250 MB). *
 
 ## Settings Reference
 
-Settings is a tab of its own, organized into dedicated pages. Three former settings are now simply how the app works: **CIRCUITS** is always offered on Today, the screen stays on during a flight (and only then), and every checklist runs step by step. Two things live outside Settings: the aircraft you fly is chosen on Today or in the **Aircraft** tab, which also keeps each aircraft's usable fuel with full tanks and its cruise speed; and the Cockpit's **Menu** repeats the display options in flight.
+Settings is a tab of its own, organized into dedicated pages. Three former settings are now simply how the app works: **CIRCUITS** is always offered on Today, the screen stays on during a flight (and otherwise only on a Companion iPhone connected to the iPad), and every checklist runs step by step. Two things live outside Settings: the aircraft you fly is chosen on Today or in the **Aircraft** tab, which also keeps each aircraft's usable fuel with full tanks and its cruise speed; and the Cockpit's **Menu** repeats the display options in flight.
 
 ### Aircraft & Subscription
 
-**AéroCheck Pro** (subscribe, start the trial, buy Lifetime, or restore purchases), the aircraft you fly (with **Get latest aircraft data** to refresh the list and check for checklist updates), and **Aircraft Visibility**, to show or hide aircraft one by one or by aeroclub.
+**AéroCheck Pro** (subscribe, start the trial, buy Lifetime, or restore purchases), the aircraft you fly (with **Get latest aircraft data** to refresh the list and check for checklist updates, and **Send us an aircraft's checklist**), **Your requests** once you have sent one (see [Sending an Aircraft's Checklist](#sending-an-aircrafts-checklist)), and **Aircraft Visibility**, to show or hide aircraft one by one or by aeroclub.
 
 ### Checklist & Flight
 

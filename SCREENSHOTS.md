@@ -12,6 +12,9 @@ recaptured. This is the recipe. It takes about an hour for a full set, the gestu
 - `CAPTURED_FROM` in `src/lib/shots.ts` names the app version the set was captured from. A build warns
   (`[shots] The screenshots were captured from …`) once the latest GitHub release is a newer minor
   version. Recapture what changed, then set it to the new version, even when only some shots changed.
+  When none changed (6.3.0: every scene captured from the tag matched the set below the status bar,
+  the in-flight ones but for their clocks), set it all the same: it then names the release the set
+  was checked against.
 - Capture from the release's tag, never from a branch: the site shows what users install.
 - Recapture both devices, and check the iPhone as closely as the iPad: its Cockpit differs (one-line
   words-only buttons since 6.2.0, LEGS | RADIO on ROUTE), and the site shows it in front of the iPad.
@@ -47,7 +50,7 @@ The rules that are not negotiable:
   site shows the iPad with the iPhone in front of it. The one exception is `landscape`, the phone on
   its side.
 - **Use a simulator kept for captures.** Every scene cancels a running flight, clears all flight
-  threads, turns circuit mode on, the map scene turns the OpenAIP layers off, and the `circuits`
+  threads, sets circuit mode (off, but for `landedcircuits`), the map scene turns the OpenAIP layers off, and the `circuits`
   scene leaves the national map selected and the airspace off. Those are the right conditions for a
   picture and the wrong thing to do to a simulator you use.
 - **No "Flight Restored" since 6.3.0.** The script launches each scene twice, and the second launch

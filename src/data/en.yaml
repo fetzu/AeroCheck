@@ -102,7 +102,7 @@ supporting:
       description: "Hours, flights, landings, distance and spend by year; every flight with its track, altitude profile and timeline, exportable as CSV, GPX or a PDF extract."
       icon: "notebook"
     - title: "Memory test & circuits"
-      description: "Memory test hides the checks you should know by heart, so you say them from memory. Circuits are one tap on Today, counting touch-and-goes and go-arounds, with a light close-out afterwards."
+      description: "Memory test hides the checks you should know by heart, so you say them from memory. Circuits are one tap on Today: touch-and-goes, go-arounds and full stops counted, NEW CIRCUIT at the end of the after landing check, and a light close-out afterwards."
       icon: "school"
     - title: "Set in B612"
       description: "The typeface designed for Airbus cockpit displays, where text has to be read fast and without error. The whole app is set in it, and so is this page."

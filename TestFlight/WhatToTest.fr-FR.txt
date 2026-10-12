@@ -1,12 +1,12 @@
-6.2.0 refait le cockpit : trois pages (CHECKLIST, CARTE, ROUTE) entre un bandeau en haut qui lit le vol et quatre boutons fixes en bas. La carte peut aussi afficher les tours de piste, les routes VFR et les secteurs d'arrivée d'open flightmaps, et chaque aérodrome renvoie à sa carte officielle. Essayez d'abord au sol : planifiez un vol avec une route, DÉMARRER LE VOL, puis passez les phases une à une.
+6.3.0 apporte les tours de piste avec atterrissage complet : après un atterrissage complet, le vol passe à la vérification APRÈS ATTERRISSAGE, et à sa fin NOUVEAU TOUR ramène à AVANT DÉPART pour un nouveau tour, ou la vérification ARRÊT MOTEUR termine la séance. Vous pouvez aussi nous envoyer la checklist d'un avion depuis l'app. Essayez au sol : Aujourd'hui › TOURS DE PISTE, puis appuyez sur les atterrissages au fil des tours.
 
 À regarder :
-- la rangée du bas : les mêmes quatre places sur chaque page, COCHER est désormais le deuxième bouton ;
-- ROUTE : la ligne de destination, les branches (un appui montre la branche sur la CARTE) et toutes les fréquences dans l'ordre où vous en aurez besoin ;
-- CARTE : la carte seule, les boutons sur le bord droit, et l'emplacement en haut à gauche (ANNULER après MARQUER, CARTE HORS LIGNE en mode avion) ;
-- l'iPad : BRIEFING dans la barre des pages, à côté de ROUTE ;
-- l'iPhone : une ligne par bouton, des mots seulement, et plus de carte ; ROUTE montre BRANCHES ou RADIO ; le temps de vol et Abandonner le vol sont dans Menu ;
-- Planifier › Carte : la loupe pour trouver un aérodrome, et Carte › Tours de piste et Routes d’arrivée et de départ, une fois les données téléchargées dans Réglages › Navigation & Cartes ;
-- le mode compagnon (iOS 26 sur les deux) : Dérouter depuis l'iPhone, et le lien qui revient seul après une coupure.
+- une séance de tours de piste : posés-décollés et remises de gaz comme avant ; après un atterrissage complet, la vérification APRÈS ATTERRISSAGE, et à sa fin NOUVEAU TOUR ou ARRÊT MOTEUR (sur l'iPhone ↻ TOUR ou ARRÊT) ; l'atterrissage complet de chaque tour est compté une fois, dans Menu ;
+- la barre des phases de l'iPad : deux boucles, posé-décollé et atterrissage complet, chacune avec son compte ; sur l'iPhone, le tour dans le bouton de phase (↻ 3) ;
+- quitter les tours de piste : Croisière et Descente sont estompées dans la liste des phases et un appui demande « Quitter les tours de piste ? » ; Menu › Options a un interrupteur Tours de piste, dans les deux sens ;
+- le Carnet de vol : la CHRONOLOGIE d'un vol liste chaque posé-décollé, remise de gaz et arrêt-décollé avec son heure ;
+- Avions › « Envoyez-nous la checklist d’un avion » : cherchez une immatriculation, numérisez ou ajoutez sa checklist, envoyez ; « Vos demandes » montre ensuite où elle en est. Une demande est réelle et arrive chez AéroCheck : n'en envoyez que pour un avion que vous voulez dans l'app ;
+- Planifier › Carte sans vol en cours : une branche touchée dans le panneau des branches est cadrée seule, où que soit l'iPad, et le reste quand vous tournez l'iPad ;
+- le mode compagnon (iOS 26 sur les deux) : depuis NAV, un appui sur l'emplacement de vérification amène l'iPhone à la liste de la vérification suivante.
 
 Envoyez vos remarques depuis l'app TestFlight : une capture d'écran avec une ligne de texte, c'est le plus rapide.
